@@ -85,6 +85,9 @@ if __name__ == '__main__':
     (opt, args) = p.parse_known_args()
     args=unescape_vals(args) # to do: somehow, merge into the above call
 
+    if opt.version:
+        asp_system_utils.print_version_and_exit()
+
     if not args and not opt.version:
         p.print_help()
         die('\nERROR: Missing input files', code=2)
@@ -114,8 +117,6 @@ if __name__ == '__main__':
     if opt.tif_compress is not None and opt.tif_compress != "LZW":
         # If it is LZW then don't pass it, as that is the default
         args.extend(['--tif-compress', opt.tif_compress])
-    if opt.version:
-        print_version_and_exit(opt, args)
 
     # Run stereo_parse with these options, to get the values of some
     # internal fields.

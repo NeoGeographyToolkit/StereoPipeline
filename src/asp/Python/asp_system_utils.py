@@ -37,6 +37,12 @@ def verify_python_version_is_supported():
         print('\nERROR: Must use Python version >= 2.6.')
         sys.exit(1)
 
+# Print the version of the ASP programs
+def print_version_and_exit():
+    cmd = "stereo_parse --version"
+    ans = os.system(cmd)
+    sys.exit(0)
+
 def get_prog_version(prog):
     '''Get the version of a command line program.'''
     try:

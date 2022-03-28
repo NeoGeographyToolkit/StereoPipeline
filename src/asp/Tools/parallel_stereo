@@ -740,7 +740,7 @@ if __name__ == '__main__':
     args = clean_args(args)
 
     if opt.version:
-        print_version_and_exit(opt, args)
+        asp_system_utils.print_version_and_exit()
 
     if not args and not opt.version:
         p.print_help()

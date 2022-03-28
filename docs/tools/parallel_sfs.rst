@@ -45,5 +45,15 @@ Command-line options for parallel_sfs:
     (:numref:`sfs`), as ISIS is single-threaded. Not all parts of the
     computation benefit from parallelization.
 
+--resume
+    Resume a partially done run. Only process the tiles for which the
+    final DEM is missing or invalid (as checked by ``gdalinfo``).
+
 --suppress-output
     Suppress output of sub-calls.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display the help message.

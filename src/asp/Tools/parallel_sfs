@@ -190,7 +190,7 @@ def main(argsIn):
     vStart  = baseHelp.find('[ASP')
     vEnd    = baseHelp.find(']', vStart)+1
     version = baseHelp[vStart:vEnd]
-    baseHelpText = baseHelp[vEnd:]
+    baseHelpText = "Help options for the underlying 'sfs' program:\n" + baseHelp[vEnd:]
 
     # Use parser that ignores unknown options
     usage  = "parallel_sfs -i <input DEM> -n <max iterations> -o <output prefix> <images> [other options]"
@@ -205,7 +205,7 @@ def main(argsIn):
                   help='Prefix for output filenames.')
 
     parser.add_argument('--tile-size',  dest='tileSize', default=300, type=int,
-                                        help='Size of approximately square tiles to break up processing into (not counting the padding).')
+                        help='Size of approximately square tiles to break up processing into (not counting the padding).')
 
     parser.add_argument('--padding',  dest='padding', default=50, type=int,
                                         help='How much to expand a tile in each direction. This helps with reducing artifacts in the final mosaicked SfS output.')
@@ -221,17 +221,21 @@ def main(argsIn):
                                         help='A file containing the list of computing nodes, one per line. If not provided, run on the local machine.')
 
     parser.add_argument('--threads',  dest='threads', default=8, type=int,
-                        help='How many threads each process should use. This will be changed to ' + \
-                        '1 for ISIS cameras when --use-approx-camera-models is not set, ' + \
+                        help='How many threads each process should use. This will be changed ' + \
+                        'to 1 for ISIS cameras when --use-approx-camera-models is not set, ' + \
                         'as ISIS is single-threaded. Not all parts of the computation ' + \
                         'benefit from parallelization.')
 
-    parser.add_argument("--resume", action="store_true", default=False,
-                      dest="resume", help="Only run tiles for which the final DEM is missing or invalid.")
-
+    parser.add_argument("--resume", action="store_true", default=False, dest="resume",
+                        help="Resume a partially done run. Only process the tiles for which " + \
+                        "the final DEM is missing or invalid (as checked by ``gdalinfo``).")
+    
     parser.add_argument("--suppress-output", action="store_true", default=False,
-                                            dest="suppressOutput",  help="Suppress output of sub-calls.")
+                        dest="suppressOutput",  help="Suppress output of sub-calls.")
 
+    parser.add_argument('-v', '--version',        dest='version', default=False,
+                        action='store_true', help='Display the version of software.')
+    
     # Private options
     parser.add_argument('--pixelStartX', dest='pixelStartX', default=None, type=int,
                                         help=argparse.SUPPRESS)
@@ -245,6 +249,13 @@ def main(argsIn):
     # This call handles all the parallel_sfs specific options.
     (options, args) = parser.parse_known_args(argsIn)
 
+    if options.version:
+        asp_system_utils.print_version_and_exit()
+
+    if not args and not options.version:
+        parser.print_help()
+        sys.exit(1)
+        
     # The parallel_sfs tool must not take the option --crop-win as it will
     # work on the entire input DEM.
     if '--crop-win' in argsIn:

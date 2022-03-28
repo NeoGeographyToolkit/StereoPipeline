@@ -32,9 +32,6 @@ re-attempted.)
 
 Command-line options for parallel_bundle_adjust:
 
--h, --help
-    Display the help message.
-
 --nodes-list <filename>
     The list of computing nodes, one per line. If not provided, run
     on the local machine.
@@ -57,3 +54,6 @@ Command-line options for parallel_bundle_adjust:
 
 -v, --version
     Display the version of software.
+
+-h, --help
+    Display the help message.

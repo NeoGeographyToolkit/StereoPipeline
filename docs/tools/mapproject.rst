@@ -63,9 +63,6 @@ Usage::
 
 Command-line options for mapproject:
 
--h, --help
-    Display the help message.
-
 --nodata-value <float(default: -32768)>
     No-data value to use unless specified in the input image.
 
@@ -169,3 +166,6 @@ Command-line options for mapproject:
 
 -v, --version
     Display the version of software.
+
+-h, --help
+    Display the help message.

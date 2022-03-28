@@ -267,7 +267,8 @@ def main(argsIn):
     vStart  = baseHelp.find('[ASP')
     vEnd    = baseHelp.find(']', vStart)+1
     version = baseHelp[vStart:vEnd]
-    baseHelpText = baseHelp[vEnd:]
+    baseHelpText = "Help options for the underlying 'mapproject_single' program:\n" + \
+                   baseHelp[vEnd:]
 
     # Use a parser that ignores unknown options. Those will be passed to mapproject_single.
     usage  = "mapproject [options] <dem> <camera-image> <camera-model> <output-image>\n" + \
@@ -312,7 +313,6 @@ def main(argsIn):
     parser.add_argument("--convert-tiles",  action="store_true", dest="convertTiles",
                                             help="Generate a uint8 version of each tile")
 
-
     # PRIVATE options
     # These specify the tile location to request, bypassing the need to query mapproject.
     parser.add_argument('--pixelStartX', dest='pixelStartX', default=None, type=int,
@@ -331,10 +331,12 @@ def main(argsIn):
     (options, args) = parser.parse_known_args(argsIn)
 
     if options.version:
-        cmd = "mapproject_single --version"
-        ans = os.system(cmd)
-        sys.exit(0)
+        asp_system_utils.print_version_and_exit()
     
+    if not args and not options.version:
+        parser.print_help()
+        sys.exit(1)
+
     # This will parse all the mapproject options.
     requiredList, optionsList = handleArguments(args)
 
