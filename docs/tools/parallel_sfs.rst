@@ -47,7 +47,8 @@ Command-line options for parallel_sfs:
 
 --resume
     Resume a partially done run. Only process the tiles for which the
-    final DEM is missing or invalid (as checked by ``gdalinfo``).
+    desired per-tile output files are missing or invalid (as checked
+    by ``gdalinfo``).
 
 --suppress-output
     Suppress output of sub-calls.

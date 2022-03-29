@@ -23,7 +23,7 @@ Example
 
      sfs --max-iterations 5 --use-approx-camera-models    \
        --crop-input-images --bundle-adjust-prefix ba/run  \
-        -i input_dem.tif image1.cub image2.cub -o run/run \
+        -i input_dem.tif image1.cub image2.cub -o run/run
 
 See many detailed worked-out examples in :numref:`sfs_usage`.
 

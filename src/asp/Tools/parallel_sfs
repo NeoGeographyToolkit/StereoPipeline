@@ -79,7 +79,7 @@ def generateTileList(sizeX, sizeY, tileSize, padding):
 def generateTilePrefix(outputFolder, tileName, outputName):
     return os.path.join(outputFolder, tileName, outputName)
 
-def runSfs(options, outputFolder, outputName):
+def runSfs(options, outputFolder, outputName, perTileFiles):
     """Run sfs in a single tile."""
 
     # Determine the name of the tile we need to write
@@ -131,12 +131,20 @@ def runSfs(options, outputFolder, outputName):
 
     cmd = cmd + extraArgs # Append other options
     willRun = True
+    
     if options.resume:
-        finalDem = tilePrefix + '-DEM-final.tif'
+        # If all files that need to be computed exist, skip this tile
+        willRun = False
+        for perTileFile in perTileFiles:
 
-        if asp_system_utils.is_valid_image(finalDem):
-            print("Will skip this tile, as file exists and is valid: " + finalDem)
-            willRun = False
+            fullFilePath = tilePrefix + '-' + perTileFile
+            if (not asp_system_utils.is_valid_image(fullFilePath)):
+                willRun = True
+
+        if not willRun:
+            print("Will skip tile: " + tileName + ", as found valid: " + " ".join(perTileFiles))
+        else:
+            print("Will run tile: " + tileName)
             
     if willRun:
         (out, err, status) = asp_system_utils.executeCommand(cmd,
@@ -145,7 +153,7 @@ def runSfs(options, outputFolder, outputName):
         
     return 0
 
-def mosaic_results(tileList, outputFolder, outputName, options, inFilePrefix, outFilePrefix):
+def mosaic_results(tileList, outputFolder, outputName, options, inFile, outFile):
 
     # Create the list of final DEMs that get created at the end 
     outputDems = []
@@ -154,10 +162,10 @@ def mosaic_results(tileList, outputFolder, outputName, options, inFilePrefix, ou
         tilePrefix = generateTilePrefix(outputFolder, tileName, outputName)
         # TODO(oalexan1): At some point this command will become too big.
         # Need to keep these in a list.
-        outputDems.append(tilePrefix + '-' + inFilePrefix + '.tif')
+        outputDems.append(tilePrefix + '-' + inFile)
          
     # Mosaic the outputs using dem_mosaic
-    finalDem = options.output_prefix + '-' + outFilePrefix + '.tif'
+    finalDem = options.output_prefix + '-' + outFile
     dem_mosaic_path = asp_system_utils.bin_path('dem_mosaic')
     dem_mosaic_args = ['--weights-exponent', '2', '--use-centerline-weights',
                        '-o', finalDem]
@@ -227,8 +235,9 @@ def main(argsIn):
                         'benefit from parallelization.')
 
     parser.add_argument("--resume", action="store_true", default=False, dest="resume",
-                        help="Resume a partially done run. Only process the tiles for which " + \
-                        "the final DEM is missing or invalid (as checked by ``gdalinfo``).")
+                        help= "Resume a partially done run. Only process the tiles for which " + \
+                        "the desired per-tile output files are missing or invalid (as "  + \
+                        "checked by gdalinfo).")
     
     parser.add_argument("--suppress-output", action="store_true", default=False,
                         dest="suppressOutput",  help="Suppress output of sub-calls.")
@@ -282,13 +291,38 @@ def main(argsIn):
     options.extraArgs = ['-i', options.input_dem, '-o', options.output_prefix,
                          '--threads', str(options.threads) ] + options.extraArgs
 
+    # See what kind of outputs to generate
+    perTileFiles = []
+    mosaickedFiles = []
+    if ('--estimate-slope-errors' not in argsIn) and ('--estimate-height-errors' not in argsIn):
+        # Computed DEM
+        perTileFiles  += ['DEM-final.tif']
+        mosaickedFiles += ['DEM-final.tif']
+        
+        # Albedo
+        if '--float-albedo' in argsIn:
+            perTileFiles  += ['comp-albedo-final.tif']
+            mosaickedFiles += ['albedo-final.tif']
+             
+        # Dem with nodata
+        if '--save-dem-with-nodata' in argsIn:
+            perTileFiles  += ['DEM-nodata-final.tif']
+            mosaickedFiles += ['DEM-nodata-final.tif']
+            
+    elif '--estimate-slope-errors' in argsIn:
+        # Slope errors
+        perTileFiles  += ['slope-error.tif']
+        mosaickedFiles += ['slope-error.tif']
+        
+    elif '--estimate-height-errors' in argsIn:
+        # Here we just mosaic the height errors
+        perTileFiles  += ['height-error.tif']
+        mosaickedFiles += ['height-error.tif']
+
     if options.resume:
-        if '--compute-exposures-only' in options.extraArgs or \
-               '--estimate-slope-errors' in argsIn or         \
-               '--estimate-height-errors' in argsIn:
+        if '--compute-exposures-only' in options.extraArgs:
             parser.print_help()
-            parser.error("The --resume option cannot be used unless this " + \
-                         "tool is invoked to produce a DEM.\n" )
+            parser.error("The --resume option cannot be used to compute the exposures.\n")
 
     # Handle the situation that both --processes and --num-processes can happen
     if (options.numProcesses is not None) and (options.numProcesses2 is not None):
@@ -307,14 +341,14 @@ def main(argsIn):
     startTime = time.time()
 
     # Determine if this is a main copy or a spawned copy
-    spawnedCopy = ( (options.pixelStartX is not None) and (options.pixelStartY is not None) and
-                    (options.pixelStopX  is not None) and (options.pixelStopY  is not None) and
-                    outputFolder)
+    spawnedCopy = ((options.pixelStartX is not None) and (options.pixelStartY is not None) and
+                   (options.pixelStopX  is not None) and (options.pixelStopY  is not None) and
+                   outputFolder)
 
     if spawnedCopy:
         # This copy was spawned to process a single tile. Just call a
         # function to handle this and then we are done.
-        return runSfs(options, outputFolder, outputName) 
+        return runSfs(options, outputFolder, outputName, perTileFiles) 
 
     # Otherwise this is the original called process and there are multiple steps to go through
 
@@ -420,31 +454,11 @@ def main(argsIn):
                                       argumentFilePath, parallelArgs,
                                       options.nodesListPath, True)#not options.suppressOutput)
 
-    if '--estimate-slope-errors' not in argsIn and '--estimate-height-errors' not in argsIn:
-        # Mosaic the computed DEM
+    # Mosaic the results
+    for it in range(len(perTileFiles)):
         mosaic_results(tileList, outputFolder, outputName, options,
-                       'DEM-final', 'DEM-final')
+                       perTileFiles[it], mosaickedFiles[it])
         
-        # Mosaic the albedo
-        if '--float-albedo' in argsIn:
-            mosaic_results(tileList, outputFolder, outputName, options,
-                           'comp-albedo-final', 'albedo-final')
-            
-        # Mosaic the dem with nodata
-        if '--save-dem-with-nodata' in argsIn:
-            mosaic_results(tileList, outputFolder, outputName, options,
-                           'DEM-nodata-final', 'DEM-nodata-final')
-            
-    elif '--estimate-slope-errors' in argsIn:
-        # Here we just mosaic the slope errors
-        mosaic_results(tileList, outputFolder, outputName, options,
-                       'slope-error', 'slope-error')
-        
-    elif '--estimate-height-errors' in argsIn:
-        # Here we just mosaic the height errors
-        mosaic_results(tileList, outputFolder, outputName, options,
-                       'height-error', 'height-error')
-
     endTime = time.time()
     print("Finished in " + str(endTime - startTime) + " seconds.")
 
