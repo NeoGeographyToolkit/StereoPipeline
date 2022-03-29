@@ -353,7 +353,8 @@ should run ``stereo_corr`` with the same arguments that
 ``parallel_stereo`` was run before (except those used for tiling and
 number of processes, etc.), while adding the option
 ``--compute-low-res-disparity-only``. Then examine the re-created
-``D_sub.tif`` and the various search ranges printed on screen.
+``D_sub.tif`` (:numref:`disparitydebug`) 
+and the various search ranges printed on screen.
 
 When ``D_sub.tif`` is found to be reasonable, ``parallel_stereo``
 should be re-run with the option ``--resume-at-corr``.

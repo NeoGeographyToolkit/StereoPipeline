@@ -295,33 +295,33 @@ correlation via the parameter ``corr-search``. In ``stereo.default``
            corr-search -80 -2 20 2
 
 The exact values to use with this option you'll have to discover
-yourself. The numbers right of ``corr-search`` represent the horizontal
+yourself. These four numbers represent the horizontal
 minimum boundary, vertical minimum boundary, horizontal maximum
 boundary, and finally the horizontal maximum boundary within which we
 will search for the disparity during correlation.
 
-It can be tricky to select a good search range for the
-``stereo.default`` file. That's why the best way is to let ``parallel_stereo``
-perform an automated guess for the search range. If you find that you
-can do a better estimate of the search range, take look at the
-intermediate disparity images using the ``disparitydebug`` program to
-figure out which search directions can be expanded or contracted. The
-output images will clearly show good data or bad data depending on
-whether the search range is correct.
+It can be tricky to select a good search range. That's why the best
+way is to let ``parallel_stereo`` perform an automated determination.
+If you think that you can do a better estimate of the search range,
+take look at what search ranges ``stereo_corr`` prints in the log files
+in the output directory, and examine the intermediate disparity images
+using the ``disparitydebug`` program, to figure out which search
+directions can be expanded or contracted. The output images will
+clearly show good data or bad data depending on whether the search
+range is correct.
 
-The worst case scenario is to determine the search range manually. For
-example, for ISIS images, both images could be opened in ``qview`` and
-the coordinates of points that can be matched visually can be compared.
-Subtract line,sample locations in the first image from the coordinates
-of the same feature in the second image, and this will yield offsets
-that can be used in the search range. Make several of these offset
-measurements and use them to define a line,sample bounding box, then
-expand this by 50% and use it for ``corr-search``. This will produce
-good results in most images.
-
-Also, if you are using an alignment option, you'll instead want to make
-those disparity measurements against the written L.tif and R.tif files
-(see :numref:`outputfiles`) instead of the original input files.
+The worst case scenario is to determine the search range manually. The
+aligned ``L.tif`` and ``R.tif`` images (:numref:`outputfiles`) can be
+opened in ``stereo_gui`` (:numref:`stereo_gui`), and the coordinates
+of points that can be matched visually can be compared. Click on a
+pixel to have its coordinates printed in the terminal. Subtract row
+and column locations of a feature in the first image from the
+locations of the same feature in the second image, and this will yield
+offsets that can be used in the search range. Make several of these
+offset measurements (for example, for features at higher and then
+lower elevations), and use them to define a row and column bounding
+box, then expand this by 50% and use it for ``corr-search``. This will
+produce good results in most cases.
 
 If the search range produced automatically from the low-resolution
 disparity is too big, perhaps due to outliers, it can be tightened

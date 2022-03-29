@@ -26,6 +26,18 @@ statistics when tuning the search range settings in the
 If the input images are map-projected (georeferenced), the outputs of
 ``disparitydebug`` will also be georeferenced.
 
+Example::
+
+    disparitydebug run/run-D_sub.tif
+
+View the obtained horizontal and vertical disparities with::
+
+    stereo_gui run/run-D_sub-H.tif run/run-D_sub-V.tif 
+
+Another example of using this tool (and a figure) is given in
+:numref:`diagnosing_problems`, when discussing how to examine a
+produced run.
+
 Command-line options for disparitydebug:
 
 -h, --help

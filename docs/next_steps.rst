@@ -725,6 +725,8 @@ alignment) with ``dem_mosaic``, compared to multiview triangulation, is
 that this approach will not create visible seams, while likely it will
 still increase the accuracy compared to the individual input DEMs.
 
+.. _diagnosing_problems:
+
 Diagnosing problems
 ~~~~~~~~~~~~~~~~~~~
 
@@ -776,16 +778,16 @@ the configuration file, the command that was run, your system settings,
 and tool's console output. This will help track what was performed so
 that others in the future can recreate your work.
 
-Another handy debugging tool is the ``disparitydebug`` program, which
-allows you to generate viewable versions of the intermediate results
-from the stereo correlation algorithm. ``disparitydebug`` converts
-information in the disparity image files into two TIFF images that
-contain horizontal and vertical components of the disparity (i.e.
-matching offsets for each pixel in the horizontal and vertical
-directions). There are actually three flavors of disparity map: the
-``-D.tif``, the ``-RD.tif``, and ``-F.tif``. You can run
-``disparitydebug`` on any of them. Each shows the disparity map at the
-different stages of processing.
+Another handy debugging tool is the ``disparitydebug`` program
+(:numref:`disparitydebug`), which allows you to generate viewable
+versions of the intermediate results from the stereo correlation
+algorithm. ``disparitydebug`` converts information in the disparity
+image files into two TIFF images that contain horizontal and vertical
+components of the disparity (i.e.  matching offsets for each pixel in
+the horizontal and vertical directions). There are actually three
+flavors of disparity map: the ``-D.tif``, the ``-RD.tif``, and
+``-F.tif``. You can run ``disparitydebug`` on any of them. Each shows
+the disparity map at the different stages of processing.
 
 ::
 
