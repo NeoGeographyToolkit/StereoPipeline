@@ -29,32 +29,43 @@ Usage::
 
      image_calc [options] -c <arithmetic formula> <inputs> -o <output>
 
-Example::
+Example (apply a given operation and save the pixels as float32 values)::
 
      image_calc -c "pow(var_0/3.0, 1.1)" input_image.tif \
       -o output_image.tif -d float32
+
+Example (add a variable and its value to the geoheader metadata)::
+
+     image_calc -c "var_0" --mo 'VAR1=VAL1' -d float32 \
+       input.tif -o output.tif
+
+Example (subtract 360 degrees from the longitudes in a GeoTiff file)::
+
+    image_calc -c "var_0" input.tif -o output.tif \
+      --longitude-offset -360 -d float32 
 
 Command-line options for image_calc:
 
 --help
     Display the help message.
 
--c, --calc
+-c, --calc <string>
     The arithmetic string in quotes (required).
 
 -d, --output-data-type <type (default: float64)>
     The data type of the output file. Options: uint8, uint16, uint32,
     int16, int32, float32, float64.
 
---input-nodata-value <arg>
+--input-nodata-value <double>
     Set the nodata value for the input images, overriding the value in
     the images, if present.
 
---output-nodata-value
-    Manually specify a nodata value for the output image (default
-    is data type min).
+--output-nodata-value <double>
+    Manually specify a nodata value for the output image. By default
+    it is read from the first input which has it, or, if missing, it
+    is set to data type min.
 
--o, --output-file <name>
+-o, --output-file <string>
     Specify the output file instead of using a default.
 
 --mo <string>
@@ -62,6 +73,10 @@ Command-line options for image_calc:
     if more than one item, separated by a space, such as
     ``'VAR1=VALUE1 VAR2=VALUE2'``.  Neither the variable names nor the
     values should contain spaces.
+
+--longitude-offset <double (default: not specified)>
+    Add this value to the longitudes in the geoheader (can be used to
+    offset the longitudes by 360 degrees).
 
 --no-georef
    Remove any georeference information (useful with subsequent

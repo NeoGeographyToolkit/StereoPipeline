@@ -555,15 +555,12 @@ public: // Functions
 
 }; // End class ImageCalcView
 
-
-//======================================================================================================
-
 struct Options : vw::cartography::GdalWriteOptions {
   Options() : out_nodata_value(-1) {}
   // Input
   std::vector<std::string> input_files;
   bool        has_in_nodata;
-  double      in_nodata_value;
+  double      in_nodata_value, lon_offset;
 
   // Settings
   std::string output_data_string;
@@ -575,9 +572,8 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string output_file, metadata;
 };
 
-
 // Handling input
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
 
   const std::string calc_string_help =
     "The operation to be performed on the input images. "
@@ -599,19 +595,24 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     "  float32 \n"
     "  float64 (default)\n";
 
+  double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("");
   general_options.add_options()
     ("output-file,o", po::value(&opt.output_file), "Output file name.")
     ("calc,c",            po::value(&opt.calc_string), calc_string_help.c_str())
     ("output-data-type,d",  po::value(&opt.output_data_string)->default_value("float64"), data_type_string.c_str())
     ("input-nodata-value",  po::value(&opt.in_nodata_value), "Set the nodata value for the input images, overriding the value in the images, if present.")
-    ("output-nodata-value", po::value(&opt.out_nodata_value), "Value to use for no-data in the output image.")
+    ("output-nodata-value", po::value(&opt.out_nodata_value),
+     "Manually specify a nodata value for the output image. By default "
+     "it is read from the first input which has it, or, if missing, "
+     "it is set to data type min.")
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("no-georef",         po::bool_switch(&opt.no_georef)->default_value(false),
      "Remove any georeference information (useful with subsequent GDAL-based processing).")
-    ("help,h",            "Display this help message");
+    ("longitude-offset",  po::value(&opt.lon_offset)->default_value(nan), "Add this value to the longitudes in the geoheader (can be used to offset the longitudes by 360 degrees).")
+    ("help,h",            "Display this help message.");
 
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -642,20 +643,20 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   else if (opt.output_data_string == "float64") opt.output_data_type = DT_FLOAT64;
   else
     vw_throw(ArgumentErr() << "Unsupported output data type: '" << opt.output_data_string << "'.\n" );
-
- // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user specified these options
- if (!vm.count("input-nodata-value")){
+  
+  // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user specified these options
+  if (!vm.count("input-nodata-value")){
     opt.has_in_nodata   = false;
   }else
     opt.has_in_nodata = true;
-
- if (!vm.count("output-nodata-value")){
+  
+  if (!vm.count("output-nodata-value")){
     opt.has_out_nodata   = false;
     opt.out_nodata_value = get_default_nodata(opt.output_data_type);
   }else
     opt.has_out_nodata = true;
-
- vw::create_out_dir(opt.output_file);
+  
+  vw::create_out_dir(opt.output_file);
 }
 
 /// This function call is just to clean up the case statement in load_inputs_and_process
@@ -705,15 +706,24 @@ void load_inputs_and_process(Options &opt, const std::string &output_file, const
   for (size_t i=0; i<numInputFiles; ++i) {
     const std::string input = opt.input_files[i];
 
-    // If desired to not use a georef, skip reading it
+    // If desired to not use a georef, skip reading it. Else read it.
     if (!opt.no_georef) {
       if (!have_georef) {
         have_georef = vw::cartography::read_georeference(georef, input);
-        if (have_georef)
+        if (have_georef) {
           vw_out() << "\t--> Copying georef from input image " << input << std::endl;
+        
+          if (!std::isnan(opt.lon_offset)) {
+            vw_out() << "\t--> Adding " << opt.lon_offset
+                     << " to the longitude bounds in the geoheader.\n" << std::endl;
+            vw::Matrix<double,3,3> T = georef.transform();
+            T(0, 2) += opt.lon_offset;
+            georef.set_transform(T);
+          }
+        }
       }
     }
-    
+
     // Determining the format of the input
     boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(input));
     //ChannelTypeEnum channel_type = rsrc->channel_type();
@@ -729,7 +739,11 @@ void load_inputs_and_process(Options &opt, const std::string &output_file, const
     }else if (rsrc->has_nodata_read() ) {
       nodata_vec[i] = rsrc->nodata_read();
       has_nodata_vec[i] = true;
-      opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata.
+
+      if (!opt.has_out_nodata) {
+        opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata
+        opt.out_nodata_value = nodata_vec[i]; // If not set by the user, use this on output
+      }
       std::cout << "\t--> Extracted nodata value from file: " << nodata_vec[i] << ".\n";
     } else {
       std::cout << "\t--> No nodata value present.\n";
