@@ -3,56 +3,60 @@
 point2dem
 ---------
 
-The ``point2dem`` program produces a GeoTIFF terrain model and/or an
-orthographic image from a set of point clouds. The clouds can be created
-by the ``stereo`` command, or be in LAS or CSV format.
+The ``point2dem`` program produces a digital elevation model (DEM) in
+GeoTIFF format and/or an orthographic image from a set of point
+clouds. The clouds can be created by the ``parallel_stereo`` command
+(:numref:`parallel_stereo`), or be in LAS or CSV format.
 
 Example::
 
-    point2dem output-prefix-PC.tif -o stereo/filename \
-        --nodata-value -10000 -n
+    point2dem run/run-PC.tif
 
-This produces a digital elevation model. The program will infer the
-spheroid (datum) and the projection to use from the input images, if
-that information is present. Otherwise these can be set with ``-r`` and
-``--t_srs``.
+This creates ``run/run-DEM.tif``, which is a GeoTIFF file, with each 32-bit
+floating point pixel value being the height above the datum
+(ellipsoid). The datum is saved in the geoheader and can be seen with
+``gdalinfo`` (:numref:`gdal_tools`).
 
-Here, pixels with no data will be set to a value of -10000. Unless the
-input images have projection information, the resulting DEM will be
-saved in a simple cylindrical map-projection. The DEM is stored by
-default as a one channel, 32-bit floating point GeoTIFF file.
-
-The ``-n`` option creates an 8-bit, normalized version of the DEM that
-can be easily loaded into a standard image viewing application for
-debugging.
+ASP normally auto-guesses the datum, otherwise the option ``-r`` can
+be used. If desired to change the output projection or the output
+no-data value (which can also be inspected with ``gdalinfo``), use the
+options ``--t_srs`` and ``--nodata-value``.
 
 Another example::
 
-    point2dem output-prefix-PC.tif -o stereo/filename -r moon \
-        --orthoimage output-prefix-L.tif
+    point2dem run/run-PC.tif -r moon --errorimage \
+        --orthoimage run/run-L.tif
 
-This command takes the left input image and orthographically projects it
-onto the 3D terrain produced by the Stereo Pipeline. The resulting
-``-DRG.tif`` file will be saved as a GeoTIFF image with the same
-geoheader as the DEM.
+This produced the DEM, and also takes the left input image and
+orthographically projects it onto the DEM. The resulting
+``run/run-DRG.tif`` file will be saved as a GeoTIFF image with the
+same geoheader as the DEM.
+
+In addition, the file ``run/run-IntersectionErr.tif`` is created,
+based on the 4th band of the ``PC.tif`` file, having the gridded
+version of the closest distance between the pair of rays intersecting
+at each point in the cloud.
 
 Here we have explicitly specified the spheroid (``-r moon``), rather
 than have it inferred automatically. The Moon spheroid will have a
-radius of 1737.4 km.
+radius of 1737.4 km.
 
 In the following example the point cloud is very close to the South Pole
 of the Moon, and for that reason we use the stereographic projection::
 
-     point2dem --stereographic --proj-lon 0 --proj-lat -90 output-prefix-PC.tif
+     point2dem --stereographic --proj-lon 0 --proj-lat -90 \
+       run/run-PC.tif
 
 Multiple point clouds can be passed as inputs, to be combined into a
-single DEM. If it is desired to use the ``--orthoimage`` option as
-above, the clouds need to be specified first, followed by the ``L.tif``
-images. Here is an example, which combines together LAS and CSV point
+single DEM. Here is an example, which combines together LAS and CSV point
 clouds together with an output file from ``stereo``::
 
-     point2dem in1.las in2.csv output-prefix-PC.tif -o combined \
+     point2dem in1.las in2.csv run/run-PC.tif -o combined \
        --dem-spacing 0.001 --nodata-value -32768
+
+If it is desired to use the ``--orthoimage`` option with multiple
+clouds, the clouds need to be specified first, followed by the
+``L.tif`` images.
 
 .. _molacmp:
 
@@ -85,7 +89,7 @@ reference value, by using either ``-r mola`` or setting
 ``--semi-major-axis 3396000`` and ``--semi-minor-axis 3396000``.
 
 Alternatively, to get values that are directly comparable to MOLA
-*Topography* data, you’ll need to run ``point2dem`` with either
+*Topography* data, you will need to run ``point2dem`` with either
 ``-r mars`` or ``-r mola``, then run the ASP tool ``dem_geoid``
 (:numref:`dem_geoid`). This program will convert the DEM height values
 from being relative to the IAU reference spheroid or the MOLA spheroid
@@ -100,33 +104,33 @@ is the potential of mixing up adjusted and unadjusted terrain models.
 
 .. _post-spacing:
 
-Post Spacing
+Post spacing
 ~~~~~~~~~~~~
 
-Recall that ``stereo`` creates a point cloud file as its output and that
-you need to use ``point2dem`` on to create a GeoTIFF that you can use in
-other tools. The point cloud file is the result of taking the
-image-to-image matches (which were created from the kernel sizes you
-specified, and the subpixel versions of the same, if used) and
-projecting them out into space from the cameras, and arriving at a point
-in real world coordinates. Since ``stereo`` does this for every pixel in
-the input images, the *default* value that ``point2dem`` uses (if you
-don’t specify anything explicitly) is the input image scale, because
-there’s an ‘answer’ in the point cloud file for each pixel in the
-original image.
+Recall that ``parallel_stereo`` creates a point cloud file as its
+output and that you need to use ``point2dem`` on to create a GeoTIFF
+that you can use in other tools. The point cloud file is the result of
+taking the image-to-image matches (which were created from the kernel
+sizes you specified, and the subpixel versions of the same, if used)
+and projecting them out into space from the cameras, and arriving at a
+point in real world coordinates. Since ``stereo`` does this for every
+pixel in the input images, the *default* value that ``point2dem`` uses
+(if you don't specify anything explicitly) is the input image scale,
+because there's an "answer" in the point cloud file for each pixel in
+the original image.
 
 However, as you may suspect, this is probably not the best value to use
-because there really isn’t that much ‘information’ in the data. The true
-‘resolution’ of the output model is dependent on a whole bunch of things
+because there really is not that much "information" in the data. The true
+resolution of the output model is dependent on a whole bunch of things
 (like the kernel sizes you choose to use) but also can vary from place
 to place in the image depending on the texture.
 
-The general ‘rule of thumb’ is to produce a terrain model that has a
+The general rule of thumb is to produce a terrain model that has a
 post spacing of about 3x the input image ground scale. This is based on
 the fact that it is nearly impossible to uniquely identify a single
 pixel correspondence between two images, but a 3x3 patch of pixels
 provides improved matching reliability. As you go to numerically larger
-post-spacings on output, you’re averaging more point data (that is
+post-spacings on output, you are averaging more point data (that is
 probably spatially correlated anyway) together.
 
 So you can either use the ``--dem-spacing`` argument to ``point2dem`` to
@@ -182,16 +186,18 @@ Command-line options for point2dem:
 
 --orthoimage
     Write an orthoimage based on the texture files passed in as
-    inputs (after the point clouds).
+    inputs (after the point clouds). Filename is ``-DRG.tif``.
 
 --errorimage
-    Write an additional image whose values represent the triangulation
-    ray intersection error in meters (the closest distance between
-    the rays emanating from the two cameras corresponding to the
-    same point on the ground).
+    Write an additional image, whose values represent the
+    triangulation ray intersection error in meters (the closest
+    distance between the rays emanating from the two cameras
+    corresponding to the same point on the ground). Filename
+    is ``-IntersectionErr.tif``.
 
 -o, --output-prefix
-    Specify the output prefix.
+    Specify the output prefix. The output DEM will be ``<output
+    prefix>-DEM.tif``.
 
 -t, --output-filetype <string (default: tif)>
     Specify the output file type.
