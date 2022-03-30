@@ -1,4 +1,4 @@
-y.. _corr_eval:
+.. _corr_eval:
 
 corr_eval
 ---------
