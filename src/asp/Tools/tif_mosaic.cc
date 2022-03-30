@@ -90,15 +90,15 @@ void fix_seams_using_ip(std::vector<ImageData> & img_data){
 
     // Pull into first image's pixel domain
     BBox2 box0 = img_data[img_index].transform.reverse_bbox(intersection_box);
-    DiskImageView<float> img0(img_data[img_index].src_file);
+    DiskImageView<vw::PixelGray<float>> img0(img_data[img_index].src_file);
     box0.crop(bounding_box(img0));
-    ImageViewRef<float> crop0 = crop(img0, box0);
+    ImageView<vw::PixelGray<float>> crop0 = crop(img0, box0);
 
     // Pull into second image's pixel domain
     BBox2 box1 = img_data[img_index+1].transform.reverse_bbox(intersection_box);
-    DiskImageView<float> img1(img_data[img_index+1].src_file);
+    DiskImageView<vw::PixelGray<float>> img1(img_data[img_index+1].src_file);
     box1.crop(bounding_box(img1));
-    ImageViewRef<float> crop1 = crop(img1, box1);
+    ImageView<vw::PixelGray<float>> crop1 = crop(img1, box1);
 
     // The transform from cropped image0 to cropped image1
     int ip_per_tile = 0; // auto-determination

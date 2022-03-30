@@ -18,27 +18,6 @@
 
 // --> This file is only included by InterestPointMatching.h
 
-
-/// Remove points in/out of a bounding box depending on "remove_outside".
-/// - Returns the number of points removed.
-// TODO(oalexan1): Move to InterestPointMatching.cc.
-inline size_t remove_ip_bbox(vw::BBox2i const& roi, vw::ip::InterestPointList & ip_list,
-			     bool remove_outside){
-  // Loop through all the points
-  size_t num_removed = 0;
-  vw::ip::InterestPointList::iterator ip;
-  for (ip = ip_list.begin(); ip != ip_list.end(); ++ip) {
-    
-    if (roi.contains(vw::Vector2i(ip->ix,ip->iy)) xor remove_outside) {
-      ip = ip_list.erase(ip);
-      ++num_removed;
-      --ip;
-    }
-  }
-  return num_removed;
-} // End function remove_ip_bbox
-
-// TODO(oalexan1): Detempletize
 template <class Image1T>
 void detect_ip(vw::ip::InterestPointList& ip,
 	       vw::ImageViewBase<Image1T> const& image,
@@ -153,7 +132,8 @@ void detect_ip(vw::ip::InterestPointList& ip,
     remove_ip_near_nodata(image.impl(), nodata, ip, stereo_settings().ip_nodata_radius);
   }
 
-  // For the two OpenCV options we already built the descriptors, so only do this for the integral method.
+  // For the two OpenCV options we already built the descriptors, so
+  // only do this for the integral method.
   if (detect_method == DETECT_IP_METHOD_INTEGRAL) {
     sw.start();
     vw_out() << "\t    Building descriptors" << std::endl;
@@ -204,7 +184,6 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
   return ((ip1.size() > 0) && (ip2.size() > 0));
 }
 
-// TODO(oalexan1): Detempletize
 template <class Image1T, class Image2T>
 bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
 			    vw::camera::CameraModel* cam2,
@@ -284,7 +263,6 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   return true;
 } // End function detect_ip_aligned_pair
 
-// TODO(oalexan1): Detempletize
 template <class Image1T, class Image2T>
 bool epipolar_ip_matching(bool single_threaded_camera,
 			  vw::ip::InterestPointList const& ip1,
@@ -432,7 +410,6 @@ bool epipolar_ip_matching(bool single_threaded_camera,
   return true;
 } // End function epipolar_ip_matching
 
-// TODO(oalexan1): Detempletize
 template <class Image1T, class Image2T>
 void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 		     std::vector<vw::ip::InterestPoint>& matched_ip2,
@@ -543,7 +520,6 @@ bool homography_ip_matching(vw::ImageViewBase<Image1T> const& image1,
   return true;
 }
 
-// TODO(oalexan1): Detempletize
 template <class Image1T, class Image2T>
 bool ip_matching_no_align(bool single_threaded_camera,
 			  vw::camera::CameraModel* cam1,
@@ -582,7 +558,6 @@ bool ip_matching_no_align(bool single_threaded_camera,
   return true;
 }
 
-// TODO(oalexan1): Detempletize
 template <class Image1T, class Image2T>
 bool ip_matching_w_alignment(bool single_threaded_camera,
 			     vw::camera::CameraModel* cam1,

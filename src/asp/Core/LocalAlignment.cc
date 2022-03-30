@@ -317,7 +317,7 @@ namespace asp {
       right_nodata_value = right_rsrc->nodata_read();
 
     // Note that we do not create masked images using nodata values.
-    DiskImageView<PixelGray<float> > left_globally_aligned_image(left_rsrc),
+    DiskImageView<PixelGray<float>> left_globally_aligned_image(left_rsrc),
       right_globally_aligned_image(right_rsrc);
 
     // At image edges, the tile we work with can be a sliver which can

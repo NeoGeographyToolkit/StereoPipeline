@@ -28,6 +28,7 @@
 #include <asp/Tools/stereo.h>
 #include <asp/Tools/jitter_adjust.h>
 #include <asp/Tools/ccd_adjust.h>
+#include <asp/Core/InterestPointMatching.h>
 
 // We must have the implementations of all sessions for triangulation
 #include <asp/Sessions/StereoSessionFactory.h>

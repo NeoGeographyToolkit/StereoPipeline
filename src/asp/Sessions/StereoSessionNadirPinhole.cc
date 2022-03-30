@@ -21,6 +21,7 @@
 
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Sessions/StereoSessionNadirPinhole.h>
+#include <asp/Core/InterestPointMatching.h>
 
 #include <vw/Camera/CameraModel.h>
 #include <vw/Image/Transform.h>

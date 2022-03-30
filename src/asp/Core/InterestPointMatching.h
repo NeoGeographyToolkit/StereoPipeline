@@ -132,34 +132,36 @@ bool ip_matching_no_align(bool single_threaded_camera,
 			  std::string const  right_file_path="",
 			  double nodata1 = std::numeric_limits<double>::quiet_NaN(),
 			  double nodata2 = std::numeric_limits<double>::quiet_NaN());
-
-  /// Calls ip matching above but with an additional step where we
-/// apply a homography to make right image like left image. This is
-/// useful so that both images have similar scale and similar affine qualities.
-/// - Only the left image will use an IP file since the right image is modified.
-template <class Image1T, class Image2T>
-bool ip_matching_w_alignment(bool single_threaded_camera,
-			     vw::camera::CameraModel* cam1,
-			     vw::camera::CameraModel* cam2,
-			     vw::ImageViewBase<Image1T> const& image1,
-			     vw::ImageViewBase<Image2T> const& image2,
-			     int ip_per_tile,
-			     vw::cartography::Datum const& datum,
-			     std::string const& output_name,
-			     double epipolar_threshold,
-			     double uniqueness_threshold,
-			     std::string const left_file_path ="",
-			     double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-			     double nodata2 = std::numeric_limits<double>::quiet_NaN());
-
+  
+  // Calls ip matching above but with an additional step where we
+  // apply a homography to make right image like left image. This is
+  // useful so that both images have similar scale and similar affine qualities.
+  // - Only the left image will use an IP file since the right image is modified.
+  template <class Image1T, class Image2T>
+  bool ip_matching_w_alignment(bool single_threaded_camera,
+                               vw::camera::CameraModel* cam1,
+                               vw::camera::CameraModel* cam2,
+                               vw::ImageViewBase<Image1T> const& image1,
+                               vw::ImageViewBase<Image2T> const& image2,
+                               int ip_per_tile,
+                               vw::cartography::Datum const& datum,
+                               std::string const& output_name,
+                               double epipolar_threshold,
+                               double uniqueness_threshold,
+                               std::string const left_file_path ="",
+                               double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                               double nodata2 = std::numeric_limits<double>::quiet_NaN());
+  
   // Do IP matching, return, the best translation+scale fitting functor.
-  vw::Matrix<double> translation_ip_matching(vw::ImageView<float> const& image1,
-					     vw::ImageView<float> const& image2,
+  vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> const& image1,
+					     vw::ImageView<vw::PixelGray<float>> const& image2,
 					     int ip_per_tile,
 					     std::string const  left_file_path ="",
 					     std::string const  right_file_path="",
-					     double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-					     double nodata2 = std::numeric_limits<double>::quiet_NaN());
+					     double nodata1 =
+                                             std::numeric_limits<double>::quiet_NaN(),
+					     double nodata2 =
+                                             std::numeric_limits<double>::quiet_NaN());
 
   //-------------------------------------------------------------------------------------------
   // These are IP filtering functions.
@@ -350,22 +352,18 @@ bool ip_matching_w_alignment(bool single_threaded_camera,
 
 
   /// Detect interest points and use a simple matching technique.
-  ///
   /// This is not meant to be used directly. Please use ip_matching
   template <class Image1T, class Image2T>
   void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
-		       std::vector<vw::ip::InterestPoint>& matched_ip2,
-		       vw::ImageViewBase<Image1T> const& image1,
-		       vw::ImageViewBase<Image2T> const& image2,
-		       int ip_per_tile,
-		       std::string const left_file_path ="",
-		       std::string const right_file_path="",
-		       double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-		       double nodata2 = std::numeric_limits<double>::quiet_NaN(),
-		       std::string const& match_file = "");
-
-  //-------------------------------------------------------------------------------------------
-
+                       std::vector<vw::ip::InterestPoint>& matched_ip2,
+                       vw::ImageViewBase<Image1T> const& image1,
+                       vw::ImageViewBase<Image2T> const& image2,
+                       int    ip_per_tile,
+                       std::string const left_file_path ="",
+                       std::string const right_file_path="",
+                       double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                       double nodata2 = std::numeric_limits<double>::quiet_NaN(),
+                       std::string const& match_file = "");
 
   // Choose the method used for IP matching
   enum DetectIpMethod { DETECT_IP_METHOD_INTEGRAL = 0,

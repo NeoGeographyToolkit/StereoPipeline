@@ -22,8 +22,6 @@
 #ifndef __STEREO_SESSION_PINHOLE_H__
 #define __STEREO_SESSION_PINHOLE_H__
 
-#include <asp/Core/InterestPointMatching.h>
-#include <vw/Stereo/StereoModel.h>
 #include <asp/Sessions/StereoSession.h>
 #include <vw/Camera/CameraTransform.h>
 #include <vw/Camera/PinholeModel.h>

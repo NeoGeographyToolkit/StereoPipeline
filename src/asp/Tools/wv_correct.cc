@@ -601,7 +601,6 @@ public:
       = interpolate(cropped_img, BilinearInterpolation(),
                     ConstantEdgeExtension());
 
-    
     ImageView<result_type> tile(bbox.width(), bbox.height());
     for (int col = bbox.min().x(); col < bbox.max().x(); col++){
 

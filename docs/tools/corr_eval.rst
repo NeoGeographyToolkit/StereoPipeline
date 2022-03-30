@@ -12,9 +12,6 @@ each pixel.
 The input disparity can be any of ``D.tif``, ``B.tif``, ``RD.tif``, or
 ``F.tif``. (:numref:`outputfiles` describes these.)
 
-The output image has no-data values at pixels where it could not
-compute the desired metric.
-
 Several quality metrics are supported.
 
 - Normalized cross-correlation (NCC). For each left aligned image
@@ -34,6 +31,9 @@ Several quality metrics are supported.
 
 - Average of standard deviations of left and right matching patches.
  
+The output image has no-data values at pixels where it could not
+compute the desired metric.
+
 Usage::
 
     corr_eval [options] <L.tif> <R.tif> <Disp.tif> <output prefix>
@@ -44,6 +44,10 @@ Example::
       run/run-L.tif run/run-R.tif run/run-RD.tif run/run
 
 This will create ``run/run-ncc.tif``.
+
+See also the somewhat-related image correlator tool which can find the
+disparity of two images without assuming camera information
+(:numref:`correlator-mode`).
 
 Command-line options for ``corr_eval``:
 

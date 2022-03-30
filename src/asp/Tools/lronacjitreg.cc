@@ -177,8 +177,8 @@ bool determineShifts(Parameters & params,
 
     int points_per_tile = 500;
     double nodata1 = 0, nodata2 = 0;
-    ImageViewRef<PixelGray<float> > left_crop = crop(left_disk_image, crop_roi);
-    ImageViewRef<PixelGray<float> > right_crop = crop(right_disk_image, crop_roi);
+    ImageViewRef<PixelGray<float>> left_crop = crop(left_disk_image, crop_roi);
+    ImageViewRef<PixelGray<float>> right_crop = crop(right_disk_image, crop_roi);
 
     // Gather interest points and match them
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;

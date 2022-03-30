@@ -21,7 +21,7 @@ tool shipped with ASP (:numref:`stereo_gui`).
 The ``disparitydebug`` program will also print out the range of
 disparity values in a disparity map, that can serve as useful summary
 statistics when tuning the search range settings in the
-``stereo.default`` file.
+``stereo.default`` file (:numref:`search_range`).
 
 If the input images are map-projected (georeferenced), the outputs of
 ``disparitydebug`` will also be georeferenced.
