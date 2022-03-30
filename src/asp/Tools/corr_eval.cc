@@ -18,6 +18,7 @@
 /// \file corr_eval.cc
 
 // Evaluate the quality of produced correlation using several metrics.
+// See CorrEval.h and this tool's manual for more info.
 
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrEval.h>
@@ -31,6 +32,7 @@ namespace fs = boost::filesystem;
 struct Options : vw::cartography::GdalWriteOptions {
   std::string left_image, right_image, disparity, output_prefix, metric;
   vw::Vector2i kernel_size;
+  bool round_to_int;
   int prefilter_mode;
   float prefilter_kernel_width;
 };
@@ -49,7 +51,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("prefilter-kernel-width", po::value(&opt.prefilter_kernel_width)->default_value(1.5),
      "The diameter of the Gaussian convolution kernel "
      "for prefilter modes 1 and 2. A value of 1.5 works "
-     "well for LoG and 25-30 is suggested for the subtracted mean.");    
+     "well for LoG and 25-30 is suggested for the subtracted mean.")
+    ("round-to-int", po::bool_switch(&opt.round_to_int)->default_value(false),
+     "Round the disparity to integer and skip interpolation when finding the right image patches. This make the program faster by a factor of about 2, without changing significantly the output image.");
 
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
   
@@ -132,7 +136,7 @@ int main(int argc, char *argv[]) {
     vw::cartography::block_write_gdal_image
       (output_image,
        apply_mask(vw::stereo::corr_eval(masked_left, masked_right,
-                                        disp, opt.kernel_size, opt.metric),
+                                        disp, opt.kernel_size, opt.metric, opt.round_to_int),
                   left_nodata),
        has_left_georef, left_georef,
        has_nodata, left_nodata, opt,

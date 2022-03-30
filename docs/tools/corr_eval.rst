@@ -1,19 +1,19 @@
-.. _corr_eval:
+y.. _corr_eval:
 
 corr_eval
 ---------
 
 The ``corr_eval`` program takes as input left and right aligned images
 and a disparity, as produced by ``parallel_stereo``
-(:numref:`stereodefault`), and creates an image of same dimensions as
+(:numref:`parallel_stereo`), and creates an image of same dimensions as
 the left image, having a measure of the quality of the disparity at
 each pixel.  
 
 The input disparity can be any of ``D.tif``, ``B.tif``, ``RD.tif``, or
-``F.tif``.
+``F.tif``. (:numref:`outputfiles` describes these.)
 
-The output image has nodata values at pixels it could not compute the
-desired metric.
+The output image has no-data values at pixels where it could not
+compute the desired metric.
 
 Several quality metrics are supported.
 
@@ -25,10 +25,12 @@ Several quality metrics are supported.
   disparity.
 
   Since the disparity is floating-point, bilinear interpolation is
-  used in the right image. Pixels with nodata values and out-of-range
-  pixels are excluded. Note that NCC is not the zero-normalized
-  cross-correlation, so there is no subtraction from each pixel of the
-  mean of all pixels in the patch.
+  used in the right image (unless the flag ``--round-to-int`` is
+  set, when the disparity is rounded to int and no interpolation
+  happens). Pixels with no-data values and out-of-range pixels are
+  excluded from the calculation. Note that NCC is not
+  the zero-normalized cross-correlation, so there is no subtraction
+  from each pixel of the mean of all pixels in the patch.
 
 - Average of standard deviations of left and right matching patches.
  
@@ -43,11 +45,7 @@ Example::
 
 This will create ``run/run-ncc.tif``.
 
-Note that ASP provides a way to compute the correlation of images
-without the assumption that they are produced by a camera
-(:numref:`correlator-mode`).
-
-Command-line options for corr_eval:
+Command-line options for ``corr_eval``:
 
 --kernel-size <integer integer (default: 21 21)>
     The dimensions of image patches. These must be positive odd
@@ -66,6 +64,16 @@ Command-line options for corr_eval:
     The diameter of the Gaussian convolution kernel for prefilter
     modes 1 and 2. A value of 1.5 works well for ``LoG``, and 25 - 30 is 
     suggested for ``subtracted mean``.
+
+--round-to-int
+    Round the disparity to integer and skip interpolation when finding
+    the right image patches. This make the program faster by a factor
+    of about 2, without changing significantly the output image.
+
+--threads <integer (default: 0)>  
+    Set the number of threads to use. By default use the number of
+    threads as given in .vwrc, which can be 8 or 16. (The actual
+    number will be printed when this program starts.) 
 
 -h, --help
     Display the help message.
