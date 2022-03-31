@@ -1049,10 +1049,10 @@ initial_transform_from_match_file(std::string const& ref_file,
   double        scale;
   bool filter_outliers = true;
   vw::math::find_3D_transform(points_src, points_ref,
-                                         rotation, translation, scale,
-                                         hillshading_transform,
-                                         filter_outliers,
-                                         initial_transform_ransac_params);
+                              rotation, translation, scale,
+                              hillshading_transform,
+                              filter_outliers,
+                              initial_transform_ransac_params);
 
   // Convert to pc_align transform format.
   PointMatcher<RealT>::Matrix globalT = Eigen::MatrixXd::Identity(DIM+1, DIM+1);
@@ -1362,7 +1362,7 @@ int main( int argc, char *argv[] ) {
 		    opt.highest_accuracy, false /*opt.verbose*/);
     sw3.stop();
     if (opt.verbose)
-      vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " [s]" << endl;
+      vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " [s]\n";
 
     // Apply the initial guess transform to the source point cloud.
     apply_transform_to_cloud(initT, source_point_cloud);
@@ -1373,7 +1373,7 @@ int main( int argc, char *argv[] ) {
       filter_source_cloud(ref_point_cloud, source_point_cloud, icp,
                           shift, dem_georef, reference_dem_ref, opt);
     }
-
+    
     random_pc_subsample(opt.max_num_source_points, source_point_cloud.features);
     vw_out() << "Reducing number of source points to "
              << source_point_cloud.features.cols() << endl;
@@ -1382,13 +1382,27 @@ int main( int argc, char *argv[] ) {
     //debug_save_point_cloud(ref_point_cloud, geo, shift, "ref.csv");
     //dump_bin("ref.bin", ref_point_cloud);
 
-    elapsed_time = compute_registration_error(ref_point_cloud, source_point_cloud, icp,
-                                              shift, dem_georef, reference_dem_ref,
-					      opt, beg_errors);
+    // Make the libpointmatcher error message clearer
+    std::string libpointmatcher_error = "no point to minimize";
+    std::string pc_align_error = std::string
+      ("This likely means that the clouds are too far. Consider increasing the "
+       "--max-displacement value to something somewhat larger than the expected "
+       "length of the displacement that may be needed to align the clouds.\n");
+    
+    try {
+      elapsed_time = compute_registration_error(ref_point_cloud, source_point_cloud, icp,
+                                                shift, dem_georef, reference_dem_ref,
+                                                opt, beg_errors);
+    } catch(std::exception const& e) {
+      std::string error = e.what();
+      if (error.find(libpointmatcher_error) != std::string::npos)
+        error += ".\n" + pc_align_error; // clarify the error
+      vw_throw(ArgumentErr() << error);
+    }
+    
     calc_stats("Input", beg_errors);
     if (opt.verbose)
       vw_out() << "Initial error computation took " << elapsed_time << " [s]" << endl;
-
 
     // Compute the transformation to align the source to reference.
     Stopwatch sw4;
@@ -1419,9 +1433,16 @@ int main( int argc, char *argv[] ) {
                  opt.alignment_method == "similarity-point-to-point" ||
                  opt.alignment_method == "similarity-point-to-plane") {
         // Use libpointmatcher
-        T = icp(source_point_cloud, ref_point_cloud, Id,
-		opt.compute_translation_only);
-	vw_out() << "Match ratio: "
+        try {
+          T = icp(source_point_cloud, ref_point_cloud, Id, opt.compute_translation_only);
+        } catch(std::exception const& e) {
+          std::string error = e.what();
+          if (error.find(libpointmatcher_error) != std::string::npos)
+            error += ".\n" + pc_align_error; // clarify the error
+          vw_throw(ArgumentErr() << error);
+        }
+        
+        vw_out() << "Match ratio: "
 		 << icp.errorMinimizer->getWeightedPointUsedRatio() << endl;
       }else if (opt.alignment_method == "least-squares" ||
                 opt.alignment_method == "similarity-least-squares"){
