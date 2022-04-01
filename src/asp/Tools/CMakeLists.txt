@@ -190,6 +190,10 @@ add_executable(image_mosaic image_mosaic.cc)
 target_link_libraries(image_mosaic AspCore)
 install(TARGETS image_mosaic DESTINATION bin)
 
+add_executable(image_align image_align.cc) 
+target_link_libraries(image_align AspCore)
+install(TARGETS image_align DESTINATION bin)
+
 add_executable(tif_mosaic tif_mosaic.cc) 
 target_link_libraries(tif_mosaic AspCore)
 install(TARGETS tif_mosaic DESTINATION libexec)
