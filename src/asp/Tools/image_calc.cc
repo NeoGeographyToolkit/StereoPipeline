@@ -34,6 +34,7 @@
 #include <vw/Image/Statistics.h>
 #include <vw/Image/Filter.h>
 #include <vw/FileIO/DiskImageView.h>
+#include <vw/FileIO/DiskImageUtils.h>
 
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
@@ -366,65 +367,6 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
 
 }; // End struct calc_grammar
 
-
-//=================================================================================
-
-/// List of possible output data types
-enum DataType {
-  DT_UINT8   = 0,
-  DT_UINT16  = 1,
-  DT_UINT32  = 2,
-  //DT_INT8    = 3, // Not supported by GDAL.
-  DT_INT16   = 3,
-  DT_INT32   = 4,
-  DT_FLOAT32 = 5,
-  DT_FLOAT64 = 6
-};
-
-/// Returns the default nodata value for each data type (just the minimum value)
-double get_default_nodata(const DataType d) {
-  switch(d) {
-  case    DT_UINT8  : return std::numeric_limits<vw::uint8>::min();
-  case    DT_INT16  : return std::numeric_limits<vw::int16>::min();
-  case    DT_UINT16 : return std::numeric_limits<vw::uint16>::min();
-  case    DT_INT32  : return std::numeric_limits<vw::int32>::min();
-  case    DT_UINT32 : return std::numeric_limits<vw::uint32>::min();
-  case    DT_FLOAT32: return -std::numeric_limits<vw::float32>::max();
-  default :           return -std::numeric_limits<vw::float64>::max();
-  };
-}
-
-/// Converts a double to another numeric type with min/max value clamping.
-/// - TODO: Replace this with the correct VW function.
-template <typename T>
-T clamp_and_cast(const double val) {
-  const T minVal = std::numeric_limits<T>::min();
-  const T maxVal = std::numeric_limits<T>::max();
-  if (val < static_cast<double>(minVal)) return (minVal);
-  if (val > static_cast<double>(maxVal)) return (maxVal);
-  return static_cast<T>(val);
-}
-
-// Specializations for floating point values.
-template <typename T>
-T clamp_and_cast_float(const double val) {
-  const T minVal = -std::numeric_limits<T>::max();
-  const T maxVal = std::numeric_limits<T>::max();
-  if (val < static_cast<double>(minVal)) return (minVal);
-  if (val > static_cast<double>(maxVal)) return (maxVal);
-  return static_cast<T>(val);
-}
-
-template <>
-vw::float32 clamp_and_cast<vw::float32>(const double val) {
-  return clamp_and_cast_float<vw::float32>(val);
-}
-
-template <>
-vw::float64 clamp_and_cast<vw::float64>(const double val) {
-  return clamp_and_cast_float<vw::float64>(val);
-}
-
 /// Image view class which applies the calc_operation tree to each pixel location.
 template <class ImageT, typename OutputPixelT>
 class ImageCalcView : public ImageViewBase<ImageCalcView<ImageT, OutputPixelT> > {
@@ -435,10 +377,10 @@ public: // Definitions
   typedef OutputPixelT result_type;
 
 private: // Variables
-  std::vector<ImageT    > m_image_vec;
-  std::vector<bool      > m_has_nodata_vec;
-  std::vector<input_pixel_type> m_nodata_vec;
-  result_type    m_output_nodata;
+  std::vector<ImageT> m_image_vec;
+  std::vector<bool> m_has_nodata_vec;
+  std::vector<double> m_nodata_vec; // nodata is always double
+  double              m_output_nodata;
   calc_operation m_operation_tree;
   int m_num_rows;
   int m_num_cols;
@@ -447,18 +389,21 @@ private: // Variables
 public: // Functions
 
   // Constructor
-  ImageCalcView( std::vector<ImageT>                & imageVec,
-                 std::vector<bool  >           const& has_nodata_vec,
-                 std::vector<input_pixel_type> const& nodata_vec,
-                 result_type outputNodata,
-                 calc_operation const& operation_tree)
-                  : m_image_vec(imageVec),   m_has_nodata_vec(has_nodata_vec),
-                    m_nodata_vec(nodata_vec), m_output_nodata(outputNodata),
-                    m_operation_tree(operation_tree) {
+  ImageCalcView(std::vector<ImageT>      & imageVec,
+                std::vector<bool  > const& has_nodata_vec,
+                std::vector<double> const& nodata_vec,
+                double outputNodata,
+                calc_operation const& operation_tree):
+    m_image_vec(imageVec),   m_has_nodata_vec(has_nodata_vec),
+    m_nodata_vec(nodata_vec), m_output_nodata(outputNodata),
+    m_operation_tree(operation_tree) {
     const size_t numImages = imageVec.size();
-    VW_ASSERT( (numImages > 0), ArgumentErr() << "ImageCalcView: One or more images required.." );
-    VW_ASSERT( (has_nodata_vec.size() == numImages), LogicErr() << "ImageCalcView: Incorrect hasNodata count passed in.");
-    VW_ASSERT( (nodata_vec.size()     == numImages), LogicErr() << "ImageCalcView: Incorrect nodata count passed in."   );
+    VW_ASSERT((numImages > 0), ArgumentErr()
+              << "ImageCalcView: One or more images required.");
+    VW_ASSERT((has_nodata_vec.size() == numImages),
+              LogicErr() << "ImageCalcView: Incorrect hasNodata count passed in.");
+    VW_ASSERT((nodata_vec.size() == numImages),
+              LogicErr() << "ImageCalcView: Incorrect nodata count passed in.");
 
     // Make sure all images are the same size
     m_num_rows     = imageVec[0].rows();
@@ -467,8 +412,9 @@ public: // Functions
     for (size_t i=1; i<numImages; ++i) {
       if ( (imageVec[i].rows()   != m_num_rows    ) ||
            (imageVec[i].cols()   != m_num_cols    ) ||
-           (imageVec[i].planes() != m_num_channels)   )
-        vw_throw(ArgumentErr() << "Error: Input images must all have the same size and number of channels.");
+           (imageVec[i].planes() != m_num_channels))
+        vw_throw(ArgumentErr()
+                 << "Error: Input images must all have the same size and number of channels.");
     }
   }
 
@@ -564,7 +510,7 @@ struct Options : vw::cartography::GdalWriteOptions {
 
   // Settings
   std::string output_data_string;
-  DataType    output_data_type;
+  int         output_data_type;
   bool        has_out_nodata;
   bool        no_georef;
   double      out_nodata_value;
@@ -634,19 +580,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if ( opt.calc_string.size() == 0)
     vw_throw( ArgumentErr() << "Missing operation string.\n" << usage << general_options );
 
-  if      (opt.output_data_string == "uint8"  ) opt.output_data_type = DT_UINT8;
-  else if (opt.output_data_string == "uint16" ) opt.output_data_type = DT_UINT16;
-  else if (opt.output_data_string == "uint32" ) opt.output_data_type = DT_UINT32;
-  else if (opt.output_data_string == "int16"  ) opt.output_data_type = DT_INT16;
-  else if (opt.output_data_string == "int32"  ) opt.output_data_type = DT_INT32;
-  else if (opt.output_data_string == "float32") opt.output_data_type = DT_FLOAT32;
-  else if (opt.output_data_string == "float64") opt.output_data_type = DT_FLOAT64;
+  if      (opt.output_data_string == "uint8"  ) opt.output_data_type = VW_CHANNEL_UINT8;
+  else if (opt.output_data_string == "uint16" ) opt.output_data_type = VW_CHANNEL_UINT16;
+  else if (opt.output_data_string == "uint32" ) opt.output_data_type = VW_CHANNEL_UINT32;
+  // GDAL does not support int8
+  //else if (opt.output_data_string == "int8"   ) opt.output_data_type  = VW_CHANNEL_INT8;
+  else if (opt.output_data_string == "int16"  ) opt.output_data_type = VW_CHANNEL_INT16;
+  else if (opt.output_data_string == "int32"  ) opt.output_data_type = VW_CHANNEL_INT32;
+  else if (opt.output_data_string == "float32") opt.output_data_type = VW_CHANNEL_FLOAT32;
+  else if (opt.output_data_string == "float64") opt.output_data_type = VW_CHANNEL_FLOAT64;
   else
-    vw_throw(ArgumentErr() << "Unsupported output data type: '" << opt.output_data_string << "'.\n" );
+    vw_throw(ArgumentErr()
+             << "Unsupported output data type: '" << opt.output_data_string << "'.\n" );
   
   // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user specified these options
   if (!vm.count("input-nodata-value")){
-    opt.has_in_nodata   = false;
+    opt.has_in_nodata = false;
   }else
     opt.has_in_nodata = true;
   
@@ -666,9 +615,9 @@ void generate_output(const std::string                         & output_file,
                      const calc_operation                      & calc_tree,
                      const bool                                  have_georef,
                      const vw::cartography::GeoReference       & georef,
-                           std::vector< ImageViewRef<PixelT> > & input_images,
-                     const std::vector<bool  >                 & has_nodata_vec,
-                     const std::vector<PixelT>                 & nodata_vec ) {
+                           std::vector<ImageViewRef<PixelT> >  & input_images,
+                     const std::vector<bool>                   & has_nodata_vec,
+                     const std::vector<double>                 & nodata_vec) {
 
   // Parse keywords from --mo.
   std::map<std::string, std::string> keywords;
@@ -677,15 +626,15 @@ void generate_output(const std::string                         & output_file,
   vw_out() << "Writing: " << output_file << std::endl;
   vw::cartography::block_write_gdal_image
     (output_file,
-     ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images,
-                                                    has_nodata_vec,
-                                                    nodata_vec,
-                                                    opt.out_nodata_value,
-                                                    calc_tree),
+     ImageCalcView<ImageViewRef<PixelT>, OutputT>(input_images,
+                                                  has_nodata_vec,
+                                                  nodata_vec,
+                                                  opt.out_nodata_value,
+                                                  calc_tree),
      have_georef, georef,
      opt.has_out_nodata, opt.out_nodata_value,
      opt,
-     TerminalProgressCallback("image_calc","Writing:"),
+     TerminalProgressCallback("image_calc", "Writing:"),
      keywords);
 }
 
@@ -695,9 +644,9 @@ void load_inputs_and_process(Options &opt, const std::string &output_file, const
 
   // Read the georef from the first file, they should all have the same value.
   const size_t numInputFiles = opt.input_files.size();
-  std::vector< ImageViewRef<PixelT> > input_images(numInputFiles);
-  std::vector<bool  >                 has_nodata_vec(numInputFiles);
-  std::vector<PixelT>                 nodata_vec(numInputFiles);
+  std::vector<ImageViewRef<PixelT>> input_images(numInputFiles);
+  std::vector<bool>                 has_nodata_vec(numInputFiles);
+  std::vector<double>               nodata_vec(numInputFiles);
 
   bool have_georef = false;
   vw::cartography::GeoReference georef;
@@ -733,20 +682,21 @@ void load_inputs_and_process(Options &opt, const std::string &output_file, const
     if (opt.has_in_nodata) {
       // User has specified a default nodata value, override its value in the file
       has_nodata_vec[i]  = true;
-      nodata_vec   [i]  = PixelT(opt.in_nodata_value);
+      nodata_vec[i]      = opt.in_nodata_value;
       opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata.
-      std::cout << "\t--> Using as nodata value: " << nodata_vec[i] << ".\n";
+      std::cout << "\t--> Using as nodata value: " << nodata_vec[i] << "\n";
     }else if (rsrc->has_nodata_read() ) {
       nodata_vec[i] = rsrc->nodata_read();
       has_nodata_vec[i] = true;
 
       if (!opt.has_out_nodata) {
-        opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata
+        opt.has_out_nodata   = true; // If any inputs have nodata, the output must have nodata
         opt.out_nodata_value = nodata_vec[i]; // If not set by the user, use this on output
       }
-      std::cout << "\t--> Extracted nodata value from file: " << nodata_vec[i] << ".\n";
+      std::cout << "\t--> Extracted nodata value from " << input << ": "
+                << nodata_vec[i] << "\n";
     } else {
-      std::cout << "\t--> No nodata value present.\n";
+      std::cout << "\t--> No nodata value present in: " << input << "\n";
       has_nodata_vec[i] = false;
     }
     
@@ -761,13 +711,13 @@ void load_inputs_and_process(Options &opt, const std::string &output_file, const
   // Write out the selected data type
   //vw_out() << "Writing: " << output_file << " with data type " << opt.output_data_type << std::endl;
   switch(opt.output_data_type) {
-    case    DT_UINT8  : generate_output<PixelT, PixelGray<vw::uint8  > >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_INT16  : generate_output<PixelT, PixelGray<vw::int16  > >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_UINT16 : generate_output<PixelT, PixelGray<vw::uint16 > >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_INT32  : generate_output<PixelT, PixelGray<vw::int32  > >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_UINT32 : generate_output<PixelT, PixelGray<vw::uint32 > >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_FLOAT32: generate_output<PixelT, PixelGray<vw::float32> >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    default :           generate_output<PixelT, PixelGray<vw::float64> >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    VW_CHANNEL_UINT8: generate_output<PixelT, PixelGray<vw::uint8>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    VW_CHANNEL_INT16: generate_output<PixelT, PixelGray<vw::int16>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    VW_CHANNEL_UINT16: generate_output<PixelT, PixelGray<vw::uint16>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    VW_CHANNEL_INT32: generate_output<PixelT, PixelGray<vw::int32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    VW_CHANNEL_UINT32: generate_output<PixelT, PixelGray<vw::uint32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    VW_CHANNEL_FLOAT32: generate_output<PixelT, PixelGray<vw::float32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+  default: generate_output<PixelT, PixelGray<vw::float64>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
   };
 
 }
@@ -819,21 +769,32 @@ int main( int argc, char *argv[] ) {
       output_file += firstFile.substr(pt_idx,firstFile.size()-pt_idx);
     }
 
-    // Determining the format of the input images (all are assumed to be the same type.)
+    // Determining the format of the input images
     boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(firstFile));
     ChannelTypeEnum input_data_type = rsrc->channel_type();
-    //PixelFormatEnum pixel_format = rsrc->pixel_format();
 
+    // Assume that all inputs are of the same type. ASP does strange things if 
+    // loading a uint8 file as a float, for example.
+    // TODO(oalexan1): Load each file according to its format, then cast to double.
+    for (size_t it = 1; it < opt.input_files.size(); it++) {
+      boost::shared_ptr<vw::DiskImageResource>
+        curr_rsrc(vw::DiskImageResourcePtr(opt.input_files[it]));
+      ChannelTypeEnum curr_data_type = curr_rsrc->channel_type();
+      if (input_data_type != curr_data_type)
+        vw_throw(ArgumentErr() << "All input images are supposed to be of the same data type.\n");
+    }
+    
     // Redirect to another function with the correct template type
     switch(input_data_type) {
-    case VW_CHANNEL_INT8   : load_inputs_and_process<PixelGray<vw::int8   > >(opt, output_file, calc_tree);  break;
-    case VW_CHANNEL_UINT8  : load_inputs_and_process<PixelGray<vw::uint8  > >(opt, output_file, calc_tree);  break;
-    case VW_CHANNEL_INT16  : load_inputs_and_process<PixelGray<vw::int16  > >(opt, output_file, calc_tree);  break;
-    case VW_CHANNEL_UINT16 : load_inputs_and_process<PixelGray<vw::uint16 > >(opt, output_file, calc_tree);  break;
-    case VW_CHANNEL_INT32  : load_inputs_and_process<PixelGray<vw::int32  > >(opt, output_file, calc_tree);  break;
-    case VW_CHANNEL_UINT32 : load_inputs_and_process<PixelGray<vw::uint32 > >(opt, output_file, calc_tree);  break;
-    case VW_CHANNEL_FLOAT32: load_inputs_and_process<PixelGray<vw::float32> >(opt, output_file, calc_tree);  break;
-    case VW_CHANNEL_FLOAT64: load_inputs_and_process<PixelGray<vw::float64> >(opt, output_file, calc_tree);  break;
+      // GDAL does not support int8
+      //case VW_CHANNEL_INT8   : load_inputs_and_process<PixelGray<vw::int8 >>(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_UINT8  : load_inputs_and_process<PixelGray<vw::uint8>>(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_INT16  : load_inputs_and_process<PixelGray<vw::int16>>(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_UINT16 : load_inputs_and_process<PixelGray<vw::uint16>>(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_INT32  : load_inputs_and_process<PixelGray<vw::int32>>(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_UINT32 : load_inputs_and_process<PixelGray<vw::uint32>>(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_FLOAT32: load_inputs_and_process<PixelGray<vw::float32>>(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_FLOAT64: load_inputs_and_process<PixelGray<vw::float64>>(opt, output_file, calc_tree);  break;
     default : vw_throw(ArgumentErr() << "Input image format " << input_data_type << " is not supported.\n");
     };
   } ASP_STANDARD_CATCHES;
