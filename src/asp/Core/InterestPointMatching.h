@@ -293,7 +293,7 @@ bool ip_matching_no_align(bool single_threaded_camera,
 
   /// Detect interest points
   ///
-  /// This is not meant to be used directly. Please use ip_matching() or
+  /// This is not meant to be used directly. Use ip_matching() or
   /// homography_ip_matching().
   template <class Image1T>
   void detect_ip(vw::ip::InterestPointList& ip1, 
@@ -352,7 +352,7 @@ bool ip_matching_no_align(bool single_threaded_camera,
 
 
   /// Detect interest points and use a simple matching technique.
-  /// This is not meant to be used directly. Please use ip_matching
+  /// This is not meant to be used directly. Use ip_matching().
   template <class Image1T, class Image2T>
   void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
                        std::vector<vw::ip::InterestPoint>& matched_ip2,

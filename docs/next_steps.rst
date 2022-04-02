@@ -354,9 +354,10 @@ The way stereo correlation works is by matching a neighborhood of each
 pixel in the left image to a similar neighborhood in the right image.
 This matching process can fail or become unreliable if the two images
 are too different, which can happen for example if the perspectives of
-the two cameras are very different or the underlying terrain has steep
-portions. This will result in ASP producing terrains with noise or
-missing data.
+the two cameras are very different, the underlying terrain has steep
+portions, or because of clouds and deep shadows. This can result in
+large disparity search ranges, long run times, and ASP producing
+3D terrains with noise or missing data.
 
 ASP can mitigate this by *mapprojecting* the left and right images onto
 some pre-existing low-resolution smooth terrain model without holes, and
@@ -373,7 +374,7 @@ Choice of initial guess terrain model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For Earth, an existing terrain model can be, for example, the
-Copernicus 30 m DEM from::
+Copernicus 30 m DEM from:
 
     https://portal.opentopography.org/raster?opentopoID=OTSDEM.032021.4326.3
 

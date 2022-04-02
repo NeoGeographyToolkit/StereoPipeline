@@ -328,7 +328,7 @@ Dealing with clouds
 -------------------
 
 Clouds can result in unreasonably large disparity search ranges and a
-long run-time. A solution can be to mapproject the images
+long run-time. It is then suggested to mapproject the images
 (:numref:`mapproj-example`).
 
 With our without mapprojection, one can reduce the computed search
@@ -344,8 +344,9 @@ effect.
 Another option (which can be used in conjunction with the earlier
 suggestions) is to tighten the outlier filtering in the low-resolution
 disparity ``D_sub.tif`` (:numref:`outputfiles`), for example, by
-setting ``--outlier-removal-params 65 2`` from the default ``95 3``
-(:numref:`stereodefault`).
+setting ``--outlier-removal-params 70 2`` from the default ``95 3``
+(:numref:`stereodefault`). Note that decreasing these a lot may also
+filter out valid steep terrain.
 
 If a run failed because of a large disparity search range,
 ``D_sub.tif`` should be deleted, parameters adjusted as above, and one

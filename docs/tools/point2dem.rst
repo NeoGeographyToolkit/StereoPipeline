@@ -4,25 +4,39 @@ point2dem
 ---------
 
 The ``point2dem`` program produces a digital elevation model (DEM) in
-GeoTIFF format and/or an orthographic image from a set of point
+the GeoTIFF format and/or an orthographic image from a set of point
 clouds. The clouds can be created by the ``parallel_stereo`` command
 (:numref:`parallel_stereo`), or be in LAS or CSV format.
 
-Example::
+The output DEM is by default in the geographic coordinate system
+(longitude and latitude).  Any projection can be specified via the
+``--t_srs`` option.
+
+The obtained DEMs can be visualized with ``stereo_gui``
+(:numref:`stereo_gui`) or analyzed using GDAL tools
+(:numref:`gdal_tools`).
+
+Examples
+~~~~~~~~
+
+Create a DEM only::
 
     point2dem run/run-PC.tif
 
-This creates ``run/run-DEM.tif``, which is a GeoTIFF file, with each 32-bit
-floating point pixel value being the height above the datum
+This creates ``run/run-DEM.tif``, which is a GeoTIFF file, with each
+32-bit floating point pixel value being the height above the datum
 (ellipsoid). The datum is saved in the geoheader and can be seen with
 ``gdalinfo`` (:numref:`gdal_tools`).
 
 ASP normally auto-guesses the datum, otherwise the option ``-r`` can
-be used. If desired to change the output projection or the output
-no-data value (which can also be inspected with ``gdalinfo``), use the
-options ``--t_srs`` and ``--nodata-value``.
+be used. If desired to change the output no-data value (which can also
+be inspected with ``gdalinfo``), use the options ``--nodata-value``.
 
-Another example::
+If desired to change the range of longitudes from [0, 360] to [-180,
+180], or vice-versa, post-process obtained DEM with ``image_calc``
+(:numref:`image_calc`).
+
+Create a DEM, orthoimage, and intersection error image::
 
     point2dem run/run-PC.tif -r moon --errorimage \
         --orthoimage run/run-L.tif
@@ -41,22 +55,24 @@ Here we have explicitly specified the spheroid (``-r moon``), rather
 than have it inferred automatically. The Moon spheroid will have a
 radius of 1737.4 km.
 
-In the following example the point cloud is very close to the South Pole
-of the Moon, and for that reason we use the stereographic projection::
+Example with stereographic projection (for data close to poles)::
 
      point2dem --stereographic --proj-lon 0 --proj-lat -90 \
        run/run-PC.tif
 
-Multiple point clouds can be passed as inputs, to be combined into a
-single DEM. Here is an example, which combines together LAS and CSV point
-clouds together with an output file from ``stereo``::
+Example with multiple input clouds::
 
      point2dem in1.las in2.csv run/run-PC.tif -o combined \
        --dem-spacing 0.001 --nodata-value -32768
 
+Here LAS, CSV, and TIF point clouds (the latter obtained with
+``parallel_stereo``) are fused together into a single DEM.
+
 If it is desired to use the ``--orthoimage`` option with multiple
 clouds, the clouds need to be specified first, followed by the
 ``L.tif`` images.
+
+More examples are shown in :numref:`builddem`.
 
 .. _molacmp:
 
@@ -170,7 +186,8 @@ cloud contains easting, northing, and height above datum, the option
 interpret this data (if the PROJ.4 string is set, it will be also used
 for output DEMs, unless ``--t_srs`` is specified).
 
-Command-line options for point2dem:
+Command-line options for point2dem
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -h, --help
     Display the help message.

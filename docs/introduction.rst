@@ -232,7 +232,7 @@ typing on a second line in your terminal.
 Referencing the Ames Stereo Pipeline in Your Work
 -------------------------------------------------
 
-In general, please use this reference for the Ames Stereo Pipeline:
+In general, use this reference for the Ames Stereo Pipeline:
 
   Beyer, Ross A., Oleg Alexandrov, and Scott McMichael. 2018. The Ames
   Stereo Pipeline: NASA's open source software for deriving and processing

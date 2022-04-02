@@ -61,12 +61,9 @@ void detect_ip(vw::ip::InterestPointList& ip,
   if (ip_per_tile != 0)
     points_per_tile = ip_per_tile;
 
-  const bool has_nodata = !boost::math::isnan(nodata);
+  vw_out() << "\t    Using " << points_per_tile << " interest points per tile (1024^2 px).\n";
 
-  if (ip_per_tile == 0 && stereo_settings().ip_per_image > 0)
-    vw_out() << "\t    Using " << stereo_settings().ip_per_image << " interest points per image.\n";
-  else 
-    vw_out() << "\t    Using " << points_per_tile << " interest points per tile (1024^2 px).\n";
+  const bool has_nodata = !boost::math::isnan(nodata);
   
   // Load the detection method from stereo_settings.
   // - This relies on a direct match in the enum integer value.
@@ -195,8 +192,7 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
 			    vw::ip::InterestPointList& ip2,
 			    vw::Matrix<double> &rough_homography,
 			    std::string const left_file_path,
-			    double nodata1,
-			    double nodata2) {
+			    double nodata1, double nodata2) {
 
   using namespace vw;
 
@@ -415,7 +411,7 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 		     std::vector<vw::ip::InterestPoint>& matched_ip2,
 		     vw::ImageViewBase<Image1T> const& image1,
 		     vw::ImageViewBase<Image2T> const& image2,
-		     int    ip_per_tile,
+		     int ip_per_tile,
 		     std::string const left_file_path,
 		     std::string const right_file_path,
 		     double nodata1, double nodata2, std::string const& match_file) {

@@ -27,6 +27,9 @@ Usage::
 An example of using this tool is in :numref:`pc-align-example`. Validation
 of alignment is discussed in :numref:`pc_align_validation`.
 
+See the related tool ``image_align`` (:numref:`image_align`) 
+for performing alignment of images.
+
 Several important things need to be kept in mind if ``pc_align`` is to
 be used successfully and give accurate results, as described below.
 

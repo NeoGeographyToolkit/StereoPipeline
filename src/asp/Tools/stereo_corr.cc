@@ -1062,7 +1062,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   if (stereo_settings().save_lr_disp_diff) {
     // This image is allocated fully in memory, so need to check if it fits.
     if (left_trans_crop_win.width() > 20000 || left_trans_crop_win.height() > 20000)
-      vw_throw(ArgumentErr() << "Detected an unreasonably large image. Please use "
+      vw_throw(ArgumentErr() << "Detected an unreasonably large image. Use "
                << "parallel_stereo (with reasonably-sized tiles) if desired to invoke "
                << "--save-left-right-disparity-difference.\n");
     

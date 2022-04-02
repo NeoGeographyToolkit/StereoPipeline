@@ -485,7 +485,7 @@ namespace asp {
       vw_throw(ArgumentErr() << "The current output prefix '" << opt.out_prefix
                << "' has an old run which used --left-image-crop-win, "
                << "but the current run does not. Results will be incorrect. "
-               << "Please use a new output prefix.");
+               << "Use a new output prefix.");
     
     // TODO: May need to update this check for individual crop cases.
     // Sanity check. Don't run it if we have L-cropped.tif or R-cropped.tif,

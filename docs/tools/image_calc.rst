@@ -7,7 +7,8 @@ This tool can be used to perform simple, per-pixel arithmetic on one or
 more input images. An arithmetic operation specified on the command line
 is parsed and applied to each pixel, then the result is written to disk.
 The tool supports multiple input images but each must be the same size
-and data type. Input images are restricted to one channel.
+and data type. Input images are restricted to one channel (band). For images with
+more than one channel, only the first channel will be read.
 
 The following symbols are allowed in the arithmetic string: +, -, \*, /,
 (), min(), max(), pow(), abs(), sign(), and var_N, where N is the index of one of

@@ -452,11 +452,13 @@ rm-quantile-percentile (*double*) (default = 0.85)
     See rm-quantile-multiple for details.
 
 rm-quantile-multiple (*double*) (default = -1)
-    Used for filtering disparity values in D_sub. Disparities greater
-    than MULTIPLE*PERCENTILE (of the histogram) will be discarded. If
-    this value is set greater than zero, this filtering method will be
-    used instead of the method using the values RM_MIN_MATCHES and
-    RM_THRESHOLD. This method will help filter out clusters of pixels
+    Used for filtering disparity values in the low-resolution
+    disparity ``D_sub.tif`` (:numref:`outputfiles`). Disparities greater
+    than ``quantile multiple`` times the ``quantile percentile`` (of
+    the histogram) will be discarded. If this value is set greater
+    than zero, this filtering method will be used instead of the
+    method using the values ``rm-min-matches`` and
+    ``rm_threshold``. This method will help filter out clusters of pixels
     which are too large to be filtered out by the neighborhood method
     but that have disparities significantly greater than the rest of
     the image.
@@ -617,9 +619,9 @@ rm-min-matches (*integer*) (default = 60)
 
 rm-threshold (*double*) (default = 3)
     This parameter sets the inlier threshold for the outlier rejection
-    scheme. This option works in conjunction with RM_MIN_MATCHES above.
+    scheme. This option works in conjunction with ``rm-min-matches`` above.
     A disparity value is rejected if it differs by more than
-    RM_THRESHOLD disparity values from RM_MIN_MATCHES percent of pixels
+    ``rm_threshold`` disparity values from ``rm-min-matches`` percent of pixels
     in the region being considered (for ``filter-mode`` 2).
 
 rm-cleanup-passes (*integer*) (default = 1)

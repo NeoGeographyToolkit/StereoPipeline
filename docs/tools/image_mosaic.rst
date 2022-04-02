@@ -10,7 +10,7 @@ such as scanned Corona images. An example of using this tool is in
 
 Usage::
 
-     image_mosaic [options] <images> -o output_file_path [options]
+     image_mosaic [options] <images> -o output_file_path
 
 Command-line options for image_mosaic:
 

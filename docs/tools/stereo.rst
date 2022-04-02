@@ -44,11 +44,12 @@ Command-line options
 --stop-point <integer (from 1 to 6)>  Stereo Pipeline stop point (stop at
                                       the stage *right before* this).
 
---corr-seed-mode <integer (from 0 to 3)>  Correlation seed strategy
-                                          (:numref:`corr_section`).
+--corr-seed-mode <integer (from 0 to 3)>
+    Correlation seed strategy (:numref:`corr_section`).
 
---threads <integer (default: 0)>  Set the number of threads to use.  Zero
-                                  means use as many threads as there are cores.
+--threads <integer (default: 0)>
+    Set the number of threads to use. Zero means use as many threads
+    as there are cores, unless an explicit value is specified in .vwrc.
 
 --no-bigtiff
     Tell GDAL to not create bigtiffs.

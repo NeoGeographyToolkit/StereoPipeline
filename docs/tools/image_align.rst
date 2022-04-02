@@ -32,6 +32,9 @@ and was motivated by the CASP-GO software
 (https://github.com/mssl-imaging/CASP-GO,
 :cite:`sidiropoulos2018automatic`).
 
+See the related tool ``pc_align`` (:numref:`pc_align`) for alignment
+of point clouds.
+
 Example::
 
     image_align image1.tif image2.tif -o image2_align.tif

@@ -12,6 +12,9 @@ ASP distributes in the ``bin`` directory the following GDAL tools:
 - gdalinfo
 - gdaltransform
 - gdalwarp
+- gdaladdo
+
+and a handful of other ones.
 
 These executables are compiled with JPEG2000 and BigTIFF support, and
 can handle NTF images in addition to most image formats. They can be

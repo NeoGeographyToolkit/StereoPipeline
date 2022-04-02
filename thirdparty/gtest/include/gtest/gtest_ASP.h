@@ -17309,7 +17309,7 @@ class GTEST_API_ AssertionResult {
     return message_.get() != NULL ?  message_->c_str() : "";
   }
   // TODO(vladl@google.com): Remove this after making sure no clients use it.
-  // Deprecated; please use message() instead.
+  // Deprecated; use message() instead.
   const char* failure_message() const { return message(); }
 
   // Streams a custom failure message into this object.

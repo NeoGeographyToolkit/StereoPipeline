@@ -21,8 +21,11 @@ New tool additions:
   * The program ``parallel_stereo`` can function as purely an image
     correlation tool, without assuming any camera information, via
     the option ``--correlator-mode``.
- 
-parallel_stereo:
+  * Added the program ``image_align``. Used to align two images based on
+    interest point matches and given alignment transform type
+    (translation, rigid, similarity, affine, and homography).
+
+ parallel_stereo:
   * Many fixes for reliability of stereo with local epipolar alignment.
   * Added the option --resume-at-corr. Start at the correlation stage
     and skip recomputing the valid low and full-res disparities for

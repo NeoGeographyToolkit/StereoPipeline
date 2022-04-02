@@ -57,6 +57,10 @@ file can be used for map projection. In practice, the latter is
 recommended for most applications. The former is slightly more accurate,
 but much slower.
 
+If desired to change the range of longitudes from [0, 360] to [-180,
+180], or vice-versa, post-process obtained mapprojected image with
+``image_calc`` (:numref:`image_calc`).
+
 Usage::
 
      mapproject [options] <dem> <camera-image> <camera-model> <output-image>
