@@ -21,6 +21,8 @@
 
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Manipulation.h>
+#include <vw/Image/PixelTypeInfo.h>
+#include <vw/InterestPoint/MatrixIO.h>
 
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
@@ -31,35 +33,26 @@ namespace po = boost::program_options;
 
 struct Options: vw::cartography::GdalWriteOptions {
   std::vector<std::string> input_images;
-  std::string alignment_transform, output_image, output_prefix;
+  std::string alignment_transform, output_image, output_prefix, output_data_string,
+    input_transform;
   bool has_input_nodata_value, has_output_nodata_value;
   double input_nodata_value, output_nodata_value, inlier_threshold;
-  int band, ip_per_image, num_ransac_iterations;
+  int ip_per_image, num_ransac_iterations, output_data_type;
   Options(): has_input_nodata_value(false), has_output_nodata_value(false),
              input_nodata_value (std::numeric_limits<double>::quiet_NaN()),
              output_nodata_value(std::numeric_limits<double>::quiet_NaN()),
-             band(0), ip_per_image(0), num_ransac_iterations(0.0), inlier_threshold(0){}
+             ip_per_image(0), num_ransac_iterations(0.0), inlier_threshold(0){}
 };
 
+
 /// Load an input image, respecting the user parameters.
-void get_input_image(std::string const& image_file, int band,
-                     ImageViewRef<float> &image,
-                     double &nodata) {
-  // Extract the desired band
-  int num_bands = get_num_channels(image_file);
-  if (band > num_bands || band <= 0) 
-    vw_throw(ArgumentErr() << "The desired band is out of range.");
+void load_image(std::string const& image_file,
+                ImageViewRef<double> & image, double & nodata,
+                bool & has_georef, vw::cartography::GeoReference & georef) {
   
-  if (num_bands > 6) 
-    vw_throw(ArgumentErr() << "Only images with at most 6 bands are supported.");
-  
-  if (num_bands == 1){
-    image = DiskImageView<float>(image_file);
-  }else{
-    // Multi-band image. Pick the desired band.
-    int channel = band - 1;  // In VW, bands start from 0, not 1.
-    image = select_channel(read_channels<1, float>(image_file, channel), 0);
-  }
+  has_georef = false; // ensure this is initialized
+
+  image = vw::load_image_as_double(image_file);
 
   // Read nodata-value from disk.
   DiskImageResourceGDAL in_rsrc(image_file);
@@ -68,13 +61,15 @@ void get_input_image(std::string const& image_file, int band,
     nodata = in_rsrc.nodata_read();
     vw_out() << "Read no-data value for image " << image_file << ": " << nodata << ".\n";
   } else {
-    nodata = std::numeric_limits<double>::quiet_NaN();
+    nodata = vw::get_default_nodata(in_rsrc.channel_type());
   }
+  
+  has_georef = vw::cartography::read_georeference(georef, image_file);
 }
 
 /// Get a list of matched IP, looking in certain image regions.
 void find_matches(std::string const& image_file1, std::string const& image_file2,
-                  ImageViewRef<float> image1, ImageViewRef<float> image2,
+                  ImageViewRef<double> image1, ImageViewRef<double> image2,
                   double nodata1, double nodata2,
                   std::vector<ip::InterestPoint> &matched_ip1,
                   std::vector<ip::InterestPoint> &matched_ip2,
@@ -98,7 +93,10 @@ void find_matches(std::string const& image_file1, std::string const& image_file2
   asp::stereo_settings().ip_per_image = opt.ip_per_image;
 
   // Now find and match interest points in the selected regions
-  asp::detect_match_ip(matched_ip1, matched_ip2, image1, image2, ip_per_tile,
+  asp::detect_match_ip(matched_ip1, matched_ip2,
+                       vw::pixel_cast<float>(image1), // cast to float so it compiles
+                       vw::pixel_cast<float>(image2),
+                       ip_per_tile,
                        "", "", // Do not read ip from disk
                        nodata1, nodata2, match_file);
 } // End function match_ip_in_regions
@@ -196,8 +194,8 @@ calc_alignment_transform(std::string const& image_file1,
 }
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
+
   po::options_description general_options("");
-  // Add the reverse option
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
   
   general_options.add_options()
@@ -206,17 +204,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("alignment-transform", po::value(&opt.alignment_transform)->default_value("translation"),
      "Specify the transform to use to align the second image to the first. Options: translation, "
      "rigid (translation + rotation), similarity (translation + rotation + scale), affine, homography.")
-    ("band", po::value(&opt.band)->default_value(1),
-     "Which band to use for interest point matching (for multi-spectral images).")
     ("ip-per-image", po::value(&opt.ip_per_image)->default_value(0),
      "How many interest points to detect in each image (default: automatic determination).")
     ("output-prefix", po::value(&opt.output_prefix)->default_value(""),
-     "If set, save the interest point matches and computed transform at this prefix.")
+     "If set, save the interest point matches and computed transform using this prefix.")
+    ("output-data-type,d",  po::value(&opt.output_data_string)->default_value("float32"),
+     "The data type of the output file. Options: uint8, uint16, uint32, int16, int32, "
+     "float32, float64.")
     ("num-ransac-iterations", po::value(&opt.num_ransac_iterations)->default_value(1000),
      "How many iterations to perform in RANSAC when finding interest point matches.")
-    ("inlier-threshold", po::value(&opt.inlier_threshold)->default_value(10.0),
-     "The inlier threshold (in pixels) to separate inliers from outliers when computing interest point matches. A smaller threshold will result in fewer inliers.");
-  
+    ("inlier-threshold", po::value(&opt.inlier_threshold)->default_value(5.0),
+     "The inlier threshold (in pixels) to separate inliers from outliers when computing interest point matches. A smaller threshold will result in fewer inliers.")
+    ("input-transform", po::value(&opt.input_transform)->default_value(""),
+     "Instead of computing an alignment transform, read and apply the one from this file. Must be stored as a 3x3 matrix.");
+    
   po::options_description positional("");
   positional.add_options()
     ("input-images", po::value(&opt.input_images));
@@ -250,6 +251,25 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              "rigid, similarity, affine, homography.\n" << usage << general_options);    
   }
 
+  // Determining the format of the second input image
+  boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(opt.input_images[1]));
+  ChannelTypeEnum input_data_type = rsrc->channel_type();
+
+  // By default, use the same type on output as on input
+  opt.output_data_type = input_data_type;
+  if      (opt.output_data_string == "uint8"  ) opt.output_data_type = VW_CHANNEL_UINT8;
+  else if (opt.output_data_string == "uint16" ) opt.output_data_type = VW_CHANNEL_UINT16;
+  else if (opt.output_data_string == "uint32" ) opt.output_data_type = VW_CHANNEL_UINT32;
+  // GDAL does not support int8
+  //else if (opt.output_data_string == "int8"   ) opt.output_data_type = VW_CHANNEL_INT8;
+  else if (opt.output_data_string == "int16"  ) opt.output_data_type = VW_CHANNEL_INT16;
+  else if (opt.output_data_string == "int32"  ) opt.output_data_type = VW_CHANNEL_INT32;
+  else if (opt.output_data_string == "float32") opt.output_data_type = VW_CHANNEL_FLOAT32;
+  else if (opt.output_data_string == "float64") opt.output_data_type = VW_CHANNEL_FLOAT64;
+  else
+    vw_throw(ArgumentErr() << "Invalid value for the output type: " << opt.output_data_string
+             << ".\n");
+  
   // Create the output directory
   vw::create_out_dir(opt.output_image);
 
@@ -259,30 +279,142 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   return;  
 }
 
+void save_output(ImageViewRef<PixelMask<double>> aligned_image2,
+                 bool has_nodata2, double nodata2,
+                 bool has_georef2, vw::cartography::GeoReference const& georef2,
+                 Options const& opt) {
+  
+  vw_out() << "Writing: " << opt.output_image << "\n";
+    
+  switch (opt.output_data_type) {
+  case VW_CHANNEL_UINT8:
+    block_write_gdal_image(opt.output_image,
+                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
+                                            vw::ClampAndCast<vw::uint8, double>()),
+                           has_georef2, georef2, has_nodata2, nodata2, opt,
+                           TerminalProgressCallback("asp","\t  Aligned image:  "));
+    break;
+  case VW_CHANNEL_UINT16:
+    block_write_gdal_image(opt.output_image,
+                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
+                                            vw::ClampAndCast<vw::uint16, double>()),
+                           has_georef2, georef2, has_nodata2, nodata2, opt,
+                           TerminalProgressCallback("asp","\t  Aligned image:  "));
+    break;
+  case VW_CHANNEL_UINT32:
+    block_write_gdal_image(opt.output_image,
+                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
+                                            vw::ClampAndCast<vw::uint32, double>()),
+                           has_georef2, georef2, has_nodata2, nodata2, opt,
+                           TerminalProgressCallback("asp","\t  Aligned image:  "));
+    break;
+    // GDAL does not support int8
+    //case VW_CHANNEL_INT8:
+    //block_write_gdal_image(opt.output_image,
+    //                       per_pixel_filter(apply_mask(aligned_image2, nodata2),
+    //                                       vw::ClampAndCast<vw::int8, double>()),
+    //                      has_georef2, georef2, has_nodata2, nodata2, opt,
+    //                      TerminalProgressCallback("asp","\t  Aligned image:  "));
+    break;
+  case VW_CHANNEL_INT16:
+    block_write_gdal_image(opt.output_image,
+                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
+                                            vw::ClampAndCast<vw::int16, double>()),
+                           has_georef2, georef2, has_nodata2, nodata2, opt,
+                           TerminalProgressCallback("asp","\t  Aligned image:  "));
+    break;
+  case VW_CHANNEL_INT32:
+    block_write_gdal_image(opt.output_image,
+                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
+                                            vw::ClampAndCast<vw::int32, double>()),
+                           has_georef2, georef2, has_nodata2, nodata2, opt,
+                           TerminalProgressCallback("asp","\t  Aligned image:  "));
+    break;
+  case VW_CHANNEL_FLOAT32:
+    block_write_gdal_image(opt.output_image,
+                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
+                                            vw::ClampAndCast<vw::float32, double>()),
+                           has_georef2, georef2, has_nodata2, nodata2, opt,
+                           TerminalProgressCallback("asp","\t  Aligned image:  "));
+    break;
+  case VW_CHANNEL_FLOAT64:
+    block_write_gdal_image(opt.output_image,
+                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
+                                            vw::ClampAndCast<vw::float64, double>()),
+                           has_georef2, georef2, has_nodata2, nodata2, opt,
+                           TerminalProgressCallback("asp","\t  Aligned image:  "));
+  default:
+    vw_throw(ArgumentErr() << "Invalid value for the output pixel format.\n");
+
+  };
+}
+
 int main(int argc, char *argv[]) {
 
   Options opt;
   
   try {
 
-    // Find command line options
+    // Process command line options
     handle_arguments(argc, argv, opt);
 
     std::string image_file1 = opt.input_images[0], image_file2 = opt.input_images[1];
-    ImageViewRef<float> image1,  image2;
+    ImageViewRef<double> image1,  image2;
     double              nodata1, nodata2;
-    get_input_image(image_file1, opt.band, image1, nodata1);
-    get_input_image(image_file2, opt.band, image2, nodata2);
-    
-    std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-    find_matches(image_file1, image_file2, image1, image2,  
-                 nodata1, nodata2, matched_ip1, matched_ip2, opt);
-    
-    Matrix<double> tf = calc_alignment_transform(image_file1, image_file2,  
-                                                 matched_ip1, matched_ip2, opt);
-    
+    bool has_georef1 = false, has_georef2 = false;
+    vw::cartography::GeoReference georef1, georef2;
+    load_image(image_file1, image1, nodata1, has_georef1, georef1);
+    load_image(image_file2, image2, nodata2, has_georef2, georef2);
 
-    // TODO(oalexan1): Save the aligned image
+    Matrix<double> tf;
+    if (opt.input_transform.empty()) {
+      std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+      find_matches(image_file1, image_file2, image1, image2,  
+                   nodata1, nodata2, matched_ip1, matched_ip2, opt);
+      
+      tf = calc_alignment_transform(image_file1, image_file2,  
+                                    matched_ip1, matched_ip2, opt);
+    } else {
+      vw_out() << "Reading the alignment transform from: " << opt.input_transform << "\n";
+      read_matrix_as_txt(opt.input_transform, tf);
+    }
+    
+    if (opt.output_prefix != "") {
+      std::string transform_file = opt.output_prefix + "-transform.txt";
+      vw_out() << "Writing the transform to: " << transform_file << std::endl;
+      write_matrix_as_txt(transform_file, tf);
+    }
+    
+    // Any transforms supported by this tool fit in a homography transform object
+    vw::HomographyTransform T(tf);
+
+    // Find the domain of the transformed image
+    BBox2i trans_box = T.forward_bbox(vw::bounding_box(image2));
+
+    // Adjust the box to consistent with what vw::transform expects below
+    trans_box.min() = vw::Vector2(0, 0);
+
+    PixelMask<double> nodata_mask = PixelMask<double>(); // invalid value for a PixelMask
+    ImageViewRef<PixelMask<double>> aligned_image2 =
+      vw::transform(create_mask(image2, nodata2), HomographyTransform(tf),
+                    trans_box.width(), trans_box.height(),
+                    ValueEdgeExtension<PixelMask<double>>(nodata_mask),
+                    BilinearInterpolation());
+
+    // almost always the alignment will result in pixels with no data
+    bool has_nodata2 = true;
+
+    if (has_georef1) {
+      // Borrow the georef from the first image, since we are in its coordinates
+      has_georef2 = has_georef1;
+      georef2 = georef1;
+    } else{
+      // Write no georef
+      has_georef1 = false;
+      has_georef2 = false;
+    }
+      
+    save_output(aligned_image2, has_nodata2, nodata2, has_georef2, georef2, opt);
     
   } ASP_STANDARD_CATCHES;
   return 0;
