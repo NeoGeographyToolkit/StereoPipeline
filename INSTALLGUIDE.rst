@@ -5,6 +5,8 @@ Precompiled binaries are available for the stable releases and the
 current development build.  Stereo Pipeline can also be compiled 
 from source, but this is not recommended.
 
+.. _precompiled_binaries:
+
 Precompiled binaries (Linux and macOS)
 --------------------------------------
 
@@ -50,25 +52,22 @@ processing, etc.), of non-terrestrial images prior to running Stereo
 Pipeline, you will need to install :term:`ISIS`.  Just as with our 
 binaries, you can use the ISIS binaries as-is.
 
-If you need to recompile, you can follow the instructions for building
-ASP from source in :numref:`build_from_source`, but we don't
-recommend it. If the current version of ISIS is newer than the version
-of ISIS that the Stereo Pipeline is compiled against (listed in the
-ASP Release Notes), be assured that we're working on rolling out a new
-version.  However, since Stereo Pipeline has its own self-contained
-version of ISIS's libraries built internally, you should be able to
-use a newer version of ISIS with the now dated version of ASP. This is
-assuming no major changes have taken place in the data formats or
-camera models by the ISIS Developers. At the very least, you should be
-able to install older versions of ISIS if a failure is found.  To do
-so, follow the ISIS installation instructions, but create a new conda
-environment (not the one with your current ISIS), and right before you
-would run ``conda install isis``, run ``conda search isis`` to find
-all of the versions of ISIS available for installation.  For example,
-if you wanted to install ISIS 5.0.1, and it is available in the
-``conda search isis`` listing, you can run ``conda install
-isis=5.0.1`` (to install that specific version of ISIS) and then
-follow the remainder of the ISIS installation instructions.
+ASP has its own self-contained version of the ISIS libraries, and on
+occasion it is behind the latest ISIS (see the release notes in
+:numref:`news` for the ISIS version ASP has). You should be able to
+use a newer version of ISIS to prepare the images and cameras and have
+those work with the version of ISIS shipped with ASP, assuming no
+major changes have taken place in the data formats or camera models by
+the ISIS developers. At the very least, you should be able to install
+the older standalone version of ISIS that ASP uses if a failure is
+found.  To do so, follow the ISIS installation instructions, but
+create a new conda environment (not the one with your current ISIS),
+and right before you would run ``conda install isis``, run ``conda
+search isis`` to find all of the versions of ISIS available for
+installation.  For example, if you wanted to install ISIS 5.0.1, and
+it is available in the ``conda search isis`` listing, you can run
+``conda install isis=5.0.1`` and then follow the remainder of the ISIS
+installation instructions.
 
 In closing, running the Stereo Pipeline executables only requires
 that you have downloaded the ISIS secondary data and have
@@ -177,15 +176,21 @@ the processing time should go down. Both ``gdalinfo`` and
 Fetching pre-compiled ASP with conda
 ------------------------------------
 
-Get conda from::
+ASP's official releases can be fetched with ``conda``. The latest such
+release is version 3.0.0, published on July 27, 2021.  See
+:numref:`news` for what changed since then.  The newer functionality
+is available only with the daily build (:numref:`precompiled_binaries`).
+
+To install ``conda``, see:
 
     https://docs.conda.io/en/latest/miniconda.html
 
-Make it executable, and run::
+Make the fetched installation file executable and run it, such as::
 
+    chmod u+x ./Miniconda3-latest-Linux-x86_64.sh
     ./Miniconda3-latest-Linux-x86_64.sh
 
-on Linux, and the appropriate version on OSX. Use the suggested::
+on Linux, and analogously on OSX. Use the suggested::
 
     $HOME/miniconda3
 
