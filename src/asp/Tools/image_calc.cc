@@ -470,7 +470,6 @@ public: // Functions
           continue;
         }
 
-
         for (int chan=0; chan<m_num_channels; ++chan) {
           for (size_t i=0; i<num_images; ++i) {
             input_doubles[i] = input_pixels[i][chan];
@@ -478,8 +477,6 @@ public: // Functions
 
           // Apply the operation tree to this pixel and store in the output pixel
           double newVal = m_operation_tree.applyOperation<double>(input_doubles);
-          //if (newVal > 255)
-          //  std::cout << "Value: " << newVal << " --> " << static_cast<double>(clamp_and_cast<output_channel_type>(newVal)) << "\n";
           tile(c, r, chan) = clamp_and_cast<output_channel_type>(newVal);
 
         } // End channel loop
@@ -487,7 +484,8 @@ public: // Functions
       } // End row loop
     } // End column loop
 
-  // Return the tile we created with fake borders to make it look the size of the entire output image
+  // Return the tile we created with fake borders to make it look the
+  // size of the entire output image
   return prerasterize_type(tile,
                            -bbox.min().x(), -bbox.min().y(),
                            cols(), rows() );
@@ -640,7 +638,8 @@ void generate_output(const std::string                         & output_file,
 
 /// This function loads the input images and calls the main processing function
 template <typename PixelT>
-void load_inputs_and_process(Options &opt, const std::string &output_file, const calc_operation &calc_tree) {
+void load_inputs_and_process(Options &opt, const std::string &output_file,
+                             const calc_operation &calc_tree) {
 
   // Read the georef from the first file, they should all have the same value.
   const size_t numInputFiles = opt.input_files.size();
@@ -663,16 +662,21 @@ void load_inputs_and_process(Options &opt, const std::string &output_file, const
           vw_out() << "\t--> Copying georef from input image " << input << std::endl;
         
           if (!std::isnan(opt.lon_offset)) {
-            vw_out() << "\t--> Adding " << opt.lon_offset
-                     << " to the longitude bounds in the geoheader.\n" << std::endl;
-            vw::Matrix<double,3,3> T = georef.transform();
-            T(0, 2) += opt.lon_offset;
-            georef.set_transform(T);
+            if (!georef.is_projected()) {
+              vw_out() << "\t--> Adding " << opt.lon_offset
+                       << " to the longitude bounds in the geoheader.\n" << std::endl;
+              vw::Matrix<double,3,3> T = georef.transform();
+              T(0, 2) += opt.lon_offset;
+              georef.set_transform(T);
+            } else {
+              vw_throw(ArgumentErr() << "Can apply a longitude offset only to georeferenced "
+                       << "images in the longitude-latitude projection.\n");
+            }
           }
         }
       }
     }
-
+    
     // Determining the format of the input
     boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(input));
     //ChannelTypeEnum channel_type = rsrc->channel_type();
