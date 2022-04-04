@@ -156,8 +156,8 @@ CTX::
 
   ALSC iterations: 8
   Max. eigenvalue: 150
-  ALSC kernel: 21
-  Grow neighbor: 8
+  ALSC kernel:     21
+  Grow neighbor:   8
 
 HiRISE::
 
