@@ -43,7 +43,8 @@ using namespace vw::gui;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-size_t BASE_IMAGE_INDEX = 0;
+// See MainWidget.h for what this id does
+int BASE_IMAGE_ID = 0;
 
 namespace vw { namespace gui {
 
@@ -101,7 +102,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
   m_grid_cols(grid_cols),
   m_use_georef(use_georef),
-  m_display_type(hillshade ? HILLSHADED_VIEW : REGULAR_VIEW),
+  m_display_mode(hillshade ? HILLSHADED_VIEW : REGULAR_VIEW),
   m_view_thresholded(false),
   m_view_matches(view_matches),
   m_delete_temporary_files_on_exit(delete_temporary_files_on_exit),
@@ -139,13 +140,11 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
 
   int num_images = m_image_files.size();
   m_images.resize(num_images);
-  for (int i = 0; i < num_images; i++) 
+  for (int i = 0; i < num_images; i++) {
     m_images[i].read(m_image_files[i], m_opt);
+    m_images[i].m_display_mode = m_display_mode;
+  }
 
-  // When using georef, use this as reference
-  if (BASE_IMAGE_INDEX < m_image_files.size())
-    m_base_image = m_images[BASE_IMAGE_INDEX];
-  
   if (stereo_settings().match_file != "" &&
       stereo_settings().gcp_file   != "" &&
       !stereo_settings().vwip_files.empty()){
@@ -217,32 +216,6 @@ void MainWindow::createLayout() {
       m_widgets[wit]->setProfileMode(profile_mode);
   }
 
-  // Save the previous hillshade flags before wiping the widgets.
-  if (m_widgets.size() == 1) {
-    if (m_widgets[0]->hillshadeModeVec().size() == m_image_files.size()) {
-      m_hillshade_vec = m_widgets[0]->hillshadeModeVec();
-    }
-  }else if (m_widgets.size() == m_image_files.size()) {
-    m_hillshade_vec.clear();
-    for (size_t wid_it = 0; wid_it < m_widgets.size(); wid_it++) {
-      if (m_widgets[wid_it] == NULL || !m_widgets[wid_it]->hillshadeMode())
-        m_hillshade_vec.push_back(REGULAR_VIEW);
-      else
-        m_hillshade_vec.push_back(HILLSHADED_VIEW);
-    }
-  }else{
-    // No widgets yet
-    m_hillshade_vec.resize(m_image_files.size());
-    for (size_t wid_it = 0; wid_it < m_image_files.size(); wid_it++) 
-      m_hillshade_vec[wid_it] = m_display_type;
-  }
-
-  if (m_image_files.size() <= BASE_IMAGE_INDEX) {
-    // We should never get here
-    popUp("No images to show.");
-    return;
-  }
-
   QWidget * centralWidget = new QWidget(this);
   setCentralWidget(centralWidget);
 
@@ -254,12 +227,6 @@ void MainWindow::createLayout() {
 
   bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
 
-  // If there is one image, and it was hillshaded from the right-click menu,
-  // fetch that. 
-  if (!m_hillshade_vec.empty() && m_hillshade_vec.size() == m_image_files.size() &&
-      m_image_files.size() == 1) 
-    m_display_type = m_hillshade_vec[0];
-  
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
 
     // Put all images in a single window, with a dialog for choosing images if
@@ -279,46 +246,39 @@ void MainWindow::createLayout() {
     }
 
     // Pass all images to a single MainWidget object
-    const int image_id = 0;
     MainWidget * widget = new MainWidget(centralWidget,
                                          m_opt,
-                                         image_id, m_output_prefix,
-                                         m_images, m_base_image,
+                                         0,               // beg image id
+                                         m_images.size(), // end image id
+                                         BASE_IMAGE_ID,
+                                         m_images, 
+                                         m_output_prefix,
                                          m_matchlist, m_editMatchPointVecIndex,
                                          m_chooseFiles,
-                                         m_use_georef, m_hillshade_vec, m_view_matches,
+                                         m_use_georef, m_view_matches,
                                          zoom_all_to_same_region,
 					 m_allowMultipleSelections);
 
-    // Tell the widget if the poly edit mode is on or not
+    // Tell the widget if the poly edit mode and hillshade mode is on or not
     bool refresh = false; // Do not refresh prematurely
     widget->setPolyEditMode(m_polyEditMode_action->isChecked(), refresh);
-    
     m_widgets.push_back(widget);
 
   } else{
 
     // Each MainWidget object gets passed a single image
     for (size_t i = 0; i < m_images.size(); i++) {
-      std::vector<imageData> local_images;
-      local_images.push_back(m_images[i]);
       m_chooseFiles = NULL;
-
-      // Recall the previous hillshade choice if possible
-      std::vector<DisplayType> local_hillshade;
-      if (m_hillshade_vec.size() == m_image_files.size())
-        local_hillshade.push_back(m_hillshade_vec[i]);
-      else
-        local_hillshade.push_back(m_display_type);
-      
-      const int image_id = i;
       MainWidget * widget = new MainWidget(centralWidget,
                                            m_opt,
-                                           image_id, m_output_prefix,
-                                           local_images, m_base_image,
+                                           i,     // beg image id
+                                           i + 1, // end image id
+                                           BASE_IMAGE_ID, 
+                                           m_images, 
+                                           m_output_prefix,
                                            m_matchlist, m_editMatchPointVecIndex,
                                            m_chooseFiles,
-                                           m_use_georef, local_hillshade, m_view_matches,
+                                           m_use_georef, m_view_matches,
                                            zoom_all_to_same_region,
 					   m_allowMultipleSelections);
       m_widgets.push_back(widget);
@@ -375,7 +335,7 @@ void MainWindow::createLayout() {
   m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
   m_viewSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE);
   m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
-  m_viewHillshadedImages_action->setChecked(m_display_type == HILLSHADED_VIEW);
+  m_viewHillshadedImages_action->setChecked(m_display_mode == HILLSHADED_VIEW);
   m_viewGeoreferencedImages_action->setChecked(m_use_georef);
   m_overlayGeoreferencedImages_action->setChecked(m_use_georef &&
                                                   (m_view_type == VIEW_IN_SINGLE_WINDOW));
@@ -463,7 +423,7 @@ void MainWindow::createMenus() {
   m_viewHillshadedImages_action = new QAction(tr("Hillshaded images"), this);
   m_viewHillshadedImages_action->setStatusTip(tr("View hillshaded images"));
   m_viewHillshadedImages_action->setCheckable(true);
-  m_viewHillshadedImages_action->setChecked(m_display_type == HILLSHADED_VIEW);
+  m_viewHillshadedImages_action->setChecked(m_display_mode == HILLSHADED_VIEW);
   m_viewHillshadedImages_action->setShortcut(tr("H"));
   connect(m_viewHillshadedImages_action, SIGNAL(triggered()),
           this, SLOT(viewHillshadedImages()));
@@ -1321,10 +1281,10 @@ void MainWindow::setPolyColor() {
 }
 
 void MainWindow::viewHillshadedImages() {
-  m_display_type = m_viewHillshadedImages_action->isChecked() ? HILLSHADED_VIEW : REGULAR_VIEW;
+  m_display_mode = m_viewHillshadedImages_action->isChecked() ? HILLSHADED_VIEW : REGULAR_VIEW;
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]) {
-      m_widgets[i]->viewHillshadedImages(m_display_type == HILLSHADED_VIEW);
+      m_widgets[i]->viewHillshadedImages(m_display_mode == HILLSHADED_VIEW);
     }
   }
 }

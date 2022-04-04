@@ -50,14 +50,6 @@ namespace vw { namespace gui {
   //               MainWidget Public Methods
   // --------------------------------------------------------------
 
-  int MainWidget::getTransformImageIndex() const {
-    // TODO: Is there a better way to determine this?
-    size_t trans_image_id = m_image_id;
-    if (trans_image_id >= m_world2image_geotransforms.size())
-      trans_image_id = 0;
-    return trans_image_id;
-  }
-
   // Convert a position in the world coordinate system to a pixel
   // position as seen on screen (the screen origin is the
   // visible upper-left corner of the widget).
@@ -189,24 +181,27 @@ namespace vw { namespace gui {
 
   MainWidget::MainWidget(QWidget *parent,
                          vw::cartography::GdalWriteOptions const& opt,
-                         int image_id,
-                         std::string & output_prefix,
-                         std::vector<imageData> const& images,
-                         imageData const& base_image,
+                         int beg_image_id, int end_image_id, int base_image_id,
+                         std::vector<imageData> & images, // will be aliased
+                         std::string & output_prefix,     // will be aliased
                          MatchList & matches,
                          int &editMatchPointVecIndex,
                          chooseFilesDlg * chooseFiles,
-                         bool use_georef, std::vector<DisplayType> const& hillshade,
+                         bool use_georef,
                          bool view_matches,
                          bool zoom_all_to_same_region, bool & allowMultipleSelections)
     : QWidget(parent), m_opt(opt), m_chooseFilesDlg(chooseFiles),
-      m_image_id(image_id), m_output_prefix(output_prefix),
-      m_images(images), m_base_image(base_image), m_matchlist(matches),
+      m_beg_image_id(beg_image_id),
+      m_end_image_id(end_image_id),
+      m_base_image_id(base_image_id), 
+      m_images(images), // alias
+      m_output_prefix(output_prefix), // alias
+      m_matchlist(matches),
       m_editMatchPointVecIndex(editMatchPointVecIndex),
       m_use_georef(use_georef),
       m_view_matches(view_matches), m_zoom_all_to_same_region(zoom_all_to_same_region),
       m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false),
-      m_polyEditMode(false), m_polyLayerIndex(0),
+      m_polyEditMode(false), m_polyLayerIndex(beg_image_id),
       m_pixelTol(6), m_backgroundColor(QColor("black")),
       m_lineWidth(1), m_polyColor("green"), m_editingMatches(false) {
 
@@ -238,8 +233,6 @@ namespace vw { namespace gui {
     // of the first image.
     // Also set up the image GeoReference transforms for each image
     // in both directions.
-    // TODO(oalexan1): There is no need to re-read images when the layout changes.
-    // Images better be read before the layout is created and just passed in.
     int num_images = m_images.size();
     m_filesOrder.resize(num_images);
     m_world2image_geotransforms.resize(num_images);
@@ -254,8 +247,10 @@ namespace vw { namespace gui {
     // Set geotransforms and other data
     for (int i = 0; i < num_images; i++) {
       // Make sure we set these up before the image2world call below!
-      m_world2image_geotransforms[i] = GeoTransform(m_base_image.georef, m_images[i].georef);
-      m_image2world_geotransforms[i] = GeoTransform(m_images[i].georef, m_base_image.georef);
+      m_world2image_geotransforms[i]
+        = GeoTransform(m_images[m_base_image_id].georef, m_images[i].georef);
+      m_image2world_geotransforms[i]
+        = GeoTransform(m_images[i].georef, m_images[m_base_image_id].georef);
       
       m_filesOrder[i] = i; // start by keeping the order of files being read
 
@@ -263,16 +258,16 @@ namespace vw { namespace gui {
       BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
       m_world_box.grow(B);
 
-      // The first existing vector layer becomes the one we draw on.
-      // Otherwise we keep m_polyLayerIndex at 0 so we store any new
-      // polygons in m_images[0].
-      if (m_images[i].isPoly() && m_polyLayerIndex == 0)
+      // The first existing vector layer in the current widget becomes the one we draw on.
+      // Otherwise we keep m_polyLayerIndex at m_beg_image_id so we store any new
+      // polygons in m_images[m_beg_image_id].
+      if (m_beg_image_id <= i && i < m_end_image_id &&
+          m_images[i].isPoly() && m_polyLayerIndex == m_beg_image_id)
         m_polyLayerIndex = i;
       
     } // end iterating over the images
 
     // Each image can be hillshaded independently of the other ones
-    m_hillshade_mode      = hillshade;
     m_hillshade_azimuth   = asp::stereo_settings().hillshade_azimuth;
     m_hillshade_elevation = asp::stereo_settings().hillshade_elevation;
     
@@ -416,8 +411,8 @@ namespace vw { namespace gui {
 
     // If having shapefiles, make it possible to change their colors
     bool has_shp = false;
-    for (size_t it = 0; it < m_images.size(); it++) {
-      if (vw::get_extension(m_images[it].name) == ".shp")
+    for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
+      if (vw::get_extension(m_images[image_iter].name) == ".shp")
         has_shp = true;
     }
     if (has_shp) {
@@ -660,7 +655,7 @@ namespace vw { namespace gui {
       vw_out() << "Did not expect no images!";
       vw_throw(ArgumentErr() << "Did not expect no images.\n");
     }
-    return MainWidget::world2image(m_current_view, 0);
+    return MainWidget::world2image(m_current_view, m_beg_image_id);
   }
 
   // The current image box in world coordinates
@@ -670,7 +665,7 @@ namespace vw { namespace gui {
       vw_out() << "Did not expect no images!";
       vw_throw(ArgumentErr() << "Did not expect no images.\n");
     }
-    return MainWidget::image2world(image_box, 0);
+    return MainWidget::image2world(image_box, m_beg_image_id);
   }
   
   void MainWidget::viewThreshImages(bool refresh_pixmap){
@@ -679,7 +674,7 @@ namespace vw { namespace gui {
 
     int num_non_poly_images = 0;
     int num_images = m_images.size();
-    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+    for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
       if (!m_images[image_iter].isPoly())
         num_non_poly_images++;
     }
@@ -701,7 +696,7 @@ namespace vw { namespace gui {
 
     // Create the thresholded images and save them to disk. We have to do it each
     // time as perhaps the image threshold changed.
-    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+    for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
       std::string input_file = m_images[image_iter].name;
 
       if (m_images[image_iter].isPoly())
@@ -746,18 +741,16 @@ namespace vw { namespace gui {
   void MainWidget::maybeGenHillshade(){
 
     int num_images = m_images.size();
-    m_hillshaded_images.clear(); // wipe the old copy
-    m_hillshaded_images.resize(num_images);
 
     // Create the hillshaded images and save them to disk. We have to do
     // it each time as perhaps the hillshade parameters changed.
-    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+    for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
 
-      if (m_hillshade_mode[image_iter] != HILLSHADED_VIEW) continue;
+      if (m_images[image_iter].m_display_mode != HILLSHADED_VIEW) continue;
 
       if (!m_images[image_iter].has_georef) {
         popUp("Hill-shading requires georeferenced images.");
-        m_hillshade_mode[image_iter] = REGULAR_VIEW;
+        m_images[image_iter].m_display_mode = REGULAR_VIEW;
         return;
       }
 
@@ -773,10 +766,13 @@ namespace vw { namespace gui {
         for (int iter2 = 0; iter2 < num_images; iter2++) {
           int num_channels2 = m_images[iter2].img.planes();
           if (num_channels2 != 1) {
-            m_hillshade_mode[iter2] = REGULAR_VIEW;
+            // TODO(oalexan1): Do we need a lock here?
+            m_images[iter2].m_display_mode = REGULAR_VIEW;
           }
         }
-        
+
+        // TODO(oalexan1): This warning still shows up many times
+        // the images are side-by-side
         popUp("Hill-shading makes sense only for single-channel images.");
         return;
       }
@@ -788,12 +784,12 @@ namespace vw { namespace gui {
                                      m_hillshade_elevation,
                                      input_file, hillshaded_file);
       if (!success) {
-        m_hillshade_mode[image_iter] = REGULAR_VIEW;
+        m_images[image_iter].m_display_mode = REGULAR_VIEW;
         return;
       }
 
       vw_out() << "Reading: " << hillshaded_file << std::endl;
-      m_hillshaded_images[image_iter].read(hillshaded_file, m_opt);
+      m_images[image_iter].read(hillshaded_file, m_opt, HILLSHADED_VIEW);
       temporary_files().files.insert(hillshaded_file);
     }
   }
@@ -843,10 +839,10 @@ namespace vw { namespace gui {
   void MainWidget::toggleHillshadeFromImageList() {
     for (std::set<int>::iterator it = m_indicesWithAction.begin();
 	 it != m_indicesWithAction.end(); it++) {
-      if (m_hillshade_mode[*it] == HILLSHADED_VIEW)
-        m_hillshade_mode[*it] = REGULAR_VIEW;
-      else if (m_hillshade_mode[*it] != HILLSHADED_VIEW)
-        m_hillshade_mode[*it] = HILLSHADED_VIEW;
+      if (m_images[*it].m_display_mode == HILLSHADED_VIEW)
+        m_images[*it].m_display_mode = REGULAR_VIEW;
+      else if (m_images[*it].m_display_mode != HILLSHADED_VIEW)
+        m_images[*it].m_display_mode = HILLSHADED_VIEW;
       
       // We will assume if the user wants to see the hillshade
       // status of this image change, he'll also want it on top.
@@ -859,12 +855,11 @@ namespace vw { namespace gui {
     
   // This is reached with right-click from the image itself
   void MainWidget::toggleHillshadeImageRightClick(){
-    m_hillshade_mode.resize(m_images.size());
-    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) {
-      if (m_hillshade_mode[image_iter] == HILLSHADED_VIEW)
-        m_hillshade_mode[image_iter] = REGULAR_VIEW;
-      else if (m_hillshade_mode[image_iter] != HILLSHADED_VIEW)
-        m_hillshade_mode[image_iter] = HILLSHADED_VIEW;
+    for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
+      if (m_images[image_iter].m_display_mode == HILLSHADED_VIEW)
+        m_images[image_iter].m_display_mode = REGULAR_VIEW;
+      else if (m_images[image_iter].m_display_mode != HILLSHADED_VIEW)
+        m_images[image_iter].m_display_mode = HILLSHADED_VIEW;
     }
     
     refreshHillshade();
@@ -928,25 +923,13 @@ namespace vw { namespace gui {
     refreshHillshade();
   }
 
-  bool MainWidget::hillshadeMode() const {
-    if (m_hillshade_mode.empty()) return false;
-
-    // If we have to return just one value, one image not being
-    // hillshaded will imply that the value is false
-    for (size_t it = 0; it < m_hillshade_mode.size(); it++) {
-      if (m_hillshade_mode[it] != HILLSHADED_VIEW) return false;
-    }
-    return true;
-  }
-
   // Each image can be hillshaded independently of the others
   void MainWidget::setHillshadeMode(bool hillshade_mode){
-    m_hillshade_mode.resize(m_images.size());
-    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) {
+    for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
       if (hillshade_mode) 
-        m_hillshade_mode[image_iter] = HILLSHADED_VIEW;
+        m_images[image_iter].m_display_mode = HILLSHADED_VIEW;
       else
-        m_hillshade_mode[image_iter] = REGULAR_VIEW;
+        m_images[image_iter].m_display_mode = REGULAR_VIEW;
     }
      
   }
@@ -974,7 +957,7 @@ namespace vw { namespace gui {
   
   // The image with the given index will be on top when shown.
   void MainWidget::bringImageOnTop(int image_index){
-    std::vector<int>::iterator it = std::find(m_filesOrder.begin(), m_filesOrder.end(), image_index);
+    auto it = std::find(m_filesOrder.begin(), m_filesOrder.end(), image_index);
     if (it != m_filesOrder.end()){
       m_filesOrder.erase(it);
       m_filesOrder.push_back(image_index); // show last, so on top
@@ -986,7 +969,7 @@ namespace vw { namespace gui {
 
   // The image with the given index will be on top when shown.
   void MainWidget::pushImageToBottom(int image_index){
-    std::vector<int>::iterator it = std::find(m_filesOrder.begin(), m_filesOrder.end(), image_index);
+    auto it = std::find(m_filesOrder.begin(), m_filesOrder.end(), image_index);
     if (it != m_filesOrder.end()){
       m_filesOrder.erase(it);
       m_filesOrder.insert(m_filesOrder.begin(), image_index); // show first, so at the bottom
@@ -1016,7 +999,7 @@ namespace vw { namespace gui {
       return false;
     }
 
-    win = bbox2qrect(world2image(m_stereoCropWin, 0));
+    win = bbox2qrect(world2image(m_stereoCropWin, m_beg_image_id));
     return true;
   }
 
@@ -1063,7 +1046,7 @@ namespace vw { namespace gui {
 
     // Loop through input images
     // - These images get drawn in the same
-    for (size_t j = 0; j < m_images.size(); j++){
+    for (int j = m_beg_image_id; j < m_end_image_id; j++){
 
       //Stopwatch sw2;
       //sw2.start();
@@ -1133,11 +1116,11 @@ namespace vw { namespace gui {
       //sw3.start();
       
       if (m_thresh_view_mode){
-        m_thresh_images[i].img.get_image_clip(scale, image_box,
-                                              highlight_nodata,
-                                              qimg, scale_out, region_out);
-      }else if (m_hillshade_mode[i] == HILLSHADED_VIEW){
-        m_hillshaded_images[i].img.get_image_clip(scale, image_box,
+        m_images[i].thresholded_img.get_image_clip(scale, image_box,
+                                                   highlight_nodata,
+                                                   qimg, scale_out, region_out);
+      }else if (m_images[i].m_display_mode == HILLSHADED_VIEW){
+        m_images[i].hillshaded_img.get_image_clip(scale, image_box,
                                                   highlight_nodata,
                                                   qimg, scale_out, region_out);
       }else{
@@ -1198,8 +1181,8 @@ namespace vw { namespace gui {
             Vector2 p;
             try {
               p = MainWidget::world2image(world_pt, i);
-              bool is_in = (p[0] >= 0 && p[0] <= m_images[i].img.cols()-1 &&
-                            p[1] >= 0 && p[1] <= m_images[i].img.rows()-1 );
+              bool is_in = (p[0] >= 0 && p[0] <= m_images[i].img.cols() - 1 &&
+                            p[1] >= 0 && p[1] <= m_images[i].img.rows() - 1);
               if (!is_in) continue; // out of range
             }catch ( const std::exception & e ) {
               continue;
@@ -1257,7 +1240,7 @@ namespace vw { namespace gui {
 
     paint->setBrush(Qt::NoBrush);
 
-    if ((m_images.size() != 1) && m_matchlist.getNumPoints() > 0) {
+    if ((m_end_image_id - m_beg_image_id > 1) && m_matchlist.getNumPoints() > 0) {
       // In order to be able to see matches, each image must be in its own widget.
       // So, if the current widget has more than an image, they are stacked on top
       // of each other, and then we just can't show IP.
@@ -1269,16 +1252,13 @@ namespace vw { namespace gui {
     // - Here we check to see if it has not been placed in all images yet.
     size_t lastImage = m_matchlist.getNumImages()-1;
     bool highlight_last =
-      (m_matchlist.getNumPoints(m_image_id) > m_matchlist.getNumPoints(lastImage));
-
-    // Needed for image2word
-    size_t trans_image_id = getTransformImageIndex();
+      (m_matchlist.getNumPoints(m_beg_image_id) > m_matchlist.getNumPoints(lastImage));
 
     // For each IP...
-    for (size_t ip_iter = 0; ip_iter < m_matchlist.getNumPoints(m_image_id); ip_iter++) {
+    for (size_t ip_iter = 0; ip_iter < m_matchlist.getNumPoints(m_beg_image_id); ip_iter++) {
       // Generate the pixel coord of the point
-      Vector2 pt    = m_matchlist.getPointCoord(m_image_id, ip_iter);
-      Vector2 world = MainWidget::image2world(pt, static_cast<int>(trans_image_id));
+      Vector2 pt    = m_matchlist.getPointCoord(m_beg_image_id, ip_iter);
+      Vector2 world = MainWidget::image2world(pt, m_base_image_id);
       Vector2 P     = world2screen(world);
 
       // Do not draw points that are outside the viewing area
@@ -1289,11 +1269,11 @@ namespace vw { namespace gui {
       
       paint->setPen(ipColor); // The default IP color
 
-      if (!m_matchlist.isPointValid(m_image_id, ip_iter))
+      if (!m_matchlist.isPointValid(m_beg_image_id, ip_iter))
         paint->setPen(ipInvalidColor);
 
       // Highlighting the last point
-      if (highlight_last && (ip_iter == m_matchlist.getNumPoints(m_image_id)-1)) 
+      if (highlight_last && (ip_iter == m_matchlist.getNumPoints(m_beg_image_id)-1)) 
         paint->setPen(ipAddHighlightColor);
 
       if (static_cast<int>(ip_iter) == m_editMatchPointVecIndex)
@@ -1345,7 +1325,7 @@ namespace vw { namespace gui {
 
     if (m_zoom_all_to_same_region && m_can_emit_zoom_all_signal){
       m_can_emit_zoom_all_signal = false;
-      emit zoomAllToSameRegionSignal(m_image_id);
+      emit zoomAllToSameRegionSignal(m_beg_image_id);
 
       // Now we call the parent, which will set the zoom window,
       // and call back here for all widgets.
@@ -1444,13 +1424,12 @@ namespace vw { namespace gui {
     // TODO(oalexan1): Should the persistent polygons be drawn
     // as part of the drawImage() call? How about polygons
     // actively being edited?
-    
     // Loop through the input images. Plot the polygons. Note how we
     // add one more fake image at the end to take care of the polygon
     // we are in the middle of drawing.
-    for (size_t j = 0; j < m_images.size() + 1; j++){
+    for (int j = m_beg_image_id; j < m_end_image_id + 1; j++){
 
-      bool currDrawnPoly = (j == m_images.size());
+      bool currDrawnPoly = (j == m_end_image_id);
       
       int image_it = j;
       if (!currDrawnPoly) {
@@ -1539,7 +1518,7 @@ namespace vw { namespace gui {
     } // end iterating over polygons for all images
     
     // Call another function to handle drawing the interest points
-    if ((static_cast<size_t>(m_image_id) < m_matchlist.getNumImages()) && m_view_matches) 
+    if ((static_cast<size_t>(m_beg_image_id) < m_matchlist.getNumImages()) && m_view_matches) 
       drawInterestPoints(&paint);
     
   } // end paint event
@@ -1570,7 +1549,7 @@ namespace vw { namespace gui {
     if (m_profilePlot == NULL) 
       m_profilePlot = new ProfilePlotter(this);
 
-    int imgInd = 0; // just one image is present
+    int imgInd = m_beg_image_id; // just one image is present
     double nodata_val = images[imgInd].img.get_nodata_val();
     
     m_valsX.clear(); m_valsY.clear();
@@ -1587,11 +1566,10 @@ namespace vw { namespace gui {
                                              imgInd);
 
       Vector2 endP;
-      if (num_pts == 1) {
+      if (num_pts == 1)
         endP = begP; // only one point is present
-      }else{
+      else
         endP = MainWidget::world2image(Vector2(profileX[pt_iter+1], profileY[pt_iter+1]), imgInd);
-      }
       
       int begX = begP.x(),   begY = begP.y();
       int endX = endP.x(),   endY = endP.y();
@@ -1877,7 +1855,7 @@ namespace vw { namespace gui {
     // This code cannot be moved out to utilities since it calls the
     // function projpoint2world().
     
-    for (size_t clipIter = 0; clipIter < m_images.size(); clipIter++) {
+    for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
     
       for (size_t layerIter = 0; layerIter < m_images[clipIter].polyVec.size(); layerIter++) {
       
@@ -1960,7 +1938,7 @@ namespace vw { namespace gui {
 
     Vector2 world_P(world_x0, world_y0);
 
-    for (size_t clipIter = 0; clipIter < imageData.size(); clipIter++){
+    for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++){
     
       double minX0, minY0, minDist0;
       int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
@@ -2025,7 +2003,7 @@ namespace vw { namespace gui {
 
     Vector2 world_P(world_x0, world_y0);
     
-    for (size_t clipIter = 0; clipIter < imageData.size(); clipIter++){
+    for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++){
     
       double minX0, minY0, minDist0;
       int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
@@ -2080,7 +2058,7 @@ namespace vw { namespace gui {
     // If there is absolutely no polygon, start by creating one
     // with just one point.
     bool allEmpty = true;
-    for (size_t clipIter = 0; clipIter < m_images.size(); clipIter++) {
+    for (size_t clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
       if (m_images[clipIter].polyVec.size() > 0 && 
           m_images[clipIter].polyVec[0].get_totalNumVerts() > 0) {
         allEmpty = false;
@@ -2139,7 +2117,7 @@ namespace vw { namespace gui {
       // This can flip orientations and order of polygons. 
       std::vector<OGRGeometry*> ogr_polys;
 
-      for (size_t clipIter = 0; clipIter < imageData.size(); clipIter++) {
+      for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
 
         auto & polyVec = imageData[clipIter].polyVec;
         for (size_t vecIter = 0; vecIter < polyVec.size(); vecIter++) {
@@ -2244,7 +2222,7 @@ namespace vw { namespace gui {
     }
     
     // Wipe all existing polygons and replace with this one
-    for (size_t clipIter = 0; clipIter < imageData.size(); clipIter++) 
+    for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) 
       imageData[clipIter].polyVec.clear();
 
     imageData[outIndex].polyVec = polyVec;
@@ -2258,7 +2236,7 @@ namespace vw { namespace gui {
   // Save the currently created vector layer
   void MainWidget::saveVectorLayer(){
     
-    if (m_polyLayerIndex >= int(m_images.size())){
+    if (m_polyLayerIndex < m_beg_image_id || m_polyLayerIndex >= m_end_image_id){
       popUp("Images are inconsistent. Cannot save vector layer.");
       return;
     }
@@ -2287,8 +2265,7 @@ namespace vw { namespace gui {
     
     int non_poly_image = -1;
     int num_non_poly_images = 0;
-    int num_images = m_images.size();
-    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+    for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
       if (!m_images[image_iter].isPoly())
         num_non_poly_images++;
       non_poly_image = image_iter;
@@ -2379,9 +2356,9 @@ namespace vw { namespace gui {
                              int lineWidth,
                              int drawVertIndex, // 0 is a good choice here
                              QColor const& color,
-                             QPainter &paint,
-                             vw::geometry::dPoly currPoly // Make a local copy on purpose
-                             ){
+                             QPainter & paint,
+                             // Make a local copy of the poly on purpose
+                             vw::geometry::dPoly currPoly){
 
     using namespace vw::geometry;
 
@@ -2417,10 +2394,11 @@ namespace vw { namespace gui {
     double extraY = extra + tol * std::max(std::abs(y_min), std::abs(y_max));
 
     dPoly clippedPoly;
-    currPoly.clipPoly(x_min - extraX, y_min - extraY,
-		      x_max + extraX, y_max + extraY, // inputs
-                      clippedPoly // output
-                      );
+    currPoly.clipPoly(// Inputs
+                      x_min - extraX, y_min - extraY,
+		      x_max + extraX, y_max + extraY,
+                      // Output
+                      clippedPoly);
     
     std::vector<vw::geometry::anno> annotations;
     if (showIndices) {
@@ -2559,9 +2537,6 @@ namespace vw { namespace gui {
     m_rubberBand = m_emptyRubberBand;
 
     m_curr_pixel_pos = QPoint2Vec(QPoint(m_mousePrsX, m_mousePrsY)); // Record where we clicked
-    m_last_gain      = m_gain;   // Store this so the user can do linear
-    m_last_offset    = m_offset; // and nonlinear steps.
-    m_last_gamma     = m_gamma;
     updateCurrentMousePosition();
 
     // Need this for panning
@@ -2579,13 +2554,13 @@ namespace vw { namespace gui {
 
       m_editingMatches = true;
       
-      size_t  trans_image_id = getTransformImageIndex();
       Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-      P = world2image(P, trans_image_id);
+      P = world2image(P, m_base_image_id);
 
       // Find the match point we want to move
       const double DISTANCE_LIMIT = 70;
-      m_editMatchPointVecIndex = m_matchlist.findNearestMatchPoint(m_image_id, P, DISTANCE_LIMIT);
+      m_editMatchPointVecIndex
+        = m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
 
       emit turnOnViewMatchesSignal(); // Update IP draw color
     } // End match point update case
@@ -2614,8 +2589,8 @@ namespace vw { namespace gui {
 
       // When all the polygons are empty, make sure that at least
       // m_polyLayerIndex is valid.
-      if (m_polyLayerIndex < 0) 
-        m_polyLayerIndex = 0;
+      if (m_polyLayerIndex < m_beg_image_id) 
+        m_polyLayerIndex = m_beg_image_id;
       
       // This will redraw just the polygons, not the pixmap
       update();
@@ -2648,16 +2623,15 @@ namespace vw { namespace gui {
       m_editingMatches = true;
 
       // Error checking
-      if ( (m_image_id < 0) || (m_editMatchPointVecIndex < 0) ||
-           (!m_matchlist.pointExists(m_image_id, m_editMatchPointVecIndex)) )
+      if ( (m_beg_image_id < 0) || (m_editMatchPointVecIndex < 0) ||
+           (!m_matchlist.pointExists(m_beg_image_id, m_editMatchPointVecIndex)) )
         return;
 
-      size_t  trans_image_id = getTransformImageIndex();
       Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
-      P = world2image(P, trans_image_id);
+      P = world2image(P, m_base_image_id);
 
       // Update the IP location
-      m_matchlist.setPointPosition(m_image_id, m_editMatchPointVecIndex, P.x(), P.y());
+      m_matchlist.setPointPosition(m_beg_image_id, m_editMatchPointVecIndex, P.x(), P.y());
 
       emit turnOnViewMatchesSignal(); // Update IP draw color
       return;
@@ -2676,9 +2650,8 @@ namespace vw { namespace gui {
 
       m_world_box.grow(P); // to not cut when plotting later
       P = world2projpoint(P, m_polyLayerIndex); // projected units
-      m_images[m_polyLayerIndex].polyVec[m_editPolyVecIndex].changeVertexValue(m_editIndexInCurrPoly,
-                                                                             m_editVertIndexInCurrPoly,
-                                                                             P.x(), P.y());
+      m_images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
+        .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly, P.x(), P.y());
       // This will redraw just the polygons, not the pixmap
       update();
       return;
@@ -2722,7 +2695,7 @@ namespace vw { namespace gui {
     return;
   } // End function mouseMoveEvent()
 
-// TODO: Clean up this monster function!
+  // TODO(oalexan1): Clean up this monster function!
   void MainWidget::mouseReleaseEvent (QMouseEvent *event){
 
     QPoint mouse_rel_pos = event->pos();
@@ -2740,7 +2713,7 @@ namespace vw { namespace gui {
     // If a point was being moved, reset the ID and color.
     // - Points that are moved are also set to valid.
     if (m_editMatchPointVecIndex >= 0) {
-      m_matchlist.setPointValid(m_image_id, m_editMatchPointVecIndex, true);
+      m_matchlist.setPointValid(m_beg_image_id, m_editMatchPointVecIndex, true);
       m_editMatchPointVecIndex = -1;
       emit turnOnViewMatchesSignal(); // Update IP draw color
     }
@@ -2764,7 +2737,7 @@ namespace vw { namespace gui {
         bool can_profile = m_profileMode;
         
         // Print pixel coordinates and image value.
-        for (size_t j = 0; j < m_images.size(); j++){
+        for (int j = m_beg_image_id; j < m_end_image_id; j++){
           
           int it = m_filesOrder[j];
           
@@ -2834,9 +2807,8 @@ namespace vw { namespace gui {
           Vector2 P = screen2world(Vector2(mouseRelX, mouseRelY));
           m_world_box.grow(P); // to not cut when plotting later
           P = world2projpoint(P, m_polyLayerIndex); // projected units
-          m_images[m_polyLayerIndex].polyVec[m_editPolyVecIndex].changeVertexValue(m_editIndexInCurrPoly,
-                                                          m_editVertIndexInCurrPoly,
-                                                          P.x(), P.y());
+          m_images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
+            .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly, P.x(), P.y());
 
           // These are no longer needed for the time being
           m_editPolyVecIndex        = -1;
@@ -2855,40 +2827,39 @@ namespace vw { namespace gui {
         // Image threshold mode. If we released the mouse where we
         // pressed it, that means we want the current pixel value
         // to be the threshold if larger than the existing threshold.
-        if (m_images.size() != 1) {
+        if (m_end_image_id - m_beg_image_id != 1) {
           popUp("Must have just one image in each window to do image threshold detection.");
           m_thresh_calc_mode = false;
           refreshPixmap();
           return;
         }
 
-        if (m_images[0].img.planes() != 1) {
+        if (m_images[m_beg_image_id].img.planes() != 1) {
           popUp("Thresholding makes sense only for single-channel images.");
           m_thresh_calc_mode = false;
           return;
         }
         
         if (m_use_georef) {
-          popUp("Thresholding is not supported when using georeference information to show images.");
+          popUp("Thresholding is not supported when using georeference "
+                "information to show images.");
           m_thresh_calc_mode = false;
           return;
         }
 
         Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
-        Vector2 q = world2image(p, 0);
+        Vector2 q = world2image(p, m_beg_image_id);
 
         int col = round(q[0]), row = round(q[1]);
         vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
 
-        if (col >= 0 && row >= 0 && col < m_images[0].img.cols() &&
-            row < m_images[0].img.rows() ) {
-          double val      = m_images[0].img.get_value_as_double(col, row);
+        if (col >= 0 && row >= 0 && col < m_images[m_beg_image_id].img.cols() &&
+            row < m_images[m_beg_image_id].img.rows() ) {
+          double val = m_images[m_beg_image_id].img.get_value_as_double(col, row);
           m_thresh = std::max(m_thresh, val);
         }
 
-        vw_out() << "Image threshold for "
-                 << m_images[0].name
-                 << ": " << m_thresh << std::endl;
+        vw_out() << "Image threshold for " << m_images[m_beg_image_id].name << ": " << m_thresh << std::endl;
         return;
       }
 
@@ -2930,7 +2901,7 @@ namespace vw { namespace gui {
         m_selectionRectangles.push_back(m_stereoCropWin);
       }
       
-      for (int j = 0; j < (int)m_images.size(); j++){
+      for (int j = m_beg_image_id; j < m_end_image_id; j++){
         
         int image_it = m_filesOrder[j];
         
@@ -2940,13 +2911,9 @@ namespace vw { namespace gui {
 
         BBox2 image_box = world2image(m_stereoCropWin, image_it); 
         vw_out().precision(8);
-        vw_out() << "Crop src win for  "
-                 << m_images[image_it].name
-                 << ": "
-                 << round(image_box.min().x()) << ' '
-                 << round(image_box.min().y()) << ' '
-                 << round(image_box.width())   << ' '
-                 << round(image_box.height())  << std::endl;
+        vw_out() << "Crop src win for  " << m_images[image_it].name << ": "
+                 << round(image_box.min().x()) << ' ' << round(image_box.min().y()) << ' '
+                 << round(image_box.width())   << ' ' << round(image_box.height())  << std::endl;
 
         if (m_images[image_it].has_georef){
           Vector2 proj_min, proj_max;
@@ -3163,7 +3130,7 @@ namespace vw { namespace gui {
 
   void MainWidget::viewMatches(bool view_matches){
     // Complain if there are multiple images and matches was turned on
-    if ((m_images.size() != 1) && view_matches) {
+    if ((m_end_image_id - m_beg_image_id != 1) && view_matches) {
       emit turnOffViewMatchesSignal();
       return;
     }
@@ -3175,12 +3142,12 @@ namespace vw { namespace gui {
   
   void MainWidget::addMatchPoint(){
 
-    if (m_image_id >= static_cast<int>(m_matchlist.getNumImages())) {
+    if (m_beg_image_id >= static_cast<int>(m_matchlist.getNumImages())) {
       popUp("Number of existing matches is corrupted. Cannot add matches.");
       return;
     }
 
-    if (m_images.size() != 1) {
+    if (m_end_image_id - m_beg_image_id != 1) {
       emit turnOffViewMatchesSignal();
       return;
     }
@@ -3188,12 +3155,11 @@ namespace vw { namespace gui {
     m_editingMatches = true;
 
     // Convert mouse coords to world coords then image coords.
-    size_t  trans_image_id = getTransformImageIndex();
     Vector2 world_coord    = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-    Vector2 P              = world2image(world_coord, trans_image_id);
+    Vector2 P              = world2image(world_coord, m_base_image_id);
 
     // Try to add the new IP.
-    bool is_good = m_matchlist.addPoint(m_image_id, ip::InterestPoint(P.x(), P.y()));
+    bool is_good = m_matchlist.addPoint(m_beg_image_id, ip::InterestPoint(P.x(), P.y()));
 
     if (!is_good) {
       popUp(std::string("Add matches by adding a point in the left-most ")
@@ -3209,7 +3175,7 @@ namespace vw { namespace gui {
   // We cannot delete match points unless all images have the same number of them.
   void MainWidget::deleteMatchPoint(){
 
-    if (m_images.size() != 1) {
+    if (m_end_image_id - m_beg_image_id != 1) {
       popUp("Must have just one image in each window to delete matches.");
       return;
     }
@@ -3220,11 +3186,10 @@ namespace vw { namespace gui {
     }
 
     // Find the closest match to this point.
-    size_t trans_image_id = getTransformImageIndex();
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-    P = world2image(P, trans_image_id);
+    P = world2image(P, m_base_image_id);
     const double DISTANCE_LIMIT = 70;
-    int min_index = m_matchlist.findNearestMatchPoint(m_image_id, P, DISTANCE_LIMIT);
+    int min_index = m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
     if (min_index < 0) {
       popUp("Did not find a nearby match to delete.");
       return;
@@ -3278,7 +3243,7 @@ namespace vw { namespace gui {
 
     QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
 
-    for (int j = 0; j < (int)m_images.size(); j++){
+    for (int j = m_beg_image_id; j < m_end_image_id; j++){
       
       int image_it = m_filesOrder[j];
       
@@ -3326,8 +3291,7 @@ namespace vw { namespace gui {
 
     int non_poly_image = 0;
     int num_non_poly_images = 0;
-    int num_images = m_images.size();
-    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+    for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
       if (!m_images[image_iter].isPoly())
         num_non_poly_images++;
       non_poly_image = image_iter;
@@ -3346,6 +3310,7 @@ namespace vw { namespace gui {
 	     << ": " << m_thresh << std::endl;
   }
 
+  // TODO(oalexan1): Each image must know its threshold
   double MainWidget::getThreshold(){
     return m_thresh;
   }
@@ -3398,7 +3363,7 @@ namespace vw { namespace gui {
     MainWidget::maybeGenHillshade();
     refreshPixmap();
 
-    vw_out() << "Hillshade azimuth and elevation for " << m_images[0].name
+    vw_out() << "Hillshade azimuth and elevation for " << m_images[m_beg_image_id].name
 	     << ": "
              << m_hillshade_azimuth << ' '
              << m_hillshade_elevation << std::endl;

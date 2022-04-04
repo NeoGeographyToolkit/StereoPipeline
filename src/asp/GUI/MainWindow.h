@@ -177,12 +177,10 @@ namespace vw { namespace gui {
     int      m_argc;
     char **  m_argv;
     bool     m_matches_exist;
-    DisplayType m_display_type;
-    std::vector<DisplayType> m_hillshade_vec;
+    DisplayMode m_display_mode;
     
     std::vector<std::string>  m_image_files; // Loaded image files
     std::vector<imageData>    m_images;      // Handles to loaded images
-    imageData m_base_image;                  // Handle to base image (to overlay the rest against)
 
     /// Structure to keep track of all interest point matches.
     MatchList m_matchlist;

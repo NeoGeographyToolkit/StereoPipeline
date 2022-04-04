@@ -73,7 +73,7 @@ namespace vw { namespace gui {
   // The kinds of images we support
   enum ImgType {UNINIT, CH1_DOUBLE, CH2_UINT8, CH3_UINT8, CH4_UINT8};
 
-  enum DisplayType {REGULAR_VIEW, HILLSHADED_VIEW, COLORMAP_VIEW, HILLSHADE_COLORMAP_VIEW, THRESHOLDED_VIEW};
+  enum DisplayMode {REGULAR_VIEW, HILLSHADED_VIEW, COLORMAP_VIEW, HILLSHADE_COLORMAP_VIEW, THRESHOLDED_VIEW};
   
   // TODO(oalexan1): Remove this def out of this header file
   namespace fs = boost::filesystem;
@@ -180,24 +180,36 @@ namespace vw { namespace gui {
 
   /// A class to keep all data associated with an image file
   struct imageData{
-    std::string      name;
+    std::string      name, hillshaded_name; // TODO(oalexan1): Think more here
     vw::cartography::GdalWriteOptions m_opt;
     bool             has_georef;
     vw::cartography::GeoReference georef;
     BBox2            image_bbox;
+
+    // There are several display modes. The one being shown is
+    // determined by m_display_mode. Store the corresponding
+    // image in one of the structures below
+    DisplayMode m_display_mode;
     DiskImagePyramidMultiChannel img;
+    DiskImagePyramidMultiChannel hillshaded_img;
+    DiskImagePyramidMultiChannel thresholded_img;
+    DiskImagePyramidMultiChannel colorized_img;
+    DiskImagePyramidMultiChannel color_thresholded_img;
+    
     std::vector<vw::geometry::dPoly> polyVec; // a shapefile
+
+    imageData(): m_display_mode(REGULAR_VIEW) {}
     
     /// Load an image from disk into img and set the other variables.
-    void read(std::string const& image,
-	      vw::cartography::GdalWriteOptions const& opt);
+    void read(std::string const& image, vw::cartography::GdalWriteOptions const& opt,
+              int display_mode = REGULAR_VIEW);
 
     bool isPoly() const { return asp::has_shp_extension(name); }
   };
 
   /// Convert a QRect object to a BBox2 object.
   inline BBox2 qrect2bbox(QRect const& R){
-    return BBox2( Vector2(R.left(), R.top()), Vector2(R.right(), R.bottom()) );
+    return BBox2(Vector2(R.left(), R.top()), Vector2(R.right(), R.bottom()));
   }
 
   /// Convert a BBox2 object to a QRect object.

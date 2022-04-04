@@ -86,14 +86,13 @@ namespace vw { namespace gui {
     // Constructors/Destructor
     MainWidget(QWidget *parent,
                vw::cartography::GdalWriteOptions const& opt,
-               int image_id,
-               std::string& output_prefix,
-               std::vector<imageData> const& images,
-               imageData const& base_image,
+               int beg_image_id, int end_image_id, int base_image_id,
+               std::vector<imageData> & images, // will be aliased
+               std::string & output_prefix,     // will be aliased
                MatchList & matches,
                int & editMatchPointVecIndex,
                chooseFilesDlg * chooseFiles, bool use_georef,
-               std::vector<DisplayType> const& hillshade, bool view_matches,
+               bool view_matches,
                bool zoom_all_to_same_region,
                bool & allowMultipleSelections // alias
               );
@@ -145,8 +144,6 @@ namespace vw { namespace gui {
     void  setZoomAllToSameRegion(bool zoom_all_to_same_region);
     vw::BBox2 current_view();
     void  zoomToRegion (vw::BBox2 const& region);
-    bool  hillshadeMode() const;
-    std::vector<DisplayType> hillshadeModeVec() const {return m_hillshade_mode;}
     void  setHillshadeMode(bool hillshade_mode);
     BBox2 firstImagePixelBox() const;
     BBox2 firstImageWorldBox(vw::BBox2 const& image_box) const;
@@ -182,7 +179,7 @@ public slots:
     void setHillshadeParams     (); ///< Set the azimuth and elevation for hillshaded images.
     void toggleHillshadeImageRightClick(); ///< Turn on/off hillshading on right-click on image
     void toggleHillshadeFromImageList(); ///< Toggle hillshade by right-click on image list
-    void refreshHillshade       (); ///< We modified m_hillshade_mode. Update the display.
+    void refreshHillshade       (); ///< Update the display if the state of hillshading changed.
     void bringImageOnTopSlot    (); ///< Show this image on top of other images.
     void pushImageToBottomSlot  (); ///< Show all other images on top of this
     void zoomToImage            (); ///< Zoom to have this image in full view.
@@ -246,9 +243,24 @@ public slots:
     std::set<std::string> m_filesToHide;    ///< Files that are currently not being displayed.
     std::vector<int>      m_filesOrder;     ///< The order the images are drawn in.
 
-    const int m_image_id; ///< An ID number assigned to this widget when it is created
+    int m_beg_image_id;  // The id of the first image among m_images in this widget
+    int m_end_image_id;  // The id of the image past the last image among m_images in this widget
+
+    // The index of the image on top of which the rest are overlaid.
+    // We will render in this image's pixel or projected domain. This
+    // only becomes important if using georeference, and the images
+    // have different projections.
+    int m_base_image_id;
+    
+    // Note that this is an alias. We would like to be able for this
+    // widget to be able to modify states in m_images (such as the
+    // flag noting if hillshading is on) which would persist after the
+    // widgets themselves are gone.
+    // The images actually drawn in this widget have indices
+    // in m_images in [m_beg_image_id, m_end_image_id).
+    std::vector<imageData> & m_images;
+
     std::string & m_output_prefix; // alias
-    std::vector<DisplayType> m_hillshade_mode;
     double m_hillshade_azimuth, m_hillshade_elevation;
 
     /// Structure to keep track of all interest point matches.
@@ -282,13 +294,6 @@ public slots:
     std::string m_polyColor;
     std::map<int, std::string> m_perImagePolyColor;
     int m_lineWidth;
-    
-    std::vector<imageData> m_images;
-
-    // We will render in this image's pixel or projected domain.
-    // This only becomes important if using georeference, and the images
-    // have different projections.
-    imageData m_base_image; 
 
     BBox2 m_world_box;
     
@@ -315,13 +320,6 @@ public slots:
 
     // Image Parameters
     vw::BBox2 m_current_view, m_last_view;
-    double m_gain,   m_last_gain;
-    double m_offset, m_last_offset;
-    double m_gamma,  m_last_gamma;
-
-    enum DisplayChannel { DisplayRGBA = 0, DisplayR, DisplayG, DisplayB, DisplayA };
-    int m_display_channel;
-    int m_colorize_display;
 
     // Mouse press  position
     int m_mousePrsX,  m_mousePrsY;
@@ -357,7 +355,6 @@ public slots:
     bool   m_thresh_view_mode;
     std::vector<imageData> m_thresh_images;
 
-    std::vector<imageData> m_hillshaded_images;
     std::set<int> m_indicesWithAction;
     
     bool m_view_matches; ///< Control if IP's are drawn
@@ -371,9 +368,6 @@ public slots:
     /// Add all the interest points to the provided canvas
     /// - Called internally by paintEvent()
     void drawInterestPoints(QPainter* paint);
-
-    /// Return the value of imageIndex to be passed in to the functions below
-    int     getTransformImageIndex() const;
 
     Vector2 world2screen   (Vector2 const  p  ) const;
     Vector2 screen2world   (Vector2 const  pix) const;
