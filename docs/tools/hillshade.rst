@@ -7,7 +7,15 @@ The ``hillshade`` tool reads in a DEM and outputs an image of that DEM
 as though it were a three-dimensional surface, with every pixel shaded
 as though it were illuminated by a light from a specified location.
 
-Command-line options for hillshade:
+Example::
+
+    hillshade -a 300 -e 30 dem.tif -o hillshaded.tif
+
+View these side-by-side::
+
+    stereo_gui dem.tif hillshaded.tif
+
+Command-line options for ``hillshade``:
 
 --help
     Display a help message.

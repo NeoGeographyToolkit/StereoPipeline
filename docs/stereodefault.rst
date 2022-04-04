@@ -374,7 +374,10 @@ corr-search (*integer integer integer integer*)
 max-disp-spread (*integer*) (default = -1)
     If positive, limit the spread of the disparity to this value
     (horizontally and vertically, centered at the median
-    value). Do not specify together with ``corr-search-limit``.
+    value). If this is on the order of 100 pixels, a run can already
+    become very slow. A small value may, however, result in steepest
+    slopes not processed well. Do not specify together with
+    ``corr-search-limit``.
 
 corr-search-limit (*integer integer integer integer*)
     Set these parameters to constrain the search range that
@@ -666,14 +669,13 @@ erode-max-size (*integer*) (default = 0)
 
 gotcha-disparity-refinement
     Turn on the experimental Gotcha disparity refinement
-    :cite:`tao2018massive`. It refines and overwrites F.tif. See the
+    (:numref:`casp_go`). It refines and overwrites F.tif. See the
     option ``casp-go-param-file`` for customizing its behavior.
 
 casp-go-param-file (*string*) (default = ""):
-    The parameter file to use with Gotcha (and in the future other
-    CASP-GO functionality) when invoking the
-    ``gotcha-disparity-refinement`` option. The default is to use the
-    file ``share/CASP-GO_params.xml`` shipped with ASP.
+    The parameter file to use with Gotcha disparity refinement when
+    invoking the ``gotcha-disparity-refinement`` option. The default
+    is to use the file ``share/CASP-GO_params.xml`` shipped with ASP.
 
 .. _triangulation_options:
 

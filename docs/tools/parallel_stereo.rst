@@ -63,7 +63,8 @@ The invoked C++ executables have their own command-line options
 invoking each executable with no options, it will display the list of
 options it accepts.
 
-The steps run by ``parallel_stereo`` are as follows.
+The steps run by ``parallel_stereo`` are as follows. The output
+files created by these steps are described in :numref:`outputfiles`.
 
 Step 0 (Preprocessing)
     Runs ``stereo_pprc``. Normalizes the two images and aligns them by
@@ -77,29 +78,31 @@ Step 0 (Preprocessing)
 Step 1 (Stereo correlation)
     Runs ``stereo_corr``. Performs correlation using various
     algorithms which can be specified via ``--stereo-algorithm``.
-    It writes a disparity map.
+    It writes a disparity map ending in ``D.tif``.
 
 Step 2 (Blend)
     Runs ``stereo_blend``. Blend the borders of adjacent disparity map
     tiles obtained during stereo correlation. Needed for all stereo
     algorithms except the classical ``ASP_BM`` when run without local
-    epipolar alignment.
+    epipolar alignment. The result is the file ending in ``B.tif``.
 
 Step 3 (Sub-pixel refinement)
     Runs ``stereo_rfne``. Performs sub-pixel correlation that refines
     the disparity map. Note that all stereo algorithms except
     ``ASP_BM`` already do their own refinement at step 1, however
     further refinement can happen at this step if the
-    ``--subpixel-mode`` option is set.
+    ``--subpixel-mode`` option is set. This produces a file ending in
+    ``RD.tif``.
 
 Step 4 (Outlier rejection)
     Runs ``stereo_fltr``. Performs filtering of the disparity map and
-    (optionally) fills in holes using an inpainting algorithm. Also
-    also creates a "good pixel" map.
+    (optionally) fills in holes using an inpainting algorithm. It creates
+    ``F.tif``. Also computes ``GoodPixelMap.tif``.
 
 Step 5 (Triangulation)
     Runs ``stereo_tri``. Generates a 3D triangulated point cloud from
     the disparity map by intersecting rays traced from the cameras.
+    The output filename ends in ``PC.tif``.
 
 It is important to note that since ``parallel_stereo`` can use a lot
 of computational and storage resources, all the intermediate data up
@@ -131,7 +134,7 @@ Command-line options
     - rpc          -- with any RPC cameras (:numref:`rpc`)
     - spot5        -- SPOT 5 exact linescan camera (:numref:`spot5`)
     - aster        -- exact ASTER camera model (:numref:`aster`)
-    - perusat      -- exact PeruSat-1 camera model (:numref:`perusat1`)
+    - perusat      -- PeruSat-1 exact linescan camera model (:numref:`perusat1`)
     - opticalbar   -- Optical Bar cameras (:numref:`kh4`)
     - csm          -- Community Sensor Model (:numref:`csm`)
 
