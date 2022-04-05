@@ -31,11 +31,7 @@ using namespace vw;
 
 namespace asp {
 
-// Filter D_sub. Must be called only for alignment method affineepipolar, homography,
-// and local_epipolar. For now this is not in use as a dataset where this would help
-// was not found. It was tested though.
-// TODO(oalexan1): Also do filtering by the range of disparity values, like
-// asp::filter_ip_by_disparity().
+// Filter D_sub. All alignment methods are supported.
 void filter_D_sub(ASPGlobalOptions const& opt,
                   vw::TransformPtr tx_left, vw::TransformPtr tx_right,
                   boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
@@ -44,16 +40,14 @@ void filter_D_sub(ASPGlobalOptions const& opt,
                   std::string const& d_sub_file,
                   Vector2 const& outlier_removal_params) {
   
-  // TODO(oalexan1): Add here the epipolar alignment.
-  // TODO(oalexan1): Save the ip obtained from disparity, so that
-  // they can be checked.
-  // TODO(oalexan1): Print all triangulation errors, as it appears
-  // that this code is too generous.
-    
   if (outlier_removal_params[0] >= 100.0)
     return; // The user chose to skip outlier filtering
   
   vw_out() << "Filtering outliers in D_sub based on --outlier-removal-params.\n";
+
+  double pct = outlier_removal_params[0];
+  double factor = outlier_removal_params[1];
+  double pct_fraction = 1.0 - pct/100.0;
 
   vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp_ref;
   vw::Vector2 upsample_scale;
@@ -61,7 +55,61 @@ void filter_D_sub(ASPGlobalOptions const& opt,
 
   // Use ImageView to read D_sub fully in memory so it can be modified
   vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp = sub_disp_ref;
-    
+
+  // Find the disparity values in x and y
+  std::vector<double> dx, dy;
+  for (int col = 0; col < sub_disp.cols(); col++) {
+    for (int row = 0; row < sub_disp.rows(); row++) {
+      vw::PixelMask<vw::Vector2f> disp = sub_disp(col, row);
+      
+      if (!is_valid(disp)) 
+        continue;
+      
+      Vector2 left_pix(col, row);
+      Vector2 right_pix = left_pix + disp.child();
+
+      double diffX = right_pix.x() - left_pix.x();
+      double diffY = right_pix.y() - left_pix.y();
+      dx.push_back(diffX);
+      dy.push_back(diffY);
+    }
+  }
+  
+  if (dx.empty())
+    vw_throw(ArgumentErr() << "Empty disparity.");
+
+  // Find the outlier brackets based on values in x and y
+  double bx = -1.0, ex = -1.0;
+  vw::math::find_outlier_brackets(dx, pct_fraction, factor, bx, ex);
+  vw_out() <<"Inlier range based on x coordinate of disparity: " << bx << ' ' << ex <<".\n";
+
+  double by = -1.0, ey = -1.0;
+  vw::math::find_outlier_brackets(dy, pct_fraction, factor, by, ey);
+  vw_out() <<"Inlier range based on y coordinate of disparity: " << by << ' ' << ey <<".\n";
+
+  int count = 0;
+  for (int col = 0; col < sub_disp.cols(); col++) {
+    for (int row = 0; row < sub_disp.rows(); row++) {
+      vw::PixelMask<vw::Vector2f> disp = sub_disp(col, row);
+      
+      if (!is_valid(disp)) 
+        continue;
+      
+      Vector2 left_pix(col, row);
+      Vector2 right_pix = left_pix + disp.child();
+
+      double diffX = right_pix.x() - left_pix.x();
+      double diffY = right_pix.y() - left_pix.y();
+
+      if (diffX < bx || diffX > ex || diffY < by || diffY > ey) {
+        sub_disp(col, row).invalidate();
+        count++;
+      }
+    }
+  }
+  vw_out() << "Number (and fraction) of removed outliers by disparity values in x and y: "
+           << count << " (" << double(count)/(sub_disp.cols() * sub_disp.rows()) << ").\n";
+  
   // Set up the stereo model for doing triangulation
   double angle_tol = vw::stereo::StereoModel
     ::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
@@ -129,15 +177,12 @@ void filter_D_sub(ASPGlobalOptions const& opt,
   }
 
   // Find the outlier brackets
-  double pct = outlier_removal_params[0];
-  double factor = outlier_removal_params[1];
-  double pct_fraction = 1.0 - pct/100.0;
   double b = -1.0, e = -1.0;
   vw::math::find_outlier_brackets(vals, pct_fraction, factor, b, e);
   vw_out() <<"Height above datum inlier range: " << b << ' ' << e <<".\n";
 
   // Apply the outlier threshold
-  int count = 0;
+  count = 0;
   for (int col = 0; col < sub_disp.cols(); col++) {
     for (int row = 0; row < sub_disp.rows(); row++) {
       if (height(col, row) >= HIGH_ERROR) continue; // already invalid
@@ -188,21 +233,103 @@ void filter_D_sub(ASPGlobalOptions const& opt,
   vw_out() << "Number (and fraction) of removed outliers by the triangulation error check: "
            << count << " (" << double(count)/(sub_disp.cols() * sub_disp.rows()) << ").\n";
 
-  // TODO(oalexan1): Print the tri errors here. The estimated
-  // range is too large.
-    
-  // Filter here also by distribution of disparities
-  // and by user-given height range and max tri error.
+  // Filter here also by distribution of disparities!
+
+  // TODO(oalexan1): Filter by user-given height range and max tri error.
     
   // Invalidate the D_sub entries that are outliers
   for (int col = 0; col < sub_disp.cols(); col++) {
     for (int row = 0; row < sub_disp.rows(); row++) {
-      if (tri_err(col, row) >= HIGH_ERROR) {
+      if (tri_err(col, row) >= HIGH_ERROR || height(col, row) >= HIGH_ERROR) {
         sub_disp(col, row).invalidate();
       }
     }
   }
 
+  vw_out() << "Writing filtered D_sub: " << d_sub_file << std::endl;
+  block_write_gdal_image(d_sub_file, sub_disp, opt,
+                         TerminalProgressCallback("asp","\t D_sub: "));
+} 
+
+// Filter D_sub by reducing its spread around the median
+void filter_D_sub_using_spread(ASPGlobalOptions const& opt, std::string const& d_sub_file,
+                               double max_disp_spread) {
+  
+  if (max_disp_spread <= 0.0)
+    return;
+
+  vw_out() << "Filtering outliers in D_sub based on --max-disp-spread.\n";
+
+  vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp_ref;
+  vw::Vector2 upsample_scale;
+  asp::load_D_sub_and_scale(opt, d_sub_file, sub_disp_ref, upsample_scale);
+
+  // Use ImageView to read D_sub fully in memory so it can be modified
+  vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp = sub_disp_ref;
+
+  std::vector<double> dx, dy;
+  for (int col = 0; col < sub_disp.cols(); col++) {
+    for (int row = 0; row < sub_disp.rows(); row++) {
+      vw::PixelMask<vw::Vector2f> disp = sub_disp(col, row);
+      
+      if (!is_valid(disp)) 
+        continue;
+      
+      Vector2 left_pix(col, row);
+      Vector2 right_pix = left_pix + disp.child();
+
+      // Scale to full resolution
+      left_pix  = elem_prod(left_pix, upsample_scale);
+      right_pix = elem_prod(right_pix, upsample_scale);
+
+      double diffX = right_pix.x() - left_pix.x();
+      double diffY = right_pix.y() - left_pix.y();
+      dx.push_back(diffX);
+      dy.push_back(diffY);
+    }
+  }
+  
+  if (dx.empty())
+    vw_throw(ArgumentErr() << "Empty disparity.");
+  
+  std::sort(dx.begin(), dx.end());
+  std::sort(dy.begin(), dy.end());
+  double mid_x = dx[dx.size()/2]; // median
+  double mid_y = dy[dy.size()/2];
+  
+  double half = max_disp_spread / 2.0;
+  BBox2 spread_box(mid_x - half, mid_y - half, max_disp_spread, max_disp_spread);
+
+  // Wipe offending disparities
+  int count = 0;
+  for (int col = 0; col < sub_disp.cols(); col++) {
+    for (int row = 0; row < sub_disp.rows(); row++) {
+      vw::PixelMask<vw::Vector2f> disp = sub_disp(col, row);
+      
+      if (!is_valid(disp)) 
+        continue;
+      
+      Vector2 left_pix(col, row);
+      Vector2 right_pix = left_pix + disp.child();
+
+      // Scale to full resolution
+      left_pix  = elem_prod(left_pix, upsample_scale);
+      right_pix = elem_prod(right_pix, upsample_scale);
+
+      double diffX = right_pix.x() - left_pix.x();
+      double diffY = right_pix.y() - left_pix.y();
+
+      Vector2 d(diffX, diffY);
+      if (!spread_box.contains(d)) {
+        count++;
+        sub_disp(col, row).invalidate();
+      }
+    }
+  }
+
+  vw_out() << "Number (and fraction) of removed outliers by the disp spread check: "
+           << count << " (" << double(count)/(sub_disp.cols() * sub_disp.rows()) << ").\n";
+    
   vw_out() << "Writing filtered D_sub: " << d_sub_file << std::endl;
   block_write_gdal_image(d_sub_file, sub_disp, opt,
                          TerminalProgressCallback("asp","\t D_sub: "));

@@ -32,9 +32,7 @@ namespace asp {
   // Forward declarations
   class ASPGlobalOptions;
 
-  // Filter D_sub. Must be called only for alignment method affineepipolar, homography,
-  // and local_epipolar. For now this is not in use as a dataset where this would help
-  // was not found. It was tested though.
+  // Filter D_sub. All alignment methods are supported.
   void filter_D_sub(ASPGlobalOptions const& opt,
                     vw::TransformPtr tx_left, vw::TransformPtr tx_right,
                     boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
@@ -42,6 +40,10 @@ namespace asp {
                     vw::cartography::Datum const& datum,
                     std::string const& d_sub_file,
                     vw::Vector2 const& outlier_removal_params);
+  
+  // Filter D_sub by reducing its spread around the median
+  void filter_D_sub_using_spread(ASPGlobalOptions const& opt, std::string const& d_sub_file,
+                                 double max_disp_spread);
   
   // Take a given disparity and make it between the original unaligned images
   void unalign_disparity(bool is_map_projected,
