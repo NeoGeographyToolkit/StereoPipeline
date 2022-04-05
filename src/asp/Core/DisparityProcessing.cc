@@ -233,8 +233,6 @@ void filter_D_sub(ASPGlobalOptions const& opt,
   vw_out() << "Number (and fraction) of removed outliers by the triangulation error check: "
            << count << " (" << double(count)/(sub_disp.cols() * sub_disp.rows()) << ").\n";
 
-  // Filter here also by distribution of disparities!
-
   // TODO(oalexan1): Filter by user-given height range and max tri error.
     
   // Invalidate the D_sub entries that are outliers
