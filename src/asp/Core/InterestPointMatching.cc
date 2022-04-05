@@ -973,11 +973,14 @@ void filter_ip_by_disparity(double pct, // for example, 90.0
     right_ip[good_it] = right_ip[it];
     good_it++;
   }
-  vw_out() << "Removed " << left_ip.size() - good_it <<
-    " outliers based on the differences of interest points.\n";
+  vw_out() << "Removed " << left_ip.size() - good_it
+           << " outliers based on percentiles of differences of interest "
+           << "points with --outlier-removal-params.\n";
+  
   left_ip.resize(good_it);
   right_ip.resize(good_it);
 
+  return;
 }
 
 size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
@@ -1134,6 +1137,34 @@ void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
   right_aligned_ip.resize(num_valid);
 
   return;
+}
+
+// Estimate the search range by finding the median disparity and
+// creating a box of given dimensions around it. This assumes aligned
+// interest points.
+vw::BBox2 search_range_using_spread(double max_disp_spread,
+                                    std::vector<vw::ip::InterestPoint> const& left_ip,
+                                    std::vector<vw::ip::InterestPoint> const& right_ip) {
+    std::vector<double> dx, dy;
+  
+    for (size_t i = 0; i < left_ip.size(); i++) {
+    double diffX = right_ip[i].x - left_ip[i].x;
+    double diffY = right_ip[i].y - left_ip[i].y;
+    dx.push_back(diffX);
+    dy.push_back(diffY);
+  }
+  if (dx.empty())
+    vw_throw(vw::ArgumentErr() << "No interest points left.");
+  
+  std::sort(dx.begin(), dx.end());
+  std::sort(dy.begin(), dy.end());
+  double mid_x = dx[dx.size()/2]; // median
+  double mid_y = dy[dy.size()/2];
+  
+  double half = max_disp_spread / 2.0;
+  vw::BBox2 spread_box(mid_x - half, mid_y - half, max_disp_spread, max_disp_spread);
+
+  return spread_box;
 }
 
 // Create interest points from valid D_sub values and make them full scale

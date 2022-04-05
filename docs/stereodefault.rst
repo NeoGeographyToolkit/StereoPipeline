@@ -144,7 +144,8 @@ outlier-removal-params (*double, double*) (default = 95.0, 3.0)
     Outlier removal params (percentage and factor) to be used in
     filtering interest points and the disparity with the
     box-and-whisker algorithm. Set the percentage to 100 to turn this
-    off.
+    off. These values are rather relaxed by default to not remove good
+    data with a big spread.
 
 disparity-range-expansion-percent (*integer*) (default = 20)
     Expand the disparity range estimated from interest points by this
@@ -371,13 +372,14 @@ corr-search (*integer integer integer integer*)
     These four integers define the minimum horizontal and vertical
     disparity and then the maximum horizontal and vertical disparity.
 
-max-disp-spread (*integer*) (default = -1)
+max-disp-spread (*double*) (default = -1.0)
     If positive, limit the spread of the disparity to this value
     (horizontally and vertically, centered at the median
-    value). If this is on the order of 100 pixels, a run can already
-    become very slow. A small value may, however, result in steepest
-    slopes not processed well. Do not specify together with
-    ``corr-search-limit``.
+    value). If this is on the order of 80-100 pixels, a run can already
+    become very slow and one may need to increase
+    ``--corr-memory-limit-mb`` and ``--corr-timeout``. A small value
+    may, however, result in steepest slopes not processed well. Do not
+    specify together with ``corr-search-limit``.
 
 corr-search-limit (*integer integer integer integer*)
     Set these parameters to constrain the search range that
@@ -441,15 +443,6 @@ save-left-right-disparity-difference
     ``--xcorr-threshold`` and stereo algorithms ``asp_bm``, ``asp_sgm``, ``asp_mgm``, 
     or ``asp_final_mgm``. Missing values are set to no-data. This is saved
     to ``<output prefix>-L-R-disp-diff.tif``.
-
-remove-outliers-by-disparity-params (*double double*) (default = 100 3)
-    Outlier removal based on the disparity of interest points
-    (difference between right and left pixel), when estimating the
-    disparity search range. For example, the 10% and 90% percentiles of
-    disparity are computed, and this interval is made three times
-    bigger. Interest points whose disparity fall outside the expanded
-    interval are removed as outliers. Instead of the default 100 and 3
-    one can specify pct and factor, without quotes.
 
 rm-quantile-percentile (*double*) (default = 0.85)
     See rm-quantile-multiple for details.

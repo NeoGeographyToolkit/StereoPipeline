@@ -442,7 +442,7 @@ def robustBundleAdjust(options, inputPairs,
         if len(inputPairs) == 2:
             cmd += ' --disable-tri-ip-filter --num-passes 3 '   + \
                    '--remove-outliers-params 75.0,3.0,2.0,3.0 ' + \
-                   '--remove-outliers-by-disparity-params 90.0 3.0 '
+                   '--outlier-removal-params 90.0 3.0 '
     
         # Run the BA command and log errors
         logger.info(cmd) # to make it go to the log, not just on screen
@@ -872,7 +872,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     minIpString = '--min-num-ip 40'
     stereoCmd = (('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar ' +
                   '--skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 ' +
-                  '--remove-outliers-by-disparity-params 90.0 3.0 --epipolar-threshold 10 %s ') %
+                  '--outlier-removal-params 90.0 3.0 --epipolar-threshold 10 %s ') %
                  (argString, thisPairPrefix, threadText, heightLimitString, minIpString))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )

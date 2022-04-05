@@ -17,6 +17,9 @@ The files are listed based on the stereo stage they are created at
 Files created in preprocessing
 ------------------------------
 
+\*-cropped\*.tif - cropped versions of the inputs, before alignment, when
+    ``--left-image-crop-win`` and/or ``--right-image-crop-win`` are used.
+
 \*.vwip - image feature files
     If ``alignment-method`` is not ``none``, the Stereo Pipeline will
     automatically search for image features to use for tie-points. Raw
@@ -30,7 +33,7 @@ Files created in preprocessing
     The match file lists a select group of unique points out of the
     previous ``.vwip`` files that have been identified and matched in a
     pair of images. For example, if your images are ``left.cub`` and
-    ``right.cub`` you'll get a ``left__right.match`` file.
+    ``right.cub`` you'll get a ``left__right.match`` file. 
 
     The ``.vwip`` and ``.match`` files are meant to serve as cached
     tie-point information, and they help speed up the pre-processing
@@ -48,15 +51,14 @@ Files created in preprocessing
     ``parse_match_file.py`` (:numref:`parse_match_file`).
 
 \*-L.tif - rectified left input image
-    The left input image of the stereo pair, saved after the
-    pre-processing step. This image may be normalized, but should
-    otherwise be identical to the original left input image.
+    Left input image of the stereo pair, after the pre-processing
+    step, which may involve cropping, normalization of pixel values,
+    and alignment.
 
 \*-R.tif - rectified right input image
     Right input image of the stereo pair, after the pre-processing
-    step. This image may be normalized and possibly translated, scaled,
-    and/or rotated to roughly align it with the left image, but should
-    otherwise be identical to the original right input image.
+    step, which may involve cropping, normalization of pixel values,
+    and alignment.
 
 \*-lMask.tif - mask for left rectified image
     This file and \*-rMask.tif contain binary masks for the input
@@ -80,9 +82,6 @@ Files created in preprocessing
     improve the efficiency of subsequent processing.
 
 \*-align-R.exr - right alignment matrix. See \*-align-L.exr, above.
-
-\*-cropped\*.tif - cropped versions of the inputs, when
-    ``--left-image-crop-win`` and/or ``--right-image-crop-win`` are used.
 
 \*bathy_mask\*.tif - data related to water-land masks, for stereo with
     shallow water (:numref:`shallow_water_bathy`).

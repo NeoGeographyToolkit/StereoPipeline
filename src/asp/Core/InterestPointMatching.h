@@ -241,7 +241,14 @@ bool ip_matching_no_align(bool single_threaded_camera,
                            std::vector<vw::ip::InterestPoint> & left_aligned_ip,
                            std::vector<vw::ip::InterestPoint> & right_aligned_ip);
 
-  //-------------------------------------------------------------------------------------------
+// Estimate the search range by finding the median disparity and
+// creating a box of given dimensions around it. This assumes aligned
+// interest points.
+vw::BBox2 search_range_using_spread(double max_disp_spread,
+                                    std::vector<vw::ip::InterestPoint> const& left_ip,
+                                    std::vector<vw::ip::InterestPoint> const& right_ip);
+  
+  //-----------------------------------------------------------------------------
   // Miscellaneous IP functions
 
   /// Find a rough homography that maps right to left using the camera

@@ -359,4 +359,8 @@ accept all other ``stereo`` options as well.
 
 --create-image-pyramids-only
     Without starting the GUI, build multi-resolution pyramids for
-    the inputs, to be able to load them fast later.
+    the inputs, to be able to load them fast later. If used with
+    ``--hillshade``, also build the hillshaded images and their
+    multi-resolution pyramids.
+    
+    

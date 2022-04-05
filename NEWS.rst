@@ -61,9 +61,10 @@ New tool additions:
     corrections. These are not accurate enough and cause issues with
     convergence of bundle adjustment. Can be enabled with
     --enable-correct-velocity-aberration and
-    --enable-correct-atmospheric-refraction. (Note that these are
-    still hard-coded as enabled for optical bar camera models. This
-    would require some study.)
+    --enable-correct-atmospheric-refraction. These help however with
+    Digital Globe cameras if not desired to do bundle
+    adjustment. (Note that these are still hard-coded as enabled for
+    optical bar camera models. This would require some study.)
   * Added ready-made ASTER and LRO NAC examples with sample images,
     cameras, commands, and outputs, all available for
     download. Contributions of more examples are welcome. See
@@ -78,6 +79,8 @@ New tool additions:
   * Filtering of interest points based on percentiles (using also
     --outlier-removal-params, only for local_epipolar alignment for
     now).
+  * Folded --remove-outliers-by-disparity-params into
+    --outlier-removal-params. 
   * Bugfix in search range handling when it is large. 
   * For Linux, in each tile's directory write the elapsed runtime and
     memory usage to <tile prefix>-<prog name>-resource-usage.txt.
@@ -88,7 +91,7 @@ New tool additions:
     local epipolar alignment. Use parallel_stereo instead. 
   * Added the experimental --gotcha-disparity-refinement option, under
     NASA proposal 19-PDART19_2-0094 (still in development).
-
+ 
 bundle_adjust:
   * Add the option --apply-initial-transform-only to apply an initial
     transform to cameras while skipping image matching and other
