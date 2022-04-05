@@ -349,20 +349,20 @@ void findClosestPolyEdge(// inputs
   return;
 }
 
-void imageData::read(std::string const& name_in,
-                     vw::cartography::GdalWriteOptions const& opt,
+void imageData::read(std::string const& name_in, vw::cartography::GdalWriteOptions const& opt,
                      int display_mode){
   m_opt = opt;
   if (display_mode == REGULAR_VIEW) {
     name = name_in;
-  }else if (display_mode == HILLSHADED_VIEW) {
-    hillshaded_name = name;
+  } else if (display_mode == HILLSHADED_VIEW) {
+    hillshaded_name = name_in;
   }
   
   std::string poly_color = "red";
   
-  if (asp::has_shp_extension(name)){
-    read_shapefile(name, poly_color, has_georef, georef, polyVec);
+  if (asp::has_shp_extension(name_in)){
+    // Read a shape file
+    read_shapefile(name_in, poly_color, has_georef, georef, polyVec);
 
     double xll, yll, xur, yur;
     shapefile_bdbox(polyVec,
@@ -372,12 +372,13 @@ void imageData::read(std::string const& name_in,
     world_bbox.min() = Vector2(xll, yll);
     world_bbox.max() = Vector2(xur, yur);
 
-    if (!has_georef) {
+    if (!has_georef)
       vw_throw(ArgumentErr() << "Expecting the shapefile to have a georeference.\n");
-    }
 
     image_bbox = world_bbox;
+
   }else{
+    // Read an image
     
     int top_image_max_pix = 1000*1000;
     int subsample = 4;
@@ -389,7 +390,7 @@ void imageData::read(std::string const& name_in,
       hillshaded_img = DiskImagePyramidMultiChannel(name_in, m_opt, top_image_max_pix, subsample);
       image_bbox = BBox2(0, 0, hillshaded_img.cols(), hillshaded_img.rows());
     }
-    has_georef = vw::cartography::read_georeference(georef, name);
+    has_georef = vw::cartography::read_georeference(georef, name_in);
   }
 }
 

@@ -212,10 +212,23 @@ int main(int argc, char** argv) {
     }
 
     if (stereo_settings().create_image_pyramids_only) {
-      // Just create the image pyramids and exit.
+      // Just create the image pyramids and exit
       for (size_t i = 0; i < images.size(); i++) {
         vw::gui::imageData img;
         img.read(images[i], opt_vec[0]);
+
+        if (stereo_settings().hillshade) {
+          // Create hillshaded images
+          std::string hillshaded_file; 
+          bool success = vw::gui::write_hillshade(opt_vec[0],
+                                                  stereo_settings().hillshade_azimuth,
+                                                  stereo_settings().hillshade_elevation,
+                                                  images[i],
+                                                  // Output
+                                                  hillshaded_file);
+          if (success) // build the pyramids
+            img.read(hillshaded_file, opt_vec[0], vw::gui::HILLSHADED_VIEW);
+        }
       }
       return 0;
     }

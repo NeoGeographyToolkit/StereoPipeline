@@ -225,6 +225,7 @@ void MainWindow::createLayout() {
   // the widgets when the time is right.
   m_widgets.clear();
 
+  // Note that the menus persist even when the layout changes
   bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
 
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {

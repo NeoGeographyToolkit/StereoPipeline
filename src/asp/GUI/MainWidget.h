@@ -252,12 +252,12 @@ public slots:
     // have different projections.
     int m_base_image_id;
     
-    // Note that this is an alias. We would like to be able for this
-    // widget to be able to modify states in m_images (such as the
-    // flag noting if hillshading is on) which would persist after the
-    // widgets themselves are gone.
-    // The images actually drawn in this widget have indices
-    // in m_images in [m_beg_image_id, m_end_image_id).
+    // Note that this is an alias. We would like to be able to modify
+    // in this widget the states of all images in m_images (such as
+    // the flag noting if hillshading is on) which would persist after
+    // the widgets themselves are gone when the display layout
+    // changes. The images actually drawn in this widget have indices
+    // in [m_beg_image_id, m_end_image_id) in m_images.
     std::vector<imageData> & m_images;
 
     std::string & m_output_prefix; // alias
