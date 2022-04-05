@@ -34,7 +34,7 @@ namespace po = boost::program_options;
 struct Options: vw::cartography::GdalWriteOptions {
   std::vector<std::string> input_images;
   std::string alignment_transform, output_image, output_prefix, output_data_string,
-    input_transform;
+    input_transform, disparity_params;
   bool has_input_nodata_value, has_output_nodata_value;
   double input_nodata_value, output_nodata_value, inlier_threshold;
   int ip_per_image, num_ransac_iterations, output_data_type;
@@ -99,7 +99,66 @@ void find_matches(std::string const& image_file1, std::string const& image_file2
                        ip_per_tile,
                        "", "", // Do not read ip from disk
                        nodata1, nodata2, match_file);
-} // End function match_ip_in_regions
+
+  return;
+}
+
+/// Get a list of matched IP based on an input disparity
+void find_matches_from_disp(std::vector<ip::InterestPoint> &matched_ip1,
+                            std::vector<ip::InterestPoint> &matched_ip2,
+                            Options const& opt) {
+
+  // Clear the outputs
+  matched_ip1.clear();
+  matched_ip2.clear();
+  
+  std::string disp_file;
+  int num_samples;
+  std::istringstream iss(opt.disparity_params);
+  if (!(iss >> disp_file >> num_samples)) 
+    vw_throw(ArgumentErr() << "Could not parse correctly the option --disparity-params.\n");
+
+  DiskImageView<PixelMask<Vector2f>> disp(disp_file);
+
+  if (num_samples <= 0) 
+    vw_throw(ArgumentErr() << "Expecting a positive number of samples in --disparity-params.\n");
+
+  if (disp.cols() == 0 || disp.rows() == 0) 
+    vw_throw(ArgumentErr() << "Empty disparity specified in --disparity-params.\n");    
+  
+  // Careful here to not overflow an int32
+  double num_pixels = double(disp.cols()) * double(disp.rows());
+  int sample_rate = std::max(round(sqrt(num_pixels / double(num_samples))), 1.0);
+  
+  vw_out() << "Creating interest point matches from disparity: " << disp_file << ".\n";
+  vw_out() << "Using a row and column sampling rate of: " << sample_rate << ".\n";
+  
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  double inc_amount = sample_rate / double(disp.cols());
+  tpc.report_progress(0);
+  
+  for (int col = 0; col < disp.cols(); col += sample_rate) {
+    for (int row = 0; row < disp.rows(); row += sample_rate) {
+      
+      vw::PixelMask<vw::Vector2f> d = disp(col, row);
+      if (!is_valid(d)) 
+        continue;
+      
+      Vector2 left_pix(col, row);
+      Vector2 right_pix = left_pix + d.child();
+      
+      vw::ip::InterestPoint lip(left_pix.x(), left_pix.y());
+      vw::ip::InterestPoint rip(right_pix.x(), right_pix.y());
+      matched_ip1.push_back(lip); 
+      matched_ip2.push_back(rip);
+    }
+
+    tpc.report_incremental_progress(inc_amount);
+  }
+  tpc.report_finished();
+  
+  return;
+}
 
 template<class FunctorT>
 Matrix<double> do_ransac(std::vector<Vector3> const& ransac_ip1,
@@ -216,7 +275,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("inlier-threshold", po::value(&opt.inlier_threshold)->default_value(5.0),
      "The inlier threshold (in pixels) to separate inliers from outliers when computing interest point matches. A smaller threshold will result in fewer inliers.")
     ("input-transform", po::value(&opt.input_transform)->default_value(""),
-     "Instead of computing an alignment transform, read and apply the one from this file. Must be stored as a 3x3 matrix.");
+     "Instead of computing an alignment transform, read and apply the one from this file. Must be stored as a 3x3 matrix.")
+    ("disparity-params", po::value(&opt.disparity_params)->default_value(""),
+     "Find the alignment transform by using, instead of interest points, a disparity, such as produced by 'parallel_stereo --correlator-mode'. Specify as a string in quotes, in the format: 'disparity.tif num_samples'.");
     
   po::options_description positional("");
   positional.add_options()
@@ -369,8 +430,11 @@ int main(int argc, char *argv[]) {
     Matrix<double> tf;
     if (opt.input_transform.empty()) {
       std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-      find_matches(image_file1, image_file2, image1, image2,  
-                   nodata1, nodata2, matched_ip1, matched_ip2, opt);
+      if (opt.disparity_params == "")
+        find_matches(image_file1, image_file2, image1, image2,  
+                     nodata1, nodata2, matched_ip1, matched_ip2, opt);
+      else
+        find_matches_from_disp(matched_ip1, matched_ip2, opt);
       
       tf = calc_alignment_transform(image_file1, image_file2,  
                                     matched_ip1, matched_ip2, opt);

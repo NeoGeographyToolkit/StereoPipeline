@@ -28,6 +28,7 @@
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/OpenCVUtils.h>
+#include <asp/Core/DisparityProcessing.h>
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgcodecs.hpp>

@@ -1141,7 +1141,8 @@ void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
 
 // Estimate the search range by finding the median disparity and
 // creating a box of given dimensions around it. This assumes aligned
-// interest points.
+// interest points. Note that this box may be an overestimate,
+// so it should be intersected with a previously existing box.
 vw::BBox2 search_range_using_spread(double max_disp_spread,
                                     std::vector<vw::ip::InterestPoint> const& left_ip,
                                     std::vector<vw::ip::InterestPoint> const& right_ip) {

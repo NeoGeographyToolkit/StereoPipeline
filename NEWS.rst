@@ -22,8 +22,9 @@ New tool additions:
     correlation tool, without assuming any camera information, via
     the option ``--correlator-mode``.
   * Added the program ``image_align``. Used to align two images based on
-    interest point matches and given alignment transform type
-    (translation, rigid, similarity, affine, and homography).
+    interest point matches or disparity, with given alignment
+    transform type (translation, rigid, similarity, affine, and
+    homography).
 
  parallel_stereo:
   * Many fixes for reliability of stereo with local epipolar alignment.

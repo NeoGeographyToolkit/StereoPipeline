@@ -119,18 +119,6 @@ namespace asp {
   /// Read the target name (planet name) from the plain text portion of an ISIS cub file
   std::string read_target_name(std::string const& filename);
 
-  /// Load the D_sub file in a consistent format.
-  /// - Returns false if the file does not exist.
-  bool load_D_sub(std::string const& d_sub_file,
-                           vw::ImageViewRef<vw::PixelMask<vw::Vector2f> > &sub_disp);
-
-  
-  // Load the low-res disparity and the scale needed to convert it to full-res
-  void load_D_sub_and_scale(ASPGlobalOptions                              const & opt,
-                            std::string                                   const & d_sub_file, 
-                            vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>       & sub_disp,
-                            vw::Vector2                                         & upsample_scale);
-
   boost::program_options::variables_map
   check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOptions& opt,
                      boost::program_options::options_description const& public_options,

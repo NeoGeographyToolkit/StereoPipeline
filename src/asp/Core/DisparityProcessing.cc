@@ -30,6 +30,47 @@
 using namespace vw;
 
 namespace asp {
+  
+/// Load the D_sub file
+bool load_D_sub(std::string const& d_sub_file,
+                ImageViewRef<PixelMask<Vector2f>> & sub_disp) {
+  if (!boost::filesystem::exists(d_sub_file))
+    return false;
+  
+  // Check the data type of the file.
+  boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(d_sub_file));
+  ChannelTypeEnum disp_data_type = rsrc->channel_type();
+  
+  if (disp_data_type == VW_CHANNEL_INT32) // Cast the integer file to float
+    sub_disp = pixel_cast<PixelMask<Vector2f>>(DiskImageView<PixelMask<Vector2i>>(d_sub_file));
+  else // File on disk is float
+    sub_disp = DiskImageView<PixelMask<Vector2f>>(d_sub_file);
+  return true;
+}
+
+// Load the low-res disparity and the scale needed to convert it to full-res
+void load_D_sub_and_scale(asp::ASPGlobalOptions                    const & opt,
+                          std::string                              const & d_sub_file, 
+                          vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>  & sub_disp,
+                          vw::Vector2                                    & upsample_scale) {
+  
+  DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
+    Rmask(opt.out_prefix + "-rMask.tif");
+  
+  DiskImageView<PixelGray<float> > left_sub (opt.out_prefix+"-L_sub.tif"),
+    right_sub(opt.out_prefix+"-R_sub.tif");
+  
+  if (!load_D_sub(d_sub_file, sub_disp)) {
+    std::string msg = "Could not read " + d_sub_file + ".";
+    if (stereo_settings().skip_low_res_disparity_comp)
+      msg += " Perhaps one should disable --skip-low-res-disparity-comp.";
+    vw_throw(ArgumentErr() << msg << "\n");
+  }
+
+  upsample_scale = Vector2(double(Lmask.cols()) / double(sub_disp.cols()) ,
+                           double(Lmask.rows()) / double(sub_disp.rows()));
+}
+
 
 // Filter D_sub. All alignment methods are supported.
 void filter_D_sub(ASPGlobalOptions const& opt,

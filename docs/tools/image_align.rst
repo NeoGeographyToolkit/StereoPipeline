@@ -11,6 +11,9 @@ Several alignment transforms are supported. The alignment transform is
 determined with subpixel precision and is applied using bilinear
 interpolation.
 
+Features are matched among the images using either interest points
+or a disparity produced with ASP's correlation algorithms.
+
 If the first image is georeferenced, the second aligned image will use
 the same georeference as the first one.  The first image and second
 aligned image can then be blended with ``dem_mosaic``
@@ -30,14 +33,30 @@ well.
 This tool extends the co-registration functionality of CASP-GO
 (:numref:`casp_go`).
 
-Example::
+Examples
+~~~~~~~~
 
+::
+   
     image_align image1.tif image2.tif -o image2_align.tif
 
-Usage::
-  
-    image_align [options] <reference image> <source image> \
-      -o <aligned source image>
+Using a disparity produced from correlation::
+
+    parallel_stereo --correlator-mode --stereo-algorithm asp_mgm \
+      --subpixel-mode 2 image1.tif image2.tif run/run-corr
+
+    image_align image1.tif image2.tif                            \
+      --output-image image2_align.tif --output-prefix run/run    \
+      --disparity-params "run/run-corr-F.tif 1000000"
+
+Note that ``--subpixel-mode 2`` will be quite slow but produce good
+results. See :numref:`running-stereo` for the choices when it comes to
+stereo algorithms and subpixel methods, and :numref:`correlator-mode`
+for the image correlator functionality.
+
+The disparity will be computed from the first to second image, but the
+alignment transform is from the second to first image, so the disparity
+and this transform will show opposite trends.
 
 Application for alignment of DEMs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -66,7 +85,7 @@ It appears that applying this tool on the DEMs themselves may result
 in more accurate results than if applied on their hillshaded images.
 
 If the DEMs have very different grids and projections, regridding them
-with ``gdalwarp``may make them easier to align.
+with ``gdalwarp`` may make them easier to align.
   
 Note that the alignment transform is a 3x3 matrix and can be examined
 and edited.  Its inputs and outputs are 2D pixels in ``homogeneous
@@ -75,6 +94,12 @@ affine and homography transforms in the pixel plane.
 
 See the related tool ``pc_align`` (:numref:`pc_align`) for alignment
 of point clouds.
+
+Usage
+~~~~~
+  
+    image_align [options] <reference image> <source image> \
+      -o <aligned source image>
 
 Command-line options for image_align
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -109,6 +134,11 @@ Command-line options for image_align
     The inlier threshold (in pixels) to separate inliers from outliers when 
     computing interest point matches. A smaller threshold will result in fewer 
     inliers.
+
+--disparity-params <string (default: "")>
+    Find the alignment transform by using, instead of interest points,
+    a disparity, such as produced by ``parallel_stereo --correlator-mode``. 
+    Specify as a string in quotes, in the format: "disparity.tif num_samples".
 
 --input-transform <string (default: "")>    
     Instead of computing an alignment transform, read and apply the one from 
