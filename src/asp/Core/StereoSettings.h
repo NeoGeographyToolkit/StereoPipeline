@@ -108,7 +108,6 @@ namespace asp {
     double ip_triangulation_max_error;      ///< Remove IP matches with triangulation error higher than this.
     int    ip_num_ransac_iterations;        ///< How many ransac iterations to do in ip matching.
     bool   disable_tri_filtering;           ///< Turn of tri-ip filtering.
-    vw::Vector2 remove_outliers_by_disp_params; /// Remove outliers based on disparity of ip.
     
     int num_scales;                         /// How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. 
     int    ip_edge_buffer_percent;          ///< When detecting IP, throw out points within this many % of pixels
@@ -166,7 +165,7 @@ namespace asp {
     vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
 
     int corr_max_levels;     // Max pyramid levels to process. 0 hits only once.
-    int  max_disp_spread;    // Max disparity spread
+    double max_disp_spread;    // Max disparity spread
     bool compute_low_res_disparity_only;      // Skip the full-resolution disparity computation
     bool skip_low_res_disparity_comp;
     std::string disparity_estimation_dem;     // DEM to use in estimating the low-resolution disparity

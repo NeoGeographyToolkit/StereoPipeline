@@ -224,7 +224,7 @@ namespace asp {
                     "Kernel size used for integer correlator.")
       ("corr-search",            po::value(&global.search_range)->default_value(BBox2(0,0,0,0), "auto"),
        "Disparity search range. Specify in format: hmin vmin hmax vmax.")
-      ("max-disp-spread",      po::value(&global.max_disp_spread)->default_value(-1),
+      ("max-disp-spread",      po::value(&global.max_disp_spread)->default_value(-1.0),
        "If positive, limit the spread of the disparity to this value (horizontally and vertically, centered at the median value). Do not specify together with --corr-search-limit.")
 
       ("corr-search-limit",      po::value(&global.corr_search_limit)->default_value(BBox2(0,0,0,0), "auto"),
@@ -243,8 +243,6 @@ namespace asp {
       //                        "Minimum number of pixels to be matched to keep sample (for filter mode 2).")
       //("rm-threshold",        po::value(&global.rm_threshold)->default_value(3),
       //                        "Maximum distance between samples to be considered still matched (for filter mode 2).")
-      ("remove-outliers-by-disparity-params",  po::value(&global.remove_outliers_by_disp_params)->default_value(Vector2(100.0,3.0), "pct factor"),
-       "Outlier removal based on the disparity of interest points, when estimating the disparity search range.  Points with x or y disparity not within the 100-'pct' to 'pct' percentile interval expanded by 'factor' will be removed as outliers. Default: pct = 100.0 and factor = 3.0, hence by default this is not enabled.")
       ("rm-quantile-percentile",  po::value(&global.rm_quantile_percentile)->default_value(0.85),
                               "Filter out pixels in D_sub where disparity > multiple*quantile.")
       ("rm-quantile-multiple",    po::value(&global.rm_quantile_multiple)->default_value(-1),
