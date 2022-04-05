@@ -675,7 +675,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   if (stereo_settings().max_disp_spread > 0.0) {
     BBox2 spread_box = search_range_using_spread(stereo_settings().max_disp_spread,
                                                  matched_left_ip, matched_right_ip);
-    search_range.crop(spread_box);
+    search_range.crop(spread_box); // Need this because spread_box may be an overestimate
     vw_out() << "Refined search range using --max-disp-spread: " << search_range << "\n";
   }
   
