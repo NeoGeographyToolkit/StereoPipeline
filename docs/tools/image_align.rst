@@ -97,6 +97,8 @@ of point clouds.
 
 Usage
 ~~~~~
+
+::
   
     image_align [options] <reference image> <source image> \
       -o <aligned source image>
