@@ -222,6 +222,8 @@ def libexec_path(prog, **kw):
         libexecpath = os.path.abspath(P.join(currpath, '..', 'Tools', prog))
     if not P.isfile(libexecpath):
         libexecpath = os.path.abspath(P.join(currpath, prog))
+    if not P.isfile(libexecpath):
+        libexecpath = os.path.abspath(P.join(currpath, '..', 'bin', prog))
 
     if not P.isfile(libexecpath):
         # Could not find prog in libexec either. We will come

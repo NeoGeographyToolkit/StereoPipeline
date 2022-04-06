@@ -168,7 +168,7 @@ install(TARGETS stereo_gui DESTINATION bin)
 
 add_executable(stereo_parse stereo_parse.cc stereo.h stereo.cc) 
 target_link_libraries(stereo_parse AspSessions)
-install(TARGETS stereo_parse DESTINATION libexec)
+install(TARGETS stereo_parse DESTINATION bin)
 
 add_executable(stereo_pprc stereo_pprc.cc stereo.h stereo.cc) 
 target_link_libraries(stereo_pprc AspSessions)
