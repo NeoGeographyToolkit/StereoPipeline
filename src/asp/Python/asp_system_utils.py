@@ -25,6 +25,10 @@ import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing, si
 import os.path as P
 import asp_string_utils, asp_cmd_utils
 
+# This is explained further down.
+if 'ASP_LIBRARY_PATH' in os.environ:
+    os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
+
 def die(msg, code=-1):
     '''Exit the program with a message'''
     print(msg, file=sys.stderr)
@@ -177,6 +181,7 @@ def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, para
     # that vital env variables are copied over.
     cmd = ['parallel',  '--will-cite', '--workdir', os.getcwd(), '-u',
            '--env', 'PATH', '--env', 'PYTHONPATH', '--env', 'ISISROOT',
+           '--env', 'ASP_LIBRARY_PATH',
            '--env', 'ISISDATA', '-a', argumentFilePath]
 
     # Add number of processes if specified (default is one job per CPU core)
@@ -196,7 +201,18 @@ def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, para
     if verbose: # Echo the command line call we are about to make
         print(" ".join(cmd))
 
+    # This is a bugfix for RHEL 8. The 'parallel' program fails to start with ASP's
+    # libs, so temporarily hide them.
+    if 'LD_LIBRARY_PATH' in os.environ:
+        os.environ['ASP_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']
+        os.environ['LD_LIBRARY_PATH'] = ''
+
     returnCode = subprocess.call(cmd)
+
+    # Undo the above
+    if 'ASP_LIBRARY_PATH' in os.environ:
+        os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
+
     return returnCode
 
 # When user-exposed ASP executables are installed, they are in

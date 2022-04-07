@@ -41,6 +41,10 @@ from stereo_utils import * # must be after the path is altered above
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
+# This is explained below
+if 'ASP_LIBRARY_PATH' in os.environ:
+    os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
+
 def get_output_prefix(args):
     '''Parse the output prefix from the argument list'''
     temp = get_option(args, '-o', 1)
@@ -154,7 +158,10 @@ def spawn_to_nodes(step, argsIn):
     f.close()
 
     # Use GNU parallel with given number of processes.
-    cmd = ['parallel', '--will-cite', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_DEPS_DIR', '-u', '--max-procs', str(procs), '-a', tmpFile.name]
+    # TODO(oalexan1): Run 'parallel' using the runInGnuParallel() function call,
+    # when the ASP_LIBRARY_PATH trick can be fully encapsulated in the
+    # asp_system_utils.py code rather than being needed for each tool.
+    cmd = ['parallel', '--will-cite', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'ASP_DEPS_DIR', '-u', '--max-procs', str(procs), '-a', tmpFile.name]
     if which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')
 
@@ -178,8 +185,18 @@ def spawn_to_nodes(step, argsIn):
     if opt.isisdata is not None: args_str += " --isisdata " + opt.isisdata
     args_str += " --instance-index {}"
     cmd += [args_str]
+
+    # This is a bugfix for RHEL 8. The 'parallel' program fails to start with ASP's
+    # libs, so temporarily hide them.
+    if 'LD_LIBRARY_PATH' in os.environ:
+        os.environ['ASP_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']
+        os.environ['LD_LIBRARY_PATH'] = ''
     
     asp_system_utils.generic_run(cmd, opt.verbose)
+
+    # Undo the above
+    if 'ASP_LIBRARY_PATH' in os.environ:
+        os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
 def run_job(prog, args, instance_index, **kw):
     '''Wrapper to run a command.

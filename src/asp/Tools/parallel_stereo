@@ -481,6 +481,9 @@ def spawn_to_nodes(step, settings, args):
     f.close()
 
     # Use GNU parallel with given number of processes.
+    # TODO(oalexan1): Run 'parallel' using the runInGnuParallel() function call,
+    # when the ASP_LIBRARY_PATH trick can be fully encapsulated in the
+    # asp_system_utils.py code rather than being needed for each tool.
     cmd = ['parallel', '--will-cite', '--env', 'ASP_DEPS_DIR', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'PYTHONHOME', '-u', '-P', str(procs), '-a', tmpFile.name]
     if which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')

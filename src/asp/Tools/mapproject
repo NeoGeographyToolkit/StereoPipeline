@@ -41,6 +41,10 @@ asp_system_utils.verify_python_version_is_supported()
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
+# This is explained in asp_system_utils.
+if 'ASP_LIBRARY_PATH' in os.environ:
+    os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
+
 def generateTileList(fullWidth, fullHeight, tileSize):
     """Generate a full list of tiles for this image"""
 

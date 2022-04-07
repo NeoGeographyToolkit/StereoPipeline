@@ -41,6 +41,10 @@ asp_system_utils.verify_python_version_is_supported()
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
+# This is explained in asp_system_utils.py.
+if 'ASP_LIBRARY_PATH' in os.environ:
+    os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
+
 # Measure the memory usage on Linux and elapsed time
 timeCmd = []
 if 'linux' in sys.platform:
@@ -404,7 +408,8 @@ def main(argsIn):
     # Indicate to GNU Parallel that there are multiple tab-seperated
     # variables in the text file we just wrote
     parallelArgs = ['--colsep', "\\t", '--will-cite', '--env', 'ASP_DEPS_DIR',
-                    '--env', 'PATH', '--env', 'LD_LIBRARY_PATH']
+                    '--env', 'PATH', '--env', 'LD_LIBRARY_PATH',
+                    '--env', 'ASP_LIBRARY_PATH']
 
     # Get the number of available nodes and CPUs per node
     numNodes = asp_system_utils.getNumNodesInList(options.nodesListPath)
