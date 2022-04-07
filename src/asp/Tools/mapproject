@@ -140,8 +140,8 @@ def writeSingleTile(options):
         if arg == '--t_pixelwin':
             # Skip this element and grab the user provided pixel bounds
             userStartX = int(options.extraArgs[i+1])
-            userStopX  = int(options.extraArgs[i+2])
-            userStartY = int(options.extraArgs[i+3])
+            userStartY = int(options.extraArgs[i+2])
+            userStopX  = int(options.extraArgs[i+3])
             userStopY  = int(options.extraArgs[i+4])
 
             # Reconcile the bounding box
