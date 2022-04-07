@@ -20,7 +20,7 @@ import sys, argparse, subprocess, re, os, math, time, tempfile, glob,\
        shutil, math
 import os.path as P
 
-# The path to the ASP python files
+# Set up the path to Python modules about to load
 basepath    = os.path.abspath(sys.path[0])
 pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
 libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
@@ -30,19 +30,14 @@ sys.path.insert(0, libexecpath)
 
 import asp_system_utils, asp_string_utils
 asp_system_utils.verify_python_version_is_supported()
-
-# The path to the ASP python files
-basepath    = os.path.abspath(sys.path[0])
-pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
-libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
-sys.path.insert(0, basepath) # prepend to Python path
-sys.path.insert(0, pythonpath)
-sys.path.insert(0, libexecpath)
-
 from stereo_utils import * # must be after the path is altered above
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+
+# This is explained below
+if 'ASP_LIBRARY_PATH' in os.environ:
+    os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
 # We will not symlink PC.tif and RD.tif which will be vrts,
 # and neither the log files
@@ -486,7 +481,7 @@ def spawn_to_nodes(step, settings, args):
     f.close()
 
     # Use GNU parallel with given number of processes.
-    cmd = ['parallel', '--will-cite', '--env', 'ASP_DEPS_DIR', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'PYTHONHOME', '-u', '-P', str(procs), '-a', tmpFile.name]
+    cmd = ['parallel', '--will-cite', '--env', 'ASP_DEPS_DIR', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'PYTHONHOME', '-u', '-P', str(procs), '-a', tmpFile.name]
     if which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')
 
@@ -514,8 +509,19 @@ def spawn_to_nodes(step, settings, args):
     args_str += " --tile-id {}"
     cmd += [args_str]
 
+    # This is a bugfix for RHEL 8. The 'parallel' program fails to start with ASP's
+    # libs, so temporarily hide them.
+    if 'LD_LIBRARY_PATH' in os.environ:
+        os.environ['ASP_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']
+        os.environ['LD_LIBRARY_PATH'] = ''
+        
+    # Run 'parallel'
     asp_system_utils.generic_run(cmd, opt.verbose)
 
+    # Undo the above
+    if 'ASP_LIBRARY_PATH' in os.environ:
+        os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
+    
 def tile_run(prog, args, settings, tile, **kw):
     '''Job launch wrapper for a single tile'''
 
