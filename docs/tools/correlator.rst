@@ -8,10 +8,11 @@ function purely as an image correlator, that is, it can find the
 disparity between two given images without assuming any cameras are
 present and without generating a point cloud.
 
-This mode assumes that the images are already aligned. Hence, the
-images can be either raw but with small alignment differences,
-mapprojected, or portions of aligned images ``L.tif`` and ``R.tif``
-(:numref:`outputfiles`) as created by ASP itself.
+This mode assumes that the images are already roughly aligned, up to a
+translation. Hence, the images can be either raw but with no large
+rotation/shear/scale differences, or mapprojected, or to be portions
+of aligned images ``L.tif`` and ``R.tif`` (:numref:`outputfiles`) as
+created by ASP itself.
 
 See also ``corr_eval`` (:numref:`corr_eval`) a program for estimating
 the quality of the disparity at each pixel.
@@ -23,8 +24,11 @@ Usage::
 
 Example::
 
-    parallel_stereo --correlator-mode run/run-L.tif run/run-R.tif
+    parallel_stereo --correlator-mode run/run-L.tif run/run-R.tif \
       run_corr/run
+
+This will create the filtered subpixel disparity
+``run_corr/run-F.tif``.
 
 All the usual options of ``parallel_stereo`` apply
 (:numref:`nextsteps`, :numref:`parallel_stereo`, and
