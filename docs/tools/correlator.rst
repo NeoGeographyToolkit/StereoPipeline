@@ -28,12 +28,12 @@ Example::
       run_corr/run
 
 This will create the filtered subpixel disparity
-``run_corr/run-F.tif``.
+``run_corr/run-F.tif`` (:numref:`outputfiles`).
 
-All the usual options of ``parallel_stereo`` apply
-(:numref:`nextsteps`, :numref:`parallel_stereo`, and
-:numref:`stereodefault`). Since the images are assumed to be aligned,
-the program will set the alignment method to ``none``. 
+All the usual options of ``parallel_stereo`` apply. See
+:numref:`nextsteps` for a discussion regarding various quality vs
+speed tradeoffs. Since the images are assumed to be aligned, the
+program will set the alignment method to ``none``.
 
 If desired to not use an initial low-resolution correlation, set
 ``--corr-seed-mode 0``. To skip preprocessing (if invoked previously),

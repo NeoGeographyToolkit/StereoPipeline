@@ -375,11 +375,7 @@ corr-search (*integer integer integer integer*)
 max-disp-spread (*double*) (default = -1.0)
     If positive, limit the spread of the disparity to this value
     (horizontally and vertically, centered at the median
-    value). If this is on the order of 80-100 pixels, a run can already
-    become very slow and one may need to increase
-    ``--corr-memory-limit-mb`` and ``--corr-timeout``. A small value
-    may, however, result in steepest slopes not processed well. Do not
-    specify together with ``corr-search-limit``.
+    value). Do not specify together with ``corr-search-limit``.
 
 corr-search-limit (*integer integer integer integer*)
     Set these parameters to constrain the search range that
@@ -394,7 +390,7 @@ corr-search-limit (*integer integer integer integer*)
     The interpretation of these four integers is as for
     ``corr-search``.
 
-filter-ip-using-dem (*string*) (default = "")
+ip-filter-using-dem (*string*) (default = "")
     Filter as outliers interest point matches whose triangulated
     height differs by more than given value from the height at the
     same location for the given DEM. All heights are in
@@ -506,7 +502,8 @@ corr-memory-limit-mb (*integer*) (default = 6144)
 correlator-mode
     Function as an image correlator only (including with subpixel
     refinement). Assume no cameras, aligned input images, and stop
-    before triangulation, so at filtered disparity.
+    before triangulation, so at filtered disparity. See
+    :numref:`correlator-mode` for more details.
 
 Subpixel refinement
 -------------------
