@@ -819,7 +819,7 @@ stereo_gui
 
 dem_mosaic
    * Added the option ``--dem-blur-sigma`` to blur the output DEM.
-   * Use by default ``--weights-exponent`` 2 to improve the blending,
+   * Use by default ``--weights-exponent 2`` to improve the blending,
      and increase this to 3 if ``--priority-blending-length`` is specified.
    * Added the options ``--tile-list``, ``--block-max``, and ``--nodata-threshold``. 
    * Display the number of valid pixels written. 
@@ -894,9 +894,9 @@ Highlights:
    which allows them to be mapprojected with the RPC model.
 
 pc_align 
-   * Can solve for a scale change in addition to a rotation and translation 
-     to best align two clouds, hence for a similarity transform. 
-     Option: ``--alignment-method`` similarity-point-to-point
+   * Can solve for a scale change in addition to a rotation and
+     translation to best align two clouds, hence for a similarity
+     transform, using option: ``--alignment-method similarity-point-to-point``.
 
 mapproject
    * Added ability to mapproject color images.
@@ -928,8 +928,8 @@ Misc
    * Make ASP handle gracefully georeferenced images with some pixels
      having projected coordinates outside of the range expected by PROJ.4.
    * Removed the deprecated orthoproject tool. Now mapproject should be used. 
-   * Fixed a bug in pc_align which caused the ``--max-disp`` argument to be misread
-     in some situations.
+   * Fixed a bug in ``pc_align`` which caused the ``--max-displacement``
+     argument to be misread in some situations.
    * Removed some extraneous code slowing down the datum_convert tool.
    * Fixed a bug in point2dem handling the Albers Conic Equal Area projection.
    * Added standard thread/bigtiff/LZW options to image_calc.
@@ -1063,7 +1063,7 @@ stereo
       tuning and a permanent solution is necessary.
 
 point2dem, point2las, and pc_align
-  * Accept ``--datum`` (-r) MOLA, as a shortcut for the sphere with
+  * Accept ``--datum`` (``-r``) ``MOLA``, as a shortcut for the sphere with
      radius 3,396,000 meters.
 
 dem_mosaic
@@ -1408,8 +1408,8 @@ stereo_pprc
        the size of data on disk and performance.
        
 stereo_rfne
-     * Added new affine subpixel refinement mode when 
-       ``--subpixel-mode`` = 3. This mode sacrifices the error resistance
+     * Added new affine subpixel refinement mode,
+       ``--subpixel-mode 3``. This mode sacrifices the error resistance
        of Bayes EM mode in exchange for reduced computation time.
        For some data sets this can perform as well as Bayes EM in
        about one fifth the time.
@@ -1496,7 +1496,7 @@ GENERAL:
   platforms are available for the adventurous user
   (http://byss.arc.nasa.gov/stereopipeline/daily_build/, which was
   later moved to https://github.com/NeoGeographyToolkit/StereoPipeline/releases).
-  When requesting support, please provide the output of "stereo ``--version``".
+  When requesting support, please provide the output of ``stereo --version``.
 
 - The size of Stereo Pipeline output data has been reduced, by up to
   40%, particularly point clouds and DEMs are between 30% to 70%
