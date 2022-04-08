@@ -488,11 +488,11 @@ Command-line options for bundle_adjust
     to the DEM if specified via ``--heights-from-dem``. If the weight
     is not positive, keep the triangulated points fixed.
 
---heights-from-dem-robust-threshold <double (default: -1)> If
-    positive, this is the robust threshold to use keep the
+--heights-from-dem-robust-threshold <double (default: -1)> 
+    If positive, this is the robust threshold to use keep the
     triangulated points close to the DEM if specified via
-    --heights-from-dem. This is applied after the point differences
-    are multiplied by --heights-from-dem-weight. It should
+    ``--heights-from-dem``. This is applied after the point differences
+    are multiplied by ``--heights-from-dem-weight``. It should
     help with attenuating large height difference outliers.
 
 --csv-format <string>
@@ -610,9 +610,8 @@ Command-line options for bundle_adjust
     Save the values for the cameras at each iteration.
 
 --apply-initial-transform-only
-    Apply to the cameras the transform given by
-    --initial-transform. No iterations, GCP loading, or image matching
-    takes place.
+    Apply to the cameras the transform given by ``--initial-transform``.
+    No iterations, GCP loading, or image matching takes place.
 
 --enable-correct-velocity-aberration
     Turn on velocity aberration correction for Optical Bar and
