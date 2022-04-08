@@ -547,7 +547,7 @@ bundle_adjust
 dem_mosaic
    * Added normalized median absolute deviation (NMAD) output option.
    * Added the option ``--force-projwin`` to create a mosaic filling
-     precisely the desired box specified via ``--t``_projwin``.
+     precisely the desired box specified via ``--t_projwin``.
 
 stereo_gui
    * Added the ability to manually reposition interest points.
@@ -596,7 +596,7 @@ Misc
      ``--ip-num-ransac-iterations`` for finer control of interest
      point matching. Added ``--ip-triangulation-max-error`` to control
      the triangulation error.
-   * The cam2rpc tool accepts ``--t``_srs and ``--semi-major-axis`` as
+   * The cam2rpc tool accepts ``--t_srs`` and ``--semi-major-axis`` as
      alternatives to ``--datum`` and ``--dem-file``.
    * Add option ``--theia-overrides`` to camera_solve to make it easier
      to customize its behavior via flags.
@@ -889,9 +889,9 @@ Highlights:
    and is much faster.
 
  - Added the ability to process SPOT5 images with stereo,
-   bundle_adjust, and map_project using a rigorous linescan camera model.
+   bundle_adjust, and mapproject using a rigorous linescan camera model.
  - Added the add_spot_rpc tool to create RPC models for SPOT5
-   which allows them to be map projected with the RPC model.
+   which allows them to be mapprojected with the RPC model.
 
 pc_align 
    * Can solve for a scale change in addition to a rotation and translation 
@@ -899,8 +899,8 @@ pc_align
      Option: ``--alignment-method`` similarity-point-to-point
 
 mapproject
-   * Added ability to map project color images.
-   * Added option to map project on to a flat datum.
+   * Added ability to mapproject color images.
+   * Added option to mapproject on to a flat datum.
 
 camera_solve
    * Added option to accept multiple input camera models.
@@ -1210,7 +1210,7 @@ point2dem
      are used on input and output.
    * Expose to user gnomonic and oblique stereographic projections,
      as well as false easting and false northing (where applicable). 
-     This is a shortcut from using explicitly t_srs for the PROJ.4 string.
+     This is a shortcut from using explicitly ``--t_srs`` for the PROJ.4 string.
    * The default no-data value is set to the smallest float.
  
 pc_align
@@ -1554,7 +1554,7 @@ SESSIONS:
 - DG added additional safety checks for XML values.
 - DG, ISIS, and RPC now have affineepipolar alignment option.
 - All sessions had their API changed. We now use Transform objects
-  instead of LUTs to reverse map projections and alignments.
+  instead of LUTs to reverse mapprojections and alignments.
 
 TOOLS:
 
@@ -1581,7 +1581,7 @@ GENERAL:
 SESSIONS:
 
 - Added RPC processing session.
-- DG sessions now use bicubic interpolation for map projection arithmetic.
+- DG sessions now use bicubic interpolation for mapprojection arithmetic.
 - Fixed bug in case where DG XML file had single TLC entry.
 - DG sessions now applies velocity aberration corrections.
 
@@ -1638,7 +1638,7 @@ TOOLS:
 - Implemented D_sub or seeded integer correlation in stereo_corr.
 - Fourth channel of output PC file is now triangulation error.
 - Added ``--t_srs`` option to point2dem.
-- Added rpc_mapproject tool. This provides an optional map_projection
+- Added rpc_mapproject tool. This provides an optional mapprojection
   step that can be used for DG session.
 - Allow IAU2000:* projection options to be used by point2dem.
 - No-Data is now colored black in GoodPixelMap.
@@ -1680,7 +1680,7 @@ TOOLS:
 - Have cam2map4stereo.py explicitly use ISIS's getkey command.
 - Fix and optimized point2dem. Remove caching and improved rendering
   times. This should fix BigTIFF problems that have been reported.
-- Improve triangulation times slightly when using map projected
+- Improve triangulation times slightly when using mapprojected
   linescan cameras.
 
 EXAMPLES:
@@ -1688,7 +1688,7 @@ EXAMPLES:
 - Added orthoproject, image2qtree, colormap, hillshade examples to MOC.
 - Added K10 example dataset.
 - Added MER example dataset.
-- Added a non-map projected MOC example.
+- Added a non-mapprojected MOC example.
 - Added CTX example dataset.
 
 DOCS:
@@ -1778,7 +1778,7 @@ ISISIO:
 - Optimized IsisCameraModel to use IsisInterface. Custom code can be loaded up
   for individual camera types so we don't have to run through ISIS's entire
   camera model. This allows us not to call GroundMap when the camera is not
-  map projected.
+  mapprojected.
 - Added a series of tests for the IsisCameraModel that perform unit tests
   with MOC and Galileo.
 - Added custom project code for Linescan cameras so not to rely on ISIS's
