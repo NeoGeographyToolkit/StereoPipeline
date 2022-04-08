@@ -3880,7 +3880,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("gradient-weight", po::value(&opt.gradient_weight)->default_value(0.0),
      "The weight given to the cost function term which consists of sums "
      "of squares of first-order derivatives. A larger value will result "
-     "in a smoother solution. This can be used in conjunction with "
+     "in shallower slopes but less noise. This can be used in conjunction with "
      "--smoothness-weight. It is suggested to experiment with this "
      "with a value of 0.0001 - 0.01, while reducing the "
      "smoothness weight to a very small value.")
