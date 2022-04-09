@@ -260,40 +260,18 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
 // TODO(oalexan1): move this to InterestPointMatching.cc
 
-/// Adjust IP lists if alignment matrices are present.
-void align_ip_with_align_matrix(std::string const& out_prefix,
-                                std::vector<ip::InterestPoint> & ip_left,
-                                std::vector<ip::InterestPoint> & ip_right) {
-
-  // Check for alignment files
-  bool left_align  = fs::exists(out_prefix+"-align-L.exr");
-  bool right_align = fs::exists(out_prefix+"-align-R.exr");
-
-  // TODO(oalexan1): May need to throw an error here as this function is called
-  // when alignment was applied, so th .exr files must exist.
-  if (!left_align && !right_align)
-    return; // No alignment files -> Nothing to do.
-
-  // Load alignment matrices. R.exr should always exist, and L.exr
-  // should exist for non-homography alignment.
-  Matrix<double> align_left_matrix  = math::identity_matrix<3>();
-  Matrix<double> align_right_matrix = math::identity_matrix<3>();
-  if (left_align)
-    read_matrix(align_left_matrix, out_prefix + "-align-L.exr");
-  if (right_align)
-    read_matrix(align_right_matrix, out_prefix + "-align-R.exr");
+/// Apply alignment transform to ip. Not to be used with mapprojected images.
+void align_ip(std::string const& out_prefix,
+              vw::TransformPtr tx_left,
+              vw::TransformPtr tx_right,
+              std::vector<ip::InterestPoint> & ip_left,
+              std::vector<ip::InterestPoint> & ip_right) {
 
   // Loop through all the IP we found
   for (size_t i = 0; i < ip_left.size(); i++) {
     // Apply the alignment transforms to the recorded IP
-    Vector3 l = align_left_matrix  * Vector3(ip_left [i].x, ip_left [i].y, 1);
-    Vector3 r = align_right_matrix * Vector3(ip_right[i].x, ip_right[i].y, 1);
-
-    // Normalize the coordinates, but don't divide by 0
-    if (l[2] == 0 || r[2] == 0) 
-      continue;
-    l /= l[2];
-    r /= r[2];
+    Vector2 l = tx_left->forward (Vector2(ip_left [i].x,  ip_left [i].y));
+    Vector2 r = tx_right->forward(Vector2(ip_right[i].x,  ip_right[i].y));
 
     ip_left [i].x = l[0];
     ip_left [i].y = l[1];
@@ -307,57 +285,7 @@ void align_ip_with_align_matrix(std::string const& out_prefix,
   }
 
   return;
-} // End align_ip_with_align_matrix
-
-// TODO(oalexan1): move this to InterestPointMatching.cc
-
-/// Adjust IP lists if epipolar alignment was applied after the IP were created.
-/// - Currently this condition can only happen if an IP file is inserted into the run
-///   folder from another source such as bundle adjust.
-/// - Returns true if any change was made to the interest points.
-bool align_ip_with_epipolar_transform(ASPGlobalOptions          const& opt,
-                                      std::string               const& match_file,
-                                      std::vector<ip::InterestPoint>      & ip_left,
-                                      std::vector<ip::InterestPoint>      & ip_right) {
-
-  if (stereo_settings().alignment_method != "epipolar")
-    vw_throw(ArgumentErr() << "Expecting epipolar alignment.\n");
-    
-  // This function does nothing if we are not using epipolar alignment,
-  //  or if the IP were found using one of the aligned images.
-  const std::string aligned_match_file
-    = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
-
-  if (match_file == aligned_match_file) 
-    return false; // file already aligned
-
-  vw_out() << "Applying epipolar adjustment to input IP match file...\n";
-
-  // Get the transforms from the input image pixels to the epipolar aligned image pixels
-  // - Need to cast the session pointer to Pinhole type to access the function we need.
-  StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt.session.get());
-  if (pinPtr == NULL) 
-    vw_throw(ArgumentErr() << "Expected a pinhole camera.\n");
-  StereoSession::tx_type trans_left, trans_right;
-  pinPtr->pinhole_cam_trans(trans_left, trans_right);
-
-  // Apply the transforms to all the IP we found
-  for (size_t i = 0; i < ip_left.size(); i++) {
-
-    Vector2 ip_in_left (ip_left [i].x, ip_left [i].y);
-    Vector2 ip_in_right(ip_right[i].x, ip_right[i].y);
-
-    Vector2 ip_out_left  = trans_left->forward(ip_in_left);
-    Vector2 ip_out_right = trans_right->forward(ip_in_right);
-
-    ip_left [i].x = ip_out_left [0]; // Store transformed points
-    ip_left [i].y = ip_out_left [1];
-    ip_right[i].x = ip_out_right[0];
-    ip_right[i].y = ip_out_right[1];
-  }
-
-  return true;
-} // End align_ip_with_epipolar_transform
+} // End align_ip
 
 // TODO(oalexan1): move this to InterestPointMatching.cc
 
@@ -515,21 +443,15 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   vw_out() << "\t    * Loading match file: " << match_filename << "\n";
   ip::read_binary_match_file(match_filename, in_left_ip, in_right_ip);
 
-  // TODO(oalexan1): Consolidate IP matching. Move to stereo_pprc.
-  
-  // Apply alignment transform to IP, if needed. Nothing happens for map-projected
-  // images.
-  bool usePinholeEpipolar = ((stereo_settings().alignment_method == "epipolar") &&
-                             (opt.session->name() == "pinhole" ||
-                              opt.session->name() == "nadirpinhole"));
-  if (usePinholeEpipolar)
-    align_ip_with_epipolar_transform(opt, match_filename, in_left_ip, in_right_ip);
-  else if (stereo_settings().alignment_method != "none")
-    align_ip_with_align_matrix(opt.out_prefix, in_left_ip, in_right_ip);
-
   // The alignment transforms
   vw::TransformPtr tx_left = opt.session->tx_left();
   vw::TransformPtr tx_right = opt.session->tx_right();
+
+  // Apply alignment transform to IP, if needed. Nothing happens for
+  // map-projected images.
+  bool is_map_projected = opt.session->isMapProjected();
+  if (stereo_settings().alignment_method != "none" && !is_map_projected)
+    align_ip(opt.out_prefix, tx_left, tx_right, in_left_ip, in_right_ip);
 
   // Camera models
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
@@ -601,21 +523,19 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
     if (diffY > max_dy) max_dy = diffY;
   }
 
-  BBox2 search_range(Vector2i(min_dx,min_dy),Vector2i(max_dx,max_dy));
+  BBox2 search_range(Vector2(min_dx, min_dy), Vector2(max_dx, max_dy));
   vw_out(InfoMessage,"asp") << "Initial search range: " << search_range << std::endl;
 
   const int MAX_SEARCH_WIDTH = 4000; // Try to avoid searching this width
   const int MIN_SEARCH_WIDTH = 200;  // Under this width don't filter IP.
   const Vector2i MINIMAL_EXPAND(10,1);
 
-  // If the input search range is small just expand it a bit and
-  //  return without doing any filtering.  
-  if (std::max(search_range.width(), search_range.height()) <= MIN_SEARCH_WIDTH &&
-      stereo_settings().max_disp_spread <= 0.0) {
+  // If the input search range is too small, expand it a little. Likely there
+  // are not enough interest points to find it accurately. 
+  if (std::max(search_range.width(), search_range.height()) <= MIN_SEARCH_WIDTH) {
     search_range.min() -= MINIMAL_EXPAND; // BBox2.expand() function does not always work!!!!
     search_range.max() += MINIMAL_EXPAND;
     vw_out(InfoMessage,"asp") << "Using expanded search range: " << search_range << std::endl;
-    return search_range;
   }
   
   // Compute histograms
@@ -1234,30 +1154,49 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     write_nodata = false; // To avoid warnings from the tif reader in msmw
   }
 
-  try {
-    boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
-    opt.session->camera_models(left_camera_model, right_camera_model);
-    cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
-    local_alignment(// Inputs
-                    opt, alg_name, opt.session->name(),
-                    max_tile_size, tile_crop_win,
-                    write_nodata,
-                    left_camera_model.get(),
-                    right_camera_model.get(),
-                    datum,
-                    // Outputs
-                    left_trans_crop_win, right_trans_crop_win,
-                    left_local_mat, right_local_mat,
-                    left_aligned_file, right_aligned_file,  
-                    min_disp, max_disp);
-
-  } catch(std::exception const& e){
+  double left_extra_factor = 1.0, right_extra_factor = 2.0;
+  bool success = false;
+  std::string err_msg;
+  boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+  opt.session->camera_models(left_camera_model, right_camera_model);
+  cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
+  for (int attempt  = 1; attempt <= 2; attempt++) {
+    // Try to first use the regular left win and have the right one
+    // bigger in case that one is not reliably found. If no luck, grow
+    // the left one but tighten the right one, because a big right win
+    // sometimes results in false positives which are later filtered
+    // out.
+    if (attempt == 2) {
+      vw_out() << "Local alignment attempt: " << attempt << ".\n";
+      left_extra_factor = 1.25;
+      right_extra_factor = 1.25;
+    }
+    try {
+      local_alignment(// Inputs
+                      opt, alg_name, opt.session->name(),
+                      max_tile_size, left_extra_factor, right_extra_factor,
+                      tile_crop_win, write_nodata,
+                      left_camera_model.get(),
+                      right_camera_model.get(),
+                      datum,
+                      // Outputs
+                      left_trans_crop_win, right_trans_crop_win,
+                      left_local_mat, right_local_mat,
+                      left_aligned_file, right_aligned_file,  
+                      min_disp, max_disp);
+      success = true;
+      break;
+    } catch(std::exception const& e){
+      err_msg = e.what();
+    }
+  }
+  if (!success) {
     // If this tile fails, write an empty disparity
-    vw_out() << e.what() << std::endl;
+    vw_out() << err_msg << std::endl;
     save_empty_disparity(opt, tile_crop_win, out_disp_file);
     return;
   }
-  
+
   vw_out() << "Min and max disparities: " << min_disp << ", " << max_disp << ".\n";
 
   // If the user specified a search range limit, apply it here.
@@ -1336,21 +1275,20 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                                 region_ul, lr_disp_diff_ptr), 
            bounding_box(left_image));
 
-#if 0
-    // For debugging
-    // Write the aligned 2D disparity to disk
-    vw::cartography::GeoReference georef;
-    bool   has_georef = false;
-    bool   has_nodata = false;
-    double nodata = std::numeric_limits<float>::quiet_NaN();
-    std::string aligned_disp_file = opt.out_prefix + "-aligned-disparity_2D.tif";
-    vw_out() << "Writing: " << aligned_disp_file << "\n";
-    vw::cartography::block_write_gdal_image(aligned_disp_file, aligned_disp_2d,
-                                            has_georef, georef,
-                                            has_nodata, nan, opt,
-                                            TerminalProgressCallback
-                                            ("asp", "\t--> Disparity :"));
-#endif
+    if (stereo_settings().local_alignment_debug) {
+      // Write the aligned 2D disparity to disk, for debugging
+      vw::cartography::GeoReference georef;
+      bool   has_georef = false;
+      bool   has_nodata = false;
+      double nodata = std::numeric_limits<float>::quiet_NaN();
+      std::string aligned_disp_file = opt.out_prefix + "-aligned-disparity_2D.tif";
+      vw_out() << "Writing: " << aligned_disp_file << "\n";
+      vw::cartography::block_write_gdal_image(aligned_disp_file, aligned_disp_2d,
+                                              has_georef, georef,
+                                              has_nodata, nan, opt,
+                                              TerminalProgressCallback
+                                              ("asp", "\t--> Disparity :"));
+    }
     
     // Undo the alignment
     asp::unalign_2d_disparity(// Inputs

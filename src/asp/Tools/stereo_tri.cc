@@ -511,20 +511,6 @@ void disp_or_matches_or_jitter_work(std::string const& output_prefix,
   // Transforms to compensate for alignment
   vw::TransformPtr left_trans  = transforms[0];
   vw::TransformPtr right_trans = transforms[1];
-  // Special case to overwrite the transforms
-  bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
-                              (opt.session->name() == "pinhole" ||
-                                opt.session->name() == "nadirpinhole") );
-  if (usePinholeEpipolar) {
-    StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt.session.get());
-    if (pinPtr == NULL) 
-      vw_throw(ArgumentErr() << "Expected a pinhole session.\n");
-    try {
-      pinPtr->pinhole_cam_trans(left_trans, right_trans);
-    } catch(...) {
-      vw_throw(ArgumentErr() << "Expected a non-cahv* type camera for disparity operations.\n");
-    }
-  }
       
   // Create a disparity map with between the original unaligned images 
   if (stereo_settings().unalign_disparity) {

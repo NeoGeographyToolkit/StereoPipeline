@@ -167,7 +167,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
          boost::ends_with(lcase_file, ".tsai"   )   ) {
 
       Vector2i left_out_size, right_out_size;
-      load_camera_models( left_cam, right_cam, left_out_size, right_out_size );
+      load_camera_models(left_cam, right_cam, left_out_size, right_out_size);
       
       // Write out the camera models used to generate the aligned images.
       dynamic_cast<PinholeModel*>(left_cam.get ())->write(m_out_prefix + "-L.tsai");
@@ -190,7 +190,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
 
     } else { // Handle CAHV derived models
     
-      camera_models( left_cam, right_cam );
+      camera_models(left_cam, right_cam);
     
       get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
                                       left_cam, right_cam,
@@ -426,26 +426,58 @@ void asp::StereoSessionPinhole::load_camera_models(
   right_cam = epipolar_right_pin;
 }
 
-asp::StereoSessionPinhole::tx_type
-asp::StereoSessionPinhole::tx_left() const {
+// Return the left transform used in alignment
+asp::StereoSessionPinhole::tx_type asp::StereoSessionPinhole::tx_left() const {
   Matrix<double> tx = math::identity_matrix<3>();
-  return tx_type( new vw::HomographyTransform(tx) );
+
+  if (stereo_settings().alignment_method == "affineepipolar" || 
+      stereo_settings().alignment_method == "local_epipolar") 
+    vw_throw(NoImplErr()
+             << "Alignment methods affineepipolar and local_epipolar are "
+             << "not supported with the pinhole session.\n");
+    
+  if (stereo_settings().alignment_method != "epipolar") // homography and none 
+    return tx_type(new vw::HomographyTransform(tx));
+
+  // TODO(oalexan1): Figure out if things can work without casting away the const
+  StereoSession::tx_type trans_left, trans_right;
+  ((StereoSessionPinhole*)this)->pinhole_cam_trans(trans_left, trans_right);
+  return trans_left;
 }
-asp::StereoSessionPinhole::tx_type
-asp::StereoSessionPinhole::tx_right() const {
-  if ( stereo_settings().alignment_method == "homography" ) {
+
+// Return the right transform used in alignment
+asp::StereoSessionPinhole::tx_type asp::StereoSessionPinhole::tx_right() const {
+
+  if (stereo_settings().alignment_method == "affineepipolar" || 
+      stereo_settings().alignment_method == "local_epipolar") 
+    vw_throw(NoImplErr()
+             << "Alignment methods affineepipolar and local_epipolar are "
+             << "not supported with the pinhole session.\n");
+
+  if (stereo_settings().alignment_method == "homography") {
     Matrix<double> align_matrix;
-    read_matrix( align_matrix, m_out_prefix + "-align-R.exr" );
-    return tx_type( new vw::HomographyTransform(align_matrix) );
+    read_matrix(align_matrix, m_out_prefix + "-align-R.exr");
+    return tx_type(new vw::HomographyTransform(align_matrix));
+  } else if (stereo_settings().alignment_method == "none") {
+    return tx_type(new vw::HomographyTransform(math::identity_matrix<3>()));
+  } else if (stereo_settings().alignment_method == "epipolar") {
+    // TODO(oalexan1): Figure out if things can work without casting away the const
+    StereoSession::tx_type trans_left, trans_right;
+    ((StereoSessionPinhole*)this)->pinhole_cam_trans(trans_left, trans_right);
+    return trans_right;
   }
-  return tx_type( new vw::HomographyTransform(math::identity_matrix<3>()) );
 }
 
 void asp::StereoSessionPinhole::pinhole_cam_trans(tx_type & left_trans,
-                                                  tx_type & right_trans){
+                                                  tx_type & right_trans) {
 
   // Load the epipolar aligned camera models
   boost::shared_ptr<camera::CameraModel> left_aligned_model, right_aligned_model;
+
+  // TODO(oalexan1): Models must be loaded by now, presumably. Then
+  // pinhole_cam_trans can be const, and we don't to cast away the const in tx_left()
+  // and tx_right() above.
+  
   this->camera_models(left_aligned_model, right_aligned_model);
   
   boost::shared_ptr<camera::CameraModel> left_input_model, right_input_model;
@@ -455,8 +487,9 @@ void asp::StereoSessionPinhole::pinhole_cam_trans(tx_type & left_trans,
   typedef vw::camera::PinholeModel PinModel;
   PinModel* left_in_ptr = dynamic_cast<PinModel*>(&(*left_input_model));
   if (!left_in_ptr)
-    vw_throw( NoImplErr() << "StereoSessionPinhole::pinhole_cam_trans is only "
-              << "implemented for PinholeModel classes!\n" );
+    vw_throw(NoImplErr() << "StereoSessionPinhole::pinhole_cam_trans is only "
+             << "implemented for PinholeModel classes! Use a different alignment "
+             << "method than 'epipolar.\n" );
 
   // Set up transform objects
   left_trans.reset (new asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*left_input_model   )),
