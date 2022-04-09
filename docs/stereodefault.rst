@@ -505,6 +505,13 @@ correlator-mode
     before triangulation, so at filtered disparity. See
     :numref:`correlator-mode` for more details.
 
+stereo-debug
+    A developer option used to debug stereo correlation.
+
+local-alignment-debug
+    A developer option used to debug local epipolar alignment issues.
+    An example is in :numref:`local_alignment_issues`.
+
 Subpixel refinement
 -------------------
 

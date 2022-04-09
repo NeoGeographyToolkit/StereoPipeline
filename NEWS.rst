@@ -26,7 +26,7 @@ New tool additions:
     transform type (translation, rigid, similarity, affine, and
     homography).
 
- parallel_stereo:
+parallel_stereo:
   * Many fixes for reliability of stereo with local epipolar alignment.
   * Added the option ``--resume-at-corr``. Start at the correlation stage
     and skip recomputing the valid low and full-res disparities for

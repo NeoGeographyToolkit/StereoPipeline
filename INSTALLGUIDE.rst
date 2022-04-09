@@ -40,12 +40,11 @@ Planetary images
 
 If you plan to process images from NASA's spacecraft that are
 exploring other planets, you will probably need to have :term:`ISIS`
-installed.  A full ISIS installation is not required for operation
-of the main Stereo Pipeline programs (only the ISIS data directory
-is needed), but it is required for certain preprocessing steps
-before Stereo Pipeline programs are run for planetary data.  If you
-only want to process terrestrial Digital Globe images, skip to the
-`Quick Start for Digital Globe Users`_ section.
+installed.  A full ISIS installation is not required for operation of
+the main Stereo Pipeline programs (only the ISIS data directory is
+needed), but it is required for certain preprocessing steps before
+Stereo Pipeline programs are run for planetary data.  If you only want
+to process terrestrial images, skip to :numref:`dg_tutorial`.
 
 To perform pre-processing (radiometric calibration, ephemeris
 processing, etc.), of non-terrestrial images prior to running Stereo

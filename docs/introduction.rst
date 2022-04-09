@@ -209,7 +209,7 @@ different, specific options.  Default arguments or other notes are
 enclosed by parentheses, and line continuation with a backslash::
 
     point2dem [-h|--help] [-r moon|mars] [-s <float(default: 0.0)>] \
-              [-o <output-filename>] <pointcloud>-PC.tif
+              [-o <output prefix>] <output prefix>-PC.tif
 
 The above indicates a run of the ``point2dem`` program. The only
 argument that it requires is a point cloud file, which is produced by
@@ -229,10 +229,10 @@ second line. You can either type everything into one long line on your
 own terminal, or use the backslash character and a return to continue
 typing on a second line in your terminal.
 
-Referencing the Ames Stereo Pipeline in Your Work
--------------------------------------------------
+Citing the Ames Stereo Pipeline in your work
+--------------------------------------------
 
-In general, use this reference for the Ames Stereo Pipeline:
+In general, use this reference:
 
   Beyer, Ross A., Oleg Alexandrov, and Scott McMichael. 2018. The Ames
   Stereo Pipeline: NASA's open source software for deriving and processing
@@ -269,14 +269,15 @@ If you publish a paper using ASP, please let us know. We'll cite your
 work in this document, in :numref:`papersusingasp`.
 
 
-Warnings to Users of the Ames Stereo Pipeline
+Warnings to users of the Ames Stereo Pipeline
 ---------------------------------------------
 
 Ames Stereo Pipeline is a **research** product. There may be bugs or
 incomplete features. We reserve the ability to change the API and
-command line options of the tools we provide. Although we hope you will
-find this release helpful, you use it at your own risk. Please check
-each release's **NEWS** file to see a summary of our recent changes.
+command line options of the tools we provide. Although we hope you
+will find this release helpful, you use it at your own risk. Please
+check each release's NEWS file (:numref:`news`) to see a summary of
+our recent changes.
 
 While we are confident that the algorithms used by this software are
 robust, the Ames Stereo Pipeline has a lot of adjustable parameters, and

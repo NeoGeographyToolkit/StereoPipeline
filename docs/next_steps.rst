@@ -45,9 +45,7 @@ ASP also implements local alignment, when the input images are split
 into tiles (with overlap) and locally aligned. This makes it possible
 to use third-party algorithms in addition to the ones ASP implements. 
 
-This mode is still in development, and best results with it, for the
-moment, are obtained with ASP's own MGM algorithm, if invoked as
-follows::
+With ASP's own MGM algorithm this method can be run as::
 
    parallel_stereo --alignment-method local_epipolar \
      --stereo-algorithm asp_mgm                      \
@@ -57,26 +55,25 @@ ASP also ships with the following third-party stereo algorithms:
 MGM (original author implementation), OpenCV SGBM, LIBELAS, MSMW,
 MSMW2, and OpenCV BM. For more details see :numref:`stereo_algos`.
 
-For example, the external MGM implementation can be called as::
+For example, the rather solid and reasonably fast OpenCV SGBM
+implementation can be called as::
 
    parallel_stereo --alignment-method local_epipolar \
-     --stereo-algorithm mgm                          \
+     --stereo-algorithm opencv_sgbm                  \
      --corr-tile-size 512 --sgm-collar-size 256      \ 
      <other options>
 
-As before, this mode is still experimental. 
-    
 Above we used tiles of size 512 pixels with an extra padding of 256
 pixels on each side, for a total size of 1024 pixels, to avoid using
 too much memory. The defaults in ``parallel_stereo`` are double these
 values, which work well with ASP's MGM which is more conservative with
-its use of memory but can be too much for this other implementation.
+its use of memory but can be too much for some other implementations.
 
 It is suggested to not specify here ``--subpixel-mode``, in which case
-it will use MGM's own implementation. Using ``--subpixel-mode 3`` will
-refine that result using ASP's subpixel implementation. Using
-``--subpixel-mode 2`` will be much slower but likely produce even
-better results.
+it will use each algorithm's own subpixel implementation. Using
+``--subpixel-mode 3`` will refine that result using ASP's subpixel
+implementation. Using ``--subpixel-mode 2`` will be much slower but
+likely produce even better results.
 
 Next we will discuss more advanced parameters which rarely need to be
 set in practice.

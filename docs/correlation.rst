@@ -682,3 +682,52 @@ images, it is just an example.
 Again, unless you are doing something complicated, using the
 ``cam2map4stereo.py`` (:numref:`cam2map4stereo.py`) will take care of
 all these steps for you.
+
+.. _local_alignment_issues:
+
+Identifying issues in local alignment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Stereo with local epipolar alignment (:numref:`running-stereo`) can
+perform better than with global affine epipolar alignment. Yet, when stereo
+fails on a locally aligned tile pair, it is instructive to understand
+why. Usually it is because the images are difficult at 
+that location, such as due to very steep terrain, clouds, shadows, etc.
+
+For a completed ``parallel_stereo`` run which failed in a portion, the
+first step is to identify the offending tile directory. For that, open the
+produced DEM in ``stereo_gui``, and use the instructions at
+:numref:`image_bounds` to find the approximate longitude, latitude,
+and height at the problematic location. 
+
+Then run ``stereo_parse`` with the same options as ``parallel_stereo``
+and the flag::
+
+    --tile-at-location '<lon> <lat> <height>'
+
+This should print on the screen a text like::
+
+    Tile with location: run/run-2048_3072_1024_1024
+
+If a run failed to complete, find the most recent output tile
+directories that were being worked on, based on modification time, and
+investigate one of them.
+
+In either case, given a candidate for a problematic tile, from the log
+file of ``stereo_corr`` in that tile's directory you can infer the full
+correlation command that failed. Re-run it, while appending the option::
+
+    --local-alignment-debug
+
+Images and interest point matches before and after alignment will be
+saved. Those can be examined as::
+
+    stereo_gui <tile>-left-crop.tif <tile>-right-crop.tif \
+      <tile>-left-crop__right-crop.match 
+
+and::
+
+    stereo_gui <tile>-left-aligned-tile.tif               \
+      <tile>-right-aligned-tile.tif                       \
+      <tile>-left-aligned-tile__right-aligned-tile.match 
+
