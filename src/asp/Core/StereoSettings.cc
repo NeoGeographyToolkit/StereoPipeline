@@ -248,7 +248,7 @@ namespace asp {
       ("rm-quantile-multiple",    po::value(&global.rm_quantile_multiple)->default_value(-1),
                               "Filter out pixels in D_sub where disparity > multiple*quantile.  Set >0 to enable.")
       ("skip-low-res-disparity-comp", po::bool_switch(&global.skip_low_res_disparity_comp)->default_value(false)->implicit_value(true),
-                     "Skip the low-resolution disparity computation. This option is used in parallel_stereo.")
+                     "Skip the low-resolution disparity computation. This option is invoked from parallel_stereo.")
       ("compute-low-res-disparity-only", po::bool_switch(&global.compute_low_res_disparity_only)->default_value(false)->implicit_value(true),
                      "Compute only the low-resolution disparity, skip the full-resolution disparity computation.")
       ("disparity-estimation-dem", po::value(&global.disparity_estimation_dem)->default_value(""),
@@ -273,7 +273,9 @@ namespace asp {
        "Function as an image correlator only (including with subpixel refinement). Assume no cameras, aligned input images, and stop before triangulation, so at filtered disparity.")
 
       ("stereo-debug",   po::bool_switch(&global.stereo_debug)->default_value(false)->implicit_value(true),
-                     "Write stereo debug images and output.");
+                     "Write stereo debug images and output.")
+    ("local-alignment-debug",   po::bool_switch(&global.local_alignment_debug)->default_value(false)->implicit_value(true),
+     "Save the results of more intermediate steps when doing local alignment.");
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
     // Do not add default values here. They may override the values set
@@ -401,7 +403,7 @@ namespace asp {
       ("compute-point-cloud-center-only",   po::bool_switch(&global.compute_point_cloud_center_only)->default_value(false)->implicit_value(true),
                                             "Only compute the center of triangulated point cloud and exit.")
       ("skip-point-cloud-center-comp", po::bool_switch(&global.skip_point_cloud_center_comp)->default_value(false)->implicit_value(true),
-       "Skip the computation of the point cloud center. This option is used in parallel_stereo.")
+       "Skip the computation of the point cloud center. This option is invoked from parallel_stereo.")
       ("compute-error-vector",              po::bool_switch(&global.compute_error_vector)->default_value(false)->implicit_value(true),
                                             "Compute the triangulation error vector, not just its length.")
       ("compute-piecewise-adjustments-only", po::bool_switch(&global.compute_piecewise_adjustments_only)->default_value(false)->implicit_value(true),
@@ -446,6 +448,42 @@ namespace asp {
       ;
   }
 
+  // Options for stereo_parse
+  ParseDescription::ParseDescription() : po::options_description("stereo_parse options") {
+    StereoSettings& global = stereo_settings();
+    (*this).add_options()
+      ("tile-at-location", po::value(&global.tile_at_loc)->default_value(""),
+       "Find the tile in the current parallel_stereo run which generated the DEM portion having this lon-lat-height location. Specify as a string in quotes: 'lon lat height'. Use this option with stereo_parse and the rest of options used in parallel_stereo, including cameras, output prefix, etc. (except for those needed for tiling and parallelization). This does not work with mapprojected images.");
+  }
+
+  // Options for parallel_stereo. These are not used by the stereo
+  // executables, but accept them quietly so that when stereo_gui or
+  // stereo_parse is invoked with a parallel_stereo command it would
+  // not fail. Later, if parallel_stereo is invoked from stereo_gui,
+  // these will be passed on.
+  ParallelDescription::ParallelDescription() : po::options_description("parallel_stereo options") {
+    StereoSettings& global = stereo_settings();
+    (*this).add_options()
+      ("nodes-list", po::value(&global.nodes_list)->default_value(""),
+       "The list of computing nodes, one per line. If not provided, run on the local machine.")
+      ("ssh", po::value(&global.ssh)->default_value(""),
+       "Specify the path to an alternate version of the ssh tool to use.")
+      ("processes", po::value(&global.processes)->default_value(-1),
+       "The number of processes to use per node.")
+      ("threads-multiprocess", po::value(&global.threads_multi)->default_value(-1),
+       "The number of threads to use per process when running multiple processes.")
+      ("threads-singleprocess",po::value(&global.threads_single)->default_value(-1),
+       "The number of threads to use when running a single process (stereo_pprc and stereo_fltr).")
+      ("entry-point,e", po::value(&global.entry_point)->default_value(0),
+       "Stereo Pipeline entry point (an integer from 0-5).")
+      ("stop-point", po::value(&global.stop_point)->default_value(6),
+       "Stereo Pipeline stop point (an integer from 1-6). Stop before this step.")
+      ("job-size-w", po::value(&global.job_size_w)->default_value(2048),
+       "Pixel width of input image tile for a single process.")
+      ("job-size-h",           po::value(&global.job_size_h)->default_value(2048),
+       "Pixel height of input image tile for a single process.");
+  }
+
   UndocOptsDescription::UndocOptsDescription() : po::options_description("Undocumented options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
@@ -464,6 +502,8 @@ namespace asp {
     cfg_options.add( FilteringDescription()     );
     cfg_options.add( TriangulationDescription() );
     cfg_options.add( GUIDescription()           );
+    cfg_options.add( ParseDescription()         );
+    cfg_options.add( ParallelDescription()      );
     cfg_options.add( UndocOptsDescription()     );
 
     return cfg_options;

@@ -58,6 +58,8 @@ namespace asp {
   struct FilteringDescription     : public boost::program_options::options_description { FilteringDescription    (); };
   struct TriangulationDescription : public boost::program_options::options_description { TriangulationDescription(); };
   struct GUIDescription           : public boost::program_options::options_description { GUIDescription          (); };
+  struct ParseDescription           : public boost::program_options::options_description { ParseDescription          (); };
+  struct ParallelDescription           : public boost::program_options::options_description { ParallelDescription          (); };
   struct UndocOptsDescription     : public boost::program_options::options_description { UndocOptsDescription    (); };
 
   boost::program_options::options_description
@@ -131,9 +133,15 @@ namespace asp {
     double local_alignment_threshold;         /// Max distance from the epipolar line when doing local affine epipolar alignment
     int    alignment_num_ransac_iterations;   ///< How many ransac iterations to do in global or local epipolar alignment transform computation
     vw::Vector2 outlier_removal_params;
+    
+    bool enable_correct_velocity_aberration;
+    bool enable_correct_atmospheric_refraction;
+
     int    disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
 
     // Correlation Options
+    
+
     float slogW;                      ///< Preprocessing filter width
     vw::uint16 pre_filter_mode;       // 0 = None
                                       // 1 = Gaussian Blur
@@ -178,10 +186,14 @@ namespace asp {
     int    sgm_collar_size;           // Extra tile padding used for SGM calculation.
     vw::Vector2i sgm_search_buffer;   // Search padding in SGM around previous pyramid level disparity value.
     size_t corr_memory_limit_mb;      // Correlation memory limit, only important for SGM/MGM.
-    bool   stereo_debug;              // Write stereo debug images and messages
     bool   correlator_mode;           // Use the correlation logic only (including subpixel rfne). 
+    bool   stereo_debug;              // Write stereo debug images and messages
+    bool   local_alignment_debug;     // Debug local alignment
+
     // Subpixel Options
+
     bool subpix_from_blend;           // Read from -B.tif instead of -D.tif
+    
     vw::uint16 subpixel_mode;         // 0 = none
                                       // 1 = parabola fitting
                                       // 2 = affine, bayes weighting
@@ -262,11 +274,16 @@ namespace asp {
     bool delete_temporary_files_on_exit;
     bool create_image_pyramids_only, hide_all;
     std::vector<std::string> vwip_files;
-    
-    // Sensor options
-    bool enable_correct_velocity_aberration;
-    bool enable_correct_atmospheric_refraction;
 
+    // stereo_parse options
+    std::string tile_at_loc;
+
+    // Options for parallel_stereo. These are not used, but accept
+    // them quietly so that when stereo_gui or stereo_parse is invoked
+    // with a parallel_stereo command it would not fail.
+    std::string nodes_list, ssh;
+    int threads_multi, threads_single, processes, entry_point, stop_point, job_size_h, job_size_w;
+    
     // Undocumented options. We don't want these exposed to the user.
     vw::BBox2i trans_crop_win;        // Left image crop window in respect to L.tif.
     bool attach_georeference_to_lowres_disparity;
@@ -296,7 +313,7 @@ namespace asp {
                              bool allow_unregistered = false);
   };
 
-  /// Custom Parsers for ASP's stereo.default files
+  /// Custom parsers for ASP's stereo.default files
   boost::program_options::basic_parsed_options<char>
   parse_asp_config_file( std::basic_istream<char>&,
                          const boost::program_options::options_description&,

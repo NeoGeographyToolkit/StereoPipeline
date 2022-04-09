@@ -33,24 +33,84 @@ using namespace asp;
 using namespace std;
 namespace fs = boost::filesystem;
 
-int main( int argc, char* argv[] ) {
+// Find the tile at given location for a parallel_stereo run with local epipolar
+// alignment.
+void find_tile_at_loc(std::string const& tile_at_loc, ASPGlobalOptions const& opt) {
+
+  if (opt.input_dem != "") 
+    vw_throw(ArgumentErr() << "Option --tile-at-location does not work "
+             << "with mapprojected images.\n");
+
+  std::istringstream iss(tile_at_loc);
+  double lon, lat, h;
+  if (!(iss >> lon >> lat >> h))
+    vw_throw(ArgumentErr() << "Could not parse --tile-at-location.\n");
+
+  vw::cartography::GeoReference georef = opt.session->get_georef();
+
+  boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+  opt.session->camera_models(left_camera_model, right_camera_model);
+  
+  Vector3 xyz = georef.datum().geodetic_to_cartesian(Vector3(lon, lat, h));
+  Vector2 pix = left_camera_model->point_to_pixel(xyz);
+
+  vw::TransformPtr tx_left = opt.session->tx_left();
+
+  pix = tx_left->forward(pix);
+
+  // Read the tiles
+  std::string line;
+  std::string dir_list = opt.out_prefix + "-dirList.txt";
+  vw_out() << "Reading list of tiles: " << dir_list << "\n";
+  std::ifstream ifs(dir_list);
+  std::vector<BBox2i> boxes;
+  bool success = false;
+  while (ifs >> line) {
+    std::string::size_type pos = line.find(opt.out_prefix);
+    if (pos == std::string::npos) 
+      vw_throw(ArgumentErr() << "Could not find the output prefix in " << dir_list << ".\n");
+
+    std::string tile_name = line;
+    line.replace(pos, opt.out_prefix.size() + 1, ""); // add 1 to replace the dash
+
+    int start_x, start_y, wid_x, wid_y;
+    int ans = sscanf(line.c_str(), "%d_%d_%d_%d", &start_x, &start_y, &wid_x, &wid_y);
+    if (ans != 4) 
+      vw_throw(ArgumentErr() << "Error parsing 4 numbers from string: " << line);
+
+    BBox2i box(start_x, start_y, wid_x, wid_y);
+    if (box.contains(pix)) {
+      std::cout << "Tile with location: " << tile_name << std::endl;
+      success = true;
+    }
+  }
+
+  if (!success)
+    vw_out() << "No tile found at location.\n"; 
+}
+
+int main(int argc, char* argv[]) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
     stereo_register_sessions();
 
-    // Below, TriangulationDescription() would work just as well
-    // as anything else. Just need to pass something.
     bool verbose = true;
     vector<ASPGlobalOptions> opt_vec;
     string output_prefix;
-    asp::parse_multiview(argc, argv, TriangulationDescription(),
+    asp::parse_multiview(argc, argv, ParseDescription(),
                          verbose, output_prefix, opt_vec);
     if (opt_vec.empty())
       return 1;
 
     ASPGlobalOptions opt = opt_vec[0];
 
+    if (!stereo_settings().tile_at_loc.empty()) {
+      // Use this as a small utility in debugging parallel_stereo runs
+      find_tile_at_loc(stereo_settings().tile_at_loc, opt);
+      return 1;
+    }
+    
     vw_out() << "in_file1,"        << opt.in_file1        << endl;
     vw_out() << "in_file2,"        << opt.in_file2        << endl;
     vw_out() << "cam_file1,"       << opt.cam_file1       << endl;
