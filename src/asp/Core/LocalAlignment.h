@@ -56,6 +56,8 @@ namespace asp {
                        std::string             const & alg_name,
                        std::string      const & session_name,
                        int                      max_tile_size,
+                       double                          left_extra_factor,
+                       double                          right_extra_factor,
                        vw::BBox2i       const & tile_crop_win,
                        bool                     write_nodata,
                        vw::camera::CameraModel const * left_camera_model,

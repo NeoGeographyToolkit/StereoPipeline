@@ -41,11 +41,51 @@
 using namespace vw;
 namespace fs = boost::filesystem;
 
-// Debug logic
-#define DEBUG_ALIGNMENT 0
-
 namespace asp {
 
+  // Grow a box to a square size. 
+  vw::BBox2i grow_box_to_square(vw::BBox2i const& box, int max_size) {
+    int width = box.width();
+    int height = box.height();
+
+    int diffx = std::max(max_size - width, 0);
+    int diffy = std::max(max_size - height, 0);
+
+    BBox2i out_box = box;
+    out_box.min() -= Vector2(diffx/2, diffy/2);
+    out_box.max() += Vector2((diffx + 1)/2, (diffy + 1)/2); // +1 to handle the case of odd dims
+
+    return out_box;
+  }
+
+  // Grow bbox to square while not exceeding given box
+  vw::BBox2i grow_box_to_square_with_constraint(vw::BBox2i const& box, int max_size,
+                                                vw::BBox2i const& max_box) {
+    
+    BBox2i out_box = box;
+    for (int attempt = 0; attempt < 10; attempt++) {
+      int width  = box.width();
+      int height = box.height();
+      BBox2i prev_box = out_box;
+      out_box = grow_box_to_square(out_box, max_size);
+      
+      // Ensure we do not exceed the image bounds
+      out_box.crop(max_box);
+      
+      // TODO(oalexan1): Here need find the bounding box of the valid
+      // data and if necessary grow box to make the bounding box of
+      // the valid data be as wide and tall as a full tile. As it is,
+      // the box could be big but a good chunk of it could be covering
+      // an area with no data.
+
+      // Stop when the box stops growing
+      if (out_box == prev_box) 
+        break;
+    }
+
+    return out_box;
+  }
+  
   // Estimate the region in the right image corresponding
   // to left_trans_crop_win based on ip in the current box and
   // also by creating ip from D_sub. If cannot find enough such ip,
@@ -57,6 +97,8 @@ namespace asp {
                                      vw::HomographyTransform const & left_global_trans,
                                      vw::HomographyTransform const & right_global_trans,
                                      ImageViewRef<PixelGray<float>>  right_globally_aligned_image,
+                                     int                             max_tile_size,
+                                     double                          right_extra_factor,
                                      BBox2i                  const & left_trans_crop_win, 
                                      BBox2i                        & right_trans_crop_win) {
 
@@ -91,6 +133,7 @@ namespace asp {
                                  left_ip_from_dsub, right_ip_from_dsub);
 
       // Append the ip from D_sub which are in the box
+      int num_ip_from_d_sub = 0;
       for (size_t i = 0; i < left_ip_from_dsub.size(); i++) {
         Vector2 left_pt(left_ip_from_dsub[i].x, left_ip_from_dsub[i].y);
         if (!ip_crop_win.contains(left_pt)) 
@@ -102,9 +145,11 @@ namespace asp {
 
         left_trans_ip.push_back(left_ip_from_dsub[i]);
         right_trans_ip.push_back(right_ip_from_dsub[i]);
+        num_ip_from_d_sub++;
       }
 
       // Append the regular ip which are in the box
+      int num_global_ip_in_tile = 0;
       for (size_t i = 0; i < left_unaligned_ip.size(); i++) {
         Vector2 left_pt (left_unaligned_ip [i].x, left_unaligned_ip [i].y);
         Vector2 right_pt(right_unaligned_ip[i].x, right_unaligned_ip[i].y);
@@ -124,26 +169,47 @@ namespace asp {
         left_trans_ip.back().y  = left_pt.y();
         right_trans_ip.back().x = right_pt.x();
         right_trans_ip.back().y = right_pt.y();
+        num_global_ip_in_tile++;
       }
 
-#if DEBUG_ALIGNMENT
-      std::string out_match_filename = vw::ip::match_filename(opt.out_prefix + "-tile",
-                                                              "L.tif", "R.tif");
-      vw_out() << "Writing match file: " << out_match_filename << "\n";
-      vw::ip::write_binary_match_file(out_match_filename, left_trans_ip, right_trans_ip);
-#endif
+      // TODO(oalexan1): if the right box is way too big, so if there
+      // are outliers, it needs to be shrank by finding the median of
+      // of the ip and shrinking the box around it.
+      
+      if (stereo_settings().local_alignment_debug) {
+        std::cout << "Attempt: " << pass << std::endl;
+        std::cout << "Num ip from D_sub: " << num_ip_from_d_sub << std::endl;
+        std::cout << "Num global ip in tile: " << num_global_ip_in_tile << std::endl;
+        std::cout << "Left trans crop win " << left_trans_crop_win << std::endl;
+        std::cout << "Right trans crop win " << right_trans_crop_win << std::endl;
+      }
+
+      // This is a bugfix, sometimes the right tile is under-estimated
+      // if there are not enough ip. Make the box bigger as sometimes
+      // it is not accurately determined based on input ip or
+      // disparity. Later we will have to shrink it.
+      right_trans_crop_win = grow_box_to_square_with_constraint
+        (right_trans_crop_win, right_extra_factor * max_tile_size,
+         vw::bounding_box(right_globally_aligned_image));
+      
+      if (stereo_settings().local_alignment_debug) {
+        std::cout << "Grown right trans crop win " << right_trans_crop_win << std::endl;
+        std::string out_match_filename
+          = vw::ip::match_filename(opt.out_prefix + "-tile", "L.tif", "R.tif");
+        vw_out() << "Writing match file: " << out_match_filename << "\n";
+        vw::ip::write_binary_match_file(out_match_filename, left_trans_ip, right_trans_ip);
+      }
       
       if (left_trans_ip.size() >= min_num_ip) 
         break;
-      
-      ip_crop_win.expand(win_size/10);
+
+      // After each pass, grow the box a bit
+      ip_crop_win.expand(win_size/5);
     }
     
     // Round up
     right_trans_crop_win.expand(1);
     right_trans_crop_win.crop(bounding_box(right_globally_aligned_image));
-  
-    //vw_out() << "Right image crop window: " << right_trans_crop_win << std::endl;
   }
 
   // Unalign the ip, filter them using the cameras, align them back,
@@ -184,13 +250,14 @@ namespace asp {
       right_global_ip.back().y = right_pt.y();
     }
     
-#if DEBUG_ALIGNMENT
-    std::string unaligned_match_filename = vw::ip::match_filename(opt.out_prefix + "-tile",
-                                                                  opt.in_file1,
-                                                                  opt.in_file2);
-    vw_out() << "Writing match file: " << unaligned_match_filename << "\n";
-    vw::ip::write_binary_match_file(unaligned_match_filename, left_global_ip, right_global_ip);
-#endif
+    if (stereo_settings().local_alignment_debug) {
+      std::string unaligned_match_filename = vw::ip::match_filename(opt.out_prefix
+                                                                    + "-cropped-noalign-ip",
+                                                                    opt.in_file1,
+                                                                    opt.in_file2);
+      vw_out() << "Writing match file: " << unaligned_match_filename << "\n";
+      vw::ip::write_binary_match_file(unaligned_match_filename, left_global_ip, right_global_ip);
+    }
 
     filter_ip_using_cameras(left_global_ip, right_global_ip,  
                             left_camera_model, right_camera_model, datum,
@@ -257,7 +324,7 @@ namespace asp {
     }
     
   }
-  
+
   // Algorithm to perform local alignment. Approach:
   //  - Given the global interest points and the left crop window, find
   //    the right crop window.
@@ -274,6 +341,8 @@ namespace asp {
                        std::string             const & alg_name,
                        std::string             const & session_name,
                        int                             max_tile_size,
+                       double                          left_extra_factor,
+                       double                          right_extra_factor,
                        vw::BBox2i              const & tile_crop_win,
                        bool                            write_nodata,
                        vw::camera::CameraModel const * left_camera_model,
@@ -326,22 +395,12 @@ namespace asp {
     // image bounding box (which may make it non-square again, so
     // repeat this a few times during which the box grows
     // bigger).
-    left_trans_crop_win = tile_crop_win;
-    for (int attempt = 0; attempt < 10; attempt++) {
-      int width  = left_trans_crop_win.width();
-      int height = left_trans_crop_win.height();
-      left_trans_crop_win = grow_box_to_square(left_trans_crop_win, max_tile_size);
+    left_trans_crop_win = grow_box_to_square_with_constraint
+      (tile_crop_win, left_extra_factor * max_tile_size,
+       vw::bounding_box(left_globally_aligned_image));
 
-      // Ensure we do not exceed the image bounds
-      left_trans_crop_win.crop(vw::bounding_box(left_globally_aligned_image));
-
-      // TODO(oalexan1): Here need find the bounding box of the valid data
-      // and if necessary grow left_trans_crop_win to make the bounding box
-      // of the valid data be as wide and tall as a full tile.
-
-      if (left_trans_crop_win.width() == width && left_trans_crop_win.height() == height) 
-        break;
-    }
+    if (stereo_settings().local_alignment_debug)
+      std::cout << "Grown left trans crop win " << left_trans_crop_win << std::endl;
     
     Matrix<double> left_global_mat  = math::identity_matrix<3>();
     Matrix<double> right_global_mat = math::identity_matrix<3>();
@@ -353,26 +412,31 @@ namespace asp {
     // Estimate the region in the right image corresponding
     // to left_trans_crop_win based on ip in the current box and
     // also by creating ip from D_sub.
-    estimate_right_trans_crop_win(opt,
-                                  left_unaligned_file, right_unaligned_file,
-                                  left_global_trans, right_global_trans,  
+    estimate_right_trans_crop_win(opt, left_unaligned_file, right_unaligned_file,
+                                  left_global_trans, right_global_trans,
                                   right_globally_aligned_image,  
-                                  left_trans_crop_win, right_trans_crop_win);
+                                  max_tile_size, right_extra_factor, left_trans_crop_win,
+                                  // Output
+                                  right_trans_crop_win);
+
+    // Use lots of IP. We will try very hard to filter them out later.
+    int ip_per_tile = 2000;
+    if (stereo_settings().ip_per_tile > 0) 
+      ip_per_tile = stereo_settings().ip_per_tile;
 
     // Redo ip matching in the current tile. It should be more accurate after alignment
-    // and cropping
+    // and cropping. 
     std::vector<vw::ip::InterestPoint> left_local_ip, right_local_ip;
     detect_match_ip(left_local_ip, right_local_ip,
                     crop(left_globally_aligned_image, left_trans_crop_win),
                     crop(right_globally_aligned_image, right_trans_crop_win), 
-                    stereo_settings().ip_per_tile,  
+                    ip_per_tile,  
                     "", "", // do not save any results to disk  
                     left_nodata_value, right_nodata_value,
                     "" // do not save any match file to disk
                     );
 
-#if DEBUG_ALIGNMENT 
-    {
+    if (stereo_settings().local_alignment_debug) {
       // These clips have global but not local alignment
       vw::cartography::GeoReference georef;
       bool has_georef = false, has_nodata = true;
@@ -399,8 +463,7 @@ namespace asp {
       vw_out() << "Writing match file: " << local_match_filename << "\n";
       vw::ip::write_binary_match_file(local_match_filename, left_local_ip, right_local_ip);
     }
-#endif
-    
+
     // The matrices which take care of the crop to the current tile
     Matrix<double> left_crop_mat  = math::identity_matrix<3>();
     Matrix<double> right_crop_mat = math::identity_matrix<3>();
@@ -477,14 +540,14 @@ namespace asp {
                   BilinearInterpolation());
 
     // This is a bugfix. Things can go out-of-whack when there are clouds.
+    // Note that the determinant being 0.15 means that the scale ratio
+    // among the two images is sqrt(0.15) = 0.38.
     double det_left = vw::math::det(combined_left_mat);
     double det_right = vw::math::det(combined_right_mat);
-
     if (det_left < 0.15 || det_right < 0.15) 
       vw_throw(vw::ArgumentErr() << "Expecting the determinants of local alignment "
                << "transforms to not be too different from 1. Got the values: "
                << det_left << ", " << det_right << ".\n");
-    
     if (det_left < 0.25 || det_right < 0.25)
       vw_out() << "Warning: the determinants of the local alignment transforms "
                << "are too different from 1. Got the  "
@@ -578,13 +641,13 @@ namespace asp {
       disp_range.grow(right_pt - left_pt);
     }
     
-#if DEBUG_ALIGNMENT
-    std::string local_aligned_match_filename
-      = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile);
-    vw_out() << "Writing match file: " << local_aligned_match_filename << "\n";
-    vw::ip::write_binary_match_file(local_aligned_match_filename, left_trans_local_ip,
-                                    right_trans_local_ip);
-#endif
+    if (stereo_settings().local_alignment_debug) {
+      std::string local_aligned_match_filename
+        = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile);
+      vw_out() << "Writing match file: " << local_aligned_match_filename << "\n";
+      vw::ip::write_binary_match_file(local_aligned_match_filename, left_trans_local_ip,
+                                      right_trans_local_ip);
+    }
     
     // Expand the disparity search range a bit
     double disp_width = disp_range.width();
@@ -734,27 +797,6 @@ namespace asp {
   }
 #endif
   
-  // Grow a box to a square size. If one of the input dimensions is
-  // even and another odd, we'll never get there but what we get will
-  // be good enough.
-  vw::BBox2i grow_box_to_square(vw::BBox2i const& box, int max_size) {
-    int width = box.width();
-    int height = box.height();
-
-    if (width > max_size || height > max_size) 
-      vw_throw(vw::ArgumentErr() << "Expecting tiles to have at most dimensions of "
-               << max_size << ", but got the tile " << box << ".\n");
-
-    int diffx = max_size - width;
-    int diffy = max_size - height;
-
-    BBox2i out_box = box;
-    out_box.min() -= Vector2(diffx/2, diffy/2);
-    out_box.max() += Vector2(diffx/2, diffy/2);
-
-    return out_box;
-  }
-
   // TODO(oalexan1): if left pix or right pix is invalid in the image,
   // the disparity must be invalid! Test with OpenCV SGBM, libelas, and mgm!
   // Also implement for unalign_2d_disparity.
