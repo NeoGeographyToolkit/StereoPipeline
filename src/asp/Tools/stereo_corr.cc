@@ -597,8 +597,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
     vw_out() << "Refined search range using --max-disp-spread: " << search_range << "\n";
   }
   
-  // Prevent any dimension from being length zero,
-  //  otherwise future parts to ASP will fail.
+  // Prevent any dimension from being length zero, otherwise future parts to ASP will fail.
   // TODO(oalexan1): Fix ASP and SGM handling of small boxes.
   // The issue is that a box with one point is considered empty.
   // See BBox.h.
@@ -1154,23 +1153,26 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     write_nodata = false; // To avoid warnings from the tif reader in msmw
   }
 
-  double left_extra_factor = 1.0, right_extra_factor = 2.0;
+  double left_extra_factor = 1.0, right_extra_factor = 1.0;
   bool success = false;
   std::string err_msg;
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
   opt.session->camera_models(left_camera_model, right_camera_model);
   cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
-  for (int attempt  = 1; attempt <= 2; attempt++) {
-    // Try to first use the regular left win and have the right one
-    // bigger in case that one is not reliably found. If no luck, grow
-    // the left one but tighten the right one, because a big right win
-    // sometimes results in false positives which are later filtered
-    // out.
-    if (attempt == 2) {
-      vw_out() << "Local alignment attempt: " << attempt << ".\n";
-      left_extra_factor = 1.25;
-      right_extra_factor = 1.25;
-    }
+  for (int attempt  = 1; attempt <= 1; attempt++) {
+    // TODO(oalexan1): The idea of the expansion of the domains need more thinking.
+    // In particular, need to proportionally expand how many interest points are
+    // found, as otherwise, if the density of interest points is different
+    // among the left and right images, the number of successful matches
+    // will actually go down. In either case, need to try without expansion
+    // first and only expand in subsequent attempts. A first attempt at
+    // expansion should expand the right box, in case it is not found
+    // accurately based on input disparity and interest points.
+    //if (attempt == 2) {
+    //   vw_out() << "Local alignment attempt: " << attempt << ".\n";
+    //  left_extra_factor = 1.0;
+    //  right_extra_factor = 2.0;
+    // }
     try {
       local_alignment(// Inputs
                       opt, alg_name, opt.session->name(),

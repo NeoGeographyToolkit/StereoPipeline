@@ -162,7 +162,7 @@ namespace asp {
         
         right_trans_crop_win.grow(right_pt);
         
-        // Apply the alignment transforms to all the IP we found
+        // Apply the alignment transforms to these ip 
         left_trans_ip.push_back(left_unaligned_ip[i]);
         right_trans_ip.push_back(right_unaligned_ip[i]);
         left_trans_ip.back().x  = left_pt.x();
@@ -187,7 +187,9 @@ namespace asp {
       // This is a bugfix, sometimes the right tile is under-estimated
       // if there are not enough ip. Make the box bigger as sometimes
       // it is not accurately determined based on input ip or
-      // disparity. Later we will have to shrink it.
+      // disparity. After ip are found, filtered, and local alignment
+      // is applied, the aligned tiles will be shrunk (as I recall)
+      // before running correlation.
       right_trans_crop_win = grow_box_to_square_with_constraint
         (right_trans_crop_win, right_extra_factor * max_tile_size,
          vw::bounding_box(right_globally_aligned_image));
@@ -677,7 +679,10 @@ namespace asp {
 
       // The resulting range of disparities will be printed later.
     }
-    
+
+    // TODO(oalexan1): If just small slivers of valid data
+    // are left in the tiles without the padding, this tile better
+    // be skipped.
     return;
   }
 
