@@ -531,67 +531,65 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   const Vector2i MINIMAL_EXPAND(10,1);
 
   // If the input search range is too small, expand it a little. Likely there
-  // are not enough interest points to find it accurately. 
+  // are not enough interest points to find it accurately.
+  bool filter_using_histogram = true;
   if (std::max(search_range.width(), search_range.height()) <= MIN_SEARCH_WIDTH) {
     search_range.min() -= MINIMAL_EXPAND; // BBox2.expand() function does not always work!!!!
     search_range.max() += MINIMAL_EXPAND;
     vw_out(InfoMessage,"asp") << "Using expanded search range: " << search_range << std::endl;
+    filter_using_histogram = false; // histogram filtering can be too aggressive
+  }
+
+  if (filter_using_histogram) {
+    // Compute histograms
+    const int NUM_BINS = 1000000; // Accuracy is important with scaled pixels
+    vw::math::Histogram hist_x(NUM_BINS, min_dx, max_dx);
+    vw::math::Histogram hist_y(NUM_BINS, min_dy, max_dy);
+    for (size_t i = 0; i < dx.size(); ++i){
+      hist_x.add_value(dx[i]);
+      hist_y.add_value(dy[i]);
+    }
+
+    // Gradually increase the filtering
+    const double PERCENTILE_CUTOFF = 1.0 - stereo_settings().outlier_removal_params[0]/100.0;
+    double search_scale = (2.0/3.0) * stereo_settings().outlier_removal_params[1]; // for bwd compat
+    const double PERCENTILE_CUTOFF_INC = 0.05; //  until the search width is reasonable.
+    const double MAX_PERCENTILE_CUTOFF = 0.201;
+
+    double current_percentile_cutoff = PERCENTILE_CUTOFF;
+    int search_width = MAX_SEARCH_WIDTH + 1;
+    while (current_percentile_cutoff > 0.0) { // no point in using a 0 cutoff
+      // Remove some outliers based on histogram and then multiply by a factor.
+      // This can be an overestimate.
+      BBox2 hist_search_range
+        = get_search_range_from_ip_hists(hist_x, hist_y, current_percentile_cutoff,
+                                         search_scale);
+
+      // Use the hist_search_range to perhaps narrow down the search range
+      search_range.crop(hist_search_range);
+
+      vw_out() << "Refined search range using a histogram and --outlier-removal-params: "
+               << search_range << "\n";
+    
+      search_width = search_range.width();
+    
+      // Increase the percentile cutoff in case we need to filter out more IP
+      current_percentile_cutoff += PERCENTILE_CUTOFF_INC;
+      if (current_percentile_cutoff > MAX_PERCENTILE_CUTOFF) {
+        if (search_width < MAX_SEARCH_WIDTH)
+          vw_out() << "Exceeded maximum filter cutoff of " << MAX_PERCENTILE_CUTOFF
+                   << ", keeping current search range\n";
+        break; // No more filtering is possible, exit the loop.
+      }
+      
+      if (search_width < MAX_SEARCH_WIDTH)
+        break; // Happy with search range, exit the loop.
+      else
+        vw_out() << "Search width of " << search_width << " is greater than desired limit of "
+                 << MAX_SEARCH_WIDTH << ", retrying with more aggressive IP filter.\n";
+    } // End search range determination loop
   }
   
-  // Compute histograms
-  const int NUM_BINS = 1000000; // Accuracy is important with scaled pixels
-  vw::math::Histogram hist_x(NUM_BINS, min_dx, max_dx);
-  vw::math::Histogram hist_y(NUM_BINS, min_dy, max_dy);
-  for (size_t i = 0; i < dx.size(); ++i){
-    hist_x.add_value(dx[i]);
-    hist_y.add_value(dy[i]);
-  }
-
-  //printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
-  //for (int i=0; i<NUM_BINS; ++i) {
-  //  printf("%d => X: %lf: %lf,   Y:  %lf: %lf\n", i,
-  //    centers_x[i], hist_x[i], centers_y[i], hist_y[i]);
-  //}
-
-  // Gradually increase the filtering
-  const double PERCENTILE_CUTOFF = 1.0 - stereo_settings().outlier_removal_params[0]/100.0;
-  double search_scale = (2.0/3.0) * stereo_settings().outlier_removal_params[1]; // for bwd compat
-  const double PERCENTILE_CUTOFF_INC = 0.05; //  until the search width is reasonable.
-  const double MAX_PERCENTILE_CUTOFF = 0.201;
-
-  double current_percentile_cutoff = PERCENTILE_CUTOFF;
-  int search_width = MAX_SEARCH_WIDTH + 1;
-  while (current_percentile_cutoff > 0.0) { // no point in using a 0 cutoff
-    // Remove some outliers based on histogram and then multiply by a factor.
-    // This can be an overestimate.
-    BBox2 hist_search_range
-      = get_search_range_from_ip_hists(hist_x, hist_y, current_percentile_cutoff,
-                                       search_scale);
-
-    // Use the hist_search_range to perhaps narrow down the search range
-    search_range.crop(hist_search_range);
-
-    vw_out() << "Refined search range using a histogram and --outlier-removal-params: "
-             << search_range << "\n";
-    
-    search_width = search_range.width();
-    
-    // Increase the percentile cutoff in case we need to filter out more IP
-    current_percentile_cutoff += PERCENTILE_CUTOFF_INC;
-    if (current_percentile_cutoff > MAX_PERCENTILE_CUTOFF) {
-      if (search_width < MAX_SEARCH_WIDTH)
-        vw_out() << "Exceeded maximum filter cutoff of " << MAX_PERCENTILE_CUTOFF
-                 << ", keeping current search range\n";
-      break; // No more filtering is possible, exit the loop.
-    }
-      
-    if (search_width < MAX_SEARCH_WIDTH)
-      break; // Happy with search range, exit the loop.
-    else
-      vw_out() << "Search width of " << search_width << " is greater than desired limit of "
-               << MAX_SEARCH_WIDTH << ", retrying with more aggressive IP filter.\n";
-  } // End search range determination loop
-
   if (stereo_settings().max_disp_spread > 0.0) {
     BBox2 spread_box = search_range_using_spread(stereo_settings().max_disp_spread,
                                                  matched_left_ip, matched_right_ip);
@@ -601,8 +599,10 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   
   // Prevent any dimension from being length zero,
   //  otherwise future parts to ASP will fail.
-  // TODO: Fix ASP and SGM handling of small boxes!
-  //       - Currently code has a minimum search height of 5!
+  // TODO(oalexan1): Fix ASP and SGM handling of small boxes.
+  // The issue is that a box with one point is considered empty.
+  // See BBox.h.
+  // Currently code has a minimum search height of 5!
   if (search_range.empty())
     vw_throw(ArgumentErr() << "Computed an empty search range!");
   

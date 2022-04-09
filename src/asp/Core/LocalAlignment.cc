@@ -419,18 +419,16 @@ namespace asp {
                                   // Output
                                   right_trans_crop_win);
 
-    // Use lots of IP. We will try very hard to filter them out later.
-    int ip_per_tile = 2000;
-    if (stereo_settings().ip_per_tile > 0) 
-      ip_per_tile = stereo_settings().ip_per_tile;
-
+    // TODO(oalexan1): May want to increase here the number of ip per image,
+    // from the default of 5000 in InterestPointMatching.tcc.
+    
     // Redo ip matching in the current tile. It should be more accurate after alignment
     // and cropping. 
     std::vector<vw::ip::InterestPoint> left_local_ip, right_local_ip;
     detect_match_ip(left_local_ip, right_local_ip,
                     crop(left_globally_aligned_image, left_trans_crop_win),
                     crop(right_globally_aligned_image, right_trans_crop_win), 
-                    ip_per_tile,  
+                    stereo_settings().ip_per_tile,
                     "", "", // do not save any results to disk  
                     left_nodata_value, right_nodata_value,
                     "" // do not save any match file to disk
