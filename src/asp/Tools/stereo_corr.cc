@@ -261,9 +261,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 // TODO(oalexan1): move this to InterestPointMatching.cc
 
 /// Apply alignment transform to ip. Not to be used with mapprojected images.
-void align_ip(std::string const& out_prefix,
-              vw::TransformPtr tx_left,
-              vw::TransformPtr tx_right,
+void align_ip(vw::TransformPtr tx_left, vw::TransformPtr tx_right,
               std::vector<ip::InterestPoint> & ip_left,
               std::vector<ip::InterestPoint> & ip_right) {
 
@@ -444,15 +442,20 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   ip::read_binary_match_file(match_filename, in_left_ip, in_right_ip);
 
   // The alignment transforms
-  vw::TransformPtr tx_left = opt.session->tx_left();
-  vw::TransformPtr tx_right = opt.session->tx_right();
+  vw::TransformPtr tx_left(NULL), tx_right(NULL);
 
-  // Apply alignment transform to IP, if needed. Nothing happens for
-  // map-projected images.
-  bool is_map_projected = opt.session->isMapProjected();
-  if (stereo_settings().alignment_method != "none" && !is_map_projected)
-    align_ip(opt.out_prefix, tx_left, tx_right, in_left_ip, in_right_ip);
-
+  // Align the ip, so go ip between left.tif and right.tif to ones between
+  // L.tif and R.tif. If the matches are already between L.tif and R.tif
+  // then do nothing.
+  // TODO(oalexan1): Having this as a special case is annoying.
+  std::string aligned_match_file = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
+  if (match_filename != aligned_match_file) {
+    // For epipolar alignment tx_left and tx_right are not always defined.
+    tx_left = opt.session->tx_left();
+    tx_right = opt.session->tx_right();
+    align_ip(tx_left, tx_right,  in_left_ip, in_right_ip);
+  }
+  
   // Camera models
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
   opt.session->camera_models(left_camera_model, right_camera_model);
