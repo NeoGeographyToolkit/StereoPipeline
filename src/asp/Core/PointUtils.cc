@@ -1221,16 +1221,23 @@ void asp::estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points
   double outlier_factor = remove_outliers_params[1];       // e.g., 3.0.
 
   // Make these more generous, as we want to throw out only the worst
-  // outliers.
-  pct_factor = (1.0 + pct_factor)/2.0;
+  // outliers. Note that we are even more generous in z, to avoid cutting
+  // of isolated mountain peaks. This is a bugfix.
+  double pct_factor_xy = (1.0 + pct_factor)/2.0; // e.g., 0.875 
+  double pct_factor_z  = (3.0 + pct_factor)/4.0; // e.g., 0.9375
+
+  // TODO(oalexan1): Better keep the outlier factor in x and y at 3
+  // while the one in z at 6. The extent normally does not have far away
+  // islands, but the heights may.
+  // This will make a lot of tests fail.
   outlier_factor *= 2.0;
 
   double bx, ex, by, ey, bz, ez;
-  if (!vw::math::find_outlier_brackets(x_vals, pct_factor, outlier_factor, bx, ex))
+  if (!vw::math::find_outlier_brackets(x_vals, pct_factor_xy, outlier_factor, bx, ex))
     return;
-  if (!vw::math::find_outlier_brackets(y_vals, pct_factor, outlier_factor, by, ey))
+  if (!vw::math::find_outlier_brackets(y_vals, pct_factor_xy, outlier_factor, by, ey))
     return;
-  if (!vw::math::find_outlier_brackets(z_vals, pct_factor, outlier_factor, bz, ez))
+  if (!vw::math::find_outlier_brackets(z_vals, pct_factor_z, outlier_factor, bz, ez))
     return;
 
   // Need to compute the next double because the VW bounding box is
