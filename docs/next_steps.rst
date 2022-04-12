@@ -849,8 +849,10 @@ Visualizing and manipulating the results
 ----------------------------------------
 
 When ``parallel_stereo`` finishes, it will have produced a point cloud
-image. At this point, many kinds of data products can be built from
-the ``results/output-PC.tif`` point cloud file.
+image, with a name like ``results/output-PC.tif``
+(:numref:`outputfiles`), which can be used to create many kinds of
+data products, such as DEMs, orthoimages, textured meshes, LAS files,
+colormaps, hillshaded images, etc.
 
 .. _p19-osg:
 
@@ -1106,7 +1108,7 @@ option. If all that is wanted is to shift the cameras, without doing
 any actual adjustments, the tool can be invoked with the option
 ``--apply-initial-transform-only``.
 
-Creating DEMs Relative to the geoid/areoid
+Creating DEMs relative to the geoid/areoid
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The DEMs generated using ``point2dem`` are in reference to a datum
