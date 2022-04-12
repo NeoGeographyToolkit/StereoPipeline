@@ -1226,10 +1226,9 @@ void asp::estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points
   double pct_factor_xy = (1.0 + pct_factor)/2.0; // e.g., 0.875 
   double pct_factor_z  = (3.0 + pct_factor)/4.0; // e.g., 0.9375
 
-  // TODO(oalexan1): Better keep the outlier factor in x and y at 3
-  // while the one in z at 6. The extent normally does not have far away
-  // islands, but the heights may.
-  // This will make a lot of tests fail.
+  // Double this factor, now it will equal 6.  With a small factor, if
+  // the domain of the DEM is a rectangle rotated by 45 degrees, it
+  // may cut off corners.
   outlier_factor *= 2.0;
 
   double bx, ex, by, ey, bz, ez;
