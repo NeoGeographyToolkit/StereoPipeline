@@ -852,7 +852,8 @@ When ``parallel_stereo`` finishes, it will have produced a point cloud
 image, with a name like ``results/output-PC.tif``
 (:numref:`outputfiles`), which can be used to create many kinds of
 data products, such as DEMs, orthoimages, textured meshes, LAS files,
-colormaps, hillshaded images, etc.
+colormaps, hillshaded images, etc. DEMs can also be mosaicked,
+aligned, etc.
 
 .. _p19-osg:
 

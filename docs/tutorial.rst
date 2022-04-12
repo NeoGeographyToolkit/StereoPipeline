@@ -5,8 +5,7 @@ How ASP works
 
 The Stereo Pipeline package contains command-line and GUI programs
 that convert a stereo pair consisting of images and cameras into a
-3D "point cloud" image (its format is described in
-:numref:`outputfiles`). This is an intermediate format that can be
+3D "point cloud" image. This is an intermediate format that can be
 passed along to one of several programs that convert a point cloud
 into a mesh for 3D viewing, a gridded digital terrain model (DTM) for
 GIS purposes, or a LAS/LAZ point cloud.
@@ -48,7 +47,7 @@ The string ``results/run`` is an arbitrary output prefix. All
 and start with ``output``. See :numref:`outputfiles` for the list of
 output files.
 
-You can then make a visualizable mesh or a DTM file with the following
+A a visualizable mesh or a DTM file can be made with the following
 commands (the ``results/run-PC.tif`` and ``results/run-L.tif`` files
 are created by the ``parallel_stereo`` program above)::
 
@@ -58,9 +57,10 @@ are created by the ``parallel_stereo`` program above)::
 Visualization is further discussed in :numref:`visualising`.
 
 A produced DEM may need to be aligned to some pre-existing reference
-(:numref:`pc_align`). If the positions and orientations of the cameras
-are not known well then bundle adjustment may be necessary
-(:numref:`bundle_adjustment`).
+(:numref:`pc_align`). 
+
+If the positions and orientations of the cameras are not known well
+then bundle adjustment may be necessary (:numref:`bundle_adjustment`).
 
 What follows are two examples of processing non-Earth data. An example
 using Earth data is in :numref:`dg_tutorial`. More examples can be
