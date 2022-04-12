@@ -202,11 +202,11 @@ image_calc:
   * Add the option ``--no-georef`` to remove any georeference
     information in the output image (useful with subsequent GDAL-based
     processing).
-  * Added the option ``--longitude-offset`` help to deal with the fact
-    that ASP-produced DEMs and orthoimages may have the longitudes in
-    [0, 360] while users may prefer [-180, 180].
-  * Bugfix: The ``--input-nodata`` value, if set, now overrides the value
-    set in the metadata (the previous value then becomes valid).
+  * Added the option ``--longitude-offset`` to help to deal with the
+    fact that ASP-produced DEMs and orthoimages may have the
+    longitudes in [0, 360] while users may prefer [-180, 180].
+  * Bugfix: The ``--input-nodata`` value, if set, now overrides the
+    value set in the metadata (the previous value then becomes valid).
 
 Misc:
   * Added the tool parse_match_file.py to convert a binary match file
