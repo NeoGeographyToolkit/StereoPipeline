@@ -985,7 +985,7 @@ namespace vw { namespace gui {
   // and return as output the converted box.
   bool MainWidget::get_crop_win(QRect & win) {
 
-    if (m_images.size() != 1) {
+    if (m_end_image_id - m_beg_image_id != 1) {
       popUp("Must have just one image in each window to be able to select regions for stereo.");
       m_cropWinMode = false;
       m_rubberBand = m_emptyRubberBand;
@@ -2731,7 +2731,7 @@ namespace vw { namespace gui {
           paint.initFrom(this);
           QPoint Q(mouseRelX, mouseRelY);
           paint.setPen(QColor("red"));
-          paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little large
+          paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little larger
         }
         
         bool can_profile = m_profileMode;
@@ -2764,7 +2764,7 @@ namespace vw { namespace gui {
           if (m_profileMode) {
 
             // Sanity checks
-            if (m_images.size() != 1) {
+            if (m_end_image_id - m_beg_image_id != 1) {
               popUp("A profile can be shown only when a single image is present.");
               can_profile = false;
             }
