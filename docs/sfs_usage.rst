@@ -268,7 +268,8 @@ meaning of the other ``sfs`` options can be looked up in :numref:`sfs`.
 
 The value of ``--initial-dem-constraint-weight`` is best set to 0 when
 the initial DEM is not very reliable, as otherwise defects from it can
-be inherited by the SfS result.
+be inherited by the SfS result. Otherwise a value between 0.0001 and
+0.001 may be good enough.
 
 See :numref:`sfs_albedo` for modeling of albedo. Shadow thresholds may
 be needed to avoid artifacts in shadow. See

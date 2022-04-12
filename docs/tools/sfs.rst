@@ -102,7 +102,8 @@ Command-line options for sfs
 
 --initial-dem-constraint-weight <float (default: 0)>
     A larger value will try harder to keep the SfS-optimized DEM
-    closer to the initial guess DEM.
+    closer to the initial guess DEM. A value between 0.0001 and
+    0.001 may work, unless your initial DEM is very unreliable.
 
 --albedo-constraint-weight <float (default: 0)>
     If floating the albedo, a larger value will try harder to keep
@@ -146,6 +147,8 @@ Command-line options for sfs
     If positive, set the threshold for the robust
     measured-to-simulated intensity difference (using the Cauchy
     loss). Any difference much larger than this will be penalized.
+    A good value may be 5% to 25% of the average image value or the
+    same fraction of the computed image exposure values.
 
 --estimate-height-errors
     Estimate the SfS DEM height uncertainty (in meters) by finding the

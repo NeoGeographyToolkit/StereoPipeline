@@ -3760,7 +3760,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "The weight given to the cost function term which consists of sums of squares of second-order derivatives. A larger value will result in a smoother solution with fewer artifacts. See also --gradient-weight.")
     ("initial-dem-constraint-weight", po::value(&opt.initial_dem_constraint_weight)->default_value(0),
-     "A larger value will try harder to keep the SfS-optimized DEM closer to the initial guess DEM.")
+     "A larger value will try harder to keep the SfS-optimized DEM closer to the initial guess DEM. A value between 0.0001 and 0.001 may work, unless your initial DEM is very unreliable.")
     ("albedo-constraint-weight", po::value(&opt.albedo_constraint_weight)->default_value(0),
      "If floating the albedo, a larger value will try harder to keep the optimized albedo close to the nominal value of 1.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
@@ -3801,7 +3801,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("max-valid-image-vals", po::value(&opt.max_valid_image_vals)->default_value(""),
      "Optional values for the largest valid image value in each image (a list of real values in quotes, one per image).")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(-1.0),
-     "If positive, set the threshold for the robust measured-to-simulated intensity difference (using the Cauchy loss). Any difference much larger than this will be penalized. ")
+     "If positive, set the threshold for the robust measured-to-simulated intensity difference (using the Cauchy loss). Any difference much larger than this will be penalized. A good value may be 5% to 25% of the average image value or the same fraction of the computed image exposure values.")
     ("unreliable-intensity-threshold", po::value(&opt.unreliable_intensity_threshold)->default_value(0.0),
      "Intensities lower than this will be considered unreliable and given less weight.")
     ("skip-images", po::value(&opt.skip_images_str)->default_value(""), "Skip images with these indices (indices start from 0).")
