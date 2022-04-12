@@ -65,7 +65,7 @@ The tool works by minimizing the cost function
 Here, :math:`I_k(\phi(x, y))` is the :math:`k`-th camera image
 interpolated at pixels obtained by projecting into the camera 3D points
 from the terrain :math:`\phi(x, y)`, :math:`T_k` is the :math:`k`-th
-image exposure, :math:`A(x, y)` is the per-pixel albedo,
+image exposure, :math:`A(x, y)` is the per-pixel normalized albedo,
 :math:`R_k(\phi(x, y))` is the reflectance computed from the terrain for
 :math:`k`-th image, :math:`\left\|\nabla^2 \phi(x, y) \right\|^2` is the
 sum of squares of all second-order partial derivatives of :math:`\phi`,
@@ -83,6 +83,11 @@ and (4)). Also supported is the Hapke model,
 :cite:`hapke2008bidirectional`, :cite:`hapke1993opposition`. Custom
 values for the coefficients of these models can be passed to the
 program.
+
+Note that the albedo in the above expression is normalized, its
+nominal value is 1.  The image intensity ideally equals the image
+exposure times albedo times reflectance, hence the image exposure
+absorbs any existing constant multiplier.
 
 It is important to note that the default Lunar-Lambertian model may
 not be the right choice for other planetary bodies, hence some

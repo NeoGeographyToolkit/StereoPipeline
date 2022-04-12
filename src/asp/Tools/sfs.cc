@@ -3766,7 +3766,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
-     "Float the albedo for each pixel. Will give incorrect results if only one image is present.")
+     "Float the albedo for each pixel. Will give incorrect results if only one image is present. The albedo is normalized, its nominal value is 1.")
     ("float-exposure",   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
      "Float the exposure for each image. Will give incorrect results if only one image is present. It usually gives marginal results.")
     ("float-cameras",   po::bool_switch(&opt.float_cameras)->default_value(false)->implicit_value(true),

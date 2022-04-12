@@ -115,7 +115,8 @@ Command-line options for sfs
 
 --float-albedo
     Float the albedo for each pixel.  Will give incorrect results
-    if only one image is present.
+    if only one image is present. The albedo is normalized, its
+    nominal value is 1.
 
 --float-exposure
     Float the exposure for each image. Will give incorrect results
