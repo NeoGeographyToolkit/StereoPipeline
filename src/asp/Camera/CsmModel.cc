@@ -564,17 +564,18 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
   return dir0;
 
 #if 0
-  // This does not work correctly for the SAR sensor.
-  // TODO(oalexan1): When this is fixed, go back to the code below as that is
-  // the more efficient way of doing it, presumably.
+  // Do not use this since the imageToRemoteImagingLocus() in CSM is
+  // buggy as of now and it is not guaranteed long-term to agree with
+  // imageToGround().
   
   // This function generates the vector from the camera at the camera origin,
-  //  there is a different call that gets the vector near the ground.
+  // there is a different call that gets the vector near the ground.
+  // This does not give the right result due to a bug in UsgsAstroSarSensorModel
   csm::EcefLocus locus = m_csm_model->imageToRemoteImagingLocus(imagePt,
                                                                 m_desired_precision,
                                                                 &achievedPrecision);
   Vector3 dir = ecefVectorToVector(locus.direction);
-
+  
   return dir;
 #endif
 }
