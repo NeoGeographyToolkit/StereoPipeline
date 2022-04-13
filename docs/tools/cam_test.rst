@@ -49,7 +49,8 @@ Usage::
     cam_test --image <image file> --cam1 <camera 1 file> \
       --cam2 <camera 2 file> [other options]
 
-Command-line options for cam_test:
+Command-line options for cam_test
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 --image <string>
     Image file.
@@ -73,6 +74,12 @@ Command-line options for cam_test:
     Add to each integer pixel this offset (in x and y) when sampling
     the image. Sampling at non-integer location may make testing
     more thorough.
+
+--single-pixel <double double (default: nan nan)>
+    Instead of sampling pixels from the image use only this pixel.
+
+--print-per-pixel-results
+    Print the results at each pixel.
 
 --enable-correct-velocity-aberration
     Turn on velocity aberration correction for Optical Bar and

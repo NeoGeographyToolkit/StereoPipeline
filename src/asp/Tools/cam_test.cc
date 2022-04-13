@@ -48,12 +48,16 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string image_file, cam1_file, cam2_file, session1, session2;
   int sample_rate; // use one out of these many pixels
   double subpixel_offset;
-  bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction;
+  bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
+    print_per_pixel_results;
+  vw::Vector2 single_pixel;
+  
   Options() {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
+  double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("General options");
   general_options.add_options()
     ("image", po::value(&opt.image_file),  "Image file.")
@@ -67,10 +71,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use one out of these many pixels when sampling the image.")
     ("subpixel-offset",   po::value(&opt.subpixel_offset)->default_value(0.0),
      "Add to each integer pixel this offset (in x and y) when sampling the image.")
+    ("single-pixel",   po::value(&opt.single_pixel)->default_value(Vector2(nan, nan)),
+     "Instead of sampling pixels from the image use only this pixel.")
+    ("print-per-pixel-results", po::bool_switch(&opt.print_per_pixel_results)->default_value(false)->implicit_value(true),
+     "Print the results at each pixel.")
     ("enable-correct-velocity-aberration", po::bool_switch(&opt.enable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
      "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
     ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
      "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.");
+  
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
   
   po::options_description positional("");
@@ -137,7 +146,7 @@ int main(int argc, char *argv[]) {
     bool use_sphere_for_datum = false;
     vw::cartography::Datum datum = cam1_session->get_datum(cam1_model.get(),
                                                            use_sphere_for_datum);
-    std::cout << "Datum: " << datum << std::endl;
+    vw_out() << "Datum: " << datum << std::endl;
     
     // Load cam2
     std::string default_session2 = opt.session2; // save it before it changes
@@ -173,8 +182,10 @@ int main(int argc, char *argv[]) {
         vw::vw_throw(ArgumentErr() << e.what());
       }
     }
+
+    vw_out() << "Image dimensions: " << image_cols << ' ' << image_rows << std::endl;
     
-    std::cout << "Image dimensions: " << image_cols << ' ' << image_rows << std::endl;
+    bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
 
     // Iterate over the image
     std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff;
@@ -182,25 +193,50 @@ int main(int argc, char *argv[]) {
       for (int row = 0; row < image_rows; row += opt.sample_rate) {
 
         Vector2 image_pix(col + opt.subpixel_offset, row + opt.subpixel_offset);
+        if (single_pix) 
+          image_pix = opt.single_pixel;
+
+        if (opt.print_per_pixel_results || single_pix)
+          vw_out() << "Pixel: " << image_pix << "\n";
+
         Vector3 cam1_ctr = cam1_model->camera_center(image_pix);
         Vector3 cam2_ctr = cam2_model->camera_center(image_pix);
         ctr_diff.push_back(norm_2(cam1_ctr - cam2_ctr));
+        
+        if (opt.print_per_pixel_results)
+          vw_out() << "Camera center diff: " << ctr_diff.back() << std::endl;
+        
         Vector3 cam1_dir = cam1_model->pixel_to_vector(image_pix);
         Vector3 cam2_dir = cam2_model->pixel_to_vector(image_pix);
         dir_diff.push_back(norm_2(cam1_dir - cam2_dir));
+        
+        if (opt.print_per_pixel_results)
+          vw_out() << "Camera direction diff: " << dir_diff.back() << std::endl;
         
         // Shoot a ray from the cam1 camera, intersect it with the datum,
         // and project it back into the cam2 camera.
         Vector3 xyz = vw::cartography::datum_intersection(datum, cam1_ctr, cam1_dir);
         Vector2 cam2_pix = cam2_model->point_to_pixel(xyz);
         cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
-
+        
+        if (opt.print_per_pixel_results)
+          vw_out() << "cam1 to cam2 pixel diff: " << image_pix - cam2_pix << std::endl;
+        
         // Shoot a ray from the cam2 camera, intersect it with the datum,
         // and project it back into the cam1 camera.
         xyz = vw::cartography::datum_intersection(datum, cam2_ctr, cam2_dir);
         Vector2 cam1_pix = cam1_model->point_to_pixel(xyz);
         cam2_to_cam1_diff.push_back(norm_2(image_pix - cam1_pix));
+        
+        if (opt.print_per_pixel_results)
+          vw_out() << "cam2 to cam1 pixel diff: " << image_pix - cam1_pix << "\n\n";
+
+        if (single_pix) 
+          break;
       }
+      
+      if (single_pix) 
+        break;
     }
 
     vw_out() << "Number of samples used: " << ctr_diff.size() << "\n";
