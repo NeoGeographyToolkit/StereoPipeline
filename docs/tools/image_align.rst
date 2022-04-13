@@ -83,6 +83,8 @@ to the first, as::
 
 It appears that applying this tool on the DEMs themselves may result
 in more accurate results than if applied on their hillshaded images.
+(Consider also using for hillshading the tool ``gdaldem hillshade``,
+:numref:`gdal_tools`.)
 
 If the DEMs have very different grids and projections, regridding them
 with ``gdalwarp`` may make them easier to align.
