@@ -21,15 +21,15 @@ New tool additions:
   * The program ``parallel_stereo`` can function as purely an image
     correlation tool, without assuming any camera information, via
     the option ``--correlator-mode``.
-  * Added the program ``image_align``. Used to align two images based on
-    interest point matches or disparity, with given alignment
-    transform type (translation, rigid, similarity, affine, and
-    homography).
+  * Added the program ``image_align``. Used to align two images or
+    DEMs based on interest point matches or disparity, with given
+    alignment transform type (translation, rigid, similarity, affine,
+    and homography).
 
 parallel_stereo:
   * Many fixes for reliability of stereo with local epipolar alignment.
   * Added the option ``--resume-at-corr``. Start at the correlation stage
-    and skip recomputing the valid low and full-res disparities for
+    and skip recomputing the valid low-res and full-res disparities for
     that stage.
   * Bugfix: Eliminate edge artifacts in stereo refinement (for
     subpixel modes 1, 2, and 3).
@@ -38,7 +38,7 @@ parallel_stereo:
     homography).
   * Added the option ``--prev-run-prefix``, which makes parallel_stereo
     start at the triangulation stage while using previous stages
-    from this run. The new run can have different cameras, different
+    from this other run. The new run can have different cameras, different
     session (rpc vs dg, isis vs csm), different bundle
     adjustment prefix, and different bathy planes (if applicable).
   * Added option ``--save-left-right-disparity-difference`` to save the
@@ -47,7 +47,8 @@ parallel_stereo:
     disparities.
   * Interest point matching with mapprojected images now happens
     at full resolution, which results in a more reliable process
-    when there are clouds.
+    when there are clouds or if fine features are washed out at
+    low resolution.
   * Expanded the doc to address a big gotcha: if left and right
     mapprojected images have somewhat different resolutions then an
     immense disparity search range can result.
@@ -62,10 +63,10 @@ parallel_stereo:
     corrections. These are not accurate enough and cause issues with
     convergence of bundle adjustment. Can be enabled with
     ``--enable-correct-velocity-aberration`` and
-    ``--enable-correct-atmospheric-refraction``. These help however with
-    Digital Globe cameras if not desired to do bundle
+    ``--enable-correct-atmospheric-refraction``. These improve results
+    however with Digital Globe cameras if not desired to do bundle
     adjustment. (Note that these are still hard-coded as enabled for
-    optical bar camera models. This would require some study.)
+    optical bar camera models. This would require further study.)
   * Added ready-made ASTER and LRO NAC examples with sample images,
     cameras, commands, and outputs, all available for
     download. Contributions of more examples are welcome. See
