@@ -457,12 +457,12 @@ we process just a small portion of the images::
        --subpixel-mode 1                           \
        run_nomap/run
 
-(the crop windows can be determined using ``stereo_gui``). The input
-images have resolution of about 1 meter, or :math:`3.3 \times 10^{-5}` 
-degrees on the Moon. We create the low-resolution DEM using a
-resolution 40 times as coarse, so we use a grid size of 0.0013
-degrees (we use degrees since the default ``point2dem`` projection
-invoked here is ``longlat``).
+(the crop windows can be determined using ``stereo_gui``,
+:numref:`image_bounds`). The input images have resolution of about 1
+meter, or :math:`3.3 \times 10^{-5}` degrees on the Moon. We create
+the low-resolution DEM using a resolution 40 times as coarse, so we
+use a grid size of 0.0013 degrees (we use degrees since the default
+``point2dem`` projection invoked here is ``longlat``).
 
 ::
 
@@ -472,7 +472,7 @@ As mentioned earlier, some experimentation with the parameters used by
 ``point2dem`` may be necessary for this low-resolution DEM to be
 smooth enough and with no holes.
 
-Note that we used ``--search-radius-factor 5`` to expand the DEM a
+We used ``--search-radius-factor 5`` to expand the DEM a
 bit, to counteract future erosion at image boundary in stereo due to
 the correlation kernel size. This is optional.
 
@@ -522,7 +522,7 @@ Lastly, we create a DEM at 1 meter resolution::
 
      point2dem --nodata-value -32768 --tr 0.000033 run_map/run-PC.tif
 
-Note here that we could have used a coarser resolution for the final
+We could have used a coarser resolution for the final
 DEM, such as 4 meters/pixel, since we won't see detail at the level of 1
 meter in this DEM, as the stereo process is lossy. This is explained in
 more detail in :numref:`post-spacing`.
@@ -535,12 +535,12 @@ results. Once images are mapprojected, they can be cropped to a small
 shared region using ``gdal_translate -projwin`` and then stereo with
 these clips can be invoked.
 
-It is important to note that we could have mapprojected the images
-using the ISIS tool ``cam2map``, as described in
-:numref:`mapproj_with_cam2map`.  The current approach could be preferable
-since it allows us to choose the DEM to mapproject onto, and it is
-much faster, since ASP's ``mapproject`` uses multiple processes, while
-``cam2map`` is restricted to one process and one thread.
+We could have mapprojected the images using the ISIS tool ``cam2map``,
+as described in :numref:`mapproj_with_cam2map`.  The current approach
+may be preferable since it allows us to choose the DEM to mapproject
+onto, and it is faster, since ASP's ``mapproject`` uses multiple
+processes, while ``cam2map`` is restricted to one process and one
+thread.
 
 .. _dg-mapproj:
 
