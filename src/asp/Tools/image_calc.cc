@@ -476,6 +476,7 @@ public: // Functions
           } // End image loop
 
           // Apply the operation tree to this pixel and store in the output pixel
+          // TODO(oalexan1): Should we round too, if output is int?
           double newVal = m_operation_tree.applyOperation<double>(input_doubles);
           tile(c, r, chan) = clamp_and_cast<output_channel_type>(newVal);
 
