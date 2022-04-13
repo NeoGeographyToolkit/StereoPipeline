@@ -269,7 +269,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "If set, save the interest point matches and computed transform using this prefix.")
     ("output-data-type,d",  po::value(&opt.output_data_string)->default_value("float32"),
      "The data type of the output file. Options: uint8, uint16, uint32, int16, int32, "
-     "float32, float64.")
+     "float32, float64. The values are clamped (and also rounded for integer types) to avoid "
+     "overflow.")
     ("num-ransac-iterations", po::value(&opt.num_ransac_iterations)->default_value(1000),
      "How many iterations to perform in RANSAC when finding interest point matches.")
     ("inlier-threshold", po::value(&opt.inlier_threshold)->default_value(5.0),
@@ -346,26 +347,27 @@ void save_output(ImageViewRef<PixelMask<double>> aligned_image2,
                  Options const& opt) {
   
   vw_out() << "Writing: " << opt.output_image << "\n";
-    
+  // Note that output int types get rounded before being clamped and
+  // cast, but not output float or double types.
   switch (opt.output_data_type) {
   case VW_CHANNEL_UINT8:
     block_write_gdal_image(opt.output_image,
                            per_pixel_filter(apply_mask(aligned_image2, nodata2),
-                                            vw::ClampAndCast<vw::uint8, double>()),
+                                            vw::ClampRoundAndCastToInt<vw::uint8, double>()),
                            has_georef2, georef2, has_nodata2, nodata2, opt,
                            TerminalProgressCallback("asp","\t  Aligned image:  "));
     break;
   case VW_CHANNEL_UINT16:
     block_write_gdal_image(opt.output_image,
                            per_pixel_filter(apply_mask(aligned_image2, nodata2),
-                                            vw::ClampAndCast<vw::uint16, double>()),
+                                            vw::ClampRoundAndCastToInt<vw::uint16, double>()),
                            has_georef2, georef2, has_nodata2, nodata2, opt,
                            TerminalProgressCallback("asp","\t  Aligned image:  "));
     break;
   case VW_CHANNEL_UINT32:
     block_write_gdal_image(opt.output_image,
                            per_pixel_filter(apply_mask(aligned_image2, nodata2),
-                                            vw::ClampAndCast<vw::uint32, double>()),
+                                            vw::ClampRoundAndCastToInt<vw::uint32, double>()),
                            has_georef2, georef2, has_nodata2, nodata2, opt,
                            TerminalProgressCallback("asp","\t  Aligned image:  "));
     break;
@@ -373,21 +375,21 @@ void save_output(ImageViewRef<PixelMask<double>> aligned_image2,
     //case VW_CHANNEL_INT8:
     //block_write_gdal_image(opt.output_image,
     //                       per_pixel_filter(apply_mask(aligned_image2, nodata2),
-    //                                       vw::ClampAndCast<vw::int8, double>()),
+    //                                       vw::ClampRoundAndCastToInt<vw::int8, double>()),
     //                      has_georef2, georef2, has_nodata2, nodata2, opt,
     //                      TerminalProgressCallback("asp","\t  Aligned image:  "));
     break;
   case VW_CHANNEL_INT16:
     block_write_gdal_image(opt.output_image,
                            per_pixel_filter(apply_mask(aligned_image2, nodata2),
-                                            vw::ClampAndCast<vw::int16, double>()),
+                                            vw::ClampRoundAndCastToInt<vw::int16, double>()),
                            has_georef2, georef2, has_nodata2, nodata2, opt,
                            TerminalProgressCallback("asp","\t  Aligned image:  "));
     break;
   case VW_CHANNEL_INT32:
     block_write_gdal_image(opt.output_image,
                            per_pixel_filter(apply_mask(aligned_image2, nodata2),
-                                            vw::ClampAndCast<vw::int32, double>()),
+                                            vw::ClampRoundAndCastToInt<vw::int32, double>()),
                            has_georef2, georef2, has_nodata2, nodata2, opt,
                            TerminalProgressCallback("asp","\t  Aligned image:  "));
     break;
@@ -465,7 +467,7 @@ int main(int argc, char *argv[]) {
                     ValueEdgeExtension<PixelMask<double>>(nodata_mask),
                     BilinearInterpolation());
 
-    // almost always the alignment will result in pixels with no data
+    // Almost always the alignment will result in pixels with no data
     bool has_nodata2 = true;
 
     if (has_georef1) {

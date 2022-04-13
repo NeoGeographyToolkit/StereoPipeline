@@ -124,7 +124,8 @@ Command-line options for image_align
 --output-data-type, -d <string (default: "float32")>
     The data type of the output file. Options: ``uint8``, ``uint16``,
     ``uint32``, ``int16``, ``int32``, ``float32``, ``float64``. The
-    values are carefully clamped with integer types to avoid overflow.
+    values are clamped (and also rounded for integer types) to avoid
+    overflow.
 
 --ip-per-image <integer (default: 0)>
     How many interest points to detect in each image (default: automatic 
