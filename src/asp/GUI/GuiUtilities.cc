@@ -389,6 +389,9 @@ void imageData::read(std::string const& name_in, vw::cartography::GdalWriteOptio
     } else if (display_mode == HILLSHADED_VIEW) {
       hillshaded_img = DiskImagePyramidMultiChannel(name_in, m_opt, top_image_max_pix, subsample);
       image_bbox = BBox2(0, 0, hillshaded_img.cols(), hillshaded_img.rows());
+    } else if (display_mode == THRESHOLDED_VIEW) {
+      thresholded_img = DiskImagePyramidMultiChannel(name_in, m_opt, top_image_max_pix, subsample);
+      image_bbox = BBox2(0, 0, thresholded_img.cols(), thresholded_img.rows());
     }
     has_georef = vw::cartography::read_georeference(georef, name_in);
   }

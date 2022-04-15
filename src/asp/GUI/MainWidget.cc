@@ -274,7 +274,6 @@ namespace vw { namespace gui {
     // Image threshold
     m_thresh = -std::numeric_limits<double>::max();
     m_thresh_calc_mode = false;
-    m_thresh_view_mode = false;
 
     // To do: Warn the user if some images have georef while others don't.
 
@@ -642,8 +641,9 @@ namespace vw { namespace gui {
   }
 
   void MainWidget::viewUnthreshImages(){
-    m_thresh_view_mode = false;
-    MainWidget::setHillshadeMode(false);
+    for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++)
+      m_images[image_iter].m_display_mode = REGULAR_VIEW;
+    
     refreshPixmap();
   }
 
@@ -669,8 +669,6 @@ namespace vw { namespace gui {
   }
   
   void MainWidget::viewThreshImages(bool refresh_pixmap){
-    m_thresh_view_mode = true;
-    MainWidget::setHillshadeMode(false);
 
     int num_non_poly_images = 0;
     int num_images = m_images.size();
@@ -684,15 +682,13 @@ namespace vw { namespace gui {
         popUp("Must have just one image in each window to view thresholded images.");
       else
         popUp("Must have just one image in each window to use the nodata option.");
-        
-      m_thresh_view_mode = false;
 
+      for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++)
+        m_images[image_iter].m_display_mode = REGULAR_VIEW;
+      
       refreshPixmap();
       return;
     }
-
-    m_thresh_images.clear(); // wipe the old copy
-    m_thresh_images.resize(num_images);
 
     // Create the thresholded images and save them to disk. We have to do it each
     // time as perhaps the image threshold changed.
@@ -707,29 +703,34 @@ namespace vw { namespace gui {
       nodata_val = std::max(nodata_val, m_thresh);
 
       int num_channels = m_images[image_iter].img.planes();
+      
       if (num_channels != 1) {
         popUp("Thresholding makes sense only for single-channel images.");
-        m_thresh_view_mode = false;
+        m_images[image_iter].m_display_mode = REGULAR_VIEW;
         return;
       }
 
+      m_images[image_iter].m_display_mode = THRESHOLDED_VIEW;
+      
       ImageViewRef<double> thresh_image
         = apply_mask(create_mask_less_or_equal(DiskImageView<double>(input_file),
                                                nodata_val), nodata_val);
 
+      // TODO(oalexan1): Need to do something like in write_hillshade()
+      // so that we don't have to always re-write the thresholded image.
       std::string suffix = "_thresh.tif";
       bool has_georef = false;
       bool has_nodata = true;
       vw::cartography::GeoReference georef;
-      std::string output_file
+      std::string thresholded_file
         = write_in_orig_or_curr_dir(m_opt,
                                     thresh_image, input_file, suffix,
                                     has_georef,  georef,
                                     has_nodata, nodata_val);
 
       // Read it back right away
-      m_thresh_images[image_iter].read(output_file, m_opt);
-      temporary_files().files.insert(output_file);
+      m_images[image_iter].read(thresholded_file, m_opt, THRESHOLDED_VIEW);
+      temporary_files().files.insert(thresholded_file);
     }
 
     // We may not want to refresh the pixmap right away if we are going to
@@ -867,7 +868,6 @@ namespace vw { namespace gui {
 
   void MainWidget::refreshHillshade(){
     m_thresh_calc_mode = false;
-    m_thresh_view_mode = false;
     MainWidget::maybeGenHillshade();
 
     refreshPixmap();
@@ -1102,7 +1102,7 @@ namespace vw { namespace gui {
         std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
       double scale_out;
       BBox2i region_out;
-      bool   highlight_nodata = m_thresh_view_mode;
+      bool   highlight_nodata = (m_images[i].m_display_mode == THRESHOLDED_VIEW);
       if (!std::isnan(asp::stereo_settings().nodata_value)) {
         // When the user specifies --nodata-value, we will show
         // nodata pixels as transparent.
@@ -1115,7 +1115,7 @@ namespace vw { namespace gui {
       //Stopwatch sw3;
       //sw3.start();
       
-      if (m_thresh_view_mode){
+      if (m_images[i].m_display_mode == THRESHOLDED_VIEW) {
         m_images[i].thresholded_img.get_image_clip(scale, image_box,
                                                    highlight_nodata,
                                                    qimg, scale_out, region_out);

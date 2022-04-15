@@ -352,8 +352,6 @@ public slots:
     
     double m_thresh;
     bool   m_thresh_calc_mode;
-    bool   m_thresh_view_mode;
-    std::vector<imageData> m_thresh_images;
 
     std::set<int> m_indicesWithAction;
     
