@@ -271,7 +271,18 @@ set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_objdetect   opencv_xobjdetect
                      opencv_photo       opencv_xphoto
                      opencv_stereo)
-find_external_library(OPENCV ${ASP_DEPS_DIR} "" "${OPENCV_LIB_NAMES}" NOT_REQUIRED)
+find_external_library(OPENCV ${ASP_DEPS_DIR} "" "${OPENCV_LIB_NAMES}" REQUIRED)
+
+# This is an experiment, to be continued
+# Use only a small portion of VTK, and only in one stand-alone
+# tool. That one is a giant library. Thse are installed using
+# a custom conda package which only has the minimum needed libs.
+#set(VTK_LIB_NAMES    vtkCommonDataModel-9.1 vtkCommonTransforms-9.1
+#                     vtkCommonMath-9.1      vtkkissfft-9.1
+#                     vtkCommonCore-9.1      vtksys-9.1
+#                     vtkCommonMisc-9.1      vtkCommonSystem-9.1
+#                     vtkloguru-9.1)
+#find_external_library(VTK ${ASP_DEPS_DIR} "vtk-9.1" "${VTK_LIB_NAMES}" REQUIRED)
 
 # For convenience, list some libraries that VW and ISIS depend on.
 set(VW_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} ${OPENEXR_LIBRARIES}
