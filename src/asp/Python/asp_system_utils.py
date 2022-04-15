@@ -43,7 +43,8 @@ def verify_python_version_is_supported():
 
 # Print the version of the ASP programs
 def print_version_and_exit():
-    cmd = "stereo_parse --version"
+    prog = libexec_path("stereo_parse") # get the full path
+    cmd = prog + " --version"
     ans = os.system(cmd)
     sys.exit(0)
 
@@ -230,7 +231,7 @@ def bin_path(prog, **kw):
 
 # When hidden ASP executables are installed, they are in
 # 'libexec'. Otherwise, in dev mode, they are in the same dir as
-# __file__.
+# __file__. If no luck at all, search in 'bin'.
 def libexec_path(prog, **kw):
     currpath = kw.get('path', P.dirname(P.abspath(__file__)))
     libexecpath = os.path.abspath(P.join(currpath, '..', 'libexec', prog))
@@ -242,11 +243,11 @@ def libexec_path(prog, **kw):
         libexecpath = os.path.abspath(P.join(currpath, '..', 'bin', prog))
 
     if not P.isfile(libexecpath):
-        # Could not find prog in libexec either. We will come
-        # here only for executables like gdalinfo that will
-        # be packages in the release, but are not yet
-        # in dev mode. Just print a warning and hope
-        # this tool is somewhere in user's path.
+        # Could not find prog in ''libexec' or 'bin' either. We will
+        # come here only for executables like gdalinfo that will be
+        # packages in the release, but are not yet in dev mode. Just
+        # print a warning and hope this tool is somewhere in user's
+        # path.
         print("Could not find: " + libexecpath)
         libexecpath = which(prog)
         if libexecpath is None:
