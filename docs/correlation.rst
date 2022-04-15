@@ -488,10 +488,18 @@ that converge on a point in 3D space (see :numref:`triangulation`).
 The location where they meet must be the original location of
 :math:`P`.
 
-In practice, the two rays rarely intersect perfectly because any slight
-error in the camera position or pointing information will effect the
-rays' positions as well. Instead, we take the *closest point of
-intersection* of the two rays as the location of point :math:`P`.
+.. _triangulation_error:
+
+Triangulation error
+~~~~~~~~~~~~~~~~~~~
+
+In practice, the rays emanating from matching pixels in the cameras
+rarely intersect perfectly on the ground because any slight error in
+the position or pointing information of the cameras will affect the
+accuracy of the rays. The matching (correlation) among the images is
+also not perfect, contributing to the error budget. Then, we take the
+*closest point of intersection* of the two rays as the location of the
+intersection point :math:`P`.
 
 Additionally, the actual distance between the rays at this point is an
 interesting and important error metric that measures how self-consistent

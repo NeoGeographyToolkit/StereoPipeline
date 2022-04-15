@@ -49,7 +49,9 @@ same geoheader as the DEM.
 In addition, the file ``run/run-IntersectionErr.tif`` is created,
 based on the 4th band of the ``PC.tif`` file, having the gridded
 version of the closest distance between the pair of rays intersecting
-at each point in the cloud.
+at each point in the cloud (:numref:`triangulation_error`). This is
+also called the *triangulation error*, but it is only one way of
+evaluating the quality of the DEM.
 
 Here we have explicitly specified the spheroid (``-r moon``), rather
 than have it inferred automatically. The Moon spheroid will have a

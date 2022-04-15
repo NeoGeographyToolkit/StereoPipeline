@@ -157,10 +157,10 @@ Files created at triangulation
     a pixel in the left input image (\*-L.tif). The point cloud has four
     channels, the first three are the Cartesian coordinates of each
     point, and the last one has the intersection error of the two rays
-    which created that point (the intersection error is the closest
-    distance between rays). By default, the origin of the Cartesian
-    coordinate system being used is a point in the neighborhood of the
-    point cloud. This makes the values of the points in the cloud
+    which created that point (:numref:`triangulation_error`). By default,
+    the origin of the Cartesian coordinate system being used is a
+    point in the neighborhood of the point cloud. 
+    This makes the values of the points in the cloud
     relatively small, and we save them in single precision (32 bits).
     This origin is saved in the point cloud as well using the tag
     ``POINT_OFFSET`` in the GeoTiff header. To output point clouds using

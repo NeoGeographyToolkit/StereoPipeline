@@ -583,7 +583,11 @@ filter-mode (*integer*) (default = 1)
     This parameter sets the filter mode. Three modes are supported as
     described below. Here, by neighboring pixels for a current pixel we
     mean those pixels within the window of half-size of
-    ``rm-half-kernel`` centered at the current pixel.
+    ``rm-half-kernel`` centered at the current pixel. 
+    
+    The default is 1 for the full-resolution disparity, but mode 2 is
+    hard-coded for filtering the low-resolution disparity
+    ``D_sub.tif``. Options:
 
     0
        No filtering.

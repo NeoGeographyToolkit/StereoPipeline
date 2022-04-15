@@ -88,9 +88,10 @@ and its effect on decreasing the stereo triangulation error.
 .. figure:: images/examples/before_after_ba.png
    :name: asp-ba-example
 
-   Illustration of the triangulation error map for a pair of images before
-   (left) and after (right) using Stereo Pipeline's ``bundle_adjust``. Red
-   and black colors suggest higher error.
+   Illustration of the triangulation error (intersection error) map
+   (:numref:`point2dem`) for a pair of images before (left) and after
+   (right) using Stereo Pipeline's ``bundle_adjust``. Red and black
+   colors suggest higher error.
 
 Running ``parallel_stereo`` without using bundle-adjusted camera models::
 
