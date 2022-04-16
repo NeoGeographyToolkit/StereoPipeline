@@ -225,6 +225,8 @@ Misc:
   * Make symlinks relative in parallel_bundle_adjust for portability.
   * The mapprojected image saves as metadata the adjustments it was
     created with.
+  * Save the low-resolution triangulated point cloud (PC_sub.tif) in 
+    stereo_corr (based on filtered D_sub.tif).
   * The ipmatch program can take as input just images, with the 
     .vwip files looked up by extension.
   * Bugfix in handling projections specified via an EPSG code.

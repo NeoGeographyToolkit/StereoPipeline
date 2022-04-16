@@ -116,6 +116,11 @@ Files created during correlation
     disparities. See option ``--save-left-right-disparity-difference``
     in :numref:`stereodefault` for more details.
 
+\*-PC_sub.tif - triangulated point cloud image.
+   Made from the low-resolution disparity ``D_sub.tif`` (created after
+   filtering this disparity; will be written unless disparity
+   filtering is disabled, see ``outlier-removal-params``).
+
 Files created during blending
 -----------------------------
 

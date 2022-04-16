@@ -71,7 +71,6 @@ void load_D_sub_and_scale(asp::ASPGlobalOptions                    const & opt,
                            double(Lmask.rows()) / double(sub_disp.rows()));
 }
 
-
 // Filter D_sub. All alignment methods are supported.
 void filter_D_sub(ASPGlobalOptions const& opt,
                   vw::TransformPtr tx_left, vw::TransformPtr tx_right,
@@ -97,6 +96,17 @@ void filter_D_sub(ASPGlobalOptions const& opt,
   // Use ImageView to read D_sub fully in memory so it can be modified
   vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp = sub_disp_ref;
 
+  // Will save the sub PC file, since we compute these anyway
+  // for the purpose of filtering.
+  vw::ImageView<vw::Vector<double, 4>> sub_pc(sub_disp.cols(), sub_disp.rows());
+  for (int col = 0; col < sub_pc.cols(); col++) {
+    for (int row = 0; row < sub_pc.rows(); row++) {
+      for (int coord = 0; coord < 4; coord++) {
+        sub_pc(col, row)[coord] = 0;
+      }
+    }
+  }
+  
   // Find the disparity values in x and y
   std::vector<double> dx, dy;
   for (int col = 0; col < sub_disp.cols(); col++) {
@@ -201,6 +211,12 @@ void filter_D_sub(ASPGlobalOptions const& opt,
         
       tri_err(col, row) = err;
 
+      // Save the triangulated point
+      Vector<double, 4> P;
+      subvector(P, 0, 3) = xyz;
+      P[3] = err;
+      sub_pc(col, row) = P;
+      
       Vector3 llh = datum.cartesian_to_geodetic(xyz);
       height(col, row) = llh[2];
     }
@@ -281,6 +297,10 @@ void filter_D_sub(ASPGlobalOptions const& opt,
     for (int row = 0; row < sub_disp.rows(); row++) {
       if (tri_err(col, row) >= HIGH_ERROR || height(col, row) >= HIGH_ERROR) {
         sub_disp(col, row).invalidate();
+
+        // Invalidate the point in the cloud
+        subvector(sub_pc(col, row), 0, 3) = Vector3(0.0, 0.0, 0.0);
+        sub_pc(col, row)[3] = 0.0;
       }
     }
   }
@@ -288,6 +308,12 @@ void filter_D_sub(ASPGlobalOptions const& opt,
   vw_out() << "Writing filtered D_sub: " << d_sub_file << std::endl;
   block_write_gdal_image(d_sub_file, sub_disp, opt,
                          TerminalProgressCallback("asp","\t D_sub: "));
+
+  std::string pc_sub_file = opt.out_prefix + "-PC_sub.tif";
+  vw_out() << "Writing triangulated point cloud based on D_sub: " << pc_sub_file << std::endl;
+  block_write_gdal_image(pc_sub_file, sub_pc, opt,
+                         TerminalProgressCallback("asp","\t PC_sub: "));
+  
 } 
 
 // Filter D_sub by reducing its spread around the median
