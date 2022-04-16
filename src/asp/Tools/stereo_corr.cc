@@ -18,29 +18,23 @@
 /// \file stereo_corr.cc
 ///
 
-#include <vw/Camera/CameraTransform.h>
-#include <vw/Camera/PinholeModel.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <vw/Stereo/StereoModel.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/Stereo/Correlation.h>
 
 #include <asp/Core/DisparityProcessing.h>
-#include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
 #include <asp/Core/LocalAlignment.h>
 #include <asp/Sessions/StereoSession.h>
-#include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Tools/stereo.h>
 
 #include <boost/process.hpp>
 #include <boost/process/env.hpp>
-
-#include <opencv2/stereo.hpp>
 
 #include <xercesc/util/PlatformUtils.hpp>
 
@@ -260,33 +254,6 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
 // TODO(oalexan1): move this to InterestPointMatching.cc
 
-/// Apply alignment transform to ip. Not to be used with mapprojected images.
-void align_ip(vw::TransformPtr tx_left, vw::TransformPtr tx_right,
-              std::vector<ip::InterestPoint> & ip_left,
-              std::vector<ip::InterestPoint> & ip_right) {
-
-  // Loop through all the IP we found
-  for (size_t i = 0; i < ip_left.size(); i++) {
-    // Apply the alignment transforms to the recorded IP
-    Vector2 l = tx_left->forward (Vector2(ip_left [i].x,  ip_left [i].y));
-    Vector2 r = tx_right->forward(Vector2(ip_right[i].x,  ip_right[i].y));
-
-    ip_left [i].x = l[0];
-    ip_left [i].y = l[1];
-    ip_left [i].ix = l[0];
-    ip_left [i].iy = l[1];
-    
-    ip_right[i].x = r[0];
-    ip_right[i].y = r[1];
-    ip_right[i].ix = r[0];
-    ip_right[i].iy = r[1];
-  }
-
-  return;
-} // End align_ip
-
-// TODO(oalexan1): move this to InterestPointMatching.cc
-
 /// Detect IP in the sub images or the original images if they are not too large.
 /// - Usually an IP file is written in stereo_pprc, but for some input scenarios
 ///   this function will need to be used to generate them here.
@@ -297,7 +264,7 @@ void align_ip(vw::TransformPtr tx_left, vw::TransformPtr tx_right,
 /// TODO(oalexan1): Move ip matching with aligned or mapprojected
 /// images from here to to stereo_pprc or StereoSession, for
 /// consistency with the logic used ip matching with original images.
-void compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
+void compute_ip(ASPGlobalOptions const& opt, std::string & match_filename) {
 
   vw_out() << "\t    * Loading images for IP detection.\n";
 
