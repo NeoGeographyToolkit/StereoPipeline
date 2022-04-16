@@ -461,7 +461,8 @@ asp::StereoSessionPinhole::tx_type asp::StereoSessionPinhole::tx_right() const {
   } else if (stereo_settings().alignment_method == "none") {
     return tx_type(new vw::HomographyTransform(math::identity_matrix<3>()));
   } else if (stereo_settings().alignment_method == "epipolar") {
-    // TODO(oalexan1): Figure out if things can work without casting away the const
+    // TODO(oalexan1): Figure out if things can work without casting
+    // away the const
     StereoSession::tx_type trans_left, trans_right;
     ((StereoSessionPinhole*)this)->pinhole_cam_trans(trans_left, trans_right);
     return trans_right;
@@ -488,8 +489,8 @@ void asp::StereoSessionPinhole::pinhole_cam_trans(tx_type & left_trans,
   PinModel* left_in_ptr = dynamic_cast<PinModel*>(&(*left_input_model));
   if (!left_in_ptr)
     vw_throw(NoImplErr() << "StereoSessionPinhole::pinhole_cam_trans is only "
-             << "implemented for PinholeModel classes! Use a different alignment "
-             << "method than 'epipolar.\n" );
+             << "implemented for PinholeModel classes. Use alignment "
+             << "method 'homography'.\n" );
 
   // Set up transform objects
   left_trans.reset (new asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*left_input_model   )),

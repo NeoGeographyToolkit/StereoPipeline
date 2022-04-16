@@ -190,6 +190,9 @@ namespace asp {
       // disparity. After ip are found, filtered, and local alignment
       // is applied, the aligned tiles will be shrunk (as I recall)
       // before running correlation.
+      // TODO(oalexan1): Filter out outliers by median and bound before growing!
+      // TODO(oalexan1): Allow the right box to be bigger than left box,
+      // perhaps by a factor of 1.5.
       right_trans_crop_win = grow_box_to_square_with_constraint
         (right_trans_crop_win, right_extra_factor * max_tile_size,
          vw::bounding_box(right_globally_aligned_image));
@@ -422,10 +425,11 @@ namespace asp {
                                   right_trans_crop_win);
 
     // TODO(oalexan1): May want to increase here the number of ip per image,
-    // from the default of 5000 in InterestPointMatching.tcc.
+    // from the default of 5000 in InterestPointMatching.cc.
+    // But do not introduced hard-coded values.
     
     // Redo ip matching in the current tile. It should be more accurate after alignment
-    // and cropping. 
+    // and cropping.
     std::vector<vw::ip::InterestPoint> left_local_ip, right_local_ip;
     detect_match_ip(left_local_ip, right_local_ip,
                     crop(left_globally_aligned_image, left_trans_crop_win),
@@ -474,6 +478,9 @@ namespace asp {
     right_crop_mat(1, 2) = -right_trans_crop_win.min().y();
 
     // Find the local alignment
+    // TODO(oalexan1): May want to do do an initial affine epipolar alignment
+    // based on d_sub and preexisting match points, with a bigger outlier factor,
+    // then do an initial rectification, then redo it as below. 
     std::vector<size_t> ip_inlier_indices;
     bool crop_to_shared_area = false;
     Vector2i local_trans_aligned_size =

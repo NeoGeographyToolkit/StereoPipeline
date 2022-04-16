@@ -770,7 +770,7 @@ int main( int argc, char *argv[] ) {
     if (opt.output_file.size() != 0)
       output_file = opt.output_file;
     else {
-      output_file = firstFile.substr(0,pt_idx)+"_calc";
+      output_file = firstFile.substr(0,pt_idx) + "_calc";
       output_file += firstFile.substr(pt_idx,firstFile.size()-pt_idx);
     }
 
@@ -781,6 +781,7 @@ int main( int argc, char *argv[] ) {
     // Assume that all inputs are of the same type. ASP does strange things if 
     // loading a uint8 file as a float, for example.
     // TODO(oalexan1): Load each file according to its format, then cast to double.
+    // TODO(oalexan1): Do not rescale the pixels on input.
     for (size_t it = 1; it < opt.input_files.size(); it++) {
       boost::shared_ptr<vw::DiskImageResource>
         curr_rsrc(vw::DiskImageResourcePtr(opt.input_files[it]));
