@@ -47,8 +47,8 @@ double disparity_norm(PixelMask<Vector2f> const& pix) {
   return norm_2(pix.child());
 }
 
-// To Find the disparity norm of an image, use per_pixel_filter(image,
-// DisparityNorm()).
+// To find the disparity norm of an image, use
+// per_pixel_filter(image, DisparityNorm()).
 class DisparityNorm: public ReturnFixedType<double> {
   public:
   double operator()(PixelMask<Vector2f> const& pix) const {
@@ -227,7 +227,7 @@ void process_disparity(Options& opt) {
     DiskImageView<PixelMask<Vector2f>> disk_disparity_map(opt.input_file_name);
 
     std::string norm_file = opt.output_prefix + "-norm-diff." + opt.output_file_type;
-    vw_out() << "\t--> Writing disparity norm: " << norm_file << "\n";
+    vw_out() << "\t--> Writing norm of disparity diff: " << norm_file << "\n";
     block_write_gdal_image(norm_file,
                            DispNormDiff(disk_disparity_map),
                            has_georef, georef,
