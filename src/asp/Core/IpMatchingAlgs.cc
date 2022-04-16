@@ -16,11 +16,7 @@
 // __END_LICENSE__
 
 #include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
-#include <asp/Core/InterestPointMatching.h>  // Implementation-heavy header
-#include <vw/Math/GaussianClustering.h>
-#include <vw/Math/RANSAC.h>
-#include <vw/Cartography/CameraBBox.h>
-#include <vw/Stereo/StereoModel.h>
+#include <vw/InterestPoint/InterestData.h>
 
 using namespace vw;
 
