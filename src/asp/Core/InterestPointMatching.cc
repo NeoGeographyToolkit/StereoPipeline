@@ -537,8 +537,7 @@ void side_ip_filtering(vw::ip::InterestPointList& ip1,
            << num_removed_right << " points from the right side of the right image.\n";
 } // End side IP filtering
   
-bool
-tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
+bool tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
                   std::vector<ip::InterestPoint> const& matched_ip2,
                   vw::camera::CameraModel* cam1,
                   vw::camera::CameraModel* cam2,
@@ -1201,7 +1200,7 @@ void aligned_ip_from_D_sub(vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> const &
 }
   
 double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,
-                                 Vector2i const& image_size, int tile_size,
+                                 vw::Vector2i const& image_size, int tile_size,
                                  int min_ip_per_tile) {
 
   if (tile_size < 1)
