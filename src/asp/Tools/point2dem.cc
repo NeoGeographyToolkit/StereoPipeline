@@ -1119,8 +1119,6 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
   opt.out_prefix = base_out_prefix; // Restore the original value
 }
 
-//-----------------------------------------------------------------------------------
-
 int main( int argc, char *argv[] ) {
   Options opt;
   try {
