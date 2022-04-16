@@ -408,20 +408,13 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   vw_out() << "\t    * Loading match file: " << match_filename << "\n";
   ip::read_binary_match_file(match_filename, in_left_ip, in_right_ip);
 
-  // The alignment transforms
-  vw::TransformPtr tx_left(NULL), tx_right(NULL);
-
   // Align the ip, so go ip between left.tif and right.tif to ones between
   // L.tif and R.tif. If the matches are already between L.tif and R.tif
   // then do nothing.
   // TODO(oalexan1): Having this as a special case is annoying.
   std::string aligned_match_file = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
-  if (match_filename != aligned_match_file) {
-    // For epipolar alignment tx_left and tx_right are not always defined.
-    tx_left = opt.session->tx_left();
-    tx_right = opt.session->tx_right();
-    align_ip(tx_left, tx_right,  in_left_ip, in_right_ip);
-  }
+  if (match_filename != aligned_match_file)
+    align_ip(opt.session->tx_left(), opt.session->tx_right(), in_left_ip, in_right_ip);
   
   // Camera models
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
@@ -430,7 +423,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   // Filter out IPs which fall outside the specified elevation range
   if (!stereo_settings().correlator_mode && opt.session->have_datum()) {
     cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
-    asp::filter_ip_by_lonlat_and_elevation(tx_left, tx_right,
+    asp::filter_ip_by_lonlat_and_elevation(opt.session->tx_left(), opt.session->tx_right(),
                                            left_camera_model.get(),
                                            right_camera_model.get(),
                                            datum, in_left_ip, in_right_ip,
@@ -455,7 +448,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
       !stereo_settings().correlator_mode          &&
       opt.session->have_datum()) {
     ip_filter_using_dem(stereo_settings().ip_filter_using_dem,  
-                        tx_left, tx_right,  
+                        opt.session->tx_left(), opt.session->tx_right(),  
                         left_camera_model, right_camera_model,  
                         matched_left_ip,  matched_right_ip);
   }
