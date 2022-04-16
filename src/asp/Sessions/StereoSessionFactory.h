@@ -48,6 +48,4 @@ class StereoSessionFactory {
 
 } // end namespace asp
 
-#include <asp/Sessions/StereoSessionFactory.tcc>
-
 #endif // __STEREO_SESSION_FACTORY_H__
