@@ -498,11 +498,11 @@ See :numref:`nextsteps` for a discussion about various stereo
 speed-vs-quality choices. Consider using mapprojection
 (:numref:`mapproj-example`).
 
-Mapprojection can also be done with the ISIS tools. Better mapproject
-results can be achieved by projecting on a higher resolution elevation
-source like the WAC DTM. This is achieved using the ISIS command
-``demprep`` and attaching to cube files via the ``spiceinit`` SHAPE
-and MODEL options.
+Mapprojection can also be done with the ISIS tools
+(:numref:`mapproj_with_cam2map`). Better mapprojection results can be
+achieved by projecting on a higher resolution elevation source like
+the WAC DTM. This is achieved using the ISIS command ``demprep`` and
+attaching to cube files via the ``spiceinit`` SHAPE and MODEL options.
 
 Apollo 15 Metric Camera Images
 ------------------------------
@@ -818,9 +818,12 @@ writes plain text ``.adjust`` files which encode how the position and
 orientation of the cameras were modified (:numref:`adjust_files`). If
 invoked for CSM cameras, additional files with extension
 ``.adjusted_state.json`` are saved in the same output directory, which
-contain the the model state from the input CSM cameras with the
-adjustments applied to them. This only applies to CSM ``linescan``
-models supported by ISIS.
+contain the model state from the input CSM cameras with the
+optimization adjustments applied to them (use zero iterations in
+``bundle_adjust`` to save the states of the original cameras).
+
+This functionality is only implemented for USGS CSM ``linescan`` and
+``SAR`` models.
 
 It is important to note that the the ``model state`` of a CSM camera
 and the CSM camera itself, while both stored on disk as JSON files,
