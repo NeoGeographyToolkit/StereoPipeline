@@ -24,10 +24,11 @@ Hence some benchmarking may be necessary for your camera type and
 storage setup.
 
 The grid size, that is the dimension of pixels on the ground, set via
-the ``--tr`` option, should be in units as expected by the
-projection string obtained either from the DEM to project onto, or, if
-specified, from the ``--t_srs`` option. If the grid size is not set,
-it will be estimated as the mean ground sampling distance (GSD).
+the ``--tr`` option, should be in units as expected by the projection
+string obtained either from the DEM to project onto, or, if specified,
+from the ``--t_srs`` option. If the grid size is not set, it will be
+estimated as the mean ground sampling distance (GSD).  See the
+``--tr`` option for how this affects the extent of the output image.
 
 Examples:
 
@@ -75,8 +76,10 @@ Command-line options for mapproject:
     use the one from the DEM.
 
 --tr <float>
-    Set the output file resolution in target georeferenced units
-    per pixel.
+    Set the output file resolution (ground sample distance) in target
+    georeferenced units per pixel. The center of each output pixel
+    will be at integer multiples of this grid size (hence the output
+    image will extend for an additional half a pixel at each edge).
 
 --mpp <float>
     Set the output file resolution in meters per pixel.

@@ -69,7 +69,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("t_srs",            po::value(&opt.target_srs_string)->default_value(""),
      "Specify the projection (PROJ.4 string). If not provided, use the one from the DEM.")
     ("tr",              po::value(&opt.tr)->default_value(NaN),
-     "Set the output file resolution in projection space coordinates.")
+     "Set the output file resolution (ground sample distance) in target "
+     "georeferenced units per pixel. The center of each output pixel "
+     "will be at integer multiples of this grid size (hence the output "
+     "image will extend for an additional half a pixel at each edge).")
     ("mpp",              po::value(&opt.mpp)->default_value(NaN),
      "Set the output file resolution in meters per pixel.")
     ("ppd",              po::value(&opt.ppd)->default_value(NaN),
