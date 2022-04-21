@@ -33,8 +33,8 @@ parallel_stereo:
     that stage.
   * Bugfix: Eliminate edge artifacts in stereo refinement (for
     subpixel modes 1, 2, and 3).
-  * Print in stereo_pprc the estimated convergence angle between rays
-    (for alignment methods affineepipolar, local_epipolar, and
+  * Print in stereo_pprc the estimated convergence angle for the given
+    stereo pair (for alignment methods affineepipolar, local_epipolar, and
     homography).
   * Added the option ``--prev-run-prefix``, which makes parallel_stereo
     start at the triangulation stage while using previous stages
@@ -79,20 +79,19 @@ parallel_stereo:
     turned off by setting the percentage in ``--outlier-removal-params``
     to 100.
   * Filtering of interest points based on percentiles (using also
-    ``--outlier-removal-params``, only for local_epipolar alignment for
-    now).
+    ``--outlier-removal-params``).
   * Folded ``--remove-outliers-by-disparity-params`` into
     ``--outlier-removal-params``. 
-  * Bugfix in search range handling when it is large. 
+  * Bugfix in disparity search range handling when it is large. 
   * For Linux, in each tile's directory write the elapsed runtime and
-    memory usage to <tile prefix>-<prog name>-resource-usage.txt.
+    memory usage to ``<tile prefix>-<prog name>-resource-usage.txt``.
   * Removed the ``--local-homography`` option, as it is superseded by 
     ``--alignment-method local_epipolar``, which blends the local results.
   * The stereo tool is deprecated, and can be used only with the
     ASP_BM classical block-matching algorithm when invoked without
     local epipolar alignment. Use parallel_stereo instead. 
   * Added the experimental ``--gotcha-disparity-refinement`` option, under
-    NASA proposal 19-PDART19_2-0094 (still in development).
+    NASA proposal 19-PDART19_2-0094.
  
 bundle_adjust:
   * Add the option ``--apply-initial-transform-only`` to apply an initial
@@ -109,11 +108,11 @@ bundle_adjust:
     values should be used for both of these options.
   * Stop printing warnings about failed triangulation if their number
     goes over 100.
-  * Rename verbose final_residuals_no_loss_function_pointmap_point_log.csv
-    to final_residuals_pointmap.csv and
-    final_residuals_no_loss_function_raw_pixels.txt to 
-    final_residuals_raw_pixels.txt, etc.
-  * Document the useful initial and final residuals_stats.txt files. 
+  * Rename verbose ``final_residuals_no_loss_function_pointmap_point_log.csv``
+    to ``final_residuals_pointmap.csv`` and
+    ``final_residuals_no_loss_function_raw_pixels.txt`` to 
+    ``final_residuals_raw_pixels.txt``, etc.
+  * Document the useful initial and final ``residuals_stats.txt`` files. 
   * Add new options for reusing a previous run:
     ``--match-files-prefix`` and ``--clean-match-files-prefix``.
 
@@ -125,7 +124,7 @@ csm:
     It is strongly suggested to use CSM for large-scale processing.
   * Bugfix in CSM linescan implementation for some LRO NAC sensors.
     Also replaced the fixed-point method with the secant method in the 
-    ground-to-image logic for linescan cameras, which is faster. 
+    ground-to-image logic for CSM linescan cameras, which is faster. 
 
 sfs:
   * SfS was made to work with any camera model supported by ASP,
@@ -152,8 +151,8 @@ mapproject:
 bathymetry:
   * Can have different water surfaces in left and right images, so the
     triangulating rays bend at different heights.
-  * bathy_plane_calc can use a mask of pixels above water to find the
-    water-land interface, and also a set of actual lon,lat,height
+  * ``bathy_plane_calc`` can use a mask of pixels above water to find the
+    water-land interface, and also a set of actual ``lon, lat, height``
     measurements.
   * Added documentation for how to find water level heights at given 
     times and coordinates using National Ocean Service's tidal zoning
@@ -210,24 +209,24 @@ image_calc:
     value set in the metadata (the previous value then becomes valid).
 
 Misc:
-  * Added the tool parse_match_file.py to convert a binary match file
+  * Added the tool ``parse_match_file.py`` to convert a binary match file
     to text and vice-versa.
-  * Add the tool cam_test to compare two different camera models
+  * Add the tool ``cam_test`` to compare two different camera models
     for the same image. 
   * Stereo and bundle adjustment with RPC cameras now query the RPC
     model for the datum.
-  * The cam2rpc program saves its datum which is read when needed by
+  * The ``cam2rpc`` program saves its datum which is read when needed by
     the RPC model loader.
-  * Add the option ``--triangulation-error-factor`` to point2las to allow
+  * Add the option ``--triangulation-error-factor`` to ``point2las`` to allow
     point cloud triangulation errors multiplied by this factor and
     rounded/clamped appropriately to be stored in the 2-byte intensity
     field in the LAS file.
-  * Make symlinks relative in parallel_bundle_adjust for portability.
+  * Make symlinks relative in ``parallel_bundle_adjust`` for portability.
   * The mapprojected image saves as metadata the adjustments it was
     created with.
-  * Save the low-resolution triangulated point cloud (PC_sub.tif) in 
-    stereo_corr (based on filtered D_sub.tif).
-  * The ipmatch program can take as input just images, with the 
+  * Save the low-resolution triangulated point cloud (``PC_sub.tif``) in 
+    stereo_corr (based on filtered ``D_sub.tif``).
+  * The ``ipmatch`` program can take as input just images, with the 
     .vwip files looked up by extension.
   * Bugfix in handling projections specified via an EPSG code.
   * Bugfix when some environmental variables or the path to ASP

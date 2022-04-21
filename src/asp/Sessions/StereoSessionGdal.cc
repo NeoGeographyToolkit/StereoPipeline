@@ -90,8 +90,14 @@ namespace asp {
                                       left_bathy_nodata, right_bathy_nodata,
                                       left_bathy_mask, right_bathy_mask);
 
-    ImageViewRef< PixelMask<float> > Limg, Rimg;
-    ImageViewRef< PixelMask<float> > left_aligned_bathy_mask, right_aligned_bathy_mask;
+    ImageViewRef< PixelMask<float>> Limg, Rimg;
+    ImageViewRef< PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
+
+    // Use no-data in interpolation and edge extension.
+    PixelMask<float>nodata_pix(0); nodata_pix.invalidate();
+    PixelMask<float>bathy_nodata_pix(0); bathy_nodata_pix.invalidate();
+    ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix); 
+    ValueEdgeExtension<PixelMask<float>> bathy_ext_nodata(bathy_nodata_pix); 
     
     // Image alignment block - Generate aligned versions of the input
     // images according to the options.
@@ -224,9 +230,6 @@ namespace asp {
     bool has_bathy_nodata = true;
     float output_nodata = -32768.0;
 
-    std::string left_aligned_bathy_mask_file = StereoSession::left_aligned_bathy_mask();
-    std::string right_aligned_bathy_mask_file = StereoSession::right_aligned_bathy_mask();
-    
     // The left image is written out with no alignment warping.
     vw_out() << "\t--> Writing pre-aligned images.\n";
     vw_out() << "\t--> Writing: " << left_output_file << ".\n";
@@ -235,12 +238,13 @@ namespace asp {
                            has_nodata, output_nodata, options,
                            TerminalProgressCallback("asp","\t  L:  "));
     if (do_bathy) {
+      std::string left_aligned_bathy_mask_file = StereoSession::left_aligned_bathy_mask();
       vw_out() << "\t--> Writing: " << left_aligned_bathy_mask_file << ".\n";
       block_write_gdal_image(left_aligned_bathy_mask_file,
                              apply_mask(left_aligned_bathy_mask, left_bathy_nodata),
                              has_left_georef, left_georef,
                              has_bathy_nodata, left_bathy_nodata, options,
-                             TerminalProgressCallback("asp","\t  L mask:  "));
+                             TerminalProgressCallback("asp","\t  L bathy mask:  "));
     }
     
     if (stereo_settings().alignment_method == "none") {
@@ -250,36 +254,37 @@ namespace asp {
                              has_nodata, output_nodata, options,
                              TerminalProgressCallback("asp","\t  R:  "));
       if (do_bathy) {
+        std::string right_aligned_bathy_mask_file = StereoSession::right_aligned_bathy_mask();
         vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
         block_write_gdal_image(right_aligned_bathy_mask_file,
                                apply_mask(right_aligned_bathy_mask, right_bathy_nodata),
                                has_right_georef, right_georef,
                                has_bathy_nodata, right_bathy_nodata, options,
-                               TerminalProgressCallback("asp","\t  R mask:  "));
+                               TerminalProgressCallback("asp","\t  R bathy mask:  "));
       }
       
     } else {
       // Write out the right image cropped to align with the left image.
       vw_out() << "\t--> Writing: " << right_output_file << ".\n";
       block_write_gdal_image(right_output_file,
-                             apply_mask(crop(edge_extend(Rimg,
-                                                         // TODO(oalexan1): Put here
-                                                         // ext_nodata, like NadirPinhole?
-                                                         ConstantEdgeExtension()),
+                             // Force R.tif to be the same size as L.tif.
+                             // Extra pixels get filled with nodata.
+                             apply_mask(crop(edge_extend(Rimg, ext_nodata), 
                                              bounding_box(Limg)), output_nodata),
                              has_right_georef, right_georef,
                              has_nodata, output_nodata, options,
-                             TerminalProgressCallback("asp","\t  R:  "));
-
+                             TerminalProgressCallback("asp","\t  R:  ") );
       if (do_bathy) {
+        std::string right_aligned_bathy_mask_file = StereoSession::right_aligned_bathy_mask();
         vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
         block_write_gdal_image(right_aligned_bathy_mask_file,
                                apply_mask(crop(edge_extend(right_aligned_bathy_mask,
-                                                           ConstantEdgeExtension()),
+                                                           bathy_ext_nodata), 
                                                bounding_box(Limg)), right_bathy_nodata),
                                has_right_georef, right_georef,
-                               has_bathy_nodata, right_bathy_nodata, options,
-                               TerminalProgressCallback("asp","\t  R mask:  "));
+                               has_bathy_nodata, right_bathy_nodata,
+                               options,
+                               TerminalProgressCallback("asp","\t  R bathy mask:  ") );
       }
     }
   } // End function pre_preprocessing_hook

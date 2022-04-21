@@ -254,39 +254,40 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
 // TODO(oalexan1): move this to InterestPointMatching.cc
 
-/// Detect IP in the sub images or the original images if they are not too large.
-/// - Usually an IP file is written in stereo_pprc, but for some input scenarios
-///   this function will need to be used to generate them here.
-/// - The input match file path can be changed depending on what exists on disk.
-/// - Returns the scale from the image used for IP to the full size image.
-/// - The binary interest point file will be written to disk.
+/// Detect IP in the full-resolution aligned images.
+/// Applicable to alignment methods epipolar and with mapprojected images,
+/// when interest points are not found among original images.
+/// The binary interest point file will be written to disk.
 
 /// TODO(oalexan1): Move ip matching with aligned or mapprojected
 /// images from here to to stereo_pprc or StereoSession, for
 /// consistency with the logic used ip matching with original images.
-void compute_ip(ASPGlobalOptions const& opt, std::string & match_filename) {
-
-  vw_out() << "\t    * Loading images for IP detection.\n";
-
-  const std::string left_aligned_image_file  = opt.out_prefix + "-L.tif";
-  const std::string right_aligned_image_file = opt.out_prefix + "-R.tif";
+void load_or_compute_ip(std::string const & left_unalgined_image,
+                        std::string const & right_unaligned_image,
+                        std::string const & left_camera,
+                        std::string const & right_camera,
+                        std::string const & out_prefix,
+                        boost::shared_ptr<asp::StereoSession> session,
+                        // Output
+                        std::string & match_filename) {
+  
+  const std::string left_aligned_image_file  = out_prefix + "-L.tif";
+  const std::string right_aligned_image_file = out_prefix + "-R.tif";
 
   const std::string unaligned_match_file
-    = vw::ip::match_filename(opt.out_prefix,
-                             opt.session->left_cropped_image(),
-                             opt.session->right_cropped_image());
+    = vw::ip::match_filename(out_prefix, left_unalgined_image, right_unaligned_image);
 
   const std::string aligned_match_file     
-    = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
+    = vw::ip::match_filename(out_prefix, "L.tif", "R.tif");
 
   // Make sure the match file is newer than these files
   std::vector<std::string> ref_list;
-  ref_list.push_back(opt.session->left_cropped_image());
-  ref_list.push_back(opt.session->right_cropped_image());
-  if (fs::exists(opt.cam_file1))
-    ref_list.push_back(opt.cam_file1);
-  if (fs::exists(opt.cam_file2))
-    ref_list.push_back(opt.cam_file2);
+  ref_list.push_back(left_unalgined_image);
+  ref_list.push_back(right_unaligned_image);
+  if (fs::exists(left_camera))
+    ref_list.push_back(left_camera);
+  if (fs::exists(right_camera))
+    ref_list.push_back(right_camera);
 
   // Try the unaligned match file first
   if (fs::exists(unaligned_match_file) && is_latest_timestamp(unaligned_match_file, ref_list)) {
@@ -305,19 +306,16 @@ void compute_ip(ASPGlobalOptions const& opt, std::string & match_filename) {
   }
 
   // Now try the aligned match file
-  std::string left_image_path  = left_aligned_image_file;
-  std::string right_image_path = right_aligned_image_file;
-
   match_filename = aligned_match_file;
 
   vw_out() << "No IP file found, computing IP now.\n";
   
   // Load the images
-  boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_image_path)),
-    right_rsrc(DiskImageResourcePtr(right_image_path));
+  boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_aligned_image_file)),
+    right_rsrc(DiskImageResourcePtr(right_aligned_image_file));
 
-  std::string left_ip_filename  = ip::ip_filename(opt.out_prefix, left_image_path);
-  std::string right_ip_filename = ip::ip_filename(opt.out_prefix, right_image_path);
+  std::string left_ip_filename  = ip::ip_filename(out_prefix, left_aligned_image_file);
+  std::string right_ip_filename = ip::ip_filename(out_prefix, right_aligned_image_file);
 
   // Read the no-data values written to disk previously when
   // the normalized left and right sub-images were created.
@@ -598,9 +596,12 @@ void lowres_correlation(ASPGlobalOptions & opt) {
 
     // TODO(oalexan1): All ip matching should happen in stereo_pprc for consistency.
     
-    // Load IP from disk if they exist, or else compute them. 
+    // Load IP from disk if they exist, or else compute them.
     std::string match_filename;
-    compute_ip(opt, match_filename);
+    load_or_compute_ip(opt.session->left_cropped_image(), opt.session->right_cropped_image(),
+                       opt.cam_file1, opt.cam_file2, opt.out_prefix, opt.session,
+                       // Output
+                       match_filename);
     
     // This function applies filtering to find good points
     stereo_settings().search_range = approximate_search_range(opt, match_filename);

@@ -92,7 +92,6 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   // Use no-data in interpolation and edge extension.
   PixelMask<float>nodata_pix(0); nodata_pix.invalidate();
   PixelMask<float>bathy_nodata_pix(0); bathy_nodata_pix.invalidate();
-  
   ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix); 
   ValueEdgeExtension<PixelMask<float>> bathy_ext_nodata(bathy_nodata_pix); 
   
@@ -292,7 +291,6 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   float output_nodata     = -32768.0;
 
   vw_out() << "\t--> Writing pre-aligned images.\n";
-
   vw_out() << "\t--> Writing: " << left_output_file << ".\n";
   block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
                           has_left_georef, left_georef,
@@ -309,28 +307,25 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                            options,
                            TerminalProgressCallback("asp","\t  L mask:  ") );
   }
-  
+
   vw_out() << "\t--> Writing: " << right_output_file << ".\n";
   block_write_gdal_image(right_output_file,
-                         // Force -R.tif to be the same size as -L.tif?
+                         // Force R.tif to be the same size as L.tif.
+                         // Extra pixels get filled with nodata.
                          apply_mask(crop(edge_extend(Rimg, ext_nodata), 
                                          bounding_box(Limg)), output_nodata),
                          has_right_georef, right_georef,
-                         has_nodata, output_nodata,
-                         options,
+                         has_nodata, output_nodata, options,
                          TerminalProgressCallback("asp","\t  R:  ") );
   if (do_bathy) {
     std::string right_aligned_bathy_mask_file = StereoSession::right_aligned_bathy_mask();
     vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
     block_write_gdal_image(right_aligned_bathy_mask_file,
-                           // Force -R.tif to be the same size as -L.tif?
                            apply_mask(crop(edge_extend(right_aligned_bathy_mask, bathy_ext_nodata), 
                                            bounding_box(Limg)), right_bathy_nodata),
                            has_right_georef, right_georef,
                            has_bathy_nodata, right_bathy_nodata,
                            options,
-                           TerminalProgressCallback("asp","\t  R mask:  ") );
+                           TerminalProgressCallback("asp","\t  R bathy mask:  ") );
   }
 }
-
-
