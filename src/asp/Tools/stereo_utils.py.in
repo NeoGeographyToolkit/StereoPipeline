@@ -182,8 +182,7 @@ def stereo_run(prog, args, opt, **kw):
 
     call = reduce_num_threads_in_pprc(call)
 
-    # This must not be used in production. /usr/bin/time on the Mac does not work well.
-    # This is a debug option, at some point it may go away.
+    # On Linux estimate the memory usage and runtime
     if 'linux' in sys.platform and prog == 'stereo_corr' and \
            hasattr(opt, 'mem_usage') and opt.mem_usage:
         call = ['/usr/bin/time',  '-f', '"elapsed=%E mem=%M (kb) time_stereo_corr"'] + call

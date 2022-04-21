@@ -73,6 +73,9 @@ ip-triangulation-max-error *double*
 ip-num-ransac-iterations *int(=100)*
     How many RANSAC iterations to do in interest point matching.
 
+ip-nodata-radius integer (default = 4)
+    Remove IP near nodata with this radius, in pixels.
+
 force-reuse-match-files
     Force reusing the match files even if older than the images or
     cameras.
@@ -397,10 +400,10 @@ ip-filter-using-dem (*string*) (default = "")
     meters. Specify as: '<dem file> <height diff>. Example: 
     'dem.tif 50.0'.
 
-elevation-limit (*float float*)
-    Notify ASP that all elevations are expected to fall in this range
-    relative to the datum. Currently only used to restrict the search
-    range estimate in nadir epipolar alignment cases.
+elevation-limit (*float float*) (default = ``unspecified``)
+    Remove as outliers interest points whose height above datum (in
+    meters) does not fall within this range. This can reduce the 
+    disparity search range.
 
 corr-max-levels (*integer*) (default = 5)
     The maximum number of additional (lower) resolution levels to use
