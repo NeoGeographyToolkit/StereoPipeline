@@ -59,6 +59,7 @@ parallel_stereo:
     than given value from the height at the same location for the
     given DEM.
   * Added a doc section on handling of images with clouds.
+  * Added documentation desribing processing of WAC images.
   * Disable by default velocity aberration and atmospheric refraction
     corrections. These are not accurate enough and cause issues with
     convergence of bundle adjustment. Can be enabled with

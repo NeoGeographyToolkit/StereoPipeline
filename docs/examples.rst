@@ -504,7 +504,84 @@ achieved by projecting on a higher resolution elevation source like
 the WAC DTM. This is achieved using the ISIS command ``demprep`` and
 attaching to cube files via the ``spiceinit`` SHAPE and MODEL options.
 
-Apollo 15 Metric Camera Images
+Lunar Reconnaissance Orbiter (LRO) WAC
+--------------------------------------
+
+Work to make ASP support LRO Wide Angle Camera (WAC) images is
+currently in progress. For the moment, this section describes how to
+fetch the raw datasets and create seamless mapprojected images.
+
+We will focus on the monochromatic images for this sensor. Visit:
+
+   https://ode.rsl.wustl.edu/moon/indexproductsearch.aspx
+
+Find the *Lunar Reconnaissance Orbiter -> Experiment Data Record Wide
+Angle Camera - Mono (EDRWAM)* option.
+
+Search either based on a longitude-latitude window, or near a
+notable feature, such as a named crater.  Here are a couple of images
+having the Tycho crater::
+
+    http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0002/DATA/MAP/2010035/WAC/M119923055ME.IMG
+    http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0002/DATA/MAP/2010035/WAC/M119929852ME.IMG
+
+Fetch these with ``wget``. Next we broadly follow the tutorial at
+:cite:`ohman2015procedure`. For a dataset called ``image.IMG``, do::
+
+    lrowac2isis from = image.IMG to = image.cub
+
+This will create so-called *even* and *odd* datasets, with names like
+``image.vis.even.cub`` and ``image.vis.odd.cub``.
+
+Run ``spiceinit`` on them to set up the SPICE kernels::
+
+    spiceinit from = image.vis.even.cub
+    spiceinit from = image.vis.odd.cub
+
+followed by ``lrowaccal`` to adjust the image intensity::
+
+    lrowaccal from = image.vis.even.cub to = image.vis.even.cal.cub
+    lrowaccal from = image.vis.odd.cub  to = image.vis.odd.cal.cub
+
+All these .cub files can be visualized with ``stereo_gui``. It can be
+seen that instead of a single contiguous image we have a set of narrow
+horizontal bands, with some bands in the *even* and some in the *odd*
+cub file. The pixel rows in each band may also be recorded in reverse.
+
+The only way to fix these artifacts currently is to mapprojected these
+images and fuse them. This happens as::
+
+    cam2map from = image.vis.even.cal.cub to = image.vis.even.cal.map.cub
+    cam2map from = image.vis.odd.cal.cub  to = image.vis.odd.cal.map.cub  \
+      map = image.vis.even.cal.map.cub matchmap = true
+
+Note how in the second ``cam2map`` call we used the ``map`` and
+``matchmap`` arguments. This is to ensure that both of these output
+images have the same resolution and projection. In particular, if more
+datasets are present, it is suggested for all of them to use the same
+previously created .cub file as a map reference.  That because stereo
+works a lot better on mapprojected images with the same ground
+resolution. For more details see :numref:`mapproj-example` and
+:numref:`mapproj_with_cam2map`.
+
+To verify that the obtained images have the same ground resolution, do::
+
+    gdalinfo image.vis.even.cal.map.cub | grep -i "pixel size"
+    gdalinfo image.vis.odd.cal.map.cub  | grep -i "pixel size"
+
+(see :numref:`gdal_tools` regarding this tool).
+
+The fusion happens as::
+
+    ls image.vis.even.cal.map.cub image.vis.odd.cal.map.cub  > image.txt
+    noseam fromlist = image.txt to = image.noseam.cub SAMPLES=73 LINES=73
+
+The obtained file ``image.noseam.cub`` may still have some small artifacts
+but should be overall reasonably good. 
+
+At some point soon stereo with such images will be enabled in ASP.
+
+Apollo 15 Metric Camera images
 ------------------------------
 
 Apollo Metric images were all taken at regular intervals, which means
@@ -1212,8 +1289,7 @@ A second image can be retrieved from::
 
     https://pds-geosciences.wustl.edu/lro/lro-l-mrflro-4-cdr-v1/lromrf_0001/data/sar/02300_02399/level1/lsz_02330_1cd_xku_00s120_v1.img
 
-Then the corresponding label can be downloaded analogously, and it can
-be handled as above.
+and processed similarly.
 
 Stereo and DEM creation are run as::
 
@@ -1229,7 +1305,8 @@ Stereo and DEM creation are run as::
 For this example one can use the USGS CSM sensor as well, as shown in
 :numref:`csm_minirf`.
 
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+See :numref:`nextsteps` for a discussion about various
+speed-vs-quality choices when running stereo.
 
 .. _aster:
 
