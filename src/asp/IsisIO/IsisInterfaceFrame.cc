@@ -40,11 +40,11 @@ IsisInterfaceFrame::IsisInterfaceFrame(std::string const& filename):
   m_focalmap   = m_camera->FocalPlaneMap();
   m_detectmap  = m_camera->DetectorMap();
 
-  // Calculating Center (just once)
+  // Calculate the camera center (just once)
   m_camera->instrumentPosition(&m_center[0]);
-  m_center *= 1000;
+  m_center *= 1000.0; // convert to meters
 
-  // Calculating Pose (just once)
+  // Calculating the camera pose (just once)
   std::vector<double> rot_inst = m_camera->instrumentRotation()->Matrix();
   std::vector<double> rot_body = m_camera->bodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
@@ -66,7 +66,7 @@ IsisInterfaceFrame::point_to_pixel(Vector3 const& point) const {
   std::copy(lookB_copy.begin(), lookB_copy.end(), look.begin());
   look = m_camera->FocalLength() * (look / std::abs(look[2]));
 
-  // Back Projecting
+  // Project into the camera
   m_distortmap->SetUndistortedFocalPlane(look[0], look[1]);
   m_focalmap->SetFocalPlane(m_distortmap->FocalPlaneX(),
                              m_distortmap->FocalPlaneY());
@@ -78,12 +78,10 @@ IsisInterfaceFrame::point_to_pixel(Vector3 const& point) const {
 
 Vector3
 IsisInterfaceFrame::pixel_to_vector(Vector2 const& px) const {
-  m_detectmap->SetParent(m_alphacube.AlphaSample(px[0]+1),
-                          m_alphacube.AlphaLine(px[1]+1));
-  m_focalmap->SetDetector(m_detectmap->DetectorSample(),
-                           m_detectmap->DetectorLine());
-  m_distortmap->SetFocalPlane(m_focalmap->FocalPlaneX(),
-                               m_focalmap->FocalPlaneY());
+  m_detectmap->SetParent(m_alphacube.AlphaSample(px[0] + 1), m_alphacube.AlphaLine(px[1] + 1));
+  m_focalmap->SetDetector(m_detectmap->DetectorSample(), m_detectmap->DetectorLine());
+  m_distortmap->SetFocalPlane(m_focalmap->FocalPlaneX(), m_focalmap->FocalPlaneY());
+  
   std::vector<double> look(3);
   look[0] = m_distortmap->UndistortedFocalPlaneX();
   look[1] = m_distortmap->UndistortedFocalPlaneY();

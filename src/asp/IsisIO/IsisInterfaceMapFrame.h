@@ -49,7 +49,7 @@ namespace isis {
 
     virtual std::string type()  { return "MapFrame"; }
 
-    // Standard Methods
+    // Standard methods
     //-------------------------------------------------
 
     virtual vw::Vector2 point_to_pixel ( vw::Vector3 const& point ) const; // TODO: Inaccurate!  Needs DATUM!
@@ -59,7 +59,7 @@ namespace isis {
 
   protected:
 
-    // Custom Variables
+    // Custom variables
     boost::scoped_ptr<Isis::TProjection> m_projection;
     Isis::CameraGroundMap     *m_groundmap;
     Isis::CameraDistortionMap *m_distortmap;

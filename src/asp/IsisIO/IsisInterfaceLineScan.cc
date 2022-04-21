@@ -175,10 +175,7 @@ IsisInterfaceLineScan::point_to_pixel(Vector3 const& point) const {
   return pixel;
 
 #else
-  // TODO(oalexan1): Why does this code not work?
-  // It is using the regular ISIS API, yet gives wrong answers.
-  // It works for IsisInterfaceLineSAR, apparently.
-  // May need to test with IsisInterfaceLineFrame first.
+  // TODO(oalexan1): This code looks buggy. Need to set the height above ground too.
   Vector3 llh = m_datum.cartesian_to_geodetic(point);
   if (llh[0] < 0)
     llh[0] += 360.0;
