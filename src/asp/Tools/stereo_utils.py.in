@@ -67,7 +67,8 @@ def stereo_alg_to_num(alg):
 
 def get_asp_version():
     '''Returns the current ASP version number'''
-    return "[ASP @ASP_VERSION@]"
+    prog = asp_system_utils.libexec_path("stereo_parse") # get the full path
+    return asp_system_utils.get_prog_version(prog)
 
 class Step:
     # The ids of individual stereo steps
