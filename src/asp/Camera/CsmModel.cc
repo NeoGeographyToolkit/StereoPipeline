@@ -449,6 +449,9 @@ void CsmModel::load_model_from_state(std::string const& state_path) {
              std::istreambuf_iterator<char>());
   ifs.close();
 
+  // TODO(oalexan1): Use the usgscsm function constructModelFromState()
+  // perhaps after that package pushes a new version.
+  
   // See which model to load, then cast it to RasterGM. This could
   // have been simpler if the USGSCSM models shared a base class where
   // all shared functionality would be shared.
