@@ -128,14 +128,13 @@ int main(int argc, char** argv) {
     std::vector<std::string> images;
 
     // First try to parse a regular stereo command
-    // TODO(oalexan1): This will choke on parallel_stereo commands!
     try {
 
       // If we found .vwip/.match/.shp files, go right to displaying images 
       for (int it = 1; it < argc; it++) {
         if (get_extension(argv[it]) == ".vwip"  ||
             get_extension(argv[it]) == ".match" ||
-            get_extension(argv[it]) == ".shp"   ) {
+            get_extension(argv[it]) == ".shp") {
           // This error will be quiet
           vw_throw(ArgumentErr() << "Found an unexpected file.\n");
         }
@@ -187,7 +186,12 @@ int main(int argc, char** argv) {
             }else if (asp::has_shp_extension(file)) {
               // See if this is a shape file
               is_image = true; // will load it in the same struct as for images
-            }else{
+            }else if (has_cam_extension(file)) {
+              // We will get here for all cameras except .cub, which is
+              // both an image and a camera. Don't print an error in this
+              // case as this is expected to not be an image.
+              is_image = false;
+            } else {
               vw_out() << "Not a valid image: " << file << ".\n";
               if (!fs::exists(file)) {
                 vw_out() << "Using this as the output prefix.\n";
