@@ -409,7 +409,8 @@ for the left image, then then ``gdalinfo`` can be used to find
 the obtained pixel size, and that value can be used with the right image.
 
 If these two images have rather different auto-determined resolutions,
-it is suggested that the smaller one be used for both.
+it is suggested that the smaller ground sample distance be used for both,
+or otherwise something in the middle. 
 
 Using a ground sample distance which is too different than what is
 appropriate can result in aliasing in mapprojected images and
