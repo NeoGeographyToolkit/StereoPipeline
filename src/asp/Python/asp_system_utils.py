@@ -55,14 +55,19 @@ def get_prog_version(prog):
         out, err = p.communicate()
     except:
         raise Exception("Could not find: " + prog)
-    if p.returncode != 0:
+    if p.returncode != 0 and ('stereo_parse' not in prog):
+        # Our own stereo_parse returns 1 even if the version check
+        # succeeded. Too much work would be needed to fix that, so
+        # just ignore the return status in that case.
         raise Exception("Checking " + prog + " version caused errors")
 
     # This is a fix for sometimes GNU Parallel printing a warning at the beginning
     for line in out.split("\n"):
         m = re.match("^.*?warning", line, re.IGNORECASE)
         if m: continue
-        m = re.match("^.*? ([\d\.]+)", line)
+        # This covers a version with no dots and a version like 3.0.1-alpha.
+        # This is a fragile code.
+        m = re.match("^.*? (\d[^\s]+)", line)
         if not m:
            raise Exception("Could not find " + prog + " version")
         return m.group(1)
