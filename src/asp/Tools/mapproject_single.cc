@@ -901,7 +901,8 @@ int main(int argc, char* argv[]) {
     } else {
       // If the input image is not RGB, only single channel images are supported.
       if (num_input_channels != 1 || image_fmt.planes != 1)
-        vw_throw( ArgumentErr() << "Input images must be single channel or RGB!\n" );
+        //vw_throw( ArgumentErr() << "Input images must be single channel or RGB!\n" );
+        vw_out() << "Detected multi-band image. Only the first band will be used. The pixels will be interpreted as float.\n";
       // This will cast to float but will not rescale the pixel values.
       project_image_nodata_pick_transform<float>(opt, dem_georef, target_georef, croppedGeoRef,
                                                  image_size, 
