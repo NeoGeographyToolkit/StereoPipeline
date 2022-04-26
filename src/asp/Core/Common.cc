@@ -60,7 +60,7 @@ using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-bool asp::has_cam_extension( std::string const& input ) {
+bool asp::has_cam_extension( std::string const& input) {
   std::string ext = get_extension(input);
   if ( has_pinhole_extension(input) ||
       ext == ".cub" || ext == ".xml" || ext == ".dim" ||
@@ -718,10 +718,17 @@ std::string asp::read_target_name(std::string const& filename) {
     return target; // No luck
   
   std::string line;
-  while ( getline(handle, line, '\n') ){
+  int count = 0;
+  while (getline(handle, line, '\n')) {
     if (line == "End") 
       return target; // No luck, reached the end of the text part of the cub
 
+    // If the input file is a .tif rather than a .cub, it could have several
+    // GB and not have this info anyway, so exist early.
+    count++;
+    if (count > 1000)
+      break;
+    
     // Find the line having TargetName
     boost::to_lower(line);
     if (line.find("targetname") == std::string::npos) 
