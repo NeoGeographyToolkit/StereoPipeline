@@ -865,24 +865,24 @@ reduces the processing time (:numref:`mapproj-res`).
 Example using the USGS CSM SAR sensor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This proceeds largely as above. An LRO Mini-RF dataset will be used. 
-In this example the left and right images are somewhat dissimilar, 
-resulting in an noisy output stereo DEM. In the future, it is hoped
-to find a better dataset.
-
 ::
 
-    parallel_stereo --corr-kernel 45 45 --subpixel-kernel 45 45 \
-      --ip-per-tile 5000 --stereo-algorithm asp_bm              \
-      --left-image-crop-win -201 8218 2123 3509                 \
-      --right-image-crop-win 765 46111 2236 4471                \
-      lsz_01636_1cd_xku_09n120_v1.cub                           \
-      lsz_02330_1cd_xku_00s120_v1.cub                           \
-      lsz_01636_1cd_xku_09n120_v1.json                          \
-      lsz_02330_1cd_xku_00s120_v1.json                          \
+    parallel_stereo --stereo-algorithm asp_mgm   \
+      --left-image-crop-win 0 7858 1708 5966     \
+      --right-image-crop-win 874 46905 2368 6584 \
+      lsz_01636_1cd_xku_09n120_v1.cub            \
+      lsz_02330_1cd_xku_00s120_v1.cub            \
+      lsz_01636_1cd_xku_09n120_v1.json           \
+      lsz_02330_1cd_xku_00s120_v1.json           \
       run/run
     point2dem run/run-PC.tif
 
+.. figure:: images/CSM_MiniRF.png
+   :name: CSM_miniRF_example
+
+   A portion of the produced DEM and orthoimage for the CSM SAR example. 
+   The DEM is somewhat noisy because the convergence angle (as printed
+   during stereo preprocessing) is only  3.5 degrees.
 
 See :numref:`isis_minirf` and :numref:`create_csm` for how to arrive
 at the input .cub and .json files.
