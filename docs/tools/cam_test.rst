@@ -70,10 +70,14 @@ Command-line options for cam_test
 --sample-rate <integer (default: 100)>
     Use one out of these many pixels when sampling the image.
 
---subpixel-offset <double (default: 0)>
+--subpixel-offset <double (default: 0.0)>
     Add to each integer pixel this offset (in x and y) when sampling
     the image. Sampling at non-integer location may make testing
     more thorough.
+
+--height-above-datum <double (default: 0.0)>
+    Let the ground be obtained from the datum for this camera by 
+    adding to its radii this value (the units are meters).
 
 --single-pixel <double double (default: nan nan)>
     Instead of sampling pixels from the image use only this pixel.

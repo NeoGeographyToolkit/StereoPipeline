@@ -47,7 +47,7 @@ typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 struct Options : vw::cartography::GdalWriteOptions {
   std::string image_file, cam1_file, cam2_file, session1, session2;
   int sample_rate; // use one out of these many pixels
-  double subpixel_offset;
+  double subpixel_offset, height_above_datum;
   bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
     print_per_pixel_results;
   vw::Vector2 single_pixel;
@@ -71,6 +71,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use one out of these many pixels when sampling the image.")
     ("subpixel-offset",   po::value(&opt.subpixel_offset)->default_value(0.0),
      "Add to each integer pixel this offset (in x and y) when sampling the image.")
+    ("height-above-datum",   po::value(&opt.height_above_datum)->default_value(0.0),
+     "Let the ground be obtained from the datum for this camera by "
+     "adding to its radii this value (the units are meters).")
     ("single-pixel",   po::value(&opt.single_pixel)->default_value(Vector2(nan, nan)),
      "Instead of sampling pixels from the image use only this pixel.")
     ("print-per-pixel-results", po::bool_switch(&opt.print_per_pixel_results)->default_value(false)->implicit_value(true),
@@ -187,6 +190,8 @@ int main(int argc, char *argv[]) {
     
     bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
 
+    double major_axis = datum.semi_major_axis() + opt.height_above_datum;
+    double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
     // Iterate over the image
     std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff;
     for (int col = 0; col < image_cols; col += opt.sample_rate) {
@@ -213,18 +218,22 @@ int main(int argc, char *argv[]) {
         if (opt.print_per_pixel_results)
           vw_out() << "Camera direction diff: " << dir_diff.back() << std::endl;
         
-        // Shoot a ray from the cam1 camera, intersect it with the datum,
-        // and project it back into the cam2 camera.
-        Vector3 xyz = vw::cartography::datum_intersection(datum, cam1_ctr, cam1_dir);
+        // Shoot a ray from the cam1 camera, intersect it with the
+        // given height above datum, and project it back into the cam2
+        // camera.
+        Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+                                                          cam1_ctr, cam1_dir);
         Vector2 cam2_pix = cam2_model->point_to_pixel(xyz);
         cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
         
         if (opt.print_per_pixel_results)
           vw_out() << "cam1 to cam2 pixel diff: " << image_pix - cam2_pix << std::endl;
         
-        // Shoot a ray from the cam2 camera, intersect it with the datum,
-        // and project it back into the cam1 camera.
-        xyz = vw::cartography::datum_intersection(datum, cam2_ctr, cam2_dir);
+        // Shoot a ray from the cam2 camera, intersect it with the
+        // given height above the datum, and project it back into the
+        // cam1 camera.
+        xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+                                                  cam2_ctr, cam2_dir);
         Vector2 cam1_pix = cam1_model->point_to_pixel(xyz);
         cam2_to_cam1_diff.push_back(norm_2(image_pix - cam1_pix));
         
