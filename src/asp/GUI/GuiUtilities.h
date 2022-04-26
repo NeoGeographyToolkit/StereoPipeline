@@ -153,7 +153,7 @@ namespace vw { namespace gui {
     ImgType m_type; // keeps track of which of the above images we use
 
     // Constructor
-    DiskImagePyramidMultiChannel(std::string const& base_file = "",
+    DiskImagePyramidMultiChannel(std::string const& image_file = "",
                                  vw::cartography::GdalWriteOptions const&
                                  opt = vw::cartography::GdalWriteOptions(),
                                  int top_image_max_pix = 1000*1000,

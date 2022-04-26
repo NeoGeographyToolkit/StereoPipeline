@@ -498,20 +498,32 @@ void chooseFilesDlg::keyPressEvent(QKeyEvent *event) {
   // std::cout << "Key was pressed " << event->key() << std::endl;
 }
 
-DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& base_file,
+DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& image_file,
                              vw::cartography::GdalWriteOptions const& opt,
                              int top_image_max_pix, int subsample):
   m_opt(opt), m_num_channels(0), m_rows(0), m_cols(0), m_type(UNINIT) {
   
-  if (base_file == "") return;
+  if (image_file == "") return;
 
+  boost::shared_ptr<DiskImageResource> image_rsrc = vw::DiskImageResourcePtr(image_file);
+  ImageFormat image_fmt = image_rsrc->format();
+  
+  // Redirect to the correctly typed function to perform the actual map projection.
+  // - Must correspond to the type of the input image.
   // Instantiate the correct DiskImagePyramid then record information including
   //  the list of temporary files it created.
   try {
-    m_num_channels = get_num_channels(base_file);
-    if (m_num_channels == 1) {
+    m_num_channels = get_num_channels(image_file);
+
+    if (m_num_channels > 1 && image_fmt.channel_type != VW_CHANNEL_UINT8) {
+      vw_out() << "File " << image_file << " has more than one band, and the "
+               << "bands are not unsigned int. Reading only the first band in "
+               << "double precision.\n";
+    }
+    
+    if (m_num_channels == 1 || image_fmt.channel_type != VW_CHANNEL_UINT8) {
       // Single channel image with float pixels.
-      m_img_ch1_double = vw::mosaic::DiskImagePyramid<double>(base_file, m_opt);
+      m_img_ch1_double = vw::mosaic::DiskImagePyramid<double>(image_file, m_opt);
       m_rows = m_img_ch1_double.rows();
       m_cols = m_img_ch1_double.cols();
       m_type = CH1_DOUBLE;
@@ -519,7 +531,7 @@ DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& ba
                                      m_img_ch1_double.get_temporary_files().end());
     }else if (m_num_channels == 2){
       // uint8 image with an alpha channel.
-      m_img_ch2_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>>(base_file, m_opt);
+      m_img_ch2_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>>(image_file, m_opt);
       m_num_channels = 2; // we read only 1 channel
       m_rows = m_img_ch2_uint8.rows();
       m_cols = m_img_ch2_uint8.cols();
@@ -528,7 +540,7 @@ DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& ba
                                      m_img_ch2_uint8.get_temporary_files().end());
     } else if (m_num_channels == 3){
       // RGB image with three uint8 channels.
-      m_img_ch3_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 3>>(base_file, m_opt);
+      m_img_ch3_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 3>>(image_file, m_opt);
       m_num_channels = 3;
       m_rows = m_img_ch3_uint8.rows();
       m_cols = m_img_ch3_uint8.cols();
@@ -537,7 +549,7 @@ DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& ba
                                      m_img_ch3_uint8.get_temporary_files().end());
     } else if (m_num_channels == 4){
       // RGB image with three uint8 channels and an alpha channel
-      m_img_ch4_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 4>>(base_file, m_opt);
+      m_img_ch4_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 4>>(image_file, m_opt);
       m_num_channels = 4;
       m_rows = m_img_ch4_uint8.rows();
       m_cols = m_img_ch4_uint8.cols();
