@@ -153,7 +153,7 @@ std::string CsmModel::get_csm_plugin_folder(){
   }
 
   if (!fs::exists(plugin_path)){
-    vw_throw( ArgumentErr() << "Could not find CSM plugin folder: " << plugin_path << ".\n"
+    vw_throw(ArgumentErr() << "Could not find CSM plugin folder: " << plugin_path << ".\n"
               << "Check the value of the environmental variable CSM_PLUGIN_PATH.");
   }
 
@@ -199,7 +199,7 @@ size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
   p /= "libusgscsm" + ext;
   std::string plugin = p.string();
   if (!fs::exists(plugin)) 
-    vw_throw( ArgumentErr() << "Cannot find plugin: " <<plugin <<
+    vw_throw(ArgumentErr() << "Cannot find plugin: " <<plugin <<
               ". Set CSM_PLUGIN_PATH to the directory where the plugins are stored.\n");
   plugins.push_back(plugin);
 
@@ -302,8 +302,12 @@ void CsmModel::read_ellipsoid_from_isd(std::string const& isd_path) {
   // Load and parse the json file
   std::ifstream ifs(isd_path);
   json json_isd;
-  ifs >> json_isd;
-
+  try {
+    ifs >> json_isd;
+  } catch(...) {
+    vw::vw_throw(vw::ArgumentErr() << "Cannot open file: " << isd_path << "\n");
+  }
+  
   // Read the semi-major axis
   m_semi_major_axis = 0.0;
   try {
@@ -331,16 +335,16 @@ void CsmModel::read_ellipsoid_from_isd(std::string const& isd_path) {
     m_semi_major_axis *= 1000.0;
     m_semi_minor_axis *= 1000.0;
   } else if (unit != "m") {
-    vw::vw_throw( vw::ArgumentErr() << "Unknown unit for the ellipsoid radii in "
+    vw::vw_throw(vw::ArgumentErr() << "Unknown unit for the ellipsoid radii in "
                   << isd_path << ". The read value is: " << unit);
   }
 
   // Sanity check
   if (m_semi_major_axis <= 0.0 || m_semi_minor_axis <= 0.0) 
-    vw::vw_throw( vw::ArgumentErr() << "Could not read positive semi-major "
-                  << "and semi-minor axies from:  " << isd_path
-                  << ". The read values are: "
-                  << m_semi_major_axis << ' ' << m_semi_minor_axis);
+    vw::vw_throw(vw::ArgumentErr() << "Could not read positive semi-major "
+                 << "and semi-minor axies from:  " << isd_path
+                 << ". The read values are: "
+                 << m_semi_major_axis << ' ' << m_semi_minor_axis);
 }
 
 /// Load the camera model from an ISD file or model state.
@@ -373,7 +377,7 @@ void CsmModel::load_model(std::string const& isd_path) {
   if (j.find("m_sunPosition") != j.end()) {
     std::vector<double> sun_pos = j["m_sunPosition"].get<std::vector<double>>();
     if (sun_pos.size() < 3)
-      vw::vw_throw( vw::ArgumentErr() << "The Sun position must be a vector of size >= 3.\n");
+      vw::vw_throw(vw::ArgumentErr() << "The Sun position must be a vector of size >= 3.\n");
     for (size_t it = 0; it < 3; it++) 
       m_sun_position[it] = sun_pos[it];
   }
@@ -399,7 +403,7 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   //  messages for each plugin that fails.
   if (csm_plugin == 0) {
     find_plugin_for_isd(support_data, model_name, model_family, true);
-    vw::vw_throw( vw::ArgumentErr() << "Unable to construct a camera model for the ISD file "
+    vw::vw_throw(vw::ArgumentErr() << "Unable to construct a camera model for the ISD file "
                         << isd_path << " using any of the loaded CSM plugins!");
   }
 
@@ -429,7 +433,7 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
 
    // Handle load failure
   if (!raster_model)
-    vw::vw_throw( vw::ArgumentErr() << "Failed to cast CSM sensor model to raster type!");
+    vw::vw_throw(vw::ArgumentErr() << "Failed to cast CSM sensor model to raster type!");
   
   m_csm_model.reset(raster_model); // We will handle cleanup of the model.
 }
@@ -487,11 +491,11 @@ void CsmModel::load_model_from_state(std::string const& state_path) {
 
   // Sanity check
   if (m_semi_major_axis <= 0.0 || m_semi_minor_axis <= 0.0) 
-    vw::vw_throw( vw::ArgumentErr() << "Could not read positive semi-major "
-                  << "and semi-minor axies from:  " << state_path
-                  << ". The read values are: "
-                  << m_semi_major_axis << ' ' << m_semi_minor_axis);
-
+    vw::vw_throw(vw::ArgumentErr() << "Could not read positive semi-major "
+                 << "and semi-minor axies from:  " << state_path
+                 << ". The read values are: "
+                 << m_semi_major_axis << ' ' << m_semi_minor_axis);
+  
   // Handle load failure
   if (!raster_model)
     vw::vw_throw(vw::ArgumentErr() << "Failed to cast linescan model to raster type.");
@@ -501,7 +505,7 @@ void CsmModel::load_model_from_state(std::string const& state_path) {
   
 void CsmModel::throw_if_not_init() const {
   if (!m_csm_model)
-    vw_throw( ArgumentErr() << "CsmModel: Sensor model has not been loaded yet!" );
+    vw_throw(ArgumentErr() << "CsmModel: Sensor model has not been loaded yet!");
 }
 
 // TODO: Check all of the warnings
