@@ -47,11 +47,11 @@ def check_system_memory(opt, args, settings):
     '''Issue a warning when doing correlation if our selected options
     are estimated to exceed available RAM. Currently only the ASP SGM
     and MGM have large memory requirements.'''
-    
-    if 'linux' not in sys.platform:
-        # The Mac has no 'free'
+
+    if asp_system_utils.run_with_return_code(['which', 'free']) != 0:
+        # No 'free' exists. This is the case on OSX.
         return
-    
+
     try:
         alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
         if alg == VW_CORRELATION_BM or alg >= VW_CORRELATION_OTHER:
