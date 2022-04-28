@@ -47,7 +47,11 @@ def check_system_memory(opt, args, settings):
     '''Issue a warning when doing correlation if our selected options
     are estimated to exceed available RAM. Currently only the ASP SGM
     and MGM have large memory requirements.'''
-
+    
+    if 'linux' not in sys.platform:
+        # The Mac has no 'free'
+        return
+    
     try:
         alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
         if alg == VW_CORRELATION_BM or alg >= VW_CORRELATION_OTHER:
@@ -72,7 +76,7 @@ def check_system_memory(opt, args, settings):
         ram_per_process = baseline_mem + sgm_ram_limit
         est_ram_usage   = num_procs * ram_per_process
 
-        if (est_ram_usage > freemem_mb):
+        if est_ram_usage > freemem_mb:
             print('Warning: Estimated maximum memory consumption is '
                   + str(est_ram_usage) + 'mb but only ' + str(freemem_mb)
                   + 'mb of free memory is detected.  To lower memory use, '
