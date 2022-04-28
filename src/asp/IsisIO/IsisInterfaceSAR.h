@@ -33,6 +33,7 @@
 
 namespace Isis {
   class CameraDetectorMap;
+  class CameraGroundMap;
   class CameraDistortionMap;
   class CameraFocalPlaneMap;
 }
@@ -53,9 +54,9 @@ namespace isis {
     //-------------------------------------------------
 
     virtual vw::Vector2 point_to_pixel (vw::Vector3 const& point) const;
-    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix  ) const;
-    virtual vw::Vector3 camera_center  (vw::Vector2 const& pix = vw::Vector2(1,1)) const;
-    virtual vw::Quat    camera_pose    (vw::Vector2 const& pix = vw::Vector2(1,1)) const;
+    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix)   const;
+    virtual vw::Vector3 camera_center  (vw::Vector2 const& pix)   const;
+    virtual vw::Quat    camera_pose    (vw::Vector2 const& pix)   const;
 
   protected:
 
@@ -65,12 +66,7 @@ namespace isis {
     Isis::CameraDetectorMap   *m_detectmap;
     mutable Isis::AlphaCube    m_alphacube; // Doesn't use const
 
-  private:
-
-    // Custom data
-    mutable vw::Vector3 m_center;
-    mutable vw::Quat    m_pose;
-
+    Isis::CameraGroundMap     *m_groundmap;
   };
 
 }}
