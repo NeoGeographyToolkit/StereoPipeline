@@ -69,11 +69,12 @@ Vector2 IsisInterfaceSAR::point_to_pixel(Vector3 const& point) const {
     lon_lat_radius[0] += 360.0;
 
   // Project into the camera. The ground was set to be the ellipsoid in the constructor.
-  m_groundmap->SetGround
-    (Isis::SurfacePoint(Isis::Latitude (lon_lat_radius[1], Isis::Angle::Degrees  ),
-                        Isis::Longitude(lon_lat_radius[0], Isis::Angle::Degrees  ),
-                        Isis::Distance (lon_lat_radius[2], Isis::Distance::Meters)));
-  
+  if (!m_groundmap->SetGround
+      (Isis::SurfacePoint(Isis::Latitude (lon_lat_radius[1], Isis::Angle::Degrees  ),
+                          Isis::Longitude(lon_lat_radius[0], Isis::Angle::Degrees  ),
+                          Isis::Distance (lon_lat_radius[2], Isis::Distance::Meters))))
+    vw_throw(camera::PixelToRayErr() << "Failed in SetGround().");
+      
   m_distortmap->SetUndistortedFocalPlane(m_groundmap->FocalPlaneX(), m_groundmap->FocalPlaneY());
 
   // ISIS pixels start with 1.
