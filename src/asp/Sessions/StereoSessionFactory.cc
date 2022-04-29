@@ -197,7 +197,7 @@ namespace asp{
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
               << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster perusat opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm].\n");
-    vw::vw_out() << "Using session: " << actual_session_type << ".\n";
+    vw::vw_out() << "Using session: " << actual_session_type << "\n";
 
     // Compare the current session name to all recognized types
     // - Only one of these will ever get triggered

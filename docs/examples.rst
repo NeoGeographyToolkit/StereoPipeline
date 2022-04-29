@@ -862,30 +862,173 @@ reduces the processing time (:numref:`mapproj-res`).
 
 .. _csm_minirf:
 
-Example using the USGS CSM SAR sensor
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The USGS CSM SAR sensor for LRO Mini-RF 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-::
+*Mini-RF* was a Synthetic Aperture Radar (SAR) sensor on the LRO
+spacecraft. It is challenging to process this with ASP for several
+reasons:
 
-    parallel_stereo --stereo-algorithm asp_mgm   \
-      --left-image-crop-win 0 7858 1708 5966     \
-      --right-image-crop-win 874 46905 2368 6584 \
-      lsz_01636_1cd_xku_09n120_v1.cub            \
-      lsz_02330_1cd_xku_00s120_v1.cub            \
-      lsz_01636_1cd_xku_09n120_v1.json           \
-      lsz_02330_1cd_xku_00s120_v1.json           \
-      run/run
-    point2dem run/run-PC.tif
+ - Its synthetic image formation model produces curved rays going from the
+   ground to the pixel in the camera (:cite:`kirk2016semi`). To simplify the
+   calculations, ASP finds where a ray emanating from the camera
+   intersects the standard Moon ellipsoid with radius 1737.4 km and
+   declares the ray to be a straight line from the camera center to this
+   point.
+
+ - This sensor very rarely acquires stereo pairs. The convergence angle
+   (:numref:`stereo_pairs`) as printed by ``parallel_stereo`` in
+   pre-processing is usually less than 5 degrees, which is little and
+   results in noisy DEMs. In this example we will use a dataset
+   intentionally created with stereo in mind. The images will cover a
+   part of Jackson crater (:cite:`kirk2011radargrammetric`).
+
+ - It is not clear if all modeling issues with this sensor were
+   resolved. The above publication states that "Comparison of the stereo
+   DTM with ~250 m/post LOLA grid data revealed (in addition to
+   dramatically greater detail) a very smooth discrepancy that varied
+   almost quadratically with latitude and had a peak-to-peak amplitude
+   of nearly 4000 m."
+  
+ - The images are dark and have unusual appearance, which requires
+   some pre-processing and a large amount of interest points. 
+
+Hence, ASP's support for this sensor is experimental. The results
+are plausible but likely not fully rigorous.
+
+This example, including input images, produced outputs, and a recipe, is available
+for download at:
+
+    https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples
+
+No ISIS data are needed to run it.
+
+Creating the input images
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Fetch the data from PDS::
+
+    wget https://pds-geosciences.wustl.edu/lro/lro-l-mrflro-4-cdr-v1/lromrf_0002/data/sar/03800_03899/level1/lsz_03821_1cd_xku_16n196_v1.img
+    wget https://pds-geosciences.wustl.edu/lro/lro-l-mrflro-4-cdr-v1/lromrf_0002/data/sar/03800_03899/level1/lsz_03821_1cd_xku_16n196_v1.lbl
+    wget https://pds-geosciences.wustl.edu/lro/lro-l-mrflro-4-cdr-v1/lromrf_0002/data/sar/03800_03899/level1/lsz_03822_1cd_xku_23n196_v1.img
+    wget https://pds-geosciences.wustl.edu/lro/lro-l-mrflro-4-cdr-v1/lromrf_0002/data/sar/03800_03899/level1/lsz_03822_1cd_xku_23n196_v1.lbl
+
+These will be renamed to ``left.img``, ``right.img``, etc., to simply
+the processing.
+
+Create .cub files::
+
+    mrf2isis from = left.lbl to  = left.cub
+    mrf2isis from = right.lbl to = right.cub
+
+Run ``spiceinit``. Setting the shape to the ellipsoid makes it easier
+to do image-to-ground computations and is strongly suggested::
+
+    spiceinit from = left.cub shape  = ellipsoid
+    spiceinit from = right.cub shape = ellipsoid
+
+.. _csm_minirf_json:
+
+Creating the CSM cameras
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Fetch the latest ``ale`` from GitHub:
+
+    https://github.com/USGS-Astrogeology/ale
+
+or something newer than version 0.8.7 on conda-forge, which lacks
+certain functionality for SAR.
+
+Create a script called ``gen_json.py``::
+
+    #!/usr/bin/python
+    
+    import os, sys
+    import json
+    import ale
+    
+    prefix = sys.argv[1]
+    
+    if prefix.endswith(".cub") or prefix.endswith(".img") \
+      or prefix.endswith(".lbl"):
+      # Remove extension
+      prefix = os.path.splitext(prefix)[0]
+    
+    print("Prefix is " + prefix)
+    
+    cub_file = prefix + '.cub'
+    print("Loading cub file: " + cub_file)
+    
+    kernels = ale.util.generate_kernels_from_cube(cub_file, expand=True)
+    usgscsm_str = ale.loads(cub_file, formatter="usgscsm", \
+      props={"kernels": kernels}, verbose = False)
+    
+    csm_isd = os.path.splitext(cub_file)[0] + '.json'
+    print("Saving " + csm_isd)
+    with open(csm_isd, 'w') as isd_file:
+      isd_file.write(usgscsm_str)
+    
+Run it as::
+
+   export ISISDATA=$HOME/isis3data
+   export ISISROOT=$HOME/miniconda3/envs/isis6
+   
+   python gen_json.py left.cub
+   python gen_json.py right.cub
+
+The above paths will need adjusting for your system. The path to
+Python should be such that the recently installed ``ale`` is picked
+up.
+
+Run ``cam_test`` (:numref:`cam_test`) as a sanity check::
+
+    cam_test --image left.cub  --cam1 left.cub  --cam2 left.json
+    cam_test --image right.cub --cam1 right.cub --cam2 right.json
+
+Preparing the images
+^^^^^^^^^^^^^^^^^^^^
+
+ASP accepts only single-band images, while these .cub files have four of them.
+We will pull the first band and clamp it to make it easier for stereo to find
+interest point matches::
+
+    gdal_translate -b 1 left.cub  left_b1.tif
+    gdal_translate -b 1 right.cub right_b1.tif
+
+    image_calc -c "min(var_0, 0.5)" left_b1.tif  -d float32 \
+      -o left_b1_clamp.tif 
+    image_calc -c "min(var_0, 0.5)" right_b1.tif -d float32 \
+      -o right_b1_clamp.tif 
+
+Running stereo
+^^^^^^^^^^^^^^
+
+It is simpler to first run a clip with ``stereo_gui``
+(:numref:`stereo_gui`).  This will result in the following command::
+
+    parallel_stereo --ip-per-tile 3500             \
+      --left-image-crop-win 0 3531 3716 10699      \
+      --right-image-crop-win -513 22764 3350 10783 \
+      --stereo-algorithm asp_mgm --min-num-ip 10   \
+      left_b1_clamp.tif right_b1_clamp.tif         \
+      left.json right.json run/run  
+
+The stereo convergence angle for this pair is 18.4 degrees which is
+rather decent.
+
+Create a colorized DEM and orthoimage::
+
+    point2dem run/run-PC.tif --orthoimage run/run-L.tif 
+    hillshade run/run-DEM.tif 
+    colormap run/run-DEM.tif -s run/run-DEM_HILLSHADE.tif 
+
+See :numref:`nextsteps` for a discussion about various
+speed-vs-quality choices when running stereo.
 
 .. figure:: images/CSM_MiniRF.png
    :name: CSM_miniRF_example
 
-   A portion of the produced DEM and orthoimage for the CSM SAR example. 
-   The DEM is somewhat noisy because the convergence angle (as printed
-   during stereo preprocessing) is only  3.5 degrees.
-
-See :numref:`isis_minirf` and :numref:`create_csm` for how to arrive
-at the input .cub and .json files.
+   The produced colorized DEM and orthoimage for the CSM SAR example. 
 
 Exporting CSM model state after bundle adjustment and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -950,7 +1093,9 @@ bundle adjustment with the alignment transform.)
 Creating CSM cameras from ISIS .cub files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-CSM camera files can be created from ISIS cameras follows.
+CSM camera files can be created from ISIS cameras as follows
+(except for the SAR sensor, for that see :numref:`csm_minirf_json`).
+
 Run the ISIS ``spiceinit`` command as::
 
     spiceinit from = camera.cub shape = ellipsoid
@@ -1273,40 +1418,12 @@ speed-vs-quality choices when it comes to stereo algorithms.
 
 .. _isis_minirf:
 
-LRO Mini-RF 
------------
+LRO Mini-RF using ISIS camera models
+------------------------------------
 
-This is a Synthetic Aperture Radar (SAR) sensor on the LRO spacecraft.
-An example image can be fetched from PDS and processed as::
-
-    wget https://pds-geosciences.wustl.edu/lro/lro-l-mrflro-4-cdr-v1/lromrf_0001/data/sar/01600_01699/level1/lsz_01636_1cd_xku_09n120_v1.img
-    wget https://pds-geosciences.wustl.edu/lro/lro-l-mrflro-4-cdr-v1/lromrf_0001/data/sar/01600_01699/level1/lsz_01636_1cd_xku_09n120_v1.lbl
-    mrf2isis from = lsz_01636_1cd_xku_09n120_v1.lbl \
-      to = lsz_01636_1cd_xku_09n120_v1.cub
-    spiceinit from = lsz_01636_1cd_xku_09n120_v1.cub
-
-A second image can be retrieved from::
-
-    https://pds-geosciences.wustl.edu/lro/lro-l-mrflro-4-cdr-v1/lromrf_0001/data/sar/02300_02399/level1/lsz_02330_1cd_xku_00s120_v1.img
-
-and processed similarly.
-
-Stereo and DEM creation are run as::
-
-    parallel_stereo --corr-kernel 45 45 --subpixel-kernel 45 45 \
-      --ip-per-tile 5000 --stereo-algorithm asp_bm              \
-      --left-image-crop-win -201 8218 2123 3509                 \
-      --right-image-crop-win 765 46111 2236 4471                \
-      lsz_01636_1cd_xku_09n120_v1.cub                           \
-      lsz_02330_1cd_xku_00s120_v1.cub                           \
-      run/run
-    point2dem run/run-PC.tif
-
-For this example one can use the USGS CSM sensor as well, as shown in
-:numref:`csm_minirf`.
-
-See :numref:`nextsteps` for a discussion about various
-speed-vs-quality choices when running stereo.
+See :numref:`csm_minirf`. That example uses CSM cameras. Running it
+with ISIS ``.cub`` cameras amounts to replacing ``.json`` with
+``.cub`` in all commands.
 
 .. _aster:
 
