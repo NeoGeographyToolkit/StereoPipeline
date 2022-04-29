@@ -254,7 +254,7 @@ const csm::Plugin* find_plugin_for_isd(csm::Isd const& support_data,
       // Optionally print the reasons why we could not load it.
       if (show_warnings)
         for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
-          vw_out() << "CSM Warning: " << w_iter->getMessage() << std::endl;
+          vw_out() << "CSM warning: " << w_iter->getMessage() << std::endl;
         }
     } // End loop through models
   } // End loop through plugins
@@ -418,7 +418,7 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   // Error checking
   csm::WarningList::const_iterator w_iter;
   for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
-    vw_out() << "CSM Warning: " << w_iter->getMessage() << std::endl;
+    vw_out() << "CSM warning: " << w_iter->getMessage() << std::endl;
   }
 
   // Handle load failure
@@ -543,7 +543,7 @@ Vector2 CsmModel::point_to_pixel(Vector3 const& point) const {
   if (show_warnings) {
     csm::WarningList::const_iterator w_iter;
     for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
-      vw_out() << "CSM Warning: " << w_iter->getMessage() << std::endl;
+      vw_out() << "CSM warning: " << w_iter->getMessage() << std::endl;
     }
   }
 
@@ -558,7 +558,9 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
   // Camera center
   csm::EcefCoord  ctr = m_csm_model->getSensorPosition(imagePt);
 
-  // Ground point
+  // Ground point. Note how we use the 0 height above datum.
+  // The precise height value matters only for the SAR model, when the rays
+  // are curved, which violates a fundamental assumption in ASP.
   double achievedPrecision = -1.0; // will be modified in the function
   double groundHeight      = 0.0;
   csm::EcefCoord groundPt = m_csm_model->imageToGround(imagePt, groundHeight, m_desired_precision,
