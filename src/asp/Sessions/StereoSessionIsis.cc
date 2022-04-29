@@ -284,7 +284,7 @@ find_ideal_isis_range(DiskImageView<float> const& image,
       isis_hi = isis_lo;
   }
 
-  ImageViewRef< PixelMask<float> > masked_image = create_mask(image, isis_lo, isis_hi);
+  ImageViewRef<PixelMask<float>> masked_image = create_mask(image, isis_lo, isis_hi);
 
   // TODO: Is this same process a function in DG?
   // Calculating statistics. We subsample the images so statistics

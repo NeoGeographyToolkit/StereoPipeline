@@ -48,7 +48,7 @@ IsisInterfaceLineScan::IsisInterfaceLineScan(std::string const& filename): IsisI
   m_detectmap  = m_camera->DetectorMap();
 }
 
-// Custom Function to help avoid over invoking the deeply buried
+// Custom function to help avoid over invoking the deeply buried
 // functions of Isis::Sensor
 void IsisInterfaceLineScan::SetTime(Vector2 const& px, bool calc_pose) const {
   if (px != m_c_location) {
