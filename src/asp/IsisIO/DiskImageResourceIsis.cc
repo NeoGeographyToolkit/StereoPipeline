@@ -46,8 +46,7 @@ namespace vw {
   // may not be the native tile size of the ISIS cube, it seems to be
   // much faster to let the ISIS driver aggregate smaller blocks by
   // making a larger request rather than caching those blocks ourselves.
-  Vector2i DiskImageResourceIsis::block_read_size() const
-  {
+  Vector2i DiskImageResourceIsis::block_read_size() const {
     return Vector2i(2048,2048);
   }
 
@@ -61,17 +60,38 @@ namespace vw {
   /// Bind the resource to a file for reading.  Confirm that we can open
   /// the file and that it has a sane pixel format.
   void DiskImageResourceIsis::open(std::string const& filename) {
-    m_cube     = boost::shared_ptr<Isis::Cube>( new Isis::Cube() );
+    m_cube     = boost::shared_ptr<Isis::Cube>(new Isis::Cube());
     m_filename = filename;
-    m_cube->open( QString::fromStdString(m_filename) );
+    m_cube->open(QString::fromStdString(m_filename));
     VW_ASSERT(m_cube->isOpen(), IOErr() << "DiskImageResourceIsis: Could not open cube file: \"" << filename << "\".");
 
+    // Code copied from DiskImageResourceGDAL.cc, with some modifications,
+    // to fix a crash in loading an ISIS .cub file with 4 bands.
+    
+    // We do our best here to determine what pixel format the GDAL image is in.
+    // Commented out the color interpretation checks because the reader (below)
+    // can't really cope well with the the default multi-plane interpretation
+    // and this is a quicker work-around than actually fixing the problem. -mdh
+    if ( m_cube->bandCount() == 1) {
+      m_format.pixel_format = VW_PIXEL_GRAY;
+      m_format.planes = 1;
+    } else if (m_cube->bandCount() == 2) {
+      m_format.pixel_format = VW_PIXEL_GRAYA;
+      m_format.planes = 1;
+    } else if (m_cube->bandCount() == 3) {
+      m_format.pixel_format = VW_PIXEL_RGB;
+      m_format.planes = 1;
+    } else if (m_cube->bandCount() == 4) {
+      m_format.pixel_format = VW_PIXEL_RGBA;
+      m_format.planes = 1;
+    } else {
+      m_format.pixel_format = VW_PIXEL_SCALAR;
+      m_format.planes = m_cube->bandCount();
+    }
+    
     // Extract the dimensions of the image
-    m_format.planes = m_cube->bandCount();
-    m_format.cols   = m_cube->sampleCount();
-    m_format.rows   = m_cube->lineCount();
-
-    m_format.pixel_format = VW_PIXEL_SCALAR;
+    m_format.cols = m_cube->sampleCount();
+    m_format.rows = m_cube->lineCount();
 
     // Set member variables according to the specified pixel type
     Isis::PixelType isis_ptype = m_cube->pixelType();
@@ -90,8 +110,7 @@ namespace vw {
   }
 
   /// Read the disk image into the given buffer.
-  void DiskImageResourceIsis::read(ImageBuffer const& dest, BBox2i const& bbox) const
-  {
+  void DiskImageResourceIsis::read(ImageBuffer const& dest, BBox2i const& bbox) const {
     VW_ASSERT(bbox.max().x() <= m_cube->sampleCount() ||
               bbox.max().y() <= m_cube->lineCount(),
               IOErr() << "DiskImageResourceIsis: requested bbox " << bbox
@@ -100,8 +119,7 @@ namespace vw {
 
     // Read in the requested tile from the cube file.  Note that ISIS
     // cube pixel indices appear to be 1-based.
-    Isis::Portal buffer( bbox.width(), bbox.height(),
-                         m_cube->pixelType() );
+    Isis::Portal buffer(bbox.width(), bbox.height(), m_cube->pixelType());
     buffer.SetPosition(bbox.min().x()+1, bbox.min().y()+1, 1);
     m_cube->read(buffer);
 
@@ -114,6 +132,7 @@ namespace vw {
     src.cstride = m_bytes_per_pixel;
     src.rstride = m_bytes_per_pixel * bbox.width();
     src.pstride = m_bytes_per_pixel * bbox.width() * bbox.height();
+
     convert(dest, src);
   }
 
@@ -123,8 +142,7 @@ namespace vw {
   }
 
   // A FileIO hook to open a file for reading
-  DiskImageResource* DiskImageResourceIsis::construct_open(std::string const& filename)
-  {
+  DiskImageResource* DiskImageResourceIsis::construct_open(std::string const& filename) {
     return new DiskImageResourceIsis(filename);
   }
 
