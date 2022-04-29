@@ -16,6 +16,8 @@
 #  limitations under the License.
 # __END_LICENSE__
 
+# TODO(oalexan1): Move this to src/asp/Python
+
 from __future__ import print_function
 import sys, optparse, subprocess, re, os, time, glob
 import os.path as P
@@ -65,6 +67,7 @@ def stereo_alg_to_num(alg):
 #===================================================================================
 # Some of these functions is somewhat generic and could be moved.
 
+# TODO(oalexan1): Move this to asp_system_utils.
 def get_asp_version():
     '''Returns the current ASP version number'''
     prog = asp_system_utils.libexec_path("stereo_parse") # get the full path
@@ -221,7 +224,9 @@ def run_sparse_disp(args, opt):
         num_threads = 0
         if hasattr(opt, 'threads') and opt.threads is not None and opt.threads > 0:
             num_threads = opt.threads
-        if hasattr(opt, 'threads_single') and opt.threads_single is not None and opt.threads_single > 0:
+        if hasattr(opt, 'threads_single')       and \
+               (opt.threads_single is not None) and \
+               (opt.threads_single > 0):
             num_threads = opt.threads_single
         if num_threads > 0:
             sparse_args += ['--processes', str(num_threads)]
