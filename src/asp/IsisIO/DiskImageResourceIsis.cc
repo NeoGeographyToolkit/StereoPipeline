@@ -67,11 +67,6 @@ namespace vw {
 
     // Code copied from DiskImageResourceGDAL.cc, with some modifications,
     // to fix a crash in loading an ISIS .cub file with 4 bands.
-    
-    // We do our best here to determine what pixel format the GDAL image is in.
-    // Commented out the color interpretation checks because the reader (below)
-    // can't really cope well with the the default multi-plane interpretation
-    // and this is a quicker work-around than actually fixing the problem. -mdh
     if ( m_cube->bandCount() == 1) {
       m_format.pixel_format = VW_PIXEL_GRAY;
       m_format.planes = 1;
