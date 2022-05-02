@@ -918,13 +918,13 @@ the processing.
 
 Create .cub files::
 
-    mrf2isis from = left.lbl to  = left.cub
+    mrf2isis from = left.lbl  to = left.cub
     mrf2isis from = right.lbl to = right.cub
 
 Run ``spiceinit``. Setting the shape to the ellipsoid makes it easier
 to do image-to-ground computations and is strongly suggested::
 
-    spiceinit from = left.cub shape  = ellipsoid
+    spiceinit from = left.cub  shape = ellipsoid
     spiceinit from = right.cub shape = ellipsoid
 
 .. _csm_minirf_json:
@@ -954,8 +954,6 @@ Create a script called ``gen_json.py``::
       # Remove extension
       prefix = os.path.splitext(prefix)[0]
     
-    print("Prefix is " + prefix)
-    
     cub_file = prefix + '.cub'
     print("Loading cub file: " + cub_file)
     
@@ -963,8 +961,8 @@ Create a script called ``gen_json.py``::
     usgscsm_str = ale.loads(cub_file, formatter="usgscsm", \
       props={"kernels": kernels}, verbose = False)
     
-    csm_isd = os.path.splitext(cub_file)[0] + '.json'
-    print("Saving " + csm_isd)
+    csm_isd = prefix + '.json'
+    print("Saving: " + csm_isd)
     with open(csm_isd, 'w') as isd_file:
       isd_file.write(usgscsm_str)
     

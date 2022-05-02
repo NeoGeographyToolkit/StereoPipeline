@@ -27,7 +27,7 @@ The grid size, that is the dimension of pixels on the ground, set via
 the ``--tr`` option, should be in units as expected by the projection
 string obtained either from the DEM to project onto, or, if specified,
 from the ``--t_srs`` option. If the grid size is not set, it will be
-estimated as the mean ground sampling distance (GSD).  See the
+estimated as the mean *ground sampling distance (GSD)*.  See the
 ``--tr`` option for how this affects the extent of the output image.
 
 Examples:

@@ -180,17 +180,18 @@ keep the ``--crop-input-images`` option.
 
 .. _sfs_single_image:
 
-Running SfS at 1 meter/pixel using a single image
--------------------------------------------------
+SfS at 1 meter/pixel using a single image
+-----------------------------------------
 
 In both this and the next sections we will work with LRO NAC images
 taken close to the Lunar South Pole, at a latitude of 85 degrees
 South (the tool was tested on equatorial regions as well). We will use
 four images, M139939938LE, M139946735RE, M173004270LE, and M122270273LE.
 
-We first retrieve the data sets.
+Data preparation
+^^^^^^^^^^^^^^^^
 
-::
+Fetch the images::
 
     wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0005/DATA/SCI/2010267/NAC/M139939938LE.IMG
     wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0005/DATA/SCI/2010267/NAC/M139946735RE.IMG
@@ -215,6 +216,11 @@ For simplicity, we create we create shorter aliases for these images::
     ln -s M139946735RE.cal.echo.cub B.cub
     ln -s M173004270LE.cal.echo.cub C.cub
     ln -s M122270273LE.cal.echo.cub D.cub
+
+.. _initial_sfs_dem:
+
+Initial DEM creation
+^^^^^^^^^^^^^^^^^^^^
 
 The first step is to run stereo to create an initial guess DEM. We
 picked for this the first two of these images. These form a stereo pair,
@@ -253,10 +259,22 @@ of a clip having only valid data should be determined
 
 This creates a DEM clip of size 456 |times| 410 pixels.  
 
+The ``point2dem`` program auto-determines the DEM resolution (grid
+size), as an estimate of the image *ground sample distance
+(GSD)*. This is the optimal resolution to run SfS at. If creating your
+input DEM some other way, it is strongly suggested to use a DEM grid
+size not too different from the GSD, in order to get the best
+quality. The ``mapproject`` program (:numref:`mapproject`), when
+invoked with no input grid size, computes the grid size as the image
+GSD, and that value can then be used when creating the input SfS DEM.
+
 If this DEM has holes, those can be filled in ``dem_mosaic`` or with
 ``point2dem`` itself. The ``dem_mosaic`` tool can also apply some blur
 to attenuate artifacts, though ``sfs`` has a smoothing term itself
 which should take care of small imperfections in the input.
+
+Running SfS
+^^^^^^^^^^^
 
 Then we run ``sfs`` on this clip (for a larger clip ``parallel_sfs``
 should be used instead, see :numref:`parallel_sfs`)::
@@ -286,6 +304,9 @@ more parameters which can control the quality of the result will be
 explored.
 
 See :numref:`sfs_outputs` for where ``sfs`` stores its outputs.
+
+Inspecting the results
+^^^^^^^^^^^^^^^^^^^^^^
 
 We show the results of running this program in :numref:`sfs1`. The
 left-most figure is the hill-shaded original DEM, which was obtained
@@ -978,6 +999,10 @@ of a DEM or orthoimage and change them to integer multiples at pixel size. It
 can be invoked, for example, as::
 
     dem_mosaic --tr 1 --tap input.tif -o output.tif
+
+The DEM grid size should be not too different from the *ground sample
+distance (GSD)* of the images, for optimal results. That one can be found
+with ``mapproject`` (:numref:`mapproject`).
 
 Image selection and sorting by illumination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
