@@ -41,8 +41,8 @@ running ``sfs`` on each tile, and then blending the results. It was used
 to create DEMs of dimensions 10,000 by 10,000 pixels.
 
 The ``sfs`` program can model position-dependent albedo
-(:numref:`sfs_albedo`), exposure values for each camera, shadows in the input
-images, and regions in the DEM occluded from the Sun.
+(:numref:`sfs_albedo`), exposure values for each camera, shadows in
+the input images, and regions in the DEM occluded from the Sun.
 
 .. _sfs_formulation:
 
@@ -124,13 +124,13 @@ SfS.
 To locate the area of spatial overlap, the images can be map-projected
 (either with ``cam2map`` with a coarse resolution) or with
 ``mapproject``, using for example the LOLA DEM as the terrain to
-project onto, or the DEM obtained from running ``parallel_stereo`` on those
-images. Then the images can be overlayed as georeferenced images in
-``stereo_gui`` (:numref:`stereo_gui`). A good sanity check is to examine the shadows in
-various images. If they point in different directions in the images
-and perhaps also have different lengths, that means that illumination
-conditions are different enough, which will help constrain the ``sfs``
-problem better.
+project onto, or the DEM obtained from running ``parallel_stereo`` on
+those images. Then the images can be overlayed as georeferenced images
+in ``stereo_gui`` (:numref:`stereo_gui`). A good sanity check is to
+examine the shadows in various images. If they point in different
+directions in the images and perhaps also have different lengths, that
+means that illumination conditions are different enough, which will
+help constrain the ``sfs`` problem better.
 
 An example for how to download and prepare the datasets is shown
 in :numref:`sfs_single_image`.
@@ -147,13 +147,14 @@ ISIS .cub model it is meant to replace, as benchmarked with
 
 Given a dataset of ISIS .cub camera files it is desired to run SfS on,
 it is suggested to attempt to convert them to corresponding CSM models
-as described in :numref:`create_csm`, and if the pixel errors as
+as described in :numref:`create_csm_lronac`, and if the pixel errors as
 output by ``cam_test`` are no more than the order of 0.5 pixels, to
 use the CSM models instead of the ISIS ones in all the tools outlined
-below (``parallel_bundle_adjust``, ``parallel_stereo``, ``mapproject``, and
-``parallel_sfs``). The SfS DEMs obtained with these two methods were observed to
-differ by several millimeters at most, on average, but an evaluation
-may be necessary for your particular case.
+below (``parallel_bundle_adjust``, ``parallel_stereo``,
+``mapproject``, and ``parallel_sfs``). The SfS DEMs obtained with
+these two methods were observed to differ by several millimeters at
+most, on average, but an evaluation may be necessary for your
+particular case.
 
 This will work only for the datasets of the original dimensions, so
 not when the ``reduce`` or ``crop`` commands were used on the data.

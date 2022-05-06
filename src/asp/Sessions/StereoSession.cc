@@ -194,7 +194,7 @@ namespace asp {
       rsrc2 = vw::DiskImageResourcePtr(input_file2);
 
     DiskImageView<float> image1(rsrc1), image2(rsrc2);
-    ImageViewRef<float> image1_norm=image1, image2_norm=image2;
+    ImageViewRef<float> image1_norm = image1, image2_norm = image2;
     // Get normalized versions of the images for OpenCV based methods
     if ( (stereo_settings().ip_matching_method != DETECT_IP_METHOD_INTEGRAL) &&
        (stats1[0] != stats1[1]) ) { // Don't normalize if no stats were provided!

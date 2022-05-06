@@ -809,13 +809,157 @@ contained in the ``.json`` files and it determines which plugin to
 load to use with those cameras.  More details are available at the
 USGS CSM repository mentioned earlier.
 
+.. _csm_frame:
+
+Example using the USGS CSM Frame sensor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The USGS CSM *Frame* sensor models a frame camera. All the
+pixels get acquired at the same time, unlike for pushbroom and
+pushframe cameras, which keep on acquiring image lines as they fly
+(those are considered later in the text). Hence, a single camera
+center and orientation is present. This model serves the same function
+as ASP's own Pinhole camera model (:numref:`pinholemodels`).
+
+In this example we will consider images acquired with the Dawn
+Framing Camera instrument, which took pictures of the Ceres and Vesta
+asteroids. This particular example will be for Vesta. Note that one
+more example of this sensor is shown in this documentation, in
+:numref:`dawn_isis`, which uses ISIS ``.cub`` camera models rather
+than CSM ones.
+
+This example can be downloaded from:
+
+  https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples
+
+Creating the input images
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Fetch the data from PDS then extract it::
+
+    wget https://sbib.psi.edu/data/PDS-Vesta/Survey/img-1B/FC21B0004011_11224024300F1E.IMG.gz
+    wget https://sbib.psi.edu/data/PDS-Vesta/Survey/img-1B/FC21B0004012_11224030401F1E.IMG.gz
+      
+    gunzip FC21B0004011_11224024300F1E.IMG.gz 
+    gunzip FC21B0004012_11224030401F1E.IMG.gz
+
+For simplicity of notation, we will rename these to ``left.IMG`` and ``right.IMG``.
+
+Set up the ISIS environment. These will need adjusting for your system::
+
+    export ISISROOT=$HOME/miniconda3/envs/isis6
+    export PATH=$ISISROOT/bin:$PATH
+    export ISISDATA=$HOME/isisdata
+
+Create cub files and initialize the kernels::
+
+    dawnfc2isis from = left.IMG  to = left.cub  target = VESTA
+    dawnfc2isis from = right.IMG to = right.cub target = VESTA
+
+    spiceinit from = left.cub  shape = ellipsoid
+    spiceinit from = right.cub shape = ellipsoid
+
+The ``target`` field is likely no longer needed in newer versions of
+ISIS.
+
+.. _create_csm_dawn:
+
+Creation of CSM camera files
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some care is needed here, as the recipe provided below has some subtle
+differences with the ones used later for linescan and SAR camera
+models (:numref:`create_csm_lronac` and :numref:`create_csm_sar`).
+
+Create a conda environment for the ``ale`` package::
+
+    conda create -c conda-forge -n ale_env python=3.6 ale  
+    conda activate ale_env
+
+(other versions of Python may result in a runtime error later). 
+
+Create a Python script named ``gen_csm.py``::
+
+    #!/usr/bin/python
+    
+    import os, sys
+    import json
+    import ale
+    
+    prefix = sys.argv[1]
+    
+    if prefix.endswith(".cub") or prefix.endswith(".img") \
+        or prefix.endswith(".IMG") or prefix.endswith(".lbl"):
+        # Wipe extension
+        prefix = os.path.splitext(prefix)[0]
+    
+    print("Prefix is: " + prefix)
+    
+    cub_file = prefix + '.cub'
+    img_file = prefix + '.IMG'
+    
+    kernels = ale.util.generate_kernels_from_cube(cub_file, expand = True)
+    
+    usgscsm_str = ale.loads(img_file, props={'kernels': kernels},
+                            formatter='ale', verbose = False)
+    
+    csm_isd = prefix + '.json'
+    print("Writing: " + csm_isd)
+    with open(csm_isd, 'w') as isd_file:
+        isd_file.write(usgscsm_str)
+
+Assuming that conda installed this environment in the default location,
+run::
+
+    $HOME/miniconda3/envs/ale_env/bin/python gen_csm.py left.IMG
+    $HOME/miniconda3/envs/ale_env/bin/python gen_csm.py right.IMG
+
+This will create ``left.json`` and ``right.json``.
+
+As a sanity check, run ``cam_test`` to see how well the CSM camera
+approximates the ISIS camera::
+
+    cam_test --image left.cub  --cam1 left.cub  --cam2 left.json
+    cam_test --image right.cub --cam1 right.cub --cam2 right.json
+
+Note that for a handful of pixels these errors may be big. That is a
+known issue, and it seems to be due to the fact that a ray traced from
+the camera center towards the ground may miss the body of the asteroid.
+That should not result in inaccurate stereo results.
+
+Running stereo
+^^^^^^^^^^^^^^
+
+::
+
+    parallel_stereo --stereo-algorithm asp_mgm \
+      --left-image-crop-win 243 161 707 825    \
+      --right-image-crop-win 314 109 663 869   \
+      left.cub right.cub left.json right.json  \ 
+      run/run
+
+    point2dem run/run-PC.tif --orthoimage run/run-L.tif 
+    hillshade run/run-DEM.tif 
+    colormap run/run-DEM.tif -s run/run-DEM_HILLSHADE.tif 
+
+See :numref:`nextsteps` for a discussion about various
+speed-vs-quality choices when running stereo.
+
+.. figure:: images/CSM_Frame.png
+   :name: CSM_Frame_example
+
+   The produced colorized DEM and orthoimage for the CSM Frame camera
+   example. Likely using mapprojection (:numref:`mapproj-example`)
+   may have reduced the number and size of the holes in the DEM.
+
 Example using the USGS CSM linescan sensor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Here we use this plugin for Mars images, specifically for the CTX
-camera, which is a linescan sensor. The images are regular ``.cub``
-files as in the tutorial in :numref:`moc_tutorial`, hence the only
-distinction is that cameras are stored as ``.json`` files.
+Here we use CSM for Mars images, specifically for the CTX camera,
+which is a linescan sensor. The images are regular ``.cub`` files as
+in the tutorial in :numref:`moc_tutorial`, hence the only distinction
+compared to that exanoke is that the cameras are stored as ``.json``
+files.
 
 We will work with the dataset pair::
 
@@ -824,20 +968,70 @@ We will work with the dataset pair::
 which, for simplicity, we will rename to ``left.cub`` and ``right.cub``
 and the same for the associated camera files.
 
-One runs the stereo and terrain generation steps as usual::
+
+.. _create_csm_lronac:
+
+Creating CSM cameras from ISIS .cub files
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Note that this recipe looks a little different for Frame and SAR cameras,
+as can be seen in :numref:`create_csm_dawn` and :numref:`create_csm_sar`.
+
+Run the ISIS ``spiceinit`` command on the .cub files as::
+
+    spiceinit from = left.cub  shape = ellipsoid
+    spiceinit from = right.cub shape = ellipsoid
+
+Create a conda environment for the ``ale`` package::
+
+    conda create -c conda-forge -n ale_env python=3.6 ale  
+    conda activate ale_env
+
+(other versions of Python may result in a runtime error later). 
+
+Create a Python script named ``gen_csm.py``::
+
+    #!/usr/bin/python
+    
+    import ale, os, sys
+    
+    # Get the input cub
+    cub_file = sys.argv[1]
+    
+    # Form the output cub
+    isd_file = os.path.splitext(cub_file)[0] + '.json'
+    
+    print("Reading: " + cub_file)
+    usgscsm_str = ale.loads(cub_file)
+    
+    print("Writing: " + isd_file)
+    with open(isd_file, 'w') as isd_file:
+        isd_file.write(usgscsm_str)
+
+Assuming that conda installed this environment in the default location,
+run::
+
+    $HOME/miniconda3/envs/ale_env/bin/python gen_csm.py camera.cub
+
+This will produce ``left.json`` and ``right.json``.
+
+Running stereo
+^^^^^^^^^^^^^^
+
+::
 
      parallel_stereo left.cub right.cub left.json right.json run/run    
      point2dem -r mars --stereographic --proj-lon 77.4 \
        --proj-lat 18.4 run/run-PC.tif
 
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+See :numref:`nextsteps` for a discussion about various stereo
+algorithms and speed-vs-quality choices.
 
 The actual stereo session used is ``csm``, and here it will be
 auto-detected based on the extension of the camera files. For
 ``point2dem`` we chose to use a stereographic projection centered at the
-area of interest. One of course could use the fancier MGM algorithm by
-running this example with ``parallel_stereo`` and
-``--stereo-algorithm 2``.
+area of interest. The fancier MGM algorithm could be used by 
+running this example with ``--stereo-algorithm asp_mgm``.
 
 One can also run ``parallel_stereo`` with mapprojected images
 (:numref:`mapproj-example`). The first step would be to create a
@@ -866,10 +1060,10 @@ The USGS CSM SAR sensor for LRO Mini-RF
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *Mini-RF* was a Synthetic Aperture Radar (SAR) sensor on the LRO
-spacecraft. It is challenging to process this with ASP for several
+spacecraft. It is challenging to process its data with ASP for several
 reasons:
 
- - Its synthetic image formation model produces curved rays going from the
+ - The synthetic image formation model produces curved rays going from the
    ground to the pixel in the camera (:cite:`kirk2016semi`). To simplify the
    calculations, ASP finds where a ray emanating from the camera
    intersects the standard Moon ellipsoid with radius 1737.4 km and
@@ -918,6 +1112,10 @@ the processing.
 
 Create .cub files::
 
+    export ISISROOT=$HOME/miniconda3/envs/isis6
+    export PATH=$ISISROOT/bin:$PATH
+    export ISISDATA=$HOME/isis3data
+   
     mrf2isis from = left.lbl  to = left.cub
     mrf2isis from = right.lbl to = right.cub
 
@@ -927,7 +1125,7 @@ to do image-to-ground computations and is strongly suggested::
     spiceinit from = left.cub  shape = ellipsoid
     spiceinit from = right.cub shape = ellipsoid
 
-.. _csm_minirf_json:
+.. _create_csm_sar:
 
 Creating the CSM cameras
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -937,9 +1135,15 @@ Fetch the latest ``ale`` from GitHub:
     https://github.com/USGS-Astrogeology/ale
 
 or something newer than version 0.8.7 on conda-forge, which lacks
-certain functionality for SAR.
+certain functionality for SAR. Below we assume a very recent version
+of USGS CSM, as shipped with ASP. Version 1.5.2 of this package on
+conda-forge is too old for the following to work.
 
-Create a script called ``gen_json.py``::
+Create a script called ``gen_json.py``. (Note that this script
+differs somewhat for analogous scripts earlier in the text, at
+:numref:`create_csm_dawn` and :numref:`create_csm_lronac`.)
+
+::
 
     #!/usr/bin/python
     
@@ -957,8 +1161,8 @@ Create a script called ``gen_json.py``::
     cub_file = prefix + '.cub'
     print("Loading cub file: " + cub_file)
     
-    kernels = ale.util.generate_kernels_from_cube(cub_file, expand=True)
-    usgscsm_str = ale.loads(cub_file, formatter="usgscsm", \
+    kernels = ale.util.generate_kernels_from_cube(cub_file, expand = True)
+    usgscsm_str = ale.loads(cub_file, formatter = "ale", \
       props={"kernels": kernels}, verbose = False)
     
     csm_isd = prefix + '.json'
@@ -968,9 +1172,6 @@ Create a script called ``gen_json.py``::
     
 Run it as::
 
-   export ISISDATA=$HOME/isis3data
-   export ISISROOT=$HOME/miniconda3/envs/isis6
-   
    python gen_json.py left.cub
    python gen_json.py right.cub
 
@@ -1086,51 +1287,8 @@ the model state files after the initial bundle adjustment which encode
 that adjustment. (See also :numref:`ba_pc_align` for how to combine
 bundle adjustment with the alignment transform.) 
 
-.. _create_csm:
 
-Creating CSM cameras from ISIS .cub files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-CSM camera files can be created from ISIS cameras as follows
-(except for the SAR sensor, for that see :numref:`csm_minirf_json`).
-
-Run the ISIS ``spiceinit`` command as::
-
-    spiceinit from = camera.cub shape = ellipsoid
-
-Then create a conda environment for the ``ale`` package::
-
-    conda create -c conda-forge -n ale_env python=3.6 ale  
-    conda activate ale_env
-
-(other versions of Python may result in a runtime error later). 
-
-Create a Python script named ``gen_csm.py``::
-
-    #!/usr/bin/python
-    
-    import ale, os, sys
-    
-    # Get the input cub
-    cub_file = sys.argv[1]
-    
-    # Form the output cub
-    isd_file = os.path.splitext(cub_file)[0] + '.json'
-    
-    print("Reading: " + cub_file)
-    usgscsm_str = ale.loads(cub_file)
-    
-    print("Writing: " + isd_file)
-    with open(isd_file, 'w') as isd_file:
-        isd_file.write(usgscsm_str)
-
-Assuming that conda installed this environment in the default place,
-run::
-
-    $HOME/miniconda3/envs/ale_env/bin/python gen_csm.py camera.cub
-
-This reads ``camera.cub`` and writes ``camera.json``. To evaluate how
-well the obtained CSM camera approximates the ISIS camera model, run
+To evaluate how well the obtained CSM camera approximates the ISIS camera model, run
 the program ``cam_test`` shipped with ASP (:numref:`cam_test`) as
 follows::
 
@@ -1357,6 +1515,8 @@ similar and reduces the processing time (:numref:`mapproj-res`).
 
 See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
+.. _dawn_isis:
+
 Dawn (FC) Framing Camera
 ------------------------
 
@@ -1375,6 +1535,8 @@ For this example, we used the images FC21A0010191_11286212239F1T and
 FC21A0010192_11286212639F1T which show the Cornelia crater on
 Vesta. We learned about them from the anaglyph shown on the Planetary
 Science Blog :cite:`planetaryblog:vesta`.
+
+A different example (using CSM cameras) is in :numref:`csm_frame`.
 
 .. figure:: images/examples/dawn/Vesta_figure.png
    :name: dawn-nomap-example

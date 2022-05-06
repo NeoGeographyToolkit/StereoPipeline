@@ -26,7 +26,6 @@
 
 #include <vw/Camera/CameraModel.h>
 #include <asp/Core/StereoSettings.h>
-#include <vw/Cartography/Datum.h>
 
 #include <boost/shared_ptr.hpp>
 
