@@ -1,4 +1,8 @@
 # Generally ignorable files.
 *~
 /build
+/install
+/GitHubReleases.txt 
+/src/asp/asp_config.h
+docs/_build
 

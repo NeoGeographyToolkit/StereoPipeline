@@ -507,9 +507,8 @@ attaching to cube files via the ``spiceinit`` SHAPE and MODEL options.
 Lunar Reconnaissance Orbiter (LRO) WAC
 --------------------------------------
 
-Work to make ASP support LRO Wide Angle Camera (WAC) images is
-currently in progress. For the moment, this section describes how to
-fetch the raw datasets and create seamless mapprojected images.
+Fetching the data
+~~~~~~~~~~~~~~~~~
 
 We will focus on the monochromatic images for this sensor. Visit:
 
@@ -518,15 +517,20 @@ We will focus on the monochromatic images for this sensor. Visit:
 Find the *Lunar Reconnaissance Orbiter -> Experiment Data Record Wide
 Angle Camera - Mono (EDRWAM)* option.
 
-Search either based on a longitude-latitude window, or near a
-notable feature, such as a named crater.  Here are a couple of images
-having the Tycho crater::
+Search either based on a longitude-latitude window, or near a notable
+feature, such as a named crater.  We choose a couple of images having
+the Tycho crater::
 
     http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0002/DATA/MAP/2010035/WAC/M119923055ME.IMG
     http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0002/DATA/MAP/2010035/WAC/M119929852ME.IMG
 
-Fetch these with ``wget``. Next we broadly follow the tutorial at
-:cite:`ohman2015procedure`. For a dataset called ``image.IMG``, do::
+Get these with ``wget``.
+
+Creation of .cub files
+~~~~~~~~~~~~~~~~~~~~~~
+
+We broadly follow the tutorial at :cite:`ohman2015procedure`. For a
+dataset called ``image.IMG``, do::
 
     lrowac2isis from = image.IMG to = image.cub
 
@@ -545,11 +549,16 @@ followed by ``lrowaccal`` to adjust the image intensity::
 
 All these .cub files can be visualized with ``stereo_gui``. It can be
 seen that instead of a single contiguous image we have a set of narrow
-horizontal bands, with some bands in the *even* and some in the *odd*
-cub file. The pixel rows in each band may also be recorded in reverse.
+horizontal framelets, with some of these in the even and some in the odd
+cub file. The pixel rows in each framelet may also be recorded in reverse.
 
-The only way to fix these artifacts currently is to mapprojected these
-images and fuse them. This happens as::
+Production of seamless mapprojected images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is not needed for stereo, but may be useful for readers who would
+like to produce image mosaics.
+
+::
 
     cam2map from = image.vis.even.cal.cub to = image.vis.even.cal.map.cub
     cam2map from = image.vis.odd.cal.cub  to = image.vis.odd.cal.map.cub  \
@@ -579,7 +588,40 @@ The fusion happens as::
 The obtained file ``image.noseam.cub`` may still have some small artifacts
 but should be overall reasonably good. 
 
-At some point soon stereo with such images will be enabled in ASP.
+Production of seamless raw (unprojected) images and CSM cameras
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To be filled in. 
+
+Running stereo
+~~~~~~~~~~~~~~
+
+::
+
+    parallel_stereo --stereo-algorithm asp_mgm    \
+       --left-image-crop-win -32 1263 1246 1498   \
+       --right-image-crop-win -111 1450 1310 1418 \
+      M119923055ME.cub M119929852ME.cub           \
+      M119923055ME.json M119929852ME.json         \
+      run/run
+
+    point2dem run/run-PC.tif --orthoimage run/run-L.tif 
+    hillshade run/run-DEM.tif 
+    colormap run/run-DEM.tif -s run/run-DEM_HILLSHADE.tif 
+
+As printed by ``stereo_pprc``, the convergence angle is 25 degrees,
+which is a good number.
+
+See :numref:`nextsteps` for a discussion about various stereo
+speed-vs-quality choices. Consider using mapprojection
+(:numref:`mapproj-example`).
+
+.. figure:: images/CSM_WAC.png
+   :name: CSM_WAC_example
+
+   The produced colorized DEM and orthoimage for the CSM WAC camera
+   example. The artifacts are due to stitching of even and odd
+   framelets.
 
 Apollo 15 Metric Camera images
 ------------------------------
@@ -869,7 +911,7 @@ Creation of CSM camera files
 
 Some care is needed here, as the recipe provided below has some subtle
 differences with the ones used later for linescan and SAR camera
-models (:numref:`create_csm_lronac` and :numref:`create_csm_sar`).
+models (:numref:`create_csm_linescan` and :numref:`create_csm_sar`).
 
 Create a conda environment for the ``ale`` package::
 
@@ -958,7 +1000,7 @@ Example using the USGS CSM linescan sensor
 Here we use CSM for Mars images, specifically for the CTX camera,
 which is a linescan sensor. The images are regular ``.cub`` files as
 in the tutorial in :numref:`moc_tutorial`, hence the only distinction
-compared to that exanoke is that the cameras are stored as ``.json``
+compared to that example is that the cameras are stored as ``.json``
 files.
 
 We will work with the dataset pair::
@@ -969,7 +1011,7 @@ which, for simplicity, we will rename to ``left.cub`` and ``right.cub``
 and the same for the associated camera files.
 
 
-.. _create_csm_lronac:
+.. _create_csm_linescan:
 
 Creating CSM cameras from ISIS .cub files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1141,7 +1183,7 @@ conda-forge is too old for the following to work.
 
 Create a script called ``gen_json.py``. (Note that this script
 differs somewhat for analogous scripts earlier in the text, at
-:numref:`create_csm_dawn` and :numref:`create_csm_lronac`.)
+:numref:`create_csm_dawn` and :numref:`create_csm_linescan`.)
 
 ::
 
