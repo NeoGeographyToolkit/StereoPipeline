@@ -604,8 +604,8 @@ Commands
       --alignment-method none                                   \
       left_mapped.tif right_mapped.tif                          \
       12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML          \
-     12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML           \
-     dg/dg ref.tif
+      12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML          \
+      dg/dg ref.tif
 
 It is very important to specify the argument ``-t rpc`` to
 ``mapproject``, as otherwise the exact DG model will be used, which is

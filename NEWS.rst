@@ -4,7 +4,8 @@ Additions to the latest build (since last official release)
 New camera additions:
   * Added support for the USGSCSM Frame, SAR, and PushFrame sensors
   * (until now just the Linescan sensor was supported), together 
-    with documentation and examples.
+    with documentation and examples (for Dawn, MiniRF, and WAC,
+    respetively).
   * Added support for ISIS SAR cameras, together with an example in
     the doc.
   * Added support for the PeruSat-1 linescan camera model (so far just

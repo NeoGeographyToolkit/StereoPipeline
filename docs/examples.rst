@@ -507,6 +507,11 @@ attaching to cube files via the ``spiceinit`` SHAPE and MODEL options.
 Lunar Reconnaissance Orbiter (LRO) WAC
 --------------------------------------
 
+This example, including the inputs, recipe, and produced terrain model
+can be downloaded from:
+
+    https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/LROWAC
+
 Fetching the data
 ~~~~~~~~~~~~~~~~~
 
@@ -519,7 +524,7 @@ Angle Camera - Mono (EDRWAM)* option.
 
 Search either based on a longitude-latitude window, or near a notable
 feature, such as a named crater.  We choose a couple of images having
-the Tycho crater::
+the Tycho crater, with download links::
 
     http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0002/DATA/MAP/2010035/WAC/M119923055ME.IMG
     http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0002/DATA/MAP/2010035/WAC/M119929852ME.IMG
@@ -550,13 +555,13 @@ followed by ``lrowaccal`` to adjust the image intensity::
 All these .cub files can be visualized with ``stereo_gui``. It can be
 seen that instead of a single contiguous image we have a set of narrow
 horizontal framelets, with some of these in the even and some in the odd
-cub file. The pixel rows in each framelet may also be recorded in reverse.
+cub file. The framelets may also be recorded in reverse.
 
 Production of seamless mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This is not needed for stereo, but may be useful for readers who would
-like to produce image mosaics.
+like to produce image mosaics using ``cam2map``.
 
 ::
 
@@ -588,40 +593,154 @@ The fusion happens as::
 The obtained file ``image.noseam.cub`` may still have some small artifacts
 but should be overall reasonably good. 
 
-Production of seamless raw (unprojected) images and CSM cameras
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Stitching the even and odd images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To be filled in. 
+This requires ISIS newer than version 6.0, or the latest development code.
+
+For each image in the stereo pair, stitch the even and odd datasets::
+
+    framestitch even = image.vis.even.cal.cub odd = image.vis.odd.cal.cub \
+      to = image.cub flip = true num_lines_overlap = 2
+
+The ``flip`` flag is needed if the order of framelets is reversed
+relative to what the image is expected to show.
+
+The parameter ``num_lines_overlap`` is used to remove a total of this
+many lines from each framelet (half at the top and half at the bottom)
+before stitching, in order to deal with the fact that the even and odd
+framelets have a little overlap, and that they also tend to have artifacts
+due to some pixels flagged as invalid in each first and last framelet
+row.
+
+The CSM camera models will assume that this parameter is set at 2, so
+it should not be modified. Note however that WAC framelets may overlap
+by a little more than that, so resulting DEMs may have some artifacts
+at framelet borders, as can be seen furher down.
+
+Creation of CSM camera models
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This process is still being ironed out. Generally speaking, for the
+time being one should fetch the latest ALE and its conda environemnt
+from GitHub, at:
+
+    https://github.com/USGS-Astrogeology/ale
+
+then create a script named ``gen_json.py``::
+
+    #!/usr/bin/python
+
+    import os, sys
+    import json
+    import ale
+
+    prefix = sys.argv[1]
+
+    if prefix.endswith(".cub") or prefix.lower().endswith(".img") \
+      or prefix.endswith(".lbl"):
+      prefix = os.path.splitext(prefix)[0]
+
+    cub_file = prefix + '.cub'
+
+    print("Loading cub file: " + cub_file)
+
+    kernels = ale.util.generate_kernels_from_cube(cub_file, expand = True)
+
+    usgscsm_str = ale.loads(cub_file, formatter = "ale", \
+                        props={"kernels": kernels},
+                        verbose = True)
+
+    csm_isd = prefix + '.json'
+    print("Saving: " + csm_isd)
+    with open(csm_isd, 'w') as isd_file:
+      isd_file.write(usgscsm_str)
+  
+and invoke it with either the ``even`` or ``odd`` .cub file as an argument.
+Do not use the stitched .cub file as that one lacks camera information.
+The obtained ``.json`` files can be renamed to follow the same
+convention as the stitched .cub images.
+
+At some point when a new version of ISIS is released (version > 6),
+it may have a tool for creation of CSM camera models.
 
 Running stereo
 ~~~~~~~~~~~~~~
 
 ::
 
-    parallel_stereo --stereo-algorithm asp_mgm    \
-       --left-image-crop-win -32 1263 1246 1498   \
-       --right-image-crop-win -111 1450 1310 1418 \
-      M119923055ME.cub M119929852ME.cub           \
-      M119923055ME.json M119929852ME.json         \
+    parallel_stereo --stereo-algorithm asp_mgm   \
+      --left-image-crop-win 341 179 727 781      \
+      --right-image-crop-win 320 383 824 850     \
+      M119923055ME.cub M119929852ME.cub          \
+      M119923055ME.json M119929852ME.json        \
       run/run
 
     point2dem run/run-PC.tif --orthoimage run/run-L.tif 
     hillshade run/run-DEM.tif 
     colormap run/run-DEM.tif -s run/run-DEM_HILLSHADE.tif 
 
-As printed by ``stereo_pprc``, the convergence angle is 25 degrees,
-which is a good number.
+As printed by ``stereo_pprc``, the convergence angle is about 27
+degrees, which is a good number.
 
 See :numref:`nextsteps` for a discussion about various stereo
-speed-vs-quality choices. Consider using mapprojection
-(:numref:`mapproj-example`).
+speed-vs-quality choices.
 
 .. figure:: images/CSM_WAC.png
    :name: CSM_WAC_example
 
    The produced colorized DEM and orthoimage for the CSM WAC camera
-   example. The artifacts are due to stitching of even and odd
+   example. The artifacts are due to issues stitching of even and odd
    framelets.
+
+It can be seen that the stereo DEM has some linear artifacts. That is
+due to the fact that the stitching does not perfectly integrate the
+framelets.
+
+An improved solution can be obtained by creating a low-resolution
+version of the above DEM, mapprojecting the images on it, and then
+re-running stereo, per (:numref:`mapproj-example`).
+
+::
+
+    point2dem --tr 0.03 run/run-PC.tif --search-radius-factor 5 -o \
+      run/run-low-res
+    mapproject --tr 0.0025638 run/run-low-res-DEM.tif              \
+      M119923055ME.cub M119923055ME.json M119923055ME.map.tif 
+    mapproject --tr 0.0025638 run/run-low-res-DEM.tif              \
+      M119929852ME.cub M119929852ME.json M119929852ME.map.tif    
+    parallel_stereo --stereo-algorithm asp_mgm                     \
+      M119923055ME.map.tif M119929852ME.map.tif                    \
+      M119923055ME.json M119929852ME.json                          \
+      run_map/run run/run-low-res-DEM.tif    
+    point2dem run_map/run-PC.tif --orthoimage run_map/run-L.tif 
+    hillshade run_map/run-DEM.tif 
+    colormap run_map/run-DEM.tif -s run_map/run-DEM_HILLSHADE.tif 
+
+To create the low-resolution DEM we used a grid size which is about 10
+times coarser than the one for the DEM created earlier. Note that the
+same resolution is used when mapprojecting both images; that is very
+important to avoid a large search range in stereo later. This is discussed
+in more detail in :numref:`mapproj-example`.
+
+.. figure:: images/CSM_WAC_mapproj.png
+   :name: CSM_WAC_example_mapproj
+
+   The produced colorized DEM and orthoimage for the CSM WAC camera
+   example, when mapprojected images are used.
+
+As can be seen in the second figure, there are somewhat fewer artifacts.
+The missing lines in the DEM could be filled in if ``point2dem`` was run
+with ``--search-radius-factor 4``, for example. 
+
+Given that there exists a wealth of WAC images, one could also try to
+get several more stereo pairs with similar illumination, run bundle
+adjustment for all of them (:numref:`bundle_adjust`), run pairwise
+stereo, create DEMs (at the same resolution), and then merge them with
+``dem_mosaic`` (:numref:`dem_mosaic`). This may further attenuate the
+artifacts as each stereo pair will have them at different
+locations. See :numref:`stereo_pairs` for guidelines about how to
+choose good stereo pairs.
 
 Apollo 15 Metric Camera images
 ------------------------------
@@ -930,8 +1049,8 @@ Create a Python script named ``gen_csm.py``::
     
     prefix = sys.argv[1]
     
-    if prefix.endswith(".cub") or prefix.endswith(".img") \
-        or prefix.endswith(".IMG") or prefix.endswith(".lbl"):
+    if prefix.lower().endswith(".cub") or prefix.lower().endswith(".img") \
+        or prefix.lower().endswith(".lbl"):
         # Wipe extension
         prefix = os.path.splitext(prefix)[0]
     
@@ -1071,9 +1190,9 @@ algorithms and speed-vs-quality choices.
 
 The actual stereo session used is ``csm``, and here it will be
 auto-detected based on the extension of the camera files. For
-``point2dem`` we chose to use a stereographic projection centered at the
-area of interest. The fancier MGM algorithm could be used by 
-running this example with ``--stereo-algorithm asp_mgm``.
+``point2dem`` we chose to use a stereographic projection centered at
+some point in the area of interest. The fancier MGM algorithm could be
+used by running this example with ``--stereo-algorithm asp_mgm``.
 
 One can also run ``parallel_stereo`` with mapprojected images
 (:numref:`mapproj-example`). The first step would be to create a
@@ -1195,8 +1314,8 @@ differs somewhat for analogous scripts earlier in the text, at
     
     prefix = sys.argv[1]
     
-    if prefix.endswith(".cub") or prefix.endswith(".img") \
-      or prefix.endswith(".lbl"):
+    if prefix.lower().endswith(".cub") or prefix.lower().endswith(".img") \
+      or prefix.lower().endswith(".lbl"):
       # Remove extension
       prefix = os.path.splitext(prefix)[0]
     
@@ -2034,10 +2153,11 @@ reuse the filtered match points created by bundle adjustment.
 See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 Here we chose to use a stereographic projection in ``point2dem``
-centered on this region to create the DEM in units of meter. One can can
-also use a different projection that can be passed to the option
-``--t_srs``, or if doing as above, the center of the projection would
-need to change if working on a different region.
+centered at a point somewhere in the area of interest, in order to
+create the DEM in units of meter. One can can also use a different
+projection that can be passed to the option ``--t_srs``, or if doing
+as above, the center of the projection would need to change if working
+on a different region.
 
 It is important to examine the mean intersection error for each DEM::
 
@@ -2540,26 +2660,13 @@ corner is in fact the NE corner from the metadata, then that corner
 should be the first in the longitude-latitude list when invoking this
 tool.
 
-An important sanity check is to mapproject the images with these
-cameras, for example as::
-
-     mapproject dem.tif for.tif for.tsai for.map.tif
-
-and then overlay the mapprojected image on top of the DEM in
-``stereo_gui``. If it appears that the image was not projected
-correctly, likely the order of image corners was incorrect. At this
-stage it is not unusual that the mapprojected images are shifted from
-where they should be, that will be corrected later.
-
 Bundle adjustment and stereo
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Before processing the input images it is a good idea to experiment with
 reduced resolution copies in order to accelerate testing. You can easily
 generate reduced resolution copies of the images using ``stereo_gui`` as
-shown below. When making a copy of the camera model files, make sure to
-update image_size, image_center (divide by N), and the pitch (multiply
-by N) to account for the downsample amount.
+shown below. 
 
 ::
 
@@ -2568,6 +2675,11 @@ by N) to account for the downsample amount.
      ln -s aft_sub8.tif  aft_small.tif
      cp for.tsai  for_small.tsai
      cp aft.tsai  aft_small.tsai
+
+The new .tsai files need to be adjusted by updating the image_size,
+image_center (divide by resolution factor, which is 8 here), and the
+pitch (multiply by the resolution factor) to account for the
+downsample amount.
 
 You can now run bundle adjustment on the downsampled images::
 
@@ -2578,6 +2690,27 @@ You can now run bundle adjustment on the downsampled images::
        --skip-rough-homography --inline-adjustments            \
        --ip-detect-method 1 -t opticalbar --datum WGS84
 
+Validation of cameras
+~~~~~~~~~~~~~~~~~~~~~
+
+An important sanity check is to mapproject the images with these
+cameras, for example as::
+
+     mapproject dem.tif for.tif for.tsai for.map.tif
+     mapproject dem.tif aft.tif aft.tsai aft.map.tif
+
+and then overlay the mapprojected image on top of the DEM in
+``stereo_gui``. If it appears that the image was not projected
+correctly, likely the order of image corners was incorrect. At this
+stage it is not unusual that the mapprojected images are shifted from
+where they should be, that will be corrected later.
+
+This exercise can be done with the small versions of the images and
+cameras, and also before and after bundle adjustment.
+
+Running stereo
+~~~~~~~~~~~~~~
+
 Followed by stereo::
 
      parallel_stereo for_small.tif aft_small.tif                        \
@@ -2587,12 +2720,29 @@ Followed by stereo::
        --skip-low-res-disparity-comp --ip-detect-method 1               \
        --stereo-algorithm 2 
 
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+If stereo takes too long, and in particular, if the printed disparity
+search range is large (its width and height is more than 100 pixels),
+it is strongly suggested to run stereo with mapprojected images, per
+:numref:`mapproj-example`. Ensure the mapprojected images have the
+same resolution, and overlay them on top of the initial DEM first, to
+check for gross misalignment.
+
+See :numref:`nextsteps` for a discussion about various
+speed-vs-quality choices in stereo.
+
+DEM generation and alignment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Next, a DEM is created::
 
      point2dem --stereographic --proj-lon 100.50792 --proj-lat 31.520417 \
        --tr 30 stereo_small_mgm/run-PC.tif
+
+Here we chose to use a stereographic projection, with its center
+not too far from the area of interest. This has the advantage that the grid
+size (``--tr``) is then expressed in meters, which is more intuitive
+than if it is in fraction of a degree as when the ``longlat`` projection
+is used. 
 
 This will create a very rough initial DEM. It is sufficient however to
 align and compare with the SRTM DEM::
@@ -2645,8 +2795,9 @@ optimized using the reference DEM as a constraint.
 To convert from optical bar models to pinhole models with RPC distortion
 one does::
 
-      convert_pinhole_model for_small.tif for_small.tsai -o for_small_rpc.tsai \
-        --output-type RPC --sample-spacing 50 --rpc-degree 2
+    convert_pinhole_model for_small.tif for_small.tsai \
+      -o for_small_rpc.tsai --output-type RPC          \
+      --sample-spacing 50 --rpc-degree 2
 
 and the same for the other camera. The obtained cameras should be
 bundle-adjusted as before. One can create a DEM and compare it with the
@@ -2661,18 +2812,19 @@ coefficients. We will float the RPC coefficients of the left and right
 images independently, as they are unrelated. Hence the command we will
 use is::
 
-     bundle_adjust for_small.tif aft_small.tif                                \
-       for_small_rpc.tsai aft_small_rpc.tsai                                  \
-       -o ba_rpc/run --max-iterations 200 --camera-weight 0                   \
-       --disable-tri-ip-filter --disable-pinhole-gcp-init                     \
-       --skip-rough-homography --inline-adjustments                           \
-       --ip-detect-method 1 -t nadirpinhole --datum WGS84                     \
-       --force-reuse-match-files --reference-terrain-weight 1000              \
-       --parameter-tolerance 1e-12 --max-disp-error 100                       \
-       --disparity-list stereo/run-unaligned-D.tif                            \
-       --max-num-reference-points 40000 --reference-terrain srtm.tif          \
-       --solve-intrinsics --intrinsics-to-share 'focal_length optical_center' \
-       --intrinsics-to-float other_intrinsics --robust-threshold 10           \
+     bundle_adjust for_small.tif aft_small.tif                       \
+       for_small_rpc.tsai aft_small_rpc.tsai                         \
+       -o ba_rpc/run --max-iterations 200 --camera-weight 0          \
+       --disable-tri-ip-filter --disable-pinhole-gcp-init            \
+       --skip-rough-homography --inline-adjustments                  \
+       --ip-detect-method 1 -t nadirpinhole --datum WGS84            \
+       --force-reuse-match-files --reference-terrain-weight 1000     \
+       --parameter-tolerance 1e-12 --max-disp-error 100              \
+       --disparity-list stereo/run-unaligned-D.tif                   \
+       --max-num-reference-points 40000 --reference-terrain srtm.tif \
+       --solve-intrinsics                                            \
+       --intrinsics-to-share 'focal_length optical_center'           \
+       --intrinsics-to-float other_intrinsics --robust-threshold 10  \
        --initial-transform pc_align/run-transform.txt
 
 Here it is suggested to use a match file with dense interest points. The
@@ -2821,19 +2973,30 @@ downsampling applied to the input images.
 
 ::
 
-     bundle_adjust 5001_small.tif 6001_small.tif bundle_5001/out-5001_small.tsai \
-       bundle_6001/out-6001_small.tsai gcp_small.gcp -t nadirpinhole             \
-       -o bundle_small_new/out --force-reuse-match-files --max-iterations 30     \
-       --camera-weight 0 --disable-tri-ip-filter --disable-pinhole-gcp-init      \
-       --skip-rough-homography --inline-adjustments --ip-detect-method 1         \
+    bundle_adjust 5001_small.tif 6001_small.tif                        \
+       bundle_5001/out-5001_small.tsai bundle_6001/out-6001_small.tsai \
+       gcp_small.gcp -t nadirpinhole -o bundle_small_new/out           \
+       --force-reuse-match-files --max-iterations 30                   \
+       --camera-weight 0 --disable-tri-ip-filter                       \
+       --disable-pinhole-gcp-init --skip-rough-homography              \
+       --inline-adjustments --ip-detect-method 1                       \
        --datum WGS84 --num-passes 2
 
-     parallel_stereo --alignment-method homography --skip-rough-homography       \
-       --disable-tri-ip-filter --ip-detect-method 1 --session-type nadirpinhole  \
-        5001_small.tif 6001_small.tif bundle_small_new/out-out-5001_small.tsai   \
-       bundle_small_new/out-out-6001_small.tsai st_small_new/out
+    parallel_stereo --alignment-method homography                      \
+      --skip-rough-homography --disable-tri-ip-filter                  \
+      --ip-detect-method 1 --session-type nadirpinhole                 \
+      5001_small.tif 6001_small.tif                                    \
+      bundle_small_new/out-out-5001_small.tsai                         \
+      bundle_small_new/out-out-6001_small.tsai                         \
+      st_small_new/out
 
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+As in :numref:`kh4`, it is suggested to mapproject the images with these
+cameras onto the initial guess DEM, overlay all these in ``stereo_gui``,
+and check if they roughly align.
+
+It is suggested to run stereo with mapprojected images
+(:numref:`mapproj-example`). See also :numref:`nextsteps` for a
+discussion about various speed-vs-quality choices in stereo.
 
 Write the intersection error image to a separate file::
 
