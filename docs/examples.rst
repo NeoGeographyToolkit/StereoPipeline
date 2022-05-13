@@ -2699,11 +2699,12 @@ cameras, for example as::
      mapproject dem.tif for.tif for.tsai for.map.tif
      mapproject dem.tif aft.tif aft.tsai aft.map.tif
 
-and then overlay the mapprojected image on top of the DEM in
-``stereo_gui``. If it appears that the image was not projected
-correctly, likely the order of image corners was incorrect. At this
-stage it is not unusual that the mapprojected images are shifted from
-where they should be, that will be corrected later.
+and then overlay the mapprojected images on top of the DEM in
+``stereo_gui``. If it appears that the images were not projected
+correctly, or there are gross alignment errors, likely the order of
+image corners was incorrect. At this stage it is not unusual that the
+mapprojected images are somewhat shifted from where they should be,
+that will be corrected later.
 
 This exercise can be done with the small versions of the images and
 cameras, and also before and after bundle adjustment.
