@@ -93,11 +93,14 @@ IsisInterface* IsisInterface::open(std::string const& filename) {
     // SAR camera (such as MiniRF)
     // The same interface handles both projected and unprojected images,
     // since the ISIS functions take care of the details.
+    // TODO(oalexan1): that cam2map-ed images are handled correctly.
     result = new IsisInterfaceSAR(filename);
     break;
   default:
+    // LRO WAC comes here
     vw_throw(NoImplErr() << "Don't support Isis camera type "
-             << camera->GetCameraType() << " at this moment");
+             << camera->GetCameraType() << " at this moment. "
+             << "Consider using CSM cameras with these images.");
   }
 
   return result;

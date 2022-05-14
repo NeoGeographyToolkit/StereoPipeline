@@ -1096,7 +1096,7 @@ Running stereo
     parallel_stereo --stereo-algorithm asp_mgm \
       --left-image-crop-win 243 161 707 825    \
       --right-image-crop-win 314 109 663 869   \
-      left.cub right.cub left.json right.json  \ 
+      left.cub right.cub left.json right.json  \
       run/run
 
     point2dem run/run-PC.tif --orthoimage run/run-L.tif 

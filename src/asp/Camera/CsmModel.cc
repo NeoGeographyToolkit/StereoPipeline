@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 #include <vw/FileIO/FileUtils.h>
 
 #include <asp/Core/StereoSettings.h>
@@ -35,8 +34,9 @@
 #include <nlohmann/json.hpp>
 
 // USGSCSM linescan
-#include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/UsgsAstroFrameSensorModel.h>
+#include <usgscsm/UsgsAstroLsSensorModel.h>
+#include <usgscsm/UsgsAstroPushFrameSensorModel.h>
 #include <usgscsm/UsgsAstroSarSensorModel.h>
 #include <usgscsm/Utilities.h>
 
@@ -61,6 +61,7 @@ const vw::Vector2 ASP_TO_CSM_SHIFT(0.5, 0.5);
 enum USGSCSM_MODEL_TYPE {
   USGSCSM_FRAME_MODEL,
   USGSCSM_LINESCAN_MODEL,
+  USGSCSM_PUSHFRAME_MODEL,
   USGSCSM_SAR_MODEL
 };
 
@@ -106,7 +107,6 @@ Vector2 imageCoordToVector(csm::ImageCoord c) {
   v[1] = c.line;
   return v;
 }
-
 
 // -----------------------------------------------------------------
 // CsmModel class functions
@@ -357,8 +357,9 @@ void CsmModel::load_model(std::string const& isd_path) {
     std::ifstream ifs(isd_path);
     ifs >> line;
   }
-  bool is_model_state = (line == UsgsAstroFrameSensorModel::_SENSOR_MODEL_NAME || 
-                         line == UsgsAstroLsSensorModel::_SENSOR_MODEL_NAME    ||
+  bool is_model_state = (line == UsgsAstroFrameSensorModel::_SENSOR_MODEL_NAME     || 
+                         line == UsgsAstroLsSensorModel::_SENSOR_MODEL_NAME        ||
+                         line == UsgsAstroPushFrameSensorModel::_SENSOR_MODEL_NAME ||
                          line == UsgsAstroSarSensorModel::_SENSOR_MODEL_NAME);
 
   if (!is_model_state) 
@@ -469,6 +470,12 @@ void CsmModel::load_model_from_state(std::string const& state_path) {
   } else if (model_state.rfind(UsgsAstroLsSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
     
     UsgsAstroLsSensorModel * model = new UsgsAstroLsSensorModel;
+    model->replaceModelState(model_state);
+    raster_model = dynamic_cast<csm::RasterGM*>(model);
+    
+  } else if (model_state.rfind(UsgsAstroPushFrameSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
+    
+    UsgsAstroPushFrameSensorModel * model = new UsgsAstroPushFrameSensorModel;
     model->replaceModelState(model_state);
     raster_model = dynamic_cast<csm::RasterGM*>(model);
     
@@ -647,13 +654,13 @@ void applyRotationTranslationToXyzVec(ale::Rotation const& r, ale::Vec3d const& 
 }
 
 // TODO(oalexan1): When USGSCSM releases the version having these
-// functions then use those and remove their copies from ASP.
+// functions, then use those and remove their copies from ASP.
 
 template<class ModelT>
-void applyTransformToStateLinescanSensor(ModelT         const * model,
-                                         ale::Rotation  const & r,
-                                         ale::Vec3d     const & t,
-                                         std::string          & stateString) {
+void applyTransformToStateLinescanOrPushFrameSensor(ModelT         const * model,
+                                                    ale::Rotation  const & r,
+                                                    ale::Vec3d     const & t,
+                                                    std::string          & stateString) {
 
   nlohmann::json j = stateAsJson(stateString);
 
@@ -738,9 +745,9 @@ void applyTransformToStateFrameSensor(ModelT         const * model,
 
 template<class ModelT>
 void applyTransformToStateSARSensor(ModelT         const * model,
-                                      ale::Rotation  const & r,
-                                      ale::Vec3d     const & t,
-                                      std::string          & stateString) {
+                                    ale::Rotation  const & r,
+                                    ale::Vec3d     const & t,
+                                    std::string          & stateString) {
 
   nlohmann::json j = stateAsJson(stateString);
 
@@ -778,7 +785,7 @@ void save_transformed_json_state_impl(ModelT       const * model,
                                       vw::Matrix4x4 const& transform) {
   
   std::string modelState = model->getModelState();
-  
+
   // Extract the rotation and convert it to ale::Rotation
   vw::Matrix3x3 rotation_matrix = submatrix(transform, 0, 0, 3, 3);
   std::vector<double> rotation_vec;
@@ -794,11 +801,11 @@ void save_transformed_json_state_impl(ModelT       const * model,
   
   // TODO(oalexan1): When USGSCSM releases the version having these
   // functions then use those and remove their copies from ASP.
-  if (model_type == USGSCSM_FRAME_MODEL) 
+  if (model_type == USGSCSM_FRAME_MODEL)
     applyTransformToStateFrameSensor(model, r, t, modelState);
-  else if (model_type == USGSCSM_LINESCAN_MODEL)
-    applyTransformToStateLinescanSensor(model, r, t, modelState);
-  else if (model_type == USGSCSM_SAR_MODEL) 
+  else if (model_type == USGSCSM_LINESCAN_MODEL || model_type == USGSCSM_PUSHFRAME_MODEL)
+    applyTransformToStateLinescanOrPushFrameSensor(model, r, t, modelState);
+  else if (model_type == USGSCSM_SAR_MODEL)
     applyTransformToStateSARSensor(model, r, t, modelState);
   else
     vw_throw(vw::ArgumentErr() << "CsmModel:: unknown model type.\n");
@@ -810,7 +817,7 @@ void save_transformed_json_state_impl(ModelT       const * model,
 
   return;
 }
-  
+
 // Apply a transform to the model and save the transformed state as a JSON file.
 void CsmModel::save_transformed_json_state(std::string const& json_state_file,
                                            vw::Matrix4x4 const& transform) const {
@@ -830,6 +837,13 @@ void CsmModel::save_transformed_json_state(std::string const& json_state_file,
     = dynamic_cast<UsgsAstroLsSensorModel const*>(raster_model);
   if (ls_model != NULL) {
     save_transformed_json_state_impl(ls_model, USGSCSM_LINESCAN_MODEL, json_state_file, transform);
+    return;
+  }
+
+  UsgsAstroPushFrameSensorModel const* pf_model
+    = dynamic_cast<UsgsAstroPushFrameSensorModel const*>(raster_model);
+  if (pf_model != NULL) {
+    save_transformed_json_state_impl(pf_model, USGSCSM_PUSHFRAME_MODEL, json_state_file, transform);
     return;
   }
 
