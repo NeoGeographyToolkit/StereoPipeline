@@ -108,11 +108,6 @@ Also, per the earlier note, consider rebuilding ``usgscsm`` if
 there there are updates in its GitHub repository which are not yet
 released on conda-forge.
 
-It may be helpful to look at the ``meta.yml`` files for the
-``visionworkbench`` and ``stereopipeline`` feedstock repositories, and install
-the dependencies of those packages in the isis5.0.1 environment created
-earlier, except for those that we actually plan to build.
-
 Synchronize the versions with the existing environment
 ------------------------------------------------------
 
