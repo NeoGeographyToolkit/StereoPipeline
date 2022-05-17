@@ -55,6 +55,13 @@ for example, as::
     conda search -c conda-forge --override-channels usgscsm
     conda install -c conda-forge usgscsm==1.5.2
 
+If that package is too old, consider rebuilding it, following
+the recipe at:
+
+    https://github.com/NeoGeographyToolkit/usgscsm-feedstock
+
+See :numref:`packages_to_build` for how to fetch and build this.
+  
 Save the current environment as follows::
 
     conda env export > isis5.0.1.yaml
@@ -74,11 +81,13 @@ are kept separate.
     conda install -c conda-forge anaconda-client conda-build \
       conda-verify cmake git
 
-Fetch the recipes to build
---------------------------
+.. _packages_to_build:
 
-The additional recipes that need to be built can be fetched with ``git
-clone`` from::
+Packages to build
+-----------------
+
+The additional packages that need to be built can be fetched with ``git
+clone`` from:
 
   https://github.com/NeoGeographyToolkit/geoid-feedstock.git
   https://github.com/NeoGeographyToolkit/htdp-feedstock.git
@@ -95,27 +104,30 @@ clone`` from::
   https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
   https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
 
+Also, per the earlier note, consider rebuilding ``usgscsm`` if
+there there are updates in its GitHub repository which are not yet
+released on conda-forge.
+
 It may be helpful to look at the ``meta.yml`` files for the
-visionworkbench and stereopipeline feedstock repositories, and install
+``visionworkbench`` and ``stereopipeline`` feedstock repositories, and install
 the dependencies of those packages in the isis5.0.1 environment created
 earlier, except for those that we actually plan to build.
 
 Synchronize the versions with the existing environment
 ------------------------------------------------------
 
-For each of these, check the ``recipe/meta.yaml`` file and ensure all
-dependencies are in sync with what is in the file ``isis5.0.1.yaml``
-generated earlier. This can be done automatically with a provided
-script in the ASP repository::
+For each of the above feedstocks, check the ``recipe/meta.yaml`` file
+and ensure all dependencies are in sync with what is in the file
+``isis5.0.1.yaml`` generated earlier. This can be done automatically
+with a provided script in the ASP repository::
 
      python StereoPipeline/conda/update_versions.py isis5.0.1.yaml \
        gdal-feedstock
 
 and the same for the other packages.
 
-It is very important to note that this script is not fool-proof. For
-example, the ``eigen`` version which seems to agree with the current
-version of ``ceres`` is 3.3.7 rather than 3.3.9.
+It is very important to note that this script is not fool-proof, and the
+changes it makes should be very carefully examined.
 
 It is suggested to examine the changed ``meta.yaml`` with great care,
 and if in doubt, leave the values as they were before modified by this
@@ -141,7 +153,12 @@ Each of the packages above can be built as follows::
     conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
       -c conda-forge gdal-feedstock
 
-and then uploaded to the ``nasa-ames-stereo-pipeline`` channel by
+(Consider using the options ``--no-verify --no-test`` with this tool
+if it fails with with unrelated errors at the packaging stage, as
+it happened on OSX on occasion. This is a risky option and should
+be a measure of last resort.)
+
+Upload it to the ``nasa-ames-stereo-pipeline`` channel by
 first logging in, via the command:
 
 ::
@@ -190,6 +207,16 @@ depends on ``laszip`` and ``gdal``, ``theia`` depends on
 ``stereopipeline`` package depends on all of these so it should be
 built the last.
 
+Additional ASP dependencies
+---------------------------
+
+VisionWorkbench and StereoPipeline have a few more conda dependencies
+that need to be fetched from ``conda-forge``.
+
+If desired to create an environemnt in which to build ASP or to update
+the one in :numref:`build_from_source`, the dependencies can be looked
+up in the ``meta.yaml`` files for these conda packages, after fetching
+them according to :numref:`packages_to_build`.
 
 .. _compilers:
 
@@ -207,3 +234,13 @@ without ``conda build``, do::
     conda install -c conda-forge gcc_linux-64==11.1.0 \
       gxx_linux-64==11.1.0 gfortran_linux-64==11.1.0
 
+It is suggested to install ``cmake`` in the same environment, for both
+Linux and OSX, with::
+
+   conda install -c conda-forge cmake=3.15
+
+For simplicity, these can be installed in the environment already
+having all the ASP dependencies, but in that case those dependencies
+should be installed first, and the build tools later, to minimize the
+chance of conflicts.  Otherwise, create a new environment for these
+tools.

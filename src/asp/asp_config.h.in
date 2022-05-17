@@ -1,7 +1,7 @@
 /* src/asp/asp_config.h.in.  Used by CMake to generate asp_config.h.  */
 
 /* The version of Boost with which the software built. */
-#define ASP_BOOST_VERSION @Boost_VERSION@
+#define ASP_BOOST_VERSION "@Boost_VERSION@"
 
 /* does the compiler support function __attribute__((deprecated))? */
 #cmakedefine COMPILER_HAS_ATTRIBUTE_DEPRECATED

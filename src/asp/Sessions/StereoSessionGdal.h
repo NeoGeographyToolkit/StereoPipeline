@@ -142,6 +142,9 @@ namespace asp {
       if (!use_sphere_for_datum) {
         radius2 = radii[2]; // the z radius (semi-minor axis)
       }
+
+      // TODO(oalexan1): Add here a function which based on radius will return
+      // D_MOON, D_MARS, etc. It is better than saying 'unknown'.
       
       vw::cartography::Datum datum("D_" + datum_name, datum_name,
                                    "Reference Meridian", radius1, radius2, 0);

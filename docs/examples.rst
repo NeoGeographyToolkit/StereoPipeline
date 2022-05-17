@@ -593,8 +593,8 @@ The fusion happens as::
 The obtained file ``image.noseam.cub`` may still have some small artifacts
 but should be overall reasonably good. 
 
-Stitching the even and odd images
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Stitching the raw even and odd images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This requires ISIS newer than version 6.0, or the latest development code.
 
@@ -658,7 +658,7 @@ then create a script named ``gen_json.py``::
   
 and invoke it with either the ``even`` or ``odd`` .cub file as an argument.
 Do not use the stitched .cub file as that one lacks camera information.
-The obtained ``.json`` files can be renamed to follow the same
+The obtained .json files can be renamed to follow the same
 convention as the stitched .cub images.
 
 At some point when a new version of ISIS is released (version > 6),

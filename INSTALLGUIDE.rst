@@ -400,7 +400,8 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
     make -j10
     make install
 
-The compilers were added to the above environment as described in :numref:`compilers`.
+The compilers were added to the above environment as described in
+:numref:`compilers`.
 
 Building the documentation
 --------------------------

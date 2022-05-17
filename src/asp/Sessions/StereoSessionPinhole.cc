@@ -467,6 +467,11 @@ asp::StereoSessionPinhole::tx_type asp::StereoSessionPinhole::tx_right() const {
     ((StereoSessionPinhole*)this)->pinhole_cam_trans(trans_left, trans_right);
     return trans_right;
   }
+
+  // Have to return something, but throw an error first
+  vw_throw(NoImplErr()
+           << "Unexpected alignment method: " << stereo_settings().alignment_method << "\n");
+  return tx_type(new vw::HomographyTransform(math::identity_matrix<3>()));
 }
 
 void asp::StereoSessionPinhole::pinhole_cam_trans(tx_type & left_trans,

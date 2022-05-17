@@ -15,6 +15,10 @@ set(ASP_ENABLE_SSE "1" CACHE BOOL "Allow SSE optimizations.")
 if ("${ASP_DEPS_DIR}" STREQUAL "")
   message(FATAL_ERROR "You need to set ASP_DEPS_DIR")
 endif()
+
+# Where to search for dependencies
+set(CMAKE_PREFIX_PATH "${ASP_DEPS_DIR}")
+
 # # assume built-in pthreads on MacOS
 # IF(APPLE)
 #     set(CMAKE_THREAD_LIBS_INIT "-lpthread")
@@ -168,7 +172,7 @@ if(Qt5_FOUND)
     # We need this to be able to include headers produced by uic in our
     # code (CMAKE_BINARY_DIR holds a path to the build directory, while
     # INCLUDE_DIRECTORIES() works just like INCLUDEPATH from qmake)
-    INCLUDE_DIRECTORIES( ${CMAKE_BINARY_DIR} )
+    INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR})
     set (ASP_HAVE_PKG_QT 1)
     message("QT found: ${Qt5Core_INCLUDE_DIRS}")
 endif(Qt5_FOUND)
@@ -177,29 +181,25 @@ message("--------------------------------------------------------------")
 find_external_library(QWT ${ASP_DEPS_DIR} "" "qwt" REQUIRED)
 
 # TODO(oalexan1): Figure out why clang does not find OpenMP
+# Also try to to understand why OpenMP cannot be found
+# without all the "set" logic below.
 if (NOT APPLE)
-    # For Linux, need to do:
-    # ln -s $HOME/miniconda3/envs/asp_deps/x86_64-conda_cos6-linux-gnu/sysroot/lib/libgomp.so.1 $HOME/miniconda3/envs/asp_deps/bin/../x86_64-conda-linux-gnu/sysroot/lib/../lib/libgomp.so
-    # I tried to figure out why this is necessary and could not.
-    # Note: The above may not be necessary anymore with newer conda tools.
-    find_package(OpenMP REQUIRED)
-    if (OpenMP_FOUND)
-        set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-        set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-    endif(OpenMP_FOUND)
+  set(OpenMP_C_LIB_NAMES "gomp")
+  set(OPENMP_INCLUDES "${ASP_DEPS_DIR}/include")
+  set(OpenMP_C_FLAGS "-fopenmp")
+  set(OpenMP_gomp_LIBRARY "${ASP_DEPS_DIR}/lib/libgomp${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(OpenMP_CXX_FLAGS "-fopenmp")
+  set(OpenMP_CXX_LIB_NAMES "gomp")
+  find_package(OpenMP REQUIRED)
+  if (OpenMP_FOUND)
+      set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+      set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+      set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+      endif(OpenMP_FOUND)
 endif(NOT APPLE)
-
-# if (APPLE) # Use the system version
-#   find_package(LAPACK)
-#   find_package(BLAS)
-# else() # Use our BB compiled version
+      
 find_external_library(LAPACK ${ASP_DEPS_DIR} "" "lapack;blas" REQUIRED)
-#endif()
-#if(LAPACK_FOUND)
 set(VW_HAVE_PKG_FLAPACK 1) # --> This specifies that it is a Fortran derived version
-#                            #      How to check this if the user provides Fortran?
-#endif()
 
 find_external_library(FLANN   ${ASP_DEPS_DIR} "" "flann_cpp" REQUIRED)
 find_external_library(Z       ${ASP_DEPS_DIR} "" "z"         REQUIRED)
