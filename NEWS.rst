@@ -1,5 +1,5 @@
-Additions to the latest build (since last official release)
------------------------------------------------------------
+RELEASE 3.1.0, May 18, 2022
+----------------------------
 
 New camera additions:
   * Added support for the USGSCSM Frame, SAR, and PushFrame sensors
@@ -26,6 +26,19 @@ New tool additions:
     DEMs based on interest point matches or disparity, with given
     alignment transform type (translation, rigid, similarity, affine,
     and homography).
+
+isis:
+  * Using ISIS 6.0.0.
+
+csm:
+  * Save the camera state on multiple lines. On reading both the
+    single-line and multiple-line formats are accepted.
+  * Bundle adjustment, mapproject, and SfS with the CSM model can be
+    7-15 times faster than done with the corresponding ISIS model.
+    It is strongly suggested to use CSM for large-scale processing.
+  * Bugfix in CSM linescan implementation for some LRO NAC sensors.
+    Also replaced the fixed-point method with the secant method in the 
+    ground-to-image logic for CSM linescan cameras, which is faster. 
 
 parallel_stereo:
   * Many fixes for reliability of stereo with local epipolar alignment.
@@ -117,16 +130,6 @@ bundle_adjust:
   * Document the useful initial and final ``residuals_stats.txt`` files. 
   * Add new options for reusing a previous run:
     ``--match-files-prefix`` and ``--clean-match-files-prefix``.
-
-csm:
-  * Save the camera state on multiple lines. On reading both the
-    single-line and multiple-line formats are accepted.
-  * Bundle adjustment, mapproject, and SfS with the CSM model can be
-    7-15 times faster than done with the corresponding ISIS model.
-    It is strongly suggested to use CSM for large-scale processing.
-  * Bugfix in CSM linescan implementation for some LRO NAC sensors.
-    Also replaced the fixed-point method with the secant method in the 
-    ground-to-image logic for CSM linescan cameras, which is faster. 
 
 sfs:
   * SfS was made to work with any camera model supported by ASP,

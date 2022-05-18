@@ -19,8 +19,8 @@ from:
 No installation steps or administrative rights are necessary.  Extract
 the archive, and run the executables in the ``bin`` subdirectory as::
 
-    tar -xvf StereoPipeline-3.0.0-2021-10-15-x86_64-Linux.tar.bz2
-    ./StereoPipeline-3.0.0-2021-10-15-x86_64-Linux/bin/stereo --help
+    tar -xvf StereoPipeline-3.1.0-2022-05-18-x86_64-Linux.tar.bz2
+    ./StereoPipeline-3.1.0-2022-05-18-x86_64-Linux/bin/stereo --help
 
 The result of the last command should be a help message.
 
@@ -63,9 +63,9 @@ found.  To do so, follow the ISIS installation instructions, but
 create a new conda environment (not the one with your current ISIS),
 and right before you would run ``conda install isis``, run ``conda
 search isis`` to find all of the versions of ISIS available for
-installation.  For example, if you wanted to install ISIS 5.0.1, and
+installation.  For example, if you wanted to install ISIS 6, and
 it is available in the ``conda search isis`` listing, you can run
-``conda install isis=5.0.1`` and then follow the remainder of the ISIS
+``conda install isis=6`` and then follow the remainder of the ISIS
 installation instructions.
 
 In closing, running the Stereo Pipeline executables only requires
@@ -176,7 +176,7 @@ Fetching pre-compiled ASP with conda
 ------------------------------------
 
 ASP's official releases can be fetched with ``conda``. The latest such
-release is version 3.0.0, published on July 27, 2021.  See
+release is version 3.1.0, published on May 18, 2022.  See
 :numref:`news` for what changed since then.  The newer functionality
 is available only with the daily build (:numref:`precompiled_binaries`).
 
@@ -237,9 +237,9 @@ environments, which you don't want.
 
 Install ASP with the command::
 
-    conda install stereo-pipeline==3.0.0
+    conda install stereo-pipeline==3.1.0
 
-This will install ASP 3.0.0 together with ISIS 5.0.1. Note that the
+This will install ASP 3.1.0 together with ISIS 6. Note that the
 latest build (see above) may have more fixes or features than this
 official release.
 
@@ -258,11 +258,11 @@ found as a set of .yaml files in the ``conda`` subdirectory of the
 Stereo Pipeline GitHub repository. So, alternatively, the installation
 can happen as::
 
-    conda env create -f asp_3.0.0_linux_env.yaml
+    conda env create -f asp_3.1.0_linux_env.yaml
 
 or::
 
-    conda env create -f asp_3.0.0_osx_env.yaml
+    conda env create -f asp_3.1.0_osx_env.yaml
 
 depending on your platform. Then invoke, as earlier::
 
@@ -293,11 +293,11 @@ The environments having the ASP dependencies are in the ``conda``
 directory of the Stereo Pipeline repository, as above. After
 downloading those, one can run on Linux::
 
-    conda env create -f asp_deps_3.0.0_linux_env.yaml
+    conda env create -f asp_deps_3.1.0_linux_env.yaml
 
 or on the Mac::
 
-    conda env create -f asp_deps_3.0.0_osx_env.yaml
+    conda env create -f asp_deps_3.1.0_osx_env.yaml
 
 This will create an ``asp_deps`` environment. Activate it with::
 
@@ -337,7 +337,7 @@ Building VisionWorkbench and Stereo Pipeline on Linux::
     $envPath/bin/git clone \
         git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
-    git checkout 3.0.0 # check out the desired commit
+    git checkout 3.1.0 # check out the desired commit
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                                             \
@@ -354,7 +354,7 @@ Building VisionWorkbench and Stereo Pipeline on Linux::
     $envPath/bin/git clone \
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
-    git checkout 3.0.0 # check out the desired commit
+    git checkout 3.1.0 # check out the desired commit
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                                             \
@@ -374,7 +374,7 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
     $envPath/bin/git clone \
       git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
-    git checkout 3.0.0 # check out the desired commit
+    git checkout 3.1.0 # check out the desired commit
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                      \
@@ -389,7 +389,7 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
     $envPath/bin/git clone \
       git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
-    git checkout 3.0.0 # check out the desired commit
+    git checkout 3.1.0 # check out the desired commit
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                             \

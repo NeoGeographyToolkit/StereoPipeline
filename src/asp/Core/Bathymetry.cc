@@ -168,7 +168,7 @@ namespace asp {
   }
 
   // Test Snell's law in projected and unprojected coordinates
-  bool test_snells_law(std::vector<double> const& plane,
+  void test_snells_law(std::vector<double> const& plane,
                        vw::cartography::GeoReference const& water_surface_projection,
                        double refraction_index,
                        vw::Vector3 const& out_unproj_xyz,

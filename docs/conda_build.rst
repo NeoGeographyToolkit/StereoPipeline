@@ -23,14 +23,14 @@ Search for the latest available ISIS conda package::
   
     conda search -c usgs-astrogeology --override-channels isis
 
-Here it was found that ISIS version 5.0.1 was the latest, which we
+Here it was found that ISIS version 6 was the latest, which we
 will assume throughout the rest of this document. This needs to be
 adjusted for your circumstances.
 
 Create a conda environment for this version of ISIS::
 
-     conda create -n isis5.0.1 python=3.6
-     conda activate isis5.0.1
+     conda create -n isis6 python=3.6
+     conda activate isis6
 
 Add these channels to conda::
 
@@ -47,7 +47,7 @@ order and above all other channels, except perhaps the
 
 Install the desired version of ISIS::
 
-    conda install isis==5.0.1
+    conda install isis==6
 
 Search and install the latest version of the ``usgscsm`` package,
 for example, as::
@@ -64,7 +64,7 @@ See :numref:`packages_to_build` for how to fetch and build this.
   
 Save the current environment as follows::
 
-    conda env export > isis5.0.1.yaml
+    conda env export > isis6.yaml
 
 Fetching the build tools
 ------------------------
@@ -113,10 +113,10 @@ Synchronize the versions with the existing environment
 
 For each of the above feedstocks, check the ``recipe/meta.yaml`` file
 and ensure all dependencies are in sync with what is in the file
-``isis5.0.1.yaml`` generated earlier. This can be done automatically
+``isis6.yaml`` generated earlier. This can be done automatically
 with a provided script in the ASP repository::
 
-     python StereoPipeline/conda/update_versions.py isis5.0.1.yaml \
+     python StereoPipeline/conda/update_versions.py isis6.yaml \
        gdal-feedstock
 
 and the same for the other packages.
@@ -128,7 +128,7 @@ It is suggested to examine the changed ``meta.yaml`` with great care,
 and if in doubt, leave the values as they were before modified by this
 script.
 
-In each of those files manually modify the string ``isis5.0.1`` to
+In each of those files manually modify the string ``isis6`` to
 reflect the current ISIS version.
 
 In the ``visionworkbench`` and ``stereopipeline`` recipes update the
@@ -175,12 +175,12 @@ Use the ``--force`` option if desired to overwrite any existing
 package with the same name and version.
 
 After a package is uploaded, it can be installed in the existing
-``isis5.0.1`` environment as::
+``isis6`` environment as::
 
     conda install -c nasa-ames-stereo-pipeline \
       -c usgs-astrogeology                     \
       -c conda-forge                           \
-      gdal==isis5.0.1
+      gdal==isis6
 
 To list all packages in that channel, do::
 
@@ -226,8 +226,7 @@ ones turned out to result in problems at runtime.
 To install these compilers in a desired environemnt on Linux for use
 without ``conda build``, do::
 
-    conda install -c conda-forge gcc_linux-64==11.1.0 \
-      gxx_linux-64==11.1.0 gfortran_linux-64==11.1.0
+    conda install -c conda-forge gcc_linux-64=11 gxx_linux-64=11
 
 It is suggested to install ``cmake`` in the same environment, for both
 Linux and OSX, with::
