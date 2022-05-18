@@ -79,7 +79,7 @@ are kept separate.
     conda create -n tools python=3.6
     conda activate tools
     conda install -c conda-forge anaconda-client conda-build \
-      conda-verify cmake git
+      conda-verify
 
 .. _packages_to_build:
 
