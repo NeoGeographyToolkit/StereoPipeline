@@ -6,8 +6,8 @@ Ames Stereo Pipeline (ASP)
 .. image:: https://zenodo.org/badge/DOI/latest.svg
    :target: https://zenodo.org/badge/latestdoi/714891
 
-.. image:: https://zenodo.org/badge/DOI/Version%203.0.0.svg
-   :target: https://zenodo.org/record/5140581
+.. image:: https://zenodo.org/badge/DOI/Version%203.1.0.svg
+   :target: https://zenodo.org/record/6562267
 
 .. image:: https://readthedocs.org/projects/stereopipeline/badge/?version=latest
    :target: https://stereopipeline.readthedocs.io/en/latest/?badge=latest
@@ -144,7 +144,7 @@ License
 
 See LICENSE file for the full text of the license that applies to ASP.
 
-Copyright (c) 2009-2021, United States Government as represented by
+Copyright (c) 2009-2022, United States Government as represented by
 the Administrator of the National Aeronautics and Space
 Administration. All rights reserved.
 

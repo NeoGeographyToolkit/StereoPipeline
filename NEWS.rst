@@ -1,5 +1,6 @@
 RELEASE 3.1.0, May 18, 2022
 ----------------------------
+DOI: `10.5281/zenodo.6562267 <https://doi.org/10.5281/zenodo.6562267>`
 
 New camera additions:
   * Added support for the USGSCSM Frame, SAR, and PushFrame sensors
@@ -244,6 +245,7 @@ Misc:
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------
+DOI: `10.5281/zenodo.5140581 <https://doi.org/10.5281/zenodo.5140581>`
 
 New functionality:
   * Added new stereo algorithms: MGM (original author implementation),
