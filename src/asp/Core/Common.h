@@ -22,9 +22,6 @@
 #ifndef __ASP_CORE_COMMON_H__
 #define __ASP_CORE_COMMON_H__
 
-#include <vw/config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
-#include <asp/asp_config.h>
-
 #include <boost/program_options.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/shared_ptr.hpp>
