@@ -6,7 +6,7 @@ stereo:
     for removing points at triangulation. This is analogous to the 
     point2dem option but will be invoked at cloud generation, so 
     potentially creating cleaner clouds for other purposes than
-    DEM creation.
+    producing DEMs.
 
 RELEASE 3.1.0, May 18, 2022
 ----------------------------

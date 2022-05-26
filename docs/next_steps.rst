@@ -648,29 +648,37 @@ Mapprojection with other camera models
 
 Stereo with mapprojected images can be used with any camera model
 supported by ASP, including RPC (:numref:`rpc`), Pinhole
-(:numref:`sfmgeneric`), CSM (:numref:`csm`), OpticalBar (:numref:`kh4`), etc.
-The ``mapproject`` command needs to be invoked with ``-t rpc``, ``-t
-pinhole``, etc., and normally it auto-detects this option (except when
-a camera file has both ``DG`` and ``RPC`` cameras).
+(:numref:`sfmgeneric`), CSM (:numref:`csm`), OpticalBar
+(:numref:`kh4`), etc.  The ``mapproject`` command needs to be invoked
+with ``-t rpc``, ``-t pinhole``, etc., and normally it auto-detects
+this option (except when a camera file has both ``DG`` and ``RPC``
+cameras).
 
-As earlier, when invoking ``parallel_stereo``, the first two
-arguments should be the mapprojected images, followed by the camera
-models, output prefix, and the name of the DEM used for
-mapprojection.
+As earlier, when invoking ``parallel_stereo``, the first two arguments
+should be the mapprojected images, followed by the camera models,
+output prefix, and the name of the DEM used for mapprojection.
 
 The session name (``-t``) passed to ``parallel_stereo`` should be
-``rpcmaprpc``, ``pinholemappinhole``, etc. Normally this is
-detected and set automatically.
+``rpcmaprpc``, ``pinholemappinhole``, or just ``rpc``, ``pinhole``,
+etc. Normally this is detected and set automatically, except
+for the ``dg`` and ``rpc`` ambiguity, as discussed right above.
 
-The stereo command with mapprojected images when the cameras
-are stored separately is::
+The stereo command with mapprojected images when the cameras are
+stored separately is along the lines of::
 
-    parallel_stereo -t rpc  --stereo-algorithm asp_mgm \
-      left.map.tif right.map.tif left.xml run.xml run/run ref.tif
+    parallel_stereo -t rpc --stereo-algorithm asp_mgm  \
+      left.map.tif right.map.tif left.xml right.xml    \
+      run/run ref.tif
+
+or::
+
+    parallel_stereo -t pinhole --stereo-algorithm asp_mgm  \
+      left.map.tif right.map.tif left.tsai right.tsai      \
+      run/run ref.tif
 
 and when the cameras are embedded in the images, it is::
 
-    parallel_stereo -t rpc  --stereo-algorithm asp_mgm \
+    parallel_stereo -t rpc --stereo-algorithm asp_mgm \
       left.map.tif right.map.tif run/run ref.tif
 
 .. _multiview:
