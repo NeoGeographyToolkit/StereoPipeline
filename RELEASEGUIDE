@@ -61,15 +61,29 @@ https://semver.org for guidance).
   - Update this path as well in StereoPipelineTest, in the
     release*conf files, to be used for the nightly regressions.
 
+  - Ensure your conda environment does not have VisionWorkbench and
+    Stereo Pipeline include files, libs, or executables, as those
+    will conflict with building locally. 
+
   - Update the ISIS version in README.rst, INSTALLGUIDE.rst, and 
     conda_build.rst.
  
   - Update the ASP version and Zenodo link in README.rst. (The 
     release needs to be pushed to GitHub before the Zenodo link
-    can be minted and hence that should be updated later.) The
-    'forever' DOI on Zenodo is
-    https://zenodo.org/badge/latestdoi/714891 which should resolve 
-    to the 'latest' DOI.
+    can be minted and hence that should be updated later.) 
+
+    A custom tool needs to be created, based on the current
+    daily release tool which will push a release with properly
+    written metadata. If instead a daily release is renamed,
+    the metatadata will be messed up (to be done). 
+
+    Then visit https://zenodo.org/badge/latestdoi/714891 
+    (which will always point to the 'latest' DOI) and find
+    there that release's URL and put it in README.rst. 
+
+6.) Build and package the ASP release tarball. See:
+
+        BinaryBuilder/README.
 
   - Build the documentation in StereoPipeline/docs:
 
@@ -82,10 +96,6 @@ https://semver.org for guidance).
   - Copy the pdf book from docs/_build/latex/asp_book.pdf to
     $HOME/BinaryBuilder/dist-add/asp_book.pdf.
   
-6.) Build and package the ASP release tarball. See:
-
-        BinaryBuilder/README.
-
     Ideally all the dependencies are already built and installed
     with conda as above. VisionWorkbench can be built and installed
     either with conda or with BinaryBuilder.
@@ -95,16 +105,15 @@ https://semver.org for guidance).
     Test all binary releases on different machines by running
     StereoPipelineTest.
 
-    NOTE: The step above is done automatically by running on lunokhod1
-    the script
+    NOTE: All items in this step are done automatically by running on
+    lunokhod1 the script
 
       $HOME/projects/BinaryBuilder/auto_build/launch_master.sh
 
 The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
 
 7.) Check that the ASP version is correct in the documentation
-    file and that the documentation is searchable (this is a bug in
-    some gs versions).
+    file.
 
 8.) Commit and tag the release in the VW and ASP repos. Example: 
 
@@ -126,7 +135,10 @@ different commit, first remove the exiting tag with:
   git push god    :refs/tags/3.1.0
 
 9.) Upload the builds and the pdf documentation to GitHub, in the
-release area.
+release area. Or just rename the latest uploaded daily build
+to be the release build. 
+
+Add the changes listed in NEWS.txt to the release area.
 
 Update the website, at::
 
