@@ -255,6 +255,7 @@ namespace asp {
     bool   compute_error_vector;              // Compute the triangulation error vector, not just its length
 
     double min_triangulation_angle;           // min angle for valid triangulation
+    double max_valid_triangulation_error;
     bool   use_least_squares;                 // Use a more rigorous triangulation
     bool   save_double_precision_point_cloud; // Save final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at 2x the storage).
     double point_cloud_rounding_error;        // How much to round the output point cloud values
@@ -281,7 +282,7 @@ namespace asp {
     // Options for parallel_stereo. These are not used, but accept
     // them quietly so that when stereo_gui or stereo_parse is invoked
     // with a parallel_stereo command it would not fail.
-    std::string nodes_list, ssh;
+    std::string nodes_list, ssh, sparse_disp_options, parallel_options;
     int threads_multi, threads_single, processes, entry_point, stop_point, job_size_h, job_size_w;
     
     // Undocumented options. We don't want these exposed to the user.

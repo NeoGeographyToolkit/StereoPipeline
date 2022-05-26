@@ -257,7 +257,7 @@ set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
                   pcl_kdtree pcl_keypoints pcl_ml pcl_octree pcl_recognition
                   pcl_registration pcl_sample_consensus pcl_search pcl_segmentation
                   pcl_stereo pcl_surface pcl_tracking)
-find_external_library(PCL ${ASP_DEPS_DIR} "pcl" "${PCL_LIB_NAMES}" REQUIRED)
+find_external_library(PCL ${ASP_DEPS_DIR} "pcl-1.9" "${PCL_LIB_NAMES}" REQUIRED)
 
 set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_core        opencv_shape

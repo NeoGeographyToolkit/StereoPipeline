@@ -383,8 +383,8 @@ namespace asp {
                                             "Radius of outer boundary of universe in meters (remove points with radius larger than that).")
       ("min-triangulation-angle",           po::value(&global.min_triangulation_angle)->default_value(-1.0),
                                             "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid. It must be positive. The internal default is somewhat less than 1 degree.")
-      ("use-least-squares",                 po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
-                                            "Use rigorous least squares triangulation process. This is slow for ISIS processes.")
+    ("max-valid-triangulation-error", po::value(&global.max_valid_triangulation_error)->default_value(0),
+            "If positive, points with triangulation error larger than this will be removed from the cloud. Measured in meters.")
       ("bundle-adjust-prefix", po::value(&global.bundle_adjust_prefix),
        "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
       ("unalign-disparity",                 po::bool_switch(&global.unalign_disparity)->default_value(false)->implicit_value(true),
@@ -410,6 +410,8 @@ namespace asp {
        "Compute the piecewise adjustments as part of jitter correction, and then stop.")
       ("skip-computing-piecewise-adjustments", po::bool_switch(&global.skip_computing_piecewise_adjustments)->default_value(false)->implicit_value(true),
        "Skip computing the piecewise adjustments for jitter, they should have been done by now.")
+      ("use-least-squares",                 po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
+       "Use rigorous least squares triangulation process. This is slow for ISIS processes.")      
       ;
   }
 
@@ -481,7 +483,11 @@ namespace asp {
       ("job-size-w", po::value(&global.job_size_w)->default_value(2048),
        "Pixel width of input image tile for a single process.")
       ("job-size-h",           po::value(&global.job_size_h)->default_value(2048),
-       "Pixel height of input image tile for a single process.");
+       "Pixel height of input image tile for a single process.")
+      ("sparse-disp-options", po::value(&global.sparse_disp_options)->default_value(""),
+       "Options to pass directly to sparse_disp. Use quotes around this string.")
+      ("parallel-options", po::value(&global.parallel_options)->default_value(""),
+       "Options to pass directly to GNU Parallel. Use quotes around this string.");
   }
 
   UndocOptsDescription::UndocOptsDescription() : po::options_description("Undocumented options") {

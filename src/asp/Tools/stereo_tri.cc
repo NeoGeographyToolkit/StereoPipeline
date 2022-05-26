@@ -130,6 +130,13 @@ public:
       try {
         subvector(result,0,3) = m_stereo_model(pixVec, errorVec);
         subvector(result,3,3) = errorVec;
+
+        // Filter by triangulation error, if desired
+        if (stereo_settings().max_valid_triangulation_error > 0.0 &&
+            norm_2(errorVec) > stereo_settings().max_valid_triangulation_error) {
+          result = pixel_type();
+          errorVec = Vector3();
+        }
       }catch(...) {
         return result;
       }
@@ -179,6 +186,13 @@ public:
       subvector(result, 0, 3) = Vector3(0, 0, 0);
       subvector(result, 3, 3) = Vector3(0, 0, 0);
       return result;
+    }
+
+    // Filter by triangulation error, if desired
+    if (stereo_settings().max_valid_triangulation_error > 0.0 &&
+        norm_2(errorVec) > stereo_settings().max_valid_triangulation_error) {
+      result = pixel_type();
+      errorVec = Vector3();
     }
     
     return result; // Contains location and error vector

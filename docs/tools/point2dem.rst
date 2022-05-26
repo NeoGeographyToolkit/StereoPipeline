@@ -384,9 +384,9 @@ Command-line options for point2dem
     as outliers.
 
 --max-valid-triangulation-error <float (default: 0)>
-    Outlier removal based on threshold. Points with triangulation
-    error larger than this, if positive (measured in meters) will be 
-    removed from the cloud. This option takes precedence over 
+    Outlier removal based on threshold. If positive, points with
+    triangulation error larger than this will be removed from the
+    cloud. Measured in meters. This option takes precedence over
     --remove-outliers-params.
 
 --max-output-size <columns rows>

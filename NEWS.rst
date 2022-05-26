@@ -1,12 +1,22 @@
+Changes since last release
+--------------------------
+
+stereo:
+  * Added the triangulation option --max-valid-triangulation-error
+    for removing points at triangulation. This is analogous to the 
+    point2dem option but will be invoked at cloud generation, so 
+    potentially creating cleaner clouds for other purposes than
+    DEM creation.
+
 RELEASE 3.1.0, May 18, 2022
 ----------------------------
 DOI: `10.5281/zenodo.6562267 <https://doi.org/10.5281/zenodo.6562267>`_
 
 New camera additions:
   * Added support for the USGSCSM Frame, SAR, and PushFrame sensors
-  * (until now just the Linescan sensor was supported), together 
+    (until now just the Linescan sensor was supported), together 
     with documentation and examples (for Dawn, MiniRF, and WAC,
-    respetively).
+    respectively).
   * Added support for ISIS SAR cameras, together with an example in
     the doc.
   * Added support for the PeruSat-1 linescan camera model (so far just
@@ -35,7 +45,8 @@ csm:
   * Save the camera state on multiple lines. On reading both the
     single-line and multiple-line formats are accepted.
   * Bundle adjustment, mapproject, and SfS with the CSM model can be
-    7-15 times faster than done with the corresponding ISIS model.
+    7-15 times faster than done with the corresponding ISIS mode
+    for linescan cameras (the latter as reimplemented in ASP itself). 
     It is strongly suggested to use CSM for large-scale processing.
   * Bugfix in CSM linescan implementation for some LRO NAC sensors.
     Also replaced the fixed-point method with the secant method in the 
@@ -65,7 +76,7 @@ parallel_stereo:
     when there are clouds or if fine features are washed out at
     low resolution.
   * Expanded the doc to address a big gotcha: if left and right
-    mapprojected images have somewhat different resolutions then an
+    mapprojected images have somewhat different resolutions, then an
     immense disparity search range can result.
   * Added the option ``--max-disp-spread`` to limit the spread of the
     disparity to this value (useful with clouds in images).
@@ -74,7 +85,6 @@ parallel_stereo:
     than given value from the height at the same location for the
     given DEM.
   * Added a doc section on handling of images with clouds.
-  * Added documentation desribing processing of WAC images.
   * Disable by default velocity aberration and atmospheric refraction
     corrections. These are not accurate enough and cause issues with
     convergence of bundle adjustment. Can be enabled with
@@ -203,6 +213,8 @@ stereo_gui:
   * On startup, draw rectangular regions corresponding to values of
     ``--left-image-crop-win`` and ``--right-image-crop-win``, if these
     are passed in as command line arguments together with two images.
+  * Quietly accept parallel_stereo options and pass them on if this tool
+    is invoked from the GUI.
 
 image_calc:
   * Add the option ``--no-georef`` to remove any georeference

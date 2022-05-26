@@ -41,8 +41,10 @@ indices are a superset of the point cloud indices.
 
 Examples::
 
-     point2mesh -s 2 output-prefix-PC.tif output-prefix-L.tif
-     point2mesh -s 2 output-prefix-DEM.tif output-prefix-DRG.tif
+    point2mesh --point-cloud-step-size 4 --texture-step-size 2 \
+      output-prefix-PC.tif output-prefix-L.tif
+
+    point2mesh -s 2 output-prefix-DEM.tif output-prefix-DRG.tif
 
      meshlab output-prefix.obj
 

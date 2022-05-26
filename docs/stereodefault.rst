@@ -717,6 +717,10 @@ min-triangulation-angle (*double*)
     triangulated point to accept this point as valid. It must be 
     positive. The internal default is somewhat less than 1 degree.
 
+max-valid-triangulation-error (*double*) (default = 0.0)
+    If positive, points with triangulation error larger than this will
+    be removed from the cloud. Measured in meters.
+
 point-cloud-rounding-error (*double*)
     How much to round the output point cloud values, in meters (more
     rounding means less precision but potentially smaller size on

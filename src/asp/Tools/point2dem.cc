@@ -388,7 +388,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("remove-outliers-params",        po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
             "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor and points too far from the cluster of most points will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0),
-            "Outlier removal based on threshold. Points with triangulation error larger than this, if positive (measured in meters) will be removed from the cloud. This option takes precedence over --remove-outliers-params.")
+            "Outlier removal based on threshold. If positive, points with triangulation error larger than this will be removed from the cloud. Measured in meters. This option takes precedence over --remove-outliers-params.")
     ("max-output-size",          po::value(&opt.max_output_size)->default_value(Vector2(9999999, 9999999)),
             "Don't write the output DEM if it is calculated to be this size or greater.")
     ("median-filter-params",          po::value(&opt.median_filter_params)->default_value(Vector2(0, 0),

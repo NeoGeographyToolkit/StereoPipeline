@@ -206,10 +206,6 @@ void save_mesh(std::string const& output_prefix,
   face_progress.report_finished();
 }
 
-
-// MAIN
-// ---------------------------------------------------------
-
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
@@ -262,8 +258,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // It is useful to have this to make the p
   if (opt.point_cloud_step_size % opt.texture_step_size != 0) 
-    vw_throw(ArgumentErr() << "The point cloud step size must be a multiple "
-             << "of the texture step size.\n"
+    vw_throw(ArgumentErr() << "--point-cloud-step-size must be a multiple "
+             << "of --texture-step-size.\n"
              << usage << general_options);
 
   // Create the output directory

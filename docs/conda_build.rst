@@ -219,9 +219,9 @@ Note on compilers
 -----------------
 
 On Linux, the conda packages are set to be built with conda-provided
-versions of the C, C++, and Fortran compilers. For OSX, the local
-system Clang compilers are used, as the conda-provided
-ones turned out to result in problems at runtime.
+versions of the C and C++ compilers. For OSX, the local system Clang
+compilers are used, as the conda-provided ones turned out to result in
+problems at runtime.
 
 To install these compilers in a desired environemnt on Linux for use
 without ``conda build``, do::
