@@ -662,6 +662,17 @@ The session name (``-t``) passed to ``parallel_stereo`` should be
 ``rpcmaprpc``, ``pinholemappinhole``, etc. Normally this is
 detected and set automatically.
 
+The stereo command with mapprojected images when the cameras
+are stored separately is::
+
+    parallel_stereo -t rpc  --stereo-algorithm asp_mgm \
+      left.map.tif right.map.tif left.xml run.xml run/run ref.tif
+
+and when the cameras are embedded in the images, it is::
+
+    parallel_stereo -t rpc  --stereo-algorithm asp_mgm \
+      left.map.tif right.map.tif run/run ref.tif
+
 .. _multiview:
 
 Multi-view stereo

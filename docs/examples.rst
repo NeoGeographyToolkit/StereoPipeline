@@ -1553,6 +1553,10 @@ copies them to the output mapprojected images. If these coefficients
 are in the associated .RPB or \_RPC.TXT files, ``mapproject`` creates
 such files for each mapprojected image.
 
+See :numref:`other-mapproj` for how ``parallel_stereo`` is invoked
+with mapprojected images when the cameras are stored either separately
+or part of the images.
+
 Airbus tiled images
 ~~~~~~~~~~~~~~~~~~~
 
