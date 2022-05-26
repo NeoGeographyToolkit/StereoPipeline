@@ -219,6 +219,10 @@ add_executable(corr_eval corr_eval.cc)
 target_link_libraries(corr_eval AspCore)
 install(TARGETS corr_eval DESTINATION bin)
 
+add_executable(gen_pcd gen_pcd.cc)
+target_link_libraries(gen_pcd AspCore pcl_common pcl_io)
+install(TARGETS gen_pcd DESTINATION bin)
+
 # add_executable(nonlin_trans_corr nonlin_trans_corr.cc) 
 # target_link_libraries(nonlin_trans_corr AspCore ${VTK_LIBRARIES})
 # install(TARGETS nonlin_trans_corr DESTINATION bin)
