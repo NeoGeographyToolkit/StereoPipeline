@@ -97,7 +97,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
   std::string           overlap_list_file, auto_overlap_params;
   std::set<std::pair<std::string, std::string>> overlap_list;
-  vw::Matrix4x4 initial_transform;
+  vw::Matrix<double> initial_transform;
   std::string   fixed_cameras_indices_str;
   std::set<int> fixed_cameras_indices;
   IntrinsicOptions intrinisc_options;

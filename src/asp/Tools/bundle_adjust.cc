@@ -21,6 +21,7 @@
 #include <vw/Core/CmdUtils.h>
 #include <vw/BundleAdjustment/BundleAdjustReport.h>
 #include <vw/BundleAdjustment/AdjustRef.h>
+#include <vw/InterestPoint/MatrixIO.h>
 #include <asp/Core/Macros.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
@@ -2152,16 +2153,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << "without --initial-transform.\n");
   
   if (opt.initial_transform_file != "") {
-    std::ifstream is(opt.initial_transform_file.c_str());
-    for (size_t row = 0; row < opt.initial_transform.rows(); row++){
-      for (size_t col = 0; col < opt.initial_transform.cols(); col++){
-        double a;
-        if (! (is >> a) )
-          vw_throw( vw::IOErr() << "Failed to read initial transform from: "
-                                << opt.initial_transform_file << "\n" );
-        opt.initial_transform(row, col) = a;
-      }
-    }
+    vw_out() << "Reading the alignment transform from: " << opt.initial_transform_file << "\n";
+    vw::read_matrix_as_txt(opt.initial_transform_file, opt.initial_transform);
     vw_out() << "Initial transform:\n" << opt.initial_transform << std::endl;
   }
 
