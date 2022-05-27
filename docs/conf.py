@@ -29,6 +29,7 @@ copyright = (
 )
 author = 'ASP Authors'
 
+# Extract the ASP version from ../src/CMakeLists.txt
 version_text = Path("../src/CMakeLists.txt").read_text()
 version_string = re.search(r'set\(PACKAGE_VERSION "(.*)"\)', version_text).group(1)
 

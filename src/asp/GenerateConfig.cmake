@@ -59,8 +59,6 @@ check_cxx_symbol_exists(getpwuid        "pwd.h;sys/types.h"    ASP_HAVE_GETPWUID
 #                          int main(){ssize_t a=2; return a;}" VW_HAVE_SSIZET)
 
 
-
-
 ###########################################################################
 # Determine which libraries we can build
 
@@ -72,10 +70,6 @@ set(ASP_HAVE_PKG_ISISIO 1)
 set(ASP_HAVE_PKG_SESSIONS 1)
 set(ASP_HAVE_PKG_GUI 1)
 set(ASP_HAVE_PKG_TOOLS 1)
-
-
-
-
 
 #######################################################################
 # Finished setting up variables, now call the function to paste them into a file

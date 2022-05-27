@@ -22,9 +22,6 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
 
-#include <vw/config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
-#include <asp/asp_config.h>
-
 #include <map>
 #include <sstream>
 #include <string>
