@@ -22,10 +22,21 @@
 /// up to other functionality.
 
 // TODO(oalexan1): Clean up these header files
+
+// TODO(oalexan1): Use --max-vertical-angle-from-camera-dir-to-ray
+// --max-horizontal-angle-from-camera-dir-to-ray
+
+// TODO(oalexan1): Move bestFitPlane to Eigen utils and do not include any Eigen header.
+// Eigen, PCL, and VW combined make compilation impossibly long.
+// Find the best fitting plane to a set of points.
+
+// Also see if one can take out the pcl header
+
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/PclIO/PclIO.h>
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Core/StringUtils.h>
@@ -34,7 +45,6 @@
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/InterestPoint/MatrixIO.h>
 
-#include <pcl/io/pcd_io.h>
 #include <Eigen/Core>
 #include <Eigen/SVD>
 
@@ -50,15 +60,13 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::vector<std::string> files;
   Vector2     remove_outliers_params;
   double      max_valid_triangulation_error, distance_from_camera_weight_power,
-    max_camera_ray_to_surface_normal_angle, max_camera_dir_to_camera_ray_angle;
+    max_camera_ray_to_surface_normal_angle, max_camera_dir_to_camera_ray_angle,
+    blending_dist, blending_power;
 
   // Defaults that the user doesn't need to see.
   Options() {}
 };
 
-// TODO(oalexan1): Move this to utils and do not include any Eigen header.
-// Eigen, PCL, and VW combined make compilation impossibly long.
-// Find the best fitting plane to a set of points.
 void bestFitPlane(const std::vector<Eigen::Vector3d>& points, Eigen::Vector3d& centroid,
                   Eigen::Vector3d& plane_normal) {
   // Copy coordinates to  matrix in Eigen format
@@ -80,6 +88,86 @@ void bestFitPlane(const std::vector<Eigen::Vector3d>& points, Eigen::Vector3d& c
   plane_normal = svd.matrixU().rightCols<1>();
 }
 
+// Find the Euclidean distance function to boundary of Vector3()
+// pixels. Note that pixels at the edges of the image are considered
+// invalid. Invalid pixels have a distance of 0. The distance is
+// positive for all valid pixels, increasing when moving away from
+// invalid pixels, till the magnitude reaches current value where it
+// stops growing.
+
+void boundary_dist(ImageViewRef<Vector3> image, double max_dist, ImageView<double> & dist) {
+  
+  if (max_dist < 0.0) 
+    vw_throw(ArgumentErr() << "Expecting positive max_dist.");
+  
+  int max_dist_int = ceil(max_dist); // an int overestimate
+  double max_dist_sq = max_dist * max_dist;
+  int cols = image.cols(), rows = image.rows();
+  dist.set_size(cols, rows);
+
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+      // Initialize to the max for valid pixels and not at image edges.
+      if (image(col, row) != Vector3() && col > 0 && col < cols - 1 && row > 0 && row < rows - 1)
+        dist(col, row) = max_dist;
+      else
+        dist(col, row) = 0;
+    }
+  }
+
+  // For each boundary pixel (col, row), which is an invalid pixel
+  // with a valid neighbors, adjust the values of dist which are
+  // affected by it.
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+
+      // Look for a boundary pixel
+      if (dist(col, row) > 0)
+        continue; // valid, but need invalid
+      bool is_bd_pix = false;
+      for (int c = col - 1; c <= col + 1; c++) {
+        for (int r = row - 1; r <= row + 1; r++) {
+          if (c < 0 || c >= cols || r < 0 || r >= rows)
+            continue;
+          if (dist(c, r) > 0) {
+            is_bd_pix = true; // has valid neighbor
+            break;
+          }
+        }
+        if (is_bd_pix) 
+          break;
+      }
+      if (!is_bd_pix) 
+        continue; // does not have valid neighbors
+
+      // Found a boundary pixel. Pixels closer to it than max_dist
+      // may have their distance function modified.
+      for (int c = col - max_dist_int; c <= col + max_dist_int; c++) {
+        for (int r = row - max_dist_int; r <= row + max_dist_int; r++) {
+          if (c < 0 || c >= cols || r < 0 || r >= rows)
+            continue;
+
+          // Cast to double before multiplying to avoid integer overflow
+          double dsq = double(c - col) * double(c - col) + 
+            double(r - row) * double(r - row);
+
+          // Too far 
+          if (dsq >= max_dist_sq) 
+            continue;
+
+          if (dist(c, r) > 0) {
+            double d = sqrt(dsq);
+            // If this was positive before, it stays positive, as d > 0, since
+            // it is the distance between a valid and an invalid pixel
+            dist(c, r) = std::min(dist(c, r), d);
+          }
+        }
+      }
+        
+    }
+  }
+}
+
 void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 
@@ -95,8 +183,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-camera-ray-to-surface-normal-angle", po::value(&opt.max_camera_ray_to_surface_normal_angle)->default_value(0),
      "If positive, surface points whose surface normal makes an angle with the ray back to the camera center greater than this will be removed as an outlier.")
       ("max-camera-dir-to-camera-ray-angle", po::value(&opt.max_camera_dir_to_camera_ray_angle)->default_value(0),
-     "If positive, and a ray emanating from the camera and ending at the current point makes an angle with the camera direction bigger than this, remove the point as an outlier. In effect, this narrows the camera field of view.");
-
+       "If positive, and a ray emanating from the camera and ending at the current point makes an angle with the camera direction bigger than this, remove the point as an outlier. In effect, this narrows the camera field of view.")
+    ("blending-dist", po::value(&opt.blending_dist)->default_value(0),
+     "If positive and closer to any boundary than this (measured in pixels), decrease the weight assigned to the given point proportionally to remaining distance to boundary raised to a power. In effect, points closer to boundary are given less weight.")
+    ("blending-power", po::value(&opt.blending_power)->default_value(0),
+     "If positive, use this as the power when setting --blending-dist.");
+  
   po::options_description positional("");
   positional.add_options()
     ("input-files", po::value< std::vector<std::string> >(), "Input files");
@@ -123,8 +215,6 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments(argc, argv, opt);
 
-    std::cout << "--max valid tri error " << opt.max_valid_triangulation_error << std::endl;
-    
     // For now only 4 channels are supported
     // TODO(oalexan1): Support also 3 channels
     int num_channels = get_num_channels(opt.files[0]);
@@ -157,31 +247,23 @@ int main( int argc, char *argv[] ) {
     vw::Matrix<double> world2cam = inverse(cam2world);
 
     std::string pcd_file = opt.files[3];
-    
-    double inf = std::numeric_limits<double>::infinity();
-    pcl::PointCloud<pcl::PointNormal> pci;
-    pci.width = point_image.cols();
-    pci.height = point_image.rows();
-    pci.points.resize(pci.width * pci.height);
 
-    double max_err = opt.max_valid_triangulation_error;
-    int count = -1;
+    ImageView<float> weight(point_image.cols(), point_image.rows());
+    ImageView<float> out_texture(point_image.cols(), point_image.rows());
+    ImageView<Vector3> clean_points(point_image.cols(), point_image.rows());
     for (int col = 0; col < point_image.cols(); col++) {
       for (int row = 0; row < point_image.rows(); row++) {
-        count++;
+        weight(col, row) = 0.0;
+        out_texture(col, row) = 0.0;
+        clean_points(col, row) = Vector3();
+      }
+    }
 
-        // An output point starts by default as an outlier
-        // Make it inf, as VoxBlox expects.
-        pci.points[count].x         = inf;
-        pci.points[count].y         = inf;
-        pci.points[count].z         = inf;
-        pci.points[count].normal_x  = 0;  // intensity
-        pci.points[count].normal_y  = 0;  // weight
-        pci.points[count].normal_z  = 0;  // ensure initialization
-        pci.points[count].curvature = 0;  // ensure initialization
+    double max_err = opt.max_valid_triangulation_error;
+    for (int col = 0; col < point_image.cols(); col++) {
+      for (int row = 0; row < point_image.rows(); row++) {
         
         Vector<double, 4> P = point_image(col, row);
-
         if (P == Vector<double, 4>() || texture(col, row) == texture_nodata ||
             (max_err > 0 && P[3] > max_err)) {
           continue; // outlier
@@ -267,21 +349,51 @@ int main( int argc, char *argv[] ) {
         double t = 255.0 * texture(col, row);
         if (t <= 0.0) t = 1.0;  // Ensure a positive value for the color
 
-        pci.points[count].x         = Q[0];
-        pci.points[count].y         = Q[1];
-        pci.points[count].z         = Q[2];
-        pci.points[count].normal_x  = t;   // intensity
-        pci.points[count].normal_y  = wt;  // weight
-        pci.points[count].normal_z  = 0;  // ensure initialization to something
-        pci.points[count].curvature = 0;  
+        clean_points(col, row) = Vector3(Q[0], Q[1], Q[2]);
+        out_texture(col, row) = t;
+        weight(col, row) = wt;
       }
     }
-    
-    // Create the output directory
-    
-    vw::create_out_dir(pcd_file);
-    std::cout << "Writing: " << pcd_file << std::endl;
-    pcl::io::savePCDFileASCII(pcd_file, pci);
+
+    if (opt.blending_dist > 0 && opt.blending_power > 0) {
+      
+      ImageView<double> dist;
+
+//       // temporary!
+//       for (int col = 0; col < clean_points.cols(); col++) {
+//         for (int row = 0; row < clean_points.rows(); row++) {
+//           clean_points(col, row) = Vector3(1, 1, 1);
+//         }
+//       }
+      
+      boundary_dist(clean_points, opt.blending_dist, dist);
+      
+#if 1
+      vw::cartography::GeoReference georef;
+      bool has_georef = false;
+      bool has_nodata = false;
+      double nodata = 0;
+      std::string output_image = "tmp.tif";
+      vw_out() << "Writing: " << output_image << "\n";
+      vw::cartography::block_write_gdal_image
+        (output_image, dist, has_georef, georef, has_nodata, nodata, opt,
+         TerminalProgressCallback("asp", "\t--> Correlation quality:"));
+#endif
+      
+      for (int col = 0; col < dist.cols(); col++) {
+        for (int row = 0; row < dist.rows(); row++) {
+          // Normalize to [0, 1]
+          dist(col, row) = pow(dist(col, row) / opt.blending_dist, opt.blending_power);
+          // Use this to adjust the weight
+          weight(col, row) *= dist(col, row);
+        }
+      }
+
+      // TODO(oalexan1): There must be an option to save the weight for inspection
+      //exit(0);
+    }
+
+    asp::writeCloud(clean_points, out_texture, weight, pcd_file);
     
     return 0;
     
