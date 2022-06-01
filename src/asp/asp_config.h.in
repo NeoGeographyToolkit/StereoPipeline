@@ -557,11 +557,11 @@
 /* Set to 1 if you have the ANSI C header files. */
 #cmakedefine STDC_HEADERS 1
 
-/* Version number of package */
-#define ASP_VERSION "@PACKAGE_VERSION@"
-
 /* The path to the ASP dependencies (useful in dev mode). */
 #define ASP_DEPS_DIR "@ASP_DEPS_DIR@"
+
+/* Version number of package */
+#define ASP_VERSION "@PACKAGE_VERSION@"
 
 // Check to make sure the user is using the same version of Boost
 // headers that the software was built with.
@@ -569,8 +569,3 @@
 //#if BOOST_VERSION != ASP_BOOST_VERSION
 //#error You are using a different version of Boost than you used to build _!
 //#endif
-
-#define ASP_COMMIT_ID "@ASP_COMMIT_ID@"
-
-#define ASP_BUILD_DATE "@ASP_BUILD_DATE@"
-

@@ -1,0 +1,14 @@
+/* 
+   File src/asp/asp_date_config.h.in. Used by CMake to generate
+   asp_date_config.h. This is kept separate from asp_config.h since
+   the build date and commit id changes often when the software is
+   built locally, which results in massive recompilation. This way only 
+   Common.cc will get recompiled.
+*/
+
+#define ASP_BUILD_DATE "@ASP_BUILD_DATE@"
+
+#define ASP_COMMIT_ID "@ASP_COMMIT_ID@"
+
+
+

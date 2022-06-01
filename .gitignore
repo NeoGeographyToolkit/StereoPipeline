@@ -2,7 +2,8 @@
 *~
 /build
 /install
-/GitHubReleases.txt 
-/src/asp/asp_config.h
+src/asp/asp_config.h
+src/asp/asp_date_config.h
 docs/_build
+GitHubReleases.txt
 

@@ -337,7 +337,6 @@ get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
 get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
 set(ASP_ISISIO_LIB_DEPENDENCIES  AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
                                  ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
-
 # --- ASP_CAMERA ------------------------------------------------------------
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
@@ -360,13 +359,21 @@ get_all_source_files( "Gotcha"       ASP_GOTCHA_SRC_FILES)
 get_all_source_files( "Gotcha/tests" ASP_GOTCHA_TEST_FILES)
 set(ASP_GOTCHA_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${OPENCV_LIBRARIES} ${Boost_LIBRARIES})
 
+# --- ASP_PclIO ------------------------------------------------------------
+get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
+get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
+set(ASP_PCLIO_LIB_DEPENDENCIES  pcl_common pcl_io_ply pcl_io
+    AspCore ${VISIONWORKBENCH_LIBRARIES})
+
 #=========================================================================
 # Add all of the library subdirectories
 
 add_subdirectory(Core)
 add_subdirectory(SpiceIO)
 if(ASP_HAVE_PKG_ISISIO)
-  add_subdirectory(IsisIO)
+    add_subdirectory(IsisIO)
+    # PCL is imported via ISIS
+    add_subdirectory(PclIO)
 endif()
 add_subdirectory(Camera)
 

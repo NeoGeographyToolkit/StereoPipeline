@@ -899,11 +899,11 @@ namespace asp {
                 (dot_prod(cam2_vec, point - cam2_ctr) < 0)   )
             ){
           vw_out(WarningMessage)
-            << "Your cameras appear not to be pointing at the same location!\n"
-            << "\tA test vector triangulated backwards through\n"
-            << "\tthe camera models. You should double check\n"
-            << "\tyour input models as most likely stereo won't\n"
-            << "\tbe able to triangulate.\n";
+            << "Your cameras appear to not to be pointing at the same location! "
+            << "A test vector triangulated backwards through "
+            << "the camera models. You should double check "
+            << "your input models as most likely stereo won't "
+            << "be able to triangulate.\n";
         }
         
       } catch (const exception& e) {

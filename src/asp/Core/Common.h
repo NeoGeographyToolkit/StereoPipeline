@@ -23,10 +23,6 @@
 #define __ASP_CORE_COMMON_H__
 
 // TODO(oalexan1): Rename vw/config.h to vw/vw_config.h.
-// TODO(oalexan1): Factor out ASP_COMMIT_ID and ASP_BUILD_DATE
-// from asp_config.h to asp_date_config.h as those change each time
-// CMakeLists.txt is modified, requiring massive rebuilds. The only
-// place which needs those is Common.cc.
 // TODO(oalexan1): Break up Common.h into more manageable pieces.
 // Image-writing code should be in VW. Low-level file utils
 // should be in their own header file and .cc fie.
