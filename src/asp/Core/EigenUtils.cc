@@ -591,6 +591,33 @@ void load_pc(std::string const& file_name,
 
 }
 
+// Find the best-fitting plane to a set of points. It will throw an
+// error if called with less than 3 points.
+void bestFitPlane(const std::vector<Eigen::Vector3d>& points, Eigen::Vector3d& centroid,
+                  Eigen::Vector3d& plane_normal) {
+  
+  size_t num_points = points.size();
+  if (num_points < 3) 
+    vw_throw( ArgumentErr() << "Need 3 points to fit a plane.\n");
+
+  // Copy coordinates to  matrix in Eigen format
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> coord(3, num_points);
+
+  for (size_t i = 0; i < num_points; i++) coord.col(i) = points[i];
+
+  // calculate centroid
+  centroid = Eigen::Vector3d(coord.row(0).mean(), coord.row(1).mean(), coord.row(2).mean());
+
+  // subtract centroid
+  for (size_t it = 0; it < 3; it++) coord.row(it).array() -= centroid(it);
+
+  // We only need the left-singular matrix here
+  // https://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
+  auto svd = coord.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+  plane_normal = svd.matrixU().rightCols<1>();
+}
+  
 // Compute a rigid transform between n point correspondences.
 // There exists another version of this using vw matrices
 // in VisionWorkbench called find_3D_transform().  

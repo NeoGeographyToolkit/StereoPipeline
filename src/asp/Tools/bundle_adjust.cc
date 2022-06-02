@@ -21,7 +21,7 @@
 #include <vw/Core/CmdUtils.h>
 #include <vw/BundleAdjustment/BundleAdjustReport.h>
 #include <vw/BundleAdjustment/AdjustRef.h>
-#include <vw/InterestPoint/MatrixIO.h>
+#include <vw/FileIO/MatrixIO.h>
 #include <asp/Core/Macros.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>

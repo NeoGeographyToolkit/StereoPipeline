@@ -28,9 +28,10 @@
 
 namespace asp {
 
-  void writeCloud(vw::ImageViewRef<vw::Vector<double, 3>> cloud,
+  void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
                   vw::ImageViewRef<float> out_texture,
                   vw::ImageViewRef<float> weight,
+                  bool save_nodata_as_infinity,
                   std::string const& pcd_file);
   
 } // end namespace asp

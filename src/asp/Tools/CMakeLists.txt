@@ -221,9 +221,9 @@ install(TARGETS corr_eval DESTINATION bin)
 
 if(ASP_HAVE_PKG_ISISIO)
     # PCL gets imported via ISIS
-    add_executable(gen_pcd gen_pcd.cc)
-    target_link_libraries(gen_pcd AspPclIO)
-    install(TARGETS gen_pcd DESTINATION bin)
+    add_executable(pc_filter pc_filter.cc)
+    target_link_libraries(pc_filter AspPclIO)
+    install(TARGETS pc_filter DESTINATION bin)
 endif()
     
 # add_executable(nonlin_trans_corr nonlin_trans_corr.cc) 

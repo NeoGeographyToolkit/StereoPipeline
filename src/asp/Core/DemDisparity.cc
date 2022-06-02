@@ -27,7 +27,7 @@
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <vw/InterestPoint/MatrixIO.h>
+#include <vw/FileIO/MatrixIO.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/DemDisparity.h>
 

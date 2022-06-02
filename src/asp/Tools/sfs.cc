@@ -80,7 +80,7 @@
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/InpaintView.h>
-#include <vw/Image/BoundedSignedDist.h>
+#include <vw/Image/DistanceFunction.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Stopwatch.h>
 #include <asp/Core/Macros.h>

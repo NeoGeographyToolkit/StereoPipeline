@@ -22,7 +22,7 @@
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/PixelTypeInfo.h>
-#include <vw/InterestPoint/MatrixIO.h>
+#include <vw/FileIO/MatrixIO.h>
 
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>

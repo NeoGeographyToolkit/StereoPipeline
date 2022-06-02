@@ -21,7 +21,7 @@
 #include <asp/Core/DisparityProcessing.h>
 #include <vw/Math/Transform.h>
 #include <vw/Stereo/StereoModel.h>
-#include <vw/InterestPoint/MatrixIO.h>
+#include <vw/FileIO/MatrixIO.h>
 #include <vw/Stereo/StereoView.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/Map2CamTrans.h>

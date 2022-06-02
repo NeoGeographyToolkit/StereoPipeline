@@ -73,7 +73,12 @@ void load_pc(std::string const& file_name,
              vw::cartography::GeoReference const& geo,
              bool verbose, DoubleMatrix & data);
 
-// Compute a rigid transform between n point correspondences.
+// Find the best-fitting plane to a set of points. It will throw an
+// error if called with less than 3 points.
+void bestFitPlane(const std::vector<Eigen::Vector3d>& points, Eigen::Vector3d& centroid,
+                  Eigen::Vector3d& plane_normal);
+
+  // Compute a rigid transform between n point correspondences.
 // There exists another version of this using vw matrices
 // in VisionWorkbench called find_3D_transform().  
 void computeRigidTransform(const std::vector<Eigen::Vector3d>& src,

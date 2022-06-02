@@ -25,12 +25,16 @@
 
 namespace asp {
   
-  void writeCloud(vw::ImageViewRef<vw::Vector<double, 3>> cloud,
+  void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
                   vw::ImageViewRef<float> out_texture,
                   vw::ImageViewRef<float> weight,
+                  bool save_nodata_as_infinity,
                   std::string const& pcd_file) {
       
-    double inf = std::numeric_limits<double>::infinity();
+    double nodata = 0.0;
+    if (save_nodata_as_infinity)
+      nodata =  std::numeric_limits<double>::infinity();
+
     pcl::PointCloud<pcl::PointNormal> pci;
 
     pci.width = cloud.cols();
@@ -43,23 +47,24 @@ namespace asp {
         count++;
 
         // An output point starts by default as an outlier
-        // Make it inf, as VoxBlox expects.
-        pci.points[count].x         = inf;
-        pci.points[count].y         = inf;
-        pci.points[count].z         = inf;
+        // VoxBlox expects infinity for invalid data.
+        pci.points[count].x         = nodata;
+        pci.points[count].y         = nodata;
+        pci.points[count].z         = nodata;
         pci.points[count].normal_x  = 0;  // intensity
         pci.points[count].normal_y  = 0;  // weight
         pci.points[count].normal_z  = 0;  // ensure initialization
         pci.points[count].curvature = 0;  // ensure initialization
 
-        if (cloud(col, row) != vw::Vector3() && weight(col, row) > 0) {
-          vw::Vector3 Q = cloud(col, row);
+        if (subvector(cloud(col, row), 0, 3) != vw::Vector3() && weight(col, row) > 0) {
+          vw::Vector<double, 4> Q = cloud(col, row);
           pci.points[count].x         = Q[0];
           pci.points[count].y         = Q[1];
           pci.points[count].z         = Q[2];
+          // As expected by VoxBlox
           pci.points[count].normal_x  = out_texture(col, row);  // intensity
           pci.points[count].normal_y  = weight(col, row); // weight
-          pci.points[count].normal_z  = 0; // ensure initialization to something
+          pci.points[count].normal_z  = Q[3]; // intersection error
           pci.points[count].curvature = 0;  
         }
       }

@@ -38,7 +38,7 @@
 #include <vw/InterestPoint/Descriptor.h>
 #include <vw/InterestPoint/Detector.h>
 #include <vw/InterestPoint/Matcher.h>
-#include <vw/InterestPoint/MatrixIO.h>
+#include <vw/FileIO/MatrixIO.h>
 #include <vw/Cartography/Datum.h>
 
 // Stereo Pipeline

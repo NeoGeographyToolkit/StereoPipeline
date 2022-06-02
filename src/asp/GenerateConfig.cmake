@@ -83,16 +83,3 @@ configure_file(${CMAKE_SOURCE_DIR}/src/asp/asp_config.h.in ${CMAKE_SOURCE_DIR}/s
 # This file's data changes often so keep it separate to avoid recompilation.
 message("Generating config file: ${CMAKE_SOURCE_DIR}/src/asp/asp_date_config.h")
 configure_file(${CMAKE_SOURCE_DIR}/src/asp/asp_date_config.h.in ${CMAKE_SOURCE_DIR}/src/asp/asp_date_config.h)
-
-
-
-
-
-
-
-
-
-
-
-
-
