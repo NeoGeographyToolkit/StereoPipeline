@@ -21,63 +21,106 @@
 #include <vw/FileIO/FileUtils.h>
 #include <asp/PclIO/PclIO.h>
 
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
+
 #include <pcl/io/pcd_io.h>
+#include <pcl/io/ply_io.h>
 
 namespace asp {
   
-  void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
-                  vw::ImageViewRef<float> out_texture,
-                  vw::ImageViewRef<float> weight,
-                  bool save_nodata_as_infinity,
-                  std::string const& pcd_file) {
+void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
+                vw::ImageViewRef<float> out_texture,
+                vw::ImageViewRef<float> weight,
+                bool save_nodata_as_infinity,
+                std::string const& cloud_file) {
       
-    double nodata = 0.0;
-    if (save_nodata_as_infinity)
-      nodata =  std::numeric_limits<double>::infinity();
+  double nodata = 0.0;
+  if (save_nodata_as_infinity)
+    nodata =  std::numeric_limits<double>::infinity();
 
-    pcl::PointCloud<pcl::PointNormal> pci;
+  std::string ext = boost::filesystem::extension(cloud_file);
+  boost::algorithm::to_lower(ext);
+  if (ext != ".pcd" && ext != ".ply") 
+    vw::vw_throw(vw::ArgumentErr() << "The input point cloud extension must be .pcd or .ply.");
 
-    pci.width = cloud.cols();
-    pci.height = cloud.rows();
-    pci.points.resize(pci.width * pci.height);
+  // Create the output directory
+  vw::create_out_dir(cloud_file);
 
+  // Save the cloud
+  std::cout << "Writing: " << cloud_file << std::endl;
+
+  bool write_ply = (ext == ".ply");
+  if (!write_ply) {
+      
+    // Write pcd 
+    pcl::PointCloud<pcl::PointNormal> pc;
+      
+    pc.width = cloud.cols();
+    pc.height = cloud.rows();
+    pc.points.resize(cloud.cols() * cloud.rows());
+      
     int count = -1;
     for (int col = 0; col < cloud.cols(); col++) {
       for (int row = 0; row < cloud.rows(); row++) {
         count++;
-
+          
         // An output point starts by default as an outlier
         // VoxBlox expects infinity for invalid data.
-        pci.points[count].x         = nodata;
-        pci.points[count].y         = nodata;
-        pci.points[count].z         = nodata;
-        pci.points[count].normal_x  = 0;  // intensity
-        pci.points[count].normal_y  = 0;  // weight
-        pci.points[count].normal_z  = 0;  // ensure initialization
-        pci.points[count].curvature = 0;  // ensure initialization
-
+        pc.points[count].x         = nodata;
+        pc.points[count].y         = nodata;
+        pc.points[count].z         = nodata;
+        pc.points[count].normal_x  = 0;  // intensity
+        pc.points[count].normal_y  = 0;  // weight
+        pc.points[count].normal_z  = 0;  // ensure initialization
+        pc.points[count].curvature = 0;  // ensure initialization
+          
         if (subvector(cloud(col, row), 0, 3) != vw::Vector3() && weight(col, row) > 0) {
-          vw::Vector<double, 4> Q = cloud(col, row);
-          pci.points[count].x         = Q[0];
-          pci.points[count].y         = Q[1];
-          pci.points[count].z         = Q[2];
+          vw::Vector<double, 4> const& Q = cloud(col, row); // alias
+          pc.points[count].x         = Q[0];
+          pc.points[count].y         = Q[1];
+          pc.points[count].z         = Q[2];
           // As expected by VoxBlox
-          pci.points[count].normal_x  = out_texture(col, row);  // intensity
-          pci.points[count].normal_y  = weight(col, row); // weight
-          pci.points[count].normal_z  = Q[3]; // intersection error
-          pci.points[count].curvature = 0;  
+          pc.points[count].normal_x  = out_texture(col, row);  // intensity
+          pc.points[count].normal_y  = weight(col, row); // weight
+          pc.points[count].normal_z  = Q[3]; // intersection error
+          pc.points[count].curvature = 0;  // ensure initialization
         }
       }
     }
-    
-    // Create the output directory
-    vw::create_out_dir(pcd_file);
 
-    // Save the pcd
-    std::cout << "Writing: " << pcd_file << std::endl;
-    pcl::io::savePCDFileASCII(pcd_file, pci);
+    pcl::io::savePCDFileASCII(cloud_file, pc);
 
-    return;
+  } else {
+        
+    // Write ply; remove all the invalid data first
+    pcl::PointCloud<pcl::PointXYZI> pc;
+    pc.width = cloud.cols();
+    pc.height = cloud.rows();
+    pc.points.resize(cloud.cols() * cloud.rows());
+      
+    int count = -1;
+    for (int col = 0; col < cloud.cols(); col++) {
+      for (int row = 0; row < cloud.rows(); row++) {
+        count++;
+          
+        if (subvector(cloud(col, row), 0, 3) != vw::Vector3() && weight(col, row) > 0) {
+          vw::Vector<double, 4> const& Q = cloud(col, row); // alias
+          pc.points[count].x         = Q[0];
+          pc.points[count].y         = Q[1];
+          pc.points[count].z         = Q[2];
+          pc.points[count].intensity = out_texture(col, row);
+        }
+      }
+    }
+      
+    pc.points.resize(count + 1);
+    pc.width = count + 1;
+    pc.height = 1;
+    pcl::io::savePLYFileASCII(cloud_file, pc);
   }
-
+  
+  return;
 }
+
+} // end namespace asp

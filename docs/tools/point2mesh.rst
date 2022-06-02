@@ -74,8 +74,9 @@ Command-line options for point2mesh:
     Explicitly specify the texture file.
 
 --center
-    Center the model around the origin. Use this option if you are
-    experiencing numerical precision issues.
+    Let the origin be the midpoint of the bounding box of the
+    cloud. Use this option if you are experiencing numerical precision
+    issues.
 
 --precision <integer (default: 17)>
     How many digits of precision to save.

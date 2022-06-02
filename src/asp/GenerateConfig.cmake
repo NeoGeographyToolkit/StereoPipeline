@@ -76,7 +76,7 @@ set(ASP_HAVE_PKG_TOOLS 1)
 
 # Each value like "@VAR@ is replaced by the CMake variable of the same name
 # The generated file modification time is not updated unless its content actually changed,
-# which prevents needsless compilation.
+# which prevents needless compilation.
 message("Generating config file: ${CMAKE_SOURCE_DIR}/src/asp/asp_config.h")
 configure_file(${CMAKE_SOURCE_DIR}/src/asp/asp_config.h.in ${CMAKE_SOURCE_DIR}/src/asp/asp_config.h)
 

@@ -32,7 +32,7 @@ namespace asp {
                   vw::ImageViewRef<float> out_texture,
                   vw::ImageViewRef<float> weight,
                   bool save_nodata_as_infinity,
-                  std::string const& pcd_file);
+                  std::string const& cloud_file);
   
 } // end namespace asp
 

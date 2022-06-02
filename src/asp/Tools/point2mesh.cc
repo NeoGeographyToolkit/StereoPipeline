@@ -216,7 +216,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-prefix,o", po::value(&opt.output_prefix),
      "Specify the output prefix.")
     ("center", po::bool_switch(&opt.center)->default_value(false),
-     "Center the model around the origin. Use this option if you are experiencing numerical precision issues.")
+     "Let the origin be the midpoint of the bounding box of the cloud. Use this option if you are experiencing numerical precision issues.")
     ("precision", po::value(&opt.precision)->default_value(17),
      "How many digits of precision to save.");
   
@@ -312,8 +312,8 @@ int main(int argc, char *argv[]){
     if (opt.center) {
       bool is_geodetic = false; // raw xyz values
       BBox3 bbox = asp::pointcloud_bbox(point_cloud, is_geodetic);
-      vw_out() << "\t--> Centering model around the origin.\n";
-      vw_out() << "\t    Initial point image bounding box: " << bbox << "\n";
+      vw_out() << "\t--> Setting as the origin the bounding box midpoint.\n";
+      vw_out() << "\t    Bounding box: " << bbox << "\n";
       C = (bbox.max() + bbox.min()) / 2.0;
       vw_out() << "\t    Midpoint: " << C << "\n";
     }
