@@ -1,6 +1,11 @@
 Changes since last release
 --------------------------
 
+New tools:
+
+  * Added the program ``pc_filter`` for filtering outliers in 
+    point clouds created with pinhole cameras.
+
 stereo:
   * Added the triangulation option --max-valid-triangulation-error
     for removing points at triangulation. This is analogous to the 

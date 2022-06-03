@@ -69,25 +69,25 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("input-cloud", po::value(&opt.input_cloud)->default_value(""),
      "Input cloud name. A four-band .tif file as produced by stereo triangulation.")
     ("output-cloud", po::value(&opt.output_cloud)->default_value(""),
-     "Output cloud name. If having a .tif extension, the same format will be used as the input. Can also save .pcd and .ply file; in that case the points will be saved as float32 values, so there may be some precision loss. The .pcd file will store in the field for the cloud normal the values (image_texture, blending_weight, intersection_error), assuming these are computed.")
+     "Output cloud name. If having a .tif extension, the same format will be used as the input. Can also save .pcd and .ply files. In that case the points will be saved with float32 values, so there may be some precision loss. The .pcd file will store in the field for the cloud normal the values image_texture, blending_weight, intersection_error, assuming these are computed.")
     ("input-texture", po::value(&opt.input_texture)->default_value(""),
-     "If specified, read the texture from this file. Normally it is the file L.tif from the same run which produced the input point cloud.")
+     "If specified, read the texture from this file. Normally this is the file L.tif from the same run which produced the input point cloud.")
     ("camera", po::value(&opt.camera_file)->default_value(""),
      "The left or right camera used to produce this cloud. Used for some filtering operations.")
     ("max-distance-from-camera", po::value(&opt.max_distance_from_camera)->default_value(0),
      "If positive, remove points further from camera center than this value. Measured in meters.")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0),
-     "Outlier removal based on threshold. If positive, points with triangulation error larger than this will be removed from the cloud. Measured in meters.")
+     "If positive, points with triangulation error larger than this will be removed from the cloud. Measured in meters.")
     ("max-camera-ray-to-surface-normal-angle", po::value(&opt.max_camera_ray_to_surface_normal_angle)->default_value(0),
-     "If positive, surface points whose surface normal makes an angle with the ray back to the camera center greater than this will be removed as outliers. Measured in degrees.")
+     "If positive, points whose surface normal makes an angle with the ray back to the camera center greater than this will be removed as outliers. Measured in degrees.")
     ("max-camera-dir-to-surface-normal-angle", po::value(&opt.max_camera_dir_to_surface_normal_angle)->default_value(0),
-     "If positive, surface points whose surface normal makes an angle with the camera direction greater than this will be removed as outliers. This eliminates surfaces almost parallel to camera view direction. Measured in degrees.")
+     "If positive, points whose surface normal makes an angle with the camera direction greater than this will be removed as outliers. This eliminates surfaces almost parallel to camera view direction. Measured in degrees.")
       ("max-camera-dir-to-camera-ray-angle", po::value(&opt.max_camera_dir_to_camera_ray_angle)->default_value(0),
        "If positive, and a ray emanating from the camera and ending at the current point makes an angle with the camera direction bigger than this, remove the point as an outlier. In effect, this narrows the camera field of view.")
     ("distance-from-camera-weight-power", po::value(&opt.distance_from_camera_weight_power)->default_value(0),
-     "If positive, let the weight of a 3D point be inversely proportional to the distance from the camera center to the point, raised to this power.")
+     "If positive, let the weight of a point be inversely proportional to the distance from the camera center to the point, raised to this power.")
     ("blending-dist", po::value(&opt.blending_dist)->default_value(0.0),
-     "If positive and closer to any boundary than this (measured in pixels), decrease the weight assigned to the given point proportionally to remaining distance to boundary raised to a power. In effect, points closer to boundary are given less weight.")
+     "If positive and closer to any boundary of valid points than this (measured in point cloud pixels), decrease the weight assigned to the given point proportionally to remaining distance to boundary raised to a power. In effect, points closer to boundary are given less weight. Used in VoxBlox.")
     ("blending-power", po::value(&opt.blending_power)->default_value(1.0),
      "Use this as the power when setting --blending-dist.")
     ("save-nodata-as-infinity",         po::bool_switch(&opt.save_nodata_as_infinity)->default_value(false),
