@@ -21,6 +21,7 @@
 /// Apply some filtering operations to a point cloud.
 
 // TODO(oalexan1): Add ability to remove blobs
+// Add median filter based on a window of given size and threshold.
 // Save weight image via --weight-image
 // Save the computed weight for each cloud point.
 // Replace max_camera_dir_to_camera_ray_angle with
@@ -61,7 +62,7 @@ struct Options: vw::cartography::GdalWriteOptions {
   Options() {}
 };
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("General options");
   general_options.add_options()
@@ -85,10 +86,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
        "If positive, and a ray emanating from the camera and ending at the current point makes an angle with the camera direction bigger than this, remove the point as an outlier. In effect, this narrows the camera field of view.")
     ("distance-from-camera-weight-power", po::value(&opt.distance_from_camera_weight_power)->default_value(0),
      "If positive, let the weight of a 3D point be inversely proportional to the distance from the camera center to the point, raised to this power.")
-    ("blending-dist", po::value(&opt.blending_dist)->default_value(0),
+    ("blending-dist", po::value(&opt.blending_dist)->default_value(0.0),
      "If positive and closer to any boundary than this (measured in pixels), decrease the weight assigned to the given point proportionally to remaining distance to boundary raised to a power. In effect, points closer to boundary are given less weight.")
-    ("blending-power", po::value(&opt.blending_power)->default_value(0),
-     "If positive, use this as the power when setting --blending-dist.")
+    ("blending-power", po::value(&opt.blending_power)->default_value(1.0),
+     "Use this as the power when setting --blending-dist.")
     ("save-nodata-as-infinity",         po::bool_switch(&opt.save_nodata_as_infinity)->default_value(false),
      "If true and saving a .pcd file, set the x, y, z coordinates of an invalid point to infinity rather than to 0. Expected by VoxBlox.")
     ("transform-to-camera-coordinates",         po::bool_switch(&opt.transform_to_camera_coordinates)->default_value(false),
@@ -113,13 +114,82 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
        opt.max_camera_ray_to_surface_normal_angle > 0 ||
        opt.max_camera_dir_to_surface_normal_angle > 0 ||
        opt.max_camera_dir_to_camera_ray_angle > 0)  && opt.camera_file.empty()) 
-    vw_throw( ArgumentErr() << "Some of the requested operations require "
+    vw_throw(ArgumentErr() << "Some of the requested operations require "
               << "a camera model specified via --camera.");
 
   if (opt.input_cloud.empty() || opt.output_cloud.empty()) 
-    vw_throw( ArgumentErr() << "The input and output point clouds must be specified.");
+    vw_throw(ArgumentErr() << "The input and output point clouds must be specified.");
 
+  if (opt.blending_dist > 0 && opt.blending_power <= 0) 
+    vw_throw(ArgumentErr() << "When setting --blending-dist, a "
+              << "positive value of blending power must be used.");
+  
   return;
+}
+
+// Apply a rigid transforms to a point cloud in-place. Points at
+// origin are considered outliers and are unchanged.
+void applyAffineTransform(ImageView<Vector<double, 4>> & pc, vw::Matrix<double> const& T) {
+
+  if (T.rows() != 4 && T.cols() != 4 && T(3, 3) != 1.0)
+    vw_throw(ArgumentErr() << "Expecting a 4x4 affine transform.");
+
+  for (int col = 0; col < pc.cols(); col++) {
+    for (int row = 0; row < pc.rows(); row++) {
+      
+      if (subvector(pc(col, row), 0, 3) == Vector3())
+        continue; // outlier
+      
+      // Create homogeneous coordinates
+      Vector<double, 4> Q;
+      subvector(Q, 0, 3) = subvector(pc(col, row), 0, 3);
+      Q[3] = 1; 
+        
+      // Apply transform
+      Q = T * Q;
+
+      // Copy back
+      subvector(pc(col, row), 0, 3) = subvector(Q, 0, 3);
+    }
+  }
+}
+
+// Find the surface normal at a given pixel based on the 3x3 neighborhood.
+// Return true on success.
+bool surfaceNormal(ImageView<Vector<double, 4>> const& point_image,
+                   int col, int row, Vector3 & N) {
+
+  // Initialize the output
+  N = Vector3();
+
+  // Find the nearby points
+  std::vector<Eigen::Vector3d> near_points;
+  for (int c = col - 1; c <= col + 1; c++) {
+    for (int r = row - 1; r <= row + 1; r++) {
+      if (c < 0 || c >= point_image.cols()) 
+        continue;
+      if (r < 0 || r >= point_image.rows()) 
+        continue;
+      
+      Vector<double, 4> const& Q = point_image(c, r);
+      if (Q == Vector<double, 4>()) 
+        continue; // outlier
+
+      near_points.push_back(Eigen::Vector3d(Q[0], Q[1], Q[2]));
+    }
+  }
+  
+  if (near_points.size() < 5) 
+    return false;
+  
+  Eigen::Vector3d plane_normal, centroid;
+  asp::bestFitPlane(near_points, centroid, plane_normal);
+  N = Vector3(plane_normal[0], plane_normal[1], plane_normal[2]);
+
+  if (N != N) 
+    return false; // NaN
+  
+  return true;
 }
 
 int main(int argc, char *argv[]) {
@@ -131,15 +201,15 @@ int main(int argc, char *argv[]) {
     // TODO(oalexan1): Support also 3 channels
     int num_channels = get_num_channels(opt.input_cloud);
     if (num_channels != 4) 
-      vw_throw( ArgumentErr() << "The input point cloud must have 4 channels.");
+      vw_throw(ArgumentErr() << "The input point cloud must have 4 channels.");
 
     std::string ext = fs::extension(opt.output_cloud);
     boost::algorithm::to_lower(ext);
     if (ext != ".tif" && ext != ".pcd" && ext != ".ply") 
-      vw_throw( ArgumentErr() << "The output point cloud extension must be .tif, .pcd, or .ply.");
+      vw_throw(ArgumentErr() << "The output point cloud extension must be .tif, .pcd, or .ply.");
     
     // Read the point cloud fully in memory, and remove any offset
-    ImageViewRef<Vector<double, 4>> point_image = asp::read_asp_point_cloud<4>(opt.input_cloud);
+    ImageView<Vector<double, 4>> point_image = asp::read_asp_point_cloud<4>(opt.input_cloud);
     std::cout << "Read point cloud: " << opt.input_cloud << std::endl;
 
     // Load the texture or set it to 1
@@ -161,9 +231,10 @@ int main(int argc, char *argv[]) {
         }
       }
     }
-    
+
+    // Sanity check
     if (point_image.cols() != texture.cols() || point_image.rows() != texture.rows())
-    vw_throw( ArgumentErr() << "The input point cloud and texture must have the same dimensions.");
+    vw_throw(ArgumentErr() << "The input point cloud and texture must have the same dimensions.");
 
     // Load the camera
     vw::camera::PinholeModel cam;
@@ -178,7 +249,8 @@ int main(int argc, char *argv[]) {
     }
     vw::Matrix<double> world2cam = inverse(cam2world);
 
-    // TODO(oalexan1): Transform point_image to camera coordinates right here
+    // Transform the cloud to camera coordinates (if world2cam is read)
+    applyAffineTransform(point_image, world2cam);
 
     ImageView<float> weight(point_image.cols(), point_image.rows());
     ImageView<float> out_texture(point_image.cols(), point_image.rows());
@@ -194,39 +266,28 @@ int main(int argc, char *argv[]) {
     // Camera direction, in camera's coordinate system
     Vector3 cam_dir(0.0, 0.0, 1.0);
 
-    double max_err = opt.max_valid_triangulation_error;
     for (int col = 0; col < point_image.cols(); col++) {
       for (int row = 0; row < point_image.rows(); row++) {
         
-        Vector<double, 4> P = point_image(col, row);
+        Vector<double, 4> const& P = point_image(col, row); // alias
         if (subvector(P, 0, 3) == Vector3() ||
             (has_texture_nodata && texture(col, row) == texture_nodata) ||
-            (max_err > 0 && P[3] > max_err)) {
+            (opt.max_valid_triangulation_error > 0 && P[3] > opt.max_valid_triangulation_error)) {
           continue; // outlier
         }
 
-        // // TODO(oalexan1): Hide the details in a function
-        
-        // Create homogeneous coordinates
-        Vector<double, 4> Q;
-        subvector(Q, 0, 3) = subvector(P, 0, 3);
-        Q[3] = 1; 
-        
-        // Convert to camera's coordinate system, as expected by voxblox
-        Q = world2cam * Q;
-
-        // TODO(oalexan1): This is fragile. Move to function
-        Vector3 Q3 = subvector(Q, 0, 3);
+        // The first 3 coordinates of P
+        Vector3 Q = subvector(P, 0, 3);
 
         if (opt.max_distance_from_camera > 0 &&
-            norm_2(Q3) > opt.max_distance_from_camera) {
+            norm_2(Q) > opt.max_distance_from_camera) {
           continue; // outlier
         }
         
         // All points are given equal weight for now
         double wt = 1.0;
         if (opt.distance_from_camera_weight_power > 0) {
-          double dist = norm_2(Q3);
+          double dist = norm_2(Q);
           if (dist == 0.0) 
             continue; // outlier
           
@@ -236,40 +297,14 @@ int main(int argc, char *argv[]) {
         if (opt.max_camera_ray_to_surface_normal_angle > 0 ||
             opt.max_camera_dir_to_surface_normal_angle > 0) {
 
-          // TODO(oalexan1): This must be a function
-          // Find the surface normal 
-          std::vector<Eigen::Vector3d> near_points;
-          for (int c = col - 1; c <= col + 1; c++) {
-            for (int r = row - 1; r <= row + 1; r++) {
-              if (c < 0 || c >= point_image.cols()) 
-                continue;
-              if (r < 0 || r >= point_image.rows()) 
-                continue;
-
-              // TODO(oalexan1): Too much code repetition here
-              Vector<double, 4> P0 = point_image(c, r);
-              if (P0 == Vector<double, 4>()) 
-                continue; // outlier
-              // Create homogeneous coordinates
-              Vector<double, 4> Q0;
-              subvector(Q0, 0, 3) = subvector(P0, 0, 3);
-              Q0[3] = 1; 
-              // Convert to camera's coordinate system, as expected by voxblox
-              Q0 = world2cam * Q0;
-              
-              near_points.push_back(Eigen::Vector3d(Q0[0], Q0[1], Q0[2]));
-            }
-          }
-
-          if (near_points.size() < 5) 
+          // Find the surface normal
+          Vector3 N;
+          if (!surfaceNormal(point_image, col, row, N))
             continue; // outlier
-          Eigen::Vector3d plane_normal, centroid;
-          asp::bestFitPlane(near_points, centroid, plane_normal);
-          Vector3 N(plane_normal[0], plane_normal[1], plane_normal[2]);
-
+            
           if (opt.max_camera_ray_to_surface_normal_angle > 0) {
             // Use abs as the normal can point in either direction
-            double prod = std::abs(dot_prod(Q3, N) / norm_2(Q3) / norm_2(N));
+            double prod = std::abs(dot_prod(Q, N) / norm_2(Q) / norm_2(N));
             double angle = acos(prod) * (180.0 / M_PI);
             if (std::isnan(angle) || std::isinf(angle) ||
                 angle > opt.max_camera_ray_to_surface_normal_angle)
@@ -286,7 +321,7 @@ int main(int argc, char *argv[]) {
         
         if (opt.max_camera_dir_to_camera_ray_angle > 0) {
 
-          double prod = std::abs(dot_prod(Q3, cam_dir)/ norm_2(Q3) / norm_2(cam_dir));
+          double prod = std::abs(dot_prod(Q, cam_dir)/ norm_2(Q) / norm_2(cam_dir));
           double angle = acos(prod) * (180.0 / M_PI);
           if (std::isnan(angle) || std::isinf(angle))
             continue; // something went wrong
@@ -329,40 +364,19 @@ int main(int argc, char *argv[]) {
         (output_image, dist, has_georef, georef, has_nodata, nodata, opt,
          TerminalProgressCallback("asp", "\t--> Correlation quality:"));
 #endif
-      
+
+      // Adjust the weight by the normalized distance raised to given power
       for (int col = 0; col < dist.cols(); col++) {
         for (int row = 0; row < dist.rows(); row++) {
-          // Normalize to [0, 1]
           dist(col, row) = pow(dist(col, row) / opt.blending_dist, opt.blending_power);
-          // Use this to adjust the weight
           weight(col, row) *= dist(col, row);
         }
       }
 
     }
 
-    if (!opt.transform_to_camera_coordinates) {
-      // Convert back to world coordinates
-      for (int col = 0; col < clean_points.cols(); col++) {
-        for (int row = 0; row < clean_points.rows(); row++) {
-          
-          Vector<double, 4> P = clean_points(col, row);
-          if (subvector(P, 0, 3) == Vector3()) 
-            continue; // outlier
-
-          // TODO(oalexan1): Put the repeated logic in a function
-          // Create homogeneous coordinates
-          Vector<double, 4> Q;
-          subvector(Q, 0, 3) = subvector(P, 0, 3);
-          Q[3] = 1; 
-          
-          // Convert to world coordinates
-          Q = cam2world * Q;
-          Q[3] = P[3]; // copy back the intersection error
-          clean_points(col, row) = Q;
-        }
-      }
-    }
+    if (!opt.transform_to_camera_coordinates)
+      applyAffineTransform(clean_points, cam2world); // convert back to world
 
     // Save as .tif, .pcd, or .pcl
     if (ext == ".tif") {
