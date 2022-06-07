@@ -89,7 +89,7 @@ void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
       }
     }
 
-    pcl::io::savePCDFileASCII(cloud_file, pc);
+    pcl::io::savePCDFileBinary(cloud_file, pc);
 
   } else {
         
@@ -117,7 +117,7 @@ void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
     pc.points.resize(count + 1);
     pc.width = count + 1;
     pc.height = 1;
-    pcl::io::savePLYFileASCII(cloud_file, pc);
+    pcl::io::savePLYFileBinary(cloud_file, pc);
   }
   
   return;

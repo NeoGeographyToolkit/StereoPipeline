@@ -449,6 +449,38 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
     output_file = input_file;
   }
 
+// A little function whose goal is to avoid repeating same logic in a handful of places
+void crop_bathy_mask(vw::cartography::GdalWriteOptions const& options,
+                     std::string const& input_mask_file, std::string const& input_image_file,
+                     BBox2i const& crop_win, std::string const& cropped_mask_file) {
+  
+  if (input_mask_file == "") 
+    vw_throw( ArgumentErr() << "Required bathy mask file was not specified.");
+
+  // Sanity check, input image and mask must have same size
+  DiskImageView<float> input_image(input_image_file);
+  DiskImageView<float> input_bathy_mask(input_mask_file);
+  if (input_bathy_mask.cols() != input_image.cols() ||
+      input_bathy_mask.rows() != input_image.rows()) 
+    vw_throw(ArgumentErr() << "Input image and input bathy mask don't have the same dimensions.");
+  
+  float mask_nodata_value = -std::numeric_limits<float>::max();
+  if (!vw::read_nodata_val(input_mask_file, mask_nodata_value))
+    vw_throw(ArgumentErr() << "Unable to read the nodata value from " << input_mask_file);
+
+  vw::cartography::GeoReference georef;
+  bool has_georef = read_georeference(georef, input_image_file);
+
+  bool has_mask_nodata = true;
+  vw_out() << "\t--> Writing cropped mask: " << cropped_mask_file << "\n";
+  block_write_gdal_image(cropped_mask_file,
+                         crop(input_bathy_mask, crop_win),
+                         has_georef, crop(georef, crop_win),
+                         has_mask_nodata, mask_nodata_value,
+                         options,
+                         TerminalProgressCallback("asp", "\t:  "));
+}
+  
 bool StereoSession::
 shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
                           std::string const                 & left_input_file,
@@ -574,32 +606,6 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
                            has_nodata, left_nodata_value,
                            options,
                            TerminalProgressCallback("asp", "\t:  "));
-    
-    if (do_bathy) {
-      std::string left_bathy_mask_file = stereo_settings().left_bathy_mask;
-      if (left_bathy_mask_file == "") 
-        vw_throw( ArgumentErr() << "The left bathy mask file was not specified.");
-    
-      DiskImageView<float> left_bathy_mask(left_bathy_mask_file);
-      if (left_bathy_mask.cols() != left_orig_image.cols() ||
-          left_bathy_mask.rows() != left_orig_image.rows()) 
-        vw_throw(ArgumentErr() << "The left image and left bathy "
-                 << "mask don't have the same dimensions.");
-    
-      float left_mask_nodata_value = -std::numeric_limits<float>::max();
-      if (!vw::read_nodata_val(left_bathy_mask_file, left_mask_nodata_value))
-        vw_throw(ArgumentErr() << "Unable to read the nodata value from " << left_bathy_mask_file);
-    
-      bool has_mask_nodata = true;
-      std::string left_cropped_mask_file = left_cropped_bathy_mask();
-      vw_out() << "\t--> Writing cropped image: " << left_cropped_mask_file << "\n";
-      block_write_gdal_image(left_cropped_mask_file,
-                             crop(left_bathy_mask, left_win),
-                             has_left_georef, crop(left_georef, left_win),
-                             has_mask_nodata, left_mask_nodata_value,
-                             options,
-                             TerminalProgressCallback("asp", "\t:  "));
-    }
   }
   
   if (crop_right) {
@@ -632,31 +638,6 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
                            has_nodata, right_nodata_value,
                            options,
                            TerminalProgressCallback("asp", "\t:  "));
-    if (do_bathy) {
-      std::string right_bathy_mask_file = stereo_settings().right_bathy_mask;
-      if (right_bathy_mask_file == "") 
-        vw_throw( ArgumentErr() << "The right bathy mask file was not specified.");
-    
-      DiskImageView<float> right_bathy_mask(right_bathy_mask_file);
-      if (right_bathy_mask.cols() != right_orig_image.cols() ||
-          right_bathy_mask.rows() != right_orig_image.rows()) 
-        vw_throw(ArgumentErr() << "The right image and right bathy "
-                 << "mask don't have the same dimensions.");
-    
-      float right_mask_nodata_value = -std::numeric_limits<float>::max();
-      if (!vw::read_nodata_val(right_bathy_mask_file, right_mask_nodata_value))
-        vw_throw(ArgumentErr() << "Unable to read the nodata value from " << right_bathy_mask_file);
-    
-      bool has_mask_nodata = true;
-      std::string right_cropped_mask_file = right_cropped_bathy_mask();
-      vw_out() << "\t--> Writing cropped image: " << right_cropped_mask_file << "\n";
-      block_write_gdal_image(right_cropped_mask_file,
-                             crop(right_bathy_mask, right_win),
-                             has_right_georef, crop(right_georef, right_win),
-                             has_mask_nodata, right_mask_nodata_value,
-                             options,
-                             TerminalProgressCallback("asp", "\t:  "));
-    }
   }
   
   // Re-read the georef, since it may have changed above.
@@ -671,14 +652,10 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
   return false; // don't exit early
 }
 
-void StereoSession::read_bathy_masks
-(ImageViewRef<vw::PixelMask<float>> const& left_masked_image,
- ImageViewRef<vw::PixelMask<float>> const& right_masked_image,
- float & left_bathy_nodata, 
- float & right_bathy_nodata, 
- vw::ImageViewRef<vw::PixelMask<float>> & left_bathy_mask,
- vw::ImageViewRef<vw::PixelMask<float>> & right_bathy_mask) {
-
+void StereoSession::read_bathy_masks(float & left_bathy_nodata,  float & right_bathy_nodata, 
+                                     vw::ImageViewRef<vw::PixelMask<float>> & left_bathy_mask,
+                                     vw::ImageViewRef<vw::PixelMask<float>> & right_bathy_mask) {
+  
   std::string left_cropped_mask_file = left_cropped_bathy_mask();
   left_bathy_nodata = -std::numeric_limits<float>::max();
   if (!vw::read_nodata_val(left_cropped_mask_file, left_bathy_nodata))
@@ -697,10 +674,12 @@ void StereoSession::read_bathy_masks
   
   // The left image (after crop) better needs to have the same dims
   // as the left mask after crop, and same for the right
-  if (left_bathy_mask.cols() != left_masked_image.cols()   || 
-      left_bathy_mask.rows() != left_masked_image.rows()   || 
-      right_bathy_mask.cols() != right_masked_image.cols() || 
-      right_bathy_mask.rows() != right_masked_image.rows() ) {
+  DiskImageView<float> left_image(this->left_cropped_image());
+  DiskImageView<float> right_image(this->right_cropped_image());
+  if (left_bathy_mask.cols() != left_image.cols()   || 
+      left_bathy_mask.rows() != left_image.rows()   || 
+      right_bathy_mask.cols() != right_image.cols() || 
+      right_bathy_mask.rows() != right_image.rows() ) {
     vw_throw( ArgumentErr() << "The dimensions of bathymetry masks don't agree "
               << "with the image sizes (after crop win, if applicable)." );
   }
@@ -733,6 +712,164 @@ bool StereoSession::do_bathymetry() const {
           stereo_settings().right_bathy_mask != "");
 }
 
+// Align the bathy masks. This will be called in stereo_pprc and, if
+// needed, in stereo_tri. Skip this if the masks already exit and are
+// not older than the images. This code mirrors very closely the logic
+// for how the images are aligned.
+void StereoSession::align_bathy_masks(vw::cartography::GdalWriteOptions const& options) {
+
+  bool do_bathy = StereoSession::do_bathymetry();
+  
+  if (!do_bathy)
+    return;
+
+  // Check the timestamp of aligned masks
+  std::vector<std::string> check_files;
+  check_files.push_back(m_left_image_file);
+  check_files.push_back(m_right_image_file);
+  check_files.push_back(m_left_camera_file);
+  check_files.push_back(m_right_camera_file);
+  check_files.push_back(stereo_settings().left_bathy_mask);
+  check_files.push_back(stereo_settings().right_bathy_mask);
+  
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  
+  bool rebuild = (!is_latest_timestamp(left_aligned_bathy_mask(), check_files) ||
+                  !is_latest_timestamp(right_aligned_bathy_mask(), check_files));
+  
+  if (!rebuild && !crop_left && !crop_right) {
+    try {
+      vw_log().console_log().rule_set().add_rule(-1, "fileio");
+      DiskImageView<float> left_bathy_mask (left_aligned_bathy_mask());
+      DiskImageView<float> right_bathy_mask(right_aligned_bathy_mask());
+      
+      vw_out(InfoMessage) << "\t--> Using cached aligned bathy masks.\n";
+      vw_settings().reload_config();
+      return; // no need to rebuild, the results exit and are good
+      
+    } catch (vw::ArgumentErr const& e) {
+      // This throws on a corrupted file.
+      vw_settings().reload_config();
+    } catch (vw::IOErr const& e) {
+      vw_settings().reload_config();
+    }
+  } // End check for existing output files
+
+  // See if to crop the masks
+  if (crop_left) {
+    DiskImageView<float> left_orig_image(m_left_image_file);
+    BBox2i left_win = stereo_settings().left_image_crop_win;
+    left_win.crop(bounding_box(left_orig_image));
+    crop_bathy_mask(options, stereo_settings().left_bathy_mask,  
+                    m_left_image_file, left_win, left_cropped_bathy_mask());
+  }
+  if (crop_right) {
+    DiskImageView<float> right_orig_image(m_right_image_file);
+    BBox2i right_win = stereo_settings().right_image_crop_win;
+    right_win.crop(bounding_box(right_orig_image));
+    crop_bathy_mask(options, stereo_settings().right_bathy_mask,  
+                    m_right_image_file, right_win, right_cropped_bathy_mask());
+  }
+  
+  // Read the unaligned cropped masks
+  ImageViewRef<PixelMask<float>> left_bathy_mask, right_bathy_mask;
+  float left_bathy_nodata = -std::numeric_limits<float>::max();
+  float right_bathy_nodata = -std::numeric_limits<float>::max();
+  StereoSession::read_bathy_masks(left_bathy_nodata, right_bathy_nodata,
+                                  left_bathy_mask, right_bathy_mask);
+
+  // Use no-data in interpolation and edge extension.
+  PixelMask<float>bathy_nodata_pix(0); bathy_nodata_pix.invalidate();
+  ValueEdgeExtension<PixelMask<float>> bathy_ext_nodata(bathy_nodata_pix); 
+
+  // Get the aligned size from the images already aligned
+  Vector2i left_size = file_image_size(this->m_out_prefix + "-L.tif");
+
+  // Read alignment matrices
+  Matrix<double> align_left_matrix = math::identity_matrix<3>();
+  std::string left_matrix_file = this->m_out_prefix + "-align-L.exr";
+  if (stereo_settings().alignment_method == "affineepipolar" ||
+      stereo_settings().alignment_method == "local_epipolar") {
+    if (boost::filesystem::exists(left_matrix_file))
+      read_matrix(align_left_matrix, left_matrix_file);
+    else
+      vw_throw(NoImplErr() << "Could not read: " << left_matrix_file);
+  }
+
+  Matrix<double> align_right_matrix = math::identity_matrix<3>();
+  std::string right_matrix_file = this->m_out_prefix + "-align-R.exr";
+  if (stereo_settings().alignment_method == "homography"     ||
+      stereo_settings().alignment_method == "affineepipolar" ||
+      stereo_settings().alignment_method == "local_epipolar") {
+    if (boost::filesystem::exists(right_matrix_file))
+      read_matrix(align_right_matrix, right_matrix_file);
+    else
+      vw_throw(NoImplErr() << "Could not read " << right_matrix_file);
+  }
+
+  // Generate aligned versions of the masks according to the options.
+  ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
+  if (stereo_settings().alignment_method == "homography"     ||
+      stereo_settings().alignment_method == "affineepipolar" ||
+      stereo_settings().alignment_method == "local_epipolar") {
+    
+    left_aligned_bathy_mask = transform(left_bathy_mask,
+                                        HomographyTransform(align_left_matrix),
+                                        left_size.x(), left_size.y());
+
+    // Note how we use left_size and not right_size
+    right_aligned_bathy_mask = transform(right_bathy_mask,
+                                         HomographyTransform(align_right_matrix),
+                                         left_size.x(), left_size.y());
+    
+  } else if (stereo_settings().alignment_method == "none") {
+    // No alignment
+    left_aligned_bathy_mask  = left_bathy_mask;
+    right_aligned_bathy_mask = right_bathy_mask;
+  } // End of image alignment block
+
+  bool has_bathy_nodata = true;
+  float output_nodata = -32768.0;
+  
+  // Read the georef of the cropped left and right images saved before the masks
+  vw::cartography::GeoReference left_georef, right_georef;
+  bool has_left_georef  = read_georeference(left_georef,  this->left_cropped_image());
+  bool has_right_georef = read_georeference(right_georef, this->right_cropped_image());
+  
+  std::string left_aligned_bathy_mask_file = StereoSession::left_aligned_bathy_mask();
+  vw_out() << "\t--> Writing: " << left_aligned_bathy_mask_file << ".\n";
+  block_write_gdal_image(left_aligned_bathy_mask_file,
+                         apply_mask(left_aligned_bathy_mask, left_bathy_nodata),
+                         has_left_georef, left_georef,
+                         has_bathy_nodata, left_bathy_nodata, options,
+                         TerminalProgressCallback("asp","\t  L bathy mask:  "));
+
+  // Use same logic as when the right aligned image is written
+  if (stereo_settings().alignment_method == "none") {
+    std::string right_aligned_bathy_mask_file = StereoSession::right_aligned_bathy_mask();
+    vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
+    block_write_gdal_image(right_aligned_bathy_mask_file,
+                           apply_mask(right_aligned_bathy_mask, right_bathy_nodata),
+                           has_right_georef, right_georef,
+                           has_bathy_nodata, right_bathy_nodata, options,
+                           TerminalProgressCallback("asp","\t  R bathy mask:  "));
+  } else {
+    std::string right_aligned_bathy_mask_file = StereoSession::right_aligned_bathy_mask();
+    vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
+    block_write_gdal_image(right_aligned_bathy_mask_file,
+                           apply_mask(crop(edge_extend(right_aligned_bathy_mask,
+                                                       bathy_ext_nodata),
+                                           // Note how we use the left aligned mask bbox
+                                           bounding_box(left_aligned_bathy_mask)),
+                                      right_bathy_nodata),
+                           has_right_georef, right_georef,
+                           has_bathy_nodata, right_bathy_nodata,
+                           options,
+                           TerminalProgressCallback("asp","\t  R bathy mask:  ") );
+  }
+}
+  
 // Return the left and right cropped images. These are the same
 // as the input images unless the cropping is on.
 std::string StereoSession::left_cropped_image() const{

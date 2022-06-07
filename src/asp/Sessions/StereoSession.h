@@ -50,6 +50,7 @@ namespace asp {
     friend class StereoSessionFactory; // Needed so the factory can call initialize()
 
   public:
+
     virtual ~StereoSession() {}
 
     /// Simple typedef of a factory function that creates a StereoSession instance
@@ -214,6 +215,10 @@ namespace asp {
     void read_aligned_bathy_masks
     (vw::ImageViewRef< vw::PixelMask<float> > & left_aligned_bathy_mask_image,
      vw::ImageViewRef< vw::PixelMask<float> > & right_aligned_bathy_mask_image);
+
+    // Align the bathy masks. This will be called in stereo_pprc and, if needed,
+    // in stereo_tri
+    void align_bathy_masks(vw::cartography::GdalWriteOptions const& options);
     
   protected: // Variables
 
@@ -274,9 +279,7 @@ namespace asp {
                           std::string const& camera_file,
                           vw::Vector2 pixel_offset) const;
     
-    void read_bathy_masks(vw::ImageViewRef< vw::PixelMask<float> > const& left_masked_image,
-                          vw::ImageViewRef< vw::PixelMask<float> > const& right_masked_image,
-                          float & left_bathy_nodata, 
+    void read_bathy_masks(float & left_bathy_nodata, 
                           float & right_bathy_nodata, 
                           vw::ImageViewRef< vw::PixelMask<float> > & left_bathy_mask,
                           vw::ImageViewRef< vw::PixelMask<float> > & right_bathy_mask);

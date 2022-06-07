@@ -74,6 +74,8 @@ appropriately set the ``ISISDATA`` environment variable. This is
 normally performed for the user by starting up the conda ISIS 
 environment.
 
+.. _isis_start:
+
 Quick start for ISIS users
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 

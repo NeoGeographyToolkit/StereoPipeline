@@ -815,6 +815,14 @@ namespace asp {
         vw_throw(ArgumentErr() << "Bathymetry correction only works with dg, rpc, and "
                  << "nadirpinhole sessions, and mapprojected images for these. Got: "
                  << opt.session->name() << ".\n");
+
+      if (stereo_settings().alignment_method != "homography"     &&
+          stereo_settings().alignment_method != "affineepipolar" &&
+          stereo_settings().alignment_method != "local_epipolar" &&
+          stereo_settings().alignment_method != "none") 
+        vw_throw(ArgumentErr() << "Bathymetry correction only works with alignment methods "
+                 << "homography, affineepipolar, local_epipolar, and none.\n");
+      
     }
 
     // Need the percentage to be more than 50 as we look at the range [100 - pct, pct].

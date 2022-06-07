@@ -34,6 +34,9 @@
 
 namespace asp{
 
+  enum OutlierRemovalMethod {NO_OUTLIER_REMOVAL_METHOD, PERCENTILE_OUTLIER_METHOD,
+                             TUKEY_OUTLIER_METHOD};
+  
   using namespace vw;
 
   typedef std::pair<BBox3, BBox2i> BBoxPair;
@@ -93,7 +96,7 @@ namespace asp{
                         bool    use_surface_sampling,
                         int     pc_tile_size,
                         vw::BBox2 const& projwin,
-                        bool    remove_outliers_with_pct,
+                        OutlierRemovalMethod outlier_removal_method,
                         Vector2 const& remove_outliers_params,
                         ImageViewRef<double> const& error_image,
                         double  estim_max_error,

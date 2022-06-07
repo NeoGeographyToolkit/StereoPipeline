@@ -7,11 +7,23 @@ New tools:
     point clouds created with pinhole cameras.
 
 stereo:
-  * Added the triangulation option --max-valid-triangulation-error
+  * Added the triangulation option ``--max-valid-triangulation-error``
     for removing points at triangulation. This is analogous to the 
     point2dem option but will be invoked at cloud generation, so 
     potentially creating cleaner clouds for other purposes than
     producing DEMs.
+
+  * The option ``--prev-run-prefix`` can be used to start a run
+    with bathymetry modeling at the triangulation stage while
+    reusing the previous stages of a run without such modeling
+    (the needed aligned bathy masks are created, if needed,
+    at the triangulation stage, if not done, as usual, at the 
+    preprocessing stage).
+
+point2dem:
+  * Added Tukey outlier removal method option applied to triangulation
+    errors (75th_pct + 1.5*(75th_pct - 25th_pct)). Also print out
+    these percentages even for the regular outlier removal.
 
 RELEASE 3.1.0, May 18, 2022
 ----------------------------

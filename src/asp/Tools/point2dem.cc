@@ -79,7 +79,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string target_srs_string;
   BBox2       target_projwin;
   int         fsaa, dem_hole_fill_len, ortho_hole_fill_len, ortho_hole_fill_extra_len;
-  bool        remove_outliers_with_pct;
+  bool        remove_outliers_with_pct, use_tukey_outlier_removal;
   Vector2     remove_outliers_params;
   double      max_valid_triangulation_error;
   Vector2     median_filter_params;
@@ -94,13 +94,15 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string out_prefix, output_file_type;
 
   // Defaults that the user doesn't need to see.
-  Options() : nodata_value(-std::numeric_limits<float>::max()),
-      semi_major(0), semi_minor(0), fsaa(1),
-      dem_hole_fill_len(0), ortho_hole_fill_len(0), ortho_hole_fill_extra_len(0),
-      remove_outliers_with_pct(true), max_valid_triangulation_error(0),
-      erode_len(0), search_radius_factor(0), sigma_factor(0),
-      default_grid_size_multiplier(1.0), use_surface_sampling(false),
-      has_las_or_csv_or_pcd(false), max_output_size(9999999, 9999999){}
+  Options():
+    nodata_value(-std::numeric_limits<float>::max()),
+    semi_major(0), semi_minor(0), fsaa(1),
+    dem_hole_fill_len(0), ortho_hole_fill_len(0), ortho_hole_fill_extra_len(0),
+    remove_outliers_with_pct(true), use_tukey_outlier_removal(false),
+    max_valid_triangulation_error(0),
+    erode_len(0), search_radius_factor(0), sigma_factor(0),
+    default_grid_size_multiplier(1.0), use_surface_sampling(false),
+    has_las_or_csv_or_pcd(false), max_output_size(9999999, 9999999){}
 };
 
 void parse_input_clouds_textures(std::vector<std::string> const& files,
@@ -387,8 +389,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
             "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
     ("remove-outliers-params",        po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
             "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor and points too far from the cluster of most points will be removed as outliers. [default: pct=75.0, factor=3.0]")
+    ("use-tukey-outlier-removal", po::bool_switch(&opt.use_tukey_outlier_removal)->default_value(false)->implicit_value(true),
+     "Remove outliers above Q3 + 1.5*(Q3 - Q1). Takes precedence over --remove-outlier-params.")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0),
-            "Outlier removal based on threshold. If positive, points with triangulation error larger than this will be removed from the cloud. Measured in meters. This option takes precedence over --remove-outliers-params.")
+     "Outlier removal based on threshold. If positive, points with triangulation error larger than this will be removed from the cloud. Measured in meters. This option takes precedence over --remove-outliers-params and --use-tukey-outlier-removal.")
+
     ("max-output-size",          po::value(&opt.max_output_size)->default_value(Vector2(9999999, 9999999)),
             "Don't write the output DEM if it is calculated to be this size or greater.")
     ("median-filter-params",          po::value(&opt.median_filter_params)->default_value(Vector2(0, 0),
@@ -535,6 +540,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     // Since the user passed in a threshold, will use that to rm
     // outliers, instead of using the percentage.
     opt.remove_outliers_with_pct = false;
+    opt.use_tukey_outlier_removal = false;
   }
 
   // For compatibility with GDAL, we allow the projwin y coordinate to be flipped.
@@ -1072,18 +1078,28 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
                                              ImageViewRef<double> const& error_image,
                                              double estim_max_error,
                                              vw::BBox3 const& estim_proj_box) {
+
+  asp::OutlierRemovalMethod outlier_removal_method = asp::NO_OUTLIER_REMOVAL_METHOD;
+  if (opt.remove_outliers_with_pct)
+    outlier_removal_method = asp::PERCENTILE_OUTLIER_METHOD;
+  if (opt.use_tukey_outlier_removal) 
+    outlier_removal_method = asp::TUKEY_OUTLIER_METHOD; // takes precedence
+  
   // Perform the slow initialization that can be shared by all output resolutions
   Stopwatch sw1;
   sw1.start();
   vw::Mutex count_mutex; // Need to pass in by pointer due to C++ class restrictions
-  size_t num_invalid_pixels = 0; // Need to pass in by pointer because we can't get back the number from
-                                 //  the original rasterizer object otherwise for some reason.
+  
+  // Need to pass in by pointer because we can't get back the number from
+  //  the original rasterizer object otherwise for some reason.
+  size_t num_invalid_pixels = 0;
+  
   asp::OrthoRasterizerView
     rasterizer(proj_points.impl(), select_channel(proj_points.impl(),2),
                opt.search_radius_factor, opt.sigma_factor, opt.use_surface_sampling,
                asp::ASPGlobalOptions::tri_tile_size(), // to efficiently process the cloud
                opt.target_projwin,
-               opt.remove_outliers_with_pct, opt.remove_outliers_params,
+               outlier_removal_method, opt.remove_outliers_params,
                error_image, estim_max_error, estim_proj_box, opt.max_valid_triangulation_error,
                opt.median_filter_params, opt.erode_len, opt.has_las_or_csv_or_pcd,
                opt.filter, opt.default_grid_size_multiplier,
@@ -1197,13 +1213,15 @@ int main( int argc, char *argv[] ) {
 
     // Set up the error image
     ImageViewRef<double> error_image;
-    if (opt.remove_outliers_with_pct || opt.max_valid_triangulation_error > 0.0){
+    if (opt.remove_outliers_with_pct || opt.use_tukey_outlier_removal ||
+        opt.max_valid_triangulation_error > 0.0){
       error_image = asp::point_cloud_error_image(opt.pointcloud_files);
       
       if (error_image.rows() == 0 || error_image.cols() == 0) {
         vw_out() << "The point cloud files must have an equal number of channels which "
                  << "must be 4 or 6 to be able to remove outliers.\n";
         opt.remove_outliers_with_pct      = false;
+        opt.use_tukey_outlier_removal     = false;
         opt.max_valid_triangulation_error = 0.0;
       }
     }

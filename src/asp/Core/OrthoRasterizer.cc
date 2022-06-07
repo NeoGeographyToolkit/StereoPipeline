@@ -211,8 +211,8 @@ namespace asp{
 
         if (remove_outliers_with_pct){
           ErrorHistAccumulator error_accum(local_hist, m_estim_max_error);
-          for_each_pixel( crop( local_error, blocks[i] - m_image_bbox.min() ),
-                          error_accum );
+          for_each_pixel(crop(local_error, blocks[i] - m_image_bbox.min()),
+                         error_accum);
         }
 
       }
@@ -360,11 +360,42 @@ namespace asp{
       image = copy(buffer);
   }
 
+
+  // Given a histogram as a vector of counts, based on binning values
+  // in the interval [0, max_val] with n bins, find a given percentile
+  // error. Here, pct is in [0, 100].
+  double percentile_error(std::vector<double> const& hist, double max_val, double pct) {
+
+    double pct_ratio = pct / 100.0;
+    
+    // Total number of counts in the histogram
+    int hist_size = hist.size();
+    vw::int64 num_errors = 0;
+    for (int s = 0; s < hist_size; s++)
+      num_errors += hist[s];
+
+    // The index so that the number of counts up to index is the fraction pct/100.0
+    // of the total number of counts.
+    
+    int cutoff_index = 0;
+    vw::int64 sum = 0; // to protect against overflow when adding many numbers
+    for (int s = 0; s < hist_size; s++){
+      sum += hist[s];
+      if (sum >= pct_ratio * num_errors){
+        cutoff_index = s;
+        break;
+      }
+    }
+    
+    return max_val * cutoff_index / double(hist_size);
+  }
+  
   OrthoRasterizerView::OrthoRasterizerView
   (ImageViewRef<Vector3> point_image, ImageViewRef<double> texture,
    double search_radius_factor, double sigma_factor, bool use_surface_sampling, int pc_tile_size,
    vw::BBox2 const& projwin,
-   bool remove_outliers_with_pct, Vector2 const& remove_outliers_params,
+   OutlierRemovalMethod outlier_removal_method,
+   Vector2 const& remove_outliers_params,
    ImageViewRef<double> const& error_image,
    double estim_max_error, vw::BBox3 const& estim_proj_box,
    double max_valid_triangulation_error,
@@ -413,11 +444,11 @@ namespace asp{
     // Compute the bounding box that encompasses tiles within the image
     //
     // They're used for querying what part of the image we need
-    VW_OUT(DebugMessage,"asp") << "Computing raster bounding box...\n";
+    VW_OUT(DebugMessage,"asp") << "Computing raster bounding box.\n";
 
     int num_bins = 1024;
     std::vector<double> errors_hist;
-    if (remove_outliers_with_pct){
+    if (outlier_removal_method != NO_OUTLIER_REMOVAL_METHOD){
       // Need to compute the histogram of all errors in the error image
       errors_hist = std::vector<double>(num_bins, 0.0);
     }
@@ -465,31 +496,49 @@ namespace asp{
 
     VW_OUT(DebugMessage,"asp") << "Point cloud boundary is " << m_bbox << "\n";
 
-    if (remove_outliers_with_pct){
+    if (outlier_removal_method != NO_OUTLIER_REMOVAL_METHOD){
+
+      std::cout << "--here2!" << std::endl;
+      
+      // Per user request, find some error percentiles to print.
+      std::map<double, double> percentiles = {{25.0, 0.0}, {50.0, 0.0}, {75.0, 0.0},
+                                              // The user-percentile
+                                              {remove_outliers_params[0], 0.0}};
+
+      for (auto it = percentiles.begin(); it != percentiles.end(); it++) 
+        percentiles[it->first] = percentile_error(errors_hist, estim_max_error,
+                                                  it->first);
+
+      vw::int64 num_samples = 0; // to protect against overflow when adding many numbers
+      for (int s = 0; s < errors_hist.size(); s++)
+        num_samples += errors_hist[s];
+      
       // Find the outlier cutoff from the histogram of all errors.
       // The cutoff is the outlier factor times the percentile of the errors.
-      double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
-      double factor = remove_outliers_params[1];       // e.g., 3.0
-      int hist_size = errors_hist.size();
-      vw::int64 num_errors = 0;
-      for (int s = 0; s < hist_size; s++)
-        num_errors += errors_hist[s];
-      int cutoff_index = 0;
-      vw::int64 sum = 0;
-      for (int s = 0; s < hist_size; s++){
-        sum += errors_hist[s];
-        if (sum >= pct*num_errors){
-          cutoff_index = s;
-          break;
-        }
-      }
-      // The below is equivalent to sorting all errors in increasing order,
-      // and looking at the error at index pct*num_errors.
-      double error_percentile = estim_max_error*cutoff_index/double(hist_size);
+      double user_percentile = percentiles[remove_outliers_params[0]];
+
+      vw_out() << "Collected a sample of " << num_samples << " positive triangulation errors.\n";
+      vw_out() << "Error percentiles: " 
+               << "Q1 (25%): " << percentiles[25.0] << ", "
+               << "Q2 (50%): " << percentiles[50.0] << ", "
+               << "Q3 (75%): " << percentiles[75.0] << "."
+               << std::endl;
+      
       // Multiply by the outlier factor
-      m_error_cutoff = factor*error_percentile;
-      vw_out() << "Automatic triangulation error cutoff is " << m_error_cutoff
+      if (outlier_removal_method == PERCENTILE_OUTLIER_METHOD) {
+        double factor = remove_outliers_params[1];       // e.g., 3.0
+        m_error_cutoff = factor * user_percentile;
+        vw_out() << "Computing triangulation error cutoff based on --remove-outliers-params.\n";
+      } else if (outlier_removal_method == TUKEY_OUTLIER_METHOD) {
+        vw_out() << "Using as outlier cutoff the Tukey formula Q3 + 1.5*(Q3 - Q1)." << std::endl;
+        m_error_cutoff = percentiles[75.0] + 1.5*(percentiles[75.0] - percentiles[25.0]);
+      } else {
+        vw_throw( ArgumentErr() << "Unexpected choice for outlier removal method.\n" );
+      }
+
+      vw_out() << "Triangulation error cutoff is " << m_error_cutoff
                << " meters.\n";
+      
     }else if (max_valid_triangulation_error > 0.0){
       m_error_cutoff = max_valid_triangulation_error;
       vw_out() << "Manual triangulation error cutoff is " << m_error_cutoff

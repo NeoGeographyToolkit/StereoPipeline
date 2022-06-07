@@ -693,6 +693,13 @@ void stereo_triangulation(std::string const& output_prefix,
     double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos
       (stereo_settings().min_triangulation_angle*M_PI/180);
 
+    // For bathymetry, apply alignment to masks, if it was not done already in preprocessing.
+    // This situation occurs when parallel_stereo is called with --prev-run-prefix,
+    // and the previous run was not a bathy run.
+    bool bathy_correct = opt_vec[0].session->do_bathymetry();
+    if (bathy_correct)
+      opt_vec[0].session->align_bathy_masks(opt_vec[0]);
+    
     // Create both a regular stereo model and a bathy stereo
     // model. Will use the latter only if we do bathymetry. This way
     // the regular stereo model and bathy stereo model can have
@@ -717,7 +724,6 @@ void stereo_triangulation(std::string const& output_prefix,
       vw_throw(ArgumentErr() << "Unknown value for --output-cloud-type.\n");
 
     // Load the bathy plane and masks
-    bool bathy_correct = opt_vec[0].session->do_bathymetry();
     std::vector<BathyPlaneSettings> bathy_plane_set;
     ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
     if (bathy_correct) {

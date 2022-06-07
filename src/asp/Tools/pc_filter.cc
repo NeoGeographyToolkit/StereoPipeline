@@ -22,6 +22,8 @@
 
 // TODO(oalexan1): Add ability to remove blobs
 // Add median filter based on a window of given size and threshold.
+// Make it apply a blur and fill in from neighbors
+// See if saving .pcd as binary will speed up voxblox
 // Save weight image via --weight-image
 // Save the computed weight for each cloud point.
 // Replace max_camera_dir_to_camera_ray_angle with

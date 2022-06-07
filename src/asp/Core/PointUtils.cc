@@ -1255,7 +1255,7 @@ namespace asp {
   
   // A class to pick some samples to estimate the range of values
   // of a given dataset
-  class ErrorRangeEstimAccum : public ReturnFixedType<void> {
+  class ErrorRangeEstimAccum: public ReturnFixedType<void> {
     typedef double accum_type;
     std::vector<accum_type> m_vals;
   public:

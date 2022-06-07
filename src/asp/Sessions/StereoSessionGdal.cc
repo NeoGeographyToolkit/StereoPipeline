@@ -81,23 +81,11 @@ namespace asp {
     Vector6f right_stats = gather_stats(right_masked_image, "right",
                                         this->m_out_prefix, right_cropped_file);
 
-    ImageViewRef<PixelMask<float>> left_bathy_mask, right_bathy_mask;
-    bool do_bathy = StereoSession::do_bathymetry();
-    float left_bathy_nodata = -std::numeric_limits<float>::max();
-    float right_bathy_nodata = -std::numeric_limits<float>::max();
-    if (do_bathy) 
-      StereoSession::read_bathy_masks(left_masked_image, right_masked_image,
-                                      left_bathy_nodata, right_bathy_nodata,
-                                      left_bathy_mask, right_bathy_mask);
-
     ImageViewRef<PixelMask<float>> Limg, Rimg;
-    ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
 
     // Use no-data in interpolation and edge extension.
     PixelMask<float>nodata_pix(0); nodata_pix.invalidate();
-    PixelMask<float>bathy_nodata_pix(0); bathy_nodata_pix.invalidate();
     ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix); 
-    ValueEdgeExtension<PixelMask<float>> bathy_ext_nodata(bathy_nodata_pix); 
     
     // Image alignment block - Generate aligned versions of the input
     // images according to the options.
@@ -124,7 +112,7 @@ namespace asp {
           vw_throw( ArgumentErr() << "ASTER session is expected." );
         aster_session->rpc_camera_models(left_cam, right_cam);
       }
-      
+
       // Detect matching interest points between the left and right input images.
       // The output is written directly to file.
       this->ip_matching(left_cropped_file, right_cropped_file,
@@ -176,30 +164,18 @@ namespace asp {
       Limg = transform(left_masked_image,
 		       HomographyTransform(align_left_matrix),
 		       left_size.x(), left_size.y());
-      if (do_bathy) 
-        left_aligned_bathy_mask = transform(left_bathy_mask,
-                                            HomographyTransform(align_left_matrix),
-                                            left_size.x(), left_size.y());
       
+      // Note how we use left_size and not right_size
       Rimg = transform(right_masked_image,
 		       HomographyTransform(align_right_matrix),
 		       left_size.x(), left_size.y());
-      if (do_bathy) 
-        right_aligned_bathy_mask = transform(right_bathy_mask,
-                                             HomographyTransform(align_right_matrix),
-                                             left_size.x(), left_size.y());
-      
       
     } else if (stereo_settings().alignment_method == "epipolar") {
-      vw_throw(NoImplErr() << "StereoSessionGdal does not support epipolar rectification");
+      vw_throw(NoImplErr() << "StereoSessionGdal does not support epipolar rectification.");
     } else {
       // No alignment, just provide the original files.
       Limg = left_masked_image;
       Rimg = right_masked_image;
-      if (do_bathy) {
-        left_aligned_bathy_mask  = left_bathy_mask;
-        right_aligned_bathy_mask = right_bathy_mask;
-      }
     } // End of image alignment block
 
     // Apply our normalization options.
@@ -227,7 +203,6 @@ namespace asp {
     
     // The output no-data value must be < 0 as we scale the images to [0, 1].
     bool has_nodata = true;
-    bool has_bathy_nodata = true;
     float output_nodata = -32768.0;
 
     // The left image is written out with no alignment warping.
@@ -237,15 +212,6 @@ namespace asp {
                            has_left_georef, left_georef,
                            has_nodata, output_nodata, options,
                            TerminalProgressCallback("asp","\t  L:  "));
-    if (do_bathy) {
-      std::string left_aligned_bathy_mask_file = StereoSession::left_aligned_bathy_mask();
-      vw_out() << "\t--> Writing: " << left_aligned_bathy_mask_file << ".\n";
-      block_write_gdal_image(left_aligned_bathy_mask_file,
-                             apply_mask(left_aligned_bathy_mask, left_bathy_nodata),
-                             has_left_georef, left_georef,
-                             has_bathy_nodata, left_bathy_nodata, options,
-                             TerminalProgressCallback("asp","\t  L bathy mask:  "));
-    }
     
     if (stereo_settings().alignment_method == "none") {
       vw_out() << "\t--> Writing: " << right_output_file << ".\n";
@@ -253,16 +219,6 @@ namespace asp {
                              has_right_georef, right_georef,
                              has_nodata, output_nodata, options,
                              TerminalProgressCallback("asp","\t  R:  "));
-      if (do_bathy) {
-        std::string right_aligned_bathy_mask_file = StereoSession::right_aligned_bathy_mask();
-        vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
-        block_write_gdal_image(right_aligned_bathy_mask_file,
-                               apply_mask(right_aligned_bathy_mask, right_bathy_nodata),
-                               has_right_georef, right_georef,
-                               has_bathy_nodata, right_bathy_nodata, options,
-                               TerminalProgressCallback("asp","\t  R bathy mask:  "));
-      }
-      
     } else {
       // Write out the right image cropped to align with the left image.
       vw_out() << "\t--> Writing: " << right_output_file << ".\n";
@@ -274,19 +230,11 @@ namespace asp {
                              has_right_georef, right_georef,
                              has_nodata, output_nodata, options,
                              TerminalProgressCallback("asp","\t  R:  ") );
-      if (do_bathy) {
-        std::string right_aligned_bathy_mask_file = StereoSession::right_aligned_bathy_mask();
-        vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
-        block_write_gdal_image(right_aligned_bathy_mask_file,
-                               apply_mask(crop(edge_extend(right_aligned_bathy_mask,
-                                                           bathy_ext_nodata), 
-                                               bounding_box(Limg)), right_bathy_nodata),
-                               has_right_georef, right_georef,
-                               has_bathy_nodata, right_bathy_nodata,
-                               options,
-                               TerminalProgressCallback("asp","\t  R bathy mask:  ") );
-      }
     }
+
+    if (this->do_bathymetry())
+      this->align_bathy_masks(options);
+    
   } // End function pre_preprocessing_hook
 
 } // End namespace asp

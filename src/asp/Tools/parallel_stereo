@@ -722,7 +722,7 @@ if __name__ == '__main__':
                    'and full-res disparities for that stage. Do not change ' + \
                    '--left-image-crop-win, etc, when running this.')
     p.add_argument('--prev-run-prefix',           dest='prev_run_prefix', default=None,
-                   help='Start at the triangulation stage while reusing the data from this prefix. The new run can use different cameras, bundle adjustment prefix, or bathy planes (if applicable). Do not change crop windows as that would invalidate the run.')
+                   help='Start at the triangulation stage while reusing the data from this prefix. The new run can use different cameras, bundle adjustment prefix, or bathy planes (if applicable). Do not change crop windows, as that would invalidate the run.')
     p.add_argument('-v', '--version',        dest='version', default=False,
                    action='store_true', help='Display the version of software.')
     p.add_argument('-s', '--stereo-file',    dest='stereo_file', default='./stereo.default',

@@ -383,11 +383,15 @@ Command-line options for point2dem
     too far from the cluster of most points will be removed
     as outliers.
 
+--use-tukey-outlier-removal
+    Remove outliers above Q3 + 1.5*(Q3 - Q1). Takes precedence over
+    ``--remove-outliers-params``.
+
 --max-valid-triangulation-error <float (default: 0)>
     Outlier removal based on threshold. If positive, points with
     triangulation error larger than this will be removed from the
     cloud. Measured in meters. This option takes precedence over
-    --remove-outliers-params.
+    ``--remove-outliers-params`` and ``--use-tukey-outlier-removal``.
 
 --max-output-size <columns rows>
     Creating of the DEM will be aborted if it is calculated to

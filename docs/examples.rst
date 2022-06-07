@@ -150,6 +150,9 @@ single mosaic file with the extension ``.mos_hijitreged.norm.cub``. Be
 warned that the operations carried out by ``hiedr2mosaic.py`` can take
 many hours to complete on the very large HiRISE images.
 
+If you get any errors, make sure you have ISIS and its data installed,
+and the environmental variable ``ISISDATA`` is set (:numref:`isis_start`).
+
 An example of using ASP with HiRISE data is included in the
 ``examples/HiRISE`` directory (just type 'make' there).
 
@@ -616,7 +619,7 @@ row.
 The CSM camera models will assume that this parameter is set at 2, so
 it should not be modified. Note however that WAC framelets may overlap
 by a little more than that, so resulting DEMs may have some artifacts
-at framelet borders, as can be seen furher down.
+at framelet borders, as can be seen further down.
 
 Creation of CSM camera models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3571,32 +3574,34 @@ How to reuse most of a run
 Stereo can take a long time, and the results can have a large size on
 disk. It is possible to reuse most of such a run, using the option
 ``--prev-run-prefix``, if cameras or camera adjustments (option
-``--bundle-adjust-prefix``) get added, removed, or change, or if the
-water surface (``--bathy-plane``) or index of refraction
-change. However, reuse is not possible if it is desired to add or change the
-water-land masks (``--left-bathy-mask`` and ``--right-bathy-mask``),
-but it is possible to stop using these (so if no longer doing
-bathymetry). One must not change ``--left-image-crop-win`` and
-``--right-image-crop-win`` in the meantime, if used, as that may
-invalidate the intermediate files we want to reuse.
+``--bundle-adjust-prefix``) get added, removed, or change, if the
+water surface (``--bathy-plane``) or index of refraction change, or if
+the previous run did not do bathy modeling but the new run does (hence
+the options ``--left-bathy-mask`` and ``--right-bathy-mask`` got
+added).
 
-As an example, consider the run as earlier in this document,
-using land-water masks::
+One must not change ``--left-image-crop-win`` and
+``--right-image-crop-win`` in the meantime, if used, as that may
+invalidate the intermediate files we want to reuse, nor the input
+images. If the previous run did employ bathy masks, and it is desired
+to change them (rather than add them while they were not there
+before), run the ``touch`` command on the new bathy masks, to give
+the software a hint that the alignment of such masks should be redone.
+
+As an example, consider a run with no bathymetry modeling::
 
     parallel_stereo -t dg left.tif right.tif left.xml right.xml         \
-      --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
-      --refraction-index 1.34 --bathy-plane bathy_plane.txt             \
-      run_bathy/run 
+      run_nobathy/run 
  
-A second run, with output prefix ``run_bathy_v2/run`` can be started
+A second run, with output prefix ``run_bathy/run`` can be started
 directly at the triangulation stage while reusing the earlier stages
 from the other run as::
 
     parallel_stereo -t dg left.tif right.tif left.xml right.xml         \
       --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
-      --refraction-index 1.34 --bathy-plane bathy_plane_v2.txt          \
-      --bundle-adjust-prefix ba_v2/run run_bathy_v2/run                 \
-      --prev-run-prefix run_bathy/run
+      --refraction-index 1.34 --bathy-plane bathy_plane.txt             \
+      --bundle-adjust-prefix ba/run run_yesbathy/run                    \
+      --prev-run-prefix run_nobathy/run
 
 The explanation behind the shortcut employed above is that the precise
 cameras and the bathy info are fully used only at the triangulation
@@ -3607,14 +3612,16 @@ primarily on images. This option works by making symbolic links
 to files created at previous stages of stereo which are needed at 
 triangulation.
 
-Note that if the cameras changed, the bathy planes will need to be
-recomputed first, using the updated cameras. The ``bathy_plane_calc``
-tool which is used for that can take into account the updated cameras
-via the ``--bundle-adjust-prefix`` option passed to it. 
+Note that if the cameras changed, the user must recompute the bathy
+planes first, using the updated cameras. The ``bathy_plane_calc`` tool
+which is used for that can take into account the updated cameras via
+the ``--bundle-adjust-prefix`` option passed to it.
 
-Run reuse is not possible if bathy masks are added or changed, because
-the alignment of land-water masks happens at the preprocessing stage,
-and that is why one cannot change these at the triangulation step.
+If the software notices that the current run invoked with
+``--prev-run-prefix`` employs bathy masks, unlike that previous run,
+or that the modification time of the bathy masks passed in is newer
+than of files in that run, it will ingest and align the new masks
+before performing triangulation.
 
 .. _bathy_map:
 
