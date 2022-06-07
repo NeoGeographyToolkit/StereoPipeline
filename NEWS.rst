@@ -21,9 +21,10 @@ stereo:
     preprocessing stage).
 
 point2dem:
-  * Added Tukey outlier removal method option applied to triangulation
-    errors (75th_pct + 1.5*(75th_pct - 25th_pct)). Also print out
-    these percentages even for the regular outlier removal.
+  * Added the Tukey outlier removal method option applied to
+    triangulation errors (error_thresh = 75th_pct + 1.5 * (75th_pct -
+    25th_pct)). Also print out these percentages even for the regular
+    outlier removal.
 
 RELEASE 3.1.0, May 18, 2022
 ----------------------------

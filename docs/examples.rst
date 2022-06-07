@@ -3202,9 +3202,6 @@ those features will be bent according to Snell's law at the water
 interface, hence determining correctly the position of underwater
 terrain.
 
-Published research
-~~~~~~~~~~~~~~~~~~
-
 For an application of this bathymetry module see
 :cite:`palaseanu2021bathy`.
 
@@ -3593,7 +3590,7 @@ As an example, consider a run with no bathymetry modeling::
     parallel_stereo -t dg left.tif right.tif left.xml right.xml         \
       run_nobathy/run 
  
-A second run, with output prefix ``run_bathy/run`` can be started
+A second run, with output prefix ``run_bathy/run``, can be started
 directly at the triangulation stage while reusing the earlier stages
 from the other run as::
 

@@ -343,6 +343,7 @@ namespace asp {
         read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
       if (fs::exists(opt.out_prefix+"-align-R.exr"))
         read_matrix(align_right_matrix, opt.out_prefix + "-align-R.exr");
+      
       vw_out(DebugMessage,"asp") << "Left alignment matrix: "  << align_left_matrix  << "\n";
       vw_out(DebugMessage,"asp") << "Right alignment matrix: " << align_right_matrix << "\n";
     }

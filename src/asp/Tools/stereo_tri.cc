@@ -695,9 +695,12 @@ void stereo_triangulation(std::string const& output_prefix,
 
     // For bathymetry, apply alignment to masks, if it was not done already in preprocessing.
     // This situation occurs when parallel_stereo is called with --prev-run-prefix,
-    // and the previous run was not a bathy run.
+    // and the previous run was not a bathy run. Note that we do not do this
+    // when we skip the point cloud center computation. In that mode we are processing
+    // individual parallel_stereo tiles, and the stereo_tri call which aligns the bathy
+    // masks and computes the cloud center just finished. This is fragile logic.
     bool bathy_correct = opt_vec[0].session->do_bathymetry();
-    if (bathy_correct)
+    if (bathy_correct && !stereo_settings().skip_point_cloud_center_comp)
       opt_vec[0].session->align_bathy_masks(opt_vec[0]);
     
     // Create both a regular stereo model and a bathy stereo

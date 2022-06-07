@@ -496,10 +496,8 @@ namespace asp{
 
     VW_OUT(DebugMessage,"asp") << "Point cloud boundary is " << m_bbox << "\n";
 
-    if (outlier_removal_method != NO_OUTLIER_REMOVAL_METHOD){
+    if (outlier_removal_method != NO_OUTLIER_REMOVAL_METHOD) {
 
-      std::cout << "--here2!" << std::endl;
-      
       // Per user request, find some error percentiles to print.
       std::map<double, double> percentiles = {{25.0, 0.0}, {50.0, 0.0}, {75.0, 0.0},
                                               // The user-percentile
