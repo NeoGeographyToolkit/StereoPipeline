@@ -3685,7 +3685,7 @@ as for the Green band.
 Yet, if desired to do so, a modification is necessary if the mask
 for pixels above water is obtained not from the PAN image itself,
 but from a band of the corresponding multispectral image,
-because those are acquired with a different sensor. 
+because those are acquired with different sensors. 
 
 Starting with a multispectral image mask, one has to first increase
 its resolution by a factor of 4 to make it comparable to the PAN
@@ -3700,7 +3700,7 @@ Any warnings about ``srcwin ... falls partially outside raster
 extent`` should be ignored. GDAL will correctly pad the scaled mask
 with no-data values if it has to grow it to match the PAN image.
 
-To verify that the PAN image and obtaned scaled PAN mask agree,
+To verify that the PAN image and obtained scaled PAN mask agree,
 render them on top of each other in ``stereo_gui``, by choosing
 from the top menu the option ``View->Single window``.
 
