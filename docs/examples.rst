@@ -3338,8 +3338,8 @@ masks will be found from the corresponding images as follows:
 ::
     
     left_thresh=155.1891891891892 
-    image_calc -c "max($left_thresh, var_0)" \
-      --output-nodata-value $left_thresh     \
+    image_calc -c "max($left_thresh, var_0)" -d float32 \
+      --output-nodata-value $left_thresh                \
       left_b7.tif -o left_mask.tif
 
 Here, ``left_b7.tif`` is suggestive of the fact that the band 7 of
@@ -3687,48 +3687,28 @@ for pixels above water is obtained not from the PAN image itself,
 but from a band of the corresponding multispectral image,
 because those are acquired with a different sensor. 
 
-Starting with a multispectral image mask, one has to first 
-increase its resolution by a factor of 4 to make it comparable
-to the PAN image, which can be done as follows:
+Starting with a multispectral image mask, one has to first increase
+its resolution by a factor of 4 to make it comparable to the PAN
+image, then crop about 48 columns on the left, and further crop or
+extend the scaled mask to match the PAN image dimensions.
 
-::
+ASP provides a tool for doing this, which can be called as::
 
-  gdal_translate -co compress=lzw -co TILED=yes -co INTERLEAVE=BAND \
-    -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 -outsize 400% 400%        \
-    mask.tif mask_4x.tif
+    scale_bathy_mask.py ms_mask.tif pan_image.tif output_pan_mask.tif
 
-To inspect the dimensions of the magnified mask and of 
-the PAN image, do:
+Any warnings about ``srcwin ... falls partially outside raster
+extent`` should be ignored. GDAL will correctly pad the scaled mask
+with no-data values if it has to grow it to match the PAN image.
 
-::
+To verify that the PAN image and obtaned scaled PAN mask agree,
+render them on top of each other in ``stereo_gui``, by choosing
+from the top menu the option ``View->Single window``.
 
-  gdalinfo image.tif | grep Size
-
-Then, one has to crop 50 columns from the left side of the mask, which
-can be accomplished, for example, as:
-
-::
-
-  gdal_translate -co compress=lzw -co TILED=yes -co INTERLEAVE=BAND \
-    -co BLOCKXSIZE=256 -co BLOCKYSIZE=256                           \
-    -srcwin 50 0 35180 29072 mask_4x.tif mask_4x_crop.tif
-
-It is believed that the first two numbers passed in to ``-srcwin``
-must always be 50 and 0, hence there should be a crop at the left
-margin and no crop on top. Some digital Globe images may be
-wider/narrower and/or taller/shorter than the mask obtained as above,
-but what is important is that where the 4x mask and the PAN image
-overlap, they must agree perfectly, with no offsets. To verify that,
-render them on top of each other in ``stereo_gui``, with the
-``View->Single window`` mode.
-
-Then, the mask must be made to agree with the PAN image in extent, by 
-finding their dimensions with ``gdalinfo`` as above, and invoking
-``gdal_translate`` again, this time keeping the first two values
-passed in to ``-srcwin`` at ``0 0`` and adjusting the width and height.
-
-These two operations can be realized with a single crop operation
-if computing in advance the bounds to pass in to ``gdal_translate``.
+It is not clear if the number of columns to remove on the left should
+be 48 or 50 pixels. It appears that 48 pixels works better, as in
+resulting in a smaller shift among these images, so this is the
+default.  If desired to experiment with another amount, pass that one
+as an additional argument to the tool, after the output PAN mask.
 
 .. _bathy_non_dg:
 
