@@ -3381,6 +3381,7 @@ Having these in place, stereo can then happen as follows:
     parallel_stereo -t dg left.tif right.tif left.xml right.xml \
       --left-bathy-mask left_mask.tif                           \
       --right-bathy-mask right_mask.tif                         \
+      --stereo-algorithm asp_mgm                                \
       --refraction-index 1.34 --bathy-plane bathy_plane.txt     \
       run_bathy/run 
  
@@ -3473,6 +3474,7 @@ no bathy information::
 
     mv run_bathy/run-DEM.tif run_bathy/run-yesbathy-DEM.tif
     parallel_stereo -t dg left.tif right.tif left.xml right.xml \
+      --stereo-algorithm asp_mgm                                \
       --entry-point 5 run_bathy/run 
     point2dem run_bathy/run-PC.tif -o run_bathy/run-nobathy
     
@@ -3482,7 +3484,7 @@ and colorizing is done as::
 
     geodiff run_bathy/run-nobathy-DEM.tif             \
       run_bathy/run-yesbathy-DEM.tif -o run_bathy/run
-   colormap --min 0 --max 1 run_bathy/run-diff.tif
+    colormap --min 0 --max 1 run_bathy/run-diff.tif
 
 The obtained file, ``run_bathy/run-diff_CMAP.tif``, can be added to
 the ``stereo_gui`` command from above. Colors hotter than blue will be
@@ -3522,6 +3524,7 @@ level. Here's an example for creating the "topo" DEM, just the
 triangulation stage processing needs modification::
 
     parallel_stereo -t dg left.tif right.tif left.xml right.xml \
+      --stereo-algorithm asp_mgm                                \
       <other options>                                           \
       --entry-point 5 --output-cloud-type topo                  \
         run_bathy/run
@@ -3551,6 +3554,7 @@ can be used independently for the left and right images, obtaining
 two such surfaces. These can be passed to ASP as follows::
 
     parallel_stereo --bathy-plane "left_plane.txt right_plane.txt" \
+      --stereo-algorithm asp_mgm                                   \
       <other options>
  
 The computation will go as before until the triangulation stage.
@@ -3595,6 +3599,7 @@ directly at the triangulation stage while reusing the earlier stages
 from the other run as::
 
     parallel_stereo -t dg left.tif right.tif left.xml right.xml         \
+      --stereo-algorithm asp_mgm                                        \
       --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
       --refraction-index 1.34 --bathy-plane bathy_plane.txt             \
       --bundle-adjust-prefix ba/run run_yesbathy/run                    \
@@ -3668,6 +3673,7 @@ masks:
 
     parallel_stereo -t dg left_map.tif right_map.tif   \
       left.xml right.xml                               \
+      --stereo-algorithm asp_mgm                       \
       --left-bathy-mask left_map_mask.tif              \
       --right-bathy-mask right_map_mask.tif            \
       --refraction-index 1.34                          \
@@ -3689,7 +3695,7 @@ because those are acquired with different sensors.
 
 Starting with a multispectral image mask, one has to first increase
 its resolution by a factor of 4 to make it comparable to the PAN
-image, then crop about 48 columns on the left, and further crop or
+image, then crop about 50 columns on the left, and further crop or
 extend the scaled mask to match the PAN image dimensions.
 
 ASP provides a tool for doing this, which can be called as::
@@ -3701,13 +3707,14 @@ extent`` should be ignored. GDAL will correctly pad the scaled mask
 with no-data values if it has to grow it to match the PAN image.
 
 To verify that the PAN image and obtained scaled PAN mask agree,
-render them on top of each other in ``stereo_gui``, by choosing
-from the top menu the option ``View->Single window``.
+overlay them in ``stereo_gui``, by choosing from the top menu the
+option ``View->Single window``.
 
 It is not clear if the number of columns to remove on the left should
-be 48 or 50 pixels. It appears that 48 pixels works better, as in
-resulting in a smaller shift among these images, so this is the
-default.  If desired to experiment with another amount, pass that one
+be 50 or 48 pixels. It appears that 50 pixels works better for WV03
+while 48 pixels may be appropriate for WV02. These were observed
+to result in a smaller shift among these images. The default is 50.
+If desired to experiment with another amount, pass that one
 as an additional argument to the tool, after the output PAN mask.
 
 .. _bathy_non_dg:

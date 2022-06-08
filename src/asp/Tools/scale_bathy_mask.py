@@ -41,7 +41,7 @@ asp_system_utils.verify_python_version_is_supported()
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
 if len(sys.argv) < 4:
-    print("Usage: " + sys.argv[0] + " ms_mask.tif pan_image.tif output_pan_mask.tif")
+    print("Usage: " + sys.argv[0] + " ms_mask.tif pan_image.tif output_pan_mask.tif [num_left_cols_crop]")
     sys.exit(1)
 
 ms_mask = sys.argv[1]
@@ -56,10 +56,11 @@ if not os.path.exists(pan_image):
     sys.exit(1)
 
 # It is not clear how much to crop on the left
-crop_len = 48
+# A value of 50 seems to work better with WV03 and 48 with WV02.
+crop_len = 50
 if len(sys.argv) >= 5:
     crop_len = sys.argv[4]
-print("Will crop " + str(crop_len) + " pixels on the left after scaling the mask.")
+print("Will remove " + str(crop_len) + " columns on the left after scaling the mask.")
 
 output_pan_mask = sys.argv[3]
 tmp_pan_mask = os.path.splitext(output_pan_mask)[0]+'_tmp.tif'
@@ -86,3 +87,6 @@ cmd = gdt + "-srcwin " + str(crop_len) + " 0 " + str(pan_width) + " " + str(pan_
 print(cmd)
 os.system(cmd)
 
+# Wipe the temporary file
+print("Removing: " + tmp_pan_mask)
+os.remove(tmp_pan_mask)
