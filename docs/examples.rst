@@ -3547,11 +3547,12 @@ must be used with ``bathy_plane_calc`` (see
 Validation of alignment
 -----------------------
 
-It is very strongly to use visual inspection in ``stereo_gui`` and the
-``geodiff`` and ``colormap`` tools for differencing DEMs to ensure
-DEMs that are meant to be aligned have small differences. Since
-bathymetry modeling can measure only very shallow water depths,
-any misalignment can result in big errors in final results.
+It is very strongly suggested to use visual inspection in
+``stereo_gui`` and the ``geodiff`` and ``colormap`` tools for
+differencing DEMs to ensure DEMs that are meant to be aligned have
+small differences. Since bathymetry modeling can measure only very
+shallow water depths, any misalignment can result in big errors in
+final results.
 
 If DEMs have parts under water and it is desired to remove those for
 the purpose of alignment, one can take advantage of the fact that the
