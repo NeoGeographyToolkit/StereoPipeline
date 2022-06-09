@@ -414,7 +414,7 @@ void asp::StereoSessionPinhole::load_camera_models(
     return;
   }
 
-  // PinholeModel case is more complicated.  - The camera models
+  // PinholeModel case is more complicated. The camera models
   // returned do not include a crop offset, but the aligned camera
   // models have been shifted so that they are aligned after the crop
   // has been applied.

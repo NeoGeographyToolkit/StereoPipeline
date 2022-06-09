@@ -30,8 +30,13 @@
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Sessions/StereoSessionGdal.h>
 #include <asp/Sessions/StereoSessionASTER.h>
+#include <asp/Sessions/StereoSessionNadirPinhole.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
+
+#include <boost/shared_ptr.hpp>
+#include <boost/filesystem/operations.hpp>
+namespace fs = boost::filesystem;
 
 #include <iostream>
 #include <string>
@@ -63,36 +68,43 @@ void StereoSessionGdal::pre_preprocessing_hook(bool adjust_left_image_size,
                                              has_left_georef,   has_right_georef,
                                              left_georef,       right_georef);
 
-  if (exit_early) return;
-
+  if (exit_early)
+    return;
+  
   // Load the cropped images
   DiskImageView<float> left_disk_image (left_cropped_file),
     right_disk_image(right_cropped_file);
-
+  
   // Set up image masks
   ImageViewRef<PixelMask<float>> left_masked_image
     = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
   ImageViewRef<PixelMask<float>> right_masked_image
     = create_mask_less_or_equal(right_disk_image, right_nodata_value);
-
+  
   // Compute input image statistics
   Vector6f left_stats  = gather_stats(left_masked_image,  "left",
                                       this->m_out_prefix, left_cropped_file);
   Vector6f right_stats = gather_stats(right_masked_image, "right",
                                       this->m_out_prefix, right_cropped_file);
-
+  
   ImageViewRef<PixelMask<float>> Limg, Rimg;
-
+  
   // Use no-data in interpolation and edge extension.
   PixelMask<float>nodata_pix(0); nodata_pix.invalidate();
   ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix); 
-    
+  
   // Image alignment block - Generate aligned versions of the input
   // images according to the options.
-  if (stereo_settings().alignment_method == "homography"     ||
-      stereo_settings().alignment_method == "affineepipolar" ||
-      stereo_settings().alignment_method == "local_epipolar") {
-      
+  if (stereo_settings().alignment_method == "epipolar") {
+    
+    epipolar_alignment(left_masked_image, right_masked_image, ext_nodata,  
+                       // Outputs
+                       Limg, Rimg);
+    
+  } else if (stereo_settings().alignment_method == "homography"     ||
+             stereo_settings().alignment_method == "affineepipolar" ||
+             stereo_settings().alignment_method == "local_epipolar") {
+    
     // Define the file name containing IP match information.
     std::string match_filename    = ip::match_filename(this->m_out_prefix,
                                                        left_cropped_file, right_cropped_file);
@@ -175,15 +187,13 @@ void StereoSessionGdal::pre_preprocessing_hook(bool adjust_left_image_size,
                      HomographyTransform(align_right_matrix),
                      right_size.x(), right_size.y());
       
-  } else if (stereo_settings().alignment_method == "epipolar") {
-    vw_throw(NoImplErr() << "StereoSessionGdal does not support epipolar rectification.");
   } else {
     // No alignment, just provide the original files.
     Limg = left_masked_image;
     Rimg = right_masked_image;
   } // End of image alignment block
-
-    // Apply our normalization options.
+  
+  // Apply our normalization options.
   bool use_percentile_stretch = false;
   bool do_not_exceed_min_max = (this->name() == "isis" ||
                                 this->name() == "isismapisis");
