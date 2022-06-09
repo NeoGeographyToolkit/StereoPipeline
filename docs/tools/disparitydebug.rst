@@ -43,15 +43,14 @@ Command-line options for disparitydebug:
 -h, --help
     Display the help message.
 
---input-file <filename>
-    Explicitly specify the input file.
-
--o, --output-prefix <filename>
+-o, --output-prefix <*string* (default: "")>
     Specify the output file prefix.
 
--t, --output-filetype <type (default: tif)>
+-t, --output-filetype <*string* (default: tif)>
     Specify the output file type.
 
---float-pixels
-    Save the resulting debug images as 32 bit floating point files
-    (if supported by the selected file type).
+--normalization <(*integer integer integer integer*) (default = auto)>
+    Normalization range. Specify in the format: hmin vmin hmax vmax.
+
+--roi <(*integer integer integer integer*) (default = auto)>
+    Region of interest. Specify in the format: xmin ymin xmax ymax.
