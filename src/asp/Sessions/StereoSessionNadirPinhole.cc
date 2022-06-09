@@ -231,7 +231,6 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   
   // The output no-data value must be < 0 as we scale the images to [0, 1].
   bool  has_nodata        = true;
-  bool  has_bathy_nodata  = true;
   float output_nodata     = -32768.0;
 
   vw_out() << "\t--> Writing pre-aligned images.\n";

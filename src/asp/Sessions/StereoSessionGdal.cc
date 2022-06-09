@@ -99,8 +99,6 @@ void StereoSessionGdal::pre_preprocessing_hook(bool adjust_left_image_size,
     std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file);
     std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
 
-    std::cout << "--gdal pprc" << std::endl;
-
     DiskImageView<float> left_orig_image(left_input_file);
 
     // Load the cameras
