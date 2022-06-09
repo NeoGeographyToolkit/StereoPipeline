@@ -111,6 +111,61 @@ asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
   return T;
 }
 
+// Apply epipolar alignment to images, if the camera models are pinhole
+void asp::StereoSessionPinhole::
+epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
+                   vw::ImageViewRef<vw::PixelMask<float>> right_masked_image,
+                   vw::ValueEdgeExtension<vw::PixelMask<float>> ext_nodata,
+                   // Outputs
+                   vw::ImageViewRef<vw::PixelMask<float>> & Limg, 
+                   vw::ImageViewRef<vw::PixelMask<float>> & Rimg) {
+
+  vw_out() << "\t--> Performing epipolar alignment\n";
+
+  // Load the two images and fetch the two camera models
+  boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+
+  std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
+  if (boost::ends_with(lcase_file, ".pinhole") || boost::ends_with(lcase_file, ".tsai")) {
+      
+    // This loads epipolar-aligned camera models.
+    // - The out sizes incorporate the crop amount if any, the camera models 
+    Vector2i left_out_size, right_out_size;
+    load_camera_models(left_cam, right_cam, left_out_size, right_out_size);
+      
+    // Get the input image crop regions, if any.
+    BBox2i left_image_in_roi, right_image_in_roi;
+    get_input_image_crops(left_image_in_roi, right_image_in_roi);
+
+    // Write out the camera models used to generate the aligned images.
+    // - Currently this won't work if we used .adjust files from bundle_adjust.
+    PinholeModel* left_pin_model  = dynamic_cast<PinholeModel*>(left_cam.get ());
+    PinholeModel* right_pin_model = dynamic_cast<PinholeModel*>(right_cam.get());
+    if (left_pin_model)
+      left_pin_model->write(m_out_prefix + "-L.tsai");
+    if (right_pin_model)
+      right_pin_model->write(m_out_prefix + "-R.tsai");
+
+    // Transform the input images to be as if they were captured by the
+    //  epipolar-aligned camera models, aligning the two images.
+    get_epipolar_transformed_pinhole_images(m_left_camera_file, m_right_camera_file,
+                                            left_cam, right_cam,
+                                            left_masked_image, right_masked_image,
+                                            left_image_in_roi, right_image_in_roi,
+                                            left_out_size, right_out_size,
+                                            Limg, Rimg,
+                                            ext_nodata,
+                                            BilinearInterpolation());
+
+  } else { // Handle CAHV derived models
+    camera_models(left_cam, right_cam);
+    get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
+                                    left_cam, right_cam,
+                                    left_masked_image, right_masked_image,
+                                    Limg, Rimg, ext_nodata);
+  }
+}
+
 void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_size,
                                                        std::string const& left_input_file,
                                                        std::string const& right_input_file,
@@ -149,55 +204,17 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
                                       this->m_out_prefix, right_cropped_file);
 
   // Use no-data in interpolation and edge extension.
+  ImageViewRef< PixelMask<float> > Limg, Rimg;
   PixelMask<float> nodata_pix(0);
   nodata_pix.invalidate();
   ValueEdgeExtension< PixelMask<float> > ext_nodata(nodata_pix); 
-  
-  ImageViewRef< PixelMask<float> > Limg, Rimg;
-  std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
-  if ( stereo_settings().alignment_method == "epipolar" ) {
+  if (stereo_settings().alignment_method == "epipolar") {
 
-    vw_out() << "\t--> Performing epipolar alignment\n";
-
-    // Load the two images and fetch the two camera models
-    boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-
-    if ( boost::ends_with(lcase_file, ".pinhole") ||
-         boost::ends_with(lcase_file, ".tsai"   )   ) {
-
-      Vector2i left_out_size, right_out_size;
-      load_camera_models(left_cam, right_cam, left_out_size, right_out_size);
-      
-      // Write out the camera models used to generate the aligned images.
-      dynamic_cast<PinholeModel*>(left_cam.get ())->write(m_out_prefix + "-L.tsai");
-      dynamic_cast<PinholeModel*>(right_cam.get())->write(m_out_prefix + "-R.tsai");
-
-      // Get the input crop ROIs, if any.
-      BBox2i left_image_in_roi, right_image_in_roi;
-      get_input_image_crops(left_image_in_roi, right_image_in_roi);
-
-      // Transform the input images to be as if they were captured by the
-      //  epipolar-aligned camera models, aligning the two images.
-      get_epipolar_transformed_pinhole_images(m_left_camera_file, m_right_camera_file,
-                                              left_cam, right_cam,
-                                              left_masked_image, right_masked_image,
-                                              left_image_in_roi, right_image_in_roi,
-                                              left_out_size, right_out_size,
-                                              Limg, Rimg,
-                                              ext_nodata,
-                                              BilinearInterpolation());
-
-    } else { // Handle CAHV derived models
+    epipolar_alignment(left_masked_image, right_masked_image, ext_nodata,  
+                       // Outputs
+                       Limg, Rimg);
     
-      camera_models(left_cam, right_cam);
-    
-      get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
-                                      left_cam, right_cam,
-                                      left_masked_image, right_masked_image,
-                                      Limg, Rimg, ext_nodata);
-    }
-
   } else if (stereo_settings().alignment_method == "homography") {
 
     vw_out() << "\t--> Performing homography alignment\n";

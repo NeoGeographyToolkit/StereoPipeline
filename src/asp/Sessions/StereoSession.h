@@ -287,6 +287,15 @@ namespace asp {
     std::string left_cropped_bathy_mask() const;
     std::string right_cropped_bathy_mask() const;
 
+    // Apply epipolar alignment to images, if the camera models are pinhole. This will
+    // be reimplemented in StereoSessionPinhole.
+    virtual void epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
+                                    vw::ImageViewRef<vw::PixelMask<float>> right_masked_image,
+                                    vw::ValueEdgeExtension<vw::PixelMask<float>> ext_nodata,
+                                    // Outputs
+                                    vw::ImageViewRef<vw::PixelMask<float>> & Limg, 
+                                    vw::ImageViewRef<vw::PixelMask<float>> & Rimg);
+    
     // Cache here the camera when loaded
     std::map<std::pair<std::string, std::string>, boost::shared_ptr<vw::camera::CameraModel>>
     m_camera_model;

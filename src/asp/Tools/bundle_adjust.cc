@@ -1334,7 +1334,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   if (!opt.apply_initial_transform_only){
     if (!success) {
       vw_out() << "Failed to build a control network. Consider removing "
-               << "the currently found interest point matches and increasing "
+               << "all .vwip and .match files and increasing "
                << "the number of interest points per tile using "
                << "--ip-per-tile, or decreasing --min-matches. Will continue "
                << "if ground control points are present.\n";

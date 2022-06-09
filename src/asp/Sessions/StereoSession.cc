@@ -885,7 +885,18 @@ std::string StereoSession::right_cropped_image() const{
     cropped_image = m_out_prefix + "-R-cropped.tif";
   return cropped_image;
 }
-
+  
+// Apply epipolar alignment to images, if the camera models are pinhole. This will
+// be reimplemented in StereoSessionPinhole.
+void StereoSession::epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
+                                       vw::ImageViewRef<vw::PixelMask<float>> right_masked_image,
+                                       vw::ValueEdgeExtension<vw::PixelMask<float>> ext_nodata,
+                                       // Outputs
+                                       vw::ImageViewRef<vw::PixelMask<float>> & Limg, 
+                                       vw::ImageViewRef<vw::PixelMask<float>> & Rimg) {
+  vw_throw(ArgumentErr() << "Epipolar alignment is only implemented for pinhole cameras.");
+}
+  
 std::string StereoSession::left_cropped_bathy_mask() const {
   if (!do_bathymetry()) 
     vw_throw( ArgumentErr() << "The left cropped bathy mask is requested when "

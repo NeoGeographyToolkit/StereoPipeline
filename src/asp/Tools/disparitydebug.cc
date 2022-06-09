@@ -162,9 +162,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("normalization", po::value(&opt.normalization_range)->default_value(BBox2(0, 0, 0, 0), "auto"),
-     "Normalization range. Specify in format: hmin vmin hmax vmax.")
+     "Normalization range. Specify in the format: hmin vmin hmax vmax.")
     ("roi", po::value(&opt.roi)->default_value(BBox2(0,0,0,0), "auto"),
-     "Region of interest. Specify in format: xmin ymin xmax ymax.")
+     "Region of interest. Specify in the format: xmin ymin xmax ymax.")
     ("save-norm",      po::bool_switch(&opt.save_norm)->default_value(false),
      "Save the norm of the disparity instead of its two bands.")
     ("save-norm-diff",      po::bool_switch(&opt.save_norm_diff)->default_value(false),
