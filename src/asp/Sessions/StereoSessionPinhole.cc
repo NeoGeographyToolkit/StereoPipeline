@@ -58,37 +58,33 @@ asp::StereoSessionPinhole::load_camera_model
 // Helper function for determining image alignment.
 vw::Matrix3x3
 asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
-                                                 std::string const& input_file1,
-                                                 std::string const& input_file2,
-                                                 vw::Vector2 const& uncropped_image_size,
-                                                 Vector6f    const& stats1,
-                                                 Vector6f    const& stats2,
-                                                 float nodata1, float nodata2) {
-  namespace fs = boost::filesystem;
-  using namespace vw;
+                                                 std::string const& left_cropped_file,
+                                                 std::string const& right_cropped_file,
+                                                 vw::Vector2 const& uncropped_left_image_size,
+                                                 Vector6f    const& left_stats,
+                                                 Vector6f    const& right_stats,
+                                                 float left_nodata_value,
+                                                 float right_nodata_value) {
 
-  std::string match_filename    = ip::match_filename(out_prefix, input_file1, input_file2);
-  std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, input_file1);
-  std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, input_file2);
-      
-      
+  std::string match_filename    = ip::match_filename(out_prefix, left_cropped_file,
+                                                     right_cropped_file);
+  std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file);
+  std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
   vw::camera::CameraModel* null_camera_model = 0;
-  this->ip_matching(input_file1, input_file2,
-                    uncropped_image_size,
-                    stats1, stats2,
+  this->ip_matching(left_cropped_file, right_cropped_file,
+                    uncropped_left_image_size,
+                    left_stats, right_stats,
                     stereo_settings().ip_per_tile,
-                    nodata1, nodata2,
+                    left_nodata_value, right_nodata_value,
                     null_camera_model, null_camera_model,
-                    match_filename, left_ip_filename, right_ip_filename
-                   );
+                    match_filename, left_ip_filename, right_ip_filename);
 
-  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-  read_binary_match_file( match_filename,
-                          matched_ip1, matched_ip2 );
+  std::vector<ip::InterestPoint> left_ip, right_ip;
+  read_binary_match_file(match_filename, left_ip, right_ip );
 
   // Get the matrix using RANSAC
-  std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
-  std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
+  std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(left_ip);
+  std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(right_ip);
   Matrix<double> T;
   try {
 
@@ -119,8 +115,6 @@ epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
                    // Outputs
                    vw::ImageViewRef<vw::PixelMask<float>> & Limg, 
                    vw::ImageViewRef<vw::PixelMask<float>> & Rimg) {
-
-  vw_out() << "\t--> Performing epipolar alignment\n";
 
   // Load the two images and fetch the two camera models
   boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
@@ -186,45 +180,52 @@ void asp::StereoSessionPinhole::preprocessing_hook(bool adjust_left_image_size,
                                              left_nodata_value, right_nodata_value,
                                              has_left_georef,   has_right_georef,
                                              left_georef,       right_georef);
+
   if (exit_early)
     return;
-
+  
   // Load the cropped images
-  DiskImageView<float> left_disk_image (left_cropped_file ),
-                       right_disk_image(right_cropped_file);
+  DiskImageView<float> left_disk_image (left_cropped_file),
+    right_disk_image(right_cropped_file);
 
-  ImageViewRef< PixelMask<float> > left_masked_image
+  // Set up image masks
+  ImageViewRef<PixelMask<float>> left_masked_image
     = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
-  ImageViewRef< PixelMask<float> > right_masked_image
+  ImageViewRef<PixelMask<float>> right_masked_image
     = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
+  // Compute input image statistics
   Vector6f left_stats  = gather_stats(left_masked_image,  "left",
                                       this->m_out_prefix, left_cropped_file);
   Vector6f right_stats = gather_stats(right_masked_image, "right",
                                       this->m_out_prefix, right_cropped_file);
 
-  // Use no-data in interpolation and edge extension.
-  ImageViewRef< PixelMask<float> > Limg, Rimg;
-  PixelMask<float> nodata_pix(0);
-  nodata_pix.invalidate();
-  ValueEdgeExtension< PixelMask<float> > ext_nodata(nodata_pix); 
+  ImageViewRef<PixelMask<float>> Limg, Rimg;
 
+  // Use no-data in interpolation and edge extension
+  PixelMask<float>nodata_pix(0); nodata_pix.invalidate();
+  ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix); 
+  
+  // Generate aligned versions of the input images according to the
+  // options.
+  vw_out() << "\t--> Applying alignment method: " << stereo_settings().alignment_method << "\n";
   if (stereo_settings().alignment_method == "epipolar") {
-
+    
     epipolar_alignment(left_masked_image, right_masked_image, ext_nodata,  
                        // Outputs
                        Limg, Rimg);
     
-  } else if (stereo_settings().alignment_method == "homography") {
-
-    vw_out() << "\t--> Performing homography alignment\n";
+  } else if (stereo_settings().alignment_method == "homography"     ||
+             stereo_settings().alignment_method == "affineepipolar" ||
+             stereo_settings().alignment_method == "local_epipolar") {
 
     // We only apply a homography to the left image in the pinhole case
     DiskImageView<float> left_orig_image(left_input_file);
+    vw::Vector2 uncropped_left_image_size = bounding_box(left_orig_image).size();
     Matrix<double> align_matrix
       = determine_image_align(m_out_prefix,
                               left_cropped_file, right_cropped_file,
-                              bounding_box(left_orig_image).size(),
+                              uncropped_left_image_size,
                               left_stats,        right_stats,
                               left_nodata_value, right_nodata_value);
     write_matrix( m_out_prefix + "-align-R.exr", align_matrix );

@@ -108,17 +108,21 @@ namespace asp {
       stereo_settings().bundle_adjust_prefix = l_adj_prefix;
 
     if (uses_rpc_map_projection())
-      m_left_map_proj_model = load_rpc_camera_model(m_left_image_file,  m_left_camera_file, zero_pixel_offset);
+      m_left_map_proj_model = load_rpc_camera_model(m_left_image_file,  m_left_camera_file,
+                                                    zero_pixel_offset);
     else // Use the native model
-      m_left_map_proj_model = load_camera_model(m_left_image_file,  m_left_camera_file, zero_pixel_offset);
+      m_left_map_proj_model = load_camera_model(m_left_image_file,  m_left_camera_file,
+                                                zero_pixel_offset);
 
     stereo_settings().bundle_adjust_prefix = "";
     if (r_adj_prefix != "" && r_adj_prefix != "NONE")
       stereo_settings().bundle_adjust_prefix = r_adj_prefix;
     if (uses_rpc_map_projection())
-      m_right_map_proj_model = load_rpc_camera_model(m_right_image_file, m_right_camera_file, zero_pixel_offset);
+      m_right_map_proj_model = load_rpc_camera_model(m_right_image_file, m_right_camera_file,
+                                                     zero_pixel_offset);
     else // Use the native model
-      m_right_map_proj_model = load_camera_model(m_right_image_file, m_right_camera_file, zero_pixel_offset);
+      m_right_map_proj_model = load_camera_model(m_right_image_file, m_right_camera_file,
+                                                 zero_pixel_offset);
 
     // Go back to the original bundle-adjust prefix now that we have
     // loaded the models used in map-projection.
@@ -152,7 +156,8 @@ namespace asp {
     vw_out() << "\t--> Matching interest points in StereoSession.\n";
 
     if (uses_map_projected_inputs()) {
-      vw_throw( vw::ArgumentErr() << "StereoSession: IP matching is not implemented for map-projected images since we do not align them!");
+      vw_throw( vw::ArgumentErr() << "StereoSession: IP matching is not implemented for "
+                << "map-projected images since we do not align them!");
       return false;
     }
 
@@ -441,12 +446,13 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   
   ImageViewRef<PixelMask<float>> Limg, Rimg;
   
-  // Use no-data in interpolation and edge extension.
+  // Use no-data in interpolation and edge extension
   PixelMask<float>nodata_pix(0); nodata_pix.invalidate();
   ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix); 
   
-  // Image alignment block - Generate aligned versions of the input
-  // images according to the options.
+  // Generate aligned versions of the input images according to the
+  // options.
+  vw_out() << "\t--> Applying alignment method: " << stereo_settings().alignment_method << "\n";
   if (stereo_settings().alignment_method == "epipolar") {
     
     epipolar_alignment(left_masked_image, right_masked_image, ext_nodata,  
@@ -457,14 +463,6 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
              stereo_settings().alignment_method == "affineepipolar" ||
              stereo_settings().alignment_method == "local_epipolar") {
     
-    // Define the file name containing IP match information.
-    std::string match_filename    = ip::match_filename(this->m_out_prefix,
-                                                       left_cropped_file, right_cropped_file);
-    std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file);
-    std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
-
-    DiskImageView<float> left_orig_image(left_input_file);
-
     // Load the cameras
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     if (this->name() != "aster") {
@@ -478,10 +476,18 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
       aster_session->rpc_camera_models(left_cam, right_cam);
     }
 
+    // Define the file name containing IP match information.
+    std::string match_filename    = ip::match_filename(this->m_out_prefix,
+                                                       left_cropped_file, right_cropped_file);
+    std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file);
+    std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
+
     // Detect matching interest points between the left and right input images.
     // The output is written directly to file.
+    DiskImageView<float> left_orig_image(left_input_file);
+    vw::Vector2 uncropped_left_image_size = bounding_box(left_orig_image).size();
     this->ip_matching(left_cropped_file, right_cropped_file,
-                      bounding_box(left_orig_image).size(),
+                      uncropped_left_image_size,
                       left_stats, right_stats,
                       stereo_settings().ip_per_tile,
                       left_nodata_value, right_nodata_value,
@@ -496,7 +502,6 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
     Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
       align_right_matrix = math::identity_matrix<3>();
 
-      
     // Get the image sizes. Later alignment options can choose to
     // change this parameters (such as affine epipolar alignment).
     Vector2i left_size  = file_image_size(left_cropped_file);
@@ -1129,9 +1134,11 @@ getTransformFromMapProject(const std::string &input_dem_path,
   // Read in data necessary for the Map2CamTrans object
   cartography::GeoReference dem_georef, image_georef;
   if (!read_georeference(dem_georef, input_dem_path))
-    vw_throw( ArgumentErr() << "The DEM \"" << input_dem_path << "\" lacks georeferencing information.");
+    vw_throw( ArgumentErr() << "The DEM \"" << input_dem_path
+              << "\" lacks georeferencing information.");
   if (!read_georeference(image_georef, img_file_path))
-    vw_throw( ArgumentErr() << "The image \"" << img_file_path << "\" lacks georeferencing information.");
+    vw_throw( ArgumentErr() << "The image \"" << img_file_path
+              << "\" lacks georeferencing information.");
 
   bool call_from_mapproject = false;
   DiskImageView<float> img(img_file_path);
