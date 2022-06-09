@@ -90,8 +90,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
 
     std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
-    if (boost::ends_with(lcase_file, ".pinhole") ||
-        boost::ends_with(lcase_file, ".tsai"   ) ) {
+    if (boost::ends_with(lcase_file, ".pinhole") || boost::ends_with(lcase_file, ".tsai")) {
       
       // This loads epipolar-aligned camera models.
       // - The out sizes incorporate the crop amount if any, the camera models 
@@ -135,17 +134,12 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
              stereo_settings().alignment_method == "affineepipolar" ||
              stereo_settings().alignment_method == "local_epipolar") {
     
-    // Getting the image sizes. Later alignment options can choose to
-    // change this parameters (such as affine epipolar alignment).
-    Vector2i left_size  = file_image_size(left_cropped_file ),
-      right_size = file_image_size(right_cropped_file);
-    
     // Define the file name containing IP match information.
     std::string match_filename    = ip::match_filename(this->m_out_prefix,
                                                        left_cropped_file, right_cropped_file);
     std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file );
     std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
-    
+
     DiskImageView<float> left_orig_image(left_input_file);
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     camera_models(left_cam, right_cam);
@@ -156,13 +150,19 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                       left_nodata_value, right_nodata_value,
                       left_cam.get(), right_cam.get(),
                       match_filename, left_ip_filename, right_ip_filename);
-
+    
+    // Load the interest points results from the file we just wrote.
     std::vector<ip::InterestPoint> left_ip, right_ip;
     ip::read_binary_match_file(match_filename, left_ip, right_ip);
 
     Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
                    align_right_matrix = math::identity_matrix<3>();
 
+    // Get the image sizes. Later alignment options can choose to
+    // change this parameters (such as affine epipolar alignment).
+    Vector2i left_size  = file_image_size(left_cropped_file);
+    Vector2i right_size = file_image_size(right_cropped_file);
+    
     if ( stereo_settings().alignment_method == "homography" ) {
       left_size = homography_rectification(adjust_left_image_size,
                                            left_size, right_size, left_ip, right_ip,
@@ -171,6 +171,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                << "\t      " << align_left_matrix  << "\n"
                << "\t      " << align_right_matrix << "\n";
     } else {
+      // affineepipolar and local_epipolar
       bool crop_to_shared_area = true;
       left_size
         = affine_epipolar_rectification(left_size, right_size,
@@ -187,6 +188,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     }
     write_matrix(m_out_prefix + "-align-L.exr", align_left_matrix );
     write_matrix(m_out_prefix + "-align-R.exr", align_right_matrix);
+
     // Because the images are now aligned they are the same size
     right_size = left_size;
 
@@ -194,13 +196,12 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     Limg = transform(left_masked_image,
                      HomographyTransform(align_left_matrix),
                      left_size.x(), left_size.y() );
-    
     Rimg = transform(right_masked_image,
                      HomographyTransform(align_right_matrix),
                      right_size.x(), right_size.y() );
     
   } else {
-    // Do nothing just provide the original files.
+    // No alignment, just provide the original files.
     Limg = left_masked_image;
     Rimg = right_masked_image;
   }
@@ -209,6 +210,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   bool use_percentile_stretch = false;
   bool do_not_exceed_min_max = (this->name() == "isis" ||
                                 this->name() == "isismapisis");
+  // TODO(oalexan1): Should one add above "csm" and "csmmapcsm"?
   asp::normalize_images(stereo_settings().force_use_entire_range,
                         stereo_settings().individually_normalize,
                         use_percentile_stretch, 
@@ -234,22 +236,34 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
 
   vw_out() << "\t--> Writing pre-aligned images.\n";
   vw_out() << "\t--> Writing: " << left_output_file << ".\n";
-  block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
-                          has_left_georef, left_georef,
-                          has_nodata, output_nodata,
-                          options,
-                          TerminalProgressCallback("asp","\t  L:  ") );
-  vw_out() << "\t--> Writing: " << right_output_file << ".\n";
-  block_write_gdal_image(right_output_file,
-                         // Force R.tif to be the same size as L.tif.
-                         // Extra pixels get filled with nodata.
-                         apply_mask(crop(edge_extend(Rimg, ext_nodata), 
-                                         bounding_box(Limg)), output_nodata),
-                         has_right_georef, right_georef,
+  block_write_gdal_image(left_output_file, apply_mask(Limg, output_nodata),
+                         has_left_georef, left_georef,
                          has_nodata, output_nodata, options,
-                         TerminalProgressCallback("asp","\t  R:  ") );
+                         TerminalProgressCallback("asp","\t  L:  ") );
+
+  vw_out() << "\t--> Writing: " << right_output_file << ".\n";
+  if (stereo_settings().alignment_method == "none") {
+    // Do not crop the right image to have the same dimensions as the
+    // left image. Since there is no alignment, and images may not be
+    // georeferenced, we do not know what portion of the right image
+    // corresponds best to the left image, so cropping may throw away
+    // an area where the left and right images overlap.
+    block_write_gdal_image(right_output_file, apply_mask(Rimg, output_nodata),
+                           has_right_georef, right_georef,
+                           has_nodata, output_nodata, options,
+                           TerminalProgressCallback("asp","\t  R:  "));
+  } else {
+    // Crop the right aligned image consistently with how the alignment
+    // transform expects it. The resulting R.tif will have the same
+    // size as L.tif. Extra pixels will be filled with nodata.
+    block_write_gdal_image(right_output_file,
+                           apply_mask(crop(edge_extend(Rimg, ext_nodata), 
+                                           bounding_box(Limg)), output_nodata),
+                           has_right_georef, right_georef,
+                           has_nodata, output_nodata, options,
+                           TerminalProgressCallback("asp","\t  R:  ") );
+  }
 
   if (this->do_bathymetry())
     this->align_bathy_masks(options);
-
 }
