@@ -43,14 +43,14 @@ Command-line options for disparitydebug:
 -h, --help
     Display the help message.
 
--o, --output-prefix <*string* (default: "")>
+-o, --output-prefix <string (default: "")>
     Specify the output file prefix.
 
--t, --output-filetype <*string* (default: tif)>
+-t, --output-filetype <string (default: tif)>
     Specify the output file type.
 
---normalization <(*integer integer integer integer*) (default = auto)>
+--normalization <(integer integer integer integer) (default = auto)>
     Normalization range. Specify in the format: hmin vmin hmax vmax.
 
---roi <(*integer integer integer integer*) (default = auto)>
+--roi <(integer integer integer integer) (default = auto)>
     Region of interest. Specify in the format: xmin ymin xmax ymax.
