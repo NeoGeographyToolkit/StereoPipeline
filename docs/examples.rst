@@ -3495,8 +3495,8 @@ happened.
 
 .. _bathy_and_align:
 
-Bathymetry correction and alignment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Bundle adjustment and alignment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 It is important to note that we did not use bundle adjustment
 (:numref:`bundle_adjust`) or ``pc_align`` (:numref:`pc_align`) for
@@ -3543,6 +3543,27 @@ portion above water, and corresponding camera, and the cameras have
 been bundle-adjusted or aligned, the option ``--bundle-adjust-prefix``
 must be used with ``bathy_plane_calc`` (see
 :numref:`bathy_plane_calc_example1`).
+
+Validation of alignment
+-----------------------
+
+It is very strongly to use visual inspection in ``stereo_gui`` and the
+``geodiff`` and ``colormap`` tools for differencing DEMs to ensure
+DEMs that are meant to be aligned have small differences. Since
+bathymetry modeling can measure only very shallow water depths,
+any misalignment can result in big errors in final results.
+
+If DEMs have parts under water and it is desired to remove those for
+the purpose of alignment, one can take advantage of the fact that the
+water height is roughly horizontal. Hence, a command like::
+
+    height=-21.2
+    image_calc -c "max($height, var_0)" -d float32 \
+      --output-nodata-value $height                \
+      dem.tif -o topo_dem.tif
+
+will eliminate all heights under -21.2 meters (relative to the
+datum ellipsoid).
 
 Bathymetry with changing water level
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
