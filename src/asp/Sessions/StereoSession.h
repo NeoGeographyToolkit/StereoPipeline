@@ -157,26 +157,11 @@ namespace asp {
     ///
     /// Pre  file is a pair of images.   ( ImageView<PixelT> )
     /// Post file is a grayscale images. ( ImageView<PixelGray<float> > )
-    virtual void pre_preprocessing_hook( bool adjust_left_image_size,
+    virtual void preprocessing_hook( bool adjust_left_image_size,
                                          std::string const& input_file1,
                                          std::string const& input_file2,
                                          std::string      & output_file1,
                                          std::string      & output_file2);
-    virtual void post_preprocessing_hook(std::string const& input_file1,    // CURRENTLY NEVER USED!
-                                         std::string const& input_file2,
-                                         std::string      & output_file1,
-                                         std::string      & output_file2);
-
-    /// Stage 2: Correlation
-    ///
-    /// Pre  file is a pair of grayscale images. ( ImageView<PixelGray<float> > )
-    /// Post file is a disparity map.            ( ImageView<PixelDisparity> )
-    virtual void pre_correlation_hook( std::string const& input_file1,    // CURRENTLY NEVER USED!
-                                       std::string const& input_file2,
-                                       std::string      & output_file1,
-                                       std::string      & output_file2);
-    virtual void post_correlation_hook(std::string const& input_file,    // CURRENTLY NEVER USED!
-                                       std::string      & output_file);
 
     /// Stage 3: Filtering
     ///
@@ -184,17 +169,13 @@ namespace asp {
     /// Post file is a disparity map. ( ImageView<PixelDisparity<float> > )
     virtual void pre_filtering_hook( std::string const& input_file,
                                      std::string      & output_file);
-    virtual void post_filtering_hook(std::string const& input_file,    // CURRENTLY NEVER USED!
-                                     std::string      & output_file);
 
     /// Stage 4: Point cloud generation
     ///
     /// Pre  file is a disparity map. ( ImageView<PixelDisparity<float> > )
     /// Post file is point image.     ( ImageView<Vector3> )
-    virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f> >
-		 pre_pointcloud_hook (std::string const& input_file);
-    virtual void post_pointcloud_hook(std::string const& input_file,      // CURRENTLY NEVER USED!
-                                      std::string      & output_file);
+    virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>
+    pre_pointcloud_hook(std::string const& input_file);
 
     /// Returns the correct nodata value from the input images or the input options.
     void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,

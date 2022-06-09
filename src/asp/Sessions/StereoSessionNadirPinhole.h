@@ -37,7 +37,7 @@ namespace asp {
     virtual std::string name() const { return "nadirpinhole"; }
 
     // Stage 1: Preprocessing
-    virtual void pre_preprocessing_hook( bool adjust_left_image_size,
+    virtual void preprocessing_hook( bool adjust_left_image_size,
                                          std::string const& left_input_file,
                                          std::string const& right_input_file,
                                          std::string      & left_output_file,

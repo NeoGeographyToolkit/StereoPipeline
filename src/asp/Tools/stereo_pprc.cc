@@ -148,7 +148,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     create_sym_links(opt.in_file1, opt.in_file2, opt.out_prefix,
                      left_image_file, right_image_file);
   else // Perform image normalization
-    opt.session->pre_preprocessing_hook(adjust_left_image_size,
+    opt.session->preprocessing_hook(adjust_left_image_size,
                                         opt.in_file1,    opt.in_file2,
                                         left_image_file, right_image_file);
 

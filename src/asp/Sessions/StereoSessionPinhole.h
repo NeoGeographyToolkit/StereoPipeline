@@ -46,7 +46,7 @@ namespace asp {
     //
     // Pre file is a pair of images.            ( ImageView<PixelT> )
     // Post file is a grayscale images.         ( ImageView<PixelGray<float> > )
-    virtual void pre_preprocessing_hook(bool adjust_left_image_size,
+    virtual void preprocessing_hook(bool adjust_left_image_size,
                                         std::string const& left_input_file,
                                         std::string const& right_input_file,
                                         std::string      & left_output_file,
@@ -106,7 +106,7 @@ namespace asp {
                                    vw::ImageViewRef<vw::PixelMask<float>> & Rimg);
  private:
     /// Helper function for determining image alignment.
-    /// - Only used in pre_preprocessing_hook()
+    /// - Only used in preprocessing_hook()
     vw::Matrix3x3 determine_image_align( std::string  const& out_prefix,
                                          std::string  const& input_file1,
                                          std::string  const& input_file2,

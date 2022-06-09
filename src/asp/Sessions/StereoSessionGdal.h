@@ -41,16 +41,6 @@ namespace asp {
     virtual ~StereoSessionGdal(){}
     
     virtual std::string name() const = 0;
-    
-    /// Stage 1: Preprocessing
-    ///
-    /// Pre file is a pair of images.            (ImageView<PixelT>)
-    /// Post file is a pair of grayscale images. (ImageView<PixelGray<float> >)
-    virtual void pre_preprocessing_hook(bool adjust_left_image_size,
-                                        std::string const& left_input_file,
-                                        std::string const& right_input_file,
-                                        std::string      & left_output_file,
-                                        std::string      & right_output_file);
   };
   
   //----------------------------------------------------------

@@ -166,7 +166,7 @@ epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
   }
 }
 
-void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_size,
+void asp::StereoSessionPinhole::preprocessing_hook(bool adjust_left_image_size,
                                                        std::string const& left_input_file,
                                                        std::string const& right_input_file,
                                                        std::string      & left_output_file,

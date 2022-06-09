@@ -123,7 +123,7 @@ QWidget* AlignmentWidget::generate_controls() {
 
 void AlignmentWidget::feature_button_clicked() {
   std::string pre_preprocess_file1, pre_preprocess_file2;
-  stereo_gui_session().session()->pre_preprocessing_hook(stereo_gui_session().left_input_image(), 
+  stereo_gui_session().session()->preprocessing_hook(stereo_gui_session().left_input_image(), 
                                                          stereo_gui_session().right_input_image(),
                                                          pre_preprocess_file1, pre_preprocess_file2);
 

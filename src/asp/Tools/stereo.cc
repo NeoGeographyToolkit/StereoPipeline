@@ -464,7 +464,7 @@ namespace asp {
       }
     }else{ 
       // If left_image_crop_win is specified, as can be see in
-      // StereoSession::pre_preprocessing_hook(), we actually
+      // StereoSession::preprocessing_hook(), we actually
       // physically crop the image.  The trans_crop_win as passed 
       // here from parallel_stereo will already be a tile in the 
       // cropped image. So we just use it as it is. If it is not defined, 
