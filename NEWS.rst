@@ -12,13 +12,13 @@ stereo:
     point2dem option but will be invoked at cloud generation, so 
     potentially creating cleaner clouds for other purposes than
     producing DEMs.
-
   * The option ``--prev-run-prefix`` can be used to start a run
     with bathymetry modeling at the triangulation stage while
     reusing the previous stages of a run without such modeling
     (the needed aligned bathy masks are created, if needed,
     at the triangulation stage, if not done, as usual, at the 
     preprocessing stage).
+  * Consolidated much duplicated and mutated code.
 
 point2dem:
   * Added the Tukey outlier removal method option applied to

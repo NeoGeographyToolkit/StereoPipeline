@@ -331,7 +331,7 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   std::string left_cropped_file, right_cropped_file;
   vw::cartography::GdalWriteOptions options;
   float left_nodata_value, right_nodata_value;
-  bool  has_left_georef,   has_right_georef;
+  bool has_left_georef, has_right_georef;
   vw::cartography::GeoReference left_georef, right_georef;
   bool exit_early =
     StereoSession::shared_preprocessing_hook(options,
@@ -341,12 +341,13 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
                                              left_nodata_value, right_nodata_value,
                                              has_left_georef,   has_right_georef,
                                              left_georef,       right_georef);
+
   if (exit_early)
     return;
-
+  
   // Load the cropped images
-  DiskImageView<float> left_disk_image (left_cropped_file),
-                       right_disk_image(right_cropped_file);
+  DiskImageView<float> left_disk_image(left_cropped_file),
+    right_disk_image(right_cropped_file);
 
   // Get the image sizes. Later alignment options can choose to change
   // this parameters, such as affine epipolar.
@@ -421,66 +422,29 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
     write_vector(right_stats_file, right_stats2);
   }
   
-  // Image alignment block. Generate aligned versions of the input
-  // images according to the options.
   Matrix<double> align_left_matrix  = math::identity_matrix<3>();
   Matrix<double> align_right_matrix = math::identity_matrix<3>();
-  if (stereo_settings().alignment_method == "homography"     ||
-      stereo_settings().alignment_method == "affineepipolar" ||
-      stereo_settings().alignment_method == "local_epipolar") {
     
-    // Define the file name containing IP match information.
-    std::string match_filename    = ip::match_filename(this->m_out_prefix,
-                                                       left_cropped_file, right_cropped_file);
-    std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file);
-    std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
+  // Image alignment block. Generate aligned versions of the input
+  // images according to the options.
+  if (stereo_settings().alignment_method == "epipolar") {
     
-    // Find matching interest points between the two input images
-    DiskImageView<float> left_orig_image(left_input_file);
+    vw_throw(NoImplErr() << "StereoSessionISIS does not support epipolar rectification");
+    
+  } else if (stereo_settings().alignment_method == "homography"     ||
+             stereo_settings().alignment_method == "affineepipolar" ||
+             stereo_settings().alignment_method == "local_epipolar") {
+
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     this->camera_models(left_cam, right_cam);
-    this->ip_matching(left_cropped_file,   right_cropped_file,
-                      bounding_box(left_orig_image).size(),
-                      left_stats, right_stats,
-                      stereo_settings().ip_per_tile,
-                      left_nodata_value, right_nodata_value,
-                      left_cam.get(),    right_cam.get(),
-                      match_filename, left_ip_filename, right_ip_filename
-                    );
-    // Read in the interest point data we just wrote to disk
-    std::vector<ip::InterestPoint> left_ip, right_ip;
-    ip::read_binary_match_file(match_filename, left_ip, right_ip);
-
-    // Compute the appropriate transform matrix between the two input images.
-    if (stereo_settings().alignment_method == "homography") {
-      left_size = homography_rectification(adjust_left_image_size,
-                                           left_size, right_size, left_ip, right_ip,
-                                           align_left_matrix, align_right_matrix);
-      vw_out() << "\t--> Aligning left and right images using matrices:\n"
-               << "\t      " << align_left_matrix  << "\n"
-               << "\t      " << align_right_matrix << "\n";
-    } else {
-      // affineepipolar and local_epipolar
-      bool crop_to_shared_area = true;
-      left_size
-        = affine_epipolar_rectification(left_size, right_size,
-                                        stereo_settings().global_alignment_threshold,
-                                        stereo_settings().alignment_num_ransac_iterations,
-                                        left_ip,   right_ip,
-                                        crop_to_shared_area,
-                                        align_left_matrix,
-                                        align_right_matrix);
-      vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
-               << "\t      " << submatrix(align_left_matrix ,0,0,2,3) << "\n"
-               << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
-    }
-    // Write the computed transform matrices to disk
-    write_matrix(this->m_out_prefix + "-align-L.exr", align_left_matrix);
-    write_matrix(this->m_out_prefix + "-align-R.exr", align_right_matrix);
-    right_size = left_size; // Because the images are now aligned
-                            // .. they are the same size.
-  } else if (stereo_settings().alignment_method == "epipolar") {
-    vw_throw(NoImplErr() << "StereoSessionISIS does not support epipolar rectification");
+    determine_image_alignment(// Inputs
+                              m_out_prefix, left_cropped_file, right_cropped_file,  
+                              left_input_file,
+                              left_stats, right_stats, left_nodata_value, right_nodata_value,  
+                              left_cam, right_cam,
+                              adjust_left_image_size,  
+                              // In-out
+                              align_left_matrix, align_right_matrix, left_size, right_size);
   } // End alignment block
 
 
@@ -489,15 +453,15 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
 
   // Write output images
   write_preprocessed_isis_image(options, will_apply_user_nodata,
-                                 left_masked_image, left_output_file, "left",
-                                 left_lo, left_hi, left_lo_out, left_hi_out,
-                                 align_left_matrix, left_size,
-                                 has_left_georef, left_georef);
+                                left_masked_image, left_output_file, "left",
+                                left_lo, left_hi, left_lo_out, left_hi_out,
+                                align_left_matrix, left_size,
+                                has_left_georef, left_georef);
   write_preprocessed_isis_image(options, will_apply_user_nodata,
-                                 right_masked_image, right_output_file, "right",
-                                 right_lo, right_hi, right_lo_out, right_hi_out,
-                                 align_right_matrix, right_size,
-                                 has_right_georef, right_georef);
+                                right_masked_image, right_output_file, "right",
+                                right_lo, right_hi, right_lo_out, right_hi_out,
+                                align_right_matrix, right_size,
+                                has_right_georef, right_georef);
 }
 
 bool StereoSessionIsis::supports_multi_threading () const {

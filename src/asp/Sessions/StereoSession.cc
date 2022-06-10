@@ -151,7 +151,7 @@ namespace asp {
                                   vw::camera::CameraModel* cam2,
                                   std::string const& match_filename,
                                   std::string const  left_ip_file,
-                                  std::string const  right_ip_file){
+                                  std::string const  right_ip_file) {
 
     vw_out() << "\t--> Matching interest points in StereoSession.\n";
 
@@ -404,6 +404,77 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
   return m_camera_model[image_cam_pair];
 }
 
+// Find ip matches and determine the alignment matrices
+void StereoSession::determine_image_alignment(// Inputs
+                                              std::string  const& out_prefix,
+                                              std::string  const& left_cropped_file,
+                                              std::string  const& right_cropped_file,
+                                              std::string  const& left_uncropped_file,
+                                              vw::Vector6f const& left_stats,
+                                              vw::Vector6f const& right_stats,
+                                              float left_nodata_value,
+                                              float right_nodata_value,
+                                              boost::shared_ptr<vw::camera::CameraModel> left_cam, 
+                                              boost::shared_ptr<vw::camera::CameraModel> right_cam,
+                                              bool adjust_left_image_size,
+                                              // In-out
+                                              vw::Matrix<double> & align_left_matrix,
+                                              vw::Matrix<double> & align_right_matrix,
+                                              vw::Vector2i & left_size,
+                                              vw::Vector2i & right_size) {
+  
+  // Define the file name containing IP match information.
+  std::string match_filename    = ip::match_filename(out_prefix,
+                                                     left_cropped_file, right_cropped_file);
+  std::string left_ip_filename  = ip::ip_filename(out_prefix, left_cropped_file);
+  std::string right_ip_filename = ip::ip_filename(out_prefix, right_cropped_file);
+  
+  // Detect matching interest points between the left and right input images.
+  // The output is written directly to a file.
+  DiskImageView<float> left_orig_image(left_uncropped_file);
+  vw::Vector2 uncropped_left_image_size = bounding_box(left_orig_image).size();
+  this->ip_matching(left_cropped_file, right_cropped_file,
+                    uncropped_left_image_size,
+                    left_stats, right_stats,
+                    stereo_settings().ip_per_tile,
+                    left_nodata_value, right_nodata_value,
+                    left_cam.get(), right_cam.get(),
+                    match_filename, left_ip_filename, right_ip_filename);
+  
+  // Load the interest points results from the file we just wrote
+  std::vector<ip::InterestPoint> left_ip, right_ip;
+  ip::read_binary_match_file(match_filename, left_ip, right_ip);
+  
+  // Compute the appropriate alignment matrix based on the input points
+  if (stereo_settings().alignment_method == "homography") {
+    left_size = homography_rectification(adjust_left_image_size,
+                                         left_size, right_size, left_ip, right_ip,
+                                         align_left_matrix, align_right_matrix);
+    vw_out() << "\t--> Aligning right image to left using matrices:\n"
+               << "\t      " << align_left_matrix  << "\n"
+             << "\t      " << align_right_matrix << "\n";
+  } else {
+    // affineepipolar and local_epipolar
+    bool crop_to_shared_area = true;
+    left_size
+      = affine_epipolar_rectification(left_size,         right_size,
+                                      stereo_settings().global_alignment_threshold,
+                                      stereo_settings().alignment_num_ransac_iterations,
+                                      left_ip,           right_ip,
+                                      crop_to_shared_area,
+                                      align_left_matrix, align_right_matrix);
+    vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
+             << "\t      " << submatrix(align_left_matrix, 0,0,2,3) << "\n"
+             << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
+  }
+  // Write out both computed matrices to disk
+  write_matrix(out_prefix + "-align-L.exr", align_left_matrix);
+  write_matrix(out_prefix + "-align-R.exr", align_right_matrix);
+  
+  // Because the images are now aligned they are the same size
+  right_size = left_size;
+}
+  
 // Default preprocessing hook. Some sessions may override it.
 void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                                        std::string const& left_input_file,
@@ -429,8 +500,13 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
     return;
   
   // Load the cropped images
-  DiskImageView<float> left_disk_image (left_cropped_file),
+  DiskImageView<float> left_disk_image(left_cropped_file),
     right_disk_image(right_cropped_file);
+  
+  // Get the image sizes. Later alignment options can choose to
+  // change this parameters (such as affine epipolar alignment).
+  Vector2i left_size  = file_image_size(left_cropped_file);
+  Vector2i right_size = file_image_size(right_cropped_file);
   
   // Set up image masks
   ImageViewRef<PixelMask<float>> left_masked_image
@@ -449,6 +525,10 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   // Use no-data in interpolation and edge extension
   PixelMask<float>nodata_pix(0); nodata_pix.invalidate();
   ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix); 
+  
+  // Initialize alignment matrices and get the input image sizes.
+  Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
+    align_right_matrix = math::identity_matrix<3>();
   
   // Generate aligned versions of the input images according to the
   // options.
@@ -475,67 +555,16 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
         vw_throw( ArgumentErr() << "ASTER session is expected." );
       aster_session->rpc_camera_models(left_cam, right_cam);
     }
-
-    // Define the file name containing IP match information.
-    std::string match_filename    = ip::match_filename(this->m_out_prefix,
-                                                       left_cropped_file, right_cropped_file);
-    std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file);
-    std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
-
-    // Detect matching interest points between the left and right input images.
-    // The output is written directly to file.
-    DiskImageView<float> left_orig_image(left_input_file);
-    vw::Vector2 uncropped_left_image_size = bounding_box(left_orig_image).size();
-    this->ip_matching(left_cropped_file, right_cropped_file,
-                      uncropped_left_image_size,
-                      left_stats, right_stats,
-                      stereo_settings().ip_per_tile,
-                      left_nodata_value, right_nodata_value,
-                      left_cam.get(), right_cam.get(),
-                      match_filename, left_ip_filename, right_ip_filename);
-
-    // Load the interest points results from the file we just wrote.
-    std::vector<ip::InterestPoint> left_ip, right_ip;
-    ip::read_binary_match_file(match_filename, left_ip, right_ip);
-
-    // Initialize alignment matrices and get the input image sizes.
-    Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
-      align_right_matrix = math::identity_matrix<3>();
-
-    // Get the image sizes. Later alignment options can choose to
-    // change this parameters (such as affine epipolar alignment).
-    Vector2i left_size  = file_image_size(left_cropped_file);
-    Vector2i right_size = file_image_size(right_cropped_file);
-
-    // Compute the appropriate alignment matrix based on the input points
-    if (stereo_settings().alignment_method == "homography") {
-      left_size = homography_rectification(adjust_left_image_size,
-                                           left_size, right_size, left_ip, right_ip,
-                                           align_left_matrix, align_right_matrix);
-      vw_out() << "\t--> Aligning right image to left using matrices:\n"
-               << "\t      " << align_left_matrix  << "\n"
-               << "\t      " << align_right_matrix << "\n";
-    } else {
-      // affineepipolar and local_epipolar
-      bool crop_to_shared_area = true;
-      left_size
-        = affine_epipolar_rectification(left_size,         right_size,
-                                        stereo_settings().global_alignment_threshold,
-                                        stereo_settings().alignment_num_ransac_iterations,
-                                        left_ip,           right_ip,
-                                        crop_to_shared_area,
-                                        align_left_matrix, align_right_matrix);
-      vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
-               << "\t      " << submatrix(align_left_matrix, 0,0,2,3) << "\n"
-               << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
-    }
-    // Write out both computed matrices to disk
-    write_matrix(this->m_out_prefix + "-align-L.exr", align_left_matrix);
-    write_matrix(this->m_out_prefix + "-align-R.exr", align_right_matrix);
-
-    // Because the images are now aligned they are the same size
-    right_size = left_size;
-      
+    
+    determine_image_alignment(// Inputs
+                              m_out_prefix, left_cropped_file, right_cropped_file,  
+                              left_input_file,
+                              left_stats, right_stats, left_nodata_value, right_nodata_value,  
+                              left_cam, right_cam,
+                              adjust_left_image_size,  
+                              // In-out
+                              align_left_matrix, align_right_matrix, left_size, right_size);
+    
     // Apply the alignment transform to both input images
     Limg = transform(left_masked_image,
                      HomographyTransform(align_left_matrix),
