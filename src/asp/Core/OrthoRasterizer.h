@@ -69,7 +69,7 @@ namespace asp{
     asp::FilterType m_filter;
     double m_percentile;
     double m_default_grid_size_multiplier;
-    size_t     *m_num_invalid_pixels; ///< Keep a count of nodata output pixels, needs to be pointer due to VW weirdness.
+    std::int64_t * m_num_invalid_pixels; ///< Keep a count of nodata output pixels, needs to be pointer due to VW weirdness.
     vw::Mutex  *m_count_mutex;        ///< A lock for m_num_invalid_pixels, needs to be pointer due to C++ weirdness.
 
     // We could actually use a quadtree here .. but this should be a
@@ -107,7 +107,7 @@ namespace asp{
                         bool    has_las_or_csv,
                         std::string const& filter,
                         double  default_grid_size_multiplier,
-                        size_t  *num_invalid_pixels,
+                        std::int64_t * num_invalid_pixels,
                         vw::Mutex *count_mutex,
                         const ProgressCallback& progress);
 

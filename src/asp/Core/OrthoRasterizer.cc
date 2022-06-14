@@ -402,7 +402,7 @@ namespace asp{
    Vector2 median_filter_params, int erode_len, bool has_las_or_csv,
    std::string const& filter,
    double default_grid_size_multiplier,
-   size_t *num_invalid_pixels, vw::Mutex *count_mutex,
+   std::int64_t * num_invalid_pixels, vw::Mutex *count_mutex,
    const ProgressCallback& progress):
     // Ensure all members are initiated, even if to temporary values
     m_point_image(point_image), m_texture(ImageView<float>(1,1)),
@@ -642,11 +642,11 @@ namespace asp{
   }
 
   /// \cond INTERNAL
-  OrthoRasterizerView::prerasterize_type OrthoRasterizerView::prerasterize( BBox2i const& bbox )
-    const {
-    
-    BBox2i bbox_1 = bbox;
+  OrthoRasterizerView::prerasterize_type
+  OrthoRasterizerView::prerasterize(BBox2i const& bbox) const {
 
+    BBox2i bbox_1 = bbox;
+    
     // bugfix, ensure we see enough beyond current tile
     bbox_1.expand((int)ceil(std::max(m_search_radius_factor, 5.0)));
 
@@ -735,17 +735,20 @@ namespace asp{
     }
 
     if ( blocks_map.empty() ){
-
       // TODO: Don't include these pixels in the total?
       { // Lock and update the total number of invalid pixels in this tile.
         vw::Mutex::Lock lock(*m_count_mutex);
-        (*m_num_invalid_pixels) += bbox.width()*bbox.height();
+        // Care here, convert to int64_t before multiplication, to avoid
+        // int32 overflow.
+        (*m_num_invalid_pixels) += std::int64_t(bbox.width())*std::int64_t(bbox.height());
       }
       
       if (m_use_surface_sampling){
-        return prerasterize_type( render_buffer, BBox2i(-bbox_1.min().x(), -bbox_1.min().y(), cols(), rows()) );
+        return prerasterize_type(render_buffer, BBox2i(-bbox_1.min().x(),
+                                                       -bbox_1.min().y(), cols(), rows()));
       }else{
-        return prerasterize_type( d_buffer,      BBox2i(-bbox_1.min().x(), -bbox_1.min().y(), cols(), rows()) );
+        return prerasterize_type(d_buffer, BBox2i(-bbox_1.min().x(),
+                                                  -bbox_1.min().y(), cols(), rows()) );
       }
     }
 
@@ -811,11 +814,11 @@ namespace asp{
               intensities[3] = texture_copy(col+1,row);
               intensities[4] = texture_copy(col,row);
 
-              if ( !boost::math::isnan((*point_ll).z()) ) {
+              if (!boost::math::isnan((*point_ll).z())) {
                 // triangle 1 is: UL LL LR
                 renderer.DrawPolygon(0, 3);
               }
-              if ( !boost::math::isnan((*point_ur).z()) ) {
+              if (!boost::math::isnan((*point_ur).z())) {
                 // triangle 2 is: LR, UR, UL
                 renderer.DrawPolygon(2, 3);
               }
@@ -844,7 +847,7 @@ namespace asp{
     // upside down in most image formats, so we correct that here.
     // We also introduce transparent pixels into the result where necessary.
     // TODO: Here can do flipping in place.
-    ImageView< PixelGray<float> > result;
+    ImageView<PixelGray<float>> result;
     if (m_use_surface_sampling)
       result = flip_vertical(render_buffer);
     else
@@ -852,7 +855,7 @@ namespace asp{
 
     // Loop through result here and count up how many pixels have been
     // changed from the default value.
-    size_t num_unset = 0;
+    std::int64_t num_unset = 0;
     for (int r=0; r<result.rows(); ++r) {
       for (int c=0; c<result.cols(); ++c) {
         
@@ -869,8 +872,8 @@ namespace asp{
       (*m_num_invalid_pixels) += num_unset;
     }
 
-    return prerasterize_type (result, BBox2i(-bbox_1.min().x(),
-                                             -bbox_1.min().y(), cols(), rows()));
+    return prerasterize_type(result,
+                             BBox2i(-bbox_1.min().x(), -bbox_1.min().y(), cols(), rows()));
   }
 
   // Return the affine georeferencing transform.

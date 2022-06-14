@@ -840,7 +840,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
                                cartography::GeoReference& georef,
                                ImageViewRef<double> const& error_image,
                                double estim_max_error,
-                               size_t *num_invalid_pixels) {
+                               std::int64_t * num_invalid_pixels) {
 
   vw_out() << "\t-- Starting DEM rasterization --\n";
   vw_out() << "\t--> DEM spacing: " <<     rasterizer.spacing() << " pt/px\n";
@@ -856,8 +856,8 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
   // resolution. This results in a DEM with less antialiasing.  Note
   // that the georef above is set with the spacing before resolution
   // is increased, which will be the final spacing as well.
-  if ( opt.fsaa > 1 )
-    rasterizer.set_spacing( rasterizer.spacing() / double(opt.fsaa) );
+  if (opt.fsaa > 1)
+    rasterizer.set_spacing(rasterizer.spacing() / double(opt.fsaa));
 
   // If the user specified the ULLR .. update the georeference
   // transform here. The generate_fsaa_raster will be responsible
@@ -923,11 +923,22 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     vw_out(DebugMessage,"asp") << "DEM render time: " << sw2.elapsed_seconds() << ".\n";
 
     double num_invalid_pixelsD = *num_invalid_pixels;
+
+    // This is to compensate for the fact that for fsaa > 1 we use a
+    // finer rendering grid than the final one. Later a blur and a
+    // resampling to the original grid will happen, so the actual
+    // count is not as simple as what we do here, but this may be good
+    // enough since the fsaa option is not the default and may need
+    // wiping at some point.
+    if (opt.fsaa > 1)
+      num_invalid_pixelsD = num_invalid_pixelsD / double(opt.fsaa) / double(opt.fsaa);
+    
     // Below we convert to double first and multiply later, to avoid
     // 32-bit integer overflow.
-    double num_total_pixels    = double(dem_size[0])*double(dem_size[1]);
-    double invalid_ratio       = num_invalid_pixelsD / num_total_pixels;
-    vw_out() << "Percentage of valid pixels = " << 1.0-invalid_ratio << "\n";
+    double num_total_pixels = double(dem_size[0])*double(dem_size[1]);
+
+    double invalid_ratio = num_invalid_pixelsD / num_total_pixels;
+    vw_out() << "Percentage of valid pixels: " << 100.0*(1.0 - invalid_ratio) << "%\n";
     *num_invalid_pixels = 0; // Reset this count
   }
 
@@ -1092,7 +1103,7 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
   
   // Need to pass in by pointer because we can't get back the number from
   //  the original rasterizer object otherwise for some reason.
-  size_t num_invalid_pixels = 0;
+  std::int64_t num_invalid_pixels = 0;
   
   asp::OrthoRasterizerView
     rasterizer(proj_points.impl(), select_channel(proj_points.impl(),2),
