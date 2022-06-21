@@ -55,7 +55,7 @@ reference.)
 * **Null** = A placeholder model that applies no distortion.
 
 * **Tsai** = A common distortion model :cite:`tsai1987` similar to
-  the one used by OpenCV and THEIA. This model uses the following
+  the one used by OpenCV and Theia. This model uses the following
   parameters:
   
   *K1, K2* = Radial distortion parameters.

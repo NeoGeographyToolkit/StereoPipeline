@@ -147,7 +147,7 @@ ISIS .cub model it is meant to replace, as benchmarked with
 
 Given a dataset of ISIS .cub camera files it is desired to run SfS on,
 it is suggested to attempt to convert them to corresponding CSM models
-as described in :numref:`create_csm_lronac`, and if the pixel errors as
+as described in :numref:`create_csm_linescan`, and if the pixel errors as
 output by ``cam_test`` are no more than the order of 0.5 pixels, to
 use the CSM models instead of the ISIS ones in all the tools outlined
 below (``parallel_bundle_adjust``, ``parallel_stereo``,

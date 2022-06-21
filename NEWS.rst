@@ -26,6 +26,11 @@ point2dem:
     25th_pct)). Also print out these percentages even for the regular
     outlier removal.
 
+bathymetry:
+  * Added scale_bathy_mask.py, for creating a PAN-sized image
+    or mask from an multispectral-sized image or mask, both for
+    WorldView data.
+
 RELEASE 3.1.0, May 18, 2022
 ----------------------------
 DOI: `10.5281/zenodo.6562267 <https://doi.org/10.5281/zenodo.6562267>`_

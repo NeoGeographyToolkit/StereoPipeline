@@ -18,9 +18,9 @@ Camera solve overview
 ---------------------
 
 The ``camera_solve`` tool is implemented as a Python wrapper around two
-other tools. The first of these is the the THEIA software library, which
+other tools. The first of these is the the Theia software library, which
 is used to generate initial camera position estimates in a local
-coordinate space. You can learn more about THEIA at
+coordinate space. You can learn more about Theia at
 http://www.theia-sfm.org/index.html. The second tool is ASP's own
 ``bundle_adjust`` tool. The second step improves the solution to account
 for lens distortion and transforms the solution from local to global
@@ -45,7 +45,7 @@ below and described in more detail in the examples that follow:
 
 -  A set of ground control points of the same type used by ``pc_align``.
    The easiest way to generate these points is to use the ground control
-   point writer tool available in the ``stereo-gui`` tool.
+   point writer tool available in the ``stereo_gui`` tool.
 
 -  A set of estimated camera positions (perhaps from a GPS unit) stored
    in a csv file.
@@ -57,7 +57,7 @@ below and described in more detail in the examples that follow:
 
 Power users can tweak the individual steps that ``camera_solve`` goes
 through to optimize their results. This primarily involves setting up a
-custom flag file for THEIA and/or passing in settings to
+custom flag file for Theia and/or passing in settings to
 ``bundle_adjust``.
 
 .. _sfmgeneric:
@@ -72,8 +72,8 @@ accurate digital terrain models we can use to verify our results.
 
 First download a pair of images::
 
-   > wget http://apollo.sese.asu.edu/data/metric/AS15/png/AS15-M-0414_MED.png
-   > wget http://apollo.sese.asu.edu/data/metric/AS15/png/AS15-M-1134_MED.png
+   wget http://apollo.sese.asu.edu/data/metric/AS15/png/AS15-M-0414_MED.png
+   wget http://apollo.sese.asu.edu/data/metric/AS15/png/AS15-M-1134_MED.png
 
 .. figure:: images/examples/pinhole/AS15-M-combined.png
    :name: pinhole-a15-input-images
@@ -126,7 +126,8 @@ up nicely with the center of the image. Before we try to solve for the
 camera positions we can run a simple tool to check the quality of our
 camera model file::
 
-   > undistort_image AS15-M-0414_MED.png metric_model.tsai -o corrected_414.tif
+   undistort_image AS15-M-0414_MED.png metric_model.tsai \
+     -o corrected_414.tif
 
 It is difficult to tell if the distortion model is correct by using this
 tool but it should be obvious if there are any gross errors in your
@@ -145,8 +146,8 @@ pass a space-separated list of files surrounded by quotes to the
 If we do not see any obvious problems we can go ahead and run the
 ``camera_solve`` tool::
 
-   > camera_solve out/ AS15-M-0414_MED.png AS15-M-1134_MED.png --datum D_MOON \
-     --calib-file metric_model.tsai
+   camera_solve out/ AS15-M-0414_MED.png AS15-M-1134_MED.png \
+     --datum D_MOON --calib-file metric_model.tsai
 
 We should get some camera models in the output folder and see a printout
 of the final bundle adjustment error among the program output
@@ -165,10 +166,12 @@ don't see any evidence of lens distortion error.
 
 ::
 
-   > stereo AS15-M-0414_MED.png AS15-M-1134_MED.png out/AS15-M-0414_MED.png.final.tsai \
-     out/AS15-M-1134_MED.png.final.tsai -t pinhole s_local/out  --corr-timeout 300 \
-     --erode-max-size 100
-   > gdalinfo -stats s_local/out-PC.tif
+    stereo AS15-M-0414_MED.png AS15-M-1134_MED.png \
+       out/AS15-M-0414_MED.png.final.tsai          \
+       out/AS15-M-1134_MED.png.final.tsai          \
+       -t pinhole s_local/out  --corr-timeout 300  \
+       --erode-max-size 100
+    gdalinfo -stats s_local/out-PC.tif
    ...
    Band 4 Block=256x256 Type=Float32, ColorInterp=Undefined
      Minimum=0.000, Maximum=56.845, Mean=0.340, StdDev=3.512
@@ -193,8 +196,9 @@ DEM generated from LRONAC images.
 
 After running this command::
 
-   > camera_solve out_gcp/ AS15-M-0414_MED.png AS15-M-1134_MED.png --datum D_MOON \
-     --calib-file metric_model.tsai --gcp-file ground_control_points.gcp
+    camera_solve out_gcp/ AS15-M-0414_MED.png AS15-M-1134_MED.png \
+      --datum D_MOON --calib-file metric_model.tsai \
+      --gcp-file ground_control_points.gcp
 
 we end up with results that can be compared with the a DEM created from
 LRONAC images. The stereo results on the Apollo 15 images leave
@@ -224,10 +228,12 @@ and it will attempt to transform the cameras to world coordinates.
 Next, one can run stereo.
 ::
 
-   > stereo AS15-M-0414_MED.png AS15-M-1134_MED.png out_gcp/AS15-M-0414_MED.png.final.tsai \
-     out_gcp/AS15-M-1134_MED.png.final.tsai -t nadirpinhole s_global/out  --corr-timeout 300 \
-     --erode-max-size 100
-   > orbitviz -t nadirpinhole -r moon out_gcp --load-camera-solve
+    stereo AS15-M-0414_MED.png AS15-M-1134_MED.png     \
+      out_gcp/AS15-M-0414_MED.png.final.tsai           \
+      out_gcp/AS15-M-1134_MED.png.final.tsai           \
+      -t nadirpinhole s_global/out  --corr-timeout 300 \
+       --erode-max-size 100
+    orbitviz -t nadirpinhole -r moon out_gcp --load-camera-solve
 
 
 .. figure:: images/examples/pinhole/a15_fig.png
@@ -245,8 +251,9 @@ refined using ``pc_align`` or some other method. To use this method,
 pass additional bundle adjust parameters to ``camera_solve`` similar to
 the following line::
 
-   --bundle-adjust-params '--camera-positions nav.csv \
-    --csv-format "1:file 12:lat 13:lon 14:height_above_datum" --camera-weight 0.2'
+   --bundle-adjust-params '--camera-positions nav.csv         \
+    --csv-format "1:file 12:lat 13:lon 14:height_above_datum" \ 
+    --camera-weight 0.2'
 
 The nav data file you use must have a column (the "file" column)
 containing a string that can be matched to the input image files passed
@@ -337,14 +344,18 @@ and use the ruler tool to measure the distance between a pair of frames
 that are as far apart as you want to match. Commands using these options
 may look like this::
 
-   icebridge_kmz_to_csv  1000123_DMS_Frame_Events.kmz  camera_positions.csv
-   camera_solve out 2009_11_05_00667.JPG 2009_11_05_00668.JPG  \
-     2009_11_05_00669.JPG 2009_11_05_00670.JPG  2009_11_05_02947.JPG 2009_11_05_02948.JPG \
-     2009_11_05_02949.JPG  2009_11_05_02950.JPG  2009_11_05_01381.JPG 2009_11_05_01382.JPG  \
-     --datum WGS84 --calib-file icebridge_model.tsai  \
+   icebridge_kmz_to_csv 1000123_DMS_Frame_Events.kmz camera_positions.csv
+   camera_solve out 2009_11_05_00667.JPG 2009_11_05_00668.JPG        \
+     2009_11_05_00669.JPG 2009_11_05_00670.JPG                       \
+     2009_11_05_02947.JPG 2009_11_05_02948.JPG                       \
+     2009_11_05_02949.JPG  2009_11_05_02950.JPG                      \
+     2009_11_05_01381.JPG 2009_11_05_01382.JPG                       \
+     --datum WGS84 --calib-file icebridge_model.tsai                 \
      --bundle-adjust-params '--camera-positions camera_positions.csv \
-     --csv-format "1:file 2:lon 3:lat 4:height_above_datum" --position-filter-dist 2000'
-   orbitviz out --load-camera-solve --hide-labels -r wgs84 -t nadirpinhole
+     --csv-format "1:file 2:lon 3:lat 4:height_above_datum"          \ 
+      --position-filter-dist 2000'
+   orbitviz out --load-camera-solve --hide-labels \
+     -r wgs84 -t nadirpinhole
 
 Alternatively, the ``camera_solve`` executable can be bypassed
 altogether. If a given image has already an orthoimage associated with
@@ -389,7 +400,8 @@ smoothed DEM.
 
 ::
 
-   stereo 2009_11_05_02948.JPG  2009_11_05_02949.JPG  out/2009_11_05_02948.JPG.final.tsai \
+   stereo 2009_11_05_02948.JPG  2009_11_05_02949.JPG \
+     out/2009_11_05_02948.JPG.final.tsai             \
      out/2009_11_05_02949.JPG.final.tsai st_run/out -t nadirpinhole
    point2dem ILVIS2_AQ2009_1105_R1408_055812.TXT --datum WGS_1984 \
      --t_srs "+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs" \
@@ -434,7 +446,8 @@ http://nsidc.org/data/iodms3 These files are improperly formatted and
 cannot be used by ASP as is. To correct them, run the
 ``correct_icebridge_l3_dem`` tool as follows::
 
-   correct_icebridge_l3_dem IODMS3_20120315_21152106_07371_DEM.tif  fixed_dem.tif 1  
+   correct_icebridge_l3_dem IODMS3_20120315_21152106_07371_DEM.tif \
+     fixed_dem.tif 1  
 
 The third argument should be 1 if the DEM is in the northern hemisphere
 and 0 otherwise. The corrected DEM files can be used with ASP like any
@@ -502,8 +515,9 @@ Such a file can be created with ``stereo_gui`` (:numref:`creatinggcp`).
 
 One runs bundle adjustment with this data::
 
-   bundle_adjust -t nadirpinhole img.tif init.tsai gcp.gcp -o ba/run           \
-      --datum WGS84 --inline-adjustments --camera-weight 0 --max-iterations 0  \
+    bundle_adjust -t nadirpinhole img.tif init.tsai gcp.gcp \
+      -o ba/run --datum WGS84 --inline-adjustments          \
+      --camera-weight 0 --max-iterations 0                  \
       --robust-threshold 10
 
 which will write the desired correctly oriented camera file. Using a

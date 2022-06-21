@@ -413,8 +413,8 @@ with the Sphinx-Doc system (https://www.sphinx-doc.org) with
 sphinxcontrib-bibtex (https://sphinxcontrib-bibtex.readthedocs.io).
 These packages can be installed and activated as follows::
 
-    conda create -n sphinx python=3.6 sphinx==3.5.4 \
-      sphinxcontrib-bibtex==2.1.4  
+    conda create -n sphinx -c conda-forge python=3.6 sphinx=3.5.4 \
+      sphinxcontrib-bibtex=2.1.4  
     conda activate sphinx
 
 Note that we used a separate conda environment to minimize the chance

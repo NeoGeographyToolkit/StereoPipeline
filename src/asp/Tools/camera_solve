@@ -43,8 +43,6 @@ import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
-
-
 def get_paths_with_extension(input_list, output_folder, new_extension, prefix=""):
     '''Given a list of input files, generates a list of output paths with an extension appended'''
 
@@ -89,7 +87,8 @@ def prep_input_images(options):
 def generate_flagfile(options):
     '''Generate a Theia config file based on user options'''
 
-    match_path       = os.path.join(options.output_folder, 'theia_matches.dat')
+    match_dir        = os.path.join(options.output_folder, 'match_dir')
+    match_path       = os.path.join(options.output_folder, 'theia_matches')
     output_path      = os.path.join(options.output_folder, 'theia_reconstruction.dat')
     flagfile_path    = os.path.join(options.output_folder, 'theia_flagfile.txt')
     options.theia_output_path = output_path
@@ -192,7 +191,8 @@ def generate_flagfile(options):
 # During feature matching, features are saved to disk so that out-of-core
 # matching may be performed. This directory specifies which directory those
 # features should be saved to.
---matching_working_directory=
+# This should be left empty if specified on the command line.
+--matching_working_directory=''' + pathPrint(match_dir) + '''
 
 # During feature matching we utilize an LRU cache for out-of-core matching. The size
 # of that cache (in terms of number of images) is controlled by this parameter. The
@@ -367,7 +367,8 @@ def guided_build_reconstruction(options):
     # - match_features expects these to be in the same folder as the source images
     # - TODO: Play experiment with feature options and read these from the flagfile which
     #         the user can currently pass in.
-    options.feature_folder = options.output_folder#os.path.join(options.output_folder, 'features')
+    options.feature_folder = options.output_folder
+    #os.path.join(options.output_folder, 'features')
     #if not os.path.exists(options.feature_folder):
     #    os.makedirs(options.feature_folder)
     cmd = ['extract_features', '--input_images',options.image_wildcard, 
@@ -380,7 +381,8 @@ def guided_build_reconstruction(options):
     #         the number of links.
     #       - Once we have the lists, we need to selectively call match_features for each pairing.
     
-    options.matches_folder = options.output_folder#os.path.join(options.output_folder, 'matches')
+    options.matches_folder = options.output_folder
+    #os.path.join(options.output_folder, 'matches')
     #if not os.path.exists(options.matches_folder):
     #    os.makedirs(options.matches_folder)
     match_path        = os.path.join(os.path.abspath(options.matches_folder), 'A.match')
@@ -589,22 +591,48 @@ def generate_theia_camera_file(input_images, vw_cam_files, theia_cam_file_out):
       
       params.append( (pitch, focal_length, center_x, center_y) )
 
-    # Write a nearly identical line for each input image    
-    output_file = open(theia_cam_file_out, 'w')
-    for i in range(0,len(input_images)):
-        image = input_images[i]
-        if len(vw_cam_files) == 1:
-            theseParams = params[0]
-        else:
-            theseParams = params[i]
-        file_name = os.path.basename(image) # Strip the folder
-        s = ("%s %f %f %f 1.0 0.0 0.0 0.0\n" % (file_name, theseParams[1], theseParams[2], theseParams[3]))
-        output_file.write(s)
-    output_file.close()
+    # Write a nearly identical line for each input image
+    num_images = len(input_images)
+    with open(theia_cam_file_out, "w") as fh:
+
+        fh.write("{\n")
+        fh.write('"priors" : [\n')
+
+        for i in range(0, num_images):
+
+            image = input_images[i]
+            if len(vw_cam_files) == 1:
+                theseParams = params[0]
+            else:
+                theseParams = params[i]
+
+            focal_length  = theseParams[1]
+            center_x      = theseParams[2]
+            center_y      = theseParams[3]
+            width, height = asp_image_utils.getImageSize(image)
+            base_image    = os.path.basename(image) # Strip the folder
+        
+            fh.write('{"CameraIntrinsicsPrior" : {\n')
+            fh.write('"image_name" : "' + base_image + '",\n')
+            fh.write('"width" : '  + str(width) + ",\n")
+            fh.write('"height" : ' + str(height) + ",\n")
+            fh.write('"focal_length" : ' + str(focal_length) + ",\n")
+            fh.write('"principal_point" : [' + \
+                     str(center_x) + ", " + \
+                     str(center_y) + "],\n")
+
+            fh.write('"camera_intrinsics_type" : "PINHOLE"\n')
+
+            if i < num_images - 1:
+                fh.write("}},\n")
+            else:
+                fh.write("}}\n")
+
+        fh.write("]\n")
+        fh.write("}\n")
 
     return os.path.abspath(theia_cam_file_out) # Return the path to the Theia camera file
     
-
 #------------------------------------------------------------------------------
 
 def main(argsIn):
@@ -701,7 +729,7 @@ def main(argsIn):
                     return -1
             
             # Otherwise rewrite a zero-distortion copy of the camera param file which Theia can read.
-            alt_param_path = os.path.join(options.output_folder, 'expanded_camera_configs.txt')
+            alt_param_path = os.path.join(options.output_folder, 'expanded_camera_configs.json')
             options.theia_camera_param_path = generate_theia_camera_file(options.input_images, 
                                                 options.camera_param_paths, alt_param_path)
             
@@ -745,4 +773,9 @@ def main(argsIn):
     print("Finished in " + str(endTime - startTime) + " seconds.")
 
 if __name__ == "__main__":
+
+    # Set the path to OpenIO. This will not be needed when this dependency is removed
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
+    os.environ['OIIO_LIBRARY_PATH'] = base_dir + "/lib"
+
     sys.exit(main(sys.argv[1:]))
