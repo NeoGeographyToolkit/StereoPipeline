@@ -693,6 +693,11 @@ def main(argsIn):
         # This call handles all the parallel_mapproject specific options.
         (options, args) = parser.parse_args(argsIn)
 
+        # Remove continuation lines in the string (those are convenient
+        # for readability in docs)
+        options.bundle_params = options.bundle_params.replace('\\', '')
+        options.bundle_params = options.bundle_params.replace('\n', ' ')
+        
         # Check the required positional arguments.
         if len(args) < 1:
             parser.print_help()
