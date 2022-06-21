@@ -4,10 +4,10 @@ camera_solve
 ------------
 
 The ``camera_solve`` tool takes as input a set of images acquired with
-a camera, and finds each camera's pose (position and orientation).
-If ground control points are provided, the resulting set of cameras is
-transformed to be in a desired coordinate system. See :numref:`sfm`
-for an overview and examples of using the tool.
+a camera, and finds each camera's pose (position and orientation).  If
+ground control points are provided, the resulting set of cameras is
+transformed to be in a desired coordinate system. For examples and an
+overview, see :numref:`sfm`.
 
 This tool is a wrapper around the *Theia* structure-from-motion software
 (http://theia-sfm.org/), and its goal is create camera models which
