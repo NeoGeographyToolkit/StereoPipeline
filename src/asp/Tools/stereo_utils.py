@@ -112,6 +112,7 @@ def clean_args(args):
         argsout.append(arg.replace('//','/'))
     return argsout
 
+# TODO(oalexan1): Move to asp_cmd_utils.py
 def get_option(options, opt, n):
     # In the array 'options', find and return the entry with value 'opt'
     #  and the next n values.
@@ -124,16 +125,7 @@ def get_option(options, opt, n):
             output.append(options[r+i])
     return output
 
-def wipe_option(options, opt, n):
-    # In the array 'options', find the entry with value 'opt'.
-    # Wipe this entry and the next n values.
-    while opt in options:
-        r = options.index(opt)
-        if r < len(options):
-            del options[r] # rm 'opt'
-        for i in range(n):
-            if r < len(options): del options[r]
-
+# TODO(oalexan1): Move to asp_cmd_utils.py
 def set_option(options, opt, new_values):
     '''In the array 'options', find the entry with value 'opt'.
     Replace the next values with new_values.'''

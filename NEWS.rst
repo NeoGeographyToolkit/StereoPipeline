@@ -1,10 +1,23 @@
 Changes since last release
 --------------------------
 
-New tools:
+Added functionality for creation of large-scale textured (and mostly
+seamless meshes) by fusing many point clouds (from stereo or depth
+sensors). (Still being tested.) Added logic for rig calibration. See
+individual tools below.
 
+New tools:
+  * Added ``rig_calibrator``, a tool for calibrating a rig of N
+    image and/or depth+image cameras.
+  * Added ``voxblox_mesh``, a tool for fusing point clouds into 
+    a seamless oriented mesh, with each point given a weight
+    according to its reliability. Based on the third-party VoxBlox
+    software.
+  * Added ``texrecon``,  a tool for creating seamless textured
+    meshes. Based on the third-party MVS-Texturing project.
   * Added the program ``pc_filter`` for filtering outliers in 
-    point clouds created with pinhole cameras.
+    point clouds created with pinhole cameras and weighing
+    inliners based on many criteria.
 
 stereo:
   * Added the triangulation option ``--max-valid-triangulation-error``
@@ -31,6 +44,9 @@ bathymetry:
     or mask from an multispectral-sized image or mask, both for
     WorldView data.
 
+mapproject:
+  * Expose and document the --query-projection option.
+ 
 RELEASE 3.1.0, May 18, 2022
 ----------------------------
 DOI: `10.5281/zenodo.6562267 <https://doi.org/10.5281/zenodo.6562267>`_

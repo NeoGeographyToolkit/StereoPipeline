@@ -28,7 +28,7 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-import asp_system_utils, asp_string_utils
+import asp_system_utils, asp_string_utils, asp_cmd_utils
 asp_system_utils.verify_python_version_is_supported()
 from stereo_utils import * # must be after the path is altered above
 
@@ -467,8 +467,8 @@ def spawn_to_nodes(step, settings, args):
         procs = opt.processes
         threads = opt.threads_multi
 
-    wipe_option(args, '--processes', 1)
-    wipe_option(args, '--threads-multiprocess', 1)
+    asp_cmd_utils.wipe_option(args, '--processes', 1)
+    asp_cmd_utils.wipe_option(args, '--threads-multiprocess', 1)
     args.extend(['--processes', str(procs)])
     args.extend(['--threads-multiprocess', str(threads)])
 
@@ -574,7 +574,7 @@ def tile_run(prog, args, settings, tile, **kw):
         call.extend(args)
 
         if opt.threads_multi is not None:
-            wipe_option(call, '--threads', 1)
+            asp_cmd_utils.wipe_option(call, '--threads', 1)
             call.extend(['--threads', str(opt.threads_multi)])
 
         crop_box = intersect_boxes(user_crop_win, tile)
@@ -643,7 +643,7 @@ def normal_run(prog, args, **kw):
     call.extend(args)
     
     if opt.threads_single is not None:
-        wipe_option(call, '--threads', 1)
+        asp_cmd_utils.wipe_option(call, '--threads', 1)
         call.extend(['--threads', str(opt.threads_single)])
 
     call = reduce_num_threads_in_pprc(call)
@@ -685,7 +685,7 @@ if __name__ == '__main__':
     if '--threads' in sys.argv:
         print("Ignoring the option --threads. Use --threads-multiprocess " + \
               "and --threads-singleprocess.")
-        wipe_option(sys.argv, '--threads', 1)
+        asp_cmd_utils.wipe_option(sys.argv, '--threads', 1)
 
     p = argparse.ArgumentParser(usage=usage)
     p.add_argument('--nodes-list',           dest='nodes_list', default=None,
@@ -799,7 +799,7 @@ if __name__ == '__main__':
             tmpFile = tempfile.NamedTemporaryFile(delete=True, dir='.')
             shutil.copy2(opt.nodes_list, tmpFile.name)
             opt.nodes_list = tmpFile.name
-            wipe_option(sys.argv, '--nodes-list', 1)
+            asp_cmd_utils.wipe_option(sys.argv, '--nodes-list', 1)
             sys.argv.extend(['--nodes-list', tmpFile.name])
     else:
         # After the script spawns itself to nodes, it starts in the
@@ -894,12 +894,12 @@ if __name__ == '__main__':
     # from a log file where these particular operations
     # happened, and they will result in the overall stereo
     # command misbehaving. They are needed only at a certain stage.
-    wipe_option(args, '--compute-low-res-disparity-only', 0)
-    wipe_option(args, '--compute-point-cloud-center-only', 0)
-    wipe_option(args, '--compute-piecewise-adjustments-only', 0)
-    wipe_option(parallel_args, '--compute-low-res-disparity-only', 0)
-    wipe_option(parallel_args, '--compute-point-cloud-center-only', 0)
-    wipe_option(parallel_args, '--compute-piecewise-adjustments-only', 0)
+    asp_cmd_utils.wipe_option(args, '--compute-low-res-disparity-only', 0)
+    asp_cmd_utils.wipe_option(args, '--compute-point-cloud-center-only', 0)
+    asp_cmd_utils.wipe_option(args, '--compute-piecewise-adjustments-only', 0)
+    asp_cmd_utils.wipe_option(parallel_args, '--compute-low-res-disparity-only', 0)
+    asp_cmd_utils.wipe_option(parallel_args, '--compute-point-cloud-center-only', 0)
+    asp_cmd_utils.wipe_option(parallel_args, '--compute-piecewise-adjustments-only', 0)
 
     # TODO(oalexan1): The giant block below needs to be broken up into
     # several functions named parent_run(), child_run(), and
@@ -912,9 +912,9 @@ if __name__ == '__main__':
         # actual work when we hit a non-multiprocess step like PPRC or FLTR.
 
         # Wipe options which we will override.
-        wipe_option(parallel_args, '-e', 1)
-        wipe_option(parallel_args, '--entry-point', 1)
-        wipe_option(parallel_args, '--stop-point', 1)
+        asp_cmd_utils.wipe_option(parallel_args, '-e', 1)
+        asp_cmd_utils.wipe_option(parallel_args, '--entry-point', 1)
+        asp_cmd_utils.wipe_option(parallel_args, '--stop-point', 1)
         
         num_pairs = int(settings['num_stereo_pairs'][0])
         if num_pairs > 1:
@@ -922,7 +922,7 @@ if __name__ == '__main__':
             # Run multivew logic.
             
             # Bugfix: avoid confusing the logic below
-            wipe_option(parallel_args, '-s', 1)
+            asp_cmd_utils.wipe_option(parallel_args, '-s', 1)
             if os.path.exists(opt.stereo_file):
                 parallel_args.extend(['--stereo-file', opt.stereo_file])
 
@@ -1015,7 +1015,8 @@ if __name__ == '__main__':
             check_system_memory(opt, args, settings)
             parallel_args.extend(['--skip-low-res-disparity-comp'])
             spawn_to_nodes(step, settings, parallel_args)
-            wipe_option(parallel_args, '--skip-low-res-disparity-comp', 0) # no longer needed
+            # Low-res disparity is done, so wipe that option
+            asp_cmd_utils.wipe_option(parallel_args, '--skip-low-res-disparity-comp', 0)
             
             # Bugfix: When doing refinement for a given tile, we must see
             # the result of correlation for all tiles. To achieve that,
@@ -1107,9 +1108,9 @@ if __name__ == '__main__':
 
             # Wipe options that should have been done when the
             # the center of point cloud was computed
-            wipe_option(parallel_args, '--unalign-disparity', 0)
-            wipe_option(parallel_args, '--num-matches-from-disparity', 1)
-            wipe_option(parallel_args, '--num-matches-from-disp-triplets', 1)
+            asp_cmd_utils.wipe_option(parallel_args, '--unalign-disparity', 0)
+            asp_cmd_utils.wipe_option(parallel_args, '--num-matches-from-disparity', 1)
+            asp_cmd_utils.wipe_option(parallel_args, '--num-matches-from-disp-triplets', 1)
             
             # symlink the files just created
             create_subproject_dirs(settings)

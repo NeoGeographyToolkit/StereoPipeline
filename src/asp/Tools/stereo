@@ -30,7 +30,7 @@ sys.path.insert(0, libexecpath)
 
 from stereo_utils import * # must be after the path is altered above
 
-import asp_system_utils
+import asp_system_utils, asp_cmd_utils
 asp_system_utils.verify_python_version_is_supported()
 
 # Prepend to system PATH
@@ -137,9 +137,9 @@ if __name__ == '__main__':
         # from a log file where these particular operations
         # happened, and they will result in the overall stereo
         # command misbehaving. They are needed only at a certain stage.
-        wipe_option(args, '--compute-low-res-disparity-only', 0)
-        wipe_option(args, '--compute-point-cloud-center-only', 0)
-        wipe_option(args, '--compute-piecewise-adjustments-only', 0)
+        asp_cmd_utils.wipe_option(args, '--compute-low-res-disparity-only', 0)
+        asp_cmd_utils.wipe_option(args, '--compute-point-cloud-center-only', 0)
+        asp_cmd_utils.wipe_option(args, '--compute-piecewise-adjustments-only', 0)
 
         # Invoke itself for multiview if appropriate
         num_pairs = int(settings['num_stereo_pairs'][0])
@@ -170,7 +170,8 @@ if __name__ == '__main__':
                 # Run full-resolution stereo correlation
                 args.extend(['--skip-low-res-disparity-comp'])
                 stereo_run('stereo_corr', args, opt, msg='%d: Correlation' % step)
-                wipe_option(args, '--skip-low-res-disparity-comp', 0) # no longer needed
+                # Low-res disparity is done, so wipe that option
+                asp_cmd_utils.wipe_option(args, '--skip-low-res-disparity-comp', 0)
 
         # Note that blending is not done, as with stereo the only
         # supported algorithm is block-matching, which does not use

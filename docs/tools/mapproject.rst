@@ -143,12 +143,6 @@ Command-line options for mapproject:
     for other cameras, as such a process is multi-threaded, and disk
     I/O becomes a bigger consideration.
 
---no-geoheader-info
-    Do not write information in the geoheader. Otherwise mapproject will
-    write the camera model type, the bundle adjustment prefix used,
-    the rotation and translation from the .adjust file, the DEM it
-    mapprojected onto, and the value of the ``--mo`` option.
-
 --enable-correct-velocity-aberration
     Turn on velocity aberration correction for Optical Bar and
     non-ISIS linescan cameras (:numref:`sensor_corrections`).
@@ -158,6 +152,15 @@ Command-line options for mapproject:
     Turn on atmospheric refraction correction for Optical Bar and
     non-ISIS linescan cameras. This option impairs the convergence of
     bundle adjustment.
+
+--query-projection
+    Display the computed projection information and quit.
+
+--no-geoheader-info
+    Do not write information in the geoheader. Otherwise mapproject will
+    write the camera model type, the bundle adjustment prefix used,
+    the rotation and translation from the .adjust file, the DEM it
+    mapprojected onto, and the value of the ``--mo`` option.
 
 --suppress-output
     Suppress output from sub-processes.

@@ -23,6 +23,15 @@
 from __future__ import print_function
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing, shlex
 
+def wipe_option(options, opt, n):
+    # In the array 'options', find the entry with value 'opt'.
+    # Wipe this entry and the next n values.
+    while opt in options:
+        r = options.index(opt)
+        if r < len(options):
+            del options[r] # rm 'opt'
+        for i in range(n):
+            if r < len(options): del options[r]
 
 class CmdRunException(Exception):
     '''Exception type indicating an error with a cmd call'''
@@ -37,3 +46,4 @@ def isCmdOption(arg):
         return True
     else:
         return False
+

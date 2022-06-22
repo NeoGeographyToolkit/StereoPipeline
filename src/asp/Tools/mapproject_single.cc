@@ -80,7 +80,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("datum-offset",     po::value(&opt.datum_offset)->default_value(0),
      "When projecting to a datum instead of a DEM, use this elevation in meters from the datum.")
     ("query-projection", po::bool_switch(&opt.isQuery)->default_value(false),
-     "Just display the computed projection information without actually doing the projection.")
+     "Display the computed projection information and quit. Used by the mapproject script.")
     ("session-type,t",      po::value(&opt.stereo_session),
      "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("t_projwin",        po::value(&opt.target_projwin),
@@ -803,12 +803,13 @@ int main(int argc, char* argv[]) {
                      // Outputs
                      opt, cam_box, target_georef);
 
-    vw_out() << "Projected space bounding box: " << cam_box << std::endl;
+    // Set a high precision, as the numbers can come out big for UTM
+    vw_out() << std::setprecision(17) << "Projected space bounding box: " << cam_box << std::endl;
 
     // Compute output image size in pixels using bounding box in output projected space
     BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );
 
-    vw_out() << "Image box: " << target_image_size << std::endl;
+    vw_out() << std::setprecision(17) << "Image box: " << target_image_size << std::endl;
     
     // Very important note: this box may be in the middle of the
     // image.  However, the virtual image we create with
@@ -836,7 +837,7 @@ int main(int argc, char* argv[]) {
 
     // Important: Don't modify the line below, we count on it in mapproject.in.
     vw_out() << "Output image size:\n";
-    vw_out() << "(width: " << virtual_image_width
+    vw_out() << std::setprecision(17) << "(width: " << virtual_image_width
              << " height: " << virtual_image_height << ")" << std::endl;
 
     if (opt.isQuery){ // Quit before we do any image work

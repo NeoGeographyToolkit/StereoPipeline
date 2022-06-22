@@ -33,7 +33,7 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-import asp_system_utils
+import asp_system_utils, asp_cmd_utils
 asp_system_utils.verify_python_version_is_supported()
 
 from stereo_utils import * # must be after the path is altered above
@@ -143,8 +143,8 @@ def spawn_to_nodes(step, argsIn):
         procs   = opt.processes
         threads = opt.threads
 
-    wipe_option(args, '--processes', 1)
-    wipe_option(args, '--threads', 1)
+    asp_cmd_utils.wipe_option(args, '--processes', 1)
+    asp_cmd_utils.wipe_option(args, '--threads', 1)
     args.extend(['--processes', str(procs)])
     args.extend(['--threads', str(threads)])
     args.extend(['--instance-count', str(num_instances)])
@@ -208,13 +208,13 @@ def run_job(prog, args, instance_index, **kw):
 
     if instance_index < 0: # Only one instance will be used
         if opt.threads is not None:
-            wipe_option(call, '--threads', 1)
+            asp_cmd_utils.wipe_option(call, '--threads', 1)
             call.extend(['--threads', str(opt.threads)])
 
     else: # One of the parallel jobs
 
         if opt.threads is not None:
-            wipe_option(call, '--threads', 1)
+            asp_cmd_utils.wipe_option(call, '--threads', 1)
             call.extend(['--threads', str(opt.threads)])
 
         if '--stop-after-statistics' not in args:
@@ -225,7 +225,7 @@ def run_job(prog, args, instance_index, **kw):
 
             # Replace the output prefix in the call
             set_option(call, '-o', [sub_prefix])
-            wipe_option(call, '--output-prefix', 1)
+            asp_cmd_utils.wipe_option(call, '--output-prefix', 1)
 
     if opt.dryrun:
         print('%s' % ' '.join(call))
@@ -359,7 +359,7 @@ if __name__ == '__main__':
             tmpFile = tempfile.NamedTemporaryFile(delete=True, dir='.')
             shutil.copy2(opt.nodes_list, tmpFile.name)
             opt.nodes_list = tmpFile.name
-            wipe_option(sys.argv, '--nodes-list', 1)
+            asp_cmd_utils.wipe_option(sys.argv, '--nodes-list', 1)
             sys.argv.extend(['--nodes-list', tmpFile.name])
     else:
         # After the script spawns itself to nodes, it starts in the
@@ -384,9 +384,9 @@ if __name__ == '__main__':
 
         # Wipe options which we will override.
         self_args = sys.argv # shallow copy
-        wipe_option(self_args, '-e', 1)
-        wipe_option(self_args, '--entry-point', 1)
-        wipe_option(self_args, '--stop-point',  1)
+        asp_cmd_utils.wipe_option(self_args, '-e', 1)
+        asp_cmd_utils.wipe_option(self_args, '--entry-point', 1)
+        asp_cmd_utils.wipe_option(self_args, '--stop-point',  1)
 
         output_prefix = get_output_prefix(args)
         output_folder = os.path.dirname(output_prefix)

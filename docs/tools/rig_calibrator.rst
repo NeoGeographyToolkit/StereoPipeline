@@ -200,7 +200,7 @@ Next, we run ``rig_calibrator``::
       --rig_config rig_input/rig_config.txt       \
       --nvm_file rig_theia/cameras.nvm            \
       --registration                              \
-      --hugin-file control_points.pto             \
+      --hugin_file control_points.pto             \
       --xyz_file xyz.txt                          \
       --camera_poses_to_float "nav_cam"           \
       --rig_transforms_to_float "sci_cam haz_cam" \
@@ -217,9 +217,10 @@ Next, we run ``rig_calibrator``::
 The previously found camera poses are read in. They are registered to
 world coordinates. For that, the four corners of a square with known
 dimensions visible in a couple of images were picked at control points
-in ``hugin`` (https://hugin.sourceforge.io/) and saved to
+in ``Hugin`` (https://hugin.sourceforge.io/) and saved to
 ``control_points.pto``, and the corresponding measurements of their
-coordinates were saved in ``xyz.txt``.
+coordinates were saved in ``xyz.txt``. See
+:numref:`rig_calibrator_registration` for more details.
 
 The ``nav_cam`` camera is chosen to be the reference sensor in the rig
 configuration. Its poses are allowed to float, that is, to be
@@ -302,13 +303,19 @@ For that, the first invocation should use the options ``--out_dir run_dir1`` and
 those files via ``--image_list run_dir1/images.txt`` and ``--rig_config
 prev_dir/rig_config.txt``.
 
+.. _rig_calibrator_registration:
+
 Determination of scale and registration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Registration was discussed briefly in the earlier example. Note that
-registration happens before the optimization, and the latter can 
-move the cameras around somewhat. To avoid that, or to do one more registration pass,
-one can rerun the tool with control points as before, previous results, and zero iterations.
+Registration was discussed briefly in the example in
+:numref:`rig_calibrator_example`. 
+
+Note that the registration happens before the optimization, and the
+latter can move the cameras around somewhat. To avoid that, or to do
+one more registration pass, one can rerun ``rig_calibrator_example``
+with control points as before, previous results (hence adjust
+``--rig_config`` and ``--images_list``), and zero iterations.
 
 If the images cover a large area, it is suggested to use registration points
 distributed over that area. Registration may not always produce perfect results
@@ -395,7 +402,7 @@ poses, or insufficiently good modeling of the cameras.
 When each rig sensor has its own clock, or acquires images at is own
 rate, the discrepancy among the clocks (if the timestamp offsets are
 not set correctly) or insufficiently tight bracketing (cameras moving
-too much between acquistions meant to serve as brackets) may be source
+too much between acquisitions meant to serve as brackets) may be source
 of errors as well. In this case one can also try the tool with
 the ``--no_rig`` option, when the cameras are decoupled and see if this
 makes a difference.
@@ -502,8 +509,8 @@ Command-line options for rig_calibrator
   Type: int32. Default: 20.
 ``--num_match_threads`` How many threads to use in feature detection/matching.
   A large number can use a lot of memory. Type: int32. Default: 8.
-``--num_opt_threads`` How many threads to use in the optimization. Type: int32
- . Default: 16.
+``--num_opt_threads`` How many threads to use in the optimization. Type: int32.
+  Default: 16.
 ``--num_overlaps`` How many images (of all camera types) close and forward in
   time to match to given image. Type: int32. Default: 10.
 ``--nvm_file`` Read images and camera poses from an nvm file, as exported by
@@ -518,7 +525,7 @@ Command-line options for rig_calibrator
   than this. Type: double. Default: 1e-12.
 ``--refiner_min_angle`` If filtering outliers, remove triangulated points for
   which all rays converging to it make an angle (in degrees) less than
-  this.Note that some cameras in the rig may be very close to each other
+  this. Note that some cameras in the rig may be very close to each other
   relative to the triangulated points, so care is needed here.)
   Type: double. Default: 0.5.
 ``--registration`` If true, and registration control points for the sparse map
@@ -527,7 +534,8 @@ Command-line options for rig_calibrator
   now, the depth-to-image transforms do not change as result of this, which
   may be a problem. To apply the registration only, use zero iterations.)
   Type: bool. Default: false.
-``--rig_config`` Read the rig configuration from file. Type: string. Default: "".
+``--rig_config`` Read the rig configuration from file. Type: string. 
+  Default: "".
 ``--rig_transforms_to_float`` Specify the names of sensors whose transforms to
   float, relative to the ref sensor. Use quotes around this string if it
   has spaces. Also can use comma as separator. Example: 'cam1 cam2'.)
@@ -535,7 +543,7 @@ Command-line options for rig_calibrator
 ``--robust_threshold`` Residual pixel errors and 3D point residuals (the latter
   multiplied by corresponding weight) much larger than this will be
   exponentially attenuated to affect less the cost function.
-  . Type: double. Default: 3.
+  Type: double. Default: 3.
 ``--save_images_and_depth_clouds`` Save the images and point clouds used in
   processing. Implies that ``--out_dir`` is set. Type: bool. Default: false.
 ``--save_matches`` Save the interest point matches. Stereo Pipeline's viewer
@@ -547,8 +555,9 @@ Command-line options for rig_calibrator
 ``--use_initial_rig_transforms`` Use the transforms among the sensors of the
   rig specified via ``--rig_config.`` Otherwise derive it from the poses of
   individual cameras. Type: bool. Default: false.
+``--xyz_file`` The path to the xyz file used for registration. Type:
+  string. Default: "".
 ``--verbose`` Print a lot of verbose information about how matching goes.)
-  Type: bool. Default: false.  ``--xyz_file`` The path to the xyz file
-  used for registration. Type: string. Default: "".
+  Type: bool. Default: false.
 
 

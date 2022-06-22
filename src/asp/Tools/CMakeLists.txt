@@ -79,7 +79,7 @@ install(TARGETS lronacjitreg DESTINATION bin)
 
 add_executable(mapproject_single mapproject_single.cc)
 target_link_libraries(mapproject_single AspSessions)
-install(TARGETS mapproject_single DESTINATION libexec)
+install(TARGETS mapproject_single DESTINATION bin)
 
 add_executable(mer2camera mer2camera.cc)
 target_link_libraries(mer2camera AspCore)
