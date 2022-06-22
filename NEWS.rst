@@ -2,9 +2,9 @@ Changes since last release
 --------------------------
 
 Added functionality for creation of large-scale textured (and mostly
-seamless meshes) by fusing many point clouds (from stereo or depth
-sensors). (Still being tested.) Added logic for rig calibration. See
-individual tools below.
+seamless) meshes by fusing many point clouds (from stereo or depth
+sensors) and projecting all images onto that mesh. (Still being
+tested.) Added logic for rig calibration. See individual tools below.
 
 New tools:
   * Added ``rig_calibrator``, a tool for calibrating a rig of N
