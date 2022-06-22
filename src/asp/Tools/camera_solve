@@ -610,8 +610,8 @@ def generate_theia_camera_file(input_images, vw_cam_files, theia_cam_file_out):
             center_x      = theseParams[2]
             center_y      = theseParams[3]
             width, height = asp_image_utils.getImageSize(image)
+
             base_image    = os.path.basename(image) # Strip the folder
-        
             fh.write('{"CameraIntrinsicsPrior" : {\n')
             fh.write('"image_name" : "' + base_image + '",\n')
             fh.write('"width" : '  + str(width) + ",\n")
@@ -695,8 +695,9 @@ def main(argsIn):
 
         # Remove continuation lines in the string (those are convenient
         # for readability in docs)
-        options.bundle_params = options.bundle_params.replace('\\', '')
-        options.bundle_params = options.bundle_params.replace('\n', ' ')
+        if options.bundle_params is not None:
+            options.bundle_params = options.bundle_params.replace('\\', '')
+            options.bundle_params = options.bundle_params.replace('\n', ' ')
         
         # Check the required positional arguments.
         if len(args) < 1:
