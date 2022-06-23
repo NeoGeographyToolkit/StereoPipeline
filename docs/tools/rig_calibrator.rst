@@ -238,9 +238,8 @@ registration points were not present.
 
 See :numref:`rig_calibrator_command_line` for full list of options.
 
-The obtained point clouds can be fused into a mesh using a tool based
-on VoxBlox (https://github.com/ethz-asl/voxblox), shipped with this
-software, using the command::
+The obtained point clouds can be fused into a mesh using ``voxblox_mesh`` 
+(:numref:`voxblox_mesh`), using the command::
     
     max_ray_len=2.0
     voxel_size=0.01
