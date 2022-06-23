@@ -280,6 +280,9 @@ loading them in MeshLab, as::
 
     meshlab rig_out_texture/*sci_cam.obj
 
+See :numref:`texrecon` for how to prduce a merged textured mesh
+given these images and camera poses.
+
 Best practices
 ^^^^^^^^^^^^^^
 
@@ -315,7 +318,7 @@ Note that the registration happens before the optimization, and the
 latter can move the cameras around somewhat. To avoid that, or to do
 one more registration pass, one can rerun ``rig_calibrator_example``
 with control points as before, previous results (hence adjust
-``--rig_config`` and ``--images_list``), and zero iterations.
+``--rig_config`` and ``--image_list``), and zero iterations.
 
 If the images cover a large area, it is suggested to use registration points
 distributed over that area. Registration may not always produce perfect results
@@ -467,8 +470,8 @@ Command-line options for rig_calibrator
   cameras. This is experimental. Type: bool. Default: false.
 ``--hugin_file`` The path to the hugin .pto file used for registration.)
   Type: string. Default: "".
-``--image_list`` Read images and camera poses from this list, rather than a
-  sparse map and bag file. The same format is used as for when this tool
+``--image_list`` Read images and world-to-camera poses from this list.
+  The same format is used as for when this tool
   saves the outputs with the ``--save_images_and_depth_clouds`` option.)
   Type: string. Default: "".
 ``--initial_max_reprojection_error`` If filtering outliers, remove interest

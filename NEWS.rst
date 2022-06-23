@@ -13,7 +13,7 @@ New tools:
     a seamless oriented mesh, with each point given a weight
     according to its reliability. Based on the third-party VoxBlox
     software.
-  * Added ``texrecon``,  a tool for creating seamless textured
+  * Added ``texrecon.py``,  a tool for creating seamless textured
     meshes. Based on the third-party MVS-Texturing project.
   * Added the program ``pc_filter`` for filtering outliers in 
     point clouds created with pinhole cameras and weighing
