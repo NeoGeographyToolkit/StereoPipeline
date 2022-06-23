@@ -555,8 +555,9 @@ threshold mode from the GUI menu, and then clicking on a few points in
 the shadows. The largest of the determined pixel values will be the
 used as the shadow threshold. Then, the thresholded images can be
 visualized/updated from the menu as well, and this process can be
-iterated. We also found that for LRO NAC a shadow threshold value of
-0.003 works well enough usually.
+iterated. See :numref:`thresh` for more details. We also found that
+for LRO NAC a shadow threshold value of 0.003 works well enough
+usually.
 
 Alternatively, the ``otsu_threshold`` tool (:numref:`otsu_threshold`)
 can be used to find the shadow thresholds automatically. It can

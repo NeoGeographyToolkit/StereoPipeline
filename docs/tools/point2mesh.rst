@@ -41,12 +41,20 @@ indices are a superset of the point cloud indices.
 
 Examples::
 
-    point2mesh --point-cloud-step-size 4 --texture-step-size 2 \
-      output-prefix-PC.tif output-prefix-L.tif
+    point2mesh --center --point-cloud-step-size 4  \
+      --texture-step-size 2 output-prefix-PC.tif   \
+      output-prefix-L.tif
 
-    point2mesh -s 2 output-prefix-DEM.tif output-prefix-DRG.tif
+    point2mesh --center -s 2 output-prefix-DEM.tif \
+       output-prefix-DRG.tif
 
      meshlab output-prefix.obj
+
+These examples use the option ``--center`` to shift the points towards
+the origin, as otherwise, given that mesh vertices are measured from
+planet center, and hence are large, mesh viewers, which typically use
+float32 precision, may render the mesh with artifacts without this
+option.
 
 (Note that older versions of MeshLab may have a hard time opening a
 mesh if your output prefix is a directory. In that case either open

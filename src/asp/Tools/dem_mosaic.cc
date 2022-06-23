@@ -1308,7 +1308,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("use-centerline-weights",   po::bool_switch(&opt.use_centerline_weights)->default_value(false),
      "Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary.")
     ("dem-blur-sigma", po::value<double>(&opt.dem_blur_sigma)->default_value(0.0),
-     "Blur the DEM using a Gaussian with this value of sigma. Default: No blur.")
+     "Blur the DEM using a Gaussian with this value of sigma. A larger value will blur more. Default: No blur.")
     ("nodata-threshold", po::value(&opt.nodata_threshold)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Values no larger than this number will be interpreted as no-data.")
     ("propagate-nodata", po::bool_switch(&opt.propagate_nodata)->default_value(false),

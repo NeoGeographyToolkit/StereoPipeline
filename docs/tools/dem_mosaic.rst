@@ -132,7 +132,7 @@ Command-line options
 -h, --help
     Display the help message.
 
--l, --dem-list-file <filename>
+-l, --dem-list-file <string>
     Text file listing the DEM files to mosaic, one per line.
 
 -o, --output-prefix <string>
@@ -152,28 +152,28 @@ Command-line options
     List of tile indices (in quotes) to save. A tile index starts
     from 0.
 
---erode-length <number-of-pixels (default: 0)>
+--erode-length <integer (default: 0)>
     Erode the DEM by this many pixels at boundary.
 
---priority-blending-length <number-of-pixels (default: 0)>
+--priority-blending-length <integer (default: 0)>
     If positive, keep unmodified values from the earliest available
     DEM except a band this wide measured in pixels inward of its
     boundary where blending with subsequent DEMs will happen.
 
---hole-fill-length <number-of-pixels (default: 0)>
+--hole-fill-length <integer (default: 0)>
     Maximum dimensions of a hole in the DEM to fill in, in
     pixels.
 
---tr <resolution>
+--tr <double>
     Output grid size, that is, the DEM resolution in target
     georeferenced units per pixel. Default: use the same resolution as
     the first DEM to be mosaicked.
 
---t_srs <proj4-string>
+--t_srs <string>
     Specify the output projection (PROJ.4 string). Default: use the
     one from the first DEM to be mosaicked.
 
---t_projwin <xmin ymin xmax ymax>
+--t_projwin <double double double double>
     Limit the mosaic to this region, with the corners given in
     georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.
 
@@ -211,7 +211,7 @@ Command-line options
 --count
     Each pixel is set to the number of valid DEM heights at that pixel.
 
---georef-tile-size <projected-units>
+--georef-tile-size <double>
     Set the tile size in georeferenced (projected) units (e.g.,
     degrees or meters).
 
@@ -219,12 +219,12 @@ Command-line options
     No-data value to use on output.  Default: use the one from the
     first DEM to be mosaicked.
 
---ot <type (default: Float32)>
+--ot <string (default: Float32)>
     Output data type. Supported types: Byte, UInt16, Int16, UInt32,
     Int32, Float32. If the output type is a kind of integer, values
     are rounded and then clamped to the limits of that type.
 
---weights-blur-sigma <integer (default: 5)>
+--weights-blur-sigma <double (default: 5.0)>
     The standard deviation of the Gaussian used to blur the weights.
     Higher value results in smoother weights and blending.  Set to
     0 to not use blurring.
@@ -239,11 +239,11 @@ Command-line options
     smoother weights if the input DEMs don't have holes or complicated
     boundary.
 
---dem-blur-sigma <integer (default: 0)>
+--dem-blur-sigma <double (default: 0.0)>
     Blur the DEM using a Gaussian with this value of sigma.
-    Default: No blur.
+    A larger value will blur more. Default: No blur.
 
---extra-crop-length <number-of-pixels (default: 200)>
+--extra-crop-length <integer (default: 200)>
     Crop the DEMs this far from the current tile (measured in pixels)
     before blending them (a small value may result in artifacts).
 
