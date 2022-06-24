@@ -1205,8 +1205,6 @@ If the images project reasonably well, but there are still some small
 registration errors, one can refine the cameras using the reference
 terrain as a constraint in bundle adjustment::
 
-    mkdir -p ba_align_ref
-    /bin/cp -rfv ba/* ba_align_ref
     bundle_adjust --skip-matching --num-iterations 20          \
       --num-passes 1 --camera-weight 1                         \
       --input-adjustments-prefix ba_align/run <images>         \
@@ -1214,14 +1212,12 @@ terrain as a constraint in bundle adjustment::
       --heights-from-dem ref.tif --heights-from-dem-weight 0.1 \
       --heights-from-dem-robust-threshold 10                   \
       --match-first-to-last --max-pairwise-matches 1000        \
-      -o ba_align_ref/run
+      --match-files-prefix ba/run -o ba_align_ref/run
 
-Note the copy command, and the option ``--skip-matching``. These are
-used to save time by not having to recreate the match files. If this
-command fails or exits quickly, there is a chance the match files were
-not copied successfully. (Consider also using the newer options named
-``--match-files-prefix`` and ``--clean-match-files-prefix`` to avoid
-the copy. These imply ``--skip-matching``.)
+Note how we use the match files from the original ``ba`` directory,
+and also use ``--skip-matching`` to save time by not recomputing
+them. But the camera adjustments come from ``ba_align``, as the ones
+in ``ba`` are before alignment.
 
 Ideally one should use more iterations in bundle adjustment though
 this may be slow. It is suggested that the images be map-projected
