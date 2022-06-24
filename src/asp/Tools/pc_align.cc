@@ -872,7 +872,7 @@ void filter_source_cloud(DP          const& ref_point_cloud,
                                                        source_point_cloud, error_matrix);
     }
   }catch(const PointMatcher<RealT>::ConvergenceError & e){
-    vw_throw( ArgumentErr() << "Error: No points left in source cloud after filtering.\n");
+    vw_throw( ArgumentErr() << "Error: No points left in source cloud after filtering. Consider increasing --max-displacement and/or see the documentation.\n");
   }
 
 
