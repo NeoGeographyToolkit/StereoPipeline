@@ -105,7 +105,7 @@ Here, ``ref_to_sensor_transform`` has the rotation (9 doubles, stored
 row after row) and translation (3 doubles) transform from the
 reference sensor to the sensor with given name, while
 ``depth_to_image_transform`` is the transform from the depth to image
-coordinate systems of a given depth+image sensor. These can be set to
+coordinate systems of a given depth+image sensor. These must be set to
 the identity transform (example below) if not known or not applicable.
 The value ``ref_to_sensor_timestamp_offset``, measured in seconds, is
 what should be added to the reference camera clock to get the time in
@@ -160,7 +160,7 @@ poses will be saved by this tool, with the name::
 
   <output dir>/images.txt
 
-It can be read by the program with the ``--image_list`` option.
+It can be read by the program with the ``--camera_poses`` option.
 
 .. _rig_calibrator_example:
 
@@ -198,7 +198,7 @@ Next, we run ``rig_calibrator``::
 
     rig_calibrator                                \
       --rig_config rig_input/rig_config.txt       \
-      --nvm_file rig_theia/cameras.nvm            \
+      --nvm rig_theia/cameras.nvm                 \
       --registration                              \
       --hugin_file control_points.pto             \
       --xyz_file xyz.txt                          \
@@ -210,7 +210,6 @@ Next, we run ``rig_calibrator``::
       --depth_tri_weight 1000                     \
       --num_iterations 100                        \
       --num_overlaps 10                           \
-      --save_images_and_depth_clouds              \
       --export_to_voxblox                         \
       --out_dir rig_out
 
@@ -258,7 +257,7 @@ the mesh, obtaining one ``.obj`` textured mesh file per image::
 
     rig_calibrator                                    \
       --rig_config rig_out/rig_config.txt             \
-      --image_list rig_out/images.txt                 \
+      --camera_poses rig_out/cameras.txt              \
       --mesh rig_out/fused_mesh.ply                   \
       --camera_poses_to_float "nav_cam"               \
       --rig_transforms_to_float "sci_cam haz_cam"     \
@@ -266,20 +265,23 @@ the mesh, obtaining one ``.obj`` textured mesh file per image::
       --depth_to_image_transforms_to_float ""         \
       --affine_depth_to_image --bracket_len 3.0       \
       --depth_tri_weight 1000                         \
-      --mesh_tri_weight 1000                          \
-      --depth_mesh_weight 1000                        \
+      --depth_mesh_weight 10                          \
+      --mesh_tri_weight 10                            \
       --num_iterations 100                            \
       --num_overlaps 10                               \
-      --save_images_and_depth_clouds                  \
       --out_dir rig_out_mesh                          \
       --out_texture_dir rig_out_texture
+
+If in doubt, the value of the three weights above can be lowered.
+Especially, a high value of ``--mesh_tri_weight`` can prevent
+convergence.
 
 The obtained textured meshes can be inspected for disagreements, by
 loading them in MeshLab, as::
 
     meshlab rig_out_texture/*sci_cam.obj
 
-See :numref:`texrecon` for how to prduce a merged textured mesh
+See :numref:`texrecon` for how to produce a merged textured mesh
 given these images and camera poses.
 
 Best practices
@@ -296,14 +298,13 @@ to keep those fixed and only optimize the transforms among the rig sensors,
 ensure that the value of ``--camera_poses_to_float`` is kept empty.
 
 The output directory of each tool invocation will write the rig
-configuration so far, the camera poses of all images, and can also write the
-images and depth clouds themselves. These can be used as inputs for a
-subsequent invocation, if needed to fine-tune things.
+configuration so far, the camera poses of all images, and can also
+write the match files. These can be used as inputs for a subsequent
+invocation, if needed to fine-tune things.
 
-For that, the first invocation should use the options ``--out_dir run_dir1`` and
-``--save_images_and_clouds``, and the second one should be passed in
-those files via ``--image_list run_dir1/images.txt`` and ``--rig_config
-prev_dir/rig_config.txt``.
+If the first invocation used the option ``--out_dir run_dir1`` the
+second one should set the options ``--camera_poses
+run_dir1/cameras.txt`` and ``--rig_config prev_dir/rig_config.txt``.
 
 .. _rig_calibrator_registration:
 
@@ -317,7 +318,7 @@ Note that the registration happens before the optimization, and the
 latter can move the cameras around somewhat. To avoid that, or to do
 one more registration pass, one can rerun ``rig_calibrator_example``
 with control points as before, previous results (hence adjust
-``--rig_config`` and ``--image_list``), and zero iterations.
+``--rig_config`` and ``--camera_poses``), and zero iterations.
 
 If the images cover a large area, it is suggested to use registration points
 distributed over that area. Registration may not always produce perfect results
@@ -469,10 +470,9 @@ Command-line options for rig_calibrator
   cameras. This is experimental. Type: bool. Default: false.
 ``--hugin_file`` The path to the hugin .pto file used for registration.)
   Type: string. Default: "".
-``--image_list`` Read images and world-to-camera poses from this list.
-  The same format is used as for when this tool
-  saves the outputs with the ``--save_images_and_depth_clouds`` option.)
-  Type: string. Default: "".
+``--camera_poses`` Read the images and world-to-camera poses from this list.
+  The same format is used as for when this tool saves the updated poses
+  in the output directory. Type: string. Default: "".
 ``--initial_max_reprojection_error`` If filtering outliers, remove interest
   points for which the reprojection error, in pixels, is larger than this.
   This filtering happens when matches are created, before cameras are
@@ -505,8 +505,10 @@ Command-line options for rig_calibrator
   sensor types. See also ``--camera_poses_to_float``. Type: bool. Default: false.
 ``--num_exclude_boundary_pixels`` Flag as outliers pixels closer than this to
   image boundary, and ignore that boundary region when texturing using the
-  optimized cameras with the ``--out_texture_dir`` option. This is very
-  experimental. Type: int32. Default: 0.
+  optimized cameras with the ``--out_texture_dir`` option. Provide one number
+  per sensor, in the same order as in the rig config file. Example: 
+  '100 0 0'. For fisheye lenses, this improves a lot the quality of results.
+  Type: string. Default: "".
 ``--num_iterations`` How many solver iterations to perform in calibration.)
   Type: int32. Default: 20.
 ``--num_match_threads`` How many threads to use in feature detection/matching.
@@ -515,11 +517,10 @@ Command-line options for rig_calibrator
   Default: 16.
 ``--num_overlaps`` How many images (of all camera types) close and forward in
   time to match to given image. Type: int32. Default: 10.
-``--nvm_file`` Read images and camera poses from an nvm file, as exported by
+``--nvm`` Read images and camera poses from this nvm file, as exported by
   Theia. Type: string. Default: "".
 ``--out_dir`` Save in this directory the camera intrinsics and extrinsics. See
-  also ``--save-images_and_depth_clouds``, ``--save-matches``, ``--verbose``.
-  Type: string. Default: "".
+  also ``--save-matches``, ``--verbose``. Type: string. Default: "".
 ``--out_texture_dir`` If non-empty and if an input mesh was provided, project
   the camera images using the optimized poses onto the mesh and write the
   obtained .obj files in the given directory. Type: string. Default: "".
@@ -546,11 +547,8 @@ Command-line options for rig_calibrator
   multiplied by corresponding weight) much larger than this will be
   exponentially attenuated to affect less the cost function.
   Type: double. Default: 3.
-``--save_images_and_depth_clouds`` Save the images and point clouds used in
-  processing. Implies that ``--out_dir`` is set. Type: bool. Default: false.
 ``--save_matches`` Save the interest point matches. Stereo Pipeline's viewer
-  can be used for visualizing these. Implies that ``--out_dir`` is set.)
-  Type: bool. Default: false.
+  can be used for visualizing these. Type: bool. Default: false.
 ``--timestamp_offsets_max_change`` If floating the timestamp offsets, do not
   let them change by more than this (measured in seconds). Existing image
   bracketing acts as an additional constraint. Type: double. Default: 1.

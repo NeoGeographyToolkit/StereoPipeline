@@ -313,9 +313,9 @@ int main(int argc, char *argv[]){
       bool is_geodetic = false; // raw xyz values
       BBox3 bbox = asp::pointcloud_bbox(point_cloud, is_geodetic);
       vw_out() << "\t--> Setting as the origin the bounding box midpoint.\n";
-      vw_out() << "\t    Bounding box: " << bbox << "\n";
+      vw_out() << std::setprecision(17) << "\t    Bounding box: " << bbox << "\n";
       C = (bbox.max() + bbox.min()) / 2.0;
-      vw_out() << "\t    Midpoint: " << C << "\n";
+      vw_out() << std::setprecision(17) << "\t    Midpoint: " << C << "\n";
     }
     
     ImageViewRef<float> texture_image;
@@ -334,7 +334,7 @@ int main(int argc, char *argv[]){
   
     save_mesh(opt.output_prefix, output_prefix_no_dir,
               point_cloud, C, opt.precision);
-
+    
     save_texture(opt.output_prefix, texture_image);
     
     save_mtl(opt.output_prefix, output_prefix_no_dir);
