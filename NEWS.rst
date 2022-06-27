@@ -1,14 +1,15 @@
 Changes since last release
 --------------------------
 
-Added functionality for creation of large-scale textured (and mostly
-seamless) meshes by fusing many point clouds (from stereo or depth
-sensors) and projecting all images onto that mesh. (Still being
-tested.) Added logic for rig calibration. See individual tools below.
+Added functionality for creation of large-scale meshes and (mostly
+seamless) textures for small planeteary bodies and indoor
+surfaces. Added logic for rig calibration. See individual tools below.
 
 New tools:
   * Added ``rig_calibrator``, a tool for calibrating a rig of N
-    image and/or depth+image cameras.
+    image and/or depth+image cameras. Can also co-register and refine
+    intrinsics of camera images acquired with N sensors with no rig
+    constraint.
   * Added ``voxblox_mesh``, a tool for fusing point clouds into 
     a seamless oriented mesh, with each point given a weight
     according to its reliability. Based on the third-party VoxBlox

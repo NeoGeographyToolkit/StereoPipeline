@@ -183,9 +183,10 @@ will be optimized later), and we do not know each camera's pose. The
 first step is then determining these, for which we use the
 ``theia_sfm.py`` script, as follows::
 
-    theia_sfm.py --rig_config rig_input/rig_config.txt        \
-      --images 'rig_input/nav_cam/*tif rig_input/haz_cam/*tif \
-        rig_input/sci_cam/*tif'                               \
+    theia_sfm.py --rig_config rig_input/rig_config.txt \
+      --images 'rig_input/nav_cam/*tif
+                rig_input/haz_cam/*tif 
+                rig_input/sci_cam/*tif'                \
       --out_dir rig_theia
 
 It will write the solved camera poses to ``rig_theia/cameras.nvm``.
@@ -199,17 +200,18 @@ Next, we run ``rig_calibrator``::
     rig_calibrator                                \
       --rig_config rig_input/rig_config.txt       \
       --nvm rig_theia/cameras.nvm                 \
-      --registration                              \
-      --hugin_file control_points.pto             \
-      --xyz_file xyz.txt                          \
       --camera_poses_to_float "nav_cam"           \
       --rig_transforms_to_float "sci_cam haz_cam" \
       --intrinsics_to_float ""                    \
       --depth_to_image_transforms_to_float ""     \
       --affine_depth_to_image --bracket_len 3.0   \
       --depth_tri_weight 1000                     \
-      --num_iterations 100                        \
+      --num_iterations 50                         \
+      --calibrator_num_passes 2                   \
       --num_overlaps 10                           \
+      --registration                              \
+      --hugin_file control_points.pto             \
+      --xyz_file xyz.txt                          \
       --export_to_voxblox                         \
       --out_dir rig_out
 
@@ -255,21 +257,25 @@ reoptimized, this time the intrinsics are allowed to float, and this mesh is
 employed as a constraint. The optimized cameras are used to project the images onto
 the mesh, obtaining one ``.obj`` textured mesh file per image::
 
-    rig_calibrator                                    \
-      --rig_config rig_out/rig_config.txt             \
-      --camera_poses rig_out/cameras.txt              \
-      --mesh rig_out/fused_mesh.ply                   \
-      --camera_poses_to_float "nav_cam"               \
-      --rig_transforms_to_float "sci_cam haz_cam"     \
-      --intrinsics_to_float "nav_cam haz_cam sci_cam" \
-      --depth_to_image_transforms_to_float ""         \
-      --affine_depth_to_image --bracket_len 3.0       \
-      --depth_tri_weight 1000                         \
-      --depth_mesh_weight 10                          \
-      --mesh_tri_weight 10                            \
-      --num_iterations 100                            \
-      --num_overlaps 10                               \
-      --out_dir rig_out_mesh                          \
+    rig_calibrator                                       \
+      --rig_config rig_out/rig_config.txt                \
+      --camera_poses rig_out/cameras.txt                 \
+      --mesh rig_out/fused_mesh.ply                      \
+      --camera_poses_to_float "nav_cam"                  \
+      --rig_transforms_to_float "sci_cam haz_cam"        \
+      --intrinsics_to_float                              \
+        "nav_cam:focal_length,optical_center,distortion 
+         haz_cam:focal_length,optical_center:distortion
+         sci_cam:focal_length,optical_center,distortion" \
+      --depth_to_image_transforms_to_float ""            \
+      --affine_depth_to_image --bracket_len 3.0          \
+      --depth_tri_weight 1000                            \
+      --depth_mesh_weight 10                             \
+      --mesh_tri_weight 10                               \
+      --num_iterations 50                                \
+      --calibrator_num_passes 1                          \
+      --num_overlaps 10                                  \
+      --out_dir rig_out_mesh                             \
       --out_texture_dir rig_out_texture
 
 If in doubt, the value of the three weights above can be lowered.
