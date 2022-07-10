@@ -182,14 +182,17 @@ def create_subproject_dirs(settings, **kw):
     fout.close()
 
 def rename_files(settings, postfix_in, postfix_out, **kw):
-
-    # Rename tile_dir/file_in.tif to tile_dir/file_out.tif
+    """
+    Rename tile_dir/file_in.tif to tile_dir/file_out.tif.
+    Skip symlinks, such as when this directory was processed before.
+    """
+    
     tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
     for tile in tiles:
         directory    = tile_dir(settings['out_prefix'][0], tile)
         filename_in  = directory + "/" + tile.name_str() + postfix_in
         filename_out = directory + "/" + tile.name_str() + postfix_out
-        if os.path.isfile(filename_in) and not os.path.islink(filename_in):
+        if os.path.isfile(filename_in) and (not os.path.islink(filename_in)):
             if os.path.exists(filename_out):
                 os.remove(filename_out)
             os.rename(filename_in, filename_out)
@@ -241,7 +244,34 @@ def create_symlinks_for_multiview(settings, opt):
                     continue
                 os.symlink(rel_src, dst_f)
 
-def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
+def use_padded_tiles(settings):
+    alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
+    return (alg > VW_CORRELATION_BM or settings['alignment_method'][0] == 'local_epipolar')
+
+def grow_crop_tile_maybe(settings, prog, tile):
+    '''
+    The tile, perhaps with padding added, and perhaps cropped to
+    desired region, on which to run one of the stereo tools.
+    '''
+
+    # Make a local copy of the tile, as we may grow it
+    local_tile = BBox(tile.x, tile.y, tile.width, tile.height)
+    
+    if use_padded_tiles(settings) and prog == 'stereo_corr':
+        collar_size = int(settings['collar_size'][0])
+        local_tile.add_collar(collar_size)
+
+    # Will do only the tiles intersecting user's crop window.
+    w = settings['transformed_window']
+    user_crop_win = BBox(int(w[0]), int(w[1]), int(w[2]), int(w[3]))
+    
+    crop_box = intersect_boxes(user_crop_win, local_tile)
+    if crop_box.width <= 0 or crop_box.height <= 0: 
+        return [] # Don't need to process this
+
+    return crop_box
+
+def build_vrt(prog, settings, georef, postfix, tile_postfix, contract_tiles=False):
     '''Generate a VRT file to treat the separate image tiles as one large image.'''
 
     image_size = settings["trans_left_image_size"]
@@ -328,7 +358,6 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
 
             # Handle non-existent tiles
             if not os.path.isfile(filename):
-                #filename = goodFilename # TODO: Use a blank tile!
                 continue # Leave empty
 
             relative  = os.path.relpath(filename, os.path.dirname(settings['out_prefix'][0]))
@@ -338,7 +367,10 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
 
             # Bugfix for the "too many open files" problem.
             # Per https://lists.osgeo.org/pipermail/gdal-dev/2017-October/047370.html
-            f.write('       <SourceProperties RasterXSize="%i" RasterYSize="%i" DataType="%s" BlockXSize="%s" BlockYSize="%s"/>\n' % (tile.width, tile.height, data_type, BlockXSize, BlockYSize))
+            adjusted_tile = grow_crop_tile_maybe(settings, prog, tile)
+            f.write(('       <SourceProperties RasterXSize="%i" RasterYSize="%i" ' + \
+                     'DataType="%s" BlockXSize="%s" BlockYSize="%s"/>\n') \
+                    % (adjusted_tile.width, adjusted_tile.height, data_type, BlockXSize, BlockYSize))
 
             min_x  = 0
             min_y  = 0
@@ -528,7 +560,7 @@ def spawn_to_nodes(step, settings, args):
     # Undo the above
     if 'ASP_LIBRARY_PATH' in os.environ:
         os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
-    
+
 def tile_run(prog, args, settings, tile, **kw):
     '''Job launch wrapper for a single tile'''
 
@@ -537,10 +569,6 @@ def tile_run(prog, args, settings, tile, **kw):
 
     # Get tool path
     binpath = bin_path(prog)
-
-    # Will do only the tiles intersecting user's crop window.
-    w = settings['transformed_window']
-    user_crop_win = BBox(int(w[0]), int(w[1]), int(w[2]), int(w[3]))
 
     # Measure the memory usage on Linux and elapsed time
     timeCmd = []
@@ -555,17 +583,14 @@ def tile_run(prog, args, settings, tile, **kw):
         # When using SGM correlation, increase the output tile size.
         # - The output image will contain more populated pixels but 
         #   there will be no other change.
-
-        alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
-        using_padded_tiles = (alg > VW_CORRELATION_BM or \
-                       settings['alignment_method'][0] == 'local_epipolar')
-
-        if using_padded_tiles and prog == 'stereo_corr':
+        adjusted_tile = grow_crop_tile_maybe(settings, prog, tile)
+        if adjusted_tile.width <= 0 or adjusted_tile.height <= 0:
+            return # the produced tile is empty
+        
+        # Also increase the processing block size for the tile so we process
+        #  the entire tile in one go.
+        if use_padded_tiles(settings) and prog == 'stereo_corr':
             collar_size = int(settings['collar_size'][0])
-            tile.add_collar(collar_size)
-
-            # Also increase the processing block size for the tile so we process
-            #  the entire tile in one go.
             curr_tile_size = int(settings['corr_tile_size'][0])
             set_option(args, '--corr-tile-size', [curr_tile_size + 2*collar_size])
 
@@ -577,13 +602,8 @@ def tile_run(prog, args, settings, tile, **kw):
             asp_cmd_utils.wipe_option(call, '--threads', 1)
             call.extend(['--threads', str(opt.threads_multi)])
 
-        crop_box = intersect_boxes(user_crop_win, tile)
-        if crop_box.width <= 0 or crop_box.height <= 0: 
-          return # Don't need to process this
-        crop_str = crop_box.crop_str() # Get the --trans-crop-win string
-
-        cmd = call + crop_str
-        cmd[cmd.index(settings['out_prefix'][0])] = tile_dir_string
+        cmd = call + ['--trans-crop-win'] + adjusted_tile.as_array() # append the region to process
+        cmd[cmd.index(settings['out_prefix'][0])] = tile_dir_string # use out prefix for this tile
 
         if opt.dryrun:
             print(" ".join(cmd))
@@ -830,13 +850,11 @@ if __name__ == '__main__':
         # Create the directory tree for this run
         create_subproject_dirs(settings)
 
-    # Check if we are doing SGM instead of block match processing
-    alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
-    
-    using_padded_tiles = (alg > VW_CORRELATION_BM or \
-                   settings['alignment_method'][0] == 'local_epipolar')
+    # Padded tiles are needed if later we do blending 
+    using_padded_tiles = use_padded_tiles(settings)
 
     # By default use 8 threads for SGM/MGM
+    alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
     if alg > VW_CORRELATION_BM and alg < VW_CORRELATION_OTHER and opt.threads_multi is None:
         opt.threads_multi = 8
 
@@ -1024,7 +1042,7 @@ if __name__ == '__main__':
             # build the vrt of all correlation tiles, and sym link
             # that vrt from all tile directories.
             rename_files(settings, "-D.tif", "-Dnosym.tif")
-            build_vrt(settings, georef, "-D.tif", "-Dnosym.tif", 
+            build_vrt('stereo_corr', settings, georef, "-D.tif", "-Dnosym.tif", 
                       contract_tiles = using_padded_tiles)
             create_subproject_dirs(settings) # symlink D.tif
 
@@ -1042,7 +1060,7 @@ if __name__ == '__main__':
                 if not skip_refine_step:
                     # Do the same trick as after stereo_corr
                     rename_files(settings, "-B.tif", "-Bnosym.tif")
-                    build_vrt(settings, georef, "-B.tif", "-Bnosym.tif", 
+                    build_vrt('stereo_blend', settings, georef, "-B.tif", "-Bnosym.tif", 
                               contract_tiles = False)
                     create_subproject_dirs(settings) # symlink B.tif
 
@@ -1053,9 +1071,11 @@ if __name__ == '__main__':
                 if (opt.stop_point <= step):
                     sys.exit()
                 if using_padded_tiles:
-                    build_vrt(settings, georef, "-L-R-disp-diff.tif", "-L-R-disp-diff-blend.tif")
+                    build_vrt('stereo_blend', settings, georef,
+                              "-L-R-disp-diff.tif", "-L-R-disp-diff-blend.tif")
                 else:
-                    build_vrt(settings, georef, "-L-R-disp-diff.tif", "-L-R-disp-diff.tif")
+                    build_vrt('stereo_blend', settings, georef,
+                              "-L-R-disp-diff.tif", "-L-R-disp-diff.tif")
 
         # Refinement
         step = Step.rfne
@@ -1076,7 +1096,7 @@ if __name__ == '__main__':
             if (opt.stop_point <= step):
                 sys.exit()
 
-            build_vrt(settings, georef, "-RD.tif", "-RD.tif")
+            build_vrt('stereo_rfne', settings, georef, "-RD.tif", "-RD.tif")
             normal_run('stereo_fltr', args, msg='%d: Filtering' % step)
             create_subproject_dirs(settings) # symlink F.tif
 
@@ -1117,7 +1137,7 @@ if __name__ == '__main__':
 
             # Run triangulation on multiple machines
             spawn_to_nodes(step, settings, parallel_args)
-            build_vrt(settings, georef, "-PC.tif", "-PC.tif") # mosaic
+            build_vrt('stereo_tri', settings, georef, "-PC.tif", "-PC.tif") # mosaic
 
             # End main process case
     else:

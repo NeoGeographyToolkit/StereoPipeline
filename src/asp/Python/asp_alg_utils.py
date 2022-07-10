@@ -38,13 +38,11 @@ class BBox:
         self.height += 2*size
 
     def name_str(self):
-        return "%i_%i_%i_%i" % ( self.x, self.y, self.width, self.height )
+        return "%i_%i_%i_%i" % (self.x, self.y, self.width, self.height)
 
-    def crop_str(self):
-        '''Return an ASP command line option to specify that a process only
-           fill in the pixels from a certain window.'''
-        return ["--trans-crop-win",str(self.x),
-                str(self.y),str(self.width),str(self.height)]
+    def as_array(self):
+        '''Return the upper-left corner and dimensions of the crop box in an array of strings.'''
+        return [str(self.x), str(self.y), str(self.width), str(self.height)]
                 
     def __str__(self):
         return 'BBox('+ str(self.x) +', '+ str(self.y) +', '+ str(self.width) +', '+ str(self.height) +')' 
