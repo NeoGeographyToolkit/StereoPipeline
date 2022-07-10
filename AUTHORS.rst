@@ -68,6 +68,12 @@ impetus that in no small way made this open source stereo pipeline
 possible, and we thank Dr. Michael Caplinger, Joe Fahle and others at
 MSSS for their help and technical assistance.
 
+The tools for rig calibration, fusion of points clouds into meshes,
+and texturing of meshes, were originally developed as part of the NASA
+ISAAC project, with Trey Smith as project manager, and relies heavily
+on third-party packages, including Theia SfM, Ceres Solver, VoxBlox,
+and MVS Texturing.
+
 We'd also like to thank our friends and collaborators Dr. Randolph
 Kirk, Dr. Brent Archinal, Trent Hare, Mark Rosiek, and David Mayer
 of the United States Geological Survey's (USGS's) Astrogeology

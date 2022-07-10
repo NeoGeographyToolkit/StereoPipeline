@@ -768,10 +768,10 @@ size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
   ip2_out.reserve(num_ip);
 
   // Set up stereo model
-  double angle_tolerance = vw::stereo::StereoModel::robust_1_minus_cos(
-                                                                       stereo_settings().min_triangulation_angle*M_PI/180);
+  double angle_tolerance = vw::stereo::StereoModel::robust_1_minus_cos
+    (stereo_settings().min_triangulation_angle*M_PI/180);
   vw::stereo::StereoModel model(left_camera_model, right_camera_model, 
-                                stereo_settings().use_least_squares, angle_tolerance );
+                                stereo_settings().use_least_squares, angle_tolerance);
     
   // This function can be called with both unaligned and aligned interest points
   bool aligned_ip = (tx_left.get() != NULL && tx_right != NULL);

@@ -33,6 +33,7 @@ stereo:
     at the triangulation stage, if not done, as usual, at the 
     preprocessing stage).
   * Consolidated much duplicated and mutated code.
+  * Bugfix for D.tif VRT as created by parallel stereo.
 
 point2dem:
   * Added the Tukey outlier removal method option applied to
