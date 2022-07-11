@@ -51,32 +51,48 @@ void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
   std::cout << "Writing: " << cloud_file << std::endl;
 
   bool write_ply = (ext == ".ply");
-  if (!write_ply) {
+  if (write_ply) {
+
+    // Write ply 
+    pcl::PointCloud<pcl::PointXYZI> pc;
       
-    // Write pcd 
-    pcl::PointCloud<pcl::PointNormal> pc;
+    pc.width = cloud.cols() * cloud.rows(); 
+    pc.height = 1;
+    pc.points.resize(pc.width * pc.height);
       
-    pc.width = cloud.cols();
-    pc.height = cloud.rows();
-    pc.points.resize(cloud.cols() * cloud.rows());
-      
-    int count = -1;
+    int count = 0;
     for (int col = 0; col < cloud.cols(); col++) {
       for (int row = 0; row < cloud.rows(); row++) {
-        count++;
-          
-        // An output point starts by default as an outlier
-        // VoxBlox expects infinity for invalid data.
-        pc.points[count].x         = nodata;
-        pc.points[count].y         = nodata;
-        pc.points[count].z         = nodata;
-        pc.points[count].normal_x  = 0;  // intensity
-        pc.points[count].normal_y  = 0;  // weight
-        pc.points[count].normal_z  = 0;  // ensure initialization
-        pc.points[count].curvature = 0;  // ensure initialization
-          
-        if (subvector(cloud(col, row), 0, 3) != vw::Vector3() && weight(col, row) > 0) {
-          vw::Vector<double, 4> const& Q = cloud(col, row); // alias
+        vw::Vector<double, 4> const& Q = cloud(col, row); // alias
+        if (subvector(Q, 0, 3) != vw::Vector3() && weight(col, row) > 0) {
+          pc.points[count].x         = Q[0];
+          pc.points[count].y         = Q[1];
+          pc.points[count].z         = Q[2];
+          pc.points[count].intensity = out_texture(col, row);  // intensity
+          count++;
+        }
+      }
+    }
+
+    pc.width = count;
+    pc.points.resize(pc.width * pc.height);
+    
+    pcl::io::savePLYFileBinary(cloud_file, pc);
+
+  } else {
+        
+    // Write pcd
+    pcl::PointCloud<pcl::PointNormal> pc;
+
+    pc.width = cloud.cols() * cloud.rows(); 
+    pc.height = 1;
+    pc.points.resize(pc.width * pc.height);
+      
+    int count = 0;
+    for (int col = 0; col < cloud.cols(); col++) {
+      for (int row = 0; row < cloud.rows(); row++) {
+        vw::Vector<double, 4> const& Q = cloud(col, row); // alias
+        if (subvector(Q, 0, 3) != vw::Vector3() && weight(col, row) > 0) {
           pc.points[count].x         = Q[0];
           pc.points[count].y         = Q[1];
           pc.points[count].z         = Q[2];
@@ -85,39 +101,15 @@ void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
           pc.points[count].normal_y  = weight(col, row); // weight
           pc.points[count].normal_z  = Q[3]; // intersection error
           pc.points[count].curvature = 0;  // ensure initialization
+          count++;
         }
       }
     }
 
+    pc.width = count;
+    pc.points.resize(pc.width * pc.height);
+    
     pcl::io::savePCDFileBinary(cloud_file, pc);
-
-  } else {
-        
-    // Write ply; remove all the invalid data first
-    pcl::PointCloud<pcl::PointXYZI> pc;
-    pc.width = cloud.cols();
-    pc.height = cloud.rows();
-    pc.points.resize(cloud.cols() * cloud.rows());
-      
-    int count = -1;
-    for (int col = 0; col < cloud.cols(); col++) {
-      for (int row = 0; row < cloud.rows(); row++) {
-        count++;
-          
-        if (subvector(cloud(col, row), 0, 3) != vw::Vector3() && weight(col, row) > 0) {
-          vw::Vector<double, 4> const& Q = cloud(col, row); // alias
-          pc.points[count].x         = Q[0];
-          pc.points[count].y         = Q[1];
-          pc.points[count].z         = Q[2];
-          pc.points[count].intensity = out_texture(col, row);
-        }
-      }
-    }
-      
-    pc.points.resize(count + 1);
-    pc.width = count + 1;
-    pc.height = 1;
-    pcl::io::savePLYFileBinary(cloud_file, pc);
   }
   
   return;

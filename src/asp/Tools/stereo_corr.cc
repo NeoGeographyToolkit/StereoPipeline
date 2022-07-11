@@ -154,7 +154,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
       seconds_per_op = calc_seconds_per_op(cost_mode, kernel_size);
 
     SemiGlobalMatcher::SgmSubpixelMode sgm_subpixel_mode = get_sgm_subpixel_mode();
-    Vector2i sgm_search_buffer = stereo_settings().sgm_search_buffer;;
+    Vector2i sgm_search_buffer = stereo_settings().sgm_search_buffer;
     
     ImageView<PixelMask<float>> * lr_disp_diff = NULL;
     Vector2i region_ul = Vector2i(0, 0);

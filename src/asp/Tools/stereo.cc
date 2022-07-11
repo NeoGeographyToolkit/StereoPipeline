@@ -279,9 +279,11 @@ namespace asp {
     po::options_description general_options_sub("");
     general_options_sub.add_options()
       ("session-type,t",      po::value(&opt.stereo_session),
-                              "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
-      ("stereo-file,s",       po::value(&opt.stereo_default_filename)->default_value("./stereo.default"),
-       "Explicitly specify the stereo.default file to use. [default: ./stereo.default]");
+       "Select the stereo session type to use for processing. "
+       "Usually the program can select this automatically by the file extension, "
+       "except for XML cameras. See the doc for options.")
+      ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"),
+       "Explicitly specify the stereo.default file to use.");
 
     // We distinguish between all_general_options, which is all the
     // options we must parse, even if we don't need some of them, and

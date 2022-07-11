@@ -499,18 +499,18 @@ namespace asp {
   }
 
   po::options_description
-  generate_config_file_options( vw::cartography::GdalWriteOptions& opt ) {
+  generate_config_file_options(vw::cartography::GdalWriteOptions& opt) {
     po::options_description cfg_options;
-    cfg_options.add( vw::cartography::GdalWriteOptionsDescription( opt ) );
-    cfg_options.add( PreProcessingDescription() );
-    cfg_options.add( CorrelationDescription()   );
-    cfg_options.add( SubpixelDescription()      );
-    cfg_options.add( FilteringDescription()     );
-    cfg_options.add( TriangulationDescription() );
-    cfg_options.add( GUIDescription()           );
-    cfg_options.add( ParseDescription()         );
-    cfg_options.add( ParallelDescription()      );
-    cfg_options.add( UndocOptsDescription()     );
+    cfg_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+    cfg_options.add(PreProcessingDescription());
+    cfg_options.add(CorrelationDescription());
+    cfg_options.add(SubpixelDescription());
+    cfg_options.add(FilteringDescription());
+    cfg_options.add(TriangulationDescription());
+    cfg_options.add(GUIDescription());
+    cfg_options.add(ParseDescription());
+    cfg_options.add(ParallelDescription());
+    cfg_options.add(UndocOptsDescription());
 
     return cfg_options;
   }
@@ -520,33 +520,33 @@ namespace asp {
     
     to_lower(alignment_method);
     trim(alignment_method);
-    VW_ASSERT( alignment_method == "none"     || alignment_method == "homography" ||
+    VW_ASSERT(alignment_method == "none"     || alignment_method == "homography" ||
                alignment_method == "epipolar" || alignment_method == "affineepipolar" ||
                alignment_method == "local_epipolar",
                ArgumentErr() << "\"" <<  alignment_method
-               << "\" is not a valid option for alignment-method." );
+               << "\" is not a valid option for alignment-method.");
 
     to_lower(universe_center);
     trim(universe_center);
-    VW_ASSERT( universe_center == "camera" || universe_center == "zero" ||
+    VW_ASSERT(universe_center == "camera" || universe_center == "zero" ||
                universe_center == "none",
                ArgumentErr() << "\"" << universe_center
-               << "\" is not a valid option for universe_center." );
+               << "\" is not a valid option for universe_center.");
   }
 
-  void StereoSettings::write_copy( int argc, char *argv[],
+  void StereoSettings::write_copy(int argc, char *argv[],
                                    std::string const& input_file,
-                                   std::string const& output_file ) const {
+                                   std::string const& output_file) const {
     using namespace std;
-    ifstream in( input_file.c_str() );
-    ofstream out( output_file.c_str() );
+    ifstream in(input_file.c_str());
+    ofstream out(output_file.c_str());
 
     // Write some log information
     out << "# ASP stereo configuration copy:" << endl;
     out << "# " << current_posix_time_string() << endl;
     out << "# > ";
-    for ( int i = 0; i < argc; i++ ) {
-      if ( i )
+    for (int i = 0; i < argc; i++) {
+      if (i)
         out << " ";
       out << string(argv[i]);
     }
@@ -558,46 +558,47 @@ namespace asp {
   }
 
   bool StereoSettings::is_search_defined() const {
-    return !( search_range.min() == Vector2() &&
-              search_range.max() == Vector2() );
+    return !(search_range.min() == Vector2() &&
+              search_range.max() == Vector2());
   }
 
-  bool asp_config_file_iterator::getline( std::string& s ) {
+  bool asp_config_file_iterator::getline(std::string& s) {
     std::string ws;
 
-    if ( !std::getline( *is, ws, '\n') )
+    if (!std::getline(*is, ws, '\n'))
       return false;
 
     // Remove any comments that might be one the line
     size_t n = ws.find('#');
-    if ( n != std::string::npos ) {
-      ws = ws.substr(0,n);
-      boost::trim(ws);
-    }
+    if (n != std::string::npos)
+      ws = ws.substr(0, n);
 
-    // Handle empty lines .. just pass them on through
-    if ( ws.empty() ) {
+    // Wipe any whitespace on either end
+    boost::trim(ws);
+
+    // Handle empty lines. Just pass them on through.
+    if (ws.empty()) {
       s = ws;
       return true;
     }
 
     // If there is not an equal sign, the first space is turned to
-    // equal ... or it's just appended. Also, use lower case for the key.
+    // equal, or it is just appended. Also, use lowercase for the key.
     n = ws.find('=');
-    if ( n  == std::string::npos ) {
+    if (n  == std::string::npos) {
       n = ws.find(' ');
 
-      if ( n == std::string::npos ) {
+      if (n == std::string::npos) {
         ws += "=";
         boost::to_lower(ws);
       } else {
         ws[n] = '=';
-        std::string lowered_key = boost::to_lower_copy( ws.substr(0,n) );
-        ws.replace( 0, n, lowered_key );
+        std::string lowered_key = boost::to_lower_copy(ws.substr(0,n));
+        ws.replace(0, n, lowered_key);
       }
     } else {
-      std::string lowered_key = boost::to_lower_copy( ws.substr(0,n) );
-      ws.replace( 0, n, lowered_key );
+      std::string lowered_key = boost::to_lower_copy(ws.substr(0,n));
+      ws.replace(0, n, lowered_key);
     }
     s = ws;
     return true;
@@ -611,12 +612,12 @@ namespace asp {
     get();
   }
 
+  // Parse the ASP stereo config file, such as stereo.default, from an open handle.
   po::basic_parsed_options<char>
-  parse_asp_config_file(std::basic_istream<char>& is,
-                        const po::options_description& desc,
-                        bool allow_unregistered ) {
-    std::set<std::string> allowed_options;
+  parse_asp_config_file(std::basic_istream<char>& is, const po::options_description& desc,
+                        bool allow_unregistered) {
 
+    std::set<std::string> allowed_options;
     const std::vector<boost::shared_ptr<po::option_description> >& options = desc.options();
     for (size_t i = 0; i < options.size(); ++i) {
       const po::option_description& d = *options[i];
@@ -636,11 +637,10 @@ namespace asp {
     return po::basic_parsed_options<char>(result);
   }
 
+  // Parse the ASP stereo config file, such as stereo.default.
   po::basic_parsed_options<char>
-  parse_asp_config_file(bool print_warning,
-                        std::string const& filename,
-                        const po::options_description& desc,
-                        bool allow_unregistered ) {
+  parse_asp_config_file(bool print_warning, std::string const& filename,
+                        const po::options_description& desc, bool allow_unregistered) {
     std::basic_ifstream<char> strm(filename.c_str());
     if (print_warning) {
       if (!strm)
@@ -649,6 +649,7 @@ namespace asp {
       else
         vw_out() << "Using stereo file " << filename << ".\n";
     }
+
     return parse_asp_config_file(strm, desc, allow_unregistered);
   }
 } // end namespace asp

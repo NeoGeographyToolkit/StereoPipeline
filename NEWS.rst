@@ -2,23 +2,22 @@ Changes since last release
 --------------------------
 
 Added functionality for creation of large-scale meshes and (mostly
-seamless) textures for small planeteary bodies and indoor
-surfaces. Added logic for rig calibration. See individual tools below.
+seamless) textures for small planetary bodies and indoor
+environments. Added logic for rig calibration. See individual tools
+below.
 
 New tools:
-  * Added ``rig_calibrator``, a tool for calibrating a rig of N
-    image and/or depth+image cameras. Can also co-register and refine
+  * ``rig_calibrator``: Calibrates a rig of N image and/or
+    depth+image cameras. Can also co-register and refine
     intrinsics of camera images acquired with N sensors with no rig
     constraint.
-  * Added ``voxblox_mesh``, a tool for fusing point clouds into 
-    a seamless oriented mesh, with each point given a weight
-    according to its reliability. Based on the third-party VoxBlox
-    software.
-  * Added ``texrecon.py``,  a tool for creating seamless textured
-    meshes. Based on the third-party MVS-Texturing project.
-  * Added the program ``pc_filter`` for filtering outliers in 
-    point clouds created with pinhole cameras and weighing
-    inliners based on many criteria.
+  * ``voxblox_mesh``: Fuses point clouds into a seamless oriented
+    mesh, with each input point given a weight according to its
+    reliability. Based on the third-party VoxBlox software.
+  * ``texrecon.py``: Creates seamless textured meshes. Based on
+    the third-party MVS-Texturing project.
+  * ``pc_filter``. Filters outliers in point clouds created with
+    pinhole cameras and weighing inliers based on many criteria.
 
 stereo:
   * Added the triangulation option ``--max-valid-triangulation-error``
@@ -33,8 +32,9 @@ stereo:
     at the triangulation stage, if not done, as usual, at the 
     preprocessing stage).
   * Consolidated much duplicated and mutated code.
-  * Bugfix for D.tif VRT as created by parallel stereo.
-
+  * Bugfix for D.tif VRTs as created by parallel stereo.
+  * Allow whitespaces in stereo.default before option names. 
+ 
 point2dem:
   * Added the Tukey outlier removal method option applied to
     triangulation errors (error_thresh = 75th_pct + 1.5 * (75th_pct -
