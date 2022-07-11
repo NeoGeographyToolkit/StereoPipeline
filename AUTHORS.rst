@@ -70,7 +70,7 @@ MSSS for their help and technical assistance.
 
 The tools for rig calibration, fusion of points clouds into meshes,
 and texturing of meshes, were originally developed as part of the NASA
-ISAAC project, with Trey Smith as project manager, and relies heavily
+ISAAC project, with Trey Smith as project manager, and rely heavily
 on third-party packages, including Theia SfM, Ceres Solver, VoxBlox,
 and MVS Texturing.
 

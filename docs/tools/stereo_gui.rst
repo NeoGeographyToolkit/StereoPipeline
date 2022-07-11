@@ -231,7 +231,8 @@ Interest points can be picked by right-clicking on the same feature in
 each image, from left to right, then repeating this process for a
 different feature, etc. They can be saved to disk from the menu, and
 the above bundle adjustment command can be invoked (while not
-forgetting to delete first the match file among unprojected images).
+forgetting to delete first the match files among unprojected images
+so that ``bundle_adjust`` can recreate them based on the projected images).
 
 One can then run::
 

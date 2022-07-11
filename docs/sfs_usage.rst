@@ -476,7 +476,7 @@ to find match points, hence the ``--mapprojected-data`` option in
 ``bundle_adjust`` was used, to find interest matches among
 mapprojected images, so the process went as follows::
 
-    # Prepare mapprojected images
+    # Prepare mapprojected images (see note in the text below)
     parallel_stereo A_crop_sub10.cub B_crop_sub10.cub \
       --subpixel-mode 3 run_sub10_noba/run
     point2dem -r moon --tr 10 --stereographic     \
@@ -495,6 +495,13 @@ mapprojected images, so the process went as follows::
       --mapprojected-data \
       "$(ls [A-D]_sub10.map.noba.tif) run_sub10_noba/run-DEM.tif"
  
+It is suggested to use above a DEM not much bigger than the eventual
+area of interest, otherwise interest points which are far away may be
+created. While that may provide robustness, in some occasions, given
+that LRO NAC images are very long and can have jitter, interest points far
+away could actually degrade the quality of eventual registration in 
+the desired smaller area.
+
 The option ``--max-pairwise-matches`` in ``bundle_adjust`` should
 reduce the number of matches to the set value, if too many were
 created originally.

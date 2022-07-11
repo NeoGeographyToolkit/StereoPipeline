@@ -49,6 +49,11 @@ Using a disparity produced from correlation::
       --output-image image2_align.tif --output-prefix run/run    \
       --disparity-params "run/run-corr-F.tif 1000000"
 
+Here, the option ``--correlator-mode`` enforces that the disparity is
+between the initial images rather than internally aligned versions of
+them. Also, no triangulation happens, so ``parallel_stereo`` stops
+at computing the filtered disparity ``F.tif``.
+
 Note that ``--subpixel-mode 2`` will be quite slow but produce good
 results. See :numref:`running-stereo` for the choices when it comes to
 stereo algorithms and subpixel methods, and :numref:`correlator-mode`
