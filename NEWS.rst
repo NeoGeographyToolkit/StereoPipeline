@@ -31,9 +31,6 @@ stereo:
     (the needed aligned bathy masks are created, if needed,
     at the triangulation stage, if not done, as usual, at the 
     preprocessing stage).
-  * Consolidated much duplicated and mutated code.
-  * Bugfix for D.tif VRTs as created by parallel stereo.
-  * Allow whitespaces in stereo.default before option names. 
  
 point2dem:
   * Added the Tukey outlier removal method option applied to
@@ -49,6 +46,14 @@ bathymetry:
 mapproject:
   * Expose and document the --query-projection option.
  
+misc:
+  * Consolidated much duplicated and mutated code for camera models.
+  * Bugfix for D.tif VRTs as created by parallel stereo.
+  * Allow whitespaces in stereo.default before option names. 
+  * Set for ASP programs LC_ALL and LANG to en_US.UTF-8, to avoid
+    ISIS crashing on international users (this is a longstanding
+    issue).
+
 RELEASE 3.1.0, May 18, 2022
 ----------------------------
 DOI: `10.5281/zenodo.6562267 <https://doi.org/10.5281/zenodo.6562267>`_

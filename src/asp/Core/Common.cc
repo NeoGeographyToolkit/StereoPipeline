@@ -56,6 +56,8 @@ namespace asp {
   char ISISROOT_ENV_STR[COMMON_BUF_SIZE];
   char QT_PLUGIN_PATH_ENV_STR[COMMON_BUF_SIZE];
   char GDAL_DATA_ENV_STR[COMMON_BUF_SIZE];
+  char LC_ALL_STR[COMMON_BUF_SIZE];
+  char LANG_STR[COMMON_BUF_SIZE];
 }
 
 using namespace vw;
@@ -512,6 +514,16 @@ void asp::set_asp_env_vars() {
   if (!fs::exists(std::string(getenv("GDAL_DATA")))) 
     vw::vw_throw(vw::ArgumentErr() << "Cannot find GDAL data in "
                  << getenv("GDAL_DATA"));
+
+  // Force the US English locale as long as ASP is running to avoid
+  // ISIS choking on a decimal separator which shows up as a comma for 
+  // some reason.
+  snprintf(LC_ALL_STR, COMMON_BUF_SIZE, "LC_ALL=en_US.UTF-8");
+  if (putenv(LC_ALL_STR) != 0) 
+    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << LC_ALL_STR << "\n");
+  snprintf(LANG_STR, COMMON_BUF_SIZE, "LANG=en_US.UTF-8");
+  if (putenv(LANG_STR) != 0) 
+    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << LANG_STR << "\n");
 }
   
 // User should only put the arguments to their application in the
