@@ -124,14 +124,16 @@ namespace asp {
 
       // Read the ip from D_sub and scale them
       //vw_out() << "Creating IP from D_sub.\n";
-      vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp;
-      vw::Vector2 upsample_scale;
-      std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
-      asp::load_D_sub_and_scale(opt, d_sub_file, sub_disp, upsample_scale);
       std::vector<vw::ip::InterestPoint> left_ip_from_dsub, right_ip_from_dsub;
-      asp::aligned_ip_from_D_sub(sub_disp, upsample_scale,  
-                                 left_ip_from_dsub, right_ip_from_dsub);
-
+      if (stereo_settings().seed_mode > 0) {
+        vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp;
+        vw::Vector2 upsample_scale;
+        std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
+        asp::load_D_sub_and_scale(opt, d_sub_file, sub_disp, upsample_scale);
+        asp::aligned_ip_from_D_sub(sub_disp, upsample_scale,  
+                                   left_ip_from_dsub, right_ip_from_dsub);
+      }
+      
       // Append the ip from D_sub which are in the box
       int num_ip_from_d_sub = 0;
       for (size_t i = 0; i < left_ip_from_dsub.size(); i++) {
