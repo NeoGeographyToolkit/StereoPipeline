@@ -580,9 +580,10 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
   std::sort(angles.begin(), angles.end());
   int len = angles.size();
   vw_out() << "Convergence angle percentiles (in degrees) based on interest point matches:\n";
-  vw_out() << "\t25% " << angles[0.25*len] << ", "
+  vw_out() << "\t"
+           << "25% " << angles[0.25*len] << ", "
            << "50% " << angles[0.50*len] << ", "
-           << "75%: " << angles[0.75*len] << ".\n";
+           << "75% " << angles[0.75*len] << ".\n";
 }
 
 int main(int argc, char* argv[]) {
