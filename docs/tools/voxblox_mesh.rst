@@ -3,17 +3,13 @@
 voxblox_mesh
 ------------
 
-The ``voxblox_mesh`` program takes as input several camera poses, and
+The ``voxblox_mesh`` program takes as input several camera poses, 
 for each such pose a point cloud in that camera's coordinates, and
-fuses them into a (mostly seamless) mesh. 
+fuses them into a mesh. The input point clouds can be created
+either with stereo or a depth sensor.
 
-The input point clouds can be created either with stereo or a depth
-sensor.
-
-This tool is a wrapper around the ``VoxBlox`` software at:
-
-    https://github.com/ethz-asl/voxblox
-
+This tool is a wrapper around `VoxBlox <https://github.com/ethz-asl/voxblox>`_.
+ 
 Example
 ^^^^^^^
 
@@ -27,10 +23,10 @@ a rig were co-registered using the ``rig_calibrator`` program
 
 With that data and this tool, a fused mesh can be obtained as follows::
 
-    max_ray_len=2.0
-    voxel_size=0.01
-    voxblox_mesh rig_out/voxblox/haz_cam/index.txt \
-      rig_out/fused_mesh.ply $max_ray_len $voxel_size
+    voxblox_mesh --index rig_out/voxblox/haz_cam/index.txt \
+      --output_mesh rig_out/fused_mesh.ply                 \
+      --min_ray_length 0.1 --max_ray_length 2.0            \
+      --voxel_size 0.01
 
 Here, the output mesh is ``fused_mesh.ply``, points no further than 2
 meters from each camera center are used, and the mesh is obtained
@@ -71,6 +67,31 @@ create such a ``.pcd`` file is along the lines of::
 Note how the camera file ``left.tsai`` which was used to create the PC.tif
 cloud is passed in as an argument.
 
-In the future there will be updates to these tools to ensure that stereo 
-point clouds are fused in a mesh without artifacts.
+.. _voxblox_mesh_command_line:
 
+Command-line options for voxblox_mesh
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``--index`` A list having input camera transforms and point cloud files.
+    Type: string. Default: "".
+``--output_mesh`` The output mesh file name, in .ply format. Type: string.
+    Default: "".
+``--voxel_size`` Voxel size, in meters. Type: double. 
+    Default: 0.01.
+``--min_ray_length`` (The minimum length of a ray from camera center to the
+  points. Points closer than that will be ignored. Type: double. Default: -1.
+``--max_ray_length`` The maximum length of a ray from camera center to the
+    points. Points beyond that will be ignored. Type: double. Default: -1.
+``--enable_anti_grazing`` If true, enable anti-grazing. This is an advanced
+    option. Type: bool. Default: false.
+``--integrator`` Specify how the points should be integrated. Options:
+    "simple", "merged", "fast". See the VoxBlox documentation for details.
+    Type: string. Default: "merged".
+``--min_weight`` The minimum weighting needed for a point to be included in the
+    mesh. Type: double. Default: 1e-6.
+``--voxel_carving_enabled`` If true, the entire length of a ray is integrated.
+    Otherwise only the region inside the truncation distance is used. This is
+    an advanced option. Type: bool. Default: false.
+
+See also the `VoxBlox documentation
+<https://voxblox.readthedocs.io/en/latest/pages/The-Voxblox-Node.html#parameters>`_.
