@@ -40,8 +40,10 @@ This required some careful choices of parameters, and a new tool named
 ``pc_filter`` for filtering blunders according to many geometric
 criteria. This will all be explained below.
 
-The 7-image dataset we work with below and the full recipe and output mesh
-can be downloaded from: 
+The 7-image dataset used below, the full recipe, and output mesh, are
+all available at::
+
+  https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/multi_stereo
 
 Creation of camera models
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -53,7 +55,7 @@ Determination of initial camera poses::
 
     theia_sfm --rig_config camera_config.txt \
       --images 'images/nav_cam/*jpg'         \
-      --out_dir rig_theia
+      --out_dir theia_out
 
 Note that the images are stored in the ``nav_cam`` subdirectory, and
 each image name consists of a number and an image extension, following
@@ -66,7 +68,7 @@ in the images, per :numref:`rig_calibrator_registration`)::
 
     rig_calibrator                                \
       --rig_config camera_config.txt              \
-      --nvm rig_theia/cameras.nvm                 \
+      --nvm theia_out/cameras.nvm                 \
       --camera_poses_to_float "nav_cam"           \
       --intrinsics_to_float ""                    \
       --num_iterations 50                         \
@@ -75,16 +77,15 @@ in the images, per :numref:`rig_calibrator_registration`)::
       --registration                              \
       --hugin_file control_points.pto             \
       --xyz_file xyz.txt                          \
-      --out_dir images_out
+      --out_dir rig_out
     
 Running stereo and mesh creation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As mentioned earlier, the geometry of the scene being
-imaged requires some careful choices of parameters for stereo.
-Then, this tool calls several other tools under the hood,
-so options for those should be set as well. Here's a recipe which
-works reasonably well::
+As mentioned earlier, the geometry of the scene being imaged requires
+some careful choices of parameters for stereo.  Then, this tool calls
+several other tools under the hood, so options for those should be set
+as well. Here's a recipe which works reasonably well::
 
     maxDistanceFromCamera=3.5
 
@@ -110,17 +111,17 @@ works reasonably well::
     mesh_gen_opts="
       --min_ray_length 0.1
       --max_ray_length $maxDistanceFromCamera
-      --voxel_size 0.01"
+      --voxel_size 0.005"
 
-    multi_stereo --rig_config camera_config.txt \
-      --camera_poses images_out/cameras.txt     \
-      --undistorted_crop_win '1100 700'         \
-      --rig_sensor nav_cam                      \
-      --first_step stereo                       \
-      --last_step  mesh_gen                     \
-      --stereo_options "$stereo_opts"           \
-      --pc_filter_options "$pc_filter_opts"     \
-      --mesh_gen_options "$mesh_gen_opts"       \
+    multi_stereo --rig_config rig_out/rig_config.txt \
+      --camera_poses rig_out/cameras.txt             \
+      --undistorted_crop_win '1100 700'              \
+      --rig_sensor nav_cam                           \
+      --first_step stereo                            \
+      --last_step  mesh_gen                          \
+      --stereo_options "$stereo_opts"                \
+      --pc_filter_options "$pc_filter_opts"          \
+      --mesh_gen_options "$mesh_gen_opts"            \
       --out_dir stereo_out
 
 The surface resolution of the cameras is on the order of 1 mm (0.001
@@ -159,14 +160,14 @@ Creating a textured mesh
 The obtained mesh can be textured with the original images using the
 ``texrecon`` tool (:numref:`texrecon`) as::
 
-    texrecon --rig_config camera_config.txt \
-      --camera_poses images_out/cameras.txt \
-      --mesh index_images_out.txt.ply       \
-      --rig_sensor nav_cam                  \
-      --undistorted_crop_win '1100 700'     \
-      --out_dir texrecon_out
+    texrecon --rig_config rig_out/rig_config.txt \
+      --camera_poses rig_out/cameras.txt         \
+      --mesh stereo_out/nav_cam/fused_mesh.ply   \
+      --rig_sensor nav_cam                       \
+      --undistorted_crop_win '1100 700'          \
+      --out_dir stereo_out
 
-This produces ``texrecon_out/nav_cam/texture.obj``.
+This produces ``stereo_out/nav_cam/texture.obj``.
 
 .. _multi_stereo_command_line:
 

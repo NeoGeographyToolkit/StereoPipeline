@@ -26,7 +26,7 @@ With that data and this tool, a fused mesh can be obtained as follows::
     voxblox_mesh --index rig_out/voxblox/haz_cam/index.txt \
       --output_mesh rig_out/fused_mesh.ply                 \
       --min_ray_length 0.1 --max_ray_length 2.0            \
-      --voxel_size 0.01
+      --voxel_size 0.005
 
 Here, the output mesh is ``fused_mesh.ply``, points no further than 2
 meters from each camera center are used, and the mesh is obtained

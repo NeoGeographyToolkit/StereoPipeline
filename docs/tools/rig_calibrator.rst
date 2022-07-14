@@ -25,8 +25,6 @@ Capabilities
 - No calibration target is assumed, so the image/depth data are acquired in situ.
 - The solved-for camera poses and relationships among sensors can be registered 
   to real-world coordinates via user-selected control points.
-- A preexisting mesh of the surface being imaged can be used as a constraint (rays
-  corresponding to the same feature must intersect close to the mesh).
 - All images acquired with one sensor are assumed to share intrinsics.
   The user may choose which intrinsics of which sensor are optimized
   or kept fixed, while the rig transforms and camera poses are optimized.
@@ -40,8 +38,12 @@ Capabilities
 - A known time offset among the clocks of the various sensors on the 
   rig is modeled and can be optimized. (By default no offset is
   assumed.)  
-- Several quality metrics are printed on output, and for
-  each image with its optimized camera a textured mesh is created, for
+- A preexisting mesh of the surface being imaged can be used as a
+  constraint (rays corresponding to the same feature must intersect
+  close to the mesh). Otherwise one can constrain the triangulated
+  points to not move too far from their original values.
+- Several quality metrics are printed on output, and for each image
+  with its optimized camera a textured mesh is created, for
   examination of any misalignments.
  
 Input data conventions
@@ -255,7 +257,7 @@ The obtained point clouds can be fused into a mesh using ``voxblox_mesh``
     voxblox_mesh --index rig_out/voxblox/haz_cam/index.txt \
       --output_mesh rig_out/fused_mesh.ply                 \
       --min_ray_length 0.1 --max_ray_length 2.0            \
-      --voxel_size 0.01
+      --voxel_size 0.005
 
 Here, the output mesh is ``fused_mesh.ply``, points no further than 2
 meters from each camera center are used, and the mesh is obtained
@@ -282,6 +284,7 @@ the mesh, obtaining one ``.obj`` textured mesh file per image::
       --depth_tri_weight 1000                            \
       --depth_mesh_weight 10                             \
       --mesh_tri_weight 10                               \
+      --tri_weight 0.1                                   \
       --num_iterations 50                                \
       --calibrator_num_passes 1                          \
       --num_overlaps 10                                  \
@@ -477,6 +480,10 @@ Command-line options for rig_calibrator
   overall configuration more internally consistent). Hence, one may need to
   use an external mesh as a constraint, or otherwise subsequent
   registration may be needed. Example: 'cam1 cam3'. Type: string. Default: "".
+``--tri_weight`` The weight to give to the constraint that optimized
+  triangulated points stay close to original triangulated points. A
+  positive value will help ensure the cameras do not move too far, but a
+  large value may prevent convergence.
 ``--depth_mesh_weight`` A larger value will give more weight to the constraint
   that the depth clouds stay close to the mesh. Not suggested by default.)
   Type: double. Default: 0.
