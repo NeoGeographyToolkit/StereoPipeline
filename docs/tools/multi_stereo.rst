@@ -15,7 +15,7 @@ stereo pairs and for distributing and load-balancing all resulting
 processing jobs over multiple machines.
 
 Example
--------
+^^^^^^^
 
 Here we will create a mesh of a small portion of the International
 Space Station (ISS), based on images acquired with the *Astrobee*
@@ -26,27 +26,30 @@ a good way of testing the limits of ASP's stereo, because:
    and hard to model accurately, which then may result in registration errors.
 
  - The range of camera-to-object distances is much larger than in satellite stereo,
-   and there is a wide range of orientation for the encountered surfaces.
+   and there is a wide range of orientations of the encountered surfaces.
 
  - The camera can move towards an object it looks at, such a wall,
    while having other walls on the side. This makes it tricky to correctly align
-   the images. The ideal scenario in stereo is cameras being side-by-side.
- - The ISS is "messy", having cables and laptops sticking out of walls, surfaces
-   with weak texture, and low illumination.
+   the images. The ideal scenario in stereo is cameras being
+   side-by-side and the imaged surface being reasonably far.
+
+ - The ISS is "messy", having cables and laptops sticking out of
+    walls, surfaces with weak texture, and areas of low illumination.
+
  - The images are 8-bit and compressed as JPEG, which may result in artifacts, 
-   unlike the high-dynamic range images acquired with satellites.
+   unlike the lossless high-dynamic range images acquired with satellites.
 
 This required some careful choices of parameters, and a new tool named
 ``pc_filter`` for filtering blunders according to many geometric
 criteria. This will all be explained below.
 
 The 7-image dataset used below, the full recipe, and output mesh, are
-all available at::
+all available at:
 
   https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/multi_stereo
 
 Creation of camera models
-^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We broadly follow the tools and approach from section :numref:`rig_calibrator`,
 but with a rig consisting of just one camera.
@@ -80,7 +83,7 @@ in the images, per :numref:`rig_calibrator_registration`)::
       --out_dir rig_out
     
 Running stereo and mesh creation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 As mentioned earlier, the geometry of the scene being imaged requires
 some careful choices of parameters for stereo.  Then, this tool calls
@@ -155,7 +158,7 @@ See ``--first_step`` and ``--last_step`` in
 steps to run.
 
 Creating a textured mesh
-^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 The obtained mesh can be textured with the original images using the
 ``texrecon`` tool (:numref:`texrecon`) as::
