@@ -1,7 +1,7 @@
 .. _multi_stereo:
 
 multi_stereo
---------------
+------------
 
 The ``multi_stereo`` program takes as input a set of images and
 cameras, runs pairwise stereo between each image/camera and the next

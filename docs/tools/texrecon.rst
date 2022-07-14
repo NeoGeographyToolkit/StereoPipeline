@@ -5,8 +5,8 @@ texrecon
 
 The ``texrecon`` script takes as input several images, their camera
 poses, camera intrinsics, and a mesh, and creates a textured mesh as
-an .obj file. This tool is a wrapper around the third-party `texrecon
-<https://github.com/nmoehrle/mvs-texturing>`_ program.
+an .obj file. This tool is a wrapper around the third-party 
+`MVS-Texturing <https://github.com/nmoehrle/mvs-texturing>`_ software.
 
 Example
 ^^^^^^^
