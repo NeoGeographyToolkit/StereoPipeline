@@ -815,4 +815,9 @@ output-cloud-type arg (*string*) (default = all)
     'bathy'), where it was not applied (option: 'topo'), or the full
     cloud (option: 'all').
 
+GUI options
+-----------
+
+See :numref:`gui_options`.
+
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

@@ -399,6 +399,8 @@ def executeCommand(cmd,
                     # Print in real time what is going on, and return nothing in out and err
                     while True:
                         curr_out = p.stdout.readline()
+                        # TODO(oalexan1): It appears that quering p.stderr makes this not
+                        # work in real time, so may need to turn the line below off.
                         curr_err = p.stderr.readline()
                         out += curr_out
                         err += curr_err

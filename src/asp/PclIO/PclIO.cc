@@ -32,13 +32,8 @@ namespace asp {
 void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
                 vw::ImageViewRef<float> out_texture,
                 vw::ImageViewRef<float> weight,
-                bool save_nodata_as_infinity,
                 std::string const& cloud_file) {
       
-  double nodata = 0.0;
-  if (save_nodata_as_infinity)
-    nodata =  std::numeric_limits<double>::infinity();
-
   std::string ext = boost::filesystem::extension(cloud_file);
   boost::algorithm::to_lower(ext);
   if (ext != ".pcd" && ext != ".ply") 
