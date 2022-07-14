@@ -53,11 +53,11 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 struct Options: vw::cartography::GdalWriteOptions {
-  bool save_nodata_as_infinity, transform_to_camera_coordinates;
-  std::string input_cloud, input_texture, output_cloud, camera_file;
+  bool transform_to_camera_coordinates;
+  std::string input_cloud, input_texture, output_cloud, output_weight, camera_file;
   double max_valid_triangulation_error, max_distance_from_camera,
     max_camera_ray_to_surface_normal_angle, max_camera_dir_to_surface_normal_angle,
-    max_camera_dir_to_camera_ray_angle,
+    max_camera_dir_to_camera_ray_angle, reliable_surface_resolution,
     distance_from_camera_weight_power, blending_dist, blending_power;
 
   // The value will be initialized when parsing happens
@@ -71,7 +71,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("input-cloud", po::value(&opt.input_cloud)->default_value(""),
      "Input cloud name. A four-band .tif file as produced by stereo triangulation.")
     ("output-cloud", po::value(&opt.output_cloud)->default_value(""),
-     "Output cloud name. If having a .tif extension, the same format will be used as the input. Can also save .pcd and .ply files. In that case the points will be saved with float32 values, so there may be some precision loss. The .pcd file will store in the field for the cloud normal the values image_texture, blending_weight, intersection_error, assuming these are computed.")
+     "Output cloud name. If having a .tif extension, the same format will be used as the input. Can also save .pcd and .ply files. In those cases the points will be saved with float32 values, so there may be some precision loss. The .pcd file will store in the field for the cloud normal the values image_texture, blending_weight, intersection_error, assuming these are computed.")
     ("input-texture", po::value(&opt.input_texture)->default_value(""),
      "If specified, read the texture from this file. Normally this is the file L.tif from the same run which produced the input point cloud.")
     ("camera", po::value(&opt.camera_file)->default_value(""),
@@ -92,10 +92,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "If positive and closer to any boundary of valid points than this (measured in point cloud pixels), decrease the weight assigned to the given point proportionally to remaining distance to boundary raised to a power. In effect, points closer to boundary are given less weight. Used in VoxBlox.")
     ("blending-power", po::value(&opt.blending_power)->default_value(1.0),
      "Use this as the power when setting --blending-dist.")
-    ("save-nodata-as-infinity",         po::bool_switch(&opt.save_nodata_as_infinity)->default_value(false),
-     "If true and saving a .pcd file, set the x, y, z coordinates of an invalid point to infinity rather than to 0. Expected by VoxBlox.")
+    ("reliable-surface-resolution", po::value(&opt.reliable_surface_resolution)->default_value(0),
+     "If positive, let each point's weight be proportional to exp(-curr_surface_resolution/reliable_surface_resolution). This should be set to about half the expected surface resolution, to have the weight of points at lower resolution decrease rather fast. A point's surface resolution is the maximum distance between it and its immediate neighbors.")
     ("transform-to-camera-coordinates",         po::bool_switch(&opt.transform_to_camera_coordinates)->default_value(false),
-     "Transform the point cloud to the coordinate system of the camera provided with --camera. For use with VoxBlox.");
+     "Transform the point cloud to the coordinate system of the camera provided with --camera. For use with VoxBlox.")
+    ("output-weight", po::value(&opt.output_weight)->default_value(""),
+     "If specified, Save the per-pixel weight to this file. This has the same dimensions as the point cloud and ``L.tif``.(Use the .tif extension.)");
 
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
 
@@ -194,6 +196,51 @@ bool surfaceNormal(ImageView<Vector<double, 4>> const& point_image,
   return true;
 }
 
+// Estimate surface resolution by looking at four immediate neighbors. 
+// Return 0 if at least 2 neighbors are missing or the current point.
+void estimate_surface_res(ImageView<Vector<double, 4>> const& point_image,
+                          ImageView<float> & surface_res) {
+
+  int offset_x[] = {-1, 0, 0, 1};
+  int offset_y[] = {0, -1, 1, 0};
+  
+  surface_res = ImageView<float>(point_image.cols(), point_image.rows());
+  for (int col = 0; col < surface_res.cols(); col++) {
+    for (int row = 0; row < surface_res.rows(); row++) {
+
+      surface_res(col, row) = 0.0;
+
+      Vector<double, 4> const& P = point_image(col, row); // alias
+      if (P == Vector<double, 4>()) 
+        continue; // outlier
+
+      int count = 0;
+      double dist = 0.0;
+      for (int it = 0; it < 4; it++) {
+        int c = col + offset_x[it];
+        int r = row + offset_y[it];
+
+        if (c < 0 || c >= point_image.cols()) 
+          continue;
+        if (r < 0 || r >= point_image.rows()) 
+          continue;
+
+        Vector<double, 4> const& Q = point_image(c, r); // alias
+        if (Q == Vector<double, 4>()) 
+          continue; // outlier
+
+        dist = std::max(dist, norm_2(subvector(P, 0, 3) - subvector(Q, 0, 3)));
+        count++;
+      }
+
+      if (count < 3)
+        continue; // too few neighbors
+
+      surface_res(col, row) = dist;
+    }
+  }
+}
+
 int main(int argc, char *argv[]) {
   Options opt;
   try {
@@ -264,6 +311,10 @@ int main(int argc, char *argv[]) {
         clean_points(col, row) = Vector<double, 4>();
       }
     }
+
+    ImageView<float> surface_res;
+    if (opt.reliable_surface_resolution > 0) 
+      estimate_surface_res(point_image, surface_res);
 
     // Camera direction, in camera's coordinate system
     Vector3 cam_dir(0.0, 0.0, 1.0);
@@ -354,19 +405,6 @@ int main(int argc, char *argv[]) {
       ImageView<double> dist;
       vw::bounded_dist(mask, opt.blending_dist, dist);
       
-#if 0
-      // TODO(oalexan1): There must be an option to save the weight for inspection
-      vw::cartography::GeoReference georef;
-      bool has_georef = false;
-      bool has_nodata = false;
-      double nodata = 0;
-      std::string output_image = "tmp.tif";
-      vw_out() << "Writing weights: " << output_image << "\n";
-      vw::cartography::block_write_gdal_image
-        (output_image, dist, has_georef, georef, has_nodata, nodata, opt,
-         TerminalProgressCallback("asp", "\t--> Correlation quality:"));
-#endif
-
       // Adjust the weight by the normalized distance raised to given power
       for (int col = 0; col < dist.cols(); col++) {
         for (int row = 0; row < dist.rows(); row++) {
@@ -377,9 +415,25 @@ int main(int argc, char *argv[]) {
 
     }
 
+    if (opt.reliable_surface_resolution > 0) {
+      for (int col = 0; col < weight.cols(); col++) {
+        for (int row = 0; row < weight.rows(); row++) {
+          if (weight(col, row) <= 0) 
+            continue;
+          
+          if (surface_res(col, row) <= 0) {
+            weight(col, row) = 0.0;
+            continue;
+          }
+
+          weight(col, row) *= exp(-surface_res(col, row) / opt.reliable_surface_resolution);
+        }
+      }
+    }
+    
     if (!opt.transform_to_camera_coordinates)
       applyAffineTransform(clean_points, cam2world); // convert back to world
-
+    
     // Save as .tif, .pcd, or .pcl
     if (ext == ".tif") {
       vw::cartography::GeoReference georef;
@@ -391,8 +445,18 @@ int main(int argc, char *argv[]) {
         (opt.output_cloud, clean_points, has_georef, georef, has_nodata, nodata, opt,
          TerminalProgressCallback("asp", "\t--> Filter: "));
     } else {
-      asp::writeCloud(clean_points, out_texture, weight, opt.save_nodata_as_infinity,
-                      opt.output_cloud);
+      asp::writeCloud(clean_points, out_texture, weight, opt.output_cloud);
+    }
+
+    if (opt.output_weight != "") {
+      vw::cartography::GeoReference georef;
+      bool has_georef = false;
+      bool has_nodata = false;
+      double nodata = 0;
+      vw_out() << "Writing weights: " << opt.output_weight << "\n";
+      vw::cartography::block_write_gdal_image
+        (opt.output_weight, weight, has_georef, georef, has_nodata, nodata, opt,
+       TerminalProgressCallback("asp", "\t--> Weight per point:"));
     }
     
     return 0;
