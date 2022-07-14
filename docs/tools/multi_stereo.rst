@@ -32,9 +32,9 @@ a good way of testing the limits of ASP's stereo, because:
    while having other walls on the side. This makes it tricky to correctly align
    the images. The ideal scenario in stereo is cameras being side-by-side.
  - The ISS is "messy", having cables and laptops sticking out of walls, surfaces
-   with weak texture and low illumination.
- - The images are 8-bit and compressed as JPEG, unlike the high-dynamic range
-   images acquired with satellites.
+   with weak texture, and low illumination.
+ - The images are 8-bit and compressed as JPEG, which may result in artifacts, 
+   unlike the high-dynamic range images acquired with satellites.
 
 This required some careful choices of parameters, and a new tool named
 ``pc_filter`` for filtering blunders according to many geometric
@@ -81,12 +81,14 @@ Running stereo and mesh creation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 As mentioned earlier, the geometry of the scene being
-imaged requiers some careful choices of paramters for stereo.
-Then, this tool calles several other tools under the hood,
+imaged requires some careful choices of parameters for stereo.
+Then, this tool calls several other tools under the hood,
 so options for those should be set as well. Here's a recipe which
 works reasonably well::
 
-    parallel_stereo_opts="
+    maxDistanceFromCamera=3.5
+
+    stereo_opts="
       --stereo-algorithm asp_mgm
       --alignment-method affineepipolar
       --ip-per-image 10000
@@ -102,22 +104,28 @@ works reasonably well::
     pc_filter_opts="
       --max-camera-ray-to-surface-normal-angle 75 
       --max-valid-triangulation-error 0.0025   
-      --max-distance-from-camera 3.5  
+      --max-distance-from-camera $maxDistanceFromCamera
       --blending-dist 50 --blending-power 1"
 
-    multi_stereo --rig_config camera_config.txt         \
-      --camera_poses images_out/cameras.txt             \
-      --undistorted_crop_win '1100 700'                 \
-      --rig_sensor nav_cam                              \
-      --first_step stereo                               \
-      --last_step  mesh_gen                             \
-      --parallel_stereo_options "$parallel_stereo_opts" \
-      --pc_filter_options "$pc_filter_opts"             \
+    mesh_gen_opts="
+      --min_ray_length 0.1
+      --max_ray_length $maxDistanceFromCamera
+      --voxel_size 0.01"
+
+    multi_stereo --rig_config camera_config.txt \
+      --camera_poses images_out/cameras.txt     \
+      --undistorted_crop_win '1100 700'         \
+      --rig_sensor nav_cam                      \
+      --first_step stereo                       \
+      --last_step  mesh_gen                     \
+      --stereo_options "$stereo_opts"           \
+      --pc_filter_options "$pc_filter_opts"     \
+      --mesh_gen_options "$mesh_gen_opts"       \
       --out_dir stereo_out
 
 The surface resolution of the cameras is on the order of 1 mm (0.001
 meters), the camera is about 1-3 meters from the surface, hence a good
-value for the triangulation error was about 0.002 meters, and the
+value for the triangulation error was about 0.0025 meters, and the
 points in the cloud were binned into voxels of size on the order of
 0.01 meters. Later some of these choices will be automated, or
 scale-independent parameters will be provided.
@@ -125,18 +133,20 @@ scale-independent parameters will be provided.
 In future versions of this tool, undistortion of input images will not
 be needed.
 
-There are three steps happing above, namely:
+There are three steps happening above, namely:
 
- - stereo: Writes a point cloud in .tif format for each image/camera
-   in the list and the next one. This is the most time-consuming step.
+* stereo: Runs ``parallel_stereo`` (:numref:`parallel_stereo`) and
+  writes a point cloud in .tif format for each image/camera
+  in the list and the next one. This is the most time-consuming step.
 
- - pc_filter: For each stereo run, writes filtered point clouds in
-  .tif and .pcd formats, and a textured mesh for that run in .obj
-   format. The .pcd file is in left camera's coordinates. The .obj file
-   is for individual stereo pair inspection purposes.
+* pc_filter: For each point cloud runs ``pc_filter`` (:numref:`pc_filter`)
+  and writes filtered point clouds in .tif and .pcd formats, and a
+  textured mesh for that run in .obj format. The .pcd file is in left
+  camera's coordinates. The .obj file is for individual stereo run
+  inspection purposes.
 
- - mesh_gen: Use ``voxblox_mesh`` (:numref:`voxblox_mesh` to fuse the
-   filtered point clouds in .pcd format and create a mesh in .ply
+* mesh_gen: Use ``voxblox_mesh`` (:numref:`voxblox_mesh`) to fuse the
+  filtered point clouds in .pcd format and create a mesh in .ply
   format.
 
 See ``--first_step`` and ``--last_step`` in
@@ -150,7 +160,7 @@ The obtained mesh can be textured with the original images using the
 ``texrecon`` tool (:numref:`texrecon`) as::
 
     texrecon --rig_config camera_config.txt \
-      --image_list images_out/cameras.txt   \
+      --camera_poses images_out/cameras.txt \
       --mesh index_images_out.txt.ply       \
       --rig_sensor nav_cam                  \
       --undistorted_crop_win '1100 700'     \
@@ -170,7 +180,9 @@ Command-line options for multi_stereo
    place.
 
 --last_step <string (default: mesh_gen)>
-  The last step run by this tool. See ``--first_step`` for allowed values.
+  The last step run by this tool. See ``--first_step`` for allowed
+  values.
+
 
  
 

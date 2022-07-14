@@ -24,7 +24,7 @@ Capabilities
   coordinate system is modeled.
 - No calibration target is assumed, so the image/depth data are acquired in situ.
 - The solved-for camera poses and relationships among sensors can be registered 
-  to real-world coordinates via control points.
+  to real-world coordinates via user-selected control points.
 - A preexisting mesh of the surface being imaged can be used as a constraint (rays
   corresponding to the same feature must intersect close to the mesh).
 - All images acquired with one sensor are assumed to share intrinsics.
@@ -66,7 +66,7 @@ only if taken at the same time.
 
 If each sensor acquires images independently, accurate
 timestamps are important, and one of the sensors, named the ``reference``
-sensor should acquire images frequently enough to help bracket the
+sensor, should acquire images frequently enough to help bracket the
 other sensors in time using bilinear pose interpolation.
 
 The images are expected to be 8 bit, with .jpg, .png, or .tif extension.
@@ -96,6 +96,7 @@ with the following syntax::
   distortion_type: <string> # 'none', 'fisheye', or 'radtan'
   distortion_coeffs: <n doubles> # n = 0: none, 1: fisheye, 4/5: radtan
   image_size: <int, int>
+  distorted_crop_size: <int, int> 
   undistorted_image_size: <int, int> 
   ref_to_sensor_transform: <12 doubles>
   depth_to_image_transform: <12 doubles>
@@ -110,6 +111,13 @@ the identity transform (example below) if not known or not applicable.
 The value ``ref_to_sensor_timestamp_offset``, measured in seconds, is
 what should be added to the reference camera clock to get the time in
 current sensor's clock. Set to 0 if the clocks are synchronized.
+
+The ``image_size`` field has the image dimensions (width and height).
+The ``distorted_crop_size`` has the dimensions of the region whose
+center is also the image center in which the given distortion model is
+valid.  Normally it should be the whole image. The
+``undistorted_image_size`` has a generous overestimate of the image
+dimensions after undistortion.
 
 Educated guess can be provided for the quantities that are not known.
 This tool can be used to optimize the focal length, optical center, an
@@ -136,7 +144,8 @@ Example (only one of the ``N`` sensors is shown)::
   distortion_type: fisheye
   distortion_coeffs: 1.0092038999999999
   image_size: 1280 960
-  undistorted_image_size: 3000 1800
+  distorted_crop_size: 1280 960
+  undistorted_image_size: 1500 1500
   ref_to_sensor_transform: 1 0 0 0 1 0 0 0 1 0 0 0
   depth_to_image_transform: 1 0 0 0 1 0 0 0 1 0 0 0
   ref_to_sensor_timestamp_offset: 0
@@ -167,8 +176,9 @@ It can be read by the program with the ``--camera_poses`` option.
 A solved example
 ^^^^^^^^^^^^^^^^
 
-An example using ``rig_calibrator`` on images acquired in a lab with cameras mounted 
-on the Astrobee robot (https://github.com/nasa/astrobee) can be found at:
+An example using ``rig_calibrator`` on images acquired in a lab with
+cameras mounted on the Astrobee robot
+(https://github.com/nasa/astrobee) can be found at:
 
     https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/rig_calibrator
 
@@ -181,9 +191,9 @@ view, using the radtan distortion model).
 We assume the intrinsics of each sensor are reasonably well-known (but
 will be optimized later), and we do not know each camera's pose. The
 first step is then determining these, for which we use the
-``theia_sfm.py`` script, as follows::
+``theia_sfm`` script, as follows::
 
-    theia_sfm.py --rig_config rig_input/rig_config.txt \
+    theia_sfm --rig_config rig_input/rig_config.txt \
       --images 'rig_input/nav_cam/*tif
                 rig_input/haz_cam/*tif 
                 rig_input/sci_cam/*tif'                \
@@ -234,18 +244,18 @@ triangulated points should be to the depth measurements (after
 adjusting for them being in different coordinate systems). In this
 particular case, a positive value here would have been enough to find
 the true scale (but not origin and orientation) of the camera
-configuration, as it would be inferred from the cloud, even if
+configuration, as it would be inferred from the depth clouds, even if
 registration points were not present.
 
-See :numref:`rig_calibrator_command_line` for full list of options.
+See :numref:`rig_calibrator_command_line` for the full list of options.
 
 The obtained point clouds can be fused into a mesh using ``voxblox_mesh`` 
 (:numref:`voxblox_mesh`), using the command::
     
-    max_ray_len=2.0
-    voxel_size=0.01
-    voxblox_mesh rig_out/voxblox/haz_cam/index.txt \
-      rig_out/fused_mesh.ply $max_ray_len $voxel_size
+    voxblox_mesh --index rig_out/voxblox/haz_cam/index.txt \
+      --output_mesh rig_out/fused_mesh.ply                 \
+      --min_ray_length 0.1 --max_ray_length 2.0            \
+      --voxel_size 0.01
 
 Here, the output mesh is ``fused_mesh.ply``, points no further than 2
 meters from each camera center are used, and the mesh is obtained
@@ -317,20 +327,12 @@ run_dir1/cameras.txt`` and ``--rig_config prev_dir/rig_config.txt``.
 Determination of scale and registration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Registration was discussed briefly in the example in
-:numref:`rig_calibrator_example`. 
+To transform the system of cameras to world coordinates, it is
+necessary to know the Euclidean coordinates of at least three control
+points in the scene, and then to pick the pixel of coordinates of each
+of these points in at least two images.
 
-Note that the registration happens before the optimization, and the
-latter can move the cameras around somewhat. To avoid that, or to do
-one more registration pass, one can rerun ``rig_calibrator_example``
-with control points as before, previous results (hence adjust
-``--rig_config`` and ``--camera_poses``), and zero iterations.
-
-If the images cover a large area, it is suggested to use registration points
-distributed over that area. Registration may not always produce perfect results
-since a structure-from-motion solution may drift over large distances.
-
-To create control points for registration, open a subset of the reference
+To find the pixel coordinates, open a subset of the reference
 camera images in Hugin, such as::
 
     hugin <image dir>/*.jpg
@@ -339,22 +341,23 @@ It will ask to enter a value for the FoV (field of view). That value
 is not important since we won't use it. One can input 10 degrees,
 for example. 
 
-Go to the "Expert" interface, then select matching control points
-across a pair of images (make sure the left and right image are not
-the same or highly similar, as that may result in poor triangulation and
-registration). Then repeat this process for several more pairs.
+Go to the "Expert" interface, choose a couple of distinct images, and
+click on a desired control point in both images.  Make sure the
+left and right image are not the same or highly similar, as that may
+result in poor triangulation and registration. Then repeat this
+process for all control points.
 
 Save the Hugin project to disk. Create a separate text file which
 contains the world coordinates of the control points picked earlier,
 with each line in the "x y z" format, and in the same order as the
 Hugin project file.  That is to say, if a control point was picked in
 several image pairs in Hugin, it must show up also the same number of
-times in the text file. In the xyz text file all lines starting with
-the pound sign (#) are ignored, as well as all entries on any line
-beyond three numerical values.
+times in the text file, in the same order. In the xyz text file all
+lines starting with the pound sign (#) are ignored, as well as all
+entries on any line beyond three numerical values.
 
 The dataset from :numref:`rig_calibrator_example` has examples
-of files needed for control points.
+of files used for registration, and shows how to pass these to the tool.
 
 After registration is done, it will print each transformed coordinate
 point from the map and its corresponding measured point, as well as the 
@@ -365,9 +368,28 @@ error among the two. That will look as follows::
      1.8587  0.9533  0.1531 --  1.8710  0.9330  0.1620 --  0.0254 img3.jpg img4.jpg
 
 Each error norm (last value), is the distance between a measured 3D
-points and its computed value based on the registered cameras. If
+point and its computed value based on the registered cameras. If
 some of them are too large, may be the measurements have some error,
 or the camera poses or intrinsics are not accurate enough.
+
+Note that the registration happens before the optimization, and the
+latter can move the cameras around somewhat. To avoid that, or to do
+one more registration pass, one can rerun ``rig_calibrator``
+with control points as before, previous results (hence adjust
+``--rig_config`` and ``--camera_poses``), and zero iterations.
+
+If the images cover a large area, it is suggested to use registration
+points distributed over that area. Registration may not always produce
+perfect results since a structure-from-motion solution may drift over
+large distances.
+
+The software does not force the camera poses to move individually to
+fit better the control points. Hence, the cameras are always kept
+self-consistent, then the camera configuration has a single
+registration transform applied to it to fit the control points.
+Hence, the only approach to make the individual cameras conform more
+faithfully to what is considered accurate geometry is to use the mesh
+constraint.
 
 Quality metrics
 ^^^^^^^^^^^^^^^
@@ -465,6 +487,10 @@ Command-line options for rig_calibrator
   measurements agree with triangulated points. Use a bigger number as depth
   errors are usually on the order of 0.01 meters while reprojection errors
   are on the order of 1 pixel. Type: double. Default: 1000.
+``--tri_weight`` The weight to give to the constraint that optimized triangulated
+  points stay close to original triangulated points. A positive value will
+  help ensure the cameras do not move too far, but a large value may prevent
+  convergence. Type: double. Default: 0.
 ``--export_to_voxblox`` Save the depth clouds and optimized transforms needed
   to create a mesh with voxblox (if depth clouds exist). Type: bool. Default: false.
 ``--float_scale`` If to optimize the scale of the clouds, part of
@@ -565,5 +591,3 @@ Command-line options for rig_calibrator
   string. Default: "".
 ``--verbose`` Print a lot of verbose information about how matching goes.)
   Type: bool. Default: false.
-
-

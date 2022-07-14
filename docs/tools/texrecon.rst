@@ -1,14 +1,12 @@
 .. _texrecon:
 
-texrecon.py
------------
+texrecon
+--------
 
-The ``texrecon.py`` program takes as input several images,
-their camera poses, camera intrinsics, and a mesh, and creates a
-(mostly) seamless textured mesh as an .obj file. This tool is a wrapper around
-the ``texrecon`` program:
-
-    https://github.com/nmoehrle/mvs-texturing
+The ``texrecon`` script takes as input several images, their camera
+poses, camera intrinsics, and a mesh, and creates a textured mesh as
+an .obj file. This tool is a wrapper around the third-party `texrecon
+<https://github.com/nmoehrle/mvs-texturing>`_ program.
 
 Example
 ^^^^^^^
@@ -23,13 +21,12 @@ co-registered using the ``rig_calibrator`` program
 
 With that data and this tool, a textured mesh can be obtained as follows::
 
-    texrecon.py --rig_config rig_out/rig_config.txt \
-      --image_list rig_out/images.txt               \
-      --mesh rig_out/fused_mesh.ply                 \
-      --rig_sensor sci_cam                          \
-      --undistorted_crop_win '1250 1000'            \
+    texrecon --rig_config rig_out/rig_config.txt \
+      --camera_poses rig_out/images.txt          \
+      --mesh rig_out/fused_mesh.ply              \
+      --rig_sensor sci_cam                       \
+      --undistorted_crop_win '1250 1000'         \
       --out_dir texrecon_out
-
 
 The inputs to this program need not be created with
 ``rig_calibrator``. What is important is that the camera poses and the
@@ -42,8 +39,8 @@ Command-line options
    Rig configuration file.
 --rig_sensor <string>
    Which rig sensor images to texture. Must be among the sensors 
-   specified via --rig_config.
---image_list <string>
+   specified via ``--rig_config``.
+--camera_poses <string>
    Read images and camera poses from this list.
 --mesh <string>
    The mesh to use for texturing, in .ply format.
