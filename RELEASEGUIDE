@@ -55,6 +55,12 @@ https://semver.org for guidance).
   - Check out https://github.com/NeoGeographyToolkit/BinaryBuilder
     in your $HOME. 
 
+  - ISIS expects a full Python distribution to be shipped. For now
+    we handle this in an awkward way. A fresh conda environemnt
+    is created having only that the desired Python version, then that
+    env is copied to BinaryBuilder as 'python3.6'. This directory
+    is packaged later with the build with with make-dist.py.
+
   - Update the path to your local conda environment having the latest
     ASP dependencies in BinaryBuilder/auto_build/utils.sh.
 
@@ -62,7 +68,7 @@ https://semver.org for guidance).
     release*conf files, to be used for the nightly regressions.
 
   - Ensure your conda environment does not have VisionWorkbench and
-    Stereo Pipeline include files, libs, or executables, as those
+    Stereo Pipeline include files, libraries, or executables, as those
     will conflict with building locally. 
 
   - Update the ISIS version in README.rst, INSTALLGUIDE.rst, and 

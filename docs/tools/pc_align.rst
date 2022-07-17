@@ -97,14 +97,16 @@ which will hillshade the two DEMs, find interest point matches among
 them, and use that to compute an initial transform between the
 clouds (:numref:`prevtrans`), which may or may not contain scale,
 after which the earlier algorithms will be applied to refine the
-transform.  This functionality is implemented with ASP's ``hillshade``,
+transform. See an example in :numref:`kh4_align`. 
+ 
+This functionality is implemented with ASP's ``hillshade``,
 ``ipfind``, and ``ipmatch`` tools, and ``pc_align`` has options to
 pass flags to these programs, such as to increase the number interest
 points being found, if the defaults are not sufficient. If the two
 clouds look too different for interest point matching to work, they
 perhaps can be re-gridded to use the same (coarser) grid, as described
 in :numref:`regrid`, to obtain the initial transform which can then
-be applied to the original clouds.
+be applied to the original clouds. 
 
 A non-ICP algorithm supported by ASP is *Fast Global Registration*,
 accessible with ``--alignment-method fgr``, and customizable using the

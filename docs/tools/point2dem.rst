@@ -214,7 +214,7 @@ Command-line options for point2dem
     corresponding to the same point on the ground). Filename
     is ``-IntersectionErr.tif``.
 
--o, --output-prefix
+-o, --output-prefix <string>
     Specify the output prefix. The output DEM will be ``<output
     prefix>-DEM.tif``.
 
@@ -243,7 +243,7 @@ Command-line options for point2dem
 --kappa-rotation <float (default: 0)>
     Set a rotation angle kappa.
 
---t_srs string
+--t_srs <string>
     Specify the output projection (PROJ.4 string). Can also be an
     URL or in WKT format, as for GDAL.
 
@@ -403,11 +403,11 @@ Command-line options for point2dem
     window of given size centered at the point, remove it as an
     outlier. Use for example 11 and 40.0.
 
---erode-length <length (integer)>
+--erode-length <integer (default: 0)>
     Erode input point clouds by this many pixels at boundary (after
     outliers are removed, but before filling in holes).
 
---filter <string (default: weighted_average)>
+--filter <string (default: "weighted_average")>
     The filter to apply to the heights of the cloud points within
     a given circular neighborhood when gridding (its radius is
     controlled via ``--search-radius-factor``).

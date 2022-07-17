@@ -18,11 +18,12 @@ Example
 ^^^^^^^
 
 Here we will create a mesh of a small portion of the International
-Space Station (ISS), based on images acquired with the *Astrobee*
-robot (later this example will be expanded to a full module). This is
-a good way of testing the limits of ASP's stereo, because:
+Space Station (ISS), based on images acquired with the `Astrobee
+<https://github.com/nasa/astrobee>`_ robot (later this example will be
+expanded to a full module). This is a good way of testing the limits
+of ASP's stereo, because:
 
- - The camera has a wide field of view fisheye lens, whose distortion is strong 
+ - The camera has a wide field-of-view fisheye lens, whose distortion is strong 
    and hard to model accurately, which then may result in registration errors.
 
  - The range of camera-to-object distances is much larger than in satellite stereo,
@@ -34,7 +35,7 @@ a good way of testing the limits of ASP's stereo, because:
    side-by-side and the imaged surface being reasonably far.
 
  - The ISS is "messy", having cables and laptops sticking out of
-    walls, surfaces with weak texture, and areas of low illumination.
+   walls, surfaces with weak texture, and areas of low illumination.
 
  - The images are 8-bit and compressed as JPEG, which may result in artifacts, 
    unlike the lossless high-dynamic range images acquired with satellites.
@@ -131,11 +132,11 @@ The surface resolution of the cameras is on the order of 1 mm (0.001
 meters), the camera is about 1-3 meters from the surface, hence a good
 value for the triangulation error was about 0.0025 meters, and the
 points in the cloud were binned into voxels of size on the order of
-0.01 meters. Later some of these choices will be automated, or
+0.0025 meters. Later some of these choices will be automated, or
 scale-independent parameters will be provided.
 
-In future versions of this tool, undistortion of input images will not
-be needed.
+In future versions of this tool, undistortion of input images may be
+optional.
 
 There are three steps happening above, namely:
 
@@ -172,21 +173,60 @@ The obtained mesh can be textured with the original images using the
 
 This produces ``stereo_out/nav_cam/texture.obj``.
 
+Handling issues
+^^^^^^^^^^^^^^^
+
+If the produced mesh is noisy, it is suggested to inspect individual
+.obj files produced by each stereo pair, the triangulation error of
+each filtered point cloud (fourth band, extractable with
+``gdal_translate -b 4``), and the blending weight files saved by
+``pc_filter``.
+
+One may need to decrease the value of
+``--max-valid-triangulation-error``, use less of the boundary image
+region (``--undistorted_crop_win``) or redo the bundle adjustment with
+``rig_calibrator``.
+
 .. _multi_stereo_command_line:
 
 Command-line options for multi_stereo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
---first_step <string (default: stereo)>
-   Let the first step run by this tool be one of: 'stereo',
-   'pc_filter', or 'mesh_gen'. This allows resuming a run at a desired
-   step. The stereo subdirectories are deleted before that step takes
-   place.
+--rig_config <string (default: "")>
+    Rig configuration file.
+--rig_sensor <string (default: "")>
+    Which rig sensor images to use. Must be among the
+    sensors specified via ``--rig_config``.
+--camera_poses <string (default: "")>
+    Read images and camera poses for this sensor from this 
+    list.
+--out_dir <string (default: "")>
+    The directory where to write the stereo output, textured mesh,
+    other data.
+--stereo_options <string (default: "")>
+    Options to pass to ``parallel_stereo``. Use double quotes
+    around the full list and simple quotes if needed by an
+    individual option, or vice-versa.
+--pc_filter_options <string (default: "")>
+    Options to pass to ``pc_filter``.
+--mesh_gen_options <string (default: "")>
+    Options to pass to ``voxblox_mesh`` for mesh generation.
+--undistorted_crop_win <string (default: "")>
+    The dimensions of the central image region to keep
+    after undistorting an image and before using it in
+    stereo. Normally 85% - 90% of distorted (actual)
+    image dimensions would do. Suggested the Astrobee images: 
+    sci_cam: '1250 1000' nav_cam: '1100 776'. haz_cam: '250 200'.
+--first_step <string (default: "stereo")>
+    Let the first step run by this tool be one of:
+    'stereo', 'pc_filter', or 'mesh_gen'. This allows
+    resuming a run at a desired step. The stereo
+    subdirectories are deleted before that step takes
+    place.
+--last_step <string (default: "mesh_gen")>
+    The last step run by this tool. See ``--first_step``
+    for allowed values.
+-h, --help
+  Show this help message and exit.
 
---last_step <string (default: mesh_gen)>
-  The last step run by this tool. See ``--first_step`` for allowed
-  values.
-
-
- 
 

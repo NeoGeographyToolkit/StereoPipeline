@@ -2738,6 +2738,8 @@ check for gross misalignment.
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices in stereo.
 
+.. _kh4_align:
+
 DEM generation and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2764,8 +2766,12 @@ align and compare with the SRTM DEM::
      point2dem --stereographic --proj-lon 100.50792 --proj-lat 31.520417 \
        --tr 30 stereo_small_mgm/run-trans_source.tif
 
-This will hopefully create a DEM aligned to the underlying SRTM. There
-is a chance that this may fail as the two DEMs to align could be too
+This will hopefully create a DEM aligned to the underlying SRTM. Consider
+examining in ``stereo_gui`` the left and right hillshaded files produced
+by ``pc_align`` and the match file among them, to ensure tie points among
+the two DEMs were found properly (:numref:`stereo_gui_view_ip`). 
+
+There is a chance that this may fail as the two DEMs to align could be too
 different. In that case, one can re-run ``point2dem`` to re-create the
 DEM to align with a coarser resolution, say with ``--tr 120``, then
 re-grid the SRTM DEM to the same resolution, which can be done as::

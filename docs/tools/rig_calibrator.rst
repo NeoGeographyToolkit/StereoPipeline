@@ -147,7 +147,7 @@ Example (only one of the ``N`` sensors is shown)::
   distortion_coeffs: 1.0092038999999999
   image_size: 1280 960
   distorted_crop_size: 1280 960
-  undistorted_image_size: 1500 1500
+  undistorted_image_size: 1500 1200
   ref_to_sensor_transform: 1 0 0 0 1 0 0 0 1 0 0 0
   depth_to_image_transform: 1 0 0 0 1 0 0 0 1 0 0 0
   ref_to_sensor_timestamp_offset: 0
@@ -198,7 +198,7 @@ first step is then determining these, for which we use the
     theia_sfm --rig_config rig_input/rig_config.txt \
       --images 'rig_input/nav_cam/*tif
                 rig_input/haz_cam/*tif 
-                rig_input/sci_cam/*tif'                \
+                rig_input/sci_cam/*tif'             \
       --out_dir rig_theia
 
 It will write the solved camera poses to ``rig_theia/cameras.nvm``.
@@ -209,23 +209,28 @@ edited, and passed to this program via ``--theia_fags``.
 
 Next, we run ``rig_calibrator``::
 
-    rig_calibrator                                \
-      --rig_config rig_input/rig_config.txt       \
-      --nvm rig_theia/cameras.nvm                 \
-      --camera_poses_to_float "nav_cam"           \
-      --rig_transforms_to_float "sci_cam haz_cam" \
-      --intrinsics_to_float ""                    \
-      --depth_to_image_transforms_to_float ""     \
-      --affine_depth_to_image --bracket_len 3.0   \
-      --depth_tri_weight 1000                     \
-      --num_iterations 50                         \
-      --calibrator_num_passes 2                   \
-      --num_overlaps 10                           \
-      --registration                              \
-      --hugin_file control_points.pto             \
-      --xyz_file xyz.txt                          \
-      --export_to_voxblox                         \
-      --out_dir rig_out
+    float="focal_length,optical_center,distortion"
+    float_all="nav_cam:${float} haz_cam:${float} sci_cam:${float}" 
+    rig_calibrator                                     \
+        --rig_config rig_input/rig_config.txt          \
+        --nvm rig_theia/cameras.nvm                    \
+        --camera_poses_to_float "nav_cam"              \
+        --rig_transforms_to_float "sci_cam haz_cam"    \
+        --intrinsics_to_float "$float_all"             \
+        --depth_to_image_transforms_to_float "haz_cam" \
+        --affine_depth_to_image                        \
+        --bracket_len 2.0                              \
+        --depth_tri_weight 1000                        \
+        --tri-weight 10                                \
+        --tri_robust_threshold 0.1                     \
+        --num_iterations 50                            \
+        --calibrator_num_passes 2                      \
+        --num_overlaps 10                              \
+        --registration                                 \
+        --hugin_file control_points.pto                \
+        --xyz_file xyz.txt                             \
+        --export_to_voxblox                            \
+        --out_dir rig_out
 
 The previously found camera poses are read in. They are registered to
 world coordinates. For that, the four corners of a square with known
@@ -239,15 +244,20 @@ The ``nav_cam`` camera is chosen to be the reference sensor in the rig
 configuration. Its poses are allowed to float, that is, to be
 optimized (``--camera_poses_to_float``), and the rig transforms from
 this one to the other ones are floated as well
-(``--rig_transforms_to_float``). The intrinsics are not floated for now.
+(``--rig_transforms_to_float``). The intrinsics are optimized as well.
 
 The value of ``--depth_tri_weight`` controls how close the
 triangulated points should be to the depth measurements (after
-adjusting for them being in different coordinate systems). In this
-particular case, a positive value here would have been enough to find
-the true scale (but not origin and orientation) of the camera
-configuration, as it would be inferred from the depth clouds, even if
-registration points were not present.
+adjusting for them being in different coordinate systems). 
+
+In this particular case, the real-world scale (but not orientation) would
+have been solved for correctly even without registration, as it would
+be inferred from the depth clouds. 
+
+Since the ``nav_cam`` camera has a wide field of view, the values
+in ``distorted_crop_size`` in the rig configuration are smaller than
+actual image dimensions to reduce the worst effects of peripheral
+distortion.
 
 See :numref:`rig_calibrator_command_line` for the full list of options.
 
@@ -257,73 +267,56 @@ The obtained point clouds can be fused into a mesh using ``voxblox_mesh``
     voxblox_mesh --index rig_out/voxblox/haz_cam/index.txt \
       --output_mesh rig_out/fused_mesh.ply                 \
       --min_ray_length 0.1 --max_ray_length 2.0            \
-      --voxel_size 0.005
+      --voxel_size 0.01
 
-Here, the output mesh is ``fused_mesh.ply``, points no further than 2
+The output mesh is ``fused_mesh.ply``, points no further than 2
 meters from each camera center are used, and the mesh is obtained
-after binning the points into voxels of 1 cm in size. See that
-project's documentation for more details.
+after binning the points into voxels of 1 cm in size.
 
-Next, the produced cameras and rig configuration (saved in ``rig_out``) are 
-reoptimized, this time the intrinsics are allowed to float, and this mesh is
-employed as a constraint. The optimized cameras are used to project the images onto
-the mesh, obtaining one ``.obj`` textured mesh file per image::
+Full-resolution textured meshes can be obtained by projecting and
+fusing the images for each sensor with ``texrecon``
+(:numref:`texrecon`)::
 
-    rig_calibrator                                       \
-      --rig_config rig_out/rig_config.txt                \
-      --camera_poses rig_out/cameras.txt                 \
-      --mesh rig_out/fused_mesh.ply                      \
-      --camera_poses_to_float "nav_cam"                  \
-      --rig_transforms_to_float "sci_cam haz_cam"        \
-      --intrinsics_to_float                              \
-        "nav_cam:focal_length,optical_center,distortion 
-         haz_cam:focal_length,optical_center:distortion
-         sci_cam:focal_length,optical_center,distortion" \
-      --depth_to_image_transforms_to_float ""            \
-      --affine_depth_to_image --bracket_len 3.0          \
-      --depth_tri_weight 1000                            \
-      --depth_mesh_weight 10                             \
-      --mesh_tri_weight 10                               \
-      --tri_weight 0.1                                   \
-      --num_iterations 50                                \
-      --calibrator_num_passes 1                          \
-      --num_overlaps 10                                  \
-      --out_dir rig_out_mesh                             \
-      --out_texture_dir rig_out_texture
-
-If in doubt, the value of the three weights above can be lowered.
-Especially, a high value of ``--mesh_tri_weight`` can prevent
-convergence.
+    for cam in nav_cam sci_cam; do 
+      texrecon --rig_config rig_out/rig_config.txt \
+        --camera_poses rig_out/cameras.txt         \
+        --mesh rig_out/fused_mesh.ply              \
+        --rig_sensor ${cam}                        \
+        --undistorted_crop_win '1000 800'          \
+        --out_dir texrecon_out
+    done
 
 The obtained textured meshes can be inspected for disagreements, by
 loading them in MeshLab, as::
 
-    meshlab rig_out_texture/*sci_cam.obj
+    meshlab rig_out/fused_mesh.ply     \
+      texrecon_out/nav_cam/texture.obj \
+      texrecon_out/sci_cam/texture.obj 
 
-See :numref:`texrecon` for how to produce a merged textured mesh
-given these images and camera poses.
+See an illustration below.
 
-Best practices
-^^^^^^^^^^^^^^
+.. figure:: ../images/rig_calibrator_textures.png
+   :name: rig_calibrator_textures
+   :alt:  Rig calibrator texture outputs.
 
-It is suggested to not optimize the intrinsics of each sensor until later
-in the process, as otherwise there are too many variables to optimize
-at the same time, hence to focus first on finding each camera's pose
-and the transforms among the rig sensors, even if the results are imperfect. 
+   Textures obtained with the ``nav_cam`` and ``sci_cam`` rig cameras,
+   (left and right) projected onto the mesh obtained with the
+   ``haz_cam`` depth+image camera. The textures are nearly seamless and agree very well
+   when overlayed, which shows that the rig calibration was successful. 
+   Note that the ``sci_cam`` pictures (on the right) have some lightning
+   variation due to the fact that auto-exposure was used. The images
+   show a portion of the Granite Lab at NASA Ames. 
+
+Notes
+^^^^^
 
 Optimizing the camera poses (without control points or a preexisting
-mesh constraint) can change the scale of things. If it is desired
-to keep those fixed and only optimize the transforms among the rig sensors,
-ensure that the value of ``--camera_poses_to_float`` is kept empty.
+mesh constraint) can change the scale of things. 
 
-The output directory of each tool invocation will write the rig
-configuration so far, the camera poses of all images, and can also
-write the match files. These can be used as inputs for a subsequent
-invocation, if needed to fine-tune things.
-
-If the first invocation used the option ``--out_dir run_dir1`` the
-second one should set the options ``--camera_poses
-run_dir1/cameras.txt`` and ``--rig_config prev_dir/rig_config.txt``.
+The output directory of each tool invocation will write the obtained rig
+configuration and the optimized camera poses for all images. These can be
+used as inputs for a subsequent invocation, if needed to fine-tune
+things.
 
 .. _rig_calibrator_registration:
 
@@ -387,12 +380,12 @@ perfect results since a structure-from-motion solution may drift over
 large distances.
 
 The software does not force the camera poses to move individually to
-fit better the control points. Hence, the cameras are always kept
+fit better the control points. Therefore, the cameras are always kept
 self-consistent, then the camera configuration has a single
 registration transform applied to it to fit the control points.
-Hence, the only approach to make the individual cameras conform more
+The only approach to make the cameras individually conform more
 faithfully to what is considered accurate geometry is to use the mesh
-constraint.
+constraint, if such a prior surface mesh is available.
 
 Quality metrics
 ^^^^^^^^^^^^^^^
@@ -441,6 +434,50 @@ of errors as well. In this case one can also try the tool with
 the ``--no_rig`` option, when the cameras are decoupled and see if this
 makes a difference.
 
+Handling failures
+^^^^^^^^^^^^^^^^^
+
+This software was very carefully tested in many circumstances, and it
+is though to be, by and large, correct, and it should normally co-register
+all images to within 0-5 pixels, and likely even better if distortion
+is modeled accurately. (Quality can be verified as above, by projecting
+the camera images onto a mesh obtained either from depth clouds or stereo.)
+
+If it performs poorly, it may be because:
+
+- Image timestamps are not accurate. Then try using the
+  ``--no_rig`` option, adjust the timestamp offsets, or use tighter
+  bracketing with ``--bracket_len``.
+
+- Distortion is very strong and not modeled well. Then reduce the
+  domain of each image by making ``distorted_crop_size`` smaller in the
+  rig configuration, or switch to a different distortion model, or allow
+  distortion to be optimized by this tool.
+
+- Some image pairs have insufficient matches, which may result in poor
+  initial camera poses. This tool has good robustness to that when the
+  rig constraint is used (so without ``--no_rig``) as then the
+  transforms between rig sensors are found by using the median of
+  transforms derived from individual image pairs.
+
+- Some weights passed in (e.g., ``--tri_weight``,
+  ``--mesh_tri_weight``) may be too high and prevent convergence.
+
+- The options ``--camera_poses_to_float``, ``--intrinsics_to_float``,
+  ``--depth_to_image_transforms_to_float``,
+  ``--rig_transforms_to_float`` are not not fully specified and hence
+  some optimizations do not take place.
+
+For understanding issues, it is strongly suggested to drastically
+reduce the problem to perhaps one or two images from each sensor, and
+turn on the debugging flags ``--save_matches``,
+``--export_to_voxblox``, ``--save_transformed_depth_clouds``,
+``--out_texture_dir``. Then, the images can be projected individually
+onto a mesh, and individual transformed clouds can be inspected. 
+See an example output in :numref:`rig_calibrator_textures`.
+
+One should also look at the statistics printed by the tool.
+
 .. _point_cloud_format:
 
 Point cloud file format
@@ -483,7 +520,9 @@ Command-line options for rig_calibrator
 ``--tri_weight`` The weight to give to the constraint that optimized
   triangulated points stay close to original triangulated points. A
   positive value will help ensure the cameras do not move too far, but a
-  large value may prevent convergence.
+  large value may prevent convergence. Type: double. Default: 0. 
+``--tri_robust_threshold`` The robust threshold to use with the
+  triangulation weight. Must be positive. Type: double. Default: 0.
 ``--depth_mesh_weight`` A larger value will give more weight to the constraint
   that the depth clouds stay close to the mesh. Not suggested by default.)
   Type: double. Default: 0.
@@ -500,6 +539,8 @@ Command-line options for rig_calibrator
   convergence. Type: double. Default: 0.
 ``--export_to_voxblox`` Save the depth clouds and optimized transforms needed
   to create a mesh with voxblox (if depth clouds exist). Type: bool. Default: false.
+``--save_transformed_depth_clouds`` Save the depth clouds with the
+  camera transform applied to them to make them be in world coordinates.
 ``--float_scale`` If to optimize the scale of the clouds, part of
   depth-to-image transform. If kept fixed, the configuration of cameras
   should adjust to respect the given scale. This parameter should not be
@@ -542,12 +583,6 @@ Command-line options for rig_calibrator
 ``--no_rig`` Do not assumes the cameras are on a rig. Hence, the pose of any
   camera of any sensor type may vary on its own and not being tied to other
   sensor types. See also ``--camera_poses_to_float``. Type: bool. Default: false.
-``--num_exclude_boundary_pixels`` Flag as outliers pixels closer than this to
-  image boundary, and ignore that boundary region when texturing using the
-  optimized cameras with the ``--out_texture_dir`` option. Provide one number
-  per sensor, in the same order as in the rig config file. Example: 
-  '100 0 0'. For fisheye lenses, this improves a lot the quality of results.
-  Type: string. Default: "".
 ``--num_iterations`` How many solver iterations to perform in calibration.)
   Type: int32. Default: 20.
 ``--num_match_threads`` How many threads to use in feature detection/matching.

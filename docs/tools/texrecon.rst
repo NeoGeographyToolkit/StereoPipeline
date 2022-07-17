@@ -22,10 +22,10 @@ co-registered using the ``rig_calibrator`` program
 With that data and this tool, a textured mesh can be obtained as follows::
 
     texrecon --rig_config rig_out/rig_config.txt \
-      --camera_poses rig_out/images.txt          \
+      --camera_poses rig_out/cameras.txt         \
       --mesh rig_out/fused_mesh.ply              \
       --rig_sensor sci_cam                       \
-      --undistorted_crop_win '1250 1000'         \
+      --undistorted_crop_win '1000 800'          \
       --out_dir texrecon_out
 
 The inputs to this program need not be created with
@@ -48,8 +48,7 @@ Command-line options
    The dimensions of the central image region to keep
    after undistorting an image and before using it in texturing.
    Normally 85% - 90% of distorted (actual) image
-   dimensions would do. This would need revisiting.
-   Suggested for Astrobee images: sci_cam: '1250
+   dimensions would do. Suggested for Astrobee images: sci_cam: '1250
    1000' nav_cam: '1100 776'. haz_cam: '250 200'.
 --out_dir <string>
    The directory where to write the textured mesh and
