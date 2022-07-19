@@ -355,7 +355,9 @@ corr-kernel (*integer integer*) (default = 21 21)
     These option determine the size (in pixels) of the correlation
     kernel used in the initialization step. A different size can be set
     in the horizontal and vertical directions, but square correlation
-    kernels are almost always used in practice.
+    kernels are almost always used in practice. (The kernel size is at
+    most 9 x 9 with ``--stereo-algorithm asp_mgm`` and ``--cost-mode``
+    3 and 4.)
 
 corr-search (*integer integer integer integer*)
     These parameters determine the size of the initial correlation
