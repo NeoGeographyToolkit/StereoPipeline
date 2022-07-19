@@ -103,7 +103,7 @@ void centerline_weights2(ImageT const& img, ImageView<double> & weights,
   for (int row = 0 ; row < numRows; row++) {
     for (int col = 0; col < numCols; col++) {
 
-      if ( !is_valid(img(col,row)) ) continue;
+      if (!is_valid(img(col,row))) continue;
       
       // Record the first and last valid column in each row
       if (col < minValInRow[row]) minValInRow[row] = col;
@@ -173,7 +173,7 @@ void centerline_weights2(ImageT const& img, ImageView<double> & weights,
 double S_shape(double x, double M, double L){
   if (x <= 0) return 0;
   if (x >= M) return M;
-  return 0.5*M*( 1 + boost::math::erf (0.5*sqrt(M_PI) * (2*x*L/M - L) ) );
+  return 0.5*M*(1 + boost::math::erf (0.5*sqrt(M_PI) * (2*x*L/M - L)));
 }
 
 // Function for highlighting spots of data
@@ -183,23 +183,23 @@ class NotNoDataFunctor {
   channel_type m_nodata;
   typedef ChannelRange<channel_type> range_type;
 public:
-  NotNoDataFunctor( channel_type nodata ) : m_nodata(nodata) {}
+  NotNoDataFunctor(channel_type nodata) : m_nodata(nodata) {}
 
   template <class Args> struct result {
     typedef channel_type type;
   };
 
-  inline channel_type operator()( channel_type const& val ) const {
+  inline channel_type operator()(channel_type const& val) const {
     return (val != m_nodata && !std::isnan(val))? range_type::max() : range_type::min();
   }
 };
 
 template <class ImageT, class NoDataT>
 UnaryPerPixelView<ImageT,UnaryCompoundFunctor<NotNoDataFunctor<typename ImageT::pixel_type>, typename ImageT::pixel_type>  >
-inline notnodata( ImageViewBase<ImageT> const& image, NoDataT nodata ) {
+inline notnodata(ImageViewBase<ImageT> const& image, NoDataT nodata) {
   typedef UnaryCompoundFunctor<NotNoDataFunctor<typename ImageT::pixel_type>, typename ImageT::pixel_type> func_type;
-  func_type func( nodata );
-  return UnaryPerPixelView<ImageT,func_type>( image.impl(), func );
+  func_type func(nodata);
+  return UnaryPerPixelView<ImageT,func_type>(image.impl(), func);
 }
 
 // Set nodata pixels to 0 and valid data pixels to something big.
@@ -279,17 +279,17 @@ BBox2 custom_point_to_pixel_bbox(GeoReference const& georef, BBox2 const& ptbox)
 		  Vector2(ptbox.min().x(), ptbox.max().y()),
 		  Vector2(ptbox.max().x(), ptbox.min().y())};
   for (int icr = 0; icr < (int)(sizeof(cr)/sizeof(Vector2)); icr++)
-    pix_box.grow( georef.point_to_pixel(cr[icr]) );
+    pix_box.grow(georef.point_to_pixel(cr[icr]));
   
   // If the corner is actually very close to an integer number, we
   // assume it should in fact be integer but got moved a bit due to
   // numerical error. Then we set it to integer. This ensures that
   // when we mosaic a single DEM we get its corners to be the same as
   // the originals rather than moved by a slight offset.
-  if (norm_2(pix_box.max() - round(pix_box.max())) < g_tol ) 
+  if (norm_2(pix_box.max() - round(pix_box.max())) < g_tol) 
     pix_box.max() = round(pix_box.max());
 
-  pix_box.max() = ceil( pix_box.max() + Vector2(1, 1));
+  pix_box.max() = ceil(pix_box.max() + Vector2(1, 1));
   
   return pix_box;
 }
@@ -350,16 +350,16 @@ int no_blend(Options const& opt){
 
 std::string tile_suffix(Options const& opt){
   std::string ans;
-  if (opt.first    ) ans = "-first";
-  if (opt.last     ) ans = "-last";
-  if (opt.min      ) ans = "-min";
-  if (opt.max      ) ans = "-max";
+  if (opt.first) ans     = "-first";
+  if (opt.last) ans      = "-last";
+  if (opt.min) ans       = "-min";
+  if (opt.max) ans       = "-max";
   if (opt.block_max) ans = "-block-max";
-  if (opt.mean     ) ans = "-mean";
-  if (opt.stddev   ) ans = "-stddev";
-  if (opt.median   ) ans = "-median";
-  if (opt.nmad     ) ans = "-nmad";
-  if (opt.count    ) ans = "-count";
+  if (opt.mean) ans      = "-mean";
+  if (opt.stddev) ans    = "-stddev";
+  if (opt.median) ans    = "-median";
+  if (opt.nmad) ans      = "-nmad";
+  if (opt.count) ans     = "-count";
   if (opt.save_index_map)       ans += "-index-map";
   if (opt.save_dem_weight >= 0) ans += "-weight-dem-index-" + stringify(opt.save_dem_weight);
 
@@ -411,7 +411,7 @@ public:
       if (std::abs(this_major_axis - out_major_axis) > 0.1 || 
           std::abs(this_minor_axis - out_minor_axis) > 0.1 ||
           m_georefs[i].datum().meridian_offset()
-          != m_out_georef.datum().meridian_offset() ){
+          != m_out_georef.datum().meridian_offset()){
         vw_throw(NoImplErr() << "Mosaicking of DEMs with differing datum radii "
                  << " or meridian offsets is not implemented. Datums encountered:\n"
                  << m_georefs[i].datum() << "\n"
@@ -420,7 +420,7 @@ public:
       if (m_georefs[i].datum().name() != m_out_georef.datum().name() &&
           this_major_axis == out_major_axis &&
           this_minor_axis == out_minor_axis &&
-          m_georefs[i].datum().meridian_offset() == m_out_georef.datum().meridian_offset() ){
+          m_georefs[i].datum().meridian_offset() == m_out_georef.datum().meridian_offset()){
         vw_out(WarningMessage) << "Found DEMs with the same radii and meridian offsets, "
                                << "but different names: "
                                << m_georefs[i].datum().name() << " and "
@@ -436,9 +436,9 @@ public:
   inline int cols  () const { return m_cols; }
   inline int rows  () const { return m_rows; }
   inline int planes() const { return 1; }
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline pixel_type operator()( double/*i*/, double/*j*/, int/*p*/ = 0 ) const {
+  inline pixel_type operator()(double/*i*/, double/*j*/, int/*p*/ = 0) const {
     vw_throw(NoImplErr() << "DemMosaicView::operator()(...) is not implemented");
     return pixel_type();
   }
@@ -463,8 +463,8 @@ public:
     typedef PixelGrayA<double> DoubleGrayA;
     ImageView<double> tile   (bbox.width(), bbox.height()); // the output tile (in most cases)
     ImageView<double> weights(bbox.width(), bbox.height()); // accumulated weights (in most cases)
-    fill( tile, m_opt.out_nodata_value );
-    fill( weights, 0.0 );
+    fill(tile, m_opt.out_nodata_value);
+    fill(weights, 0.0);
 
     // True if we won't be doing any DEM blending.
     bool noblend = (no_blend(m_opt) > 0);
@@ -478,8 +478,8 @@ public:
     if (m_opt.stddev) { // Need one working image
       tile_vec.push_back(ImageView<double>(bbox.width(), bbox.height()));
       // Each pixel starts at zero, nodata is handled later
-      fill( tile_vec[0], 0.0 );
-      fill( tile,        0.0 );
+      fill(tile_vec[0], 0.0);
+      fill(tile,        0.0);
     }
     if (use_priority_blend) { // Store each weight separately
       tile_vec.reserve  (m_imgMgr.size());
@@ -523,7 +523,7 @@ public:
     ImageView<double> local_wts_orig;
 
     // Loop through all input DEMs
-    for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++){
+    for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++) {
 
       // Load the information for this DEM
       GeoReference georef        = m_georefs         [dem_iter];
@@ -650,7 +650,7 @@ public:
 
       // If we don't limit the weights from above, we will have tiling artifacts,
       // as in different tiles the weights grow to different heights since
-      // they are cropped to different regions. for priority blending length,
+      // they are cropped to different regions. For priority blending length,
       // we'll do this process later, as the bbox is obtained differently in that case.
       if (!use_priority_blend) {
         for (int col = 0; col < local_wts.cols(); col++) {
@@ -728,7 +728,7 @@ public:
               j0 = round(y);
           if ((fabs(x-i0) < g_tol) && (fabs(y-j0) < g_tol) &&
               ((i0 >= 0) && (i0 <= dem.cols()-1) &&
-               (j0 >= 0) && (j0 <= dem.rows()-1)) ){
+               (j0 >= 0) && (j0 <= dem.rows()-1))){
 
             // A lot of care is needed here. We are at an integer
             // pixel, save for numerical error. Just borrow pixel's
@@ -800,17 +800,17 @@ public:
           // Init to zero not needed with some types.
           if (!m_opt.stddev && !m_opt.median && !m_opt.nmad && !m_opt.min && !m_opt.max &&
               !use_priority_blend){
-            if ( is_nodata ){
+            if (is_nodata){
               tile   (c, r) = 0;
               weights(c, r) = 0.0;
             }
           }
 
           // Update the output value according to the commanded mode
-          if ( ( m_opt.first && is_nodata)                        ||
+          if ((m_opt.first && is_nodata)                        ||
                m_opt.last                                         ||
-               ( m_opt.min && ( val < tile(c, r) || is_nodata ) ) ||
-               ( m_opt.max && ( val > tile(c, r) || is_nodata ) ) ||
+               (m_opt.min && (val < tile(c, r) || is_nodata)) ||
+               (m_opt.max && (val > tile(c, r) || is_nodata)) ||
                m_opt.median || m_opt.nmad || 
                use_priority_blend   || m_opt.block_max){
             // --> Conditions where we replace the current value
@@ -880,7 +880,7 @@ public:
     if (!noblend || m_opt.mean){
       for (int c = 0; c < bbox.width(); c++){ // Iterate over all pixels!
         for (int r = 0; r < bbox.height(); r++){
-          if ( weights(c, r) > 0 )
+          if (weights(c, r) > 0)
             tile(c, r) /= weights(c, r);
 
           //if (m_opt.save_dem_weight >= 0 && weights(c, r) > 0)
@@ -896,8 +896,8 @@ public:
       for (int c = 0; c < bbox.width(); c++){ // Iterate over all pixels!
         for (int r = 0; r < bbox.height(); r++){
 
-          if ( weights(c, r) > 1.0 ){
-            tile(c, r) = sqrt( tile(c, r) / (weights(c, r) - 1.0) );
+          if (weights(c, r) > 1.0){
+            tile(c, r) = sqrt(tile(c, r) / (weights(c, r) - 1.0));
           } else { // Invalid pixel!
             tile(c, r) = m_opt.out_nodata_value;
           }
@@ -908,7 +908,7 @@ public:
     // For the median and nmad operations
     if (m_opt.median || m_opt.nmad){
       // Init output pixels to nodata
-      fill( tile, m_opt.out_nodata_value );
+      fill(tile, m_opt.out_nodata_value);
       vector<double> vals, vals_all(tile_vec.size());
       // Iterate through all pixels
       for (int c = 0; c < bbox.width(); c++){
@@ -955,7 +955,7 @@ public:
 
     // For max per block, find the sum of values in each DEM
     if (m_opt.block_max) {
-      fill( tile, m_opt.out_nodata_value );
+      fill(tile, m_opt.out_nodata_value);
       int num_tiles = tile_vec.size();
       if (tile_vec.size() != dem_vec.size()) 
         vw_throw(ArgumentErr() << "Book-keeping error.\n");
@@ -1062,7 +1062,7 @@ public:
       // Compute the weighted average
       for (int col = 0; col < tile.cols(); col++){
         for (int row = 0; row < weights.rows(); row++){
-          if ( weights(col, row) > 0 )
+          if (weights(col, row) > 0)
             tile(col, row) /= weights(col, row);
 
           if (m_opt.save_dem_weight >= 0 && weights(col, row) > 0)
@@ -1141,7 +1141,7 @@ public:
     // on doubles, here we cast to RealT.
     return prerasterize_type(pixel_cast<RealT>(tile),
                              -bbox.min().x(), -bbox.min().y(),
-                             cols(), rows() );
+                             cols(), rows());
   }
 
   template <class DestT>
@@ -1170,7 +1170,7 @@ void load_dem_bounding_boxes(Options       const& opt,
   
   TerminalProgressCallback tpc("", "\t--> ");
   tpc.report_progress(0);
-  double inc_amount = 1.0 / double(opt.dem_files.size() );
+  double inc_amount = 1.0 / double(opt.dem_files.size());
 
   BBox2 first_dem_proj_box;
   
@@ -1189,12 +1189,12 @@ void load_dem_bounding_boxes(Options       const& opt,
       first_dem_proj_box = georef.bounding_box(img);
     
     bool has_lonat = (georef.proj4_str().find("+proj=longlat") != std::string::npos ||
-                      mosaic_georef.proj4_str().find("+proj=longlat") != std::string::npos );
+                      mosaic_georef.proj4_str().find("+proj=longlat") != std::string::npos);
     
     // Compute bounding box of this DEM. The simple case is when all DEMs have
     // the same projection, and it is not longlat, as then we need to worry about
     // a 360 degree shift.
-    if ( (!has_lonat) && mosaic_georef.overall_proj4_str() == georef.overall_proj4_str() ){
+    if ((!has_lonat) && mosaic_georef.overall_proj4_str() == georef.overall_proj4_str()){
       BBox2 proj_box = georef.bounding_box(img);
       mosaic_bbox.grow(proj_box);
       dem_proj_bboxes.push_back(proj_box);
@@ -1234,7 +1234,7 @@ void load_dem_bounding_boxes(Options       const& opt,
       dem_proj_bboxes.push_back(proj_box);
     } // End second case
 
-    tpc.report_incremental_progress( inc_amount );
+    tpc.report_incremental_progress(inc_amount);
   } // End loop through DEM files
   tpc.report_finished();
 
@@ -1245,7 +1245,7 @@ void load_dem_bounding_boxes(Options       const& opt,
 } // End function load_dem_bounding_boxes
 
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("Options");
   general_options.add_options()
@@ -1337,33 +1337,33 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = true;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+                             allow_unregistered, unregistered);
 
   // Error checking
   if (opt.out_prefix == "")
     vw_throw(ArgumentErr() << "No output prefix was specified.\n"
-                           << usage << general_options );
+                           << usage << general_options);
   if (opt.num_threads == 0)
     vw_throw(ArgumentErr() << "The number of threads must be set and positive.\n"
-                           << usage << general_options );
+                           << usage << general_options);
   if (opt.erode_len < 0)
     vw_throw(ArgumentErr() << "The erode length must not be negative.\n"
-                           << usage << general_options );
+                           << usage << general_options);
   if (opt.extra_crop_len < 0)
     vw_throw(ArgumentErr() << "The blending length must not be negative.\n"
-                           << usage << general_options );
+                           << usage << general_options);
   if (opt.hole_fill_len < 0)
     vw_throw(ArgumentErr() << "The hole fill length must not be negative.\n"
-                           << usage << general_options );
+                           << usage << general_options);
   if (opt.tile_size <= 0)
     vw_throw(ArgumentErr() << "The size of a tile in pixels must be positive.\n"
-                           << usage << general_options );
+                           << usage << general_options);
 
   if (opt.priority_blending_len < 0)
     vw_throw(ArgumentErr() << "The priority blending length must not be negative.\n"
-                           << usage << general_options );
+                           << usage << general_options);
 
   // If priority blending is used, need to adjust extra_crop_len accordingly
   opt.extra_crop_len = std::max(opt.extra_crop_len, 3*opt.priority_blending_len);
@@ -1373,16 +1373,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (noblend > 1)
     vw_throw(ArgumentErr() << "At most one of the options --first, --last, "
          << "--min, --max, -mean, --stddev, --median, --nmad, --count can be specified.\n"
-         << usage << general_options );
+         << usage << general_options);
 
   if (opt.geo_tile_size < 0)
     vw_throw(ArgumentErr() << "The size of a tile in georeferenced units must not be negative.\n"
-                           << usage << general_options );
+                           << usage << general_options);
 
   if (noblend && opt.priority_blending_len > 0) {
     vw_throw(ArgumentErr()
        << "Priority blending cannot happen if any of the statistics DEMs are computed.\n"
-       << usage << general_options );
+       << usage << general_options);
   }
 
   if (opt.priority_blending_len > 0 && opt.weights_exp == 2) {
@@ -1394,19 +1394,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       && opt.save_dem_weight >= 0) {
     vw_throw(ArgumentErr() << "Cannot save the weights unless blending is on or one of "
                            << "--first, --last, --min, --max, --mean is invoked.\n"
-                           << usage << general_options );
+                           << usage << general_options);
   }
 
   if (opt.save_index_map && !opt.first && !opt.last &&
                             !opt.min && !opt.max && !opt.median && !opt.nmad)
     vw_throw(ArgumentErr() << "Cannot save an index map unless one of "
                            << "--first, --last, --min, --max, --median, --nmad is invoked.\n"
-                           << usage << general_options );
+                           << usage << general_options);
 
   if (opt.save_dem_weight >= 0 && opt.save_index_map)
     vw_throw(ArgumentErr()
        << "Cannot save both the index map and the DEM weights at the same time.\n"
-       << usage << general_options );
+       << usage << general_options);
 
   // For compatibility with the GDAL tools, allow the min and max to be reversed.
   if (opt.projwin != BBox2()) {
@@ -1418,15 +1418,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
   if (opt.weights_blur_sigma < 0.0)
     vw_throw(ArgumentErr() << "The value --weights-blur-sigma must be non-negative.\n"
-             << usage << general_options );
+             << usage << general_options);
   
   if (opt.dem_blur_sigma < 0.0)
     vw_throw(ArgumentErr() << "The value --dem-blur-sigma must be non-negative.\n"
-             << usage << general_options );
+             << usage << general_options);
 
   if (opt.weights_exp <= 0)
     vw_throw(ArgumentErr() << "The weights exponent must be positive.\n"
-             << usage << general_options );
+             << usage << general_options);
+
+  if (opt.priority_blending_len > 0 && opt.use_centerline_weights)
+    vw_throw(ArgumentErr() << "The --priority-blending-length and --use-centerline-weights options cannot be used together, as the latter expects no holes in the DEM, but the priority blending length works by internally hollowing out the non-priority DEMs before blending.\n"
+             << usage << general_options);
 
   // Read the DEMs
   if (opt.dem_list_file != ""){ // Get them from a list
@@ -1434,7 +1438,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     if (!unregistered.empty())
       vw_throw(ArgumentErr() << "The DEMs were specified via a list. "
 			     << "There were however extraneous files or options passed in.\n"
-			     << usage << general_options );
+			     << usage << general_options);
 
     ifstream is(opt.dem_list_file.c_str());
     string file;
@@ -1448,14 +1452,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
     if (unregistered.empty())
       vw_throw(ArgumentErr() << "No input DEMs were specified.\n"
-			     << usage << general_options );
+			     << usage << general_options);
     opt.dem_files = unregistered;
   }
 
   if (opt.this_dem_as_reference != "" && opt.first_dem_as_reference) {
     vw_throw(ArgumentErr() << "Cannot have both options --first-dem-as-reference "
              << "and --this-dem-as-reference.\n"
-	     << usage << general_options );
+	     << usage << general_options);
   }
 
   // We will co-opt the logic of first_dem_as_reference but won't blend the reference DEM
@@ -1466,7 +1470,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
   if (int(opt.dem_files.size()) <= opt.save_dem_weight) {
     vw_throw(ArgumentErr() << "Cannot save weights for given index as it is out of bounds.\n"
-	     << usage << general_options );
+	     << usage << general_options);
   }
 
   // When too many things should be done at the same time it is tricky
@@ -1474,7 +1478,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // one operation at a time.
   if ((opt.dem_blur_sigma > 0) + (opt.hole_fill_len > 0) + (opt.erode_len > 0) > 1) 
     vw_throw(ArgumentErr() << "Cannot fill holes, blur, and erode the input DEM at "
-             << "the same time.\n" << usage << general_options );
+             << "the same time.\n" << usage << general_options);
   
   if ((opt.dem_blur_sigma > 0 || opt.hole_fill_len > 0 || opt.erode_len > 0) && 
       (opt.target_srs_string != "" || opt.tr > 0 || opt.dem_files.size() > 1 ||
@@ -1515,13 +1519,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
 } // End function handle_arguments
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   
-  try{
+  try {
 
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     // TODO: Fix here. If the DEM is double, read the nodata as double,
     // without casting to float. If it is float, cast to float.
@@ -1538,7 +1542,7 @@ int main( int argc, char *argv[] ) {
     // Watch for underflow, if mixing doubles and float. Particularly problematic
     // is when the nodata_value cannot be represented exactly as a float.
     if (opt.out_nodata_value < static_cast<double>(-numeric_limits<RealT>::max()) ||
-        RealT(opt.out_nodata_value)  != double(opt.out_nodata_value) ) {
+        RealT(opt.out_nodata_value)  != double(opt.out_nodata_value)) {
       vw_out() << "The no-data value cannot be represented exactly as a float. "
 	       << "Changing it to the smallest float.\n";
       opt.out_nodata_value = static_cast<double>(-numeric_limits<RealT>::max());
@@ -1572,7 +1576,7 @@ int main( int argc, char *argv[] ) {
     double spacing = opt.tr;
     if (opt.target_srs_string != ""                                              &&
       opt.target_srs_string != processed_proj4(mosaic_georef.overall_proj4_str()) &&
-      spacing <= 0 ){
+      spacing <= 0){
         vw_throw(ArgumentErr()
            << "Changing the projection was requested. The output DEM "
            << "resolution must be specified via the --tr option.\n");
@@ -1592,7 +1596,7 @@ int main( int argc, char *argv[] ) {
     if (mosaic_georef.datum().name() == "unknown"){
       GeoReference georef = read_georef(opt.dem_files[0]);
       if (mosaic_georef.datum().semi_major_axis() == georef.datum().semi_major_axis() &&
-    	  mosaic_georef.datum().semi_minor_axis() == georef.datum().semi_minor_axis() ){
+    	  mosaic_georef.datum().semi_minor_axis() == georef.datum().semi_minor_axis()){
           vw_out() << "Using the datum: " << georef.datum() << std::endl;
           mosaic_georef.set_datum(georef.datum());
       }
@@ -1694,7 +1698,7 @@ int main( int argc, char *argv[] ) {
       block_size = opt.block_size;
 
     // See if to lump all mosaic in just a given file, rather than creating tiles.
-    bool write_to_precise_file = ( opt.out_prefix.size() >= 4 &&
+    bool write_to_precise_file = (opt.out_prefix.size() >= 4 &&
 				   opt.out_prefix.substr(opt.out_prefix.size()-4, 4) == ".tif");
       
     int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
@@ -1797,13 +1801,13 @@ int main( int argc, char *argv[] ) {
         // Get the nodata-value. Need a try block, in case we can't
         // open more handles.
         DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
-        if ( in_rsrc.has_nodata_read() )
+        if (in_rsrc.has_nodata_read())
           curr_nodata_value = RealT(in_rsrc.nodata_read());
       }catch(std::exception const& e){
         // Try again
         imgMgr.freeup_handles_not_thread_safe();
         DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
-        if ( in_rsrc.has_nodata_read() )
+        if (in_rsrc.has_nodata_read())
           curr_nodata_value = RealT(in_rsrc.nodata_read());
       }
       
@@ -1899,7 +1903,7 @@ int main( int argc, char *argv[] ) {
                                        has_nodata, vw::round_and_clamp<int32>(opt.out_nodata_value),
                                        opt, tpc);
       else
-        vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
+        vw_throw(NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
 
       vw_out() << "Number of valid (not no-data) pixels written: " << num_valid_pixels
                << "."<< std::endl;
