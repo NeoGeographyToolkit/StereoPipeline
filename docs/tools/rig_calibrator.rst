@@ -561,9 +561,6 @@ Command-line options for rig_calibrator
 ``--intrinsics_to_float`` Specify which intrinsics to float for each sensor.
   Example: 'cam1:focal_length,optical_center,distortion
   cam2:focal_length'. Type: string. Default: "".
-``--max_image_to_depth_timestamp_diff`` Use a depth cloud only if it is within
-  this distance in time from the nearest image with the same camera.
-  Measured in seconds. Type: double. Default: 0.2.
 ``--max_ray_dist`` The maximum search distance from a starting point along a
   ray when intersecting the ray with a mesh, in meters (if applicable).)
   Type: double. Default: 100.
@@ -589,15 +586,21 @@ Command-line options for rig_calibrator
   A large number can use a lot of memory. Type: int32. Default: 8.
 ``--num_opt_threads`` How many threads to use in the optimization. Type: int32.
   Default: 16.
-``--num_overlaps`` How many images (of all camera types) close and forward in
-  time to match to given image. Type: int32. Default: 10.
-``--nvm`` Read images and camera poses from this nvm file, as exported by
-  Theia. Type: string. Default: "".
 ``--out_dir`` Save in this directory the camera intrinsics and extrinsics. See
   also ``--save-matches``, ``--verbose``. Type: string. Default: "".
 ``--out_texture_dir`` If non-empty and if an input mesh was provided, project
   the camera images using the optimized poses onto the mesh and write the
   obtained .obj files in the given directory. Type: string. Default: "".
+``--nvm`` Read images and camera poses from this nvm file, as exported by
+  Theia. Type: string. Default: "".
+``--num_overlaps`` Match an image with this many images (of all camera types)
+  following it in increasing order of timestamp value. Set to a positive value
+  only if desired to find more interest point matches than read from the input
+  nvm file. Not suggested by default. For advanced controls, run: 
+  ``rig_calibrator --help | grep -B 2 -A 1 -i sift``. Type: integer. Default: 0.
+``--no_nvm_matches`` Do not read interest point matches from the nvm file. 
+  So read only camera poses. This implies ``--num_overlaps`` is positive, 
+  to be able to find new matches.
 ``--parameter_tolerance`` Stop when the optimization variables change by less
   than this. Type: double. Default: 1e-12.
 ``--refiner_min_angle`` If filtering outliers, remove triangulated points for
@@ -621,8 +624,9 @@ Command-line options for rig_calibrator
   multiplied by corresponding weight) much larger than this will be
   exponentially attenuated to affect less the cost function.
   Type: double. Default: 3.
-``--save_matches`` Save the interest point matches. Stereo Pipeline's viewer
-  can be used for visualizing these. Type: bool. Default: false.
+``--save_matches`` Save the interest point matches (all matches and
+  inlier matches, after filtering). Stereo Pipeline's viewer can be used
+  for visualizing these. Type: bool. Default: false.
 ``--timestamp_offsets_max_change`` If floating the timestamp offsets, do not
   let them change by more than this (measured in seconds). Existing image
   bracketing acts as an additional constraint. Type: double. Default: 1.
