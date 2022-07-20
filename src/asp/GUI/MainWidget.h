@@ -239,7 +239,7 @@ public slots:
     /// Handle to parent GUI panel used to select which of the multiple "owned"
     ///  images should be currently displayed.
     /// - Null if there is only one image.
-    chooseFilesDlg  *     m_chooseFilesDlg;
+    chooseFilesDlg  *     m_chooseFiles;
     std::set<std::string> m_filesToHide;    ///< Files that are currently not being displayed.
     std::vector<int>      m_filesOrder;     ///< The order the images are drawn in.
 

@@ -187,10 +187,9 @@ namespace vw { namespace gui {
                          MatchList & matches,
                          int &editMatchPointVecIndex,
                          chooseFilesDlg * chooseFiles,
-                         bool use_georef,
-                         bool view_matches,
+                         bool use_georef, bool view_matches,
                          bool zoom_all_to_same_region, bool & allowMultipleSelections)
-    : QWidget(parent), m_opt(opt), m_chooseFilesDlg(chooseFiles),
+    : QWidget(parent), m_opt(opt), m_chooseFiles(chooseFiles),
       m_beg_image_id(beg_image_id),
       m_end_image_id(end_image_id),
       m_base_image_id(base_image_id), 
@@ -278,29 +277,29 @@ namespace vw { namespace gui {
     // To do: Warn the user if some images have georef while others don't.
 
     // Choose which files to hide/show in the GUI
-    if (m_chooseFilesDlg){
+    if (m_chooseFiles){
       
-      m_chooseFilesDlg->chooseFiles(m_images, asp::stereo_settings().hide_all);
+      m_chooseFiles->chooseFiles(m_images, asp::stereo_settings().hide_all);
 
       // Make list of all the unchecked files.
-      // TODO: It is poor design that we keep in both the table and
+      // TODO(oalexan1): It is poor design that we keep both in the table and
       // in m_filesToHide the state of which files to hide and these
       // need to be synched up.
       updateFilesToHide();
       
       // When the user clicks on a table entry, say by modifying a 
       // checkbox, update the display.
-      QObject::connect(m_chooseFilesDlg->getFilesTable(),
+      QObject::connect(m_chooseFiles->getFilesTable(),
                        SIGNAL(cellClicked(int, int)),
                        this,
                        SLOT(showFilesChosenByUser(int, int)));
       
       // When the user clicks on the table header on top to toggle all on/off
-      QObject::connect(m_chooseFilesDlg->getFilesTable()->horizontalHeader(),
+      QObject::connect(m_chooseFiles->getFilesTable()->horizontalHeader(),
                        SIGNAL(sectionClicked(int)), this, SLOT(toggleAllOnOff()));
       
-      m_chooseFilesDlg->getFilesTable()->setContextMenuPolicy(Qt::CustomContextMenu);
-      QObject::connect(m_chooseFilesDlg->getFilesTable(),
+      m_chooseFiles->getFilesTable()->setContextMenuPolicy(Qt::CustomContextMenu);
+      QObject::connect(m_chooseFiles->getFilesTable(),
                        SIGNAL(customContextMenuRequested(QPoint)),
                        this, SLOT(customMenuRequested(QPoint)));
       
@@ -379,11 +378,11 @@ namespace vw { namespace gui {
   // listing the files.
   void MainWidget::customMenuRequested(QPoint pos){
 
-    // Process user's choice from m_chooseFilesDlg.
-    if (!m_chooseFilesDlg)
+    // Process user's choice from m_chooseFiles.
+    if (!m_chooseFiles)
       return;
 
-    QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+    QTableWidget * filesTable = m_chooseFiles->getFilesTable();
 
     // Determine which row of the table the user clicked on
     QModelIndex tablePos=filesTable->indexAt(pos);
@@ -424,11 +423,11 @@ namespace vw { namespace gui {
 
   void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
-    // Process user's choice from m_chooseFilesDlg.
-    if (!m_chooseFilesDlg)
+    // Process user's choice from m_chooseFiles.
+    if (!m_chooseFiles)
       return;
 
-    QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+    QTableWidget * filesTable = m_chooseFiles->getFilesTable();
     int rows = filesTable->rowCount();
 
     // If we did not click on the checkbox, but on the image name,
@@ -460,13 +459,13 @@ namespace vw { namespace gui {
   // View next or previous image
   void MainWidget::viewOtherImage(int delta) {
     
-    if (!m_chooseFilesDlg)
+    if (!m_chooseFiles)
       return;
 
     if (delta != -1 && delta != 1) 
       return;
 
-    QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+    QTableWidget * filesTable = m_chooseFiles->getFilesTable();
     int rows = filesTable->rowCount();
     
     if (rows == 0) 
@@ -524,11 +523,11 @@ namespace vw { namespace gui {
   
   void MainWidget::toggleAllOnOff(){
 
-    // Process user's choice from m_chooseFilesDlg.
-    if (!m_chooseFilesDlg)
+    // Process user's choice from m_chooseFiles.
+    if (!m_chooseFiles)
       return;
 
-    QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+    QTableWidget * filesTable = m_chooseFiles->getFilesTable();
     int rows = filesTable->rowCount();
 
     // See if all files are hidden
@@ -573,10 +572,10 @@ namespace vw { namespace gui {
 
   void MainWidget::updateFilesToHide() {
 
-    if (!m_chooseFilesDlg)
+    if (!m_chooseFiles)
       return;
 
-    QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+    QTableWidget * filesTable = m_chooseFiles->getFilesTable();
     int rows = filesTable->rowCount();
 
     // Refresh the list of all the unchecked files
@@ -942,7 +941,7 @@ namespace vw { namespace gui {
       m_filesToHide.erase(it2);
 
       // Then turn on the checkbox in the table
-      QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+      QTableWidget * filesTable = m_chooseFiles->getFilesTable();
       int rows = filesTable->rowCount();
       
       for (int rowIter = 0; rowIter < rows; rowIter++){
@@ -3241,7 +3240,7 @@ namespace vw { namespace gui {
     
     m_filesToHide.clear();
 
-    QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+    QTableWidget * filesTable = m_chooseFiles->getFilesTable();
 
     for (int j = m_beg_image_id; j < m_end_image_id; j++){
       

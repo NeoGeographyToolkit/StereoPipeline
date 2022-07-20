@@ -187,11 +187,16 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   if (m_grid_cols <= 0)
     m_grid_cols = std::numeric_limits<int>::max();
 
+  // This is a special case, when we both have the images side by side and have a
+  // dialog
+  bool side_by_side_with_choose_dalog = (stereo_settings().pairwise_matches ||
+                                         stereo_settings().pairwise_clean_matches);
+  
   m_view_type = VIEW_SIDE_BY_SIDE;
-  if (m_grid_cols > 0 && m_grid_cols < int(m_image_files.size()))
+  if (m_grid_cols > 0 && m_grid_cols < int(m_image_files.size()) && !side_by_side_with_choose_dalog)
     m_view_type = VIEW_AS_TILES_ON_GRID;
   
-  if (single_window)
+  if (single_window && !side_by_side_with_choose_dalog)
     m_view_type = VIEW_IN_SINGLE_WINDOW;
   
   m_view_type_old = m_view_type; // initialize this
@@ -228,24 +233,28 @@ void MainWindow::createLayout() {
   // Note that the menus persist even when the layout changes
   bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
 
+  // This is a special case, when we both have the images side by side and a
+  // dialog for choosing which files to show
+  bool side_by_side_with_choose_dalog = (stereo_settings().pairwise_matches ||
+                                         stereo_settings().pairwise_clean_matches);
+  if (side_by_side_with_choose_dalog)
+    m_view_type = VIEW_SIDE_BY_SIDE;
+
+  // See if to have a dialog for choosing which images to show
+  if ((m_view_type == VIEW_IN_SINGLE_WINDOW || side_by_side_with_choose_dalog) &&
+      m_image_files.size() > 1) {
+    m_chooseFiles = new chooseFilesDlg(this);
+    m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
+    
+    // See note at chooseFilesFilterDelegate
+    m_chooseFiles->getFilesTable()->setItemDelegate(new chooseFilesFilterDelegate(this));
+    m_chooseFiles->getFilesTable()->installEventFilter(this);
+    splitter->addWidget(m_chooseFiles);
+  } else {
+    m_chooseFiles = NULL;
+  }
+
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
-
-    // Put all images in a single window, with a dialog for choosing images if
-    // there's more than one image.
-
-    if (m_image_files.size() > 1) {
-      m_chooseFiles = new chooseFilesDlg(this);
-      m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
-
-      // See note at chooseFilesFilterDelegate
-      m_chooseFiles->getFilesTable()->setItemDelegate(new chooseFilesFilterDelegate(this));
-      m_chooseFiles->getFilesTable()->installEventFilter(this);
-        
-      splitter->addWidget(m_chooseFiles);
-    } else {
-      m_chooseFiles = NULL;
-    }
-
     // Pass all images to a single MainWidget object
     MainWidget * widget = new MainWidget(centralWidget,
                                          m_opt,
@@ -264,12 +273,9 @@ void MainWindow::createLayout() {
     bool refresh = false; // Do not refresh prematurely
     widget->setPolyEditMode(m_polyEditMode_action->isChecked(), refresh);
     m_widgets.push_back(widget);
-
-  } else{
-
+  } else {
     // Each MainWidget object gets passed a single image
     for (size_t i = 0; i < m_images.size(); i++) {
-      m_chooseFiles = NULL;
       MainWidget * widget = new MainWidget(centralWidget,
                                            m_opt,
                                            i,     // beg image id
@@ -697,6 +703,10 @@ void MainWindow::viewSingleWindow(){
       zoom_all_to_same_region = false;
       setZoomAllToSameRegionAux(zoom_all_to_same_region);
     }
+
+    // Since we will view all in single window, can't select images with matches
+    stereo_settings().pairwise_matches = false;
+    stereo_settings().pairwise_clean_matches = false;
     
   }else{
     if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
@@ -717,8 +727,11 @@ void MainWindow::viewSideBySide(){
 void MainWindow::viewAsTiles(){
 
   if (!m_viewAsTiles_action->isChecked()) {
-    if (m_view_type_old != VIEW_AS_TILES_ON_GRID) m_view_type = m_view_type_old; // restore this
-    else m_view_type = VIEW_SIDE_BY_SIDE;
+    if (m_view_type_old != VIEW_AS_TILES_ON_GRID)
+      m_view_type = m_view_type_old; // restore this
+    else
+      m_view_type = VIEW_SIDE_BY_SIDE;
+    
     createLayout();
     return;
   }
@@ -735,6 +748,11 @@ void MainWindow::viewAsTiles(){
   m_grid_cols     = std::max(atoi(gridColsStr.c_str()), 1);
   m_view_type_old = m_view_type; // back this up
   m_view_type     = VIEW_AS_TILES_ON_GRID;
+
+  // When displaying the images as tiles on grid cannot show matches
+  stereo_settings().pairwise_matches = false;
+  stereo_settings().pairwise_clean_matches = false;
+  
   createLayout();
 }
 

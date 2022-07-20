@@ -958,13 +958,13 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
 
   resize(num_images);
 
-  // Loop through all of the 
+  // Loop through all of the matches
   size_t num_ip = 0;
   for (size_t i = 1; i < num_images; i++) {
     std::string match_file = matchFiles [i-1];
     size_t      j         = leftIndices[i-1];
 
-    // Init to all false matches for this image.
+    // Initialize all matches as invalid
     m_matches      [i].resize(num_ip);
     m_valid_matches[i].resize(num_ip);
     for (size_t v=0; v<num_ip; ++v) {
