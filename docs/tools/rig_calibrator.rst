@@ -28,6 +28,9 @@ Capabilities
 - All images acquired with one sensor are assumed to share intrinsics.
   The user may choose which intrinsics of which sensor are optimized
   or kept fixed, while the rig transforms and camera poses are optimized.
+- It is not assumed that the rig sensors have a shared field of view. 
+  Yet, a surface seen in one sensor should at some point be seen 
+  also in other sensors.
 - The intrinsics of the sensors and each camera image pose can also be
   optimized without the rig assumption. In that case the transforms
   among the sensors on the rig are not modeled. 
@@ -54,7 +57,7 @@ etc.
 
 Each image file must be stored according to the convention::
 
-    <parent dir>/<sensor name>/<timestamp>.<extension>
+    <image dir>/<sensor name>/<timestamp>.<extension>
 
 For example, two images acquired at time 1004.6, can be named::
 
@@ -131,8 +134,8 @@ with the name::
 
   <output dir>/rig_config.txt
 
-This time the transforms among the rig sensors will be known,
-while other values may change. 
+This time the transforms among the rig sensors will be known, having
+been computed and optimized. 
 
 Such a file can be read with the option ``--rig_config``.
 
@@ -152,26 +155,32 @@ Example (only one of the ``N`` sensors is shown)::
   depth_to_image_transform: 1 0 0 0 1 0 0 0 1 0 0 0
   ref_to_sensor_timestamp_offset: 0
 
-Camera poses
-^^^^^^^^^^^^
+Cameras poses and interest points
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If estimated poses for each camera image exist, for example, obtained
-from a previous run, those can be specified in a plain text file, with
-each line in the following format::
+The image names, camera poses, and interest point matches are stored
+in the NVM format. These are determined using the Theia
+structure-from-motion software, and are read by ``rig_calibrator`` via the
+``--nvm`` option. The optimized camera poses and inlier interest point
+matches will be written in the same format when this program finishes
+if the ``--save_nvm`` option is set. Then the output nvm file name
+is::
 
- # <image name> <camera to world transform (rotation + translation)>
- my_images/ref_cam/10004.6.jpg <12 doubles>
+  <output dir>/cameras.nvm
 
-If these are not known, the Theia structure-from-motion program (shipped
-with this software) can be used to find the initial poses which this tool
-will then optimize and/or register.
+In adidtion, a plain text file having just the list of images and
+world-to-camera poses will always be written, with the name::
 
-In either case a file in this format having the output camera
-poses will be saved by this tool, with the name::
+  <output dir>/cameras.txt
 
-  <output dir>/images.txt
+Each line in this file has the format::
 
-It can be read by the program with the ``--camera_poses`` option.
+<image dir>/<sensor name>/<timestamp>.<extension> <12 doubles>
+
+Here, the 12 values are the rows of the world-to-camera rotation and
+then the world-to-camera translation. See the ``--camera_poses``
+option (:numref:`rig_calibrator_command_line`) for how this file can
+be read back in.
 
 .. _rig_calibrator_example:
 
@@ -225,7 +234,6 @@ Next, we run ``rig_calibrator``::
         --tri_robust_threshold 0.1                     \
         --num_iterations 50                            \
         --calibrator_num_passes 2                      \
-        --num_overlaps 10                              \
         --registration                                 \
         --hugin_file control_points.pto                \
         --xyz_file xyz.txt                             \
@@ -259,6 +267,9 @@ in ``distorted_crop_size`` in the rig configuration are smaller than
 actual image dimensions to reduce the worst effects of peripheral
 distortion.
 
+One could pass in ``--num_overlaps 10`` to get more interest point 
+matches than that Theia finds, but this is usually not necessary.
+
 See :numref:`rig_calibrator_command_line` for the full list of options.
 
 The obtained point clouds can be fused into a mesh using ``voxblox_mesh`` 
@@ -283,15 +294,15 @@ fusing the images for each sensor with ``texrecon``
         --mesh rig_out/fused_mesh.ply              \
         --rig_sensor ${cam}                        \
         --undistorted_crop_win '1000 800'          \
-        --out_dir texrecon_out
+        --out_dir rig_out/texture
     done
 
 The obtained textured meshes can be inspected for disagreements, by
 loading them in MeshLab, as::
 
-    meshlab rig_out/fused_mesh.ply     \
-      texrecon_out/nav_cam/texture.obj \
-      texrecon_out/sci_cam/texture.obj 
+    meshlab rig_out/fused_mesh.ply        \
+      rig_out/texture/nav_cam/texture.obj \
+      rig_out/texture/sci_cam/texture.obj 
 
 See an illustration below.
 
@@ -372,7 +383,7 @@ Note that the registration happens before the optimization, and the
 latter can move the cameras around somewhat. To avoid that, or to do
 one more registration pass, one can rerun ``rig_calibrator``
 with control points as before, previous results (hence adjust
-``--rig_config`` and ``--camera_poses``), and zero iterations.
+``--rig_config`` and ``--nvm``), and zero iterations.
 
 If the images cover a large area, it is suggested to use registration
 points distributed over that area. Registration may not always produce
@@ -473,7 +484,7 @@ reduce the problem to perhaps one or two images from each sensor, and
 turn on the debugging flags ``--save_matches``,
 ``--export_to_voxblox``, ``--save_transformed_depth_clouds``,
 ``--out_texture_dir``. Then, the images can be projected individually
-onto a mesh, and individual transformed clouds can be inspected. 
+onto a mesh, and/or individual transformed clouds can be inspected. 
 See an example output in :numref:`rig_calibrator_textures`.
 
 One should also look at the statistics printed by the tool.
@@ -551,8 +562,10 @@ Command-line options for rig_calibrator
 ``--hugin_file`` The path to the hugin .pto file used for registration.)
   Type: string. Default: "".
 ``--camera_poses`` Read the images and world-to-camera poses from this list.
-  The same format is used as for when this tool saves the updated poses
-  in the output directory. Type: string. Default: "".
+  The same format is used as when this tool saves the updated
+  poses in the output directory. It is preferred to read the camera
+  poses with the ``--nvm`` option, as then interest point matches will
+  be read as well. Type: string. Default: "".
 ``--initial_max_reprojection_error`` If filtering outliers, remove interest
   points for which the reprojection error, in pixels, is larger than this.
   This filtering happens when matches are created, before cameras are
@@ -569,8 +582,8 @@ Command-line options for rig_calibrator
   filtering happens after each optimization pass finishes, unless disabled.
   It is better to not filter too aggressively unless confident of the
   solution. Type: double. Default: 25.
-``--mesh`` Use this geometry mapper mesh from a previous geometry mapper run to
-  help constrain the calibration (e.g., use fused_mesh.ply). Type: string. Default: "".
+``--mesh`` Use this mesh to help constrain the calibration (in .ply format). 
+  Must use a positive ``--mesh_tri_weight``. Type: string. Default: "".
 ``--mesh_tri_weight`` A larger value will give more weight to the constraint
   that triangulated points stay close to a preexisting mesh. Not suggested
   by default. Type: double. Default: 0.
@@ -624,8 +637,13 @@ Command-line options for rig_calibrator
   multiplied by corresponding weight) much larger than this will be
   exponentially attenuated to affect less the cost function.
   Type: double. Default: 3.
+``--save_nvm`` Save the optimized camera poses and inlier interest
+  point matches as <out dir>/cameras.nvm. Interest point matches are
+  offset relative to the optical center, to be consistent with
+  Theia. This file can be passed in to a new invocation of this
+  tool via ``--nvm``. Type: bool. Default: false.
 ``--save_matches`` Save the interest point matches (all matches and
-  inlier matches, after filtering). Stereo Pipeline's viewer can be used
+  inlier matches after filtering). Stereo Pipeline's viewer can be used
   for visualizing these. Type: bool. Default: false.
 ``--timestamp_offsets_max_change`` If floating the timestamp offsets, do not
   let them change by more than this (measured in seconds). Existing image
