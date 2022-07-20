@@ -277,32 +277,19 @@ namespace vw { namespace gui {
     // To do: Warn the user if some images have georef while others don't.
 
     // Choose which files to hide/show in the GUI
-    if (m_chooseFiles){
-      
-      m_chooseFiles->chooseFiles(m_images, asp::stereo_settings().hide_all);
-
-      // Make list of all the unchecked files.
-      // TODO(oalexan1): It is poor design that we keep both in the table and
-      // in m_filesToHide the state of which files to hide and these
-      // need to be synched up.
-      updateFilesToHide();
-      
+    if (m_chooseFiles) {
       // When the user clicks on a table entry, say by modifying a 
       // checkbox, update the display.
-      QObject::connect(m_chooseFiles->getFilesTable(),
-                       SIGNAL(cellClicked(int, int)),
-                       this,
-                       SLOT(showFilesChosenByUser(int, int)));
+      QObject::connect(m_chooseFiles->getFilesTable(), SIGNAL(cellClicked(int, int)),
+                       this, SLOT(showFilesChosenByUser(int, int)));
       
       // When the user clicks on the table header on top to toggle all on/off
       QObject::connect(m_chooseFiles->getFilesTable()->horizontalHeader(),
                        SIGNAL(sectionClicked(int)), this, SLOT(toggleAllOnOff()));
       
       m_chooseFiles->getFilesTable()->setContextMenuPolicy(Qt::CustomContextMenu);
-      QObject::connect(m_chooseFiles->getFilesTable(),
-                       SIGNAL(customContextMenuRequested(QPoint)),
+      QObject::connect(m_chooseFiles->getFilesTable(), SIGNAL(customContextMenuRequested(QPoint)),
                        this, SLOT(customMenuRequested(QPoint)));
-      
     }
 
     // Right-click context menu
@@ -395,17 +382,20 @@ namespace vw { namespace gui {
     QMenu *menu=new QMenu(this);
 
     m_toggleHillshadeFromImageList = menu->addAction("Toggle hillshade display");
-    connect(m_toggleHillshadeFromImageList, SIGNAL(triggered()), this,
-            SLOT(toggleHillshadeFromImageList()));
+    connect(m_toggleHillshadeFromImageList, SIGNAL(triggered()),
+            this, SLOT(toggleHillshadeFromImageList()));
     
     m_bringImageOnTopFromTable = menu->addAction("Bring image on top");
-    connect(m_bringImageOnTopFromTable, SIGNAL(triggered()), this, SLOT(bringImageOnTopSlot()));
+    connect(m_bringImageOnTopFromTable, SIGNAL(triggered()),
+            this, SLOT(bringImageOnTopSlot()));
 
     m_pushImageToBottomFromTable = menu->addAction("Push image to bottom");
-    connect(m_pushImageToBottomFromTable, SIGNAL(triggered()), this, SLOT(pushImageToBottomSlot()));
+    connect(m_pushImageToBottomFromTable, SIGNAL(triggered()),
+            this, SLOT(pushImageToBottomSlot()));
 
     m_zoomToImageFromTable = menu->addAction("Zoom to image");
-    connect(m_zoomToImageFromTable, SIGNAL(triggered()), this, SLOT(zoomToImage()));
+    connect(m_zoomToImageFromTable, SIGNAL(triggered()),
+            this, SLOT(zoomToImage()));
 
     // If having shapefiles, make it possible to change their colors
     bool has_shp = false;
@@ -421,14 +411,13 @@ namespace vw { namespace gui {
     menu->exec(filesTable->mapToGlobal(pos));
   }
 
-  void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
+void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
     // Process user's choice from m_chooseFiles.
     if (!m_chooseFiles)
       return;
 
     QTableWidget * filesTable = m_chooseFiles->getFilesTable();
-    int rows = filesTable->rowCount();
 
     // If we did not click on the checkbox, but on the image name,
     // make it checked
@@ -437,8 +426,13 @@ namespace vw { namespace gui {
       item->setCheckState(Qt::Checked);
     }
 
-    updateFilesToHide();
-
+    if (sideBySideWithDialog()) {
+      // This forces the whole layout to be redrawn, as the number of images
+      // shown side-by-side changes
+      emit recreateLayout();
+      return;
+    }
+    
     // If we just checked a certain image, it will be shown on top of the other ones.
     QTableWidgetItem *item = filesTable->item(rowClicked, 0);
     if (item->checkState() == Qt::Checked){
@@ -497,8 +491,6 @@ namespace vw { namespace gui {
         item->setCheckState(Qt::Unchecked);
     }
 
-    updateFilesToHide();
-
     refreshPixmap();
     
     return;
@@ -521,7 +513,7 @@ namespace vw { namespace gui {
     zoomToImage();
   }
   
-  void MainWidget::toggleAllOnOff(){
+  void MainWidget::toggleAllOnOff() {
 
     // Process user's choice from m_chooseFiles.
     if (!m_chooseFiles)
@@ -540,18 +532,14 @@ namespace vw { namespace gui {
     }
 
     // If all files are hidden, we will show all. Else hide all.
-    m_filesToHide.clear();
     for (int rowIter = 0; rowIter < rows; rowIter++){
       QTableWidgetItem *item = filesTable->item(rowIter, 0);
       std::string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
-
       if (allOff)
         item->setCheckState(Qt::Checked);
       else
         item->setCheckState(Qt::Unchecked);
     }
-
-    updateFilesToHide();
 
     if (!allOff) {
       // Now all files are hidden, per above. So reset the order, so that when
@@ -570,26 +558,6 @@ namespace vw { namespace gui {
     refreshPixmap();
   }
 
-  void MainWidget::updateFilesToHide() {
-
-    if (!m_chooseFiles)
-      return;
-
-    QTableWidget * filesTable = m_chooseFiles->getFilesTable();
-    int rows = filesTable->rowCount();
-
-    // Refresh the list of all the unchecked files
-    m_filesToHide.clear();
-    for (int rowIter = 0; rowIter < rows; rowIter++){
-      QTableWidgetItem *item = filesTable->item(rowIter, 0);
-      if (item->checkState() != Qt::Checked) {
-        std::string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
-        m_filesToHide.insert(fileName);
-      }
-    }
-    
-  }
-  
   BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     
     BBox2 in_box = box;
@@ -936,22 +904,11 @@ namespace vw { namespace gui {
   // Ensure the current image is displayed. Note that this on its own
   // does not refresh the view as refreshPixmap() is not called.
   void MainWidget::showImage(std::string const& image_name){
-    std::set<std::string>::iterator it2 = m_filesToHide.find(image_name);
-    if (it2 != m_filesToHide.end()){
-      m_filesToHide.erase(it2);
 
-      // Then turn on the checkbox in the table
-      QTableWidget * filesTable = m_chooseFiles->getFilesTable();
-      int rows = filesTable->rowCount();
-      
-      for (int rowIter = 0; rowIter < rows; rowIter++){
-        QTableWidgetItem *item = filesTable->item(rowIter, 0);
-        std::string image_name2 = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
-        if (image_name == image_name2) {
-          item->setCheckState(Qt::Checked);
-        }
-      }
-    }
+    if (!m_chooseFiles)
+      return;
+
+    m_chooseFiles->unhide(image_name);
   }
   
   // The image with the given index will be on top when shown.
@@ -1053,15 +1010,12 @@ namespace vw { namespace gui {
       int i = m_filesOrder[j];
 
       // Don't show files the user wants hidden
-      std::string fileName = m_images[i].name;
-      if (m_filesToHide.find(fileName) != m_filesToHide.end())
+      if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
         continue;
 
       // The portion of the image in the current view. 
       BBox2 curr_world_box = m_current_view;
-
       BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
-
       curr_world_box.crop(B);
 
       // This is a bugfix for the case when the world boxes 
@@ -1436,7 +1390,7 @@ namespace vw { namespace gui {
       
         // Don't show files the user wants hidden
         std::string fileName = m_images[image_it].name;
-        if (m_filesToHide.find(fileName) != m_filesToHide.end())
+        if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
           continue;
       }
 
@@ -2742,7 +2696,7 @@ namespace vw { namespace gui {
           
           // Don't show files the user wants hidden
           std::string fileName = m_images[it].name;
-          if (m_filesToHide.find(fileName) != m_filesToHide.end())
+          if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
             continue;
           
           std::string val = "none";
@@ -2906,7 +2860,8 @@ namespace vw { namespace gui {
         
         // Don't show files the user wants hidden
         std::string fileName = m_images[image_it].name;
-        if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
+        if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
+          continue;
 
         BBox2 image_box = world2image(m_stereoCropWin, image_it); 
         vw_out().precision(8);
@@ -3233,33 +3188,25 @@ namespace vw { namespace gui {
   // Hide images not intersecting given selected region
   void MainWidget::hideImagesNotInRegion(){
 
+    if (!m_chooseFiles)
+      return;
+    
     if (m_stereoCropWin.empty()) {
       popUp("Must select a region with Control-Mouse before invoking this.");
       return;
     }
     
-    m_filesToHide.clear();
-
-    QTableWidget * filesTable = m_chooseFiles->getFilesTable();
-
     for (int j = m_beg_image_id; j < m_end_image_id; j++){
       
       int image_it = m_filesOrder[j];
-      
       std::string fileName = m_images[image_it].name;
-      
       BBox2i image_box = world2image(m_stereoCropWin, image_it);
       image_box.crop(BBox2(0, 0, m_images[image_it].img.cols(), m_images[image_it].img.rows()));
 
-      QTableWidgetItem *item = filesTable->item(image_it, 0);
-
-      if (image_box.empty()) {
-        item->setCheckState(Qt::Unchecked);
-        m_filesToHide.insert(fileName);
-      }else{
-        item->setCheckState(Qt::Checked);
-      }	
-      
+      if (image_box.empty())
+        m_chooseFiles->hide(fileName);
+      else
+      m_chooseFiles->unhide(fileName);
     }
     
     refreshPixmap();

@@ -105,6 +105,10 @@ namespace vw { namespace gui {
     void keyPressEvent(QKeyEvent *event);
     bool eventFilter(QObject *obj, QEvent *e);
 
+
+  private slots:
+  void createLayout(); // make it a slot so it can be triggered by a signal
+
   private:
 
     void run_stereo_or_parallel_stereo(std::string const& cmd);
@@ -113,8 +117,7 @@ namespace vw { namespace gui {
     /// - If require_all is set, only keep IPs detected in all images.
     size_t consolidate_matches(bool require_all = true);
 
-    void createLayout();
-    void createMenus ();
+    void createMenus();
 
     // Event handlers
     void resizeEvent(QResizeEvent *);
@@ -122,11 +125,11 @@ namespace vw { namespace gui {
 
     // See if in the middle of editing matches
     bool editingMatches() const;
-    
+
     vw::cartography::GdalWriteOptions m_opt;
     std::string               m_output_prefix;
     double                    m_widRatio;    // ratio of sidebar to entire win wid
-    std::vector<MainWidget*>  m_widgets;     ///< One of these for each seperate image pane.
+    std::vector<MainWidget*>  m_widgets;     // one of these for each seperate image pane.
     chooseFilesDlg *          m_chooseFiles; // left sidebar for selecting files
 
     QMenu *m_file_menu;

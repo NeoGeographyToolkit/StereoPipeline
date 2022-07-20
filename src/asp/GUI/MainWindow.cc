@@ -179,7 +179,12 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
       m_view_matches = true;
     }
   }
-  
+
+  // For being able to choose which files to show/hide
+  m_chooseFiles = new chooseFilesDlg(this);
+  m_chooseFiles->chooseFiles(m_images);
+
+  // For editing match points
   m_editMatchPointVecIndex = -1;
   m_matchlist.resize(m_image_files.size());
 
@@ -187,16 +192,12 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   if (m_grid_cols <= 0)
     m_grid_cols = std::numeric_limits<int>::max();
 
-  // This is a special case, when we both have the images side by side and have a
-  // dialog
-  bool side_by_side_with_choose_dalog = (stereo_settings().pairwise_matches ||
-                                         stereo_settings().pairwise_clean_matches);
-  
   m_view_type = VIEW_SIDE_BY_SIDE;
-  if (m_grid_cols > 0 && m_grid_cols < int(m_image_files.size()) && !side_by_side_with_choose_dalog)
+  if (m_grid_cols > 0 && m_grid_cols < int(m_image_files.size()) &&
+      !sideBySideWithDialog())
     m_view_type = VIEW_AS_TILES_ON_GRID;
   
-  if (single_window && !side_by_side_with_choose_dalog)
+  if (single_window && !sideBySideWithDialog())
     m_view_type = VIEW_IN_SINGLE_WINDOW;
   
   m_view_type_old = m_view_type; // initialize this
@@ -235,24 +236,22 @@ void MainWindow::createLayout() {
 
   // This is a special case, when we both have the images side by side and a
   // dialog for choosing which files to show
-  bool side_by_side_with_choose_dalog = (stereo_settings().pairwise_matches ||
-                                         stereo_settings().pairwise_clean_matches);
-  if (side_by_side_with_choose_dalog)
+  if (sideBySideWithDialog())
     m_view_type = VIEW_SIDE_BY_SIDE;
 
-  // See if to have a dialog for choosing which images to show
-  if ((m_view_type == VIEW_IN_SINGLE_WINDOW || side_by_side_with_choose_dalog) &&
-      m_image_files.size() > 1) {
-    m_chooseFiles = new chooseFilesDlg(this);
-    m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
-    
-    // See note at chooseFilesFilterDelegate
-    m_chooseFiles->getFilesTable()->setItemDelegate(new chooseFilesFilterDelegate(this));
-    m_chooseFiles->getFilesTable()->installEventFilter(this);
-    splitter->addWidget(m_chooseFiles);
-  } else {
-    m_chooseFiles = NULL;
-  }
+  // Set up the dialog for choosing files
+  m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
+  
+  // See note at chooseFilesFilterDelegate
+  m_chooseFiles->getFilesTable()->setItemDelegate(new chooseFilesFilterDelegate(this));
+  m_chooseFiles->getFilesTable()->installEventFilter(this);
+  splitter->addWidget(m_chooseFiles);
+
+  // See if to show it. In a side-by-side view it is normally not needed 
+  bool showChooseFiles
+    = ((m_view_type == VIEW_IN_SINGLE_WINDOW || sideBySideWithDialog()) &&
+       m_image_files.size() > 1);
+  m_chooseFiles->setVisible(showChooseFiles);
 
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
     // Pass all images to a single MainWidget object
@@ -276,6 +275,7 @@ void MainWindow::createLayout() {
   } else {
     // Each MainWidget object gets passed a single image
     for (size_t i = 0; i < m_images.size(); i++) {
+
       MainWidget * widget = new MainWidget(centralWidget,
                                            m_opt,
                                            i,     // beg image id
@@ -288,6 +288,12 @@ void MainWindow::createLayout() {
                                            m_use_georef, m_view_matches,
                                            zoom_all_to_same_region,
 					   m_allowMultipleSelections);
+
+      // Do not show hidden images
+      bool isHidden = (sideBySideWithDialog() && m_chooseFiles
+                        && m_chooseFiles->isHidden(m_images[i].name));
+      widget->setVisible(!isHidden);
+      
       m_widgets.push_back(widget);
     }
   }
@@ -309,12 +315,14 @@ void MainWindow::createLayout() {
 
     // Intercept this widget's request to view (or refresh) the matches in all
     // the widgets, not just this one's.
-    connect(m_widgets[i], SIGNAL(turnOnViewMatchesSignal    ()),  this, SLOT(turnOnViewMatches          ()));
-    connect(m_widgets[i], SIGNAL(turnOffViewMatchesSignal   ()),  this, SLOT(turnOffViewMatches         ()));
-    connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox ()),  this, SLOT(uncheckProfileModeCheckbox ()));
+    connect(m_widgets[i], SIGNAL(turnOnViewMatchesSignal()),  this, SLOT(turnOnViewMatches          ()));
+    connect(m_widgets[i], SIGNAL(turnOffViewMatchesSignal()),  this, SLOT(turnOffViewMatches         ()));
+    connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox()),  this, SLOT(uncheckProfileModeCheckbox ()));
     connect(m_widgets[i], SIGNAL(uncheckPolyEditModeCheckbox()),  this, SLOT(uncheckPolyEditModeCheckbox()));
     connect(m_widgets[i], SIGNAL(zoomAllToSameRegionSignal(int)), this, SLOT(zoomAllToSameRegionAction(int)));
+    connect(m_widgets[i], SIGNAL(recreateLayout()), this, SLOT(createLayout()));
   }
+  
   QWidget *container = new QWidget(centralWidget);
   container->setLayout(grid);
   splitter->addWidget(container);
@@ -705,8 +713,7 @@ void MainWindow::viewSingleWindow(){
     }
 
     // Since we will view all in single window, can't select images with matches
-    stereo_settings().pairwise_matches = false;
-    stereo_settings().pairwise_clean_matches = false;
+    setNoSideBySideWithDialog();
     
   }else{
     if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
@@ -719,7 +726,7 @@ void MainWindow::viewSingleWindow(){
   createLayout();
 }
 
-void MainWindow::viewSideBySide(){
+void MainWindow::viewSideBySide() {
   m_view_type = VIEW_SIDE_BY_SIDE;
   createLayout();
 }
@@ -750,8 +757,7 @@ void MainWindow::viewAsTiles(){
   m_view_type     = VIEW_AS_TILES_ON_GRID;
 
   // When displaying the images as tiles on grid cannot show matches
-  stereo_settings().pairwise_matches = false;
-  stereo_settings().pairwise_clean_matches = false;
+  setNoSideBySideWithDialog();
   
   createLayout();
 }

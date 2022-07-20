@@ -302,11 +302,18 @@ namespace vw { namespace gui {
   public:
     chooseFilesDlg(QWidget * parent);
     ~chooseFilesDlg();
-    void chooseFiles(const std::vector<imageData> & images, bool hide_all);
+    void chooseFiles(const std::vector<imageData> & images);
 
     QTableWidget * getFilesTable(){ return m_filesTable; }
     static QString selectFilesTag(){ return ""; }
 
+    // Check if the given image is hidden (not shown) based on the table checkbox  
+    bool isHidden(std::string const& image) const;
+    // Hide the given image  
+    void hide(std::string const& image);
+    // Show the given image  
+    void unhide(std::string const& image);
+    
   private:
     QTableWidget * m_filesTable;
     void keyPressEvent(QKeyEvent *event);
@@ -548,6 +555,11 @@ std::string write_in_orig_or_curr_dir(vw::cartography::GdalWriteOptions const& o
   return output_file;
 }
 
+// See if we are in the mode where the images are displayed side-by-side with a
+// dialog to choose which ones to display.
+bool sideBySideWithDialog();
+void setNoSideBySideWithDialog(); // turn off such logic
+  
 }} // namespace vw::gui
 
 #endif  // __STEREO_GUI_GUI_UTILITIES_H__

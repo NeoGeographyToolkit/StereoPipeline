@@ -39,11 +39,11 @@
 #include <vw/Core/Stopwatch.h>
 
 #include <asp/GUI/GuiUtilities.h>
+#include <asp/Core/StereoSettings.h>
 
 using namespace vw;
 using namespace vw::gui;
 using namespace vw::geometry;
-using namespace std;
 
 namespace vw { namespace gui {
 
@@ -432,7 +432,7 @@ chooseFilesDlg::chooseFilesDlg(QWidget * parent):
   
 chooseFilesDlg::~chooseFilesDlg(){}
 
-void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images, bool hide_all){
+void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images) {
 
   // See the top of this file for documentation.
 
@@ -446,7 +446,7 @@ void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images, bool hid
     // Checkbox
     QTableWidgetItem *item = new QTableWidgetItem(1);
     item->data(Qt::CheckStateRole);
-    if (!hide_all)
+    if (!asp::stereo_settings().hide_all)
       item->setCheckState(Qt::Checked);
     else
       item->setCheckState(Qt::Unchecked);
@@ -454,7 +454,7 @@ void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images, bool hid
     m_filesTable->setItem(fileIter, 0, item);
 
     // Set the filename in the table
-    string fileName = images[fileIter].name;
+    std::string fileName = images[fileIter].name;
     item = new QTableWidgetItem(fileName.c_str());
     item->setFlags(Qt::NoItemFlags);
     item->setForeground(QColor::fromRgb(0, 0, 0));
@@ -473,15 +473,15 @@ void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images, bool hid
   hs->setBackground(QBrush(QColor("lightgray")));
 
   m_filesTable->setSelectionMode(QTableWidget::ExtendedSelection);
-  string style = string("QTableWidget::indicator:unchecked ")
+  std::string style = std::string("QTableWidget::indicator:unchecked ")
     + "{background-color:white; border: 1px solid black;}; " +
     "selection-background-color: rgba(128, 128, 128, 40);";
 
   m_filesTable->setSelectionMode(QTableWidget::NoSelection);
   m_filesTable->setStyleSheet(style.c_str());
-
+  
   // Horizontal header caption
-   QTableWidgetItem *item = new QTableWidgetItem("Hide/show all");
+  QTableWidgetItem *item = new QTableWidgetItem("Hide/show all");
   item->setFlags(Qt::NoItemFlags);
   item->setForeground(QColor::fromRgb(0, 0, 0));
   m_filesTable->setHorizontalHeaderItem(1, item);
@@ -494,6 +494,38 @@ void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images, bool hid
   return;
 }
 
+// Check if the given image is hidden (not shown) based on the table checkbox  
+bool chooseFilesDlg::isHidden(std::string const& image) const {
+  for (int rowIter = 0; rowIter < m_filesTable->rowCount(); rowIter++) {
+    QTableWidgetItem *item = m_filesTable->item(rowIter, 0);
+    std::string curr_image = (m_filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+    if (image == curr_image)
+      return (item->checkState() == Qt::Unchecked);
+  }
+  return false;
+}
+
+// Hide the given image  
+void chooseFilesDlg::hide(std::string const& image) {
+  for (int rowIter = 0; rowIter < m_filesTable->rowCount(); rowIter++) {
+    QTableWidgetItem *item = m_filesTable->item(rowIter, 0);
+    std::string curr_image = (m_filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+    if (image == curr_image)
+      item->setCheckState(Qt::Unchecked);
+  }
+}
+
+// Show the given image by turning on the checkbox in the table
+void chooseFilesDlg::unhide(std::string const& image) {
+  
+  for (int rowIter = 0; rowIter < m_filesTable->rowCount(); rowIter++) {
+    QTableWidgetItem *item = m_filesTable->item(rowIter, 0);
+    std::string curr_image = (m_filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+    if (image == curr_image)
+      item->setCheckState(Qt::Checked);
+  }
+}
+  
 void chooseFilesDlg::keyPressEvent(QKeyEvent *event) {
   // std::cout << "Key was pressed " << event->key() << std::endl;
 }
@@ -1065,6 +1097,19 @@ bool MatchList::savePointsToDisk(std::string const& prefix,
   return success;
 }
 
+// See if we are in the mode where the images are displayed side-by-side with a
+// dialog to choose which ones to display.
+bool sideBySideWithDialog() {
+  return (asp::stereo_settings().side_by_side_with_dialog ||
+          asp::stereo_settings().pairwise_matches         ||
+          asp::stereo_settings().pairwise_clean_matches);
+}
 
+// Turn off any such side-by-side logic
+void setNoSideBySideWithDialog() {
+  asp::stereo_settings().side_by_side_with_dialog = false;
+  asp::stereo_settings().pairwise_matches         = false;
+  asp::stereo_settings().pairwise_clean_matches   = false;
+}
 
 }} // namespace vw::gui

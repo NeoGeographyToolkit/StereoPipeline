@@ -160,6 +160,7 @@ signals:
     void uncheckProfileModeCheckbox ();
     void uncheckPolyEditModeCheckbox();
     void zoomAllToSameRegionSignal  (int);
+    void recreateLayout             ();
 
 public slots:
     void sizeToFit();
@@ -240,7 +241,6 @@ public slots:
     ///  images should be currently displayed.
     /// - Null if there is only one image.
     chooseFilesDlg  *     m_chooseFiles;
-    std::set<std::string> m_filesToHide;    ///< Files that are currently not being displayed.
     std::vector<int>      m_filesOrder;     ///< The order the images are drawn in.
 
     int m_beg_image_id;  // The id of the first image among m_images in this widget
