@@ -313,12 +313,15 @@ namespace vw { namespace gui {
     void hide(std::string const& image);
     // Show the given image  
     void unhide(std::string const& image);
+
+    // Show only first two images; this is the best default for pairwise stereo
+    void showTwoImages();
     
   private:
+    int imageRow(std::string const& image) const;
     QTableWidget * m_filesTable;
     void keyPressEvent(QKeyEvent *event);
-    
-   private slots:
+    std::map<std::string, int> image_to_row;
   };
 
 
@@ -413,6 +416,15 @@ namespace vw { namespace gui {
 
   }; // End class MatchList
 
+  // For each pairs if image indices, store the match file and interest points.
+  // Load these on-demand, and once loaded, keep them in memory.
+  struct pairwiseMatchList {
+    std::map<std::pair<int, int>, std::string> match_files;
+    std::map<std::pair<int, int>, std::pair<std::vector<vw::ip::InterestPoint>, std::vector<vw::ip::InterestPoint>>> matches;
+
+    // We will copy here only the ip that need to be shown for the moment
+    std::vector<std::vector<vw::ip::InterestPoint>> ip_to_show;
+  };
 //====================================================================================
 //====================================================================================
 // Function definitions

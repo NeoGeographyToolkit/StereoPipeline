@@ -90,9 +90,10 @@ namespace vw { namespace gui {
                std::vector<imageData> & images, // will be aliased
                std::string & output_prefix,     // will be aliased
                MatchList & matches,
+               pairwiseMatchList & pairwiseMatches,
+               pairwiseMatchList & pairwiseCleanMatches,
                int & editMatchPointVecIndex,
                chooseFilesDlg * chooseFiles, bool use_georef,
-               bool view_matches,
                bool zoom_all_to_same_region,
                bool & allowMultipleSelections // alias
               );
@@ -106,7 +107,7 @@ namespace vw { namespace gui {
 
     // Image Manipulation Methods
     void zoom       (double scale);
-    void viewMatches(bool   hide);
+    void viewMatches();
     void setEditingMatches(bool editingMatches) { m_editingMatches = editingMatches; }
     bool getEditingMatches() const { return m_editingMatches; }
     void setThreshMode(bool turnOn) { m_thresh_calc_mode = turnOn; }
@@ -156,11 +157,10 @@ namespace vw { namespace gui {
 
 signals:
     void turnOnViewMatchesSignal    ();
-    void turnOffViewMatchesSignal   ();
+    void turnOffViewMatchesOnErrorSignal();
     void uncheckProfileModeCheckbox ();
     void uncheckPolyEditModeCheckbox();
     void zoomAllToSameRegionSignal  (int);
-    void recreateLayout             ();
 
 public slots:
     void sizeToFit();
@@ -264,8 +264,10 @@ public slots:
     double m_hillshade_azimuth, m_hillshade_elevation;
 
     /// Structure to keep track of all interest point matches.
-    /// - Note that this is an alias wrapping an object passed in through the constructor.
-    MatchList &m_matchlist;
+    /// - Note that these are aliass wrapping an object passed in through the constructor.
+    MatchList & m_matchlist;
+    pairwiseMatchList & m_pairwiseMatches;
+    pairwiseMatchList & m_pairwiseCleanMatches;
     int       &m_editMatchPointVecIndex; /// Point being edited
     bool      m_editingMatches;          /// If we are in the middle of editing match points
     
@@ -355,8 +357,6 @@ public slots:
 
     std::set<int> m_indicesWithAction;
     
-    bool m_view_matches; ///< Control if IP's are drawn
-
     bool   m_zoom_all_to_same_region; // if all widgets are forced to zoom to same region
     bool & m_allowMultipleSelections; // alias, this is controlled from MainWindow for all widgets
     bool   m_can_emit_zoom_all_signal; 

@@ -274,7 +274,7 @@ namespace asp {
                         boost::program_options::options_description const&
                         additional_options,
                         bool is_multiview, vector<string> & input_files,
-                        std::string & usage, bool exit_early ){
+                        std::string & usage, bool exit_early){
     
     po::options_description general_options_sub("");
     general_options_sub.add_options()

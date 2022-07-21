@@ -185,9 +185,10 @@ namespace vw { namespace gui {
                          std::vector<imageData> & images, // will be aliased
                          std::string & output_prefix,     // will be aliased
                          MatchList & matches,
+                         pairwiseMatchList & pairwiseMatches,
+                         pairwiseMatchList & pairwiseCleanMatches,
                          int &editMatchPointVecIndex,
-                         chooseFilesDlg * chooseFiles,
-                         bool use_georef, bool view_matches,
+                         chooseFilesDlg * chooseFiles, bool use_georef,
                          bool zoom_all_to_same_region, bool & allowMultipleSelections)
     : QWidget(parent), m_opt(opt), m_chooseFiles(chooseFiles),
       m_beg_image_id(beg_image_id),
@@ -196,9 +197,11 @@ namespace vw { namespace gui {
       m_images(images), // alias
       m_output_prefix(output_prefix), // alias
       m_matchlist(matches),
+      m_pairwiseMatches(pairwiseMatches),
+      m_pairwiseCleanMatches(pairwiseCleanMatches),
       m_editMatchPointVecIndex(editMatchPointVecIndex),
       m_use_georef(use_georef),
-      m_view_matches(view_matches), m_zoom_all_to_same_region(zoom_all_to_same_region),
+      m_zoom_all_to_same_region(zoom_all_to_same_region),
       m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false),
       m_polyEditMode(false), m_polyLayerIndex(beg_image_id),
       m_pixelTol(6), m_backgroundColor(QColor("black")),
@@ -276,8 +279,9 @@ namespace vw { namespace gui {
 
     // To do: Warn the user if some images have georef while others don't.
 
-    // Choose which files to hide/show in the GUI
-    if (m_chooseFiles) {
+    // Choose which files to hide/show in the GUI. In sideBySideWithDialog()
+    // mode, communication is handled in MainWindow.
+    if (m_chooseFiles && !sideBySideWithDialog()) {
       // When the user clicks on a table entry, say by modifying a 
       // checkbox, update the display.
       QObject::connect(m_chooseFiles->getFilesTable(), SIGNAL(cellClicked(int, int)),
@@ -372,7 +376,7 @@ namespace vw { namespace gui {
     QTableWidget * filesTable = m_chooseFiles->getFilesTable();
 
     // Determine which row of the table the user clicked on
-    QModelIndex tablePos=filesTable->indexAt(pos);
+    QModelIndex tablePos = filesTable->indexAt(pos);
     int imageIndex = tablePos.row();
 
     // We will pass this index to the slots via this global variable
@@ -384,19 +388,25 @@ namespace vw { namespace gui {
     m_toggleHillshadeFromImageList = menu->addAction("Toggle hillshade display");
     connect(m_toggleHillshadeFromImageList, SIGNAL(triggered()),
             this, SLOT(toggleHillshadeFromImageList()));
-    
-    m_bringImageOnTopFromTable = menu->addAction("Bring image on top");
-    connect(m_bringImageOnTopFromTable, SIGNAL(triggered()),
-            this, SLOT(bringImageOnTopSlot()));
 
-    m_pushImageToBottomFromTable = menu->addAction("Push image to bottom");
-    connect(m_pushImageToBottomFromTable, SIGNAL(triggered()),
-            this, SLOT(pushImageToBottomSlot()));
+    if (!sideBySideWithDialog()) {
+      // Do not offer these options when the images are side-by-side,
+      // as that will just mess up with their order. 
+    
+      m_bringImageOnTopFromTable = menu->addAction("Bring image on top");
+      connect(m_bringImageOnTopFromTable, SIGNAL(triggered()),
+              this, SLOT(bringImageOnTopSlot()));
+      
+      m_pushImageToBottomFromTable = menu->addAction("Push image to bottom");
+      connect(m_pushImageToBottomFromTable, SIGNAL(triggered()),
+              this, SLOT(pushImageToBottomSlot()));
+      
+    }
 
     m_zoomToImageFromTable = menu->addAction("Zoom to image");
     connect(m_zoomToImageFromTable, SIGNAL(triggered()),
             this, SLOT(zoomToImage()));
-
+    
     // If having shapefiles, make it possible to change their colors
     bool has_shp = false;
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
@@ -426,13 +436,6 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       item->setCheckState(Qt::Checked);
     }
 
-    if (sideBySideWithDialog()) {
-      // This forces the whole layout to be redrawn, as the number of images
-      // shown side-by-side changes
-      emit recreateLayout();
-      return;
-    }
-    
     // If we just checked a certain image, it will be shown on top of the other ones.
     QTableWidgetItem *item = filesTable->item(rowClicked, 0);
     if (item->checkState() == Qt::Checked){
@@ -1193,24 +1196,43 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
     paint->setBrush(Qt::NoBrush);
 
-    if ((m_end_image_id - m_beg_image_id > 1) && m_matchlist.getNumPoints() > 0) {
+    if (m_end_image_id - m_beg_image_id > 1) {
       // In order to be able to see matches, each image must be in its own widget.
       // So, if the current widget has more than an image, they are stacked on top
       // of each other, and then we just can't show IP.
-      emit turnOffViewMatchesSignal();
+      emit turnOffViewMatchesOnErrorSignal();
       return;
     }
 
     // If this point is currently being edited by the user, highlight it.
     // - Here we check to see if it has not been placed in all images yet.
-    size_t lastImage = m_matchlist.getNumImages()-1;
-    bool highlight_last =
-      (m_matchlist.getNumPoints(m_beg_image_id) > m_matchlist.getNumPoints(lastImage));
+    bool highlight_last = false;
+    if (asp::stereo_settings().view_matches) {
+      int lastImage = int(m_matchlist.getNumImages()) - 1;
+      highlight_last
+        = (m_matchlist.getNumPoints(m_beg_image_id) > m_matchlist.getNumPoints(lastImage));
+    }
 
-    // For each IP...
-    for (size_t ip_iter = 0; ip_iter < m_matchlist.getNumPoints(m_beg_image_id); ip_iter++) {
+    std::vector<Vector2> ip_vec;
+    if (asp::stereo_settings().view_matches) {
+      for (size_t ip_iter = 0; ip_iter < m_matchlist.getNumPoints(m_beg_image_id); ip_iter++) {
+        // Generate the pixel coord of the point
+        Vector2 pt = m_matchlist.getPointCoord(m_beg_image_id, ip_iter);
+        ip_vec.push_back(pt);
+      }
+    } else if (asp::stereo_settings().pairwise_matches &&
+               m_beg_image_id < m_pairwiseMatches.ip_to_show.size()) {
+      // Had to check if ip_to_show was initialized by now
+      auto & ip_in_vec = m_pairwiseMatches.ip_to_show[m_beg_image_id]; // alias
+      for (size_t ip_iter = 0; ip_iter < ip_in_vec.size(); ip_iter++) {
+        ip_vec.push_back(Vector2(ip_in_vec[ip_iter].x, ip_in_vec[ip_iter].y));
+      }
+    }
+
+    // Iterate over interest points
+    for (size_t ip_iter = 0; ip_iter < ip_vec.size(); ip_iter++) {
       // Generate the pixel coord of the point
-      Vector2 pt    = m_matchlist.getPointCoord(m_beg_image_id, ip_iter);
+      Vector2 pt    = ip_vec[ip_iter];
       Vector2 world = MainWidget::image2world(pt, m_base_image_id);
       Vector2 P     = world2screen(world);
 
@@ -1222,22 +1244,23 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       
       paint->setPen(ipColor); // The default IP color
 
-      if (!m_matchlist.isPointValid(m_beg_image_id, ip_iter))
-        paint->setPen(ipInvalidColor);
+      if (asp::stereo_settings().view_matches) {
+        if (!m_matchlist.isPointValid(m_beg_image_id, ip_iter))
+          paint->setPen(ipInvalidColor);
 
-      // Highlighting the last point
-      if (highlight_last && (ip_iter == m_matchlist.getNumPoints(m_beg_image_id)-1)) 
-        paint->setPen(ipAddHighlightColor);
-
-      if (static_cast<int>(ip_iter) == m_editMatchPointVecIndex)
-        paint->setPen(ipMoveHighlightColor);
-
+        // Highlighting the last point
+        if (highlight_last && (ip_iter == m_matchlist.getNumPoints(m_beg_image_id)-1)) 
+          paint->setPen(ipAddHighlightColor);
+        
+        if (static_cast<int>(ip_iter) == m_editMatchPointVecIndex)
+          paint->setPen(ipMoveHighlightColor);
+      }
+      
       QPoint Q(P.x(), P.y());
-      paint->drawEllipse(Q, 2, 2); // Draw the point!
+      paint->drawEllipse(Q, 2, 2); // Draw the point
 
     } // End loop through points
   } // End function drawInterestPoints
-
 
   void MainWidget::updateCurrentMousePosition() {
     m_curr_world_pos = screen2world(m_curr_pixel_pos);
@@ -1291,11 +1314,13 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     QPainter paint(&m_pixmap);
     paint.initFrom(this);
 
-    //QFont F;
-    //F.setPointSize(m_prefs.fontSize);
-    //F.setStyleStrategy(QFont::NoAntialias);
-    //paint.setFont(F);
     MainWidget::drawImage(&paint);
+
+    // See the other invocation of drawInterestPoints() for a lengthy note
+    // on performance.
+    if (asp::stereo_settings().pairwise_matches ||
+        asp::stereo_settings().pairwise_clean_matches)
+      drawInterestPoints(&paint);
 
     // Invokes MainWidget::PaintEvent().
     update();
@@ -1471,7 +1496,16 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     } // end iterating over polygons for all images
     
     // Call another function to handle drawing the interest points
-    if ((static_cast<size_t>(m_beg_image_id) < m_matchlist.getNumImages()) && m_view_matches) 
+    // This drawing is expensive as it happens every time paintEvent()
+    // is called, which is is countless times when the mouse is
+    // dragged, for example.  But such a high refresh rate may be
+    // necessary for editing interest point matches and polygons.
+    // Something clever is needed, such as putting polygons and interest
+    // points which are modified in refreshPixmap() which is called rarely,
+    // and here putting only the actively modified elements. For now,
+    // editing of ip is not allowed for viewing pairwise matches, so those
+    // ip are drawn in refreshPixmap()
+    if (asp::stereo_settings().view_matches)
       drawInterestPoints(&paint);
     
   } // end paint event
@@ -1487,7 +1521,6 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     }
     return;
   }
-
 
   // We assume the user picked n points in the image.
   // Draw n-1 segments in between them. Plot the obtained profile.
@@ -2503,7 +2536,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
     // If the user is currently editing match points
     if (!m_polyEditMode && m_moveMatchPoint->isChecked()
-        && !m_cropWinMode && m_view_matches){
+        && !m_cropWinMode && asp::stereo_settings().view_matches){
 
       m_editingMatches = true;
       
@@ -3065,16 +3098,19 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     // Refresh this from the variable, before popping up the menu
     m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
 
-    // Turn on these items if we are NOT in poly edit mode.
-    m_addMatchPoint->setVisible(!m_polyEditMode); 
-    m_deleteMatchPoint->setVisible(!m_polyEditMode); 
-    m_moveMatchPoint->setVisible(!m_polyEditMode);
+    // Turn on these items if we are NOT in poly edit mode. Also turn some off
+    // in sideBySideWithDialog() mode, as then we draw the interest points
+    // only with refreshPixmap(), which is rare, so user's editing
+    // choices won't be reflected in the GUI.
+    m_addMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog()); 
+    m_deleteMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog()); 
+    m_moveMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
     m_toggleHillshadeImageRightClick->setVisible(!m_polyEditMode); 
     m_setHillshadeParams->setVisible(!m_polyEditMode); 
     m_setThreshold->setVisible(!m_polyEditMode); 
     m_allowMultipleSelections_action->setVisible(!m_polyEditMode); 
-    m_deleteSelection->setVisible(true);
-    m_hideImagesNotInRegion->setVisible(true);
+    m_deleteSelection->setVisible(!sideBySideWithDialog());
+    m_hideImagesNotInRegion->setVisible(!sideBySideWithDialog());
     
     m_saveScreenshot->setVisible(true); // always visible
     
@@ -3082,18 +3118,16 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     return;
   }
 
-  void MainWidget::viewMatches(bool view_matches){
+  void MainWidget::viewMatches() {
     // Complain if there are multiple images and matches was turned on
-    if ((m_end_image_id - m_beg_image_id != 1) && view_matches) {
-      emit turnOffViewMatchesSignal();
+    if ((m_end_image_id - m_beg_image_id != 1) && asp::stereo_settings().view_matches) {
+      emit turnOffViewMatchesOnErrorSignal();
       return;
     }
 
-    m_view_matches = view_matches;
     update(); // redraw matches on top of existing images
   }
 
-  
   void MainWidget::addMatchPoint(){
 
     if (m_beg_image_id >= static_cast<int>(m_matchlist.getNumImages())) {
@@ -3102,7 +3136,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     }
 
     if (m_end_image_id - m_beg_image_id != 1) {
-      emit turnOffViewMatchesSignal();
+      emit turnOffViewMatchesOnErrorSignal();
       return;
     }
 

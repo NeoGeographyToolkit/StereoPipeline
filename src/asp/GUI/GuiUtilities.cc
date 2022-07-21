@@ -460,6 +460,8 @@ void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images) {
     item->setForeground(QColor::fromRgb(0, 0, 0));
     m_filesTable->setItem(fileIter, numCols - 1, item);
 
+    // To be able to quickly look up an image
+    image_to_row[fileName] = fileIter;
   }
 
   QStringList rowNamesList;
@@ -494,35 +496,56 @@ void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images) {
   return;
 }
 
+  // Quickly find in what table row the current image is  
+int chooseFilesDlg::imageRow(std::string const& image) const {
+  auto it = image_to_row.find(image);
+  if (it == image_to_row.end()) {
+    popUp("Cannot find image in table.");
+    return 0;
+  }
+  return it->second;
+}
+  
 // Check if the given image is hidden (not shown) based on the table checkbox  
 bool chooseFilesDlg::isHidden(std::string const& image) const {
-  for (int rowIter = 0; rowIter < m_filesTable->rowCount(); rowIter++) {
-    QTableWidgetItem *item = m_filesTable->item(rowIter, 0);
-    std::string curr_image = (m_filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
-    if (image == curr_image)
-      return (item->checkState() == Qt::Unchecked);
-  }
+
+  int row = imageRow(image);
+  QTableWidgetItem *item = m_filesTable->item(row, 0);
+  std::string curr_image = (m_filesTable->item(row, 1)->data(0)).toString().toStdString();
+  if (image == curr_image)
+    return (item->checkState() == Qt::Unchecked);
   return false;
 }
 
 // Hide the given image  
 void chooseFilesDlg::hide(std::string const& image) {
-  for (int rowIter = 0; rowIter < m_filesTable->rowCount(); rowIter++) {
-    QTableWidgetItem *item = m_filesTable->item(rowIter, 0);
-    std::string curr_image = (m_filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
-    if (image == curr_image)
-      item->setCheckState(Qt::Unchecked);
-  }
+  int row = imageRow(image);
+  QTableWidgetItem *item = m_filesTable->item(row, 0);
+  std::string curr_image = (m_filesTable->item(row, 1)->data(0)).toString().toStdString();
+  if (image == curr_image)
+    item->setCheckState(Qt::Unchecked);
 }
 
 // Show the given image by turning on the checkbox in the table
 void chooseFilesDlg::unhide(std::string const& image) {
-  
-  for (int rowIter = 0; rowIter < m_filesTable->rowCount(); rowIter++) {
-    QTableWidgetItem *item = m_filesTable->item(rowIter, 0);
-    std::string curr_image = (m_filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
-    if (image == curr_image)
-      item->setCheckState(Qt::Checked);
+  int row = imageRow(image);
+  QTableWidgetItem *item = m_filesTable->item(row, 0);
+  std::string curr_image = (m_filesTable->item(row, 1)->data(0)).toString().toStdString();
+  if (image == curr_image)
+    item->setCheckState(Qt::Checked);
+}
+
+// Show only first two images; this is the best default for viewing pairwise matches.
+void chooseFilesDlg::showTwoImages() {
+
+  int rows = m_filesTable->rowCount();
+  for (int row = 0; row < std::min(2, rows); row++) {
+    QTableWidgetItem *item = m_filesTable->item(row, 0);
+    item->setCheckState(Qt::Checked);
+  }
+  for (int row = 2; row < rows; row++) {
+    QTableWidgetItem *item = m_filesTable->item(row, 0);
+    item->setCheckState(Qt::Unchecked);
   }
 }
   

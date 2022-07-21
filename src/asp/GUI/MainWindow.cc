@@ -88,6 +88,64 @@ private:
   QObject *filter;
 };
 
+bool MainWindow::sanityChecks(int num_images) {
+
+  if (num_images <= 0) {
+    popUp("No valid images to display.");
+    return false;
+  }
+
+  if (stereo_settings().match_file != "" &&
+      stereo_settings().gcp_file   != "" &&
+      !stereo_settings().nvm.empty() &&
+      !stereo_settings().vwip_files.empty()){
+    popUp("Cannot load at the same time more than one of: matches, nvm files, GCP, .vwip files.");
+    return false;
+  }
+
+  // If a gcp file was passed in, we will interpret those as matches
+  if (stereo_settings().gcp_file != "")
+    asp::stereo_settings().view_matches = true;
+
+  // If .vwip files were passed in, we will interpret those as matches.
+  if (!stereo_settings().vwip_files.empty()) {
+    asp::stereo_settings().view_matches = true;
+    if (m_image_files.size() != stereo_settings().vwip_files.size()) {
+      popUp("There must be as many .vwip files as images.");
+      return false;
+    }    
+  }
+  
+  // If a match file was explicitly specified, use it.
+  if (stereo_settings().match_file != ""){
+    if (m_image_files.size() != 2){
+      popUp("The --match-file option only works with two valid input images.");
+      return false;
+    }
+    
+    asp::stereo_settings().view_matches = true;
+  }
+
+  int num =
+    int(asp::stereo_settings().view_matches) +
+    int(asp::stereo_settings().pairwise_matches) +
+    int(asp::stereo_settings().pairwise_clean_matches);
+  if (num > 1) {
+    popUp("Conflicting options for viewing match files were specified.");
+    return false;
+  }
+
+  if (num_images <= 1 &&
+      (asp::stereo_settings().view_matches ||
+       asp::stereo_settings().pairwise_matches ||
+       asp::stereo_settings().pairwise_clean_matches)) {
+    popUp("Cannot view matches if there is at most one image.");
+    return false;
+  }
+  
+  return true;
+}
+
 MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
                        std::vector<std::string> const& images,
                        std::string& output_prefix,
@@ -95,7 +153,6 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
                        vw::Vector2i const& window_size,
                        bool single_window,
                        bool use_georef, bool hillshade,
-                       bool view_matches,
                        bool delete_temporary_files_on_exit,
                        int argc,  char ** argv) :
   m_opt(opt),
@@ -104,10 +161,11 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   m_use_georef(use_georef),
   m_display_mode(hillshade ? HILLSHADED_VIEW : REGULAR_VIEW),
   m_view_thresholded(false),
-  m_view_matches(view_matches),
   m_delete_temporary_files_on_exit(delete_temporary_files_on_exit),
   m_allowMultipleSelections(false), m_matches_exist(false),
-  m_argc(argc), m_argv(argv), m_cursor_count(0) {
+  m_argc(argc), m_argv(argv),
+  m_show_two_images_when_side_by_side_with_dialog(true), 
+  m_cursor_count(0) {
 
   // Window size
   resize(window_size[0], window_size[1]);
@@ -133,10 +191,9 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
     m_image_files.push_back(images[i]);
   }
 
-  if (m_image_files.empty()) {
-    popUp("No valid images to display.");
-    return;
-  }
+  // Ensure the inputs are reasonable
+  if (!MainWindow::sanityChecks(m_image_files.size()))
+    forceQuit();
 
   int num_images = m_image_files.size();
   m_images.resize(num_images);
@@ -145,45 +202,16 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
     m_images[i].m_display_mode = m_display_mode;
   }
 
-  if (stereo_settings().match_file != "" &&
-      stereo_settings().gcp_file   != "" &&
-      !stereo_settings().vwip_files.empty()){
-    popUp("Cannot load at the same time more than one of: matches, GCP, or .vwip files.");
-    m_view_matches = false;
-    stereo_settings().match_file = "";
-    stereo_settings().gcp_file   = "";
-    stereo_settings().vwip_files.clear();
-  }
-
-  // If a gcp file was passed in, we will interpret those as matches
-  if (stereo_settings().gcp_file != "")
-    m_view_matches = true;
-
-  // If .vwip files were passed in, we will interpret those as matches.
-  if (!stereo_settings().vwip_files.empty()) {
-    m_view_matches = true;
-    if (m_image_files.size() != stereo_settings().vwip_files.size()) {
-      popUp("There must be as many .vwip files as images.");
-      stereo_settings().vwip_files.clear();
-      m_view_matches = false;
-    }    
-  }
-  
-  // If a match file was explicitly specified, use it.
-  if (stereo_settings().match_file != ""){
-    if (m_image_files.size() != 2){
-      popUp("The --match-file option only works with two valid input images.");
-      m_view_matches = false;
-      stereo_settings().match_file = "";
-    }else{
-      m_view_matches = true;
-    }
-  }
-
   // For being able to choose which files to show/hide
   m_chooseFiles = new chooseFilesDlg(this);
   m_chooseFiles->chooseFiles(m_images);
-
+  // See note at chooseFilesFilterDelegate
+  m_chooseFiles->getFilesTable()->setItemDelegate(new chooseFilesFilterDelegate(this));
+  m_chooseFiles->getFilesTable()->installEventFilter(this);
+  
+  QObject::connect(m_chooseFiles->getFilesTable(), SIGNAL(cellClicked(int, int)),
+                   this, SLOT(perhapsCreateLayout()));
+  
   // For editing match points
   m_editMatchPointVecIndex = -1;
   m_matchlist.resize(m_image_files.size());
@@ -209,13 +237,12 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   createLayout();
 }
 
-
 // Create a new central widget. Qt is smart enough to de-allocate
 // the previous widget and all of its children.
 void MainWindow::createLayout() {
 
   // We must cleanup the previous profiles before wiping the existing
-  // widgets.  There must be a better way of doing it.
+  // widgets. There must be a better way of doing it.
   for (size_t wit = 0; wit < m_widgets.size(); wit++) {
     bool profile_mode = false;
     if (m_widgets[wit] != NULL) 
@@ -234,20 +261,24 @@ void MainWindow::createLayout() {
   // Note that the menus persist even when the layout changes
   bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
 
-  // This is a special case, when we both have the images side by side and a
-  // dialog for choosing which files to show
-  if (sideBySideWithDialog())
-    m_view_type = VIEW_SIDE_BY_SIDE;
-
   // Set up the dialog for choosing files
   m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
+
+  // This is a special case, when we both have the images side by side and a
+  // dialog for choosing which files to show
+  if (sideBySideWithDialog()) {
+    m_view_type = VIEW_SIDE_BY_SIDE;
+    if (m_show_two_images_when_side_by_side_with_dialog) {
+      // This must be triggered only when the tool starts or when switched
+      // into sideBySideWithDialog() mode from the menu.
+      m_chooseFiles->showTwoImages();
+      m_show_two_images_when_side_by_side_with_dialog = false;
+    }
+  }
   
-  // See note at chooseFilesFilterDelegate
-  m_chooseFiles->getFilesTable()->setItemDelegate(new chooseFilesFilterDelegate(this));
-  m_chooseFiles->getFilesTable()->installEventFilter(this);
   splitter->addWidget(m_chooseFiles);
 
-  // See if to show it. In a side-by-side view it is normally not needed 
+  // See if to show it. In a side-by-side view it is normally not needed. 
   bool showChooseFiles
     = ((m_view_type == VIEW_IN_SINGLE_WINDOW || sideBySideWithDialog()) &&
        m_image_files.size() > 1);
@@ -262,9 +293,10 @@ void MainWindow::createLayout() {
                                          BASE_IMAGE_ID,
                                          m_images, 
                                          m_output_prefix,
-                                         m_matchlist, m_editMatchPointVecIndex,
+                                         m_matchlist, m_pairwiseMatches, m_pairwiseCleanMatches,
+                                         m_editMatchPointVecIndex,
                                          m_chooseFiles,
-                                         m_use_georef, m_view_matches,
+                                         m_use_georef,
                                          zoom_all_to_same_region,
 					 m_allowMultipleSelections);
 
@@ -283,9 +315,10 @@ void MainWindow::createLayout() {
                                            BASE_IMAGE_ID, 
                                            m_images, 
                                            m_output_prefix,
-                                           m_matchlist, m_editMatchPointVecIndex,
+                                           m_matchlist, m_pairwiseMatches, m_pairwiseCleanMatches,
+                                           m_editMatchPointVecIndex,
                                            m_chooseFiles,
-                                           m_use_georef, m_view_matches,
+                                           m_use_georef, 
                                            zoom_all_to_same_region,
 					   m_allowMultipleSelections);
 
@@ -315,14 +348,18 @@ void MainWindow::createLayout() {
 
     // Intercept this widget's request to view (or refresh) the matches in all
     // the widgets, not just this one's.
-    connect(m_widgets[i], SIGNAL(turnOnViewMatchesSignal()),  this, SLOT(turnOnViewMatches          ()));
-    connect(m_widgets[i], SIGNAL(turnOffViewMatchesSignal()),  this, SLOT(turnOffViewMatches         ()));
-    connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox()),  this, SLOT(uncheckProfileModeCheckbox ()));
-    connect(m_widgets[i], SIGNAL(uncheckPolyEditModeCheckbox()),  this, SLOT(uncheckPolyEditModeCheckbox()));
-    connect(m_widgets[i], SIGNAL(zoomAllToSameRegionSignal(int)), this, SLOT(zoomAllToSameRegionAction(int)));
-    connect(m_widgets[i], SIGNAL(recreateLayout()), this, SLOT(createLayout()));
+    connect(m_widgets[i], SIGNAL(turnOnViewMatchesSignal()),
+            this, SLOT(turnOnViewMatches()));
+    connect(m_widgets[i], SIGNAL(turnOffViewMatchesOnErrorSignal()),
+            this, SLOT(turnOffViewMatchesOnError()));
+    connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox()),
+            this, SLOT(uncheckProfileModeCheckbox()));
+    connect(m_widgets[i], SIGNAL(uncheckPolyEditModeCheckbox()),
+            this, SLOT(uncheckPolyEditModeCheckbox()));
+    connect(m_widgets[i], SIGNAL(zoomAllToSameRegionSignal(int)),
+            this, SLOT(zoomAllToSameRegionAction(int)));
   }
-  
+
   QWidget *container = new QWidget(centralWidget);
   container->setLayout(grid);
   splitter->addWidget(container);
@@ -333,8 +370,12 @@ void MainWindow::createLayout() {
   centralWidget->setLayout(layout);
 
   // This code must be here in order to load the matches if needed
+  // TODO(oalexan1): There must be an if statement!
   viewMatches();
 
+  if (asp::stereo_settings().pairwise_matches) 
+    MainWindow::viewPairwiseMatches();
+  
   double nodata_value = stereo_settings().nodata_value;
   if (!std::isnan(nodata_value)) {
     for (size_t i = 0; i < m_widgets.size(); i++) {
@@ -491,8 +532,21 @@ void MainWindow::createMenus() {
   m_viewMatches_action = new QAction(tr("View IP matches"), this);
   m_viewMatches_action->setStatusTip(tr("View IP matches"));
   m_viewMatches_action->setCheckable(true);
-  m_viewMatches_action->setChecked(m_view_matches);
+  m_viewMatches_action->setChecked(asp::stereo_settings().view_matches);
   connect(m_viewMatches_action, SIGNAL(triggered()), this, SLOT(viewMatches()));
+
+  m_viewPairwiseMatches_action = new QAction(tr("View pairwise IP matches"), this);
+  m_viewPairwiseMatches_action->setStatusTip(tr("View pairwise IP matches"));
+  m_viewPairwiseMatches_action->setCheckable(true);
+  m_viewPairwiseMatches_action->setChecked(asp::stereo_settings().pairwise_matches);
+  connect(m_viewPairwiseMatches_action, SIGNAL(triggered()), this, SLOT(viewPairwiseMatchesSlot()));
+
+  m_viewPairwiseCleanMatches_action = new QAction(tr("View pairwise clean IP matches"), this);
+  m_viewPairwiseCleanMatches_action->setStatusTip(tr("View pairwise clean IP matches"));
+  m_viewPairwiseCleanMatches_action->setCheckable(true);
+  m_viewPairwiseCleanMatches_action->setChecked(asp::stereo_settings().pairwise_clean_matches);
+  connect(m_viewPairwiseCleanMatches_action, SIGNAL(triggered()),
+          this, SLOT(viewPairwiseCleanMatches()));
 
   m_addDelMatches_action = new QAction(tr("Add/delete IP matches"), this);
   m_addDelMatches_action->setStatusTip(tr("Add/delete interest point matches"));
@@ -503,7 +557,7 @@ void MainWindow::createMenus() {
   connect(m_saveMatches_action, SIGNAL(triggered()), this, SLOT(saveMatches()));
 
   m_writeGcp_action = new QAction(tr("Write GCP file"), this);
-  m_writeGcp_action->setStatusTip(tr("Save interest point matches in a GCP format for bundle_adjust"));
+  m_writeGcp_action->setStatusTip(tr("Save interest point matches as GCP for bundle_adjust"));
   connect(m_writeGcp_action, SIGNAL(triggered()), this, SLOT(writeGroundControlPoints()));
 
   // Threshold calculation by clicking on pixels and setting the threshold
@@ -592,6 +646,8 @@ void MainWindow::createMenus() {
   // Matches menu
   m_matches_menu = menu->addMenu(tr("&IP matches"));
   m_matches_menu->addAction(m_viewMatches_action);
+  m_matches_menu->addAction(m_viewPairwiseMatches_action);
+  m_matches_menu->addAction(m_viewPairwiseCleanMatches_action);
   m_matches_menu->addAction(m_addDelMatches_action);
   m_matches_menu->addAction(m_saveMatches_action);
   m_matches_menu->addAction(m_writeGcp_action);
@@ -617,6 +673,13 @@ void MainWindow::createMenus() {
   // Help menu
   m_help_menu = menu->addMenu(tr("&Help"));
   m_help_menu->addAction(m_about_action);
+}
+
+// In sideBySideWithDialog mode, checking/unchecking images has to result
+// in redisplay of selected ones.
+void MainWindow::perhapsCreateLayout() {
+  if (sideBySideWithDialog())
+    createLayout();
 }
 
 void MainWindow::resizeEvent(QResizeEvent *){
@@ -702,8 +765,16 @@ void MainWindow::viewSingleWindow(){
   bool single_window = m_viewSingleWindow_action->isChecked();
 
   if (single_window) {
-    if (m_view_type != VIEW_IN_SINGLE_WINDOW) m_view_type_old = m_view_type; // back this up
+
+    if (m_view_type != VIEW_IN_SINGLE_WINDOW)
+      m_view_type_old = m_view_type; // back this up
+    
     m_view_type = VIEW_IN_SINGLE_WINDOW;
+
+    // Since we will view all in single window, can't select images with matches
+    asp::stereo_settings().view_matches = false;
+    setNoSideBySideWithDialog();
+    MainWindow::updateMatchesMenuEntries();
 
     // Turn off zooming all images to same region if all are in the same window
     bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
@@ -712,9 +783,6 @@ void MainWindow::viewSingleWindow(){
       setZoomAllToSameRegionAux(zoom_all_to_same_region);
     }
 
-    // Since we will view all in single window, can't select images with matches
-    setNoSideBySideWithDialog();
-    
   }else{
     if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
     else{
@@ -756,30 +824,43 @@ void MainWindow::viewAsTiles(){
   m_view_type_old = m_view_type; // back this up
   m_view_type     = VIEW_AS_TILES_ON_GRID;
 
-  // When displaying the images as tiles on grid cannot show matches
+  // When viewing as tile we cannot show matches
+  asp::stereo_settings().view_matches = false;
   setNoSideBySideWithDialog();
+  MainWindow::updateMatchesMenuEntries();
   
   createLayout();
+}
+
+// Update the checkboxes for the matches menu entries based on stereo_settings()
+// values.
+void MainWindow::updateMatchesMenuEntries() {
+  m_viewMatches_action->setChecked(asp::stereo_settings().view_matches);
+  m_viewPairwiseCleanMatches_action->setChecked(asp::stereo_settings().pairwise_clean_matches);
+  m_viewPairwiseMatches_action->setChecked(asp::stereo_settings().pairwise_matches);
 }
 
 // This function will be invoked after matches got added or deleted.
 // we must set m_matches_exist to true.
 void MainWindow::turnOnViewMatches(){
-  m_view_matches  = true;
-  m_viewMatches_action->setChecked(m_view_matches);
+  asp::stereo_settings().view_matches = true;
+  MainWindow::updateMatchesMenuEntries();
   MainWindow::viewMatches();
 }
 
 // This function will be invoked when we cannot add/show/delete matches.
-void MainWindow::turnOffViewMatches(){
-  m_view_matches = false;
-  m_viewMatches_action->setChecked(m_view_matches);
+void MainWindow::turnOffViewMatchesOnError() {
+  asp::stereo_settings().view_matches = false;
+  asp::stereo_settings().pairwise_matches = false;
+  asp::stereo_settings().pairwise_clean_matches = false;
+  MainWindow::updateMatchesMenuEntries();
   MainWindow::viewMatches();
 
   // This must come at the end, after we turned off viewing matches in all
   // widgets, otherwise each widget will send us back here.
-  popUp("Must have just one image in each window to deal with IP matches.");
+  popUp("Must have just one image in each window to display IP matches.");
 }
+
 
 // Show or hide matches depending on the value of m_viewMatches.  We
 // assume first ip in first image mananages first ip in all other
@@ -788,16 +869,32 @@ void MainWindow::turnOffViewMatches(){
 // all images.
 void MainWindow::viewMatches(){
 
-  m_view_matches = m_viewMatches_action->isChecked();
+  // Record user's intent
+  asp::stereo_settings().view_matches = m_viewMatches_action->isChecked();
 
+  // Turn off the other ways of viewing matches
+  if (asp::stereo_settings().view_matches) {
+    asp::stereo_settings().pairwise_matches = false;
+    asp::stereo_settings().pairwise_clean_matches = false;
+    MainWindow::updateMatchesMenuEntries();
+
+    // TODO(oalexan1): Is this necessary?
+    if (m_chooseFiles->isVisible()) {
+      // We likely arrived here after other ways of showing matches were on.
+      // Hide the m_chooseFiles() dialog.
+      m_chooseFiles->setVisible(false);
+    }
+  }
+  
   // If started editing matches do not load them from disk
   if (MainWindow::editingMatches())
     m_matches_exist = true;
     
-  // TODO: REPLACE MATCH LOADING!!!!!!!!!!!
+  // TODO(oalexan1): Improve match loading when done this way, it is rather ad hoc.
+  // Maybe just switch to pairwise matches each time there's more than two images.
   
   // We will load the matches just once, as we later will add/delete matches manually.
-  if (!m_matches_exist && m_view_matches) {
+  if (!m_matches_exist && asp::stereo_settings().view_matches) {
 
     // We will try to load matches
     m_matches_exist = true;
@@ -863,12 +960,13 @@ void MainWindow::viewMatches(){
           }catch(...){
             // Default locations failed, ask the user for the location.
             try {
-              trial_match = fileDialog("Manually select the match file...", m_output_prefix);
+              trial_match = fileDialog("Manually select the match file.", m_output_prefix);
               ip::read_binary_match_file(trial_match, left, right);
 
               leftIndex = 0;
               if (i > 1) {
-                // With multiple images we also need to ask which image the matches are in relation to!
+                // With multiple images we also need to ask which
+                // image the matches are in relation to!
                 std::string tempStr;
                 bool ans = getStringFromGui(this, "Index of matching image",
                                             "Index of matching image", "",
@@ -881,7 +979,8 @@ void MainWindow::viewMatches(){
               }
             }catch(...){
               //popUp("Manually selected file failed to load, not loading matches for this file.");
-              vw_out() << "Manually selected file failed to load, not loading matches for this file.\n";
+              vw_out() << "Manually selected file failed to load, "
+                       << "not loading matches for this file.\n";
             }
           }
         }
@@ -901,9 +1000,108 @@ void MainWindow::viewMatches(){
   // Set all the matches to be visible.
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i])
-      m_widgets[i]->viewMatches(m_view_matches);
+      m_widgets[i]->viewMatches();
   }
 
+}
+
+void MainWindow::viewPairwiseMatchesSlot() {
+  // Record user's intent
+  asp::stereo_settings().pairwise_matches = m_viewPairwiseMatches_action->isChecked();
+
+  if (asp::stereo_settings().pairwise_matches)
+    m_show_two_images_when_side_by_side_with_dialog = true;
+  
+  asp::stereo_settings().view_matches = false;
+  asp::stereo_settings().pairwise_clean_matches = false;
+  MainWindow::updateMatchesMenuEntries();
+
+  // Must always recreate the layout as this option can totally change the interface
+  createLayout();
+}
+
+void MainWindow::viewPairwiseMatches() {
+
+  // Turn off the other ways of viewing matches
+  asp::stereo_settings().view_matches = false;
+  asp::stereo_settings().pairwise_clean_matches = false;
+  MainWindow::updateMatchesMenuEntries();
+
+  if (m_output_prefix == "") {
+    popUp("Cannot show pairwise matches, as the output prefix was not set.");
+    asp::stereo_settings().pairwise_matches = false;
+    MainWindow::updateMatchesMenuEntries();
+    return;
+  }
+
+  // See which images are seen
+  std::vector<int> seen_indices;
+  for (size_t it = 0; it < m_images.size(); it++) {
+    if (!m_chooseFiles->isHidden(m_images[it].name)) {
+      seen_indices.push_back(it);
+    }
+  }
+
+  // Ensure the ip per image are always clean but initialized
+  m_pairwiseMatches.ip_to_show.clear();
+  m_pairwiseMatches.ip_to_show.resize(m_images.size());
+  
+  // Only show matches if precisely two images are currently displayed
+  if (seen_indices.size() != 2)
+    return;
+
+  int left_index = seen_indices[0], right_index = seen_indices[1];
+  std::string match_file = vw::ip::match_filename(m_output_prefix,
+                                                  m_images[left_index].name,
+                                                  m_images[right_index].name);
+
+  auto index_pair = std::make_pair(left_index, right_index);
+  
+  // Handles to where we want these loaded
+  std::vector<vw::ip::InterestPoint> & left_ip = m_pairwiseMatches.matches[index_pair].first;
+  std::vector<vw::ip::InterestPoint> & right_ip = m_pairwiseMatches.matches[index_pair].second;
+  
+  // See if the file was loaded before
+  if (m_pairwiseMatches.match_files.find(index_pair) ==
+      m_pairwiseMatches.match_files.end()) {
+
+    // Flag it as loaded
+    m_pairwiseMatches.match_files[index_pair] = match_file;
+
+    try {
+      // Load it
+      ip::read_binary_match_file(match_file, left_ip, right_ip);
+    } catch(...) {
+      popUp("Cannot find the match file with given images and output prefix.");
+      return;
+    }
+  }
+
+  // These will be read when interest points are drawn
+  m_pairwiseMatches.ip_to_show[left_index] = left_ip;
+  m_pairwiseMatches.ip_to_show[right_index] = right_ip;
+  
+  // Call viewMatches() in each widget. There things will be sorted out
+  // based on stereo_settings().
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i])
+      m_widgets[i]->viewMatches();
+  }
+  
+}
+
+void MainWindow::viewPairwiseCleanMatches() {
+  // Record user's intent
+  asp::stereo_settings().pairwise_clean_matches
+    = m_viewPairwiseCleanMatches_action->isChecked();
+
+  if (!asp::stereo_settings().pairwise_clean_matches)
+    return;
+
+  // Turn off the other ways of viewing matches
+  asp::stereo_settings().view_matches = false;
+  asp::stereo_settings().pairwise_matches = false;
+  MainWindow::updateMatchesMenuEntries();
 }
 
 void MainWindow::saveMatches(){

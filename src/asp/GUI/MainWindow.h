@@ -57,8 +57,7 @@ namespace vw { namespace gui {
                std::string& output_prefix, // non-const, so we can change it
                int grid_cols,
                vw::Vector2i const& window_size, bool single_window,
-               bool use_georef, bool hillshade, bool view_matches,
-               bool delete_temporary_files_on_exit,
+               bool use_georef, bool hillshade, bool delete_temporary_files_on_exit,
                int argc, char ** argv);
     virtual ~MainWindow() {}
 
@@ -69,9 +68,11 @@ namespace vw { namespace gui {
     void viewSideBySide             ();
     void viewAsTiles                ();
     void turnOnViewMatches          ();
-    void turnOffViewMatches         ();
+    void turnOffViewMatchesOnError();
     void zoomAllToSameRegionAction(int widget_id);
-    void viewMatches                ();
+    void viewMatches();
+    void viewPairwiseMatchesSlot();
+    void viewPairwiseCleanMatches   ();
     void addDelMatches              ();
     void saveMatches                ();
     void writeGroundControlPoints   (); ///< Write a ground control point file for bundle_adjust
@@ -107,10 +108,11 @@ namespace vw { namespace gui {
 
 
   private slots:
-  void createLayout(); // make it a slot so it can be triggered by a signal
+  void perhapsCreateLayout(); 
 
   private:
 
+    void createLayout();
     void run_stereo_or_parallel_stereo(std::string const& cmd);
 
     /// Go through m_matches and retain only IPs detected in the first image.
@@ -126,6 +128,12 @@ namespace vw { namespace gui {
     // See if in the middle of editing matches
     bool editingMatches() const;
 
+    void updateMatchesMenuEntries();
+    
+    bool sanityChecks(int num_images);
+
+    void viewPairwiseMatches();
+    
     vw::cartography::GdalWriteOptions m_opt;
     std::string               m_output_prefix;
     double                    m_widRatio;    // ratio of sidebar to entire win wid
@@ -159,6 +167,8 @@ namespace vw { namespace gui {
     QAction *m_viewNextImage_action;
     QAction *m_viewPrevImage_action;
     QAction *m_viewMatches_action;
+    QAction *m_viewPairwiseMatches_action;
+    QAction *m_viewPairwiseCleanMatches_action;
     QAction *m_addDelMatches_action;
     QAction *m_saveMatches_action;
     QAction *m_writeGcp_action;
@@ -175,7 +185,7 @@ namespace vw { namespace gui {
              m_view_type_old;
     int      m_grid_cols, m_grid_cols_old;
     bool     m_use_georef, m_view_thresholded,
-      m_view_matches, m_delete_temporary_files_on_exit;
+      m_delete_temporary_files_on_exit;
     bool     m_allowMultipleSelections;
     int      m_argc;
     char **  m_argv;
@@ -187,9 +197,17 @@ namespace vw { namespace gui {
 
     /// Structure to keep track of all interest point matches.
     MatchList m_matchlist;
+    pairwiseMatchList m_pairwiseMatches;
+    pairwiseMatchList m_pairwiseCleanMatches;
+    
     int       m_editMatchPointVecIndex; ///< Point being edited
 
     int m_cursor_count;
+
+    // This will be set to true each time we enter the mode when images
+    // are shown side-by-side with a dialog. The user can later choose
+    // to show any number.
+    bool m_show_two_images_when_side_by_side_with_dialog;
   };
 
 }} // namespace vw::gui

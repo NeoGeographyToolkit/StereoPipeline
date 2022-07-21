@@ -69,7 +69,7 @@ namespace asp{
       ("input-files", po::value< std::vector<std::string> >(), "Input files");
     positional_desc.add("input-files", -1);
 
-    std::string usage = "[options] <images> [<cameras>] <output_file_prefix> [DEM]";
+    std::string usage = "[options] <images> <output_file_prefix>";
     bool allow_unregistered = false;
     std::vector<std::string> unregistered;
     po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options,
@@ -123,126 +123,84 @@ int main(int argc, char** argv) {
     stereo_register_sessions();
 
     bool verbose = false;
-    std::vector<ASPGlobalOptions> opt_vec;
+    ASPGlobalOptions opt;
     std::string output_prefix;
     std::vector<std::string> images;
 
-    // First try to parse a regular stereo command
-    try {
+    std::vector<std::string> all_files;
+    stereo_settings().vwip_files.clear();
+    handle_arguments(argc, argv, opt, all_files);
 
-      // If we found .vwip/.match/.shp files, go right to displaying images 
-      for (int it = 1; it < argc; it++) {
-        if (get_extension(argv[it]) == ".vwip"  ||
-            get_extension(argv[it]) == ".match" ||
-            get_extension(argv[it]) == ".shp") {
-          // This error will be quiet
-          vw_throw(ArgumentErr() << "Found an unexpected file.\n");
-        }
-      }
-      
-      // For some reason, there is a crash with ISIS sometimes if
-      // going through the full flow of parsing arguments. ISIS and Qt
-      // mis-communicate.  Stop before loading any cameras. This
-      // should be safe enough in GUI mode.
-      bool exit_early = true;
-
-      // See if we passed all the correct options for stereo
-      asp::parse_multiview(argc, argv, asp::GUIDescription(),
-                           verbose, output_prefix, opt_vec, exit_early);
-      // Extract the images from the options, not the cameras though.
-      for (size_t i = 0; i < opt_vec.size(); i++) {
-        if (i == 0) images.push_back(opt_vec[i].in_file1);
-        images.push_back(opt_vec[i].in_file2);
-      }
-
-    }catch (std::exception& e){
-
-      // The tool was not invoked correctly using the stereo interface. Perhaps the
-      // user only wants to see images?
+    // Try to load each input file as a standalone image one at a time
+    for (size_t i = 0; i < all_files.size(); i++) {
+      std::string file = all_files[i];
+      bool is_image = false;
       try {
-
-        std::vector<std::string> all_files;
-        stereo_settings().vwip_files.clear();
-        opt_vec.resize(1);
-        handle_arguments(argc, argv, opt_vec[0], all_files);
-
-        // Try to load each input file as a standalone image one at a time
-        for (size_t i = 0; i < all_files.size(); i++) {
-          std::string file = all_files[i];
-          bool is_image = false;
-          try {
-            DiskImageView<float> tmp(file);
-            is_image = true;
-          }catch(std::exception & e){
-            if (file.empty() || file[0] == '-') continue;
-            if (get_extension(file) == ".match") {
-              // Found a match file
-              stereo_settings().match_file = file;
-              is_image = false;
-            }else if (get_extension(file) == ".vwip") {
-              // Found a vwip file
-              stereo_settings().vwip_files.push_back(file);
-              is_image = false;
-            }else if (asp::has_shp_extension(file)) {
-              // See if this is a shape file
-              is_image = true; // will load it in the same struct as for images
-            }else if (has_cam_extension(file)) {
-              // We will get here for all cameras except .cub, which is
-              // both an image and a camera. Don't print an error in this
-              // case as this is expected to not be an image.
-              is_image = false;
-            } else {
-              vw_out() << "Not a valid image: " << file << ".\n";
-              if (!fs::exists(file)) {
-                vw_out() << "Using this as the output prefix.\n";
-                output_prefix = file;
-              }
-            }
+        DiskImageView<float> tmp(file);
+        is_image = true;
+      }catch(std::exception & e){
+        if (file.empty() || file[0] == '-') continue;
+        if (get_extension(file) == ".match") {
+          // Found a match file
+          stereo_settings().match_file = file;
+          is_image = false;
+        }else if (get_extension(file) == ".vwip") {
+          // Found a vwip file
+          stereo_settings().vwip_files.push_back(file);
+          is_image = false;
+        }else if (asp::has_shp_extension(file)) {
+          // See if this is a shape file
+          is_image = true; // will load it in the same struct as for images
+        }else if (has_cam_extension(file)) {
+          // We will get here for all cameras except .cub, which
+          // is both an image and a camera and was picked up by
+          // now. Don't print an error in this case as this is
+          // expected to not be an image.
+          is_image = false;
+        } else {
+          vw_out() << "Not a valid image: " << file << ".\n";
+          if (!fs::exists(file)) {
+            vw_out() << "Using this as the output prefix.\n";
+            output_prefix = file;
           }
-          if (is_image)
-            images.push_back(file);
         }
-      }catch (std::exception& e2){
-        vw_throw(ArgumentErr() << "\nWhen trying to parse the stereo options, got the error:\n"
-                 << e.what()  << "\n"
-                 "However, when trying to simply view the images, got a different error:\n"
-                 << e2.what() << "\n"
-                 "Likely the earliest error is more suggestive about what went wrong.\n");
       }
-
-      // Presumably the tool was invoked with no options. Just print the help message.
-      if (images.empty())
-        vw_throw(ArgumentErr() << e.what() << "\n");
+      if (is_image)
+        images.push_back(file);
     }
-
+    
+    // Presumably the tool was invoked with no options. Just print the help message.
+    if (images.empty())
+      vw_throw(ArgumentErr() << "Could not process the inputs.\n");
+    
     if (stereo_settings().create_image_pyramids_only) {
       // Just create the image pyramids and exit
       for (size_t i = 0; i < images.size(); i++) {
         vw::gui::imageData img;
-        img.read(images[i], opt_vec[0]);
-
+        img.read(images[i], opt);
+        
         if (stereo_settings().hillshade) {
           // Create hillshaded images
           std::string hillshaded_file; 
-          bool success = vw::gui::write_hillshade(opt_vec[0],
+          bool success = vw::gui::write_hillshade(opt,
                                                   stereo_settings().hillshade_azimuth,
                                                   stereo_settings().hillshade_elevation,
                                                   images[i],
                                                   // Output
                                                   hillshaded_file);
           if (success) // build the pyramids
-            img.read(hillshaded_file, opt_vec[0], vw::gui::HILLSHADED_VIEW);
+            img.read(hillshaded_file, opt, vw::gui::HILLSHADED_VIEW);
         }
       }
       return 0;
     }
-
+    
     vw::create_out_dir(output_prefix);
 
     // Create the application. Must be done before trying to read
     // images as that call uses pop-ups.
     asp::StereoApplication app(argc, argv);
-
+    
 #if !__APPLE__
     // TODO(oalexan1): Figure out why clang cannot find OpenMP.
     // Set the number of threads
@@ -254,22 +212,22 @@ int main(int argc, char** argv) {
 #endif
     
     // Start up the Qt GUI
-    vw::gui::MainWindow main_window(opt_vec[0],
-                                    images, output_prefix,
+    // TODO(oalexan1): The arguments below are accessible from the main window
+    // from stereo_settings() directly, so there is no need to pass them this way.
+    vw::gui::MainWindow main_window(opt, images, output_prefix,
                                     stereo_settings().grid_cols,
                                     stereo_settings().window_size,
                                     stereo_settings().single_window,
                                     stereo_settings().use_georef,
                                     stereo_settings().hillshade,
-                                    stereo_settings().view_matches,
                                     stereo_settings().delete_temporary_files_on_exit,
                                     argc, argv);
-
+    
     main_window.show();
     app.exec();
     
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
-
+  
   return 0;
 }
