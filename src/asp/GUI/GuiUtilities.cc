@@ -15,7 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file GuiUtilities.cc
+// TODO(oalexan1): This is very slow to compile. Need to figure out
+// why. Likely the hillshade templated code is to blame, or bundle
+// adjustment logic. That may need to be moved to a separate file.
+// TODO(oalexan1): Move chooseFilesDlg to its own .h/.cc file.
 
 #include <string>
 #include <vector>
@@ -549,6 +552,15 @@ void chooseFilesDlg::showTwoImages() {
   }
 }
   
+// Show all images
+void chooseFilesDlg::showAllImages() {
+  int rows = m_filesTable->rowCount();
+  for (int row = 0; row < rows; row++) {
+    QTableWidgetItem *item = m_filesTable->item(row, 0);
+    item->setCheckState(Qt::Checked);
+  }
+}
+
 void chooseFilesDlg::keyPressEvent(QKeyEvent *event) {
   // std::cout << "Key was pressed " << event->key() << std::endl;
 }

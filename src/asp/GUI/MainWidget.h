@@ -156,8 +156,8 @@ namespace vw { namespace gui {
     }
 
 signals:
-    void turnOnViewMatchesSignal    ();
-    void turnOffViewMatchesOnErrorSignal();
+    void toggleViewMatchesSignal    ();
+    void updateMatchesSignal        (); // this one will do less work and keep the zoom level
     void uncheckProfileModeCheckbox ();
     void uncheckPolyEditModeCheckbox();
     void zoomAllToSameRegionSignal  (int);

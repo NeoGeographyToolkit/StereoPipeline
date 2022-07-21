@@ -434,14 +434,14 @@ namespace asp {
       ("hillshade-elevation", po::value(&global.hillshade_elevation)->default_value(20),
                             "The elevation value when showing hillshaded images.")
       ("view-matches",   po::bool_switch(&global.view_matches)->default_value(false)->implicit_value(true),
-                            "Locate and display the interest point matches.")
+                            "Locate and display the interest point matches for a stereo pair.")
       ("match-file", po::value(&global.match_file)->default_value(""),
        "Display this match file instead of looking one up based on existing conventions (implies --view-matches).")
       ("gcp-file", po::value(&global.gcp_file)->default_value(""),
        "Display the GCP pixel coordinates for this GCP file (implies --view-matches).")
       ("dem-file", po::value(&global.dem_file)->default_value(""),
        "Use this DEM when creating GCP from images.")
-      ("nvm-file", po::value(&global.nvm)->default_value(""),
+      ("nvm", po::value(&global.nvm)->default_value(""),
        "Load and show interest point matches from this .nvm file (implies --side-by-side-with-dialog).")
        ("hide-all",        po::bool_switch(&global.hide_all)->default_value(false)->implicit_value(true),
         "Start with all images turned off (if all images are in the same window, useful with a large number of images).")
@@ -449,9 +449,9 @@ namespace asp {
        "Delete any subsampled and other files created by the GUI when exiting.")
       ("create-image-pyramids-only",   po::bool_switch(&global.create_image_pyramids_only)->default_value(false)->implicit_value(true),
        "Without starting the GUI, build multi-resolution pyramids for the inputs, to be able to load them fast later.")
-      ("pairwise-matches",   po::bool_switch(&global.pairwise_matches)->default_value(false)->implicit_value(true), "Show selected images. If just two of them are present at a time, load/edit/save their match file corresponding to these images and specified output prefix. Also accessible from the menu.")
-      ("pairwise-clean-matches",   po::bool_switch(&global.pairwise_clean_matches)->default_value(false)->implicit_value(true), "Same as --pairwise-matches, but use *-clean.match files.")
       ("side-by-side-with-dialog",   po::bool_switch(&global.side_by_side_with_dialog)->default_value(false)->implicit_value(true), "Show images side-by-side, with a dialog on the left to choose which ones to turn on/off.")
+      ("pairwise-matches",   po::bool_switch(&global.pairwise_matches)->default_value(false)->implicit_value(true), "Show images side-by-side. If just two of them are selected, load their corresponding match file, determined by the output prefix. Also accessible from the menu.")
+      ("pairwise-clean-matches",   po::bool_switch(&global.pairwise_clean_matches)->default_value(false)->implicit_value(true), "Same as --pairwise-matches, but use *-clean.match files.")
       ;
   }
 

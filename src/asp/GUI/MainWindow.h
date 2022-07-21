@@ -67,8 +67,8 @@ namespace vw { namespace gui {
     void viewSingleWindow           ();
     void viewSideBySide             ();
     void viewAsTiles                ();
-    void turnOnViewMatches          ();
-    void turnOffViewMatchesOnError();
+    void viewMatchesFromMenu();
+    void toggleViewMatches          ();
     void zoomAllToSameRegionAction(int widget_id);
     void viewMatches();
     void viewPairwiseMatchesSlot();

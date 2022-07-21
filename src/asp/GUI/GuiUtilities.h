@@ -317,6 +317,9 @@ namespace vw { namespace gui {
     // Show only first two images; this is the best default for pairwise stereo
     void showTwoImages();
     
+    // Show all images
+    void showAllImages();
+    
   private:
     int imageRow(std::string const& image) const;
     QTableWidget * m_filesTable;

@@ -1200,7 +1200,9 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       // In order to be able to see matches, each image must be in its own widget.
       // So, if the current widget has more than an image, they are stacked on top
       // of each other, and then we just can't show IP.
-      emit turnOffViewMatchesOnErrorSignal();
+      asp::stereo_settings().view_matches = false;
+      popUp("Must have the images side-by-side to view/edit interest point matches.");
+      emit toggleViewMatchesSignal();
       return;
     }
 
@@ -1501,7 +1503,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     // dragged, for example.  But such a high refresh rate may be
     // necessary for editing interest point matches and polygons.
     // Something clever is needed, such as putting polygons and interest
-    // points which are modified in refreshPixmap() which is called rarely,
+    // points which are not modified in refreshPixmap() which is called rarely,
     // and here putting only the actively modified elements. For now,
     // editing of ip is not allowed for viewing pairwise matches, so those
     // ip are drawn in refreshPixmap()
@@ -2548,9 +2550,17 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       m_editMatchPointVecIndex
         = m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
 
-      emit turnOnViewMatchesSignal(); // Update IP draw color
+      if (asp::stereo_settings().view_matches) {
+        // Update IP draw color
+        // Will keep the zoom level
+        emit updateMatchesSignal();
+      } else {
+        // Will reset the layout before continuing with matches
+        asp::stereo_settings().view_matches = true;
+        emit toggleViewMatchesSignal();
+      }
     } // End match point update case
-
+    
     // If the user is currently editing polygons
     if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode){
 
@@ -2619,7 +2629,15 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       // Update the IP location
       m_matchlist.setPointPosition(m_beg_image_id, m_editMatchPointVecIndex, P.x(), P.y());
 
-      emit turnOnViewMatchesSignal(); // Update IP draw color
+      if (asp::stereo_settings().view_matches) {
+        // Update IP draw color
+        // Will keep the zoom level
+        emit updateMatchesSignal();
+      } else {
+        // Will reset the layout before continuing with matches
+        asp::stereo_settings().view_matches = true;
+        emit toggleViewMatchesSignal();
+      }
       return;
     } // End polygon editing
 
@@ -2701,7 +2719,16 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     if (m_editMatchPointVecIndex >= 0) {
       m_matchlist.setPointValid(m_beg_image_id, m_editMatchPointVecIndex, true);
       m_editMatchPointVecIndex = -1;
-      emit turnOnViewMatchesSignal(); // Update IP draw color
+
+      if (asp::stereo_settings().view_matches) {
+        // Update IP draw color
+        // Will keep the zoom level
+        emit updateMatchesSignal();
+      } else {
+        // Will reset the layout before continuing with matches
+        asp::stereo_settings().view_matches = true;
+        emit toggleViewMatchesSignal();
+      }
     }
 
     // If the mouse was released close to where it was pressed
@@ -3121,7 +3148,9 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
   void MainWidget::viewMatches() {
     // Complain if there are multiple images and matches was turned on
     if ((m_end_image_id - m_beg_image_id != 1) && asp::stereo_settings().view_matches) {
-      emit turnOffViewMatchesOnErrorSignal();
+      asp::stereo_settings().view_matches = false;
+      popUp("Must have the images side-by-side to view/edit interest point matches.");
+      emit toggleViewMatchesSignal();
       return;
     }
 
@@ -3136,7 +3165,9 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     }
 
     if (m_end_image_id - m_beg_image_id != 1) {
-      emit turnOffViewMatchesOnErrorSignal();
+      asp::stereo_settings().view_matches = false;
+      popUp("Must have the images side-by-side to view/edit interest point matches.");
+      emit toggleViewMatchesSignal();
       return;
     }
 
@@ -3157,7 +3188,14 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     }
 
     // Must refresh the matches in all the images, not just this one
-    emit turnOnViewMatchesSignal();
+    if (asp::stereo_settings().view_matches) {
+      // Will keep the zoom level
+      emit updateMatchesSignal();
+    } else {
+      // Will reset the layout before continuing with matches
+      asp::stereo_settings().view_matches = true;
+      emit toggleViewMatchesSignal();
+    }    
   }
 
   // We cannot delete match points unless all images have the same number of them.
@@ -3189,7 +3227,14 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     
     if (result) {
       // Must refresh the matches in all the images, not just this one
-      emit turnOnViewMatchesSignal();
+      if (asp::stereo_settings().view_matches) {
+        // Will keep the zoom level
+        emit updateMatchesSignal();
+      } else {
+        // Will reset the layout before continuing with matches
+        asp::stereo_settings().view_matches = true;
+        emit toggleViewMatchesSignal();
+      }    
     }
   }
 

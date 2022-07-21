@@ -408,7 +408,8 @@ Command-line options for bundle_adjust
     be removed between passes using ``--remove-outliers-params``
     and ``--remove-outliers-by-disparity-params``, and re-optimization
     will take place. Residual files and a copy of the match files
-    with the outliers removed will be written to disk.
+    with the outliers removed (``*-clean.match``) will be written to
+    disk.
 
 --num-random-passes <integer (default: 0)>
     After performing the normal bundle adjustment passes, do this

@@ -3,29 +3,30 @@
 ipmatch
 -------
 
-The ``ipmatch`` program reads interest points (IPs) from ``.vwip`` files and
-attempts to match them, writing out ``.match`` files containing the
-results. Other ASP tools can read the obtained match
-files. ``ipmatch`` also produces debug images which can be
-useful. Note that this tool does not implement many of the IP matching
-steps that are used in ``stereo`` and ``bundle_adjust`` since it
-does not use any camera information.
+The ``ipmatch`` program reads interest points (IPs) from ``.vwip``
+files produced with ``ipfind`` (:numref:`ipfind`) and finds matches
+among them, writing out ``.match`` files containing the results. 
+``ipmatch`` can also produce debug images with plotted match points. 
 
 If more than two image/vwip sets are passed in, each possible
 combination of images will be matched.
 
 The produced binary match files can be visualized in ``stereo_gui``
-(:numref:`stereo_gui`) or converted to plain text for inspection
+(:numref:`stereo_gui_view_ip`) or converted to plain text for inspection
 with ``parse_match_file.py`` (:numref:`parse_match_file`).
+
+Note that this tool does not implement many of the IP matching steps
+that are used in ``parallel_stereo`` and ``bundle_adjust``, since it does not
+use any camera information.
 
 Example::
 
     ipmatch image1.tif image2.tif image1.vwip image2.vwip
 
-The order of images and ``.vwip`` files is flexible.  The first image will 
-use the first ``.vwip`` file encountered, etc. The ``.vwip`` files can be 
-omitted altogether, and then can be deduced from image names. So the
-program can be also called as::
+The order of images and ``.vwip`` files is flexible.  The first image
+will use the first ``.vwip`` file encountered, etc. The ``.vwip``
+files can be omitted altogether, and then can be deduced from image
+names. So the program can be also called as::
 
     ipmatch image1.tif image2.tif
 

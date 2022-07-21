@@ -1,14 +1,17 @@
+.. _ipfind:
+
 ipfind
 ------
 
 The ``ipfind`` tool detects interest points (IPs) in images and writes
-them out to .vwip files. ASP is able to read these files to recover the
-IPs.
+them out to .vwip files. ASP is able to read these files to recover
+the IPs. These files can be visualized with ``stereo_gui``
+(:numref:`stereo_gui_vwip_gcp`).
 
 This tool is useful in testing out different IP detection settings and
 visualizing them (using the option ``--debug-image``).
 
-One can pass multiple input images to the tool and they will be
+One can pass multiple input images to ``ipfind`` and they will be
 processed one after another.
 
 This program works in conjunction with ``ipmatch`` (:numref:`ipmatch`)
@@ -17,6 +20,12 @@ to match interest points across images.
 Usage::
 
      ipfind [options] <images>
+
+Exaple::
+
+    ipfind image1.tif image2.tif image3.tif
+
+This will write ``image1.vwip``, ``image2.vwip``, ``image3.vwip``.
 
 Command-line options for ipfind:
 

@@ -264,9 +264,9 @@ void MainWindow::createLayout() {
   // Set up the dialog for choosing files
   m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
 
-  // This is a special case, when we both have the images side by side and a
-  // dialog for choosing which files to show
-  if (sideBySideWithDialog()) {
+  // When showing matches or other ways of showing images side-by-side,
+  // automatically change the layout
+  if (sideBySideWithDialog() || asp::stereo_settings().view_matches) {
     m_view_type = VIEW_SIDE_BY_SIDE;
     if (m_show_two_images_when_side_by_side_with_dialog) {
       // This must be triggered only when the tool starts or when switched
@@ -348,10 +348,10 @@ void MainWindow::createLayout() {
 
     // Intercept this widget's request to view (or refresh) the matches in all
     // the widgets, not just this one's.
-    connect(m_widgets[i], SIGNAL(turnOnViewMatchesSignal()),
-            this, SLOT(turnOnViewMatches()));
-    connect(m_widgets[i], SIGNAL(turnOffViewMatchesOnErrorSignal()),
-            this, SLOT(turnOffViewMatchesOnError()));
+    connect(m_widgets[i], SIGNAL(toggleViewMatchesSignal()),
+            this, SLOT(toggleViewMatches()));
+    connect(m_widgets[i], SIGNAL(updateMatchesSignal()),
+            this, SLOT(viewMatches()));
     connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox()),
             this, SLOT(uncheckProfileModeCheckbox()));
     connect(m_widgets[i], SIGNAL(uncheckPolyEditModeCheckbox()),
@@ -369,9 +369,8 @@ void MainWindow::createLayout() {
   layout->addWidget (splitter, 0, 0, 0);
   centralWidget->setLayout(layout);
 
-  // This code must be here in order to load the matches if needed
-  // TODO(oalexan1): There must be an if statement!
-  viewMatches();
+  if (asp::stereo_settings().view_matches)
+    MainWindow::viewMatches();
 
   if (asp::stereo_settings().pairwise_matches) 
     MainWindow::viewPairwiseMatches();
@@ -533,7 +532,7 @@ void MainWindow::createMenus() {
   m_viewMatches_action->setStatusTip(tr("View IP matches"));
   m_viewMatches_action->setCheckable(true);
   m_viewMatches_action->setChecked(asp::stereo_settings().view_matches);
-  connect(m_viewMatches_action, SIGNAL(triggered()), this, SLOT(viewMatches()));
+  connect(m_viewMatches_action, SIGNAL(triggered()), this, SLOT(viewMatchesFromMenu()));
 
   m_viewPairwiseMatches_action = new QAction(tr("View pairwise IP matches"), this);
   m_viewPairwiseMatches_action->setStatusTip(tr("View pairwise IP matches"));
@@ -840,27 +839,24 @@ void MainWindow::updateMatchesMenuEntries() {
   m_viewPairwiseMatches_action->setChecked(asp::stereo_settings().pairwise_matches);
 }
 
-// This function will be invoked after matches got added or deleted.
-// we must set m_matches_exist to true.
-void MainWindow::turnOnViewMatches(){
-  asp::stereo_settings().view_matches = true;
-  MainWindow::updateMatchesMenuEntries();
-  MainWindow::viewMatches();
+void MainWindow::viewMatchesFromMenu() {
+  // Record user's intent
+  asp::stereo_settings().view_matches = m_viewMatches_action->isChecked();
+  
+  toggleViewMatches();
 }
 
-// This function will be invoked when we cannot add/show/delete matches.
-void MainWindow::turnOffViewMatchesOnError() {
-  asp::stereo_settings().view_matches = false;
+// The value of asp::stereo_settings().view_matches must be set before calling this.
+// It will be invoked as result of user clicking on the menu or adding/deleting match points.
+void MainWindow::toggleViewMatches() {
   asp::stereo_settings().pairwise_matches = false;
   asp::stereo_settings().pairwise_clean_matches = false;
+  asp::stereo_settings().side_by_side_with_dialog = false;
   MainWindow::updateMatchesMenuEntries();
-  MainWindow::viewMatches();
-
-  // This must come at the end, after we turned off viewing matches in all
-  // widgets, otherwise each widget will send us back here.
-  popUp("Must have just one image in each window to display IP matches.");
+  m_show_two_images_when_side_by_side_with_dialog = false;
+  m_chooseFiles->showAllImages();
+  MainWindow::createLayout(); // This will call viewMatches() after a GUI reorg
 }
-
 
 // Show or hide matches depending on the value of m_viewMatches.  We
 // assume first ip in first image mananages first ip in all other
@@ -877,13 +873,6 @@ void MainWindow::viewMatches(){
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
     MainWindow::updateMatchesMenuEntries();
-
-    // TODO(oalexan1): Is this necessary?
-    if (m_chooseFiles->isVisible()) {
-      // We likely arrived here after other ways of showing matches were on.
-      // Hide the m_chooseFiles() dialog.
-      m_chooseFiles->setVisible(false);
-    }
   }
   
   // If started editing matches do not load them from disk
@@ -1070,6 +1059,7 @@ void MainWindow::viewPairwiseMatches() {
 
     try {
       // Load it
+      std::cout << "Loading match file: " << match_file << std::endl;
       ip::read_binary_match_file(match_file, left_ip, right_ip);
     } catch(...) {
       popUp("Cannot find the match file with given images and output prefix.");

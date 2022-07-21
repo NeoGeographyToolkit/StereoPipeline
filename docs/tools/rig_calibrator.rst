@@ -12,6 +12,9 @@ This tool was extensively tested with actual hardware and can model
 many real-world issues encountered with a rig. Its output can be used
 to create a fused surface mesh with seamless texture from each of its
 sensors.
+
+The `Theia <https://github.com/sweeneychris/TheiaSfM>`_ package is used
+to find the initial camera poses.
  
 See :numref:`rig_calibrator_example` for a solved example having all
 inputs, outputs, and commands.
@@ -168,7 +171,7 @@ is::
 
   <output dir>/cameras.nvm
 
-In adidtion, a plain text file having just the list of images and
+In addition, a plain text file having just the list of images and
 world-to-camera poses will always be written, with the name::
 
   <output dir>/cameras.txt
@@ -201,8 +204,8 @@ view, using the radtan distortion model).
 
 We assume the intrinsics of each sensor are reasonably well-known (but
 will be optimized later), and we do not know each camera's pose. The
-first step is then determining these, for which we use the
-``theia_sfm`` script, as follows::
+first step is then determining these, for which we use 
+``theia_sfm`` (:numref:`theia_sfm`), as follows::
 
     theia_sfm --rig_config rig_input/rig_config.txt \
       --images 'rig_input/nav_cam/*tif
