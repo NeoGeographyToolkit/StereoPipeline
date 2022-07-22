@@ -379,12 +379,11 @@ void imageData::read(std::string const& name_in, vw::cartography::GdalWriteOptio
       vw_throw(ArgumentErr() << "Expecting the shapefile to have a georeference.\n");
 
     image_bbox = world_bbox;
-
   }else{
     // Read an image
-    
     int top_image_max_pix = 1000*1000;
     int subsample = 4;
+    vw_out() << "Reading: " << name_in << std::endl;
 
     if (display_mode == REGULAR_VIEW) {
       img = DiskImagePyramidMultiChannel(name_in, m_opt, top_image_max_pix, subsample);
@@ -1135,14 +1134,12 @@ bool MatchList::savePointsToDisk(std::string const& prefix,
 // See if we are in the mode where the images are displayed side-by-side with a
 // dialog to choose which ones to display.
 bool sideBySideWithDialog() {
-  return (asp::stereo_settings().side_by_side_with_dialog ||
-          asp::stereo_settings().pairwise_matches         ||
+  return (asp::stereo_settings().pairwise_matches         ||
           asp::stereo_settings().pairwise_clean_matches);
 }
 
 // Turn off any such side-by-side logic
 void setNoSideBySideWithDialog() {
-  asp::stereo_settings().side_by_side_with_dialog = false;
   asp::stereo_settings().pairwise_matches         = false;
   asp::stereo_settings().pairwise_clean_matches   = false;
 }

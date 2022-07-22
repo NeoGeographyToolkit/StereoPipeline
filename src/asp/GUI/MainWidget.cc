@@ -1229,6 +1229,13 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       for (size_t ip_iter = 0; ip_iter < ip_in_vec.size(); ip_iter++) {
         ip_vec.push_back(Vector2(ip_in_vec[ip_iter].x, ip_in_vec[ip_iter].y));
       }
+    } else if (asp::stereo_settings().pairwise_clean_matches &&
+               m_beg_image_id < m_pairwiseCleanMatches.ip_to_show.size()) {
+      // Had to check if ip_to_show was initialized by now
+      auto & ip_in_vec = m_pairwiseCleanMatches.ip_to_show[m_beg_image_id]; // alias
+      for (size_t ip_iter = 0; ip_iter < ip_in_vec.size(); ip_iter++) {
+        ip_vec.push_back(Vector2(ip_in_vec[ip_iter].x, ip_in_vec[ip_iter].y));
+      }
     }
 
     // Iterate over interest points

@@ -1,23 +1,26 @@
 Changes since last release
 --------------------------
 
-Added functionality for creation of large-scale meshes and (mostly
-seamless) textures for small planetary bodies and indoor
-environments. Added logic for rig calibration. See individual tools
-below.
+Added functionality for creation of large-scale meshes and fused
+textures for small planetary bodies and indoor environments. Added
+logic for rig calibration. See individual tools below.
 
 New tools:
   * ``rig_calibrator``: Calibrates a rig of N image and/or
     depth+image cameras. Can also co-register and refine
     intrinsics of camera images acquired with N sensors with no rig
-    constraint.
+    constraint (:numref:`rig_calibrator`).
+  * ``multi_stereo``: Runs multiple stereo pairs and produces
+    a fused mesh. Uses ``parallel_stereo``, ``pc_filter``, and 
+    ``voxblox_mesh`` (:numref:`multi_stereo`).
   * ``voxblox_mesh``: Fuses point clouds into a seamless oriented
     mesh, with each input point given a weight according to its
     reliability. Based on the third-party VoxBlox software.
-  * ``texrecon.py``: Creates seamless textured meshes. Based on
-    the third-party MVS-Texturing project.
-  * ``pc_filter``. Filters outliers in point clouds created with
-    pinhole cameras and weighing inliers based on many criteria.
+  * ``texrecon``: Creates seamless textured meshes. Based on
+    the third-party MVS-Texturing project (:numref:`texrecon`).
+  * ``pc_filter``: Filters outliers in point clouds created with
+    pinhole cameras and weighing inliers based on many criteria
+    (:numref:`pc_filter`).
 
 stereo:
   * Added the triangulation option ``--max-valid-triangulation-error``
@@ -39,19 +42,26 @@ point2dem:
     outlier removal.
 
 bathymetry:
-  * Added scale_bathy_mask.py, for creating a PAN-sized image
+  * Added ``scale_bathy_mask.py``, for creating a PAN-sized image
     or mask from an multispectral-sized image or mask, both for
     WorldView data.
 
 mapproject:
-  * Expose and document the --query-projection option.
+  * Expose and document the ``--query-projection`` option.
  
+stereo_gui:
+  * Given a bundle_adjust run directory, can show any two images and
+    automatically load their (clean) match file (options:
+    ``--pairwise-matches`` and ``--pairwise-clean-matches``).
+  * Can load .nvm files having interest point matches (option
+    ``--nvm``).
+
 misc:
   * Consolidated much duplicated and mutated code for camera models.
-  * Bugfix for D.tif VRTs as created by parallel stereo.
+  * Bugfix for D.tif VRTs as created by ``parallel_stereo``.
   * Allow whitespaces in stereo.default before option names. 
   * Set for ASP programs LC_ALL and LANG to en_US.UTF-8, to avoid
-    ISIS crashing on international users (this is a longstanding
+    ISIS crashing on international users (this was a longstanding
     issue).
 
 RELEASE 3.1.0, May 18, 2022

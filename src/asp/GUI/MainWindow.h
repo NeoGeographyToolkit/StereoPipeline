@@ -72,7 +72,7 @@ namespace vw { namespace gui {
     void zoomAllToSameRegionAction(int widget_id);
     void viewMatches();
     void viewPairwiseMatchesSlot();
-    void viewPairwiseCleanMatches   ();
+    void viewPairwiseCleanMatchesSlot();
     void addDelMatches              ();
     void saveMatches                ();
     void writeGroundControlPoints   (); ///< Write a ground control point file for bundle_adjust
@@ -132,7 +132,7 @@ namespace vw { namespace gui {
     
     bool sanityChecks(int num_images);
 
-    void viewPairwiseMatches();
+    void viewPairwiseMatchesOrCleanMatches();
     
     vw::cartography::GdalWriteOptions m_opt;
     std::string               m_output_prefix;

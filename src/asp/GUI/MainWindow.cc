@@ -372,8 +372,8 @@ void MainWindow::createLayout() {
   if (asp::stereo_settings().view_matches)
     MainWindow::viewMatches();
 
-  if (asp::stereo_settings().pairwise_matches) 
-    MainWindow::viewPairwiseMatches();
+  if (asp::stereo_settings().pairwise_matches || asp::stereo_settings().pairwise_clean_matches) 
+    MainWindow::viewPairwiseMatchesOrCleanMatches();
   
   double nodata_value = stereo_settings().nodata_value;
   if (!std::isnan(nodata_value)) {
@@ -545,7 +545,7 @@ void MainWindow::createMenus() {
   m_viewPairwiseCleanMatches_action->setCheckable(true);
   m_viewPairwiseCleanMatches_action->setChecked(asp::stereo_settings().pairwise_clean_matches);
   connect(m_viewPairwiseCleanMatches_action, SIGNAL(triggered()),
-          this, SLOT(viewPairwiseCleanMatches()));
+          this, SLOT(viewPairwiseCleanMatchesSlot()));
 
   m_addDelMatches_action = new QAction(tr("Add/delete IP matches"), this);
   m_addDelMatches_action->setStatusTip(tr("Add/delete interest point matches"));
@@ -851,14 +851,13 @@ void MainWindow::viewMatchesFromMenu() {
 void MainWindow::toggleViewMatches() {
   asp::stereo_settings().pairwise_matches = false;
   asp::stereo_settings().pairwise_clean_matches = false;
-  asp::stereo_settings().side_by_side_with_dialog = false;
   MainWindow::updateMatchesMenuEntries();
   m_show_two_images_when_side_by_side_with_dialog = false;
   m_chooseFiles->showAllImages();
   MainWindow::createLayout(); // This will call viewMatches() after a GUI reorg
 }
 
-// Show or hide matches depending on the value of m_viewMatches.  We
+// Show or hide matches depending on the value of m_viewMatches. We
 // assume first ip in first image mananages first ip in all other
 // images. We allow ip without matches in other images, that can be
 // useful, but not before saving, when their numbers must agree for
@@ -1001,6 +1000,7 @@ void MainWindow::viewPairwiseMatchesSlot() {
   if (asp::stereo_settings().pairwise_matches)
     m_show_two_images_when_side_by_side_with_dialog = true;
   
+  // Turn off the other ways of viewing matches
   asp::stereo_settings().view_matches = false;
   asp::stereo_settings().pairwise_clean_matches = false;
   MainWindow::updateMatchesMenuEntries();
@@ -1009,16 +1009,44 @@ void MainWindow::viewPairwiseMatchesSlot() {
   createLayout();
 }
 
-void MainWindow::viewPairwiseMatches() {
+void MainWindow::viewPairwiseCleanMatchesSlot() {
+  // Record user's intent
+  asp::stereo_settings().pairwise_clean_matches = m_viewPairwiseCleanMatches_action->isChecked();
 
+  if (asp::stereo_settings().pairwise_clean_matches)
+    m_show_two_images_when_side_by_side_with_dialog = true;
+  
   // Turn off the other ways of viewing matches
   asp::stereo_settings().view_matches = false;
-  asp::stereo_settings().pairwise_clean_matches = false;
+  asp::stereo_settings().pairwise_matches = false;
   MainWindow::updateMatchesMenuEntries();
 
-  if (m_output_prefix == "") {
-    popUp("Cannot show pairwise matches, as the output prefix was not set.");
+  // Must always recreate the layout as this option can totally change the interface
+  createLayout();
+}
+
+// These two modes will be handled together as they are very
+// similar.
+void MainWindow::viewPairwiseMatchesOrCleanMatches() {
+
+  MainWindow::updateMatchesMenuEntries();
+
+  if (!asp::stereo_settings().pairwise_matches && !asp::stereo_settings().pairwise_clean_matches) {
+    return;
+  }
+  
+  if (asp::stereo_settings().pairwise_matches && asp::stereo_settings().pairwise_clean_matches) {
+    popUp("Cannot show both pairwise matches and pairwise clean matches at the same time.");
     asp::stereo_settings().pairwise_matches = false;
+    asp::stereo_settings().pairwise_clean_matches = false;
+    MainWindow::updateMatchesMenuEntries();
+    return;
+  }
+
+  if (m_output_prefix == "") {
+    popUp("Cannot show pairwise (clean) matches, as the output prefix was not set.");
+    asp::stereo_settings().pairwise_matches = false;
+    asp::stereo_settings().pairwise_clean_matches = false;
     MainWindow::updateMatchesMenuEntries();
     return;
   }
@@ -1030,33 +1058,42 @@ void MainWindow::viewPairwiseMatches() {
       seen_indices.push_back(it);
     }
   }
-
-  // Ensure the ip per image are always clean but initialized
-  m_pairwiseMatches.ip_to_show.clear();
-  m_pairwiseMatches.ip_to_show.resize(m_images.size());
-  
   // Only show matches if precisely two images are currently displayed
-  if (seen_indices.size() != 2)
+  if (seen_indices.size() != 2) {
+    // Ensure no stray matches from before are shown
+    m_pairwiseMatches.ip_to_show.clear();
+    m_pairwiseCleanMatches.ip_to_show.clear();
     return;
-
+  }
+  
   int left_index = seen_indices[0], right_index = seen_indices[1];
-  std::string match_file = vw::ip::match_filename(m_output_prefix,
-                                                  m_images[left_index].name,
-                                                  m_images[right_index].name);
-
   auto index_pair = std::make_pair(left_index, right_index);
   
-  // Handles to where we want these loaded
-  std::vector<vw::ip::InterestPoint> & left_ip = m_pairwiseMatches.matches[index_pair].first;
-  std::vector<vw::ip::InterestPoint> & right_ip = m_pairwiseMatches.matches[index_pair].second;
+  // Get the pointer to the right structure
+  pairwiseMatchList * pairwiseMatches = NULL;
+  std::string match_file;
+  if (asp::stereo_settings().pairwise_matches) {
+    pairwiseMatches = &m_pairwiseMatches; 
+    match_file = vw::ip::match_filename(m_output_prefix, m_images[left_index].name,
+                                        m_images[right_index].name);
+  } else {
+    pairwiseMatches = &m_pairwiseCleanMatches;
+    match_file = vw::ip::clean_match_filename(m_output_prefix, m_images[left_index].name,
+                                              m_images[right_index].name);
+  }
   
-  // See if the file was loaded before
-  if (m_pairwiseMatches.match_files.find(index_pair) ==
-      m_pairwiseMatches.match_files.end()) {
-
+  // Ensure the ip per image are always clean but initialized
+  pairwiseMatches->ip_to_show.clear();
+  pairwiseMatches->ip_to_show.resize(m_images.size());
+  
+  // Handles to where we want these loaded
+  std::vector<vw::ip::InterestPoint> & left_ip = pairwiseMatches->matches[index_pair].first;
+  std::vector<vw::ip::InterestPoint> & right_ip = pairwiseMatches->matches[index_pair].second;
+  
+  // If the file was not loaded before, load it
+  if (pairwiseMatches->match_files.find(index_pair) == pairwiseMatches->match_files.end()) {
     // Flag it as loaded
-    m_pairwiseMatches.match_files[index_pair] = match_file;
-
+    pairwiseMatches->match_files[index_pair] = match_file;
     try {
       // Load it
       std::cout << "Loading match file: " << match_file << std::endl;
@@ -1068,8 +1105,8 @@ void MainWindow::viewPairwiseMatches() {
   }
 
   // These will be read when interest points are drawn
-  m_pairwiseMatches.ip_to_show[left_index] = left_ip;
-  m_pairwiseMatches.ip_to_show[right_index] = right_ip;
+  pairwiseMatches->ip_to_show[left_index] = left_ip;
+  pairwiseMatches->ip_to_show[right_index] = right_ip;
   
   // Call viewMatches() in each widget. There things will be sorted out
   // based on stereo_settings().
@@ -1078,20 +1115,6 @@ void MainWindow::viewPairwiseMatches() {
       m_widgets[i]->viewMatches();
   }
   
-}
-
-void MainWindow::viewPairwiseCleanMatches() {
-  // Record user's intent
-  asp::stereo_settings().pairwise_clean_matches
-    = m_viewPairwiseCleanMatches_action->isChecked();
-
-  if (!asp::stereo_settings().pairwise_clean_matches)
-    return;
-
-  // Turn off the other ways of viewing matches
-  asp::stereo_settings().view_matches = false;
-  asp::stereo_settings().pairwise_matches = false;
-  MainWindow::updateMatchesMenuEntries();
 }
 
 void MainWindow::saveMatches(){

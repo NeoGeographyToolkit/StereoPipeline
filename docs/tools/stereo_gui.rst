@@ -407,14 +407,6 @@ accept all other ``parallel_stereo`` options as well.
     Display this match file instead of looking one up based on
     existing conventions (implies ``--view-matches``).
 
---nvm <string (default: "")>
-  Load and show interest point matches from this .nvm file (implies
-  ``--side-by-side-with-dialog``).
-
---side-by-side-with-dialog
-  Show images side-by-side, with a dialog on the left to choose which
-  ones to turn on/off.
-
 --pairwise-matches
     Show images side-by-side. If just two of them are selected,
     load their corresponding match file, determined by the
@@ -422,6 +414,10 @@ accept all other ``parallel_stereo`` options as well.
 
 --pairwise-clean-matches
     Same as ``--pairwise-matches``, but use ``*-clean.match`` files.
+
+--nvm <string (default: "")>
+    Load and show interest point matches from this .nvm file.
+    Same behavior as ``--pairwise-matches``.
 
 --gcp-file
     Display the GCP pixel coordinates for this GCP file (implies

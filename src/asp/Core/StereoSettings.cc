@@ -442,14 +442,13 @@ namespace asp {
       ("dem-file", po::value(&global.dem_file)->default_value(""),
        "Use this DEM when creating GCP from images.")
       ("nvm", po::value(&global.nvm)->default_value(""),
-       "Load and show interest point matches from this .nvm file (implies --side-by-side-with-dialog).")
+       "Load and show interest point matches from this .nvm file.")
        ("hide-all",        po::bool_switch(&global.hide_all)->default_value(false)->implicit_value(true),
         "Start with all images turned off (if all images are in the same window, useful with a large number of images).")
       ("delete-temporary-files-on-exit",   po::bool_switch(&global.delete_temporary_files_on_exit)->default_value(false)->implicit_value(true),
        "Delete any subsampled and other files created by the GUI when exiting.")
       ("create-image-pyramids-only",   po::bool_switch(&global.create_image_pyramids_only)->default_value(false)->implicit_value(true),
        "Without starting the GUI, build multi-resolution pyramids for the inputs, to be able to load them fast later.")
-      ("side-by-side-with-dialog",   po::bool_switch(&global.side_by_side_with_dialog)->default_value(false)->implicit_value(true), "Show images side-by-side, with a dialog on the left to choose which ones to turn on/off.")
       ("pairwise-matches",   po::bool_switch(&global.pairwise_matches)->default_value(false)->implicit_value(true), "Show images side-by-side. If just two of them are selected, load their corresponding match file, determined by the output prefix. Also accessible from the menu.")
       ("pairwise-clean-matches",   po::bool_switch(&global.pairwise_clean_matches)->default_value(false)->implicit_value(true), "Same as --pairwise-matches, but use *-clean.match files.")
       ;
