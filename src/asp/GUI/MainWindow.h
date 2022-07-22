@@ -195,8 +195,8 @@ namespace vw { namespace gui {
     std::vector<std::string>  m_image_files; // Loaded image files
     std::vector<imageData>    m_images;      // Handles to loaded images
 
-    /// Structure to keep track of all interest point matches.
-    MatchList m_matchlist;
+    /// Structures to keep track of all interest point matches.
+    MatchList         m_matchlist;
     pairwiseMatchList m_pairwiseMatches;
     pairwiseMatchList m_pairwiseCleanMatches;
     

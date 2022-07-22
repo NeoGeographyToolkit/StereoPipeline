@@ -401,7 +401,7 @@ accept all other ``parallel_stereo`` options as well.
 --view-matches
     Locate and display the interest point matches for a stereo pair.
     See also ``--view-pairwise-matches``,
-    ``--view-pairwise-clean-matches``, ``--nvm``.
+    ``--view-pairwise-clean-matches``.
 
 --match-file
     Display this match file instead of looking one up based on
@@ -414,10 +414,6 @@ accept all other ``parallel_stereo`` options as well.
 
 --pairwise-clean-matches
     Same as ``--pairwise-matches``, but use ``*-clean.match`` files.
-
---nvm <string (default: "")>
-    Load and show interest point matches from this .nvm file.
-    Same behavior as ``--pairwise-matches``.
 
 --gcp-file
     Display the GCP pixel coordinates for this GCP file (implies

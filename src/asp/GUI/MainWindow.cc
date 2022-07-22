@@ -97,9 +97,8 @@ bool MainWindow::sanityChecks(int num_images) {
 
   if (stereo_settings().match_file != "" &&
       stereo_settings().gcp_file   != "" &&
-      !stereo_settings().nvm.empty() &&
-      !stereo_settings().vwip_files.empty()){
-    popUp("Cannot load at the same time more than one of: matches, nvm files, GCP, .vwip files.");
+      !stereo_settings().vwip_files.empty()) {
+    popUp("Cannot load at the same time more than one of: matches, GCP, or .vwip files.");
     return false;
   }
 

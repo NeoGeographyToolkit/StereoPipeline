@@ -441,8 +441,6 @@ namespace asp {
        "Display the GCP pixel coordinates for this GCP file (implies --view-matches).")
       ("dem-file", po::value(&global.dem_file)->default_value(""),
        "Use this DEM when creating GCP from images.")
-      ("nvm", po::value(&global.nvm)->default_value(""),
-       "Load and show interest point matches from this .nvm file.")
        ("hide-all",        po::bool_switch(&global.hide_all)->default_value(false)->implicit_value(true),
         "Start with all images turned off (if all images are in the same window, useful with a large number of images).")
       ("delete-temporary-files-on-exit",   po::bool_switch(&global.delete_temporary_files_on_exit)->default_value(false)->implicit_value(true),

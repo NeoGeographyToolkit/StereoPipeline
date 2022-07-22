@@ -51,10 +51,8 @@ mapproject:
  
 stereo_gui:
   * Given a bundle_adjust run directory, can show any two images and
-    automatically load their (clean) match file (options:
+    automatically load their match file and clean match file (options:
     ``--pairwise-matches`` and ``--pairwise-clean-matches``).
-  * Can load .nvm files having interest point matches (option
-    ``--nvm``).
 
 misc:
   * Consolidated much duplicated and mutated code for camera models.

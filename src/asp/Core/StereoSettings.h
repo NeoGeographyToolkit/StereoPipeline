@@ -275,7 +275,6 @@ namespace asp {
     bool delete_temporary_files_on_exit;
     bool create_image_pyramids_only, hide_all;
     bool pairwise_matches, pairwise_clean_matches;
-    std::string nvm;
     std::vector<std::string> vwip_files;
 
     // stereo_parse options
