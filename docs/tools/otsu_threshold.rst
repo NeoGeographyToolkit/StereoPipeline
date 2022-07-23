@@ -46,9 +46,6 @@ Usage::
 
 Command-line options for otsu_threshold:
 
--h, --help
-    Display the help message.
-
 --num-samples <integer (default: -1)>
     The number of samples to pick from the image (more samples will
     result in more accuracy but will be slower). If not specified,
@@ -62,3 +59,24 @@ Command-line options for otsu_threshold:
     Use this nodata value instead of what is read from the file, if
     present.
 
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.

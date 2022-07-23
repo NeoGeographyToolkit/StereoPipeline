@@ -32,7 +32,7 @@ namespace po = boost::program_options;
 
 using namespace vw;
 
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   // Input
   std::string img_file;
 
@@ -44,7 +44,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("output-prefix,o", po::value(&opt.output_prefix), "Output prefix for new control network.");
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

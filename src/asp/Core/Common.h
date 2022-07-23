@@ -46,6 +46,10 @@
 #include <map>
 #include <string>
 
+namespace vw {
+  struct GdalWriteOptions;
+}
+
 namespace asp {
 
   class ASPGlobalOptions; // forward declaration
@@ -125,7 +129,7 @@ namespace asp {
   std::string read_target_name(std::string const& filename);
 
   boost::program_options::variables_map
-  check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOptions& opt,
+  check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
                      boost::program_options::options_description const& public_options,
                      boost::program_options::options_description const& all_public_options,
                      boost::program_options::options_description const& positional_options,
@@ -219,7 +223,7 @@ namespace asp {
                                      bool has_georef,
                                      vw::cartography::GeoReference const& georef,
                                      bool has_nodata, double nodata,
-                                     vw::cartography::GdalWriteOptions const& opt,
+                                     vw::GdalWriteOptions const& opt,
                                      vw::ProgressCallback const& progress_callback
                                      = vw::ProgressCallback::dummy_instance(),
                                      std::map<std::string, std::string> const& keywords =
@@ -236,7 +240,7 @@ namespace asp {
                                bool has_georef,
                                vw::cartography::GeoReference const& georef,
                                bool has_nodata, double nodata,
-                               vw::cartography::GdalWriteOptions const& opt,
+                               vw::GdalWriteOptions const& opt,
                                vw::ProgressCallback const& progress_callback
                                = vw::ProgressCallback::dummy_instance(),
                                std::map<std::string, std::string> const& keywords =
@@ -252,7 +256,7 @@ namespace asp {
                                  bool has_georef, 
                                  vw::cartography::GeoReference const& georef,
                                  bool has_nodata, double nodata,
-                                 vw::cartography::GdalWriteOptions & opt,
+                                 vw::GdalWriteOptions & opt,
                                  vw::ProgressCallback const& tpc);
 
 

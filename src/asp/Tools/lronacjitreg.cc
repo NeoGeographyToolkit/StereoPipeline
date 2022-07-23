@@ -61,7 +61,7 @@ using std::setw;
 
 
 
-struct Parameters : vw::cartography::GdalWriteOptions 
+struct Parameters : vw::GdalWriteOptions 
 {
   // Input paths
   std::string leftFilePath;
@@ -97,7 +97,7 @@ bool handle_arguments(int argc, char* argv[],
     ("correlator-type", po::value(&opt.correlator_type)->default_value(0), "0 - Abs difference; 1 - Sq Difference; 2 - NormXCorr")
     ("affine-subpix", "Enable affine adaptive sub-pixel correlation (slower, but more accurate)");
   
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
     
   po::options_description positional("");
   positional.add_options()

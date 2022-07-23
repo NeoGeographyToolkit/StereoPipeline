@@ -293,7 +293,7 @@ namespace asp {
     po::options_description general_options("");
     general_options.add(general_options_sub);
     general_options.add(additional_options);
-    general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+    general_options.add(vw::GdalWriteOptionsDescription(opt));
 
     po::options_description all_general_options("");
     all_general_options.add(general_options_sub );

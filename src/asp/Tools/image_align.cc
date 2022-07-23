@@ -31,7 +31,7 @@
 using namespace vw;
 namespace po = boost::program_options;
 
-struct Options: vw::cartography::GdalWriteOptions {
+struct Options: vw::GdalWriteOptions {
   std::vector<std::string> input_images;
   std::string alignment_transform, output_image, output_prefix, output_data_string,
     input_transform, disparity_params;
@@ -255,7 +255,7 @@ calc_alignment_transform(std::string const& image_file1,
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("");
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
   
   general_options.add_options()
     ("output-image,o", po::value(&opt.output_image)->default_value(""),

@@ -95,6 +95,9 @@ Command-line options for cam_test
     non-ISIS linescan cameras. This option impairs the convergence of
     bundle adjustment.
 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
 -h, --help
     Display the help message.
 

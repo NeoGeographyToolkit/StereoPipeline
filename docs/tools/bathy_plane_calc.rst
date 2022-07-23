@@ -245,11 +245,62 @@ Example::
 This shapefile may then be passed to some external tool for looking
 up water level heights at these points.
 
+.. _water_meas_collection:
+
+Acquisition of water height data
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This section descries how to acquire a set of water height measurements,
+which then could be used to create the best-fit water plane
+for the purpose of shallow-water bathymetry. An example of using
+this data is given in :numref:`bathy_plane_calc_example2`.
+
+Absent direct measurements of water surface level at the date and time of
+satellite image acquisition, it is suggested to use the
+discrete tidal zoning information provided by the 
+`National Ocean Service 
+<https://noaa.maps.arcgis.com/home/webmap/viewer.html?webmap=21d7b399e6fa42e18a72ee30be9aa5c9>`_
+, while for the metadata use the  
+`CO-OPS Discrete Tidal Zoning Map <https://noaa.maps.arcgis.com/home/item.html?id=21d7b399e6fa42e18a72ee30be9aa5c9>`_. An organizational Esri GIS online login is needed to access the data.
+
+Each polygon on the map is a discrete tidal zone, within which NOAA
+considers the tide characteristics the same. If the user clicks a
+polygon on the map, a window will pop up and show the control tide
+station (ControlStn) for that zone, average time corrector
+(AvgTimeCorr, in minutes), and range ratio (RangeRatio). Note that:
+
+ - The control station is usually an active water level station of NOAA.
+ - ``Average time corrector`` is the time difference (phase difference)
+   between the tide at the tide zone and at the control
+   station. Positive time means the tide level is this many minutes
+   later in the tidal zone polygon than at the control station
+   (and vice versa).
+ - ``Range ratio`` is the ratio of tide range at the tidal zone
+   divided by that at the control station.
+
+The user can access tidal gauge data for
+the satellite day and time of acquisition at the 
+`Center for Operational Oceanographic Products and Services 
+<https://opendap.co-ops.nos.noaa.gov/axis/>`_. Choose Verified Data->
+Six Minutes Data->Try me. 
+
+The user can download tide data in any
+reference as long as the value is expressed in meters. This value
+needs to be transformed into an ellipsoid heights value relative to the WGS_1984 datum. For
+this the `NOAA VDATUM Java program <https://vdatum.noaa.gov/>`_ can be used,
+or the `NOAA online app <https://www.vdatum.noaa.gov/vdatumweb/>`_. 
+
+Please note that even if lots of points on the land/water limit belong to the
+same tidal zone polygon, so they will have same elevation value, the
+transformation in ellipsoid heights with VDATUM will result in
+different ellipsoid heights since VDATUM uses the position of the
+point in latitude/longitude besides the height of the point.
+
+Export your data in a CSV file with a header having ID, longitude, latitude, and
+WGS_1984 height measurements.
+
 Command-line options for bathy_plane_calc
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
--h, --help
-    Display the help message.
 
 --shapefile <filename>
     The shapefile with vertices whose coordinates will be looked up in
@@ -334,59 +385,27 @@ Command-line options for bathy_plane_calc
     local stereographic projection. Hence don't model the Earth
     curvature. Not recommended.
 
-.. _water_meas_collection:
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
 
-Acquisition of water height data
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
 
-This section descries how to acquire a set of water height measurements,
-which then could be used to create the best-fit water plane
-for the purpose of shallow-water bathymetry. An example of using
-this data is given in :numref:`bathy_plane_calc_example2`.
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
 
-Absent direct measurements of water surface level at the date and time of
-satellite image acquisition, it is suggested to use the
-discrete tidal zoning information provided by the 
-`National Ocean Service 
-<https://noaa.maps.arcgis.com/home/webmap/viewer.html?webmap=21d7b399e6fa42e18a72ee30be9aa5c9>`_
-, while for the metadata use the  
-`CO-OPS Discrete Tidal Zoning Map <https://noaa.maps.arcgis.com/home/item.html?id=21d7b399e6fa42e18a72ee30be9aa5c9>`_. An organizational Esri GIS online login is needed to access the data.
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
 
-Each polygon on the map is a discrete tidal zone, within which NOAA
-considers the tide characteristics the same. If the user clicks a
-polygon on the map, a window will pop up and show the control tide
-station (ControlStn) for that zone, average time corrector
-(AvgTimeCorr, in minutes), and range ratio (RangeRatio). Note that:
+-v, --version
+    Display the version of software.
 
- - The control station is usually an active water level station of NOAA.
- - ``Average time corrector`` is the time difference (phase difference)
-   between the tide at the tide zone and at the control
-   station. Positive time means the tide level is this many minutes
-   later in the tidal zone polygon than at the control station
-   (and vice versa).
- - ``Range ratio`` is the ratio of tide range at the tidal zone
-   divided by that at the control station.
-
-The user can access tidal gauge data for
-the satellite day and time of acquisition at the 
-`Center for Operational Oceanographic Products and Services 
-<https://opendap.co-ops.nos.noaa.gov/axis/>`_. Choose Verified Data->
-Six Minutes Data->Try me. 
-
-The user can download tide data in any
-reference as long as the value is expressed in meters. This value
-needs to be transformed into an ellipsoid heights value relative to the WGS_1984 datum. For
-this the `NOAA VDATUM Java program <https://vdatum.noaa.gov/>`_ can be used,
-or the `NOAA online app <https://www.vdatum.noaa.gov/vdatumweb/>`_. 
-
-Please note that even if lots of points on the land/water limit belong to the
-same tidal zone polygon, so they will have same elevation value, the
-transformation in ellipsoid heights with VDATUM will result in
-different ellipsoid heights since VDATUM uses the position of the
-point in latitude/longitude besides the height of the point.
-
-Export your data in a CSV file with a header having ID, longitude, latitude, and
-WGS_1984 height measurements.
+-h, --help
+    Display this help message.
 
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN
 

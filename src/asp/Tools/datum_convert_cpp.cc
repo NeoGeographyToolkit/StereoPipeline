@@ -253,7 +253,7 @@ BBox2 get_output_projected_bbox(GeoReference     const& input_georef,
   return output_bbox;
 }
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   string input_dem, output_dem, output_datum, input_datum,
          target_srs_string, input_grid, output_info_string;
   double nodata_value;
@@ -280,7 +280,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
     ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
      "Output using double precision (64 bit) instead of float (32 bit).");
 
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

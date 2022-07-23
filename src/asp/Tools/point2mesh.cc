@@ -39,7 +39,7 @@ using namespace vw;
 using namespace vw::cartography;
 namespace po = boost::program_options;
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   Options() {};
   // Input
   std::string pointcloud_filename, texture_file_name;
@@ -220,7 +220,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("precision", po::value(&opt.precision)->default_value(17),
      "How many digits of precision to save.");
   
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

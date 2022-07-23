@@ -529,7 +529,7 @@ void asp::set_asp_env_vars() {
 // User should only put the arguments to their application in the
 // usage_comment argument. We'll finish filling in the repeated information.
 po::variables_map
-asp::check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOptions& opt,
+asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
                         po::options_description const& public_options,
                         po::options_description const& all_public_options,
                         po::options_description const& positional_options,
@@ -540,8 +540,8 @@ asp::check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOption
 
   unregistered.clear();
 
-  // Ensure that opt gets all needed fields from vw::cartography::GdalWriteOptionsDescription().
-  // This is needed not only for stereo, but for all tools using vw::cartography::GdalWriteOptions.
+  // Ensure that opt gets all needed fields from vw::GdalWriteOptionsDescription().
+  // This is needed not only for stereo, but for all tools using vw::GdalWriteOptions.
   stereo_settings().initialize(opt);
 
   // Finish filling in the usage_comment.
@@ -612,31 +612,8 @@ asp::check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOption
     vw::vw_throw( vw::ArgumentErr() << ostr.str() );
   }
 
-  // If the user did not set the number of threads, use what is set in
-  // .vwrc.
-  if (opt.num_threads <= 0)
-    opt.num_threads = vw_settings().default_num_threads();
-
-  // Print the message below just once per process.
-  static bool verbose = true;
-  if (verbose){
-    vw::vw_out() << "\t--> Setting number of processing threads to: "
-                 << opt.num_threads << std::endl;
-    verbose = false;
-  }
-
-  // Here we ensure that opt.num_threads and default_num_threads()
-  // are consistent among themselves.
-  vw::vw_settings().set_default_num_threads(opt.num_threads);
-
-  boost::algorithm::to_upper( opt.tif_compress );
-  boost::algorithm::trim( opt.tif_compress );
-  VW_ASSERT( opt.tif_compress == "NONE" || opt.tif_compress == "LZW" ||
-             opt.tif_compress == "DEFLATE" || opt.tif_compress == "PACKBITS",
-             ArgumentErr() << "\"" << opt.tif_compress
-             << "\" is not a valid options for TIF_COMPRESS." );
-  opt.gdal_options["COMPRESS"] = opt.tif_compress;
-
+  opt.setVwSettingsFromOpt();
+  
   return vm;
 }
 

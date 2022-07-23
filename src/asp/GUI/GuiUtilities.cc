@@ -128,7 +128,7 @@ QRect bbox2qrect(BBox2 const& B){
                round(B.width()), round(B.height()));
 }
 
-bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
+bool write_hillshade(vw::GdalWriteOptions const& opt,
                      double azimuth, double elevation,
                      std::string const& input_file,
                      std::string      & output_file) {
@@ -352,7 +352,7 @@ void findClosestPolyEdge(// inputs
   return;
 }
 
-void imageData::read(std::string const& name_in, vw::cartography::GdalWriteOptions const& opt,
+void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt,
                      int display_mode){
   m_opt = opt;
   if (display_mode == REGULAR_VIEW) {
@@ -565,7 +565,7 @@ void chooseFilesDlg::keyPressEvent(QKeyEvent *event) {
 }
 
 DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& image_file,
-                             vw::cartography::GdalWriteOptions const& opt,
+                             vw::GdalWriteOptions const& opt,
                              int top_image_max_pix, int subsample):
   m_opt(opt), m_num_channels(0), m_rows(0), m_cols(0), m_type(UNINIT) {
   

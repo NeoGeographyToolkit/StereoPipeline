@@ -214,8 +214,20 @@ Command-line options
     Options to pass directly to GNU Parallel. Example:
     "--sshdelay 1 --controlmaster".
 
--h, --help
-    Display the help message.
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
 
 -v, --version
     Display the version of software.
+
+-h, --help
+    Display this help message.

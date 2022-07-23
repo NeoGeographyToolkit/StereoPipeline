@@ -36,7 +36,7 @@ namespace po = boost::program_options;
 // two text files (x and y values), with as many entries as there
 // were columns in the disparity.
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   std::string disparity, dx, dy;
   int beg_row, end_row;
   Vector2     remove_outliers_params;
@@ -52,7 +52,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("save-no-metadata", po::bool_switch(&opt.save_no_metadata)->default_value(false),
      "Do not save in the output correction file the start and end image columns (not saving this makes processing easier).");
   
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
   
   po::options_description positional("");
   positional.add_options()

@@ -143,7 +143,7 @@ namespace vw { namespace gui {
   // in ASP to handle images with variable numbers of channels.
   // TODO: Add the case when multi-channel images also have float or double pixels
   struct DiskImagePyramidMultiChannel{
-    vw::cartography::GdalWriteOptions m_opt;
+    vw::GdalWriteOptions m_opt;
     vw::mosaic::DiskImagePyramid<double>               m_img_ch1_double;
     vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>> m_img_ch2_uint8;
     vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 3>> m_img_ch3_uint8;
@@ -154,8 +154,8 @@ namespace vw { namespace gui {
 
     // Constructor
     DiskImagePyramidMultiChannel(std::string const& image_file = "",
-                                 vw::cartography::GdalWriteOptions const&
-                                 opt = vw::cartography::GdalWriteOptions(),
+                                 vw::GdalWriteOptions const&
+                                 opt = vw::GdalWriteOptions(),
                                  int top_image_max_pix = 1000*1000,
                                  int subsample = 2);
 
@@ -181,7 +181,7 @@ namespace vw { namespace gui {
   /// A class to keep all data associated with an image file
   struct imageData{
     std::string      name, hillshaded_name; // TODO(oalexan1): Think more here
-    vw::cartography::GdalWriteOptions m_opt;
+    vw::GdalWriteOptions m_opt;
     bool             has_georef;
     vw::cartography::GeoReference georef;
     BBox2            image_bbox;
@@ -201,7 +201,7 @@ namespace vw { namespace gui {
     imageData(): m_display_mode(REGULAR_VIEW) {}
     
     /// Load an image from disk into img and set the other variables.
-    void read(std::string const& image, vw::cartography::GdalWriteOptions const& opt,
+    void read(std::string const& image, vw::GdalWriteOptions const& opt,
               int display_mode = REGULAR_VIEW);
 
     bool isPoly() const { return asp::has_shp_extension(name); }
@@ -216,7 +216,7 @@ namespace vw { namespace gui {
   QRect bbox2qrect(BBox2 const& B);
 
   /// Save a hillshaded file
-  bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
+  bool write_hillshade(vw::GdalWriteOptions const& opt,
                        double azimuth, double elevation,
                        std::string const& input_file,
                        std::string      & output_file);
@@ -226,7 +226,7 @@ namespace vw { namespace gui {
   // instead the filename in the current directory. Return the name
   // of the output file.
   template<class PixelT>
-  std::string write_in_orig_or_curr_dir(vw::cartography::GdalWriteOptions const& opt,
+  std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
                                         ImageViewRef<PixelT> & image,
                                         std::string const& input_file,
                                         std::string const& suffix,
@@ -541,7 +541,7 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
 }
 
 template<class PixelT>
-std::string write_in_orig_or_curr_dir(vw::cartography::GdalWriteOptions const& opt,
+std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
                                       ImageViewRef<PixelT> & image,
                                       std::string const& input_file,
                                       std::string const& suffix,

@@ -315,8 +315,9 @@ std::string processed_proj4(std::string const& srs){
   return georef.overall_proj4_str();
 }
 
-struct Options: vw::cartography::GdalWriteOptions {
-  string dem_list_file, out_prefix, target_srs_string, output_type, tile_list_str, this_dem_as_reference;
+struct Options: vw::GdalWriteOptions {
+  string dem_list_file, out_prefix, target_srs_string,
+    output_type, tile_list_str, this_dem_as_reference;
   vector<string> dem_files;
   double tr, geo_tile_size;
   bool   has_out_nodata, force_projwin;
@@ -694,7 +695,7 @@ public:
       block_write_gdal_image(os.str(), local_wts,
 			     has_georef, georef,
 			     has_nodata, -100,
-			     vw::cartography::GdalWriteOptions(),
+			     vw::GdalWriteOptions(),
 			     TerminalProgressCallback("asp", ""));
 #endif
 
@@ -807,8 +808,8 @@ public:
           }
 
           // Update the output value according to the commanded mode
-          if ((m_opt.first && is_nodata)                        ||
-               m_opt.last                                         ||
+          if ((m_opt.first && is_nodata)                      ||
+               m_opt.last                                     ||
                (m_opt.min && (val < tile(c, r) || is_nodata)) ||
                (m_opt.max && (val > tile(c, r) || is_nodata)) ||
                m_opt.median || m_opt.nmad || 
@@ -1082,7 +1083,7 @@ public:
 	block_write_gdal_image(os.str(), weight_vec[clip_iter],
 			       has_georef, crop_georef,
 			       has_nodata, -100,
-			       vw::cartography::GdalWriteOptions(),
+			       vw::GdalWriteOptions(),
 			       TerminalProgressCallback("asp", ""));
       }
 #endif
@@ -1330,6 +1331,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Number of threads to use.")
     ("help,h", "Display this help message.");
 
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
+  
   po::options_description positional("");
   po::positional_options_description positional_desc;
 

@@ -56,7 +56,7 @@ enum BACameraType {BaCameraType_Pinhole    = 0,
                   };
 
 /// The big bag of parameters needed by bundle_adjust.cc
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, input_prefix, stereo_session,
     cost_function, match_files_prefix, clean_match_files_prefix,

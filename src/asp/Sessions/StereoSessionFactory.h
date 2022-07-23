@@ -32,7 +32,7 @@ class StereoSessionFactory {
   public:
     /// Given the input arguments, selects the correct type of StereoSession and initializes it.
     static StereoSession* create(std::string & session_type, // in-out variable
-                                 vw::cartography::GdalWriteOptions const& options,
+                                 vw::GdalWriteOptions const& options,
                                  std::string const& left_image_file   = "",
                                  std::string const& right_image_file  = "",
                                  std::string const& left_camera_file  = "",

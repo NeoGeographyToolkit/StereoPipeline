@@ -47,7 +47,7 @@ using namespace std;
 using namespace vw::cartography;
 
 
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   string image_file, camera_file, stereo_session, bundle_adjust_prefix,
          datum_str, dem_file, target_srs_string, output_kml;
   bool quick;
@@ -74,7 +74,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dem-file",   po::value(&opt.dem_file)->default_value(""),
      "Instead of using a longitude-latitude-height box, sample the surface of this DEM.");
 
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

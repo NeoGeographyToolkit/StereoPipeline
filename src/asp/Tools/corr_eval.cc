@@ -29,7 +29,7 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   std::string left_image, right_image, disparity, output_prefix, metric;
   vw::Vector2i kernel_size;
   bool round_to_int;
@@ -55,7 +55,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("round-to-int", po::bool_switch(&opt.round_to_int)->default_value(false),
      "Round the disparity to integer and skip interpolation when finding the right image patches. This make the program faster by a factor of about 2, without changing significantly the output image.");
 
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
   
   po::options_description positional("");
   positional.add_options()

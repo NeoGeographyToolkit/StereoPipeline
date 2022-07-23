@@ -108,7 +108,7 @@ public:
 
 };
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   // Input
   std::string reference_spheroid, datum;
   std::string pointcloud_file;
@@ -149,7 +149,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("num-samples-for-outlier-estimation", po::value(&opt.num_samples)->default_value(1000000),
      "Approximate number of samples to pick from the input cloud to find the outlier cutoff based on triangulation error.");
   
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

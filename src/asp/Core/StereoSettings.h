@@ -22,16 +22,17 @@
 #ifndef __ASP_CORE_STEREO_SETTINGS_H__
 #define __ASP_CORE_STEREO_SETTINGS_H__
 
-#include <asp/Core/Common.h>
 #include <boost/program_options.hpp>
 #include <boost/program_options/detail/config_file.hpp>
+#include <vw/FileIO/GdalWriteOptions.h>
+#include <asp/Core/Common.h>
 
 namespace asp {
 
   class StereoSession; // Forward declaration
 
-  /// 'Global Scoped' Variables
-  struct ASPGlobalOptions : vw::cartography::GdalWriteOptions {
+  /// 'Global scoped' variables
+  struct ASPGlobalOptions : vw::GdalWriteOptions {
     // Input
     std::string in_file1,  in_file2,
                 cam_file1, cam_file2,
@@ -63,13 +64,13 @@ namespace asp {
   struct UndocOptsDescription     : public boost::program_options::options_description { UndocOptsDescription    (); };
 
   boost::program_options::options_description
-  generate_config_file_options( vw::cartography::GdalWriteOptions& opt );
+  generate_config_file_options( vw::GdalWriteOptions& opt );
 
   /// Structure holding variables
   class StereoSettings {
   public:
     StereoSettings();
-    void initialize(vw::cartography::GdalWriteOptions& opt);
+    void initialize(vw::GdalWriteOptions& opt);
     void validate();
     void write_copy( int argc, char *argv[],
                      std::string const& input_file,

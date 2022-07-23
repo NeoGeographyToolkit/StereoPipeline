@@ -51,14 +51,14 @@ namespace asp {
       stereo_settings_ptr->initialized_stereo_settings = true;
 
       // Initialize the members of StereoSettings().
-      vw::cartography::GdalWriteOptions opt;
+      vw::GdalWriteOptions opt;
       stereo_settings_ptr->initialize(opt);
     }
 
     return *stereo_settings_ptr;
   }
 
-  void StereoSettings::initialize(vw::cartography::GdalWriteOptions & opt){
+  void StereoSettings::initialize(vw::GdalWriteOptions & opt){
     // This is a bug fix. Ensure that all members of this class as
     // well as opt itself are always initialized before using them,
     // whether in stereo, other ASP applications, or the unit
@@ -501,9 +501,9 @@ namespace asp {
   }
 
   po::options_description
-  generate_config_file_options(vw::cartography::GdalWriteOptions& opt) {
+  generate_config_file_options(vw::GdalWriteOptions& opt) {
     po::options_description cfg_options;
-    cfg_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+    cfg_options.add(vw::GdalWriteOptionsDescription(opt));
     cfg_options.add(PreProcessingDescription());
     cfg_options.add(CorrelationDescription());
     cfg_options.add(SubpixelDescription());

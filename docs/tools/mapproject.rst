@@ -165,8 +165,12 @@ Command-line options for mapproject:
 --suppress-output
     Suppress output from sub-processes.
 
---threads <int (default: 8)>
-    Select the number of processors (threads) to use.
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB, for each process.
 
 --no-bigtiff
     Tell GDAL to not create bigtiffs.

@@ -258,7 +258,7 @@ void parse_values(std::string list, std::vector<T> & values){
     values.push_back(val);
 }
 
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   std::string image_file, camera_file, lon_lat_values_str, pixel_values_str, datum_str,
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
     stereo_session, bundle_adjust_prefix, parsed_cam_ctr_str, parsed_cam_quat_str;
@@ -314,7 +314,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust when providing an input camera.");
   
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

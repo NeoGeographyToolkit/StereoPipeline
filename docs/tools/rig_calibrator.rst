@@ -35,7 +35,8 @@ Capabilities
   Yet, a surface seen in one sensor should at some point be seen 
   also in other sensors.
 - The intrinsics of the sensors and each camera image pose can also be
-  optimized without the rig assumption. In that case the transforms
+  optimized without the rig assumption. Then the sensors can acquire data
+  at unrelated times (e.g.,, years apart). In that case the transforms
   among the sensors on the rig are not modeled. 
 - The sensors on the rig may acquire data simultaneously or not. In
   the latter case one sensor is expected to acquire data frequently
@@ -94,18 +95,18 @@ Configuration file
 What is known about the rig should be specified in a plain text file,
 with the following syntax::
 
-  # Lines starting this way are comments
-  ref_sensor_name: ref_cam
+  # Anything after the pound sign is a comment
+  ref_sensor_name: <string>
 
   # For each sensor on the rig, specify the following:
   sensor_name: <string>
   focal_length: <double> # units of pixel
-  optical_center: <double, double> # units of pixel
+  optical_center: <double double> # units of pixel
   distortion_type: <string> # 'none', 'fisheye', or 'radtan'
   distortion_coeffs: <n doubles> # n = 0: none, 1: fisheye, 4/5: radtan
   image_size: <int, int>
-  distorted_crop_size: <int, int> 
-  undistorted_image_size: <int, int> 
+  distorted_crop_size: <int int> 
+  undistorted_image_size: <int int> 
   ref_to_sensor_transform: <12 doubles>
   depth_to_image_transform: <12 doubles>
   ref_to_sensor_timestamp_offset: <double>
@@ -142,7 +143,7 @@ been computed and optimized.
 
 Such a file can be read with the option ``--rig_config``.
 
-Example (only one of the ``N`` sensors is shown)::
+Example (only one of the *N* sensors is shown)::
 
   ref_sensor_name: nav_cam
 
@@ -271,7 +272,7 @@ actual image dimensions to reduce the worst effects of peripheral
 distortion.
 
 One could pass in ``--num_overlaps 10`` to get more interest point 
-matches than that Theia finds, but this is usually not necessary.
+matches than what Theia finds, but this is usually not necessary.
 
 See :numref:`rig_calibrator_command_line` for the full list of options.
 
@@ -325,12 +326,12 @@ Notes
 ^^^^^
 
 Optimizing the camera poses (without control points or a preexisting
-mesh constraint) can change the scale of things. 
+mesh constraint) can change the scale and orientation of the camera
+set.
 
-The output directory of each tool invocation will write the obtained rig
-configuration and the optimized camera poses for all images. These can be
-used as inputs for a subsequent invocation, if needed to fine-tune
-things.
+The output directory will have the optimized rig configuration and
+camera poses for all images. These can be used as inputs for a
+subsequent invocation, if needed to fine-tune things.
 
 .. _rig_calibrator_registration:
 
@@ -345,17 +346,17 @@ of these points in at least two images.
 To find the pixel coordinates, open a subset of the reference
 camera images in Hugin, such as::
 
-    hugin <image dir>/*.jpg
+    hugin <image dir>/<ref cam>/*.jpg
 
 It will ask to enter a value for the FoV (field of view). That value
 is not important since we won't use it. One can input 10 degrees,
 for example. 
 
 Go to the "Expert" interface, choose a couple of distinct images, and
-click on a desired control point in both images.  Make sure the
-left and right image are not the same or highly similar, as that may
-result in poor triangulation and registration. Then repeat this
-process for all control points.
+click on a desired control point in both images.  Make sure the left
+and right image are not the same or highly similar, as that may result
+in poor triangulation and registration. Add that point. Then repeat
+this process for all control points.
 
 Save the Hugin project to disk. Create a separate text file which
 contains the world coordinates of the control points picked earlier,
@@ -432,13 +433,17 @@ the absolute differences between the depth clouds and mesh
 (depth_tri), and between mesh points and triangulated points
 (mesh_tri), in x, y, and z, respectively. The ``mesh`` residuals will
 be printed only if a mesh is passed on input and if the mesh-related
-weights are positive. Some outliers are unavoidable, hence some of
-these numbers can be big even if the calibration overall does well
-(the robust threshold set via ``--robust_threshold`` does not allow
-outliers to dominate).
+weights are positive. 
 
+Some outliers are unavoidable, hence some of these numbers can be big
+even if the calibration overall does well (the robust threshold set
+via ``--robust_threshold`` does not allow outliers to dominate). See
+the option ``--max_reprojection_error`` for filtering outliers. It is
+best to not filter them too aggressively unless one has very high
+confidence in the modeling of the cameras.
+ 
 Source of errors can be, as before, inaccurate intrinsics, camera
-poses, or insufficiently good modeling of the cameras. 
+poses, or insufficiently good modeling of lens distortion.
 
 When each rig sensor has its own clock, or acquires images at is own
 rate, the discrepancy among the clocks (if the timestamp offsets are
@@ -479,7 +484,7 @@ If it performs poorly, it may be because:
 
 - The options ``--camera_poses_to_float``, ``--intrinsics_to_float``,
   ``--depth_to_image_transforms_to_float``,
-  ``--rig_transforms_to_float`` are not not fully specified and hence
+  ``--rig_transforms_to_float`` are not fully specified and hence
   some optimizations do not take place.
 
 For understanding issues, it is strongly suggested to drastically
@@ -501,10 +506,13 @@ The depth point clouds (for the depth component of cameras, if
 applicable) are saved to disk in binary. The first three entries are
 of type int32, having the number of rows, columns and channels (whose
 value is 3). Then, one iterates over rows, for each row iterates over
-columns, and three float 32 values corresponding to x, y, z
+columns, and three float32 values corresponding to x, y, z
 coordinates are read or written. If all three values are zero, this
 point is considered to be invalid, but has to be read or written
 to ensure there exists one depth point for each corresponding image pixel.
+
+Note that the float32 datatype has limited precision, but is adequate
+except for when the measurements are taken from orbit.
 
 .. _rig_calibrator_command_line:
 

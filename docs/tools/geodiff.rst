@@ -37,9 +37,6 @@ Example with a DEM and a CSV file::
 
 Command-line options for ``geodiff``:
 
--h, --help
-    Display the help message.
-
 -o, --output-prefix <filename>
     Specify the output prefix.
 
@@ -71,11 +68,23 @@ Command-line options for ``geodiff``:
     The no-data value to use, unless present in the DEM geoheaders.
 
 --threads <integer (default: 0)>
-    Set the number of threads to use. 0 means use as many threads
-    as there are cores.
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
 
 --no-bigtiff
     Tell GDAL to not create bigtiffs.
 
---tif-comp <None|LZW|Deflate|Packbits>
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.

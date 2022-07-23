@@ -145,7 +145,7 @@ bool MainWindow::sanityChecks(int num_images) {
   return true;
 }
 
-MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
+MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
                        std::vector<std::string> const& images,
                        std::string& output_prefix,
                        int grid_cols,

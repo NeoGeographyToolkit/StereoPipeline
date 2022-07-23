@@ -626,9 +626,12 @@ Command-line options for bundle_adjust
 
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined
-    in the program or in the ``.vwrc`` file. Note that when using more
+    in the program or in ``~/.vwrc``. Note that when using more
     than one thread and the Ceres option the results will vary
     slightly each time the tool is run.
+
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB, for each process.
 
 -v, --version
     Display the version of software.

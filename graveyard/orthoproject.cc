@@ -36,7 +36,7 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   Options() : lo(0), hi(0), mark_no_processed_data(false) {
     nodata_value = mpp = ppd = std::numeric_limits<double>::quiet_NaN();
   }
@@ -64,7 +64,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("mark-no-processed-data", po::bool_switch(&opt.mark_no_processed_data)->default_value(false),
      "If to set no-data pixels in the DEM which project onto the camera to black.");
 
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

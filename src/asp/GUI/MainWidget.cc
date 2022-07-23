@@ -180,7 +180,7 @@ namespace vw { namespace gui {
   }
 
   MainWidget::MainWidget(QWidget *parent,
-                         vw::cartography::GdalWriteOptions const& opt,
+                         vw::GdalWriteOptions const& opt,
                          int beg_image_id, int end_image_id, int base_image_id,
                          std::vector<imageData> & images, // will be aliased
                          std::string & output_prefix,     // will be aliased

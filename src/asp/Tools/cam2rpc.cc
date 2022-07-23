@@ -48,7 +48,7 @@ using namespace vw::camera;
 using namespace std;
 using namespace vw::cartography;
 
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   double penalty_weight;
   string image_file, camera_file, output_rpc, stereo_session, bundle_adjust_prefix,
     datum_str, dem_file, target_srs_string;
@@ -104,7 +104,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("gsd",     po::value(&opt.gsd)->default_value(-1),
      "Expected resolution on the ground, in meters. This is needed for SETSM.");
 
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

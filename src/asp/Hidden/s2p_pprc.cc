@@ -44,7 +44,7 @@ using namespace vw::cartography;
 
 bool input_nodata_value_was_set = false;
 
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   int crop_y_left, crop_y_right;
   double input_nodata_value; // override the nodata value from the input files
   std::string left_in, right_in, left_out, right_out;
@@ -63,7 +63,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      po::value(&opt.input_nodata_value)->default_value(-std::numeric_limits<float>::max()),
      "Override the nodata-value from the input files.");
   
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

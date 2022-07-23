@@ -178,8 +178,11 @@ Command-line options for cam_gen:
     bundle_adjust when providing an input camera.
 
 --threads <integer (default: 0)>
-    Set the number of threads to use. 0 means use as many threads
-    as there are cores.
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
 
 --tile-size <integer (default: 256 256)>
     Image tile size used for multi-threaded processing.
@@ -187,7 +190,7 @@ Command-line options for cam_gen:
 --no-bigtiff
     Tell GDAL to not create bigtiffs.
 
---tif-compress <None|LZW|Deflate|Packbits>
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.
 
 -v, --version

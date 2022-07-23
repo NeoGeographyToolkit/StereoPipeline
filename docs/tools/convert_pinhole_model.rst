@@ -43,10 +43,7 @@ convert to BrownConradyDistortion)::
      convert_pinhole_model input.tsai --output-type BrownConradyDistortion \
        --image-size "5000 4000" -o output.tsai
 
-Command-line options for convert_pinhole_model:
-
--h, --help
-    Display this help message.
+Command-line options for ``convert_pinhole_model``:
 
 -o, --output-file <filename>
     Specify the output file. It is expected to have the .tsai
@@ -70,3 +67,25 @@ Command-line options for convert_pinhole_model:
 --image-size <"int int" (default: "")>
     Image width and height, specified as two numbers in quotes and separated 
     by a space, unless the input image file is provided.
+
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.

@@ -368,8 +368,6 @@ Command line options for ``stereo_gui``
 Listed below are the options specific to ``stereo_gui``. It will
 accept all other ``parallel_stereo`` options as well.
 
--h, --help  Display this help message.
-
 --grid-cols <integer (default: 1)>
     Display images as tiles on a grid with this many columns.
 
@@ -435,3 +433,25 @@ accept all other ``parallel_stereo`` options as well.
     the inputs, to be able to load them fast later. If used with
     ``--hillshade``, also build the hillshaded images and their
     multi-resolution pyramids.
+
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.

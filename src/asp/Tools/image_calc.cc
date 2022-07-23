@@ -500,7 +500,7 @@ public: // Functions
 
 }; // End class ImageCalcView
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   Options() : out_nodata_value(-1) {}
   // Input
   std::vector<std::string> input_files;
@@ -557,7 +557,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("longitude-offset",  po::value(&opt.lon_offset)->default_value(nan), "Add this value to the longitudes in the geoheader (can be used to offset the longitudes by 360 degrees).")
     ("help,h",            "Display this help message.");
 
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()

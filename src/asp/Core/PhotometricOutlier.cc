@@ -39,7 +39,7 @@ namespace fs = boost::filesystem;
 using namespace vw;
 using namespace asp;
 
-void asp::photometric_outlier_rejection( vw::cartography::GdalWriteOptions const& opt,
+void asp::photometric_outlier_rejection( vw::GdalWriteOptions const& opt,
                                          std::string const& prefix,
                                          std::string const& input_disparity,
                                          std::string & output_disparity,

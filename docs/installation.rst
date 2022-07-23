@@ -24,7 +24,7 @@ Below is an example::
   [general]
   default_num_threads = 16
   write_pool_size = 40
-  system_cache_size = 1024000000 # ~ 1 GB
+  system_cache_size = 1073741824 # ~ 1 GB
   
   # The following integers are associated with the log levels
   # throughout the Vision Workbench.  Use these in the log rules
@@ -105,8 +105,8 @@ Performance settings
    will let rows of tiles to be written out of order, while tiles
    inside a row must be written in order. Because of the previous
    constraint, after a tile is rasterized it might spend some time
-   waiting in the aEUR~write pool' before it can be written to disk. If
-   the aEUR~write pool' fills up, only the next tile in order can be
+   waiting in the write pool before it can be written to disk. If
+   the write pool fills up, only the next tile in order can be
    rasterized. That makes Stereo Pipeline perform like it is only
    using a single processor.
 
@@ -116,19 +116,23 @@ Performance settings
    image around in memory while they wait to be written. This number
    should be larger than the number of threads, perhaps by about 20.
 
-``system_cache_size`` (default=805306368)
+``system_cache_size`` (default=1073741824)
    Accessing a file from the hard drive can be very slow. It is
    especially bad if an application needs to make multiple passes over
    an input file. To increase performance, Vision Workbench will
    usually leave an input file stored in memory for quick access. This
    file storage is known as the 'system cache' and its max size is
-   dictated by ``system_cache_size``. The default value is 768 MB.
+   dictated by ``system_cache_size``. The default value is 1 GB.
 
    Setting this value too high can cause your application to crash. It
    is usually recommend to keep this value around 1/4 of the maximum
    available memory on the system. The units of this property is in
    bytes.
 
+   All tools shipped with ASP have the option ``--cache-size-mb`` to
+   override the value of ``system_cache_size``. Its default value is
+   1024 MB (1 GB).
+ 
    The recommendations for these values are based on use of the block
    matching algorithm in ASP. When using memory intensive algorithms
    such as SGM you may wish to lower some of these values (such as the

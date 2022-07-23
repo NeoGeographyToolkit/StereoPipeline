@@ -18,9 +18,6 @@ Usage::
 
 Command-line options for pansharp:
 
---help
-    Display the help message.
-
 --min-value
     Manually specify the bottom of the input data range.
 
@@ -35,3 +32,25 @@ Command-line options for pansharp:
 
 --nodata-value
     The nodata value to use for the output RGB file.
+
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.

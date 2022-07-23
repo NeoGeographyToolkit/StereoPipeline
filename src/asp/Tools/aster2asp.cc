@@ -55,7 +55,7 @@ using namespace vw;
 using namespace std;
 using namespace vw::cartography;
 
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   string input_dir, output_prefix; 
   double min_height, max_height;
   int num_samples;
@@ -76,7 +76,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("penalty-weight",     po::value(&opt.penalty_weight)->default_value(0.1),
      "Penalty weight to use to keep the higher-order RPC coefficients small. Higher penalty weight results in smaller such coefficients.");
 
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

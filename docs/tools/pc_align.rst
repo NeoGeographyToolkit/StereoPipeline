@@ -629,10 +629,25 @@ Command-line options for pc_align
     over-riding the command-line options.
 
 --threads <integer (default: 0)>
-    Set the number threads to use. 0 means use the default as set
-    by OpenMP. Only some parts of the algorithm are multi-threaded.
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
 
--h, --help 
-    Display the help message.
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.
 
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

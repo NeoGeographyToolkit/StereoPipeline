@@ -214,7 +214,7 @@ private:
   double m_weight;
 }; // End class SmoothnessError
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   std::string disparities, out_prefix, crop_win;
   double disparity_threshold, offset_weight, smoothness_weight, max_offset;
   int num_iterations, sample_rate;
@@ -242,7 +242,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("output-prefix,o",  po::value(&opt.out_prefix),
      "Prefix for output filenames.");
 
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
   
   po::options_description positional("");
   po::positional_options_description positional_desc;

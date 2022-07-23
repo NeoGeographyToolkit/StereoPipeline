@@ -60,6 +60,22 @@ Command-line options:
     The weight showing the proportion of the SfS DEM in the blend with
     the LOLA DEM (1 is for purely SfS and 0 is for purely LOLA).
 
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
 -v, --version
     Display the version of software.
 

@@ -3,17 +3,26 @@
 colormap
 --------
 
-The ``colormap`` tool reads a DEM and writes a corresponding color-coded
-height image that can be used for visualization.
+The ``colormap`` tool reads a DEM or some other single-channel image,
+and writes a corresponding color-coded image that can be used
+for visualization.
 
 Usage::
 
     colormap [options] <input DEM>
 
-Command-line options for ``colormap``:
+Example::
 
---help
-    Display a help message.
+    colormap --min -5 --max 10 image.tif
+
+This will produce ``image_CMAP.tif``, with the "hottest" color
+corresponding to pixel values at least 10, and the "coolest" color
+representing pixel values less than or equal to -5.
+
+See :numref:`visualising` for a discussion of ASP's visualization
+tools, including this one.
+
+Command-line options for ``colormap``:
 
 -s, --shaded-relief-file <filename>
     Specify a shaded relief image (grayscale) to apply to the
@@ -44,3 +53,25 @@ Command-line options for ``colormap``:
 
 --legend
     Generate an unlabeled legend, will be saved as ``legend.png``.
+
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.

@@ -52,7 +52,7 @@ namespace vw { namespace gui {
     Q_OBJECT
 
   public:
-    MainWindow(vw::cartography::GdalWriteOptions const& opt,
+    MainWindow(vw::GdalWriteOptions const& opt,
                std::vector<std::string> const& images,
                std::string& output_prefix, // non-const, so we can change it
                int grid_cols,
@@ -134,7 +134,7 @@ namespace vw { namespace gui {
 
     void viewPairwiseMatchesOrCleanMatches();
     
-    vw::cartography::GdalWriteOptions m_opt;
+    vw::GdalWriteOptions m_opt;
     std::string               m_output_prefix;
     double                    m_widRatio;    // ratio of sidebar to entire win wid
     std::vector<MainWidget*>  m_widgets;     // one of these for each seperate image pane.

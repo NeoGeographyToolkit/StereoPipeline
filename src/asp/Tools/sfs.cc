@@ -1235,7 +1235,7 @@ void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
   }
 }
 
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   std::string input_dems_str, out_prefix, stereo_session, bundle_adjust_prefix;
   std::vector<std::string> input_dems, input_images, input_cameras;
   std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposure_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list;
@@ -3889,7 +3889,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("camera-position-step-size", po::value(&opt.camera_position_step_size)->default_value(1.0),
      "Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).");
 
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

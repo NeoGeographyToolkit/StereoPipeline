@@ -212,7 +212,7 @@ inline pansharp_view( ImageGrayT  const& gray_image,
 
 //-------------------------------------------------------------------------------------
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   string gray_file,
          gray_xml_file,
          color_file,
@@ -240,7 +240,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              "Path to a WV XML file for the color image.  Can be used to obtain the geo data.")
     ("nodata-value", po::value(&opt.nodata_value)->default_value(DEFAULT_NODATA),
              "The no-data value to use, unless present in the color image header.");
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

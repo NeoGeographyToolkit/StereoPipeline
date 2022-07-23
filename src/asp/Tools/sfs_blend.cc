@@ -66,7 +66,7 @@ GeoReference read_georef(std::string const& file){
   return geo;
 }
 
-struct Options: vw::cartography::GdalWriteOptions {
+struct Options: vw::GdalWriteOptions {
   string sfs_dem, lola_dem, max_lit_image_mosaic, output_dem, output_weight;
   double image_threshold, weight_blur_sigma, lit_blend_length,
     shadow_blend_length, min_blend_size;
@@ -296,7 +296,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("output-dem", po::value(&opt.output_dem), "The blended output DEM to save.")
     ("output-weight", po::value(&opt.output_weight), "The weight showing the proportion of the SfS DEM in the blend with the LOLA DEM (1 is for purely SfS and 0 is for purely LOLA).");
 
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   po::positional_options_description positional_desc;
@@ -462,7 +462,7 @@ int main(int argc, char * argv[]){
   bool has_nodata = false;
   vw::cartography::GeoReference georef;
   bool has_georef = vw::cartography::read_georeference(georef, dem_file);
-  vw::cartography::GdalWriteOptions opt;
+  vw::GdalWriteOptions opt;
 
   std::string wts_file = "weights" + id + ".tif";
   vw_out() << "Writing: " << wts_file << std::endl;

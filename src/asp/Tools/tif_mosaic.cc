@@ -355,7 +355,7 @@ public:
   }
 }; // End class TifMosaicView
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   std::string img_data, output_image, output_type;
   int band;
   bool has_input_nodata_value, has_output_nodata_value, fix_seams;
@@ -367,7 +367,7 @@ struct Options : vw::cartography::GdalWriteOptions {
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
   general_options.add_options()
     ("image-data", po::value(&opt.img_data)->default_value(""),
          "Information on the images to mosaic.")

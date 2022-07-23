@@ -182,7 +182,7 @@ void TestThinPlateSplineTransform() {
   return;
 }
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
 };
 
 using namespace vw;

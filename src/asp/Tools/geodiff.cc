@@ -55,7 +55,7 @@ public:
   }
 };
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   string dem1_file, dem2_file, output_prefix, csv_format_str, csv_proj4_str;
   double nodata_value;
 
@@ -76,7 +76,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("csv-format",     po::value(&opt.csv_format_str)->default_value(""),
      asp::csv_opt_caption().c_str())
     ("csv-proj4",      po::value(&opt.csv_proj4_str)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV file. If not specified, it will be borrowed from the DEM.");
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()

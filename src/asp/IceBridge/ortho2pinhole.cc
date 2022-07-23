@@ -69,7 +69,7 @@ using namespace vw::camera;
 typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   std::string raw_image, ortho_image, input_cam, output_cam, reference_dem, camera_estimate;
   double camera_height, orthoimage_height, ip_inlier_factor, max_translation;
   int    ip_per_tile, ip_detect_method, min_ip;
@@ -944,7 +944,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("crop-reference-dem", po::bool_switch(&opt.crop_reference_dem)->default_value(false)->implicit_value(true),
      "Crop the reference DEM to a generous area to make it faster to load.");
 
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
   
   po::options_description positional("");
   positional.add_options()

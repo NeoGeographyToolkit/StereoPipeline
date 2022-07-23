@@ -98,7 +98,6 @@ def handleArguments(args):
     # Return the two lists
     return (requiredList, optionsList)
 
-
 def proj_from_datum(datum_name):
     '''Generate a proj4 string from a datum name.'''
     s = '+proj=longlat +datum='+datum_name+' +no_defs'
@@ -263,14 +262,6 @@ def createShiftFile(input_proj, lonlat_bounds, options, grid_path):
 
 def main(argsIn):
 
-    if not asp_system_utils.checkIfToolExists('htdp'):
-        print("Error: Unable to find required htdp libexec tool!")
-        return -1
-
-    if not asp_system_utils.checkIfToolExists('crs2crs2grid.py'):
-        print("Error: Unable to find required htdp libexec tool!")
-        return -1
-
     try:
         # Get the help text from the base C++ tool so we can append it to the python help
         cmd = ['datum_convert_cpp',  '--help']
@@ -351,6 +342,16 @@ def main(argsIn):
         parser.print_help()
         parser.error("Need to specify --output-datum or --t_srs.\n" );
 
+    # Sanity checks (do these after the help message is printed, as otherwise, in dev mode,
+    # the htdp command cannot be found which messes up the help text).
+    if not asp_system_utils.checkIfToolExists('htdp'):
+        print("Error: Unable to find required htdp libexec tool!")
+        return -1
+
+    if not asp_system_utils.checkIfToolExists('crs2crs2grid.py'):
+        print("Error: Unable to find required htdp libexec tool!")
+        return -1
+
     options.input_image  = requiredList[0]
     options.output_image = requiredList[1]
 
@@ -405,7 +406,6 @@ def main(argsIn):
         os.remove(grid_path)
 
     print('Finished!')
-
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

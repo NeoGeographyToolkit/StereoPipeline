@@ -170,7 +170,7 @@ dem_geoid( ImageViewBase<ImageT> const& img, GeoReference const& georef,
 }
 
 /// Parameters for this tool
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   string dem_path, geoid, out_prefix;
   double nodata_value;
   bool   use_double; // Otherwise use float
@@ -216,7 +216,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
                         po::bool_switch(&opt.reverse_adjustment)->default_value(false)->implicit_value(true),
         "Go from DEM relative to the geoid to DEM relative to the ellipsoid.");
 
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

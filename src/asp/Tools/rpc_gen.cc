@@ -43,7 +43,7 @@ using namespace asp;
 using namespace xercesc;
 
 /// Structure for storing user options
-struct RPC_gen_Options : vw::cartography::GdalWriteOptions {
+struct RPC_gen_Options : vw::GdalWriteOptions {
   // Input
   std::string camera_model;
   // Settings
@@ -62,7 +62,7 @@ void handle_arguments( int argc, char *argv[], RPC_gen_Options& opt ) {
              "Penalty weight to use to keep the higher-order RPC coefficients small. Higher penalty weight results in smaller such coefficients.")
     ("lon-lat-height-box", po::value(&opt.lon_lat_height_box)->default_value(BBox3(0,0,0,0,0,0)),
              "The 3D region in which to solve for the RPC model [lon_min lat_min height_min lon_max lat_max height_max].");
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

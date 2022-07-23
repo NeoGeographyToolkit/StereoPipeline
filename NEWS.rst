@@ -19,7 +19,7 @@ New tools:
   * ``texrecon``: Creates seamless textured meshes. Based on
     the third-party MVS-Texturing project (:numref:`texrecon`).
   * ``pc_filter``: Filters outliers in point clouds created with
-    pinhole cameras and weighing inliers based on many criteria
+    pinhole cameras and weighs inliers based on many criteria
     (:numref:`pc_filter`).
 
 stereo:
@@ -55,6 +55,10 @@ stereo_gui:
     ``--pairwise-matches`` and ``--pairwise-clean-matches``).
 
 misc:
+  * Increased the cache size to 1 GB per process for each ASP
+    tool. Added the option ``--cache-size-mb``, to set this. Made this
+    clear in the warning message when the limit is hit. Document
+    this for all tools.
   * Consolidated much duplicated and mutated code for camera models.
   * Bugfix for D.tif VRTs as created by ``parallel_stereo``.
   * Allow whitespaces in stereo.default before option names. 

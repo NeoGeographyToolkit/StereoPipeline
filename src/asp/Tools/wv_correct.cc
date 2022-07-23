@@ -50,7 +50,7 @@ using namespace xercesc;
 using namespace std;
 
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options: vw::GdalWriteOptions {
   int band;
   std::string image_file, camera_file, output_image, output_type,
     dx, dy;
@@ -131,7 +131,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dy",  po::value(&opt.dy)->default_value(""), "As above, but for the y direction.")
     ("print-per-column-corrections", po::bool_switch(&opt.print_per_column_corrections)->default_value(false), "Print on standard output the per-column corrections about to apply (for multispectral images).");
     
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
   
   po::options_description positional("");
   positional.add_options()

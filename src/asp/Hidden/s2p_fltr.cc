@@ -33,7 +33,7 @@ using namespace vw;
 using namespace vw::cartography;
 using namespace std;
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   string input_RD, disp_1d_file, mask_1d_file, output_F, input_file, output_file;
   Vector2i left_crop, right_crop, shrink, grow;
   bool fill_with_nan;
@@ -58,7 +58,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
     ("fill-with-nan", po::bool_switch(&opt.fill_with_nan)->default_value(false),
      "Fill expanded images with NaN.");
 
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   //positional.add_options();

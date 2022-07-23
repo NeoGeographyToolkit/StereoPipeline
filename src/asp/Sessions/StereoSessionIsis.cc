@@ -63,6 +63,7 @@
 
 using namespace vw;
 using namespace vw::camera;
+using namespace vw::cartography;
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 
@@ -181,7 +182,7 @@ remove_isis_special_pixels(vw::ImageViewBase<ViewT> &image,
 }
   
 // This actually modifies and writes the pre-processed image.
-void write_preprocessed_isis_image(vw::cartography::GdalWriteOptions const& opt,
+void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
                                     bool will_apply_user_nodata,
                                     ImageViewRef< PixelMask <float> > masked_image,
                                     std::string const& out_file,
@@ -329,7 +330,7 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
                        std::string      & right_output_file) {
 
   std::string left_cropped_file, right_cropped_file;
-  vw::cartography::GdalWriteOptions options;
+  vw::GdalWriteOptions options;
   float left_nodata_value, right_nodata_value;
   bool has_left_georef, has_right_georef;
   vw::cartography::GeoReference left_georef, right_georef;
@@ -469,7 +470,7 @@ bool StereoSessionIsis::supports_multi_threading () const {
 }
   
 // Only used with mask_flatfield option?
-std::string write_shadow_mask(vw::cartography::GdalWriteOptions const& opt,
+std::string write_shadow_mask(vw::GdalWriteOptions const& opt,
                               std::string const& output_prefix,
                               std::string const& input_image,
                               std::string const& mask_postfix) {

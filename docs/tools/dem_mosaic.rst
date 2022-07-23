@@ -129,9 +129,6 @@ input grid even without ``--tap`` being explicitly set.)
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
--h, --help
-    Display the help message.
-
 -l, --dem-list-file <string>
     Text file listing the DEM files to mosaic, one per line.
 
@@ -266,5 +263,21 @@ Command-line options
     ``--max``, ``--median``, and ``--nmad``). A text file with the
     index assigned to each input DEM is saved as well.
 
---threads <integer (default: 4)>
-    Set the number of threads to use.
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.

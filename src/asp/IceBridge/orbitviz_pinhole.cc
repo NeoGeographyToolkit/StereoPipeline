@@ -46,7 +46,7 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   Options() {}
   // Input
   std::vector<std::string> input_files;
@@ -78,7 +78,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
           "Scale factor applied to 3D model size.")
     ("write-csv", po::bool_switch(&opt.write_csv)->default_value(false),
      "Write a csv file with the orbital data.");
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

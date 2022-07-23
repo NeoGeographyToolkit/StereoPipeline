@@ -21,9 +21,6 @@ Usage::
 
 Command-line options for orbitviz:
 
--h, --help
-    Display the help message.
-
 -o, --output <filename (default: orbit.kml)>
     The output kml file that will be written.
 
@@ -78,3 +75,26 @@ Command-line options for orbitviz:
 
 --write-csv
     Write a csv file with the orbital data.
+
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.
+

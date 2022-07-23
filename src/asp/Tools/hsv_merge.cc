@@ -54,7 +54,7 @@ replace_channel( ImageViewBase<Image1T> const& image1,
 }
 
 // Standard Arguments
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   std::string input_rgb, input_gray;
   std::string output_file;
 };
@@ -87,7 +87,7 @@ int main( int argc, char *argv[] ) {
     po::options_description general_options("Description: Mimicks hsv_merge.py by Frank Warmerdam and Trent Hare. Use it to combine results from gdaldem.");
     general_options.add_options()
       ("output-file,o", po::value(&opt.output_file), "Specify the output file.");
-    general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+    general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
     po::options_description positional_options("");
     positional_options.add_options()

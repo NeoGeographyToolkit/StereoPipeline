@@ -831,7 +831,7 @@ DemMinusPlaneView dem_minus_plane(ImageViewRef<float> const& dem,
                            use_proj_water_surface, stereographic_georef);
 }
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   std::string shapefile, dem, mask, camera, stereo_session, bathy_plane,
     water_height_measurements, csv_format_str, output_inlier_shapefile,
     bundle_adjust_prefix, output_outlier_shapefile, mask_boundary_shapefile,
@@ -921,7 +921,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Compute the best fit plane in ECEF coordinates rather than in a local stereographic "
      "projection. Hence don't model the Earth curvature. Not recommended.");
   
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   //positional.add_options()

@@ -463,7 +463,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     }
 
     // Enforce no predictor in compression, it works badly with sub-images
-    vw::cartography::GdalWriteOptions opt_nopred = opt;
+    vw::GdalWriteOptions opt_nopred = opt;
     opt_nopred.gdal_options["PREDICTOR"] = "1";
 
     vw::cartography::GeoReference left_sub_georef, right_sub_georef;

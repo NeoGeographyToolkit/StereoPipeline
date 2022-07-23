@@ -228,5 +228,3 @@ Command-line options for multi_stereo
     for allowed values.
 -h, --help
   Show this help message and exit.
-
-

@@ -52,6 +52,9 @@ Command-line options for parallel_bundle_adjust:
 --threads <integer>
     The number of threads to use.
 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB, for each process.
+
 -v, --version
     Display the version of software.
 

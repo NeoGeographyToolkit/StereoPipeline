@@ -237,6 +237,13 @@ right-image-clip: (*string*) (default = "")
     If ``--right-image-crop-win`` is used, replaced the right image
     cropped to that window with this clip.
 
+threads (*integer*) (default = 0)
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+
+cache-size-mb (*integer*) (default = 1024)
+    Set the system cache size, in MB, for each process.
+
 .. _corr_section:
 
 Correlation

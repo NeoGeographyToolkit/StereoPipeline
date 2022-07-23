@@ -1831,7 +1831,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save the values for the cameras at each iteration.")
     ("apply-initial-transform-only", po::value(&opt.apply_initial_transform_only)->default_value(false)->implicit_value(true),
      "Apply to the cameras the transform given by --initial-transform. No iterations, GCP loading, or image matching takes place.");
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   // TODO: When finding the min and max bounds, do a histogram, throw away 5% of points
   // or something at each end.

@@ -36,7 +36,7 @@ namespace asp {
                                      bool has_georef,
                                      vw::cartography::GeoReference const& georef,
                                      bool has_nodata, double nodata,
-                                     vw::cartography::GdalWriteOptions const& opt,
+                                     vw::GdalWriteOptions const& opt,
                                      vw::ProgressCallback const& progress_callback,
                                      std::map<std::string, std::string> const& keywords) {
 
@@ -72,7 +72,7 @@ namespace asp {
                                bool has_georef,
                                vw::cartography::GeoReference const& georef,
                                bool has_nodata, double nodata,
-                               vw::cartography::GdalWriteOptions const& opt,
+                               vw::GdalWriteOptions const& opt,
                                vw::ProgressCallback const& progress_callback,
                                std::map<std::string, std::string> const& keywords){
 
@@ -102,7 +102,7 @@ namespace asp {
                                  bool has_georef,
                                  vw::cartography::GeoReference const& georef,
                                  bool has_nodata, double nodata,
-                                 vw::cartography::GdalWriteOptions & opt,
+                                 vw::GdalWriteOptions & opt,
                                  vw::ProgressCallback const& tpc){
 
     vw::Vector2 orig_block_size = opt.raster_tile_size;

@@ -63,7 +63,7 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
   write_georeferenced_image( right_image_name, hires_image, hires_georef );
 
   // Create session
-  vw::cartography::GdalWriteOptions opt;
+  vw::GdalWriteOptions opt;
   StereoSessionDGMapRPC session;
   session.initialize( opt, left_image_name, right_image_name,
                       "dg_example1.xml", "dg_example4.xml",

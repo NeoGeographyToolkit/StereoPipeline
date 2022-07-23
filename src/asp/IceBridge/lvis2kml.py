@@ -104,9 +104,6 @@ def generatePointKml(pointList, outputPath, pointSkip, name, color):
             maxHeight = p[ALT]
     heightRange = maxHeight - minHeight
     
-    #print 'min = ' + str(minHeight)
-    #print 'max = ' + str(maxHeight)
-    
     # Plot each point
     counter = 0
     for i in range (0, len(pointList), int(pointSkip)):
@@ -127,7 +124,6 @@ def generatePointKml(pointList, outputPath, pointSkip, name, color):
         colorVal = int(255.0 - 255.0*(thisHeight - minHeight)/heightRange)
         if (colorVal < 0):
             colorVal = 0
-        #print str(pointList[i][ALT]) + ' --> ' + str(colorVal)
         if color == 'blue':
             point.style.iconstyle.color   = simplekml.Color.rgb(colorVal,colorVal,255,255)
         elif color == 'green':
@@ -186,8 +182,8 @@ def main(argsIn):
         raise Exception(msg)
 
     if len(args) < 1:
-        print 'Missing required input path.'
-        print usage
+        print('Missing required input path.')
+        print(usage)
         return -1
 
     # If output path is not specified, just append .kml to the input path.
@@ -200,19 +196,18 @@ def main(argsIn):
     if not options.name:
         options.name = os.path.basename(inputPath)
         
-    print "Beginning processing....."
+    print("Beginning processing.")
 
     pointList = readPositions(inputPath)
-    print 'Loaded ' + str(len(pointList)) +' points.'
+    print('Loaded ' + str(len(pointList)) +' points.')
     
     if '.xml' in inputPath: # Plot a border polygon
         generateBorderKml(pointList, outputPath, options.name, options.color)
     else: # Plot individual points
         generatePointKml(pointList, outputPath, options.skip, options.name, options.color)
 
-    print "Finished"
+    print("Finished.")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

@@ -61,8 +61,6 @@ that more than approximately 30% of the points are eliminated.
 
 Command-line options for point2las
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--h, --help
-    Display the help message.
 
 --datum <string>
     Create a geo-referenced LAS file in respect to this datum.  Options:
@@ -115,5 +113,24 @@ Command-line options for point2las
     outlier cutoff based on triangulation error.
 
 --threads <integer (default: 0)>
-    Set the number threads to use. 0 means use the default defined
-    in the program or in the .vwrc file.
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.
+

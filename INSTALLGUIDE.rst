@@ -159,7 +159,7 @@ installation to the environmental variable ``PATH``.
 
     Cache size (500 MB) is larger than the requested maximum cache size
 
-Consider increasing the cache size in ``~/.vwrc`` (:numref:`vwrc`). 
+Consider increasing ``--cache-size-mb`` for your program.
 This also may be a sign of large input TIF images being stored
 in blocks as tall or as wide as the image. The storage scheme of
 an image can be examined with the ``gdalinfo -stats`` command,

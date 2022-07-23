@@ -61,7 +61,7 @@ ImageViewRef<double> error_norm(std::string const& pc_file){
 }
 
 
-class Options : public vw::cartography::GdalWriteOptions {
+class Options : public vw::GdalWriteOptions {
 public:
   std::string input_prefix;
   float error_cutoff;

@@ -28,6 +28,7 @@
 #include <vw/InterestPoint/InterestData.h>
 
 using namespace vw;
+using namespace vw::cartography;
 
 namespace asp {
   

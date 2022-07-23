@@ -45,7 +45,7 @@ void fix_tile_multiple(int &size) {
 }
 
 
-struct Options: vw::cartography::GdalWriteOptions {
+struct Options: vw::GdalWriteOptions {
   std::vector<std::string> image_files;
   std::string orientation, output_image, output_type, out_prefix;
   int    overlap_width, band, blend_radius, ip_per_tile;
@@ -584,7 +584,7 @@ void write_selected_image_type(ImageViewRef<float> const& out_img,
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   // Add the reverse option
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
   general_options.add_options()
     ("orientation", po::value(&opt.orientation)->default_value("horizontal"),
      "Choose a supported image layout from [horizontal].")

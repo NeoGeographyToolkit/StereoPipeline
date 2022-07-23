@@ -521,7 +521,7 @@ vw::Vector3 apply_transform(PointMatcher<RealT>::Matrix const& T, vw::Vector3 co
 /// and save it.
 /// - Note: We transform the entire point cloud, not just the resampled
 ///         version used in alignment.
-void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
+void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
                             vw::cartography::GeoReference const& geo,

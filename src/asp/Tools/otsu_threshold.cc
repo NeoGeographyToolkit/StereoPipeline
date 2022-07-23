@@ -32,7 +32,7 @@ namespace po = boost::program_options;
 
 using namespace vw;
 
-struct Options: vw::cartography::GdalWriteOptions {
+struct Options: vw::GdalWriteOptions {
   std::vector<std::string> image_files;
   bool has_nodata_value;
   int num_samples, num_bins;
@@ -44,7 +44,7 @@ struct Options: vw::cartography::GdalWriteOptions {
 void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   // Add the reverse option
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
   general_options.add_options()
     ("num-samples", po::value(&opt.num_samples)->default_value(-1),
      "The number of samples to pick from the image. If not specified, hence set to -1, "

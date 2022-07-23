@@ -92,7 +92,7 @@ using namespace PointMatcherSupport;
 const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the largest double
 
 /// Options container for the pc_align tool
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   // Input
   string reference, source, init_transform_file, alignment_method, config_file,
     datum, csv_format_str, csv_proj4_str, match_file, hillshade_options,
@@ -191,7 +191,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   //("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
   // "Print debug information");
 
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

@@ -47,11 +47,12 @@
 #include <limits>
 
 using namespace vw;
+using namespace vw::cartography;
 
 namespace asp {
 
   // Pass over all the string variables we use
-  void StereoSession::initialize(vw::cartography::GdalWriteOptions const& options,
+  void StereoSession::initialize(vw::GdalWriteOptions const& options,
                                  std::string const& left_image_file,
                                  std::string const& right_image_file,
                                  std::string const& left_camera_file,
@@ -483,7 +484,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                                        std::string      & right_output_file) {
 
   std::string left_cropped_file, right_cropped_file;
-  vw::cartography::GdalWriteOptions options;
+  vw::GdalWriteOptions options;
   float left_nodata_value, right_nodata_value;
   bool has_left_georef, has_right_georef;
   vw::cartography::GeoReference left_georef, right_georef;
@@ -651,7 +652,7 @@ StereoSession::pre_pointcloud_hook(std::string const& input_file) {
 }
 
 // A little function whose goal is to avoid repeating same logic in a handful of places
-void crop_bathy_mask(vw::cartography::GdalWriteOptions const& options,
+void crop_bathy_mask(vw::GdalWriteOptions const& options,
                      std::string const& input_mask_file, std::string const& input_image_file,
                      BBox2i const& crop_win, std::string const& cropped_mask_file) {
   
@@ -683,7 +684,7 @@ void crop_bathy_mask(vw::cartography::GdalWriteOptions const& options,
 }
   
 bool StereoSession::
-shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
+shared_preprocessing_hook(vw::GdalWriteOptions & options,
                           std::string const                 & left_input_file,
                           std::string const                 & right_input_file,
                           std::string                       & left_output_file,
@@ -917,7 +918,7 @@ bool StereoSession::do_bathymetry() const {
 // needed, in stereo_tri. Skip this if the masks already exit and are
 // not older than the images. This code mirrors very closely the logic
 // for how the images are aligned.
-void StereoSession::align_bathy_masks(vw::cartography::GdalWriteOptions const& options) {
+void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
 
   bool do_bathy = StereoSession::do_bathymetry();
   

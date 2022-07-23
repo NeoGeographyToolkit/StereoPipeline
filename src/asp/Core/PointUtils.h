@@ -167,7 +167,7 @@ namespace asp {
   void las_or_csv_to_tif(std::string const& in_file,
                          std::string const& out_file,
                          int num_rows, int block_size,
-                         vw::cartography::GdalWriteOptions * opt,
+                         vw::GdalWriteOptions * opt,
                          vw::cartography::GeoReference const& csv_georef,
                          asp::CsvConv const& csv_conv);
 

@@ -155,15 +155,23 @@ Command-line options for image_align
     this file. Must be stored as a 3x3 matrix.
 
 --threads <integer (default: 0)>
-    Set the number of threads to use. Zero means use as many threads
-    as there are cores, unless an explicit value is specified in
-    ``.vwrc.``
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
 
 --no-bigtiff
     Tell GDAL to not create bigtiffs.
 
---version, -v
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
     Display the version of software.
 
---help, -h
+-h, --help
     Display this help message.

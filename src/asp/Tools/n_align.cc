@@ -64,7 +64,7 @@ typedef PM::DataPoints DP;
 typedef flann::Index<flann::L2<double> > KDTree_double;
 
 /// Options container
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   // Input
   string in_prefix, in_transforms, datum, csv_format_str, csv_proj4_str; 
   int    num_iter, max_num_points;
@@ -108,7 +108,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
      "Print the alignment error after each iteration.");
     
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

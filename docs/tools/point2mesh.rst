@@ -63,9 +63,6 @@ file first and invoke MeshLab there.)
 
 Command-line options for point2mesh:
 
--h, --help
-    Display the help message.
-
 -s, --point-cloud-step-size <integer (default: 10)>
     Sample by picking one out of these many samples from the point cloud.
 
@@ -88,3 +85,25 @@ Command-line options for point2mesh:
 
 --precision <integer (default: 17)>
     How many digits of precision to save.
+
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.

@@ -68,19 +68,11 @@ Command-line options for ipfind:
     Individually normalize each processing tile.
 
 --nodata-radius <integer (default: 1)>
-    Don’t detect IP within this many pixels of image borders or
+    Don't detect IP within this many pixels of image borders or
     nodata.
 
 --output-folder <string>
     Write output files to this location.
-
---num-threads <integer (default: 0)>
-    Set the number of threads for interest point detection. If set
-    to 0 (default), use the visionworkbench default number of
-    threads.
-
--h, --help
-    Display this help message.
 
 -d, --debug-image <0|1|2 (default: 0)>
     Write out a low-resolution or full-resolution debug image with
@@ -93,3 +85,25 @@ Command-line options for ipfind:
 --lowe
     Save the interest points in an ASCII data format that is
     compatible with the Lowe-SIFT toolchain.
+
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.

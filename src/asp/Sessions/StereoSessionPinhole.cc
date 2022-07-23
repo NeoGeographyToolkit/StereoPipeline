@@ -168,7 +168,7 @@ void asp::StereoSessionPinhole::preprocessing_hook(bool adjust_left_image_size,
 
 
   std::string left_cropped_file, right_cropped_file;
-  vw::cartography::GdalWriteOptions options;
+  vw::GdalWriteOptions options;
   float left_nodata_value, right_nodata_value;
   bool has_left_georef, has_right_georef;
   vw::cartography::GeoReference left_georef, right_georef;

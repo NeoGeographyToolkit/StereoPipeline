@@ -183,7 +183,7 @@ struct TransformPC: public vw::UnaryReturnSameType {
 /// Apply a given transform to the point cloud in input file, and save it.
 /// - Note: We transform the entire point cloud, not just the resampled
 ///         version used in alignment.
-void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
+void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
                             vw::cartography::GeoReference const& geo,
@@ -192,7 +192,7 @@ void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
 
 /// Save a transformed point cloud with N bands
 template<int n> // Number of bands
-void save_trans_point_cloud_n(vw::cartography::GdalWriteOptions const& opt,
+void save_trans_point_cloud_n(vw::GdalWriteOptions const& opt,
                               vw::cartography::GeoReference const& geo,
                               std::string input_file,
                               std::string output_file,

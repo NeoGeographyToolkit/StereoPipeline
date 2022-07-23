@@ -85,7 +85,7 @@ namespace vw { namespace gui {
 
     // Constructors/Destructor
     MainWidget(QWidget *parent,
-               vw::cartography::GdalWriteOptions const& opt,
+               vw::GdalWriteOptions const& opt,
                int beg_image_id, int end_image_id, int base_image_id,
                std::vector<imageData> & images, // will be aliased
                std::string & output_prefix,     // will be aliased
@@ -235,7 +235,7 @@ public slots:
       MainWidget * m_parent;
     };
 
-    vw::cartography::GdalWriteOptions m_opt;
+    vw::GdalWriteOptions m_opt;
 
     /// Handle to parent GUI panel used to select which of the multiple "owned"
     ///  images should be currently displayed.

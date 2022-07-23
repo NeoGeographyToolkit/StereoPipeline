@@ -57,7 +57,7 @@ namespace asp {
     typedef StereoSession* (*construct_func)();
 
     /// General init function.
-    void initialize (vw::cartography::GdalWriteOptions const& options,
+    void initialize (vw::GdalWriteOptions const& options,
                      std::string const& left_image_file,
                      std::string const& right_image_file,
                      std::string const& left_camera_file,
@@ -199,11 +199,11 @@ namespace asp {
 
     // Align the bathy masks. This will be called in stereo_pprc and, if needed,
     // in stereo_tri
-    void align_bathy_masks(vw::cartography::GdalWriteOptions const& options);
+    void align_bathy_masks(vw::GdalWriteOptions const& options);
     
   protected: // Variables
 
-    vw::cartography::GdalWriteOptions m_options;
+    vw::GdalWriteOptions m_options;
     std::string m_left_image_file,  m_right_image_file;
     std::string m_left_camera_file, m_right_camera_file;
     std::string m_out_prefix, m_input_dem;
@@ -225,7 +225,7 @@ namespace asp {
     // Factor out here all functionality shared among the preprocessing hooks
     // for various sessions. Return 'true' if we encounter cached images
     // and don't need to go through the motions again.
-    bool shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
+    bool shared_preprocessing_hook(vw::GdalWriteOptions & options,
                                    std::string const                 & left_input_file,
                                    std::string const                 & right_input_file,
                                    std::string                       & left_output_file,

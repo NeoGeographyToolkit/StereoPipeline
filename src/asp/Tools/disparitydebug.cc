@@ -145,7 +145,7 @@ public:
   }
 };
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   // Input
   std::string input_file_name;
   BBox2       normalization_range;
@@ -173,7 +173,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("output-filetype, t", po::value(&opt.output_file_type)->default_value("tif"),
      "Specify the output file type.");
   
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()

@@ -39,7 +39,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   // Input
   std::vector<std::string> pointcloud_files;
 
@@ -60,7 +60,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-file,o",  po::value(&opt.out_file)->default_value(""),        "Specify the output file.")
     ("write-double,d", po::value(&opt.write_double)->default_value(false), "Write a double precision output file.");
 
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

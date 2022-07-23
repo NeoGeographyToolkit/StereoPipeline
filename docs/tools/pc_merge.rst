@@ -12,7 +12,7 @@ float64 option.
 it can merge *output-prefix*-L.tif images created by ``stereo``. This is
 useful if it is desired to create an ortho-image from a merged cloud
 with ``point2dem``. In that case, one can invoke ``pc_merge`` on
-individual “L” files to create a merged texture file to pass to
+individual ``L.tif`` files to create a merged texture file to pass to
 ``point2dem`` together with the merged point cloud tile.
 
 Usage::
@@ -21,11 +21,30 @@ Usage::
 
 Command-line options for pc_merge:
 
---help  
-    Display the help message
-
 -d, --write-double
     Force output file to be float64 instead of float32.
 
 -o, --output-file <name>
     Specify the output file (required).
+
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display this help message.

@@ -352,11 +352,17 @@ Command-line options for sfs
     as ISIS is single-threaded. Not all parts of the computation
     benefit from parallelization.
 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
 --no-bigtiff
     Tell GDAL to not create bigtiffs.
 
 --tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
-    TIFF Compression method.
+    TIFF compression method.
 
 -v, --version
     Display the version of software.

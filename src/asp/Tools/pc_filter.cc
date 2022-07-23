@@ -52,7 +52,7 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-struct Options: vw::cartography::GdalWriteOptions {
+struct Options: vw::GdalWriteOptions {
   bool transform_to_camera_coordinates;
   std::string input_cloud, input_texture, output_cloud, output_weight, camera_file;
   double max_valid_triangulation_error, max_distance_from_camera,
@@ -99,7 +99,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("output-weight", po::value(&opt.output_weight)->default_value(""),
      "If specified, Save the per-pixel weight to this file. This has the same dimensions as the point cloud and ``L.tif``.(Use the .tif extension.)");
 
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   po::positional_options_description positional_desc;

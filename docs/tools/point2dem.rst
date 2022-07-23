@@ -435,14 +435,14 @@ Command-line options for point2dem
     used only in conjunction with ``--use-surface-sampling``.
 
 --threads <integer (default: 0)>
-    Select the number of processors (threads) to use.
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
 
---threads <integer (default: 0)>
-    Set the number of processors (threads) to use.  Zero means use
-    as many threads as there are cores.
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
 
 --no-bigtiff
     Tell GDAL to not create bigtiffs.
 
---tif-comp <None|LZW|Deflate|Packbits>
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.

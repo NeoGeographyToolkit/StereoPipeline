@@ -234,7 +234,7 @@ void parse_camera_pose(std::string const& line, Vector3 & xyz, Quat & look, Quat
 }
 
             
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   std::string nav_file, input_cam, output_folder;
   std::vector<std::string> image_files, camera_files;
   bool detect_offset;
@@ -261,7 +261,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("cam-list",       po::value(&cam_list_path)->default_value(""), 
                        "A sorted list of input ortho and camera files.");
   
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
   
   po::options_description positional("");
   

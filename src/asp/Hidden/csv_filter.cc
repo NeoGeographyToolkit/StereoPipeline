@@ -71,7 +71,7 @@ using namespace vw;
 using namespace std;
 using namespace vw::cartography;
 
-struct Options : public vw::cartography::GdalWriteOptions {
+struct Options : public vw::GdalWriteOptions {
   std::string csv_format_str, datum, csv_proj4_str;
   std::string csv_file, reference_dem;
   double max_height_diff;
@@ -95,7 +95,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("interpolated-csv",  po::value(&opt.interpolated_csv)->default_value(""), "Read from disk the CSV values interpolated on the grid.")
     ("interpolated-dem",  po::value(&opt.interpolated_dem)->default_value(""), "Write the interpolated values as a DEM.");
     
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

@@ -69,10 +69,24 @@ Command-line options for image_mosaic:
     If specified, save here the interest point matches used in
     mosaicking.
 
---tile-size <integer(=256, 256)>
-    The size of image tiles used for processing. The amount of image
-    blending is limited by the tile size, so this will be increased
-    automatically if it is too small for the overlap width.
+--threads <integer (default: 0)>
+    Select the number of threads to use for each process. If 0, use
+    the value in ~/.vwrc.
+ 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB.
+
+--tile-size <integer (default: 256 256)>
+    Image tile size used for multi-threaded processing.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
+    TIFF compression method.
+
+-v, --version
+    Display the version of software.
 
 -h, --help
-    Display the help message.
+    Display this help message.

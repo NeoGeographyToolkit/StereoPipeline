@@ -77,7 +77,7 @@ Command-line options for datum_convert:
     Specify the output datum via the PROJ.4 string.
 
 --keep-bounds
-    Don’t recompute the projected space boundary. This can help
+   Don't recompute the projected space boundary. This can help
     reduce changes caused by interpolation.
 
 --nodata-value
@@ -87,7 +87,7 @@ Command-line options for datum_convert:
     Create float64 instead of float32 output files.
 
 --show-grid-calc
-    Don’t hide the shift grid creation output.
+   Don't hide the shift grid creation output.
 
 --debug-mode
     Print the converted lon/lat/alt coordinates for each pixel.
@@ -100,4 +100,4 @@ Command-line options for datum_convert:
     Specify the number of rows in the grid shift file.
 
 --keep-working-files
-    Don’t delete intermediate files.
+   Don't delete intermediate files.

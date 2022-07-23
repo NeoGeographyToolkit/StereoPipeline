@@ -44,7 +44,7 @@ namespace fs = boost::filesystem;
 
 typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options : vw::GdalWriteOptions {
   std::string image_file, cam1_file, cam2_file, session1, session2;
   int sample_rate; // use one out of these many pixels
   double subpixel_offset, height_above_datum;
@@ -83,7 +83,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
      "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.");
   
-  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
   
   po::options_description positional("");
   po::positional_options_description positional_desc;
