@@ -41,12 +41,9 @@ Command-line options for ipfind:
     Set the maximum number of IP to find in the whole image. If not
     specified, use instead the value of ``--ip-per-tile``.
 
--t, --tile-size <integer (default: 256)>
-    The tile size for processing interest points. Useful when working
-    with large images.
-
 --ip-per-tile <integer (default: 250)>
-    Set the maximum number of IP to find in each tile.
+    Set the maximum number of IP to find in each tile. The tile size
+    is set with ``--tile-size``.
 
 -g, --gain <float (default: 1)>
     Increasing this number will increase the gain at which interest

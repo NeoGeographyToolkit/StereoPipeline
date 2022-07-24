@@ -47,7 +47,7 @@ bathymetry:
     WorldView data.
 
 mapproject:
-  * Expose and document the ``--query-projection`` option.
+  * Exposed and documented the ``--query-projection`` option.
  
 stereo_gui:
   * Given a bundle_adjust run directory, can show any two images and
@@ -57,7 +57,7 @@ stereo_gui:
 misc:
   * Increased the cache size to 1 GB per process for each ASP
     tool. Added the option ``--cache-size-mb``, to set this. Made this
-    clear in the warning message when the limit is hit. Document
+    clear in the warning message when the limit is hit. Documented
     this for all tools.
   * Consolidated much duplicated and mutated code for camera models.
   * Bugfix for D.tif VRTs as created by ``parallel_stereo``.
