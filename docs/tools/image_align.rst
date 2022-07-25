@@ -25,6 +25,11 @@ one will be read. The processing is done in double precision. The
 default output pixel value value is ``float32``, as casting to integer
 may result in precision loss.
 
+Since the first image is kept fixed, if portions of the second aligned
+image move higher or more to the left than the upper-left corner of
+the first image, those extra portions will be cut. In that case it is
+suggested to reverse the order of images when invoking this tool.
+
 The alignment transform can be saved, and a custom alignment transform
 can be applied instead of the one found automatically. The interest
 point matches which determine the alignment transform can be saved as
@@ -95,8 +100,8 @@ If the DEMs have very different grids and projections, regridding them
 with ``gdalwarp`` may make them easier to align.
   
 Note that the alignment transform is a 3x3 matrix and can be examined
-and edited.  Its inputs and outputs are 2D pixels in ``homogeneous
-coordinates``, that is, of the form (x, y, 1). It is able to model
+and edited.  Its inputs and outputs are 2D pixels in *homogeneous
+coordinates*, that is, of the form (*x*, *y*, *1*). It is able to model
 affine and homography transforms in the pixel plane.
 
 See the related tool ``pc_align`` (:numref:`pc_align`) for alignment
