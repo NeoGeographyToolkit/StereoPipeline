@@ -1326,23 +1326,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("force-projwin", po::bool_switch(&opt.force_projwin)->default_value(false),
      "Make the output mosaic fill precisely the specified projwin, by padding it if necessary and aligning the output grid to the region.")
     ("save-index-map",   po::bool_switch(&opt.save_index_map)->default_value(false),
-     "For each output pixel, save the index of the input DEM it came from (applicable only for --first, --last, --min, --max, --median, and --nmad). A text file with the index assigned to each input DEM is saved as well.")
-    // The next line causes a conflict with --tile-size. A fix for that is
-    // to copy all GdalWriteOptions options below, except for tile-size.
-    //general_options.add(vw::GdalWriteOptionsDescription(opt));
-    // TODO(oalexan1): A better fix would be to add a bool argument to GdalWriteOptionsDescription()
-    // which, when on, would replace that --tile-size with --vw-tile-size, so the current
-    // --tile-size is just for the use of dem_mosaic, but that would trigger a wholesale
-    // recompile of VW and ASP.
-    ("cache-size-mb", po::value(&opt.cache_size_mb)->default_value(vw_settings().system_cache_size()/1024.0/1024.0),
-        "Set the system cache size, in MB, for each process.")
-    ("no-bigtiff",   "Tell GDAL to not create bigtiffs.")  // gets stored in vm.count("no-bigtiff")
-    ("tif-compress", po::value(&opt.tif_compress)->default_value("LZW"),
-        "TIFF Compression method. [None, LZW, Deflate, Packbits]")
-    ("version,v",    "Display the version of software.")
-    ("threads",             po::value<int>(&opt.num_threads)->default_value(4),
-     "Number of threads to use.")
-    ("help,h", "Display this help message.");
+     "For each output pixel, save the index of the input DEM it came from (applicable only for --first, --last, --min, --max, --median, and --nmad). A text file with the index assigned to each input DEM is saved as well.");
+
+  // Use in GdalWriteOptions '--tif-tile-size' rather than '--tile-size', to not conflict
+  // with the '--tile-size' definition used by this tool.
+  bool adjust_tile_size_opt = true; 
+  general_options.add(vw::GdalWriteOptionsDescription(opt, adjust_tile_size_opt));
   
   po::options_description positional("");
   po::positional_options_description positional_desc;

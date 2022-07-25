@@ -267,6 +267,9 @@ Command-line options
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
 
+--tif-tile-size <integer (default: 256 256)>
+    The dimensions of each block in the output image.
+
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
 
