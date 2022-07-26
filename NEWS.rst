@@ -34,7 +34,12 @@ stereo:
     (the needed aligned bathy masks are created, if needed,
     at the triangulation stage, if not done, as usual, at the 
     preprocessing stage).
- 
+  * Add options for reusing interest point matches from a previous
+    ``bundle_adjust`` or ``parallel_stereo`` run. The "clean"
+    interest point matches created by ``bundle_adjust`` may have
+    fewer outliers than what stereo can create. Options:
+    ``--match-files-prefix`` and ``--clean-match-files-prefix``.
+
 point2dem:
   * Added the Tukey outlier removal method option applied to
     triangulation errors (error_thresh = 75th_pct + 1.5 * (75th_pct -

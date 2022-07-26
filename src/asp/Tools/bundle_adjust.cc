@@ -27,7 +27,8 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
-#include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/InterestPointMatching.h> // Has lots of templates
+#include <asp/Core/IpMatchingAlgs.h>        // Lightweight header
 #include <asp/Camera/CsmModel.h>
 #include <asp/Tools/bundle_adjust.h>
 
@@ -2195,15 +2196,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 }
 
 // A wrapper around ip matching. Can also work with NULL cameras.
-void ba_match_ip(Options & opt,
-                 SessionPtr session, 
-                 std::string const& image1_path,
-                 std::string const& image2_path,
-                 std::string const& camera1_path,
-                 std::string const& camera2_path,
-                 vw::camera::CameraModel* cam1,
-                 vw::camera::CameraModel* cam2,
-                 std::string const& match_filename){
+void ba_match_ip(Options & opt, SessionPtr session, 
+                 std::string const& image1_path,  std::string const& image2_path,
+                 std::string const& camera1_path, std::string const& camera2_path,
+                 vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
+                 std::string const& match_filename) {
   
   boost::shared_ptr<DiskImageResource>
     rsrc1(vw::DiskImageResourcePtr(image1_path)),
@@ -2530,7 +2527,8 @@ int main(int argc, char* argv[]) {
       if (opt.apply_initial_transform_only)
         continue; // no stats need to happen
 
-      if (opt.skip_matching || opt.clean_match_files_prefix != "" || opt.match_files_prefix != "")
+      if (opt.skip_matching || opt.clean_match_files_prefix != "" ||
+          opt.match_files_prefix != "")
         continue;
       
       size_t index = image_stats_indices[i];
@@ -2706,21 +2704,13 @@ int main(int argc, char* argv[]) {
       // - The points are written to a file on disk.
       std::string camera1_path   = opt.camera_files[i];
       std::string camera2_path   = opt.camera_files[j];
-      std::string match_filename;
 
       // See if perhaps to load match files from a different source
-      if (opt.clean_match_files_prefix != "") 
-        match_filename = ip::clean_match_filename(opt.clean_match_files_prefix, image1_path,
-                                                  image2_path);
-      else if (opt.match_files_prefix != "")
-        match_filename = ip::match_filename(opt.match_files_prefix, image1_path,
-                                            image2_path);
-      else
-        match_filename = ip::match_filename(opt.out_prefix, image1_path,
-                                            image2_path);
-      
+      std::string match_filename 
+        = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
+                              opt.out_prefix, image1_path, image2_path);
       opt.match_files[std::make_pair(i, j)] = match_filename;
-      
+
       // TODO: Need to make sure this works with the parallel script!
       bool inputs_changed = (!asp::is_latest_timestamp(match_filename,
                                                        image1_path,  image2_path,

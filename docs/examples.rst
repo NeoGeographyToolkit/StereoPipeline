@@ -2121,11 +2121,13 @@ GCP should be on the order of tens of pixels because the longitude and
 latitude of each GCP are not well-known.
 
 It is also very important to examine the obtained match files in the
-output directory. If there are too few matches, particularly among very
-similar images, one may need to increase the value of
-``--epipolar-threshold`` (or of ``--ip-inlier-factor`` for the
-not-recommended pinhole session). Note that a large value here may allow
-more outliers.
+output directory. For that, use ``stereo_gui`` with the option
+``--pairwise-matches`` (:numref:`stereo_gui_view_ip`). If there are
+too few matches, particularly among very similar images, one may need
+to increase the value of ``--epipolar-threshold`` (or of
+``--ip-inlier-factor`` for the not-recommended pinhole session). Note
+that a large value here may allow more outliers, but those should normally
+by filtered out by ``bundle_adjust``.
 
 Another thing one should keep an eye on is the height above datum of the
 camera centers as printed by bundle adjustment towards the end. Any
@@ -2140,7 +2142,8 @@ Creating terrain models
 The next steps are to run ``parallel_stereo`` and create DEMs.
 
 We will run the following command for each pair of images. Note that we
-reuse the filtered match points created by bundle adjustment.
+reuse the filtered match points created by bundle adjustment, with the
+``--clean-match-files-prefix`` option.
 
 ::
 
@@ -2149,11 +2152,14 @@ reuse the filtered match points created by bundle adjustment.
      st=stereo_v${i}${j}
      rm -rfv $st
      mkdir -p $st
-     cp -fv ba/run-v${i}__v${j}-clean.match $st/run-v${i}__v${j}.match
-     parallel_stereo --skip-rough-homography -t nadirpinhole --stereo-algorithm 2 \
-       v${i}.tif v${j}.tif ba/run-run-v${i}.tsai ba/run-run-v${j}.tsai $st/run
-     point2dem --stereographic --proj-lon 253.90793 --proj-lat 39.47021 --tr 4    \
-       --errorimage $st/run-PC.tif
+     parallel_stereo --skip-rough-homography       \
+       -t nadirpinhole --stereo-algorithm asp_mgm  \
+       v${i}.tif v${j}.tif                         \
+       ba/run-run-v${i}.tsai ba/run-run-v${j}.tsai \
+       --clean-match-files-prefix ba/run           \
+       $st/run
+     point2dem --stereographic --proj-lon 253.90793 --proj-lat 39.47021 \
+       --tr 4 --errorimage $st/run-PC.tif
 
 (Repeat this for other values of :math:`i`.)
 
@@ -2680,8 +2686,8 @@ shown below.
      stereo_gui for.tif aft.tif --create-image-pyramids-only
      ln -s for_sub8.tif  for_small.tif
      ln -s aft_sub8.tif  aft_small.tif
-     cp for.tsai  for_small.tsai
-     cp aft.tsai  aft_small.tsai
+     cp for.tsai for_small.tsai
+     cp aft.tsai aft_small.tsai
 
 The new .tsai files need to be adjusted by updating the image_size,
 image_center (divide by resolution factor, which is 8 here), and the
@@ -2959,13 +2965,17 @@ each camera using the GCPs.
 
 ::
 
-     bundle_adjust 5001.tif 5001.tsai gcp_5001.gcp -t nadirpinhole --inline-adjustments \
-       --num-passes 1 --camera-weight 0 --ip-detect-method 1 -o bundle_5001/out       \
-       --max-iterations 30 --fix-gcp-xyz
+    bundle_adjust 5001.tif 5001.tsai gcp_5001.gcp \
+      -t nadirpinhole --inline-adjustments        \
+      --num-passes 1 --camera-weight 0            \
+      --ip-detect-method 1 -o bundle_5001/out     \
+      --max-iterations 30 --fix-gcp-xyz
 
-     bundle_adjust 6001.tif 6001.tsai gcp_6001.gcp -t nadirpinhole --inline-adjustments \
-       --num-passes 1 --camera-weight 0 --ip-detect-method 1 -o bundle_6001/out       \
-       --max-iterations 30 --fix-gcp-xyz
+    bundle_adjust 6001.tif 6001.tsai gcp_6001.gcp \
+      -t nadirpinhole --inline-adjustments        \
+      --num-passes 1 --camera-weight 0            \
+      --ip-detect-method 1 -o bundle_6001/out     \
+      --max-iterations 30 --fix-gcp-xyz
 
 At this point it is a good idea to experiment with downsampled copies of
 the input images before running processing with the full size images.
@@ -3174,15 +3184,21 @@ guesses for the other values so we allow them to vary in a wider range.
 
 ::
 
-     bundle_adjust left_small.tif right_small.tif bundle_for_small/out-for_small.tsai \
-       bundle_aft_small/out-aft_small.tsai -t opticalbar -o bundle_small/out          \
-       --force-reuse-match-files --max-iterations 30 --camera-weight 0                \
-       --disable-tri-ip-filter  --skip-rough-homography --inline-adjustments          \
-       --ip-detect-method 1 --datum WGS84 --num-passes 2 --solve-intrinsics           \
-       --intrinsics-to-float "focal_length optical_center other_intrinsics"           \
-       --intrinsics-to-share "focal_length optical_center" --ip-per-tile 1000         \
-       --intrinsics-limits "0.95 1.05   0.90 1.10  0.90 1.10   0.5 1.5  -5.0 5.0      \
-       0.3 2.0" --num-random-passes 2
+    bundle_adjust left_small.tif right_small.tif          \
+      bundle_for_small/out-for_small.tsai                 \
+      bundle_aft_small/out-aft_small.tsai                 \
+      -t opticalbar -o bundle_small/out                   \
+      --force-reuse-match-files --max-iterations 30       \
+      --camera-weight 0 --disable-tri-ip-filter           \
+      --skip-rough-homography --inline-adjustments        \
+      --ip-detect-method 1 --datum WGS84 --num-passes 2   \
+      --solve-intrinsics                                  \
+      --intrinsics-to-float "focal_length optical_center 
+        other_intrinsics"                                 \
+      --intrinsics-to-share "focal_length optical_center" \
+      --ip-per-tile 1000                                  \
+      --intrinsics-limits "0.95 1.05 0.90 1.10 0.90 1.10 
+         0.5 1.5 -5.0 5.0 0.3 2.0" --num-random-passes 2
 
 These limits restrict our parameters to reasonable bounds but
 unfortunately they greatly increase the run time of ``bundle_adjust``.

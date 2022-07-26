@@ -92,6 +92,11 @@ namespace asp {
     /// Method to help determine what session we actually have
     virtual std::string name() const = 0;
 
+    // This logic is used in a handful of places  
+    std::string stereo_match_filename(std::string const& left_cropped_file,
+                                      std::string const& right_cropped_file,
+                                      std::string const& out_prefix);
+    
     /// Specialization for how interest points are found
     bool ip_matching(std::string  const& input_file1,
                      std::string  const& input_file2,

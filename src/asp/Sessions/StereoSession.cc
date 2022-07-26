@@ -37,6 +37,7 @@
 #include <asp/Camera/AdjustedLinescanDGModel.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Sessions/StereoSessionASTER.h>
+#include <asp/Core/IpMatchingAlgs.h>        // Lightweight header
 
 #include <boost/filesystem/operations.hpp>
 
@@ -162,18 +163,18 @@ namespace asp {
       return false;
     }
 
-    bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-    bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-
     bool rebuild = (!is_latest_timestamp(match_filename, input_file1, input_file2,
                                          m_left_camera_file, m_right_camera_file));
-
-    // We make an exception and not rebuild if explicitly asked
-    if (stereo_settings().force_reuse_match_files && boost::filesystem::exists(match_filename))
-      rebuild = false;
-      
+    bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+    bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+    if (!crop_left && !crop_right &&
+        (stereo_settings().force_reuse_match_files ||
+         stereo_settings().clean_match_files_prefix != "" ||
+         stereo_settings().match_files_prefix != ""))
+      rebuild = false; // Do not rebuild with externally provided match files
+    
     // If we crop the images we must always create new matching files
-    if (!crop_left && !crop_right && !rebuild) {
+    if (boost::filesystem::exists(match_filename) && !rebuild) {
       vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
       return true;
     }
@@ -183,13 +184,18 @@ namespace asp {
       boost::filesystem::remove(left_ip_file);
     if (boost::filesystem::exists(right_ip_file)) 
       boost::filesystem::remove(right_ip_file);
-    if (boost::filesystem::exists(match_filename)) 
+    if (boost::filesystem::exists(match_filename)) {
+      vw_out() << "Removing old match file: " << match_filename << "\n";
+      // It is hoped the logic before here was such that we will not
+      // wipe external match files given by --match-files-prefix or
+      // --clean-match-files-prefix.
       boost::filesystem::remove(match_filename);
+    }
     
-    // Create DiskImageResource objects
-    // - A little messy to make sure it works with SPOT5 which will not work without the camera file
-    //   but the camera file does not match if the image is cropped.
-    // - Ideally there would be a function to make this cleaner.
+    // Create DiskImageResource objects. It is a little messy to make sure
+    // it works with SPOT5 which will not work without the camera file
+    // but the camera file does not match if the image is cropped. 
+    // Ideally there would be a function to make this cleaner.
     boost::shared_ptr<DiskImageResource> rsrc1, rsrc2;
     if (input_file1 == m_left_image_file)
       rsrc1 = vw::DiskImageResourcePtr(m_left_image_file);
@@ -405,6 +411,30 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
   return m_camera_model[image_cam_pair];
 }
 
+// This logic is used in a handful of places  
+std::string StereoSession::stereo_match_filename(std::string const& left_cropped_file,
+                                                 std::string const& right_cropped_file,
+                                                 std::string const& out_prefix) {
+  
+  // Define the file name containing IP match information.
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  
+  // See if can use an externally provided match file
+  std::string match_filename;
+  if (!crop_left && !crop_right)
+    match_filename 
+      = asp::match_filename(stereo_settings().clean_match_files_prefix,
+                            stereo_settings().match_files_prefix,  
+                            out_prefix, left_cropped_file, right_cropped_file);
+
+  // Fall back to creating one if no luck
+  if (match_filename == "" || !boost::filesystem::exists(match_filename))
+    match_filename = vw::ip::match_filename(out_prefix, left_cropped_file, right_cropped_file);
+
+  return match_filename;
+}
+    
 // Find ip matches and determine the alignment matrices
 void StereoSession::determine_image_alignment(// Inputs
                                               std::string  const& out_prefix,
@@ -415,8 +445,10 @@ void StereoSession::determine_image_alignment(// Inputs
                                               vw::Vector6f const& right_stats,
                                               float left_nodata_value,
                                               float right_nodata_value,
-                                              boost::shared_ptr<vw::camera::CameraModel> left_cam, 
-                                              boost::shared_ptr<vw::camera::CameraModel> right_cam,
+                                              boost::shared_ptr<vw::camera::CameraModel>
+                                              left_cam, 
+                                              boost::shared_ptr<vw::camera::CameraModel>
+                                              right_cam,
                                               bool adjust_left_image_size,
                                               // In-out
                                               vw::Matrix<double> & align_left_matrix,
@@ -425,8 +457,9 @@ void StereoSession::determine_image_alignment(// Inputs
                                               vw::Vector2i & right_size) {
   
   // Define the file name containing IP match information.
-  std::string match_filename    = ip::match_filename(out_prefix,
-                                                     left_cropped_file, right_cropped_file);
+  std::string match_filename
+    = this->stereo_match_filename(left_cropped_file, right_cropped_file, out_prefix);
+  
   std::string left_ip_filename  = ip::ip_filename(out_prefix, left_cropped_file);
   std::string right_ip_filename = ip::ip_filename(out_prefix, right_cropped_file);
   

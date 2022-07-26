@@ -119,7 +119,9 @@ impact the ability to make the cameras self-consistent.
 
 ASP also offers the tool ``parallel_bundle_adjust`` which can create
 match files using multiple processes spread over multiple machines
-(:numref:`parallel_bundle_adjust`).
+(:numref:`parallel_bundle_adjust`). These can also be used later
+during stereo with the options ``--match-files-prefix`` and
+``--clean-match-files-prefix``.
 
 .. _floatingintrinsics:
 

@@ -44,6 +44,12 @@ void align_ip(vw::TransformPtr const& tx_left,
               std::vector<vw::ip::InterestPoint> & ip_left,
               std::vector<vw::ip::InterestPoint> & ip_right);
 
+// Heuristics for where to load the match file from  
+std::string match_filename(std::string const& clean_match_files_prefix,
+                           std::string const& match_files_prefix,
+                           std::string const& out_prefix,
+                           std::string const& image1_path,
+                           std::string const& image2_path);
 } // End namespace asp
 
 #endif//__ASP_CORE_IP_MATCHING_ALGS_H__

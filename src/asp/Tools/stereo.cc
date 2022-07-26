@@ -510,11 +510,15 @@ namespace asp {
 		   stereo_settings().lon_lat_limit.max().x() );
     }
 
+    if (!stereo_settings().match_files_prefix.empty() &&
+        !stereo_settings().clean_match_files_prefix.empty()) 
+      vw_throw(ArgumentErr() << "Cannot specify both --match-files-prefix and "
+               << "--clean-match-files-prefix.\n\n" << usage << general_options);
+    
     if (!stereo_settings().corr_search_limit.empty() && stereo_settings().max_disp_spread > 0)
       vw_throw(ArgumentErr() << "Cannot specify both --corr-search-limit and "
                << "--max-disp-spread.\n\n" << usage << general_options);
-      
-      
+
     // Verify that there is only one channel per input image
     if ( (left_resource->channels() > 1) || (right_resource->channels() > 1) )
       vw_throw(ArgumentErr() << "Error: Input images can only have a single channel.\n\n"
@@ -744,7 +748,12 @@ namespace asp {
                  << "the option -t \"" << expected_cam_type << "\". Instead, got: \""
                  << l_cam_type << "\" and \"" << r_cam_type << "\".\n");
       }
-
+      
+      if (!stereo_settings().match_files_prefix.empty() ||
+          !stereo_settings().clean_match_files_prefix.empty()) 
+        vw_throw(ArgumentErr() << "Options: --match-files-prefix and "
+                 << "--clean-match-files-prefix do not work with mapprojected images.\n");
+      
     } // End if dem_provided
 
     if (stereo_settings().corr_kernel[0]%2 == 0 ||

@@ -129,6 +129,7 @@ namespace asp {
     bool   force_reuse_match_files;         ///< Force reusing the match files even if older than the images or cameras
     bool   part_of_multiview_run;           ///< If this run is part of a larger multiview run
     std::string datum;                      ///< The datum to use with RPC camera models
+    std::string match_files_prefix, clean_match_files_prefix; // Load matches from here
     std::string left_image_clip, right_image_clip;
     double global_alignment_threshold;        /// Max distance from the epipolar line when doing global affine epipolar alignment
     double local_alignment_threshold;         /// Max distance from the epipolar line when doing local affine epipolar alignment

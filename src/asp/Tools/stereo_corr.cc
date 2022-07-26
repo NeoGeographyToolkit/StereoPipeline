@@ -275,7 +275,9 @@ void load_or_compute_ip(std::string const & left_unalgined_image,
   const std::string right_aligned_image_file = out_prefix + "-R.tif";
 
   const std::string unaligned_match_file
-    = vw::ip::match_filename(out_prefix, left_unalgined_image, right_unaligned_image);
+    = session->stereo_match_filename(session->left_cropped_image(),
+                                     session->right_cropped_image(),
+                                     out_prefix);
 
   const std::string aligned_match_file     
     = vw::ip::match_filename(out_prefix, "L.tif", "R.tif");
@@ -289,8 +291,17 @@ void load_or_compute_ip(std::string const & left_unalgined_image,
   if (fs::exists(right_camera))
     ref_list.push_back(right_camera);
 
+  bool rebuild = (!is_latest_timestamp(unaligned_match_file, ref_list));
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  if (!crop_left && !crop_right &&
+      (stereo_settings().force_reuse_match_files ||
+       stereo_settings().clean_match_files_prefix != "" ||
+       stereo_settings().match_files_prefix != ""))
+    rebuild = false; // Do not rebuild with externally provided match files
+    
   // Try the unaligned match file first
-  if (fs::exists(unaligned_match_file) && is_latest_timestamp(unaligned_match_file, ref_list)) {
+  if (fs::exists(unaligned_match_file) && !rebuild) {
     vw_out() << "Cached IP match file found: " << unaligned_match_file << std::endl;
     match_filename = unaligned_match_file;
     return;

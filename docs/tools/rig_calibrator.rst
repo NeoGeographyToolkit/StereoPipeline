@@ -627,7 +627,7 @@ Command-line options for rig_calibrator
   to be able to find new matches.
 ``--parameter_tolerance`` Stop when the optimization variables change by less
   than this. Type: double. Default: 1e-12.
-``--refiner_min_angle`` If filtering outliers, remove triangulated points for
+``--min_triangulation_angle`` If filtering outliers, remove triangulated points for
   which all rays converging to it make an angle (in degrees) less than
   this. Note that some cameras in the rig may be very close to each other
   relative to the triangulated points, so care is needed here.)

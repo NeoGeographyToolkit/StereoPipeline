@@ -26,6 +26,7 @@
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/InterestPoint/Matcher.h>
+#include <asp/Core/IpMatchingAlgs.h>        // Lightweight header
 #include <vw/Math/Functors.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Core/ThreadedEdgeMask.h>
@@ -35,7 +36,6 @@
 
 using namespace vw;
 using namespace asp;
-using namespace std;
 
 // Invalidate pixels < threshold
 struct MaskAboveThreshold: public ReturnFixedType< PixelMask<uint8> > {
@@ -84,17 +84,17 @@ BlobHolder::mask_and_fill_holes( ImageViewRef< PixelGray<float> > const& img,
 
 /// Instead of writing L.tif and R.tif, just create sym links from
 /// input left and right images. Creating symbolic links can be tricky.
-void create_sym_links(string const& left_input_file,
-                      string const& right_input_file,
-                      string const& out_prefix,
-                      string & left_output_file,
-                      string & right_output_file) {
+void create_sym_links(std::string const& left_input_file,
+                      std::string const& right_input_file,
+                      std::string const& out_prefix,
+                      std::string & left_output_file,
+                      std::string & right_output_file) {
 
   vw_out(WarningMessage) << "Skipping image normalization.\n";
 
   left_output_file  = out_prefix+"-L.tif";
   right_output_file = out_prefix+"-R.tif";
-  string cmd1, cmd2;
+  std::string cmd1, cmd2;
   fs::path out_prefix_path(out_prefix);
   fs::path left_rel_in, right_rel_in;
   if (out_prefix_path.has_parent_path()) {
@@ -108,20 +108,20 @@ void create_sym_links(string const& left_input_file,
     right_rel_in = fs::path(right_input_file);
   }
 
-  string left_rel_out  = fs::path(left_output_file ).filename().string();
-  string right_rel_out = fs::path(right_output_file).filename().string();
+  std::string left_rel_out  = fs::path(left_output_file ).filename().string();
+  std::string right_rel_out = fs::path(right_output_file).filename().string();
 
-  string cmd;
+  std::string cmd;
   if (!fs::exists(left_output_file)){
     cmd = cmd1 + "ln -s " + left_rel_in.string() + " " + left_rel_out + cmd2;
-    vw_out() << cmd << endl;
+    vw_out() << cmd << std::endl;
     int ret = system(cmd.c_str());
     VW_ASSERT( ret == 0,
                ArgumentErr() << "Failed to execute: " << cmd << "\n" );
   }
   if (!fs::exists(right_output_file)){
     cmd = cmd1 + "ln -s " + right_rel_in.string() + " " + right_rel_out + cmd2;
-    vw_out() << cmd << endl;
+    vw_out() << cmd << std::endl;
     int ret = system(cmd.c_str());
     VW_ASSERT( ret == 0,
                ArgumentErr() << "Failed to execute: " << cmd << "\n" );
@@ -133,7 +133,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
   // Normalize the images, or create symlinks to the original
   // images if the user chose not to normalize.
-  string left_image_file, right_image_file;
+  std::string left_image_file, right_image_file;
   bool skip_img_norm = asp::skip_image_normalization(opt);
 
   // Bathymetry will not work with skipping image normalization.
@@ -165,8 +165,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
   bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
-  string left_mask_file  = opt.out_prefix+"-lMask.tif";
-  string right_mask_file = opt.out_prefix+"-rMask.tif";
+  std::string left_mask_file  = opt.out_prefix+"-lMask.tif";
+  std::string right_mask_file = opt.out_prefix+"-rMask.tif";
   
   // Also need to rebuild if the inputs changed after the mask files were produced.
   std::vector<std::string> in_file_list;
@@ -227,8 +227,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                   asp::threaded_edge_mask(right_image,0,0,1024));
 
     // Read the no-data values of L.tif and R.tif.
-    float left_nodata_value  = numeric_limits<float>::quiet_NaN();
-    float right_nodata_value = numeric_limits<float>::quiet_NaN();
+    float left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
+    float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
     if ( left_rsrc->has_nodata_read() )
       left_nodata_value  = left_rsrc->nodata_read();
     if ( right_rsrc->has_nodata_read() )
@@ -252,8 +252,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                                                           right_nodata_value));
 
     // Invalidate pixels below (normalized) threshold. This is experimental.
-    double left_threshold  = numeric_limits<double>::quiet_NaN();
-    double right_threshold = numeric_limits<double>::quiet_NaN();
+    double left_threshold  = std::numeric_limits<double>::quiet_NaN();
+    double right_threshold = std::numeric_limits<double>::quiet_NaN();
     double nodata_fraction = stereo_settings().nodata_pixel_percentage/100.0;
     if ( skip_img_norm && (!std::isnan(nodata_fraction)) ){
       vw_throw( ArgumentErr() << "\nCannot skip image normalization while attempting "
@@ -363,14 +363,14 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
     sw.stop();
     vw_out(DebugMessage,"asp") << "Mask creation elapsed time: "
-                               << sw.elapsed_seconds() << " s." << endl;
+                               << sw.elapsed_seconds() << " s." << std::endl;
   } // End creating masks
 
 
-  string lsub  = opt.out_prefix+"-L_sub.tif";
-  string rsub  = opt.out_prefix+"-R_sub.tif";
-  string lmsub = opt.out_prefix+"-lMask_sub.tif";
-  string rmsub = opt.out_prefix+"-rMask_sub.tif";
+  std::string lsub  = opt.out_prefix+"-L_sub.tif";
+  std::string rsub  = opt.out_prefix+"-R_sub.tif";
+  std::string lmsub = opt.out_prefix+"-lMask_sub.tif";
+  std::string rmsub = opt.out_prefix+"-rMask_sub.tif";
 
   inputs_changed = (!is_latest_timestamp(lsub,  in_file_list ) ||
                     !is_latest_timestamp(rsub,  in_file_list)  ||
@@ -520,10 +520,10 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                                                             opt.out_prefix, left_image_file);
     Vector6f right_stats      = StereoSession::gather_stats(right_masked_image, "right",
                                                             opt.out_prefix, right_image_file);
-    string   left_stats_file  = opt.out_prefix + "-lStats.tif";
-    string   right_stats_file = opt.out_prefix + "-rStats.tif";
+    std::string   left_stats_file  = opt.out_prefix + "-lStats.tif";
+    std::string   right_stats_file = opt.out_prefix + "-rStats.tif";
 
-    vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << endl;
+    vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
     Vector<float32> left_stats2  = left_stats;  // cast
     Vector<float32> right_stats2 = right_stats; // cast
     write_vector(left_stats_file,  left_stats2 );
@@ -548,19 +548,18 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
   if (!will_do)
     return;
 
-  std::string left_image = opt.session->left_cropped_image();
-  std::string right_image = opt.session->right_cropped_image();
-  std::string unaligned_match_file
-    = vw::ip::match_filename(opt.out_prefix,
-                             left_image, right_image);
-
-  std::vector<ip::InterestPoint> left_ip, right_ip;
+  std::string match_filename
+    = opt.session->stereo_match_filename(opt.session->left_cropped_image(),
+                                         opt.session->right_cropped_image(),
+                                         opt.out_prefix);
   
   // The interest points must exist by now
-  if (!fs::exists(unaligned_match_file))
-    vw_throw(ArgumentErr() << "Missing IP file: " << unaligned_match_file);
+  if (!fs::exists(match_filename))
+    vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
   
-  ip::read_binary_match_file(unaligned_match_file, left_ip, right_ip);
+  std::vector<ip::InterestPoint> left_ip, right_ip;
+  // vw_out() << "Reading binary match file: " << match_filename << std::endl;
+  ip::read_binary_match_file(match_filename, left_ip, right_ip);
 
   std::vector<double> angles;
   boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
@@ -596,13 +595,13 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = false;
-    vector<ASPGlobalOptions> opt_vec;
-    string output_prefix;
+    std::vector<ASPGlobalOptions> opt_vec;
+    std::string output_prefix;
     asp::parse_multiview(argc, argv, PreProcessingDescription(),
                          verbose, output_prefix, opt_vec);
     ASPGlobalOptions opt = opt_vec[0];
 
-    vw_out() <<   "Using image files:  " << opt.in_file1  << ", " << opt.in_file2  << std::endl;
+    vw_out() << "Using image files:  " << opt.in_file1  << ", " << opt.in_file2  << std::endl;
     if (opt.cam_file1 != "" || opt.cam_file2 != "") 
       vw_out() << "Using camera files: " << opt.cam_file1 << ", " << opt.cam_file2 << std::endl;
     if (!opt.input_dem.empty())

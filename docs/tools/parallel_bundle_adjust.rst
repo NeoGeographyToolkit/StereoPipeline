@@ -30,6 +30,10 @@ compute match files if the cameras are too new or if some match file
 computation failed before and if it is likely to fail again if
 re-attempted.)
 
+The match files created by this tool can be used by
+``bundle_adjust`` and ``parallel_stereo`` via the options
+``--match-files-prefix`` and ``--clean-match-files-prefix``.
+
 Command-line options for parallel_bundle_adjust:
 
 --nodes-list <filename>

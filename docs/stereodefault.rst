@@ -80,6 +80,16 @@ force-reuse-match-files
     Force reusing the match files even if older than the images or
     cameras.
 
+match-files-prefix
+    Use the match file from this prefix. Normally contains match files
+    created with ``bundle_adjust`` or ``parallel_stereo``. Works only
+    with non-mapprojected images.
+
+clean-match-files-prefix
+    Use as input match file the ``*-clean.match`` file from this prefix
+    (this had the outliers filtered out). See also
+    ``match-files-prefix``.
+
 .. _image_alignment:
 
 Image alignment

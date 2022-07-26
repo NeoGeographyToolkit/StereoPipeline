@@ -11,7 +11,7 @@ number of images, consider using ``parallel_bundle_adjust``
 (:numref:`parallel_bundle_adjust`).
 
 This tool can use several underlying least-squares minimization
-algorithms, the default is Google’s Ceres Solver
+algorithms, the default is Google's *Ceres Solver*
 (http://ceres-solver.org/).
 
 Usage::
@@ -86,6 +86,10 @@ alignment to the cameras that were used to create that DEM. The
 initial transform can have a rotation, translation, and scale, and it
 is applied after the input adjustments are read, if those are
 present. An example is shown in (:numref:`ba_pc_align`).
+
+The match files created by ``bundle_adjust`` can be used later by
+other ``bundle_adjust`` or ``parallel_stereo`` invocations, with the
+options ``--match-files-prefix`` and ``--clean-match-files-prefix``.
 
 .. _bagcp:
 

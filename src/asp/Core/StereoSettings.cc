@@ -175,7 +175,11 @@ namespace asp {
        "Expand the disparity range estimated from interest points by this percentage before computing the stereo correlation with local epipolar alignment.")
       ("datum",                    po::value(&global.datum)->default_value("WGS_1984"),
        "Set the datum to use with RPC camera models. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-
+      ("match-files-prefix",  po::value(&global.match_files_prefix)->default_value(""),
+       "Use the match file from this prefix. Normally contains match files "
+       "created with bundle_adjust`` or parallel_stereo.")
+      ("clean-match-files-prefix",  po::value(&global.clean_match_files_prefix)->default_value(""),
+       "Use as input match file the *-clean.match file from this prefix (this had the outliers filtered out).")
       ("left-image-clip", po::value(&global.left_image_clip)->default_value(""),
        "If --left-image-crop-win is used, replaced the left image cropped to that window with this clip.")
       ("right-image-clip", po::value(&global.right_image_clip)->default_value(""),
