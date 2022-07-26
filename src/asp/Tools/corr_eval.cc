@@ -37,6 +37,31 @@ struct Options : vw::GdalWriteOptions {
   float prefilter_kernel_width;
 };
 
+// Create the selected prefilter class and apply the filter to an image.
+// Return an ImageRef, unlike prefilter_image() in VW, which returns
+// an in-memory image, which can be huge.
+namespace vw {
+namespace stereo {
+template <class ImageT>
+ImageViewRef<typename ImageT::pixel_type> 
+prefilter_image_ref(ImageViewBase<ImageT> const& image,
+                    PrefilterModeType prefilter_mode,
+                    float             prefilter_width) {
+  
+  if (prefilter_mode == PREFILTER_LOG){  // LOG
+    stereo::LaplacianOfGaussian prefilter(prefilter_width);
+    return prefilter.filter(image);
+  }
+  if (prefilter_mode == PREFILTER_MEANSUB){  // Subtracted mean
+    stereo::SubtractedMean prefilter(prefilter_width);
+    return prefilter.filter(image);
+  }
+  //Default: PREFILTER_NONE
+  stereo::NullOperation prefilter;
+  return prefilter.filter(image);
+}
+}}
+
 void handle_arguments(int argc, char *argv[], Options& opt) {
   
   po::options_description general_options("");
@@ -113,18 +138,22 @@ int main(int argc, char *argv[]) {
     // Use bigger tiles on output, should be faster that way given
     // that we have to grab a big chunk of the right image for each
     // tile.
-    opt.raster_tile_size = Vector2i(asp::ASPGlobalOptions::corr_tile_size(),
-                                    asp::ASPGlobalOptions::corr_tile_size());
+    //opt.raster_tile_size = Vector2i(asp::ASPGlobalOptions::corr_tile_size(), // 1024
+    //                                asp::ASPGlobalOptions::corr_tile_size());
+    // These should result in less memory being used
+    opt.raster_tile_size = Vector2i(asp::ASPGlobalOptions::rfne_tile_size(), // 256
+                                    asp::ASPGlobalOptions::rfne_tile_size());
 
     ImageViewRef<PixelMask<float>> masked_left  = create_mask(left, left_nodata);
     ImageViewRef<PixelMask<float>> masked_right = create_mask(right, right_nodata);
-    
-    if (opt.prefilter_mode > 0) {
-      masked_left = vw::stereo::prefilter_image(masked_left,
-                                                vw::stereo::PrefilterModeType(opt.prefilter_mode),
+
+    int m = opt.prefilter_mode; // to write less below
+    if (m > 0) {
+      masked_left = vw::stereo::prefilter_image_ref(masked_left,
+                                                vw::stereo::PrefilterModeType(m),
                                                 opt.prefilter_kernel_width);
-      masked_right = vw::stereo::prefilter_image(masked_right,
-                                                vw::stereo::PrefilterModeType(opt.prefilter_mode),
+      masked_right = vw::stereo::prefilter_image_ref(masked_right,
+                                                vw::stereo::PrefilterModeType(m),
                                                 opt.prefilter_kernel_width);
     }
     

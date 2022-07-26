@@ -54,6 +54,14 @@ stereo_gui:
     automatically load their match file and clean match file (options:
     ``--pairwise-matches`` and ``--pairwise-clean-matches``).
 
+corr_eval:
+  * Bugfix for memory usage with positive ``--prefilter-mode``.
+  * Added note that that the user should ensure that this tool uses 
+    the same ``--corr-kernel`` and ``--prefilter-mode`` as
+    ``parallel_stereo``, which depends on the value of
+    ``--stereo-algorithm`` being ``asp_bm``, ``asp_sgm``, or
+    ``asp_mgm``.
+
 misc:
   * Increased the cache size to 1 GB per process for each ASP
     tool. Added the option ``--cache-size-mb``, to set this. Made this

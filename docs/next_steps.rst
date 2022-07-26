@@ -110,6 +110,9 @@ important values in that file.
     subpixel-mode 1
     subpixel-kernel 21 21
 
+For the ``asp_sgm`` and ``asp_mgm`` algorithms, the default correlation
+kernel size is 5 x 5 rather than 21 x 21.
+
 Note that the ``corr-kernel`` option does not apply to the external
 algorithms.  Instead, each algorithm has its own options that need to
 be set (:numref:`stereo_algos`).

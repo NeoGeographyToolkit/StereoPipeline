@@ -125,12 +125,12 @@ still manually specify these options.
    transform that is more stable on low contrast terrain but may be less
    accurate elsewhere.
 
-- ``corr-kernel``. SGM kernels must always be odd. The SGM algorithm
+-  ``corr-kernel``. SGM kernels must always be odd. The SGM algorithm
    works with much smaller kernel sizes than the regular integer
    correlator so the default large kernel is not recommended. The MAD
    cost mode can be used with any odd kernel size (including size 1)
    but the census cost modes can only be used with kernel sizes 3, 5,
-   7, and 9. Size 7 is usually a good choice.
+   7, and 9. Size 5 or 7 is usually a good choice. The default is 5.
 
 -  ``xcorr-threshold``. By default this is enabled and set to 2, which 
    doubles the run time of the SGM algorithm. Set it to -1 to turn it

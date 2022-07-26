@@ -38,12 +38,28 @@ Usage::
 
     corr_eval [options] <L.tif> <R.tif> <Disp.tif> <output prefix>
 
-Example::
+Example for a disparity created with ``--stereo-algorithm asp_bm``::
 
-    corr_eval --kernel-size 21 21 --metric ncc            \
+    corr_eval --prefilter-mode 2 --kernel-size 21 21 --metric ncc \
+      run/run-L.tif run/run-R.tif run/run-RD.tif run/run
+
+Example for a disparity created with the ``asp_mgm`` algorithm::
+
+    corr_eval --prefilter-mode 0 --kernel-size 5 5 --metric ncc \
       run/run-L.tif run/run-R.tif run/run-RD.tif run/run
 
 This will create ``run/run-ncc.tif``.
+
+The user may want to ensure that ``--prefilter-mode`` and
+``--kernel-size`` used for this tool agrees with what was used with
+``parallel_stereo``. For that, by default, ``--prefilter-mode`` is 2
+for the ``asp_bm`` method, and 0 for ``asp_sgm`` and ``asp_mgm``.
+The kernel size is 21 x 21 for ``asp_bm``, while it is 5 x 5 for
+``asp_sgm`` and ``asp_mgm``.
+
+The external stereo algorithms (:numref:`stereo_algos_full`) do not
+use prefilter mode, and each of them specifies the correlation kernel
+in its own way.
 
 See also the somewhat-related image correlator tool which can find the
 disparity of two images without assuming camera information
