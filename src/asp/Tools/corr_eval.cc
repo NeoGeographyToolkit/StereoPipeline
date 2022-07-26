@@ -33,7 +33,7 @@ struct Options : vw::GdalWriteOptions {
   std::string left_image, right_image, disparity, output_prefix, metric;
   vw::Vector2i kernel_size;
   bool round_to_int;
-  int prefilter_mode;
+  int prefilter_mode, sample_rate;
   float prefilter_kernel_width;
 };
 
@@ -77,6 +77,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The diameter of the Gaussian convolution kernel "
      "for prefilter modes 1 and 2. A value of 1.5 works "
      "well for LoG and 25-30 is suggested for the subtracted mean.")
+    ("sample-rate", po::value(&opt.sample_rate)->default_value(1),
+     "Compute the quality image only at one out of this many rows and columns, for speed. "
+     "The output image size does not change. To shrink it, (say by 2x), run "
+     "gdal_translate -r average -outsize 50% 50% in.tif out.tif.")
     ("round-to-int", po::bool_switch(&opt.round_to_int)->default_value(false),
      "Round the disparity to integer and skip interpolation when finding the right image patches. This make the program faster by a factor of about 2, without changing significantly the output image.");
 
@@ -111,7 +115,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.metric != "ncc" && opt.metric != "stddev") 
     vw::vw_throw(vw::ArgumentErr() << "Invalid value provided for --metric.\n\n"
                  << usage << general_options);
-  
+
+  if (opt.sample_rate < 1)
+    vw::vw_throw(vw::ArgumentErr() << "The value of --sample-rate must be positive.\n"
+                 << usage << general_options);
+
   vw::create_out_dir(opt.output_prefix);
 }
 
@@ -165,7 +173,8 @@ int main(int argc, char *argv[]) {
     vw::cartography::block_write_gdal_image
       (output_image,
        apply_mask(vw::stereo::corr_eval(masked_left, masked_right,
-                                        disp, opt.kernel_size, opt.metric, opt.round_to_int),
+                                        disp, opt.kernel_size, opt.metric,
+                                        opt.sample_rate, opt.round_to_int),
                   left_nodata),
        has_left_georef, left_georef,
        has_nodata, left_nodata, opt,

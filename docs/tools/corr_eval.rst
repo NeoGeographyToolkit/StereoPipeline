@@ -12,7 +12,7 @@ each pixel.
 The input disparity can be any of ``D.tif``, ``B.tif``, ``RD.tif``, or
 ``F.tif``. (:numref:`outputfiles` describes these.)
 
-Several quality metrics are supported.
+Two quality metrics are supported, for the moment.
 
 - Normalized cross-correlation (NCC). For each left aligned image
   pixel find the normalized cross-correlation between the patch of
@@ -58,8 +58,8 @@ The kernel size is 21 x 21 for ``asp_bm``, while it is 5 x 5 for
 ``asp_sgm`` and ``asp_mgm``.
 
 The external stereo algorithms (:numref:`stereo_algos_full`) do not
-use prefilter mode, and each of them specifies the correlation kernel
-in its own way.
+use the prefilter mode, and each of them specifies the correlation
+kernel size in its own way.
 
 See also the somewhat-related image correlator tool which can find the
 disparity of two images without assuming camera information
@@ -84,6 +84,11 @@ Command-line options for ``corr_eval``:
     The diameter of the Gaussian convolution kernel for prefilter
     modes 1 and 2. A value of 1.5 works well for ``LoG``, and 25 - 30 is 
     suggested for ``subtracted mean``.
+
+--sample-rate <integer (default: 1)>
+    Compute the quality image only at one out of this many rows and
+    columns, for speed. The output image size does not change. To shrink
+    it (say by 2x), run ``gdal_translate -r average -outsize 50% 50% in.tif out.tif``.
 
 --round-to-int
     Round the disparity to integer and skip interpolation when finding

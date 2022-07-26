@@ -50,17 +50,17 @@ mapproject:
   * Exposed and documented the ``--query-projection`` option.
  
 stereo_gui:
-  * Given a bundle_adjust run directory, can show any two images and
-    automatically load their match file and clean match file (options:
+  * Given a bundle_adjust run directory, can select via checkboxes
+    any two images to show side-by-side, and automatically load their
+    match file or clean match file (options:
     ``--pairwise-matches`` and ``--pairwise-clean-matches``).
 
 corr_eval:
   * Bugfix for excessive memory usage with positive ``--prefilter-mode``.
   * Added a note saying that the user should ensure that this tool uses 
     the same ``--corr-kernel`` and ``--prefilter-mode`` as
-    ``parallel_stereo``, which depends on the value of
-    ``--stereo-algorithm`` being ``asp_bm``, ``asp_sgm``, or
-    ``asp_mgm``.
+    ``parallel_stereo``.
+  * Added the option ``--sample-rate``.
 
 misc:
   * Increased the cache size to 1 GB per process for each ASP
