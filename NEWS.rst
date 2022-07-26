@@ -55,8 +55,8 @@ stereo_gui:
     ``--pairwise-matches`` and ``--pairwise-clean-matches``).
 
 corr_eval:
-  * Bugfix for memory usage with positive ``--prefilter-mode``.
-  * Added note that that the user should ensure that this tool uses 
+  * Bugfix for excessive memory usage with positive ``--prefilter-mode``.
+  * Added a note saying that the user should ensure that this tool uses 
     the same ``--corr-kernel`` and ``--prefilter-mode`` as
     ``parallel_stereo``, which depends on the value of
     ``--stereo-algorithm`` being ``asp_bm``, ``asp_sgm``, or
