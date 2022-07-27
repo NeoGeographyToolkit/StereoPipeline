@@ -49,16 +49,4 @@ using namespace asp;
 
 namespace asp {
 
-void StereoSessionNadirPinhole::preprocessing_hook(bool adjust_left_image_size,
-                                                   std::string const& left_input_file,
-                                                   std::string const& right_input_file,
-                                                   std::string      & left_output_file,
-                                                   std::string      & right_output_file) {
-
-  // Call the StereoSession function, not the one from StereoSessionPinhole.
-  StereoSession::preprocessing_hook(adjust_left_image_size,
-                                    left_input_file, right_input_file,  
-                                    left_output_file, right_output_file);
-} // End function preprocessing_hook
-
 } // End namespace asp

@@ -30,30 +30,19 @@
 
 namespace asp {
 
-  class StereoSessionNadirPinhole : public StereoSessionPinhole{
+  class StereoSessionNadirPinhole: public StereoSessionPinhole{
   public:
     virtual ~StereoSessionNadirPinhole() {}
 
     virtual std::string name() const { return "nadirpinhole"; }
-
-    // Stage 1: Preprocessing
-    virtual void preprocessing_hook( bool adjust_left_image_size,
-                                         std::string const& left_input_file,
-                                         std::string const& right_input_file,
-                                         std::string      & left_output_file,
-                                         std::string      & right_output_file);
 
     static StereoSession* construct() { return new StereoSessionNadirPinhole; }
 
     virtual bool have_datum() const {
       return !asp::stereo_settings().no_datum && !stereo_settings().correlator_mode;
     }
-
-    // Unlike non-nadir pinhole, this follows the default method.
-    virtual tx_type tx_left () const {return tx_left_homography ();}
-    virtual tx_type tx_right() const {return tx_right_homography();}
+    
   };
-
 }
 
 #endif//__STEREO_SESSION_NADIR_PINHOLE_H__

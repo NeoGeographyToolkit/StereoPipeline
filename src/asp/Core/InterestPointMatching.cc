@@ -827,10 +827,10 @@ size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
   return ip1_out.size();
 } // End filter_ip_by_elevation
   
-  // Filter ip by triangulation error, reprojection error, and height range.
-  // This assumes the interest points are for the original images, without alignment
-  // or mapprojection.
-  // TODO(oalexan1): Add here the ability to reverse the alignment
+// Filter ip by triangulation error and height range.
+// This assumes the interest points are for the original images, without alignment
+// or mapprojection.
+// TODO(oalexan1): Add here the ability to reverse the alignment
 void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
                              std::vector<vw::ip::InterestPoint> & ip2,
                              vw::camera::CameraModel const * cam1,
@@ -838,7 +838,7 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
                              vw::cartography::Datum  const & datum,
                              double pct, double factor) {
 
-  std::vector<double> errors(ip1.size()), heights(ip1.size());
+  std::vector<double> tri_errors(ip1.size()), heights(ip1.size());
     
   // Compute the triangulation errors
   double angle_tol = vw::stereo::StereoModel
@@ -849,16 +849,16 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
     Vector3 xyz;
     try {
       xyz = model(Vector2(ip1[i].x, ip1[i].y), Vector2(ip2[i].x, ip2[i].y),
-                  errors[i]);
+                  tri_errors[i]);
     } catch(...) {
       xyz = Vector3();
     }
       
-    // The call returns the zero error and zero xyz to indicate a
+    // The call returns the zero tri error and zero xyz to indicate a
     // failed ray intersection so replace it in those cases with a
     // very high error.
-    if (errors[i] == 0 || xyz == Vector3()) {
-      errors[i]  = HIGH_ERROR;
+    if (tri_errors[i] == 0 || xyz == Vector3()) {
+      tri_errors[i]  = HIGH_ERROR;
       heights[i] = HIGH_ERROR;
       continue;
     }
@@ -894,12 +894,12 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
   vw_out() << "Number (and fraction) of removed outliers by the height check: "
            << count << " (" << double(count)/ip1.size() << ").\n";
 
-  // Find the valid errors. Make use of the fact that we already filtered by height.
+  // Find the valid tri errors. Make use of the fact that we already filtered by height.
   vals.clear();
   for (size_t i = 0; i < ip1.size(); i++) {
-    if (errors[i] >= HIGH_ERROR || heights[i] >= HIGH_ERROR) // already invalid
+    if (tri_errors[i] >= HIGH_ERROR || heights[i] >= HIGH_ERROR) // already invalid
       continue;
-    vals.push_back(errors[i]);
+    vals.push_back(tri_errors[i]);
   }
 
   // Find the outlier brackets. Since the triangulation errors, unlike
@@ -915,10 +915,10 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
   // Apply the outlier threshold
   count = 0;
   for (size_t i = 0; i < ip1.size(); i++) {
-    if (heights[i] >= HIGH_ERROR || errors[i] >= HIGH_ERROR) continue; // already invalid
+    if (heights[i] >= HIGH_ERROR || tri_errors[i] >= HIGH_ERROR) continue; // already invalid
     // We will ignore b, as the triangulation errors are non-negative.
-    if (errors[i] > e) {
-      errors[i] = HIGH_ERROR;
+    if (tri_errors[i] > e) {
+      tri_errors[i] = HIGH_ERROR;
       count++;
     }
   }
@@ -929,7 +929,7 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
   // Copy the outliers in place
   count = 0;
   for (size_t i = 0; i < ip1.size(); i++) {
-    if (errors[i] >= HIGH_ERROR || heights[i] >= HIGH_ERROR) 
+    if (tri_errors[i] >= HIGH_ERROR || heights[i] >= HIGH_ERROR) 
       continue;
 
     ip1[count] = ip1[i];

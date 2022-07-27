@@ -137,7 +137,7 @@ still manually specify these options.
    off, which may result in less accuracy. If setting
    ``min-xcorr-level`` to 1, one can perform the cross check on the
    smaller resolution levels without spending the time to run it on
-   the largest resolution level.
+   the highest resolution level, which is level 0.
 
 -  The median and texture filters in the ``stereo_fltr`` tool (defaults
    3, 11, 0.13). These filters were designed specifically to clean up

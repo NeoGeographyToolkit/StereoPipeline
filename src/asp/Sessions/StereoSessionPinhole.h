@@ -42,16 +42,6 @@ namespace asp {
     // so there is no datum.
     virtual bool have_datum() const {return false;}
 
-    // Stage 1: Preprocessing
-    //
-    // Pre file is a pair of images.            ( ImageView<PixelT> )
-    // Post file is a grayscale images.         ( ImageView<PixelGray<float> > )
-    virtual void preprocessing_hook(bool adjust_left_image_size,
-                                        std::string const& left_input_file,
-                                        std::string const& right_input_file,
-                                        std::string      & left_output_file,
-                                        std::string      & right_output_file);
-
     static StereoSession* construct() { return new StereoSessionPinhole; }
 
 
@@ -105,15 +95,6 @@ namespace asp {
                                    vw::ImageViewRef<vw::PixelMask<float>> & Limg, 
                                    vw::ImageViewRef<vw::PixelMask<float>> & Rimg);
  private:
-    /// Helper function for determining image alignment.
-    /// - Only used in preprocessing_hook()
-    vw::Matrix3x3 determine_image_align( std::string  const& out_prefix,
-                                         std::string  const& input_file1,
-                                         std::string  const& input_file2,
-                                         vw::Vector2  const& uncropped_image_size,
-                                         Vector6f const& stats1,
-                                         Vector6f const& stats2,
-                                         float nodata1, float nodata2);
  };
 
 }

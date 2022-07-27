@@ -137,9 +137,8 @@ namespace asp {
     // Double check that we can read the DEM and that it has cartographic information.
     VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSession: Require input DEM." );
     if (!boost::filesystem::exists(m_input_dem))
-      vw_throw( ArgumentErr() << "StereoSession: DEM \"" << m_input_dem << "\" does not exist." );
+      vw_throw(ArgumentErr() << "StereoSession: DEM '" << m_input_dem << "' does not exist.");
   }
-  
 
   // A default IP matching implementation that derived classes can use
   bool StereoSession::ip_matching(std::string const& input_file1,
@@ -157,23 +156,22 @@ namespace asp {
 
     vw_out() << "\t--> Matching interest points in StereoSession.\n";
 
-    if (uses_map_projected_inputs()) {
-      vw_throw( vw::ArgumentErr() << "StereoSession: IP matching is not implemented for "
-                << "map-projected images since we do not align them!");
-      return false;
-    }
-
-    bool rebuild = (!is_latest_timestamp(match_filename, input_file1, input_file2,
-                                         m_left_camera_file, m_right_camera_file));
+    // If we crop the images we must always create new matching files.
+    // Otherwise, do not rebuild with externally provided match files,
+    // or if a match file newer than the image and cameras is found in
+    // the output directory.
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+    bool rebuild = (!is_latest_timestamp(match_filename, input_file1, input_file2,
+                                         m_left_camera_file, m_right_camera_file));
     if (!crop_left && !crop_right &&
         (stereo_settings().force_reuse_match_files ||
          stereo_settings().clean_match_files_prefix != "" ||
          stereo_settings().match_files_prefix != ""))
-      rebuild = false; // Do not rebuild with externally provided match files
+      rebuild = false;
+    if (crop_left || crop_right) 
+      rebuild = true;
     
-    // If we crop the images we must always create new matching files
     if (boost::filesystem::exists(match_filename) && !rebuild) {
       vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
       return true;
@@ -209,8 +207,8 @@ namespace asp {
     DiskImageView<float> image1(rsrc1), image2(rsrc2);
     ImageViewRef<float> image1_norm = image1, image2_norm = image2;
     // Get normalized versions of the images for OpenCV based methods
-    if ( (stereo_settings().ip_matching_method != DETECT_IP_METHOD_INTEGRAL) &&
-       (stats1[0] != stats1[1]) ) { // Don't normalize if no stats were provided!
+    if ((stereo_settings().ip_matching_method != DETECT_IP_METHOD_INTEGRAL) &&
+       (stats1[0] != stats1[1])) { // Don't normalize if no stats were provided
       vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
       bool do_not_exceed_min_max = false;
       asp::normalize_images(stereo_settings().force_use_entire_range,
@@ -485,7 +483,7 @@ void StereoSession::determine_image_alignment(// Inputs
                                          left_size, right_size, left_ip, right_ip,
                                          align_left_matrix, align_right_matrix);
     vw_out() << "\t--> Aligning right image to left using matrices:\n"
-               << "\t      " << align_left_matrix  << "\n"
+             << "\t      " << align_left_matrix  << "\n"
              << "\t      " << align_right_matrix << "\n";
   } else {
     // affineepipolar and local_epipolar
@@ -669,9 +667,10 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                            TerminalProgressCallback("asp","\t  R:  ") );
   }
 
+  // For bathy runs only
   if (this->do_bathymetry())
     this->align_bathy_masks(options);
-    
+
 } // End function preprocessing_hook
   
 void StereoSession::pre_filtering_hook(std::string const& input_file,

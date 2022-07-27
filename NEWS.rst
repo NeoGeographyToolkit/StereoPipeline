@@ -75,7 +75,10 @@ misc:
     tool. Added the option ``--cache-size-mb``, to set this. Made this
     clear in the warning message when the limit is hit. Documented
     this for all tools.
-  * Consolidated much duplicated and mutated code for camera models.
+  * Using ``-t pinhole`` now invokes same logic as ``-t nadirpinhole
+    --no-datum``, which is same logic used by other sessions. This
+    wipes an old alternative path. Eliminated much other duplicated and
+    mutated code for various sessions at the preprocessing stage.
   * Bugfix for D.tif VRTs as created by ``parallel_stereo``.
   * Allow whitespaces in stereo.default before option names. 
   * Set for ASP programs LC_ALL and LANG to en_US.UTF-8, to avoid

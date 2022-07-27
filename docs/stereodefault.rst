@@ -451,8 +451,9 @@ min-xcorr-level (*integer*) (default = 0)
     the largest levels.
 
     Currently this feature is not enabled when using the default
-    block-matching correlation method. In that case cross correlation is
-    only ever performed on the last resolution level.
+    block-matching correlation method. In that case the cross
+    correlation check is only ever performed on the last resolution level,
+    which is level 0.
 
 save-left-right-disparity-difference
     Save the discrepancy between left-to-right and right-to-left

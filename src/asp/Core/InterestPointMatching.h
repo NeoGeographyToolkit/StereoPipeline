@@ -897,7 +897,7 @@ bool homography_ip_matching(vw::ImageViewBase<Image1T> const& image1,
   using namespace vw;
 
   vw_out() << "\t--> Matching interest points using homography.\n";
-  
+
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   detect_match_ip(matched_ip1, matched_ip2,
 		  image1.impl(), image2.impl(),
@@ -921,6 +921,7 @@ bool homography_ip_matching(vw::ImageViewBase<Image1T> const& image1,
 
   vw_out() << "\t    * Writing match file: " << output_name << "\n";
   ip::write_binary_match_file(output_name, final_ip1, final_ip2);
+
   return true;
 }
 

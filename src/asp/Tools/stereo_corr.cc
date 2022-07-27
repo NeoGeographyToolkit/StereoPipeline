@@ -198,7 +198,8 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     } else {
       // Filter D_sub using quantiles
       d_sub = rm_outliers_using_quantiles
-        (d_sub, stereo_settings().rm_quantile_percentile, stereo_settings().rm_quantile_multiple);
+        (d_sub, stereo_settings().rm_quantile_percentile,
+         stereo_settings().rm_quantile_multiple);
     }
 
     vw_out() << "Writing: " << d_sub_file << std::endl;
@@ -216,7 +217,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     if (stereo_settings().outlier_removal_params[0] < 100.0 &&
         opt.session->have_datum()                           &&
         !stereo_settings().correlator_mode) {
-      
+
       vw::TransformPtr tx_left = opt.session->tx_left();
       vw::TransformPtr tx_right = opt.session->tx_right();
       
@@ -349,7 +350,6 @@ void load_or_compute_ip(std::string const & left_unalgined_image,
   
   // This range is extra large to handle elevation differences.
   const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default
-  
   success = asp::homography_ip_matching(left_image, right_image,
                                         stereo_settings().ip_per_tile,
                                         inlier_threshold, match_filename,
@@ -417,10 +417,16 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   vw_out() << "\t    * Loading match file: " << match_filename << "\n";
   ip::read_binary_match_file(match_filename, in_left_ip, in_right_ip);
 
+  // TODO(oalexan1): Add here filter_ip_using_cameras, but take into account
+  // that the datum may not exist!
+
+  // TODO(oalexan1): Add filter ip using reprojection error!
+  
   // Align the ip, so go ip between left.tif and right.tif to ones between
   // L.tif and R.tif. If the matches are already between L.tif and R.tif
   // then do nothing.
   // TODO(oalexan1): Having this as a special case is annoying.
+  // TODO(oalexan1): Wipe this!
   std::string aligned_match_file = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
   if (match_filename != aligned_match_file)
     align_ip(opt.session->tx_left(), opt.session->tx_right(), in_left_ip, in_right_ip);
