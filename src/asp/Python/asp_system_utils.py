@@ -400,7 +400,9 @@ def executeCommand(cmd,
                     while True:
                         curr_out = p.stdout.readline()
                         # TODO(oalexan1): It appears that quering p.stderr makes this not
-                        # work in real time, so may need to turn the line below off.
+                        # work in real time, so may need to turn off the line below.
+                        # This will however break code which depends on things kept in
+                        # the error string. 
                         curr_err = p.stderr.readline()
                         out += curr_out
                         err += curr_err

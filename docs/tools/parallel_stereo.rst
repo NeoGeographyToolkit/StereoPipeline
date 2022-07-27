@@ -39,6 +39,9 @@ images. Multi-channel images need to first be converted to grayscale
 or a single channel should be extracted with ``gdal_translate``
 (otherwise the first channel will be picked quietly).
 
+The option ``--keep-only`` may be essential for large runs. It will
+condense a run and remove a lot of auxiliary files.
+
 .. _entrypoints:
 
 Entry points
@@ -199,6 +202,14 @@ Command-line options
     prefix, or bathy planes (if applicable). Do not change crop
     windows, as that would invalidate the run. See
     :numref:`bathy_reuse_run` for an example.
+
+--keep-only <string (default: "")>
+    Keep only produced files with these suffixes. Files
+    that are internally in VRT format will be converted to
+    TIF. All subdirectories will be deleted. Will be
+    invoked after triangulation, if that step is reached.
+    Specify as a string in quotes. Example: 
+    "-RD.tif -PC.tif -DEM.tif .vwip .exr .match".
 
 --verbose
     Display the commands being executed.

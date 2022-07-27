@@ -680,6 +680,68 @@ def normal_run(prog, args, **kw):
     if code != 0:
         raise Exception('Stereo step ' + kw['msg'] + ' failed')
 
+def isVrt(filename):
+    '''
+    Peek at the first line and see if it this is a vrt.
+    '''
+
+    if (not os.path.exists(filename)) or os.path.isdir(filename):
+        return False
+
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            line = f.readline().lower()
+            if line.startswith('<vrtdataset'):
+                return True
+    except:
+        # Binary files will be handled here
+        return False
+    
+    return False
+
+def keepOnlySpecified(keep_only, out_prefix):
+    """
+    Merge all VRTs and wipe any files the user does not want to keep.
+    """
+    if keep_only is None:
+        return
+
+    if '/' not in out_prefix:
+        raise Exception('Cannot use the --keep-only option as the output prefix ' + \
+                        'does not produce a subdirectory. This is on purpose, '   + \
+                        'to avoid unintended mass deletion of user files.')
+
+    keep_files = set()
+    for keep in keep_only.split():
+        for f in glob.glob(out_prefix + "*" + keep):
+            keep_files.add(f)
+
+    all_files = set()
+    for f in glob.glob(out_prefix + "*"):
+        all_files.add(f)
+    
+    for f in keep_files:
+        print("Keeping: " + f)
+        if isVrt(f):
+            f_out = f + ".tif"
+            print("Convert " + f + " to .tif format.")
+            cmd = ['gdal_translate', '-co', 'compress=lzw', '-co', 'TILED=yes', '-co',
+                   'INTERLEAVE=BAND', '-co', 'BLOCKXSIZE=256', '-co', 'BLOCKYSIZE=256', f, f_out]
+            (out, err, status) = asp_system_utils.executeCommand(cmd, realTimeOutput = True)
+            if status != 0:
+                raise Exception('Failed converting VRT to TIF. Qutting. ' + \
+                                'Likely this run is partially wiped now.')
+            print("Renaming: " + f_out + " to " + f)
+            shutil.move(f_out, f)
+
+    for f in all_files:
+        if f not in keep_files:
+            print("Deleting: " + f)
+            if os.path.isdir(f):
+                shutil.rmtree(f)
+            else:
+                os.remove(f)
+            
 if __name__ == '__main__':
     usage = '''parallel_stereo [options] <images> [<cameras>]
                   <output_file_prefix> [DEM]
@@ -735,14 +797,16 @@ if __name__ == '__main__':
     p.add_argument('--job-size-h',           dest='job_size_h',  default=2048,
                    help='Pixel height of input image tile for a single process.',
                    type=int)
-    p.add_argument('--sparse-disp-options', dest='sparse_disp_options',
-                   help='Options to pass directly to sparse_disp. Use quotes around this string.')
     p.add_argument('--resume-at-corr', dest='resume_at_corr', default=False, action='store_true',
                    help='Start at the correlation stage and skip recomputing the valid low ' + \
                    'and full-res disparities for that stage. Do not change ' + \
                    '--left-image-crop-win, etc, when running this.')
     p.add_argument('--prev-run-prefix',           dest='prev_run_prefix', default=None,
                    help='Start at the triangulation stage while reusing the data from this prefix. The new run can use different cameras, bundle adjustment prefix, or bathy planes (if applicable). Do not change crop windows, as that would invalidate the run.')
+    p.add_argument('--keep-only', dest='keep_only',
+                   help='Keep only produced files with these suffixes. Files that are internally in VRT format will be converted to TIF. All subdirectories will be deleted. Will be invoked after triangulation, if that step is reached. Specify as a string in quotes. Example: "-RD.tif -PC.tif -DEM.tif .vwip .exr .match".')
+    p.add_argument('--sparse-disp-options', dest='sparse_disp_options',
+                   help='Options to pass directly to sparse_disp. Use quotes around this string.')
     p.add_argument('-v', '--version',        dest='version', default=False,
                    action='store_true', help='Display the version of software.')
     p.add_argument('-s', '--stereo-file',    dest='stereo_file', default='./stereo.default',
@@ -833,7 +897,8 @@ if __name__ == '__main__':
     # hence no earlier than this point.
     sep = ","
     settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
-
+    out_prefix = settings['out_prefix'][0]
+    
     # See if to resume at triangulation
     if opt.tile_id is None and opt.prev_run_prefix is not None:
         print("Starting at the triangulation stage while reusing a previous run.")
@@ -841,7 +906,6 @@ if __name__ == '__main__':
         if opt.stop_point <= Step.tri:
             raise Exception('Cannot resume at triangulatoin if --stop-point ' + \
                             'is set to stop before that.')
-        out_prefix = settings['out_prefix'][0]
         sym_link_prev_run(opt.prev_run_prefix, out_prefix)
 
         # Now that we have data, update the settings value
@@ -1139,6 +1203,8 @@ if __name__ == '__main__':
             spawn_to_nodes(step, settings, parallel_args)
             build_vrt('stereo_tri', settings, georef, "-PC.tif", "-PC.tif") # mosaic
 
+            if opt.keep_only is not None:
+                keepOnlySpecified(opt.keep_only, out_prefix)
             # End main process case
     else:
 

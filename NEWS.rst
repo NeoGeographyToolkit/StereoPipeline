@@ -22,7 +22,15 @@ New tools:
     pinhole cameras and weighs inliers based on many criteria
     (:numref:`pc_filter`).
 
-stereo:
+parallel_stereo:
+  * Added the options ``--match-files-prefix`` and
+    ``--clean-match-files-prefix`` for reusing interest point matches
+    from a previous ``bundle_adjust`` or ``parallel_stereo`` run. The
+    "clean" interest point matches created by ``bundle_adjust`` may
+    have fewer outliers than what stereo can create.
+  * Added the option ``--keep-only`` to convert all VRT to TIF (e.g.,
+    D.tif), then wipe all files and subdirectories except those
+    specified by given suffixes.
   * Added the triangulation option ``--max-valid-triangulation-error``
     for removing points at triangulation. This is analogous to the 
     point2dem option but will be invoked at cloud generation, so 
@@ -34,11 +42,6 @@ stereo:
     (the needed aligned bathy masks are created, if needed,
     at the triangulation stage, if not done, as usual, at the 
     preprocessing stage).
-  * Add options for reusing interest point matches from a previous
-    ``bundle_adjust`` or ``parallel_stereo`` run. The "clean"
-    interest point matches created by ``bundle_adjust`` may have
-    fewer outliers than what stereo can create. Options:
-    ``--match-files-prefix`` and ``--clean-match-files-prefix``.
 
 point2dem:
   * Added the Tukey outlier removal method option applied to
