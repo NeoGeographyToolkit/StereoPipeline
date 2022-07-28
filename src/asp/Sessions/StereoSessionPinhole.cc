@@ -262,27 +262,54 @@ void StereoSessionPinhole::load_camera_models(
 // Return the left transform used in alignment
 StereoSessionPinhole::tx_type StereoSessionPinhole::tx_left() const {
 
-  if (stereo_settings().alignment_method != "epipolar")
-    return StereoSession::tx_left_homography();
+  // A very annoying feature of epipolar alignment is that the cameras
+  // returned in this mode already have alignment applied to them.
+  // Then, the alignment need not happen in here, so we always return
+  // tx_left_homography(), even though for epipolar alignment that
+  // becomes the identity matrix instead of the expected alignment
+  // transform.
+
+  // It has to be that way since the cameras are aligned. Otherwise,
+  // since triangulation is done with aligned cameras, if tx_left()
+  // would return unaligned pixels, the results end up wrong.
   
+  // That was likely a clever optimization, but it wreaks havoc with
+  // usual conventions.  It also results in having two camera loaders,
+  // namely camera_models() and get_unaligned_camera_models().
+
+  // All this must be wiped and one must go back to the normal way of
+  // doing things consistent with the other modes.  It would require
+  // very careful understanding of the many camera loading functions
+  // in this class, which have repeated logic, and how they deal with
+  // alignment and crop windows. Lots of work.
+
+  // So, for now leave things so that this class is consistent with
+  // itself for epipolar alignment, even though that is not consistent
+  // with the usual way of doing things.
+  
+  //if (stereo_settings().alignment_method != "epipolar")
+  return StereoSession::tx_left_homography(); // see above
+
+  // Comment out the logic below, per the text above.
   // TODO(oalexan1): Figure out if things can work without casting
   // away the const.
-  StereoSession::tx_type trans_left, trans_right;
-  ((StereoSessionPinhole*)this)->pinhole_cam_trans(trans_left, trans_right);
-  return trans_left;
+  //StereoSession::tx_type trans_left, trans_right;
+  //((StereoSessionPinhole*)this)->pinhole_cam_trans(trans_left, trans_right);
+  //return trans_left;
 }
 
 // Return the right transform used in alignment
 StereoSessionPinhole::tx_type StereoSessionPinhole::tx_right() const {
 
-  if (stereo_settings().alignment_method != "epipolar")
-    return StereoSession::tx_right_homography();
-  
+  //if (stereo_settings().alignment_method != "epipolar")
+  return StereoSession::tx_right_homography(); // see above
+
+  // See the lengthy rant in tx_left() above.
   // TODO(oalexan1): Figure out if things can work without casting
   // away the const.
-  StereoSession::tx_type trans_left, trans_right;
-  ((StereoSessionPinhole*)this)->pinhole_cam_trans(trans_left, trans_right);
-  return trans_right;
+  //StereoSession::tx_type trans_left, trans_right;
+  //((StereoSessionPinhole*)this)->pinhole_cam_trans(trans_left, trans_right);
+  //return trans_right;
 }
 
 void StereoSessionPinhole::pinhole_cam_trans(tx_type & left_trans,
