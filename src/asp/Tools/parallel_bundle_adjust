@@ -217,15 +217,13 @@ def run_job(prog, args, instance_index, **kw):
             asp_cmd_utils.wipe_option(call, '--threads', 1)
             call.extend(['--threads', str(opt.threads)])
 
-        if '--stop-after-statistics' not in args:
-            # Update the output prefix for this instance
+        if ('--stop-after-statistics' not in args) and ('--save-vwip' in args):
+            # Must create a custom subdirectory for .vwip files,
+            # as those are different for each pair.
             output_prefix = get_output_prefix(args)
             output_folder = os.path.dirname(output_prefix)
             sub_prefix    = get_subfolder_prefix(output_folder, instance_index)
-
-            # Replace the output prefix in the call
-            set_option(call, '-o', [sub_prefix])
-            asp_cmd_utils.wipe_option(call, '--output-prefix', 1)
+            set_option(call, '--vwip-prefix', [sub_prefix])
 
     if opt.dryrun:
         print('%s' % ' '.join(call))
@@ -239,9 +237,11 @@ def run_job(prog, args, instance_index, **kw):
     if code != 0:
         raise Exception('Bundle adjust step ' + kw['msg'] + ' failed')
 
-def distribute_files(output_prefix, ext, num_instances):
-    '''.stats (and camera footprint bbox files) files get distributed to all folders.
-       .match files get symlinked to the main folder.'''
+def distribute_or_gather_files(output_prefix, ext, num_instances):
+    '''The .stats (and camera footprint bbox files) files get distributed to all folders.
+       The .match files get symlinked to the main folder.
+       No longer used as files are no longer saved in sudirectories.
+       '''
 
     output_folder = os.path.dirname(output_prefix)
     sub_prefixes = [get_subfolder_prefix(output_folder, i) for i in range(num_instances)]
@@ -278,6 +278,12 @@ def distribute_files(output_prefix, ext, num_instances):
                 asp_system_utils.mkdir_p(os.path.dirname(new_path))
                 shutil.copyfile(f, new_path)
 
+class ParallelBaStep:
+    # The ids of individual parallel_bundle_adjust steps
+    statistics   = 0
+    matching     = 1
+    optimization = 2
+
 if __name__ == '__main__':
     usage = '''parallel_bundle_adjust <images> <cameras> <optional ground control points> -o <output prefix> [options]
         Camera model arguments may be optional for some stereo
@@ -301,11 +307,13 @@ if __name__ == '__main__':
     p.add_argument('--threads', dest='threads', default=None,
                  type=int, help='The number of threads to use.')
     p.add_argument('-e', '--entry-point',    dest='entry_point', default=0,
-                 help='Step to start with (statistics=0, matching=1, optimization=2).',
-                 type=int)
+                   help = "Bundle adjustment entry point (start at this stage). " + \
+                   "Options: statistics = 0, matching = 1, optimization = 2.",
+                   type=int)
     p.add_argument('--stop-point',           dest='stop_point',  default=3,
-                 help='Step to stop after (statistics=1, matching=2, optimization=3).',
-                 type=int)
+                   help = "Bundle adjustment stop point (stop *before* this stage). " + \
+                   "Options: statistics = 0, matching = 1, optimization = 2, all = 3.",
+                   type=int)
     p.add_argument('-v', '--version',        dest='version', default=False,
                  action='store_true', help='Display the version of software.')
     p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
@@ -396,33 +404,25 @@ if __name__ == '__main__':
             os.makedirs(output_folder)
 
         # Statistics.
-        step = Step.statistics
+        step = ParallelBaStep.statistics
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ):
                 sys.exit()
 
             # Spawn statistics processes to nodes.
             spawn_to_nodes(step, self_args)
-
-            # Copy all statistics files to each working folder
-            # Same for camera footprint bbox files if present.
-            distribute_files(output_prefix, '-stats.tif', num_instances)
-            distribute_files(output_prefix, '-bbox.txt', num_instances)
 
         # Matching.
-        step = Step.matching
+        step = ParallelBaStep.matching
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ):
                 sys.exit()
 
-            # Spawn statistics processes to nodes.
+            # Spawn statistics processes to subdir for nodes.
             spawn_to_nodes(step, self_args)
 
-            # Copy all statistics files to each working folder
-            distribute_files(output_prefix, '.match', num_instances)
-
         # Optimization
-        step = Step.optimization
+        step = ParallelBaStep.optimization
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ):
                 sys.exit()
@@ -440,12 +440,12 @@ if __name__ == '__main__':
         try:
             args.extend(['--instance-index', str(opt.instance_index)])
 
-            if ( opt.entry_point == Step.statistics ):
+            if ( opt.entry_point == ParallelBaStep.statistics ):
                 args.extend(['--stop-after-statistics'])
                 run_job('bundle_adjust', args, opt.instance_index,
                         msg='%d: Statistics' % opt.entry_point)
 
-            if ( opt.entry_point == Step.matching ):
+            if ( opt.entry_point == ParallelBaStep.matching ):
                 args.extend(['--stop-after-matching'])
                 run_job('bundle_adjust', args, opt.instance_index,
                         msg='%d: Matching' % opt.entry_point)

@@ -618,6 +618,12 @@ Command-line options for bundle_adjust
     Apply to the cameras the transform given by ``--initial-transform``.
     No iterations, GCP loading, or image matching takes place.
 
+--save-vwip
+    Save .vwip files (intermediate files for creating .match
+    files). For ``parallel_bundle_adjust`` these will be saved in
+    subdirectories, as they depend on the image pair.
+    Must start with an empty output directory for this to work.
+
 --enable-correct-velocity-aberration
     Turn on velocity aberration correction for Optical Bar and
     non-ISIS linescan cameras (:numref:`sensor_corrections`).

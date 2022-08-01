@@ -312,8 +312,8 @@ namespace asp {
 
 template <class ViewT>
 Vector6f StereoSession::gather_stats(vw::ImageViewBase<ViewT> const& view_base,
-                                     std::string const& tag,
-                                     std::string const& prefix, std::string const& image_path) {
+                                     std::string const& tag, std::string const& prefix,
+                                     std::string const& image_path) {
   using namespace vw;
   namespace fs = boost::filesystem;
   Vector6f result;

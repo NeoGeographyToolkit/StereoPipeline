@@ -1825,13 +1825,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Force reusing the match files even if older than the images or cameras.")
     ("skip-matching",    po::bool_switch(&opt.skip_matching)->default_value(false)->implicit_value(true),
      "Only use image matches which can be loaded from disk. This implies --force-reuse-match-files.")
-    ("ip-debug-images",        po::value(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
-     "Write debug images to disk when detecting and matching interest points.")
-    
     ("save-intermediate-cameras", po::value(&opt.save_intermediate_cameras)->default_value(false)->implicit_value(true),
      "Save the values for the cameras at each iteration.")
     ("apply-initial-transform-only", po::value(&opt.apply_initial_transform_only)->default_value(false)->implicit_value(true),
-     "Apply to the cameras the transform given by --initial-transform. No iterations, GCP loading, or image matching takes place.");
+     "Apply to the cameras the transform given by --initial-transform. No iterations, GCP loading, or image matching takes place.")
+  ("save-vwip",    po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
+     "Save .vwip files (intermediate files for creating .match files). For parallel_bundle_adjust these will be saved in subdirectories, as they depend on the image pair. Must start with an empty output directory for this to work.")
+    ("vwip-prefix",  po::value(&opt.vwip_prefix),
+     "Save .vwip files with this prefix. This is a private option used by parallel_bundle_adjust.")
+    
+    ("ip-debug-images",        po::value(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
+     "Write debug images to disk when detecting and matching interest points.");
+    
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   // TODO: When finding the min and max bounds, do a histogram, throw away 5% of points
@@ -2227,11 +2232,24 @@ void ba_match_ip(Options & opt, SessionPtr session,
   image2_stats = asp::StereoSession::gather_stats(masked_image2,
                                                   image2_path, opt.out_prefix, image2_path);
   
-  // The match files are cached unless the images or camera
-  // are newer than them. The IP files are cached for certain
-  // IP matching options.
-  std::string ip_file1 = ip::ip_filename(opt.out_prefix, image1_path);
-  std::string ip_file2 = ip::ip_filename(opt.out_prefix, image2_path);
+
+  // Do not save by default .vwip files as those take space and are
+  // not needed after a match file is created. If the user wants them,
+  // they must be saved in a subdirectory for each match pair, as
+  // .vwip files change depending on the pair.
+  std::string ip_file1 = "", ip_file2 = "";
+  if (opt.save_vwip) {
+      // parallel_bundle_adjust should have set vwip_prefix, but not bundle_adjust itself
+    if (opt.vwip_prefix == "")
+      opt.vwip_prefix = opt.out_prefix; 
+    
+    ip_file1 = ip::ip_filename(opt.vwip_prefix, image1_path); 
+    ip_file2 = ip::ip_filename(opt.vwip_prefix, image2_path);
+    vw::create_out_dir(opt.vwip_prefix);
+  }
+  
+  // The match files (.match) are cached unless the images or camera
+  // are newer than them.
   session->ip_matching(image1_path, image2_path,
                        Vector2(masked_image1.cols(), masked_image1.rows()),
                        image1_stats, image2_stats, opt.ip_per_tile,
@@ -2514,14 +2532,34 @@ int main(int argc, char* argv[]) {
       if (!(is >> dem_file_for_overlap >> pct_for_overlap)) 
         vw_throw(ArgumentErr() << "Could not parse correctly option --auto-overlap-params.\n");
     }
+
+    // For when we make matches based on mapprojected images
+    std::vector<std::string> map_files;
+    vw::cartography::GeoReference dem_georef;
+    ImageViewRef< PixelMask<double> > interp_dem;
+    if (opt.mapprojected_data != "" && !opt.apply_initial_transform_only) {
+      std::istringstream is(opt.mapprojected_data);
+      std::string file;
+      while (is >> file)
+        map_files.push_back(file); 
+
+      if (opt.camera_models.size() + 1 != map_files.size()) 
+        vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
+                 << "cameras, and also a DEM.\n");
+
+      std::string dem_file = map_files.back();
+      map_files.erase(map_files.end() - 1);
+      
+      create_interp_dem(dem_file, dem_georef, interp_dem);
+    }
     
     // Assign the images which this instance should compute statistics for.
     std::vector<size_t> image_stats_indices;
     for (size_t i = opt.instance_index; i < num_images; i += opt.instance_count)
       image_stats_indices.push_back(i);
 
-    // Compute statistics for the designated images and perhaps the footprints
-    
+    // Compute statistics for the designated images (or mapprojected
+    // images), and perhaps the footprints
     for (size_t i = 0; i < image_stats_indices.size(); ++i) {
 
       if (opt.apply_initial_transform_only)
@@ -2532,10 +2570,14 @@ int main(int argc, char* argv[]) {
         continue;
       
       size_t index = image_stats_indices[i];
-      
-      std::string image_path  = opt.image_files [index];
-      std::string camera_path = opt.camera_files[index];
 
+      // The stats need to be computed for the mapprojected image, if provided
+      std::string image_path;
+      if (map_files.empty()) 
+        image_path = opt.image_files[index];
+      else
+        image_path = map_files[index];
+      
       // Call a bunch of stuff to get the nodata value
       boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
       float nodata, dummy;
@@ -2547,19 +2589,19 @@ int main(int argc, char* argv[]) {
         = create_mask_less_or_equal(image_view,  nodata);
 
       // Use caching function call to compute the image statistics.
-      // TODO(oalexan1): Test if this is necessary with --mapprojected-data.
-      // That one should gather stats in mapprojected images instead.
       asp::StereoSession::gather_stats(masked_image, image_path, opt.out_prefix, image_path);
 
       // Compute and cache the camera footprint bbox
       if (opt.auto_overlap_params != "")
-        asp::camera_bbox_with_cache(dem_file_for_overlap, image_path, opt.camera_models[index],  
+        asp::camera_bbox_with_cache(dem_file_for_overlap,
+                                    opt.image_files[index], // use the original image
+                                    opt.camera_models[index],  
                                     opt.out_prefix);
     }
     
     // Done computing image statistics.
 
-    if (opt.stop_after_stats){
+    if (opt.stop_after_stats) {
       vw_out() << "Quitting after statistics computation.\n";
       return 0;
     }
@@ -2649,34 +2691,13 @@ int main(int argc, char* argv[]) {
       return 0;
     }
 
-    // When we make matches based on mapprojected images.
-    // TODO: Must gather the stats beforehand, as for unprojected images!
-    std::vector<std::string> map_files;
-    vw::cartography::GeoReference dem_georef;
-    ImageViewRef< PixelMask<double> > interp_dem;
-    if (opt.mapprojected_data != "" && !opt.apply_initial_transform_only) {
-      std::istringstream is(opt.mapprojected_data);
-      std::string file;
-      while (is >> file)
-        map_files.push_back(file); 
-
-      if (opt.camera_models.size() + 1 != map_files.size()) 
-        vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
-                 << "cameras, and also a DEM.\n");
-
-      std::string dem_file = map_files.back();
-      map_files.erase(map_files.end() - 1);
-      
-      create_interp_dem(dem_file, dem_georef, interp_dem);
-    }
-    
     // TODO: Make this a function
     // Assign the matches which this instance should compute.
     // This is for when called from parallel_bundle_adjust.
-    size_t per_instance = all_pairs.size()/opt.instance_count; // Round down
-    size_t remainder    = all_pairs.size()%opt.instance_count;
+    size_t per_instance = all_pairs.size() / opt.instance_count; // Round down
+    size_t remainder    = all_pairs.size() % opt.instance_count;
     size_t start_index  = 0, this_count = 0;
-    for (size_t i=0; i<=opt.instance_index; ++i) {
+    for (size_t i = 0; i <= opt.instance_index; i++) {
       this_count = per_instance;
       if (i < remainder)
         ++this_count;

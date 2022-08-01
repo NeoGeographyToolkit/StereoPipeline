@@ -58,7 +58,7 @@ enum BACameraType {BaCameraType_Pinhole    = 0,
 /// The big bag of parameters needed by bundle_adjust.cc
 struct Options : public vw::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
-  std::string cnet_file, out_prefix, input_prefix, stereo_session,
+  std::string cnet_file, out_prefix, input_prefix, vwip_prefix, stereo_session,
     cost_function, match_files_prefix, clean_match_files_prefix,
     mapprojected_data, gcp_from_mapprojected;
   int ip_per_tile, ip_per_image, ip_edge_buffer_percent;
@@ -70,8 +70,8 @@ struct Options : public vw::GdalWriteOptions {
          instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
   bool   save_intermediate_cameras, approximate_pinhole_intrinsics,
     disable_pinhole_gcp_init, transform_cameras_using_gcp, fix_gcp_xyz, solve_intrinsics,
-    ip_normalize_tiles, ip_debug_images, stop_after_stats, stop_after_matching, skip_matching, match_first_to_last,
-    apply_initial_transform_only;
+    ip_normalize_tiles, ip_debug_images, stop_after_stats, stop_after_matching,
+    skip_matching, match_first_to_last, apply_initial_transform_only, save_vwip;
   BACameraType camera_type;
   std::string datum_str, camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, reference_terrain, disparity_list,

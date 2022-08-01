@@ -41,11 +41,13 @@ Command-line options for parallel_bundle_adjust:
     on the local machine.
 
 -e, --entry-point <integer (default: 0)>
-    Stereo Pipeline entry point (start at this stage).
+    Bundle adjustment entry point (start at this stage).
+    Options: statistics = 0, matching = 1, optimization = 2.
 
---stop-point <integer(default: 1)>
-    Stereo Pipeline stop point (stop at the stage *right before*
-    this value).
+--stop-point <integer(default: 3)>
+    Bundle adjustment stop point (stop *before* this stage).
+    Options: statistics = 0, matching = 1, optimization = 2, 
+    all = 3.
 
 --verbose
     Display the commands being executed.

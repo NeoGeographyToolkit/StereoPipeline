@@ -43,6 +43,16 @@ parallel_stereo:
     at the triangulation stage, if not done, as usual, at the 
     preprocessing stage).
 
+parallel_bundle_adjust:
+  * Do not create subdirectories or symlinks, as that results in a
+    massive number of small files. (Unless ``--save-vwip`` is used,
+    see below.)
+  * Do not save by default .vwip files as those take space and are
+    only needed to find .match files. Use the new option
+    ``--save-vwip`` to save them. Note that these depend on individual
+    image pairs, so ``parallel_bundle_adjust`` saves them in
+    subdirectories.
+
 point2dem:
   * Added the Tukey outlier removal method option applied to
     triangulation errors (error_thresh = 75th_pct + 1.5 * (75th_pct -
@@ -58,7 +68,7 @@ mapproject:
   * Exposed and documented the ``--query-projection`` option.
  
 stereo_gui:
-  * Given a bundle_adjust run directory, can select via checkboxes
+  * Given a ``bundle_adjust`` run directory, can select via checkboxes
     any two images to show side-by-side, and automatically load their
     match file or clean match file (options:
     ``--pairwise-matches`` and ``--pairwise-clean-matches``).
@@ -72,18 +82,17 @@ corr_eval:
 
 misc:
   * Increased the cache size to 1 GB per process for each ASP
-    tool. Added the option ``--cache-size-mb``, to set this. Made this
-    clear in the warning message when the limit is hit. Documented
-    this for all tools.
-  * Using ``-t pinhole`` now invokes same logic as ``-t nadirpinhole
-    --no-datum``, which is same logic used by other sessions. This
-    wipes an old alternative path. Eliminated much other duplicated and
+    tool. Added the option ``--cache-size-mb``, to set this. Made the
+    warning message refer to this option when the limit is
+    hit. Documented this for all tools.
+  * Using ``-t pinhole`` now invokes the same logic as ``-t nadirpinhole
+    --no-datum``, which is same code path used by other sessions. This
+    wipes an old alternative approach. Eliminated much other duplicated and
     mutated code for various sessions at the preprocessing stage.
   * Bugfix for D.tif VRTs as created by ``parallel_stereo``.
   * Allow whitespaces in stereo.default before option names. 
-  * Set for ASP programs LC_ALL and LANG to en_US.UTF-8, to avoid
-    ISIS crashing on international users (this was a longstanding
-    issue).
+  * Fix a crash in ISIS for international users by setting for all ASP
+    programs LC_ALL and LANG to en_US.UTF-8.
 
 RELEASE 3.1.0, May 18, 2022
 ----------------------------

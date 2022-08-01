@@ -36,12 +36,13 @@ Capabilities
   also in other sensors.
 - The intrinsics of the sensors and each camera image pose can also be
   optimized without the rig assumption. Then the sensors can acquire data
-  at unrelated times (e.g.,, years apart). In that case the transforms
+  at unrelated times (e.g., years apart). In that case the transforms
   among the sensors on the rig are not modeled. 
 - The sensors on the rig may acquire data simultaneously or not. In
   the latter case one sensor is expected to acquire data frequently
   enough to be used to bracket data from the other sensors in time
-  using bilinear interpolation of the camera poses.
+  using bilinear interpolation of the camera poses (if the rig
+  assumption is used).
 - A known time offset among the clocks of the various sensors on the 
   rig is modeled and can be optimized. (By default no offset is
   assumed.)  
@@ -51,7 +52,7 @@ Capabilities
   points to not move too far from their original values.
 - Several quality metrics are printed on output, and for each image
   with its optimized camera a textured mesh is created, for
-  examination of any misalignments.
+  examination of any misalignments (if an input mesh is given).
  
 Input data conventions
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -63,7 +64,7 @@ Each image file must be stored according to the convention::
 
     <image dir>/<sensor name>/<timestamp>.<extension>
 
-For example, two images acquired at time 1004.6, can be named::
+For example, two images acquired at time 1004.6 can be named::
 
     my_images/ref_cam/10004.6.jpg
     my_images/alt_cam/10004.6.jpg
@@ -74,7 +75,7 @@ acquire images at the same time, and images have the same timestamp
 only if taken at the same time. 
 
 If each sensor acquires images independently, accurate
-timestamps are important, and one of the sensors, named the ``reference``
+timestamps are important, and one of the sensors, named the *reference*
 sensor, should acquire images frequently enough to help bracket the
 other sensors in time using bilinear pose interpolation.
 
@@ -125,13 +126,15 @@ The ``image_size`` field has the image dimensions (width and height).
 The ``distorted_crop_size`` has the dimensions of the region whose
 center is also the image center in which the given distortion model is
 valid.  Normally it should be the whole image. The
-``undistorted_image_size`` has a generous overestimate of the image
+``undistorted_image_size`` has a somewhat generous overestimate of the image
 dimensions after undistortion.
 
 Educated guess can be provided for the quantities that are not known.
-This tool can be used to optimize the focal length, optical center, an
-distortion coefficients. The undistorted image size also need not be
-known accurately.
+This tool can be used to optimize the focal length, optical center,
+and distortion coefficients. The undistorted image size also need not
+be known accurately. A tighter ``distorted_crop_size`` can help for
+images with strong distortion if the distortion model is not
+expressive enough to fit it precisely.
 
 A file in the same format will be written in the output directory,
 with the name::

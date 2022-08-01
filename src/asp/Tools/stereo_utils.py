@@ -16,7 +16,9 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-# TODO(oalexan1): Move this to src/asp/Python
+# TODO(oalexan1): Move this to src/asp/Python and distribute most of
+# these functions across the files in there depending on what these
+# functions do.
 
 from __future__ import print_function
 import sys, optparse, subprocess, re, os, time, glob
@@ -81,11 +83,6 @@ class Step:
     rfne  = 3
     fltr  = 4
     tri   = 5
-
-    # TODO: Move these!
-    statistics   = 0
-    matching     = 1
-    optimization = 2
 
 # Utilities to ensure that the Python parser does not garble negative
 # values such as '-365' into '-3'.
