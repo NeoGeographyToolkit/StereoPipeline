@@ -136,13 +136,14 @@ int main(int argc, char *argv[]) {
     DiskImageView<PixelMask<vw::Vector2f>> disp(opt.disparity);
 
     float left_nodata = -32768.0;
-    if (!vw::read_nodata_val(opt.left_image, left_nodata))
-      vw::vw_throw(vw::ArgumentErr() << "The left aligned image lacks a nodata value.\n");
+    vw::read_nodata_val(opt.left_image, left_nodata); // this may not succeed
     
     float right_nodata = -32768.0;
-    if (!vw::read_nodata_val(opt.right_image, right_nodata))
-      vw::vw_throw(vw::ArgumentErr() << "The right aligned image lacks a nodata value.\n");
+    vw::read_nodata_val(opt.right_image, right_nodata); // this may not succeed
 
+    vw_out() << "Left and right no-data values: " << left_nodata << ' '
+             << right_nodata << "\n";
+    
     // Use bigger tiles on output, should be faster that way given
     // that we have to grab a big chunk of the right image for each
     // tile.
