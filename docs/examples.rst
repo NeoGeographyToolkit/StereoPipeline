@@ -3797,3 +3797,77 @@ DEM without the correction, which is counter-intuitive.
 This however will happen only close to the water-land interface and is
 an expected gridding artifact. (A different DEM grid size may result
 in the artifacts changing location and magnitude.)
+
+.. _pbs_slurm:
+
+Using PBS and SLURM
+-------------------
+
+Running ``parallel_stereo`` can be very computationally expensive, so
+often it is launched on high-performance multi-machine systems. Here
+it will be shown how to run this program on *Portable Batch System*
+(*PBS*), such as NASA Pleiades, and on *Simple Linux Utility for
+Resource Management* (*SLURM*) systems.
+
+In either of these, it is assumed that all compute nodes share storage
+space and are able communicate with ssh without password.
+
+On a PBS system, one can have a script as follows::
+
+    #!/bin/bash
+
+    # Change to current directory
+    cd $PBS_O_WORKDIR
+
+    # Run parallel_stereo
+    parallel_stereo --stereo-algorithm asp_mgm \
+      --processes 4 --subpixel-mode 3 -t rpc   \
+      --nodes-list $PBS_NODEFILE               \
+      left.tif right.tif left.xml right.xml    \
+      run/run
+
+    # Run point2dem
+    point2dem run/run-PC.tif 
+
+Note the two special environmental variables ``PBS_O_WORKDIR`` and ``PBS_NODEFILE``
+which refer to the current work directory in which the script is started, and the
+list of nodes allocated for the job.
+  
+This script, named for example, ``run.sh``, can be launched as::
+
+    qsub -m n -r n -N jobName -l walltime=12:00:00           \
+       -W group_list=yourGroup -j oe -S /bin/bash            \
+       -l select=8:ncpus=20:model=ivy -- $(pwd)/run.sh <args>
+
+Additional arguments can be passed in on this line to ``run.sh``,
+which can be accessed from within that script as ``$1``, ``$2``, etc.,
+per bash shell conventions.
+
+It is strongly suggested to learn what each of the above options does
+and adjust them for your needs.
+
+With SLURM, a script as follows can work::
+
+    #!/bin/bash
+    
+    #SBATCH --job-name=asp
+    #SBATCH --output=asp.log
+    #SBATCH --nodes=4
+    #SBATCH --ntasks-per-node=36
+    #SBATCH --time=50:00:00
+    #SBATCH --partition=queue1
+    
+    # Set up the nodes list
+    scontrol show hostname $SLURM_NODELIST | tr ' ' '\n' > /tmp/nodes.txt
+    
+    # Run parallel_stereo
+    parallel_stereo --nodes-list=/tmp/nodes.txt \
+      --processes 4                             \
+      --parallel-options '--sshdelay 0.1'       \
+      <other ASP options> 
+
+Note that the list of nodes is in ``/tmp/nodes.txt``. If you run many such
+scripts, consider using a unique name for this file in each script.
+
+As before, the options and values above should be adjusted for your needs.
+

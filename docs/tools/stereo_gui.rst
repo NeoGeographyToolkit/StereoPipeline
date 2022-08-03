@@ -265,9 +265,10 @@ images, when this process is more likely to succeed, and they are
 transferred to the original images.
 
 Here is an example. Given three images A.tif, B.tif, and C.tif, and a
-DEM named dem.tif, mapproject them onto this DEM, obtaining the images
-A.map.tif, B.map.tif, and C.map.tif. Note that one should not use
-``--bundle-adjust-prefix`` in mapprojection.
+DEM named dem.tif, mapproject them onto this DEM, using the same
+resolution (``--tr``) and same projection (``--t_projwin``), obtaining
+the images A.map.tif, B.map.tif, and C.map.tif. Note that one should
+not use ``--bundle-adjust-prefix`` in mapprojection in this context.
 
 Then bundle adjustment is invoked as follows, during which the transfer
 of interest points happens::

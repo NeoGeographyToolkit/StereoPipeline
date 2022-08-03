@@ -131,8 +131,8 @@ as well. Here's a recipe which works reasonably well::
 The surface resolution of the cameras is on the order of 1 mm (0.001
 meters), the camera is about 1-3 meters from the surface, hence a good
 value for the triangulation error was about 0.0025 meters, and the
-points in the cloud were binned into voxels of size on the order of
-0.0025 meters. Later some of these choices will be automated, or
+points in the cloud were binned (before meshing) into voxels of size
+0.005 meters. Later some of these choices will be automated, or
 scale-independent parameters will be provided.
 
 In future versions of this tool, undistortion of input images may be

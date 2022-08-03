@@ -42,6 +42,11 @@ parallel_stereo:
     (the needed aligned bathy masks are created, if needed,
     at the triangulation stage, if not done, as usual, at the 
     preprocessing stage).
+  * For SGM and MGM use by default 8 threads and number of processes
+    equal to number of cores divided by number of threads. Less likely
+    to run out of memory that way.
+  * Added examples of using PBS and SLURM with ASP
+    (:numref:`pbs_slurm`).
 
 parallel_bundle_adjust:
   * Do not create subdirectories or symlinks, as that results in a

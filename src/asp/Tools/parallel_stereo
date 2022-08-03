@@ -430,10 +430,7 @@ def get_num_nodes(nodes_list):
 def get_best_procs_threads(step, settings):
     # Decide the best number of processes to use on a node, and how
     # many threads to use for each process.  There used to be some
-    # fancy logic, see below, but it does not work well. ASP mostly
-    # uses 100% CPU per process the vast majority of the time, even
-    # when invoked with a lot of threads.  Not sure why. The file
-    # system could be the bottleneck.  As such, it is faster to just
+    # fancy logic, see below, but it does not work well. For now,
     # use many processes and one thread per process.
 
     # We assume all machines have the same number of CPUs (cores)
@@ -572,7 +569,7 @@ def tile_run(prog, args, settings, tile, **kw):
 
     # Measure the memory usage on Linux and elapsed time
     timeCmd = []
-    if 'linux' in sys.platform:
+    if 'linux' in sys.platform and os.path.exists('/usr/bin/time'):
         timeCmd = ['/usr/bin/time', '-f', prog + \
                    ': elapsed=%E ([hours:]minutes:seconds), memory=%M (kb)']
     
@@ -917,12 +914,20 @@ if __name__ == '__main__':
     # Padded tiles are needed if later we do blending 
     using_padded_tiles = use_padded_tiles(settings)
 
-    # By default use 8 threads for SGM/MGM
+    # By default use 8 threads for SGM/MGM. Then use proporitionately fewer
+    # processes to not run out of RAM. Otherwise see the function
+    # get_best_procs_threads().
+    # TODO(oalexan1): This logic needs to be all in one place.
+    # For ISIS needs to use more processes in triangulation.
     alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
-    if alg > VW_CORRELATION_BM and alg < VW_CORRELATION_OTHER and opt.threads_multi is None:
-        opt.threads_multi = 8
-
-    num_nodes = get_num_nodes(opt.nodes_list)
+    if alg > VW_CORRELATION_BM and alg < VW_CORRELATION_OTHER:
+        if opt.threads_multi is None:
+            opt.threads_multi = 8
+        if opt.processes is None:
+            num_cpus = get_num_cpus()
+            opt.processes = int(float(num_cpus) / float(opt.threads_multi) + 0.5)
+            if opt.processes <= 0:
+                opt.processes = 1
 
     if opt.version:
         args.append('-v')
