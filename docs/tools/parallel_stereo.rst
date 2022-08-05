@@ -223,8 +223,9 @@ Command-line options
     that are internally in VRT format will be converted to
     TIF. All subdirectories will be deleted. Will be
     invoked after triangulation, if that step is reached.
-    Specify as a string in quotes. Example: 
-    "-RD.tif -PC.tif -DEM.tif .vwip .exr .match".
+    Specify as a string in quotes. Example (this will keep
+    only the files needed to re-create ``PC.tif``): 
+    '.exr L.tif R.tif F.tif'.
 
 --verbose
     Display the commands being executed.

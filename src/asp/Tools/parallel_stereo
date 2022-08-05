@@ -801,7 +801,8 @@ if __name__ == '__main__':
     p.add_argument('--prev-run-prefix',           dest='prev_run_prefix', default=None,
                    help='Start at the triangulation stage while reusing the data from this prefix. The new run can use different cameras, bundle adjustment prefix, or bathy planes (if applicable). Do not change crop windows, as that would invalidate the run.')
     p.add_argument('--keep-only', dest='keep_only',
-                   help='Keep only produced files with these suffixes. Files that are internally in VRT format will be converted to TIF. All subdirectories will be deleted. Will be invoked after triangulation, if that step is reached. Specify as a string in quotes. Example: "-RD.tif -PC.tif -DEM.tif .vwip .exr .match".')
+                   help='Keep only produced files with these suffixes. Files that are internally in VRT format will be converted to TIF. All subdirectories will be deleted. Will be invoked after triangulation, if that step is reached. Specify as a string in quotes. Example (this will keep
+    only the files needed to re-create PC.tif): ".exr L.tif R.tif F.tif".')
     p.add_argument('--sparse-disp-options', dest='sparse_disp_options',
                    help='Options to pass directly to sparse_disp. Use quotes around this string.')
     p.add_argument('-v', '--version',        dest='version', default=False,

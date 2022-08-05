@@ -77,7 +77,8 @@ Command-line options for mapproject:
 
 --tr <float>
     Set the output file resolution (ground sample distance) in target
-    georeferenced units per pixel. The center of each output pixel
+    georeferenced units per pixel. This may be in degrees or meters,
+    depending on your projection. The center of each output pixel
     will be at integer multiples of this grid size (hence the output
     image will extend for an additional half a pixel at each edge).
 

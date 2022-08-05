@@ -66,8 +66,9 @@ is in degrees, because the default projection is in degrees. If you
 set your projection with ``--t_projwin`` and it is in meters, the
 value of ``--tr`` will be in meters too, so a reasonable value may be
 ``--tr 0.5``, perhaps.  It is best to let the grid size be computed
-automatically, so not specifying ``--tr`` at all, or otherwise use
-a multiple of the automatically determined grid size.
+automatically, so not specifying ``--tr`` at all, or otherwise use a
+multiple of the automatically determined grid size
+(:numref:`post-spacing`).
 
 Example with stereographic projection (for data close to poles)::
 
@@ -157,12 +158,14 @@ resolution of the output model is dependent on a whole bunch of things
 to place in the image depending on the texture.
 
 The general rule of thumb is to produce a terrain model that has a
-post spacing of about 3x the input image ground scale. This is based on
-the fact that it is nearly impossible to uniquely identify a single
+post spacing of about 3x the input image ground scale. This is based
+on the fact that it is nearly impossible to uniquely identify a single
 pixel correspondence between two images, but a 3x3 patch of pixels
-provides improved matching reliability. As you go to numerically larger
-post-spacings on output, you are averaging more point data (that is
-probably spatially correlated anyway) together.
+provides improved matching reliability. This depends on the stereo
+algorithm as well, however, with the ``asp_mgm`` algorithm producing a
+higher effective DEM resolution than ``asp_bm``. As you go to numerically
+larger post-spacings on output, you are averaging more point data
+(that is probably spatially correlated anyway) together.
 
 So you can either use the ``--dem-spacing`` argument to ``point2dem`` to
 do that directly, or you can use your favorite averaging algorithm to
@@ -332,12 +335,12 @@ Command-line options for point2dem
 --false-easting <float>
     The projection false easting (if applicable).
 
--s, --dem-spacing <float (default: 0)>
+-s, --tr, --dem-spacing <float (default: 0)>
     Set output DEM resolution (in target georeferenced units per
-    pixel). If not specified, it will be computed automatically
-    (except for LAS and CSV files).  Multiple spacings can be set
-    (in quotes) to generate multiple output files. This is the same
-    as the ``--tr`` option.
+    pixel). These units may be in degrees or meters, depending on your
+    projection. If not specified, it will be computed automatically
+    (except for LAS and CSV files). Multiple spacings can be set
+    (in quotes) to generate multiple output files.
 
 --search-radius-factor <float>
     Multiply this factor by ``dem-spacing`` to get the search radius.

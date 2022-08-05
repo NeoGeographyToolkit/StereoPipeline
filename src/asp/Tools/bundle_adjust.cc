@@ -1026,6 +1026,7 @@ int do_ba_ceres_one_pass(Options             & opt,
 
       // Don't use the same loss function as for pixels since that one discounts
       //  outliers and the cameras should never be discounted.
+      // TODO(oalexan1): This will prevent convergence in some cases!
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
 
       double * camera  = param_storage.get_camera_ptr(icam);
@@ -1040,11 +1041,13 @@ int do_ba_ceres_one_pass(Options             & opt,
 
     for (int icam = 0; icam < num_cameras; icam++){
 
+      // TODO(oalexan1): This will prevent convergence in some cases!
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
       ceres::CostFunction* cost_function
         = RotTransError::Create(orig_cam_ptr, opt.rotation_weight, opt.translation_weight);
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
 
+      // TODO(oalexan1): This will prevent convergence in some cases!
       double * camera  = param_storage.get_camera_ptr(icam);
       problem.AddResidualBlock(cost_function, loss_function, camera);
     }
@@ -1889,7 +1892,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.skip_matching = true;
   
   //  When skipping matching, we are already forced to reuse match
-  //  files based on the logic in the code, // but here enforce it
+  //  files based on the logic in the code, but here enforce it
   //  explicitly anyway.
   if (opt.skip_matching) 
     opt.force_reuse_match_files = true;
@@ -2478,6 +2481,7 @@ int main(int argc, char* argv[]) {
 
     const int num_images = opt.image_files.size();
 
+    // TODO(oalexan1): Make the block below a function
     // Create the stereo session. This will attempt to identify the session type.
     // Read in the camera model and image info for the input images.
     for (int i = 0; i < num_images; i++){
@@ -2556,6 +2560,7 @@ int main(int argc, char* argv[]) {
 
     // Compute statistics for the designated images (or mapprojected
     // images), and perhaps the footprints
+    // TODO(oalexan1): Make this into a function
     for (size_t i = 0; i < image_stats_indices.size(); ++i) {
 
       if (opt.apply_initial_transform_only)
@@ -2621,6 +2626,7 @@ int main(int argc, char* argv[]) {
     // Find interest points between all of the image pairs.
 
     // Make a list of all of the image pairs to find matches for.
+    // TODO(oalexan1): This must be a function
     std::vector<std::pair<int,int> > all_pairs;
     for (int i = 0; i < num_images; i++){
 
@@ -2653,7 +2659,7 @@ int main(int argc, char* argv[]) {
           if (i < j) {
             if (j > i + opt.overlap_limit) 
               continue;
-          }else if (j < i) {
+          } else if (j < i) {
             if (j + num_images > i + opt.overlap_limit) 
               continue;
             if (i <= j + opt.overlap_limit) {
@@ -2723,9 +2729,10 @@ int main(int argc, char* argv[]) {
       std::string camera2_path   = opt.camera_files[j];
 
       // See if perhaps to load match files from a different source
+      bool allow_missing_match_file = opt.skip_matching; 
       std::string match_filename 
         = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
-                              opt.out_prefix, image1_path, image2_path);
+                              opt.out_prefix, image1_path, image2_path, allow_missing_match_file);
       opt.match_files[std::make_pair(i, j)] = match_filename;
 
       // TODO: Need to make sure this works with the parallel script!
