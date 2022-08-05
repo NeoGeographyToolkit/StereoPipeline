@@ -1018,7 +1018,12 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
   ValueEdgeExtension<PixelMask<float>> bathy_ext_nodata(bathy_nodata_pix); 
 
   // Get the aligned size from the images already aligned
-  Vector2i left_size = file_image_size(this->m_out_prefix + "-L.tif");
+  Vector2i left_size;
+  std::string left_aligned_file = this->m_out_prefix + "-L.tif";
+  if (boost::filesystem::exists(left_aligned_file))
+    left_size = file_image_size(left_aligned_file);
+  else
+    vw_throw(NoImplErr() << "Could not read: " << left_aligned_file);
 
   // Read alignment matrices
   Matrix<double> align_left_matrix = math::identity_matrix<3>();

@@ -225,7 +225,7 @@ Command-line options
     invoked after triangulation, if that step is reached.
     Specify as a string in quotes. Example (this will keep
     only the files needed to re-create ``PC.tif``): 
-    '.exr L.tif R.tif F.tif'.
+    '.exr L.tif F.tif'.
 
 --verbose
     Display the commands being executed.
