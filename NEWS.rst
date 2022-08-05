@@ -31,11 +31,7 @@ parallel_stereo:
   * Added the option ``--keep-only`` to convert all VRT to TIF (e.g.,
     D.tif), then wipe all files and subdirectories except those
     specified by given suffixes.
-  * Added the triangulation option ``--max-valid-triangulation-error``
-    for removing points at triangulation. This is analogous to the 
-    point2dem option but will be invoked at cloud generation, so 
-    potentially creating cleaner clouds for other purposes than
-    producing DEMs.
+  * Added the triangulation option ``--max-valid-triangulation-error``.
   * The option ``--prev-run-prefix`` can be used to start a run
     with bathymetry modeling at the triangulation stage while
     reusing the previous stages of a run without such modeling
@@ -86,18 +82,19 @@ corr_eval:
   * Added the option ``--sample-rate``.
 
 misc:
-  * Increased the cache size to 1 GB per process for each ASP
-    tool. Added the option ``--cache-size-mb``, to set this. Made the
+  * Increased the cache size to 1 GB per process for each ASP tool. 
+    Added the option ``--cache-size-mb``, to set this. Made the
     warning message refer to this option when the limit is
     hit. Documented this for all tools.
-  * Using ``-t pinhole`` now invokes the same logic as ``-t nadirpinhole
-    --no-datum``, which is same code path used by other sessions. This
-    wipes an old alternative approach. Eliminated much other duplicated and
-    mutated code for various sessions at the preprocessing stage.
+  * Using ``-t pinhole`` now invokes the same logic as ``-t
+    nadirpinhole --no-datum``, which is same code path used by other
+    sessions. This wipes an old alternative approach. Eliminated much
+    other duplicated and mutated code for various sessions at the
+    preprocessing stage.
   * Bugfix for D.tif VRTs as created by ``parallel_stereo``.
   * Allow whitespaces in stereo.default before option names. 
   * Fix a crash in ISIS for international users by setting for all ASP
-    programs LC_ALL and LANG to en_US.UTF-8.
+    programs the environmental variables LC_ALL and LANG to en_US.UTF-8.
 
 RELEASE 3.1.0, May 18, 2022
 ----------------------------
@@ -267,8 +264,9 @@ bathymetry:
  
 pc_align:
   * Add alignment method similarity-point-to-plane. It works better
-    than similarity-point-to-point to find a scale between the clouds.
-  * Bugfix with alignment methods point-to-point and
+    than similarity-point-to-point at finding a scale between the
+    clouds when they have a large shift.
+  * Bugfix for alignment methods point-to-point and
     similarity-point-to-point.
   * Use RANSAC with ``--initial-transform-from-hillshading``, for increased
     robustness to outliers. Replaced
@@ -280,7 +278,8 @@ dem_mosaic:
     multiples of the grid size (like the default behavior of
     ``point2dem`` and ``mapproject``, and ``gdalwarp`` when invoked
     with ``-tap``). If not set, the input grids determine
-    the output grid.
+    the output grid. (The produced DEM will then extend for an
+    additional 0.5 x grid_size beyond grid centers on its perimeter.)
   * Do not allow more than one of these operations in a given
     dem_mosaic invocation: fill holes, blur, or erode. These won't
     work when also having more than one input DEM, reprojection is
