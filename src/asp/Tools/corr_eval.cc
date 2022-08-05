@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
     float right_nodata = -32768.0;
     vw::read_nodata_val(opt.right_image, right_nodata); // this may not succeed
 
-    vw_out() << "Left and right no-data values: " << left_nodata << ' '
+    vw_out() << "Left and right image no-data values: " << left_nodata << ' '
              << right_nodata << "\n";
     
     // Use bigger tiles on output, should be faster that way given

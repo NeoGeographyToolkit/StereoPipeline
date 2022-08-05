@@ -54,13 +54,14 @@ std::string match_filename(std::string const& clean_match_files_prefix,
                            std::string const& match_files_prefix,
                            std::string const& out_prefix,
                            std::string const& image1_path,
-                           std::string const& image2_path) {
+                           std::string const& image2_path,
+                           bool allow_missing_match_file) {
   
   if (clean_match_files_prefix != "") {
 
     std::string match_file = vw::ip::clean_match_filename(clean_match_files_prefix, image1_path,
                                                           image2_path);
-    if (!boost::filesystem::exists(match_file)) 
+    if (!boost::filesystem::exists(match_file) && !allow_missing_match_file) 
       vw_throw(ArgumentErr() << "Missing IP file: " << match_file);
     return match_file;
     
@@ -68,14 +69,13 @@ std::string match_filename(std::string const& clean_match_files_prefix,
     
     std::string match_file = vw::ip::match_filename(match_files_prefix, image1_path,
                                                     image2_path);
-    if (!boost::filesystem::exists(match_file)) 
+    if (!boost::filesystem::exists(match_file) && !allow_missing_match_file) 
       vw_throw(ArgumentErr() << "Missing IP file: " << match_file);
     return match_file;
     
   }
   
-  return vw::ip::match_filename(out_prefix, image1_path,
-                                image2_path);
+  return vw::ip::match_filename(out_prefix, image1_path, image2_path);
 }
   
 } // end namespace asp

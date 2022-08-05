@@ -258,8 +258,14 @@ void MainWindow::createLayout() {
   m_widgets.clear();
 
   // Note that the menus persist even when the layout changes
-  bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
 
+  // Show all images if switching to side-by-side view without a dialog
+  bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
+  if ((zoom_all_to_same_region          ||
+       m_view_type == VIEW_SIDE_BY_SIDE ||
+       m_view_type == VIEW_AS_TILES_ON_GRID) && !sideBySideWithDialog())
+    m_chooseFiles->showAllImages();
+  
   // Set up the dialog for choosing files
   m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
 
@@ -1039,6 +1045,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
     MainWindow::updateMatchesMenuEntries();
+    createLayout();
     return;
   }
 
@@ -1047,6 +1054,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
     MainWindow::updateMatchesMenuEntries();
+    createLayout();
     return;
   }
 

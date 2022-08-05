@@ -142,6 +142,9 @@ void dem2dem_diff(Options& opt){
     vw_out() << "\tFound input nodata value for DEM 2: " << dem2_nodata << endl;
   }
 
+  if (dem1_rsrc.channels() != 1 || dem2_rsrc.channels() != 1)
+      vw_throw(ArgumentErr() << "The input DEMs must have a single channel.\n");
+  
   DiskImageView<double> dem1_disk_image_view(dem1_rsrc), dem2_disk_image_view(dem2_rsrc);
 
   GeoReference dem1_georef, dem2_georef;
@@ -230,6 +233,9 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
       opt.nodata_value = dem_nodata;
       vw_out() << "\tFound input nodata value for DEM: " << dem_nodata << endl;
     }
+    
+    if (dem_rsrc.channels() != 1)
+      vw_throw(ArgumentErr() << "The input DEM must have a single channel.\n");
   }
   
   // Read the DEM georef
@@ -338,7 +344,7 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   outfile << "# Min difference:       " << diff_min    << std::endl;
   outfile << "# Mean difference:      " << diff_mean   << std::endl;
   outfile << "# StdDev of difference: " << diff_std    << std::endl;
-  outfile << " # Median difference:   " << diff_median << std::endl;
+  outfile << "# Median difference:   " << diff_median << std::endl;
   for (size_t it = 0; it < csv_diff.size(); it++) {
     Vector3 diff = csv_diff[it];
     outfile << diff[0] << "," << diff[1] << "," << diff[2] << std::endl;

@@ -297,8 +297,14 @@ public slots:
     std::map<int, std::string> m_perImagePolyColor;
     int m_lineWidth;
 
+    // The box which contains fully all images in the current widget,
+    // in world coordinates.
     BBox2 m_world_box;
     
+    // The box in world coordinates which has the current view and
+    // last view.  This is normally smaller than m_world_box.
+    vw::BBox2 m_current_view, m_last_view;
+
     std::vector<vw::cartography::GeoTransform> m_world2image_geotransforms;
     std::vector<vw::cartography::GeoTransform> m_image2world_geotransforms;
     
@@ -319,9 +325,6 @@ public slots:
     // (typically 0.90 to 0.95) to create an extra empty margin at a widget's
     // border, to make it easier to zoom.
     double m_border_factor;
-
-    // Image Parameters
-    vw::BBox2 m_current_view, m_last_view;
 
     // Mouse press  position
     int m_mousePrsX,  m_mousePrsY;

@@ -49,7 +49,8 @@ std::string match_filename(std::string const& clean_match_files_prefix,
                            std::string const& match_files_prefix,
                            std::string const& out_prefix,
                            std::string const& image1_path,
-                           std::string const& image2_path);
+                           std::string const& image2_path,
+                           bool allow_missing_match_file = false);
 } // End namespace asp
 
 #endif//__ASP_CORE_IP_MATCHING_ALGS_H__

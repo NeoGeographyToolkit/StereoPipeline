@@ -970,7 +970,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       + m_curr_world_pos;
 
     if (!current_view.empty()){
-      // Check to make sure we haven't hit our zoom limits...
+      // Check to make sure we haven't hit our zoom limits.
       m_current_view = current_view;
       m_can_emit_zoom_all_signal = true;
       refreshPixmap();
@@ -978,10 +978,19 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
   }
 
   void MainWidget::resizeEvent(QResizeEvent*){
-    QRect v       = this->geometry();
+    QRect v = this->geometry();
     m_window_width  = std::max(v.width(), 1);
     m_window_height = std::max(v.height(), 1);
-    sizeToFit();
+
+    // If we already have a view, keep it but adjust it a bit if the
+    // window aspect ratio changed as result of resizing. The
+    // corresponding pixel box will be computed automatically.
+    if (m_current_view.empty()) 
+      m_current_view = expand_box_to_keep_aspect_ratio(m_world_box);
+    else
+      m_current_view = expand_box_to_keep_aspect_ratio(m_current_view);
+    
+    refreshPixmap();
     return;
   }
 
