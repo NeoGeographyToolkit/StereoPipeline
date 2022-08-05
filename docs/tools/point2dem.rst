@@ -57,6 +57,18 @@ Here we have explicitly specified the spheroid (``-r moon``), rather
 than have it inferred automatically. The Moon spheroid will have a
 radius of 1737.4 km.
 
+Example with setting the grid size::
+
+    point2dem --tr 0.0001 run/run-PC.tif
+
+It is important to note that the grid size here, passed to ``--tr``,
+is in degrees, because the default projection is in degrees. If you
+set your projection with ``--t_projwin`` and it is in meters, the
+value of ``--tr`` will be in meters too, so a reasonable value may be
+``--tr 0.5``, perhaps.  It is best to let the grid size be computed
+automatically, so not specifying ``--tr`` at all, or otherwise use
+a multiple of the automatically determined grid size.
+
 Example with stereographic projection (for data close to poles)::
 
      point2dem --stereographic --proj-lon 0 --proj-lat -90 \
@@ -69,6 +81,7 @@ Example with multiple input clouds::
 
 Here LAS, CSV, and TIF point clouds (the latter obtained with
 ``parallel_stereo``) are fused together into a single DEM.
+The option ``--dem-spacing`` is an alias for ``--tr``.
 
 If it is desired to use the ``--orthoimage`` option with multiple
 clouds, the clouds need to be specified first, followed by the
