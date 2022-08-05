@@ -3860,6 +3860,9 @@ With SLURM, a script as follows can work::
     # Set up the nodes list
     scontrol show hostname $SLURM_NODELIST | tr ' ' '\n' > /tmp/nodes.txt
     
+    # Change to the directory in which the job was submitted
+    cd $SLURM_SUBMIT_DIR
+ 
     # Run parallel_stereo
     parallel_stereo --nodes-list=/tmp/nodes.txt \
       --processes 4                             \
