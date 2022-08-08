@@ -57,6 +57,9 @@ for the ``asp_bm`` method, and 0 for ``asp_sgm`` and ``asp_mgm``.
 The kernel size is 21 x 21 for ``asp_bm``, while it is 5 x 5 for
 ``asp_sgm`` and ``asp_mgm``.
 
+It appears that always using ``--prefilter-mode 2`` makes this tool
+produce better results. This is to be investigated further.
+
 The external stereo algorithms (:numref:`stereo_algos_full`) do not
 use the prefilter mode, and each of them specifies the correlation
 kernel size in its own way.
