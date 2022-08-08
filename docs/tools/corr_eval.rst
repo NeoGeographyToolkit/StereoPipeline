@@ -50,15 +50,9 @@ Example for a disparity created with the ``asp_mgm`` algorithm::
 
 This will create ``run/run-ncc.tif``.
 
-The user may want to ensure that ``--prefilter-mode`` and
-``--kernel-size`` used for this tool agrees with what was used with
-``parallel_stereo``. For that, by default, ``--prefilter-mode`` is 2
-for the ``asp_bm`` method, and 0 for ``asp_sgm`` and ``asp_mgm``.
-The kernel size is 21 x 21 for ``asp_bm``, while it is 5 x 5 for
-``asp_sgm`` and ``asp_mgm``.
-
 It appears that always using ``--prefilter-mode 2`` makes this tool
-produce better results. This is to be investigated further.
+produce better results. This is to be investigated further. Consider
+also experimenting with ``--kernel-size``.
 
 The external stereo algorithms (:numref:`stereo_algos_full`) do not
 use the prefilter mode, and each of them specifies the correlation
