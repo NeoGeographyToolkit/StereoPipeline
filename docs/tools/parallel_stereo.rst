@@ -41,21 +41,17 @@ virtual mosaics of files created by individual processes, with the
 actual files in subdirectories; ASP and GDAL tools are able to use
 these virtual files in the same way as regular binary TIF files.
 
-If the jobs are launched on a cluster or supercomputer, the name of the
-file containing the list of nodes may exist as an environmental
-variable. For example, on NASA's Pleiades Supercomputer, which uses the
-Portable Batch System (PBS), the list of nodes can be retrieved as
-$PBS_NODEFILE. See :numref:`pbs_slurm` for how to set up this tool
-for PBS or SLURM systems.
+The option ``--keep-only`` may be essential for large runs. It will
+condense a run by converting VRT files to TIF, and will remove a lot
+of auxiliary files.
+
+See :numref:`pbs_slurm` for how to set up this tool
+for PBS and SLURM systems.
 
 This program operates only on single channel (grayscale)
 images. Multi-channel images need to first be converted to grayscale
 or a single channel should be extracted with ``gdal_translate`` 
 with the ``-b`` option.
-
-The option ``--keep-only`` may be essential for large runs. It will
-condense a run by converting VRT files to TIF, and will remove a lot
-of auxiliary files.
 
 .. _entrypoints:
 
