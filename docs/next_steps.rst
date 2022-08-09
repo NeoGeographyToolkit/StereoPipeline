@@ -655,7 +655,9 @@ supported by ASP, including RPC (:numref:`rpc`), Pinhole
 (:numref:`kh4`), etc.  The ``mapproject`` command needs to be invoked
 with ``-t rpc``, ``-t pinhole``, etc., and normally it auto-detects
 this option (except when a camera file has both ``DG`` and ``RPC``
-cameras).
+cameras). 
+
+The cameras can also be bundle-adjusted, as discussed later.
 
 As earlier, when invoking ``parallel_stereo``, the first two arguments
 should be the mapprojected images, followed by the camera models,
@@ -683,6 +685,11 @@ and when the cameras are embedded in the images, it is::
 
     parallel_stereo -t rpc --stereo-algorithm asp_mgm \
       left.map.tif right.map.tif run/run ref.tif
+
+If your cameras have been corrected with bundle adjustment
+(:numref:`bundle_adjust`), one should pass ``--bundle-adjust-prefix``
+to all ``mapproject`` and ``parallel_stereo`` invocations. See also
+:numref:`ba_pc_align` for when alignment was used as well.
 
 .. _multiview:
 

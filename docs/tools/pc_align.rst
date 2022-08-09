@@ -398,6 +398,8 @@ ASP DEM is created as::
     parallel_stereo left.tif right.tif left.xml right.xml output/run
     point2dem output/run-PC.tif
 
+(See further down for when the cameras have been bundle-adjusted.)
+
 The ASP DEM ``output/run-DEM.tif`` is aligned to the reference DEM
 as::
 
