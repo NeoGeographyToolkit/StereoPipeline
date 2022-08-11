@@ -270,9 +270,9 @@ void compute_residuals(bool apply_loss_function,
                        std::vector<size_t> const& cam_residual_counts,
                        size_t num_gcp_residuals,
                        std::vector<vw::Vector3> const& reference_vec,
-                       ceres::Problem &problem,
-                       std::vector<double> & residuals // output
-                       ) {
+                       ceres::Problem & problem,
+                       // Output
+                       std::vector<double> & residuals) {
   // TODO: Associate residuals with cameras!
   // Generate some additional diagnostic info
   double cost = 0;
@@ -286,10 +286,10 @@ void compute_residuals(bool apply_loss_function,
   problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
   const size_t num_residuals = residuals.size();
   
-  // Verify our residual calculations are correct
+  // Verify our book-keeping is correct
   size_t num_expected_residuals = num_gcp_residuals*param_storage.params_per_point();
   size_t total_num_cam_params   = param_storage.num_cameras()*param_storage.params_per_camera();
-  for (size_t i=0; i<param_storage.num_cameras(); ++i)
+  for (size_t i=0; i<param_storage.num_cameras(); i++)
     num_expected_residuals += cam_residual_counts[i]*PIXEL_SIZE;
   if (opt.camera_weight > 0)
     num_expected_residuals += total_num_cam_params;
@@ -320,7 +320,7 @@ void compute_mean_residuals_at_xyz(CRNJ & crn,
   // Double loop through cameras and crn entries will give us the correct order
   for ( size_t icam = 0; icam < param_storage.num_cameras(); icam++ ) {
     typedef CameraNode<JFeature>::const_iterator crn_iter;
-    for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
+    for (crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++){
 
       // The index of the 3D point
       int ipt = (**fiter).m_point_id;
@@ -341,7 +341,7 @@ void compute_mean_residuals_at_xyz(CRNJ & crn,
   } // End double loop through all the observations
 
   // Do the averaging
-  for (size_t i = 0; i < param_storage.num_points(); ++i) {
+  for (size_t i = 0; i < param_storage.num_points(); i++) {
     if (param_storage.get_point_outlier(i)) {
       // Skip outliers. But initialize to something.
       mean_residuals        [i] = std::numeric_limits<double>::quiet_NaN();
@@ -355,8 +355,10 @@ void compute_mean_residuals_at_xyz(CRNJ & crn,
 
 /// Write out a .csv file recording the residual error at each location on the ground
 void write_residual_map(std::string const& output_prefix,
-                        std::vector<double> const& mean_residuals, // Mean residual of each point
-                        std::vector<int>    const& num_point_observations, // Num non-outlier pixels per point
+                        // Mean residual of each point
+                        std::vector<double> const& mean_residuals,
+                        // Num non-outlier pixels per point
+                        std::vector<int> const& num_point_observations, 
                         BAParamStorage const& param_storage,
                         ControlNetwork const& cnet,
                         Options const& opt) {
@@ -385,7 +387,7 @@ void write_residual_map(std::string const& output_prefix,
   file << "# " << opt.datum << std::endl;
   
   // Now write all the points to the file
-  for (size_t i = 0; i < param_storage.num_points(); ++i) {
+  for (size_t i = 0; i < param_storage.num_points(); i++) {
 
     if (param_storage.get_point_outlier(i))
       continue; // skip outliers
@@ -420,7 +422,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   
   std::vector<double> residuals;
   compute_residuals(apply_loss_function, opt, param_storage,
-                    cam_residual_counts,  num_gcp_residuals, reference_vec, problem,
+                    cam_residual_counts, num_gcp_residuals, reference_vec, problem,
                     // Output
                     residuals);
     
@@ -456,18 +458,22 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   size_t index = 0;
   // For each camera, average together all the point observation residuals
   residual_file << "Mean and median norm of residual error and point count for cameras:\n";
-  for (size_t c = 0; c < param_storage.num_cameras(); ++c) {
+  for (size_t c = 0; c < param_storage.num_cameras(); c++) {
     size_t num_this_cam_residuals = cam_residual_counts[c];
     
     // Write header for the raw file
     std::string name = opt.camera_files[c];
     if (name == "")
       name = opt.image_files[c];
+    
     residual_file_raw_pixels << name << ", " << num_this_cam_residuals << std::endl;
+
+    // All residuals are for inliers, as we do not even add a residual
+    // for an outlier
     
     double mean_residual = 0; // Take average of all pixel coord errors
     std::vector<double> residual_norms;
-    for (size_t i=0; i<num_this_cam_residuals; ++i) {
+    for (size_t i = 0; i < num_this_cam_residuals; i++) {
       double ex = residuals[index];
       ++index;
       double ey = residuals[index];
@@ -480,8 +486,10 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     // Write line for the summary file
     mean_residual /= static_cast<double>(num_this_cam_residuals);
     double median_residual = std::numeric_limits<double>::quiet_NaN();
-    if (residual_norms.size() > 0) 
+    if (residual_norms.size() > 0) {
+      std::sort(residual_norms.begin(), residual_norms.end());
       median_residual = residual_norms[residual_norms.size()/2];
+    }
     
     residual_file << name                   << ", "
                   << mean_residual          << ", "
@@ -496,7 +504,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     residual_file_raw_gcp.open(residual_raw_gcp_path.c_str());
     residual_file_raw_gcp.precision(18);
     residual_file << "GCP residual errors:\n";
-    for (size_t i=0; i<num_gcp_residuals; ++i) {
+    for (size_t i=0; i<num_gcp_residuals; i++) {
       double mean_residual = 0; // Take average of XYZ error for each point
       residual_file_raw_gcp << i;
       for (size_t j = 0; j < param_storage.params_per_point(); j++) {
@@ -546,7 +554,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   if (reference_vec.size() > 0) {
     residual_file << "reference terrain residual errors:\n";
     residual_file_reference_xyz << "# lon, lat, height_above_datum, pixel_error_norm\n";
-    for (size_t i = 0; i < reference_vec.size(); ++i) {
+    for (size_t i = 0; i < reference_vec.size(); i++) {
 
       Vector3 llh = opt.datum.cartesian_to_geodetic(reference_vec[i]);
       double err = norm_2(Vector2(residuals[index], residuals[index + 1]));
@@ -565,12 +573,13 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   }
   
   if (index != num_residuals)
-    vw_throw( LogicErr() << "Have " << num_residuals << " residuals but iterated through " << index);
+    vw_throw( LogicErr() << "Have " << num_residuals << " residuals, but iterated through "
+              << index);
 
   // Generate the location based file
   std::string map_prefix = residual_prefix + "_pointmap";
   std::vector<double> mean_residuals;
-  std::vector<int   > num_point_observations;
+  std::vector<int> num_point_observations;
   compute_mean_residuals_at_xyz(crn,  residuals,  param_storage,
                                 mean_residuals, num_point_observations);
 
@@ -608,8 +617,8 @@ int update_outliers(ControlNetwork   & cnet,
   compute_residuals(apply_loss_function,  
                     opt, param_storage,  cam_residual_counts,  
                     num_gcp_residuals, reference_vec, problem,
-                    residuals // output
-                   );
+                    // output
+                    residuals);
 
   // Compute the mean residual at each xyz, and how many times that residual is seen
   std::vector<double> mean_residuals;
@@ -771,7 +780,7 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
     // look only at the measure for left_cam and right_cam
     int ipt = -1;
     for ( ControlNetwork::const_iterator iter = cnet.begin();
-      iter != cnet.end(); ++iter ) {
+      iter != cnet.end(); iter++ ) {
 
       ipt++; // control point index
 
@@ -879,7 +888,7 @@ int do_ba_ceres_one_pass(Options             & opt,
 
   // How many times an xyz point shows up in the problem
   std::vector<int> count_map(num_points);
-  for (int i=0; i<num_points; ++i) {
+  for (int i=0; i<num_points; i++) {
     if (param_storage.get_point_outlier(i))
       count_map[i] = 0; // skip outliers
     else
@@ -901,9 +910,9 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Add the various cost functions the solver will optimize over.
   std::vector<size_t> cam_residual_counts(num_cameras);
   typedef CameraNode<JFeature>::iterator crn_iter;
-  for ( int icam = 0; icam < num_cameras; icam++ ) { // Camera loop
+  for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
     cam_residual_counts[icam] = 0;
-    for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){ // IP loop
+    for (crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) { // IP loop
 
       // The index of the 3D point this IP is for.
       int ipt = (**fiter).m_point_id;
@@ -1217,7 +1226,8 @@ int do_ba_ceres_one_pass(Options             & opt,
     std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     vw_out() << "Writing initial condition files." << std::endl;
-    write_residual_logs(residual_prefix, false, opt, param_storage, 
+    bool apply_loss_function = false;
+    write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, 
                         cam_residual_counts, num_gcp_residuals,
                         reference_vec, cnet, crn, problem);
 
@@ -1269,7 +1279,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   //  options->minimizer_type = ceres::LINE_SEARCH;
   //}
 
-  vw_out() << "Starting the Ceres optimizer..." << std::endl;
+  vw_out() << "Starting the Ceres optimizer." << std::endl;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
   final_cost = summary.final_cost;
@@ -1284,7 +1294,8 @@ int do_ba_ceres_one_pass(Options             & opt,
   // since we may stop the passes prematurely if no more outliers are present.
   vw_out() << "Writing final condition log files." << std::endl;
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
-  write_residual_logs(residual_prefix, false, opt, param_storage, cam_residual_counts,
+  bool apply_loss_function = false;
+  write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, cam_residual_counts,
                       num_gcp_residuals, reference_vec, cnet, crn, problem);
   
   std::string point_kml_path = opt.out_prefix + "-final_points.kml";
@@ -1553,7 +1564,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       get_files_with_prefix(opt.out_prefix, rand_files);
 
       // Replace the existing output files with them.
-      for (size_t i=0; i<rand_files.size(); ++i) {
+      for (size_t i=0; i<rand_files.size(); i++) {
         std::string new_path = rand_files[i];
         boost::replace_all(new_path, opt.out_prefix, orig_out_prefix);
         boost::filesystem::copy_file(rand_files[i], new_path,
@@ -1600,12 +1611,12 @@ int load_estimated_camera_positions(Options &opt,
   
   const RecordIter no_match = pos_records.end();
   int num_matches_found = 0;
-  for (int i=0; i<num_cameras; ++i) {
+  for (int i=0; i<num_cameras; i++) {
 
     // Search for this image file in the records
     std::string file_name = opt.image_files[i];
     RecordIter iter;
-    for (iter=pos_records.begin(); iter!=pos_records.end(); ++iter) {
+    for (iter=pos_records.begin(); iter!=pos_records.end(); iter++) {
       // Match if the string in the file is contained in the input image string.
       // - May need to play around with this in the future!
       std::string field = iter->file;
@@ -1739,7 +1750,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
      "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("match-first-to-last", po::value(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
-     "Match the first several images to several last images by extending the logic of --overlap-limit past the last image to the earliest ones.")
+     "Match the last several images to several first images by extending the logic of --overlap-limit past the last image to the earliest ones.")
     
     ("rotation-weight",      po::value(&opt.rotation_weight)->default_value(0.0),
      "A higher weight will penalize more rotation deviations from the original configuration.")
@@ -2561,7 +2572,7 @@ int main(int argc, char* argv[]) {
     // Compute statistics for the designated images (or mapprojected
     // images), and perhaps the footprints
     // TODO(oalexan1): Make this into a function
-    for (size_t i = 0; i < image_stats_indices.size(); ++i) {
+    for (size_t i = 0; i < image_stats_indices.size(); i++) {
 
       if (opt.apply_initial_transform_only)
         continue; // no stats need to happen
@@ -2708,7 +2719,7 @@ int main(int argc, char* argv[]) {
     start_index -= this_count;
 
     std::vector<std::pair<int,int>> this_instance_pairs;
-    for (size_t i=0; i<this_count; ++i)
+    for (size_t i=0; i<this_count; i++)
       this_instance_pairs.push_back(all_pairs[i+start_index]);
 
     // Now process the selected pairs

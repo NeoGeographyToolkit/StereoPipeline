@@ -74,6 +74,10 @@ stereo_gui:
     match file or clean match file (options:
     ``--pairwise-matches`` and ``--pairwise-clean-matches``).
 
+bundle_adjust:
+  * Bugfix in ``residuals_stats.txt``; the mean was correct but the
+    median was wrong.
+ 
 corr_eval:
   * Bugfix for excessive memory usage with positive ``--prefilter-mode``.
   * Added a note saying that the user should ensure that this tool uses 
