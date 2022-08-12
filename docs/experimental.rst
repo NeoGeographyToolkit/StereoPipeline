@@ -98,10 +98,12 @@ CASP-GO consists of three algorithms:
   ASP's older ``asp_bm`` block-matching algorithm
   (:numref:`stereo_algos_full`) at the disparity
   filtering stage. It takes as input and overwrites the ``F.tif``
-  disparity (which is described in :numref:`outputfiles`). We found
-  that while this algorithm provides some in-filling functionality,
-  ASP's MGM algorithm results in higher quality disparities. This logic
-  can be turned on with the ``--gotcha-disparity-refinement`` option of
+  disparity (which is described in :numref:`outputfiles`). 
+  This algorithm definitely provides some in-filling functionality over
+  the older ``asp_bm`` performance, but users may want to experiment
+  with other ASP stereo algorithms (like MGM) which may also result in high
+  quality disparities.  This logic can be turned on with the 
+  ``--gotcha-disparity-refinement`` option of
   ``parallel_stereo``. See below for the parameters which control it.
 
 - Image alignment. This component uses feature detection to find
@@ -110,10 +112,10 @@ CASP-GO consists of three algorithms:
   :cite:`sidiropoulos2018automatic`. It was incorporated into ASP and
   further extended as the ``image_align`` tool (:numref:`image_align`).
 
-- Krigging. This is some logic meant to produce DEMs with
+- Kriging. This logic is meant to produce DEMs with
   fewer holes than ASP's older method in ``point2dem`` (:numref:`point2dem`)
   which used a Delaunay triangulation. It is based on a technique
-  called ``krigging``, which is a family of generalized linear least
+  called ``kriging``, which is a family of generalized linear least
   square regression algorithms (:cite:`remy2002gstl`), implemented in
   the ``Geostatistics Template Library`` (http://gstl.sourceforge.net/).
 
@@ -122,22 +124,24 @@ CASP-GO consists of three algorithms:
   point cloud, the output is a gridded DEM, and weighted averaging
   is used to combine the 3D points to produce the DEM.
 
-  The only difference is that the recent ``point2dem`` implementation
+  The only difference is that the recent ``point2dem`` implementation (circa 3.1.0)
   computes the weights based on a Gaussian with given sigma and
-  neighborhood size, while CASP-GO uses weights produced by the krigging
+  neighborhood size, while CASP-GO uses weights produced by the kriging
   procedure with a user-specified covariance.
 
   CASP-GO's covariance function assigns the same covariance value to all 
-  points, which results in the krigging procedure returning constant
-  weights. In effect, the resulting algorithm is a particular case of
-  ours, when the sigma value is very large. 
+  points, which results in the kriging procedure returning constant
+  weights. In effect, the resulting algorithm is a particular case of the
+  modern approach in ``point2dem``, when the sigma value is very large.
 
-  For that reason, while krigging seems to be a very interesting technique,
-  because CASP-GO did not implement a good covariance function, and since
-  it would be quite tricky to assign a nontrivial covariance to
-  points in a cloud, we chose to not incorporate this implementation,
-  as it does not add to the existing functionality.
-  
+  Thus, no separate implementation for kriging was implemented at this time.
+
+.. For that reason, while kriging seems to be a very interesting technique,
+   because CASP-GO did not implement a good covariance function, and since
+   it would be quite tricky to assign a nontrivial covariance to
+   points in a cloud, we chose to not incorporate this implementation,
+   as it does not add to the existing functionality.
+
 The CASP-GO parameter file
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -146,7 +150,7 @@ as ``share/CASP-GO_params.xml``, and which can be overridden
 with the ``parallel_stereo`` option ``--casp-go-param-file``.
 
 Only the parameters relevant for Gotcha disparity refinement are read
-from this file, as we did not implement the krigging algorithm,
+from this file, as we did not implement the kriging algorithm,
 and the ``image_align`` tool we added has its own interface.
 
 Here are two sets of values for these parameters, optimized for CTX and
