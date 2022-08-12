@@ -90,6 +90,17 @@ All such depth cloud files will be loaded automatically alongside
 images if present. See :numref:`point_cloud_format` for the file
 format.
 
+To convert a set of images to this convention, one can use the
+following bash script::
+
+    mkdir -p new_images/my_cam
+    ext=".jpg"
+    ((timestamp=100000))
+    for image in $(ls old_images/*${ext}); do 
+        /bin/cp -fv $image new_images/my_cam/${timestamp}${ext}
+        ((timestamp++))
+    done
+
 Configuration file
 ^^^^^^^^^^^^^^^^^^
 
