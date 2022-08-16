@@ -30,7 +30,9 @@
 #include <boost/shared_ptr.hpp>
 
 namespace csm {
-  class RasterGM; // Forward declaration
+  // Forward declarations
+  class RasterGM; 
+  class ImageCoord;
 }
 
 namespace asp {
@@ -80,9 +82,12 @@ namespace asp {
     vw::Vector3 target_radii() const;
 
     // Apply a transform to the model and save the transformed state as a JSON file.
-    void save_transformed_json_state(std::string const& json_state_file,
-                                     vw::Matrix4x4 const& transform) const;
+    void saveTransformedState(std::string const& json_state_file,
+                              vw::Matrix4x4 const& transform) const;
 
+    // Apply a transform to a CSM model
+    void applyTransform(vw::Matrix4x4 const& transform);
+    
     vw::Vector3 sun_position() const {
       return m_sun_position;
     }
@@ -92,6 +97,9 @@ namespace asp {
     void setDesiredPrecision(double desired_precision) {
       m_desired_precision = desired_precision;
     }
+
+    // TODO: Is it always going to be this type (RasterGM)?
+    boost::shared_ptr<csm::RasterGM> m_csm_model;
 
   private:
 
@@ -105,10 +113,10 @@ namespace asp {
     /// Load the camera model from a model state written to disk.
     /// A model state is obtained from an ISD model by pre-processing
     /// and combining its data in a form ready to be used.
-    void load_model_from_state(std::string const& state_path);
+    void loadModelFromStateFile(std::string const& state_file);
 
-    // TODO: Is it always going to be this type (RasterGM)?
-    boost::shared_ptr<csm::RasterGM> m_csm_model;
+    /// Create the model from a state string.
+    void setModelFromStateString(std::string const& model_state);
 
     /// Find and load any available CSM plugin libraries from disk.
     /// - This does nothing after the first time it finds any plugins.
@@ -126,6 +134,10 @@ namespace asp {
     
   }; // End class CsmModel
 
+
+  // Auxiliary function to convert a pixel from ASP conventions to what CSM
+  // expects.
+  void toCsmPixel(vw::Vector2 const& pix, csm::ImageCoord & csm);
 }      // namespace asp
 
 
