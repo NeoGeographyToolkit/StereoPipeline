@@ -780,8 +780,7 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
     // Iterate over the control network, and, for each control point,
     // look only at the measure for left_cam and right_cam
     int ipt = -1;
-    for ( ControlNetwork::const_iterator iter = cnet.begin();
-      iter != cnet.end(); iter++ ) {
+    for (ControlNetwork::const_iterator iter = cnet.begin(); iter != cnet.end(); iter++ ) {
 
       ipt++; // control point index
 
@@ -957,7 +956,7 @@ int do_ba_ceres_one_pass(Options             & opt,
           // Areas that have no underlying DEM are not put any
           // constraints. The user can take advantage of that to put
           // constraints only in parts of the image where desired.
-          if (asp::update_point_from_dem(point, dem_georef, interp_dem)) {
+          if (asp::update_point_height_from_dem(point, dem_georef, interp_dem)) {
             if (opt.heights_from_dem_weight <= 0) {
               // Fix it. Set it as GCP to not remove it as outlier.
               cnet[ipt].set_type(ControlPoint::GroundControlPoint);
@@ -1695,11 +1694,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("reference-terrain-weight", po::value(&opt.reference_terrain_weight)->default_value(1.0),
      "How much weight to give to the cost function terms involving the reference terrain.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
-     "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this DEM, and fix those points unless --heights-from-dem-weight is positive.")
+     "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, "
+     "in the triangulated xyz points replace the heights with the ones from this DEM, and "
+     "fix those points unless --heights-from-dem-weight is positive.")
     ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(-1.0),
-     "How much weight to give to keep the triangulated points close to the DEM if specified via --heights-from-dem. If the weight is not positive, keep the triangulated points fixed.")
-    ("heights-from-dem-robust-threshold", po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.0),
-     "If positive, this is the robust threshold to use keep the triangulated points close to the DEM if specified via --heights-from-dem. This is applied after the point differences are multiplied by --heights-from-dem-weight. It should help with attenuating large height difference outliers.")
+     "How much weight to give to keep the triangulated points close to the DEM if specified via "
+     "--heights-from-dem. If the weight is not positive, keep the triangulated points fixed.")
+    ("heights-from-dem-robust-threshold",
+     po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.0),
+     "If positive, this is the robust threshold to use keep the triangulated points "
+     "close to the DEM if specified via --heights-from-dem. This is applied after the "
+     "point differences are multiplied by --heights-from-dem-weight. It should help with "
+     "attenuating large height difference outliers.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
      "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),

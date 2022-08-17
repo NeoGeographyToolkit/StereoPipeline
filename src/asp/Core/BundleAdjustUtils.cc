@@ -26,6 +26,7 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/CameraBBox.h>
+#include <vw/BundleAdjustment/CameraRelation.h>
 
 #include <asp/Core/BundleAdjustUtils.h>
 
@@ -44,7 +45,7 @@ std::string g_session_str = "SESSION";
 void asp::read_adjustments(std::string const& filename,
                            bool & piecewise_adjustments,
                            vw::Vector2 & adjustment_bounds,
-                           std::vector<Vector3> & position_correction,
+                           std::vector<vw::Vector3> & position_correction,
                            std::vector<Quat> & pose_correction,
 			   Vector2 & pixel_offset,
 			   double & scale,
@@ -417,26 +418,32 @@ void asp::create_interp_dem(std::string & dem_file,
                        ImageViewRef<PixelMask<double>> & interp_dem){
   
   vw_out() << "Loading DEM: " << dem_file << std::endl;
+
+  // Read the no-data
   double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
   if (vw::read_nodata_val(dem_file, nodata_val))
     vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
-  
+
+  // Create the interpolated DEM
   ImageViewRef<PixelMask<double>> dem
     = create_mask(DiskImageView<double>(dem_file), nodata_val);
-  
   interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
+
+  // Read the georef
   bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
   if (!is_good) {
-    vw_throw(ArgumentErr() << "Error: Cannot read georeference from DEM: "
+    vw_throw(ArgumentErr() << "Error: Cannot read a georeference from DEM: "
              << dem_file << ".\n");
   }
 }
 
-/// Try to update the elevation of a GCC coordinate from a DEM.
-/// - Returns false if the point falls outside the DEM or in a hole.
-bool asp::update_point_from_dem(double* point, cartography::GeoReference const& dem_georef,
-                           ImageViewRef<PixelMask<double>> const& interp_dem) {
-  Vector3 xyz(point[0], point[1], point[2]);
+// Given an xyz point in ECEF coordinates, update its height above datum
+// by interpolating into a DEM. The user must check the return status.
+bool asp::update_point_height_from_dem(vw::cartography::GeoReference const& dem_georef,
+                                       vw::ImageViewRef<PixelMask<double>> const& interp_dem,
+                                       // Output
+                                       vw::Vector3 & xyz) {
+
   Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
   Vector2 ll  = subvector(llh, 0, 2);
   Vector2 pix = dem_georef.lonlat_to_pixel(ll);
@@ -444,19 +451,197 @@ bool asp::update_point_from_dem(double* point, cartography::GeoReference const& 
     return false;
 
   PixelMask<double> height = interp_dem(pix[0], pix[1]);
-  if (!is_valid(height)) {
+  if (!is_valid(height))
     return false;
-  }
   
   llh[2] = height.child();
 
   // NaN check
   if (llh[2] != llh[2]) 
     return false;
-  
+
+  // Overwrite the input
   xyz = dem_georef.datum().geodetic_to_cartesian(llh);
+
+  return true;
+}
+
+/// Try to update the elevation of a GCC coordinate from a DEM, overwriting
+// the array 'point'.
+/// - Returns false if the point falls outside the DEM or in a hole.
+bool asp::update_point_height_from_dem(double* point,
+                                       vw::cartography::GeoReference const& dem_georef,
+                                       vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem) {
+
+  Vector3 xyz(point[0], point[1], point[2]);
+
+  if (!update_point_height_from_dem(dem_georef, interp_dem,
+                                    // Output
+                                    xyz))
+    return false;
+
+  // Overwrite the input
   for (size_t it = 0; it < xyz.size(); it++) 
     point[it] = xyz[it];
   
   return true;
+}
+
+// Given a set of xyz points and a DEM to interpolate into,
+// create a vector of xyz points which are updated to be at the height given
+// by the DEM. This assumes that interp_dem is created outside of this
+// function with bilinear interpolation, via asp::create_interp_dem().
+// Invalid or uncomputable xyz are set to the zero vector.
+void asp::update_point_height_from_dem(vw::ba::ControlNetwork const& cnet,
+                                       std::set<int> const& outliers,
+                                       vw::cartography::GeoReference const& dem_georef,
+                                       vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
+                                       // Output
+                                       std::vector<vw::Vector3> & dem_xyz_vec) {
+
+  // Initialize the output
+  int num_tri_points = cnet.size();
+  dem_xyz_vec = std::vector<vw::Vector3>(num_tri_points, vw::Vector3(0, 0, 0));
+  
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+    
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+      vw_throw(ArgumentErr() << "Found an unexpected GCP when having a DEM constraint.\n");
+    
+    if (outliers.find(ipt) != outliers.end())
+      continue; // Skip outliers
+    
+    Vector3 observation = cnet[ipt].position(); // will get overwritten
+    if (asp::update_point_height_from_dem(dem_georef, interp_dem,  
+                                          // Output
+                                          observation))
+      dem_xyz_vec[ipt] = observation;
+  }
+
+  return;
+}
+
+// Shoot rays from all matching interest point. Intersect those with a
+// DEM. Find their average.  Invalid or uncomputable xyz are set to
+// the zero vector.
+void asp::calc_avg_intersection_with_dem(vw::ba::ControlNetwork const& cnet,
+                                         vw::ba::CameraRelationNetwork<vw::ba::JFeature> & crn,
+                                         std::set<int> const& outliers,
+                                         std::vector<boost::shared_ptr<vw::camera::CameraModel>>
+                                         const& camera_models,
+                                         vw::cartography::GeoReference const& dem_georef,
+                                         vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
+                                         // Output
+                                         std::vector<vw::Vector3> & dem_xyz_vec) {
+  
+  int num_tri_points = cnet.size();
+
+  dem_xyz_vec = std::vector<vw::Vector3>(num_tri_points, vw::Vector3(0, 0, 0));
+  std::vector<int> dem_xyz_count(num_tri_points, 0);
+  
+  for (int icam = 0; icam < (int)crn.size(); icam++) {
+    
+    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
+        
+      // The index of the 3D point
+      int ipt = (**fiter).m_point_id;
+
+      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+        vw_throw(ArgumentErr() << "Found an unexpected GCP when having a DEM constraint.\n");
+      
+      if (outliers.find(ipt) != outliers.end())
+        continue; // Skip outliers
+        
+      // The observed value for the projection of point with index ipt into
+      // the camera with index icam.
+      Vector2 observation = (**fiter).m_location;
+        
+      // Ideally this point projects back to the pixel observation, so use the
+      // triangulated position as initial guess.
+      Vector3 xyz_guess = cnet[ipt].position();
+        
+      bool treat_nodata_as_zero = false;
+      bool has_intersection = false;
+      double height_error_tol = 0.001; // 1 mm should be enough
+      double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
+      double max_rel_tol      = 1e-14;
+      int num_max_iter        = 25;   // Using many iterations can be very slow
+
+      Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+        (camera_models[icam]->camera_center(observation),
+         camera_models[icam]->pixel_to_vector(observation),
+         interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+         height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+
+      if (!has_intersection) 
+        continue;
+
+      dem_xyz_vec[ipt] += dem_xyz;
+      dem_xyz_count[ipt]++;
+    }
+  }
+
+  // Average the successful intersections
+  for (size_t xyz_it = 0; xyz_it < dem_xyz_vec.size(); xyz_it++) {
+    if (dem_xyz_count[xyz_it] > 0) 
+      dem_xyz_vec[xyz_it] = dem_xyz_vec[xyz_it] / double(dem_xyz_count[xyz_it]);
+    else
+      dem_xyz_vec[xyz_it] = Vector3();
+  }
+
+  return;
+}
+
+// Flag outliers by reprojection error with input cameras. This assumes that
+// the input cameras are pretty accurate.
+void asp::flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
+                                vw::ba::CameraRelationNetwork<vw::ba::JFeature> & crn,
+                                std::vector<boost::shared_ptr<vw::camera::CameraModel>>
+                                const& camera_models,
+                                double max_init_reproj_error,
+                                // Output
+                                std::set<int> & outliers) {
+  // Wipe the output
+  outliers.clear();
+
+  int num_cameras = camera_models.size();
+  int num_tri_points = cnet.size();
+
+  for (int icam = 0; icam < (int)crn.size(); icam++) {
+
+    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
+      
+      // The index of the triangulated point
+      int ipt = (**fiter).m_point_id;
+      
+      VW_ASSERT(icam < num_cameras, ArgumentErr() << "Out of bounds in the number of cameras.");
+      VW_ASSERT(ipt < num_tri_points, ArgumentErr() << "Out of bounds in the number of points.");
+
+      if (outliers.find(ipt) != outliers.end()) {
+        // Is an outlier
+        continue;
+      }
+      
+      // The observed value for the projection of point with index ipt into
+      // the camera with index icam.
+      Vector2 observation = (**fiter).m_location;
+
+      Vector3 const& tri_point = cnet[ipt].position(); // alias
+      vw::Vector2 pix;
+      try {
+        pix = camera_models[icam]->point_to_pixel(tri_point);
+        bool is_good = (norm_2(pix - observation) <= max_init_reproj_error);
+        if (!is_good) { // this checks for NaN too
+          outliers.insert(ipt);
+          continue;
+        }
+      } catch(...) {
+        outliers.insert(ipt);
+        continue;
+      }
+    }
+    
+  } // end iterating over cameras
+
+  return;
 }
