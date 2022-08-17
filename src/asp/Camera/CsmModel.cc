@@ -85,13 +85,18 @@ csm::ImageCoord vectorToImageCoord(Vector2 v) {
   return c;
 }
 
-// Auxiliary function to convert a pixel from ASP conventions to what CSM
-// expects.
-void toCsmPixel(vw::Vector2 const& v, csm::ImageCoord & c) {
-  c.samp = v[0] + ASP_TO_CSM_SHIFT[0];
-  c.line = v[1] + ASP_TO_CSM_SHIFT[1];
+// Auxiliary functions to convert a pixel from ASP conventions to what CSM
+// expects and vice versa
+void toCsmPixel(vw::Vector2 const& pix, csm::ImageCoord & csm) {
+  csm.samp = pix[0] + ASP_TO_CSM_SHIFT[0];
+  csm.line = pix[1] + ASP_TO_CSM_SHIFT[1];
 }
-  
+void fromCsmPixel(vw::Vector2 & pix, csm::ImageCoord const& csm) {
+  pix[0] = csm.samp - ASP_TO_CSM_SHIFT[0];
+  pix[1] = csm.line - ASP_TO_CSM_SHIFT[1];
+}
+
+
 Vector3 ecefCoordToVector(csm::EcefCoord c) {
   Vector3 v;
   v[0] = c.x;

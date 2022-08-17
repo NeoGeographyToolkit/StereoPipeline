@@ -135,9 +135,11 @@ namespace asp {
   }; // End class CsmModel
 
 
-  // Auxiliary function to convert a pixel from ASP conventions to what CSM
-  // expects.
+  // Auxiliary functions to convert a pixel from ASP conventions to what CSM
+  // expects and vice versa
   void toCsmPixel(vw::Vector2 const& pix, csm::ImageCoord & csm);
+  void fromCsmPixel(vw::Vector2 & pix, csm::ImageCoord const& csm);
+  
 }      // namespace asp
 
 
