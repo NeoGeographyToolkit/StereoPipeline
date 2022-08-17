@@ -183,16 +183,16 @@ void load_cloud(std::string const& file_name,
                vw::cartography::GeoReference const& geo,
                CsvConv const& csv_conv,
                bool   & is_lola_rdr_format,
-               double & mean_longitude,
+               double & median_longitude,
                bool verbose,
-               DoubleMatrix & data){
+               DoubleMatrix & data) {
 
   if (verbose)
     vw::vw_out() << "Reading: " << file_name << std::endl;
 
   // We will over-write this below for CSV and DEM files where
   // longitude is available.
-  mean_longitude = 0.0;
+  median_longitude = 0.0;
 
   std::string file_type = get_cloud_type(file_name);
   if (file_type == "DEM")
@@ -208,8 +208,7 @@ void load_cloud(std::string const& file_name,
     bool verbose = true;
     load_csv(file_name, num_points_to_load, lonlat_box, 
                 calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-                mean_longitude, verbose, data
-                );
+                median_longitude, verbose, data);
   }else
     vw::vw_throw(vw::ArgumentErr() << "Unknown file type: " << file_name << "\n");
 
@@ -231,7 +230,7 @@ void load_cloud(std::string const& file_name,
                vw::cartography::GeoReference const& geo,
                CsvConv const& csv_conv,
                bool   & is_lola_rdr_format,
-               double & mean_longitude,
+               double & median_longitude,
                bool verbose,
                typename PointMatcher<RealT>::DataPoints & data){
   
@@ -239,7 +238,7 @@ void load_cloud(std::string const& file_name,
   PointMatcherSupport::validateFile(file_name);
 
   load_cloud(file_name, num_points_to_load,  lonlat_box,  calc_shift,  
-	    shift,  geo,  csv_conv,  is_lola_rdr_format,  mean_longitude,  
+	    shift,  geo,  csv_conv,  is_lola_rdr_format,  median_longitude,  
 	    verbose,  data.features);
   
 }
@@ -268,7 +267,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                double max_disp,
                                PointMatcher<RealT>::Matrix const transform,
                                vw::BBox2 & out_box, 
-                               vw::BBox2 & trans_out_box){
+                               vw::BBox2 & trans_out_box) {
 
   // Initialize
   out_box       = vw::BBox2();
@@ -283,7 +282,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   PointMatcherSupport::validateFile(file_name);
   PointMatcher<RealT>::DataPoints points;
 
-  double      mean_longitude = 0.0; // to convert back from xyz to lonlat
+  double      median_longitude = 0.0; // to convert back from xyz to lonlat
   bool        verbose        = false;
   bool        calc_shift     = false; // won't shift the points
   vw::Vector3 shift          = vw::Vector3(0, 0, 0);
@@ -292,13 +291,13 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   // Load a sample of points, hopefully enough to estimate the box reliably.
   load_cloud(file_name, num_sample_pts, dummy_box,
              calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-             mean_longitude, verbose, points);
+             median_longitude, verbose, points);
 
   bool has_transform = (transform != PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1));
 
   // For the first point, figure out how much shift in lonlat a small
-  //  shift in XYZ produces.  We will use this to expand out from the
-  //  test points when computing the bounding box.
+  // shift in XYZ produces.  We will use this to expand out from the
+  // test points when computing the bounding box.
   vw::Vector3 p1;
   vw::BBox2   box1, box1_trans;
   for (int row = 0; row < DIM; row++)
@@ -309,19 +308,20 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
       for (int z = -1; z <= 1; z += 2){
         vw::Vector3 q   = p1 + vw::Vector3(x, y, z)*max_disp;
         vw::Vector3 llh = geo.datum().cartesian_to_geodetic(q);
-        llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
+        llh[0] += 360.0*round((median_longitude - llh[0])/360.0); // 360 deg adjust
         box1.grow(subvector(llh, 0, 2));
 
         // Do the same thing in transformed coordinates
         if (has_transform) {
           vw::Vector3 qT   = apply_transform_to_vec(transform, q);
           vw::Vector3 llhT = geo.datum().cartesian_to_geodetic(qT);
-          llhT[0] += 360.0*round((mean_longitude - llhT[0])/360.0); // 360 deg adjust
+          llhT[0] += 360.0*round((median_longitude - llhT[0])/360.0); // 360 deg adjust
           box1_trans.grow(subvector(llhT, 0, 2));
         }
       }
     }
   }
+
   const double EXPANSION_MARGIN = 1.05; // Pad the size a little bit just to be safe.
   const double rad_lon  = EXPANSION_MARGIN * box1.width       () / 2.0;
   const double rad_lat  = EXPANSION_MARGIN * box1.height      () / 2.0;
@@ -330,7 +330,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
 
   // Make a box around each point the size of the box we computed earlier and 
   //  keep growing the output bounding box.
-  
+
   for (int col = 0; col < points.features.cols(); col++){
     vw::Vector3 p;
     for (int row = 0; row < DIM; row++)
@@ -338,7 +338,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
 
     vw::Vector3 q   = p;
     vw::Vector3 llh = geo.datum().cartesian_to_geodetic(q);
-    llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
+    llh[0] += 360.0*round((median_longitude - llh[0])/360.0); // 360 deg adjust
     vw::BBox2 b(llh[0]-rad_lon, llh[1]-rad_lat, rad_lon*2, 2*rad_lat);
     out_box.grow(b);
 
@@ -346,12 +346,12 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
     if (has_transform) {
       vw::Vector3 qT   = apply_transform_to_vec(transform, q);
       vw::Vector3 llhT = geo.datum().cartesian_to_geodetic(qT);
-      llhT[0] += 360.0*round((mean_longitude - llhT[0])/360.0); // 360 deg adjust
+      llhT[0] += 360.0*round((median_longitude - llhT[0])/360.0); // 360 deg adjust
       vw::BBox2 bT(llhT[0]-rad_lonT, llhT[1]-rad_latT, 2*rad_lonT, 2*rad_latT);
       trans_out_box.grow(bT);
     }
   }
-  
+
   if (!has_transform)
     trans_out_box = out_box;
   return;
@@ -360,8 +360,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
 // Sometime the box we computed with cartesian_to_geodetic is offset
 // from the box computed with pixel_to_lonlat by 360 degrees.
 // Fix that.
-void adjust_lonlat_bbox(std::string const& file_name,
-                        vw::BBox2 & box){
+void adjust_lonlat_bbox(std::string const& file_name, vw::BBox2 & box){
 
   using namespace vw;
 
@@ -637,12 +636,12 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
     bool        calc_shift = true;
     vw::Vector3 shift;
     bool        is_lola_rdr_format;
-    double      mean_longitude;
+    double      median_longitude;
     DP          point_cloud;
     load_cloud(input_file, std::numeric_limits<int>::max(),
 	       empty_box, calc_shift, shift,
 	       geo, csv_conv, is_lola_rdr_format,
-	       mean_longitude, verbose, point_cloud);
+	       median_longitude, verbose, point_cloud);
 
     std::ofstream outfile( output_file.c_str() );
     outfile.precision(16);
@@ -684,12 +683,12 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
 
       if (csv_conv.is_configured()){
 
-        vw::Vector3 csv = csv_conv.cartesian_to_csv(P, geo, mean_longitude);
+        vw::Vector3 csv = csv_conv.cartesian_to_csv(P, geo, median_longitude);
         outfile << csv[0] << ',' << csv[1] << ',' << csv[2] << std::endl;
 
       }else{
         vw::Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
-        llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjustment
+        llh[0] += 360.0*round((median_longitude - llh[0])/360.0); // 360 deg adjustment
 
         if (is_lola_rdr_format)
           outfile << llh[0] << ',' << llh[1] << ',' << norm_2(P)/1000.0 << std::endl;

@@ -91,8 +91,8 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
                  vw::BBox2 const& lonlat_box,
                  bool calc_shift, vw::Vector3 & shift,
                  vw::cartography::GeoReference const& geo, CsvConv const& csv_conv,
-                 bool & is_lola_rdr_format, double & mean_longitude,
-                 bool verbose, DoubleMatrix & data){
+                 bool & is_lola_rdr_format, double & median_longitude,
+                 bool verbose, DoubleMatrix & data) {
 
   // Note: The input CsvConv object is responsible for parsing out the
   //       type of information contained in the CSV file.
@@ -161,7 +161,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
   bool shift_was_calc = false;
   bool is_first_line  = true;
   int points_count = 0;
-  mean_longitude = 0.0;
+  std::vector<double> longitudes;
   line = "";
   while ( getline(file, line, '\n') ){
 
@@ -316,7 +316,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
     data(DIM, points_count) = 1;
 
     points_count++;
-    mean_longitude += lon;
+    longitudes.push_back(lon);
 
     // Throw an error if the lon and lat are not within bounds.
     // Note that we allow some slack for lon, perhaps the point
@@ -330,7 +330,10 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
   }
   data.conservativeResize(Eigen::NoChange, points_count);
 
-  mean_longitude /= points_count;
+  median_longitude = 0.0;
+  std::sort(longitudes.begin(), longitudes.end());
+  if (longitudes.size() > 0) 
+    median_longitude = longitudes[longitudes.size()/2];
 
   return num_total_points;
 }
@@ -344,7 +347,7 @@ void load_csv(std::string const& file_name,
                  vw::cartography::GeoReference const& geo,
                  CsvConv const& csv_conv,
                  bool & is_lola_rdr_format,
-                 double & mean_longitude,
+                 double & median_longitude,
                  bool verbose,
                  DoubleMatrix & data){
 
@@ -352,7 +355,7 @@ void load_csv(std::string const& file_name,
                                       lonlat_box,
                                       calc_shift, shift,
                                       geo, csv_conv, is_lola_rdr_format,
-                                      mean_longitude, verbose, data);
+                                      median_longitude, verbose, data);
   
   int num_loaded_points = data.cols();
   if (!lonlat_box.empty()                    &&
@@ -363,7 +366,7 @@ void load_csv(std::string const& file_name,
     load_csv_aux(file_name, num_total_points, lonlat_box,
                  calc_shift, shift,
                  geo, csv_conv, is_lola_rdr_format,
-                 mean_longitude,
+                 median_longitude,
                  false, // Skip repeating same messages
                  data);
   }

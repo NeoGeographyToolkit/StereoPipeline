@@ -55,7 +55,7 @@ void load_csv(std::string const& file_name,
               vw::cartography::GeoReference const& geo,
               CsvConv const& csv_conv,
               bool & is_lola_rdr_format,
-              double & mean_longitude, bool verbose,
+              double & median_longitude, bool verbose,
               DoubleMatrix & data);
   
 // Load a DEM, perhaps subsampling it along the way

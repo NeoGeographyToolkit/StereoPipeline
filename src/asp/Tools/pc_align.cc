@@ -418,7 +418,7 @@ void save_errors(DP const& point_cloud,
                  GeoReference const& geo,
                  asp::CsvConv const& csv_conv,
                  bool is_lola_rdr_format,
-                 double mean_longitude){
+                 double median_longitude){
 
   vw_out() << "Writing: " << output_file << std::endl;
 
@@ -449,12 +449,12 @@ void save_errors(DP const& point_cloud,
     Vector3 P = get_cloud_gcc_coord(point_cloud, shift, col);
 
     if (csv_conv.is_configured()){
-      Vector3 csv = csv_conv.cartesian_to_csv(P, geo, mean_longitude);
+      Vector3 csv = csv_conv.cartesian_to_csv(P, geo, median_longitude);
       outfile << csv[0] << ',' << csv[1] << ',' << csv[2]
               << "," << errors(0, col) << endl;
     }else{
       Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
-      llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjustment
+      llh[0] += 360.0*round((median_longitude - llh[0])/360.0); // 360 deg adjustment
 
       if (is_lola_rdr_format)
         outfile << llh[0] << ',' << llh[1] << ',' << norm_2(P)/1000.0
@@ -1104,7 +1104,7 @@ vw::Vector3 estimate_ref_cloud_centroid(vw::cartography::GeoReference const& geo
   PointMatcherSupport::validateFile(file_name);
   PointMatcher<RealT>::DataPoints points;
 
-  double mean_longitude = 0.0; // to convert back from xyz to lonlat
+  double median_longitude = 0.0; // to convert back from xyz to lonlat
   bool verbose = false;
   bool calc_shift = false; // won't shift the points
   vw::Vector3 shift = vw::Vector3(0, 0, 0);
@@ -1115,7 +1115,7 @@ vw::Vector3 estimate_ref_cloud_centroid(vw::cartography::GeoReference const& geo
   int num_sample_pts = 1000000;
   load_cloud(file_name, num_sample_pts, dummy_box,
 	     calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-	     mean_longitude, verbose, points);
+	     median_longitude, verbose, points);
 
 
   int numRefPts = points.features.cols();
@@ -1261,22 +1261,25 @@ int main( int argc, char *argv[] ) {
     // In this case, there is a chance the boxes were computed wrong anyway.
     if (ref_box.width() > 180.0 || source_box.width() > 180.0) {
       vw_out() << "Warning: Your input point clouds are spread over more than half the planet. "
-               << "It is suggested that they be cropped, to get more accurate results.\n";
+               << "It is suggested that they be cropped, to get more accurate results. "
+               << "Giving up on estimating their bounding boxes and filtering outliers "
+               << "based on them.\n";
       ref_box = BBox2();
       source_box = BBox2();
     }
     
     vw_out() << "Reference box: " << ref_box << std::endl;
     vw_out() << "Source box:    " << source_box << std::endl;
-
+    
     if (!ref_box.empty() && !source_box.empty()) {
       adjust_and_intersect_ref_source_boxes(ref_box, trans_source_box, opt.reference, opt.source);
       adjust_and_intersect_ref_source_boxes(trans_ref_box, source_box, opt.reference, opt.source);
     }
     
-    sw0.stop();
     vw_out() << "Intersection reference box:  " << ref_box    << std::endl;
     vw_out() << "Intersection source    box:  " << source_box << std::endl;
+    
+    sw0.stop();
     vw_out() << "Intersection of bounding boxes took " << sw0.elapsed_seconds() << " [s]" << endl;
 
     // Load the point clouds. We will shift both point clouds by the

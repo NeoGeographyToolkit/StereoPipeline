@@ -97,7 +97,7 @@ void load_cloud(std::string const& file_name,
                vw::cartography::GeoReference const& geo,
                CsvConv const& csv_conv,
                bool & is_lola_rdr_format,
-               double & mean_longitude,
+               double & median_longitude,
                bool verbose,
                DoubleMatrix & data);
 
@@ -110,7 +110,7 @@ void load_cloud(std::string const& file_name,
 		vw::cartography::GeoReference const& geo,
 		CsvConv const& csv_conv,
 		bool   & is_lola_rdr_format,
-		double & mean_longitude,
+		double & median_longitude,
 		bool verbose,
 		typename PointMatcher<RealT>::DataPoints & data);
 
