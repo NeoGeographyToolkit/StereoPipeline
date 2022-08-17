@@ -380,13 +380,15 @@ Copernicus 30 m DEM from:
 
 or the NASA SRTM DEM (available on the same web site as above, choose
 the product relative to WGS84), GMTED2010, USGS's NED data, or NGA's
-DTED data. There exist pre-made terrain models for other planets as
-well, for example the Moon LRO LOLA global DEM and the Mars MGS MOLA
-DEM. Additionally, for Mars, consider downloading HRSC DEMs from::
+DTED data. 
+
+There exist pre-made terrain models for other planets as well, for
+example the Moon LRO LOLA global DEM and the Mars MGS MOLA
+DEM. Additionally, for Mars, consider downloading HRSC DEMs from:
 
    http://i-mars.eu/imars-datasets.php
 
-or DEMs based on HRSC, CTX, and HiRISE cameras from::
+or DEMs based on HRSC, CTX, and HiRISE cameras from:
 
     https://www.cosmos.esa.int/web/psa/ucl-mssl_meta-gsf
 
