@@ -285,7 +285,9 @@ def parse_corr_seed_mode(filename):
     if not os.path.isfile(filename):
         return mode
 
-    fh = open(filename, "r")
+    # Care with encoding
+    fh = open(filename, 'r', encoding='utf8', errors='ignore')
+    
     for line in fh:
         line = re.sub('\#.*?$', '', line) # wipe comments
         matches = re.match('^\s*corr-seed-mode\s+(\d+)', line)
