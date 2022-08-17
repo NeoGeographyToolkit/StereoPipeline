@@ -446,8 +446,8 @@ Bundle adjustment and stereo happens as follows::
 
     bundle_adjust A_crop.cub B_crop.cub C_crop.cub D_crop.cub \
       --num-iterations 100 --save-intermediate-cameras        \
-      --max-pairwise-matches 1000 --min-matches 1             \
-      -o run_ba/run
+      --ip-per-image 8000 --max-pairwise-matches 1000         \
+      --min-matches 1 --num-passes 1 -o run_ba/run
     parallel_stereo A_crop.cub B_crop.cub run_full2/run       \
       --subpixel-mode 3 --bundle-adjust-prefix run_ba/run
 
@@ -483,7 +483,7 @@ mapprojected images, so the process went as follows::
       --proj-lon 0 --proj-lat -90                 \
       run_sub10_noba/run-PC.tif
     for f in A B C D; do 
-      mapproject run_sub10_noba/run-DEM.tif \
+      mapproject run_sub10_noba/run-DEM.tif --tr 10 \
         ${f}_crop_sub10.cub ${f}_sub10.map.noba.tif
     done
 
@@ -491,8 +491,10 @@ mapprojected images, so the process went as follows::
     bundle_adjust A_crop_sub10.cub B_crop_sub10.cub     \
       C_crop_sub10.cub D_crop_sub10.cub --min-matches 1 \
       --num-iterations 100 --save-intermediate-cameras  \
-      -o run_ba_sub10/run --max-pairwise-matches 1000   \
-      --mapprojected-data \
+      -o run_ba_sub10/run --ip-per-image 8000           \
+      --max-pairwise-matches 1000 --overlap-limit 30    \
+      --match-first-to-last --num-passes 1              \
+      --mapprojected-data                               \
       "$(ls [A-D]_sub10.map.noba.tif) run_sub10_noba/run-DEM.tif"
  
 It is suggested to use above a DEM not much bigger than the eventual
@@ -504,7 +506,8 @@ the desired smaller area.
 
 The option ``--max-pairwise-matches`` in ``bundle_adjust`` should
 reduce the number of matches to the set value, if too many were
-created originally.
+created originally.  The option ``--overlap-limit`` reduces the number
+of subsequent images to be matched to the current one to this value.
  
 Run stereo and create a DEM::
 
@@ -770,12 +773,14 @@ these points will be projected back to camera pixel space.
 
     mapped_images=$(echo {A,B,C,D}_crop_sub4.noba.tif)
     dem=run_stereo_noba_sub4/run-DEM.tif
-    bundle_adjust A_crop_sub4.cub B_crop_sub4.cub C_crop_sub4.cub  \
-      D_crop_sub4.cub                                              \
-      --mapprojected-data "$mapped_images $dem"                    \
-      --num-iterations 100 --save-intermediate-cameras             \
-      --min-matches 1 --max-pairwise-matches 1000                  \
-      -o run_ba_sub4/run  
+    bundle_adjust A_crop_sub4.cub B_crop_sub4.cub      \
+      C_crop_sub4.cub D_crop_sub4.cub                  \
+      --mapprojected-data "$mapped_images $dem"        \
+      --num-iterations 100 --save-intermediate-cameras \
+      --min-matches 1 --max-pairwise-matches 1000      \
+      --ip-per-image 8000 --overlap-limit 30           \
+      --match-first-to-last --num-passes 1             \
+      -o run_ba_sub4/run
 
 An illustration is shown in :numref:`sfs3`.
 
@@ -978,8 +983,10 @@ meter/pixel one, resampled to 1 meter/pixel, creating a DEM named
     wget http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.LBL
     pds2isis from = LDEM_80S_20M.LBL to = ldem_80s_20m.cub
     image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
-    gdalwarp -overwrite -r cubicspline -tr 1 1 -co COMPRESSION=LZW   \
-      -te -7050.500 -10890.500 -1919.500 -5759.500                   \
+    gdalwarp -overwrite -r cubicspline -tr 1 1 -co COMPRESSION=LZW \
+      -co TILED=yes -co INTERLEAVE=BAND                            \
+      -co BLOCKXSIZE=256 -co BLOCKYSIZE=256                        \
+      -te -7050.5 -10890.5 -1919.5 -5759.5                         \
       ldem_80s_20m_scale.tif ref.tif
 
 Note that we scaled its heights by 0.5 per the information in the LBL
@@ -1013,6 +1020,12 @@ The DEM grid size should be not too different from the *ground sample
 distance (GSD)* of the images, for optimal results. That one can be found
 with ``mapproject`` (:numref:`mapproject`).
 
+Above the interpolated DEM was created with bicubic spline
+interpolation, which is preferable to the default nearest neighbor
+interpolation, and it was saved internally using blocks of size 256 x
+256, which ASP handles better than the GDAL default with each block
+as tall or wide as a row or column.
+
 Image selection and sorting by illumination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1030,7 +1043,11 @@ specify the region of interest (in ``stereo_gui`` one can find this
 region by selecting it with Control-Mouse). When the mosaicking tool
 runs, the sum of pixels in the current region for each image will be
 printed to the screen. Images with a positive sum of pixels are likely
-to contribute to the desired region.
+to contribute to the desired region. Example::
+
+   dem_mosaic --block-max --block-size 10000 --threads 1   \
+     --t_projwin -7050.500 -10890.500 -1919.500 -5759.500  \
+     M*.map.lowres.tif -o tmp.tif | tee pixel_sum_list.txt
 
 The obtained subset of images should be sorted by the Sun azimuth (this
 angle is printed when running ``sfs`` with the ``--query`` option on the
@@ -1078,6 +1095,40 @@ can result in artifacts in the produced SfS terrain.
 Consider using here CSM models instead of ISIS models, as mentioned in
 :numref:`sfs_isis_vs_csm`.
 
+Handling a very large number of images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If the chosen site is large, one may be looking at perhaps 1500 to
+2000 images in it, and then it becomes quite hard to choose which
+images to use. Two approaches can help with that.
+
+One is to break up the input DEM in four quadrants with overlap.
+Examine all images overlapping with a quadrant (after mapprojection at
+a low resolution), sort them by Sun azimuth, and choose a subset of
+good images for that quadrant. Repeat for the other quadrants. (Some
+images may be repeated across quadrants, which is a good thing, as
+eventually all these will be bundle-adjusted together; repeated images
+should be removed before bundle adjustment.)
+
+Alternatively, divide the images into groups, by Sun azimuth angle,
+for example into 36 groups with variation of at most 10 degrees within
+each group. Mapproject these as before, examine each group
+individually, such as by opening them with::
+
+  stereo_gui --hide-all --single-window --use-georef $(cat group1.txt)
+
+and select a subset of them which cover reasonably well the desired
+area, while eliminating those which don't seem to provide new
+information. One should avoid the temptation of using the images with
+the biggest footprint, as those may also be the ones at lower
+resolution.
+
+Note that clicking on an image in ``stereo_gui`` will print the image
+name in the terminal, and that way a list can be assembled.
+
+These two strategies can be used together, and they may be
+automated at some point.
+
 Bundle adjustment (registration)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1087,12 +1138,14 @@ ordered by Sun azimuth angle.
 
 ::
 
-    parallel_bundle_adjust --processes 8 --ip-per-tile 400   \
-      --overlap-limit 30 --num-iterations 100 --num-passes 2 \
-      --min-matches 1 --max-pairwise-matches 1000            \
-      --datum D_MOON <images>                                \
-      --mapprojected-data '<mapprojected images> ref.tif'    \
-      --save-intermediate-cameras --match-first-to-last      \
+    parallel_bundle_adjust --processes 8 --ip-per-image 15000 \
+      --overlap-limit 30 --num-iterations 100 --num-passes 1  \
+      --min-matches 1 --max-pairwise-matches 1000             \
+      --camera-weight 0 --robust-threshold 5                  \ 
+      --nodes-list <list of computing nodes>                  \
+      --datum D_MOON <images> <cameras>                       \
+      --mapprojected-data "<mapprojected images> ref.tif"     \
+      --save-intermediate-cameras --match-first-to-last       \
       --min-triangulation-angle 0.1 -o ba/run 
 
 For bundle adjustment we in fact used even more images that overlap
@@ -1100,12 +1153,12 @@ with this area, but likely this set is sufficient, and it is this set
 that was used later for shape-from-shading (see also the
 ``--auto-overlap-limit`` option, which can be used to determine which
 images overlap). Here more bundle adjustment iterations are desirable,
-but this step takes too long. And a large ``--ip-per-tile`` can make a
+but this step takes too long. A large ``--ip-per-image`` can make a
 difference in images with rather different different illumination
 conditions but it can also slow down the process a lot. Note that the
 value of ``--max-pairwise-matches`` was set to 1000. That should
 hopefully create enough matches among any two images. A higher value
-here will make bundle adjustment run slower.
+here will make bundle adjustment run slower and use more memory.
 
 It is very important to have a lot of images during bundle adjustment,
 and that they are sorted by illumination (Sun azimuth) to ensure that
@@ -1120,11 +1173,22 @@ hence the earliest images (sorted by azimuth) may become similar to
 the latest ones. That is the reason above we used the option
 ``--match-first-to-last``.
 
+The option ``--mapprojected-data`` is needed when the interest point
+matches are hard to find. See See :numref:`mapip` for more details.
+
 Note that this invocation may run for more than a day, or even
 more. And it may be necessary to get good convergence. If the process
 gets interrupted, or the user gives up on waiting, the adjustments
 obtained so far can still be usable, if invoking bundle adjustment,
-as above, with ``--save-intermediate-cameras``.
+as above, with ``--save-intermediate-cameras``. As before, using
+the CSM model can result in much-improved performance. 
+
+Here we used ``--camera-weight 0`` and ``--robust-threshold 5`` to give
+cameras which start far from the solution more chances to converge. We
+used ``--num-passes 1`` in case 100 iterations may not be enough to
+converge fully, and then outliers will be removed prematurely if there
+is more than one pass. That would remove along the way good interest
+point matches, which may make the solution worse.
 
 Alignment to ground
 ^^^^^^^^^^^^^^^^^^^
@@ -1212,12 +1276,12 @@ If the images project reasonably well, but there are still some small
 registration errors, one can refine the cameras using the reference
 terrain as a constraint in bundle adjustment::
 
-    bundle_adjust --skip-matching --num-iterations 20          \
-      --num-passes 1 --camera-weight 1                         \
+    bundle_adjust --skip-matching --num-iterations 100         \
+      --num-passes 1 --camera-weight 0                         \
       --input-adjustments-prefix ba_align/run <images>         \
       --save-intermediate-cameras                              \
-      --heights-from-dem ref.tif --heights-from-dem-weight 0.1 \
-      --heights-from-dem-robust-threshold 10                   \
+      --heights-from-dem ref.tif --heights-from-dem-weight 0.2 \
+      --heights-from-dem-robust-threshold 0.2                  \
       --match-first-to-last --max-pairwise-matches 1000        \
       --match-files-prefix ba/run -o ba_align_ref/run
 
