@@ -97,7 +97,8 @@ in more accurate results than if applied on their hillshaded images.
 :numref:`gdal_tools`.)
 
 If the DEMs have very different grids and projections, regridding them
-with ``gdalwarp`` may make them easier to align.
+with ``gdalwarp`` may make them easier to align (invoke this tool with
+cubic spline interpolation).
   
 Note that the alignment transform is a 3x3 matrix and can be examined
 and edited.  Its inputs and outputs are 2D pixels in *homogeneous
@@ -105,7 +106,9 @@ coordinates*, that is, of the form (*x*, *y*, *1*). It is able to model
 affine and homography transforms in the pixel plane.
 
 See the related tool ``pc_align`` (:numref:`pc_align`) for alignment
-of point clouds.
+of point clouds. That one is likely to perform better than
+``image_align``, as it makes use of the 3D nature of of point clouds,
+the inputs need not be gridded, and one of the clouds can be sparse.
 
 Usage
 ~~~~~

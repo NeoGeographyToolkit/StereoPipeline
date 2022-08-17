@@ -293,8 +293,8 @@ Command-line options for bundle_adjust
     if they intersect.
 
 --match-first-to-last
-    Match the first several images to several last images by extending
-    the logic of --overlap-limit past the last image to the earliest
+    Match the last several images to several first images by extending
+    the logic of ``--overlap-limit`` past the last image to the earliest
     ones.
 
 --rotation-weight <double (default: 0.0)>
@@ -319,7 +319,7 @@ Command-line options for bundle_adjust
 
 --ip-per-image <integer>
     How many interest points to detect in each image (default:
-    automatic determination). It is overridden by --ip-per-tile if
+    automatic determination). It is overridden by ``--ip-per-tile`` if
     provided.
 
 --ip-detect-method <integer (default: 0)>

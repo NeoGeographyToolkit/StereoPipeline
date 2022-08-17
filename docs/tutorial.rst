@@ -63,7 +63,8 @@ If the positions and orientations of the cameras are not known well
 then bundle adjustment may be necessary (:numref:`bundle_adjustment`).
 
 What follows are two examples of processing non-Earth data. An example
-using Earth data is in :numref:`dg_tutorial`. More examples can be
+using Earth data is in :numref:`dg_tutorial`. The various stereo
+algorithms are discussed in :numref:`nextsteps`. More examples can be
 found in :numref:`examples`.
 
 .. _nonearth_tutorial:
@@ -117,6 +118,9 @@ show the DEM hillshaded. See the figure below for the output.
 
 Higher quality results can be obtained by adding to ``parallel_stereo``
 the option ``--subpixel-mode 2``, but that will be quite a bit slower.
+
+See :numref:`nextsteps` for a more in-depth discussion of stereo
+algorithms.
 
 .. figure:: images/lronac_csm_example.png
    :name: lronac_csm_example
@@ -186,6 +190,9 @@ alignment methods are described in :numref:`settingoptionsinstereodefault`.
 
 If your data has steep slopes, mapprojection can improve the results.
 See :numref:`mapproj-example` and :numref:`mapproj_with_cam2map`. 
+
+See :numref:`nextsteps` for a more in-depth discussion of stereo
+algorithms.
 
 .. _dg_tutorial:
 

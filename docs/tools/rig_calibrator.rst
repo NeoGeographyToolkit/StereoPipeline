@@ -129,6 +129,8 @@ reference sensor to the sensor with given name, while
 ``depth_to_image_transform`` is the transform from the depth to image
 coordinate systems of a given depth+image sensor. These must be set to
 the identity transform (example below) if not known or not applicable.
+(The goal of this tool is to solve for these transforms.)
+
 The value ``ref_to_sensor_timestamp_offset``, measured in seconds, is
 what should be added to the reference camera clock to get the time in
 current sensor's clock. Set to 0 if the clocks are synchronized.
