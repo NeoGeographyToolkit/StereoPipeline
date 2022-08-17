@@ -546,7 +546,8 @@ void jitter_adjust(std::vector<std::string> const& image_files,
     int num_lines = adjustment_bounds[icam][1] - adjustment_bounds[icam][0];
     VW_ASSERT(num_lines > 0, ArgumentErr() << "Invalid bounds for piecewise adjustment.\n");
 
-    int num_adj = round(double(num_lines)/stereo_settings().image_lines_per_piecewise_adjustment);
+    int lines_per_adj = stereo_settings().image_lines_per_piecewise_adjustment;
+    int num_adj = round(double(num_lines)/lines_per_adj);
     if (num_adj <= 0) num_adj = 1;
 
     // Ensure we have at least two adjustments, at endpoints.

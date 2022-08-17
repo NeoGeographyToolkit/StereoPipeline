@@ -32,6 +32,7 @@
 
 #include <boost/smart_ptr/shared_ptr.hpp>
 
+// Forward declarations
 namespace vw {
   namespace camera {
     class CameraModel;
@@ -39,6 +40,15 @@ namespace vw {
   namespace ba {
     class ControlNetwork;
   }
+  namespace cartography {
+    class GeoReference;
+  }
+
+  template<typename PixelT>
+  class ImageViewRef;
+
+  template<typename PixelT>
+  class PixelMask;
 }
 
 namespace asp{
@@ -89,6 +99,45 @@ namespace asp{
                 std::vector<std::string> const& image_files,
                 std::vector<boost::shared_ptr<vw::camera::CameraModel>> const& camera_models,
                 std::set<std::pair<std::string, std::string>> & overlap_list);
+
+  /// Create the adjusted camera file name from the original camera filename,
+  /// unless it is empty, and then use the image file name.
+  /// - Convert dir1/image1.cub to out-prefix-image1.adjust
+  std::string bundle_adjust_file_name(std::string const& prefix, std::string const& input_img,
+                                      std::string const& input_cam);
+  
+  /// Ensure that no images, camera files, or adjustment names are duplicate.
+  /// That will cause the output files to overwrite each other!
+  void check_for_duplicates(std::vector<std::string> const& image_files,
+                            std::vector<std::string> const& camera_files,
+                            std::string const& out_prefix);
+
+  // Make a list of all of the image pairs to find matches for
+  void determine_image_pairs(// Inputs
+                             int overlap_limit,
+                             bool match_first_to_last,
+                             std::vector<std::string> const& image_files,
+                             // if having optional preexisting camera positions
+                             bool got_est_cam_positions,
+                             // Optional filter distance, set to -1 if not used
+                             double position_filter_dist,
+                             // Estimated camera positions, set to empty if missing
+                             std::vector<vw::Vector3> const& estimated_camera_gcc,
+                             // Optional preexisting list, set to empty if not having it
+                             std::set<std::pair<std::string, std::string>> const& overlap_list,
+                             // Output
+                             std::vector<std::pair<int,int>> & all_pairs);
+
+  /// Load a DEM from disk to use for interpolation.
+  void create_interp_dem(std::string & dem_file,
+                         vw::cartography::GeoReference & dem_georef,
+                         vw::ImageViewRef<vw::PixelMask<double>> & interp_dem);
+  
+  /// Try to update the elevation of a GCC coordinate from a DEM.
+  /// - Returns false if the point falls outside the DEM or in a hole.
+  bool update_point_from_dem(double* point, vw::cartography::GeoReference const& dem_georef,
+                             vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem);
+  
 }
 
 #endif // __BUNDLE_ADJUST_UTILS_H__

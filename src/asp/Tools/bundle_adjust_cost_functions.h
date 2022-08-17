@@ -58,7 +58,7 @@ using namespace vw::camera;
 
 const size_t PIXEL_SIZE = 2;
 
-typedef PixelMask< Vector<float, 2> > DispPixelT;
+typedef PixelMask<Vector<float, 2>> DispPixelT;
 
 /// Used to accumulate the number of reprojection errors in bundle adjustment.
 int g_ba_num_errors = 0;
@@ -67,7 +67,7 @@ Mutex g_ba_mutex;
 // TODO: Pass these properly.
 double g_max_disp_error = -1.0, g_reference_terrain_weight = 1.0;
 
-double g_big_pixel_value = 10000; 
+double g_big_pixel_value = 1000.0;  // don't make this too big
 
 //=====================================================================
 
@@ -173,7 +173,8 @@ public:
 
   /// The number of lens distortion parametrs.
   int num_distortion_params() const {
-    vw::Vector<double> lens_params = m_underlying_camera->lens_distortion()->distortion_parameters();
+    vw::Vector<double> lens_params
+      = m_underlying_camera->lens_distortion()->distortion_parameters();
     return lens_params.size();
   }
 
@@ -397,8 +398,8 @@ struct BaReprojectionError {
                  << "failing to compute residuals.\n";
       }
 
-      residuals[0] = 1e+20;
-      residuals[1] = 1e+20;
+      residuals[0] = g_big_pixel_value;
+      residuals[1] = g_big_pixel_value;
       return false;
     }
     return true;

@@ -509,10 +509,10 @@ public:
     
     // Vectors, but we only use the first position.
     std::vector<vw::Vector3> position_correction;
-    std::vector<vw::Quat   > pose_correction;
+    std::vector<vw::Quat>    pose_correction;
 
     // Not used, just for the api
-    bool piecewise_adjustments;
+    bool piecewise_adjustments = false;
     vw::Vector2 adjustment_bounds;
     Vector2 pixel_offset = Vector2();
     double scale = 1.0;
@@ -760,56 +760,6 @@ void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M, BAParamStora
 
 
 //=================================================================
-
-/// Load a DEM from disk to use for interpolation.
-void create_interp_dem(std::string & dem_file,
-                       vw::cartography::GeoReference & dem_georef,
-                       ImageViewRef< PixelMask<double> > & interp_dem){
-  
-  vw_out() << "Loading DEM: " << dem_file << std::endl;
-  double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
-  if (vw::read_nodata_val(dem_file, nodata_val)){
-    vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
-  }
-  
-  ImageViewRef< PixelMask<double> > dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
-  
-  interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
-  bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
-  if (!is_good) {
-    vw_throw(ArgumentErr() << "Error: Cannot read georeference from DEM: "
-             << dem_file << ".\n");
-  }
-}
-
-/// Try to update the elevation of a GCC coordinate from a DEM.
-/// - Returns false if the point falls outside the DEM or in a hole.
-bool update_point_from_dem(double* point, cartography::GeoReference const& dem_georef,
-                           ImageViewRef< PixelMask<double> > const& interp_dem) {
-  Vector3 xyz(point[0], point[1], point[2]);
-  Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
-  Vector2 ll  = subvector(llh, 0, 2);
-  Vector2 pix = dem_georef.lonlat_to_pixel(ll);
-  if (!interp_dem.pixel_in_bounds(pix))
-    return false;
-
-  PixelMask<double> height = interp_dem(pix[0], pix[1]);
-  if (!is_valid(height)) {
-    return false;
-  }
-  
-  llh[2] = height.child();
-
-  // NaN check
-  if (llh[2] != llh[2]) 
-    return false;
-  
-  xyz = dem_georef.datum().geodetic_to_cartesian(llh);
-  for (size_t it = 0; it < xyz.size(); it++) 
-    point[it] = xyz[it];
-  
-  return true;
-}
 
 /// Load all of the reference disparities specified in the input text file
 /// and store them in the vectors.  Return the number loaded.

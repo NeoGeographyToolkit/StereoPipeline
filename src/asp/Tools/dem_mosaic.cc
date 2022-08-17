@@ -1078,7 +1078,7 @@ public:
 	GeoReference crop_georef = crop(m_out_georef, bbox);
 	std::ostringstream os;
 	os << "tile_weight_" << clip_iter << ".tif";
-	vw_out() << "Writing: " << os.str() << std::endl;
+	vw_out() << "\nWriting: " << os.str() << std::endl;
 	bool has_georef = true, has_nodata = true;
 	block_write_gdal_image(os.str(), weight_vec[clip_iter],
 			       has_georef, crop_georef,
@@ -1499,7 +1499,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
-  if (!vm.count("output-nodata-value")){
+  if (!vm.count("output-nodata-value")) {
     // Set a default out_nodata_value, but remember that this is
     // set internally, not by the user.
     opt.has_out_nodata = false;

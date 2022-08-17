@@ -52,8 +52,7 @@
 /// These are the different camera modes that bundle_adjust supports.
 enum BACameraType {BaCameraType_Pinhole    = 0,
                    BaCameraType_OpticalBar = 1,
-                   BaCameraType_Other      = 2
-                  };
+                   BaCameraType_Other      = 2};
 
 /// The big bag of parameters needed by bundle_adjust.cc
 struct Options : public vw::GdalWriteOptions {
@@ -157,21 +156,6 @@ struct Options : public vw::GdalWriteOptions {
     asp::stereo_settings().ip_normalize_tiles         = ip_normalize_tiles;
   }
   
-  /// Ensure that no camera files have duplicate names.  This will cause the output files
-  /// to overwrite each other!
-  void check_for_duplicate_camera_names() const {
-    for (int i=0; i< int(camera_files.size()) - 1; ++i) {   
-      std::string filename_1 = asp::bundle_adjust_file_name(out_prefix,
-                                              image_files[i], camera_files[i]);
-      for (int j=i+1; j< int(camera_files.size()); ++j) {
-        std::string filename_2 = asp::bundle_adjust_file_name(out_prefix,
-                                                image_files[j], camera_files[j]);
-        if (filename_1 == filename_2)
-          vw_throw( vw::ArgumentErr() << "All camera model files must have unique names!\n" );
-      }
-    }
-  }
-
   /// Just parse the string of limits and make sure they are all valid pairs.
   void parse_intrinsics_limits(std::string const& intrinsics_limits_str) {
     intrinsics_limits.clear();
@@ -467,7 +451,7 @@ void write_csm_output_file(Options const& opt, int icam,
   if (csm_model == NULL) 
           vw::vw_throw(vw::ArgumentErr() << "Expected a csm camera model.");
   
-  csm_model->save_transformed_json_state(json_state, ecef_transform);
+  csm_model->saveTransformedState(json_state, ecef_transform);
 }
 
 /// From the input options select the correct Ceres loss function.

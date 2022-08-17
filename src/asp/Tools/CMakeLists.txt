@@ -175,6 +175,10 @@ add_executable(stereo_tri stereo_tri.cc stereo.h stereo.cc jitter_adjust.cc jitt
 target_link_libraries(stereo_tri AspSessions ${SOLVER_LIBRARIES})
 install(TARGETS stereo_tri DESTINATION bin)
 
+add_executable(jitter_solve jitter_solve.cc) 
+target_link_libraries(jitter_solve AspSessions ${SOLVER_LIBRARIES})
+install(TARGETS jitter_solve DESTINATION bin)
+
 add_executable(dem_mosaic dem_mosaic.cc) 
 target_link_libraries(dem_mosaic AspCore)
 install(TARGETS dem_mosaic DESTINATION bin)

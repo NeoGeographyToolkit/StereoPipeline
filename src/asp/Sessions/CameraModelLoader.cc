@@ -26,7 +26,7 @@
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Math/EulerAngles.h>
 #include <vw/Math/Matrix.h>
-#include <xercesc/util/PlatformUtils.hpp>
+#include <vw/Camera/OpticalBarModel.h>
 
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
@@ -37,10 +37,11 @@
 #include <asp/Camera/LinescanSpotModel.h>
 #include <asp/Camera/LinescanPeruSatModel.h>
 #include <asp/Camera/LinescanASTERModel.h>
-#include <vw/Camera/OpticalBarModel.h>
 #include <asp/Sessions/CameraModelLoader.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
+
+#include <xercesc/util/PlatformUtils.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <map>

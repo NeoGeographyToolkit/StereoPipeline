@@ -25,6 +25,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Sessions/CameraUtils.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/InterestPointMatching.h> // Has lots of templates
@@ -275,7 +276,7 @@ void compute_residuals(bool apply_loss_function,
                        std::vector<double> & residuals) {
   // TODO: Associate residuals with cameras!
   // Generate some additional diagnostic info
-  double cost = 0;
+  double cost = 0.0;
   ceres::Problem::EvaluateOptions eval_options;
   eval_options.apply_loss_function = apply_loss_function;
   if (opt.single_threaded_cameras)
@@ -901,9 +902,9 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Can be both useful and confusing.
   
   vw::cartography::GeoReference dem_georef;
-  ImageViewRef< PixelMask<double> >  interp_dem;
+  ImageViewRef<PixelMask<double>>  interp_dem;
   if (opt.heights_from_dem != "") 
-    create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
+    asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
   
   // TODO: Stop using the CRN, store residual blocks in point-major order?
 
@@ -956,7 +957,7 @@ int do_ba_ceres_one_pass(Options             & opt,
           // Areas that have no underlying DEM are not put any
           // constraints. The user can take advantage of that to put
           // constraints only in parts of the image where desired.
-          if (update_point_from_dem(point, dem_georef, interp_dem)) {
+          if (asp::update_point_from_dem(point, dem_georef, interp_dem)) {
             if (opt.heights_from_dem_weight <= 0) {
               // Fix it. Set it as GCP to not remove it as outlier.
               cnet[ipt].set_type(ControlPoint::GroundControlPoint);
@@ -1337,16 +1338,16 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   //   world coordinate estimate for each matched IP.
   opt.cnet.reset( new ControlNetwork("BundleAdjust") );
   ControlNetwork & cnet = *(opt.cnet.get());
-
-  bool success = vw::ba::build_control_network(true, // Always have input cameras
+  bool triangulate_control_points = true;
+  bool success = vw::ba::build_control_network(triangulate_control_points,
                                                cnet, opt.camera_models,
                                                opt.image_files,
                                                opt.match_files,
                                                opt.min_matches,
-                                               opt.min_triangulation_angle*(M_PI/180),
+                                               opt.min_triangulation_angle*(M_PI/180.0),
                                                opt.forced_triangulation_distance,
                                                opt.max_pairwise_matches);
-  if (!opt.apply_initial_transform_only){
+  if (!opt.apply_initial_transform_only) {
     if (!success) {
       vw_out() << "Failed to build a control network. Consider removing "
                << "all .vwip and .match files and increasing "
@@ -1428,7 +1429,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                                opt.intrinisc_options);
 
   // Fill in the camera and intrinsic parameters.
-  std::vector<boost::shared_ptr<camera::CameraModel> > new_cam_models;
+  std::vector<boost::shared_ptr<camera::CameraModel>> new_cam_models;
   bool ans = false;
   switch(opt.camera_type) {
     case BaCameraType_Pinhole:
@@ -1442,21 +1443,26 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   if (ans)
     cameras_changed = true;
   
-  // Certain input options change the cameras inside init_cams and we need to update the
-  // point coordinates for the new cameras.
-  // - It is ok to leave the original vector of camera models unchanged.
+  // Certain input options change the cameras inside init_cams and we
+  // need to update the point coordinates for the new cameras. It is
+  // ok to leave the original vector of camera models unchanged.
+  
+  // TODO(oalexan1): Building the control network twice looks like a
+  // hack. Try to understand why the cameras can't be updated first,
+  // then building the control network just once.
   if (cameras_changed) {
     vw_out() <<"Updating the control network." << std::endl;
     cnet = ControlNetwork("Updated network"); // Wipe it all first
     /*bool success = */
     // Building the control network below may fail if there are only GCP,
     // but we will continue nevertheless.
-    vw::ba::build_control_network(true, // Always have input cameras
+    bool triangulate_control_points = true;
+    vw::ba::build_control_network(triangulate_control_points,
                                   cnet, new_cam_models,
                                   opt.image_files,
                                   opt.match_files,
                                   opt.min_matches,
-                                  opt.min_triangulation_angle*(M_PI/180),
+                                  opt.min_triangulation_angle*(M_PI/180.0),
                                   opt.forced_triangulation_distance,
                                   opt.max_pairwise_matches);
     
@@ -1470,7 +1476,6 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     param_storage.get_point_vector().resize(num_points*BAParamStorage::PARAMS_PER_POINT);
   }
 
-
   // Fill in the point vector with the starting values.
   for (int ipt = 0; ipt < num_points; ipt++)
     param_storage.set_point(ipt, cnet[ipt].position());
@@ -1479,7 +1484,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   // - This includes modifications from any initial transforms that were specified.
   BAParamStorage orig_parameters(param_storage);
 
-  // TODO: Possible to avoid using CRNs?
+  // TODO(oalexan1): Is it possible to avoid using CRNs?
   CRNJ crn;
   crn.read_controlnetwork(cnet);
 
@@ -1541,7 +1546,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     // Randomly distort the original inputs.
     param_storage.randomize_cameras();
     if (opt.solve_intrinsics)
-      param_storage.randomize_intrinsics(opt.intrinsics_limits); // The function call handles sharing etc.
+      param_storage.randomize_intrinsics(opt.intrinsics_limits); // This handles sharing, etc.
 
     // Write output files to a temporary prefix
     opt.out_prefix = orig_out_prefix + "_rand";
@@ -1733,7 +1738,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("parameter-tolerance",  po::value(&opt.parameter_tolerance)->default_value(1e-8),
      "Stop when the relative error in the variables being optimized is less than this.")
     ("overlap-limit",        po::value(&opt.overlap_limit)->default_value(0),
-     "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
+     "Limit the number of subsequent images to search for matches to the current image to this value. By default match all images.")
     ("overlap-list",         po::value(&opt.overlap_list_file)->default_value(""),
      "A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
     ("auto-overlap-params",  po::value(&opt.auto_overlap_params)->default_value(""),
@@ -1804,8 +1809,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "When matching IP, filter out any pairs with a triangulation error higher than this.")
     ("ip-num-ransac-iterations", po::value(&opt.ip_num_ransac_iterations)->default_value(1000),
      "How many RANSAC iterations to do in interest point matching.")
-    ("min-triangulation-angle",      po::value(&opt.min_triangulation_angle)->default_value(0.1),
-     "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid. It must be a positive value.")
+    ("min-triangulation-angle", po::value(&opt.min_triangulation_angle)->default_value(0.1),
+     "The minimum angle, in degrees, at which rays must meet at a triangulated point "
+     "to accept this point as valid. It must be a positive value.")
     ("forced-triangulation-distance",      po::value(&opt.forced_triangulation_distance)->default_value(-1),
      "When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.")
     ("use-lon-lat-height-gcp-error",
@@ -1879,8 +1885,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                                     opt.image_files, opt.camera_files, // outputs
                                     ensure_equal_sizes); 
   
-  // Throw if there are duplicate camera file names.
-  opt.check_for_duplicate_camera_names();
+  asp::check_for_duplicates(opt.image_files, opt.camera_files, opt.out_prefix);
   
   // Sanity check
   if (opt.image_files.size() != (int)opt.camera_files.size()){
@@ -1953,12 +1958,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "Cannot specify both the overlap limit and --match-first-to-last.\n"
               << usage << general_options );
     
-  if ( opt.overlap_limit < 0 )
+  if (opt.overlap_limit < 0)
     vw_throw( ArgumentErr() << "Must allow search for matches between "
               << "at least each image and its subsequent one.\n" << usage << general_options );
   
   // By default, try to match all of the images!
-  if ( opt.overlap_limit == 0 )
+  if (opt.overlap_limit == 0)
     opt.overlap_limit = opt.image_files.size();
 
   if (int(opt.overlap_list_file != "") + int(!vm["auto-overlap-buffer"].defaulted()) +
@@ -2017,7 +2022,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.approximate_pinhole_intrinsics && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Cannot approximate intrinsics while solving for them.\n");
 
-  if ((opt.camera_type!=BaCameraType_Other) && opt.input_prefix != "")
+  if ((opt.camera_type != BaCameraType_Other) && opt.input_prefix != "")
     vw_throw( ArgumentErr() << "Can only use initial adjustments with camera type 'other'.\n");
 
   vw::string_replace(opt.remove_outliers_params_str, ",", " "); // replace any commas
@@ -2113,11 +2118,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // pinhole session as that one could be used with rovers on the
   // ground, and the datum does not make sense.
   if (opt.datum_str == "") {
-    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
-                                                         opt,
-                                                         opt.image_files [0], opt.image_files [0],
-                                                         opt.camera_files[0], opt.camera_files[0],
-                                                         opt.out_prefix));
+    SessionPtr session(asp::StereoSessionFactory::create
+                       (opt.stereo_session, // may change
+                        opt,
+                        opt.image_files [0], opt.image_files [0],
+                        opt.camera_files[0], opt.camera_files[0],
+                        opt.out_prefix));
     
     if (opt.stereo_session != "pinhole") {
       bool use_sphere_for_datum = false;
@@ -2281,7 +2287,7 @@ void matches_from_mapproj_images(int i, int j,
                                  Options& opt, SessionPtr session,
                                  std::vector<std::string> const& map_files,
                                  vw::cartography::GeoReference const& dem_georef,
-                                 ImageViewRef< PixelMask<double> > & interp_dem,
+                                 ImageViewRef<PixelMask<double>> & interp_dem,
                                  std::string const& match_filename){
   
   vw::cartography::GeoReference georef1, georef2;
@@ -2367,8 +2373,8 @@ void create_gcp_from_mapprojected_images(Options const& opt){
   image_files.erase(image_files.end() - 1); // wipe the dem from the list
 
   vw::cartography::GeoReference dem_georef;
-  ImageViewRef< PixelMask<double> > interp_dem;
-  create_interp_dem(dem_file, dem_georef, interp_dem);
+  ImageViewRef<PixelMask<double>> interp_dem;
+  asp::create_interp_dem(dem_file, dem_georef, interp_dem);
 
   int num_images = image_files.size();
   std::vector<std::vector<vw::ip::InterestPoint> > matches;
@@ -2447,7 +2453,8 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 
       // Take the ip in the map-projected image, and back-project it into the camera
       ip::InterestPoint ip = matches[i][p];
-      if (!projected_ip_to_raw_ip(ip, interp_dem, opt.camera_models[i], img_georefs[i], dem_georef))
+      if (!projected_ip_to_raw_ip(ip, interp_dem, opt.camera_models[i],
+                                  img_georefs[i], dem_georef))
           continue;
 
       // TODO: Here we can have a book-keeping problem!
@@ -2478,9 +2485,6 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 }
 
 // End map projection functions
-//===============================================================================
-
-// ================================================================================
 
 int main(int argc, char* argv[]) {
 
@@ -2490,51 +2494,13 @@ int main(int argc, char* argv[]) {
 
     handle_arguments(argc, argv, opt);
 
-    const int num_images = opt.image_files.size();
-
-    // TODO(oalexan1): Make the block below a function
-    // Create the stereo session. This will attempt to identify the session type.
-    // Read in the camera model and image info for the input images.
-    for (int i = 0; i < num_images; i++){
-      vw_out(DebugMessage,"asp") << "Loading: " << opt.image_files [i] << ' '
-                                                << opt.camera_files[i] << "\n";
-
-      // The same camera is double-loaded into the same session instance.
-      // TODO: One day replace this with a simpler camera model loader class.
-      // But note that this call also refines the stereo session name.
-      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, opt,
-                                                           opt.image_files [i], opt.image_files [i],
-                                                           opt.camera_files[i], opt.camera_files[i],
-                                                           opt.out_prefix));
-      
-      opt.camera_models.push_back(session->camera_model(opt.image_files [i],
-                                                        opt.camera_files[i]));
-
-      // This is necessary to avoid a crash with ISIS cameras which is single-threaded
-      if (!session->supports_multi_threading())
-        opt.single_threaded_cameras = true;
-
-      if (opt.approximate_pinhole_intrinsics) {
-        boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
-                boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models.back());
-        // Replace lens distortion with fast approximation
-        vw::camera::update_pinhole_for_fast_point2pixel<TsaiLensDistortion>
-          (*(pinhole_ptr.get()), file_image_size(opt.image_files[i]));
-      }
-
-      // Since CERES does numerical differences, it needs high precision in the inputs.
-      // Inform about that the CSM cameras, which normally settle for less.
-      // TODO(oalexan1): Need to examine other cameras too.
-      if (opt.stereo_session == "csm") {
-        CameraModel * base_cam = vw::camera::unadjusted_model(opt.camera_models[i]).get();
-        asp::CsmModel * csm_cam = dynamic_cast<asp::CsmModel*>(base_cam);
-        if (csm_cam == NULL) 
-          vw::vw_throw(vw::ArgumentErr() << "Expected a CSM camera model.");
-        // When asked to get a 1.0e-12 precision, at most it delivers 1.0e-11.
-        csm_cam->setDesiredPrecision(1.0e-12); 
-      }
-    } // End loop through images loading all the camera models
-
+    asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
+                      opt.approximate_pinhole_intrinsics,  
+                      // Outputs
+                      opt.stereo_session,  // may change
+                      opt.single_threaded_cameras,  
+                      opt.camera_models);
+    
     // Prepare for computing footprints of images
     std::string dem_file_for_overlap;
     double pct_for_overlap = -1.0;
@@ -2547,7 +2513,7 @@ int main(int argc, char* argv[]) {
     // For when we make matches based on mapprojected images
     std::vector<std::string> map_files;
     vw::cartography::GeoReference dem_georef;
-    ImageViewRef< PixelMask<double> > interp_dem;
+    ImageViewRef<PixelMask<double>> interp_dem;
     if (opt.mapprojected_data != "" && !opt.apply_initial_transform_only) {
       std::istringstream is(opt.mapprojected_data);
       std::string file;
@@ -2561,11 +2527,13 @@ int main(int argc, char* argv[]) {
       std::string dem_file = map_files.back();
       map_files.erase(map_files.end() - 1);
       
-      create_interp_dem(dem_file, dem_georef, interp_dem);
+      asp::create_interp_dem(dem_file, dem_georef, interp_dem);
     }
     
     // Assign the images which this instance should compute statistics for.
     std::vector<size_t> image_stats_indices;
+    int num_images = opt.image_files.size();
+
     for (size_t i = opt.instance_index; i < num_images; i += opt.instance_count)
       image_stats_indices.push_back(i);
 
@@ -2635,68 +2603,18 @@ int main(int argc, char* argv[]) {
       (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
 
     // Find interest points between all of the image pairs.
-
-    // Make a list of all of the image pairs to find matches for.
-    // TODO(oalexan1): This must be a function
+    
+    // Make a list of all the image pairs to find matches for
     std::vector<std::pair<int,int> > all_pairs;
-    for (int i = 0; i < num_images; i++){
-
-      if (opt.apply_initial_transform_only)
-        continue; // no matches need to happen
-      
-      int start = i + 1;
-      if (opt.match_first_to_last)
-        start = 0;
-
-      for (int j = start; j <= std::min(num_images-1, i + opt.overlap_limit); j++){
-
-        // Apply the overlap list if manually specified. Otherwise every
-        // image pair i, j as above will be matched.
-        if (!opt.overlap_list.empty()) {
-          auto pair = std::make_pair(opt.image_files[i], opt.image_files[j]);
-          if (opt.overlap_list.find(pair) == opt.overlap_list.end())
-            continue;
-        }
-
-        if (opt.match_first_to_last) {
-          // When i < j, match i to j if j <= i + opt.overlap_limit.
-          // But when i > j, such as i = num_images - 1 and j = 0,
-          // then also may match i to j. Add num_images to j and check
-          // if j + num_images <= i + opt.overlap_limit. In effect,
-          // after the last image assume we have the first image, then
-          // second, etc. Do not allow i == j.
-          if (i == j) 
-            continue;
-          if (i < j) {
-            if (j > i + opt.overlap_limit) 
-              continue;
-          } else if (j < i) {
-            if (j + num_images > i + opt.overlap_limit) 
-              continue;
-            if (i <= j + opt.overlap_limit) {
-              // this means that we already picked (j, i), so don't pick (i, j)
-              continue;
-            }
-          }
-        }
-        
-        // If this option is set, don't try to match cameras that are too far apart.
-        if (got_est_cam_positions && (opt.position_filter_dist > 0)) {
-          Vector3 this_pos  = estimated_camera_gcc[i];
-          Vector3 other_pos = estimated_camera_gcc[j];
-          if ((this_pos  != Vector3(0,0,0)) && // If both positions are known
-               (other_pos != Vector3(0,0,0)) && // and they are too far apart
-               (norm_2(this_pos - other_pos) > opt.position_filter_dist)) {
-            vw_out() << "Skipping position: " << this_pos << " and "
-                      << other_pos << " with distance " << norm_2(this_pos - other_pos)
-                      << std::endl;
-            continue; // Skip this image pair
-          }
-        }
-        
-        all_pairs.push_back(std::make_pair(i,j));
-      }
-    }
+    if (!opt.apply_initial_transform_only)
+      asp::determine_image_pairs(// Inputs
+                                 opt.overlap_limit, opt.match_first_to_last,  
+                                 opt.image_files, 
+                                 got_est_cam_positions, opt.position_filter_dist,
+                                 estimated_camera_gcc,
+                                 opt.overlap_list,
+                                 // Output
+                                 all_pairs);
 
     // Create GCP from mapprojection
     if (opt.gcp_from_mapprojected != "" && !opt.apply_initial_transform_only) {
@@ -2731,22 +2649,19 @@ int main(int argc, char* argv[]) {
       const int i = this_instance_pairs[k].first;
       const int j = this_instance_pairs[k].second;
 
-      std::string image1_path  = opt.image_files[i];
-      std::string image2_path  = opt.image_files[j];
-
-      // Load both images into a new StereoSession object and use it to find interest points.
-      // - The points are written to a file on disk.
-      std::string camera1_path   = opt.camera_files[i];
-      std::string camera2_path   = opt.camera_files[j];
-
+      std::string const& image1_path  = opt.image_files[i];  // alias
+      std::string const& image2_path  = opt.image_files[j];  // alias
+      std::string const& camera1_path = opt.camera_files[i]; // alias
+      std::string const& camera2_path = opt.camera_files[j]; // alias
+      
       // See if perhaps to load match files from a different source
       bool allow_missing_match_file = opt.skip_matching; 
       std::string match_filename 
         = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
-                              opt.out_prefix, image1_path, image2_path, allow_missing_match_file);
+                              opt.out_prefix, image1_path, image2_path,
+                              allow_missing_match_file);
       opt.match_files[std::make_pair(i, j)] = match_filename;
 
-      // TODO: Need to make sure this works with the parallel script!
       bool inputs_changed = (!asp::is_latest_timestamp(match_filename,
                                                        image1_path,  image2_path,
                                                        camera1_path, camera2_path));
@@ -2762,21 +2677,24 @@ int main(int argc, char* argv[]) {
       }
       if (opt.skip_matching)
         continue;
-      
+
+      // Read no-data
       boost::shared_ptr<DiskImageResource>
         rsrc1(vw::DiskImageResourcePtr(image1_path)),
         rsrc2(vw::DiskImageResourcePtr(image2_path));
       if ((rsrc1->channels() > 1) || (rsrc2->channels() > 1))
         vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
       float nodata1, nodata2;
-      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, opt,
-                                                           image1_path,  image2_path,
+      asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
+      
+      // Set up the stereo session
+      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
+                                                           opt, image1_path,  image2_path,
                                                            camera1_path, camera2_path,
                                                            opt.out_prefix));
 
-      asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
 
-      // IP matching may not succeed for all pairs
+      // Find matches between image pairs. This may not always succeed.
       try{
 
         if (opt.mapprojected_data == "") 

@@ -36,6 +36,8 @@ using namespace vw::camera;
 using namespace vw::stereo;
 using namespace vw::ba;
 
+namespace fs = boost::filesystem;
+
 std::string g_piecewise_adj_str = "PIECEWISE_ADJUSTMENTS";
 std::string g_session_str = "SESSION";
 
@@ -283,4 +285,178 @@ void asp::build_overlap_list_based_on_dem
   }
 
   return;
+}
+
+// Convert dir1/image1.cub or dir1/image1.xml to out-prefix-image1.adjust
+std::string asp::bundle_adjust_file_name(std::string const& prefix,
+                                         std::string const& input_img,
+                                         std::string const& input_cam){
+
+  // Create the adjusted camera file name from the original camera filename,
+  // unless it is empty, and then use the image file name.
+  std::string file = input_cam;
+  if (file == "")
+    file = input_img;
+
+  return prefix + "-" + fs::path(file).stem().string() + ".adjust";
+}
+
+/// Ensure that no images, camera files, or adjustment names are duplicate.
+/// That will cause the output files to overwrite each other!
+void asp::check_for_duplicates(std::vector<std::string> const& image_files,
+                               std::vector<std::string> const& camera_files,
+                               std::string const& out_prefix) {
+
+  if (image_files.size() != camera_files.size())
+    vw_throw(vw::ArgumentErr() << "Expecting as many images as cameras.\n");
+  
+  std::set<std::string> img_set, cam_set, adj_set;
+  for (size_t i = 0; i < camera_files.size(); i++) {
+
+    std::string const & img = image_files[i];  // alias
+    std::string const & cam = camera_files[i]; // alias
+    std::string         adj = asp::bundle_adjust_file_name(out_prefix, img, cam);
+
+    if (img_set.find(img) != img_set.end()) 
+      vw_throw(vw::ArgumentErr() << "Found duplicate image: " << img << "\n");
+    
+    if (cam != "" && cam_set.find(cam) != cam_set.end()) 
+      vw_throw(vw::ArgumentErr() << "Found duplicate camera: " << cam << "\n");
+
+    if (adj_set.find(adj) != adj_set.end()) 
+      vw_throw(vw::ArgumentErr() << "Found duplicate adjustment name: " << adj << "\n");
+
+    img_set.insert(img);
+    if (cam != "") cam_set.insert(cam);
+    adj_set.insert(adj);
+    
+  }
+}
+
+// Make a list of all of the image pairs to find matches for
+void asp::determine_image_pairs(// Inputs
+                                int overlap_limit,
+                                bool match_first_to_last,
+                                std::vector<std::string> const& image_files,
+                                // if having optional preexisting camera positions
+                                bool got_est_cam_positions,
+                                // Optional filter distance, set to -1 if not used
+                                double position_filter_dist,
+                                // Estimated camera positions, set to empty if missing
+                                std::vector<vw::Vector3> const& estimated_camera_gcc,
+                                // Optional preexisting list, set to empty if not having it
+                                std::set<std::pair<std::string, std::string>> const&
+                                overlap_list,
+                                // Output
+                                std::vector<std::pair<int,int>> & all_pairs) {
+
+  // Wipe the output
+  all_pairs.clear();
+
+  int num_images = image_files.size();
+  for (int i = 0; i < num_images; i++){
+
+    int start = i + 1;
+    if (match_first_to_last)
+      start = 0;
+
+    for (int j = start; j <= std::min(num_images-1, i + overlap_limit); j++){
+
+      // Apply the overlap list if manually specified. Otherwise every
+      // image pair i, j as above will be matched.
+      if (!overlap_list.empty()) {
+        auto pair = std::make_pair(image_files[i], image_files[j]);
+        if (overlap_list.find(pair) == overlap_list.end())
+          continue;
+      }
+
+      if (match_first_to_last) {
+        // When i < j, match i to j if j <= i + overlap_limit.
+        // But when i > j, such as i = num_images - 1 and j = 0,
+        // then also may match i to j. Add num_images to j and check
+        // if j + num_images <= i + overlap_limit. In effect,
+        // after the last image assume we have the first image, then
+        // second, etc. Do not allow i == j.
+        if (i == j) 
+          continue;
+        if (i < j) {
+          if (j > i + overlap_limit) 
+            continue;
+        } else if (j < i) {
+          if (j + num_images > i + overlap_limit) 
+            continue;
+          if (i <= j + overlap_limit) {
+            // this means that we already picked (j, i), so don't pick (i, j)
+            continue;
+          }
+        }
+      }
+        
+      // If this option is set, don't try to match cameras that are too far apart.
+      if (got_est_cam_positions && (position_filter_dist > 0)) {
+        Vector3 this_pos  = estimated_camera_gcc[i];
+        Vector3 other_pos = estimated_camera_gcc[j];
+        if ((this_pos  != Vector3(0,0,0)) && // If both positions are known
+            (other_pos != Vector3(0,0,0)) && // and they are too far apart
+            (norm_2(this_pos - other_pos) > position_filter_dist)) {
+          vw_out() << "Skipping position: " << this_pos << " and "
+                   << other_pos << " with distance " << norm_2(this_pos - other_pos)
+                   << std::endl;
+          continue; // Skip this image pair
+        }
+      }
+        
+      all_pairs.push_back(std::make_pair(i,j));
+    }
+  }
+}
+
+/// Load a DEM from disk to use for interpolation.
+void asp::create_interp_dem(std::string & dem_file,
+                       vw::cartography::GeoReference & dem_georef,
+                       ImageViewRef<PixelMask<double>> & interp_dem){
+  
+  vw_out() << "Loading DEM: " << dem_file << std::endl;
+  double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
+  if (vw::read_nodata_val(dem_file, nodata_val))
+    vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
+  
+  ImageViewRef<PixelMask<double>> dem
+    = create_mask(DiskImageView<double>(dem_file), nodata_val);
+  
+  interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
+  bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
+  if (!is_good) {
+    vw_throw(ArgumentErr() << "Error: Cannot read georeference from DEM: "
+             << dem_file << ".\n");
+  }
+}
+
+/// Try to update the elevation of a GCC coordinate from a DEM.
+/// - Returns false if the point falls outside the DEM or in a hole.
+bool asp::update_point_from_dem(double* point, cartography::GeoReference const& dem_georef,
+                           ImageViewRef<PixelMask<double>> const& interp_dem) {
+  Vector3 xyz(point[0], point[1], point[2]);
+  Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
+  Vector2 ll  = subvector(llh, 0, 2);
+  Vector2 pix = dem_georef.lonlat_to_pixel(ll);
+  if (!interp_dem.pixel_in_bounds(pix))
+    return false;
+
+  PixelMask<double> height = interp_dem(pix[0], pix[1]);
+  if (!is_valid(height)) {
+    return false;
+  }
+  
+  llh[2] = height.child();
+
+  // NaN check
+  if (llh[2] != llh[2]) 
+    return false;
+  
+  xyz = dem_georef.datum().geodetic_to_cartesian(llh);
+  for (size_t it = 0; it < xyz.size(); it++) 
+    point[it] = xyz[it];
+  
+  return true;
 }
