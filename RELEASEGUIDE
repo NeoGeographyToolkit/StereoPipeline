@@ -57,9 +57,10 @@ https://semver.org for guidance).
 
   - ISIS expects a full Python distribution to be shipped. For now
     we handle this in an awkward way. A fresh conda environemnt
-    is created having only that the desired Python version, then that
-    env is copied to BinaryBuilder as 'python3.6'. This directory
-    is packaged later with the build with make-dist.py.
+    is created having only Python and numpy, with versions
+    as expected by ISIS, then that env is copied to BinaryBuilder as
+    'python3.6'. This directory is packaged later with the build with
+    make-dist.py.
 
   - Update the path to your local conda environment having the latest
     ASP dependencies in BinaryBuilder/auto_build/utils.sh.

@@ -89,8 +89,11 @@ The CASP-GO stereo processing system
 
 CASP-GO (https://github.com/mssl-imaging/CASP-GO) is a set of
 algorithms that are meant to augment certain parts of ASP
-:cite:`tao2016optimised, tao2018massive`. Under NASA proposal
-19-PDART19_2-0094 we researched incorporating these into ASP.
+:cite:`tao2016optimised, tao2018massive`. Thse algorithms were
+developed at the Imaging Group, Mullard Space Science Laboratory,
+University College London, by Yu Tao, under the direction of Jan-Peter
+Muller. Under NASA proposal 19-PDART19_2-0094 we researched
+incorporating these algorithms into ASP.
 
 CASP-GO consists of three algorithms:
 
