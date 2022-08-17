@@ -382,8 +382,18 @@ or the NASA SRTM DEM (available on the same web site as above, choose
 the product relative to WGS84), GMTED2010, USGS's NED data, or NGA's
 DTED data. There exist pre-made terrain models for other planets as
 well, for example the Moon LRO LOLA global DEM and the Mars MGS MOLA
-DEM (ensure that a Mars DEM is relative to the datum ellipsoid, not to
-the areoid).
+DEM. Additionally, for Mars, consider downloading HRSC DEMs from::
+
+   http://i-mars.eu/imars-datasets.php
+
+or DEMs based on HRSC, CTX, and HiRISE cameras from::
+
+    https://www.cosmos.esa.int/web/psa/ucl-mssl_meta-gsf
+
+It is important that any DEMs be relative to an ellipsoid, rather than
+a geoid/areoid. The ``gdalwarp`` program in recent versions of GDAL
+and our own ``dem_geoid`` tool (:numref:`dem_geoid`) can be used to
+perform the necessary conversions, if needed.
 
 Alternatively, a low-resolution smooth DEM can be obtained by running
 ASP itself as described in previous sections. In such a run, subpixel
