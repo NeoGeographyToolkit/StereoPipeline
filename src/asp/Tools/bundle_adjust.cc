@@ -332,6 +332,8 @@ void compute_mean_residuals_at_xyz(CRNJ & crn,
       // Get the residual error for this observation
       double errorX         = residuals[residual_index  ];
       double errorY         = residuals[residual_index+1];
+      // TODO(oalexan1): Use norm_2 below rather than average. This may
+      // change the regressions.
       double residual_error = (fabs(errorX) + fabs(errorY)) / 2;
       residual_index += PIXEL_SIZE;
 
@@ -383,7 +385,8 @@ void write_residual_map(std::string const& output_prefix,
   // Open the output file and write the header
   vw_out() << "Writing: " << output_path << std::endl;
   std::ofstream file;
-  file.open(output_path.c_str()); file.precision(18);
+  file.open(output_path.c_str());
+  file.precision(18); // TODO(oalexan1): Replace here by 17
   file << "# lon, lat, height_above_datum, mean_residual, num_observations\n";
   file << "# " << opt.datum << std::endl;
   
@@ -2109,8 +2112,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
 
   // Set the datum, either based on what the user specified or the axes
-  if (opt.datum_str != ""){
-    opt.datum.set_well_known_datum(opt.datum_str);
+  if (opt.datum_str != "") {
+    try {
+      opt.datum.set_well_known_datum(opt.datum_str);
+    }catch(...) {
+      // Whatever datum name we had, it was bad, so we'll make more attempts below
+      opt.datum_str = "";
+    }
   }else if (opt.semi_major > 0 && opt.semi_minor > 0){
     // Otherwise, if the user set the semi-axes, use that.
     opt.datum = cartography::Datum("User Specified Datum",

@@ -98,4 +98,30 @@ void load_cameras(std::vector<std::string> const& image_files,
   return;
 }
 
+// Find the datum based on cameras. For stereo session pinhole will return WGS84.
+void datum_from_cameras(std::vector<std::string> const& image_files,
+                        std::vector<std::string> const& camera_files,
+                        std::string & stereo_session, // may change
+                        // Outputs
+                        vw::cartography::Datum & datum) {
+  
+  datum.set_well_known_datum("WGS84"); // if no luck
+
+  std::string out_prefix = "run";
+  SessionPtr session(asp::StereoSessionFactory::create(stereo_session, // may change
+                                                       vw::GdalWriteOptions(),
+                                                       image_files [0], image_files [0],
+                                                       camera_files[0], camera_files[0],
+                                                       out_prefix)); 
+  
+  if (stereo_session != "pinhole") {
+    bool use_sphere_for_datum = false;
+    datum = session->get_datum(session->camera_model(image_files [0],
+                                                     camera_files[0]).get(),
+                               use_sphere_for_datum);
+  }
+  
+  return;
+}
+
 } // end namespace asp

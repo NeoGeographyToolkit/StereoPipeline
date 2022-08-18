@@ -30,6 +30,10 @@
 namespace vw {
   // Forward declaration
   class GdalWriteOptions;
+
+  namespace cartography {
+    class Datum;
+  }
 }
 
 namespace asp {
@@ -44,6 +48,13 @@ namespace asp {
                     std::string & stereo_session, // may change
                     bool & single_threaded_cameras,
                     std::vector<boost::shared_ptr<vw::camera::CameraModel>> & camera_models);
+
+// Find the datum based on cameras. For stereo session pinhole will return WGS84.
+void datum_from_cameras(std::vector<std::string> const& image_files,
+                        std::vector<std::string> const& camera_files,
+                        std::string & stereo_session, // may change
+                        // Outputs
+                        vw::cartography::Datum & datum);
   
 } // end namespace asp
 

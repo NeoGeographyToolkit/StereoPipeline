@@ -30,6 +30,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/IpMatchingAlgs.h> // Lightweight header for matching algorithms
+#include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Camera/CsmModel.h>
 
@@ -156,13 +157,38 @@ private:
   int m_begPosIndex, m_endPosIndex;
 }; // End class pixelReprojectionError
 
+/// A ceres cost function. The residual is the difference between the
+/// observed 3D point and the current (floating) 3D point, multiplied by given weight.
+struct weightedXyzError {
+  weightedXyzError(Vector3 const& observation, double weight):
+    m_observation(observation), m_weight(weight){}
+
+  template <typename T>
+  bool operator()(const T* point, T* residuals) const {
+    for (size_t p = 0; p < m_observation.size(); p++)
+      residuals[p] = m_weight * (point[p] - m_observation[p]);
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(Vector3 const& observation, double const& weight){
+    return (new ceres::AutoDiffCostFunction<weightedXyzError, 3, 3>
+            (new weightedXyzError(observation, weight)));
+  }
+
+  Vector3 m_observation;
+  double  m_weight;
+};
+  
 struct Options : public vw::GdalWriteOptions {
   std::string out_prefix, stereo_session, input_prefix, match_files_prefix,
     clean_match_files_prefix, ref_dem, heights_from_dem;
   int overlap_limit, min_matches, max_pairwise_matches, num_iterations;
   bool match_first_to_last, single_threaded_cameras;
   double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
-  double ref_dem_weight, ref_dem_robust_thresh, heights_from_dem_weight,
+  double ref_dem_weight, ref_dem_robust_threshold, heights_from_dem_weight,
     heights_from_dem_robust_threshold;
   
   std::vector<std::string> image_files, camera_files;
@@ -213,13 +239,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Set the maximum number of iterations.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
      "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, "
-     "in the triangulated xyz points replace the heights with the ones from this DEM, and "
-     "fix those points unless --heights-from-dem-weight is positive.")
-    ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(-1.0),
+     "in the triangulated xyz points replace the heights with the ones from this DEM before "
+     "optimizing them.")
+    ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(1.0),
      "How much weight to give to keep the triangulated points close to the DEM if specified via "
-     "--heights-from-dem. If the weight is not positive, keep the triangulated points fixed.")
+     "--heights-from-dem.")
     ("heights-from-dem-robust-threshold",
-     po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.0),
+     po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.5),
      "If positive, this is the robust threshold to use keep the triangulated points "
      "close to the DEM if specified via --heights-from-dem. This is applied after the "
      "point differences are multiplied by --heights-from-dem-weight. It should help with "
@@ -229,7 +255,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "to be not too far from the average of intersections of those rays with this DEM.")
     ("reference-dem-weight", po::value(&opt.ref_dem_weight)->default_value(1.0),
      "Multiply the xyz differences for the --reference-dem option by this weight.")
-    ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_thresh)->default_value(0.5),
+    ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),
      "Use this robust threshold for the weighted xyz differences.");
   
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -248,6 +274,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage,
                              allow_unregistered, unregistered);
+
+  // Do this check first, as the output prefix is used below many times
+  if (opt.out_prefix == "") 
+    vw_throw(ArgumentErr() << "Must specify the output prefix.\n");
+
+  // Create the output directory
+  vw::create_out_dir(opt.out_prefix);
 
   std::vector<std::string> inputs = opt.image_files;
   bool ensure_equal_sizes = true;
@@ -288,6 +321,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (!opt.heights_from_dem.empty() && !opt.ref_dem.empty()) 
     vw_throw(ArgumentErr() << "Cannot specify more than one of: --heights-from-dem "
              << "and --reference-dem.\n");
+
+  if (opt.heights_from_dem_weight <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --heights-from-dem-weight must be positive.\n");
+  
+  if (opt.heights_from_dem_robust_threshold <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be positive.\n");
+
+  if (opt.ref_dem_weight <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --reference-dem-weight must be positive.\n");
+  
+  if (opt.ref_dem_robust_threshold <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --reference-dem-robust-threshold must be positive.\n");
   
   return;
 }
@@ -308,6 +353,130 @@ void compute_residuals(Options const& opt,
   problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
 }
 
+void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
+                                   std::string            const& residual_prefix,
+                                   vw::cartography::Datum const& datum,
+                                   std::set<int>          const& outliers,
+                                   std::vector<double>    const& tri_points_vec,
+                                   std::vector<double>    const& mean_pixel_residual_norm,
+                                   std::vector<int>       const& pixel_residual_count) {
+    
+  std::string map_prefix = residual_prefix + "_pointmap";
+  std::string output_path = map_prefix + ".csv";
+
+  int num_tri_points = tri_points_vec.size() / NUM_XYZ_PARAMS;
+  
+  // Open the output file and write the header
+  // TODO(oalexan1): Make this a function. See if it is possible to integrate
+  // it with the analogous bundle_adjust function.
+  vw_out() << "Writing: " << output_path << std::endl;
+
+  std::ofstream file;
+  file.open(output_path.c_str());
+  file.precision(17);
+  file << "# lon, lat, height_above_datum, mean_residual, num_observations\n";
+  file << "# " << datum << std::endl;
+
+  // Write all the points to the file
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+
+    if (outliers.find(ipt) != outliers.end() || pixel_residual_count[ipt] <= 0)
+      continue; // Skip outliers
+    
+    // The final GCC coordinate of this point
+    const double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+    Vector3 xyz(tri_point[0], tri_point[1], tri_point[2]);
+    Vector3 llh = datum.cartesian_to_geodetic(xyz);
+    
+    std::string comment = "";
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+      comment = " # GCP";
+    file << llh[0] <<", "<< llh[1] <<", "<< llh[2] <<", "<< mean_pixel_residual_norm[ipt] <<", "
+         << pixel_residual_count[ipt] << comment << std::endl;
+  }
+  file.close();
+}
+  
+void save_residuals(std::string const& residual_prefix,
+                    ceres::Problem & problem, Options const& opt,
+                    vw::ba::ControlNetwork const& cnet,
+                    vw::ba::CameraRelationNetwork<vw::ba::JFeature> & crn,
+                    bool have_dem, vw::cartography::Datum const& datum,
+                    std::vector<double> const& tri_points_vec,
+                    std::vector<Vector3> const& dem_xyz_vec,
+                    std::set<int> const& outliers,
+                    std::vector<double> const& weight_per_residual) {
+
+  // Compute the residuals before optimization
+  std::vector<double> residuals;
+  compute_residuals(opt, problem, residuals);
+  if (residuals.size() != weight_per_residual.size()) 
+    vw_throw(ArgumentErr() << "There must be as many residuals as weights for them.\n");
+
+  //  Find the mean of all residuals corresponding to the same xyz point
+  int num_tri_points = cnet.size();
+  std::vector<double> mean_pixel_residual_norm(num_tri_points, 0.0);
+  std::vector<int>    pixel_residual_count(num_tri_points, 0);
+  std::vector<double> xyz_residual_norm;
+  if (have_dem)
+    xyz_residual_norm.resize(num_tri_points, -1.0); // so we can ignore bad ones
+  
+  int ires = 0;
+  for (int icam = 0; icam < (int)crn.size(); icam++) {
+    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
+      
+      // The index of the 3D point
+      int ipt = (**fiter).m_point_id;
+      
+      if (outliers.find(ipt) != outliers.end())
+        continue; // Skip outliers
+
+      // Norm of pixel residual
+      double norm = norm_2(Vector2(residuals[ires + 0] / weight_per_residual[ires + 0],
+                                   residuals[ires + 1] / weight_per_residual[ires + 1]));
+
+      mean_pixel_residual_norm[ipt] += norm;
+      pixel_residual_count[ipt]++;
+      
+      ires += PIXEL_SIZE; // Update for the next iteration
+    }
+  }
+
+  // Average all pixel residuals for a given xyz
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+    if (outliers.find(ipt) != outliers.end() || pixel_residual_count[ipt] <= 0)
+      continue; // Skip outliers
+    mean_pixel_residual_norm[ipt] /= pixel_residual_count[ipt];
+  }
+
+  write_per_xyz_pixel_residuals(cnet, residual_prefix, datum, outliers,  
+                                tri_points_vec, mean_pixel_residual_norm,  
+                                pixel_residual_count);
+  
+  // TODO(oalexan1): Save the xyz residual norms as well.
+  if (have_dem) {
+    for (int ipt = 0; ipt < num_tri_points; ipt++) {
+
+      Vector3 observation = dem_xyz_vec.at(ipt);
+      if (outliers.find(ipt) != outliers.end() || observation == Vector3(0, 0, 0)) 
+        continue; // outlier
+
+      // This is a Vector3 residual 
+      double norm = norm_2(Vector3(residuals[ires + 0] / weight_per_residual[ires + 0],
+                                   residuals[ires + 1] / weight_per_residual[ires + 1],
+                                   residuals[ires + 2] / weight_per_residual[ires + 2]));
+      xyz_residual_norm[ipt] = norm;
+      
+      ires += NUM_XYZ_PARAMS; // Update for the next iteration
+    }
+  }
+
+  if (ires != (int)residuals.size())
+    vw_throw(ArgumentErr() << "Book-keeping error in handling residuals.\n");
+
+  return;
+}
+  
 void run_jitter_solve(int argc, char* argv[]) {
 
   // Parse arguments and perform validation
@@ -322,15 +491,23 @@ void run_jitter_solve(int argc, char* argv[]) {
                     opt.single_threaded_cameras,  
                     opt.camera_models);
 
+  // Find the datum
+  vw::cartography::Datum datum;
+  asp::datum_from_cameras(opt.image_files, opt.camera_files,  
+                          opt.stereo_session,  // may change
+                          // Outputs
+                          datum);
+  
   // Apply the input adjustments to the CSM cameras. Get pointers to the underlying
   // linescan cameras, as need to manipulate those directly.
   std::vector<UsgsAstroLsSensorModel*> ls_cams;
+  
   for (size_t it = 0; it < opt.camera_models.size(); it++) {
     vw::camera::CameraModel * base_cam = vw::camera::unadjusted_model(opt.camera_models[it]).get();
     asp::CsmModel * csm_cam = dynamic_cast<asp::CsmModel*>(base_cam);
     if (csm_cam == NULL)
       vw_throw(ArgumentErr() << "Expecting the cameras to be of CSM type.\n");
-    
+
     std::string adjust_file
       = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[it],
                                      opt.camera_files[it]);
@@ -415,8 +592,14 @@ void run_jitter_solve(int argc, char* argv[]) {
   flag_initial_outliers(cnet, crn, opt.camera_models, opt.max_init_reproj_error,  
                         // Output
                         outliers);
+  vw_out() << "Found " << outliers.size() << " outliers based on initial reprojection error.\n";
+  
+  bool have_dem = (!opt.heights_from_dem.empty() || !opt.ref_dem.empty());
   
   // Create anchor xyz with the help of a DEM in two ways.
+  // TODO(oalexan1): Study how to best pass the DEM to avoid the code
+  // below not being slow. It is not clear if the DEM tiles are cached
+  // when passing around an ImageViewRef.
   std::vector<Vector3> dem_xyz_vec;
   vw::cartography::GeoReference dem_georef;
   ImageViewRef<PixelMask<double>> interp_dem;
@@ -444,18 +627,30 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (num_tri_points == 0)
    vw_throw(ArgumentErr() << "No triangulated ground points were found.\n"); 
   std::vector<double> tri_points_vec(num_tri_points*NUM_XYZ_PARAMS, 0.0);
-  for (int ipt = 0; ipt < num_tri_points; ipt++){
-    for (int q = 0; q < NUM_XYZ_PARAMS; q++){
-      // Must overwrite here xyz from dem!
-      tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = cnet[ipt].position()[q];
-    }
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+
+    Vector3 tri_point = cnet[ipt].position();
+    
+    // We overwrite the triangulated point when we have an input DEM.
+    // It is instructive to examine the pointmap residual file to see
+    // what effect that has on residuals.  This point will likely try
+    // to move back somewhat to its triangulated position during
+    // optimization, depending on the strength of the weight which
+    // tries to keep it back in place.
+    if (have_dem && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) 
+      tri_point = dem_xyz_vec.at(ipt);
+    
+    for (int q = 0; q < NUM_XYZ_PARAMS; q++)
+      tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
   }
-  double* tri_points = &tri_points_vec[0];
 
   // Set up the cost function
   // TODO(oalexan1): Make this into a function
   ceres::Problem problem;
 
+  // Need this in order to undo the multiplication by weight before saving the residuals
+  std::vector<double> weight_per_residual;
+  
   for (int icam = 0; icam < (int)crn.size(); icam++) {
 
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
@@ -471,7 +666,7 @@ void run_jitter_solve(int argc, char* argv[]) {
       Vector2 observation = (**fiter).m_location;
 
       // Ideally this point projects back to the pixel observation.
-      double * tri_point = tri_points + ipt * NUM_XYZ_PARAMS;
+      double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
 
       // Must grow the number of quaternions and positions a bit
       // because during optimization the 3D point and corresponding
@@ -534,28 +729,75 @@ void run_jitter_solve(int argc, char* argv[]) {
         vars.push_back(&ls_cams[icam]->m_positions[it * NUM_XYZ_PARAMS]);
       vars.push_back(tri_point);
       problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
+
+      weight_per_residual.push_back(1.0); // pixel x
+      weight_per_residual.push_back(1.0); // pixel y
     }
   }
 
+  // Add the triangulated points constraint. We check earlier that only one
+  // of the two options below can be set at a time.
+  double xyz_weight = -1.0, xyz_threshold = -1.0;
+  if (have_dem) {
+
+    if (!opt.heights_from_dem.empty()) {
+      xyz_weight = opt.heights_from_dem_weight;
+      xyz_threshold = opt.heights_from_dem_robust_threshold;
+    }
   
-  // Solve the problem
+    if (!opt.ref_dem.empty()) {
+      xyz_weight = opt.ref_dem_weight;
+      xyz_threshold = opt.ref_dem_robust_threshold;
+    }
+
+    if (dem_xyz_vec.size() != cnet.size()) 
+      vw_throw(ArgumentErr() << "Must have as many xyz computed from DEM as xyz "
+               << "triangulated from match files.\n");
+    if (xyz_weight <= 0 || xyz_threshold <= 0)
+      vw_throw(ArgumentErr() << "Detected invalid robust threshold or weights.\n");
+
+    for (int ipt = 0; ipt < num_tri_points; ipt++) {
+      
+      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+        vw_throw(ArgumentErr() << "Found GCP where not expecting any.\n");
+
+      // Note that we get tri points from dem_xyz_vec, and not from cnet, as the latter
+      // doesn't have adjustments for the input DEM.
+      Vector3 observation = dem_xyz_vec.at(ipt);
+      if (outliers.find(ipt) != outliers.end() || observation == Vector3(0, 0, 0)) 
+        continue; // outlier
+      
+      ceres::CostFunction* xyz_cost_function = weightedXyzError::Create(observation, xyz_weight);
+      ceres::LossFunction* xyz_loss_function = new ceres::CauchyLoss(xyz_threshold);
+      double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+      problem.AddResidualBlock(xyz_cost_function, xyz_loss_function, tri_point);
+
+      weight_per_residual.push_back(xyz_weight); // tri x
+      weight_per_residual.push_back(xyz_weight); // tri y
+      weight_per_residual.push_back(xyz_weight); // tri z
+    }
+    
+  } // end considering xyz constraint in the presence of a DEM
+
+  // Save residuals before optimization
+  std::string residual_prefix = opt.out_prefix + "-initial_residuals";
+  save_residuals(residual_prefix, problem, opt, cnet, crn, have_dem, datum,
+                 tri_points_vec, dem_xyz_vec, outliers, weight_per_residual);
+  
+  // Set up the problem
   ceres::Solver::Options options;
   options.gradient_tolerance  = 1e-16;
   options.function_tolerance  = 1e-16;
   options.parameter_tolerance = opt.parameter_tolerance; // default is 1e-12
-  
   options.max_num_iterations                = opt.num_iterations;
   options.max_num_consecutive_invalid_steps = std::max(5, opt.num_iterations/5); // try hard
   options.minimizer_progress_to_stdout      = true;
-
   if (opt.single_threaded_cameras)
     options.num_threads = 1;
   else
     options.num_threads = opt.num_threads;
 
-  std::vector<double> residuals;
-  compute_residuals(opt, problem, residuals);
-
+  // Solve the problem
   vw_out() << "Starting the Ceres optimizer." << std::endl;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
