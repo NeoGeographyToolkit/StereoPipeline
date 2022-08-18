@@ -93,9 +93,9 @@ are meant to augment certain parts of ASP :cite:`tao2016optimised,
 tao2018massive, shin2012progressively, otto1989region`. Thse algorithms were developed
 at the Imaging Group, Mullard Space Science Laboratory, University
 College London, by Yu Tao, under the direction of Jan-Peter Muller,
-with funding from the EU-FP7 project titled "iMars:Analysis of Mars
+with funding from the EU-FP7 project titled "iMars: Analysis of Mars
 Multi-Resolution Images using Auto-Coregistration, Data Mining and
-Crowd Sourcing Techniques" under contract no. #607379.
+Crowd Sourcing Techniques", under contract #607379.
 
 Under NASA proposal 19-PDART19_2-0094 we researched incorporating
 these algorithms into ASP.

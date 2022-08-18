@@ -14,7 +14,7 @@ at the NASA Ames Research Center in Moffett Field, CA.
 **Contributors and Developers**
 
 - Zachary Moratto (NASA/Stinger-Ghaffarian Technologies, former ASP Lead Architect)
-- Michael J. Broxton (NASA/Carnegie Mellon University, former ASP Lead Architect
+- Michael J. Broxton (NASA/Carnegie Mellon University, former ASP Lead Architect)
   and Project Lead, co-developer of the Vision Workbench)
 - Matthew Hancher (NASA, co-developer of the Vision Workbench)
 - Dr. Ara Nefian (NASA/Carnegie Mellon University)
@@ -69,11 +69,12 @@ impetus that in no small way made this open source stereo pipeline
 possible, and we thank Dr. Michael Caplinger, Joe Fahle and others at
 MSSS for their help and technical assistance.
 
-The tools for rig calibration, fusion of points clouds into meshes,
-and texturing of meshes, were originally developed as part of the NASA
-ISAAC project, with Trey Smith as project manager, and rely heavily
-on third-party packages, including Theia SfM, Ceres Solver, VoxBlox,
-and MVS Texturing.
+The tools for rig calibration (:numref:`rig_calibrator`), fusion of
+points clouds into meshes (:numref:`multi_stereo`), and texturing of
+meshes (:numref:`texrecon`), were originally developed as part of the
+NASA ISAAC project, with Trey Smith as project manager, and rely
+heavily on third-party packages, including Theia SfM, Ceres Solver,
+VoxBlox, and MVS Texturing.
 
 We'd also like to thank our friends and collaborators Dr. Randolph
 Kirk, Dr. Brent Archinal, Trent Hare, Mark Rosiek, and David Mayer
