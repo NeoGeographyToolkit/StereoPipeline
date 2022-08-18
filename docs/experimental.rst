@@ -87,13 +87,18 @@ An illustration of jitter correction is given in :numref:`jitter-example`.
 The CASP-GO stereo processing system
 ------------------------------------
 
-CASP-GO (https://github.com/mssl-imaging/CASP-GO) is a set of
-algorithms that are meant to augment certain parts of ASP
-:cite:`tao2016optimised, tao2018massive`. Thse algorithms were
-developed at the Imaging Group, Mullard Space Science Laboratory,
-University College London, by Yu Tao, under the direction of Jan-Peter
-Muller. Under NASA proposal 19-PDART19_2-0094 we researched
-incorporating these algorithms into ASP.
+CASP-GO (Co-registered ASP using Gotcha Optimisation,
+https://github.com/mssl-imaging/CASP-GO) is a set of algorithms that
+are meant to augment certain parts of ASP :cite:`tao2016optimised,
+tao2018massive, shin2012progressively, otto1989region`. Thse algorithms were developed
+at the Imaging Group, Mullard Space Science Laboratory, University
+College London, by Yu Tao, under the direction of Jan-Peter Muller,
+with funding from the EU-FP7 project titled "iMars:Analysis of Mars
+Multi-Resolution Images using Auto-Coregistration, Data Mining and
+Crowd Sourcing Techniques" under contract no. #607379.
+
+Under NASA proposal 19-PDART19_2-0094 we researched incorporating
+these algorithms into ASP.
 
 CASP-GO consists of three algorithms:
 
