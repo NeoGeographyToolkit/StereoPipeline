@@ -525,7 +525,7 @@ void asp::update_point_height_from_dem(vw::ba::ControlNetwork const& cnet,
 // DEM. Find their average.  Invalid or uncomputable xyz are set to
 // the zero vector.
 void asp::calc_avg_intersection_with_dem(vw::ba::ControlNetwork const& cnet,
-                                         vw::ba::CameraRelationNetwork<vw::ba::JFeature> & crn,
+                                         vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
                                          std::set<int> const& outliers,
                                          std::vector<boost::shared_ptr<vw::camera::CameraModel>>
                                          const& camera_models,
@@ -595,7 +595,7 @@ void asp::calc_avg_intersection_with_dem(vw::ba::ControlNetwork const& cnet,
 // Flag outliers by reprojection error with input cameras. This assumes that
 // the input cameras are pretty accurate.
 void asp::flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
-                                vw::ba::CameraRelationNetwork<vw::ba::JFeature> & crn,
+                                vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
                                 std::vector<boost::shared_ptr<vw::camera::CameraModel>>
                                 const& camera_models,
                                 double max_init_reproj_error,
@@ -645,3 +645,21 @@ void asp::flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
 
   return;
 }
+
+// Manufacture a CSM state file from an adjust file
+std::string asp::csmStateFile(std::string const& adjustFile) {
+
+  std::string csmFile = adjustFile;
+  
+  // If the suffix we want to add is already present, remove it first
+  std::string suff = ".adjusted_state";
+  auto it = csmFile.find(suff);
+  if (it != std::string::npos)
+    csmFile.replace(it, suff.size(), "");
+  
+  csmFile = boost::filesystem::path(csmFile).replace_extension(suff + ".json").string();
+
+  return csmFile;
+}
+
+  

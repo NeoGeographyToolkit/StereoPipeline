@@ -423,37 +423,6 @@ void write_optical_bar_output_file(Options const& opt, int icam,
   }
 }
 
-/// Write a pinhole camera file to disk.
-void write_csm_output_file(Options const& opt, int icam,
-                           std::string const& adjust_file, 
-                           BAParamStorage const& param_storage) {
-  
-  CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-  
-  AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
-                              cam_adjust.position(), cam_adjust.pose());
-  
-  vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
-  
-  // Manufacture the transformed json state file
-  std::string json_state = adjust_file;
-  
-  // If the suffix we want to add is already present, remove it first
-  std::string suff = ".adjusted_state";
-  auto it = json_state.find(suff);
-  if (it != std::string::npos)
-    json_state.replace(it, suff.size(), "");
-  
-  json_state = boost::filesystem::path(json_state).replace_extension(suff + ".json").string();
-  
-  asp::CsmModel * csm_model = dynamic_cast<asp::CsmModel*>
-    (vw::camera::unadjusted_model(opt.camera_models[icam].get()));
-  if (csm_model == NULL) 
-          vw::vw_throw(vw::ArgumentErr() << "Expected a csm camera model.");
-  
-  csm_model->saveTransformedState(json_state, ecef_transform);
-}
-
 /// From the input options select the correct Ceres loss function.
 ceres::LossFunction* get_loss_function(Options const& opt, double th = 0.0){
 

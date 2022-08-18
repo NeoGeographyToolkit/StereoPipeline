@@ -205,7 +205,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "can select this automatically by the file extension, except for xml cameras. "
      "See the doc for options.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
-     "Prefix to read initial adjustments from, written by bundle_adjust.")
+     "Prefix to read initial adjustments from, if available, as written by bundle_adjust.")
     ("match-first-to-last",
      po::value(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
      "Match the last several images to several first images by extending the logic of "
@@ -312,9 +312,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Must specify precisely one of: --match-files-prefix, "
              << "--clean-match-files-prefix.\n");
 
-  if (opt.input_prefix.empty())
-    vw_throw(ArgumentErr() << "Must specify --input-adjustments-prefix.\n");
-
   if (opt.max_init_reproj_error <= 0.0)
     vw_throw(ArgumentErr() << "Must have a positive --max-initial-reprojection-error.\n");
 
@@ -400,7 +397,7 @@ void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
 void save_residuals(std::string const& residual_prefix,
                     ceres::Problem & problem, Options const& opt,
                     vw::ba::ControlNetwork const& cnet,
-                    vw::ba::CameraRelationNetwork<vw::ba::JFeature> & crn,
+                    vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
                     bool have_dem, vw::cartography::Datum const& datum,
                     std::vector<double> const& tri_points_vec,
                     std::vector<Vector3> const& dem_xyz_vec,
@@ -508,17 +505,18 @@ void run_jitter_solve(int argc, char* argv[]) {
     if (csm_cam == NULL)
       vw_throw(ArgumentErr() << "Expecting the cameras to be of CSM type.\n");
 
-    std::string adjust_file
-      = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[it],
-                                     opt.camera_files[it]);
-    vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
-
-    // This modifies opt.camera_models
-    vw::camera::AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[it]));
-    adj_cam.read(adjust_file);
-    vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
-    csm_cam->applyTransform(ecef_transform);
-
+    if (!opt.input_prefix.empty()) {
+      std::string adjust_file
+        = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[it],
+                                       opt.camera_files[it]);
+      vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
+      // This modifies opt.camera_models
+      vw::camera::AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[it]));
+      adj_cam.read(adjust_file);
+      vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
+      csm_cam->applyTransform(ecef_transform);
+    }
+    
     UsgsAstroLsSensorModel * ls_cam
       = dynamic_cast<UsgsAstroLsSensorModel*>((csm_cam->m_csm_model).get());
     if (ls_cam == NULL)
@@ -737,6 +735,7 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Add the triangulated points constraint. We check earlier that only one
   // of the two options below can be set at a time.
+  // TODO(oalexan1): Make this into a function.
   double xyz_weight = -1.0, xyz_threshold = -1.0;
   if (have_dem) {
 
@@ -804,6 +803,30 @@ void run_jitter_solve(int argc, char* argv[]) {
   vw_out() << summary.FullReport() << "\n";
   if (summary.termination_type == ceres::NO_CONVERGENCE) 
     vw_out() << "Found a valid solution, but did not reach the actual minimum.\n";
+
+  // Save residuals after optimization
+  residual_prefix = opt.out_prefix + "-final_residuals";
+  save_residuals(residual_prefix, problem, opt, cnet, crn, have_dem, datum,
+                 tri_points_vec, dem_xyz_vec, outliers, weight_per_residual);
+
+
+  // Save the optimized model states. Note that we optimized directly the camera
+  // model states, so there's no need to update them from some optimization
+  // workspace.
+  for (size_t icam = 0; icam < opt.camera_models.size(); icam++) {
+    std::string adjustFile = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                          opt.image_files[icam],
+                                                          opt.camera_files[icam]);
+    std::string csmFile = asp::csmStateFile(adjustFile);
+    
+    vw::camera::CameraModel * base_cam
+      = vw::camera::unadjusted_model(opt.camera_models[icam]).get();
+    asp::CsmModel * csm_cam = dynamic_cast<asp::CsmModel*>(base_cam);
+    if (csm_cam == NULL)
+      vw_throw(ArgumentErr() << "Expecting the cameras to be of CSM type.\n");
+
+    csm_cam->saveState(csmFile);
+  }
   
   return;
 }

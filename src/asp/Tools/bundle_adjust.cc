@@ -46,6 +46,28 @@ typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 
 typedef CameraRelationNetwork<JFeature> CRNJ;
 
+/// Write a csm camera state file to disk.
+void write_csm_output_file(Options const& opt, int icam,
+                           std::string const& adjustFile, 
+                           BAParamStorage const& param_storage) {
+  
+  CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+  
+  AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+                              cam_adjust.position(), cam_adjust.pose());
+  
+  vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
+
+  std::string csmFile = asp::csmStateFile(adjustFile);
+
+  asp::CsmModel * csm_model = dynamic_cast<asp::CsmModel*>
+    (vw::camera::unadjusted_model(opt.camera_models[icam].get()));
+  if (csm_model == NULL) 
+          vw::vw_throw(vw::ArgumentErr() << "Expected a csm camera model.");
+  
+  csm_model->saveTransformedState(csmFile, ecef_transform);
+}
+
 // Write the results to disk.
 void saveResults(Options const& opt, BAParamStorage const& param_storage) {
   int num_cameras = opt.image_files.size();
@@ -2112,12 +2134,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
 
   // Set the datum, either based on what the user specified or the axes
-  if (opt.datum_str != "") {
+  if (opt.datum_str != "" && !guessed_datum) {
     try {
       opt.datum.set_well_known_datum(opt.datum_str);
     }catch(...) {
       // Whatever datum name we had, it was bad, so we'll make more attempts below
       opt.datum_str = "";
+      guessed_datum = false;
     }
   }else if (opt.semi_major > 0 && opt.semi_minor > 0){
     // Otherwise, if the user set the semi-axes, use that.

@@ -81,6 +81,9 @@ namespace asp {
     /// Get the semi-axes of the datum. 
     vw::Vector3 target_radii() const;
 
+    // Save the model state
+    void saveState(std::string const& json_state_file) const;
+
     // Apply a transform to the model and save the transformed state as a JSON file.
     void saveTransformedState(std::string const& json_state_file,
                               vw::Matrix4x4 const& transform) const;

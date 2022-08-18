@@ -167,7 +167,7 @@ namespace asp{
   // Shoot rays from all matching interest point. Intersect those with a DEM.
   // Find their average.
   void calc_avg_intersection_with_dem(vw::ba::ControlNetwork const& cnet,
-                                      vw::ba::CameraRelationNetwork<vw::ba::JFeature> & crn,
+                                      vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
                                       std::set<int> const& outliers,
                                       std::vector<boost::shared_ptr<vw::camera::CameraModel>> const&
                                       camera_models,
@@ -180,13 +180,15 @@ namespace asp{
   // Flag outliers by reprojection error with input cameras. This assumes that
   // the input cameras are pretty accurate.
   void flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
-                             vw::ba::CameraRelationNetwork<vw::ba::JFeature> & crn,
+                             vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
                              std::vector<boost::shared_ptr<vw::camera::CameraModel>>
                              const& camera_models,
                              double max_init_reproj_error,
                              // Output
                              std::set<int> & outliers);
   
+  // Manufacture a CSM state file from an adjust file
+  std::string csmStateFile(std::string const& adjustFile);
 }
 
 #endif // __BUNDLE_ADJUST_UTILS_H__

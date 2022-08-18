@@ -688,7 +688,23 @@ void applyTransformToState(csm::RasterGM const* raster_model,
     vw_throw(vw::ArgumentErr()
              << "CsmModel::applyTransformedState(): Unknown CSM model type.\n");
 }
+
+// Save model state
+void CsmModel::saveState(std::string const& json_state_file) const {
   
+  csm::RasterGM const* raster_model
+    = dynamic_cast<csm::RasterGM const*>(this->m_csm_model.get());
+
+  std::string modelState = raster_model->getModelState();
+
+  vw_out() << "Writing model state: " << json_state_file << std::endl;
+  std::ofstream ofs(json_state_file.c_str());
+  ofs << modelState << std::endl;
+  ofs.close();
+
+  return;
+}
+
 // Apply a transform to the model and save the transformed state as a JSON file.
 void CsmModel::saveTransformedState(std::string const& json_state_file,
                                     vw::Matrix4x4 const& transform) const {
@@ -702,7 +718,7 @@ void CsmModel::saveTransformedState(std::string const& json_state_file,
                         // Output
                         modelState);
   
-  vw_out() << "Writing adjusted JSON state: " << json_state_file << std::endl;
+  vw_out() << "Writing adjusted model state: " << json_state_file << std::endl;
   std::ofstream ofs(json_state_file.c_str());
   ofs << modelState << std::endl;
   ofs.close();
