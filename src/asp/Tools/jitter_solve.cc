@@ -62,9 +62,10 @@ const double g_big_pixel_value = 1000.0;  // don't make this too big
 // portion of the position and quaternion variables affected by this.
   
 struct pixelReprojectionError {
-  pixelReprojectionError(vw::Vector2 const& observation, UsgsAstroLsSensorModel* ls_model,
+  pixelReprojectionError(vw::Vector2 const& observation, double weight,
+                         UsgsAstroLsSensorModel* ls_model,
                          int begQuatIndex, int endQuatIndex, int begPosIndex, int endPosIndex):
-    m_observation(observation),
+    m_observation(observation), m_weight(weight),
     m_begQuatIndex(begQuatIndex), m_endQuatIndex(endQuatIndex),
     m_begPosIndex(begPosIndex),   m_endPosIndex(endPosIndex),
     m_ls_model(ls_model){}
@@ -111,8 +112,8 @@ struct pixelReprojectionError {
       vw::Vector2 pix;
       asp::fromCsmPixel(pix, imagePt);
 
-      residuals[0] = pix[0] - m_observation[0];
-      residuals[1] = pix[1] - m_observation[1];
+      residuals[0] = m_weight*(pix[0] - m_observation[0]);
+      residuals[1] = m_weight*(pix[1] - m_observation[1]);
       
     } catch (std::exception const& e) {
       residuals[0] = g_big_pixel_value;
@@ -123,7 +124,7 @@ struct pixelReprojectionError {
   }
 
   // Factory to hide the construction of the CostFunction object from the client code.
-  static ceres::CostFunction* Create(vw::Vector2 const& observation,
+  static ceres::CostFunction* Create(vw::Vector2 const& observation, double weight,
                                      UsgsAstroLsSensorModel* ls_model,
                                      int begQuatIndex, int endQuatIndex,
                                      int begPosIndex, int endPosIndex){
@@ -131,7 +132,7 @@ struct pixelReprojectionError {
     // TODO(oalexan1): Try using here the analytical cost function
     ceres::DynamicNumericDiffCostFunction<pixelReprojectionError>* cost_function =
       new ceres::DynamicNumericDiffCostFunction<pixelReprojectionError>
-      (new pixelReprojectionError(observation, ls_model,
+      (new pixelReprojectionError(observation, weight, ls_model,
                                   begQuatIndex, endQuatIndex,
                                   begPosIndex, endPosIndex));
 
@@ -152,6 +153,7 @@ struct pixelReprojectionError {
 
 private:
   Vector2 m_observation; // The pixel observation for this camera/point pair
+  double m_weight;
   UsgsAstroLsSensorModel* m_ls_model;
   int m_begQuatIndex, m_endQuatIndex;
   int m_begPosIndex, m_endPosIndex;
@@ -181,6 +183,97 @@ struct weightedXyzError {
   Vector3 m_observation;
   double  m_weight;
 };
+
+/// A Ceres cost function. The residual is the difference between the
+/// initial quaternion and optimized quaternion, multiplied by given weight.
+struct weightedRotationError {
+  weightedRotationError(const double * init_quat, double weight):
+    m_weight(weight) {
+
+    // Make a copy, as later the value at the pointer will change
+    m_init_quat.resize(NUM_QUAT_PARAMS);
+    for (int it = 0; it < NUM_QUAT_PARAMS; it++)
+      m_init_quat[it] = init_quat[it];
+  }
+
+  template <typename T>
+  bool operator()(const T* quat, T* residuals) const {
+    for (size_t p = 0; p < m_init_quat.size(); p++)
+      residuals[p] = m_weight * (quat[p] - m_init_quat[p]);
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(const double * init_quat, double weight){
+    return (new ceres::AutoDiffCostFunction<weightedRotationError, NUM_QUAT_PARAMS, NUM_QUAT_PARAMS>
+            (new weightedRotationError(init_quat, weight)));
+  }
+
+  std::vector<double> m_init_quat;
+  double  m_weight;
+};
+
+/// A Ceres cost function. The residual is the difference between the
+/// initial position and optimized position, multiplied by given weight.
+struct weightedTranslationError {
+  weightedTranslationError(const double * init_position, double weight):
+    m_weight(weight) {
+
+    // Make a copy, as later the value at the pointer will change
+    m_init_position.resize(NUM_XYZ_PARAMS);
+    for (int it = 0; it < NUM_XYZ_PARAMS; it++)
+      m_init_position[it] = init_position[it];
+  }
+
+  template <typename T>
+  bool operator()(const T* position, T* residuals) const {
+    for (size_t p = 0; p < m_init_position.size(); p++)
+      residuals[p] = m_weight * (position[p] - m_init_position[p]);
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(const double * init_position, double weight){
+    return (new ceres::AutoDiffCostFunction
+            <weightedTranslationError, NUM_XYZ_PARAMS, NUM_XYZ_PARAMS>
+            (new weightedTranslationError(init_position, weight)));
+  }
+
+  std::vector<double> m_init_position;
+  double  m_weight;
+};
+
+
+/// A Ceres cost function. The residual is the weighted difference between 1 and
+/// norm of quaternion.
+struct weightedQuatNormError {
+  weightedQuatNormError(double weight):
+    m_weight(weight) {}
+
+  template <typename T>
+  bool operator()(const T* quat, T* residuals) const {
+    residuals[0] = T(0.0);
+    for (size_t p = 0; p < NUM_QUAT_PARAMS; p++)
+      residuals[0] += quat[p] * quat[p];
+
+    residuals[0] = m_weight * (residuals[0] - 1.0);
+    
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(double weight) {
+    return (new ceres::AutoDiffCostFunction<weightedQuatNormError, 1, NUM_QUAT_PARAMS>
+            (new weightedQuatNormError(weight)));
+  }
+
+  double  m_weight;
+};
   
 struct Options : public vw::GdalWriteOptions {
   std::string out_prefix, stereo_session, input_prefix, match_files_prefix,
@@ -189,7 +282,8 @@ struct Options : public vw::GdalWriteOptions {
   bool match_first_to_last, single_threaded_cameras;
   double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
   double ref_dem_weight, ref_dem_robust_threshold, heights_from_dem_weight,
-    heights_from_dem_robust_threshold;
+    heights_from_dem_robust_threshold, rotation_weight, translation_weight, quat_norm_weight,
+    anchor_weight;
   
   std::vector<std::string> image_files, camera_files;
   std::vector<boost::shared_ptr<vw::camera::CameraModel>> camera_models;
@@ -256,7 +350,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("reference-dem-weight", po::value(&opt.ref_dem_weight)->default_value(1.0),
      "Multiply the xyz differences for the --reference-dem option by this weight.")
     ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),
-     "Use this robust threshold for the weighted xyz differences.");
+     "Use this robust threshold for the weighted xyz differences.")
+    ("rotation-weight", po::value(&opt.rotation_weight)->default_value(1.0),
+     "How much weight to give to keep cameras from rotating from initial values.")
+    ("translation-weight", po::value(&opt.translation_weight)->default_value(1.0),
+     "How much weight to give to keep cameras from moving from initial values.")
+    ("quat-norm-weight", po::value(&opt.quat_norm_weight)->default_value(1.0),
+     "How much weight to give to the constraint that quaternion norm must be 1.")
+    ("anchor-weight", po::value(&opt.anchor_weight)->default_value(1.0),
+     "How much weight to give to each anchor point.");
   
   general_options.add(vw::GdalWriteOptionsDescription(opt));
     
@@ -330,7 +432,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   if (opt.ref_dem_robust_threshold <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --reference-dem-robust-threshold must be positive.\n");
-  
+
+  if (opt.rotation_weight < 0 || opt.translation_weight < 0)
+    vw_throw(ArgumentErr() << "Rotation and translation weights must be non-negative.\n");
+    
+  if (opt.quat_norm_weight < 0)
+    vw_throw(ArgumentErr() << "Quaternion norm weight must be positive.\n");
+
+  if (opt.anchor_weight < 0)
+    vw_throw(ArgumentErr() << "Anchor weight must be positive.\n");
+
   return;
 }
 
@@ -468,8 +579,10 @@ void save_residuals(std::string const& residual_prefix,
     }
   }
 
-  if (ires != (int)residuals.size())
-    vw_throw(ArgumentErr() << "Book-keeping error in handling residuals.\n");
+  // Ensure we did not process more residuals than what we have.
+  // (Here we may not necessarily process all residuals.)
+  if (ires > (int)residuals.size())
+    vw_throw(ArgumentErr() << "More residuals found than expected.\n");
 
   return;
 }
@@ -648,6 +761,12 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Need this in order to undo the multiplication by weight before saving the residuals
   std::vector<double> weight_per_residual;
+
+  std::map<int, std::vector<Vector2>> pixel_vec;
+  std::map<int, std::vector<boost::shared_ptr<Vector3>>> xyz_vec;
+  std::map<int, std::vector<double*>> xyz_vec_ptr;
+  std::map<int, std::vector<double>> weight_vec;
+  std::map<int, std::vector<int>> isAnchor_vec;
   
   for (int icam = 0; icam < (int)crn.size(); icam++) {
 
@@ -666,6 +785,24 @@ void run_jitter_solve(int argc, char* argv[]) {
       // Ideally this point projects back to the pixel observation.
       double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
 
+      double weight = 1.0;
+      
+      pixel_vec[icam].push_back(observation);
+      weight_vec[icam].push_back(weight);
+      isAnchor_vec[icam].push_back(0);
+      xyz_vec_ptr[icam].push_back(tri_point);
+    }
+  }
+
+  for (int icam = 0; icam < (int)crn.size(); icam++) {
+
+    for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
+
+      Vector2 observation =  pixel_vec[icam][ipix];
+      double * tri_point = xyz_vec_ptr[icam][ipix];
+      double weight = weight_vec[icam][ipix];
+      bool isAnchor = isAnchor_vec[icam][ipix];
+    
       // Must grow the number of quaternions and positions a bit
       // because during optimization the 3D point and corresponding
       // pixel may move somewhat.
@@ -713,7 +850,7 @@ void run_jitter_solve(int argc, char* argv[]) {
         vw_throw(ArgumentErr() << "Book-keeping error for pixel: " << observation << ".\n"); 
 
       ceres::CostFunction* pixel_cost_function =
-        pixelReprojectionError::Create(observation, ls_cams[icam],
+        pixelReprojectionError::Create(observation, weight, ls_cams[icam],
                                        begQuatIndex, endQuatIndex,
                                        begPosIndex, endPosIndex);
       ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
@@ -728,11 +865,69 @@ void run_jitter_solve(int argc, char* argv[]) {
       vars.push_back(tri_point);
       problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
 
-      weight_per_residual.push_back(1.0); // pixel x
-      weight_per_residual.push_back(1.0); // pixel y
+      for (int c = 0; c < PIXEL_SIZE; c++)
+        weight_per_residual.push_back(weight);
     }
   }
 
+  
+  if (opt.anchor_weight > 0) {
+    
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+
+      int numLines   = ls_cams[icam]->m_nLines;
+      int numSamples = ls_cams[icam]->m_nSamples;
+      int numQuat    = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+      double r       = double(numLines) / numQuat;
+
+      int numAnchorPts = 0;
+      for (double line = 0; line < numLines; line += r/3.0) {
+        for (double sample = 0; sample < numSamples; sample += numSamples/3.0) {
+
+          Vector2 pix(sample, line);
+          Vector3 xyz_guess(0, 0, 0);
+          
+          bool treat_nodata_as_zero = false;
+          bool has_intersection = false;
+          double height_error_tol = 0.001; // 1 mm should be enough
+          double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
+          double max_rel_tol      = 1e-14;
+          int num_max_iter        = 25;   // Using many iterations can be very slow
+          
+          Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+            (opt.camera_models[icam]->camera_center(pix),
+             opt.camera_models[icam]->pixel_to_vector(pix),
+             interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+             height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+
+          if (!has_intersection) 
+            continue;
+          
+          Vector2 pix_out = opt.camera_models[icam]->point_to_pixel(dem_xyz);
+          if (norm_2(pix - pix_out) > 5 * height_error_tol)
+            continue; // this is likely a bad point
+
+          pixel_vec[icam].push_back(pix);
+          weight_vec[icam].push_back(opt.anchor_weight);
+          isAnchor_vec[icam].push_back(1);
+
+          // Create a shared_ptr as we need a pointer per the api to use later
+          xyz_vec[icam].push_back(boost::shared_ptr<Vector3>(new Vector3()));
+          Vector3 & xyz = *xyz_vec[icam].back().get(); // alias to the element we just made
+          xyz = dem_xyz; // copy the value, but the pointer does not change
+          xyz_vec_ptr[icam].push_back(&xyz[0]); // keep the pointer to the first element
+
+          numAnchorPts++;
+        }   
+      }
+      
+      std::cout << "--lines and samples: " << numLines << ' ' << numSamples << std::endl;
+      std::cout << "num lines per quat: " << double(numLines) / numQuat  << std::endl;
+      std::cout << "--num anchor points " << numAnchorPts << std::endl;
+      
+    }   
+  }
+  
   // Add the triangulated points constraint. We check earlier that only one
   // of the two options below can be set at a time.
   // TODO(oalexan1): Make this into a function.
@@ -771,12 +966,65 @@ void run_jitter_solve(int argc, char* argv[]) {
       double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
       problem.AddResidualBlock(xyz_cost_function, xyz_loss_function, tri_point);
 
-      weight_per_residual.push_back(xyz_weight); // tri x
-      weight_per_residual.push_back(xyz_weight); // tri y
-      weight_per_residual.push_back(xyz_weight); // tri z
+      for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+        weight_per_residual.push_back(xyz_weight);
     }
     
   } // end considering xyz constraint in the presence of a DEM
+
+  // Add regularization terms, from keeping the positions and quaternions from going wild
+
+  if (opt.rotation_weight > 0.0) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+      int numQuat = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+      for (int iq = 0; iq < numQuat; iq++) {
+        ceres::CostFunction* rotation_cost_function
+          = weightedRotationError::Create(&ls_cams[icam]->m_quaternions[iq * NUM_QUAT_PARAMS],
+                                          opt.rotation_weight);
+        // We use no loss function, as the quaternions have no outliers
+        ceres::LossFunction* rotation_loss_function = NULL;
+        problem.AddResidualBlock(rotation_cost_function, rotation_loss_function,
+                                 &ls_cams[icam]->m_quaternions[iq * NUM_QUAT_PARAMS]);
+        
+        for (int c = 0; c < NUM_QUAT_PARAMS; c++)
+          weight_per_residual.push_back(opt.rotation_weight);
+      }
+    }
+  }
+  
+  if (opt.translation_weight > 0.0) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+      int numPos = ls_cams[icam]->m_positions.size() / NUM_XYZ_PARAMS;
+      for (int ip = 0; ip < numPos; ip++) {
+        ceres::CostFunction* translation_cost_function
+          = weightedTranslationError::Create(&ls_cams[icam]->m_positions[ip * NUM_XYZ_PARAMS],
+                                          opt.translation_weight);
+        // We use no loss function, as the positions have no outliers
+        ceres::LossFunction* translation_loss_function = NULL;
+        problem.AddResidualBlock(translation_cost_function, translation_loss_function,
+                                 &ls_cams[icam]->m_positions[ip * NUM_XYZ_PARAMS]);
+        
+        for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+          weight_per_residual.push_back(opt.translation_weight);
+      }
+    }
+  }
+
+  if (opt.quat_norm_weight > 0.0) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+      int numQuat = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+      for (int iq = 0; iq < numQuat; iq++) {
+        ceres::CostFunction* quat_norm_cost_function
+          = weightedQuatNormError::Create(opt.quat_norm_weight);
+        // We use no loss function, as the quaternions have no outliers
+        ceres::LossFunction* quat_norm_loss_function = NULL;
+        problem.AddResidualBlock(quat_norm_cost_function, quat_norm_loss_function,
+                                 &ls_cams[icam]->m_quaternions[iq * NUM_QUAT_PARAMS]);
+        
+        weight_per_residual.push_back(opt.quat_norm_weight); // 1 single residual
+      }
+    }
+  }
 
   // Save residuals before optimization
   std::string residual_prefix = opt.out_prefix + "-initial_residuals";
