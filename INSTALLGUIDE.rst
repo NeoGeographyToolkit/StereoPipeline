@@ -199,7 +199,7 @@ directory for installation.
 
 Create an environment for ASP as::
 
-    conda create -n asp python=3.6
+    conda create -n asp
     conda activate asp
 
 Add relevant channels::
@@ -413,7 +413,7 @@ with the Sphinx-Doc system (https://www.sphinx-doc.org) with
 sphinxcontrib-bibtex (https://sphinxcontrib-bibtex.readthedocs.io).
 These packages can be installed and activated as follows::
 
-    conda create -n sphinx -c conda-forge python=3.6 sphinx=3.5.4 \
+    conda create -n sphinx -c conda-forge sphinx=3.5.4 \
       sphinxcontrib-bibtex=2.1.4  
     conda activate sphinx
 
