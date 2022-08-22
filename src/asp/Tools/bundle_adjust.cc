@@ -2126,13 +2126,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       }
     }
 
-    if (opt.num_ba_passes > 1) 
-      vw_out(WarningMessage) << "It is not recommended to use "
-                             << "--heights-from-dem-weight with multiple "
-                             << "passes. Results could be unpredictable.\n";
-    
+    if (opt.num_ba_passes > 1)
+      vw_throw(ArgumentErr() << "The option --heights-from-dem-weight with multiple "
+               << "passes is not implemented correctly. Use --num-passes 1.\n");
   }
-
+  
   // Set the datum, either based on what the user specified or the axes
   if (opt.datum_str != "" && !guessed_datum) {
     try {
