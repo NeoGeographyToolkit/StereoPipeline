@@ -108,6 +108,10 @@ with ``gdal_translate -projwin``, and is also accepted by
 ``gdalwarp``, ``point2dem``, ``dem_mosaic``, and ``mapproject``,
 for use with operations on regions.
 
+One can zoom to a desired proj win from the ``View`` menu. This is helpful
+to reproduce a zoom level. If multiple images are present,
+the proj win used is for the first one.
+
 .. _stereo_gui_view_ip:
 
 View interest point matches

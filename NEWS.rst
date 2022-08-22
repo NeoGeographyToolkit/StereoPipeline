@@ -73,6 +73,7 @@ stereo_gui:
     any two images to show side-by-side, and automatically load their
     match file or clean match file (options:
     ``--pairwise-matches`` and ``--pairwise-clean-matches``).
+  * Zoom to given proj win from the View menu. Useful for reproducibility.
 
 bundle_adjust:
   * Bugfix in ``residuals_stats.txt``; the mean was correct but the

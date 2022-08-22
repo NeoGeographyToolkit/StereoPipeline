@@ -377,7 +377,10 @@ public slots:
     Vector2 world2image    (Vector2 const  P, int imageIndex) const;
     Vector2 image2world    (Vector2 const  P, int imageIndex) const;
     BBox2   world2image    (BBox2   const& R, int imageIndex) const;
+  public:
+    // Need this public
     BBox2   image2world    (BBox2   const& R, int imageIndex) const;
+  private:
     Vector2 world2projpoint(Vector2 const  P, int imageIndex) const;
     Vector2 projpoint2world(Vector2 const  P, int imageIndex) const;
     BBox2   expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);

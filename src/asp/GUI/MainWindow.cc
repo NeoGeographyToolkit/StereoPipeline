@@ -532,6 +532,11 @@ void MainWindow::createMenus() {
   connect(m_viewPrevImage_action, SIGNAL(triggered()),
           this, SLOT(viewPrevImage()));
 
+  m_zoomToProjWin_action = new QAction(tr("Zoom to proj win"), this);
+  m_zoomToProjWin_action->setStatusTip(tr("Zoom to proj win"));
+  m_zoomToProjWin_action->setCheckable(false);
+  connect(m_zoomToProjWin_action, SIGNAL(triggered()), this, SLOT(zoomToProjWin()));
+  
   // IP matches
   m_viewMatches_action = new QAction(tr("View IP matches"), this);
   m_viewMatches_action->setStatusTip(tr("View IP matches"));
@@ -646,6 +651,7 @@ void MainWindow::createMenus() {
   m_view_menu->addAction(m_zoomAllToSameRegion_action);
   m_view_menu->addAction(m_viewNextImage_action);
   m_view_menu->addAction(m_viewPrevImage_action);
+  m_view_menu->addAction(m_zoomToProjWin_action);
 
   // Matches menu
   m_matches_menu = menu->addMenu(tr("&IP matches"));
@@ -834,6 +840,47 @@ void MainWindow::viewAsTiles(){
   MainWindow::updateMatchesMenuEntries();
   
   createLayout();
+}
+
+void MainWindow::zoomToProjWin(){
+  std::string projWinStr;
+  bool ans = getStringFromGui(this,
+                              "Enter proj win (4 values)",
+                              "Enter proj win (4 values)",
+                              "",
+                              projWinStr);
+  if (!ans)
+    return;
+
+  std::istringstream is(projWinStr);
+  double a, b, c, d;
+  if (!(is >> a >> b >> c >> d)) {
+    popUp("Four float values expected.");
+    return;
+  }
+
+  if (!m_widgets[BASE_IMAGE_ID]) {
+    popUp("Unexpected missing widget.");
+    return;
+  }
+
+  if (!m_use_georef) {
+    popUp("Turn on viewing georeferenced images to zoom to given proj win.");
+    return;
+  }
+  
+  BBox2 proj_win;
+  proj_win.grow(Vector2(a, b));
+  proj_win.grow(Vector2(c, d));
+
+  BBox2 pix_box   = m_images[BASE_IMAGE_ID].georef.point_to_pixel_bbox(proj_win);
+  BBox2 world_box = m_widgets[BASE_IMAGE_ID]->image2world(pix_box, BASE_IMAGE_ID);
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (!m_widgets[i])
+      continue;
+    m_widgets[i]->zoomToRegion(world_box);
+  }
+  
 }
 
 // Update the checkboxes for the matches menu entries based on stereo_settings()

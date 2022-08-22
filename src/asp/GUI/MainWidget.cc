@@ -2941,7 +2941,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
         BBox2 image_box = world2image(m_stereoCropWin, image_it); 
         vw_out().precision(8);
-        vw_out() << "Crop src win for  " << m_images[image_it].name << ": "
+        vw_out() << "src win for    " << m_images[image_it].name << ": "
                  << round(image_box.min().x()) << ' ' << round(image_box.min().y()) << ' '
                  << round(image_box.width())   << ' ' << round(image_box.height())  << std::endl;
 
@@ -2957,7 +2957,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
           proj_min = point_box.min();
           proj_max = point_box.max();
           // Below we flip in y to make gdal happy
-          vw_out() << "Crop proj win for "
+          vw_out() << "proj win for   "
                    << m_images[image_it].name << ": "
                    << proj_min.x() << ' ' << proj_max.y() << ' '
                    << proj_max.x() << ' ' << proj_min.y() << std::endl;
@@ -2967,7 +2967,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
           lonlat_min = lonlat_box.min();
           lonlat_max = lonlat_box.max();
           // Again, miny and maxy are flipped on purpose
-          vw_out() << "lonlat win for    "
+          vw_out() << "lonlat win for "
                    << m_images[image_it].name << ": "
                    << lonlat_min.x() << ' ' << lonlat_max.y() << ' '
                    << lonlat_max.x() << ' ' << lonlat_min.y() << std::endl;

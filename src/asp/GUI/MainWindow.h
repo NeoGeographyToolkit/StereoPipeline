@@ -67,6 +67,7 @@ namespace vw { namespace gui {
     void viewSingleWindow           ();
     void viewSideBySide             ();
     void viewAsTiles                ();
+    void zoomToProjWin              ();
     void viewMatchesFromMenu();
     void toggleViewMatches          ();
     void zoomAllToSameRegionAction(int widget_id);
@@ -157,6 +158,7 @@ namespace vw { namespace gui {
     QAction *m_viewSingleWindow_action;
     QAction *m_viewSideBySide_action;
     QAction *m_viewAsTiles_action;
+    QAction *m_zoomToProjWin_action;
     QAction *m_viewHillshadedImages_action;
     QAction *m_viewGeoreferencedImages_action;
     QAction *m_overlayGeoreferencedImages_action;
