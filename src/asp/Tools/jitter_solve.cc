@@ -504,7 +504,7 @@ void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
   }
   file.close();
 }
-  
+
 void save_residuals(std::string const& residual_prefix,
                     ceres::Problem & problem, Options const& opt,
                     vw::ba::ControlNetwork const& cnet,
@@ -530,6 +530,7 @@ void save_residuals(std::string const& residual_prefix,
     xyz_residual_norm.resize(num_tri_points, -1.0); // so we can ignore bad ones
   
   int ires = 0;
+
   for (int icam = 0; icam < (int)crn.size(); icam++) {
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
       
@@ -586,7 +587,7 @@ void save_residuals(std::string const& residual_prefix,
 
   return;
 }
-  
+
 void run_jitter_solve(int argc, char* argv[]) {
 
   // Parse arguments and perform validation
@@ -703,7 +704,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   flag_initial_outliers(cnet, crn, opt.camera_models, opt.max_init_reproj_error,  
                         // Output
                         outliers);
-  vw_out() << "Found " << outliers.size() << " outliers based on initial reprojection error.\n";
+  vw_out() << "Removed " << outliers.size() << " outliers based on initial reprojection error.\n";
   
   bool have_dem = (!opt.heights_from_dem.empty() || !opt.ref_dem.empty());
   
@@ -794,8 +795,67 @@ void run_jitter_solve(int argc, char* argv[]) {
     }
   }
 
-  for (int icam = 0; icam < (int)crn.size(); icam++) {
+  if (opt.anchor_weight > 0) {
+    
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
 
+      int numLines   = ls_cams[icam]->m_nLines;
+      int numSamples = ls_cams[icam]->m_nSamples;
+      int numQuat    = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+      double r       = double(numLines) / numQuat;
+
+      int numAnchorPts = 0;
+      for (double line = 0; line < numLines; line += r/3.0) {
+        for (double sample = 0; sample < numSamples; sample += numSamples/3.0) {
+
+          Vector2 pix(sample, line);
+          Vector3 xyz_guess(0, 0, 0);
+          
+          bool treat_nodata_as_zero = false;
+          bool has_intersection = false;
+          double height_error_tol = 0.001; // 1 mm should be enough
+          double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
+          double max_rel_tol      = 1e-14;
+          int num_max_iter        = 25;   // Using many iterations can be very slow
+          
+          Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+            (opt.camera_models[icam]->camera_center(pix),
+             opt.camera_models[icam]->pixel_to_vector(pix),
+             interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+             height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+
+          if (!has_intersection) 
+            continue;
+          
+          Vector2 pix_out = opt.camera_models[icam]->point_to_pixel(dem_xyz);
+          if (norm_2(pix - pix_out) > 5 * height_error_tol)
+            continue; // this is likely a bad point
+
+          pixel_vec[icam].push_back(pix);
+          weight_vec[icam].push_back(opt.anchor_weight);
+          isAnchor_vec[icam].push_back(1);
+
+          // Create a shared_ptr as we need a pointer per the api to use later
+          xyz_vec[icam].push_back(boost::shared_ptr<Vector3>(new Vector3()));
+          Vector3 & xyz = *xyz_vec[icam].back().get(); // alias to the element we just made
+          xyz = dem_xyz; // copy the value, but the pointer does not change
+          xyz_vec_ptr[icam].push_back(&xyz[0]); // keep the pointer to the first element
+
+          numAnchorPts++;
+        }   
+      }
+      
+      std::cout << "--lines and samples: " << numLines << ' ' << numSamples << std::endl;
+      std::cout << "num lines per quat: " << double(numLines) / numQuat  << std::endl;
+      std::cout << "--num anchor points " << numAnchorPts << std::endl;
+      
+    }   
+  }
+
+  // Do here two passes, first for non-anchor points and then for anchor ones.
+  // Otherwise it is too hard to do the book-keeping when saving residuals
+  
+  for (int icam = 0; icam < (int)crn.size(); icam++) {
     for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
 
       Vector2 observation =  pixel_vec[icam][ipix];
@@ -865,68 +925,15 @@ void run_jitter_solve(int argc, char* argv[]) {
       vars.push_back(tri_point);
       problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
 
+      // Anchor points are fixed by definition. They try to prevent the cameras from moving
+      if (isAnchor) 
+        problem.SetParameterBlockConstant(tri_point);
+      
       for (int c = 0; c < PIXEL_SIZE; c++)
         weight_per_residual.push_back(weight);
     }
   }
 
-  
-  if (opt.anchor_weight > 0) {
-    
-    for (int icam = 0; icam < (int)crn.size(); icam++) {
-
-      int numLines   = ls_cams[icam]->m_nLines;
-      int numSamples = ls_cams[icam]->m_nSamples;
-      int numQuat    = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
-      double r       = double(numLines) / numQuat;
-
-      int numAnchorPts = 0;
-      for (double line = 0; line < numLines; line += r/3.0) {
-        for (double sample = 0; sample < numSamples; sample += numSamples/3.0) {
-
-          Vector2 pix(sample, line);
-          Vector3 xyz_guess(0, 0, 0);
-          
-          bool treat_nodata_as_zero = false;
-          bool has_intersection = false;
-          double height_error_tol = 0.001; // 1 mm should be enough
-          double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
-          double max_rel_tol      = 1e-14;
-          int num_max_iter        = 25;   // Using many iterations can be very slow
-          
-          Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
-            (opt.camera_models[icam]->camera_center(pix),
-             opt.camera_models[icam]->pixel_to_vector(pix),
-             interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
-             height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
-
-          if (!has_intersection) 
-            continue;
-          
-          Vector2 pix_out = opt.camera_models[icam]->point_to_pixel(dem_xyz);
-          if (norm_2(pix - pix_out) > 5 * height_error_tol)
-            continue; // this is likely a bad point
-
-          pixel_vec[icam].push_back(pix);
-          weight_vec[icam].push_back(opt.anchor_weight);
-          isAnchor_vec[icam].push_back(1);
-
-          // Create a shared_ptr as we need a pointer per the api to use later
-          xyz_vec[icam].push_back(boost::shared_ptr<Vector3>(new Vector3()));
-          Vector3 & xyz = *xyz_vec[icam].back().get(); // alias to the element we just made
-          xyz = dem_xyz; // copy the value, but the pointer does not change
-          xyz_vec_ptr[icam].push_back(&xyz[0]); // keep the pointer to the first element
-
-          numAnchorPts++;
-        }   
-      }
-      
-      std::cout << "--lines and samples: " << numLines << ' ' << numSamples << std::endl;
-      std::cout << "num lines per quat: " << double(numLines) / numQuat  << std::endl;
-      std::cout << "--num anchor points " << numAnchorPts << std::endl;
-      
-    }   
-  }
   
   // Add the triangulated points constraint. We check earlier that only one
   // of the two options below can be set at a time.
@@ -1037,13 +1044,20 @@ void run_jitter_solve(int argc, char* argv[]) {
   options.function_tolerance  = 1e-16;
   options.parameter_tolerance = opt.parameter_tolerance; // default is 1e-12
   options.max_num_iterations                = opt.num_iterations;
-  options.max_num_consecutive_invalid_steps = std::max(5, opt.num_iterations/5); // try hard
+  options.max_num_consecutive_invalid_steps = std::max(20, opt.num_iterations/5); // try hard
   options.minimizer_progress_to_stdout      = true;
   if (opt.single_threaded_cameras)
     options.num_threads = 1;
   else
     options.num_threads = opt.num_threads;
 
+  // This is supposed to help with speed in a certain size range
+  options.linear_solver_type = ceres::SPARSE_SCHUR;
+  options.use_explicit_schur_complement = true; 
+  options.linear_solver_type  = ceres::ITERATIVE_SCHUR;
+  options.preconditioner_type = ceres::SCHUR_JACOBI;
+  options.use_explicit_schur_complement = false; // Only matters with ITERATIVE_SCHUR
+  
   // Solve the problem
   vw_out() << "Starting the Ceres optimizer." << std::endl;
   ceres::Solver::Summary summary;
@@ -1053,6 +1067,7 @@ void run_jitter_solve(int argc, char* argv[]) {
     vw_out() << "Found a valid solution, but did not reach the actual minimum.\n";
 
   // Save residuals after optimization
+  // TODO(oalexan1): Add here the anchor residuals
   residual_prefix = opt.out_prefix + "-final_residuals";
   save_residuals(residual_prefix, problem, opt, cnet, crn, have_dem, datum,
                  tri_points_vec, dem_xyz_vec, outliers, weight_per_residual);
