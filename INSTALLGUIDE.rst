@@ -232,10 +232,12 @@ it is not exactly like the above, you can either edit the
 each of the three ``conda config --env -add channels`` commands
 exactly as shown.
 
-We do not recommend using the ``--prepend channels`` argument, as that
-will add the ``nasa-ames-stereo-pipeline`` to your default
-``~/.condarc`` file and will have consequences for *all* of your conda
-environments, which you don't want.
+You can use the ``--prepend channels`` argument to ``conda config``
+but unless you want to add the ``nasa-ames-stereo-pipeline`` channel to
+all of your conda environments (which you probably don't), please
+make sure you have activated your *asp* environment and make sure to use
+the ``--env`` argument to contain the change to the current environment
+and not all environments.
 
 Install ASP with the command::
 
