@@ -1670,12 +1670,12 @@ Here are a few suggestions we have found helpful when running ``sfs``:
   recipe using ``parallel_sfs``.
 
 - The ``mapproject`` program can be used to map-project each image onto
-  the resulting SfS DEM (with the camera adjustments solved using SfS).
-  These orthoimages can be mosaicked using ``dem_mosaic``. If the
-  ``--max`` option is used with this tool, it create a mosaic with the
-  most illuminated pixels from this image. If the camera
-  adjustments were solved accurately, this mosaic should have little or
-  no blur or misregistration (ghosting).
+  the resulting SfS DEM (with the camera adjustments solved using
+  ``bundle_adjust``). These orthoimages can be mosaicked using
+  ``dem_mosaic``. If the ``--max`` option is used with this tool, it
+  create a mosaic with the most illuminated pixels from this image. If
+  the camera adjustments were solved accurately, this mosaic should
+  have little or no blur or misregistration (ghosting).
 
 - For challenging datasets it is suggested to first work at 1/4th of
   the full resolution (the resolution of an ISIS cube can be changed
