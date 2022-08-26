@@ -134,6 +134,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.camera_file = "";
   }
 
+  if (asp::has_cam_extension(opt.output_file))
+    vw_throw(ArgumentErr() << "The output file is a camera. Check your inputs.\n");
+  
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
