@@ -966,8 +966,8 @@ makes it very hard to register images to each other and to the
 ground. We solved this by choosing very carefully a large set of
 representative images with gradually varying illumination.
 
-We recommend that the process outlined below first be practiced
-with just a couple of images on a small region, which will make it much
+We recommend that the process outlined below first be practiced with
+just a couple of images on a small region, which will make it much
 faster to iron out any issues.
 
 Initial LOLA terrain
@@ -1142,6 +1142,7 @@ ordered by Sun azimuth angle.
       --overlap-limit 30 --num-iterations 100 --num-passes 1  \
       --min-matches 1 --max-pairwise-matches 1000             \
       --camera-weight 0 --robust-threshold 5                  \ 
+      --remove-outliers-params "75.0 3.0 100 100"             \
       --nodes-list <list of computing nodes>                  \
       --datum D_MOON <images> <cameras>                       \
       --mapprojected-data "<mapprojected images> ref.tif"     \
@@ -1183,12 +1184,24 @@ obtained so far can still be usable, if invoking bundle adjustment,
 as above, with ``--save-intermediate-cameras``. As before, using
 the CSM model can result in much-improved performance. 
 
-Here we used ``--camera-weight 0`` and ``--robust-threshold 5`` to give
-cameras which start far from the solution more chances to converge. We
-used ``--num-passes 1`` in case 100 iterations may not be enough to
-converge fully, and then outliers will be removed prematurely if there
-is more than one pass. That would remove along the way good interest
-point matches, which may make the solution worse.
+Here we used ``--camera-weight 0`` and ``--robust-threshold 5`` to
+give cameras which start far from the solution more chances to
+converge. We used ``--num-passes 1`` in case 100 iterations may not be
+enough to converge fully, and then outliers will be removed
+prematurely if there is more than one pass. That would remove along
+the way good interest point matches, which may make the solution
+worse. The option ``--remove-outliers-params`` above also used very
+generous outlier filtering, if more than 1 pass is desired, when
+outlier filter takes place.
+
+The file::
+
+   ba/run-final_residuals_stats.txt
+
+should also be examined. Images for which this median norm of all
+reprojection residuals is larger than 1-2 pixels or which have too few
+such residuals should be excluded from further consideration, as
+likely for those cameras are not correctly positioned.
 
 Alignment to ground
 ^^^^^^^^^^^^^^^^^^^
@@ -1276,13 +1289,15 @@ If the images project reasonably well, but there are still some small
 registration errors, one can refine the cameras using the reference
 terrain as a constraint in bundle adjustment::
 
-    bundle_adjust --skip-matching --num-iterations 100         \
-      --num-passes 1 --camera-weight 0                         \
-      --input-adjustments-prefix ba_align/run <images>         \
-      --save-intermediate-cameras                              \
-      --heights-from-dem ref.tif --heights-from-dem-weight 0.2 \
-      --heights-from-dem-robust-threshold 0.2                  \
-      --match-first-to-last --max-pairwise-matches 1000        \
+    bundle_adjust --skip-matching --num-iterations 100  \
+      --num-passes 2 --camera-weight 0                  \
+      --input-adjustments-prefix ba_align/run <images>  \
+      --save-intermediate-cameras                       \
+      --heights-from-dem ref.tif                        \
+      --heights-from-dem-weight 2.0                     \
+      --heights-from-dem-robust-threshold 0.5           \
+      --remove-outliers-params "75.0 3.0 100 100"       \
+      --match-first-to-last --max-pairwise-matches 1000 \
       --match-files-prefix ba/run -o ba_align_ref/run
 
 Note how we use the match files from the original ``ba`` directory,
@@ -1301,8 +1316,9 @@ The switch ``--save-intermediate cameras`` is helpful, as before, if
 desired to stop if things take too long.
 
 After mapprojecting with the newly refined cameras in
-``ba_align_ref``, any residual alignment errors should go away. The
-value used for ``--heights-from-dem-weight`` may need some
+``ba_align_ref``, any residual alignment errors should go away. 
+
+The value used for ``--heights-from-dem-weight`` may need some
 experimentation. Making it too high may result in a tight coupling to
 the reference DEM at the expense of self-consistency between the
 cameras. Yet making it too low may not constrain sufficiently the
@@ -1334,10 +1350,10 @@ The file::
    ba_align_ref/run-final_residuals_stats.txt
 
 should also be examined. For each camera it has the median of the
-norms of all residuals (reprojection errors) of pixels projecting in
-that camera. Images for which this median is larger than 1 pixel or
-which have too few such residuals (see the ``count`` field in that
-file) should be excluded from running SfS, as likely for those 
+norms of all residuals (reprojection errors) of pixels
+projecting in that camera. Images for which this median is larger than
+1 pixel or which have too few such residuals (see the ``count`` field
+in that file) should be excluded from running SfS, as likely for those
 cameras are not correctly positioned.
 
 If, even after this step, the mapprojected images fail to be perfectly
@@ -1494,11 +1510,14 @@ One can use the ``--absolute`` option for this tool and then invoke
 ``colormap`` to colorize the difference map. By and large, the SfS
 DEM should not differ from the reference DEM by more than 1-2 meters.
 
-To create a maximally lit mosaic one can mosaic together all the mapprojected
+To create a maximally-lit mosaic one can mosaic together all the mapprojected
 images using the same camera adjustments that were used for SfS. That is
 done as follows::
 
     dem_mosaic --max -o max_lit.tif image1.map.tif ... imageN.map.tif
+
+Inspecting this image will show where misregistration occurred, as those
+locations will show up blurry in this mosaic.
 
 Handling issues
 ^^^^^^^^^^^^^^^
@@ -1512,7 +1531,7 @@ format of such files), run bundle adjustment again with the
 supplemented set of camera adjustments as initial guess using
 ``--input-adjustments-prefix``, and one may keep fixed the cameras for
 which the adjustment is already good using the option
-```--fixed-camera-indices``.
+``--fixed-camera-indices``.
 
 If in some low-light locations the SfS DEM still has seams, one may
 consider invoking ``sfs`` with ``--robust-threshold 0.004``, removing
@@ -1550,7 +1569,8 @@ original LOLA DEM, with a transition region. That can be done as::
 
 Here, the inputs are the LOLA and SfS DEMs, the maximally lit mosaic
 provided as before, the shadow threshold (the same value as in
-invoking SfS should be used). 
+invoking SfS should be used). These are expected to have
+precisely the same extent, projection, and resolution.
 
 The outputs are the blended DEM as described earlier, and the weight
 which tells how much the SfS DEM contributed to the blended DEM. That
@@ -1576,7 +1596,25 @@ terrain, with any desired transform applied to the cameras before
 terrains will agree. Or, though this is not recommended, the SfS
 terrain which exists so far and the LOLA terrain can both be
 interpolated using the same ``gdalwarp -te <corners>`` command, or with 
-``dem_mosaic --tap`` as mentioned above.)
+``dem_mosaic --tap`` as mentioned above.) Any invocation of ``gdalwarp``
+should be used with bicubic or other smooth interpolation.
+
+Creation of mask of SfS pixels
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The SfS DEM used the information from images where the ground
+was lit, so above the shadow threshold. In the shadowed areas just 
+the smoothness constraint and initial DEM constraint were used.
+To create the mask of such lit pixels, with value of 1 where
+lit and 0 where unlit, use the maximally-lit mosaic found earlier,
+and run::
+
+    thresh=0.005
+    image_calc -c "sign(max(var_0, $thresh) - $thresh)" \
+      max_lit.tif -o sfs_mask.tif
+
+Here, the shadow threshold used during SfS should be used, separating
+lit and unlit pixels.
 
 SfS height uncertainty map
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
