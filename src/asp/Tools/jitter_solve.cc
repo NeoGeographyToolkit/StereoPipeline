@@ -505,6 +505,8 @@ void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
   file.close();
 }
 
+// TODO(oalexan1): Add here residuals for anchor points, and also for 
+// xyz discrepancy to DEM
 void save_residuals(std::string const& residual_prefix,
                     ceres::Problem & problem, Options const& opt,
                     vw::ba::ControlNetwork const& cnet,
@@ -720,9 +722,7 @@ void run_jitter_solve(int argc, char* argv[]) {
     asp::update_point_height_from_dem(cnet, outliers, dem_georef, interp_dem,  
                                       // Output
                                       dem_xyz_vec);
-  }
-  
-  if (opt.ref_dem != "") {
+  } else if (opt.ref_dem != "") {
     asp::create_interp_dem(opt.ref_dem, dem_georef, interp_dem);
     asp::calc_avg_intersection_with_dem(cnet, crn, outliers, opt.camera_models,
                                         dem_georef, interp_dem,
@@ -795,6 +795,7 @@ void run_jitter_solve(int argc, char* argv[]) {
     }
   }
 
+  // TODO(oalexan1): Make this a function
   if (opt.anchor_weight > 0) {
     
     for (int icam = 0; icam < (int)crn.size(); icam++) {
@@ -853,87 +854,93 @@ void run_jitter_solve(int argc, char* argv[]) {
   }
 
   // Do here two passes, first for non-anchor points and then for anchor ones.
-  // Otherwise it is too hard to do the book-keeping when saving residuals
-  
-  for (int icam = 0; icam < (int)crn.size(); icam++) {
-    for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
+  // This way it is easier to do the bookkeeping when saving the residuals.
+  // TODO(oalexan1): Make this a function
+  for (int pass = 0; pass < 2; pass++) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+      for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
 
-      Vector2 observation =  pixel_vec[icam][ipix];
-      double * tri_point = xyz_vec_ptr[icam][ipix];
-      double weight = weight_vec[icam][ipix];
-      bool isAnchor = isAnchor_vec[icam][ipix];
-    
-      // Must grow the number of quaternions and positions a bit
-      // because during optimization the 3D point and corresponding
-      // pixel may move somewhat.
-      double line_extra = opt.max_init_reproj_error + 5.0; // add some more just in case
-      csm::ImageCoord imagePt1, imagePt2;
-      asp::toCsmPixel(observation - Vector2(0.0, line_extra), imagePt1);
-      asp::toCsmPixel(observation + Vector2(0.0, line_extra), imagePt2);
-      double time1 = ls_cams[icam]->getImageTime(imagePt1);
-      double time2 = ls_cams[icam]->getImageTime(imagePt2);
+        Vector2 observation =  pixel_vec[icam][ipix];
+        double * tri_point = xyz_vec_ptr[icam][ipix];
+        double weight = weight_vec[icam][ipix];
+        bool isAnchor = isAnchor_vec[icam][ipix];
 
-      // Handle quaternions. We follow closely the conventions for UsgsAstroLsSensorModel.
-      int numQuatPerObs = 8; // Max num of quaternions used in pose interpolation 
-      int numQuat       = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
-      double quatT0     = ls_cams[icam]->m_t0Quat;
-      double quatDt     = ls_cams[icam]->m_dtQuat;
+        // Pass 0 is without anchor points, while pass 1 uses them
+        if ((int)isAnchor != pass) 
+          continue;
+        
+        // Must grow the number of quaternions and positions a bit
+        // because during optimization the 3D point and corresponding
+        // pixel may move somewhat.
+        double line_extra = opt.max_init_reproj_error + 5.0; // add some more just in case
+        csm::ImageCoord imagePt1, imagePt2;
+        asp::toCsmPixel(observation - Vector2(0.0, line_extra), imagePt1);
+        asp::toCsmPixel(observation + Vector2(0.0, line_extra), imagePt2);
+        double time1 = ls_cams[icam]->getImageTime(imagePt1);
+        double time2 = ls_cams[icam]->getImageTime(imagePt2);
 
-      // Starting and ending quat index (ending is exclusive). Based on lagrangeInterp().
-      int qindex1      = static_cast<int>((time1 - quatT0) / quatDt);
-      int qindex2      = static_cast<int>((time2 - quatT0) / quatDt);
-      int begQuatIndex = std::min(qindex1, qindex2) - numQuatPerObs / 2 + 1;
-      int endQuatIndex = std::max(qindex1, qindex2) + numQuatPerObs / 2 + 1;
+        // Handle quaternions. We follow closely the conventions for UsgsAstroLsSensorModel.
+        int numQuatPerObs = 8; // Max num of quaternions used in pose interpolation 
+        int numQuat       = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+        double quatT0     = ls_cams[icam]->m_t0Quat;
+        double quatDt     = ls_cams[icam]->m_dtQuat;
 
-      // Keep in bounds
-      begQuatIndex = std::max(0, begQuatIndex);
-      endQuatIndex = std::min(endQuatIndex, numQuat);
-      if (begQuatIndex >= endQuatIndex) // Must not happen 
-        vw_throw(ArgumentErr() << "Book-keeping error for pixel: " << observation << ".\n"); 
+        // Starting and ending quat index (ending is exclusive). Based on lagrangeInterp().
+        int qindex1      = static_cast<int>((time1 - quatT0) / quatDt);
+        int qindex2      = static_cast<int>((time2 - quatT0) / quatDt);
+        int begQuatIndex = std::min(qindex1, qindex2) - numQuatPerObs / 2 + 1;
+        int endQuatIndex = std::max(qindex1, qindex2) + numQuatPerObs / 2 + 1;
 
-      // Same for positions
-      int numPosPerObs = 8;
-      int numPos       = ls_cams[icam]->m_positions.size() / NUM_XYZ_PARAMS;
-      double posT0     = ls_cams[icam]->m_t0Ephem;
-      double posDt     = ls_cams[icam]->m_dtEphem;
+        // Keep in bounds
+        begQuatIndex = std::max(0, begQuatIndex);
+        endQuatIndex = std::min(endQuatIndex, numQuat);
+        if (begQuatIndex >= endQuatIndex) // Must not happen 
+          vw_throw(ArgumentErr() << "Book-keeping error for pixel: " << observation << ".\n"); 
+
+        // Same for positions
+        int numPosPerObs = 8;
+        int numPos       = ls_cams[icam]->m_positions.size() / NUM_XYZ_PARAMS;
+        double posT0     = ls_cams[icam]->m_t0Ephem;
+        double posDt     = ls_cams[icam]->m_dtEphem;
       
-      // Starting and ending pos index (ending is exclusive). Based on lagrangeInterp().
-      int pindex1 = static_cast<int>((time1 - posT0) / posDt);
-      int pindex2 = static_cast<int>((time2 - posT0) / posDt);
-      int begPosIndex = std::min(pindex1, pindex2) - numPosPerObs / 2 + 1;
-      int endPosIndex = std::max(pindex1, pindex2) + numPosPerObs / 2 + 1;
+        // Starting and ending pos index (ending is exclusive). Based on lagrangeInterp().
+        int pindex1 = static_cast<int>((time1 - posT0) / posDt);
+        int pindex2 = static_cast<int>((time2 - posT0) / posDt);
+        int begPosIndex = std::min(pindex1, pindex2) - numPosPerObs / 2 + 1;
+        int endPosIndex = std::max(pindex1, pindex2) + numPosPerObs / 2 + 1;
 
-      // Keep in bounds
-      begPosIndex = std::max(0, begPosIndex);
-      endPosIndex = std::min(endPosIndex, numPos);
-      if (begPosIndex >= endPosIndex) // Must not happen 
-        vw_throw(ArgumentErr() << "Book-keeping error for pixel: " << observation << ".\n"); 
+        // Keep in bounds
+        begPosIndex = std::max(0, begPosIndex);
+        endPosIndex = std::min(endPosIndex, numPos);
+        if (begPosIndex >= endPosIndex) // Must not happen 
+          vw_throw(ArgumentErr() << "Book-keeping error for pixel: " << observation << ".\n"); 
 
-      ceres::CostFunction* pixel_cost_function =
-        pixelReprojectionError::Create(observation, weight, ls_cams[icam],
-                                       begQuatIndex, endQuatIndex,
-                                       begPosIndex, endPosIndex);
-      ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
+        ceres::CostFunction* pixel_cost_function =
+          pixelReprojectionError::Create(observation, weight, ls_cams[icam],
+                                         begQuatIndex, endQuatIndex,
+                                         begPosIndex, endPosIndex);
+        ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
       
-      // The variable of optimization are camera quaternions and positions stored in the
-      // camera models, and the triangulated point.
-      std::vector<double*> vars;
-      for (int it = begQuatIndex; it < endQuatIndex; it++)
-        vars.push_back(&ls_cams[icam]->m_quaternions[it * NUM_QUAT_PARAMS]);
-      for (int it = begPosIndex; it < endPosIndex; it++)
-        vars.push_back(&ls_cams[icam]->m_positions[it * NUM_XYZ_PARAMS]);
-      vars.push_back(tri_point);
-      problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
+        // The variable of optimization are camera quaternions and positions stored in the
+        // camera models, and the triangulated point.
+        std::vector<double*> vars;
+        for (int it = begQuatIndex; it < endQuatIndex; it++)
+          vars.push_back(&ls_cams[icam]->m_quaternions[it * NUM_QUAT_PARAMS]);
+        for (int it = begPosIndex; it < endPosIndex; it++)
+          vars.push_back(&ls_cams[icam]->m_positions[it * NUM_XYZ_PARAMS]);
+        vars.push_back(tri_point);
+        problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
 
-      // Anchor points are fixed by definition. They try to prevent the cameras from moving
-      if (isAnchor) 
-        problem.SetParameterBlockConstant(tri_point);
-      
-      for (int c = 0; c < PIXEL_SIZE; c++)
-        weight_per_residual.push_back(weight);
+        for (int c = 0; c < PIXEL_SIZE; c++)
+          weight_per_residual.push_back(weight);
+
+        // Anchor points are fixed by definition. They try to prevent
+        // the cameras from moving too much from original poses.
+        if (isAnchor) 
+          problem.SetParameterBlockConstant(tri_point);
+      }
     }
   }
-
   
   // Add the triangulated points constraint. We check earlier that only one
   // of the two options below can be set at a time.
