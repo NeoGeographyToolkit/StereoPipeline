@@ -5187,15 +5187,17 @@ int main(int argc, char* argv[]) {
                      model_params[image_iter].sunPosition,
                      azimuth, elevation);
           
-          // This is useful information
-          vw_out().precision(17); // Since the sun position has very big values
+          // Print this. It will be used to organize the images by illumination
+          // for bundle adjustment.
+          // Since the sun position has very big values and we want to sort uniquely
+          // the images by azimuth angle, use high precision below.
+          vw_out().precision(17);
           vw_out() << "Sun position for: " << opt.input_images[image_iter] << " is "
                    << model_params[image_iter].sunPosition << "\n";
-          vw_out().precision(6); // Go back to usual precision
-          
           vw_out() << "Sun azimuth and elevation for: "
                    << opt.input_images[image_iter] << " are " << azimuth
                    << " and " << elevation << " degrees.\n";
+          vw_out().precision(6); // Go back to usual precision
         }
       }
     }
