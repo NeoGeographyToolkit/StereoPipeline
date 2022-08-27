@@ -166,6 +166,9 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   m_show_two_images_when_side_by_side_with_dialog(true), 
   m_cursor_count(0) {
 
+  if (!stereo_settings().zoom_proj_win.empty())
+    m_use_georef = true;
+  
   // Window size
   resize(window_size[0], window_size[1]);
 
@@ -924,6 +927,14 @@ void MainWindow::viewMatches(){
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
     MainWindow::updateMatchesMenuEntries();
+
+    if (m_use_georef) {
+      popUp("To view matches, turn off viewing the images as georeferenced.");
+      asp::stereo_settings().view_matches = false;
+      MainWindow::updateMatchesMenuEntries();
+      MainWindow::createLayout();
+      return;
+    }
   }
   
   // If started editing matches do not load them from disk
@@ -1043,6 +1054,7 @@ void MainWindow::viewMatches(){
       m_widgets[i]->viewMatches();
   }
 
+  return;
 }
 
 void MainWindow::viewPairwiseMatchesSlot() {
@@ -1086,6 +1098,15 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   if (!asp::stereo_settings().pairwise_matches && !asp::stereo_settings().pairwise_clean_matches) {
     return;
   }
+
+  if (m_use_georef) {
+    popUp("To view matches, turn off viewing the images as georeferenced.");
+    asp::stereo_settings().pairwise_matches = false;
+    asp::stereo_settings().pairwise_clean_matches = false;
+    MainWindow::updateMatchesMenuEntries();
+    createLayout();
+    return;
+  }
   
   if (asp::stereo_settings().pairwise_matches && asp::stereo_settings().pairwise_clean_matches) {
     popUp("Cannot show both pairwise matches and pairwise clean matches at the same time.");
@@ -1126,14 +1147,36 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   // Get the pointer to the right structure
   pairwiseMatchList * pairwiseMatches = NULL;
   std::string match_file;
+  bool flip = false;
+
+  // Read either matches from first to second image, or vice versa
   if (asp::stereo_settings().pairwise_matches) {
     pairwiseMatches = &m_pairwiseMatches; 
     match_file = vw::ip::match_filename(m_output_prefix, m_images[left_index].name,
                                         m_images[right_index].name);
+    if (!fs::exists(match_file)) {
+      std::string match_file2 = vw::ip::match_filename(m_output_prefix, m_images[right_index].name,
+                                                       m_images[left_index].name);
+      if (fs::exists(match_file2)) {
+        std::cout << "Found match file from second to first image.\n";
+        match_file = match_file2;
+        flip = true;
+      }
+    }
   } else {
     pairwiseMatches = &m_pairwiseCleanMatches;
     match_file = vw::ip::clean_match_filename(m_output_prefix, m_images[left_index].name,
                                               m_images[right_index].name);
+    if (!fs::exists(match_file)) {
+      std::string match_file2 = vw::ip::clean_match_filename(m_output_prefix,
+                                                             m_images[right_index].name,
+                                                             m_images[left_index].name);
+      if (fs::exists(match_file2)) {
+        std::cout << "Found match file from second to first image.\n";
+        match_file = match_file2;
+        flip = true;
+      }
+    }
   }
   
   // Ensure the ip per image are always clean but initialized
@@ -1151,7 +1194,10 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     try {
       // Load it
       std::cout << "Loading match file: " << match_file << std::endl;
-      ip::read_binary_match_file(match_file, left_ip, right_ip);
+      if (!flip) 
+        ip::read_binary_match_file(match_file, left_ip, right_ip);
+      else
+        ip::read_binary_match_file(match_file, right_ip, left_ip);
     } catch(...) {
       popUp("Cannot find the match file with given images and output prefix.");
       return;
@@ -1366,13 +1412,10 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
 
   // Add the options
   for (int i = 1; i < m_argc; i++) {
-
     std::string token = std::string(m_argv[i]);
-
     // Skip adding empty spaces we may have introduced with rm_option_and_vals().
     if (token == " ")
       continue;
-
     // Use quotes if there are spaces
     if (token.find(" ") != std::string::npos || token.find("\t") != std::string::npos) 
       token = '"' + token + '"';

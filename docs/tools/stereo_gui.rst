@@ -110,7 +110,8 @@ for use with operations on regions.
 
 One can zoom to a desired proj win from the ``View`` menu. This is helpful
 to reproduce a zoom level. If multiple images are present,
-the proj win used is for the first one.
+the proj win used is for the first one. This can be invoked at startup
+via ``--zoom-proj-win``.
 
 .. _stereo_gui_view_ip:
 
@@ -431,8 +432,13 @@ accept all other ``parallel_stereo`` options as well.
     Start with all images turned off (if all images are in the same
     window, useful with a large number of images).
 
+--zoom-proj-win
+    Zoom to this proj win on startup. It is assumed that the images
+    are georeferenced. Also accessible from the *View* menu.
+
 --delete-temporary-files-on-exit
-    Delete any subsampled and other files created by the GUI when exiting.
+    Delete any subsampled and other files created by the GUI when
+    exiting.
 
 --create-image-pyramids-only
     Without starting the GUI, build multi-resolution pyramids for

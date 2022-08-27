@@ -95,6 +95,13 @@ namespace asp{
       = BBox2i(bl.min().x(), bl.min().y(), bl.max().x(), bl.max().y());
     stereo_settings().right_image_crop_win
       = BBox2i(br.min().x(), br.min().y(), br.max().x(), br.max().y());
+
+    // Adjust the zoom win dimensions
+    auto & zoom_win = asp::stereo_settings().zoom_proj_win;
+    if (zoom_win.min().x() > zoom_win.max().x())
+      std::swap(zoom_win.min().x(), zoom_win.max().x());
+    if (zoom_win.min().y() > zoom_win.max().y())
+      std::swap(zoom_win.min().y(), zoom_win.max().y());
   }
 
   // Inherit from QApplication to be able to over-ride the notify() method

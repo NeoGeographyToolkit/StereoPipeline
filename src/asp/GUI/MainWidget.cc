@@ -245,9 +245,10 @@ namespace vw { namespace gui {
         vw_throw(ArgumentErr() << "Missing georeference.\n");
       }
     }
-    
+
     // Set geotransforms and other data
     for (int i = 0; i < num_images; i++) {
+
       // Make sure we set these up before the image2world call below!
       m_world2image_geotransforms[i]
         = GeoTransform(m_images[m_base_image_id].georef, m_images[i].georef);
@@ -269,6 +270,16 @@ namespace vw { namespace gui {
       
     } // end iterating over the images
 
+    if (!asp::stereo_settings().zoom_proj_win.empty()) {
+      // Zoom to desired win. Later, once we know the window
+      // size, this region's dimensions will be adjusted to have
+      // correct aspect ratio.
+      BBox2 pix_box = m_images[m_base_image_id].georef.point_to_pixel_bbox
+        (asp::stereo_settings().zoom_proj_win);
+      m_current_view = image2world(pix_box, m_base_image_id);
+      asp::stereo_settings().zoom_proj_win = BBox2(); // no longer needed
+    }
+    
     // Each image can be hillshaded independently of the other ones
     m_hillshade_azimuth   = asp::stereo_settings().hillshade_azimuth;
     m_hillshade_elevation = asp::stereo_settings().hillshade_elevation;
@@ -354,7 +365,7 @@ namespace vw { namespace gui {
     connect(m_mergePolys,            SIGNAL(triggered()), this, SLOT(mergePolys()));
 
     MainWidget::maybeGenHillshade();
-    
+
   } // End constructor
 
 
@@ -2888,7 +2899,8 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
           m_thresh = std::max(m_thresh, val);
         }
 
-        vw_out() << "Image threshold for " << m_images[m_beg_image_id].name << ": " << m_thresh << std::endl;
+        vw_out() << "Image threshold for " << m_images[m_beg_image_id].name
+                 << ": " << m_thresh << std::endl;
         return;
       }
 
