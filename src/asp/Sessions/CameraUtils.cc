@@ -26,6 +26,7 @@
 #include <vw/Core/Exception.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/CameraUtilities.h>
+#include <vw/InterestPoint/InterestData.h>
 
 #include <string>
 #include <iostream>
@@ -124,4 +125,34 @@ void datum_from_cameras(std::vector<std::string> const& image_files,
   return;
 }
 
+// Find and sort the convergence angles for given cameras and interest points
+void convergence_angles(vw::camera::CameraModel const * left_cam,
+                        vw::camera::CameraModel const * right_cam,
+                        std::vector<vw::ip::InterestPoint> const& left_ip,
+                        std::vector<vw::ip::InterestPoint> const& right_ip,
+                        std::vector<double> & sorted_angles) {
+
+  int num_ip = left_ip.size();
+  sorted_angles.clear();
+  for (int ip_it = 0; ip_it < num_ip; ip_it++) {
+    Vector2 lip(left_ip[ip_it].x,  left_ip[ip_it].y);
+    Vector2 rip(right_ip[ip_it].x, right_ip[ip_it].y);
+    double angle = 0.0;
+    try {
+      angle = (180.0 / M_PI) * acos(dot_prod(left_cam->pixel_to_vector(lip),
+                                             right_cam->pixel_to_vector(rip)));
+    } catch(...) {
+      // Projection into camera may not always succeed
+      continue;
+    }
+      
+    if (std::isnan(angle)) 
+      continue;
+      
+    sorted_angles.push_back(angle);
+  }
+  
+  std::sort(sorted_angles.begin(), sorted_angles.end());
+}
+  
 } // end namespace asp

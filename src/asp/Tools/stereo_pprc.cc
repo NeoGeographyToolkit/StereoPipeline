@@ -27,6 +27,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/InterestPoint/Matcher.h>
 #include <asp/Core/IpMatchingAlgs.h>        // Lightweight header
+#include <asp/Sessions/CameraUtils.h>
 #include <vw/Math/Functors.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Core/ThreadedEdgeMask.h>
@@ -561,28 +562,22 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
   // vw_out() << "Reading binary match file: " << match_filename << std::endl;
   ip::read_binary_match_file(match_filename, left_ip, right_ip);
 
-  std::vector<double> angles;
+  std::vector<double> sorted_angles;
   boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
   opt.session->camera_models(left_cam, right_cam);
-  int num_ip = left_ip.size();
-  for (int ip_it = 0; ip_it < num_ip; ip_it++) {
-    Vector2 lip(left_ip[ip_it].x,  left_ip[ip_it].y);
-    Vector2 rip(right_ip[ip_it].x, right_ip[ip_it].y);
-    double angle = (180.0 / M_PI) * acos(dot_prod(left_cam->pixel_to_vector(lip),
-                                                  right_cam->pixel_to_vector(rip)));
-    angles.push_back(angle);
-  }
+  asp::convergence_angles(left_cam.get(), right_cam.get(), left_ip, right_ip, sorted_angles);
 
-  if (angles.empty()) 
-    vw_throw(ArgumentErr() << "No convergence angles calculated.\n");
-    
-  std::sort(angles.begin(), angles.end());
-  int len = angles.size();
+  if (sorted_angles.empty()) {
+    vw_out() << "No convergence angles calculated.\n";
+    return;
+  }
+  
+  int len = sorted_angles.size();
   vw_out() << "Convergence angle percentiles (in degrees) based on interest point matches:\n";
   vw_out() << "\t"
-           << "25% " << angles[0.25*len] << ", "
-           << "50% " << angles[0.50*len] << ", "
-           << "75% " << angles[0.75*len] << ".\n";
+           << "25% " << sorted_angles[0.25*len] << ", "
+           << "50% " << sorted_angles[0.50*len] << ", "
+           << "75% " << sorted_angles[0.75*len] << ".\n";
 }
 
 int main(int argc, char* argv[]) {

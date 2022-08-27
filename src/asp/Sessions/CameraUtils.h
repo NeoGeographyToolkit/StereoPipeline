@@ -34,6 +34,10 @@ namespace vw {
   namespace cartography {
     class Datum;
   }
+
+  namespace ip {
+    class InterestPoint;
+  }
 }
 
 namespace asp {
@@ -49,13 +53,19 @@ namespace asp {
                     bool & single_threaded_cameras,
                     std::vector<boost::shared_ptr<vw::camera::CameraModel>> & camera_models);
 
-// Find the datum based on cameras. For stereo session pinhole will return WGS84.
-void datum_from_cameras(std::vector<std::string> const& image_files,
-                        std::vector<std::string> const& camera_files,
+  // Find the datum based on cameras. For stereo session pinhole will return WGS84.
+  void datum_from_cameras(std::vector<std::string> const& image_files,
+                          std::vector<std::string> const& camera_files,
                         std::string & stereo_session, // may change
                         // Outputs
                         vw::cartography::Datum & datum);
-  
+
+  // Find and sort the convergence angles for given cameras and interest points
+  void convergence_angles(vw::camera::CameraModel const * left_cam,
+                          vw::camera::CameraModel const * right_cam,
+                          std::vector<vw::ip::InterestPoint> const& left_ip,
+                          std::vector<vw::ip::InterestPoint> const& right_ip,
+                          std::vector<double> & sorted_angles);
 } // end namespace asp
 
 #endif // __STEREO_SESSION_CAMERAUTILS_H__
