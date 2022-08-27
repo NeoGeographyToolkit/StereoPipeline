@@ -54,6 +54,19 @@ parallel_bundle_adjust:
     image pairs, so ``parallel_bundle_adjust`` saves them in
     subdirectories.
 
+bundle_adjust:
+  * Added the options ``--image-list``, ``--camera-list``, 
+    ``--mapprojected-data-list``, for when the inputs are too many to 
+    specify on the command line.
+  * When doing multiple passes (which is the default) at each pass
+    resume not only with clean matches but also with the cameras
+    optimized so far, rather than going to the originals.
+  * Can do multiple passes with ``--heights-from-dem``. One should
+    be generous with outlier removal thresholds if not sure of 
+    the input DEM accuracy (option ``--remove-outliers-params``).
+  * Bugfix in ``residuals_stats.txt``; the mean was correct but the
+    median was wrong.
+
 point2dem:
   * Added the Tukey outlier removal method option applied to
     triangulation errors (error_thresh = 75th_pct + 1.5 * (75th_pct -
@@ -72,13 +85,11 @@ stereo_gui:
   * Given a ``bundle_adjust`` run directory, can select via checkboxes
     any two images to show side-by-side, and automatically load their
     match file or clean match file (options:
-    ``--pairwise-matches`` and ``--pairwise-clean-matches``).
-  * Zoom to given proj win from the View menu. Useful for reproducibility.
+    ``--pairwise-matches`` and ``--pairwise-clean-matches``, also accessible
+    from the top menu).
+  * Zoom to given proj win from the View menu. Useful for
+    reproducibility. Also accessible with option ``--zoom-proj-win``.
 
-bundle_adjust:
-  * Bugfix in ``residuals_stats.txt``; the mean was correct but the
-    median was wrong.
- 
 corr_eval:
   * Bugfix for excessive memory usage with positive ``--prefilter-mode``.
   * Added a note saying that the user should ensure that this tool uses 

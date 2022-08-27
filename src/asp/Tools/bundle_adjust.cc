@@ -46,6 +46,15 @@ typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 
 typedef CameraRelationNetwork<JFeature> CRNJ;
 
+// TODO(oalexan1): Move to utils
+void read_list(std::string const& file, std::vector<std::string> & list) {
+  list.clear();
+  std::ifstream fh(file);
+  std::string val;
+  while (fh >> val)
+    list.push_back(val);
+}
+
 /// Write a csm camera state file to disk.
 void write_csm_output_file(Options const& opt, int icam,
                            std::string const& adjustFile, 
@@ -120,16 +129,12 @@ private:
 
 /// Add error source for projecting a 3D point into the camera.
 void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& pixel_sigma,
-                                     int point_index, int camera_index, bool is_gcp,
+                                     int point_index, int camera_index, 
                                      BAParamStorage & param_storage,
                                      Options const& opt,
                                      ceres::Problem & problem){
 
-  // For GCP use a loss function that won't treat this point as an outlier.
   ceres::LossFunction* loss_function;
-  //if (is_gcp) // TODO: Test if this improves things.
-  //  loss_function = new ceres::TrivialLoss();
-  //else
   loss_function = get_loss_function(opt);
 
   boost::shared_ptr<CameraModel> camera_model = opt.camera_models[camera_index];
@@ -291,7 +296,7 @@ void compute_residuals(bool apply_loss_function,
                        Options const& opt,
                        BAParamStorage const& param_storage,
                        std::vector<size_t> const& cam_residual_counts,
-                       size_t num_gcp_residuals,
+                       size_t num_gcp_or_dem_residuals,
                        std::vector<vw::Vector3> const& reference_vec,
                        ceres::Problem & problem,
                        // Output
@@ -310,7 +315,7 @@ void compute_residuals(bool apply_loss_function,
   const size_t num_residuals = residuals.size();
   
   // Verify our book-keeping is correct
-  size_t num_expected_residuals = num_gcp_residuals*param_storage.params_per_point();
+  size_t num_expected_residuals = num_gcp_or_dem_residuals*param_storage.params_per_point();
   size_t total_num_cam_params   = param_storage.num_cameras()*param_storage.params_per_camera();
   for (size_t i=0; i<param_storage.num_cameras(); i++)
     num_expected_residuals += cam_residual_counts[i]*PIXEL_SIZE;
@@ -427,6 +432,9 @@ void write_residual_map(std::string const& output_prefix,
       std::string comment = "";
       if (cnet[i].type() == ControlPoint::GroundControlPoint)
         comment = " # GCP";
+      else if (cnet[i].type() == ControlPoint::PointFromDem)
+        comment = " # from DEM";
+      
       file << llh[0] <<", "<< llh[1] <<", "<< llh[2] <<", "<< mean_residuals[i] <<", "
            << num_point_observations[i] << comment << std::endl;
   }
@@ -441,14 +449,14 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
                          Options const& opt,
                          BAParamStorage const& param_storage,
                          std::vector<size_t> const& cam_residual_counts,
-                         size_t num_gcp_residuals, 
+                         size_t num_gcp_or_dem_residuals, 
                          std::vector<vw::Vector3> const& reference_vec,
                          ControlNetwork const& cnet, CRNJ & crn, 
                          ceres::Problem &problem) {
   
   std::vector<double> residuals;
   compute_residuals(apply_loss_function, opt, param_storage,
-                    cam_residual_counts, num_gcp_residuals, reference_vec, problem,
+                    cam_residual_counts, num_gcp_or_dem_residuals, reference_vec, problem,
                     // Output
                     residuals);
     
@@ -526,11 +534,11 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   residual_file_raw_pixels.close();
   
   // List the GCP residuals
-  if (num_gcp_residuals > 0) {
+  if (num_gcp_or_dem_residuals > 0) {
     residual_file_raw_gcp.open(residual_raw_gcp_path.c_str());
     residual_file_raw_gcp.precision(18);
-    residual_file << "GCP residual errors:\n";
-    for (size_t i=0; i<num_gcp_residuals; i++) {
+    residual_file << "GCP or DEM residual errors:\n";
+    for (size_t i=0; i<num_gcp_or_dem_residuals; i++) {
       double mean_residual = 0; // Take average of XYZ error for each point
       residual_file_raw_gcp << i;
       for (size_t j = 0; j < param_storage.params_per_point(); j++) {
@@ -622,12 +630,12 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 // Start outlier functions
 
 /// Add to the outliers based on the large residuals
-int update_outliers(ControlNetwork   & cnet,
+int add_to_outliers(ControlNetwork   & cnet,
                     CRNJ & crn,
                     BAParamStorage & param_storage,
                     Options const& opt,
                     std::vector<size_t> const& cam_residual_counts,
-                    size_t num_gcp_residuals,
+                    size_t num_gcp_or_dem_residuals,
                     std::vector<vw::Vector3> const& reference_vec, 
                     ceres::Problem &problem) {
   
@@ -642,7 +650,7 @@ int update_outliers(ControlNetwork   & cnet,
   std::vector<double> residuals;
   compute_residuals(apply_loss_function,  
                     opt, param_storage,  cam_residual_counts,  
-                    num_gcp_residuals, reference_vec, problem,
+                    num_gcp_or_dem_residuals, reference_vec, problem,
                     // output
                     residuals);
 
@@ -758,7 +766,8 @@ int update_outliers(ControlNetwork   & cnet,
       }
       
     }
-    vw_out() << "Removed " << num_outliers_by_elev_or_lonlat << " outliers by elevation range and/or lon-lat range.\n";
+    vw_out() << "Removed " << num_outliers_by_elev_or_lonlat
+             << " outliers by elevation range and/or lon-lat range.\n";
   }
   
   int num_remaining_points = num_points - param_storage.get_num_outliers();
@@ -766,11 +775,58 @@ int update_outliers(ControlNetwork   & cnet,
   return num_outliers_by_reprojection + num_outliers_by_elev_or_lonlat;
 }
 
-// TODO: At least part of this should be a class function??
-/// Remove the outliers flagged earlier
-void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
-                     Options const& opt){
+struct convAngle {
+  int left_cam_index, right_cam_index, num_angles;
+  double angle25, angle50, angle75;
+  convAngle(): left_cam_index(0), right_cam_index(0), num_angles(0), angle25(0), angle50(0),
+               angle75(0) {}
+  void populate(int left_index, int right_index, std::vector<double> const& sorted_angles) {
+    left_cam_index  = left_index;
+    right_cam_index = right_index;
+    num_angles = sorted_angles.size();
+    if (num_angles > 0) {
+      angle25 = sorted_angles[0.25*num_angles];
+      angle50 = sorted_angles[0.50*num_angles];
+      angle75 = sorted_angles[0.75*num_angles];
+    }
+  }
+};
 
+// TODO: At least part of this should be a class function??
+/// Calculate convergence angles. Remove the outliers flagged earlier.
+// These are done together as they rely on reloading interest point matches,
+// which is expensive so the matches are used for both operations.
+void calc_conv_angles_remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
+                                      Options const& opt, bool remove_outliers,
+                                      std::vector<convAngle> & convAngles){
+
+  convAngles.clear();
+  
+  // Find the cameras with the latest adjustments
+  std::vector<boost::shared_ptr<vw::camera::CameraModel>> optimized_cams;
+  int num_cameras = opt.image_files.size();
+  for (int icam = 0; icam < num_cameras; icam++) {
+    
+    switch(opt.camera_type) {
+    case BaCameraType_Pinhole:
+      //vw::camera::PinholeModel* pin_ptr
+      //  = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
+      //populate_pinhole_from_arrays(icam, param_storage, *pin_ptr);
+
+      //write_pinhole_output_file(opt, icam, param_storage);
+      break;
+    case BaCameraType_OpticalBar:
+      //write_optical_bar_output_file(opt, icam, param_storage);
+      break;
+    default:
+      CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+      boost::shared_ptr<vw::camera::CameraModel>
+        cam(new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
+                                    cam_adjust.position(), cam_adjust.pose()));
+      optimized_cams.push_back(cam);
+    }
+  }
+  
   // Work on individual image pairs
   typedef std::map< std::pair<int, int>, std::string>::const_iterator match_type;
   for (match_type match_it = opt.match_files.begin(); match_it != opt.match_files.end();
@@ -781,12 +837,12 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
 
     std::pair<int, int> cam_pair   = match_it->first;
     std::string         match_file = match_it->second;
-    size_t left_cam  = cam_pair.first;
-    size_t right_cam = cam_pair.second;
+    size_t left_index  = cam_pair.first;
+    size_t right_index = cam_pair.second;
 
     // Just skip over match files that don't exist.
     if (!boost::filesystem::exists(match_file)) {
-      vw_out() << "Skipping non-existant match file: " << match_file << std::endl;
+      vw_out() << "Skipping non-existent match file: " << match_file << std::endl;
       continue;
     }
 
@@ -795,17 +851,34 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
     // are part of these original ones. 
     std::vector<ip::InterestPoint> orig_left_ip, orig_right_ip;
     ip::read_binary_match_file(match_file, orig_left_ip, orig_right_ip);
-    std::map< std::pair<double, double>, std::pair<double, double> > lookup;
+
+    // Create a new convergence angle storage struct
+    convAngles.push_back(convAngle());
+    convAngle & A = convAngles.back(); // alias
+    std::vector<double> sorted_angles;
+
+//     if (!remove_outliers) {
+//       asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
+//                               orig_left_ip, orig_right_ip, sorted_angles);
+//       A.populate(left_index, right_index, sorted_angles);
+      
+//       // Since no outliers are removed, nothing else to do
+//       continue;
+//     }
+    
+    typedef std::tuple<double, double, double> Triplet;
+    std::map<Triplet, Triplet> lookup;
     for (size_t ip_iter = 0; ip_iter < orig_left_ip.size(); ip_iter++) {
-      lookup [ std::make_pair(orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y) ]
-        =  std::make_pair(orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y);
+      // Note how we store both the camera index and the ip coordinates
+      Triplet left_set(left_index, orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y); 
+      Triplet right_set(right_index, orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y); 
+      lookup[left_set] = right_set;
     }
 
-    // TODO: ???
     // Iterate over the control network, and, for each control point,
-    // look only at the measure for left_cam and right_cam
+    // look only at the measure for left_index and right_index
     int ipt = -1;
-    for (ControlNetwork::const_iterator iter = cnet.begin(); iter != cnet.end(); iter++ ) {
+    for (ControlNetwork::const_iterator iter = cnet.begin(); iter != cnet.end(); iter++) {
 
       ipt++; // control point index
 
@@ -815,17 +888,17 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
       }
         
       bool has_left = true, has_right = false;
-      ip::InterestPoint lip, rip;
-      for ( ControlPoint::const_iterator measure = (*iter).begin();
-            measure != (*iter).end(); ++measure ) {
-        if (measure->image_id() == left_cam) {
+      ip::InterestPoint cnet_left_ip, cnet_right_ip;
+      for (ControlPoint::const_iterator measure = (*iter).begin();
+            measure != (*iter).end(); ++measure) {
+        if (measure->image_id() == left_index) {
           has_left = true;
-          lip = ip::InterestPoint( measure->position()[0], measure->position()[1],
-                                   measure->sigma()[0] );
-        }else if (measure->image_id() == right_cam) {
+          cnet_left_ip = ip::InterestPoint(measure->position()[0], measure->position()[1],
+                                   measure->sigma()[0]);
+        }else if (measure->image_id() == right_index) {
           has_right = true;
-          rip = ip::InterestPoint( measure->position()[0], measure->position()[1],
-                                   measure->sigma()[0] );
+          cnet_right_ip = ip::InterestPoint(measure->position()[0], measure->position()[1],
+                                   measure->sigma()[0]);
         }
       }
 
@@ -837,13 +910,13 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
         continue; // skip outliers
 
       // Only add ip that were there originally
-      std::pair<double, double> left (lip.x, lip.y);
-      std::pair<double, double> right(rip.x, rip.y);
-      if (lookup.find(left) == lookup.end() || lookup[left] != right)
+      Triplet left_set(left_index, cnet_left_ip.x, cnet_left_ip.y); 
+      Triplet right_set(right_index, cnet_right_ip.x, cnet_right_ip.y); 
+      if (lookup.find(left_set) == lookup.end() || lookup[left_set] != right_set)
         continue;
       
-      left_ip.push_back (lip);
-      right_ip.push_back(rip);
+      left_ip.push_back (cnet_left_ip);
+      right_ip.push_back(cnet_right_ip);
     }
     
     // Filter by disparity
@@ -881,6 +954,11 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
 
     vw_out() << "Writing: " << clean_match_file << std::endl;
     ip::write_binary_match_file(clean_match_file, left_ip, right_ip);
+
+    // Find convergence angles based on clean ip
+    //asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
+    //                        left_ip, right_ip, sorted_angles);
+    //A.populate(left_index, right_index, sorted_angles);
   } // End loop through the match files
 }
 
@@ -924,11 +1002,36 @@ int do_ba_ceres_one_pass(Options             & opt,
   // each intrinsic changes by a scale specific to it.
   // Note: If an intrinsic starts as 0, it will then stay as 0. This is documented.
   // Can be both useful and confusing.
+
+  bool have_dem = (!opt.heights_from_dem.empty() || !opt.ref_dem.empty());
   
+  // Create anchor xyz with the help of a DEM in two ways.
+  // TODO(oalexan1): Study how to best pass the DEM to avoid the code
+  // below not being slow. It is not clear if the DEM tiles are cached
+  // when passing around an ImageViewRef.
+  std::vector<Vector3> dem_xyz_vec;
   vw::cartography::GeoReference dem_georef;
-  ImageViewRef<PixelMask<double>>  interp_dem;
-  if (opt.heights_from_dem != "") 
+  ImageViewRef<PixelMask<double>> interp_dem;
+  std::set<int> outliers;
+  if (have_dem) {
+    for (int ipt = 0; ipt < num_points; ipt++) {
+      if (param_storage.get_point_outlier(ipt))
+        outliers.insert(ipt);
+    }
+  }
+  if (opt.heights_from_dem != "") {
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
+    asp::update_point_height_from_dem(cnet, outliers, dem_georef, interp_dem,  
+                                      // Output
+                                      dem_xyz_vec);
+  }
+  if (opt.ref_dem != "") {
+    asp::create_interp_dem(opt.ref_dem, dem_georef, interp_dem);
+    asp::calc_avg_intersection_with_dem(cnet, crn, outliers, opt.camera_models,
+                                        dem_georef, interp_dem,
+                                        // Output
+                                        dem_xyz_vec);
+  }
   
   // TODO: Stop using the CRN, store residual blocks in point-major order?
 
@@ -945,16 +1048,47 @@ int do_ba_ceres_one_pass(Options             & opt,
         continue; // skip outliers
 
       VW_ASSERT(int(icam) < num_cameras,
-                ArgumentErr() << "Out of bounds in the number of cameras");
+                ArgumentErr() << "Out of bounds in the number of cameras.");
       VW_ASSERT(int(ipt)  < num_points,
-                ArgumentErr() << "Out of bounds in the number of points");
+                ArgumentErr() << "Out of bounds in the number of points.");
+
+      // Adjust non-GCP triangulated points based on the DEM, if
+      // provided (two approaches are supported).
+      bool is_gcp = (cnet[ipt].type() == ControlPoint::GroundControlPoint);
+      if (have_dem && !is_gcp && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) {
+        double* point = param_storage.get_point_ptr(ipt);
+          
+        for (int p = 0; p < 3; p++) 
+          point[p] = dem_xyz_vec.at(ipt)[p]; // update the tri point based on the DEM
+        cnet[ipt].set_type(ControlPoint::PointFromDem); // so we can track it later
+        cnet[ipt].set_position(Vector3(point[0], point[1], point[2])); // update in the cnet too
+        
+        if (opt.heights_from_dem != "") {
+          if (opt.heights_from_dem_weight <= 0) {
+            // Fix it
+            problem.SetParameterBlockConstant(point);
+          }else{
+            // Let it float. Later a constraint will be added.
+            double s = 1.0/opt.heights_from_dem_weight;
+            cnet[ipt].set_sigma(Vector3(s, s, s));
+          }
+          
+        }else  if (opt.ref_dem != "") {
+          if (opt.ref_dem_weight <= 0) {
+            // Fix it
+            problem.SetParameterBlockConstant(point);
+          }else{
+            // Let it float. Later a constraint will be added.
+            double s = 1.0/opt.ref_dem_weight;
+            cnet[ipt].set_sigma(Vector3(s, s, s));
+          }
+        }
+      }
 
       // The observed value for the projection of point with index ipt into
       // the camera with index icam.
       Vector2 observation = (**fiter).m_location;
       Vector2 pixel_sigma = (**fiter).m_scale;
-
-      const bool is_gcp = (cnet[ipt].type() == ControlPoint::GroundControlPoint);
 
       // This is a bugfix
       if (pixel_sigma != pixel_sigma) // nan check
@@ -970,51 +1104,25 @@ int do_ba_ceres_one_pass(Options             & opt,
 
       // Call function to add the appropriate Ceres residual block.
       add_reprojection_residual_block(observation, pixel_sigma, ipt, icam,
-                                      is_gcp, param_storage, opt, problem);
-
-      if (opt.heights_from_dem != "") {
-        // For non-GCP points, copy the heights for xyz points from the DEM.
-        // Fix the obtained xyz points as they are considered reliable
-        // and we should have the cameras and intrinsics params to conform to these.
-        if (!is_gcp){
-          double* point = param_storage.get_point_ptr(ipt);
-          // Areas that have no underlying DEM are not put any
-          // constraints. The user can take advantage of that to put
-          // constraints only in parts of the image where desired.
-          if (asp::update_point_height_from_dem(point, dem_georef, interp_dem)) {
-            if (opt.heights_from_dem_weight <= 0) {
-              // Fix it. Set it as GCP to not remove it as outlier.
-              cnet[ipt].set_type(ControlPoint::GroundControlPoint);
-              problem.SetParameterBlockConstant(point);
-            }else{
-              // Make this into a GCP so we can float it while not deviating
-              // too much from what we have now. Also not remove it
-              // as outlier.
-              cnet[ipt].set_type(ControlPoint::GroundControlPoint);
-              double s = 1.0/opt.heights_from_dem_weight;
-              cnet[ipt].set_position(Vector3(point[0], point[1], point[2]));
-              cnet[ipt].set_sigma(Vector3(s, s, s));
-            }
-          }
-        }
-      }
-      
+                                      param_storage, opt, problem);
       cam_residual_counts[icam] += 1; // Track the number of residual blocks for each camera
+      
     } // end iterating over points
   } // end iterating over cameras
 
-  // Add ground control points
-  // - Error goes up as GCP's move from their input positions.
-  int    num_gcp = 0;
-  size_t num_gcp_residuals = 0;
-  for (int ipt = 0; ipt < num_points; ipt++){
-    if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
-      continue; // Skip non-GCP's
+  // Add ground control points or points based on a DEM constraint
+  // Error goes up as GCP's move from their input positions.
+  int num_gcp = 0, num_gcp_or_dem_residuals = 0;
+  for (int ipt = 0; ipt < num_points; ipt++) {
+    if (cnet[ipt].type() != ControlPoint::GroundControlPoint &&
+        cnet[ipt].type() != ControlPoint::PointFromDem)
+      continue; // Skip non-GCP's and points which do not need special treatment
 
     if (param_storage.get_point_outlier(ipt))
       continue; // skip outliers
-
-    num_gcp++;
+    
+    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+      num_gcp++;
 
     Vector3 observation = cnet[ipt].position();
     Vector3 xyz_sigma   = cnet[ipt].sigma();
@@ -1032,18 +1140,23 @@ int do_ba_ceres_one_pass(Options             & opt,
     // Don't use the same loss function as for pixels since that one
     // discounts outliers and the GCP's should never be discounted.
     // The user an override this for the advanced --heights_from_dem
-    // option.
-    ceres::LossFunction* loss_function;
-    if (opt.heights_from_dem != "" &&
+    // and --reference-dem options.
+    ceres::LossFunction* loss_function = NULL;
+    if (opt.heights_from_dem != ""      &&
         opt.heights_from_dem_weight > 0 &&
         opt.heights_from_dem_robust_threshold > 0) {
       loss_function = get_loss_function(opt, opt.heights_from_dem_robust_threshold);
+    }else if (opt.ref_dem != "" &&
+        opt.ref_dem_weight > 0  &&
+        opt.ref_dem_robust_threshold > 0) {
+      loss_function = get_loss_function(opt, opt.ref_dem_robust_threshold);
     }else{
       loss_function = new ceres::TrivialLoss();
     }
     double * point  = param_storage.get_point_ptr(ipt);
     problem.AddResidualBlock(cost_function, loss_function, point);
-    ++num_gcp_residuals;
+
+    num_gcp_or_dem_residuals++;
 
     if (opt.fix_gcp_xyz) 
       problem.SetParameterBlockConstant(point);
@@ -1136,14 +1249,14 @@ int do_ba_ceres_one_pass(Options             & opt,
                     csv_conv, is_lola_rdr_format, mean_longitude, verbose,  
                     data);
     else
-      vw_throw( ArgumentErr() << "Unsupported file: " << opt.reference_terrain << " of type"
+      vw_throw(ArgumentErr() << "Unsupported file: " << opt.reference_terrain << " of type"
                               << file_type << ".\n");
 
     if (load_reference_disparities(opt.disparity_list, disp_vec, interp_disp) != num_cameras-1)
-      vw_throw( ArgumentErr() << "Expecting one less disparity than there are cameras.\n");
+      vw_throw(ArgumentErr() << "Expecting one less disparity than there are cameras.\n");
     
     std::vector<vw::BBox2i> image_boxes;
-    for ( int icam = 0; icam < num_cameras; icam++){
+    for (int icam = 0; icam < num_cameras; icam++){
       DiskImageView<float> img(opt.image_files[icam]);
       BBox2i bbox = vw::bounding_box(img);
       image_boxes.push_back(bbox);
@@ -1253,7 +1366,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     vw_out() << "Writing initial condition files." << std::endl;
     bool apply_loss_function = false;
     write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, 
-                        cam_residual_counts, num_gcp_residuals,
+                        cam_residual_counts, num_gcp_or_dem_residuals,
                         reference_vec, cnet, crn, problem);
 
     param_storage.record_points_to_kml(point_kml_path, opt.datum, 
@@ -1321,36 +1434,35 @@ int do_ba_ceres_one_pass(Options             & opt,
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
   bool apply_loss_function = false;
   write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, cam_residual_counts,
-                      num_gcp_residuals, reference_vec, cnet, crn, problem);
+                      num_gcp_or_dem_residuals, reference_vec, cnet, crn, problem);
   
   std::string point_kml_path = opt.out_prefix + "-final_points.kml";
-  param_storage.record_points_to_kml(point_kml_path, opt.datum,
-                                     kmlPointSkip, "final_points",
-                                     "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
+  std::string url = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
+  param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip, "final_points",
+                                     url);
 
-  // If heights_from_dem is set, each point is a gcp, and this stats becomes too long
-  if (num_gcp > 0 && opt.heights_from_dem == "") {
-    if (num_gcp > 500) 
-      vw_out() << "Too many GCP, will not print out the stats. "
-               << "The pointmap file has GCP-related information.\n";
-    else
-      param_storage.print_gcp_stats(cnet, opt.datum);
-  }
+  // Print the stats for GCP
+  // TODO(oalexan1): This should go to a file
+  if (num_gcp > 0) 
+    param_storage.print_gcp_stats(cnet, opt.datum);
 
   int num_new_outliers = 0;
-  if (!last_pass) 
+  bool remove_outliers = (opt.num_ba_passes > 1);
+  if (remove_outliers) {
     num_new_outliers =
-      update_outliers(cnet, crn,
+      add_to_outliers(cnet, crn,
                       param_storage,   // in-out
                       opt, cam_residual_counts,  
-                      num_gcp_residuals, reference_vec, problem);
-
+                      num_gcp_or_dem_residuals, reference_vec, problem);
+  }
+  
+  // Calculate convergence angles for each pairs of matches.
   // Remove flagged outliers and create clean match files.
   // Do this even when no new outliers are found, to
   // make sure the clean match files are written at least once.
-  if (opt.num_ba_passes > 1) 
-    remove_outliers(cnet, param_storage, opt);
-
+  std::vector<convAngle> convAngles;
+  calc_conv_angles_remove_outliers(cnet, param_storage, opt, remove_outliers, convAngles);
+    
   return num_new_outliers;
 } // End function do_ba_ceres_one_pass
 
@@ -1522,12 +1634,12 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       continue;
       
     vw_out() << "--> Bundle adjust pass: " << pass << std::endl;
-    if (pass > 0) {
-      // Go back to the original inputs to optimize, but keep our outlier list.
-      param_storage.copy_points    (orig_parameters);
-      param_storage.copy_cameras   (orig_parameters);
-      param_storage.copy_intrinsics(orig_parameters);
-    }
+//     if (pass > 0) {
+//       // Go back to the original inputs to optimize, but keep our outlier list.
+//       param_storage.copy_points    (orig_parameters);
+//       param_storage.copy_cameras   (orig_parameters);
+//       param_storage.copy_intrinsics(orig_parameters);
+//     }
 
     // Do another pass of bundle adjustment.
     bool last_pass = (pass == opt.num_ba_passes - 1);
@@ -1553,6 +1665,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   double best_cost = final_cost;
   boost::shared_ptr<BAParamStorage> best_params_ptr(new BAParamStorage(param_storage));
 
+  // This flow is only kicked in if opt.num_random_passes is positive, which
+  // is not the default.
   std::string orig_out_prefix = opt.out_prefix;
   for (int pass = 0; pass < opt.num_random_passes; pass++) {
 
@@ -1722,15 +1836,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, "
      "in the triangulated xyz points replace the heights with the ones from this DEM, and "
      "fix those points unless --heights-from-dem-weight is positive.")
-    ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(-1.0),
+    ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(1.0),
      "How much weight to give to keep the triangulated points close to the DEM if specified via "
      "--heights-from-dem. If the weight is not positive, keep the triangulated points fixed.")
     ("heights-from-dem-robust-threshold",
-     po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.0),
+     po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.5),
      "If positive, this is the robust threshold to use keep the triangulated points "
      "close to the DEM if specified via --heights-from-dem. This is applied after the "
      "point differences are multiplied by --heights-from-dem-weight. It should help with "
      "attenuating large height difference outliers.")
+    ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
+     "If specified, constrain every ground point where rays from matching pixels intersect "
+     "to be not too far from the average of intersections of those rays with this DEM.")
+    ("reference-dem-weight", po::value(&opt.ref_dem_weight)->default_value(1.0),
+     "Multiply the xyz differences for the --reference-dem option by this weight.")
+    ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),
+     "Use this robust threshold for the weighted xyz differences with the --reference-dem option.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
      "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
@@ -1783,6 +1904,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "camera files. The lon-lat footprints of the cameras are expanded "
      "outwards on all sides by this value (in degrees), before checking "
      "if they intersect.")
+    ("image-list", po::value(&opt.image_list)->default_value(""),
+     "A file containing the list of images, when they are too many to specify on the command line. Use space or newline as separator. See also --camera-list and --mapprojected-data-list.")
+    ("camera-list", po::value(&opt.camera_list)->default_value(""),
+     "A file containing the list of cameras, when they are too many to specify on the command line.")
+    ("mapprojected-data-list", po::value(&opt.mapprojected_data_list)->default_value(""),
+     "A file containing the list of mapprojected images and the DEM (see --mapprojected-data), when they are too many to specify on the command line.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
      "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("match-first-to-last", po::value(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
@@ -1911,6 +2038,32 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Separate the cameras from the images
   std::vector<std::string> inputs = opt.image_files;
+
+  if (!opt.image_list.empty()) {
+    if (opt.camera_list.empty())
+      vw_throw(ArgumentErr()
+               << "The option --image-list must be invoked together with --camera-list.\n");
+
+    if (!inputs.empty())
+      vw_throw(ArgumentErr() << "The option --image-list was specified, but also "
+               << "images or cameras on the command line.\n");
+
+    // Read the images and cameras and put them in 'inputs' to be parsed later
+    read_list(opt.image_list, inputs);
+    std::vector<std::string> tmp;
+    read_list(opt.camera_list, tmp);
+    for (size_t it = 0; it < tmp.size(); it++) 
+      inputs.push_back(tmp[it]);
+  }
+
+  // Sanity checks
+  if ((!opt.camera_list.empty() || !opt.mapprojected_data_list.empty()) && opt.image_list.empty())
+    vw_throw(ArgumentErr() << "Found --camera-list and --mapprojected-data-list, "
+             << "but not --image-list.\n");
+  if (!opt.mapprojected_data.empty() && !opt.mapprojected_data_list.empty())
+    vw_throw(ArgumentErr() << "Cannot specify both --mapprojected-data and "
+             << "--mapprojected-data-list.\n");
+  
   bool ensure_equal_sizes = true;
   asp::separate_images_from_cameras(inputs,
                                     opt.image_files, opt.camera_files, // outputs
@@ -2110,25 +2263,46 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   }
 
+  if ((!opt.heights_from_dem.empty() || !opt.ref_dem.empty()) && opt.fix_gcp_xyz)
+    vw_throw(ArgumentErr()
+             << "The option --fix-gcp-xyz is not compatible with a DEM constraint.\n");
+  
+  if (!opt.heights_from_dem.empty() && !opt.ref_dem.empty()) 
+    vw_throw(ArgumentErr() << "Cannot specify more than one of: --heights-from-dem "
+             << "and --reference-dem.\n");
+
+  if (opt.heights_from_dem_weight <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --heights-from-dem-weight must be positive.\n");
+  
+  if (opt.heights_from_dem_robust_threshold <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be positive.\n");
+
+  if (opt.ref_dem_weight <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --reference-dem-weight must be positive.\n");
+  
+  if (opt.ref_dem_robust_threshold <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --reference-dem-robust-threshold must be positive.\n");
+  
   // Try to infer the datum from the heights-from-dem
-  if (opt.heights_from_dem != "") {
-    std::string file_type = asp::get_cloud_type(opt.heights_from_dem);
+  std::string dem_file;
+  if (opt.heights_from_dem != "") 
+    dem_file = opt.heights_from_dem;
+  else if (opt.ref_dem != "")
+    dem_file = opt.ref_dem;
+  if (dem_file != "") {
+    std::string file_type = asp::get_cloud_type(dem_file);
     if (file_type == "DEM") {
       vw::cartography::GeoReference georef;
-      bool is_good = vw::cartography::read_georeference(georef, opt.heights_from_dem);
+      bool is_good = vw::cartography::read_georeference(georef, dem_file);
       if (!is_good)
-        vw_throw( ArgumentErr() << "The DEM does not have a georeference.\n"
-                  << usage << general_options );
+        vw_throw( ArgumentErr() << "The DEM " << dem_file
+                  << " does not have a georeference.\n");
       if (opt.datum_str == "" ){
         opt.datum = georef.datum();
         opt.datum_str = opt.datum.name();
         guessed_datum = true;
       }
     }
-
-    if (opt.num_ba_passes > 1)
-      vw_throw(ArgumentErr() << "The option --heights-from-dem-weight with multiple "
-               << "passes is not implemented correctly. Use --num-passes 1.\n");
   }
   
   // Set the datum, either based on what the user specified or the axes
@@ -2545,24 +2719,33 @@ int main(int argc, char* argv[]) {
         vw_throw(ArgumentErr() << "Could not parse correctly option --auto-overlap-params.\n");
     }
 
-    // For when we make matches based on mapprojected images
+    // For when we make matches based on mapprojected images. Read mapprojected
+    // images and a DEM from either command line or a list.
     std::vector<std::string> map_files;
     vw::cartography::GeoReference dem_georef;
     ImageViewRef<PixelMask<double>> interp_dem;
-    if (opt.mapprojected_data != "" && !opt.apply_initial_transform_only) {
-      std::istringstream is(opt.mapprojected_data);
-      std::string file;
-      while (is >> file)
-        map_files.push_back(file); 
-
-      if (opt.camera_models.size() + 1 != map_files.size()) 
-        vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
-                 << "cameras, and also a DEM.\n");
-
-      std::string dem_file = map_files.back();
-      map_files.erase(map_files.end() - 1);
+    if (!opt.apply_initial_transform_only) {
       
-      asp::create_interp_dem(dem_file, dem_georef, interp_dem);
+      if (!opt.mapprojected_data_list.empty()) {
+        read_list(opt.mapprojected_data_list, map_files);
+        opt.mapprojected_data = "non-empty"; // put a token value, to make it non-empty
+      } else if (opt.mapprojected_data != "") {
+        std::istringstream is(opt.mapprojected_data);
+        std::string file;
+        while (is >> file)
+          map_files.push_back(file); 
+      }
+
+      if (!opt.mapprojected_data.empty()) {
+        if (opt.camera_models.size() + 1 != map_files.size()) 
+          vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
+                   << "cameras, and also a DEM.\n");
+        
+        std::string dem_file = map_files.back();
+        map_files.erase(map_files.end() - 1);
+        
+        asp::create_interp_dem(dem_file, dem_georef, interp_dem);
+      }
     }
     
     // Assign the images which this instance should compute statistics for.

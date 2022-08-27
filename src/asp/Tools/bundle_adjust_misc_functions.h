@@ -605,6 +605,7 @@ void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
 
 /// Modify an existing pinhole model in-place using the stored parameters.
 /// - Since the stored parameters are multipliers, be careful calling this more than once!
+// TODO(oalexan1): This is very fragile code!
 void populate_pinhole_from_arrays(int camera_index,
                                   BAParamStorage const& param_storage,
                                   vw::camera::PinholeModel & camera) {

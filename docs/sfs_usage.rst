@@ -1194,6 +1194,11 @@ worse. The option ``--remove-outliers-params`` above also used very
 generous outlier filtering, if more than 1 pass is desired, when
 outlier filter takes place.
 
+If there are on the order of 1000 input images, the underlying GNU
+Parallel program may fail. In that case use the ``--image-list``,
+``--camera-list`` and ``--mapprojected-data-list`` options
+(:numref:`bundle_adjust`).
+
 The file::
 
    ba/run-final_residuals_stats.txt

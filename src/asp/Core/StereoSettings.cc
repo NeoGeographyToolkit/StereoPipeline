@@ -453,6 +453,8 @@ namespace asp {
        "Without starting the GUI, build multi-resolution pyramids for the inputs, to be able to load them fast later.")
       ("pairwise-matches",   po::bool_switch(&global.pairwise_matches)->default_value(false)->implicit_value(true), "Show images side-by-side. If just two of them are selected, load their corresponding match file, determined by the output prefix. Also accessible from the menu.")
       ("pairwise-clean-matches",   po::bool_switch(&global.pairwise_clean_matches)->default_value(false)->implicit_value(true), "Same as --pairwise-matches, but use *-clean.match files.")
+      ("zoom-proj-win", po::value(&global.zoom_proj_win)->default_value(BBox2(0,0,0,0), ""),
+       "Zoom to this proj win on startup. It is assumed that the images are georeferenced. Also accessible from the View menu.")
       ;
   }
 

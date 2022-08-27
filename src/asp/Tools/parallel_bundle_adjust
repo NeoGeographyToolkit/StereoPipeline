@@ -114,6 +114,8 @@ def get_num_instances(args):
 
     # For now we use a number of instances equal to the number of images.
     count = 0
+
+    # TODO(oalexan1): This is very fragile logic.
     IMAGE_EXTENSIONS = ['.tif', '.tiff', '.ntf', '.png', '.jpeg', '.jpg',
                         '.jp2', '.img', '.cub', '.bip', '.bil', '.bsq']
     for a in args:
@@ -121,6 +123,29 @@ def get_num_instances(args):
         for e in IMAGE_EXTENSIONS:
             if lc.endswith(e):
                 count += 1
+
+    # Handle --image-list
+    if count == 0:
+        if '--image-list' not in args:
+            raise Exception("No input images found, and neither was --image-list specified. " + \
+                            "Supported image extensions: " + " ".join(IMAGE_EXTENSIONS))
+
+    # Parse --image-list
+    if '--image-list' in args:
+        count = 0
+        for v in range(len(args)):
+            if args[v] == '--image-list' and v + 1 < len(args):
+                image_list = args[v + 1]
+                with open(image_list, "r") as fh:
+                    lines = fh.readlines()
+                    lines = (" ".join(lines)).split()
+                    
+                    for line in lines:
+                        line = line.strip()
+                        if len(line) == 0:
+                            continue
+                        count = count + 1
+
     return count
 
 def get_subfolder_prefix(output_folder, instance_index):
@@ -151,6 +176,8 @@ def spawn_to_nodes(step, argsIn):
 
     # For convenience store the instance index list in a file that
     #  will be passed to GNU parallel.
+    # TODO(oalexan1): This temp file may be deleted by accident.
+    # Do something better.
     tmpFile = tempfile.NamedTemporaryFile(delete=True, dir='.')
     f = open(tmpFile.name, 'w')
     for i in range(num_instances):
@@ -191,8 +218,18 @@ def spawn_to_nodes(step, argsIn):
     if 'LD_LIBRARY_PATH' in os.environ:
         os.environ['ASP_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']
         os.environ['LD_LIBRARY_PATH'] = ''
-    
-    asp_system_utils.generic_run(cmd, opt.verbose)
+
+    try:
+        asp_system_utils.generic_run(cmd, opt.verbose)
+    except Exception as e:
+        exception_len = len(str(e))
+        # This may fail because the command line is too long. It does not seem
+        # possible to catch this error, which comes from parallel. So we
+        # have to guess.
+        if exception_len > 50000:
+            print("If the command line is too long, consider using --image-list, etc.")
+
+        raise Exception(str(e))
 
     # Undo the above
     if 'ASP_LIBRARY_PATH' in os.environ:

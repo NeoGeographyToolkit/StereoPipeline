@@ -482,23 +482,36 @@ Command-line options for bundle_adjust
     How much weight to give to the cost function terms involving
     the reference terrain.
 
---heights-from-dem <filename>
+--heights-from-dem <string>
     If the cameras have already been bundle-adjusted and aligned
     to a known high-quality DEM, in the triangulated xyz points
     replace the heights with the ones from this DEM, and fix those
     points unless ``--heights-from-dem-weight`` is positive.
 
---heights-from-dem-weight <double (default: -1)>
+--heights-from-dem-weight <double (default: 1.0)>
     How much weight to give to keep the triangulated points close
     to the DEM if specified via ``--heights-from-dem``. If the weight
     is not positive, keep the triangulated points fixed.
 
---heights-from-dem-robust-threshold <double (default: -1)> 
+--heights-from-dem-robust-threshold <double (default: 0.5)> 
     If positive, this is the robust threshold to use keep the
     triangulated points close to the DEM if specified via
     ``--heights-from-dem``. This is applied after the point differences
     are multiplied by ``--heights-from-dem-weight``. It should
     help with attenuating large height difference outliers.
+
+--reference-dem <string>
+    If specified, constrain every ground point where rays from
+    matching pixels intersect to be not too far from the average of
+    intersections of those rays with this DEM. This is being tested.
+
+--reference-dem-weight <double (default: 1.0)>
+    Multiply the xyz differences for the ``--reference-dem`` option by
+    this weight. This is being tested.
+
+--reference-dem-robust-threshold <double (default: 0.5)> 
+    Use this robust threshold for the weighted xyz differences
+    with the ``--reference-dem`` option. This is being tested.
 
 --csv-format <string>
     Specify the format of input CSV files as a list of entries
@@ -617,6 +630,21 @@ Command-line options for bundle_adjust
 --apply-initial-transform-only
     Apply to the cameras the transform given by ``--initial-transform``.
     No iterations, GCP loading, or image matching takes place.
+
+--image-list
+    A file containing the list of images, when they are too many to
+    specify on the command line. Use space or newline as
+    separator. See also ``--camera-list`` and
+    ``--mapprojected-data-list``.
+
+--camera-list
+    A file containing the list of cameras, when they are too many to
+    specify on the command line.
+
+--mapprojected-data-list
+    A file containing the list of mapprojected images and the DEM (see
+    ``--mapprojected-data``), when they are too many to specify on the
+    command line.
 
 --save-vwip
     Save .vwip files (intermediate files for creating .match

@@ -59,7 +59,7 @@ struct Options : public vw::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, input_prefix, vwip_prefix, stereo_session,
     cost_function, match_files_prefix, clean_match_files_prefix,
-    mapprojected_data, gcp_from_mapprojected;
+    mapprojected_data, gcp_from_mapprojected, image_list, camera_list, mapprojected_data_list;
   int ip_per_tile, ip_per_image, ip_edge_buffer_percent;
   double min_triangulation_angle, forced_triangulation_distance,
     lambda, camera_weight, rotation_weight, 
@@ -74,7 +74,7 @@ struct Options : public vw::GdalWriteOptions {
   BACameraType camera_type;
   std::string datum_str, camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, reference_terrain, disparity_list,
-    heights_from_dem;
+    heights_from_dem, ref_dem;
   double semi_major, semi_minor, position_filter_dist;
   int    num_ba_passes, max_num_reference_points;
   std::string remove_outliers_params_str;
@@ -88,8 +88,9 @@ struct Options : public vw::GdalWriteOptions {
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, max_disp_error,
     reference_terrain_weight, heights_from_dem_weight, heights_from_dem_robust_threshold,
-    auto_overlap_buffer;
-  bool   skip_rough_homography, enable_rough_homography, disable_tri_filtering, enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
+    ref_dem_weight, ref_dem_robust_threshold, auto_overlap_buffer;
+  bool   skip_rough_homography, enable_rough_homography, disable_tri_filtering,
+    enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
     force_reuse_match_files, save_cnet_as_csv,
     enable_correct_velocity_aberration, enable_correct_atmospheric_refraction;
   vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
@@ -379,6 +380,7 @@ void write_pinhole_output_file(Options const& opt, int icam,
   cam_file = boost::filesystem::path(cam_file).replace_extension("tsai").string();
 
   // Get the final camera model
+  // TODO(oalexan1): Very fragile code!!!! It overwrites in-place!
   vw::camera::PinholeModel* pin_ptr
     = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
   populate_pinhole_from_arrays(icam, param_storage, *pin_ptr);

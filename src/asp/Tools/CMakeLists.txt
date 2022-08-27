@@ -181,6 +181,10 @@ add_executable(jitter_solve jitter_solve.cc)
 target_link_libraries(jitter_solve AspSessions ${SOLVER_LIBRARIES})
 install(TARGETS jitter_solve DESTINATION bin)
 
+add_executable(xyzi2csv xyzi2csv.cc) 
+target_link_libraries(xyzi2csv AspCore)
+install(TARGETS xyzi2csv DESTINATION bin)
+
 add_executable(dem_mosaic dem_mosaic.cc) 
 target_link_libraries(dem_mosaic AspCore)
 install(TARGETS dem_mosaic DESTINATION bin)

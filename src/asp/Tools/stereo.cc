@@ -599,7 +599,7 @@ namespace asp {
       vw_throw(ArgumentErr() << "External stereo algorithms can be "
                << "used only with alignment method local_epipolar.\n");
     }
-    
+
     if (exit_early) 
       return;
     

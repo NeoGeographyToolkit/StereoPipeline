@@ -278,6 +278,7 @@ namespace asp {
     bool create_image_pyramids_only, hide_all;
     bool pairwise_matches, pairwise_clean_matches;
     std::vector<std::string> vwip_files;
+    vw::BBox2 zoom_proj_win;
 
     // stereo_parse options
     std::string tile_at_loc;

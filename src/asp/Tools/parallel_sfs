@@ -361,7 +361,10 @@ def main(argsIn):
     # each small DEM tile.
     if '--image-exposures-prefix' not in options.extraArgs:
         print("Computing exposures.\n")
-        cmd = timeCmd + [sfsPath] + options.extraArgs + ['--compute-exposures-only']
+        cmd = timeCmd + [sfsPath] + options.extraArgs
+        # Add the option to compute the exposures, if not there already
+        if '--compute-exposures-only' not in options.extraArgs:
+            cmd += ['--compute-exposures-only']
         asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
         options.extraArgs += ['--image-exposures-prefix', options.output_prefix]
 
@@ -372,6 +375,7 @@ def main(argsIn):
     # What is the size of the DEM on which to do SfS
     sep = ","
     verbose = False
+    print("Running initial query")
     settings = asp_system_utils.run_and_parse_output(sfsPath, 
                                                      options.extraArgs + ['--query'],
                                                      sep, verbose)
