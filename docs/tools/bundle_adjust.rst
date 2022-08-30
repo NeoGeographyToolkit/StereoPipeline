@@ -293,7 +293,7 @@ Command-line options for bundle_adjust
     if they intersect.
 
 --match-first-to-last
-    Match the last several images to several first images by extending
+    Match the first several images to last several images by extending
     the logic of ``--overlap-limit`` past the last image to the earliest
     ones.
 
@@ -358,16 +358,20 @@ Command-line options for bundle_adjust
 --initial-transform <string>
     Before optimizing the cameras, apply to them the 4 |times| 4 rotation
     + translation transform from this file. The transform is in
-    respect to the planet center, such as written by pc_align’s
+    respect to the planet center, such as written by pc_align's
     source-to-reference or reference-to-source alignment transform.
     Set the number of iterations to 0 to stop at this step. If
-    ``-–input-adjustments-prefix`` is specified, the transform gets
+    ``--input-adjustments-prefix`` is specified, the transform gets
     applied after the adjustments are read.
 
 --fixed-camera-indices <string>
     A list of indices, in quotes and starting from 0, with space
     as separator, corresponding to cameras to keep fixed during the
     optimization process.
+
+--fixed-image-list
+    A file having a list of images (separated by spaces or newlines)
+    whose cameras should be fixed during optimization.
 
 --fix-gcp-xyz
     If the GCP are highly accurate, use this option to not float
@@ -639,7 +643,9 @@ Command-line options for bundle_adjust
 
 --camera-list
     A file containing the list of cameras, when they are too many to
-    specify on the command line.
+    specify on the command line. If the images have embedded camera
+    information, such as for ISIS, this file must be empty but must
+    be specified if ``--image-list`` is specified.
 
 --mapprojected-data-list
     A file containing the list of mapprojected images and the DEM (see

@@ -56,10 +56,10 @@ namespace asp {
   // Find the datum based on cameras. For stereo session pinhole will return WGS84.
   void datum_from_cameras(std::vector<std::string> const& image_files,
                           std::vector<std::string> const& camera_files,
-                        std::string & stereo_session, // may change
-                        // Outputs
-                        vw::cartography::Datum & datum);
-
+                          std::string & stereo_session, // may change
+                          // Outputs
+                          vw::cartography::Datum & datum);
+  
   // Find and sort the convergence angles for given cameras and interest points
   void convergence_angles(vw::camera::CameraModel const * left_cam,
                           vw::camera::CameraModel const * right_cam,

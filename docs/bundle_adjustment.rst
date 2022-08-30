@@ -419,15 +419,18 @@ we assume that the cameras and the terrain are already aligned::
        --max-pairwise-matches 10000                             \
        --solve-intrinsics --camera-weight 1                     \
        --heights-from-dem dem.tif                               \
-       --heights-from-dem-weight 0.1                            \
-       --heights-from-dem-robust-threshold 10                   \
+       --heights-from-dem-weight 2.0                            \
+       --heights-from-dem-robust-threshold 1.0                  \
        --parameter-tolerance 1e-12                              \
+       --remove-outliers-params "75.0 3.0 20 25"                \
        left.tif right.tif                                       \
        run_align/run-run-left.tsai run_align/run-run-right.tsai \
        -o run_ba_hts_from_dem/run
 
-It is suggested to look at the documentation of all the options
-above and adjust them for your use case.
+Here we were rather generous with the parameters for removing
+outliers, as the input DEM may not be that accurate, and then if tying
+too much to it some valid matches be be flagged as outliers otherwise,
+perhaps.
 
 It is important to note that here we assume that a simple height
 correction is enough. Hence this option is an approximation, and perhaps
@@ -436,6 +439,9 @@ adjustment should be done without it, or one should consider using a
 smaller weight above. This option can however be more effective than
 using ``--reference-terrain`` when there is a large uncertainty in
 camera intrinsics.
+
+It is suggested to look at the documentation of all the options
+above and adjust them for your use case.
 
 RPC lens distortion
 ^^^^^^^^^^^^^^^^^^^

@@ -302,7 +302,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Prefix to read initial adjustments from, if available, as written by bundle_adjust.")
     ("match-first-to-last",
      po::value(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
-     "Match the last several images to several first images by extending the logic of "
+     "Match first several images to last several images by extending the logic of "
      "--overlap-limit past the last image to the earliest ones.")
     ("overlap-limit",        po::value(&opt.overlap_limit)->default_value(0),
      "Limit the number of subsequent images to search for matches to the current image "

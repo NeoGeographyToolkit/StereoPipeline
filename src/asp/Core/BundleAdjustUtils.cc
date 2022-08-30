@@ -354,45 +354,41 @@ void asp::determine_image_pairs(// Inputs
   // Wipe the output
   all_pairs.clear();
 
+  // Need this to avoid repetitions
+  std::set<std::pair<int, int>> local_set;
+  
   int num_images = image_files.size();
-  for (int i = 0; i < num_images; i++){
+  for (int i0 = 0; i0 < num_images; i0++){
 
-    int start = i + 1;
-    if (match_first_to_last)
-      start = 0;
+    for (int j0 = i0 + 1; j0 <= i0 + overlap_limit; j0++){
 
-    for (int j = start; j <= std::min(num_images-1, i + overlap_limit); j++){
+      // Make copies of i and j which we can modify
+      int i = i0, j = j0;
 
+      if (j >= num_images) {
+        
+        if (!match_first_to_last)
+          continue; // out of bounds
+
+        j = j % num_images; // wrap around
+
+        if (i == j) 
+          continue; // can't have matches to itself
+
+        if (i > j) 
+          std::swap(i, j);
+      }
+      
       // Apply the overlap list if manually specified. Otherwise every
       // image pair i, j as above will be matched.
       if (!overlap_list.empty()) {
-        auto pair = std::make_pair(image_files[i], image_files[j]);
-        if (overlap_list.find(pair) == overlap_list.end())
+        auto pair1 = std::make_pair(image_files[i], image_files[j]);
+        auto pair2 = std::make_pair(image_files[j], image_files[i]);
+        if (overlap_list.find(pair1) == overlap_list.end() &&
+            overlap_list.find(pair2) == overlap_list.end())
           continue;
       }
 
-      if (match_first_to_last) {
-        // When i < j, match i to j if j <= i + overlap_limit.
-        // But when i > j, such as i = num_images - 1 and j = 0,
-        // then also may match i to j. Add num_images to j and check
-        // if j + num_images <= i + overlap_limit. In effect,
-        // after the last image assume we have the first image, then
-        // second, etc. Do not allow i == j.
-        if (i == j) 
-          continue;
-        if (i < j) {
-          if (j > i + overlap_limit) 
-            continue;
-        } else if (j < i) {
-          if (j + num_images > i + overlap_limit) 
-            continue;
-          if (i <= j + overlap_limit) {
-            // this means that we already picked (j, i), so don't pick (i, j)
-            continue;
-          }
-        }
-      }
-        
       // If this option is set, don't try to match cameras that are too far apart.
       if (got_est_cam_positions && (position_filter_dist > 0)) {
         Vector3 this_pos  = estimated_camera_gcc[i];
@@ -406,10 +402,15 @@ void asp::determine_image_pairs(// Inputs
           continue; // Skip this image pair
         }
       }
-        
-      all_pairs.push_back(std::make_pair(i,j));
+
+      local_set.insert(std::make_pair(i,j));
     }
   }
+
+  // The pairs without repetition
+  for (auto it = local_set.begin(); it != local_set.end(); it++)
+    all_pairs.push_back(*it);
+
 }
 
 /// Load a DEM from disk to use for interpolation.

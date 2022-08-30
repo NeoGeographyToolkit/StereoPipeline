@@ -894,12 +894,19 @@ system. This requires transforming the DEM clip (and later the cameras)::
       --save-inv-transformed-reference-points        \
       -o run_align/run 
 
+The 50th *error percentile of smallest errors* should be under
+1-2 meters, and ideally less. Otherwise likely something is not right,
+and coregistration of images may fail later.
+
 The resulting transformed cloud needs to be regridded::
 
     point2dem --stereographic --proj-lon -5.7113 --proj-lat -85.0003 \
       run_align/run-trans_reference.tif --tr 4
  
-obtaining ``run_align/run-trans_reference-DEM.tif``.
+obtaining ``run_align/run-trans_reference-DEM.tif``. This DEM should
+be hillshaded and overlayed on top of the LOLA DEM and see if there is
+any notceable shift, which would be a sign of alignment not being
+succesful.
 
 The cameras can be moved with ``bundle_adjust``::
 
@@ -1194,7 +1201,7 @@ worse. The option ``--remove-outliers-params`` above also used very
 generous outlier filtering, if more than 1 pass is desired, when
 outlier filter takes place.
 
-If there are on the order of 1000 input images, the underlying GNU
+If there are on the oder of 1000 input images, the underlying GNU
 Parallel program may fail. In that case use the ``--image-list``,
 ``--camera-list`` and ``--mapprojected-data-list`` options
 (:numref:`bundle_adjust`).
@@ -1203,10 +1210,12 @@ The file::
 
    ba/run-final_residuals_stats.txt
 
-should also be examined. Images for which this median norm of all
-reprojection residuals is larger than 1-2 pixels or which have too few
-such residuals should be excluded from further consideration, as
-likely for those cameras are not correctly positioned.
+should also be examined. If many cameras have large median
+reprojection error, that may be a sign of issues. Normally the option
+``--robust-threshold 5`` should be good enough at making the camera
+poses converge. It may be premature to remove the cameras with big
+errors at this stage though. Those will be dealt with at later
+stages of the process.
 
 Alignment to ground
 ^^^^^^^^^^^^^^^^^^^
@@ -1541,9 +1550,9 @@ which the adjustment is already good using the option
 If in some low-light locations the SfS DEM still has seams, one may
 consider invoking ``sfs`` with ``--robust-threshold 0.004``, removing
 some of the offending images, or with a larger value for
-``--shadow-threshold`` (such as 0.007) for those images, or a larger
-value for ``--blending-dist``. A per-image shadow threshold which
-overrides the globally set value can be specified via
+``--shadow-threshold`` (such as 0.007 or 0.015) for those images, or a
+larger value for ``--blending-dist``. A per-image shadow threshold
+which overrides the globally set value can be specified via
 ``--custom-shadow-threshold-list``. Sometimes this improves the
 solution in some locations while introducing artifacts in other.
 

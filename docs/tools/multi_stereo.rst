@@ -5,8 +5,9 @@ multi_stereo
 
 The ``multi_stereo`` program takes as input a set of images and
 cameras, runs pairwise stereo between each image/camera and the next
-one in the list, filters the produced points clouds, fuses them,
-and creates a mesh.
+one in the list, filters the produced points clouds, fuses them, and
+creates a mesh. The input cameras are found using
+structure-from-motion.
 
 For the moment this program is very tied to ``rig_calibrator``
 (:numref:`rig_calibrator`).  It will become more generic and versatile
@@ -55,7 +56,11 @@ Creation of camera models
 We broadly follow the tools and approach from section :numref:`rig_calibrator`,
 but with a rig consisting of just one camera.
 
-Determination of initial camera poses::
+Determination of initial camera poses. The inputs for this are the images
+and some educated guess about camera intrinsics. The latter can be optimized
+later with ``rig_calibrator``.
+
+::
 
     theia_sfm --rig_config camera_config.txt \
       --images 'images/nav_cam/*jpg'         \
@@ -75,7 +80,7 @@ in the images, per :numref:`rig_calibrator_registration`)::
       --nvm theia_out/cameras.nvm                 \
       --camera_poses_to_float "nav_cam"           \
       --intrinsics_to_float ""                    \
-      --num_iterations 50                         \
+      --num_iterations 100                        \
       --calibrator_num_passes 2                   \
       --num_overlaps 10                           \
       --registration                              \
@@ -83,6 +88,13 @@ in the images, per :numref:`rig_calibrator_registration`)::
       --xyz_file xyz.txt                          \
       --out_dir rig_out
     
+
+Registration to world coordinates is optional. It is still suggested
+to use at least some rough guesses for where the world positions of
+some points are. The camera configuration will not be deformed in
+order to fit precisely the measurements; a single best-fit similarity
+transform will be applied to the whole setup.
+
 Running stereo and mesh creation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

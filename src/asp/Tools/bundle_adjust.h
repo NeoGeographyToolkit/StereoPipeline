@@ -59,7 +59,8 @@ struct Options : public vw::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, input_prefix, vwip_prefix, stereo_session,
     cost_function, match_files_prefix, clean_match_files_prefix,
-    mapprojected_data, gcp_from_mapprojected, image_list, camera_list, mapprojected_data_list;
+    mapprojected_data, gcp_from_mapprojected, image_list, camera_list, mapprojected_data_list,
+    fixed_image_list;
   int ip_per_tile, ip_per_image, ip_edge_buffer_percent;
   double min_triangulation_angle, forced_triangulation_distance,
     lambda, camera_weight, rotation_weight, 

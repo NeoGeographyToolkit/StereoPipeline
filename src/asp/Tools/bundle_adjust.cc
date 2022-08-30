@@ -53,6 +53,10 @@ void read_list(std::string const& file, std::vector<std::string> & list) {
   std::string val;
   while (fh >> val)
     list.push_back(val);
+
+  if (list.empty())
+    vw_throw(ArgumentErr() << "Could not read any entries from: " << file << ".\n");
+  
 }
 
 /// Write a csm camera state file to disk.
@@ -857,14 +861,14 @@ void calc_conv_angles_remove_outliers(ControlNetwork const& cnet, BAParamStorage
     convAngle & A = convAngles.back(); // alias
     std::vector<double> sorted_angles;
 
-//     if (!remove_outliers) {
+    if (!remove_outliers) {
 //       asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
 //                               orig_left_ip, orig_right_ip, sorted_angles);
 //       A.populate(left_index, right_index, sorted_angles);
       
 //       // Since no outliers are removed, nothing else to do
-//       continue;
-//     }
+      continue;
+    }
     
     typedef std::tuple<double, double, double> Triplet;
     std::map<Triplet, Triplet> lookup;
@@ -1634,14 +1638,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       continue;
       
     vw_out() << "--> Bundle adjust pass: " << pass << std::endl;
-//     if (pass > 0) {
-//       // Go back to the original inputs to optimize, but keep our outlier list.
-//       param_storage.copy_points    (orig_parameters);
-//       param_storage.copy_cameras   (orig_parameters);
-//       param_storage.copy_intrinsics(orig_parameters);
-//     }
 
-    // Do another pass of bundle adjustment.
     bool last_pass = (pass == opt.num_ba_passes - 1);
     bool convergence_reached = true;
     int  num_new_outliers    = do_ba_ceres_one_pass(opt, crn, (pass==0), last_pass,
@@ -1675,11 +1672,6 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     
     vw_out() << "\n--> Running bundle adjust pass " << pass 
              << " with random initial parameter offsets.\n";
-
-    // Go back to the original inputs to optimize, but keep our outlier list.
-    param_storage.copy_points    (orig_parameters);
-    param_storage.copy_cameras   (orig_parameters);
-    param_storage.copy_intrinsics(orig_parameters);
 
     // Randomly distort the original inputs.
     param_storage.randomize_cameras();
@@ -1816,6 +1808,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as written by pc_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step. If --input-adjustments-prefix is specified, the transform gets applied after the adjustments are read.")
     ("fixed-camera-indices",    po::value(&opt.fixed_cameras_indices_str)->default_value(""),
      "A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.")
+    ("fixed-image-list",    po::value(&opt.fixed_image_list)->default_value(""),
+     "A file having a list of images (separated by spaces or newlines) whose cameras should be fixed during optimization.")
     ("fix-gcp-xyz",       po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
      "If the GCP are highly accurate, use this option to not float them during the optimization.")
 
@@ -1907,13 +1901,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("image-list", po::value(&opt.image_list)->default_value(""),
      "A file containing the list of images, when they are too many to specify on the command line. Use space or newline as separator. See also --camera-list and --mapprojected-data-list.")
     ("camera-list", po::value(&opt.camera_list)->default_value(""),
-     "A file containing the list of cameras, when they are too many to specify on the command line.")
+     "A file containing the list of cameras, when they are too many to specify on the command "
+     "line. If the images have embedded camera information, such as for ISIS, this file must "
+     "be empty but must be specified if --image-list is specified.")
     ("mapprojected-data-list", po::value(&opt.mapprojected_data_list)->default_value(""),
      "A file containing the list of mapprojected images and the DEM (see --mapprojected-data), when they are too many to specify on the command line.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
      "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("match-first-to-last", po::value(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
-     "Match the last several images to several first images by extending the logic of --overlap-limit past the last image to the earliest ones.")
+     "Match first several images to last several images by extending the logic of --overlap-limit past the last image to the earliest ones.")
     
     ("rotation-weight",      po::value(&opt.rotation_weight)->default_value(0.0),
      "A higher weight will penalize more rotation deviations from the original configuration.")
@@ -2402,6 +2398,31 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   }
 
+  if (!opt.fixed_cameras_indices.empty() && !opt.fixed_image_list.empty())
+    vw_throw(ArgumentErr() << "Cannot specify both --fixed-camera-indices and "
+             << "--fixed-image-list.\n");
+  if (!opt.fixed_image_list.empty()) {
+
+    opt.fixed_cameras_indices.clear();
+    
+    std::vector<std::string> fixed_images;
+    read_list(opt.fixed_image_list, fixed_images);
+
+    // Find the indices of all images
+    std::map<std::string, int> all_indices;
+    for (size_t image_it = 0; image_it < opt.image_files.size(); image_it++) 
+      all_indices[opt.image_files[image_it]] = image_it;
+
+    // Find the indices of images to fix
+    for (size_t image_it = 0; image_it < fixed_images.size(); image_it++) {
+      auto map_it = all_indices.find(fixed_images[image_it]);
+      if (map_it == all_indices.end())
+        vw_throw(ArgumentErr() << "Could not find image " << fixed_images[image_it]
+                 << " read via --fixed-image-list among the input images.\n");
+      opt.fixed_cameras_indices.insert(map_it->second);
+    }
+  }
+  
   if (opt.reference_terrain != "") {
     std::string file_type = asp::get_cloud_type(opt.reference_terrain);
     if (file_type == "CSV" && opt.csv_format_str == "") 
