@@ -161,8 +161,7 @@ void asp::compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel>> c
       Vector2 pix1 = cnet[i][j].position();
       Vector2 pix2 = cnet[i][j+1].position();
 
-      StereoModel sm( camera_models[cam1].get(),
-                      camera_models[cam2].get() );
+      StereoModel sm(camera_models[cam1].get(), camera_models[cam2].get());
       double error;
       sm(pix1,pix2,error);
       error_sum += error;

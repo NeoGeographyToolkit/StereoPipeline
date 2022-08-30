@@ -399,7 +399,7 @@ void write_residual_map(std::string const& output_prefix,
 
   std::string output_path = output_prefix + ".csv";
 
-  if (opt.datum.name() == UNSPECIFIED_DATUM) {
+  if (opt.datum.name() == asp::UNSPECIFIED_DATUM) {
     vw_out(WarningMessage) << "No datum specified, can't write file: " << output_path << ". "
                            << "With Earth satellite images add the option '-t nadirpinhole' "
                            << "to use the WGS84 datum, or else specify '--datum <planet name>'.\n";

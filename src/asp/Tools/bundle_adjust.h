@@ -37,15 +37,16 @@
 #include <vw/Camera/LensDistortion.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/FileIO/KML.h>
-
-#include <stdlib.h>
-#include <iostream>
+#include <vw/Camera/OpticalBarModel.h>
 
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/RPC_XML.h>
-#include <vw/Camera/OpticalBarModel.h>
+#include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Tools/bundle_adjust_misc_functions.h>
 #include <asp/Tools/bundle_adjust_cost_functions.h> // Ceres included in this file.
+
+#include <stdlib.h>
+#include <iostream>
 
 // This file contains the bundle adjust options and some other needed functions.
 
@@ -116,7 +117,7 @@ struct Options : public vw::GdalWriteOptions {
              fix_gcp_xyz(false), solve_intrinsics(false), camera_type(BaCameraType_Other),
              semi_major(0), semi_minor(0), position_filter_dist(-1),
              num_ba_passes(2), max_num_reference_points(-1),
-             datum(vw::cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
+             datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM, "User Specified Spheroid",
                                           "Reference Meridian", 1, 1, 0)),
              ip_detect_method(0), num_scales(-1), skip_rough_homography(false),
              individually_normalize(false), use_llh_error(false), force_reuse_match_files(false){}
@@ -390,7 +391,7 @@ void write_pinhole_output_file(Options const& opt, int icam,
   pin_ptr->write(cam_file);
   vw::vw_out() << "Writing output model: " << *pin_ptr << std::endl;
 
-  bool has_datum = (opt.datum.name() != UNSPECIFIED_DATUM);
+  bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
   if (has_datum) {
     vw::vw_out() << "Camera center for " << cam_file << ": "
                   << opt.datum.cartesian_to_geodetic(pin_ptr->camera_center())
@@ -418,7 +419,7 @@ void write_optical_bar_output_file(Options const& opt, int icam,
   bar_ptr->write(cam_file);
   vw::vw_out() << "Writing output model: " << *bar_ptr << std::endl;
 
-  bool has_datum = (opt.datum.name() != UNSPECIFIED_DATUM);
+  bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
   if (has_datum) {
     vw::vw_out() << "Camera center for " << cam_file << ": "
                   << opt.datum.cartesian_to_geodetic(bar_ptr->camera_center())
