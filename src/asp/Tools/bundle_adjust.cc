@@ -796,38 +796,55 @@ struct convAngle {
   }
 };
 
-// TODO: At least part of this should be a class function??
-/// Calculate convergence angles. Remove the outliers flagged earlier.
-// These are done together as they rely on reloading interest point matches,
-// which is expensive so the matches are used for both operations.
-void calc_conv_angles_remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
+// Calculate convergence angles. Remove the outliers flagged earlier,
+// if remove_outliers is true. These are done together as they rely on
+// reloading interest point matches, which is expensive so the matches
+// are used for both operations.
+void calc_conv_angles_remove_outliers(ControlNetwork const& cnet,
+                                      BAParamStorage const& param_storage,
                                       Options const& opt, bool remove_outliers,
                                       std::vector<convAngle> & convAngles){
 
   convAngles.clear();
   
-  // Find the cameras with the latest adjustments
+  // Find the cameras with the latest adjustments. Note that we do not modify
+  // opt.camera_models, but make copies as needed.
   std::vector<boost::shared_ptr<vw::camera::CameraModel>> optimized_cams;
   int num_cameras = opt.image_files.size();
   for (int icam = 0; icam < num_cameras; icam++) {
     
-    switch(opt.camera_type) {
+    switch (opt.camera_type) {
     case BaCameraType_Pinhole:
-      //vw::camera::PinholeModel* pin_ptr
-      //  = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
-      //populate_pinhole_from_arrays(icam, param_storage, *pin_ptr);
-
-      //write_pinhole_output_file(opt, icam, param_storage);
+      {
+        vw::camera::PinholeModel const* in_cam
+          = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
+        if (in_cam == NULL)
+          vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
+        vw::camera::PinholeModel * out_cam = new PinholeModel();
+        *out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
+        optimized_cams.push_back(boost::shared_ptr<vw::camera::CameraModel>(out_cam));
+      }
       break;
+      
     case BaCameraType_OpticalBar:
-      //write_optical_bar_output_file(opt, icam, param_storage);
+      
+      {
+        vw::camera::OpticalBarModel const* in_cam
+          = dynamic_cast<vw::camera::OpticalBarModel const*>(opt.camera_models[icam].get());
+        if (in_cam == NULL)
+          vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
+        vw::camera::OpticalBarModel * out_cam = new OpticalBarModel();
+        *out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
+        optimized_cams.push_back(boost::shared_ptr<vw::camera::CameraModel>(out_cam));
+      }
       break;
+      
     default:
       CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
       boost::shared_ptr<vw::camera::CameraModel>
-        cam(new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
+        out_cam(new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
                                     cam_adjust.position(), cam_adjust.pose()));
-      optimized_cams.push_back(cam);
+      optimized_cams.push_back(out_cam);
     }
   }
   

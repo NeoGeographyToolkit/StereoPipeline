@@ -42,7 +42,6 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/BundleAdjustCamera.h>
-#include <asp/Tools/bundle_adjust_misc_functions.h>
 #include <asp/Tools/bundle_adjust_cost_functions.h> // Ceres included in this file.
 
 #include <stdlib.h>
@@ -326,8 +325,13 @@ bool init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
   for (size_t icam = 0; icam < num_cameras; icam++){
 
     PinholeModel* in_cam  = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
-    PinholeModel* out_cam = new PinholeModel(*in_cam); // Start with a copy of the input camera.
-    populate_pinhole_from_arrays(icam, param_storage, *out_cam);
+
+    // Start with a copy of the input camera. Then overwrite its parameters.
+    // Note that out_cam originally shares the distortion with in_cam, as
+    // that one is a pointer. But the second line below takes care of that.
+    // This is awkward. An object having members as pointers is not safe.
+    PinholeModel* out_cam = new PinholeModel(*in_cam);
+    *out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
 
     new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
   }
@@ -360,9 +364,12 @@ bool init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
   new_cam_models.resize(num_cameras);
   for (size_t icam = 0; icam < num_cameras; icam++){
 
-    vw::camera::OpticalBarModel* in_cam  = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
-    vw::camera::OpticalBarModel* out_cam = new vw::camera::OpticalBarModel(*in_cam); // Start with a copy of the input camera.
-    populate_optical_bar_from_arrays(icam, param_storage, *out_cam);
+    vw::camera::OpticalBarModel* in_cam
+      = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
+
+    // Start with a copy of the input camera, then overwrite its content
+    vw::camera::OpticalBarModel* out_cam = new vw::camera::OpticalBarModel(*in_cam); 
+    *out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
 
     new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
   }
@@ -381,20 +388,23 @@ void write_pinhole_output_file(Options const& opt, int icam,
                                                       opt.camera_files[icam]);
   cam_file = boost::filesystem::path(cam_file).replace_extension("tsai").string();
 
-  // Get the final camera model
-  // TODO(oalexan1): Very fragile code!!!! It overwrites in-place!
-  vw::camera::PinholeModel* pin_ptr
-    = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
-  populate_pinhole_from_arrays(icam, param_storage, *pin_ptr);
+  // Get the final camera model from the original one with optimized
+  // parameters applied to it. Note that we do not modify the original
+  // camera.
+  vw::camera::PinholeModel const* in_cam
+    = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
+  if (in_cam == NULL)
+    vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
+  vw::camera::PinholeModel out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
 
   vw::vw_out() << "Writing: " << cam_file << std::endl;
-  pin_ptr->write(cam_file);
-  vw::vw_out() << "Writing output model: " << *pin_ptr << std::endl;
+  out_cam.write(cam_file);
+  vw::vw_out() << "Writing output model: " << out_cam << std::endl;
 
   bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
   if (has_datum) {
     vw::vw_out() << "Camera center for " << cam_file << ": "
-                  << opt.datum.cartesian_to_geodetic(pin_ptr->camera_center())
+                  << opt.datum.cartesian_to_geodetic(out_cam.camera_center())
                   << " (longitude, latitude, height above datum(m))\n\n";
   }
 }
@@ -410,19 +420,23 @@ void write_optical_bar_output_file(Options const& opt, int icam,
                                                       opt.camera_files[icam]);
   cam_file = boost::filesystem::path(cam_file).replace_extension("tsai").string();
 
-  // Get the final camera model
-  vw::camera::OpticalBarModel* bar_ptr
+  // Get the final camera model from the original one with optimized
+  // parameters applied to it. Note that we do not modify the original
+  // camera.
+  vw::camera::OpticalBarModel* in_cam
     = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
-  populate_optical_bar_from_arrays(icam, param_storage, *bar_ptr);
-
+  if (in_cam == NULL)
+    vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
+  vw::camera::OpticalBarModel out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
+  
   vw::vw_out() << "Writing: " << cam_file << std::endl;
-  bar_ptr->write(cam_file);
-  vw::vw_out() << "Writing output model: " << *bar_ptr << std::endl;
+  out_cam.write(cam_file);
+  vw::vw_out() << "Writing output model: " << out_cam << std::endl;
 
   bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
   if (has_datum) {
     vw::vw_out() << "Camera center for " << cam_file << ": "
-                  << opt.datum.cartesian_to_geodetic(bar_ptr->camera_center())
+                  << opt.datum.cartesian_to_geodetic(out_cam.camera_center())
                   << " (longitude, latitude, height above datum(m))\n\n";
   }
 }
