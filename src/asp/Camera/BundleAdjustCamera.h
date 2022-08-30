@@ -16,31 +16,50 @@
 // __END_LICENSE__
 
 
-/// \file bundle_adjust_misc_functions.h
+/// \file BundleAdjustCamera.h
 ///
 
-/** Move some functions out of bundle_adjust.cc to declutter it.
-*/
+/// Camera logic used in bundle_adjust. It is kept here as it may be
+/// expected to make use of all cameras supported by ASP.
 
+#ifndef __BUNDLE_ADJUST_CAMERA_H__
+#define __BUNDLE_ADJUST_CAMERA_H__
+
+#include <string>
+
+// TODO(oalexan1): Move most of these headers to the .cc file
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/BundleAdjustment/AdjustRef.h>
+#include <vw/FileIO/KML.h>
+#include <vw/BundleAdjustment/ModelBase.h>
+#include <vw/BundleAdjustment/CameraRelation.h>
+#include <vw/BundleAdjustment/ControlNetwork.h>
+#include <vw/BundleAdjustment/ControlNetworkLoader.h>
+#include <vw/Math/Geometry.h>
+
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
-#include <asp/Core/EigenUtils.h>
+#include <asp/Core/BundleAdjustUtils.h>
 
+// TODO(oalexan1): This header file is slow to compile. See if it can be moved
+// to .cc.
+#include <asp/Core/EigenUtils.h>
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 
+// TODO(oalexan1): Move all this code to the .cc file and to the asp namespace.
+// TODO(oalexan1): Remove these directives from the header file
+
+namespace asp {
+  std::string UNSPECIFIED_DATUM = "unspecified_datum";
+}
+
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
-
-//==================================================================================
-
-std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
 /// Structure to fully describe how the intrinsics are being handled.
 /// - Currently only pinhole cameras support intrinsics in bundle_adjust.
@@ -385,7 +404,7 @@ public:
                             size_t skip=100, const std::string name="points",
                             const std::string icon="http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png") {
 
-    if (datum.name() == UNSPECIFIED_DATUM) {
+    if (datum.name() == asp::UNSPECIFIED_DATUM) {
       vw::vw_out(vw::WarningMessage) << "No datum specified, can't write file: " << kml_path << std::endl;
       return;
     }
@@ -463,8 +482,6 @@ private: // Functions
   }
 }; // End class BAParamStorage
 
-
-//==================================================================================
 
 /// Simple class to manage position/rotation information.
 /// - This is the data type stored in pc_align output files,
@@ -1311,11 +1328,11 @@ void init_pinhole_model_with_mono_gcp(boost::shared_ptr<ControlNetwork> const& c
 /// Take an interest point from a map projected image and convert it
 /// to the corresponding IP in the original non-map-projected image.
 /// - Return false if the pixel could not be converted.
-bool projected_ip_to_raw_ip(ip::InterestPoint &P,
-                            ImageViewRef< PixelMask<double> > const& interp_dem,
+bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
+                            vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
                             boost::shared_ptr<CameraModel> camera_model,
-                            cartography::GeoReference const& georef,
-                            cartography::GeoReference const& dem_georef) {
+                            vw::cartography::GeoReference const& georef,
+                            vw::cartography::GeoReference const& dem_georef) {
   // Get IP coordinate in the DEM
   Vector2 pix(P.x, P.y);
   Vector2 ll      = georef.pixel_to_lonlat(pix);
@@ -1343,4 +1360,4 @@ bool projected_ip_to_raw_ip(ip::InterestPoint &P,
   return true;
 }
 
-
+#endif // __BUNDLE_ADJUST_CAMERA_H__
