@@ -53,13 +53,32 @@
 // TODO(oalexan1): Move all this code to the .cc file and to the asp namespace.
 // TODO(oalexan1): Remove these directives from the header file
 
-namespace asp {
-  std::string UNSPECIFIED_DATUM = "unspecified_datum";
-}
-
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
+
+namespace asp {
+  std::string UNSPECIFIED_DATUM = "unspecified_datum";
+
+// A structure to hold convergence angle percentiles
+struct convAngle {
+  int left_cam_index, right_cam_index, num_angles;
+  double angle25, angle50, angle75;
+  convAngle(): left_cam_index(0), right_cam_index(0), num_angles(0), angle25(0), angle50(0),
+               angle75(0) {}
+  void populate(int left_index, int right_index, std::vector<double> const& sorted_angles) {
+    left_cam_index  = left_index;
+    right_cam_index = right_index;
+    num_angles = sorted_angles.size();
+    if (num_angles > 0) {
+      angle25 = sorted_angles[0.25*num_angles];
+      angle50 = sorted_angles[0.50*num_angles];
+      angle75 = sorted_angles[0.75*num_angles];
+    }
+  }
+};
+  
+}
 
 /// Structure to fully describe how the intrinsics are being handled.
 /// - Currently only pinhole cameras support intrinsics in bundle_adjust.
@@ -1299,5 +1318,10 @@ bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
   P.iy = P.y;
   return true;
 }
+
+// Save convergence angle percentiles for each image pair having matches
+void saveConvergenceAngles(std::string const& conv_angles_file,
+                           std::vector<asp::convAngle> const& convAngles,
+                           std::vector<std::string> const& imageFiles);
 
 #endif // __BUNDLE_ADJUST_CAMERA_H__

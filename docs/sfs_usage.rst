@@ -329,8 +329,9 @@ original DEM, obtained via the command::
 subprocesses in parallel to do the mapprojection. That is not needed
 with CSM cameras as then ``mapproject`` is multithreaded.)
 
-The fourth image is the colored absolute difference between the original
-DEM and the SfS output, obtained by running::
+The fourth image is the colored absolute difference between the
+original DEM and the SfS output, obtained by running ``geodiff``
+(:numref:`geodiff)`::
 
     geodiff --absolute sfs_ref1/run-DEM-final.tif \
       run_full1/run-crop-DEM.tif -o out
@@ -794,7 +795,7 @@ An illustration is shown in :numref:`sfs3`.
 
 If in doubt, it is suggested that more points be picked, and one should
 examine the resulting reprojection errors in the final ``pointmap`` file
-(:numref:`error_files`).
+(:numref:`ba_out_files`).
 
 Note that if several attempts are used to pick and save interest
 points in the mapprojected images, the resulting match file among the
@@ -905,10 +906,10 @@ The resulting transformed cloud needs to be regridded::
  
 obtaining ``run_align/run-trans_reference-DEM.tif``. This DEM should
 be hillshaded and overlayed on top of the LOLA DEM and see if there is
-any notceable shift, which would be a sign of alignment not being
-succesful. The ``geodiff`` tool can be used to examine any discrepancy
-among the two (:numref:`geodiff`), followed by ``colormap`` (:numref:`colormap`)
-and inspection in ``stereo_gui``.
+any noticeable shift, which would be a sign of alignment not being
+successful. The ``geodiff`` tool can be used to examine any
+discrepancy among the two (:numref:`geodiff`), followed by
+``colormap`` (:numref:`colormap`) and inspection in ``stereo_gui``.
 
 The cameras can be moved with ``bundle_adjust``::
 
@@ -1298,6 +1299,12 @@ the bundle-adjusted images, it may be preferable to create a DEM from
 that one and use it for alignment to the reference DEM
 (:numref:`sfs-move-cameras`).
 
+At the end of bundle adjustment the convergence angles for each pair
+of images having matches are saved to disk (:numref:`ba_out_files`).
+That list can be used to uncover stereo pairs (the convergence angle
+for a reliable stereo pair should be no less than 10 degrees,
+:numref:`stereo_pairs`).
+ 
 Registration refinement
 ^^^^^^^^^^^^^^^^^^^^^^^
 

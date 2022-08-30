@@ -144,10 +144,10 @@ as shown earlier, with one or more images and cameras, and the
 obtained adjustments can be used with ``stereo`` or ``mapproject``
 as described above.
 
-.. _error_files:
+.. _ba_out_files:
 
-Output error files
-~~~~~~~~~~~~~~~~~~
+Output files
+~~~~~~~~~~~~
 
 If the ``--datum`` option is specified, ``bundle_adjust`` will write
 the triangulated world position for every feature being matched in two
@@ -188,6 +188,10 @@ As a finer-grained metric, initial and final ``raw_pixels.txt`` files
 will be written, having the row and column residuals (reprojection
 errors) for each pixel in each camera.
 
+The convergence angle percentiles for each pair of images having matches
+are saved to::
+
+    {output-prefix}-convergence-angles.txt
 
 .. _adjust_files:
 

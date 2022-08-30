@@ -55,6 +55,9 @@ parallel_bundle_adjust:
     subdirectories.
 
 bundle_adjust:
+  * Save the convergence angle percentiles for each pair of
+    images having matches. Useful for understating the configuration
+    of cameras.
   * Added the options ``--image-list``, ``--camera-list``, 
     ``--mapprojected-data-list``, for when the inputs are too many to
     specify on the command line.
@@ -119,7 +122,7 @@ misc:
   * Allow whitespaces in stereo.default before option names. 
   * Fix a crash in ISIS for international users by setting for all ASP
     programs the environmental variables LC_ALL and LANG to en_US.UTF-8.
-  * parallel_stereo will accept (but ignore) Unicode in stereo.defaut.
+  * parallel_stereo will accept (but ignore) Unicode in stereo.default.
 
 
 RELEASE 3.1.0, May 18, 2022

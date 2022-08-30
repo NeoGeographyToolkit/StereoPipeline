@@ -28,7 +28,7 @@ in perspective, hence a reasonably large baseline, or, equivalently, a
 non-small convergence angle between the matching rays emanating from
 the two cameras, for stereo triangulation to be accurate. Yet, if the
 perspectives are very different, it will be challenging to compute the
-stereo correlation between images. A convergence angle of 10 to 45
+stereo correlation between images. A convergence angle of 10 to 60
 degrees is likely reasonable. 
 
 Depending on the characteristics of the mission data set and the
@@ -37,9 +37,13 @@ differ. Significant differences between image characteristics
 increases the likelihood of stereo matching error and artifacts, and
 these errors will propagate through to the resulting data products.
 
-The ``parallel_stereo`` program computes and prints the convergence
-angle for a given stereo pair at the stereo preprocessing stage
-(:numref:`entrypoints`).
+The ``parallel_stereo`` and ``bundle_adjust`` programs compute the
+convergence angle for input cameras. In stereo that happens at the
+preprocessing stage (:numref:`entrypoints`), with the result
+printed on the screen and saved to the log file. In ``bundle_adjust``
+this computation takes place after the optimization of the cameras
+finishes, and the results are saved to a file on disk
+(:numref:`ba_out_files`).
 
 Although images do not need to be mapprojected before running the
 ``parallel_stereo`` program, we recommend that you do run ``cam2map`` (or

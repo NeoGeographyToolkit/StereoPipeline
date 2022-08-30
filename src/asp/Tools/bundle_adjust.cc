@@ -779,23 +779,6 @@ int add_to_outliers(ControlNetwork   & cnet,
   return num_outliers_by_reprojection + num_outliers_by_elev_or_lonlat;
 }
 
-struct convAngle {
-  int left_cam_index, right_cam_index, num_angles;
-  double angle25, angle50, angle75;
-  convAngle(): left_cam_index(0), right_cam_index(0), num_angles(0), angle25(0), angle50(0),
-               angle75(0) {}
-  void populate(int left_index, int right_index, std::vector<double> const& sorted_angles) {
-    left_cam_index  = left_index;
-    right_cam_index = right_index;
-    num_angles = sorted_angles.size();
-    if (num_angles > 0) {
-      angle25 = sorted_angles[0.25*num_angles];
-      angle50 = sorted_angles[0.50*num_angles];
-      angle75 = sorted_angles[0.75*num_angles];
-    }
-  }
-};
-
 // Calculate convergence angles. Remove the outliers flagged earlier,
 // if remove_outliers is true. These are done together as they rely on
 // reloading interest point matches, which is expensive so the matches
@@ -803,7 +786,7 @@ struct convAngle {
 void calc_conv_angles_remove_outliers(ControlNetwork const& cnet,
                                       BAParamStorage const& param_storage,
                                       Options const& opt, bool remove_outliers,
-                                      std::vector<convAngle> & convAngles){
+                                      std::vector<asp::convAngle> & convAngles) {
 
   convAngles.clear();
   
@@ -813,6 +796,8 @@ void calc_conv_angles_remove_outliers(ControlNetwork const& cnet,
   int num_cameras = opt.image_files.size();
   for (int icam = 0; icam < num_cameras; icam++) {
     
+    // TODO(oalexan1): The logic below may need to be a function and should be called
+    // in a couple other places.
     switch (opt.camera_type) {
     case BaCameraType_Pinhole:
       {
@@ -827,7 +812,6 @@ void calc_conv_angles_remove_outliers(ControlNetwork const& cnet,
       break;
       
     case BaCameraType_OpticalBar:
-      
       {
         vw::camera::OpticalBarModel const* in_cam
           = dynamic_cast<vw::camera::OpticalBarModel const*>(opt.camera_models[icam].get());
@@ -874,16 +858,16 @@ void calc_conv_angles_remove_outliers(ControlNetwork const& cnet,
     ip::read_binary_match_file(match_file, orig_left_ip, orig_right_ip);
 
     // Create a new convergence angle storage struct
-    convAngles.push_back(convAngle());
-    convAngle & A = convAngles.back(); // alias
+    convAngles.push_back(asp::convAngle()); // add an element, will populate it soon
+    asp::convAngle & A = convAngles.back(); // alias
     std::vector<double> sorted_angles;
 
     if (!remove_outliers) {
-//       asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
-//                               orig_left_ip, orig_right_ip, sorted_angles);
-//       A.populate(left_index, right_index, sorted_angles);
+      asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
+                              orig_left_ip, orig_right_ip, sorted_angles);
+      A.populate(left_index, right_index, sorted_angles);
       
-//       // Since no outliers are removed, nothing else to do
+      // Since no outliers are removed, nothing else to do
       continue;
     }
     
@@ -977,9 +961,10 @@ void calc_conv_angles_remove_outliers(ControlNetwork const& cnet,
     ip::write_binary_match_file(clean_match_file, left_ip, right_ip);
 
     // Find convergence angles based on clean ip
-    //asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
-    //                        left_ip, right_ip, sorted_angles);
-    //A.populate(left_index, right_index, sorted_angles);
+    asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
+                            left_ip, right_ip, sorted_angles);
+    A.populate(left_index, right_index, sorted_angles);
+    
   } // End loop through the match files
 }
 
@@ -989,11 +974,10 @@ void calc_conv_angles_remove_outliers(ControlNetwork const& cnet,
 int do_ba_ceres_one_pass(Options             & opt,
                          CRNJ                & crn,
                          bool                  first_pass,
-                         bool                  last_pass,
                          BAParamStorage      & param_storage, 
                          BAParamStorage const& orig_parameters,
                          bool                & convergence_reached,
-                         double              & final_cost){
+                         double              & final_cost) {
 
   ceres::Problem problem;
 
@@ -1481,9 +1465,12 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Remove flagged outliers and create clean match files.
   // Do this even when no new outliers are found, to
   // make sure the clean match files are written at least once.
-  std::vector<convAngle> convAngles;
+  std::vector<asp::convAngle> convAngles;
   calc_conv_angles_remove_outliers(cnet, param_storage, opt, remove_outliers, convAngles);
-    
+
+  std::string conv_angles_file = opt.out_prefix + "-convergence-angles.txt";
+  saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
+
   return num_new_outliers;
 } // End function do_ba_ceres_one_pass
 
@@ -1658,10 +1645,10 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 
     bool last_pass = (pass == opt.num_ba_passes - 1);
     bool convergence_reached = true;
-    int  num_new_outliers    = do_ba_ceres_one_pass(opt, crn, (pass==0), last_pass,
-                                                    param_storage, orig_parameters,
-                                                    convergence_reached, final_cost);
-
+    int  num_new_outliers = do_ba_ceres_one_pass(opt, crn, (pass==0),
+                                                 param_storage, orig_parameters,
+                                                 convergence_reached, final_cost);
+    
     if (!last_pass && num_new_outliers == 0 && convergence_reached) {
       vw_out() << "No new outliers removed, and the algorithm converged. "
                << "No more passes are needed.\n";
@@ -1700,9 +1687,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 
     // Do another pass of bundle adjustment.
     bool first_pass = true;
-    bool last_pass  = true;
     bool convergence_reached = true;
-    int  num_new_outliers    = do_ba_ceres_one_pass(opt, crn, first_pass, last_pass,
+    int  num_new_outliers    = do_ba_ceres_one_pass(opt, crn, first_pass,
                                                     param_storage, orig_parameters,
                                                     convergence_reached, final_cost);
     // Record the parameters of the best result.
