@@ -906,7 +906,9 @@ The resulting transformed cloud needs to be regridded::
 obtaining ``run_align/run-trans_reference-DEM.tif``. This DEM should
 be hillshaded and overlayed on top of the LOLA DEM and see if there is
 any notceable shift, which would be a sign of alignment not being
-succesful.
+succesful. The ``geodiff`` tool can be used to examine any discrepancy
+among the two (:numref:`geodiff`), followed by ``colormap`` (:numref:`colormap`)
+and inspection in ``stereo_gui``.
 
 The cameras can be moved with ``bundle_adjust``::
 
@@ -1201,7 +1203,7 @@ worse. The option ``--remove-outliers-params`` above also used very
 generous outlier filtering, if more than 1 pass is desired, when
 outlier filter takes place.
 
-If there are on the oder of 1000 input images, the underlying GNU
+If there are on the order of 1000 input images, the underlying GNU
 Parallel program may fail. In that case use the ``--image-list``,
 ``--camera-list`` and ``--mapprojected-data-list`` options
 (:numref:`bundle_adjust`).
