@@ -34,7 +34,7 @@ The match files created by this tool can be used by
 ``bundle_adjust`` and ``parallel_stereo`` via the options
 ``--match-files-prefix`` and ``--clean-match-files-prefix``.
 
-Command-line options for parallel_bundle_adjust:
+Command-line options for ``parallel_bundle_adjust``:
 
 --nodes-list <filename>
     The list of computing nodes, one per line. If not provided, run
@@ -53,7 +53,8 @@ Command-line options for parallel_bundle_adjust:
     Display the commands being executed.
 
 --processes <integer>
-    The number of processes to use per node.
+    The number of processes to use per node. The default is to use
+    as many processes as cores.
 
 --threads <integer>
     The number of threads to use.

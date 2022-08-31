@@ -331,7 +331,7 @@ with CSM cameras as then ``mapproject`` is multithreaded.)
 
 The fourth image is the colored absolute difference between the
 original DEM and the SfS output, obtained by running ``geodiff``
-(:numref:`geodiff)`::
+(:numref:`geodiff`)::
 
     geodiff --absolute sfs_ref1/run-DEM-final.tif \
       run_full1/run-crop-DEM.tif -o out
@@ -1149,7 +1149,7 @@ ordered by Sun azimuth angle.
 ::
 
     parallel_bundle_adjust --processes 8 --ip-per-image 15000 \
-      --overlap-limit 30 --num-iterations 100 --num-passes 1  \
+      --overlap-limit 30 --num-iterations 1000 --num-passes 1 \
       --min-matches 1 --max-pairwise-matches 1000             \
       --camera-weight 0 --robust-threshold 5                  \ 
       --remove-outliers-params "75.0 3.0 100 100"             \
