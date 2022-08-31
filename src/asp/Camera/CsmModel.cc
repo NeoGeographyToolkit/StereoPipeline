@@ -630,6 +630,12 @@ void applyTransformToState(ModelT const * model,
                            vw::Matrix4x4 const& transform,
                            // Output
                            std::string & modelState) {
+
+  // Applying a scale is not supported in any usgscsm sensors for now.
+  double scale = pow(det(transform), 1.0/3.0);
+  if (std::abs(scale - 1.0) > 1e-6)
+    vw_throw(ArgumentErr()
+             << "CSM camera models do not support applying a transform with a scale.\n");
   
   // Extract the rotation and convert it to ale::Rotation
   vw::Matrix3x3 rotation_matrix = submatrix(transform, 0, 0, 3, 3);

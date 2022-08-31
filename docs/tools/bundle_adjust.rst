@@ -201,16 +201,18 @@ Format of .adjust files
 Unless ``bundle_adjust`` is invoked with the ``--inline-adjustments``
 option, when it modifies the cameras in-place, it will save the camera
 adjustments in ``.adjust`` files using the specified output prefix.
-Such a file stores a translation ``T`` as ``x y z`` (measured in
-meters) and a rotation ``R`` as a quaternion in the order ``w x y
-z``. The rotation is around the camera center ``C`` for pixel (0, 0)
+Such a file stores a translation *T* as *x y z* (measured in
+meters) and a rotation *R* as a quaternion in the order *w x y
+z*. The rotation is around the camera center *C* for pixel (0, 0)
 (for a linescan camera the camera center depends on the pixel).
 
-Hence, if ``P`` is a point in ECEF, that is, the world in which the camera
-exists, and an adjustment is applied to the camera, for ``P`` to be consistent
-with the adjusted camera it has to be transformed as::
+Hence, if *P* is a point in ECEF, that is, the world in which the camera
+exists, and an adjustment is applied to the camera, projecting *P* 
+in the original camera gives the same result as projecting::
 
     P' = R * (P - C) + C + T
+
+in the adjusted camera. 
 
 Command-line options for bundle_adjust
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

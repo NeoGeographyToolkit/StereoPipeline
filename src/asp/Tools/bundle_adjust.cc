@@ -33,6 +33,10 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/Tools/bundle_adjust.h>
 
+// TODO(oalexan1): Move the code that needs this (asp::DoubleMatrix) to utils
+// and also this header which needs Eigen and is slow to compile.
+#include <asp/Core/EigenUtils.h>
+
 #include <xercesc/util/PlatformUtils.hpp>
 
 namespace po = boost::program_options;
@@ -824,18 +828,18 @@ void calc_conv_angles_remove_outliers(ControlNetwork const& cnet,
       break;
       
     default:
-      CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-      boost::shared_ptr<vw::camera::CameraModel>
-        out_cam(new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
-                                    cam_adjust.position(), cam_adjust.pose()));
-      optimized_cams.push_back(out_cam);
+      {
+        CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+        boost::shared_ptr<vw::camera::CameraModel>
+          out_cam(new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
+                                          cam_adjust.position(), cam_adjust.pose()));
+        optimized_cams.push_back(out_cam);
+      }
     }
   }
   
   // Work on individual image pairs
-  typedef std::map< std::pair<int, int>, std::string>::const_iterator match_type;
-  for (match_type match_it = opt.match_files.begin(); match_it != opt.match_files.end();
-       match_it++){
+  for (auto match_it = opt.match_files.begin(); match_it != opt.match_files.end(); match_it++){
 
     // IP from the control network, for which we flagged outliers
     std::vector<vw::ip::InterestPoint> left_ip, right_ip;
@@ -2825,6 +2829,8 @@ int main(int argc, char* argv[]) {
 
     if (opt.stop_after_stats) {
       vw_out() << "Quitting after statistics computation.\n";
+      xercesc::XMLPlatformUtils::Terminate();
+
       return 0;
     }
 

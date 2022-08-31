@@ -284,6 +284,18 @@ bool init_cams(Options & opt, BAParamStorage & param_storage,
 
   // Apply any initial transform to the pinhole cameras
   if (opt.initial_transform_file != "") {
+
+    // TODO(oalexan1): This gives wrong results for now so needs to be sorted out.
+    // Likely the only way to apply a scale to a linescan camera is to multiply
+    // all camera centers by the scale. Using a rotation and translation center
+    // like for AdjustedCameraModel is not enough.
+    if (opt.stereo_session == "csm") {
+      double scale = pow(det(opt.initial_transform), 1.0/3.0);
+      if (std::abs(scale - 1.0) > 1e-6)
+        vw_throw(ArgumentErr()
+                 << "CSM camera models do not support applying a transform with a scale.\n");
+    }
+    
     apply_transform_to_cameras(opt.initial_transform, param_storage, new_cam_models);
     cameras_changed = true;
   }

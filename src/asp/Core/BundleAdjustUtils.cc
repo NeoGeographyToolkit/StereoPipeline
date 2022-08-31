@@ -409,7 +409,6 @@ void asp::determine_image_pairs(// Inputs
   // The pairs without repetition
   for (auto it = local_set.begin(); it != local_set.end(); it++)
     all_pairs.push_back(*it);
-
 }
 
 /// Load a DEM from disk to use for interpolation.
