@@ -1312,12 +1312,12 @@ If the images project reasonably well, but there are still some small
 registration errors, one can refine the cameras using the reference
 terrain as a constraint in bundle adjustment::
 
-    bundle_adjust --skip-matching --num-iterations 100  \
-      --num-passes 2 --camera-weight 0                  \
+    bundle_adjust --skip-matching --num-iterations 1000 \
+      --num-passes 1 --camera-weight 0                  \
       --input-adjustments-prefix ba_align/run <images>  \
       --save-intermediate-cameras                       \
       --heights-from-dem ref.tif                        \
-      --heights-from-dem-weight 2.0                     \
+      --heights-from-dem-weight 1.0                     \
       --heights-from-dem-robust-threshold 0.5           \
       --remove-outliers-params "75.0 3.0 100 100"       \
       --match-first-to-last --max-pairwise-matches 1000 \
@@ -1328,12 +1328,13 @@ and also use ``--skip-matching`` to save time by not recomputing
 them. But the camera adjustments come from ``ba_align``, as the ones
 in ``ba`` are before alignment.
 
-Ideally one should use more iterations in bundle adjustment though
-this may be slow. It is suggested that the images be map-projected
-with the cameras both before and after this step, and see if things
-improve. If this procedure resulted in improved but imperfect
-alignment, it may be run second time using the new cameras as initial
-guess (and reusing the match files, etc., as before).
+If 1000 iterations turns out to take more than a day, it is suggested
+to switch to CSM cameras (:numref:`sfs_isis_vs_csm`). It is suggested
+that the images be map-projected with the cameras both before and
+after this step, and see if things improve. If this procedure resulted
+in improved but imperfect alignment, it may be run second time using
+the new cameras as initial guess (and reusing the match files, etc.,
+as before).
 
 The switch ``--save-intermediate cameras`` is helpful, as before, if
 desired to stop if things take too long.
