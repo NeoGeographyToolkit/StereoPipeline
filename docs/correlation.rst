@@ -513,14 +513,16 @@ brought to the same perspective as the output DEM by using the *--error*
 argument on the ``point2dem`` command.
 
 This error in the triangulation, the shortest distance between two
-rays, *is not the true accuracy of the DEM*. It is only another
-indirect measure of quality. A DEM with high triangulation error is
-always bad and should have its images bundle-adjusted. A DEM with low
-triangulation error is at least self-consistent but could still be
-bad. A map of the triangulation error should only be interpreted as a
-relative measurement. Where small areas are found with high
-triangulation error came from correlation mistakes and large areas of
-error came from camera model inadequacies.
+rays emanating from matching pixels (measured in meters), *is not the
+true accuracy of the DEM*. It is only another indirect measure of
+quality. A DEM with high triangulation error, as compared to the
+ground sample distance, is always bad and should have its images
+bundle-adjusted. A DEM with low triangulation error is at least
+self-consistent but could still be bad. A map of the triangulation
+error should only be interpreted as a relative measurement. Where
+small areas are found with high triangulation error came from
+correlation mistakes and large areas of error came from camera model
+inadequacies.
 
 
 .. _sensor_corrections:

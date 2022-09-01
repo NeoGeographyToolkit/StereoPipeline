@@ -147,9 +147,6 @@ points in the cloud were binned (before meshing) into voxels of size
 0.005 meters. Later some of these choices will be automated, or
 scale-independent parameters will be provided.
 
-In future versions of this tool, undistortion of input images may be
-optional.
-
 There are three steps happening above, namely:
 
 * stereo: Runs ``parallel_stereo`` (:numref:`parallel_stereo`) and
@@ -165,6 +162,9 @@ There are three steps happening above, namely:
 * mesh_gen: Use ``voxblox_mesh`` (:numref:`voxblox_mesh`) to fuse the
   filtered point clouds in .pcd format and create a mesh in .ply
   format.
+
+The images are undistorted internally before stereo is run. (The
+undistortion step may be optional in future versions.)
 
 See ``--first_step`` and ``--last_step`` in
 :numref:`multi_stereo_command_line` for how to choose which processing
@@ -225,9 +225,9 @@ Command-line options for multi_stereo
     Options to pass to ``voxblox_mesh`` for mesh generation.
 --undistorted_crop_win <string (default: "")>
     The dimensions of the central image region to keep
-    after undistorting an image and before using it in
+    after the internal undistortion step and before using it in
     stereo. Normally 85% - 90% of distorted (actual)
-    image dimensions would do. Suggested the Astrobee images: 
+    image dimensions would do. Suggested the Astrobee images:
     sci_cam: '1250 1000' nav_cam: '1100 776'. haz_cam: '250 200'.
 --first_step <string (default: "stereo")>
     Let the first step run by this tool be one of:
