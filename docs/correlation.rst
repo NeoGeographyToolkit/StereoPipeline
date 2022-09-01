@@ -501,16 +501,16 @@ also not perfect, contributing to the error budget. Then, we take the
 *closest point of intersection* of the two rays as the location of the
 intersection point :math:`P`.
 
-Additionally, the actual distance between the rays at this point is an
-interesting and important error metric that measures how self-consistent
-our two camera models are for this point. You will learn in the next
-chapter that this information, when computed and averaged over all
-reconstructed 3D points, can be a valuable statistic for determining
-whether to carry out bundle adjustment. Distance between the two rays at
-their closest intersection is recorded in the fourth channel of the
-point cloud file, ``output-prefix-PC.tif``. This information can be
-brought to the same perspective as the output DEM by using the *--error*
-argument on the ``point2dem`` command.
+Additionally, the actual shortest distance between the rays at this
+point is an interesting and important error metric that measures how
+self-consistent our two camera models are for this point. It will be seen
+in the next chapter that this information, when computed and
+averaged over all reconstructed 3D points, can be a valuable statistic
+for determining whether to carry out bundle adjustment. The distance
+between the two rays at their closest intersection is recorded in the
+fourth channel of the point cloud file, ``output-prefix-PC.tif``. This
+information can be brought to the same perspective as the output DEM
+by using the ``--errorimage`` argument on the ``point2dem`` command.
 
 This error in the triangulation, the shortest distance between two
 rays emanating from matching pixels (measured in meters), *is not the
@@ -518,11 +518,11 @@ true accuracy of the DEM*. It is only another indirect measure of
 quality. A DEM with high triangulation error, as compared to the
 ground sample distance, is always bad and should have its images
 bundle-adjusted. A DEM with low triangulation error is at least
-self-consistent but could still be bad. A map of the triangulation
-error should only be interpreted as a relative measurement. Where
-small areas are found with high triangulation error came from
-correlation mistakes and large areas of error came from camera model
-inadequacies.
+self-consistent but could still be bad, or at least misaligned. A map
+of the triangulation error should only be interpreted as a relative
+measurement. Where small areas are found with high triangulation error
+came from correlation mistakes and large areas of error came from
+camera model inadequacies.
 
 
 .. _sensor_corrections:
