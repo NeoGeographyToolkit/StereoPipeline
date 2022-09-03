@@ -777,9 +777,8 @@ int main(int argc, char* argv[]) {
     // Find the target resolution based --tr, --mpp, and --ppd if provided. Do
     // the math to convert pixel-per-degree to meter-per-pixel and vice-versa.
     int sum = (!std::isnan(opt.tr)) + (!std::isnan(opt.mpp)) + (!std::isnan(opt.ppd));
-    if (sum >= 2){
+    if (sum >= 2)
       vw_throw( ArgumentErr() << "Must specify at most one of the options: --tr, --mpp, --ppd.\n" );
-    }
 
     double radius = target_georef.datum().semi_major_axis();
     if ( !std::isnan(opt.tr) ){ // --tr was set
