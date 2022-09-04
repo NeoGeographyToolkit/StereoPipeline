@@ -47,7 +47,7 @@ struct Options : vw::GdalWriteOptions {
   // Input
   std::string dem_file, image_file, camera_file, output_file, stereo_session,
     bundle_adjust_prefix;
-  bool isQuery, noGeoHeaderInfo, nearest_neighbor;
+  bool isQuery, noGeoHeaderInfo, nearest_neighbor, parseOptions;
   bool multithreaded_model; // This is set based on the session type.
   bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction;
   
@@ -99,9 +99,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("enable-correct-velocity-aberration", po::bool_switch(&opt.enable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
      "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
     ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
-     "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.");
-  
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+     "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
+    ("parse-options", po::bool_switch(&opt.parseOptions)->default_value(false),
+     "Parse the options and print the results. Used by the mapproject script.")
+    ;
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
   
   po::options_description positional("");
   positional.add_options()
@@ -125,8 +127,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             allow_unregistered, unregistered);
   
   if ( !vm.count("dem") || !vm.count("camera-image") || !vm.count("camera-model") )
-    vw_throw( ArgumentErr() << usage << general_options );
-
+    vw_throw(ArgumentErr() << "Not all of the input DEM, image, and camera were specified.\n"
+             << usage << general_options);
+  
   // If exactly three files were passed in, the last one must be the output file and the image file
   // must contain the camera model.
   if ( !vm.count("output-image") && vm.count("camera-model") ) {
@@ -136,6 +139,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if (asp::has_cam_extension(opt.output_file))
     vw_throw(ArgumentErr() << "The output file is a camera. Check your inputs.\n");
+
+  if (opt.parseOptions) {
+    // For the benefit of mapproject
+    vw_out() << "dem," << opt.dem_file << std::endl;
+    vw_out() << "image," << opt.image_file << std::endl;
+    vw_out() << "camera," << opt.camera_file << std::endl;
+    vw_out() << "output_file," << opt.output_file << std::endl;
+    exit(0);
+  }
   
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
@@ -165,7 +177,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     // TODO (oalexan1): Storing the datum name is fragile.
     asp::stereo_settings().datum = dem_georef.datum().name(); 
   }
-  
+
+  return;
 }
 
 // If the output type is some type of int, round and clamp to this

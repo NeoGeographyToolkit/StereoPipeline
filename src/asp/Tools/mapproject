@@ -79,50 +79,12 @@ def generateTileList(fullWidth, fullHeight, tileSize):
 
     return (numTilesX, numTilesY, tileList)
 
-def handleArguments(args):
-    """Split up arguments into required and optional lists which will be passed to subprocess"""
-
-    # TODO(oalexan1): This is buggy. Boolean options won't be handled well.
-    requiredList = []
-    optionsList  = []
-
-    # Loop through all entries.
-    iterable = iter(range(0, len(args)))
-    for i in iterable:
-        a = args[i]
-        if (i < len(args)-1): # Don't load the next value when we are at the end!
-            n = args[i+1]
-        else:
-            n = '-' # This will just cause us to get out of the loop
-
-        if asp_cmd_utils.isCmdOption(a):      # This is the start of an option.
-            optionsList.append(a)  # Record this entry.
-
-            if asp_cmd_utils.isCmdOption(n):  # The next entry is the start of another option so this one has no values.
-                continue
-
-            optionsList.append(n)  # Otherwise record the next entry as a value.
-            next(iterable)              # Skip the next entry in the loop.
-
-            if (a == '--t_projwin') or (a == '--t_pixelwin'):  # These arguments have four values, not just one.
-                optionsList.append(args[i+2])              # Add the additional three arguments and skip them in the loop.
-                optionsList.append(args[i+3])
-                optionsList.append(args[i+4])
-                next(iterable)
-                next(iterable)
-                next(iterable)
-
-        else: # This is one of the three positional arguments
-            requiredList.append(a)
-
-    # Return the two lists
-    return (requiredList, optionsList)
-
 def writeSingleTile(options):
     """Writes a single tile according to the options"""
 
     # Determine the name of the tile we need to write
-    tileName = generateTileName(options.pixelStartX, options.pixelStartY, options.pixelStopX, options.pixelStopY)
+    tileName = generateTileName(options.pixelStartX, options.pixelStartY,
+                                options.pixelStopX, options.pixelStopY)
     tilePath = os.path.join(options.workDir, tileName)
 
     # Bounds for this tile
@@ -342,33 +304,26 @@ def main(argsIn):
         parser.print_help()
         sys.exit(1)
 
-    # This will parse all the mapproject options.
-    requiredList, optionsList = handleArguments(args)
+    # Run an initial query to parse and validate the user input
+    sep = ","
+    verbose = False
+    progName = 'mapproject_single'
+    settings = asp_system_utils.run_and_parse_output(progName, args + ['--parse-options'],
+                                                     sep, verbose)
+    options.demPath    = settings["dem"][0]
+    options.imagePath  = settings["image"][0]
+    options.cameraPath = settings["camera"][0]
+    options.outputPath = settings["output_file"][0]
 
-    # Check the required positional arguments.
-    if len(requiredList) < 1:
-        parser.print_help()
-        parser.error("Missing input DEM.\n" );
-    if len(requiredList) < 2:
-        parser.print_help()
-        parser.error("Missing input image.\n" );
-    if len(requiredList) < 3:
-        parser.print_help()
-        parser.error("Missing output filename.\n" );
-
-    options.demPath    = requiredList[0]
-    options.imagePath  = requiredList[1]
-    if len(requiredList) == 3:
-        options.cameraPath = ''
-        relOutputPath = requiredList[2]
-        options.outputPath = relOutputPath
-    else: # == 4
-        relOutputPath = requiredList[3]
-        options.cameraPath = requiredList[2]
-        options.outputPath = relOutputPath
-
-    # Any additional arguments need to be forwarded to the mapproject function
-    options.extraArgs = optionsList
+    # Remove these entries from the arguments.
+    # TODO(oalexan1): This is fragile. What if we have the image file both on its own
+    # and as an argument to some option? That is not the case for now.
+    for v in [options.demPath, options.imagePath, options.cameraPath, options.outputPath]:
+        if v != "" and v in args:
+            args.remove(v)
+    
+    # This may contain --t_pixelwin, to be parsed later.
+    options.extraArgs = args
 
     startTime = time.time()
 
