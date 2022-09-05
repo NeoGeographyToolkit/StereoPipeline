@@ -22,8 +22,9 @@
 // TODO(oalexan1): Move most of BundleAdjustCamera.h code to here, and put it
 // all in the asp namespace.
 
-#include <asp/Camera/BundleAdjustCamera.h>
+#include <vw/Cartography/CameraBBox.h>
 
+#include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Core/EigenUtils.h>
 
 #include <string>
@@ -827,21 +828,95 @@ void saveConvergenceAngles(std::string const& conv_angles_file,
   return;
 }
 
+// Mapproject interest points onto a DEM and find the norm of their
+// disagreement in DEM pixel units. It is assumed that dem_georef
+// was created by bilinear interpolation. The cameras must be with
+// the latest adjustments applied to them.
+void asp::calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimized_cams,
+                                 int left_cam_index, int right_cam_index,
+                                 std::vector<vw::ip::InterestPoint> const& left_ip,
+                                 std::vector<vw::ip::InterestPoint> const right_ip,
+                                 vw::cartography::GeoReference const& dem_georef,
+                                 vw::ImageViewRef<vw::PixelMask<double>> interp_dem,
+                                 std::vector<double> & mapproj_offsets) {
+  // Wipe the output
+  mapproj_offsets.clear();
+
+  for (size_t ip_it = 0; ip_it < left_ip.size(); ip_it++) {
+    
+    bool treat_nodata_as_zero = false;
+    bool has_intersection = false;
+    double height_error_tol = 0.001; // 1 mm should be enough
+    double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
+    double max_rel_tol      = 1e-14;
+    int num_max_iter        = 50;   // Using many iterations can be very slow
+    Vector3 xyz_guess;
+    
+    Vector2 left_pix(left_ip[ip_it].x, left_ip[ip_it].y);
+    Vector3 left_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+      (optimized_cams[left_cam_index]->camera_center(left_pix),
+       optimized_cams[left_cam_index]->pixel_to_vector(left_pix),
+       interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+       height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+    Vector3 left_map_llh = dem_georef.datum().cartesian_to_geodetic(left_dem_xyz);
+    Vector2 left_map_pix = dem_georef.lonlat_to_pixel(subvector(left_map_llh, 0, 2));
+    if (!has_intersection) 
+      continue;
+    
+    // Do the same for right. Use left pixel as initial guess
+    xyz_guess = left_dem_xyz;
+    Vector2 right_pix(right_ip[ip_it].x, right_ip[ip_it].y);
+    Vector3 right_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+      (optimized_cams[right_cam_index]->camera_center(right_pix),
+       optimized_cams[right_cam_index]->pixel_to_vector(right_pix),
+       interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+       height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+    Vector3 right_map_llh = dem_georef.datum().cartesian_to_geodetic(right_dem_xyz);
+    Vector2 right_map_pix = dem_georef.lonlat_to_pixel(subvector(right_map_llh, 0, 2));
+    if (!has_intersection) 
+      continue;
+    
+    mapproj_offsets.push_back(norm_2(left_map_pix - right_map_pix));
+  }
+}
+
 // Save mapprojected matches offsets for each image pair having matches
-void saveMapprojOffsets(std::string const& mapproj_offsets_file,
-                        std::vector<asp::MatchPairStats> const& mapprojOffsets,
-                        std::vector<std::string> const& imageFiles) {
+void asp::saveMapprojOffsets(std::string const& mapproj_offsets_file,
+                             std::vector<asp::MatchPairStats> const& mapprojOffsets,
+                             std::vector<std::vector<double>> & mapprojOffsetsPerCam, // will change
+                             std::vector<std::string> const& imageFiles) {
   vw_out() << "Writing: " << mapproj_offsets_file << "\n";
   std::ofstream ofs (mapproj_offsets_file.c_str());
-  ofs << " # Percentiles of distances between matching pixels after mapprojecting onto DEM.\n"
-      << " # Measured in DEM pixel units.\n";
-  ofs << " # left_image right_image 25% 50% 75% num_matches_per_pair\n";
+
+  ofs << "# Percentiles of distances between mapprojected matching pixels in an "
+      << "image and the others.\n";
+  ofs << "# image_name 25% 50% 75% count\n";
+  for (size_t image_it = 0; image_it < imageFiles.size(); image_it++) {
+    auto & vals = mapprojOffsetsPerCam[image_it]; // alias
+    int len = vals.size();
+    double val25 = -1.0, val50 = -1.0, val75 = -1.0, count = 0;
+    if (!vals.empty()) {
+      std::sort(vals.begin(), vals.end());
+      val25 = vals[0.25 * len];
+      val50 = vals[0.50 * len];
+      val75 = vals[0.75 * len];
+      count = len;
+    }
+
+    ofs << imageFiles[image_it] << ' '
+        << val25 << ' ' << val50 << ' ' << val75 << ' ' << count << "\n";
+  }
+  
+  ofs << "# Percentiles of distances between matching pixels after mapprojecting onto DEM.\n"
+      << "# Per image pair and measured in DEM pixel units.\n";
+  ofs << "# left_image right_image 25% 50% 75% num_matches_per_pair\n";
   ofs.precision(17);
   for (size_t conv_it = 0; conv_it < mapprojOffsets.size(); conv_it++) {
     auto const & c = mapprojOffsets[conv_it]; // alias
     ofs << imageFiles[c.left_cam_index] << ' ' << imageFiles[c.right_cam_index] << ' '
         << c.val25 << ' ' << c.val50 << ' '  << c.val75 << ' ' << c.num_vals << "\n";
   }
+
   ofs.close();
 
   return;

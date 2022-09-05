@@ -25,8 +25,6 @@
 #ifndef __BUNDLE_ADJUST_CAMERA_H__
 #define __BUNDLE_ADJUST_CAMERA_H__
 
-#include <string>
-
 // TODO(oalexan1): Move most of these headers to the .cc file
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/BundleAdjustment/AdjustRef.h>
@@ -48,6 +46,8 @@
 
 // TODO(oalexan1): Move all this code to the .cc file and to the asp namespace.
 
+#include <string>
+
 namespace asp {
 
 typedef boost::shared_ptr<vw::camera::CameraModel> CameraModelPtr;
@@ -55,21 +55,21 @@ typedef boost::shared_ptr<vw::camera::CameraModel> CameraModelPtr;
 // This must be const or else there's a crash
 const std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
-// A structure to hold percentiles of given sorted values. It assumes that the inputs
-// are sorted.
+// A structure to hold percentiles of given sorted values. This sorts the inputs.
 struct MatchPairStats {
   int left_cam_index, right_cam_index, num_vals;
   double val25, val50, val75;
   MatchPairStats(): left_cam_index(0), right_cam_index(0), num_vals(0), val25(0), val50(0),
                val75(0) {}
-  void populate(int left_index, int right_index, std::vector<double> const& sorted_vals) {
+  void populate(int left_index, int right_index, std::vector<double> & vals) {
+    std::sort(vals.begin(), vals.end());
     left_cam_index  = left_index;
     right_cam_index = right_index;
-    num_vals = sorted_vals.size();
+    num_vals = vals.size();
     if (num_vals > 0) {
-      val25 = sorted_vals[0.25*num_vals];
-      val50 = sorted_vals[0.50*num_vals];
-      val75 = sorted_vals[0.75*num_vals];
+      val25 = vals[0.25*num_vals];
+      val50 = vals[0.50*num_vals];
+      val75 = vals[0.75*num_vals];
     }
   }
 };
@@ -718,9 +718,22 @@ void saveConvergenceAngles(std::string const& conv_angles_file,
                            std::vector<asp::MatchPairStats> const& convAngles,
                            std::vector<std::string> const& imageFiles);
 
+// Mapproject interest points onto a DEM and find the norm of their
+// disagreement in DEM pixel units. It is assumed that dem_georef
+// was created by bilinear interpolation.
+namespace asp {
+void calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimized_cams,
+                            int left_cam_index, int right_cam_index,
+                            std::vector<vw::ip::InterestPoint> const& left_ip,
+                            std::vector<vw::ip::InterestPoint> const right_ip,
+                            vw::cartography::GeoReference const& dem_georef,
+                            vw::ImageViewRef<vw::PixelMask<double>> interp_dem,
+                            std::vector<double> & mapproj_offsets);
+
 // Save mapprojected matches offsets for each image pair having matches
 void saveMapprojOffsets(std::string const& mapproj_offsets_file,
                         std::vector<asp::MatchPairStats> const& mapprojOffsets,
+                        std::vector<std::vector<double>> & mapprojOffsetsPerCam, // will change
                         std::vector<std::string> const& imageFiles);
-
+}
 #endif // __BUNDLE_ADJUST_CAMERA_H__

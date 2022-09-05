@@ -75,11 +75,15 @@ bundle_adjust:
   * Let the default ``--heights-from-dem-weight`` be 1.0, and the
     default ``--heights-from-dem-robust-threshold`` be 0.5. These
     normally need tuning.
-  * With ``--match-first-to-last``, write match files from earlier
-    to later images, rather than vice-versa.
+  * Added the option ``--save-mapproj-match-points-offsets``,
+    to evaluate how much images with bundle-adjusted cameras disagree
+    after mapprojection, per matching image pair, and per image.
   * Added options ``--proj-win`` and ``--proj-str`` for restricting
     interest points to given area (useful when having many images
     with footprints beyond area of interest).
+  * With ``--match-first-to-last``, write match files from earlier
+    to later images, rather than vice-versa. This was a bug, as
+    the matches were not being picked up correctly later.
 
 point2dem:
   * Added the Tukey outlier removal method option applied to

@@ -93,7 +93,8 @@ struct Options : public vw::GdalWriteOptions {
   bool   skip_rough_homography, enable_rough_homography, disable_tri_filtering,
     enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
     force_reuse_match_files, save_cnet_as_csv,
-    enable_correct_velocity_aberration, enable_correct_atmospheric_refraction;
+    enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
+    save_mapproj_match_points_offsets;
   vw::Vector2 elevation_limit;     // Expected range of elevation to limit results to.
   vw::BBox2 lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
   vw::BBox2 proj_win; // Limit input triangulated points to this projwin

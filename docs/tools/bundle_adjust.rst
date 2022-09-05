@@ -193,8 +193,15 @@ are saved to::
 
     {output-prefix}-convergence_angles.txt
 
-# Document
+If the options ``--heights-from-dem`` and
+``--save-mapproj-match-points-offsets`` are specified, the file::
+
     {output-prefix}-mapproj_match_offsets.txt
+
+will be written. For each pair of images having matches, the matches
+are mapprojected onto the DEM, and percentiles of their disagreements
+are computed, for each image vs the rest, and per image pair, in DEM
+pixel units. This helps with evalulating image co-registration.
 
 .. _adjust_files:
 
@@ -512,6 +519,12 @@ Command-line options for bundle_adjust
     ``--heights-from-dem``. This is applied after the point differences
     are multiplied by ``--heights-from-dem-weight``. It should
     help with attenuating large height difference outliers.
+
+--save-mapproj-match-points-offsets
+    If ``--heights-from-dem`` is specified, mapproject matching
+    interest points onto this DEM and compute several percentiles of
+    their discrepancy for each image vs the rest, and per image pair,
+    in units of DEM's pixels.
 
 --reference-dem <string>
     If specified, constrain every ground point where rays from

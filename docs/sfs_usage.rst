@@ -1126,7 +1126,9 @@ registration accuracy. Use a command as::
 
 to identify an image's ground sample distance (pixel size on the
 ground). For LRO NAC, it is suggested to exclude all images where this
-value is above 1.3 meters.
+value is above 1.3 meters. Or, at least, one should keep in mind that
+the overall registration accuracy will be in line with the coarsest
+images being used.
 
 Handling a very large number of images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1421,13 +1423,25 @@ If the results are not good so far, it is suggested to perhaps narrow
 down the domain of computation, by cropping the input DEM to a region
 of perhaps 5000 pixels on the side, excluding low-resolution images as
 discussed in :numref:`sfs_exclude_lowres`, ensuring the images are
-sorted by illumination, selecting a smaller subset of perhaps 100-200
-images, inspecting their mapprojected versions carefully, then redoing
-bundle adjustment with the options ``--proj-win`` and ``--proj-str``
-to exclude interest points outside of given area.
+sorted by illumination, aligned using a stereo pair, selecting a
+smaller subset of perhaps 100-200 images, inspecting their
+mapprojected versions carefully, then redoing bundle adjustment with
+the options ``--proj-win`` and ``--proj-str`` to exclude interest
+points outside of given area.
 
 The previously obtained camera adjustments can be used as initial
-guesses.
+guesses when re-running bundle adjustment.
+
+If the option ``--save-mapproj-match-points-offsets`` is specified,
+the file::
+
+    ba_align_ref/run-mapproj_match_offsets.txt
+
+will be written. For each pair of images having matches, the matches
+are mapprojected onto the DEM, and percentiles of their disagreements
+are computed, for each image vs the rest, and per image pair, in DEM
+pixel units. This metric can help weed out images that register
+poorly.
 
 Running SfS
 ^^^^^^^^^^^

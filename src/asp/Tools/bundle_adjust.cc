@@ -22,7 +22,6 @@
 #include <vw/BundleAdjustment/BundleAdjustReport.h>
 #include <vw/BundleAdjustment/AdjustRef.h>
 #include <vw/FileIO/MatrixIO.h>
-#include <vw/Cartography/CameraBBox.h> // TODO(oalexan1): Move this out as it is slow to compile
 #include <asp/Core/Macros.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
@@ -798,14 +797,17 @@ int add_to_outliers(ControlNetwork   & cnet,
 void matchFilesProcessing(ControlNetwork const& cnet,
                           BAParamStorage const& param_storage,
                           Options const& opt, bool remove_outliers,
+                          bool save_mapproj_match_points_offsets,
                           vw::cartography::GeoReference const& dem_georef,
                           ImageViewRef<PixelMask<double>> interp_dem,
                           std::vector<asp::MatchPairStats> & convAngles,
-                          std::vector<asp::MatchPairStats> & mapprojOffsets) {
+                          std::vector<asp::MatchPairStats> & mapprojOffsets,
+                          std::vector<std::vector<double>> & mapprojOffsetsPerCam) {
 
   convAngles.clear();
   mapprojOffsets.clear();
-
+  mapprojOffsetsPerCam.clear();
+  
   bool have_dem = (interp_dem.cols() > 0 && interp_dem.rows() > 0);
 
   // TODO(oalexan1): Move out the logic for creating optimized cameras, so the block below.
@@ -813,7 +815,7 @@ void matchFilesProcessing(ControlNetwork const& cnet,
 
   // Find the cameras with the latest adjustments. Note that we do not modify
   // opt.camera_models, but make copies as needed.
-  std::vector<boost::shared_ptr<vw::camera::CameraModel>> optimized_cams;
+  std::vector<asp::CameraModelPtr> optimized_cams;
   int num_cameras = opt.image_files.size();
   for (int icam = 0; icam < num_cameras; icam++) {
     
@@ -828,7 +830,7 @@ void matchFilesProcessing(ControlNetwork const& cnet,
           vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
         vw::camera::PinholeModel * out_cam = new PinholeModel();
         *out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
-        optimized_cams.push_back(boost::shared_ptr<vw::camera::CameraModel>(out_cam));
+        optimized_cams.push_back(asp::CameraModelPtr(out_cam));
       }
       break;
       
@@ -840,20 +842,22 @@ void matchFilesProcessing(ControlNetwork const& cnet,
           vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
         vw::camera::OpticalBarModel * out_cam = new OpticalBarModel();
         *out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
-        optimized_cams.push_back(boost::shared_ptr<vw::camera::CameraModel>(out_cam));
+        optimized_cams.push_back(asp::CameraModelPtr(out_cam));
       }
       break;
       
     default:
       {
         CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-        boost::shared_ptr<vw::camera::CameraModel>
-          out_cam(new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
+        asp::CameraModelPtr out_cam
+          (new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
                                           cam_adjust.position(), cam_adjust.pose()));
         optimized_cams.push_back(out_cam);
       }
     }
   }
+
+  mapprojOffsetsPerCam.resize(num_cameras);
   
   // Work on individual image pairs
   for (auto match_it = opt.match_files.begin(); match_it != opt.match_files.end(); match_it++) {
@@ -886,7 +890,7 @@ void matchFilesProcessing(ControlNetwork const& cnet,
     std::vector<double> sorted_angles;
 
     asp::MatchPairStats * mapprojOffset = NULL; // may not always exist
-    if (have_dem) {
+    if (have_dem && save_mapproj_match_points_offsets) {
       mapprojOffsets.push_back(asp::MatchPairStats()); // add an elem
       mapprojOffset = &mapprojOffsets.back(); // pointer
     }
@@ -894,8 +898,19 @@ void matchFilesProcessing(ControlNetwork const& cnet,
     if (!remove_outliers) {
       asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
                               orig_left_ip, orig_right_ip, sorted_angles);
-      std::sort(sorted_angles.begin(), sorted_angles.end()); // should not be needed
       convAngle.populate(left_index, right_index, sorted_angles);
+
+      if (mapprojOffset != NULL) {
+        asp::calcPairMapprojOffsets(optimized_cams,
+                                    left_index, right_index,
+                                    orig_left_ip, orig_right_ip, dem_georef, interp_dem,  
+                                    mapproj_offsets);
+        mapprojOffset->populate(left_index, right_index, mapproj_offsets);
+        for (size_t map_it = 0; map_it < mapproj_offsets.size(); map_it++) {
+          mapprojOffsetsPerCam[left_index].push_back(mapproj_offsets[map_it]);
+          mapprojOffsetsPerCam[right_index].push_back(mapproj_offsets[map_it]);
+        }
+      }
       
       // Since no outliers are removed, nothing else to do
       continue;
@@ -995,50 +1010,16 @@ void matchFilesProcessing(ControlNetwork const& cnet,
                             left_ip, right_ip, sorted_angles);
     convAngle.populate(left_index, right_index, sorted_angles);
 
-    // TODO(oalexan1): This must be a function! Must also be called when
-    // we don't filter outliers!
-    if (have_dem) {
-      for (size_t ip_it = 0; ip_it < left_ip.size(); ip_it++) {
-        
-        bool treat_nodata_as_zero = false;
-        bool has_intersection = false;
-        double height_error_tol = 0.001; // 1 mm should be enough
-        double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
-        double max_rel_tol      = 1e-14;
-        int num_max_iter        = 25;   // Using many iterations can be very slow
-        Vector3 xyz_guess;
-
-        Vector2 left_pix(left_ip[ip_it].x, left_ip[ip_it].y);
-        Vector3 left_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
-          (optimized_cams[left_index]->camera_center(left_pix),
-           optimized_cams[left_index]->pixel_to_vector(left_pix),
-           interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
-           height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
-        Vector3 left_map_llh = dem_georef.datum().cartesian_to_geodetic(left_dem_xyz);
-        Vector2 left_map_pix = dem_georef.lonlat_to_pixel(subvector(left_map_llh, 0, 2));
-        if (!has_intersection) 
-          continue;
-
-        // Do the same for right. Use left pixel as initial guess
-        xyz_guess = left_dem_xyz;
-        Vector2 right_pix(right_ip[ip_it].x, right_ip[ip_it].y);
-        Vector3 right_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
-          (optimized_cams[right_index]->camera_center(right_pix),
-           optimized_cams[right_index]->pixel_to_vector(right_pix),
-           interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
-           height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
-        Vector3 right_map_llh = dem_georef.datum().cartesian_to_geodetic(right_dem_xyz);
-        Vector2 right_map_pix = dem_georef.lonlat_to_pixel(subvector(right_map_llh, 0, 2));
-        if (!has_intersection) 
-          continue;
-
-        mapproj_offsets.push_back(norm_2(left_map_pix - right_map_pix));
-      }
-    }
-
     if (mapprojOffset != NULL) {
-      std::sort(mapproj_offsets.begin(), mapproj_offsets.end());
+      asp::calcPairMapprojOffsets(optimized_cams,
+                                  left_index, right_index,
+                                  left_ip, right_ip, dem_georef, interp_dem,  
+                                  mapproj_offsets);
       mapprojOffset->populate(left_index, right_index, mapproj_offsets);
+      for (size_t map_it = 0; map_it < mapproj_offsets.size(); map_it++) {
+        mapprojOffsetsPerCam[left_index].push_back(mapproj_offsets[map_it]);
+        mapprojOffsetsPerCam[right_index].push_back(mapproj_offsets[map_it]);
+      }
     }
     
   } // End loop through the match files
@@ -1576,16 +1557,20 @@ int do_ba_ceres_one_pass(Options             & opt,
   // reloading interest point matches, which is expensive so the matches
   // are used for both operations.
   std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
+  std::vector<std::vector<double>> mapprojOffsetsPerCam;
   matchFilesProcessing(cnet, param_storage, opt, remove_outliers,
-                       dem_georef, interp_dem, convAngles, mapprojOffsets);
+                       opt.save_mapproj_match_points_offsets,
+                       dem_georef, interp_dem, convAngles, mapprojOffsets,
+                       mapprojOffsetsPerCam);
 
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
 
-  // TODO(oalexan1): Don't save these by default
-  if (have_dem) {
+  if (have_dem && opt.save_mapproj_match_points_offsets) {
     std::string mapproj_offsets_file = opt.out_prefix + "-mapproj_match_offsets.txt";
-    saveMapprojOffsets(mapproj_offsets_file, mapprojOffsets, opt.image_files);
+    asp::saveMapprojOffsets(mapproj_offsets_file, mapprojOffsets, 
+                            mapprojOffsetsPerCam, // will change
+                            opt.image_files);
   }
   
   return num_new_outliers;
@@ -1959,6 +1944,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "close to the DEM if specified via --heights-from-dem. This is applied after the "
      "point differences are multiplied by --heights-from-dem-weight. It should help with "
      "attenuating large height difference outliers.")
+    ("save-mapproj-match-points-offsets", po::value(&opt.save_mapproj_match_points_offsets)->default_value(false)->implicit_value(true),
+     "If --heights-from-dem is specified, mapproject matching interest points onto this DEM and compute several percentiles of their discrepancy for each image vs the rest, and per image pair, in units of DEM's pixels.")
     ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
      "If specified, constrain every ground point where rays from matching pixels intersect "
      "to be not too far from the average of intersections of those rays with this DEM.")
@@ -2402,6 +2389,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   if (opt.ref_dem_robust_threshold <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --reference-dem-robust-threshold must be positive.\n");
+
+  bool have_dem = (!opt.heights_from_dem.empty() || !opt.ref_dem.empty());
+  if (!have_dem && opt.save_mapproj_match_points_offsets)
+    vw_throw(ArgumentErr() << "Cannot save offsets for mapprojected match points without a DEM.\n");
   
   // Try to infer the datum from the heights-from-dem
   std::string dem_file;
