@@ -1421,11 +1421,11 @@ Handling remaining registration errors
 
 If the results are not good so far, it is suggested to perhaps narrow
 down the domain of computation, by cropping the input DEM to a region
-of perhaps 5000 pixels on the side, excluding low-resolution images as
-discussed in :numref:`sfs_exclude_lowres`, ensuring the images are
-sorted by illumination, aligned using a stereo pair, selecting a
-smaller subset of perhaps 100-200 images, inspecting their
-mapprojected versions carefully, then redoing bundle adjustment with
+of perhaps 5000 pixels on the side, exclude low-resolution images as
+discussed in :numref:`sfs_exclude_lowres`, ensure the images are
+sorted by illumination, align them using a stereo pair, select a
+smaller subset of perhaps 100-200 images, inspect their
+mapprojected versions carefully, then redo bundle adjustment with
 the options ``--proj-win`` and ``--proj-str`` to exclude interest
 points outside of given area.
 

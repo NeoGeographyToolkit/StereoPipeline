@@ -676,7 +676,7 @@ Command-line options for bundle_adjust
 
 --proj-win
     Flag as outliers input triangulated points not in this proj
-    win (box in protected units as provided by ``--proj_str``). This
+    win (box in projected units as provided by ``--proj_str``). This
     should be generous if the input cameras have significant errors.
 
 --proj-str

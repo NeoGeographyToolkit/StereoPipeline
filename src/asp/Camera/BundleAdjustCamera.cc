@@ -906,7 +906,7 @@ void asp::saveMapprojOffsets(std::string const& mapproj_offsets_file,
     ofs << imageFiles[image_it] << ' '
         << val25 << ' ' << val50 << ' ' << val75 << ' ' << count << "\n";
   }
-  
+
   ofs << "# Percentiles of distances between matching pixels after mapprojecting onto DEM.\n"
       << "# Per image pair and measured in DEM pixel units.\n";
   ofs << "# left_image right_image 25% 50% 75% num_matches_per_pair\n";
