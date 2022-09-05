@@ -963,7 +963,16 @@ Challenges
 ^^^^^^^^^^
 
 Here we will illustrate how SfS can be run in a very difficult
-situation. We chose a site very close to the Lunar South Pole, at around
+situation. 
+
+It is very strongly suggested to follow the instructions below very
+carefully, and be very meticulous in doing various checks along the
+way, as suggested. Otherwise one is looking at spending a lot of time
+and producing suboptimal results. It is very hard to figure out
+what the problems are by tracing one's work backward, hence, one
+should proceed step-by-step and very carefully.
+
+We chose a site very close to the Lunar South Pole, at around
 89.7 degrees South. We used an external DEM as an initial guess
 terrain, in this case the LOLA gridded DEM, as such a DEM has values in
 permanently shadowed regions. The terrain size is 5 km by 5 km at 1
@@ -1039,8 +1048,8 @@ as tall or wide as a row or column.
 Image selection and sorting by illumination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-By far the hardest part of this exercise is choosing the images. We
-downloaded several hundred of them by visiting the web site noted
+By far the hardest part of this exercise is choosing the images. 
+We downloaded several hundred of them by visiting the web site noted
 earlier and searching by the longitude-latitude bounds. The .IMG images
 were converted to .cub as before, and they were mapprojected onto the
 reference DEM, initially at a lower resolution to get a preview of
@@ -1104,6 +1113,20 @@ can result in artifacts in the produced SfS terrain.
 
 Consider using here CSM models instead of ISIS models, as mentioned in
 :numref:`sfs_isis_vs_csm`.
+
+.. _sfs_exclude_lowres:
+
+Excluding low-resolution images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It was determined that images with low-resolution decrease the overall
+registration accuracy. Use a command as::
+
+  mapproject --query-projection dem.tif image.cub image.json out.tif
+
+to identify an image's ground sample distance (pixel size on the
+ground). For LRO NAC, it is suggested to exclude all images where this
+value is above 1.3 meters.
 
 Handling a very large number of images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1300,7 +1323,11 @@ that one and use it for alignment to the reference DEM
 (:numref:`sfs-move-cameras`).
 
 At the end of bundle adjustment the convergence angles for each pair
-of images having matches are saved to disk (:numref:`ba_out_files`).
+of images having matches are saved to disk (:numref:`ba_out_files`), 
+to::
+
+    {output-prefix}-convergence_angles.txt
+
 That list can be used to uncover stereo pairs (the convergence angle
 for a reliable stereo pair should be no less than 10 degrees,
 :numref:`stereo_pairs`).
@@ -1386,6 +1413,21 @@ with intermediate illumination conditions and more terrain coverage
 should be added and the process should be restarted. As a last resort,
 any images that do not overlay correctly must be removed from
 consideration for the shape-from-shading step.
+
+Handling remaining registration errors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If the results are not good so far, it is suggested to perhaps narrow
+down the domain of computation, by cropping the input DEM to a region
+of perhaps 5000 pixels on the side, excluding low-resolution images as
+discussed in :numref:`sfs_exclude_lowres`, ensuring the images are
+sorted by illumination, selecting a smaller subset of perhaps 100-200
+images, inspecting their mapprojected versions carefully, then redoing
+bundle adjustment with the options ``--proj-win`` and ``--proj-str``
+to exclude interest points outside of given area.
+
+The previously obtained camera adjustments can be used as initial
+guesses.
 
 Running SfS
 ^^^^^^^^^^^

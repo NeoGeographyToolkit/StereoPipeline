@@ -77,6 +77,9 @@ bundle_adjust:
     normally need tuning.
   * With ``--match-first-to-last``, write match files from earlier
     to later images, rather than vice-versa.
+  * Added options ``--proj-win`` and ``--proj-str`` for restricting
+    interest points to given area (useful when having many images
+    with footprints beyond area of interest).
 
 point2dem:
   * Added the Tukey outlier removal method option applied to
@@ -100,6 +103,7 @@ stereo_gui:
     from the top menu).
   * Zoom to given proj win from the View menu. Useful for
     reproducibility. Also accessible with option ``--zoom-proj-win``.
+  * Bug fix for slow overlaying of images with different datums.
 
 corr_eval:
   * Bugfix for excessive memory usage with positive ``--prefilter-mode``.

@@ -75,7 +75,7 @@ struct Options : public vw::GdalWriteOptions {
   BACameraType camera_type;
   std::string datum_str, camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, reference_terrain, disparity_list,
-    heights_from_dem, ref_dem;
+    heights_from_dem, ref_dem, proj_str;
   double semi_major, semi_minor, position_filter_dist;
   int    num_ba_passes, max_num_reference_points;
   std::string remove_outliers_params_str;
@@ -94,9 +94,10 @@ struct Options : public vw::GdalWriteOptions {
     enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
     force_reuse_match_files, save_cnet_as_csv,
     enable_correct_velocity_aberration, enable_correct_atmospheric_refraction;
-  vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
-  vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
-  std::string           overlap_list_file, auto_overlap_params;
+  vw::Vector2 elevation_limit;     // Expected range of elevation to limit results to.
+  vw::BBox2 lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
+  vw::BBox2 proj_win; // Limit input triangulated points to this projwin
+  std::string overlap_list_file, auto_overlap_params;
   std::set<std::pair<std::string, std::string>> overlap_list;
   vw::Matrix<double> initial_transform;
   std::string   fixed_cameras_indices_str;

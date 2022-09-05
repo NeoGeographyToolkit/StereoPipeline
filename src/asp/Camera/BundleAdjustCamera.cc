@@ -809,7 +809,7 @@ vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
 
 // Save convergence angle percentiles for each image pair having matches
 void saveConvergenceAngles(std::string const& conv_angles_file,
-                           std::vector<asp::convAngle> const& convAngles,
+                           std::vector<asp::MatchPairStats> const& convAngles,
                            std::vector<std::string> const& imageFiles) {
 
   vw_out() << "Writing: " << conv_angles_file << "\n";
@@ -820,8 +820,29 @@ void saveConvergenceAngles(std::string const& conv_angles_file,
   for (size_t conv_it = 0; conv_it < convAngles.size(); conv_it++) {
     auto const & c = convAngles[conv_it]; // alias
     ofs << imageFiles[c.left_cam_index] << ' ' << imageFiles[c.right_cam_index] << ' '
-        << c.angle25 << ' ' << c.angle50 << ' '  << c.angle75 << ' ' << c.num_angles << "\n";
+        << c.val25 << ' ' << c.val50 << ' '  << c.val75 << ' ' << c.num_vals << "\n";
   }
   ofs.close();
-  
+
+  return;
+}
+
+// Save mapprojected matches offsets for each image pair having matches
+void saveMapprojOffsets(std::string const& mapproj_offsets_file,
+                        std::vector<asp::MatchPairStats> const& mapprojOffsets,
+                        std::vector<std::string> const& imageFiles) {
+  vw_out() << "Writing: " << mapproj_offsets_file << "\n";
+  std::ofstream ofs (mapproj_offsets_file.c_str());
+  ofs << " # Percentiles of distances between matching pixels after mapprojecting onto DEM.\n"
+      << " # Measured in DEM pixel units.\n";
+  ofs << " # left_image right_image 25% 50% 75% num_matches_per_pair\n";
+  ofs.precision(17);
+  for (size_t conv_it = 0; conv_it < mapprojOffsets.size(); conv_it++) {
+    auto const & c = mapprojOffsets[conv_it]; // alias
+    ofs << imageFiles[c.left_cam_index] << ' ' << imageFiles[c.right_cam_index] << ' '
+        << c.val25 << ' ' << c.val50 << ' '  << c.val75 << ' ' << c.num_vals << "\n";
+  }
+  ofs.close();
+
+  return;
 }

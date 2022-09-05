@@ -22,6 +22,7 @@
 #include <vw/BundleAdjustment/BundleAdjustReport.h>
 #include <vw/BundleAdjustment/AdjustRef.h>
 #include <vw/FileIO/MatrixIO.h>
+#include <vw/Cartography/CameraBBox.h> // TODO(oalexan1): Move this out as it is slow to compile
 #include <asp/Core/Macros.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
@@ -717,8 +718,11 @@ int add_to_outliers(ControlNetwork   & cnet,
 
   vw_out() << "Removing as outliers points with mean reprojection error > " << e << ".\n";
   
-  // Add to the outliers by reprojection error. Must repeat the same logic as above. 
-  int num_outliers_by_reprojection = 0;
+  // Add to the outliers by reprojection error. Must repeat the same logic as above.
+  // TODO(oalexan1): This removes a 3D point altogether if any reprojection
+  // errors for it are big. Need to only remove bad reprojection errors
+  // and keep a 3D point if it is left with at least two reprojection residuals.
+  int num_outliers_by_reprojection = 0, total = 0;
   for ( size_t icam = 0; icam < num_cameras; icam++ ) {
     typedef CameraNode<JFeature>::const_iterator crn_iter;
     for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
@@ -726,6 +730,8 @@ int add_to_outliers(ControlNetwork   & cnet,
       // The index of the 3D point
       int ipt = (**fiter).m_point_id;
 
+      total++;
+      
       // skip existing outliers
       if (param_storage.get_point_outlier(ipt))
         continue; 
@@ -735,14 +741,15 @@ int add_to_outliers(ControlNetwork   & cnet,
         continue;
 
       if (mean_residuals[ipt] > e) {
-        //vw_out() << "Removing " << ipt << " with residual " << mean_residuals[ipt] << std::endl;
         param_storage.set_point_outlier(ipt, true);
-        ++num_outliers_by_reprojection;
+        num_outliers_by_reprojection++;
       }
     }
   } // End double loop through all the observations
-  vw_out() << "Removed " << num_outliers_by_reprojection << " outliers by reprojection error.\n";
-
+  vw_out() << "Removed " << num_outliers_by_reprojection << " outliers out of "
+           << total << " of reprojection errors. Ratio: "
+           << double(num_outliers_by_reprojection) / double(total) <<".\n";
+  
   // Remove outliers by elevation limit
   int num_outliers_by_elev_or_lonlat = 0;
   if ( opt.elevation_limit[0] < opt.elevation_limit[1] || !opt.lon_lat_limit.empty()) {
@@ -784,16 +791,26 @@ int add_to_outliers(ControlNetwork   & cnet,
 }
 
 // Calculate convergence angles. Remove the outliers flagged earlier,
-// if remove_outliers is true. These are done together as they rely on
+// if remove_outliers is true. Compute offsets of mapprojected matches,
+// if a DEM is given. These are done together as they rely on
 // reloading interest point matches, which is expensive so the matches
 // are used for both operations.
-void calc_conv_angles_remove_outliers(ControlNetwork const& cnet,
-                                      BAParamStorage const& param_storage,
-                                      Options const& opt, bool remove_outliers,
-                                      std::vector<asp::convAngle> & convAngles) {
+void matchFilesProcessing(ControlNetwork const& cnet,
+                          BAParamStorage const& param_storage,
+                          Options const& opt, bool remove_outliers,
+                          vw::cartography::GeoReference const& dem_georef,
+                          ImageViewRef<PixelMask<double>> interp_dem,
+                          std::vector<asp::MatchPairStats> & convAngles,
+                          std::vector<asp::MatchPairStats> & mapprojOffsets) {
 
   convAngles.clear();
-  
+  mapprojOffsets.clear();
+
+  bool have_dem = (interp_dem.cols() > 0 && interp_dem.rows() > 0);
+
+  // TODO(oalexan1): Move out the logic for creating optimized cameras, so the block below.
+  // Pass that as input.
+
   // Find the cameras with the latest adjustments. Note that we do not modify
   // opt.camera_models, but make copies as needed.
   std::vector<boost::shared_ptr<vw::camera::CameraModel>> optimized_cams;
@@ -839,8 +856,10 @@ void calc_conv_angles_remove_outliers(ControlNetwork const& cnet,
   }
   
   // Work on individual image pairs
-  for (auto match_it = opt.match_files.begin(); match_it != opt.match_files.end(); match_it++){
+  for (auto match_it = opt.match_files.begin(); match_it != opt.match_files.end(); match_it++) {
 
+    std::vector<double> mapproj_offsets;
+    
     // IP from the control network, for which we flagged outliers
     std::vector<vw::ip::InterestPoint> left_ip, right_ip;
 
@@ -862,14 +881,21 @@ void calc_conv_angles_remove_outliers(ControlNetwork const& cnet,
     ip::read_binary_match_file(match_file, orig_left_ip, orig_right_ip);
 
     // Create a new convergence angle storage struct
-    convAngles.push_back(asp::convAngle()); // add an element, will populate it soon
-    asp::convAngle & A = convAngles.back(); // alias
+    convAngles.push_back(asp::MatchPairStats()); // add an element, will populate it soon
+    asp::MatchPairStats & convAngle = convAngles.back(); // alias
     std::vector<double> sorted_angles;
 
+    asp::MatchPairStats * mapprojOffset = NULL; // may not always exist
+    if (have_dem) {
+      mapprojOffsets.push_back(asp::MatchPairStats()); // add an elem
+      mapprojOffset = &mapprojOffsets.back(); // pointer
+    }
+    
     if (!remove_outliers) {
       asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
                               orig_left_ip, orig_right_ip, sorted_angles);
-      A.populate(left_index, right_index, sorted_angles);
+      std::sort(sorted_angles.begin(), sorted_angles.end()); // should not be needed
+      convAngle.populate(left_index, right_index, sorted_angles);
       
       // Since no outliers are removed, nothing else to do
       continue;
@@ -967,13 +993,91 @@ void calc_conv_angles_remove_outliers(ControlNetwork const& cnet,
     // Find convergence angles based on clean ip
     asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
                             left_ip, right_ip, sorted_angles);
-    A.populate(left_index, right_index, sorted_angles);
+    convAngle.populate(left_index, right_index, sorted_angles);
+
+    // TODO(oalexan1): This must be a function! Must also be called when
+    // we don't filter outliers!
+    if (have_dem) {
+      for (size_t ip_it = 0; ip_it < left_ip.size(); ip_it++) {
+        
+        bool treat_nodata_as_zero = false;
+        bool has_intersection = false;
+        double height_error_tol = 0.001; // 1 mm should be enough
+        double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
+        double max_rel_tol      = 1e-14;
+        int num_max_iter        = 25;   // Using many iterations can be very slow
+        Vector3 xyz_guess;
+
+        Vector2 left_pix(left_ip[ip_it].x, left_ip[ip_it].y);
+        Vector3 left_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+          (optimized_cams[left_index]->camera_center(left_pix),
+           optimized_cams[left_index]->pixel_to_vector(left_pix),
+           interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+           height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+        Vector3 left_map_llh = dem_georef.datum().cartesian_to_geodetic(left_dem_xyz);
+        Vector2 left_map_pix = dem_georef.lonlat_to_pixel(subvector(left_map_llh, 0, 2));
+        if (!has_intersection) 
+          continue;
+
+        // Do the same for right. Use left pixel as initial guess
+        xyz_guess = left_dem_xyz;
+        Vector2 right_pix(right_ip[ip_it].x, right_ip[ip_it].y);
+        Vector3 right_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+          (optimized_cams[right_index]->camera_center(right_pix),
+           optimized_cams[right_index]->pixel_to_vector(right_pix),
+           interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+           height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+        Vector3 right_map_llh = dem_georef.datum().cartesian_to_geodetic(right_dem_xyz);
+        Vector2 right_map_pix = dem_georef.lonlat_to_pixel(subvector(right_map_llh, 0, 2));
+        if (!has_intersection) 
+          continue;
+
+        mapproj_offsets.push_back(norm_2(left_map_pix - right_map_pix));
+      }
+    }
+
+    if (mapprojOffset != NULL) {
+      std::sort(mapproj_offsets.begin(), mapproj_offsets.end());
+      mapprojOffset->populate(left_index, right_index, mapproj_offsets);
+    }
     
   } // End loop through the match files
 }
 
 // End outlier functions
 // ----------------------------------------------------------------
+
+void initial_filter_by_proj_win(Options             & opt,
+                                BAParamStorage      & param_storage, 
+                                ControlNetwork const& cnet) {
+
+  // Swap y. Sometimes it is convenient to specify these on input in reverse.
+  if (opt.proj_win.min().y() > opt.proj_win.max().y())
+    std::swap(opt.proj_win.min().y(), opt.proj_win.max().y());
+
+  // Set the projection. The function set_proj4_projection_str() does not set the
+  // datum radii, which is confusing. Use asp::set_srs_string().
+  vw::cartography::GeoReference georef;
+  bool have_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
+  bool have_input_georef = false;
+  asp::set_srs_string(opt.proj_str, have_datum, opt.datum,
+                      have_input_georef, georef);
+
+  int num_points  = param_storage.num_points();
+  for (int i = 0; i < num_points; i++) {
+      
+    if (param_storage.get_point_outlier(i))
+      continue;
+      
+    double* point = param_storage.get_point_ptr(i);
+    Vector3 xyz(point[0], point[1], point[2]);
+    Vector3 llh = georef.datum().cartesian_to_geodetic(xyz);
+    Vector2 proj_pt = georef.lonlat_to_point(subvector(llh, 0, 2));
+
+    if (!opt.proj_win.contains(proj_pt))
+      param_storage.set_point_outlier(i, true);
+  }
+}
 
 int do_ba_ceres_one_pass(Options             & opt,
                          CRNJ                & crn,
@@ -994,13 +1098,13 @@ int do_ba_ceres_one_pass(Options             & opt,
              << "must equal the number of images.\n");
  
   convergence_reached = true;
-  
-  // Add the cost function component for difference of pixel observations
-  // - Reduce error by making pixel projection consistent with observations.
 
+  if (opt.proj_win != BBox2(0, 0, 0, 0) && (!opt.proj_str.empty()))
+    initial_filter_by_proj_win(opt, param_storage, cnet);
+  
   // How many times an xyz point shows up in the problem
   std::vector<int> count_map(num_points);
-  for (int i=0; i<num_points; i++) {
+  for (int i = 0; i < num_points; i++) {
     if (param_storage.get_point_outlier(i))
       count_map[i] = 0; // skip outliers
     else
@@ -1042,8 +1146,9 @@ int do_ba_ceres_one_pass(Options             & opt,
                                         dem_xyz_vec);
   }
   
-  // TODO: Stop using the CRN, store residual blocks in point-major order?
-
+  // Add the cost function component for difference of pixel observations
+  // - Reduce error by making pixel projection consistent with observations.
+  
   // Add the various cost functions the solver will optimize over.
   std::vector<size_t> cam_residual_counts(num_cameras);
   typedef CameraNode<JFeature>::iterator crn_iter;
@@ -1209,7 +1314,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     }
   }
 
-  // TODO(oalexan1): Can we split out this giant section?
+  // TODO(oalexan1): Make this into a function
   // Add a cost function meant to tie up to known disparity
   // form left to right image and known ground truth reference terrain.
   // This was only tested for local pinhole cameras.
@@ -1465,16 +1570,24 @@ int do_ba_ceres_one_pass(Options             & opt,
                       num_gcp_or_dem_residuals, reference_vec, problem);
   }
   
-  // Calculate convergence angles for each pairs of matches.
-  // Remove flagged outliers and create clean match files.
-  // Do this even when no new outliers are found, to
-  // make sure the clean match files are written at least once.
-  std::vector<asp::convAngle> convAngles;
-  calc_conv_angles_remove_outliers(cnet, param_storage, opt, remove_outliers, convAngles);
+  // Calculate convergence angles. Remove the outliers flagged earlier,
+  // if remove_outliers is true. Compute offsets of mapprojected matches,
+  // if a DEM is given. These are done together as they rely on
+  // reloading interest point matches, which is expensive so the matches
+  // are used for both operations.
+  std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
+  matchFilesProcessing(cnet, param_storage, opt, remove_outliers,
+                       dem_georef, interp_dem, convAngles, mapprojOffsets);
 
-  std::string conv_angles_file = opt.out_prefix + "-convergence-angles.txt";
+  std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
 
+  // TODO(oalexan1): Don't save these by default
+  if (have_dem) {
+    std::string mapproj_offsets_file = opt.out_prefix + "-mapproj_match_offsets.txt";
+    saveMapprojOffsets(mapproj_offsets_file, mapprojOffsets, opt.image_files);
+  }
+  
   return num_new_outliers;
 } // End function do_ba_ceres_one_pass
 
@@ -2010,7 +2123,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save the values for the cameras at each iteration.")
     ("apply-initial-transform-only", po::value(&opt.apply_initial_transform_only)->default_value(false)->implicit_value(true),
      "Apply to the cameras the transform given by --initial-transform. No iterations, GCP loading, or image matching takes place.")
-  ("save-vwip",    po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
+    ("proj-win", po::value(&opt.proj_win)->default_value(BBox2(0,0,0,0), "auto"),
+     "Flag as outliers input triangulated points not in this proj win (box in protected units as provided by ``--proj_str``). This should be generous if the input cameras have significant errors.")
+    ("proj-str",   po::value(&opt.proj_str)->default_value(""),
+     "To be used in conjunction with --proj_win.")
+    ("save-vwip",    po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
      "Save .vwip files (intermediate files for creating .match files). For parallel_bundle_adjust these will be saved in subdirectories, as they depend on the image pair. Must start with an empty output directory for this to work.")
     ("vwip-prefix",  po::value(&opt.vwip_prefix),
      "Save .vwip files with this prefix. This is a private option used by parallel_bundle_adjust.")
@@ -2450,6 +2567,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr()
               << "Cannot specify both --match-files-prefix and --clean-match-files-prefix.\n");
 
+  if (int(opt.proj_win != BBox2(0, 0, 0, 0)) + int(!opt.proj_str.empty()) == 1)
+    vw_throw(ArgumentErr() << "Must specify both or neither of --proj-win and --proj-str.\n");
+  
   return;
 }
 

@@ -191,7 +191,10 @@ errors) for each pixel in each camera.
 The convergence angle percentiles for each pair of images having matches
 are saved to::
 
-    {output-prefix}-convergence-angles.txt
+    {output-prefix}-convergence_angles.txt
+
+# Document
+    {output-prefix}-mapproj_match_offsets.txt
 
 .. _adjust_files:
 
@@ -657,6 +660,14 @@ Command-line options for bundle_adjust
     A file containing the list of mapprojected images and the DEM (see
     ``--mapprojected-data``), when they are too many to specify on the
     command line.
+
+--proj-win
+    Flag as outliers input triangulated points not in this proj
+    win (box in protected units as provided by ``--proj_str``). This
+    should be generous if the input cameras have significant errors.
+
+--proj-str
+    To be used in conjunction with  ``--proj_win``.
 
 --save-vwip
     Save .vwip files (intermediate files for creating .match

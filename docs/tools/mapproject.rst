@@ -155,7 +155,8 @@ Command-line options for mapproject:
     bundle adjustment.
 
 --query-projection
-    Display the computed projection information and quit.
+    Display the computed projection information and estimated ground
+    sample distance (pixel size on the ground), and quit.
 
 --no-geoheader-info
     Do not write information in the geoheader. Otherwise mapproject will

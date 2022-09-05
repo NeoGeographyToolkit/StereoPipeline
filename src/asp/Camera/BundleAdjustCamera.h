@@ -55,20 +55,21 @@ typedef boost::shared_ptr<vw::camera::CameraModel> CameraModelPtr;
 // This must be const or else there's a crash
 const std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
-// A structure to hold convergence angle percentiles
-struct convAngle {
-  int left_cam_index, right_cam_index, num_angles;
-  double angle25, angle50, angle75;
-  convAngle(): left_cam_index(0), right_cam_index(0), num_angles(0), angle25(0), angle50(0),
-               angle75(0) {}
-  void populate(int left_index, int right_index, std::vector<double> const& sorted_angles) {
+// A structure to hold percentiles of given sorted values. It assumes that the inputs
+// are sorted.
+struct MatchPairStats {
+  int left_cam_index, right_cam_index, num_vals;
+  double val25, val50, val75;
+  MatchPairStats(): left_cam_index(0), right_cam_index(0), num_vals(0), val25(0), val50(0),
+               val75(0) {}
+  void populate(int left_index, int right_index, std::vector<double> const& sorted_vals) {
     left_cam_index  = left_index;
     right_cam_index = right_index;
-    num_angles = sorted_angles.size();
-    if (num_angles > 0) {
-      angle25 = sorted_angles[0.25*num_angles];
-      angle50 = sorted_angles[0.50*num_angles];
-      angle75 = sorted_angles[0.75*num_angles];
+    num_vals = sorted_vals.size();
+    if (num_vals > 0) {
+      val25 = sorted_vals[0.25*num_vals];
+      val50 = sorted_vals[0.50*num_vals];
+      val75 = sorted_vals[0.75*num_vals];
     }
   }
 };
@@ -714,7 +715,12 @@ bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
 
 // Save convergence angle percentiles for each image pair having matches
 void saveConvergenceAngles(std::string const& conv_angles_file,
-                           std::vector<asp::convAngle> const& convAngles,
+                           std::vector<asp::MatchPairStats> const& convAngles,
                            std::vector<std::string> const& imageFiles);
+
+// Save mapprojected matches offsets for each image pair having matches
+void saveMapprojOffsets(std::string const& mapproj_offsets_file,
+                        std::vector<asp::MatchPairStats> const& mapprojOffsets,
+                        std::vector<std::string> const& imageFiles);
 
 #endif // __BUNDLE_ADJUST_CAMERA_H__

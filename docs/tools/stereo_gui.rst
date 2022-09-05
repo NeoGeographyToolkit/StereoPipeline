@@ -336,7 +336,12 @@ as Georeferenced Images" to plot the polygons on top of the images.
 
 As an application, the ``gdal_rasterize`` command can be used to keep
 or exclude the portion of a given georeferenced image or a DEM that is
-within or outside the polygonal shape.
+within or outside the polygonal shape. Example::
+
+  gdal_rasterize -i -burn <nodata_value> poly.shp dem.tif
+
+Here, if the DEM nodata value is specified, the DEM will be edited and
+values outside the polygon will be replaced with no data.
 
 This tool can be used to find the polygonal contour at a given image
 threshold (which can be either set or computed from the ``Threshold``
