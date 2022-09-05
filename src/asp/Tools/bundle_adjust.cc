@@ -789,33 +789,14 @@ int add_to_outliers(ControlNetwork   & cnet,
   return num_outliers_by_reprojection + num_outliers_by_elev_or_lonlat;
 }
 
-// Calculate convergence angles. Remove the outliers flagged earlier,
-// if remove_outliers is true. Compute offsets of mapprojected matches,
-// if a DEM is given. These are done together as they rely on
-// reloading interest point matches, which is expensive so the matches
-// are used for both operations.
-void matchFilesProcessing(ControlNetwork const& cnet,
+// Find the cameras with the latest adjustments. Note that we do not modify
+// opt.camera_models, but make copies as needed.
+void calcOptimizedCameras(Options const& opt,
                           BAParamStorage const& param_storage,
-                          Options const& opt, bool remove_outliers,
-                          bool save_mapproj_match_points_offsets,
-                          vw::cartography::GeoReference const& dem_georef,
-                          ImageViewRef<PixelMask<double>> interp_dem,
-                          std::vector<asp::MatchPairStats> & convAngles,
-                          std::vector<asp::MatchPairStats> & mapprojOffsets,
-                          std::vector<std::vector<double>> & mapprojOffsetsPerCam) {
+                          std::vector<asp::CameraModelPtr> & optimized_cams) {
 
-  convAngles.clear();
-  mapprojOffsets.clear();
-  mapprojOffsetsPerCam.clear();
+  optimized_cams.clear();
   
-  bool have_dem = (interp_dem.cols() > 0 && interp_dem.rows() > 0);
-
-  // TODO(oalexan1): Move out the logic for creating optimized cameras, so the block below.
-  // Pass that as input.
-
-  // Find the cameras with the latest adjustments. Note that we do not modify
-  // opt.camera_models, but make copies as needed.
-  std::vector<asp::CameraModelPtr> optimized_cams;
   int num_cameras = opt.image_files.size();
   for (int icam = 0; icam < num_cameras; icam++) {
     
@@ -856,7 +837,31 @@ void matchFilesProcessing(ControlNetwork const& cnet,
       }
     }
   }
+}
 
+// Calculate convergence angles. Remove the outliers flagged earlier,
+// if remove_outliers is true. Compute offsets of mapprojected matches,
+// if a DEM is given. These are done together as they rely on
+// reloading interest point matches, which is expensive so the matches
+// are used for both operations.
+void matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
+                          asp::BaBaseOptions const& opt,
+                          std::vector<asp::CameraModelPtr> const& optimized_cams,
+                          bool remove_outliers, std::set<int> const& outliers,
+                          bool save_mapproj_match_points_offsets,
+                          vw::cartography::GeoReference const& dem_georef,
+                          ImageViewRef<PixelMask<double>> interp_dem,
+                          std::vector<asp::MatchPairStats> & convAngles,
+                          std::vector<asp::MatchPairStats> & mapprojOffsets,
+                          std::vector<std::vector<double>> & mapprojOffsetsPerCam) {
+
+  convAngles.clear();
+  mapprojOffsets.clear();
+  mapprojOffsetsPerCam.clear();
+
+  bool have_dem = (interp_dem.cols() > 0 && interp_dem.rows() > 0);
+
+  int num_cameras = opt.image_files.size();
   mapprojOffsetsPerCam.resize(num_cameras);
   
   // Work on individual image pairs
@@ -956,7 +961,7 @@ void matchFilesProcessing(ControlNetwork const& cnet,
       if (!has_left || !has_right)
         continue;
 
-      if (param_storage.get_point_outlier(ipt))
+      if (outliers.find(ipt) != outliers.end())
         continue; // skip outliers
 
       // Only add ip that were there originally
@@ -971,16 +976,18 @@ void matchFilesProcessing(ControlNetwork const& cnet,
     
     // Filter by disparity
     // TODO(oalexan1): Remove this param. Use instead --outlier-removal-params.
-    // Not sure this code should be here to start with.
-    asp::filter_ip_by_disparity(opt.remove_outliers_by_disp_params[0],
-                                opt.remove_outliers_by_disp_params[1],
-                                left_ip, right_ip);
+    // Not sure this code should be here to start with. Note that it
+    // does not update the outliers set.
+    if (opt.remove_outliers_by_disp_params[0] > 0 && opt.remove_outliers_by_disp_params[1] > 0.0)
+      asp::filter_ip_by_disparity(opt.remove_outliers_by_disp_params[0],
+                                  opt.remove_outliers_by_disp_params[1],
+                                  left_ip, right_ip);
       
-    if (param_storage.num_cameras() == 2){
+    if (num_cameras == 2){
       // Compute the coverage fraction
       Vector2i right_image_size = file_image_size(opt.image_files[1]);
       int right_ip_width = right_image_size[0]*
-          static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
+        static_cast<double>(100.0 - std::max(opt.ip_edge_buffer_percent, 0))/100.0;
       Vector2i ip_size(right_ip_width, right_image_size[1]);
       double ip_coverage = asp::calc_ip_coverage_fraction(right_ip, ip_size);
       // Careful with the line below, it gets used in process_icebridge_batch.py.
@@ -1027,7 +1034,7 @@ void matchFilesProcessing(ControlNetwork const& cnet,
 
 // End outlier functions
 // ----------------------------------------------------------------
-
+// TODO(oalexan1): Use this in jitter_solve.
 void initial_filter_by_proj_win(Options             & opt,
                                 BAParamStorage      & param_storage, 
                                 ControlNetwork const& cnet) {
@@ -1550,6 +1557,11 @@ int do_ba_ceres_one_pass(Options             & opt,
                       opt, cam_residual_counts,  
                       num_gcp_or_dem_residuals, reference_vec, problem);
   }
+
+  // Find the cameras with the latest adjustments. Note that we do not modify
+  // opt.camera_models, but make copies as needed.
+  std::vector<asp::CameraModelPtr> optimized_cams;
+  calcOptimizedCameras(opt, param_storage, optimized_cams);
   
   // Calculate convergence angles. Remove the outliers flagged earlier,
   // if remove_outliers is true. Compute offsets of mapprojected matches,
@@ -1558,7 +1570,14 @@ int do_ba_ceres_one_pass(Options             & opt,
   // are used for both operations.
   std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
   std::vector<std::vector<double>> mapprojOffsetsPerCam;
-  matchFilesProcessing(cnet, param_storage, opt, remove_outliers,
+  outliers.clear(); 
+  for (int i = 0; i < param_storage.num_points(); i++)
+    if (param_storage.get_point_outlier(i))
+      outliers.insert(i); // update this based on param_storage
+  matchFilesProcessing(cnet,
+                       asp::BaBaseOptions(opt), // note the slicing
+                       optimized_cams, 
+                       remove_outliers, outliers,
                        opt.save_mapproj_match_points_offsets,
                        dem_georef, interp_dem, convAngles, mapprojOffsets,
                        mapprojOffsetsPerCam);

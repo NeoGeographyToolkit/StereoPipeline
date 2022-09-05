@@ -749,6 +749,14 @@ speed-vs-quality choices, and :numref:`mapproj-example` about handling
 artifacts in steep terrain.  Consider using CSM cameras instead of
 ISIS cameras (:numref:`sfs_isis_vs_csm`).
 
+To find stereo pairs, one can bundle-adjust a handful of images together
+(sorted by illumination), then inspect the produced file::
+
+    {output-prefix}-convergence_angles.txt
+
+See :numref:`ba_out_files` and :numref:`stereo_pairs` for more details
+and criteria for picking a stereo pair.
+
 We would like now to automatically or manually pick interest points
 for the purpose of doing bundle adjustment. It much easier to compute
 these if the images are first mapprojected, which brings them all
@@ -1119,7 +1127,7 @@ Consider using here CSM models instead of ISIS models, as mentioned in
 Excluding low-resolution images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-It was determined that images with low-resolution decrease the overall
+It was determined that images with low resolution decrease the overall
 registration accuracy. Use a command as::
 
   mapproject --query-projection dem.tif image.cub image.json out.tif
@@ -1423,14 +1431,19 @@ If the results are not good so far, it is suggested to perhaps narrow
 down the domain of computation, by cropping the input DEM to a region
 of perhaps 5000 pixels on the side, exclude low-resolution images as
 discussed in :numref:`sfs_exclude_lowres`, ensure the images are
-sorted by illumination, align them using a stereo pair, select a
-smaller subset of perhaps 100-200 images, inspect their
-mapprojected versions carefully, then redo bundle adjustment with
-the options ``--proj-win`` and ``--proj-str`` to exclude interest
-points outside of given area.
+sorted by illumination, align them using a stereo pair
+(:numref:`sfs-move-cameras`), select a smaller subset of perhaps
+100-200 images, inspect their mapprojected versions carefully, then
+redo bundle adjustment with the options ``--proj-win`` and
+``--proj-str`` to exclude interest points outside of given area.
 
 The previously obtained camera adjustments can be used as initial
-guesses when re-running bundle adjustment.
+guesses when re-running bundle adjustment. 
+
+If good results are obtained for such small subregions, the hope is
+that a new bundle adjustment which uses the union of the individually
+validated subsets (and using as input adjustments computed so far)
+will result in a good solution.
 
 If the option ``--save-mapproj-match-points-offsets`` is specified,
 the file::

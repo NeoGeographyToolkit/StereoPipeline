@@ -25,6 +25,7 @@
 #include <vw/Cartography/CameraBBox.h>
 
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Sessions/CameraUtils.h>
 #include <asp/Core/EigenUtils.h>
 
 #include <string>

@@ -21,6 +21,9 @@
 /// Use n adjustments for every camera, placed at several lines in the image
 // with interpolation between them. The pdf doc has more info.
 
+// TODO(oalexan1): Add two passes and outlier filtering. For now
+// try to use clean matches.
+
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Core/Stopwatch.h>
@@ -274,19 +277,9 @@ struct weightedQuatNormError {
 
   double  m_weight;
 };
-  
-struct Options : public vw::GdalWriteOptions {
-  std::string out_prefix, stereo_session, input_prefix, match_files_prefix,
-    clean_match_files_prefix, ref_dem, heights_from_dem;
-  int overlap_limit, min_matches, max_pairwise_matches, num_iterations;
-  bool match_first_to_last, single_threaded_cameras;
-  double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
-  double ref_dem_weight, ref_dem_robust_threshold, heights_from_dem_weight,
-    heights_from_dem_robust_threshold, rotation_weight, translation_weight, quat_norm_weight,
-    anchor_weight;
-  
-  std::vector<std::string> image_files, camera_files;
-  std::vector<boost::shared_ptr<vw::camera::CameraModel>> camera_models;
+
+struct Options: public asp::BaBaseOptions {
+  double quat_norm_weight, anchor_weight;
 };
     
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -358,10 +351,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("quat-norm-weight", po::value(&opt.quat_norm_weight)->default_value(1.0),
      "How much weight to give to the constraint that quaternion norm must be 1.")
     ("anchor-weight", po::value(&opt.anchor_weight)->default_value(1.0),
-     "How much weight to give to each anchor point.");
+     "How much weight to give to each anchor point.")
+    ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1.0),
+     "Remove matched IPs this percentage from the image left/right sides.");
   
-  general_options.add(vw::GdalWriteOptionsDescription(opt));
-    
+    general_options.add(vw::GdalWriteOptionsDescription(opt));
+
+  // TODO(oalexan1): Replace this param here and in bundle_adjust with
+  // opt.remove_outliers_params, then make this an option in jitter_solve.
+  opt.remove_outliers_by_disp_params = Vector2(0.0, 0.0);
+
+  // TODO(oalexan1): This old option may need to be wiped given the newer
+  // recent outlier filtering.
+  asp::stereo_settings().ip_edge_buffer_percent = opt.ip_edge_buffer_percent;
+
   po::options_description positional("");
   positional.add_options()
     ("input-files", po::value(&opt.image_files));

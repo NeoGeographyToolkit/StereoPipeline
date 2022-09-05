@@ -41,6 +41,7 @@
 
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/RPC_XML.h>
+#include <asp/Sessions/CameraUtils.h>
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Tools/bundle_adjust_cost_functions.h> // Ceres included in this file.
 
@@ -55,19 +56,16 @@ enum BACameraType {BaCameraType_Pinhole    = 0,
                    BaCameraType_Other      = 2};
 
 /// The big bag of parameters needed by bundle_adjust.cc
-struct Options : public vw::GdalWriteOptions {
-  std::vector<std::string> image_files, camera_files, gcp_files;
-  std::string cnet_file, out_prefix, input_prefix, vwip_prefix, stereo_session,
-    cost_function, match_files_prefix, clean_match_files_prefix,
-    mapprojected_data, gcp_from_mapprojected, image_list, camera_list, mapprojected_data_list,
+/// The ones shared with jitter_solve.cc are in asp::BaBaseOptions.
+struct Options: public asp::BaBaseOptions {
+  std::vector<std::string>  gcp_files;
+  std::string cnet_file, vwip_prefix,
+    cost_function, mapprojected_data, gcp_from_mapprojected,
+    image_list, camera_list, mapprojected_data_list,
     fixed_image_list;
-  int ip_per_tile, ip_per_image, ip_edge_buffer_percent;
-  double min_triangulation_angle, forced_triangulation_distance,
-    lambda, camera_weight, rotation_weight, 
-    translation_weight, overlap_exponent, robust_threshold, parameter_tolerance,
-    ip_triangulation_max_error;
-  int    min_matches, max_pairwise_matches, num_iterations, overlap_limit,
-         instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
+  int ip_per_tile, ip_per_image;
+  double forced_triangulation_distance, overlap_exponent, ip_triangulation_max_error;
+  int    instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
   bool   save_intermediate_cameras, approximate_pinhole_intrinsics,
     disable_pinhole_gcp_init, transform_cameras_using_gcp, fix_gcp_xyz, solve_intrinsics,
     ip_normalize_tiles, ip_debug_images, stop_after_stats, stop_after_matching,
@@ -75,27 +73,25 @@ struct Options : public vw::GdalWriteOptions {
   BACameraType camera_type;
   std::string datum_str, camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, reference_terrain, disparity_list,
-    heights_from_dem, ref_dem, proj_str;
+    proj_str;
   double semi_major, semi_minor, position_filter_dist;
   int    num_ba_passes, max_num_reference_points;
   std::string remove_outliers_params_str;
   std::vector<double> intrinsics_limits;
   vw::Vector<double, 4> remove_outliers_params;
-  vw::Vector2 remove_outliers_by_disp_params;
   boost::shared_ptr<vw::ba::ControlNetwork> cnet;
   std::vector<boost::shared_ptr<vw::camera::CameraModel>> camera_models;
   vw::cartography::Datum datum;
   int    ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, max_disp_error,
-    reference_terrain_weight, heights_from_dem_weight, heights_from_dem_robust_threshold,
-    ref_dem_weight, ref_dem_robust_threshold, auto_overlap_buffer;
+    reference_terrain_weight, auto_overlap_buffer;
   bool   skip_rough_homography, enable_rough_homography, disable_tri_filtering,
     enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
     force_reuse_match_files, save_cnet_as_csv,
     enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
     save_mapproj_match_points_offsets;
-  vw::Vector2 elevation_limit;     // Expected range of elevation to limit results to.
+  vw::Vector2 elevation_limit;   // Expected range of elevation to limit results to.
   vw::BBox2 lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
   vw::BBox2 proj_win; // Limit input triangulated points to this projwin
   std::string overlap_list_file, auto_overlap_params;
@@ -104,17 +100,12 @@ struct Options : public vw::GdalWriteOptions {
   std::string   fixed_cameras_indices_str;
   std::set<int> fixed_cameras_indices;
   IntrinsicOptions intrinisc_options;
-  std::map< std::pair<int, int>, std::string> match_files;
-  bool single_threaded_cameras; // Set to true if any sessions are single threaded.
   
   // Make sure all values are initialized, even though they will be
   // over-written later.
-  Options(): ip_per_tile(0), ip_per_image(0), min_triangulation_angle(0),
-             forced_triangulation_distance(-1),
-             lambda(-1.0), camera_weight(-1),
-             rotation_weight(0), translation_weight(0), overlap_exponent(0), 
-             robust_threshold(0), min_matches(0),
-             num_iterations(0), overlap_limit(0), save_intermediate_cameras(false),
+  Options(): ip_per_tile(0), ip_per_image(0), 
+             forced_triangulation_distance(-1), overlap_exponent(0), 
+              save_intermediate_cameras(false),
              fix_gcp_xyz(false), solve_intrinsics(false), camera_type(BaCameraType_Other),
              semi_major(0), semi_minor(0), position_filter_dist(-1),
              num_ba_passes(2), max_num_reference_points(-1),
@@ -171,12 +162,14 @@ struct Options : public vw::GdalWriteOptions {
       intrinsics_limits.push_back(val);
       if (count % 2 == 1) {
         if (intrinsics_limits[count] < intrinsics_limits[count-1])
-          vw_throw( vw::ArgumentErr() << "Error: Intrinsic limit pairs must be min before max.\n" );
+          vw_throw(vw::ArgumentErr()
+                   << "Error: Intrinsic limit pairs must be min before max.\n");
       }
-      ++count;
+      count++;
     }
     if (count % 2 != 0)
-      vw_throw( vw::ArgumentErr() << "Error: Intrinsic limits must always be provided in min max pairs.\n" );
+      vw_throw( vw::ArgumentErr()
+                << "Error: Intrinsic limits must always be provided in min max pairs.\n");
   }
   
   /// For each option, the string must include a subset of the entries:

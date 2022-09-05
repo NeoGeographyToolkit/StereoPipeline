@@ -22,7 +22,6 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Camera/CsmModel.h>
 
-#include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Core/Exception.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/CameraUtilities.h>
