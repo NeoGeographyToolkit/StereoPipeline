@@ -18,7 +18,8 @@
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/OpenCVUtils.h>
 #include <asp/Core/StereoSettings.h>
-#include <Core/InterestPointMatching.h>
+#include <asp/Core/InterestPointMatching.h>  // Slow-to-compile header
+#include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Math/RANSAC.h>

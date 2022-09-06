@@ -26,7 +26,8 @@
 #include <asp/Core/LocalAlignment.h>
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/AffineEpipolar.h>
-#include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/InterestPointMatching.h>  // Slow-to-compile header
+#include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
 #include <asp/Core/OpenCVUtils.h>
 #include <asp/Core/DisparityProcessing.h>
 

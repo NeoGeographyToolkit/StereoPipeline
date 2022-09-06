@@ -22,6 +22,8 @@
 /// Camera logic used in bundle_adjust. It is kept here as it may be
 /// expected to make use of all cameras supported by ASP.
 
+// Code which needs the stereo session should go to asp/Sessions/CameraUtils.cc.
+
 #ifndef __BUNDLE_ADJUST_CAMERA_H__
 #define __BUNDLE_ADJUST_CAMERA_H__
 
@@ -51,6 +53,28 @@
 namespace asp {
 
 typedef boost::shared_ptr<vw::camera::CameraModel> CameraModelPtr;
+  
+// Options shared by bundle_adjust and jitter_solve
+struct BaBaseOptions: public vw::GdalWriteOptions {
+  std::string out_prefix, stereo_session, input_prefix, match_files_prefix,
+    clean_match_files_prefix, ref_dem, heights_from_dem;
+  int overlap_limit, min_matches, max_pairwise_matches, num_iterations,
+    ip_edge_buffer_percent;
+  bool match_first_to_last, single_threaded_cameras;
+  double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
+  double ref_dem_weight, ref_dem_robust_threshold, heights_from_dem_weight,
+    heights_from_dem_robust_threshold, camera_weight, rotation_weight, translation_weight;
+  vw::Vector2 remove_outliers_by_disp_params;
+  
+  std::vector<std::string> image_files, camera_files;
+  std::vector<boost::shared_ptr<vw::camera::CameraModel>> camera_models;
+  std::map<std::pair<int, int>, std::string> match_files;
+
+  BaBaseOptions(): min_triangulation_angle(0.0), camera_weight(-1.0),
+                   rotation_weight(0.0), translation_weight(0.0),
+                   robust_threshold(0.0), min_matches(0),
+                   num_iterations(0), overlap_limit(0) {}
+};
   
 // This must be const or else there's a crash
 const std::string UNSPECIFIED_DATUM = "unspecified_datum";
@@ -713,6 +737,9 @@ bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
                             vw::cartography::GeoReference const& georef,
                             vw::cartography::GeoReference const& dem_georef);
 
+namespace asp {
+
+// TODO(oalexan1): Move the asp namespace to encompass the whole header file
 // Save convergence angle percentiles for each image pair having matches
 void saveConvergenceAngles(std::string const& conv_angles_file,
                            std::vector<asp::MatchPairStats> const& convAngles,
@@ -721,7 +748,6 @@ void saveConvergenceAngles(std::string const& conv_angles_file,
 // Mapproject interest points onto a DEM and find the norm of their
 // disagreement in DEM pixel units. It is assumed that dem_georef
 // was created by bilinear interpolation.
-namespace asp {
 void calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimized_cams,
                             int left_cam_index, int right_cam_index,
                             std::vector<vw::ip::InterestPoint> const& left_ip,
@@ -735,5 +761,22 @@ void saveMapprojOffsets(std::string const& mapproj_offsets_file,
                         std::vector<asp::MatchPairStats> const& mapprojOffsets,
                         std::vector<std::vector<double>> & mapprojOffsetsPerCam, // will change
                         std::vector<std::string> const& imageFiles);
+
+// Calculate convergence angles. Remove the outliers flagged earlier,
+// if remove_outliers is true. Compute offsets of mapprojected matches,
+// if a DEM is given. These are done together as they rely on
+// reloading interest point matches, which is expensive so the matches
+// are used for both operations.
+void matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
+                          asp::BaBaseOptions const& opt,
+                          std::vector<asp::CameraModelPtr> const& optimized_cams,
+                          bool remove_outliers, std::set<int> const& outliers,
+                          bool save_mapproj_match_points_offsets,
+                          vw::cartography::GeoReference const& dem_georef,
+                          vw::ImageViewRef<vw::PixelMask<double>> interp_dem,
+                          std::vector<asp::MatchPairStats> & convAngles,
+                          std::vector<asp::MatchPairStats> & mapprojOffsets,
+                          std::vector<std::vector<double>> & mapprojOffsetsPerCam);
+  
 }
 #endif // __BUNDLE_ADJUST_CAMERA_H__

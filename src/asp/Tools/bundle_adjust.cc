@@ -839,199 +839,6 @@ void calcOptimizedCameras(Options const& opt,
   }
 }
 
-// Calculate convergence angles. Remove the outliers flagged earlier,
-// if remove_outliers is true. Compute offsets of mapprojected matches,
-// if a DEM is given. These are done together as they rely on
-// reloading interest point matches, which is expensive so the matches
-// are used for both operations.
-void matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
-                          asp::BaBaseOptions const& opt,
-                          std::vector<asp::CameraModelPtr> const& optimized_cams,
-                          bool remove_outliers, std::set<int> const& outliers,
-                          bool save_mapproj_match_points_offsets,
-                          vw::cartography::GeoReference const& dem_georef,
-                          ImageViewRef<PixelMask<double>> interp_dem,
-                          std::vector<asp::MatchPairStats> & convAngles,
-                          std::vector<asp::MatchPairStats> & mapprojOffsets,
-                          std::vector<std::vector<double>> & mapprojOffsetsPerCam) {
-
-  convAngles.clear();
-  mapprojOffsets.clear();
-  mapprojOffsetsPerCam.clear();
-
-  bool have_dem = (interp_dem.cols() > 0 && interp_dem.rows() > 0);
-
-  int num_cameras = opt.image_files.size();
-  mapprojOffsetsPerCam.resize(num_cameras);
-  
-  // Work on individual image pairs
-  for (auto match_it = opt.match_files.begin(); match_it != opt.match_files.end(); match_it++) {
-
-    std::vector<double> mapproj_offsets;
-    
-    // IP from the control network, for which we flagged outliers
-    std::vector<vw::ip::InterestPoint> left_ip, right_ip;
-
-    std::pair<int, int> cam_pair   = match_it->first;
-    std::string         match_file = match_it->second;
-    size_t left_index  = cam_pair.first;
-    size_t right_index = cam_pair.second;
-
-    // Just skip over match files that don't exist.
-    if (!boost::filesystem::exists(match_file)) {
-      vw_out() << "Skipping non-existent match file: " << match_file << std::endl;
-      continue;
-    }
-
-    // Read the original IP, to ensure later we write to disk only
-    // the subset of the IP from the control network which
-    // are part of these original ones. 
-    std::vector<ip::InterestPoint> orig_left_ip, orig_right_ip;
-    ip::read_binary_match_file(match_file, orig_left_ip, orig_right_ip);
-
-    // Create a new convergence angle storage struct
-    convAngles.push_back(asp::MatchPairStats()); // add an element, will populate it soon
-    asp::MatchPairStats & convAngle = convAngles.back(); // alias
-    std::vector<double> sorted_angles;
-
-    asp::MatchPairStats * mapprojOffset = NULL; // may not always exist
-    if (have_dem && save_mapproj_match_points_offsets) {
-      mapprojOffsets.push_back(asp::MatchPairStats()); // add an elem
-      mapprojOffset = &mapprojOffsets.back(); // pointer
-    }
-    
-    if (!remove_outliers) {
-      asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
-                              orig_left_ip, orig_right_ip, sorted_angles);
-      convAngle.populate(left_index, right_index, sorted_angles);
-
-      if (mapprojOffset != NULL) {
-        asp::calcPairMapprojOffsets(optimized_cams,
-                                    left_index, right_index,
-                                    orig_left_ip, orig_right_ip, dem_georef, interp_dem,  
-                                    mapproj_offsets);
-        mapprojOffset->populate(left_index, right_index, mapproj_offsets);
-        for (size_t map_it = 0; map_it < mapproj_offsets.size(); map_it++) {
-          mapprojOffsetsPerCam[left_index].push_back(mapproj_offsets[map_it]);
-          mapprojOffsetsPerCam[right_index].push_back(mapproj_offsets[map_it]);
-        }
-      }
-      
-      // Since no outliers are removed, nothing else to do
-      continue;
-    }
-    
-    typedef std::tuple<double, double, double> Triplet;
-    std::map<Triplet, Triplet> lookup;
-    for (size_t ip_iter = 0; ip_iter < orig_left_ip.size(); ip_iter++) {
-      // Note how we store both the camera index and the ip coordinates
-      Triplet left_set(left_index, orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y); 
-      Triplet right_set(right_index, orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y); 
-      lookup[left_set] = right_set;
-    }
-
-    // Iterate over the control network, and, for each control point,
-    // look only at the measure for left_index and right_index
-    int ipt = -1;
-    for (ControlNetwork::const_iterator iter = cnet.begin(); iter != cnet.end(); iter++) {
-
-      ipt++; // control point index
-
-      // Skip gcp
-      if (cnet[ipt].type() == ControlPoint::GroundControlPoint) {
-        continue;
-      }
-        
-      bool has_left = true, has_right = false;
-      ip::InterestPoint cnet_left_ip, cnet_right_ip;
-      for (ControlPoint::const_iterator measure = (*iter).begin();
-            measure != (*iter).end(); ++measure) {
-        if (measure->image_id() == left_index) {
-          has_left = true;
-          cnet_left_ip = ip::InterestPoint(measure->position()[0], measure->position()[1],
-                                   measure->sigma()[0]);
-        }else if (measure->image_id() == right_index) {
-          has_right = true;
-          cnet_right_ip = ip::InterestPoint(measure->position()[0], measure->position()[1],
-                                   measure->sigma()[0]);
-        }
-      }
-
-      // Keep only ip for these two images
-      if (!has_left || !has_right)
-        continue;
-
-      if (outliers.find(ipt) != outliers.end())
-        continue; // skip outliers
-
-      // Only add ip that were there originally
-      Triplet left_set(left_index, cnet_left_ip.x, cnet_left_ip.y); 
-      Triplet right_set(right_index, cnet_right_ip.x, cnet_right_ip.y); 
-      if (lookup.find(left_set) == lookup.end() || lookup[left_set] != right_set)
-        continue;
-      
-      left_ip.push_back (cnet_left_ip);
-      right_ip.push_back(cnet_right_ip);
-    }
-    
-    // Filter by disparity
-    // TODO(oalexan1): Remove this param. Use instead --outlier-removal-params.
-    // Not sure this code should be here to start with. Note that it
-    // does not update the outliers set.
-    if (opt.remove_outliers_by_disp_params[0] > 0 && opt.remove_outliers_by_disp_params[1] > 0.0)
-      asp::filter_ip_by_disparity(opt.remove_outliers_by_disp_params[0],
-                                  opt.remove_outliers_by_disp_params[1],
-                                  left_ip, right_ip);
-      
-    if (num_cameras == 2){
-      // Compute the coverage fraction
-      Vector2i right_image_size = file_image_size(opt.image_files[1]);
-      int right_ip_width = right_image_size[0]*
-        static_cast<double>(100.0 - std::max(opt.ip_edge_buffer_percent, 0))/100.0;
-      Vector2i ip_size(right_ip_width, right_image_size[1]);
-      double ip_coverage = asp::calc_ip_coverage_fraction(right_ip, ip_size);
-      // Careful with the line below, it gets used in process_icebridge_batch.py.
-      vw_out() << "IP coverage fraction after cleaning = " << ip_coverage << "\n";
-    }
-
-    // Make a clean copy of the file
-    std::string clean_match_file = ip::clean_match_filename(match_file);
-    if (opt.clean_match_files_prefix != "") {
-      // Avoid saving clean-clean.match.
-      clean_match_file = match_file;
-      // Write the clean match file in the current dir, not where it was read from
-      clean_match_file.replace(0, opt.clean_match_files_prefix.size(), opt.out_prefix);
-    }
-    else if (opt.match_files_prefix != "") {
-      // Write the clean match file in the current dir, not where it was read from
-      clean_match_file.replace(0, opt.match_files_prefix.size(), opt.out_prefix);
-    }
-    
-    vw_out() << "Saving " << left_ip.size() << " filtered interest points.\n";
-
-    vw_out() << "Writing: " << clean_match_file << std::endl;
-    ip::write_binary_match_file(clean_match_file, left_ip, right_ip);
-
-    // Find convergence angles based on clean ip
-    asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
-                            left_ip, right_ip, sorted_angles);
-    convAngle.populate(left_index, right_index, sorted_angles);
-
-    if (mapprojOffset != NULL) {
-      asp::calcPairMapprojOffsets(optimized_cams,
-                                  left_index, right_index,
-                                  left_ip, right_ip, dem_georef, interp_dem,  
-                                  mapproj_offsets);
-      mapprojOffset->populate(left_index, right_index, mapproj_offsets);
-      for (size_t map_it = 0; map_it < mapproj_offsets.size(); map_it++) {
-        mapprojOffsetsPerCam[left_index].push_back(mapproj_offsets[map_it]);
-        mapprojOffsetsPerCam[right_index].push_back(mapproj_offsets[map_it]);
-      }
-    }
-    
-  } // End loop through the match files
-}
-
 // End outlier functions
 // ----------------------------------------------------------------
 // TODO(oalexan1): Use this in jitter_solve.
@@ -1574,16 +1381,15 @@ int do_ba_ceres_one_pass(Options             & opt,
   for (int i = 0; i < param_storage.num_points(); i++)
     if (param_storage.get_point_outlier(i))
       outliers.insert(i); // update this based on param_storage
-  matchFilesProcessing(cnet,
-                       asp::BaBaseOptions(opt), // note the slicing
-                       optimized_cams, 
-                       remove_outliers, outliers,
-                       opt.save_mapproj_match_points_offsets,
-                       dem_georef, interp_dem, convAngles, mapprojOffsets,
-                       mapprojOffsetsPerCam);
-
+  asp::matchFilesProcessing(cnet,
+                            asp::BaBaseOptions(opt), // note the slicing
+                            optimized_cams, remove_outliers, outliers,
+                            opt.save_mapproj_match_points_offsets,
+                            dem_georef, interp_dem, convAngles, mapprojOffsets,
+                            mapprojOffsetsPerCam);
+  
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
-  saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
+  asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
 
   if (have_dem && opt.save_mapproj_match_points_offsets) {
     std::string mapproj_offsets_file = opt.out_prefix + "-mapproj_match_offsets.txt";

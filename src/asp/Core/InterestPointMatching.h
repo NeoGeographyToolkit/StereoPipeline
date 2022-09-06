@@ -220,15 +220,6 @@ bool ip_matching_no_align(bool single_threaded_camera,
                                vw::cartography::Datum  const& datum,
                                double pct, double factor);
   
-  // Outlier removal based on the disparity of interest points.
-  // Points with x or y disparity not within the 100-'pct' to 'pct'
-  // percentile interval expanded by 'factor' will be removed as
-  // outliers. Overwrite the ip in place.
-  void filter_ip_by_disparity(double pct, // for example, 90.0
-                              double factor, // for example, 3.0
-                              std::vector<vw::ip::InterestPoint> & left_ip,
-                              std::vector<vw::ip::InterestPoint> & right_ip);
-
   /// Filter IP points by how reasonably the disparity can change along rows
   /// - Returns the number of points remaining after filtering.
   size_t filter_ip_homog(std::vector<vw::ip::InterestPoint> const& ip1_in,
@@ -288,19 +279,11 @@ vw::BBox2 search_range_using_spread(double max_disp_spread,
                              std::vector<vw::ip::InterestPoint>                  & left_ip, 
                              std::vector<vw::ip::InterestPoint>                  & right_ip);
   
-  /// Estimate the "spread" of IP coverage in an image.
-  /// - Returns a value between 0 and 1.
-  /// - Breaks the image into tiles and checks how many tiles have at least N IP.
-  double calc_ip_coverage_fraction(std::vector<vw::ip::InterestPoint> const& ip,
-                                   vw::Vector2i const& image_size, int tile_size=1024,
-                                   int min_ip_per_tile=2);
-
   /// The unwarped disparity file name.
   /// We put it here because this file knows about vw::ip. That is why it should not
   /// in Common.h which should not know so much.
   std::string unwarped_disp_file(std::string const& prefix, std::string const& left_image,
                                  std::string const& right_image);
-
 
   //-------------------------------------------------------------------------------------------
   // Lower level IP detection functions

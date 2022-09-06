@@ -34,10 +34,30 @@ namespace vw {
   namespace ip {
     class InterestPoint;
   }
+
+  namespace camera {
+    class CameraModel;
+  }
 }
 
 namespace asp {
 
+// Outlier removal based on the disparity of interest points.
+// Points with x or y disparity not within the 100-'pct' to 'pct'
+// percentile interval expanded by 'factor' will be removed as
+// outliers. Overwrite the ip in place.
+void filter_ip_by_disparity(double pct, // for example, 90.0
+                            double factor, // for example, 3.0
+                            std::vector<vw::ip::InterestPoint> & left_ip,
+                            std::vector<vw::ip::InterestPoint> & right_ip);
+  
+// Estimate the "spread" of IP coverage in an image.
+// - Returns a value between 0 and 1.
+// - Breaks the image into tiles and checks how many tiles have at least N IP.
+double calc_ip_coverage_fraction(std::vector<vw::ip::InterestPoint> const& ip,
+                                 vw::Vector2i const& image_size, int tile_size=1024,
+                                 int min_ip_per_tile=2);
+  
 /// Apply alignment transform to ip. Not to be used with mapprojected images.
 void align_ip(vw::TransformPtr const& tx_left,
               vw::TransformPtr const& tx_right,
@@ -51,6 +71,14 @@ std::string match_filename(std::string const& clean_match_files_prefix,
                            std::string const& image1_path,
                            std::string const& image2_path,
                            bool allow_missing_match_file = false);
+
+// Find and sort the convergence angles for given cameras and interest points
+void convergence_angles(vw::camera::CameraModel const * left_cam,
+                        vw::camera::CameraModel const * right_cam,
+                        std::vector<vw::ip::InterestPoint> const& left_ip,
+                        std::vector<vw::ip::InterestPoint> const& right_ip,
+                        std::vector<double> & sorted_angles);
+
 } // End namespace asp
 
 #endif//__ASP_CORE_IP_MATCHING_ALGS_H__

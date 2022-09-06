@@ -18,11 +18,99 @@
 #include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/InterestPoint/Matcher.h>
+#include <vw/Camera/CameraModel.h>
 #include <boost/filesystem.hpp>
 using namespace vw;
 
 namespace asp {
 
+// Outlier removal based on the disparity of interest points.
+// Points with x or y disparity not within the 100-'pct' to 'pct'
+// percentile interval expanded by 'factor' will be removed as
+// outliers. Overwrite the ip in place.
+void filter_ip_by_disparity(double pct, // for example, 90.0
+                            double factor, // for example, 3.0
+                            std::vector<vw::ip::InterestPoint> & left_ip,
+                            std::vector<vw::ip::InterestPoint> & right_ip){
+
+  double pct_fraction = 1.0 - pct/100.0;
+  double bx, ex, by, ey;
+  std::vector<double> dispx, dispy;
+  for (size_t it = 0; it < left_ip.size(); it++) {
+    dispx.push_back(right_ip[it].x - left_ip[it].x);
+    dispy.push_back(right_ip[it].y - left_ip[it].y);
+  }
+  vw::math::find_outlier_brackets(dispx, pct_fraction, factor, bx, ex);
+  vw::math::find_outlier_brackets(dispy, pct_fraction, factor, by, ey);
+    
+  //vw_out() << "Outlier statistics by disparity in x: b = " << bx << ", e = " << ex << ".\n";
+  //vw_out() << "Outlier statistics by disparity in y: b = " << by << ", e = " << ey << ".\n";
+    
+  // Remove the bad ip 
+  size_t good_it = 0;
+  for (size_t it = 0; it < left_ip.size(); it++) {
+    if (dispx[it] < bx || dispx[it] > ex) continue;
+    if (dispy[it] < by || dispy[it] > ey) continue;
+    left_ip [good_it] = left_ip[it];
+    right_ip[good_it] = right_ip[it];
+    good_it++;
+  }
+  vw_out() << "Removed " << left_ip.size() - good_it
+           << " outliers based on percentiles of differences of interest "
+           << "points with --outlier-removal-params.\n";
+  
+  left_ip.resize(good_it);
+  right_ip.resize(good_it);
+
+  return;
+}
+
+
+double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,
+                                 vw::Vector2i const& image_size, int tile_size,
+                                 int min_ip_per_tile) {
+
+  if (tile_size < 1)
+    vw_throw(LogicErr() << "calc_ip_coverage_fraction: tile size is " << tile_size);
+
+  // Generate a grid of ROIs covering the entire image
+  BBox2i full_bbox(Vector2i(0,0), image_size);
+  bool include_partials = false;
+  std::vector<BBox2i> rois;
+  rois = subdivide_bbox(full_bbox, tile_size, tile_size, include_partials);
+  const size_t num_rois = rois.size();
+  if (num_rois == 0)
+    return 0; // Cannot have any coverage in the degenerate case!
+    
+  // Pack all IP into a list for speed
+  std::list<Vector2i> ip_list;
+  for (size_t i=0; i<ip.size(); ++i) {
+    ip_list.push_back(Vector2i(ip[i].x, ip[i].y));
+  }
+    
+  size_t num_filled_rois = 0;
+  for (size_t i=0; i<num_rois; ++i) { // Loop through ROIs
+    int ip_in_roi = 0;
+      
+    // Check if each point is in this ROI
+    std::list<Vector2i>::iterator iter;
+    for (iter=ip_list.begin(); iter!=ip_list.end(); ++iter) {
+        
+      // If the IP is in the ROI, remove it from the IP list so it
+      // does not get searched again.
+      if (rois[i].contains(*iter)) {
+        iter = ip_list.erase(iter);
+        ++ip_in_roi;
+        --iter;
+      }
+    } // End IP loop
+    if (ip_in_roi > min_ip_per_tile)
+      ++num_filled_rois;
+  }// End ROI loop
+
+  return static_cast<double>(num_filled_rois) / static_cast<double>(num_rois);
+}
+  
 /// Apply alignment transform to ip. Not to be used with mapprojected images.
 void align_ip(vw::TransformPtr const& tx_left,
               vw::TransformPtr const& tx_right,
@@ -76,6 +164,36 @@ std::string match_filename(std::string const& clean_match_files_prefix,
   }
   
   return vw::ip::match_filename(out_prefix, image1_path, image2_path);
+}
+
+// Find and sort the convergence angles for given cameras and interest points
+void convergence_angles(vw::camera::CameraModel const * left_cam,
+                        vw::camera::CameraModel const * right_cam,
+                        std::vector<vw::ip::InterestPoint> const& left_ip,
+                        std::vector<vw::ip::InterestPoint> const& right_ip,
+                        std::vector<double> & sorted_angles) {
+
+  int num_ip = left_ip.size();
+  sorted_angles.clear();
+  for (int ip_it = 0; ip_it < num_ip; ip_it++) {
+    Vector2 lip(left_ip[ip_it].x,  left_ip[ip_it].y);
+    Vector2 rip(right_ip[ip_it].x, right_ip[ip_it].y);
+    double angle = 0.0;
+    try {
+      angle = (180.0 / M_PI) * acos(dot_prod(left_cam->pixel_to_vector(lip),
+                                             right_cam->pixel_to_vector(rip)));
+    } catch(...) {
+      // Projection into camera may not always succeed
+      continue;
+    }
+      
+    if (std::isnan(angle)) 
+      continue;
+      
+    sorted_angles.push_back(angle);
+  }
+  
+  std::sort(sorted_angles.begin(), sorted_angles.end());
 }
   
 } // end namespace asp
