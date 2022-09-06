@@ -29,13 +29,14 @@
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/CameraBBox.h>
 
+#include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Sessions/CameraUtils.h>
+#include <asp/Camera/CsmModel.h>
+#include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/IpMatchingAlgs.h> // Lightweight header for matching algorithms
-#include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/Sessions/CameraUtils.h>
-#include <asp/Camera/CsmModel.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/Utilities.h>

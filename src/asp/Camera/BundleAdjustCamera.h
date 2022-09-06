@@ -22,7 +22,8 @@
 /// Camera logic used in bundle_adjust. It is kept here as it may be
 /// expected to make use of all cameras supported by ASP.
 
-// Code which needs the stereo session should go to asp/Sessions/CameraUtils.cc.
+// Code which needs the stereo session should go to
+// asp/Sessions/CameraUtils.cc.
 
 #ifndef __BUNDLE_ADJUST_CAMERA_H__
 #define __BUNDLE_ADJUST_CAMERA_H__
