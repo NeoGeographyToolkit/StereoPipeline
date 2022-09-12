@@ -414,7 +414,7 @@ intermediate illumination.
 
 It is strongly suggested that, when doing bundle adjustment, the
 images should be specified in the order given by Sun azimuth angle
-(see :numref:`sfs-lola-dem`). The images should also be mapprojected
+(see :numref:`sfs_azimuth`). The images should also be mapprojected
 and visualized (in the same order), to verify that the illumination is
 changing gradually.
 
@@ -447,7 +447,7 @@ Bundle adjustment and stereo happens as follows::
 
     bundle_adjust A_crop.cub B_crop.cub C_crop.cub D_crop.cub \
       --num-iterations 100 --save-intermediate-cameras        \
-      --ip-per-image 8000 --max-pairwise-matches 1000         \
+      --ip-per-image 20000 --max-pairwise-matches 1000        \
       --min-matches 1 --num-passes 1 -o run_ba/run
     parallel_stereo A_crop.cub B_crop.cub run_full2/run       \
       --subpixel-mode 3 --bundle-adjust-prefix run_ba/run
@@ -480,11 +480,11 @@ mapprojected images, so the process went as follows::
     # Prepare mapprojected images (see note in the text below)
     parallel_stereo A_crop_sub10.cub B_crop_sub10.cub \
       --subpixel-mode 3 run_sub10_noba/run
-    point2dem -r moon --tr 10 --stereographic     \
-      --proj-lon 0 --proj-lat -90                 \
+    point2dem -r moon --tr 10 --stereographic         \
+      --proj-lon 0 --proj-lat -90                     \
       run_sub10_noba/run-PC.tif
     for f in A B C D; do 
-      mapproject run_sub10_noba/run-DEM.tif --tr 10 \
+      mapproject run_sub10_noba/run-DEM.tif --tr 10   \
         ${f}_crop_sub10.cub ${f}_sub10.map.noba.tif
     done
 
@@ -492,8 +492,8 @@ mapprojected images, so the process went as follows::
     bundle_adjust A_crop_sub10.cub B_crop_sub10.cub     \
       C_crop_sub10.cub D_crop_sub10.cub --min-matches 1 \
       --num-iterations 100 --save-intermediate-cameras  \
-      -o run_ba_sub10/run --ip-per-image 8000           \
-      --max-pairwise-matches 1000 --overlap-limit 30    \
+      -o run_ba_sub10/run --ip-per-image 20000          \
+      --max-pairwise-matches 1000 --overlap-limit 50    \
       --match-first-to-last --num-passes 1              \
       --mapprojected-data                               \
       "$(ls [A-D]_sub10.map.noba.tif) run_sub10_noba/run-DEM.tif"
@@ -703,9 +703,9 @@ As discussed earlier, bundle adjustment should be used to correct
 these errors, and if the images have different enough illumination
 that bundle adjustment fails, one should add new images with
 intermediate illumination conditions (while sorting the full set of
-images by azimuth angle and verifying visually by mapprojection the
-gradual change in illumination, as described in
-:numref:`sfs-lola-dem`).
+images by Sun azimuth angle (:numref:``) and verifying
+visually by mapprojection the gradual change in illumination, as
+described in :numref:`sfs-lola-dem`).
 
 As a fallback alternative, interest point matches among the images can
 be selected manually. Picking about 4 interest pints in each image may
@@ -787,7 +787,7 @@ these points will be projected back to camera pixel space.
       --mapprojected-data "$mapped_images $dem"        \
       --num-iterations 100 --save-intermediate-cameras \
       --min-matches 1 --max-pairwise-matches 1000      \
-      --ip-per-image 8000 --overlap-limit 30           \
+      --ip-per-image 20000 --overlap-limit 50          \
       --match-first-to-last --num-passes 1             \
       -o run_ba_sub4/run
 
@@ -1053,6 +1053,8 @@ interpolation, and it was saved internally using blocks of size 256 x
 256, which ASP handles better than the GDAL default with each block
 as tall or wide as a row or column.
 
+.. _sfs_azimuth:
+
 Image selection and sorting by illumination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1076,9 +1078,10 @@ to contribute to the desired region. Example::
      --t_projwin -7050.500 -10890.500 -1919.500 -5759.500  \
      M*.map.lowres.tif -o tmp.tif | tee pixel_sum_list.txt
 
-The obtained subset of images should be sorted by the Sun azimuth (this
-angle is printed when running ``sfs`` with the ``--query`` option on the
-.cub files). Out of those, the following were kept::
+The obtained subset of images should be sorted by illumination
+conditions, that is, the Sun azimuth. This angle is printed when
+running ``sfs`` with the ``--query`` option on the .cub files. Out of
+those, the following were kept::
 
     M114859732RE.cal.echo.cub       73.1771
     M148012947LE.cal.echo.cub       75.9232
@@ -1119,6 +1122,12 @@ stereographic projection specified in this DEM.
 It is best to avoid images with very low illumination angles as those
 can result in artifacts in the produced SfS terrain.
 
+The primary reason why registration may fail later is illumination
+varying too drastically from image to next images in the list,
+and not being able to find matching interest points. Hence, there must
+be sufficient images so illumination conditions change slowly as
+one goes down the list.
+
 Consider using here CSM models instead of ISIS models, as mentioned in
 :numref:`sfs_isis_vs_csm`.
 
@@ -1127,16 +1136,20 @@ Consider using here CSM models instead of ISIS models, as mentioned in
 Excluding low-resolution images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-It was determined that images with low resolution decrease the overall
-registration accuracy. Use a command as::
+It may be possible that images with low resolution may affect the
+overall registration accuracy. Use a command as::
 
   mapproject --query-projection dem.tif image.cub image.json out.tif
 
 to identify an image's ground sample distance (pixel size on the
-ground). For LRO NAC, it is suggested to exclude all images where this
-value is above 1.3 meters. Or, at least, one should keep in mind that
-the overall registration accuracy will be in line with the coarsest
-images being used.
+ground). 
+
+For LRO NAC, ideally it is suggested to exclude all images where this
+value is above 1.5 meters. However, note that excluding images may
+make it hard to match images with different illumination conditions,
+as valuable images with intermediate illumination may be taken out. In
+that case, one may want to keep low-resolution images for registration
+but exclude them from shape-from-shading.
 
 Handling a very large number of images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1172,6 +1185,18 @@ name in the terminal, and that way a list can be assembled.
 These two strategies can be used together, and they may be
 automated at some point.
 
+It is strongly suggested to carefully reduce the number of images to
+at most 300 or so, with good overlap among them and representative and
+gradually changing illumination, as otherwise the problem becomes
+quickly unmanageable.  That may require working on a site which is
+perhaps no more than 5000 pixels on the side. Note that removing
+images with intermediate illumination can make bundle adjustment fail
+to produce accurate results.
+
+The complexity of the problem and the amount of work becomes very high
+as the number of images and dimensions of the site goes up, and as
+the illumination becomes more difficult.
+
 Bundle adjustment (registration)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1181,8 +1206,8 @@ ordered by Sun azimuth angle.
 
 ::
 
-    parallel_bundle_adjust --processes 8 --ip-per-image 15000 \
-      --overlap-limit 30 --num-iterations 1000 --num-passes 1 \
+    parallel_bundle_adjust --processes 4 --ip-per-image 20000 \
+      --overlap-limit 50 --num-iterations 1000 --num-passes 1 \
       --min-matches 1 --max-pairwise-matches 1000             \
       --camera-weight 0 --robust-threshold 5                  \ 
       --remove-outliers-params "75.0 3.0 100 100"             \
@@ -1205,7 +1230,7 @@ hopefully create enough matches among any two images. A higher value
 here will make bundle adjustment run slower and use more memory.
 
 It is very important to have a lot of images during bundle adjustment,
-and that they are sorted by illumination (Sun azimuth) to ensure that
+and that they are sorted by illumination (Sun azimuth angle) to ensure that
 there are enough overlaps and sufficiently similar illumination
 conditions among them for bundle adjustment to succeed. Later, just a
 subset can be used for shape-from-shading, enough to cover the entire
@@ -1213,9 +1238,9 @@ region, preferable with multiple illumination conditions at each
 location.
 
 Towards the poles the Sun may describe a full loop in the sky, and
-hence the earliest images (sorted by azimuth) may become similar to
-the latest ones. That is the reason above we used the option
-``--match-first-to-last``.
+hence the earliest images (sorted by Sun azimuth angle) may become
+similar to the latest ones. That is the reason above we used the
+option ``--match-first-to-last``.
 
 The option ``--mapprojected-data`` is needed when the interest point
 matches are hard to find. See See :numref:`mapip` for more details.
@@ -1249,9 +1274,8 @@ The file::
 should also be examined. If many cameras have large median
 reprojection error, that may be a sign of issues. Normally the option
 ``--robust-threshold 5`` should be good enough at making the camera
-poses converge. It may be premature to remove the cameras with big
-errors at this stage though. Those will be dealt with at later
-stages of the process.
+poses converge. One should consider removing cameras with the biggest
+errors and too few interest point matches at this stage.
 
 Alignment to ground
 ^^^^^^^^^^^^^^^^^^^
@@ -1328,7 +1352,7 @@ Alignment using a stereo terrain
 The above alignment may not always be successful, since, if all the
 cameras have small convergence angles, the ``residuals_pointmap.csv``
 file may not have accurate 3D positions. If a stereo pair exists among
-the bundle-adjusted images, it may be preferable to create a DEM from
+the bundle-adjusted images, it is strongly suggested to create a DEM from
 that one and use it for alignment to the reference DEM
 (:numref:`sfs-move-cameras`).
 
@@ -1427,18 +1451,26 @@ consideration for the shape-from-shading step.
 Handling remaining registration errors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the results are not good so far, it is suggested to perhaps narrow
-down the domain of computation, by cropping the input DEM to a region
-of perhaps 5000 pixels on the side, exclude low-resolution images as
-discussed in :numref:`sfs_exclude_lowres`, ensure the images are
-sorted by illumination, align them using a stereo pair
-(:numref:`sfs-move-cameras`), select a smaller subset of perhaps
-100-200 images, inspect their mapprojected versions carefully, then
-redo bundle adjustment with the options ``--proj-win`` and
-``--proj-str`` to exclude interest points outside of given area.
+If the results are not good so far, it could be because images
+were not sorted by illumination for bundle adjustment, or the illumination
+changed too drastically for an image in the list and all images that
+follow it, or there are not enough overlaps between and image and the rest.
+
+it is suggested to perhaps narrow down the domain of computation, by
+cropping the input DEM to a region of perhaps 5000 pixels on the side,
+ensure the images are sorted by illumination, align them using a
+stereo pair (:numref:`sfs-move-cameras`), select a smaller subset of
+perhaps 100-200 images, then redo bundle adjustment with the options
+``--proj-win`` and ``--proj-str`` to exclude interest points outside
+of given area.
 
 The previously obtained camera adjustments can be used as initial
 guesses when re-running bundle adjustment. 
+
+If still no luck, mapproject the images using the latest cameras, open
+them in ``stereo_gui`` while sorted by illumination, and carefully
+inspect them. If a problematic image pair was found, see if it has
+interest point matches in the earliest bundle adjstment directory.
 
 If good results are obtained for such small subregions, the hope is
 that a new bundle adjustment which uses the union of the individually
