@@ -131,7 +131,7 @@ namespace asp {
        "Individually normalize tiles used for IP detection.")
       ("ip-inlier-factor",          po::value(&global.ip_inlier_factor)->default_value(1.0/15.0),
        " A higher factor will result in more interest points, but perhaps also more outliers.")
-      ("ip-uniqueness-threshold",          po::value(&global.ip_uniqueness_thresh)->default_value(0.7),
+      ("ip-uniqueness-threshold",          po::value(&global.ip_uniqueness_thresh)->default_value(0.8),
        "Min percentage distance between closest and second closest IP descriptors, a larger value allows more IP matches.")
       ("ip-nodata-radius",          po::value(&global.ip_nodata_radius)->default_value(4),
        "Remove IP near nodata with this radius, in pixels.")
@@ -393,8 +393,8 @@ namespace asp {
        "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
       ("unalign-disparity",                 po::bool_switch(&global.unalign_disparity)->default_value(false)->implicit_value(true),
        "Take the computed disparity, and compute the disparity between unaligned images.")
-      ("num-matches-from-disparity", po::value(&global.num_matches_from_disparity)->default_value(0), "An experimental option to create, after stereo, a match file with this many points sampled from the stereo disparity. The matches are between original images (that is, before any alignment or map-projection). The match file is saved in the output directory.")
-      ("num-matches-from-disp-triplets", po::value(&global.num_matches_from_disp_triplets)->default_value(0), "An experimental option to create, after stereo, a match file with this many points sampled from the stereo disparity. The matches are between original images (that is, before any alignment or map-projection). This is way slower than --num-matches-from-disparity, but tries to create match points so that when many images overlap the same match point can be seen in more than two images. The match file is saved in the output directory.")
+      ("num-matches-from-disparity", po::value(&global.num_matches_from_disparity)->default_value(0), "Create a match file with this many points uniformly sampled from the stereo disparity. The matches are between original images (that is, before any alignment or map-projection). See also num-matches-from-disp-triplets.")
+      ("num-matches-from-disp-triplets", po::value(&global.num_matches_from_disp_triplets)->default_value(0), "Create a match file with this many points uniformly sampled from the stereo disparity, while making sure that if there are more than two images, a set of ground features are represented by matches in at least three of them. The matches are between original images (that is, before any alignment or map-projection). The file name is <output prefix>-disp-<left image>__<right image>.match.")
       ("image-lines-per-piecewise-adjustment", po::value(&global.image_lines_per_piecewise_adjustment)->default_value(0), "A positive value, e.g., 1000, will turn on using piecewise camera adjustments to help reduce jitter effects. Use one adjustment per this many image lines.")
       ("piecewise-adjustment-percentiles",     po::value(&global.piecewise_adjustment_percentiles)->default_value(Vector2(5, 95), "5 95"), "A narrower range will place the piecewise adjustments for jitter correction closer together and further from the first and last lines in the image.")
       ("piecewise-adjustment-interp-type", po::value(&global.piecewise_adjustment_interp_type)->default_value(1), "How to interpolate between adjustments. [1 Linear, 2 Using Gaussian weights]")
