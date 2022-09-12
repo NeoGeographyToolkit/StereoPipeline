@@ -2079,7 +2079,7 @@ bring them back to the original location.
      parallel_bundle_adjust -t nadirpinhole --disable-tri-ip-filter \
        --disable-pinhole-gcp-init --skip-rough-homography           \
        --force-reuse-match-files --ip-inlier-factor 2.0             \
-       --ip-uniqueness-threshold 0.9 --ip-per-tile 2000             \
+       --ip-uniqueness-threshold 0.8 --ip-per-image 20000           \
        --datum WGS84 --inline-adjustments --camera-weight 0         \
        --overlap-limit 10 --robust-threshold 10                     \
        --remove-outliers-params '75 3 4 5'                          \
@@ -2316,7 +2316,8 @@ GCP.
 Here is an example for two cameras::
 
      out=out_v12 
-     ba_params="--num-passes 1 --num-iterations 0 --transform-cameras-using-gcp"
+     ba_params="--num-passes 1 --num-iterations 0
+        --transform-cameras-using-gcp"
      theia_overdides="--sift_num_levels=6 --lowes_ratio=0.9 
        --min_num_inliers_for_valid_match=10 
        --min_num_absolute_pose_inliers=10 
@@ -2392,6 +2393,8 @@ For that, one should repeat the ``stereo_tri`` part of of the stereo
 commands from :numref:`skysat-stereo` with the flags
 ``--num-matches-from-disp-triplets 10000`` and ``--unalign-disparity``
 to obtain dense interest points and unaligned disparity.
+(To not generate the triangulated point cloud after
+this, add the option ``--compute-point-cloud-center-only``.)
 
 The match points can be examined as::
 

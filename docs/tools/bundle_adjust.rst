@@ -350,7 +350,7 @@ Command-line options for bundle_adjust
     A higher factor will result in more interest points, but perhaps
     also more outliers.
 
---ip-uniqueness-threshold <double (default: 0.7)>
+--ip-uniqueness-threshold <double (default: 0.8)>
     A higher threshold will result in more interest points, but
     perhaps less unique ones.
 

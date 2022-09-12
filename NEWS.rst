@@ -43,6 +43,9 @@ parallel_stereo:
     to run out of memory that way.
   * Added examples of using PBS and SLURM with ASP
     (:numref:`pbs_slurm`).
+  * Documented better the option ``--num-matches-from-disp-triplets``
+    for creating dense and uniformly distributed interest point
+    matches. Useful for modeling lens distortion.
 
 parallel_bundle_adjust:
   * Do not create subdirectories or symlinks, as that results in a
@@ -84,6 +87,10 @@ bundle_adjust:
   * With ``--match-first-to-last``, write match files from earlier
     to later images, rather than vice-versa. This was a bug, as
     the matches were not being picked up correctly later.
+  * For pinhole cameras, can read .adjust files via
+    ``--input-adjustments-prefix``, then apply them to existing .tsai
+    files via ``--inline-adjustments``. Until now one could do either
+    one or the other.
 
 point2dem:
   * Added the Tukey outlier removal method option applied to
@@ -131,8 +138,11 @@ misc:
   * Fix a crash in ISIS for international users by setting for all ASP
     programs the environmental variables LC_ALL and LANG to en_US.UTF-8.
   * parallel_stereo will accept (but ignore) Unicode in stereo.default.
-
-
+  * Eliminate internal fudging of ``--ip-uniqueness-threshold``,
+    and make it equal to 0.8 for both ``stereo`` and
+    ``bundle_adjust``. This was shown to increase the number of
+    interest points in situations when not enough were found.
+  
 RELEASE 3.1.0, May 18, 2022
 ----------------------------
 DOI: `10.5281/zenodo.6562267 <https://doi.org/10.5281/zenodo.6562267>`_

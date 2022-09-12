@@ -703,7 +703,7 @@ As discussed earlier, bundle adjustment should be used to correct
 these errors, and if the images have different enough illumination
 that bundle adjustment fails, one should add new images with
 intermediate illumination conditions (while sorting the full set of
-images by Sun azimuth angle (:numref:``) and verifying
+images by Sun azimuth angle (:numref:`sfs_azimuth`) and verifying
 visually by mapprojection the gradual change in illumination, as
 described in :numref:`sfs-lola-dem`).
 

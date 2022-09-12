@@ -196,7 +196,8 @@ first and second image, and then on the second and the third, followed
 by interest point generation, many interest points will be triplets,
 that is, the same feature will often will be identified in all three
 images, which can be a very good constraint on bundle adjustment
-later.
+later. (To not generate the triangulated point cloud after
+this, add the option ``--compute-point-cloud-center-only``.)
 
 If the interest points are good and the mean intersection error is
 acceptable, but this error shows an odd nonlinear pattern, that means

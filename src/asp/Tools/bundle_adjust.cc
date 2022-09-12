@@ -198,7 +198,6 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
     if (num_limits > 0) { // Do focus first.
       problem.SetParameterLowerBound(focus, 0, opt.intrinsics_limits[0]);
       problem.SetParameterUpperBound(focus, 0, opt.intrinsics_limits[1]);
-      //std::cout << "Set focus bounds: " << opt.intrinsics_limits[0] << ", " << opt.intrinsics_limits[1] << std::endl;
       ++intrin_index;
     }
     while ((intrin_index < 3) && (intrin_index < num_limits)) { // Next is the two center params
@@ -206,7 +205,6 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
                                      opt.intrinsics_limits[2*intrin_index    ]);
       problem.SetParameterUpperBound(center, intrin_index-1,
                                      opt.intrinsics_limits[2*intrin_index + 1]);
-      //std::cout << "Set center: " << opt.intrinsics_limits[2*intrin_index] << ", " << opt.intrinsics_limits[2*intrin_index + 1] << std::endl;
       ++intrin_index;
     }
     while (intrin_index < num_limits) { // Finish with the intrinsic params
@@ -214,7 +212,6 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
                                      opt.intrinsics_limits[2*intrin_index    ]);
       problem.SetParameterUpperBound(distortion, intrin_index-3,
                                      opt.intrinsics_limits[2*intrin_index + 1]);
-      //std::cout << "Set parameter: " << opt.intrinsics_limits[2*intrin_index] << ", " << opt.intrinsics_limits[2*intrin_index + 1] << std::endl;
       ++intrin_index;
     }
 
@@ -746,7 +743,7 @@ int add_to_outliers(ControlNetwork   & cnet,
     }
   } // End double loop through all the observations
   vw_out() << "Removed " << num_outliers_by_reprojection << " outliers out of "
-           << total << " of reprojection errors. Ratio: "
+           << total << " by reprojection error. Ratio: "
            << double(num_outliers_by_reprojection) / double(total) <<".\n";
   
   // Remove outliers by elevation limit
@@ -2138,8 +2135,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.approximate_pinhole_intrinsics && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Cannot approximate intrinsics while solving for them.\n");
 
-  if ((opt.camera_type != BaCameraType_Other) && opt.input_prefix != "")
-    vw_throw( ArgumentErr() << "Can only use initial adjustments with camera type 'other'.\n");
+  if (opt.camera_type != BaCameraType_Other &&
+      opt.camera_type != BaCameraType_Pinhole &&
+      opt.input_prefix != "")
+    vw_throw( ArgumentErr() << "Can only use initial adjustments with camera type "
+              << "'other' or 'pinhole'. Here likely having optical bar cameras.\n");
 
   vw::string_replace(opt.remove_outliers_params_str, ",", " "); // replace any commas
   opt.remove_outliers_params = vw::str_to_vec<vw::Vector<double, 4>>(opt.remove_outliers_params_str);

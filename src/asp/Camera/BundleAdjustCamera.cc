@@ -121,23 +121,11 @@ void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
                                         std::vector<asp::CameraModelPtr>
                                         const& cam_ptrs){
 
-  // Convert the transform format
-  vw::Matrix3x3 R = submatrix(M, 0, 0, 3, 3);
-  vw::Vector3   T;
-  for (int r = 0; r < 3; r++) 
-    T[r] = M(r, 3);
-  
-  double scale = pow(det(R), 1.0/3.0);
-  for (size_t r = 0; r < R.rows(); r++)
-    for (size_t c = 0; c < R.cols(); c++)
-      R(r, c) /= scale;
-
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
-
     // Apply the transform
     boost::shared_ptr<camera::PinholeModel> pin_ptr = 
       boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cam_ptrs[i]);
-    pin_ptr->apply_transform(R, T, scale);
+    pin_ptr->apply_transform(M);
 
     // Write out to param_storage
     pack_pinhole_to_arrays(*pin_ptr, i, param_storage);    

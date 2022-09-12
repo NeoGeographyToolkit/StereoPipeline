@@ -63,7 +63,7 @@ struct Options: public asp::BaBaseOptions {
     cost_function, mapprojected_data, gcp_from_mapprojected,
     image_list, camera_list, mapprojected_data_list,
     fixed_image_list;
-  int ip_per_tile, ip_per_image;
+  int ip_per_tile, ip_per_image, ip_edge_buffer_percent;
   double forced_triangulation_distance, overlap_exponent, ip_triangulation_max_error;
   int    instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
   bool   save_intermediate_cameras, approximate_pinhole_intrinsics,
@@ -315,10 +315,33 @@ bool init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
   
   // Copy the camera parameters from the models to param_storage
   const size_t num_cameras = param_storage.num_cameras();
+
   for (int icam=0; icam < num_cameras; ++icam) {
     PinholeModel* pin_ptr = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
     vw::vw_out() << "Loading input model: " << *pin_ptr << std::endl;
-    pack_pinhole_to_arrays(*pin_ptr, icam, param_storage);
+
+    // Make a copy of the camera, but note that it shares the distortion model
+    // with the original one. That is not a problem here.
+    PinholeModel pin_cam = *pin_ptr;
+    
+    // Read the adjustments from a previous run, if present
+    if (opt.input_prefix != "") {
+      std::string adjust_file
+        = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[icam],
+                                       opt.camera_files[icam]);
+      vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
+      CameraAdjustment adjustment;
+      adjustment.read_from_adjust_file(adjust_file);
+      
+      AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+                                  adjustment.position(), adjustment.pose());
+      vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
+      pin_cam.apply_transform(ecef_transform);
+    
+      cameras_changed = true;
+    }
+    
+    pack_pinhole_to_arrays(pin_cam, icam, param_storage);
   } // End loop through cameras
 
   // Apply any initial transform to the pinhole cameras

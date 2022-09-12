@@ -62,7 +62,7 @@ ip-inlier-factor (default = 1.0/15)
     with both, as well as with ``ip-uniqueness-threshold`` below, which
     has a different justification but also somewhat similar effects.
 
-ip-uniqueness-threshold (default = 0.7)
+ip-uniqueness-threshold (default = 0.8)
     A higher threshold will result in more interest points, but perhaps
     less unique ones.
 
@@ -752,6 +752,26 @@ save-double-precision-point-cloud (default = false)
     Save the final point cloud in double precision rather than bringing
     the points closer to origin and saving as float (marginally more
     precision at twice the storage).
+
+num-matches-from-disp-triplets (*integer*) (default = 0)
+    Create a match file with this many points uniformly sampled from the stereo
+    disparity, while making sure that if there are more than two images, a
+    set of ground features are represented by matches in at least three of
+    them. The matches are between original images (that is, before any
+    alignment or map-projection). The file name is ``<output
+    prefix>-disp-<left image>__<right image>.match``. To not continue
+    with triangulation, use ``--compute-point-cloud-center-only``.
+    See :numref:`floatingintrinsics` for an application.
+
+num-matches-from-disparity (*integer*) (default = 0)
+    Create a match file with this many points uniformly sampled from the stereo
+    disparity. The matches are between original images (that is,
+    before any alignment or map-projection). See also
+    num-matches-from-disp-triplets.
+
+compute-point-cloud-center-only
+    Only compute the center of triangulated point cloud and exit. Hence,
+    do not compute the triangulated point cloud.
 
 compute-error-vector (default = false)
     When writing the output point cloud, save the 3D triangulation

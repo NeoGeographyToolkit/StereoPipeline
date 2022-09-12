@@ -211,7 +211,8 @@ struct weightedRotationError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(const double * init_quat, double weight){
-    return (new ceres::AutoDiffCostFunction<weightedRotationError, NUM_QUAT_PARAMS, NUM_QUAT_PARAMS>
+    return (new ceres::AutoDiffCostFunction<weightedRotationError,
+            NUM_QUAT_PARAMS, NUM_QUAT_PARAMS>
             (new weightedRotationError(init_quat, weight)));
   }
 
@@ -557,6 +558,11 @@ void save_residuals(std::string const& residual_prefix,
     }
   }
 
+  // TODO(oalexan1): Add here per-camera median residuals
+
+  // TODO(oalexan1): Add here residuals for anchor points, individual
+  // ones and median for each camera
+  
   // Average all pixel residuals for a given xyz
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
     if (outliers.find(ipt) != outliers.end() || pixel_residual_count[ipt] <= 0)
@@ -1084,6 +1090,7 @@ void run_jitter_solve(int argc, char* argv[]) {
                  tri_points_vec, dem_xyz_vec, outliers, weight_per_residual);
 
 
+  // TODO(oalexan1): Make this a function
   // Save the optimized model states. Note that we optimized directly the camera
   // model states, so there's no need to update them from some optimization
   // workspace.
@@ -1101,12 +1108,12 @@ void run_jitter_solve(int argc, char* argv[]) {
 
     csm_cam->saveState(csmFile);
   }
+
   
   return;
 }
 
 } // end namespace asp
-
   
 int main(int argc, char* argv[]) {
 
