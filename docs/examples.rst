@@ -3864,15 +3864,15 @@ With SLURM, a script as follows can work::
     #SBATCH --time=50:00:00
     #SBATCH --partition=queue1
     
+    # Change to the directory in which the job was submitted
+    cd $SLURM_SUBMIT_DIR
+ 
     # Create a temporary list of nodes in current directory
     nodesList=$(mktemp -p $(pwd))
 
     # Set up the nodes list
     scontrol show hostname $SLURM_NODELIST | tr ' ' '\n' > $nodesList
     
-    # Change to the directory in which the job was submitted
-    cd $SLURM_SUBMIT_DIR
- 
     # Run parallel_stereo. (Ensure that this program is in the path.)
     parallel_stereo --nodes-list $nodesList  \
       --processes 4                          \
