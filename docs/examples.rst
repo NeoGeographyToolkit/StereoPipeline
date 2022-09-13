@@ -3864,20 +3864,23 @@ With SLURM, a script as follows can work::
     #SBATCH --time=50:00:00
     #SBATCH --partition=queue1
     
+    # Create a temporary list of nodes in current directory
+    nodesList=$(mktemp -p $(pwd))
+
     # Set up the nodes list
-    scontrol show hostname $SLURM_NODELIST | tr ' ' '\n' > /tmp/nodes.txt
+    scontrol show hostname $SLURM_NODELIST | tr ' ' '\n' > $nodesList
     
     # Change to the directory in which the job was submitted
     cd $SLURM_SUBMIT_DIR
  
-    # Run parallel_stereo
-    parallel_stereo --nodes-list=/tmp/nodes.txt \
-      --processes 4                             \
-      --parallel-options '--sshdelay 0.1'       \
+    # Run parallel_stereo. (Ensure that this program is in the path.)
+    parallel_stereo --nodes-list $nodesList  \
+      --processes 4                          \
+      --parallel-options '--sshdelay 0.1'    \
       <other ASP options> 
 
-Note that the list of nodes is in ``/tmp/nodes.txt``. If you run many such
-scripts, consider using a unique name for this file in each script.
+Note that the list of nodes is in a uniquely named temporary file in
+the work directory. That file should be deleted manually later.
 
 As before, the options and values above should be adjusted for your needs.
 
