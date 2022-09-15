@@ -3791,7 +3791,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("height-error-params", po::value(&opt.height_error_params)->default_value(Vector2(5.0,1000.0), "5.0 1000"),
      "Specify the largest height deviation to examine (in meters), and how many samples to use from 0 to that height.")
     ("sun-positions", po::value(&opt.sun_positions_list)->default_value(""),
-     "A file having on each line an image name and three values in double precision specifying the Sun position in ECEF coordinates. Use a space as separator. If not provided, these will be read from the camera files for ISIS and CSM models.")
+     "A file having on each line an image name and three values in double precision specifying the Sun position in meters in ECEF coordinates (origin is planet center). Use a space as separator. If not provided, these will be read from the camera files for ISIS and CSM models.")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes, one per image).")
     ("shadow-threshold", po::value(&opt.shadow_threshold)->default_value(-1),

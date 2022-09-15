@@ -172,8 +172,9 @@ Command-line options for sfs
 
 --sun-positions <string>
     A file having on each line an image name and three values in
-    double precision specifying the Sun position in ECEF coordinates.
-    Use a space as separator. If not provided, these will be read from
+    double precision specifying the Sun position in meters in 
+    ECEF coordinates (origin is planet center). Use a space as
+    separator. If not provided, these will be read from
     the camera file for ISIS and CSM models. 
 
 --save-dem-with-nodata
