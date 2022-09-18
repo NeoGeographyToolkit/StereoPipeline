@@ -123,6 +123,12 @@ corr_eval:
     ``parallel_stereo``.
   * Added the option ``--sample-rate``.
 
+cam_gen:
+  * Fix a bug in camera center determination, when an input camera is
+    provided. This tool can still be fragile if having to determine
+    the output camera only based on the four image corner coordinates
+    on the ground.
+   
 misc:
   * Increased the cache size to 1 GB per process for each ASP tool. 
     Added the option ``--cache-size-mb``, to set this. Made the

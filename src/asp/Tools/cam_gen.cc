@@ -27,6 +27,7 @@
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Math/LevenbergMarquardt.h>
 #include <vw/Math/Geometry.h>
+#include <vw/Stereo/StereoModel.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
@@ -81,7 +82,7 @@ public:
     m_datum(datum) {}
 
   /// Given the camera, project xyz into it
-  inline result_type operator()( domain_type const& C ) const {
+  inline result_type operator()(domain_type const& C) const {
 
     // Create the camera model
     CAM camera_model = m_camera_model;  // make a copy local to this function
@@ -117,7 +118,8 @@ public:
 
 /// Find the best camera that fits the current GCP
 void fit_camera_to_xyz_ht(bool parse_ecef,
-			  Vector3 const& parsed_camera_center,
+			  Vector3 const& parsed_camera_center, // may not be known
+                          Vector3 const& input_camera_center, // may not be known
 			  std::string const& camera_type,
 			  bool refine_camera, 
 			  std::vector<Vector3> const& xyz_vec,
@@ -130,12 +132,16 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
   // Create fake points in space at given distance from this camera's
   // center and corresponding actual points on the ground.  Use 500
   // km, just some height not too far from actual satellite height.
-  const double ht = 500000; 
+  double ht = 500000.0; 
   int num_pts = pixel_values.size()/2;
   vw::Matrix<double> in, out;
   in.set_size(3, num_pts);
   out.set_size(3, num_pts);
   for (int col = 0; col < in.cols(); col++) {
+    if (input_camera_center != Vector3(0, 0, 0)) {
+      // We know the camera center. Use that.
+      ht = norm_2(xyz_vec[col] - input_camera_center);
+    }
     Vector3 a = out_cam->camera_center(Vector2(0, 0)) +
       ht*out_cam->pixel_to_vector(Vector2(pixel_values[2*col], pixel_values[2*col+1]));
     for (int row = 0; row < in.rows(); row++) {
@@ -605,11 +611,10 @@ namespace vw {
                           GeoReference const& georef,
                           Vector3 const& camera_ctr,
                           Vector3 const& camera_vec,
-                          bool treat_nodata_as_zero
-                          )
-      : m_dem(interpolate(dem_image)), m_georef(georef),
-        m_camera_ctr(camera_ctr), m_camera_vec(camera_vec),
-        m_treat_nodata_as_zero(treat_nodata_as_zero){}
+                           bool treat_nodata_as_zero):
+      m_dem(interpolate(dem_image)), m_georef(georef),
+      m_camera_ctr(camera_ctr), m_camera_vec(camera_vec),
+      m_treat_nodata_as_zero(treat_nodata_as_zero) {}
 
     /// Evaluator. See description above.
     inline result_type operator()( domain_type const& len ) const {
@@ -644,8 +649,7 @@ namespace vw {
                                   double max_abs_tol      = 1e-14, // abs cost fun change b/w iters
                                   double max_rel_tol      = 1e-14,
                                   int num_max_iter        = 100,
-                                  Vector3 xyz_guess       = Vector3()
-                                  ){
+                                  Vector3 xyz_guess       = Vector3()){
 
     // This is a very fragile function and things can easily go wrong. 
     try {
@@ -686,7 +690,6 @@ namespace vw {
       for (int outer_pass = 0; outer_pass <= 0; outer_pass++){
 	
 	base_len[0] = norm_2(xyz - camera_ctr);
-
       
 	const double radius     = norm_2(xyz); // Radius from XYZ coordinate center
 	const int    ITER_LIMIT = 10; // There are two solver attempts per iteration
@@ -811,8 +814,12 @@ namespace vw {
 
 // Trace rays from pixel corners to DEM to see where they intersect the DEM
 void extract_lon_lat_from_camera(Options & opt, ImageViewRef< PixelMask<float> > const& interp_dem,
-				 GeoReference const& geo){
+				 GeoReference const& geo,
+                                 std::vector<double> & cam_heights, vw::Vector3 & cam_ctr) {
 
+  cam_heights.clear();
+  cam_ctr = Vector3(0, 0, 0);
+  
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
@@ -835,6 +842,9 @@ void extract_lon_lat_from_camera(Options & opt, ImageViewRef< PixelMask<float> >
   int num_points = opt.pixel_values.size()/2;
   opt.lon_lat_values.reserve(2*num_points);
   opt.lon_lat_values.clear();
+
+  // Estimate camera center
+  std::vector<vw::Vector3> ctrs, dirs;
   
   for (int it = 0; it < num_points; it++){
 
@@ -853,31 +863,51 @@ void extract_lon_lat_from_camera(Options & opt, ImageViewRef< PixelMask<float> >
     Vector3 xyz_guess       = Vector3();
 
     Vector3 xyz = camera_pixel_to_dem_xyz2(camera_ctr, camera_vec,  
-					  interp_dem, geo, treat_nodata_as_zero,
+                                           interp_dem, geo, treat_nodata_as_zero,
 					   has_intersection, height_error_tol,
 					   max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
-
+    
     if (xyz == Vector3() || !has_intersection){
       vw_out() << "Could not intersect the DEM with a ray coming "
 	       << "from the camera at pixel: " << pix << ". Skipping it.\n";
       continue;
     }
 
-    Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);
+    ctrs.push_back(camera_ctr);
+    dirs.push_back(camera_vec);
     
+    Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);
     opt.lon_lat_values.push_back(llh[0]);
     opt.lon_lat_values.push_back(llh[1]);
     good_pixel_values.push_back(opt.pixel_values[2*it]);
     good_pixel_values.push_back(opt.pixel_values[2*it+1]);
+    cam_heights.push_back(llh[2]); // will use it later
   }
 
   if (good_pixel_values.size() < 6) {
     vw_throw( ArgumentErr() << "Successful intersection happened for less than "
 	      << "3 pixels. Will not be able to create a camera. Consider checking "
-	      << "your inputs, or passing different pixels in --pixel-values."
+	      << "your inputs, or passing different pixels in --pixel-values. DEM: "
 	      << opt.reference_dem << ".\n");
   }
 
+  // Estimate camera center by triangulating back to the camera. This is necessary
+  // for RPC, which does not store a camera center
+  int num = 0;
+  for (size_t it1 = 0; it1 < ctrs.size(); it1++) {
+    for (size_t it2 = it1 + 1; it2 < ctrs.size(); it2++) {
+      vw::Vector3 err;
+      vw::Vector3 pt = vw::stereo::triangulate_pair(dirs[it1], ctrs[it1],
+                                                    dirs[it2], ctrs[it2], err);
+      if (pt != Vector3(0, 0, 0)) {
+        cam_ctr += pt;
+        num += 1;
+      }
+    }
+  }
+  if (num > 0) 
+    cam_ctr = cam_ctr / num;
+  
   // Update with the values at which we were successful
   opt.pixel_values = good_pixel_values;
 }
@@ -913,7 +943,7 @@ int main(int argc, char * argv[]){
     }
 
     // Prepare the DEM for interpolation
-    ImageViewRef< PixelMask<float> > interp_dem
+    ImageViewRef<PixelMask<float>> interp_dem
       = interpolate(create_mask(dem, nodata_value),
 		    BilinearInterpolation(), ZeroEdgeExtension());
 
@@ -957,11 +987,14 @@ int main(int argc, char * argv[]){
 	       << opt.cam_height
 	       << " meters with a weight strength of " << opt.cam_weight << ".\n";
     }
-    
+
+    Vector3 input_cam_ctr(0, 0, 0); // estimated camera center from input camera
+    std::vector<double> cam_heights;
     if (opt.input_camera != ""){
       // Extract lon and lat from tracing rays from the camera to the ground.
       // This can modify opt.pixel_values.
-      extract_lon_lat_from_camera(opt, create_mask(dem, nodata_value), geo);
+      extract_lon_lat_from_camera(opt, create_mask(dem, nodata_value), geo, cam_heights,
+                                  input_cam_ctr);
     }
 
     if (opt.lon_lat_values.size() < 3) 
@@ -983,6 +1016,7 @@ int main(int argc, char * argv[]){
     gcp.precision(17);
     bool write_gcp = (opt.gcp_file != "");
 
+    // TODO(oalexan1): Make this into a function
     for (size_t corner_it = 0; corner_it < num_lon_lat_pairs; corner_it++) {
 
       // Get the height from the DEM if possible
@@ -992,22 +1026,27 @@ int main(int argc, char * argv[]){
       if (llh[1] < -90 || llh[1] > 90) 
         vw_throw( ArgumentErr() << "Detected a latitude out of bounds. "
                   << "Perhaps the longitude and latitude are reversed?\n");
-      double height = opt.height_above_datum;
-      if (has_dem) {
-        bool success = false;
-        pix = geo.lonlat_to_pixel(subvector(llh, 0, 2));
-        int len =  BilinearInterpolation::pixel_buffer;
-        if (pix[0] >= 0 && pix[0] <= interp_dem.cols() - 1 - len &&
-            pix[1] >= 0 && pix[1] <= interp_dem.rows() - 1 - len) {
-          PixelMask<float> masked_height = interp_dem(pix[0], pix[1]);
-          if (is_valid(masked_height)) {
-            height = masked_height.child();
-            success = true;
+
+      double height = opt.height_above_datum; 
+      if (opt.input_camera != ""){
+        height = cam_heights[corner_it]; // already computed
+      } else {
+        if (has_dem) {
+          bool success = false;
+          pix = geo.lonlat_to_pixel(subvector(llh, 0, 2));
+          int len =  BilinearInterpolation::pixel_buffer;
+          if (pix[0] >= 0 && pix[0] <= interp_dem.cols() - 1 - len &&
+              pix[1] >= 0 && pix[1] <= interp_dem.rows() - 1 - len) {
+            PixelMask<float> masked_height = interp_dem(pix[0], pix[1]);
+            if (is_valid(masked_height)) {
+              height = masked_height.child();
+              success = true;
+            }
           }
+          if (!success) 
+            vw_out() << "Could not determine a valid height value at lon-lat: "
+                     << llh[0] << ' ' << llh[1] << ". Will use a height of " << height << ".\n";
         }
-        if (!success) 
-          vw_out() << "Could not determine a valid height value at lon-lat: "
-		   << llh[0] << ' ' << llh[1] << ". Will use a height of " << height << ".\n";
       }
       
       llh[2] = height;
@@ -1015,7 +1054,7 @@ int main(int argc, char * argv[]){
       //         << opt.pixel_values[2*corner_it] << ", " << opt.pixel_values[2*corner_it+1]
       //         << ") is "
       //         << llh[0] << ", " << llh[1] << ", " << llh[2] << std::endl;
-    
+
       xyz = datum.geodetic_to_cartesian(llh);
       xyz_vec.push_back(xyz);
 
@@ -1044,7 +1083,7 @@ int main(int argc, char * argv[]){
 
     // Transform it and optionally refine it
     bool verbose = true;
-    fit_camera_to_xyz_ht(opt.parse_ecef, parsed_cam_ctr,
+    fit_camera_to_xyz_ht(opt.parse_ecef, parsed_cam_ctr, input_cam_ctr,
 			 opt.camera_type, opt.refine_camera,  
 			 xyz_vec, opt.pixel_values, 
 			 opt.cam_height, opt.cam_weight, datum,
@@ -1054,15 +1093,6 @@ int main(int argc, char * argv[]){
       vw_throw( ArgumentErr() << "Cannot parse ECI/ECEF data for an optical bar camera.\n");
     }
 
-    // Code that is not working. 
-    //((vw::camera::PinholeModel*)out_cam.get())->set_camera_center(parsed_cam_ctr); 
-    //((vw::camera::PinholeModel*)out_cam.get())->set_camera_pose(parsed_cam_quat); 
-    //if (opt.parse_eci)
-    // ((vw::camera::PinholeModel*)out_cam.get())->set_camera_pose(parsed_cam_quat);
-    //if (opt.parse_ecef) 
-    // ((vw::camera::PinholeModel*)out_cam.get())->set_camera_pose
-    //	(inverse(parsed_cam_quat));
-    
     llh = datum.cartesian_to_geodetic(out_cam->camera_center(Vector2()));
     vw_out() << "Output camera center lon, lat, and height above datum: " << llh << std::endl;
     vw_out() << "Writing: " << opt.camera_file << std::endl;
