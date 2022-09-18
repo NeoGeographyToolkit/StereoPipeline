@@ -505,7 +505,7 @@ void asp::update_point_height_from_dem(vw::ba::ControlNetwork const& cnet,
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
     
     if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
-      vw_throw(ArgumentErr() << "Found an unexpected GCP when having a DEM constraint.\n");
+      continue; // GCP keep their own thing
     
     if (outliers.find(ipt) != outliers.end())
       continue; // Skip outliers
@@ -546,7 +546,7 @@ void asp::calc_avg_intersection_with_dem(vw::ba::ControlNetwork const& cnet,
       int ipt = (**fiter).m_point_id;
 
       if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
-        vw_throw(ArgumentErr() << "Found an unexpected GCP when having a DEM constraint.\n");
+        continue; // GCP do not get modified
       
       if (outliers.find(ipt) != outliers.end())
         continue; // Skip outliers

@@ -805,8 +805,8 @@ void asp::saveConvergenceAngles(std::string const& conv_angles_file,
   
   vw_out() << "Writing: " << conv_angles_file << "\n";
   std::ofstream ofs (conv_angles_file.c_str());
-  ofs << " # Convergence angle percentiles (in degrees) for each image pair having matches\n";
-  ofs << " # left_image right_image 25% 50% 75% num_angles_per_pair\n";
+  ofs << "# Convergence angle percentiles (in degrees) for each image pair having matches\n";
+  ofs << "# left_image right_image 25% 50% 75% num_angles_per_pair\n";
   ofs.precision(17);
   for (size_t conv_it = 0; conv_it < convAngles.size(); conv_it++) {
     auto const & c = convAngles[conv_it]; // alias

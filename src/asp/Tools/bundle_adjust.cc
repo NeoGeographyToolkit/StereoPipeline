@@ -1717,9 +1717,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("solve-intrinsics",    po::bool_switch(&opt.solve_intrinsics)->default_value(false)->implicit_value(true),
      "Optimize intrinsic camera parameters.  Only used for pinhole cameras.")
     ("intrinsics-to-float", po::value(&intrinsics_to_float_str)->default_value(""),
-     "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics.")
+     "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. Not specifying anything will float all of them.")
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
-     "If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics.")
+     "If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. Not specifying anything, will share none of them.")
     ("intrinsics-limits", 
      po::value(&intrinsics_limit_str)->default_value(""),
      "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in min max pairs and are applied in the order [focal length, optical center, other intrinsics] until all of the limits are used. Check the documentation to dermine how many intrinsic parameters are used for your cameras.")
@@ -1759,7 +1759,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "fix those points unless --heights-from-dem-weight is positive.")
     ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(1.0),
      "How much weight to give to keep the triangulated points close to the DEM if specified via "
-     "--heights-from-dem. If the weight is not positive, keep the triangulated points fixed.")
+     "--heights-from-dem. If the weight is not positive, keep the triangulated points fixed. "
+     "This value should be inversely proprortional with ground sample distance, as "
+     "then it will convert the measurements from meters to pixels, which is consistent "
+     "with the reprojection error term.")
     ("heights-from-dem-robust-threshold",
      po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.5),
      "If positive, this is the robust threshold to use keep the triangulated points "
@@ -2118,8 +2121,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // NOTE(oalexan1): The reason min_triangulation_angle cannot be 0 is deep inside
   // StereoModel.cc. Better keep it this way than make too many changes there.
   if ( opt.min_triangulation_angle <= 0.0 )
-    vw_throw( ArgumentErr() << "The minimum triangulation angle must be positive.\n"
-                            << usage << general_options );
+    vw_throw( ArgumentErr() << "The minimum triangulation angle must be positive.\n");
   
   // TODO: Make sure the normal model loading catches this error.
   //if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
@@ -2154,11 +2156,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
     vw_throw( ArgumentErr() << "When using a camera position file, the csv-format "
-              << "option must be set.\n" << usage << general_options );
+              << "option must be set.\n");
 
   if (opt.max_pairwise_matches <= 0) 
-    vw_throw( ArgumentErr() << "Must have a positive number of max pairwise matches.\n"
-              << usage << general_options );
+    vw_throw( ArgumentErr() << "Must have a positive number of max pairwise matches.\n");
   
   // Copy the IP settings to the global stereo_settings() object
   opt.copy_to_asp_settings();
@@ -2185,8 +2186,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw::cartography::GeoReference georef;
       bool is_good = vw::cartography::read_georeference(georef, opt.reference_terrain);
       if (!is_good)
-        vw_throw( ArgumentErr() << "The reference terrain DEM does not have a georeference.\n"
-                  << usage << general_options );
+        vw_throw( ArgumentErr() << "The reference terrain DEM does not have a georeference.\n");
       if (opt.datum_str == ""){
         opt.datum = georef.datum();
         opt.datum_str = opt.datum.name();
@@ -2283,11 +2283,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.datum_str == "") {
     if (!opt.gcp_files.empty() || !opt.camera_position_file.empty() )
       vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
-                << "the datum must be specified.\n" << usage << general_options );
+                << "the datum must be specified.\n");
     
     if ( opt.elevation_limit[0] < opt.elevation_limit[1] )
-      vw_throw( ArgumentErr() << "When filtering by elevation limit, the datum must be specified.\n"
-                << usage << general_options );
+      vw_throw( ArgumentErr() << "When filtering by elevation limit, the datum must be specified.\n");
   }
 
   vw_out() << "Will use the datum:\n" << opt.datum << std::endl;
@@ -2322,6 +2321,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.initial_transform_file != "") {
     vw_out() << "Reading the alignment transform from: " << opt.initial_transform_file << "\n";
     vw::read_matrix_as_txt(opt.initial_transform_file, opt.initial_transform);
+    if (opt.initial_transform.cols() != 4 || opt.initial_transform.rows() != 4)
+      vw_throw(ArgumentErr() << "Could not read the initial transform.\n");
     vw_out() << "Initial transform:\n" << opt.initial_transform << std::endl;
   }
 
