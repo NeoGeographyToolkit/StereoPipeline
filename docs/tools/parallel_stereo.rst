@@ -196,11 +196,12 @@ Command-line options
 
 --threads-multiprocess <integer>
     The number of threads to use per process when running multiple
-    processes.
+    processes, for the correlation, subpixel refinement, and triangulation steps
+    (:numref:`entrypoints`).
 
 --threads-singleprocess <integer>
     The number of threads to use when running a single process (for
-    pre-processing and filtering).
+    the pre-processing and filtering steps, :numref:`entrypoints`).
 
 --resume-at-corr
    Start at the correlation stage and skip recomputing the valid low
