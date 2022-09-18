@@ -22,19 +22,6 @@ Usage::
 See :numref:`tutorial` for more details. Many examples of this
 program are in :numref:`examples`.
 
-It is suggested that after this program is started, one examine how
-well it uses the CPUs and memory on all nodes, especially at the
-correlation stage (:numref:`entrypoints`). One may want to set the
-``--processes``, ``--threads-multiprocess``, and
-``--threads-singleprocess`` options
-(:numref:`parallel_stereo_options`), also ``--corr-memory-limit-mb``
-(:numref:`stereodefault`), and do set ``--nodes-list``. Note that the
-SGM/MGM algorithms can be quite memory-intensive. For these, by
-default, the number of threads is set to 8, and the number of
-processes is the number of cores divided by the number of threads, on
-each node. Otherwise, the default is to use as many processes as there
-are cores.
-
 This tool will create a set of output files (:numref:`outputfiles`).
 Internally some of them will be GDAL VRT files, that is, plain text
 virtual mosaics of files created by individual processes, with the
@@ -52,6 +39,27 @@ This program operates only on single channel (grayscale)
 images. Multi-channel images need to first be converted to grayscale
 or a single channel should be extracted with ``gdal_translate`` 
 with the ``-b`` option.
+
+Processes and threads
+~~~~~~~~~~~~~~~~~~~~~
+
+It is suggested that after this program is started, one examine how
+well it uses the CPUs and memory on all nodes, especially at the
+correlation stage (:numref:`entrypoints`). 
+
+One may want to set the ``--processes``, ``--threads-multiprocess``,
+and ``--threads-singleprocess`` options
+(:numref:`parallel_stereo_options`), also ``--corr-memory-limit-mb``
+(:numref:`stereodefault`). 
+
+Make sure that ``--nodes-list`` is set, otherwise only the head node
+will be used.
+
+Note that the SGM and MGM algorithms can be quite
+memory-intensive. For these, by default, the number of threads is set
+to 8, and the number of processes is the number of cores divided by
+the number of threads, on each node. Otherwise, the default is to use
+as many processes as there are cores.
 
 .. _entrypoints:
 
@@ -133,7 +141,8 @@ Command-line options
 
 --nodes-list <filename>
     The list of computing nodes, one per line. If not provided, run
-    on the local machine.
+    on the local machine. See examples for PBS and SLURM in 
+    :numref:`pbs_slurm`. 
 
 -t, --session-type <string>
     Select the stereo session type to use for processing. Usually the
