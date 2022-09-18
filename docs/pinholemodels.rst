@@ -29,7 +29,7 @@ The generic Pinhole model uses the following parameters:
 -  *pitch* = The size of each pixel in the units used to specify the
    four parameters listed above. This will usually either be 1.0 if they
    are specified in pixel units or alternately the size of a pixel in
-   millimeters.
+   millimeters or meters.
 
 The focal length is sometimes known as the *principal distance*. The
 value :math:`cu` is usually approximately half the image width in pixels
@@ -45,12 +45,19 @@ can be added. Note that the units used in the distortion model must
 match the units used for the parameters listed above. For example, if
 the camera calibration was performed using units of millimeters the
 focal lengths etc. must be given in units of millimeters and the pitch
-must be equal to the size of each pixel in millimeters. 
+must be equal to the size of each pixel in millimeters. Alternatively,
+units of meter can be used, and the choice of unit must be documented
+by the creators of the models.
 
 The following lens distortion models are currently supported. (The
 formulas below may miss some small details; the implementation in
 ``LensDistortion.cc`` in VisionWorkbench should be the final
 reference.)
+
+Note that the values below change drastically depending on whether the
+model creator chooses pixel units, or if measuring in millimeters or
+meters. In either case, all lengths must be consistent and the units
+documented.
 
 * **Null** = A placeholder model that applies no distortion.
 
@@ -94,7 +101,8 @@ reference.)
   *phi* = Tangential distortion angle in radians.
 
   The following equations describe the distortion, note that this
-  model uses non-normalized pixel units, so they are in mm:
+  model uses non-normalized pixel units, so they can be in millimeters
+  or meters:
 
   .. math::
     x = x_{dist} - xp

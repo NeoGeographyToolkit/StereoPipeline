@@ -184,6 +184,15 @@ The initial and final mean and median of residual error norms for the
 pixels each camera are written to ``residuals_stats.txt`` files in
 the output directory.
 
+The command::
+
+    geodiff --absolute --csv-format '1:lon 2:lat 3:height_above_datum' \
+      {output-prefix}-final_residuals_pointmap.csv dem.tif
+
+(:numref:`geodiff`) can be used to evaluate how well the residuals
+agree with a given DEM.  That can be especially useful if bundle
+adjustment was invoked with the ``--heights-from-dem`` option.
+
 As a finer-grained metric, initial and final ``raw_pixels.txt`` files
 will be written, having the row and column residuals (reprojection
 errors) for each pixel in each camera.
@@ -201,7 +210,7 @@ If the options ``--heights-from-dem`` and
 will be written. For each pair of images having matches, the matches
 are mapprojected onto the DEM, and percentiles of their disagreements
 are computed, for each image vs the rest, and per image pair, in DEM
-pixel units. This helps with evalulating image co-registration.
+pixel units. This helps with evaluating image co-registration.
 
 .. _adjust_files:
 
@@ -405,13 +414,14 @@ Command-line options for bundle_adjust
 --intrinsics-to-float <arg>
     If solving for intrinsics and desired to float only a few of
     them, specify here, in quotes, one or more of: focal_length,
-    optical_center, other_intrinsics.
+    optical_center, other_intrinsics. Not specifying anything, will
+    float all of them, if ``--solve-intrinsics`` is specified.
 
 --intrinsics-to-share <arg>
     If solving for intrinsics and desired to share only a few of
     them, specify here, in quotes, one or more of: focal_length,
     optical_center, other_intrinsics. By default all of the intrinsics
-    are shared so to not share any of them pass in a blank string.
+    are shared, so to not share any of them pass in a blank string.
 
 --intrinsics-limits <arg>
     Set a string in quotes that contains min max ratio pairs for
@@ -511,7 +521,10 @@ Command-line options for bundle_adjust
 --heights-from-dem-weight <double (default: 1.0)>
     How much weight to give to keep the triangulated points close
     to the DEM if specified via ``--heights-from-dem``. If the weight
-    is not positive, keep the triangulated points fixed.
+    is not positive, keep the triangulated points fixed. This value
+    should be inversely proportional with ground sample distance, as
+    then it will convert the measurements from meters to pixels, which
+    is consistent with the reprojection error term.
 
 --heights-from-dem-robust-threshold <double (default: 0.5)> 
     If positive, this is the robust threshold to use keep the

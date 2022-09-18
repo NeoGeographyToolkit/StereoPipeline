@@ -207,7 +207,7 @@ early such attempt, better approaches will be suggested below::
 
      bundle_adjust -t nadirpinhole --inline-adjustments               \
        --solve-intrinsics --camera-weight 1                           \
-       --max-pairwise-matches 10000                                   \
+       --max-pairwise-matches 20000                                   \
        left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai  \
        -o run_ba_intr/run
 
@@ -418,9 +418,10 @@ we assume that the cameras and the terrain are already aligned::
 
      bundle_adjust -t nadirpinhole --inline-adjustments         \
        --max-pairwise-matches 10000                             \
-       --solve-intrinsics --camera-weight 1                     \
+       --solve-intrinsics --camera-weight 0                     \
+       --max-pairwise-matches 20000                             \
        --heights-from-dem dem.tif                               \
-       --heights-from-dem-weight 2.0                            \
+       --heights-from-dem-weight 1.0                            \
        --heights-from-dem-robust-threshold 1.0                  \
        --parameter-tolerance 1e-12                              \
        --remove-outliers-params "75.0 3.0 20 25"                \
@@ -433,6 +434,16 @@ outliers, as the input DEM may not be that accurate, and then if tying
 too much to it some valid matches be be flagged as outliers otherwise,
 perhaps.
 
+The value of ``--heights-from-dem-weight`` should be inversely
+proportional with ground sample distance, as then it will convert 
+the measurements from meters to pixels, which is what is used in most
+other cost function terms in ``bundle_adjust``.
+
+It is suggested to use dense interest points as above (and adjust
+``--max-pairwise-matches`` to not throw some of them out). We set
+``--camera-weight 0``, as hopefully the DEM constraint is enough to
+constrain the cameras.
+
 It is important to note that here we assume that a simple height
 correction is enough. Hence this option is an approximation, and perhaps
 it should be used iteratively, and a subsequent pass of bundle
@@ -443,6 +454,10 @@ camera intrinsics.
 
 It is suggested to look at the documentation of all the options
 above and adjust them for your use case.
+
+See :numref:`bundle_adjust` for the documentation of all options
+above, and :numref:`ba_out_files` for the output reports being saved,
+which can help judge how well the optimization worked.
 
 RPC lens distortion
 ^^^^^^^^^^^^^^^^^^^

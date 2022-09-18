@@ -2357,6 +2357,13 @@ instead of using longitude and latitude of corners. Here is an example::
 (Note that the Breckenridge dataset does not have RPC data, but other
 datasets do.)
 
+If an RPC model is embedded in the image, one can validate how well the new Pinhole
+camera approximates the existing RPC camera with ``cam_test``
+(:numref:`cam_test`), with a command like::
+
+  cam_test --image image.tif --cam1 image.tif --cam2 out_cam.tsai \
+      --height-above-datum 4000
+
 Then one can proceed as earlier (particularly the GCP file can be edited
 to reflect the shorter image name).
 
