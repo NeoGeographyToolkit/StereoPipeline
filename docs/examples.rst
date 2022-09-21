@@ -2026,7 +2026,11 @@ position and orientation of the camera that best fits this data. The
 camera is written to ``v1.tsai``. A GCP file is written to ``v1.gcp``.
 This will help later with bundle adjustment.
 
-In this command, the optical center and focal length are as mentioned
+If an input camera exists, such as embedded in the image file, it is
+strongy suggested to pass it to this tool, as it will improve the
+accuracy of produced cameras (:numref:`skysat-rpc`).
+
+In the above command, the optical center and focal length are as mentioned
 earlier. The reference SRTM DEM is used to infer the height above datum
 for each image corner based on its longitude and latitude. The height
 value specified via ``--height-above-datum`` is used as a fallback
@@ -2336,6 +2340,8 @@ The obtained cameras should be bundle-adjusted as done for the outputs
 of ``cam_gen``. Note that this tool is capricious and its outputs can be
 often wrong. In the future it will be replaced by something more robust.
 
+.. _skysat-rpc:
+
 RPC models
 ~~~~~~~~~~
 
@@ -2354,8 +2360,9 @@ instead of using longitude and latitude of corners. Here is an example::
        --refine-camera --gcp-std 1 --input-camera $img                     \
        -o v1_rpc.tsai --gcp-file v1_rpc.gcp
 
-(Note that the Breckenridge dataset does not have RPC data, but other
-datasets do.)
+Note that the Breckenridge dataset does not have RPC data, but other
+datasets do. If the input camera is stored separately in a camera file,
+use that one with ``--input-camera``.
 
 If an RPC model is embedded in the image, one can validate how well the new Pinhole
 camera approximates the existing RPC camera with ``cam_test``
@@ -3832,6 +3839,9 @@ On a PBS system, one can have a script as follows::
 
     # Change to current directory
     cd $PBS_O_WORKDIR
+
+    # Set the path to ASP tools 
+    export PATH=/path/to/ASP/bin:$PATH
 
     # Run parallel_stereo
     parallel_stereo --stereo-algorithm asp_mgm \

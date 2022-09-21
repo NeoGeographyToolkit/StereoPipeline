@@ -71,9 +71,9 @@ to the same region, for easier comparison among them.
 
 When the images are in a single window, an individual image can be
 turned on or off via a checkbox. Clicking on an image's name will zoom
-to it and display it on top of other images. By right-clicking the list
-of images, other operations can be performed, such as deleting an image
-from the view, etc.
+to it and display it on top of other images. By right-clicking the
+list of images, other operations can be performed, such as hillshading
+an image, etc.
 
 In this mode, the keys ``n`` and ``p`` can be used to cycle among
 the images.

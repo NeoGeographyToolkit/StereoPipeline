@@ -238,13 +238,13 @@ Command-line options for point2dem
     Specify the output file type.
 
 --x-offset <float (default: 0)>
-    Add a horizontal offset to the DEM.
+    Add a longitude offset (in degrees) to the DEM.
 
 --y-offset <float (default: 0)>
-    Add a horizontal offset to the DEM.
+    Add a latitude offset (in degrees) to the DEM.
 
 --z-offset <float (default: 0)>
-    Add a vertical offset to the DEM.
+    Add a vertical offset (in meters) to the DEM.
 
 --rotation-order <string (default: xyz)>
     Set the order of an Euler angle rotation applied to the 3D

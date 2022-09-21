@@ -328,9 +328,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description manipulation_options("Manipulation options");
   manipulation_options.add_options()
-    ("x-offset",       po::value(&opt.lon_offset)->default_value(0),    "Add a horizontal offset to the DEM.")
-    ("y-offset",       po::value(&opt.lat_offset)->default_value(0),    "Add a horizontal offset to the DEM.")
-    ("z-offset",       po::value(&opt.height_offset)->default_value(0),    "Add a vertical offset to the DEM.")
+    ("x-offset",       po::value(&opt.lon_offset)->default_value(0),    "Add a longitude offset (in degrees) to the DEM.")
+    ("y-offset",       po::value(&opt.lat_offset)->default_value(0),    "Add a latitude offset (in degrees) to the DEM.")
+    ("z-offset",       po::value(&opt.height_offset)->default_value(0),    "Add a vertical offset (in meters) to the DEM.")
     ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),
          "Set the order of an Euler angle rotation applied to the 3D points prior to DEM rasterization.")
     ("phi-rotation",   po::value(&opt.phi_rot )->default_value(0),"Set a rotation angle phi.")

@@ -28,8 +28,8 @@ parallel_stereo:
     from a previous ``bundle_adjust`` or ``parallel_stereo`` run. The
     "clean" interest point matches created by ``bundle_adjust`` may
     have fewer outliers than what stereo can create.
-  * Added the option ``--keep-only`` to convert all VRT to TIF (e.g.,
-    D.tif), then wipe all files and subdirectories except those
+  * Added the option ``--keep-only`` to convert all VRT files to TIF
+    (e.g., D.tif), then wipe all files and subdirectories except those
     specified by given suffixes.
   * Added the triangulation option ``--max-valid-triangulation-error``.
   * The option ``--prev-run-prefix`` can be used to start a run
@@ -110,10 +110,11 @@ stereo_gui:
   * Given a ``bundle_adjust`` output prefix, can select via checkboxes
     any two images to show side-by-side, and automatically load their
     match file or clean match file (options:
-    ``--pairwise-matches`` and ``--pairwise-clean-matches``, also accessible
-    from the top menu).
+    ``--pairwise-matches`` and ``--pairwise-clean-matches``, also
+    accessible from the top menu).
   * Zoom to given proj win from the View menu. Useful for
-    reproducibility. Also accessible with option ``--zoom-proj-win``.
+    reproducibility. Also accessible with command-line option
+    ``--zoom-proj-win``.
   * Bug fix for slow overlaying of images with different datums.
 
 corr_eval:
@@ -124,10 +125,10 @@ corr_eval:
   * Added the option ``--sample-rate``.
 
 cam_gen:
-  * Fix a bug in camera center determination, when an input camera is
-    provided. This tool can still be fragile if having to determine
-    the output camera only based on the four image corner coordinates
-    on the ground.
+  * Fix a bug in output camera center determination, when an input
+    camera is provided. This tool can still be fragile if having to
+    determine the output camera only based on the four image corner
+    coordinates on the ground and no input camera.
    
 misc:
   * Increased the cache size to 1 GB per process for each ASP tool. 

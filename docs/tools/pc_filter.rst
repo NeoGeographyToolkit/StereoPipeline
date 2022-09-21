@@ -25,7 +25,7 @@ specified extension). In those cases the coordinates are saved as
 ``float32``, which may result in loss of precision for orbital
 data. Invalid points and outliers are excluded from those clouds.
 
-An textured mesh in .obj format can be created from the output cloud
+A textured mesh in .obj format can be created from the output cloud
 using ``point2mesh`` (:numref:`point2mesh`), just as for the original
 cloud.
 
