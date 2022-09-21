@@ -341,7 +341,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   projection_options.add_options()
     ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ.4 string). Can also be an URL or in WKT format, as for GDAL.")
     ("t_projwin",     po::value(&opt.target_projwin),
-     "The output DEM will have corners with these georeferenced coordinates.")
+     "The output DEM will have corners with these georeferenced coordinates. The actual spatial extent (ground footprint) is obtained by expanding this box by half the grid size.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),
              "Set output DEM resolution (in target georeferenced units per pixel). These units may be in degrees or meters, depending on your projection. If not specified, it will be computed automatically (except for LAS and CSV files). Multiple spacings can be set (in quotes) to generate multiple output files. This is the same as the --tr option.")
     ("tr",            po::value(&dem_spacing2)->default_value(""), "This is identical to the --dem-spacing option.")

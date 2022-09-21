@@ -543,7 +543,7 @@ def main(argsIn):
         asp_file_utils.removeFolderIfExists(tempFolder)
 
     if ans == 0: 
-        print("Wrote: " + relOutputPath)
+        print("Wrote: " + options.outputPath)
         maybe_copy_rpc(options.imagePath, options.outputPath)
 
     endTime = time.time()

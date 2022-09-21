@@ -8,9 +8,17 @@ the GeoTIFF format and/or an orthographic image from a set of point
 clouds. The clouds can be created by the ``parallel_stereo`` command
 (:numref:`parallel_stereo`), or be in LAS or CSV format.
 
+The heights in the produced DEM are relative to a datum (ellipsoid). 
+They are calculated by weighted averaging around each grid point
+of the heights of points in the cloud.
+
 The output DEM is by default in the geographic coordinate system
 (longitude and latitude).  Any projection can be specified via the
-``--t_srs`` option.
+``--t_srs`` option. The grid size is set with ``--tr`` for the given 
+projection, and the extent with ``--t_projwin``. The grid corners
+are placed at integer multiples of the grid size, and the created
+DEM has a ground footprint which is half a grid pixel larger
+than the bounding box of the grid points.
 
 The obtained DEMs can be visualized with ``stereo_gui``
 (:numref:`stereo_gui`) or analyzed using GDAL tools
@@ -265,7 +273,8 @@ Command-line options for point2dem
 
 --t_projwin <xmin ymin xmax ymax>
     The output DEM will have corners with these georeferenced
-    coordinates.
+    coordinates. The actual spatial extent (ground footprint) is
+    obtained by expanding this box by half the grid size.
 
 --datum <string>
     Set the datum. This will override the datum from the input
