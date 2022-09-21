@@ -1272,11 +1272,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("t_srs",           po::value(&opt.target_srs_string)->default_value(""),
 	   "Specify the output projection (PROJ.4 string). Default: use the one from the first DEM to be mosaicked.")
     ("t_projwin",       po::value(&opt.projwin),
-     "Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
+     "Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive. See the ``--tap`` option if desired to apply addition adjustments
+    to this extent.")
     ("tap",  po::bool_switch(&opt.tap)->default_value(false),
      "Let the output grid be at integer multiples of the grid size (like "
-     "the default behavior of point2dem and mapproject, and gdalwarp "
-     "when invoked with -tap). If not set, the input grids determine the output grid.")
+     "the default behavior of point2dem and mapproject, and "
+     "gdalwarp when invoked with -tap, though the latter does "
+     "not have the half-a-pixel extra extent this tool has). If this "
+     "option is not set, the input grids determine the output grid.")
     ("first",   po::bool_switch(&opt.first)->default_value(false),
 	   "Keep the first encountered DEM value (in the input order).")
     ("last",    po::bool_switch(&opt.last)->default_value(false),

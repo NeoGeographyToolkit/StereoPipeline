@@ -173,12 +173,15 @@ Command-line options
 --t_projwin <double double double double>
     Limit the mosaic to this region, with the corners given in
     georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.
+    See the ``--tap`` option if desired to apply addition adjustments
+    to this extent.
 
 --tap
     Let the output grid be at integer multiples of the grid size (like
     the default behavior of ``point2dem`` and ``mapproject``, and
-    ``gdalwarp`` when invoked with ``-tap``). If not set, the input
-    grids determine the output grid.
+    ``gdalwarp`` when invoked with ``-tap``, though the latter does
+    not have the half-a-pixel extra extent this tool has). If this
+    option is not set, the input grids determine the output grid.
 
 --first
     Keep the first encountered DEM value (in the input order).
