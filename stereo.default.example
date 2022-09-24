@@ -10,6 +10,8 @@
 #    EPIPOLAR       (Recommended for Pinhole Sessions)
 #    HOMOGRAPHY     (Recommended for ISIS wide-angle shots)
 #    AFFINEEPIPOLAR (Recommended for ISIS narrow-angle and DG sessions)
+#    LOCAL_EPIPOLAR (When affineepipolar is not aligning accurately enough,
+#                    and for external stereo algorithms)
 alignment-method affineepipolar
 
 # Intensity Normalization
