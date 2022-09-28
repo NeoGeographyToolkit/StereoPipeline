@@ -142,11 +142,15 @@ slightly different.
 
 ::
 
+    Error: **ERROR** Unable to initialize camera model in Camera Factory.
+
+    **PROGRAMMER ERROR** Unable to create a shape model from given target and pvl.
+
     **I/O ERROR** Unable to open [$ISISDATA/<Some/Path/Here>].
     Stereo step 0: Preprocessing failed
 
 You need to set up your ISIS environment or manually set the correct
-location for ``ISISDATA``.
+location for ``ISISDATA`` (:numref:`isis_start`).
 
 ::
 

@@ -52,6 +52,7 @@
 #include <asp/Sessions/StereoSessionIsis.h>
 
 // Boost
+#include <boost/filesystem.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/math/special_functions/next.hpp> // boost::float_next
 #include <boost/shared_ptr.hpp>
@@ -64,6 +65,7 @@
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
+namespace fs = boost::filesystem;
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 
@@ -321,6 +323,21 @@ find_ideal_isis_range(DiskImageView<float> const& image,
   }
 
   return masked_image;
+}
+
+StereoSessionIsis::StereoSessionIsis() {
+  char * isis_ptr = getenv("ISISDATA");
+  if (isis_ptr == NULL || std::string(isis_ptr) == "") {
+    vw_throw(ArgumentErr() << "The environmental variable ISISDATA must be "
+             << "set to point to the location of your supporting ISIS data. "
+             << "See the documentation for more information.");
+  }
+
+  std::string base_dir = std::string(isis_ptr) + "/base";
+  if (!fs::exists(base_dir) || !fs::is_directory(base_dir)) {
+    vw_throw(ArgumentErr() << "Missing ISIS base directory: " <<
+             base_dir << "\n");
+  }
 }
   
 void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,

@@ -32,7 +32,7 @@ namespace asp {
   /// Derived StereoSession class for ISIS images.
   class StereoSessionIsis : public StereoSession {
   public:
-    StereoSessionIsis() {}
+    StereoSessionIsis();
     virtual ~StereoSessionIsis() {}
 
     virtual std::string name() const { return "isis"; }
