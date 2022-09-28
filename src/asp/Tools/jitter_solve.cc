@@ -294,7 +294,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "can select this automatically by the file extension, except for xml cameras. "
      "See the doc for options.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
-     "Prefix to read initial adjustments from, written by ``bundle_adjust``. "
+     "Prefix to read initial adjustments from, written by bundle_adjust. "
      "Not required. Cameras in .json files in ISD or model state format "
      "can be passed in with no adjustments.")
     ("match-first-to-last",
