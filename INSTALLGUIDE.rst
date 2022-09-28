@@ -92,7 +92,12 @@ Using the packaged ASP tarball
    https://github.com/USGS-Astrogeology/ISIS3#the-isis-data-area
 
 #. Set the ``ISISDATA`` environmental variable to point to where your
-   ISIS data was downloaded.
+   ISIS data was downloaded, per the installation link above. For
+   example, in the ``bash`` shell, this is done as follows:
+  
+   - ``export ISISDATA="/path/to/isisdata"``
+   
+   Check that you have the directory ``$ISISDATA/base``.
 
 #. Untar Stereo Pipeline::
 
@@ -100,8 +105,8 @@ Using the packaged ASP tarball
 
 #. Add Stereo Pipeline to Path (optional):
 
-   - bash: ``export PATH="</path/to/StereoPipeline>/bin:${PATH}"``
-   - csh: ``setenv PATH "</path/to/StereoPipeline>/bin:${PATH}"``
+   - bash: ``export PATH="/path/to/StereoPipeline/bin:${PATH}"``
+   - csh: ``setenv PATH "/path/to/StereoPipeline/bin:${PATH}"``
 
 #. Try it out. See :numref:`lronac_csm` for a quick Lunar example
    which does not require installing ISIS or it supporting data as above,
@@ -144,7 +149,8 @@ slightly different.
 
     Error: **ERROR** Unable to initialize camera model in Camera Factory.
 
-    **PROGRAMMER ERROR** Unable to create a shape model from given target and pvl.
+    **PROGRAMMER ERROR** Unable to create a shape model from 
+      given target and pvl.
 
     **I/O ERROR** Unable to open [$ISISDATA/<Some/Path/Here>].
     Stereo step 0: Preprocessing failed
@@ -157,7 +163,8 @@ location for ``ISISDATA`` (:numref:`isis_start`).
     bash: stereo: command not found
 
 You need to add the ``bin`` directory of your deployed Stereo Pipeline
-installation to the environmental variable ``PATH``.
+installation to the environmental variable ``PATH``
+(:numref:`isis_start`).
 
 ::
 
