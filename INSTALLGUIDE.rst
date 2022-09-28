@@ -93,9 +93,9 @@ Using the packaged ASP tarball
 
 #. Set the ``ISISDATA`` environmental variable to point to where your
    ISIS data was downloaded, per the installation link above. For
-   example, in the ``bash`` shell, this is done as follows:
+   example, in the ``bash`` shell, this is done as follows::
   
-   - ``export ISISDATA="/path/to/isisdata"``
+     export ISISDATA="/path/to/isisdata"
    
    Check that you have the directory ``$ISISDATA/base``.
 
@@ -109,8 +109,9 @@ Using the packaged ASP tarball
    - csh: ``setenv PATH "/path/to/StereoPipeline/bin:${PATH}"``
 
 #. Try it out. See :numref:`lronac_csm` for a quick Lunar example
-   which does not require installing ISIS or it supporting data as above,
-   and :numref:`moc_tutorial` for an example using Mars images.
+   which does not require installing ISIS or it supporting data as
+   above, and :numref:`moc_tutorial` for an example using Mars images
+   and ISIS data.
 
 Installing ASP and ISIS in the same conda environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

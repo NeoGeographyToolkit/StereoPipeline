@@ -335,7 +335,7 @@ StereoSessionIsis::StereoSessionIsis() {
 
   std::string base_dir = std::string(isis_ptr) + "/base";
   if (!fs::exists(base_dir) || !fs::is_directory(base_dir)) {
-    vw_throw(ArgumentErr() << "Missing ISIS base directory: " <<
+    vw_throw(ArgumentErr() << "Missing ISIS data base directory: " <<
              base_dir << "\n");
   }
 }
