@@ -103,7 +103,7 @@ Using the packaged ASP tarball
 
      tar xzvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.gz
 
-#. Add Stereo Pipeline to Path (optional):
+#. Add Stereo Pipeline to your path (optional):
 
    - bash: ``export PATH="/path/to/StereoPipeline/bin:${PATH}"``
    - csh: ``setenv PATH "/path/to/StereoPipeline/bin:${PATH}"``
