@@ -294,7 +294,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "can select this automatically by the file extension, except for xml cameras. "
      "See the doc for options.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
-     "Prefix to read initial adjustments from, if available, as written by bundle_adjust.")
+     "Prefix to read initial adjustments from, written by ``bundle_adjust``. "
+     "Not required. Cameras in .json files in ISD or model state format "
+     "can be passed in with no adjustments.")
     ("match-first-to-last",
      po::value(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
      "Match first several images to last several images by extending the logic of "
@@ -318,7 +320,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("max-initial-reprojection-error", po::value(&opt.max_init_reproj_error)->default_value(10),
      "Filter as outliers triangulated points project using initial cameras with error more than "
      "this, measured in pixels. Since jitter corrections are supposed to be small and cameras "
-     "bundle-adjusted by now, this value should be small.")
+     "bundle-adjusted by now, this value need not be too big.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
      "Set the threshold for the Cauchy robust cost function. Increasing this makes "
      "the solver focus harder on the larger errors.")
@@ -335,7 +337,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "--heights-from-dem.")
     ("heights-from-dem-robust-threshold",
      po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.5),
-     "If positive, this is the robust threshold to use keep the triangulated points "
+     "The robust threshold to use keep the triangulated points "
      "close to the DEM if specified via --heights-from-dem. This is applied after the "
      "point differences are multiplied by --heights-from-dem-weight. It should help with "
      "attenuating large height difference outliers.")
@@ -346,14 +348,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Multiply the xyz differences for the --reference-dem option by this weight.")
     ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),
      "Use this robust threshold for the weighted xyz differences.")
-    ("rotation-weight", po::value(&opt.rotation_weight)->default_value(1.0),
-     "How much weight to give to keep cameras from rotating from initial values.")
-    ("translation-weight", po::value(&opt.translation_weight)->default_value(1.0),
-     "How much weight to give to keep cameras from moving from initial values.")
-    ("quat-norm-weight", po::value(&opt.quat_norm_weight)->default_value(1.0),
-     "How much weight to give to the constraint that quaternion norm must be 1.")
     ("anchor-weight", po::value(&opt.anchor_weight)->default_value(1.0),
-     "How much weight to give to each anchor point.")
+     "How much weight to give to each anchor point. Anchor points are "
+     "obtained by intersecting rays from initial cameras with the DEM given by "
+     "--heights-from-dem. A larger weight will make it harder for "
+     "the cameras to move, hence preventing unreasonable changes.")
+    ("rotation-weight", po::value(&opt.rotation_weight)->default_value(0.0),
+     "A higher weight will penalize more deviations from the original camera orientations.")
+    ("translation-weight", po::value(&opt.translation_weight)->default_value(0.0),
+     "A higher weight will penalize more deviations from "
+     "the original camera positions.")
+    ("quat-norm-weight", po::value(&opt.quat_norm_weight)->default_value(1.0),
+     "How much weight to give to the constraint that the norm of each quaternion must be 1.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1.0),
      "Remove matched IPs this percentage from the image left/right sides.");
   
@@ -384,7 +390,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Do this check first, as the output prefix is used below many times
   if (opt.out_prefix == "") 
-    vw_throw(ArgumentErr() << "Must specify the output prefix.\n");
+    vw_throw(ArgumentErr() << "Must specify the output prefix.\n" << usage << "\n");
 
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
@@ -697,10 +703,10 @@ void run_jitter_solve(int argc, char* argv[]) {
                                                opt.max_pairwise_matches);
   if (!success)
     vw_throw(ArgumentErr()
-             << "Failed to build a control network. Consider removing "
-             << "all .vwip and .match files and increasing "
-             << "the number of interest points per tile using "
-             << "--ip-per-tile, or decreasing --min-matches.\n");
+             << "Failed to build a control network. Check the bundle adjustment directory "
+             << "for clean matches. Or, consider removing all .vwip and .match files and increasing "
+             << "the number of interest points using --ip-per-image or --ip-per-tile, "
+             << "or decreasing --min-matches, and then re-running bundle adjustment.\n");
 
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   vw::ba::CameraRelationNetwork<vw::ba::JFeature> crn;
@@ -855,10 +861,12 @@ void run_jitter_solve(int argc, char* argv[]) {
           numAnchorPts++;
         }   
       }
-      
-      std::cout << "--lines and samples: " << numLines << ' ' << numSamples << std::endl;
-      std::cout << "num lines per quat: " << double(numLines) / numQuat  << std::endl;
-      std::cout << "--num anchor points " << numAnchorPts << std::endl;
+
+      std::cout << std::endl;
+      std::cout << "Image file: " << opt.image_files[icam] << std::endl;
+      std::cout << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
+      std::cout << "Num lines per quat: " << double(numLines) / numQuat  << std::endl;
+      std::cout << "Num anchor points per image: " << numAnchorPts << std::endl;
       
     }   
   }

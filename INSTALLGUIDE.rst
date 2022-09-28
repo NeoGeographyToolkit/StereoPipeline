@@ -128,7 +128,7 @@ Quick start for Digital Globe users
 
      tar xzvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.gz
 
-#. Try It Out: Processing Earth images is described in the data processing
+#. Try it out: Processing Earth images is described in the data processing
    tutorial in :numref:`dg_tutorial`.
 
 

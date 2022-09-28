@@ -1397,6 +1397,8 @@ speed-vs-quality choices when running stereo.
 
    The produced colorized DEM and orthoimage for the CSM SAR example. 
 
+.. _csm_state:
+
 Exporting CSM model state after bundle adjustment and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

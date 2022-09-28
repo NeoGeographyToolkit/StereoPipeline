@@ -21,6 +21,9 @@ New tools:
   * ``pc_filter``: Filters outliers in point clouds created with
     pinhole cameras and weighs inliers based on many criteria
     (:numref:`pc_filter`).
+  * jitter_solve: A tool for solving for jitter in CSM camera 
+    models (see :numref:`jitter_solve`). (Gives promising results but
+    still undergoing testing.)
 
 parallel_stereo:
   * Added the options ``--match-files-prefix`` and
