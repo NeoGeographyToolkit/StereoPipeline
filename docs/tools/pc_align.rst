@@ -423,7 +423,7 @@ transform::
 
      ba_align/run-left.adjust, ba_align/run-right.adjust
 
-(:numref:`adjust_files`). 
+(see :numref:`adjust_files` for discussion of .adjust files). 
 
 If ``pc_align`` was invoked with the two DEMs in reverse order, the
 transform to use is::
