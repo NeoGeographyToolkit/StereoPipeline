@@ -92,6 +92,11 @@ If in doubt about the quality of that reference DEM or of alignment,
 lower the values specified via ``--heights-from-dem-weight``
 and ``--heights-from-dem-robust-threshold``.
 
+The model states (:numref:`csm_state`) of optimized cameras are saved
+with names like::
+
+    jitter/run-*.adjusted_state.json
+
 The anchor points
 ~~~~~~~~~~~~~~~~~
 
@@ -127,15 +132,15 @@ Validation
 
 Create DEMs with the bundle-adjusted and aligned cameras (adjustments
 are in ``ba_align``), that is, before solving for jitter, and after it
-(cameras are in ``jitter``).  For that, resume stereo the
+(cameras are in ``jitter``).  For that, resume stereo at the
 triangulation stage in both cases::
 
     parallel_stereo left.cub right.cub     \
       left.json right.json                 \
+      --prev-run-prefix stereo_ba/run      \
       --stereo-algorithm asp_mgm           \
       --subpixel-mode 3                    \
       --bundle-adjust-prefix ba_align/run  \
-      --prev-run-prefix stereo_ba/run      \
       stereo_ba_align/run
     point2dem --errorimage stereo_ba_align/run-PC.tif
 
@@ -145,22 +150,23 @@ triangulation stage in both cases::
       --stereo-algorithm asp_mgm           \
       --subpixel-mode 3                    \
       --prev-run-prefix stereo_ba/run      \
-      run_jitter/run
-    point2dem --errorimage run_jitter/run-PC.tif
+      stereo_jitter/run
+    point2dem --errorimage stereo_jitter/run-PC.tif
 
-Colorize the obtained error images ``run*/*IntersectionErr.tif`` using
+Colorize the obtained error images ``stereo*/*IntersectionErr.tif`` using
 ``colormap`` (:numref:`colormap`) with same min and max values, then
 overlay them them in ``stereo_gui`` (:numref:`stereo_gui`).
 
-This should show if intersection error went down, which correlates with
+This should show if the intersection error went down, which correlates with
 the jitter effect being reduced.
 
 Validate the obtained aligned DEMs against the preexisting DEM
-``ref.tif``.  First this can be done visually in ``stereo_gui``
-(:numref:`stereo_gui`), then absolute differences of these DEM can be
-found with ``geodiff --absolute`` (:numref:`geodiff`), which can be
-colorized with ``colormap`` (:numref:`colormap`) with same min and max
-values, and these can also be overlayed in ``stereo_gui``.
+``ref.tif``.  First this can be done visually by hillshading them in
+``stereo_gui`` (:numref:`stereo_gui`) and looking for any obvious
+shifts, then absolute differences of these DEM can be found with
+``geodiff --absolute`` (:numref:`geodiff`), which can be colorized
+with ``colormap`` (:numref:`colormap`) with same min and max values,
+and these can also be overlayed in ``stereo_gui``.
 
 Otherwise, compare to a sparse dataset like MOLA or LOLA. It is
 assumed that this dataset is aligned as well to the reference DEM and
@@ -195,7 +201,9 @@ and
      {output-prefix}-final_residuals_pointmap.csv
 
 Such files can be inspected to see at which pixels the residual error
-is large. 
+is large. They can also be gridded with ``point2dem`` as above. For
+the height field one can pick the 4th column in these files, which has
+the residuals.
 
 
 Command-line options for jitter_solve
