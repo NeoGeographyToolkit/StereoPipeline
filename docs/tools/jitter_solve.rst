@@ -275,8 +275,8 @@ Command-line options for jitter_solve
 --heights-from-dem <string>
     If the cameras have already been bundle-adjusted and aligned
     to a known high-quality DEM, in the triangulated xyz points
-    replace the heights with the ones from this DEM, and fix those
-    points unless ``--heights-from-dem-weight`` is positive.
+    replace the heights with the ones from this DEM before optimizing
+    them.
 
 --heights-from-dem-weight <double (default: 1.0)>
     How much weight to give to keep the triangulated points close
@@ -286,11 +286,11 @@ Command-line options for jitter_solve
     is consistent with the reprojection error term.
 
 --heights-from-dem-robust-threshold <double (default: 0.5)> 
-    The robust threshold to use keep the
-    triangulated points close to the DEM if specified via
-    ``--heights-from-dem``. This is applied after the point differences
-    are multiplied by ``--heights-from-dem-weight``. It should
-    help with attenuating large height difference outliers.
+    The robust threshold to use keep the triangulated points close to
+    the DEM if specified via ``--heights-from-dem``. This is applied
+    after the point differences are multiplied by
+    ``--heights-from-dem-weight``. It should help with attenuating
+    large height difference outliers.
 
 --reference-dem <string>
     If specified, constrain every ground point where rays from
