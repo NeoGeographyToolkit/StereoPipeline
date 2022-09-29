@@ -52,7 +52,7 @@ correction later.
 
 For that, run ``parallel_stereo`` with the bundle-adjusted
 cameras, using a stereo pair with a good convergence angle
-(:numref:`stereo_pairs`) among the above such as::
+(:numref:`stereo_pairs`) among the above, such as::
 
     parallel_stereo left.cub right.cub \
       left.json right.json             \
@@ -104,7 +104,7 @@ The most important purpose of the reference DEM is its use it with the
 ``--anchor-weight`` option.  Before this solver starts, rays are
 traced from a uniformly sampled set of pixels in each camera and
 intersect that DEM. The reprojection errors of those DEM "anchor"
-points is at this stage zero, by definition. The reprojection errors
+points is zero, at this stage, by definition. The reprojection errors
 for the anchor points, multiplied by the anchor weight, are then added
 to the optimization cost function. The goal of these terms is to
 prevent the cameras from moving too far. This cost function is not too
