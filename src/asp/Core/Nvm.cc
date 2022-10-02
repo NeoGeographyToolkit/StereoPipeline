@@ -35,7 +35,8 @@ void ReadNVM(std::string const& input_filename, nvmData & nvm) {
           &nvm.cid_to_cam_t_global);
 }
   
-// Reads the NVM control network format.
+// Reads the NVM control network format. The interest points may or may not
+// be shifted relative to optical center. The user is responsible for knowing that.
 void ReadNVM(std::string const& input_filename,
              std::vector<Eigen::Matrix2Xd> * cid_to_keypoint_map,
              std::vector<std::string> * cid_to_filename,
