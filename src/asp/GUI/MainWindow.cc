@@ -1149,41 +1149,49 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   std::string match_file;
   bool flip = false;
 
-  // Read either matches from first to second image, or vice versa
+  // Read matches or clean matches, unless read by now, for which we check
+  // if pairwiseMatches->match_files[index_pair] is initialized.
+  // Read either matches from first to second image, or vice versa.
   if (asp::stereo_settings().pairwise_matches) {
-    pairwiseMatches = &m_pairwiseMatches; 
-    match_file = vw::ip::match_filename(m_output_prefix, m_images[left_index].name,
-                                        m_images[right_index].name);
-    if (!fs::exists(match_file)) {
-      std::string match_file2 = vw::ip::match_filename(m_output_prefix, m_images[right_index].name,
-                                                       m_images[left_index].name);
-      if (fs::exists(match_file2)) {
-        std::cout << "Found match file from second to first image.\n";
-        match_file = match_file2;
-        flip = true;
+    pairwiseMatches = &m_pairwiseMatches;
+    if (pairwiseMatches->match_files.find(index_pair) == pairwiseMatches->match_files.end()) {
+      match_file = vw::ip::match_filename(m_output_prefix, m_images[left_index].name,
+                                          m_images[right_index].name);
+      if (!fs::exists(match_file)) {
+        std::string match_file2 = vw::ip::match_filename(m_output_prefix,
+                                                         m_images[right_index].name,
+                                                         m_images[left_index].name);
+        if (fs::exists(match_file2)) {
+          std::cout << "Found match file from second to first image.\n";
+          match_file = match_file2;
+          flip = true;
+        }
       }
     }
   } else {
     pairwiseMatches = &m_pairwiseCleanMatches;
-    match_file = vw::ip::clean_match_filename(m_output_prefix, m_images[left_index].name,
-                                              m_images[right_index].name);
-    if (!fs::exists(match_file)) {
-      std::string match_file2 = vw::ip::clean_match_filename(m_output_prefix,
-                                                             m_images[right_index].name,
-                                                             m_images[left_index].name);
-      if (fs::exists(match_file2)) {
-        std::cout << "Found match file from second to first image.\n";
-        match_file = match_file2;
-        flip = true;
+    if (pairwiseMatches->match_files.find(index_pair) == pairwiseMatches->match_files.end()) {
+      match_file = vw::ip::clean_match_filename(m_output_prefix, m_images[left_index].name,
+                                                m_images[right_index].name);
+      if (!fs::exists(match_file)) {
+        std::string match_file2 = vw::ip::clean_match_filename(m_output_prefix,
+                                                               m_images[right_index].name,
+                                                               m_images[left_index].name);
+        if (fs::exists(match_file2)) {
+          std::cout << "Found match file from second to first image.\n";
+          match_file = match_file2;
+          flip = true;
+        }
       }
     }
   }
   
-  // Ensure the ip per image are always clean but initialized
+  // Ensure the ip per image are always empty but initialized. This will ensure that
+  // later in MainWidget::viewMatches() we plot the intended matches.
   pairwiseMatches->ip_to_show.clear();
   pairwiseMatches->ip_to_show.resize(m_images.size());
   
-  // Handles to where we want these loaded
+  // Handles to where we want these loaded. Note that these are aliases.
   std::vector<vw::ip::InterestPoint> & left_ip = pairwiseMatches->matches[index_pair].first;
   std::vector<vw::ip::InterestPoint> & right_ip = pairwiseMatches->matches[index_pair].second;
   
