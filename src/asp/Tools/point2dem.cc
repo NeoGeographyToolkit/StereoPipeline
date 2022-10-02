@@ -192,9 +192,8 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 /// Convert any LAS or CSV files to ASP tif files. We do some binning
 /// to make the spatial data more localized, to improve performance.
 /// - We will later wipe these temporary tifs.
-void las_or_csv_or_pcd_to_tifs(Options& opt,
-                        cartography::Datum const& datum,
-                        std::vector<std::string> & tmp_tifs){
+void las_or_csv_or_pcd_to_tifs(Options& opt, cartography::Datum const& datum,
+                               std::vector<std::string> & tmp_tifs){
 
   if (!opt.has_las_or_csv_or_pcd)
     return;
@@ -241,7 +240,8 @@ void las_or_csv_or_pcd_to_tifs(Options& opt,
     if (asp::is_las_or_csv_or_pcd(opt.pointcloud_files[i]))
       continue;
     DiskImageView<float> img(opt.pointcloud_files[i]);
-    num_rows = std::max(num_rows, img.rows()); // Record the max number of rows across all input tifs
+    // Record the max number of rows across all input tifs
+    num_rows = std::max(num_rows, img.rows()); 
   }
 
   // No tif files exist. Find a reasonable value for the number of rows.
@@ -549,11 +549,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       std::swap(opt.target_projwin.min().y(), opt.target_projwin.max().y());
     }
     vw_out() << "Cropping to " << opt.target_projwin << " pt. " << std::endl;
-  }
-
-  // If the input PROJ.4 string is empty, use the output one. 
-  if (opt.csv_proj4_str.empty() && !opt.target_srs_string.empty()) {
-    opt.csv_proj4_str = opt.target_srs_string;
   }
 
   // If the user specified a PROJ.4 string to use to interpret the
@@ -869,7 +864,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
   }
 
   // Fix have pixel offset required if pixel_interpretation is
-  // PixelAsArea. We could have done that earlier ... but it makes
+  // PixelAsArea. We could have done that earlier, but it makes
   // the above easier to not think about it.
   if (georef.pixel_interpretation() == cartography::GeoReference::PixelAsArea) {
     Matrix3x3 transform = georef.transform();
@@ -884,7 +879,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     opt.rounding_error = 0.0;
   }
 
-  ImageViewRef< PixelGray<float> > rasterizer_fsaa
+  ImageViewRef<PixelGray<float>> rasterizer_fsaa
     = generate_fsaa_raster(rasterizer, opt);
 
   // Write out the DEM. We've set the texture to be the height.
@@ -988,12 +983,11 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
   if (opt.do_normalize) {
     int hole_fill_len = 0;
     DiskImageView< PixelGray<float> > dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
-    asp::save_image(opt, apply_mask(channel_cast<uint8>(normalize(create_mask(dem_image,opt.nodata_value),
-                                                                  rasterizer.bounding_box().min().z(),
-                                                                  rasterizer.bounding_box().max().z(),
-                                                                  0, 255)
-                                                      )
-                                  ),
+    asp::save_image(opt, apply_mask(channel_cast<uint8>
+                                    (normalize(create_mask(dem_image,opt.nodata_value),
+                                               rasterizer.bounding_box().min().z(),
+                                               rasterizer.bounding_box().max().z(),
+                                               0, 255))),
                     georef, hole_fill_len, "DEM-normalized");
   }
 
@@ -1001,7 +995,6 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
   // This must be at the end, as we may be messing with the point
   // image in irreversible ways.
   if (opt.do_ortho) {
-
     Stopwatch sw3;
     sw3.start();
     ImageViewRef< PixelGray<float> > texture
@@ -1198,6 +1191,13 @@ int main(int argc, char *argv[]) {
                           have_input_georef, output_georef);
     }
 
+    // If the input PROJ.4 string is empty, use the output one. 
+    if (!opt.csv_format_str.empty() && opt.csv_proj4_str.empty()) {
+      opt.csv_proj4_str = output_georef.overall_proj4_str();
+      std::cout << "The option --csv-proj4 was not specified. Using the output projection "
+                << "when interpreting csv files.\n";
+    }
+    
     // Convert any input LAS or CSV files to ASP's point cloud tif format
     // - The output and input datum will match unless the input data files
     //   themselves specify a different datum.
