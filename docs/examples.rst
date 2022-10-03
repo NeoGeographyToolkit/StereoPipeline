@@ -3903,3 +3903,9 @@ the work directory. That file should be deleted manually later.
 
 As before, the options and values above should be adjusted for your needs.
 
+If your SLURM setup requires a custom ssh port, set in the list of nodes
+the full ssh command to each node, rather than the node name. Example::
+
+  ssh -p port1 node1
+  ssh -p port2 node2
+

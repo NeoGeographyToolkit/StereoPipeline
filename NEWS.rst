@@ -21,7 +21,7 @@ New tools:
   * ``pc_filter``: Filters outliers in point clouds created with
     pinhole cameras and weighs inliers based on many criteria
     (:numref:`pc_filter`).
-  * jitter_solve: A tool for solving for jitter in CSM camera 
+  * ``jitter_solve``: A tool for solving for jitter in CSM camera 
     models (see :numref:`jitter_solve`). (Gives promising results but
     still undergoing testing.)
 
@@ -235,7 +235,7 @@ parallel_stereo:
     convergence of bundle adjustment. Can be enabled with
     ``--enable-correct-velocity-aberration`` and
     ``--enable-correct-atmospheric-refraction``. These improve results
-    however with Digital Globe cameras if not desired to do bundle
+    however with Digital Globe cameras if not doing bundle
     adjustment. (Note that these are still hard-coded as enabled for
     optical bar camera models. This would require further study.)
   * Added ready-made ASTER and LRO NAC examples with sample images,

@@ -141,8 +141,9 @@ Command-line options
 
 --nodes-list <filename>
     The list of computing nodes, one per line. If not provided, run
-    on the local machine. See examples for PBS and SLURM in 
-    :numref:`pbs_slurm`. 
+    on the local machine. Alternatively, specify the full ssh command
+    for each node, including the port, so one command per line.
+    See examples for PBS and SLURM in :numref:`pbs_slurm`.
 
 -t, --session-type <string>
     Select the stereo session type to use for processing. Usually the
