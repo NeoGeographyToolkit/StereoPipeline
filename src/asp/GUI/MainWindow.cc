@@ -1815,8 +1815,6 @@ void MainWindow::viewGeoreferencedImages() {
 
     // Will show in single window with georef. Must first check if all images have georef.
     for (size_t i = 0; i < m_image_files.size(); i++) {
-      cartography::GeoReference georef;
-
       if (!m_images[i].has_georef) {
         popUp("Cannot view georeferenced images, as there is no georeference in: "
               + m_image_files[i]);

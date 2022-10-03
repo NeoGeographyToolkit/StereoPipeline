@@ -1414,7 +1414,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         asp::stereo_settings().pairwise_clean_matches)
       drawInterestPoints(&paint);
 
-    // Draw a ball for which xyz point
+    // Draw a filled ball for each xyz point
     drawXyzData(&paint);
     
     // Invokes MainWidget::PaintEvent().
