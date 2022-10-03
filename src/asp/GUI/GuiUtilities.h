@@ -178,6 +178,9 @@ namespace vw { namespace gui {
     std::string get_value_as_str( int32 x, int32 y) const;
   };
 
+  // Return true if the extension is .csv or .txt
+  bool hasXyzData(std::string const& fileName);
+  
   /// A class to keep all data associated with an image file
   struct imageData{
     std::string      name, hillshaded_name; // TODO(oalexan1): Think more here
@@ -198,6 +201,10 @@ namespace vw { namespace gui {
     
     std::vector<vw::geometry::dPoly> polyVec; // a shapefile
 
+    // Irregular xyz data to be plotted at (x, y) location with z giving
+    // the intensity. May be colorized.
+    std::vector<vw::Vector3> xyz_data;
+    
     imageData(): m_display_mode(REGULAR_VIEW) {}
     
     /// Load an image from disk into img and set the other variables.
@@ -205,6 +212,7 @@ namespace vw { namespace gui {
               int display_mode = REGULAR_VIEW);
 
     bool isPoly() const { return asp::has_shp_extension(name); }
+    bool isXyz()  const { return vw::gui::hasXyzData(name); }
   };
 
   /// Convert a QRect object to a BBox2 object.

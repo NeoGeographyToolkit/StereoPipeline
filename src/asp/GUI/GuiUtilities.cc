@@ -43,6 +43,7 @@
 
 #include <asp/GUI/GuiUtilities.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/PointUtils.h>
 
 using namespace vw;
 using namespace vw::gui;
@@ -352,6 +353,15 @@ void findClosestPolyEdge(// inputs
   return;
 }
 
+// Return true if the extension is .csv or .txt
+bool hasXyzData(std::string const& fileName) {
+  std::string ext = get_extension(fileName);
+  if (ext == ".csv" || ext == ".txt")
+    return true;
+  
+  return false;
+}
+  
 void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt,
                      int display_mode){
   m_opt = opt;
@@ -360,7 +370,8 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
   } else if (display_mode == HILLSHADED_VIEW) {
     hillshaded_name = name_in;
   }
-  
+  // TODO(oalexan1): Add here colorized view
+
   std::string poly_color = "red";
   
   if (asp::has_shp_extension(name_in)){
@@ -371,14 +382,40 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     shapefile_bdbox(polyVec,
                     // Outputs
                     xll, yll, xur, yur);
-    BBox2 world_bbox;
-    world_bbox.min() = Vector2(xll, yll);
-    world_bbox.max() = Vector2(xur, yur);
+
+    image_bbox.min() = Vector2(xll, yll);
+    image_bbox.max() = Vector2(xur, yur);
 
     if (!has_georef)
       vw_throw(ArgumentErr() << "Expecting the shapefile to have a georeference.\n");
-
-    image_bbox = world_bbox;
+    
+  } else if (vw::gui::hasXyzData(name_in)){
+    // TODO(oalexan1): calc world box and georef!
+    // TODO(oalexan1): Must parse datum string for pointmap files!
+    has_georef = true;
+    
+    // TODO(oalexan1): Below we assume point2map.csv only!
+    std::string csv_format_str = "1:lon, 2:lat, 4:height_above_datum";
+    
+    asp::CsvConv csv_conv;
+    try {
+      csv_conv.parse_csv_format(csv_format_str, asp::stereo_settings().csv_proj4);
+    }catch (...) {
+      // Give a more specific error message
+      vw::vw_throw(vw::ArgumentErr() << "Could not parse the csv format in: "
+                   << csv_format_str << ".\n");
+    }
+    std::list<asp::CsvConv::CsvRecord> pos_records;
+    typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
+    csv_conv.read_csv_file(name_in, pos_records);
+    
+    xyz_data.clear();
+    for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
+      Vector3 llh = csv_conv.csv_to_geodetic(*iter, georef);
+      xyz_data.push_back(llh);
+      image_bbox.grow(subvector(llh, 0, 2));
+    }
+    
   }else{
     // Read an image
     int top_image_max_pix = 1000*1000;

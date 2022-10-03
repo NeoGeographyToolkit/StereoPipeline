@@ -141,6 +141,11 @@ bool MainWindow::sanityChecks(int num_images) {
     popUp("Cannot view matches if there is at most one image.");
     return false;
   }
+
+  if (asp::stereo_settings().plot_point_radius <= 0) {
+    popUp("The value --plot-point-radius must be positive.");
+    return false;
+  }
   
   return true;
 }
@@ -187,7 +192,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     }
     
     // Accept shape files along image files
-    if (!is_image && !asp::has_shp_extension(images[i]))
+    if (!is_image && !asp::has_shp_extension(images[i]) && !vw::gui::hasXyzData(images[i]))
       continue;
 
     m_image_files.push_back(images[i]);

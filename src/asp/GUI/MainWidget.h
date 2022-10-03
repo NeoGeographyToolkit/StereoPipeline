@@ -370,6 +370,10 @@ public slots:
     /// - Called internally by paintEvent()
     void drawInterestPoints(QPainter* paint);
 
+    // Draw irregular xyz data to be plotted at (x, y) location with z giving
+    // the intensity. May be colorized.
+    void drawXyzData(QPainter* paint);
+    
     Vector2 world2screen   (Vector2 const  p  ) const;
     Vector2 screen2world   (Vector2 const  pix) const;
     BBox2   world2screen   (BBox2   const& R  ) const;

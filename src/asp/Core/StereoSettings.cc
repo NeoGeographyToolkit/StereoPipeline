@@ -29,6 +29,8 @@
 namespace po = boost::program_options;
 using namespace vw;
 
+const double g_nan_val = std::numeric_limits<double>::quiet_NaN();
+
 // Create a single instance of the StereoSettings
 // ---------------------------------------------------
 namespace {
@@ -95,8 +97,7 @@ namespace asp {
     
     default_corr_timeout = 900; // in seconds
     
-    double nan = std::numeric_limits<double>::quiet_NaN();
-    nodata_value = nan;
+    nodata_value = g_nan_val;
   }
 
   // Define our options that are available
@@ -104,7 +105,6 @@ namespace asp {
   PreProcessingDescription::PreProcessingDescription() : po::options_description("Preprocessing options") {
 
     StereoSettings& global = stereo_settings();
-    double nan = std::numeric_limits<double>::quiet_NaN();
 
     (*this).add_options()
       ("alignment-method",         po::value(&global.alignment_method)->default_value("affineepipolar"),
@@ -145,9 +145,9 @@ namespace asp {
                       "Write debug images to disk when detecting and matching interest points.")
       ("num-obalog-scales",              po::value(&global.num_scales)->default_value(-1),
        "How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. More can help for images with high frequency artifacts.")
-      ("nodata-value",             po::value(&global.nodata_value)->default_value(nan),
+      ("nodata-value",             po::value(&global.nodata_value)->default_value(g_nan_val),
        "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
-      ("nodata-pixel-percentage",  po::value(&global.nodata_pixel_percentage)->default_value(nan),
+      ("nodata-pixel-percentage",  po::value(&global.nodata_pixel_percentage)->default_value(g_nan_val),
        "The percentage of (low-value) pixels treated as no-data (use a number between 0 and 100).")
       ("stddev-mask-thresh",  po::value(&global.nodata_stddev_thresh)->default_value(0.5),
        "Mask out pixels from regions where the local standard deviation score is less than this value. If set < 0, debug files will be written containing the filter output instead of masking out pixels.")
@@ -455,6 +455,15 @@ namespace asp {
       ("pairwise-clean-matches",   po::bool_switch(&global.pairwise_clean_matches)->default_value(false)->implicit_value(true), "Same as --pairwise-matches, but use *-clean.match files.")
       ("zoom-proj-win", po::value(&global.zoom_proj_win)->default_value(BBox2(0,0,0,0), ""),
        "Zoom to this proj win on startup. It is assumed that the images are georeferenced. Also accessible from the View menu.")
+      ("csv-proj4",      po::value(&global.csv_proj4)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV files. If not specified, infer that from metadata in the CSV files or from other loaded images.")
+      ("colorize",   po::bool_switch(&global.colorize)->default_value(false)->implicit_value(true),
+       "Colorize input raster and CSV files (must set --min and --max).")
+      ("min", po::value(&global.min)->default_value(g_nan_val),
+       "Value corresponding to 'coldest' color in the color map, when using the --colorize option or plotting csv data. If not set, use the dataset minimum.")
+      ("max", po::value(&global.max)->default_value(g_nan_val),
+       "Value corresponding to the 'hottest' color in the color map, when using the --colorize option or plotting csv data. If not set, use the dataset maximum.")
+      ("plot-point-radius", po::value(&global.plot_point_radius)->default_value(2),
+       "When plotting points from CSV files, let each point be drawn as a filled ball with this radius, in pixels.")
       ;
   }
 

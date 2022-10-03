@@ -22,6 +22,7 @@
 // than a vector of them.
 /// TODO: Test with empty images and images having just one pixel.
 
+// TODO(oalexan1): Polygons show up upside down without m_use_georef
 #include <string>
 #include <vector>
 #include <QtGui>
@@ -111,7 +112,7 @@ namespace vw { namespace gui {
       return P;
 
     // There is no pixel concept in that case
-    if (m_images[imageIndex].isPoly())
+    if (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz())
       return flip_in_y(P);
       
     return m_world2image_geotransforms[imageIndex].point_to_pixel(flip_in_y(P));
@@ -127,7 +128,7 @@ namespace vw { namespace gui {
       return R;
 
     // There is no pixel concept in that case
-    if (m_images[imageIndex].isPoly())
+    if (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz())
       return m_world2image_geotransforms[imageIndex].point_to_point_bbox(flip_in_y(R));
 
     return m_world2image_geotransforms[imageIndex].point_to_pixel_bbox(flip_in_y(R));
@@ -140,7 +141,7 @@ namespace vw { namespace gui {
       return P;
 
     // There is no pixel concept in that case
-    if (m_images[imageIndex].isPoly())
+    if (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz())
       return flip_in_y(P);
 
     return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point(P));
@@ -158,7 +159,7 @@ namespace vw { namespace gui {
     // Consider the case when the current layer is a polygon.
     // TODO(oalexan1): What if a layer has both an image and a polygon?
     
-    if (m_images[imageIndex].isPoly()) 
+    if (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz()) 
       return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point_bbox(R));
 
     return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point_bbox(R));
@@ -261,9 +262,10 @@ namespace vw { namespace gui {
       BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
       m_world_box.grow(B);
 
-      // The first existing vector layer in the current widget becomes the one we draw on.
-      // Otherwise we keep m_polyLayerIndex at m_beg_image_id so we store any new
-      // polygons in m_images[m_beg_image_id].
+      // The first existing vector layer in the current widget becomes
+      // the one we draw on.  Otherwise we keep m_polyLayerIndex at
+      // m_beg_image_id so we store any new polygons in
+      // m_images[m_beg_image_id].
       if (m_beg_image_id <= i && i < m_end_image_id &&
           m_images[i].isPoly() && m_polyLayerIndex == m_beg_image_id)
         m_polyLayerIndex = i;
@@ -654,7 +656,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     int num_non_poly_images = 0;
     int num_images = m_images.size();
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-      if (!m_images[image_iter].isPoly())
+      if (!m_images[image_iter].isPoly() && !m_images[image_iter].isXyz())
         num_non_poly_images++;
     }
 
@@ -676,7 +678,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
       std::string input_file = m_images[image_iter].name;
 
-      if (m_images[image_iter].isPoly())
+      if (m_images[image_iter].isPoly() || m_images[image_iter].isXyz())
         continue;
       
       double nodata_val = -std::numeric_limits<double>::max();
@@ -736,8 +738,8 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         return;
       }
 
-      // Cannot hillshade a polygon
-      if (m_images[image_iter].isPoly()) 
+      // Cannot hillshade a polygon or xyz data
+      if (m_images[image_iter].isPoly() || m_images[image_iter].isXyz()) 
         continue;
 
       std::string input_file = m_images[image_iter].name;
@@ -1065,7 +1067,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       image_box.min() = floor(image_box.min());
       image_box.max() = ceil(image_box.max());
 
-      if (m_images[i].isPoly())
+      if (m_images[i].isPoly() || m_images[i].isXyz())
         continue;
 
       QImage qimg;
@@ -1290,7 +1292,42 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
     } // End loop through points
   } // End function drawInterestPoints
+  
+  // Draw irregular xyz data to be plotted at (x, y) location with z giving
+  // the intensity. May be colorized.
+  void MainWidget::drawXyzData(QPainter* paint) {
 
+    // Loop through input images
+    for (int j = m_beg_image_id; j < m_end_image_id; j++) {
+
+      int i = m_filesOrder[j];
+
+      // Don't show files the user wants hidden
+      if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
+        continue;
+
+      int r = asp::stereo_settings().plot_point_radius;
+      for (size_t pt_it = 0; pt_it < m_images[i].xyz_data.size(); pt_it++) {
+        auto const& P = m_images[i].xyz_data[pt_it];
+
+        // TODO(oalexan1): What if we have georef and need to overlay?
+        // TODO(oalexan1): Support color and respecting --min and --max.
+        // TODO(oalexan1): May need to find actual min and max first.
+        // TODO(oalexan1): Make points filled.
+        // TODO(oalexan1): Compute and set the color.
+        vw::Vector2 world_P = projpoint2world(subvector(P, 0, 2), i);
+        Vector2 screen_P = world2screen(world_P);
+
+        QPoint Q(screen_P.x(), screen_P.y());
+        paint->setPen(QPen(QColor("red")));
+
+        paint->drawEllipse(Q, r, r); // Draw the point
+
+      }
+    }
+    
+  }
+  
   void MainWidget::updateCurrentMousePosition() {
     m_curr_world_pos = screen2world(m_curr_pixel_pos);
   }
@@ -1317,7 +1354,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
   //             MainWidget Event Handlers
   // --------------------------------------------------------------
 
-  void MainWidget::refreshPixmap(){
+  void MainWidget::refreshPixmap() {
 
     // This is an expensive function. It will completely redraw
     // what is on the screen. For that reason, don't draw directly on
@@ -1351,6 +1388,9 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         asp::stereo_settings().pairwise_clean_matches)
       drawInterestPoints(&paint);
 
+    // Draw a ball for which xyz point
+    drawXyzData(&paint);
+    
     // Invokes MainWidget::PaintEvent().
     update();
 
@@ -2281,7 +2321,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     int non_poly_image = -1;
     int num_non_poly_images = 0;
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-      if (!m_images[image_iter].isPoly())
+      if (!m_images[image_iter].isPoly() && !m_images[image_iter].isXyz())
         num_non_poly_images++;
       non_poly_image = image_iter;
     }
@@ -2961,7 +3001,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
           Vector2 proj_min, proj_max;
           // Convert pixels to projected coordinates
           BBox2 point_box;
-          if (m_images[image_it].isPoly())
+          if (m_images[image_it].isPoly() || m_images[image_it].isXyz())
             point_box = image_box;
           else 
             point_box = m_images[image_it].georef.pixel_to_point_bbox(image_box);
@@ -3345,7 +3385,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     int non_poly_image = 0;
     int num_non_poly_images = 0;
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-      if (!m_images[image_iter].isPoly())
+      if (!m_images[image_iter].isPoly() && !m_images[image_iter].isXyz())
         num_non_poly_images++;
       non_poly_image = image_iter;
     }

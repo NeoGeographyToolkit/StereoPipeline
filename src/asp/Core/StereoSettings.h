@@ -272,14 +272,16 @@ namespace asp {
     bool use_georef;
     bool hillshade;
     double hillshade_azimuth, hillshade_elevation;
-    bool view_matches;
-    std::string match_file, gcp_file, dem_file;
+    bool view_matches, colorize;
+    std::string match_file, gcp_file, dem_file, csv_proj4;
     bool delete_temporary_files_on_exit;
     bool create_image_pyramids_only, hide_all;
     bool pairwise_matches, pairwise_clean_matches;
     std::vector<std::string> vwip_files;
     vw::BBox2 zoom_proj_win;
-
+    double min, max;
+    int plot_point_radius;
+    
     // stereo_parse options
     std::string tile_at_loc;
 
