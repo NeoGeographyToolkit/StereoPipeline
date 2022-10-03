@@ -270,7 +270,7 @@ bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
   
 bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
                                          std::string const& file){
-  
+
   if (asp::has_shp_extension(file)) 
     return read_georef_from_shapefile(georef, file);
   
@@ -389,7 +389,7 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     if (!has_georef)
       vw_throw(ArgumentErr() << "Expecting the shapefile to have a georeference.\n");
     
-  } else if (vw::gui::hasXyzData(name_in)){
+  } else if (vw::gui::hasXyzData(name_in)) {
     // TODO(oalexan1): calc world box and georef!
     // TODO(oalexan1): Must parse datum string for pointmap files!
     has_georef = true;

@@ -1774,9 +1774,7 @@ void MainWindow::polyEditMode() {
     
     // Can't have a vector layer without georeferences
     for (size_t i = 0; i < m_image_files.size(); i++) {
-      cartography::GeoReference georef;
-      bool has_georef = read_georef_from_image_or_shapefile(georef, m_image_files[i]);
-      if (!has_georef) {
+      if (!m_images[i].has_georef) {
         popUp("Cannot turn on the vector layer edit mode if there is no georeference in: "
               + m_image_files[i]);
         polyEditMode = false;
@@ -1784,7 +1782,7 @@ void MainWindow::polyEditMode() {
         break; // Continue with the next loop to turn off vector layer mode in all widgets
       }
     }
-
+    
     // The drawn polygons will be created incorrectly unless in
     // georeference mode.  That will reorganize the GUI, so we have to
     // quit right away. Will tell the widgets to turn on polygon
@@ -1818,8 +1816,8 @@ void MainWindow::viewGeoreferencedImages() {
     // Will show in single window with georef. Must first check if all images have georef.
     for (size_t i = 0; i < m_image_files.size(); i++) {
       cartography::GeoReference georef;
-      bool has_georef = read_georef_from_image_or_shapefile(georef, m_image_files[i]);
-      if (!has_georef) {
+
+      if (!m_images[i].has_georef) {
         popUp("Cannot view georeferenced images, as there is no georeference in: "
               + m_image_files[i]);
         m_use_georef = false;
@@ -1840,9 +1838,7 @@ void MainWindow::overlayGeoreferencedImages() {
 
     // Will show in single window with georef. Must first check if all images have georef.
     for (size_t i = 0; i < m_image_files.size(); i++) {
-      cartography::GeoReference georef;
-      bool has_georef = read_georef_from_image_or_shapefile(georef, m_image_files[i]);
-      if (!has_georef) {
+      if (!m_images[i].has_georef) {
         popUp("Cannot overlay, as there is no georeference in: " + m_image_files[i]);
         m_use_georef = false;
         m_viewGeoreferencedImages_action->setChecked(m_use_georef);

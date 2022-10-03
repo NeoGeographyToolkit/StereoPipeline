@@ -6,7 +6,7 @@
 //  The NGT platform is licensed under the Apache License, Version 2.0 (the
 //  "License"); you may not use this file except in compliance with the
 //  License. You may obtain a copy of the License at
-//  http://www.apache.org/licenses/LICENSE-2.0
+//  https://www.apache.org/licenses/LICENSE-2.0
 //
 //  Unless required by applicable law or agreed to in writing, software
 //  distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +22,6 @@
 // than a vector of them.
 /// TODO: Test with empty images and images having just one pixel.
 
-// TODO(oalexan1): Polygons show up upside down without m_use_georef
 #include <string>
 #include <vector>
 #include <QtGui>
@@ -108,41 +107,63 @@ namespace vw { namespace gui {
   // for consistency with how images are plotted.  Convert a world box
   // to a pixel box for the given image.
   Vector2 MainWidget::world2image(Vector2 const P, int imageIndex) const{
+
+    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz());
+
+    if (poly_or_xyz) {
+      
+      // There is no pixel concept in that case
+      
+      if (!m_use_georef)
+        return flip_in_y(P);
+      
+      return m_world2image_geotransforms[imageIndex].point_to_point(flip_in_y(P));
+    }
+    
     if (!m_use_georef)
       return P;
-
-    // There is no pixel concept in that case
-    if (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz())
-      return flip_in_y(P);
-      
+    
     return m_world2image_geotransforms[imageIndex].point_to_pixel(flip_in_y(P));
   }
 
   BBox2 MainWidget::world2image(BBox2 const& R, int imageIndex) const{
 
+    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz());
+
     if (R.empty()) 
       return R;
     if (m_images.empty()) 
       return R;
+
+    if (poly_or_xyz) {
+      // There is no pixel concept in that case
+
+      if (!m_use_georef)
+        return flip_in_y(R);
+
+      return m_world2image_geotransforms[imageIndex].point_to_point_bbox(flip_in_y(R));
+    }
+    
     if (!m_use_georef)
       return R;
-
-    // There is no pixel concept in that case
-    if (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz())
-      return m_world2image_geotransforms[imageIndex].point_to_point_bbox(flip_in_y(R));
-
+    
     return m_world2image_geotransforms[imageIndex].point_to_pixel_bbox(flip_in_y(R));
   }
 
   // The reverse of world2image()
   Vector2 MainWidget::image2world(Vector2 const P, int imageIndex) const{
 
+    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz());
+
+    if (poly_or_xyz) {
+      if (!m_use_georef)
+        return flip_in_y(P);
+      
+      return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point(P));
+    }
+    
     if (!m_use_georef)
       return P;
-
-    // There is no pixel concept in that case
-    if (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz())
-      return flip_in_y(P);
 
     return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point(P));
   }
@@ -153,15 +174,21 @@ namespace vw { namespace gui {
     if (R.empty()) return R;
     if (m_images.empty()) return R;
 
-    if (!m_use_georef)
-      return R;
+    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz());
 
     // Consider the case when the current layer is a polygon.
     // TODO(oalexan1): What if a layer has both an image and a polygon?
     
-    if (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz()) 
-      return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point_bbox(R));
+    if (poly_or_xyz) {
+      if (!m_use_georef) 
+        return flip_in_y(R);
 
+      return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point_bbox(R));
+    }
+
+    if (!m_use_georef)
+      return R;
+    
     return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point_bbox(R));
   }
 
@@ -169,14 +196,14 @@ namespace vw { namespace gui {
   // projection
   Vector2 MainWidget::world2projpoint(Vector2 P, int imageIndex) const{
     if (!m_use_georef)
-      return P;
+      return flip_in_y(P);
     return m_world2image_geotransforms[imageIndex].point_to_point(flip_in_y(P)); 
   }
   
   // The reverse of world2projpoint
   Vector2 MainWidget::projpoint2world(Vector2 P, int imageIndex) const{
     if (!m_use_georef)
-      return P;
+      return flip_in_y(P);
     return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point(P));
   }
 
@@ -1322,7 +1349,6 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         paint->setPen(QPen(QColor("red")));
 
         paint->drawEllipse(Q, r, r); // Draw the point
-
       }
     }
     
