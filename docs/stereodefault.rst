@@ -220,11 +220,15 @@ enable-correct-velocity-aberration
     Enable velocity aberration correction for Optical Bar and
     non-ISIS linescan cameras (:numref:`sensor_corrections`).
     This option impairs the convergence of bundle adjustment.
+    It is suggested to use it though with Digital Globe images
+    to improve the positioning, if not using bundle adjustment.
 
 enable-correct-atmospheric-refraction
     Enable atmospheric refraction correction for Optical Bar and
     non-ISIS linescan cameras. This option impairs the convergence of
-    bundle adjustment.
+    bundle adjustment. It is suggested to use it though with Digital
+    Globe images to improve the positioning, if not using bundle
+    adjustment.
 
 left-image-crop-win xoff yoff xsize ysize
     Do stereo in a sub-region of the left image [default: use the
