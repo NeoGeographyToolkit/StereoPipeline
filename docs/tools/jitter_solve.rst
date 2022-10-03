@@ -63,7 +63,9 @@ cameras, using a stereo pair with a good convergence angle
     point2dem --errorimage stereo_ba/run-PC.tif
 
 See :numref:`nextsteps` for a discussion about various
-speed-vs-quality choices for stereo.
+speed-vs-quality choices for stereo. Close to the poles a polar
+stereographic projection may be preferred in ``point2dem``
+(:numref:`point2dem`).
 
 Align this DEM to the reference DEM, which will call ``ref.tif``, with
 ``pc_align`` (:numref:`pc_align`). Likely ``ref.tif`` should be the
@@ -72,7 +74,7 @@ lower-resolution.  Care is needed with the ``--max-displacement``
 option and the choice of the alignment method.
 
 Apply the alignment transform to the cameras (:numref:`ba_pc_align`),
-obtaining the directory ``ba_align`` having the aligned camera
+obtaining the output prefix ``ba_align/run`` having the aligned camera
 adjustments. Then solve for jitter::
 
     jitter_solve $A.cub $B.cub $C.cub         \
@@ -97,8 +99,8 @@ with names like::
 
     jitter/run-*.adjusted_state.json
 
-The anchor points
-~~~~~~~~~~~~~~~~~
+The optimization algorithm
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The most important purpose of the reference DEM is its use it with the
 ``--anchor-weight`` option.  Before this solver starts, rays are
@@ -116,10 +118,18 @@ interest point matches in the cameras. These are zero if the rays
 perfectly intersect, and the magnitude of these errors is proportional
 to how bad the jitter is.
 
+The option ``--heights-from-dem`` constrains the triangulated points
+obtained from interest point matches to stay close to the DEM. It has
+a weight and robust threshold, mentioned earlier, to control the
+strength of this constraint. This option expects reasonably good
+horizontal agreement between the DEM and the cameras, but can handle
+well vertical discrepancy, which it will try to reduce.
+
 Ideally, this solver will result in self-consistent cameras, so lower
 reprojection errors based on interest points, with the anchor weight
 preventing the solution from going wild, so reprojection errors
-for the anchor points would increase only somewhat.
+for the anchor points would increase only somewhat. Consistency
+with the input DEM is also expected to improve.
 
 Having at least 3 (and ideally more) overlapping images and a
 well-aligned input DEM will result in a more accurate solution.
