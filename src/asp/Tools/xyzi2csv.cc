@@ -90,7 +90,6 @@ void run_xyzi2csv(int argc, char* argv[]) {
   // Read the binary file
   std::ifstream ifs(opt.xyzi, std::ios::binary);
 
-  std::cout << "--try to read" << std::endl;
   vw_out() << "Writing: " << opt.csv << "\n";
   std::ofstream ofs(opt.csv);
   ofs.precision(17);
