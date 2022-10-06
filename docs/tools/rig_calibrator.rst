@@ -13,6 +13,12 @@ many real-world issues encountered with a rig. Its output can be used
 to create a fused surface mesh with seamless texture from each of its
 sensors.
 
+The intrinsics of the sensors and each camera pose can also be
+optimized without the rig assumption. Then the sensors can acquire data
+at unrelated times (e.g., years apart). In that case the transforms
+among the sensors on the rig are not modeled, but any group of images
+acquired with the same sensor still share intrinsics. 
+
 The `Theia <https://github.com/sweeneychris/TheiaSfM>`_ package is used
 to find the initial camera poses.
  
@@ -34,15 +40,11 @@ Capabilities
 - It is not assumed that the rig sensors have a shared field of view. 
   Yet, a surface seen in one sensor should at some point be seen 
   also in other sensors.
-- The intrinsics of the sensors and each camera image pose can also be
-  optimized without the rig assumption. Then the sensors can acquire data
-  at unrelated times (e.g., years apart). In that case the transforms
-  among the sensors on the rig are not modeled. 
 - The sensors on the rig may acquire data simultaneously or not. In
-  the latter case one sensor is expected to acquire data frequently
-  enough to be used to bracket data from the other sensors in time
-  using bilinear interpolation of the camera poses (if the rig
-  assumption is used).
+  the latter case one sensor is expected to acquire
+  data frequently enough to be used to bracket data from the other
+  sensors in time using bilinear interpolation of the camera poses (if
+  the rig assumption is used).
 - A known time offset among the clocks of the various sensors on the 
   rig is modeled and can be optimized. (By default no offset is
   assumed.)  
@@ -50,9 +52,10 @@ Capabilities
   constraint (rays corresponding to the same feature must intersect
   close to the mesh). Otherwise one can constrain the triangulated
   points to not move too far from their original values.
-- Several quality metrics are printed on output, and for each image
-  with its optimized camera a textured mesh is created, for
-  examination of any misalignments (if an input mesh is given).
+- Several quality metrics are printed on output, error reports
+  are saved to disk, and for each image with its optimized camera a
+  textured mesh with that image is created, for visual examination of
+  any misalignments (if an input mesh is given).
  
 Input data conventions
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -100,6 +103,8 @@ following bash script::
         /bin/cp -fv $image new_images/my_cam/${timestamp}${ext}
         ((timestamp++))
     done
+
+.. _rig_config:
 
 Configuration file
 ^^^^^^^^^^^^^^^^^^
@@ -175,8 +180,13 @@ Example (only one of the *N* sensors is shown)::
   depth_to_image_transform: 1 0 0 0 1 0 0 0 1 0 0 0
   ref_to_sensor_timestamp_offset: 0
 
-Cameras poses and interest points
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Output files
+^^^^^^^^^^^^
+
+The optimized rig configuration in the format described in :numref:`rig_config`
+is saved to::
+
+  <output dir>/rig_config.txt
 
 The image names, camera poses, and interest point matches are stored
 in the NVM format. These are determined using the Theia
@@ -187,6 +197,13 @@ if the ``--save_nvm`` option is set. Then the output nvm file name
 is::
 
   <output dir>/cameras.nvm
+
+If the option ``--save_nvm_no_shift`` is specified, the file
+  <output dir>/cameras_noshift.nvm
+
+will be saved, in the same format as above, but without interest
+points being shifted relative to the optical center for the
+corresponding image.
 
 In addition, a plain text file having just the list of images and
 world-to-camera poses will always be written, with the name::
@@ -201,6 +218,17 @@ Here, the 12 values are the rows of the world-to-camera rotation and
 then the world-to-camera translation. See the ``--camera_poses``
 option (:numref:`rig_calibrator_command_line`) for how this file can
 be read back in.
+
+The inlier residuals for each camera (that is, norm of reprojection
+errors, with reprojection errors defined as the difference of interest
+points and projection of triangulated interest points back in the
+camera) are saved to::
+
+  <output dir>/<sensor name>-residuals.txt
+
+in the format::
+
+  distorted_pixel_x distorted_pixel_y norm(residual_x, residual_y)
 
 .. _rig_calibrator_example:
 
@@ -669,8 +697,13 @@ Command-line options for rig_calibrator
   offset relative to the optical center, to be consistent with
   Theia. This file can be passed in to a new invocation of this
   tool via ``--nvm``. Type: bool. Default: false.
+``--save_nvm_no_shift`` Save the optimized camera poses and inlier interest point 
+  matches to <out dir>/cameras_noshift.nvm. Interest point matches are not offset 
+  relative to the optical center, which is not standard, but which 
+  allows this file to be self-contained and for the matches to be 
+  drawn with ``stereo_gui``.
 ``--save_matches`` Save the interest point matches (all matches and
-  inlier matches after filtering). Stereo Pipeline's viewer can be used
+  inlier matches after filtering). ``stereo_gui`` can be used
   for visualizing these. Type: bool. Default: false.
 ``--timestamp_offsets_max_change`` If floating the timestamp offsets, do not
   let them change by more than this (measured in seconds). Existing image

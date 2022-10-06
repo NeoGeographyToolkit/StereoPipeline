@@ -88,7 +88,6 @@ in the images, per :numref:`rig_calibrator_registration`)::
       --xyz_file xyz.txt                          \
       --out_dir rig_out
     
-
 Registration to world coordinates is optional. It is still suggested
 to use at least some rough guesses for where the world positions of
 some points are. The camera configuration will not be deformed in
