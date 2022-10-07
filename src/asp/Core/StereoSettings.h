@@ -64,8 +64,14 @@ namespace asp {
   struct UndocOptsDescription     : public boost::program_options::options_description { UndocOptsDescription    (); };
 
   boost::program_options::options_description
-  generate_config_file_options( vw::GdalWriteOptions& opt );
+  generate_config_file_options(vw::GdalWriteOptions& opt);
 
+  // This handles options which are not in stereo_settings(), but
+  // rather in 'opt'. So they are not config options set in
+  // stereo.default but only command-line options.
+  void addAspGlobalOptions(boost::program_options::options_description & descripton,
+                           ASPGlobalOptions & opt);
+  
   /// Structure holding variables
   class StereoSettings {
   public:

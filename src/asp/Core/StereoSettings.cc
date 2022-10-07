@@ -515,6 +515,20 @@ namespace asp {
        "If input images are georeferenced, make D_sub and D_sub_spread georeferenced.");
   }
 
+  // This handles options which are not in stereo_settings(), but
+  // rather in 'opt'. So they are not config options set in
+  // stereo.default but only command-line options.
+  void addAspGlobalOptions(boost::program_options::options_description & descripton,
+                           ASPGlobalOptions & opt) {
+    descripton.add_options()
+      ("session-type,t",      po::value(&opt.stereo_session),
+       "Select the stereo session type to use for processing. "
+       "Usually the program can select this automatically by the file extension, "
+       "except for XML cameras. See the doc for options.")
+      ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"),
+       "Explicitly specify the stereo.default file to use.");
+  }
+  
   po::options_description
   generate_config_file_options(vw::GdalWriteOptions& opt) {
     po::options_description cfg_options;

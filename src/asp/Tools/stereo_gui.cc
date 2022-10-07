@@ -61,6 +61,11 @@ namespace asp{
 
     // All options that we will parse
     po::options_description all_general_options("");
+
+    // The values for these options are stored in 'opt'
+    addAspGlobalOptions(all_general_options, opt);
+
+    // The values for these are stored in stereo_settings()
     all_general_options.add(generate_config_file_options(opt));
 
     po::options_description positional_options("");
