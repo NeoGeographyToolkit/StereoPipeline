@@ -65,7 +65,8 @@ Command-line options for ``pc_filter``:
 
 --output-cloud <string (default="")>
     Output cloud name. If having a .tif extension, the same format will
-    be used as the input. Can also save ``.pcd`` and ``.ply`` files. In those
+    be used as the input. Can also save ``.pcd`` and ``.ply`` files
+    (only vertices are saved, not mesh faces). In those
     case the points will be saved with ``float32`` values, so there may be
     some precision loss. The ``.pcd`` file will store in the field for the
     cloud normal the values image_texture, blending_weight,
