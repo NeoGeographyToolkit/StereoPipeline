@@ -215,7 +215,7 @@ ASTER data (:numref:`aster`), as its images are free and much smaller
 than DigitalGlobe's. A ready-made example having all inputs, outputs,
 and commands, is provided there.
 
-DigitalGlobe/Maxar provides images from QuickBird and the three WorldView
+DigitalGlobe provides images from QuickBird and the three WorldView
 satellites. These are the hardest images to process with Ames Stereo
 Pipeline because they are exceedingly large, much larger than HiRISE
 images (the GUI interface can be used to run stereo on just a portion
@@ -230,7 +230,7 @@ a bonus, but we can't provide any advice for how to perform or improve
 the results if you choose to use ASP in that way.
 
 ASP can only process Level 1B satellite images, and cannot process
-DigitalGlobe/Maxar's aerial images.
+DigitalGlobe's aerial images.
 
 The camera information for DigitalGlobe/Maxar images is contained in an XML
 file for each image. In addition to the exact linear camera model, the
@@ -305,6 +305,14 @@ details, see :numref:`nextsteps`.
 How to create a DEM and visualize the results of stereo is described in
 :numref:`visualising`.
 
+Consider using above the options
+``--enable-correct-velocity-aberration`` and
+``--enable-correct-atmospheric-refraction`` to improve the positioning
+of the produced DEMs, unless using bundle adjustment
+(:numref:`stereodefault`).  In either case, ``pc_align``
+(:numref:`pc_align`) can be used to align the produced DEM to a
+desired reference terrain.
+
 .. figure:: images/examples/dg/wv_tutorial.png
    :name: fig:dg-nomap-example
 
@@ -313,10 +321,10 @@ How to create a DEM and visualize the results of stereo is described in
 It is important to note that we could have performed stereo using the
 approximate RPC model instead of the exact linear camera model (both
 models are in the same XML file), by switching the session in the
-``parallel_stereo`` command above from ``-t dg`` to ``-t rpc``. The RPC model is
-somewhat less accurate, so the results will not be the same, in our
-experiments we've seen differences in the 3D terrains using the two
-approaches of 5 meters or more.
+``parallel_stereo`` command above from ``-t dg`` to ``-t rpc``. The
+RPC model is somewhat less accurate, so the results will not be the
+same, in our experiments we've seen differences in the 3D terrains
+using the two approaches of 5 meters or more.
 
 Many more stereo processing examples can be found in :numref:`examples`.
 
