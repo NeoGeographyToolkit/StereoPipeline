@@ -187,8 +187,9 @@ namespace vw { namespace gui {
     vw::GdalWriteOptions m_opt;
     bool             has_georef;
     vw::cartography::GeoReference georef;
-    BBox2            image_bbox;
-
+    vw::BBox2        image_bbox;
+    vw::Vector2      val_range;
+    
     // There are several display modes. The one being shown is
     // determined by m_display_mode. Store the corresponding
     // image in one of the structures below
@@ -252,8 +253,7 @@ namespace vw { namespace gui {
 			     int & polyIndexInCurrPoly,
 			     int & vertIndexInCurrPoly,
 			     double & minX, double & minY,
-			     double & minDist
-			     );
+			     double & minDist);
 
   // Find the closest edge in a given vector of polygons to a given point.
   void findClosestPolyEdge(// inputs
@@ -264,8 +264,7 @@ namespace vw { namespace gui {
 			   int & polyIndexInCurrPoly,
 			   int & vertIndexInCurrPoly,
 			   double & minX, double & minY,
-			   double & minDist
-			   );
+			   double & minDist);
   
   // This will tweak the georeference so that point_to_pixel() is the identity.
   bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
@@ -582,6 +581,20 @@ std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
 // dialog to choose which ones to display.
 bool sideBySideWithDialog();
 void setNoSideBySideWithDialog(); // turn off such logic
+
+// A class to return a color for each value in [0, 1].
+struct Colormap {
+
+  // Initialize the colors
+  Colormap();
+  
+  // Get the color. The value t must be in [0, 1].
+  vw::Vector3 operator()(double t);
+  
+  // Find the colors by interpolating in this table
+  vw::ImageViewRef<vw::Vector3> interp_colors;
+  
+}; // end class Colormap
   
 }} // namespace vw::gui
 

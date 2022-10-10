@@ -1669,8 +1669,7 @@ void MainWindow::setZoomAllToSameRegion() {
     // from the menu if so desired.
     bool has_georef = true;
     for (size_t i = 0; i < m_image_files.size(); i++) {
-      cartography::GeoReference georef;
-      has_georef = has_georef && read_georef_from_image_or_shapefile(georef, m_image_files[i]);
+      has_georef = has_georef && m_images[i].has_georef;
     }
 
     if (has_georef && !m_use_georef) {

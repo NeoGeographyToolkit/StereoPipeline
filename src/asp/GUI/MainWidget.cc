@@ -100,7 +100,10 @@ namespace vw { namespace gui {
   }
 
   // TODO(oalexan1): Rename world2image to world2pixel.
-  // Then also have world2projpt, for both a point and a box. 
+  // Then also have world2projpt, for both a point and a box.
+  
+  // TODO(oalexan1): See if world2image can be used instead of world2projpt,
+  // and same for image2world and projpoint2world.
   
   // If we use georef, the world is in projected point units of the
   // first image, with y replaced with -y, to keep the y axis downward,
@@ -286,9 +289,11 @@ namespace vw { namespace gui {
       m_filesOrder[i] = i; // start by keeping the order of files being read
 
       // Grow the world box to fit all the images
-      BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
-      m_world_box.grow(B);
-
+      if (m_beg_image_id <= i && i < m_end_image_id) {
+        BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
+        m_world_box.grow(B);
+      }
+      
       // The first existing vector layer in the current widget becomes
       // the one we draw on.  Otherwise we keep m_polyLayerIndex at
       // m_beg_image_id so we store any new polygons in
@@ -396,7 +401,6 @@ namespace vw { namespace gui {
     MainWidget::maybeGenHillshade();
 
   } // End constructor
-
 
   MainWidget::~MainWidget() {
   }
@@ -1029,8 +1033,18 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       m_current_view = expand_box_to_keep_aspect_ratio(m_world_box);
     else
       m_current_view = expand_box_to_keep_aspect_ratio(m_current_view);
-    
+
+    if (m_firstPaintEvent) {
+      // Avoid calling refreshPixmap() in this case, as resizeEvent()
+      // will be followed anyway by paintEvent(), will call
+      // refreshPixmap(). Otherwise work gets duplicated which affects
+      // rendering speed.
+      return;
+    }
+
+    // This is necessary, otherwise the image won't be redrawn
     refreshPixmap();
+        
     return;
   }
 
@@ -1234,7 +1248,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     
     return;
   } // End function drawImage()
-  
+
   void MainWidget::drawInterestPoints(QPainter* paint){
 
     // Highlight colors for various actions
@@ -1323,7 +1337,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
   // Draw irregular xyz data to be plotted at (x, y) location with z giving
   // the intensity. May be colorized.
   void MainWidget::drawXyzData(QPainter* paint) {
-
+    
     // Loop through input images
     for (int j = m_beg_image_id; j < m_end_image_id; j++) {
 
@@ -1333,22 +1347,52 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
         continue;
 
+      if (m_images[i].xyz_data.empty()) 
+        continue;
+      
       int r = asp::stereo_settings().plot_point_radius;
+
+      // Use --min and --max values, if set.
+      double min_val = asp::stereo_settings().min;
+      double max_val = asp::stereo_settings().max;
+      if (std::isnan(min_val)) 
+        min_val = m_images[i].val_range[0];
+      if (std::isnan(max_val)) 
+        max_val = m_images[i].val_range[1];
+
+      Colormap colormap;
+      
       for (size_t pt_it = 0; pt_it < m_images[i].xyz_data.size(); pt_it++) {
         auto const& P = m_images[i].xyz_data[pt_it];
 
-        // TODO(oalexan1): What if we have georef and need to overlay?
-        // TODO(oalexan1): Support color and respecting --min and --max.
-        // TODO(oalexan1): May need to find actual min and max first.
-        // TODO(oalexan1): Make points filled.
-        // TODO(oalexan1): Compute and set the color.
         vw::Vector2 world_P = projpoint2world(subvector(P, 0, 2), i);
         Vector2 screen_P = world2screen(world_P);
-
         QPoint Q(screen_P.x(), screen_P.y());
-        paint->setPen(QPen(QColor("red")));
 
-        paint->drawEllipse(Q, r, r); // Draw the point
+        // Scale the intensity to [0, 1]
+        double s = (P[2] - min_val) / (max_val - min_val);
+        if (max_val <= min_val) 
+          s = 0.0; // degenerate case
+        if (s > 1.0)
+          s = 1.0;
+        if (s < 0.0)
+          s = 0.0;
+
+        QColor c;
+        if (asp::stereo_settings().colorize) {
+          // Get the color from the colormap
+          vw::Vector3 v = colormap(s);
+          c = QColor(v[0], v[1], v[2]);
+        } else {
+          // Grayscale color
+          s = round(255.0 * s);
+          c = QColor(s, s, s);
+        }
+
+        // Draw the ball
+        paint->setPen(QPen(c));
+        paint->setBrush(QBrush(c));
+        paint->drawEllipse(Q, r, r); 
       }
     }
     
@@ -2396,25 +2440,25 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       // This will be reached only for the case when a polygon
       // is so small that it collapses into a point.
       len = lineWidth;
-      paint.setBrush( color );
+      paint.setBrush(color);
       paint.drawRect(x0 - len, y0 - len, 2*len, 2*len);
 
     } else if (drawVertIndex%numTypes == 0){
 
       // Draw a small empty ellipse
-      paint.setBrush( Qt::NoBrush );
+      paint.setBrush(Qt::NoBrush);
       paint.drawEllipse(x0 - len, y0 - len, 2*len, 2*len);
 
     }else if (drawVertIndex%numTypes == 1){
 
       // Draw an empty square
-      paint.setBrush( Qt::NoBrush );
+      paint.setBrush(Qt::NoBrush);
       paint.drawRect(x0 - len, y0 - len, 2*len, 2*len);
 
     }else if (drawVertIndex%numTypes == 2){
 
       // Draw an empty triangle
-      paint.setBrush( Qt::NoBrush );
+      paint.setBrush(Qt::NoBrush);
       paint.drawLine(x0 - len, y0 - len, x0 + len, y0 - len);
       paint.drawLine(x0 - len, y0 - len, x0 + 0,   y0 + len);
       paint.drawLine(x0 + len, y0 - len, x0 + 0,   y0 + len);
@@ -2422,7 +2466,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     }else{
 
       // Draw an empty reversed triangle
-      paint.setBrush( Qt::NoBrush );
+      paint.setBrush(Qt::NoBrush);
       paint.drawLine(x0 - len, y0 + len, x0 + len, y0 + len);
       paint.drawLine(x0 - len, y0 + len, x0 + 0,   y0 - len);
       paint.drawLine(x0 + len, y0 + len, x0 + 0,   y0 - len);
@@ -2520,10 +2564,9 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         // draw a small shape.
         int tol = 4; // This is a bug fix for missing points. I don't understand
         //           // why this is necessary and why the number 4 is right.
-        if ( plotPoints                                                                 &&
-             P.x() > screen_min_x - tol && P.x() < screen_min_x + m_window_width  + tol &&
-             P.y() > screen_min_y - tol && P.y() < screen_min_y + m_window_height + tol
-             ){
+        if (plotPoints                                                                 &&
+            P.x() > screen_min_x - tol && P.x() < screen_min_x + m_window_width  + tol &&
+            P.y() > screen_min_y - tol && P.y() < screen_min_y + m_window_height + tol){
           drawOneVertex(P.x(), P.y(), color, lineWidth, drawVertIndex, paint);
         }
       }

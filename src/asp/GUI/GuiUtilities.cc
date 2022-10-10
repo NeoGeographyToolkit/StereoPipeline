@@ -390,7 +390,6 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
       vw_throw(ArgumentErr() << "Expecting the shapefile to have a georeference.\n");
     
   } else if (vw::gui::hasXyzData(name_in)) {
-    // TODO(oalexan1): calc world box and georef!
     // TODO(oalexan1): Must parse datum string for pointmap files!
     has_georef = true;
     
@@ -405,16 +404,29 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
       vw::vw_throw(vw::ArgumentErr() << "Could not parse the csv format in: "
                    << csv_format_str << ".\n");
     }
+
+    vw_out() << "Reading: " << name_in << std::endl; 
     std::list<asp::CsvConv::CsvRecord> pos_records;
     typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
     csv_conv.read_csv_file(name_in, pos_records);
     
     xyz_data.clear();
+    vw::BBox3 bounds;
     for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
       Vector3 llh = csv_conv.csv_to_geodetic(*iter, georef);
+      if (std::isnan(norm_2(llh)))  
+        continue; // in case we get NaN
+      
       xyz_data.push_back(llh);
-      image_bbox.grow(subvector(llh, 0, 2));
+      bounds.grow(llh);
     }
+    image_bbox.min() = subvector(bounds.min(), 0, 2);
+    image_bbox.max() = subvector(bounds.max(), 0, 2);
+    val_range[0] = bounds.min()[2];
+    val_range[1] = bounds.max()[2];
+
+    vw_out() << "Lon-lat bounds: " << image_bbox << std::endl;
+    vw_out() << "Range of values: " << val_range[0] << ' ' << val_range[1] << std::endl;
     
   }else{
     // Read an image
@@ -1181,4 +1193,85 @@ void setNoSideBySideWithDialog() {
   asp::stereo_settings().pairwise_clean_matches   = false;
 }
 
+// A class to return a color for each value in [0, 1].
+Colormap::Colormap() {
+    
+  // Binary-red-blue colormap. First value is percentage. The rest
+  // are color rgb values. The percentages will be ignored and the
+  // colors will be assumed to be sampled uniformly. Bilinear
+  // interpolation will be used.
+  std::vector<double> vals = {
+    0, 59, 76, 192,
+    3.13, 68, 90, 204,
+    6.25, 78, 104, 215,
+    9.38, 88, 117, 225,
+    12.50, 98, 130, 234,
+    15.63, 108, 142, 241,
+    18.75, 119, 154, 247,
+    21.88, 130, 165, 251,
+    25.00, 141, 176, 254,
+    28.13, 152, 185, 255,
+    31.25, 163, 194, 255,
+    34.38, 174, 201, 253,
+    37.50, 184, 208, 249,
+    40.63, 194, 213, 244,
+    43.75, 204, 217, 238,
+    46.88, 213, 219, 230,
+    50.00, 221, 221, 221,
+    53.13, 229, 216, 209,
+    56.25, 236, 211, 198,
+    59.38, 241, 204, 185,
+    62.50, 245, 196, 173,
+    65.63, 247, 187, 160,
+    68.75, 247, 177, 148,
+    71.88, 247, 166, 135,
+    75.00, 244, 154, 123,
+    78.13, 241, 141, 111,
+    81.25, 236, 127, 99,
+    84.38, 229, 112, 87,
+    87.50, 222, 97, 76,
+    90.63, 213, 80, 66,
+    93.75, 203, 62, 56,
+    96.88, 192, 40, 47,
+    100.00, 180, 4, 38};
+        
+  size_t num_colors = vals.size() / 4;
+  if (4 * num_colors != vals.size()) 
+    vw_throw(ArgumentErr() << "Invalid vector of colors.\n");
+
+  // Put these in an image for interpolation
+  vw::ImageView<vw::Vector3> colors(2, num_colors);
+  for (int row = 0; row < colors.rows(); row++) {
+    double r = vals[4*row + 1];
+    double g = vals[4*row + 2];
+    double b = vals[4*row + 3];
+        
+    for (int col = 0; col < colors.cols(); col++)
+      colors(col, row) = vw::Vector3(r, g, b);
+  }
+
+  interp_colors = vw::interpolate(colors, vw::BilinearInterpolation(),
+                                  vw::ConstantEdgeExtension());
+} // end colormap initialization
+
+// Get the color. The value t must be in [0, 1].
+vw::Vector3 Colormap::operator()(double t) {
+  if (t < 0.0)
+    t = 0.0;
+  if (t > 1.0) 
+    t = 1.0;
+  
+  // Scale t so that 0 corresponds to first color and 1 corresponds to last color
+  t *= (interp_colors.rows() - 1);
+  
+  // Interpolate
+  vw::Vector3 c = interp_colors(0, t);
+  
+  // Round
+  for (int it = 0; it < 3; it++)
+    c[it] = round(c[it]);
+  
+  return c;
+}
+  
 }} // namespace vw::gui
