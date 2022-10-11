@@ -232,6 +232,11 @@ in the format::
 
   distorted_pixel_x distorted_pixel_y norm(residual_x, residual_y)
 
+The convergence angle percentiles for each pair of images having
+inlier matches are saved to::
+
+  <output dir>/convergence_angles.txt
+
 .. _rig_calibrator_example:
 
 A solved example

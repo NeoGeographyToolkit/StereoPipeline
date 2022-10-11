@@ -237,5 +237,16 @@ Command-line options for multi_stereo
 --last_step <string (default: "mesh_gen")>
     The last step run by this tool. See ``--first_step``
     for allowed values.
+
+--first-image-index <integer (default: None)>
+    The index of the first image to use for stereo, in the
+    list of images. Indices start from 1. By default, use
+    all the images.
+
+--last-image-index <integer (default: None)>
+    The index of the last image to use for stereo, in the
+    list of images. Indices start from 1. By default, use
+    all the images.
+
 -h, --help
   Show this help message and exit.
