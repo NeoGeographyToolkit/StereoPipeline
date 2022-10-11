@@ -198,7 +198,8 @@ is::
 
   <output dir>/cameras.nvm
 
-If the option ``--save_nvm_no_shift`` is specified, the file
+If the option ``--save_nvm_no_shift`` is specified, the file::
+
   <output dir>/cameras_noshift.nvm
 
 will be saved, in the same format as above, but without interest
@@ -222,9 +223,10 @@ be read back in.
 The inlier residuals for each camera (that is, norm of reprojection
 errors, with reprojection errors defined as the difference of interest
 points and projection of triangulated interest points back in the
-camera) are saved to::
+camera), before and after optimization, are saved to::
 
-  <output dir>/<sensor name>-residuals.txt
+  <output dir>/<sensor name>-initial-residuals.txt
+  <output dir>/<sensor name>-final-residuals.txt
 
 in the format::
 
@@ -327,6 +329,9 @@ The obtained point clouds can be fused into a mesh using ``voxblox_mesh``
       --output_mesh rig_out/fused_mesh.ply                 \
       --min_ray_length 0.1 --max_ray_length 2.0            \
       --voxel_size 0.01
+
+This assumes that depth sensors were present. Otherwise, can needs to
+create point clouds with stereo, see :numref:`multi_stereo`.
 
 The output mesh is ``fused_mesh.ply``, points no further than 2
 meters from each camera center are used, and the mesh is obtained
