@@ -472,12 +472,12 @@ accept all other ``parallel_stereo`` options as well.
     using the ``--colorize`` option and plotting csv data. If not set,
     use the dataset minimum.
 
---max arg (*double*) (default = NaN)
+--max (*double*) (default = NaN)
     Value corresponding to the 'hottest' color in the color map, when
     using the ``--colorize`` option and plotting csv data. If not set,
     use the dataset maximum.
 
---plot-point-radius arg (*integer*) (default = 2)
+--plot-point-radius (*integer*) (default = 2)
     When plotting points from CSV files, let each point be drawn as a
     filled ball with this radius, in pixels.
 
