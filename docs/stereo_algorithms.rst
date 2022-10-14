@@ -739,7 +739,13 @@ dimensions equal to those of the input images.
 
 The options passed to this program are expected to have no other
 characters except letters, numbers, space, period, underscore, plus,
-minus, and equal signs.
+minus, and equal signs. Each option must have exactly one value, 
+such as::
+
+    -opt1 val1 -opt2 val2 -opt3 val3
+
+(More flexibile options, including boolean ones, so with no value,
+may be implemented going forward.)
 
 Such a program and the libraries it depends on (if any) should be
 copied somewhere within ASP's top-level directory, then this program
