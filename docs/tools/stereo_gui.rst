@@ -74,7 +74,7 @@ turned on or off via a checkbox. Clicking on an image's name will zoom
 to it and display it on top of other images. By right-clicking the
 list of images, other operations can be performed, such as hillshading
 an image, etc.
-
+        
 In this mode, the keys ``n`` and ``p`` can be used to cycle among
 the images.
 
@@ -372,6 +372,28 @@ Related to this, if the viewer is invoked with ``--nodata-value
 this as transparent, and will set the image threshold to that no-data
 value.
 
+.. _plot_pointmap:
+
+View scattered points
+~~~~~~~~~~~~~~~~~~~~~
+
+``stereo_gui`` can plot and colorize the initial and final
+``*pointmap.csv`` residuals created by ``bundle_adjust`` for each
+interest point (:numref:`ba_out_files`). Those will show up as colored
+dots, and can be overlayed as georeferenced images onto a DEM or
+mapprojected image of the same area. The command is::
+
+    stereo_gui --min 0 --max 0.5 --plot-point-radius 2 \
+      ba/final_residuals_pointmap.csv
+
+This will use the longitude and latitude as the position, and will
+determine a color based on the 4th field in this file (the error) and
+the the min and max values specified above (which correspond to blue
+and red in the colorized plot, respectively).
+
+In the future ``stereo_gui`` will support plotting arbitrary csv
+files.
+
 .. _gui_options:
 
 Command line options for ``stereo_gui``
@@ -437,9 +459,31 @@ accept all other ``parallel_stereo`` options as well.
     Start with all images turned off (if all images are in the same
     window, useful with a large number of images).
 
---zoom-proj-win
+--zoom-proj-win (*double double double double*)
     Zoom to this proj win on startup. It is assumed that the images
     are georeferenced. Also accessible from the *View* menu.
+
+--colorize
+    Colorize input CSV files (must set ``--min`` and ``--max``).
+
+--min (*double*) (default = NaN)
+    Value corresponding to 'coldest' color in the color map, when
+    using the ``--colorize`` option and plotting csv data. If not set,
+    use the dataset minimum.
+
+--max arg (*double*) (default = NaN)
+    Value corresponding to the 'hottest' color in the color map, when
+    using the ``--colorize`` option and plotting csv data. If not set,
+    use the dataset maximum.
+
+--plot-point-radius arg (*integer*) (default = 2)
+    When plotting points from CSV files, let each point be drawn as a
+    filled ball with this radius, in pixels.
+
+--csv-proj4 (*string*) (default = "")
+    The PROJ.4 string to use to interpret the entries in input CSV
+    files. If not specified, infer that from metadata in the files
+    or from other loaded images.
 
 --delete-temporary-files-on-exit
     Delete any subsampled and other files created by the GUI when

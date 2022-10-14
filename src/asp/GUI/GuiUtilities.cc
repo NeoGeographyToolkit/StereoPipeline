@@ -407,12 +407,13 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
 
     vw_out() << "Reading: " << name_in << std::endl; 
     std::list<asp::CsvConv::CsvRecord> pos_records;
-    typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
     csv_conv.read_csv_file(name_in, pos_records);
-    
+    // csv_conv.parse_georef(georef);
+    //csv_georef.set_datum(datum);
+
     xyz_data.clear();
     vw::BBox3 bounds;
-    for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
+    for (auto iter = pos_records.begin(); iter != pos_records.end(); iter++) {
       Vector3 llh = csv_conv.csv_to_geodetic(*iter, georef);
       if (std::isnan(norm_2(llh)))  
         continue; // in case we get NaN

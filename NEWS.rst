@@ -118,6 +118,9 @@ stereo_gui:
   * Zoom to given proj win from the View menu. Useful for
     reproducibility. Also accessible with command-line option
     ``--zoom-proj-win``.
+  * Can display and colorize the ``pointmap`` residuals file
+    obtained after bundle adjustment and overlay it onto other
+    georeferenced data (:numref:`plot_pointmap`).
   * Bug fix for slow overlaying of images with different datums.
 
 corr_eval:
