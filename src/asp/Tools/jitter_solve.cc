@@ -819,9 +819,13 @@ void run_jitter_solve(int argc, char* argv[]) {
       int numLines   = ls_cams[icam]->m_nLines;
       int numSamples = ls_cams[icam]->m_nSamples;
       int numQuat    = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+      // TODO(oalexan1): Need to also consider here number of poses.
+      // Also exposes num-anchor-points-per-pose
       double r       = double(numLines) / numQuat;
 
       int numAnchorPts = 0;
+      // TODO(oalexan1): Need to ensure we hit {0, 1, 2}/numSamples/2
+      // TODO(oalexan1): Need to ensure we hit {0, 1, 2}/numLines/2
       for (double line = 0; line < numLines; line += r/3.0) {
         for (double sample = 0; sample < numSamples; sample += numSamples/3.0) {
 
@@ -833,7 +837,7 @@ void run_jitter_solve(int argc, char* argv[]) {
           double height_error_tol = 0.001; // 1 mm should be enough
           double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
           double max_rel_tol      = 1e-14;
-          int num_max_iter        = 25;   // Using many iterations can be very slow
+          int num_max_iter        = 50;   // Using many iterations can be very slow
           
           Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
             (opt.camera_models[icam]->camera_center(pix),
@@ -845,7 +849,7 @@ void run_jitter_solve(int argc, char* argv[]) {
             continue;
           
           Vector2 pix_out = opt.camera_models[icam]->point_to_pixel(dem_xyz);
-          if (norm_2(pix - pix_out) > 5 * height_error_tol)
+          if (norm_2(pix - pix_out) > 10 * height_error_tol)
             continue; // this is likely a bad point
 
           pixel_vec[icam].push_back(pix);
@@ -867,7 +871,9 @@ void run_jitter_solve(int argc, char* argv[]) {
       std::cout << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
       std::cout << "Num lines per quat: " << double(numLines) / numQuat  << std::endl;
       std::cout << "Num anchor points per image: " << numAnchorPts << std::endl;
-      
+      // TODO(oalexan1): Fill in below.
+      // std::cout << "Num anchor points per linescan quaternion: "/*add here*/ << std::endl;
+      // std::cout << "Num anchor points per linescan position: "  /*add here*/ << std::endl;
     }   
   }
 

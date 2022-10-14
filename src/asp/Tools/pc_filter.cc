@@ -60,7 +60,7 @@ struct Options: vw::GdalWriteOptions {
     max_camera_dir_to_camera_ray_angle, reliable_surface_resolution,
     distance_from_camera_weight_power, blending_dist, blending_power;
 
-  // The value will be initialized when parsing happens
+  // The class members will be initialized when parsing happens
   Options() {}
 };
 
@@ -71,7 +71,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("input-cloud", po::value(&opt.input_cloud)->default_value(""),
      "Input cloud name. A four-band .tif file as produced by stereo triangulation.")
     ("output-cloud", po::value(&opt.output_cloud)->default_value(""),
-     "Output cloud name. If having a .tif extension, the same format will be used as the input. Can also save .pcd and .ply files. In those cases the points will be saved with float32 values, so there may be some precision loss. The .pcd file will store in the field for the cloud normal the values image_texture, blending_weight, intersection_error, assuming these are computed.")
+     "Output cloud name. If having a .tif extension, the same format will be used as the input. Can also save .pcd and .ply files (only vertices are saved, not faces). In those cases the points will be saved with float32 values, so there may be some precision loss. The .pcd file will store in the field for the cloud normal the values image_texture, blending_weight, intersection_error, assuming these are computed.")
     ("input-texture", po::value(&opt.input_texture)->default_value(""),
      "If specified, read the texture from this file. Normally this is the file L.tif from the same run which produced the input point cloud.")
     ("camera", po::value(&opt.camera_file)->default_value(""),
