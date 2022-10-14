@@ -390,7 +390,7 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
       vw_throw(ArgumentErr() << "Expecting the shapefile to have a georeference.\n");
     
   } else if (vw::gui::hasXyzData(name_in)) {
-    // TODO(oalexan1): Must parse datum string for pointmap files!
+    
     has_georef = true;
     
     // TODO(oalexan1): Below we assume point2map.csv only!
@@ -408,8 +408,14 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     vw_out() << "Reading: " << name_in << std::endl; 
     std::list<asp::CsvConv::CsvRecord> pos_records;
     csv_conv.read_csv_file(name_in, pos_records);
+
+    // TODO(oalexan1): Must parse datum string from a pointmap file!
+    // TODO(oalexan1): Consider adding the lines below. Need to imitate
+    // the logic in point2dem for how to combine the datum with the
+    // projection set via --csv-proj4. Then need to adjust the georef
+    // appropriately as well.
+    // csv_georef.set_datum(datum);
     // csv_conv.parse_georef(georef);
-    //csv_georef.set_datum(datum);
 
     xyz_data.clear();
     vw::BBox3 bounds;
