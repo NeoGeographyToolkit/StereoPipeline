@@ -460,8 +460,9 @@ accept all other ``parallel_stereo`` options as well.
     window, useful with a large number of images).
 
 --zoom-proj-win (*double double double double*)
-    Zoom to this proj win on startup. It is assumed that the images
-    are georeferenced. Also accessible from the *View* menu.
+    Zoom to this proj win on startup (:numref:`image_bounds`). It is
+    assumed that the images are georeferenced. Also accessible from
+    the *View* menu.
 
 --colorize
     Colorize input CSV files (must set ``--min`` and ``--max``).
