@@ -170,6 +170,9 @@ is large.
 Residuals corresponding to GCP will be printed at the end
 of these files and flagged with the string ``# GCP``. 
 
+These residuals can be plotted with ``stereo_gui``
+(:numref:`plot_pointmap`).
+
 One can also invoke ``point2dem`` with the ``--csv-format``
 option to grid these files for visualization in the GUI. Here is a
 sample file::
@@ -232,6 +235,10 @@ in the original camera gives the same result as projecting::
     P' = R * (P - C) + C + T
 
 in the adjusted camera. 
+
+Note that currently the camera center *C* is not exposed in the
+``.adjust`` file, so external tools cannot recreate this
+transform. This will be rectified at a future time.
 
 Command-line options for bundle_adjust
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
