@@ -720,7 +720,7 @@ Adding new algorithms to ASP
 ASP makes it possible for anybody to add their own algorithm to be
 used for stereo correlation without having to recompile ASP itself.
 
-Any such algorithm must a be program to be invoked as::
+Any such algorithm must a be in program to be invoked as::
 
     myprog <options> left_image.tif right_image.tif \
       output_disparity.tif
@@ -744,28 +744,34 @@ such as::
 
     -opt1 val1 -opt2 val2 -opt3 val3
 
-(More flexibile options, including boolean ones, so with no value,
+(More flexible options, including boolean ones, so with no value,
 may be implemented going forward.)
 
-Such a program and the libraries it depends on (if any) should be
-copied somewhere within ASP's top-level directory, then this program
-should be registered with ASP by adding a line to the file::
+Such a program, say named ``myprog``, should be copied to the
+location::
+
+    plugins/stereo/myprog/bin/myprog
+
+relative to the ASP top-level directory, with any libraries in::
+
+    plugins/stereo/myprog/lib
+
+Then, add a line to the file::
 
     plugins/stereo/plugin_list.txt
 
-in that directory, in the format::
+in the ASP top-level directory, in the format::
 
-    myprog plugins/stereo/myprog/bin/myprog  plugin/stereo/myprog/lib
+    myprog plugins/stereo/myprog/bin/myprog plugins/stereo/myprog/lib
 
 The entries here are the program name (in lowercase), path to the
 program, and path to any libraries apart from those shipped with ASP
-(the last entry is optional). All paths are relative to the ASP
-top-level directory.
+(the last entry is optional).
 
 Then, ASP can invoke this program by calling it, for example, as::
 
-    parallel_stereo  --alignment-method local_epipolar  \
-      --stereo-algorithm "myprog <options>"             \
+    parallel_stereo --alignment-method local_epipolar \
+      --stereo-algorithm "myprog <options>"           \
       <images> <cameras> <output prefix>
 
 The program will be called for each pair of locally aligned tiles
