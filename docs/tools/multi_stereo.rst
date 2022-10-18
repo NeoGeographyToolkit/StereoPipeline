@@ -21,29 +21,18 @@ Example
 Here we will create a mesh of a small portion of the International
 Space Station (ISS), based on images acquired with the `Astrobee
 <https://github.com/nasa/astrobee>`_ robot (later this example will be
-expanded to a full module). This is a good way of testing the limits
-of ASP's stereo, because:
+expanded to a full module). 
 
- - The camera has a wide field-of-view fisheye lens, whose distortion is strong 
-   and hard to model accurately, which then may result in registration errors.
+In this example it is very important to choose for pairwise stereo
+images with a convergence angle of about 5-10 degrees. A smaller angle
+results in unreliable depth determination, while for a bigger one the
+scene changes enough sometimes that stereo correlation can be
+erroneous, resulting in artifacts. Note that the ``rig_calibrator``
+tool (as well as ``bundle_adjust`` and ``parallel_stereo``) do compute
+the convergence angle.
 
- - The range of camera-to-object distances is much larger than in satellite stereo,
-   and there is a wide range of orientations of the encountered surfaces.
-
- - The camera can move towards an object it looks at, such a wall,
-   while having other walls on the side. This makes it tricky to correctly align
-   the images. The ideal scenario in stereo is cameras being
-   side-by-side and the imaged surface being reasonably far.
-
- - The ISS is "messy", having cables and laptops sticking out of
-   walls, surfaces with weak texture, and areas of low illumination.
-
- - The images are 8-bit and compressed as JPEG, which may result in artifacts, 
-   unlike the lossless high-dynamic range images acquired with satellites.
-
-This required some careful choices of parameters, and a new tool named
-``pc_filter`` for filtering blunders according to many geometric
-criteria. This will all be explained below.
+Then, the ``pc_filter`` tool was used for filtering blunders according
+to many geometric criteria.
 
 The 7-image dataset used below, the full recipe, and output mesh, are
 all available at:
@@ -102,20 +91,21 @@ some careful choices of parameters for stereo.  Then, this tool calls
 several other tools under the hood, so options for those should be set
 as well. Here's a recipe which works reasonably well::
 
-    maxDistanceFromCamera=3.5
+    maxDistanceFromCamera=3.0
 
     stereo_opts="
       --stereo-algorithm asp_mgm
       --alignment-method affineepipolar
       --ip-per-image 10000
-      --min-triangulation-angle 0.5 
-      --global-alignment-threshold 5   
-      --session nadirpinhole 
+      --min-triangulation-angle 0.5
+      --global-alignment-threshold 5
+      --session nadirpinhole
       --no-datum
-      --corr-seed-mode 0
-      --corr-search -40 -10 40 10
+      --corr-seed-mode 1
       --corr-tile-size 5000
-      --ip-inlier-factor 0.4"
+      --max-disp-spread 300
+      --ip-inlier-factor 0.4
+      --nodata-value 0"
       
     pc_filter_opts="
       --max-camera-ray-to-surface-normal-angle 75 
@@ -126,7 +116,7 @@ as well. Here's a recipe which works reasonably well::
     mesh_gen_opts="
       --min_ray_length 0.1
       --max_ray_length $maxDistanceFromCamera
-      --voxel_size 0.005"
+      --voxel_size 0.01"
 
     multi_stereo --rig_config rig_out/rig_config.txt \
       --camera_poses rig_out/cameras.txt             \
@@ -167,7 +157,7 @@ undistortion step may be optional in future versions.)
 
 See ``--first_step`` and ``--last_step`` in
 :numref:`multi_stereo_command_line` for how to choose which processing
-steps to run.
+steps to run. This tool also has controls for the range of images to run.
 
 Creating a textured mesh
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -183,6 +173,15 @@ The obtained mesh can be textured with the original images using the
       --out_dir stereo_out
 
 This produces ``stereo_out/nav_cam/texture.obj``.
+
+.. figure:: ../images/bumble_dock_texture.png
+   :name: bumble_dock_texture
+   :alt:  Bumble dock texture
+
+   Fused .ply mesh and textured .obj file produced by ``voxblox_mesh``
+   and ``texrecon`` (left and right). Utilities for smoothing the mesh
+   and filling holes will be added to ASP at some point. Then the
+   textured mesh on the right will appear less noisy.
 
 Handling issues
 ^^^^^^^^^^^^^^^
