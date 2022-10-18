@@ -279,7 +279,7 @@ namespace asp {
     bool hillshade;
     double hillshade_azimuth, hillshade_elevation;
     bool view_matches, colorize;
-    std::string match_file, gcp_file, dem_file, csv_proj4;
+    std::string match_file, gcp_file, dem_file, csv_proj4, nvm;
     bool delete_temporary_files_on_exit;
     bool create_image_pyramids_only, hide_all;
     bool pairwise_matches, pairwise_clean_matches;

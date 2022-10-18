@@ -25,6 +25,8 @@
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/Nvm.h>
+
 using namespace asp;
 using namespace vw::gui;
 
@@ -158,7 +160,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
                        bool single_window,
                        bool use_georef, bool hillshade,
                        bool delete_temporary_files_on_exit,
-                       int argc,  char ** argv) :
+                       int argc,  char ** argv):
   m_opt(opt),
   m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
   m_grid_cols(grid_cols),
@@ -169,7 +171,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   m_allowMultipleSelections(false), m_matches_exist(false),
   m_argc(argc), m_argv(argv),
   m_show_two_images_when_side_by_side_with_dialog(true), 
-  m_cursor_count(0) {
+  m_cursor_count(0), m_nvm(NULL) {
 
   if (!stereo_settings().zoom_proj_win.empty())
     m_use_georef = true;
@@ -181,21 +183,40 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   std::string window_title = "Stereo GUI";
   this->setWindowTitle(window_title.c_str());
 
+  // The images being read in.
+  std::vector<std::string> local_images = images;
+
+  // When loading an NVM file, will assume we want to inspect pairwise
+  // matches.  Also set the images from the NVM file.  It is assumed
+  // that the interest points to be loaded are not shifted relative to
+  // the optical center.
+  if (!asp::stereo_settings().nvm.empty()) {
+    asp::stereo_settings().pairwise_matches = true;
+    m_nvm = boost::shared_ptr<asp::nvmData>(new asp::nvmData());
+    vw_out() << "Reading nvm file: " << asp::stereo_settings().nvm << "\n";
+    asp::ReadNVM(asp::stereo_settings().nvm, *m_nvm.get());
+    if (!local_images.empty())
+      popUp("Will ignore the images passed in and will use the one from the nvm file.");
+    local_images = m_nvm->cid_to_filename; // overwrite local_images
+  }
+  
   // Collect only the valid images
   m_image_files.clear();
-  for (size_t i = 0; i < images.size(); i++) {
+  for (size_t i = 0; i < local_images.size(); i++) {
     bool is_image = true;
     try {
-      DiskImageView<double> img(images[i]);
+      DiskImageView<double> img(local_images[i]);
     }catch(...){
       is_image = false;
     }
     
     // Accept shape files along image files
-    if (!is_image && !asp::has_shp_extension(images[i]) && !vw::gui::hasXyzData(images[i]))
+    if (!is_image &&
+        !asp::has_shp_extension(local_images[i]) &&
+        !vw::gui::hasXyzData(local_images[i]))
       continue;
 
-    m_image_files.push_back(images[i]);
+    m_image_files.push_back(local_images[i]);
   }
 
   // Ensure the inputs are reasonable
@@ -288,7 +309,7 @@ void MainWindow::createLayout() {
       m_show_two_images_when_side_by_side_with_dialog = false;
     }
   }
-  
+
   splitter->addWidget(m_chooseFiles);
 
   // See if to show it. In a side-by-side view it is normally not needed. 
@@ -321,6 +342,13 @@ void MainWindow::createLayout() {
     // Each MainWidget object gets passed a single image
     for (size_t i = 0; i < m_images.size(); i++) {
 
+      // Do not create hidden widgets, that really slows down the display when there
+      // are many of them, but just a handful are needed.
+      bool isHidden = (sideBySideWithDialog() && m_chooseFiles
+                       && m_chooseFiles->isHidden(m_images[i].name));
+      if (isHidden) 
+        continue;
+      
       MainWidget * widget = new MainWidget(centralWidget,
                                            m_opt,
                                            i,     // beg image id
@@ -334,12 +362,6 @@ void MainWindow::createLayout() {
                                            m_use_georef, 
                                            zoom_all_to_same_region,
 					   m_allowMultipleSelections);
-
-      // Do not show hidden images
-      bool isHidden = (sideBySideWithDialog() && m_chooseFiles
-                        && m_chooseFiles->isHidden(m_images[i].name));
-      widget->setVisible(!isHidden);
-      
       m_widgets.push_back(widget);
     }
   }
@@ -387,7 +409,7 @@ void MainWindow::createLayout() {
 
   if (asp::stereo_settings().pairwise_matches || asp::stereo_settings().pairwise_clean_matches) 
     MainWindow::viewPairwiseMatchesOrCleanMatches();
-  
+
   double nodata_value = stereo_settings().nodata_value;
   if (!std::isnan(nodata_value)) {
     for (size_t i = 0; i < m_widgets.size(); i++) {
@@ -398,7 +420,7 @@ void MainWindow::createLayout() {
       }
     }
   }
-  
+
   // Refresh the menu checkboxes
   m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
   m_viewSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE);
@@ -1122,7 +1144,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     return;
   }
 
-  if (m_output_prefix == "") {
+  if (m_output_prefix == "" && stereo_settings().nvm.empty()) {
     popUp("Cannot show pairwise (clean) matches, as the output prefix was not set.");
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
@@ -1157,9 +1179,52 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   // Read matches or clean matches, unless read by now, for which we check
   // if pairwiseMatches->match_files[index_pair] is initialized.
   // Read either matches from first to second image, or vice versa.
+  // First consider the case of loading from nvm.
   if (asp::stereo_settings().pairwise_matches) {
+    
     pairwiseMatches = &m_pairwiseMatches;
-    if (pairwiseMatches->match_files.find(index_pair) == pairwiseMatches->match_files.end()) {
+
+    if (!asp::stereo_settings().nvm.empty()) {
+      // Load from nvm
+      match_file = asp::stereo_settings().nvm;
+      pairwiseMatches->match_files[index_pair] = match_file; // flag it as loaded
+
+      // Handles to where we want these loaded. Note that these are aliases.
+      std::vector<vw::ip::InterestPoint> & left_ip = pairwiseMatches->matches[index_pair].first;
+      std::vector<vw::ip::InterestPoint> & right_ip = pairwiseMatches->matches[index_pair].second;
+
+      if (left_ip.empty() && right_ip.empty()) {
+        // Load the matches for the given pair; will happen just once
+        vw::ip::InterestPoint lip, rip;
+        for (size_t pid = 0; pid < m_nvm->pid_to_cid_fid.size(); pid++) {
+
+          // TODO(oalexan1): Make this a function in Nvm.cc called:
+          // matches_for_pair(left_cid, right_cid, left_ip, right_ip)
+          bool has_left = false, has_right = false;
+          for (auto cid_fid = m_nvm->pid_to_cid_fid[pid].begin();
+               cid_fid != m_nvm->pid_to_cid_fid[pid].end(); cid_fid++) {
+            int cid = cid_fid->first;
+            int fid = cid_fid->second;
+            if (cid == left_index) {
+              has_left = true;
+              lip.x = m_nvm->cid_to_keypoint_map[cid].col(fid)[0];
+              lip.y = m_nvm->cid_to_keypoint_map[cid].col(fid)[1];
+            } else if (cid == right_index) {
+              has_right = true;
+              rip.x = m_nvm->cid_to_keypoint_map[cid].col(fid)[0];
+              rip.y = m_nvm->cid_to_keypoint_map[cid].col(fid)[1];
+            }
+          }
+          if (has_left && has_right) {
+            left_ip.push_back(lip);
+            right_ip.push_back(rip);
+          }
+        }
+      }
+      
+    } else if (pairwiseMatches->match_files.find(index_pair) ==
+               pairwiseMatches->match_files.end()) {
+      // Load pairwise matches
       match_file = vw::ip::match_filename(m_output_prefix, m_images[left_index].name,
                                           m_images[right_index].name);
       if (!fs::exists(match_file)) {
@@ -1174,6 +1239,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
       }
     }
   } else {
+    // Load pairwise clean matches
     pairwiseMatches = &m_pairwiseCleanMatches;
     if (pairwiseMatches->match_files.find(index_pair) == pairwiseMatches->match_files.end()) {
       match_file = vw::ip::clean_match_filename(m_output_prefix, m_images[left_index].name,
@@ -1200,7 +1266,8 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   std::vector<vw::ip::InterestPoint> & left_ip = pairwiseMatches->matches[index_pair].first;
   std::vector<vw::ip::InterestPoint> & right_ip = pairwiseMatches->matches[index_pair].second;
   
-  // If the file was not loaded before, load it
+  // If the file was not loaded before, load it. Note that matches from an nvm file
+  // are loaded by now.
   if (pairwiseMatches->match_files.find(index_pair) == pairwiseMatches->match_files.end()) {
     // Flag it as loaded
     pairwiseMatches->match_files[index_pair] = match_file;
@@ -1216,7 +1283,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
       return;
     }
   }
-
+  
   // These will be read when interest points are drawn
   pairwiseMatches->ip_to_show[left_index] = left_ip;
   pairwiseMatches->ip_to_show[right_index] = right_ip;

@@ -158,6 +158,21 @@ image pair if the output prefix was specified. For that, run::
 then select a couple of images to view using the checkboxes on the
 left, and their match file will be displayed automatically.
 
+View pairwise matches loaded from an NVM file
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This tool can also visualize pairwise interest point matches loaded
+from an .nvm file. It is assumed that those interest points are saved
+without being translated relative to optical center, as the nvm file
+cannot save that translation. Such untranslated .nvm files are created
+by ``rig_calibrator`` with the ``--save_nvm_no_shift`` option
+(:numref:`rig_calibrator`). Example loading:
+
+    stereo_gui --nvm nvm_noshift.nvm
+
+(The ``--nvm`` option can also be omitted, and only the file itself
+can be specified.)
+
 View all matches for *N* images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -446,6 +461,13 @@ accept all other ``parallel_stereo`` options as well.
 
 --pairwise-clean-matches
     Same as ``--pairwise-matches``, but use ``*-clean.match`` files.
+
+--nvm (*string*) (default = "")
+    Load this .nvm file having interest point matches. It is assumed
+    it was saved with no shift of the interest points relative to the
+    optical center. The ``rig_calibrator`` program
+    (:numref:`rig_calibrator`) can create such files. This option
+    implies ``--pairwise-matches``.
 
 --gcp-file
     Display the GCP pixel coordinates for this GCP file (implies

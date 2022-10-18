@@ -77,10 +77,13 @@ or double precision value would do, as long as all sensors on the rig
 acquire images at the same time, and images have the same timestamp
 only if taken at the same time. 
 
-If each sensor acquires images independently, accurate
-timestamps are important, and one of the sensors, named the *reference*
-sensor, should acquire images frequently enough to help bracket the
-other sensors in time using bilinear pose interpolation.
+The images can be distributed over several directories, as long as
+the above convention is satisfied.
+
+If each sensor acquires images independently, accurate timestamps are
+important, and one of the sensors, named the *reference* sensor,
+should acquire images frequently enough to help bracket the other
+sensors in time using bilinear pose interpolation.
 
 The images are expected to be 8 bit, with .jpg, .png, or .tif extension.
 

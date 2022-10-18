@@ -453,6 +453,8 @@ namespace asp {
        "Without starting the GUI, build multi-resolution pyramids for the inputs, to be able to load them fast later.")
       ("pairwise-matches",   po::bool_switch(&global.pairwise_matches)->default_value(false)->implicit_value(true), "Show images side-by-side. If just two of them are selected, load their corresponding match file, determined by the output prefix. Also accessible from the menu.")
       ("pairwise-clean-matches",   po::bool_switch(&global.pairwise_clean_matches)->default_value(false)->implicit_value(true), "Same as --pairwise-matches, but use *-clean.match files.")
+      ("nvm", po::value(&global.nvm)->default_value(""),
+       "Load this .nvm file having interest point matches. It is assumed it was saved with no shift of the interest points relative to the optical center. The rig_calibrator program can create such files. This option implies --pairwise-matches.")
       ("zoom-proj-win", po::value(&global.zoom_proj_win)->default_value(BBox2(0,0,0,0), ""),
        "Zoom to this proj win on startup. It is assumed that the images are georeferenced. Also accessible from the View menu.")
       ("csv-proj4",      po::value(&global.csv_proj4)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV files. If not specified, infer that from metadata in the CSV files or from other loaded images.")

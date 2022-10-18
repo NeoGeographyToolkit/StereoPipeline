@@ -538,6 +538,10 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         item->setCheckState(Qt::Unchecked);
     }
 
+    // Print count and image file (count starts from 1)
+    std::string fileName = (filesTable->item(shownRow, 1)->data(0)).toString().toStdString();
+    vw_out() << "Image: " << shownRow + 1  << ' ' << fileName << "\n";
+    
     refreshPixmap();
     
     return;

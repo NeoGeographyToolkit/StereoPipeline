@@ -88,10 +88,13 @@ namespace asp{
     usage = os.str();
 
     // Store the files
-    if (vm.count("input-files") == 0)
-      vw_throw(ArgumentErr() << "Missing input arguments.\n" << usage );
-    input_files = vm["input-files"].as< std::vector<std::string> >();
-
+    if (vm.count("input-files") > 0) 
+      input_files = vm["input-files"].as<std::vector<std::string>>();
+    else if (asp::stereo_settings().nvm.empty())
+        vw_throw(ArgumentErr() << "Missing input arguments.\n" << usage);
+    else
+      input_files.clear(); // no input files, will be read from nvm later
+    
     // Interpret the the last two coordinates of the crop win boxes as
     // width and height rather than max_x and max_y. 
     BBox2i bl = stereo_settings().left_image_crop_win;
@@ -119,8 +122,8 @@ namespace asp{
       try {
         return QApplication::notify(receiver, e);
       } catch (std::exception& ex) {
-      vw::gui::popUp(ex.what());
-      return false;
+        vw::gui::popUp(ex.what());
+        return false;
       }
       
     }
@@ -142,7 +145,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> all_files;
     stereo_settings().vwip_files.clear();
     handle_arguments(argc, argv, opt, all_files);
-
+    
     // Try to load each input file as a standalone image one at a time
     for (size_t i = 0; i < all_files.size(); i++) {
       std::string file = all_files[i];
@@ -159,6 +162,12 @@ int main(int argc, char** argv) {
         }else if (get_extension(file) == ".vwip") {
           // Found a vwip file
           stereo_settings().vwip_files.push_back(file);
+          is_image = false;
+        }else if (get_extension(file) == ".nvm") {
+          // Found an nvm file
+          if (!stereo_settings().nvm.empty()) // sanity check
+            vw_out() << "Multiple nvm files specified. Will load only: " << file << "\n";
+          stereo_settings().nvm  = file;
           is_image = false;
         }else if (asp::has_shp_extension(file)) {
           // See if this is a shape file
@@ -186,7 +195,7 @@ int main(int argc, char** argv) {
     }
     
     // Presumably the tool was invoked with no options. Just print the help message.
-    if (images.empty())
+    if (images.empty() && asp::stereo_settings().nvm.empty())
       vw_throw(ArgumentErr() << "Could not process the inputs.\n");
     
     if (stereo_settings().create_image_pyramids_only) {

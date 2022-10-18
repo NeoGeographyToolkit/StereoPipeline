@@ -39,6 +39,9 @@ class QAction;
 class QLabel;
 class QTabWidget;
 class QSplitter;
+namespace asp {
+  struct nvmData;
+}
 
 namespace vw { namespace gui {
 
@@ -201,6 +204,7 @@ namespace vw { namespace gui {
     MatchList         m_matchlist;
     pairwiseMatchList m_pairwiseMatches;
     pairwiseMatchList m_pairwiseCleanMatches;
+    boost::shared_ptr<asp::nvmData> m_nvm;
     
     int       m_editMatchPointVecIndex; ///< Point being edited
 

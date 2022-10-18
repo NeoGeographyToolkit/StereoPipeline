@@ -115,6 +115,8 @@ stereo_gui:
     match file or clean match file (options:
     ``--pairwise-matches`` and ``--pairwise-clean-matches``, also
     accessible from the top menu).
+  * Visualize pairwise matches read from an nvm file, as created by
+    ``rig_calibrator --save_nvm_no_shift``. 
   * Zoom to given proj win from the View menu. Useful for
     reproducibility. Also accessible with command-line option
     ``--zoom-proj-win``.
