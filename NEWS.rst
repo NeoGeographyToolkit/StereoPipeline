@@ -21,6 +21,8 @@ New tools:
   * ``pc_filter``: Filters outliers in point clouds created with
     pinhole cameras and weighs inliers based on many criteria
     (:numref:`pc_filter`).
+  * Added CGAL-based tools for mesh smoothing, hole-filling, remeshing,
+    and removal of small connected components (:numref:`cgal_tools`).
   * ``jitter_solve``: A tool for solving for jitter in CSM camera 
     models (see :numref:`jitter_solve`). (Gives promising results but
     still undergoing testing.)

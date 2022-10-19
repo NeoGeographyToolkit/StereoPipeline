@@ -162,8 +162,10 @@ steps to run. This tool also has controls for the range of images to run.
 Creating a textured mesh
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The obtained mesh can be textured with the original images using the
-``texrecon`` tool (:numref:`texrecon`) as::
+The obtained mesh can be post-processed (smoothed, hole-filled, etc.)
+using a handful of CGAL-based tools shipped with ASP
+(:numref:`cgal_tools`).  Then, it can be textured with the original
+images using the ``texrecon`` tool (:numref:`texrecon`) as::
 
     texrecon --rig_config rig_out/rig_config.txt \
       --camera_poses rig_out/cameras.txt         \
@@ -179,9 +181,8 @@ This produces ``stereo_out/nav_cam/texture.obj``.
    :alt:  Bumble dock texture
 
    Fused .ply mesh and textured .obj file produced by ``voxblox_mesh``
-   and ``texrecon`` (left and right). Utilities for smoothing the mesh
-   and filling holes will be added to ASP at some point. Then the
-   textured mesh on the right will appear less noisy.
+   and ``texrecon`` (left and right). Here, no smoothing or hole-filling
+   of the meshes was used (:numref:`cgal_tools`).
 
 Handling issues
 ^^^^^^^^^^^^^^^

@@ -50,6 +50,9 @@ Command-line options
    Normally 85% - 90% of distorted (actual) image
    dimensions would do. Suggested for Astrobee images: sci_cam: '1250
    1000' nav_cam: '1100 776'. haz_cam: '250 200'.
+--max_texture_size <int>
+   The maximum size (in pixels) of each texture file created for the
+   produced textured mesh.
 --out_dir <string>
    The directory where to write the textured mesh and
    other data.

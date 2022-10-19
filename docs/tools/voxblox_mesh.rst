@@ -32,6 +32,9 @@ Here, the output mesh is ``fused_mesh.ply``, points no further than 2
 meters from each camera center are used, and the mesh is obtained
 after binning the points into voxels of 1 cm in size. 
 
+The obtained mesh can be post-processed, by smoothing it, filling in holes,
+etc., using several CGAL tools shipped with ASP (:numref:`cgal_tools`).
+
 Format of the inputs
 ^^^^^^^^^^^^^^^^^^^^
 
