@@ -213,7 +213,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     // Accept shape files along image files
     if (!is_image &&
         !asp::has_shp_extension(local_images[i]) &&
-        !vw::gui::hasXyzData(local_images[i]))
+        !vw::gui::hasCsv(local_images[i]))
       continue;
 
     m_image_files.push_back(local_images[i]);

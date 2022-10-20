@@ -392,22 +392,37 @@ value.
 View scattered points
 ~~~~~~~~~~~~~~~~~~~~~
 
-``stereo_gui`` can plot and colorize the initial and final
-``*pointmap.csv`` residuals created by ``bundle_adjust`` for each
-interest point (:numref:`ba_out_files`). Those will show up as colored
-dots, and can be overlayed as georeferenced images onto a DEM or
-mapprojected image of the same area. The command is::
+.. figure:: ../images/scattered_points.png
+   :name: scattered_points
+   :alt:  scattered_points
 
-    stereo_gui --min 0 --max 0.5 --plot-point-radius 2 \
-      ba/final_residuals_pointmap.csv
+   A colorized CSV file overlayed on top of a georeferenced image.
+
+``stereo_gui`` can plot and colorize scattered points stored in CSV
+files, and overlay them on top of images or each other. Each point
+will show up as a dot with a radius given by ``--plot-point-radius``.
+
+Here is an example of plotting the initial and final ``*pointmap.csv``
+residuals created by ``bundle_adjust`` for each interest point
+(:numref:`ba_out_files`)::
+
+    stereo_gui --colorize --min 0 --max 0.5 --plot-point-radius 2 \
+      ba/run-final_residuals_pointmap.csv
 
 This will use the longitude and latitude as the position, and will
 determine a color based on the 4th field in this file (the error) and
 the the min and max values specified above (which correspond to blue
 and red in the colorized plot, respectively).
 
-In the future ``stereo_gui`` will support plotting arbitrary csv
-files.
+To plot an arbitrary CSV file with longitude, latitude and value, do::
+
+    stereo_gui --csv-format "1:lon 2:lat 3:height_above_datum" \
+      --datum D_MOON --colorize                                \
+      filename.csv
+
+If the file has data in projected units (such as using Easting and
+Northing values), specify the option ``--csv-proj4`` having the
+projection. 
 
 .. _gui_options:
 
@@ -503,10 +518,29 @@ accept all other ``parallel_stereo`` options as well.
     When plotting points from CSV files, let each point be drawn as a
     filled ball with this radius, in pixels.
 
+--csv-format <string>
+    Specify the format of input CSV files as a list of entries
+    column_index:column_type (indices start from 1).  Examples:
+    ``1:x 2:y 3:z`` (a Cartesian coordinate system with origin at
+    planet center is assumed, with the units being in meters),
+    ``5:lon 6:lat 7:radius_m`` (longitude and latitude are in degrees,
+    the radius is measured in meters from planet center),
+    ``3:lat 2:lon 1:height_above_datum``,
+    ``1:easting 2:northing 3:height_above_datum``
+    (need to set ``--csv-proj4``; the height above datum is in
+    meters). Can also use radius_km for column_type, when it is
+    again measured from planet center.
+
+--csv-datum <string (default="")>
+    The datum to use to to use when plotting a CSV file. Options:
+    D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA
+    (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth
+    (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).
+
 --csv-proj4 (*string*) (default = "")
-    The PROJ.4 string to use to interpret the entries in input CSV
-    files. If not specified, infer that from metadata in the files
-    or from other loaded images.
+    The PROJ.4 string to use when plotting a CSV
+    file. If not specified, infer that from metadata in the file
+    or from the ``--datum`` option. 
 
 --delete-temporary-files-on-exit
     Delete any subsampled and other files created by the GUI when

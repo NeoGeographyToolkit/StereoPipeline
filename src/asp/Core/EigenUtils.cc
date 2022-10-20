@@ -149,8 +149,9 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
                      << " to be in latitude,longitude,height above datum (meters) format.\n";
     }
   }
-  // TODO: We parse these guessed file types manually but we should
-  // use a CsvConv object to do it!!!!!
+
+  // TODO(oalexan1): We parse these guessed file types manually but we should
+  // use a CsvConv object to do it!
 
   if (is_lola_rdr_format && geo.datum().semi_major_axis() != geo.datum().semi_minor_axis() ){
     vw_throw( vw::ArgumentErr() << "The CSV file was detected to be in the"
@@ -163,7 +164,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
   int points_count = 0;
   std::vector<double> longitudes;
   line = "";
-  while ( getline(file, line, '\n') ){
+  while (getline(file, line, '\n')) {
 
     if (!is_first_line && !line.empty() && line[0] == '#') {
       vw::vw_out() << "Ignoring line starting with comment: " << line << std::endl;

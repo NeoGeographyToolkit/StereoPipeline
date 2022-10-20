@@ -24,12 +24,12 @@ Space Station (ISS), based on images acquired with the `Astrobee
 expanded to a full module). 
 
 In this example it is very important to choose for pairwise stereo
-images with a convergence angle of about 5-10 degrees. A smaller angle
-results in unreliable depth determination, while for a bigger one the
-scene changes enough sometimes that stereo correlation can be
-erroneous, resulting in artifacts. Note that the ``rig_calibrator``
-tool (as well as ``bundle_adjust`` and ``parallel_stereo``) do compute
-the convergence angle.
+images with a convergence angle of about 5-10 degrees. A smaller
+convergence angle results in unreliable depth determination, while for
+a bigger one the scene changes enough sometimes that stereo
+correlation can be erroneous, resulting in artifacts. Note that the
+``rig_calibrator`` tool (as well as ``bundle_adjust`` and
+``parallel_stereo``) compute the convergence angles.
 
 Then, the ``pc_filter`` tool was used for filtering blunders according
 to many geometric criteria.

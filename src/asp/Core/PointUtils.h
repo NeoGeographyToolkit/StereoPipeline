@@ -68,7 +68,8 @@ namespace asp {
   public: // Functions
 
     /// Default Constructor, the object is not ready to use.
-    CsvConv() : format(XYZ), utm_zone(-1), utm_north(false), num_targets(0){}
+    CsvConv() : format(XYZ), utm_zone(-1), utm_north(false),
+                num_targets(0) {}
 
     bool      is_configured() const {return csv_format_str != "";}
     CsvFormat get_format   () const {return format;}
@@ -140,7 +141,7 @@ namespace asp {
     int         utm_zone;
     bool        utm_north;
     int         num_targets; ///< The number of elements to extract from each CSV line
-
+    
     friend class CsvReader;
 
   private: // Functions

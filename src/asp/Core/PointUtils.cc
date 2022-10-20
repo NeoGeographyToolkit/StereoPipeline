@@ -75,7 +75,7 @@ namespace asp{
               asp::CsvConv const& csv_conv,
               GeoReference const& georef)
       : m_csv_file(csv_file), m_csv_conv(csv_conv),
-        m_is_first_line(true), m_has_valid_point(false){
+        m_is_first_line(true), m_has_valid_point(false) {
 
       // We will convert from projected space to xyz, unless points
       // are already in this format.

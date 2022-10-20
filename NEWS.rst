@@ -112,6 +112,8 @@ mapproject:
   * Exposed and documented the ``--query-projection`` option.
  
 stereo_gui:
+  * Can plot, overlay on top of images, and colorize scattered points
+  * stored in a CSV file (:numref:`plot_pointmap`).
   * Given a ``bundle_adjust`` output prefix, can select via checkboxes
     any two images to show side-by-side, and automatically load their
     match file or clean match file (options:
@@ -122,9 +124,6 @@ stereo_gui:
   * Zoom to given proj win from the View menu. Useful for
     reproducibility. Also accessible with command-line option
     ``--zoom-proj-win``.
-  * Can display and colorize the ``pointmap`` residuals file
-    obtained after bundle adjustment and overlay it onto other
-    georeferenced data (:numref:`plot_pointmap`).
   * Bug fix for slow overlaying of images with different datums.
 
 corr_eval:

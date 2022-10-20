@@ -354,12 +354,86 @@ void findClosestPolyEdge(// inputs
 }
 
 // Return true if the extension is .csv or .txt
-bool hasXyzData(std::string const& fileName) {
+bool hasCsv(std::string const& fileName) {
   std::string ext = get_extension(fileName);
   if (ext == ".csv" || ext == ".txt")
     return true;
   
   return false;
+}
+
+// Read datum from a csv file, such as a pointmap file saved by bundle_adjust.  
+bool read_datum_from_csv(std::string const& file, vw::cartography::Datum & datum) {
+
+  int count = 0;
+  std::ifstream fh(file);
+    std::string line;
+    while (getline(fh, line, '\n') ) {
+
+      // If the datum was not found early on, give up
+      count++;
+      if (count > 10)
+        return false;
+
+      if (vw::cartography::read_datum_from_str(line, datum)) 
+        return true;
+      
+    }
+  return false;
+}
+
+// Given one or more of --csv-format-str, --csv-proj4, and datum, extract
+// the needed metatadata.
+void read_csv_metadata(std::string const& csv_file, 
+                       asp::CsvConv & csv_conv,
+                       vw::cartography::GeoReference & georef) {
+  
+  if (asp::stereo_settings().csv_format_str == "") {
+    if (csv_file.find("pointmap") != std::string::npos) {
+      // For the pointmap files the csv format is known
+      asp::stereo_settings().csv_format_str = "1:lon, 2:lat, 4:height_above_datum";
+    } else {
+      popUp("The option --csv-format-str must be specified.");
+      return;
+    }
+  }
+  vw_out() << "Using CSV format: " << asp::stereo_settings().csv_format_str << "\n";
+  
+  if (asp::stereo_settings().csv_proj4 != "")
+    vw_out() << "Using projection: " << asp::stereo_settings().csv_proj4 << "\n";
+    
+  try {
+    csv_conv.parse_csv_format(asp::stereo_settings().csv_format_str,
+                              asp::stereo_settings().csv_proj4);
+  }catch (...) {
+    // Give a more specific error message
+    popUp("Could not parse the csv format. Check or specify --csv-format.\n");
+    return;
+  }
+
+  if (csv_file.find("pointmap") == std::string::npos &&
+      asp::stereo_settings().csv_datum == "" &&
+      asp::stereo_settings().csv_proj4 == "") {
+    popUp("Must specify either --csv-proj4 or --csv-datum.");
+    return;
+  }
+
+  // For a pointmap file, read the datum from the file
+  if (csv_file.find("pointmap") != std::string::npos) {
+    vw::cartography::Datum datum;
+    if (read_datum_from_csv(csv_file, datum))
+      georef.set_datum(datum);
+  }
+
+  // Parse the datum and populate the georef
+  csv_conv.parse_georef(georef);
+  if (asp::stereo_settings().csv_datum != "") {
+    vw::cartography::Datum datum(asp::stereo_settings().csv_datum);
+    std::cout << "Using datum: " << datum << std::endl;
+    georef.set_datum(datum);
+  }
+
+  return;
 }
   
 void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt,
@@ -370,7 +444,6 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
   } else if (display_mode == HILLSHADED_VIEW) {
     hillshaded_name = name_in;
   }
-  // TODO(oalexan1): Add here colorized view
 
   std::string poly_color = "red";
   
@@ -389,34 +462,19 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     if (!has_georef)
       vw_throw(ArgumentErr() << "Expecting the shapefile to have a georeference.\n");
     
-  } else if (vw::gui::hasXyzData(name_in)) {
-    
-    has_georef = true;
-    
-    // TODO(oalexan1): Below we assume point2map.csv only!
-    std::string csv_format_str = "1:lon, 2:lat, 4:height_above_datum";
-    
-    asp::CsvConv csv_conv;
-    try {
-      csv_conv.parse_csv_format(csv_format_str, asp::stereo_settings().csv_proj4);
-    }catch (...) {
-      // Give a more specific error message
-      vw::vw_throw(vw::ArgumentErr() << "Could not parse the csv format in: "
-                   << csv_format_str << ".\n");
-    }
+  } else if (vw::gui::hasCsv(name_in)) {
 
+    // Read CSV
     vw_out() << "Reading: " << name_in << std::endl; 
+
+    has_georef = true;
+    asp::CsvConv csv_conv;
+    read_csv_metadata(name_in, csv_conv, georef);
+
+    // Read the file
     std::list<asp::CsvConv::CsvRecord> pos_records;
     csv_conv.read_csv_file(name_in, pos_records);
-
-    // TODO(oalexan1): Must parse datum string from a pointmap file!
-    // TODO(oalexan1): Consider adding the lines below. Need to imitate
-    // the logic in point2dem for how to combine the datum with the
-    // projection set via --csv-proj4. Then need to adjust the georef
-    // appropriately as well.
-    // csv_georef.set_datum(datum);
-    // csv_conv.parse_georef(georef);
-
+    
     xyz_data.clear();
     vw::BBox3 bounds;
     for (auto iter = pos_records.begin(); iter != pos_records.end(); iter++) {

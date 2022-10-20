@@ -179,7 +179,7 @@ namespace vw { namespace gui {
   };
 
   // Return true if the extension is .csv or .txt
-  bool hasXyzData(std::string const& fileName);
+  bool hasCsv(std::string const& fileName);
   
   /// A class to keep all data associated with an image file
   struct imageData{
@@ -213,7 +213,7 @@ namespace vw { namespace gui {
               int display_mode = REGULAR_VIEW);
 
     bool isPoly() const { return asp::has_shp_extension(name); }
-    bool isXyz()  const { return vw::gui::hasXyzData(name); }
+    bool isCsv()  const { return vw::gui::hasCsv(name); }
   };
 
   /// Convert a QRect object to a BBox2 object.

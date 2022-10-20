@@ -111,7 +111,7 @@ namespace vw { namespace gui {
   // to a pixel box for the given image.
   Vector2 MainWidget::world2image(Vector2 const P, int imageIndex) const{
 
-    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz());
+    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isCsv());
 
     if (poly_or_xyz) {
       
@@ -131,7 +131,7 @@ namespace vw { namespace gui {
 
   BBox2 MainWidget::world2image(BBox2 const& R, int imageIndex) const{
 
-    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz());
+    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isCsv());
 
     if (R.empty()) 
       return R;
@@ -156,7 +156,7 @@ namespace vw { namespace gui {
   // The reverse of world2image()
   Vector2 MainWidget::image2world(Vector2 const P, int imageIndex) const{
 
-    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz());
+    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isCsv());
 
     if (poly_or_xyz) {
       if (!m_use_georef)
@@ -177,7 +177,7 @@ namespace vw { namespace gui {
     if (R.empty()) return R;
     if (m_images.empty()) return R;
 
-    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isXyz());
+    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isCsv());
 
     // Consider the case when the current layer is a polygon.
     // TODO(oalexan1): What if a layer has both an image and a polygon?
@@ -285,7 +285,7 @@ namespace vw { namespace gui {
         = GeoTransform(m_images[m_base_image_id].georef, m_images[i].georef);
       m_image2world_geotransforms[i]
         = GeoTransform(m_images[i].georef, m_images[m_base_image_id].georef);
-      
+
       m_filesOrder[i] = i; // start by keeping the order of files being read
 
       // Grow the world box to fit all the images
@@ -691,7 +691,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     int num_non_poly_images = 0;
     int num_images = m_images.size();
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-      if (!m_images[image_iter].isPoly() && !m_images[image_iter].isXyz())
+      if (!m_images[image_iter].isPoly() && !m_images[image_iter].isCsv())
         num_non_poly_images++;
     }
 
@@ -713,7 +713,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
       std::string input_file = m_images[image_iter].name;
 
-      if (m_images[image_iter].isPoly() || m_images[image_iter].isXyz())
+      if (m_images[image_iter].isPoly() || m_images[image_iter].isCsv())
         continue;
       
       double nodata_val = -std::numeric_limits<double>::max();
@@ -774,7 +774,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       }
 
       // Cannot hillshade a polygon or xyz data
-      if (m_images[image_iter].isPoly() || m_images[image_iter].isXyz()) 
+      if (m_images[image_iter].isPoly() || m_images[image_iter].isCsv()) 
         continue;
 
       std::string input_file = m_images[image_iter].name;
@@ -1112,7 +1112,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       image_box.min() = floor(image_box.min());
       image_box.max() = ceil(image_box.max());
 
-      if (m_images[i].isPoly() || m_images[i].isXyz())
+      if (m_images[i].isPoly() || m_images[i].isCsv())
         continue;
 
       QImage qimg;
@@ -2395,7 +2395,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     int non_poly_image = -1;
     int num_non_poly_images = 0;
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-      if (!m_images[image_iter].isPoly() && !m_images[image_iter].isXyz())
+      if (!m_images[image_iter].isPoly() && !m_images[image_iter].isCsv())
         num_non_poly_images++;
       non_poly_image = image_iter;
     }
@@ -3074,7 +3074,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
           Vector2 proj_min, proj_max;
           // Convert pixels to projected coordinates
           BBox2 point_box;
-          if (m_images[image_it].isPoly() || m_images[image_it].isXyz())
+          if (m_images[image_it].isPoly() || m_images[image_it].isCsv())
             point_box = image_box;
           else 
             point_box = m_images[image_it].georef.pixel_to_point_bbox(image_box);
@@ -3458,7 +3458,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     int non_poly_image = 0;
     int num_non_poly_images = 0;
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-      if (!m_images[image_iter].isPoly() && !m_images[image_iter].isXyz())
+      if (!m_images[image_iter].isPoly() && !m_images[image_iter].isCsv())
         num_non_poly_images++;
       non_poly_image = image_iter;
     }

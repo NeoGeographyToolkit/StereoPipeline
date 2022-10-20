@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file StereoSettings.h
+/// \file StereoSettings.cc
 ///
 #include <fstream>
 
@@ -25,6 +25,7 @@
 
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/PointUtils.h>
 
 namespace po = boost::program_options;
 using namespace vw;
@@ -457,7 +458,9 @@ namespace asp {
        "Load this .nvm file having interest point matches. It is assumed it was saved with no shift of the interest points relative to the optical center. The rig_calibrator program can create such files. This option implies --pairwise-matches.")
       ("zoom-proj-win", po::value(&global.zoom_proj_win)->default_value(BBox2(0,0,0,0), ""),
        "Zoom to this proj win on startup. It is assumed that the images are georeferenced. Also accessible from the View menu.")
-      ("csv-proj4",      po::value(&global.csv_proj4)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV files. If not specified, infer that from metadata in the CSV files or from other loaded images.")
+      ("csv-format",     po::value(&global.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
+      ("csv-proj4",      po::value(&global.csv_proj4)->default_value(""), "The PROJ.4 string to use to interpret the entries in a CSV file. If not specified, try to infer that from the metadata in the file or from the --datum option.")
+      ("csv-datum",      po::value(&global.csv_datum)->default_value(""), "The datum to use when plotting a CSV file.")
       ("colorize",   po::bool_switch(&global.colorize)->default_value(false)->implicit_value(true),
        "Colorize input raster and CSV files (must set --min and --max).")
       ("min", po::value(&global.min)->default_value(g_nan_val),

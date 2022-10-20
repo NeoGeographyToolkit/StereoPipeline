@@ -420,6 +420,9 @@ void write_residual_map(std::string const& output_prefix,
   file.open(output_path.c_str());
   file.precision(18); // TODO(oalexan1): Replace here by 17
   file << "# lon, lat, height_above_datum, mean_residual, num_observations\n";
+
+  // stereo_gui counts on being able to parse the datum from this file, so
+  // do not modify the line below.
   file << "# " << opt.datum << std::endl;
   
   // Now write all the points to the file

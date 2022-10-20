@@ -172,7 +172,7 @@ int main(int argc, char** argv) {
         }else if (asp::has_shp_extension(file)) {
           // See if this is a shape file
           is_image = true; // will load it in the same struct as for images
-        }else if (vw::gui::hasXyzData(file)) {
+        }else if (vw::gui::hasCsv(file)) {
           is_image = true; // will load it in the same struct as for images
         }else if (has_cam_extension(file)) {
           // We will get here for all cameras except .cub, which
