@@ -46,6 +46,7 @@ namespace asp {
     CameraModelPtr load_isis_camera_model       (std::string const& path) const;
     CameraModelPtr load_spot5_camera_model      (std::string const& path) const;
     CameraModelPtr load_perusat_camera_model    (std::string const& path) const;
+    CameraModelPtr load_pleiades_camera_model   (std::string const& path) const;
     CameraModelPtr load_ASTER_camera_model      (std::string const& path) const;
     CameraModelPtr load_optical_bar_camera_model(std::string const& path) const;
     CameraModelPtr load_csm_camera_model        (std::string const& path) const;

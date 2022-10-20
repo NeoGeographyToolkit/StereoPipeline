@@ -133,7 +133,7 @@ namespace asp {
     ///  to the order according to the "format" member variable.
     vw::Vector3 sort_parsed_vector3(CsvRecord const& v) const;
 
-    /// Performs the revers of sort_parsed_vector3, putting the values in the order
+    /// Performs the reverse of sort_parsed_vector3, putting the values in the order
     ///  that they originally appeared in the file (ignores the file field).
     vw::Vector3 unsort_vector3(vw::Vector3 const& v) const;
 

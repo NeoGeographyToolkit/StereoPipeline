@@ -475,7 +475,7 @@ void asp::RPCXML::read_from_file(std::string const& name) {
     // Possibly RPB doesn't exist
   }
   try {
-    // Pleiades/Astrium
+    // Pleiades/Astrium RPC
     parse_rational_function_model(get_node<DOMElement>(elementRoot, "Rational_Function_Model"));
     return;
   } catch (vw::IOErr const& e) {
@@ -483,7 +483,7 @@ void asp::RPCXML::read_from_file(std::string const& name) {
   }
   
   try {
-    // Perusat 1
+    // Perusat 1 RPC
     parse_perusat_model(elementRoot);
     return;
   } catch (vw::IOErr const& e) {

@@ -94,8 +94,14 @@ namespace asp{
       }else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".xml") ||
 		boost::iends_with(boost::to_lower_copy(right_camera_file), ".xml") ) {
 
-        // Here we have several options
+        // Here we have several options for .xml files. Note that a
+        // Digital Globe xml file has both linescan and RPC
+        // models. The logic below favors the linescan sensor.
         if (actual_session_type.empty()) {
+          
+          // TODO(oalexan1): Try to peek in the xml file instead of doing this exhaustive
+          // checking
+          
           // Try DG exact linescan model
           try {
             StereoSessionDG session;
@@ -116,6 +122,18 @@ namespace asp{
             actual_session_type = "perusat";
           } catch (...) {}
         }
+
+        if (actual_session_type.empty()) {
+          // Try Pleiades exact linescan model
+          try {
+            StereoSessionPleiades session;
+            boost::shared_ptr<vw::camera::CameraModel>
+              left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
+              right_model = session.camera_model(right_image_file, right_camera_file, quiet);
+            actual_session_type = "pleiades";
+          } catch (...) {}
+        }
+        
       } // end considering the xml extension case
 
       // Try RPC, which can either have xml cameras or no cameras at all (if embedded
@@ -181,22 +199,23 @@ namespace asp{
       
     } // End map promotion section
 
-    if (!input_dem.empty() && actual_session_type == "perusat") {
-      // User says PeruSat-1 but also gives a DEM, so the images were mapprojected.
+    if (!input_dem.empty() &&
+        (actual_session_type == "perusat" || actual_session_type == "pleiades")) {
+      // User says PeruSat-1 or Pleiades but also gives a DEM, so the images were mapprojected.
       // If the mapprojection was done with the exact model, stereo becomes
       // painfully slow. If it was done with the RPC model, things become hard
       // to manage, and stereo needs to know both the exact and RPC model
       // and those are in different files. Hence, just don't allow mapprojected
       // images in this case.
-      vw_throw(vw::NoImplErr() << "Stereo with mapprojected images and the PeruSat-1 " <<
-               "linescan model is not implemented. Use instead the RPC model.");
+      vw_throw(vw::NoImplErr() << "Stereo with mapprojected images and the PeruSat-1 or Pleiades "
+               << "linescan model is not implemented. Use instead the RPC model.");
     }
     
     // We should know the session type by now.
     VW_ASSERT(!actual_session_type.empty(),
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
-              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster perusat opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm].\n");
+              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster perusat pleiades opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm].\n");
     vw::vw_out() << "Using session: " << actual_session_type << "\n";
 
     // Compare the current session name to all recognized types
@@ -232,6 +251,8 @@ namespace asp{
       session = StereoSessionSpot::construct();
     else if (actual_session_type == "perusat")
       session = StereoSessionPeruSat::construct();
+    else if (actual_session_type == "pleiades")
+      session = StereoSessionPleiades::construct();
     else if (actual_session_type == "aster")
       session = StereoSessionASTER::construct();
     else if (actual_session_type == "opticalbar")

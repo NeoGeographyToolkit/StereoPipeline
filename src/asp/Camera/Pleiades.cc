@@ -22,7 +22,7 @@
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 
 #include <asp/Camera/XMLBase.h>
-#include <asp/Camera/PeruSatXML.h>
+#include <asp/Camera/PleiadesXML.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/XMLBase.h>
 
@@ -49,7 +49,7 @@ using asp::XmlUtils::cast_xmlch;
 
 namespace asp {
 
-DOMElement* PeruSatXML::open_xml_file(std::string const& xml_path) {
+DOMElement* PleiadesXML::open_xml_file(std::string const& xml_path) {
 
   // Check if the file actually exists and throw a user helpful file.
   if (!boost::filesystem::exists(xml_path))
@@ -96,12 +96,12 @@ DOMElement* PeruSatXML::open_xml_file(std::string const& xml_path) {
   return 0;
 }
 
-void PeruSatXML::read_xml(std::string const& xml_path) {
+void PleiadesXML::read_xml(std::string const& xml_path) {
   DOMElement * root = open_xml_file(xml_path);
   parse_xml(root);
 }
 
-void PeruSatXML::parse_xml(xercesc::DOMElement* root) {
+void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
 
   xercesc::DOMElement* metadata_id = get_node<DOMElement>(root, "Metadata_Identification");
 
@@ -144,7 +144,7 @@ void PeruSatXML::parse_xml(xercesc::DOMElement* root) {
   read_center_data(geom_values);
 }
 
-void PeruSatXML::read_image_size(xercesc::DOMElement* raster_data_node) {
+void PleiadesXML::read_image_size(xercesc::DOMElement* raster_data_node) {
   xercesc::DOMElement* raster_dims_node = get_node<DOMElement>(raster_data_node,
                                                                  "Raster_Dimensions");
 
@@ -152,19 +152,19 @@ void PeruSatXML::read_image_size(xercesc::DOMElement* raster_data_node) {
   cast_xmlch(get_node<DOMElement>(raster_dims_node, "NCOLS")->getTextContent(), m_image_size[0]);
 }
 
-void PeruSatXML::read_times(xercesc::DOMElement* time) {
+void PleiadesXML::read_times(xercesc::DOMElement* time) {
   xercesc::DOMElement* time_range = get_node<DOMElement>(time, "Time_Range");
 
   std::string start_time_str;
   cast_xmlch(get_node<DOMElement>(time_range, "START")->getTextContent(), start_time_str);
   bool is_start_time = true;
-  m_start_time = PeruSatXML::convert_time(start_time_str, is_start_time);
+  m_start_time = PleiadesXML::convert_time(start_time_str, is_start_time);
 
   xercesc::DOMElement* time_stamp = get_node<DOMElement>(time, "Time_Stamp");
   cast_xmlch(get_node<DOMElement>(time_stamp, "LINE_PERIOD")->getTextContent(), m_line_period);
 }
   
-void PeruSatXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
+void PleiadesXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
 
   // Reset data storage
   m_positions.clear(); 
@@ -196,7 +196,7 @@ void PeruSatXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
     cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(),         time_str);
 
     bool is_start_time = false;
-    double time = PeruSatXML::convert_time(time_str, is_start_time);
+    double time = PleiadesXML::convert_time(time_str, is_start_time);
     
     std::string delimiters(",\t ");
     position_vec = str_to_vec<Vector3>(position_str, delimiters);
@@ -208,7 +208,7 @@ void PeruSatXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
   
 }
   
-void PeruSatXML::read_attitudes(xercesc::DOMElement* attitudes) {
+void PleiadesXML::read_attitudes(xercesc::DOMElement* attitudes) {
 
   // Reset data storage
   m_poses.clear();
@@ -237,7 +237,7 @@ void PeruSatXML::read_attitudes(xercesc::DOMElement* attitudes) {
     cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(), time_str);
 
     bool is_start_time = false;
-    data.first = PeruSatXML::convert_time(time_str, is_start_time);
+    data.first = PleiadesXML::convert_time(time_str, is_start_time);
     
     double w, x, y, z;
     cast_xmlch(get_node<DOMElement>(curr_element, "Q0")->getTextContent(), w);
@@ -254,7 +254,7 @@ void PeruSatXML::read_attitudes(xercesc::DOMElement* attitudes) {
   } // End loop through attitudes
 }
 
-void PeruSatXML::read_look_angles(xercesc::DOMElement* look_angles) {
+void PleiadesXML::read_look_angles(xercesc::DOMElement* look_angles) {
   std::string delimiters(",\t ");
   std::string tan_psi_x_str;
   cast_xmlch(get_node<DOMElement>(look_angles, "LINE_OF_SIGHT_TANPSIX")->getTextContent(),
@@ -267,7 +267,7 @@ void PeruSatXML::read_look_angles(xercesc::DOMElement* look_angles) {
   m_tan_psi_y = str_to_vec<Vector2>(tan_psi_y_str, delimiters);
 }
 
-void PeruSatXML::read_instr_biases(xercesc::DOMElement* instr_biases) {
+void PleiadesXML::read_instr_biases(xercesc::DOMElement* instr_biases) {
     
   double w, x, y, z;
   cast_xmlch(get_node<DOMElement>(instr_biases, "Q0")->getTextContent(), w);
@@ -278,7 +278,7 @@ void PeruSatXML::read_instr_biases(xercesc::DOMElement* instr_biases) {
   m_instrument_biases = vw::Quaternion<double>(w, x, y, z);
 }
 
-void PeruSatXML::read_center_data(xercesc::DOMElement* geom_values) {
+void PleiadesXML::read_center_data(xercesc::DOMElement* geom_values) {
 
   std::string center_time_str;
   cast_xmlch(get_node<DOMElement>(geom_values, "TIME")->getTextContent(), center_time_str);
@@ -286,7 +286,7 @@ void PeruSatXML::read_center_data(xercesc::DOMElement* geom_values) {
   cast_xmlch(get_node<DOMElement>(geom_values, "ROW")->getTextContent(), m_center_row);
 
   bool is_start_time = false;
-  center_time = PeruSatXML::convert_time(center_time_str, is_start_time);
+  center_time = PleiadesXML::convert_time(center_time_str, is_start_time);
 
   // Convert from 1-based to 0-based indices.  
   m_center_col -= 1.0;
@@ -296,7 +296,7 @@ void PeruSatXML::read_center_data(xercesc::DOMElement* geom_values) {
 // Converts a time from string to double precision value measured in seconds
 // relative to the start time.
 // Input strings look like this: 2008-03-04T12:31:03.08191Z.
-double PeruSatXML::convert_time(std::string const& s, bool is_start_time) {
+double PleiadesXML::convert_time(std::string const& s, bool is_start_time) {
 
   if (!is_start_time && !m_start_time_is_set) 
     vw::vw_throw(vw::ArgumentErr()
@@ -332,17 +332,17 @@ double PeruSatXML::convert_time(std::string const& s, bool is_start_time) {
 // the period.  All times are relative to the starting time (see the
 // convert_time() function).
   
-// Note: PeruSat also has the center time, under Located_Geometric_Values,
-// and that corresponds to line (num_lines - 1)/2.0 as expected. Yet PeruSat
+// Note: Pleiades also has the center time, under Located_Geometric_Values,
+// and that corresponds to line (num_lines - 1)/2.0 as expected. Yet Pleiades
 // also provides there a center row, but that one is wrong and not equal
 // to (num_lines - 1)/2.0.
-vw::camera::LinearTimeInterpolation PeruSatXML::setup_time_func() const {
+vw::camera::LinearTimeInterpolation PleiadesXML::setup_time_func() const {
   return vw::camera::LinearTimeInterpolation(m_start_time, m_line_period);
 }
 
 // The position is already in GCC, so just pack into a function.
 // - Currently this is identical to the velocity function, but this may change later.
-vw::camera::LagrangianInterpolation PeruSatXML::setup_position_func
+vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
 (vw::camera::LinearTimeInterpolation const& time_func) const {
 
   // Sanity check, we should be able to find the position for each image line
@@ -398,7 +398,7 @@ vw::camera::LagrangianInterpolation PeruSatXML::setup_position_func
 //  Earth rotation.
 
 // The velocity is already in GCC, so just pack into a function.
-vw::camera::LagrangianInterpolation PeruSatXML::setup_velocity_func
+vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
 (vw::camera::LinearTimeInterpolation const& time_func) const {
 
   // Sanity check, we should be able to find the velocity for each image line
@@ -455,7 +455,7 @@ vw::camera::LagrangianInterpolation PeruSatXML::setup_velocity_func
 // TODO(oalexan1): See if using bicubic pose interpolation (as the
 // SPOT-6 manual suggests) is better than the bilinear interpolation
 // used now.
-vw::camera::SLERPPoseInterpolation PeruSatXML::setup_pose_func
+vw::camera::SLERPPoseInterpolation PleiadesXML::setup_pose_func
   (vw::camera::LinearTimeInterpolation const& time_func) const {
 
   size_t num_lines           = m_image_size[1];
@@ -500,8 +500,7 @@ vw::camera::SLERPPoseInterpolation PeruSatXML::setup_pose_func
   
 // Boost does not like a time string such as "2017-12-07 15:36:40.90795Z"
 // because it expects precisely 6 digits after the dot. Fix that.
-// TODO(oalexan1): Move this to some low-level shared file
-std::string PeruSatXML::fix_millisecond(std::string const& in_str) {
+std::string PleiadesXML::fix_millisecond(std::string const& in_str) {
 
   std::string out_str = "";
   bool found_dot = false;

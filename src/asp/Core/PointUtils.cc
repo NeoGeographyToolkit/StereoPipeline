@@ -691,8 +691,6 @@ vw::Vector3 asp::CsvConv::unsort_vector3(vw::Vector3 const& csv) const {
   return csv2;
 }
 
-
-
 // There is a lot of repeated code for the next three functions in order to
 // improve the speed of parsing points by doing the minimum number of conversions.
 

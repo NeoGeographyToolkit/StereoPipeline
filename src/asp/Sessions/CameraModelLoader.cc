@@ -36,6 +36,7 @@
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/LinescanSpotModel.h>
 #include <asp/Camera/LinescanPeruSatModel.h>
+#include <asp/Camera/LinescanPleiadesModel.h>
 #include <asp/Camera/LinescanASTERModel.h>
 #include <asp/Sessions/CameraModelLoader.h>
 #include <asp/Camera/RPCModel.h>
@@ -90,24 +91,25 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_rpc_camera_mo
 
 
 // Load a DG camera file
-boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_camera_model(std::string const& path) const
-{
+boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_camera_model(std::string const& path) const {
   // Redirect to the call from LinescanDGModel.h file
   return CameraModelPtr(load_dg_camera_model_from_xml(path));
 }
 
 // Load a spot5 camera file
-boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_spot5_camera_model(std::string const& path) const
-{
-  // Redirect to the call from LinescanSpotModel.h file
+boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_spot5_camera_model(std::string const& path) const {
   return CameraModelPtr(load_spot5_camera_model_from_xml(path));
 }
 
 // Load a PeruSat linescan camera file
 boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_perusat_camera_model(std::string const& path) const
 {
-  // Redirect to the call from LinescanSpotModel.h file
   return CameraModelPtr(load_perusat_camera_model_from_xml(path));
+}
+
+// Load a Pleiades linescan camera file
+boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_pleiades_camera_model(std::string const& path) const {
+  return CameraModelPtr(load_pleiades_camera_model_from_xml(path));
 }
 
 // Load a ASTER camera file
@@ -116,7 +118,6 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_ASTER_camera_
   // This model file also needs the RPC model as an initial guess
   boost::shared_ptr<vw::camera::CameraModel> rpc_model = load_rpc_camera_model(path);
 
-  // Redirect to the call from LinescanASTERModel.h file
   return CameraModelPtr(load_ASTER_camera_model_from_xml(path, rpc_model));
 }
 

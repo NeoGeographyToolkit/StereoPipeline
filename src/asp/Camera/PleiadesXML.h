@@ -19,8 +19,8 @@
 // to read. They only read and then store the raw values. Other
 // objects will interpret the results.
 
-#ifndef __STEREO_CAMERA_PERUSAT_XML_H__
-#define __STEREO_CAMERA_PERUSAT_XML_H__
+#ifndef __STEREO_CAMERA_PLEIADES_XML_H__
+#define __STEREO_CAMERA_PLEIADES_XML_H__
 
 #include <vw/Core/FundamentalTypes.h>
 #include <vw/Core/Log.h>
@@ -50,11 +50,11 @@ XERCES_CPP_NAMESPACE_END
 
 namespace asp {
 
-  class PeruSatXML {
+  class PleiadesXML {
   public:
 
     /// Constructor
-    PeruSatXML(): m_start_time_is_set(false){}
+    PleiadesXML(): m_start_time_is_set(false){}
 
     vw::Vector2i m_image_size;
     vw::Quaternion<double> m_instrument_biases;
@@ -115,9 +115,9 @@ namespace asp {
     boost::shared_ptr<xercesc::XercesDOMParser> m_parser;
     boost::shared_ptr<xercesc::ErrorHandler>    m_err_handler;
     
-  }; // End class PeruSatXML
+  }; // End class PleiadesXML
 
 
 } //end namespace asp
 
-#endif//__STEREO_CAMERA_PERUSAT_XML_H__
+#endif//__STEREO_CAMERA_PLEIADES_XML_H__

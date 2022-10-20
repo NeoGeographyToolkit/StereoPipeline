@@ -27,6 +27,11 @@ New tools:
     models (see :numref:`jitter_solve`). (Gives promising results but
     still undergoing testing.)
 
+New sesors:
+
+  * Support the Pleiades exact sensor (1A/1B). Implemented as a
+    wrapper around the CSM linescan camera model.
+
 parallel_stereo:
   * Added the options ``--match-files-prefix`` and
     ``--clean-match-files-prefix`` for reusing interest point matches

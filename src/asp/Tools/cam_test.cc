@@ -16,8 +16,8 @@
 // __END_LICENSE__
 
 // Tool to compare two camera models for the same image. For example,
-// compare ISIS to CSM, linescan to cam2 (for DG or PeruSat), Optical
-// bar vs pinhole (with the latter created with
+// compare ISIS to CSM, linescan to RPC (for DG, PeruSat, or
+// Pleiades), Optical bar vs pinhole (with the latter created with
 // convert_pinhole_model).
 
 // For each camera model find the camera center and ray direction at a
@@ -31,9 +31,7 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Camera/RPCModel.h>
-#include <asp/Camera/LinescanPeruSatModel.h>
 #include <vw/Core/Stopwatch.h>
-#include <vw/Camera/OpticalBarModel.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 
