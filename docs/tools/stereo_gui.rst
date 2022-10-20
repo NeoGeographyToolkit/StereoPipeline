@@ -402,7 +402,7 @@ View scattered points
 files, and overlay them on top of images or each other. Each point
 will show up as a dot with a radius given by ``--plot-point-radius``.
 
-Here is an example of plotting the initial and final ``*pointmap.csv``
+Here is an example of plotting the final ``*pointmap.csv``
 residuals created by ``bundle_adjust`` for each interest point
 (:numref:`ba_out_files`)::
 
@@ -539,8 +539,7 @@ accept all other ``parallel_stereo`` options as well.
 
 --csv-proj4 (*string*) (default = "")
     The PROJ.4 string to use when plotting a CSV
-    file. If not specified, infer that from metadata in the file
-    or from the ``--datum`` option. 
+    file. If not specified, try to use the ``--datum`` option. 
 
 --delete-temporary-files-on-exit
     Delete any subsampled and other files created by the GUI when
