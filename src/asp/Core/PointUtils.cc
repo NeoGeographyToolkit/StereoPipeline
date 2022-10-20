@@ -494,7 +494,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
 
   // Sort the names into a pre-specified order.
   std::vector<std::string> sorted_names(this->num_targets);
-  for (std::map<std::string, int>::iterator it = this->name2col.begin(); it != this->name2col.end() ; it++){
+  for (auto it = this->name2col.begin(); it != this->name2col.end() ; it++){
     int index = get_sorted_index_for_name(it->first);
     sorted_names[index] = it->first;
     if (index < NUM_POINT_VALS) // Currently only the point data goes into a vector
@@ -669,7 +669,7 @@ vw::Vector3 asp::CsvConv::sort_parsed_vector3(CsvRecord const& csv) const {
   Vector3 ordered_csv;
   int count = 0;
   const int NUM_POINT_PARAMS = 3;
-  for (std::map<int, int>::const_iterator it = this->col2sort.begin(); it != this->col2sort.end(); it++){
+  for (auto it = this->col2sort.begin(); it != this->col2sort.end(); it++){
     if (it->second < NUM_POINT_PARAMS) // Don't include elements past the first three
       ordered_csv[it->second] = csv.point_data[count];
     count++;
@@ -919,7 +919,7 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
     vw_throw( ArgumentErr() << "Unknown file type: " << in_file << "\n");
 
   ImageViewRef<Vector3> Img
-    = asp::LasOrCsvToTif_Class< ImageView<Vector3> >(reader_ptr.get(), num_rows,
+    = asp::LasOrCsvToTif_Class<ImageView<Vector3>>(reader_ptr.get(), num_rows,
                                                      TILE_LEN, block_size);
 
   // Must use a thread only, as we read the input file serially.

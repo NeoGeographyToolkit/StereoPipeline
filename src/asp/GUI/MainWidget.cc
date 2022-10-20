@@ -1072,12 +1072,12 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
     // Loop through input images
     // - These images get drawn in the same
-    for (int j = m_beg_image_id; j < m_end_image_id; j++){
+    for (int j = m_beg_image_id; j < m_end_image_id; j++) {
 
       //Stopwatch sw2;
       //sw2.start();
 
-      int i = m_filesOrder[j];
+      int i = m_filesOrder[j]; // image index
 
       // Don't show files the user wants hidden
       if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
@@ -1112,8 +1112,13 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       image_box.min() = floor(image_box.min());
       image_box.max() = ceil(image_box.max());
 
-      if (m_images[i].isPoly() || m_images[i].isCsv())
-        continue;
+      if (m_images[i].isPoly())
+        continue; // those will be always drawn on top of images, to be done later
+      
+      if (m_images[i].isCsv()) {
+        MainWidget::drawScatteredData(paint, i);
+        continue; // there is no image, so no point going on
+      }
 
       QImage qimg;
       // Since the image portion contained in image_box could be huge,
@@ -1340,66 +1345,54 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
   
   // Draw irregular xyz data to be plotted at (x, y) location with z giving
   // the intensity. May be colorized.
-  void MainWidget::drawXyzData(QPainter* paint) {
+  void MainWidget::drawScatteredData(QPainter* paint, int image_index) {
     
-    // Loop through input images
-    for (int j = m_beg_image_id; j < m_end_image_id; j++) {
+    int r = asp::stereo_settings().plot_point_radius;
 
-      int i = m_filesOrder[j];
+    // Use --min and --max values, if set.
+    double min_val = asp::stereo_settings().min;
+    double max_val = asp::stereo_settings().max;
+    if (std::isnan(min_val)) 
+      min_val = m_images[image_index].val_range[0];
+    if (std::isnan(max_val)) 
+      max_val = m_images[image_index].val_range[1];
 
-      // Don't show files the user wants hidden
-      if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
-        continue;
-
-      if (m_images[i].xyz_data.empty()) 
-        continue;
+    Colormap colormap;
       
-      int r = asp::stereo_settings().plot_point_radius;
+    for (size_t pt_it = 0; pt_it < m_images[image_index].scattered_data.size(); pt_it++) {
+      auto const& P = m_images[image_index].scattered_data[pt_it];
 
-      // Use --min and --max values, if set.
-      double min_val = asp::stereo_settings().min;
-      double max_val = asp::stereo_settings().max;
-      if (std::isnan(min_val)) 
-        min_val = m_images[i].val_range[0];
-      if (std::isnan(max_val)) 
-        max_val = m_images[i].val_range[1];
+      vw::Vector2 world_P = projpoint2world(subvector(P, 0, 2), image_index);
+      Vector2 screen_P = world2screen(world_P);
+      QPoint Q(screen_P.x(), screen_P.y());
 
-      Colormap colormap;
-      
-      for (size_t pt_it = 0; pt_it < m_images[i].xyz_data.size(); pt_it++) {
-        auto const& P = m_images[i].xyz_data[pt_it];
+      // Scale the intensity to [0, 1]
+      double s = (P[2] - min_val) / (max_val - min_val);
+      if (max_val <= min_val) 
+        s = 0.0; // degenerate case
+      if (s > 1.0)
+        s = 1.0;
+      if (s < 0.0)
+        s = 0.0;
 
-        vw::Vector2 world_P = projpoint2world(subvector(P, 0, 2), i);
-        Vector2 screen_P = world2screen(world_P);
-        QPoint Q(screen_P.x(), screen_P.y());
-
-        // Scale the intensity to [0, 1]
-        double s = (P[2] - min_val) / (max_val - min_val);
-        if (max_val <= min_val) 
-          s = 0.0; // degenerate case
-        if (s > 1.0)
-          s = 1.0;
-        if (s < 0.0)
-          s = 0.0;
-
-        QColor c;
-        if (asp::stereo_settings().colorize) {
-          // Get the color from the colormap
-          vw::Vector3 v = colormap(s);
-          c = QColor(v[0], v[1], v[2]);
-        } else {
-          // Grayscale color
-          s = round(255.0 * s);
-          c = QColor(s, s, s);
-        }
-
-        // Draw the ball
-        paint->setPen(QPen(c));
-        paint->setBrush(QBrush(c));
-        paint->drawEllipse(Q, r, r); 
+      QColor c;
+      if (asp::stereo_settings().colorize) {
+        // Get the color from the colormap
+        vw::Vector3 v = colormap(s);
+        c = QColor(v[0], v[1], v[2]);
+      } else {
+        // Grayscale color
+        s = round(255.0 * s);
+        c = QColor(s, s, s);
       }
+
+      // Draw the ball
+      paint->setPen(QPen(c));
+      paint->setBrush(QBrush(c));
+      paint->drawEllipse(Q, r, r); 
     }
-    
+
+    return;
   }
   
   void MainWidget::updateCurrentMousePosition() {
@@ -1462,9 +1455,6 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         asp::stereo_settings().pairwise_clean_matches)
       drawInterestPoints(&paint);
 
-    // Draw a filled ball for each xyz point
-    drawXyzData(&paint);
-    
     // Invokes MainWidget::PaintEvent().
     update();
 
@@ -1583,7 +1573,6 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
                              isPolyClosed, polyColorStr, layer);
           polyVec.push_back(poly);
       }
-
       
       // See if to use a custom color for this polygon
       QColor currPolyColor = polyColor;

@@ -372,7 +372,7 @@ public slots:
 
     // Draw irregular xyz data to be plotted at (x, y) location with z giving
     // the intensity. May be colorized.
-    void drawXyzData(QPainter* paint);
+    void drawScatteredData(QPainter* paint, int image_index);
     
     Vector2 world2screen   (Vector2 const  p  ) const;
     Vector2 screen2world   (Vector2 const  pix) const;

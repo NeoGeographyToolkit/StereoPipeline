@@ -202,9 +202,9 @@ namespace vw { namespace gui {
     
     std::vector<vw::geometry::dPoly> polyVec; // a shapefile
 
-    // Irregular xyz data to be plotted at (x, y) location with z giving
+    // Scattered data to be plotted at (x, y) location with z giving
     // the intensity. May be colorized.
-    std::vector<vw::Vector3> xyz_data;
+    std::vector<vw::Vector3> scattered_data;
     
     imageData(): m_display_mode(REGULAR_VIEW) {}
     

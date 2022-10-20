@@ -475,15 +475,15 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     std::list<asp::CsvConv::CsvRecord> pos_records;
     csv_conv.read_csv_file(name_in, pos_records);
     
-    xyz_data.clear();
+    scattered_data.clear();
     vw::BBox3 bounds;
     for (auto iter = pos_records.begin(); iter != pos_records.end(); iter++) {
-      Vector3 llh = csv_conv.csv_to_geodetic(*iter, georef);
-      if (std::isnan(norm_2(llh)))  
+      Vector3 val = csv_conv.sort_parsed_vector3(*iter);
+      if (std::isnan(norm_2(val)))  
         continue; // in case we get NaN
       
-      xyz_data.push_back(llh);
-      bounds.grow(llh);
+      scattered_data.push_back(val);
+      bounds.grow(val);
     }
     image_bbox.min() = subvector(bounds.min(), 0, 2);
     image_bbox.max() = subvector(bounds.max(), 0, 2);

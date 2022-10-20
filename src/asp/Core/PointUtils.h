@@ -129,6 +129,13 @@ namespace asp {
                                  vw::cartography::GeoReference const& geo,
                                  double mean_longitude) const;
 
+    /// Converts the point data vector from the order the fields appeared in the file
+    ///  to the order according to the "format" member variable.
+    vw::Vector3 sort_parsed_vector3(CsvRecord const& v) const;
+
+    /// Performs the revers of sort_parsed_vector3, putting the values in the order
+    ///  that they originally appeared in the file (ignores the file field).
+    vw::Vector3 unsort_vector3(vw::Vector3 const& v) const;
 
   private: // Variables
     std::map<std::string,int>  name2col; ///< Target names -> Column index in input csv
@@ -146,18 +153,9 @@ namespace asp {
 
   private: // Functions
 
-      /// This function hard-codes the location in the parsed vector where each
-      ///  column type will go.
-      static int get_sorted_index_for_name(std::string const& name);
-
-      /// Converts the point data vector from the order the fields appeared in the file
-      ///  to the convenient sorted order according to the "format" member variable.
-      vw::Vector3 sort_parsed_vector3(CsvRecord const& v) const;
-
-      /// Performs the revers of sort_parsed_vector3, putting the values in the order
-      ///  that they originally appeared in the file (ignores the file field).
-      vw::Vector3 unsort_vector3(vw::Vector3 const& v) const;
-
+    /// This function hard-codes the location in the parsed vector where each
+    ///  column type will go.
+    static int get_sorted_index_for_name(std::string const& name);
 
   }; // End class CsvConv
 
