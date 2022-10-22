@@ -331,16 +331,16 @@ namespace asp{
 
       // Read a chunk of the las file, and store it in the current tile.
 
-      int num_cols = bbox.width();
-      int num_rows = bbox.height();
+      std::int64_t num_cols = bbox.width();
+      std::int64_t num_rows = bbox.height();
 
       VW_ASSERT((num_rows % m_block_size == 0) && (num_cols % m_block_size == 0),
                 ArgumentErr() << "LasOrCsvToTif_Class: Expecting the number of rows "
                               << "to be a multiple of the block size.\n");
 
       // Read the specified number of points from the file
-      int max_num_pts_to_read = num_cols*num_rows;
-      int count = 0;
+      std::int64_t max_num_pts_to_read = num_cols * num_rows;
+      std::int64_t count = 0;
       PointBuffer in;
       while (m_reader->ReadNextPoint()){
         in.push_back(m_reader->GetPoint());

@@ -115,8 +115,8 @@ public:
     // Count the pixels where the value is zero or >= the threshold.
     uint64 local_invalid_count = 0;
     uint64 local_masked_count  = 0;
-    for (int r=0; r<bbox.height(); ++r) {
-      for (int c=0; c<bbox.width(); ++c) {
+    for (std::int64_t r=0; r<bbox.height(); ++r) {
+      for (std::int64_t c=0; c<bbox.width(); ++c) {
         typename ImageView<T>::pixel_type value = image(c,r);
         if (value < 0.0) { // These pixels are outside the left mask.
           ++local_masked_count;
@@ -160,14 +160,14 @@ int main( int argc, char *argv[] ) {
     }
 
     // Each thread will process a block of this tile size.
-    int tile_size = asp::ASPGlobalOptions::tri_tile_size();
+    std::int64_t tile_size = asp::ASPGlobalOptions::tri_tile_size();
 
 
     // Compute the error norm from the PC file, and apply a mask to it copied from the lmask file.
     // - Zero error values are a flag for a bad pixel, left over from stereo_tri.
     // - Values outside the left mask are set to a flag value of -1, they are not counted
     //   in the computations.
-    int num_pc_channels = get_num_channels(pc_file);
+    std::int64_t num_pc_channels = get_num_channels(pc_file);
     ImageViewRef<double> masked_error_image;
     switch(num_pc_channels) {
       case 4:
@@ -193,13 +193,13 @@ int main( int argc, char *argv[] ) {
     const Vector2i block_size(tile_size, tile_size);
     block_op_cache(masked_error_image, functor, block_size);
 
-    uint64 num_masked  = functor.get_masked_count();
-    uint64 num_invalid = functor.get_invalid_count();
-    uint64 num_rows    = masked_error_image.rows();
-    uint64 num_cols    = masked_error_image.cols();
-    uint64 num_pixels  = num_rows*num_cols;
-    uint64 num_unmasked_pixels = num_pixels - num_masked;
-    uint64 num_valid   = num_unmasked_pixels - num_invalid;
+    std::int64_t num_masked  = functor.get_masked_count();
+    std::int64_t num_invalid = functor.get_invalid_count();
+    std::int64_t num_rows    = masked_error_image.rows();
+    std::int64_t num_cols    = masked_error_image.cols();
+    std::int64_t num_pixels  = num_rows * num_cols;
+    std::int64_t num_unmasked_pixels = num_pixels - num_masked;
+    std::int64_t num_valid   = num_unmasked_pixels - num_invalid;
 
     double percent_invalid = static_cast<double>(num_invalid) / static_cast<double>(num_unmasked_pixels);
 

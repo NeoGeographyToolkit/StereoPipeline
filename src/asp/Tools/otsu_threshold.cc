@@ -35,7 +35,7 @@ using namespace vw;
 struct Options: vw::GdalWriteOptions {
   std::vector<std::string> image_files;
   bool has_nodata_value;
-  int num_samples, num_bins;
+  std::int64_t num_samples, num_bins;
   double nodata_value;
   Options(): has_nodata_value(false), num_samples(-1),
              nodata_value(std::numeric_limits<double>::quiet_NaN()){}
@@ -120,13 +120,13 @@ int main( int argc, char *argv[] ) {
         samp_ratio = sqrt(double(num_vals) / double(opt.num_samples));
       samp_ratio = std::max(samp_ratio, 1.0);
 
-      int num_sample_rows = round(num_rows / samp_ratio);
-      num_sample_rows = std::max(1, num_sample_rows);
-      num_sample_rows = std::min((int)num_rows, num_sample_rows);
+      std::int64_t num_sample_rows = round(num_rows / samp_ratio);
+      num_sample_rows = std::max(std::int64_t(1), num_sample_rows);
+      num_sample_rows = std::min(num_rows, num_sample_rows);
       
-      int num_sample_cols = round(num_cols / samp_ratio);
-      num_sample_cols = std::max(1, num_sample_cols);
-      num_sample_cols = std::min((int)num_cols, num_sample_cols);
+      std::int64_t num_sample_cols = round(num_cols / samp_ratio);
+      num_sample_cols = std::max(std::int64_t(1), num_sample_cols);
+      num_sample_cols = std::min(num_cols, num_sample_cols);
       
       std::cout << "Number of image rows and columns: "
                 << num_rows << ", " << num_cols << "\n";

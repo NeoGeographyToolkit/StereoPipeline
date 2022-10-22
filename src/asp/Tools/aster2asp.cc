@@ -58,7 +58,7 @@ using namespace vw::cartography;
 struct Options : public vw::GdalWriteOptions {
   string input_dir, output_prefix; 
   double min_height, max_height;
-  int num_samples;
+  std::int64_t num_samples;
   double penalty_weight;
   Options(): min_height(-1), max_height(-1), num_samples(-1), penalty_weight(-1) {}
 };
@@ -261,9 +261,9 @@ public:
 
     ImageView<input_type> input_tile = crop(m_img, bbox); // to speed things up
     ImageView<result_type> tile(bbox.width(), bbox.height());
-    for (int col = bbox.min().x(); col < bbox.max().x(); col++){
+    for (std::int64_t col = bbox.min().x(); col < bbox.max().x(); col++){
       Vector3 C = m_corr[col];
-      for (int row = bbox.min().y(); row < bbox.max().y(); row++){
+      for (std::int64_t row = bbox.min().y(); row < bbox.max().y(); row++){
 	input_type val = input_tile(col - bbox.min().x(), row - bbox.min().y());
 	if (m_has_nodata && val == m_nodata)
 	  tile(col - bbox.min().x(), row - bbox.min().y() ) = val;
@@ -336,7 +336,7 @@ void apply_radiometric_corrections(Options const& opt,
 // Generate lon-lat-height to image pixel correspondences that we will
 // use to create the RPC model.
 void generate_point_pairs(// Inputs
-                          double min_height, double max_height, int num_samples,
+                          double min_height, double max_height, std::int64_t num_samples,
                           double penalty_weight,
                           std::string const& sat_pos_file,
                           std::string const& sight_vec_file,
@@ -358,9 +358,9 @@ void generate_point_pairs(// Inputs
   std::vector<Vector3> sat_pos;
   asp::read_3d_points(sat_pos_file, sat_pos);
 
-  int num_rows = sat_pos.size();
-  int num_pts = sight_vec.size();
-  int num_cols = num_pts / num_rows;
+  std::int64_t num_rows = sat_pos.size();
+  std::int64_t num_pts = sight_vec.size();
+  std::int64_t num_cols = num_pts / num_rows;
 
   // Sight vector in world coordinates
   world_sight_mat.clear();
@@ -378,9 +378,9 @@ void generate_point_pairs(// Inputs
   // satellite positions to make them one per each sight vector. It is
   // easier to work with things that way later.
   std::vector<Vector3> full_sat_pos(num_pts);
-  int count = 0;
-  for (int row = 0; row < num_rows; row++) {
-    for (int col = 0; col < num_cols; col++) {
+  std::int64_t count = 0;
+  for (std::int64_t row = 0; row < num_rows; row++) {
+    for (std::int64_t col = 0; col < num_cols; col++) {
       full_sat_pos[count] = sat_pos[row];
       count++;
     }
@@ -390,13 +390,13 @@ void generate_point_pairs(// Inputs
 
   std::vector<double> longitude;
   asp::read_1d_points(longitude_file, longitude);
-  if (int(longitude.size()) != num_pts)
+  if (std::int64_t (longitude.size()) != num_pts)
     vw_throw( ArgumentErr() << "Expecting " << num_pts << " longitude values in "
 	      << longitude_file << " but got instead " << longitude.size() << ".\n" );
   
   std::vector<double> latitude;
   asp::read_1d_points(latitude_file, latitude);
-  if (int(latitude.size()) != num_pts)
+  if (std::int64_t (latitude.size()) != num_pts)
     vw_throw( ArgumentErr() << "Expecting " << num_pts << " latitude values in "
 	      << latitude_file << " but got instead " << latitude.size() << ".\n" );
 
@@ -410,7 +410,7 @@ void generate_point_pairs(// Inputs
   
   std::vector<Vector2> pixels;
   asp::read_2d_points(lattice_file, pixels);
-  if (int(pixels.size()) != num_pts)
+  if (std::int64_t (pixels.size()) != num_pts)
     vw_throw( ArgumentErr() << "Expecting " << num_pts << " pixels in "
 	      << lattice_file << " but got instead " << pixels.size() << ".\n" );
 
@@ -418,29 +418,29 @@ void generate_point_pairs(// Inputs
   cartography::Datum datum;
   datum.set_well_known_datum("WGS84");
   std::vector<Vector3> ground_xyz(num_pts);
-  for (int i = 0; i < num_pts; i++) {
+  for (std::int64_t i = 0; i < num_pts; i++) {
     ground_xyz[i] = datum.geodetic_to_cartesian(Vector3(longitude[i], latitude[i], 0));
   }
 
   // Create the sight vectors, from the camera center to the ground, in world
   // coordinates, rather than in spacecraft coordinates, like sight_vec.
-  for (int pt = 0; pt < num_pts; pt++) {
+  for (std::int64_t pt = 0; pt < num_pts; pt++) {
     Vector3 G = ground_xyz[pt]; 
     Vector3 C = full_sat_pos[pt];
-    int row   = pt/num_cols;
+    std::int64_t row   = pt/num_cols;
     world_sight_mat[row].push_back( (G-C)/norm_2(G-C) );
   }
-  if (world_sight_mat.empty() || (int)world_sight_mat[0].size() != num_cols) {
+  if (world_sight_mat.empty() || (std::int64_t )world_sight_mat[0].size() != num_cols) {
     vw_throw( ArgumentErr() << "Incorrect number of world sight vectors.\n");
   }
     
   // Form num_samples layers between min_height and max_height.
   // Each point there will have its corresponding pixel value.
-  int num_total_pts = num_pts*num_samples;
+  std::int64_t num_total_pts = num_pts * num_samples;
   std::vector<Vector3> all_llh (num_total_pts);
   std::vector<Vector2> all_pixels(num_total_pts);
   count = 0;
-  for (int sample = 0; sample < num_samples; sample++) {
+  for (std::int64_t sample = 0; sample < num_samples; sample++) {
     double height = min_height
       + double(sample)*(max_height - min_height)/(num_samples - 1.0);
 
@@ -448,7 +448,7 @@ void generate_point_pairs(// Inputs
     // connecting the original ground point and the satellite
     // center. We need to solve a quadratic equation for that. We
     // assume the Earth is a sphere.
-    for (int pt = 0; pt < num_pts; pt++) {
+    for (std::int64_t pt = 0; pt < num_pts; pt++) {
 
       Vector3 A = ground_xyz[pt]; 
       Vector3 B = full_sat_pos[pt];
@@ -491,7 +491,7 @@ void generate_point_pairs(// Inputs
   }
 
   // Form the arrays of normalized pixels and normalized llh
-  for (int pt = 0; pt < num_total_pts; pt++) {
+  for (std::int64_t pt = 0; pt < num_total_pts; pt++) {
 
     // Normalize the pixel to -1 <> 1 range
     Vector3 llh_n   = elem_quot(all_llh[pt]    - llh_offset,   llh_scale);
@@ -508,7 +508,7 @@ void generate_point_pairs(// Inputs
 }
 
 // Save an XML file having all RPC information
-void save_xml(int image_cols, int image_rows,
+void save_xml(std::int64_t image_cols, std::int64_t image_rows,
 	      std::vector< std::vector<Vector2> > const& lattice_mat,
 	      std::vector< std::vector<Vector3> > const& sight_mat,
 	      std::vector< std::vector<Vector3> > const& world_sight_mat,
@@ -621,7 +621,7 @@ void save_xml(int image_cols, int image_rows,
 }
 
 // Create XML files containing rigorous camera info, and compute the RPC coefficients as well.
-void gen_xml(double min_height, double max_height, int num_samples,
+void gen_xml(double min_height, double max_height, std::int64_t num_samples,
 	     double penalty_weight,
 	     std::string const& image_file,
 	     std::string const& sat_pos_file,
@@ -687,10 +687,9 @@ void gen_xml(double min_height, double max_height, int num_samples,
   asp::print_vec("samp_den",     samp_den    );
 #endif
 
-  int image_cols, image_rows;
   DiskImageView<float> input_img(image_file);
-  image_cols = input_img.cols();
-  image_rows = input_img.rows();
+  std::int64_t image_cols = input_img.cols();
+  std::int64_t image_rows = input_img.rows();
   
   save_xml(image_cols, image_rows, lattice_mat,
 	   sight_mat, world_sight_mat, sat_pos,
