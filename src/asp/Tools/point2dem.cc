@@ -235,18 +235,18 @@ void las_or_csv_or_pcd_to_tifs(Options& opt, cartography::Datum const& datum,
   // we'd like to be able to match the number of rows of the existing
   // tif files, so later when we concatenate all these files from left
   // to right for the purpose of creating the DEM, we waste little space.
-  int num_rows = 0;
+  std::int64_t num_rows = 0;
   for (int i = 0; i < num_files; i++){
     if (asp::is_las_or_csv_or_pcd(opt.pointcloud_files[i]))
       continue;
     DiskImageView<float> img(opt.pointcloud_files[i]);
     // Record the max number of rows across all input tifs
-    num_rows = std::max(num_rows, img.rows()); 
+    num_rows = std::max(num_rows, std::int64_t(img.rows())); 
   }
 
   // No tif files exist. Find a reasonable value for the number of rows.
   if (num_rows == 0){
-    boost::uint64_t max_num_pts = 0;
+    std::int64_t max_num_pts = 0;
     for (int i = 0; i < num_files; i++){
       std::string file = opt.pointcloud_files[i];
       if (asp::is_las(file))  max_num_pts = std::max(max_num_pts, asp::las_file_size(file));
@@ -254,7 +254,7 @@ void las_or_csv_or_pcd_to_tifs(Options& opt, cartography::Datum const& datum,
       if (asp::is_pcd(file))  max_num_pts = std::max(max_num_pts, asp::pcd_file_size(file)); // Note: PCD support needs to be tested!
       // No need to check for other cases; At least one file must be las or csv or pcd!
     }
-    num_rows = std::max(1, (int)ceil(sqrt(double(max_num_pts))));
+    num_rows = std::max(std::int64_t(1), (std::int64_t)ceil(sqrt(double(max_num_pts))));
   }
 
   // This is very important. For efficiency later, we don't want to
