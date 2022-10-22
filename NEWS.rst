@@ -28,7 +28,6 @@ New tools:
     still undergoing testing.)
 
 New sesors:
-
   * Support the Pleiades exact sensor (1A/1B). Implemented as a
     wrapper around the CSM linescan camera model.
 

@@ -25,6 +25,7 @@
 #include <asp/Camera/PeruSatXML.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/XMLBase.h>
+#include <asp/Camera/TimeProcessing.h>
 
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>
@@ -303,16 +304,7 @@ double PeruSatXML::convert_time(std::string const& s, bool is_start_time) {
                  << "Must set the start time before doing time conversions.\n");
 
   try{
-    // Replace the T with a space so the default Boost function can
-    // parse the time.
-    std::string s2 = s;
-    boost::replace_all(s2, "T", " ");
-
-    // Ensure there are exactly 6 digits for the millisecond or else
-    // Boost will complain.
-    s2 = fix_millisecond(s2);
-
-    boost::posix_time::ptime time = boost::posix_time::time_from_string(s2);
+    boost::posix_time::ptime time = asp::parse_time(s);
 
     if (is_start_time) {
       m_start_time_is_set = true;
@@ -498,69 +490,4 @@ vw::camera::SLERPPoseInterpolation PeruSatXML::setup_pose_func
   return vw::camera::SLERPPoseInterpolation(pose_vec, min_time, pose_delta_t, use_splines);
 }
   
-// Boost does not like a time string such as "2017-12-07 15:36:40.90795Z"
-// because it expects precisely 6 digits after the dot. Fix that.
-// TODO(oalexan1): Move this to some low-level shared file
-std::string PeruSatXML::fix_millisecond(std::string const& in_str) {
-
-  std::string out_str = "";
-  bool found_dot = false;
-  int num_digits_after_dot = 0;
-  for (size_t it = 0; it < in_str.size(); it++) {
-    
-    if (it + 1 < in_str.size()) {
-      // Not yet at the last character
-      
-      if (in_str[it] == '.') {
-        // Found the dot
-        found_dot = true;
-        out_str += in_str[it];
-        continue;
-      }
-
-      if (!found_dot) {
-        // Not at the dot yet
-        out_str += in_str[it];
-        continue;
-      }
-
-      // After the dot
-      if (num_digits_after_dot < 6) {
-        out_str += in_str[it];
-        num_digits_after_dot++;
-      }
-      continue;
-    }
-
-    // At the last character
-    if (in_str[it] >= '0' && in_str[it] <= '9') {
-      // The last character is a digit, just append it
-      if (num_digits_after_dot < 6) {
-        out_str += in_str[it];
-        num_digits_after_dot++;
-      }
-
-      // See if to append more
-      while (num_digits_after_dot < 6) {
-        out_str += "0";
-        num_digits_after_dot++;
-      }
-      
-    } else {
-
-      // The last character is not a digit, it is likely a "Z"
-      while (num_digits_after_dot < 6) {
-        // Append zeros
-        out_str += "0";
-        num_digits_after_dot++;
-      }
-
-      // Append the last character, whatever it is
-      out_str += in_str[it];
-    }
-    
-  } // End iterating over characters
-
-  return out_str;
-}
 } // end namespace asp

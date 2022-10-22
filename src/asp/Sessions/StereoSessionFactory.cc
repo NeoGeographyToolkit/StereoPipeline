@@ -199,6 +199,9 @@ namespace asp{
       
     } // End map promotion section
 
+    // TODO(oalexan1): Add support for pleiadesmappleiades, but first check
+    // how fast it is.
+    
     if (!input_dem.empty() &&
         (actual_session_type == "perusat" || actual_session_type == "pleiades")) {
       // User says PeruSat-1 or Pleiades but also gives a DEM, so the images were mapprojected.

@@ -93,11 +93,6 @@ namespace asp {
     /// When the start time is passed in, use is_start_time = true.
     double convert_time(std::string const& s, bool is_start_time);
 
-    // Boost does not like a time string such as "2017-12-07 15:36:40.90795Z"
-    // because it expects precisely 6 digits after the dot (hence for the millisecond).
-    // Fix that.
-    static std::string fix_millisecond(std::string const& in_str);
-
     // All times represented as doubles will be in seconds relative to m_start_time_stamp
     boost::posix_time::ptime m_start_time_stamp;
 

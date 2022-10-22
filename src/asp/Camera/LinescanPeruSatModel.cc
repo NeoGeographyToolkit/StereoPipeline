@@ -88,7 +88,6 @@ double PeruSatCameraModel::get_time_at_line(double line) const {
   return m_time_func(line); 
 }
 
-
 Vector3 PeruSatCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
 
   // According to Modelo%20Orbital%20PeruSAT-1.pdf:

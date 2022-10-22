@@ -84,32 +84,32 @@ namespace asp {
     void read_times       (xercesc::DOMElement* time);
     void read_ephemeris   (xercesc::DOMElement* ephemeris);
     void read_attitudes   (xercesc::DOMElement* attitudes);
+    void read_ref_col_row (xercesc::DOMElement* swath_range);
     void read_look_angles (xercesc::DOMElement* look_angles);
-    void read_instr_biases(xercesc::DOMElement* instr_biases);
-    void read_center_data (xercesc::DOMElement* geom_values);
 
     /// Converts a time from string to double precision in seconds.
     /// All times are in seconds relative to the start time.
     /// When the start time is passed in, use is_start_time = true.
     double convert_time(std::string const& s, bool is_start_time);
 
-    // Boost does not like a time string such as "2017-12-07 15:36:40.90795Z"
-    // because it expects precisely 6 digits after the dot (hence for the millisecond).
-    // Fix that.
-    static std::string fix_millisecond(std::string const& in_str);
-
-    // All times represented as doubles will be in seconds relative to m_start_time_stamp
+    std::string m_start_time_str;
     boost::posix_time::ptime m_start_time_stamp;
 
+    // All times represented as doubles will be in seconds relative to m_start_time_stamp
     bool   m_start_time_is_set;
-    double m_start_time;
-    double center_time;
-    double m_line_period;
-    double m_center_col;
-    double m_center_row;
+    double m_start_time, m_end_time;
 
+    // These will be used to fit the quaternions
+    double m_quat_offset_time, m_quat_scale;
+    std::vector<vw::Quaternion<double>> m_quaternion_coeffs;
+    
+    int m_ref_row, m_ref_col;
+    double m_line_period;
+    
     std::list<std::pair<double, vw::Vector3>> m_positions;        // (time,   X/Y/Z)
     std::list<std::pair<double, vw::Vector3>> m_velocities;       // (time,   dX/dY/dZ)
+
+    // TODO(oalexan1): Wipe this field
     std::list<std::pair<double, vw::Quaternion<double>>> m_poses; // (time, quaternion)
     
     boost::shared_ptr<xercesc::XercesDOMParser> m_parser;

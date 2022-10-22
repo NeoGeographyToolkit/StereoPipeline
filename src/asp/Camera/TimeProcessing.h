@@ -16,6 +16,7 @@
 // __END_LICENSE__
 
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <string>
 
 namespace asp {
 
@@ -33,5 +34,11 @@ namespace asp {
       return double( (time - m_reference).total_microseconds() ) / 1e6;
     }
   };
-  
+
+  // Boost does not like a time string such as "2017-12-07 15:36:40.90795Z"
+  // because it expects precisely 6 digits after the dot (hence for the millisecond).
+  // Fix that. PeruSat has this problem.
+  std::string fix_millisecond(std::string const& in_str);
+
+  boost::posix_time::ptime parse_time(std::string const& s);  
 }

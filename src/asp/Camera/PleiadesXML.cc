@@ -25,6 +25,7 @@
 #include <asp/Camera/PleiadesXML.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/XMLBase.h>
+#include <asp/Camera/TimeProcessing.h>
 
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>
@@ -59,6 +60,8 @@ DOMElement* PleiadesXML::open_xml_file(std::string const& xml_path) {
   std::string err_message  = ""; // Filled in later on error
 
   try{
+    std::cout << "---open pleiades xml" << std::endl;
+    
     // Set up the XML parser if we have not already done so
     if (!m_parser.get()) {
       m_parser.reset(new XercesDOMParser());
@@ -103,24 +106,31 @@ void PleiadesXML::read_xml(std::string const& xml_path) {
 
 void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
 
+  std::cout << "--now in parse_xml for Pleiades!" << std::endl;
   xercesc::DOMElement* metadata_id = get_node<DOMElement>(root, "Metadata_Identification");
 
   xercesc::DOMElement* metadata_profile = get_node<DOMElement>(metadata_id, "METADATA_PROFILE");
 
   std::string sensor_name(XMLString::transcode(metadata_profile->getTextContent()));
-  std::string expected_name = "PER1_SENSOR";
+  std::string expected_name = "PHR_SENSOR";
   if (sensor_name != expected_name) 
     vw_throw(ArgumentErr() << "Incorrect sensor name. Expected: "
              << expected_name << " but got: " << sensor_name << ".\n");
 
+  std::cout << "--parsed sensor" << std::endl;
   xercesc::DOMElement* raster_data = get_node<DOMElement>(root, "Raster_Data");
   read_image_size(raster_data);
+
+  std::cout << "--cols " << m_image_size[0] << std::endl;
+  std::cout << "--rows " << m_image_size[1] << std::endl;
   
   // Dig some levels down
   xercesc::DOMElement* geometric_data = get_node<DOMElement>(root, "Geometric_Data");
+  std::cout << "--got geom data" << std::endl;
   xercesc::DOMElement* refined_model = get_node<DOMElement>(geometric_data, "Refined_Model");
-  
+  std::cout << "--fetched refined model" << std::endl;
   xercesc::DOMElement* time = get_node<DOMElement>(refined_model, "Time");
+  std::cout << "--fetched time" << std::endl;
   read_times(time);
   
   xercesc::DOMElement* ephemeris = get_node<DOMElement>(refined_model, "Ephemeris");
@@ -131,17 +141,12 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
   
   xercesc::DOMElement* geom_calib  = get_node<DOMElement>(refined_model, "Geometric_Calibration");
   xercesc::DOMElement* instr_calib = get_node<DOMElement>(geom_calib,    "Instrument_Calibration");
-  xercesc::DOMElement* band_calib  = get_node<DOMElement>(instr_calib,   "Band_Calibration");
-  xercesc::DOMElement* look_angles = get_node<DOMElement>(band_calib,    "Polynomial_Look_Angles");
+
+  xercesc::DOMElement* swath_range = get_node<DOMElement>(instr_calib,   "Swath_Range");
+  read_ref_col_row(swath_range);
+
+  xercesc::DOMElement* look_angles = get_node<DOMElement>(instr_calib,   "Polynomial_Look_Angles");
   read_look_angles(look_angles);
-
-  xercesc::DOMElement* instr_biases = get_node<DOMElement>(instr_calib,   "Instrument_Biases");
-  read_instr_biases(instr_biases);
-
-  xercesc::DOMElement* use_area = get_node<DOMElement>(geometric_data, "Use_Area");
-  xercesc::DOMElement* geom_values = get_node<DOMElement>(use_area,
-                                                          "Located_Geometric_Values");
-  read_center_data(geom_values);
 }
 
 void PleiadesXML::read_image_size(xercesc::DOMElement* raster_data_node) {
@@ -155,13 +160,29 @@ void PleiadesXML::read_image_size(xercesc::DOMElement* raster_data_node) {
 void PleiadesXML::read_times(xercesc::DOMElement* time) {
   xercesc::DOMElement* time_range = get_node<DOMElement>(time, "Time_Range");
 
-  std::string start_time_str;
-  cast_xmlch(get_node<DOMElement>(time_range, "START")->getTextContent(), start_time_str);
+  // In addition to the relative start time stored in m_start_time, we will store
+  // the start time string as well, in m_start_time_str, to be used later
+  std::cout << "--fetch time range" << std::endl;
+  cast_xmlch(get_node<DOMElement>(time_range, "START")->getTextContent(), m_start_time_str);
   bool is_start_time = true;
-  m_start_time = PleiadesXML::convert_time(start_time_str, is_start_time);
+  std::cout << "--got start " << std::endl;
+  std::cout << "---start time str " << m_start_time_str << std::endl;
+  m_start_time = PleiadesXML::convert_time(m_start_time_str, is_start_time);
+  std::cout << "--found start time " << m_start_time << std::endl;
+  
+  std::string end_time_str;
+  cast_xmlch(get_node<DOMElement>(time_range, "END")->getTextContent(), end_time_str);
+  is_start_time = false;
+  std::cout << "--got end " << std::endl;
+  std::cout << "---end time str " << end_time_str << std::endl;
+  m_end_time = PleiadesXML::convert_time(end_time_str, is_start_time);
+  std::cout << "--found end time " << m_end_time << std::endl;
 
   xercesc::DOMElement* time_stamp = get_node<DOMElement>(time, "Time_Stamp");
   cast_xmlch(get_node<DOMElement>(time_stamp, "LINE_PERIOD")->getTextContent(), m_line_period);
+  // Convert from milliseconds to seconds
+  m_line_period /= 1000.0; 
+  std::cout << "--found line period " << m_line_period << std::endl;
 }
   
 void PleiadesXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
@@ -170,10 +191,14 @@ void PleiadesXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
   m_positions.clear(); 
   m_velocities.clear();
 
+  xercesc::DOMElement* ephemeris_used = get_node<DOMElement>(ephemeris, "EPHEMERIS_USED");
+
   xercesc::DOMElement* point_list = get_node<DOMElement>(ephemeris, "Point_List");
 
   // Pick out the "Point" nodes
   DOMNodeList* children = point_list->getChildNodes();
+  std::cout << "---number of children " << children->getLength() << std::endl;
+  
   for (XMLSize_t i = 0; i < children->getLength(); i++) {
     
     // Check child node type
@@ -197,105 +222,163 @@ void PleiadesXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
 
     bool is_start_time = false;
     double time = PleiadesXML::convert_time(time_str, is_start_time);
-    
     std::string delimiters(",\t ");
     position_vec = str_to_vec<Vector3>(position_str, delimiters);
     velocity_vec = str_to_vec<Vector3>(velocity_str, delimiters);
 
+    std::cout << "---child time " << time << std::endl;
+    std::cout << "--position " << position_vec << std::endl;
+    std::cout << "---velocity vec " << velocity_vec << std::endl;
+    
     m_positions.push_back(std::pair<double, Vector3>(time, position_vec));
     m_velocities.push_back(std::pair<double, Vector3>(time, velocity_vec));
   } // End loop through points
   
 }
+
+// Given a calendar time, find the midnight time. Just put zeros for hours, minutes, and seconds.
+// An input time looks like: 2022-04-13T22:46:31.4540000
+void calc_midnight_time(std::string const& start_time, std::string& midnight_time) {
+
+  size_t hour_pos = start_time.find("T");
+  if (hour_pos == std::string::npos)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Could not parse time string: " << start_time << ".\n");
+  hour_pos += 1; // move past the "T"
+
+  std::cout << "--val is " << start_time[hour_pos] << std::endl;
+  midnight_time = start_time;
+  for (size_t it = hour_pos; it < midnight_time.size(); it++) {
+    if (midnight_time[it] >= '0' && midnight_time[it] <= '9') {
+      midnight_time.replace(it, 1, "0");
+    }
+  }
+  std::cout << "--midnight time " << midnight_time << std::endl;
+
+  return;
+}
   
 void PleiadesXML::read_attitudes(xercesc::DOMElement* attitudes) {
 
-  // Reset data storage
-  m_poses.clear();
+  xercesc::DOMElement* quaternion_root = get_node<DOMElement>(attitudes, "Polynomial_Quaternions");
 
-  xercesc::DOMElement* quaternion_list = get_node<DOMElement>(attitudes, "Quaternion_List");
+  // Read the quaternion offset field
+  std::string offset_str;
+  cast_xmlch(get_node<DOMElement>(quaternion_root, "OFFSET")->getTextContent(), offset_str);
 
-  // Pick out the "Quaternion" nodes
-  DOMNodeList* children = quaternion_list->getChildNodes();
-  for (XMLSize_t i = 0; i < children->getLength(); i++) {
-    
-    // Check child node type
-    DOMNode* child = children->item(i);
-    if (child->getNodeType() != DOMNode::ELEMENT_NODE)
-      continue;
-
-    // Check the node time
-    DOMElement* curr_element = dynamic_cast<DOMElement*>(child);
-    std::string tag(XMLString::transcode(curr_element->getTagName()));
-    if (tag.find("Quaternion") == std::string::npos)
-      continue;
+  // Per the documentation, this offset is from midnight. Need to transform it to be relative
+  // to the start time.
+  std::cout << "---offset str " << offset_str << std::endl;
+  std::cout << "--start time " << m_start_time_str << std::endl;
   
-    // Parse the time and 
-
-    std::pair<double, vw::Quaternion<double>> data;
-    std::string time_str;
-    cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(), time_str);
-
-    bool is_start_time = false;
-    data.first = PleiadesXML::convert_time(time_str, is_start_time);
-    
-    double w, x, y, z;
-    cast_xmlch(get_node<DOMElement>(curr_element, "Q0")->getTextContent(), w);
-    cast_xmlch(get_node<DOMElement>(curr_element, "Q1")->getTextContent(), x);
-    cast_xmlch(get_node<DOMElement>(curr_element, "Q2")->getTextContent(), y);
-    cast_xmlch(get_node<DOMElement>(curr_element, "Q3")->getTextContent(), z);
-    data.second = vw::Quaternion<double>(w, x, y, z);
-
-    // Normalize the quaternions to remove any inaccuracy due to the
-    // limited precision used to save them on disk.
-    data.second = normalize(data.second);
-    
-    m_poses.push_back(data);
-  } // End loop through attitudes
-}
-
-void PleiadesXML::read_look_angles(xercesc::DOMElement* look_angles) {
-  std::string delimiters(",\t ");
-  std::string tan_psi_x_str;
-  cast_xmlch(get_node<DOMElement>(look_angles, "LINE_OF_SIGHT_TANPSIX")->getTextContent(),
-             tan_psi_x_str);
-  m_tan_psi_x = str_to_vec<Vector2>(tan_psi_x_str, delimiters);
-  
-  std::string tan_psi_y_str;
-  cast_xmlch(get_node<DOMElement>(look_angles, "LINE_OF_SIGHT_TANPSIY")->getTextContent(),
-             tan_psi_y_str);
-  m_tan_psi_y = str_to_vec<Vector2>(tan_psi_y_str, delimiters);
-}
-
-void PleiadesXML::read_instr_biases(xercesc::DOMElement* instr_biases) {
-    
-  double w, x, y, z;
-  cast_xmlch(get_node<DOMElement>(instr_biases, "Q0")->getTextContent(), w);
-  cast_xmlch(get_node<DOMElement>(instr_biases, "Q1")->getTextContent(), x);
-  cast_xmlch(get_node<DOMElement>(instr_biases, "Q2")->getTextContent(), y);
-  cast_xmlch(get_node<DOMElement>(instr_biases, "Q3")->getTextContent(), z);
-
-  m_instrument_biases = vw::Quaternion<double>(w, x, y, z);
-}
-
-void PleiadesXML::read_center_data(xercesc::DOMElement* geom_values) {
-
-  std::string center_time_str;
-  cast_xmlch(get_node<DOMElement>(geom_values, "TIME")->getTextContent(), center_time_str);
-  cast_xmlch(get_node<DOMElement>(geom_values, "COL")->getTextContent(), m_center_col);
-  cast_xmlch(get_node<DOMElement>(geom_values, "ROW")->getTextContent(), m_center_row);
+  std::cout << "--center time is  " << m_quat_offset_time << std::endl;
+  std::string midnight_time_str; 
+  calc_midnight_time(m_start_time_str, midnight_time_str);
 
   bool is_start_time = false;
-  center_time = PleiadesXML::convert_time(center_time_str, is_start_time);
+  double midnight_time = PleiadesXML::convert_time(midnight_time_str, is_start_time);
+  m_quat_offset_time = midnight_time + atof(offset_str.c_str());
+  std::cout << "--quat offset time " << m_quat_offset_time << std::endl;
 
-  // Convert from 1-based to 0-based indices.  
-  m_center_col -= 1.0;
-  m_center_row -= 1.0;
+  // Untested adjustments for the case when the midnight is computed
+  // for the wrong day. Not sure if this will ever happen. Try to
+  // ensure that m_start_time <= m_quat_offset_time <= m_end_time.
+  double full_day = 3600.0 * 24.0;
+  if (m_quat_offset_time < m_start_time)
+    m_quat_offset_time += full_day;
+  if (m_quat_offset_time > m_end_time)
+    m_quat_offset_time -= full_day;
+  
+  if (m_quat_offset_time < m_start_time || m_quat_offset_time > m_end_time)
+    vw_throw(ArgumentErr() << "Failed to compute the quaternion offset. "
+             << "Check the start time, end time, and the quaternion OFFSET field, "
+             << "which is meant to be in seconds since midnight.\n");
+
+
+  // Read the quaternion scale field
+  std::string scale_str;
+  cast_xmlch(get_node<DOMElement>(quaternion_root, "SCALE")->getTextContent(), scale_str);
+  m_quat_scale = atof(scale_str.c_str());
+  std::cout << "--quat scale " << m_quat_scale << std::endl;
+
+  // Read the quaternion coefficients that will be used with the quaternion
+  // polynomial to find the quaternions at any time
+  m_quaternion_coeffs.clear();
+  std::vector<std::string> tags = {"Q0", "Q1", "Q2", "Q3"};
+  for (size_t it = 0; it < tags.size(); it++) {
+    xercesc::DOMElement* qi = get_node<DOMElement>(quaternion_root, tags[it]);
+
+    int deg = 0;
+    cast_xmlch(get_node<DOMElement>(qi, "DEGREE")->getTextContent(), deg);
+    if (deg != 3)
+      vw_throw(ArgumentErr() << "Expecting the degree of the quaternion polynomial to be 3.\n");
+
+    std::cout << "--deg is " << deg << std::endl;
+    std::string quat_str;
+    cast_xmlch(get_node<DOMElement>(qi, "COEFFICIENTS")->getTextContent(), quat_str);
+    std::cout << "--quat " << quat_str << std::endl;
+
+    vw::Vector<double, 4> v = vw::str_to_vec<vw::Vector<double, 4>>(quat_str);
+    std::cout << "--v " << v << std::endl;
+
+    // order is w, x, y, z
+    // TODO(oalexan1): Need to check this!
+    vw::Quaternion<double> q(v[0], v[1], v[2], v[3]);
+    std::cout << "--q is " << q << std::endl;
+    m_quaternion_coeffs.push_back(q);
+  }
+
+  return;
+}
+
+void PleiadesXML::read_ref_col_row(xercesc::DOMElement* swath_range) {
+  m_ref_row = 1; // page 76 in the doc
+  
+  std::string ref_col;
+  cast_xmlch(get_node<DOMElement>(swath_range, "FIRST_COL")->getTextContent(),
+             ref_col);
+  m_ref_col = atoi(ref_col.c_str());
+
+  std::cout << "--ref col " << m_ref_col << std::endl;
+  std::cout << "--ref row " << m_ref_row << std::endl;
+
+}
+  
+void PleiadesXML::read_look_angles(xercesc::DOMElement* look_angles) {
+
+  // Pages 75 and 100 in the doc
+  m_tan_psi_x = vw::Vector2();
+  std::string xlos_0;
+  cast_xmlch(get_node<DOMElement>(look_angles, "XLOS_0")->getTextContent(),
+             xlos_0);
+  m_tan_psi_x[0] = atof(xlos_0.c_str());
+  std::cout << "---xlos0 " << xlos_0 << std::endl;
+  
+  std::string xlos_1;
+  cast_xmlch(get_node<DOMElement>(look_angles, "XLOS_1")->getTextContent(),
+             xlos_1);
+  m_tan_psi_x[1] = atof(xlos_1.c_str());
+
+  // Unlike for PeruSat, there's only one tan_psi_y value. Keep the same
+  // interface though.
+  m_tan_psi_y = vw::Vector2();
+  std::string ylos_0;
+  cast_xmlch(get_node<DOMElement>(look_angles, "YLOS_0")->getTextContent(),
+             ylos_0);
+  m_tan_psi_y[0] = atof(ylos_0.c_str());
+
+  for (size_t it = 0; it < m_tan_psi_x.size(); it++)
+    std::cout << "--tan psi x " << m_tan_psi_x[it] << std::endl;
+    
+  for (size_t it = 0; it < m_tan_psi_y.size(); it++)
+    std::cout << "--tan psi y " << m_tan_psi_y[it] << std::endl;
+  
+  //m_tan_psi_x = str_to_vec<Vector2>(tan_psi_x_str, delimiters);
 }
 
 // Converts a time from string to double precision value measured in seconds
-// relative to the start time.
-// Input strings look like this: 2008-03-04T12:31:03.08191Z.
+// relative to the start time. First time it is called for the start time.
+// Input strings look like this: 2022-04-13T22:46:31.4540000Z
 double PleiadesXML::convert_time(std::string const& s, bool is_start_time) {
 
   if (!is_start_time && !m_start_time_is_set) 
@@ -303,23 +386,18 @@ double PleiadesXML::convert_time(std::string const& s, bool is_start_time) {
                  << "Must set the start time before doing time conversions.\n");
 
   try{
-    // Replace the T with a space so the default Boost function can
-    // parse the time.
-    std::string s2 = s;
-    boost::replace_all(s2, "T", " ");
-
-    // Ensure there are exactly 6 digits for the millisecond or else
-    // Boost will complain.
-    s2 = fix_millisecond(s2);
-
-    boost::posix_time::ptime time = boost::posix_time::time_from_string(s2);
-
+    boost::posix_time::ptime time = asp::parse_time(s);
+    
+    // If this is the first invocation, find the start time first
     if (is_start_time) {
       m_start_time_is_set = true;
       m_start_time_stamp = time;
     }
 
+    // Now find the relative start time
     boost::posix_time::time_duration delta(time - m_start_time_stamp);
+
+    // Go from microseconds to seconds
     return delta.total_microseconds() / 1.0e+6;
     
   }catch(...){
@@ -498,68 +576,4 @@ vw::camera::SLERPPoseInterpolation PleiadesXML::setup_pose_func
   return vw::camera::SLERPPoseInterpolation(pose_vec, min_time, pose_delta_t, use_splines);
 }
   
-// Boost does not like a time string such as "2017-12-07 15:36:40.90795Z"
-// because it expects precisely 6 digits after the dot. Fix that.
-std::string PleiadesXML::fix_millisecond(std::string const& in_str) {
-
-  std::string out_str = "";
-  bool found_dot = false;
-  int num_digits_after_dot = 0;
-  for (size_t it = 0; it < in_str.size(); it++) {
-    
-    if (it + 1 < in_str.size()) {
-      // Not yet at the last character
-      
-      if (in_str[it] == '.') {
-        // Found the dot
-        found_dot = true;
-        out_str += in_str[it];
-        continue;
-      }
-
-      if (!found_dot) {
-        // Not at the dot yet
-        out_str += in_str[it];
-        continue;
-      }
-
-      // After the dot
-      if (num_digits_after_dot < 6) {
-        out_str += in_str[it];
-        num_digits_after_dot++;
-      }
-      continue;
-    }
-
-    // At the last character
-    if (in_str[it] >= '0' && in_str[it] <= '9') {
-      // The last character is a digit, just append it
-      if (num_digits_after_dot < 6) {
-        out_str += in_str[it];
-        num_digits_after_dot++;
-      }
-
-      // See if to append more
-      while (num_digits_after_dot < 6) {
-        out_str += "0";
-        num_digits_after_dot++;
-      }
-      
-    } else {
-
-      // The last character is not a digit, it is likely a "Z"
-      while (num_digits_after_dot < 6) {
-        // Append zeros
-        out_str += "0";
-        num_digits_after_dot++;
-      }
-
-      // Append the last character, whatever it is
-      out_str += in_str[it];
-    }
-    
-  } // End iterating over characters
-
-  return out_str;
-}
 } // end namespace asp
