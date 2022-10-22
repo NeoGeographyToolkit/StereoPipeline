@@ -278,7 +278,7 @@ namespace asp{
 
 
 
-  boost::uint64_t pcd_file_size(std::string const& file) {
+  std::int64_t pcd_file_size(std::string const& file) {
     PcdReader reader(file);
     return reader.m_num_points;
   }
@@ -306,7 +306,7 @@ namespace asp{
     LasOrCsvToTif_Class(asp::BaseReader * reader, int num_rows, int tile_len, int block_size):
       m_reader(reader), m_block_size(block_size){
 
-      boost::uint64_t num_points = m_reader->m_num_points;
+      std::int64_t num_points = m_reader->m_num_points;
       int num_row_tiles = std::max(1, (int)ceil(double(num_rows)/tile_len));
       m_rows = tile_len*num_row_tiles;
 
@@ -998,7 +998,7 @@ bool asp::georef_from_pc_files(std::vector<std::string> const& files,
   return false;
 }
 
-boost::uint64_t asp::las_file_size(std::string const& las_file){
+std::int64_t asp::las_file_size(std::string const& las_file){
   std::ifstream ifs;
   ifs.open(las_file.c_str(), std::ios::in | std::ios::binary);
   liblas::ReaderFactory f;
@@ -1074,15 +1074,15 @@ bool asp::is_valid_csv_line(std::string const& line){
   return (!only_spaces) && (!line.empty()) && (line[0] != '#');
 }
 
-boost::uint64_t asp::csv_file_size(std::string const& file){
+std::int64_t asp::csv_file_size(std::string const& file){
 
-  std::ifstream fh( file.c_str() );
-  if( !fh )
+  std::ifstream fh(file.c_str());
+  if (!fh)
     vw_throw( vw::IOErr() << "Unable to open file \"" << file << "\"" );
 
-  int num_total_points = 0;
+  std::int64_t num_total_points = 0;
   std::string line;
-  while ( getline(fh, line, '\n') ){
+  while (getline(fh, line, '\n')){
     if (!asp::is_valid_csv_line(line)) continue;
     num_total_points++;
   }

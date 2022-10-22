@@ -386,7 +386,7 @@ void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
   ofstream outfile( output_file.c_str() );
   outfile.precision(18);
 
-  for(int col = 0; col < numPts; col++){
+  for (int col = 0; col < numPts; col++){
     Vector3 P = get_cloud_gcc_coord(point_cloud, shift, col);
 
     Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
@@ -445,7 +445,7 @@ void save_errors(DP const& point_cloud,
   }
 
   int numPts = point_cloud.features.cols();
-  for(int col = 0; col < numPts; col++){
+  for (int col = 0; col < numPts; col++){
     Vector3 P = get_cloud_gcc_coord(point_cloud, shift, col);
 
     if (csv_conv.is_configured()){
@@ -478,12 +478,12 @@ void calcErrorsWithDem(DP          const& point_cloud,
                        std::vector<double> &errors) {
 
   // Initialize output error storage
-  const int num_pts = point_cloud.features.cols();
+  const std::int64_t num_pts = point_cloud.features.cols();
   errors.resize(num_pts);
 
   // Loop through every point in the point cloud
   double dem_height_here;
-  for(int i=0; i<num_pts; ++i){
+  for (std::int64_t i = 0; i < num_pts; i++){
     // Extract and un-shift the point to get the real GCC coordinate
     Vector3 gcc_coord = get_cloud_gcc_coord(point_cloud, point_cloud_shift, i);
 
@@ -695,10 +695,10 @@ least_squares_alignment(DP const& source_point_cloud, // Should not be modified
   double scale = 1.0;
   
   // Add a residual block for every source point
-  const int num_pts = source_point_cloud.features.cols();
+  const std::int64_t num_pts = source_point_cloud.features.cols();
 
   // Loop through every point in the point cloud
-  for(int i = 0; i < num_pts; ++i){
+  for (std::int64_t i = 0; i < num_pts; i++){
     
     // Extract and un-shift the point to get the real GCC coordinate
     Vector3 gcc_coord = get_cloud_gcc_coord(source_point_cloud, point_cloud_shift, i);
@@ -765,8 +765,8 @@ void filterPointsByError(DP & point_cloud, PointMatcher<RealT>::Matrix &errors, 
   point_cloud.featureLabels = form_labels<double>(DIM);
 
   // Loop through all the input points and copy them to the output if they pass the test
-  int points_count = 0;
-  for (int col = 0; col < input_point_count; ++col) {
+  std::int64_t points_count = 0;
+  for (std::int64_t col = 0; col < input_point_count; ++col) {
 
     if (errors(0,col) > cutoff) {
       //vw_out() << "Throwing out point " << col << " for having error " << errors(0,col) << "\n";
@@ -774,7 +774,7 @@ void filterPointsByError(DP & point_cloud, PointMatcher<RealT>::Matrix &errors, 
     }
 
     // Copy this point to the output LPM structure
-    for (int row = 0; row < DIM; row++)
+    for (std::int64_t row = 0; row < DIM; row++)
       point_cloud.features(row, points_count) = input_copy.features(row, col);
     point_cloud.features(DIM, points_count) = 1; // Extend to be a homogenous coordinate
     ++points_count; // Update output point count
@@ -791,13 +791,13 @@ void filterPointsByError(DP & point_cloud, PointMatcher<RealT>::Matrix &errors, 
 /// Updates an LPM error matrix to use the DEM-based error for each point if it is lower.
 void update_best_error(std::vector<double>         const& dem_errors,
                        PointMatcher<RealT>::Matrix      & lpm_errors) {
-  int num_points = lpm_errors.cols();
+  std::int64_t num_points = lpm_errors.cols();
   if (dem_errors.size() != static_cast<size_t>(num_points))
     vw_throw( LogicErr() << "Error: error size does not match point count size!\n");
   //vw_out() << "Updating error...\n";
 
   // Loop through points
-  for(int col = 0; col < num_points; col++){
+  for (std::int64_t col = 0; col < num_points; col++){
     // Use the DEM error if it is less
     if (dem_errors[col] < lpm_errors(0,col)) {
       //vw_out() << "DEM error = " << dem_errors[col] << ", LPM error = " << lpm_errors(0,col) << std::endl;

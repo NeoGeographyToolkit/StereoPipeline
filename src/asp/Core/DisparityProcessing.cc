@@ -225,7 +225,8 @@ void filter_D_sub(ASPGlobalOptions const& opt,
 
   // Put the valid heights in a vector
   std::vector<double> vals;
-  vals.reserve(sub_disp.cols() * sub_disp.rows());
+  // Careful below to avoid integer overflow
+  vals.reserve(std::int64_t(sub_disp.cols()) * std::int64_t(sub_disp.rows()));
   vals.clear();
   for (int col = 0; col < sub_disp.cols(); col++) {
     for (int row = 0; row < sub_disp.rows(); row++) {

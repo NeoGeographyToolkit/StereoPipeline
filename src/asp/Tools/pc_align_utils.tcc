@@ -67,8 +67,8 @@ typename PointMatcher<T>::DataPoints::Labels form_labels(int dim){
   return labels;
 }
 
-vw::int64 load_las_aux(std::string const& file_name,
-                       int num_points_to_load,
+std::int64_t load_las_aux(std::string const& file_name,
+                       std::int64_t num_points_to_load,
                        vw::BBox2 const& lonlat_box,
                        bool calc_shift,
                        vw::Vector3 & shift,
@@ -89,16 +89,16 @@ vw::int64 load_las_aux(std::string const& file_name,
   liblas::Reader reader = f.CreateWithStream(ifs);
 
   // We will randomly pick or not a point with probability load_ratio
-  vw::int64 num_total_points = las_file_size(file_name);
+  std::int64_t num_total_points = las_file_size(file_name);
   double load_ratio
     = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
 
   bool shift_was_calc = false;
-  vw::int64 points_count = 0;
+  std::int64_t points_count = 0;
 
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  int hundred = 100;
-  vw::int64 spacing = std::max(num_total_points/hundred, vw::int64(1));
+  std::int64_t hundred = 100;
+  std::int64_t spacing = std::max(num_total_points/hundred, std::int64_t(1));
   double inc_amount = 1.0 / hundred;
   if (verbose) tpc.report_progress(0);
 
@@ -147,14 +147,14 @@ vw::int64 load_las_aux(std::string const& file_name,
 }
 
 void load_las(std::string const& file_name,
-             int num_points_to_load,
+             std::int64_t num_points_to_load,
              vw::BBox2 const& lonlat_box,
              bool calc_shift,
              vw::Vector3 & shift,
              vw::cartography::GeoReference const& geo,
              bool verbose, DoubleMatrix & data){
 
-  vw::int64 num_total_points = load_las_aux(file_name, num_points_to_load,
+  std::int64_t num_total_points = load_las_aux(file_name, num_points_to_load,
                                           lonlat_box, calc_shift, shift,
                                           geo, verbose, data);
 
@@ -165,7 +165,7 @@ void load_las(std::string const& file_name,
 
     // We loaded too few points. Try harder. Need some care here as to not run
     // out of memory.
-    num_points_to_load = std::max(4*num_points_to_load, 10000000);
+    num_points_to_load = std::max(4*num_points_to_load, std::int64_t(10000000));
     if (verbose)
       vw::vw_out() << "Too few points were loaded. Trying again." << std::endl;
     load_las_aux(file_name, num_points_to_load, lonlat_box,
@@ -176,7 +176,7 @@ void load_las(std::string const& file_name,
 
 // Load xyz points from disk into a matrix with 4 columns. Last column is just ones.
 void load_cloud(std::string const& file_name,
-               int num_points_to_load,
+               std::int64_t num_points_to_load,
                vw::BBox2 const& lonlat_box,
                bool calc_shift,
                vw::Vector3 & shift,
@@ -223,7 +223,7 @@ void load_cloud(std::string const& file_name,
 
 // Load xyz points from disk in libpointmatcher's format.
 void load_cloud(std::string const& file_name,
-               int num_points_to_load,
+               std::int64_t num_points_to_load,
                vw::BBox2 const& lonlat_box,
                bool calc_shift,
                vw::Vector3 & shift,
@@ -330,7 +330,6 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
 
   // Make a box around each point the size of the box we computed earlier and 
   //  keep growing the output bounding box.
-
   for (int col = 0; col < points.features.cols(); col++){
     vw::Vector3 p;
     for (int row = 0; row < DIM; row++)
@@ -354,6 +353,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
 
   if (!has_transform)
     trans_out_box = out_box;
+
   return;
 }
 
@@ -581,7 +581,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
 
   }else if (file_type == "LAS"){
 
-    vw::int64 num_total_points = las_file_size(input_file);
+    std::int64_t num_total_points = las_file_size(input_file);
     vw::cartography::GeoReference las_georef;
     bool has_georef = georef_from_las(input_file, las_georef);
 
@@ -597,9 +597,9 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
 
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
     int hundred = 100;
-    vw::int64 spacing = std::max(num_total_points/hundred, vw::int64(1));
+    std::int64_t spacing = std::max(num_total_points/hundred, std::int64_t(1));
     double inc_amount = 1.0 / hundred;
-    vw::int64 count = 0;
+    std::int64_t count = 0;
     while (reader.ReadNextPoint()){
 
       liblas::Point const& in_las_pt = reader.GetPoint();

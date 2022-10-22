@@ -44,11 +44,11 @@ typedef Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic> DoubleMatrix;
 const int DIM = 3;
 
 // Return at most m random points out of the input point cloud.
-void random_pc_subsample(int m, DoubleMatrix& points);
+void random_pc_subsample(std::int64_t m, DoubleMatrix& points);
   
 // Load a csv file, perhaps sub-sampling it along the way
 void load_csv(std::string const& file_name,
-              int num_points_to_load,
+              std::int64_t num_points_to_load,
               vw::BBox2 const& lonlat_box,
               bool calc_shift,
               vw::Vector3 & shift,
@@ -60,13 +60,13 @@ void load_csv(std::string const& file_name,
   
 // Load a DEM, perhaps subsampling it along the way
 void load_dem(std::string const& file_name,
-              int num_points_to_load, vw::BBox2 const& lonlat_box,
+              std::int64_t num_points_to_load, vw::BBox2 const& lonlat_box,
               bool calc_shift, vw::Vector3 & shift, bool verbose, 
               DoubleMatrix & data);
 
 // Load an ASP point cloud, perhaps subsampling it along the way  
 void load_pc(std::string const& file_name,
-             int num_points_to_load,
+             std::int64_t num_points_to_load,
              vw::BBox2 const& lonlat_box,
              bool calc_shift,
              vw::Vector3 & shift,

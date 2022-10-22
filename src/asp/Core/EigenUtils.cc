@@ -48,68 +48,68 @@ void null_check(const char* token, std::string const& line){
 // random elements and sort them in increasing order.
 // TODO(oalexan1): See the newly added pick_random_subset() function in VW,
 // but note that that one does not sort the elements.  
-void pick_at_most_m_unique_elems_from_n_elems(int m, int n, std::vector<int>& elems){
+void pick_at_most_m_unique_elems_from_n_elems(std::int64_t m, std::int64_t n,
+                                              std::vector<std::int64_t>& elems){
 
   elems.clear();
 
   if (m < 1 || n < 1) return;
   if (m > n) m = n;
 
-  std::vector<int> all(n);
-  for (int i = 0; i < n; i++) all[i] = i;
+  std::vector<std::int64_t> all(n);
+  for (std::int64_t i = 0; i < n; i++) all[i] = i;
 
   // Swap a randomly selected element from index 0 to j with the one
   // at index j. Then decrement j. Done after m elements are
   // processed.
-  for (int j = n-1; j >= n-m; j--){
-    int r = rand()%(j+1); // 0 <= r <= j
+  for (std::int64_t j = n-1; j >= n-m; j--){
+    std::int64_t r = rand()%(j+1); // 0 <= r <= j
     std::swap(all[r], all[j]);
   }
 
   elems.resize(m);
-  for (int i = 0; i < m; i++) elems[i] = all[n-m+i];
+  for (std::int64_t i = 0; i < m; i++) elems[i] = all[n-m+i];
   std::sort(elems.begin(), elems.end());
 
 }
 
 // Return at most m random points out of the input point cloud.
-void random_pc_subsample(int m, DoubleMatrix& points){
+void random_pc_subsample(std::int64_t m, DoubleMatrix& points){
 
-  int n = points.cols();
-  std::vector<int> elems;
+  std::int64_t n = points.cols();
+  std::vector<std::int64_t> elems;
   pick_at_most_m_unique_elems_from_n_elems(m, n, elems);
   m = elems.size();
 
-  for (int col = 0; col < m; col++){
-    for (int row = 0; row < DIM; row++)
+  for (std::int64_t col = 0; col < m; col++){
+    for (std::int64_t row = 0; row < DIM; row++)
       points(row, col) = points(row, elems[col]);
   }
   points.conservativeResize(Eigen::NoChange, m);
 }
 
-int load_csv_aux(std::string const& file_name, int num_points_to_load,
-                 vw::BBox2 const& lonlat_box,
-                 bool calc_shift, vw::Vector3 & shift,
-                 vw::cartography::GeoReference const& geo, CsvConv const& csv_conv,
-                 bool & is_lola_rdr_format, double & median_longitude,
-                 bool verbose, DoubleMatrix & data) {
+std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_to_load,
+                          vw::BBox2 const& lonlat_box,
+                          bool calc_shift, vw::Vector3 & shift,
+                          vw::cartography::GeoReference const& geo, CsvConv const& csv_conv,
+                          bool & is_lola_rdr_format, double & median_longitude,
+                          bool verbose, DoubleMatrix & data) {
 
   // Note: The input CsvConv object is responsible for parsing out the
   //       type of information contained in the CSV file.
 
   is_lola_rdr_format = false;
 
-  int num_total_points = csv_file_size(file_name);
+  std::int64_t num_total_points = csv_file_size(file_name);
 
   std::string sep_str = csv_separator();
   const char* sep = sep_str.c_str();
 
-  const int bufSize = 1024;
+  const std::int64_t bufSize = 1024;
   char temp[bufSize];
   std::ifstream file( file_name.c_str() );
-  if( !file ) {
-    vw_throw( vw::IOErr() << "Unable to open file \"" << file_name << "\"" );
-  }
+  if (!file)
+    vw_throw(vw::IOErr() << "Unable to open file: " << file_name << "\n");
 
   // We will randomly pick or not a point with probability load_ratio
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
@@ -126,7 +126,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
   file.clear(); file.seekg(0, std::ios_base::beg); // go back to start of file
   strncpy(temp, line.c_str(), bufSize);
   const char* token = strtok (temp, sep);
-  int numTokens = 0;
+  std::int64_t numTokens = 0;
   while (token != NULL){
     numTokens++;
     token = strtok (NULL, sep);
@@ -161,7 +161,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
 
   bool shift_was_calc = false;
   bool is_first_line  = true;
-  int points_count = 0;
+  std::int64_t points_count = 0;
   std::vector<double> longitudes;
   line = "";
   while (getline(file, line, '\n')) {
@@ -219,7 +219,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
 
       strncpy(temp, line.c_str(), bufSize);
       const char* token = strtok(temp, sep); null_check(token, line);
-      int ret = sscanf(token, "%lg", &lat);
+      std::int64_t ret = sscanf(token, "%lg", &lat);
 
       token = strtok(NULL, sep); null_check(token, line);
       ret += sscanf(token, "%lg", &lon);
@@ -253,13 +253,13 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
       // We will ignore lines which do not start with year (or a value that
       // cannot be converted into an integer greater than zero, specifically).
 
-      int year, month, day, hour, min;
+      std::int64_t year, month, day, hour, min;
       double lat, rad, sec, is_invalid;
 
       strncpy(temp, line.c_str(), bufSize);
       const char* token = strtok(temp, sep); null_check(token, line);
 
-      int ret = sscanf(token, "%d-%d-%dT%d:%d:%lg", &year, &month, &day, &hour,
+      std::int64_t ret = sscanf(token, "%d-%d-%dT%d:%d:%lg", &year, &month, &day, &hour,
                        &min, &sec);
       if( year <= 0 )
         continue;
@@ -274,7 +274,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
       rad *= 1000; // km to m
 
       // Scan 7 more fields, until we get to the is_invalid flag.
-      for (int i = 0; i < 7; i++)
+      for (std::int64_t i = 0; i < 7; i++)
         token = strtok(NULL, sep); null_check(token, line);
       ret += sscanf(token, "%lg", &is_invalid);
 
@@ -312,7 +312,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
       shift_was_calc = true;
     }
 
-    for (int row = 0; row < DIM; row++)
+    for (std::int64_t row = 0; row < DIM; row++)
       data(row, points_count) = xyz[row] - shift[row];
     data(DIM, points_count) = 1;
 
@@ -341,7 +341,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
 
 // Load a csv file
 void load_csv(std::string const& file_name,
-                 int num_points_to_load,
+                 std::int64_t num_points_to_load,
                  vw::BBox2 const& lonlat_box,
                  bool calc_shift,
                  vw::Vector3 & shift,
@@ -352,13 +352,13 @@ void load_csv(std::string const& file_name,
                  bool verbose,
                  DoubleMatrix & data){
 
-  int num_total_points = load_csv_aux(file_name, num_points_to_load,
+  std::int64_t num_total_points = load_csv_aux(file_name, num_points_to_load,
                                       lonlat_box,
                                       calc_shift, shift,
                                       geo, csv_conv, is_lola_rdr_format,
                                       median_longitude, verbose, data);
   
-  int num_loaded_points = data.cols();
+  std::int64_t num_loaded_points = data.cols();
   if (!lonlat_box.empty()                    &&
       num_loaded_points < num_points_to_load &&
       num_loaded_points < num_total_points){
@@ -378,7 +378,7 @@ void load_csv(std::string const& file_name,
 // Load a DEM
 template<typename DemPixelType>
 void load_dem_pixel_type(std::string const& file_name,
-                         int num_points_to_load, vw::BBox2 const& lonlat_box,
+                         std::int64_t num_points_to_load, vw::BBox2 const& lonlat_box,
                          bool calc_shift, vw::Vector3 & shift,
                          bool verbose, DoubleMatrix & data){
   
@@ -418,21 +418,22 @@ void load_dem_pixel_type(std::string const& file_name,
   if (pix_box.empty())
     pix_box = bounding_box(dem);
 
-  // We will randomly pick or not a point with probability load_ratio
-  int    num_points = pix_box.width()*pix_box.height();
+  // We will randomly pick or not a point with probability load_ratio.
+  // Use int64_t to avoid integer overflow
+  std::int16_t num_points = std::int16_t(pix_box.width()) * std::int16_t(pix_box.height());
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
 
   bool shift_was_calc = false;
-  int  points_count   = 0;
+  std::int64_t  points_count   = 0;
 
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
   double inc_amount = 1.0 / double(pix_box.width() );
   if (verbose)
     tpc.report_progress(0);
 
-  for (int i = pix_box.min().x(); i < pix_box.max().x(); i++ ) {
+  for (std::int64_t i = pix_box.min().x(); i < pix_box.max().x(); i++ ) {
 
-    for (int j = pix_box.min().y(); j < pix_box.max().y(); j++ ) {
+    for (std::int64_t j = pix_box.min().y(); j < pix_box.max().y(); j++ ) {
       if (points_count >= num_points_to_load)
         break;
 
@@ -460,7 +461,7 @@ void load_dem_pixel_type(std::string const& file_name,
         shift_was_calc = true;
       }
 
-      for (int row = 0; row < DIM; row++)
+      for (std::int64_t row = 0; row < DIM; row++)
         data(row, points_count) = xyz[row] - shift[row];
       data(DIM, points_count) = 1; // Extend to be a homogenous coordinate
 
@@ -479,7 +480,7 @@ void load_dem_pixel_type(std::string const& file_name,
 
 // Load a DEM
 void load_dem(std::string const& file_name,
-              int num_points_to_load, vw::BBox2 const& lonlat_box,
+              std::int64_t num_points_to_load, vw::BBox2 const& lonlat_box,
               bool calc_shift, vw::Vector3 & shift,
               bool verbose, DoubleMatrix & data){
 
@@ -502,7 +503,7 @@ void load_dem(std::string const& file_name,
 }
 
 vw::int64 load_pc_aux(std::string const& file_name,
-                      int num_points_to_load,
+                      std::int64_t num_points_to_load,
                       vw::BBox2 const& lonlat_box,
                       bool calc_shift,
                       vw::Vector3 & shift,
@@ -515,7 +516,8 @@ vw::int64 load_pc_aux(std::string const& file_name,
   vw::ImageViewRef<vw::Vector3> point_cloud = read_asp_point_cloud<DIM>(file_name);
 
   // We will randomly pick or not a point with probability load_ratio
-  vw::int64 num_total_points = point_cloud.cols()*point_cloud.rows();
+  // Use std::int64_t to avoid integer overflow.
+  vw::int64 num_total_points = std::int64_t(point_cloud.cols()) * std::int64_t(point_cloud.rows());
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
 
   bool shift_was_calc = false;
@@ -525,9 +527,9 @@ vw::int64 load_pc_aux(std::string const& file_name,
   double inc_amount = 1.0 / double(point_cloud.rows() );
   if (verbose) tpc.report_progress(0);
 
-  for (int j = 0; j < point_cloud.rows(); j++ ) {
+  for (std::int64_t j = 0; j < point_cloud.rows(); j++ ) {
 
-    for ( int i = 0; i < point_cloud.cols(); i++ ) {
+    for ( std::int64_t i = 0; i < point_cloud.cols(); i++ ) {
 
       if (points_count >= num_points_to_load)
         break;
@@ -552,7 +554,7 @@ vw::int64 load_pc_aux(std::string const& file_name,
           continue;
       }
 
-      for (int row = 0; row < DIM; row++)
+      for (std::int64_t row = 0; row < DIM; row++)
         data(row, points_count) = xyz[row] - shift[row];
       data(DIM, points_count) = 1;
 
@@ -568,7 +570,7 @@ vw::int64 load_pc_aux(std::string const& file_name,
 }
 
 void load_pc(std::string const& file_name,
-             int num_points_to_load,
+             std::int64_t num_points_to_load,
              vw::BBox2 const& lonlat_box,
              bool calc_shift,
              vw::Vector3 & shift,
@@ -579,14 +581,14 @@ void load_pc(std::string const& file_name,
                                           lonlat_box, calc_shift, shift,
                                           geo, verbose, data);
 
-  int num_loaded_points = data.cols();
+  std::int64_t num_loaded_points = data.cols();
   if (!lonlat_box.empty()                    &&
       num_loaded_points < num_points_to_load &&
       num_loaded_points < num_total_points){
 
     // We loaded too few points. Try harder. Need some care here as to not run
     // out of memory.
-    num_points_to_load = std::max(4*num_points_to_load, 10000000);
+    num_points_to_load = std::max(4*num_points_to_load, std::int64_t(10000000));
     if (verbose)
       vw::vw_out() << "Too few points were loaded. Trying again." << std::endl;
     load_pc_aux(file_name, num_points_to_load, lonlat_box,
@@ -600,20 +602,21 @@ void load_pc(std::string const& file_name,
 void bestFitPlane(const std::vector<Eigen::Vector3d>& points, Eigen::Vector3d& centroid,
                   Eigen::Vector3d& plane_normal) {
   
-  size_t num_points = points.size();
-  if (num_points < 3) 
+  std::int64_t num_points = points.size();
+  if (num_points < std::int64_t(3)) 
     vw_throw( ArgumentErr() << "Need 3 points to fit a plane.\n");
 
   // Copy coordinates to  matrix in Eigen format
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> coord(3, num_points);
 
-  for (size_t i = 0; i < num_points; i++) coord.col(i) = points[i];
+  for (std::int64_t i = 0; i < num_points; i++) coord.col(i) = points[i];
 
   // calculate centroid
   centroid = Eigen::Vector3d(coord.row(0).mean(), coord.row(1).mean(), coord.row(2).mean());
 
   // subtract centroid
-  for (size_t it = 0; it < 3; it++) coord.row(it).array() -= centroid(it);
+  for (std::int64_t it = 0; it < 3; it++)
+    coord.row(it).array() -= centroid(it);
 
   // We only need the left-singular matrix here
   // https://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
@@ -634,9 +637,9 @@ void computeRigidTransform(const std::vector<Eigen::Vector3d>& src,
   trans = Eigen::Vector3d::Zero(3, 1);
     
   assert(src.size() == dst.size());
-  int pairSize = src.size();
+  std::int64_t pairSize = src.size();
   Eigen::Vector3d center_src(0, 0, 0), center_dst(0, 0, 0);
-  for (int i=0; i<pairSize; ++i){
+  for (std::int64_t i=0; i<pairSize; ++i){
     center_src += src[i];
     center_dst += dst[i];
   }
@@ -644,10 +647,10 @@ void computeRigidTransform(const std::vector<Eigen::Vector3d>& src,
   center_dst /= (double)pairSize;
   
   Eigen::MatrixXd S(pairSize, 3), D(pairSize, 3);
-  for (int i=0; i<pairSize; ++i){
-    for (int j=0; j<3; ++j)
+  for (std::int64_t i=0; i<pairSize; ++i){
+    for (std::int64_t j=0; j<3; ++j)
       S(i, j) = src[i][j] - center_src[j];
-    for (int j=0; j<3; ++j)
+    for (std::int64_t j=0; j<3; ++j)
       D(i, j) = dst[i][j] - center_dst[j];
   }
   Eigen::MatrixXd Dt = D.transpose();
@@ -656,7 +659,7 @@ void computeRigidTransform(const std::vector<Eigen::Vector3d>& src,
   
   Eigen::JacobiSVD<Eigen::MatrixXd> svd;
   Eigen::MatrixXd H_(3, 3);
-  for (int i=0; i<3; ++i) for (int j=0; j<3; ++j) H_(i, j) = H(i, j);
+  for (std::int64_t i=0; i<3; ++i) for (std::int64_t j=0; j<3; ++j) H_(i, j) = H(i, j);
   svd.compute(H_, Eigen::ComputeThinU | Eigen::ComputeThinV );
   if (!svd.computeU() || !svd.computeV()) {
     // Nothing to do, return the identity transform
@@ -676,8 +679,8 @@ void read_transform(Eigen::MatrixXd & T, std::string const& transFile){
     
   vw::vw_out() << "Reading: " << transFile << std::endl;
   std::ifstream is(transFile.c_str());
-  for (int row = 0; row < T.rows(); row++){
-    for (int col = 0; col < T.cols(); col++){
+  for (std::int64_t row = 0; row < T.rows(); row++){
+    for (std::int64_t col = 0; col < T.cols(); col++){
       double a;
       if (! (is >> a) )
         vw_throw( vw::IOErr() << "Failed to read initial transform from: "

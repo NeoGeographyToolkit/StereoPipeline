@@ -185,7 +185,7 @@ namespace asp {
 			    vw::cartography::GeoReference & georef);
 
   /// Returns the number of points stored in a LAS
-  boost::uint64_t las_file_size(std::string const& las_file);
+  std::int64_t las_file_size(std::string const& las_file);
 
   /// Builds a datum object out of the input arguments
   bool read_user_datum(double semi_major, double semi_minor,
@@ -209,10 +209,10 @@ namespace asp {
   bool is_valid_csv_line(std::string const& line);
 
   /// Returns the number of points contained in a CSV file
-  boost::uint64_t csv_file_size(std::string const& file);
+  std::int64_t csv_file_size(std::string const& file);
 
   /// Returns the number of points contained in a PCD file
-  boost::uint64_t pcd_file_size(std::string const& file);
+  std::int64_t pcd_file_size(std::string const& file);
 
   /// Erases a file suffix if one exists and returns the base string
   std::string prefix_from_pointcloud_filename(std::string const& filename);
@@ -327,8 +327,8 @@ namespace asp {
   // mimicking the existing interface for las files in liblas.
   class BaseReader{
   public:
-    boost::uint64_t     m_num_points;
-    bool                m_has_georef; ///< ??
+    std::int64_t m_num_points;
+    bool         m_has_georef; ///< ??
     vw::cartography::GeoReference m_georef;
     
     virtual bool        ReadNextPoint() = 0;

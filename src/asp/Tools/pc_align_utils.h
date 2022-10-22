@@ -90,7 +90,7 @@ typename PointMatcher<T>::DataPoints::Labels form_labels(int dim);
 
 // Load xyz points from disk into a matrix with 4 columns. Last column is just ones.
 void load_cloud(std::string const& file_name,
-               int num_points_to_load,
+               std::int64_t num_points_to_load,
                vw::BBox2 const& lonlat_box,
                bool calc_shift,
                vw::Vector3 & shift,
@@ -103,7 +103,7 @@ void load_cloud(std::string const& file_name,
 
 /// Load a file from disk and convert to libpointmatcher's format
 void load_cloud(std::string const& file_name,
-		int num_points_to_load,
+		std::int64_t num_points_to_load,
 		vw::BBox2 const& lonlat_box,
 		bool calc_shift,
 		vw::Vector3 & shift,
