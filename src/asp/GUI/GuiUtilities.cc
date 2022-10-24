@@ -384,34 +384,49 @@ bool read_datum_from_csv(std::string const& file, vw::cartography::Datum & datum
 
 // Given one or more of --csv-format-str, --csv-proj4, and datum, extract
 // the needed metatadata.
-void read_csv_metadata(std::string const& csv_file, 
-                       asp::CsvConv & csv_conv,
+void read_csv_metadata(std::string              const& csv_file, 
+                       asp::CsvConv                  & csv_conv,
+                       bool                          & has_pixel_vals,
+                       bool                          & has_georef,
                        vw::cartography::GeoReference & georef) {
   
   if (asp::stereo_settings().csv_format_str == "") {
-    if (csv_file.find("pointmap") != std::string::npos) {
-      // For the pointmap files the csv format is known
+    if (csv_file.find("pointmap") != std::string::npos)
+      // For the pointmap files the csv format is known, read it from
+      // the file if not specified the user
       asp::stereo_settings().csv_format_str = "1:lon, 2:lat, 4:height_above_datum";
-    } else {
-      popUp("The option --csv-format-str must be specified.");
-      return;
-    }
   }
-  vw_out() << "Using CSV format: " << asp::stereo_settings().csv_format_str << "\n";
   
   if (asp::stereo_settings().csv_proj4 != "")
     vw_out() << "Using projection: " << asp::stereo_settings().csv_proj4 << "\n";
-    
+
   try {
     csv_conv.parse_csv_format(asp::stereo_settings().csv_format_str,
                               asp::stereo_settings().csv_proj4);
+
   }catch (...) {
     // Give a more specific error message
     popUp("Could not parse the csv format. Check or specify --csv-format.\n");
     return;
   }
 
-  if (csv_file.find("pointmap") == std::string::npos &&
+  // For the x, y, z format we will just plot pixel x, pixel y, and value (z).
+  // No georeference can be used.
+  asp::CsvConv::CsvFormat fmt = csv_conv.get_format();
+  if (fmt == asp::CsvConv::XYZ || fmt == asp::CsvConv::PIXEL_XYVAL)
+    has_georef = false;
+  else
+    has_georef = true;
+
+  has_pixel_vals = (fmt == asp::CsvConv::PIXEL_XYVAL);
+  
+  if (asp::stereo_settings().csv_format_str == "") {
+    popUp("The option --csv-format-str must be specified.");
+    return;
+  }
+  vw_out() << "Using CSV format: " << asp::stereo_settings().csv_format_str << "\n";
+
+  if (has_georef && csv_file.find("pointmap") == std::string::npos &&
       asp::stereo_settings().csv_datum == "" &&
       asp::stereo_settings().csv_proj4 == "") {
     popUp("Must specify either --csv-proj4 or --csv-datum.");
@@ -467,9 +482,10 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     // Read CSV
     vw_out() << "Reading: " << name_in << std::endl; 
 
-    has_georef = true;
+    bool has_pixel_vals = false; // may change later
+    has_georef = true; // this may change later
     asp::CsvConv csv_conv;
-    read_csv_metadata(name_in, csv_conv, georef);
+    read_csv_metadata(name_in, csv_conv, has_pixel_vals, has_georef, georef);
 
     // Read the file
     std::list<asp::CsvConv::CsvRecord> pos_records;
@@ -481,6 +497,10 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
       Vector3 val = csv_conv.sort_parsed_vector3(*iter);
       if (std::isnan(norm_2(val)))  
         continue; // in case we get NaN
+
+      // For pixel values the y axis will go down
+      if (has_pixel_vals)
+        val[1] *= -1.0;
       
       scattered_data.push_back(val);
       bounds.grow(val);
@@ -489,10 +509,6 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     image_bbox.max() = subvector(bounds.max(), 0, 2);
     val_range[0] = bounds.min()[2];
     val_range[1] = bounds.max()[2];
-
-    vw_out() << "Lon-lat bounds: " << image_bbox << std::endl;
-    vw_out() << "Range of values: " << val_range[0] << ' ' << val_range[1] << std::endl;
-    
   }else{
     // Read an image
     int top_image_max_pix = 1000*1000;
