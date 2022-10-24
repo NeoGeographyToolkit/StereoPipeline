@@ -40,19 +40,22 @@ namespace asp {
     // Constructors / Destructors
     //------------------------------------------------------------------
     PleiadesCameraModel(vw::camera::LagrangianInterpolation const& position,
-                       vw::camera::LagrangianInterpolation const& velocity,
-                       vw::camera::SLERPPoseInterpolation  const& pose,
-                       vw::camera::LinearTimeInterpolation const& time,
-                       vw::Vector2                         const& tan_psi_x,
-                       vw::Vector2                         const& tan_psi_y,
-                       vw::Quaternion<double>              const& instrument_biases,
-                       vw::Vector2i                        const& image_size,
-                       double min_time, double max_time,
-                       bool   correct_velocity, bool   correct_atmosphere):
+                        vw::camera::LagrangianInterpolation const& velocity,
+                        double                                     quat_offset_time,
+                        double                                     quat_scale,
+                        std::vector<vw::Quaternion<double>> const& quaternion_coeffs,
+                        vw::camera::LinearTimeInterpolation const& time,
+                        vw::Vector2                         const& tan_psi_x,
+                        vw::Vector2                         const& tan_psi_y,
+                        vw::Quaternion<double>              const& instrument_biases,
+                        vw::Vector2i                        const& image_size,
+                        double min_time, double max_time,
+                        bool   correct_velocity, bool   correct_atmosphere):
       vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
       m_position_func(position), m_velocity_func(velocity),
-      m_pose_func(pose), m_time_func(time),
-      m_tan_psi_x(tan_psi_x), m_tan_psi_y(tan_psi_y),
+      m_quat_offset_time(quat_offset_time), m_quat_scale(quat_scale),
+      m_quaternion_coeffs(quaternion_coeffs),
+      m_time_func(time), m_tan_psi_x(tan_psi_x), m_tan_psi_y(tan_psi_y),
       m_inverse_instrument_biases(inverse(instrument_biases)),
       m_min_time(min_time), m_max_time(max_time) {}
     
@@ -81,15 +84,18 @@ namespace asp {
     vw::camera::LinearTimeInterpolation m_time_func;     ///< Yields time at a given line.
     vw::camera::LagrangianInterpolation m_position_func; ///< Yields position at time T
     vw::camera::LagrangianInterpolation m_velocity_func; ///< Yields velocity at time T
-    vw::camera::SLERPPoseInterpolation  m_pose_func;     ///< Yields pose     at time T
-    
+
     // These are used to find the look direction in camera coordinates at a given line
     vw::Vector2 m_tan_psi_x, m_tan_psi_y;
     vw::Quaternion<double> m_inverse_instrument_biases;
 
-    /// These are the limits of when he have pose data available.
+    /// These are the limits of when he have position data available.
     double m_min_time, m_max_time;
     
+    // These will be used to fit the quaternions
+    double m_quat_offset_time, m_quat_scale;
+    std::vector<vw::Quaternion<double>> m_quaternion_coeffs;
+
     /// Throw an exception if the input time is outside the given bounds.
     /// - Pass the caller location in to get a nice error message.
     void check_time(double time, std::string const& location) const;
@@ -100,7 +106,8 @@ namespace asp {
   /// Load a Pleiades camera model from an XML file.
   /// - This function does not take care of Xerces XML init/de-init, the caller must
   ///   make sure this is done before/after this function is called!
-  boost::shared_ptr<PleiadesCameraModel> load_pleiades_camera_model_from_xml(std::string const& path);
+  boost::shared_ptr<PleiadesCameraModel>
+  load_pleiades_camera_model_from_xml(std::string const& path);
 
 } // end namespace asp
 

@@ -15,6 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// Pleiades camera model. The documentation used is airbus-pleiades-imagery-user-guide-15042021.pdf.
+
 #include <vw/Core/Exception.h>          // for ArgumentErr, vw_throw, etc
 #include <vw/Math/Quaternion.h>         // for Quat, Quaternion
 #include <vw/Math/Vector.h>             // for Vector, Vector3, Vector4, etc
@@ -60,8 +62,6 @@ DOMElement* PleiadesXML::open_xml_file(std::string const& xml_path) {
   std::string err_message  = ""; // Filled in later on error
 
   try{
-    std::cout << "---open pleiades xml" << std::endl;
-    
     // Set up the XML parser if we have not already done so
     if (!m_parser.get()) {
       m_parser.reset(new XercesDOMParser());
@@ -106,7 +106,6 @@ void PleiadesXML::read_xml(std::string const& xml_path) {
 
 void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
 
-  std::cout << "--now in parse_xml for Pleiades!" << std::endl;
   xercesc::DOMElement* metadata_id = get_node<DOMElement>(root, "Metadata_Identification");
 
   xercesc::DOMElement* metadata_profile = get_node<DOMElement>(metadata_id, "METADATA_PROFILE");
@@ -117,7 +116,6 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
     vw_throw(ArgumentErr() << "Incorrect sensor name. Expected: "
              << expected_name << " but got: " << sensor_name << ".\n");
 
-  std::cout << "--parsed sensor" << std::endl;
   xercesc::DOMElement* raster_data = get_node<DOMElement>(root, "Raster_Data");
   read_image_size(raster_data);
 
@@ -126,11 +124,8 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
   
   // Dig some levels down
   xercesc::DOMElement* geometric_data = get_node<DOMElement>(root, "Geometric_Data");
-  std::cout << "--got geom data" << std::endl;
   xercesc::DOMElement* refined_model = get_node<DOMElement>(geometric_data, "Refined_Model");
-  std::cout << "--fetched refined model" << std::endl;
   xercesc::DOMElement* time = get_node<DOMElement>(refined_model, "Time");
-  std::cout << "--fetched time" << std::endl;
   read_times(time);
   
   xercesc::DOMElement* ephemeris = get_node<DOMElement>(refined_model, "Ephemeris");
@@ -162,18 +157,14 @@ void PleiadesXML::read_times(xercesc::DOMElement* time) {
 
   // In addition to the relative start time stored in m_start_time, we will store
   // the start time string as well, in m_start_time_str, to be used later
-  std::cout << "--fetch time range" << std::endl;
   cast_xmlch(get_node<DOMElement>(time_range, "START")->getTextContent(), m_start_time_str);
   bool is_start_time = true;
-  std::cout << "--got start " << std::endl;
-  std::cout << "---start time str " << m_start_time_str << std::endl;
   m_start_time = PleiadesXML::convert_time(m_start_time_str, is_start_time);
   std::cout << "--found start time " << m_start_time << std::endl;
   
   std::string end_time_str;
   cast_xmlch(get_node<DOMElement>(time_range, "END")->getTextContent(), end_time_str);
   is_start_time = false;
-  std::cout << "--got end " << std::endl;
   std::cout << "---end time str " << end_time_str << std::endl;
   m_end_time = PleiadesXML::convert_time(end_time_str, is_start_time);
   std::cout << "--found end time " << m_end_time << std::endl;
@@ -197,8 +188,7 @@ void PleiadesXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
 
   // Pick out the "Point" nodes
   DOMNodeList* children = point_list->getChildNodes();
-  std::cout << "---number of children " << children->getLength() << std::endl;
-  
+
   for (XMLSize_t i = 0; i < children->getLength(); i++) {
     
     // Check child node type
@@ -226,14 +216,15 @@ void PleiadesXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
     position_vec = str_to_vec<Vector3>(position_str, delimiters);
     velocity_vec = str_to_vec<Vector3>(velocity_str, delimiters);
 
-    std::cout << "---child time " << time << std::endl;
-    std::cout << "--position " << position_vec << std::endl;
-    std::cout << "---velocity vec " << velocity_vec << std::endl;
+    std::cout << "---position time " << time << std::endl;
     
     m_positions.push_back(std::pair<double, Vector3>(time, position_vec));
     m_velocities.push_back(std::pair<double, Vector3>(time, velocity_vec));
   } // End loop through points
-  
+
+  // Sanity check
+  if (m_positions.size() < 2)
+  vw_throw(ArgumentErr() << "Expecting to read at least two positions from the xml .\n");  
 }
 
 // Given a calendar time, find the midnight time. Just put zeros for hours, minutes, and seconds.
@@ -270,8 +261,6 @@ void PleiadesXML::read_attitudes(xercesc::DOMElement* attitudes) {
   // to the start time.
   std::cout << "---offset str " << offset_str << std::endl;
   std::cout << "--start time " << m_start_time_str << std::endl;
-  
-  std::cout << "--center time is  " << m_quat_offset_time << std::endl;
   std::string midnight_time_str; 
   calc_midnight_time(m_start_time_str, midnight_time_str);
 
@@ -302,7 +291,7 @@ void PleiadesXML::read_attitudes(xercesc::DOMElement* attitudes) {
   std::cout << "--quat scale " << m_quat_scale << std::endl;
 
   // Read the quaternion coefficients that will be used with the quaternion
-  // polynomial to find the quaternions at any time
+  // polynomial to find the quaternions at any time (page 77)
   m_quaternion_coeffs.clear();
   std::vector<std::string> tags = {"Q0", "Q1", "Q2", "Q3"};
   for (size_t it = 0; it < tags.size(); it++) {
@@ -319,7 +308,6 @@ void PleiadesXML::read_attitudes(xercesc::DOMElement* attitudes) {
     std::cout << "--quat " << quat_str << std::endl;
 
     vw::Vector<double, 4> v = vw::str_to_vec<vw::Vector<double, 4>>(quat_str);
-    std::cout << "--v " << v << std::endl;
 
     // order is w, x, y, z
     // TODO(oalexan1): Need to check this!
@@ -347,7 +335,7 @@ void PleiadesXML::read_ref_col_row(xercesc::DOMElement* swath_range) {
 void PleiadesXML::read_look_angles(xercesc::DOMElement* look_angles) {
 
   // Pages 75 and 100 in the doc
-  m_tan_psi_x = vw::Vector2();
+  m_tan_psi_x = vw::Vector2(0, 0);
   std::string xlos_0;
   cast_xmlch(get_node<DOMElement>(look_angles, "XLOS_0")->getTextContent(),
              xlos_0);
@@ -361,7 +349,7 @@ void PleiadesXML::read_look_angles(xercesc::DOMElement* look_angles) {
 
   // Unlike for PeruSat, there's only one tan_psi_y value. Keep the same
   // interface though.
-  m_tan_psi_y = vw::Vector2();
+  m_tan_psi_y = vw::Vector2(0, 0);
   std::string ylos_0;
   cast_xmlch(get_node<DOMElement>(look_angles, "YLOS_0")->getTextContent(),
              ylos_0);
@@ -406,20 +394,18 @@ double PleiadesXML::convert_time(std::string const& s, bool is_start_time) {
   return -1.0; // Never reached
 }
 
-// Find the time at each line (line starts from 0) by multiplying by
-// the period.  All times are relative to the starting time (see the
-// convert_time() function).
-  
-// Note: Pleiades also has the center time, under Located_Geometric_Values,
-// and that corresponds to line (num_lines - 1)/2.0 as expected. Yet Pleiades
-// also provides there a center row, but that one is wrong and not equal
-// to (num_lines - 1)/2.0.
+// Find the time at each line. According to the doc (page 76),
+// reference line is the first line. In ASP, line count starts from 0.
+// We will use the convention that all times are relative to time
+// at line 0, so time at line 0 is 0. There can be negative times,
+// as the positions and velocities are tabulated at times both
+// before the first line and after the last time.
 vw::camera::LinearTimeInterpolation PleiadesXML::setup_time_func() const {
   return vw::camera::LinearTimeInterpolation(m_start_time, m_line_period);
 }
 
 // The position is already in GCC, so just pack into a function.
-// - Currently this is identical to the velocity function, but this may change later.
+// Currently this is identical to the velocity function, but this may change later.
 vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
 (vw::camera::LinearTimeInterpolation const& time_func) const {
 
@@ -436,13 +422,13 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
     vw_throw(ArgumentErr() << "The position timestamps do not fully span the "
              << "range of times for the image lines.");
 
-  // Use Lagrange interpolation with degree 3 polynomials with 4
-  // points in piecewise manner out of 5 provided in the xml
-  // file. This is what the doc recommends.
-  // TODO(oalexan1): Implement Lagrange interpolation of even degree
-  // using an odd number of points, and see if using all 5 points at
-  // once is any better.
-  const int INTERP_RADII = 2; 
+  std::cout << "--position start time " << position_start_time << std::endl;
+  std::cout << "--position end time " << position_stop_time << std::endl;
+  std::cout << "--position delta t " << position_delta_t << std::endl;
+  
+  // Use Lagrange interpolation with degree 7 polynomials with 8
+  // samples, per the doc (page 77).
+  const int INTERP_RADIUS = 4;  // interpolation order = 2 * INTERP_RADIUS
   std::vector<double>  time_vec;
   std::vector<Vector3> position_vec;
 
@@ -464,12 +450,9 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
     index++;
   }
   
-  // More generic method for variable time intervals
-  // return vw::camera::LagrangianInterpolationVarTime(position_vec, time_vec, INTERP_RADII);
-  
-  // A faster method for when we know the time delta is constant
+  // We know the time delta is constant, so the data is unformly distributed.
   return vw::camera::LagrangianInterpolation(position_vec, position_start_time,
-                                             position_delta_t, position_stop_time, INTERP_RADII);
+                                             position_delta_t, position_stop_time, INTERP_RADIUS);
 }
   
 // Velocities are the sum of inertial velocities and the instantaneous
@@ -488,6 +471,10 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
   double velocity_stop_time  = m_velocities.back().first;
   double velocity_delta_t    = (velocity_stop_time - velocity_start_time) / (num_velocities - 1.0);
 
+  std::cout << "--velocity start time " << velocity_start_time << std::endl;
+  std::cout << "--velocity end time " << velocity_stop_time << std::endl;
+  std::cout << "--velocity delta t " << velocity_delta_t << std::endl;
+  
   if (velocity_start_time > first_line_time || velocity_stop_time < last_line_time)
     vw_throw(ArgumentErr() << "The velocity timestamps do not fully span the "
              << "range of times for the image lines.");
@@ -497,7 +484,7 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
              << "range of times for the image lines.");
 
   // See note when the position function was set up earlier.
-  const int INTERP_RADII = 2;
+  const int INTERP_RADIUS = 4; // Interpolation order = 2 * INTERP_RADIUS
   std::vector<double>  time_vec;
   std::vector<Vector3> velocity_vec;
 
@@ -520,60 +507,11 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
   }
 
   // More generic method for variable time intervals
-  //return vw::camera::LagrangianInterpolationVarTime(velocity_vec, time_vec, INTERP_RADII);
+  //return vw::camera::LagrangianInterpolationVarTime(velocity_vec, time_vec, INTERP_RADIUS);
 
   // A faster method for when we know the time delta is constant
   return vw::camera::LagrangianInterpolation(velocity_vec, velocity_start_time,
-                                             velocity_delta_t, velocity_stop_time, INTERP_RADII);
-}
-
-// Put the timestamps and poses in vectors and form the pose
-// interpolation object.
-
-// TODO(oalexan1): See if using bicubic pose interpolation (as the
-// SPOT-6 manual suggests) is better than the bilinear interpolation
-// used now.
-vw::camera::SLERPPoseInterpolation PleiadesXML::setup_pose_func
-  (vw::camera::LinearTimeInterpolation const& time_func) const {
-
-  size_t num_lines           = m_image_size[1];
-  double first_line_time     = time_func(0);
-  double last_line_time      = time_func(num_lines - 1.0);
-
-  double num_poses           = m_poses.size();
-  double pose_start_time     = m_poses.front().first;
-  double pose_stop_time      = m_poses.back().first;
-  double pose_delta_t        = (pose_stop_time - pose_start_time) / (num_poses - 1.0);
-
-  if (pose_start_time > first_line_time || pose_stop_time < last_line_time)
-    vw_throw(ArgumentErr() << "The quaternion timestamps do not fully span the "
-             << "range of times for the image lines.");
-  
-  std::vector<vw::Quaternion<double>> pose_vec(num_poses);
-  std::vector<double>  time_vec(num_poses);
-  int index = 0;
-  for (auto iter = m_poses.begin(); iter != m_poses.end(); iter++) {
-    time_vec[index] = iter->first;
-    pose_vec[index] = iter->second;
-
-    // Sanity check. The times at which the quaternions are given must
-    // be uniformly distributed. The quaternions are sampled more
-    // densely than the positions and velocities, so we tolerate
-    // a bit more divergence from uniform sampling.
-    if (index > 0) {
-      double err = std::abs(time_vec[index] - time_vec[index - 1] - pose_delta_t) / pose_delta_t;
-      if (err > 0.01) 
-        vw_throw(ArgumentErr() << "The quaternion timestamps are not uniformly distributed.");
-    }
-    
-    index++;
-  }
-
-  // Using splines for pose interpolation changed the DEM heights on
-  // the order of 2 cm, so it appears not to make a difference.
-  bool use_splines = false;
-  double min_time = time_vec.front();
-  return vw::camera::SLERPPoseInterpolation(pose_vec, min_time, pose_delta_t, use_splines);
+                                             velocity_delta_t, velocity_stop_time, INTERP_RADIUS);
 }
   
 } // end namespace asp

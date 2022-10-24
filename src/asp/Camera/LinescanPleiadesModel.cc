@@ -22,11 +22,6 @@
 
 namespace asp {
 
-// While static variables are not thread-safe, this will be changed only once,
-// the first time a PleiadesCameraModel is loaded, and model loading is a serial
-// process. 
-static bool pleiades_correction_note_printed = false;
-
 using vw::Vector3;
 using vw::Matrix3x3;
 
@@ -76,9 +71,25 @@ vw::Vector3 PleiadesCameraModel::get_camera_velocity_at_time(double time) const 
   check_time(time, "get_camera_velocity_at_time");
   return m_velocity_func(time); 
 }
+
+// Compute the quaternion at given time using the polynomial
+// expression (page 77)
 vw::Quat PleiadesCameraModel::get_camera_pose_at_time(double time) const {
-  check_time(time, "get_camera_pose_at_time");
- return m_pose_func(time); 
+
+  double scaled_t = (time - m_quat_offset_time) / m_quat_scale;
+  vw::Quaternion<double> q = m_quaternion_coeffs[0];
+  double tn = 1.0; // scaled_t to the power of n
+  std::cout << "q = " << q << std::endl;
+  for (size_t it = 1; it < m_quaternion_coeffs.size(); it++) {
+    tn *= scaled_t;
+    std::cout << "--t = " << scaled_t << std::endl;
+    std::cout << "tn = " << tn << std::endl;
+    //q += tn * m_quaternion_coeffs[it];
+    q = q + m_quaternion_coeffs[it] * tn;
+    std::cout << "--q is " << q << std::endl;
+  }
+
+  return q;
 }
 
 double PleiadesCameraModel::get_time_at_line(double line) const {
@@ -132,45 +143,36 @@ boost::shared_ptr<PleiadesCameraModel> load_pleiades_camera_model_from_xml(std::
     position_func  = xml_reader.setup_position_func(time_func);
   vw::camera::LagrangianInterpolation
     velocity_func  = xml_reader.setup_velocity_func(time_func);
-  vw::camera::SLERPPoseInterpolation
-    pose_func      = xml_reader.setup_pose_func(time_func);
 
   // Find the range of times for which we can solve for position and pose
   double min_position_time = position_func.get_t0();
   double max_position_time = position_func.get_tend();
   double min_velocity_time = velocity_func.get_t0();
   double max_velocity_time = velocity_func.get_tend();
-  double min_pose_time = pose_func.get_t0();
-  double max_pose_time = pose_func.get_tend();
-  double min_time = std::max(min_position_time, std::max(min_velocity_time, min_pose_time));
-  double max_time = std::min(max_position_time, std::min(max_velocity_time, max_pose_time));
 
-  // See note on this below
+  double min_time = std::max(min_position_time, min_velocity_time);
+  double max_time = std::min(max_position_time, max_velocity_time);
+  
+  std::cout << "3 min time " << min_time << std::endl;
+  std::cout << "--3 max time " << max_time << std::endl;
+  
   bool correct_velocity_aberration = false;
   bool correct_atmospheric_refraction = false;
   
   // Create the model. This can throw an exception.
   boost::shared_ptr<PleiadesCameraModel> cam
-    (new PleiadesCameraModel(position_func, velocity_func, 
-                            pose_func, time_func, 
-                            xml_reader.m_tan_psi_x,
-                            xml_reader.m_tan_psi_y,
-                            xml_reader.m_instrument_biases,
-                            xml_reader.m_image_size,
-                            min_time, max_time,
-                            correct_velocity_aberration,
-                            correct_atmospheric_refraction));
-
-  // Print this note only if Pleiades model loading was successful, as
-  // sometimes this camera loading function is invoked when querying
-  // an unknown XML model and we may not end up using this session if
-  // loading fails.
-  if (!pleiades_correction_note_printed) {
-    vw::vw_out() << "Not using atmospheric and velocity aberration correction "
-             << "with Pleiades cameras to maintain closer agreement with "
-             << "the RPC approximation to this model.\n";
-    pleiades_correction_note_printed = true;
-  }
+    (new PleiadesCameraModel(position_func, velocity_func,
+                             xml_reader.m_quat_offset_time,
+                             xml_reader.m_quat_scale,
+                             xml_reader.m_quaternion_coeffs,
+                             time_func, 
+                             xml_reader.m_tan_psi_x,
+                             xml_reader.m_tan_psi_y,
+                             xml_reader.m_instrument_biases,
+                             xml_reader.m_image_size,
+                             min_time, max_time,
+                             correct_velocity_aberration,
+                             correct_atmospheric_refraction));
   
   return cam;
 } // End function load_pleiades_camera_model()

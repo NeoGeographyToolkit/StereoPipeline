@@ -15,6 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// Pleiades camera model. The documentation used is airbus-pleiades-imagery-user-guide-15042021.pdf.
+
 // These are objects that relate directly to block in XML that we need
 // to read. They only read and then store the raw values. Other
 // objects will interpret the results.
@@ -57,9 +59,13 @@ namespace asp {
     PleiadesXML(): m_start_time_is_set(false){}
 
     vw::Vector2i m_image_size;
-    vw::Quaternion<double> m_instrument_biases;
+    vw::Quaternion<double> m_instrument_biases; // TODO(oalexan1): Wipe this
     vw::Vector2 m_tan_psi_x, m_tan_psi_y;
 
+    // These will be used to fit the quaternions
+    double m_quat_offset_time, m_quat_scale;
+    std::vector<vw::Quaternion<double>> m_quaternion_coeffs;
+    
     /// Parse an XML file to populate the data
     void read_xml(std::string const& xml_path);
     
@@ -72,12 +78,10 @@ namespace asp {
     (vw::camera::LinearTimeInterpolation const& time_func) const;
     vw::camera::LagrangianInterpolation setup_velocity_func
     (vw::camera::LinearTimeInterpolation const& time_func) const;
-    vw::camera::SLERPPoseInterpolation         setup_pose_func
-    (vw::camera::LinearTimeInterpolation const& time_func) const;
     
   private: // The various XML data reading sections
   
-    /// Just opens the XML file for reading and returns the root node.
+    /// Opens the XML file for reading and returns the root node.
     xercesc::DOMElement* open_xml_file(std::string const& xml_path);
 
     void read_image_size  (xercesc::DOMElement* raster_data);
@@ -99,10 +103,6 @@ namespace asp {
     bool   m_start_time_is_set;
     double m_start_time, m_end_time;
 
-    // These will be used to fit the quaternions
-    double m_quat_offset_time, m_quat_scale;
-    std::vector<vw::Quaternion<double>> m_quaternion_coeffs;
-    
     int m_ref_row, m_ref_col;
     double m_line_period;
     
