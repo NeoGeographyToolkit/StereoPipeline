@@ -420,7 +420,7 @@ void load_dem_pixel_type(std::string const& file_name,
 
   // We will randomly pick or not a point with probability load_ratio.
   // Use int64_t to avoid integer overflow
-  std::int16_t num_points = std::int16_t(pix_box.width()) * std::int16_t(pix_box.height());
+  std::int64_t num_points = std::int64_t(pix_box.width()) * std::int64_t(pix_box.height());
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
 
   bool shift_was_calc = false;
