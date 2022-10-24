@@ -56,7 +56,7 @@ namespace asp {
     /// - Note that the data is not stored in this order internally.
     enum CsvFormat{
       XYZ, HEIGHT_LAT_LON, LAT_LON_RADIUS_M,
-      LAT_LON_RADIUS_KM, EASTING_HEIGHT_NORTHING};
+      LAT_LON_RADIUS_KM, EASTING_HEIGHT_NORTHING, PIXEL_XYVAL};
 
     /// Object used to store the data parsed from a CSV line.
     struct CsvRecord{

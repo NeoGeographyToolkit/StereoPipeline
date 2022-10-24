@@ -392,6 +392,9 @@ int asp::CsvConv::get_sorted_index_for_name(std::string const& name){
   if (name == "x"        ) return 0;
   if (name == "y"        ) return 1;
   if (name == "z"        ) return 2;
+  if (name == "pixel_x"  ) return 0;
+  if (name == "pixel_y"  ) return 1;
+  if (name == "pixel_val") return 2;
   if (name == "easting"  ) return 0;
   if (name == "northing" ) return 1;
   if (name == "height_above_datum") return 2;
@@ -513,7 +516,9 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
   }
 */
   // From the input strings, determine which set type applies to this file.
-  if (sorted_names[0] == "x" && sorted_names[1] == "y" && sorted_names[2] == "z"){
+  if (sorted_names[0] == "x" &&
+      sorted_names[1] == "y" &&
+      sorted_names[2] == "z"){
     this->format = XYZ;
   }else if (sorted_names[0] == "lon" &&
             sorted_names[1] == "lat" &&
@@ -531,6 +536,10 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
             sorted_names[1] == "northing" &&
             sorted_names[2] == "height_above_datum"){
     this->format = EASTING_HEIGHT_NORTHING;
+  } else if (sorted_names[0] == "pixel_x" &&
+             sorted_names[1] == "pixel_y" &&
+             sorted_names[2] == "pixel_val"){
+    this->format = PIXEL_XYVAL;
   }else{
     vw_throw( ArgumentErr() << "Cannot understand the csv format string: "
                             << csv_format_str << ".\n" );
