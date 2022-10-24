@@ -18,7 +18,6 @@
 // Pleiades camera model. The documentation used is airbus-pleiades-imagery-user-guide-15042021.pdf.
 
 #include <vw/Core/Exception.h>          // for ArgumentErr, vw_throw, etc
-#include <vw/Math/Quaternion.h>         // for Quat, Quaternion
 #include <vw/Math/Vector.h>             // for Vector, Vector3, Vector4, etc
 #include <vw/Cartography/Datum.h>       // for Datum
 #include <vw/FileIO/DiskImageResourceGDAL.h>
@@ -56,9 +55,9 @@ DOMElement* PleiadesXML::open_xml_file(std::string const& xml_path) {
 
   // Check if the file actually exists and throw a user helpful file.
   if (!boost::filesystem::exists(xml_path))
-    vw_throw(ArgumentErr() << "XML file \"" << xml_path << "\" does not exist.");
+    vw_throw(ArgumentErr() << "XML file: " << xml_path << " does not exist.");
 
-  std::string error_prefix = "XML file \"" + xml_path + "\" is invalid.\nException message is: \n";
+  std::string error_prefix = "XML file: " + xml_path + " is invalid.\nException message is: \n";
   std::string err_message  = ""; // Filled in later on error
 
   try{
@@ -165,7 +164,6 @@ void PleiadesXML::read_times(xercesc::DOMElement* time) {
   std::string end_time_str;
   cast_xmlch(get_node<DOMElement>(time_range, "END")->getTextContent(), end_time_str);
   is_start_time = false;
-  std::cout << "---end time str " << end_time_str << std::endl;
   m_end_time = PleiadesXML::convert_time(end_time_str, is_start_time);
   std::cout << "--found end time " << m_end_time << std::endl;
 
@@ -216,8 +214,6 @@ void PleiadesXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
     position_vec = str_to_vec<Vector3>(position_str, delimiters);
     velocity_vec = str_to_vec<Vector3>(velocity_str, delimiters);
 
-    std::cout << "---position time " << time << std::endl;
-    
     m_positions.push_back(std::pair<double, Vector3>(time, position_vec));
     m_velocities.push_back(std::pair<double, Vector3>(time, velocity_vec));
   } // End loop through points
@@ -237,7 +233,6 @@ void calc_midnight_time(std::string const& start_time, std::string& midnight_tim
                  << "Could not parse time string: " << start_time << ".\n");
   hour_pos += 1; // move past the "T"
 
-  std::cout << "--val is " << start_time[hour_pos] << std::endl;
   midnight_time = start_time;
   for (size_t it = hour_pos; it < midnight_time.size(); it++) {
     if (midnight_time[it] >= '0' && midnight_time[it] <= '9') {
@@ -302,18 +297,11 @@ void PleiadesXML::read_attitudes(xercesc::DOMElement* attitudes) {
     if (deg != 3)
       vw_throw(ArgumentErr() << "Expecting the degree of the quaternion polynomial to be 3.\n");
 
-    std::cout << "--deg is " << deg << std::endl;
     std::string quat_str;
     cast_xmlch(get_node<DOMElement>(qi, "COEFFICIENTS")->getTextContent(), quat_str);
-    std::cout << "--quat " << quat_str << std::endl;
 
     vw::Vector<double, 4> v = vw::str_to_vec<vw::Vector<double, 4>>(quat_str);
-
-    // order is w, x, y, z
-    // TODO(oalexan1): Need to check this!
-    vw::Quaternion<double> q(v[0], v[1], v[2], v[3]);
-    std::cout << "--q is " << q << std::endl;
-    m_quaternion_coeffs.push_back(q);
+    m_quaternion_coeffs.push_back(v);
   }
 
   return;
@@ -327,41 +315,38 @@ void PleiadesXML::read_ref_col_row(xercesc::DOMElement* swath_range) {
              ref_col);
   m_ref_col = atoi(ref_col.c_str());
 
-  std::cout << "--ref col " << m_ref_col << std::endl;
-  std::cout << "--ref row " << m_ref_row << std::endl;
-
+  // subtract 1, as we prefer to start rows and columns from 0
+  m_ref_row -= 1;
+  m_ref_col -= 1;
 }
   
 void PleiadesXML::read_look_angles(xercesc::DOMElement* look_angles) {
 
   // Pages 75 and 100 in the doc
-  m_tan_psi_x = vw::Vector2(0, 0);
+  m_coeff_psi_x = vw::Vector2(0, 0);
   std::string xlos_0;
   cast_xmlch(get_node<DOMElement>(look_angles, "XLOS_0")->getTextContent(),
              xlos_0);
-  m_tan_psi_x[0] = atof(xlos_0.c_str());
-  std::cout << "---xlos0 " << xlos_0 << std::endl;
+  m_coeff_psi_x[0] = atof(xlos_0.c_str());
   
   std::string xlos_1;
   cast_xmlch(get_node<DOMElement>(look_angles, "XLOS_1")->getTextContent(),
              xlos_1);
-  m_tan_psi_x[1] = atof(xlos_1.c_str());
+  m_coeff_psi_x[1] = atof(xlos_1.c_str());
 
-  // Unlike for PeruSat, there's only one tan_psi_y value. Keep the same
+  // Unlike for PeruSat, there's only one coeff_psi_y value. Keep the same
   // interface though.
-  m_tan_psi_y = vw::Vector2(0, 0);
+  m_coeff_psi_y = vw::Vector2(0, 0);
   std::string ylos_0;
   cast_xmlch(get_node<DOMElement>(look_angles, "YLOS_0")->getTextContent(),
              ylos_0);
-  m_tan_psi_y[0] = atof(ylos_0.c_str());
+  m_coeff_psi_y[0] = atof(ylos_0.c_str());
 
-  for (size_t it = 0; it < m_tan_psi_x.size(); it++)
-    std::cout << "--tan psi x " << m_tan_psi_x[it] << std::endl;
+  for (size_t it = 0; it < m_coeff_psi_x.size(); it++)
+    std::cout << "--coeff psi x " << m_coeff_psi_x[it] << std::endl;
     
-  for (size_t it = 0; it < m_tan_psi_y.size(); it++)
-    std::cout << "--tan psi y " << m_tan_psi_y[it] << std::endl;
-  
-  //m_tan_psi_x = str_to_vec<Vector2>(tan_psi_x_str, delimiters);
+  for (size_t it = 0; it < m_coeff_psi_y.size(); it++)
+    std::cout << "--coeff psi y " << m_coeff_psi_y[it] << std::endl;
 }
 
 // Converts a time from string to double precision value measured in seconds
@@ -450,7 +435,7 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
     index++;
   }
   
-  // We know the time delta is constant, so the data is unformly distributed.
+  // We know the time delta is constant, so the data is uniformly distributed.
   return vw::camera::LagrangianInterpolation(position_vec, position_start_time,
                                              position_delta_t, position_stop_time, INTERP_RADIUS);
 }

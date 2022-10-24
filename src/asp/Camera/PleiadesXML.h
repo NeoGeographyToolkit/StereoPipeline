@@ -27,7 +27,6 @@
 #include <vw/Core/FundamentalTypes.h>
 #include <vw/Core/Log.h>
 #include <vw/Math/Vector.h>
-#include <vw/Math/Quaternion.h>
 #include <vw/Math/BBox.h>
 #include <vw/Math/Geometry.h>
 #include <vw/Cartography/GeoReference.h>
@@ -59,12 +58,12 @@ namespace asp {
     PleiadesXML(): m_start_time_is_set(false){}
 
     vw::Vector2i m_image_size;
-    vw::Quaternion<double> m_instrument_biases; // TODO(oalexan1): Wipe this
-    vw::Vector2 m_tan_psi_x, m_tan_psi_y;
+    vw::Vector2 m_coeff_psi_x, m_coeff_psi_y;
+    int m_ref_row, m_ref_col;
 
     // These will be used to fit the quaternions
     double m_quat_offset_time, m_quat_scale;
-    std::vector<vw::Quaternion<double>> m_quaternion_coeffs;
+    std::vector<vw::Vector<double, 4>> m_quaternion_coeffs;
     
     /// Parse an XML file to populate the data
     void read_xml(std::string const& xml_path);
@@ -103,15 +102,11 @@ namespace asp {
     bool   m_start_time_is_set;
     double m_start_time, m_end_time;
 
-    int m_ref_row, m_ref_col;
     double m_line_period;
     
     std::list<std::pair<double, vw::Vector3>> m_positions;        // (time,   X/Y/Z)
     std::list<std::pair<double, vw::Vector3>> m_velocities;       // (time,   dX/dY/dZ)
 
-    // TODO(oalexan1): Wipe this field
-    std::list<std::pair<double, vw::Quaternion<double>>> m_poses; // (time, quaternion)
-    
     boost::shared_ptr<xercesc::XercesDOMParser> m_parser;
     boost::shared_ptr<xercesc::ErrorHandler>    m_err_handler;
     
