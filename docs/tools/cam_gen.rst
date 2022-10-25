@@ -167,6 +167,12 @@ Command-line options for cam_gen:
 
 --input-camera <filename>
     Create the output pinhole camera approximating this camera.
+    
+--cam-height <float (default: 0)>
+    If both this and --cam-weight are positive, enforce that the output camera is at this height above datum. For SkySat, if not set, read this from the frame index. 
+    
+--cam-weight <float (default: 0)>
+    If positive, try to enforce the option --cam-height with this weight (bigger weight means try harder to enforce). Highly experimental.
 
 -t, --session-type <string>
     Select the input camera model type. Normally this is auto-detected,
