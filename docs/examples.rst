@@ -1663,7 +1663,8 @@ one::
 The camera centers computed by the two methods won't agree, because
 the RPC camera model does not store the true camera center. ASP then
 substitutes it with an estimated point on the ray from the the true
-camera center to the ground.
+camera center to the ground. This disagreement is not an issue in
+practice.
 
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices.

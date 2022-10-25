@@ -25,8 +25,6 @@
 #define __STEREO_CAMERA_CSM_MODEL_H__
 
 #include <vw/Camera/CameraModel.h>
-#include <asp/Core/StereoSettings.h>
-
 #include <boost/shared_ptr.hpp>
 
 namespace csm {
@@ -62,7 +60,7 @@ namespace asp {
     virtual vw::Vector3 camera_center(vw::Vector2 const& pix) const;
 
     virtual vw::Quaternion<double> camera_pose(vw::Vector2 const& pix) const {
-      vw_throw( vw::NoImplErr() << "CsmModel: Cannot retrieve camera_pose!" );
+      vw_throw(vw::NoImplErr() << "CsmModel: Cannot retrieve camera_pose!");
       return vw::Quaternion<double>();
     }
 
@@ -101,7 +99,7 @@ namespace asp {
       m_desired_precision = desired_precision;
     }
 
-    // TODO: Is it always going to be this type (RasterGM)?
+    // TODO(oalexan1): Is it always going to be this type (RasterGM)?
     boost::shared_ptr<csm::RasterGM> m_csm_model;
 
   private:
@@ -138,8 +136,8 @@ namespace asp {
   }; // End class CsmModel
 
 
-  // Auxiliary functions to convert a pixel from ASP conventions to what CSM
-  // expects and vice versa
+  // Auxiliary non-member functions to convert a pixel from ASP
+  // conventions to what CSM expects and vice versa
   void toCsmPixel(vw::Vector2 const& pix, csm::ImageCoord & csm);
   void fromCsmPixel(vw::Vector2 & pix, csm::ImageCoord const& csm);
   

@@ -29,6 +29,9 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/Extrinsics.h>
 
+// Forward declaration
+class UsgsAstroLsSensorModel;
+
 namespace asp {
 
   /// Specialization of the generic LinescanModel for Pleiades satellites.
@@ -38,24 +41,18 @@ namespace asp {
     //------------------------------------------------------------------
     // Constructors / Destructors
     //------------------------------------------------------------------
-    PleiadesCameraModel(vw::camera::LagrangianInterpolation const& position,
+    PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
+                        vw::camera::LagrangianInterpolation const& position,
                         vw::camera::LagrangianInterpolation const& velocity,
                         double                                     quat_offset_time,
                         double                                     quat_scale,
-                        std::vector<vw::Vector<double, 4>> const& quaternion_coeffs,
-                        vw::camera::LinearTimeInterpolation const& time,
+                        std::vector<vw::Vector<double, 4>>  const& quaternion_coeffs,
                         vw::Vector2                         const& coeff_psi_x,
                         vw::Vector2                         const& coeff_psi_y,
                         vw::Vector2i                        const& image_size,
                         double min_time, double max_time,
                         int ref_col, int ref_row,
-                        bool   correct_velocity, bool correct_atmosphere):
-      vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
-      m_position_func(position), m_velocity_func(velocity),
-      m_quat_offset_time(quat_offset_time), m_quat_scale(quat_scale),
-      m_quaternion_coeffs(quaternion_coeffs),
-      m_time_func(time), m_coeff_psi_x(coeff_psi_x), m_coeff_psi_y(coeff_psi_y),
-      m_min_time(min_time), m_max_time(max_time), m_ref_col(ref_col), m_ref_row(ref_row) {}
+                        bool   correct_velocity, bool correct_atmosphere);
     
     virtual ~PleiadesCameraModel() {}
     virtual std::string type() const { return "LinescanPleiades"; }
@@ -73,10 +70,10 @@ namespace asp {
 
     // TODO: See if we can port these local changes to the parent class
     virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const;
-    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const {
-      return point_to_pixel(point, -1); // Redirect to the function with no initial guess
-    }
-    
+    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const;
+
+    void populateCsmModel();
+
   private:
 
     vw::camera::LinearTimeInterpolation m_time_func;     ///< Yields time at a given line.
@@ -109,6 +106,9 @@ namespace asp {
   boost::shared_ptr<PleiadesCameraModel>
   load_pleiades_camera_model_from_xml(std::string const& path);
 
+  // Reimplementation of this model using CSM
+  boost::shared_ptr<UsgsAstroLsSensorModel> m_csm_model;
+  
 } // end namespace asp
 
 

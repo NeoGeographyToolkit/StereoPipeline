@@ -188,6 +188,9 @@ int main(int argc, char *argv[]) {
     
     bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
 
+    Stopwatch sw;
+    sw.start();
+    
     double major_axis = datum.semi_major_axis() + opt.height_above_datum;
     double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
     // Iterate over the image
@@ -246,12 +249,16 @@ int main(int argc, char *argv[]) {
         break;
     }
 
+    sw.stop();
     vw_out() << "Number of samples used: " << ctr_diff.size() << "\n";
     
     print_diffs("cam1 to cam2 camera direction diff norm", dir_diff);
     print_diffs("cam1 to cam2 camera center diff (meters)", ctr_diff);
     print_diffs("cam1 to cam2 pixel diff", cam1_to_cam2_diff);
     print_diffs("cam2 to cam1 pixel diff", cam2_to_cam1_diff);
+
+    vw_out() << "\nElapsed time per sample: " << 1e+6 * sw.elapsed_seconds()/ctr_diff.size()
+             << " milliseconds.\n";
     
   } ASP_STANDARD_CATCHES;
   

@@ -19,14 +19,68 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/PleiadesXML.h>
 #include <asp/Camera/LinescanPleiadesModel.h>
+#include <asp/Camera/CsmModel.h>
 #include <usgscsm/UsgsAstroLsSensorModel.h>
+
 // TODO(oalexan1): Reset the usgs linescan model after construction,
 // as it initializes many things
 
 namespace asp {
 
-// TODO: Port these changes to the base class
+// Constructor
+PleiadesCameraModel::
+PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
+                    vw::camera::LagrangianInterpolation const& position,
+                    vw::camera::LagrangianInterpolation const& velocity,
+                    double                                     quat_offset_time,
+                    double                                     quat_scale,
+                    std::vector<vw::Vector<double, 4>>  const& quaternion_coeffs,
+                    vw::Vector2                         const& coeff_psi_x,
+                    vw::Vector2                         const& coeff_psi_y,
+                    vw::Vector2i                        const& image_size,
+                    double min_time, double max_time,
+                    int ref_col, int ref_row,
+                    bool   correct_velocity, bool correct_atmosphere):
+  vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
+  m_position_func(position), m_velocity_func(velocity),
+  m_quat_offset_time(quat_offset_time), m_quat_scale(quat_scale),
+  m_quaternion_coeffs(quaternion_coeffs),
+  m_time_func(time), m_coeff_psi_x(coeff_psi_x), m_coeff_psi_y(coeff_psi_y),
+  m_min_time(min_time), m_max_time(max_time), m_ref_col(ref_col), m_ref_row(ref_row) {
 
+  populateCsmModel();
+}
+
+void PleiadesCameraModel::populateCsmModel() {
+
+  // Model creation
+  m_csm_model.reset(new UsgsAstroLsSensorModel);
+
+  // This performs many initializations
+  m_csm_model->reset();
+
+  // Override some initializations
+  m_csm_model->m_nSamples = m_image_size[0]; 
+  m_csm_model->m_nLines   = m_image_size[1];
+  m_csm_model->m_platformFlag = 1; // explicitly set to 1, to have order 8 Lagrange interpolation
+  m_csm_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
+  m_csm_model->m_intTimeStartTimes.push_back(m_time_func.m_t0);
+  m_csm_model->m_intTimes.push_back(m_time_func.m_dt);
+
+  for (int l = -3; l < 3; l++) {
+    vw::Vector2 a(l, l);
+    csm::ImageCoord b;
+    asp::toCsmPixel(a, b);
+    std::cout << "ASP time " << l << ' ' << m_time_func(l) << std::endl;
+    std::cout << "CSM time " << l << ' ' << m_csm_model->getImageTime(b) << std::endl;
+  }
+}
+
+vw::Vector2 PleiadesCameraModel::point_to_pixel(vw::Vector3 const& point) const {
+  return point_to_pixel(point, -1); // Redirect to the function with no initial guess
+}
+  
+// TODO: Port these changes to the base class
 vw::Vector2 PleiadesCameraModel::point_to_pixel(vw::Vector3 const& point, double starty) const {
 
   // Use the generic solver to find the pixel 
@@ -127,7 +181,6 @@ vw::Vector3 PleiadesCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) 
 
 boost::shared_ptr<PleiadesCameraModel> load_pleiades_camera_model_from_xml(std::string const& path){
 
-  vw_out(vw::DebugMessage,"asp") << "Loading Pleiades camera file: " << path << std::endl;
   // Parse the Pleiades XML file
   PleiadesXML xml_reader;
   xml_reader.read_xml(path);
@@ -156,11 +209,10 @@ boost::shared_ptr<PleiadesCameraModel> load_pleiades_camera_model_from_xml(std::
   
   // Create the model. This can throw an exception.
   boost::shared_ptr<PleiadesCameraModel> cam
-    (new PleiadesCameraModel(position_func, velocity_func,
+    (new PleiadesCameraModel(time_func, position_func, velocity_func,
                              xml_reader.m_quat_offset_time,
                              xml_reader.m_quat_scale,
                              xml_reader.m_quaternion_coeffs,
-                             time_func, 
                              xml_reader.m_coeff_psi_x,
                              xml_reader.m_coeff_psi_y,
                              xml_reader.m_image_size,
