@@ -76,7 +76,7 @@ the intrinsics are known, as above. For that, it will shoot rays from
 the image corners (and also some inner points) using the provided camera
 that will intersect a reference DEM determining the footprint on the
 ground, and then the best-fit pinhole model will be created based on
-that. Here’s an example for ISIS cameras::
+that. Here is an example for ISIS cameras::
 
      cam_gen image.cub --input-camera image.cub --focal-length 1000       \
        --optical-center 500 300 --pixel-pitch 1 --height-above-datum 4000 \
@@ -169,10 +169,10 @@ Command-line options for cam_gen:
     Create the output pinhole camera approximating this camera.
     
 --cam-height <float (default: 0)>
-    If both this and --cam-weight are positive, enforce that the output camera is at this height above datum. For SkySat, if not set, read this from the frame index. 
+    If both this and ``--cam-weight`` are positive, enforce that the output camera is at this height above datum.
     
 --cam-weight <float (default: 0)>
-    If positive, try to enforce the option --cam-height with this weight (bigger weight means try harder to enforce). Highly experimental.
+    If positive, try to enforce the option ``--cam-height`` with this weight (a bigger weight means try harder to enforce).
 
 -t, --session-type <string>
     Select the input camera model type. Normally this is auto-detected,

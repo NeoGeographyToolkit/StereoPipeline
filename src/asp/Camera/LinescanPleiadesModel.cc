@@ -19,92 +19,15 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/PleiadesXML.h>
 #include <asp/Camera/LinescanPleiadesModel.h>
-
-namespace vw {
-namespace camera {
-
-Vector2 LinescanModel2::point_to_pixel(Vector3 const& point) const {
-  return point_to_pixel(point, -1); // Redirect to the function with no guess
-}
-
-
-Vector2 LinescanModel2::point_to_pixel(Vector3 const& point, double starty) const {
-
-  // Use the generic solver to find the pixel 
-  // - This method will be slower but works for more complicated geometries
-  CameraGenericLMA model(this, point);
-  int status;
-  Vector2 start = m_image_size / 2.0; // Use the center as the initial guess
-  if (starty >= 0) // If the user provided a line number guess..
-    start[1] = starty;
-
-  // Solver constants
-  const double ABS_TOL = 1e-16;
-  const double REL_TOL = 1e-16;
-  const int    MAX_ITERATIONS = 1e+5;
-
-  Vector3 objective(0, 0, 0);
-  Vector2 solution
-    = math::levenberg_marquardtFixed<CameraGenericLMA, 2,3>(model, start, objective, status,
-                                                            ABS_TOL, REL_TOL, MAX_ITERATIONS);
-  VW_ASSERT( status > 0,
-	     camera::PointToPixelErr() << "Unable to project point into Linescan model" );
-
-  return solution;
-}
-
-Vector3 LinescanModel2::pixel_to_vector(Vector2 const& pixel) const {
-
-  Vector3 output_vector;
-  
-  try {
-    // Compute local vector from the pixel out of the sensor
-    // - m_detector_origin and m_focal_length have been converted into units of pixels
-    Vector3 local_vec = get_local_pixel_vector(pixel);
-    
-    // Put the local vector in world coordinates using the pose information.
-    output_vector = camera_pose(pixel).rotate(local_vec);
-    
-    Vector3 cam_ctr = camera_center(pixel);
-    if (m_correct_atmospheric_refraction) 
-      output_vector
-        = apply_atmospheric_refraction_correction(cam_ctr, m_mean_earth_radius,
-                                                  m_mean_surface_elevation, output_vector);
-    
-    if (m_correct_velocity_aberration) 
-      output_vector
-        = apply_velocity_aberration_correction(cam_ctr, camera_velocity(pixel),
-                                               m_mean_earth_radius, output_vector);
-    
-  } catch(const vw::Exception &e) {
-    // Repackage any of our exceptions thrown below this point as a 
-    //  pixel to ray exception that other code will be able to handle.
-    vw_throw(vw::camera::PixelToRayErr() << e.what());
-  }
-
-  return output_vector;
-}
-
-/*
-std::ostream& operator<<( std::ostream& os, LinescanModel2 const& camera_model) {
-  os << "\n-------------------- Linescan Camera Model -------------------\n\n";
-  os << " Number of Lines        :   " << camera_model.number_of_lines()        << "\n";
-  os << " Samples per Line       :   " << camera_model.samples_per_line()       << "\n";
-  os << "\n------------------------------------------------------------------------\n\n";
-  return os;
-}
-*/
-
-}} // namespace vw::camera
+#include <usgscsm/UsgsAstroLsSensorModel.h>
+// TODO(oalexan1): Reset the usgs linescan model after construction,
+// as it initializes many things
 
 namespace asp {
 
-using vw::Vector3;
-using vw::Matrix3x3;
-
 // TODO: Port these changes to the base class
 
-vw::Vector2 PleiadesCameraModel::point_to_pixel(Vector3 const& point, double starty) const {
+vw::Vector2 PleiadesCameraModel::point_to_pixel(vw::Vector3 const& point, double starty) const {
 
   // Use the generic solver to find the pixel 
   // - This method will be slower but works for more complicated geometries
@@ -120,7 +43,7 @@ vw::Vector2 PleiadesCameraModel::point_to_pixel(Vector3 const& point, double sta
   const int    MAX_ITERATIONS = 1e+5;
   const double MAX_ERROR = 0.01;
 
-  Vector3 objective(0, 0, 0);
+  vw::Vector3 objective(0, 0, 0);
   vw::Vector2 solution = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
     (model, start, objective, status, ABS_TOL, REL_TOL, MAX_ITERATIONS);
 
@@ -181,13 +104,20 @@ double PleiadesCameraModel::get_time_at_line(double line) const {
 }
 
 // Page 76 in the doc
-Vector3 PleiadesCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
+vw::Vector3 PleiadesCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
 
   double col = pix[0];
   double row = pix[1];
-  double x   = m_coeff_psi_x[0] + m_coeff_psi_x[1] * (col  - m_ref_col);
-  double y   = m_coeff_psi_y[0] + m_coeff_psi_y[1] * (row  - m_ref_row);
-  Vector3 result = Vector3(y, -x, 1.0);
+  
+  
+  // The doc says to subtract m_ref_col, while it was found
+  // experimentally that one needs to add it.
+  double x   = m_coeff_psi_x[0] + m_coeff_psi_x[1] * (col  + m_ref_col);
+
+  // Note how below col (and not row) is used, per the doc.
+  double y   = m_coeff_psi_y[0] + m_coeff_psi_y[1] * (col  + m_ref_col);
+
+  vw::Vector3 result = vw::Vector3(y, -x, 1.0);
 
   // Make the direction have unit length
   result = normalize(result);
@@ -218,10 +148,9 @@ boost::shared_ptr<PleiadesCameraModel> load_pleiades_camera_model_from_xml(std::
 
   double min_time = std::max(min_position_time, min_velocity_time);
   double max_time = std::min(max_position_time, max_velocity_time);
-  
-  std::cout << "3 min time " << min_time << std::endl;
-  std::cout << "--3 max time " << max_time << std::endl;
-  
+
+  // Without these corrections the RPC and exact models agree to within
+  // 0.003 pixels as shown by cam_test.
   bool correct_velocity_aberration = false;
   bool correct_atmospheric_refraction = false;
   

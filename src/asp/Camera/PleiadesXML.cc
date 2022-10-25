@@ -118,9 +118,6 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
   xercesc::DOMElement* raster_data = get_node<DOMElement>(root, "Raster_Data");
   read_image_size(raster_data);
 
-  std::cout << "--cols " << m_image_size[0] << std::endl;
-  std::cout << "--rows " << m_image_size[1] << std::endl;
-  
   // Dig some levels down
   xercesc::DOMElement* geometric_data = get_node<DOMElement>(root, "Geometric_Data");
   xercesc::DOMElement* refined_model = get_node<DOMElement>(geometric_data, "Refined_Model");
@@ -159,19 +156,16 @@ void PleiadesXML::read_times(xercesc::DOMElement* time) {
   cast_xmlch(get_node<DOMElement>(time_range, "START")->getTextContent(), m_start_time_str);
   bool is_start_time = true;
   m_start_time = PleiadesXML::convert_time(m_start_time_str, is_start_time);
-  std::cout << "--found start time " << m_start_time << std::endl;
   
   std::string end_time_str;
   cast_xmlch(get_node<DOMElement>(time_range, "END")->getTextContent(), end_time_str);
   is_start_time = false;
   m_end_time = PleiadesXML::convert_time(end_time_str, is_start_time);
-  std::cout << "--found end time " << m_end_time << std::endl;
 
   xercesc::DOMElement* time_stamp = get_node<DOMElement>(time, "Time_Stamp");
   cast_xmlch(get_node<DOMElement>(time_stamp, "LINE_PERIOD")->getTextContent(), m_line_period);
   // Convert from milliseconds to seconds
   m_line_period /= 1000.0; 
-  std::cout << "--found line period " << m_line_period << std::endl;
 }
   
 void PleiadesXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
@@ -239,7 +233,6 @@ void calc_midnight_time(std::string const& start_time, std::string& midnight_tim
       midnight_time.replace(it, 1, "0");
     }
   }
-  std::cout << "--midnight time " << midnight_time << std::endl;
 
   return;
 }
@@ -254,15 +247,12 @@ void PleiadesXML::read_attitudes(xercesc::DOMElement* attitudes) {
 
   // Per the documentation, this offset is from midnight. Need to transform it to be relative
   // to the start time.
-  std::cout << "---offset str " << offset_str << std::endl;
-  std::cout << "--start time " << m_start_time_str << std::endl;
   std::string midnight_time_str; 
   calc_midnight_time(m_start_time_str, midnight_time_str);
 
   bool is_start_time = false;
   double midnight_time = PleiadesXML::convert_time(midnight_time_str, is_start_time);
   m_quat_offset_time = midnight_time + atof(offset_str.c_str());
-  std::cout << "--quat offset time " << m_quat_offset_time << std::endl;
 
   // Untested adjustments for the case when the midnight is computed
   // for the wrong day. Not sure if this will ever happen. Try to
@@ -283,7 +273,6 @@ void PleiadesXML::read_attitudes(xercesc::DOMElement* attitudes) {
   std::string scale_str;
   cast_xmlch(get_node<DOMElement>(quaternion_root, "SCALE")->getTextContent(), scale_str);
   m_quat_scale = atof(scale_str.c_str());
-  std::cout << "--quat scale " << m_quat_scale << std::endl;
 
   // Read the quaternion coefficients that will be used with the quaternion
   // polynomial to find the quaternions at any time (page 77)
@@ -341,12 +330,6 @@ void PleiadesXML::read_look_angles(xercesc::DOMElement* look_angles) {
   cast_xmlch(get_node<DOMElement>(look_angles, "YLOS_0")->getTextContent(),
              ylos_0);
   m_coeff_psi_y[0] = atof(ylos_0.c_str());
-
-  for (size_t it = 0; it < m_coeff_psi_x.size(); it++)
-    std::cout << "--coeff psi x " << m_coeff_psi_x[it] << std::endl;
-    
-  for (size_t it = 0; it < m_coeff_psi_y.size(); it++)
-    std::cout << "--coeff psi y " << m_coeff_psi_y[it] << std::endl;
 }
 
 // Converts a time from string to double precision value measured in seconds
@@ -407,10 +390,6 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
     vw_throw(ArgumentErr() << "The position timestamps do not fully span the "
              << "range of times for the image lines.");
 
-  std::cout << "--position start time " << position_start_time << std::endl;
-  std::cout << "--position end time " << position_stop_time << std::endl;
-  std::cout << "--position delta t " << position_delta_t << std::endl;
-  
   // Use Lagrange interpolation with degree 7 polynomials with 8
   // samples, per the doc (page 77).
   const int INTERP_RADIUS = 4;  // interpolation order = 2 * INTERP_RADIUS
@@ -456,10 +435,6 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
   double velocity_stop_time  = m_velocities.back().first;
   double velocity_delta_t    = (velocity_stop_time - velocity_start_time) / (num_velocities - 1.0);
 
-  std::cout << "--velocity start time " << velocity_start_time << std::endl;
-  std::cout << "--velocity end time " << velocity_stop_time << std::endl;
-  std::cout << "--velocity delta t " << velocity_delta_t << std::endl;
-  
   if (velocity_start_time > first_line_time || velocity_stop_time < last_line_time)
     vw_throw(ArgumentErr() << "The velocity timestamps do not fully span the "
              << "range of times for the image lines.");

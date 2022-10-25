@@ -525,7 +525,7 @@ void CsmModel::setModelFromStateString(std::string const& model_state) {
   if (!raster_model)
     vw::vw_throw(vw::ArgumentErr() << "Failed to cast linescan model to raster type.");
   
-  m_csm_model.reset(raster_model); // We will handle cleanup of the model
+  m_csm_model.reset(raster_model); // This will handle the deallocation
 }
   
 void CsmModel::throw_if_not_init() const {

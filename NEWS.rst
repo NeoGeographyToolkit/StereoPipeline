@@ -28,8 +28,8 @@ New tools:
     still undergoing testing.)
 
 New sesors:
-  * Support the Pleiades exact sensor (1A/1B). Implemented as a
-    wrapper around the CSM linescan camera model.
+  * Support the Pleiades exact sensor (for 1A/1B). See :numref:`pleiades`.
+    Implemented as a wrapper around the CSM linescan camera model.
 
 parallel_stereo:
   * Added the options ``--match-files-prefix`` and
@@ -142,7 +142,13 @@ cam_gen:
     camera is provided. This tool can still be fragile if having to
     determine the output camera only based on the four image corner
     coordinates on the ground and no input camera.
-   
+  * Added the options ``--cam-height`` and ``--cam-weight`` to try
+    to keep the camera at a given height above ground.
+
+pc_align:
+  * Fix a bug with loading very large DEMs; it was failing because of
+    a 32-bit integer overflow.
+ 
 misc:
   * Increased the cache size to 1 GB per process for each ASP tool. 
     Added the option ``--cache-size-mb``, to set this. Made the

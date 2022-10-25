@@ -1,4 +1,4 @@
-..    include:: <isonum.txt>
+.. include:: <isonum.txt>
 
 .. _examples:
 
@@ -1481,13 +1481,15 @@ tutorial in :numref:`dg_tutorial`.
 RPC camera models
 -----------------
 
-Some vendors, such as GeoEye with its Ikonos and two GeoEye
-satellites, Airbus, with its SPOT and Pleiades satellites, the Indian
-Cartosat-1 satellite, PeruSat-1, the Spanish Deimos 1 and 2, etc.,
-provide Rational Polynomial Coefficient (RPC) camera models. (Some of
-these vendors also provide exact linescan models, ASP supports the
-exact models from DigitalGlobe/Maxar (:numref:`dg_tutorial`) and PeruSat-1
-(:numref:`perusat1`).)
+Some vendors, such as GeoEye with its Ikonos and two
+GeoEye satellites, Airbus, with its SPOT and Pleiades satellites, the
+Indian Cartosat-1 satellite, PeruSat-1, the Spanish Deimos 1 and 2,
+etc., provide Rational Polynomial Coefficient (RPC) camera models.
+
+(Certain providers also offer exact linescan models. ASP supports the
+ones from DigitalGlobe/Maxar (:numref:`dg_tutorial`),
+PeruSat-1 (:numref:`perusat1`), Pleiades 1A/1B (:numref:`pleiades`),
+and SPOT 5 (:numref:`spot5`).)
 
 RPC represents four 20-element polynomials that map geodetic coordinates
 (longitude-latitude-height above datum) to image pixels. Since they are
@@ -1496,7 +1498,7 @@ camera model providing a simple approximation to complex exact camera
 models that are unique to each vendor. The only downside is that it has
 less precision in our opinion compared to the exact camera models.
 
-In addition to supporting vendor-provided RPC models, ASP provides a
+In addition to supporting the provided RPC models, ASP provides a
 tool named ``cam2rpc`` (:numref:`cam2rpc`), that can be
 used to create RPC camera models from ISIS and all other cameras that
 ASP understands, including for non-Earth planets (currently only the
@@ -1615,6 +1617,56 @@ difference of the (full-image extent) aligned DEMs is about 0.17
 meters.
 
 See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+
+.. _pleiades:
+
+Pleiades
+--------
+
+The Airbus Pleiades satellites data have both an exact linescan model
+and approximate RPC models. These are stored in separate files, the
+names for these start with "DIM" and "RPC", respectively, and end with
+".XML". ASP supports the RPC model (:numref:`rpc`), and the linescan one
+for the 1A/1B satellites. 
+
+With the exact model, the stereo command is::
+
+    parallel_stereo -t pleiades --stereo-algorithm asp_mgm \
+        left.tif right.tif left_exact.xml right_exact.xml results/run
+
+For the RPC model the option ``-t rpc`` should be used and the correct
+camera files should be passed in.
+
+If the ``-t`` option is not specified, it will be auto-guessed
+based on the content of the camera files provided as inputs.
+
+For Pleiades exact linescan camera models the atmospheric correction and
+velocity aberration corrections (:numref:`sensor_corrections`) are
+disabled. 
+
+To compare the linescan and RPC models, run ``cam_test``
+(:numref:`cam_test`) as::
+
+     cam_test --image img.tif --cam1 cam_exact.xml --cam2 cam_rpc.xml \
+       --session1 pleiades --session2 rpc
+
+This should give great agreement when it comes to pixels projected
+from one camera to the ground, then reprojected back to the other
+one::
+
+    cam1 to cam2 pixel diff
+    Max:    0.00304066
+
+    cam2 to cam1 pixel diff
+    Max:    0.00296764
+
+The camera centers computed by the two methods won't agree, because
+the RPC camera model does not store the true camera center. ASP then
+substitutes it with an estimated point on the ray from the the true
+camera center to the ground.
+
+See :numref:`nextsteps` for a discussion about various
+speed-vs-quality choices.
 
 .. _spot5:
 
@@ -2029,7 +2081,7 @@ camera is written to ``v1.tsai``. A GCP file is written to ``v1.gcp``.
 This will help later with bundle adjustment.
 
 If an input camera exists, such as embedded in the image file, it is
-strongy suggested to pass it to this tool, as it will improve the
+strongly suggested to pass it to this tool, as it will improve the
 accuracy of produced cameras (:numref:`skysat-rpc`).
 
 In the above command, the optical center and focal length are as mentioned

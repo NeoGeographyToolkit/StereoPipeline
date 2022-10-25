@@ -29,7 +29,6 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
 #include <vw/Math/Geometry.h>
-#include <vw/Cartography/GeoReference.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Camera/Extrinsics.h>
 #include <asp/Core/Common.h>
