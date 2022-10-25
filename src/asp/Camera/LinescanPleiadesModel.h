@@ -97,18 +97,19 @@ namespace asp {
     /// - Pass the caller location in to get a nice error message.
     void check_time(double time, std::string const& location) const;
 
+    // Reimplementation of this model using CSM
+    boost::shared_ptr<UsgsAstroLsSensorModel> m_csm_model;
+    std::vector<double> m_csm_no_adjustment;  // A vector of zeros indicating no internal adjustment
+    
   }; // End class PleiadesCameraModel
 
-
+  // Non-class functions
+  
   /// Load a Pleiades camera model from an XML file.
   /// - This function does not take care of Xerces XML init/de-init, the caller must
   ///   make sure this is done before/after this function is called!
   boost::shared_ptr<PleiadesCameraModel>
   load_pleiades_camera_model_from_xml(std::string const& path);
-
-  // Reimplementation of this model using CSM
-  boost::shared_ptr<UsgsAstroLsSensorModel> m_csm_model;
-  
 } // end namespace asp
 
 

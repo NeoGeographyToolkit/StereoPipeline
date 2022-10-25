@@ -48,13 +48,17 @@ PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
   m_time_func(time), m_coeff_psi_x(coeff_psi_x), m_coeff_psi_y(coeff_psi_y),
   m_min_time(min_time), m_max_time(max_time), m_ref_col(ref_col), m_ref_row(ref_row) {
 
-  populateCsmModel();
+  if (!asp::stereo_settings().linescan_no_csm_model)
+    populateCsmModel();
 }
 
 void PleiadesCameraModel::populateCsmModel() {
 
   // Model creation
   m_csm_model.reset(new UsgsAstroLsSensorModel);
+
+  // TODO(oalexan1): May not need this
+  m_csm_no_adjustment.assign(UsgsAstroLsSensorModel::NUM_PARAMETERS, 0.0);
 
   // This performs many initializations
   m_csm_model->reset();
@@ -63,17 +67,61 @@ void PleiadesCameraModel::populateCsmModel() {
   m_csm_model->m_nSamples = m_image_size[0]; 
   m_csm_model->m_nLines   = m_image_size[1];
   m_csm_model->m_platformFlag = 1; // explicitly set to 1, to have order 8 Lagrange interpolation
+  
+  // Datum
+  vw::cartography::Datum datum("WGS84");
+  m_csm_model->m_majorAxis = datum.semi_major_axis();
+  m_csm_model->m_minorAxis = datum.semi_minor_axis();
+
+  // Time
   m_csm_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
   m_csm_model->m_intTimeStartTimes.push_back(m_time_func.m_t0);
   m_csm_model->m_intTimes.push_back(m_time_func.m_dt);
+  int num_pos = m_position_func.m_samples.size();
+  if ((size_t)num_pos != m_velocity_func.m_samples.size())
+    vw::vw_throw(vw::ArgumentErr() << "Expecting as many positions as velocities.\n");
 
-  for (int l = -3; l < 3; l++) {
+  // Positions and velocities
+  m_csm_model->m_numPositions = 3 * num_pos;
+  m_csm_model->m_t0Ephem = m_position_func.get_t0();
+  m_csm_model->m_dtEphem = m_position_func.get_dt();
+  m_csm_model->m_positions.resize(m_csm_model->m_numPositions);
+  m_csm_model->m_velocities.resize(m_csm_model->m_numPositions);
+  for (int pos_it = 0; pos_it < num_pos; pos_it++) {
+    for (int coord = 0; coord < 3; coord++) {
+      m_csm_model->m_positions [3*pos_it + coord] = m_position_func.m_samples[pos_it][coord];
+      m_csm_model->m_velocities[3*pos_it + coord] = m_velocity_func.m_samples[pos_it][coord];
+    }
+  }
+
+  // Sanity checks
+  double max_pos_diff = 0.0;
+  double max_time_diff = 0.0;
+  for (int l = -3000; l < 30000; l+= 1000) {
     vw::Vector2 a(l, l);
     csm::ImageCoord b;
     asp::toCsmPixel(a, b);
-    std::cout << "ASP time " << l << ' ' << m_time_func(l) << std::endl;
-    std::cout << "CSM time " << l << ' ' << m_csm_model->getImageTime(b) << std::endl;
+    //std::cout << "ASP time " << l << ' ' << m_time_func(l) << std::endl;
+    //std::cout << "CSM time " << l << ' ' << m_csm_model->getImageTime(b) << std::endl;
+    max_time_diff = std::max(max_time_diff,
+                             std::abs(m_time_func(l) - m_csm_model->getImageTime(b)));
+                             
+    double time = m_csm_model->getImageTime(b);
+    bool calc_vel = false;
+    double xc, yc, zc;
+    double vx, vy, vz;
+    double xl, yl, zl;
+    
+    std::cout.precision(18);
+    csm::EcefCoord xyz = m_csm_model->getSensorPosition(time);
+    vw::Vector3 xyz1(xyz.x, xyz.y, xyz.z);
+    
+    vw::Vector3 xyz2 = this->get_camera_center_at_time(time);
+    max_pos_diff = std::max(max_pos_diff, vw::math::norm_2(xyz1 - xyz2));
   }
+
+  std::cout << "--max time diff " << max_time_diff << std::endl;
+  std::cout << "--max pos diff " << max_pos_diff << std::endl;
 }
 
 vw::Vector2 PleiadesCameraModel::point_to_pixel(vw::Vector3 const& point) const {
@@ -163,7 +211,6 @@ vw::Vector3 PleiadesCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) 
   double col = pix[0];
   double row = pix[1];
   
-  
   // The doc says to subtract m_ref_col, while it was found
   // experimentally that one needs to add it.
   double x   = m_coeff_psi_x[0] + m_coeff_psi_x[1] * (col  + m_ref_col);
@@ -179,7 +226,8 @@ vw::Vector3 PleiadesCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) 
   return result;
 }
 
-boost::shared_ptr<PleiadesCameraModel> load_pleiades_camera_model_from_xml(std::string const& path){
+boost::shared_ptr<PleiadesCameraModel>
+load_pleiades_camera_model_from_xml(std::string const& path) {
 
   // Parse the Pleiades XML file
   PleiadesXML xml_reader;

@@ -144,7 +144,8 @@ namespace asp {
     
     bool enable_correct_velocity_aberration;
     bool enable_correct_atmospheric_refraction;
-
+    bool linescan_no_csm_model;  // Use the ASP linescan model and not CSM for Pleiades satellites
+    
     int    disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
 
     // Correlation Options

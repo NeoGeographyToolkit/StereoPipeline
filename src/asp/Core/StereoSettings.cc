@@ -189,6 +189,8 @@ namespace asp {
        "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
       ("enable-correct-atmospheric-refraction", po::bool_switch(&global.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
        "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
+      ("linescan-no-csm-model", po::bool_switch(&global.linescan_no_csm_model)->default_value(false)->implicit_value(true),
+       "Use the ASP linescan model and not CSM for Pleiades satellites (in the future also DG).")
       // For bathymetry correction
       ("left-bathy-mask", po::value(&global.left_bathy_mask),
        "Mask to use for the left image when doing bathymetry.")

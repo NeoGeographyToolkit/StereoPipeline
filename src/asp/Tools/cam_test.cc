@@ -47,7 +47,7 @@ struct Options : vw::GdalWriteOptions {
   int sample_rate; // use one out of these many pixels
   double subpixel_offset, height_above_datum;
   bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
-    print_per_pixel_results;
+    print_per_pixel_results, linescan_no_csm_model;
   vw::Vector2 single_pixel;
   
   Options() {}
@@ -79,7 +79,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("enable-correct-velocity-aberration", po::bool_switch(&opt.enable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
      "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
     ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
-     "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.");
+     "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
+    ("linescan-no-csm-model", po::bool_switch(&opt.linescan_no_csm_model)->default_value(false)->implicit_value(true),
+     "Use the ASP linescan model and not CSM for Pleiades satellites (in the future also DG).");
   
   general_options.add(vw::GdalWriteOptionsDescription(opt));
   
@@ -106,6 +108,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     = opt.enable_correct_velocity_aberration;
   asp::stereo_settings().enable_correct_atmospheric_refraction
     = opt.enable_correct_atmospheric_refraction;
+  asp::stereo_settings().linescan_no_csm_model
+    = opt.linescan_no_csm_model;
 }
 
 // Sort the diffs and print some stats
