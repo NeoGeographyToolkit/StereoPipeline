@@ -21,6 +21,7 @@
 #include <asp/Camera/LinescanPleiadesModel.h>
 #include <asp/Camera/CsmModel.h>
 #include <usgscsm/UsgsAstroLsSensorModel.h>
+#include <usgscsm/Utilities.h> // temporary
 
 // TODO(oalexan1): Reset the usgs linescan model after construction,
 // as it initializes many things
@@ -67,7 +68,12 @@ void PleiadesCameraModel::populateCsmModel() {
   m_csm_model->m_nSamples = m_image_size[0]; 
   m_csm_model->m_nLines   = m_image_size[1];
   m_csm_model->m_platformFlag = 1; // explicitly set to 1, to have order 8 Lagrange interpolation
-  
+  m_csm_model->m_maxElevation =  10000.0; //  10 km; appears unused
+  m_csm_model->m_minElevation = -10000.0; // -10 km; appears unused
+  m_csm_model->m_focalLength  = 1.0;
+  m_csm_model->m_zDirection   = 1.0;
+  m_csm_model->m_halfSwath    = 1.0;
+
   // Datum
   vw::cartography::Datum datum("WGS84");
   m_csm_model->m_majorAxis = datum.semi_major_axis();
@@ -94,6 +100,71 @@ void PleiadesCameraModel::populateCsmModel() {
     }
   }
 
+  // Quaternions
+  // TODO(oalexan1): What is the right sampling rate and the right range?
+  // Likely the quaternions will go wild far from the valid range of lines
+  int factor = 100; // TODO(oalexan1): To be revisited!
+  m_csm_model->m_numQuaternions = 4 * num_pos * factor;
+  m_csm_model->m_t0Quat = m_csm_model->m_t0Ephem; // t0 
+  m_csm_model->m_dtQuat = m_csm_model->m_dtEphem / factor; // dt
+  m_csm_model->m_quaternions.resize(m_csm_model->m_numQuaternions);
+  for (int pos_it = 0; pos_it < m_csm_model->m_numQuaternions / 4; pos_it++) {
+    double t = m_csm_model->m_t0Quat + pos_it * m_csm_model->m_dtQuat;
+    vw::Quat q = get_camera_pose_at_time(t);
+
+    // ASP stores the quaternions as (w, x, y, z). CSM
+    // wants them as x, y, z, w.
+    int coord = 0;
+    m_csm_model->m_quaternions[4*pos_it + coord] = q.x(); coord++;
+    m_csm_model->m_quaternions[4*pos_it + coord] = q.y(); coord++;
+    m_csm_model->m_quaternions[4*pos_it + coord] = q.z(); coord++;
+    m_csm_model->m_quaternions[4*pos_it + coord] = q.w(); coord++;
+  }
+
+  // Need some care here. Try to do things as the
+  // computeDistortedFocalPlaneCoordinates() function wants them.
+  m_csm_model->m_iTransL[0]   = 0.0; 
+  m_csm_model->m_iTransL[1]   = 1.0; // no scale
+  m_csm_model->m_iTransL[2]   = 0.0;
+  m_csm_model->m_iTransS[0]   = 0.0;
+  m_csm_model->m_iTransS[1]   = 0.0;
+  m_csm_model->m_iTransS[2]   = 1.0; // no scale
+  m_csm_model->m_detectorLineOrigin   = 0.0;
+  m_csm_model->m_detectorSampleOrigin = 0.0;
+
+  // Need to emulate this
+  //double x   = m_coeff_psi_x[0] + m_coeff_psi_x[1] * (col  + m_ref_col);
+  // Note how below col (and not row) is used, per the doc.
+  //double y   = m_coeff_psi_y[0] + m_coeff_psi_y[1] * (col  + m_ref_col);
+
+  // Using this:
+  // double detSample = (col + 0.5) * sampleSumming + startingSample;
+  // double detLine = line * lineSumming + startingLine; // but it will use line = 0
+
+  m_csm_model->m_detectorLineSumming = 1.0;
+  m_csm_model->m_startingDetectorLine = m_coeff_psi_y[0]; // note that m_coeff_psi_y[1] = 0
+  
+  // There is no sound logic here, the numbers are such the final CSM result
+  // agrees with final non-CSM result.
+  m_csm_model->m_detectorSampleSumming = -m_coeff_psi_x[1];
+  m_csm_model->m_startingDetectorSample
+    = -m_coeff_psi_x[1] * m_ref_col - m_coeff_psi_x[0] - 0.5 * m_coeff_psi_x[1];
+    
+  // If sensor model is being created for the first time
+  // This routine will set some parameters not found in the ISD.
+  std::cout << "--temporary!" << std::endl;
+  std::string modelState = m_csm_model->getModelState();
+  std::string json_state_file = "tmp.json";
+  vw::vw_out() << "Writing model state: " << json_state_file << std::endl;
+  std::ofstream ofs(json_state_file.c_str());
+  ofs << modelState << std::endl;
+  ofs.close();
+
+  // Re-creating the model from the state forces some more private operations to take
+  // place, which are inaccessible otherwise
+  std::cout << "--enable this!" << std::endl;
+  //m_csm_model->replaceModelState(modelState);
+  
   // Sanity checks
   double max_pos_diff = 0.0;
   double max_time_diff = 0.0;
@@ -107,10 +178,10 @@ void PleiadesCameraModel::populateCsmModel() {
                              std::abs(m_time_func(l) - m_csm_model->getImageTime(b)));
                              
     double time = m_csm_model->getImageTime(b);
-    bool calc_vel = false;
-    double xc, yc, zc;
-    double vx, vy, vz;
-    double xl, yl, zl;
+//     bool calc_vel = false;
+//     double xc, yc, zc;
+//     double vx, vy, vz;
+//     double xl, yl, zl;
     
     std::cout.precision(18);
     csm::EcefCoord xyz = m_csm_model->getSensorPosition(time);
@@ -118,6 +189,104 @@ void PleiadesCameraModel::populateCsmModel() {
     
     vw::Vector3 xyz2 = this->get_camera_center_at_time(time);
     max_pos_diff = std::max(max_pos_diff, vw::math::norm_2(xyz1 - xyz2));
+
+//     double col = l;
+//     double row = l;
+//     double x   = m_coeff_psi_x[0] + m_coeff_psi_x[1] * (col  + m_ref_col);
+//     double y   = m_coeff_psi_y[0] + m_coeff_psi_y[1] * (col  + m_ref_col);
+//     // Invoke here computeDistortedFocalPlaneCoordinates()
+
+//     double distortedFocalPlaneX, distortedFocalPlaneY;
+//     computeDistortedFocalPlaneCoordinates
+//       (0.0, b.samp, m_csm_model->m_detectorSampleOrigin, m_csm_model->m_detectorLineOrigin,
+//        m_csm_model->m_detectorSampleSumming, m_csm_model->m_detectorLineSumming,
+//        m_csm_model->m_startingDetectorSample, m_csm_model->m_startingDetectorLine,
+//        m_csm_model->m_iTransS, m_csm_model->m_iTransL,
+//        distortedFocalPlaneX, distortedFocalPlaneY);
+
+//     //std::cout << "---temporary!" << std::endl;
+//     //distortedFocalPlaneY *= -1;
+    
+//     std::cout << "--x and y " << x << ' ' << y << std::endl;
+//     std::cout << "pixel x diff " << std::abs(x-distortedFocalPlaneY) << std::endl;
+//     std::cout << "pixel y diff " << std::abs(y-distortedFocalPlaneX) << std::endl;
+    
+//     double undistortedFocalPlaneX, undistortedFocalPlaneY;
+//     removeDistortion(distortedFocalPlaneX, distortedFocalPlaneY,
+//                      undistortedFocalPlaneX, undistortedFocalPlaneY,
+//                      m_csm_model->m_opticalDistCoeffs, m_csm_model->m_distortionType);
+//     std::cout << "---undist x " << undistortedFocalPlaneY << std::endl;
+//     std::cout << "--undist y " << undistortedFocalPlaneX << std::endl;
+
+//     double cameraLook[3];
+//     createCameraLookVector(undistortedFocalPlaneX, undistortedFocalPlaneY,
+//                            m_csm_model->m_zDirection,
+//                            m_csm_model->m_focalLength / m_csm_model->m_halfSwath, cameraLook);
+    
+//     std::cout << "look " << cameraLook[0] << ' ' << cameraLook[1] << ' ' << cameraLook[2]
+//               << std::endl;
+
+//     vw::Vector3 d = get_local_pixel_vector(a);
+//     std::cout << "--asp look " << d << std::endl;
+
+//   double attCorr[9];
+//   m_csm_model->calculateAttitudeCorrection(time, m_csm_no_adjustment, attCorr);
+//   //for (size_t p = 0; p < 9; p++)
+//   //  std::cout << "--att " << attCorr[p] << std::endl;
+  
+//   double quaternions[4];
+//   //m_csm_model->getQuaternions(time, quaternions);
+//   lagrangeInterp(m_csm_model->m_numQuaternions / 4, &m_csm_model->m_quaternions[0],
+//                  m_csm_model->m_t0Quat, m_csm_model->m_dtQuat,
+//                  time, 4, 8, quaternions);
+
+// //   std::cout << "--usgs quat " << quaternions[0] << ' ' << quaternions[1] << ' ' << quaternions[2] << ' ' << quaternions[3] << std::endl;
+// //   vw::Quat q = get_camera_pose_at_time(time);
+// //   std::cout << "--asp quat " << q << std::endl;
+
+//   double cameraToBody[9];
+//   calculateRotationMatrixFromQuaternions(quaternions, cameraToBody);
+
+// //   std::cout << "--asp rotation matrix " << q.rotation_matrix() << std::endl;
+// //   std::cout << "isis rotation matrix " << std::endl;
+// //   std::cout << cameraToBody[0] << ' ' << cameraToBody[1] << ' ' << cameraToBody[2] << std::endl;
+// //   std::cout << cameraToBody[3] << ' ' << cameraToBody[4] << ' ' << cameraToBody[5] << std::endl;
+// //   std::cout << cameraToBody[6] << ' ' << cameraToBody[7] << ' ' << cameraToBody[8] << std::endl;
+
+//   double correctedCameraLook[3];
+//   correctedCameraLook[0] = attCorr[0] * cameraLook[0] +
+//                            attCorr[1] * cameraLook[1] +
+//                            attCorr[2] * cameraLook[2];
+//   correctedCameraLook[1] = attCorr[3] * cameraLook[0] +
+//                            attCorr[4] * cameraLook[1] +
+//                            attCorr[5] * cameraLook[2];
+//   correctedCameraLook[2] = attCorr[6] * cameraLook[0] +
+//                            attCorr[7] * cameraLook[1] +
+//                            attCorr[8] * cameraLook[2];
+
+//   double bodyLookX, bodyLookY, bodyLookZ;
+//   bodyLookX = cameraToBody[0] * correctedCameraLook[0] +
+//               cameraToBody[1] * correctedCameraLook[1] +
+//               cameraToBody[2] * correctedCameraLook[2];
+//   bodyLookY = cameraToBody[3] * correctedCameraLook[0] +
+//               cameraToBody[4] * correctedCameraLook[1] +
+//               cameraToBody[5] * correctedCameraLook[2];
+//   bodyLookZ = cameraToBody[6] * correctedCameraLook[0] +
+//               cameraToBody[7] * correctedCameraLook[1] +
+//               cameraToBody[8] * correctedCameraLook[2];
+
+//   std::cout << "--body look " << bodyLookX << ' ' << bodyLookY << ' ' << bodyLookZ << std::endl;
+    
+    vw::Vector3 dir = pixel_to_vector(a);
+//   std::cout << "---dir diff " << vw::math::norm_2(dir - vw::Vector3(bodyLookX, bodyLookY, bodyLookZ)) << std::endl;
+
+    csm::EcefLocus locus = m_csm_model->imageToRemoteImagingLocus(b);
+    vw::Vector3 dir2(locus.direction.x, locus.direction.y, locus.direction.z);
+    std::cout << "--csm point1 " << locus.point.x << ' ' << locus.point.y << ' ' << locus.point.z << std::endl;
+    std::cout << "--csm point 2 " << xyz1 << std::endl;
+    std::cout << "--asp dir " << dir << std::endl;
+    std::cout << "--csm dir " << dir2 << std::endl;
+    std::cout << "--dir norm " << vw::math::norm_2(dir - dir2) << std::endl;
   }
 
   std::cout << "--max time diff " << max_time_diff << std::endl;
@@ -213,10 +382,10 @@ vw::Vector3 PleiadesCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) 
   
   // The doc says to subtract m_ref_col, while it was found
   // experimentally that one needs to add it.
-  double x   = m_coeff_psi_x[0] + m_coeff_psi_x[1] * (col  + m_ref_col);
+  double x = m_coeff_psi_x[0] + m_coeff_psi_x[1] * (col  + m_ref_col);
 
   // Note how below col (and not row) is used, per the doc.
-  double y   = m_coeff_psi_y[0] + m_coeff_psi_y[1] * (col  + m_ref_col);
+  double y = m_coeff_psi_y[0] + m_coeff_psi_y[1] * (col  + m_ref_col);
 
   vw::Vector3 result = vw::Vector3(y, -x, 1.0);
 
