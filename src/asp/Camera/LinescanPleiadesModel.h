@@ -64,7 +64,16 @@ namespace asp {
     virtual vw::Vector3 get_camera_velocity_at_time(double time) const;
     virtual vw::Quat    get_camera_pose_at_time    (double time) const;
     virtual double      get_time_at_line           (double line) const;
-    
+
+    // Camera pose
+    virtual vw::Quaternion<double> camera_pose(vw::Vector2 const& pix) const; 
+
+    // Gives a pointing vector in the world coordinates.
+    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const;
+
+    /// Gives the camera position in world coordinates.
+    virtual vw::Vector3 camera_center(vw::Vector2 const& pix) const;
+
     /// As pixel_to_vector, but in the local camera frame.
     virtual vw::Vector3 get_local_pixel_vector(vw::Vector2 const& pix) const;
 
@@ -93,13 +102,17 @@ namespace asp {
     // Relative column and row (here indices start from 0, not from 1 as in the doc)
     int m_ref_row, m_ref_col;
 
-    /// Throw an exception if the input time is outside the given bounds.
-    /// - Pass the caller location in to get a nice error message.
+    // Throw an exception if the input time is outside the given
+    // bounds. The valid range is much bigger than the range of times
+    // at which image lines are recorded. It is rather the range at
+    // which positions, velocities, and quaternions are tabulated.
     void check_time(double time, std::string const& location) const;
 
     // Reimplementation of this model using CSM
     boost::shared_ptr<UsgsAstroLsSensorModel> m_csm_model;
-    std::vector<double> m_csm_no_adjustment;  // A vector of zeros indicating no internal adjustment
+
+    // The desired precision for the CSM model
+    double m_desired_precision;
     
   }; // End class PleiadesCameraModel
 

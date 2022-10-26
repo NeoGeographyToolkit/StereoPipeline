@@ -21,11 +21,14 @@
 #include <asp/Camera/LinescanPleiadesModel.h>
 #include <asp/Camera/CsmModel.h>
 #include <usgscsm/UsgsAstroLsSensorModel.h>
-#include <usgscsm/Utilities.h> // temporary
 
-// TODO(oalexan1): Reset the usgs linescan model after construction,
-// as it initializes many things
+// This class implements the Pleiades linescan model
+// based on two models: CSM linescan and ASP's homegrown linescan.
+// The CSM model is the default. These agree to within 2e-06 pixels.
+// But CSM is much faster.
 
+// TODO(oalexan1): Split the older ASP linescan implementation into
+// its own class.
 namespace asp {
 
 // Constructor
@@ -47,8 +50,13 @@ PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
   m_quat_offset_time(quat_offset_time), m_quat_scale(quat_scale),
   m_quaternion_coeffs(quaternion_coeffs),
   m_time_func(time), m_coeff_psi_x(coeff_psi_x), m_coeff_psi_y(coeff_psi_y),
-  m_min_time(min_time), m_max_time(max_time), m_ref_col(ref_col), m_ref_row(ref_row) {
+  m_min_time(min_time), m_max_time(max_time), m_ref_col(ref_col), m_ref_row(ref_row),
+  m_desired_precision(1.0e-12) {
 
+  // TODO(oalexan1): Need to think more about the desired precision of the CSM
+  // model. Need high accuracy for bundle adjustment, but may get away
+  // with less for mapprojection. For now, err towards more accuracy.
+  
   if (!asp::stereo_settings().linescan_no_csm_model)
     populateCsmModel();
 }
@@ -57,9 +65,6 @@ void PleiadesCameraModel::populateCsmModel() {
 
   // Model creation
   m_csm_model.reset(new UsgsAstroLsSensorModel);
-
-  // TODO(oalexan1): May not need this
-  m_csm_no_adjustment.assign(UsgsAstroLsSensorModel::NUM_PARAMETERS, 0.0);
 
   // This performs many initializations
   m_csm_model->reset();
@@ -73,57 +78,14 @@ void PleiadesCameraModel::populateCsmModel() {
   m_csm_model->m_focalLength  = 1.0;
   m_csm_model->m_zDirection   = 1.0;
   m_csm_model->m_halfSwath    = 1.0;
-
+  m_csm_model->m_sensorIdentifier = "Pleiades";
+  
   // Datum
-  vw::cartography::Datum datum("WGS84");
+  vw::cartography::Datum datum("WGS84"); // this sensor is used for Earth only
   m_csm_model->m_majorAxis = datum.semi_major_axis();
   m_csm_model->m_minorAxis = datum.semi_minor_axis();
-
-  // Time
-  m_csm_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
-  m_csm_model->m_intTimeStartTimes.push_back(m_time_func.m_t0);
-  m_csm_model->m_intTimes.push_back(m_time_func.m_dt);
-  int num_pos = m_position_func.m_samples.size();
-  if ((size_t)num_pos != m_velocity_func.m_samples.size())
-    vw::vw_throw(vw::ArgumentErr() << "Expecting as many positions as velocities.\n");
-
-  // Positions and velocities
-  m_csm_model->m_numPositions = 3 * num_pos;
-  m_csm_model->m_t0Ephem = m_position_func.get_t0();
-  m_csm_model->m_dtEphem = m_position_func.get_dt();
-  m_csm_model->m_positions.resize(m_csm_model->m_numPositions);
-  m_csm_model->m_velocities.resize(m_csm_model->m_numPositions);
-  for (int pos_it = 0; pos_it < num_pos; pos_it++) {
-    for (int coord = 0; coord < 3; coord++) {
-      m_csm_model->m_positions [3*pos_it + coord] = m_position_func.m_samples[pos_it][coord];
-      m_csm_model->m_velocities[3*pos_it + coord] = m_velocity_func.m_samples[pos_it][coord];
-    }
-  }
-
-  // Quaternions
-  // TODO(oalexan1): What is the right sampling rate and the right range?
-  // Likely the quaternions will go wild far from the valid range of lines
-  int factor = 100; // TODO(oalexan1): To be revisited!
-  m_csm_model->m_numQuaternions = 4 * num_pos * factor;
-  m_csm_model->m_t0Quat = m_csm_model->m_t0Ephem; // t0 
-  m_csm_model->m_dtQuat = m_csm_model->m_dtEphem / factor; // dt
-  m_csm_model->m_quaternions.resize(m_csm_model->m_numQuaternions);
-  for (int pos_it = 0; pos_it < m_csm_model->m_numQuaternions / 4; pos_it++) {
-    double t = m_csm_model->m_t0Quat + pos_it * m_csm_model->m_dtQuat;
-    vw::Quat q = get_camera_pose_at_time(t);
-
-    // ASP stores the quaternions as (w, x, y, z). CSM
-    // wants them as x, y, z, w.
-    int coord = 0;
-    m_csm_model->m_quaternions[4*pos_it + coord] = q.x(); coord++;
-    m_csm_model->m_quaternions[4*pos_it + coord] = q.y(); coord++;
-    m_csm_model->m_quaternions[4*pos_it + coord] = q.z(); coord++;
-    m_csm_model->m_quaternions[4*pos_it + coord] = q.w(); coord++;
-  }
-
-  // Need some care here. Try to do things as the
-  // computeDistortedFocalPlaneCoordinates() function wants them.
-  m_csm_model->m_iTransL[0]   = 0.0; 
+  
+  m_csm_model->m_iTransL[0]   = 0.0;  
   m_csm_model->m_iTransL[1]   = 1.0; // no scale
   m_csm_model->m_iTransL[2]   = 0.0; // no skew
   m_csm_model->m_iTransS[0]   = 0.0;
@@ -139,66 +101,179 @@ void PleiadesCameraModel::populateCsmModel() {
   // Using this:
   // double detSample = (col + 0.5) * sampleSumming + startingSample;
   // double detLine = line * lineSumming + startingLine; // but it will use line = 0
-  m_csm_model->m_detectorLineSumming = 1.0;
+  m_csm_model->m_detectorLineSumming    = 1.0;
   m_csm_model->m_startingDetectorLine   =  m_coeff_psi_y[0]; // note that m_coeff_psi_y[1] = 0
   m_csm_model->m_detectorSampleSumming  = -m_coeff_psi_x[1];
-  m_csm_model->m_startingDetectorSample = -m_coeff_psi_x[0] - m_coeff_psi_x[1] * (m_ref_col + 0.5);
+  m_csm_model->m_startingDetectorSample = -m_coeff_psi_x[0] - m_coeff_psi_x[1] * (m_ref_col - 0.5);
   
-  // If sensor model is being created for the first time
-  // This routine will set some parameters not found in the ISD.
-  std::cout << "--temporary!" << std::endl;
+  // Time
+  m_csm_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
+  m_csm_model->m_intTimeStartTimes.push_back(m_time_func.m_t0);
+  m_csm_model->m_intTimes.push_back(m_time_func.m_dt);
+  int num_pos = m_position_func.m_samples.size();
+  if ((size_t)num_pos != m_velocity_func.m_samples.size())
+    vw::vw_throw(vw::ArgumentErr() << "Expecting as many positions as velocities.\n");
+
+  // Positions and velocities
+  m_csm_model->m_numPositions = 3 * num_pos; // concatenate all coordinates
+  m_csm_model->m_t0Ephem = m_position_func.get_t0();
+  m_csm_model->m_dtEphem = m_position_func.get_dt();
+  m_csm_model->m_positions.resize(m_csm_model->m_numPositions);
+  m_csm_model->m_velocities.resize(m_csm_model->m_numPositions);
+  for (int pos_it = 0; pos_it < num_pos; pos_it++) {
+    for (int coord = 0; coord < 3; coord++) {
+      m_csm_model->m_positions [3*pos_it + coord] = m_position_func.m_samples[pos_it][coord];
+      m_csm_model->m_velocities[3*pos_it + coord] = m_velocity_func.m_samples[pos_it][coord];
+    }
+  }
+
+  // Quaternions. These are sampled over the range of times for which the position
+  // and velocity are available, which a way longer range than the time spent
+  // acquiring image lines.
+  // TODO(oalexan1): What is the right factor (inverse of sampling rate)?
+  int factor = 100;
+  m_csm_model->m_numQuaternions = 4 * num_pos * factor;    // concatenate all coordinates
+  m_csm_model->m_t0Quat = m_csm_model->m_t0Ephem;          // quaternion t0 
+  m_csm_model->m_dtQuat = m_csm_model->m_dtEphem / factor; // quaternion dt
+  m_csm_model->m_quaternions.resize(m_csm_model->m_numQuaternions);
+  for (int pos_it = 0; pos_it < m_csm_model->m_numQuaternions / 4; pos_it++) {
+    double t = m_csm_model->m_t0Quat + pos_it * m_csm_model->m_dtQuat;
+    vw::Quat q = get_camera_pose_at_time(t);
+
+    // ASP stores the quaternions as (w, x, y, z). CSM wants them as
+    // x, y, z, w.
+    int coord = 0;
+    m_csm_model->m_quaternions[4*pos_it + coord] = q.x(); coord++;
+    m_csm_model->m_quaternions[4*pos_it + coord] = q.y(); coord++;
+    m_csm_model->m_quaternions[4*pos_it + coord] = q.z(); coord++;
+    m_csm_model->m_quaternions[4*pos_it + coord] = q.w(); coord++;
+  }
+
+  // Re-creating the model from the state forces some operations to
+  // take place which are inaccessible otherwise.
   std::string modelState = m_csm_model->getModelState();
+  m_csm_model->replaceModelState(modelState);
+
+#if 0
   std::string json_state_file = "tmp.json";
+  modelState = m_csm_model->getModelState(); // refresh this
   vw::vw_out() << "Writing model state: " << json_state_file << std::endl;
   std::ofstream ofs(json_state_file.c_str());
   ofs << modelState << std::endl;
   ofs.close();
+#endif
 
-  // Re-creating the model from the state forces some more private operations to take
-  // place, which are inaccessible otherwise
-  std::cout << "--enable this!" << std::endl;
-  //m_csm_model->replaceModelState(modelState);
-  
-  // Sanity checks
-  double max_pos_diff = 0.0, max_time_diff = 0.0, max_dir_diff = 0.0;
-  for (int l = -3000; l < 30000; l+= 1000) {
-    vw::Vector2 a(l, l);
-    csm::ImageCoord b;
-    asp::toCsmPixel(a, b);
+#if 0
+  // Sanity checks. Compare the ASP linescan and CSM models.  Do not
+  // use here functions which change meaning base on whether
+  // asp::stereo_settings().linescan_no_csm_mode is true or not.
 
+  double major_axis = datum.semi_major_axis();
+  double minor_axis = datum.semi_minor_axis();
+
+  double max_pos_diff = 0.0, max_time_diff = 0.0, max_dir_diff = 0.0, max_pix_diff = 0.0;
+  for (int l = -3000.3; l < 30000; l+= 1000) {
+    
+    vw::Vector2 pix(l, l);
+    csm::ImageCoord csm_pix;
+    asp::toCsmPixel(pix, csm_pix);
+    
     max_time_diff = std::max(max_time_diff,
-                             std::abs(m_time_func(l) - m_csm_model->getImageTime(b)));
+                             std::abs(m_time_func(l) - m_csm_model->getImageTime(csm_pix)));
     
-    double time = m_csm_model->getImageTime(b);
+    double time = m_csm_model->getImageTime(csm_pix);
     
-    csm::EcefCoord xyz = m_csm_model->getSensorPosition(time);
-    vw::Vector3 xyz_csm(xyz.x, xyz.y, xyz.z);
+    csm::EcefCoord ctr = m_csm_model->getSensorPosition(time);
+    vw::Vector3 csm_ctr(ctr.x, ctr.y, ctr.z);
     
-    vw::Vector3 xyz_asp = this->get_camera_center_at_time(time);
-    max_pos_diff = std::max(max_pos_diff, vw::math::norm_2(xyz_csm - xyz_asp));
-    
-    vw::Vector3 asp_dir = pixel_to_vector(a);
+    // Call the base ASP linescan time function
+    vw::Vector3 asp_ctr = this->m_position_func(time);
+    max_pos_diff = std::max(max_pos_diff, vw::math::norm_2(csm_ctr - asp_ctr));
 
-    csm::EcefLocus locus = m_csm_model->imageToRemoteImagingLocus(b);
-    vw::Vector3 xyz_csm2(locus.point.x, locus.point.y, locus.point.z);
+    //Call the ASP linescan base function
+    asp::stereo_settings().linescan_no_csm_model = true;
+    vw::Vector3 asp_dir = vw::camera::LinescanModel::pixel_to_vector(pix);
+    asp::stereo_settings().linescan_no_csm_model = false;
+    
+    csm::EcefLocus locus = m_csm_model->imageToRemoteImagingLocus(csm_pix);
+    vw::Vector3 csm_ctr2(locus.point.x, locus.point.y, locus.point.z);
     vw::Vector3 csm_dir(locus.direction.x, locus.direction.y, locus.direction.z);
     
-    max_pos_diff = std::max(max_pos_diff, vw::math::norm_2(xyz_csm2 - xyz_asp));    
-    max_dir_diff = std::max(max_dir_diff, vw::math::norm_2(asp_dir - csm_dir));    
-  }
+    max_pos_diff = std::max(max_pos_diff, vw::math::norm_2(csm_ctr2 - asp_ctr));    
+    max_dir_diff = std::max(max_dir_diff, vw::math::norm_2(asp_dir - csm_dir));
 
-  std::cout << "--max time diff " << max_time_diff << std::endl;
-  std::cout << "--max pos diff " << max_pos_diff << std::endl;
-  std::cout << "--max dir diff " << max_dir_diff << std::endl;
+    vw::Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+                                                          asp_ctr, asp_dir);
+    vw::Vector2 pix_out = this->point_to_pixel(xyz);
+    max_pix_diff = std::max(max_pix_diff, vw::math::norm_2(pix - pix_out));
+  }
+  
+  std::cout << "Max time diff " << max_time_diff << std::endl;
+  std::cout << "Max ctr diff " << max_pos_diff << std::endl;
+  std::cout << "Max dir diff " << max_dir_diff << std::endl;
+  std::cout << "Max pix diff " << max_pix_diff << std::endl;
+#endif
 }
 
+vw::Vector3 PleiadesCameraModel::camera_center(vw::Vector2 const& pix) const {
+  if (!asp::stereo_settings().linescan_no_csm_model) {
+    // Use CSM
+    csm::ImageCoord csm_pix;
+    asp::toCsmPixel(pix, csm_pix);
+
+    double time = m_csm_model->getImageTime(csm_pix);
+    csm::EcefCoord ecef = m_csm_model->getSensorPosition(time);
+    return vw::Vector3(ecef.x, ecef.y, ecef.z);
+  }
+
+  // Use the base class function
+  return vw::camera::LinescanModel::camera_center(pix);
+}
+
+vw::Vector3 PleiadesCameraModel::pixel_to_vector(vw::Vector2 const& pix) const {
+
+   if (!asp::stereo_settings().linescan_no_csm_model) {
+     // Use CSM
+     csm::ImageCoord csm_pix;
+     asp::toCsmPixel(pix, csm_pix);
+
+     csm::EcefLocus locus = m_csm_model->imageToRemoteImagingLocus(csm_pix);
+     return vw::Vector3(locus.direction.x, locus.direction.y, locus.direction.z);
+   }
+
+   // Use the base class function
+   return vw::camera::LinescanModel::pixel_to_vector(pix);
+}
+  
 vw::Vector2 PleiadesCameraModel::point_to_pixel(vw::Vector3 const& point) const {
+
+   if (!asp::stereo_settings().linescan_no_csm_model) {
+
+     // Use CSM
+     csm::EcefCoord ecef(point[0], point[1], point[2]);
+
+     // Do not show warnings, it becomes too verbose
+     double achievedPrecision = -1.0;
+     csm::WarningList warnings;
+     csm::WarningList * warnings_ptr = NULL;
+     bool show_warnings = false;
+     csm::ImageCoord csm_pix = m_csm_model->groundToImage(ecef, m_desired_precision,
+                                                          &achievedPrecision, warnings_ptr);
+     
+     vw::Vector2 asp_pix;
+     asp::fromCsmPixel(asp_pix, csm_pix);
+     return asp_pix;
+   }
+   
+  // No csm
   return point_to_pixel(point, -1); // Redirect to the function with no initial guess
 }
   
-// TODO: Port these changes to the base class
 vw::Vector2 PleiadesCameraModel::point_to_pixel(vw::Vector3 const& point, double starty) const {
 
+  if (!asp::stereo_settings().linescan_no_csm_model)
+    vw::vw_throw(vw::ArgumentErr() << "Programmer error. A function called when not expected.\n");
+  
   // Use the generic solver to find the pixel 
   // - This method will be slower but works for more complicated geometries
   vw::camera::CameraGenericLMA model(this, point);
@@ -226,6 +301,39 @@ vw::Vector2 PleiadesCameraModel::point_to_pixel(vw::Vector3 const& point, double
   return solution;
 }
 
+// This function is tricky to implement 
+vw::Quaternion<double> PleiadesCameraModel::camera_pose(vw::Vector2 const& pix) const {
+    
+  if (!asp::stereo_settings().linescan_no_csm_model) {
+    // This is not implemented for now for the CSM model
+    vw_throw(vw::NoImplErr() << "LinescanPleiadesModel: Cannot retrieve camera_pose!");
+    return vw::Quaternion<double>();
+  }
+
+  // Use the base class function
+  return vw::camera::LinescanModel::camera_pose(pix);
+}
+
+// Allow finding the time at any line, even negative ones. Here a
+// simple slope-intercept formula is used rather than a table so one
+// cannot run out of bounds. Page 76 in the doc.
+double PleiadesCameraModel::get_time_at_line(double line) const {
+
+  if (!asp::stereo_settings().linescan_no_csm_model) {
+    // Use CSM
+    csm::ImageCoord csm_pix;
+    asp::toCsmPixel(vw::Vector2(0, line), csm_pix);
+    return m_csm_model->getImageTime(csm_pix);
+  }
+
+  // Non-csm behavior
+  return m_time_func(line); 
+}
+ 
+// Throw an exception if the input time is outside the given
+// bounds. The valid range is much bigger than the range of times
+// at which image lines are recorded. It is rather the range at
+// which positions, velocities, and quaternions are tabulated.
 void PleiadesCameraModel::check_time(double time, std::string const& location) const {
   if ((time < m_min_time) || (time > m_max_time))
     vw::vw_throw(vw::ArgumentErr() << "PleiadesCameraModel::"<<location
@@ -234,16 +342,30 @@ void PleiadesCameraModel::check_time(double time, std::string const& location) c
 }
 
 vw::Vector3 PleiadesCameraModel::get_camera_center_at_time(double time) const {
+  
+  if (!asp::stereo_settings().linescan_no_csm_model) {
+    // TODO(oalexan1): This needs more testing. Normally it is not invoked.
+    csm::EcefCoord ecef = m_csm_model->getSensorPosition(time);
+    return vw::Vector3(ecef.x, ecef.y, ecef.z);
+  }
+  
   check_time(time, "get_camera_center_at_time");
   return m_position_func(time);
 }
+  
 vw::Vector3 PleiadesCameraModel::get_camera_velocity_at_time(double time) const { 
-  check_time(time, "get_camera_velocity_at_time");
+  if (!asp::stereo_settings().linescan_no_csm_model) {
+    // TODO(oalexan1): This needs testing.
+    csm::EcefVector ecef = m_csm_model->getSensorVelocity(time);
+    return vw::Vector3(ecef.x, ecef.y, ecef.z);
+  }
+  
   return m_velocity_func(time); 
 }
 
 // Compute the quaternion at given time using the polynomial
-// expression (doc page 77)
+// expression (doc page 77). This should work whether or not the CSM
+// model is used.
 vw::Quat PleiadesCameraModel::get_camera_pose_at_time(double time) const {
 
   double scaled_t = (time - m_quat_offset_time) / m_quat_scale;
@@ -261,21 +383,15 @@ vw::Quat PleiadesCameraModel::get_camera_pose_at_time(double time) const {
     tn *= scaled_t;
   }
   
-  vw::Quaternion<double> q(v[0], v[1], v[2], v[3]); // order is w, x, y, z
-  
-  return q;
-}
-
-// Allow finding the time at any line, even negative ones. Here a
-// simple slope-intercept formula is used rather than a table so one
-// cannot run out of bounds. Page 76 in the doc.
-double PleiadesCameraModel::get_time_at_line(double line) const {
-  return m_time_func(line); 
+  return vw::Quaternion<double>(v[0], v[1], v[2], v[3]); // order is w, x, y, z
 }
 
 // Page 76 in the doc
 vw::Vector3 PleiadesCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
 
+  if (!asp::stereo_settings().linescan_no_csm_model) 
+    vw::vw_throw(vw::ArgumentErr() << "Programmer error. A function called when not expected.\n");
+  
   double col = pix[0];
   double row = pix[1];
   
