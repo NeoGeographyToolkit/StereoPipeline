@@ -422,7 +422,8 @@ To plot an arbitrary CSV file with longitude, latitude and value, do::
 
 If the file has data in projected units (such as using Easting and
 Northing values), specify the option ``--csv-proj4`` having the
-projection. 
+projection, and use for the CSV format ``"1:easting 2:northing
+3:height_above_datum"``.
 
 .. _gui_options:
 

@@ -433,21 +433,35 @@ void read_csv_metadata(std::string              const& csv_file,
     return;
   }
 
+  bool has_datum = false;
+  
   // For a pointmap file, read the datum from the file
   if (csv_file.find("pointmap") != std::string::npos) {
     vw::cartography::Datum datum;
-    if (read_datum_from_csv(csv_file, datum))
+    if (read_datum_from_csv(csv_file, datum)) {
       georef.set_datum(datum);
+      has_datum = true;
+    }
   }
-
+  
   // Parse the datum and populate the georef
   csv_conv.parse_georef(georef);
   if (asp::stereo_settings().csv_datum != "") {
     vw::cartography::Datum datum(asp::stereo_settings().csv_datum);
-    std::cout << "Using datum: " << datum << std::endl;
     georef.set_datum(datum);
+    has_datum = true;
   }
 
+  if (has_georef) {
+    if (!has_datum) {
+      popUp("Must specify --csv-datum.");
+      return;
+    }
+  }
+
+  if (has_datum)
+    std::cout << "Using datum: " << georef.datum() << std::endl;
+  
   return;
 }
   

@@ -27,7 +27,7 @@ New tools:
     models (see :numref:`jitter_solve`). (Gives promising results but
     still undergoing testing.)
 
-New sesors:
+New sensors:
   * Support the Pleiades exact sensor (for 1A/1B). See :numref:`pleiades`.
     Implemented as a wrapper around the CSM linescan camera model.
 

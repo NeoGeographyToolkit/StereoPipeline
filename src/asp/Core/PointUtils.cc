@@ -596,7 +596,6 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
   // so almost certainly we won't read it correctly, but don't
   // complain about it.
   if (!line.empty() && line[0] == '#') {
-    if (!is_first_line) vw_out() << "Ignoring line starting with comment: " << line << std::endl;
     success = false;
     is_first_line = false;
     return values;

@@ -651,7 +651,7 @@ struct BaDispXyzError {
 
 /// A ceres cost function. The residual is the difference between the
 /// observed 3D point and the current (floating) 3D point, normalized by
-/// xyz_sigma. Used only for ground control points.
+/// xyz_sigma. Used only for ground control points or with --tri-weight.
 struct XYZError {
   XYZError(Vector3 const& observation, Vector3 const& xyz_sigma):
     m_observation(observation), m_xyz_sigma(xyz_sigma){}

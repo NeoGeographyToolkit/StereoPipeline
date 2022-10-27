@@ -166,7 +166,7 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
   line = "";
   while (getline(file, line, '\n')) {
 
-    if (!is_first_line && !line.empty() && line[0] == '#') {
+    if (!is_first_line && !line.empty() && line[0] == '#' && verbose) {
       vw::vw_out() << "Ignoring line starting with comment: " << line << std::endl;
       continue;
     }
