@@ -190,6 +190,12 @@ namespace asp{
         actual_session_type = "astermaprpc";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: astermaprpc.\n";
       }
+      if (!input_dem.empty() && actual_session_type == "pleiades") {
+        // User says Pleiades but also gives a DEM.
+        actual_session_type = "pleiadesmappleiades";
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pleiadesmappleiades.\n";
+      }
+      
       // Quetly switch from nadirpinhole to pinhole for mapprojected images
       if (!input_dem.empty() && actual_session_type == "nadirpinhole") {
         // User says nadirpinhole but also gives a DEM.
@@ -199,11 +205,8 @@ namespace asp{
       
     } // End map promotion section
 
-    // TODO(oalexan1): Add support for pleiadesmappleiades, but first check
-    // how fast it is.
-    
     if (!input_dem.empty() &&
-        (actual_session_type == "perusat" || actual_session_type == "pleiades")) {
+        (actual_session_type == "perusat")) {
       // User says PeruSat-1 or Pleiades but also gives a DEM, so the images were mapprojected.
       // If the mapprojection was done with the exact model, stereo becomes
       // painfully slow. If it was done with the RPC model, things become hard
@@ -218,7 +221,7 @@ namespace asp{
     VW_ASSERT(!actual_session_type.empty(),
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
-              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster perusat pleiades opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm].\n");
+              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster perusat pleiades opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm pleiadesmappleiades].\n");
     vw::vw_out() << "Using session: " << actual_session_type << "\n";
 
     // Compare the current session name to all recognized types
@@ -244,6 +247,8 @@ namespace asp{
         session = StereoSessionSpot5MapRPC::construct();
     else if (actual_session_type == "astermaprpc")
         session = StereoSessionASTERMapRPC::construct();
+    else if (actual_session_type == "pleiadesmappleiades")
+        session = StereoSessionPleiadesMapPleiades::construct();
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     else if (actual_session_type == "isis")
       session = StereoSessionIsis::construct();

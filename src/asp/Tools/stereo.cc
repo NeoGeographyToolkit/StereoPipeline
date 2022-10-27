@@ -705,11 +705,11 @@ namespace asp {
                              << "as the images are map-projected." << endl;
     }
 
-    // Ensure that for dgmaprpc and rpcmaprpc sessions the images were
-    // map-projected using -t rpc. For isismapisis it should have been
-    // isis. Same for pinhole.
     if (dem_provided){
 
+      // Given session XmapY make sure that the mapprojected images were
+      // done with camera Y. Normally X equals Y, with the exceptions
+      // of dgmaprpc, spot5maprpc, and astermaprpc.
       string cam_tag = "CAMERA_MODEL_TYPE";
       string l_cam_type, r_cam_type;
       boost::shared_ptr<vw::DiskImageResource> l_rsrc(new vw::DiskImageResourceGDAL(opt.in_file1));
@@ -734,7 +734,8 @@ namespace asp {
                  << "the option -t \"" << expected_cam_type << "\". Instead, got: \""
                  << l_cam_type << "\" and \"" << r_cam_type << "\".\n");
       }
-      
+
+      // Can't use match files prefix with mapproj images
       if (!stereo_settings().match_files_prefix.empty() ||
           !stereo_settings().clean_match_files_prefix.empty()) 
         vw_throw(ArgumentErr() << "Options: --match-files-prefix and "

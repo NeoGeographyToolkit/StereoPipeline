@@ -165,6 +165,7 @@ Command-line options
     - perusat      -- PeruSat-1 exact linescan camera model (:numref:`perusat1`)
     - opticalbar   -- Optical Bar cameras (:numref:`kh4`)
     - csm          -- Community Sensor Model (:numref:`csm`)
+    - pleiades     -- Pleiades satellites (:numref:`pleiades`)
 
     The next sessions are for mapprojected images
     (:numref:`mapproj-example`). If ``-t`` is specified
@@ -179,6 +180,7 @@ Command-line options
     - astermaprpc
     - opticalbarmapopticalbar
     - csmmapcsm
+    - pleiadesmappleiades
 
 -e, --entry-point <integer (from 0 to 5)>
     Stereo Pipeline entry point. Start at this stage. See

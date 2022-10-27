@@ -1637,7 +1637,7 @@ satellites. The linescan support is based on the USGS CSM library
 
 With the exact model, the stereo command is::
 
-    parallel_stereo -t pleiades --stereo-algorithm asp_mgm \
+    parallel_stereo -t pleiades --stereo-algorithm asp_mgm           \
         left.tif right.tif left_exact.xml right_exact.xml results/run
 
 For the RPC model the option ``-t rpc`` should be used and the correct
@@ -1645,9 +1645,32 @@ camera files should be passed in. If the ``-t`` option is not
 specified, it will be auto-guessed based on the content of the camera
 files provided as inputs.
 
-For Pleiades exact linescan camera models the atmospheric correction and
-velocity aberration corrections (:numref:`sensor_corrections`) are
-disabled. 
+For Pleiades exact linescan camera models the atmospheric correction
+and velocity aberration corrections (:numref:`sensor_corrections`) are
+disabled. This ensures that the exact and RPC camera models agree (see
+below).
+
+ASP supports running stereo with mapprojected Pleiades images
+(:numref:`mapproj-example`). All input images must be mapprojected at
+the same resolution (which is comparable with the ground sample
+distance). The same camera models must be used for mapprojection
+as for stereo, so one should not mix the exact and RPC cameras.
+Example::
+
+    mapproject --tr 0.000009 -t pleiades                        \
+      ref_dem.tif left.tif left_exact.xml left_map.tif 
+    mapproject --tr 0.000009 -t pleiades                        \
+      ref_dem.tif right.tif right_exact.xml right_map.tif
+    parallel_stereo --stereo-algorithm asp_mgm                  \
+      left_map.tif right_map.tif left_exact.xml right_exact.xml \
+      run_map/run ref_dem.tif
+   point2dem run_map/run-PC.tif 
+
+Here it is assumed the images are far from the poles, the input DEM
+has the longlat projection, and the grid size (``--tr``) is in degrees
+(the value 0.000009 may need adjustment). Otherwise, a polar or UTM
+projection needs to be used and the grid size set equal to the known
+image ground sample distance in meters.
 
 To compare the linescan and RPC models, run ``cam_test``
 (:numref:`cam_test`) as::

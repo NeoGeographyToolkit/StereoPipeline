@@ -20,8 +20,8 @@
 /// This a session that support RPC Mapproject DG images. It is built
 /// entirely so that left and right TX are objects and not TransformRefs.
 
-#ifndef __STEREO_SESSION_DGMAPRPC_H__
-#define __STEREO_SESSION_DGMAPRPC_H__
+#ifndef __STEREO_SESSION_MAPPROJ_H__
+#define __STEREO_SESSION_MAPPROJ_H__
 
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionGdal.h>
@@ -48,7 +48,7 @@ namespace asp {
   };
   
   
-  /// Specialization of the StereoSessionGDAL class to use (RPC)
+  /// Specialization of the StereoSessionGDAL class to use RPC
   /// map-projected inputs with the DG sensor model.
   class StereoSessionDGMapRPC : public StereoSessionMapProj {
   public:
@@ -72,7 +72,7 @@ namespace asp {
 
 
 
-  /// Specialization of the StereoSessionGDAL class to use (RPC)
+  /// Specialization of the StereoSessionGDAL class to use RPC
   /// map-projected inputs with the RPC sensor model.
   class StereoSessionRPCMapRPC : public StereoSessionMapProj  {
   public:
@@ -93,7 +93,6 @@ namespace asp {
   }
   
   };
-
 
   /// Specialization of the StereoSessionGDAL class to use (ISIS)
   /// map-projected inputs with the ISIS sensor model.
@@ -128,7 +127,8 @@ namespace asp {
     
   };
 
-  /// Specialization of the StereoSessionGDAL class to use (PINHOLE) map-projected inputs with the PINHOLE sensor model.
+  /// Specialization of the StereoSessionGDAL class to use Pinhole
+  /// map-projected inputs with the Pinhole sensor model.
   class StereoSessionPinholeMapPinhole : public StereoSessionMapProj{
   public:
     StereoSessionPinholeMapPinhole() {}
@@ -199,7 +199,7 @@ namespace asp {
     }
   };
 
-  /// Specialization of the StereoSessionGDAL class to use (RPC)
+  /// Specialization of the StereoSessionGDAL class to use RPC
   /// map-projected inputs with the SPOT5 sensor model.
   class StereoSessionSpot5MapRPC : public StereoSessionMapProj  {
   public:
@@ -222,7 +222,7 @@ namespace asp {
     
   };
 
-  /// Specialization of the StereoSessionGDAL class to use (RPC)
+  /// Specialization of the StereoSessionGDAL class to use RPC
   /// map-projected inputs with the ASTER sensor model.
   class StereoSessionASTERMapRPC : public StereoSessionMapProj  {
   public:
@@ -245,6 +245,29 @@ namespace asp {
     
   };
 
+  /// Specialization of the StereoSessionGDAL class to use Pleiades
+  /// map-projected inputs with the Pleiades sensor model.
+  class StereoSessionPleiadesMapPleiades : public StereoSessionMapProj  {
+  public:
+    StereoSessionPleiadesMapPleiades(){};
+    virtual ~StereoSessionPleiadesMapPleiades(){};
+
+    virtual std::string name() const { return "pleiadesmappleiades"; }
+
+    static StereoSession* construct() { return new StereoSessionPleiadesMapPleiades; }
+    
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file, 
+                      std::string const& camera_file,
+                      vw::Vector2 pixel_offset) const {
+      return load_adjusted_model(m_camera_loader.load_pleiades_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
+    
+  };
+
 }
 
-#endif//__STEREO_SESSION_DGMAPRPC_H__
+#endif//__STEREO_SESSION_MAPPROJ_H__
