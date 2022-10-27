@@ -64,7 +64,8 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   bool match_first_to_last, single_threaded_cameras;
   double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
   double ref_dem_weight, ref_dem_robust_threshold, heights_from_dem_weight,
-    heights_from_dem_robust_threshold, camera_weight, rotation_weight, translation_weight;
+    heights_from_dem_robust_threshold, camera_weight, rotation_weight, translation_weight,
+    tri_weight;
   vw::Vector2 remove_outliers_by_disp_params;
   
   std::vector<std::string> image_files, camera_files;
@@ -72,7 +73,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   std::map<std::pair<int, int>, std::string> match_files;
 
   BaBaseOptions(): min_triangulation_angle(0.0), camera_weight(-1.0),
-                   rotation_weight(0.0), translation_weight(0.0),
+                   rotation_weight(0.0), translation_weight(0.0), tri_weight(0.0),
                    robust_threshold(0.0), min_matches(0),
                    num_iterations(0), overlap_limit(0) {}
 };

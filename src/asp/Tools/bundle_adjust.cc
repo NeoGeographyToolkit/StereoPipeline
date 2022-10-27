@@ -302,6 +302,7 @@ void compute_residuals(bool apply_loss_function,
                        BAParamStorage const& param_storage,
                        std::vector<size_t> const& cam_residual_counts,
                        size_t num_gcp_or_dem_residuals,
+                       size_t num_tri_residuals,
                        std::vector<vw::Vector3> const& reference_vec,
                        ceres::Problem & problem,
                        // Output
@@ -320,7 +321,8 @@ void compute_residuals(bool apply_loss_function,
   const size_t num_residuals = residuals.size();
   
   // Verify our book-keeping is correct
-  size_t num_expected_residuals = num_gcp_or_dem_residuals*param_storage.params_per_point();
+  size_t num_expected_residuals
+    = (num_gcp_or_dem_residuals + num_tri_residuals) * param_storage.params_per_point();
   size_t total_num_cam_params   = param_storage.num_cameras()*param_storage.params_per_camera();
   for (size_t i=0; i<param_storage.num_cameras(); i++)
     num_expected_residuals += cam_residual_counts[i]*PIXEL_SIZE;
@@ -457,14 +459,16 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
                          Options const& opt,
                          BAParamStorage const& param_storage,
                          std::vector<size_t> const& cam_residual_counts,
-                         size_t num_gcp_or_dem_residuals, 
+                         size_t num_gcp_or_dem_residuals,
+                         size_t num_tri_residuals,
                          std::vector<vw::Vector3> const& reference_vec,
                          ControlNetwork const& cnet, CRNJ & crn, 
                          ceres::Problem &problem) {
   
   std::vector<double> residuals;
   compute_residuals(apply_loss_function, opt, param_storage,
-                    cam_residual_counts, num_gcp_or_dem_residuals, reference_vec, problem,
+                    cam_residual_counts, num_gcp_or_dem_residuals, num_tri_residuals,
+                    reference_vec, problem,
                     // Output
                     residuals);
     
@@ -546,7 +550,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     residual_file_raw_gcp.open(residual_raw_gcp_path.c_str());
     residual_file_raw_gcp.precision(18);
     residual_file << "GCP or DEM residual errors:\n";
-    for (size_t i=0; i<num_gcp_or_dem_residuals; i++) {
+    for (size_t i = 0; i < num_gcp_or_dem_residuals; i++) {
       double mean_residual = 0; // Take average of XYZ error for each point
       residual_file_raw_gcp << i;
       for (size_t j = 0; j < param_storage.params_per_point(); j++) {
@@ -613,6 +617,9 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     }
     residual_file_reference_xyz.close();
   }
+
+  // Keep track of number of triangulation constraint residuals but don't save those
+  index += BAParamStorage::PARAMS_PER_POINT * num_tri_residuals;
   
   if (index != num_residuals)
     vw_throw( LogicErr() << "Have " << num_residuals << " residuals, but iterated through "
@@ -644,6 +651,7 @@ int add_to_outliers(ControlNetwork   & cnet,
                     Options const& opt,
                     std::vector<size_t> const& cam_residual_counts,
                     size_t num_gcp_or_dem_residuals,
+                    size_t num_tri_residuals,
                     std::vector<vw::Vector3> const& reference_vec, 
                     ceres::Problem &problem) {
   
@@ -658,7 +666,7 @@ int add_to_outliers(ControlNetwork   & cnet,
   std::vector<double> residuals;
   compute_residuals(apply_loss_function,  
                     opt, param_storage,  cam_residual_counts,  
-                    num_gcp_or_dem_residuals, reference_vec, problem,
+                    num_gcp_or_dem_residuals, num_tri_residuals, reference_vec, problem,
                     // output
                     residuals);
 
@@ -1074,9 +1082,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Add camera constraints
   // - Error goes up as cameras move and rotate from their input positions.
   if (opt.camera_weight > 0){
-
     for (int icam = 0; icam < num_cameras; icam++){
-
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
       ceres::CostFunction* cost_function = CamError::Create(orig_cam_ptr, opt.camera_weight);
 
@@ -1245,16 +1251,42 @@ int do_ba_ceres_one_pass(Options             & opt,
                                      icam, icam+1, // left icam and right icam
                                      param_storage, opt, problem);
       }
-      tpc.report_incremental_progress( inc_amount );
+      tpc.report_incremental_progress(inc_amount);
     }
     
     tpc.report_finished();
     vw_out() << "Found " << reference_vec.size() << " reference points in range.\n";
   } // End if (opt.reference_terrain != "")
 
+  int num_tri_residuals = 0;
+  if (opt.tri_weight > 0) {
+    // Add triangulation weight to make each triangulated point not move too far
+    for (int ipt = 0; ipt < num_points; ipt++) {
+      if (cnet[ipt].type() == ControlPoint::GroundControlPoint ||
+          cnet[ipt].type() == ControlPoint::PointFromDem)
+        continue; // Skip GCPs and height-from-dem points which have their own constraint
+      
+      if (param_storage.get_point_outlier(ipt))
+        continue; // skip outliers
+      
+      double * point = param_storage.get_point_ptr(ipt);
+
+      // Use as constraint the initially triangulated point
+      Vector3 observation(point[0], point[1], point[2]);
+      double s = 1.0/opt.tri_weight;
+      Vector3 xyz_sigma(s, s, s);
+
+      ceres::CostFunction* cost_function = XYZError::Create(observation, xyz_sigma);
+      ceres::LossFunction* loss_function = get_loss_function(opt, opt.robust_threshold);
+      problem.AddResidualBlock(cost_function, loss_function, point);
+
+      num_tri_residuals++;
+    } // End loop through xyz
+  } // end adding a triangulation constraint
+  
   const size_t MIN_KML_POINTS = 50;
   size_t kmlPointSkip = 30;
-  // Figure out a good KML point skip aount
+  // Figure out a good KML point skip amount
   if (num_points / kmlPointSkip < MIN_KML_POINTS)
     kmlPointSkip = num_points / MIN_KML_POINTS;
   if (kmlPointSkip < 1)
@@ -1275,9 +1307,9 @@ int do_ba_ceres_one_pass(Options             & opt,
     vw_out() << "Writing initial condition files." << std::endl;
     bool apply_loss_function = false;
     write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, 
-                        cam_residual_counts, num_gcp_or_dem_residuals,
+                        cam_residual_counts, num_gcp_or_dem_residuals, num_tri_residuals,
                         reference_vec, cnet, crn, problem);
-
+    
     param_storage.record_points_to_kml(point_kml_path, opt.datum, 
                          kmlPointSkip, "initial_points",
                         "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png");
@@ -1343,7 +1375,8 @@ int do_ba_ceres_one_pass(Options             & opt,
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
   bool apply_loss_function = false;
   write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, cam_residual_counts,
-                      num_gcp_or_dem_residuals, reference_vec, cnet, crn, problem);
+                      num_gcp_or_dem_residuals, num_tri_residuals,
+                      reference_vec, cnet, crn, problem);
   
   std::string point_kml_path = opt.out_prefix + "-final_points.kml";
   std::string url = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
@@ -1361,8 +1394,8 @@ int do_ba_ceres_one_pass(Options             & opt,
     num_new_outliers =
       add_to_outliers(cnet, crn,
                       param_storage,   // in-out
-                      opt, cam_residual_counts,  
-                      num_gcp_or_dem_residuals, reference_vec, problem);
+                      opt, cam_residual_counts, num_gcp_or_dem_residuals,
+                      num_tri_residuals, reference_vec, problem);
   }
 
   // Find the cameras with the latest adjustments. Note that we do not modify
@@ -1852,6 +1885,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A higher weight will penalize more translation deviations from the original configuration.")
     ("camera-weight",        po::value(&opt.camera_weight)->default_value(1.0),
      "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).  A higher weight means that the values will change less. The options --rotation-weight and --translation-weight can be used for finer-grained control and a stronger response.")
+    ("tri-weight", po::value(&opt.tri_weight)->default_value(0.0),
+     "The weight to give to the constraint that optimized triangulated "
+     "points stay close to original triangulated points. A positive value will help "
+     "ensure the cameras do not move too far, but a large value may prevent convergence. "
+     "Does not apply to GCP or points constrained by a DEM. This adds a robust cost function "
+     "and uses the threshold given by --robust-threshold. Set --camera-weight and other "
+     "weights to 0 when using this.")
     ("overlap-exponent",     po::value(&opt.overlap_exponent)->default_value(0.0),
      "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
     ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
@@ -2121,6 +2161,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "The translation weight must be non-negative.\n" << usage
                             << general_options );
 
+  if (opt.tri_weight < 0.0)
+    vw_throw( ArgumentErr() << "The triangulation weight must be non-negative.\n" << usage
+              << general_options );
+  
+  if (opt.tri_weight > 0) {
+    if (opt.camera_weight > 0 || opt.rotation_weight > 0 || opt.translation_weight > 0 ||
+        (opt.reference_terrain != "" && opt.reference_terrain_weight > 0) ||
+        (opt.heights_from_dem != "" && opt.heights_from_dem_weight > 0)) 
+      vw_throw( ArgumentErr() << "When --tri-weight is positive, set to zero "
+                << "--camera-weight, --rotation-weight, etc.");
+  }
+  
   // NOTE(oalexan1): The reason min_triangulation_angle cannot be 0 is deep inside
   // StereoModel.cc. Better keep it this way than make too many changes there.
   if ( opt.min_triangulation_angle <= 0.0 )

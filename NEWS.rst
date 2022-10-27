@@ -70,6 +70,11 @@ bundle_adjust:
   * Save the convergence angle percentiles for each pair of
     images having matches. Useful for understating the configuration
     of cameras.
+  * Added the option ``--tri-weight`` (default is 0) to keep triangulated
+    points close to their initial values. This looks more promising
+    than other weighing used so far at preventing the cameras from
+    moving when optimizing them. This assumes input cameras are
+    not grossly inaccurate.
   * Added the options ``--image-list``, ``--camera-list``, 
     ``--mapprojected-data-list``, for when the inputs are too many to
     specify on the command line.

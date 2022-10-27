@@ -329,6 +329,15 @@ Command-line options for bundle_adjust
     the logic of ``--overlap-limit`` past the last image to the earliest
     ones.
 
+--tri-weight <double (default: 0.0)>
+    The weight to give to the constraint that optimized triangulated
+    points stay close to original triangulated points. A positive
+    value will help ensure the cameras do not move too far, but a
+    large value may prevent convergence. Does not apply to GCP or
+    points constrained by a DEM. This adds a robust cost function and
+    uses the threshold given by ``--robust-threshold``. Set
+    ``--camera-weight`` and other weights to 0 when using this. 
+
 --rotation-weight <double (default: 0.0)>
     A higher weight will penalize more rotation deviations from the
     original configuration.
@@ -344,7 +353,7 @@ Command-line options for bundle_adjust
     will change less. The options ``--rotation-weight`` and
     ``--translation-weight`` can be used for finer-grained control and
     a stronger response.
-
+        
 --ip-per-tile <integer>
     How many interest points to detect in each :math:`1024^2` image tile.
     If this option isn't given, it will default to an automatic determination.
