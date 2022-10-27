@@ -261,8 +261,13 @@ int main(int argc, char *argv[]) {
     print_diffs("cam1 to cam2 pixel diff", cam1_to_cam2_diff);
     print_diffs("cam2 to cam1 pixel diff", cam2_to_cam1_diff);
 
-    vw_out() << "\nElapsed time per sample: " << 1e+6 * sw.elapsed_seconds()/ctr_diff.size()
+    double elapsed_sec = sw.elapsed_seconds();
+    vw_out() << "\nElapsed time per sample: " << 1e+6 * elapsed_sec/ctr_diff.size()
              << " milliseconds.\n";
+
+    if (elapsed_sec < 5)
+      vw_out() << "It is suggested to adjust the sample rate to produce more samples "
+               << "if desired to evaluate more accurately the elapsed time per sample.\n";
     
   } ASP_STANDARD_CATCHES;
   

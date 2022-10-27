@@ -134,6 +134,10 @@ moved, per :numref:`ba_pc_align`). Such reuse is discussed in
 :numref:`bathy_reuse_run` (in the context of stereo with shallow
 water).
 
+If the program failed during correlation, such as because of
+insufficient memory, it can be told to resume without recomputing the
+existing good partial results with the option ``--resume-at-corr``.
+
 .. _parallel_stereo_options:
 
 Command-line options

@@ -1414,7 +1414,7 @@ optimization adjustments applied to them (use zero iterations in
 This functionality is only implemented for USGS CSM ``linescan`` and
 ``SAR`` models.
 
-It is important to note that the the ``model state`` of a CSM camera
+It is important to note that the ``model state`` of a CSM camera
 and the CSM camera itself, while both stored on disk as JSON files,
 are not the same thing. The CSM camera file (also called the ``CSM
 ISD`` file) has the transforms from sensor coordinates to J2000 and from
@@ -1568,10 +1568,12 @@ See :numref:`other-mapproj` for how ``parallel_stereo`` is invoked
 with mapprojected images when the cameras are stored either separately
 or part of the images.
 
+.. _airbus_tiled:
+
 Airbus tiled images
 ~~~~~~~~~~~~~~~~~~~
 
-With recent Airbus Pleiades data, each of the the left and right
+With recent Airbus Pleiades data, each of the left and right
 images may arrive broken up into .JP2 tiles, and they would need to be
 mosaicked before being used. That can be done as follows (individually
 for the left and right stereo image):
@@ -1612,7 +1614,7 @@ DEMs created with the exact and RPC models differ by a systematic
 vertical shift of about 15 meters for unknown reasons, even though the
 intersection error maps are very similar. Nothing in the sensor manual
 or camera metadata suggests the cause of this. The ``pc_align`` tool
-can be used to reduce this discrepancy. The the mean absolute
+can be used to reduce this discrepancy. The mean absolute
 difference of the (full-image extent) aligned DEMs is about 0.17
 meters.
 
@@ -1623,11 +1625,15 @@ See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 Pleiades
 --------
 
-The Airbus Pleiades satellites data have both an exact linescan model
-and approximate RPC models. These are stored in separate files, the
+The Airbus Pleiades satellites data have both an exact linescan camera model
+and an approximate RPC model. These are stored in separate files. The
 names for these start with "DIM" and "RPC", respectively, and end with
-".XML". ASP supports the RPC model (:numref:`rpc`), and the linescan one
-for the 1A/1B satellites. 
+".XML". 
+
+ASP supports the linescan model for the 1A/1B satellites. It can also
+use the RPC model (:numref:`rpc`), likely for all Pleiades
+satellites. The linescan support is based on the USGS CSM library
+(:numref:`csm`).
 
 With the exact model, the stereo command is::
 
@@ -1635,10 +1641,9 @@ With the exact model, the stereo command is::
         left.tif right.tif left_exact.xml right_exact.xml results/run
 
 For the RPC model the option ``-t rpc`` should be used and the correct
-camera files should be passed in.
-
-If the ``-t`` option is not specified, it will be auto-guessed
-based on the content of the camera files provided as inputs.
+camera files should be passed in. If the ``-t`` option is not
+specified, it will be auto-guessed based on the content of the camera
+files provided as inputs.
 
 For Pleiades exact linescan camera models the atmospheric correction and
 velocity aberration corrections (:numref:`sensor_corrections`) are
@@ -1661,13 +1666,20 @@ one::
     Max:    0.00296764
 
 The camera centers computed by the two methods won't agree, because
-the RPC camera model does not store the true camera center. ASP then
-substitutes it with an estimated point on the ray from the the true
-camera center to the ground. This disagreement is not an issue in
-practice.
+the RPC camera model does not store the camera center. ASP then
+substitutes it with an estimated point on the ray from the camera
+center to the ground. This disagreement is not an issue in practice.
+
+Commands similar to the above can be used to compare the exact and RPC
+cameras not to each other but against themselves. This tool will also
+print timing information for the operation of projecting a pixel to
+the ground and back.
+
+See :numref:`airbus_tiled` if the input images arrive in multiple
+tiles.
 
 See :numref:`nextsteps` for a discussion about various
-speed-vs-quality choices.
+speed-vs-quality choices for stereo.
 
 .. _spot5:
 
