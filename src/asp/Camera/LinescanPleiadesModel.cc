@@ -1,4 +1,4 @@
-// __BEGIN_LICENSE__
+ // __BEGIN_LICENSE__
 //  Copyright (c) 2009-2013, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
@@ -48,43 +48,49 @@ PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
   m_quaternion_coeffs(quaternion_coeffs),
   m_time_func(time), m_coeff_psi_x(coeff_psi_x), m_coeff_psi_y(coeff_psi_y),
   m_min_time(min_time), m_max_time(max_time), m_ref_col(ref_col), m_ref_row(ref_row),
-  m_desired_precision(1.0e-12), m_image_size(image_size) {
+  m_image_size(image_size) {
 
+  // Populate CsmModel members
+  m_desired_precision = 1.0e-12;
+  vw::cartography::Datum datum("WGS84"); // this sensor is used for Earth only
+  m_semi_major_axis = datum.semi_major_axis();
+  m_semi_minor_axis = datum.semi_minor_axis();
+  
   populateCsmModel();
 }
 
 void PleiadesCameraModel::populateCsmModel() {
 
   // Model creation
-  m_csm_model.reset(new UsgsAstroLsSensorModel);
-
+  m_csm_model.reset(new UsgsAstroLsSensorModel); // m_csm_model will manage the deallocation
+  m_ls_model = dynamic_cast<UsgsAstroLsSensorModel*>(m_csm_model.get());
+  if (m_ls_model == NULL)
+    vw::vw_throw(vw::ArgumentErr() << "Invalid initialization of the linescan model.\n");
+  
   // This performs many initializations apart from the above
-  m_csm_model->reset();
+  m_ls_model->reset();
 
   // Override some initializations
-  m_csm_model->m_nSamples = m_image_size[0]; 
-  m_csm_model->m_nLines   = m_image_size[1];
-  m_csm_model->m_platformFlag = 1; // explicitly set to 1, to have order 8 Lagrange interpolation
-  m_csm_model->m_maxElevation =  10000.0; //  10 km
-  m_csm_model->m_minElevation = -10000.0; // -10 km
-  m_csm_model->m_focalLength  = 1.0;
-  m_csm_model->m_zDirection   = 1.0;
-  m_csm_model->m_halfSwath    = 1.0;
-  m_csm_model->m_sensorIdentifier = "Pleiades";
+  m_ls_model->m_nSamples = m_image_size[0]; 
+  m_ls_model->m_nLines   = m_image_size[1];
+  m_ls_model->m_platformFlag = 1; // explicitly set to 1, to have order 8 Lagrange interpolation
+  m_ls_model->m_maxElevation =  10000.0; //  10 km
+  m_ls_model->m_minElevation = -10000.0; // -10 km
+  m_ls_model->m_focalLength  = 1.0;
+  m_ls_model->m_zDirection   = 1.0;
+  m_ls_model->m_halfSwath    = 1.0;
+  m_ls_model->m_sensorIdentifier = "Pleiades";
+  m_ls_model->m_majorAxis = m_semi_major_axis;
+  m_ls_model->m_minorAxis = m_semi_minor_axis;
   
-  // Datum
-  vw::cartography::Datum datum("WGS84"); // this sensor is used for Earth only
-  m_csm_model->m_majorAxis = datum.semi_major_axis();
-  m_csm_model->m_minorAxis = datum.semi_minor_axis();
-  
-  m_csm_model->m_iTransL[0]   = 0.0;  
-  m_csm_model->m_iTransL[1]   = 1.0; // no scale
-  m_csm_model->m_iTransL[2]   = 0.0; // no skew
-  m_csm_model->m_iTransS[0]   = 0.0;
-  m_csm_model->m_iTransS[1]   = 0.0; // no skew
-  m_csm_model->m_iTransS[2]   = 1.0; // no scale
-  m_csm_model->m_detectorLineOrigin   = 0.0;
-  m_csm_model->m_detectorSampleOrigin = 0.0;
+  m_ls_model->m_iTransL[0]   = 0.0;  
+  m_ls_model->m_iTransL[1]   = 1.0; // no scale
+  m_ls_model->m_iTransL[2]   = 0.0; // no skew
+  m_ls_model->m_iTransS[0]   = 0.0;
+  m_ls_model->m_iTransS[1]   = 0.0; // no skew
+  m_ls_model->m_iTransS[2]   = 1.0; // no scale
+  m_ls_model->m_detectorLineOrigin   = 0.0;
+  m_ls_model->m_detectorSampleOrigin = 0.0;
 
   // Quantities needed to find the ray direction in the sensor plane.
   // Need to emulate this
@@ -93,29 +99,29 @@ void PleiadesCameraModel::populateCsmModel() {
   // Using this:
   // double detSample = (col + 0.5) * sampleSumming + startingSample;
   // double detLine = line * lineSumming + startingLine; // but it will use line = 0
-  m_csm_model->m_detectorLineSumming    = 1.0;
-  m_csm_model->m_startingDetectorLine   =  m_coeff_psi_y[0]; // note that m_coeff_psi_y[1] = 0
-  m_csm_model->m_detectorSampleSumming  = -m_coeff_psi_x[1];
-  m_csm_model->m_startingDetectorSample = -m_coeff_psi_x[0] - m_coeff_psi_x[1] * (m_ref_col - 0.5);
+  m_ls_model->m_detectorLineSumming    = 1.0;
+  m_ls_model->m_startingDetectorLine   =  m_coeff_psi_y[0]; // note that m_coeff_psi_y[1] = 0
+  m_ls_model->m_detectorSampleSumming  = -m_coeff_psi_x[1];
+  m_ls_model->m_startingDetectorSample = -m_coeff_psi_x[0] - m_coeff_psi_x[1] * (m_ref_col - 0.5);
   
   // Time
-  m_csm_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
-  m_csm_model->m_intTimeStartTimes.push_back(m_time_func.m_t0);
-  m_csm_model->m_intTimes.push_back(m_time_func.m_dt);
+  m_ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
+  m_ls_model->m_intTimeStartTimes.push_back(m_time_func.m_t0);
+  m_ls_model->m_intTimes.push_back(m_time_func.m_dt);
   int num_pos = m_position_func.m_samples.size();
   if ((size_t)num_pos != m_velocity_func.m_samples.size())
     vw::vw_throw(vw::ArgumentErr() << "Expecting as many positions as velocities.\n");
 
   // Positions and velocities
-  m_csm_model->m_numPositions = 3 * num_pos; // concatenate all coordinates
-  m_csm_model->m_t0Ephem = m_position_func.get_t0();
-  m_csm_model->m_dtEphem = m_position_func.get_dt();
-  m_csm_model->m_positions.resize(m_csm_model->m_numPositions);
-  m_csm_model->m_velocities.resize(m_csm_model->m_numPositions);
+  m_ls_model->m_numPositions = 3 * num_pos; // concatenate all coordinates
+  m_ls_model->m_t0Ephem = m_position_func.get_t0();
+  m_ls_model->m_dtEphem = m_position_func.get_dt();
+  m_ls_model->m_positions.resize(m_ls_model->m_numPositions);
+  m_ls_model->m_velocities.resize(m_ls_model->m_numPositions);
   for (int pos_it = 0; pos_it < num_pos; pos_it++) {
     for (int coord = 0; coord < 3; coord++) {
-      m_csm_model->m_positions [3*pos_it + coord] = m_position_func.m_samples[pos_it][coord];
-      m_csm_model->m_velocities[3*pos_it + coord] = m_velocity_func.m_samples[pos_it][coord];
+      m_ls_model->m_positions [3*pos_it + coord] = m_position_func.m_samples[pos_it][coord];
+      m_ls_model->m_velocities[3*pos_it + coord] = m_velocity_func.m_samples[pos_it][coord];
     }
   }
 
@@ -124,31 +130,31 @@ void PleiadesCameraModel::populateCsmModel() {
   // acquiring image lines.
   // TODO(oalexan1): What is the right factor (inverse of sampling rate)?
   int factor = 100;
-  m_csm_model->m_numQuaternions = 4 * num_pos * factor;    // concatenate all coordinates
-  m_csm_model->m_t0Quat = m_csm_model->m_t0Ephem;          // quaternion t0 
-  m_csm_model->m_dtQuat = m_csm_model->m_dtEphem / factor; // quaternion dt
-  m_csm_model->m_quaternions.resize(m_csm_model->m_numQuaternions);
-  for (int pos_it = 0; pos_it < m_csm_model->m_numQuaternions / 4; pos_it++) {
-    double t = m_csm_model->m_t0Quat + pos_it * m_csm_model->m_dtQuat;
+  m_ls_model->m_numQuaternions = 4 * num_pos * factor;    // concatenate all coordinates
+  m_ls_model->m_t0Quat = m_ls_model->m_t0Ephem;          // quaternion t0 
+  m_ls_model->m_dtQuat = m_ls_model->m_dtEphem / factor; // quaternion dt
+  m_ls_model->m_quaternions.resize(m_ls_model->m_numQuaternions);
+  for (int pos_it = 0; pos_it < m_ls_model->m_numQuaternions / 4; pos_it++) {
+    double t = m_ls_model->m_t0Quat + pos_it * m_ls_model->m_dtQuat;
     vw::Quat q = get_camera_pose_at_time(t);
 
     // ASP stores the quaternions as (w, x, y, z). CSM wants them as
     // x, y, z, w.
     int coord = 0;
-    m_csm_model->m_quaternions[4*pos_it + coord] = q.x(); coord++;
-    m_csm_model->m_quaternions[4*pos_it + coord] = q.y(); coord++;
-    m_csm_model->m_quaternions[4*pos_it + coord] = q.z(); coord++;
-    m_csm_model->m_quaternions[4*pos_it + coord] = q.w(); coord++;
+    m_ls_model->m_quaternions[4*pos_it + coord] = q.x(); coord++;
+    m_ls_model->m_quaternions[4*pos_it + coord] = q.y(); coord++;
+    m_ls_model->m_quaternions[4*pos_it + coord] = q.z(); coord++;
+    m_ls_model->m_quaternions[4*pos_it + coord] = q.w(); coord++;
   }
 
   // Re-creating the model from the state forces some operations to
   // take place which are inaccessible otherwise.
-  std::string modelState = m_csm_model->getModelState();
-  m_csm_model->replaceModelState(modelState);
+  std::string modelState = m_ls_model->getModelState();
+  m_ls_model->replaceModelState(modelState);
 
 #if 0
   std::string json_state_file = "tmp.json";
-  modelState = m_csm_model->getModelState(); // refresh this
+  modelState = m_ls_model->getModelState(); // refresh this
   vw::vw_out() << "Writing model state: " << json_state_file << std::endl;
   std::ofstream ofs(json_state_file.c_str());
   ofs << modelState << std::endl;
@@ -161,8 +167,8 @@ vw::Vector3 PleiadesCameraModel::camera_center(vw::Vector2 const& pix) const {
   csm::ImageCoord csm_pix;
   asp::toCsmPixel(pix, csm_pix);
   
-  double time = m_csm_model->getImageTime(csm_pix);
-  csm::EcefCoord ecef = m_csm_model->getSensorPosition(time);
+  double time = m_ls_model->getImageTime(csm_pix);
+  csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
 
   return vw::Vector3(ecef.x, ecef.y, ecef.z);
 }
@@ -171,7 +177,7 @@ vw::Vector3 PleiadesCameraModel::pixel_to_vector(vw::Vector2 const& pix) const {
   csm::ImageCoord csm_pix;
   asp::toCsmPixel(pix, csm_pix);
   
-  csm::EcefLocus locus = m_csm_model->imageToRemoteImagingLocus(csm_pix);
+  csm::EcefLocus locus = m_ls_model->imageToRemoteImagingLocus(csm_pix);
   return vw::Vector3(locus.direction.x, locus.direction.y, locus.direction.z);
 }
   
@@ -184,7 +190,7 @@ vw::Vector2 PleiadesCameraModel::point_to_pixel(vw::Vector3 const& point) const 
   csm::WarningList warnings;
   csm::WarningList * warnings_ptr = NULL;
   bool show_warnings = false;
-  csm::ImageCoord csm_pix = m_csm_model->groundToImage(ecef, m_desired_precision,
+  csm::ImageCoord csm_pix = m_ls_model->groundToImage(ecef, m_desired_precision,
                                                        &achievedPrecision, warnings_ptr);
   
   vw::Vector2 asp_pix;
@@ -206,7 +212,7 @@ vw::Quaternion<double> PleiadesCameraModel::camera_pose(vw::Vector2 const& pix) 
 double PleiadesCameraModel::get_time_at_line(double line) const {
   csm::ImageCoord csm_pix;
   asp::toCsmPixel(vw::Vector2(0, line), csm_pix);
-  return m_csm_model->getImageTime(csm_pix);
+  return m_ls_model->getImageTime(csm_pix);
 }
  
 // Throw an exception if the input time is outside the given
@@ -223,13 +229,13 @@ void PleiadesCameraModel::check_time(double time, std::string const& location) c
 vw::Vector3 PleiadesCameraModel::get_camera_center_at_time(double time) const {
   
   // TODO(oalexan1): This needs more testing. Normally it is not invoked.
-  csm::EcefCoord ecef = m_csm_model->getSensorPosition(time);
+  csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
   return vw::Vector3(ecef.x, ecef.y, ecef.z);
 }
   
 vw::Vector3 PleiadesCameraModel::get_camera_velocity_at_time(double time) const { 
   // TODO(oalexan1): This needs testing.
-  csm::EcefVector ecef = m_csm_model->getSensorVelocity(time);
+  csm::EcefVector ecef = m_ls_model->getSensorVelocity(time);
   return vw::Vector3(ecef.x, ecef.y, ecef.z);
 }
 

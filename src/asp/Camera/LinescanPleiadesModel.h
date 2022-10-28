@@ -106,11 +106,8 @@ namespace asp {
     // which positions, velocities, and quaternions are tabulated.
     void check_time(double time, std::string const& location) const;
 
-    // Reimplementation of this model using CSM
-    boost::shared_ptr<UsgsAstroLsSensorModel> m_csm_model;
-
-    // The desired precision for the CSM model
-    double m_desired_precision;
+    // Pointer to linescan sensor. It will be managed by CsmModel::m_csm_model
+    UsgsAstroLsSensorModel * m_ls_model;
 
     vw::Vector2i m_image_size;
     

@@ -102,7 +102,7 @@ namespace asp {
     // TODO(oalexan1): Is it always going to be this type (RasterGM)?
     boost::shared_ptr<csm::RasterGM> m_csm_model;
 
-  private:
+  protected:
 
     // Read the ellipsoid (datum) axes from the isd json file
     // (does not work for reading it from a json state file).
@@ -134,7 +134,6 @@ namespace asp {
     double m_desired_precision;
     
   }; // End class CsmModel
-
 
   // Auxiliary non-member functions to convert a pixel from ASP
   // conventions to what CSM expects and vice versa
