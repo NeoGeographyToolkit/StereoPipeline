@@ -28,14 +28,15 @@
 #include <vw/Camera/LinescanModel.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/Extrinsics.h>
+#include <asp/Camera/CsmModel.h>
 
 // Forward declaration
 class UsgsAstroLsSensorModel;
 
 namespace asp {
 
-  /// Specialization of the generic LinescanModel for Pleiades satellites.
-  class PleiadesCameraModel : public vw::camera::LinescanModel {
+  // Adaptation of CsmModel for handling Pleiades metatdata
+  class PleiadesCameraModel: public asp::CsmModel {
 
   public:
     //------------------------------------------------------------------
@@ -51,8 +52,7 @@ namespace asp {
                         vw::Vector2                         const& coeff_psi_y,
                         vw::Vector2i                        const& image_size,
                         double min_time, double max_time,
-                        int ref_col, int ref_row,
-                        bool   correct_velocity, bool correct_atmosphere);
+                        int ref_col, int ref_row);
     
     virtual ~PleiadesCameraModel() {}
     virtual std::string type() const { return "LinescanPleiades"; }
@@ -77,14 +77,12 @@ namespace asp {
     /// As pixel_to_vector, but in the local camera frame.
     virtual vw::Vector3 get_local_pixel_vector(vw::Vector2 const& pix) const;
 
-    // TODO: See if we can port these local changes to the parent class
-    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const;
     virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const;
-
-    void populateCsmModel();
 
   private:
 
+    void populateCsmModel();
+    
     vw::camera::LinearTimeInterpolation m_time_func;     ///< Yields time at a given line.
     vw::camera::LagrangianInterpolation m_position_func; ///< Yields position at time T
     vw::camera::LagrangianInterpolation m_velocity_func; ///< Yields velocity at time T
@@ -113,6 +111,8 @@ namespace asp {
 
     // The desired precision for the CSM model
     double m_desired_precision;
+
+    vw::Vector2i m_image_size;
     
   }; // End class PleiadesCameraModel
 
@@ -123,6 +123,7 @@ namespace asp {
   ///   make sure this is done before/after this function is called!
   boost::shared_ptr<PleiadesCameraModel>
   load_pleiades_camera_model_from_xml(std::string const& path);
+
 } // end namespace asp
 
 
