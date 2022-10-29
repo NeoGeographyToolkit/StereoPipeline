@@ -334,8 +334,8 @@ Command-line options for bundle_adjust
     points stay close to original triangulated points. A positive
     value will help ensure the cameras do not move too far, but a
     large value may prevent convergence. Does not apply to GCP or
-    points constrained by a DEM. This adds a robust cost function and
-    uses the threshold given by ``--robust-threshold``. Set
+    points constrained by a DEM. This adds a robust cost function 
+    with the threshold given by ``--robust-threshold``. Set
     ``--camera-weight`` and other weights to 0 when using this. 
 
 --rotation-weight <double (default: 0.0)>

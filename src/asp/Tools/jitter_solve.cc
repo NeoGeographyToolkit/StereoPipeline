@@ -328,6 +328,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Stop when the relative error in the variables being optimized is less than this.")
     ("num-iterations",       po::value(&opt.num_iterations)->default_value(500),
      "Set the maximum number of iterations.")
+    ("tri-weight", po::value(&opt.tri_weight)->default_value(0.0),
+     "The weight to give to the constraint that optimized triangulated "
+     "points stay close to original triangulated points. A positive value will help "
+     "ensure the cameras do not move too far, but a large value may prevent convergence. "
+     "Does not apply to GCP or points constrained by a DEM. This adds a robust cost function "
+     "with the threshold given by --robust-threshold.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
      "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, "
      "in the triangulated xyz points replace the heights with the ones from this DEM before "
@@ -431,6 +437,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (!opt.heights_from_dem.empty() && !opt.ref_dem.empty()) 
     vw_throw(ArgumentErr() << "Cannot specify more than one of: --heights-from-dem "
              << "and --reference-dem.\n");
+
+  if (opt.tri_weight < 0.0) 
+    vw_throw(ArgumentErr() << "The value of --tri-weight must be non-negative.\n");
 
   if (opt.heights_from_dem_weight <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --heights-from-dem-weight must be positive.\n");
@@ -997,8 +1006,7 @@ void run_jitter_solve(int argc, char* argv[]) {
       if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
         vw_throw(ArgumentErr() << "Found GCP where not expecting any.\n");
 
-      // Note that we get tri points from dem_xyz_vec, and not from cnet, as the latter
-      // doesn't have adjustments for the input DEM.
+      // Note that we get tri points from dem_xyz_vec, based on the input DEM
       Vector3 observation = dem_xyz_vec.at(ipt);
       if (outliers.find(ipt) != outliers.end() || observation == Vector3(0, 0, 0)) 
         continue; // outlier
@@ -1006,6 +1014,17 @@ void run_jitter_solve(int argc, char* argv[]) {
       ceres::CostFunction* xyz_cost_function = weightedXyzError::Create(observation, xyz_weight);
       ceres::LossFunction* xyz_loss_function = new ceres::CauchyLoss(xyz_threshold);
       double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+
+      // Update the tri point based on the DEM
+      for (int p = 0; p < 3; p++) 
+        tri_point[p] = observation[p];
+
+      // Ensure we can track it later
+      cnet[ipt].set_type(vw::ba::ControlPoint::PointFromDem); 
+      // Update in the cnet too
+      cnet[ipt].set_position(Vector3(tri_point[0], tri_point[1], tri_point[2]));
+
+      // Add cost function
       problem.AddResidualBlock(xyz_cost_function, xyz_loss_function, tri_point);
 
       for (int c = 0; c < NUM_XYZ_PARAMS; c++)
@@ -1014,6 +1033,32 @@ void run_jitter_solve(int argc, char* argv[]) {
     
   } // end considering xyz constraint in the presence of a DEM
 
+  // This must happen after DEM-based weights are set
+  if (opt.tri_weight > 0) {
+    // Add triangulation weight to make each triangulated point not move too far
+    for (int ipt = 0; ipt < num_tri_points; ipt++) {
+      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint ||
+          cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
+        continue; // Skip GCPs and height-from-dem points which have their own constraint
+
+      if (outliers.find(ipt) != outliers.end()) 
+        continue; // skip outliers
+      
+      double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+      
+      // Use as constraint the initially triangulated point
+      vw::Vector3 observation(tri_point[0], tri_point[1], tri_point[2]);
+
+      ceres::CostFunction* cost_function = weightedXyzError::Create(observation, opt.tri_weight);
+      ceres::LossFunction* loss_function = new ceres::CauchyLoss(opt.robust_threshold);
+      problem.AddResidualBlock(cost_function, loss_function, tri_point);
+
+      for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+        weight_per_residual.push_back(opt.tri_weight);
+      
+    } // End loop through xyz
+  } // end adding a triangulation constraint
+  
   // Add regularization terms, from keeping the positions and quaternions from going wild
 
   if (opt.rotation_weight > 0.0) {

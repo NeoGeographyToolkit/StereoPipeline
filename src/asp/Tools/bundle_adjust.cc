@@ -1890,7 +1890,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "points stay close to original triangulated points. A positive value will help "
      "ensure the cameras do not move too far, but a large value may prevent convergence. "
      "Does not apply to GCP or points constrained by a DEM. This adds a robust cost function "
-     "and uses the threshold given by --robust-threshold. Set --camera-weight and other "
+     "with the threshold given by --robust-threshold. Set --camera-weight and other "
      "weights to 0 when using this.")
     ("overlap-exponent",     po::value(&opt.overlap_exponent)->default_value(0.0),
      "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
