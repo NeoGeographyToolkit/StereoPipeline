@@ -348,7 +348,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Multiply the xyz differences for the --reference-dem option by this weight.")
     ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),
      "Use this robust threshold for the weighted xyz differences.")
-    ("anchor-weight", po::value(&opt.anchor_weight)->default_value(1.0),
+    ("anchor-weight", po::value(&opt.anchor_weight)->default_value(0.0),
      "How much weight to give to each anchor point. Anchor points are "
      "obtained by intersecting rays from initial cameras with the DEM given by "
      "--heights-from-dem. A larger weight will make it harder for "
@@ -447,11 +447,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.rotation_weight < 0 || opt.translation_weight < 0)
     vw_throw(ArgumentErr() << "Rotation and translation weights must be non-negative.\n");
     
-  if (opt.quat_norm_weight < 0)
+  if (opt.quat_norm_weight <= 0)
     vw_throw(ArgumentErr() << "Quaternion norm weight must be positive.\n");
 
   if (opt.anchor_weight < 0)
-    vw_throw(ArgumentErr() << "Anchor weight must be positive.\n");
+    vw_throw(ArgumentErr() << "Anchor weight must be non-negative.\n");
 
   return;
 }
@@ -725,6 +725,9 @@ void run_jitter_solve(int argc, char* argv[]) {
   vw_out() << "Removed " << outliers.size() << " outliers based on initial reprojection error.\n";
   
   bool have_dem = (!opt.heights_from_dem.empty() || !opt.ref_dem.empty());
+
+  if (opt.anchor_weight > 0 && !have_dem) 
+    vw::vw_throw(vw::ArgumentErr() << "If there is no input DEM, set --anchor-weight to 0.\n");
   
   // Create anchor xyz with the help of a DEM in two ways.
   // TODO(oalexan1): Study how to best pass the DEM to avoid the code
@@ -819,6 +822,7 @@ void run_jitter_solve(int argc, char* argv[]) {
       int numLines   = ls_cams[icam]->m_nLines;
       int numSamples = ls_cams[icam]->m_nSamples;
       int numQuat    = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+      
       // TODO(oalexan1): Need to also consider here number of poses.
       // Also exposes num-anchor-points-per-pose
       double r       = double(numLines) / numQuat;

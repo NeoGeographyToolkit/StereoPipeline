@@ -1,4 +1,4 @@
- // __BEGIN_LICENSE__
+// __BEGIN_LICENSE__
 //  Copyright (c) 2009-2013, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
@@ -50,23 +50,23 @@ PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
   m_min_time(min_time), m_max_time(max_time), m_ref_col(ref_col), m_ref_row(ref_row),
   m_image_size(image_size) {
 
-  // Populate CsmModel members
-  m_desired_precision = 1.0e-12;
-  vw::cartography::Datum datum("WGS84"); // this sensor is used for Earth only
-  m_semi_major_axis = datum.semi_major_axis();
-  m_semi_minor_axis = datum.semi_minor_axis();
-  
   populateCsmModel();
 }
 
 void PleiadesCameraModel::populateCsmModel() {
 
-  // Model creation
+  // Populate CsmModel class members
+  m_desired_precision = 1.0e-12;
+  vw::cartography::Datum datum("WGS84"); // this sensor is used for Earth only
+  m_semi_major_axis = datum.semi_major_axis();
+  m_semi_minor_axis = datum.semi_minor_axis();
+  
+  // Create the linescan model
   m_csm_model.reset(new UsgsAstroLsSensorModel); // m_csm_model will manage the deallocation
-  m_ls_model = dynamic_cast<UsgsAstroLsSensorModel*>(m_csm_model.get());
+  m_ls_model = dynamic_cast<UsgsAstroLsSensorModel*>(m_csm_model.get()); // pointer to ls model
   if (m_ls_model == NULL)
     vw::vw_throw(vw::ArgumentErr() << "Invalid initialization of the linescan model.\n");
-  
+
   // This performs many initializations apart from the above
   m_ls_model->reset();
 
@@ -151,8 +151,8 @@ void PleiadesCameraModel::populateCsmModel() {
   // take place which are inaccessible otherwise.
   std::string modelState = m_ls_model->getModelState();
   m_ls_model->replaceModelState(modelState);
-
-#if 0
+  
+#if 0 // For debugging
   std::string json_state_file = "tmp.json";
   modelState = m_ls_model->getModelState(); // refresh this
   vw::vw_out() << "Writing model state: " << json_state_file << std::endl;
@@ -166,7 +166,7 @@ void PleiadesCameraModel::populateCsmModel() {
 vw::Vector3 PleiadesCameraModel::camera_center(vw::Vector2 const& pix) const {
   csm::ImageCoord csm_pix;
   asp::toCsmPixel(pix, csm_pix);
-  
+
   double time = m_ls_model->getImageTime(csm_pix);
   csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
 

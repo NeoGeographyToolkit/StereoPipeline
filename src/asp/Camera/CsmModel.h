@@ -116,8 +116,9 @@ namespace asp {
     /// and combining its data in a form ready to be used.
     void loadModelFromStateFile(std::string const& state_file);
 
-    /// Create the model from a state string.
-    void setModelFromStateString(std::string const& model_state);
+    /// Create the model from a state string. Use recreate_model = false,
+    /// if desired to adjust an existing model.
+    void setModelFromStateString(std::string const& model_state, bool recreate_model);
 
     /// Find and load any available CSM plugin libraries from disk.
     /// - This does nothing after the first time it finds any plugins.

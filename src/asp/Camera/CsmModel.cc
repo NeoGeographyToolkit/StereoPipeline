@@ -466,13 +466,46 @@ void CsmModel::loadModelFromStateFile(std::string const& state_file) {
              std::istreambuf_iterator<char>());
   ifs.close();
 
-  CsmModel::setModelFromStateString(model_state);
+  bool recreate_model = true;
+  CsmModel::setModelFromStateString(model_state, recreate_model);
+}
+
+template<class ModelT>
+void setModelFromStateStringAux(bool recreate_model,
+                                std::string const& model_state,
+                                boost::shared_ptr<csm::RasterGM> & csm_model) {
+
+  if (recreate_model) {
+
+    csm::RasterGM* raster_model = NULL;
+    ModelT * model = new ModelT;
+    model->replaceModelState(model_state);
+    raster_model = dynamic_cast<csm::RasterGM*>(model);
+    
+    // Handle load failure
+    if (!raster_model)
+      vw::vw_throw(vw::ArgumentErr() << "Failed to cast linescan model to raster type.");
+    
+    csm_model.reset(raster_model); // This will wipe any preexisting model
+    
+  } else {
+    
+    // Update existing model
+    ModelT * specific_model = static_cast<ModelT*>(csm_model.get());
+    if (specific_model == NULL)
+      vw::vw_throw(vw::ArgumentErr() << "Incorrect model type passed in.\n");
+    specific_model->replaceModelState(model_state);
+    
+  }
+
+  return;
 }
   
 /// Load the camera model from a model state written to disk.
 /// A model state is obtained from an ISD model by pre-processing
 /// and combining its data in a form ready to be used.
-void CsmModel::setModelFromStateString(std::string const& model_state) {
+/// Use recreate_model = false if desired to just update an existing model.
+void CsmModel::setModelFromStateString(std::string const& model_state, bool recreate_model) {
   
   // TODO(oalexan1): Use the usgscsm function
   // constructModelFromState() after that package pushes a new version
@@ -481,30 +514,25 @@ void CsmModel::setModelFromStateString(std::string const& model_state) {
   // See which model to load, then cast it to RasterGM. This could
   // have been simpler if the USGSCSM models shared a base class where
   // all shared functionality would be shared.
-  csm::RasterGM* raster_model = NULL;
   if (model_state.rfind(UsgsAstroFrameSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
-    
-    UsgsAstroFrameSensorModel * model = new UsgsAstroFrameSensorModel;
-    model->replaceModelState(model_state);
-    raster_model = dynamic_cast<csm::RasterGM*>(model);
+
+    setModelFromStateStringAux<UsgsAstroFrameSensorModel>
+      (recreate_model, model_state, m_csm_model);
     
   } else if (model_state.rfind(UsgsAstroLsSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
     
-    UsgsAstroLsSensorModel * model = new UsgsAstroLsSensorModel;
-    model->replaceModelState(model_state);
-    raster_model = dynamic_cast<csm::RasterGM*>(model);
+    setModelFromStateStringAux<UsgsAstroLsSensorModel>
+      (recreate_model, model_state, m_csm_model);
     
   } else if (model_state.rfind(UsgsAstroPushFrameSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
     
-    UsgsAstroPushFrameSensorModel * model = new UsgsAstroPushFrameSensorModel;
-    model->replaceModelState(model_state);
-    raster_model = dynamic_cast<csm::RasterGM*>(model);
+    setModelFromStateStringAux<UsgsAstroPushFrameSensorModel>
+      (recreate_model, model_state, m_csm_model);
     
   } else if (model_state.rfind(UsgsAstroSarSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
     
-    UsgsAstroSarSensorModel * model = new UsgsAstroSarSensorModel;
-    model->replaceModelState(model_state);
-    raster_model = dynamic_cast<csm::RasterGM*>(model);
+    setModelFromStateStringAux<UsgsAstroSarSensorModel>
+      (recreate_model, model_state, m_csm_model);
     
   } else {
     vw::vw_throw(vw::ArgumentErr() << "Could not create CSM model from state string.\n");
@@ -520,12 +548,6 @@ void CsmModel::setModelFromStateString(std::string const& model_state) {
   if (m_semi_major_axis <= 0.0 || m_semi_minor_axis <= 0.0) 
     vw::vw_throw(vw::ArgumentErr() << "Could not read positive semi-major "
                  << "and semi-minor axies from state string.");
-  
-  // Handle load failure
-  if (!raster_model)
-    vw::vw_throw(vw::ArgumentErr() << "Failed to cast linescan model to raster type.");
-  
-  m_csm_model.reset(raster_model); // This will handle the deallocation
 }
   
 void CsmModel::throw_if_not_init() const {
@@ -636,7 +658,7 @@ void applyTransformToState(ModelT const * model,
   if (std::abs(scale - 1.0) > 1e-6)
     vw_throw(ArgumentErr()
              << "CSM camera models do not support applying a transform with a scale.\n");
-  
+
   // Extract the rotation and convert it to ale::Rotation
   vw::Matrix3x3 rotation_matrix = submatrix(transform, 0, 0, 3, 3);
   std::vector<double> rotation_vec;
@@ -744,7 +766,8 @@ void CsmModel::applyTransform(vw::Matrix4x4 const& transform) {
                         // Output
                         modelState);
 
-  setModelFromStateString(modelState);
+  bool recreate_model = false; // don't want to destroy the model
+  setModelFromStateString(modelState, recreate_model);
 }
   
 } // end namespace asp

@@ -109,7 +109,7 @@ void saveResults(Options const& opt, BAParamStorage const& param_storage) {
 
       // For CSM camera models export, in addition, the JSON state
       // with the adjustment applied to it.
-      if (opt.stereo_session == "csm")
+      if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades")
         write_csm_output_file(opt, icam, adjust_file, param_storage);
     }
     
