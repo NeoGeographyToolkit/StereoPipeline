@@ -427,7 +427,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
   if (local == "") // No format string passed in
     return;
 
-  boost::replace_all(local, ":", " "); // Convert to space delimited
+  boost::replace_all(local, ":", " "); // Convert to space-delimited
   boost::replace_all(local, ",", " ");
   std::istringstream is(local);
 

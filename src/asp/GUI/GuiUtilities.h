@@ -122,14 +122,14 @@ namespace vw { namespace gui {
              ImageView<PixelT> const& clip, QImage & qimg);
 
   template<class PixelT>
-  typename boost::enable_if<boost::is_same<PixelT, vw::Vector<vw::uint8, 2> >, void>::type
+  typename boost::enable_if<boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>, void>::type
   formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
 	     vw::Vector2 const& bounds, ImageView<PixelT> const& clip,
              QImage & qimg);
 
   template<class PixelT>
-  typename boost::disable_if<boost::mpl::or_< boost::is_same<PixelT,double>,
-                                              boost::is_same<PixelT, vw::Vector<vw::uint8, 2> > >,
+  typename boost::disable_if<boost::mpl::or_<boost::is_same<PixelT,double>,
+                                              boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>>,
                              void >::type
   formQimage(bool highlight_nodata,
              bool scale_pixels, double nodata_val,
@@ -420,9 +420,9 @@ namespace vw { namespace gui {
     /// - The only way the counts can differ is if the user is in the process of manually
     ///   adding an interest point to the images.
     /// - The length of the outer vector is equal to the number of MainWidget objects
-    std::vector<std::vector<vw::ip::InterestPoint> > m_matches;
+    std::vector<std::vector<vw::ip::InterestPoint>> m_matches;
     /// Stay synced with m_matches, set to false if that match is not 
-    std::vector<std::vector<bool> > m_valid_matches;
+    std::vector<std::vector<bool>> m_valid_matches;
 
   }; // End class MatchList
 
@@ -451,7 +451,7 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
     // No multi-threading here since we modify shared values
     for (int col = 0; col < clip.cols(); col++){
       for (int row = 0; row < clip.rows(); row++){
-        if (clip(col, row) <= nodata_val) continue;
+        if (clip(col, row) == nodata_val) continue;
         if (clip(col, row) < min_val) min_val = clip(col, row);
         if (clip(col, row) > max_val) max_val = clip(col, row);
       }
@@ -482,7 +482,7 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
      
       v = std::min(std::max(0.0, v), 255.0);
       
-      if (clip(col, row) <= nodata_val || std::isnan(clip(col, row)) ){
+      if (clip(col, row) == nodata_val || std::isnan(clip(col, row)) ){
         
         if (!highlight_nodata){
           // transparent
@@ -501,7 +501,7 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
 }
   
 template<class PixelT>
-typename boost::enable_if<boost::is_same<PixelT, vw::Vector<vw::uint8, 2> >, void>::type
+typename boost::enable_if<boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>, void>::type
 formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
 	   vw::Vector2 const& bounds,
            ImageView<PixelT> const& clip, QImage & qimg){
@@ -523,8 +523,8 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
 }
 
 template<class PixelT>
-typename boost::disable_if<boost::mpl::or_< boost::is_same<PixelT,double>,
-                                            boost::is_same<PixelT, vw::Vector<vw::uint8, 2> > >, void >::type
+typename boost::disable_if<boost::mpl::or_<boost::is_same<PixelT,double>,
+                                           boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>>, void>::type
 formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
 	   vw::Vector2 const& bounds,
            ImageView<PixelT> const& clip, QImage & qimg){

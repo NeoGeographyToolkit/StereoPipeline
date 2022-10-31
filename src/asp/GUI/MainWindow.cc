@@ -225,11 +225,15 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
 
   int num_images = m_image_files.size();
   m_images.resize(num_images);
+  bool has_georef = true;
   for (int i = 0; i < num_images; i++) {
     m_images[i].read(m_image_files[i], m_opt);
     m_images[i].m_display_mode = m_display_mode;
+    has_georef = has_georef && m_images[i].has_georef;
   }
-
+  if (has_georef)
+    m_use_georef = true; // use georef if all images have it
+  
   // For being able to choose which files to show/hide
   m_chooseFiles = new chooseFilesDlg(this);
   m_chooseFiles->chooseFiles(m_images);

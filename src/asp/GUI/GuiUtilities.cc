@@ -191,7 +191,7 @@ void contour_image(DiskImagePyramidMultiChannel const& img,
                    double threshold,
                    std::vector<vw::geometry::dPoly> & polyVec) {
   
-  std::vector<std::vector<cv::Point> > contours;
+  std::vector<std::vector<cv::Point>> contours;
   std::vector<cv::Vec4i> hierarchy;
 
   // Create the OpenCV matrix. We will have issues for huge images.
@@ -823,7 +823,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
     //vw_out() << "Render time sw2 (seconds): " << sw2.elapsed_seconds() << std::endl;
   } else if (m_type == CH2_UINT8) {
     
-    ImageView<Vector<vw::uint8, 2> > clip;
+    ImageView<Vector<vw::uint8, 2>> clip;
     //Stopwatch sw4;
     //sw4.start();
     m_img_ch2_uint8.get_image_clip(scale_in, region_in, clip,
@@ -839,7 +839,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
     //vw_out() << "Render time sw5 (seconds): " << sw5.elapsed_seconds() << std::endl;
     
   } else if (m_type == CH3_UINT8) {
-    ImageView<Vector<vw::uint8, 3> > clip;
+    ImageView<Vector<vw::uint8, 3>> clip;
     //Stopwatch sw6;
     //sw6.start();
     m_img_ch3_uint8.get_image_clip(scale_in, region_in, clip,
@@ -857,7 +857,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
   } else if (m_type == CH4_UINT8) {
     //Stopwatch sw8;
     //sw8.start();
-    ImageView<Vector<vw::uint8, 4> > clip;
+    ImageView<Vector<vw::uint8, 4>> clip;
     m_img_ch4_uint8.get_image_clip(scale_in, region_in, clip,
           scale_out, region_out);
     //sw8.stop();

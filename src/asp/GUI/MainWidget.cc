@@ -718,7 +718,8 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       
       double nodata_val = -std::numeric_limits<double>::max();
       vw::read_nodata_val(input_file, nodata_val);
-      nodata_val = std::max(nodata_val, m_thresh);
+      // Do not use max(nodata_val, thresh) as sometimes nodata_val can be larger than data
+      nodata_val = m_thresh;
 
       int num_channels = m_images[image_iter].img.planes();
       
@@ -1349,16 +1350,29 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     
     int r = asp::stereo_settings().plot_point_radius;
 
-    // Use --min and --max values, if set.
+    // If set, use --min and --max values. Otherwise, find them and 
+    // remove outliers along the way to not skew the plotting range.
     double min_val = asp::stereo_settings().min;
     double max_val = asp::stereo_settings().max;
-    if (std::isnan(min_val)) 
-      min_val = m_images[image_index].val_range[0];
-    if (std::isnan(max_val)) 
-      max_val = m_images[image_index].val_range[1];
-
+    if (std::isnan(min_val) || std::isnan(max_val)) {
+      std::vector<double> vals;
+      for (size_t pt_it = 0; pt_it < m_images[image_index].scattered_data.size(); pt_it++)
+        vals.push_back(m_images[image_index].scattered_data[pt_it][2]);
+      double beg_inlier = -1, end_inlier = -1, pct_fraction = 0.25, factor = 3.0;
+      vw::math::find_outlier_brackets(vals, pct_fraction, factor, beg_inlier, end_inlier);
+      min_val = end_inlier;
+      max_val = beg_inlier;
+      size_t num_inliers = 0;
+      for (size_t it = 0; it < vals.size(); it++) {
+        if (vals[it] < beg_inlier || vals[it] > end_inlier) 
+          continue;
+        min_val = std::min(min_val, vals[it]);
+        max_val = std::max(max_val, vals[it]);
+        num_inliers++;
+      }
+    }
+    
     Colormap colormap;
-      
     for (size_t pt_it = 0; pt_it < m_images[image_index].scattered_data.size(); pt_it++) {
       auto const& P = m_images[image_index].scattered_data[pt_it];
 
@@ -1855,6 +1869,19 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     Vector2 S(px, py); // current point in screen pixels
     int pSize = m_currPolyX.size();
 
+    // This is a bugfix. Before starting drawing, update
+    // m_polyLayerIndex to point to a currently visible layer,
+    // otherwise it looks as if polygons are invisible.
+    if (pSize == 0 && m_chooseFiles && m_chooseFiles->isHidden(m_images[m_polyLayerIndex].name)) {
+      for (int j = m_beg_image_id; j < m_end_image_id; j++) {
+        
+        int i = m_filesOrder[j]; // image index
+        if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
+          continue;
+        m_polyLayerIndex = i; // not hidden
+      }
+    }
+
     // Starting point in this polygon. It is absolutely essential that we
     // keep it in world units. Otherwise, if we zoom while the polygon
     // is being drawn, we will not be able to close it properly.
@@ -2056,8 +2083,12 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
     Vector2 world_P(world_x0, world_y0);
 
-    for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++){
-    
+    for (int j = m_beg_image_id; j < m_end_image_id; j++) {
+      
+      int clipIter = m_filesOrder[j]; // image index
+      if (m_chooseFiles && m_chooseFiles->isHidden(m_images[clipIter].name))
+        continue; // skip hidden files
+      
       double minX0, minY0, minDist0;
       int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
     
@@ -2183,7 +2214,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         break;
       }
     }
-    
+
     if (allEmpty) {
       addPolyVert(m_mousePrsX, m_mousePrsY); // init the polygon
       addPolyVert(m_mousePrsX, m_mousePrsY); // declare the polygon finished
