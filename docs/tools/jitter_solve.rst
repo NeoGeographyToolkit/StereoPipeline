@@ -5,9 +5,9 @@ jitter_solve
 
 The ``jitter_solve`` program takes as input several overlapping images
 and linescan camera models in CSM format (such as for LRO NAC, CTX,
-HiRISE, etc.) and adjusts each individual camera position and orientation
-in the linescan model to make them more consistent to each other
-and to the ground.
+HiRISE, Pleiades, etc.) and adjusts each individual camera position
+and orientation in the linescan model to make them more consistent to
+each other and to the ground.
 
 The goal is to reduce the effect of unmeasured perturbations in the
 linescan sensor as it acquires the data. This is quite analogous to
@@ -15,15 +15,74 @@ what ``bundle_adjust`` does (:numref:`bundle_adjust`), except that the
 latter tool has just a single position and orientation per camera,
 instead of a sequence of them.
 
-This tool is in development. It gives promising results, but needs
-more large-scale testing. 
-
 Usage::
 
      jitter_solve <images> <cameras> <input adjustments> \
        -o <output prefix> [options]
 
-Example
+Note on ground constraints
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+While the cameras are adjusted to reduce the jitter and make them
+self-consistent, this can result in the camera system moving away from
+the initial location, or perhaps in warping in any DEM produced
+later with the optimized cameras.
+
+Hence, ground constraints are very important. This tool uses two kinds
+of constraints. The first is an intrinsic one, in which triangulated
+ground points are kept, during optimization, close to their initial
+values.  This works well when the images have very good overlap, and
+ideally there are more than two of them, and the jitter effect is not
+large. Its weight is given by ``--tri-weight`` (it is zero, so
+disabled, by default).
+
+The second kind of ground constraint ties the solution to an external
+DEM. It is then expected that this external DEM be *well-aligned* with
+the input cameras. The weight of this one is given by
+``--anchor-weight``.
+
+If this weight is positive, before this solver starts, rays are traced
+from a uniformly sampled set of pixels in each camera and intersect
+that DEM. The reprojection errors of those DEM "anchor" points is
+zero, at this stage, by construction. The reprojection errors for the
+anchor points, multiplied by the anchor weight, are then added to the
+optimization cost function. The goal of these terms is to prevent the
+cameras from moving too far.
+
+Both of these will be illustrated by examples.
+
+Increasing the number of positions and orientations to optimize
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Often times, the number of tabulated camera positions and orientations
+in the CSM file is very small, and it is assumed interpolation is
+used in between. For example, for Pleiades, the position is sampled
+every 30 seconds, while acquiring the whole image can take only 1.6
+seconds. 
+
+Hence, it is strongly suggested to resample the provided positions and
+orientations to increase their number before optimizing them with this
+solver.  Use the options: ``--num-lines-per-position`` and
+``--num-lines-per-orientation``.
+
+The estimated values of these quantities given just the provided input
+positions and orientations (so, before resampling) will be printed on
+screen. For the above Pleiades example, if not increasing their
+number, one will have each tabulated position responsible for about
+400,000 image lines, which is 20 times more than the total number of
+image lines, so way too coarse to proceed with jitter correction.
+
+It is suggested to use perhaps 2000 lines per position and 500 lines
+per orientation. Note that the smaller these are, so the more frequent
+the sampling, the more interest point matches one should have to get a
+reliable fit.
+
+In order to reduce artifacts due to resampling, the input spacing
+(for each of position and orientation) will be divided by an integer
+number, so the actual number of lines per position and orientation
+will be not precisely what the user asks for but close enough.
+
+Example 
 ~~~~~~~
 
 Bundle adjustment is used first to remove any large
@@ -39,7 +98,8 @@ to create CSM camera models.
     C=M1101075756LE.cal.echo
 
      bundle_adjust --ip-per-image 20000 \
-      --max-pairwise-matches 10000      \
+      --max-pairwise-matches 100000     \
+      --tri-weight 0.5                  \
       $A.cub $B.cub $C.cub              \
       $A.json $B.json $C.json           \
       -o ba/run  
@@ -83,8 +143,9 @@ adjustments. Then solve for jitter::
       --clean-match-files-prefix ba/run       \
       --max-initial-reprojection-error 100    \
       --num-iterations 100                    \
-      --quat-norm-weight 5                    \
+      --tri-weight 0.5                        \
       --anchor-weight 0.1                     \
+      --quat-norm-weight 5                    \
       --heights-from-dem dem.tif              \
       --heights-from-dem-weight 0.5           \
       --heights-from-dem-robust-threshold 0.5 \
@@ -101,16 +162,6 @@ with names like::
 
 The optimization algorithm
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The most important purpose of the reference DEM is its use it with the
-``--anchor-weight`` option.  Before this solver starts, rays are
-traced from a uniformly sampled set of pixels in each camera and
-intersect that DEM. The reprojection errors of those DEM "anchor"
-points is zero, at this stage, by definition. The reprojection errors
-for the anchor points, multiplied by the anchor weight, are then added
-to the optimization cost function. The goal of these terms is to
-prevent the cameras from moving too far. This cost function is not too
-sensitive to whether the DEM is precisely aligned with the cameras.
 
 What will actually drive the optimization are the reprojection errors
 from 3D points obtained by triangulating rays emanating from
@@ -263,16 +314,34 @@ Command-line options for jitter_solve
     Not required. Cameras in .json files in ISD or model state format
     can be passed in with no adjustments. 
 
---quat-norm-weight <double (default: 1.0)>
-    How much weight to give to the constraint that the norm of each
-    quaternion must be 1.
+--num-lines-per-position
+    Resample the input camera positions and velocities, using this
+    many lines per produced position and velocity. If not set, use the
+    positions and velocities from the CSM file as they are.
 
---anchor-weight <double (default: 1.0)>
+--num-lines-per-orientation
+    Resample the input camera orientations, using this many lines per
+    produced orientation. If not set, use the orientations from the
+    CSM file as they are.
+
+--tri-weight <double (default: 0.0)>
+    The weight to give to the constraint that optimized triangulated
+    points stay close to original triangulated points. A positive
+    value will help ensure the cameras do not move too far, but a
+    large value may prevent convergence. Does not apply to GCP or
+    points constrained by a DEM. This adds a robust cost function 
+    with the threshold given by ``--robust-threshold``. 
+
+--anchor-weight <double (default: 0.0)>
     How much weight to give to each anchor point. Anchor points are
     obtained by intersecting rays from initial cameras with the DEM
     given by ``--heights-from-dem``. A larger weight will make it
     harder for the cameras to move, hence preventing unreasonable
     changes.
+
+--quat-norm-weight <double (default: 1.0)>
+    How much weight to give to the constraint that the norm of each
+    quaternion must be 1.
 
 --rotation-weight <double (default: 0.0)>
     A higher weight will penalize more deviations from the

@@ -475,6 +475,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.anchor_weight < 0)
     vw_throw(ArgumentErr() << "Anchor weight must be non-negative.\n");
 
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
+  
   return;
 }
 
@@ -821,14 +824,14 @@ void calcAnchorPoints(Options                              const & opt,
       }   
     }
 
-    std::cout << std::endl;
-    std::cout << "Image file: " << opt.image_files[icam] << std::endl;
-    std::cout << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
-    std::cout << "Num lines per quat: " << double(numLines) / numQuat  << std::endl;
-    std::cout << "Num anchor points per image: " << numAnchorPts << std::endl;
+    vw_out() << std::endl;
+    vw_out() << "Image file: " << opt.image_files[icam] << std::endl;
+    vw_out() << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
+    vw_out() << "Num lines per quat: " << double(numLines) / numQuat  << std::endl;
+    vw_out() << "Num anchor points per image: " << numAnchorPts << std::endl;
     // TODO(oalexan1): Fill in below.
-    // std::cout << "Num anchor points per linescan quaternion: "/*add here*/ << std::endl;
-    // std::cout << "Num anchor points per linescan position: "  /*add here*/ << std::endl;
+    // vw_out() << "Num anchor points per linescan quaternion: "/*add here*/ << std::endl;
+    // vw_out() << "Num anchor points per linescan position: "  /*add here*/ << std::endl;
   }   
 }
 
