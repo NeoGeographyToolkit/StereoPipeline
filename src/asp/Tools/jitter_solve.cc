@@ -836,7 +836,61 @@ void addReprojectionErrors
     }
   }
 }
+
+// Add the constraint based on DEM.
+void addDemConstraint
+(Options                                              const& opt,
+ std::vector<std::vector<boost::shared_ptr<Vector3>>> const& xyz_vec,
+ std::vector<std::vector<double*>>                    const& xyz_vec_ptr,
+ std::vector<vw::Vector3>                             const& dem_xyz_vec,
+ std::set<int>                                        const& outliers,
+ vw::ba::ControlNetwork                               const& cnet,
+ // Outputs
+ std::vector<double>                                       & tri_points_vec,
+ std::vector<double>                                       & weight_per_residual, // append
+ ceres::Problem                                            & problem) {
   
+  double xyz_weight = -1.0, xyz_threshold = -1.0;
+    
+  if (!opt.heights_from_dem.empty()) {
+    xyz_weight = opt.heights_from_dem_weight;
+    xyz_threshold = opt.heights_from_dem_robust_threshold;
+  } else if (!opt.ref_dem.empty()) {
+    xyz_weight = opt.ref_dem_weight;
+    xyz_threshold = opt.ref_dem_robust_threshold;
+  } else {
+    vw::vw_throw(vw::ArgumentErr() << "No input DEM was provided.\n");
+  }
+  
+  if (dem_xyz_vec.size() != cnet.size()) 
+    vw_throw(ArgumentErr() << "Must have as many xyz computed from DEM as xyz "
+             << "triangulated from match files.\n");
+  if (xyz_weight <= 0 || xyz_threshold <= 0)
+    vw_throw(ArgumentErr() << "Detected invalid robust threshold or weights.\n");
+
+  int num_tri_points = cnet.size();
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+      
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+      vw_throw(ArgumentErr() << "Found GCP where not expecting any.\n");
+
+    // Note that we get tri points from dem_xyz_vec, based on the input DEM
+    Vector3 observation = dem_xyz_vec.at(ipt);
+    if (outliers.find(ipt) != outliers.end() || observation == Vector3(0, 0, 0)) 
+      continue; // outlier
+      
+    ceres::CostFunction* xyz_cost_function = weightedXyzError::Create(observation, xyz_weight);
+    ceres::LossFunction* xyz_loss_function = new ceres::CauchyLoss(xyz_threshold);
+    double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+
+    // Add cost function
+    problem.AddResidualBlock(xyz_cost_function, xyz_loss_function, tri_point);
+
+    for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+      weight_per_residual.push_back(xyz_weight);
+  }
+}
+
 void run_jitter_solve(int argc, char* argv[]) {
 
   // Parse arguments and perform validation
@@ -1070,8 +1124,16 @@ void run_jitter_solve(int argc, char* argv[]) {
     // optimization, depending on the strength of the weight which
     // tries to keep it back in place.
     Vector3 tri_point = cnet[ipt].position();
-    if (have_dem && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) 
+    if (have_dem && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) {
       tri_point = dem_xyz_vec.at(ipt);
+
+      // Update in the cnet too
+      cnet[ipt].set_position(Vector3(tri_point[0], tri_point[1], tri_point[2]));
+      
+      // Ensure we can track it later
+      cnet[ipt].set_type(vw::ba::ControlPoint::PointFromDem); 
+    }
+    
     for (int q = 0; q < NUM_XYZ_PARAMS; q++)
       tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
   }
@@ -1125,12 +1187,13 @@ void run_jitter_solve(int argc, char* argv[]) {
                         // Outputs
                         weight_per_residual, problem);
  
-  // Add the triangulated points constraint. We check earlier that only one
+  // Add the DEM constraint. We check earlier that only one
   // of the two options below can be set at a time.
   // TODO(oalexan1): Make this into a function.
-  double xyz_weight = -1.0, xyz_threshold = -1.0;
   if (have_dem) {
 
+    double xyz_weight = -1.0, xyz_threshold = -1.0;
+    
     if (!opt.heights_from_dem.empty()) {
       xyz_weight = opt.heights_from_dem_weight;
       xyz_threshold = opt.heights_from_dem_robust_threshold;
