@@ -281,6 +281,7 @@ struct weightedQuatNormError {
 };
 
 struct Options: public asp::BaBaseOptions {
+  int num_lines_per_position, num_lines_per_orientation;
   double quat_norm_weight, anchor_weight;
 };
     
@@ -297,6 +298,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Prefix to read initial adjustments from, written by bundle_adjust. "
      "Not required. Cameras in .json files in ISD or model state format "
      "can be passed in with no adjustments.")
+    ("num-lines-per-position", po::value(&opt.num_lines_per_position)->default_value(-1),
+     "Resample the input camera positions, using this many lines per produced position. "
+     "If not set, use the positions from the CSM file.")
+    ("num-lines-per-orientation", po::value(&opt.num_lines_per_orientation)->default_value(-1),
+     "Resample the input camera orientations, using this many lines per produced orientation. "
+     "If not set, use the orientations from the CSM file.")
     ("match-first-to-last",
      po::value(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
      "Match first several images to last several images by extending the logic of "
@@ -615,6 +622,117 @@ void save_residuals(std::string const& residual_prefix,
   return;
 }
 
+// TODO(oalexan1): Move these out of here
+  
+// Get quaternions. This duplicates the UsgsAstroLsSensorModel function as that one is private    
+void getQuaternions(UsgsAstroLsSensorModel * ls_model, double time,
+                      double q[4]) {
+  int nOrder = 8;
+  if (ls_model->m_platformFlag == 0) nOrder = 4;
+  int nOrderQuat = nOrder;
+  if (ls_model->m_numQuaternions < 6 && nOrder == 8) nOrderQuat = 4;
+  
+  lagrangeInterp(ls_model->m_numQuaternions / 4, &ls_model->m_quaternions[0],
+                 ls_model->m_t0Quat, ls_model->m_dtQuat, time, 4, nOrderQuat, q);
+}
+
+// Get positions. Based on the UsgsAstroLsSensorModel code
+void getPositions(UsgsAstroLsSensorModel * ls_model, double time,
+                  double pos[3]) {
+  int nOrder = 8;
+  if (ls_model->m_platformFlag == 0) nOrder = 4;
+  lagrangeInterp(ls_model->m_numPositions / 3, &ls_model->m_positions[0],
+                 ls_model->m_t0Ephem, ls_model->m_dtEphem,
+                 time, 3, nOrder, pos);
+}
+
+// Get positions. Based on the UsgsAstroLsSensorModel code
+void getVelocities(UsgsAstroLsSensorModel * ls_model, double time,
+                  double vel[3]) {
+  int nOrder = 8;
+  if (ls_model->m_platformFlag == 0) nOrder = 4;
+  double sensPosNom[3];
+  lagrangeInterp(ls_model->m_numPositions / 3, &ls_model->m_velocities[0],
+                 ls_model->m_t0Ephem, ls_model->m_dtEphem,
+                 time, 3, nOrder, vel);
+}
+
+void calcAnchorPoints(Options                              const & opt,
+                      ImageViewRef<PixelMask<double>>              interp_dem,
+                      vw::cartography::GeoReference         const& dem_georef,
+                      std::vector<UsgsAstroLsSensorModel*> const & ls_cams,
+                      // Append to these
+                      std::map<int, std::vector<Vector2>>                    & pixel_vec,
+                      std::map<int, std::vector<boost::shared_ptr<Vector3>>> & xyz_vec,
+                      std::map<int, std::vector<double*>>                    & xyz_vec_ptr,
+                      std::map<int, std::vector<double>>                     & weight_vec,
+                      std::map<int, std::vector<int>>                        & isAnchor_vec) {
+
+  int num_cams = ls_cams.size();
+  for (int icam = 0; icam < num_cams; icam++) {
+
+    int numLines   = ls_cams[icam]->m_nLines;
+    int numSamples = ls_cams[icam]->m_nSamples;
+    int numQuat    = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+      
+    // TODO(oalexan1): Need to also consider here number of poses.
+    // Also exposes num-anchor-points-per-pose
+    double r = double(numLines) / numQuat;
+
+    int numAnchorPts = 0;
+    // TODO(oalexan1): Need to ensure we hit {0, 1, 2}/numSamples/2
+    // TODO(oalexan1): Need to ensure we hit {0, 1, 2}/numLines/2
+    for (double line = 0; line < numLines; line += r/3.0) {
+      for (double sample = 0; sample < numSamples; sample += numSamples/3.0) {
+
+        Vector2 pix(sample, line);
+        Vector3 xyz_guess(0, 0, 0);
+          
+        bool treat_nodata_as_zero = false;
+        bool has_intersection = false;
+        double height_error_tol = 0.001; // 1 mm should be enough
+        double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
+        double max_rel_tol      = 1e-14;
+        int num_max_iter        = 50;   // Using many iterations can be very slow
+          
+        Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+          (opt.camera_models[icam]->camera_center(pix),
+           opt.camera_models[icam]->pixel_to_vector(pix),
+           interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+           height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+
+        if (!has_intersection) 
+          continue;
+          
+        Vector2 pix_out = opt.camera_models[icam]->point_to_pixel(dem_xyz);
+        if (norm_2(pix - pix_out) > 10 * height_error_tol)
+          continue; // this is likely a bad point
+
+        pixel_vec[icam].push_back(pix);
+        weight_vec[icam].push_back(opt.anchor_weight);
+        isAnchor_vec[icam].push_back(1);
+
+        // Create a shared_ptr as we need a pointer per the api to use later
+        xyz_vec[icam].push_back(boost::shared_ptr<Vector3>(new Vector3()));
+        Vector3 & xyz = *xyz_vec[icam].back().get(); // alias to the element we just made
+        xyz = dem_xyz; // copy the value, but the pointer does not change
+        xyz_vec_ptr[icam].push_back(&xyz[0]); // keep the pointer to the first element
+
+        numAnchorPts++;
+      }   
+    }
+
+    std::cout << std::endl;
+    std::cout << "Image file: " << opt.image_files[icam] << std::endl;
+    std::cout << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
+    std::cout << "Num lines per quat: " << double(numLines) / numQuat  << std::endl;
+    std::cout << "Num anchor points per image: " << numAnchorPts << std::endl;
+    // TODO(oalexan1): Fill in below.
+    // std::cout << "Num anchor points per linescan quaternion: "/*add here*/ << std::endl;
+    // std::cout << "Num anchor points per linescan position: "  /*add here*/ << std::endl;
+  }   
+}
+  
 void run_jitter_solve(int argc, char* argv[]) {
 
   // Parse arguments and perform validation
@@ -640,19 +758,21 @@ void run_jitter_solve(int argc, char* argv[]) {
   // linescan cameras, as need to manipulate those directly.
   std::vector<UsgsAstroLsSensorModel*> ls_cams;
   
-  for (size_t it = 0; it < opt.camera_models.size(); it++) {
-    vw::camera::CameraModel * base_cam = vw::camera::unadjusted_model(opt.camera_models[it]).get();
+  for (size_t icam = 0; icam < opt.camera_models.size(); icam++) {
+    vw::camera::CameraModel
+      * base_cam = vw::camera::unadjusted_model(opt.camera_models[icam]).get();
     asp::CsmModel * csm_cam = dynamic_cast<asp::CsmModel*>(base_cam);
     if (csm_cam == NULL)
       vw_throw(ArgumentErr() << "Expecting the cameras to be of CSM type.\n");
 
     if (!opt.input_prefix.empty()) {
       std::string adjust_file
-        = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[it],
-                                       opt.camera_files[it]);
+        = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[icam],
+                                       opt.camera_files[icam]);
       vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
       // This modifies opt.camera_models
-      vw::camera::AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[it]));
+      vw::camera::AdjustedCameraModel
+        adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]));
       adj_cam.read(adjust_file);
       vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
       csm_cam->applyTransform(ecef_transform);
@@ -663,8 +783,78 @@ void run_jitter_solve(int argc, char* argv[]) {
     if (ls_cam == NULL)
       vw_throw(ArgumentErr() << "Expecting the cameras to be of CSM linescan type.\n");
     ls_cams.push_back(ls_cam);
-  }
+#if 0
+    // TODO(oalexan1): Make this a function!
+    int lines = ls_cam->m_nLines;
+    csm::ImageCoord imagePt;
+    asp::toCsmPixel(vw::Vector2(0, 0), imagePt);
+    double time1 = ls_cams[icam]->getImageTime(imagePt);
 
+    asp::toCsmPixel(vw::Vector2(0, lines - 1), imagePt);
+    double time2 = ls_cams[icam]->getImageTime(imagePt);
+
+    double numInputLinesPerPosition = (lines - 1) * ls_cam->m_dtEphem / (time2 - time1);
+    double numInputLinesPerOrientation = (lines - 1) * ls_cam->m_dtQuat / (time2 - time1);
+
+    std::cout << "Number of lines per input position: " <<  round(numInputLinesPerPosition) << std::endl;
+    std::cout << "Number of lines per input orientation: " << round(numInputLinesPerOrientation) << std::endl;
+
+    std::cout << "-- diff time " << time2 - time1 << std::endl;
+    
+    if (opt.num_lines_per_position > 0) {
+      // Divide m_dtEphem by an integer number (to ensure we keep
+      // existing samples and only add to them), so we get around user's desired number of
+      // lines
+      int posFactor = round(double(numInputLinesPerPosition) / double(opt.num_lines_per_position));
+      if (posFactor <= 0)
+        posFactor = 1;
+      std::cout << "--pos factor is " << posFactor << std::endl;
+      double currDtEphem = ls_cam->m_dtEphem / posFactor;
+      int numLinesPerPosition = round((lines - 1) * currDtEphem / (time2 - time1));
+      std::cout << "Will use number of lines per position: " << numLinesPerPosition
+                << std::endl;
+      int numCurrPositions = ls_cam->m_positions.size() * posFactor;
+      std::vector<double> positions(numCurrPositions, 0);
+      std::vector<double> velocities(numCurrPositions, 0);
+      for (int ipos = 0; ipos < numCurrPositions/ NUM_XYZ_PARAMS; ipos++) {
+        double time = ls_cam->m_t0Ephem + ipos * currDtEphem;
+        getPositions(ls_cam, time, &positions[NUM_XYZ_PARAMS * ipos]);
+        getVelocities(ls_cam, time, &velocities[NUM_XYZ_PARAMS * ipos]);
+      }
+      // Overwrite in the model
+      ls_cam->m_dtEphem = currDtEphem;
+      ls_cam->m_numPositions = numCurrPositions;
+      ls_cam->m_positions = positions;
+      ls_cam->m_velocities = velocities;
+    }
+
+    if (opt.num_lines_per_orientation > 0) {
+      // Divide m_dtQuat by an integer number (to ensure we keep
+      // existing samples and only add to them), so we get around user's desired number of
+      // lines
+      int quatFactor = round(numInputLinesPerOrientation / double(opt.num_lines_per_orientation));
+      if (quatFactor <= 0)
+        quatFactor = 1;
+      std::cout << "--quat factor is " << quatFactor << std::endl;
+      double currDtQuat = ls_cam->m_dtQuat / quatFactor;
+      int numLinesPerOrientation = round((lines - 1) * currDtQuat / (time2 - time1));
+      std::cout << "Will use number of lines per orientation: " << numLinesPerOrientation
+                << std::endl;
+      int numCurrOrientations = ls_cam->m_quaternions.size() * quatFactor;
+      std::vector<double> quaternions(numCurrOrientations, 0);
+      for (int iquat = 0; iquat < numCurrOrientations/ NUM_QUAT_PARAMS; iquat++) {
+        double time = ls_cam->m_t0Quat + iquat * currDtQuat;
+        getQuaternions(ls_cam, time, &quaternions[NUM_QUAT_PARAMS * iquat]);
+      }
+      // Overwrite in the model
+      ls_cam->m_dtQuat = currDtQuat;
+      ls_cam->m_numQuaternions = numCurrOrientations;
+      ls_cam->m_quaternions = quaternions;
+    }
+    
+#endif
+  }
+  
   // Quantities that are not needed but are part of the API below
   bool got_est_cam_positions = false;
   double position_filter_dist = -1.0;
@@ -713,9 +903,10 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (!success)
     vw_throw(ArgumentErr()
              << "Failed to build a control network. Check the bundle adjustment directory "
-             << "for clean matches. Or, consider removing all .vwip and .match files and increasing "
-             << "the number of interest points using --ip-per-image or --ip-per-tile, "
-             << "or decreasing --min-matches, and then re-running bundle adjustment.\n");
+             << "for clean matches. Or, consider removing all .vwip and "
+             << ".match files and increasing the number of interest points "
+             << "using --ip-per-image or --ip-per-tile, or decreasing --min-matches, "
+             << "and then re-running bundle adjustment.\n");
 
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   vw::ba::CameraRelationNetwork<vw::ba::JFeature> crn;
@@ -768,18 +959,15 @@ void run_jitter_solve(int argc, char* argv[]) {
    vw_throw(ArgumentErr() << "No triangulated ground points were found.\n"); 
   std::vector<double> tri_points_vec(num_tri_points*NUM_XYZ_PARAMS, 0.0);
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
-
-    Vector3 tri_point = cnet[ipt].position();
-    
     // We overwrite the triangulated point when we have an input DEM.
     // It is instructive to examine the pointmap residual file to see
     // what effect that has on residuals.  This point will likely try
     // to move back somewhat to its triangulated position during
     // optimization, depending on the strength of the weight which
     // tries to keep it back in place.
+    Vector3 tri_point = cnet[ipt].position();
     if (have_dem && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) 
       tri_point = dem_xyz_vec.at(ipt);
-    
     for (int q = 0; q < NUM_XYZ_PARAMS; q++)
       tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
   }
@@ -790,7 +978,6 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Need this in order to undo the multiplication by weight before saving the residuals
   std::vector<double> weight_per_residual;
-
   std::map<int, std::vector<Vector2>> pixel_vec;
   std::map<int, std::vector<boost::shared_ptr<Vector3>>> xyz_vec;
   std::map<int, std::vector<double*>> xyz_vec_ptr;
@@ -798,7 +985,6 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::map<int, std::vector<int>> isAnchor_vec;
   
   for (int icam = 0; icam < (int)crn.size(); icam++) {
-
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
       
       // The index of the 3D point
@@ -823,73 +1009,12 @@ void run_jitter_solve(int argc, char* argv[]) {
     }
   }
 
-  // TODO(oalexan1): Make this a function
-  if (opt.anchor_weight > 0) {
-    
-    for (int icam = 0; icam < (int)crn.size(); icam++) {
-
-      int numLines   = ls_cams[icam]->m_nLines;
-      int numSamples = ls_cams[icam]->m_nSamples;
-      int numQuat    = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
-      
-      // TODO(oalexan1): Need to also consider here number of poses.
-      // Also exposes num-anchor-points-per-pose
-      double r       = double(numLines) / numQuat;
-
-      int numAnchorPts = 0;
-      // TODO(oalexan1): Need to ensure we hit {0, 1, 2}/numSamples/2
-      // TODO(oalexan1): Need to ensure we hit {0, 1, 2}/numLines/2
-      for (double line = 0; line < numLines; line += r/3.0) {
-        for (double sample = 0; sample < numSamples; sample += numSamples/3.0) {
-
-          Vector2 pix(sample, line);
-          Vector3 xyz_guess(0, 0, 0);
-          
-          bool treat_nodata_as_zero = false;
-          bool has_intersection = false;
-          double height_error_tol = 0.001; // 1 mm should be enough
-          double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
-          double max_rel_tol      = 1e-14;
-          int num_max_iter        = 50;   // Using many iterations can be very slow
-          
-          Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
-            (opt.camera_models[icam]->camera_center(pix),
-             opt.camera_models[icam]->pixel_to_vector(pix),
-             interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
-             height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
-
-          if (!has_intersection) 
-            continue;
-          
-          Vector2 pix_out = opt.camera_models[icam]->point_to_pixel(dem_xyz);
-          if (norm_2(pix - pix_out) > 10 * height_error_tol)
-            continue; // this is likely a bad point
-
-          pixel_vec[icam].push_back(pix);
-          weight_vec[icam].push_back(opt.anchor_weight);
-          isAnchor_vec[icam].push_back(1);
-
-          // Create a shared_ptr as we need a pointer per the api to use later
-          xyz_vec[icam].push_back(boost::shared_ptr<Vector3>(new Vector3()));
-          Vector3 & xyz = *xyz_vec[icam].back().get(); // alias to the element we just made
-          xyz = dem_xyz; // copy the value, but the pointer does not change
-          xyz_vec_ptr[icam].push_back(&xyz[0]); // keep the pointer to the first element
-
-          numAnchorPts++;
-        }   
-      }
-
-      std::cout << std::endl;
-      std::cout << "Image file: " << opt.image_files[icam] << std::endl;
-      std::cout << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
-      std::cout << "Num lines per quat: " << double(numLines) / numQuat  << std::endl;
-      std::cout << "Num anchor points per image: " << numAnchorPts << std::endl;
-      // TODO(oalexan1): Fill in below.
-      // std::cout << "Num anchor points per linescan quaternion: "/*add here*/ << std::endl;
-      // std::cout << "Num anchor points per linescan position: "  /*add here*/ << std::endl;
-    }   
-  }
-
+  // Find anchor points and append to pixel_vec, weight_vec, etc.
+  if (opt.anchor_weight > 0)
+    calcAnchorPoints(opt, interp_dem, dem_georef, ls_cams,  
+                     // Append to these
+                     pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
+  
   // Do here two passes, first for non-anchor points and then for anchor ones.
   // This way it is easier to do the bookkeeping when saving the residuals.
   // TODO(oalexan1): Make this a function
