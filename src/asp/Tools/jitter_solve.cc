@@ -837,7 +837,7 @@ void addReprojectionErrors
   }
 }
 
-// Add the constraint based on DEM.
+// Add the constraint based on DEM
 void addDemConstraint
 (Options                                              const& opt,
  std::vector<std::vector<boost::shared_ptr<Vector3>>> const& xyz_vec,
@@ -891,6 +891,41 @@ void addDemConstraint
   }
 }
 
+// Add the constraint to keep triangulated points close to initial values
+// This does not need a DEM or alignment
+void addTriConstraint
+(Options                                              const& opt,
+ std::set<int>                                        const& outliers,
+ vw::ba::ControlNetwork                               const& cnet,
+ // Outputs
+ std::vector<double>                                       & tri_points_vec,
+ std::vector<double>                                       & weight_per_residual, // append
+ ceres::Problem                                            & problem) {
+
+  int num_tri_points = cnet.size();
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint ||
+        cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
+      continue; // Skip GCPs and height-from-dem points which have their own constraint
+
+    if (outliers.find(ipt) != outliers.end()) 
+      continue; // skip outliers
+      
+    double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+      
+    // Use as constraint the initially triangulated point
+    vw::Vector3 observation(tri_point[0], tri_point[1], tri_point[2]);
+
+    ceres::CostFunction* cost_function = weightedXyzError::Create(observation, opt.tri_weight);
+    ceres::LossFunction* loss_function = new ceres::CauchyLoss(opt.robust_threshold);
+    problem.AddResidualBlock(cost_function, loss_function, tri_point);
+    
+    for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+      weight_per_residual.push_back(opt.tri_weight);
+      
+  } // End loop through xyz
+}
+  
 void run_jitter_solve(int argc, char* argv[]) {
 
   // Parse arguments and perform validation
@@ -1147,7 +1182,6 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::vector<std::vector<double*>> xyz_vec_ptr(num_cameras);
   std::vector<std::vector<double>> weight_vec(num_cameras);
   std::vector<std::vector<int>> isAnchor_vec(num_cameras);
-  
   for (int icam = 0; icam < (int)crn.size(); icam++) {
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
       
@@ -1190,83 +1224,23 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Add the DEM constraint. We check earlier that only one
   // of the two options below can be set at a time.
   // TODO(oalexan1): Make this into a function.
-  if (have_dem) {
+  if (have_dem)
+    addDemConstraint(opt, xyz_vec, xyz_vec_ptr, dem_xyz_vec, outliers, cnet,  
+                     // Outputs
+                     tri_points_vec, weight_per_residual,  // append
+                     problem);
 
-    double xyz_weight = -1.0, xyz_threshold = -1.0;
-    
-    if (!opt.heights_from_dem.empty()) {
-      xyz_weight = opt.heights_from_dem_weight;
-      xyz_threshold = opt.heights_from_dem_robust_threshold;
-    }
-  
-    if (!opt.ref_dem.empty()) {
-      xyz_weight = opt.ref_dem_weight;
-      xyz_threshold = opt.ref_dem_robust_threshold;
-    }
-
-    if (dem_xyz_vec.size() != cnet.size()) 
-      vw_throw(ArgumentErr() << "Must have as many xyz computed from DEM as xyz "
-               << "triangulated from match files.\n");
-    if (xyz_weight <= 0 || xyz_threshold <= 0)
-      vw_throw(ArgumentErr() << "Detected invalid robust threshold or weights.\n");
-
-    for (int ipt = 0; ipt < num_tri_points; ipt++) {
-      
-      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
-        vw_throw(ArgumentErr() << "Found GCP where not expecting any.\n");
-
-      // Note that we get tri points from dem_xyz_vec, based on the input DEM
-      Vector3 observation = dem_xyz_vec.at(ipt);
-      if (outliers.find(ipt) != outliers.end() || observation == Vector3(0, 0, 0)) 
-        continue; // outlier
-      
-      ceres::CostFunction* xyz_cost_function = weightedXyzError::Create(observation, xyz_weight);
-      ceres::LossFunction* xyz_loss_function = new ceres::CauchyLoss(xyz_threshold);
-      double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
-
-      // Update the tri point based on the DEM
-      for (int p = 0; p < 3; p++) 
-        tri_point[p] = observation[p];
-
-      // Ensure we can track it later
-      cnet[ipt].set_type(vw::ba::ControlPoint::PointFromDem); 
-      // Update in the cnet too
-      cnet[ipt].set_position(Vector3(tri_point[0], tri_point[1], tri_point[2]));
-
-      // Add cost function
-      problem.AddResidualBlock(xyz_cost_function, xyz_loss_function, tri_point);
-
-      for (int c = 0; c < NUM_XYZ_PARAMS; c++)
-        weight_per_residual.push_back(xyz_weight);
-    }
-    
-  } // end considering xyz constraint in the presence of a DEM
-
-  // This must happen after DEM-based weights are set
-  if (opt.tri_weight > 0) {
-    // Add triangulation weight to make each triangulated point not move too far
-    for (int ipt = 0; ipt < num_tri_points; ipt++) {
-      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint ||
-          cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
-        continue; // Skip GCPs and height-from-dem points which have their own constraint
-
-      if (outliers.find(ipt) != outliers.end()) 
-        continue; // skip outliers
-      
-      double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
-      
-      // Use as constraint the initially triangulated point
-      vw::Vector3 observation(tri_point[0], tri_point[1], tri_point[2]);
-
-      ceres::CostFunction* cost_function = weightedXyzError::Create(observation, opt.tri_weight);
-      ceres::LossFunction* loss_function = new ceres::CauchyLoss(opt.robust_threshold);
-      problem.AddResidualBlock(cost_function, loss_function, tri_point);
-
-      for (int c = 0; c < NUM_XYZ_PARAMS; c++)
-        weight_per_residual.push_back(opt.tri_weight);
-      
-    } // End loop through xyz
-  } // end adding a triangulation constraint
+  // Add the constraint to keep triangulated points close to initial values
+  // This does not need a DEM or alignment.
+  // This must happen after any DEM-based constraint is set, and won't
+  // apply to tri points already constrained by the DEM (so it will
+  // work only where the DEM is missing).
+  if (opt.tri_weight > 0) 
+    addTriConstraint(opt, outliers, cnet,  
+                     // Outputs
+                     tri_points_vec,  
+                     weight_per_residual,  // append
+                     problem);
   
   // Constrain the rotations
   if (opt.rotation_weight > 0.0) {
