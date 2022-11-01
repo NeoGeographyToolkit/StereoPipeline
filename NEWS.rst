@@ -134,6 +134,7 @@ stereo_gui:
     reproducibility. Also accessible with command-line option
     ``--zoom-proj-win``.
   * Bug fix for slow overlaying of images with different datums.
+  * When all images have a georeference, start in georeference mode.
 
 corr_eval:
   * Bugfix for excessive memory usage with positive ``--prefilter-mode``.
