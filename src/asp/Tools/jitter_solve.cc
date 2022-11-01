@@ -21,6 +21,7 @@
 /// Use n adjustments for every camera, placed at several lines in the image
 // with interpolation between them. The pdf doc has more info.
 
+// TODO(oalexan1): Separate heights-from-dem logic from adding anchor points
 // TODO(oalexan1): Add two passes and outlier filtering. For now
 // try to use clean matches.
 
@@ -662,11 +663,11 @@ void calcAnchorPoints(Options                              const & opt,
                       vw::cartography::GeoReference         const& dem_georef,
                       std::vector<UsgsAstroLsSensorModel*> const & ls_cams,
                       // Append to these
-                      std::map<int, std::vector<Vector2>>                    & pixel_vec,
-                      std::map<int, std::vector<boost::shared_ptr<Vector3>>> & xyz_vec,
-                      std::map<int, std::vector<double*>>                    & xyz_vec_ptr,
-                      std::map<int, std::vector<double>>                     & weight_vec,
-                      std::map<int, std::vector<int>>                        & isAnchor_vec) {
+                      std::vector<std::vector<Vector2>>                    & pixel_vec,
+                      std::vector<std::vector<boost::shared_ptr<Vector3>>> & xyz_vec,
+                      std::vector<std::vector<double*>>                    & xyz_vec_ptr,
+                      std::vector<std::vector<double>>                     & weight_vec,
+                      std::vector<std::vector<int>>                        & isAnchor_vec) {
 
   int num_cams = ls_cams.size();
   for (int icam = 0; icam < num_cams; icam++) {
@@ -731,6 +732,109 @@ void calcAnchorPoints(Options                              const & opt,
     // std::cout << "Num anchor points per linescan quaternion: "/*add here*/ << std::endl;
     // std::cout << "Num anchor points per linescan position: "  /*add here*/ << std::endl;
   }   
+}
+
+void addReprojectionErrors
+(Options                                              const & opt,
+ vw::ba::CameraRelationNetwork<vw::ba::JFeature>      const & crn,
+ std::vector<std::vector<Vector2>>                    const & pixel_vec,
+ std::vector<std::vector<boost::shared_ptr<Vector3>>> const & xyz_vec,
+ std::vector<std::vector<double*>>                    const & xyz_vec_ptr,
+ std::vector<std::vector<double>>                     const & weight_vec,
+ std::vector<std::vector<int>>                        const & isAnchor_vec,
+ std::vector<UsgsAstroLsSensorModel*>                 const & ls_cams,
+ // Outputs
+ std::vector<double>                                        & weight_per_residual, // append
+ ceres::Problem                                             & problem) {
+
+  // Do here two passes, first for non-anchor points and then for anchor ones.
+  // This way it is easier to do the bookkeeping when saving the residuals.
+  // TODO(oalexan1): Make this a function
+  for (int pass = 0; pass < 2; pass++) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+      for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
+
+        Vector2 observation =  pixel_vec[icam][ipix];
+        double * tri_point = xyz_vec_ptr[icam][ipix];
+        double weight = weight_vec[icam][ipix];
+        bool isAnchor = isAnchor_vec[icam][ipix];
+
+        // Pass 0 is without anchor points, while pass 1 uses them
+        if ((int)isAnchor != pass) 
+          continue;
+        
+        // Must grow the number of quaternions and positions a bit
+        // because during optimization the 3D point and corresponding
+        // pixel may move somewhat.
+        double line_extra = opt.max_init_reproj_error + 5.0; // add some more just in case
+        csm::ImageCoord imagePt1, imagePt2;
+        asp::toCsmPixel(observation - Vector2(0.0, line_extra), imagePt1);
+        asp::toCsmPixel(observation + Vector2(0.0, line_extra), imagePt2);
+        double time1 = ls_cams[icam]->getImageTime(imagePt1);
+        double time2 = ls_cams[icam]->getImageTime(imagePt2);
+
+        // Handle quaternions. We follow closely the conventions for UsgsAstroLsSensorModel.
+        int numQuatPerObs = 8; // Max num of quaternions used in pose interpolation 
+        int numQuat       = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+        double quatT0     = ls_cams[icam]->m_t0Quat;
+        double quatDt     = ls_cams[icam]->m_dtQuat;
+
+        // Starting and ending quat index (ending is exclusive). Based on lagrangeInterp().
+        int qindex1      = static_cast<int>((time1 - quatT0) / quatDt);
+        int qindex2      = static_cast<int>((time2 - quatT0) / quatDt);
+        int begQuatIndex = std::min(qindex1, qindex2) - numQuatPerObs / 2 + 1;
+        int endQuatIndex = std::max(qindex1, qindex2) + numQuatPerObs / 2 + 1;
+
+        // Keep in bounds
+        begQuatIndex = std::max(0, begQuatIndex);
+        endQuatIndex = std::min(endQuatIndex, numQuat);
+        if (begQuatIndex >= endQuatIndex) // Must not happen 
+          vw_throw(ArgumentErr() << "Book-keeping error for pixel: " << observation << ".\n"); 
+
+        // Same for positions
+        int numPosPerObs = 8;
+        int numPos       = ls_cams[icam]->m_positions.size() / NUM_XYZ_PARAMS;
+        double posT0     = ls_cams[icam]->m_t0Ephem;
+        double posDt     = ls_cams[icam]->m_dtEphem;
+      
+        // Starting and ending pos index (ending is exclusive). Based on lagrangeInterp().
+        int pindex1 = static_cast<int>((time1 - posT0) / posDt);
+        int pindex2 = static_cast<int>((time2 - posT0) / posDt);
+        int begPosIndex = std::min(pindex1, pindex2) - numPosPerObs / 2 + 1;
+        int endPosIndex = std::max(pindex1, pindex2) + numPosPerObs / 2 + 1;
+
+        // Keep in bounds
+        begPosIndex = std::max(0, begPosIndex);
+        endPosIndex = std::min(endPosIndex, numPos);
+        if (begPosIndex >= endPosIndex) // Must not happen 
+          vw_throw(ArgumentErr() << "Book-keeping error for pixel: " << observation << ".\n"); 
+
+        ceres::CostFunction* pixel_cost_function =
+          pixelReprojectionError::Create(observation, weight, ls_cams[icam],
+                                         begQuatIndex, endQuatIndex,
+                                         begPosIndex, endPosIndex);
+        ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
+      
+        // The variable of optimization are camera quaternions and positions stored in the
+        // camera models, and the triangulated point.
+        std::vector<double*> vars;
+        for (int it = begQuatIndex; it < endQuatIndex; it++)
+          vars.push_back(&ls_cams[icam]->m_quaternions[it * NUM_QUAT_PARAMS]);
+        for (int it = begPosIndex; it < endPosIndex; it++)
+          vars.push_back(&ls_cams[icam]->m_positions[it * NUM_XYZ_PARAMS]);
+        vars.push_back(tri_point);
+        problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
+
+        for (int c = 0; c < PIXEL_SIZE; c++)
+          weight_per_residual.push_back(weight);
+
+        // Anchor points are fixed by definition. They try to prevent
+        // the cameras from moving too much from original poses.
+        if (isAnchor) 
+          problem.SetParameterBlockConstant(tri_point);
+      }
+    }
+  }
 }
   
 void run_jitter_solve(int argc, char* argv[]) {
@@ -972,17 +1076,15 @@ void run_jitter_solve(int argc, char* argv[]) {
       tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
   }
 
-  // Set up the cost function
-  // TODO(oalexan1): Make this into a function
+  // The problem to solve
   ceres::Problem problem;
 
-  // Need this in order to undo the multiplication by weight before saving the residuals
-  std::vector<double> weight_per_residual;
-  std::map<int, std::vector<Vector2>> pixel_vec;
-  std::map<int, std::vector<boost::shared_ptr<Vector3>>> xyz_vec;
-  std::map<int, std::vector<double*>> xyz_vec_ptr;
-  std::map<int, std::vector<double>> weight_vec;
-  std::map<int, std::vector<int>> isAnchor_vec;
+  // Create structures for pixels, xyz, and weights, to be used in optimization
+  std::vector<std::vector<Vector2>> pixel_vec(num_cameras);
+  std::vector<std::vector<boost::shared_ptr<Vector3>>> xyz_vec(num_cameras);
+  std::vector<std::vector<double*>> xyz_vec_ptr(num_cameras);
+  std::vector<std::vector<double>> weight_vec(num_cameras);
+  std::vector<std::vector<int>> isAnchor_vec(num_cameras);
   
   for (int icam = 0; icam < (int)crn.size(); icam++) {
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
@@ -1015,95 +1117,14 @@ void run_jitter_solve(int argc, char* argv[]) {
                      // Append to these
                      pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
   
-  // Do here two passes, first for non-anchor points and then for anchor ones.
-  // This way it is easier to do the bookkeeping when saving the residuals.
-  // TODO(oalexan1): Make this a function
-  for (int pass = 0; pass < 2; pass++) {
-    for (int icam = 0; icam < (int)crn.size(); icam++) {
-      for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
+  // Need this in order to undo the multiplication by weight before saving the residuals
+  std::vector<double> weight_per_residual;
 
-        Vector2 observation =  pixel_vec[icam][ipix];
-        double * tri_point = xyz_vec_ptr[icam][ipix];
-        double weight = weight_vec[icam][ipix];
-        bool isAnchor = isAnchor_vec[icam][ipix];
-
-        // Pass 0 is without anchor points, while pass 1 uses them
-        if ((int)isAnchor != pass) 
-          continue;
-        
-        // Must grow the number of quaternions and positions a bit
-        // because during optimization the 3D point and corresponding
-        // pixel may move somewhat.
-        double line_extra = opt.max_init_reproj_error + 5.0; // add some more just in case
-        csm::ImageCoord imagePt1, imagePt2;
-        asp::toCsmPixel(observation - Vector2(0.0, line_extra), imagePt1);
-        asp::toCsmPixel(observation + Vector2(0.0, line_extra), imagePt2);
-        double time1 = ls_cams[icam]->getImageTime(imagePt1);
-        double time2 = ls_cams[icam]->getImageTime(imagePt2);
-
-        // Handle quaternions. We follow closely the conventions for UsgsAstroLsSensorModel.
-        int numQuatPerObs = 8; // Max num of quaternions used in pose interpolation 
-        int numQuat       = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
-        double quatT0     = ls_cams[icam]->m_t0Quat;
-        double quatDt     = ls_cams[icam]->m_dtQuat;
-
-        // Starting and ending quat index (ending is exclusive). Based on lagrangeInterp().
-        int qindex1      = static_cast<int>((time1 - quatT0) / quatDt);
-        int qindex2      = static_cast<int>((time2 - quatT0) / quatDt);
-        int begQuatIndex = std::min(qindex1, qindex2) - numQuatPerObs / 2 + 1;
-        int endQuatIndex = std::max(qindex1, qindex2) + numQuatPerObs / 2 + 1;
-
-        // Keep in bounds
-        begQuatIndex = std::max(0, begQuatIndex);
-        endQuatIndex = std::min(endQuatIndex, numQuat);
-        if (begQuatIndex >= endQuatIndex) // Must not happen 
-          vw_throw(ArgumentErr() << "Book-keeping error for pixel: " << observation << ".\n"); 
-
-        // Same for positions
-        int numPosPerObs = 8;
-        int numPos       = ls_cams[icam]->m_positions.size() / NUM_XYZ_PARAMS;
-        double posT0     = ls_cams[icam]->m_t0Ephem;
-        double posDt     = ls_cams[icam]->m_dtEphem;
-      
-        // Starting and ending pos index (ending is exclusive). Based on lagrangeInterp().
-        int pindex1 = static_cast<int>((time1 - posT0) / posDt);
-        int pindex2 = static_cast<int>((time2 - posT0) / posDt);
-        int begPosIndex = std::min(pindex1, pindex2) - numPosPerObs / 2 + 1;
-        int endPosIndex = std::max(pindex1, pindex2) + numPosPerObs / 2 + 1;
-
-        // Keep in bounds
-        begPosIndex = std::max(0, begPosIndex);
-        endPosIndex = std::min(endPosIndex, numPos);
-        if (begPosIndex >= endPosIndex) // Must not happen 
-          vw_throw(ArgumentErr() << "Book-keeping error for pixel: " << observation << ".\n"); 
-
-        ceres::CostFunction* pixel_cost_function =
-          pixelReprojectionError::Create(observation, weight, ls_cams[icam],
-                                         begQuatIndex, endQuatIndex,
-                                         begPosIndex, endPosIndex);
-        ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
-      
-        // The variable of optimization are camera quaternions and positions stored in the
-        // camera models, and the triangulated point.
-        std::vector<double*> vars;
-        for (int it = begQuatIndex; it < endQuatIndex; it++)
-          vars.push_back(&ls_cams[icam]->m_quaternions[it * NUM_QUAT_PARAMS]);
-        for (int it = begPosIndex; it < endPosIndex; it++)
-          vars.push_back(&ls_cams[icam]->m_positions[it * NUM_XYZ_PARAMS]);
-        vars.push_back(tri_point);
-        problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
-
-        for (int c = 0; c < PIXEL_SIZE; c++)
-          weight_per_residual.push_back(weight);
-
-        // Anchor points are fixed by definition. They try to prevent
-        // the cameras from moving too much from original poses.
-        if (isAnchor) 
-          problem.SetParameterBlockConstant(tri_point);
-      }
-    }
-  }
-  
+  addReprojectionErrors(opt, crn, pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec,
+                        isAnchor_vec, ls_cams,
+                        // Outputs
+                        weight_per_residual, problem);
+ 
   // Add the triangulated points constraint. We check earlier that only one
   // of the two options below can be set at a time.
   // TODO(oalexan1): Make this into a function.
@@ -1184,8 +1205,7 @@ void run_jitter_solve(int argc, char* argv[]) {
     } // End loop through xyz
   } // end adding a triangulation constraint
   
-  // Add regularization terms, from keeping the positions and quaternions from going wild
-
+  // Constrain the rotations
   if (opt.rotation_weight > 0.0) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
       int numQuat = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
@@ -1203,7 +1223,8 @@ void run_jitter_solve(int argc, char* argv[]) {
       }
     }
   }
-  
+
+  // Constrain the translations
   if (opt.translation_weight > 0.0) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
       int numPos = ls_cams[icam]->m_positions.size() / NUM_XYZ_PARAMS;
@@ -1222,6 +1243,7 @@ void run_jitter_solve(int argc, char* argv[]) {
     }
   }
 
+  // Try to make the norm of quaternions be close to 1
   if (opt.quat_norm_weight > 0.0) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
       int numQuat = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
@@ -1255,7 +1277,6 @@ void run_jitter_solve(int argc, char* argv[]) {
     options.num_threads = 1;
   else
     options.num_threads = opt.num_threads;
-
   // This is supposed to help with speed in a certain size range
   options.linear_solver_type = ceres::SPARSE_SCHUR;
   options.use_explicit_schur_complement = true; 
