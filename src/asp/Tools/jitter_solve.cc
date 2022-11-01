@@ -25,6 +25,10 @@
 // TODO(oalexan1): Add two passes and outlier filtering. For now
 // try to use clean matches.
 
+// TODO(oalexan1): Likely rotation and translation constraint can be
+// eliminated. Keep however the constraint that quaternion norm must
+// be close to 1.
+
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Core/Stopwatch.h>
@@ -300,11 +304,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Not required. Cameras in .json files in ISD or model state format "
      "can be passed in with no adjustments.")
     ("num-lines-per-position", po::value(&opt.num_lines_per_position)->default_value(-1),
-     "Resample the input camera positions, using this many lines per produced position. "
-     "If not set, use the positions from the CSM file.")
+     "Resample the input camera positions and velocities, using this many lines per "
+     "produced position and velocity. If not set, use the positions and velocities "
+     "from the CSM file as they are.")
     ("num-lines-per-orientation", po::value(&opt.num_lines_per_orientation)->default_value(-1),
      "Resample the input camera orientations, using this many lines per produced orientation. "
-     "If not set, use the orientations from the CSM file.")
+     "If not set, use the orientations from the CSM file as they are.")
     ("match-first-to-last",
      po::value(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
      "Match first several images to last several images by extending the logic of "
@@ -624,9 +629,25 @@ void save_residuals(std::string const& residual_prefix,
 }
 
 // TODO(oalexan1): Move these out of here
+void normalizeQuaternions(UsgsAstroLsSensorModel * ls_model) {
+
+  for (int qit = 0; qit < ls_model->m_numQuaternions / 4; qit++) {
+
+    double norm = 0.0;
+    for (int coord = 0; coord < 4; coord++)
+      norm += ls_model->m_quaternions[4 * qit + coord] * ls_model->m_quaternions[4 * qit + coord];
+
+    norm = sqrt(norm);
+    if (norm == 0)
+      continue;
+   
+    for (int coord = 0; coord < 4; coord++)
+      ls_model->m_quaternions[4 * qit + coord] /= norm;
+  }
+}
   
 // Get quaternions. This duplicates the UsgsAstroLsSensorModel function as that one is private    
-void getQuaternions(UsgsAstroLsSensorModel * ls_model, double time,
+void interpQuaternions(UsgsAstroLsSensorModel * ls_model, double time,
                       double q[4]) {
   int nOrder = 8;
   if (ls_model->m_platformFlag == 0) nOrder = 4;
@@ -638,7 +659,7 @@ void getQuaternions(UsgsAstroLsSensorModel * ls_model, double time,
 }
 
 // Get positions. Based on the UsgsAstroLsSensorModel code
-void getPositions(UsgsAstroLsSensorModel * ls_model, double time,
+void interpPositions(UsgsAstroLsSensorModel * ls_model, double time,
                   double pos[3]) {
   int nOrder = 8;
   if (ls_model->m_platformFlag == 0) nOrder = 4;
@@ -648,7 +669,7 @@ void getPositions(UsgsAstroLsSensorModel * ls_model, double time,
 }
 
 // Get positions. Based on the UsgsAstroLsSensorModel code
-void getVelocities(UsgsAstroLsSensorModel * ls_model, double time,
+void interpVelocities(UsgsAstroLsSensorModel * ls_model, double time,
                   double vel[3]) {
   int nOrder = 8;
   if (ls_model->m_platformFlag == 0) nOrder = 4;
@@ -658,6 +679,83 @@ void getVelocities(UsgsAstroLsSensorModel * ls_model, double time,
                  time, 3, nOrder, vel);
 }
 
+// The provided tabulated positions, velocities and quaternions may be too few,
+// so resample them with --num-lines-per-position and --num-lines-per-orientation,
+// if those are set.
+void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_cam) {
+  
+  // The positions and quaternions can go way beyond the valid range of image lines,
+  // so need to estimate how many of them are within the range.
+  
+  int lines = ls_cam->m_nLines;
+  csm::ImageCoord imagePt;
+  
+  asp::toCsmPixel(vw::Vector2(0, 0), imagePt);
+  double beg_time = ls_cam->getImageTime(imagePt);
+  asp::toCsmPixel(vw::Vector2(0, lines - 1), imagePt);
+  double end_time = ls_cam->getImageTime(imagePt);
+  if (end_time <= beg_time)
+    vw::vw_throw(vw::ArgumentErr() << "Ending time must be larger than starting time.\n");
+  double elapsed_time = end_time - beg_time;
+  
+  double numInputLinesPerPosition = (lines - 1) * ls_cam->m_dtEphem / elapsed_time;
+  double numInputLinesPerOrientation = (lines - 1) * ls_cam->m_dtQuat / elapsed_time;
+
+  vw_out() << "Number of lines per input position: "
+           << round(numInputLinesPerPosition) << "\n";
+  vw_out() << "Number of lines per input orientation: "
+           << round(numInputLinesPerOrientation) << "\n";
+
+  if (opt.num_lines_per_position > 0) {
+    // Divide m_dtEphem by an integer number, to ensure we keep
+    // existing samples and only add to them.
+    int posFactor = round(double(numInputLinesPerPosition) / double(opt.num_lines_per_position));
+    if (posFactor <= 0)
+      posFactor = 1;
+    double currDtEphem = ls_cam->m_dtEphem / posFactor;
+    int numLinesPerPosition = round((lines - 1) * currDtEphem / elapsed_time);
+    vw_out() << "Will resample and use the number of lines per position: "
+             << numLinesPerPosition << "\n";
+    int numCurrPositions = ls_cam->m_positions.size() * posFactor;
+    std::vector<double> positions(numCurrPositions, 0);
+    std::vector<double> velocities(numCurrPositions, 0);
+    for (int ipos = 0; ipos < numCurrPositions/ NUM_XYZ_PARAMS; ipos++) {
+      double time = ls_cam->m_t0Ephem + ipos * currDtEphem;
+      interpPositions(ls_cam, time, &positions[NUM_XYZ_PARAMS * ipos]);
+      interpVelocities(ls_cam, time, &velocities[NUM_XYZ_PARAMS * ipos]);
+    }
+    // Overwrite in the model
+    ls_cam->m_dtEphem = currDtEphem;
+    ls_cam->m_numPositions = numCurrPositions;
+    ls_cam->m_positions = positions;
+    ls_cam->m_velocities = velocities;
+  }
+
+  if (opt.num_lines_per_orientation > 0) {
+    // Divide m_dtQuat by an integer number (to ensure we keep
+    // existing samples and only add to them).
+    int quatFactor = round(numInputLinesPerOrientation / double(opt.num_lines_per_orientation));
+    if (quatFactor <= 0)
+      quatFactor = 1;
+    double currDtQuat = ls_cam->m_dtQuat / quatFactor;
+    int numLinesPerOrientation = round((lines - 1) * currDtQuat / elapsed_time);
+    vw_out() << "Will resample and use the number of lines per orientation: "
+             << numLinesPerOrientation << "\n";
+    int numCurrOrientations = ls_cam->m_quaternions.size() * quatFactor;
+    std::vector<double> quaternions(numCurrOrientations, 0);
+    for (int iquat = 0; iquat < numCurrOrientations/ NUM_QUAT_PARAMS; iquat++) {
+      double time = ls_cam->m_t0Quat + iquat * currDtQuat;
+      interpQuaternions(ls_cam, time, &quaternions[NUM_QUAT_PARAMS * iquat]);
+    }
+    // Overwrite in the model
+    ls_cam->m_dtQuat = currDtQuat;
+    ls_cam->m_numQuaternions = numCurrOrientations;
+    ls_cam->m_quaternions = quaternions;
+  }
+
+  return;
+}
+  
 void calcAnchorPoints(Options                              const & opt,
                       ImageViewRef<PixelMask<double>>              interp_dem,
                       vw::cartography::GeoReference         const& dem_georef,
@@ -668,14 +766,14 @@ void calcAnchorPoints(Options                              const & opt,
                       std::vector<std::vector<double*>>                    & xyz_vec_ptr,
                       std::vector<std::vector<double>>                     & weight_vec,
                       std::vector<std::vector<int>>                        & isAnchor_vec) {
-
+  
   int num_cams = ls_cams.size();
   for (int icam = 0; icam < num_cams; icam++) {
-
+    
     int numLines   = ls_cams[icam]->m_nLines;
     int numSamples = ls_cams[icam]->m_nSamples;
     int numQuat    = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
-      
+    
     // TODO(oalexan1): Need to also consider here number of poses.
     // Also exposes num-anchor-points-per-pose
     double r = double(numLines) / numQuat;
@@ -925,6 +1023,72 @@ void addTriConstraint
       
   } // End loop through xyz
 }
+
+void addQuatNormRotationTranslationConstraints
+(Options                                              const& opt,
+ std::set<int>                                        const& outliers,
+ vw::ba::CameraRelationNetwork<vw::ba::JFeature>      const & crn,
+ std::vector<UsgsAstroLsSensorModel*>                 const & ls_cams,
+ // Outputs
+ std::vector<double>                                       & tri_points_vec,
+ std::vector<double>                                       & weight_per_residual, // append
+ ceres::Problem                                            & problem) {
+  
+  // Constrain the rotations
+  if (opt.rotation_weight > 0.0) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+      int numQuat = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+      for (int iq = 0; iq < numQuat; iq++) {
+        ceres::CostFunction* rotation_cost_function
+          = weightedRotationError::Create(&ls_cams[icam]->m_quaternions[iq * NUM_QUAT_PARAMS],
+                                          opt.rotation_weight);
+        // We use no loss function, as the quaternions have no outliers
+        ceres::LossFunction* rotation_loss_function = NULL;
+        problem.AddResidualBlock(rotation_cost_function, rotation_loss_function,
+                                 &ls_cams[icam]->m_quaternions[iq * NUM_QUAT_PARAMS]);
+        
+        for (int c = 0; c < NUM_QUAT_PARAMS; c++)
+          weight_per_residual.push_back(opt.rotation_weight);
+      }
+    }
+  }
+
+  // Constrain the translations
+  if (opt.translation_weight > 0.0) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+      int numPos = ls_cams[icam]->m_positions.size() / NUM_XYZ_PARAMS;
+      for (int ip = 0; ip < numPos; ip++) {
+        ceres::CostFunction* translation_cost_function
+          = weightedTranslationError::Create(&ls_cams[icam]->m_positions[ip * NUM_XYZ_PARAMS],
+                                          opt.translation_weight);
+        // We use no loss function, as the positions have no outliers
+        ceres::LossFunction* translation_loss_function = NULL;
+        problem.AddResidualBlock(translation_cost_function, translation_loss_function,
+                                 &ls_cams[icam]->m_positions[ip * NUM_XYZ_PARAMS]);
+        
+        for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+          weight_per_residual.push_back(opt.translation_weight);
+      }
+    }
+  }
+
+  // Try to make the norm of quaternions be close to 1
+  if (opt.quat_norm_weight > 0.0) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+      int numQuat = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+      for (int iq = 0; iq < numQuat; iq++) {
+        ceres::CostFunction* quat_norm_cost_function
+          = weightedQuatNormError::Create(opt.quat_norm_weight);
+        // We use no loss function, as the quaternions have no outliers
+        ceres::LossFunction* quat_norm_loss_function = NULL;
+        problem.AddResidualBlock(quat_norm_cost_function, quat_norm_loss_function,
+                                 &ls_cams[icam]->m_quaternions[iq * NUM_QUAT_PARAMS]);
+        
+        weight_per_residual.push_back(opt.quat_norm_weight); // 1 single residual
+      }
+    }
+  }
+}
   
 void run_jitter_solve(int argc, char* argv[]) {
 
@@ -970,82 +1134,26 @@ void run_jitter_solve(int argc, char* argv[]) {
       vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
       csm_cam->applyTransform(ecef_transform);
     }
-    
+
+    // Get the underlying linescan model
     UsgsAstroLsSensorModel * ls_cam
       = dynamic_cast<UsgsAstroLsSensorModel*>((csm_cam->m_csm_model).get());
+
     if (ls_cam == NULL)
       vw_throw(ArgumentErr() << "Expecting the cameras to be of CSM linescan type.\n");
+
+    // Normalize quaternions. Later, the quaternions being optimized will
+    // be kept close to being normalized.  This makes it easy to ensure
+    // that quaternion interpolation gives good results, especially that
+    // some quaternions may get optimized and some not.
+    normalizeQuaternions(ls_cam);
+
+    // The provided tabulated positions, velocities and quaternions may be too few,
+    // so resample them with --num-lines-per-position and --num-lines-per-orientation,
+    // if those are set.
+    resampleModel(opt, ls_cam);
+    
     ls_cams.push_back(ls_cam);
-#if 0
-    // TODO(oalexan1): Make this a function!
-    int lines = ls_cam->m_nLines;
-    csm::ImageCoord imagePt;
-    asp::toCsmPixel(vw::Vector2(0, 0), imagePt);
-    double time1 = ls_cams[icam]->getImageTime(imagePt);
-
-    asp::toCsmPixel(vw::Vector2(0, lines - 1), imagePt);
-    double time2 = ls_cams[icam]->getImageTime(imagePt);
-
-    double numInputLinesPerPosition = (lines - 1) * ls_cam->m_dtEphem / (time2 - time1);
-    double numInputLinesPerOrientation = (lines - 1) * ls_cam->m_dtQuat / (time2 - time1);
-
-    std::cout << "Number of lines per input position: " <<  round(numInputLinesPerPosition) << std::endl;
-    std::cout << "Number of lines per input orientation: " << round(numInputLinesPerOrientation) << std::endl;
-
-    std::cout << "-- diff time " << time2 - time1 << std::endl;
-    
-    if (opt.num_lines_per_position > 0) {
-      // Divide m_dtEphem by an integer number (to ensure we keep
-      // existing samples and only add to them), so we get around user's desired number of
-      // lines
-      int posFactor = round(double(numInputLinesPerPosition) / double(opt.num_lines_per_position));
-      if (posFactor <= 0)
-        posFactor = 1;
-      std::cout << "--pos factor is " << posFactor << std::endl;
-      double currDtEphem = ls_cam->m_dtEphem / posFactor;
-      int numLinesPerPosition = round((lines - 1) * currDtEphem / (time2 - time1));
-      std::cout << "Will use number of lines per position: " << numLinesPerPosition
-                << std::endl;
-      int numCurrPositions = ls_cam->m_positions.size() * posFactor;
-      std::vector<double> positions(numCurrPositions, 0);
-      std::vector<double> velocities(numCurrPositions, 0);
-      for (int ipos = 0; ipos < numCurrPositions/ NUM_XYZ_PARAMS; ipos++) {
-        double time = ls_cam->m_t0Ephem + ipos * currDtEphem;
-        getPositions(ls_cam, time, &positions[NUM_XYZ_PARAMS * ipos]);
-        getVelocities(ls_cam, time, &velocities[NUM_XYZ_PARAMS * ipos]);
-      }
-      // Overwrite in the model
-      ls_cam->m_dtEphem = currDtEphem;
-      ls_cam->m_numPositions = numCurrPositions;
-      ls_cam->m_positions = positions;
-      ls_cam->m_velocities = velocities;
-    }
-
-    if (opt.num_lines_per_orientation > 0) {
-      // Divide m_dtQuat by an integer number (to ensure we keep
-      // existing samples and only add to them), so we get around user's desired number of
-      // lines
-      int quatFactor = round(numInputLinesPerOrientation / double(opt.num_lines_per_orientation));
-      if (quatFactor <= 0)
-        quatFactor = 1;
-      std::cout << "--quat factor is " << quatFactor << std::endl;
-      double currDtQuat = ls_cam->m_dtQuat / quatFactor;
-      int numLinesPerOrientation = round((lines - 1) * currDtQuat / (time2 - time1));
-      std::cout << "Will use number of lines per orientation: " << numLinesPerOrientation
-                << std::endl;
-      int numCurrOrientations = ls_cam->m_quaternions.size() * quatFactor;
-      std::vector<double> quaternions(numCurrOrientations, 0);
-      for (int iquat = 0; iquat < numCurrOrientations/ NUM_QUAT_PARAMS; iquat++) {
-        double time = ls_cam->m_t0Quat + iquat * currDtQuat;
-        getQuaternions(ls_cam, time, &quaternions[NUM_QUAT_PARAMS * iquat]);
-      }
-      // Overwrite in the model
-      ls_cam->m_dtQuat = currDtQuat;
-      ls_cam->m_numQuaternions = numCurrOrientations;
-      ls_cam->m_quaternions = quaternions;
-    }
-    
-#endif
   }
   
   // Quantities that are not needed but are part of the API below
@@ -1173,9 +1281,6 @@ void run_jitter_solve(int argc, char* argv[]) {
       tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
   }
 
-  // The problem to solve
-  ceres::Problem problem;
-
   // Create structures for pixels, xyz, and weights, to be used in optimization
   std::vector<std::vector<Vector2>> pixel_vec(num_cameras);
   std::vector<std::vector<boost::shared_ptr<Vector3>>> xyz_vec(num_cameras);
@@ -1216,6 +1321,10 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Need this in order to undo the multiplication by weight before saving the residuals
   std::vector<double> weight_per_residual;
 
+  // The problem to solve
+  ceres::Problem problem;
+  
+  // Add reprojection errors
   addReprojectionErrors(opt, crn, pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec,
                         isAnchor_vec, ls_cams,
                         // Outputs
@@ -1241,61 +1350,14 @@ void run_jitter_solve(int argc, char* argv[]) {
                      tri_points_vec,  
                      weight_per_residual,  // append
                      problem);
-  
-  // Constrain the rotations
-  if (opt.rotation_weight > 0.0) {
-    for (int icam = 0; icam < (int)crn.size(); icam++) {
-      int numQuat = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
-      for (int iq = 0; iq < numQuat; iq++) {
-        ceres::CostFunction* rotation_cost_function
-          = weightedRotationError::Create(&ls_cams[icam]->m_quaternions[iq * NUM_QUAT_PARAMS],
-                                          opt.rotation_weight);
-        // We use no loss function, as the quaternions have no outliers
-        ceres::LossFunction* rotation_loss_function = NULL;
-        problem.AddResidualBlock(rotation_cost_function, rotation_loss_function,
-                                 &ls_cams[icam]->m_quaternions[iq * NUM_QUAT_PARAMS]);
-        
-        for (int c = 0; c < NUM_QUAT_PARAMS; c++)
-          weight_per_residual.push_back(opt.rotation_weight);
-      }
-    }
-  }
 
-  // Constrain the translations
-  if (opt.translation_weight > 0.0) {
-    for (int icam = 0; icam < (int)crn.size(); icam++) {
-      int numPos = ls_cams[icam]->m_positions.size() / NUM_XYZ_PARAMS;
-      for (int ip = 0; ip < numPos; ip++) {
-        ceres::CostFunction* translation_cost_function
-          = weightedTranslationError::Create(&ls_cams[icam]->m_positions[ip * NUM_XYZ_PARAMS],
-                                          opt.translation_weight);
-        // We use no loss function, as the positions have no outliers
-        ceres::LossFunction* translation_loss_function = NULL;
-        problem.AddResidualBlock(translation_cost_function, translation_loss_function,
-                                 &ls_cams[icam]->m_positions[ip * NUM_XYZ_PARAMS]);
-        
-        for (int c = 0; c < NUM_XYZ_PARAMS; c++)
-          weight_per_residual.push_back(opt.translation_weight);
-      }
-    }
-  }
-
-  // Try to make the norm of quaternions be close to 1
-  if (opt.quat_norm_weight > 0.0) {
-    for (int icam = 0; icam < (int)crn.size(); icam++) {
-      int numQuat = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
-      for (int iq = 0; iq < numQuat; iq++) {
-        ceres::CostFunction* quat_norm_cost_function
-          = weightedQuatNormError::Create(opt.quat_norm_weight);
-        // We use no loss function, as the quaternions have no outliers
-        ceres::LossFunction* quat_norm_loss_function = NULL;
-        problem.AddResidualBlock(quat_norm_cost_function, quat_norm_loss_function,
-                                 &ls_cams[icam]->m_quaternions[iq * NUM_QUAT_PARAMS]);
-        
-        weight_per_residual.push_back(opt.quat_norm_weight); // 1 single residual
-      }
-    }
-  }
+  // Add constraints to keep quat norm close to 1, and make rotations and translations
+  // not change too much
+  addQuatNormRotationTranslationConstraints(opt, outliers, crn, ls_cams,  
+                                            // Outputs
+                                            tri_points_vec,  
+                                            weight_per_residual,  // append
+                                            problem);
 
   // Save residuals before optimization
   std::string residual_prefix = opt.out_prefix + "-initial_residuals";
