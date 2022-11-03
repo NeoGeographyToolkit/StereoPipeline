@@ -131,8 +131,8 @@ def sym_link_prev_run(prev_run_prefix, out_prefix):
             dst_f = f[len(prev_run_prefix):] # strip the prefix
             dst_f = out_prefix + dst_f
             rel_src = os.path.relpath(f, curr_dir)
-            # TODO(oalexan1): Should exiting files be wiped? Or an error thrown?
-            if os.path.lexists(dst_f): continue
+            if os.path.exists(dst_f):
+                os.remove(dst_f) # this could be some dangling thing
             os.symlink(rel_src, dst_f)
 
 def create_subproject_dirs(settings, **kw):
