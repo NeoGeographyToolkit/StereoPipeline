@@ -395,6 +395,10 @@ void read_csv_metadata(std::string              const& csv_file,
       // For the pointmap files the csv format is known, read it from
       // the file if not specified the user
       asp::stereo_settings().csv_format_str = "1:lon, 2:lat, 4:height_above_datum";
+    if (csv_file.find("-diff.csv") != std::string::npos)
+      // For the diff.csv files produced by geodiff the csv format is known, read it from
+      // the file if not specified the user
+      asp::stereo_settings().csv_format_str = "1:lon, 2:lat, 3:height_above_datum";
   }
   
   if (asp::stereo_settings().csv_proj4 != "")
@@ -426,17 +430,14 @@ void read_csv_metadata(std::string              const& csv_file,
   }
   vw_out() << "Using CSV format: " << asp::stereo_settings().csv_format_str << "\n";
 
-  if (has_georef && csv_file.find("pointmap") == std::string::npos &&
-      asp::stereo_settings().csv_datum == "" &&
-      asp::stereo_settings().csv_proj4 == "") {
-    popUp("Must specify either --csv-proj4 or --csv-datum.");
-    return;
-  }
 
+  // Handle the datum
   bool has_datum = false;
-  
-  // For a pointmap file, read the datum from the file
-  if (csv_file.find("pointmap") != std::string::npos) {
+
+  // For a pointmap file or a -diff.csv file, read the datum from the file
+  bool known_csv = (csv_file.find("pointmap") != std::string::npos ||
+                    csv_file.find("-diff.csv") != std::string::npos);
+  if (known_csv) {
     vw::cartography::Datum datum;
     if (read_datum_from_csv(csv_file, datum)) {
       georef.set_datum(datum);
