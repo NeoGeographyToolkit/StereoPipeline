@@ -1980,7 +1980,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("apply-initial-transform-only", po::value(&opt.apply_initial_transform_only)->default_value(false)->implicit_value(true),
      "Apply to the cameras the transform given by --initial-transform. No iterations, GCP loading, or image matching takes place.")
     ("proj-win", po::value(&opt.proj_win)->default_value(BBox2(0,0,0,0), "auto"),
-     "Flag as outliers input triangulated points not in this proj win (box in projected units as provided by ``--proj_str``). This should be generous if the input cameras have significant errors.")
+     "Flag as outliers input triangulated points not in this proj win (box in projected units as provided by --proj_str). This should be generous if the input cameras have significant errors.")
     ("proj-str",   po::value(&opt.proj_str)->default_value(""),
      "To be used in conjunction with --proj_win.")
     ("save-vwip",    po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
