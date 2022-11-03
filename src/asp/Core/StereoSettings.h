@@ -294,7 +294,7 @@ namespace asp {
     // Options for parallel_stereo. These are not used, but accept
     // them quietly so that when stereo_gui or stereo_parse is invoked
     // with a parallel_stereo command it would not fail.
-    std::string nodes_list, ssh, sparse_disp_options, parallel_options;
+    std::string nodes_list, ssh, sparse_disp_options, parallel_options, prev_run_prefix;
     int threads_multi, threads_single, processes, entry_point, stop_point, job_size_h, job_size_w;
     
     // Undocumented options. We don't want these exposed to the user.

@@ -508,6 +508,8 @@ namespace asp {
        "Pixel height of input image tile for a single process.")
       ("sparse-disp-options", po::value(&global.sparse_disp_options)->default_value(""),
        "Options to pass directly to sparse_disp. Use quotes around this string.")
+      ("prev-run-prefix", po::value(&global.prev_run_prefix)->default_value(""),
+       "Start at the triangulation stage while reusing the data from this prefix.")
       ("parallel-options", po::value(&global.parallel_options)->default_value(""),
        "Options to pass directly to GNU Parallel. Use quotes around this string.");
   }
