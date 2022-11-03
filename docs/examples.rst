@@ -1669,8 +1669,9 @@ Example::
 Here it is assumed the images are far from the poles, the input DEM
 has the longlat projection, and the grid size (``--tr``) is in degrees
 (the value 0.000009 may need adjustment). Otherwise, a polar or UTM
-projection needs to be used and the grid size set equal to the known
-image ground sample distance in meters.
+projection needs to be used (option ``--t_srs``) and the grid size
+should be set to the known image ground sample distance in
+meters.
 
 To compare the linescan and RPC models, run ``cam_test``
 (:numref:`cam_test`) as::
