@@ -131,11 +131,127 @@ namespace asp{
 
 } // end namespace asp
 
+// Given an input string as:
+//
+// stereo_gui --style line --color red file1.txt --color green file2.txt
+//
+// extract each style and color. Any of these apply for any following
+// files, till modified by another such option. The default style and color
+// are "default". Later, these will be either read from the files
+// themselves, or otherwise set to "line" and "green". Then modify the
+// args to remove these options, as the boost parser cannot parse
+// repeated options.
+void preprocessArgs(int &argc, char** argv,
+                    std::map<std::string, std::map<std::string, std::string>> & properties) {
+
+  std::string curr_style = "default", curr_color = "default";
+
+  int out_it = 1;
+  for (int it = 1; it < argc; it++) { // skip program name, so start from 1
+
+    if (std::string(argv[it]) == "--style") {
+      if (it == argc - 1)
+        continue; // There is nothing else
+
+      it++;
+      curr_style = argv[it]; // copy the style value, and move past it
+      continue;
+    }
+
+    if (std::string(argv[it]) == "--color") {
+      if (it == argc - 1)
+        continue; // There is nothing else
+
+      it++;
+      curr_color = argv[it]; // copy the color value, and move past it
+      continue;
+    }
+
+    // If this argument does not start with a dash, so is not an
+    // option, assign to it the properties so far
+    if (argv[it][0] != '-') {
+      properties[argv[it]]["style"] = curr_style;  
+      properties[argv[it]]["color"] = curr_color;
+    }
+    
+    // Shift arguments left, which will wipe what we processed above
+    argv[out_it] = argv[it]; // this copies pointer addresses
+    out_it++; 
+  }
+
+  // Update the number of remaining arguments
+  argc = out_it;
+
+  return;
+}
+
+void readImages(std::vector<std::string> const& all_files,
+                std::vector<std::string> & images,
+                std::string & output_prefix) {
+
+  output_prefix = "";
+  images.clear();
+
+  // Try to load each input file as a standalone image one at a time
+  for (size_t i = 0; i < all_files.size(); i++) {
+    std::string file = all_files[i];
+    bool is_image = false;
+    try {
+      DiskImageView<float> tmp(file);
+      is_image = true;
+    }catch(std::exception & e){
+      if (file.empty() || file[0] == '-') continue;
+      if (get_extension(file) == ".match") {
+        // Found a match file
+        stereo_settings().match_file = file;
+        is_image = false;
+      }else if (get_extension(file) == ".vwip") {
+        // Found a vwip file
+        stereo_settings().vwip_files.push_back(file);
+        is_image = false;
+      }else if (get_extension(file) == ".nvm") {
+        // Found an nvm file
+        if (!stereo_settings().nvm.empty()) // sanity check
+          vw_out() << "Multiple nvm files specified. Will load only: " << file << "\n";
+        stereo_settings().nvm  = file;
+        is_image = false;
+      }else if (asp::has_shp_extension(file)) {
+        // See if this is a shape file
+        is_image = true; // will load it in the same struct as for images
+      }else if (vw::gui::hasCsv(file)) {
+        is_image = true; // will load it in the same struct as for images
+      }else if (has_cam_extension(file)) {
+        // We will get here for all cameras except .cub, which
+        // is both an image and a camera and was picked up by
+        // now. Don't print an error in this case as this is
+        // expected to not be an image.
+        is_image = false;
+      } else {
+        vw_out() << "Not a valid image: " << file << ". ";
+        if (!fs::exists(file)) {
+          vw_out() << "Using this as the output prefix.\n";
+          output_prefix = file;
+        } else {
+          vw_out() << "\n";
+        }
+      }
+    }
+    if (is_image)
+      images.push_back(file);
+  }
+
+  return;
+}
+
 int main(int argc, char** argv) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
     stereo_register_sessions();
+
+    // Extract style and color for scattered points, curves, and polygons
+    std::map<std::string, std::map<std::string, std::string>> properties;
+    preprocessArgs(argc, argv, properties);
 
     bool verbose = false;
     ASPGlobalOptions opt;
@@ -146,53 +262,7 @@ int main(int argc, char** argv) {
     stereo_settings().vwip_files.clear();
     handle_arguments(argc, argv, opt, all_files);
     
-    // Try to load each input file as a standalone image one at a time
-    for (size_t i = 0; i < all_files.size(); i++) {
-      std::string file = all_files[i];
-      bool is_image = false;
-      try {
-        DiskImageView<float> tmp(file);
-        is_image = true;
-      }catch(std::exception & e){
-        if (file.empty() || file[0] == '-') continue;
-        if (get_extension(file) == ".match") {
-          // Found a match file
-          stereo_settings().match_file = file;
-          is_image = false;
-        }else if (get_extension(file) == ".vwip") {
-          // Found a vwip file
-          stereo_settings().vwip_files.push_back(file);
-          is_image = false;
-        }else if (get_extension(file) == ".nvm") {
-          // Found an nvm file
-          if (!stereo_settings().nvm.empty()) // sanity check
-            vw_out() << "Multiple nvm files specified. Will load only: " << file << "\n";
-          stereo_settings().nvm  = file;
-          is_image = false;
-        }else if (asp::has_shp_extension(file)) {
-          // See if this is a shape file
-          is_image = true; // will load it in the same struct as for images
-        }else if (vw::gui::hasCsv(file)) {
-          is_image = true; // will load it in the same struct as for images
-        }else if (has_cam_extension(file)) {
-          // We will get here for all cameras except .cub, which
-          // is both an image and a camera and was picked up by
-          // now. Don't print an error in this case as this is
-          // expected to not be an image.
-          is_image = false;
-        } else {
-          vw_out() << "Not a valid image: " << file << ". ";
-          if (!fs::exists(file)) {
-            vw_out() << "Using this as the output prefix.\n";
-            output_prefix = file;
-          } else {
-            vw_out() << "\n";
-          }
-        }
-      }
-      if (is_image)
-        images.push_back(file);
-    }
+    readImages(all_files, images, output_prefix);
     
     // Presumably the tool was invoked with no options. Just print the help message.
     if (images.empty() && asp::stereo_settings().nvm.empty())
