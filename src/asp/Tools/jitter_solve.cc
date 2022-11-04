@@ -682,78 +682,198 @@ void interpVelocities(UsgsAstroLsSensorModel * ls_model, double time,
                  time, 3, nOrder, vel);
 }
 
+// Calc the time of first image line, last image line, elapsed time
+// between these lines, and elapsed time per line.  This assumes a
+// linear relationship between lines and time.
+void calcTimes(UsgsAstroLsSensorModel const* ls_model,
+               double & first_line_time, double & last_line_time,
+               double & elapsed_time, double & dt_per_line) {
+
+  int numLines = ls_model->m_nLines;
+  csm::ImageCoord imagePt;
+
+  asp::toCsmPixel(vw::Vector2(0, 0), imagePt);
+  first_line_time = ls_model->getImageTime(imagePt);
+
+  asp::toCsmPixel(vw::Vector2(0, numLines - 1), imagePt);
+  last_line_time = ls_model->getImageTime(imagePt);
+
+  elapsed_time = last_line_time - first_line_time;
+  dt_per_line = elapsed_time / (numLines - 1.0);
+  if (last_line_time <= first_line_time)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Last line time must be larger than first line time.\n");
+  return;
+}
+
+// Calculate the line index for first and last tabulated position.
+// We always expect these to be less than first line index (0), and no less
+// than last valid image line index (numLines - 1), respectively.
+void calcFirstLastPositionLines(UsgsAstroLsSensorModel const* ls_model, 
+                                double & beg_position_line, double & end_position_line) {
+
+  double first_line_time = -1.0, last_line_time = -1.0, elapsed_time = -1.0, dt_per_line = -1.0;
+  calcTimes(ls_model, first_line_time, last_line_time, elapsed_time,  
+               dt_per_line);
+  
+  // Find time of first and last tabulated position.
+  // Use the equation: time = first_line_time + line * dt_per_line.
+  double bt = ls_model->m_t0Ephem;
+  double et = bt + (ls_model->m_positions.size()/NUM_XYZ_PARAMS - 1) * ls_model->m_dtEphem;
+
+  // Use the equation: time = first_line_time + line * dt_per_line.
+  beg_position_line = (bt - first_line_time) / dt_per_line;
+  end_position_line = (et - first_line_time) / dt_per_line;
+
+  // Sanity checks
+  if (beg_position_line > 1e-3) // allow for rounding errors 
+    vw::vw_throw(vw::ArgumentErr() << "Line of first tabulated position is "
+                 << beg_position_line << ", which is after first image line, which is "
+                 << 0 << ".\n");
+  
+  int numLines = ls_model->m_nLines;
+  if (end_position_line < numLines - 1 - 1e-3)  // allow for rounding errors
+    vw::vw_throw(vw::ArgumentErr() << "Line of last tabulated position is "
+                 << end_position_line << ", which is before last image line, which is "
+                 << numLines - 1 << ".\n");
+}
+  
+// Calculate the line index for first and last tabulated orientation.
+// We always expect these to be less than first line index (0), and no less
+// than last valid image line index (numLines - 1), respectively.
+void calcFirstLastOrientationLines(UsgsAstroLsSensorModel const* ls_model, 
+                                   double & beg_orientation_line, double & end_orientation_line) {
+
+  double first_line_time = -1.0, last_line_time = -1.0, elapsed_time = -1.0, dt_per_line = -1.0;
+  calcTimes(ls_model, first_line_time, last_line_time, elapsed_time,  
+               dt_per_line);
+  
+  // Find time of first and last tabulated orientation.
+  double bt = ls_model->m_t0Quat;
+  double et = bt + (ls_model->m_quaternions.size()/NUM_QUAT_PARAMS - 1) * ls_model->m_dtQuat;
+  
+  // Use the equation: time = first_line_time + line * dt_per_line.
+  beg_orientation_line = (bt - first_line_time) / dt_per_line;
+  end_orientation_line = (et - first_line_time) / dt_per_line;
+
+  // Sanity checks
+  if (beg_orientation_line > 1e-3) // allow for rounding errors 
+    vw::vw_throw(vw::ArgumentErr() << "Line of first tabulated orientation is "
+                 << beg_orientation_line << ", which is after first image line, which is "
+                 << 0 << ".\n");
+  
+  int numLines = ls_model->m_nLines;
+  if (end_orientation_line < numLines - 1 - 1e-3)  // allow for rounding errors
+    vw::vw_throw(vw::ArgumentErr() << "Line of last tabulated orientation is "
+                 << end_orientation_line << ", which is before last image line, which is "
+                 << numLines - 1 << ".\n");
+}
+
 // The provided tabulated positions, velocities and quaternions may be too few,
 // so resample them with --num-lines-per-position and --num-lines-per-orientation,
 // if those are set.
-void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_cam) {
+void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
   
   // The positions and quaternions can go way beyond the valid range of image lines,
   // so need to estimate how many of them are within the range.
   
-  int lines = ls_cam->m_nLines;
-  csm::ImageCoord imagePt;
-  
-  asp::toCsmPixel(vw::Vector2(0, 0), imagePt);
-  double beg_time = ls_cam->getImageTime(imagePt);
-  asp::toCsmPixel(vw::Vector2(0, lines - 1), imagePt);
-  double end_time = ls_cam->getImageTime(imagePt);
-  if (end_time <= beg_time)
-    vw::vw_throw(vw::ArgumentErr() << "Ending time must be larger than starting time.\n");
-  double elapsed_time = end_time - beg_time;
-  
-  double numInputLinesPerPosition = (lines - 1) * ls_cam->m_dtEphem / elapsed_time;
-  double numInputLinesPerOrientation = (lines - 1) * ls_cam->m_dtQuat / elapsed_time;
+  int numLines = ls_model->m_nLines;
+  vw_out() << "Number of lines: " << numLines << "\n";
 
-  vw_out() << "Number of lines per input position: "
+  double first_line_time = -1.0, last_line_time = -1.0, elapsed_time = -1.0, dt_per_line = -1.0;
+  calcTimes(ls_model, first_line_time, last_line_time, elapsed_time,  
+               dt_per_line);
+
+  // Line index of first and last tabulated position
+  double beg_position_line = -1.0, end_position_line = -1.0;
+  calcFirstLastPositionLines(ls_model, beg_position_line, end_position_line);
+  vw_out() << std::setprecision (17) << "Line of first and last tabulated position: "
+           << beg_position_line << ' ' << end_position_line << "\n";
+
+  // Line index of first and last tabulated orientation
+  double beg_orientation_line = -1.0, end_orientation_line = -1.0;
+  calcFirstLastOrientationLines(ls_model, beg_orientation_line, end_orientation_line);
+  vw_out() << std::setprecision (17) << "Line of first and last tabulated orientation: "
+           << beg_orientation_line << ' ' << end_orientation_line << "\n";
+
+  double numInputLinesPerPosition = (numLines - 1) * ls_model->m_dtEphem / elapsed_time;
+  double numInputLinesPerOrientation = (numLines - 1) * ls_model->m_dtQuat / elapsed_time;
+  vw_out() << "Number of image lines per input position: "
            << round(numInputLinesPerPosition) << "\n";
-  vw_out() << "Number of lines per input orientation: "
+  vw_out() << "Number of image lines per input orientation: "
            << round(numInputLinesPerOrientation) << "\n";
 
   if (opt.num_lines_per_position > 0) {
-    // Divide m_dtEphem by an integer number, to ensure we keep
-    // existing samples and only add to them.
-    int posFactor = round(double(numInputLinesPerPosition) / double(opt.num_lines_per_position));
-    if (posFactor <= 0)
-      posFactor = 1;
-    double currDtEphem = ls_cam->m_dtEphem / posFactor;
-    int numLinesPerPosition = round((lines - 1) * currDtEphem / elapsed_time);
-    vw_out() << "Will resample and use the number of lines per position: "
+    // Resample in such a way that first and last samples are preserved. This is tricky.
+    double posFactor = double(numInputLinesPerPosition) / double(opt.num_lines_per_position);
+    if (posFactor <= 0.0)
+      vw::vw_throw(vw::ArgumentErr() << "Invalid image.\n");
+
+    int numOldMeas = ls_model->m_numPositions / NUM_XYZ_PARAMS;
+    int numNewMeas = round(posFactor * (numOldMeas - 1.0)) + 1; // careful here
+    numNewMeas = std::max(numNewMeas, 2);
+
+    posFactor = double(numNewMeas - 1.0) / double(numOldMeas - 1.0);
+    double currDtEphem = ls_model->m_dtEphem / posFactor;
+    double numLinesPerPosition = (numLines - 1.0) * currDtEphem / elapsed_time;
+    vw_out() << "Resampled number of lines per position: "
              << numLinesPerPosition << "\n";
-    int numCurrPositions = ls_cam->m_positions.size() * posFactor;
-    std::vector<double> positions(numCurrPositions, 0);
-    std::vector<double> velocities(numCurrPositions, 0);
-    for (int ipos = 0; ipos < numCurrPositions/ NUM_XYZ_PARAMS; ipos++) {
-      double time = ls_cam->m_t0Ephem + ipos * currDtEphem;
-      interpPositions(ls_cam, time, &positions[NUM_XYZ_PARAMS * ipos]);
-      interpVelocities(ls_cam, time, &velocities[NUM_XYZ_PARAMS * ipos]);
+    std::vector<double> positions(NUM_XYZ_PARAMS * numNewMeas, 0);
+    std::vector<double> velocities(NUM_XYZ_PARAMS * numNewMeas, 0);
+    for (int ipos = 0; ipos < numNewMeas; ipos++) {
+      double time = ls_model->m_t0Ephem + ipos * currDtEphem;
+      interpPositions(ls_model, time, &positions[NUM_XYZ_PARAMS * ipos]);
+      interpVelocities(ls_model, time, &velocities[NUM_XYZ_PARAMS * ipos]);
     }
-    // Overwrite in the model
-    ls_cam->m_dtEphem = currDtEphem;
-    ls_cam->m_numPositions = numCurrPositions;
-    ls_cam->m_positions = positions;
-    ls_cam->m_velocities = velocities;
+    
+    // Overwrite in the model. Time of first tabulated position does not change.
+    ls_model->m_dtEphem = currDtEphem;
+    ls_model->m_numPositions = positions.size();
+    ls_model->m_positions = positions;
+    ls_model->m_velocities = velocities;
+
+    // Sanity check
+    double new_beg_position_line = -1.0, new_end_position_line = -1.0;
+    calcFirstLastPositionLines(ls_model, new_beg_position_line, new_end_position_line);
+    if (std::abs(beg_position_line - new_beg_position_line) > 1.0e-3 ||
+        std::abs(end_position_line - new_end_position_line) > 1.0e-3)
+      vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Resampling was done "
+                   << "without preserving first and tabulated position.\n");
   }
 
   if (opt.num_lines_per_orientation > 0) {
-    // Divide m_dtQuat by an integer number (to ensure we keep
-    // existing samples and only add to them).
-    int quatFactor = round(numInputLinesPerOrientation / double(opt.num_lines_per_orientation));
-    if (quatFactor <= 0)
-      quatFactor = 1;
-    double currDtQuat = ls_cam->m_dtQuat / quatFactor;
-    int numLinesPerOrientation = round((lines - 1) * currDtQuat / elapsed_time);
-    vw_out() << "Will resample and use the number of lines per orientation: "
+    // Resample in such a way that first and last samples are preserved. This is tricky.
+    double posFactor = double(numInputLinesPerOrientation) / double(opt.num_lines_per_orientation);
+    if (posFactor <= 0.0)
+      vw::vw_throw(vw::ArgumentErr() << "Invalid image.\n");
+
+    int numOldMeas = ls_model->m_numQuaternions / NUM_QUAT_PARAMS;
+    int numNewMeas = round(posFactor * (numOldMeas - 1.0)) + 1; // careful here
+    numNewMeas = std::max(numNewMeas, 2);
+    
+    posFactor = double(numNewMeas - 1.0) / double(numOldMeas - 1.0);
+    double currDtQuat = ls_model->m_dtQuat / posFactor;
+    double numLinesPerOrientation = (numLines - 1.0) * currDtQuat / elapsed_time;
+    vw_out() << "Resampled number of lines per orientation: "
              << numLinesPerOrientation << "\n";
-    int numCurrOrientations = ls_cam->m_quaternions.size() * quatFactor;
-    std::vector<double> quaternions(numCurrOrientations, 0);
-    for (int iquat = 0; iquat < numCurrOrientations/ NUM_QUAT_PARAMS; iquat++) {
-      double time = ls_cam->m_t0Quat + iquat * currDtQuat;
-      interpQuaternions(ls_cam, time, &quaternions[NUM_QUAT_PARAMS * iquat]);
+    std::vector<double> quaternions(NUM_QUAT_PARAMS * numNewMeas, 0);
+    for (int ipos = 0; ipos < numNewMeas; ipos++) {
+      double time = ls_model->m_t0Quat + ipos * currDtQuat;
+      interpQuaternions(ls_model, time, &quaternions[NUM_QUAT_PARAMS * ipos]);
     }
-    // Overwrite in the model
-    ls_cam->m_dtQuat = currDtQuat;
-    ls_cam->m_numQuaternions = numCurrOrientations;
-    ls_cam->m_quaternions = quaternions;
+    
+    // Overwrite in the model. Time of first tabulated orientation does not change.
+    ls_model->m_dtQuat = currDtQuat;
+    ls_model->m_numQuaternions = quaternions.size();
+    ls_model->m_quaternions = quaternions;
+
+    // Sanity check
+    double new_beg_orientation_line = -1.0, new_end_orientation_line = -1.0;
+    calcFirstLastOrientationLines(ls_model, new_beg_orientation_line, new_end_orientation_line);
+    if (std::abs(beg_orientation_line - new_beg_orientation_line) > 1.0e-3 ||
+        std::abs(end_orientation_line - new_end_orientation_line) > 1.0e-3)
+      vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Resampling was done "
+                   << "without preserving first and tabulated orientation.\n");
   }
 
   return;
@@ -762,7 +882,7 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_cam) {
 void calcAnchorPoints(Options                              const & opt,
                       ImageViewRef<PixelMask<double>>              interp_dem,
                       vw::cartography::GeoReference         const& dem_georef,
-                      std::vector<UsgsAstroLsSensorModel*> const & ls_cams,
+                      std::vector<UsgsAstroLsSensorModel*> const & ls_models,
                       // Append to these
                       std::vector<std::vector<Vector2>>                    & pixel_vec,
                       std::vector<std::vector<boost::shared_ptr<Vector3>>> & xyz_vec,
@@ -770,12 +890,12 @@ void calcAnchorPoints(Options                              const & opt,
                       std::vector<std::vector<double>>                     & weight_vec,
                       std::vector<std::vector<int>>                        & isAnchor_vec) {
   
-  int num_cams = ls_cams.size();
+  int num_cams = ls_models.size();
   for (int icam = 0; icam < num_cams; icam++) {
     
-    int numLines   = ls_cams[icam]->m_nLines;
-    int numSamples = ls_cams[icam]->m_nSamples;
-    int numQuat    = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+    int numLines   = ls_models[icam]->m_nLines;
+    int numSamples = ls_models[icam]->m_nSamples;
+    int numQuat    = ls_models[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
     
     // TODO(oalexan1): Need to also consider here number of poses.
     // Also exposes num-anchor-points-per-pose
@@ -843,7 +963,7 @@ void addReprojectionErrors
  std::vector<std::vector<double*>>                    const & xyz_vec_ptr,
  std::vector<std::vector<double>>                     const & weight_vec,
  std::vector<std::vector<int>>                        const & isAnchor_vec,
- std::vector<UsgsAstroLsSensorModel*>                 const & ls_cams,
+ std::vector<UsgsAstroLsSensorModel*>                 const & ls_models,
  // Outputs
  std::vector<double>                                        & weight_per_residual, // append
  ceres::Problem                                             & problem) {
@@ -871,14 +991,14 @@ void addReprojectionErrors
         csm::ImageCoord imagePt1, imagePt2;
         asp::toCsmPixel(observation - Vector2(0.0, line_extra), imagePt1);
         asp::toCsmPixel(observation + Vector2(0.0, line_extra), imagePt2);
-        double time1 = ls_cams[icam]->getImageTime(imagePt1);
-        double time2 = ls_cams[icam]->getImageTime(imagePt2);
+        double time1 = ls_models[icam]->getImageTime(imagePt1);
+        double time2 = ls_models[icam]->getImageTime(imagePt2);
 
         // Handle quaternions. We follow closely the conventions for UsgsAstroLsSensorModel.
         int numQuatPerObs = 8; // Max num of quaternions used in pose interpolation 
-        int numQuat       = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
-        double quatT0     = ls_cams[icam]->m_t0Quat;
-        double quatDt     = ls_cams[icam]->m_dtQuat;
+        int numQuat       = ls_models[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+        double quatT0     = ls_models[icam]->m_t0Quat;
+        double quatDt     = ls_models[icam]->m_dtQuat;
 
         // Starting and ending quat index (ending is exclusive). Based on lagrangeInterp().
         int qindex1      = static_cast<int>((time1 - quatT0) / quatDt);
@@ -894,9 +1014,9 @@ void addReprojectionErrors
 
         // Same for positions
         int numPosPerObs = 8;
-        int numPos       = ls_cams[icam]->m_positions.size() / NUM_XYZ_PARAMS;
-        double posT0     = ls_cams[icam]->m_t0Ephem;
-        double posDt     = ls_cams[icam]->m_dtEphem;
+        int numPos       = ls_models[icam]->m_positions.size() / NUM_XYZ_PARAMS;
+        double posT0     = ls_models[icam]->m_t0Ephem;
+        double posDt     = ls_models[icam]->m_dtEphem;
       
         // Starting and ending pos index (ending is exclusive). Based on lagrangeInterp().
         int pindex1 = static_cast<int>((time1 - posT0) / posDt);
@@ -911,7 +1031,7 @@ void addReprojectionErrors
           vw_throw(ArgumentErr() << "Book-keeping error for pixel: " << observation << ".\n"); 
 
         ceres::CostFunction* pixel_cost_function =
-          pixelReprojectionError::Create(observation, weight, ls_cams[icam],
+          pixelReprojectionError::Create(observation, weight, ls_models[icam],
                                          begQuatIndex, endQuatIndex,
                                          begPosIndex, endPosIndex);
         ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
@@ -920,9 +1040,9 @@ void addReprojectionErrors
         // camera models, and the triangulated point.
         std::vector<double*> vars;
         for (int it = begQuatIndex; it < endQuatIndex; it++)
-          vars.push_back(&ls_cams[icam]->m_quaternions[it * NUM_QUAT_PARAMS]);
+          vars.push_back(&ls_models[icam]->m_quaternions[it * NUM_QUAT_PARAMS]);
         for (int it = begPosIndex; it < endPosIndex; it++)
-          vars.push_back(&ls_cams[icam]->m_positions[it * NUM_XYZ_PARAMS]);
+          vars.push_back(&ls_models[icam]->m_positions[it * NUM_XYZ_PARAMS]);
         vars.push_back(tri_point);
         problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
 
@@ -1031,7 +1151,7 @@ void addQuatNormRotationTranslationConstraints
 (Options                                              const& opt,
  std::set<int>                                        const& outliers,
  vw::ba::CameraRelationNetwork<vw::ba::JFeature>      const & crn,
- std::vector<UsgsAstroLsSensorModel*>                 const & ls_cams,
+ std::vector<UsgsAstroLsSensorModel*>                 const & ls_models,
  // Outputs
  std::vector<double>                                       & tri_points_vec,
  std::vector<double>                                       & weight_per_residual, // append
@@ -1040,15 +1160,15 @@ void addQuatNormRotationTranslationConstraints
   // Constrain the rotations
   if (opt.rotation_weight > 0.0) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
-      int numQuat = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+      int numQuat = ls_models[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
       for (int iq = 0; iq < numQuat; iq++) {
         ceres::CostFunction* rotation_cost_function
-          = weightedRotationError::Create(&ls_cams[icam]->m_quaternions[iq * NUM_QUAT_PARAMS],
+          = weightedRotationError::Create(&ls_models[icam]->m_quaternions[iq * NUM_QUAT_PARAMS],
                                           opt.rotation_weight);
         // We use no loss function, as the quaternions have no outliers
         ceres::LossFunction* rotation_loss_function = NULL;
         problem.AddResidualBlock(rotation_cost_function, rotation_loss_function,
-                                 &ls_cams[icam]->m_quaternions[iq * NUM_QUAT_PARAMS]);
+                                 &ls_models[icam]->m_quaternions[iq * NUM_QUAT_PARAMS]);
         
         for (int c = 0; c < NUM_QUAT_PARAMS; c++)
           weight_per_residual.push_back(opt.rotation_weight);
@@ -1059,15 +1179,15 @@ void addQuatNormRotationTranslationConstraints
   // Constrain the translations
   if (opt.translation_weight > 0.0) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
-      int numPos = ls_cams[icam]->m_positions.size() / NUM_XYZ_PARAMS;
+      int numPos = ls_models[icam]->m_positions.size() / NUM_XYZ_PARAMS;
       for (int ip = 0; ip < numPos; ip++) {
         ceres::CostFunction* translation_cost_function
-          = weightedTranslationError::Create(&ls_cams[icam]->m_positions[ip * NUM_XYZ_PARAMS],
+          = weightedTranslationError::Create(&ls_models[icam]->m_positions[ip * NUM_XYZ_PARAMS],
                                           opt.translation_weight);
         // We use no loss function, as the positions have no outliers
         ceres::LossFunction* translation_loss_function = NULL;
         problem.AddResidualBlock(translation_cost_function, translation_loss_function,
-                                 &ls_cams[icam]->m_positions[ip * NUM_XYZ_PARAMS]);
+                                 &ls_models[icam]->m_positions[ip * NUM_XYZ_PARAMS]);
         
         for (int c = 0; c < NUM_XYZ_PARAMS; c++)
           weight_per_residual.push_back(opt.translation_weight);
@@ -1078,14 +1198,14 @@ void addQuatNormRotationTranslationConstraints
   // Try to make the norm of quaternions be close to 1
   if (opt.quat_norm_weight > 0.0) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
-      int numQuat = ls_cams[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
+      int numQuat = ls_models[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
       for (int iq = 0; iq < numQuat; iq++) {
         ceres::CostFunction* quat_norm_cost_function
           = weightedQuatNormError::Create(opt.quat_norm_weight);
         // We use no loss function, as the quaternions have no outliers
         ceres::LossFunction* quat_norm_loss_function = NULL;
         problem.AddResidualBlock(quat_norm_cost_function, quat_norm_loss_function,
-                                 &ls_cams[icam]->m_quaternions[iq * NUM_QUAT_PARAMS]);
+                                 &ls_models[icam]->m_quaternions[iq * NUM_QUAT_PARAMS]);
         
         weight_per_residual.push_back(opt.quat_norm_weight); // 1 single residual
       }
@@ -1116,7 +1236,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   // Apply the input adjustments to the CSM cameras. Get pointers to the underlying
   // linescan cameras, as need to manipulate those directly.
-  std::vector<UsgsAstroLsSensorModel*> ls_cams;
+  std::vector<UsgsAstroLsSensorModel*> ls_models;
   
   for (size_t icam = 0; icam < opt.camera_models.size(); icam++) {
     vw::camera::CameraModel
@@ -1139,24 +1259,24 @@ void run_jitter_solve(int argc, char* argv[]) {
     }
 
     // Get the underlying linescan model
-    UsgsAstroLsSensorModel * ls_cam
+    UsgsAstroLsSensorModel * ls_model
       = dynamic_cast<UsgsAstroLsSensorModel*>((csm_cam->m_csm_model).get());
 
-    if (ls_cam == NULL)
+    if (ls_model == NULL)
       vw_throw(ArgumentErr() << "Expecting the cameras to be of CSM linescan type.\n");
 
     // Normalize quaternions. Later, the quaternions being optimized will
     // be kept close to being normalized.  This makes it easy to ensure
     // that quaternion interpolation gives good results, especially that
     // some quaternions may get optimized and some not.
-    normalizeQuaternions(ls_cam);
+    normalizeQuaternions(ls_model);
 
     // The provided tabulated positions, velocities and quaternions may be too few,
     // so resample them with --num-lines-per-position and --num-lines-per-orientation,
     // if those are set.
-    resampleModel(opt, ls_cam);
+    resampleModel(opt, ls_model);
     
-    ls_cams.push_back(ls_cam);
+    ls_models.push_back(ls_model);
   }
   
   // Quantities that are not needed but are part of the API below
@@ -1258,6 +1378,7 @@ void run_jitter_solve(int argc, char* argv[]) {
     vw_throw(ArgumentErr() << "Expecting at least two input cameras.\n");
     
   // Put the triangulated points in a vector
+  // TODO(oalexan1): Make this into a function
   int num_tri_points = cnet.size();
   if (num_tri_points == 0)
    vw_throw(ArgumentErr() << "No triangulated ground points were found.\n"); 
@@ -1285,6 +1406,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   }
 
   // Create structures for pixels, xyz, and weights, to be used in optimization
+  // TODO(oalexan1): Make this into a function
   std::vector<std::vector<Vector2>> pixel_vec(num_cameras);
   std::vector<std::vector<boost::shared_ptr<Vector3>>> xyz_vec(num_cameras);
   std::vector<std::vector<double*>> xyz_vec_ptr(num_cameras);
@@ -1317,7 +1439,7 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Find anchor points and append to pixel_vec, weight_vec, etc.
   if (opt.anchor_weight > 0)
-    calcAnchorPoints(opt, interp_dem, dem_georef, ls_cams,  
+    calcAnchorPoints(opt, interp_dem, dem_georef, ls_models,  
                      // Append to these
                      pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
   
@@ -1329,7 +1451,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   // Add reprojection errors
   addReprojectionErrors(opt, crn, pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec,
-                        isAnchor_vec, ls_cams,
+                        isAnchor_vec, ls_models,
                         // Outputs
                         weight_per_residual, problem);
  
@@ -1356,7 +1478,7 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Add constraints to keep quat norm close to 1, and make rotations and translations
   // not change too much
-  addQuatNormRotationTranslationConstraints(opt, outliers, crn, ls_cams,  
+  addQuatNormRotationTranslationConstraints(opt, outliers, crn, ls_models,  
                                             // Outputs
                                             tri_points_vec,  
                                             weight_per_residual,  // append
