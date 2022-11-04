@@ -56,8 +56,8 @@ IsisInterface::IsisInterface(std::string const& file) {
   // Set the datum
   // TODO(oalexan1): This is fragile. Need to find the right internal ISIS
   // function to use to convert ECEF to lon-lat-height and vice-versa.
-  bool use_sphere_for_datum = false;
-  m_datum = this->get_datum(use_sphere_for_datum);
+  bool use_sphere_for_non_earth = true;
+  m_datum = this->get_datum(use_sphere_for_non_earth);
 }
 
 IsisInterface::~IsisInterface() {}
@@ -144,12 +144,12 @@ std::string IsisInterface::target_name() const {
 }
 
 // Manufacture a datum
-vw::cartography::Datum IsisInterface::get_datum(bool use_sphere_for_datum) const {
+vw::cartography::Datum IsisInterface::get_datum(bool use_sphere_for_non_earth) const {
       
   vw::Vector3 radii = this->target_radii();
   double radius1 = (radii[0] + radii[1]) / 2; // average the x and y axes (semi-major) 
   double radius2 = radius1;
-  if (!use_sphere_for_datum) {
+  if (!use_sphere_for_non_earth) {
     radius2 = radii[2]; // the z radius (semi-minor axis)
   }
   

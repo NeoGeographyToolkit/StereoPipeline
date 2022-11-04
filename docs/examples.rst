@@ -196,6 +196,8 @@ The ``corr-kernel`` value can usually be safely reduced to 21 pixels
 to resolve finer detail and faster processing for images with good
 contrast.
 
+.. _ctx_example:
+
 Mars Reconnaissance Orbiter CTX
 -------------------------------
 
@@ -216,7 +218,7 @@ This example's recipe is is in the ``examples/CTX`` directory shipped
 with ASP (type 'make' there to run it).
 
 .. figure:: images/examples/ctx/n_terra_meridiani_ctx_combined.png
-   :name: ctx_example
+   :name: ctx_example_fig
 
    Example output possible with the CTX imager aboard MRO.
 

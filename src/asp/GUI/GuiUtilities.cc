@@ -391,13 +391,13 @@ void read_csv_metadata(std::string              const& csv_file,
                        vw::cartography::GeoReference & georef) {
   
   if (asp::stereo_settings().csv_format_str == "") {
-    if (csv_file.find("pointmap") != std::string::npos)
       // For the pointmap files the csv format is known, read it from
       // the file if not specified the user
+    if (csv_file.find("pointmap") != std::string::npos)
       asp::stereo_settings().csv_format_str = "1:lon, 2:lat, 4:height_above_datum";
+    // For the diff.csv files produced by geodiff the csv format is known, read it from
+    // the file if not specified the user
     if (csv_file.find("-diff.csv") != std::string::npos)
-      // For the diff.csv files produced by geodiff the csv format is known, read it from
-      // the file if not specified the user
       asp::stereo_settings().csv_format_str = "1:lon, 2:lat, 3:height_above_datum";
   }
   

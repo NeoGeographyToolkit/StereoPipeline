@@ -41,7 +41,7 @@ namespace asp {
     
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
-                                             bool use_sphere_for_datum) const;
+                                             bool use_sphere_for_non_earth) const;
 
     /// Stage 1: Preprocessing
     ///

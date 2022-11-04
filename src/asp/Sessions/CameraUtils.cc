@@ -115,11 +115,11 @@ void datum_from_cameras(std::vector<std::string> const& image_files,
                                                        camera_files[0], camera_files[0],
                                                        out_prefix)); 
   
-  if (stereo_session != "pinhole") {
-    bool use_sphere_for_datum = false;
+  if (stereo_session != "pinhole") { // for pinhole, no datum is assumed
+    bool use_sphere_for_non_earth = true;
     datum = session->get_datum(session->camera_model(image_files [0],
                                                      camera_files[0]).get(),
-                               use_sphere_for_datum);
+                               use_sphere_for_non_earth);
   }
   
   return;

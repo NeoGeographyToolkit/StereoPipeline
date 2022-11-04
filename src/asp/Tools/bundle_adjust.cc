@@ -2319,20 +2319,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // pinhole session as that one could be used with rovers on the
   // ground, and the datum does not make sense.
   if (opt.datum_str == "") {
-    SessionPtr session(asp::StereoSessionFactory::create
-                       (opt.stereo_session, // may change
-                        opt,
-                        opt.image_files [0], opt.image_files [0],
-                        opt.camera_files[0], opt.camera_files[0],
-                        opt.out_prefix));
-    
-    if (opt.stereo_session != "pinhole") {
-      bool use_sphere_for_datum = false;
-      opt.datum = session->get_datum(session->camera_model(opt.image_files [0],
-                                                           opt.camera_files[0]).get(),
-                                     use_sphere_for_datum);
-      opt.datum_str = opt.datum.name();
-    }
+    asp::datum_from_cameras(opt.image_files, opt.camera_files,  
+                            opt.stereo_session,  // may change
+                            // Outputs
+                            opt.datum);
+    opt.datum_str = opt.datum.name();
   }
   
   // Many times the datum is mandatory
@@ -2341,8 +2332,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
                 << "the datum must be specified.\n");
     
-    if ( opt.elevation_limit[0] < opt.elevation_limit[1] )
-      vw_throw( ArgumentErr() << "When filtering by elevation limit, the datum must be specified.\n");
+    if (opt.elevation_limit[0] < opt.elevation_limit[1])
+      vw_throw( ArgumentErr()
+                << "When filtering by elevation limit, the datum must be specified.\n");
   }
 
   vw_out() << "Will use the datum:\n" << opt.datum << std::endl;

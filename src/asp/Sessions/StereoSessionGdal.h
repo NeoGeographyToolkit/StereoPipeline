@@ -113,7 +113,7 @@ namespace asp {
     
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
-                                             bool use_sphere_for_datum) const {
+                                             bool use_sphere_for_non_earth) const {
 
       // Peek at the .cub file to get the planet name without reading
       // it as an ISIS camera (which can fail unless the ISISDATA
@@ -129,7 +129,7 @@ namespace asp {
       vw::Vector3 radii = cast_csm_cam->target_radii();
       double radius1 = (radii[0] + radii[1]) / 2; // average the x and y axes (semi-major) 
       double radius2 = radius1;
-      if (!use_sphere_for_datum) {
+      if (!use_sphere_for_non_earth) {
         radius2 = radii[2]; // the z radius (semi-minor axis)
       }
 

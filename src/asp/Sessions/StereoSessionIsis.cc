@@ -543,19 +543,19 @@ void StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
 } // End function pre_filtering_hook()
 
 /// Returns the target datum to use for a given camera model.
-/// Note the parameter use_sphere_for_datum.
+/// Note the parameter use_sphere_for_non_earth.
 /// During alignment, we'd like to use the most accurate
 /// non-spherical datum, hence radii[2]. However, for the purpose
 /// of creating a DEM on non-Earth planets people usually just use
 /// a spherrical datum, which we'll do as well.  Maybe at some
 /// point this needs to change.
 vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraModel* cam,
-                                                    bool use_sphere_for_datum) const {
+                                                    bool use_sphere_for_non_earth) const {
   const IsisCameraModel * isis_cam
     = dynamic_cast<const IsisCameraModel*>(vw::camera::unadjusted_model(cam));
   VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid camera.\n");
 
-  return isis_cam->get_datum(use_sphere_for_datum);
+  return isis_cam->get_datum(use_sphere_for_non_earth);
 }
 
 // TODO(oalexan1):  Can we share more code with the DG implementation?

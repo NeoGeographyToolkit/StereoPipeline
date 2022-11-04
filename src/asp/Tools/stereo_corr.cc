@@ -223,9 +223,9 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
       
       boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
       opt.session->camera_models(left_camera_model, right_camera_model);
-      const bool use_sphere_for_datum = false;
+      const bool use_sphere_for_non_earth = true;
       vw::cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
-                                                            use_sphere_for_datum);
+                                                            use_sphere_for_non_earth);
       
       asp::filter_D_sub(opt, tx_left, tx_right,
                         left_camera_model, right_camera_model, datum, d_sub_file,
@@ -437,7 +437,9 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
 
   // Filter out IPs which fall outside the specified elevation range
   if (!stereo_settings().correlator_mode && opt.session->have_datum()) {
-    cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
+    bool use_sphere_for_non_earth = true;
+    cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
+                                                      use_sphere_for_non_earth);
     asp::filter_ip_by_lonlat_and_elevation(opt.session->tx_left(), opt.session->tx_right(),
                                            left_camera_model.get(),
                                            right_camera_model.get(),
@@ -1139,7 +1141,9 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   std::string err_msg;
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
   opt.session->camera_models(left_camera_model, right_camera_model);
-  cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
+  bool use_sphere_for_non_earth = true;
+  cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
+                                                    use_sphere_for_non_earth);
   for (int attempt  = 1; attempt <= 1; attempt++) {
     // TODO(oalexan1): The idea of the expansion of the domains need more thinking.
     // In particular, need to proportionally expand how many interest points are

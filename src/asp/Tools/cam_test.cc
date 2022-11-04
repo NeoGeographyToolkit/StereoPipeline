@@ -144,9 +144,9 @@ int main(int argc, char *argv[]) {
       = cam1_session->camera_model(opt.image_file, opt.cam1_file);
 
     // Auto-guess the datum
-    bool use_sphere_for_datum = false;
+    bool use_sphere_for_non_earth = true;
     vw::cartography::Datum datum = cam1_session->get_datum(cam1_model.get(),
-                                                           use_sphere_for_datum);
+                                                           use_sphere_for_non_earth);
     vw_out() << "Datum: " << datum << std::endl;
     
     // Load cam2

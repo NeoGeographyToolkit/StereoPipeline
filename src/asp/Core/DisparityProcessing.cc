@@ -722,6 +722,7 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
 
   if (!gen_triplets) {
 
+    // Use doubles to avoid integer overflow
     double num_pixels = double(disp.cols()) * double(disp.rows());
     double bin_len = sqrt(num_pixels/std::min(double(max_num_matches), num_pixels));
     VW_ASSERT( bin_len >= 1.0, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );
@@ -781,7 +782,8 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
     // Start with the left
     {
       DiskImageView<float> left_img(opt.in_file1);
-    
+
+      // Use doubles to avoid integer overflow
       double num_pixels = double(left_img.cols()) * double(left_img.rows());
       int bin_len = round(sqrt(num_pixels/std::min(double(max_num_matches), num_pixels)));
       VW_ASSERT( bin_len >= 1, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );

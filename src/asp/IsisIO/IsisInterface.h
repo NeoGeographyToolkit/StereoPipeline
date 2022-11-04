@@ -80,7 +80,7 @@ namespace isis {
     vw::Vector3 sun_position  ( vw::Vector2 const& pix = vw::Vector2() ) const;
     vw::Vector3 target_radii  () const;
     std::string target_name   () const;
-    vw::cartography::Datum get_datum(bool use_sphere_for_datum) const;
+    vw::cartography::Datum get_datum(bool use_sphere_for_non_earth) const;
 
   protected:
     // Standard Variables
