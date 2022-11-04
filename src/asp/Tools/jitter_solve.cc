@@ -286,7 +286,7 @@ struct weightedQuatNormError {
 };
 
 struct Options: public asp::BaBaseOptions {
-  int num_lines_per_position, num_lines_per_orientation;
+  int num_lines_per_position, num_lines_per_orientation, num_anchor_points;
   double quat_norm_weight, anchor_weight;
 };
     
@@ -343,23 +343,32 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Set the maximum number of iterations.")
     ("tri-weight", po::value(&opt.tri_weight)->default_value(0.0),
      "The weight to give to the constraint that optimized triangulated "
-     "points stay close to original triangulated points. A positive value will help "
-     "ensure the cameras do not move too far, but a large value may prevent convergence. "
-     "Does not apply to GCP or points constrained by a DEM. This adds a robust cost function "
-     "with the threshold given by --robust-threshold.")
+     "points stay close to original triangulated points. A positive "
+     "value will help ensure the cameras do not move too far, but a "
+     "large value may prevent convergence. Does not apply to GCP or "
+     "points constrained by a DEM. This adds a robust cost function  "
+     "with the threshold given by --robust-threshold. "
+     "The suggested value is 0.1 to 0.5 divided by the image ground "
+     "sample distance.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
-     "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, "
-     "in the triangulated xyz points replace the heights with the ones from this DEM before "
-     "optimizing them.")
-    ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(1.0),
-     "How much weight to give to keep the triangulated points close to the DEM if specified via "
-     "--heights-from-dem.")
+     "If the cameras have already been bundle-adjusted and aligned "
+     "to a known DEM, in the triangulated points obtained from "
+     "interest point matches replace the heights with the ones from this "
+     "DEM before optimizing them while tying the points to this DEM via "
+     "--heights-from-dem-weight and --heights-from-dem-robust-threshold.")
+    ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(0.5),
+     "How much weight to give to keep the triangulated points close "
+     "to the DEM if specified via --heights-from-dem. This value "
+     "should be about 0.1 to 0.5 divided by the image ground sample "
+     "distance, as then it will convert the measurements from meters to "
+     "pixels, which is consistent with the pixel reprojection error term.")
     ("heights-from-dem-robust-threshold",
      po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.5),
      "The robust threshold to use keep the triangulated points "
      "close to the DEM if specified via --heights-from-dem. This is applied after the "
      "point differences are multiplied by --heights-from-dem-weight. It should help with "
-     "attenuating large height difference outliers.")
+     "attenuating large height difference outliers. It is suggested to make this equal to "
+     "--heights-from-dem-weight.")
     ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
      "If specified, constrain every ground point where rays from matching pixels intersect "
      "to be not too far from the average of intersections of those rays with this DEM.")
@@ -367,6 +376,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Multiply the xyz differences for the --reference-dem option by this weight.")
     ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),
      "Use this robust threshold for the weighted xyz differences.")
+    ("num-anchor-points", po::value(&opt.num_anchor_points)->default_value(0),
+     "How many anchor points to create. They will be uniformly distributed "
+     "across each input image. This is being tested.")
     ("anchor-weight", po::value(&opt.anchor_weight)->default_value(0.0),
      "How much weight to give to each anchor point. Anchor points are "
      "obtained by intersecting rays from initial cameras with the DEM given by "
@@ -471,6 +483,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     
   if (opt.quat_norm_weight <= 0)
     vw_throw(ArgumentErr() << "Quaternion norm weight must be positive.\n");
+
+  if (opt.num_anchor_points < 0)
+    vw_throw(ArgumentErr() << "The number of anchor points must be non-negative.\n");
 
   if (opt.anchor_weight < 0)
     vw_throw(ArgumentErr() << "Anchor weight must be non-negative.\n");
@@ -717,7 +732,6 @@ void calcFirstLastPositionLines(UsgsAstroLsSensorModel const* ls_model,
                dt_per_line);
   
   // Find time of first and last tabulated position.
-  // Use the equation: time = first_line_time + line * dt_per_line.
   double bt = ls_model->m_t0Ephem;
   double et = bt + (ls_model->m_positions.size()/NUM_XYZ_PARAMS - 1) * ls_model->m_dtEphem;
 
@@ -838,7 +852,7 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
     if (std::abs(beg_position_line - new_beg_position_line) > 1.0e-3 ||
         std::abs(end_position_line - new_end_position_line) > 1.0e-3)
       vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Resampling was done "
-                   << "without preserving first and tabulated position.\n");
+                   << "without preserving first and last tabulated position time.\n");
   }
 
   if (opt.num_lines_per_orientation > 0) {
@@ -873,43 +887,51 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
     if (std::abs(beg_orientation_line - new_beg_orientation_line) > 1.0e-3 ||
         std::abs(end_orientation_line - new_end_orientation_line) > 1.0e-3)
       vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Resampling was done "
-                   << "without preserving first and tabulated orientation.\n");
+                   << "without preserving first and last tabulated orientation time.\n");
   }
 
   return;
 }
-  
+
+// Calculate a set of anchor points uniformly distributed over the image
 void calcAnchorPoints(Options                              const & opt,
                       ImageViewRef<PixelMask<double>>              interp_dem,
                       vw::cartography::GeoReference         const& dem_georef,
                       std::vector<UsgsAstroLsSensorModel*> const & ls_models,
-                      // Append to these
+                      // Append to these, they already have entries
                       std::vector<std::vector<Vector2>>                    & pixel_vec,
                       std::vector<std::vector<boost::shared_ptr<Vector3>>> & xyz_vec,
                       std::vector<std::vector<double*>>                    & xyz_vec_ptr,
                       std::vector<std::vector<double>>                     & weight_vec,
                       std::vector<std::vector<int>>                        & isAnchor_vec) {
+
+  if (opt.num_anchor_points <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "Expecting a positive number of anchor points.\n");
   
   int num_cams = ls_models.size();
   for (int icam = 0; icam < num_cams; icam++) {
-    
-    int numLines   = ls_models[icam]->m_nLines;
-    int numSamples = ls_models[icam]->m_nSamples;
-    int numQuat    = ls_models[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
-    
-    // TODO(oalexan1): Need to also consider here number of poses.
-    // Also exposes num-anchor-points-per-pose
-    double r = double(numLines) / numQuat;
 
-    int numAnchorPts = 0;
-    // TODO(oalexan1): Need to ensure we hit {0, 1, 2}/numSamples/2
-    // TODO(oalexan1): Need to ensure we hit {0, 1, 2}/numLines/2
-    for (double line = 0; line < numLines; line += r/3.0) {
-      for (double sample = 0; sample < numSamples; sample += numSamples/3.0) {
+    // Use int64 and double to avoid int32 overflow
+    std::int64_t numLines   = ls_models[icam]->m_nLines;
+    std::int64_t numSamples = ls_models[icam]->m_nSamples;
+    double area = double(numSamples) * double(numLines);
+    double bin_len = sqrt(area/double(opt.num_anchor_points));
+    bin_len = std::max(bin_len, 1.0);
+    int lenx = ceil(double(numSamples) / bin_len); lenx = std::max(1, lenx);
+    int leny = ceil(double(numLines)   / bin_len); leny = std::max(1, leny);
 
-        Vector2 pix(sample, line);
+    std::int64_t numAnchorPoints = 0;
+    for (int binx = 0; binx <= lenx; binx++) {
+      double posx = binx * bin_len;
+      for (int biny = 0; biny <= leny; biny++) {
+        double posy = biny * bin_len;
+        
+        if (posx > numSamples - 1 || posy > numLines - 1) 
+          continue;
+        
+        Vector2 pix(posx, posy);
         Vector3 xyz_guess(0, 0, 0);
-          
+        
         bool treat_nodata_as_zero = false;
         bool has_intersection = false;
         double height_error_tol = 0.001; // 1 mm should be enough
@@ -939,19 +961,14 @@ void calcAnchorPoints(Options                              const & opt,
         Vector3 & xyz = *xyz_vec[icam].back().get(); // alias to the element we just made
         xyz = dem_xyz; // copy the value, but the pointer does not change
         xyz_vec_ptr[icam].push_back(&xyz[0]); // keep the pointer to the first element
-
-        numAnchorPts++;
+        numAnchorPoints++;
       }   
     }
 
     vw_out() << std::endl;
     vw_out() << "Image file: " << opt.image_files[icam] << std::endl;
     vw_out() << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
-    vw_out() << "Num lines per quat: " << double(numLines) / numQuat  << std::endl;
-    vw_out() << "Num anchor points per image: " << numAnchorPts << std::endl;
-    // TODO(oalexan1): Fill in below.
-    // vw_out() << "Num anchor points per linescan quaternion: "/*add here*/ << std::endl;
-    // vw_out() << "Num anchor points per linescan position: "  /*add here*/ << std::endl;
+    vw_out() << "Num anchor points per image: " << numAnchorPoints     << std::endl;
   }   
 }
 
@@ -1438,7 +1455,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   }
 
   // Find anchor points and append to pixel_vec, weight_vec, etc.
-  if (opt.anchor_weight > 0)
+  if (opt.num_anchor_points > 0 && opt.anchor_weight > 0)
     calcAnchorPoints(opt, interp_dem, dem_georef, ls_models,  
                      // Append to these
                      pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
