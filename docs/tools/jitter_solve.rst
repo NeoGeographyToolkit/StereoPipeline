@@ -63,24 +63,22 @@ orientations are sampled too finely, resulting in too many variables
 to optimize.
 
 Hence, it is strongly suggested to resample the provided positions and
-orientations before the solver optimizes them. Use the
-options: ``--num-lines-per-position`` and
-``--num-lines-per-orientation``.
+orientations before the solver optimizes them. Use the options:
+``--num-lines-per-position`` and ``--num-lines-per-orientation``. The
+estimated number of lines per position and orientation will be printed
+on screen, before and after resampling.
 
-The estimated values of these quantities given just the provided input
-positions and orientations (so, before resampling), and after resampling,
-will be printed on screen. 
-
-It is suggested to use perhaps 1000 lines per position and orientation.
+It is suggested to use perhaps 1000 lines per position and
+orientation.
 
 Example 
 ~~~~~~~
 
+A CTX stereo pair will be used which has quite noticeable jitter.
+See :numref:`jitter_multiple_images` for a discussion of multiple images.
+
 Input images
 ^^^^^^^^^^^^
-
-A CTX stereo pair will be used which has quite noticeable jitter.
-See :numref:`jitter_multiple_images` for discussion of multiple images.
 
 The pair consists of images with ids::
 
@@ -100,7 +98,7 @@ The MOLA dataset from:
 
     https://ode.rsl.wustl.edu/mars/datapointsearch.aspx
 
-is used for alignment. The following (very generous)
+is used for alignment. The data for the following (very generous)
 longitude-latitude extent was fetched: 146E to 152E, and 7N to 15N.
 The obtained CSV file was saved as ``mola.csv``.
 
@@ -117,8 +115,8 @@ it with the command::
      $ISISDATA/base/dems/molaMarsPlanetaryRadius0005.cub       \
      ref_dem_shift.tif
 
-This one has a 190 meter shift relative to the preferred Mars radius
-of 3396190 meters, which can be removed as follows::
+This one has a 190 meter vertical shift relative to the preferred Mars
+radius of 3396190 meters, which can be removed as follows::
 
     image_calc -c "var_0-190" -d float32 ref_dem_shift.tif \
       -o ref_dem.tif
@@ -232,11 +230,11 @@ poses become noisy. Dense interest point matches appear necessary for
 a good result, though perhaps the number produced during stereo could
 be lowered.
 
-The constraint relative to the reference DEM is needed, to make
-sure the DEM produced later agrees with the reference one.  Otherwise,
-the final solution may not be unique, as a long-wavelength
-perturbation of the obtained camera trajectories may work just as
-well.
+The constraint relative to the reference DEM is needed, to make sure
+the DEM produced later agrees with the reference one.  Otherwise, the
+final solution may not be unique, as a long-wavelength perturbation
+consistently applied to all obtained camera trajectories may work just
+as well.
 
 The model states (:numref:`csm_state`) of optimized cameras are saved
 with names like::
