@@ -738,13 +738,11 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       // TODO(oalexan1): Need to do something like in write_hillshade()
       // so that we don't have to always re-write the thresholded image.
       std::string suffix = "_thresh.tif";
-      bool has_georef = false;
       bool has_nodata = true;
-      vw::cartography::GeoReference georef;
       std::string thresholded_file
         = write_in_orig_or_curr_dir(m_opt,
                                     thresh_image, input_file, suffix,
-                                    has_georef,  georef,
+                                    m_images[image_iter].has_georef, m_images[image_iter].georef,
                                     has_nodata, nodata_val);
 
       // Read it back right away
@@ -766,17 +764,21 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     // it each time as perhaps the hillshade parameters changed.
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
 
-      if (m_images[image_iter].m_display_mode != HILLSHADED_VIEW) continue;
+      if (m_images[image_iter].m_display_mode != HILLSHADED_VIEW)
+        continue;
+
+      if (m_images[image_iter].name.find("_CMAP.tif") != std::string::npos)
+        continue; // silently ignore colormap images
+        
+      // Cannot hillshade a polygon or xyz data
+      if (m_images[image_iter].isPoly() || m_images[image_iter].isCsv()) 
+        continue;
 
       if (!m_images[image_iter].has_georef) {
         popUp("Hill-shading requires georeferenced images.");
         m_images[image_iter].m_display_mode = REGULAR_VIEW;
         return;
       }
-
-      // Cannot hillshade a polygon or xyz data
-      if (m_images[image_iter].isPoly() || m_images[image_iter].isCsv()) 
-        continue;
 
       std::string input_file = m_images[image_iter].name;
       int num_channels = m_images[image_iter].img.planes();
@@ -797,12 +799,13 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         return;
       }
 
-      // Save the hillshaded images to disk
+      // Save the hillshaded images to disk (unless it already exists)
       std::string hillshaded_file;
       bool success = write_hillshade(m_opt,
                                      m_hillshade_azimuth,
                                      m_hillshade_elevation,
                                      input_file, hillshaded_file);
+
       if (!success) {
         m_images[image_iter].m_display_mode = REGULAR_VIEW;
         return;
@@ -1587,21 +1590,27 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
                              isPolyClosed, polyColorStr, layer);
           polyVec.push_back(poly);
       }
+
+      // See if the user specified a color on the command line
+      if (m_images[image_it].color != "" && m_images[image_it].color != "default")
+        polyColor = QColor(m_images[image_it].color.c_str());
       
-      // See if to use a custom color for this polygon
+      // See if to use a custom color for this polygon, specified by the user from the gui
       QColor currPolyColor = polyColor;
       auto color_it = m_perImagePolyColor.find(image_it);
       if (color_it != m_perImagePolyColor.end()) {
         currPolyColor = QColor((color_it->second).c_str());
+        m_images[image_it].color = color_it->second; // save for the future
       }
       
       // Plot the polygon being drawn now, and pre-existing polygons
       for (size_t polyIter = 0; polyIter < polyVec.size(); polyIter++){
       
         vw::geometry::dPoly poly = polyVec[polyIter]; // make a deep copy
-      
+
+        bool counter_cc = true; // counter-clockwise polys have positive area
         double val1 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
-                                                   poly.get_xv(), poly.get_yv());
+                                                   poly.get_xv(), poly.get_yv(), counter_cc);
 
         // Convert to world units
         int            numVerts  = poly.get_totalNumVerts();
@@ -1628,7 +1637,8 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         }
 
         double val2 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
-                                                   poly.get_xv(), poly.get_yv());
+                                                   poly.get_xv(), poly.get_yv(),
+                                                   counter_cc);
 
         // If the conversion to world coords flips the orientation, correct for that.
         // TODO: This seems necessary. More thought is needed. 
@@ -1919,8 +1929,9 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 		    vw::geometry::vecPtr(m_currPolyX), vw::geometry::vecPtr(m_currPolyY),
                     isPolyClosed, color, layer);
 
+    bool counter_cc = true;
     double val1 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
-					      poly.get_xv(), poly.get_yv());
+                                               poly.get_xv(), poly.get_yv(), counter_cc);
 
 
     // If conversion to world units flips the orientation, that means
@@ -1929,7 +1940,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     vw::geometry::dPoly poly2 = poly;
 
     double val2 = vw::geometry::signedPolyArea(poly2.get_totalNumVerts(),
-					      poly2.get_xv(), poly2.get_yv());
+                                               poly2.get_xv(), poly2.get_yv(), counter_cc);
 
     // Convert to world units
     int            numVerts  = poly2.get_totalNumVerts();
@@ -1942,7 +1953,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     }
     
     val2 = vw::geometry::signedPolyArea(poly2.get_totalNumVerts(),
-					poly2.get_xv(), poly2.get_yv());
+					poly2.get_xv(), poly2.get_yv(), counter_cc);
     if (val1*val2 < 0)
       poly.reverse();
     
@@ -2575,7 +2586,8 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       // Determine the orientation of polygons
       double signedArea = 0.0;
       if (plotFilled && isPolyClosed[pIter]){
-        signedArea = signedPolyArea(pSize, xv + start, yv + start);
+        bool counter_cc = true;
+        signedArea = signedPolyArea(pSize, xv + start, yv + start, counter_cc);
       }
 
       QPolygon pa(pSize);
@@ -2600,16 +2612,17 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       if (plotEdges){
 
         if (plotFilled && isPolyClosed[pIter]){
-          // Notice that we fill clockwise polygons, those with negative area.
-          // That because on screen they in fact appear counter-clockwise,
-          // since the screen y axis is always down, and because
-          // ESRI Shpefile format expects an outer polygon to be clockwise.
+          // Notice that we fill clockwise polygons, those with
+          // negative area. That because on screen they in fact
+          // appear counter-clockwise, since the screen y axis is
+          // always down, and because the ESRI shapefile format
+          // expects an outer polygon to be clockwise.
           if (signedArea < 0.0)  paint.setBrush( color );
           else                   paint.setBrush( m_backgroundColor );
-          paint.setPen( Qt::NoPen );
+          paint.setPen(Qt::NoPen);
         }else {
-          paint.setBrush( Qt::NoBrush );
-          paint.setPen( QPen(color, lineWidth) );
+          paint.setBrush(Qt::NoBrush);
+          paint.setPen(QPen(color, lineWidth));
         }
 
         if ( isPolyZeroDim(pa) ){

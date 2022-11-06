@@ -314,8 +314,7 @@ int main(int argc, char** argv) {
                                     stereo_settings().window_size,
                                     stereo_settings().single_window,
                                     stereo_settings().use_georef,
-                                    stereo_settings().hillshade,
-                                    stereo_settings().delete_temporary_files_on_exit,
+                                    properties,
                                     argc, argv);
     
     main_window.show();

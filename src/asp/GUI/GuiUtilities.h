@@ -73,7 +73,8 @@ namespace vw { namespace gui {
   // The kinds of images we support
   enum ImgType {UNINIT, CH1_DOUBLE, CH2_UINT8, CH3_UINT8, CH4_UINT8};
 
-  enum DisplayMode {REGULAR_VIEW, HILLSHADED_VIEW, COLORMAP_VIEW, HILLSHADE_COLORMAP_VIEW, THRESHOLDED_VIEW};
+  enum DisplayMode {REGULAR_VIEW, HILLSHADED_VIEW, COLORIZED_VIEW, HILLSHADE_COLORIZED_VIEW,
+                    THRESHOLDED_VIEW};
   
   // TODO(oalexan1): Remove this def out of this header file
   namespace fs = boost::filesystem;
@@ -183,7 +184,7 @@ namespace vw { namespace gui {
   
   /// A class to keep all data associated with an image file
   struct imageData{
-    std::string      name, hillshaded_name; // TODO(oalexan1): Think more here
+    std::string      name, hillshaded_name, thresholded_name, colorized_name;
     vw::GdalWriteOptions m_opt;
     bool             has_georef;
     vw::cartography::GeoReference georef;
@@ -198,10 +199,11 @@ namespace vw { namespace gui {
     DiskImagePyramidMultiChannel hillshaded_img;
     DiskImagePyramidMultiChannel thresholded_img;
     DiskImagePyramidMultiChannel colorized_img;
-    DiskImagePyramidMultiChannel color_thresholded_img;
     
     std::vector<vw::geometry::dPoly> polyVec; // a shapefile
-
+    std::string color; // poly color
+    std::string style; // plotting style
+    
     // Scattered data to be plotted at (x, y) location with z giving
     // the intensity. May be colorized.
     std::vector<vw::Vector3> scattered_data;
@@ -210,7 +212,9 @@ namespace vw { namespace gui {
     
     /// Load an image from disk into img and set the other variables.
     void read(std::string const& image, vw::GdalWriteOptions const& opt,
-              int display_mode = REGULAR_VIEW);
+              DisplayMode display_mode = REGULAR_VIEW,
+              std::map<std::string, std::string> const& properties =
+              std::map<std::string, std::string>());
 
     bool isPoly() const { return asp::has_shp_extension(name); }
     bool isCsv()  const { return vw::gui::hasCsv(name); }
@@ -555,12 +559,10 @@ std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
                                       bool has_georef,
                                       vw::cartography::GeoReference const & georef,
                                       bool has_nodata,
-                                      double nodata_val){
-
-  TerminalProgressCallback tpc("asp", ": ");
+                                      double nodata_val) {
 
   std::string output_file = vw::mosaic::filename_from_suffix1(input_file, suffix);
-
+  TerminalProgressCallback tpc("asp", ": ");
   vw_out() << "Writing: " << output_file << std::endl;
   try{
     vw::cartography::block_write_gdal_image(output_file, image, has_georef, georef,

@@ -16,8 +16,10 @@
 // __END_LICENSE__
 
 // TODO(oalexan1): This is very slow to compile. Need to figure out
-// why. Likely the hillshade templated code is to blame, or bundle
-// adjustment logic. That may need to be moved to a separate file.
+// why. Could be the bundle adjustment logic. Or contouring, or
+// shapefile logic, or DiskImagePyramid read from GuiUtilities.h.
+// These may need to be moved to separate files.
+
 // TODO(oalexan1): Move chooseFilesDlg to its own .h/.cc file.
 
 #include <string>
@@ -33,7 +35,7 @@
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Cartography/GeoTransform.h>
-#include <vw/tools/hillshade.h>
+#include <vw/Cartography/Hillshade.h>
 #include <vw/Core/RunOnce.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/InterestPoint/Matcher.h> // Needed for vw::ip::match_filename
@@ -154,13 +156,14 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
   bool align_light_to_georef = false;
   try {
     DiskImageView<float> input(input_file);
+    // TODO(oalexan1): Factor out repeated logic below.
     try{
       bool will_write = vw::mosaic::overwrite_if_no_good(input_file, output_file,
                                              input.cols(), input.rows());
       if (will_write){
         vw_out() << "Writing: " << output_file << std::endl;
-        vw::do_multitype_hillshade(input_file, output_file, azimuth, elevation, scale,
-                                   nodata_val, blur_sigma, align_light_to_georef);
+        vw::cartography::do_multitype_hillshade(input_file, output_file, azimuth, elevation, scale,
+                                                nodata_val, blur_sigma, align_light_to_georef);
       }
     }catch(...){
       // Failed to write, presumably because we have no write access.
@@ -171,7 +174,7 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
                                              input.cols(), input.rows());
       if (will_write){
         vw_out() << "Writing: " << output_file << std::endl;
-        vw::do_multitype_hillshade(input_file,  output_file, azimuth, elevation, scale,
+        vw::cartography::do_multitype_hillshade(input_file,  output_file, azimuth, elevation, scale,
                                    nodata_val, blur_sigma, align_light_to_georef);
       }
     }
@@ -179,7 +182,7 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
     popUp(e.what());
     return false;
   }
-
+  
   return true;
 }
 
@@ -286,7 +289,7 @@ void findClosestPolyVertex(// inputs
                            int & polyIndexInCurrPoly,
                            int & vertIndexInCurrPoly,
                            double & minX, double & minY,
-                           double & minDist){
+                           double & minDist) {
   
   polyVecIndex = -1; polyIndexInCurrPoly = -1; vertIndexInCurrPoly = -1;
   minX = x0; minY = y0; minDist = std::numeric_limits<double>::max();
@@ -298,8 +301,7 @@ void findClosestPolyVertex(// inputs
     polyVec[s].findClosestPolyVertex(// inputs
                                      x0, y0,
                                      // outputs
-                                     polyIndex, vertIndex, minX0, minY0, minDist0
-                                     );
+                                     polyIndex, vertIndex, minX0, minY0, minDist0);
     
     if (minDist0 <= minDist){
       polyVecIndex  = s;
@@ -467,18 +469,33 @@ void read_csv_metadata(std::string              const& csv_file,
 }
   
 void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt,
-                     int display_mode){
-  m_opt = opt;
-  if (display_mode == REGULAR_VIEW) {
-    name = name_in;
-  } else if (display_mode == HILLSHADED_VIEW) {
-    hillshaded_name = name_in;
-  }
+                     DisplayMode display_mode,
+                     std::map<std::string, std::string> const& properties) {
 
-  std::string poly_color = "red";
+  if (display_mode == REGULAR_VIEW)
+    name = name_in;
+  else if (display_mode == HILLSHADED_VIEW)
+    hillshaded_name = name_in;
+  else if (display_mode == THRESHOLDED_VIEW)
+    thresholded_name = name_in;
+  else if (display_mode == COLORIZED_VIEW)
+    colorized_name = name_in;
+  else
+    vw::vw_throw(vw::ArgumentErr() << "Unknown display mode..\n");
+  
+  m_opt = opt;
+  m_display_mode = display_mode;
+
+  for (auto it = properties.begin(); it != properties.end(); it++) {
+    if (it->first == "color")
+      color = it->second; // copy the poly/line/points color
+    if (it->first == "style")
+      style = it->second; // copy the style (poly, line, points)
+  }
   
   if (asp::has_shp_extension(name_in)){
     // Read a shape file
+    std::string poly_color = "red"; // default, will be overwritten later
     read_shapefile(name_in, poly_color, has_georef, georef, polyVec);
 
     double xll, yll, xur, yur;
@@ -529,18 +546,24 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     int top_image_max_pix = 1000*1000;
     int subsample = 4;
     vw_out() << "Reading: " << name_in << std::endl;
+    has_georef = vw::cartography::read_georeference(georef, name_in);
 
     if (display_mode == REGULAR_VIEW) {
-      img = DiskImagePyramidMultiChannel(name_in, m_opt, top_image_max_pix, subsample);
+      img = DiskImagePyramidMultiChannel(name, m_opt, top_image_max_pix, subsample);
       image_bbox = BBox2(0, 0, img.cols(), img.rows());
     } else if (display_mode == HILLSHADED_VIEW) {
-      hillshaded_img = DiskImagePyramidMultiChannel(name_in, m_opt, top_image_max_pix, subsample);
+      hillshaded_img = DiskImagePyramidMultiChannel(hillshaded_name, m_opt,
+                                                    top_image_max_pix, subsample);
       image_bbox = BBox2(0, 0, hillshaded_img.cols(), hillshaded_img.rows());
     } else if (display_mode == THRESHOLDED_VIEW) {
-      thresholded_img = DiskImagePyramidMultiChannel(name_in, m_opt, top_image_max_pix, subsample);
+      thresholded_img = DiskImagePyramidMultiChannel(thresholded_name, m_opt,
+                                                     top_image_max_pix, subsample);
       image_bbox = BBox2(0, 0, thresholded_img.cols(), thresholded_img.rows());
+    } else if (display_mode == COLORIZED_VIEW) {
+      colorized_img = DiskImagePyramidMultiChannel(colorized_name, m_opt,
+                                                     top_image_max_pix, subsample);
+      image_bbox = BBox2(0, 0, colorized_img.cols(), colorized_img.rows());
     }
-    has_georef = vw::cartography::read_georeference(georef, name_in);
   }
 }
 

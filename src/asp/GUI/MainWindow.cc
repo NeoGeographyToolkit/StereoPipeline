@@ -158,20 +158,19 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
                        int grid_cols,
                        vw::Vector2i const& window_size,
                        bool single_window,
-                       bool use_georef, bool hillshade,
-                       bool delete_temporary_files_on_exit,
+                       bool use_georef,
+                       std::map<std::string, std::map<std::string, std::string>> & properties,
                        int argc,  char ** argv):
   m_opt(opt),
   m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
   m_grid_cols(grid_cols),
   m_use_georef(use_georef),
-  m_display_mode(hillshade ? HILLSHADED_VIEW : REGULAR_VIEW),
-  m_view_thresholded(false),
-  m_delete_temporary_files_on_exit(delete_temporary_files_on_exit),
   m_allowMultipleSelections(false), m_matches_exist(false),
   m_argc(argc), m_argv(argv),
   m_show_two_images_when_side_by_side_with_dialog(true), 
   m_cursor_count(0), m_nvm(NULL) {
+
+  m_display_mode = asp::stereo_settings().hillshade ? HILLSHADED_VIEW : REGULAR_VIEW;
 
   if (!stereo_settings().zoom_proj_win.empty())
     m_use_georef = true;
@@ -210,7 +209,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
       is_image = false;
     }
     
-    // Accept shape files along image files
+    // Accept shape files and csv files alongside images
     if (!is_image &&
         !asp::has_shp_extension(local_images[i]) &&
         !vw::gui::hasCsv(local_images[i]))
@@ -227,7 +226,10 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   m_images.resize(num_images);
   bool has_georef = true;
   for (int i = 0; i < num_images; i++) {
-    m_images[i].read(m_image_files[i], m_opt);
+    m_images[i].read(m_image_files[i], m_opt, REGULAR_VIEW, properties[m_image_files[i]]);
+    // Above we read the image in regular mode. If plan to display hillshade,
+    // for now set the flag for that, and the hillshaded image will be created
+    // and set later. (Something more straightforward could be done.)
     m_images[i].m_display_mode = m_display_mode;
     has_georef = has_georef && m_images[i].has_georef;
   }
@@ -429,7 +431,7 @@ void MainWindow::createLayout() {
   m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
   m_viewSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE);
   m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
-  m_viewHillshadedImages_action->setChecked(m_display_mode == HILLSHADED_VIEW);
+  MainWindow::updateDisplayModeMenuEntries();
   m_viewGeoreferencedImages_action->setChecked(m_use_georef);
   m_overlayGeoreferencedImages_action->setChecked(m_use_georef &&
                                                   (m_view_type == VIEW_IN_SINGLE_WINDOW));
@@ -614,7 +616,7 @@ void MainWindow::createMenus() {
   m_viewThreshImages_action = new QAction(tr("View thresholded images"), this);
   m_viewThreshImages_action->setStatusTip(tr("View thresholded images"));
   m_viewThreshImages_action->setCheckable(true);
-  m_viewThreshImages_action->setChecked(m_view_thresholded);
+  m_viewThreshImages_action->setChecked(m_display_mode == THRESHOLDED_VIEW);
   connect(m_viewThreshImages_action, SIGNAL(triggered()), this, SLOT(viewThreshImages()));
 
   // View/set image threshold
@@ -757,7 +759,7 @@ void MainWindow::forceQuit(){
     }
   }
   
-  if (m_delete_temporary_files_on_exit) {
+  if (asp::stereo_settings().delete_temporary_files_on_exit) {
     std::set<std::string> & tmp_files = vw::gui::temporary_files().files;
     for (std::set<std::string>::iterator it = tmp_files.begin();
          it != tmp_files.end() ; it++) {
@@ -923,6 +925,12 @@ void MainWindow::updateMatchesMenuEntries() {
   m_viewMatches_action->setChecked(asp::stereo_settings().view_matches);
   m_viewPairwiseCleanMatches_action->setChecked(asp::stereo_settings().pairwise_clean_matches);
   m_viewPairwiseMatches_action->setChecked(asp::stereo_settings().pairwise_matches);
+}
+
+// Update checkboxes for viewing thresholded and hillshaded images
+void MainWindow::updateDisplayModeMenuEntries() {
+  m_viewThreshImages_action->setChecked(m_display_mode == THRESHOLDED_VIEW);
+  m_viewHillshadedImages_action->setChecked(m_display_mode == HILLSHADED_VIEW);
 }
 
 void MainWindow::viewMatchesFromMenu() {
@@ -1558,12 +1566,17 @@ void MainWindow::thresholdCalc() {
 }
 
 void MainWindow::viewThreshImages() {
-  m_view_thresholded = m_viewThreshImages_action->isChecked();
+  if (m_viewThreshImages_action->isChecked())
+    m_display_mode = THRESHOLDED_VIEW;
+  else
+    m_display_mode = REGULAR_VIEW;
+  
+  MainWindow::updateDisplayModeMenuEntries();
 
   for (size_t i = 0; i < m_widgets.size(); i++) {
     bool refresh_pixmap = true;
     if (m_widgets[i]) {
-      if (m_view_thresholded) 
+      if (m_display_mode == THRESHOLDED_VIEW) 
         m_widgets[i]->viewThreshImages(refresh_pixmap);
       else
         m_widgets[i]->viewUnthreshImages();
@@ -1699,10 +1712,11 @@ void MainWindow::setPolyColor() {
 
 void MainWindow::viewHillshadedImages() {
   m_display_mode = m_viewHillshadedImages_action->isChecked() ? HILLSHADED_VIEW : REGULAR_VIEW;
+  MainWindow::updateDisplayModeMenuEntries();
+  
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]) {
+    if (m_widgets[i])
       m_widgets[i]->viewHillshadedImages(m_display_mode == HILLSHADED_VIEW);
-    }
   }
 }
 

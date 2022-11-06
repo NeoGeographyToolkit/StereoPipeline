@@ -60,7 +60,8 @@ namespace vw { namespace gui {
                std::string& output_prefix, // non-const, so we can change it
                int grid_cols,
                vw::Vector2i const& window_size, bool single_window,
-               bool use_georef, bool hillshade, bool delete_temporary_files_on_exit,
+               bool use_georef,
+               std::map<std::string, std::map<std::string, std::string>> & properties,
                int argc, char ** argv);
     virtual ~MainWindow() {}
 
@@ -133,6 +134,7 @@ namespace vw { namespace gui {
     bool editingMatches() const;
 
     void updateMatchesMenuEntries();
+    void updateDisplayModeMenuEntries();
     
     bool sanityChecks(int num_images);
 
@@ -189,8 +191,7 @@ namespace vw { namespace gui {
     ViewType m_view_type,
              m_view_type_old;
     int      m_grid_cols, m_grid_cols_old;
-    bool     m_use_georef, m_view_thresholded,
-      m_delete_temporary_files_on_exit;
+    bool     m_use_georef;
     bool     m_allowMultipleSelections;
     int      m_argc;
     char **  m_argv;
