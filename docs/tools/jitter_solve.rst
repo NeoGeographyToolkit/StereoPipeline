@@ -357,7 +357,7 @@ Output files
 ~~~~~~~~~~~~
 
 The optimized CSM model state files (:numref:`csm_state`), which
-hopefully reduce the jitter and also incorporate the initial
+reduce the jitter and also incorporate the initial
 adjustments as well, are saved in the output directory, which in the
 example above is named ``jitter``. 
 

@@ -607,8 +607,8 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
     col_index++; // Increment the column counter
     const char* token = strtok(ptr, sep.c_str());  // Split line on seperator char
     ptr = NULL; // After the first call, strtok expects a null pointer as input.
-    if ( token == NULL ) break; // no more tokens
-    if ( num_values_read >= this->num_targets ) break; // read enough values
+    if (token == NULL) break; // no more tokens
+    if (num_values_read >= this->num_targets) break; // read enough values
 
     // Check if this is one of the columns we need to read
     if (this->col2name.find(col_index) == this->col2name.end())
