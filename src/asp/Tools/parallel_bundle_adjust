@@ -108,7 +108,6 @@ def get_best_procs_threads(step):
 
     return (num_procs, num_threads)
 
-
 def get_num_instances(args):
     '''Determine the number of total instances that the work will be split over.'''
 

@@ -28,6 +28,8 @@
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/math/special_functions/next.hpp>
 
+//#include <iomanip>
+
 using namespace vw;
 using namespace vw::cartography;
 using namespace pdal::filters;
@@ -431,8 +433,9 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
   boost::replace_all(local, ",", " ");
   std::istringstream is(local);
 
-  // The case of utm: "utm:23N 1:x 2:y 3:height_above_datum"
-  // - Parse the initial bit to get utm_zone and utm_north, leave the rest alone.
+  // The case of utm: "utm:23N 1:x 2:y 3:height_above_datum".  Parse
+  // the initial bit to get utm_zone and utm_north, leave the rest
+  // alone.
   std::string str;
   is >> str;
   if (str == "utm"){
@@ -467,34 +470,6 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
   if ((this->num_targets < MIN_NUM_TARGETS) || (this->num_targets > MAX_NUM_TARGETS))
     vw_throw(ArgumentErr() << "Invalid number of column indices in: '" << csv_format_str << "'\n");
 
-  /*
-
-  // Read in the three user inputs
-  int col1, col2, col3;
-  std::string name1, name2, name3;
-  if (! (is >> col1 >> name1 >> col2 >> name2 >> col3 >> name3) )
-    vw_throw(ArgumentErr() << "Could not parse: '" << csv_format_str << "'\n");
-
-  col1--; // Convert from 1-based to 0-based
-  col2--;
-  col3--;
-  if (col1 < 0 || col2 < 0 || col3 < 0)
-    vw_throw(ArgumentErr() << "The column indices must be positive in: '"
-                           << csv_format_str << "'\n");
-
-  if (col1 == col2 || col1 == col3 || col2 == col3 )
-    vw_throw(ArgumentErr() << "The column indices must be distinct in: '"
-                           << csv_format_str << "'\n");
-
-  this->name2col[name1] = col1; // Fill in name->column map object
-  this->name2col[name2] = col2;
-  this->name2col[name3] = col3;
-
-  this->col2name[col1] = name1; // Fill in column->name map object
-  this->col2name[col2] = name2;
-  this->col2name[col3] = name3;
-*/
-
   // Sort the names into a pre-specified order.
   std::vector<std::string> sorted_names(this->num_targets);
   for (auto it = this->name2col.begin(); it != this->name2col.end() ; it++){
@@ -504,17 +479,6 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
       this->col2sort[it->second] = index;
   }
 
-/*
-  // Iterate through the column names in alphabetical order and record the indices
-  // - This will make it easy to reorder values alphabetically later on
-  std::vector<std::string> sorted_names;
-  int count = 0;
-  for (std::map<std::string, int>::iterator it = this->name2col.begin(); it != this->name2col.end() ; it++){
-    sorted_names.push_back(it->first);
-    this->col2sort[it->second] = count;
-    count++;
-  }
-*/
   // From the input strings, determine which set type applies to this file.
   if (sorted_names[0] == "x" &&
       sorted_names[1] == "y" &&
@@ -572,8 +536,6 @@ bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
   }
   return false;
 }
-
-#include <iomanip>
 
 asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool & success,
                                                      std::string const& line) const {
@@ -653,8 +615,8 @@ size_t asp::CsvConv::read_csv_file(std::string    const & file_path,
 
   // Open input file
   std::ifstream file( file_path.c_str() );
-  if( !file )
-    vw_throw( vw::IOErr() << "Unable to open file \"" << file_path << "\"" );
+  if (!file)
+    vw_throw(vw::IOErr() << "Unable to open file \"" << file_path << "\"");
 
   // Read through all the lines of the input file, parse each line, and build the output list.
   bool success;
@@ -874,9 +836,7 @@ Vector3 asp::CsvConv::cartesian_to_csv(Vector3 const& xyz,
   return unsort_vector3(csv);
 }
 
-
 // End class CsvConv functions
-//------------------------------------------------------------------------------------------
 
 void asp::las_or_csv_to_tif(std::string const& in_file,
                             std::string const& out_file,
@@ -1096,6 +1056,49 @@ std::int64_t asp::csv_file_size(std::string const& file){
   }
 
   return num_total_points;
+}
+
+// Peek at the first valid line in a file to find how many columns it has
+int asp::fileNumCols(std::string const& file) {
+
+  const int bufSize = 2048;
+  char buffer[bufSize];
+
+  std::string sep = asp::csv_separator();
+  
+  int num = 0;
+  std::ifstream fh(file.c_str());
+
+  std::string line;
+  while (getline(fh, line, '\n')){
+    if (!asp::is_valid_csv_line(line)) continue;
+
+    // Copy the input line into a buffer that can be modified
+    strncpy(buffer, line.c_str(), bufSize);
+    char * ptr = buffer;
+
+    // Inspect the tokens
+    while (1) {
+      
+      const char* token = strtok(ptr, sep.c_str());  // Split line on seperator char
+      ptr = NULL; // After the first call, strtok expects a null pointer as input.
+
+      if (token == NULL)
+        break; // no more tokens
+      
+      // Parse the floating point value from the token
+      double val;
+      int flag = sscanf(token, "%lg", &val);
+      if (flag == 0) // Handle parsing failure
+        break;
+
+      num++;
+    }
+
+    break; // done finding a good line
+  }
+  
+  return num;
 }
 
 // Erases a file suffix if one exists and returns the base string

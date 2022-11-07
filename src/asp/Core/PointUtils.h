@@ -159,7 +159,6 @@ namespace asp {
 
   }; // End class CsvConv
 
-
   /// Fetch a chunk of the las file of area TILE_LEN x TILE_LEN,
   /// split it into bins of spatially close points, and write
   /// it to disk as a tile in a vector tif image.
@@ -214,9 +213,11 @@ namespace asp {
   /// Returns the number of points contained in a PCD file
   std::int64_t pcd_file_size(std::string const& file);
 
+  // Peek at the first valid line in a file to find how many columns it has
+  int fileNumCols(std::string const& file);
+  
   /// Erases a file suffix if one exists and returns the base string
   std::string prefix_from_pointcloud_filename(std::string const& filename);
-
 
   /// Read a point cloud file in the format written by ASP.
   /// Given a point cloud with n channels, return the first m channels.
@@ -225,11 +226,11 @@ namespace asp {
   template<int m>
   vw::ImageViewRef< vw::Vector<double, m> > read_asp_point_cloud(std::string const& filename);
 
-
   /// Hide these functions from external users
   namespace point_utils_private {
 
-    // These two functions choose between two possible inputs for the form_point_cloud_composite function.
+    // These two functions choose between two possible inputs for the
+    // form_point_cloud_composite function.
 
     /// Read a texture file
     template<class PixelT>
@@ -239,7 +240,7 @@ namespace asp {
     }
     /// Read a point cloud file
     template<class PixelT>
-    typename boost::disable_if<boost::is_same<PixelT, vw::PixelGray<float> >, vw::ImageViewRef<PixelT> >::type
+    typename boost::disable_if<boost::is_same<PixelT, vw::PixelGray<float>>, vw::ImageViewRef<PixelT> >::type
     read_point_cloud_compatible_file(std::string const& file){
       return asp::read_asp_point_cloud< vw::math::VectorSize<PixelT>::value >(file);
     }
@@ -249,8 +250,8 @@ namespace asp {
   /// Read multiple image files pack them into a single patchwork tiled image.
   /// - Relies on the vw::mosaic::ImageComposite class.
   template<class PixelT>
-  inline vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> const & files, int spacing=0);
-
+  inline vw::ImageViewRef<PixelT>
+  form_point_cloud_composite(std::vector<std::string> const & files, int spacing=0);
 
   // Apply an offset to the points in the PointImage
   class PointOffsetFunc : public vw::UnaryReturnSameType {
@@ -269,7 +270,7 @@ namespace asp {
   template <class ImageT>
   vw::UnaryPerPixelView<ImageT, PointOffsetFunc>
   inline point_image_offset( vw::ImageViewBase<ImageT> const& image, vw::Vector3 const& offset) {
-    return vw::UnaryPerPixelView<ImageT,PointOffsetFunc>( image.impl(), PointOffsetFunc(offset) );
+    return vw::UnaryPerPixelView<ImageT,PointOffsetFunc>( image.impl(), PointOffsetFunc(offset));
   }
 
   // TODO: Move center lon functions and use consistently.
@@ -312,7 +313,6 @@ namespace asp {
     return vw::UnaryPerPixelView<ImageT, PointTransFunc>(image.impl(),
                                                          PointTransFunc(t));
   }
-
 
   /// Compute bounding box of the given cloud. If is_geodetic is false,
   /// that means a cloud of raw xyz cartesian values, then Vector3()
@@ -386,7 +386,6 @@ vw::ImageViewRef< vw::Vector<double, m> > read_asp_point_cloud(std::string const
   return out_image;
 }
 
-
 /// Read given files and form an image composite.
 template<class PixelT>
 vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> const & files,
@@ -399,7 +398,8 @@ vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> con
 
   for (int i = 0; i < (int)files.size(); i++){
 
-    vw::ImageViewRef<PixelT> I = point_utils_private::read_point_cloud_compatible_file<PixelT>(files[i]);
+    vw::ImageViewRef<PixelT> I
+      = point_utils_private::read_point_cloud_compatible_file<PixelT>(files[i]);
 
     // We will stack the images in the composite side by side. Images which
     // are wider than tall will be transposed.

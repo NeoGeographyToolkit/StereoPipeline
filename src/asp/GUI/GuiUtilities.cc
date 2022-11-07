@@ -472,6 +472,8 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
                      DisplayMode display_mode,
                      std::map<std::string, std::string> const& properties) {
 
+  vw_out() << "Reading: " << name_in << std::endl; 
+
   if (display_mode == REGULAR_VIEW)
     name = name_in;
   else if (display_mode == HILLSHADED_VIEW)
@@ -493,10 +495,11 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
       style = it->second; // copy the style (poly, line, points)
   }
   
+  std::string default_poly_color = "green"; // default, will be overwritten later
+  
   if (asp::has_shp_extension(name_in)){
     // Read a shape file
-    std::string poly_color = "red"; // default, will be overwritten later
-    read_shapefile(name_in, poly_color, has_georef, georef, polyVec);
+    read_shapefile(name_in, default_poly_color, has_georef, georef, polyVec);
 
     double xll, yll, xur, yur;
     shapefile_bdbox(polyVec,
@@ -507,13 +510,12 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     image_bbox.max() = Vector2(xur, yur);
 
     if (!has_georef)
-      vw_throw(ArgumentErr() << "Expecting the shapefile to have a georeference.\n");
+      vw_out() << "The shapefile lacks a georeference.\n";
     
   } else if (vw::gui::hasCsv(name_in)) {
 
     // Read CSV
-    vw_out() << "Reading: " << name_in << std::endl; 
-
+    int numCols = asp::fileNumCols(name_in);
     bool has_pixel_vals = false; // may change later
     has_georef = true; // this may change later
     asp::CsvConv csv_conv;
@@ -541,11 +543,35 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     image_bbox.max() = subvector(bounds.max(), 0, 2);
     val_range[0] = bounds.min()[2];
     val_range[1] = bounds.max()[2];
+
+    if (style == "poly") {
+      // Convert to polygon
+      polyVec.clear();
+      polyVec.resize(1);
+      bool isPolyClosed = true;
+      std::string layer;
+      int num = scattered_data.size();
+      std::vector<double> x(num), y(num);
+      for (int it = 0; it < num; it++) {
+        x[it] = scattered_data[it].x();
+        y[it] = scattered_data[it].y();
+      }
+
+      // TODO(oalexan1): This logic is temporary. Read the color from the
+      // file if present.
+      std::string curr_color = default_poly_color;
+      if (color != "default" && color != "")
+        curr_color = color;
+      polyVec[0].appendPolygon(num,
+                               vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
+                               isPolyClosed, curr_color, layer);
+      scattered_data.clear(); // the data is now in the poly structure
+    }
+    
   }else{
     // Read an image
     int top_image_max_pix = 1000*1000;
     int subsample = 4;
-    vw_out() << "Reading: " << name_in << std::endl;
     has_georef = vw::cartography::read_georeference(georef, name_in);
 
     if (display_mode == REGULAR_VIEW) {

@@ -1856,28 +1856,22 @@ void MainWindow::polyEditMode() {
   if (polyEditMode) {
     // Turn on vector layer editing
     
-    // Can't have a vector layer without georeferences
-    for (size_t i = 0; i < m_image_files.size(); i++) {
-      if (!m_images[i].has_georef) {
-        popUp("Cannot turn on the vector layer edit mode if there is no georeference in: "
-              + m_image_files[i]);
-        polyEditMode = false;
-        m_polyEditMode_action->setChecked(polyEditMode);
-        break; // Continue with the next loop to turn off vector layer mode in all widgets
-      }
-    }
-    
-    // The drawn polygons will be created incorrectly unless in
-    // georeference mode.  That will reorganize the GUI, so we have to
-    // quit right away. Will tell the widgets to turn on polygon
-    // editing after they are re-created.
     if (!m_use_georef) {
-      popUp("To edit polygons, the data will be overlayed in one window using georeferences.");
-      m_use_georef = true;
-      m_viewGeoreferencedImages_action->setChecked(m_use_georef);
-      m_overlayGeoreferencedImages_action->setChecked(m_use_georef);
-      overlayGeoreferencedImages();
-      return;
+      bool has_georef = true;
+      for (size_t i = 0; i < m_images.size(); i++)
+        has_georef = has_georef && m_images[i].has_georef;
+
+      if (has_georef) {
+        m_use_georef = true;
+        // If georeference information exists, draw polygons in that mode,
+        // and any newly-created polygons will inherit the georeference.
+        popUp("To edit polygons, the data will be overlayed in one window using georeferences.");
+        m_use_georef = true;
+        m_viewGeoreferencedImages_action->setChecked(m_use_georef);
+        m_overlayGeoreferencedImages_action->setChecked(m_use_georef);
+        overlayGeoreferencedImages();
+        return;
+      }
     }
   }
   

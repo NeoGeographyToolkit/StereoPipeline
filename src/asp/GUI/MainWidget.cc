@@ -1554,14 +1554,14 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     // actively being edited?
     // Loop through the input images. Plot the polygons. Note how we
     // add one more fake image at the end to take care of the polygon
-    // we are in the middle of drawing.
-    for (int j = m_beg_image_id; j < m_end_image_id + 1; j++){
+    // we are in the middle of drawing. This extra fake image is a hackish thing
+    for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per above
 
-      bool currDrawnPoly = (j == m_end_image_id);
-      
-      int image_it = j;
+      bool currDrawnPoly = (j == m_end_image_id); // last poly is the currently drawn one
+
+      int image_it = m_polyLayerIndex; // for currently drawn poly
       if (!currDrawnPoly) {
-        image_it = m_filesOrder[j];
+        image_it = m_filesOrder[j]; // for the other polys
       
         // Don't show files the user wants hidden
         std::string fileName = m_images[image_it].name;
@@ -1578,10 +1578,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       } else {
           if (m_currPolyX.empty() || !m_polyEditMode)
             continue;
-          
-          if (!m_images[m_polyLayerIndex].has_georef) // this should not happen
-            vw_throw(ArgumentErr() << "Expecting images with georeference.\n");
-          
+
           vw::geometry::dPoly poly;
           poly.reset();
           poly.appendPolygon(m_currPolyX.size(),  
@@ -1608,10 +1605,6 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       
         vw::geometry::dPoly poly = polyVec[polyIter]; // make a deep copy
 
-        bool counter_cc = true; // counter-clockwise polys have positive area
-        double val1 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
-                                                   poly.get_xv(), poly.get_yv(), counter_cc);
-
         // Convert to world units
         int            numVerts  = poly.get_totalNumVerts();
         double *             xv  = poly.get_xv();
@@ -1619,10 +1612,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         for (int vIter = 0; vIter < numVerts; vIter++){
 
           Vector2 P;
-          if (!currDrawnPoly) 
-            P = projpoint2world(Vector2(xv[vIter], yv[vIter]), image_it);
-          else
-            P = projpoint2world(Vector2(xv[vIter], yv[vIter]), m_polyLayerIndex);
+          P = projpoint2world(Vector2(xv[vIter], yv[vIter]), image_it);
 
           xv[vIter] = P.x();
           yv[vIter] = P.y();
@@ -1635,15 +1625,6 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
           drawVertIndex = 0;
           plotPoints = false;
         }
-
-        double val2 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
-                                                   poly.get_xv(), poly.get_yv(),
-                                                   counter_cc);
-
-        // If the conversion to world coords flips the orientation, correct for that.
-        // TODO: This seems necessary. More thought is needed. 
-        if (val1 * val2 < 0)
-          poly.reverse();
 
         MainWidget::plotDPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
                               m_showIndices->isChecked(),
@@ -1884,8 +1865,8 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     // otherwise it looks as if polygons are invisible.
     if (pSize == 0 && m_chooseFiles && m_chooseFiles->isHidden(m_images[m_polyLayerIndex].name)) {
       for (int j = m_beg_image_id; j < m_end_image_id; j++) {
-        
         int i = m_filesOrder[j]; // image index
+        
         if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
           continue;
         m_polyLayerIndex = i; // not hidden
@@ -1903,9 +1884,6 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       // We did not arrive yet at the starting point of the polygon being
       // drawn. Add the current point.
 
-      if (!m_images[m_polyLayerIndex].has_georef) // this should not happen
-        vw_throw(ArgumentErr() << "Expecting images with georeference.\n"); 
-      
       S = screen2world(S);                    // world coordinates
       m_world_box.grow(S); // to not cut when plotting later
       S = world2projpoint(S, m_polyLayerIndex); // projected units
@@ -1929,34 +1907,6 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 		    vw::geometry::vecPtr(m_currPolyX), vw::geometry::vecPtr(m_currPolyY),
                     isPolyClosed, color, layer);
 
-    bool counter_cc = true;
-    double val1 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
-                                               poly.get_xv(), poly.get_yv(), counter_cc);
-
-
-    // If conversion to world units flips the orientation, that means
-    // reverse the original polygon.
-    // TODO: This looks like a hack. But it works. 
-    vw::geometry::dPoly poly2 = poly;
-
-    double val2 = vw::geometry::signedPolyArea(poly2.get_totalNumVerts(),
-                                               poly2.get_xv(), poly2.get_yv(), counter_cc);
-
-    // Convert to world units
-    int            numVerts  = poly2.get_totalNumVerts();
-    double *             xv  = poly2.get_xv();
-    double *             yv  = poly2.get_yv();
-    for (int vIter = 0; vIter < numVerts; vIter++){
-      Vector2 P = projpoint2world(Vector2(xv[vIter], yv[vIter]), m_polyLayerIndex); 
-      xv[vIter] = P.x();
-      yv[vIter] = P.y();
-    }
-    
-    val2 = vw::geometry::signedPolyArea(poly2.get_totalNumVerts(),
-					poly2.get_xv(), poly2.get_yv(), counter_cc);
-    if (val1*val2 < 0)
-      poly.reverse();
-    
     appendToPolyVec(poly);
     
     m_currPolyX.clear();
@@ -2704,8 +2654,8 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     m_last_view = m_current_view;
 
     // Check if the user is holding down the crop window key.
-    m_cropWinMode = ( (event->buttons  () & Qt::LeftButton     ) &&
-                      (event->modifiers() & Qt::ControlModifier) );
+    m_cropWinMode = ((event->buttons  () & Qt::LeftButton     ) &&
+                     (event->modifiers() & Qt::ControlModifier));
 
     m_editMatchPointVecIndex = -1; // Keep this initialized
 
@@ -2873,7 +2823,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
   } // End function mouseMoveEvent()
 
   // TODO(oalexan1): Clean up this monster function!
-  void MainWidget::mouseReleaseEvent (QMouseEvent *event){
+  void MainWidget::mouseReleaseEvent(QMouseEvent *event){
 
     QPoint mouse_rel_pos = event->pos();
     int mouseRelX = mouse_rel_pos.x(),
