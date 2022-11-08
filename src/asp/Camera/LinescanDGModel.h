@@ -31,6 +31,11 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Math/EulerAngles.h>
 
+// TODO(oalexan1): Temporary! These will be moved to .cc
+#include <asp/Camera/CsmModel.h>
+#include <asp/Sessions/StereoSession.h>
+#include <usgscsm/UsgsAstroLsSensorModel.h>
+
 namespace asp {
 
   // The intrinisic model expects +Z to be point out the camera. +X is
@@ -50,6 +55,103 @@ namespace asp {
   template <class PositionFuncT, class VelocityFuncT, class PoseFuncT>
   class LinescanDGModel : public vw::camera::LinescanModel {
   public:
+
+    // TODO(oalexan1): This is temporary logic. Eventually this class will
+    // replace LinescanDGModel, will be de-templated, moved to .cc,
+    // and the class PiecewiseAdjustedLinescanModel will go away.
+    struct DgCsmModel: public CsmModel {
+      
+      DgCsmModel() {}
+      void populateCsmModel(LinescanDGModel * dg_model) {
+        m_desired_precision = 1.0e-12;
+        vw::cartography::Datum datum("WGS84"); // this sensor is used for Earth only
+        m_semi_major_axis = datum.semi_major_axis();
+        m_semi_minor_axis = datum.semi_minor_axis();
+
+        // Create a linescan model as a smart pointer, and do smart pointer casting
+        m_csm_model.reset(new UsgsAstroLsSensorModel); // follow CSM api, type is csm::RasterGM
+        m_ls_model = boost::dynamic_pointer_cast<UsgsAstroLsSensorModel>(m_csm_model);
+        if (m_ls_model == NULL)
+          vw::vw_throw(vw::ArgumentErr() << "Invalid initialization of the linescan model.\n");
+        
+        // This performs many initializations apart from the above
+        m_ls_model->reset();
+        
+        m_ls_model->m_nSamples = dg_model->m_image_size[0]; 
+        m_ls_model->m_nLines   = dg_model->m_image_size[1];
+
+        m_ls_model->m_platformFlag = 1; // For order 8 Lagrange interpolation
+        m_ls_model->m_maxElevation =  10000.0; //  10 km
+        m_ls_model->m_minElevation = -10000.0; // -10 km
+        m_ls_model->m_focalLength  = 1.0;
+        m_ls_model->m_zDirection   = 1.0;
+        m_ls_model->m_halfSwath    = 1.0;
+        m_ls_model->m_sensorIdentifier = "DigitalGlobeLinescan";
+        m_ls_model->m_majorAxis = m_semi_major_axis;
+        m_ls_model->m_minorAxis = m_semi_minor_axis;
+  
+        m_ls_model->m_iTransL[0]   = 0.0;  
+        m_ls_model->m_iTransL[1]   = 1.0; // no scale
+        m_ls_model->m_iTransL[2]   = 0.0; // no skew
+        m_ls_model->m_iTransS[0]   = 0.0;
+        m_ls_model->m_iTransS[1]   = 0.0; // no skew
+        m_ls_model->m_iTransS[2]   = 1.0; // no scale
+        m_ls_model->m_detectorLineOrigin   = 0.0;
+        m_ls_model->m_detectorSampleOrigin = 0.0;
+        
+        // Quantities needed to find the ray direction in the sensor plane.
+        // This needs to be consistent with usgscsm functions
+        // computeDistortedFocalPlaneCoordinates() and
+        // createCameraLookVector(), which requires a lot of care.
+        // Need to emulate this
+        // double x = m_coeff_psi_x[0] + m_coeff_psi_x[1] * (col  + m_ref_col);
+        // double y = m_coeff_psi_y[0] + m_coeff_psi_y[1] * (col  + m_ref_col);
+        // Using this:
+        // double detSample = (col + 0.5) * sampleSumming + startingSample;
+        // double detLine = line * lineSumming + startingLine; // but it will use line = 0
+        vw::Vector2 m_coeff_psi_x(0, 0), m_coeff_psi_y(0, 0); // temporary
+        double m_ref_col = 0;
+        m_ls_model->m_detectorLineSumming    = 1.0;
+        m_ls_model->m_startingDetectorLine   =  m_coeff_psi_y[0]; // note that m_coeff_psi_y[1] = 0
+        m_ls_model->m_detectorSampleSumming  = -m_coeff_psi_x[1];
+        m_ls_model->m_startingDetectorSample
+          = -m_coeff_psi_x[0] - m_coeff_psi_x[1] * (m_ref_col - 0.5);
+
+        // Time
+        auto const& tlc = dg_model->m_time_func.m_tlc;
+        double time_offset = dg_model->m_time_func.m_time_offset;
+        if (tlc.size() < 2) 
+          vw::vw_throw(vw::ArgumentErr()
+                       << "Expecting at least two line and time sample pairs.\n");
+        
+        m_ls_model->m_intTimeLines.clear(); // not needed, but best for clarity
+        m_ls_model->m_intTimeStartTimes.clear();
+        m_ls_model->m_intTimes.clear();
+        for (size_t i = 0; i < tlc.size(); i++) {
+          m_ls_model->m_intTimeLines.push_back(tlc[i].first + 1.0); // line
+          m_ls_model->m_intTimeStartTimes.push_back(tlc[i].second + time_offset); // time
+          // Slope
+          if (i + 1 < tlc.size()) {
+            // Compute the slope between this time instance and the next
+            double slope = (tlc[i+1].second - tlc[i].second) / (tlc[i+1].first - tlc[i].first);
+            m_ls_model->m_intTimes.push_back(slope);
+          } else{
+            // Cannot have a slope for the last value, as there's no next one to use,
+            // but for consistency, borrow the last slope. This is consistent
+            // with lines out of range using the slopes closest to them.
+            double slope = m_ls_model->m_intTimes.back();
+            m_ls_model->m_intTimes.push_back(slope);
+          }
+        }
+
+        
+      }
+
+      // Pointer to linescan sensor.
+      boost::shared_ptr<UsgsAstroLsSensorModel> m_ls_model;
+      
+    };
+      
     //------------------------------------------------------------------
     // Constructors / Destructors
     //------------------------------------------------------------------
@@ -69,6 +171,9 @@ namespace asp {
       m_detector_origin(detector_origin),
       m_focal_length(focal_length) {
       m_mean_surface_elevation = mean_ground_elevation; // Set base class value
+
+      if (stereo_settings().dg_use_csm)
+        m_dg_csm_model.populateCsmModel(this);
     } 
     virtual ~LinescanDGModel() {}
     virtual std::string type() const { return "LinescanDG"; }
@@ -80,13 +185,26 @@ namespace asp {
       return m_position_func(time);
     }
     virtual vw::Vector3 get_camera_velocity_at_time(double time) const {
+      // TODO(oalexan1): This is not called, so it is tricky to test.
       return m_velocity_func(time);
     }
     virtual vw::Quat get_camera_pose_at_time(double time) const {
       return m_pose_func(time);
     }
     virtual double get_time_at_line(double line) const {
+      if (stereo_settings().dg_use_csm) {
+        csm::ImageCoord csm_pix;
+        vw::Vector2 pix(0, line);
+        asp::toCsmPixel(pix, csm_pix);
+        return m_dg_csm_model.m_ls_model->getImageTime(csm_pix);
+      }
+      
       return m_time_func(line);
+    }
+
+    // Gives a pointing vector in the world coordinates.
+    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const {
+      return vw::camera::LinescanModel::pixel_to_vector(pix);
     }
     
     /// As pixel_to_vector, but in the local camera frame.
@@ -97,7 +215,6 @@ namespace asp {
     
     // Override this implementation with a faster, more specialized implementation.
     virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const {
-
       // Use the uncorrected function to get a fast but good starting seed.
       vw::camera::CameraGenericLMA model(this, point);
       int status;
@@ -116,6 +233,16 @@ namespace asp {
       return solution;
     }
     
+    // Camera pose
+    virtual vw::Quaternion<double> camera_pose(vw::Vector2 const& pix) const {
+      return vw::camera::LinescanModel::camera_pose(pix);
+    }
+
+    /// Gives the camera position in world coordinates.
+    virtual vw::Vector3 camera_center(vw::Vector2 const& pix) const {
+      return vw::camera::LinescanModel::camera_center(pix);
+    }
+
     // -- These are new functions --
 
     ///< Returns the focal length in pixels
@@ -196,6 +323,8 @@ namespace asp {
     vw::Vector2  m_detector_origin; 
     double       m_focal_length;    ///< The focal length, also stored in pixels.
 
+    DgCsmModel m_dg_csm_model;
+    
     // Levenberg Marquardt solver for linescan number
     //
     // We solve for the line number of the image that position the

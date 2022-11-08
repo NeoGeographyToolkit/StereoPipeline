@@ -145,8 +145,10 @@ namespace asp {
     bool enable_correct_velocity_aberration;
     bool enable_correct_atmospheric_refraction;
     
-    int    disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
+    int disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
 
+    bool dg_use_csm; // temporary
+    
     // Correlation Options
     
 

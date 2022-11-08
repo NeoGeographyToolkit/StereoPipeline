@@ -102,7 +102,7 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::st
       direction = -1;
     }
     img.tlc_vec.push_back(std::make_pair(img.tlc_vec.front().first +
-					  img.avg_line_rate, direction));
+                                         img.avg_line_rate, direction));
   }
 
   // Build the TLCTimeInterpolation object and do a quick sanity check.
