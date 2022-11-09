@@ -218,10 +218,6 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     m_image_files.push_back(local_images[i]);
   }
 
-  // Ensure the inputs are reasonable
-  if (!MainWindow::sanityChecks(m_image_files.size()))
-    forceQuit();
-
   int num_images = m_image_files.size();
   m_images.resize(num_images);
   bool has_georef = true;
@@ -235,7 +231,19 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   }
   if (has_georef)
     m_use_georef = true; // use georef if all images have it
+
+  // Allow the gui to start with no data. This way at least one can draw a vector layer
+  if (m_image_files.empty()) {
+    m_images.resize(1);
+    m_image_files.push_back("image.tif");
+    m_images[0].name = m_image_files[0];
+    m_images[0].image_bbox = BBox2(0, 0, 1, 1);
+  }
   
+  // Ensure the inputs are reasonable
+  if (!MainWindow::sanityChecks(m_image_files.size()))
+    forceQuit();
+
   // For being able to choose which files to show/hide
   m_chooseFiles = new chooseFilesDlg(this);
   m_chooseFiles->chooseFiles(m_images);
