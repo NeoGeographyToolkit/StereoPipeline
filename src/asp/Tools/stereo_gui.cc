@@ -91,7 +91,7 @@ namespace asp{
     if (vm.count("input-files") > 0) 
       input_files = vm["input-files"].as<std::vector<std::string>>();
     else if (asp::stereo_settings().nvm.empty())
-        vw_throw(ArgumentErr() << "Missing input arguments.\n" << usage);
+      vw_out() << "Missing input arguments.\n";
     else
       input_files.clear(); // no input files, will be read from nvm later
     
@@ -263,10 +263,6 @@ int main(int argc, char** argv) {
     handle_arguments(argc, argv, opt, all_files);
     
     readImages(all_files, images, output_prefix);
-    
-    // Presumably the tool was invoked with no options. Just print the help message.
-    if (images.empty() && asp::stereo_settings().nvm.empty())
-      vw_throw(ArgumentErr() << "Could not process the inputs.\n");
     
     if (stereo_settings().create_image_pyramids_only) {
       // Just create the image pyramids and exit

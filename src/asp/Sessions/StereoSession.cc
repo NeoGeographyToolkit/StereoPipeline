@@ -15,6 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// TODO(oalexan1): This file is slow to compile. The ip-matching
+// logic and camera loading logic can be put in separate files
+// with each including their own headers.
 
 /// \file StereoSession.cc
 ///
@@ -1329,7 +1332,6 @@ vw::Vector2 StereoSession::camera_pixel_offset(std::string const& input_dem,
 
   return Vector2();
 }
-
 
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
