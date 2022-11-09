@@ -102,6 +102,8 @@ namespace asp {
     // TODO(oalexan1): Is it always going to be this type (RasterGM)?
     boost::shared_ptr<csm::RasterGM> m_csm_model;
 
+    double m_desired_precision;
+    
   protected:
 
     // Read the ellipsoid (datum) axes from the isd json file
@@ -132,8 +134,6 @@ namespace asp {
 
     vw::Vector3 m_sun_position;
 
-    double m_desired_precision;
-    
   }; // End class CsmModel
 
   // Auxiliary non-member functions to convert a pixel from ASP

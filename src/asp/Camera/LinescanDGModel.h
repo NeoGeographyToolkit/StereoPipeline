@@ -291,6 +291,9 @@ namespace asp {
 
     /// As pixel_to_vector, but in the local camera frame.
     virtual vw::Vector3 get_local_pixel_vector(vw::Vector2 const& pix) const;
+
+    // Point to pixel with no initial guess
+    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const;
     
     // Override this implementation with a faster, more specialized implementation.
     virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const;
