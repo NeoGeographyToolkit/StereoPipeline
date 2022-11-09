@@ -240,8 +240,7 @@ int main(int argc, char* argv[]) {
           vw::cartography::block_write_gdal_image(d_sub_file, d_sub,
                                       has_left_georef, left_sub_georef,
                                       has_nodata, output_nodata,
-                                      opt, TerminalProgressCallback("asp", "\t    D_sub: ")
-                                      );
+                                      opt, TerminalProgressCallback("asp", "\t    D_sub: "));
         } // End i loop
       } // End has_left_georef
     } // End georef attach 

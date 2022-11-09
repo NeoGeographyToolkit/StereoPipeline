@@ -264,15 +264,11 @@ namespace asp {
   // from LinescanDGModel, and use directly the inputs from the XML file.
   class DGCameraModel: public DGCameraModelBase {
     
-  private:
-    friend class DgCsmModel;
-    boost::shared_ptr<DgCsmModel> m_dg_csm_model;
-    
   public:
     
     DGCameraModel(vw::camera::PiecewiseAPositionInterpolation      const& position,
-                  vw::camera::LinearPiecewisePositionInterpolation const& pose,
-                  vw::camera::SLERPPoseInterpolation               const& velocity,
+                  vw::camera::LinearPiecewisePositionInterpolation const& velocity,
+                  vw::camera::SLERPPoseInterpolation               const& pose,
                   vw::camera::TLCTimeInterpolation                 const& time,
                   vw::Vector2i                                     const& image_size, 
                   vw::Vector2                                      const& detector_origin,
@@ -304,6 +300,14 @@ namespace asp {
 
     /// Gives the camera position in world coordinates.
     virtual vw::Vector3 camera_center(vw::Vector2 const& pix) const;
+
+  private:
+    friend class DgCsmModel;
+    boost::shared_ptr<DgCsmModel> m_dg_csm_model;
+
+    // Function to interpolate quaternions with the CSM model. This is used
+    // for validation of the CSM model but not in production.  
+    void getQuaternions(const double& time, double q[4]) const;
   };
 
   /// Load a DG camera model from an XML file. This function does not

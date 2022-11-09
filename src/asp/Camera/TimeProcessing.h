@@ -30,8 +30,8 @@ namespace asp {
     
     inline void set_base_time(boost::posix_time::ptime const& ref_time) {m_reference = ref_time;}
     
-    inline double operator()( boost::posix_time::ptime const& time ) const {
-      return double( (time - m_reference).total_microseconds() ) / 1e6;
+    inline double operator()(boost::posix_time::ptime const& time) const {
+      return double((time - m_reference).total_microseconds()) / 1.0e6;
     }
   };
 
