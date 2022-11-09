@@ -203,6 +203,9 @@ MOLA (:numref:`ba_pc_align`)::
       --apply-initial-transform-only                             \
     -o ba_align/run
 
+Solving for jitter
+^^^^^^^^^^^^^^^^^^
+
 Then, jitter was solved for, using the aligned cameras::
 
     jitter_solve                               \

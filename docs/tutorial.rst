@@ -347,7 +347,11 @@ long run-time. It is then suggested to mapproject the images
 (:numref:`mapproj-example`).
 
 With our without mapprojection, one can reduce the computed search
-range via ``--max-disp-spread`` (:numref:`stereodefault`).
+range via ``--max-disp-spread`` (:numref:`stereodefault`). 
+Use this with care. Without mapprojection and with steep terrain,
+the true spread of the disparity can, in rare cases, reach a few
+thousand pixels. This is best used with mapprojected images,
+when it is likely to be under 150-200, or even under 100.
 
 If a reasonable DEM of the area of interest exists, the option
 ``--ip-filter-using-dem`` can be used to filter out interest points

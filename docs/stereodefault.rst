@@ -403,7 +403,11 @@ max-disp-spread (*double*) (default = -1.0)
     If positive, limit the spread of the disparity to this value
     (horizontally and vertically, centered at the median
     value). Do not specify together with ``corr-search-limit``.
-
+    Use this with care. With non-mapprojected images, the valid spread
+    of the disparity can be a few thousand pixels, if the terrain 
+    is very steep. With mapprojected images this likely should
+    be under 100-200 pixels.
+    
 corr-search-limit (*integer integer integer integer*)
     Set these parameters to constrain the search range that
     ``parallel_stereo`` automatically computes when ``corr-search`` is

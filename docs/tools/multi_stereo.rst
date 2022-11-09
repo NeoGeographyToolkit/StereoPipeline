@@ -134,7 +134,10 @@ meters), the camera is about 1-3 meters from the surface, hence a good
 value for the triangulation error was about 0.0025 meters, and the
 points in the cloud were binned (before meshing) into voxels of size
 0.005 meters. Later some of these choices will be automated, or
-scale-independent parameters will be provided.
+scale-independent parameters will be provided. The value
+``--max-disp-spread 300`` is about right for this case, but should
+normally be omitted as sometimes it may restrict the disparity
+unnecessarily. 
 
 There are three steps happening above, namely:
 

@@ -93,6 +93,9 @@ void PleiadesCameraModel::populateCsmModel() {
   m_ls_model->m_detectorSampleOrigin = 0.0;
 
   // Quantities needed to find the ray direction in the sensor plane.
+  // This needs to be consistent with usgscsm functions
+  // computeDistortedFocalPlaneCoordinates() and
+  // createCameraLookVector(), which requires a lot of care.
   // Need to emulate this
   // double x = m_coeff_psi_x[0] + m_coeff_psi_x[1] * (col  + m_ref_col);
   // double y = m_coeff_psi_y[0] + m_coeff_psi_y[1] * (col  + m_ref_col);
@@ -131,10 +134,14 @@ void PleiadesCameraModel::populateCsmModel() {
   // TODO(oalexan1): What is the right factor (inverse of sampling rate)?
   int factor = 100;
   m_ls_model->m_numQuaternions = 4 * num_pos * factor;    // concatenate all coordinates
-  m_ls_model->m_t0Quat = m_ls_model->m_t0Ephem;          // quaternion t0 
-  m_ls_model->m_dtQuat = m_ls_model->m_dtEphem / factor; // quaternion dt
+  m_ls_model->m_t0Quat = m_ls_model->m_t0Ephem;          // quaternion t0, borrow from position t0
+  m_ls_model->m_dtQuat = m_ls_model->m_dtEphem / factor; // quaternion dt, borrow from position dt
   m_ls_model->m_quaternions.resize(m_ls_model->m_numQuaternions);
   for (int pos_it = 0; pos_it < m_ls_model->m_numQuaternions / 4; pos_it++) {
+    // Note that if factor > 1, the t values will exceed the time for
+    // the last ephemeris, but that is fine, since we sample a
+    // polynomial rather than from a table where we'd go out of
+    // bounds.
     double t = m_ls_model->m_t0Quat + pos_it * m_ls_model->m_dtQuat;
     vw::Quat q = get_camera_pose_at_time(t);
 
@@ -227,7 +234,6 @@ void PleiadesCameraModel::check_time(double time, std::string const& location) c
 }
 
 vw::Vector3 PleiadesCameraModel::get_camera_center_at_time(double time) const {
-  
   // TODO(oalexan1): This needs more testing. Normally it is not invoked.
   csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
   return vw::Vector3(ecef.x, ecef.y, ecef.z);
@@ -273,7 +279,8 @@ vw::Vector3 PleiadesCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) 
   // experimentally that one needs to add it.
   double x = m_coeff_psi_x[0] + m_coeff_psi_x[1] * (col  + m_ref_col);
 
-  // Note how below col (and not row) is used, per the doc.
+  // Note how below col (and not row) is used, per the Pleiades doc.
+  // Note that m_coeff_psi_y[1] is 0.
   double y = m_coeff_psi_y[0] + m_coeff_psi_y[1] * (col  + m_ref_col);
 
   vw::Vector3 result = vw::Vector3(y, -x, 1.0);

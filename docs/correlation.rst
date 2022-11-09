@@ -327,6 +327,9 @@ If the search range produced automatically from the low-resolution
 disparity is too big, perhaps due to outliers, it can be tightened
 with either ``--max-disp-spread`` or ``--corr-search-limit``, before
 continuing with full-resolution correlation (:numref:`stereodefault`).
+But note that for very steep terrains and no use of mapprojection a
+large search range is expected, and tightening it too much may result
+in an inaccurate disparity.
 
 .. _subpixel:
 
