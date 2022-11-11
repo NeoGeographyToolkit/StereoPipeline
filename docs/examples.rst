@@ -2613,8 +2613,10 @@ are not minimized enough.
 Declassified satellite images: KH-4B
 ------------------------------------
 
-ASP supports the declassified high-resolution CORONA KH-4B images. These
-images can be processed using either optical bar (panoramic) camera
+ASP has support for the declassified high-resolution CORONA KH-4B images. 
+This support is very experimental, and the user is advised to use caution.
+
+These images can be processed using either optical bar (panoramic) camera
 models or as pinhole camera models with RPC distortion. Most of the
 steps are similar to the example in :numref:`skysat-example`.
 The optical bar camera model is based on
@@ -2987,7 +2989,7 @@ Declassified satellite images: KH-7
 
 KH-7 was an effective observation satellite that followed the Corona
 program. It contained an index (frame) camera and a single strip
-(pushbroom) camera. ASP does currently have a dedicated camera model for
+(pushbroom) camera. ASP does not currently have a dedicated camera model for
 this camera, so we will have to try to approximate it with a pinhole
 model. Without a dedicated solution for this camera, you may only be
 able to get good results near the central region of the image.
