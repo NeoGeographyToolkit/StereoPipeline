@@ -52,7 +52,6 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/InterestPoint/InterestData.h>
-#include <vw/Mosaic/DiskImagePyramid.h>
 #include <vw/Geometry/dPoly.h>
 #include <vw/Image/AntiAliasing.h>
 
@@ -79,16 +78,6 @@ namespace vw { namespace gui {
   namespace fs = boost::filesystem;
 
   bool isPolyZeroDim(const QPolygon & pa);
-  
-  /// A global structure to hold all the temporary files we have created
-  struct TemporaryFiles {
-    std::set<std::string> files;
-  };
-  /// Access the global list of temporary files
-  TemporaryFiles& temporary_files();
-
-  // Pop-up a window with given message
-  void popUp(std::string msg);
 
   bool getStringFromGui(QWidget * parent,
 			std::string title, std::string description,
@@ -110,48 +99,6 @@ namespace vw { namespace gui {
     R.max().y() = -B.min().y();
     return R;
   }
-
-  // An image class that supports 1 to 3 channels.  We use
-  // DiskImagePyramid<double> to be able to use some of the
-  // pre-defined member functions for an image class. This class
-  // is not a perfect solution, but there seem to be no easy way
-  // in ASP to handle images with variable numbers of channels.
-  // TODO: Add the case when multi-channel images also have float or double pixels
-  struct DiskImagePyramidMultiChannel {
-    vw::GdalWriteOptions m_opt;
-    vw::mosaic::DiskImagePyramid<double>               m_img_ch1_double;
-    vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>> m_img_ch2_uint8;
-    vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 3>> m_img_ch3_uint8;
-    vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 4>> m_img_ch4_uint8;
-    int m_num_channels;
-    int m_rows, m_cols;
-    ImgType m_type; // keeps track of which of the above images we use
-
-    // Constructor
-    DiskImagePyramidMultiChannel(std::string const& image_file = "",
-                                 vw::GdalWriteOptions const&
-                                 opt = vw::GdalWriteOptions(),
-                                 int top_image_max_pix = 1000*1000,
-                                 int subsample = 2);
-
-    // This function will return a QImage to be shown on screen.
-    // How we create it, depends on the type of image we want to display.
-    void get_image_clip(double scale_in, vw::BBox2i region_in,
-                      bool highlight_nodata,
-                      QImage & qimg, double & scale_out, vw::BBox2i & region_out) const;
-    double get_nodata_val() const;
-    
-    int32 cols  () const { return m_cols;  }
-    int32 rows  () const { return m_rows;  }
-    int32 planes() const { return m_num_channels; }
-
-    /// Return the element at this location (at the lowest level) cast to double.
-    /// - Only works for single channel pyramids!
-    double get_value_as_double( int32 x, int32 y) const;
-
-    // Return value as string
-    std::string get_value_as_str( int32 x, int32 y) const;
-  };
 
   // Return true if the extension is .csv or .txt
   bool hasCsv(std::string const& fileName);
@@ -279,39 +226,6 @@ namespace vw { namespace gui {
     void push_back(vw::Vector2 pt) { m_points.push_back(pt); }
     void push_back(std::list<vw::Vector2> pts);
   };
-
-  /// Class to create a file list on the left side of the window
-  class chooseFilesDlg: public QWidget{
-    Q_OBJECT
-
-  public:
-    chooseFilesDlg(QWidget * parent);
-    ~chooseFilesDlg();
-    void chooseFiles(const std::vector<imageData> & images);
-
-    QTableWidget * getFilesTable(){ return m_filesTable; }
-    static QString selectFilesTag(){ return ""; }
-
-    // Check if the given image is hidden (not shown) based on the table checkbox  
-    bool isHidden(std::string const& image) const;
-    // Hide the given image  
-    void hide(std::string const& image);
-    // Show the given image  
-    void unhide(std::string const& image);
-
-    // Show only first two images; this is the best default for pairwise stereo
-    void showTwoImages();
-    
-    // Show all images
-    void showAllImages();
-    
-  private:
-    int imageRow(std::string const& image) const;
-    QTableWidget * m_filesTable;
-    void keyPressEvent(QKeyEvent *event);
-    std::map<std::string, int> image_to_row;
-  };
-
 
   /// Helper class to keep track of all the matching interest points
   /// - Each image must have the same number of interest points

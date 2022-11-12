@@ -26,6 +26,7 @@
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Nvm.h>
+#include <asp/GUI/chooseFilesDlg.h>
 
 using namespace asp;
 using namespace vw::gui;
@@ -246,7 +247,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
 
   // For being able to choose which files to show/hide
   m_chooseFiles = new chooseFilesDlg(this);
-  m_chooseFiles->chooseFiles(m_images);
+  m_chooseFiles->chooseFiles(m_image_files);
   // See note at chooseFilesFilterDelegate
   m_chooseFiles->getFilesTable()->setItemDelegate(new chooseFilesFilterDelegate(this));
   m_chooseFiles->getFilesTable()->installEventFilter(this);

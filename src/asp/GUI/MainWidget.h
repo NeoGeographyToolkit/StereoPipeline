@@ -75,6 +75,8 @@ class QStylePainter;
 
 namespace vw { namespace gui {
 
+  class chooseFilesDlg;
+  
   namespace fs = boost::filesystem;
 
    /// This class handles user interaction with the a single image pane.

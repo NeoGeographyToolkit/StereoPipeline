@@ -20,8 +20,6 @@
 // shapefile logic, or DiskImagePyramid read from GuiUtilities.h.
 // These may need to be moved to separate files.
 
-// TODO(oalexan1): Move chooseFilesDlg to its own .h/.cc file.
-
 #include <string>
 #include <vector>
 #include <QPolygon>
@@ -32,7 +30,6 @@
 // For contours
 #include <opencv2/imgproc.hpp>
 
-#include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/Hillshade.h>
@@ -46,23 +43,13 @@
 #include <asp/GUI/GuiUtilities.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/GUI/chooseFilesDlg.h>
 
 using namespace vw;
 using namespace vw::gui;
 using namespace vw::geometry;
 
 namespace vw { namespace gui {
-
-vw::RunOnce temporary_files_once = VW_RUNONCE_INIT;
-boost::shared_ptr<TemporaryFiles> temporary_files_ptr;
-void init_temporary_files() {
-  temporary_files_ptr = boost::shared_ptr<TemporaryFiles>(new TemporaryFiles());
-}
-
-TemporaryFiles& temporary_files() {
-  temporary_files_once.run( init_temporary_files);
-  return *temporary_files_ptr;
-}
 
 bool isPolyZeroDim(const QPolygon & pa){
   
@@ -74,13 +61,6 @@ bool isPolyZeroDim(const QPolygon & pa){
   return true;
 }
   
-void popUp(std::string msg){
-  QMessageBox msgBox;
-  msgBox.setText(msg.c_str());
-  msgBox.exec();
-  return;
-}
-
 bool getStringFromGui(QWidget * parent,
                       std::string title, std::string description,
                       std::string inputStr,
@@ -467,7 +447,7 @@ void read_csv_metadata(std::string              const& csv_file,
   
   return;
 }
-  
+
 void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt,
                      DisplayMode display_mode,
                      std::map<std::string, std::string> const& properties) {
@@ -599,360 +579,6 @@ vw::Vector2 QPoint2Vec(QPoint const& qpt) {
 
 QPoint Vec2QPoint(vw::Vector2 const& V) {
   return QPoint(round(V.x()), round(V.y()));
-}
-
-// Allow the user to choose which files to hide/show in the GUI.
-// User's choice will be processed by MainWidget::showFilesChosenByUser().
-chooseFilesDlg::chooseFilesDlg(QWidget * parent):
-  QWidget(parent){
-
-  setWindowModality(Qt::ApplicationModal);
-  
-  int spacing = 0;
-  
-  QVBoxLayout * vBoxLayout = new QVBoxLayout(this);
-  vBoxLayout->setSpacing(spacing);
-  vBoxLayout->setAlignment(Qt::AlignLeft);
-  
-  // The layout having the file names. It will be filled in
-  // dynamically later.
-  m_filesTable = new QTableWidget();
-  
-  //m_filesTable->horizontalHeader()->hide();
-  m_filesTable->verticalHeader()->hide();
-    
-  vBoxLayout->addWidget(m_filesTable);
-  
-  return;
-}
-  
-chooseFilesDlg::~chooseFilesDlg(){}
-
-void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images) {
-
-  // See the top of this file for documentation.
-
-  int numFiles = images.size();
-  int numCols = 2;
-  m_filesTable->setRowCount(numFiles);
-  m_filesTable->setColumnCount(numCols);
-
-  for (int fileIter = 0; fileIter < numFiles; fileIter++){
-
-    // Checkbox
-    QTableWidgetItem *item = new QTableWidgetItem(1);
-    item->data(Qt::CheckStateRole);
-    if (!asp::stereo_settings().hide_all)
-      item->setCheckState(Qt::Checked);
-    else
-      item->setCheckState(Qt::Unchecked);
-      
-    m_filesTable->setItem(fileIter, 0, item);
-
-    // Set the filename in the table
-    std::string fileName = images[fileIter].name;
-    item = new QTableWidgetItem(fileName.c_str());
-    item->setFlags(Qt::NoItemFlags);
-    item->setForeground(QColor::fromRgb(0, 0, 0));
-    m_filesTable->setItem(fileIter, numCols - 1, item);
-
-    // To be able to quickly look up an image
-    image_to_row[fileName] = fileIter;
-  }
-
-  QStringList rowNamesList;
-  for (int fileIter = 0; fileIter < numFiles; fileIter++) rowNamesList << "";
-  m_filesTable->setVerticalHeaderLabels(rowNamesList);
-
-  QStringList colNamesList;
-  for (int colIter = 0; colIter < numCols; colIter++) colNamesList << "";
-  m_filesTable->setHorizontalHeaderLabels(colNamesList);
-  QTableWidgetItem * hs = m_filesTable->horizontalHeaderItem(0);
-  hs->setBackground(QBrush(QColor("lightgray")));
-
-  m_filesTable->setSelectionMode(QTableWidget::ExtendedSelection);
-  std::string style = std::string("QTableWidget::indicator:unchecked ")
-    + "{background-color:white; border: 1px solid black;}; " +
-    "selection-background-color: rgba(128, 128, 128, 40);";
-
-  m_filesTable->setSelectionMode(QTableWidget::NoSelection);
-  m_filesTable->setStyleSheet(style.c_str());
-  
-  // Horizontal header caption
-  QTableWidgetItem *item = new QTableWidgetItem("Hide/show all");
-  item->setFlags(Qt::NoItemFlags);
-  item->setForeground(QColor::fromRgb(0, 0, 0));
-  m_filesTable->setHorizontalHeaderItem(1, item);
-  
-  m_filesTable->resizeColumnsToContents();
-  m_filesTable->resizeRowsToContents();
-
-  // The processing of user's choice happens in MainWidget::showFilesChosenByUser()
-
-  return;
-}
-
-  // Quickly find in what table row the current image is  
-int chooseFilesDlg::imageRow(std::string const& image) const {
-  auto it = image_to_row.find(image);
-  if (it == image_to_row.end()) {
-    popUp("Cannot find image in table.");
-    return 0;
-  }
-  return it->second;
-}
-  
-// Check if the given image is hidden (not shown) based on the table checkbox  
-bool chooseFilesDlg::isHidden(std::string const& image) const {
-
-  int row = imageRow(image);
-  QTableWidgetItem *item = m_filesTable->item(row, 0);
-  std::string curr_image = (m_filesTable->item(row, 1)->data(0)).toString().toStdString();
-  if (image == curr_image)
-    return (item->checkState() == Qt::Unchecked);
-  return false;
-}
-
-// Hide the given image  
-void chooseFilesDlg::hide(std::string const& image) {
-  int row = imageRow(image);
-  QTableWidgetItem *item = m_filesTable->item(row, 0);
-  std::string curr_image = (m_filesTable->item(row, 1)->data(0)).toString().toStdString();
-  if (image == curr_image)
-    item->setCheckState(Qt::Unchecked);
-}
-
-// Show the given image by turning on the checkbox in the table
-void chooseFilesDlg::unhide(std::string const& image) {
-  int row = imageRow(image);
-  QTableWidgetItem *item = m_filesTable->item(row, 0);
-  std::string curr_image = (m_filesTable->item(row, 1)->data(0)).toString().toStdString();
-  if (image == curr_image)
-    item->setCheckState(Qt::Checked);
-}
-
-// Show only first two images; this is the best default for viewing pairwise matches.
-void chooseFilesDlg::showTwoImages() {
-
-  int rows = m_filesTable->rowCount();
-  for (int row = 0; row < std::min(2, rows); row++) {
-    QTableWidgetItem *item = m_filesTable->item(row, 0);
-    item->setCheckState(Qt::Checked);
-  }
-  for (int row = 2; row < rows; row++) {
-    QTableWidgetItem *item = m_filesTable->item(row, 0);
-    item->setCheckState(Qt::Unchecked);
-  }
-}
-  
-// Show all images
-void chooseFilesDlg::showAllImages() {
-  int rows = m_filesTable->rowCount();
-  for (int row = 0; row < rows; row++) {
-    QTableWidgetItem *item = m_filesTable->item(row, 0);
-    item->setCheckState(Qt::Checked);
-  }
-}
-
-void chooseFilesDlg::keyPressEvent(QKeyEvent *event) {
-  // std::cout << "Key was pressed " << event->key() << std::endl;
-}
-
-DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& image_file,
-                             vw::GdalWriteOptions const& opt,
-                             int top_image_max_pix, int subsample):
-  m_opt(opt), m_num_channels(0), m_rows(0), m_cols(0), m_type(UNINIT) {
-  
-  if (image_file == "") return;
-
-  boost::shared_ptr<DiskImageResource> image_rsrc = vw::DiskImageResourcePtr(image_file);
-  ImageFormat image_fmt = image_rsrc->format();
-  
-  // Redirect to the correctly typed function to perform the actual map projection.
-  // - Must correspond to the type of the input image.
-  // Instantiate the correct DiskImagePyramid then record information including
-  //  the list of temporary files it created.
-  try {
-    m_num_channels = get_num_channels(image_file);
-
-    if (m_num_channels > 1 && image_fmt.channel_type != VW_CHANNEL_UINT8) {
-      vw_out() << "File " << image_file << " has more than one band, and the "
-               << "bands are not unsigned int. Reading only the first band in "
-               << "double precision.\n";
-    }
-    
-    if (m_num_channels == 1 || image_fmt.channel_type != VW_CHANNEL_UINT8) {
-      // Single channel image with float pixels.
-      m_img_ch1_double = vw::mosaic::DiskImagePyramid<double>(image_file, m_opt);
-      m_rows = m_img_ch1_double.rows();
-      m_cols = m_img_ch1_double.cols();
-      m_type = CH1_DOUBLE;
-      temporary_files().files.insert(m_img_ch1_double.get_temporary_files().begin(), 
-                                     m_img_ch1_double.get_temporary_files().end());
-    }else if (m_num_channels == 2){
-      // uint8 image with an alpha channel.
-      m_img_ch2_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>>(image_file, m_opt);
-      m_num_channels = 2; // we read only 1 channel
-      m_rows = m_img_ch2_uint8.rows();
-      m_cols = m_img_ch2_uint8.cols();
-      m_type = CH2_UINT8;
-      temporary_files().files.insert(m_img_ch2_uint8.get_temporary_files().begin(), 
-                                     m_img_ch2_uint8.get_temporary_files().end());
-    } else if (m_num_channels == 3){
-      // RGB image with three uint8 channels.
-      m_img_ch3_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 3>>(image_file, m_opt);
-      m_num_channels = 3;
-      m_rows = m_img_ch3_uint8.rows();
-      m_cols = m_img_ch3_uint8.cols();
-      m_type = CH3_UINT8;
-      temporary_files().files.insert(m_img_ch3_uint8.get_temporary_files().begin(), 
-                                     m_img_ch3_uint8.get_temporary_files().end());
-    } else if (m_num_channels == 4){
-      // RGB image with three uint8 channels and an alpha channel
-      m_img_ch4_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 4>>(image_file, m_opt);
-      m_num_channels = 4;
-      m_rows = m_img_ch4_uint8.rows();
-      m_cols = m_img_ch4_uint8.cols();
-      m_type = CH4_UINT8;
-      temporary_files().files.insert(m_img_ch4_uint8.get_temporary_files().begin(), 
-                                     m_img_ch4_uint8.get_temporary_files().end());
-    }else{
-      vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands.\n");
-    }
-  } catch (const Exception& e) {
-      popUp(e.what());
-      return;
-  }
-}
-
-double DiskImagePyramidMultiChannel::get_nodata_val() const {
-  
-  // Extract the clip, then convert it from VW format to QImage format.
-  if (m_type == CH1_DOUBLE) {
-    return m_img_ch1_double.get_nodata_val();
-  } else if (m_type == CH2_UINT8) {
-    return m_img_ch2_uint8.get_nodata_val();
-  } else if (m_type == CH3_UINT8) {
-    return m_img_ch3_uint8.get_nodata_val();
-  } else if (m_type == CH4_UINT8) {
-    return m_img_ch4_uint8.get_nodata_val();
-  }else{
-    vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
-  }
-}
-  
-void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i region_in,
-                  bool highlight_nodata,
-                  QImage & qimg, double & scale_out, vw::BBox2i & region_out) const{
-
-  bool scale_pixels = (m_type == CH1_DOUBLE);
-  vw::Vector2 bounds;
-
-  // Extract the clip, then convert it from VW format to QImage format.
-  if (m_type == CH1_DOUBLE) {
-
-    //Stopwatch sw0;
-    //sw0.start();
-    bounds = m_img_ch1_double.get_approx_bounds();
-    //sw0.stop();
-    //vw_out() << "Render time sw0 (seconds): " << sw0.elapsed_seconds() << std::endl;
-    
-    ImageView<double> clip;
-    //Stopwatch sw1;
-    //sw1.start();
-    m_img_ch1_double.get_image_clip(scale_in, region_in, clip,
-                                    scale_out, region_out);
-    //sw1.stop();
-    //vw_out() << "Render time sw1 (seconds): " << sw1.elapsed_seconds() << std::endl;
-
-    //Stopwatch sw2;
-    //sw2.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch1_double.get_nodata_val(), bounds,
-               clip, qimg);
-    //sw2.stop();
-    //vw_out() << "Render time sw2 (seconds): " << sw2.elapsed_seconds() << std::endl;
-  } else if (m_type == CH2_UINT8) {
-    
-    ImageView<Vector<vw::uint8, 2>> clip;
-    //Stopwatch sw4;
-    //sw4.start();
-    m_img_ch2_uint8.get_image_clip(scale_in, region_in, clip,
-                                 scale_out, region_out);
-    //sw4.stop();
-    //vw_out() << "Render time sw4 (seconds): " << sw4.elapsed_seconds() << std::endl;
-
-    //Stopwatch sw5;
-    //sw5.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch2_uint8.get_nodata_val(), bounds,
-               clip, qimg);
-    //sw5.stop();
-    //vw_out() << "Render time sw5 (seconds): " << sw5.elapsed_seconds() << std::endl;
-    
-  } else if (m_type == CH3_UINT8) {
-    ImageView<Vector<vw::uint8, 3>> clip;
-    //Stopwatch sw6;
-    //sw6.start();
-    m_img_ch3_uint8.get_image_clip(scale_in, region_in, clip,
-                                 scale_out, region_out);
-    //sw6.stop();
-    //vw_out() << "Render time sw6 (seconds): " << sw6.elapsed_seconds() << std::endl;
-
-    //Stopwatch sw7;
-    //sw7.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch3_uint8.get_nodata_val(), bounds,
-               clip, qimg);
-    //sw7.stop();
-    //vw_out() << "Render time sw7 (seconds): " << sw7.elapsed_seconds() << std::endl;
-
-  } else if (m_type == CH4_UINT8) {
-    //Stopwatch sw8;
-    //sw8.start();
-    ImageView<Vector<vw::uint8, 4>> clip;
-    m_img_ch4_uint8.get_image_clip(scale_in, region_in, clip,
-          scale_out, region_out);
-    //sw8.stop();
-    //vw_out() << "Render time sw8 (seconds): " << sw8.elapsed_seconds() << std::endl;
-
-    //Stopwatch sw9;
-    //sw9.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch4_uint8.get_nodata_val(), bounds,
-               clip, qimg);
-    //sw9.stop();
-    //vw_out() << "Render time sw9 (seconds): " << sw9.elapsed_seconds() << std::endl;
-  }else{
-    vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
-  }
-}
-
-std::string DiskImagePyramidMultiChannel::get_value_as_str(int32 x, int32 y) const {
-
-  // Below we cast from Vector<uint8> to Vector<double>, as the former
-  // refuses to print well.
-  std::ostringstream os;
-  if (m_type == CH1_DOUBLE) {
-    os << m_img_ch1_double.bottom()(x, y, 0);
-  } else if (m_type == CH2_UINT8) {
-    os << Vector2(m_img_ch2_uint8.bottom()(x, y, 0));
-  } else if (m_type == CH3_UINT8) {
-    os << Vector3(m_img_ch3_uint8.bottom()(x, y, 0));
-  } else if (m_type == CH4_UINT8) {
-    os << Vector4(m_img_ch4_uint8.bottom()(x, y, 0));
-  }else{
-    vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
-  }
-  
-  return os.str();
-}
-  
-double DiskImagePyramidMultiChannel::get_value_as_double(int32 x, int32 y) const {
-  if (m_type == CH1_DOUBLE) {
-    return m_img_ch1_double.bottom()(x, y, 0);
-  }else if (m_type == CH2_UINT8){
-    return m_img_ch2_uint8.bottom()(x, y, 0)[0];
-  }else{
-    vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
-  }
-  return 0;
 }
 
 void PointList::push_back(std::list<vw::Vector2> pts) {

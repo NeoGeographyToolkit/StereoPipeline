@@ -39,6 +39,7 @@
 #include <vw/Image/AntiAliasing.h>
 
 #include <asp/GUI/MainWidget.h>
+#include <asp/GUI/chooseFilesDlg.h>
 #include <asp/Core/StereoSettings.h>
 
 using namespace vw;
