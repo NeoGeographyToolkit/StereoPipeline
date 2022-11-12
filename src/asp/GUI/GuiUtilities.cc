@@ -544,11 +544,11 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     val_range[0] = bounds.min()[2];
     val_range[1] = bounds.max()[2];
 
-    if (style == "poly") {
+    if (style == "poly" || style == "fpoly" || style == "line") {
       // Convert to polygon
       polyVec.clear();
       polyVec.resize(1);
-      bool isPolyClosed = true;
+      bool isPolyClosed = (style == "poly" || style == "fpoly");
       std::string layer;
       int num = scattered_data.size();
       std::vector<double> x(num), y(num);

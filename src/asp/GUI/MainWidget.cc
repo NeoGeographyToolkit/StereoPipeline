@@ -767,13 +767,17 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       if (m_images[image_iter].m_display_mode != HILLSHADED_VIEW)
         continue;
 
-      if (m_images[image_iter].name.find("_CMAP.tif") != std::string::npos)
+      if (m_images[image_iter].name.find("_CMAP.tif") != std::string::npos) {
+        m_images[image_iter].m_display_mode = REGULAR_VIEW;
         continue; // silently ignore colormap images
-        
+      }
+      
       // Cannot hillshade a polygon or xyz data
-      if (m_images[image_iter].isPoly() || m_images[image_iter].isCsv()) 
+      if (m_images[image_iter].isPoly() || m_images[image_iter].isCsv()) {
+        m_images[image_iter].m_display_mode = REGULAR_VIEW;
         continue;
-
+      }
+      
       if (!m_images[image_iter].has_georef) {
         popUp("Hill-shading requires georeferenced images.");
         m_images[image_iter].m_display_mode = REGULAR_VIEW;
@@ -796,7 +800,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         // TODO(oalexan1): This warning still shows up many times
         // the images are side-by-side
         popUp("Hill-shading makes sense only for single-channel images.");
-        return;
+        continue;
       }
 
       // Save the hillshaded images to disk (unless it already exists)

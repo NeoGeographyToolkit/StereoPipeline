@@ -23,11 +23,8 @@
 #ifndef __STEREO_GUI_GUI_UTILITIES_H__
 #define __STEREO_GUI_GUI_UTILITIES_H__
 
-#include <string>
-#include <vector>
-#include <list>
-#include <set>
-
+// TODO(oalexan1): Reorder the headers, with low-level ones at the bottom.
+// But then compilation fails.
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/mpl/or.hpp>
@@ -38,6 +35,10 @@
 // Qt
 #include <QWidget>
 #include <QPoint>
+
+// ASP
+#include <asp/Core/Common.h>
+#include <asp/GUI/DiskImagePyramidMultiChannel.h>
 
 // Vision Workbench
 #include <vw/Core/Thread.h>
@@ -55,8 +56,10 @@
 #include <vw/Geometry/dPoly.h>
 #include <vw/Image/AntiAliasing.h>
 
-// ASP
-#include <asp/Core/Common.h>
+#include <string>
+#include <vector>
+#include <list>
+#include <set>
 
 class QMouseEvent;
 class QWheelEvent;
@@ -67,11 +70,7 @@ class QContextMenuEvent;
 class QMenu;
 class QPolygon;
 
-
 namespace vw { namespace gui {
-
-  // The kinds of images we support
-  enum ImgType {UNINIT, CH1_DOUBLE, CH2_UINT8, CH3_UINT8, CH4_UINT8};
 
   enum DisplayMode {REGULAR_VIEW, HILLSHADED_VIEW, COLORIZED_VIEW, HILLSHADE_COLORIZED_VIEW,
                     THRESHOLDED_VIEW};
@@ -112,38 +111,13 @@ namespace vw { namespace gui {
     return R;
   }
 
-  // Form a QImage to show on screen. For scalar images, we scale them
-  // and handle the nodata val. For two channel images, interpret the
-  // second channel as mask. If there are 3 or more channels,
-  // interpret those as RGB.
-  template<class PixelT>
-  typename boost::enable_if<boost::is_same<PixelT,double>, void>::type
-  formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-	     vw::Vector2 const& bounds,
-             ImageView<PixelT> const& clip, QImage & qimg);
-
-  template<class PixelT>
-  typename boost::enable_if<boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>, void>::type
-  formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-	     vw::Vector2 const& bounds, ImageView<PixelT> const& clip,
-             QImage & qimg);
-
-  template<class PixelT>
-  typename boost::disable_if<boost::mpl::or_<boost::is_same<PixelT,double>,
-                                              boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>>,
-                             void >::type
-  formQimage(bool highlight_nodata,
-             bool scale_pixels, double nodata_val,
-	     vw::Vector2 const& bounds,
-	     ImageView<PixelT> const& clip, QImage & qimg);
-  
   // An image class that supports 1 to 3 channels.  We use
   // DiskImagePyramid<double> to be able to use some of the
   // pre-defined member functions for an image class. This class
   // is not a perfect solution, but there seem to be no easy way
   // in ASP to handle images with variable numbers of channels.
   // TODO: Add the case when multi-channel images also have float or double pixels
-  struct DiskImagePyramidMultiChannel{
+  struct DiskImagePyramidMultiChannel {
     vw::GdalWriteOptions m_opt;
     vw::mosaic::DiskImagePyramid<double>               m_img_ch1_double;
     vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>> m_img_ch2_uint8;
@@ -439,117 +413,6 @@ namespace vw { namespace gui {
     // We will copy here only the ip that need to be shown for the moment
     std::vector<std::vector<vw::ip::InterestPoint>> ip_to_show;
   };
-//====================================================================================
-//====================================================================================
-// Function definitions
-
-template<class PixelT>
-typename boost::enable_if<boost::is_same<PixelT,double>, void>::type
-formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-	   vw::Vector2 const& bounds,
-           ImageView<PixelT> const& clip, QImage & qimg){
-
-  double min_val = std::numeric_limits<double>::max();
-  double max_val = -std::numeric_limits<double>::max();
-  if (scale_pixels) {
-    // No multi-threading here since we modify shared values
-    for (int col = 0; col < clip.cols(); col++){
-      for (int row = 0; row < clip.rows(); row++){
-        if (clip(col, row) == nodata_val) continue;
-        if (clip(col, row) < min_val) min_val = clip(col, row);
-        if (clip(col, row) > max_val) max_val = clip(col, row);
-      }
-    }
-    
-    // The input bounds are computed on the lowest resolution level of the pyramid 
-    //  with: vw::math::find_outlier_brackets(vals, 0.25, 4.0, b, e);
-    //  but enforcing them here likely causes more problems than it solves.
-    //// These bounds may contain outliers, so correct for that
-    //if (bounds[0] != bounds[1]) {
-    //  min_val = std::max(min_val, bounds[0]);
-    //  max_val = std::min(max_val, bounds[1]);
-    //}
-    
-    // A safety measure
-    if (min_val >= max_val)
-      max_val = min_val + 1.0;
-  }
-
-  qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
-#pragma omp parallel for
-  for (int col = 0; col < clip.cols(); col++){
-    for (int row = 0; row < clip.rows(); row++){
-
-      double v = clip(col, row);
-      if (scale_pixels) 
-        v = round(255*(std::max(v, min_val) - min_val)/(max_val-min_val));
-     
-      v = std::min(std::max(0.0, v), 255.0);
-      
-      if (clip(col, row) == nodata_val || std::isnan(clip(col, row)) ){
-        
-        if (!highlight_nodata){
-          // transparent
-          qimg.setPixel(col, row, Qt::transparent);
-        }else{
-         // highlight in red
-          qimg.setPixel(col, row, qRgb(255, 0, 0));
-        }
-        
-      }else{
-        // opaque
-        qimg.setPixel(col, row, QColor(v, v, v, 255).rgba());
-      }
-    }
-  }
-}
-  
-template<class PixelT>
-typename boost::enable_if<boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>, void>::type
-formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-	   vw::Vector2 const& bounds,
-           ImageView<PixelT> const& clip, QImage & qimg){
-
-  qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
-#pragma omp parallel for
-  for (int col = 0; col < clip.cols(); col++){
-    for (int row = 0; row < clip.rows(); row++){
-      Vector<vw::uint8, 2> v = clip(col, row);
-      if ( v[1] > 0 && v == v){ // need the latter for NaN
-        // opaque grayscale
-        qimg.setPixel(col, row, QColor(v[0], v[0], v[0], 255).rgba());
-      }else{
-        // transparent
-        qimg.setPixel(col, row, QColor(0, 0, 0, 0).rgba());
-      }
-    }
-  }
-}
-
-template<class PixelT>
-typename boost::disable_if<boost::mpl::or_<boost::is_same<PixelT,double>,
-                                           boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>>, void>::type
-formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-	   vw::Vector2 const& bounds,
-           ImageView<PixelT> const& clip, QImage & qimg){
-
-  qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
-#pragma omp parallel for
-  for (int col = 0; col < clip.cols(); col++){
-    for (int row = 0; row < clip.rows(); row++){
-      PixelT v = clip(col, row);
-      if (v != v) // NaN
-	qimg.setPixel(col, row, QColor(0, 0, 0, 0).rgba()); // transparent
-      else if (v.size() == 3)
-        qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255).rgba()); // color
-      else if (v.size() > 3)
-        qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255*(v[3] > 0) ).rgba()); // transp or color
-
-      else
-        qimg.setPixel(col, row, QColor(v[0], v[0], v[0], 255).rgba()); // grayscale
-    }
-  }
-}
 
 template<class PixelT>
 std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
