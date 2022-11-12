@@ -70,6 +70,9 @@ Command-line options for dg_mosaic:
 --output-prefix <name>
     The prefix for the output .tif and .xml files.
 
+--cache-size-mb <integer (default = 1024)>
+    Set the system cache size, in MB, for each process.
+
 --band integer
     Which band to use (for multi-spectral images).
 

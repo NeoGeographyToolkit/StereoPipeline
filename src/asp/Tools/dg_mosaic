@@ -652,6 +652,9 @@ def main():
                               help="The prefix for the output .tif and .xml files.")
             parser.add_option("--ot", dest="output_type", type="str", default = "Float32",
                               help="Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.")
+            parser.add_option("--cache-size", dest="cache_size", type="int",
+                              default=1024,
+                              help="Set the system cache size, in MB, for each process.")
             parser.add_option("--band", dest="band", type="int",
                               help="Which band to use (for multi-spectral images).")
             parser.add_option("--input-nodata-value", dest="input_nodata_value", type="float",
@@ -1053,6 +1056,7 @@ def main():
             tif_file = options.output_prefix + suffix + ".tif";
             mosaic_cmd = "tif_mosaic"
             mosaic_args = ['--threads', str(4),
+                           '--cache-size', str(options.cache_size),
                            '--output-image', tif_file,
                            '--ot', options.output_type,
                            '--band', str(options.band),
