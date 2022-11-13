@@ -22,6 +22,14 @@ representing pixel values less than or equal to -5.
 See :numref:`visualising` for a discussion of ASP's visualization
 tools, including this one.
 
+.. figure:: ../images/colormaps.png
+   :name: Colormaps
+
+   Example of files produced with the following colormaps (left to
+   right, and top-down): ``binary-red-blue`` (default),
+   ``jet``, ``black-body``, ``cubehelix``, ``viridis``,
+   ``plasma``, ``inferno``, ``kindlmann``.
+
 Command-line options for ``colormap``:
 
 -s, --shaded-relief-file <filename>
@@ -32,9 +40,12 @@ Command-line options for ``colormap``:
     Specify the output file.
 
 --colormap-style <arg>
-    Specify the colormap style.  Options: binary-red-blue (default),
-    jet, or the name of a file having the colormap, similar to the
-    file used by gdaldem.
+    Specify the colormap style.  Options: ``binary-red-blue`` (default),
+    ``jet``, ``black-body``, ``cubehelix``, ``viridis``,
+    ``plasma``, ``inferno``, ``kindlmann``. Or specify the name of a
+    file having the colormap, on each line of which there must be a
+    normalized or percentage intensity and the three integer rgb
+    values it maps to.
 
 --nodata-value <arg>
     Remap the DEM default value to the min altitude value.

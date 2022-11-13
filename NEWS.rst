@@ -154,6 +154,11 @@ cam_gen:
 pc_align:
   * Fix a bug with loading very large DEMs; it was failing because of
     a 32-bit integer overflow.
+
+colormap: 
+  * Added four colormaps: ``black-body``, ``viridis``, ``plasma``,
+    ``kindlmann`` (:numref:`colormap`). Source: 
+     http://www.kennethmoreland.com/color-advice/
  
 misc:
   * Increased the cache size to 1 GB per process for each ASP tool. 
