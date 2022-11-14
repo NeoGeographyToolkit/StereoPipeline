@@ -1188,6 +1188,9 @@ and max range for the color map.
 
     colormap results/output-DEM.tif -o colorized.tif
 
+See :numref:`colormap` for available colormap styles and illustrations
+for how they appear.
+
 To create a hillshade of the DEM, specify the DEM file to use. You can
 control the azimuth and elevation of the light source using the ``-a``
 and ``-e`` options.
