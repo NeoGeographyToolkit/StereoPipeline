@@ -223,6 +223,10 @@ void populateCsmModel(DGCameraModel * dg_model) {
   m_ls_model->m_detectorLineOrigin     = 0.0;
   m_ls_model->m_detectorSampleOrigin   = 0.0;
   m_ls_model->m_detectorLineSumming    = 1.0;
+  // TODO(oalexan1): Consider subtracting 0.5 below, and then adding
+  // only 0.5 to tlc[i].first, further down. Looks to produce similar
+  // but not quite the same result, but there was no time for a lot of
+  // testing doing it that way.
   m_ls_model->m_startingDetectorLine   = dg_model->m_detector_origin[1];
   m_ls_model->m_detectorSampleSumming  = 1.0;
   m_ls_model->m_startingDetectorSample = (dg_model->m_detector_origin[0] - 0.5);
