@@ -47,7 +47,7 @@ struct Options : vw::GdalWriteOptions {
   int sample_rate; // use one out of these many pixels
   double subpixel_offset, height_above_datum;
   bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
-    print_per_pixel_results, dg_use_csm;
+    print_per_pixel_results, dg_use_csm, dg_vs_csm;
   vw::Vector2 single_pixel;
   
   Options() {}
@@ -81,7 +81,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
      "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
     ("dg-use-csm", po::bool_switch(&opt.dg_use_csm)->default_value(false)->implicit_value(true),
-     "Use the CSM model for Digital Globe. This is temporary.")
+     "Use the CSM model with DigitalGlobe linescan cameras (-t dg). No corrections are done for velocity aberration or atmospheric refraction.")
+    ("dg-vs-csm", po::bool_switch(&opt.dg_vs_csm)->default_value(false)->implicit_value(true),
+     "Compare projecting into the camera without and with using the CSM model for Digital Globe.")
     ;  
   general_options.add(vw::GdalWriteOptionsDescription(opt));
   
@@ -197,11 +199,12 @@ int main(int argc, char *argv[]) {
     double major_axis = datum.semi_major_axis() + opt.height_above_datum;
     double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
     // Iterate over the image
-    std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff;
+    std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff, dg_vs_csm_diff;
     for (int col = 0; col < image_cols; col += opt.sample_rate) {
       for (int row = 0; row < image_rows; row += opt.sample_rate) {
 
         Vector2 image_pix(col + opt.subpixel_offset, row + opt.subpixel_offset);
+
         if (single_pix) 
           image_pix = opt.single_pixel;
 
@@ -211,7 +214,7 @@ int main(int argc, char *argv[]) {
         Vector3 cam1_ctr = cam1_model->camera_center(image_pix);
         Vector3 cam2_ctr = cam2_model->camera_center(image_pix);
         ctr_diff.push_back(norm_2(cam1_ctr - cam2_ctr));
-        
+
         if (opt.print_per_pixel_results)
           vw_out() << "Camera center diff: " << ctr_diff.back() << std::endl;
         
@@ -227,12 +230,20 @@ int main(int argc, char *argv[]) {
         // camera.
         Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
                                                           cam1_ctr, cam1_dir);
+
         Vector2 cam2_pix = cam2_model->point_to_pixel(xyz);
         cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
         
         if (opt.print_per_pixel_results)
           vw_out() << "cam1 to cam2 pixel diff: " << image_pix - cam2_pix << std::endl;
-        
+
+        if (opt.dg_vs_csm) {
+          asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm; 
+          Vector2 cam2_pix2 = cam2_model->point_to_pixel(xyz);
+          asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
+          dg_vs_csm_diff.push_back(norm_2(cam2_pix - cam2_pix2));
+        }
+                
         // Shoot a ray from the cam2 camera, intersect it with the
         // given height above the datum, and project it back into the
         // cam1 camera.
@@ -243,6 +254,13 @@ int main(int argc, char *argv[]) {
         
         if (opt.print_per_pixel_results)
           vw_out() << "cam2 to cam1 pixel diff: " << image_pix - cam1_pix << "\n\n";
+
+        if (opt.dg_vs_csm) {
+          asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm; 
+          Vector2 cam1_pix2 = cam1_model->point_to_pixel(xyz);
+          asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
+          dg_vs_csm_diff.push_back(norm_2(cam1_pix - cam1_pix2));
+        }
 
         if (single_pix) 
           break;
@@ -259,6 +277,8 @@ int main(int argc, char *argv[]) {
     print_diffs("cam1 to cam2 camera center diff (meters)", ctr_diff);
     print_diffs("cam1 to cam2 pixel diff", cam1_to_cam2_diff);
     print_diffs("cam2 to cam1 pixel diff", cam2_to_cam1_diff);
+    if (opt.dg_vs_csm)
+    print_diffs("dg vs csm pixel diff", dg_vs_csm_diff);
 
     double elapsed_sec = sw.elapsed_seconds();
     vw_out() << "\nElapsed time per sample: " << 1e+6 * elapsed_sec/ctr_diff.size()

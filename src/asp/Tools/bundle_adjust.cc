@@ -489,16 +489,16 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   vw_out() << "Writing: " << residual_raw_cams_path << std::endl;
   
   residual_file.open(residual_path.c_str());
-  residual_file.precision(18);
+  residual_file.precision(18); // TODO(oalexan1): Replace here with 17
   residual_file_raw_pixels.open(residual_raw_pixels_path.c_str());
-  residual_file_raw_pixels.precision(18);
+  residual_file_raw_pixels.precision(18); // TODO(oalexan1): Replace here with 17
   residual_file_raw_cams.open(residual_raw_cams_path.c_str());
-  residual_file_raw_cams.precision(18);
+  residual_file_raw_cams.precision(18); // TODO(oalexan1): Replace here with 17
 
   if (reference_vec.size() > 0) {
     //vw_out() << "Writing: " << residual_reference_xyz_path << std::endl;
     residual_file_reference_xyz.open(residual_reference_xyz_path.c_str());
-    residual_file_reference_xyz.precision(18);
+    residual_file_reference_xyz.precision(18); // TODO(oalexan1): Replace here with 17
   }
   
   size_t index = 0;
@@ -548,7 +548,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   // List the GCP residuals
   if (num_gcp_or_dem_residuals > 0) {
     residual_file_raw_gcp.open(residual_raw_gcp_path.c_str());
-    residual_file_raw_gcp.precision(18);
+    residual_file_raw_gcp.precision(18); // TODO(oalexan1): Replace here with 17
     residual_file << "GCP or DEM residual errors:\n";
     for (size_t i = 0; i < num_gcp_or_dem_residuals; i++) {
       double mean_residual = 0; // Take average of XYZ error for each point
@@ -1952,7 +1952,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
      "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
     ("dg-use-csm", po::bool_switch(&opt.dg_use_csm)->default_value(false)->implicit_value(true),
-     "Use the CSM model for Digital Globe. This is temporary.")
+     "Use the CSM model with DigitalGlobe linescan cameras (-t dg). No corrections are done for velocity aberration or atmospheric refraction.")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
      "Given map-projected versions of the input images and the DEM they "
      "were mapprojected onto, create interest point matches among the  "

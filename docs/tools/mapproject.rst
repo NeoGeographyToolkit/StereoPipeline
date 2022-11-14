@@ -174,6 +174,11 @@ Command-line options for mapproject:
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB, for each process.
 
+--dg-use-csm
+    Use the CSM model with DigitalGlobe linescan cameras (``-t
+    dg``). No corrections are done for velocity aberration or
+    atmospheric refraction.
+
 --no-bigtiff
     Tell GDAL to not create bigtiffs.
 

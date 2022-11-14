@@ -52,7 +52,7 @@ namespace asp {
     static int   tri_tile_size()  { return 256;  } // Tile size for tri/point cloud
   };
 
-  // Program Options for each executable/step
+  // Program options for each executable/step
   struct PreProcessingDescription : public boost::program_options::options_description { PreProcessingDescription(); };
   struct CorrelationDescription   : public boost::program_options::options_description { CorrelationDescription  (); };
   struct SubpixelDescription      : public boost::program_options::options_description { SubpixelDescription     (); };
@@ -147,9 +147,9 @@ namespace asp {
     
     int disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
 
-    bool dg_use_csm; // temporary
+    bool dg_use_csm; // Use the CSM camera model with Digital Globe images.
     
-    // Correlation Options
+    // Correlation options
     
 
     float slogW;                      ///< Preprocessing filter width
@@ -200,7 +200,7 @@ namespace asp {
     bool   stereo_debug;              // Write stereo debug images and messages
     bool   local_alignment_debug;     // Debug local alignment
 
-    // Subpixel Options
+    // Subpixel options
 
     bool subpix_from_blend;           // Read from -B.tif instead of -D.tif
     
@@ -216,12 +216,12 @@ namespace asp {
     vw::uint16 phase_subpixel_accuracy;  // Phase subpixel is accurate to 1/this pixels
 
 
-    // Experimental Subpixel Options (mode 3 only)
+    // Experimental Subpixel options (mode 3 only)
     int subpixel_em_iter;
     int subpixel_affine_iter;
     int subpixel_pyramid_levels;
 
-    // Filtering Options
+    // Filtering options
     int filter_mode;                  // Which filter mode to use
     vw::Vector2i rm_half_kernel;      // Low confidence pixel removal kernel size
     int    max_mean_diff;             // Max mean diff between pixel and neighbors
@@ -244,7 +244,7 @@ namespace asp {
     bool  gotcha_disparity_refinement;
     std::string casp_go_param_file;
 
-    // Triangulation Options
+    // Triangulation options
     std::string universe_center;      // Center for the radius clipping
     float  near_universe_radius;      // Radius of the universe in meters
     float  far_universe_radius;       // Radius of the universe in meters
@@ -312,7 +312,7 @@ namespace asp {
   /// is invoked.  You must *always* access the stereo settings through this function.
   StereoSettings& stereo_settings();
 
-  /// Custom readers for Boost Program Options
+  /// Custom readers for Boost program options
   class asp_config_file_iterator : public boost::program_options::detail::common_config_file_iterator {
     boost::shared_ptr<std::basic_istream<char> > is;
   private:

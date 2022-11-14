@@ -91,8 +91,9 @@ void load_cameras(std::vector<std::string> const& image_files,
       asp::CsmModel * csm_cam = dynamic_cast<asp::CsmModel*>(base_cam);
       if (csm_cam == NULL) 
         vw::vw_throw(vw::ArgumentErr() << "Expected a CSM camera model.");
-      // When asked to get a 1.0e-12 precision, at most it delivers 1.0e-11.
-      csm_cam->setDesiredPrecision(1.0e-12); 
+      // Do not change the precision here. Leave it at the default value, which is
+      // 1e-8. CSM can give junk results if this is too low.
+      // csm_cam->setDesiredPrecision(1.0e-8); 
     }
   } // End loop through images loading all the camera models
   

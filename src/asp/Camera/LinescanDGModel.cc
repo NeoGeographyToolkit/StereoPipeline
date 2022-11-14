@@ -171,8 +171,14 @@ DgCsmModel() {}
 
 // This is a lengthy function that does many initializations  
 void populateCsmModel(DGCameraModel * dg_model) {
-    
-  m_desired_precision = 1.0e-12; // Need high precision for bundle adjustment
+
+  // Using a desired precision of 1e-8 will result in about this much
+  // agreement between image to ground and back. Pushing this to
+  // something lower will result in the CSM ground-to-image
+  // computation failing due to numerical precision issues, which can
+  // be traced to the DG camera using a focal length (in pixels) of
+  // 2,002,252.25.
+  m_desired_precision = 1.0e-8;
   vw::cartography::Datum datum("WGS84"); // this sensor is used for Earth only
   m_semi_major_axis = datum.semi_major_axis();
   m_semi_minor_axis = datum.semi_minor_axis();
@@ -188,11 +194,13 @@ void populateCsmModel(DGCameraModel * dg_model) {
     
   m_ls_model->m_nSamples = dg_model->m_image_size[0]; 
   m_ls_model->m_nLines   = dg_model->m_image_size[1];
-    
+
+  double f = dg_model->m_focal_length;
+
   m_ls_model->m_platformFlag = 1; // For order 8 Lagrange interpolation
   m_ls_model->m_maxElevation =  10000.0; //  10 km
   m_ls_model->m_minElevation = -10000.0; // -10 km
-  m_ls_model->m_focalLength  = 1.0; // This is normalized. Below we will divide by true focal len.
+  m_ls_model->m_focalLength  =  f;
   m_ls_model->m_zDirection   = 1.0;
   m_ls_model->m_halfSwath    = 1.0;
   m_ls_model->m_sensorIdentifier = "DigitalGlobeLinescan";
@@ -206,7 +214,6 @@ void populateCsmModel(DGCameraModel * dg_model) {
   // get_local_pixel_vector() is computed differently, and hence
   // different choices here as well. Also keep in mind that a CSM
   // pixel has extra 0.5 added to it.
-  double f = dg_model->m_focal_length;
   m_ls_model->m_iTransL[0]             = 0.0;  
   m_ls_model->m_iTransL[1]             = 0.0;
   m_ls_model->m_iTransL[2]             = 1.0;
@@ -215,11 +222,11 @@ void populateCsmModel(DGCameraModel * dg_model) {
   m_ls_model->m_iTransS[2]             = 0.0;
   m_ls_model->m_detectorLineOrigin     = 0.0;
   m_ls_model->m_detectorSampleOrigin   = 0.0;
-  m_ls_model->m_detectorLineSumming    = 1.0 / f; // line will be 0, so this is not important
-  m_ls_model->m_startingDetectorLine   = dg_model->m_detector_origin[1] / f;
-  m_ls_model->m_detectorSampleSumming  = 1.0 / f;
-  m_ls_model->m_startingDetectorSample = (dg_model->m_detector_origin[0] - 0.5)/ f;
-    
+  m_ls_model->m_detectorLineSumming    = 1.0;
+  m_ls_model->m_startingDetectorLine   = dg_model->m_detector_origin[1];
+  m_ls_model->m_detectorSampleSumming  = 1.0;
+  m_ls_model->m_startingDetectorSample = (dg_model->m_detector_origin[0] - 0.5);
+
   // Time
   auto const& tlc = dg_model->m_time_func.m_tlc;
   double time_offset = dg_model->m_time_func.m_time_offset;
@@ -256,9 +263,8 @@ void populateCsmModel(DGCameraModel * dg_model) {
   // factor, with each sample obtained with
   // PiecewiseAPositionInterpolation, so it makes use of both
   // positions and velocities.
-  
   // TODO(oalexan1): Are positions sampled finely enough?
-  int factor = 5;
+  int factor = 1;
   double old_t0 = dg_model->m_position_func.get_t0();
   double old_dt = dg_model->m_position_func.get_dt();
   double old_tend = dg_model->m_position_func.get_tend();
@@ -284,7 +290,7 @@ void populateCsmModel(DGCameraModel * dg_model) {
   // TODO(oalexan1): Are the quaternions sampled finely enough?
   // Since DG has a lot of them, we assume there's no need for more.
   // ASP's old approach used linear quaternion interpolation,
-  // but CSM uses Lagrange.
+  // but CSM uses Lagrange interpolation.
   int num_quat = dg_model->m_pose_func.m_pose_samples.size();
   m_ls_model->m_numQuaternions = 4 * num_quat; // concatenate all coordinates
   m_ls_model->m_t0Quat = dg_model->m_pose_func.m_t0; // quaternion t0
@@ -325,13 +331,14 @@ DGCameraModel::DGCameraModel
    double                                           const  mean_ground_elevation,
    bool                                                    correct_velocity,
    bool                                                    correct_atmosphere):
-DGCameraModelBase(position, velocity, pose, time, image_size, detector_origin, focal_length,
-                  mean_ground_elevation, correct_velocity, correct_atmosphere) {
+    DGCameraModelBase(position, velocity, pose, time, image_size, detector_origin, focal_length,
+                      mean_ground_elevation, correct_velocity, correct_atmosphere) {
+
+  if (stereo_settings().dg_use_csm) 
+    vw_out() << "Using the CSM model with DigitalGlobe cameras.\n";
     
-    if (stereo_settings().dg_use_csm) {
-      m_dg_csm_model.reset(new DgCsmModel);
-      m_dg_csm_model->populateCsmModel(this);
-    }
+  m_dg_csm_model.reset(new DgCsmModel);
+  m_dg_csm_model->populateCsmModel(this);
 }
   
 // Re-implement base class functions
@@ -412,15 +419,25 @@ vw::Vector3 DGCameraModel::pixel_to_vector(vw::Vector2 const& pix) const {
 }
 
 // As pixel_to_vector, but in the local camera frame.
-  vw::Vector3 DGCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
-    if (stereo_settings().dg_use_csm)
-      vw::vw_throw(vw::ArgumentErr()
-                   << "get_local_pixel_vector(): Cannot be called in CSM mode.\n");
-
+vw::Vector3 DGCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
+  if (stereo_settings().dg_use_csm)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "get_local_pixel_vector(): Cannot be called in CSM mode.\n");
+  
   vw::Vector3 local_vec(pix[0] + m_detector_origin[0], m_detector_origin[1], m_focal_length);
   return normalize(local_vec);
 }
 
+// See the .h file for the documentation.
+double DGCameraModel::errorFunc(double y, vw::Vector3 const& point) const {
+
+  double t = get_time_at_line(y);
+  vw::Quat q = get_camera_pose_at_time(t);
+  vw::Vector3 pt = inverse(q).rotate(point - get_camera_center_at_time(t));
+
+  return pt.y() / pt.z() - m_detector_origin[1] / m_focal_length;
+}
+  
 // Point to pixel with no initial guess
 vw::Vector2 DGCameraModel::point_to_pixel(vw::Vector3 const& point) const {
   if (stereo_settings().dg_use_csm) {
@@ -441,11 +458,59 @@ vw::Vector2 DGCameraModel::point_to_pixel(vw::Vector3 const& point) const {
     asp::fromCsmPixel(asp_pix, csm_pix);
     return asp_pix;
   }
+
+#if 0
+  // TODO(oalexan1): Test and use this logic. Should be much faster than
+  // the current approach of solving a minimization problem.
+  // Do not set desired_precision to less than 1e-8 as then the algorithm
+  // will produce junk due to numerical precision issues with the large
+  // DG focal length.
+  double desired_precision = 1e-8;
+  vw::Vector2 asp_pix;
+  asp_pix[1] = m_image_size.y()/2; 
   
+  double L0 = 0.0; // Line increment
+  double lineErr0 = errorFunc(L0 + asp_pix[1], point);
+  double L1 = 0.1;
+  double lineErr1 = errorFunc(L1 + asp_pix[1], point);
+  
+  for (int count = 0; count < 15; count++) {
+    
+    if (lineErr1 == lineErr0)
+      break; // avoid division by 0
+    
+    // Secant method update
+    // https://en.wikipedia.org/wiki/Secant_method
+    double increment = lineErr1 * (L1 - L0) / (lineErr1 - lineErr0);
+    double L2 = L1 - increment;
+    double lineErr2 = errorFunc(L2 + asp_pix[1], point);
+    
+    // Update for the next step
+    L0 = L1; lineErr0 = lineErr1;
+    L1 = L2; lineErr1 = lineErr2;
+    
+    // If the solution changes by less than this, we achieved the desired line precision
+    if (increment < desired_precision) 
+      break;
+  }
+  
+  asp_pix[1] += L1;
+  
+  // Solve for sample location now that we know the correct line
+  double t = get_time_at_line(asp_pix[1]);
+  vw::Quat q = get_camera_pose_at_time(t);
+  vw::Vector3 pt = inverse(q).rotate(point - get_camera_center_at_time(t));
+  pt *= m_focal_length / pt.z();
+  asp_pix = vw::Vector2(pt.x() - m_detector_origin[0], asp_pix[1]);
+  return asp_pix;
+#else
+  // Current approach
   return vw::camera::LinescanModel::point_to_pixel(point);
+#endif
+
 }
   
-// Override this implementation with a faster, more specialized implementation.
+// TODO(oalexan1): Wipe this and use the logic above, after much testing.  
 vw::Vector2 DGCameraModel::point_to_pixel(vw::Vector3 const& point, double starty) const {
 
   if (stereo_settings().dg_use_csm)
@@ -485,13 +550,13 @@ vw::Quaternion<double> DGCameraModel::camera_pose(vw::Vector2 const& pix) const 
 vw::Vector3 DGCameraModel::camera_center(vw::Vector2 const& pix) const {
 
   if (stereo_settings().dg_use_csm) {
-      csm::ImageCoord csm_pix;
-      asp::toCsmPixel(pix, csm_pix);
-      
-      double time = m_dg_csm_model->m_ls_model->getImageTime(csm_pix);
-      csm::EcefCoord ecef = m_dg_csm_model->m_ls_model->getSensorPosition(time);
-      
-      return vw::Vector3(ecef.x, ecef.y, ecef.z);
+    csm::ImageCoord csm_pix;
+    asp::toCsmPixel(pix, csm_pix);
+    
+    double time = m_dg_csm_model->m_ls_model->getImageTime(csm_pix);
+    csm::EcefCoord ecef = m_dg_csm_model->m_ls_model->getSensorPosition(time);
+    
+    return vw::Vector3(ecef.x, ecef.y, ecef.z);
   }
   
   return vw::camera::LinescanModel::camera_center(pix);

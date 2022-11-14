@@ -259,6 +259,11 @@ threads (*integer*) (default = 0)
 cache-size-mb (*integer*) (default = 1024)
     Set the system cache size, in MB, for each process.
 
+dg-use-csm
+    Use the CSM model with DigitalGlobe linescan cameras (``-t
+    dg``). No corrections are done for velocity aberration or
+    atmospheric refraction.
+
 .. _corr_section:
 
 Correlation

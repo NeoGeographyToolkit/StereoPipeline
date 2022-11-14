@@ -249,7 +249,7 @@ namespace asp {
           return result;
         }
     };
-
+    
   }; // End class LinescanDGModel
 
   typedef LinescanDGModel<vw::camera::PiecewiseAPositionInterpolation,
@@ -311,6 +311,13 @@ namespace asp {
     // Function to interpolate quaternions with the CSM model. This is used
     // for validation of the CSM model but not in production.  
     void getQuaternions(const double& time, double q[4]) const;
+
+    // For a given line, find the projection of a ground point 'point'
+    // in the sensor using the rotation matrix for that line. Find its
+    // y component. Subtract m_detector_origin[1] / m_focal_length.
+    // This will be zero precisely when the point projects at the
+    // given line. This is analogous to LinescanLMA logic.
+    double errorFunc(double y, vw::Vector3 const& point) const;
   };
 
   /// Load a DG camera model from an XML file. This function does not

@@ -28,7 +28,8 @@ tools, including this one.
    Example of files produced with the following colormaps (left to
    right, and top-down): ``binary-red-blue`` (default),
    ``jet``, ``black-body``, ``cubehelix``, ``viridis``,
-   ``plasma``, ``inferno``, ``kindlmann``.
+   ``plasma``, ``inferno``, ``kindlmann`` (`source
+   <http://www.kennethmoreland.com/color-advice/>`_).
 
 Command-line options for ``colormap``:
 

@@ -47,7 +47,7 @@ struct Options : vw::GdalWriteOptions {
   // Input
   std::string dem_file, image_file, camera_file, output_file, stereo_session,
     bundle_adjust_prefix;
-  bool isQuery, noGeoHeaderInfo, nearest_neighbor, parseOptions;
+  bool isQuery, noGeoHeaderInfo, nearest_neighbor, parseOptions, dg_use_csm;
   bool multithreaded_model; // This is set based on the session type.
   bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction;
   
@@ -100,6 +100,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
     ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
      "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
+    ("dg-use-csm", po::bool_switch(&opt.dg_use_csm)->default_value(false)->implicit_value(true),
+     "Use the CSM model with DigitalGlobe linescan cameras (-t dg). No corrections are done for velocity aberration or atmospheric refraction.")
     ("parse-options", po::bool_switch(&opt.parseOptions)->default_value(false),
      "Parse the options and print the results. Used by the mapproject script.")
     ;
@@ -157,6 +159,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     = opt.enable_correct_velocity_aberration;
   asp::stereo_settings().enable_correct_atmospheric_refraction
     = opt.enable_correct_atmospheric_refraction;
+  
+  asp::stereo_settings().dg_use_csm = opt.dg_use_csm;
   
   if (fs::path(opt.dem_file).extension() != "") {
     // A path to a real DEM file was provided, load it!

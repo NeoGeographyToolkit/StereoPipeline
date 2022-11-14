@@ -158,9 +158,22 @@ pc_align:
 colormap: 
   * Added four colormaps: ``black-body``, ``viridis``, ``plasma``,
     ``kindlmann`` (:numref:`colormap`). Source: 
-     http://www.kennethmoreland.com/color-advice/
+    http://www.kennethmoreland.com/color-advice/
  
 misc:
+  * Added the option of using the CSM camera with DigitalGlobe WorldView 
+    images in bundle adjustment, stereo, and mapprojection (use with
+    ``--t dg``). Option name is ``--dg-use-csm`` and must be set
+    consistently for all tools. This speeds up ground-to-image
+    computation by a factor of about 20 (which helps with
+    mapprojection and bundle adjustment). The result of projecting
+    into the camera changes by less than 0.015 pixels from before if
+    using this option. That is due to the fact that different
+    methods are used for position and orientation interpolation.
+    The ``cam_test`` option ``--dg-vs-csm`` can be
+    used for evaluating this discrepancy. Each of these methods is
+    consistent with itself to within 2e-8 when it comes to projecting
+    from camera to ground and back. 
   * Increased the cache size to 1 GB per process for each ASP tool. 
     Added the option ``--cache-size-mb``, to set this. Made the
     warning message refer to this option when the limit is

@@ -47,6 +47,22 @@ functions are inverse of each other, up to a certain tolerance.
       --session1 csm --session2 csm --sample-rate 100               \
       --subpixel-offset 0.3
 
+In the following two examples we evaluate using CSM for the DigitalGlobe
+linescan camera implementation.
+
+Use CSM for DigitalGlobe cameras for both image-to-ground and
+ground-to-image calculations::
+
+    cam_test --image image.tif --cam1 image.xml --cam2 image.xml \
+      --session1 dg --session2 dg --dg-use-csm --sample-rate 100
+
+Additionally, compare projecting into the camera without and with
+using CSM::
+
+    cam_test --image image.tif --cam1 image.xml --cam2 image.xml \
+      --session1 dg --session2 dg --dg-use-csm --dg-vs-csm       \
+      --sample-rate 100
+
 Usage::
 
     cam_test --image <image file> --cam1 <camera 1 file> \
@@ -100,6 +116,15 @@ Command-line options for cam_test
 
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
+
+--dg-use-csm
+    Use the CSM model with DigitalGlobe linescan cameras (``-t
+    dg``). No corrections are done for velocity aberration or
+    atmospheric refraction.
+
+--dg-vs-csm
+    Compare projecting into the camera without and with using the CSM
+    model for Digital Globe.
 
 -h, --help
     Display the help message.
