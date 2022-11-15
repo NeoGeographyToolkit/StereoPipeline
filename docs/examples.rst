@@ -2502,6 +2502,8 @@ commands from :numref:`skysat-stereo` with the flags
 to obtain dense interest points and unaligned disparity.
 (To not generate the triangulated point cloud after
 this, add the option ``--compute-point-cloud-center-only``.)
+Use ``--num-matches-from-disparity 10000`` if the images are large,
+as the earlier related option can be very slow then.
 
 The match points can be examined as::
 

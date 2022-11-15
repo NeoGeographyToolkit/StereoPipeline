@@ -489,8 +489,8 @@ public:
       // and may have missed some points.
       Vector2 diff = img_box.max() - img_box.min();
       if (!img_box.empty()) {
-	img_box.grow( img_box.min() - 0.1*diff);
-	img_box.grow( img_box.max() + 0.1*diff);
+	img_box.grow(img_box.min() - 0.1*diff);
+	img_box.grow(img_box.max() + 0.1*diff);
       }
       
       m_num_cols = img_box.max().x();
@@ -510,9 +510,9 @@ public:
   inline int32 rows  () const { return m_num_rows; }
   inline int32 planes() const { return 1; }
 
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline pixel_type operator()( double /*i*/, double /*j*/, int32 /*p*/ = 0 ) const {
+  inline pixel_type operator()(double /*i*/, double /*j*/, int32 /*p*/ = 0) const {
     vw_throw(vw::NoImplErr() << "UnalignDisparityView::operator()(...) is not implemented");
     return pixel_type();
   }
@@ -595,8 +595,8 @@ public:
       // and may have missed some points.
       Vector2 diff = disp_bbox.max() - disp_bbox.min();
       if (!disp_bbox.empty()) {
-	disp_bbox.grow( disp_bbox.min() - 0.1*diff);
-	disp_bbox.grow( disp_bbox.max() + 0.1*diff);
+	disp_bbox.grow(disp_bbox.min() - 0.1*diff);
+	disp_bbox.grow(disp_bbox.max() + 0.1*diff);
       }
       
     }
@@ -697,7 +697,7 @@ void unalign_disparity(bool is_map_projected,
      UnalignDisparityView(is_map_projected, disparity, left_trans, right_trans, opt),
      has_left_georef, left_georef,
      has_nodata, nodata, opt,
-     TerminalProgressCallback("asp", "\t--> Undist disp:") );
+     TerminalProgressCallback("asp", "\t--> Undist disp:"));
   
   sw.stop();
   vw_out() << "Unaligning disparity elapsed time: " << sw.elapsed_seconds() << " seconds.\n";
@@ -716,7 +716,7 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
                                vw::TransformPtr const& right_trans,
                                std::string      const& match_file,
                                int max_num_matches,
-                               bool gen_triplets) {
+                               bool gen_triplets, bool is_map_projected) {
 
   std::vector<vw::ip::InterestPoint> left_ip, right_ip;
 
@@ -725,10 +725,10 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
     // Use doubles to avoid integer overflow
     double num_pixels = double(disp.cols()) * double(disp.rows());
     double bin_len = sqrt(num_pixels/std::min(double(max_num_matches), num_pixels));
-    VW_ASSERT( bin_len >= 1.0, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );
+    VW_ASSERT(bin_len >= 1.0, vw::ArgumentErr() << "Expecting bin_len >= 1.\n");
 
-    int lenx = round( disp.cols()/bin_len ); lenx = std::max(1, lenx);
-    int leny = round( disp.rows()/bin_len ); leny = std::max(1, leny);
+    int lenx = round(disp.cols()/bin_len); lenx = std::max(1, lenx);
+    int leny = round(disp.rows()/bin_len); leny = std::max(1, leny);
 
     // Iterate over bins.
 
@@ -740,11 +740,11 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
     for (int binx = 0; binx < lenx; binx++) {
 
       // Pick the disparity at the center of the bin
-      int posx = round( (binx+0.5)*bin_len );
+      int posx = round((binx+0.5)*bin_len);
 
       for (int biny = 0; biny < leny; biny++) {
 
-        int posy = round( (biny+0.5)*bin_len );
+        int posy = round((biny+0.5)*bin_len);
 
         if (posx >= disp.cols() || posy >= disp.rows()) 
           continue;
@@ -754,14 +754,14 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
           continue;
 
         // De-warp left and right pixels to be in the camera coordinate system
-        Vector2 left_pix  = left_trans->reverse ( Vector2(posx, posy) );
-        Vector2 right_pix = right_trans->reverse( Vector2(posx, posy) + stereo::DispHelper(dpix) );
+        Vector2 left_pix  = left_trans->reverse (Vector2(posx, posy));
+        Vector2 right_pix = right_trans->reverse(Vector2(posx, posy) + stereo::DispHelper(dpix));
 
         left_ip.push_back(ip::InterestPoint(left_pix.x(), left_pix.y()));
         right_ip.push_back(ip::InterestPoint(right_pix.x(), right_pix.y()));
       }
 
-      tpc.report_incremental_progress( inc_amount );
+      tpc.report_incremental_progress(inc_amount);
     }
     tpc.report_finished();
 
@@ -775,6 +775,13 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
 
     // Note that the code above is modified in subtle ways.
 
+    // Interpolate the disparity. When interpolating out-of-range
+    // pixels, return invalid values.
+    typedef typename DispImageType::pixel_type DispPixelT;
+    DispPixelT invalid_disp; invalid_disp.invalidate();
+    vw::ValueEdgeExtension<DispPixelT> invalid_ext(invalid_disp);
+    auto interp_disp = interpolate(disp, BilinearInterpolation(), invalid_ext);
+
     // Need these to not insert an ip twice, as then bundle_adjust
     // will wipe both copies
     std::map<double, double> left_done, right_done;
@@ -783,13 +790,22 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
     {
       DiskImageView<float> left_img(opt.in_file1);
 
+      vw::BBox2 box = vw::bounding_box(left_img);
+      // If images are mapprojected, need to find the bounding box of
+      // unaligned pixels.
+      if (is_map_projected) {
+        // This is very slow. For now, just turn off this logic untill it is studied more.
+        vw::vw_throw(vw::ArgumentErr() << "Option --num-matches-from-disp-triplets does not work with mapprojected images. Use instead --num-matches-from-disparity.\n");
+        box = left_trans->reverse_bbox(box); 
+      }
+      
       // Use doubles to avoid integer overflow
       double num_pixels = double(left_img.cols()) * double(left_img.rows());
       int bin_len = round(sqrt(num_pixels/std::min(double(max_num_matches), num_pixels)));
-      VW_ASSERT( bin_len >= 1, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );
+      VW_ASSERT(bin_len >= 1, vw::ArgumentErr() << "Expecting bin_len >= 1.\n");
 
-      int lenx = round( left_img.cols()/bin_len ); lenx = std::max(1, lenx);
-      int leny = round( left_img.rows()/bin_len ); leny = std::max(1, leny);
+      int lenx = round(left_img.cols()/bin_len); lenx = std::max(1, lenx);
+      int leny = round(left_img.rows()/bin_len); leny = std::max(1, leny);
 
       // Iterate over bins.
 
@@ -811,15 +827,16 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
 
           Vector2 left_pix(posx, posy);
           Vector2 trans_left_pix, trans_right_pix, right_pix;
-        
-          typedef typename DispImageType::pixel_type DispPixelT;
-
+          
           // Make the left pixel go to the disparity domain. Find the corresponding
           // right pixel. And make that one go to the right image domain.
-          trans_left_pix = round(left_trans->forward(left_pix));
+          // left_pix is unaligned left pixel, while trans_left_pix is the aligned one.
+          // This one is no longer integer, so need to interpolate to find its
+          // disparity.
+          trans_left_pix = left_trans->forward(left_pix);
           if (trans_left_pix[0] < 0 || trans_left_pix[0] >= disp.cols()) continue;
           if (trans_left_pix[1] < 0 || trans_left_pix[1] >= disp.rows()) continue;
-          DispPixelT dpix = disp(trans_left_pix[0], trans_left_pix[1]);
+          DispPixelT dpix = interp_disp(trans_left_pix[0], trans_left_pix[1]);
           if (!is_valid(dpix))
             continue;
           trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
@@ -840,36 +857,35 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
           right_ip.push_back(rip);
         }
         
-        tpc.report_incremental_progress( inc_amount );
+        tpc.report_incremental_progress(inc_amount);
       }
       tpc.report_finished();
     }
     
-    // Now create ip in predictable location for the right image.This is hard,
+    // Now create ip in predictable locations for the right image. This is hard,
     // as the disparity goes from left to right, so we need to examine every disparity.
     typedef typename DispImageType::pixel_type DispPixelT;
-    ImageView<DispPixelT> disp_copy = copy(disp);
     {
       DiskImageView<float> right_img(opt.in_file2);
     
       double num_pixels = double(right_img.cols()) * double(right_img.rows());
       int bin_len = round(sqrt(num_pixels/std::min(double(max_num_matches), num_pixels)));
-      VW_ASSERT( bin_len >= 1, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );
+      VW_ASSERT(bin_len >= 1, vw::ArgumentErr() << "Expecting bin_len >= 1.\n");
 
       // Iterate over disparity.
 
       vw_out() << "Doing a second pass. This will be very slow.\n";
       vw::TerminalProgressCallback tpc("asp", "\t--> ");
-      double inc_amount = 1.0 / double(disp_copy.cols());
+      double inc_amount = 1.0 / double(disp.cols());
       tpc.report_progress(0);
 
-      for (int col = 0; col < disp_copy.cols(); col++) {
-        for (int row = 0; row < disp_copy.rows(); row++) {
+      for (int col = 0; col < disp.cols(); col++) {
+        for (int row = 0; row < disp.rows(); row++) {
 
           Vector2 trans_left_pix(col, row);
           Vector2 left_pix, trans_right_pix, right_pix;
 
-          DispPixelT dpix = disp_copy(trans_left_pix[0], trans_left_pix[1]);
+          DispPixelT dpix = disp(trans_left_pix[0], trans_left_pix[1]);
           if (!is_valid(dpix))
             continue;
 
@@ -881,8 +897,8 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
           // If the right pixel is a multiple of the bin size, keep
           // it.
           right_pix = round(right_pix); // very important
-          if ( int(right_pix[0]) % bin_len != 0 ) continue;
-          if ( int(right_pix[1]) % bin_len != 0 ) continue;
+          if (int(right_pix[0]) % bin_len != 0) continue;
+          if (int(right_pix[1]) % bin_len != 0) continue;
 
           // Add this ip unless found already. This is clumsy, but we
           // can't use a set since there is no ordering for pairs.
@@ -899,7 +915,7 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
           right_ip.push_back(rip);
         }
         
-        tpc.report_incremental_progress( inc_amount );
+        tpc.report_incremental_progress(inc_amount);
       }
       tpc.report_finished();
     }

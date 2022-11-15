@@ -520,7 +520,7 @@ void disp_or_matches_or_jitter_work(std::string const& output_prefix,
             vw::ArgumentErr() << "Expecting two images and one disparity.\n");
    
   ASPGlobalOptions opt = opt_vec[0];
-  const bool is_map_projected = opt.session->isMapProjected();
+  bool is_map_projected = opt.session->isMapProjected();
     
   // Transforms to compensate for alignment
   vw::TransformPtr left_trans  = transforms[0];
@@ -548,12 +548,14 @@ void disp_or_matches_or_jitter_work(std::string const& output_prefix,
   if (stereo_settings().num_matches_from_disparity > 0) {
     bool gen_triplets = false;
     compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
-                              stereo_settings().num_matches_from_disparity, gen_triplets);
+                              stereo_settings().num_matches_from_disparity,
+                              gen_triplets, is_map_projected);
   }
   if (stereo_settings().num_matches_from_disp_triplets > 0) {
     bool gen_triplets = true;
     compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
-                              stereo_settings().num_matches_from_disp_triplets, gen_triplets);
+                              stereo_settings().num_matches_from_disp_triplets,
+                              gen_triplets, is_map_projected);
   }
       
   // Piecewise adjustments for jitter
@@ -565,7 +567,7 @@ void disp_or_matches_or_jitter_work(std::string const& output_prefix,
         
     bool gen_triplets = false;
     compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
-                              max_num_matches, gen_triplets);
+                              max_num_matches, gen_triplets, is_map_projected);
       
     int num_threads = opt.num_threads;
     if (!opt.session->supports_multi_threading()) 

@@ -77,7 +77,7 @@ namespace asp {
                                  vw::TransformPtr const& right_trans,
                                  std::string      const& match_file,
                                  int max_num_matches,
-                                 bool gen_triplets);
+                                 bool gen_triplets, bool is_map_projected);
   
 } // End namespace asp
 

@@ -171,7 +171,10 @@ Stereo is run next. The ``local_epipolar`` alignment
     point2dem --errorimage stereo/run-PC.tif
 
 Note how above we chose to create dense interest point matches from
-disparity. They will be used to solve for jitter.
+disparity. They will be used to solve for jitter. The option used
+``--num-matches-from-disp-triplets`` can be very slow for images
+larger than 50,000 pixels on the side, or so. Then, use
+``--num-matches-from-disparity``.
 
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices for stereo. Close to the poles a polar

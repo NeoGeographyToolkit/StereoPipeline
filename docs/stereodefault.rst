@@ -773,15 +773,17 @@ num-matches-from-disp-triplets (*integer*) (default = 0)
     set of ground features are represented by matches in at least three of
     them. The matches are between original images (that is, before any
     alignment or map-projection). The file name is ``<output
-    prefix>-disp-<left image>__<right image>.match``. To not continue
+    prefix>-disp-<left image>__<right image>.match``. This can
+    be very slow for images 50,000 or more on the side. Use then
+    ``num-matches-from-disparity``.  To not continue
     with triangulation, use ``--compute-point-cloud-center-only``.
     See :numref:`floatingintrinsics` for an application.
 
 num-matches-from-disparity (*integer*) (default = 0)
-    Create a match file with this many points uniformly sampled from the stereo
-    disparity. The matches are between original images (that is,
-    before any alignment or map-projection). See also
-    num-matches-from-disp-triplets.
+    Create a match file with this many points uniformly sampled from
+    the stereo disparity. The matches are between original images
+    (that is, before any alignment or map-projection). See also
+    ``num-matches-from-disp-triplets``.
 
 compute-point-cloud-center-only
     Only compute the center of triangulated point cloud and exit. Hence,
