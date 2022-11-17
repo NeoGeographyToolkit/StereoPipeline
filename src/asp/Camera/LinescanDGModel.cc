@@ -159,18 +159,32 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::st
       stereo_settings().enable_correct_atmospheric_refraction));
 } // End function load_dg_camera_model()
 
-// Digital Globe implementation using CSM, TODO(oalexan1): This is
-// temporary logic. Eventually this will replace LinescanDGModel, and
-// the class PiecewiseAdjustedLinescanModel will go away as well.
-// Note that the CSM-based logic does not support velocity aberration and
-// atmospheric refraction correction. That needs to be rectified
-// before removing the older approach.
-struct DgCsmModel: public CsmModel {
-      
-DgCsmModel() {}
 
+// Constructor
+DGCameraModel::DGCameraModel
+  (vw::camera::PiecewiseAPositionInterpolation      const& position,
+   vw::camera::LinearPiecewisePositionInterpolation const& velocity,
+   vw::camera::SLERPPoseInterpolation               const& pose,
+   vw::camera::TLCTimeInterpolation                 const& time,
+   vw::Vector2i                                     const& image_size, 
+   vw::Vector2                                      const& detector_origin,
+   double                                           const  focal_length,
+   double                                           const  mean_ground_elevation,
+   bool                                                    correct_velocity,
+   bool                                                    correct_atmosphere):
+    DGCameraModelBase(position, velocity, pose, time, image_size, detector_origin, focal_length,
+                      mean_ground_elevation, correct_velocity, correct_atmosphere) {
+
+  if (stereo_settings().dg_use_csm) 
+    vw_out() << "Using the CSM model with DigitalGlobe cameras.\n";
+
+  // It is convenient to have the CSM model exist even if it is not used.
+  // The cam_test.cc and jitter_solve.cc tools uses this assumption.
+  populateCsmModel();
+}
+  
 // This is a lengthy function that does many initializations  
-void populateCsmModel(DGCameraModel * dg_model) {
+void DGCameraModel::populateCsmModel() {
 
   // Using a desired precision of 1e-8 will result in about this much
   // agreement between image to ground and back. Pushing this to
@@ -178,24 +192,31 @@ void populateCsmModel(DGCameraModel * dg_model) {
   // computation failing due to numerical precision issues, which can
   // be traced to the DG camera using a focal length (in pixels) of
   // 2,002,252.25.
-  m_desired_precision = 1.0e-8;
+  m_csm_model.reset(new CsmModel);
+  m_csm_model->m_desired_precision = 1.0e-8;
   vw::cartography::Datum datum("WGS84"); // this sensor is used for Earth only
-  m_semi_major_axis = datum.semi_major_axis();
-  m_semi_minor_axis = datum.semi_minor_axis();
+  m_csm_model->m_semi_major_axis = datum.semi_major_axis();
+  m_csm_model->m_semi_minor_axis = datum.semi_minor_axis();
     
-  // Create a linescan model as a smart pointer, and do smart pointer casting
-  m_csm_model.reset(new UsgsAstroLsSensorModel); // follow CSM api, type is csm::RasterGM
-  m_ls_model = boost::dynamic_pointer_cast<UsgsAstroLsSensorModel>(m_csm_model);
+  // Create a linescan model as a smart pointer, and do smart pointer
+  // casting Follow the CSM API. The type of m_gm_model is
+  // csm::RasterGM, which is a base class. UsgsAstroLsSensorModel is
+  // derived from it. A smart pointer to m_gm_model is held by
+  // m_csm_model.
+  m_csm_model->m_gm_model.reset(new UsgsAstroLsSensorModel);
+  m_ls_model = boost::dynamic_pointer_cast<UsgsAstroLsSensorModel>
+    (m_csm_model->m_gm_model);
   if (m_ls_model == NULL)
     vw::vw_throw(vw::ArgumentErr() << "Invalid initialization of the linescan model.\n");
     
-  // This performs many initializations apart from the above
+  // This performs many initializations apart from the above. Note that this is
+  // not a boost::shared_ptr reset, it is UsgsAstroLsSensorModel reset.
   m_ls_model->reset();
     
-  m_ls_model->m_nSamples = dg_model->m_image_size[0]; 
-  m_ls_model->m_nLines   = dg_model->m_image_size[1];
+  m_ls_model->m_nSamples = m_image_size[0]; 
+  m_ls_model->m_nLines   = m_image_size[1];
 
-  double f = dg_model->m_focal_length;
+  double f = m_focal_length;
 
   m_ls_model->m_platformFlag = 1; // For order 8 Lagrange interpolation
   m_ls_model->m_maxElevation =  10000.0; //  10 km
@@ -204,8 +225,8 @@ void populateCsmModel(DGCameraModel * dg_model) {
   m_ls_model->m_zDirection   = 1.0;
   m_ls_model->m_halfSwath    = 1.0;
   m_ls_model->m_sensorIdentifier = "DigitalGlobeLinescan";
-  m_ls_model->m_majorAxis = m_semi_major_axis;
-  m_ls_model->m_minorAxis = m_semi_minor_axis;
+  m_ls_model->m_majorAxis = m_csm_model->m_semi_major_axis;
+  m_ls_model->m_minorAxis = m_csm_model->m_semi_minor_axis;
 
   // The choices below are because of how DigitalGlobe's
   // get_local_pixel_vector() interacts with the
@@ -227,13 +248,13 @@ void populateCsmModel(DGCameraModel * dg_model) {
   // only 0.5 to tlc[i].first, further down. Looks to produce similar
   // but not quite the same result, but there was no time for a lot of
   // testing doing it that way.
-  m_ls_model->m_startingDetectorLine   = dg_model->m_detector_origin[1];
+  m_ls_model->m_startingDetectorLine   = m_detector_origin[1];
   m_ls_model->m_detectorSampleSumming  = 1.0;
-  m_ls_model->m_startingDetectorSample = (dg_model->m_detector_origin[0] - 0.5);
+  m_ls_model->m_startingDetectorSample = (m_detector_origin[0] - 0.5);
 
   // Time
-  auto const& tlc = dg_model->m_time_func.m_tlc;
-  double time_offset = dg_model->m_time_func.m_time_offset;
+  auto const& tlc = m_time_func.m_tlc;
+  double time_offset = m_time_func.m_time_offset;
   if (tlc.size() < 2) 
     vw::vw_throw(vw::ArgumentErr()
                  << "Expecting at least two line and time sample pairs.\n");
@@ -269,9 +290,9 @@ void populateCsmModel(DGCameraModel * dg_model) {
   // positions and velocities.
   // TODO(oalexan1): Are positions sampled finely enough?
   int factor = 1;
-  double old_t0 = dg_model->m_position_func.get_t0();
-  double old_dt = dg_model->m_position_func.get_dt();
-  double old_tend = dg_model->m_position_func.get_tend();
+  double old_t0 = m_position_func.get_t0();
+  double old_dt = m_position_func.get_dt();
+  double old_tend = m_position_func.get_tend();
   int num_old_pos = round((old_tend - old_t0)/old_dt) + 1;
   int num_new_pos = factor * (num_old_pos - 1) + 1; // care here, to not go out of bounds
   m_ls_model->m_numPositions = 3 * num_new_pos; // concatenate all coordinates
@@ -282,8 +303,8 @@ void populateCsmModel(DGCameraModel * dg_model) {
   for (int pos_it = 0; pos_it < num_new_pos; pos_it++) {
     // The largest value of t will be no more than old_tend, within numerical precision
     double t = m_ls_model->m_t0Ephem + pos_it * m_ls_model->m_dtEphem;
-    vw::Vector3 P = dg_model->m_position_func(t);
-    vw::Vector3 V = dg_model->m_velocity_func(t);
+    vw::Vector3 P = m_position_func(t);
+    vw::Vector3 V = m_velocity_func(t);
     for (int coord = 0; coord < 3; coord++) {
       m_ls_model->m_positions [3*pos_it + coord] = P[coord];
       m_ls_model->m_velocities[3*pos_it + coord] = V[coord];
@@ -295,15 +316,15 @@ void populateCsmModel(DGCameraModel * dg_model) {
   // Since DG has a lot of them, we assume there's no need for more.
   // ASP's old approach used linear quaternion interpolation,
   // but CSM uses Lagrange interpolation.
-  int num_quat = dg_model->m_pose_func.m_pose_samples.size();
+  int num_quat = m_pose_func.m_pose_samples.size();
   m_ls_model->m_numQuaternions = 4 * num_quat; // concatenate all coordinates
-  m_ls_model->m_t0Quat = dg_model->m_pose_func.m_t0; // quaternion t0
-  m_ls_model->m_dtQuat = dg_model->m_pose_func.m_dt; // quaternion dt
+  m_ls_model->m_t0Quat = m_pose_func.m_t0; // quaternion t0
+  m_ls_model->m_dtQuat = m_pose_func.m_dt; // quaternion dt
   m_ls_model->m_quaternions.resize(m_ls_model->m_numQuaternions);
 
   for (int pos_it = 0; pos_it < m_ls_model->m_numQuaternions / 4; pos_it++) {
     double t = m_ls_model->m_t0Quat + pos_it * m_ls_model->m_dtQuat;
-    vw::Quat q = dg_model->m_pose_func.m_pose_samples[pos_it];
+    vw::Quat q = m_pose_func.m_pose_samples[pos_it];
     // ASP stores the quaternions as (w, x, y, z). CSM wants them as
     // x, y, z, w.
     int coord = 0;
@@ -319,32 +340,6 @@ void populateCsmModel(DGCameraModel * dg_model) {
   m_ls_model->replaceModelState(modelState);
 }
 
-  // Smart pointer to the linescan sensor
-  boost::shared_ptr<UsgsAstroLsSensorModel> m_ls_model;
-};
-  
-// Constructor
-DGCameraModel::DGCameraModel
-  (vw::camera::PiecewiseAPositionInterpolation      const& position,
-   vw::camera::LinearPiecewisePositionInterpolation const& velocity,
-   vw::camera::SLERPPoseInterpolation               const& pose,
-   vw::camera::TLCTimeInterpolation                 const& time,
-   vw::Vector2i                                     const& image_size, 
-   vw::Vector2                                      const& detector_origin,
-   double                                           const  focal_length,
-   double                                           const  mean_ground_elevation,
-   bool                                                    correct_velocity,
-   bool                                                    correct_atmosphere):
-    DGCameraModelBase(position, velocity, pose, time, image_size, detector_origin, focal_length,
-                      mean_ground_elevation, correct_velocity, correct_atmosphere) {
-
-  if (stereo_settings().dg_use_csm) 
-    vw_out() << "Using the CSM model with DigitalGlobe cameras.\n";
-    
-  m_dg_csm_model.reset(new DgCsmModel);
-  m_dg_csm_model->populateCsmModel(this);
-}
-  
 // Re-implement base class functions
   
 double DGCameraModel::get_time_at_line(double line) const {
@@ -353,7 +348,7 @@ double DGCameraModel::get_time_at_line(double line) const {
     csm::ImageCoord csm_pix;
     vw::Vector2 pix(0, line);
     asp::toCsmPixel(pix, csm_pix);
-    return m_dg_csm_model->m_ls_model->getImageTime(csm_pix);
+    return m_ls_model->getImageTime(csm_pix);
   }
   
   return m_time_func(line);
@@ -361,7 +356,7 @@ double DGCameraModel::get_time_at_line(double line) const {
 
 vw::Vector3 DGCameraModel::get_camera_center_at_time(double time) const {
   if (stereo_settings().dg_use_csm) {
-    csm::EcefCoord ecef = m_dg_csm_model->m_ls_model->getSensorPosition(time);
+    csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
     return vw::Vector3(ecef.x, ecef.y, ecef.z);
   }
   
@@ -370,7 +365,7 @@ vw::Vector3 DGCameraModel::get_camera_center_at_time(double time) const {
 
 vw::Vector3 DGCameraModel::get_camera_velocity_at_time(double time) const {
   if (stereo_settings().dg_use_csm) {
-    csm::EcefVector ecef = m_dg_csm_model->m_ls_model->getSensorVelocity(time);
+    csm::EcefVector ecef = m_ls_model->getSensorVelocity(time);
     return vw::Vector3(ecef.x, ecef.y, ecef.z);
   }
   
@@ -386,15 +381,15 @@ void DGCameraModel::getQuaternions(const double& time, double q[4]) const {
                  << "getQuaternions: It was expected the CSM model was used.\n");
     
   int nOrder = 8;
-  if (m_dg_csm_model->m_ls_model->m_platformFlag == 0)
+  if (m_ls_model->m_platformFlag == 0)
     nOrder = 4;
   int nOrderQuat = nOrder;
-  if (m_dg_csm_model->m_ls_model->m_numQuaternions < 6 && nOrder == 8)
+  if (m_ls_model->m_numQuaternions < 6 && nOrder == 8)
     nOrderQuat = 4;
 
-  lagrangeInterp(m_dg_csm_model->m_ls_model->m_numQuaternions / 4,
-                 &m_dg_csm_model->m_ls_model->m_quaternions[0],
-                 m_dg_csm_model->m_ls_model->m_t0Quat, m_dg_csm_model->m_ls_model->m_dtQuat,
+  lagrangeInterp(m_ls_model->m_numQuaternions / 4,
+                 &m_ls_model->m_quaternions[0],
+                 m_ls_model->m_t0Quat, m_ls_model->m_dtQuat,
                  time, 4, nOrderQuat, q);
 }
 
@@ -415,7 +410,7 @@ vw::Vector3 DGCameraModel::pixel_to_vector(vw::Vector2 const& pix) const {
   if (stereo_settings().dg_use_csm) {
     csm::ImageCoord csm_pix;
     asp::toCsmPixel(pix, csm_pix);
-    csm::EcefLocus locus = m_dg_csm_model->m_ls_model->imageToRemoteImagingLocus(csm_pix);
+    csm::EcefLocus locus = m_ls_model->imageToRemoteImagingLocus(csm_pix);
     return vw::Vector3(locus.direction.x, locus.direction.y, locus.direction.z);
   }
   
@@ -454,9 +449,9 @@ vw::Vector2 DGCameraModel::point_to_pixel(vw::Vector3 const& point) const {
     csm::WarningList * warnings_ptr = NULL;
     bool show_warnings = false;
     csm::ImageCoord csm_pix
-      = m_dg_csm_model->m_ls_model->groundToImage(ecef,
-                                                  m_dg_csm_model->m_desired_precision,
-                                                  &achievedPrecision, warnings_ptr);
+      = m_ls_model->groundToImage(ecef,
+                                  m_csm_model->m_desired_precision,
+                                  &achievedPrecision, warnings_ptr);
     
     vw::Vector2 asp_pix;
     asp::fromCsmPixel(asp_pix, csm_pix);
@@ -557,8 +552,8 @@ vw::Vector3 DGCameraModel::camera_center(vw::Vector2 const& pix) const {
     csm::ImageCoord csm_pix;
     asp::toCsmPixel(pix, csm_pix);
     
-    double time = m_dg_csm_model->m_ls_model->getImageTime(csm_pix);
-    csm::EcefCoord ecef = m_dg_csm_model->m_ls_model->getSensorPosition(time);
+    double time = m_ls_model->getImageTime(csm_pix);
+    csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
     
     return vw::Vector3(ecef.x, ecef.y, ecef.z);
   }

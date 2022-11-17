@@ -794,7 +794,8 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
       // If images are mapprojected, need to find the bounding box of
       // unaligned pixels.
       if (is_map_projected) {
-        // This is very slow. For now, just turn off this logic untill it is studied more.
+        
+        // This is very slow. For now, just turn off this logic until it is studied more.
         vw::vw_throw(vw::ArgumentErr() << "Option --num-matches-from-disp-triplets does not work with mapprojected images. Use instead --num-matches-from-disparity.\n");
         box = left_trans->reverse_bbox(box); 
       }

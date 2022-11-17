@@ -426,6 +426,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
+  // Set this before loading cameras, as jitter for DG can be modeled only with CSM
+  // cameras.
+  asp::stereo_settings().dg_use_csm = true;
+  
   std::vector<std::string> inputs = opt.image_files;
   bool ensure_equal_sizes = true;
   asp::separate_images_from_cameras(inputs,
@@ -1256,11 +1260,8 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::vector<UsgsAstroLsSensorModel*> ls_models;
   
   for (size_t icam = 0; icam < opt.camera_models.size(); icam++) {
-    vw::camera::CameraModel
-      * base_cam = vw::camera::unadjusted_model(opt.camera_models[icam]).get();
-    asp::CsmModel * csm_cam = dynamic_cast<asp::CsmModel*>(base_cam);
-    if (csm_cam == NULL)
-      vw_throw(ArgumentErr() << "Expecting the cameras to be of CSM type.\n");
+
+    asp::CsmModel * csm_cam = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
 
     if (!opt.input_prefix.empty()) {
       std::string adjust_file
@@ -1277,8 +1278,7 @@ void run_jitter_solve(int argc, char* argv[]) {
 
     // Get the underlying linescan model
     UsgsAstroLsSensorModel * ls_model
-      = dynamic_cast<UsgsAstroLsSensorModel*>((csm_cam->m_csm_model).get());
-
+      = dynamic_cast<UsgsAstroLsSensorModel*>((csm_cam->m_gm_model).get());
     if (ls_model == NULL)
       vw_throw(ArgumentErr() << "Expecting the cameras to be of CSM linescan type.\n");
 
@@ -1549,16 +1549,9 @@ void run_jitter_solve(int argc, char* argv[]) {
                                                           opt.image_files[icam],
                                                           opt.camera_files[icam]);
     std::string csmFile = asp::csmStateFile(adjustFile);
-    
-    vw::camera::CameraModel * base_cam
-      = vw::camera::unadjusted_model(opt.camera_models[icam]).get();
-    asp::CsmModel * csm_cam = dynamic_cast<asp::CsmModel*>(base_cam);
-    if (csm_cam == NULL)
-      vw_throw(ArgumentErr() << "Expecting the cameras to be of CSM type.\n");
-
+    asp::CsmModel * csm_cam = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
     csm_cam->saveState(csmFile);
   }
-
   
   return;
 }

@@ -34,7 +34,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 // Function to convert a masked geodetic vector to a masked altitude vector
-class MGeodeticToMAltitude : public ReturnFixedType<PixelMask<double> > {
+class MGeodeticToMAltitude : public ReturnFixedType<PixelMask<double>> {
 public:
   PixelMask<double> operator()(PixelMask<Vector3> const& v) const {
     if (!is_valid(v)) {
@@ -45,7 +45,7 @@ public:
 };
 
 // Function to mask NaN pixels 
-class MaskNaN : public ReturnFixedType<PixelMask<double> > {
+class MaskNaN : public ReturnFixedType<PixelMask<double>> {
 public:
   PixelMask<double> operator()(PixelMask<double> const& v) const {
     if (!is_valid(v) || std::isnan(v.child())) {
@@ -173,7 +173,7 @@ void dem2dem_diff(Options& opt){
                                              dem2_georef),
                                             MGeodeticToMAltitude()),
                            dem2_georef, dem1_georef,
-                           ValueEdgeExtension<PixelMask<double> >(PixelMask<double>())),
+                           ValueEdgeExtension<PixelMask<double>>(PixelMask<double>())),
                           crop_box), MaskNaN());
   
   ImageViewRef<double> difference;
@@ -273,7 +273,7 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   }
 
   // We will interpolate into the DEM to find the difference
-  ImageViewRef< PixelMask<double> > interp_dem
+  ImageViewRef<PixelMask<double>> interp_dem
     = interpolate(create_mask(dem, dem_nodata),
 		  BilinearInterpolation(), ConstantEdgeExtension());
 

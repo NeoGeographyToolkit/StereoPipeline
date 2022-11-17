@@ -106,7 +106,7 @@ namespace asp {
     // which positions, velocities, and quaternions are tabulated.
     void check_time(double time, std::string const& location) const;
 
-    // Pointer to linescan sensor. It will be managed by CsmModel::m_csm_model
+    // Pointer to linescan sensor. It will be managed by CsmModel::m_gm_model
     UsgsAstroLsSensorModel * m_ls_model;
 
     vw::Vector2i m_image_size;

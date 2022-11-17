@@ -30,8 +30,8 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/InterestPointMatching.h> // Has lots of templates
 #include <asp/Core/IpMatchingAlgs.h>        // Lightweight header
-#include <asp/Camera/CsmModel.h>
 #include <asp/Tools/bundle_adjust.h>
+#include <asp/Camera/CsmModel.h>
 
 // TODO(oalexan1): Move the code that needs this (asp::DoubleMatrix) to utils
 // and also this header which needs Eigen and is slow to compile.
@@ -74,14 +74,8 @@ void write_csm_output_file(Options const& opt, int icam,
                               cam_adjust.position(), cam_adjust.pose());
   
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
-
-  std::string csmFile = asp::csmStateFile(adjustFile);
-
-  asp::CsmModel * csm_model = dynamic_cast<asp::CsmModel*>
-    (vw::camera::unadjusted_model(opt.camera_models[icam].get()));
-  if (csm_model == NULL) 
-          vw::vw_throw(vw::ArgumentErr() << "Expected a csm camera model.");
-  
+  std::string csmFile          = asp::csmStateFile(adjustFile);
+  asp::CsmModel * csm_model    = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
   csm_model->saveTransformedState(csmFile, ecef_transform);
 }
 
@@ -109,7 +103,8 @@ void saveResults(Options const& opt, BAParamStorage const& param_storage) {
 
       // For CSM camera models export, in addition, the JSON state
       // with the adjustment applied to it.
-      if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades")
+      if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades" ||
+          (opt.stereo_session == "dg" && asp::stereo_settings().dg_use_csm))
         write_csm_output_file(opt, icam, adjust_file, param_storage);
     }
     
@@ -1115,7 +1110,9 @@ int do_ba_ceres_one_pass(Options             & opt,
     }
   }
 
-  // TODO(oalexan1): Make this into a function
+  // TODO(oalexan1): Make this into a function in a separate file,
+  // as it depends on Eigen which makes compilation even slower than
+  // what it already is.
   // Add a cost function meant to tie up to known disparity
   // form left to right image and known ground truth reference terrain.
   // This was only tested for local pinhole cameras.

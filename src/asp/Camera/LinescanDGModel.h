@@ -32,6 +32,9 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Math/EulerAngles.h>
 
+// Forward declaration
+class UsgsAstroLsSensorModel;
+
 namespace asp {
 
   // The intrinisic model expects +Z to be point out the camera. +X is
@@ -251,13 +254,14 @@ namespace asp {
     };
     
   }; // End class LinescanDGModel
-
+  
   typedef LinescanDGModel<vw::camera::PiecewiseAPositionInterpolation,
                           vw::camera::LinearPiecewisePositionInterpolation,
                           vw::camera::SLERPPoseInterpolation> DGCameraModelBase;
 
-  class DgCsmModel; // forward declaration
-  
+   // Forward declaration
+   class CsmModel;
+
   // This is the standard DG implementation. In Extrinsics.cc there are
   // other ways of performing position and pose interpolation as well.
   // TODO(oalexan1): Eliminate all these VW functions and inheritance
@@ -304,10 +308,12 @@ namespace asp {
     /// Gives the camera position in world coordinates.
     virtual vw::Vector3 camera_center(vw::Vector2 const& pix) const;
 
-  private:
-    friend class DgCsmModel;
-    boost::shared_ptr<DgCsmModel> m_dg_csm_model;
+    // CsmModel is ASP's wrapper around the CSM model. It holds a smart pointer
+    // to the CSM linescan model, which is of type UsgsAstroLsSensorModel.
+    boost::shared_ptr<CsmModel> m_csm_model; // wrapper
+    boost::shared_ptr<UsgsAstroLsSensorModel> m_ls_model; // actual model
 
+  private:
     // Function to interpolate quaternions with the CSM model. This is used
     // for validation of the CSM model but not in production.  
     void getQuaternions(const double& time, double q[4]) const;
@@ -318,6 +324,14 @@ namespace asp {
     // This will be zero precisely when the point projects at the
     // given line. This is analogous to LinescanLMA logic.
     double errorFunc(double y, vw::Vector3 const& point) const;
+
+    // Digital Globe implementation using CSM. Eventually this will
+    // replace LinescanDGModel, and the class
+    // PiecewiseAdjustedLinescanModel will go away as well.  Note that the
+    // CSM-based logic does not support velocity aberration and
+    // atmospheric refraction correction. That needs to be rectified
+    // before removing the older approach.
+    void populateCsmModel();
   };
 
   /// Load a DG camera model from an XML file. This function does not

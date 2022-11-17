@@ -387,7 +387,7 @@ void CsmModel::load_model(std::string const& isd_path) {
   // TODO(oalexan1): Study how important is to compute sun position
   // at every single time. Likely given that a camera shot takes a
   // 1-3 seconds, the Sun can't move that much. 
-  std::string modelState = m_csm_model->getModelState();
+  std::string modelState = m_gm_model->getModelState();
   nlohmann::json j = stateAsJson(modelState);
   if (j.find("m_sunPosition") != j.end()) {
     std::vector<double> sun_pos = j["m_sunPosition"].get<std::vector<double>>();
@@ -450,7 +450,7 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   if (!raster_model)
     vw::vw_throw(vw::ArgumentErr() << "Failed to cast CSM sensor model to raster type!");
   
-  m_csm_model.reset(raster_model); // We will handle cleanup of the model.
+  m_gm_model.reset(raster_model); // We will handle cleanup of the model.
 }
 
 /// Load the camera model from a model state written to disk.
@@ -519,22 +519,22 @@ void CsmModel::setModelFromStateString(std::string const& model_state, bool recr
   if (model_state.rfind(UsgsAstroFrameSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
 
     setModelFromStateStringAux<UsgsAstroFrameSensorModel>
-      (recreate_model, model_state, m_csm_model);
+      (recreate_model, model_state, m_gm_model);
     
   } else if (model_state.rfind(UsgsAstroLsSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
     
     setModelFromStateStringAux<UsgsAstroLsSensorModel>
-      (recreate_model, model_state, m_csm_model);
+      (recreate_model, model_state, m_gm_model);
     
   } else if (model_state.rfind(UsgsAstroPushFrameSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
     
     setModelFromStateStringAux<UsgsAstroPushFrameSensorModel>
-      (recreate_model, model_state, m_csm_model);
+      (recreate_model, model_state, m_gm_model);
     
   } else if (model_state.rfind(UsgsAstroSarSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
     
     setModelFromStateStringAux<UsgsAstroSarSensorModel>
-      (recreate_model, model_state, m_csm_model);
+      (recreate_model, model_state, m_gm_model);
     
   } else {
     vw::vw_throw(vw::ArgumentErr() << "Could not create CSM model from state string.\n");
@@ -553,7 +553,7 @@ void CsmModel::setModelFromStateString(std::string const& model_state, bool recr
 }
   
 void CsmModel::throw_if_not_init() const {
-  if (!m_csm_model)
+  if (!m_gm_model)
     vw_throw(ArgumentErr() << "CsmModel: Sensor model has not been loaded yet!");
 }
 
@@ -562,7 +562,7 @@ void CsmModel::throw_if_not_init() const {
 vw::Vector2 CsmModel::get_image_size() const {
   throw_if_not_init();
 
-  csm::ImageVector size = m_csm_model->getImageSize();
+  csm::ImageVector size = m_gm_model->getImageSize();
   return Vector2(size.samp, size.line);
 }
 
@@ -586,7 +586,7 @@ Vector2 CsmModel::point_to_pixel(Vector3 const& point) const {
   if (show_warnings) 
     warnings_ptr = &warnings;
 
-  csm::ImageCoord imagePt = m_csm_model->groundToImage(ecef, m_desired_precision,
+  csm::ImageCoord imagePt = m_gm_model->groundToImage(ecef, m_desired_precision,
 						       &achievedPrecision, warnings_ptr);
 
   if (show_warnings) {
@@ -605,7 +605,7 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
   csm::ImageCoord imagePt = vectorToImageCoord(pix + ASP_TO_CSM_SHIFT);
 
   // Camera center
-  csm::EcefCoord  ctr = m_csm_model->getSensorPosition(imagePt);
+  csm::EcefCoord  ctr = m_gm_model->getSensorPosition(imagePt);
 
   // Ground point. Note how we use the 0 height above datum.
   // The precise height value matters only for the SAR model, when the rays
@@ -613,7 +613,7 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
   double achievedPrecision = -1.0; // will be modified in the function
   double groundHeight      = 0.0;
   csm::EcefCoord groundPt
-    = m_csm_model->imageToGround(imagePt, groundHeight, m_desired_precision,
+    = m_gm_model->imageToGround(imagePt, groundHeight, m_desired_precision,
                                  &achievedPrecision);
 
   // Normalized direction
@@ -630,7 +630,7 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
   // This function generates the vector from the camera at the camera origin,
   // there is a different call that gets the vector near the ground.
   // This does not give the right result due to a bug in UsgsAstroSarSensorModel
-  csm::EcefLocus locus = m_csm_model->imageToRemoteImagingLocus(imagePt,
+  csm::EcefLocus locus = m_gm_model->imageToRemoteImagingLocus(imagePt,
                                                                 m_desired_precision,
                                                                 &achievedPrecision);
   Vector3 dir = ecefVectorToVector(locus.direction);
@@ -643,7 +643,7 @@ Vector3 CsmModel::camera_center(Vector2 const& pix) const {
   throw_if_not_init();
 
   csm::ImageCoord imagePt = vectorToImageCoord(pix + ASP_TO_CSM_SHIFT);
-  csm::EcefCoord  ecef    = m_csm_model->getSensorPosition(imagePt);
+  csm::EcefCoord  ecef    = m_gm_model->getSensorPosition(imagePt);
 
   return ecefCoordToVector(ecef);
 }
@@ -723,7 +723,7 @@ void applyTransformToState(csm::RasterGM const* raster_model,
 void CsmModel::saveState(std::string const& json_state_file) const {
   
   csm::RasterGM const* raster_model
-    = dynamic_cast<csm::RasterGM const*>(this->m_csm_model.get());
+    = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
 
   std::string modelState = raster_model->getModelState();
 
@@ -740,7 +740,7 @@ void CsmModel::saveTransformedState(std::string const& json_state_file,
                                     vw::Matrix4x4 const& transform) const {
   
   csm::RasterGM const* raster_model
-    = dynamic_cast<csm::RasterGM const*>(this->m_csm_model.get());
+    = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
 
   std::string modelState = raster_model->getModelState();
 
@@ -760,7 +760,7 @@ void CsmModel::saveTransformedState(std::string const& json_state_file,
 void CsmModel::applyTransform(vw::Matrix4x4 const& transform) {
 
   csm::RasterGM const* raster_model
-    = dynamic_cast<csm::RasterGM const*>(this->m_csm_model.get());
+    = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
   
   std::string modelState = raster_model->getModelState();
   

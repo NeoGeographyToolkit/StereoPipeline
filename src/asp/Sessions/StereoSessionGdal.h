@@ -113,35 +113,8 @@ namespace asp {
     
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
-                                             bool use_sphere_for_non_earth) const {
+                                             bool use_sphere_for_non_earth) const;
 
-      // Peek at the .cub file to get the planet name without reading
-      // it as an ISIS camera (which can fail unless the ISISDATA
-      // folder exists, and for CSM that is not guaranteed.)
-      // The CSM camera .json file itself lacks this information.
-      std::string datum_name = asp::read_target_name(m_left_image_file);
-
-      const asp::CsmModel * cast_csm_cam
-        = dynamic_cast<const asp::CsmModel*>(vw::camera::unadjusted_model(cam));
-      VW_ASSERT(cast_csm_cam != NULL,
-                vw::ArgumentErr() << "Could not load a CSM camera.\n");
-
-      vw::Vector3 radii = cast_csm_cam->target_radii();
-      double radius1 = (radii[0] + radii[1]) / 2; // average the x and y axes (semi-major) 
-      double radius2 = radius1;
-      if (!use_sphere_for_non_earth) {
-        radius2 = radii[2]; // the z radius (semi-minor axis)
-      }
-
-      // TODO(oalexan1): Add here a function which based on radius will return
-      // D_MOON, D_MARS, etc. It is better than saying 'unknown'.
-      
-      vw::cartography::Datum datum("D_" + datum_name, datum_name,
-                                   "Reference Meridian", radius1, radius2, 0);
-
-      return datum;
-    }
-    
   protected:
     /// Function to load a camera model of the particular type.
     virtual boost::shared_ptr<vw::camera::CameraModel>

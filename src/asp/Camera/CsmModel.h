@@ -99,11 +99,13 @@ namespace asp {
       m_desired_precision = desired_precision;
     }
 
-    // TODO(oalexan1): Is it always going to be this type (RasterGM)?
-    boost::shared_ptr<csm::RasterGM> m_csm_model;
+    boost::shared_ptr<csm::RasterGM> m_gm_model;
 
     double m_desired_precision;
     
+    // These are read from the json camera file
+    double m_semi_major_axis, m_semi_minor_axis;
+
   protected:
 
     // Read the ellipsoid (datum) axes from the isd json file
@@ -128,9 +130,6 @@ namespace asp {
 
     /// Throw an exception if we have not loaded the model yet.
     void throw_if_not_init() const;
-
-    // These are read from the json camera file
-    double m_semi_major_axis, m_semi_minor_axis;
 
     vw::Vector3 m_sun_position;
 
