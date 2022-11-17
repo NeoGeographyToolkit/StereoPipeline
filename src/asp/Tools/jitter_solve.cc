@@ -537,9 +537,9 @@ void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
 
   int num_tri_points = tri_points_vec.size() / NUM_XYZ_PARAMS;
   
-  // Open the output file and write the header
-  // TODO(oalexan1): Make this a function. See if it is possible to integrate
-  // it with the analogous bundle_adjust function.
+  // Open the output file and write the header.  TODO(oalexan1): See
+  // if it is possible to integrate this with the analogous
+  // bundle_adjust function.
   vw_out() << "Writing: " << output_path << std::endl;
 
   std::ofstream file;
@@ -562,14 +562,37 @@ void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
     std::string comment = "";
     if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
       comment = " # GCP";
-    file << llh[0] <<", "<< llh[1] <<", "<< llh[2] <<", "<< mean_pixel_residual_norm[ipt] <<", "
+    file << llh[0] << ", " << llh[1] <<", " << llh[2] << ", "
+         << mean_pixel_residual_norm[ipt] << ", "
          << pixel_residual_count[ipt] << comment << std::endl;
   }
   file.close();
 }
 
-// TODO(oalexan1): Add here residuals for anchor points, and also for 
-// xyz discrepancy to DEM
+void write_anchor_residuals(std::string            const& residual_prefix,
+                            vw::cartography::Datum const& datum,
+                            std::vector<Vector3>   const& anchor_xyz,
+                            std::vector<double>    const& anchor_residual_norm) {
+  
+  std::string map_prefix = residual_prefix + "_anchor_points";
+  std::string output_path = map_prefix + ".csv";
+  vw_out() << "Writing: " << output_path << std::endl;
+  std::ofstream file;
+  file.open(output_path.c_str());
+  file.precision(17);
+  file << "# lon, lat, height_above_datum, anchor_residual_pixel_norm\n";
+  file << "# " << datum << std::endl;
+
+  for (size_t anchor_it = 0; anchor_it < anchor_xyz.size(); anchor_it++) {
+    Vector3 llh = datum.cartesian_to_geodetic(anchor_xyz[anchor_it]);
+    file << llh[0] <<", "<< llh[1] << ", " << llh[2] << ", "
+         << anchor_residual_norm[anchor_it] << std::endl;
+  }
+  
+  file.close();
+}
+                           
+// TODO(oalexan1): Add here residuals for xyz discrepancy to DEM, if applicable
 void save_residuals(std::string const& residual_prefix,
                     ceres::Problem & problem, Options const& opt,
                     vw::ba::ControlNetwork const& cnet,
@@ -578,8 +601,14 @@ void save_residuals(std::string const& residual_prefix,
                     std::vector<double> const& tri_points_vec,
                     std::vector<Vector3> const& dem_xyz_vec,
                     std::set<int> const& outliers,
-                    std::vector<double> const& weight_per_residual) {
-
+                    std::vector<double> const& weight_per_residual,
+                    // These are needed for anchor points
+                    std::vector<std::vector<Vector2>>                    const& pixel_vec,
+                    std::vector<std::vector<boost::shared_ptr<Vector3>>> const& xyz_vec,
+                    std::vector<std::vector<double*>>                    const& xyz_vec_ptr,
+                    std::vector<std::vector<double>>                     const& weight_vec,
+                    std::vector<std::vector<int>>                        const& isAnchor_vec) {
+  
   // Compute the residuals before optimization
   std::vector<double> residuals;
   compute_residuals(opt, problem, residuals);
@@ -590,7 +619,7 @@ void save_residuals(std::string const& residual_prefix,
   int num_tri_points = cnet.size();
   std::vector<double> mean_pixel_residual_norm(num_tri_points, 0.0);
   std::vector<int>    pixel_residual_count(num_tri_points, 0);
-  std::vector<double> xyz_residual_norm;
+  std::vector<double> xyz_residual_norm; // This is unfinished logic
   if (have_dem)
     xyz_residual_norm.resize(num_tri_points, -1.0); // so we can ignore bad ones
   
@@ -616,11 +645,6 @@ void save_residuals(std::string const& residual_prefix,
     }
   }
 
-  // TODO(oalexan1): Add here residuals for anchor points, individual
-  // ones and median for each camera
-
-  // TODO(oalexan1): Add here per-camera median residuals
-  
   // Average all pixel residuals for a given xyz
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
     if (outliers.find(ipt) != outliers.end() || pixel_residual_count[ipt] <= 0)
@@ -628,10 +652,49 @@ void save_residuals(std::string const& residual_prefix,
     mean_pixel_residual_norm[ipt] /= pixel_residual_count[ipt];
   }
 
+  // Save the residuals
   write_per_xyz_pixel_residuals(cnet, residual_prefix, datum, outliers,  
                                 tri_points_vec, mean_pixel_residual_norm,  
                                 pixel_residual_count);
+
+  // Add residuals for anchor points. That is pass 1 from
+  // addReprojectionErrors(). We imitate here the same logic for that
+  // pass. We continue to increment the ires counter from above.
+  std::vector<Vector3> anchor_xyz;
+  std::vector<double> anchor_residual_norm;
+  for (int pass = 1; pass < 2; pass++) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+      for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
+
+        Vector2 observation =  pixel_vec[icam][ipix];
+        double * tri_point = xyz_vec_ptr[icam][ipix];
+        double weight = weight_vec[icam][ipix];
+        bool isAnchor = isAnchor_vec[icam][ipix];
+
+        // Pass 0 is without anchor points, while pass 1 uses them.
+        // Here we only do pass 1.
+        if ((int)isAnchor != pass) 
+          continue;
+
+        if (weight != opt.anchor_weight)
+          vw::vw_throw(vw::ArgumentErr() << "Expecting the weight to equal the anchor weight.\n");
+        
+        // Norm of pixel residual
+        double norm = norm_2(Vector2(residuals[ires + 0] / weight_per_residual[ires + 0],
+                                     residuals[ires + 1] / weight_per_residual[ires + 1]));
+        norm /= weight; // Undo the weight, to recover the pixel norm
+        
+        ires += PIXEL_SIZE; // Update for the next iteration
+
+        Vector3 xyz(tri_point[0], tri_point[1], tri_point[2]);
+        anchor_xyz.push_back(xyz);
+        anchor_residual_norm.push_back(norm);
+      }
+    }
+  }
+  write_anchor_residuals(residual_prefix, datum, anchor_xyz, anchor_residual_norm);
   
+  // TODO(oalexan1): Add here per-camera median residuals.
   // TODO(oalexan1): Save the xyz residual norms as well.
   if (have_dem) {
     for (int ipt = 0; ipt < num_tri_points; ipt++) {
@@ -688,9 +751,9 @@ void interpQuaternions(UsgsAstroLsSensorModel * ls_model, double time,
                  ls_model->m_t0Quat, ls_model->m_dtQuat, time, 4, nOrderQuat, q);
 }
 
-// Get positions. Based on the UsgsAstroLsSensorModel code
+// Get positions. Based on the UsgsAstroLsSensorModel code.
 void interpPositions(UsgsAstroLsSensorModel * ls_model, double time,
-                  double pos[3]) {
+                     double pos[3]) {
   int nOrder = 8;
   if (ls_model->m_platformFlag == 0) nOrder = 4;
   lagrangeInterp(ls_model->m_numPositions / 3, &ls_model->m_positions[0],
@@ -698,7 +761,7 @@ void interpPositions(UsgsAstroLsSensorModel * ls_model, double time,
                  time, 3, nOrder, pos);
 }
 
-// Get positions. Based on the UsgsAstroLsSensorModel code
+// Get positions. Based on the UsgsAstroLsSensorModel code.
 void interpVelocities(UsgsAstroLsSensorModel * ls_model, double time,
                   double vel[3]) {
   int nOrder = 8;
@@ -1512,7 +1575,9 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Save residuals before optimization
   std::string residual_prefix = opt.out_prefix + "-initial_residuals";
   save_residuals(residual_prefix, problem, opt, cnet, crn, have_dem, datum,
-                 tri_points_vec, dem_xyz_vec, outliers, weight_per_residual);
+                 tri_points_vec, dem_xyz_vec, outliers, weight_per_residual,
+                 // These are needed for anchor points
+                 pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
   
   // Set up the problem
   ceres::Solver::Options options;
@@ -1545,7 +1610,9 @@ void run_jitter_solve(int argc, char* argv[]) {
   // TODO(oalexan1): Add here the anchor residuals
   residual_prefix = opt.out_prefix + "-final_residuals";
   save_residuals(residual_prefix, problem, opt, cnet, crn, have_dem, datum,
-                 tri_points_vec, dem_xyz_vec, outliers, weight_per_residual);
+                 tri_points_vec, dem_xyz_vec, outliers, weight_per_residual,
+                 // These are needed for anchor points
+                 pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
 
   // TODO(oalexan1): Make this a function
   // Save the optimized model states. Note that we optimized directly the camera

@@ -370,21 +370,37 @@ example above is named ``jitter``.
 This program will write, just like ``bundle_adjust`` (:numref:`ba_out_files`),
 the triangulated world position for every feature being matched in two
 or more images, and the mean absolute residuals (reprojection errors)
-for each position, before and after optimization. The files are named
-
-::
+for each position, before and after optimization. The files are named::
 
      {output-prefix}-initial_residuals_pointmap.csv
 
-and
-
-::
+and::
 
      {output-prefix}-final_residuals_pointmap.csv
 
 Such CSV files can be colorized and overlaid with ``stereo_gui``
 (:numref:`plot_pointmap`) to see at which pixels the residual error is
 large.
+
+If anchor points are used, the pixel residuals at those points are saved
+as well, to::
+
+     {output-prefix}-initial_residuals_anchor_points.csv
+
+and::
+
+     {output-prefix}-final_residuals_anchor_points.csv
+
+Each of those is the norm of reprojection error in the camera for an
+anchor point. When being optimized, those reprojection errors are
+multiplied by the anchor weight. In this file they are saved without
+that weight multiplier.
+
+These can be plotted colorized in ``stereo_gui`` as well,
+for example, with::
+
+    stereo_gui --colorize --min 0 --max 0.5 --plot-point-radius 2 \
+      {output-prefix}-final_residuals_anchor_points.csv
 
 .. _jitter_options:
 

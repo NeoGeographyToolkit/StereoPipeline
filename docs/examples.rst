@@ -3989,9 +3989,9 @@ With SLURM, a script as follows can work::
       --parallel-options '--sshdelay 0.1'    \
       <other ASP options> 
 
-Note that the list of nodes is in a uniquely named temporary file in
-the work directory. That file should be deleted manually later.
-
+   # Delete the temporary list of nodes
+   /bin/rm -fv $nodesList
+ 
 As before, the options and values above should be adjusted for your needs.
 
 If your SLURM setup requires a custom ssh port, set in the list of nodes
