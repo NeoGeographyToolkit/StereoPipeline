@@ -237,8 +237,8 @@ Command-line options
     TIF. All subdirectories will be deleted. Will be
     invoked after triangulation, if that step is reached.
     Specify as a string in quotes. Example (this will keep
-    only the files needed to re-create ``PC.tif``): 
-    '.exr L.tif F.tif'.
+    only the files needed to re-create ``PC.tif`` and this file as
+    well): ``'.exr L.tif F.tif PC.tif'``.
 
 --verbose
     Display the commands being executed.

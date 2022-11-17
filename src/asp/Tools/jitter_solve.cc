@@ -21,7 +21,8 @@
 /// Use n adjustments for every camera, placed at several lines in the image
 // with interpolation between them. The pdf doc has more info.
 
-// TODO(oalexan1): Separate heights-from-dem logic from adding anchor points
+// TODO(oalexan1): Add residuals for anchor points.
+
 // TODO(oalexan1): Add two passes and outlier filtering. For now
 // try to use clean matches.
 
@@ -288,6 +289,7 @@ struct weightedQuatNormError {
 struct Options: public asp::BaBaseOptions {
   int num_lines_per_position, num_lines_per_orientation, num_anchor_points;
   double quat_norm_weight, anchor_weight;
+  std::string anchor_dem;
 };
     
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -383,7 +385,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "How much weight to give to each anchor point. Anchor points are "
      "obtained by intersecting rays from initial cameras with the DEM given by "
      "--heights-from-dem. A larger weight will make it harder for "
-     "the cameras to move, hence preventing unreasonable changes.")
+     "the cameras to move, hence preventing unreasonable changes. "
+     "Set also --anchor-weight and --anchor-dem.")
+    ("anchor-dem",  po::value(&opt.anchor_dem)->default_value(""),
+     "Use this DEM to create anchor points.")
     ("rotation-weight", po::value(&opt.rotation_weight)->default_value(0.0),
      "A higher weight will penalize more deviations from the original camera orientations.")
     ("translation-weight", po::value(&opt.translation_weight)->default_value(0.0),
@@ -494,6 +499,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.anchor_weight < 0)
     vw_throw(ArgumentErr() << "Anchor weight must be non-negative.\n");
 
+  if (opt.anchor_weight > 0 && opt.anchor_dem.empty()) 
+    vw::vw_throw(vw::ArgumentErr() << "If --anchor-weight is positive, set --anchor-dem.\n");
+  
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
   
@@ -608,10 +616,10 @@ void save_residuals(std::string const& residual_prefix,
     }
   }
 
-  // TODO(oalexan1): Add here per-camera median residuals
-
   // TODO(oalexan1): Add here residuals for anchor points, individual
   // ones and median for each camera
+
+  // TODO(oalexan1): Add here per-camera median residuals
   
   // Average all pixel residuals for a given xyz
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
@@ -899,8 +907,8 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
 
 // Calculate a set of anchor points uniformly distributed over the image
 void calcAnchorPoints(Options                              const & opt,
-                      ImageViewRef<PixelMask<double>>              interp_dem,
-                      vw::cartography::GeoReference         const& dem_georef,
+                      ImageViewRef<PixelMask<double>>              interp_acnhor_dem,
+                      vw::cartography::GeoReference         const& anchor_georef,
                       std::vector<UsgsAstroLsSensorModel*> const & ls_models,
                       // Append to these, they already have entries
                       std::vector<std::vector<Vector2>>                    & pixel_vec,
@@ -946,7 +954,7 @@ void calcAnchorPoints(Options                              const & opt,
         Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
           (opt.camera_models[icam]->camera_center(pix),
            opt.camera_models[icam]->pixel_to_vector(pix),
-           interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+           interp_acnhor_dem, anchor_georef, treat_nodata_as_zero, has_intersection,
            height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
 
         if (!has_intersection) 
@@ -991,7 +999,7 @@ void addReprojectionErrors
 
   // Do here two passes, first for non-anchor points and then for anchor ones.
   // This way it is easier to do the bookkeeping when saving the residuals.
-  // TODO(oalexan1): Make this a function
+  // Note: The same motions as here are repeated in save_residuals().
   for (int pass = 0; pass < 2; pass++) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
       for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
@@ -1367,16 +1375,13 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   bool have_dem = (!opt.heights_from_dem.empty() || !opt.ref_dem.empty());
 
-  if (opt.anchor_weight > 0 && !have_dem) 
-    vw::vw_throw(vw::ArgumentErr() << "If there is no input DEM, set --anchor-weight to 0.\n");
-  
   // Create anchor xyz with the help of a DEM in two ways.
   // TODO(oalexan1): Study how to best pass the DEM to avoid the code
   // below not being slow. It is not clear if the DEM tiles are cached
   // when passing around an ImageViewRef.
   std::vector<Vector3> dem_xyz_vec;
-  vw::cartography::GeoReference dem_georef;
-  ImageViewRef<PixelMask<double>> interp_dem;
+  vw::cartography::GeoReference dem_georef, anchor_georef;
+  ImageViewRef<PixelMask<double>> interp_dem, interp_anchor_dem;
   if (opt.heights_from_dem != "") {
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
     asp::update_point_height_from_dem(cnet, outliers, dem_georef, interp_dem,  
@@ -1389,6 +1394,9 @@ void run_jitter_solve(int argc, char* argv[]) {
                                         // Output
                                         dem_xyz_vec);
   }
+  
+  if (opt.anchor_dem != "")
+    asp::create_interp_dem(opt.anchor_dem, anchor_georef, interp_anchor_dem);
   
   int num_cameras = opt.camera_models.size();
   if (num_cameras < 2)
@@ -1456,7 +1464,7 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Find anchor points and append to pixel_vec, weight_vec, etc.
   if (opt.num_anchor_points > 0 && opt.anchor_weight > 0)
-    calcAnchorPoints(opt, interp_dem, dem_georef, ls_models,  
+    calcAnchorPoints(opt, interp_anchor_dem, anchor_georef, ls_models,  
                      // Append to these
                      pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
   
@@ -1538,7 +1546,6 @@ void run_jitter_solve(int argc, char* argv[]) {
   residual_prefix = opt.out_prefix + "-final_residuals";
   save_residuals(residual_prefix, problem, opt, cnet, crn, have_dem, datum,
                  tri_points_vec, dem_xyz_vec, outliers, weight_per_residual);
-
 
   // TODO(oalexan1): Make this a function
   // Save the optimized model states. Note that we optimized directly the camera

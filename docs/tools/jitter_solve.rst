@@ -49,8 +49,8 @@ later with jitter-corrected cameras is consistently close to
 the external DEM.
 
 To tie to the ground portions of images which do not overlap
-with other images, one can use the options ``--num-anchor-points``
-and ``--anchor-weight``. This is still being tested.
+with other images, one can use the options ``--num-anchor-points``,
+``--anchor-weight``, and ``--anchor-dem``.
 
 Resampling the poses
 ~~~~~~~~~~~~~~~~~~~~
@@ -487,7 +487,7 @@ Command-line options for jitter_solve
     How many anchor points to create tying each pixel to a point on
     a DEM along the ray from that pixel to the ground. These points
     will be uniformly distributed across each input image. (This is
-    being tested.)
+    being tested.) Set also ``--anchor-weight`` and ``--anchor-dem``.
 
 --anchor-weight <double (default: 0.0)>
     How much weight to give to each anchor point. Anchor points are
@@ -495,6 +495,9 @@ Command-line options for jitter_solve
     given by ``--heights-from-dem``. A larger weight will make it
     harder for the cameras to move, hence preventing unreasonable
     changes.
+
+--anchor-dem <string (default: "")>
+    Use this DEM to create anchor points.
 
 --quat-norm-weight <double (default: 1.0)>
     How much weight to give to the constraint that the norm of each
