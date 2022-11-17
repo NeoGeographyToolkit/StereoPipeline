@@ -444,13 +444,13 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   // TODO: Are all sensor models going to be this type (RasterGM)?
   //       Otherwise we can use the result of getModelFamily() to choose the class.
   // Cast the model we got to the child class with the needed functionality.
-  csm::RasterGM* raster_model = dynamic_cast<csm::RasterGM*>(csm_model);
+  csm::RasterGM* gm_model = dynamic_cast<csm::RasterGM*>(csm_model);
 
    // Handle load failure
-  if (!raster_model)
+  if (!gm_model)
     vw::vw_throw(vw::ArgumentErr() << "Failed to cast CSM sensor model to raster type!");
   
-  m_gm_model.reset(raster_model); // We will handle cleanup of the model.
+  m_gm_model.reset(gm_model); // The smart pointer will handle memory management
 }
 
 /// Load the camera model from a model state written to disk.
@@ -475,25 +475,25 @@ void CsmModel::loadModelFromStateFile(std::string const& state_file) {
 template<class ModelT>
 void setModelFromStateStringAux(bool recreate_model,
                                 std::string const& model_state,
-                                boost::shared_ptr<csm::RasterGM> & csm_model) {
+                                boost::shared_ptr<csm::RasterGM> & gm_model) {
 
   if (recreate_model) {
 
-    csm::RasterGM* raster_model = NULL;
-    ModelT * model = new ModelT;
-    model->replaceModelState(model_state);
-    raster_model = dynamic_cast<csm::RasterGM*>(model);
+    csm::RasterGM* new_gm_model = NULL;
+    ModelT * specific_model = new ModelT;
+    specific_model->replaceModelState(model_state);
+    new_gm_model = dynamic_cast<csm::RasterGM*>(specific_model);
     
     // Handle load failure
-    if (!raster_model)
+    if (!new_gm_model)
       vw::vw_throw(vw::ArgumentErr() << "Failed to cast linescan model to raster type.");
     
-    csm_model.reset(raster_model); // This will wipe any preexisting model
+    gm_model.reset(new_gm_model); // This will wipe any preexisting model
     
   } else {
     
     // Update existing model
-    ModelT * specific_model = static_cast<ModelT*>(csm_model.get());
+    ModelT * specific_model = static_cast<ModelT*>(gm_model.get());
     if (specific_model == NULL)
       vw::vw_throw(vw::ArgumentErr() << "Incorrect model type passed in.\n");
     specific_model->replaceModelState(model_state);
@@ -679,7 +679,7 @@ void applyTransformToState(ModelT const * model,
   return;
 }
 
-void applyTransformToState(csm::RasterGM const* raster_model,
+void applyTransformToState(csm::RasterGM const* gm_model,
                            vw::Matrix4x4 const& transform,
                            // Output
                            std::string & modelState) {
@@ -687,28 +687,28 @@ void applyTransformToState(csm::RasterGM const* raster_model,
   // Need to consider each model type separately
   bool success = false;
   UsgsAstroFrameSensorModel const* frame_model
-    = dynamic_cast<UsgsAstroFrameSensorModel const*>(raster_model);
+    = dynamic_cast<UsgsAstroFrameSensorModel const*>(gm_model);
   if (!success && frame_model != NULL) {
     applyTransformToState(frame_model, transform, modelState);
     success = true;
   }
   
   UsgsAstroLsSensorModel const* ls_model
-    = dynamic_cast<UsgsAstroLsSensorModel const*>(raster_model);
+    = dynamic_cast<UsgsAstroLsSensorModel const*>(gm_model);
   if (!success && ls_model != NULL) {
     applyTransformToState(ls_model, transform, modelState);
     success = true;
   }
 
   UsgsAstroPushFrameSensorModel const* pf_model
-    = dynamic_cast<UsgsAstroPushFrameSensorModel const*>(raster_model);
+    = dynamic_cast<UsgsAstroPushFrameSensorModel const*>(gm_model);
   if (!success && pf_model != NULL) {
     applyTransformToState(pf_model, transform, modelState);
     success = true;
   }
 
   UsgsAstroSarSensorModel const* sar_model
-    = dynamic_cast<UsgsAstroSarSensorModel const*>(raster_model);
+    = dynamic_cast<UsgsAstroSarSensorModel const*>(gm_model);
   if (!success && sar_model != NULL) {
     applyTransformToState(sar_model, transform, modelState);
     success = true;
@@ -722,10 +722,10 @@ void applyTransformToState(csm::RasterGM const* raster_model,
 // Save model state
 void CsmModel::saveState(std::string const& json_state_file) const {
   
-  csm::RasterGM const* raster_model
+  csm::RasterGM const* gm_model
     = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
 
-  std::string modelState = raster_model->getModelState();
+  std::string modelState = gm_model->getModelState();
 
   vw_out() << "Writing model state: " << json_state_file << std::endl;
   std::ofstream ofs(json_state_file.c_str());
@@ -739,12 +739,12 @@ void CsmModel::saveState(std::string const& json_state_file) const {
 void CsmModel::saveTransformedState(std::string const& json_state_file,
                                     vw::Matrix4x4 const& transform) const {
   
-  csm::RasterGM const* raster_model
+  csm::RasterGM const* gm_model
     = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
 
-  std::string modelState = raster_model->getModelState();
+  std::string modelState = gm_model->getModelState();
 
-  applyTransformToState(raster_model, transform,  
+  applyTransformToState(gm_model, transform,  
                         // Output
                         modelState);
   
@@ -759,12 +759,12 @@ void CsmModel::saveTransformedState(std::string const& json_state_file,
 // Apply a transform to a CSM model
 void CsmModel::applyTransform(vw::Matrix4x4 const& transform) {
 
-  csm::RasterGM const* raster_model
+  csm::RasterGM const* gm_model
     = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
   
-  std::string modelState = raster_model->getModelState();
+  std::string modelState = gm_model->getModelState();
   
-  applyTransformToState(raster_model, transform,  
+  applyTransformToState(gm_model, transform,  
                         // Output
                         modelState);
 
