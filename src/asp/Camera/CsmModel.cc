@@ -125,9 +125,9 @@ Vector2 imageCoordToVector(csm::ImageCoord c) {
 CsmModel::CsmModel():m_semi_major_axis(0.0),
                      m_semi_minor_axis(0.0),
                      m_sun_position(vw::Vector3()),
-                     // Do not make the precision lower than this. CSM can give
+                     // Do not make the precision lower than 1e-8. CSM can give
                      // junk results when it is too low.
-                     m_desired_precision(1.0e-8){}
+                     m_desired_precision(asp::DEFAULT_CSM_DESIRED_PRECISISON){}
                                       
 CsmModel::CsmModel(std::string const& isd_path) {
   load_model(isd_path);

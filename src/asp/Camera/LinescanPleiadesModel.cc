@@ -56,7 +56,8 @@ PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
 void PleiadesCameraModel::populateCsmModel() {
 
   // Populate CsmModel class members
-  m_desired_precision = 1.0e-12;
+  // Do not use a precision below 1.0-e8 as then the linescan model will return junk.
+  m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
   vw::cartography::Datum datum("WGS84"); // this sensor is used for Earth only
   m_semi_major_axis = datum.semi_major_axis();
   m_semi_minor_axis = datum.semi_minor_axis();

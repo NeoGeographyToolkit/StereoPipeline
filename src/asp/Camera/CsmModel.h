@@ -35,6 +35,10 @@ namespace csm {
 
 namespace asp {
 
+  // Do not set this lower than 1e-8, as then UsgsAstroLsSensorModel will
+  // return junk.
+  const double DEFAULT_CSM_DESIRED_PRECISISON = 1.0e-8;
+  
   /// Class to load any cameras described by the Community Sensor Model (CSM)
   class CsmModel : public vw::camera::CameraModel {
   public:

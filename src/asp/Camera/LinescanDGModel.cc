@@ -193,7 +193,7 @@ void DGCameraModel::populateCsmModel() {
   // be traced to the DG camera using a focal length (in pixels) of
   // 2,002,252.25.
   m_csm_model.reset(new CsmModel);
-  m_csm_model->m_desired_precision = 1.0e-8;
+  m_csm_model->m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
   vw::cartography::Datum datum("WGS84"); // this sensor is used for Earth only
   m_csm_model->m_semi_major_axis = datum.semi_major_axis();
   m_csm_model->m_semi_minor_axis = datum.semi_minor_axis();
@@ -448,6 +448,8 @@ vw::Vector2 DGCameraModel::point_to_pixel(vw::Vector3 const& point) const {
     csm::WarningList warnings;
     csm::WarningList * warnings_ptr = NULL;
     bool show_warnings = false;
+    // Do not use here a desired precision than than 1e-8, as
+    // then CSM can return junk.
     csm::ImageCoord csm_pix
       = m_ls_model->groundToImage(ecef,
                                   m_csm_model->m_desired_precision,
@@ -455,57 +457,61 @@ vw::Vector2 DGCameraModel::point_to_pixel(vw::Vector3 const& point) const {
     
     vw::Vector2 asp_pix;
     asp::fromCsmPixel(asp_pix, csm_pix);
+    
+#if 0
+    // This logic is from UsgsAstroLsSensorModel, with fixes to make
+    // it more robust for DG cameras. Not used yet.
+    
+    // TODO(oalexan1): Use this logic
+    // with non-CSM cameras.  Should be much faster than the current
+    // approach of solving a minimization problem.  Do not set
+    // desired_precision to less than 1e-8 as then the algorithm will
+    // produce junk due to numerical precision issues with the large
+    // DG focal length.
+
+    // For non-CSM logic, need to start iterating from sensor
+    // midpoint.  asp_pix[1] = m_image_size.y()/2;
+    
+    double L0 = 0.0; // Line increment
+    double lineErr0 = errorFunc(L0 + asp_pix[1], point);
+    double L1 = 0.1;
+    double lineErr1 = errorFunc(L1 + asp_pix[1], point);
+    
+    for (int count = 0; count < 15; count++) {
+      
+      if (lineErr1 == lineErr0)
+        break; // avoid division by 0
+      
+      // Secant method update
+      // https://en.wikipedia.org/wiki/Secant_method
+      double increment = lineErr1 * (L1 - L0) / (lineErr1 - lineErr0);
+      double L2 = L1 - increment;
+      double lineErr2 = errorFunc(L2 + asp_pix[1], point);
+      
+      // Update for the next step
+      L0 = L1; lineErr0 = lineErr1;
+      L1 = L2; lineErr1 = lineErr2;
+      
+      // If the solution changes by less than this, we achieved the desired line precision
+      if (increment < m_csm_model->m_desired_precision) 
+        break;
+    }
+    
+    asp_pix[1] += L1;
+    
+    // Solve for sample location now that we know the correct line
+    double t = get_time_at_line(asp_pix[1]);
+    vw::Quat q = get_camera_pose_at_time(t);
+    vw::Vector3 pt = inverse(q).rotate(point - get_camera_center_at_time(t));
+    pt *= m_focal_length / pt.z();
+    asp_pix = vw::Vector2(pt.x() - m_detector_origin[0], asp_pix[1]);
+#endif
+
     return asp_pix;
   }
-
-#if 0
-  // TODO(oalexan1): Test and use this logic. Should be much faster than
-  // the current approach of solving a minimization problem.
-  // Do not set desired_precision to less than 1e-8 as then the algorithm
-  // will produce junk due to numerical precision issues with the large
-  // DG focal length.
-  double desired_precision = 1e-8;
-  vw::Vector2 asp_pix;
-  asp_pix[1] = m_image_size.y()/2; 
   
-  double L0 = 0.0; // Line increment
-  double lineErr0 = errorFunc(L0 + asp_pix[1], point);
-  double L1 = 0.1;
-  double lineErr1 = errorFunc(L1 + asp_pix[1], point);
-  
-  for (int count = 0; count < 15; count++) {
-    
-    if (lineErr1 == lineErr0)
-      break; // avoid division by 0
-    
-    // Secant method update
-    // https://en.wikipedia.org/wiki/Secant_method
-    double increment = lineErr1 * (L1 - L0) / (lineErr1 - lineErr0);
-    double L2 = L1 - increment;
-    double lineErr2 = errorFunc(L2 + asp_pix[1], point);
-    
-    // Update for the next step
-    L0 = L1; lineErr0 = lineErr1;
-    L1 = L2; lineErr1 = lineErr2;
-    
-    // If the solution changes by less than this, we achieved the desired line precision
-    if (increment < desired_precision) 
-      break;
-  }
-  
-  asp_pix[1] += L1;
-  
-  // Solve for sample location now that we know the correct line
-  double t = get_time_at_line(asp_pix[1]);
-  vw::Quat q = get_camera_pose_at_time(t);
-  vw::Vector3 pt = inverse(q).rotate(point - get_camera_center_at_time(t));
-  pt *= m_focal_length / pt.z();
-  asp_pix = vw::Vector2(pt.x() - m_detector_origin[0], asp_pix[1]);
-  return asp_pix;
-#else
-  // Current approach
+  // Non-CSM version
   return vw::camera::LinescanModel::point_to_pixel(point);
-#endif
 
 }
   

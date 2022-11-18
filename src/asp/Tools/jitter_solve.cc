@@ -115,8 +115,10 @@ struct pixelReprojectionError {
       P.y = parameters[shift][1];
       P.z = parameters[shift][2];
 
-      // Project in the camera with high precision
-      double desired_precision = 1e-12;
+      // Project in the camera with high precision. Do not use here
+      // anything lower than 1e-8, as the linescan model will then
+      // return junk.
+      double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
       csm::ImageCoord imagePt = cam.groundToImage(P, desired_precision);
 
       // Convert to what ASP expects
@@ -1522,7 +1524,9 @@ void run_jitter_solve(int argc, char* argv[]) {
       pixel_vec[icam].push_back(observation);
       weight_vec[icam].push_back(weight);
       isAnchor_vec[icam].push_back(0);
-      xyz_vec_ptr[icam].push_back(tri_point);
+      // It is bad logic to store pointers as below. What if tri_points_vec
+      // later gets resized?
+      xyz_vec_ptr[icam].push_back(tri_point); 
     }
   }
 
