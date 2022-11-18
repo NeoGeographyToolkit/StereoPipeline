@@ -232,13 +232,17 @@ Command-line options
     :numref:`bathy_reuse_run` for an example.
 
 --keep-only <string (default: "")>
-    Keep only produced files with these suffixes. Files
-    that are internally in VRT format will be converted to
-    TIF. All subdirectories will be deleted. Will be
+    Keep only files with these suffixes in the output prefix
+    directory. Files that are internally in VRT format will be
+    converted to TIF. All subdirectories will be deleted. Will be
     invoked after triangulation, if that step is reached.
     Specify as a string in quotes. Example (this will keep
     only the files needed to re-create ``PC.tif`` and this file as
-    well): ``'.exr L.tif F.tif PC.tif'``.
+    well): ``'.exr L.tif F.tif PC.tif'``. To delete ``PC.tif``
+    after it is not needed, such as after DEM generation, reinvoke
+    this program with ``--entry-point 6`` and do not mention ``PC.tif``
+    as a file to keep, but mention ``DEM.tif``, ``IntersectionErr.tif``, 
+    etc.
 
 --verbose
     Display the commands being executed.

@@ -720,7 +720,7 @@ def keepOnlySpecified(keep_only, out_prefix):
     for f in keep_files:
         print("Keeping: " + f)
         if isVrt(f):
-            f_out = f + ".tif"
+            f_out = os.path.splitext(f)[0] + "_merged.tif"
             print("Convert " + f + " to .tif format.")
             cmd = ['gdal_translate', '-co', 'compress=lzw', '-co', 'TILED=yes', '-co',
                    'INTERLEAVE=BAND', '-co', 'BLOCKXSIZE=256', '-co', 'BLOCKYSIZE=256',
@@ -1008,6 +1008,9 @@ if __name__ == '__main__':
         if num_pairs > 1:
 
             # Run multivew logic.
+
+            if opt.keep_only is not None:
+                raise Exception('Option --keep-only does not work with multiview stereo.')
             
             # Bugfix: avoid confusing the logic below
             asp_cmd_utils.wipe_option(parallel_args, '-s', 1)
@@ -1209,8 +1212,13 @@ if __name__ == '__main__':
             spawn_to_nodes(step, settings, parallel_args)
             build_vrt('stereo_tri', settings, georef, "-PC.tif", "-PC.tif") # mosaic
 
+        if (opt.entry_point >= Step.tri or opt.stop_point > Step.tri):
+            # Allow this logic to be called with --entry-step 6, which will just
+            # wipe files. For example, after point2dem is invoked, this can
+            # be used to delete PC.tif.
             if opt.keep_only is not None:
                 keepOnlySpecified(opt.keep_only, out_prefix)
+                
             # End main process case
     else:
 

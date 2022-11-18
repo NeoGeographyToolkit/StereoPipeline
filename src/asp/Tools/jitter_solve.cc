@@ -21,7 +21,8 @@
 /// Use n adjustments for every camera, placed at several lines in the image
 // with interpolation between them. The pdf doc has more info.
 
-// TODO(oalexan1): Add residuals for anchor points.
+// TODO(oalexan1): Move some UsgsAstroLsSensorModel functions from
+// here and from LinescanDGModel.cc to its own file.
 
 // TODO(oalexan1): Add two passes and outlier filtering. For now
 // try to use clean matches.
