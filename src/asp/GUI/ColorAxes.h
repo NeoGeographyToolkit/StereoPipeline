@@ -21,19 +21,30 @@
 /// A widget showing colorized data with a colormap and axes
 ///
 
-#include <QWidget>
+#ifndef __STEREO_GUI_COLOR_AXES_H__
+#define __STEREO_GUI_COLOR_AXES_H__
 
+#include <QWidget>
 #include <qwt_plot.h>
 #include <qwt_plot_spectrogram.h>
 
+namespace vw { namespace gui {
+
+class imageData;
+  
 class ColorAxes: public QwtPlot {
   Q_OBJECT
   
 public:
-  ColorAxes(QWidget * = NULL);
+  ColorAxes(QWidget * parent, imageData & image);
   
 public Q_SLOTS:
 
 private:
   QwtPlotSpectrogram *m_spectrogram;
+  imageData & m_image;
 };
+
+}}
+  
+#endif  // __STEREO_GUI_COLOR_AXES_H__

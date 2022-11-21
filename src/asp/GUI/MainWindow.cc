@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file MainWindow.cc
 ///
 /// The stereo_gui main window class.
@@ -27,6 +26,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Nvm.h>
 #include <asp/GUI/chooseFilesDlg.h>
+#include <asp/GUI/ColorAxes.h>
 
 using namespace asp;
 using namespace vw::gui;
@@ -90,6 +90,11 @@ public:
 private:
   QObject *filter;
 };
+
+// Will return non-NULL if the input pointer is to a MainWidget object.
+MainWidget* mw(QWidget * wid) {
+  return dynamic_cast<MainWidget*>(wid);
+}
 
 bool MainWindow::sanityChecks(int num_images) {
 
@@ -219,10 +224,9 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     m_image_files.push_back(local_images[i]);
   }
 
-  int num_images = m_image_files.size();
-  m_images.resize(num_images);
+  m_images.resize(m_image_files.size());
   bool has_georef = true;
-  for (int i = 0; i < num_images; i++) {
+  for (size_t i = 0; i < m_image_files.size(); i++) {
     m_images[i].read(m_image_files[i], m_opt, REGULAR_VIEW, properties[m_image_files[i]]);
     // Above we read the image in regular mode. If plan to display hillshade,
     // for now set the flag for that, and the hillshaded image will be created
@@ -270,6 +274,18 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   
   if (single_window && !sideBySideWithDialog())
     m_view_type = VIEW_IN_SINGLE_WINDOW;
+
+  // When colorizing images, always show them side by side
+  if (m_view_type == VIEW_IN_SINGLE_WINDOW && asp::stereo_settings().colorize) {
+    for (size_t i = 0; i < m_images.size(); i++) {
+      bool poly_or_xyz = (m_images[i].isPoly() || m_images[i].isCsv());
+      if (!poly_or_xyz) {
+        popUp("Colorized images can only be shown side-by-side.");
+        m_view_type = VIEW_SIDE_BY_SIDE;
+        break;
+      }
+    }
+  }
   
   m_view_type_old = m_view_type; // initialize this
   
@@ -288,8 +304,8 @@ void MainWindow::createLayout() {
   // widgets. There must be a better way of doing it.
   for (size_t wit = 0; wit < m_widgets.size(); wit++) {
     bool profile_mode = false;
-    if (m_widgets[wit] != NULL) 
-      m_widgets[wit]->setProfileMode(profile_mode);
+    if (mw(m_widgets[wit])) 
+      mw(m_widgets[wit])->setProfileMode(profile_mode);
   }
 
   QWidget * centralWidget = new QWidget(this);
@@ -364,19 +380,24 @@ void MainWindow::createLayout() {
       if (isHidden) 
         continue;
       
-      MainWidget * widget = new MainWidget(centralWidget,
-                                           m_opt,
-                                           i,     // beg image id
-                                           i + 1, // end image id
-                                           BASE_IMAGE_ID, 
-                                           m_images, 
-                                           m_output_prefix,
-                                           m_matchlist, m_pairwiseMatches, m_pairwiseCleanMatches,
-                                           m_editMatchPointVecIndex,
-                                           m_chooseFiles,
-                                           m_use_georef, 
-                                           zoom_all_to_same_region,
-					   m_allowMultipleSelections);
+      QWidget * widget = NULL;
+      if (!asp::stereo_settings().colorize) // regular plot
+        widget = new MainWidget(centralWidget,
+                                m_opt,
+                                i,     // beg image id
+                                i + 1, // end image id
+                                BASE_IMAGE_ID, 
+                                m_images, 
+                                m_output_prefix,
+                                m_matchlist, m_pairwiseMatches, m_pairwiseCleanMatches,
+                                m_editMatchPointVecIndex,
+                                m_chooseFiles,
+                                m_use_georef, 
+                                zoom_all_to_same_region,
+                                m_allowMultipleSelections);
+      else // Qwt plot with axes and colorbar. Hard to use the same api as earlier
+        widget = new ColorAxes(this, m_images[i]);
+      
       m_widgets.push_back(widget);
     }
   }
@@ -391,22 +412,29 @@ void MainWindow::createLayout() {
     grid_cols = m_grid_cols;
   
   for (int i = 0; i < num_widgets; i++) {
+
+    if (m_widgets[i] == NULL)
+      continue;
+      
     // Add the current widget
     int row = i / grid_cols;
     int col = i % grid_cols;
     grid->addWidget(m_widgets[i], row, col);
+    
+    if (!mw(m_widgets[i]))
+      continue; // Only MainWidget type can be used below
 
     // Intercept this widget's request to view (or refresh) the matches in all
     // the widgets, not just this one's.
-    connect(m_widgets[i], SIGNAL(toggleViewMatchesSignal()),
+    connect(mw(m_widgets[i]), SIGNAL(toggleViewMatchesSignal()),
             this, SLOT(toggleViewMatches()));
-    connect(m_widgets[i], SIGNAL(updateMatchesSignal()),
+    connect(mw(m_widgets[i]), SIGNAL(updateMatchesSignal()),
             this, SLOT(viewMatches()));
-    connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox()),
+    connect(mw(m_widgets[i]), SIGNAL(uncheckProfileModeCheckbox()),
             this, SLOT(uncheckProfileModeCheckbox()));
-    connect(m_widgets[i], SIGNAL(uncheckPolyEditModeCheckbox()),
+    connect(mw(m_widgets[i]), SIGNAL(uncheckPolyEditModeCheckbox()),
             this, SLOT(uncheckPolyEditModeCheckbox()));
-    connect(m_widgets[i], SIGNAL(zoomAllToSameRegionSignal(int)),
+    connect(mw(m_widgets[i]), SIGNAL(zoomAllToSameRegionSignal(int)),
             this, SLOT(zoomAllToSameRegionAction(int)));
   }
 
@@ -428,11 +456,11 @@ void MainWindow::createLayout() {
   double nodata_value = stereo_settings().nodata_value;
   if (!std::isnan(nodata_value)) {
     for (size_t i = 0; i < m_widgets.size(); i++) {
-      if (m_widgets[i]) {
-	m_widgets[i]->setThreshold(nodata_value);
-	bool refresh_pixmap = false; // Prepare everything but don't redraw yet
-	m_widgets[i]->viewThreshImages(refresh_pixmap);
-      }
+      if (!mw(m_widgets[i]))
+        continue;
+      mw(m_widgets[i])->setThreshold(nodata_value);
+      bool refresh_pixmap = false; // Prepare everything but don't redraw yet
+      mw(m_widgets[i])->viewThreshImages(refresh_pixmap);
     }
   }
 
@@ -450,8 +478,10 @@ void MainWindow::createLayout() {
       stereo_settings().left_image_crop_win  != BBox2() &&
       stereo_settings().right_image_crop_win != BBox2()) {
     // Draw crop windows passed as arguments
-    m_widgets[0]->setCropWin(stereo_settings().left_image_crop_win);
-    m_widgets[1]->setCropWin(stereo_settings().right_image_crop_win);
+    if (mw(m_widgets[0]))
+      mw(m_widgets[0])->setCropWin(stereo_settings().left_image_crop_win);
+    if (mw(m_widgets[1]))
+      mw(m_widgets[1])->setCropWin(stereo_settings().right_image_crop_win);
     // Do this just once, on startup
     stereo_settings().left_image_crop_win  = BBox2();
     stereo_settings().right_image_crop_win = BBox2();
@@ -750,7 +780,7 @@ bool MainWindow::editingMatches() const {
   // See if in the middle of editing of matches
   bool editing_matches = false;
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i] != NULL && m_widgets[i]->getEditingMatches()) 
+    if (mw(m_widgets[i]) != NULL && mw(m_widgets[i])->getEditingMatches()) 
       editing_matches = true;
   }
   return editing_matches;
@@ -792,24 +822,24 @@ void MainWindow::sizeToFit(){
 
     BBox2 big_region; 
     for (size_t i = 0; i < m_widgets.size(); i++) {
-      if (!m_widgets[i])
+      if (!mw(m_widgets[i]))
 	continue;
 
-      vw::BBox2 region = m_widgets[i]->worldBox();
+      vw::BBox2 region = mw(m_widgets[i])->worldBox();
       big_region.grow(region);
     }
     
     for (size_t i = 0; i < m_widgets.size(); i++) {
-      if (!m_widgets[i])
+      if (!mw(m_widgets[i]))
 	continue;
-      m_widgets[i]->zoomToRegion(big_region);
+      mw(m_widgets[i])->zoomToRegion(big_region);
     }
     
   }else{
     // Full view for each individual image
     for (size_t i = 0; i < m_widgets.size(); i++) {
-      if (m_widgets[i])
-	m_widgets[i]->sizeToFit();
+      if (mw(m_widgets[i]))
+	mw(m_widgets[i])->sizeToFit();
     }
   }
   
@@ -904,7 +934,7 @@ void MainWindow::zoomToProjWin(){
     return;
   }
 
-  if (!m_widgets[BASE_IMAGE_ID]) {
+  if (!mw(m_widgets[BASE_IMAGE_ID])) {
     popUp("Unexpected missing widget.");
     return;
   }
@@ -919,11 +949,11 @@ void MainWindow::zoomToProjWin(){
   proj_win.grow(Vector2(c, d));
 
   BBox2 pix_box   = m_images[BASE_IMAGE_ID].georef.point_to_pixel_bbox(proj_win);
-  BBox2 world_box = m_widgets[BASE_IMAGE_ID]->image2world(pix_box, BASE_IMAGE_ID);
+  BBox2 world_box = mw(m_widgets[BASE_IMAGE_ID])->image2world(pix_box, BASE_IMAGE_ID);
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (!m_widgets[i])
+    if (!mw(m_widgets[i]))
       continue;
-    m_widgets[i]->zoomToRegion(world_box);
+    mw(m_widgets[i])->zoomToRegion(world_box);
   }
   
 }
@@ -1098,8 +1128,8 @@ void MainWindow::viewMatches(){
 
   // Set all the matches to be visible.
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i])
-      m_widgets[i]->viewMatches();
+    if (mw(m_widgets[i]))
+      mw(m_widgets[i])->viewMatches();
   }
 
   return;
@@ -1312,8 +1342,8 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   // Call viewMatches() in each widget. There things will be sorted out
   // based on stereo_settings().
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i])
-      m_widgets[i]->viewMatches();
+    if (mw(m_widgets[i]))
+      mw(m_widgets[i])->viewMatches();
   }
   
 }
@@ -1330,8 +1360,8 @@ void MainWindow::saveMatches(){
 
    // matches got saved, no more editing for now
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i] != NULL) 
-      m_widgets[i]->setEditingMatches(false);
+    if (mw(m_widgets[i]) != NULL) 
+      mw(m_widgets[i])->setEditingMatches(false);
   }
 }
 
@@ -1465,8 +1495,8 @@ void MainWindow::writeGroundControlPoints() {
 
   // matches got saved, no more editing for now
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i] != NULL) 
-      m_widgets[i]->setEditingMatches(false);
+    if (mw(m_widgets[i]) != NULL) 
+      mw(m_widgets[i])->setEditingMatches(false);
   }
   
   popUp("Finished writing file: " + stereo_settings().gcp_file);
@@ -1481,14 +1511,15 @@ void MainWindow::addDelMatches(){
 void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
 
   if (m_widgets.size() != 2) {
-    QMessageBox::about(this, tr("Error"), tr("Need to have two images side-by-side to run stereo."));
+    QMessageBox::about(this, tr("Error"),
+                       tr("Need to have two images side-by-side to run stereo."));
     return;
   }
 
   QRect left_win, right_win;
-  if (!m_widgets[0]->get_crop_win(left_win))
+  if (!mw(m_widgets[0]) || !mw(m_widgets[0])->get_crop_win(left_win))
     return;
-  if (!m_widgets[1]->get_crop_win(right_win))
+  if (!mw(m_widgets[1]) || !mw(m_widgets[1])->get_crop_win(right_win))
     return;
 
   int left_x  = left_win.x();
@@ -1569,8 +1600,8 @@ void MainWindow::run_parallel_stereo(){
 void MainWindow::thresholdCalc() {
   bool on = m_thresholdCalc_action->isChecked();
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i])
-      m_widgets[i]->setThreshMode(on);
+    if (mw(m_widgets[i]))
+      mw(m_widgets[i])->setThreshMode(on);
   }
 }
 
@@ -1584,11 +1615,11 @@ void MainWindow::viewThreshImages() {
 
   for (size_t i = 0; i < m_widgets.size(); i++) {
     bool refresh_pixmap = true;
-    if (m_widgets[i]) {
+    if (mw(m_widgets[i])) {
       if (m_display_mode == THRESHOLDED_VIEW) 
-        m_widgets[i]->viewThreshImages(refresh_pixmap);
+        mw(m_widgets[i])->viewThreshImages(refresh_pixmap);
       else
-        m_widgets[i]->viewUnthreshImages();
+        mw(m_widgets[i])->viewUnthreshImages();
     }
   }
 }
@@ -1596,7 +1627,8 @@ void MainWindow::viewThreshImages() {
 void MainWindow::contourImages() {
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]->getThreshold() == -std::numeric_limits<double>::max()) {
+    if (!mw(m_widgets[i]) ||
+        mw(m_widgets[i])->getThreshold() == -std::numeric_limits<double>::max()) {
       popUp("Set the threshold via the Threshold menu before finding the contour.");
       return;
     }
@@ -1606,7 +1638,7 @@ void MainWindow::contourImages() {
     // If we fail at one of the contouring operations, presumably a
     // pop-up will be shown, and then it is not worth continuing,
     // which may just result in more pop-ups.
-    if (!m_widgets[i]->contourImage()) 
+    if (!mw(m_widgets[i])->contourImage()) 
       return;
   }
 }
@@ -1617,8 +1649,8 @@ void MainWindow::saveVectorLayer() {
     return;
   }
 
-  if (m_widgets.size() == 1) 
-    m_widgets[0]->saveVectorLayer();
+  if (m_widgets.size() == 1 && mw(m_widgets[0])) 
+    mw(m_widgets[0])->saveVectorLayer();
 }
 
 void MainWindow::thresholdGetSet() {
@@ -1627,8 +1659,8 @@ void MainWindow::thresholdGetSet() {
   oss.precision(18);
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i])
-      oss << m_widgets[i]->getThreshold() << " ";
+    if (mw(m_widgets[i]))
+      oss << mw(m_widgets[i])->getThreshold() << " ";
   }
   std::string thresh = oss.str();
   bool ans = getStringFromGui(this,
@@ -1650,8 +1682,8 @@ void MainWindow::thresholdGetSet() {
   }
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i])
-      m_widgets[i]->setThreshold(thresholds[i]);
+    if (mw(m_widgets[i]))
+      mw(m_widgets[i])->setThreshold(thresholds[i]);
   }
   
 }
@@ -1660,8 +1692,8 @@ void MainWindow::setLineWidth() {
 
   std::ostringstream oss;
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]) {
-      oss << m_widgets[i]->getLineWidth();
+    if (mw(m_widgets[i])) {
+      oss << mw(m_widgets[i])->getLineWidth();
       // All widgets will have the same line width
       break;
     }
@@ -1683,8 +1715,8 @@ void MainWindow::setLineWidth() {
   }
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i])
-      m_widgets[i]->setLineWidth(lineWidth);
+    if (mw(m_widgets[i]))
+      mw(m_widgets[i])->setLineWidth(lineWidth);
   }
   
 }
@@ -1693,8 +1725,8 @@ void MainWindow::setPolyColor() {
 
   std::string polyColor;
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]) {
-      polyColor = m_widgets[i]->getPolyColor();
+    if (mw(m_widgets[i])) {
+      polyColor = mw(m_widgets[i])->getPolyColor();
       // All widgets will have the same poly color
       break;
     }
@@ -1713,8 +1745,8 @@ void MainWindow::setPolyColor() {
   }
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i])
-      m_widgets[i]->setPolyColor(polyColor);
+    if (mw(m_widgets[i]))
+      mw(m_widgets[i])->setPolyColor(polyColor);
   }
   
 }
@@ -1724,8 +1756,8 @@ void MainWindow::viewHillshadedImages() {
   MainWindow::updateDisplayModeMenuEntries();
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i])
-      m_widgets[i]->viewHillshadedImages(m_display_mode == HILLSHADED_VIEW);
+    if (mw(m_widgets[i]))
+      mw(m_widgets[i])->viewHillshadedImages(m_display_mode == HILLSHADED_VIEW);
   }
 }
 
@@ -1735,9 +1767,8 @@ void MainWindow::setZoomAllToSameRegionAux(bool do_zoom) {
 
   m_zoomAllToSameRegion_action->setChecked(do_zoom);
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]) {
-      m_widgets[i]->setZoomAllToSameRegion(do_zoom);
-    }
+    if (mw(m_widgets[i]))
+      mw(m_widgets[i])->setZoomAllToSameRegion(do_zoom);
   }
 }
 
@@ -1778,16 +1809,17 @@ void MainWindow::setZoomAllToSameRegion() {
     // coordinate system. A lot of things could have changed since then.
     BBox2 world_box;
     for (size_t i = 0; i < m_widgets.size(); i++) {
-      vw::BBox2 region = m_widgets[i]->worldBox();
-      if (m_widgets[i])
+      if (mw(m_widgets[i])) {
+        vw::BBox2 region = mw(m_widgets[i])->worldBox();
 	world_box.grow(region);
+      }
     }
     
     // Now let this be the world box in all images. Later, during resizeEvent(),
     // the sizeToFit() function will be called which will use this box.
     for (size_t i = 0; i < m_widgets.size(); i++) {
-      if (m_widgets[i])
-        m_widgets[i]->setWorldBox(world_box);
+      if (mw(m_widgets[i]))
+        mw(m_widgets[i])->setWorldBox(world_box);
     }
   }
   
@@ -1803,12 +1835,12 @@ void MainWindow::zoomAllToSameRegionAction(int widget_id){
     return;
   }
 
-  if (!m_widgets[widget_id]) return;
+  if (!mw(m_widgets[widget_id])) return;
 
-  vw::BBox2 region = m_widgets[widget_id]->current_view();
+  vw::BBox2 region = mw(m_widgets[widget_id])->current_view();
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]) {
-      m_widgets[i]->zoomToRegion(region);
+    if (mw(m_widgets[i])) {
+      mw(m_widgets[i])->zoomToRegion(region);
     }
   }
   
@@ -1820,8 +1852,9 @@ void MainWindow::viewNextImage() {
     return;
   }
 
-  if (m_widgets.size() == 1) 
-    m_widgets[0]->viewNextImage();
+  if (m_widgets.size() == 1)
+    if (mw(m_widgets[0]))
+      mw(m_widgets[0])->viewNextImage();
 }
 
 void MainWindow::viewPrevImage() {
@@ -1831,7 +1864,8 @@ void MainWindow::viewPrevImage() {
   }
 
   if (m_widgets.size() == 1) 
-    m_widgets[0]->viewPrevImage();
+    if (mw(m_widgets[0]))
+      mw(m_widgets[0])->viewPrevImage();
 }
 
 void MainWindow::uncheckProfileModeCheckbox(){
@@ -1848,9 +1882,8 @@ void MainWindow::profileMode() {
   }
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]) {
-      m_widgets[i]->setProfileMode(profile_mode);
-    }
+    if (mw(m_widgets[i]))
+      mw(m_widgets[i])->setProfileMode(profile_mode);
   }
 }
 
@@ -1888,9 +1921,8 @@ void MainWindow::polyEditMode() {
   // widgets to turn on or off the editing of polygons.
   bool refresh = true;
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]) {
-      m_widgets[i]->setPolyEditMode(polyEditMode, refresh);
-    }
+    if (mw(m_widgets[i]))
+      mw(m_widgets[i])->setPolyEditMode(polyEditMode, refresh);
   }
 
   return;
@@ -1953,7 +1985,8 @@ void MainWindow::overlayGeoreferencedImages() {
 void MainWindow::about() {
   std::ostringstream about_text;
   about_text << "<h3>stereo_gui</h3>"
-             << "<p>Copyright &copy; 2015 NASA Ames Research Center. See the manual for documentation.</p>";
+             << "<p>NASA Ames Research Center. "
+             << "See the manual for documentation.</p>";
   QMessageBox::about(this, tr("About stereo_gui"),
                      tr(about_text.str().c_str()));
 

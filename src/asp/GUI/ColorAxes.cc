@@ -15,6 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// TODO(oalexan1): Reconcile this with MainWidget.cc so that different
+// images and curves can be overlayed while using a colormap and axes.
+
 /// \file ColorAxes.cc
 
 #include <qwt_color_map.h>
@@ -28,7 +31,10 @@
 #include <qwt_plot_canvas.h>
 
 #include <asp/GUI/ColorAxes.h>
+#include <asp/GUI/GuiUtilities.h>
+#include <asp/Core/StereoSettings.h>
 
+namespace vw { namespace gui { 
 class MyZoomer: public QwtPlotZoomer {
 public:
   MyZoomer(QWidget *canvas): QwtPlotZoomer(dynamic_cast<QwtPlotCanvas *>(canvas)) {
@@ -39,20 +45,70 @@ public:
 
 class SpectrogramData: public QwtRasterData {
 public:
-    SpectrogramData() {
-        setInterval(Qt::XAxis, QwtInterval(-1.5, 1.5));
-        setInterval(Qt::YAxis, QwtInterval(-1.5, 1.5));
-        setInterval(Qt::ZAxis, QwtInterval(0.0, 10.0));
+  SpectrogramData(imageData & image): m_image(image) {
+    // TODO(oalexan1): Need to handle georeferences.
+    // TODO(oalexan1): Temporary. Need to write an analog of formQimage(),
+    // to get a floating point image at given resolution level.
+    vw::mosaic::DiskImagePyramid<double> & img = image.img.m_img_ch1_double;
+
+    // TODO(oalexan1): This is temporary. Need to make out-of-range regions transparent.
+    m_nodata_val = img.get_nodata_val();
+    ImageViewRef<PixelMask<double>> full_img = create_mask(img.bottom(), m_nodata_val);
+    m_interp_image = interpolate(full_img, BilinearInterpolation(), ZeroEdgeExtension());
+
+    // TODO(oalexan1): This is temporary
+    m_image_copy = copy(full_img);
+    
+    // TODO(oalexan1): How about removing a small percentile from ends
+    // TODO(oalexan1): Handle no-data properly by using transparent pixels.
+
+    m_min_val = asp::stereo_settings().min;
+    m_max_val = asp::stereo_settings().max;
+    if (std::isnan(m_min_val) || std::isnan(m_max_val)) {
+
+      // Compute min and max if not specified by the user
+      m_min_val = std::numeric_limits<double>::max();
+      m_max_val = -m_min_val;
+      for (int col = 0; col < full_img.cols(); col++) {
+        for (int row = 0; row < full_img.rows(); row++) {
+          
+          auto val = full_img(col, row); // alias
+          if (!is_valid(val)) 
+            continue;
+        
+          m_min_val = std::min(m_min_val, val.child());
+          m_max_val = std::max(m_max_val, val.child());
+        }
+      }
     }
+    
+    std::cout << "Min " << m_min_val << std::endl;
+    std::cout << "Max " << m_max_val << std::endl;
+    setInterval(Qt::XAxis, QwtInterval(0, full_img.cols() - 1));
+    setInterval(Qt::YAxis, QwtInterval(0, full_img.rows() - 1));
+    setInterval(Qt::ZAxis, QwtInterval(m_min_val, m_max_val));
+  }
+  
+  virtual double value(double x, double y) const {
+    //auto val = m_interp_image(x, y);
+    x = round(x);
+    y = round(y);
+    if (x < 0 || y < 0 || x > m_image_copy.cols() - 1 || y > m_image_copy.rows() - 1)
+      return m_min_val;
+    
+    auto val = m_image_copy(x, y);
 
-    virtual double value(double x, double y) const {
-        const double c = 0.842;
+    if (!is_valid(val)) 
+      return m_min_val;     // TODO(oalexan1): Make transparent
 
-        const double v1 = x * x + (y - c) * (y + c);
-        const double v2 = x * (y + c) + x * (y + c);
+    return val.child();
+  }
 
-        return 1.0 / (v1 * v1 + v2 * v2);
-    }
+private:
+  imageData & m_image;
+  double m_min_val, m_max_val, m_nodata_val;
+  ImageViewRef<PixelMask<double>> m_interp_image;
+  ImageView<PixelMask<double>> m_image_copy; // TODO(oalexan1): This needs to be removed
 };
 
 class ColorMap: public QwtLinearColorMap {
@@ -65,19 +121,20 @@ public:
     }
 };
 
-ColorAxes::ColorAxes(QWidget *parent): QwtPlot(parent) {
+ColorAxes::ColorAxes(QWidget *parent, imageData & image):
+  QwtPlot(parent), m_image(image) {
   m_spectrogram = new QwtPlotSpectrogram();
   m_spectrogram->setRenderThreadCount(0); // use system specific thread count
   
   m_spectrogram->setColorMap(new ColorMap());
   m_spectrogram->setCachePolicy(QwtPlotRasterItem::PaintCache);
   
-  m_spectrogram->setData(new SpectrogramData());
+  m_spectrogram->setData(new SpectrogramData(m_image));
   m_spectrogram->attach(this);
   
-  const QwtInterval zInterval = m_spectrogram->data()->interval(Qt::ZAxis);
   // A color bar on the right axis
   QwtScaleWidget *rightAxis = axisWidget(QwtPlot::yRight);
+  QwtInterval zInterval = m_spectrogram->data()->interval(Qt::ZAxis);
   rightAxis->setTitle("Intensity");
   rightAxis->setColorBarEnabled(true);
   rightAxis->setColorMap(zInterval, new ColorMap());
@@ -118,4 +175,6 @@ ColorAxes::ColorAxes(QWidget *parent): QwtPlot(parent) {
   zoomer->setRubberBandPen(c);
   zoomer->setTrackerPen(c);
 }
+
+}} // end namespace vw::gui
 

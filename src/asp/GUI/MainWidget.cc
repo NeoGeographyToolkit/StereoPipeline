@@ -222,7 +222,7 @@ namespace vw { namespace gui {
                          int &editMatchPointVecIndex,
                          chooseFilesDlg * chooseFiles, bool use_georef,
                          bool zoom_all_to_same_region, bool & allowMultipleSelections)
-    : QWidget(parent), m_opt(opt), m_chooseFiles(chooseFiles),
+    : QwtScaleWidget(parent), m_opt(opt), m_chooseFiles(chooseFiles),
       m_beg_image_id(beg_image_id),
       m_end_image_id(end_image_id),
       m_base_image_id(base_image_id), 
@@ -240,6 +240,10 @@ namespace vw { namespace gui {
       m_lineWidth(1), m_polyColor("green"), m_editingMatches(false) {
 
     installEventFilter(this);
+
+    // setTitle("Intensity");
+    // setBorderDist(20,20);
+    // setAlignment(QwtScaleDraw::BottomScale);
 
     m_firstPaintEvent = true;
     m_emptyRubberBand = QRect(0, 0, 0, 0);

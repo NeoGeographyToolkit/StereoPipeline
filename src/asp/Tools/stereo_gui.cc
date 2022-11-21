@@ -133,7 +133,7 @@ namespace asp{
 
 // Given an input string as:
 //
-// stereo_gui --style line --color red file1.txt --color green file2.txt
+// stereo_gui --style line --color red --colormap inferno file1.txt --color green file2.txt
 //
 // extract each style and color. Any of these apply for any following
 // files, till modified by another such option. The default style and color
@@ -144,7 +144,7 @@ namespace asp{
 void preprocessArgs(int &argc, char** argv,
                     std::map<std::string, std::map<std::string, std::string>> & properties) {
 
-  std::string curr_style = "default", curr_color = "default";
+  std::string curr_style = "default", curr_color = "default", curr_colormap = "binary-red-blue";
 
   int out_it = 1;
   for (int it = 1; it < argc; it++) { // skip program name, so start from 1
@@ -167,11 +167,21 @@ void preprocessArgs(int &argc, char** argv,
       continue;
     }
 
+    if (std::string(argv[it]) == "--colormap") {
+      if (it == argc - 1)
+        continue; // There is nothing else
+
+      it++;
+      curr_colormap = argv[it]; // copy the color value, and move past it
+      continue;
+    }
+
     // If this argument does not start with a dash, so is not an
     // option, assign to it the properties so far
     if (argv[it][0] != '-') {
       properties[argv[it]]["style"] = curr_style;  
       properties[argv[it]]["color"] = curr_color;
+      properties[argv[it]]["colormap"] = curr_colormap;
     }
     
     // Shift arguments left, which will wipe what we processed above

@@ -42,6 +42,7 @@
 #include <qwt_plot_curve.h>
 #include <qwt_point_data.h>
 #include <qwt_series_data.h>
+#include <qwt_scale_widget.h>
 
 // Vision Workbench
 #include <vw/Core/Thread.h>
@@ -80,7 +81,7 @@ namespace vw { namespace gui {
   namespace fs = boost::filesystem;
 
    /// This class handles user interaction with the a single image pane.
-  class MainWidget : public QWidget {
+  class MainWidget : public QwtScaleWidget {
     Q_OBJECT
 
   public:
@@ -97,8 +98,8 @@ namespace vw { namespace gui {
                int & editMatchPointVecIndex,
                chooseFilesDlg * chooseFiles, bool use_georef,
                bool zoom_all_to_same_region,
-               bool & allowMultipleSelections // alias
-              );
+               bool & allowMultipleSelections); // alias
+
     virtual ~MainWidget();
 
     bool get_crop_win(QRect & win);

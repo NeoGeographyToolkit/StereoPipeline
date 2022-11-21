@@ -468,6 +468,10 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     colorized_name = name_in;
   else
     vw::vw_throw(vw::ArgumentErr() << "Unknown display mode..\n");
+
+  color = "default";
+  style = "default";
+  colormap = "binary-red-blue";
   
   m_opt = opt;
   m_display_mode = display_mode;
@@ -477,6 +481,8 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
       color = it->second; // copy the poly/line/points color
     if (it->first == "style")
       style = it->second; // copy the style (poly, line, points)
+    if (it->first == "colormap")
+      colormap = it->second; // copy the colormap style (e.g., binary-red-blue)
   }
   
   std::string default_poly_color = "green"; // default, will be overwritten later

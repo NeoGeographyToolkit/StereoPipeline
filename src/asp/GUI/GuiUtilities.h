@@ -124,6 +124,7 @@ namespace vw { namespace gui {
     std::vector<vw::geometry::dPoly> polyVec; // a shapefile
     std::string color; // poly color
     std::string style; // plotting style
+    std::string colormap; // colormap style
     
     // Scattered data to be plotted at (x, y) location with z giving
     // the intensity. May be colorized.
