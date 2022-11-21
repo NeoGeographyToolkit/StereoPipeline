@@ -276,10 +276,10 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     m_view_type = VIEW_IN_SINGLE_WINDOW;
 
   // When colorizing images, always show them side by side
-  if (m_view_type == VIEW_IN_SINGLE_WINDOW && asp::stereo_settings().colorize) {
+  if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
     for (size_t i = 0; i < m_images.size(); i++) {
       bool poly_or_xyz = (m_images[i].isPoly() || m_images[i].isCsv());
-      if (!poly_or_xyz) {
+      if (!poly_or_xyz && m_images[i].colorize_image) {
         popUp("Colorized images can only be shown side-by-side.");
         m_view_type = VIEW_SIDE_BY_SIDE;
         break;
@@ -381,7 +381,8 @@ void MainWindow::createLayout() {
         continue;
       
       QWidget * widget = NULL;
-      if (!asp::stereo_settings().colorize) // regular plot
+      if (!m_images[i].colorize_image) {
+        // regular plot
         widget = new MainWidget(centralWidget,
                                 m_opt,
                                 i,     // beg image id
@@ -395,8 +396,12 @@ void MainWindow::createLayout() {
                                 m_use_georef, 
                                 zoom_all_to_same_region,
                                 m_allowMultipleSelections);
-      else // Qwt plot with axes and colorbar. Hard to use the same api as earlier
+      } else{
+        // Qwt plot with axes and colorbar. Hard to use the same API
+        // as earlier.
+        // TODO(oalexan1): Must integrate the two approaches.
         widget = new ColorAxes(this, m_images[i]);
+      }
       
       m_widgets.push_back(widget);
     }

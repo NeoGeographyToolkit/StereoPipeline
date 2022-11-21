@@ -135,7 +135,7 @@ namespace asp{
 //
 // stereo_gui --style line --color red --colormap inferno file1.txt --color green file2.txt
 //
-// extract each style and color. Any of these apply for any following
+// extract each style, color, and colormap. Any of these apply for any following
 // files, till modified by another such option. The default style and color
 // are "default". Later, these will be either read from the files
 // themselves, or otherwise set to "line" and "green". Then modify the
@@ -144,11 +144,14 @@ namespace asp{
 void preprocessArgs(int &argc, char** argv,
                     std::map<std::string, std::map<std::string, std::string>> & properties) {
 
-  std::string curr_style = "default", curr_color = "default", curr_colormap = "binary-red-blue";
-
+  std::string curr_style = "default", curr_color = "default", curr_colormap = "binary-red-blue",
+    colorize_image = "0";
   int out_it = 1;
   for (int it = 1; it < argc; it++) { // skip program name, so start from 1
 
+    // TODO(oalexan1): Add support for --no-colorize, and make this and --colorize
+    // to be able to apply to all subsequent images.
+    
     if (std::string(argv[it]) == "--style") {
       if (it == argc - 1)
         continue; // There is nothing else
@@ -176,12 +179,19 @@ void preprocessArgs(int &argc, char** argv,
       continue;
     }
 
+    // This is an option with no value
+    if (std::string(argv[it]) == "--colorize-image") {
+      colorize_image = "1";
+      continue;
+    }
+
     // If this argument does not start with a dash, so is not an
     // option, assign to it the properties so far
     if (argv[it][0] != '-') {
       properties[argv[it]]["style"] = curr_style;  
       properties[argv[it]]["color"] = curr_color;
       properties[argv[it]]["colormap"] = curr_colormap;
+      properties[argv[it]]["colorize_image"] = colorize_image;
     }
     
     // Shift arguments left, which will wipe what we processed above

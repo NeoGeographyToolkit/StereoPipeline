@@ -32,7 +32,9 @@
 
 #include <asp/GUI/ColorAxes.h>
 #include <asp/GUI/GuiUtilities.h>
+#include <asp/GUI/GuiBase.h>
 #include <asp/Core/StereoSettings.h>
+#include <vw/Image/Colormap.h> // colormaps supported by ASP
 
 namespace vw { namespace gui { 
 class MyZoomer: public QwtPlotZoomer {
@@ -82,8 +84,6 @@ public:
       }
     }
     
-    std::cout << "Min " << m_min_val << std::endl;
-    std::cout << "Max " << m_max_val << std::endl;
     setInterval(Qt::XAxis, QwtInterval(0, full_img.cols() - 1));
     setInterval(Qt::YAxis, QwtInterval(0, full_img.rows() - 1));
     setInterval(Qt::ZAxis, QwtInterval(m_min_val, m_max_val));
@@ -113,35 +113,67 @@ private:
 
 class ColorMap: public QwtLinearColorMap {
 public:
-    ColorMap():
-      QwtLinearColorMap(Qt::darkCyan, Qt::red) {
-      addColorStop(0.1, Qt::cyan);
-      addColorStop(0.6, Qt::green);
-      addColorStop(0.95, Qt::yellow);
+  ColorMap():
+    QwtLinearColorMap(Qt::darkCyan, Qt::red) {
+    addColorStop(0.1, Qt::cyan);
+    addColorStop(0.6, Qt::green);
+    addColorStop(0.95, Qt::yellow);
+  }
+
+  ColorMap(std::map<float, vw::cm::Vector3u> const& lut_map) {
+
+    if (lut_map.empty() || lut_map.begin()->first != 0.0 || lut_map.rbegin()->first != 1.0)
+      popUp("First colormap stop must be at 0.0 and last at 1.0.");
+    
+    for (auto it = lut_map.begin(); it != lut_map.end(); it++) {
+      auto const& c = it->second; // c has 3 indices between 0 and 255
+      addColorStop(it->first, QColor(c[0], c[1], c[2]));
     }
+  }
+
 };
 
 ColorAxes::ColorAxes(QWidget *parent, imageData & image):
   QwtPlot(parent), m_image(image) {
   m_spectrogram = new QwtPlotSpectrogram();
   m_spectrogram->setRenderThreadCount(0); // use system specific thread count
-  
-  m_spectrogram->setColorMap(new ColorMap());
+
+  // Parse and set the colormap
+  std::map<float, vw::cm::Vector3u> lut_map;
+  try {
+    vw::cm::parse_color_style(m_image.colormap, lut_map);
+  } catch (...) {
+    popUp("Unknown colormap style: " + m_image.colormap);
+    m_image.colormap = "binary-red-blue";
+    vw::cm::parse_color_style(m_image.colormap, lut_map);
+  }
+  ColorMap * colormap = new ColorMap(lut_map);
+  m_spectrogram->setColorMap(colormap);
   m_spectrogram->setCachePolicy(QwtPlotRasterItem::PaintCache);
   
   m_spectrogram->setData(new SpectrogramData(m_image));
   m_spectrogram->attach(this);
   
-  // A color bar on the right axis
+  // A color bar on the right axis. Must repeat the same
+  // colormap as earlier.
   QwtScaleWidget *rightAxis = axisWidget(QwtPlot::yRight);
   QwtInterval zInterval = m_spectrogram->data()->interval(Qt::ZAxis);
-  rightAxis->setTitle("Intensity");
+  //rightAxis->setTitle("Intensity");
   rightAxis->setColorBarEnabled(true);
-  rightAxis->setColorMap(zInterval, new ColorMap());
+  rightAxis->setColorMap(zInterval, colormap);
+  rightAxis->setColorBarWidth(30);
+
+  // TODO(oalexan1): Disable auto-scaling but ensure the colorbar is
+  // next to the plots rather than leaving a large gap
   
   setAxisScale(QwtPlot::yRight, zInterval.minValue(), zInterval.maxValue());
   enableAxis(QwtPlot::yRight);
-  
+  setAxisAutoScale(QwtPlot::yRight, true);
+
+  QwtScaleWidget * bottomAxis = axisWidget(QwtPlot::xBottom);
+  setAxisAutoScale(QwtPlot::xBottom, true);
+    
+  // TODO(oalexan1): What does this do?
   plotLayout()->setAlignCanvasToScales(true);
 
   // Show it

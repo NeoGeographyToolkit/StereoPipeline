@@ -125,6 +125,7 @@ namespace vw { namespace gui {
     std::string color; // poly color
     std::string style; // plotting style
     std::string colormap; // colormap style
+    bool colorize_image; // if a given image must be colorized
     
     // Scattered data to be plotted at (x, y) location with z giving
     // the intensity. May be colorized.
