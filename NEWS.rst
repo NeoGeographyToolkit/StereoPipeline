@@ -24,8 +24,8 @@ New tools:
   * Added CGAL-based tools for mesh smoothing, hole-filling, remeshing,
     and removal of small connected components (:numref:`cgal_tools`).
   * ``jitter_solve``: A tool for solving for jitter in CSM camera 
-    models (see :numref:`jitter_solve`). (Gives promising results but
-    still undergoing testing.)
+    models (see :numref:`jitter_solve`). It gives promising results 
+    for CTX, Pleiades, and DigitalGlobe data. Examples are provided.
 
 New sensors:
   * Support the Pleiades exact sensor (for 1A/1B). See :numref:`pleiades`.

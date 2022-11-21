@@ -412,9 +412,9 @@ example of using it is in :numref:`ccd-artifact-example`.
    and with (right) CCD boundary artifact corrections applied using
    ``wv_correct``.
 
-Another source of artifacts in Digital Globe images is jitter.
-ASP has some logic for dealing with it but it is not ready for
-production use at this stage. See (:numref:`jitter`).
+Another source of artifacts in linescan cameras, such as from
+DigitalGlobe, is jitter.  ASP can solve for it using a jitter solver
+(:numref:`jitter_solve`).
 
 .. _sparse-disp:
 

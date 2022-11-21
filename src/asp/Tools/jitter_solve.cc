@@ -293,6 +293,7 @@ struct Options: public asp::BaBaseOptions {
   int num_lines_per_position, num_lines_per_orientation, num_anchor_points;
   double quat_norm_weight, anchor_weight;
   std::string anchor_dem;
+  int num_anchor_points_extra_lines;
 };
     
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -392,6 +393,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Set also --anchor-weight and --anchor-dem.")
     ("anchor-dem",  po::value(&opt.anchor_dem)->default_value(""),
      "Use this DEM to create anchor points.")
+    ("num-anchor-points-extra-lines",
+     po::value(&opt.num_anchor_points_extra_lines)->default_value(0),
+     "Start placing anchor points this many lines before first image line "
+     "and after last image line.")
     ("rotation-weight", po::value(&opt.rotation_weight)->default_value(0.0),
      "A higher weight will penalize more deviations from the original camera orientations.")
     ("translation-weight", po::value(&opt.translation_weight)->default_value(0.0),
@@ -972,6 +977,7 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
 }
 
 // Calculate a set of anchor points uniformly distributed over the image
+// Will use opt.num_anchor_points_extra_lines.
 void calcAnchorPoints(Options                              const & opt,
                       ImageViewRef<PixelMask<double>>              interp_acnhor_dem,
                       vw::cartography::GeoReference         const& anchor_georef,
@@ -985,26 +991,28 @@ void calcAnchorPoints(Options                              const & opt,
 
   if (opt.num_anchor_points <= 0)
     vw::vw_throw(vw::ArgumentErr() << "Expecting a positive number of anchor points.\n");
-  
+
+  int extra = opt.num_anchor_points_extra_lines;
+    
   int num_cams = ls_models.size();
   for (int icam = 0; icam < num_cams; icam++) {
 
     // Use int64 and double to avoid int32 overflow
     std::int64_t numLines   = ls_models[icam]->m_nLines;
     std::int64_t numSamples = ls_models[icam]->m_nSamples;
-    double area = double(numSamples) * double(numLines);
+    double area = double(numSamples) * double(numLines + 2 * extra);
     double bin_len = sqrt(area/double(opt.num_anchor_points));
     bin_len = std::max(bin_len, 1.0);
     int lenx = ceil(double(numSamples) / bin_len); lenx = std::max(1, lenx);
-    int leny = ceil(double(numLines)   / bin_len); leny = std::max(1, leny);
+    int leny = ceil(double(numLines + 2 * extra) / bin_len); leny = std::max(1, leny);
 
     std::int64_t numAnchorPoints = 0;
     for (int binx = 0; binx <= lenx; binx++) {
       double posx = binx * bin_len;
       for (int biny = 0; biny <= leny; biny++) {
-        double posy = biny * bin_len;
+        double posy = biny * bin_len - extra;
         
-        if (posx > numSamples - 1 || posy > numLines - 1) 
+        if (posx > numSamples - 1 || posy < -extra || posy > numLines - 1 + extra) 
           continue;
         
         Vector2 pix(posx, posy);
@@ -1025,8 +1033,14 @@ void calcAnchorPoints(Options                              const & opt,
 
         if (!has_intersection) 
           continue;
-          
-        Vector2 pix_out = opt.camera_models[icam]->point_to_pixel(dem_xyz);
+
+        Vector2 pix_out;
+        try {
+          pix_out = opt.camera_models[icam]->point_to_pixel(dem_xyz);
+        } catch (...) {
+          continue;
+        }
+        
         if (norm_2(pix - pix_out) > 10 * height_error_tol)
           continue; // this is likely a bad point
 
