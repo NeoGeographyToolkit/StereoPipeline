@@ -68,6 +68,8 @@ public:
     m_max_val = asp::stereo_settings().max;
     if (std::isnan(m_min_val) || std::isnan(m_max_val)) {
 
+      // TODO(oalexan1): This can be slow. May want to use the coarsest image in the pyramid.
+      
       // Compute min and max if not specified by the user
       m_min_val = std::numeric_limits<double>::max();
       m_max_val = -m_min_val;
@@ -111,6 +113,10 @@ private:
   ImageView<PixelMask<double>> m_image_copy; // TODO(oalexan1): This needs to be removed
 };
 
+QColor rgb2color(vw::cm::Vector3u const& c) {
+  return QColor(c[0], c[1], c[2]);
+}
+  
 class ColorMap: public QwtLinearColorMap {
 public:
   ColorMap():
@@ -122,15 +128,23 @@ public:
 
   ColorMap(std::map<float, vw::cm::Vector3u> const& lut_map) {
 
+    // Sanity check: the first and last color keys must be 0 and 1.
     if (lut_map.empty() || lut_map.begin()->first != 0.0 || lut_map.rbegin()->first != 1.0)
       popUp("First colormap stop must be at 0.0 and last at 1.0.");
+
+    // Must replace the default endpoints
+    setColorInterval(rgb2color(lut_map.begin()->second), rgb2color(lut_map.rbegin()->second));
     
     for (auto it = lut_map.begin(); it != lut_map.end(); it++) {
+      
+      if (it->first == 0.0 || it->first == 1.0) 
+        continue; // endpoints already added
+      
       auto const& c = it->second; // c has 3 indices between 0 and 255
-      addColorStop(it->first, QColor(c[0], c[1], c[2]));
+      addColorStop(it->first, rgb2color(it->second));
     }
   }
-
+  
 };
 
 ColorAxes::ColorAxes(QWidget *parent, imageData & image):
@@ -147,8 +161,7 @@ ColorAxes::ColorAxes(QWidget *parent, imageData & image):
     m_image.colormap = "binary-red-blue";
     vw::cm::parse_color_style(m_image.colormap, lut_map);
   }
-  ColorMap * colormap = new ColorMap(lut_map);
-  m_spectrogram->setColorMap(colormap);
+  m_spectrogram->setColorMap(new ColorMap(lut_map));
   m_spectrogram->setCachePolicy(QwtPlotRasterItem::PaintCache);
   
   m_spectrogram->setData(new SpectrogramData(m_image));
@@ -160,7 +173,7 @@ ColorAxes::ColorAxes(QWidget *parent, imageData & image):
   QwtInterval zInterval = m_spectrogram->data()->interval(Qt::ZAxis);
   //rightAxis->setTitle("Intensity");
   rightAxis->setColorBarEnabled(true);
-  rightAxis->setColorMap(zInterval, colormap);
+  rightAxis->setColorMap(zInterval, new ColorMap(lut_map));
   rightAxis->setColorBarWidth(30);
 
   // TODO(oalexan1): Disable auto-scaling but ensure the colorbar is

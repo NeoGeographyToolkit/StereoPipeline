@@ -185,6 +185,12 @@ void preprocessArgs(int &argc, char** argv,
       continue;
     }
 
+    // This is an option with no value
+    if (std::string(argv[it]) == "--no-colorize-image") {
+      colorize_image = "0";
+      continue;
+    }
+
     // If this argument does not start with a dash, so is not an
     // option, assign to it the properties so far
     if (argv[it][0] != '-') {

@@ -275,18 +275,6 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   if (single_window && !sideBySideWithDialog())
     m_view_type = VIEW_IN_SINGLE_WINDOW;
 
-  // When colorizing images, always show them side by side
-  if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
-    for (size_t i = 0; i < m_images.size(); i++) {
-      bool poly_or_xyz = (m_images[i].isPoly() || m_images[i].isCsv());
-      if (!poly_or_xyz && m_images[i].colorize_image) {
-        popUp("Colorized images can only be shown side-by-side.");
-        m_view_type = VIEW_SIDE_BY_SIDE;
-        break;
-      }
-    }
-  }
-  
   m_view_type_old = m_view_type; // initialize this
   
   // Set up the basic layout of the window and its menus
@@ -341,6 +329,19 @@ void MainWindow::createLayout() {
     }
   }
 
+  // When colorizing images, always show them side by side
+  if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
+    for (size_t i = 0; i < m_images.size(); i++) {
+      bool poly_or_xyz = (m_images[i].isPoly() || m_images[i].isCsv());
+      if (!poly_or_xyz && m_images[i].colorize_image) {
+        m_view_type = VIEW_SIDE_BY_SIDE;
+        popUp("Colorized images can only be shown side-by-side.");
+        createLayout();
+        return;
+      }
+    }
+  }
+  
   splitter->addWidget(m_chooseFiles);
 
   // See if to show it. In a side-by-side view it is normally not needed. 
@@ -375,13 +376,15 @@ void MainWindow::createLayout() {
 
       // Do not create hidden widgets, that really slows down the display when there
       // are many of them, but just a handful are needed.
-      bool isHidden = (sideBySideWithDialog() && m_chooseFiles
-                       && m_chooseFiles->isHidden(m_images[i].name));
+      bool isHidden = (sideBySideWithDialog() && m_chooseFiles &&
+                       m_chooseFiles->isHidden(m_images[i].name));
       if (isHidden) 
         continue;
+
+      bool poly_or_xyz = (m_images[i].isPoly() || m_images[i].isCsv());
       
       QWidget * widget = NULL;
-      if (!m_images[i].colorize_image) {
+      if (!m_images[i].colorize_image || poly_or_xyz) {
         // regular plot
         widget = new MainWidget(centralWidget,
                                 m_opt,
@@ -874,7 +877,8 @@ void MainWindow::viewSingleWindow(){
     }
 
   }else{
-    if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
+    if (m_view_type_old != VIEW_IN_SINGLE_WINDOW)
+      m_view_type = m_view_type_old; // restore this
     else{
       // nothing to restore to. Default to side by side.
       m_view_type = VIEW_SIDE_BY_SIDE;
