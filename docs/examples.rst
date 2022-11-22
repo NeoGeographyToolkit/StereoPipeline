@@ -2127,15 +2127,15 @@ Using the ``cam_gen`` tool (:numref:`cam_gen`) bundled with ASP, we
 create an initial camera model and a GCP file (:numref:`bagcp`) for
 the first image as as follows::
 
-     cam_gen output/video/frames/1225648254.44006968_sc00004_c1_PAN.tiff \
-       --frame-index output/video/frame_index.csv                        \
-       --reference-dem ref_dem.tif                                       \
-       --focal-length 553846.153846                                      \
-       --optical-center 1280 540                                         \
-       --pixel-pitch 1 --height-above-datum 4000                         \
-       --refine-camera                                                   \
-       --gcp-std 1                                                       \
-       --gcp-file v1.gcp                                                 \
+     cam_gen 1225648254.44006968_sc00004_c1_PAN.tiff \
+       --frame-index output/video/frame_index.csv    \
+       --reference-dem ref_dem.tif                   \
+       --focal-length 553846.153846                  \
+       --optical-center 1280 540                     \
+       --pixel-pitch 1 --height-above-datum 4000     \
+       --refine-camera                               \
+       --gcp-std 1                                   \
+       --gcp-file v1.gcp                             \
        -o v1.tsai
 
 This tool works by reading the longitude and latitude of each image
