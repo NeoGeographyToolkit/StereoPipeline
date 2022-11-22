@@ -141,6 +141,7 @@ namespace asp{
 // themselves, or otherwise set to "line" and "green". Then modify the
 // args to remove these options, as the boost parser cannot parse
 // repeated options.
+// TODO(oalexan1): If the same file is repeated, the book-keeping will fail.
 void preprocessArgs(int &argc, char** argv,
                     std::map<std::string, std::map<std::string, std::string>> & properties) {
 
@@ -170,7 +171,7 @@ void preprocessArgs(int &argc, char** argv,
       continue;
     }
 
-    if (std::string(argv[it]) == "--colormap") {
+    if (std::string(argv[it]) == "--colormap-style") {
       if (it == argc - 1)
         continue; // There is nothing else
 

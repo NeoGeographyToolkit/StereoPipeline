@@ -363,20 +363,6 @@ std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
 bool sideBySideWithDialog();
 void setNoSideBySideWithDialog(); // turn off such logic
 
-// A class to return a color for each value in [0, 1].
-struct Colormap {
-
-  // Initialize the colors
-  Colormap();
-  
-  // Get the color. The value t must be in [0, 1].
-  vw::Vector3 operator()(double t);
-  
-  // Find the colors by interpolating in this table
-  vw::ImageViewRef<vw::Vector3> interp_colors;
-  
-}; // end class Colormap
-  
 }} // namespace vw::gui
 
 #endif  // __STEREO_GUI_GUI_UTILITIES_H__

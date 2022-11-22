@@ -82,7 +82,8 @@ the images.
 option, or by choosing from the GUI View menu the ``Hillshaded images``
 option.
 
-This program can also display the output of the ASP ``colormap`` tool
+This program can also colorize images and show them with a colorbar and axes
+(:numref:`colorize`), and display the output of the ASP ``colormap`` tool
 (:numref:`colormap`).
 
 It can save a screenshot to disk in the BMP or XPM format.
@@ -323,6 +324,78 @@ One can then run::
 and turn on viewing of interest point matches to study if they were
 ``unmapped`` the right locations.
 
+.. _plot_csv:
+
+View scattered points
+~~~~~~~~~~~~~~~~~~~~~
+
+.. figure:: ../images/scattered_points.png
+   :name: scattered_points
+   :alt:  scattered_points
+
+   A colorized CSV file overlayed on top of a georeferenced image.
+
+``stereo_gui`` can plot and colorize scattered points stored in CSV
+files, and overlay them on top of images or each other. Each point
+will show up as a dot with a radius given by ``--plot-point-radius``.
+
+Here is an example of plotting the final ``*pointmap.csv``
+residuals created by ``bundle_adjust`` for each interest point
+(:numref:`ba_out_files`)::
+
+    stereo_gui --colorize --colormap-style binary-red-blue \
+      --min 0 --max 0.5 --plot-point-radius 2 \
+      ba/run-final_residuals_pointmap.csv
+
+This will use the longitude and latitude as the position, and will
+determine a color based on the 4th field in this file (the error) and
+the the min and max values specified above (which correspond to blue
+and red in the colorized plot, respectively).
+
+The option ``--colormap-style`` accepts the same values as
+``colormap`` (:numref:`colormap`).
+
+To plot an arbitrary CSV file with longitude, latitude and value, do::
+
+    stereo_gui --csv-format "1:lon 2:lat 3:height_above_datum" \
+      --datum D_MOON --colorize                                \
+      filename.csv
+
+If the file has data in projected units (such as using Easting and
+Northing values), specify the option ``--csv-proj4`` having the
+projection, and use for the CSV format ``"1:easting 2:northing
+3:height_above_datum"``.
+
+.. _colorize:
+
+Displaying colorized images, with a colorbar and axes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A feature in development is to allow images to be colorized on-the-fly
+by mapping intensities to colors of a given colormap, and be results
+be plotted with a colorbar and axes. 
+
+This feature fow now is usable only with very small images. An example
+invocation is as follows::
+
+    stereo_gui --colorize-images       \
+      --colormap-style binary-red-blue \
+      img1.tif                         \
+      --colormap-style inferno         \
+      img2.tif                         \
+      --no-colorize-images             \
+      img3.tif
+
+This will colorize the first image using the ``binary-red-blue``
+colormap, the second with the ``inferno`` colormap, and will not
+colorize the third one. See :numref:`colormap` for the full list of
+colormaps.
+
+The ``--colorize-images`` option applies to all subsequent images till
+``--no-colorize-images`` is encoutered, and vice versa. Each
+``--colormap-style`` option also applies to all subsequent images until
+overridden by this option with another value.
+
 .. _poly:
 
 Polygon editing and contouring
@@ -386,44 +459,6 @@ Related to this, if the viewer is invoked with ``--nodata-value
 <double>``, it will display pixels with values less than or equal to
 this as transparent, and will set the image threshold to that no-data
 value.
-
-.. _plot_pointmap:
-
-View scattered points
-~~~~~~~~~~~~~~~~~~~~~
-
-.. figure:: ../images/scattered_points.png
-   :name: scattered_points
-   :alt:  scattered_points
-
-   A colorized CSV file overlayed on top of a georeferenced image.
-
-``stereo_gui`` can plot and colorize scattered points stored in CSV
-files, and overlay them on top of images or each other. Each point
-will show up as a dot with a radius given by ``--plot-point-radius``.
-
-Here is an example of plotting the final ``*pointmap.csv``
-residuals created by ``bundle_adjust`` for each interest point
-(:numref:`ba_out_files`)::
-
-    stereo_gui --colorize --min 0 --max 0.5 --plot-point-radius 2 \
-      ba/run-final_residuals_pointmap.csv
-
-This will use the longitude and latitude as the position, and will
-determine a color based on the 4th field in this file (the error) and
-the the min and max values specified above (which correspond to blue
-and red in the colorized plot, respectively).
-
-To plot an arbitrary CSV file with longitude, latitude and value, do::
-
-    stereo_gui --csv-format "1:lon 2:lat 3:height_above_datum" \
-      --datum D_MOON --colorize                                \
-      filename.csv
-
-If the file has data in projected units (such as using Easting and
-Northing values), specify the option ``--csv-proj4`` having the
-projection, and use for the CSV format ``"1:easting 2:northing
-3:height_above_datum"``.
 
 .. _gui_options:
 
@@ -504,6 +539,22 @@ accept all other ``parallel_stereo`` options as well.
 
 --colorize
     Colorize input CSV files (must set ``--min`` and ``--max``).
+
+--colorize-images
+    Colorize all images after this option until the ``--no-colorize``
+    option is encountered. For now this works only for very small
+    images. Show these images with a colorbar and axes. See
+    ``--colormap-style`` for how to set a colormap.
+
+--no-colorize-images
+    Do not colorize any images after this option, until the option 
+    ``--colorize-images`` is encountered. 
+
+--colormap-style <string (default="binary-red-blue")>
+    Specify the colormap style. See :numref:`colormap` for options.
+    Each style applies to all images after this option, until
+    overridden by another instance of this option with a different
+    value.
 
 --min (*double*) (default = NaN)
     Value corresponding to 'coldest' color in the color map, when

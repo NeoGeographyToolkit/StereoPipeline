@@ -22,10 +22,9 @@
 // than a vector of them.
 /// TODO: Test with empty images and images having just one pixel.
 
-#include <string>
-#include <vector>
-#include <QtGui>
-#include <QtWidgets>
+#include <asp/GUI/MainWidget.h>
+#include <asp/GUI/chooseFilesDlg.h>
+#include <asp/Core/StereoSettings.h>
 
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
@@ -36,11 +35,13 @@
 #include <vw/Core/Stopwatch.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/Statistics.h>
-#include <vw/Image/AntiAliasing.h>
+#include <vw/Image/Colormap.h> // colormaps supported by ASP
 
-#include <asp/GUI/MainWidget.h>
-#include <asp/GUI/chooseFilesDlg.h>
-#include <asp/Core/StereoSettings.h>
+#include <QtGui>
+#include <QtWidgets>
+
+#include <string>
+#include <vector>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -1383,8 +1384,17 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         num_inliers++;
       }
     }
-    
-    Colormap colormap;
+
+    std::map<float, vw::cm::Vector3u> lut_map;
+    try {
+      vw::cm::parse_color_style(m_images[image_index].colormap, lut_map);
+    } catch (...) {
+      popUp("Unknown colormap style: " + m_images[image_index].colormap);
+      m_images[image_index].colormap = "binary-red-blue";
+      vw::cm::parse_color_style(m_images[image_index].colormap, lut_map);
+    }
+    vw::cm::ColormapFunc colormap(lut_map);
+      
     for (size_t pt_it = 0; pt_it < m_images[image_index].scattered_data.size(); pt_it++) {
       auto const& P = m_images[image_index].scattered_data[pt_it];
 
@@ -1404,7 +1414,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       QColor c;
       if (asp::stereo_settings().colorize) {
         // Get the color from the colormap
-        vw::Vector3 v = colormap(s);
+        PixelRGB<uint8> v = colormap(s).child();
         c = QColor(v[0], v[1], v[2]);
       } else {
         // Grayscale color
