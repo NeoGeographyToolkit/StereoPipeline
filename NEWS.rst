@@ -122,7 +122,8 @@ mapproject:
  
 stereo_gui:
   * Can plot, overlay on top of images, and colorize scattered points
-  * stored in a CSV file (:numref:`plot_pointmap`).
+    stored in a CSV file (:numref:`plot_csv`). Many colormap styles
+    are supported. See :numref:`colormap` for the list.
   * Given a ``bundle_adjust`` output prefix, can select via checkboxes
     any two images to show side-by-side, and automatically load their
     match file or clean match file (options:

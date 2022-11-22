@@ -29,8 +29,8 @@ Example (for Digital Globe Earth data, using ground control points)::
        --datum WGS_1984 -o run_ba/run --num-passes 2
 
 Here, we invoked the tool with two passes, which also enables removal of
-outliers by reprojection error and disparity (the options below have
-more detail).
+outliers by reprojection error (:numref:`bundle_adjustment`) 
+and disparity (the options below have more detail).
 
 Examples for RPC cameras. With the cameras stored separately::
 
@@ -151,8 +151,9 @@ Output files
 
 If the ``--datum`` option is specified, ``bundle_adjust`` will write
 the triangulated world position for every feature being matched in two
-or more images, and the mean absolute residuals (reprojection errors)
-for each position, before and after optimization. The files are named
+or more images, and the mean absolute residuals (that is, reprojection
+errors, :numref:`bundle_adjustment`) for each position, before and
+after optimization. The files are named
 
 ::
 
@@ -164,14 +165,14 @@ and
 
      {output-prefix}-final_residuals_pointmap.csv
 
-Such files can be inspected to see at which pixels the residual error
-is large. 
+Such files can be inspected to see at which pixels the reprojection
+error is large.
 
 Residuals corresponding to GCP will be printed at the end
 of these files and flagged with the string ``# GCP``. 
 
 These residuals can be plotted with ``stereo_gui``
-(:numref:`plot_pointmap`).
+(:numref:`plot_csv`).
 
 One can also invoke ``point2dem`` with the ``--csv-format``
 option to grid these files for visualization in the GUI. Here is a

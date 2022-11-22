@@ -2014,17 +2014,37 @@ SkySat Stereo and Video data
 SkySat is a constellation of sub-meter resolution Earth observation
 satellites owned by Planet Labs. There are two type of SkySat
 products, ``Stereo`` and ``Video``, with each being made up of
-sequences of images. The ``Stereo`` products come with RPC cameras
-(embedded in the TIF image files) and individual pairs of stereo
-images are rather easy to process with ASP, following the example in
-:numref:`rpc`.
-
-If desired to do bundle adjustment before stereo, it is suggested to use 
-a high value of ``--camera-weight`` to prevent the cameras
-from moving too far. 
+sequences of images.
 
 A very informative paper on processing SkySat data with ASP is
 :cite:`bhushan2021automated`.
+
+Stereo data
+~~~~~~~~~~~
+
+The ``Stereo`` products come with RPC cameras (embedded in the TIF
+image files) and individual pairs of stereo images are rather easy to
+process with ASP, following the example in :numref:`rpc`.
+
+When running bundle adjustment (:numref:`bundle_adjust`) with these
+datasets, it is suggested to use the ``--tri-weight`` option to
+prevent the cameras from moving, with a value of perhaps 0.5.
+
+If having a lot of images, use the option ``--auto-overlap-params`` to
+automatically determine which pairs overlap. See
+:numref:`initial_terrain` for how to find a DEM to
+use with this option.
+
+If desired to convert the RPC cameras to pinhole
+(:numref:`pinholemodels`), which can help decouple the extrinsic
+position and orientation from the intrinsics (focal length, optical
+center, distortion), use the ``cam_gen`` tool, just as in the Video
+example below. The option ``--input-camera`` will make use of existing
+RPC cameras to accurately find the pinhole camera poses. 
+See :numref:`skysat-rpc` for more details.
+
+Video data
+~~~~~~~~~~
 
 The rest of this section will be concerned with the ``Video`` product,
 which is a set of images recorded together in quick sequence. This is
@@ -2107,11 +2127,16 @@ Using the ``cam_gen`` tool (:numref:`cam_gen`) bundled with ASP, we
 create an initial camera model and a GCP file (:numref:`bagcp`) for
 the first image as as follows::
 
-     cam_gen output/video/frames/1225648254.44006968_sc00004_c1_PAN.tiff   \
-       --reference-dem ref_dem.tif --focal-length 553846.153846            \
-       --optical-center 1280 540 --pixel-pitch 1 --height-above-datum 4000 \
-       --refine-camera --frame-index output/video/frame_index.csv          \
-       --gcp-std 1 -o v1.tsai --gcp-file v1.gcp
+     cam_gen output/video/frames/1225648254.44006968_sc00004_c1_PAN.tiff \
+       --frame-index output/video/frame_index.csv                        \
+       --reference-dem ref_dem.tif                                       \
+       --focal-length 553846.153846                                      \
+       --optical-center 1280 540                                         \
+       --pixel-pitch 1 --height-above-datum 4000                         \
+       --refine-camera                                                   \
+       --gcp-std 1                                                       \
+       --gcp-file v1.gcp                                                 \
+       -o v1.tsai
 
 This tool works by reading the longitude and latitude of each image
 corner on the ground from the file ``frame_index.csv``, and finding the
@@ -2120,8 +2145,9 @@ camera is written to ``v1.tsai``. A GCP file is written to ``v1.gcp``.
 This will help later with bundle adjustment.
 
 If an input camera exists, such as embedded in the image file, it is
-strongly suggested to pass it to this tool, as it will improve the
-accuracy of produced cameras (:numref:`skysat-rpc`).
+strongly suggested to pass it to this tool using the
+``--input-camera`` option, as it will improve the accuracy of produced
+cameras (:numref:`skysat-rpc`).
 
 In the above command, the optical center and focal length are as mentioned
 earlier. The reference SRTM DEM is used to infer the height above datum
@@ -2167,59 +2193,80 @@ Bundle adjustment
 
 At this stage, the cameras should be about right, but not quite exact.
 We will take care of this using bundle adjustment. We will invoke this
-tool twice. In the first call we will make the cameras self-consistent,
-which can make them move away, however, and in the second call we will
-bring them back to the original location.
+tool twice. In the first call we will make the cameras self-consistent.
+This may move them somewhat, though the ``--tri-weight`` constraint 
+that is used below should help. In the second call we will try to 
+bring the back to the original location.
 
 ::
 
-     parallel_bundle_adjust -t nadirpinhole --disable-tri-ip-filter \
-       --disable-pinhole-gcp-init --skip-rough-homography           \
-       --force-reuse-match-files --ip-inlier-factor 2.0             \
-       --ip-uniqueness-threshold 0.8 --ip-per-image 20000           \
-       --datum WGS84 --inline-adjustments --camera-weight 0         \
-       --overlap-limit 10 --robust-threshold 10                     \
-       --remove-outliers-params '75 3 4 5'                          \
-       --ip-num-ransac-iterations 1000                              \
-       --num-passes 2 --num-iterations 2000                         \
-       v[1-4].tif v[1-4].tsai -o ba/run
+     parallel_bundle_adjust                \
+       v[1-4].tif v[1-4].tsai              \
+       -t nadirpinhole                     \
+       --disable-tri-ip-filter             \
+       --disable-pinhole-gcp-init          \
+       --skip-rough-homography             \
+       --force-reuse-match-files           \
+       --ip-inlier-factor 2.0              \
+       --ip-uniqueness-threshold 0.8       \
+       --ip-per-image 20000                \
+       --datum WGS84                       \
+       --inline-adjustments                \
+       --camera-weight 0                   \
+       --tri-weight 0.5                    \
+       --robust-threshold 2                \
+       --remove-outliers-params '75 3 4 5' \
+       --ip-num-ransac-iterations 1000     \
+       --num-passes 2                      \
+       --auto-overlap-params "ref.tif 15"  \
+       --num-iterations 1000               \
+       -o ba/run
 
-     parallel_bundle_adjust -t nadirpinhole --datum WGS84           \
-       --force-reuse-match-files --inline-adjustments               \
-       --num-passes 1 --num-iterations 0                            \
-       --transform-cameras-using-gcp                                \
-       v[1-4].tif ba/run-v[1-4].tsai v[1-4].gcp -o ba/run
+     parallel_bundle_adjust                     \
+       -t nadirpinhole                          \
+       --datum WGS84                            \
+       --force-reuse-match-files                \
+       --inline-adjustments                     \
+       --num-passes 1 --num-iterations 0        \
+       --transform-cameras-using-gcp            \
+       v[1-4].tif ba/run-v[1-4].tsai v[1-4].gcp \
+       -o ba/run
 
 It is very important to not use the ``pinhole`` session here, rather
 ``nadirpinhole``, as the former does not filter well interest points
 in this steep terrain.
+
+The ``--auto-overlap-params`` option used earlier is useful a very large
+number of images is present and a preexisting DEM of the area is available,
+which need not be perfectly aligned with the cameras. It can be used
+to determine each camera's footprint, and hence, which cameras overlap.
+Otherwise, use the ``--overlap-limit`` option to control how many subsequent
+images to match with a given image. 
 
 The output optimized cameras will be named ``ba/run-run-v[1-4].tsai``.
 The reason one has the word "run" repeated is because we ran this tool
 twice. The intermediate cameras from the first run were called
 ``ba/run-v[1-4].tsai``.
 
-Here we use ``--ip-per-tile 2000`` to create a lot of interest points.
+Here we use ``--ip-per-image 20000`` to create a lot of interest points.
 This will help with alignment later. It is suggested that the user study
 all these options and understand what they do. We also used
 ``--robust-threshold 10`` to force the solver to work the bigger errors.
 That is necessary since the initial cameras could be pretty inaccurate.
 
-The option ``--overlap-limit`` controls how many subsequent images
-should be matched to a given one. See also ``--auto-overlap-params``
-for determining this automatically based on an input DEM.
-
 It is very important to examine the residual file named::
 
      ba/run-final_residuals_pointmap.csv
 
-Here, the third column are the heights of triangulated interest points,
-while the fourth column are the reprojection errors. Normally these
-errors should be a fraction of a pixel, as otherwise the solution did
-not converge. The last entries in this file correspond to the GCP, and
-those should be looked at carefully as well. The reprojection errors for
-GCP should be on the order of tens of pixels because the longitude and
-latitude of each GCP are not well-known.
+Here, the third column are the heights of triangulated interest
+points, while the fourth column are the reprojection errors. Normally
+these errors should be a fraction of a pixel, as otherwise the
+solution did not converge. The last entries in this file correspond to
+the GCP, and those should be looked at carefully as well. The
+reprojection errors for GCP should be on the order of tens of pixels
+because the longitude and latitude of each GCP are not
+well-known. This can be done with :numref:`stereo_gui`, which will
+also colorize the residuals (:numref:`plot_csv`).
 
 It is also very important to examine the obtained match files in the
 output directory. For that, use ``stereo_gui`` with the option
@@ -2444,8 +2491,14 @@ the images. This can be verified by running::
      gdalinfo -stats output/video/frames/1225648254.44006968_sc00004_c1_PAN.tiff
 
 We found that these models are not sufficiently robust for stereo. But
-they can be used to create initial guess cameras with ``cam_gen``
-instead of using longitude and latitude of corners. Here is an example::
+they can be used to create initial guess pinhole cameras 
+(:numref:`pinholemodels`) with ``cam_gen``. 
+
+We will use the RPC camera model instead of longitude and latitude of
+image corners to infer the pinhole camera position and orientation.
+This greatly improves the accuracy and reliability.
+
+Here is an example::
 
     img=output/video/frames/1225648254.44006968_sc00004_c1_PAN.tiff
     cam_gen $img --reference-dem ref_dem.tif --focal-length 553846.153846  \
@@ -2812,12 +2865,19 @@ downsample amount.
 
 You can now run bundle adjustment on the downsampled images::
 
-     bundle_adjust for_small.tif aft_small.tif                 \
-       for_small.tsai aft_small.tsai                           \
-       -o ba_small/run --max-iterations 100 --camera-weight 0  \
-       --disable-tri-ip-filter --disable-pinhole-gcp-init      \
-       --skip-rough-homography --inline-adjustments            \
-       --ip-detect-method 1 -t opticalbar --datum WGS84
+     bundle_adjust for_small.tif aft_small.tif \
+       for_small.tsai aft_small.tsai           \
+       -t opticalbar                           \
+       --max-iterations 100                    \
+       --camera-weight 0                       \
+       --tri-weight 0.5                        \
+       --disable-tri-ip-filter                 \
+       --disable-pinhole-gcp-init              \
+       --skip-rough-homography                 \
+       --inline-adjustments                    \
+       --ip-detect-method 1                    \
+       --datum WGS84                           \
+       -o ba_small/run
 
 Validation of cameras
 ~~~~~~~~~~~~~~~~~~~~~
@@ -3642,13 +3702,13 @@ data are kept consistent under such operations.
 In particular, running bundle adjustment on a PAN image pair, and then
 on a corresponding multispectral band pair, will result in DEMs which
 are no longer aligned either to each other, or to their versions
-before bundle adjustment. (The cameras can be prevented by moving too
-far if ``bundle_adjust`` is called with, for example,
-``--camera-weight 1000``, or some larger value, yet, by its very
-nature, this program changes the positions and orientations of the
-cameras, and therefore the coordinate system. And note that a very
-high camera weight may interfere with the convergence of bundle
-adjustment.)
+before bundle adjustment. The cameras can be prevented by moving too
+far if ``bundle_adjust`` is called with, for example, ``--tri-weight
+0.5``, or some larger value, to constrain the triangulated
+points. Yet, by its very nature, this program changes the positions
+and orientations of the cameras, and therefore the coordinate
+system. And note that a very high camera weight may interfere with the
+convergence of bundle adjustment.
 
 It is suggested to use these tools only if a trusted reference dataset
 exists, and then the produced DEMs should be aligned to that dataset.

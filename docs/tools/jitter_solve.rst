@@ -72,9 +72,9 @@ overlap very little or not at all.
 This constraint works by projecting rays to the ground from the chosen
 uniformly distributed pixels, finding the *anchor points* where the
 rays intersect the DEM, then adding to the cost function to optimize
-reprojection errors for the anchor points.  This complements the
-reprojection errors from triangulated interest point matches, and the
-external DEM constraint (if used).
+reprojection errors (:numref:`bundle_adjustment`) for the anchor
+points. This complements the reprojection errors from triangulated
+interest point matches, and the external DEM constraint (if used).
 
 Anchor points are strongly encouraged either with an intrinsic
 constraint or an external DEM constraint. Their number should be
@@ -443,6 +443,7 @@ Copernicus 30 m DEM (:numref:`initial_terrain`). We name that DEM
 ``ref.tif``.
 
 .. figure:: ../images/grand_mesa_copernicus_dem.png
+   :scale: 50%
    :name: grand_mesa_copernicus_dem
 
    The Copernicus 30 DEM for the area of interest. Some of the
@@ -627,14 +628,17 @@ Output files
 ~~~~~~~~~~~~
 
 The optimized CSM model state files (:numref:`csm_state`), which
-reduce the jitter and also incorporate the initial
-adjustments as well, are saved in the output directory, which in the
-example above is named ``jitter``. 
+reduce the jitter and also incorporate the initial adjustments as
+well, are saved in the directory for the specified output prefix.
 
-This program will write, just like ``bundle_adjust`` (:numref:`ba_out_files`),
-the triangulated world position for every feature being matched in two
-or more images, and the mean absolute residuals (reprojection errors)
-for each position, before and after optimization. The files are named::
+This program saves, just like ``bundle_adjust``
+(:numref:`ba_out_files`), two .csv error files, before and after
+optimization. Each has the triangulated world position for every
+feature being matched in two or more images, the mean absolute
+residual error (reprojection error in the cameras,
+:numref:`bundle_adjustment`) for each triangulated position, and the
+number of images in which the triangulated position is seen. The files
+are named::
 
      {output-prefix}-initial_residuals_pointmap.csv
 
@@ -643,11 +647,11 @@ and::
      {output-prefix}-final_residuals_pointmap.csv
 
 Such CSV files can be colorized and overlaid with ``stereo_gui``
-(:numref:`plot_pointmap`) to see at which pixels the residual error is
+(:numref:`plot_csv`) to see at which pixels the residual error is
 large.
 
-If anchor points are used, the pixel residuals at those points are saved
-as well, to::
+If anchor points are used, the coordinates of each anchor point and
+the norm of the pixel residual at those points are saved as well, to::
 
      {output-prefix}-initial_residuals_anchor_points.csv
 
@@ -655,15 +659,19 @@ and::
 
      {output-prefix}-final_residuals_anchor_points.csv
 
-Each of those is the norm of reprojection error in the camera for an
-anchor point. When being optimized, those reprojection errors are
-multiplied by the anchor weight. In this file they are saved without
-that weight multiplier.
+These have almost the same format as the earlier file. The key
+distinction is that each anchor point corresponds to just one
+pixel, so the last field from above (the count) is not present. 
 
-These can be plotted colorized in ``stereo_gui`` as well,
+When being optimized, the reprojection errors of anchor points are
+multiplied by the anchor weight. In this file they are saved without
+that weight multiplier, so they are in units of pixel.
+
+These can be plotted and colorized in ``stereo_gui`` as well,
 for example, with::
 
-    stereo_gui --colorize --min 0 --max 0.5 --plot-point-radius 2 \
+    stereo_gui --colorize --min 0 --max 0.5   \
+      --plot-point-radius 2                   \
       {output-prefix}-final_residuals_anchor_points.csv
 
 .. _jitter_options:
