@@ -29,7 +29,8 @@ process called *bundle adjustment*. Bundle adjustment is the process of
 simultaneously adjusting the properties of many cameras and the 3D
 locations of the objects they see in order to minimize the error between
 the estimated, back-projected pixel locations of the 3D objects and
-their actual measured locations in the captured images.
+their actual measured locations in the captured images. This is called
+the *reprojection error*.
 
 This complex process can be boiled down to this simple idea: bundle
 adjustment ensures that the observations in multiple images of a single
