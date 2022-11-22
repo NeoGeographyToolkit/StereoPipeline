@@ -2130,11 +2130,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "Cannot specify more than one of --overlap-list, "
               << "--auto-overlap-params, and --auto-overlap-buffer.\n"
               << usage << general_options);
-  
+
+  opt.have_overlap_list = false;
   if (opt.overlap_list_file != "") {
+   opt.have_overlap_list = true;
     if (!fs::exists(opt.overlap_list_file))
       vw_throw( ArgumentErr() << "The overlap list does not exist.\n" << usage
-                              << general_options );
+                << general_options );
     opt.overlap_list.clear();
     std::string image1, image2;
     std::ifstream ifs(opt.overlap_list_file.c_str());
@@ -2144,6 +2146,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
     ifs.close();
   } else {
+    opt.have_overlap_list = true;
     if (!vm["auto-overlap-buffer"].defaulted())
       auto_build_overlap_list(opt, opt.auto_overlap_buffer);
   }
@@ -2819,12 +2822,14 @@ int main(int argc, char* argv[]) {
     }
 
     // Calculate which images overlap
-    if (opt.auto_overlap_params != "")
+    if (opt.auto_overlap_params != "") {
+      opt.have_overlap_list = true;
       asp::build_overlap_list_based_on_dem(opt.out_prefix,  
                                            dem_file_for_overlap, pct_for_overlap,
                                            opt.image_files, opt.camera_models,
                                            // output
                                            opt.overlap_list);
+    }
 
     // Create the match points. Iterate through each pair of input images.
 
@@ -2844,6 +2849,7 @@ int main(int argc, char* argv[]) {
                                  opt.image_files, 
                                  got_est_cam_positions, opt.position_filter_dist,
                                  estimated_camera_gcc,
+                                 opt.have_overlap_list,
                                  opt.overlap_list,
                                  // Output
                                  all_pairs);

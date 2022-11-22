@@ -253,6 +253,8 @@ void asp::build_overlap_list_based_on_dem
   int num_images = image_files.size();
   std::vector<vw::BBox2> boxes(num_images);
   for (int it = 0; it < num_images; it++) {
+    // By this stage the camera bboxes are already computed and cached,
+    // they just need to be loaded.
     boxes[it] = asp::camera_bbox_with_cache(dem_file, image_files[it], camera_models[it],  
                                             out_prefix);
 
@@ -275,6 +277,7 @@ void asp::build_overlap_list_based_on_dem
   // manageable. A 2D tree of box corners could be used, and two boxes
   // would then overlap if corners from one box are contained in a
   // second box. That would be a O(N * log(N)) lookup.
+  // TODO(oalexan1): Use a tree.
   for (int it1 = 0; it1 < num_images; it1++) {
     for (int it2 = it1 + 1; it2 < num_images; it2++) {
       BBox2 box = boxes[it1]; // deep copy
@@ -344,7 +347,8 @@ void asp::determine_image_pairs(// Inputs
                                 double position_filter_dist,
                                 // Estimated camera positions, set to empty if missing
                                 std::vector<vw::Vector3> const& estimated_camera_gcc,
-                                // Optional preexisting list, set to empty if not having it
+                                // Optional preexisting list
+                                bool have_overlap_list,
                                 std::set<std::pair<std::string, std::string>> const&
                                 overlap_list,
                                 // Output
@@ -380,7 +384,7 @@ void asp::determine_image_pairs(// Inputs
       
       // Apply the overlap list if manually specified. Otherwise every
       // image pair i, j as above will be matched.
-      if (!overlap_list.empty()) {
+      if (have_overlap_list) {
         auto pair1 = std::make_pair(image_files[i], image_files[j]);
         auto pair2 = std::make_pair(image_files[j], image_files[i]);
         if (overlap_list.find(pair1) == overlap_list.end() &&
