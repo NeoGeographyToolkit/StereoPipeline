@@ -95,6 +95,7 @@ struct Options: public asp::BaBaseOptions {
   vw::BBox2 lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
   vw::BBox2 proj_win; // Limit input triangulated points to this projwin
   std::string overlap_list_file, auto_overlap_params;
+  bool have_overlap_list;
   std::set<std::pair<std::string, std::string>> overlap_list;
   vw::Matrix<double> initial_transform;
   std::string   fixed_cameras_indices_str;

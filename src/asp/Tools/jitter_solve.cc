@@ -1388,15 +1388,16 @@ void run_jitter_solve(int argc, char* argv[]) {
   bool got_est_cam_positions = false;
   double position_filter_dist = -1.0;
   std::vector<vw::Vector3> estimated_camera_gcc;
+  bool have_overlap_list = false;
   std::set<std::pair<std::string, std::string>> overlap_list;
 
-  // Make a list of all the image pairs to find matches for
+  // Make a list of all the image pairs to find matches for 
   std::vector<std::pair<int,int>> all_pairs;
   asp::determine_image_pairs(// Inputs
                              opt.overlap_limit, opt.match_first_to_last,  
                              opt.image_files, 
                              got_est_cam_positions, position_filter_dist,
-                             estimated_camera_gcc, overlap_list,
+                             estimated_camera_gcc, have_overlap_list, overlap_list,
                              // Output
                              all_pairs);
 

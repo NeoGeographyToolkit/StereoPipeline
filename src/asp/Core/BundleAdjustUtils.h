@@ -130,7 +130,8 @@ namespace asp{
                              double position_filter_dist,
                              // Estimated camera positions, set to empty if missing
                              std::vector<vw::Vector3> const& estimated_camera_gcc,
-                             // Optional preexisting list, set to empty if not having it
+                             // Optional preexisting list
+                             bool have_overlap_list,
                              std::set<std::pair<std::string, std::string>> const& overlap_list,
                              // Output
                              std::vector<std::pair<int,int>> & all_pairs);
