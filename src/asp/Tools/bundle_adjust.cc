@@ -641,7 +641,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 // Start outlier functions
 
 /// Add to the outliers based on the large residuals
-int add_to_outliers(ControlNetwork   & cnet,
+int add_to_outliers(ControlNetwork & cnet,
                     CRNJ & crn,
                     BAParamStorage & param_storage,
                     Options const& opt,
@@ -1483,8 +1483,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   // Try to set up the control network, ie the list of point coordinates.
   // - This triangulates from the camera models to determine the initial
   //   world coordinate estimate for each matched IP.
-  opt.cnet.reset( new ControlNetwork("BundleAdjust") );
-  ControlNetwork & cnet = *(opt.cnet.get());
+  opt.cnet.reset(new ControlNetwork("BundleAdjust"));
+  ControlNetwork & cnet = *(opt.cnet.get()); // alias
   bool triangulate_control_points = true;
   bool success = vw::ba::build_control_network(triangulate_control_points,
                                                cnet, opt.camera_models,

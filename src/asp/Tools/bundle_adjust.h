@@ -29,9 +29,6 @@
 #include <vw/BundleAdjustment/CameraRelation.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
-#include <vw/BundleAdjustment/AdjustSparse.h>
-#include <vw/BundleAdjustment/AdjustRobustSparse.h>
-#include <vw/BundleAdjustment/AdjustRobustRef.h>
 #include <vw/Camera/CAHVORModel.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/LensDistortion.h>
