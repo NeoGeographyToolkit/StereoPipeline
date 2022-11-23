@@ -24,9 +24,10 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/OutlierProcessing.h>
+
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/InpaintView.h>
-
 #include <vw/Core/Stopwatch.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>

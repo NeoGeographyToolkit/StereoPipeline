@@ -87,6 +87,10 @@ bundle_adjust:
   * Can do multiple passes with ``--heights-from-dem``. One should
     be generous with outlier removal thresholds if not sure of 
     the input DEM accuracy (option ``--remove-outliers-params``).
+  * Remove outliers based on spatial distribution of triangulated
+    points.
+  * Fold ``--remove-outliers-by-disparity-params`` into 
+    ``--remove-outliers-params``.
   * Bugfix in ``residuals_stats.txt``; the mean was correct but the
     median was wrong.
   * Let the default ``--heights-from-dem-weight`` be 1.0, and the

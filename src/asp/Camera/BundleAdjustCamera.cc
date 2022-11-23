@@ -1051,11 +1051,17 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
     // TODO(oalexan1): Remove this param. Use instead --outlier-removal-params.
     // Not sure this code should be here to start with. Note that it
     // does not update the outliers set.
-    if (opt.remove_outliers_by_disp_params[0] > 0 && opt.remove_outliers_by_disp_params[1] > 0.0)
-      asp::filter_ip_by_disparity(opt.remove_outliers_by_disp_params[0],
-                                  opt.remove_outliers_by_disp_params[1],
-                                  left_ip, right_ip);
-      
+    bool quiet = true; // Otherwise too many messages are printed
+    if (opt.remove_outliers_params[0] > 0 && opt.remove_outliers_params[1] > 0.0) {
+      // The typical value of 75 for opt.remove_outliers_params[1] may be too low.
+      // Adjust it. pct = 75 becomes pct = 90. pct = 100 becomes pct = 100. So,
+      // if starting under 100, it gets closer to 100 but stays under it.
+      double pct = opt.remove_outliers_params[0];
+      pct = 100.0 * (pct + 150.0) / 250.0;
+      asp::filter_ip_by_disparity(pct, opt.remove_outliers_params[1],
+                                  quiet, left_ip, right_ip);
+    }
+    
     if (num_cameras == 2){
       // Compute the coverage fraction
       Vector2i right_image_size = file_image_size(opt.image_files[1]);

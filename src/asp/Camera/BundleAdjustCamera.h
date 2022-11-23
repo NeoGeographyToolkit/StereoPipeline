@@ -66,7 +66,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   double ref_dem_weight, ref_dem_robust_threshold, heights_from_dem_weight,
     heights_from_dem_robust_threshold, camera_weight, rotation_weight, translation_weight,
     tri_weight;
-  vw::Vector2 remove_outliers_by_disp_params;
+  vw::Vector<double, 4> remove_outliers_params;
   
   std::vector<std::string> image_files, camera_files;
   std::vector<boost::shared_ptr<vw::camera::CameraModel>> camera_models;

@@ -288,7 +288,7 @@ int main( int argc, char** argv ) {
     }
 
     try {
-      dst_crn.write_controlnetwork( dst_cnet );
+      dst_crn.assemble_cnet( dst_cnet );
     } catch ( ArgumentErr const& e ) {
       dst_cnet.clear();
     }

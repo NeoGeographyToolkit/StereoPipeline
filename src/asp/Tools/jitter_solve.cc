@@ -409,10 +409,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
     general_options.add(vw::GdalWriteOptionsDescription(opt));
 
-  // TODO(oalexan1): Replace this param here and in bundle_adjust with
-  // opt.remove_outliers_params, then make this an option in jitter_solve.
-  opt.remove_outliers_by_disp_params = Vector2(0.0, 0.0);
-
   // TODO(oalexan1): This old option may need to be wiped given the newer
   // recent outlier filtering.
   asp::stereo_settings().ip_edge_buffer_percent = opt.ip_edge_buffer_percent;

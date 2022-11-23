@@ -638,9 +638,9 @@ namespace asp {
                            left_trans_local_ip, right_trans_local_ip);
 
     // Filter outliers among locally aligned ip, this can reduce the search range
-
+    bool quiet = false;
     if (outlier_removal_params[0] < 100.0)
-      asp::filter_ip_by_disparity(outlier_removal_params[0], outlier_removal_params[1],
+      asp::filter_ip_by_disparity(outlier_removal_params[0], outlier_removal_params[1], quiet,
                                   left_trans_local_ip, right_trans_local_ip);
     
     //  Find the disparity search range

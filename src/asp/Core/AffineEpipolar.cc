@@ -375,8 +375,9 @@ namespace asp {
 
       // Filter outliers
       Vector2 params = stereo_settings().outlier_removal_params;
+      bool quiet = false;
       if (params[0] < 100.0)
-        asp::filter_ip_by_disparity(params[0], params[1],
+        asp::filter_ip_by_disparity(params[0], params[1], quiet,
                                     left_trans_local_ip, right_trans_local_ip); 
       
       vw::BBox2i left_bbox, right_bbox;

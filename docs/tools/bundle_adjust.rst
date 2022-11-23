@@ -457,11 +457,10 @@ Command-line options for bundle_adjust
 --num-passes <integer (default: 2)>
     How many passes of bundle adjustment to do, with given number
     of iterations in each pass. For more than one pass, outliers will
-    be removed between passes using ``--remove-outliers-params``
-    and ``--remove-outliers-by-disparity-params``, and re-optimization
-    will take place. Residual files and a copy of the match files
-    with the outliers removed (``*-clean.match``) will be written to
-    disk.
+    be removed between passes using ``--remove-outliers-params``, 
+    and re-optimization will take place. Residual files and a copy of
+    the match files with the outliers removed (``*-clean.match``) will
+    be written to disk.
 
 --num-random-passes <integer (default: 0)>
     After performing the normal bundle adjustment passes, do this
@@ -478,7 +477,8 @@ Command-line options for bundle_adjust
     *min(max(<pct>-th percentile \* <factor>, <err1>), <err2>)*
     will be removed as outliers.  Hence, never remove errors smaller
     than *<err1>* but always remove those bigger than *<err2>*. Specify as
-    a list in quotes.
+    a list in quotes. Also remove outliers based on distribution
+    of interest point matches and triangulated points.
 
 --remove-outliers-by-disparity-params <pct factor>
     Outlier removal based on the disparity of interest points

@@ -28,8 +28,9 @@ namespace asp {
 // Points with x or y disparity not within the 100-'pct' to 'pct'
 // percentile interval expanded by 'factor' will be removed as
 // outliers. Overwrite the ip in place.
-void filter_ip_by_disparity(double pct, // for example, 90.0
+void filter_ip_by_disparity(double pct,    // for example, 90.0
                             double factor, // for example, 3.0
+                            bool quiet,    // if not to print a lot of text
                             std::vector<vw::ip::InterestPoint> & left_ip,
                             std::vector<vw::ip::InterestPoint> & right_ip){
 
@@ -55,9 +56,11 @@ void filter_ip_by_disparity(double pct, // for example, 90.0
     right_ip[good_it] = right_ip[it];
     good_it++;
   }
-  vw_out() << "Removed " << left_ip.size() - good_it
-           << " outliers based on percentiles of differences of interest "
-           << "points with --outlier-removal-params.\n";
+
+  if (!quiet)
+    vw_out() << "Removed " << left_ip.size() - good_it
+             << " outliers based on percentiles of differences of interest "
+             << "points with --outlier-removal-params.\n";
   
   left_ip.resize(good_it);
   right_ip.resize(good_it);

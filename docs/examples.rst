@@ -2033,7 +2033,8 @@ prevent the cameras from moving, with a value of perhaps 0.5.
 If having a lot of images, use the option ``--auto-overlap-params`` to
 automatically determine which pairs overlap. See
 :numref:`initial_terrain` for how to find a DEM to
-use with this option.
+use with this option. Use ``--max-pairwise-matches`` with a value of 
+200 or 300 if too many matches are found among images that overlap a lot.
 
 If desired to convert the RPC cameras to pinhole
 (:numref:`pinholemodels`), which can help decouple the extrinsic

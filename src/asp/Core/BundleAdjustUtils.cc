@@ -193,7 +193,7 @@ vw::BBox2 asp::camera_bbox_with_cache(std::string const& dem_file,
     if (ifs >> min_x >> min_y >> max_x >> max_y) {
       box.min() = vw::Vector2(min_x, min_y);
       box.max() = vw::Vector2(max_x, max_y);
-      vw_out() << "Read cached footprint bbox from: " << box_path << ":\n" << box << "\n";
+      vw_out() << "Read cached ground footprint bbox from: " << box_path << ":\n" << box << "\n";
       return box;
     }
   }

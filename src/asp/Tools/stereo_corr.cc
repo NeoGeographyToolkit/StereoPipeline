@@ -455,10 +455,11 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
 
   // TODO(oalexan1): Consider adding filter_ip_using_cameras().
   // Note that D_sub later on already filters based on cameras.
-  
   Vector2 disp_params = stereo_settings().outlier_removal_params;
+  bool quiet = false;
   if (disp_params[0] < 100.0)
-    asp::filter_ip_by_disparity(disp_params[0], disp_params[1], matched_left_ip, matched_right_ip); 
+    asp::filter_ip_by_disparity(disp_params[0], disp_params[1], quiet,
+                                matched_left_ip, matched_right_ip); 
 
   // Filter ip using DEM
   if (stereo_settings().ip_filter_using_dem != "" &&

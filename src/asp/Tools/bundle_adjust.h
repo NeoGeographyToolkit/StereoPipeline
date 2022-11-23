@@ -78,7 +78,6 @@ struct Options: public asp::BaBaseOptions {
   int    num_ba_passes, max_num_reference_points;
   std::string remove_outliers_params_str;
   std::vector<double> intrinsics_limits;
-  vw::Vector<double, 4> remove_outliers_params;
   boost::shared_ptr<vw::ba::ControlNetwork> cnet;
   std::vector<boost::shared_ptr<vw::camera::CameraModel>> camera_models;
   vw::cartography::Datum datum;

@@ -15,6 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// TODO(oalexan1): Move all LAS, PCD, and CSV logic to its own
+// PointReader.cc class, as this file is too big.
 
 /// \file PointUtils.cc
 ///
@@ -27,8 +29,6 @@
 #include <vw/Core/Stopwatch.h>
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/math/special_functions/next.hpp>
-
-//#include <iomanip>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -355,7 +355,8 @@ namespace asp{
       // location, so that later point2dem does not need to read every
       // input point when writing a given tile, but only certain groups.
       ImageView<Vector3> Img;
-      Chipper(in, m_block_size, m_reader->m_has_georef, m_reader->m_georef, num_cols, num_rows, Img);
+      Chipper(in, m_block_size, m_reader->m_has_georef, m_reader->m_georef,
+              num_cols, num_rows, Img);
 
       VW_ASSERT(num_cols == Img.cols() && num_rows == Img.rows(),
                 ArgumentErr() << "LasOrCsvToTif_Class: Size mis-match.\n");
@@ -895,24 +896,13 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
   opt->raster_tile_size = original_tile_size;
 }
 
-
-bool asp::is_las(std::string const& file){
-  std::string lfile = boost::to_lower_copy(file);
-  return (boost::iends_with(lfile, ".las")  || boost::iends_with(lfile, ".laz"));
-}
-
-bool asp::is_csv(std::string const& file){
-  std::string lfile = boost::to_lower_copy(file);
-  return ( boost::iends_with(lfile, ".csv")  || boost::iends_with(lfile, ".txt")  );
-}
-
-bool asp::is_pcd(std::string const& file){
-  std::string lfile = boost::to_lower_copy(file);
-  return boost::iends_with(lfile, ".pcd");
-}
-
-bool asp::is_las_or_csv_or_pcd(std::string const& file){
-  return asp::is_las(file) || is_csv(file);
+std::int64_t asp::las_file_size(std::string const& las_file){
+  std::ifstream ifs;
+  ifs.open(las_file.c_str(), std::ios::in | std::ios::binary);
+  liblas::ReaderFactory f;
+  liblas::Reader reader = f.CreateWithStream(ifs);
+  liblas::Header const& header = reader.GetHeader();
+  return header.GetPointRecordsCount();
 }
 
 bool asp::georef_from_las(std::string const& las_file,
@@ -966,16 +956,24 @@ bool asp::georef_from_pc_files(std::vector<std::string> const& files,
   return false;
 }
 
-std::int64_t asp::las_file_size(std::string const& las_file){
-  std::ifstream ifs;
-  ifs.open(las_file.c_str(), std::ios::in | std::ios::binary);
-  liblas::ReaderFactory f;
-  liblas::Reader reader = f.CreateWithStream(ifs);
-  liblas::Header const& header = reader.GetHeader();
-  return header.GetPointRecordsCount();
+bool asp::is_las(std::string const& file){
+  std::string lfile = boost::to_lower_copy(file);
+  return (boost::iends_with(lfile, ".las")  || boost::iends_with(lfile, ".laz"));
 }
 
+bool asp::is_csv(std::string const& file){
+  std::string lfile = boost::to_lower_copy(file);
+  return ( boost::iends_with(lfile, ".csv")  || boost::iends_with(lfile, ".txt")  );
+}
 
+bool asp::is_pcd(std::string const& file){
+  std::string lfile = boost::to_lower_copy(file);
+  return boost::iends_with(lfile, ".pcd");
+}
+
+bool asp::is_las_or_csv_or_pcd(std::string const& file){
+  return asp::is_las(file) || is_csv(file);
+}
 
 bool asp::read_user_datum(double semi_major, double semi_minor,
                           std::string const& reference_spheroid,
@@ -1193,173 +1191,6 @@ std::string asp::get_cloud_type(std::string const& file_name){
                          << " is neither a point cloud nor a DEM.\n");
 }
 
-// Get a generous estimate of the bounding box of the current set
-// while excluding outliers
-void asp::estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points,
-                                vw::ImageViewRef<double> const& error_image,
-                                vw::Vector2 const& remove_outliers_params,
-                                double estim_max_error,
-                                vw::BBox3 & estim_bdbox) {
-
-  // TODO(oalexan1): Here it may help to do several passes. First throw out the worst
-  // outliers, then estimate the box from the remaining points, etc.
-  
-  // Initialize the output
-  estim_bdbox = BBox3();
-
-  std::vector<double> x_vals, y_vals, z_vals;
-  for (int col = 0; col < proj_points.cols(); col++){
-    for (int row = 0; row < proj_points.rows(); row++){
-
-      // Avoid points marked as not valid
-      Vector3 P = proj_points(col, row);
-      if (boost::math::isnan(P.z()))
-        continue;
-
-      // Make use of the estimated error, if available
-      if (estim_max_error > 0 && error_image(col, row) > estim_max_error) 
-        continue;
-
-      x_vals.push_back(P.x());
-      y_vals.push_back(P.y());
-      z_vals.push_back(P.z());
-    }
-  }
-
-  double pct_factor     = remove_outliers_params[0]/100.0; // e.g., 0.75
-  double outlier_factor = remove_outliers_params[1];       // e.g., 3.0.
-
-  // Make these more generous, as we want to throw out only the worst
-  // outliers. Note that we are even more generous in z, to avoid cutting
-  // of isolated mountain peaks. This is a bugfix.
-  double pct_factor_xy = (1.0 + pct_factor)/2.0; // e.g., 0.875 
-  double pct_factor_z  = (3.0 + pct_factor)/4.0; // e.g., 0.9375
-
-  // Double this factor, now it will equal 6.  With a small factor, if
-  // the domain of the DEM is a rectangle rotated by 45 degrees, it
-  // may cut off corners.
-  outlier_factor *= 2.0;
-
-  double bx, ex, by, ey, bz, ez;
-  if (!vw::math::find_outlier_brackets(x_vals, pct_factor_xy, outlier_factor, bx, ex))
-    return;
-  if (!vw::math::find_outlier_brackets(y_vals, pct_factor_xy, outlier_factor, by, ey))
-    return;
-  if (!vw::math::find_outlier_brackets(z_vals, pct_factor_z, outlier_factor, bz, ez))
-    return;
-
-  // Need to compute the next double because the VW bounding box is
-  // exclusive at the top.
-  ex = boost::math::nextafter(ex, std::numeric_limits<double>::max());
-  ey = boost::math::nextafter(ey, std::numeric_limits<double>::max());
-  ez = boost::math::nextafter(ez, std::numeric_limits<double>::max());
-
-  estim_bdbox.grow(Vector3(bx, by, bz));
-  estim_bdbox.grow(Vector3(ex, ey, ez));
-  
-  return;
-}
-
-namespace asp {
-  
-  // A class to pick some samples to estimate the range of values
-  // of a given dataset
-  class ErrorRangeEstimAccum: public ReturnFixedType<void> {
-    typedef double accum_type;
-    std::vector<accum_type> m_vals;
-  public:
-    typedef accum_type value_type;
-  
-    ErrorRangeEstimAccum() { m_vals.clear(); }
-  
-    void operator()( accum_type const& value ) {
-      // Don't add zero errors, those most likely came from invalid points
-      if (value > 0)
-        m_vals.push_back(value);
-    }
-  
-    int size(){
-      return m_vals.size();
-    }
-  
-    value_type value(Vector2 const& remove_outliers_params){
-      VW_ASSERT(!m_vals.empty(), ArgumentErr() << "ErrorRangeEstimAccum: no valid samples");
-    
-      // How to pick a representative value for maximum error?  The
-      // maximum error itself may be no good, as it could be very
-      // huge, and then sampling the range of errors will be distorted
-      // by that.  The solution adopted here: Find a percentile of the
-      // range of errors, mulitply it by the outlier factor, and
-      // multiply by another factor to ensure we don't underestimate
-      // the maximum. This value may end up being larger than the
-      // largest error, but at least it is is not grossly huge
-      // if just a few of the errors are very large.
-      std::sort(m_vals.begin(), m_vals.end());
-      int    len    = m_vals.size();
-      double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
-      double factor = remove_outliers_params[1];
-      int    k      = std::min(len - 1, (int)(pct*len));
-
-      // Care here with empty sets
-      if (k >= 0) 
-        return m_vals[k]*factor*4.0;
-        
-      return 0;
-    }
-  
-  };
-
-}
-
-// Sample the image and get generous estimates (but without outliers)
-// of the maximum triangulation error and of the 3D box containing the
-// projected points. These will be tightened later.
-double asp::estim_max_tri_error_and_proj_box(vw::ImageViewRef<vw::Vector3> const& proj_points,
-                                             vw::ImageViewRef<double> const& error_image,
-                                             vw::Vector2 const& remove_outliers_params,
-                                             vw::BBox3 & estim_proj_box) {
-
-  // Initialize the outputs
-  double estim_max_error = 0.0;
-  estim_proj_box = BBox3();
-
-  // Start with a 256 (2^8) by 256 sampling of the cloud
-  bool success = false;
-  for (int attempt = 8; attempt <= 18; attempt++){
-    
-    double sample = (1 << attempt);
-    int32 subsample_amt = int32(norm_2(Vector2(error_image.cols(), error_image.rows()))/sample);
-    if (subsample_amt < 1 )
-      subsample_amt = 1;
-    
-    Stopwatch sw2;
-    sw2.start();
-    PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
-    for_each_pixel(subsample(error_image, subsample_amt),
-                   error_accum,
-                   TerminalProgressCallback
-                   ("asp","Bounding box and triangulation error range estimation: ") );
-    if (error_accum.size() > 0){
-      success = true;
-      estim_max_error = error_accum.value(remove_outliers_params);
-    }
-    sw2.stop();
-
-    asp::estimate_points_bdbox(subsample(proj_points, subsample_amt),
-                               subsample(error_image, subsample_amt),
-                               remove_outliers_params,  estim_max_error,
-                               estim_proj_box);
-    
-    if (estim_proj_box.empty()) 
-      success = false;
-    
-    vw_out(DebugMessage,"asp") << "Elapsed time: " << sw2.elapsed_seconds() << std::endl;
-    if (success || subsample_amt == 1) break;
-    vw_out() << "Estimation failed. Check if your cloud is valid. "
-             << "Trying again with finer sampling.\n";
-  }
-  return estim_max_error;
-}
 
 // Find the number of channels in the point clouds.
 // If the point clouds have inconsistent number of channels,

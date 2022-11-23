@@ -32,6 +32,7 @@
 #include <asp/Core/IpMatchingAlgs.h>        // Lightweight header
 #include <asp/Tools/bundle_adjust.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Core/OutlierProcessing.h>
 
 // TODO(oalexan1): Move the code that needs this (asp::DoubleMatrix) to utils
 // and also this header which needs Eigen and is slow to compile.
@@ -649,7 +650,7 @@ int add_to_outliers(ControlNetwork   & cnet,
                     size_t num_tri_residuals,
                     std::vector<vw::Vector3> const& reference_vec, 
                     ceres::Problem &problem) {
-  
+
   vw_out() << "Removing pixel outliers in preparation for another solver attempt.\n";
 
   const size_t num_points  = param_storage.num_points();
@@ -754,7 +755,7 @@ int add_to_outliers(ControlNetwork   & cnet,
   
   // Remove outliers by elevation limit
   int num_outliers_by_elev_or_lonlat = 0;
-  if ( opt.elevation_limit[0] < opt.elevation_limit[1] || !opt.lon_lat_limit.empty()) {
+  if (opt.elevation_limit[0] < opt.elevation_limit[1] || !opt.lon_lat_limit.empty()) {
 
     for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
 
@@ -786,6 +787,51 @@ int add_to_outliers(ControlNetwork   & cnet,
     vw_out() << "Removed " << num_outliers_by_elev_or_lonlat
              << " outliers by elevation range and/or lon-lat range.\n";
   }
+
+  // Remove outliers based on spatial extent. Be more generous with
+  // leaving data in than what the input parameters suggest, because
+  // sometimes inliers in space need not be uniformly distributed.
+  double pct_factor = (3.0 + opt.remove_outliers_params[0]/100.0)/4.0; // e.g., 0.9375
+  double outlier_factor = 2 * opt.remove_outliers_params[1];           // e.g., 6.0.
+  std::vector<double> x_vals, y_vals, z_vals;
+  for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
+    
+    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+      continue; // don't filter out GCP
+    if (param_storage.get_point_outlier(ipt))
+      continue; // skip outliers
+    
+    // The GCC coordinate of this point
+    const double * point = param_storage.get_point_ptr(ipt);
+    x_vals.push_back(point[0]);
+    y_vals.push_back(point[1]);
+    z_vals.push_back(point[2]);
+  }
+  vw::BBox3  estim_bdbox;
+  asp::estimate_inliers_bbox(pct_factor, pct_factor, pct_factor,
+                             outlier_factor,
+                             x_vals, y_vals, z_vals,  
+                             estim_bdbox); // output
+  
+  int num_box_outliers = 0;
+  for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
+    
+    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+      continue; // don't filter out GCP
+    if (param_storage.get_point_outlier(ipt))
+      continue; // skip outliers
+    
+    // The GCC coordinate of this point
+    const double * point = param_storage.get_point_ptr(ipt);
+    Vector3 xyz(point[0], point[1], point[2]);
+    if (!estim_bdbox.contains(xyz)) {
+      param_storage.set_point_outlier(ipt, true);
+      num_box_outliers++;
+    }
+  }
+
+  vw_out() << "Removed " << num_box_outliers << " " 
+           << "outlier(s) based on spatial distribution of triangulated points.\n";
   
   int num_remaining_points = num_points - param_storage.get_num_outliers();
 
@@ -1897,15 +1943,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("ip-per-image",              po::value(&opt.ip_per_image)->default_value(0),
      "How many interest points to detect in each image (default: automatic determination). It is overridden by --ip-per-tile if provided.")
     ("num-passes",           po::value(&opt.num_ba_passes)->default_value(2),
-     "How many passes of bundle adjustment to do, with given number of iterations in each pass. For more than one pass, outliers will be removed between passes using --remove-outliers-params and --remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed (*-clean.match) will be written to disk.")
+     "How many passes of bundle adjustment to do, with given number of iterations in each pass. For more than one pass, outliers will be removed between passes using --remove-outliers-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed (*-clean.match) will be written to disk.")
     ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
      "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
     ("remove-outliers-params", 
      po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
-     "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points (that are not GCP) with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: '75.0 3.0 2.0 3.0'.")
-    ("remove-outliers-by-disparity-params",  
-     po::value(&opt.remove_outliers_by_disp_params)->default_value(Vector2(90.0,3.0), "pct factor"),
-     "Outlier removal based on the disparity of interest points (difference between right and left pixel), when more than one bundle adjustment pass is used. For example, the 10% and 90% percentiles of disparity are computed, and this interval is made three times bigger. Interest points (that are not GCP) whose disparity falls outside the expanded interval are removed as outliers. Instead of the default 90 and 3 one can specify pct and factor, without quotes.")
+     "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points (that are not GCP) with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Also remove outliers based on distribution of interest point matches and triangulated points. Default: '75.0 3.0 2.0 3.0'.")
     ("elevation-limit",        po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
      "Remove as outliers interest points (that are not GCP) for which the elevation of the triangulated position (after cameras are optimized) is outside of this range. Specify as two values: min max.")
     // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
@@ -2145,10 +2188,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.overlap_list.insert(std::make_pair(image2, image1));
     }
     ifs.close();
-  } else {
+  } else if (!vm["auto-overlap-buffer"].defaulted()) {
     opt.have_overlap_list = true;
-    if (!vm["auto-overlap-buffer"].defaulted())
-      auto_build_overlap_list(opt, opt.auto_overlap_buffer);
+    auto_build_overlap_list(opt, opt.auto_overlap_buffer);
   }
   // The third alternative, --auto-overlap-params will be handled when we have cameras
   
