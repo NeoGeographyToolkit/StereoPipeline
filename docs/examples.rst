@@ -2044,6 +2044,10 @@ example below. The option ``--input-camera`` will make use of existing
 RPC cameras to accurately find the pinhole camera poses. 
 See :numref:`skysat-rpc` for more details.
 
+If using the ``cam_gen`` tool, it is very important to examine if the
+data is of type L1A or L1B. The value of ``--pixel-pitch`` should be
+0.8 in the L1B products, but 1.0 for L1A.
+
 Video data
 ~~~~~~~~~~
 
