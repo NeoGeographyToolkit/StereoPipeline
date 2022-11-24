@@ -1485,16 +1485,16 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   //   world coordinate estimate for each matched IP.
   opt.cnet.reset(new ControlNetwork("BundleAdjust"));
   ControlNetwork & cnet = *(opt.cnet.get()); // alias
-  bool triangulate_control_points = true;
-  bool success = vw::ba::build_control_network(triangulate_control_points,
-                                               cnet, opt.camera_models,
-                                               opt.image_files,
-                                               opt.match_files,
-                                               opt.min_matches,
-                                               opt.min_triangulation_angle*(M_PI/180.0),
-                                               opt.forced_triangulation_distance,
-                                               opt.max_pairwise_matches);
   if (!opt.apply_initial_transform_only) {
+    bool triangulate_control_points = true;
+    bool success = vw::ba::build_control_network(triangulate_control_points,
+                                                 cnet, opt.camera_models,
+                                                 opt.image_files,
+                                                 opt.match_files,
+                                                 opt.min_matches,
+                                                 opt.min_triangulation_angle*(M_PI/180.0),
+                                                 opt.forced_triangulation_distance,
+                                                 opt.max_pairwise_matches);
     if (!success) {
       vw_out() << "Failed to build a control network. Consider removing "
                << "all .vwip and .match files and increasing "
@@ -1511,7 +1511,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   
   // If camera positions were provided for local inputs, align to them.
   const bool have_est_camera_positions = (opt.camera_position_file != "");
-  if ((opt.camera_type==BaCameraType_Pinhole) && have_est_camera_positions) {
+  if ((opt.camera_type == BaCameraType_Pinhole) && have_est_camera_positions) {
     init_pinhole_model_with_camera_positions(opt.cnet, opt.camera_models,
                                              opt.image_files, estimated_camera_gcc);
     cameras_changed = true;
@@ -1578,7 +1578,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   // Fill in the camera and intrinsic parameters.
   std::vector<boost::shared_ptr<camera::CameraModel>> new_cam_models;
   bool ans = false;
-  switch(opt.camera_type) {
+  switch (opt.camera_type) {
     case BaCameraType_Pinhole:
       ans = init_cams_pinhole(opt, param_storage, new_cam_models); break;
     case BaCameraType_OpticalBar:
@@ -1597,7 +1597,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   // TODO(oalexan1): Building the control network twice looks like a
   // hack. Try to understand why the cameras can't be updated first,
   // then building the control network just once.
-  if (cameras_changed) {
+  if (!opt.apply_initial_transform_only && cameras_changed) {
     vw_out() <<"Updating the control network." << std::endl;
     cnet = ControlNetwork("Updated network"); // Wipe it all first
     /*bool success = */
@@ -2996,7 +2996,6 @@ int main(int argc, char* argv[]) {
         Vector2i ip_size(right_ip_width, rsrc1->rows());
         double ip_coverage = asp::calc_ip_coverage_fraction(ip2, ip_size);
         vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
-        vw_out() << "Number of matches in " << match_filename << " " << ip1.size() << "\n";
       } catch (const std::exception& e){
         vw_out() << "Could not find interest points between images "
                   << opt.image_files[i] << " and " << opt.image_files[j] << std::endl;
