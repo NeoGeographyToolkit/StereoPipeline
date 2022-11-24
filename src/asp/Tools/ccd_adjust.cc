@@ -237,7 +237,7 @@ void ccd_adjust(std::vector<std::string> const& image_files,
 
   // Add the cost function component for difference of pixel observations
   CameraRelationNetwork<JFeature> crn;
-  crn.read_controlnetwork(cnet);
+  crn.from_cnet(cnet);
   for (int icam = 0; icam < (int)crn.size(); icam++) {
 
     typedef CameraNode<JFeature>::iterator crn_iter;

@@ -89,6 +89,9 @@ bundle_adjust:
     the input DEM accuracy (option ``--remove-outliers-params``).
   * Remove outliers based on spatial distribution of triangulated
     points.
+  * Bugfix when the number of interest points is 4 million or more.
+    The algorithm would just stall. It is now replaced by an OpenMVG
+    algorithm.
   * Fold ``--remove-outliers-by-disparity-params`` into 
     ``--remove-outliers-params``.
   * Bugfix in ``residuals_stats.txt``; the mean was correct but the

@@ -776,7 +776,7 @@ bool MatchList::loadPointsFromGCPs(std::string const gcpPath,
   }
   
   CameraRelationNetwork<JFeature> crn;
-  crn.read_controlnetwork(cnet);
+  crn.from_cnet(cnet);
 
   typedef CameraNode<JFeature>::iterator crn_iter;
   if (crn.size() != num_images && crn.size() != 0) {

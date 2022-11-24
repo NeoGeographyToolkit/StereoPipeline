@@ -1633,7 +1633,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   CRNJ crn;
-  crn.read_controlnetwork(cnet);
+  crn.from_cnet(cnet);
 
   if (opt.num_ba_passes <= 0)
     vw_throw(ArgumentErr() << "Error: Expecting at least one bundle adjust pass.\n");

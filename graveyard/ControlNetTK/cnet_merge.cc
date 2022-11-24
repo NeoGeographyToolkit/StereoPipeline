@@ -171,7 +171,7 @@ int main( int argc, char** argv ) {
     }
 
     CameraRelationNetwork<IPFeature> dst_crn;
-    dst_crn.read_controlnetwork( dst_cnet );
+    dst_crn.from_cnet( dst_cnet );
 
     BOOST_FOREACH( std::string const& source_cnet, opt.source_cnets ) {
       ControlNetwork src_cnet("source");

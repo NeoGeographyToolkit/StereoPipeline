@@ -625,7 +625,7 @@ void jitter_adjust(std::vector<std::string> const& image_files,
 
   // Add the cost function component for difference of pixel observations
   CameraRelationNetwork<JFeature> crn;
-  crn.read_controlnetwork(cnet);
+  crn.from_cnet(cnet);
   start_index = 0;
   std::vector<Vector2i> sizes;
   

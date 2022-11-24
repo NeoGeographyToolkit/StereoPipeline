@@ -1436,7 +1436,7 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   vw::ba::CameraRelationNetwork<vw::ba::JFeature> crn;
-  crn.read_controlnetwork(cnet);
+  crn.from_cnet(cnet);
   
   if ((int)crn.size() != opt.camera_models.size()) 
     vw_throw(ArgumentErr() << "Book-keeping error, the size of CameraRelationNetwork "
