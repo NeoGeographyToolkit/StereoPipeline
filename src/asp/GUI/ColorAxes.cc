@@ -37,9 +37,9 @@
 #include <vw/Image/Colormap.h> // colormaps supported by ASP
 
 namespace vw { namespace gui { 
-class MyZoomer: public QwtPlotZoomer {
+class ColorAxesZoomer: public QwtPlotZoomer {
 public:
-  MyZoomer(QWidget *canvas): QwtPlotZoomer(dynamic_cast<QwtPlotCanvas *>(canvas)) {
+  ColorAxesZoomer(QWidget *canvas): QwtPlotZoomer(dynamic_cast<QwtPlotCanvas *>(canvas)) {
     setTrackerMode(AlwaysOff);
   }
   
@@ -156,9 +156,28 @@ public:
   
 };
 
+// Sources: https://qwt.sourceforge.io/qwt__plot__spectrogram_8cpp_source.html
+//          https://qwt.sourceforge.io/qwt__plot__spectrogram_8h_source.html
+  
+class CustomAxesPlotter: public QwtPlotSpectrogram {
+public:
+  CustomAxesPlotter(const QString& title = QString()): QwtPlotSpectrogram(title) {}
+  
+ virtual void draw(QPainter * painter,
+                   const QwtScaleMap & xMap,
+                   const QwtScaleMap & yMap,
+                   const QRectF      & canvasRect) const {
+   // TODO(oalexan1): This is where a custom painter can be
+   // implemented, as in MainWidget.cc, to take into account a given
+   // zoom level needs the image at the appropriate level of the
+   // multi-resolution pyramid.
+   QwtPlotSpectrogram::draw(painter, xMap, yMap, canvasRect);
+ }
+};
+  
 ColorAxes::ColorAxes(QWidget *parent, imageData & image):
   QwtPlot(parent), m_image(image) {
-  m_spectrogram = new QwtPlotSpectrogram();
+  m_spectrogram = new CustomAxesPlotter();
   m_spectrogram->setRenderThreadCount(0); // use system specific thread count
 
   // Parse and set the colormap
@@ -208,12 +227,16 @@ ColorAxes::ColorAxes(QWidget *parent, imageData & image):
   // RightButton: zoom out by 1
   // Ctrl+RighButton: zoom out to full size
   
-  QwtPlotZoomer* zoomer = new MyZoomer(canvas());
+  QwtPlotZoomer* zoomer = new ColorAxesZoomer(canvas());
   zoomer->setMousePattern(QwtEventPattern::MouseSelect2,
                           Qt::RightButton, Qt::ControlModifier);
   zoomer->setMousePattern(QwtEventPattern::MouseSelect3,
                           Qt::RightButton);
   
+  const QColor c(Qt::darkBlue);
+  zoomer->setRubberBandPen(c);
+  zoomer->setTrackerPen(c);
+
   QwtPlotPanner *panner = new QwtPlotPanner(canvas());
   panner->setAxisEnabled(QwtPlot::yRight, false);
   panner->setMouseButton(Qt::MidButton);
@@ -225,9 +248,6 @@ ColorAxes::ColorAxes(QWidget *parent, imageData & image):
   QwtScaleDraw *sd = axisScaleDraw(QwtPlot::yLeft);
   sd->setMinimumExtent(fm.width("100.00"));
   
-  const QColor c(Qt::darkBlue);
-  zoomer->setRubberBandPen(c);
-  zoomer->setTrackerPen(c);
 }
 
 }} // end namespace vw::gui
