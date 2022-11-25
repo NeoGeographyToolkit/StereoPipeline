@@ -2028,7 +2028,10 @@ process with ASP, following the example in :numref:`rpc`.
 
 When running bundle adjustment (:numref:`bundle_adjust`) with these
 datasets, it is suggested to use the ``--tri-weight`` option to
-prevent the cameras from moving, with a value of perhaps 0.5.
+prevent the cameras from moving, with a value of perhaps 0.1 - 0.5 (a
+lower value will constrain less, and a lower value is needed with
+coarser images where a pixel change can correspond to a bigger change
+on the ground that this weight compensates for).
 
 If having a lot of images, use the option ``--auto-overlap-params`` to
 automatically determine which pairs overlap. See
@@ -2218,7 +2221,7 @@ bring the back to the original location.
        --datum WGS84                       \
        --inline-adjustments                \
        --camera-weight 0                   \
-       --tri-weight 0.5                    \
+       --tri-weight 0.1                    \
        --robust-threshold 2                \
        --remove-outliers-params '75 3 4 5' \
        --ip-num-ransac-iterations 1000     \
@@ -2875,7 +2878,7 @@ You can now run bundle adjustment on the downsampled images::
        -t opticalbar                           \
        --max-iterations 100                    \
        --camera-weight 0                       \
-       --tri-weight 0.5                        \
+       --tri-weight 0.1                        \
        --disable-tri-ip-filter                 \
        --disable-pinhole-gcp-init              \
        --skip-rough-homography                 \
@@ -2883,6 +2886,11 @@ You can now run bundle adjustment on the downsampled images::
        --ip-detect-method 1                    \
        --datum WGS84                           \
        -o ba_small/run
+
+The value of ``--tri-weight`` should be inversely proportional to
+ground-sample distance, so low-resolution (coarser) images should use
+a lower-value, as then multiplying by this weight will more accurately
+bring differences in units of meters to units of pixels.
 
 Validation of cameras
 ~~~~~~~~~~~~~~~~~~~~~
@@ -3709,7 +3717,7 @@ on a corresponding multispectral band pair, will result in DEMs which
 are no longer aligned either to each other, or to their versions
 before bundle adjustment. The cameras can be prevented by moving too
 far if ``bundle_adjust`` is called with, for example, ``--tri-weight
-0.5``, or some larger value, to constrain the triangulated
+0.1``, or some other comparable value, to constrain the triangulated
 points. Yet, by its very nature, this program changes the positions
 and orientations of the cameras, and therefore the coordinate
 system. And note that a very high camera weight may interfere with the

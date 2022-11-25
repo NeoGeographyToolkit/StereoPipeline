@@ -102,8 +102,7 @@ CameraModelLoader::load_spot5_camera_model(std::string const& path) const {
 
 // Load a PeruSat linescan camera file
 boost::shared_ptr<vw::camera::CameraModel>
-CameraModelLoader::load_perusat_camera_model(std::string const& path) const
-{
+CameraModelLoader::load_perusat_camera_model(std::string const& path) const {
   return CameraModelPtr(load_perusat_camera_model_from_xml(path));
 }
 
@@ -115,8 +114,7 @@ CameraModelLoader::load_pleiades_camera_model(std::string const& path) const {
 
 // Load a ASTER camera file
 boost::shared_ptr<vw::camera::CameraModel>
-CameraModelLoader::load_ASTER_camera_model(std::string const& path) const
-{
+CameraModelLoader::load_ASTER_camera_model(std::string const& path) const {
   // This model file also needs the RPC model as an initial guess
   boost::shared_ptr<vw::camera::CameraModel> rpc_model = load_rpc_camera_model(path);
 
@@ -125,8 +123,7 @@ CameraModelLoader::load_ASTER_camera_model(std::string const& path) const
 
 // Load an ISIS camera model
 boost::shared_ptr<vw::camera::CameraModel>
-CameraModelLoader::load_isis_camera_model(std::string const& path) const
-{
+CameraModelLoader::load_isis_camera_model(std::string const& path) const {
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   
   std::string ext = vw::get_extension(path);
