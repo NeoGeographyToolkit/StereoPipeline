@@ -384,7 +384,7 @@ void MainWindow::createLayout() {
       bool poly_or_xyz = (m_images[i].isPoly() || m_images[i].isCsv());
       
       QWidget * widget = NULL;
-      if (!m_images[i].colorize_image || poly_or_xyz) {
+      if (!m_images[i].colorize_image || poly_or_xyz || m_images[i].img.planes() != 1) {
         // regular plot
         widget = new MainWidget(centralWidget,
                                 m_opt,

@@ -51,65 +51,74 @@ public:
     // TODO(oalexan1): Need to handle georeferences.
     // TODO(oalexan1): Temporary. Need to write an analog of formQimage(),
     // to get a floating point image at given resolution level.
-    vw::mosaic::DiskImagePyramid<double> & img = image.img.m_img_ch1_double;
 
-    // TODO(oalexan1): This is temporary. Need to make out-of-range regions transparent.
+    if (image.img.planes() != 1) {
+      // This will be caught before we get here, but is good to have for extra
+      // robustness.
+      popUp("Only images with one channel can be colorized.");
+      return;
+    }
+    
+    vw::mosaic::DiskImagePyramid<double> & img = image.img.m_img_ch1_double;
     m_nodata_val = img.get_nodata_val();
-    ImageViewRef<PixelMask<double>> full_img = create_mask(img.bottom(), m_nodata_val);
-    m_interp_image = interpolate(full_img, BilinearInterpolation(), ZeroEdgeExtension());
 
     // TODO(oalexan1): This is temporary
-    m_image_copy = copy(full_img);
-    
-    // TODO(oalexan1): How about removing a small percentile from ends
+    m_image_copy = copy(image.img.m_img_ch1_double.bottom());
+      
+    // TODO(oalexan1): How about removing a small percentile from ends?
     // TODO(oalexan1): Handle no-data properly by using transparent pixels.
 
     m_min_val = asp::stereo_settings().min;
     m_max_val = asp::stereo_settings().max;
     if (std::isnan(m_min_val) || std::isnan(m_max_val)) {
 
-      // TODO(oalexan1): This can be slow. May want to use the coarsest image in the pyramid.
-      
+      // Get the lowest-resolution image
+      ImageView<double> lowres_img;
+      double scale_in = std::numeric_limits<double>::max();
+      double scale_out = 0; // will change
+      BBox2i region_in(0, 0, img.bottom().cols(), img.bottom().rows()); // an overestimate
+      BBox2i region_out; // will change
+      img.get_image_clip(scale_in, region_in, lowres_img, scale_out, region_out);
+
       // Compute min and max if not specified by the user
       m_min_val = std::numeric_limits<double>::max();
       m_max_val = -m_min_val;
-      for (int col = 0; col < full_img.cols(); col++) {
-        for (int row = 0; row < full_img.rows(); row++) {
+      for (int col = 0; col < lowres_img.cols(); col++) {
+        for (int row = 0; row < lowres_img.rows(); row++) {
           
-          auto val = full_img(col, row); // alias
-          if (!is_valid(val)) 
+          double val = lowres_img(col, row);
+          if (val == m_nodata_val) 
             continue;
         
-          m_min_val = std::min(m_min_val, val.child());
-          m_max_val = std::max(m_max_val, val.child());
+          m_min_val = std::min(m_min_val, val);
+          m_max_val = std::max(m_max_val, val);
         }
       }
     }
     
-    setInterval(Qt::XAxis, QwtInterval(0, full_img.cols() - 1));
-    setInterval(Qt::YAxis, QwtInterval(0, full_img.rows() - 1));
+    setInterval(Qt::XAxis, QwtInterval(0, img.cols() - 1));
+    setInterval(Qt::YAxis, QwtInterval(0, img.rows() - 1));
     setInterval(Qt::ZAxis, QwtInterval(m_min_val, m_max_val));
   }
   
   virtual double value(double x, double y) const {
-    //auto val = m_interp_image(x, y);
     x = round(x);
     y = round(y);
-    if (x < 0 || y < 0 || x > m_image_copy.cols() - 1 || y > m_image_copy.rows() - 1)
+
+    vw::mosaic::DiskImagePyramid<double> const& img = m_image.img.m_img_ch1_double;
+    if (x < 0 || y < 0 || x > img.bottom().cols() - 1 || y > img.bottom().rows() - 1)
       return m_min_val;
     
-    auto val = m_image_copy(x, y);
+    double val = m_image_copy(x, y);
+    if (val == m_nodata_val || val != val) 
+      return m_min_val; // TODO(oalexan1): Make transparent
 
-    if (!is_valid(val)) 
-      return m_min_val;     // TODO(oalexan1): Make transparent
-
-    return val.child();
+    return val;
   }
 
 private:
   imageData & m_image;
   double m_min_val, m_max_val, m_nodata_val;
-  ImageViewRef<PixelMask<double>> m_interp_image;
   ImageView<PixelMask<double>> m_image_copy; // TODO(oalexan1): This needs to be removed
 };
 
