@@ -314,9 +314,14 @@ namespace vw { namespace gui {
       // Zoom to desired win. Later, once we know the window
       // size, this region's dimensions will be adjusted to have
       // correct aspect ratio.
-      BBox2 pix_box = m_images[m_base_image_id].georef.point_to_pixel_bbox
-        (asp::stereo_settings().zoom_proj_win);
-      m_current_view = image2world(pix_box, m_base_image_id);
+      BBox2 proj_win = asp::stereo_settings().zoom_proj_win, image_box;
+      if (m_images[m_base_image_id].isPoly() || m_images[m_base_image_id].isCsv())
+        image_box = proj_win;
+      else
+        image_box = m_images[m_base_image_id].georef.point_to_pixel_bbox(proj_win);
+      
+      m_current_view = image2world(image_box, m_base_image_id);
+      
       asp::stereo_settings().zoom_proj_win = BBox2(); // no longer needed
     }
     
@@ -1449,7 +1454,6 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       return;
     }
     m_current_view = expand_box_to_keep_aspect_ratio(region);
-
     refreshPixmap();
   }
 
@@ -3067,12 +3071,12 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
           continue;
 
         BBox2 image_box = world2image(m_stereoCropWin, image_it); 
-        vw_out().precision(8);
-        vw_out() << "src win for    " << m_images[image_it].name << ": "
+        vw_out() << std::setprecision(8) 
+                 << "src win for    " << m_images[image_it].name << ": "
                  << round(image_box.min().x()) << ' ' << round(image_box.min().y()) << ' '
                  << round(image_box.width())   << ' ' << round(image_box.height())  << std::endl;
 
-        if (m_images[image_it].has_georef){
+        if (m_images[image_it].has_georef) {
           Vector2 proj_min, proj_max;
           // Convert pixels to projected coordinates
           BBox2 point_box;
@@ -3084,17 +3088,19 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
           proj_min = point_box.min();
           proj_max = point_box.max();
           // Below we flip in y to make gdal happy
-          vw_out() << "proj win for   "
+          vw_out() << std::setprecision(17)
+                   << "proj win for   "
                    << m_images[image_it].name << ": "
                    << proj_min.x() << ' ' << proj_max.y() << ' '
                    << proj_max.x() << ' ' << proj_min.y() << std::endl;
-
+          
           Vector2 lonlat_min, lonlat_max;
           BBox2 lonlat_box = m_images[image_it].georef.point_to_lonlat_bbox(point_box);
           lonlat_min = lonlat_box.min();
           lonlat_max = lonlat_box.max();
           // Again, miny and maxy are flipped on purpose
-          vw_out() << "lonlat win for "
+          vw_out() << std::setprecision(17)
+                   << "lonlat win for "
                    << m_images[image_it].name << ": "
                    << lonlat_min.x() << ' ' << lonlat_max.y() << ' '
                    << lonlat_max.x() << ' ' << lonlat_min.y() << std::endl;

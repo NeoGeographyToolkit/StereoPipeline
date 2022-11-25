@@ -953,12 +953,18 @@ void MainWindow::zoomToProjWin(){
     return;
   }
   
+  // This takes care of the fact that the order of corners can be reversed
   BBox2 proj_win;
   proj_win.grow(Vector2(a, b));
   proj_win.grow(Vector2(c, d));
 
-  BBox2 pix_box   = m_images[BASE_IMAGE_ID].georef.point_to_pixel_bbox(proj_win);
-  BBox2 world_box = mw(m_widgets[BASE_IMAGE_ID])->image2world(pix_box, BASE_IMAGE_ID);
+  BBox2 image_box;
+  if (m_images[BASE_IMAGE_ID].isPoly() || m_images[BASE_IMAGE_ID].isCsv())
+    image_box = proj_win;
+  else
+    image_box = m_images[BASE_IMAGE_ID].georef.point_to_pixel_bbox(proj_win);
+
+  BBox2 world_box = mw(m_widgets[BASE_IMAGE_ID])->image2world(image_box, BASE_IMAGE_ID);
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (!mw(m_widgets[i]))
       continue;
