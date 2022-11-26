@@ -111,7 +111,7 @@ bundle_adjust:
   * For pinhole cameras, can read .adjust files via
     ``--input-adjustments-prefix``, then apply them to existing .tsai
     files via ``--inline-adjustments``. Until now one could do either
-    one or the other.
+    one or the other. Also works with ``--initial-transform``.
 
 point2dem:
   * Added the Tukey outlier removal method option applied to
