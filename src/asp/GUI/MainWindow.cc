@@ -1240,7 +1240,6 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   // Get the pointer to the right structure
   pairwiseMatchList * pairwiseMatches = NULL;
   std::string match_file;
-  bool flip = false;
 
   // Read matches or clean matches, unless read by now, for which we check
   // if pairwiseMatches->match_files[index_pair] is initialized.
@@ -1293,16 +1292,6 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
       // Load pairwise matches
       match_file = vw::ip::match_filename(m_output_prefix, m_images[left_index].name,
                                           m_images[right_index].name);
-      if (!fs::exists(match_file)) {
-        std::string match_file2 = vw::ip::match_filename(m_output_prefix,
-                                                         m_images[right_index].name,
-                                                         m_images[left_index].name);
-        if (fs::exists(match_file2)) {
-          std::cout << "Found match file from second to first image.\n";
-          match_file = match_file2;
-          flip = true;
-        }
-      }
     }
   } else {
     // Load pairwise clean matches
@@ -1310,16 +1299,6 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     if (pairwiseMatches->match_files.find(index_pair) == pairwiseMatches->match_files.end()) {
       match_file = vw::ip::clean_match_filename(m_output_prefix, m_images[left_index].name,
                                                 m_images[right_index].name);
-      if (!fs::exists(match_file)) {
-        std::string match_file2 = vw::ip::clean_match_filename(m_output_prefix,
-                                                               m_images[right_index].name,
-                                                               m_images[left_index].name);
-        if (fs::exists(match_file2)) {
-          std::cout << "Found match file from second to first image.\n";
-          match_file = match_file2;
-          flip = true;
-        }
-      }
     }
   }
   
@@ -1339,13 +1318,11 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     pairwiseMatches->match_files[index_pair] = match_file;
     try {
       // Load it
-      std::cout << "Loading match file: " << match_file << std::endl;
-      if (!flip) 
-        ip::read_binary_match_file(match_file, left_ip, right_ip);
-      else
-        ip::read_binary_match_file(match_file, right_ip, left_ip);
+      vw_out() << "Loading match file: " << match_file << std::endl;
+      ip::read_binary_match_file(match_file, left_ip, right_ip);
     } catch(...) {
-      popUp("Cannot find the match file with given images and output prefix.");
+      // Having this pop-up for a large number of images is annoying
+      vw_out() << "Cannot find the match file with given images and output prefix.\n";
       return;
     }
   }
