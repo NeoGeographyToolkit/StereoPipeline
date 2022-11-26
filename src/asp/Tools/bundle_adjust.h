@@ -339,14 +339,15 @@ bool init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
       cameras_changed = true;
     }
     
+    // Apply any initial transform to the pinhole cameras. This may be on top
+    // of any initial adjustment. 
+    if (opt.initial_transform_file != "") {
+      pin_cam.apply_transform(opt.initial_transform);
+      cameras_changed = true;
+    }
+    
     pack_pinhole_to_arrays(pin_cam, icam, param_storage);
   } // End loop through cameras
-
-  // Apply any initial transform to the pinhole cameras
-  if (opt.initial_transform_file != "") {
-    apply_transform_to_cameras_pinhole(opt.initial_transform, param_storage, opt.camera_models);
-    cameras_changed = true;
-  }
 
   // Fill out the new camera model vector
   new_cam_models.resize(num_cameras);
@@ -370,14 +371,21 @@ bool init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for optical bar cameras.
 bool init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
-        std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models){
+        std::vector<boost::shared_ptr<camera::CameraModel>> &new_cam_models){
+
+  if (opt.input_prefix != "")
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Applying initial adjustments to optical bar cameras "
+                 << "and --inline-adjustments is not implemented. "
+                 << "Remove this option.\n");
 
   bool cameras_changed = false;
-  
+
   // Copy the camera parameters from the models to param_storage
   const size_t num_cameras = param_storage.num_cameras();
   for (int icam=0; icam < num_cameras; ++icam) {
-    vw::camera::OpticalBarModel* bar_ptr = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
+    vw::camera::OpticalBarModel* bar_ptr
+      = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
     vw::vw_out() << "Loading input model: " << *bar_ptr << std::endl;
     pack_optical_bar_to_arrays(*bar_ptr, icam, param_storage);
   } // End loop through cameras
