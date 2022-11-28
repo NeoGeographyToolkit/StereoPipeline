@@ -2134,6 +2134,9 @@ can be used to compute the alignment transform to the reference terrain::
 If desired, the obtained alignment transform can be applied to the
 cameras as well (:numref:`ba_pc_align`).
 
+Use ``stereo_gui`` to inspect the reprojetion errors in the final
+``pointmap.csv`` file (:numref:`plot_csv`).
+ 
 Pairwise stereo then can be run among overlapping image pairs
 (:numref:`nextsteps`), with ``dem_mosaic`` (:numref:`dem_mosaic`) used
 for mosaicking the DEMs.
