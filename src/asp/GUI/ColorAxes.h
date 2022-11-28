@@ -31,6 +31,7 @@
 namespace vw { namespace gui {
 
 class imageData;
+class ColorAxesPlotter;
   
 class ColorAxes: public QwtPlot {
   Q_OBJECT
@@ -41,7 +42,7 @@ public:
 public Q_SLOTS:
 
 private:
-  QwtPlotSpectrogram *m_spectrogram;
+  ColorAxesPlotter *m_plotter;
   imageData & m_image;
 };
 
