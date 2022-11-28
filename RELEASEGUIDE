@@ -52,6 +52,9 @@ https://semver.org for guidance).
 
      conda env create -f asp_deps.yml     
   
+    Save a record of these in StereoPipeline/conda. It helps with future
+    reproducibility.
+
   - Check out https://github.com/NeoGeographyToolkit/BinaryBuilder
     in your $HOME. 
 
@@ -92,10 +95,12 @@ https://semver.org for guidance).
 
         BinaryBuilder/README.
 
-  - Build the documentation in StereoPipeline/docs:
+  - Build the documentation in StereoPipeline/docs. See
+    https://stereopipeline.readthedocs.io/en/latest/installation.html#building-the-documentation
+    for how to fetch sphinx. Run:
 
 	make html
-		tests building the online documentation
+		builds a local copy of the online documentation
 
 	make latexpdf
 		builds 'the pdf book'
@@ -170,7 +175,7 @@ https://groups.google.com/forum/\#!forum/ames-stereo-pipeline-support
 and the old stereo-pipeline@lists.nasa.gov, listing the changes
 specified in NEWS.rst.
 
-12.) Modify the build system:
+12.) Modify the build system.
 
 After the release has been done, prep the repo for the next phase of
 development, by updating the version number in:

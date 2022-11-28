@@ -131,6 +131,8 @@ stereo_gui:
   * Can plot, overlay on top of images, and colorize scattered points
     stored in a CSV file (:numref:`plot_csv`). Many colormap styles
     are supported. See :numref:`colormap` for the list.
+  * Can show side-by-side colorized images with colorbars and coordinate
+    axes (:numref:`colorize`).
   * Given a ``bundle_adjust`` output prefix, can select via checkboxes
     any two images to show side-by-side, and automatically load their
     match file or clean match file (options:
@@ -164,9 +166,9 @@ pc_align:
     a 32-bit integer overflow.
 
 colormap: 
-  * Added four colormaps: ``black-body``, ``viridis``, ``plasma``,
-    ``kindlmann`` (:numref:`colormap`). Source: 
-    http://www.kennethmoreland.com/color-advice/
+  * Added six colormaps: ``black-body``, ``viridis``, ``plasma``,
+    ``kindlmann``, ``rainbow``, ``turbo`` (:numref:`colormap`). Sources: 
+    http://www.kennethmoreland.com/color-advice/ and matplotlib.
  
 misc:
   * Added the option of using the CSM camera with DigitalGlobe WorldView 
