@@ -15,7 +15,7 @@ results, but ultimately this software suite takes images and builds
 models in a mostly automatic way. To create a point cloud file, you
 simply pass two image files to the ``parallel_stereo`` command::
 
-    ISIS> parallel_stereo --stereo-algorithm asp_bm          \
+    parallel_stereo --stereo-algorithm asp_bm \
       left_image.cub right_image.cub results/run
 
 Here it is assumed that the ``PATH`` and ``ISISDATA`` environmental
@@ -27,8 +27,8 @@ the images are usually in the ``.tif`` format (:numref:`dg_tutorial`).
 Higher quality results, at the expense of more computation, can be
 achieved by running::
 
-    ISIS> parallel_stereo --alignment-method affineepipolar \
-      --stereo-algorithm asp_mgm --subpixel-mode 3          \
+    parallel_stereo --alignment-method affineepipolar \
+      --stereo-algorithm asp_mgm --subpixel-mode 3    \
       left_image.cub right_image.cub results/run
 
 The best quality will likely be obtained with ``--subpixel-mode 2``,
@@ -51,8 +51,8 @@ A a visualizable mesh or a DTM file can be made with the following
 commands (the ``results/run-PC.tif`` and ``results/run-L.tif`` files
 are created by the ``parallel_stereo`` program above)::
 
-     ISIS> point2mesh results/run-PC.tif results/run-L.tif
-     ISIS> point2dem results/run-PC.tif
+     point2mesh results/run-PC.tif results/run-L.tif
+     point2dem results/run-PC.tif
 
 Visualization is further discussed in :numref:`visualising`.
 

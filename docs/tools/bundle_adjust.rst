@@ -184,10 +184,6 @@ sample file::
 The field ``num_observations`` counts how many images each point gets
 projected into.
 
-The initial and final mean and median of residual error norms for the
-pixels each camera are written to ``residuals_stats.txt`` files in
-the output directory.
-
 The command::
 
     geodiff --absolute --csv-format '1:lon 2:lat 3:height_above_datum' \
@@ -196,6 +192,19 @@ The command::
 (:numref:`geodiff`) can be used to evaluate how well the residuals
 agree with a given DEM.  That can be especially useful if bundle
 adjustment was invoked with the ``--heights-from-dem`` option.
+
+The final triangulated positions can be used for alignment with
+``pc_align`` (:numref:`pc_align`). Then, use
+``--min-triangulation-angle 15.0`` with bundle adjustment or some
+other higher value, to filter out unreliably triangulated points.
+(This still allows, for example, to have a triangulated point
+obtained by the intersection of three rays, with some
+of those rays having an angle of at least this while some a much
+smaller angle.)
+
+The initial and final mean and median of residual error norms for the
+pixels each camera are written to ``residuals_stats.txt`` files in
+the output directory.
 
 As a finer-grained metric, initial and final ``raw_pixels.txt`` files
 will be written, having the row and column residuals (reprojection

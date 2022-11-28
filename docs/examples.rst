@@ -2012,44 +2012,133 @@ SkySat Stereo and Video data
 ----------------------------
 
 SkySat is a constellation of sub-meter resolution Earth observation
-satellites owned by Planet Labs. There are two type of SkySat
-products, ``Stereo`` and ``Video``, with each being made up of
-sequences of images.
+satellites owned by *Planet*. There are two type of SkySat
+products, *Stereo* and *Video*, with each made up of
+sequences of overlapping images. Their processing is described in
+:numref:`skysat_stereo` and :numref:`skysat_video`.
 
 A very informative paper on processing SkySat data with ASP is
-:cite:`bhushan2021automated`.
+:cite:`bhushan2021automated`, and their workflow is `publicly
+available <https://github.com/uw-cryo/skysat_stereo>`_.
+
+.. _skysat_stereo:
 
 Stereo data
 ~~~~~~~~~~~
 
-The ``Stereo`` products come with RPC cameras (embedded in the TIF
-image files) and individual pairs of stereo images are rather easy to
-process with ASP, following the example in :numref:`rpc`.
+The SkySat *Stereo* products come with RPC cameras (embedded in the TIF
+image files or in files with ``_RPC.txt`` extension).
 
-When running bundle adjustment (:numref:`bundle_adjust`) with these
-datasets, it is suggested to use the ``--tri-weight`` option to
-prevent the cameras from moving, with a value of perhaps 0.1 - 0.5 (a
-lower value will constrain less, and a lower value is needed with
-coarser images where a pixel change can correspond to a bigger change
-on the ground that this weight compensates for).
+This product may have images acquired with either two or three
+perspectives, and for each of those there are three sensors with
+overlapping fields of view. Each sensor creates on the order of 300
+images with much overlap among them.
 
-If having a lot of images, use the option ``--auto-overlap-params`` to
-automatically determine which pairs overlap. See
-:numref:`initial_terrain` for how to find a DEM to
-use with this option. Use ``--max-pairwise-matches`` with a value of 
-200 or 300 if too many matches are found among images that overlap a lot.
+Individual pairs of stereo images are rather easy to process with ASP,
+following the example in :numref:`rpc`.
 
-If desired to convert the RPC cameras to pinhole
-(:numref:`pinholemodels`), which can help decouple the extrinsic
-position and orientation from the intrinsics (focal length, optical
-center, distortion), use the ``cam_gen`` tool, just as in the Video
-example below. The option ``--input-camera`` will make use of existing
-RPC cameras to accurately find the pinhole camera poses. 
-See :numref:`skysat-rpc` for more details.
+Due to non-trivial errors in each camera's position and orientation,
+it was found preferable to convert the RPC cameras to Pinhole
+(:numref:`pinholemodels`), thus decoupling the camera intrinsics from
+their poses, then running bundle adjustment (:numref:`bundle_adjust`)
+to refine the poses, followed by pairwise stereo and mosaicking of
+DEMs.
 
-If using the ``cam_gen`` tool, it is very important to examine if the
-data is of type L1A or L1B. The value of ``--pixel-pitch`` should be
-0.8 in the L1B products, but 1.0 for L1A.
+A possible workflow is as follows. (Compare this with the processing of
+Video data in :numref:`skysat_video`.)
+
+It may be convenient to make symbolic links from the image names to
+something shorter, for example, as::
+
+    cd img
+    ln -s 1259344359.55622339_sc00104_c2_PAN_i0000000320.tif n1000.tif
+
+for Nadir-looking cameras, and similarly for Forward or Aft-looking
+cameras, if available, and their associated RPC metadata files.  
+
+Pinhole cameras can be created with ``cam_gen``: (:numref:`cam_gen`)::
+
+    pref=img/n1000
+    cam_gen ${pref}.tif              \
+        --input-camera ${pref}.tif   \
+        --focal-length 553846.153846 \
+        --optical-center 1280 540    \
+        --pixel-pitch 1.0            \
+        --reference-dem ref.tif      \
+        --height-above-datum 4000    \
+        --refine-camera              \
+        --gcp-std 1                  \
+        --gcp-file ${pref}.gcp       \
+        -o ${pref}.tsai
+
+It is very important to examine if the data is of type L1A or L1B. The
+value of ``--pixel-pitch`` should be 0.8 in the L1B products, but 1.0
+for L1A.
+
+The reference DEM ``ref.tif`` is a Copernicus 30 m DEM
+(:numref:`initial_terrain`). The option ``--input-camera`` will make
+use of existing RPC cameras to accurately find the pinhole camera
+poses. The option ``--height-above-datum`` should not be necessary if
+the DEM footprint covers fully the area of interest.
+
+For bundle adjustment (:numref:`parallel_bundle_adjust`), it may be
+preferable to have the lists of images and pinhole cameras stored in
+files, as otherwise they may be too many to individually pass on the
+command line.
+
+::
+
+    ls img/*.tif > images.txt
+    ls img/*.tsai > cameras.txt
+    nodesList=machine_names.txt
+
+    parallel_bundle_adjust                  \
+    --inline-adjustments                    \
+    --num-iterations 100                    \
+    --image-list images.txt                 \
+    --camera-list cameras.txt               \
+    --tri-weight 0.1                        \
+    --camera-weight 0                       \
+    --auto-overlap-params "ref.tif 15"      \
+    --min-matches 5                         \
+    --remove-outliers-params '75.0 3.0 5 5' \
+    --min-triangulation-angle 15.0          \
+    --max-pairwise-matches 200              \
+    --nodes-list $nodesList                 \
+    -o ba/run
+
+See :numref:`pbs_slurm` for more details on running ASP tools on multiple
+machines.
+
+We used the the ``--tri-weight`` option (:numref:`bundle_adjust`) to
+prevent the cameras from moving too much, with a value of 0.1 (a lower
+weight value will constrain less, and the weight should be inversely
+proportional to the ground sample distance in meters).
+
+The option ``--auto-overlap-params`` automatically determines which
+image pairs overlap. We used ``--max-pairwise-matches 200`` as
+otherwise too many interest point matches were found.
+
+The option ``--min-triangulation-angle 15.0`` filtered out interest
+point matches with a convergence angle less than this. This is very
+important for creating a reliable sparse set of triangulated points
+based on interest point matches (:numref:`ba_out_files`). This one
+can be used to compute the alignment transform to the reference terrain::
+
+    pc_align --max-displacement 200                 \
+      --csv-format 1:lon,2:lat,3:height_above_datum \
+      --save-transformed-source-points              \
+      ref.tif ba/run-final_residuals_pointmap.csv   \
+     -o $dir/run
+
+If desired, the obtained alignment transform can be applied to the
+cameras as well (:numref:`ba_pc_align`).
+
+Pairwise stereo then can be run among overlapping image pairs
+(:numref:`nextsteps`), with ``dem_mosaic`` (:numref:`dem_mosaic`) used
+for mosaicking the DEMs.
+
+.. _skysat_video:
 
 Video data
 ~~~~~~~~~~

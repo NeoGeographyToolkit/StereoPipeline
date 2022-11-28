@@ -130,7 +130,8 @@ An example invocation is as follows::
 This will colorize the first image using the ``inferno`` colormap, the
 second one with the ``binary-red-blue`` colormap, and will not
 colorize the third one. See :numref:`colormap` for the full list of
-colormaps.
+colormaps. Use the ``--min`` and ``--max`` options to narrow down
+the range of values to colorize.
 
 The ``--colorize-image`` option applies to all subsequent images till
 ``--no-colorize-image`` is encountered, and vice-versa. Each

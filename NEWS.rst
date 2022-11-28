@@ -52,6 +52,8 @@ parallel_stereo:
     to run out of memory that way.
   * Added examples of using PBS and SLURM with ASP
     (:numref:`pbs_slurm`).
+  * Added an example of processing SkySat Stereo data
+    (:numref:`skysat_stereo`).
   * Documented better the option ``--num-matches-from-disp-triplets``
     for creating dense and uniformly distributed interest point
     matches. Useful for modeling lens distortion.
