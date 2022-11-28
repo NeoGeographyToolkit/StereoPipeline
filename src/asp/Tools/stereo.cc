@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file stereo.cc
 
 #include <vw/Cartography/PointImageManipulation.h>

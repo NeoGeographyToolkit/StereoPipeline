@@ -81,7 +81,40 @@ public:
 };
 
 // Manages the image to display for the ColorAxes widget 
-struct ColorAxesData: public QwtRasterData {
+class ColorAxesData: public QwtRasterData {
+
+private:
+  
+  void calcLowResMinMax(double& min_val, double& max_val) const {
+    
+    // TODO(oalexan1): How about removing a small percentile of intensity from ends?
+
+    // Get the lowest-resolution image version from the pyramid
+    ImageView<double> lowres_img = m_image.img.m_img_ch1_double.pyramid().back();
+    
+    min_val = std::numeric_limits<double>::max();
+    max_val = -min_val;
+    for (int col = 0; col < lowres_img.cols(); col++) {
+      for (int row = 0; row < lowres_img.rows(); row++) {
+        
+        double val = lowres_img(col, row);
+        if (val == m_nodata_val) 
+          continue;
+        
+        min_val = std::min(min_val, val);
+        max_val = std::max(max_val, val);
+      }
+    }
+
+    if (min_val > max_val) {
+      // If the image turned out to be empty
+      min_val = m_nodata_val;
+      max_val = m_nodata_val;
+    }
+    
+    return;
+  }
+  
 public:
 
   ColorAxesData(imageData & image): m_image(image) {
@@ -95,38 +128,55 @@ public:
       popUp("Only images with one channel can be colorized.");
       return;
     }
-    
+
+    // Some initializations
     m_nodata_val = img.get_nodata_val();
     m_sub_scale = -1;  // This must be set properly before being used
+    m_beg_x = 0;
+    m_beg_y = 0;
     
-    // TODO(oalexan1): How about removing a small percentile of intensity from ends?
     // TODO(oalexan1): Handle no-data properly by using transparent pixels.
     m_min_val = asp::stereo_settings().min;
     m_max_val = asp::stereo_settings().max;
-    if (std::isnan(m_min_val) || std::isnan(m_max_val)) {
+    if (std::isnan(m_min_val) || std::isnan(m_max_val)) // if the user did not set these
+      calcLowResMinMax(m_min_val, m_max_val);
 
-      // Get the lowest-resolution image version from the pyramid
-      ImageView<double> lowres_img = m_image.img.m_img_ch1_double.pyramid().back();
-
-      // Compute min and max if not specified by the user
-      // TODO(oalexan1): Make this into a function
-      m_min_val = std::numeric_limits<double>::max();
-      m_max_val = -m_min_val;
-      for (int col = 0; col < lowres_img.cols(); col++) {
-        for (int row = 0; row < lowres_img.rows(); row++) {
-          
-          double val = lowres_img(col, row);
-          if (val == m_nodata_val) 
-            continue;
-        
-          m_min_val = std::min(m_min_val, val);
-          m_max_val = std::max(m_max_val, val);
-        }
-      }
-    }
     setInterval(Qt::XAxis, QwtInterval(0, img.cols() - 1));
     setInterval(Qt::YAxis, QwtInterval(0, img.rows() - 1));
     setInterval(Qt::ZAxis, QwtInterval(m_min_val, m_max_val));
+  }
+
+  // Given that we plan to render a portion of an image on disk within these
+  // bounds, and resulting in a given image size, read from disk a clip with resolution
+  // and extent just enough for the job, or a little higher res and bigger.
+  void prepareClip(double x0, double y0, double x1, double y1, QSize const& imageSize) {
+
+    // Note that y0 and y1 are normally flipped
+    int beg_x = floor(std::min(x0, x1)), end_x = ceil(std::max(x0, x1));
+    int beg_y = floor(std::min(y0, y1)), end_y = ceil(std::max(y0, y1));
+
+    // if in doubt, go with lower sub_scale, so higher resolution.
+    double sub_scale = std::min((end_x - beg_x) / imageSize.width(),
+                            (end_y - beg_y) / imageSize.height());
+      
+    m_level = m_image.img.m_img_ch1_double.pyramidLevel(sub_scale);
+    m_sub_scale = round(pow(2.0, m_level));
+
+    beg_x = floor(beg_x/m_sub_scale); end_x = ceil(end_x/m_sub_scale);
+    beg_y = floor(beg_y/m_sub_scale); end_y = ceil(end_y/m_sub_scale);
+
+    vw::BBox2i box;
+    box.min() = Vector2i(beg_x, beg_y);
+    box.max() = Vector2i(end_x + 1, end_y + 1); // because max is exclusive
+    box.crop(vw::bounding_box(m_image.img.m_img_ch1_double.pyramid()[m_level]));
+
+    // Instead of returning image(x, y), we will return
+    // sub_image(x/scale + beg_x, y/scale + beg_y).
+    m_sub_image = crop(m_image.img.m_img_ch1_double.pyramid()[m_level], box);
+
+    m_beg_x = box.min().x();
+    m_beg_y = box.min().y();
+    
   }
   
   virtual double value(double x, double y) const {
@@ -142,9 +192,8 @@ public:
     x = round(x/m_sub_scale) - m_beg_x;
     y = round(y/m_sub_scale) - m_beg_y;
 
-    if (x < 0 || y < 0 ||
-        x > m_sub_image.cols() - 1 ||
-        y > m_sub_image.rows() - 1)
+    if (x < 0 || y < 0 || 
+        x > m_sub_image.cols() - 1 || y > m_sub_image.rows() - 1)
       return m_min_val;
     
     double val = m_sub_image(x, y);
@@ -154,7 +203,9 @@ public:
 
     return val;
   }
-
+  
+private:
+  
   imageData & m_image;
   double m_min_val, m_max_val, m_nodata_val;
 
@@ -185,59 +236,15 @@ public:
                              const QRectF & area, 
                              const QSize & imageSize) const {
 
-    // Based on size of the canvas, determine the appropriate level of
-    // the multi-resolution pyramid and the clip from it that will be
-    // needed. Hence, do not provide the image at a much finer
-    // resolution than what is displayed or read from disk more than
-    // necessary.
+    // Based on size of the rendered image, determine the appropriate level of
+    // resolution and extent to read from disk. This greatly helps with
+    // reducing memory usage and latency.
+    m_data->prepareClip(xMap.invTransform(0),
+                        yMap.invTransform(0),
+                        xMap.invTransform(imageSize.width()),
+                        yMap.invTransform(imageSize.height()),
+                        imageSize);
 
-    std::cout << "---noxw in render image " << std::endl;
-    //std::cout << "area " << area << std::endl;
-    std::cout << "--area x, y, wid ht " << area.x() << " " << area.y()
-              << ' ' << area.width() << " " << area.height() << std::endl;
-    std::cout << "render image size " << imageSize.width() << ' ' << imageSize.height() << std::endl;
-
-    double tx0 = xMap.invTransform(0);
-    double ty0 = yMap.invTransform(0);
-    double tx1 = xMap.invTransform(imageSize.width());
-    double ty1 = yMap.invTransform(imageSize.height());
-
-    int beg_x = floor(std::min(tx0, tx1)), end_x = ceil(std::max(tx0, tx1));
-    int beg_y = floor(std::min(ty0, ty1)), end_y = ceil(std::max(ty0, ty1));
-
-    double sub_scale = std::min((end_x - beg_x) / imageSize.width(),
-                            (end_y - beg_y) / imageSize.height());
-      
-    std::cout << "--x range from disk image ratio " << tx0 << ' ' << tx1
-              << ' ' << std::abs(tx0 - tx1) / imageSize.width() << std::endl;
-    std::cout << "--y range from disk image ratio " << ty0 << ' ' << ty1
-              << ' ' << std::abs(ty0 - ty1) / imageSize.height() << std::endl;
-
-    std::cout << "--sub_scale " << sub_scale << std::endl;
-    m_data->m_level = m_data->m_image.img.m_img_ch1_double.pyramidLevel(sub_scale);
-    std::cout << "--level is " << m_data->m_level << std::endl;
-
-    m_data->m_sub_scale = round(pow(2.0, m_data->m_level));
-    std::cout << "--scale " << m_data->m_sub_scale << std::endl;
-
-    beg_x = floor(beg_x/m_data->m_sub_scale); end_x = ceil(end_x/m_data->m_sub_scale);
-    beg_y = floor(beg_y/m_data->m_sub_scale); end_y = ceil(end_y/m_data->m_sub_scale);
-
-    vw::BBox2i box;
-    box.min() = Vector2i(beg_x, beg_y);
-    box.max() = Vector2i(end_x + 1, end_y + 1); // because max is exclusive
-
-    std::cout << "uncropped box " << box << std::endl;
-    box.crop(vw::bounding_box(m_data->m_image.img.m_img_ch1_double.pyramid()[m_data->m_level]));
-
-    std::cout << "--cropped box " << box << std::endl;
-
-    // Instead of returning image(x, y), we will return sub_image(x/scale + beg_x, y/scale + beg_y).
-    m_data->m_sub_image = crop(m_data->m_image.img.m_img_ch1_double.pyramid()[m_data->m_level], box);
-
-    m_data->m_beg_x = box.min().x();
-    m_data->m_beg_y = box.min().y();
-    
     return QwtPlotSpectrogram::renderImage(xMap, yMap, area, imageSize);
   }
   
@@ -269,18 +276,18 @@ ColorAxes::ColorAxes(QWidget *parent, imageData & image):
     vw::cm::parse_color_style(m_image.colormap, lut_map);
   }
   m_plotter->setColorMap(new LutColormap(lut_map));
-  m_plotter->setCachePolicy(QwtPlotRasterItem::PaintCache);
   
-  m_plotter->attach(this);
-  
-  // A color bar on the right axis. Must repeat the same
-  // colormap as earlier.
+  // A color bar on the right axis. Must create a new colormap object
+  // with the same data, to avoid a crash if using the same one.
   QwtScaleWidget *rightAxis = axisWidget(QwtPlot::yRight);
   QwtInterval zInterval = m_plotter->data()->interval(Qt::ZAxis);
   //rightAxis->setTitle("Intensity");
   rightAxis->setColorBarEnabled(true);
   rightAxis->setColorMap(zInterval, new LutColormap(lut_map));
   rightAxis->setColorBarWidth(30);
+
+  m_plotter->setCachePolicy(QwtPlotRasterItem::PaintCache);
+  m_plotter->attach(this);
 
   // TODO(oalexan1): Disable auto-scaling but ensure the colorbar is
   // next to the plots rather than leaving a large gap
