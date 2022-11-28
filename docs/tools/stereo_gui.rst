@@ -39,7 +39,6 @@ machine/cluster without GUI access.
    An illustration of ``stereo_gui``. Stereo processing will happen on
    the regions selected by red rectangles.
 
-
 If this program is invoked with two images (with or without cameras
 and output prefix) and with values for ``--left-image-crop-win`` and
 ``--right-image-crop-win``, it will draw the corresponding regions on
@@ -78,15 +77,154 @@ an image, etc.
 In this mode, the keys ``n`` and ``p`` can be used to cycle among
 the images.
 
-``stereo_gui`` can show hillshaded DEMs, either via the ``--hillshade``
-option, or by choosing from the GUI View menu the ``Hillshaded images``
-option.
+``stereo_gui`` also can:
 
-This program can also colorize images and show them with a colorbar and axes
-(:numref:`colorize`), and display the output of the ASP ``colormap`` tool
-(:numref:`colormap`).
+  - Create and show hillshaded DEMs, either via the ``--hillshade``
+    option, or by choosing from the GUI View menu the ``Hillshaded images``
+    option.
 
-It can save a screenshot to disk in the BMP or XPM format.
+  - Colorize images on-the-fly and show them with a
+    colorbar and axes (:numref:`colorize`).
+
+  - Display the output of the ASP ``colormap`` and ``hillshade`` tools
+    (:numref:`colormap`, :numref:`hillshade`).
+
+  - Overlay scatterplots on top of images (:numref:`plot_csv`).
+
+  - Overlay and edit polygons (:numref:`poly`).
+
+  - Find pixel values and region bounds (:numref:`image_bounds`).
+
+  - Show, add, and edit interest point matches displayed on top of images
+    (:numref:`stereo_gui_view_ip`).
+  
+  - View GCP and .vwip files (:numref:`stereo_gui_vwip_gcp`).
+
+  - Create GCP with georeferenced images and a DEM (:numref:`creatinggcp`).
+
+  - Create interest point matches using map-projected images (:numref:`mapip`).
+
+  - Threshold images (:numref:`thresh`).
+
+  - Save a screenshot to disk in the BMP or XPM format.
+
+.. _colorize:
+
+Displaying colorized images, with a colorbar and axes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``stereo_gui`` can have images be colorized on-the-fly
+by mapping intensities to colors of a given colormap. The results
+are be plotted with a colorbar and axes. 
+
+An example invocation is as follows::
+
+    stereo_gui --colorize-image        \
+      --colormap-style inferno         \
+      img1.tif                         \
+      --colormap-style binary-red-blue \
+      img2.tif                         \
+      --no-colorize-image              \
+      img3.tif
+
+This will colorize the first image using the ``inferno`` colormap, the
+second one with the ``binary-red-blue`` colormap, and will not
+colorize the third one. See :numref:`colormap` for the full list of
+colormaps.
+
+The ``--colorize-image`` option applies to all subsequent images till
+``--no-colorize-image`` is encountered, and vice-versa. Each
+``--colormap-style`` option also applies to all subsequent images until
+overridden by this option with another value.
+
+.. figure:: ../images/colorbar_axes.png
+   :name: colorbar_axes_fig
+   :alt: colorbar_axes_fig.
+
+   An illustration of displaying images with specified colormap, with
+   colorbar and axes, and without them. 
+
+.. _plot_csv:
+
+View scattered points
+~~~~~~~~~~~~~~~~~~~~~
+
+``stereo_gui`` can plot and colorize scattered points stored in CSV
+files, and overlay them on top of images or each other. Each point
+will show up as a dot with a radius given by ``--plot-point-radius``.
+
+Here is an example of plotting the final ``*pointmap.csv``
+residuals created by ``bundle_adjust`` for each interest point
+(:numref:`ba_out_files`)::
+
+    stereo_gui --colorize --colormap-style binary-red-blue \
+      --min 0 --max 0.5 --plot-point-radius 2              \
+      ba/run-final_residuals_pointmap.csv
+
+This will use the longitude and latitude as the position, and will
+determine a color based on the 4th field in this file (the error) and
+the the min and max values specified above (which correspond to blue
+and red in the colorized plot, respectively).
+
+The option ``--colormap-style`` accepts the same values as
+``colormap`` (:numref:`colormap`).
+
+To plot an arbitrary CSV file with longitude, latitude and value, do::
+
+    stereo_gui --csv-format "1:lon 2:lat 3:height_above_datum" \
+      --datum D_MOON --colorize                                \
+      filename.csv
+
+If the file has data in projected units (such as using Easting and
+Northing values), specify the option ``--csv-proj4`` having the
+projection, and use for the CSV format ``"1:easting 2:northing
+3:height_above_datum"``.
+
+.. figure:: ../images/scattered_points.png
+   :name: scattered_points
+   :alt:  scattered_points
+
+   A colorized CSV file overlayed on top of a georeferenced image.
+
+.. _poly:
+
+Polygon editing and contouring
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``stereo_gui`` can be used to draw and edit polygonal shapes on top of
+georeferenced images, save them as shape files (``*.shp``), and load such
+files from the command line (including ones produced with external
+tools). The editing functionality can be accessed by turning on
+polygon editing from the ``Vector layer`` menu, and then right-clicking
+with the mouse to access the various functions.
+
+To create polygons, click with the left mouse button on points to be
+added. When clicking close to the starting point, the polygon becomes
+closed and a new one can be drawn. A single point can be drawn by
+clicking twice in the same location. To draw a segment, click on its
+starting point, ending point, and then its starting point again.
+
+The resulting shapes can be saved from the right-click menu. The
+shapefile specification prohibits having a mix of points, segments,
+and polygons in the same file, so all drawn shapes must be of the
+same kind.
+
+When reading polygons and georeferenced images from disk, choose "View
+as Georeferenced Images" to plot the polygons on top of the images.
+
+As an application, the ``gdal_rasterize`` command can be used to keep
+or exclude the portion of a given georeferenced image or a DEM that is
+within or outside the polygonal shape. Example::
+
+  gdal_rasterize -i -burn <nodata_value> poly.shp dem.tif
+
+Here, if the DEM nodata value is specified, the DEM will be edited and
+values outside the polygon will be replaced with no data.
+
+This tool can be used to find the polygonal contour at a given image
+threshold (which can be either set or computed from the ``Threshold``
+menu). This option is accessible from the ``Vector layer`` menu as well,
+with or without the polygon editing mode being on.
 
 .. _image_bounds:
 
@@ -234,8 +372,8 @@ The edited interest point matches can be saved from the menu.
 
 .. _creatinggcp:
 
-Creating GCP with a georeferenced image and a DEM
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Creating GCP with georeferenced images and a DEM
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 There exist situations when one has one or more images for which
 the camera files are either inaccurate or, for Pinhole camera models,
@@ -323,118 +461,6 @@ One can then run::
 
 and turn on viewing of interest point matches to study if they were
 ``unmapped`` the right locations.
-
-.. _plot_csv:
-
-View scattered points
-~~~~~~~~~~~~~~~~~~~~~
-
-.. figure:: ../images/scattered_points.png
-   :name: scattered_points
-   :alt:  scattered_points
-
-   A colorized CSV file overlayed on top of a georeferenced image.
-
-``stereo_gui`` can plot and colorize scattered points stored in CSV
-files, and overlay them on top of images or each other. Each point
-will show up as a dot with a radius given by ``--plot-point-radius``.
-
-Here is an example of plotting the final ``*pointmap.csv``
-residuals created by ``bundle_adjust`` for each interest point
-(:numref:`ba_out_files`)::
-
-    stereo_gui --colorize --colormap-style binary-red-blue \
-      --min 0 --max 0.5 --plot-point-radius 2 \
-      ba/run-final_residuals_pointmap.csv
-
-This will use the longitude and latitude as the position, and will
-determine a color based on the 4th field in this file (the error) and
-the the min and max values specified above (which correspond to blue
-and red in the colorized plot, respectively).
-
-The option ``--colormap-style`` accepts the same values as
-``colormap`` (:numref:`colormap`).
-
-To plot an arbitrary CSV file with longitude, latitude and value, do::
-
-    stereo_gui --csv-format "1:lon 2:lat 3:height_above_datum" \
-      --datum D_MOON --colorize                                \
-      filename.csv
-
-If the file has data in projected units (such as using Easting and
-Northing values), specify the option ``--csv-proj4`` having the
-projection, and use for the CSV format ``"1:easting 2:northing
-3:height_above_datum"``.
-
-.. _colorize:
-
-Displaying colorized images, with a colorbar and axes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-A feature in development is to allow images to be colorized on-the-fly
-by mapping intensities to colors of a given colormap, and be results
-be plotted with a colorbar and axes. 
-
-This feature fow now is usable only with very small images. An example
-invocation is as follows::
-
-    stereo_gui --colorize-images       \
-      --colormap-style binary-red-blue \
-      img1.tif                         \
-      --colormap-style inferno         \
-      img2.tif                         \
-      --no-colorize-images             \
-      img3.tif
-
-This will colorize the first image using the ``binary-red-blue``
-colormap, the second with the ``inferno`` colormap, and will not
-colorize the third one. See :numref:`colormap` for the full list of
-colormaps.
-
-The ``--colorize-images`` option applies to all subsequent images till
-``--no-colorize-images`` is encoutered, and vice versa. Each
-``--colormap-style`` option also applies to all subsequent images until
-overridden by this option with another value.
-
-.. _poly:
-
-Polygon editing and contouring
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-``stereo_gui`` can be used to draw and edit polygonal shapes on top of
-georeferenced images, save them as shape files (``*.shp``), and load such
-files from the command line (including ones produced with external
-tools). The editing functionality can be accessed by turning on
-polygon editing from the ``Vector layer`` menu, and then right-clicking
-with the mouse to access the various functions.
-
-To create polygons, click with the left mouse button on points to be
-added. When clicking close to the starting point, the polygon becomes
-closed and a new one can be drawn. A single point can be drawn by
-clicking twice in the same location. To draw a segment, click on its
-starting point, ending point, and then its starting point again.
-
-The resulting shapes can be saved from the right-click menu. The
-shapefile specification prohibits having a mix of points, segments,
-and polygons in the same file, so all drawn shapes must be of the
-same kind.
-
-When reading polygons and georeferenced images from disk, choose "View
-as Georeferenced Images" to plot the polygons on top of the images.
-
-As an application, the ``gdal_rasterize`` command can be used to keep
-or exclude the portion of a given georeferenced image or a DEM that is
-within or outside the polygonal shape. Example::
-
-  gdal_rasterize -i -burn <nodata_value> poly.shp dem.tif
-
-Here, if the DEM nodata value is specified, the DEM will be edited and
-values outside the polygon will be replaced with no data.
-
-This tool can be used to find the polygonal contour at a given image
-threshold (which can be either set or computed from the ``Threshold``
-menu). This option is accessible from the ``Vector layer`` menu as well,
-with or without the polygon editing mode being on.
 
 .. _thresh:
 
@@ -540,15 +566,15 @@ accept all other ``parallel_stereo`` options as well.
 --colorize
     Colorize input CSV files (must set ``--min`` and ``--max``).
 
---colorize-images
+--colorize-image
     Colorize all images after this option until the ``--no-colorize``
     option is encountered. For now this works only for very small
     images. Show these images with a colorbar and axes. See
     ``--colormap-style`` for how to set a colormap.
 
---no-colorize-images
+--no-colorize-image
     Do not colorize any images after this option, until the option 
-    ``--colorize-images`` is encountered. 
+    ``--colorize-image`` is encountered. 
 
 --colormap-style <string (default="binary-red-blue")>
     Specify the colormap style. See :numref:`colormap` for options.

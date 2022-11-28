@@ -91,7 +91,7 @@ private:
 
     // Get the lowest-resolution image version from the pyramid
     ImageView<double> lowres_img = m_image.img.m_img_ch1_double.pyramid().back();
-    
+
     min_val = std::numeric_limits<double>::max();
     max_val = -min_val;
     for (int col = 0; col < lowres_img.cols(); col++) {
