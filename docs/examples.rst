@@ -2134,12 +2134,25 @@ can be used to compute the alignment transform to the reference terrain::
 If desired, the obtained alignment transform can be applied to the
 cameras as well (:numref:`ba_pc_align`).
 
-Use ``stereo_gui`` to inspect the reprojetion errors in the final
-``pointmap.csv`` file (:numref:`plot_csv`).
+Use ``stereo_gui`` to inspect the reprojection errors in the final
+``pointmap.csv`` file (:numref:`plot_csv`). See the outcome in
+:numref:`skysat_stereo_grand_mesa_pointmap`.
  
 Pairwise stereo then can be run among overlapping image pairs
 (:numref:`nextsteps`), with ``dem_mosaic`` (:numref:`dem_mosaic`) used
 for mosaicking the DEMs.
+
+.. _skysat_stereo_grand_mesa_pointmap:
+.. figure:: images/skysat_stereo_grand_mesa.png
+   :name: skysat-stereo-example
+   :alt: SkySat stereo example
+
+   The colorized optimized bundle adjustment residuals
+   (final_residuals_pointmap.csv) overlayed on top of the Copernicus
+   30 m DEM for a site in Grand Mesa, Colorado. Plotted with
+   ``stereo_gui``. Maximum shade of red is 0.5 pixels. There seems to
+   be some correlation between errors and elevation or vegetation, but not with
+   individual SkySat image frames.
 
 .. _skysat_video:
 
