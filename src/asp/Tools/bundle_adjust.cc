@@ -1010,12 +1010,17 @@ int do_ba_ceres_one_pass(Options             & opt,
       VW_ASSERT(int(ipt)  < num_points,
                 ArgumentErr() << "Out of bounds in the number of points.");
 
+      double* point = param_storage.get_point_ptr(ipt);
+      if (point[0] == 0 && point[1] == 0 && point[2] == 0) {
+        // Flag points in the center of the planet as outliers
+        param_storage.set_point_outlier(ipt, true);
+        continue;
+      }
+      
       // Adjust non-GCP triangulated points based on the DEM, if
       // provided (two approaches are supported).
       bool is_gcp = (cnet[ipt].type() == ControlPoint::GroundControlPoint);
       if (have_dem && !is_gcp && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) {
-        double* point = param_storage.get_point_ptr(ipt);
-          
         for (int p = 0; p < 3; p++) 
           point[p] = dem_xyz_vec.at(ipt)[p]; // update the tri point based on the DEM
         cnet[ipt].set_type(ControlPoint::PointFromDem); // so we can track it later

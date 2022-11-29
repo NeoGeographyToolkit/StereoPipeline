@@ -115,7 +115,7 @@ Displaying colorized images, with a colorbar and axes
 
 ``stereo_gui`` can have images be colorized on-the-fly
 by mapping intensities to colors of a given colormap. The results
-are be plotted with a colorbar and axes. 
+are be plotted with a colorbar and axes (with ticks). 
 
 An example invocation is as follows::
 
@@ -133,7 +133,7 @@ colorize the third one. See :numref:`colormap` for the full list of
 colormaps. Use the ``--min`` and ``--max`` options to narrow down
 the range of values to colorize.
 
-The ``--colorize-image`` option applies to all subsequent images till
+The ``--colorize-image`` option applies to all subsequent images until
 ``--no-colorize-image`` is encountered, and vice-versa. Each
 ``--colormap-style`` option also applies to all subsequent images until
 overridden by this option with another value.

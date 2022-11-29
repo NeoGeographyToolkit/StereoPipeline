@@ -447,6 +447,10 @@ bool asp::update_point_height_from_dem(vw::cartography::GeoReference const& dem_
                                        // Output
                                        vw::Vector3 & xyz) {
 
+  // Points at planet center are outliers
+  if (xyz == Vector3(0, 0, 0))
+    return false;
+  
   Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
   Vector2 ll  = subvector(llh, 0, 2);
   Vector2 pix = dem_georef.lonlat_to_pixel(ll);
@@ -562,7 +566,12 @@ void asp::calc_avg_intersection_with_dem(vw::ba::ControlNetwork const& cnet,
       // Ideally this point projects back to the pixel observation, so use the
       // triangulated position as initial guess.
       Vector3 xyz_guess = cnet[ipt].position();
-        
+
+      // Points at planet center are outliers. This check is likely redundant,
+      // but good to have.
+      if (xyz_guess == Vector3(0, 0, 0))
+        continue;
+
       bool treat_nodata_as_zero = false;
       bool has_intersection = false;
       double height_error_tol = 0.001; // 1 mm should be enough
@@ -630,6 +639,13 @@ void asp::flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
       Vector2 observation = (**fiter).m_location;
 
       Vector3 const& tri_point = cnet[ipt].position(); // alias
+
+      if (tri_point == Vector3(0, 0, 0)) {
+        // Points at planet center are outliers
+        outliers.insert(ipt);
+        continue;
+      }
+      
       vw::Vector2 pix;
       try {
         pix = camera_models[icam]->point_to_pixel(tri_point);

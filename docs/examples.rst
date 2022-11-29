@@ -2152,7 +2152,8 @@ for mosaicking the DEMs.
    30 m DEM for a site in Grand Mesa, Colorado. Plotted with
    ``stereo_gui``. Maximum shade of red is 0.5 pixels. There seems to
    be some correlation between errors and elevation or vegetation, but not with
-   individual SkySat image frames.
+   individual SkySat image frames. Here, only the center sensor of the
+   Skysat sensor triplet was used.
 
 .. _skysat_video:
 
