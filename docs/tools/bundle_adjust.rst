@@ -149,11 +149,13 @@ as described above.
 Output files
 ~~~~~~~~~~~~
 
-If the ``--datum`` option is specified, ``bundle_adjust`` will write
-the triangulated world position for every feature being matched in two
-or more images, and the mean absolute residuals (that is, reprojection
-errors, :numref:`bundle_adjustment`) for each position, before and
-after optimization. The files are named
+If the ``--datum`` option is specified or auto-guessed based on images
+and cameras, ``bundle_adjust`` will write the triangulated world
+position for every feature being matched in two or more images, and
+the mean absolute residuals (that is, reprojection errors,
+:numref:`bundle_adjustment`) for each position, before the first
+optimization pass and after the last optimization pass. The files are
+named
 
 ::
 
@@ -165,24 +167,20 @@ and
 
      {output-prefix}-final_residuals_pointmap.csv
 
-Such files can be inspected to see at which pixels the reprojection
-error is large.
-
-Residuals corresponding to GCP will be printed at the end
-of these files and flagged with the string ``# GCP``. 
-
-These residuals can be plotted with ``stereo_gui``
-(:numref:`plot_csv`).
-
-One can also invoke ``point2dem`` with the ``--csv-format``
-option to grid these files for visualization in the GUI. Here is a
-sample file::
+Here is a sample file::
 
    # lon, lat, height_above_datum, mean_residual, num_observations
    -55.11690935, -69.34307716, 4.824523817, 0.1141333633, 2
 
-The field ``num_observations`` counts how many images each point gets
-projected into.
+The field ``num_observations`` counts in how many images each
+triangulated point is seen.
+
+Such files can be plotted and overlayed with ``stereo_gui``
+(:numref:`plot_csv`) to see at which triangulated points the reprojection
+errors are large and their geographic locations.
+
+Residuals corresponding to GCP will be printed at the end
+of these files and flagged with the string ``# GCP``. 
 
 The command::
 
@@ -192,6 +190,10 @@ The command::
 (:numref:`geodiff`) can be used to evaluate how well the residuals
 agree with a given DEM.  That can be especially useful if bundle
 adjustment was invoked with the ``--heights-from-dem`` option.
+
+One can also invoke ``point2dem`` with the above ``--csv-format``
+option to grid these files to create a coarse DEM (also for the
+error residuals).
 
 The final triangulated positions can be used for alignment with
 ``pc_align`` (:numref:`pc_align`). Then, use

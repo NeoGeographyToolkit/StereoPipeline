@@ -23,17 +23,57 @@
 // all in the asp namespace. 
 
 #include <asp/Camera/BundleAdjustCamera.h>
-#include <asp/Core/EigenUtils.h>             // Slow-to-compile header
 #include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
 
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/InterestPoint/Matcher.h>
+#include <vw/FileIO/KML.h>
 
 #include <string>
 
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
+
+void BAParamStorage::record_points_to_kml(const std::string &kml_path,
+                                          const vw::cartography::Datum& datum,
+                                          size_t skip, const std::string name,
+                                          const std::string icon) {
+  if (datum.name() == asp::UNSPECIFIED_DATUM) {
+    vw::vw_out(vw::WarningMessage) << "No datum specified, can't write file: "
+                                   << kml_path << std::endl;
+    return;
+  }
+  
+  // Open the file
+  vw::vw_out() << "Writing: " << kml_path << std::endl;
+  vw::KMLFile kml(kml_path, name);
+  
+    // Set up a simple point icon with no labels
+  const bool hide_labels = true;
+  kml.append_style( "point", "", 1.0, icon, hide_labels);
+  kml.append_style( "point_highlight", "", 1.1, icon, hide_labels);
+  kml.append_stylemap( "point_placemark", "point",
+                       "point_highlight");
+  
+  // Loop through the points
+  const bool extrude = true;
+  for (size_t i=0; i<num_points(); i+=skip) {
+    
+    if (get_point_outlier(i))
+      continue; // skip outliers
+    
+    // Convert the point to GDC coords
+    vw::Vector3 xyz         = get_point(i);
+    vw::Vector3 lon_lat_alt = datum.cartesian_to_geodetic(xyz);
+
+    // Add this to the output file
+    kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
+                            "", "", "point_placemark",
+                          lon_lat_alt[2], extrude );
+  }
+    kml.close_kml();
+}
 
 void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
                             int camera_index,
@@ -232,7 +272,7 @@ void check_gcp_dists(std::vector<asp::CameraModelPtr> const& camera_models,
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided camera positions.
 /// - This function overwrites the camera parameters in-place
-bool init_pinhole_model_with_camera_positions
+bool asp::init_pinhole_model_with_camera_positions
 (boost::shared_ptr<ControlNetwork> const& cnet, 
  std::vector<asp::CameraModelPtr> & camera_models,
  std::vector<std::string> const& image_files,
@@ -296,8 +336,8 @@ bool init_pinhole_model_with_camera_positions
 ///  a least squares error transform to match the provided control points file.
 /// This function overwrites the camera parameters in-place. It works
 /// if at least three GCP are seen in no less than two images.
-void init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
-				       std::vector<asp::CameraModelPtr> & camera_models) {
+void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
+                                            std::vector<asp::CameraModelPtr> & camera_models) {
   
   vw_out() << "Initializing camera positions from ground control points.\n";
   vw_out()<< "Assume at least three GCP are seen in at least two images.\n";
@@ -406,9 +446,9 @@ void init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& 
 // aux_cams, get the median scale change from the first set to the second one.
 // It is important to do the median, since scaling the cameras individually
 // is a bit of a shaky business.
-double find_median_scale_change(std::vector<PinholeModel> const & sfm_cams,
-				std::vector<PinholeModel> const & aux_cams,
-				std::vector< std::vector<Vector3> > const& xyz){
+double asp::find_median_scale_change(std::vector<PinholeModel> const & sfm_cams,
+                                     std::vector<PinholeModel> const & aux_cams,
+                                     std::vector< std::vector<Vector3> > const& xyz){
   
   int num_cams = sfm_cams.size();
 
@@ -448,12 +488,12 @@ double find_median_scale_change(std::vector<PinholeModel> const & sfm_cams,
 // Given some GCP so that at least two images have at at least three GCP each,
 // but each GCP is allowed to show in one image only, use the GCP
 // to transform cameras to ground coordinates.
-void align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
-			     std::vector< std::vector<Vector2> > const& pix,
-			     std::vector<PinholeModel> & sfm_cams,
-			     Matrix3x3 & rotation, 
-			     Vector3 & translation,
-			     double & scale){
+void asp::align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
+                                  std::vector< std::vector<Vector2> > const& pix,
+                                  std::vector<PinholeModel> & sfm_cams,
+                                  Matrix3x3 & rotation, 
+                                  Vector3 & translation,
+                                  double & scale){
   
   std::string camera_type = "pinhole";
   bool refine_camera = true;
@@ -483,7 +523,7 @@ void align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
     aux_cams.push_back(*((PinholeModel*)out_cam.get()));
   }
 
-  double world_scale = find_median_scale_change(sfm_cams, aux_cams, xyz);
+  double world_scale = asp::find_median_scale_change(sfm_cams, aux_cams, xyz);
   vw_out() << "Initial guess scale to apply when converting to world coordinates using GCP: "
 	   << world_scale << ".\n";
 
@@ -590,8 +630,8 @@ void align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
 /// This function overwrites the camera parameters in-place. It works
 /// if at least two images have at least 3 GCP each. Each GCP need
 /// not show in multiple images.
-void init_pinhole_model_with_mono_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
-				      std::vector<asp::CameraModelPtr> & camera_models) {
+void asp::init_pinhole_model_with_mono_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
+                                           std::vector<asp::CameraModelPtr> & camera_models) {
   
   vw_out() << "Initializing camera positions from ground control points." << std::endl;
   vw_out() << "Assume at least two images have each at least 3 GCP each.\n";
@@ -645,7 +685,7 @@ void init_pinhole_model_with_mono_gcp(boost::shared_ptr<ControlNetwork> const& c
   Matrix3x3 rotation;
   Vector3   translation;
   double    scale;
-  align_cameras_to_ground(xyz, pix, pinhole_cams, rotation, translation, scale);
+  asp::align_cameras_to_ground(xyz, pix, pinhole_cams, rotation, translation, scale);
 
   // Update the camera and point information with the new transform
   vw_out() << "Applying transform based on GCP:\n";
@@ -658,11 +698,11 @@ void init_pinhole_model_with_mono_gcp(boost::shared_ptr<ControlNetwork> const& c
 /// Take an interest point from a map projected image and convert it
 /// to the corresponding IP in the original non-map-projected image.
 /// - Return false if the pixel could not be converted.
-bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
-                            vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                            asp::CameraModelPtr camera_model,
-                            vw::cartography::GeoReference const& georef,
-                            vw::cartography::GeoReference const& dem_georef) {
+bool asp::projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
+                                 vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
+                                 asp::CameraModelPtr camera_model,
+                                 vw::cartography::GeoReference const& georef,
+                                 vw::cartography::GeoReference const& dem_georef) {
   // Get IP coordinate in the DEM
   Vector2 pix(P.x, P.y);
   Vector2 ll      = georef.pixel_to_lonlat(pix);

@@ -25,7 +25,6 @@
 #include <boost/filesystem/fstream.hpp>
 #include <boost/foreach.hpp>
 
-#include <vw/BundleAdjustment/ModelBase.h>
 #include <vw/BundleAdjustment/CameraRelation.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
@@ -33,7 +32,6 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/LensDistortion.h>
 #include <vw/Cartography/Datum.h>
-#include <vw/FileIO/KML.h>
 #include <vw/Camera/OpticalBarModel.h>
 
 #include <asp/Core/BundleAdjustUtils.h>

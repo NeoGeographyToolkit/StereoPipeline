@@ -27,7 +27,6 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/BundleAdjustment/CameraRelation.h>
-
 #include <asp/Core/BundleAdjustUtils.h>
 
 #include <string>

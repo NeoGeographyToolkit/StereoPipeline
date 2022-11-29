@@ -30,9 +30,6 @@
 
 // TODO(oalexan1): Move most of these headers to the .cc file
 #include <vw/Camera/CameraUtilities.h>
-#include <vw/BundleAdjustment/AdjustRef.h>
-#include <vw/FileIO/KML.h>
-#include <vw/BundleAdjustment/ModelBase.h>
 #include <vw/BundleAdjustment/CameraRelation.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
@@ -444,45 +441,7 @@ public:
                             const vw::cartography::Datum& datum,
                             size_t skip=100, const std::string name="points",
                             const std::string icon =
-                            "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png") {
-
-    if (datum.name() == asp::UNSPECIFIED_DATUM) {
-      vw::vw_out(vw::WarningMessage) << "No datum specified, can't write file: "
-                                     << kml_path << std::endl;
-      return;
-    }
-
-    // Open the file
-    vw::vw_out() << "Writing: " << kml_path << std::endl;
-    vw::KMLFile kml(kml_path, name);
-
-    // Set up a simple point icon with no labels
-    const bool hide_labels = true;
-    kml.append_style( "point", "", 1.0, icon, hide_labels);
-    kml.append_style( "point_highlight", "", 1.1, icon, hide_labels);
-    kml.append_stylemap( "point_placemark", "point",
-                        "point_highlight");
-
-    // Loop through the points
-    const bool extrude = true;
-    for (size_t i=0; i<num_points(); i+=skip) {
-
-      if (get_point_outlier(i))
-        continue; // skip outliers
-
-      // Convert the point to GDC coords
-      vw::Vector3 xyz         = get_point(i);
-      vw::Vector3 lon_lat_alt = datum.cartesian_to_geodetic(xyz);
-
-      // Add this to the output file
-      kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
-                            "", "", "point_placemark",
-                            lon_lat_alt[2], extrude );
-    }
-    kml.close_kml();
-  }
-
-
+                            "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png");
 private: // Variables
 
   int m_num_points, m_num_cameras, m_params_per_point, m_num_pose_params;
@@ -688,6 +647,8 @@ void check_gcp_dists(std::vector<asp::CameraModelPtr> const& camera_models,
                      boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
                      double forced_triangulation_distance);
 
+namespace asp {
+
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided camera positions.
 /// - This function overwrites the camera parameters in-place
@@ -730,6 +691,7 @@ void align_cameras_to_ground(std::vector< std::vector<vw::Vector3>> const& xyz,
 void init_pinhole_model_with_mono_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
 				      std::vector<asp::CameraModelPtr> & camera_models);
 
+
 /// Take an interest point from a map projected image and convert it
 /// to the corresponding IP in the original non-map-projected image.
 /// - Return false if the pixel could not be converted.
@@ -738,8 +700,6 @@ bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
                             asp::CameraModelPtr camera_model,
                             vw::cartography::GeoReference const& georef,
                             vw::cartography::GeoReference const& dem_georef);
-
-namespace asp {
 
 // TODO(oalexan1): Move the asp namespace to encompass the whole header file
 // Save convergence angle percentiles for each image pair having matches

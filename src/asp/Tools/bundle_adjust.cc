@@ -19,8 +19,6 @@
 
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>
-#include <vw/BundleAdjustment/BundleAdjustReport.h>
-#include <vw/BundleAdjustment/AdjustRef.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <asp/Core/Macros.h>
 #include <asp/Sessions/StereoSession.h>
@@ -33,10 +31,7 @@
 #include <asp/Tools/bundle_adjust.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Core/OutlierProcessing.h>
-
-// TODO(oalexan1): Move the code that needs this (asp::DoubleMatrix) to utils
-// and also this header which needs Eigen and is slow to compile.
-#include <asp/Core/EigenUtils.h>
+#include <asp/Core/DataLoader.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 
@@ -48,7 +43,6 @@ using namespace vw::camera;
 using namespace vw::ba;
 
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
-
 typedef CameraRelationNetwork<JFeature> CRNJ;
 
 // TODO(oalexan1): Move to utils
@@ -925,7 +919,7 @@ void initial_filter_by_proj_win(Options             & opt,
 
 int do_ba_ceres_one_pass(Options             & opt,
                          CRNJ                & crn,
-                         bool                  first_pass,
+                         bool                  first_pass, bool last_pass,
                          BAParamStorage      & param_storage, 
                          BAParamStorage const& orig_parameters,
                          bool                & convergence_reached,
@@ -1171,49 +1165,24 @@ int do_ba_ceres_one_pass(Options             & opt,
   // option --unalign-disparity. If there are n images,
   // there must be n-1 disparities, from each image to the next.
   // The doc has more info in the bundle_adjust chapter.
-  std::vector< ImageView   <DispPixelT> > disp_vec;
-  std::vector< ImageViewRef<DispPixelT> > interp_disp; 
-  std::vector< vw::Vector3              > reference_vec;
+  std::vector<ImageView<DispPixelT>> disp_vec;
+  std::vector<ImageViewRef<DispPixelT>> interp_disp; 
+  std::vector<vw::Vector3> reference_vec;
   if (opt.reference_terrain != "") {
     // TODO: Pass these properly
     g_max_disp_error           = opt.max_disp_error;
     g_reference_terrain_weight = opt.reference_terrain_weight;
     
-    // Set up a GeoReference object using the datum
+    // Set up a GeoReference object using the datum, it may get modified later
     vw::cartography::GeoReference geo;
     geo.set_datum(opt.datum); // We checked for a datum earlier
 
-    asp::CsvConv csv_conv;
-    csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
-
-    // Use user's csv_proj4 string, if provided, to add info to the georef.
-    csv_conv.parse_georef(geo);
-
-    vw::BBox2 lonlat_box; // not used
-    bool      calc_shift = false;
-    Vector3   shift; // must be set to 0
-    bool      is_lola_rdr_format;
-    double    mean_longitude;
-    bool      verbose = true;
-    asp::DoubleMatrix data;
-    
-    // Read the reference terrain
-    vw_out() << "Loading at most " << opt.max_num_reference_points << " points from "
-             << opt.reference_terrain << std::endl;
-    std::string file_type = asp::get_cloud_type(opt.reference_terrain);
-    if (file_type == "DEM") 
-      asp::load_dem(opt.reference_terrain,  
-               opt.max_num_reference_points, lonlat_box,  
-               calc_shift, shift, verbose, data);
-      
-    else if (file_type == "CSV")
-      asp::load_csv(opt.reference_terrain,  opt.max_num_reference_points,
-                    lonlat_box, calc_shift, shift, geo,  
-                    csv_conv, is_lola_rdr_format, mean_longitude, verbose,  
-                    data);
-    else
-      vw_throw(ArgumentErr() << "Unsupported file: " << opt.reference_terrain << " of type"
-                              << file_type << ".\n");
+    // Load the reference data
+    std::vector<vw::Vector3> input_reference_vec;
+    asp::load_csv_or_dem(opt.csv_format_str, opt.csv_proj4_str, opt.reference_terrain,  
+                         opt.max_num_reference_points,  
+                         geo,       // may change
+                         input_reference_vec); // output
 
     if (load_reference_disparities(opt.disparity_list, disp_vec, interp_disp) != num_cameras-1)
       vw_throw(ArgumentErr() << "Expecting one less disparity than there are cameras.\n");
@@ -1228,17 +1197,12 @@ int do_ba_ceres_one_pass(Options             & opt,
     vw_out() << "Setting up the error to the reference terrain.\n";
     TerminalProgressCallback tpc("", "\t--> ");
     tpc.report_progress(0);
-    int num_cols = data.cols();
-    //double inc_amount = 1.0/double(pos_records.size());
-    double inc_amount = 1.0/double(num_cols);
+    double inc_amount = 1.0/double(input_reference_vec.size());
 
     reference_vec.clear();
-    for (int data_col = 0; data_col < num_cols; data_col++) {
+    for (size_t data_col = 0; data_col < input_reference_vec.size(); data_col++) {
 
-      //vw::Vector3 reference_xyz = csv_conv.csv_to_cartesian(*iter, geo);
-      vw::Vector3 reference_xyz;
-      for (int row = 0; row < asp::DIM; row++)
-        reference_xyz[row] = data(row, data_col);
+      vw::Vector3 reference_xyz = input_reference_vec[data_col];
 
       // Filter by lonlat box if provided, this is very much recommended
       // to quickly discard most points in the huge reference terrain.
@@ -1292,7 +1256,7 @@ int do_ba_ceres_one_pass(Options             & opt,
           continue;
         }
 
-        reference_vec.push_back(reference_xyz);
+        reference_vec.push_back(reference_xyz); // only the used reference points are stored here
 
         // Call function to select the appropriate Ceres residual block to add.
         add_disparity_residual_block(reference_xyz, interp_disp[icam],
@@ -1304,7 +1268,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     
     tpc.report_finished();
     vw_out() << "Found " << reference_vec.size() << " reference points in range.\n";
-  } // End if (opt.reference_terrain != "")
+  } // End of reference terrain block
 
   int num_tri_residuals = 0;
   if (opt.tri_weight > 0) {
@@ -1341,7 +1305,6 @@ int do_ba_ceres_one_pass(Options             & opt,
     kmlPointSkip = 1;
     
   if (first_pass) {
-
     // Save the cnet 
     if (opt.save_cnet_as_csv) {
       std::string cnet_file = opt.out_prefix + "-cnet.csv";
@@ -1419,23 +1382,26 @@ int do_ba_ceres_one_pass(Options             & opt,
 
   // Write the condition files after each pass, as we never know which pass will be the last
   // since we may stop the passes prematurely if no more outliers are present.
-  vw_out() << "Writing final condition log files." << std::endl;
-  std::string residual_prefix = opt.out_prefix + "-final_residuals";
-  bool apply_loss_function = false;
-  write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, cam_residual_counts,
-                      num_gcp_or_dem_residuals, num_tri_residuals,
-                      reference_vec, cnet, crn, problem);
-  
-  std::string point_kml_path = opt.out_prefix + "-final_points.kml";
-  std::string url = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
-  param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip, "final_points",
-                                     url);
+  if (last_pass) {
+    vw_out() << "Writing final condition log files." << std::endl;
+    std::string residual_prefix = opt.out_prefix + "-final_residuals";
+    bool apply_loss_function = false;
+    write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, cam_residual_counts,
+                        num_gcp_or_dem_residuals, num_tri_residuals,
+                        reference_vec, cnet, crn, problem);
+    
+    std::string point_kml_path = opt.out_prefix + "-final_points.kml";
+    std::string url = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
+    param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip, "final_points",
+                                       url);
 
-  // Print the stats for GCP
-  // TODO(oalexan1): This should go to a file
-  if (num_gcp > 0) 
-    param_storage.print_gcp_stats(cnet, opt.datum);
+    // Print the stats for GCP
+    // TODO(oalexan1): This should go to a file
+    if (num_gcp > 0) 
+      param_storage.print_gcp_stats(cnet, opt.datum);
+  }
 
+  // Outlier filtering
   int num_new_outliers = 0;
   bool remove_outliers = (opt.num_ba_passes > 1);
   if (remove_outliers) {
@@ -1517,8 +1483,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   // If camera positions were provided for local inputs, align to them.
   const bool have_est_camera_positions = (opt.camera_position_file != "");
   if ((opt.camera_type == BaCameraType_Pinhole) && have_est_camera_positions) {
-    init_pinhole_model_with_camera_positions(opt.cnet, opt.camera_models,
-                                             opt.image_files, estimated_camera_gcc);
+    asp::init_pinhole_model_with_camera_positions(opt.cnet, opt.camera_models,
+                                                  opt.image_files, estimated_camera_gcc);
     cameras_changed = true;
   }
 
@@ -1533,10 +1499,10 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     if ((opt.camera_type==BaCameraType_Pinhole) && 
         !have_est_camera_positions) {
       if (opt.transform_cameras_using_gcp) {
-        init_pinhole_model_with_mono_gcp(opt.cnet, opt.camera_models);
+        asp::init_pinhole_model_with_mono_gcp(opt.cnet, opt.camera_models);
         cameras_changed = true;
       } else if (!opt.disable_pinhole_gcp_init) {
-        init_pinhole_model_with_multi_gcp(opt.cnet, opt.camera_models);
+        asp::init_pinhole_model_with_multi_gcp(opt.cnet, opt.camera_models);
             cameras_changed = true;
       }
     }
@@ -1651,9 +1617,10 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       
     vw_out() << "--> Bundle adjust pass: " << pass << std::endl;
 
+    bool first_pass = (pass == 0);
     bool last_pass = (pass == opt.num_ba_passes - 1);
     bool convergence_reached = true;
-    int  num_new_outliers = do_ba_ceres_one_pass(opt, crn, (pass==0),
+    int  num_new_outliers = do_ba_ceres_one_pass(opt, crn, first_pass, last_pass,
                                                  param_storage, orig_parameters,
                                                  convergence_reached, final_cost);
     
@@ -1694,9 +1661,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     opt.out_prefix = orig_out_prefix + "_rand";
 
     // Do another pass of bundle adjustment.
-    bool first_pass = true;
+    bool first_pass = true, last_pass = true; // this needs more thinking
     bool convergence_reached = true;
-    int  num_new_outliers    = do_ba_ceres_one_pass(opt, crn, first_pass,
+    int  num_new_outliers    = do_ba_ceres_one_pass(opt, crn, first_pass, last_pass,
                                                     param_storage, orig_parameters,
                                                     convergence_reached, final_cost);
     // Record the parameters of the best result.
@@ -2611,9 +2578,9 @@ void matches_from_mapproj_images(int i, int j,
     
     vw::ip::InterestPoint P1 = ip1[ip_iter];
     vw::ip::InterestPoint P2 = ip2[ip_iter];
-    if (!projected_ip_to_raw_ip(P1, interp_dem, opt.camera_models[i], georef1, dem_georef))
+    if (!asp::projected_ip_to_raw_ip(P1, interp_dem, opt.camera_models[i], georef1, dem_georef))
       continue;
-    if (!projected_ip_to_raw_ip(P2, interp_dem, opt.camera_models[j], georef2, dem_georef))
+    if (!asp::projected_ip_to_raw_ip(P2, interp_dem, opt.camera_models[j], georef2, dem_georef))
       continue;
     
     ip1_cam.push_back(P1);
@@ -2724,7 +2691,7 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 
       // Take the ip in the map-projected image, and back-project it into the camera
       ip::InterestPoint ip = matches[i][p];
-      if (!projected_ip_to_raw_ip(ip, interp_dem, opt.camera_models[i],
+      if (!asp::projected_ip_to_raw_ip(ip, interp_dem, opt.camera_models[i],
                                   img_georefs[i], dem_georef))
           continue;
 
