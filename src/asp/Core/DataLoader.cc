@@ -64,8 +64,20 @@ void load_csv_or_dem(std::string const& csv_format_str, std::string const& csv_p
                     csv_conv, is_lola_rdr_format, mean_longitude, verbose,  
                   data);
   else
-    vw_throw(ArgumentErr() << "Unsupported file: " << reference_terrain << " of type"
+    vw_throw(ArgumentErr() << "Unsupported file: " << reference_terrain << " of type "
              << file_type << ".\n");
+
+  int num_cols = data.cols();
+  ref_data.clear();
+  for (int data_col = 0; data_col < num_cols; data_col++) {
+    vw::Vector3 reference_xyz;
+
+    for (int row = 0; row < asp::DIM; row++)
+      reference_xyz[row] = data(row, data_col);
+
+    ref_data.push_back(reference_xyz);
+  }
+  
 }
   
 } // end namespace asp
