@@ -464,11 +464,13 @@ Solving for pinhole cameras using GCP
 If for a given image the intrinsics of the camera are known, and also
 the longitude and latitude (and optionally the heights above the datum)
 of its corners (or of some other pixels in the image), one can bypass
-the ``camera_solve`` tool and use ``bundle_adjust`` to get a rough
-initial camera position and orientation. This simple approach is often
-beneficial when, for example, one has historical images with rough
-geo-location information. Once a rough camera is created for each image,
-the cameras can then be bundle-adjusted jointly to refine them.
+the ``camera_solve`` tool and use ``bundle_adjust`` to get an
+initial camera position and orientation. 
+
+This simple approach is often beneficial when, for example, one has
+historical images with rough geo-location information. Once an initial
+camera is created for each image, the cameras can then be
+bundle-adjusted jointly to refine them.
 
 To achieve this, one creates a camera file, say called ``init.tsai``,
 with only the intrinsics, and using trivial values for the camera center

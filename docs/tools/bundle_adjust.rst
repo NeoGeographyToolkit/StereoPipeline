@@ -144,6 +144,16 @@ as shown earlier, with one or more images and cameras, and the
 obtained adjustments can be used with ``stereo`` or ``mapproject``
 as described above.
 
+Creating pinhole cameras from scratch using GCP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If for a given image the intrinsics of the camera are known, and also
+the longitude and latitude (and optionally the heights above the
+datum) of its corners (or of some other pixels in the image), the
+``bundle_adjust`` tool can create an initial camera position and
+orientation, and hence a complete pinhole camera. See
+:numref:`imagecorners` for more details.
+
 .. _ba_out_files:
 
 Output files
