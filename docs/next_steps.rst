@@ -378,9 +378,12 @@ Copernicus 30 m DEM from:
 
     https://portal.opentopography.org/raster?opentopoID=OTSDEM.032021.4326.3
 
-or the NASA SRTM DEM (available on the same web site as above, choose
-the product relative to WGS84), GMTED2010, USGS's NED data, or NGA's
-DTED data. 
+or the NASA SRTM DEM (available on the same web site as above),
+GMTED2010, USGS's NED data, or NGA's DTED data.
+
+The Copernicus 30 m DEM heights are relative to the EGM96 geoid. Any such 
+DEM must be converted to WGS84 ellipsoid heights, for any processing
+to be accurate (:numref:`conv_to_ellipsoid`).
 
 There exist pre-made terrain models for other planets as well, for
 example the Moon LRO LOLA global DEM and the Mars MGS MOLA
@@ -392,10 +395,11 @@ or DEMs based on HRSC, CTX, and HiRISE cameras from:
 
     https://www.cosmos.esa.int/web/psa/ucl-mssl_meta-gsf
 
-It is important that any DEMs be relative to an ellipsoid, rather than
-a geoid/areoid. The ``gdalwarp`` program in recent versions of GDAL
-and our own ``dem_geoid`` tool (:numref:`dem_geoid`) can be used to
-perform the necessary conversions, if needed.
+Check, as before, if your DEM is relative to the areoid rather than an
+ellipsoid (:numref:`conv_to_ellipsoid`). Some Mars DEMs may have an
+additional 190 meter vertical offset (such as the dataset
+``molaMarsPlanetaryRadius0001.cub`` shipped with ISIS data), which can
+be taken care of with ``image_calc`` (:numref:`image_calc`).
 
 Alternatively, a low-resolution smooth DEM can be obtained by running
 ASP itself as described in previous sections. In such a run, subpixel
@@ -407,6 +411,25 @@ noisy or have holes, one could change in ``point2dem`` the search radius
 factor, use hole-filling, invoke more aggressive outlier removal, and
 erode pixels at the boundary (those tend to be less reliable).
 Alternatively, holes can be filled with ``dem_mosaic``.
+
+.. _conv_to_ellipsoid:
+
+Conversion of initial guess terrain to ellipsoid heights
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It is very important that your DEM be relative to a
+datum/ellipsoid (such as WGS84), and *not* to a geoid/areoid, such as
+EGM96.
+
+A DEM relative to a geoid/areoid must be converted so that its heights
+are relative to an ellipsoid. The ``gdalwarp`` program in recent
+versions of GDAL and our own ``dem_geoid`` tool (:numref:`dem_geoid`)
+can be used to perform the necessary conversions, if needed. For
+example, with ``dem_geoid``, one can convert EGM96 heights to WGS84
+with the command::
+
+     dem_geoid --geoid egm96 --reverse-adjustment \
+       egm96-dem.tif -o wgs84-dem.tif
 
 .. _mapproj-res:
 

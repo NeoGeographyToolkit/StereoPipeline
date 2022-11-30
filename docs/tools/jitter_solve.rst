@@ -412,8 +412,9 @@ because:
    using 50 image lines for each position and orientation to optimize
    rather than 1000.
  - Many dense interest point matches and anchor points are needed
-   to capture the high-frequency jitter but prevent the solution
-   from becoming unstable at earlier and later image lines. 
+   to capture the high-frequency jitter Many anchor points are needed
+   to prevent the solution from becoming unstable at earlier and later
+   image lines.
  - The terrain is very steep, which introduces some extraneous signal
    in the problem to optimize.
    
@@ -440,7 +441,8 @@ good.
 
 Because of the steep terrain, the images were mapprojected onto the
 Copernicus 30 m DEM (:numref:`initial_terrain`). We name that DEM
-``ref.tif``.
+``ref.tif``. (Ensure the DEM is relative to WGS84 and not EGM96,
+and convert if necessary; see :numref:`conv_to_ellipsoid`.)
 
 .. figure:: ../images/grand_mesa_copernicus_dem.png
    :scale: 50%
@@ -558,10 +560,10 @@ the larger errors due to the steep terrain.
 .. figure:: ../images/dg_jitter_pointmap_anchor_points.png
    :name: dg_jitter_pointmap_anchor_points
 
-   The pixel reprojection errors per triangulated point (first row)
-   and per anchor point (second row) before and after (left and right)
-   solving for jitter. Blue shows an error of 0, and red is an error
-   of at least 0.3 pixels.
+   The pixel reprojection errors per triangulated point (first row) 
+   and per anchor point (second row)
+   before and after (left and right) solving for jitter. Blue shows an
+   error of 0, and red is an error of at least 0.3 pixels.
 
 It can be seen in :numref:`fig_dg_jitter_pointmap_anchor_points` that
 after optimization the jitter (oscillatory pattern) goes away, but the

@@ -2076,7 +2076,10 @@ value of ``--pixel-pitch`` should be 0.8 in the L1B products, but 1.0
 for L1A.
 
 The reference DEM ``ref.tif`` is a Copernicus 30 m DEM
-(:numref:`initial_terrain`). The option ``--input-camera`` will make
+(:numref:`initial_terrain`). Ensure the DEM is relative to WGS84 and
+not EGM96, and convert it if necessary; see :numref:`conv_to_ellipsoid`.
+
+The option ``--input-camera`` will make
 use of existing RPC cameras to accurately find the pinhole camera
 poses. The option ``--height-above-datum`` should not be necessary if
 the DEM footprint covers fully the area of interest.
@@ -2219,14 +2222,9 @@ length is given as 3.6 m and the pixel pitch is
 .. math:: 3.6/6.5 \times 10^{-6} = 553846.153846.
 
 Next, a reference DEM needs to be found. Recently we recommend getting
-a Copernicus 30 m DEM from:
-
-    https://portal.opentopography.org/raster?opentopoID=OTSDEM.032021.4326.3            
-
-In this example we will however fetch an SRTM DEM of the area, which
-will be used as a reference for registration, from:
-
-     https://portal.opentopography.org/raster?opentopoID=OTSRTM.082016.4326.1
+a Copernicus 30 m DEM (:numref:`initial_terrain`).  Ensure the DEM is
+relative to WGS84 and not EGM96, and convert if necessary; see
+:numref:`conv_to_ellipsoid`.
 
 It is good to be a bit generous when selecting the extent of the reference DEM.
 We will rename the downloaded DEM to ``ref_dem.tif``. 
