@@ -281,8 +281,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   general_options.add_options()
     ("output-camera-file,o", po::value(&opt.camera_file), "Specify the output camera file with a .tsai extension.")
     ("camera-type", po::value(&opt.camera_type)->default_value("pinhole"), "Specify the camera type. Options are: pinhole (default) and opticalbar.")
-    ("lon-lat-values", po::value(&opt.lon_lat_values_str)->default_value(""), "A (quoted) string listing numbers, separated by commas or spaces, having the longitude and latitude (alternating and in this order) of each image corner. The corners are traversed in the order 0,0 w,0, w,h, 0,h where w and h are the image width and height.")
-    ("pixel-values", po::value(&opt.pixel_values_str)->default_value(""), "A (quoted) string listing numbers, separated by commas or spaces, having the column and row (alternating and in this order) of each pixel in the raw image at which the longitude and latitude is known. By default this is empty, and will be populated by the image corners traversed as earlier.")
+    ("lon-lat-values", po::value(&opt.lon_lat_values_str)->default_value(""),
+    "A (quoted) string listing numbers, separated by commas or spaces, "
+    "having the longitude and latitude (alternating and in this "
+    "order) of each image corner or some other list of pixels, given "
+    "by ``--pixel-values``. If the corners are used, they are traversed "
+    "in the order (0, 0) (w, 0) (w, h), (0, h) where w and h are the "
+     "image width and height.")
+    ("pixel-values", po::value(&opt.pixel_values_str)->default_value(""), "A (quoted) string listing numbers, separated by commas or spaces, having the column and row (alternating and in this order) of each pixel in the raw image at which the longitude and latitude is known and given by --lon-lat-values. By default this is empty, and will be populated by the image corners traversed as mentioned at the earlier option.")
     ("reference-dem", po::value(&opt.reference_dem)->default_value(""),
      "Use this DEM to infer the heights above datum of the image corners.")
     ("datum", po::value(&opt.datum_str)->default_value(""),

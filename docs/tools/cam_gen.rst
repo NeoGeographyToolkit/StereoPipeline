@@ -98,16 +98,18 @@ Command-line options for cam_gen:
 --lon-lat-values <string>
     A (quoted) string listing numbers, separated by commas or spaces,
     having the longitude and latitude (alternating and in this
-    order) of each image corner. The corners are traversed in the
-    order 0,0 w,0 w,h, 0,h where w and h are the image width and
-    height.
+    order) of each image corner or some other list of pixels given
+    by ``--pixel-values``. If the corners are used, they are traversed
+    in the order (0, 0) (w, 0) (w, h), (0, h) where w and h are the
+    image width and height.
 
 --pixel-values <string>
     A (quoted) string listing numbers, separated by commas or spaces,
     having the column and row (alternating and in this order) of
     each pixel in the raw image at which the longitude and latitude
-    is known. By default this is empty, and will be populated by
-    the image corners traversed as earlier.
+    is known and given by ``--lon-lat-values``. By default this is
+    empty, and will be populated by the image corners traversed as 
+    mentioned at the earlier option.
 
 --reference-dem <filename>
     Use this DEM to infer the heights above datum of the image corners.
