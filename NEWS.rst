@@ -101,9 +101,10 @@ bundle_adjust:
   * Let the default ``--heights-from-dem-weight`` be 1.0, and the
     default ``--heights-from-dem-robust-threshold`` be 0.5. These
     normally need tuning.
-  * Added the option ``--save-mapproj-match-points-offsets``,
-    to evaluate how much images with bundle-adjusted cameras disagree
-    after mapprojection, per matching image pair, and per image.
+  * Added the option ``--mapproj-dem``. If specified, evaluate 
+    the disagremeent of interest point matches after mapprojecting
+    onto this DEM, per matching image pair, and per image. Useful
+    at evaluating registration without mapprojecting the images.
   * Added options ``--proj-win`` and ``--proj-str`` for restricting
     interest points to given area (useful when having many images
     with footprints beyond area of interest).

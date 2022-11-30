@@ -415,7 +415,7 @@ void asp::determine_image_pairs(// Inputs
 }
 
 /// Load a DEM from disk to use for interpolation.
-void asp::create_interp_dem(std::string & dem_file,
+void asp::create_interp_dem(std::string const& dem_file,
                        vw::cartography::GeoReference & dem_georef,
                        ImageViewRef<PixelMask<double>> & interp_dem){
   

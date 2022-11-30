@@ -867,7 +867,7 @@ void asp::calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimiz
                                  std::vector<vw::ip::InterestPoint> const& left_ip,
                                  std::vector<vw::ip::InterestPoint> const right_ip,
                                  vw::cartography::GeoReference const& dem_georef,
-                                 vw::ImageViewRef<vw::PixelMask<double>> interp_dem,
+                                 vw::ImageViewRef<vw::PixelMask<double>> interp_mapproj_dem,
                                  std::vector<double> & mapproj_offsets) {
   // Wipe the output
   mapproj_offsets.clear();
@@ -886,7 +886,7 @@ void asp::calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimiz
     Vector3 left_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
       (optimized_cams[left_cam_index]->camera_center(left_pix),
        optimized_cams[left_cam_index]->pixel_to_vector(left_pix),
-       interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+       interp_mapproj_dem, dem_georef, treat_nodata_as_zero, has_intersection,
        height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
     Vector3 left_map_llh = dem_georef.datum().cartesian_to_geodetic(left_dem_xyz);
     Vector2 left_map_pix = dem_georef.lonlat_to_pixel(subvector(left_map_llh, 0, 2));
@@ -899,7 +899,7 @@ void asp::calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimiz
     Vector3 right_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
       (optimized_cams[right_cam_index]->camera_center(right_pix),
        optimized_cams[right_cam_index]->pixel_to_vector(right_pix),
-       interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+       interp_mapproj_dem, dem_georef, treat_nodata_as_zero, has_intersection,
        height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
     Vector3 right_map_llh = dem_georef.datum().cartesian_to_geodetic(right_dem_xyz);
     Vector2 right_map_pix = dem_georef.lonlat_to_pixel(subvector(right_map_llh, 0, 2));
@@ -961,10 +961,8 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                                asp::BaBaseOptions const& opt,
                                std::vector<asp::CameraModelPtr> const& optimized_cams,
                                bool remove_outliers, std::set<int> const& outliers,
-                               bool save_mapproj_match_points_offsets,
-                               vw::cartography::GeoReference const& dem_georef,
-                               ImageViewRef<PixelMask<double>> interp_dem,
                                std::vector<asp::MatchPairStats> & convAngles,
+                               std::string const& mapproj_dem,
                                std::vector<asp::MatchPairStats> & mapprojOffsets,
                                std::vector<std::vector<double>> & mapprojOffsetsPerCam) {
   
@@ -972,8 +970,12 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
   mapprojOffsets.clear();
   mapprojOffsetsPerCam.clear();
 
-  bool have_dem = (interp_dem.cols() > 0 && interp_dem.rows() > 0);
-
+  bool save_mapproj_match_points_offsets = (!mapproj_dem.empty());
+  vw::cartography::GeoReference mapproj_dem_georef;
+  ImageViewRef<PixelMask<double>> interp_mapproj_dem;
+  if (save_mapproj_match_points_offsets)
+    asp::create_interp_dem(mapproj_dem, mapproj_dem_georef, interp_mapproj_dem);
+  
   int num_cameras = opt.image_files.size();
   mapprojOffsetsPerCam.resize(num_cameras);
   
@@ -1008,7 +1010,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
     std::vector<double> sorted_angles;
 
     asp::MatchPairStats * mapprojOffset = NULL; // may not always exist
-    if (have_dem && save_mapproj_match_points_offsets) {
+    if (save_mapproj_match_points_offsets) {
       mapprojOffsets.push_back(asp::MatchPairStats()); // add an elem
       mapprojOffset = &mapprojOffsets.back(); // pointer
     }
@@ -1021,7 +1023,8 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
       if (mapprojOffset != NULL) {
         asp::calcPairMapprojOffsets(optimized_cams,
                                     left_index, right_index,
-                                    orig_left_ip, orig_right_ip, dem_georef, interp_dem,  
+                                    orig_left_ip, orig_right_ip,
+                                    mapproj_dem_georef, interp_mapproj_dem,  
                                     mapproj_offsets);
         mapprojOffset->populate(left_index, right_index, mapproj_offsets);
         for (size_t map_it = 0; map_it < mapproj_offsets.size(); map_it++) {
@@ -1139,7 +1142,8 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
     if (mapprojOffset != NULL) {
       asp::calcPairMapprojOffsets(optimized_cams,
                                   left_index, right_index,
-                                  left_ip, right_ip, dem_georef, interp_dem,  
+                                  left_ip, right_ip,
+                                  mapproj_dem_georef, interp_mapproj_dem,  
                                   mapproj_offsets);
       mapprojOffset->populate(left_index, right_index, mapproj_offsets);
       for (size_t map_it = 0; map_it < mapproj_offsets.size(); map_it++) {

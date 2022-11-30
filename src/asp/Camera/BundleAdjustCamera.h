@@ -55,7 +55,7 @@ typedef boost::shared_ptr<vw::camera::CameraModel> CameraModelPtr;
 // Options shared by bundle_adjust and jitter_solve
 struct BaBaseOptions: public vw::GdalWriteOptions {
   std::string out_prefix, stereo_session, input_prefix, match_files_prefix,
-    clean_match_files_prefix, ref_dem, heights_from_dem;
+    clean_match_files_prefix, ref_dem, heights_from_dem, mapproj_dem;
   int overlap_limit, min_matches, max_pairwise_matches, num_iterations,
     ip_edge_buffer_percent;
   bool match_first_to_last, single_threaded_cameras;
@@ -733,10 +733,8 @@ void matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                           asp::BaBaseOptions const& opt,
                           std::vector<asp::CameraModelPtr> const& optimized_cams,
                           bool remove_outliers, std::set<int> const& outliers,
-                          bool save_mapproj_match_points_offsets,
-                          vw::cartography::GeoReference const& dem_georef,
-                          vw::ImageViewRef<vw::PixelMask<double>> interp_dem,
                           std::vector<asp::MatchPairStats> & convAngles,
+                          std::string const& mapproj_dem,
                           std::vector<asp::MatchPairStats> & mapprojOffsets,
                           std::vector<std::vector<double>> & mapprojOffsetsPerCam);
   

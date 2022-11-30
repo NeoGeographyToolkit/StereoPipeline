@@ -1431,14 +1431,13 @@ int do_ba_ceres_one_pass(Options             & opt,
   asp::matchFilesProcessing(cnet,
                             asp::BaBaseOptions(opt), // note the slicing
                             optimized_cams, remove_outliers, outliers,
-                            opt.save_mapproj_match_points_offsets,
-                            dem_georef, interp_dem, convAngles, mapprojOffsets,
-                            mapprojOffsetsPerCam);
+                            convAngles, 
+                            opt.mapproj_dem, mapprojOffsets, mapprojOffsetsPerCam);
   
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
 
-  if (have_dem && opt.save_mapproj_match_points_offsets) {
+  if (!opt.mapproj_dem.empty()) {
     std::string mapproj_offsets_file = opt.out_prefix + "-mapproj_match_offsets.txt";
     asp::saveMapprojOffsets(mapproj_offsets_file, mapprojOffsets, 
                             mapprojOffsetsPerCam, // will change
@@ -1820,8 +1819,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "close to the DEM if specified via --heights-from-dem. This is applied after the "
      "point differences are multiplied by --heights-from-dem-weight. It should help with "
      "attenuating large height difference outliers.")
-    ("save-mapproj-match-points-offsets", po::value(&opt.save_mapproj_match_points_offsets)->default_value(false)->implicit_value(true),
-     "If --heights-from-dem is specified, mapproject matching interest points onto this DEM and compute several percentiles of their discrepancy for each image vs the rest, and per image pair, in units of DEM's pixels.")
+    ("mapproj-dem", po::value(&opt.mapproj_dem)->default_value(""),
+     "If specified, mapproject matching interest points onto this DEM and compute several percentiles of their discrepancy for each image vs the rest, and per image pair, in units of DEM's pixels.")
     ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
      "If specified, constrain every ground point where rays from matching pixels intersect "
      "to be not too far from the average of intersections of those rays with this DEM.")
@@ -2288,8 +2287,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "The value of --reference-dem-robust-threshold must be positive.\n");
 
   bool have_dem = (!opt.heights_from_dem.empty() || !opt.ref_dem.empty());
-  if (!have_dem && opt.save_mapproj_match_points_offsets)
-    vw_throw(ArgumentErr() << "Cannot save offsets for mapprojected match points without a DEM.\n");
   
   // Try to infer the datum from the heights-from-dem
   std::string dem_file;

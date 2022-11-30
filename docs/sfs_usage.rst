@@ -1477,8 +1477,8 @@ that a new bundle adjustment which uses the union of the individually
 validated subsets (and using as input adjustments computed so far)
 will result in a good solution.
 
-If the option ``--save-mapproj-match-points-offsets`` is specified,
-the file::
+If the option ``--mapproj-dem`` (with a DEM file as a value) is
+specified, the file::
 
     ba_align_ref/run-mapproj_match_offsets.txt
 

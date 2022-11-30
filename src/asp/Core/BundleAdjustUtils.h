@@ -137,7 +137,7 @@ namespace asp{
                              std::vector<std::pair<int,int>> & all_pairs);
 
   /// Load a DEM from disk to use for interpolation.
-  void create_interp_dem(std::string & dem_file,
+  void create_interp_dem(std::string const& dem_file,
                          vw::cartography::GeoReference & dem_georef,
                          vw::ImageViewRef<vw::PixelMask<double>> & interp_dem);
 
