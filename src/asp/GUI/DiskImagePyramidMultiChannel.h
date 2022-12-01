@@ -73,7 +73,7 @@ namespace vw { namespace gui {
   template<class PixelT>
   typename boost::enable_if<boost::is_same<PixelT,double>, void>::type
   formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-             vw::Vector2 const& bounds,
+             vw::Vector2 const& approx_bounds,
              ImageView<PixelT> const& clip, QImage & qimg){
 
     double min_val = std::numeric_limits<double>::max();
@@ -88,14 +88,14 @@ namespace vw { namespace gui {
         }
       }
     
-      // The input bounds are computed on the lowest resolution level of the pyramid 
-      //  with: vw::math::find_outlier_brackets(vals, 0.25, 4.0, b, e);
-      //  but enforcing them here likely causes more problems than it solves.
-      //// These bounds may contain outliers, so correct for that
-      //if (bounds[0] != bounds[1]) {
-      //  min_val = std::max(min_val, bounds[0]);
-      //  max_val = std::min(max_val, bounds[1]);
-      //}
+      // The approx_bounds are computed on the lowest resolution level
+      // of the pyramid and are likely exaggerated, but were computed
+      // with outlier removal.  Use them to adjust the existing bounds
+      // which may have outliers.
+      if (approx_bounds[0] < approx_bounds[1]) {
+        min_val = std::max(min_val, approx_bounds[0]);
+        max_val = std::min(max_val, approx_bounds[1]);
+      }
     
       // A safety measure
       if (min_val >= max_val)
@@ -134,7 +134,7 @@ namespace vw { namespace gui {
   template<class PixelT>
   typename boost::enable_if<boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>, void>::type
   formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-             vw::Vector2 const& bounds,
+             vw::Vector2 const& approx_bounds,
              ImageView<PixelT> const& clip, QImage & qimg){
 
     qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
@@ -157,7 +157,7 @@ namespace vw { namespace gui {
   typename boost::disable_if<boost::mpl::or_<boost::is_same<PixelT,double>,
                                              boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>>, void>::type
   formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-             vw::Vector2 const& bounds,
+             vw::Vector2 const& approx_bounds,
              ImageView<PixelT> const& clip, QImage & qimg){
 
     qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
@@ -202,9 +202,8 @@ namespace vw { namespace gui {
 
     // This function will return a QImage to be shown on screen.
     // How we create it, depends on the type of image we want to display.
-    void get_image_clip(double scale_in, vw::BBox2i region_in,
-                      bool highlight_nodata,
-                      QImage & qimg, double & scale_out, vw::BBox2i & region_out) const;
+    void get_image_clip(double scale_in, vw::BBox2i region_in, bool highlight_nodata,
+                        QImage & qimg, double & scale_out, vw::BBox2i & region_out) const;
     double get_nodata_val() const;
     
     int32 cols  () const { return m_cols;  }

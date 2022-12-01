@@ -429,7 +429,9 @@ example, with ``dem_geoid``, one can convert EGM96 heights to WGS84
 with the command::
 
      dem_geoid --geoid egm96 --reverse-adjustment \
-       egm96-dem.tif -o wgs84-dem.tif
+       dem.tif -o dem
+
+This will create ``dem-adj.tif``.
 
 .. _mapproj-res:
 

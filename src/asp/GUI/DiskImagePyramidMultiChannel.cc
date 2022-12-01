@@ -126,28 +126,27 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
                   QImage & qimg, double & scale_out, vw::BBox2i & region_out) const{
 
   bool scale_pixels = (m_type == CH1_DOUBLE);
-  vw::Vector2 bounds;
+  vw::Vector2 approx_bounds;
 
   // Extract the clip, then convert it from VW format to QImage format.
   if (m_type == CH1_DOUBLE) {
 
     //Stopwatch sw0;
     //sw0.start();
-    bounds = m_img_ch1_double.get_approx_bounds();
+    approx_bounds = m_img_ch1_double.get_approx_bounds();
     //sw0.stop();
     //vw_out() << "Render time sw0 (seconds): " << sw0.elapsed_seconds() << std::endl;
     
     ImageView<double> clip;
     //Stopwatch sw1;
     //sw1.start();
-    m_img_ch1_double.get_image_clip(scale_in, region_in, clip,
-                                    scale_out, region_out);
+    m_img_ch1_double.get_image_clip(scale_in, region_in, clip, scale_out, region_out);
     //sw1.stop();
     //vw_out() << "Render time sw1 (seconds): " << sw1.elapsed_seconds() << std::endl;
 
     //Stopwatch sw2;
     //sw2.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch1_double.get_nodata_val(), bounds,
+    formQimage(highlight_nodata, scale_pixels, m_img_ch1_double.get_nodata_val(), approx_bounds,
                clip, qimg);
     //sw2.stop();
     //vw_out() << "Render time sw2 (seconds): " << sw2.elapsed_seconds() << std::endl;
@@ -163,7 +162,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
 
     //Stopwatch sw5;
     //sw5.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch2_uint8.get_nodata_val(), bounds,
+    formQimage(highlight_nodata, scale_pixels, m_img_ch2_uint8.get_nodata_val(), approx_bounds,
                clip, qimg);
     //sw5.stop();
     //vw_out() << "Render time sw5 (seconds): " << sw5.elapsed_seconds() << std::endl;
@@ -179,7 +178,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
 
     //Stopwatch sw7;
     //sw7.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch3_uint8.get_nodata_val(), bounds,
+    formQimage(highlight_nodata, scale_pixels, m_img_ch3_uint8.get_nodata_val(), approx_bounds,
                clip, qimg);
     //sw7.stop();
     //vw_out() << "Render time sw7 (seconds): " << sw7.elapsed_seconds() << std::endl;
@@ -195,7 +194,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
 
     //Stopwatch sw9;
     //sw9.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch4_uint8.get_nodata_val(), bounds,
+    formQimage(highlight_nodata, scale_pixels, m_img_ch4_uint8.get_nodata_val(), approx_bounds,
                clip, qimg);
     //sw9.stop();
     //vw_out() << "Render time sw9 (seconds): " << sw9.elapsed_seconds() << std::endl;

@@ -112,6 +112,17 @@ private:
       max_val = m_nodata_val;
     }
     
+    Vector2 approx_bounds = m_image.img.m_img_ch1_double.get_approx_bounds();
+    // The approx_bounds are computed on the lowest resolution level
+    // of the pyramid and are likely exaggerated, but were computed
+    // with outlier removal.  Use them to adjust the existing bounds
+    // which may have outliers.
+    // TODO(oalexan1): Integrate this with formQimage logic.
+    if (approx_bounds[0] < approx_bounds[1]) {
+      min_val = std::max(min_val, approx_bounds[0]);
+      max_val = std::min(max_val, approx_bounds[1]);
+    }
+    
     return;
   }
   

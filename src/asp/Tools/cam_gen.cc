@@ -284,7 +284,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("lon-lat-values", po::value(&opt.lon_lat_values_str)->default_value(""),
     "A (quoted) string listing numbers, separated by commas or spaces, "
     "having the longitude and latitude (alternating and in this "
-    "order) of each image corner or some other list of pixels, given "
+    "order) of each image corner or some other list of pixels given "
     "by ``--pixel-values``. If the corners are used, they are traversed "
     "in the order (0, 0) (w, 0) (w, h), (0, h) where w and h are the "
      "image width and height.")
