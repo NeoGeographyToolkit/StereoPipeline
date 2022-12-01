@@ -10,7 +10,7 @@ some advanced usage, including solving for intrinsics, can be found in
 number of images, consider using ``parallel_bundle_adjust``
 (:numref:`parallel_bundle_adjust`).
 
-This tool solves a least squares problem using the Google's *Ceres Solver*
+This tool solves a least squares problem using Google's *Ceres Solver*
 (http://ceres-solver.org/).
 
 Usage::
@@ -29,7 +29,7 @@ ground control points, :numref:`bagcp`)::
        --datum WGS_1984 -o run_ba/run --num-passes 2
 
 Here, we invoked the tool with two passes, which also enables removal
-of outliers (see option ``--remove-outliers-params``).
+of outliers (see option ``--remove-outliers-params``, :numref:`ba_options`).
 
 Examples for RPC cameras (:numref:`rpc`). With the cameras stored separately::
 
@@ -161,7 +161,7 @@ its version being optimized, and the standard deviations are from
 above. No robustified bound is applied to these error terms (see
 below). 
 
-Note that the cost function normally contains sumos of squares of
+Note that the cost function normally contains sums of squares of
 pixel differences, while these terms are dimensionless, if the
 numerators and denominators are assumed to be in meters. Care should
 be taken that these terms not be allowed to dominate the cost function
@@ -636,10 +636,10 @@ Command-line options for bundle_adjust
     help with attenuating large height difference outliers.
 
 --mapproj-dem <string (default: "")>
-    If specified, mapproject matching interest points onto this DEM
-    and compute several percentiles of their discrepancy for each
-    image vs the rest, per image pair, and per each pair
-    of interest points, in unit of meter (:numref:`ba_out_files`).
+    If specified, mapproject every pair of matched interest points
+    onto this DEM and compute their distance, then percentiles of such
+    distances for each image pair and for each image vs the
+    rest. Measured in meters.
 
 --reference-dem <string>
     If specified, constrain every ground point where rays from

@@ -1832,9 +1832,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "point differences are multiplied by --heights-from-dem-weight. It should help with "
      "attenuating large height difference outliers.")
     ("mapproj-dem", po::value(&opt.mapproj_dem)->default_value(""),
-     "If specified, mapproject matching interest points onto this DEM and compute "
-     "several percentiles of their discrepancy for each image vs the rest, "
-     "per image pair, and per each pair of interest points, in units of meter.")
+     "If specified, mapproject every pair of matched interest points onto this DEM and compute "
+     "their distance, then percentiles of such distances for each image pair and "
+     "for each image vs the rest. Measured in meters.")
     ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
      "If specified, constrain every ground point where rays from matching pixels intersect "
      "to be not too far from the average of intersections of those rays with this DEM.")
