@@ -1478,15 +1478,10 @@ validated subsets (and using as input adjustments computed so far)
 will result in a good solution.
 
 If the option ``--mapproj-dem`` (with a DEM file as a value) is
-specified, the file::
-
-    ba_align_ref/run-mapproj_match_offsets.txt
-
-will be written. For each pair of images having matches, the matches
-are mapprojected onto the DEM, and percentiles of their disagreements
-are computed, for each image vs the rest, and per image pair, in DEM
-pixel units. This metric can help weed out images that register
-poorly.
+specified, a report will be written having measurements regarding how
+well images with bundle-adjusted cameras agree after mapprojection
+(:numref:`ba_out_files`). This is very helpful in identifying
+mis-registered images.
 
 Running SfS
 ^^^^^^^^^^^

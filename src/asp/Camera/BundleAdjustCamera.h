@@ -716,10 +716,14 @@ void calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimized_ca
                             std::vector<vw::ip::InterestPoint> const right_ip,
                             vw::cartography::GeoReference const& dem_georef,
                             vw::ImageViewRef<vw::PixelMask<double>> interp_dem,
+                            std::vector<vw::Vector<double, 4>> & mapprojPoints, 
                             std::vector<double> & mapproj_offsets);
 
 // Save mapprojected matches offsets for each image pair having matches
-void saveMapprojOffsets(std::string const& mapproj_offsets_file,
+void saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
+                        std::string const& mapproj_offsets_file,
+                        vw::cartography::GeoReference const& mapproj_dem_georef,
+                        std::vector<vw::Vector<double, 4>> const & mapprojPoints,
                         std::vector<asp::MatchPairStats> const& mapprojOffsets,
                         std::vector<std::vector<double>> & mapprojOffsetsPerCam, // will change
                         std::vector<std::string> const& imageFiles);
@@ -735,6 +739,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                           bool remove_outliers, std::set<int> const& outliers,
                           std::vector<asp::MatchPairStats> & convAngles,
                           std::string const& mapproj_dem,
+                          std::vector<vw::Vector<double, 4>> & mapprojPoints,
                           std::vector<asp::MatchPairStats> & mapprojOffsets,
                           std::vector<std::vector<double>> & mapprojOffsetsPerCam);
   

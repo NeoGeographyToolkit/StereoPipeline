@@ -31,7 +31,7 @@ New sensors:
   * Support the Pleiades exact sensor (for 1A/1B). See :numref:`pleiades`.
     Implemented as a wrapper around the CSM linescan camera model.
 
-parallel_stereo:
+parallel_stereo (:numref:`parallel_stereo`):
   * Added the options ``--match-files-prefix`` and
     ``--clean-match-files-prefix`` for reusing interest point matches
     from a previous ``bundle_adjust`` or ``parallel_stereo`` run. The
@@ -58,7 +58,7 @@ parallel_stereo:
     for creating dense and uniformly distributed interest point
     matches. Useful for modeling lens distortion.
 
-parallel_bundle_adjust:
+parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
   * Do not create subdirectories or symlinks, as that results in a
     massive number of small files. (Unless ``--save-vwip`` is used,
     see below.)
@@ -68,7 +68,7 @@ parallel_bundle_adjust:
     image pairs, so ``parallel_bundle_adjust`` saves them in
     subdirectories.
 
-bundle_adjust:
+bundle_adjust (:numref:`bundle_adjust`):
   * Save the convergence angle percentiles for each pair of
     images having matches. Useful for understating the configuration
     of cameras.
@@ -103,8 +103,9 @@ bundle_adjust:
     normally need tuning.
   * Added the option ``--mapproj-dem``. If specified, evaluate 
     the disagremeent of interest point matches after mapprojecting
-    onto this DEM, per matching image pair, and per image. Useful
-    at evaluating registration without mapprojecting the images.
+    onto this DEM, per interest point match pair, per matching image
+    pair, and per image. Useful at evaluating registration without
+    mapprojecting the images (:numref:`ba_out_files`).
   * Added options ``--proj-win`` and ``--proj-str`` for restricting
     interest points to given area (useful when having many images
     with footprints beyond area of interest).
@@ -116,21 +117,21 @@ bundle_adjust:
     files via ``--inline-adjustments``. Until now one could do either
     one or the other. Also works with ``--initial-transform``.
 
-point2dem:
+point2dem (:numref:`point2dem`):
   * Added the Tukey outlier removal method option applied to
     triangulation errors (error_thresh = 75th_pct + 1.5 * (75th_pct -
     25th_pct)). Also print out these percentages even for the regular
     outlier removal.
 
-bathymetry:
+bathymetry (:numref:`shallow_water_bathy`):
   * Added ``scale_bathy_mask.py``, for creating a PAN-sized image
     or mask from an multispectral-sized image or mask, both for
     WorldView data.
 
-mapproject:
+mapproject (:numref:`mapproject`):
   * Exposed and documented the ``--query-projection`` option.
  
-stereo_gui:
+stereo_gui (:numref:`stereo_gui`):
   * Can plot, overlay on top of images, and colorize scattered points
     stored in a CSV file (:numref:`plot_csv`). Many colormap styles
     are supported. See :numref:`colormap` for the list.
@@ -149,14 +150,14 @@ stereo_gui:
   * Bug fix for slow overlaying of images with different datums.
   * When all images have a georeference, start in georeference mode.
 
-corr_eval:
+corr_eval (:numref:`corr_eval`):
   * Bugfix for excessive memory usage with positive ``--prefilter-mode``.
   * Added a note saying that the user should ensure that this tool uses 
     the same ``--corr-kernel`` and ``--prefilter-mode`` as
     ``parallel_stereo``.
   * Added the option ``--sample-rate``.
 
-cam_gen:
+cam_gen (:numref:`cam_gen`):
   * Fix a bug in output camera center determination, when an input
     camera is provided. This tool can still be fragile if having to
     determine the output camera only based on the four image corner
@@ -164,13 +165,13 @@ cam_gen:
   * Added the options ``--cam-height`` and ``--cam-weight`` to try
     to keep the camera at a given height above ground.
 
-pc_align:
+pc_align (:numref:`pc_align`):
   * Fix a bug with loading very large DEMs; it was failing because of
     a 32-bit integer overflow.
 
-colormap: 
+colormap (:numref:`colormap`): 
   * Added six colormaps: ``black-body``, ``viridis``, ``plasma``,
-    ``kindlmann``, ``rainbow``, ``turbo`` (:numref:`colormap`). Sources: 
+    ``kindlmann``, ``rainbow``, ``turbo``. Sources: 
     http://www.kennethmoreland.com/color-advice/ and matplotlib.
  
 misc:

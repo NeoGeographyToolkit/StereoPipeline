@@ -373,11 +373,12 @@ void read_csv_metadata(std::string              const& csv_file,
                        vw::cartography::GeoReference & georef) {
   
   if (asp::stereo_settings().csv_format_str == "") {
-    // For the pointmap files the csv format is known, read it from
+    // For the pointmap and match_offsets files the csv format is known, read it from
     // the file if not specified the user.  Same for anchor_points files written by
     // jitter_solve.
-    if (csv_file.find("pointmap.csv") != std::string::npos ||
-        csv_file.find("anchor_points.csv") != std::string::npos)
+    if (csv_file.find("pointmap") != std::string::npos ||
+        csv_file.find("match_offsets") != std::string::npos || 
+        csv_file.find("anchor_points") != std::string::npos)
       asp::stereo_settings().csv_format_str = "1:lon, 2:lat, 4:height_above_datum";
     // For the diff.csv files produced by geodiff the csv format is known, read it from
     // the file if not specified the user.
@@ -419,9 +420,11 @@ void read_csv_metadata(std::string              const& csv_file,
   bool has_datum = false;
 
   // For a pointmap file, anchor points, or a -diff.csv file, read the
-  // datum from the file.
-  bool known_csv = (csv_file.find("pointmap.csv") != std::string::npos ||
-                    csv_file.find("anchor_points.csv") != std::string::npos ||
+  // datum from the file. The --csv-datum option, if set, will
+  // override this.
+  bool known_csv = (csv_file.find("pointmap") != std::string::npos ||
+                    csv_file.find("anchor_points") != std::string::npos ||
+                    csv_file.find("match_offsets") != std::string::npos ||
                     csv_file.find("-diff.csv") != std::string::npos);
   if (known_csv) {
     vw::cartography::Datum datum;

@@ -165,7 +165,12 @@ residuals created by ``bundle_adjust`` for each interest point
 This will use the longitude and latitude as the position, and will
 determine a color based on the 4th field in this file (the error) and
 the the min and max values specified above (which correspond to blue
-and red in the colorized plot, respectively).
+and red in the colorized plot, respectively). Files whose name contain
+the strings ``match_offsets`` and ``anchor_points`` (created by
+``bundle_adjust`` and ``jitter_solve``) can be plotted the same way.
+Save with ``diff.csv`` files created by ``geodiff`` (:numref:`geodiff`),
+only in the latter case the third column will have the intensity (error)
+value, and not the fourth.
 
 The option ``--colormap-style`` accepts the same values as
 ``colormap`` (:numref:`colormap`).

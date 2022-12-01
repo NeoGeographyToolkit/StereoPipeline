@@ -859,7 +859,7 @@ void asp::saveConvergenceAngles(std::string const& conv_angles_file,
 }
 
 // Mapproject interest points onto a DEM and find the norm of their
-// disagreement in DEM pixel units. It is assumed that dem_georef
+// disagreement in meters. It is assumed that dem_georef
 // was created by bilinear interpolation. The cameras must be with
 // the latest adjustments applied to them.
 void asp::calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimized_cams,
@@ -868,10 +868,12 @@ void asp::calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimiz
                                  std::vector<vw::ip::InterestPoint> const right_ip,
                                  vw::cartography::GeoReference const& dem_georef,
                                  vw::ImageViewRef<vw::PixelMask<double>> interp_mapproj_dem,
+                                 std::vector<vw::Vector<double, 4>> & mapprojPoints,  // will append
                                  std::vector<double> & mapproj_offsets) {
   // Wipe the output
   mapproj_offsets.clear();
-
+  // Will append to mapprojPoints, so don't wipe it
+  
   for (size_t ip_it = 0; ip_it < left_ip.size(); ip_it++) {
     
     bool treat_nodata_as_zero = false;
@@ -888,8 +890,6 @@ void asp::calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimiz
        optimized_cams[left_cam_index]->pixel_to_vector(left_pix),
        interp_mapproj_dem, dem_georef, treat_nodata_as_zero, has_intersection,
        height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
-    Vector3 left_map_llh = dem_georef.datum().cartesian_to_geodetic(left_dem_xyz);
-    Vector2 left_map_pix = dem_georef.lonlat_to_pixel(subvector(left_map_llh, 0, 2));
     if (!has_intersection) 
       continue;
     
@@ -901,22 +901,34 @@ void asp::calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimiz
        optimized_cams[right_cam_index]->pixel_to_vector(right_pix),
        interp_mapproj_dem, dem_georef, treat_nodata_as_zero, has_intersection,
        height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
-    Vector3 right_map_llh = dem_georef.datum().cartesian_to_geodetic(right_dem_xyz);
-    Vector2 right_map_pix = dem_georef.lonlat_to_pixel(subvector(right_map_llh, 0, 2));
     if (!has_intersection) 
       continue;
+
+    Vector3 mid_pt = (left_dem_xyz + right_dem_xyz)/2.0;
+    double dist = norm_2(left_dem_xyz - right_dem_xyz);
+
+    // Keep in the same structure both the midpoint between these two mapprojected ip,
+    // and their distance, as later the bookkeeping of mapproj_offsets will be different.
+    Vector<double, 4> point;
+    subvector(point, 0, 3) = mid_pt;
+    point[3] = dist;
     
-    mapproj_offsets.push_back(norm_2(left_map_pix - right_map_pix));
+    mapprojPoints.push_back(point);
+    mapproj_offsets.push_back(dist);
   }
 }
 
 // Save mapprojected matches offsets for each image pair having matches
-void asp::saveMapprojOffsets(std::string const& mapproj_offsets_file,
+void asp::saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
+                             std::string const& mapproj_offsets_file,
+                             vw::cartography::GeoReference const& mapproj_dem_georef,
+                             std::vector<vw::Vector<double, 4>> const & mapprojPoints,
                              std::vector<asp::MatchPairStats> const& mapprojOffsets,
-                             std::vector<std::vector<double>> & mapprojOffsetsPerCam, // will change
+                             std::vector<std::vector<double>> & mapprojOffsetsPerCam, 
                              std::vector<std::string> const& imageFiles) {
-  vw_out() << "Writing: " << mapproj_offsets_file << "\n";
-  std::ofstream ofs (mapproj_offsets_file.c_str());
+  
+  vw_out() << "Writing: " << mapproj_offsets_stats_file << "\n";
+  std::ofstream ofs (mapproj_offsets_stats_file.c_str());
 
   ofs << "# Percentiles of distances between mapprojected matching pixels in an "
       << "image and the others.\n";
@@ -949,6 +961,24 @@ void asp::saveMapprojOffsets(std::string const& mapproj_offsets_file,
 
   ofs.close();
 
+  vw_out() << "Writing: " << mapproj_offsets_file << "\n";
+  ofs = std::ofstream(mapproj_offsets_file.c_str());
+  ofs.precision(17);
+  ofs << "# lon, lat, height_above_datum, mapproj_ip_dist_meters\n";
+  ofs << "# " << mapproj_dem_georef.datum() << std::endl;
+
+  // Write all the points to the file
+  for (size_t it = 0; it < mapprojPoints.size(); it++) {
+    
+    Vector3 xyz = subvector(mapprojPoints[it], 0, 3);
+    Vector3 llh = mapproj_dem_georef.datum().cartesian_to_geodetic(xyz);
+    
+    ofs << llh[0] << ", " << llh[1] <<", " << llh[2] << ", "
+         << mapprojPoints[it][3] << std::endl;
+  }
+  
+  ofs.close();
+  
   return;
 }
 
@@ -963,9 +993,11 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                                bool remove_outliers, std::set<int> const& outliers,
                                std::vector<asp::MatchPairStats> & convAngles,
                                std::string const& mapproj_dem,
+                               std::vector<vw::Vector<double, 4>> & mapprojPoints,
                                std::vector<asp::MatchPairStats> & mapprojOffsets,
                                std::vector<std::vector<double>> & mapprojOffsetsPerCam) {
-  
+
+  mapprojPoints.clear();
   convAngles.clear();
   mapprojOffsets.clear();
   mapprojOffsetsPerCam.clear();
@@ -983,7 +1015,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
   for (auto match_it = opt.match_files.begin(); match_it != opt.match_files.end(); match_it++) {
 
     std::vector<double> mapproj_offsets;
-    
+
     // IP from the control network, for which we flagged outliers
     std::vector<vw::ip::InterestPoint> left_ip, right_ip;
 
@@ -1025,6 +1057,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                                     left_index, right_index,
                                     orig_left_ip, orig_right_ip,
                                     mapproj_dem_georef, interp_mapproj_dem,  
+                                    mapprojPoints, // will append here
                                     mapproj_offsets);
         mapprojOffset->populate(left_index, right_index, mapproj_offsets);
         for (size_t map_it = 0; map_it < mapproj_offsets.size(); map_it++) {
@@ -1144,6 +1177,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                                   left_index, right_index,
                                   left_ip, right_ip,
                                   mapproj_dem_georef, interp_mapproj_dem,  
+                                  mapprojPoints, // will append here
                                   mapproj_offsets);
       mapprojOffset->populate(left_index, right_index, mapproj_offsets);
       for (size_t map_it = 0; map_it < mapproj_offsets.size(); map_it++) {

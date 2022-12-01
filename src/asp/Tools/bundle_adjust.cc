@@ -1422,6 +1422,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   // if a DEM is given. These are done together as they rely on
   // reloading interest point matches, which is expensive so the matches
   // are used for both operations.
+  std::vector<vw::Vector<double, 4>> mapprojPoints; // all points, not just stats
   std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
   std::vector<std::vector<double>> mapprojOffsetsPerCam;
   outliers.clear(); 
@@ -1432,14 +1433,25 @@ int do_ba_ceres_one_pass(Options             & opt,
                             asp::BaBaseOptions(opt), // note the slicing
                             optimized_cams, remove_outliers, outliers,
                             convAngles, 
-                            opt.mapproj_dem, mapprojOffsets, mapprojOffsetsPerCam);
+                            opt.mapproj_dem,
+                            mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam);
   
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
 
   if (!opt.mapproj_dem.empty()) {
+    std::string mapproj_offsets_stats_file = opt.out_prefix + "-mapproj_match_offset_stats.txt";
     std::string mapproj_offsets_file = opt.out_prefix + "-mapproj_match_offsets.txt";
-    asp::saveMapprojOffsets(mapproj_offsets_file, mapprojOffsets, 
+
+    vw::cartography::GeoReference mapproj_dem_georef;
+    bool is_good = vw::cartography::read_georeference(mapproj_dem_georef, opt.mapproj_dem);
+    if (!is_good) 
+      vw::vw_throw(vw::ArgumentErr() << "Could not read a georeference from: "
+                   << opt.mapproj_dem << ".\n");
+    asp::saveMapprojOffsets(mapproj_offsets_stats_file, mapproj_offsets_file,
+                            mapproj_dem_georef,
+                            mapprojPoints,
+                            mapprojOffsets, 
                             mapprojOffsetsPerCam, // will change
                             opt.image_files);
   }
@@ -1820,7 +1832,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "point differences are multiplied by --heights-from-dem-weight. It should help with "
      "attenuating large height difference outliers.")
     ("mapproj-dem", po::value(&opt.mapproj_dem)->default_value(""),
-     "If specified, mapproject matching interest points onto this DEM and compute several percentiles of their discrepancy for each image vs the rest, and per image pair, in units of DEM's pixels.")
+     "If specified, mapproject matching interest points onto this DEM and compute "
+     "several percentiles of their discrepancy for each image vs the rest, "
+     "per image pair, and per each pair of interest points, in units of meter.")
     ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
      "If specified, constrain every ground point where rays from matching pixels intersect "
      "to be not too far from the average of intersections of those rays with this DEM.")
@@ -2890,6 +2904,9 @@ int main(int argc, char* argv[]) {
       this_instance_pairs.push_back(all_pairs[i+start_index]);
 
     // Now process the selected pairs
+    // TODO(oalexan1): When using match-files-prefix, just
+    // form the list of match files, rather than searching
+    // for them exhaustively on disk (it can take 1e6 attempts).
     for (size_t k = 0; k < this_instance_pairs.size(); k++) {
 
       if (opt.apply_initial_transform_only)

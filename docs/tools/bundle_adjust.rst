@@ -10,8 +10,7 @@ some advanced usage, including solving for intrinsics, can be found in
 number of images, consider using ``parallel_bundle_adjust``
 (:numref:`parallel_bundle_adjust`).
 
-This tool can use several underlying least-squares minimization
-algorithms, the default is Google's *Ceres Solver*
+This tool solves a least squares problem using the Google's *Ceres Solver*
 (http://ceres-solver.org/).
 
 Usage::
@@ -19,20 +18,20 @@ Usage::
      bundle_adjust <images> <cameras> <optional ground control points> \
        -o <output prefix> [options]
 
-Example (for ISIS)::
+Example (for ISIS, :numref:`planetary_images`)::
 
      bundle_adjust file1.cub file2.cub file3.cub -o run_ba/run
 
-Example (for Digital Globe Earth data, using ground control points)::
+Example (for DigitalGlobe Earth data, :numref:`dg_tutorial`, using
+ground control points, :numref:`bagcp`)::
 
      bundle_adjust file1.tif file2.tif file1.xml file2.xml gcp_file.gcp \
        --datum WGS_1984 -o run_ba/run --num-passes 2
 
-Here, we invoked the tool with two passes, which also enables removal of
-outliers by reprojection error (:numref:`bundle_adjustment`) 
-and disparity (the options below have more detail).
+Here, we invoked the tool with two passes, which also enables removal
+of outliers (see option ``--remove-outliers-params``).
 
-Examples for RPC cameras. With the cameras stored separately::
+Examples for RPC cameras (:numref:`rpc`). With the cameras stored separately::
 
     bundle_adjust -t rpc left.tif right.tif left.xml right.xml \
       -o run_ba/run
@@ -96,6 +95,9 @@ options ``--match-files-prefix`` and ``--clean-match-files-prefix``.
 Ground control points
 ~~~~~~~~~~~~~~~~~~~~~
 
+File format
+^^^^^^^^^^^
+
 A number of plain-text files containing ground control points (GCP)
 can be passed as inputs to ``bundle_adjust``. These can either be
 created by hand, or using ``stereo_gui`` (:numref:`creatinggcp`).
@@ -144,6 +146,45 @@ as shown earlier, with one or more images and cameras, and the
 obtained adjustments can be used with ``stereo`` or ``mapproject``
 as described above.
 
+Effect on optimization
+^^^^^^^^^^^^^^^^^^^^^^
+
+Each ground control point will result in the following terms being
+added to the cost function:
+
+.. math::
+
+    \frac{(x-x_0)^2}{std_x^2} + \frac{(y-y_0)^2}{std_y^2} + \frac{(z-z_0)^2}{std_z^2}
+
+Here, :math:`(x_0, y_0, z_0)` is the input GCP, :math:`(x, y, z)` is
+its version being optimized, and the standard deviations are from
+above. No robustified bound is applied to these error terms (see
+below). 
+
+Note that the cost function normally contains sumos of squares of
+pixel differences, while these terms are dimensionless, if the
+numerators and denominators are assumed to be in meters. Care should
+be taken that these terms not be allowed to dominate the cost function
+at the expense of other terms.
+
+To not optimize the GCP, use the option ``--fix-gcp-xyz``.
+
+The sums of squares of differences between projections into the
+cameras of the GCP and the pixel values specified in the GCP file will
+be added to the bundle adjustment cost function, with each difference
+being divided by the corresponding pixel standard deviation. To
+prevent these from dominating the problem, each such error has a
+robust cost function applied to it, just as done for the regular
+reprojection errors without GCP. See the `Google CERES
+<http://ceres-solver.org/nnls_modeling.html>`_ documentation on robust
+cost functions. See also ``--cost-function`` and ``--robust-threshold``
+option descriptions (:numref:`ba_options`).
+
+The pixel residuals (divided by the pixel standard deviations) will be
+saved as the last lines of the report files ending in ``pointmap.csv``
+(:numref:`ba_out_files`), and differences between initial and optimized
+GCP will be printed on screen.
+
 Creating pinhole cameras from scratch using GCP
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -158,6 +199,9 @@ orientation, and hence a complete pinhole camera. See
 
 Output files
 ~~~~~~~~~~~~
+
+Pixel projection errors in the cameras and triangulated points
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the ``--datum`` option is specified or auto-guessed based on images
 and cameras, ``bundle_adjust`` will write the triangulated world
@@ -222,20 +266,45 @@ As a finer-grained metric, initial and final ``raw_pixels.txt`` files
 will be written, having the row and column residuals (reprojection
 errors) for each pixel in each camera.
 
+Convergence angles
+^^^^^^^^^^^^^^^^^^
+
 The convergence angle percentiles for each pair of images having matches
 are saved to::
 
     {output-prefix}-convergence_angles.txt
 
-If the options ``--mapproj-dem`` (with a DEM file as a value) is
-specified, the file::
+Registration errors on the ground
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If the option ``--mapproj-dem`` (with a DEM file as a value) is
+specified, each pair of interest point matches (after outlier removal)
+will be projected onto this DEM, and the midpoint location and distance
+between these points will be found (in meters). This data
+will be saved to::
+
 
     {output-prefix}-mapproj_match_offsets.txt
 
-will be written. For each pair of images having matches, the matches
-are mapprojected onto this DEM, and percentiles of their disagreements
-are computed, for each image vs the rest, and per image pair, in DEM
-pixel units. This helps with evaluating image co-registration.
+having the longitude, latitude, and height above datum of the
+midpoint, and the above-mentioned distance among these projections.
+
+Ideally these distances should all be zero if the mapprojected images
+agree perfectly. This makes it easy to see which camera images are
+misregistered.
+
+This file is very analogous to the ``pointmap.csv`` file, except that
+these errors are measured on the ground in meters, and not in the cameras
+in pixels. This file can be displayed and colorized in ``stereo_gui``
+as a scatterplot (:numref:`plot_csv`).
+
+In addition, more condensed statistics will be saved as well. The file::
+
+    {output-prefix}-mapproj_match_offset_stats.txt
+
+will be written. It will have the percentiles of these disagreements
+for each pair of images and for each image against the rest, also in
+units of meter.
 
 .. _adjust_files:
 
@@ -262,6 +331,8 @@ Note that currently the camera center *C* is not exposed in the
 ``.adjust`` file, so external tools cannot recreate this
 transform. This will be rectified at a future time.
 
+.. _ba_options:
+
 Command-line options for bundle_adjust
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -277,6 +348,8 @@ Command-line options for bundle_adjust
 --robust-threshold <double (default:0.5)>
     Set the threshold for robust cost functions. Increasing this
     makes the solver focus harder on the larger errors.
+    See the `Google CERES <http://ceres-solver.org/nnls_modeling.html>`_
+    documentation on robust cost functions.
 
 --datum <string>
     Set the datum. This will override the datum from the input
@@ -501,16 +574,6 @@ Command-line options for bundle_adjust
     a list in quotes. Also remove outliers based on distribution
     of interest point matches and triangulated points.
 
---remove-outliers-by-disparity-params <pct factor>
-    Outlier removal based on the disparity of interest points
-    (difference between right and left pixel), when more than one
-    bundle adjustment pass is used.  For example, the 10% and 90%
-    percentiles of disparity are computed, and this interval is
-    made three times bigger.  Interest points (that are not GCP)
-    whose disparity fall outside the expanded interval are removed
-    as outliers. Instead of the default 90 and 3 one can specify
-    *pct* and *factor*, without quotes.
-
 --elevation-limit <min max>
     Remove as outliers interest points (that are not GCP) for which
     the elevation of the triangulated position (after cameras are
@@ -575,7 +638,8 @@ Command-line options for bundle_adjust
 --mapproj-dem <string (default: "")>
     If specified, mapproject matching interest points onto this DEM
     and compute several percentiles of their discrepancy for each
-    image vs the rest, and per image pair, in units of DEM's pixels.
+    image vs the rest, per image pair, and per each pair
+    of interest points, in unit of meter (:numref:`ba_out_files`).
 
 --reference-dem <string>
     If specified, constrain every ground point where rays from
