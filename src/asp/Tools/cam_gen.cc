@@ -277,6 +277,8 @@ struct Options : public vw::GdalWriteOptions {
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
+
+  double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("");
   general_options.add_options()
     ("output-camera-file,o", po::value(&opt.camera_file), "Specify the output camera file with a .tsai extension.")
@@ -299,8 +301,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Read in the camera parameters from the example camera file.  Required for opticalbar type.")
     ("focal-length", po::value(&opt.focal_length)->default_value(0),
      "The camera focal length.")
-    ("optical-center", po::value(&opt.optical_center)->default_value(Vector2i(0,0),"0 0"),
-     "The camera optical center.")
+    ("optical-center", po::value(&opt.optical_center)->default_value(Vector2(nan, nan),"NaN NaN"),
+     "The camera optical center. If not specified for pinhole cameras, it will be set to image center (half of image dimensions) times the pixel pitch. The optical bar camera always uses the image center.")
     ("pixel-pitch", po::value(&opt.pixel_pitch)->default_value(0),
      "The pixel pitch.")
     ("refine-camera", po::bool_switch(&opt.refine_camera)->default_value(false),
@@ -529,6 +531,7 @@ void manufacture_cam(Options const& opt, int wid, int hgt,
     boost::shared_ptr<vw::camera::OpticalBarModel> opticalbar_cam;
     opticalbar_cam.reset(new vw::camera::OpticalBarModel(opt.sample_file));
     // Make sure the image size matches the input image file.
+    // TODO(oalexan1): This looks fishy if the pitch is not 1.
     opticalbar_cam->set_image_size(Vector2i(wid, hgt));
     opticalbar_cam->set_optical_center(Vector2(wid/2.0, hgt/2.0));
     out_cam = opticalbar_cam;
@@ -542,8 +545,13 @@ void manufacture_cam(Options const& opt, int wid, int hgt,
       Vector3 ctr(0, 0, 0);
       Matrix<double, 3, 3> rotation;
       rotation.set_identity();
+      // When the user does not set the optical center, use the image center times pixel pitch
+      Vector2 opt_ctr = opt.optical_center;
+      if (std::isnan(opt_ctr[0]) || std::isnan(opt_ctr[1]))
+        opt_ctr = Vector2(opt.pixel_pitch * wid/2.0, opt.pixel_pitch * hgt/2.0);
+
       pinhole_cam.reset(new PinholeModel(ctr, rotation, opt.focal_length, opt.focal_length,
-					 opt.optical_center[0], opt.optical_center[1],
+					 opt_ctr[0], opt_ctr[1],
 					 NULL, opt.pixel_pitch));
     }
     out_cam = pinhole_cam;

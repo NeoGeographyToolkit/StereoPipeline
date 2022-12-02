@@ -164,6 +164,9 @@ cam_gen (:numref:`cam_gen`):
     coordinates on the ground and no input camera.
   * Added the options ``--cam-height`` and ``--cam-weight`` to try
     to keep the camera at a given height above ground.
+  * If ``--optical-center`` is not set for pinhole cameras, use the
+    image center (half of image dimensions) times the pixel pitch.
+    The optical bar camera always uses the image center.
 
 pc_align (:numref:`pc_align`):
   * Fix a bug with loading very large DEMs; it was failing because of

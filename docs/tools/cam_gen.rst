@@ -143,8 +143,11 @@ Command-line options for cam_gen:
 --focal-length <float (default: 0)>
     The camera focal length.
 
---optical-center <float (default: 0 0)>
-    The camera optical center.
+--optical-center <float (default: NaN NaN)>
+    The camera optical center. If not specified for pinhole cameras,
+    it will be set to image center (half of image dimensions) times
+    the pixel pitch. The optical bar camera always uses the image
+    center.
 
 --pixel-pitch <float (default: 0)>
     The camera pixel pitch.

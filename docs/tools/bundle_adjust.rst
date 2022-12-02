@@ -208,7 +208,7 @@ and cameras, ``bundle_adjust`` will write the triangulated world
 position for every feature being matched in two or more images, and
 the mean absolute residuals (that is, reprojection errors,
 :numref:`bundle_adjustment`) for each position, before the first
-optimization pass and after the last optimization pass. The files are
+and after the last optimization pass. The files are
 named
 
 ::
@@ -279,15 +279,16 @@ Registration errors on the ground
 
 If the option ``--mapproj-dem`` (with a DEM file as a value) is
 specified, each pair of interest point matches (after outlier removal)
-will be projected onto this DEM, and the midpoint location and distance
-between these points will be found (in meters). This data
-will be saved to::
+will be projected onto this DEM, and the midpoint location and
+distance between these points will be found. This data will be saved
+to::
 
 
     {output-prefix}-mapproj_match_offsets.txt
 
 having the longitude, latitude, and height above datum of the
-midpoint, and the above-mentioned distance among these projections.
+midpoint, and the above-mentioned distance between these projections
+(in meters).
 
 Ideally these distances should all be zero if the mapprojected images
 agree perfectly. This makes it easy to see which camera images are
