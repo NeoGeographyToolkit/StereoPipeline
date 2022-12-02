@@ -919,7 +919,7 @@ void initial_filter_by_proj_win(Options             & opt,
 
 int do_ba_ceres_one_pass(Options             & opt,
                          CRNJ                & crn,
-                         bool                  first_pass, bool last_pass,
+                         bool                  first_pass,
                          BAParamStorage      & param_storage, 
                          BAParamStorage const& orig_parameters,
                          bool                & convergence_reached,
@@ -1137,19 +1137,14 @@ int do_ba_ceres_one_pass(Options             & opt,
   }
 
   // Finer level control of only rotation and translation.
-  // This will need to be merged with the above but note that the loss is NULL here. 
   // - Error goes up as cameras move and rotate from their input positions.
+  // TODO(oalexan1): This will prevent convergence in some cases as there is no attenuation
   if (opt.rotation_weight > 0 || opt.translation_weight > 0){
-
     for (int icam = 0; icam < num_cameras; icam++){
-
-      // TODO(oalexan1): This will prevent convergence in some cases!
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
       ceres::CostFunction* cost_function
         = RotTransError::Create(orig_cam_ptr, opt.rotation_weight, opt.translation_weight);
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
-
-      // TODO(oalexan1): This will prevent convergence in some cases!
       double * camera  = param_storage.get_camera_ptr(icam);
       problem.AddResidualBlock(cost_function, loss_function, camera);
     }
@@ -1382,35 +1377,30 @@ int do_ba_ceres_one_pass(Options             & opt,
 
   // Write the condition files after each pass, as we never know which pass will be the last
   // since we may stop the passes prematurely if no more outliers are present.
-  if (last_pass) {
-    vw_out() << "Writing final condition log files." << std::endl;
-    std::string residual_prefix = opt.out_prefix + "-final_residuals";
-    bool apply_loss_function = false;
-    write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, cam_residual_counts,
-                        num_gcp_or_dem_residuals, num_tri_residuals,
-                        reference_vec, cnet, crn, problem);
-    
-    std::string point_kml_path = opt.out_prefix + "-final_points.kml";
-    std::string url = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
-    param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip, "final_points",
-                                       url);
-
-    // Print the stats for GCP
-    // TODO(oalexan1): This should go to a file
-    if (num_gcp > 0) 
-      param_storage.print_gcp_stats(cnet, opt.datum);
-  }
+  vw_out() << "Writing final condition log files." << std::endl;
+  std::string residual_prefix = opt.out_prefix + "-final_residuals";
+  bool apply_loss_function = false;
+  write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, cam_residual_counts,
+                      num_gcp_or_dem_residuals, num_tri_residuals,
+                      reference_vec, cnet, crn, problem);
+  
+  std::string point_kml_path = opt.out_prefix + "-final_points.kml";
+  std::string url = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
+  param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip, "final_points",
+                                     url);
+  
+  // Print the stats for GCP
+  // TODO(oalexan1): This should go to a file
+  if (num_gcp > 0) 
+    param_storage.print_gcp_stats(cnet, opt.datum);
 
   // Outlier filtering
-  int num_new_outliers = 0;
   bool remove_outliers = (opt.num_ba_passes > 1);
-  if (remove_outliers) {
-    num_new_outliers =
+  if (remove_outliers)
       add_to_outliers(cnet, crn,
                       param_storage,   // in-out
                       opt, cam_residual_counts, num_gcp_or_dem_residuals,
                       num_tri_residuals, reference_vec, problem);
-  }
 
   // Find the cameras with the latest adjustments. Note that we do not modify
   // opt.camera_models, but make copies as needed.
@@ -1442,7 +1432,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   if (!opt.mapproj_dem.empty()) {
     std::string mapproj_offsets_stats_file = opt.out_prefix + "-mapproj_match_offset_stats.txt";
     std::string mapproj_offsets_file = opt.out_prefix + "-mapproj_match_offsets.txt";
-
+ 
     vw::cartography::GeoReference mapproj_dem_georef;
     bool is_good = vw::cartography::read_georeference(mapproj_dem_georef, opt.mapproj_dem);
     if (!is_good) 
@@ -1456,7 +1446,7 @@ int do_ba_ceres_one_pass(Options             & opt,
                             opt.image_files);
   }
   
-  return num_new_outliers;
+  return 0;
 } // End function do_ba_ceres_one_pass
 
 /// Use Ceres to do bundle adjustment.
@@ -1466,6 +1456,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   // - This triangulates from the camera models to determine the initial
   //   world coordinate estimate for each matched IP.
   opt.cnet.reset(new ControlNetwork("BundleAdjust"));
+  int num_gcp = 0;
   ControlNetwork & cnet = *(opt.cnet.get()); // alias
   if (!opt.apply_initial_transform_only) {
     bool triangulate_control_points = true;
@@ -1485,7 +1476,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                << "if ground control points are present.\n";
     }
     vw_out() << "Loading GCP files...\n";
-    vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
+    num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
   }
   
   // If we change the cameras, we must rebuild the control network
@@ -1596,7 +1587,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                                   opt.max_pairwise_matches);
     
     // Restore the rest of the cnet object
-    vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
+    num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
     
     check_gcp_dists(new_cam_models, opt.cnet, opt.forced_triangulation_distance);
     
@@ -1629,22 +1620,15 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     vw_out() << "--> Bundle adjust pass: " << pass << std::endl;
 
     bool first_pass = (pass == 0);
-    bool last_pass = (pass == opt.num_ba_passes - 1);
-    bool convergence_reached = true;
-    int  num_new_outliers = do_ba_ceres_one_pass(opt, crn, first_pass, last_pass,
-                                                 param_storage, orig_parameters,
-                                                 convergence_reached, final_cost);
+    bool convergence_reached = true; // will change
+    do_ba_ceres_one_pass(opt, crn, first_pass,
+                         param_storage, orig_parameters,
+                         convergence_reached, final_cost);
     
-    if (!last_pass && num_new_outliers == 0 && convergence_reached) {
-      vw_out() << "No new outliers removed, and the algorithm converged. "
-               << "No more passes are needed.\n";
-      break;
-    }
-
     int num_points_remaining = num_points - param_storage.get_num_outliers();
-    if (opt.num_ba_passes > 1 && num_points_remaining < opt.min_matches) {
-      // Do not throw if there were is just one pass, as no outlier filtering happened.
-      // This is needed to not break functionality when only gcp are passed as inputs.
+    if (num_points_remaining < opt.min_matches && num_gcp == 0) {
+      // Do not throw if there exist gcp, as maybe that's all there is, and there
+      // can be just a few of them.
       vw_throw(ArgumentErr() << "Error: Too few points remain after filtering!.\n");
     }
   } // End loop through passes
@@ -1672,11 +1656,12 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     opt.out_prefix = orig_out_prefix + "_rand";
 
     // Do another pass of bundle adjustment.
-    bool first_pass = true, last_pass = true; // this needs more thinking
+    bool first_pass = true; // this needs more thinking
     bool convergence_reached = true;
-    int  num_new_outliers    = do_ba_ceres_one_pass(opt, crn, first_pass, last_pass,
-                                                    param_storage, orig_parameters,
-                                                    convergence_reached, final_cost);
+    do_ba_ceres_one_pass(opt, crn, first_pass,
+                         param_storage, orig_parameters,
+                         convergence_reached, final_cost);
+    
     // Record the parameters of the best result.
     if (final_cost < best_cost) {
       vw_out() << "  --> Found a better solution!\n\n";
@@ -1698,6 +1683,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 
     // Clear out the extra files that were generated
     std::string cmd("rm -f " + opt.out_prefix + "*");
+    vw_out() << "Deleting temporary files: " << cmd << std::endl;
     vw::exec_cmd(cmd.c_str());
   }
   opt.out_prefix = orig_out_prefix; // So the cameras are written to the expected paths.
@@ -1917,10 +1903,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The weight to give to the constraint that optimized triangulated "
      "points stay close to original triangulated points. A positive value will help "
      "ensure the cameras do not move too far, but a large value may prevent convergence. "
-     "It is suggested to use 0.1 to 0.5 divided by image gsd for the value. "
+     "It is suggested to use here 0.1 to 0.5 divided by image gsd. "
      "Does not apply to GCP or points constrained by a DEM. This adds a robust cost function "
-     "with the threshold given by --robust-threshold. Set --camera-weight and other "
-     "weights to 0 when using this.")
+     "with the threshold given by --robust-threshold. Set --camera-weight to 0 "
+     "when using this.")
     ("overlap-exponent",     po::value(&opt.overlap_exponent)->default_value(0.0),
      "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
     ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
@@ -2195,17 +2181,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "The triangulation weight must be non-negative.\n" << usage
               << general_options );
   
-  if (opt.tri_weight > 0) {
-    if (opt.camera_weight > 0 || opt.rotation_weight > 0 || opt.translation_weight > 0 ||
-        (opt.reference_terrain != "" && opt.reference_terrain_weight > 0) ||
-        (opt.heights_from_dem != "" && opt.heights_from_dem_weight > 0)) 
-      vw_throw( ArgumentErr() << "When --tri-weight is positive, set to zero "
-                << "--camera-weight, --rotation-weight, etc.");
-  }
+  if (opt.tri_weight > 0 && opt.camera_weight > 0) 
+    vw_throw( ArgumentErr() << "When --tri-weight is positive, set to zero "
+              << "--camera-weight. Can use --rotation-weight and --translation-weight.\n");
   
   // NOTE(oalexan1): The reason min_triangulation_angle cannot be 0 is deep inside
   // StereoModel.cc. Better keep it this way than make too many changes there.
-  if ( opt.min_triangulation_angle <= 0.0 )
+  if (opt.min_triangulation_angle <= 0.0)
     vw_throw( ArgumentErr() << "The minimum triangulation angle must be positive.\n");
   
   // TODO: Make sure the normal model loading catches this error.
@@ -2903,10 +2885,21 @@ int main(int argc, char* argv[]) {
     for (size_t i=0; i<this_count; i++)
       this_instance_pairs.push_back(all_pairs[i+start_index]);
 
-    // Now process the selected pairs
-    // TODO(oalexan1): When using match-files-prefix, just
-    // form the list of match files, rather than searching
-    // for them exhaustively on disk (it can take 1e6 attempts).
+    // When using match-files-prefix or 
+    // clean_match_files_prefix, form the list of match files, rather
+    // than searching for them exhaustively on disk, which can get
+    // very slow.
+    bool external_matches = (!opt.clean_match_files_prefix.empty() ||
+                             !opt.match_files_prefix.empty());
+    std::set<std::string> existing_files;
+    if (external_matches) {
+      std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
+                                                  opt.match_files_prefix,  
+                                                  opt.out_prefix);
+      asp::listExistingMatchFiles(prefix, existing_files);
+    }
+    
+    // Process the selected pairs
     for (size_t k = 0; k < this_instance_pairs.size(); k++) {
 
       if (opt.apply_initial_transform_only)
@@ -2921,28 +2914,35 @@ int main(int argc, char* argv[]) {
       std::string const& camera2_path = opt.camera_files[j]; // alias
       
       // See if perhaps to load match files from a different source
-      bool allow_missing_match_file = opt.skip_matching; 
-      std::string match_filename 
+      std::string match_file 
         = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
-                              opt.out_prefix, image1_path, image2_path,
-                              allow_missing_match_file);
-      opt.match_files[std::make_pair(i, j)] = match_filename;
+                              opt.out_prefix, image1_path, image2_path);
 
-      bool inputs_changed = (!asp::is_latest_timestamp(match_filename,
-                                                       image1_path,  image2_path,
-                                                       camera1_path, camera2_path));
+      // The external match file does not exist, don't try to load it
+      if (external_matches && existing_files.find(match_file) == existing_files.end())
+        continue;
+     
+      opt.match_files[std::make_pair(i, j)] = match_file;
 
-      // We make an exception and not rebuild if explicitly asked
-      if (asp::stereo_settings().force_reuse_match_files &&
-          boost::filesystem::exists(match_filename))
-        inputs_changed = false;
+      // If we skip matching (which is the case, among other situations, when
+      // using external matches), there's no point in checking if the match
+      // files are recent.
+      bool inputs_changed = false;
+      if (!opt.skip_matching) {
+        inputs_changed = (!asp::is_latest_timestamp(match_file,
+                                                    image1_path,  image2_path,
+                                                    camera1_path, camera2_path));
 
+        // We make an exception and not rebuild if explicitly asked
+        if (asp::stereo_settings().force_reuse_match_files &&
+            boost::filesystem::exists(match_file))
+          inputs_changed = false;
+      }
+      
       if (!inputs_changed) {
-        vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
+        vw_out() << "\t--> Using cached match file: " << match_file << "\n";
         continue;
       }
-      if (opt.skip_matching)
-        continue;
 
       // Read no-data
       boost::shared_ptr<DiskImageResource>
@@ -2968,15 +2968,15 @@ int main(int argc, char* argv[]) {
                       camera1_path, camera2_path,
                       opt.camera_models[i].get(),
                       opt.camera_models[j].get(),
-                      match_filename);
+                      match_file);
 
         else
           matches_from_mapproj_images(i, j, opt, session, map_files, dem_georef, interp_dem,  
-                                      match_filename);
+                                      match_file);
 
         // Compute the coverage fraction
         std::vector<ip::InterestPoint> ip1, ip2;
-        ip::read_binary_match_file(match_filename, ip1, ip2);
+        ip::read_binary_match_file(match_file, ip1, ip2);
         int right_ip_width = rsrc1->cols() *
                               static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
         Vector2i ip_size(right_ip_width, rsrc1->rows());

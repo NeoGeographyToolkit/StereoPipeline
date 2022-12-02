@@ -269,16 +269,16 @@ void check_gcp_dists(std::vector<asp::CameraModelPtr> const& camera_models,
 
 //============================================================================
 
-/// Initialize the position and orientation of each pinhole camera model using
-///  a least squares error transform to match the provided camera positions.
-/// - This function overwrites the camera parameters in-place
+// Initialize the position and orientation of each pinhole camera model using
+// a least squares error transform to match the provided camera positions.
+// This function overwrites the camera parameters in-place
 bool asp::init_pinhole_model_with_camera_positions
 (boost::shared_ptr<ControlNetwork> const& cnet, 
  std::vector<asp::CameraModelPtr> & camera_models,
  std::vector<std::string> const& image_files,
  std::vector<Vector3> const & estimated_camera_gcc) {
 
-  vw_out() << "Initializing camera positions from input file..." << std::endl;
+  vw_out() << "Initializing camera positions from input file." << std::endl;
 
   // Count the number of matches and check for problems
   const int num_cameras = image_files.size();
@@ -333,7 +333,7 @@ bool asp::init_pinhole_model_with_camera_positions
 }
 
 /// Initialize the position and orientation of each pinhole camera model using
-///  a least squares error transform to match the provided control points file.
+/// a least squares error transform to match the provided control points file.
 /// This function overwrites the camera parameters in-place. It works
 /// if at least three GCP are seen in no less than two images.
 void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
@@ -375,8 +375,7 @@ void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> co
 	// as then there is nothing we can do. We need this
 	// answer, as imperfect as it is, to create initial
 	// camera models from GCP.
-	(err > 0 || camera_models.size() == 1)
-	)
+	(err > 0 || camera_models.size() == 1))
       ++num_good_gcp; // Only count points that triangulate
     else {
       vw_out() << "Discarding GCP: " << cnet[ipt]; // Built in endl
@@ -408,10 +407,12 @@ void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> co
     // Making minimum_angle below big may throw away valid points at this stage // really???
     double minimum_angle = 0;
     double forced_triangulation_distance = -1;
-    vw::ba::triangulate_control_point(cp_new, camera_models,
-				      minimum_angle, forced_triangulation_distance);
+    /*double ans = */vw::ba::triangulate_control_point(cp_new, camera_models,
+                                                   minimum_angle, forced_triangulation_distance);
+
+    // TODO(oalexan1): Need to check here if triangulation is successful
     
-    // Store the computed and correct position of this point in Eigen matrices
+    // Store the computed and correct position of this point
     Vector3 inp  = cp_new.position();
     Vector3 outp = cnet[ipt].position();
     if (inp == Vector3() || outp == Vector3())
@@ -842,7 +843,7 @@ vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
 void asp::saveConvergenceAngles(std::string const& conv_angles_file,
                                 std::vector<asp::MatchPairStats> const& convAngles,
                                 std::vector<std::string> const& imageFiles) {
-  
+
   vw_out() << "Writing: " << conv_angles_file << "\n";
   std::ofstream ofs (conv_angles_file.c_str());
   ofs << "# Convergence angle percentiles (in degrees) for each image pair having matches\n";

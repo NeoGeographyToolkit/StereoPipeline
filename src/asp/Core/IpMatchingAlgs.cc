@@ -21,6 +21,7 @@
 #include <vw/Camera/CameraModel.h>
 #include <boost/filesystem.hpp>
 using namespace vw;
+namespace fs = boost::filesystem;
 
 namespace asp {
 
@@ -140,33 +141,30 @@ void align_ip(vw::TransformPtr const& tx_left,
   return;
 } // End align_ip
 
+// Heuristics for match file prefix
+std::string match_file_prefix(std::string const& clean_match_files_prefix,
+                              std::string const& match_files_prefix,
+                              std::string const& out_prefix) {
+  
+  if (clean_match_files_prefix != "")
+    return clean_match_files_prefix;
+  else if (match_files_prefix != "")
+    return match_files_prefix;
+  return out_prefix; 
+}
+  
 // Heuristics for where to load the match file from  
 std::string match_filename(std::string const& clean_match_files_prefix,
                            std::string const& match_files_prefix,
                            std::string const& out_prefix,
                            std::string const& image1_path,
-                           std::string const& image2_path,
-                           bool allow_missing_match_file) {
-  
-  if (clean_match_files_prefix != "") {
+                           std::string const& image2_path) {
 
-    std::string match_file = vw::ip::clean_match_filename(clean_match_files_prefix, image1_path,
-                                                          image2_path);
-    if (!boost::filesystem::exists(match_file) && !allow_missing_match_file) 
-      vw_throw(ArgumentErr() << "Missing IP file: " << match_file);
-    return match_file;
-    
-  } else if (match_files_prefix != "") {
-    
-    std::string match_file = vw::ip::match_filename(match_files_prefix, image1_path,
-                                                    image2_path);
-    if (!boost::filesystem::exists(match_file) && !allow_missing_match_file) 
-      vw_throw(ArgumentErr() << "Missing IP file: " << match_file);
-    return match_file;
-    
-  }
+  std::string curr_prefix = asp::match_file_prefix(clean_match_files_prefix,
+                                              match_files_prefix,  
+                                              out_prefix);
   
-  return vw::ip::match_filename(out_prefix, image1_path, image2_path);
+  return vw::ip::match_filename(curr_prefix, image1_path, image2_path);
 }
 
 // Find and sort the convergence angles for given cameras and interest points
@@ -197,6 +195,21 @@ void convergence_angles(vw::camera::CameraModel const * left_cam,
   }
   
   std::sort(sorted_angles.begin(), sorted_angles.end());
+}
+
+// Find all match files stored on disk having this prefix
+void listExistingMatchFiles(std::string const& prefix,
+                            std::set<std::string> & existing_files) {
+  existing_files.clear();
+  
+  fs::path dirName = fs::path(prefix).parent_path().string();
+  for (auto i = fs::directory_iterator(dirName); i != fs::directory_iterator(); i++) {
+    if (fs::is_directory(i->path())) // skip dirs
+      continue;
+    std::string filename = i->path().string();
+    if (filename.find(".match") != std::string::npos)
+      existing_files.insert(filename);
+  }
 }
   
 } // end namespace asp

@@ -167,8 +167,6 @@ numerators and denominators are assumed to be in meters. Care should
 be taken that these terms not be allowed to dominate the cost function
 at the expense of other terms.
 
-To not optimize the GCP, use the option ``--fix-gcp-xyz``.
-
 The sums of squares of differences between projections into the
 cameras of the GCP and the pixel values specified in the GCP file will
 be added to the bundle adjustment cost function, with each difference
@@ -180,10 +178,13 @@ reprojection errors without GCP. See the `Google CERES
 cost functions. See also ``--cost-function`` and ``--robust-threshold``
 option descriptions (:numref:`ba_options`).
 
-The pixel residuals (divided by the pixel standard deviations) will be
-saved as the last lines of the report files ending in ``pointmap.csv``
-(:numref:`ba_out_files`), and differences between initial and optimized
-GCP will be printed on screen.
+The GCP pixel residuals (divided by the pixel standard deviations)
+will be saved as the last lines of the report files ending in
+``pointmap.csv`` (see :numref:`ba_out_files` for more
+details). Differences between initial and optimized GCP will be
+printed on screen.
+
+To not optimize the GCP, use the option ``--fix-gcp-xyz``.
 
 Creating pinhole cameras from scratch using GCP
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -430,10 +431,10 @@ Command-line options for bundle_adjust
     points stay close to original triangulated points. A positive
     value will help ensure the cameras do not move too far, but a
     large value may prevent convergence. It is suggested to use 
-    0.1 to 0.5 divided by image gsd for the value. Does not apply to GCP or
+    here 0.1 to 0.5 divided by image gsd. Does not apply to GCP or
     points constrained by a DEM. This adds a robust cost function 
     with the threshold given by ``--robust-threshold``. Set
-    ``--camera-weight`` and other weights to 0 when using this. 
+    ``--camera-weight`` to 0 when using this. 
 
 --rotation-weight <double (default: 0.0)>
     A higher weight will penalize more rotation deviations from the

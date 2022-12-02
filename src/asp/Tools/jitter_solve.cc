@@ -1407,12 +1407,23 @@ void run_jitter_solve(int argc, char* argv[]) {
     std::string const& camera1_path = opt.camera_files[i]; // alias
     std::string const& camera2_path = opt.camera_files[j]; // alias
 
-    // Load match files from a different source
-    bool allow_missing_match_file = true; 
-    std::string match_filename 
+    // List existing match files
+    std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
+                                                opt.match_files_prefix,  
+                                                opt.out_prefix);
+    std::set<std::string> existing_files;
+    asp::listExistingMatchFiles(prefix, existing_files);
+
+      // Load match files from a different source
+    std::string match_file 
       = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
-                            opt.out_prefix, image1_path, image2_path, allow_missing_match_file);
-    match_files[std::make_pair(i, j)] = match_filename;
+                            opt.out_prefix, image1_path, image2_path);
+
+    // The external match file does not exist, don't try to load it
+    if (existing_files.find(match_file) == existing_files.end())
+      continue;
+    
+    match_files[std::make_pair(i, j)] = match_file;
   }
 
   // Build control network and perform triangulation with adjusted input cameras

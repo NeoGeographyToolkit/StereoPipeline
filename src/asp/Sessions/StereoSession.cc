@@ -429,7 +429,13 @@ std::string StereoSession::stereo_match_filename(std::string const& left_cropped
                             stereo_settings().match_files_prefix,  
                             out_prefix, left_cropped_file, right_cropped_file);
 
-  // Fall back to creating one if no luck
+  // If the user wants to use an external match file, it better exist
+  bool external_matches = (!stereo_settings().clean_match_files_prefix.empty() ||
+                           !stereo_settings().match_files_prefix.empty());
+  if (external_matches && !boost::filesystem::exists(match_filename)) 
+         vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
+ 
+   // Fall back to creating one if no luck
   if (match_filename == "" || !boost::filesystem::exists(match_filename))
     match_filename = vw::ip::match_filename(out_prefix, left_cropped_file, right_cropped_file);
 

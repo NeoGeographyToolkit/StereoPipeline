@@ -65,13 +65,17 @@ void align_ip(vw::TransformPtr const& tx_left,
               std::vector<vw::ip::InterestPoint> & ip_left,
               std::vector<vw::ip::InterestPoint> & ip_right);
 
+// Heuristics for match file prefix
+std::string match_file_prefix(std::string const& clean_match_files_prefix,
+                              std::string const& match_files_prefix,
+                              std::string const& out_prefix);
+  
 // Heuristics for where to load the match file from  
 std::string match_filename(std::string const& clean_match_files_prefix,
                            std::string const& match_files_prefix,
                            std::string const& out_prefix,
                            std::string const& image1_path,
-                           std::string const& image2_path,
-                           bool allow_missing_match_file = false);
+                           std::string const& image2_path);
 
 // Find and sort the convergence angles for given cameras and interest points
 void convergence_angles(vw::camera::CameraModel const * left_cam,
@@ -80,6 +84,10 @@ void convergence_angles(vw::camera::CameraModel const * left_cam,
                         std::vector<vw::ip::InterestPoint> const& right_ip,
                         std::vector<double> & sorted_angles);
 
+// Find all match files stored on disk having this prefix
+void listExistingMatchFiles(std::string const& prefix,
+                            std::set<std::string> & existing_files);
+  
 } // End namespace asp
 
 #endif//__ASP_CORE_IP_MATCHING_ALGS_H__
