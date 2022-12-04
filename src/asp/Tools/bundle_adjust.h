@@ -239,7 +239,7 @@ struct Options: public asp::BaBaseOptions {
 /// This is for the BundleAdjustmentModel class where the camera parameters
 /// are a rotation/offset that is applied on top of the existing camera model.
 /// First read initial adjustments, if any, and apply perhaps a pc_align transform.
-bool init_cams(Options & opt, BAParamStorage & param_storage,
+bool init_cams(Options & opt, asp::BAParams & param_storage,
        std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models){
 
   bool cameras_changed = false;
@@ -303,7 +303,7 @@ bool init_cams(Options & opt, BAParamStorage & param_storage,
 }
 
 /// Specialization for pinhole cameras.
-bool init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
+bool init_cams_pinhole(Options & opt, asp::BAParams & param_storage,
         std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models){
 
   bool cameras_changed = false;
@@ -367,7 +367,7 @@ bool init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for optical bar cameras.
-bool init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
+bool init_cams_optical_bar(Options & opt, asp::BAParams & param_storage,
         std::vector<boost::shared_ptr<camera::CameraModel>> &new_cam_models){
 
   if (opt.input_prefix != "")
@@ -413,7 +413,7 @@ bool init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
 
 /// Write a pinhole camera file to disk.
 void write_pinhole_output_file(Options const& opt, int icam,
-                               BAParamStorage const& param_storage) {
+                               asp::BAParams const& param_storage) {
 
   // Get the output file path
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
@@ -445,7 +445,7 @@ void write_pinhole_output_file(Options const& opt, int icam,
 
 /// Write an optical bar camera file to disk.
 void write_optical_bar_output_file(Options const& opt, int icam,
-                                   BAParamStorage const& param_storage) {
+                                   asp::BAParams const& param_storage) {
 
   // Get the output file path
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,

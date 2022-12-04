@@ -115,9 +115,10 @@ struct IntrinsicOptions {
   {}
 };
 
+namespace asp {
 /// Class to store parameters as they are being bundle adjusted.
 /// - Currently only supports either one camera or all unique cameras.
-class BAParamStorage {
+class BAParams {
 
 public:
 
@@ -130,7 +131,7 @@ public:
   
   boost::random::mt19937 m_rand_gen;
   
-  BAParamStorage(int num_points, int num_cameras,
+  BAParams(int num_points, int num_cameras,
                  // Parameters below here only apply to pinhole models.
                  bool using_intrinsics=false,
                  int num_distortion_params=0,
@@ -188,7 +189,7 @@ public:
       }
 
   // Copy constructor
-  BAParamStorage(BAParamStorage const& other)
+  BAParams(BAParams const& other)
     : m_num_points        (other.m_num_points),
       m_num_cameras       (other.m_num_cameras),
       m_params_per_point  (other.m_params_per_point),
@@ -219,19 +220,19 @@ public:
   // When using the copy functions, the sizes must match!
 
   /// Copy one set of values from another instance.
-  void copy_points(BAParamStorage const& other) {
+  void copy_points(BAParams const& other) {
     for (size_t i=0; i<m_points_vec.size(); ++i)
       m_points_vec[i] = other.m_points_vec[i];
   }
-  void copy_cameras(BAParamStorage const& other) {
+  void copy_cameras(BAParams const& other) {
     for (size_t i=0; i<m_cameras_vec.size(); ++i)
       m_cameras_vec[i] = other.m_cameras_vec[i];
   }
-  void copy_intrinsics(BAParamStorage const& other) {
+  void copy_intrinsics(BAParams const& other) {
     for (size_t i=0; i<m_intrinsics_vec.size(); ++i)
       m_intrinsics_vec[i] = other.m_intrinsics_vec[i];
   }
-  void copy_outliers(BAParamStorage const& other) {
+  void copy_outliers(BAParams const& other) {
     for (size_t i=0; i<m_outlier_points_vec.size(); ++i)
       m_outlier_points_vec[i] = other.m_outlier_points_vec[i];
   }
@@ -482,8 +483,9 @@ private: // Functions
     else
       return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + m_distortion_offset;
   }
-}; // End class BAParamStorage
+}; // End class BAParams
 
+} // end namespace asp
 
 /// Simple class to manage position/rotation information.
 /// - This is the data type stored in pc_align output files,
@@ -567,42 +569,42 @@ private:
 /// - It is up to the caller to make sure the arrays are properly sized.
 void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
                             int camera_index,
-                            BAParamStorage & param_storage);
+                            asp::BAParams & param_storage);
 
 void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
                                 int camera_index,
-                                BAParamStorage & param_storage);
+                                asp::BAParams & param_storage);
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera.
 vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
-                                                  BAParamStorage const& param_storage,
+                                                  asp::BAParams const& param_storage,
                                                   vw::camera::PinholeModel const& in_cam);
 
 // Given an input optical bar camera and param changes, apply those, returning
 // the new camera.
 vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
-                                                        BAParamStorage const& param_storage,
+                                                        asp::BAParams const& param_storage,
                                                         vw::camera::OpticalBarModel const& in_cam);
 
 /// Given a transform with origin at the planet center, like output
 /// by pc_align, read the adjustments from cameras_vec, apply this
 /// transform on top of them, and write the adjustments back to the vector.
 /// - Works for pinhole and non-pinhole case.
-void apply_transform_to_cameras(vw::Matrix4x4 const& M, BAParamStorage &param_storage,
+void apply_transform_to_cameras(vw::Matrix4x4 const& M, asp::BAParams &param_storage,
                                 std::vector<asp::CameraModelPtr>
                                 const& cam_ptrs);
 
 // This function takes advantage of the fact that when it is called the cam_ptrs have the same
 //  information as is in param_storage!
 void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
-                                        BAParamStorage & param_storage,
+                                        asp::BAParams & param_storage,
                                         std::vector<asp::CameraModelPtr>
                                         const& cam_ptrs);
 
 // This function takes advantage of the fact that when it is called the cam_ptrs have the same
 //  information as is in param_storage!
 void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
-                                            BAParamStorage & param_storage,
+                                            asp::BAParams & param_storage,
                                             std::vector<asp::CameraModelPtr>
                                             const& cam_ptrs);
 

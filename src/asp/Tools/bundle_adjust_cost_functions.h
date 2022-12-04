@@ -20,9 +20,8 @@
 #define __ASP_TOOLS_BUNDLEADJUST_COST_FUNCTIONS_H__
 
 /**
-  This file breaks out the Ceres cost functions used by bundle_adjust.cc.
+  Ceres cost functions used by bundle_adjust.
 */
-
 
 #include <vw/Camera/CameraUtilities.h>
 #include <asp/Core/Macros.h>
@@ -435,9 +434,6 @@ private:
 
 }; // End class BaReprojectionError
 
-
-
-
 /// A ceres cost function. Here we float two pinhole camera's
 /// intrinsic and extrinsic parameters. We take as input a reference
 /// xyz point and a disparity from left to right image. The
@@ -513,7 +509,7 @@ struct BaDispXyzError {
   // TODO: Should this logic live somewhere else?
   /// Create the list of residual pointers for pinhole images.
   /// - Extra logic is needed to avoid duplicate pointers.
-  static void get_residual_pointers(BAParamStorage &param_storage,
+  static void get_residual_pointers(asp::BAParams &param_storage,
                                     int left_cam_index, int right_cam_index,
                                     bool is_pinhole,
                                     IntrinsicOptions const& intrin_opt,
@@ -734,8 +730,8 @@ struct CamError {
   template <typename T>
   bool operator()(const T* cam_vec, T* residuals) const {
 
-    const double POSITION_WEIGHT = 1e-2;  // Units are meters.  Don't lock the camera down too tightly.
-    const double ROTATION_WEIGHT = 5e1;   // Units are in radianish range 
+    const double POSITION_WEIGHT = 1e-2;  // Units are meters. Don't lock the camera down too tightly.
+    const double ROTATION_WEIGHT = 5e1;   // Units are in radians. 
 
     for (size_t p = 0; p < DATA_SIZE/2; p++) {
       residuals[p] = POSITION_WEIGHT*m_weight*(cam_vec[p] - m_orig_cam[p]);

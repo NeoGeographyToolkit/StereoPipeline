@@ -61,7 +61,7 @@ void read_list(std::string const& file, std::vector<std::string> & list) {
 /// Write a csm camera state file to disk.
 void write_csm_output_file(Options const& opt, int icam,
                            std::string const& adjustFile, 
-                           BAParamStorage const& param_storage) {
+                           asp::BAParams const& param_storage) {
   
   CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
   
@@ -75,7 +75,7 @@ void write_csm_output_file(Options const& opt, int icam,
 }
 
 // Write the results to disk.
-void saveResults(Options const& opt, BAParamStorage const& param_storage) {
+void saveResults(Options const& opt, asp::BAParams const& param_storage) {
   int num_cameras = opt.image_files.size();
 
   for (int icam = 0; icam < num_cameras; icam++){
@@ -112,7 +112,7 @@ void saveResults(Options const& opt, BAParamStorage const& param_storage) {
 class BaCallback: public ceres::IterationCallback {
 public:
   
-  BaCallback(Options const& opt, BAParamStorage const& param_storage):
+  BaCallback(Options const& opt, asp::BAParams const& param_storage):
     m_opt(opt), m_param_storage(param_storage){}
 
   virtual ceres::CallbackReturnType operator() (const ceres::IterationSummary& summary) {
@@ -122,13 +122,13 @@ public:
   
 private:
   Options const& m_opt;
-  BAParamStorage const& m_param_storage;
+  asp::BAParams const& m_param_storage;
 };
 
 /// Add error source for projecting a 3D point into the camera.
 void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& pixel_sigma,
                                      int point_index, int camera_index, 
-                                     BAParamStorage & param_storage,
+                                     asp::BAParams & param_storage,
                                      Options const& opt,
                                      ceres::Problem & problem){
 
@@ -223,7 +223,7 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
 void add_disparity_residual_block(Vector3 const& reference_xyz,
                                   ImageViewRef<DispPixelT> const& interp_disp, 
                                   int left_cam_index, int right_cam_index,
-                                  BAParamStorage & param_storage,
+                                  asp::BAParams & param_storage,
                                   Options const& opt,
                                   ceres::Problem & problem){
 
@@ -289,7 +289,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
 /// Compute the residuals
 void compute_residuals(bool apply_loss_function,
                        Options const& opt,
-                       BAParamStorage const& param_storage,
+                       asp::BAParams const& param_storage,
                        std::vector<size_t> const& cam_residual_counts,
                        size_t num_gcp_or_dem_residuals,
                        size_t num_tri_residuals,
@@ -330,7 +330,7 @@ void compute_residuals(bool apply_loss_function,
 /// Compute residual map by averaging all the reprojection error at a given point
 void compute_mean_residuals_at_xyz(CRNJ & crn,
                                   std::vector<double> const& residuals,
-                                  BAParamStorage const& param_storage,
+                                  asp::BAParams const& param_storage,
                                   // outputs
                                   std::vector<double> & mean_residuals,
                                   std::vector<int>  & num_point_observations) {
@@ -386,7 +386,7 @@ void write_residual_map(std::string const& output_prefix,
                         std::vector<double> const& mean_residuals,
                         // Num non-outlier pixels per point
                         std::vector<int> const& num_point_observations, 
-                        BAParamStorage const& param_storage,
+                        asp::BAParams const& param_storage,
                         ControlNetwork const& cnet,
                         Options const& opt) {
 
@@ -447,7 +447,7 @@ void write_residual_map(std::string const& output_prefix,
 /// in residuals must mirror perfectly the way residuals were created. 
 void write_residual_logs(std::string const& residual_prefix, bool apply_loss_function,
                          Options const& opt,
-                         BAParamStorage const& param_storage,
+                         asp::BAParams const& param_storage,
                          std::vector<size_t> const& cam_residual_counts,
                          size_t num_gcp_or_dem_residuals,
                          size_t num_tri_residuals,
@@ -609,7 +609,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   }
 
   // Keep track of number of triangulation constraint residuals but don't save those
-  index += BAParamStorage::PARAMS_PER_POINT * num_tri_residuals;
+  index += asp::BAParams::PARAMS_PER_POINT * num_tri_residuals;
   
   if (index != num_residuals)
     vw_throw( LogicErr() << "Have " << num_residuals << " residuals, but iterated through "
@@ -637,7 +637,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 /// Add to the outliers based on the large residuals
 int add_to_outliers(ControlNetwork & cnet,
                     CRNJ & crn,
-                    BAParamStorage & param_storage,
+                    asp::BAParams & param_storage,
                     Options const& opt,
                     std::vector<size_t> const& cam_residual_counts,
                     size_t num_gcp_or_dem_residuals,
@@ -835,7 +835,7 @@ int add_to_outliers(ControlNetwork & cnet,
 // Find the cameras with the latest adjustments. Note that we do not modify
 // opt.camera_models, but make copies as needed.
 void calcOptimizedCameras(Options const& opt,
-                          BAParamStorage const& param_storage,
+                          asp::BAParams const& param_storage,
                           std::vector<asp::CameraModelPtr> & optimized_cams) {
 
   optimized_cams.clear();
@@ -886,7 +886,7 @@ void calcOptimizedCameras(Options const& opt,
 // ----------------------------------------------------------------
 // TODO(oalexan1): Use this in jitter_solve.
 void initial_filter_by_proj_win(Options             & opt,
-                                BAParamStorage      & param_storage, 
+                                asp::BAParams      & param_storage, 
                                 ControlNetwork const& cnet) {
 
   // Swap y. Sometimes it is convenient to specify these on input in reverse.
@@ -920,8 +920,8 @@ void initial_filter_by_proj_win(Options             & opt,
 int do_ba_ceres_one_pass(Options             & opt,
                          CRNJ                & crn,
                          bool                  first_pass,
-                         BAParamStorage      & param_storage, 
-                         BAParamStorage const& orig_parameters,
+                         asp::BAParams      & param_storage, 
+                         asp::BAParams const& orig_parameters,
                          bool                & convergence_reached,
                          double              & final_cost) {
 
@@ -1509,7 +1509,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       }
     }
     
-    // Issue a warning if the GCPs are far away from the camera coords.
+    // Issue a warning if the GCPs are far away from the camera coordinates.
     // Do it only if the cameras did not change, as otherwise the cnet is outdated.
     if (!cameras_changed) 
       check_gcp_dists(opt.camera_models, opt.cnet, opt.forced_triangulation_distance);
@@ -1541,7 +1541,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   if (opt.camera_type == BaCameraType_OpticalBar) {
     num_lens_distortion_params = NUM_OPTICAL_BAR_EXTRA_PARAMS; // TODO: Share this constant!
   }
-  BAParamStorage param_storage(num_points, num_cameras,
+  asp::BAParams param_storage(num_points, num_cameras,
                                // Optical bar and pinhole are similar
                                opt.camera_type != BaCameraType_Other, 
                                // Must be the same for each pinhole camera
@@ -1593,7 +1593,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     
     // Must update the number of points after the control network is recomputed
     num_points = cnet.size();
-    param_storage.get_point_vector().resize(num_points*BAParamStorage::PARAMS_PER_POINT);
+    param_storage.get_point_vector().resize(num_points*asp::BAParams::PARAMS_PER_POINT);
   }
 
   // Fill in the point vector with the starting values.
@@ -1602,7 +1602,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 
   // The camera positions and orientations before we float them
   // - This includes modifications from any initial transforms that were specified.
-  BAParamStorage orig_parameters(param_storage);
+  asp::BAParams orig_parameters(param_storage);
 
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   CRNJ crn;
@@ -1634,7 +1634,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   } // End loop through passes
 
   double best_cost = final_cost;
-  boost::shared_ptr<BAParamStorage> best_params_ptr(new BAParamStorage(param_storage));
+  boost::shared_ptr<asp::BAParams> best_params_ptr(new asp::BAParams(param_storage));
 
   // This flow is only kicked in if opt.num_random_passes is positive, which
   // is not the default.
@@ -1666,7 +1666,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     if (final_cost < best_cost) {
       vw_out() << "  --> Found a better solution!\n\n";
       best_cost = final_cost;
-      best_params_ptr.reset(new BAParamStorage(param_storage));
+      best_params_ptr.reset(new asp::BAParams(param_storage));
 
       // Get a list of all the files that were generated in the random step.
       std::vector<std::string> rand_files;

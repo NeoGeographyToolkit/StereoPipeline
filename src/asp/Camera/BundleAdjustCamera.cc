@@ -29,13 +29,18 @@
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/FileIO/KML.h>
 
+// temporary
+#include <opencv2/calib3d/calib3d.hpp>
+#include <Eigen/Dense>
+//#include <asp/Camera/CameraResectioning.h>
+
 #include <string>
 
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
 
-void BAParamStorage::record_points_to_kml(const std::string &kml_path,
+void asp::BAParams::record_points_to_kml(const std::string &kml_path,
                                           const vw::cartography::Datum& datum,
                                           size_t skip, const std::string name,
                                           const std::string icon) {
@@ -77,7 +82,7 @@ void BAParamStorage::record_points_to_kml(const std::string &kml_path,
 
 void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
                             int camera_index,
-                            BAParamStorage & param_storage) {
+                            asp::BAParams & param_storage) {
 
   double* pos_pose_ptr   = param_storage.get_camera_ptr              (camera_index);
   double* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
@@ -104,7 +109,7 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
 
 void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
                                 int camera_index,
-                                BAParamStorage & param_storage) {
+                                asp::BAParams & param_storage) {
 
   double* pos_pose_ptr   = param_storage.get_camera_ptr              (camera_index);
   double* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
@@ -133,7 +138,7 @@ void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
 /// by pc_align, read the adjustments from cameras_vec, apply this
 /// transform on top of them, and write the adjustments back to the vector.
 /// - Works for pinhole and non-pinhole case.
-void apply_transform_to_cameras(vw::Matrix4x4 const& M, BAParamStorage &param_storage,
+void apply_transform_to_cameras(vw::Matrix4x4 const& M, asp::BAParams &param_storage,
                                 std::vector<asp::CameraModelPtr>
                                 const& cam_ptrs) {
 
@@ -157,7 +162,7 @@ void apply_transform_to_cameras(vw::Matrix4x4 const& M, BAParamStorage &param_st
 // This function takes advantage of the fact that when it is called the cam_ptrs have the same
 //  information as is in param_storage!
 void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
-                                        BAParamStorage & param_storage,
+                                        asp::BAParams & param_storage,
                                         std::vector<asp::CameraModelPtr>
                                         const& cam_ptrs){
 
@@ -332,6 +337,13 @@ bool asp::init_pinhole_model_with_camera_positions
   return true;
 }
 
+void RodriguesToRotation(Eigen::Vector3d const& vector,
+                         Eigen::Matrix3d & rotation) {
+  double angle = vector.norm();
+  Eigen::AngleAxisd aa(angle, vector / angle);
+  rotation = aa.matrix();
+}
+
 /// Initialize the position and orientation of each pinhole camera model using
 /// a least squares error transform to match the provided control points file.
 /// This function overwrites the camera parameters in-place. It works
@@ -369,6 +381,7 @@ void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> co
     double forced_triangulation_distance = -1;
     double err = vw::ba::triangulate_control_point(cp_new, camera_models,
 						   minimum_angle, forced_triangulation_distance);
+
     if ((cp_new.position() != Vector3()) && (cnet[ipt].position() != Vector3()) &&
 	// Note that if there is only one camera, we allow
 	// for triangulation to return a half-baked answer,
@@ -381,8 +394,8 @@ void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> co
       vw_out() << "Discarding GCP: " << cnet[ipt]; // Built in endl
     }
   } // End good GCP counting
-  
-    // Update the number of GCP that we are using
+
+  // Update the number of GCP that we are using
   const int MIN_NUM_GOOD_GCP = 3;
   if (num_good_gcp < MIN_NUM_GOOD_GCP) {
     vw_out() << "Num GCP       = " << num_gcp         << std::endl;
@@ -394,7 +407,7 @@ void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> co
   }
   
   vw::Matrix<double> points_in(3, num_good_gcp), points_out(3, num_good_gcp);
-  typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
+  typedef vw::math::MatrixCol<vw::Matrix<double>> ColView;
   int index = 0;
   for (int ipt = 0; ipt < num_cnet_points; ipt++){
     // Loop through all the ground control points only
@@ -403,18 +416,18 @@ void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> co
     
     // Use triangulation to estimate the position of this control point using
     //   the current set of camera models.
-    ControlPoint cp_new = cnet[ipt];
+    ControlPoint curr_cp = cnet[ipt];
     // Making minimum_angle below big may throw away valid points at this stage // really???
     double minimum_angle = 0;
     double forced_triangulation_distance = -1;
-    /*double ans = */vw::ba::triangulate_control_point(cp_new, camera_models,
+    double ans = vw::ba::triangulate_control_point(curr_cp, camera_models,
                                                    minimum_angle, forced_triangulation_distance);
-
     // TODO(oalexan1): Need to check here if triangulation is successful
     
     // Store the computed and correct position of this point
-    Vector3 inp  = cp_new.position();
+    Vector3 inp  = curr_cp.position();
     Vector3 outp = cnet[ipt].position();
+    
     if (inp == Vector3() || outp == Vector3())
       continue; // Skip points that fail to triangulate
     
@@ -426,21 +439,110 @@ void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> co
     
     ++index;
   } // End loop through control network points
-  
-    // Call function to compute a 3D affine transform between the two point sets
-  vw::Matrix3x3 rotation;
-  vw::Vector3   translation;
-  double        scale;
-  vw::math::find_3D_transform(points_in, points_out, rotation, translation, scale);
-  
-  // Update the camera and point information with the new transform
-  vw_out() << "Applying transform based on GCP:\n";
-  vw_out() << "Rotation:    " << rotation    << "\n";
-  vw_out() << "Translation: " << translation << "\n";
-  vw_out() << "Scale:       " << scale       << "\n";
-  vw_out() << "This transform can be disabled with --disable-pinhole-gcp-init\n";
-  apply_rigid_transform(rotation, translation, scale, camera_models, cnet_ptr);
 
+  if (camera_models.size() == 1) {
+    int icam = 0;
+    vw::camera::PinholeModel * pincam
+      = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
+    VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
+
+    Vector2 focal_length   = pincam->focal_length();
+    double pixel_pitch     = pincam->pixel_pitch();
+    Vector2 optical_offset = pincam->point_offset();
+    
+    cv::Mat intrinsics(3, 3, cv::DataType<double>::type, 0.0);
+    intrinsics.at<double>(0, 0) = focal_length[0]   / pixel_pitch;
+    intrinsics.at<double>(1, 1) = focal_length[1]   / pixel_pitch;
+    intrinsics.at<double>(0, 2) = optical_offset[0] / pixel_pitch;
+    intrinsics.at<double>(1, 2) = optical_offset[1] / pixel_pitch;
+    intrinsics.at<double>(2, 2) = 1.0;
+
+    // Assume no distortion, as that one is hard to communicate.
+    // This should give a good enough initial camera. Later it will be
+    // refined with bundle adjustment taking into account the distortion.
+    cv::Mat distortion(4, 1, cv::DataType<double>::type, cv::Scalar(0));
+    
+    std::vector<cv::Point2d> pixel_observations;
+    std::vector<cv::Point3d> ground_points;
+    for (int ipt = 0; ipt < num_cnet_points; ipt++){
+      // Loop through all the ground control points only
+      if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
+        continue;
+      vw::Vector3 P = cnet[ipt].position();
+      ground_points.push_back(cv::Point3d(P[0], P[1], P[2]));
+
+      int num_meas = 0;
+      for (ControlPoint::const_iterator measure = cnet[ipt].begin();
+           measure != cnet[ipt].end(); measure++) {
+        
+        // TODO(oalexan1): What if there's more gcp?
+        int cam_it = measure->image_id();
+        if (cam_it != 0) 
+          vw_throw(ArgumentErr() << "Error: Expecting a single camera.\n");
+        
+        Vector2 pixel(measure->position()[0], measure->position()[1]);
+        num_meas++;
+        if (num_meas > 1)
+          vw::vw_throw(vw::ArgumentErr() << "Expecting a single camera pixel per gcp.\n");
+
+        pixel_observations.push_back(cv::Point2d(pixel[0], pixel[1]));
+      }
+    }
+    
+    if (ground_points.size() < 4) 
+      vw::vw_throw(vw::ArgumentErr() << "Must have at least four GCP per camera.\n");
+    
+    bool useExtrinsicGuess = false;
+    int iterationsCount = 1000; // This algorithm is cheap, let it try hard
+    float reprojectionError = 20.0; // because of un-modeled distortion
+    double confidence = 0.95;
+    // Initialize the outputs
+    cv::Mat rvec(3, 1, cv::DataType<double>::type, cv::Scalar(0)); // Rodrigues rotation 
+    cv::Mat tvec(3, 1, cv::DataType<double>::type, cv::Scalar(0)); // translation
+    bool result = cv::solvePnPRansac(ground_points, pixel_observations, intrinsics, distortion,
+                                     rvec, tvec, // outputs
+                                     useExtrinsicGuess, iterationsCount, reprojectionError,
+                                     confidence);
+     if (!result)
+       vw::vw_throw(vw::ArgumentErr() << "Failed to find camera orientation using GCP.\n");
+
+    Eigen::Matrix3d rotation;
+    RodriguesToRotation(Eigen::Vector3d(rvec.at<double>(0), rvec.at<double>(1), rvec.at<double>(2)),
+                        rotation);
+    Eigen::Matrix3d cam2world = rotation.inverse(); // make world2cam into cam2world
+    Eigen::Vector3d cam_ctr = -rotation.inverse() *
+      Eigen::Vector3d(tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2));
+
+    vw::Matrix3x3 rot;
+    for (int row = 0; row < 3; row++) {
+      for (int col = 0; col < 3; col++) {
+        rot(row, col) = cam2world(row, col);
+      }
+    }
+
+     vw::Vector3 ctr;
+     for (int row = 0; row < 3; row++)
+       ctr[row] = cam_ctr[row];
+    
+     pincam->set_camera_pose(rot);
+     pincam->set_camera_center(ctr);
+
+  } else {
+    // Call function to compute a 3D affine transform between the two point sets
+    vw::Matrix3x3 rotation;
+    vw::Vector3   translation;
+    double        scale;
+    vw::math::find_3D_transform(points_in, points_out, rotation, translation, scale);
+  
+    // Update the camera and point information with the new transform
+    vw_out() << "Applying transform based on GCP:\n";
+    vw_out() << "Rotation:    " << rotation    << "\n";
+    vw_out() << "Translation: " << translation << "\n";
+    vw_out() << "Scale:       " << scale       << "\n";
+    vw_out() << "This transform can be disabled with --disable-pinhole-gcp-init.\n";
+    apply_rigid_transform(rotation, translation, scale, camera_models, cnet_ptr);
+  }
+  
 } // End function init_pinhole_model_with_gcp
 
 // Given original cams in sfm_cams and individually scaled cameras in
@@ -626,11 +728,11 @@ void asp::align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz
 
 }
 
-/// Initialize the position and orientation of each pinhole camera model using
-///  a least squares error transform to match the provided control points file.
-/// This function overwrites the camera parameters in-place. It works
-/// if at least two images have at least 3 GCP each. Each GCP need
-/// not show in multiple images.
+// Initialize the position and orientation of each pinhole camera model using
+// a least squares error transform to match the provided control points file.
+// This function overwrites the camera parameters in-place. It works
+// if at least two images have at least 3 GCP each. Each GCP need
+// not show in multiple images.
 void asp::init_pinhole_model_with_mono_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
                                            std::vector<asp::CameraModelPtr> & camera_models) {
   
@@ -651,16 +753,15 @@ void asp::init_pinhole_model_with_mono_gcp(boost::shared_ptr<ControlNetwork> con
   
   // Extract from the control network each pixel for each camera together
   // with its xyz.
-  std::vector< std::vector<Vector3> > xyz;
-  std::vector< std::vector<Vector2> > pix;
+  std::vector<std::vector<Vector3>> xyz;
+  std::vector<std::vector<Vector2>> pix;
   xyz.resize(num_cams);
   pix.resize(num_cams);
   
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
 
   int ipt = - 1;
-  for ( ControlNetwork::const_iterator iter = cnet.begin();
-	iter != cnet.end(); ++iter ) {
+  for (auto iter = cnet.begin(); iter != cnet.end(); iter++) {
 
     ipt++;
     
@@ -734,7 +835,7 @@ bool asp::projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
 // This function takes advantage of the fact that when it is called the cam_ptrs have the same
 //  information as is in param_storage!
 void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
-                                            BAParamStorage & param_storage,
+                                            asp::BAParams & param_storage,
                                             std::vector<asp::CameraModelPtr> const& cam_ptrs){
 
   // Convert the transform format
@@ -763,9 +864,9 @@ void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
 
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera. Note that all intrinsic parameters are stored as multipliers
-// in BAParamStorage.
+// in asp::BAParams.
 vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
-                                                  BAParamStorage const& param_storage,
+                                                  asp::BAParams const& param_storage,
                                                   vw::camera::PinholeModel const& in_cam) {
 
   // Start by making a copy of the camera. Note that this does not make a copy of the
@@ -804,7 +905,7 @@ vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
 // Given an input optical bar camera and param changes, apply those, returning
 // the new camera.
 vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
-                                                        BAParamStorage const& param_storage,
+                                                        asp::BAParams const& param_storage,
                                                         vw::camera::OpticalBarModel const& in_cam) {
   
   // Start by making a copy of the camera.
