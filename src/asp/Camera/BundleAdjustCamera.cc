@@ -28,11 +28,7 @@
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/FileIO/KML.h>
-
-// temporary
-#include <opencv2/calib3d/calib3d.hpp>
-#include <Eigen/Dense>
-//#include <asp/Camera/CameraResectioning.h>
+#include <asp/Camera/CameraResectioning.h>
 
 #include <string>
 
@@ -41,9 +37,9 @@ using namespace vw::camera;
 using namespace vw::ba;
 
 void asp::BAParams::record_points_to_kml(const std::string &kml_path,
-                                          const vw::cartography::Datum& datum,
-                                          size_t skip, const std::string name,
-                                          const std::string icon) {
+                                         const vw::cartography::Datum& datum,
+                                         size_t skip, const std::string name,
+                                         const std::string icon) {
   if (datum.name() == asp::UNSPECIFIED_DATUM) {
     vw::vw_out(vw::WarningMessage) << "No datum specified, can't write file: "
                                    << kml_path << std::endl;
@@ -337,13 +333,6 @@ bool asp::init_pinhole_model_with_camera_positions
   return true;
 }
 
-void RodriguesToRotation(Eigen::Vector3d const& vector,
-                         Eigen::Matrix3d & rotation) {
-  double angle = vector.norm();
-  Eigen::AngleAxisd aa(angle, vector / angle);
-  rotation = aa.matrix();
-}
-
 /// Initialize the position and orientation of each pinhole camera model using
 /// a least squares error transform to match the provided control points file.
 /// This function overwrites the camera parameters in-place. It works
@@ -446,30 +435,13 @@ void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> co
       = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
     VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
 
-    Vector2 focal_length   = pincam->focal_length();
-    double pixel_pitch     = pincam->pixel_pitch();
-    Vector2 optical_offset = pincam->point_offset();
-    
-    cv::Mat intrinsics(3, 3, cv::DataType<double>::type, 0.0);
-    intrinsics.at<double>(0, 0) = focal_length[0]   / pixel_pitch;
-    intrinsics.at<double>(1, 1) = focal_length[1]   / pixel_pitch;
-    intrinsics.at<double>(0, 2) = optical_offset[0] / pixel_pitch;
-    intrinsics.at<double>(1, 2) = optical_offset[1] / pixel_pitch;
-    intrinsics.at<double>(2, 2) = 1.0;
-
-    // Assume no distortion, as that one is hard to communicate.
-    // This should give a good enough initial camera. Later it will be
-    // refined with bundle adjustment taking into account the distortion.
-    cv::Mat distortion(4, 1, cv::DataType<double>::type, cv::Scalar(0));
-    
-    std::vector<cv::Point2d> pixel_observations;
-    std::vector<cv::Point3d> ground_points;
+    std::vector<vw::Vector2> pixel_observations;
+    std::vector<vw::Vector3> ground_points;
     for (int ipt = 0; ipt < num_cnet_points; ipt++){
       // Loop through all the ground control points only
       if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
         continue;
-      vw::Vector3 P = cnet[ipt].position();
-      ground_points.push_back(cv::Point3d(P[0], P[1], P[2]));
+      ground_points.push_back(cnet[ipt].position());
 
       int num_meas = 0;
       for (ControlPoint::const_iterator measure = cnet[ipt].begin();
@@ -485,48 +457,13 @@ void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> co
         if (num_meas > 1)
           vw::vw_throw(vw::ArgumentErr() << "Expecting a single camera pixel per gcp.\n");
 
-        pixel_observations.push_back(cv::Point2d(pixel[0], pixel[1]));
-      }
-    }
-    
-    if (ground_points.size() < 4) 
-      vw::vw_throw(vw::ArgumentErr() << "Must have at least four GCP per camera.\n");
-    
-    bool useExtrinsicGuess = false;
-    int iterationsCount = 1000; // This algorithm is cheap, let it try hard
-    float reprojectionError = 20.0; // because of un-modeled distortion
-    double confidence = 0.95;
-    // Initialize the outputs
-    cv::Mat rvec(3, 1, cv::DataType<double>::type, cv::Scalar(0)); // Rodrigues rotation 
-    cv::Mat tvec(3, 1, cv::DataType<double>::type, cv::Scalar(0)); // translation
-    bool result = cv::solvePnPRansac(ground_points, pixel_observations, intrinsics, distortion,
-                                     rvec, tvec, // outputs
-                                     useExtrinsicGuess, iterationsCount, reprojectionError,
-                                     confidence);
-     if (!result)
-       vw::vw_throw(vw::ArgumentErr() << "Failed to find camera orientation using GCP.\n");
-
-    Eigen::Matrix3d rotation;
-    RodriguesToRotation(Eigen::Vector3d(rvec.at<double>(0), rvec.at<double>(1), rvec.at<double>(2)),
-                        rotation);
-    Eigen::Matrix3d cam2world = rotation.inverse(); // make world2cam into cam2world
-    Eigen::Vector3d cam_ctr = -rotation.inverse() *
-      Eigen::Vector3d(tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2));
-
-    vw::Matrix3x3 rot;
-    for (int row = 0; row < 3; row++) {
-      for (int col = 0; col < 3; col++) {
-        rot(row, col) = cam2world(row, col);
+        pixel_observations.push_back(pixel);
       }
     }
 
-     vw::Vector3 ctr;
-     for (int row = 0; row < 3; row++)
-       ctr[row] = cam_ctr[row];
+    // Find the camera pose with given observations and intrinsics
+    asp::findCameraPose(ground_points, pixel_observations, *pincam);
     
-     pincam->set_camera_pose(rot);
-     pincam->set_camera_center(ctr);
-
   } else {
     // Call function to compute a 3D affine transform between the two point sets
     vw::Matrix3x3 rotation;
