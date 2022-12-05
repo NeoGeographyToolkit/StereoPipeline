@@ -45,6 +45,10 @@ Map-project an image file with associated .xml camera file::
 
      mapproject -t rpc --mpp 20 DEM.tif image.tif image.xml output.tif
 
+Mapproject using the CSM camera model (:numref:`csm`)::
+
+    mapproject DEM.tif image.cub camera.json output.tif
+
 Mapproject onto a datum rather than a DEM::
 
      mapproject WGS84 image.tif image.xml output.tif
