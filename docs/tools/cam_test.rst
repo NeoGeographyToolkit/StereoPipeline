@@ -4,11 +4,11 @@ cam_test
 --------
 
 This tool compares two camera models for the same image, or a camera
-model against itself. It find the camera center and ray direction at a
+model against itself. It finds the camera center and ray direction at a
 set of sampled pixels for both cameras and checks how they
 differ. Then, it projects pixels to the ground using the first camera
-and back-projects the resulting ECEF points into second camera, and
-again estimates their discrepancy.
+and back-projects the resulting ECEF points into the second camera, and
+estimates the pixel discrepancy.
 
 It prints the average time (in milliseconds) for the operation of
 projecting from the camera to the ground and back.
