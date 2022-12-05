@@ -489,7 +489,9 @@ void asp::init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const&
   
   // Sanity check
   if (camera_models.size() != 1) 
-    vw::vw_throw(vw::ArgumentErr() << "Cannot initialize more than a camera at a time using GCP.\n");
+    vw::vw_throw(vw::ArgumentErr() << "Cannot initialize more than a camera at a time using GCP. "
+                 << "Consider using --transform-cameras-with-shared-gcp or "
+                 << "--transform-cameras-using-gcp.\n");
   
   vw_out() << "Initializing a Pinhole camera using GCP.\n";
 

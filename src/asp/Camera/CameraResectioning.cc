@@ -81,7 +81,7 @@ void findCameraPose(std::vector<vw::Vector3> const& ground_points,
   // Call PnP
   bool useExtrinsicGuess = false;
   int iterationsCount = 1000; // This algorithm is cheap, let it try hard
-  float reprojectionError = 20.0; // because of un-modeled distortion relax here a bit
+  float reprojectionError = 20.0; // because of un-modeled distortion, relax things here
   double confidence = 0.95;
   cv::Mat rvec(3, 1, cv::DataType<double>::type, cv::Scalar(0)); // Rodrigues rotation 
   cv::Mat tvec(3, 1, cv::DataType<double>::type, cv::Scalar(0)); // translation
