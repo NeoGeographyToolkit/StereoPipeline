@@ -402,9 +402,10 @@ void asp::transform_cameras_with_shared_gcp(boost::shared_ptr<ControlNetwork> co
                                             std::vector<asp::CameraModelPtr> & camera_models) {
   
   vw_out() << "Applying transform to cameras given several GCP shared among the images.\n";
+
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
   
-  // DEBUG: Print out all pinhole cameras and verify they are pinhole cameras.
+  // Verify that all cameras are pinhole
   for (size_t icam = 0; icam < camera_models.size(); icam++){
     vw::camera::PinholeModel * pincam
       = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
@@ -412,137 +413,124 @@ void asp::transform_cameras_with_shared_gcp(boost::shared_ptr<ControlNetwork> co
 	      vw::ArgumentErr() << "A pinhole camera expected.\n");
   }
   
-  // Count up the number of good ground control points
-  // - Maybe this should be a function of the ControlNet class?
-  const int num_cnet_points = static_cast<int>(cnet.size());
+  // Put the good good ground control points in a vector.
+  int num_cnet_points = static_cast<int>(cnet.size());
+  std::vector<vw::Vector3> in_xyz, out_xyz; 
   int num_gcp      = 0;
   int num_good_gcp = 0;
-  for (int ipt = 0; ipt < num_cnet_points; ipt++){
+  for (int ipt = 0; ipt < num_cnet_points; ipt++) {
+    
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
       continue;
-    ++num_gcp;
+
+    num_gcp++;
     
     // Use triangulation to estimate the position of this control point using
     //   the current set of camera models.
-    ControlPoint cp_new = cnet[ipt];
-    // Making minimum_angle below big may throw away valid points at this stage // really???
-    double minimum_angle = 0;
-    double forced_triangulation_distance = -1;
-    double err = vw::ba::triangulate_control_point(cp_new, camera_models,
+    ControlPoint untrans_cp = cnet[ipt];
+    double minimum_angle = 1.0e-3; // Likely this is too small for a good GCP, but better than 0.
+    double forced_triangulation_distance = -1.0;
+    double err = vw::ba::triangulate_control_point(untrans_cp, camera_models,
 						   minimum_angle, forced_triangulation_distance);
-
-    if ((cp_new.position() != Vector3()) && (cnet[ipt].position() != Vector3()) &&
-	// Note that if there is only one camera, we allow
-	// for triangulation to return a half-baked answer,
-	// as then there is nothing we can do. We need this
-	// answer, as imperfect as it is, to create initial
-	// camera models from GCP.
-	(err > 0 || camera_models.size() == 1))
-      ++num_good_gcp; // Only count points that triangulate
-    else {
-      vw_out() << "Discarding GCP: " << cnet[ipt]; // Built in endl
+    
+    if (untrans_cp.position() != Vector3() &&
+        cnet[ipt].position()  != Vector3() &&
+	err >= 0) {
+      // Store the computed and correct position of this point
+      in_xyz.push_back(untrans_cp.position());
+      out_xyz.push_back(cnet[ipt].position());
+      num_good_gcp++; // Only count points that triangulate
+    } else {
+      vw_out() << "Discarding GCP that could not be triangulated: " << cnet[ipt] << ".\n";
     }
   } // End good GCP counting
 
-  // Update the number of GCP that we are using
-  const int MIN_NUM_GOOD_GCP = 3;
-  if (num_good_gcp < MIN_NUM_GOOD_GCP) {
-    vw_out() << "Num GCP       = " << num_gcp         << std::endl;
-    vw_out() << "Num valid GCP = " << num_good_gcp    << std::endl;
+  // Sanity check
+  const int MIN_GCP_COUNT = 3;
+  if (num_good_gcp < MIN_GCP_COUNT) {
+    vw_out() << "Num GCP       = " << num_gcp      << std::endl;
+    vw_out() << "Num valid GCP = " << num_good_gcp << std::endl;
     vw_throw( ArgumentErr()
-	      << "Not enough valid GCPs for affine transform pinhole initialization. "
-	      << "You may need to use --disable-pinhole-gcp-init or "
-	      << "--transform-cameras-using-gcp.\n" );
+	      << "Not enough valid GCPs to apply a transform to the cameras. "
+	      << "You may need to use --transform-cameras-using-gcp.\n" );
   }
-  
+
+  // Copy these points to a matrix as required by the API about to be used. 
   vw::Matrix<double> points_in(3, num_good_gcp), points_out(3, num_good_gcp);
   typedef vw::math::MatrixCol<vw::Matrix<double>> ColView;
-  int index = 0;
-  for (int ipt = 0; ipt < num_cnet_points; ipt++){
+  for (size_t ipt = 0; ipt < in_xyz.size(); ipt++) {
+    ColView colIn (points_in,  ipt); 
+    ColView colOut(points_out, ipt);
+    colIn  = in_xyz[ipt];
+    colOut = out_xyz[ipt];
+  } // End loop through control network points
+  
+  // Call function to compute a 3D affine transform between the two point sets
+  vw::Matrix3x3 rotation;
+  vw::Vector3   translation;
+  double        scale;
+  vw::math::find_3D_transform(points_in, points_out, rotation, translation, scale);
+  
+  // Update the camera and point information with the new transform
+  vw_out() << "Applying transform based on GCP:\n";
+  vw_out() << "Rotation:    " << rotation    << "\n";
+  vw_out() << "Translation: " << translation << "\n";
+  vw_out() << "Scale:       " << scale       << "\n";
+  vw_out() << "This transform can be disabled with --disable-pinhole-gcp-init.\n";
+  apply_rigid_transform(rotation, translation, scale, camera_models, cnet_ptr);
+
+  return;
+} // End function transform_cameras_with_shared_gcp
+
+/// Initialize the position and orientation of a pinhole camera model using
+/// GCP. It invokes OpenCV's PnP functionality.
+void asp::init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
+                                std::vector<asp::CameraModelPtr> & camera_models) {
+  
+  // Sanity check
+  if (camera_models.size() != 1) 
+    vw::vw_throw(vw::ArgumentErr() << "Cannot initialize more than a camera at a time using GCP.\n");
+  
+  vw_out() << "Initializing a Pinhole camera using GCP.\n";
+
+  int icam = 0;
+  vw::camera::PinholeModel * pincam
+    = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
+  VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
+  
+  std::vector<vw::Vector2> pixel_observations;
+  std::vector<vw::Vector3> ground_points;
+  const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
+  for (int ipt = 0; ipt < cnet.size(); ipt++){
+
     // Loop through all the ground control points only
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
       continue;
+    ground_points.push_back(cnet[ipt].position());
     
-    // Use triangulation to estimate the position of this control point using
-    //   the current set of camera models.
-    ControlPoint curr_cp = cnet[ipt];
-    // Making minimum_angle below big may throw away valid points at this stage // really???
-    double minimum_angle = 0;
-    double forced_triangulation_distance = -1;
-    double ans = vw::ba::triangulate_control_point(curr_cp, camera_models,
-                                                   minimum_angle, forced_triangulation_distance);
-    // TODO(oalexan1): Need to check here if triangulation is successful
-    
-    // Store the computed and correct position of this point
-    Vector3 inp  = curr_cp.position();
-    Vector3 outp = cnet[ipt].position();
-    
-    if (inp == Vector3() || outp == Vector3())
-      continue; // Skip points that fail to triangulate
-    
-    // Store in matrices
-    ColView colIn (points_in,  index); 
-    ColView colOut(points_out, index);
-    colIn  = inp;
-    colOut = outp;
-    
-    ++index;
-  } // End loop through control network points
-
-  if (camera_models.size() == 1) {
-    int icam = 0;
-    vw::camera::PinholeModel * pincam
-      = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
-    VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
-
-    std::vector<vw::Vector2> pixel_observations;
-    std::vector<vw::Vector3> ground_points;
-    for (int ipt = 0; ipt < num_cnet_points; ipt++){
-      // Loop through all the ground control points only
-      if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
-        continue;
-      ground_points.push_back(cnet[ipt].position());
-
-      int num_meas = 0;
-      for (ControlPoint::const_iterator measure = cnet[ipt].begin();
-           measure != cnet[ipt].end(); measure++) {
-        
-        // TODO(oalexan1): What if there's more gcp?
-        int cam_it = measure->image_id();
-        if (cam_it != 0) 
-          vw_throw(ArgumentErr() << "Error: Expecting a single camera.\n");
-        
-        Vector2 pixel(measure->position()[0], measure->position()[1]);
-        num_meas++;
-        if (num_meas > 1)
-          vw::vw_throw(vw::ArgumentErr() << "Expecting a single camera pixel per gcp.\n");
-
-        pixel_observations.push_back(pixel);
-      }
+    int num_meas = 0;
+    for (ControlPoint::const_iterator measure = cnet[ipt].begin();
+         measure != cnet[ipt].end(); measure++) {
+      
+      int cam_it = measure->image_id();
+      if (cam_it != 0) 
+        vw_throw(ArgumentErr() << "Error: Expecting GCP for a single camera.\n");
+      
+      Vector2 pixel(measure->position()[0], measure->position()[1]);
+      num_meas++;
+      if (num_meas > 1)
+        vw::vw_throw(vw::ArgumentErr() << "Expecting a single camera pixel per gcp.\n");
+      
+      pixel_observations.push_back(pixel);
     }
-
-    // Find the camera pose with given observations and intrinsics
-    vw::camera::PinholeModel updated_cam = *pincam; // deep copy, including of distortion
-    asp::findCameraPose(ground_points, pixel_observations, updated_cam);
-    *pincam = updated_cam;
-    
-  } else {
-    // Call function to compute a 3D affine transform between the two point sets
-    vw::Matrix3x3 rotation;
-    vw::Vector3   translation;
-    double        scale;
-    vw::math::find_3D_transform(points_in, points_out, rotation, translation, scale);
-  
-    // Update the camera and point information with the new transform
-    vw_out() << "Applying transform based on GCP:\n";
-    vw_out() << "Rotation:    " << rotation    << "\n";
-    vw_out() << "Translation: " << translation << "\n";
-    vw_out() << "Scale:       " << scale       << "\n";
-    vw_out() << "This transform can be disabled with --disable-pinhole-gcp-init.\n";
-    apply_rigid_transform(rotation, translation, scale, camera_models, cnet_ptr);
   }
+
+  // Update the camera pose with given observations and intrinsics
+  asp::findCameraPose(ground_points, pixel_observations, *pincam);
+
+  return;
   
-} // End function init_pinhole_model_with_gcp
+} // End function init_camera_using_gcp
 
 // Given original cams in sfm_cams and individually scaled cameras in
 // aux_cams, get the median scale change from the first set to the second one.

@@ -660,14 +660,23 @@ bool init_pinhole_model_with_camera_positions
  std::vector<std::string> const& image_files,
  std::vector<vw::Vector3> const & estimated_camera_gcc);
 
+/// Initialize the position and orientation of a pinhole camera model using
+/// GCP. It invokes OpenCV's PnP functionality.
+void init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
+                           std::vector<asp::CameraModelPtr> & camera_models);
+  
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided control points file.
 /// This function overwrites the camera parameters in-place. It works
 /// if at least three GCP are seen in no less than two images.
 void transform_cameras_with_shared_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
-				       std::vector<asp::CameraModelPtr>
-                                       & camera_models);
+				       std::vector<asp::CameraModelPtr> & camera_models);
   
+// Given at least two images, each having at least 3 GCP that are not seen in other
+// images, find and apply a transform to the camera system based on them.
+void transform_cameras_with_indiv_image_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
+                                            std::vector<asp::CameraModelPtr> & camera_models);
+
 // Given original cams in sfm_cams and individually scaled cameras in
 // aux_cams, get the median scale change from the first set to the second one.
 // It is important to do the median, since scaling the cameras individually
@@ -684,15 +693,6 @@ void align_cameras_to_ground(std::vector< std::vector<vw::Vector3>> const& xyz,
 			     vw::Matrix3x3 & rotation, 
 			     vw::Vector3 & translation,
 			     double & scale);
-
-/// Initialize the position and orientation of each pinhole camera model using
-///  a least squares error transform to match the provided control points file.
-/// This function overwrites the camera parameters in-place. It works
-/// if at least two images have at least 3 GCP each. Each GCP need
-/// not show in multiple images.
-void transform_cameras_with_indiv_image_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
-				      std::vector<asp::CameraModelPtr> & camera_models);
-
 
 /// Take an interest point from a map projected image and convert it
 /// to the corresponding IP in the original non-map-projected image.

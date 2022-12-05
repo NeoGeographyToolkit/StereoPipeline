@@ -115,7 +115,7 @@ void findCameraPose(std::vector<vw::Vector3> const& ground_points,
   for (int row = 0; row < 3; row++)
     ctr[row] = cam_ctr[row];
 
-  // Apply transforms to camera
+  // Apply the transform to the camera
   cam.set_camera_pose(rot);
   cam.set_camera_center(ctr);
 

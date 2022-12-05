@@ -1507,7 +1507,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
         asp::transform_cameras_with_shared_gcp(opt.cnet, opt.camera_models);
             cameras_changed = true;
       } else if (opt.init_camera_using_gcp) {
-        asp::transform_cameras_with_shared_gcp(opt.cnet, opt.camera_models);
+        asp::init_camera_using_gcp(opt.cnet, opt.camera_models);
             cameras_changed = true;
       }
     }
