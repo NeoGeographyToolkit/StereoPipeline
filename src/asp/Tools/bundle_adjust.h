@@ -62,7 +62,9 @@ struct Options: public asp::BaBaseOptions {
   double forced_triangulation_distance, overlap_exponent, ip_triangulation_max_error;
   int    instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
   bool   save_intermediate_cameras, approximate_pinhole_intrinsics,
-    disable_pinhole_gcp_init, transform_cameras_using_gcp, fix_gcp_xyz, solve_intrinsics,
+    init_camera_using_gcp, disable_pinhole_gcp_init,
+    transform_cameras_with_shared_gcp, transform_cameras_using_gcp,
+    fix_gcp_xyz, solve_intrinsics,
     ip_normalize_tiles, ip_debug_images, stop_after_stats, stop_after_matching,
     skip_matching, match_first_to_last, apply_initial_transform_only, save_vwip;
   BACameraType camera_type;

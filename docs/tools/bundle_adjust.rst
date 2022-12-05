@@ -702,18 +702,28 @@ Command-line options for bundle_adjust
     be set. The "file" field is searched for strings that are found
     in the input image files to match locations to cameras.
 
---disable-pinhole-gcp-init
-    Do not try to initialize pinhole camera coordinates using provided
-    GCP coordinates. Set this if you only have one image per GCP
-    or if the pinhole initialization process is not producing good
-    results.
+--init-camera-using-gcp
+    Given an image, a pinhole camera lacking correct position and
+    orientation, and a GCP file, find the pinhole camera with given
+    intrinsics most consistent with the GCP (:numref:`imagecorners`).
+
+--transform-cameras-with-shared-gcp
+    Given at least 3 GCP, with each seen in at least 2 images,
+    find the triangulated positions based on pixels values in the GCP,
+    and apply a rotation + translation + scale transform to the entire
+    camera system so that the the triangulated points get
+    mapped to the ground coordinates in the GCP.
 
 --transform-cameras-using-gcp
-    Use GCP, even those that show up in just an image, to transform
-    cameras to ground coordinates.  Need at least two images to
-    have at least 3 GCP each. If at least three GCP each show up
-    in at least two images, the transform will happen even without
-    this option using a more robust algorithm.
+    Given a set of GCP, with at least two images having at least three
+    GCP each (but with each GCP not shared among the images),
+    transform the cameras to ground coordinates. This is not as robust
+    as ``--transform-cameras-with-shared-gcp``.
+
+--disable-pinhole-gcp-init
+    Do not try to initialize pinhole camera coordinates using provided
+    GCP coordinates. This ignored as is now the default. See also:
+    ``--init-camera-using-gcp``.
 
 --position-filter-dist <max_dist (default: -1.0)>
     If estimated camera positions are used, this option can be used

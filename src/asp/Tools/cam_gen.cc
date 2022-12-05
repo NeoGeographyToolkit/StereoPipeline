@@ -128,7 +128,8 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
 			  vw::cartography::Datum const& datum,
 			  bool verbose,
 			  boost::shared_ptr<CameraModel> & out_cam){
-  
+
+  std::cout << "--must fix here!" << std::endl;
   // Create fake points in space at given distance from this camera's
   // center and corresponding actual points on the ground.  Use 500
   // km, just some height not too far from actual satellite height.

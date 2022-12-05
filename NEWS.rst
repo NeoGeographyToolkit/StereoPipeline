@@ -83,6 +83,15 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Added the option ``--fixed-image-list`` to specify a file having a 
     list of image names whose cameras should be fixed during
     optimization.
+  * Pinhole cameras are no longer automatically reinitialized or
+    transformed based on GCP, but only refined given GCP. So, option
+    ``--disable-pinhole-gcp-init`` is the default. Use one of the
+    options ``--init-camera-using-gcp`` (:numref:`imagecorners`),
+    ``--transform-cameras-with-shared-gcp``, 
+    ``--transform-cameras-using-gcp`` (:numref:`sfm_world_coords`) for
+    ways of manipulating cameras using GCP .
+  * Bugfix in initializing pinhole cameras based on GCP for off-nadir
+    cameras. 
   * When doing multiple passes (which is the default) at each pass
     resume not only with clean matches but also with the cameras
     optimized so far, rather than going to the originals.
@@ -102,7 +111,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     default ``--heights-from-dem-robust-threshold`` be 0.5. These
     normally need tuning.
   * Added the option ``--mapproj-dem``. If specified, evaluate 
-    the disagremeent of interest point matches after mapprojecting
+    the disagreement of interest point matches after mapprojecting
     onto this DEM, per interest point match pair, per matching image
     pair, and per image. Useful at evaluating registration without
     mapprojecting the images (:numref:`ba_out_files`).
@@ -159,9 +168,9 @@ corr_eval (:numref:`corr_eval`):
 
 cam_gen (:numref:`cam_gen`):
   * Fix a bug in output camera center determination, when an input
-    camera is provided. This tool can still be fragile if having to
-    determine the output camera only based on the four image corner
-    coordinates on the ground and no input camera.
+    camera is provided.
+  * Bugfix in initializing pinhole cameras based on GCP for off-nadir
+    cameras given image corners and no prior camera. 
   * Added the options ``--cam-height`` and ``--cam-weight`` to try
     to keep the camera at a given height above ground.
   * If ``--optical-center`` is not set for pinhole cameras, use the

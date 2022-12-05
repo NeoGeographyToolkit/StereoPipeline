@@ -14,8 +14,8 @@ Reference information for this tool can be found in :numref:`camera_solve`.
 This tool can be optionally bypassed if, for example, the longitude and
 latitude of the corners of all images are known (:numref:`imagecorners`).
 
-Camera solve overview
----------------------
+Camera solving overview
+-----------------------
 
 The ``camera_solve`` tool is implemented as a Python wrapper around two
 other tools. The first of these is the the Theia software library, which
@@ -64,6 +64,9 @@ custom flag file for Theia and/or passing in settings to
 
 Example: Apollo 15 Metric Camera
 --------------------------------
+
+Preparing the inputs
+^^^^^^^^^^^^^^^^^^^^
 
 To demonstrate the ability of the Ames Stereo Pipeline to process a
 generic frame camera we use images from the Apollo 15 Metric camera. The
@@ -143,6 +146,9 @@ pass a space-separated list of files surrounded by quotes to the
 ``--calib-file`` option such as
 ``--calib-file "c1.tsai c2.tsai c3.tsai"``.
 
+Creation of cameras in an arbitrary coordinate system
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 If we do not see any obvious problems we can go ahead and run the
 ``camera_solve`` tool::
 
@@ -171,8 +177,13 @@ don't see any evidence of lens distortion error.
        out/AS15-M-1134_MED.png.final.tsai          \
        -t pinhole s_local/out  --corr-timeout 300  \
        --erode-max-size 100
+
+Examine the intersection error statistics::
+
     gdalinfo -stats s_local/out-PC.tif
-   ...
+
+The fourth band information should look like::
+
    Band 4 Block=256x256 Type=Float32, ColorInterp=Undefined
      Minimum=0.000, Maximum=56.845, Mean=0.340, StdDev=3.512
      Metadata:
@@ -184,23 +195,61 @@ don't see any evidence of lens distortion error.
 The tool ``point2mesh`` (:numref:`point2mesh`) can be
 used to obtain a visualizable mesh from the point cloud.
 
+.. _sfm_world_coords:
+
+Creation of cameras in world coordinates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 In order to generate a useful DEM, we need to move our cameras from
 local coordinates to global coordinates. The easiest way to do this
 is to obtain known ground control points (GCPs) which can be
 identified in the frame images. This will allow an accurate positioning
 of the cameras provided that the GCPs and the camera model parameters
-are accurate. To create GCPs see the instructions for the ``stereo_gui``
-tool in :numref:`bagcp`. For the Moon there are several ways to get
-DEMs and in this case we generated GCPs using ``stereo_gui`` and a
-DEM generated from LRONAC images.
+are accurate. 
 
-After running this command::
+To create GCPs see the instructions for the ``stereo_gui``
+tool in :numref:`bagcp`. Here we used that approach together with
+a DEM generated from LRONAC images.
 
-    camera_solve out_gcp/ AS15-M-0414_MED.png AS15-M-1134_MED.png \
+For GCP to be usable, they can be one of two kinds. The preferred
+option is to have at least three GCP, with each seen in at least two
+images.  Then their triangulated positions can be determined in local
+coordinates and in global (world) coordinates, and ``bundle_adjust``
+will be able to compute the transform between these coordinate
+systems, and convert the cameras to world coordinates. 
+
+The ``camera_solve`` program will automatically attempt this
+transformation. This amounts to invoking ``bundle_adjust`` with the
+option ``--transform-cameras-with-shared-gcp``.
+
+If this is not possible, then at least two of the images should have
+at least three GCP each, and they need not be shared among the
+images. For example, for each image the longitude, latitude, and
+height of each of its four corners can be known. Then, one can pass
+such a GCP file to ``camera_solve`` together with the flag::
+
+     --bundle-adjust-params "--transform-cameras-using-gcp"
+
+This may not be as robust as the earlier approach.
+
+Solving for cameras when using GCP::
+
+    camera_solve out_gcp/                           \
+      AS15-M-0414_MED.png AS15-M-1134_MED.png       \
       --datum D_MOON --calib-file metric_model.tsai \
       --gcp-file ground_control_points.gcp
 
-we end up with results that can be compared with the a DEM created from
+Check the final ``*pointmap.csv`` file (:numref:`ba_out_files`). If the
+residuals are no more than a handful pixels, and ideally less than a
+pixel, the GCP were used successfully. 
+
+Increase the value of ``--robust-threshold`` in ``bundle_adjust``
+(via ``--bundle-adjust-params`` in ``camera_solve``)
+if desired to bring down the big residuals in that file at the expense
+of increasing the smaller ones. Consider also deleting GCP corresponding
+to large residuals, as those may be inaccurate.
+
+We end up with results that can be compared with the a DEM created from
 LRONAC images. The stereo results on the Apollo 15 images leave
 something to be desired but the DEM they produced has been moved to the
 correct location. You can easily visualize the output camera positions
@@ -208,24 +257,9 @@ using the ``orbitviz`` tool with the ``--load-camera-solve`` option as
 shown below. Green lines between camera positions mean that a sufficient
 number of matching interest points were found between those two images.
 
-For GCP to be usable, they can be one of two kinds. The preferred option
-is for each of at least three GCP to show up in more than one image.
-Then their triangulated positions can be determined in local coordinates
-and in global (world) coordinates, and ``bundle_adjust`` will be able to
-compute the transform between these coordinate systems, and convert the
-cameras to world coordinates.
+Running stereo
+^^^^^^^^^^^^^^
 
-If this is not possible, then at least two of the images should have at
-least three GCP each, and they need not be shared among the images. For
-example, for each image the longitude, latitude, and height of each of
-its four corners can be known. Then, one can pass such a GCP file to
-``camera_solve`` and also with the flag::
-
-     --bundle-adjust-params "--transform-cameras-using-gcp"
-
-and it will attempt to transform the cameras to world coordinates.
-
-Next, one can run stereo.
 ::
 
     stereo AS15-M-0414_MED.png AS15-M-1134_MED.png     \
@@ -513,17 +547,29 @@ is written before the longitude).
       3  37.61  -122.35   0     1 1 1  img.tif 2560 1080   1 1 
       4  37.61  -122.39   0     1 1 1  img.tif 0    1080   1 1 
 
-Such a file can be created with ``stereo_gui`` (:numref:`creatinggcp`).
+Such a file can be created with ``stereo_gui``
+(:numref:`creatinggcp`).  Ideally it should have more digits of
+precision for longitude and latitude, and it is preferable to have
+decent height values, especially for rather oblique-looking cameras,
+steep terrain, or small camera footprint.
 
 One runs bundle adjustment with this data::
 
-    bundle_adjust -t nadirpinhole img.tif init.tsai gcp.gcp \
-      -o ba/run --datum WGS84 --inline-adjustments          \
-      --camera-weight 0 --max-iterations 0                  \
-      --robust-threshold 10
+    bundle_adjust -t nadirpinhole \
+      img.tif cam.tsai gcp.gcp    \
+      --datum WGS84               \
+      --inline-adjustments        \
+      --init-camera-using-gcp     \
+      --camera-weight 0           \
+      --max-iterations 0          \
+      --robust-threshold 10       \
+      -o ba/run
 
-which will write the desired correctly oriented camera file. Using a
-positive number of iterations will refine the camera.
+which will write the desired correctly oriented camera file as
+``ba/run-cam.tsai``. Using a positive number of iterations will refine
+the camera. This should be run for each individual camera.
+
+The datum field should be adjusted depending on the planet.
 
 It is important to look at the residual file::
 
@@ -540,13 +586,7 @@ reprojection error, which is not desirable. If however, this threshold
 is too large, it may try to optimize the camera too aggressively,
 resulting in a poorly placed camera.
 
-Sometimes it works to just get a rough camera estimate from this tool
-for each image individually, using zero iterations, as above, and then
-bundle adjust all images together with the obtained rough cameras and
-possibly also using the GCP files, this time with a positive number of
-iterations.
-
-One can also use the bundle adjustment option ``--fix-gcp-xyz`` to not
+One can use the bundle adjustment option ``--fix-gcp-xyz`` to not
 move the GCP during optimization, hence forcing the cameras to move more
 to conform to them.
 

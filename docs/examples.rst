@@ -2316,7 +2316,6 @@ bring the back to the original location.
        v[1-4].tif v[1-4].tsai              \
        -t nadirpinhole                     \
        --disable-tri-ip-filter             \
-       --disable-pinhole-gcp-init          \
        --skip-rough-homography             \
        --force-reuse-match-files           \
        --ip-inlier-factor 2.0              \
@@ -2585,8 +2584,9 @@ Here is an example for two cameras::
        --min_num_inliers_for_valid_match=10 
        --min_num_absolute_pose_inliers=10"                  
      rm -rfv $out
-     camera_solve $out --datum WGS84 --calib-file v1.tsai               \
-         --bundle-adjust-params "$ba_params v1.gcp v2.gcp" v1.tif v2.tif 
+     camera_solve $out --datum WGS84 --calib-file v1.tsai  \
+         --bundle-adjust-params "$ba_params v1.gcp v2.gcp" \
+         v1.tif v2.tif 
 
 The obtained cameras should be bundle-adjusted as done for the outputs
 of ``cam_gen``. Note that this tool is capricious and its outputs can be
@@ -2984,7 +2984,6 @@ You can now run bundle adjustment on the downsampled images::
        --camera-weight 0                       \
        --tri-weight 0.1                        \
        --disable-tri-ip-filter                 \
-       --disable-pinhole-gcp-init              \
        --skip-rough-homography                 \
        --inline-adjustments                    \
        --ip-detect-method 1                    \
@@ -3127,8 +3126,8 @@ use is::
 
      bundle_adjust for_small.tif aft_small.tif                       \
        for_small_rpc.tsai aft_small_rpc.tsai                         \
-       -o ba_rpc/run --max-iterations 200 --camera-weight 0          \
-       --disable-tri-ip-filter --disable-pinhole-gcp-init            \
+       -o ba_rpc/run --max-iterations 200                            \
+       --camera-weight 0 --disable-tri-ip-filter                     \
        --skip-rough-homography --inline-adjustments                  \
        --ip-detect-method 1 -t nadirpinhole --datum WGS84            \
        --force-reuse-match-files --reference-terrain-weight 1000     \
@@ -3290,13 +3289,14 @@ downsampling applied to the input images.
 
 ::
 
-    bundle_adjust 5001_small.tif 6001_small.tif                        \
-       bundle_5001/out-5001_small.tsai bundle_6001/out-6001_small.tsai \
-       gcp_small.gcp -t nadirpinhole -o bundle_small_new/out           \
-       --force-reuse-match-files --max-iterations 30                   \
-       --camera-weight 0 --disable-tri-ip-filter                       \
-       --disable-pinhole-gcp-init --skip-rough-homography              \
-       --inline-adjustments --ip-detect-method 1                       \
+    bundle_adjust 5001_small.tif 6001_small.tif              \
+       bundle_5001/out-5001_small.tsai                       \
+       bundle_6001/out-6001_small.tsai                       \
+       gcp_small.gcp -t nadirpinhole -o bundle_small_new/out \
+       --force-reuse-match-files --max-iterations 30         \
+       --camera-weight 0 --disable-tri-ip-filter             \
+       --skip-rough-homography                               \
+       --inline-adjustments --ip-detect-method 1             \
        --datum WGS84 --num-passes 2
 
     parallel_stereo --alignment-method homography                      \
@@ -3433,10 +3433,10 @@ and pixel size in the new camera files!
 ::
 
      stereo_gui for.tif aft.tif --create-image-pyramids-only
-     ln -s for_sub32.tif  for_small.tif
-     ln -s aft_sub32.tif  aft_small.tif
-     cp for.tsai  for_small.tsai
-     cp aft.tsai  aft_small.tsai
+     ln -s for_sub32.tif for_small.tif
+     ln -s aft_sub32.tif aft_small.tif
+     cp for.tsai for_small.tsai
+     cp aft.tsai aft_small.tsai
 
 From this point KH-9 data can be processed in a very similar manner to
 the KH-4B example. Once again, you may need to vary some of the camera
@@ -3450,13 +3450,19 @@ camera models.
 
 ::
 
-     bundle_adjust for_small.tif for_small.tsai ground_control_points.gcp -t opticalbar \
-       --inline-adjustments --num-passes 1 --camera-weight 0 --ip-detect-method 1       \
-       -o bundle_for_small/out --max-iterations 30 --fix-gcp-xyz
+     bundle_adjust for_small.tif for_small.tsai    \
+       ground_control_points.gcp -t opticalbar     \
+       --inline-adjustments --num-passes 1         \
+       --camera-weight 0 --ip-detect-method 1      \
+       -o bundle_for_small/out --max-iterations 30 \
+       --fix-gcp-xyz
 
-     bundle_adjust aft_small.tif aft_small.tsai ground_control_points.gcp -t opticalbar \
-       --inline-adjustments --num-passes 1 --camera-weight 0 --ip-detect-method 1       \
-       -o bundle_aft_small/out --max-iterations 30 --fix-gcp-xyz
+     bundle_adjust aft_small.tif aft_small.tsai    \
+       ground_control_points.gcp -t opticalbar     \
+       --inline-adjustments --num-passes 1         \
+       --camera-weight 0 --ip-detect-method 1      \
+       -o bundle_aft_small/out --max-iterations 30 \
+       --fix-gcp-xyz
 
 Now we can do a joint bundle adjustment. While in this example we
 immediately attempt to solve for intrinsics, you can get better results

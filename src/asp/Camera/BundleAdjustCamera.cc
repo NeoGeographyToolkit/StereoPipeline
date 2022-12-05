@@ -333,15 +333,75 @@ bool asp::init_pinhole_model_with_camera_positions
   return true;
 }
 
+// Given at least two images, each having at least 3 GCP that are not seen in other
+// images, find and apply a transform to the camera system based on them.
+void asp::transform_cameras_with_indiv_image_gcp
+(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
+ std::vector<asp::CameraModelPtr> & camera_models) {
+  
+  vw_out() << "Applying transform to cameras given several GCP not shared among the images.\n";
+
+  int num_cams = camera_models.size();
+
+  // Create pinhole cameras
+  std::vector<PinholeModel> pinhole_cams;
+  for (int icam = 0; icam < num_cams; icam++){
+    vw::camera::PinholeModel * pincam
+      = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
+    VW_ASSERT(pincam != NULL,
+	      vw::ArgumentErr() << "A pinhole camera expected.\n");
+    pinhole_cams.push_back(*pincam);
+  }
+  
+  // Extract from the control network each pixel for each camera together
+  // with its xyz.
+  std::vector<std::vector<Vector3>> xyz;
+  std::vector<std::vector<Vector2>> pix;
+  xyz.resize(num_cams);
+  pix.resize(num_cams);
+  const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
+
+  int ipt = - 1;
+  for (auto iter = cnet.begin(); iter != cnet.end(); iter++) {
+    ipt++;
+    
+    // Keep only gcp
+    if (cnet[ipt].type() != ControlPoint::GroundControlPoint) {
+      continue;
+    }
+        
+    for (auto measure = (*iter).begin(); measure != (*iter).end(); measure++) {
+      int cam_it = measure->image_id();
+      if (cam_it < 0 || cam_it >= num_cams) 
+	vw_throw(ArgumentErr() << "Error: cnet index out of range.\n");
+
+      Vector2 pixel( measure->position()[0],  measure->position()[1]);
+      pix[cam_it].push_back(pixel);
+      xyz[cam_it].push_back(cnet[ipt].position());
+    }
+  }  
+
+  Matrix3x3 rotation;
+  Vector3   translation;
+  double    scale;
+  asp::align_cameras_to_ground(xyz, pix, pinhole_cams, rotation, translation, scale);
+
+  // Update the camera and point information with the new transform
+  vw_out() << "Applying transform based on GCP:\n";
+  vw_out() << "Rotation:    " << rotation    << "\n";
+  vw_out() << "Translation: " << translation << "\n";
+  vw_out() << "Scale:       " << scale       << "\n";
+  apply_rigid_transform(rotation, translation, scale, camera_models, cnet_ptr);
+}
+
 /// Initialize the position and orientation of each pinhole camera model using
 /// a least squares error transform to match the provided control points file.
 /// This function overwrites the camera parameters in-place. It works
 /// if at least three GCP are seen in no less than two images.
-void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
+void asp::transform_cameras_with_shared_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
                                             std::vector<asp::CameraModelPtr> & camera_models) {
   
-  vw_out() << "Initializing camera positions from ground control points.\n";
-  vw_out()<< "Assume at least three GCP are seen in at least two images.\n";
+  vw_out() << "Applying transform to cameras given several GCP shared among the images.\n";
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
   
   // DEBUG: Print out all pinhole cameras and verify they are pinhole cameras.
@@ -462,7 +522,9 @@ void asp::init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> co
     }
 
     // Find the camera pose with given observations and intrinsics
-    asp::findCameraPose(ground_points, pixel_observations, *pincam);
+    vw::camera::PinholeModel updated_cam = *pincam; // deep copy, including of distortion
+    asp::findCameraPose(ground_points, pixel_observations, updated_cam);
+    *pincam = updated_cam;
     
   } else {
     // Call function to compute a 3D affine transform between the two point sets
@@ -663,75 +725,6 @@ void asp::align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz
   // Unpack the final vector into a rotation + translation + scale
   vector_to_transform(final_params, rotation, translation, scale);
 
-}
-
-// Initialize the position and orientation of each pinhole camera model using
-// a least squares error transform to match the provided control points file.
-// This function overwrites the camera parameters in-place. It works
-// if at least two images have at least 3 GCP each. Each GCP need
-// not show in multiple images.
-void asp::init_pinhole_model_with_mono_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
-                                           std::vector<asp::CameraModelPtr> & camera_models) {
-  
-  vw_out() << "Initializing camera positions from ground control points." << std::endl;
-  vw_out() << "Assume at least two images have each at least 3 GCP each.\n";
-
-  int num_cams = camera_models.size();
-
-  // Create pinhole cameras
-  std::vector<PinholeModel> pinhole_cams;
-  for (int icam = 0; icam < num_cams; icam++){
-    vw::camera::PinholeModel * pincam
-      = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
-    VW_ASSERT(pincam != NULL,
-	      vw::ArgumentErr() << "A pinhole camera expected.\n");
-    pinhole_cams.push_back(*pincam);
-  }
-  
-  // Extract from the control network each pixel for each camera together
-  // with its xyz.
-  std::vector<std::vector<Vector3>> xyz;
-  std::vector<std::vector<Vector2>> pix;
-  xyz.resize(num_cams);
-  pix.resize(num_cams);
-  
-  const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
-
-  int ipt = - 1;
-  for (auto iter = cnet.begin(); iter != cnet.end(); iter++) {
-
-    ipt++;
-    
-    // Keep only gcp
-    if (cnet[ipt].type() != ControlPoint::GroundControlPoint) {
-      continue;
-    }
-        
-    for ( ControlPoint::const_iterator measure = (*iter).begin();
-	  measure != (*iter).end(); ++measure ) {
-
-      int cam_it = measure->image_id();
-      if (cam_it < 0 || cam_it >= num_cams) 
-	vw_throw(ArgumentErr() << "Error: cnet index out of range.\n");
-
-      Vector2 pixel( measure->position()[0],  measure->position()[1]);
-      pix[cam_it].push_back(pixel);
-      xyz[cam_it].push_back(cnet[ipt].position());
-    }
-  }  
-
-
-  Matrix3x3 rotation;
-  Vector3   translation;
-  double    scale;
-  asp::align_cameras_to_ground(xyz, pix, pinhole_cams, rotation, translation, scale);
-
-  // Update the camera and point information with the new transform
-  vw_out() << "Applying transform based on GCP:\n";
-  vw_out() << "Rotation:    " << rotation    << "\n";
-  vw_out() << "Translation: " << translation << "\n";
-  vw_out() << "Scale:       " << scale       << "\n";
-  apply_rigid_transform(rotation, translation, scale, camera_models, cnet_ptr);
 }
 
 /// Take an interest point from a map projected image and convert it

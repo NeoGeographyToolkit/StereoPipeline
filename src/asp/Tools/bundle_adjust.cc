@@ -1498,13 +1498,16 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   //   require us to be able to adjust our camera model positions.
   //   Otherwise we could init the adjustment values.
   if (opt.gcp_files.size() > 0) {
-    if ((opt.camera_type==BaCameraType_Pinhole) && 
+    if ((opt.camera_type == BaCameraType_Pinhole) && 
         !have_est_camera_positions) {
       if (opt.transform_cameras_using_gcp) {
-        asp::init_pinhole_model_with_mono_gcp(opt.cnet, opt.camera_models);
+        asp::transform_cameras_with_indiv_image_gcp(opt.cnet, opt.camera_models);
         cameras_changed = true;
-      } else if (!opt.disable_pinhole_gcp_init) {
-        asp::init_pinhole_model_with_multi_gcp(opt.cnet, opt.camera_models);
+      } else if (opt.transform_cameras_with_shared_gcp) {
+        asp::transform_cameras_with_shared_gcp(opt.cnet, opt.camera_models);
+            cameras_changed = true;
+      } else if (opt.init_camera_using_gcp) {
+        asp::transform_cameras_with_shared_gcp(opt.cnet, opt.camera_models);
             cameras_changed = true;
       }
     }
@@ -1773,10 +1776,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in min max pairs and are applied in the order [focal length, optical center, other intrinsics] until all of the limits are used. Check the documentation to dermine how many intrinsic parameters are used for your cameras.")
     ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
      "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the inline-adjustments option.")
-    ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
-     "Do not try to initialize the positions of pinhole cameras based on input GCPs.")
+    ("init-camera-using-gcp",  po::bool_switch(&opt.init_camera_using_gcp)->default_value(false)->implicit_value(true),
+     "Given an image, a pinhole camera lacking correct position and orientation, and a GCP file, find the pinhole camera with given intrinsics most consistent with the GCP.")
+    ("transform-cameras-with-shared-gcp",  po::bool_switch(&opt.transform_cameras_with_shared_gcp)->default_value(false)->implicit_value(true),
+    "Given at least 3 GCP, with each seen in at least 2 images, "
+    "find the triangulated positions based on pixels values in the GCP, "
+    "and apply a rotation + translation + scale transform to the entire "
+    "camera system so that the triangulated points get mapped to the ground "
+     "coordinates in the GCP.")
     ("transform-cameras-using-gcp",  po::bool_switch(&opt.transform_cameras_using_gcp)->default_value(false)->implicit_value(true),
-     "Use GCP, even those that show up in just an image, to transform cameras to ground coordinates. Need at least two images to have at least 3 GCP each. If at least three GCP each show up in at least two images, the transform will happen even without this option using a more robust algorithm.")
+     "Given a set of GCP, with at least two images having at least three GCP each (but with each GCP not shared among the images), transform the cameras to ground coordinates. This is not as robust as --transform-cameras-with-shared-gcp.")
+    ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
+     "Do not try to initialize the positions of pinhole cameras based on input GCPs. This ignored as is now the default. See also: --init-camera-using-gcp.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
      "Prefix to read initial adjustments from, written by a previous invocation of this program.")
     ("initial-transform",   po::value(&opt.initial_transform_file)->default_value(""),
@@ -2443,7 +2454,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (int(opt.proj_win != BBox2(0, 0, 0, 0)) + int(!opt.proj_str.empty()) == 1)
     vw_throw(ArgumentErr() << "Must specify both or neither of --proj-win and --proj-str.\n");
-  
+
+  if (int(opt.transform_cameras_using_gcp) +
+      int(opt.transform_cameras_with_shared_gcp) +
+      int(opt.init_camera_using_gcp) > 1)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Cannot specify more than one of --transform-cameras-using-gcp, "
+                 << "transform-cameras-with-shared-gcp, init-camera-using-gcp.\n");
+
   return;
 }
 

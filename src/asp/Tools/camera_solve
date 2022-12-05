@@ -531,6 +531,10 @@ def run_bundle_adjust(options):
     cmd = ['bundle_adjust'] + options.input_images + options.theia_camera_models
     if options.gcp_path:
       cmd += [options.gcp_path]
+      if '--transform-cameras-using-gcp' not in ba_params and \
+             '--transform-cameras-with-shared-gcp' not in ba_params:
+          # Try to transform the cameas using GCP seen in at least two images
+          ba_params += ['--transform-cameras-with-shared-gcp']
     cmd += ['-o', output_prefix]
     cmd += ba_params
     asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)

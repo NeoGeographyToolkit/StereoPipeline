@@ -664,7 +664,7 @@ bool init_pinhole_model_with_camera_positions
 ///  a least squares error transform to match the provided control points file.
 /// This function overwrites the camera parameters in-place. It works
 /// if at least three GCP are seen in no less than two images.
-void init_pinhole_model_with_multi_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
+void transform_cameras_with_shared_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
 				       std::vector<asp::CameraModelPtr>
                                        & camera_models);
   
@@ -690,7 +690,7 @@ void align_cameras_to_ground(std::vector< std::vector<vw::Vector3>> const& xyz,
 /// This function overwrites the camera parameters in-place. It works
 /// if at least two images have at least 3 GCP each. Each GCP need
 /// not show in multiple images.
-void init_pinhole_model_with_mono_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
+void transform_cameras_with_indiv_image_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
 				      std::vector<asp::CameraModelPtr> & camera_models);
 
 
