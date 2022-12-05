@@ -413,7 +413,7 @@ void asp::transform_cameras_with_shared_gcp(boost::shared_ptr<ControlNetwork> co
 	      vw::ArgumentErr() << "A pinhole camera expected.\n");
   }
   
-  // Put the good good ground control points in a vector.
+  // Put the good ground control points in a vector.
   int num_cnet_points = static_cast<int>(cnet.size());
   std::vector<vw::Vector3> in_xyz, out_xyz; 
   int num_gcp      = 0;

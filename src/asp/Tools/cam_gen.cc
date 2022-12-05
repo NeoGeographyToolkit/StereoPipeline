@@ -28,12 +28,13 @@
 #include <vw/Math/LevenbergMarquardt.h>
 #include <vw/Math/Geometry.h>
 #include <vw/Stereo/StereoModel.h>
+#include <vw/Camera/OpticalBarModel.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/EigenUtils.h>
-#include <vw/Camera/OpticalBarModel.h>
+#include <asp/Camera/CameraResectioning.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 
@@ -129,13 +130,13 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
 			  bool verbose,
 			  boost::shared_ptr<CameraModel> & out_cam){
 
-  std::cout << "--must fix here!" << std::endl;
   // Create fake points in space at given distance from this camera's
   // center and corresponding actual points on the ground.  Use 500
   // km, just some height not too far from actual satellite height.
   double ht = 500000.0; 
   int num_pts = pixel_values.size()/2;
   vw::Matrix<double> in, out;
+  std::vector<vw::Vector2>  pixel_vec;
   in.set_size(3, num_pts);
   out.set_size(3, num_pts);
   for (int col = 0; col < in.cols(); col++) {
@@ -143,8 +144,9 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
       // We know the camera center. Use that.
       ht = norm_2(xyz_vec[col] - input_camera_center);
     }
-    Vector3 a = out_cam->camera_center(Vector2(0, 0)) +
-      ht*out_cam->pixel_to_vector(Vector2(pixel_values[2*col], pixel_values[2*col+1]));
+    Vector2 pix = Vector2(pixel_values[2*col], pixel_values[2*col+1]);
+    Vector3 a = out_cam->camera_center(Vector2(0, 0)) + ht * out_cam->pixel_to_vector(pix);
+    pixel_vec.push_back(pix);
     for (int row = 0; row < in.rows(); row++) {
       in(row, col)  = a[row];
       out(row, col) = xyz_vec[col][row];
@@ -156,11 +158,29 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
   Vector3 translation;
   double scale;
   find_3D_transform(in, out, rotation, translation, scale);
-  if (camera_type == "opticalbar")
+  if (camera_type == "opticalbar") {
     ((vw::camera::OpticalBarModel*)out_cam.get())->apply_transform(rotation,
 								   translation, scale);
-  else{
-    ((PinholeModel*)out_cam.get())->apply_transform(rotation, translation, scale);
+  } else {
+
+    if (input_camera_center != Vector3(0, 0, 0)) {
+      ((PinholeModel*)out_cam.get())->apply_transform(rotation, translation, scale);
+    } else {
+      // When we don't know the camera center, the logic based on fake points
+      // can give junk results. Use instead the state-of-the-art OpenCV solver.
+      // TODO(oalexan1): Need to consider using this solution also for OpticalBar
+      // and even when we know the camera center.
+      try {
+        asp::findCameraPose(xyz_vec, pixel_vec, *(PinholeModel*)out_cam.get());
+      } catch(std::exception const& e) {
+        vw_out() << "Failed to find the camera pose using OpenCV. Falling back "
+                  << "to ASP's internal approach. This is not as robust. "
+                  << "Check your inputs and validate the produced camera.\n";
+        // Fall back to previous logic
+        ((PinholeModel*)out_cam.get())->apply_transform(rotation, translation, scale);
+      }
+    }
+    
     if (parse_ecef) {
       // Overwrite the solved camera center with what is found from the
       // frame index file.
