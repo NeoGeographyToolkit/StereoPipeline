@@ -76,7 +76,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     points close to their initial values. This looks more promising
     than other weighing used so far at preventing the cameras from
     moving when optimizing them. This assumes input cameras are
-    not grossly inaccurate.
+    not grossly inaccurate. This adds a robust cost function 
+    with the threshold given by ``--tri-robust-threshold``.
   * Added the options ``--image-list``, ``--camera-list``, 
     ``--mapprojected-data-list``, for when the inputs are too many to
     specify on the command line.
@@ -89,7 +90,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     options ``--init-camera-using-gcp`` (:numref:`imagecorners`),
     ``--transform-cameras-with-shared-gcp``, 
     ``--transform-cameras-using-gcp`` (:numref:`sfm_world_coords`) for
-    ways of manipulating cameras using GCP .
+    ways of manipulating cameras using GCP.
   * Bugfix in initializing pinhole cameras based on GCP for off-nadir
     cameras. 
   * When doing multiple passes (which is the default) at each pass
@@ -125,6 +126,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     ``--input-adjustments-prefix``, then apply them to existing .tsai
     files via ``--inline-adjustments``. Until now one could do either
     one or the other. Also works with ``--initial-transform``.
+  * Added a section describing how bundle adjustment is implemented
+    (:numref:`how_ba_works`).
 
 point2dem (:numref:`point2dem`):
   * Added the Tukey outlier removal method option applied to

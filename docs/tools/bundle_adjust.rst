@@ -10,8 +10,8 @@ some advanced usage, including solving for intrinsics, can be found in
 number of images, consider using ``parallel_bundle_adjust``
 (:numref:`parallel_bundle_adjust`).
 
-This tool solves a least squares problem using Google's *Ceres Solver*
-(http://ceres-solver.org/).
+This tool solves a least squares problem (:numref:`how_ba_works`). It
+uses Google's `Ceres Solver <http://ceres-solver.org/>`_.
 
 Usage::
 
@@ -90,6 +90,39 @@ The match files created by ``bundle_adjust`` can be used later by
 other ``bundle_adjust`` or ``parallel_stereo`` invocations, with the
 options ``--match-files-prefix`` and ``--clean-match-files-prefix``.
 
+.. _how_ba_works:
+
+How bundle adjustment works
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Features are matched across images. Rays are cast though matching
+features using the cameras, and triangulation happens, creating
+points on the ground. More than two rays can meet at one triangulated
+point, if a feature was successfully identified in more than two
+images. The triangulated point is projected back in the cameras. The
+sum of squares of differences (also called residuals) between the
+pixel coordinates of the features and the locations where the
+projections in the cameras occur is minimized. To not let outliers
+dominate, a robust "loss" function is applied to each error term to
+attenuate the residuals if they are too big. 
+See the `Google CERES <http://ceres-solver.org/nnls_modeling.html>`_
+documentation on robust cost functions.
+
+The option ``--cost-function`` controls the type of loss function, and
+``--robust-threshold`` option is used to decide at which value of the
+residuals the attenuation starts to work. The option
+``--min-triangulation-angle`` is used to eliminate rays which are too
+close to being parallel, such rays make the problem less
+well-behaved. The option ``--remove-outliers-params`` is used to
+filter outliers if more than one optimization pass is used. See
+:numref:`ba_options` for more options. See :numref:`bundle_adjustment`
+for a longer explanation.
+
+The variables of optimization are the camera positions and orientations,
+and the triangulated points on the ground. The latter can be constrained
+via ``--tri-weight`` or ``--heights-from-dem``. Ground control points
+can be used to incorporate measurements as part of the constraints.
+
 .. _bagcp:
 
 Ground control points
@@ -112,7 +145,7 @@ control point per line. Each line must have the following fields:
 -  longitude (in degrees)
 
 -  height above datum (in meters), with the datum itself specified
-   separately
+   separately, via ``--datum``
 
 -  :math:`x, y, z` standard deviations (three positive floating point
    numbers, smaller values suggest more reliable measurements)
@@ -162,7 +195,8 @@ above. No robustified bound is applied to these error terms (see
 below). 
 
 Note that the cost function normally contains sums of squares of
-pixel differences, while these terms are dimensionless, if the
+pixel differences (:numref:`how_ba_works`), 
+while these terms are dimensionless, if the
 numerators and denominators are assumed to be in meters. Care should
 be taken that these terms not be allowed to dominate the cost function
 at the expense of other terms.
@@ -438,8 +472,13 @@ Command-line options for bundle_adjust
     large value may prevent convergence. It is suggested to use 
     here 0.1 to 0.5 divided by image gsd. Does not apply to GCP or
     points constrained by a DEM. This adds a robust cost function 
-    with the threshold given by ``--robust-threshold``. Set
+    with the threshold given by ``--tri-robust-threshold``. Set
     ``--camera-weight`` to 0 when using this. 
+
+--tri-robust-threshold <double (default: 0.1)>
+    Use this robust threshold to attenuate large
+    differences between initial and optimized triangulation points,
+    after multiplying them by ``--tri-weight``.
 
 --rotation-weight <double (default: 0.0)>
     A higher weight will penalize more rotation deviations from the
@@ -625,7 +664,10 @@ Command-line options for bundle_adjust
     If the cameras have already been bundle-adjusted and aligned
     to a known high-quality DEM, in the triangulated xyz points
     replace the heights with the ones from this DEM, and fix those
-    points unless ``--heights-from-dem-weight`` is positive.
+    points unless ``--heights-from-dem-weight`` is positive. It
+    is strongly suggested to pick positive and small values of
+    ``--heights-from-dem-weight`` and
+    ``--heights-from-dem-robust-threshold`` with this option.
 
 --heights-from-dem-weight <double (default: 1.0)>
     How much weight to give to keep the triangulated points close

@@ -353,9 +353,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "value will help ensure the cameras do not move too far, but a "
      "large value may prevent convergence. Does not apply to GCP or "
      "points constrained by a DEM. This adds a robust cost function  "
-     "with the threshold given by --robust-threshold. "
+     "with the threshold given by --tri-robust-threshold. "
      "The suggested value is 0.1 to 0.5 divided by the image ground "
      "sample distance.")
+    ("tri-robust-threshold",
+     po::value(&opt.tri_robust_threshold)->default_value(0.1),
+     "Use this robust threshold to attenuate large differences "
+     "between initial and optimized triangulation points, after multiplying "
+     "them by --tri-weight.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
      "If the cameras have already been bundle-adjusted and aligned "
      "to a known DEM, in the triangulated points obtained from "
@@ -479,6 +484,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.tri_weight < 0.0) 
     vw_throw(ArgumentErr() << "The value of --tri-weight must be non-negative.\n");
 
+  if (opt.robust_threshold <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --robust-threshold must be positive.\n");
+
+  if (opt.tri_robust_threshold <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --tri-robust-threshold must be positive.\n");
+  
   if (opt.heights_from_dem_weight <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --heights-from-dem-weight must be positive.\n");
   
@@ -1243,7 +1254,7 @@ void addTriConstraint
     vw::Vector3 observation(tri_point[0], tri_point[1], tri_point[2]);
 
     ceres::CostFunction* cost_function = weightedXyzError::Create(observation, opt.tri_weight);
-    ceres::LossFunction* loss_function = new ceres::CauchyLoss(opt.robust_threshold);
+    ceres::LossFunction* loss_function = new ceres::CauchyLoss(opt.tri_robust_threshold);
     problem.AddResidualBlock(cost_function, loss_function, tri_point);
     
     for (int c = 0; c < NUM_XYZ_PARAMS; c++)

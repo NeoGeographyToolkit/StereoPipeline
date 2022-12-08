@@ -801,7 +801,7 @@ int add_to_outliers(ControlNetwork & cnet,
     y_vals.push_back(point[1]);
     z_vals.push_back(point[2]);
   }
-  vw::BBox3  estim_bdbox;
+  vw::BBox3 estim_bdbox;
   asp::estimate_inliers_bbox(pct_factor, pct_factor, pct_factor,
                              outlier_factor,
                              x_vals, y_vals, z_vals,  
@@ -1284,7 +1284,7 @@ int do_ba_ceres_one_pass(Options             & opt,
       Vector3 xyz_sigma(s, s, s);
 
       ceres::CostFunction* cost_function = XYZError::Create(observation, xyz_sigma);
-      ceres::LossFunction* loss_function = get_loss_function(opt, opt.robust_threshold);
+      ceres::LossFunction* loss_function = get_loss_function(opt, opt.tri_robust_threshold);
       problem.AddResidualBlock(cost_function, loss_function, point);
 
       num_tri_residuals++;
@@ -1916,10 +1916,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The weight to give to the constraint that optimized triangulated "
      "points stay close to original triangulated points. A positive value will help "
      "ensure the cameras do not move too far, but a large value may prevent convergence. "
-     "It is suggested to use here 0.1 to 0.5 divided by image gsd. "
-     "Does not apply to GCP or points constrained by a DEM. This adds a robust cost function "
-     "with the threshold given by --robust-threshold. Set --camera-weight to 0 "
-     "when using this.")
+     "It is suggested to use here 0.1 to 0.5 divided by image gsd. Use it together with "
+     "--tri-robust-threshold. Does not apply to GCP or points constrained by a DEM. "
+     "Set --camera-weight to 0 when using this.")
+    ("tri-robust-threshold",
+     po::value(&opt.tri_robust_threshold)->default_value(0.1),
+     "Use this robust threshold to attenuate large differences "
+     "between initial and optimized triangulation points, after multiplying them by --tri-weight.")
     ("overlap-exponent",     po::value(&opt.overlap_exponent)->default_value(0.0),
      "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
     ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
@@ -2275,6 +2278,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   }
 
+  if (opt.robust_threshold <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --robust-threshold must be positive.\n");
+
+  if (opt.tri_robust_threshold <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --tri-robust-threshold must be positive.\n");
+
   if ((!opt.heights_from_dem.empty() || !opt.ref_dem.empty()) && opt.fix_gcp_xyz)
     vw_throw(ArgumentErr()
              << "The option --fix-gcp-xyz is not compatible with a DEM constraint.\n");
@@ -2283,11 +2292,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Cannot specify more than one of: --heights-from-dem "
              << "and --reference-dem.\n");
 
-  if (opt.heights_from_dem_weight <= 0.0) 
-    vw_throw(ArgumentErr() << "The value of --heights-from-dem-weight must be positive.\n");
+  if (opt.heights_from_dem_weight < 0.0) 
+    vw_throw(ArgumentErr() << "The value of --heights-from-dem-weight must be non-negative.\n");
   
-  if (opt.heights_from_dem_robust_threshold <= 0.0) 
-    vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be positive.\n");
+  if (opt.heights_from_dem_robust_threshold < 0.0) 
+    vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be non-negative.\n");
 
   if (opt.ref_dem_weight <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --reference-dem-weight must be positive.\n");

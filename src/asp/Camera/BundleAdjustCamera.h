@@ -62,7 +62,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
   double ref_dem_weight, ref_dem_robust_threshold, heights_from_dem_weight,
     heights_from_dem_robust_threshold, camera_weight, rotation_weight, translation_weight,
-    tri_weight;
+    tri_weight, tri_robust_threshold;
   vw::Vector<double, 4> remove_outliers_params;
   
   std::vector<std::string> image_files, camera_files;

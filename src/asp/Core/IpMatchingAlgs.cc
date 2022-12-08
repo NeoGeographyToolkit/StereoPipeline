@@ -163,7 +163,10 @@ std::string match_filename(std::string const& clean_match_files_prefix,
   std::string curr_prefix = asp::match_file_prefix(clean_match_files_prefix,
                                               match_files_prefix,  
                                               out_prefix);
-  
+
+  if (clean_match_files_prefix != "")
+    return vw::ip::clean_match_filename(curr_prefix, image1_path, image2_path);
+
   return vw::ip::match_filename(curr_prefix, image1_path, image2_path);
 }
 

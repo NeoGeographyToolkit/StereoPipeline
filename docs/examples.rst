@@ -2015,7 +2015,12 @@ SkySat is a constellation of sub-meter resolution Earth observation
 satellites owned by *Planet*. There are two type of SkySat
 products, *Stereo* and *Video*, with each made up of
 sequences of overlapping images. Their processing is described in
-:numref:`skysat_stereo` and :numref:`skysat_video`.
+:numref:`skysat_stereo` and :numref:`skysat_video`, respectively.
+
+SkySat images are challenging to process with ASP because they come in
+a very long sequence, with small footprints, and high focal length. It
+requires a lot of care to determine and refine the camera positions
+and orientations. 
 
 A very informative paper on processing SkySat data with ASP is
 :cite:`bhushan2021automated`, and their workflow is `publicly
@@ -2044,36 +2049,36 @@ their poses, then running bundle adjustment (:numref:`bundle_adjust`)
 to refine the poses, followed by pairwise stereo and mosaicking of
 DEMs.
 
-A possible workflow is as follows. (Compare this with the processing of
-Video data in :numref:`skysat_video`.)
-
-It may be convenient to make symbolic links from the image names to
-something shorter, for example, as::
-
-    cd img
-    ln -s 1259344359.55622339_sc00104_c2_PAN_i0000000320.tif n1000.tif
-
-for Nadir-looking cameras, and similarly for Forward or Aft-looking
-cameras, if available, and their associated RPC metadata files.  
+A possible workflow is as follows. (Compare this with the processing
+of Video data in :numref:`skysat_video`. This section is newer, and if
+in doubt, use the approach here.)
 
 Pinhole cameras can be created with ``cam_gen``: (:numref:`cam_gen`)::
 
-    pref=img/n1000
-    cam_gen ${pref}.tif              \
-        --input-camera ${pref}.tif   \
-        --focal-length 553846.153846 \
-        --optical-center 1280 540    \
-        --pixel-pitch 1.0            \
-        --reference-dem ref.tif      \
-        --height-above-datum 4000    \
-        --refine-camera              \
-        --gcp-std 1                  \
-        --gcp-file ${pref}.gcp       \
+    pref=1259344359.55622339_sc00104_c2_PAN_i0000000320
+    cam_gen ${pref}.tif               \
+        --input-camera ${pref}.tif    \
+        --focal-length 553846.153846  \
+        --optical-center 1280 540     \
+        --pixel-pitch 1.0             \
+        --reference-dem ref.tif       \
+        --height-above-datum 4000     \
+        --refine-camera               \
+        --frame-index frame_index.csv \
+        --parse-ecef                  \
+        --cam-weight 10               \
+        --gcp-std 1                   \
+        --gcp-file ${pref}.gcp        \
         -o ${pref}.tsai
 
 It is very important to examine if the data is of type L1A or L1B. The
 value of ``--pixel-pitch`` should be 0.8 in the L1B products, but 1.0
 for L1A.
+
+Above, we read the ECEF camera positions from the ``frame_index.csv``
+file provided by Planet. These positions are more accurate than what
+``cam_gen`` can get on its own based on the RPC camera, so this
+approach is preferred.
 
 The reference DEM ``ref.tif`` is a Copernicus 30 m DEM
 (:numref:`initial_terrain`). Ensure the DEM is relative to WGS84 and
@@ -2084,30 +2089,50 @@ use of existing RPC cameras to accurately find the pinhole camera
 poses. The option ``--height-above-datum`` should not be necessary if
 the DEM footprint covers fully the area of interest.
 
-For bundle adjustment (:numref:`parallel_bundle_adjust`), it may be
-preferable to have the lists of images and pinhole cameras stored in
-files, as otherwise they may be too many to individually pass on the
-command line.
+For the next steps, it may be convenient to make symbolic links from
+the image names and cameras to something shorter (once relevant
+metatadata that needs the original names is parsed from
+``frame_index.csv``). For example, if all the images and cameras just
+produced are in a directory called ``img``, one can do::
+
+    cd img
+    ln -s ${pref}.tif n1000.tif
+
+for the first Nadir-looking image, and similarly for Forward and
+Aft-looking images and cameras, if available, and their associated RPC
+metadata files.
+
+For bundle adjustment it may be preferable to have the lists of images
+and pinhole cameras stored in files, as otherwise they may be too many
+to individually pass on the command line. 
 
 ::
 
     ls img/*.tif > images.txt
     ls img/*.tsai > cameras.txt
-    nodesList=machine_names.txt
 
-    parallel_bundle_adjust                  \
-    --inline-adjustments                    \
-    --num-iterations 100                    \
-    --image-list images.txt                 \
-    --camera-list cameras.txt               \
-    --tri-weight 0.1                        \
-    --camera-weight 0                       \
-    --auto-overlap-params "ref.tif 15"      \
-    --min-matches 5                         \
-    --remove-outliers-params '75.0 3.0 5 5' \
-    --min-triangulation-angle 15.0          \
-    --max-pairwise-matches 200              \
-    --nodes-list $nodesList                 \
+Then run ``parallel_bundle_adjust``
+(:numref:`parallel_bundle_adjust`), rather than ``bundle_adjust``, as
+there are very many pairs of images to match.
+
+::
+
+    nodesList=machine_names.txt
+    parallel_bundle_adjust                    \
+    --inline-adjustments                      \
+    --num-iterations 100                      \
+    --image-list images.txt                   \
+    --camera-list cameras.txt                 \
+    --tri-weight 0.1                          \
+    --tri-robust-threshold 0.1                \
+    --translation-weight 0.1                  \
+    --camera-weight 0                         \
+    --auto-overlap-params "ref.tif 15"        \
+    --min-matches 5                           \
+    --remove-outliers-params '75.0 3.0 20 20' \
+    --min-triangulation-angle 15.0            \
+    --max-pairwise-matches 200                \
+    --nodes-list $nodesList                   \
     -o ba/run
 
 See :numref:`pbs_slurm` for more details on running ASP tools on multiple
@@ -2116,8 +2141,12 @@ machines.
 We used the the ``--tri-weight`` option (:numref:`bundle_adjust`) to
 prevent the cameras from moving too much, with a value of 0.1 (a lower
 weight value will constrain less, and the weight should be inversely
-proportional to the ground sample distance in meters).
-
+proportional to the ground sample distance in meters). The value of
+``--tri-robust-threshold`` (0.1) is intentionally set to be less than
+the one used for ``--robust-threshold`` (0.5) to ensure pixel
+reprojection errors are always given a higher priority than
+triangulation errors.
+ 
 The option ``--auto-overlap-params`` automatically determines which
 image pairs overlap. We used ``--max-pairwise-matches 200`` as
 otherwise too many interest point matches were found.
@@ -2125,8 +2154,8 @@ otherwise too many interest point matches were found.
 The option ``--min-triangulation-angle 15.0`` filtered out interest
 point matches with a convergence angle less than this. This is very
 important for creating a reliable sparse set of triangulated points
-based on interest point matches (:numref:`ba_out_files`). This one
-can be used to compute the alignment transform to the reference terrain::
+based on interest point matches (:numref:`ba_out_files`). This one can
+be used to compute the alignment transform to the reference terrain::
 
     pc_align --max-displacement 200                 \
       --csv-format 1:lon,2:lat,3:height_above_datum \
@@ -2180,7 +2209,13 @@ with it. That is due to the following factors:
    cameras.
 
 Below a recipe for how to deal with this data is described, together
-with things to watch for and advice when things don't work.
+with things to watch for and advice when things don't work. 
+
+See also how the Stereo product was processed
+(:numref:`skysat_stereo`).  That section is newer, and that product
+was explored in more detail. Stereo products are better-behaved than
+Video products, so it is suggested to work with Stereo data, if possible, 
+or at least cross-reference with that section the logic below.
 
 The input data
 ~~~~~~~~~~~~~~
@@ -2983,6 +3018,7 @@ You can now run bundle adjustment on the downsampled images::
        --max-iterations 100                    \
        --camera-weight 0                       \
        --tri-weight 0.1                        \
+       --tri-robust-threshold 0.1              \
        --disable-tri-ip-filter                 \
        --skip-rough-homography                 \
        --inline-adjustments                    \

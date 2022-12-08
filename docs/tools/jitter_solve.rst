@@ -177,6 +177,7 @@ Bundle adjustment is run first::
       --ip-per-image 20000                      \
       --max-pairwise-matches 10000              \
       --tri-weight 0.05                         \
+      --tri-robust-threshold 0.1                \
       --camera-weight 0                         \
       --remove-outliers-params '75.0 3.0 20 20' \
       img/J03_045820_1915_XN_11N210W.cal.cub    \
@@ -427,7 +428,8 @@ the cameras::
     bundle_adjust                               \
       -t dg                                     \
       --ip-per-image 10000                      \
-      --tri-weight 0.5                          \
+      --tri-weight 0.1                          \
+      --tri-robust-threshold 0.1                \
       --camera-weight 0                         \
       --remove-outliers-params '75.0 3.0 20 20' \
       1.tif 2.tif                               \
@@ -542,7 +544,8 @@ Solve for jitter::
       --max-pairwise-matches 1000000       \
       --max-initial-reprojection-error 10  \
       --robust-threshold 0.2               \
-      --tri-weight 0.5                     \
+      --tri-weight 0.1                     \
+      --tri-robust-threshold 0.1           \
       --num-lines-per-position    50       \
       --num-lines-per-orientation 50       \
       --num-anchor-points 40000            \
@@ -731,9 +734,14 @@ Command-line options for jitter_solve
     value will help ensure the cameras do not move too far, but a
     large value may prevent convergence. Does not apply to GCP or
     points constrained by a DEM. This adds a robust cost function 
-    with the threshold given by ``--robust-threshold``. 
+    with the threshold given by ``--tri-robust-threshold``. 
     The suggested value is 0.1 to 0.5 divided by the image ground
     sample distance.
+
+--tri-robust-threshold <double (default: 0.1)>
+    Use this robust threshold to attenuate large
+    differences between initial and optimized triangulation points,
+    after multiplying them by ``--tri-weight``.
 
 --heights-from-dem <string>
     If the cameras have already been bundle-adjusted and aligned
