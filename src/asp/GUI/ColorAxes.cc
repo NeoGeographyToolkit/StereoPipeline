@@ -304,6 +304,10 @@ ColorAxes::ColorAxes(QWidget *parent, imageData & image):
   // next to the plots rather than leaving a large gap
   
   setAxisScale(QwtPlot::yRight, zInterval.minValue(), zInterval.maxValue());
+
+  // Make the y axis go down as we are plotting images
+  setAxisScale(QwtPlot::yLeft, m_image.img.cols(), 0);
+  
   enableAxis(QwtPlot::yRight);
   setAxisAutoScale(QwtPlot::yRight, true);
 

@@ -2055,7 +2055,7 @@ in doubt, use the approach here.)
 
 Pinhole cameras can be created with ``cam_gen``: (:numref:`cam_gen`)::
 
-    pref=1259344359.55622339_sc00104_c2_PAN_i0000000320
+    pref=img/1259344359.55622339_sc00104_c2_PAN_i0000000320
     cam_gen ${pref}.tif               \
         --input-camera ${pref}.tif    \
         --focal-length 553846.153846  \
@@ -2120,7 +2120,7 @@ there are very many pairs of images to match.
     nodesList=machine_names.txt
     parallel_bundle_adjust                    \
     --inline-adjustments                      \
-    --num-iterations 100                      \
+    --num-iterations 200                      \
     --image-list images.txt                   \
     --camera-list cameras.txt                 \
     --tri-weight 0.1                          \
