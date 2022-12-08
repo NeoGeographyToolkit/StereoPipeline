@@ -196,7 +196,7 @@ datum) of its corners (or of some other pixels in the image), the
 orientation, and hence a complete pinhole camera. See
 :numref:`imagecorners` for more details.
 
-If desired to use GCP to applly a tranform to a given
+If desired to use GCP to apply a transform to a given
 self-consistent camera set, see :numref:`sfm_world_coords`.
 
 .. _ba_out_files:
@@ -278,14 +278,16 @@ are saved to::
 
     {output-prefix}-convergence_angles.txt
 
+.. _ba_mapproj_dem:
+
 Registration errors on the ground
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the option ``--mapproj-dem`` (with a DEM file as a value) is
-specified, each pair of interest point matches (after outlier removal)
-will be projected onto this DEM, and the midpoint location and
-distance between these points will be found. This data will be saved
-to::
+specified, each pair of interest point matches (after bundle
+adjustment and outlier removal) will be projected onto this DEM, and
+the midpoint location and distance between these points will be
+found. This data will be saved to::
 
 
     {output-prefix}-mapproj_match_offsets.txt
@@ -644,7 +646,8 @@ Command-line options for bundle_adjust
     If specified, mapproject every pair of matched interest points
     onto this DEM and compute their distance, then percentiles of such
     distances for each image pair and for each image vs the
-    rest. Measured in meters.
+    rest. This is done after bundle adjustment and outlier removal.
+    Measured in meters. See :numref:`ba_mapproj_dem` for more details.
 
 --reference-dem <string>
     If specified, constrain every ground point where rays from

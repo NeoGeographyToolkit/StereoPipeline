@@ -1831,7 +1831,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("mapproj-dem", po::value(&opt.mapproj_dem)->default_value(""),
      "If specified, mapproject every pair of matched interest points onto this DEM and compute "
      "their distance, then percentiles of such distances for each image pair and "
-     "for each image vs the rest. Measured in meters.")
+     "for each image vs the rest. "
+     "This is done after bundle adjustment and outlier removal. "
+     "Measured in meters.")
     ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
      "If specified, constrain every ground point where rays from matching pixels intersect "
      "to be not too far from the average of intersections of those rays with this DEM.")
