@@ -412,8 +412,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     std::string beg1 = "POLYGON";
     std::string beg2 = "((";
     std::string end = "))";
-    while ( getline(file, line, '\n') ) {
-      if (line.find(image_base) == 0) {
+    while (getline(file, line, '\n')) {
+      if (line.find(image_base) != std::string::npos) {
         // Find POLYGON first.
         int beg_pos = line.find(beg1);
         if (beg_pos == std::string::npos)
