@@ -111,12 +111,12 @@ documentation on robust cost functions.
 The option ``--cost-function`` controls the type of loss function, and
 ``--robust-threshold`` option is used to decide at which value of the
 residuals the attenuation starts to work. The option
-``--min-triangulation-angle`` is used to eliminate rays which are too
-close to being parallel, such rays make the problem less
-well-behaved. The option ``--remove-outliers-params`` is used to
-filter outliers if more than one optimization pass is used. See
-:numref:`ba_options` for more options. See :numref:`bundle_adjustment`
-for a longer explanation.
+``--min-triangulation-angle`` is used to eliminate triangulated points
+for which all the rays converging to it are too close to being
+parallel. Such rays make the problem less well-behaved. The option
+``--remove-outliers-params`` is used to filter outliers if more than
+one optimization pass is used. See :numref:`ba_options` for more
+options. See :numref:`bundle_adjustment` for a longer explanation.
 
 The variables of optimization are the camera positions and orientations,
 and the triangulated points on the ground. The latter can be constrained
@@ -722,9 +722,9 @@ Command-line options for bundle_adjust
     files, if those files contain Easting and Northing fields.
 
 --min-triangulation-angle <degrees (default: 0.1)>
-    The minimum angle, in degrees, at which rays must meet at a
-    triangulated point to accept this point as valid. It must
-    be a positive value.
+    A triangulated point will be accepted as valid only if at
+    least two of the rays which converge at it have a triangulation
+    angle of at least this (measured in degrees). 
 
 --ip-triangulation-max-error <float>
     When matching IP, filter out any pairs with a triangulation

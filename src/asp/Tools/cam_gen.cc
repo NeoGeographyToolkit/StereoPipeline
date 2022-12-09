@@ -55,16 +55,15 @@ using namespace vw::cartography;
 // Solve for best fitting camera that projects given xyz locations at
 // given pixels. If cam_weight > 0, try to constrain the camera height
 // above datum at the value of cam_height.
-// TODO: The logic with the camera height did not work. Wipe it.
-// Use the original functions in VW and move some of the newer
-// code from here to there.
+// If camera center weight is given, use that to constrain the
+// camera center, not just its height.
 template <class CAM>
-class CameraSolveLMA_Ht: public vw::math::LeastSquaresModelBase<CameraSolveLMA_Ht<CAM> > {
+class CameraSolveLMA_Ht: public vw::math::LeastSquaresModelBase<CameraSolveLMA_Ht<CAM>> {
   std::vector<vw::Vector3> const& m_xyz;
   CAM m_camera_model;
-  double m_cam_height, m_cam_weight;
+  double m_cam_height, m_cam_weight, m_cam_ctr_weight;
   vw::cartography::Datum m_datum;
-  mutable size_t m_iter_count;
+  Vector3 m_input_cam_ctr;
   
 public:
 
@@ -74,13 +73,13 @@ public:
 
   /// Instantiate the solver with a set of xyz to pixel pairs and a pinhole model
   CameraSolveLMA_Ht(std::vector<vw::Vector3> const& xyz,
-		  CAM const& camera_model,
-		  double cam_height, double cam_weight,
-		  vw::cartography::Datum const& datum):
+                    CAM const& camera_model,
+                    double cam_height, double cam_weight, double cam_ctr_weight,
+                    vw::cartography::Datum const& datum):
     m_xyz(xyz),
-    m_camera_model(camera_model), m_iter_count(0),
-    m_cam_height(cam_height), m_cam_weight(cam_weight),
-    m_datum(datum) {}
+    m_camera_model(camera_model), 
+    m_cam_height(cam_height), m_cam_weight(cam_weight), m_cam_ctr_weight(cam_ctr_weight),
+    m_datum(datum), m_input_cam_ctr(m_camera_model.camera_center(vw::Vector2())) {}
 
   /// Given the camera, project xyz into it
   inline result_type operator()(domain_type const& C) const {
@@ -91,10 +90,11 @@ public:
 
     int xyz_len = m_xyz.size();
     size_t result_size = xyz_len * 2;
-    if (m_cam_weight > 0) {
+    if (m_cam_weight > 0)
       result_size += 1;
-    }
-
+    else if (m_cam_ctr_weight > 0)
+      result_size += 3; // penalize deviation from original camera center
+     
     // See where the xyz coordinates project into the camera.
     result_type result;
     result.set_size(result_size);
@@ -104,14 +104,17 @@ public:
       result[2*i+1] = pixel[1];
     }
 
-    // Try to make the camera stay at given height
     if (m_cam_weight > 0) {
+      // Try to make the camera stay at given height
       Vector3 cam_ctr = subvector(C, 0, 3);
       Vector3 llh = m_datum.cartesian_to_geodetic(cam_ctr);
       result[2*xyz_len] = m_cam_weight*(llh[2] - m_cam_height);
+    } else if (m_cam_ctr_weight > 0) {
+      // Try to make the camera stay close to given center
+      Vector3 cam_ctr = subvector(C, 0, 3);
+      for (int it = 0; it < 3; it++) 
+        result[2*xyz_len + it] = m_cam_ctr_weight*(m_input_cam_ctr[it] - cam_ctr[it]);
     }
-    
-    ++m_iter_count;
     
     return result;
   }
@@ -125,7 +128,7 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
 			  bool refine_camera, 
 			  std::vector<Vector3> const& xyz_vec,
 			  std::vector<double> const& pixel_values,
-			  double cam_height, double cam_weight,
+			  double cam_height, double cam_weight, double cam_ctr_weight,
 			  vw::cartography::Datum const& datum,
 			  bool verbose,
 			  boost::shared_ptr<CameraModel> & out_cam){
@@ -201,6 +204,11 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
 		<< std::endl;
     }
   }
+
+  std::cout.precision(17);
+  Vector3 xyz0 = out_cam.get()->camera_center(vw::Vector2());
+
+  std::cout << "--unrefined camera center " << xyz0 << std::endl;
   
   // Solve a little optimization problem to make the points on the ground project
   // as much as possible exactly into the image corners.
@@ -208,18 +216,21 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
     Vector<double> out_vec; // must copy to this structure
     int residual_len = pixel_values.size();
 
-    // If we enforce the camera height, add another residual
     if (cam_weight > 0.0) 
-      residual_len += 1;
-
+      residual_len += 1; // for camera height residual
+   else if (cam_ctr_weight > 0)
+     residual_len += 3; // for camera center residual
+ 
     // Copy the image pixels
     out_vec.set_size(residual_len);
     for (size_t corner_it = 0; corner_it < pixel_values.size(); corner_it++) 
       out_vec[corner_it] = pixel_values[corner_it];
 
-    if (cam_weight > 0.0) 
-      out_vec[residual_len - 1] = 0.0;
-        
+    // Use 0 for the remaining fields corresponding to camera height or 
+    // camera center constraint
+    for (int it = pixel_values.size(); it < residual_len; it++)
+      out_vec[it] = 0.0;
+      
     const double abs_tolerance  = 1e-24;
     const double rel_tolerance  = 1e-24;
     const int    max_iterations = 2000;
@@ -230,7 +241,7 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
     if (camera_type == "opticalbar") {
       CameraSolveLMA_Ht<vw::camera::OpticalBarModel>
 	lma_model(xyz_vec, *((vw::camera::OpticalBarModel*)out_cam.get()),
-		  cam_height, cam_weight, datum);
+		  cam_height, cam_weight, cam_ctr_weight, datum);
       camera_to_vector(*((vw::camera::OpticalBarModel*)out_cam.get()), seed);
       final_params = math::levenberg_marquardt(lma_model, seed, out_vec,
 					       status, abs_tolerance, rel_tolerance,
@@ -238,7 +249,7 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
       vector_to_camera(*((vw::camera::OpticalBarModel*)out_cam.get()), final_params);
     } else {
       CameraSolveLMA_Ht<PinholeModel> lma_model(xyz_vec, *((PinholeModel*)out_cam.get()),
-		  cam_height, cam_weight, datum);
+                                                cam_height, cam_weight, cam_ctr_weight, datum);
       camera_to_vector(*((PinholeModel*)out_cam.get()), seed);
       final_params = math::levenberg_marquardt(lma_model, seed, out_vec,
 					       status, abs_tolerance, rel_tolerance,
@@ -290,11 +301,11 @@ struct Options : public vw::GdalWriteOptions {
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
     stereo_session, bundle_adjust_prefix, parsed_cam_ctr_str, parsed_cam_quat_str;
   double focal_length, pixel_pitch, gcp_std, height_above_datum,
-    cam_height, cam_weight;
+    cam_height, cam_weight, cam_ctr_weight;
   Vector2 optical_center;
   std::vector<double> lon_lat_values, pixel_values;
   bool refine_camera, parse_eci, parse_ecef; 
-  Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0) {}
+  Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -337,7 +348,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("cam-height", po::value(&opt.cam_height)->default_value(0),
      "If both this and --cam-weight are positive, enforce that the output camera is at this height above datum. For SkySat, if not set, read this from the frame index. Highly experimental.")
     ("cam-weight", po::value(&opt.cam_weight)->default_value(0),
-     "If positive, try to enforce the option --cam-height with this weight (bigger weight means try harder to enforce). Highly experimental.")
+     "If positive, try to enforce the option --cam-height with this weight (bigger weight means try harder to enforce).")
+    ("cam-ctr-weight", po::value(&opt.cam_ctr_weight)->default_value(0),
+     "If positive, try to enforce that during camera refinement the camera center stays close to the initial value (bigger weight means try harder to enforce this).")
     ("parse-eci", po::bool_switch(&opt.parse_eci)->default_value(false),
      "Create cameras based on ECI positions and orientations (not working).")
     ("parse-ecef", po::bool_switch(&opt.parse_ecef)->default_value(false),
@@ -401,6 +414,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "Cannot specify both the frame index file "
 	      << "and the lon-lat corners.\n"
               << usage << general_options );
+
+  if (opt.cam_weight > 0 && opt.cam_ctr_weight > 0)
+    vw::vw_throw(vw::ArgumentErr() << "Cannot enforce the camera center constraint and camera height constraint at the same time.\n");
 
   if (opt.frame_index != "") {
     // Parse the frame index to extract opt.lon_lat_values_str.
@@ -848,7 +864,8 @@ namespace vw {
 }
 
 // Trace rays from pixel corners to DEM to see where they intersect the DEM
-void extract_lon_lat_from_camera(Options & opt, ImageViewRef< PixelMask<float> > const& interp_dem,
+void extract_lon_lat_cam_ctr_from_camera(Options & opt,
+                                         ImageViewRef<PixelMask<float>> const& interp_dem,
 				 GeoReference const& geo,
                                  std::vector<double> & cam_heights, vw::Vector3 & cam_ctr) {
 
@@ -983,8 +1000,8 @@ int main(int argc, char * argv[]){
 		    BilinearInterpolation(), ZeroEdgeExtension());
 
     // If we have camera center in ECI or ECEF coordinates in km, convert
-    // to height above datum.
-    Vector3 parsed_cam_ctr;
+    // it to meters, then find the height above datum.
+    Vector3 parsed_cam_ctr(0, 0, 0);
     if (opt.parsed_cam_ctr_str != "") {
       std::vector<double> vals;
       parse_values<double>(opt.parsed_cam_ctr_str, vals);
@@ -1022,16 +1039,23 @@ int main(int argc, char * argv[]){
 	       << opt.cam_height
 	       << " meters with a weight strength of " << opt.cam_weight << ".\n";
     }
+    if (opt.cam_ctr_weight > 0 && opt.refine_camera)  
+      vw_out() << "Will try to have the camera center change little during camera refinement.\n"; 
 
     Vector3 input_cam_ctr(0, 0, 0); // estimated camera center from input camera
     std::vector<double> cam_heights;
     if (opt.input_camera != ""){
       // Extract lon and lat from tracing rays from the camera to the ground.
-      // This can modify opt.pixel_values.
-      extract_lon_lat_from_camera(opt, create_mask(dem, nodata_value), geo, cam_heights,
-                                  input_cam_ctr);
+      // This can modify opt.pixel_values. Also calc the camera center.
+      extract_lon_lat_cam_ctr_from_camera(opt, create_mask(dem, nodata_value), geo, cam_heights,
+                                          input_cam_ctr);
     }
 
+    // Overwrite the estimated center with what is parsed from vendor's data,
+    // if this data exists.
+    if (opt.parse_ecef && parsed_cam_ctr != Vector3())
+      input_cam_ctr = parsed_cam_ctr;
+    
     if (opt.lon_lat_values.size() < 3) 
       vw_throw( ArgumentErr() << "Expecting at least three longitude-latitude pairs.\n");
 
@@ -1121,7 +1145,7 @@ int main(int argc, char * argv[]){
     fit_camera_to_xyz_ht(opt.parse_ecef, parsed_cam_ctr, input_cam_ctr,
 			 opt.camera_type, opt.refine_camera,  
 			 xyz_vec, opt.pixel_values, 
-			 opt.cam_height, opt.cam_weight, datum,
+			 opt.cam_height, opt.cam_weight, opt.cam_ctr_weight, datum,
 			 verbose, out_cam);
     
     if ((opt.parse_eci || opt.parse_ecef) && opt.camera_type == "opticalbar") {

@@ -2066,7 +2066,7 @@ Pinhole cameras can be created with ``cam_gen``: (:numref:`cam_gen`)::
         --refine-camera               \
         --frame-index frame_index.csv \
         --parse-ecef                  \
-        --cam-weight 10               \
+        --cam-ctr-weight 1000         \
         --gcp-std 1                   \
         --gcp-file ${pref}.gcp        \
         -o ${pref}.tsai
@@ -2079,6 +2079,10 @@ Above, we read the ECEF camera positions from the ``frame_index.csv``
 file provided by Planet. These positions are more accurate than what
 ``cam_gen`` can get on its own based on the RPC camera, so this
 approach is preferred.
+
+The ``--cam-ctr-weight`` and ``--refine-camera`` options will keep
+the camera position in place by penalizing any deviations with the given
+weight, while refing the camera orientation.
 
 The reference DEM ``ref.tif`` is a Copernicus 30 m DEM
 (:numref:`initial_terrain`). Ensure the DEM is relative to WGS84 and

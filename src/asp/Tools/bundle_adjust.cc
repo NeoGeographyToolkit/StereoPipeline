@@ -1967,8 +1967,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("ip-num-ransac-iterations", po::value(&opt.ip_num_ransac_iterations)->default_value(1000),
      "How many RANSAC iterations to do in interest point matching.")
     ("min-triangulation-angle", po::value(&opt.min_triangulation_angle)->default_value(0.1),
-     "The minimum angle, in degrees, at which rays must meet at a triangulated point "
-     "to accept this point as valid. It must be a positive value.")
+     "A triangulated point will be accepted as valid only if at "
+     "least two of the rays which converge at it have a triangulation "
+     "angle of at least this (measured in degrees).")
     ("forced-triangulation-distance",      po::value(&opt.forced_triangulation_distance)->default_value(-1),
      "When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.")
     ("use-lon-lat-height-gcp-error",
@@ -2101,6 +2102,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   //  explicitly anyway.
   if (opt.skip_matching) 
     opt.force_reuse_match_files = true;
+
+  if (opt.auto_overlap_params != "" && opt.skip_matching) {
+    vw_out() << "Ignoring --auto-overlap-params since no matching takes place.\n";
+    opt.auto_overlap_params = "";
+  }
   
   // Work out the camera model type to use
   boost::to_lower(opt.stereo_session);
@@ -2925,6 +2931,7 @@ int main(int argc, char* argv[]) {
       std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
                                                   opt.match_files_prefix,  
                                                   opt.out_prefix);
+      vw_out() << "Computing the list of existing match files.\n";
       asp::listExistingMatchFiles(prefix, existing_files);
     }
     
