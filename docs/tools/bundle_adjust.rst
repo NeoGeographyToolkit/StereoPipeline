@@ -118,10 +118,15 @@ parallel. Such rays make the problem less well-behaved. The option
 one optimization pass is used. See :numref:`ba_options` for more
 options. See :numref:`bundle_adjustment` for a longer explanation.
 
-The variables of optimization are the camera positions and orientations,
-and the triangulated points on the ground. The latter can be constrained
-via ``--tri-weight`` or ``--heights-from-dem``. Ground control points
-can be used to incorporate measurements as part of the constraints.
+The variables of optimization are the camera positions and
+orientations, and the triangulated points on the ground. The
+intrinsics can be optimized as well, either as a single set for all
+cameras or individually (:numref:`floatingintrinsics`).
+Triangulated points can be constrained
+via ``--tri-weight`` or ``--heights-from-dem``. 
+
+Ground control points can be used to incorporate measurements as part
+of the constraints.
 
 .. _bagcp:
 
