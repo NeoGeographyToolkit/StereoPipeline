@@ -212,6 +212,15 @@ cloud contains easting, northing, and height above datum, the option
 interpret this data (if the PROJ.4 string is set, it will be also used
 for output DEMs, unless ``--t_srs`` is specified).
 
+Output statistics
+~~~~~~~~~~~~~~~~~
+
+When ``point2dem`` concludes, it prints the *percentage of valid
+pixels*, which is the number of pixels in the produced floating-point
+image of pixels that are valid heights (not equal to the no-data value
+saved in the geoheader) divided by the total number of pixels, and
+then multiplied by 100.
+
 Command-line options for point2dem
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
