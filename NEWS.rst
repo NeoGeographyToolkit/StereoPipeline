@@ -157,7 +157,7 @@ stereo_gui (:numref:`stereo_gui`):
   * Visualize pairwise matches read from an nvm file, as created by
     ``rig_calibrator --save_nvm_no_shift``. 
   * Zoom to given proj win from the View menu. Useful for
-    reproducibility. Also accessible with command-line option
+    reproducibility. Also accessible with the command-line option
     ``--zoom-proj-win``.
   * Bug fix for slow overlaying of images with different datums.
   * When all images have a georeference, start in georeference mode.
@@ -176,6 +176,8 @@ cam_gen (:numref:`cam_gen`):
     cameras given image corners and no prior camera. 
   * Added the options ``--cam-height`` and ``--cam-weight`` to try
     to keep the camera at a given height above ground.
+  * Added the option ``--cam-ctr-weight``, to help fix the camera
+    center during refinement.
   * If ``--optical-center`` is not set for pinhole cameras, use the
     image center (half of image dimensions) times the pixel pitch.
     The optical bar camera always uses the image center.

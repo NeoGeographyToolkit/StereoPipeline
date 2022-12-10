@@ -105,7 +105,7 @@ pixel coordinates of the features and the locations where the
 projections in the cameras occur is minimized. To not let outliers
 dominate, a robust "loss" function is applied to each error term to
 attenuate the residuals if they are too big. 
-See the `Google CERES <http://ceres-solver.org/nnls_modeling.html>`_
+See the `Google Ceres <http://ceres-solver.org/nnls_modeling.html>`_
 documentation on robust cost functions.
 
 The option ``--cost-function`` controls the type of loss function, and
@@ -212,7 +212,7 @@ be added to the bundle adjustment cost function, with each difference
 being divided by the corresponding pixel standard deviation. To
 prevent these from dominating the problem, each such error has a
 robust cost function applied to it, just as done for the regular
-reprojection errors without GCP. See the `Google CERES
+reprojection errors without GCP. See the `Google Ceres
 <http://ceres-solver.org/nnls_modeling.html>`_ documentation on robust
 cost functions. See also ``--cost-function`` and ``--robust-threshold``
 option descriptions (:numref:`ba_options`).
@@ -394,7 +394,7 @@ Command-line options for bundle_adjust
 --robust-threshold <double (default:0.5)>
     Set the threshold for robust cost functions. Increasing this
     makes the solver focus harder on the larger errors.
-    See the `Google CERES <http://ceres-solver.org/nnls_modeling.html>`_
+    See the `Google Ceres <http://ceres-solver.org/nnls_modeling.html>`_
     documentation on robust cost functions.
 
 --datum <string>

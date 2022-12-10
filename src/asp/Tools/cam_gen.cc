@@ -350,7 +350,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("cam-weight", po::value(&opt.cam_weight)->default_value(0),
      "If positive, try to enforce the option --cam-height with this weight (bigger weight means try harder to enforce).")
     ("cam-ctr-weight", po::value(&opt.cam_ctr_weight)->default_value(0),
-     "If positive, try to enforce that during camera refinement the camera center stays close to the initial value (bigger weight means try harder to enforce this).")
+     "If positive, try to enforce that during camera refinement the camera center stays close to the initial value (bigger weight means try harder to enforce this; a value like 1000.0 is good enough).")
     ("parse-eci", po::bool_switch(&opt.parse_eci)->default_value(false),
      "Create cameras based on ECI positions and orientations (not working).")
     ("parse-ecef", po::bool_switch(&opt.parse_ecef)->default_value(false),
@@ -358,7 +358,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("input-camera", po::value(&opt.input_camera)->default_value(""),
      "Create the output pinhole camera approximating this camera.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
-     " Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. See the doc for options.")
+     "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. See the doc for options.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust when providing an input camera.");
   

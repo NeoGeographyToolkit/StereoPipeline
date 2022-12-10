@@ -179,6 +179,12 @@ Command-line options for cam_gen:
 --cam-weight <float (default: 0)>
     If positive, try to enforce the option ``--cam-height`` with this weight (a bigger weight means try harder to enforce).
 
+--cam-ctr-weight <float (default: 0)>
+    If positive, try to enforce that during camera refinement the
+    camera center stays close to the initial value (a bigger weight
+    means try harder to enforce this, a value like 1000 is good
+    enough).
+
 -t, --session-type <string>
     Select the input camera model type. Normally this is auto-detected,
     but may need to be specified if the input camera model is in
