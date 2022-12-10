@@ -205,11 +205,8 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
     }
   }
 
-  std::cout.precision(17);
   Vector3 xyz0 = out_cam.get()->camera_center(vw::Vector2());
 
-  std::cout << "--unrefined camera center " << xyz0 << std::endl;
-  
   // Solve a little optimization problem to make the points on the ground project
   // as much as possible exactly into the image corners.
   if (refine_camera) {

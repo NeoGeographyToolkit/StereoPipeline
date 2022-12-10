@@ -217,9 +217,12 @@ Output statistics
 
 When ``point2dem`` concludes, it prints the *percentage of valid
 pixels*, which is the number of pixels in the produced floating-point
-image of pixels that are valid heights (not equal to the no-data value
+image that are valid heights (not equal to the no-data value
 saved in the geoheader) divided by the total number of pixels, and
-then multiplied by 100.
+then multiplied by 100. Note that if the DEM footprint is rotated in
+the image frame, there will be blank regions at image corners, so
+normally this percentage can be between 50 and 100 (or so) even when
+stereo correlation was fully successful.
 
 Command-line options for point2dem
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
