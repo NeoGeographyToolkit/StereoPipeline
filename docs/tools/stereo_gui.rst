@@ -466,7 +466,9 @@ One can then run::
      stereo_gui A.tif B.tif C.tif run/run
 
 and turn on viewing of interest point matches to study if they were
-``unmapped`` the right locations.
+``unmapped`` the right locations. 
+
+See :numref:`sfs3` for an illustration of this process.
 
 .. _thresh:
 

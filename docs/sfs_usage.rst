@@ -722,6 +722,8 @@ necessary, the same exercise can be repeated with the original images,
 but it is easier to see the improvement due to SfS when comparing to
 LOLA when the images are coarser than the LOLA error itself.
 
+.. _sfs_initial_terrain:
+
 Initial terrain creation
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
