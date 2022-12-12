@@ -61,7 +61,7 @@ namespace vw { namespace gui {
                int grid_cols,
                vw::Vector2i const& window_size, bool single_window,
                bool use_georef,
-               std::map<std::string, std::map<std::string, std::string>> & properties,
+               std::vector<std::map<std::string, std::string>> & properties,
                int argc, char ** argv);
     virtual ~MainWindow() {}
 

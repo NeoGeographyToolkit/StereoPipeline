@@ -622,8 +622,9 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
   BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     
-    BBox2 in_box = box;
-    if (in_box.empty()) in_box = BBox2(0, 0, 1, 1); // if it came to worst
+    BBox2 in_box = box; // local copy
+    if (in_box.empty())
+      in_box = BBox2(0, 0, 1, 1); // if it came to worst
 
     BBox2 out_box = in_box;
     double aspect = double(m_window_width) / m_window_height;
@@ -816,7 +817,9 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
       // Save the hillshaded images to disk (unless it already exists)
       std::string hillshaded_file;
+      bool have_gui = true;
       bool success = write_hillshade(m_opt,
+                                     have_gui,
                                      m_hillshade_azimuth,
                                      m_hillshade_elevation,
                                      input_file, hillshaded_file);
@@ -1370,6 +1373,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
     // If set, use --min and --max values. Otherwise, find them and 
     // remove outliers along the way to not skew the plotting range.
+    // TODO(oalexan1): This must be a function.
     double min_val = asp::stereo_settings().min;
     double max_val = asp::stereo_settings().max;
     if (std::isnan(min_val) || std::isnan(max_val)) {
@@ -1398,7 +1402,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       m_images[image_index].colormap = "binary-red-blue";
       vw::cm::parse_color_style(m_images[image_index].colormap, lut_map);
     }
-    vw::cm::ColormapFunc colormap(lut_map);
+    vw::cm::Colormap colormap(lut_map);
       
     for (size_t pt_it = 0; pt_it < m_images[image_index].scattered_data.size(); pt_it++) {
       auto const& P = m_images[image_index].scattered_data[pt_it];

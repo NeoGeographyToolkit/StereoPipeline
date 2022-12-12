@@ -112,6 +112,7 @@ QRect bbox2qrect(BBox2 const& B){
 }
 
 bool write_hillshade(vw::GdalWriteOptions const& opt,
+                     bool have_gui,
                      double azimuth, double elevation,
                      std::string const& input_file,
                      std::string      & output_file) {
@@ -137,29 +138,34 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
   try {
     DiskImageView<float> input(input_file);
     // TODO(oalexan1): Factor out repeated logic below.
-    try{
+    try {
       bool will_write = vw::mosaic::overwrite_if_no_good(input_file, output_file,
                                              input.cols(), input.rows());
-      if (will_write){
+      if (will_write) {
         vw_out() << "Writing: " << output_file << std::endl;
         vw::cartography::do_multitype_hillshade(input_file, output_file, azimuth, elevation, scale,
                                                 nodata_val, blur_sigma, align_light_to_georef);
       }
-    }catch(...){
+    } catch(...) {
       // Failed to write, presumably because we have no write access.
       // Write the file in the current dir.
       vw_out() << "Failed to write: " << output_file << "\n";
       output_file = vw::mosaic::filename_from_suffix2(input_file, suffix);
       bool will_write = vw::mosaic::overwrite_if_no_good(input_file, output_file,
                                              input.cols(), input.rows());
-      if (will_write){
+      if (will_write) {
         vw_out() << "Writing: " << output_file << std::endl;
-        vw::cartography::do_multitype_hillshade(input_file,  output_file, azimuth, elevation, scale,
-                                   nodata_val, blur_sigma, align_light_to_georef);
+        vw::cartography::do_multitype_hillshade(input_file,  output_file,
+                                                azimuth, elevation, scale,
+                                                nodata_val, blur_sigma,
+                                                align_light_to_georef);
       }
     }
   } catch (const Exception& e) {
-    popUp(e.what());
+    if (!have_gui) 
+      vw_out() << e.what() << "\n";
+    else
+      popUp(e.what());
     return false;
   }
   

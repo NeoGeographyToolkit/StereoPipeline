@@ -143,11 +143,14 @@ namespace asp{
 // repeated options.
 // TODO(oalexan1): If the same file is repeated, the book-keeping will fail.
 void preprocessArgs(int &argc, char** argv,
-                    std::map<std::string, std::map<std::string, std::string>> & properties) {
+                    std::vector<std::map<std::string, std::string>> & properties) {
 
   std::string curr_style = "default", curr_color = "default", curr_colormap = "binary-red-blue",
     colorize_image = "0";
   int out_it = 1;
+  // One set of properties for each argument. That to make sure that a filename
+  // can show up twice with different properties
+  properties.resize(argc);
   for (int it = 1; it < argc; it++) { // skip program name, so start from 1
 
     // TODO(oalexan1): Add support for --no-colorize, and make this and --colorize
@@ -195,10 +198,11 @@ void preprocessArgs(int &argc, char** argv,
     // If this argument does not start with a dash, so is not an
     // option, assign to it the properties so far
     if (argv[it][0] != '-') {
-      properties[argv[it]]["style"] = curr_style;  
-      properties[argv[it]]["color"] = curr_color;
-      properties[argv[it]]["colormap"] = curr_colormap;
-      properties[argv[it]]["colorize_image"] = colorize_image;
+      properties[it]["name"] = argv[it];
+      properties[it]["style"] = curr_style;  
+      properties[it]["color"] = curr_color;
+      properties[it]["colormap"] = curr_colormap;
+      properties[it]["colorize_image"] = colorize_image;
     }
     
     // Shift arguments left, which will wipe what we processed above
@@ -277,7 +281,7 @@ int main(int argc, char** argv) {
     stereo_register_sessions();
 
     // Extract style and color for scattered points, curves, and polygons
-    std::map<std::string, std::map<std::string, std::string>> properties;
+    std::vector<std::map<std::string, std::string>> properties;
     preprocessArgs(argc, argv, properties);
 
     bool verbose = false;
@@ -288,19 +292,20 @@ int main(int argc, char** argv) {
     std::vector<std::string> all_files;
     stereo_settings().vwip_files.clear();
     handle_arguments(argc, argv, opt, all_files);
-    
+
     readImages(all_files, images, output_prefix);
-    
+
     if (stereo_settings().create_image_pyramids_only) {
-      // Just create the image pyramids and exit
+      // Just create the image pyramids and exit. 
       for (size_t i = 0; i < images.size(); i++) {
         vw::gui::imageData img;
         img.read(images[i], opt);
-        
         if (stereo_settings().hillshade) {
-          // Create hillshaded images
-          std::string hillshaded_file; 
+          // Create hillshaded images. 
+          std::string hillshaded_file;
+          bool have_gui = false; // so we don't use a pop up before the gui got started
           bool success = vw::gui::write_hillshade(opt,
+                                                  have_gui,
                                                   stereo_settings().hillshade_azimuth,
                                                   stereo_settings().hillshade_elevation,
                                                   images[i],
@@ -312,13 +317,14 @@ int main(int argc, char** argv) {
       }
       return 0;
     }
-    
-    vw::create_out_dir(output_prefix);
 
     // Create the application. Must be done before trying to read
-    // images as that call uses pop-ups.
+    // images as that call uses pop-ups. Must not happen before
+    // building image pyramids as that does not need a gui.
     asp::StereoApplication app(argc, argv);
-    
+
+    vw::create_out_dir(output_prefix);
+
 #if !__APPLE__
     // TODO(oalexan1): Figure out why clang cannot find OpenMP.
     // Set the number of threads

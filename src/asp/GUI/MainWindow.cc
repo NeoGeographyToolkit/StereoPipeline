@@ -158,6 +158,41 @@ bool MainWindow::sanityChecks(int num_images) {
   return true;
 }
 
+// Given a vector of properties, with each property having a
+// potentially non-unique image name as an attribute and other
+// attributes as well, and a list of images, find the index of the
+// property for that image. Such logic is necessary because the same
+// image may show up twice, but with different properties each
+// time. So, the first occurrence of an image is matched to the first
+// occurrence of a property with that name, and so on. Also, there may
+// be properties for entities which are no longer in the list of
+// images.
+void lookupProperyIndices(std::vector<std::map<std::string, std::string>> const& properties,
+                          std::vector<std::string> const& images,
+                          std::vector<int> & propertyIndices) {
+
+  propertyIndices.clear();
+
+  size_t start_p = 0;
+  for (size_t i = 0; i < images.size(); i++) {
+
+    for (size_t p_it = start_p; p_it < properties.size(); p_it++) {
+      auto key_ptr = properties[p_it].find("name");
+      if (key_ptr == properties[p_it].end())
+        continue;
+      if (key_ptr->second == images[i]) {
+        start_p = p_it; // Found the right index for the property for the current file
+        break; 
+      }
+    }
+
+    propertyIndices.push_back(start_p);
+
+    start_p++; // next time start the search after the entry just identified
+  }
+  
+}
+
 MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
                        std::vector<std::string> const& images,
                        std::string& output_prefix,
@@ -165,7 +200,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
                        vw::Vector2i const& window_size,
                        bool single_window,
                        bool use_georef,
-                       std::map<std::string, std::map<std::string, std::string>> & properties,
+                       std::vector<std::map<std::string, std::string>> & properties,
                        int argc,  char ** argv):
   m_opt(opt),
   m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
@@ -225,9 +260,15 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   }
 
   m_images.resize(m_image_files.size());
+
+  std::vector<int> propertyIndices;
+  lookupProperyIndices(properties, m_image_files, propertyIndices);
+
   bool has_georef = true;
+
   for (size_t i = 0; i < m_image_files.size(); i++) {
-    m_images[i].read(m_image_files[i], m_opt, REGULAR_VIEW, properties[m_image_files[i]]);
+
+    m_images[i].read(m_image_files[i], m_opt, REGULAR_VIEW, properties[propertyIndices[i]]);
     // Above we read the image in regular mode. If plan to display hillshade,
     // for now set the flag for that, and the hillshaded image will be created
     // and set later. (Something more straightforward could be done.)

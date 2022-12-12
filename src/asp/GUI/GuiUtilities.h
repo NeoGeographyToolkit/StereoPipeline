@@ -153,6 +153,7 @@ namespace vw { namespace gui {
 
   /// Save a hillshaded file
   bool write_hillshade(vw::GdalWriteOptions const& opt,
+                       bool have_gui,
                        double azimuth, double elevation,
                        std::string const& input_file,
                        std::string      & output_file);
