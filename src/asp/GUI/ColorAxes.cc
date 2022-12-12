@@ -41,6 +41,13 @@
 
 namespace vw { namespace gui {
 
+std::string QRectFToStr(QRectF const& box) {
+  std::ostringstream os;
+  os << "minx, miny, width, height " << box.left() << ' ' << box.top() << ' '
+     << box.width() << ' ' << box.height();
+  return os.str();
+}
+
 // TODO(oalexan1): Integrate this with MainWidget::expand_box_to_keep_aspect_ratio()
 QRectF expand_box_to_aspect_ratio(QRectF const& in_box, double aspect_ratio) {
     
@@ -103,37 +110,24 @@ public:
 
 class ColorAxesZoomer: public QwtPlotZoomer {
 public:
-ColorAxesZoomer(QWidget *canvas): QwtPlotZoomer(dynamic_cast<QwtPlotCanvas *>(canvas)) {
+ColorAxesZoomer(QWidget *canvas, double aspect_ratio):
+  QwtPlotZoomer(dynamic_cast<QwtPlotCanvas *>(canvas)), m_aspect_ratio(aspect_ratio) {
   setTrackerMode(AlwaysOff);
 }
   
 virtual void zoom(const QRectF& rect) {
-
-  double xmin = rect.left();
-  double xmax = rect.right();
-  double ymin = rect.top();
-  double ymax = rect.bottom();
-
-  double ratio = 1.0;
-  QRectF rect2 = expand_box_to_aspect_ratio(rect, ratio);
-  xmin = rect2.left();
-  xmax = rect2.right();
-  ymin = rect2.top();
-  ymax = rect2.bottom();
-
-  // std::cout << "zoom v1 minx miny width height "  << ' ' << xmin << ' ' << ymin << ' ' << xmax-xmin << ' ' << ymax-ymin << std::endl;
-  
-  QwtPlotZoomer::zoom(rect2);
+  // Need this to maintain the aspect ratio when zooming
+  QRectF grown_rect = expand_box_to_aspect_ratio(rect, m_aspect_ratio);
+  QwtPlotZoomer::zoom(grown_rect);
 }
 
 virtual void zoom(int offset) {
-
   QRectF box = zoomRect();
-
-  // std::cout << "zoom v2 minx miny width height " << box.left() << ' ' << box.top() << ' ' << box.width() << ' ' << box.height() << std::endl;
   QwtPlotZoomer::zoom(offset);
 }
-  
+
+private:
+  double m_aspect_ratio;
 }; // end class ColorAxesZoomer
   
 // Manages the image to display for the ColorAxes widget 
@@ -295,28 +289,33 @@ public:
                    const QwtScaleMap & yMap,
                    const QRectF      & canvasRect) const {
 
-   // TODO(oalexan1): This looks like true image buffer dimensions
-   //std::cout << "--draw rect " << canvasRect.left() << ' ' << canvasRect.top() << ' ' << canvasRect.width() << ' ' << canvasRect.height() << std::endl;
+   // canvasRect is the region, in screen pixel units, where the image
+   // will go. If the image is narrow, it may not fill fully the
+   // canvas. If the labels on the axes take up more space when
+   // zooming, the image region will be affected. So, it is not
+   // fixed once and for all.
+   // std::cout << "--canvasRect " << canvasRect.left() << ' ' << canvasRect.top() << ' ' << canvasRect.width() << ' ' << canvasRect.height() << std::endl;
    
    QwtPlotSpectrogram::draw(painter, xMap, yMap, canvasRect);
  }
 
-  virtual QImage renderImage(const QwtScaleMap & xMap,
-                             const QwtScaleMap & yMap,
-                             const QRectF & area, // world units, not screen units 
-                             const QSize & imageSize) const {
+virtual QImage renderImage(const QwtScaleMap & xMap,
+                           const QwtScaleMap & yMap,
+                           const QRectF & area,
+                           const QSize & imageSize) const {
 
-    // std::cout << "--image size " << imageSize.width() << ' ' << imageSize.height() << std::endl;
-
-   // Based on size of the rendered image, determine the appropriate level of
-    // resolution and extent to read from disk. This greatly helps with
-    // reducing memory usage and latency.
-    m_data->prepareClip(xMap.invTransform(0),
-                        yMap.invTransform(0),
-                        xMap.invTransform(imageSize.width()),
-                        yMap.invTransform(imageSize.height()),
-                        imageSize);
-
+  // 'area' is in world units, not in pixel units
+  // imageSize has the dimensions, in pixels, of the canvas portion having the image
+  
+  // Based on size of the rendered image, determine the appropriate level of
+  // resolution and extent to read from disk. This greatly helps with
+  // reducing memory usage and latency.
+  m_data->prepareClip(xMap.invTransform(0),
+                      yMap.invTransform(0),
+                      xMap.invTransform(imageSize.width()),
+                      yMap.invTransform(imageSize.height()),
+                      imageSize);
+  
     return QwtPlotSpectrogram::renderImage(xMap, yMap, area, imageSize);
   }
   
@@ -377,20 +376,54 @@ ColorAxes::ColorAxes(QWidget *parent, imageData & image):
   // Show it in image mode, not contour mode
   m_plotter->setDisplayMode(QwtPlotSpectrogram::ImageMode, true);
 
+  // An attempt to find the true canvas dimensions.
+  // https://qwt-interest.narkive.com/cquDtLQ5/qwtplot-s-initial-canvas-size
+  // This is not enough. Only in renderImage() we will truly know the image size.
+  plotLayout()->setCanvasMargin(0);
+  plotLayout()->setAlignCanvasToScales(true);
+  
   replot();
+}
 
-  // Please note that the scales might cover a different amount of space of the
-  //canvas height/width. These spaces depend on the length of the tick labels.
-  //With the current CVS you can avoid this effect using:
-  //plotLayout()->setCanvasMargin(0);
-  //plotLayout()->setAlignCanvasToTicks(true);
- 
+bool first_resize_event = true;
+
+void ColorAxes::mousePressEvent(QMouseEvent *e) {
+  QwtPlot::mousePressEvent(e);
+}
+  
+void ColorAxes::resizeEvent(QResizeEvent *e) {
+
+  // Try to ensure equal aspect ratio. For this, must know the paint canvas
+  // size. Compute this based on intended window size.
+  // https://qwt-interest.narkive.com/cquDtLQ5/qwtplot-s-initial-canvas-size
+  QRectF resizedWin(frameWidth(), frameWidth(),
+                    e->size().width() - frameWidth(),
+                    e->size().height() - frameWidth());
+  plotLayout()->activate(this, resizedWin);
+  auto rect = plotLayout()->canvasRect();
+  
+  // Note: This is not purely the image area, as it bigger
+  // by a few pixels than the area having the image later, but it is good
+  // enough given that its size is on the order of 1000 pixels.
+  // The true image area is known only in renderImage(), so much later.
+  // The scales should be set up before that.
+  double aspect_ratio = double(rect.width()) / double(rect.height());
+  QRectF in_box(0, 0, m_image.img.cols(), m_image.img.rows()); 
+  QRectF box = expand_box_to_aspect_ratio(in_box, aspect_ratio);
+  
+  // Adjust the scales accordingly
+  setAxisScale(QwtPlot::yLeft, box.height(), 0); // y axis goes down
+  setAxisScale(QwtPlot::xBottom, 0, box.width());
+
+  // Set up the zooming and panning after we know the aspect ratio.
+  // This makes zooming out work correctly.
+  
   // LeftButton for the zooming
   // MidButton for the panning
   // RightButton: zoom out by 1
   // Ctrl+RighButton: zoom out to full size
   
-  QwtPlotZoomer* zoomer = new ColorAxesZoomer(canvas());
+  QwtPlotZoomer* zoomer = new ColorAxesZoomer(canvas(), aspect_ratio);
   zoomer->setMousePattern(QwtEventPattern::MouseSelect2,
                           Qt::RightButton, Qt::ControlModifier);
   zoomer->setMousePattern(QwtEventPattern::MouseSelect3,
@@ -410,39 +443,6 @@ ColorAxes::ColorAxes(QWidget *parent, imageData & image):
   const QFontMetrics fm(axisWidget(QwtPlot::yLeft)->font());
   QwtScaleDraw *sd = axisScaleDraw(QwtPlot::yLeft);
   sd->setMinimumExtent(fm.width("100.00"));
-  
-}
-
-bool first_resize_event = true;
-
-void ColorAxes::mousePressEvent(QMouseEvent *e) {
-  QwtPlot::mousePressEvent(e);
-}
-  
-void ColorAxes::resizeEvent(QResizeEvent *e) {
-
-  if (first_resize_event) {
-    first_resize_event = false;
-  
-
-    // https://qwt-interest.narkive.com/cquDtLQ5/qwtplot-s-initial-canvas-size
-    const QRect newContentsRect(frameWidth(), frameWidth(),
-                                e->size().width() - frameWidth(),
-                                e->size().height() - frameWidth());
-    
-    plotLayout()->activate(this, newContentsRect);
-    auto rect2 = plotLayout()->canvasRect();
-    
-    // TODO(oalexan1): this is not purely the image area, as it is bigger
-    // than the area drawn later
-    double aspect_ratio = rect2.width() / rect2.height();
-    QRectF in_box(0, 0, m_image.img.cols(), m_image.img.rows()); 
-    QRectF box = expand_box_to_aspect_ratio(in_box, aspect_ratio);
-    
-    // This should ensure equal aspect ratio
-    setAxisScale(QwtPlot::yLeft, box.height(), 0); // y axis goes down
-    setAxisScale(QwtPlot::xBottom, 0, box.width());
-  }
 
   // Call the parent resize function to continue the work
   QwtPlot::resizeEvent(e);
