@@ -38,6 +38,10 @@ class ColorAxes: public QwtPlot {
   
 public:
   ColorAxes(QWidget * parent, imageData & image);
+
+  virtual void mousePressEvent(QMouseEvent *e);
+
+  virtual void resizeEvent(QResizeEvent *e);
   
 public Q_SLOTS:
 
