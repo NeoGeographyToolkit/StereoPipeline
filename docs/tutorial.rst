@@ -31,8 +31,10 @@ achieved by running::
       --stereo-algorithm asp_mgm --subpixel-mode 3    \
       left_image.cub right_image.cub results/run
 
-The best quality will likely be obtained with ``--subpixel-mode 2``,
-but this is even more computationally expensive.
+The option ``--subpixel-mode 9`` is faster and still creates decent
+results (with ``asp_mgm``/``asp_sgm``). The best quality will likely
+be obtained with ``--subpixel-mode 2``, but this is even more
+computationally expensive.
 
 Thees commands will decompose the images in tiles to run in parallel,
 potentially on multiple machines. For more details, see

@@ -35,8 +35,11 @@ produced with::
      --stereo-algorithm asp_mgm --subpixel-mode 3    \
      <other options>
 
-which uses ASP's implementation of MGM (:numref:`asp_sgm`). For best
-results one can use ``--subpixel-mode 2``, but that is very slow.
+which uses ASP's implementation of MGM (:numref:`asp_sgm`). Use
+``--subpixel-mode 9`` as a faster alternative (with the ``asp_mgm`` and
+``asp_sgm`` algorithms), which still provides rather good quality. For
+best results one can use ``--subpixel-mode 2``, but that is very
+slow. Do not use ``--subpixel-mode 1`` with ``asp_mgm``/``asp_sgm``.
 
 For steep terrains it is suggested to mapproject the images
 (:numref:`mapproj-example`).
