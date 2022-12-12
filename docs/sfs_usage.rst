@@ -1472,7 +1472,7 @@ guesses when re-running bundle adjustment.
 If still no luck, mapproject the images using the latest cameras, open
 them in ``stereo_gui`` while sorted by illumination, and carefully
 inspect them. If a problematic image pair was found, see if it has
-interest point matches in the earliest bundle adjstment directory.
+interest point matches in the earliest bundle adjustment directory.
 
 If good results are obtained for such small subregions, the hope is
 that a new bundle adjustment which uses the union of the individually
@@ -1483,7 +1483,7 @@ If the option ``--mapproj-dem`` (with a DEM file as a value) is
 specified, a report will be written having measurements regarding how
 well images with bundle-adjusted cameras agree after mapprojection
 (:numref:`ba_out_files`). This is very helpful in identifying
-mis-registered images.
+misregistered images.
 
 Running SfS
 ^^^^^^^^^^^
