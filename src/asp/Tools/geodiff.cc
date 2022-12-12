@@ -328,11 +328,11 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   if (csv_errs.size() > 0) 
     diff_median = csv_errs[csv_errs.size()/2];
 
-  vw_out() << "Max difference:       " << diff_max    << std::endl;
-  vw_out() << "Min difference:       " << diff_min    << std::endl;
-  vw_out() << "Mean difference:      " << diff_mean   << std::endl;
-  vw_out() << "StdDev of difference: " << diff_std    << std::endl;
-  vw_out() << "Median difference:    " << diff_median << std::endl;
+  vw_out() << "Max difference:       " << diff_max    << " meters" << std::endl;
+  vw_out() << "Min difference:       " << diff_min    << " meters" << std::endl;
+  vw_out() << "Mean difference:      " << diff_mean   << " meters" << std::endl;
+  vw_out() << "StdDev of difference: " << diff_std    << " meters" << std::endl;
+  vw_out() << "Median difference:    " << diff_median << " meters" << std::endl;
 
   std::string output_file = opt.output_prefix + "-diff.csv";
   vw_out() << "Writing difference file: " << output_file << "\n";
@@ -340,11 +340,11 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   outfile.precision(16);
   outfile << "# longitude,latitude, height diff (m)" << std::endl;
   outfile << "# " << dem_georef.datum() << std::endl; // dem's datum
-  outfile << "# Max difference:       " << diff_max    << std::endl;
-  outfile << "# Min difference:       " << diff_min    << std::endl;
-  outfile << "# Mean difference:      " << diff_mean   << std::endl;
-  outfile << "# StdDev of difference: " << diff_std    << std::endl;
-  outfile << "# Median difference:   " << diff_median << std::endl;
+  outfile << "# Max difference:       " << diff_max    << " meters" << std::endl;
+  outfile << "# Min difference:       " << diff_min    << " meters" << std::endl;
+  outfile << "# Mean difference:      " << diff_mean   << " meters" << std::endl;
+  outfile << "# StdDev of difference: " << diff_std    << " meters" << std::endl;
+  outfile << "# Median difference:    " << diff_median << " meters" << std::endl;
   for (size_t it = 0; it < csv_diff.size(); it++) {
     Vector3 diff = csv_diff[it];
     outfile << diff[0] << "," << diff[1] << "," << diff[2] << std::endl;

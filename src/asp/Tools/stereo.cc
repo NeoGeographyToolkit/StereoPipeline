@@ -23,11 +23,12 @@
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <vw/FileIO/MatrixIO.h>
+
 #include <asp/Tools/stereo.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Core/Bathymetry.h>
 #include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/Core/InterestPointMatching.h>
 
 // Can't do much about warnings in boost except to hide them
 #pragma GCC diagnostic push

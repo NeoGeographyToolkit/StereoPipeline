@@ -45,8 +45,8 @@ namespace asp {
   // Modifying g_num_wts will require modifying a lot of code. We
   // assume that when doing smooth interpolation, only that many
   // neighboring grid points will be used.
-  int g_num_wts = 4; 
-  double g_sigma = 1.0; // The sigma of the Gaussian used for smooth interpolation
+  const int g_num_wts = 4; 
+  const double g_sigma = 1.0; // The sigma of the Gaussian used for smooth interpolation
 
   // We would like to place num_adjustments between the first and last image
   // lines. Compute the starting line and the spacing.
@@ -244,8 +244,7 @@ namespace asp {
                  g_num_wts, g_sigma),
       // The line below is very important. We must make sure to keep track of
       // the smart pointer to the original camera, so it does not go out of scope.
-      m_cam(cam), m_image_size(image_size)
-    {
+      m_cam(cam), m_image_size(image_size) {
       VW_ASSERT( position_adjustments.size() == pose_adjustments.size(),
 		 vw::ArgumentErr()
 		 << "Expecting the number of position and pose adjustments to agree.\n" );

@@ -24,8 +24,6 @@
 #include <vw/Image/Transform.h>
 #include <vw/Camera/CameraModel.h>
 
-//#include <asp/Core/StereoSettings.h>
-#include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Camera/LinescanASTERModel.h>
 #include <asp/Sessions/StereoSessionASTER.h>

@@ -30,9 +30,6 @@
 #include <vw/config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
 #include <asp/asp_config.h>
 
-#include <boost/program_options.hpp>
-#include <boost/filesystem/path.hpp>
-#include <boost/shared_ptr.hpp>
 #include <vw/Core/StringUtils.h>
 #include <vw/Image/ImageIO.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
@@ -43,6 +40,11 @@
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+
+#include <boost/program_options.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/shared_ptr.hpp>
+
 #include <map>
 #include <string>
 
@@ -92,8 +94,6 @@ namespace asp {
                                  std::string                    &prefix,
                                  std::string                    &dem_path);
 
-
-
   /// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
   /// so it may have some items there beforehand.
   void parse_append_metadata(std::string const& metadata,
@@ -116,7 +116,11 @@ namespace asp {
   /// Set env variables for some of ASP's dependencies
   void set_asp_env_vars();
   
-  /// Read a vector from a file  
+  /// Read a vector of strings from a file, with spaces and newlines acting as separators.
+  /// Throw an exception if the list is empty.
+  void read_list(std::string const& file, std::vector<std::string> & list);
+  
+  /// Read a vector of doubles from a file  
   void read_vec(std::string const& filename, std::vector<double> & vals);
 
   /// Read the target name (planet name) from the plain text portion of an ISIS cub file
@@ -127,7 +131,8 @@ namespace asp {
                      boost::program_options::options_description const& public_options,
                      boost::program_options::options_description const& all_public_options,
                      boost::program_options::options_description const& positional_options,
-                     boost::program_options::positional_options_description const& positional_desc,
+                     boost::program_options::positional_options_description
+                     const& positional_desc,
                      std::string & usage_comment,
                      bool allow_unregistered, std::vector<std::string> & unregistered);
 

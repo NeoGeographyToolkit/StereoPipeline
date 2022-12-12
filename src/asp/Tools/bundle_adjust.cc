@@ -17,6 +17,9 @@
 
 /// \file bundle_adjust.cc
 
+// TODO(oalexan1): Break this up into several files grouped by functionality.
+// Also for bundle_adjust.h. See existing BundleAdjustCamera.cc and
+// BundleAdjustUtils.cc.
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>
 #include <vw/FileIO/MatrixIO.h>
@@ -26,12 +29,13 @@
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
-#include <asp/Core/InterestPointMatching.h> // Has lots of templates
-#include <asp/Core/IpMatchingAlgs.h>        // Lightweight header
+#include <asp/Core/IpMatchingAlgs.h> // Lightweight header for ip matching
 #include <asp/Tools/bundle_adjust.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Core/OutlierProcessing.h>
 #include <asp/Core/DataLoader.h>
+
+#include <vw/InterestPoint/Matcher.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 
@@ -44,19 +48,6 @@ using namespace vw::ba;
 
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 typedef CameraRelationNetwork<JFeature> CRNJ;
-
-// TODO(oalexan1): Move to utils
-void read_list(std::string const& file, std::vector<std::string> & list) {
-  list.clear();
-  std::ifstream fh(file);
-  std::string val;
-  while (fh >> val)
-    list.push_back(val);
-
-  if (list.empty())
-    vw_throw(ArgumentErr() << "Could not read any entries from: " << file << ".\n");
-  
-}
 
 /// Write a csm camera state file to disk.
 void write_csm_output_file(Options const& opt, int icam,
@@ -2055,9 +2046,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                << "images or cameras on the command line.\n");
 
     // Read the images and cameras and put them in 'inputs' to be parsed later
-    read_list(opt.image_list, inputs);
+    asp::read_list(opt.image_list, inputs);
     std::vector<std::string> tmp;
-    read_list(opt.camera_list, tmp);
+    asp::read_list(opt.camera_list, tmp);
     for (size_t it = 0; it < tmp.size(); it++) 
       inputs.push_back(tmp[it]);
   }
@@ -2432,7 +2423,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.fixed_cameras_indices.clear();
     
     std::vector<std::string> fixed_images;
-    read_list(opt.fixed_image_list, fixed_images);
+    asp::read_list(opt.fixed_image_list, fixed_images);
 
     // Find the indices of all images
     std::map<std::string, int> all_indices;
@@ -2784,7 +2775,7 @@ int main(int argc, char* argv[]) {
     if (!opt.apply_initial_transform_only) {
       
       if (!opt.mapprojected_data_list.empty()) {
-        read_list(opt.mapprojected_data_list, map_files);
+        asp::read_list(opt.mapprojected_data_list, map_files);
         opt.mapprojected_data = "non-empty"; // put a token value, to make it non-empty
       } else if (opt.mapprojected_data != "") {
         std::istringstream is(opt.mapprojected_data);

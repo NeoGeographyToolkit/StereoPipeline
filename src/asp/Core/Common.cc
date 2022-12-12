@@ -671,7 +671,22 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
 
 }
 
-// Read a vector from a file
+// Read a vector of strings from a file, with spaces and newlines acting as separators.
+// Throw an exception if the list is empty.
+void asp::read_list(std::string const& file, std::vector<std::string> & list) {
+  list.clear();
+  std::ifstream fh(file);
+  std::string val;
+  while (fh >> val)
+    list.push_back(val);
+
+  if (list.empty())
+    vw_throw(ArgumentErr() << "Could not read any entries from: " << file << ".\n");
+
+  fh.close();
+}
+
+// Read a vector of doubles from a file
 void asp::read_vec(std::string const& filename, std::vector<double> & vals) {
   vals.clear();
   std::ifstream ifs(filename.c_str());

@@ -27,7 +27,6 @@
 #include <vw/Cartography/Datum.h>
 
 #include <asp/Core/StereoSettings.h>
-#include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Sessions/StereoSessionGdal.h>
 #include <asp/Sessions/StereoSessionASTER.h>

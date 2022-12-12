@@ -108,9 +108,8 @@ namespace asp {
                      vw::camera::CameraModel* cam1,
                      vw::camera::CameraModel* cam2,
                      std::string const& match_filename,
-                     std::string const left_ip_file ="",
-                     std::string const right_ip_file=""
-                    );
+                     std::string const left_ip_file = "",
+                     std::string const right_ip_file = "");
 
     /// Compute the min, max, mean, and standard deviation of an image object and write them to a log.
     /// - "tag" is only used to make the log messages more descriptive.

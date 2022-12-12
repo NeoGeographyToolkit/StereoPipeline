@@ -21,6 +21,8 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <vw/Image/Filter.h>
+#include <vw/InterestPoint/Matcher.h>
 
 #include <asp/Camera/RPCModel.h>
 #include <asp/Core/DisparityProcessing.h>
@@ -28,7 +30,7 @@
 #include <asp/Tools/stereo.h>
 #include <asp/Tools/jitter_adjust.h>
 #include <asp/Tools/ccd_adjust.h>
-#include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/IpMatchingAlgs.h>
 
 // We must have the implementations of all sessions for triangulation
 #include <asp/Sessions/StereoSessionFactory.h>
@@ -38,6 +40,7 @@
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Sessions/StereoSessionASTER.h>
+
 #include <xercesc/util/PlatformUtils.hpp>
 #include <ctime>
 

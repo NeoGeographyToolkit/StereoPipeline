@@ -18,6 +18,15 @@
 /// \file StereoSessionIsis.cc
 ///
 
+// Stereo Pipeline
+#include <asp/Core/AffineEpipolar.h>
+#include <asp/Core/PhotometricOutlier.h>
+#include <asp/Camera/CsmModel.h>
+#include <asp/IsisIO/IsisCameraModel.h>
+#include <asp/IsisIO/DiskImageResourceIsis.h>
+#include <asp/IsisIO/Equation.h>
+#include <asp/Sessions/StereoSessionIsis.h>
+
 // Vision Workbench
 #include <vw/Core/Settings.h>
 #include <vw/Core/Log.h>
@@ -33,23 +42,14 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/FileIO/DiskImageResourceOpenEXR.h>
+#include <vw/FileIO/MatrixIO.h>
+#include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/InterestPoint/Descriptor.h>
 #include <vw/InterestPoint/Detector.h>
-#include <vw/InterestPoint/Matcher.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/Cartography/Datum.h>
-
-// Stereo Pipeline
-#include <asp/Core/InterestPointMatching.h>
-#include <asp/Core/AffineEpipolar.h>
-#include <asp/Core/PhotometricOutlier.h>
-#include <asp/Camera/CsmModel.h>
-#include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/IsisIO/DiskImageResourceIsis.h>
-#include <asp/IsisIO/Equation.h>
-#include <asp/Sessions/StereoSessionIsis.h>
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -580,8 +580,8 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
     // ****************************************************
     vw_out() << "\t--> Masking pixels that appear to be dust. "
              << "(NOTE: Use this option with Apollo Metric Camera frames only!)\n";
-    photometric_outlier_rejection(this->m_options, this->m_out_prefix, input_file,
-                                  dust_result, stereo_settings().corr_kernel[0]);
+    asp::photometric_outlier_rejection(this->m_options, this->m_out_prefix, input_file,
+                                       dust_result, stereo_settings().corr_kernel[0]);
   }
   return DiskImageView<PixelMask<Vector2f>>(dust_result);
 } // End function pre_pointcloud_hook()

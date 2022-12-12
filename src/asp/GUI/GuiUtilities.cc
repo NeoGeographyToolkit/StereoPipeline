@@ -377,6 +377,11 @@ void read_csv_metadata(std::string              const& csv_file,
                        bool                          & has_pixel_vals,
                        bool                          & has_georef,
                        vw::cartography::GeoReference & georef) {
+
+  if (!fs::exists(csv_file)) {
+    popUp("Could not load file: " + csv_file);
+    return;
+  }
   
   if (asp::stereo_settings().csv_format_str == "") {
     // For the pointmap and match_offsets files the csv format is known, read it from
@@ -476,7 +481,7 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
   else if (display_mode == COLORIZED_VIEW)
     colorized_name = name_in;
   else
-    vw::vw_throw(vw::ArgumentErr() << "Unknown display mode..\n");
+    vw::vw_throw(vw::ArgumentErr() << "Unknown display mode.\n");
 
   color = "default";
   style = "default";

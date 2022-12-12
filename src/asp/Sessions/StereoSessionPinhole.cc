@@ -20,8 +20,6 @@
 ///
 
 #include <asp/Sessions/StereoSessionPinhole.h>
-#include <asp/Core/InterestPointMatching.h>
-
 #include <vw/Math/BBox.h>
 #include <vw/Math/Geometry.h>
 #include <vw/Math/Matrix.h>
@@ -37,7 +35,6 @@
 namespace fs = boost::filesystem;
 
 using namespace vw;
-using namespace vw::ip;
 using namespace vw::camera;
 
 // This class assumes pinhole cameras with no datum, such as on a rover.

@@ -412,7 +412,8 @@ bool init_cams_optical_bar(Options & opt, asp::BAParams & param_storage,
   return cameras_changed;
 }
 
-
+// TODO(oalexan1): Make this not use the Options structure, then move
+// to BundleAdjustCamera.cc.
 /// Write a pinhole camera file to disk.
 void write_pinhole_output_file(Options const& opt, int icam,
                                asp::BAParams const& param_storage) {

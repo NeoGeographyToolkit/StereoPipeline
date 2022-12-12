@@ -279,12 +279,6 @@ vw::BBox2 search_range_using_spread(double max_disp_spread,
                              std::vector<vw::ip::InterestPoint>                  & left_ip, 
                              std::vector<vw::ip::InterestPoint>                  & right_ip);
   
-  /// The unwarped disparity file name.
-  /// We put it here because this file knows about vw::ip. That is why it should not
-  /// in Common.h which should not know so much.
-  std::string unwarped_disp_file(std::string const& prefix, std::string const& left_image,
-                                 std::string const& right_image);
-
   //-------------------------------------------------------------------------------------------
   // Lower level IP detection functions
 

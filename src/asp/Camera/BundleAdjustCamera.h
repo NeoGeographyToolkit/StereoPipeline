@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file BundleAdjustCamera.h
 ///
 
@@ -23,7 +22,9 @@
 /// expected to make use of all cameras supported by ASP.
 
 // Code which needs the stereo session should go to
-// asp/Sessions/CameraUtils.cc.
+// asp/Sessions/CameraUtils.cc. Lower-level code which is not so tied
+// to data structures and options used in bundle_adjust can go to
+// BundleAdjustUtils.cc.
 
 #ifndef __BUNDLE_ADJUST_CAMERA_H__
 #define __BUNDLE_ADJUST_CAMERA_H__
