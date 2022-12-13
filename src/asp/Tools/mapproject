@@ -38,8 +38,12 @@ from asp_alg_utils import *
 import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils, asp_string_utils
 asp_system_utils.verify_python_version_is_supported()
 
-# Prepend to system PATH
-os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+# Prepend to system PATH. First try to find things in libexec,
+# and if that fails, then in bin. Otherwise mapproject_single
+# cannot be found.
+os.environ["PATH"] = libexecpath + os.pathsep + \
+                     basepath + os.pathsep    + \
+                     os.environ["PATH"]
 
 # This is explained in asp_system_utils.
 if 'ASP_LIBRARY_PATH' in os.environ:
