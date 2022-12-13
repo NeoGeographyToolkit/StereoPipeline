@@ -12,17 +12,17 @@ set(CMAKE_C_FLAGS "" CACHE STRING "")
 # cmake fails without the -L flag in CMAKE_CXX_FLAGS, oddly enough.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++11 -DNDEBUG")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
-set(CMAKE_EXE_LINKER_FLAGS "-lm -pthread -lpthread")
+set(CMAKE_EXE_LINKER_FLAGS "-pthread -lpthread")
 
-if(APPLE)
+if (APPLE)
     # A workaround for the clang included with conda build
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mlinker-version=305")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mlinker-version=305")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mlinker-version=305")
-else(APPLE)
-    # On Linux need to link to rt and libgcc_s
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lrt -lgcc_s")
-endif(APPLE)
+else()
+    # On Linux need to link to additional libraries
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lm -lrt -lgcc_s")
+endif()
 
 # Tell cmake to look in the /cmake folder.
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
