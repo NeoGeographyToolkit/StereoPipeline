@@ -336,15 +336,16 @@ This can be done with the following commands::
     cp -fv  *.la backup # back these up
     perl -pi -e "s#(/[^\s]*?lib)/lib([^\s]+).la#-L\$1 -l\$2#g" *.la
 
-Next, set up a work directory::
+The `conda-provided compilers
+<https://conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_
+are used and should be added to the environment, if not present already.
+
+Set up a work directory::
 
     buildDir=$HOME/build_asp
     mkdir -p $buildDir
 
-The `conda-provided compilers
-<https://conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_
-are used and should be added to the environment, if not present already. Building
-VisionWorkbench and Stereo Pipeline on Linux::
+Building VisionWorkbench and Stereo Pipeline on Linux::
 
     cd $buildDir
     envPath=$HOME/miniconda3/envs/asp_deps
