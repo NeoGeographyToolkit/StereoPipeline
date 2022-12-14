@@ -336,24 +336,23 @@ This can be done with the following commands::
     cp -fv  *.la backup # back these up
     perl -pi -e "s#(/[^\s]*?lib)/lib([^\s]+).la#-L\$1 -l\$2#g" *.la
 
-The Linux environment will also contain the needed C and C++
-compilers. On the Mac the compilers provided with conda did not build
-ASP correctly, hence it is suggested to use the Apple-provided clang
-and clang++.
-
 Next, set up a work directory::
 
     buildDir=$HOME/build_asp
     mkdir -p $buildDir
 
-Building VisionWorkbench and Stereo Pipeline on Linux::
+The `conda-provided compilers
+<https://conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_
+are used and should be added to the environment, if not present already. Building
+VisionWorkbench and Stereo Pipeline on Linux::
 
     cd $buildDir
     envPath=$HOME/miniconda3/envs/asp_deps
     $envPath/bin/git clone \
         git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
-    git checkout 3.1.0 # check out the desired commit
+    # Uncomment below if desired to build a specific version
+    # git checkout 3.1.0
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                                             \
@@ -362,15 +361,15 @@ Building VisionWorkbench and Stereo Pipeline on Linux::
       -DCMAKE_INSTALL_PREFIX=$buildDir/install                        \
       -DCMAKE_C_COMPILER=$envPath/bin/x86_64-conda_cos6-linux-gnu-gcc \
       -DCMAKE_CXX_COMPILER=$envPath/bin/x86_64-conda_cos6-linux-gnu-g++
-    make -j10
-    make install
+    make -j10 && make install
 
     cd $buildDir
     envPath=$HOME/miniconda3/envs/asp_deps
     $envPath/bin/git clone \
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
-    git checkout 3.1.0 # check out the desired commit
+    # Uncomment below if desired to build a specific version
+    # git checkout 3.1.0
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                                             \
@@ -380,44 +379,10 @@ Building VisionWorkbench and Stereo Pipeline on Linux::
       -DVISIONWORKBENCH_INSTALL_DIR=$buildDir/install                 \
       -DCMAKE_C_COMPILER=$envPath/bin/x86_64-conda_cos6-linux-gnu-gcc \
       -DCMAKE_CXX_COMPILER=$envPath/bin/x86_64-conda_cos6-linux-gnu-g++
-    make -j10
-    make install
+    make -j10 && make install
 
-Building VisionWorkbench and ASP on OSX (just as above, but omitting the compilers)::
-
-    cd $buildDir
-    envPath=$HOME/miniconda3/envs/asp_deps
-    $envPath/bin/git clone \
-      git@github.com:visionworkbench/visionworkbench.git
-    cd visionworkbench
-    git checkout 3.1.0 # check out the desired commit
-    mkdir -p build
-    cd build
-    $envPath/bin/cmake ..                      \
-      -DASP_DEPS_DIR=$envPath                  \
-      -DCMAKE_VERBOSE_MAKEFILE=ON              \
-      -DCMAKE_INSTALL_PREFIX=$buildDir/install
-    make -j10
-    make install
-
-    cd $buildDir
-    envPath=$HOME/miniconda3/envs/asp_deps
-    $envPath/bin/git clone \
-      git@github.com:NeoGeographyToolkit/StereoPipeline.git
-    cd StereoPipeline
-    git checkout 3.1.0 # check out the desired commit
-    mkdir -p build
-    cd build
-    $envPath/bin/cmake ..                             \
-      -DASP_DEPS_DIR=$envPath                         \
-      -DCMAKE_VERBOSE_MAKEFILE=ON                     \
-      -DVISIONWORKBENCH_INSTALL_DIR=$buildDir/install \
-      -DCMAKE_INSTALL_PREFIX=$buildDir/install
-    make -j10
-    make install
-
-The compilers were added to the above environment as described in
-:numref:`compilers`.
+On OSX the same approach is used, but the compiler names change to ``clang``
+and ``clang++``. 
 
 Building the documentation
 --------------------------
@@ -432,7 +397,7 @@ These packages can be installed and activated as follows::
     conda activate sphinx
 
 Note that we used a separate conda environment to minimize the chance
-of conflict with other dependencies. Also, sphinx version 4 seems to
+of conflict with other dependencies. Also, Sphinx version 4 seems to
 have trouble compiling our documentation, hence a lower version is
 used here.
 

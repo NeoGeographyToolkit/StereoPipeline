@@ -213,28 +213,3 @@ the one in :numref:`build_from_source`, the dependencies can be looked
 up in the ``meta.yaml`` files for these conda packages, after fetching
 them according to :numref:`packages_to_build`.
 
-.. _compilers:
-
-Note on compilers
------------------
-
-On Linux, the conda packages are set to be built with conda-provided
-versions of the C and C++ compilers. For OSX, the local system Clang
-compilers are used, as the conda-provided ones turned out to result in
-problems at runtime.
-
-To install these compilers in a desired environemnt on Linux for use
-without ``conda build``, do::
-
-    conda install -c conda-forge gcc_linux-64=11 gxx_linux-64=11
-
-It is suggested to install ``cmake`` in the same environment, for both
-Linux and OSX, with::
-
-   conda install -c conda-forge cmake=3.15
-
-For simplicity, these can be installed in the environment already
-having all the ASP dependencies, but in that case those dependencies
-should be installed first, and the build tools later, to minimize the
-chance of conflicts.  Otherwise, create a new environment for these
-tools.

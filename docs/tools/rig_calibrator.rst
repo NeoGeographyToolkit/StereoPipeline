@@ -335,7 +335,7 @@ The obtained point clouds can be fused into a mesh using ``voxblox_mesh``
     
     voxblox_mesh --index rig_out/voxblox/haz_cam/index.txt \
       --output_mesh rig_out/fused_mesh.ply                 \
-      --min_ray_length 0.1 --max_ray_length 2.0            \
+      --min_ray_length 0.1 --max_ray_length 4.0            \
       --voxel_size 0.01
 
 This assumes that depth sensors were present. Otherwise, can needs to
