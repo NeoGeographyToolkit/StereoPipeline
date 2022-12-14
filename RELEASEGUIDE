@@ -35,6 +35,14 @@ https://semver.org for guidance).
    This is described in detail in :numref:`conda_build` in the
    documentation.
 
+  - Make the conda dependencies of:
+
+      https://github.com/oleg-alexandrov/MultiView 
+    
+    compatible with the dependecies so far, then build and install
+    that package in the same directory as VisionWorkbench and
+    StereoPipeline.
+
   - Create a local conda environment and install there all the
     packages just built, including VisionWorkbench and StereoPipeline.
     This will ensure there are no conflicts. 

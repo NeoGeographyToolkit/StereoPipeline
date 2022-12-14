@@ -571,6 +571,15 @@ to ensure there exists one depth point for each corresponding image pixel.
 Note that the float32 datatype has limited precision, but is adequate
 except for when the measurements are taken from orbit.
 
+Source code
+^^^^^^^^^^^
+
+The rig calibration software can be built and used independently of
+ASP, and has many fewer dependencies than ASP itself (particularly, it
+does not depend on ISIS). If desired to run ``multi_stereo``, however,
+then ASP itself is needed). See the `source code and build
+instructions <https://github.com/oleg-alexandrov/MultiView>`_.
+
 .. _rig_calibrator_command_line:
 
 Command-line options for rig_calibrator
