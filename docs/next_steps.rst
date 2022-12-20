@@ -32,14 +32,15 @@ can be fast but not of high quality. Much better results are likely
 produced with::
 
    parallel_stereo --alignment-method affineepipolar \
-     --stereo-algorithm asp_mgm --subpixel-mode 3    \
+     --stereo-algorithm asp_mgm --subpixel-mode 9    \
      <other options>
 
-which uses ASP's implementation of MGM (:numref:`asp_sgm`). Use
-``--subpixel-mode 9`` as a faster alternative (with the ``asp_mgm`` and
-``asp_sgm`` algorithms), which still provides rather good quality. For
-best results one can use ``--subpixel-mode 2``, but that is very
-slow. Do not use ``--subpixel-mode 1`` with ``asp_mgm``/``asp_sgm``.
+which uses ASP's implementation of MGM (:numref:`asp_sgm`). Using
+``--subpixel-mode 3`` will likely further improve the results, but
+will be slower. For best results one can use ``--subpixel-mode 2``,
+but that is very slow. Do not use ``--subpixel-mode 1`` with
+``asp_mgm``/``asp_sgm`` as that produces artifacts. See
+:numref:`subpixel` for more background on some subpixel modes.
 
 For steep terrains it is suggested to mapproject the images
 (:numref:`mapproj-example`).
