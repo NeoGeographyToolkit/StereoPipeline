@@ -605,7 +605,7 @@ namespace vw {
   // function is difference between datum height and DEM height at
   // current point on the ray.
   template <class DEMImageT>
-  class RayDEMIntersectionLMA2 : public math::LeastSquaresModelBase< RayDEMIntersectionLMA2< DEMImageT > > {
+  class RayDEMIntersectionLMA2 : public math::LeastSquaresModelBase<RayDEMIntersectionLMA2<DEMImageT>> {
 
     // TODO: Why does this use EdgeExtension if Helper() restricts access to the bounds?
     InterpolationView<EdgeExtensionView<DEMImageT, ConstantEdgeExtension>,
@@ -622,7 +622,7 @@ namespace vw {
     typename boost::enable_if< IsScalar<PixelT>, double >::type
     inline Helper( double x, double y ) const {
       if ( (0 <= x) && (x <= m_dem.cols() - 1) && // for interpolation
-           (0 <= y) && (y <= m_dem.rows() - 1) ){
+           (0 <= y) && (y <= m_dem.rows() - 1)) {
         PixelT val = m_dem(x, y);
         if (is_valid(val)) return val;
       }
@@ -961,6 +961,24 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
   opt.pixel_values = good_pixel_values;
 }
 
+vw::Matrix<double> vec2matrix(int rows, int cols, std::vector<double> const& vals) {
+  int len = vals.size();
+  if (len != rows * cols) 
+    vw::vw_throw(vw::ArgumentErr() << "Size mis-match.\n");
+
+  vw::Matrix<double> M;
+  M.set_size(rows, cols);
+
+  int count = 0;
+  for (int row = 0; row < rows; row++) {
+    for (int col = 0; col < cols; col++) {
+      M(row, col) = vals[count];
+      count++;
+    }
+  }
+  return M;
+}
+
 int main(int argc, char * argv[]){
   
   Options opt;
@@ -1156,6 +1174,97 @@ int main(int argc, char * argv[]){
       ((vw::camera::OpticalBarModel*)out_cam.get())->write(opt.camera_file);
     else {
       ((vw::camera::PinholeModel*)out_cam.get())->write(opt.camera_file);
+      vw::camera::PinholeModel const& pin = *((vw::camera::PinholeModel*)out_cam.get());
+      std::cout << "--got pin!" << std::endl;
+
+      Vector3 ctr = pin.camera_center();
+      std::cout.precision(17);
+      std::cout << "--cam ctr " << ctr << std::endl;
+
+      Vector3 json_ctr(-1545253.4474508399, -4928762.3027835796, 4528552.5863988297);
+      std::cout << "--json ctr " << json_ctr << std::endl;
+
+      Vector2 pix(100, 200);
+      Vector3 xyz = datum_intersection(datum, json_ctr, pin.pixel_to_vector(pix));
+      std::cout << "--datum intersection " << xyz << std::endl;
+      vw_out() << "\n";
+      Vector2 pix2 = pin.point_to_pixel(xyz);
+      std::cout << "--pix and pix2 " << pix << ' ' << pix2 << std::endl;
+
+      std::vector<double> proj_vals = {539020.6993896761, -118741.99391973122, -48253.60179139215, 
+                                  466191503785.79956, // 1st row
+                                   -127887.05409734296, -496776.0675964224, -210918.75419012178, 
+                                  -1690952396314.87, // 2nd row
+                                   0.015304025053740247, 0.3527257556048344, -0.9356015862268279, 
+                                  5999070.988066477}; // 3rd row
+      vw::Matrix<double> Proj = vec2matrix(3, 4, proj_vals);
+      std::cout << "rows and cols " << Proj.rows() << ' ' << Proj.cols() << std::endl;
+      std::cout << "Proj is " << Proj << std::endl;
+
+      vw::Vector<double, 4> xyz4(0, 0, 0, 1);
+      subvector(xyz4, 0, 3) = xyz;
+      std::cout << "xyz4 " << xyz4 << std::endl;
+      vw::Vector3 pix3 = Proj * xyz4;
+      std::cout << "--projective pix 3 " << pix3 << std::endl;
+      vw::Vector2 pix4;
+      pix4[0] = pix3[0] / pix3[2];
+      pix4[1] = pix3[1] / pix3[2];
+      std::cout << "--normalized pix " << pix4 << std::endl;
+
+      // P_camera
+      std::vector<double> p_camera_vals = {-553930.3747321374, 0.0, 11511.973137766321, 0.0,
+                                      0.0, -554276.2276845936, 20153.02049596302, 0.0,
+                                      0.0, 0.0, 1.0, 0.0};
+      vw::Matrix<double> p_camera = vec2matrix(3, 4, p_camera_vals);
+
+      // P_extrinsic
+      std::vector<double> p_extr_vals = {-0.22711385450575833, -0.8991522132656528,
+                                       -0.37409169259824193, -3088562.097780958,
+                                       -0.9738595922555763, 0.2113039391217884,
+                                       0.08335550301821446, -840872.7814765619,
+                                       0.004097763212046718, 0.38324397280465494,
+                                       -0.923638059872787, 6077994.0535921585,
+                                       0.0, 0.0, 0.0, 1.0};
+      vw::Matrix<double> p_extr = vec2matrix(4, 4, p_extr_vals);
+
+      // P_intrinsic
+      std::vector<double> p_intr_vals = {-0.003721068228544455, 0.9998223744549675, 
+                                         0.018476287247971603, 0.0,
+                                         -0.9995616564264864, -0.0042615002962292925, 
+                                         0.029297348295778142, 0.0, 
+                                         0.02937088104189954, -0.018359170854270048, 
+                                         0.999399966075828, 0.0,
+                                         0.0, 0.0, 0.0, 1.0};
+      vw::Matrix<double> p_intr = vec2matrix(4, 4, p_intr_vals);
+
+      vw::Matrix<double> proj2 =  p_camera * p_intr * p_extr;
+
+      // Adjust for the fact that Planet like negative focal length, while
+      // vw::camera::PinholeModel uses positive values.
+      vw::Matrix<double> flip;
+      flip.set_identity(4);
+      flip(0, 0) = -1;
+      flip(1, 1) = -1;
+      
+      std::cout << "diff is " << Proj - proj2 << std::endl;
+      std::cout << "--flip is " << flip << std::endl;
+      vw::Matrix<double> world2cam = flip * p_intr * p_extr;
+      std::cout << "planet world 2 cam " << world2cam << std::endl;
+
+      vw::Matrix<double> cam2world = inverse(world2cam);
+      vw::camera::PinholeModel pin2;
+      pin2.set_camera_center(json_ctr);
+      pin2.set_camera_pose(submatrix(cam2world, 0, 0, 3, 3));
+      // Flip the sign of the focal length. An opposite flip is made above
+      // to cancel this flip.
+      pin2.set_focal_length(vw::Vector2(-p_camera(0, 0), -p_camera(1, 1)));
+      pin2.set_point_offset(vw::Vector2(p_camera(0, 2), p_camera(1, 2)));
+      pin2.set_pixel_pitch(1.0); // not necessary, but better be explicit
+
+      std::cout << "--manufactured pix " << pin2.point_to_pixel(xyz) << std::endl;
+      
+      //vw::Matrix<double> asp_world2cam = inverse(pin.get_rotation_matrix());
+      //std::cout << "--asp world 2cam " << asp_world2cam << std::endl;
     }
 
 
