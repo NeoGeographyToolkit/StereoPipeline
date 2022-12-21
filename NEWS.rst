@@ -171,8 +171,7 @@ corr_eval (:numref:`corr_eval`):
 
 cam_gen (:numref:`cam_gen`):
   * Can read Planet's pinhole.json files. Then no further changes
-    are made to the produced pinhole camera. Example
-    in :numref:`skysat_stereo`.
+    are made to the produced pinhole camera. 
   * Fix a bug in output camera center determination, when an input
     camera is provided.
   * Bugfix in initializing pinhole cameras based on GCP for off-nadir

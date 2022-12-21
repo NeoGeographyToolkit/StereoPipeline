@@ -172,7 +172,7 @@ Command-line options for cam_gen:
 
 --input-camera <filename>
     Create the output pinhole camera approximating this camera.
-    If with a ``pinhole.json`` extension, read it verbatim, with no
+    If with a ``_pinhole.json`` suffix, read it verbatim, with no
     refinements or taking into account other input options. Example
     in :numref:`skysat_stereo`.
 
