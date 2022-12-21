@@ -359,7 +359,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Create cameras based on ECEF position (but not orientation).")
     ("input-camera", po::value(&opt.input_camera)->default_value(""),
      "Create the output pinhole camera approximating this camera. If with a "
-     "_pinhole.json extension, read it verbatim, with no refinements or "
+     "_pinhole.json suffix, read it verbatim, with no refinements or "
      "taking into account other input options.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. See the doc for options.")

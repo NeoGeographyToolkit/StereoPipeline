@@ -314,7 +314,6 @@ bool init_cams_pinhole(Options & opt, asp::BAParams & param_storage,
   const size_t num_cameras = param_storage.num_cameras();
 
   for (int icam=0; icam < num_cameras; ++icam) {
-    // TODO(oalexan1): Check here if to use vw::camera::unadjusted_model()
     PinholeModel* pin_ptr = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
     vw::vw_out() << "Loading input model: " << *pin_ptr << std::endl;
 
