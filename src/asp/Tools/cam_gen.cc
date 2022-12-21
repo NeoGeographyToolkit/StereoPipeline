@@ -44,9 +44,14 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+
+// For parsing .json files
+#include <nlohmann/json.hpp>
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
+using json = nlohmann::json;
 
 using namespace vw;
 using namespace vw::camera;
@@ -301,8 +306,8 @@ struct Options : public vw::GdalWriteOptions {
     cam_height, cam_weight, cam_ctr_weight;
   Vector2 optical_center;
   std::vector<double> lon_lat_values, pixel_values;
-  bool refine_camera, parse_eci, parse_ecef; 
-  Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0) {}
+  bool refine_camera, parse_eci, parse_ecef, input_pinhole; 
+  Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0), input_pinhole(false) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -353,13 +358,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("parse-ecef", po::bool_switch(&opt.parse_ecef)->default_value(false),
      "Create cameras based on ECEF position (but not orientation).")
     ("input-camera", po::value(&opt.input_camera)->default_value(""),
-     "Create the output pinhole camera approximating this camera.")
+     "Create the output pinhole camera approximating this camera. If with a "
+     "_pinhole.json extension, read it verbatim, with no refinements or "
+     "taking into account other input options.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. See the doc for options.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
-     "Use the camera adjustment obtained by previously running bundle_adjust when providing an input camera.");
+     "Use the camera adjustment obtained by previously running bundle_adjust "
+     "when providing an input camera.");
   
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -376,11 +384,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
-  if ( opt.image_file.empty() )
+  if (opt.image_file.empty())
     vw_throw( ArgumentErr() << "Missing the input image.\n"
               << usage << general_options );
 
-  if ( opt.camera_file.empty() )
+  if (opt.camera_file.empty())
     vw_throw( ArgumentErr() << "Missing the output camera file name.\n"
               << usage << general_options );
 
@@ -398,8 +406,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "The output camera file must end with .tsai.\n"
               << usage << general_options );
 
+  opt.input_pinhole = boost::algorithm::ends_with(opt.input_camera, "_pinhole.json");
+  
   // If we cannot read the data from a DEM, must specify a lot of things.
-  if (opt.reference_dem.empty() && opt.datum_str.empty())
+  if (!opt.input_pinhole && opt.reference_dem.empty() && opt.datum_str.empty())
     vw_throw( ArgumentErr() << "Must provide either a reference DEM or a datum.\n"
               << usage << general_options );
 
@@ -407,7 +417,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "The GCP standard deviation must be positive.\n"
               << usage << general_options );
 
-  if (opt.frame_index != "" && opt.lon_lat_values_str != "") 
+  if (!opt.input_pinhole && opt.frame_index != "" && opt.lon_lat_values_str != "") 
     vw_throw( ArgumentErr() << "Cannot specify both the frame index file "
 	      << "and the lon-lat corners.\n"
               << usage << general_options );
@@ -415,7 +425,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.cam_weight > 0 && opt.cam_ctr_weight > 0)
     vw::vw_throw(vw::ArgumentErr() << "Cannot enforce the camera center constraint and camera height constraint at the same time.\n");
 
-  if (opt.frame_index != "") {
+  if (!opt.input_pinhole && opt.frame_index != "") {
     // Parse the frame index to extract opt.lon_lat_values_str.
     // Look for a line having this image, and search for "POLYGON" followed by spaces and "((".
     boost::filesystem::path p(opt.image_file); 
@@ -513,7 +523,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   parse_values<double>(opt.pixel_values_str, opt.pixel_values);
 
   // If none were provided, use the image corners
-  if (opt.pixel_values.empty()) {
+  if (!opt.input_pinhole && opt.pixel_values.empty()) {
     DiskImageView<float> img(opt.image_file);
     int wid = img.cols(), hgt = img.rows();
     if (wid <= 0 || hgt <= 0) 
@@ -536,7 +546,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
     
   // Parse the lon-lat values
-  if (opt.input_camera == "") {
+  if (!opt.input_pinhole && opt.input_camera == "") {
     parse_values<double>(opt.lon_lat_values_str, opt.lon_lat_values);
     // Bug fix for some frame_index files repeating the first point at the end
     int len = opt.lon_lat_values.size();
@@ -549,12 +559,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
   
   // Note that optical center can be negative (for some SkySat products).
-  if ( opt.sample_file == "" && (opt.focal_length <= 0 || opt.pixel_pitch <= 0))
+  if (!opt.input_pinhole &&
+      opt.sample_file == "" &&
+      (opt.focal_length <= 0 || opt.pixel_pitch <= 0))
     vw_throw( ArgumentErr() << "Must provide positive focal length"
               << "and pixel pitch values OR a sample file.\n");
+
+  if ((opt.parse_eci || opt.parse_ecef) && opt.camera_type == "opticalbar") 
+    vw_throw( ArgumentErr() << "Cannot parse ECI/ECEF data for an optical bar camera.\n");
   
   // Create the output directory
   vw::create_out_dir(opt.camera_file);
+
 } // End function handle_arguments
 
 // Form a camera based on info the user provided
@@ -979,6 +995,252 @@ vw::Matrix<double> vec2matrix(int rows, int cols, std::vector<double> const& val
   return M;
 }
 
+// Read a matrix in json format. This will throw an error if the json object
+// does not have the expected data.
+vw::Matrix<double> json_mat(json const& j, int rows, int cols) {
+
+  vw::Matrix<double> M;
+  M.set_size(rows, cols);
+  for (int row = 0; row < rows; row++) {
+    for (int col = 0; col < cols; col++) {
+      M(row, col) = j[row][col].get<double>();
+    }
+  }
+  return M;
+}
+
+// Create a pinhole camera using user-specified options.
+void form_pinhole_camera(Options & opt, vw::cartography::Datum & datum,
+                         boost::shared_ptr<CameraModel> & out_cam) {
+
+  GeoReference geo;
+  ImageView<float> dem;
+  float nodata_value = -std::numeric_limits<float>::max(); 
+  bool has_dem = false;
+  if (opt.reference_dem != "") {
+    dem = DiskImageView<float>(opt.reference_dem);
+    bool ans = read_georeference(geo, opt.reference_dem);
+    if (!ans) 
+      vw_throw( ArgumentErr() << "Could not read the georeference from dem: "
+                << opt.reference_dem << ".\n");
+
+    datum = geo.datum(); // Read this in for completeness
+    has_dem = true;
+    vw::read_nodata_val(opt.reference_dem, nodata_value);
+    vw_out() << "Using nodata value: " << nodata_value << std::endl;
+  }else{
+    datum = vw::cartography::Datum(opt.datum_str); 
+    vw_out() << "No reference DEM provided. Will use a height of "
+             << opt.height_above_datum << " above the datum:\n" 
+             << datum << std::endl;
+  }
+
+  // Prepare the DEM for interpolation
+  ImageViewRef<PixelMask<float>> interp_dem
+    = interpolate(create_mask(dem, nodata_value),
+                  BilinearInterpolation(), ZeroEdgeExtension());
+
+  // If we have camera center in ECI or ECEF coordinates in km, convert
+  // it to meters, then find the height above datum.
+  Vector3 parsed_cam_ctr(0, 0, 0);
+  if (opt.parsed_cam_ctr_str != "") {
+    std::vector<double> vals;
+    parse_values<double>(opt.parsed_cam_ctr_str, vals);
+    if (vals.size() != 3) 
+      vw_throw( ArgumentErr() << "Could not parse 3 values from: "
+                << opt.parsed_cam_ctr_str << ".\n");
+
+    parsed_cam_ctr = Vector3(vals[0], vals[1], vals[2]);
+    parsed_cam_ctr *= 1000.0;  // convert to meters
+    vw_out().precision(18);
+    vw_out() << "Parsed camera center (meters): " << parsed_cam_ctr << "\n";
+
+    Vector3 llh = datum.cartesian_to_geodetic(parsed_cam_ctr);
+      
+    // If parsed_cam_ctr is in ECI coordinates, the lon and lat won't be accurate
+    // but the height will be.
+    if (opt.cam_weight > 0) 
+      opt.cam_height = llh[2];
+  }
+    
+  vw::Quat parsed_cam_quat;
+  if (opt.parsed_cam_quat_str != "") {
+    std::vector<double> vals;
+    parse_values<double>(opt.parsed_cam_quat_str, vals);
+    if (vals.size() != 4) 
+      vw_throw( ArgumentErr() << "Could not parse 4 values from: "
+                << opt.parsed_cam_quat_str << ".\n");
+
+    parsed_cam_quat = vw::Quat(vals[0], vals[1], vals[2], vals[3]);
+    vw_out() << "Parsed camera quaternion: " << parsed_cam_quat << "\n";
+  }
+    
+  if (opt.cam_weight > 0) {
+    vw_out() << "Will attempt to find a camera center height above datum of "
+             << opt.cam_height
+             << " meters with a weight strength of " << opt.cam_weight << ".\n";
+  }
+  if (opt.cam_ctr_weight > 0 && opt.refine_camera)  
+    vw_out() << "Will try to have the camera center change little during camera refinement.\n"; 
+
+  Vector3 input_cam_ctr(0, 0, 0); // estimated camera center from input camera
+  std::vector<double> cam_heights;
+  if (opt.input_camera != ""){
+    // Extract lon and lat from tracing rays from the camera to the ground.
+    // This can modify opt.pixel_values. Also calc the camera center.
+    extract_lon_lat_cam_ctr_from_camera(opt, create_mask(dem, nodata_value), geo, cam_heights,
+                                        input_cam_ctr);
+  }
+
+  // Overwrite the estimated center with what is parsed from vendor's data,
+  // if this data exists.
+  if (opt.parse_ecef && parsed_cam_ctr != Vector3())
+    input_cam_ctr = parsed_cam_ctr;
+    
+  if (opt.lon_lat_values.size() < 3) 
+    vw_throw( ArgumentErr() << "Expecting at least three longitude-latitude pairs.\n");
+
+  if (opt.lon_lat_values.size() != opt.pixel_values.size()){
+    vw_throw( ArgumentErr()
+              << "The number of lon-lat pairs must equal the number of pixel pairs.\n");
+  }
+
+  size_t num_lon_lat_pairs = opt.lon_lat_values.size()/2;
+    
+  Vector2 pix;
+  Vector3 llh, xyz;
+  std::vector<Vector3> xyz_vec;
+
+  // If to write a gcp file
+  std::ostringstream gcp;
+  gcp.precision(17);
+  bool write_gcp = (opt.gcp_file != "");
+
+  // TODO(oalexan1): Make this into a function
+  for (size_t corner_it = 0; corner_it < num_lon_lat_pairs; corner_it++) {
+
+    // Get the height from the DEM if possible
+    llh[0] = opt.lon_lat_values[2*corner_it+0];
+    llh[1] = opt.lon_lat_values[2*corner_it+1];
+
+    if (llh[1] < -90 || llh[1] > 90) 
+      vw_throw( ArgumentErr() << "Detected a latitude out of bounds. "
+                << "Perhaps the longitude and latitude are reversed?\n");
+
+    double height = opt.height_above_datum; 
+    if (opt.input_camera != ""){
+      height = cam_heights[corner_it]; // already computed
+    } else {
+      if (has_dem) {
+        bool success = false;
+        pix = geo.lonlat_to_pixel(subvector(llh, 0, 2));
+        int len =  BilinearInterpolation::pixel_buffer;
+        if (pix[0] >= 0 && pix[0] <= interp_dem.cols() - 1 - len &&
+            pix[1] >= 0 && pix[1] <= interp_dem.rows() - 1 - len) {
+          PixelMask<float> masked_height = interp_dem(pix[0], pix[1]);
+          if (is_valid(masked_height)) {
+            height = masked_height.child();
+            success = true;
+          }
+        }
+        if (!success) 
+          vw_out() << "Could not determine a valid height value at lon-lat: "
+                   << llh[0] << ' ' << llh[1] << ". Will use a height of " << height << ".\n";
+      }
+    }
+      
+    llh[2] = height;
+    //vw_out() << "Lon-lat-height for corner ("
+    //         << opt.pixel_values[2*corner_it] << ", " << opt.pixel_values[2*corner_it+1]
+    //         << ") is "
+    //         << llh[0] << ", " << llh[1] << ", " << llh[2] << std::endl;
+
+    xyz = datum.geodetic_to_cartesian(llh);
+    xyz_vec.push_back(xyz);
+
+    if (write_gcp)
+      gcp << corner_it << ' ' << llh[1] << ' ' << llh[0] << ' ' << llh[2] << ' '
+          << 1 << ' ' << 1 << ' ' << 1 << ' ' << opt.image_file << ' '
+          << opt.pixel_values[2*corner_it] << ' ' << opt.pixel_values[2*corner_it+1] << ' '
+          << opt.gcp_std << ' ' << opt.gcp_std << std::endl;
+  } // End loop through lon-lat pairs
+
+  if (write_gcp) {
+    vw_out() << "Writing: " << opt.gcp_file << std::endl;
+    std::ofstream fs(opt.gcp_file.c_str());
+    fs << gcp.str();
+    fs.close();
+  }
+    
+  // Form a camera based on info the user provided
+  DiskImageView<float> img(opt.image_file);
+  int wid = img.cols(), hgt = img.rows();
+  if (wid <= 0 || hgt <= 0) 
+    vw_throw( ArgumentErr() << "Could not read an image with positive dimensions from: "
+              << opt.image_file << ".\n");
+  manufacture_cam(opt, wid, hgt, out_cam);
+
+  // Transform it and optionally refine it
+  bool verbose = true;
+  fit_camera_to_xyz_ht(opt.parse_ecef, parsed_cam_ctr, input_cam_ctr,
+                       opt.camera_type, opt.refine_camera,  
+                       xyz_vec, opt.pixel_values, 
+                       opt.cam_height, opt.cam_weight, opt.cam_ctr_weight, datum,
+                       verbose, out_cam);
+    
+  return;
+}
+
+// Read a pinhole camera from Planet's json file format (*_pinhole.json). Then
+// the WGS84 datum is assumed.
+void read_pinhole_from_json(Options const& opt, vw::cartography::Datum & datum,
+                            boost::shared_ptr<CameraModel> & out_cam) {
+
+  datum.set_well_known_datum("WGS84");
+  
+  std::ifstream f(opt.input_camera);
+  json j = json::parse(f);
+
+  // Parse the focal length and optical center. Negate the focal
+  // length to make it positive. We adjust for that later.
+  json const& cam = j["P_camera"];
+  double fx = -cam[0][0].get<double>();
+  double fy = -cam[1][1].get<double>();
+  double ox = cam[0][2].get<double>();
+  double oy = cam[1][2].get<double>();
+
+  json const& exterior = j["exterior_orientation"];
+  double ecef_x = exterior["x_ecef_meters"].get<double>();
+  double ecef_y = exterior["y_ecef_meters"].get<double>();
+  double ecef_z = exterior["z_ecef_meters"].get<double>();
+
+  // Following the Planet convention of naming things
+  vw::Matrix<double> extrinsic = json_mat(j["P_extrinsic"], 4, 4);
+  vw::Matrix<double> intrinsic = json_mat(j["P_intrinsic"], 4, 4);
+
+  // Adjust for the fact that Planet likes negative focal lengths, while
+  // vw::camera::PinholeModel uses positive values.
+  vw::Matrix<double> flip;
+  flip.set_identity(4);
+  flip(0, 0) = -1;
+  flip(1, 1) = -1;
+      
+  // Create a blank pinhole model and get an alias to it
+  out_cam.reset(new vw::camera::PinholeModel());
+  PinholeModel & pin = *((PinholeModel*)out_cam.get());
+
+  // Populate the model
+  pin.set_pixel_pitch(1.0); // not necessary, but better be explicit
+  pin.set_focal_length(vw::Vector2(fx, fy));
+  pin.set_point_offset(vw::Vector2(ox, oy));
+
+  pin.set_camera_center(vw::Vector3(ecef_x, ecef_y, ecef_z));
+
+  vw::Matrix<double> world2cam = flip * intrinsic * extrinsic;
+  vw::Matrix<double> cam2world = inverse(world2cam);
+  pin.set_camera_pose(submatrix(cam2world, 0, 0, 3, 3));
+}
+
 int main(int argc, char * argv[]){
   
   Options opt;
@@ -986,289 +1248,27 @@ int main(int argc, char * argv[]){
     
     handle_arguments(argc, argv, opt);
     
-    vw::cartography::Datum datum;
-    GeoReference geo;
-    ImageView<float> dem;
-    float nodata_value = -std::numeric_limits<float>::max(); 
-    bool has_dem = false;
-    if (opt.reference_dem != "") {
-      dem = DiskImageView<float>(opt.reference_dem);
-      bool ans = read_georeference(geo, opt.reference_dem);
-      if (!ans) 
-        vw_throw( ArgumentErr() << "Could not read the georeference from dem: "
-                  << opt.reference_dem << ".\n");
-
-      datum = geo.datum(); // Read this in for completeness
-      has_dem = true;
-      vw::read_nodata_val(opt.reference_dem, nodata_value);
-      vw_out() << "Using nodata value: " << nodata_value << std::endl;
-    }else{
-      datum = vw::cartography::Datum(opt.datum_str); 
-      vw_out() << "No reference DEM provided. Will use a height of "
-               << opt.height_above_datum << " above the datum:\n" 
-               << datum << std::endl;
-    }
-
-    // Prepare the DEM for interpolation
-    ImageViewRef<PixelMask<float>> interp_dem
-      = interpolate(create_mask(dem, nodata_value),
-		    BilinearInterpolation(), ZeroEdgeExtension());
-
-    // If we have camera center in ECI or ECEF coordinates in km, convert
-    // it to meters, then find the height above datum.
-    Vector3 parsed_cam_ctr(0, 0, 0);
-    if (opt.parsed_cam_ctr_str != "") {
-      std::vector<double> vals;
-      parse_values<double>(opt.parsed_cam_ctr_str, vals);
-      if (vals.size() != 3) 
-	vw_throw( ArgumentErr() << "Could not parse 3 values from: "
-		  << opt.parsed_cam_ctr_str << ".\n");
-
-      parsed_cam_ctr = Vector3(vals[0], vals[1], vals[2]);
-      parsed_cam_ctr *= 1000.0;  // convert to meters
-      vw_out().precision(18);
-      vw_out() << "Parsed camera center (meters): " << parsed_cam_ctr << "\n";
-
-      Vector3 llh = datum.cartesian_to_geodetic(parsed_cam_ctr);
-      
-      // If parsed_cam_ctr is in ECI coordinates, the lon and lat won't be accurate
-      // but the height will be.
-      if (opt.cam_weight > 0) 
-	opt.cam_height = llh[2];
-    }
-    
-    vw::Quat parsed_cam_quat;
-    if (opt.parsed_cam_quat_str != "") {
-      std::vector<double> vals;
-      parse_values<double>(opt.parsed_cam_quat_str, vals);
-      if (vals.size() != 4) 
-	vw_throw( ArgumentErr() << "Could not parse 4 values from: "
-		  << opt.parsed_cam_quat_str << ".\n");
-
-      parsed_cam_quat = vw::Quat(vals[0], vals[1], vals[2], vals[3]);
-      vw_out() << "Parsed camera quaternion: " << parsed_cam_quat << "\n";
-    }
-    
-    if (opt.cam_weight > 0) {
-      vw_out() << "Will attempt to find a camera center height above datum of "
-	       << opt.cam_height
-	       << " meters with a weight strength of " << opt.cam_weight << ".\n";
-    }
-    if (opt.cam_ctr_weight > 0 && opt.refine_camera)  
-      vw_out() << "Will try to have the camera center change little during camera refinement.\n"; 
-
-    Vector3 input_cam_ctr(0, 0, 0); // estimated camera center from input camera
-    std::vector<double> cam_heights;
-    if (opt.input_camera != ""){
-      // Extract lon and lat from tracing rays from the camera to the ground.
-      // This can modify opt.pixel_values. Also calc the camera center.
-      extract_lon_lat_cam_ctr_from_camera(opt, create_mask(dem, nodata_value), geo, cam_heights,
-                                          input_cam_ctr);
-    }
-
-    // Overwrite the estimated center with what is parsed from vendor's data,
-    // if this data exists.
-    if (opt.parse_ecef && parsed_cam_ctr != Vector3())
-      input_cam_ctr = parsed_cam_ctr;
-    
-    if (opt.lon_lat_values.size() < 3) 
-      vw_throw( ArgumentErr() << "Expecting at least three longitude-latitude pairs.\n");
-
-    if (opt.lon_lat_values.size() != opt.pixel_values.size()){
-      vw_throw( ArgumentErr()
-		<< "The number of lon-lat pairs must equal the number of pixel pairs.\n");
-    }
-
-    size_t num_lon_lat_pairs = opt.lon_lat_values.size()/2;
-    
-    Vector2 pix;
-    Vector3 llh, xyz;
-    std::vector<Vector3> xyz_vec;
-
-    // If to write a gcp file
-    std::ostringstream gcp;
-    gcp.precision(17);
-    bool write_gcp = (opt.gcp_file != "");
-
-    // TODO(oalexan1): Make this into a function
-    for (size_t corner_it = 0; corner_it < num_lon_lat_pairs; corner_it++) {
-
-      // Get the height from the DEM if possible
-      llh[0] = opt.lon_lat_values[2*corner_it+0];
-      llh[1] = opt.lon_lat_values[2*corner_it+1];
-
-      if (llh[1] < -90 || llh[1] > 90) 
-        vw_throw( ArgumentErr() << "Detected a latitude out of bounds. "
-                  << "Perhaps the longitude and latitude are reversed?\n");
-
-      double height = opt.height_above_datum; 
-      if (opt.input_camera != ""){
-        height = cam_heights[corner_it]; // already computed
-      } else {
-        if (has_dem) {
-          bool success = false;
-          pix = geo.lonlat_to_pixel(subvector(llh, 0, 2));
-          int len =  BilinearInterpolation::pixel_buffer;
-          if (pix[0] >= 0 && pix[0] <= interp_dem.cols() - 1 - len &&
-              pix[1] >= 0 && pix[1] <= interp_dem.rows() - 1 - len) {
-            PixelMask<float> masked_height = interp_dem(pix[0], pix[1]);
-            if (is_valid(masked_height)) {
-              height = masked_height.child();
-              success = true;
-            }
-          }
-          if (!success) 
-            vw_out() << "Could not determine a valid height value at lon-lat: "
-                     << llh[0] << ' ' << llh[1] << ". Will use a height of " << height << ".\n";
-        }
-      }
-      
-      llh[2] = height;
-      //vw_out() << "Lon-lat-height for corner ("
-      //         << opt.pixel_values[2*corner_it] << ", " << opt.pixel_values[2*corner_it+1]
-      //         << ") is "
-      //         << llh[0] << ", " << llh[1] << ", " << llh[2] << std::endl;
-
-      xyz = datum.geodetic_to_cartesian(llh);
-      xyz_vec.push_back(xyz);
-
-      if (write_gcp)
-        gcp << corner_it << ' ' << llh[1] << ' ' << llh[0] << ' ' << llh[2] << ' '
-            << 1 << ' ' << 1 << ' ' << 1 << ' ' << opt.image_file << ' '
-            << opt.pixel_values[2*corner_it] << ' ' << opt.pixel_values[2*corner_it+1] << ' '
-            << opt.gcp_std << ' ' << opt.gcp_std << std::endl;
-    } // End loop through lon-lat pairs
-
-    if (write_gcp) {
-      vw_out() << "Writing: " << opt.gcp_file << std::endl;
-      std::ofstream fs(opt.gcp_file.c_str());
-      fs << gcp.str();
-      fs.close();
-    }
-    
-    // Form a camera based on info the user provided
     boost::shared_ptr<CameraModel> out_cam;
-    DiskImageView<float> img(opt.image_file);
-    int wid = img.cols(), hgt = img.rows();
-    if (wid <= 0 || hgt <= 0) 
-      vw_throw( ArgumentErr() << "Could not read an image with positive dimensions from: "
-		<< opt.image_file << ".\n");
-    manufacture_cam(opt, wid, hgt, out_cam);
-
-    // Transform it and optionally refine it
-    bool verbose = true;
-    fit_camera_to_xyz_ht(opt.parse_ecef, parsed_cam_ctr, input_cam_ctr,
-			 opt.camera_type, opt.refine_camera,  
-			 xyz_vec, opt.pixel_values, 
-			 opt.cam_height, opt.cam_weight, opt.cam_ctr_weight, datum,
-			 verbose, out_cam);
+    vw::cartography::Datum datum;
     
-    if ((opt.parse_eci || opt.parse_ecef) && opt.camera_type == "opticalbar") {
-      vw_throw( ArgumentErr() << "Cannot parse ECI/ECEF data for an optical bar camera.\n");
+    if (!opt.input_pinhole) {
+      // Create a pinhole camera using user-specified options.
+      form_pinhole_camera(opt, datum, out_cam);
+    } else {
+      // Read a pinhole camera from Planet's json file format (*_pinhole.json). Then
+      // the WGS84 datum is assumed. Ignore all other input options.
+      read_pinhole_from_json(opt, datum, out_cam);
     }
-
-    llh = datum.cartesian_to_geodetic(out_cam->camera_center(Vector2()));
+    
+    vw::Vector3 llh = datum.cartesian_to_geodetic(out_cam->camera_center(Vector2()));
     vw_out() << "Output camera center lon, lat, and height above datum: " << llh << std::endl;
     vw_out() << "Writing: " << opt.camera_file << std::endl;
     if (opt.camera_type == "opticalbar")
       ((vw::camera::OpticalBarModel*)out_cam.get())->write(opt.camera_file);
-    else {
+    else 
       ((vw::camera::PinholeModel*)out_cam.get())->write(opt.camera_file);
-      vw::camera::PinholeModel const& pin = *((vw::camera::PinholeModel*)out_cam.get());
-      std::cout << "--got pin!" << std::endl;
-
-      Vector3 ctr = pin.camera_center();
-      std::cout.precision(17);
-      std::cout << "--cam ctr " << ctr << std::endl;
-
-      Vector3 json_ctr(-1545253.4474508399, -4928762.3027835796, 4528552.5863988297);
-      std::cout << "--json ctr " << json_ctr << std::endl;
-
-      Vector2 pix(100, 200);
-      Vector3 xyz = datum_intersection(datum, json_ctr, pin.pixel_to_vector(pix));
-      std::cout << "--datum intersection " << xyz << std::endl;
-      vw_out() << "\n";
-      Vector2 pix2 = pin.point_to_pixel(xyz);
-      std::cout << "--pix and pix2 " << pix << ' ' << pix2 << std::endl;
-
-      std::vector<double> proj_vals = {539020.6993896761, -118741.99391973122, -48253.60179139215, 
-                                  466191503785.79956, // 1st row
-                                   -127887.05409734296, -496776.0675964224, -210918.75419012178, 
-                                  -1690952396314.87, // 2nd row
-                                   0.015304025053740247, 0.3527257556048344, -0.9356015862268279, 
-                                  5999070.988066477}; // 3rd row
-      vw::Matrix<double> Proj = vec2matrix(3, 4, proj_vals);
-      std::cout << "rows and cols " << Proj.rows() << ' ' << Proj.cols() << std::endl;
-      std::cout << "Proj is " << Proj << std::endl;
-
-      vw::Vector<double, 4> xyz4(0, 0, 0, 1);
-      subvector(xyz4, 0, 3) = xyz;
-      std::cout << "xyz4 " << xyz4 << std::endl;
-      vw::Vector3 pix3 = Proj * xyz4;
-      std::cout << "--projective pix 3 " << pix3 << std::endl;
-      vw::Vector2 pix4;
-      pix4[0] = pix3[0] / pix3[2];
-      pix4[1] = pix3[1] / pix3[2];
-      std::cout << "--normalized pix " << pix4 << std::endl;
-
-      // P_camera
-      std::vector<double> p_camera_vals = {-553930.3747321374, 0.0, 11511.973137766321, 0.0,
-                                      0.0, -554276.2276845936, 20153.02049596302, 0.0,
-                                      0.0, 0.0, 1.0, 0.0};
-      vw::Matrix<double> p_camera = vec2matrix(3, 4, p_camera_vals);
-
-      // P_extrinsic
-      std::vector<double> p_extr_vals = {-0.22711385450575833, -0.8991522132656528,
-                                       -0.37409169259824193, -3088562.097780958,
-                                       -0.9738595922555763, 0.2113039391217884,
-                                       0.08335550301821446, -840872.7814765619,
-                                       0.004097763212046718, 0.38324397280465494,
-                                       -0.923638059872787, 6077994.0535921585,
-                                       0.0, 0.0, 0.0, 1.0};
-      vw::Matrix<double> p_extr = vec2matrix(4, 4, p_extr_vals);
-
-      // P_intrinsic
-      std::vector<double> p_intr_vals = {-0.003721068228544455, 0.9998223744549675, 
-                                         0.018476287247971603, 0.0,
-                                         -0.9995616564264864, -0.0042615002962292925, 
-                                         0.029297348295778142, 0.0, 
-                                         0.02937088104189954, -0.018359170854270048, 
-                                         0.999399966075828, 0.0,
-                                         0.0, 0.0, 0.0, 1.0};
-      vw::Matrix<double> p_intr = vec2matrix(4, 4, p_intr_vals);
-
-      vw::Matrix<double> proj2 =  p_camera * p_intr * p_extr;
-
-      // Adjust for the fact that Planet like negative focal length, while
-      // vw::camera::PinholeModel uses positive values.
-      vw::Matrix<double> flip;
-      flip.set_identity(4);
-      flip(0, 0) = -1;
-      flip(1, 1) = -1;
-      
-      std::cout << "diff is " << Proj - proj2 << std::endl;
-      std::cout << "--flip is " << flip << std::endl;
-      vw::Matrix<double> world2cam = flip * p_intr * p_extr;
-      std::cout << "planet world 2 cam " << world2cam << std::endl;
-
-      vw::Matrix<double> cam2world = inverse(world2cam);
-      vw::camera::PinholeModel pin2;
-      pin2.set_camera_center(json_ctr);
-      pin2.set_camera_pose(submatrix(cam2world, 0, 0, 3, 3));
-      // Flip the sign of the focal length. An opposite flip is made above
-      // to cancel this flip.
-      pin2.set_focal_length(vw::Vector2(-p_camera(0, 0), -p_camera(1, 1)));
-      pin2.set_point_offset(vw::Vector2(p_camera(0, 2), p_camera(1, 2)));
-      pin2.set_pixel_pitch(1.0); // not necessary, but better be explicit
-
-      std::cout << "--manufactured pix " << pin2.point_to_pixel(xyz) << std::endl;
-      
-      //vw::Matrix<double> asp_world2cam = inverse(pin.get_rotation_matrix());
-      //std::cout << "--asp world 2cam " << asp_world2cam << std::endl;
-    }
-
-
-  } ASP_STANDARD_CATCHES;
     
+  } ASP_STANDARD_CATCHES;
+  
   return 0;
 }
