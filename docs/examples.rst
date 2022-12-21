@@ -2045,9 +2045,6 @@ Individual pairs of stereo images are rather easy to process with ASP,
 following the example in :numref:`rpc`. Here we focus on creating
 stereo from the full sequences of images.
 
-Creation of input cameras
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
 Due to non-trivial errors in each provided camera's position and orientation,
 it was found necessary to convert the given cameras to ASP's
 Pinhole format (:numref:`pinholemodels`) and then run bundle
@@ -2059,6 +2056,9 @@ the obtained DEMs are mosaicked.
 A possible workflow is as follows. (Compare this with the processing
 of Video data in :numref:`skysat_video`. This section is newer, and if
 in doubt, use the approach here.)
+
+Creation of input cameras
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Pinhole cameras can be created with ``cam_gen`` (:numref:`cam_gen`).
 Two approaches can be used. The first is to ingest SkySat's provided

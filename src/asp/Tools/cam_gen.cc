@@ -1052,7 +1052,6 @@ void form_pinhole_camera(Options & opt, vw::cartography::Datum & datum,
 
     parsed_cam_ctr = Vector3(vals[0], vals[1], vals[2]);
     parsed_cam_ctr *= 1000.0;  // convert to meters
-    vw_out().precision(18);
     vw_out() << "Parsed camera center (meters): " << parsed_cam_ctr << "\n";
 
     Vector3 llh = datum.cartesian_to_geodetic(parsed_cam_ctr);
@@ -1250,6 +1249,9 @@ int main(int argc, char * argv[]){
     
     boost::shared_ptr<CameraModel> out_cam;
     vw::cartography::Datum datum;
+
+    // Some of the numbers we print need high precision
+    vw_out().precision(17);
     
     if (!opt.input_pinhole) {
       // Create a pinhole camera using user-specified options.
