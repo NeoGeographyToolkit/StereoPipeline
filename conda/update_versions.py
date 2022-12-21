@@ -103,7 +103,7 @@ for it in range(len(lines)):
         else:
             print("For package " + package + ", replacing version "
                   + old_version + " with " + version)
-            lines[it] = pre + package + spaces + version + ".\n"
+            lines[it] = pre + package + spaces + version + "\n"
 
 # Save the updated lines to disk
 print("Updating: " + outFile)
