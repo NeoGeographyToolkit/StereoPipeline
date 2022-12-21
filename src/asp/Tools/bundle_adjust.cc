@@ -65,6 +65,110 @@ void write_csm_output_file(Options const& opt, int icam,
   csm_model->saveTransformedState(csmFile, ecef_transform);
 }
 
+// Save pinhole camera positions and orientations in a single file.
+// This is useful if there are thousands of cameras.
+// TODO(oalexan1): Add here initial and final prefix.
+// TODO(oalexan1): This must work only for pinhole.
+void saveCameraReport(Options const& opt, asp::BAParams const& param_storage,
+                      vw::cartography::Datum const& datum, 
+                      std::string const& prefix) {
+
+  std::string output_path = opt.out_prefix + "-" + prefix + "-cameras.csv";
+
+  vw_out() << "Writing: " << output_path << std::endl;
+  std::ofstream fh(output_path.c_str());
+  fh.precision(17);
+  fh << "# Camera center (ECEF, meters)\n";
+  fh << "# input_cam_file, cam_ctr_x, cam_ctr_y, cam_ctr_z\n";
+  
+  int num_cameras = opt.image_files.size();
+
+  // TODO(oalexan1): Create here a report file. Write camera name,
+  // camera center, ecef position, ecef quaternion, and ned roll-pitch-yaw.
+  // Use same Euler angles as in numpy. Likely eigen can do it.
+  for (int icam = 0; icam < num_cameras; icam++) {
+
+    vw::Vector3 cam_ctr;
+    vw::Matrix3x3 cam2ecef;
+    switch(opt.camera_type) {
+    case BaCameraType_Pinhole:
+      {
+        // Get the camera model from the original one with parameters in
+        // param_storage applied to it (which could be original ones or optimized). 
+        // Note that we do not modify the original camera.
+        vw::camera::PinholeModel const* in_cam
+          = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
+        if (in_cam == NULL)
+          vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
+        // Apply current intrinsics and extrinsics to the camera
+        vw::camera::PinholeModel out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
+        cam_ctr = out_cam.camera_center(vw::Vector2());
+        cam2ecef = out_cam.get_rotation_matrix();
+        break;
+      }
+    case BaCameraType_OpticalBar:
+      {
+        vw::vw_throw(vw::ArgumentErr() << "Saving a camera report is not implemented "
+                     << "for optical bar cameras.\n");
+#if 0
+        // Apply adjustment to optical bar camera
+        // TODO(oalexan1): Enable this code, and also add equivalent code below
+        // to create an adjusted optical bar camera, for the case when --inline-adjustments
+        // is not used. This needs testing.
+        vw::camera::OpticalBarModel* in_cam
+          = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
+        if (in_cam == NULL)
+          vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
+        vw::camera::OpticalBarModel out_cam
+          = transformedOpticalBarCamera(icam, param_storage, *in_cam);
+        cam_ctr = out_cam.camera_center(vw::Vector2());
+        cam2ecef = out_cam.get_rotation_matrix();
+#endif
+      }
+      break;
+    default:
+      {
+        // Apply extrinsics adjustments to a pinhole camera
+        // TODO(oalexan1): Make this into a function called adjustedPinholeCamera().
+        // Use it where needed.
+        CameraAdjustment adjustment(param_storage.get_camera_ptr(icam));
+        PinholeModel* in_cam = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
+        if (in_cam == NULL)
+          vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
+        
+        // Make a copy of the camera, and apply the adjustments to the copy. Need to go back
+        // to the original camera to get the adjustments needed to apply.
+        // TODO(oalexan1): This is a little awkward.
+        PinholeModel out_cam = *in_cam;
+        AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+                                    adjustment.position(), adjustment.pose());
+        vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
+        out_cam.apply_transform(ecef_transform);
+        cam_ctr = out_cam.camera_center(vw::Vector2());
+        cam2ecef = out_cam.get_rotation_matrix();
+      }
+    }
+
+    fh << opt.camera_files[icam] << ", "
+       << cam_ctr[0] << ", " << cam_ctr[1] << ", " << cam_ctr[2] << "\n";
+
+    // Find the matrix for converting NED to ECEF
+    vw::Vector3 loc_llh = datum.cartesian_to_geodetic(cam_ctr);
+    vw::Matrix3x3 ned2ecef = datum.lonlat_to_ned_matrix(subvector(loc_llh, 0, 2));
+
+    // How a camera moves relative to the world is given by the camera-to-world
+    // matrix. That is a little counter-intuitive.
+    vw::Matrix3x3 cam2ned = inverse(ned2ecef) * cam2ecef;
+
+    // https://stackoverflow.com/questions/27508242/roll-pitch-and-yaw-from-rotation-matrix-with-eigen-library
+    // m.eulerAngles(2,1,0)
+  }
+
+  fh.close();
+
+  return;
+}
+
 // Write the results to disk.
 void saveResults(Options const& opt, asp::BAParams const& param_storage) {
   int num_cameras = opt.image_files.size();
@@ -1598,6 +1702,11 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   // - This includes modifications from any initial transforms that were specified.
   asp::BAParams orig_parameters(param_storage);
 
+  bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
+  if (has_datum && (opt.stereo_session == "pinhole") || 
+      (opt.stereo_session == "nadirpinhole")) 
+    saveCameraReport(opt, param_storage,  opt.datum, "initial");
+    
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   CRNJ crn;
   crn.from_cnet(cnet);
@@ -1685,6 +1794,10 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   // Write the results to disk.
   saveResults(opt, *best_params_ptr);
 
+  if ((opt.stereo_session == "pinhole") || 
+      (opt.stereo_session == "nadirpinhole")) 
+    saveCameraReport(opt, *best_params_ptr, opt.datum, "final");
+  
 } // end do_ba_ceres
 
 /// Looks in the input camera position file to generate a GCC position for

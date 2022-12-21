@@ -140,6 +140,12 @@ def rotateAndCrop(options):
 def main(argsIn):
 
     try:
+        asp_system_utils.checkIfToolExists('convert')
+    except:
+        print('Cannot find the "convert" tool. Install the ImageMagick software, and then add the directory of this tool to PATH.')
+        return -1
+
+    try:
 
         # Use parser that ignores unknown options
         usage  = "usage: historical_helper [options] <rotate or rotate-crop>"

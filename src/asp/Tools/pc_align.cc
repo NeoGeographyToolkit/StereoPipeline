@@ -1171,12 +1171,10 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments(argc, argv, opt);
 
-#if !__APPLE__
     // Set the number of threads for OpenMP. 
     int processor_count = std::thread::hardware_concurrency();
-    omp_set_dynamic(0);     // Explicitly disable dynamic teams
+    omp_set_dynamic(0);
     omp_set_num_threads(processor_count);
-#endif
     
     // Parse the csv format string and csv projection string
     asp::CsvConv csv_conv;

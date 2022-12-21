@@ -338,7 +338,10 @@ This can be done with the following commands::
 
 The `conda-provided compilers
 <https://conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_
-are used and should be added to the environment, if not present already.
+are used and should be installed in the environment, if not present already.
+
+Also ensure that ``cmake>=3.15.5`` is installed, and, for Linux only, the 
+``chrpath`` tool.
 
 Set up a work directory::
 

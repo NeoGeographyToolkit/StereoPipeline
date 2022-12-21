@@ -29,7 +29,7 @@ adjusted for your circumstances.
 
 Create a conda environment for this version of ISIS::
 
-     conda create -n isis6 python=3.6
+     conda create -n isis6
      conda activate isis6
 
 Add these channels to conda::
@@ -124,12 +124,10 @@ and the same for the other packages.
 It is very important to note that this script is not fool-proof, and the
 changes it makes should be very carefully examined.
 
-It is suggested to examine the changed ``meta.yaml`` with great care,
-and if in doubt, leave the values as they were before modified by this
-script.
-
-In each of those files manually modify the string ``isis6`` to
-reflect the current ISIS version.
+It is suggested to examine the changed ``meta.yaml``, and if in doubt,
+leave the values as they were before modified by this script. In each
+of those files manually modify the string ``isis6`` to reflect the
+current ISIS version.
 
 In the ``visionworkbench`` and ``stereopipeline`` recipes update the
 ``git_tag`` value to reflect the desired commit from the Git

@@ -314,11 +314,11 @@ bool init_cams_pinhole(Options & opt, asp::BAParams & param_storage,
   const size_t num_cameras = param_storage.num_cameras();
 
   for (int icam=0; icam < num_cameras; ++icam) {
+    // TODO(oalexan1): Check here if to use vw::camera::unadjusted_model()
     PinholeModel* pin_ptr = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
     vw::vw_out() << "Loading input model: " << *pin_ptr << std::endl;
 
-    // Make a copy of the camera, but note that it shares the distortion model
-    // with the original one. That is not a problem here.
+    // Make a deep copy of the camera, including of the lens distortion
     PinholeModel pin_cam = *pin_ptr;
     
     // Read the adjustments from a previous run, if present
@@ -329,7 +329,9 @@ bool init_cams_pinhole(Options & opt, asp::BAParams & param_storage,
       vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
       CameraAdjustment adjustment;
       adjustment.read_from_adjust_file(adjust_file);
-      
+
+      // Strictly speaking, it is not necessary to call unadjusted_model(), as
+      // in bundle_adjust the input cameras are loaded unadjusted, unlike in stereo.
       AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
                                   adjustment.position(), adjustment.pose());
       vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
@@ -424,9 +426,9 @@ void write_pinhole_output_file(Options const& opt, int icam,
                                                       opt.camera_files[icam]);
   cam_file = boost::filesystem::path(cam_file).replace_extension("tsai").string();
 
-  // Get the final camera model from the original one with optimized
-  // parameters applied to it. Note that we do not modify the original
-  // camera.
+  // Get the camera model from the original one with parameters in
+  // param_storage applied to it (which could be original ones or optimized). 
+  // Note that we do not modify the original camera.
   vw::camera::PinholeModel const* in_cam
     = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
   if (in_cam == NULL)

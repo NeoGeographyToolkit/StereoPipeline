@@ -154,11 +154,10 @@ different commit, first remove the exiting tag with:
   git push origin :refs/tags/3.1.0
   git push god    :refs/tags/3.1.0
 
-9.) Upload the builds and the pdf documentation to GitHub, in the
-release area. Or just rename the latest uploaded daily build
-to be the release build. 
-
-Add the changes listed in NEWS.txt to the release area.
+9.) Create a new release on GitGub, and upload to it the builds and
+the pdf documentation. Do not just rename the latest uploaded daily
+build, as that will create an incorrect Zenodo link. Paste there the
+release notes from NEWS.txt.
 
 Update the website, at::
 

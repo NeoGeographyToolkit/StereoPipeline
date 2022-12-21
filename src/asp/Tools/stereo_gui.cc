@@ -325,15 +325,11 @@ int main(int argc, char** argv) {
 
     vw::create_out_dir(output_prefix);
 
-#if !__APPLE__
-    // TODO(oalexan1): Figure out why clang cannot find OpenMP.
-    // Set the number of threads
-    // TODO(oalexan1): Figure out if this is better than
-    // following the defaults
+    // Use OpenMP to speed things up.
+    // TODO(oalexan1): This should be enabled in more places.
     int processor_count = std::thread::hardware_concurrency();
     omp_set_dynamic(0);
     omp_set_num_threads(processor_count);
-#endif
     
     // Start up the Qt GUI
     // TODO(oalexan1): The arguments below are accessible from the main window
