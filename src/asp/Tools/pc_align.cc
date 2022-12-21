@@ -70,9 +70,7 @@
 #include <limits>
 #include <cstring>
 #include <thread>
-#if !__APPLE__
 #include <omp.h>
-#endif
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>

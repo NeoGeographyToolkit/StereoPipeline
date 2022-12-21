@@ -28,9 +28,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/mpl/or.hpp>
-#if !__APPLE__
 #include <omp.h>
-#endif
 
 // Qt
 #include <QWidget>

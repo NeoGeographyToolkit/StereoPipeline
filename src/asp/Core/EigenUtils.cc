@@ -259,7 +259,7 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
       strncpy(temp, line.c_str(), bufSize);
       const char* token = strtok(temp, sep); null_check(token, line);
 
-      std::int64_t ret = sscanf(token, "%d-%d-%dT%d:%d:%lg", &year, &month, &day, &hour,
+      std::int64_t ret = sscanf(token, "%lld-%lld-%lldT%lld:%lld:%lg", &year, &month, &day, &hour,
                        &min, &sec);
       if( year <= 0 )
         continue;

@@ -39,6 +39,7 @@
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/GuiUtilities.h>
 #include <xercesc/util/PlatformUtils.hpp>
+#include <omp.h>
 #include <thread>
 
 using namespace vw;
