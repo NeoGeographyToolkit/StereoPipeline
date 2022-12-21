@@ -2031,8 +2031,10 @@ available <https://github.com/uw-cryo/skysat_stereo>`_.
 Stereo data
 ~~~~~~~~~~~
 
-The SkySat *Stereo* products come with RPC cameras (embedded in the TIF
-image files or in files with ``_RPC.txt`` extension).
+The SkySat *Stereo* products may come with Pinhole cameras
+(stored in files with the ``_pinhole.json`` suffix) and/or with RPC
+cameras (embedded in the TIF images or in files with the ``_RPC.txt``
+suffix).
 
 This product may have images acquired with either two or three
 perspectives, and for each of those there are three sensors with
@@ -2040,20 +2042,45 @@ overlapping fields of view. Each sensor creates on the order of 300
 images with much overlap among them.
 
 Individual pairs of stereo images are rather easy to process with ASP,
-following the example in :numref:`rpc`.
+following the example in :numref:`rpc`. Here we focus on creating
+stereo from the full sequences of images.
 
-Due to non-trivial errors in each camera's position and orientation,
-it was found preferable to convert the RPC cameras to Pinhole
-(:numref:`pinholemodels`), thus decoupling the camera intrinsics from
-their poses, then running bundle adjustment (:numref:`bundle_adjust`)
-to refine the poses, followed by pairwise stereo and mosaicking of
-DEMs.
+Creation of input cameras
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Due to non-trivial errors in each provided camera's position and orientation,
+it was found necessary to convert the given cameras to ASP's
+Pinhole format (:numref:`pinholemodels`) and then run bundle
+adjustment (:numref:`bundle_adjust`), to refine the camera
+poses. (Note that for RPC cameras, this conversion decouples the
+camera intrinsics from their poses.) Then, pairwise stereo is run, and
+the obtained DEMs are mosaicked.
 
 A possible workflow is as follows. (Compare this with the processing
 of Video data in :numref:`skysat_video`. This section is newer, and if
 in doubt, use the approach here.)
 
-Pinhole cameras can be created with ``cam_gen``: (:numref:`cam_gen`)::
+Pinhole cameras can be created with ``cam_gen`` (:numref:`cam_gen`).
+Two approaches can be used. The first is to ingest SkySat's provided
+Pinhole cameras, which have a ``_pinhole.json`` suffix.
+
+::
+
+    pref=img/1259344359.55622339_sc00104_c2_PAN_i0000000320
+    cam_gen ${pref}.tif                        \
+        --input-camera ${pref}_pinhole.json    \
+        -o ${pref}.tsai
+
+This approach is preferred.
+
+Here, no camera refinement happens and no GCP are created.
+Note that this was tested only with the L1A SkySat product.
+
+Alternatively, if the ``pinhole.json`` files are not available, 
+a Pinhole camera can be derived from each of their RPC
+cameras.
+
+::
 
     pref=img/1259344359.55622339_sc00104_c2_PAN_i0000000320
     cam_gen ${pref}.tif               \
@@ -2077,12 +2104,11 @@ for L1A.
 
 Above, we read the ECEF camera positions from the ``frame_index.csv``
 file provided by Planet. These positions are more accurate than what
-``cam_gen`` can get on its own based on the RPC camera, so this
-approach is preferred.
+``cam_gen`` can get on its own based on the RPC camera.
 
 The ``--cam-ctr-weight`` and ``--refine-camera`` options will keep
 the camera position in place by penalizing any deviations with the given
-weight, while refing the camera orientation.
+weight, while refining the camera orientation.
 
 The reference DEM ``ref.tif`` is a Copernicus 30 m DEM
 (:numref:`initial_terrain`). Ensure the DEM is relative to WGS84 and
@@ -2092,6 +2118,9 @@ The option ``--input-camera`` will make
 use of existing RPC cameras to accurately find the pinhole camera
 poses. The option ``--height-above-datum`` should not be necessary if
 the DEM footprint covers fully the area of interest.
+
+Bundle adjustment
+^^^^^^^^^^^^^^^^^
 
 For the next steps, it may be convenient to make symbolic links from
 the image names and cameras to something shorter (once relevant
@@ -2173,10 +2202,6 @@ cameras as well (:numref:`ba_pc_align`).
 Use ``stereo_gui`` to inspect the reprojection errors in the final
 ``pointmap.csv`` file (:numref:`plot_csv`). See the outcome in
 :numref:`skysat_stereo_grand_mesa_pointmap`.
- 
-Pairwise stereo then can be run among overlapping image pairs
-(:numref:`nextsteps`), with ``dem_mosaic`` (:numref:`dem_mosaic`) used
-for mosaicking the DEMs.
 
 .. _skysat_stereo_grand_mesa_pointmap:
 .. figure:: images/skysat_stereo_grand_mesa.png
@@ -2190,6 +2215,14 @@ for mosaicking the DEMs.
    be some correlation between errors and elevation or vegetation, but not with
    individual SkySat image frames. Here, only the center sensor of the
    Skysat sensor triplet was used.
+
+DEM creation
+^^^^^^^^^^^^
+
+Pairwise stereo then can be run among overlapping image pairs
+(:numref:`nextsteps`), with ``dem_mosaic`` (:numref:`dem_mosaic`) used
+for mosaicking the obtained DEMs. It may be necessary to eliminate the pairwise
+DEMs which are created with images that barely overlap before mosaicking.
 
 .. _skysat_video:
 

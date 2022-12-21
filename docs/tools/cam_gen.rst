@@ -172,7 +172,10 @@ Command-line options for cam_gen:
 
 --input-camera <filename>
     Create the output pinhole camera approximating this camera.
-    
+    If with a ``pinhole.json`` extension, read it verbatim, with no
+    refinements or taking into account other input options. Example
+    in :numref:`skysat_stereo`.
+
 --cam-height <float (default: 0)>
     If both this and ``--cam-weight`` are positive, enforce that the output camera is at this height above datum.
     
