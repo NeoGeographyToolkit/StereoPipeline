@@ -78,8 +78,7 @@ void saveCameraReport(Options const& opt, asp::BAParams const& param_storage,
   vw_out() << "Writing: " << output_path << std::endl;
   std::ofstream fh(output_path.c_str());
   fh.precision(17);
-  fh << "# Camera center (ECEF, meters)\n";
-  fh << "# input_cam_file, cam_ctr_x, cam_ctr_y, cam_ctr_z\n";
+  fh << "# input_cam_file, cam_ctr_x, cam_ctr_y, cam_ctr_z (ecef meters), cam2ned rotation rows\n";
   
   int num_cameras = opt.image_files.size();
 
@@ -107,24 +106,8 @@ void saveCameraReport(Options const& opt, asp::BAParams const& param_storage,
         break;
       }
     case BaCameraType_OpticalBar:
-      {
-        vw::vw_throw(vw::ArgumentErr() << "Saving a camera report is not implemented "
-                     << "for optical bar cameras.\n");
-#if 0
-        // Apply adjustment to optical bar camera
-        // TODO(oalexan1): Enable this code, and also add equivalent code below
-        // to create an adjusted optical bar camera, for the case when --inline-adjustments
-        // is not used. This needs testing.
-        vw::camera::OpticalBarModel* in_cam
-          = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
-        if (in_cam == NULL)
-          vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
-        vw::camera::OpticalBarModel out_cam
-          = transformedOpticalBarCamera(icam, param_storage, *in_cam);
-        cam_ctr = out_cam.camera_center(vw::Vector2());
-        cam2ecef = out_cam.get_rotation_matrix();
-#endif
-      }
+      vw::vw_throw(vw::ArgumentErr() << "Saving a camera report is not implemented "
+                   << "for optical bar cameras.\n");
       break;
     default:
       {
@@ -150,7 +133,7 @@ void saveCameraReport(Options const& opt, asp::BAParams const& param_storage,
     }
 
     fh << opt.camera_files[icam] << ", "
-       << cam_ctr[0] << ", " << cam_ctr[1] << ", " << cam_ctr[2] << "\n";
+       << cam_ctr[0] << ", " << cam_ctr[1] << ", " << cam_ctr[2];
 
     // Find the matrix for converting NED to ECEF
     vw::Vector3 loc_llh = datum.cartesian_to_geodetic(cam_ctr);
@@ -159,9 +142,19 @@ void saveCameraReport(Options const& opt, asp::BAParams const& param_storage,
     // How a camera moves relative to the world is given by the camera-to-world
     // matrix. That is a little counter-intuitive.
     vw::Matrix3x3 cam2ned = inverse(ned2ecef) * cam2ecef;
-
+    for (int row = 0; row < cam2ned.rows(); row++) {
+      for (int col = 0; col < cam2ned.cols(); col++) {
+        fh << ", " << cam2ned(row, col);
+      } 
+    }
+    fh << "\n";
+    // See
     // https://stackoverflow.com/questions/27508242/roll-pitch-and-yaw-from-rotation-matrix-with-eigen-library
-    // m.eulerAngles(2,1,0)
+    // for how to create roll-pitch-yaw. May need to first convert the
+    // camera from NED to maybe East-South-Down, which may be
+    // convenient if the camera flies North-to-South and the image
+    // rows go West to East. In Eigen, the roll-pitch-yaw then could
+    // be found as: m.eulerAngles(2,1,0)
   }
 
   fh.close();
@@ -1794,7 +1787,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   // Write the results to disk.
   saveResults(opt, *best_params_ptr);
 
-  if ((opt.stereo_session == "pinhole") || 
+  if (has_datum && (opt.stereo_session == "pinhole") || 
       (opt.stereo_session == "nadirpinhole")) 
     saveCameraReport(opt, *best_params_ptr, opt.datum, "final");
   

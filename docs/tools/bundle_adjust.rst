@@ -243,16 +243,16 @@ self-consistent camera set, see :numref:`sfm_world_coords`.
 Output files
 ~~~~~~~~~~~~
 
-Pixel projection errors in the cameras and triangulated points
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Camera projection errors and triangulated points
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the ``--datum`` option is specified or auto-guessed based on images
 and cameras, ``bundle_adjust`` will write the triangulated world
 position for every feature being matched in two or more images, and
 the mean absolute residuals (that is, reprojection errors,
-:numref:`bundle_adjustment`) for each position, before the first
-and after the last optimization pass. The files are
-named
+:numref:`bundle_adjustment`) for each position, before the first and
+after the last optimization pass, in geodetic coordinates. The files
+are named
 
 ::
 
@@ -273,8 +273,8 @@ The field ``num_observations`` counts in how many images each
 triangulated point is seen.
 
 Such files can be plotted and overlayed with ``stereo_gui``
-(:numref:`plot_csv`) to see at which triangulated points the reprojection
-errors are large and their geographic locations.
+(:numref:`plot_csv`) to see at which triangulated points the
+reprojection errors are large and their geographic locations.
 
 Residuals corresponding to GCP will be printed at the end
 of these files and flagged with the string ``# GCP``. 
@@ -317,6 +317,28 @@ are saved to::
 
     {output-prefix}-convergence_angles.txt
 
+.. _ba_cam_pose:
+
+Camera positions and orientations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If the cameras are Pinhole and a datum exists, the camera names,
+camera centers (in meters, in ECEF coordinates), as well as
+the rotations from each camera to world North-East-Down
+(NED) coordinates at the camera center are saved to::
+
+     {output-prefix}-initial-cameras.csv
+     {output-prefix}-final-cameras.csv
+
+(before and after optimization; in either case, after any initial
+transform and/or adjustments are applied). These are useful for
+analysis when the number of cameras is large and the images are
+acquired in quick succession (such as for SkySat data,
+:numref:`skysat`). Note that such a rotation determines a camera's
+orientation in NED coordinates. A conversion to geodetic coordinates
+for the position and to Euler angles for the orientation may help
+with this data's interpretation.
+     
 .. _ba_mapproj_dem:
 
 Registration errors on the ground

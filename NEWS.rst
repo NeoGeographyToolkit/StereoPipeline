@@ -116,6 +116,9 @@ bundle_adjust (:numref:`bundle_adjust`):
     onto this DEM, per interest point match pair, per matching image
     pair, and per image. Useful at evaluating registration without
     mapprojecting the images (:numref:`ba_out_files`).
+  * Added report files having the camera positions and orientations
+    before and after optimization (for Pinhole cameras only,
+    :numref:`ba_cam_pose`).
   * Added options ``--proj-win`` and ``--proj-str`` for restricting
     interest points to given area (useful when having many images
     with footprints beyond area of interest).

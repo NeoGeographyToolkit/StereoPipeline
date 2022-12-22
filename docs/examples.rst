@@ -2180,6 +2180,19 @@ the one used for ``--robust-threshold`` (0.5) to ensure pixel
 reprojection errors are always given a higher priority than
 triangulation errors.
  
+If the input cameras are reasonably accurate to start with, for example,
+consistent with a known DEM to within a small handful of meters, that DEM
+can be used to constrain the cameras, instead of the triangulation
+constraint. So, the above options can be replaced, for example, with::
+
+    --heights-from-dem dem.tif              \
+    --heights-from-dem-weight 0.1           \
+    --heights-from-dem-robust-threshold 0.1 \
+
+The DEM must be relative to the WGS84 ellipsoid, rather than to a geoid,
+and the weight and threshold above should be lower if the DEM has higher
+uncertainty when it comes to its heights or alignment to the cameras. 
+
 The option ``--auto-overlap-params`` automatically determines which
 image pairs overlap. We used ``--max-pairwise-matches 200`` as
 otherwise too many interest point matches were found.
@@ -2215,6 +2228,13 @@ Use ``stereo_gui`` to inspect the reprojection errors in the final
    be some correlation between errors and elevation or vegetation, but not with
    individual SkySat image frames. Here, only the center sensor of the
    Skysat sensor triplet was used.
+
+The camera positions and orientations (the latter in NED coordinates)
+are summarized in two report files, before and after optimization
+(:numref:`ba_cam_pose`). It is suggested to examine if these are
+plausible. It is expected that the spacecraft position and orientation
+will change in a slow and smooth manner, and that these will not change
+drastically during bundle adjustment.
 
 DEM creation
 ^^^^^^^^^^^^
