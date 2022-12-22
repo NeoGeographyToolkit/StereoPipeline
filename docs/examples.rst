@@ -2158,7 +2158,7 @@ there are very many pairs of images to match.
     --camera-list cameras.txt                 \
     --tri-weight 0.1                          \
     --tri-robust-threshold 0.1                \
-    --translation-weight 0.1                  \
+    --translation-weight 10.0                 \
     --camera-weight 0                         \
     --auto-overlap-params "ref.tif 15"        \
     --min-matches 5                           \
@@ -2178,7 +2178,8 @@ proportional to the ground sample distance in meters). The value of
 ``--tri-robust-threshold`` (0.1) is intentionally set to be less than
 the one used for ``--robust-threshold`` (0.5) to ensure pixel
 reprojection errors are always given a higher priority than
-triangulation errors.
+triangulation errors. The value of ``--translation-weight`` is rather
+high, as the camera centers are known reasonably well.
  
 If the input cameras are reasonably accurate to start with, for example,
 consistent with a known DEM to within a small handful of meters, that DEM
@@ -2235,6 +2236,12 @@ are summarized in two report files, before and after optimization
 plausible. It is expected that the spacecraft position and orientation
 will change in a slow and smooth manner, and that these will not change
 drastically during bundle adjustment.
+
+If desired to do further experiments in bundle adjustment, the
+existing interest matches can be reused via the options
+``--clean-match-files-prefix`` and ``--match-files-prefix``. The
+matches can be inspected with ``stereo_gui``
+(:numref:`stereo_gui_pairwise_matches`).
 
 DEM creation
 ^^^^^^^^^^^^

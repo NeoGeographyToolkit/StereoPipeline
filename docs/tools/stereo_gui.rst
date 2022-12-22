@@ -289,6 +289,8 @@ is not ``epipolar`` or ``none``.)
 See also editing of interest point matches in
 :numref:`stereo_gui_edit_ip`.
 
+.. _stereo_gui_pairwise_matches:
+
 View pairwise matches for *N* images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
