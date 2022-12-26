@@ -70,9 +70,9 @@ to the same region, for easier comparison among them.
 
 When the images are in a single window, an individual image can be
 turned on or off via a checkbox. Clicking on an image's name will zoom
-to it and display it on top of other images. By right-clicking the
-list of images, other operations can be performed, such as hillshading
-an image, etc.
+to it and display it on top of other images. By right-clicking on an
+image name, other operations can be performed, such as hillshading,
+etc.
         
 In this mode, the keys ``n`` and ``p`` can be used to cycle among
 the images.
@@ -170,7 +170,7 @@ the strings ``match_offsets`` and ``anchor_points`` (created by
 ``bundle_adjust`` and ``jitter_solve``, :numref:`jitter_solve`) can be
 plotted the same way.  Same with ``diff.csv`` files created by
 ``geodiff`` (:numref:`geodiff`), only in the latter case the third
-column will have the intensity (error) value, and not the fourth.
+(rather than fourth) column will have the intensity (error) value.
 
 The option ``--colormap-style`` accepts the same values as
 ``colormap`` (:numref:`colormap`).

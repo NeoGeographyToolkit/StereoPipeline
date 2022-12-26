@@ -2008,7 +2008,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("translation-weight",   po::value(&opt.translation_weight)->default_value(0.0),
      "A higher weight will penalize more translation deviations from the original configuration.")
     ("camera-weight",        po::value(&opt.camera_weight)->default_value(1.0),
-     "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).  A higher weight means that the values will change less. The options --rotation-weight and --translation-weight can be used for finer-grained control and a stronger response.")
+     "The weight to give to the constraint that the camera positions/orientations stay close to the original values. A higher weight means that the values will change less. The options --rotation-weight and --translation-weight can be used for finer-grained control.")
     ("tri-weight", po::value(&opt.tri_weight)->default_value(0.0),
      "The weight to give to the constraint that optimized triangulated "
      "points stay close to original triangulated points. A positive value will help "

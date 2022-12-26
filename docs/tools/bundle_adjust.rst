@@ -517,11 +517,10 @@ Command-line options for bundle_adjust
 
 --camera-weight <double(=1.0)>
     The weight to give to the constraint that the camera
-    positions/orientations stay close to the original values (only
-    for the Ceres solver). A higher weight means that the values
-    will change less. The options ``--rotation-weight`` and
-    ``--translation-weight`` can be used for finer-grained control and
-    a stronger response.
+    positions/orientations stay close to the original values. A higher
+    weight means that the values will change less. The options
+    ``--rotation-weight`` and ``--translation-weight`` can be used for
+    finer-grained control.
         
 --ip-per-tile <integer>
     How many interest points to detect in each :math:`1024^2` image tile.
