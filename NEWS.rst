@@ -197,11 +197,11 @@ colormap (:numref:`colormap`):
     http://www.kennethmoreland.com/color-advice/ and matplotlib.
  
 misc:
-  * Upgraded to GDAL 3.5 and PROJ 9.1.0. The latter has a whole new 
-    API, intended to handle properly transformations among datums.
-    Replaced in some locations ASP's homegrown coordinate transformation
+  * Upgrade to C++-14, Python 3.9, latest libLAS, OpenCV 4, PCL 1.11,
+    Boost 1.72, ISIS 7.1.0, GDAL 3.5, and PROJ 9.1.0. The latter has a
+    whole new API, intended to handle properly transformations among datums.
+  * Replaced in some locations ASP's homegrown coordinate transformation
     logic with what is in PROJ.
-  * Use latest libLAS, OpenCV 4, PCL 1.11, Boost 1.72.
   * Added the option of using the CSM camera with DigitalGlobe WorldView 
     images in bundle adjustment, stereo, and mapprojection (use with
     ``--t dg``). Option name is ``--dg-use-csm`` and must be set
