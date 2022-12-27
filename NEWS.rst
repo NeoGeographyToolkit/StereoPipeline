@@ -201,7 +201,7 @@ misc:
     API, intended to handle properly transformations among datums.
     Replaced in some locations ASP's homegrown coordinate transformation
     logic with what is in PROJ.
-  * Sync up with latest libLAS.
+  * Use latest libLAS, OpenCV 4, PCL 1.11, Boost 1.72.
   * Added the option of using the CSM camera with DigitalGlobe WorldView 
     images in bundle adjustment, stereo, and mapprojection (use with
     ``--t dg``). Option name is ``--dg-use-csm`` and must be set
