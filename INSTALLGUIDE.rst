@@ -348,45 +348,53 @@ Set up a work directory::
     buildDir=$HOME/build_asp
     mkdir -p $buildDir
 
-Building VisionWorkbench and Stereo Pipeline on Linux::
+Set up the compiler, on Linux and OSX::
+
+    isMac=$(uname -s | grep Darwin)
+    if [ "$isMac" != "" ]; then
+      cc_comp=clang
+      cxx_comp=clang++
+    else
+      cc_comp=x86_64-conda_cos6-linux-gnu-gcc
+      cxx_comp=x86_64-conda_cos6-linux-gnu-g++
+  fi
+
+Build VisionWorkbench and Stereo Pipeline::
 
     cd $buildDir
     envPath=$HOME/miniconda3/envs/asp_deps
-    $envPath/bin/git clone \
+    $envPath/bin/git clone                            \
         git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
     # Uncomment below if desired to build a specific version
     # git checkout 3.1.0
     mkdir -p build
     cd build
-    $envPath/bin/cmake ..                                             \
-      -DASP_DEPS_DIR=$envPath                                         \
-      -DCMAKE_VERBOSE_MAKEFILE=ON                                     \
-      -DCMAKE_INSTALL_PREFIX=$buildDir/install                        \
-      -DCMAKE_C_COMPILER=$envPath/bin/x86_64-conda_cos6-linux-gnu-gcc \
-      -DCMAKE_CXX_COMPILER=$envPath/bin/x86_64-conda_cos6-linux-gnu-g++
+    $envPath/bin/cmake ..                             \
+      -DASP_DEPS_DIR=$envPath                         \
+      -DCMAKE_VERBOSE_MAKEFILE=ON                     \
+      -DCMAKE_INSTALL_PREFIX=$buildDir/install        \
+      -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
+      -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
     make -j10 && make install
 
     cd $buildDir
     envPath=$HOME/miniconda3/envs/asp_deps
-    $envPath/bin/git clone \
+    $envPath/bin/git clone                            \
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
     # Uncomment below if desired to build a specific version
     # git checkout 3.1.0
     mkdir -p build
     cd build
-    $envPath/bin/cmake ..                                             \
-      -DASP_DEPS_DIR=$envPath                                         \
-      -DCMAKE_VERBOSE_MAKEFILE=ON                                     \
-      -DCMAKE_INSTALL_PREFIX=$buildDir/install                        \
-      -DVISIONWORKBENCH_INSTALL_DIR=$buildDir/install                 \
-      -DCMAKE_C_COMPILER=$envPath/bin/x86_64-conda_cos6-linux-gnu-gcc \
-      -DCMAKE_CXX_COMPILER=$envPath/bin/x86_64-conda_cos6-linux-gnu-g++
+    $envPath/bin/cmake ..                             \
+      -DASP_DEPS_DIR=$envPath                         \
+      -DCMAKE_VERBOSE_MAKEFILE=ON                     \
+      -DCMAKE_INSTALL_PREFIX=$buildDir/install        \
+      -DVISIONWORKBENCH_INSTALL_DIR=$buildDir/install \
+      -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
+      -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
     make -j10 && make install
-
-On OSX the same approach is used, but the compiler names change to ``clang``
-and ``clang++``. 
 
 Building the documentation
 --------------------------

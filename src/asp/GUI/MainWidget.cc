@@ -37,6 +37,7 @@
 #include <vw/Image/Statistics.h>
 #include <vw/Image/Colormap.h> // colormaps supported by ASP
 
+#include <qwt_point_data.h>
 #include <QtGui>
 #include <QtWidgets>
 
@@ -1780,7 +1781,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         curve->setStyle(QwtPlotCurve::Dots);
       }
       
-      curve->setData(new QwtCPointerData(&m_valsX[0], &m_valsY[0], m_valsX.size()));
+      curve->setData(new QwtCPointerData<double>(&m_valsX[0], &m_valsY[0], m_valsX.size()));
       curve->setPen(* new QPen(Qt::red));
       curve->attach(m_profilePlot);
       

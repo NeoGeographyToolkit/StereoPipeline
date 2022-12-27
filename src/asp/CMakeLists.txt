@@ -19,24 +19,14 @@ endif()
 # Where to search for dependencies
 set(CMAKE_PREFIX_PATH "${ASP_DEPS_DIR}")
 
-# # assume built-in pthreads on MacOS
-# IF(APPLE)
-#     set(CMAKE_THREAD_LIBS_INIT "-lpthread")
-#     set(CMAKE_HAVE_THREADS_LIBRARY 1)
-#     set(CMAKE_USE_WIN32_THREADS_INIT 0)
-#     set(CMAKE_USE_PTHREADS_INIT 1)
-#     set(THREADS_PREFER_PTHREAD_FLAG ON)
-# ENDIF()
-
 find_package(Threads REQUIRED)
 
 # Put the search for Boost early on, to ensure that the Conda version
 # is found before we point to the BB folder.
 # TODO: Make into a function!
 # Define boost requirements
-message("--------------------------------------------------------------")
-message("Searching for boost...")
-set(BOOST_VERSION "1.68") # This is fragile, but it keeps on finding Boost 1.72.
+message("Searching for Boost.")
+set(BOOST_VERSION "1.72")
 set(REQUIRED_BOOST_LIBS program_options system filesystem regex date_time thread iostreams)
 if (ASP_DEPS_DIR) # Look in that directory
   set(BOOST_ROOT       "${ASP_DEPS_DIR}")
@@ -176,7 +166,6 @@ if(Qt5_FOUND)
     set (ASP_HAVE_PKG_QT 1)
     message("QT found: ${Qt5Core_INCLUDE_DIRS}")
 endif(Qt5_FOUND)
-message("--------------------------------------------------------------")
 
 find_external_library(QWT ${ASP_DEPS_DIR} "" "qwt" REQUIRED)
 
@@ -257,7 +246,7 @@ set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
                   pcl_kdtree pcl_keypoints pcl_ml pcl_octree pcl_recognition
                   pcl_registration pcl_sample_consensus pcl_search pcl_segmentation
                   pcl_stereo pcl_surface pcl_tracking)
-find_external_library(PCL ${ASP_DEPS_DIR} "pcl-1.9" "${PCL_LIB_NAMES}" REQUIRED)
+find_external_library(PCL ${ASP_DEPS_DIR} "pcl-1.11" "${PCL_LIB_NAMES}" REQUIRED)
 
 set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_core        opencv_shape
@@ -271,7 +260,7 @@ set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_objdetect   opencv_xobjdetect
                      opencv_photo       opencv_xphoto
                      opencv_stereo)
-find_external_library(OPENCV ${ASP_DEPS_DIR} "" "${OPENCV_LIB_NAMES}" REQUIRED)
+find_external_library(OPENCV ${ASP_DEPS_DIR} "opencv4" "${OPENCV_LIB_NAMES}" REQUIRED)
 
 # This is an experiment, to be continued
 # Use only a small portion of VTK, and only in one stand-alone
@@ -291,25 +280,17 @@ set(VW_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} ${
     ${FLANN_LIBRARIES})
 set(ISIS_3RD_PARTY_LIBS Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES})
 
-message("--------------------------------------------------------------")
-
 # Now that we have found all our external dependencies, generate a config.h file
 include("GenerateConfig.cmake")
-
-#TODO: Needed?
-#set(HAVE_PKG_HDF)
-#set(HAVE_PKG_LIBKML)
 
 # TODO: Do we need this?
 #set(ENABLE_EXCEPTIONS True)
 
-message("--------------------------------------------------------------")
 #message("Listing all include directories...")
 #get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 #foreach(dir ${dirs})
 #  message(STATUS "dir='${dir}'")
 #endforeach()
-#message("--------------------------------------------------------------")
 
 # TODO: Do we need these?
 # Add all the header files at the top level to the install command

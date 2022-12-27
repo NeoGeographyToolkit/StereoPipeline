@@ -51,7 +51,6 @@
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 #include <FastGlobalRegistration/app.h>
-#include <liblas/liblas.hpp>
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/EulerAngles.h>

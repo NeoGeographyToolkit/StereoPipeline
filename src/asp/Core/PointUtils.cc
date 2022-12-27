@@ -21,7 +21,12 @@
 /// \file PointUtils.cc
 ///
 
+// Turn off warnings about things we can't control
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <liblas/liblas.hpp>
+#pragma GCC diagnostic pop
+
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/PointUtils.h>

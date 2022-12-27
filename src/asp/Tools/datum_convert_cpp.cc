@@ -19,7 +19,6 @@
 /// \file datum_convert.cc
 ///
 
-
 #include <vw/Cartography/GeoTransform.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
@@ -30,21 +29,12 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-// Proj.4
-//#include <proj_api.h>
-
-
 using namespace vw;
 using namespace vw::cartography;
 using namespace std;
 
-
-// Macro for checking Proj.4 output
-//#define CHECK_PROJ_ERROR(ctx_input) if(ctx_input.error_no()) vw_throw(ProjectionErr() << "Bad projection in datum_convert_cc.cc. Proj.4 error: " << pj_strerrno(ctx_input.error_no()))
-
-
 template <class ImageT>
-class DatumConvertView : public ImageViewBase<DatumConvertView<ImageT> >
+class DatumConvertView : public ImageViewBase<DatumConvertView<ImageT>>
 {
   ImageT              m_input_dem;
   GeoReference const& m_input_georef;
@@ -53,7 +43,6 @@ class DatumConvertView : public ImageViewBase<DatumConvertView<ImageT> >
   double              m_nodata_val;
   bool                m_use_gcc_convert;
   bool                m_debug_mode;
-  //ProjContext m_src_datum_proj, m_dst_datum_proj;
 
 public:
 
@@ -70,9 +59,7 @@ public:
                    double nodata_val,
                    bool debug_mode=false):
     m_input_dem(input_dem), m_input_georef(input_georef), m_output_georef(output_georef), 
-    m_tf(input_georef, output_georef), m_nodata_val(nodata_val), m_use_gcc_convert(false), m_debug_mode(debug_mode){//,
-    //m_src_datum_proj(input_georef.overall_proj4_str ()), 
-    //m_dst_datum_proj(output_georef.overall_proj4_str()) {
+    m_tf(input_georef, output_georef), m_nodata_val(nodata_val), m_use_gcc_convert(false), m_debug_mode(debug_mode) {
     
     // For simple datums with just the ellipsoid size specifed don't use Proj4 to do the
     //  datum conversions, use our ellipsoid calculations instead.  Proj4 does not seem to
@@ -126,42 +113,6 @@ public:
       double dist = haversine_circle_distance(input_lonlat, Vector2(output_llh[0], output_llh[1]));
       std::cout << "Haversine circle distance = " << dist << std::endl << std::endl;
    }
-    
-/*  // Debugging code!
-    // Use proj4 to handle the lonlat-to-lonlat conversion since we disabled this functionality in GeoTransform.
-    double lon = input_lonlat[0]*DEG_TO_RAD;
-    double lat = input_lonlat[1]*DEG_TO_RAD;
-    double alt = current_height;
-    pj_transform(m_src_datum_proj.proj_ptr(), m_dst_datum_proj.proj_ptr(), 1, 0, &lon, &lat, &alt);
-    CHECK_PROJ_ERROR( m_src_datum_proj );
-    CHECK_PROJ_ERROR( m_dst_datum_proj );
-    Vector3 output_llh_check(lon*RAD_TO_DEG, lat*RAD_TO_DEG, alt);
-
-
-    Vector2 output_pixel = m_tf.forward(input_pixel);
-    Vector2 back_pixel = m_tf.reverse(output_pixel);
-    
-    Vector2 output_lonlat(output_llh[0], output_llh[1]);
-    Vector2 output_pixel_check = m_output_georef.lonlat_to_pixel(output_lonlat);
-
-    //if ( (current_height < -50) || (current_height > 700))
-    //if (false)
-    {
-      std::cout.precision(12);
-      std::cout << "input_georef.overall_proj4_str() = " << m_input_georef.overall_proj4_str() << std::endl;
-      std::cout << "output_georef.overall_proj4_str() = " << m_output_georef.overall_proj4_str() << std::endl;
-      //std::cout << "result = " << result << std::endl;
-      std::cout << "output pixel       = " << output_pixel << std::endl;
-      std::cout << "back pixel       = " << back_pixel << std::endl;
-      std::cout << "output pixel check = " << output_pixel_check << std::endl;
-      //std::cout << "output pixel gcc check = " << output_gcc_pixel << std::endl;
-      //std::cout << "height      = " << current_height << std::endl;
-      //std::cout << m_input_dem(col, row)  << std::endl;
-      //std::cout << "gcc_coord  = " << gcc_coord     << std::endl;
-      std::cout << "out lonlat check = " << output_llh_check << std::endl;
-      //std::cout << "out lonlat gcc check = " << output_llh_gccCheck << std::endl;
-    }
-    */
     
     return output_llh[2];
   }

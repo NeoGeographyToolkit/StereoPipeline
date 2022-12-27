@@ -90,7 +90,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     options ``--init-camera-using-gcp`` (:numref:`imagecorners`),
     ``--transform-cameras-with-shared-gcp``, 
     ``--transform-cameras-using-gcp`` (:numref:`sfm_world_coords`) for
-    ways of manipulating cameras using GCP.
+    manipulating cameras using GCP.
   * Bugfix in initializing pinhole cameras based on GCP for off-nadir
     cameras. 
   * When doing multiple passes (which is the default) at each pass
@@ -197,6 +197,11 @@ colormap (:numref:`colormap`):
     http://www.kennethmoreland.com/color-advice/ and matplotlib.
  
 misc:
+  * Upgraded to GDAL 3.5 and PROJ 9.1.0. The latter has a whole new 
+    API, intended to handle properly transformations among datums.
+    Replaced in some locations ASP's homegrown coordinate transformation
+    logic with what is in PROJ.
+  * Sync up with latest libLAS.
   * Added the option of using the CSM camera with DigitalGlobe WorldView 
     images in bundle adjustment, stereo, and mapprojection (use with
     ``--t dg``). Option name is ``--dg-use-csm`` and must be set

@@ -30,8 +30,13 @@
 #include <qwt_plot_renderer.h>
 #include <qwt_plot_canvas.h>
 #include <qwt_plot_rescaler.h>
+#include <qwt_point_data.h>
+#include <qwt_interval.h>
+#include <qwt_matrix_raster_data.h>
+#include <qwt_scale_map.h>
 #include <QResizeEvent>
 #include <QMouseEvent>
+#include <QPen>
 
 #include <asp/GUI/ColorAxes.h>
 #include <asp/GUI/GuiUtilities.h>
@@ -131,7 +136,7 @@ private:
 }; // end class ColorAxesZoomer
   
 // Manages the image to display for the ColorAxes widget 
-class ColorAxesData: public QwtRasterData {
+class ColorAxesData: public QwtMatrixRasterData {
 
 private:
   
@@ -202,9 +207,9 @@ public:
     if (std::isnan(m_min_val) || std::isnan(m_max_val)) // if the user did not set these
       calcLowResMinMax(m_min_val, m_max_val);
 
-    setInterval(Qt::XAxis, QwtInterval(0, img.cols() - 1));
-    setInterval(Qt::YAxis, QwtInterval(0, img.rows() - 1));
-    setInterval(Qt::ZAxis, QwtInterval(m_min_val, m_max_val));
+    QwtMatrixRasterData::setInterval(Qt::XAxis, QwtInterval(0, img.cols() - 1));
+    QwtMatrixRasterData::setInterval(Qt::YAxis, QwtInterval(0, img.rows() - 1));
+    QwtMatrixRasterData::setInterval(Qt::ZAxis, QwtInterval(m_min_val, m_max_val));
   }
 
   // Given that we plan to render a portion of an image on disk within these
@@ -430,8 +435,8 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
                           Qt::RightButton);
   
   const QColor c(Qt::darkBlue);
-  zoomer->setRubberBandPen(c);
-  zoomer->setTrackerPen(c);
+  zoomer->setRubberBandPen(QPen(c));
+  zoomer->setTrackerPen(QPen(c));
 
   QwtPlotPanner *panner = new QwtPlotPanner(canvas());
   panner->setAxisEnabled(QwtPlot::yRight, false);
