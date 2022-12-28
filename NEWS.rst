@@ -1,5 +1,5 @@
-Changes since last release
---------------------------
+RELEASE 3.2.0, December 30, 2022
+--------------------------------
 
 Added functionality for creation of large-scale meshes and fused
 textures for small planetary bodies and indoor environments. Added
@@ -24,7 +24,7 @@ New tools:
   * Added CGAL-based tools for mesh smoothing, hole-filling, remeshing,
     and removal of small connected components (:numref:`cgal_tools`).
   * ``jitter_solve``: A tool for solving for jitter in CSM camera 
-    models (see :numref:`jitter_solve`). It gives promising results 
+    models (:numref:`jitter_solve`). It gives promising results 
     for CTX, Pleiades, and DigitalGlobe data. Examples are provided.
 
 New sensors:

@@ -19,8 +19,8 @@ from:
 No installation steps or administrative rights are necessary.  Extract
 the archive, and run the executables in the ``bin`` subdirectory as::
 
-    tar -xvf StereoPipeline-3.1.0-2022-05-18-x86_64-Linux.tar.bz2
-    ./StereoPipeline-3.1.0-2022-05-18-x86_64-Linux/bin/stereo --help
+    tar -xvf StereoPipeline-3.2.0-2022-12-30-x86_64-Linux.tar.bz2
+    ./StereoPipeline-3.2.0-2022-12-30-x86_64-Linux/bin/stereo --help
 
 The result of the last command should be a help message.
 
@@ -63,9 +63,9 @@ found.  To do so, follow the ISIS installation instructions, but
 create a new conda environment (not the one with your current ISIS),
 and right before you would run ``conda install isis``, run ``conda
 search isis`` to find all of the versions of ISIS available for
-installation.  For example, if you wanted to install ISIS 6, and
+installation.  For example, if you wanted to install ISIS 7.1.0, and
 it is available in the ``conda search isis`` listing, you can run
-``conda install isis=6`` and then follow the remainder of the ISIS
+``conda install isis=7.1.0`` and then follow the remainder of the ISIS
 installation instructions.
 
 In closing, running the Stereo Pipeline executables only requires
@@ -190,7 +190,7 @@ Fetching pre-compiled ASP with conda
 ------------------------------------
 
 ASP's official releases can be fetched with ``conda``. The latest such
-release is version 3.1.0, published on May 18, 2022.  See
+release is version 3.2.0, published on December 30, 2022.  See
 :numref:`news` for what changed since then.  The newer functionality
 is available only with the daily build (:numref:`precompiled_binaries`).
 
@@ -253,9 +253,9 @@ and not all environments.
 
 Install ASP with the command::
 
-    conda install stereo-pipeline==3.1.0
+    conda install stereo-pipeline==3.2.0
 
-This will install ASP 3.1.0 together with ISIS 6. Note that the
+This will install ASP 3.2.0 together with ISIS 7.1.0. Note that the
 latest build (see above) may have more fixes or features than this
 official release.
 
@@ -274,11 +274,11 @@ found as a set of .yaml files in the ``conda`` subdirectory of the
 Stereo Pipeline GitHub repository. So, alternatively, the installation
 can happen as::
 
-    conda env create -f asp_3.1.0_linux_env.yaml
+    conda env create -f asp_3.2.0_linux_env.yaml
 
 or::
 
-    conda env create -f asp_3.1.0_osx_env.yaml
+    conda env create -f asp_3.2.0_osx_env.yaml
 
 depending on your platform. Then invoke, as earlier::
 
@@ -309,11 +309,11 @@ The environments having the ASP dependencies are in the ``conda``
 directory of the Stereo Pipeline repository, as above. After
 downloading those, one can run on Linux::
 
-    conda env create -f asp_deps_3.1.0_linux_env.yaml
+    conda env create -f asp_deps_3.2.0_linux_env.yaml
 
 or on the Mac::
 
-    conda env create -f asp_deps_3.1.0_osx_env.yaml
+    conda env create -f asp_deps_3.2.0_osx_env.yaml
 
 This will create an ``asp_deps`` environment. Activate it with::
 
@@ -340,8 +340,8 @@ The `conda-provided compilers
 <https://conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_
 are used and should be installed in the environment, if not present already.
 
-Also ensure that ``cmake>=3.15.5`` is installed, and, for Linux only, the 
-``chrpath`` tool.
+Also ensure that ``cmake>=3.15.5`` and ``pbzip2`` are installed, and,
+for Linux only, the ``chrpath`` tool.
 
 Set up a work directory::
 
@@ -367,7 +367,7 @@ Build VisionWorkbench and Stereo Pipeline::
         git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
     # Uncomment below if desired to build a specific version
-    # git checkout 3.1.0
+    # git checkout 3.2.0
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                             \
@@ -384,7 +384,7 @@ Build VisionWorkbench and Stereo Pipeline::
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
     # Uncomment below if desired to build a specific version
-    # git checkout 3.1.0
+    # git checkout 3.2.0
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                             \

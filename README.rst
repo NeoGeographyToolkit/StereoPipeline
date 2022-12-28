@@ -54,7 +54,7 @@ you can add the following line to your shell configuration (e.g.,
 ``~/.bashrc``), replacing ``/path/to/StereoPipeline/bin`` with the location
 on your filesystem: ``export PATH=${PATH}:/path/to/StereoPipeline/bin``
 
-*ISIS Users*: Please install USGS ISIS version 6 or later if you
+*ISIS Users*: Please install USGS ISIS version 7.1.0 or later if you
 would like to process NASA non-terrestrial images. Users wishing to
 process Earth images, such as Digital Globe, satellites with RPC
 cameras, or various frame/pinhole cameras do not need to download

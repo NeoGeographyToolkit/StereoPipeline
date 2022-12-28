@@ -29,8 +29,8 @@ adjusted for your circumstances.
 
 Create a conda environment for this version of ISIS::
 
-     conda create -n isis6
-     conda activate isis6
+     conda create -n isis7.1.0
+     conda activate isis7.1.0
 
 Add these channels to conda::
 
@@ -47,13 +47,13 @@ order and above all other channels, except perhaps the
 
 Install the desired version of ISIS::
 
-    conda install isis==6
+    conda install isis==7.1.0
 
 Search and install the latest version of the ``usgscsm`` package,
 for example, as::
 
     conda search -c conda-forge --override-channels usgscsm
-    conda install -c conda-forge usgscsm==1.5.2
+    conda install -c conda-forge usgscsm==1.6.0
 
 If that package is too old, consider rebuilding it, following
 the recipe at:
@@ -64,7 +64,7 @@ See :numref:`packages_to_build` for how to fetch and build this.
   
 Save the current environment as follows::
 
-    conda env export > isis6.yaml
+    conda env export > isis7.1.0.yaml
 
 Fetching the build tools
 ------------------------
@@ -76,7 +76,7 @@ are kept separate.
 
 ::
 
-    conda create -n tools python=3.6
+    conda create -n tools
     conda activate tools
     conda install -c conda-forge anaconda-client conda-build \
       conda-verify
@@ -113,10 +113,10 @@ Synchronize the versions with the existing environment
 
 For each of the above feedstocks, check the ``recipe/meta.yaml`` file
 and ensure all dependencies are in sync with what is in the file
-``isis6.yaml`` generated earlier. This can be done automatically
+``isis7.1.0.yaml`` generated earlier. This can be done automatically
 with a provided script in the ASP repository::
 
-     python StereoPipeline/conda/update_versions.py isis6.yaml \
+     python StereoPipeline/conda/update_versions.py isis7.1.0.yaml \
        gdal-feedstock
 
 and the same for the other packages.
@@ -126,7 +126,7 @@ changes it makes should be very carefully examined.
 
 It is suggested to examine the changed ``meta.yaml``, and if in doubt,
 leave the values as they were before modified by this script. In each
-of those files manually modify the string ``isis6`` to reflect the
+of those files manually modify the string ``isis7.1.0`` to reflect the
 current ISIS version.
 
 In the ``visionworkbench`` and ``stereopipeline`` recipes update the
@@ -173,12 +173,12 @@ Use the ``--force`` option if desired to overwrite any existing
 package with the same name and version.
 
 After a package is uploaded, it can be installed in the existing
-``isis6`` environment as::
+``isis7.1.0`` environment as::
 
     conda install -c nasa-ames-stereo-pipeline \
       -c usgs-astrogeology                     \
       -c conda-forge                           \
-      gdal==isis6
+      gdal==3.5_isis7
 
 To list all packages in that channel, do::
 

@@ -86,7 +86,7 @@ https://semver.org for guidance).
     will conflict with building locally. 
 
   - Update the ISIS version in README.rst, INSTALLGUIDE.rst, and 
-    conda_build.rst.
+    conda_build.rst (there can be many mentions in each).
  
   - Update the ASP version and Zenodo link in README.rst. (The 
     release needs to be pushed to GitHub before the Zenodo link
@@ -139,12 +139,12 @@ The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
 
 8.) Commit and tag the release in the VW and ASP repos. Example: 
 
-  git tag 3.1.0
+  git tag 3.2.0
 
 Push the tags to the remote server with: 
 
- git push origin 3.1.0 # commit to your branch
- git push god    3.1.0 # commit to main branch
+ git push origin 3.2.0 # commit to your branch
+ git push god    3.2.0 # commit to main branch
 
 (Here it is assumed that 'origin' points to your own fork and 'god'
 points to the parent repository.)
@@ -152,9 +152,9 @@ points to the parent repository.)
 If more commits were made and it is desired to apply this tag to a
 different commit, first remove the exiting tag with:
 
-  git tag -d 3.1.0
-  git push origin :refs/tags/3.1.0
-  git push god    :refs/tags/3.1.0
+  git tag -d 3.2.0
+  git push origin :refs/tags/3.2.0
+  git push god    :refs/tags/3.2.0
 
 9.) Create a new release on GitHub, and upload to it the builds and
 the pdf documentation. Do not just rename the latest uploaded daily
@@ -193,9 +193,9 @@ development, by updating the version number in:
 
 in both the VW and ASP repositories. 
 
-If you just released version 3.1.0, we expect that the next feature
-release will be 3.2.0, if a major release, or 3.1.1 if a minor
-release, so the version tag should be updated to 3.2.0-alpha in
+If version 3.2.0 just got released, we expect that the next feature
+release will be 3.3.0, if a major release, or 3.2.1 if a minor
+release, so the version tag should be updated to 3.2.1-alpha in
 anticipation (see https://semver.org for guidance).
 
 13.) Reflect any changes in release policy by modifying this document.
