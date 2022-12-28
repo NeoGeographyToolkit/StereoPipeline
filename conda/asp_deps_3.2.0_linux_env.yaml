@@ -190,8 +190,11 @@ dependencies:
   - openjpeg=2.3.0=hf38bd82_1003
   - openssl=1.1.1s=h0b41bf4_1
   - p11-kit=0.24.1=hc5aa10d_0
+  - parallel=20221122=ha770c72_0
+  - pbzip2=1.1.13=0
   - pcl=1.11.1=h05311af_1
   - pcre2=10.40=hc3806b6_0
+  - perl=5.32.1=2_h7f98852_perl5
   - pip=22.3.1=pyhd8ed1ab_0
   - pixman=0.40.0=h36c2ea0_0
   - portaudio=19.6.0=h57a0ea0_5

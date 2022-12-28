@@ -199,7 +199,8 @@ colormap (:numref:`colormap`):
 misc:
   * Upgrade to C++-14, Python 3.9, latest libLAS, OpenCV 4, PCL 1.11,
     Boost 1.72, ISIS 7.1.0, GDAL 3.5, and PROJ 9.1.0. The latter has a
-    whole new API, intended to handle properly transformations among datums.
+    whole new API, intended to handle properly transformations among
+    datums.
   * Replaced in some locations ASP's homegrown coordinate transformation
     logic with what is in PROJ.
   * Added the option of using the CSM camera with DigitalGlobe WorldView 
@@ -233,6 +234,9 @@ misc:
     and make it equal to 0.8 for both ``stereo`` and
     ``bundle_adjust``. This was shown to increase the number of
     interest points in situations when not enough were found.
+  * The ``historical_helper.py`` program expects a local installation
+    of ImageMagick and the ``convert`` tool (available on most systems
+    normally).
   
 RELEASE 3.1.0, May 18, 2022
 ----------------------------

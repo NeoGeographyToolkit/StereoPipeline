@@ -2956,6 +2956,9 @@ coordinates as shown below in the order top-left, top-right, bot-right,
 bot-left (column then row). This is also a good opportunity to simplify
 the file names going forwards.
 
+This tool expects the ``convert`` tool, part of the ImageMagick
+software.
+
 ::
 
      historical_helper.py rotate-crop --input-path DS1105-2248DA082.tif  --output-path aft.tif \

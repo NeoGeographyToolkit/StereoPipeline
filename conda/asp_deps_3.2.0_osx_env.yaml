@@ -162,8 +162,11 @@ dependencies:
   - openjpeg=2.3.0=h3bf0609_1003
   - openssl=1.1.1s=hfd90126_1
   - p11-kit=0.24.1=h65f8906_0
+  - parallel=20221122=h694c41f_0
+  - pbzip2=1.1.13=h9d27c22_1
   - pcl=1.11.1=h7984e4d_1
   - pcre2=10.40=h1c4e4bc_0
+  - perl=5.32.1=2_h0d85af4_perl5
   - pip=22.3.1=pyhd8ed1ab_0
   - pixman=0.40.0=hbcb3906_0
   - proj=9.1.0=hcbd9701_0

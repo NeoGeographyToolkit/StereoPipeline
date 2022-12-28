@@ -39,7 +39,7 @@ https://semver.org for guidance).
 
       https://github.com/oleg-alexandrov/MultiView 
     
-    compatible with the dependecies so far, then build and install
+    compatible with the dependencies so far, then build and install
     that package in the same directory as VisionWorkbench and
     StereoPipeline.
 
@@ -68,10 +68,12 @@ https://semver.org for guidance).
 
   - ISIS expects a full Python distribution to be shipped. For now
     we handle this in an awkward way. A fresh conda environemnt
-    is created having only Python and numpy, with versions
-    as expected by ISIS, then that env is copied to BinaryBuilder as
-    'python3.6'. This directory is packaged later with the build with
-    make-dist.py.
+    is created having only Python, numpy, with versions
+    as expected by current ISIS, for example, as:
+      conda create -n python_isis7 -y python=3.9.15 numpy=1.23.5
+    This directory is packaged later with the build with make-dist.py
+    (that tool needs to be edited to ensure the path to this
+    environemnt is used).
 
   - Update the path to your local conda environment having the latest
     ASP dependencies in BinaryBuilder/auto_build/utils.sh.
@@ -154,7 +156,7 @@ different commit, first remove the exiting tag with:
   git push origin :refs/tags/3.1.0
   git push god    :refs/tags/3.1.0
 
-9.) Create a new release on GitGub, and upload to it the builds and
+9.) Create a new release on GitHub, and upload to it the builds and
 the pdf documentation. Do not just rename the latest uploaded daily
 build, as that will create an incorrect Zenodo link. Paste there the
 release notes from NEWS.txt.

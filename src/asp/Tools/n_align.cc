@@ -29,21 +29,29 @@
 // software, https://github.com/IntelVCL/FastGlobalRegistration which
 // is released under the MIT License (MIT).  
 
-#include <vector>
-#include <iostream>
-#include <fstream>
-#include <flann/flann.hpp>
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-
-#include <vw/Core/Stopwatch.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/EigenUtils.h>
 #include <asp/Tools/pc_align_utils.h>
+
+#include <vw/Core/Stopwatch.h>
+
+// Turn off warnings about things we can't control
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#include <flann/flann.hpp>
+#pragma GCC diagnostic pop
+
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
+
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+
+#include <vector>
+#include <iostream>
+#include <fstream>
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
@@ -61,7 +69,7 @@ typedef PM::DataPoints DP;
 #define FIFTEEN 15
 #define ONE_TWO_EIGHT 128
 
-typedef flann::Index<flann::L2<double> > KDTree_double;
+typedef flann::Index<flann::L2<double>> KDTree_double;
 
 /// Options container
 struct Options : public vw::GdalWriteOptions {
@@ -112,7 +120,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description positional("");
   positional.add_options()
-    ("cloud-files", po::value<std::vector<std::string> >(&opt.cloud_files));
+    ("cloud-files", po::value<std::vector<std::string>>(&opt.cloud_files));
   po::positional_options_description positional_desc;
   positional_desc.add("cloud-files", -1);
   std::string usage("[options] <cloud-files> -o <output prefix>");
@@ -361,7 +369,7 @@ int main(int argc, char *argv[]){
       transVec[cloudIter] = Eigen::MatrixXd::Identity(4, 4);
     }
 
-    std::vector< std::vector<vw::Vector3> > clouds(numClouds);
+    std::vector< std::vector<vw::Vector3>> clouds(numClouds);
 
     // Load the first subsampled point cloud. Calculate the shift to apply to all clouds.
     vw::Vector3 shift;
@@ -415,7 +423,7 @@ int main(int argc, char *argv[]){
     }
     
     // Build the trees
-    std::vector< boost::shared_ptr<KDTree_double> > Trees;
+    std::vector< boost::shared_ptr<KDTree_double>> Trees;
     for (int it = 0; it < numClouds; it++) {
       boost::shared_ptr<KDTree_double>
         tree(new KDTree_double(flann::KDTreeSingleIndexParams(FIFTEEN)));
@@ -510,7 +518,7 @@ int main(int argc, char *argv[]){
             Corr2.insert(std::pair<int, int>(index_j, index_i));
           }
 
-          std::vector< std::pair<int, int> > Corr;
+          std::vector< std::pair<int, int>> Corr;
           for (PairType::iterator it = Corr1.begin(); it != Corr1.end(); it++) {
             PairType::iterator it2 = Corr2.find(*it);
             if (it2 == Corr2.end()) continue;
