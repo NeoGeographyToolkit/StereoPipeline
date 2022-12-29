@@ -43,7 +43,11 @@ sys.path.insert(0, libexecpath)
 import asp_system_utils
 asp_system_utils.verify_python_version_is_supported()
 
-from osgeo import gdal, gdalconst
+try:
+    from osgeo import gdal, gdalconst
+except ImportError:    
+    import gdal, gdalconst
+    
 import numpy as np
 import scipy as sp
 import scipy.ndimage.filters as sf
@@ -103,10 +107,10 @@ class im_subset:
                 self.noData = 0.0
 
     def setBounds(self, c0, r0, Nc, Nr, update=0):
-        self.c0 = np.int(c0)
-        self.r0 = np.int(r0)
-        self.Nc = np.int(Nc)
-        self.Nr = np.int(Nr)
+        self.c0 = np.int64(c0)
+        self.r0 = np.int64(r0)
+        self.Nc = np.int64(Nc)
+        self.Nr = np.int64(Nr)
         if update > 0:
             self.copySubsetFrom(pad_val=self.pad_val)
 
@@ -122,7 +126,7 @@ class im_subset:
             band   = self.source.GetRasterBand(self.Bands[0])
             src_NB = self.source.RasterCount
             dt     = gdal.GetDataTypeName(band.DataType)
-            self.z = np.zeros((src_NB, self.Nr, self.Nc), dt)+pad_val
+            self.z = np.zeros((src_NB, self.Nr, self.Nc)) + pad_val
             (sr0, sr1, dr0, dr1, vr) = match_range(0, band.YSize, self.r0, self.Nr)
             (sc0, sc1, dc0, dc1, vc) = match_range(0, band.XSize, self.c0, self.Nc)
             if (vr & vc):
@@ -861,8 +865,8 @@ def img_interpolate_linear( x, y, I, GT, nodata_val=np.NaN):
     col = col[good]
     rx  = row-np.floor(row)
     ry  = col-np.floor(col)
-    row = np.floor(row).astype('Int32')
-    col = np.floor(col).astype('Int32')
+    row = np.floor(row).astype('int')
+    col = np.floor(col).astype('int')
     # add the contributions of each neighbor
     ztemp = np.zeros_like(row)
     ztemp =         (1-ry)*(1-rx)*I[(row, col)]
@@ -884,8 +888,9 @@ def grid_disp(xg, yg, xy, dx, dy, ex, ey, L_valid, N_coarse, dispDs, spreadDs, d
     sigma_sm  = N_sm/4.
     kernel_sm = np.exp(-0.5*(np.arange(-N_sm, N_sm+1)/sigma_sm)**2)
 
-    row  = np.floor((xy[:,1]-yg[0,0])/(yg[1,0]-yg[0,0])).astype('Int32')
-    col  = np.floor((xy[:,0]-xg[0,0])/(xg[0,1]-xg[0,0])).astype('Int32')
+    row  = np.floor((xy[:,1]-yg[0,0])/(yg[1,0]-yg[0,0])).astype('int')
+    col  = np.floor((xy[:,0]-xg[0,0])/(xg[0,1]-xg[0,0])).astype('int')
+    
     good = (row>=0) & (row < xg.shape[0]-1) & (col >=0) & (col < xg.shape[1]-1)
     dist_mask = np.zeros_like(xg)
     dist_mask[row[good], col[good]] = 1.
@@ -1452,8 +1457,8 @@ def main():
         GT1[3] = y0;
         GT1[1] = Gdx
         GT1[5] = Gdy
-        nx1    = np.int(im_shape[1]/options.output_scale)
-        ny1    = np.int(im_shape[0]/options.output_scale)
+        nx1    = int(im_shape[1]/options.output_scale)
+        ny1    = int(im_shape[0]/options.output_scale)
         xg     = (np.arange(0, nx1)+0.5)*Gdx+x0
         yg     = (np.arange(0, ny1)+0.5)*Gdy+y0
         disp_file   = output_prefix + '-D_sub.tif'
