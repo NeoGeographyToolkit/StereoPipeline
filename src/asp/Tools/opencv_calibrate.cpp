@@ -416,46 +416,46 @@ int main( int argc, char** argv )
         Mat view;
         vw::ImageView<vw::uint8> gray_buffer;
 
-        if( i < (int)imageList.size() )
-        {
+        if (i < (int)imageList.size()) {
           view = vw_imread(imageList[i], gray_buffer);
-          if(!view.data)
-            return fprintf( stderr, "Failed to read image data from input file %s", 
-                            imageList[i].c_str() ), -1;
+          if (!view.data)
+            return fprintf(stderr, "Failed to read image data from input file %s", 
+                           imageList[i].c_str() ), -1;
         }
 
 
-        if(!view.data)
-        {
-            if( imagePoints.size() > 0 )
-                runAndSave(outputFilename, imagePoints, imageSize,
-                           boardSize, pattern, squareSize, aspectRatio,
-                           flags, cameraMatrix, distCoeffs,
-                           writeExtrinsics, writePoints);
-            break;
+        if (!view.data) {
+          if (imagePoints.size() > 0)
+            runAndSave(outputFilename, imagePoints, imageSize,
+                       boardSize, pattern, squareSize, aspectRatio,
+                       flags, cameraMatrix, distCoeffs,
+                       writeExtrinsics, writePoints);
+          break;
         }
 
         imageSize = view.size();
 
         vector<Point2f> pointbuf;
         cv::Mat viewGray;
-        cvtColor(view, viewGray, COLOR_BGR2GRAY);
+        if (view.channels() > 1)
+          cvtColor(view, viewGray, COLOR_BGR2GRAY);
+        else
+          view.copyTo(viewGray);
         
         bool found;
-        switch( pattern )
-        {
-            case CHESSBOARD:
-                found = findChessboardCorners( view, boardSize, pointbuf,
-                    cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_FAST_CHECK | cv::CALIB_CB_NORMALIZE_IMAGE);
-                break;
-            case CIRCLES_GRID:
-                found = findCirclesGrid( view, boardSize, pointbuf );
-                break;
-            case ASYMMETRIC_CIRCLES_GRID:
-                found = findCirclesGrid( view, boardSize, pointbuf, CALIB_CB_ASYMMETRIC_GRID );
-                break;
-            default:
-                return fprintf( stderr, "Unknown pattern type\n" ), -1;
+        switch (pattern) {
+        case CHESSBOARD:
+          found = findChessboardCorners(view, boardSize, pointbuf,
+                                        cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_FAST_CHECK | cv::CALIB_CB_NORMALIZE_IMAGE);
+          break;
+        case CIRCLES_GRID:
+          found = findCirclesGrid( view, boardSize, pointbuf );
+          break;
+        case ASYMMETRIC_CIRCLES_GRID:
+          found = findCirclesGrid( view, boardSize, pointbuf, CALIB_CB_ASYMMETRIC_GRID );
+          break;
+        default:
+          return fprintf( stderr, "Unknown pattern type\n" ), -1;
         }
 
         // improve the found corners' coordinate accuracy

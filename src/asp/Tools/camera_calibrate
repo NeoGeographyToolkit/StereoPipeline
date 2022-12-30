@@ -106,11 +106,11 @@ def parse_cv_yaml_file(path):
     params['height'] = int(get_value_after_colon(lines[3]))
     
     # Get the intrinsic params
-    s = read_lines_until_bracket_end(lines, 13).split(',')
+    s = read_lines_until_bracket_end(lines, 12).split(',')
     intrinsics = [float(x) for x in s]
-    
+
     # Get the distortion params
-    s = read_lines_until_bracket_end(lines, 19).split(',')
+    s = read_lines_until_bracket_end(lines, 18).split(',')
     distortion = [float(x) for x in s]
 
     params['error' ] = float(get_value_after_colon(lines[-2]))
