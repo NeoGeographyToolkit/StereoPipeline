@@ -53,18 +53,18 @@ class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
-def add_job( cmd, num_working_threads=4 ):
+def add_job(cmd, num_working_threads=4):
     if ( len(job_pool) >= num_working_threads):
         job_pool[0].wait();
-        job_pool.pop(0);
+        job_pool.pop(0)
     print(cmd)
-    job_pool.append( subprocess.Popen(cmd, shell=True, env=os.environ) );
+    job_pool.append(subprocess.Popen(cmd, shell=True, env=os.environ))
 
 def wait_on_all_jobs():
     print("Waiting for jobs to finish")
     while len(job_pool) > 0:
-        job_pool[0].wait();
-        job_pool.pop(0);
+        job_pool[0].wait()
+        job_pool.pop(0)
 
 # Go through a list of cubes and sort them into left/right pairs
 def build_cube_pairs(cubePaths):
@@ -141,7 +141,7 @@ def lronaccal( cub_files, threads, delete=False ):
         if( os.path.exists(to_cub) ):
             print(to_cub + ' exists, skipping lronaccal.')
         else:
-            cmd = 'lronaccal from='+ cub +' to='+ to_cub
+            cmd = 'lronaccal from=' + cub + ' to=' + to_cub + ' dark=false nonlinearity=false masked=false radiometric=false'
             add_job(cmd, threads)
         lronaccal_cubs.append( to_cub )
     wait_on_all_jobs()

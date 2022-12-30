@@ -37,8 +37,8 @@ def die(msg, code=-1):
 def verify_python_version_is_supported():
     '''Verifies that a supported version of Python is being used.'''
     
-    if sys.version_info < (2, 6, 0):
-        print('\nERROR: Must use Python version >= 2.6.')
+    if sys.version_info < (3, 0, 0):
+        print('\nERROR: Must use Python version >= 3.0.')
         sys.exit(1)
 
 # Print the version of the ASP programs
