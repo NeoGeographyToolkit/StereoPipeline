@@ -56,6 +56,7 @@ namespace asp {
   char ISISROOT_ENV_STR[COMMON_BUF_SIZE];
   char QT_PLUGIN_PATH_ENV_STR[COMMON_BUF_SIZE];
   char GDAL_DATA_ENV_STR[COMMON_BUF_SIZE];
+  char PROJ_LIB_ENV_STR[COMMON_BUF_SIZE];
   char LC_ALL_STR[COMMON_BUF_SIZE];
   char LANG_STR[COMMON_BUF_SIZE];
 }
@@ -450,10 +451,14 @@ void asp::log_to_file(int argc, char *argv[],
 }
 
 // A function to set the environmental variables ISISROOT, QT_PLUGIN_PATH,
-// and GDAL_DATA. In packaged build mode, set these with the help of the
+// GDAL_DATA, and PROJ_LIB. In packaged build mode, set these with the help of the
 // base directory of the distribution.
 // In dev mode, use the ASP_DEPS_DIR macro or otherwise the
-// ASP_DEPS_DIR environmental variable.
+// ASP_DEPS_DIR environmental variable. These are needed especially for the
+// conda build, when the ASP executables don't have a wrapper around them.
+// For the tarball build, some of this logic is duplicated in the script
+// in BinaryBuilder/dist-add/libexec/libexec-funcs.sh which is then called
+// by the wrapper.
 void asp::set_asp_env_vars() {
     
   // Find the path to the base of the package and see if it works.
@@ -492,7 +497,6 @@ void asp::set_asp_env_vars() {
     vw::vw_throw(vw::ArgumentErr() << "Cannot find Qt plugins in " << getenv("QT_PLUGIN_PATH"));
   
   // Set GDAL_DATA and check for share/gdal
-  // GDAL_DATA_ENV_STR = "GDAL_DATA=" + base_dir + "/share/gdal";
   snprintf(GDAL_DATA_ENV_STR, COMMON_BUF_SIZE, "GDAL_DATA=%s%s",
            base_dir.c_str(), "/share/gdal");
   if (putenv(GDAL_DATA_ENV_STR) != 0) 
@@ -500,6 +504,15 @@ void asp::set_asp_env_vars() {
   if (!fs::exists(std::string(getenv("GDAL_DATA")))) 
     vw::vw_throw(vw::ArgumentErr() << "Cannot find GDAL data in "
                  << getenv("GDAL_DATA"));
+
+  // Set PROJ_LIB and check for share/proj
+  snprintf(PROJ_LIB_ENV_STR, COMMON_BUF_SIZE, "PROJ_LIB=%s%s",
+           base_dir.c_str(), "/share/proj");
+  if (putenv(PROJ_LIB_ENV_STR) != 0) 
+    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << PROJ_LIB_ENV_STR << "\n");
+  if (!fs::exists(std::string(getenv("PROJ_LIB")))) 
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find PROJ data in "
+                 << getenv("PROJ_LIB"));
 
   // Force the US English locale as long as ASP is running to avoid
   // ISIS choking on a decimal separator which shows up as a comma for 
