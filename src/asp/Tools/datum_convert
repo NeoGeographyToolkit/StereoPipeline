@@ -368,15 +368,17 @@ def main(argsIn):
 
     # Check the options and determine if we need to create a grid shift file
 
-    grid_path = os.path.abspath(options.output_image + '_temp_grid.ct2')
-    (use_grid, grid_path) = createShiftFile(input_proj_string, lonlat_bounds, options, grid_path)
+    use_grid = False # Seems to be unnecessary with latest PROJ
+    #grid_path = os.path.abspath(options.output_image + '_temp_grid.ct2')
+    #(use_grid, grid_path) = createShiftFile(input_proj_string, lonlat_bounds, options, grid_path)
 
-    print('Converting image datum...')
+    print('Converting image datum.')
 
-    cmd = ('datum_convert_cpp %s %s ' % (options.input_image, options.output_image))
+    # If using more than one thread, it crashes
+    cmd = ('datum_convert_cpp --threads 1 %s %s ' % (options.input_image, options.output_image))
 
-    if use_grid:  # Append the grid command to the input grid.
-        cmd += ' --input-grid "+nadgrids=' + grid_path + '"'
+    #if use_grid:  # Append the grid command to the input grid.
+    #    cmd += ' --input-grid "+nadgrids=' + grid_path + '"'
 
     # Pass along datum information
     output_info_string = ''
@@ -393,8 +395,8 @@ def main(argsIn):
     cmd += ' --output-info-string " ' + output_info_string + '"'
 
     # Append any remaining arguments, then call the c++ tool.
-    for o in options.extraArgs:
-        cmd += ' ' + o
+    for extraArg in options.extraArgs:
+        cmd += ' ' + extraArgs
     print(cmd)
     os.system(cmd)
 

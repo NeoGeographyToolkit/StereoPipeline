@@ -5,7 +5,16 @@ datum_convert
 
 This tool is used to convert a DEM from one datum to another. For
 example, a UTM zone 10 DEM with an NAD27 datum can be converted to a UTM
-zone 10 DEM with a WGS84 datum. This tool does not convert between
+zone 10 DEM with a WGS84 datum. 
+
+This program was written when the GDAL and PROJ support for datum
+conversions was rudimentary. These libraries have since caught up, and
+it is suggested to try and see if ``gdalwarp`` (:numref:`gdal_tools`)
+can address your datum conversion issues, if used with an appropriate
+``-t_srs`` option. That program is shipped with ASP, and uses recent
+GDAL and PROJ (versions >= 3.5 and >= 9.1.0 respectively).
+
+This tool does not convert between
 projections, another program such as ``gdalwarp`` (included with ASP) or
 ASP’s ``dem_mosaic`` should be used for that. ``datum_convert`` performs
 horizontal conversion; vertical conversion is only provided for the

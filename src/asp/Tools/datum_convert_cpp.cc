@@ -67,11 +67,11 @@ public:
     // - This handles the MOLA and D_MARS datums.
     std::string proj4_in (input_georef.overall_proj4_str ());
     std::string proj4_out(output_georef.overall_proj4_str());
-    if ( (!input_georef.is_projected()) && (!output_georef.is_projected()) &&   
+    if ((!input_georef.is_projected()) && (!output_georef.is_projected()) &&   
          (proj4_in.find ("+ellps") == std::string::npos) &&
          (proj4_in.find ("+datum") == std::string::npos) &&
          (proj4_out.find("+ellps") == std::string::npos) &&
-         (proj4_out.find("+datum") == std::string::npos)   ){
+         (proj4_out.find("+datum") == std::string::npos)  ){
       m_use_gcc_convert = true;
     }
   }
@@ -82,10 +82,10 @@ public:
 
   inline pixel_accessor origin() const { return pixel_accessor(*this); }
 
-  inline result_type operator()( size_t col, size_t row, size_t p=0 ) const {
+  inline result_type operator()(size_t col, size_t row, size_t p=0) const {
 
     // Handle nodata
-    if ( m_input_dem(col, row) == m_nodata_val )
+    if (m_input_dem(col, row) == m_nodata_val)
       return m_nodata_val;
 
     // Compute the elevation in the output datum
@@ -119,12 +119,12 @@ public:
 
   /// \cond INTERNAL
   typedef DatumConvertView<typename ImageT::prerasterize_type> prerasterize_type;
-  inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
-    return prerasterize_type( m_input_dem.prerasterize(bbox), m_input_georef,
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+    return prerasterize_type(m_input_dem.prerasterize(bbox), m_input_georef,
                               m_output_georef, m_nodata_val, m_debug_mode);
   }
-  template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
-    vw::rasterize( prerasterize(bbox), dest, bbox );
+  template <class DestT> inline void rasterize(DestT const& dest, BBox2i const& bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
   }
   /// \endcond
 };
@@ -132,7 +132,7 @@ public:
 // Helper function which uses the class above.
 template <class ImageT>
 DatumConvertView<ImageT>
-datum_convert( ImageViewBase<ImageT> const& input_dem,
+datum_convert(ImageViewBase<ImageT> const& input_dem,
                GeoReference          const& input_georef,
                GeoReference          const& output_georef,
                double                       nodata_val,
@@ -153,7 +153,8 @@ Vector2 get_output_loc(Vector2      const& input_pixel,
   Vector3 input_llh         (input_lonlat[0], input_lonlat[1], dem_height);
   Vector3 output_llh       = tf.lonlatalt_to_lonlatalt(input_llh);
   Vector2 output_lonlat     (output_llh[0], output_llh[1]);
-  Vector2 output_projected = output_georef.lonlat_to_point(output_lonlat); 
+  Vector2 output_projected = output_georef.lonlat_to_point(output_lonlat);
+
   return output_projected;
 }
 
@@ -172,8 +173,8 @@ BBox2 get_output_projected_bbox(GeoReference     const& input_georef,
 
   // Expand along sides
   BBox2 output_bbox;
-  for (int r=0; r<num_rows; ++r) {
-    Vector2 pixel_left (0,          r);
+  for (int r = 0; r < num_rows; r++) {
+    Vector2 pixel_left (0, r);
     Vector2 pixel_right(num_cols-1, r);
     double height_left  = input_dem(pixel_left[0],  pixel_left[1]);
     double height_right = input_dem(pixel_right[0], pixel_right[1]);
@@ -189,8 +190,8 @@ BBox2 get_output_projected_bbox(GeoReference     const& input_georef,
   }
 
   // Expand along the top and bottom
-  for (int c=1; c<num_cols-1; ++c) {
-    Vector2 pixel_top(c, 0         );
+  for (int c = 1; c < num_cols - 1; c++) {
+    Vector2 pixel_top(c, 0);
     Vector2 pixel_bot(c, num_rows-1);
     double height_top = input_dem(pixel_top[0], pixel_top[1]);
     double height_bot = input_dem(pixel_bot[0], pixel_bot[1]);
@@ -201,17 +202,18 @@ BBox2 get_output_projected_bbox(GeoReference     const& input_georef,
     output_bbox.grow(get_output_loc(pixel_top, height_top, input_georef, output_georef, tf));
     output_bbox.grow(get_output_loc(pixel_bot, height_bot, input_georef, output_georef, tf));
   }
+
   return output_bbox;
 }
 
-struct Options : vw::GdalWriteOptions {
+struct Options: vw::GdalWriteOptions {
   string input_dem, output_dem, output_datum, input_datum,
          target_srs_string, input_grid, output_info_string;
   double nodata_value;
   bool   keep_bounds, use_double, debug_mode;
 };
 
-void handle_arguments( int argc, char *argv[], Options& opt ){
+void handle_arguments(int argc, char *argv[], Options& opt){
 
   po::options_description general_options("");
   general_options.add_options()
@@ -231,12 +233,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
     ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
      "Output using double precision (64 bit) instead of float (32 bit).");
 
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
-    ("input-dem",    po::value(&opt.input_dem  ), "The path to the input DEM file." )
-    ("output-dem",   po::value(&opt.output_dem ), "The path to the output DEM file.");
+    ("input-dem",    po::value(&opt.input_dem ), "The path to the input DEM file.")
+    ("output-dem",   po::value(&opt.output_dem), "The path to the output DEM file.");
   po::positional_options_description positional_desc;
   positional_desc.add("input-dem",    1);
   positional_desc.add("output-dem",   1);
@@ -245,18 +247,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
   bool allow_unregistered = false;
   vector<string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered);
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
+  
+  if (opt.input_dem.empty())
+    vw_throw(ArgumentErr() << "Missing <input dem>.\n\n" << usage << general_options);
+  if (opt.output_dem.empty())
+    vw_throw(ArgumentErr() << "Missing <output dem>.\n\n" << usage << general_options);
+  if (opt.output_datum.empty() && opt.target_srs_string.empty())
+    vw_throw(ArgumentErr() << "Requires <output datum> or PROJ.4 string in order to proceed.\n\n" << usage << general_options);
 
-  if ( opt.input_dem.empty() )
-    vw_throw( ArgumentErr() << "Missing <input dem>.\n\n" << usage << general_options );
-  if ( opt.output_dem.empty() )
-    vw_throw( ArgumentErr() << "Missing <output dem>.\n\n" << usage << general_options );
-  if ( opt.output_datum.empty() && opt.target_srs_string.empty())
-    vw_throw( ArgumentErr() << "Requires <output datum> or PROJ.4 string in order to proceed.\n\n" << usage << general_options );
-
-  if ( !opt.output_datum.empty() && !opt.target_srs_string.empty())
+  if (!opt.output_datum.empty() && !opt.target_srs_string.empty())
     vw_out(WarningMessage) << "Both the output datum and the PROJ.4 string were specified. The former takes precedence.\n";
 
   if (opt.debug_mode) {  // Debug output is unreadable with multiple threads.
@@ -334,7 +336,7 @@ void do_work(Options const& opt) {
   // Read the DEM to adjust
   DiskImageResourceGDAL dem_rsrc(opt.input_dem);
   double dem_nodata_val = opt.nodata_value;
-  if ( dem_rsrc.has_nodata_read() ) {
+  if (dem_rsrc.has_nodata_read()) {
     dem_nodata_val = dem_rsrc.nodata_read();
     vw_out() << "Found input nodata value for " << opt.input_dem << ": " << dem_nodata_val << endl;
   }
@@ -342,11 +344,10 @@ void do_work(Options const& opt) {
   GeoReference dem_georef;
   bool has_georef = read_georeference(dem_georef, dem_rsrc);
   if (!has_georef)
-    vw_throw( ArgumentErr() << "Missing georeference for DEM: " << opt.input_dem << "\n" );
+    vw_throw(ArgumentErr() << "Missing georeference for DEM: " << opt.input_dem << "\n");
 
-  if (opt.input_datum != "") {
+  if (opt.input_datum != "")
     dem_georef.set_well_known_geogcs(opt.input_datum);
-  }
 
   if (opt.input_grid != "") {
     // Append the input grid option to the proj4 string we read in from disk.
@@ -366,7 +367,8 @@ void do_work(Options const& opt) {
   get_output_georef(opt, dem_georef, output_georef, output_working_georef);
 
   if (!opt.keep_bounds) {
-    BBox2 output_proj_box = get_output_projected_bbox(dem_georef, output_working_georef, dem_img, dem_nodata_val);
+    BBox2 output_proj_box = get_output_projected_bbox(dem_georef, output_working_georef,
+                                                      dem_img, dem_nodata_val);
     if (output_proj_box.area() <= 0) {
       vw_out() << "Error: No valid pixels found when computing output projected BBox!\n";
       return;
@@ -382,7 +384,7 @@ void do_work(Options const& opt) {
       affine(1, 2) = output_proj_box.max()[1];
     output_georef.set_transform(affine);
     output_working_georef.set_transform(affine);
-    
+
     output_pixel_box = output_georef.point_to_pixel_bbox(output_proj_box);
     vw_out() << "Computed output pixel box:\n" << output_pixel_box << std::endl;
 
@@ -400,7 +402,7 @@ void do_work(Options const& opt) {
 
   // Special handling for known datums!
   if ((dem_georef.overall_proj4_str().find("@conus") != std::string::npos) ||
-      (output_working_georef.overall_proj4_str().find("@conus") != std::string::npos) ) {
+      (output_working_georef.overall_proj4_str().find("@conus") != std::string::npos)) {
     // This grid is used for NAD27 and must be in the +/-180 range.
     dem_georef.safe_set_lon_center(true);
     output_georef.safe_set_lon_center(true);
@@ -408,7 +410,6 @@ void do_work(Options const& opt) {
   }
 
   vw_out() << "Input georef:\n" << dem_georef << std::endl;
-
   vw_out() << "Output georef:\n" << output_georef << std::endl;
 
   // Update the elevation values in the image to account for the new datum.
@@ -424,26 +425,25 @@ void do_work(Options const& opt) {
                                                              output_pixel_box.width(),
                                                              output_pixel_box.height(),
                                                              ConstantEdgeExtension()
-                                                            ),
-                                               dem_nodata_val
-                                              );
+                                                           ),
+                                               dem_nodata_val);
 
   vw_out() << "Writing adjusted DEM: " << opt.output_dem << endl;
-
+  
   // Add extra info string if provided
   std::map<std::string, std::string> keywords;
   if (opt.output_info_string != "") {
     keywords["DATUM_INFO"] = opt.output_info_string;
   }
 
-  if ( opt.use_double ) {
+  if (opt.use_double) {
     // Output as double
     block_write_gdal_image(opt.output_dem, output_dem,
                            true, output_georef,
                            true, dem_nodata_val, opt,
                            TerminalProgressCallback("asp", "\t--> Converting datum: "),
                            keywords);
-  }else{
+  } else {
     // Output as float
     block_write_gdal_image(opt.output_dem,  pixel_cast<float>(output_dem),
                            true, output_georef,
@@ -455,11 +455,11 @@ void do_work(Options const& opt) {
 }
 
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
 
     // Check the input data type
@@ -468,15 +468,15 @@ int main( int argc, char *argv[] ) {
 
     // Redirect to another function with the correct template type
     switch(input_data_type) {
-      //case VW_CHANNEL_INT8   : do_work<vw::int8   >(opt);  break;
-      //case VW_CHANNEL_UINT8  : do_work<vw::uint8  >(opt);  break;
-      case VW_CHANNEL_INT16  : do_work<vw::int16  >(opt);  break;
-      case VW_CHANNEL_UINT16 : do_work<vw::uint16 >(opt);  break;
-      case VW_CHANNEL_INT32  : do_work<vw::int32  >(opt);  break;
-      case VW_CHANNEL_UINT32 : do_work<vw::uint32 >(opt);  break;
+      //case VW_CHANNEL_INT8   : do_work<vw::int8> (opt);  break;
+      //case VW_CHANNEL_UINT8  : do_work<vw::uint8>(opt);  break;
+      case VW_CHANNEL_INT16  : do_work<vw::int16>  (opt);  break;
+      case VW_CHANNEL_UINT16 : do_work<vw::uint16> (opt);  break;
+      case VW_CHANNEL_INT32  : do_work<vw::int32>  (opt);  break;
+      case VW_CHANNEL_UINT32 : do_work<vw::uint32> (opt);  break;
       case VW_CHANNEL_FLOAT32: do_work<vw::float32>(opt);  break;
       case VW_CHANNEL_FLOAT64: do_work<vw::float64>(opt);  break;
-      default : vw_throw(ArgumentErr() << "Input image format " << input_data_type << " is not supported!\n");
+      default: vw_throw(ArgumentErr() << "Input image format " << input_data_type << " is not supported!\n");
     };
 
 

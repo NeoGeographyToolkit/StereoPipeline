@@ -160,8 +160,8 @@ and the environmental variable ``ISISDATA`` is set (:numref:`isis_start`).
 An example of using ASP with HiRISE data is included in the
 ``examples/HiRISE`` directory (just type 'make' there).
 
-Columbia Hills
-~~~~~~~~~~~~~~
+The dataset
+~~~~~~~~~~~
 
 HiRISE observations
 `PSP_001513_1655 <http://hirise.lpl.arizona.edu/PSP_001513_1655>`_ and
@@ -176,7 +176,7 @@ landed and has roved, including the Columbia Hills.
    PSP_001777_1650 of the Columbia Hills.
 
 Commands
-^^^^^^^^
+~~~~~~~~
 
 Download all 20 of the RED EDR ``.IMG`` files for each observation.
 

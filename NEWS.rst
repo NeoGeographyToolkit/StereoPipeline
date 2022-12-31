@@ -201,6 +201,8 @@ misc:
     Boost 1.72, ISIS 7.1.0, GDAL 3.5, and PROJ 9.1.0. The latter has a
     whole new API, intended to handle properly transformations among
     datums.
+  * The ``lronaccal`` tool in ISIS 7.1.0 appears buggy. Try using
+    an earlier version if this is needed.
   * Replaced in some locations ASP's homegrown coordinate transformation
     logic with what is in PROJ.
   * Added the option of using the CSM camera with DigitalGlobe WorldView 
