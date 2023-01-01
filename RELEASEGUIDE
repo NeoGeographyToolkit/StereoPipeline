@@ -88,19 +88,6 @@ https://semver.org for guidance).
   - Update the ISIS version in README.rst, INSTALLGUIDE.rst, and 
     conda_build.rst (there can be many mentions in each).
  
-  - Update the ASP version and Zenodo link in README.rst. (The 
-    release needs to be pushed to GitHub before the Zenodo link
-    can be minted and hence that should be updated later.) 
-
-    A custom tool needs to be created, based on the current
-    daily release tool which will push a release with properly
-    written metadata. If instead a daily release is renamed,
-    the metatadata will be messed up (to be done). 
-
-    Then visit https://zenodo.org/badge/latestdoi/714891 
-    (which will always point to the 'latest' DOI) and find
-    there that release's URL and put it in README.rst. 
-
 6.) Build and package the ASP release tarball. See:
 
         BinaryBuilder/README.
@@ -157,9 +144,20 @@ different commit, first remove the exiting tag with:
   git push god    :refs/tags/3.2.0
 
 9.) Create a new release on GitHub, and upload to it the builds and
-the pdf documentation. Do not just rename the latest uploaded daily
-build, as that will create an incorrect Zenodo link. Paste there the
-release notes from NEWS.txt.
+the pdf documentation. Use the just-created tag.  Do not just rename
+the latest uploaded daily build, as that will create an incorrect
+Zenodo link. Paste in the release area the current release notes from
+NEWS.txt.
+
+Wait a few minutes for Zenodo to mint a link, then visit the Zenodo
+page at https://zenodo.org/badge/latestdoi/714891 (which will always
+point to the 'latest' DOI) and find there this release's URL and put
+it in README.rst.
+
+One could also create an empty release, with a tag, just to get
+the Zenodo link, then check that in, make the tag point to the
+new commit, then build and upload the binaries and documentation
+to that release.
 
 Update the website, at::
 
