@@ -6,7 +6,7 @@ Ames Stereo Pipeline (ASP)
    :target: https://zenodo.org/badge/latestdoi/714891
 
 .. image:: https://zenodo.org/badge/DOI/Version%203.2.0.svg
-   :target: https://doi.org/10.5281/zenodo.7497488
+   :target: https://zenodo.org/record/7497499
 
 .. image:: https://readthedocs.org/projects/stereopipeline/badge/?version=latest
    :target: https://stereopipeline.readthedocs.io/en/latest/?badge=latest

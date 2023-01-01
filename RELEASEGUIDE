@@ -126,12 +126,12 @@ The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
 
 8.) Commit and tag the release in the VW and ASP repos. Example: 
 
-  git tag 3.2.0.1
+  git tag 3.2.0
 
 Push the tags to the remote server with: 
 
- git push origin 3.2.0.1 # commit to your branch
- git push god    3.2.0.1 # commit to main branch
+ git push origin 3.2.0 # commit to your branch
+ git push god    3.2.0 # commit to main branch
 
 (Here it is assumed that 'origin' points to your own fork and 'god'
 points to the parent repository.)
@@ -155,11 +155,6 @@ point to the 'latest' DOI) and find there this release's URL and put
 it at the top of README.rst, in the appropriate ``target`` field.
 Increment the version in the ``image`` field right above that.
 Push this update.
-
-One could also create an empty release, with a tag, just to get
-the Zenodo link, then check that in, make the tag point to the
-new commit, then build and upload the binaries and documentation
-to that release.
 
 Update the website, at::
 
