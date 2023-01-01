@@ -445,13 +445,14 @@ can move the cameras around somewhat. Hence the registration
 is redone after the last optimization pass, unless
 the flag ``--skip_post_registration`` is specified. 
 
-The initial registration does not change the depth-to-image transforms,
-as those are presumed to be reasonably known, unlike the image cameras,
-which are determined normally using Theia and are in an arbitrary
-coordinate system. After the cameras and all transforms are optimized,
-including the depth-to-image transforms, if present, and if registration
-happens at the end, these transforms will be changed as well, for 
-consistency with the transforms among the image cameras.
+The initial registration does not change the depth-to-image
+transforms, as those are presumed to be reasonably known, unlike the
+image camera poses, which are determined normally using Theia and are
+in an arbitrary coordinate system. After the cameras and all
+transforms are optimized, including the depth-to-image transforms, if
+present, and if registration happens at the end, these transforms will
+be changed as well, for consistency with the transforms among the
+image cameras.
 
 If the images cover a large area, it is suggested to use registration
 points distributed over that area. Registration may not always produce
@@ -584,8 +585,9 @@ Source code
 The rig calibration software can be built and used independently of
 ASP, and has many fewer dependencies than ASP itself (particularly, it
 does not depend on ISIS). If desired to run ``multi_stereo``, however,
-then ASP itself is needed). See the `source code and build
-instructions <https://github.com/oleg-alexandrov/MultiView>`_.
+then ASP itself is needed (:numref:`multi_stereo`). See this tool's `source
+code and build instructions
+<https://github.com/oleg-alexandrov/MultiView>`_.
 
 .. _rig_calibrator_command_line:
 
