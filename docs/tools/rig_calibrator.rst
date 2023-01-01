@@ -440,11 +440,18 @@ point and its computed value based on the registered cameras. If
 some of them are too large, may be the measurements have some error,
 or the camera poses or intrinsics are not accurate enough.
 
-Note that the registration happens before the optimization, and the
-latter can move the cameras around somewhat. To avoid that, or to do
-one more registration pass, one can rerun ``rig_calibrator``
-with control points as before, previous results (hence adjust
-``--rig_config`` and ``--nvm``), and zero iterations.
+Note that the registration happens before the optimization, and that
+can move the cameras around somewhat. Hence the registration
+is redone after the last optimization pass, unless
+the flag ``--skip_post_registration`` is specified. 
+
+The initial registration does not change the depth-to-image transforms,
+as those are presumed to be reasonably known, unlike the image cameras,
+which are determined normally using Theia and are in an arbitrary
+coordinate system. After the cameras and all transforms are optimized,
+including the depth-to-image transforms, if present, and if registration
+happens at the end, these transforms will be changed as well, for 
+consistency with the transforms among the image cameras.
 
 If the images cover a large area, it is suggested to use registration
 points distributed over that area. Registration may not always produce
@@ -703,6 +710,12 @@ Command-line options for rig_calibrator
   camera poses and the rig transforms before starting the optimization. For
   now, the depth-to-image transforms do not change as result of this, which
   may be a problem. To apply the registration only, use zero iterations.)
+  Type: bool. Default: false.
+``--skip_post_registration``
+  If true and registration to world coordinates takes place, do not apply the
+  registration again after the cameras are optimized. This is usually not recommended,
+  unless one is quite confident that other constraints (such as using ``--tri_weight``
+  or ``--mesh_tri_weight``) are sufficient to keep the cameras from drifting.
   Type: bool. Default: false.
 ``--rig_config`` Read the rig configuration from file. Type: string. 
   Default: "".
