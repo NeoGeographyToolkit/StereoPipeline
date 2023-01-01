@@ -27,6 +27,12 @@ New tools:
     models (:numref:`jitter_solve`). It gives promising results 
     for CTX, Pleiades, and DigitalGlobe data. Examples are provided.
 
+Removed tools:
+  * ``datum_convert``: This was an attempt at having a tool applying
+    a transform among datums. It is suggested to use GDAL/PROJ instead.
+    Note that a datum transform may require fetching transformation grids,
+    and without them PROJ will quietly return incorrect results. 
+
 New sensors:
   * Support the Pleiades exact sensor (for 1A/1B). See :numref:`pleiades`.
     Implemented as a wrapper around the CSM linescan camera model.
