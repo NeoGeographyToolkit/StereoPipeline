@@ -70,7 +70,9 @@ https://semver.org for guidance).
     we handle this in an awkward way. A fresh conda environemnt
     is created having only Python, numpy, with versions
     as expected by current ISIS, for example, as:
+
       conda create -n python_isis7 -y python=3.9.15 numpy=1.23.5
+
     This directory is packaged later with the build with make-dist.py
     (that tool needs to be edited to ensure the path to this
     environemnt is used).
@@ -86,7 +88,7 @@ https://semver.org for guidance).
     will conflict with building locally. 
 
   - Update the ISIS version in README.rst, INSTALLGUIDE.rst, and 
-    conda_build.rst (there can be many mentions in each).
+    building_asp.rst (there can be many mentions in each).
  
 6.) Build and package the ASP release tarball. See:
 
@@ -167,21 +169,6 @@ point to the 'latest' DOI) and find there this release's URL and put
 it at the top of README.rst, in the appropriate ``target`` field.
 Increment the version in the ``image`` field right above that.
 Push this update.
-
-Update the website, at::
-
-  https://ti.arc.nasa.gov/cms/pages/page/ 
-
-(SG can give permissions to edit the pages under
-/tech/asr/intelligent-robotics/ngt). 
-
-Update:
- - The sidebar 
- - The main page, including:
-   * Binary release links
-   * ISIS version
-   * Source code release link
-   * Documentation link
 
 10.) Ask fellow ASP developers to do some tests and review the
 documentation.
