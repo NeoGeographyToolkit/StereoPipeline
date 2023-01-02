@@ -102,7 +102,7 @@ the images.
 
   - Create GCP with georeferenced images and a DEM (:numref:`creatinggcp`).
 
-  - Create interest point matches using map-projected images (:numref:`mapip`).
+  - Create interest point matches using mapprojected images (:numref:`mapip`).
 
   - Threshold images (:numref:`thresh`).
 
@@ -283,7 +283,7 @@ with an output prefix::
 
 and then the match file is loaded from the *IP matches*
 menu. (Auto-detection works only when the images are not
-map-projected, stereo was not run on image clips, and alignment method
+mapprojected, stereo was not run on image clips, and alignment method
 is not ``epipolar`` or ``none``.)
 
 See also editing of interest point matches in
@@ -421,21 +421,22 @@ GCP file.
 
 .. _mapip:
 
-Creating interest point matches using map-projected images
+Creating interest point matches using mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To make it easier to create interest point matches in situations when
 the images are very different or taken from very diverse perspectives,
-they can be first mapproject onto a DEM, as then the images look a lot
-more similar. Then interest points are created among the map-projected
+they can be first mapprojected onto a DEM, as then the images look a lot
+more similar. Then interest points are created among the mapprojected
 images, when this process is more likely to succeed, and they are
 transferred to the original images.
 
 Here is an example. Given three images A.tif, B.tif, and C.tif, and a
-DEM named dem.tif, mapproject them onto this DEM, using the same
-resolution (``--tr``) and same projection (``--t_projwin``), obtaining
-the images A.map.tif, B.map.tif, and C.map.tif. Note that one should
-not use ``--bundle-adjust-prefix`` in mapprojection in this context.
+DEM named dem.tif, mapproject them onto this DEM
+(:numref:`mapproject`), using the same resolution (``--tr``) and same
+projection (``--t_projwin``), obtaining the images A.map.tif,
+B.map.tif, and C.map.tif. Note that one should not use
+``--bundle-adjust-prefix`` in mapprojection in this context.
 
 Then bundle adjustment is invoked as follows, during which the transfer
 of interest points happens::
@@ -445,13 +446,13 @@ of interest points happens::
       --min-matches 0 -o run/run 
 
 This will not recreate any existing match files either for
-mapprojected images or for unprojected ones, hence if that is
+mapprojected images or for unprojected ones. If that is
 desired, existing match files need to be deleted first.
 
 If the mapprojected images are still too different for interest point
 matching among them to succeed, one can try to bring in more images that
 are intermediate in appearance or illumination between the existing
-ones, hence bridging the gap. Alternatively, interest point matching can
+ones, so bridging the gap. Alternatively, interest point matching can
 be done manually in the GUI as follows::
 
      stereo_gui A.map.tif B.map.tif C.map.tif run/run

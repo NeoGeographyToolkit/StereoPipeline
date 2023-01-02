@@ -1,4 +1,4 @@
-name: asp_deps
+name: asp
 channels:
   - nasa-ames-stereo-pipeline
   - usgs-astrogeology
@@ -230,6 +230,7 @@ dependencies:
   - snappy=1.1.9=hbd366e4_2
   - spiceypy=5.1.2=pyhd8ed1ab_0
   - sqlite=3.40.0=h4ff8645_0
+  - stereo-pipeline=3.2.0=h3fd9d12_0
   - suitesparse=5.10.1=h9e50725_1
   - superlu=5.2.2=h00795ac_0
   - svt-av1=1.2.1=h27087fc_0
@@ -240,6 +241,7 @@ dependencies:
   - tnt=126=0
   - tzdata=2022g=h191b570_0
   - usgscsm=1.6.0=h924138e_1
+  - visionworkbench=3.2.0=h3fd9d12_0
   - wheel=0.38.4=pyhd8ed1ab_0
   - x264=1!164.3095=h166bdaf_2
   - x265=3.5=h924138e_3

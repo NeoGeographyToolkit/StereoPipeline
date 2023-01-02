@@ -139,15 +139,27 @@ points to the parent repository.)
 If more commits were made and it is desired to apply this tag to a
 different commit, first remove the exiting tag with:
 
-  git tag -d v3.2.0
-  git push origin :refs/tags/v3.2.0
-  git push god    :refs/tags/v3.2.0
+  git tag -d 3.2.0
+  git push origin :refs/tags/3.2.0
+  git push god    :refs/tags/3.2.0
 
 9.) Create a new release on GitHub, and upload to it the builds and
 the pdf documentation. Use the just-created tag.  Do not just rename
 the latest uploaded daily build, as that will create an incorrect
 Zenodo link. Paste in the release area the current release notes from
 NEWS.txt.
+
+Files can be uploaded to a release from the browser, or from the
+command line, with the GitHub "gh" tool. Here's an example usage:
+
+  cd BinaryBuilder
+  for file in asp_tarballs/StereoPipeline-3.2.0-2023-01-01-x86_64-Linux.tar.bz2 \
+              asp_tarballs/StereoPipeline-3.2.0-2023-01-01-x86_64-OSX.tar.bz2   \
+              dist-add/asp_book.pdf; \
+  do 
+    gh release upload 3.2.0 $file \
+      -R git@github.com:NeoGeographyToolkit/StereoPipeline.git   
+  done
 
 Wait a few minutes for Zenodo to mint a link, then visit the Zenodo
 page at https://zenodo.org/badge/latestdoi/714891 (which will always
