@@ -138,7 +138,6 @@ Performance settings
    such as SGM you may wish to lower some of these values (such as the
    cache size) to leave more memory available for the algorithm to use.
 
-
 .. _logging:
 
 Logging settings

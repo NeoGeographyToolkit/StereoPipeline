@@ -2,8 +2,8 @@ Installation
 ============
 
 Precompiled binaries are available for the stable releases and the
-current development build.  Stereo Pipeline can also be compiled 
-from source, but this is not recommended.
+current development build.  Stereo Pipeline can also be compiled from
+source, but this is not recommended (:numref:`building_asp`).
 
 .. _precompiled_binaries:
 
@@ -24,7 +24,13 @@ the archive, and run the executables in the ``bin`` subdirectory as::
 
 The result of the last command should be a help message.
 
+ASP was verified to work under Microsoft Windows using the Windows
+Subsystem for Linux.
+
 See the NEWS file (:numref:`news`) for the most recent additions.
+
+The stable releases are also available via conda
+(:numref:`conda_intro`).
 
 To permanently add the ASP executable subdirectory to your PATH, you
 can add the following line to your shell configuration (e.g.,
@@ -295,135 +301,5 @@ variable to your existing data area).  For more information see
 the `ISIS installation instructions
 <https://github.com/USGS-Astrogeology/ISIS3>`_.
 
-.. _build_from_source:
-
-Building ASP from source
-------------------------
-
-This entails downloading all the ASP dependencies with conda first as
-pre-compiled binaries, then pulling the VisionWorkbench and Stereo
-Pipeline source code from GitHub, and building locally. This is
-suggested only for the very adventurous user.
-
-The environments having the ASP dependencies are in the ``conda``
-directory of the Stereo Pipeline repository, as above. After
-downloading those, one can run on Linux::
-
-    conda env create -f asp_deps_3.2.0_linux_env.yaml
-
-or on the Mac::
-
-    conda env create -f asp_deps_3.2.0_osx_env.yaml
-
-This will create an ``asp_deps`` environment. Activate it with::
-
-    conda activate asp_deps
-
-Some of the .la files created by conda point to other .la files that
-are not available. For that reason, those files should be edited to
-replace::
-
-    /path/to/libmylibrary.la
-
-with::
-
-    -L/path/to -lmylibrary
-
-This can be done with the following commands::
-
-    cd ~/miniconda3/envs/asp_deps/lib
-    mkdir -p  backup
-    cp -fv  *.la backup # back these up
-    perl -pi -e "s#(/[^\s]*?lib)/lib([^\s]+).la#-L\$1 -l\$2#g" *.la
-
-The `conda-provided compilers
-<https://conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_
-are used and should be installed in the environment, if not present already.
-
-Also ensure that ``cmake>=3.15.5`` and ``pbzip2`` are installed, and,
-for Linux only, the ``chrpath`` tool.
-
-Set up a work directory::
-
-    buildDir=$HOME/build_asp
-    mkdir -p $buildDir
-
-Set up the compiler, on Linux and OSX::
-
-    isMac=$(uname -s | grep Darwin)
-    if [ "$isMac" != "" ]; then
-      cc_comp=clang
-      cxx_comp=clang++
-    else
-      cc_comp=x86_64-conda_cos6-linux-gnu-gcc
-      cxx_comp=x86_64-conda_cos6-linux-gnu-g++
-  fi
-
-Build VisionWorkbench and Stereo Pipeline::
-
-    cd $buildDir
-    envPath=$HOME/miniconda3/envs/asp_deps
-    $envPath/bin/git clone                            \
-        git@github.com:visionworkbench/visionworkbench.git
-    cd visionworkbench
-    # Uncomment below if desired to build a specific version
-    # git checkout 3.2.0
-    mkdir -p build
-    cd build
-    $envPath/bin/cmake ..                             \
-      -DASP_DEPS_DIR=$envPath                         \
-      -DCMAKE_VERBOSE_MAKEFILE=ON                     \
-      -DCMAKE_INSTALL_PREFIX=$buildDir/install        \
-      -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
-      -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
-    make -j10 && make install
-
-    cd $buildDir
-    envPath=$HOME/miniconda3/envs/asp_deps
-    $envPath/bin/git clone                            \
-    git@github.com:NeoGeographyToolkit/StereoPipeline.git
-    cd StereoPipeline
-    # Uncomment below if desired to build a specific version
-    # git checkout 3.2.0
-    mkdir -p build
-    cd build
-    $envPath/bin/cmake ..                             \
-      -DASP_DEPS_DIR=$envPath                         \
-      -DCMAKE_VERBOSE_MAKEFILE=ON                     \
-      -DCMAKE_INSTALL_PREFIX=$buildDir/install        \
-      -DVISIONWORKBENCH_INSTALL_DIR=$buildDir/install \
-      -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
-      -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
-    make -j10 && make install
-
-Building the documentation
---------------------------
-
-The ASP documentation is encoded in ReStructured Text and is built
-with the Sphinx-Doc system (https://www.sphinx-doc.org) with 
-sphinxcontrib-bibtex (https://sphinxcontrib-bibtex.readthedocs.io).
-These packages can be installed and activated as follows::
-
-    conda create -n sphinx -c conda-forge python=3.6 \
-      sphinx=3.5.4 sphinxcontrib-bibtex=2.1.4  
-    conda activate sphinx
-
-Note that we used a separate conda environment to minimize the chance
-of conflict with other dependencies. Also, Sphinx version 4 seems to
-have trouble compiling our documentation, hence a lower version is
-used here.
-
-In order to build the PDF (but not the HTML) document, a full
-LaTeX distribution is also necessary, such as TeX Live. 
-
-The ``docs`` directory contains the root of the documentation. Running
-``make html`` and ``make latexpdf`` there will create the HTML and PDF
-versions of the documentation in the _build subdirectory. In
-particular, the PDF document will be at::
-
-  ./_build/latex/asp_book.pdf
-
-Building ASP and its dependencies with conda
---------------------------------------------
-
-This is an advanced topic discussed in :numref:`conda_build`.
+For how to build ASP, without and with conda, see
+:numref:`build_from_source` and :numref:`conda_build`.
