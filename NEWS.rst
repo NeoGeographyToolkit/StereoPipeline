@@ -1,5 +1,6 @@
 RELEASE 3.2.0, December 30, 2022
 --------------------------------
+DOI: `10.5281/zenodo.7497499 <https://doi.org/10.5281/zenodo.7497499>`_
 
 Added functionality for creation of large-scale meshes and fused
 textures for small planetary bodies and indoor environments. Added
