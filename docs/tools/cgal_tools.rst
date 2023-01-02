@@ -15,7 +15,7 @@ manipulating meshes in .ply format, which are produced with the
 
 These tools can be built and used independently of ASP. See the
 `source code and build instructions
-<https://github.com/oleg-alexandrov/cgal_tools>`_.
+<https://github.com/NeoGeographyToolkit/cgal_tools>`_.
 
 Examples
 ~~~~~~~~

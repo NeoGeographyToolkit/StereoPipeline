@@ -587,7 +587,7 @@ ASP, and has many fewer dependencies than ASP itself (particularly, it
 does not depend on ISIS). If desired to run ``multi_stereo``, however,
 then ASP itself is needed (:numref:`multi_stereo`). See this tool's `source
 code and build instructions
-<https://github.com/oleg-alexandrov/MultiView>`_.
+<https://github.com/NeoGeographyToolkit/MultiView>`_.
 
 .. _rig_calibrator_command_line:
 
