@@ -800,43 +800,6 @@ compute-error-vector (default = false)
     contain the three components of the triangulation error vector in
     the North-East-Down coordinate system.
 
-    The next several parameters are used for jitter correction for
-    DigitalGlobe/Maxar images. A usage tutorial is given in :numref:`jitter`.
-
-image-lines-per-piecewise-adjustment (*integer*) (default = 0)
-    A positive value, e.g., 1000, will turn on using piecewise camera
-    adjustments to help reduce jitter effects. Use one adjustment per
-    this many image lines.
-
-piecewise-adjustment-percentiles (*float float*) (default = 5 95)
-    A narrower range will place the piecewise adjustments for jitter
-    correction closer together and further from the first and last lines
-    in the image.
-
-piecewise-adjustment-interp-type (*integer*) (default = 1)
-    How to interpolate between adjustments. [1 Linear, 2 Using Gaussian
-    weights]
-
-piecewise-adjustment-camera-weight (*float*) (default = 1.0)
-    The weight to use for the sum of squares of adjustments component of
-    the cost function. Increasing this value will constrain the
-    adjustments to be smaller.
-
-num-matches-for-piecewise-adjustment (*integer*) (default = 90000)
-    How many matches among images to create based on the disparity for
-    the purpose of solving for jitter using piecewise adjustment.
-
-    These last two options are used internally.
-
-compute-piecewise-adjustments-only (default = false)
-    Compute the piecewise adjustments as part of jitter correction, and
-    then stop.
-
-skip-computing-piecewise-adjustments (default = false)
-    Skip computing the piecewise adjustments for jitter, they should
-    have been done by now.
-
-
 Bathymetry correction options
 -----------------------------
 
