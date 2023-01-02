@@ -37,7 +37,7 @@ https://semver.org for guidance).
 
   - Make the conda dependencies of:
 
-      https://github.com/oleg-alexandrov/MultiView 
+      https://github.com/NeoGeographyToolkit/MultiView
     
     compatible with the dependencies so far, then build and install
     that package in the same directory as VisionWorkbench and
@@ -75,7 +75,7 @@ https://semver.org for guidance).
 
     This directory is packaged later with the build with make-dist.py
     (that tool needs to be edited to ensure the path to this
-    environemnt is used).
+    environemnt is used). See also BinaryBuilder/README.
 
   - Update the path to your local conda environment having the latest
     ASP dependencies in BinaryBuilder/auto_build/utils.sh.
