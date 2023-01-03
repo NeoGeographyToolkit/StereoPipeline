@@ -16,7 +16,8 @@ New tools:
     ``voxblox_mesh`` (:numref:`multi_stereo`).
   * ``voxblox_mesh``: Fuses point clouds into a seamless oriented
     mesh, with each input point given a weight according to its
-    reliability. Based on the third-party VoxBlox software.
+    reliability. Based on the third-party VoxBlox software
+    (:numref:`voxblox_mesh`).
   * ``texrecon``: Creates seamless textured meshes. Based on
     the third-party MVS-Texturing project (:numref:`texrecon`).
   * ``pc_filter``: Filters outliers in point clouds created with
@@ -30,7 +31,7 @@ New tools:
 
 Removed tools:
   * ``datum_convert``: This was an attempt at having a tool applying
-    a transform among datums. It is suggested to use GDAL/PROJ instead.
+    a transform between datums. It is suggested to use GDAL/PROJ instead.
     Note that a datum transform may require fetching transformation grids,
     and without them PROJ will quietly return incorrect results. 
 
