@@ -21,8 +21,9 @@ simply pass two image files to the ``parallel_stereo`` command::
 Here it is assumed that the ``PATH`` and ``ISISDATA`` environmental
 variables have been set, as shown in :numref:`installation`. 
 
-The ``.cub`` file format is used for non-Earth images. For Earth,
-the images are usually in the ``.tif`` format (:numref:`dg_tutorial`). 
+The ``.cub`` file format is used for non-Earth images
+(:numref:`moc_tutorial`). For Earth, the images are usually in the
+``.tif`` format (:numref:`dg_tutorial`).
 
 Higher quality results, at the expense of more computation, can be
 achieved by running::
@@ -34,11 +35,13 @@ achieved by running::
 The option ``--subpixel-mode 9`` is faster and still creates decent
 results (with ``asp_mgm``/``asp_sgm``). The best quality will likely
 be obtained with ``--subpixel-mode 2``, but this is even more
-computationally expensive.
+computationally expensive. 
 
-Thees commands will decompose the images in tiles to run in parallel,
-potentially on multiple machines. For more details, see
-:numref:`nextsteps`.
+It is very recommended to read :numref:`nextsteps`, which describes
+other alignment methods and stereo algorithms.
+
+The above commands will decompose the images in tiles to run in parallel,
+potentially on multiple machines (:numref:`parallel_stereo`).
 
 Or the ``stereo_gui`` frontend can be invoked, with the same options,
 as described in :numref:`stereo_gui`.  This tool makes it possible to
@@ -82,7 +85,7 @@ Lightning-fast example using Lunar images
 This example is designed to have the user create useful results with
 ASP using Lunar data 10 minutes or less. It does not require a
 download of ISIS or ISIS data (which can be a couple of hundreds of
-GB) because it uses the CSM camera model (:numref:`csm`)). The steps
+GB) because it uses the CSM camera model (:numref:`csm`). The steps
 to process it are as follows:
 
  - Get ASP per the installation page (:numref:`installation`).
@@ -118,11 +121,7 @@ Open the computed DEM and orthoimage as::
 Right-click on the DEM on the left and choose to toggle hillshading to
 show the DEM hillshaded. See the figure below for the output.
 
-Higher quality results can be obtained by adding to ``parallel_stereo``
-the option ``--subpixel-mode 2``, but that will be quite a bit slower.
-
-See :numref:`nextsteps` for a more in-depth discussion of stereo
-algorithms.
+How to get higher quality results is described in  :numref:`nextsteps`. 
 
 .. figure:: images/lronac_csm_example.png
    :name: lronac_csm_example
@@ -144,11 +143,14 @@ whose PDS Product IDs are M01/00115 and E02/01461. This data can be
 downloaded from the PDS directly, or they can be found in the
 ``examples/MOC`` directory of your Stereo Pipeline distribution.
 
-These raw PDS images (``M0100115.imq`` and ``E0201461.imq``) need to be
-imported into the ISIS environment and radiometrically calibrated. You
-will need to be in an ISIS environment (usually via a ``conda activate``
-command which sets the ``ISISROOT`` and ``ISISDATA`` environment variables; 
-we will denote this state with the ``ISIS>`` prompt). Then you can use 
+These raw PDS images (``M0100115.imq`` and ``E0201461.imq``) need to
+be converted to .cub files and radiometrically calibrated. You will
+need to be in an ISIS environment (:numref:`planetary_images`),
+usually via a ``conda activate`` command which sets the ``ISISROOT``
+and ``ISISDATA`` environment variables; we will denote this state with
+the ``ISIS>`` prompt.
+
+Then you can use 
 the ``mocproc`` program, as follows::
 
      ISIS> mocproc from=M0100115.imq to=M0100115.cub Mapping=NO
