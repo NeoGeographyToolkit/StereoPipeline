@@ -861,7 +861,9 @@ Command-line options for bundle_adjust
 
 --apply-initial-transform-only
     Apply to the cameras the transform given by ``--initial-transform``.
-    No iterations, GCP loading, or image matching takes place.
+    No iterations, GCP loading, image matching, or report generation
+    take place. Using ``--num-iterations 0`` and without this option
+    will create those.
 
 --image-list
     A file containing the list of images, when they are too many to

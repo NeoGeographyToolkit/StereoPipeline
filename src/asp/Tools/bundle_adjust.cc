@@ -2105,7 +2105,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("save-intermediate-cameras", po::value(&opt.save_intermediate_cameras)->default_value(false)->implicit_value(true),
      "Save the values for the cameras at each iteration.")
     ("apply-initial-transform-only", po::value(&opt.apply_initial_transform_only)->default_value(false)->implicit_value(true),
-     "Apply to the cameras the transform given by --initial-transform. No iterations, GCP loading, or image matching takes place.")
+     "Apply to the cameras the transform given by --initial-transform. "
+     "No iterations, GCP loading, image matching, or report generation "
+     "take place. Using --num-iterations 0 and without this option "
+     "will create those.")
     ("proj-win", po::value(&opt.proj_win)->default_value(BBox2(0,0,0,0), "auto"),
      "Flag as outliers input triangulated points not in this proj win (box in projected units as provided by --proj_str). This should be generous if the input cameras have significant errors.")
     ("proj-str",   po::value(&opt.proj_str)->default_value(""),
