@@ -300,8 +300,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
            );
         vw::cartography::block_write_gdal_image
           (opt.out_prefix + "-R_stddev_filter_output.tif",
-           vw::stddev_filter_view(left_image, stddev_kernel),
-           has_left_georef, left_georef,
+           vw::stddev_filter_view(right_image, stddev_kernel),
+           has_right_georef, right_georef,
            false, output_nodata,
            opt, TerminalProgressCallback("asp", "\t  StdDev filter raw output (right): "));
       } else {
