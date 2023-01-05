@@ -234,7 +234,7 @@ a bonus, but we can't provide any advice for how to perform or improve
 the results if you choose to use ASP in that way.
 
 ASP can only process Level 1B satellite images, and cannot process
-DigitalGlobe's aerial images.
+DigitalGlobe's aerial images or orthorectified images.
 
 The camera information for DigitalGlobe/Maxar images is contained in an XML
 file for each image. In addition to the exact linear camera model, the

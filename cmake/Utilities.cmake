@@ -147,7 +147,13 @@ function(add_library_wrapper libName fileList testFileList dependencyList)
     string( TOLOWER "${extension}" extensionLower )
     if( extensionLower STREQUAL ".h" OR extensionLower STREQUAL ".hpp" OR extensionLower STREQUAL ".tcc")
       set(fullPath "${CMAKE_CURRENT_SOURCE_DIR}/${f}")
-      STRING(REGEX MATCH "asp/.*/" dir ${fullPath})
+      # TODO(oalexan1): This is very fragile code because "asp" can
+      # also match build_asp and what not.
+      # That is why here we do the regex twice.
+      # Need to replace with code which simply installs the "asp"
+      # subdir.
+      STRING(REGEX MATCH "/asp/.*/" dir1 ${fullPath})
+      STRING(REGEX MATCH "asp/.*/" dir ${dir1})
       INSTALL(FILES ${f} DESTINATION include/${dir})
     endif()
   endforeach(f)

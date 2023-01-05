@@ -4235,6 +4235,9 @@ On a PBS system, one can have a script as follows::
 Note the two special environmental variables ``PBS_O_WORKDIR`` and ``PBS_NODEFILE``
 which refer to the current work directory in which the script is started, and the
 list of nodes allocated for the job.
+
+Ensure the option ``--nodes-list`` is set, otherwise only the head node
+will be used.
   
 This script, named for example, ``run.sh``, can be launched as::
 
@@ -4279,6 +4282,9 @@ With SLURM, a script as follows can work::
    /bin/rm -fv $nodesList
  
 As before, the options and values above should be adjusted for your needs.
+
+Ensure the option ``--nodes-list`` is set, otherwise only the head node
+will be used.
 
 If your SLURM setup requires a custom ssh port, set in the list of nodes
 the full ssh command to each node, rather than the node name. Example::

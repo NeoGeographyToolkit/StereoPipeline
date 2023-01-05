@@ -3,9 +3,9 @@ Changes since last release
 
 stereo:
 
-  * Document pre-processing options ``--stddev-mask-kernel``
+  * Documented the pre-processing options ``--stddev-mask-kernel``
     and ``--stddev-mask-thresh`` (:numref:`stereo-default-preprocessing`).
-    Also fix a bug in writing out helper debug images for this option.
+    Also fixed a bug in writing out debug images for this option.
  
 RELEASE 3.2.0, December 30, 2022
 --------------------------------
