@@ -294,7 +294,6 @@ include("GenerateConfig.cmake")
 #  message(STATUS "dir='${dir}'")
 #endforeach()
 
-# TODO: Do we need these?
 # Add all the header files at the top level to the install command
 get_all_source_files("." MAIN_HEADER_FILES)
 foreach(f ${MAIN_HEADER_FILES})
