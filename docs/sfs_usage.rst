@@ -1313,8 +1313,11 @@ Note that earlier, in bundle adjustment, the option
 can be increased, perhaps to 0.5 degrees. The effect will be to remove
 from the file ``residuals_pointmap.csv`` somewhat unreliable
 triangulated points obtained from rays which are too close to being
-parallel.  This may improve the reliability of the alignment above,
-but there is the risk that too many points may be removed.
+parallel. This may improve the reliability of the alignment above,
+but there is the risk that too many points may be removed. A solid
+value for this min triangulation angle is 5-10 degrees, but LRO NAC
+images are very rarely acquired with such a big difference in
+perspective, and then this will remove a majoirty of interest points.
 
 The flag ``--compute-translation-only`` turned out to be necessary as
 ``pc_align`` was introducing a bogus rotation.
@@ -1371,17 +1374,18 @@ for a reliable stereo pair should be no less than 10 degrees,
 Registration refinement
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-If the images project reasonably well, but there are still some small
-registration errors, one can refine the cameras using the reference
-terrain as a constraint in bundle adjustment::
+If the images mapproject reasonably well onto the given DEM, with no
+shift across the board, but there are still some registration errors,
+one can refine the cameras using the reference terrain as a constraint
+in bundle adjustment (:numref:`heights_from_dem`)::
 
-    bundle_adjust --skip-matching --num-iterations 1000 \
+    bundle_adjust --skip-matching --num-iterations 500  \
       --num-passes 1 --camera-weight 0                  \
       --input-adjustments-prefix ba_align/run <images>  \
       --save-intermediate-cameras                       \
       --heights-from-dem ref.tif                        \
       --heights-from-dem-weight 1.0                     \
-      --heights-from-dem-robust-threshold 0.5           \
+      --heights-from-dem-robust-threshold 0.25          \
       --remove-outliers-params "75.0 3.0 100 100"       \
       --match-first-to-last --max-pairwise-matches 1000 \
       --match-files-prefix ba/run -o ba_align_ref/run
@@ -1389,9 +1393,9 @@ terrain as a constraint in bundle adjustment::
 Note how we use the match files from the original ``ba`` directory,
 and also use ``--skip-matching`` to save time by not recomputing
 them. But the camera adjustments come from ``ba_align``, as the ones
-in ``ba`` are before alignment.
+in ``ba`` are before alignment. 
 
-If 1000 iterations turns out to take more than a day, it is suggested
+If 500 iterations turns out to take more than a day, it is suggested
 to switch to CSM cameras (:numref:`sfs_isis_vs_csm`). It is suggested
 that the images be map-projected with the cameras both before and
 after this step, and see if things improve. If this procedure resulted

@@ -56,9 +56,6 @@ if (NOT VISIONWORKBENCH_INSTALL_DIR)
   set(VISIONWORKBENCH_INSTALL_DIR ${ASP_DEPS_DIR})
 endif()
 
-# Libraries use paths like "asp/blah/blah.h" so we just need to add this one include path
-include_directories( ../ )
-
 # --- Custom options ---
 option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
 
@@ -280,6 +277,11 @@ set(VW_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} ${
     ${FLANN_LIBRARIES})
 set(ISIS_3RD_PARTY_LIBS Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES})
 
+# Libraries use paths like "asp/src/Core/Common.h" so we just need to
+# add this one include path. These must take precedence over anything
+# in the conda or system directories. That is why this is at the bottom.
+include_directories(BEFORE ../)
+
 # Now that we have found all our external dependencies, generate a config.h file
 include("GenerateConfig.cmake")
 
@@ -368,3 +370,4 @@ add_subdirectory(Tools)
 add_subdirectory(WVCorrect)
 add_subdirectory(Hidden)
 add_subdirectory(IceBridge)
+

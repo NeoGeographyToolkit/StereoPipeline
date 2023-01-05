@@ -150,10 +150,10 @@ namespace asp {
        "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
       ("nodata-pixel-percentage",  po::value(&global.nodata_pixel_percentage)->default_value(g_nan_val),
        "The percentage of (low-value) pixels treated as no-data (use a number between 0 and 100).")
-      ("stddev-mask-thresh",  po::value(&global.nodata_stddev_thresh)->default_value(0.5),
-       "Mask out pixels from regions where the local standard deviation score is less than this value. If set < 0, debug files will be written containing the filter output instead of masking out pixels.")
       ("stddev-mask-kernel",  po::value(&global.nodata_stddev_kernel)->default_value(-1),
-       "Size of kernel to be used in standard deviation filtering, must be odd and > 2 (default -1).")
+       "Size of kernel to be used in standard deviation filtering of input images. Must be > 1 and odd to be enabled. To be used with --stddev-mask-thresh.")
+      ("stddev-mask-thresh",  po::value(&global.nodata_stddev_thresh)->default_value(0.5),
+       "Mask out pixels from input images where the local standard deviation score is less than this value. If set < 0, debug files (*stddev_filter_output.tif) will be written containing the filter output instead of masking out pixels.To be used with --stddev-mask-kernel.")
       ("skip-rough-homography", po::bool_switch(&global.skip_rough_homography)->default_value(false)->implicit_value(true),
        "Skip the step of performing datum-based rough homography if it fails.")
       ("no-datum", po::bool_switch(&global.no_datum)->default_value(false)->implicit_value(true),

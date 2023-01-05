@@ -220,9 +220,15 @@ output transform produced by such an invocation will be from the source
 points *before* the initial transform, hence the output alignment
 transform will incorporate the initial transform.
 
+Using ``--max-displacement -1`` should be avoided, as that will do 
+no outlier filtering in the source cloud. Here that is not necessary,
+as this invocation simply moves the DEM according to the specified
+transform.
+
 If a good initial alignment is found, it is suggested to use a smaller
-value for ``--max-displacement``, as the clouds will already be mostly
-on top of each other after the initial transform is applied.
+value for ``--max-displacement`` to refine the alignment, as the
+clouds will already be mostly on top of each other after the initial
+transform is applied.
 
 Applying an initial specified translation or rotation 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

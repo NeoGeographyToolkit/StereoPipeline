@@ -202,6 +202,18 @@ nodata-value (default = none)
     Pixels with values less than or equal to this number are treated as
     no-data. This overrides the nodata values from input images.
 
+stddev-mask-kernel (*integer*) (default = -1)
+    Size of kernel to be used in standard deviation filtering of input
+    images. Must be > 1 and odd to be enabled. To be used with
+    ``--stddev-mask-thresh``.
+
+stddev-mask-thresh (*double*) (default = 0.5)
+    Mask out pixels from input images where the local standard
+    deviation score is less than this value. If set < 0, debug files
+    (\*stddev_filter_output.tif) will be written containing the filter
+    output instead of masking out pixels.To be used with
+    ``--stddev-mask-kernel``.
+
 datum (default = WGS_1984)
     Set the datum to use with RPC camera models. Options: WGS_1984,
     D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA

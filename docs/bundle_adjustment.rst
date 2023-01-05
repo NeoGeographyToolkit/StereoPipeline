@@ -70,10 +70,11 @@ A DEM obtained after bundle adjustment and stereo may need to be aligned
 to a known reference coordinate system. For that, use the ``pc_align``
 tool (:numref:`pc_align`).
 
-See the options ``--heights-from-dem`` and ``--reference-terrain``
-further down for how to incorporate an external DEM in bundle
-adjustment.  Note that these can only locally refine camera parameters,
-an initial alignment with ``pc_align`` is still necessary.
+See the options ``--heights-from-dem`` (:numref:`heights_from_dem`)
+and ``--reference-terrain`` further down for how to incorporate an
+external DEM in bundle adjustment.  Note that these can only locally
+refine camera parameters, an initial alignment with ``pc_align`` is
+still necessary.
 
 .. _baasp:
 
@@ -277,7 +278,14 @@ cloud should always be the first), when applying the transform to the
 cameras in ``bundle_adjust`` one should use ``transform.txt`` instead of
 ``inverse-transform.txt`` above.
 
-Next, we will need to create a disparity from the left and right images
+There are two ways of incorporating a ground constraint in bundle
+adjustment.  Here we will discuss an approach which works when the
+ground truth can be sparse, and we make use of the stereo
+disparity. In :numref:`heights_from_dem`, further down, another
+approach is discussed, where the ground is a DEM. That may be easier
+to use with a large number of images.
+
+We will need to create a disparity from the left and right images
 that we will use during bundle adjustment. For that we will take the
 disparity obtained in stereo and remove any intermediate transforms
 stereo applied to the images and the disparity. This can be done as
@@ -398,6 +406,8 @@ to the reference terrain.
 Also note the earlier comment about sharing and floating the intrinsics
 individually.
 
+.. _heights_from_dem:
+
 Using the heights from a reference DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -407,12 +417,26 @@ can happen, for example, if the focal length is not accurately
 known. It is then possible after triangulating the interest point
 matches in bundle adjustment to replace their heights above datum with
 values obtained from the reference DEM, which are presumably more
-accurate. These triangulated points can then be constrained to not
-vary too much from these initial positions while the extrinsics and
-intrinsics of the cameras are varied. The option for this is
-``--heights-from-dem arg``. An additional control is given, in the
-form of the option ``--heights-from-dem-weight``. The larger its value
-is, the more constrained those points will be.
+accurate. The triangulated points being optimized can then be
+constrained to not vary too much from these initial positions.
+
+The option for this is ``--heights-from-dem dem.tif``. An additional
+control is given, in the form of the option
+``--heights-from-dem-weight``. The larger its value is, the more
+constrained those points will be. 
+
+This weight value should be inversely proportional with ground sample
+distance, as then it will convert the measurements from meters to
+pixels, which is consistent with the reprojection error term (error of
+projecting pixels into the camera). A less reliable DEM should result
+in a smaller weight being used.
+
+Then, the option ``--heights-from-dem-robust-threshold`` ensures that
+the errors when comparing to the DEM plateau at a certain level and do
+not dominate the problem.  Below we set this to 0.1, which is smaller
+than the ``--robust-threshold`` value of 0.5 which is used to control
+the reprojection error. Some experimentation with this weight and
+threshold may be needed.
 
 Here is an example, and note that, as in the earlier section,
 we assume that the cameras and the terrain are already aligned::
@@ -422,8 +446,8 @@ we assume that the cameras and the terrain are already aligned::
        --solve-intrinsics --camera-weight 0                     \
        --max-pairwise-matches 20000                             \
        --heights-from-dem dem.tif                               \
-       --heights-from-dem-weight 1.0                            \
-       --heights-from-dem-robust-threshold 1.0                  \
+       --heights-from-dem-weight 0.5                            \
+       --heights-from-dem-robust-threshold 0.1                  \
        --parameter-tolerance 1e-12                              \
        --remove-outliers-params "75.0 3.0 20 25"                \
        left.tif right.tif                                       \
@@ -434,11 +458,6 @@ Here we were rather generous with the parameters for removing
 outliers, as the input DEM may not be that accurate, and then if tying
 too much to it some valid matches be be flagged as outliers otherwise,
 perhaps.
-
-The value of ``--heights-from-dem-weight`` should be inversely
-proportional with ground sample distance, as then it will convert 
-the measurements from meters to pixels, which is what is used in most
-other cost function terms in ``bundle_adjust``.
 
 It is suggested to use dense interest points as above (and adjust
 ``--max-pairwise-matches`` to not throw some of them out). We set

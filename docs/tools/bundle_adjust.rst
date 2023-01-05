@@ -699,6 +699,7 @@ Command-line options for bundle_adjust
     is strongly suggested to pick positive and small values of
     ``--heights-from-dem-weight`` and
     ``--heights-from-dem-robust-threshold`` with this option.
+    See :numref:`heights_from_dem`.
 
 --heights-from-dem-weight <double (default: 1.0)>
     How much weight to give to keep the triangulated points close
