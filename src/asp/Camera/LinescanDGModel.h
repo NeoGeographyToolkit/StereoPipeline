@@ -313,6 +313,14 @@ namespace asp {
     boost::shared_ptr<CsmModel> m_csm_model; // wrapper
     boost::shared_ptr<UsgsAstroLsSensorModel> m_ls_model; // actual model
 
+    // Needed for covariance computation
+    vw::Quat sensor_to_body; 
+    vw::Vector3 perspective_center; // meters in satellite frame
+    std::vector<vw::Vector3> satellite_position_vec; // not same as camera center
+    std::vector<vw::Vector<double, 6>> satellite_position_covariance_vec;
+    std::vector<vw::Quat> satellite_quat_vec; // not same as camera orientation 
+    std::vector<vw::Vector<double, 10>> satellite_quat_covariance_vec;
+
   private:
     // Function to interpolate quaternions with the CSM model. This is used
     // for validation of the CSM model but not in production.  

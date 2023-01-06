@@ -125,7 +125,7 @@ namespace asp {
     std::vector<vw::Vector3> satellite_position_vec;
     // Satellite covariances. Only the region at and above the main
     // diagonal is saved, as this matrix is symmetric.
-    std::vector<vw::Vector<double,6>> satellite_covariance_vec;
+    std::vector<vw::Vector<double,6>> satellite_position_covariance_vec;
   };
 
 
@@ -146,18 +146,19 @@ namespace asp {
 
     // The satellite_quat_vec keeps the quaternions with original
     // values and original order, to be in sync with
-    // satellite_covariance_vec. While in quat_vec the order is
+    // satellite_quat_covariance_vec. While in quat_vec the order is
     // changed to accommodate how VW processes quaternions, and later
     // those quaternions will be converted from being satellite
     // quaternions to sensor quaternions. This double book-keeping is
     // necessary to handle covariances correctly. Since we'd rather
-    // use satellite_covariance_vec as it is, rather than applying any
+    // use satellite_quat_covariance_vec as it is, rather than applying any
     // transforms to it in parallel, we must keep satellite_quat_vec
     // in sync with it. These two are only used to propagate
     // covariances, and not for regular camera operations. See also
     // note in the EphemerisXML class.
-    std::vector<vw::Quat> satellite_quat_vec; 
-    std::vector<vw::Vector<double,10>> satellite_covariance_vec; // entries at and above main diag
+    std::vector<vw::Quat> satellite_quat_vec;
+    // This has entries at and above main diagonal
+    std::vector<vw::Vector<double,10>> satellite_quat_covariance_vec;
   };
 
   /// Reads from Digital Globe XML format

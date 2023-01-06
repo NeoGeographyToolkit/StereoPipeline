@@ -91,16 +91,17 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
 
   // Convert ephemeris to be position of camera. Change attitude to be
   // the rotation from camera frame to world frame. We also add an
-  // additional rotation to the camera frame so X is the horizontal
+  // additional 90 degree rotation to the camera frame so X is the horizontal
   // direction to the picture and +Y points down the image (in the
   // direction of flight).
   // Important note: Logic parallel to this will be used to
   // handle covariances, so careful when modifying here.
-  vw::Quat sensor_coordinate = vw::math::euler_xyz_to_quaternion
-    (vw::Vector3(0,0,geo.detector_rotation - M_PI/2));
+  vw::Quat sensor_rotation = vw::math::euler_xyz_to_quaternion
+    (vw::Vector3(0,0,geo.detector_rotation - M_PI/2)); // explained earlier
+  vw::Quat sensor_to_body = geo.camera_attitude * sensor_rotation;
   for (size_t i = 0; i < eph.position_vec.size(); i++) {
     eph.position_vec[i] += att.quat_vec[i].rotate(geo.perspective_center);
-    att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
+    att.quat_vec[i] = att.quat_vec[i] * sensor_to_body;
   }
 
   // Load up the time interpolation class. If the TLCList only has
@@ -132,9 +133,8 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
 	     << fabs(1.0 / (10.0 * img.avg_line_rate))
 	     << ".\n");
 
-  // TODO(oalexan1): Understand how this may affect the covariances
   vw::Vector2 final_detector_origin
-    = subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
+    = subvector(inverse(sensor_rotation).rotate(vw::Vector3(geo.detector_origin[0],
 							      geo.detector_origin[1],
 							      0)), 0, 2);
 
@@ -149,16 +149,28 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
     vw::vw_throw(vw::ArgumentErr() << "Cannot correct velocity aberration or "
                  << "atmospheric refraction with the CSM model.\n");
   
-  return vw::CamPtr(new DGCameraModel
-                    (vw::camera::PiecewiseAPositionInterpolation(eph.position_vec,
-                                                                 eph.velocity_vec, et0, edt),
-                     vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec,
-                                                                      et0, edt),
-                     vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
-                     tlc_time_interpolation, img.image_size, final_detector_origin,
-                     geo.principal_distance, mean_ground_elevation,
-                     stereo_settings().enable_correct_velocity_aberration,
-                     stereo_settings().enable_correct_atmospheric_refraction));
+  DGCameraModel * cam_ptr
+    = new DGCameraModel(vw::camera::PiecewiseAPositionInterpolation(eph.position_vec,
+                                                                    eph.velocity_vec, et0, edt),
+                        vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec,
+                                                                         et0, edt),
+                        vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
+                        tlc_time_interpolation, img.image_size, final_detector_origin,
+                        geo.principal_distance, mean_ground_elevation,
+                        stereo_settings().enable_correct_velocity_aberration,
+                        stereo_settings().enable_correct_atmospheric_refraction);
+
+  if (stereo_settings().compute_point_cloud_covariances) {
+    // Additional data needed to compute covariances
+    cam_ptr->sensor_to_body = sensor_to_body; 
+    cam_ptr->perspective_center = geo.perspective_center;
+    cam_ptr->satellite_position_vec = eph.satellite_position_vec; // not same as camera center
+    cam_ptr->satellite_position_covariance_vec = eph.satellite_position_covariance_vec;
+    cam_ptr->satellite_quat_vec = att.satellite_quat_vec; // not same as camera orientation 
+    cam_ptr->satellite_quat_covariance_vec = att.satellite_quat_covariance_vec;
+  }
+  
+  return vw::CamPtr(cam_ptr);
 } // End function load_dg_camera_model()
   
 

@@ -47,7 +47,7 @@ struct Options : vw::GdalWriteOptions {
   int sample_rate; // use one out of these many pixels
   double subpixel_offset, height_above_datum;
   bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
-    print_per_pixel_results, dg_use_csm, dg_vs_csm;
+    print_per_pixel_results, dg_use_csm, dg_vs_csm, test_covariance_computation;
   vw::Vector2 single_pixel;
   
   Options() {}
@@ -84,6 +84,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use the CSM model with DigitalGlobe linescan cameras (-t dg). No corrections are done for velocity aberration or atmospheric refraction.")
     ("dg-vs-csm", po::bool_switch(&opt.dg_vs_csm)->default_value(false)->implicit_value(true),
      "Compare projecting into the camera without and with using the CSM model for Digital Globe.")
+    ("test-covariance-computation", po::bool_switch(&opt.test_covariance_computation)->default_value(false)->implicit_value(true),
+     "Test computing the covariances (see --compute-point-cloud-covariances). This is an undocumented developer option.")
     ;  
   general_options.add(vw::GdalWriteOptionsDescription(opt));
   
@@ -111,6 +113,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::stereo_settings().enable_correct_atmospheric_refraction
     = opt.enable_correct_atmospheric_refraction;
   asp::stereo_settings().dg_use_csm = opt.dg_use_csm;
+  
+  if (opt.test_covariance_computation) {
+    if (!asp::stereo_settings().dg_use_csm) {
+      vw_out() << "Enabling option --dg-use-csm as point cloud covariances will be computed.\n";
+      asp::stereo_settings().dg_use_csm = true;
+    }
+    asp::stereo_settings().compute_point_cloud_covariances = true;  
+  }
 }
 
 // Sort the diffs and print some stats

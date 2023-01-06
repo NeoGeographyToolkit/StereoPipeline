@@ -395,6 +395,11 @@ namespace asp {
             "If positive, points with triangulation error larger than this will be removed from the cloud. Measured in meters.")
       ("bundle-adjust-prefix", po::value(&global.bundle_adjust_prefix),
        "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
+      ("compute-point-cloud-covariances",  po::bool_switch(&global.compute_point_cloud_covariances)->default_value(false)->implicit_value(true),
+       "Propagate the uncertainty from positions and quaternions of the "
+       "input sensor to the triangulated point cloud. Applicable only for "
+       "Maxar (DigitalGlobe) sensors. This option implies "
+       "--dg-use-csm.")
       ("unalign-disparity",                 po::bool_switch(&global.unalign_disparity)->default_value(false)->implicit_value(true),
        "Take the computed disparity, and compute the disparity between unaligned images.")
       ("num-matches-from-disparity", po::value(&global.num_matches_from_disparity)->default_value(0), "Create a match file with this many points uniformly sampled from the stereo disparity. The matches are between original images (that is, before any alignment or map-projection). See also num-matches-from-disp-triplets.")
@@ -407,7 +412,8 @@ namespace asp {
       ("point-cloud-rounding-error",        po::value(&global.point_cloud_rounding_error)->default_value(0.0),
                                             "How much to round the output point cloud values, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. Default: 1/2^10 for Earth and proportionally less for smaller bodies.")
       ("save-double-precision-point-cloud", po::bool_switch(&global.save_double_precision_point_cloud)->default_value(false)->implicit_value(true),
-                                            "Save the final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at twice the storage).")
+       "Save the final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at twice the storage).")
+      
       ("compute-point-cloud-center-only",   po::bool_switch(&global.compute_point_cloud_center_only)->default_value(false)->implicit_value(true),
                                             "Only compute the center of triangulated point cloud and exit.")
       ("skip-point-cloud-center-comp", po::bool_switch(&global.skip_point_cloud_center_comp)->default_value(false)->implicit_value(true),

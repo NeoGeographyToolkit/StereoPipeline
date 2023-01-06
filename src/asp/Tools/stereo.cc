@@ -330,11 +330,10 @@ namespace asp {
 
     // Read the config file
     try {
+      // The user can specify the positional input from the
+      // stereo.default if they want to.
       po::options_description cfg_options;
-      cfg_options.add(positional_options); // The user can specify the
-                                             // positional input from the
-                                             // stereo.default if they want
-                                             // to.
+      cfg_options.add(positional_options);
       cfg_options.add(generate_config_file_options(opt));
 
       // Append the options from the config file. Do not overwrite the
@@ -349,6 +348,14 @@ namespace asp {
     }
 
     asp::stereo_settings().validate();
+
+    // Do this early, before any cameras are loaded
+    if (stereo_settings().compute_point_cloud_covariances) {
+      if (!stereo_settings().dg_use_csm) {
+        vw_out() << "Enabling option --dg-use-csm as point cloud covariances will be computed.\n";
+        stereo_settings().dg_use_csm = true;
+      }
+    }
 
     if (stereo_settings().correlator_mode) {
       stereo_settings().alignment_method = "none"; // images are assumed aligned
@@ -605,6 +612,7 @@ namespace asp {
                                                         opt.in_file1,   opt.in_file2,
                                                         opt.cam_file1,  opt.cam_file2,
                                                         opt.out_prefix, opt.input_dem));
+    
     // Run a set of checks to make sure the settings are compatible
     // - Since we already created the session, any errors are fatal.
     user_safety_checks(opt);
@@ -705,7 +713,7 @@ namespace asp {
                              << "as the images are map-projected." << endl;
     }
 
-    if (dem_provided){
+    if (dem_provided) {
 
       // Given session XmapY make sure that the mapprojected images were
       // done with camera Y. Normally X equals Y, with the exceptions
@@ -823,6 +831,13 @@ namespace asp {
       
     }
 
+    if (stereo_settings().compute_point_cloud_covariances) {
+      if (opt.session->name() != "dg" && opt.session->name() != "dgmaprpc")
+        vw::vw_throw(vw::ArgumentErr()
+                     << "Option --compute-point-cloud-covariances works only "
+                     << "for Maxar (DigitalGlobe) cameras.\n");
+    }
+    
     // Need the percentage to be more than 50 as we look at the range [100 - pct, pct].
     if (stereo_settings().outlier_removal_params[0] <= 50.0)
       vw_throw(ArgumentErr() << "The --outlier-removal-params percentage must be more than 50.\n");
