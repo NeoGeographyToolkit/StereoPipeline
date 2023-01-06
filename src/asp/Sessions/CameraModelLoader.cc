@@ -91,25 +91,25 @@ CameraModelLoader::load_rpc_camera_model(std::string const& path) const {
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_dg_camera_model(std::string const& path) const {
   // Redirect to the call from LinescanDGModel.h file
-  return CameraModelPtr(load_dg_camera_model_from_xml(path));
+  return vw::CamPtr(load_dg_camera_model_from_xml(path));
 }
 
 // Load a spot5 camera file
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_spot5_camera_model(std::string const& path) const {
-  return CameraModelPtr(load_spot5_camera_model_from_xml(path));
+  return vw::CamPtr(load_spot5_camera_model_from_xml(path));
 }
 
 // Load a PeruSat linescan camera file
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_perusat_camera_model(std::string const& path) const {
-  return CameraModelPtr(load_perusat_camera_model_from_xml(path));
+  return vw::CamPtr(load_perusat_camera_model_from_xml(path));
 }
 
 // Load a Pleiades linescan camera file
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_pleiades_camera_model(std::string const& path) const {
-  return CameraModelPtr(load_pleiades_camera_model_from_xml(path));
+  return vw::CamPtr(load_pleiades_camera_model_from_xml(path));
 }
 
 // Load a ASTER camera file
@@ -118,7 +118,7 @@ CameraModelLoader::load_ASTER_camera_model(std::string const& path) const {
   // This model file also needs the RPC model as an initial guess
   boost::shared_ptr<vw::camera::CameraModel> rpc_model = load_rpc_camera_model(path);
 
-  return CameraModelPtr(load_ASTER_camera_model_from_xml(path, rpc_model));
+  return vw::CamPtr(load_ASTER_camera_model_from_xml(path, rpc_model));
 }
 
 // Load an ISIS camera model
@@ -128,9 +128,9 @@ CameraModelLoader::load_isis_camera_model(std::string const& path) const {
   
   std::string ext = vw::get_extension(path);
   if (asp::CsmModel::file_has_isd_extension(path)) // Community Sensor Model
-    return CameraModelPtr(new asp::CsmModel(path));
+    return vw::CamPtr(new asp::CsmModel(path));
   else // Should be a .cub extension.
-    return CameraModelPtr(new vw::camera::IsisCameraModel(path));
+    return vw::CamPtr(new vw::camera::IsisCameraModel(path));
 #endif
   // If ISIS was not enabled in the build, just throw an exception.
   vw::vw_throw( vw::NoImplErr()
@@ -141,7 +141,7 @@ CameraModelLoader::load_isis_camera_model(std::string const& path) const {
 // Load an optical bar camera file
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_optical_bar_camera_model(std::string const& path) const {
-  return CameraModelPtr(new vw::camera::OpticalBarModel(path));
+  return vw::CamPtr(new vw::camera::OpticalBarModel(path));
 }
 
 // Load a CSM camera file
@@ -150,7 +150,7 @@ CameraModelLoader::load_csm_camera_model(std::string const& path) const {
   // Use the class method, then pack in a base class pointer.
   boost::shared_ptr<asp::CsmModel> cam_ptr(new asp::CsmModel());
   cam_ptr->load_model(path);
-  return CameraModelPtr(cam_ptr);
+  return vw::CamPtr(cam_ptr);
 }
 
 // Find the underlying CSM camera. Applies only to CSM, Pleiades, and DG.

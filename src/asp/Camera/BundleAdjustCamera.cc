@@ -134,7 +134,7 @@ void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
 /// transform on top of them, and write the adjustments back to the vector.
 /// - Works for pinhole and non-pinhole case.
 void apply_transform_to_cameras(vw::Matrix4x4 const& M, asp::BAParams &param_storage,
-                                std::vector<asp::CameraModelPtr>
+                                std::vector<vw::CamPtr>
                                 const& cam_ptrs) {
 
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
@@ -158,7 +158,7 @@ void apply_transform_to_cameras(vw::Matrix4x4 const& M, asp::BAParams &param_sto
 //  information as is in param_storage!
 void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
                                         asp::BAParams & param_storage,
-                                        std::vector<asp::CameraModelPtr>
+                                        std::vector<vw::CamPtr>
                                         const& cam_ptrs){
 
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
@@ -177,7 +177,7 @@ void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
 void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            vw::Vector3   const & translation,
                            double                scale,
-                           std::vector<asp::CameraModelPtr> &camera_models,
+                           std::vector<vw::CamPtr> &camera_models,
                            boost::shared_ptr<ControlNetwork> const& cnet) {
 
   // Apply the transform to the cameras
@@ -204,7 +204,7 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
 
 /// Generate a warning if the GCP's are really far from the IP points
 /// - This is intended to help catch the common lat/lon swap in GCP files.
-void check_gcp_dists(std::vector<asp::CameraModelPtr> const& camera_models,
+void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
                      boost::shared_ptr<ControlNetwork> const& cnet_ptr,
                      double forced_triangulation_distance) {
 
@@ -274,7 +274,7 @@ void check_gcp_dists(std::vector<asp::CameraModelPtr> const& camera_models,
 // This function overwrites the camera parameters in-place
 bool asp::init_pinhole_model_with_camera_positions
 (boost::shared_ptr<ControlNetwork> const& cnet, 
- std::vector<asp::CameraModelPtr> & camera_models,
+ std::vector<vw::CamPtr> & camera_models,
  std::vector<std::string> const& image_files,
  std::vector<Vector3> const & estimated_camera_gcc) {
 
@@ -336,7 +336,7 @@ bool asp::init_pinhole_model_with_camera_positions
 // images, find and apply a transform to the camera system based on them.
 void asp::transform_cameras_with_indiv_image_gcp
 (boost::shared_ptr<ControlNetwork> const& cnet_ptr,
- std::vector<asp::CameraModelPtr> & camera_models) {
+ std::vector<vw::CamPtr> & camera_models) {
   
   vw_out() << "Applying transform to cameras given several GCP not shared among the images.\n";
 
@@ -398,7 +398,7 @@ void asp::transform_cameras_with_indiv_image_gcp
 /// This function overwrites the camera parameters in-place. It works
 /// if at least three GCP are seen in no less than two images.
 void asp::transform_cameras_with_shared_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
-                                            std::vector<asp::CameraModelPtr> & camera_models) {
+                                            std::vector<vw::CamPtr> & camera_models) {
   
   vw_out() << "Applying transform to cameras given several GCP shared among the images.\n";
 
@@ -484,7 +484,7 @@ void asp::transform_cameras_with_shared_gcp(boost::shared_ptr<ControlNetwork> co
 /// Initialize the position and orientation of a pinhole camera model using
 /// GCP. It invokes OpenCV's PnP functionality.
 void asp::init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
-                                std::vector<asp::CameraModelPtr> & camera_models) {
+                                std::vector<vw::CamPtr> & camera_models) {
   
   // Sanity check
   if (camera_models.size() != 1) 
@@ -604,7 +604,7 @@ void asp::align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz
       pixel_values.push_back(pix[it][c][1]);
     }
 
-    asp::CameraModelPtr out_cam(new PinholeModel(sfm_cams[it]));
+    vw::CamPtr out_cam(new PinholeModel(sfm_cams[it]));
 
     bool is_good = (xyz[it].size() >= 3);
     if (is_good) 
@@ -721,7 +721,7 @@ void asp::align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz
 /// - Return false if the pixel could not be converted.
 bool asp::projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
                                  vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                                 asp::CameraModelPtr camera_model,
+                                 vw::CamPtr camera_model,
                                  vw::cartography::GeoReference const& georef,
                                  vw::cartography::GeoReference const& dem_georef) {
   // Get IP coordinate in the DEM
@@ -755,7 +755,7 @@ bool asp::projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
 //  information as is in param_storage!
 void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
                                             asp::BAParams & param_storage,
-                                            std::vector<asp::CameraModelPtr> const& cam_ptrs){
+                                            std::vector<vw::CamPtr> const& cam_ptrs){
 
   // Convert the transform format
   vw::Matrix3x3 R = submatrix(M, 0, 0, 3, 3);
@@ -883,7 +883,7 @@ void asp::saveConvergenceAngles(std::string const& conv_angles_file,
 // disagreement in meters. It is assumed that dem_georef
 // was created by bilinear interpolation. The cameras must be with
 // the latest adjustments applied to them.
-void asp::calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimized_cams,
+void asp::calcPairMapprojOffsets(std::vector<vw::CamPtr> const& optimized_cams,
                                  int left_cam_index, int right_cam_index,
                                  std::vector<vw::ip::InterestPoint> const& left_ip,
                                  std::vector<vw::ip::InterestPoint> const right_ip,
@@ -1010,7 +1010,7 @@ void asp::saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
 // are used for both operations.
 void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                                asp::BaBaseOptions const& opt,
-                               std::vector<asp::CameraModelPtr> const& optimized_cams,
+                               std::vector<vw::CamPtr> const& optimized_cams,
                                bool remove_outliers, std::set<int> const& outliers,
                                std::vector<asp::MatchPairStats> & convAngles,
                                std::string const& mapproj_dem,

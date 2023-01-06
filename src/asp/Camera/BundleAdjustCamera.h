@@ -51,8 +51,6 @@
 
 namespace asp {
 
-typedef boost::shared_ptr<vw::camera::CameraModel> CameraModelPtr;
-  
 // Options shared by bundle_adjust and jitter_solve
 struct BaBaseOptions: public vw::GdalWriteOptions {
   std::string out_prefix, stereo_session, input_prefix, match_files_prefix,
@@ -592,21 +590,21 @@ vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
 /// transform on top of them, and write the adjustments back to the vector.
 /// - Works for pinhole and non-pinhole case.
 void apply_transform_to_cameras(vw::Matrix4x4 const& M, asp::BAParams &param_storage,
-                                std::vector<asp::CameraModelPtr>
+                                std::vector<vw::CamPtr>
                                 const& cam_ptrs);
 
 // This function takes advantage of the fact that when it is called the cam_ptrs have the same
 //  information as is in param_storage!
 void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
                                         asp::BAParams & param_storage,
-                                        std::vector<asp::CameraModelPtr>
+                                        std::vector<vw::CamPtr>
                                         const& cam_ptrs);
 
 // This function takes advantage of the fact that when it is called the cam_ptrs have the same
 //  information as is in param_storage!
 void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
                                             asp::BAParams & param_storage,
-                                            std::vector<asp::CameraModelPtr>
+                                            std::vector<vw::CamPtr>
                                             const& cam_ptrs);
 
 //=================================================================
@@ -641,12 +639,12 @@ int load_reference_disparities(std::string const& disp_list_filename,
 void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            vw::Vector3   const & translation,
                            double                scale,
-                           std::vector<asp::CameraModelPtr> &camera_models,
+                           std::vector<vw::CamPtr> &camera_models,
                            boost::shared_ptr<vw::ba::ControlNetwork> const& cnet);
 
 /// Generate a warning if the GCP's are really far from the IP points
 /// - This is intended to help catch the common lat/lon swap in GCP files.
-void check_gcp_dists(std::vector<asp::CameraModelPtr> const& camera_models,
+void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
                      boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
                      double forced_triangulation_distance);
 
@@ -657,26 +655,26 @@ namespace asp {
 /// - This function overwrites the camera parameters in-place
 bool init_pinhole_model_with_camera_positions
 (boost::shared_ptr<vw::ba::ControlNetwork> const& cnet, 
- std::vector<asp::CameraModelPtr> & camera_models,
+ std::vector<vw::CamPtr> & camera_models,
  std::vector<std::string> const& image_files,
  std::vector<vw::Vector3> const & estimated_camera_gcc);
 
 /// Initialize the position and orientation of a pinhole camera model using
 /// GCP. It invokes OpenCV's PnP functionality.
 void init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
-                           std::vector<asp::CameraModelPtr> & camera_models);
+                           std::vector<vw::CamPtr> & camera_models);
   
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided control points file.
 /// This function overwrites the camera parameters in-place. It works
 /// if at least three GCP are seen in no less than two images.
 void transform_cameras_with_shared_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
-				       std::vector<asp::CameraModelPtr> & camera_models);
+				       std::vector<vw::CamPtr> & camera_models);
   
 // Given at least two images, each having at least 3 GCP that are not seen in other
 // images, find and apply a transform to the camera system based on them.
 void transform_cameras_with_indiv_image_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
-                                            std::vector<asp::CameraModelPtr> & camera_models);
+                                            std::vector<vw::CamPtr> & camera_models);
 
 // Given original cams in sfm_cams and individually scaled cameras in
 // aux_cams, get the median scale change from the first set to the second one.
@@ -700,7 +698,7 @@ void align_cameras_to_ground(std::vector< std::vector<vw::Vector3>> const& xyz,
 /// - Return false if the pixel could not be converted.
 bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
                             vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                            asp::CameraModelPtr camera_model,
+                            vw::CamPtr camera_model,
                             vw::cartography::GeoReference const& georef,
                             vw::cartography::GeoReference const& dem_georef);
 
@@ -713,7 +711,7 @@ void saveConvergenceAngles(std::string const& conv_angles_file,
 // Mapproject interest points onto a DEM and find the norm of their
 // disagreement in DEM pixel units. It is assumed that dem_georef
 // was created by bilinear interpolation.
-void calcPairMapprojOffsets(std::vector<asp::CameraModelPtr> const& optimized_cams,
+void calcPairMapprojOffsets(std::vector<vw::CamPtr> const& optimized_cams,
                             int left_cam_index, int right_cam_index,
                             std::vector<vw::ip::InterestPoint> const& left_ip,
                             std::vector<vw::ip::InterestPoint> const right_ip,
@@ -738,7 +736,7 @@ void saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
 // are used for both operations.
 void matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                           asp::BaBaseOptions const& opt,
-                          std::vector<asp::CameraModelPtr> const& optimized_cams,
+                          std::vector<vw::CamPtr> const& optimized_cams,
                           bool remove_outliers, std::set<int> const& outliers,
                           std::vector<asp::MatchPairStats> & convAngles,
                           std::string const& mapproj_dem,

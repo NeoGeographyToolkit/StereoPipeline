@@ -69,24 +69,24 @@ TEST(StereoSessionDG, XMLReading) {
   EXPECT_FALSE( att.start_time.empty() );
   EXPECT_NEAR( .02, att.time_interval, 1e-6 );
   EXPECT_EQ( 840, att.quat_vec.size() );
-  EXPECT_EQ( 840, att.covariance_vec.size() );
+  EXPECT_EQ( 840, att.spacecraft_covariance_vec.size() );
   for ( size_t i = 0; i < 840; i++ ) {
     EXPECT_NE( 0, att.quat_vec[i].w() );
-    EXPECT_NE( 0, att.covariance_vec[i][5] );
+    EXPECT_NE( 0, att.spacecraft_covariance_vec[i][5] );
   }
   EXPECT_VECTOR_NEAR( Vector3(3.72e-12, 3.51e-12, 1.12e-13),
-                      subvector(att.covariance_vec[0],0,3), 1e-20 );
+                      subvector(att.spacecraft_covariance_vec[0],0,3), 1e-20 );
 
   // Checking EPH
   EXPECT_FALSE( eph.start_time.empty() );
   EXPECT_NEAR( .02, eph.time_interval, 1e-6 );
   EXPECT_EQ( 840, eph.position_vec.size() );
   EXPECT_EQ( 840, eph.velocity_vec.size() );
-  EXPECT_EQ( 840, eph.covariance_vec.size() );
+  EXPECT_EQ( 840, eph.spacecraft_covariance_vec.size() );
   for ( size_t i = 0; i < 840; i++ ) {
     EXPECT_NE( 0, eph.position_vec[i].x() ) << i;
     EXPECT_NE( 0, eph.velocity_vec[i].x() );
-    EXPECT_NE( 0, eph.covariance_vec[i][3] );
+    EXPECT_NE( 0, eph.spacecraft_covariance_vec[i][3] );
   }
   EXPECT_VECTOR_NEAR( Vector3(-1.150529111070304e+06,
                               -4.900037170821411e+06,
@@ -111,10 +111,9 @@ TEST(DGCameraModel, CreateCamera) {
 
   xercesc::XMLPlatformUtils::Initialize();
   
-  typedef boost::shared_ptr<vw::camera::CameraModel> CameraModelPtr;
-  CameraModelPtr cam1, cam2, cam3;
-  cam1 = CameraModelPtr(load_dg_camera_model_from_xml("dg_example1.xml"));
-  cam2 = CameraModelPtr(load_dg_camera_model_from_xml("dg_example2.xml"));
+  vw::CamPtr cam1, cam2, cam3;
+  cam1 = vw::CamPtr(load_dg_camera_model_from_xml("dg_example1.xml"));
+  cam2 = vw::CamPtr(load_dg_camera_model_from_xml("dg_example2.xml"));
   
   ASSERT_TRUE( cam1.get() != 0 );
   ASSERT_TRUE( cam2.get() != 0 );

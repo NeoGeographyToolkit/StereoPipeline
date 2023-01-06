@@ -318,7 +318,7 @@ void asp::EphemerisXML::parse_meta(xercesc::DOMElement* node) {
   cast_xmlch(get_node<DOMElement>(node, "NUMPOINTS"   )->getTextContent(), num_points);
   position_vec.resize  (num_points);
   velocity_vec.resize  (num_points);
-  covariance_vec.resize(num_points);
+  satellite_covariance_vec.resize(num_points);
 }
 
 void asp::EphemerisXML::parse_eph_list(xercesc::DOMElement* node) {
@@ -344,9 +344,9 @@ void asp::EphemerisXML::parse_eph_list(xercesc::DOMElement* node) {
       istr >> position_vec  [index][0] >> position_vec  [index][1]
            >> position_vec  [index][2] >> velocity_vec  [index][0]
            >> velocity_vec  [index][1] >> velocity_vec  [index][2];
-      istr >> covariance_vec[index][0] >> covariance_vec[index][1]
-           >> covariance_vec[index][2] >> covariance_vec[index][3]
-           >> covariance_vec[index][4] >> covariance_vec[index][5];
+      istr >> satellite_covariance_vec[index][0] >> satellite_covariance_vec[index][1]
+           >> satellite_covariance_vec[index][2] >> satellite_covariance_vec[index][3]
+           >> satellite_covariance_vec[index][4] >> satellite_covariance_vec[index][5];
 
       count++;
     }
@@ -375,7 +375,7 @@ void asp::AttitudeXML::parse_meta(xercesc::DOMElement* node) {
   size_t num_points;
   cast_xmlch(get_node<DOMElement>(node, "NUMPOINTS"   )->getTextContent(), num_points);
   quat_vec.resize(num_points);
-  covariance_vec.resize(num_points);
+  satellite_covariance_vec.resize(num_points);
 }
 
 void asp::AttitudeXML::parse_att_list(xercesc::DOMElement* node) {
@@ -400,12 +400,13 @@ void asp::AttitudeXML::parse_att_list(xercesc::DOMElement* node) {
       }
 
       istr >> qbuf[0] >> qbuf[1] >> qbuf[2] >> qbuf[3];
+      // Care here, the quat is swapped! But covariances are not!
       quat_vec[index] = Quat(qbuf[3], qbuf[0], qbuf[1], qbuf[2]);
-      istr >> covariance_vec[index][0] >> covariance_vec[index][1]
-           >> covariance_vec[index][2] >> covariance_vec[index][3]
-           >> covariance_vec[index][4] >> covariance_vec[index][5]
-           >> covariance_vec[index][6] >> covariance_vec[index][7]
-           >> covariance_vec[index][8] >> covariance_vec[index][9];
+      istr >> satellite_covariance_vec[index][0] >> satellite_covariance_vec[index][1]
+           >> satellite_covariance_vec[index][2] >> satellite_covariance_vec[index][3]
+           >> satellite_covariance_vec[index][4] >> satellite_covariance_vec[index][5]
+           >> satellite_covariance_vec[index][6] >> satellite_covariance_vec[index][7]
+           >> satellite_covariance_vec[index][8] >> satellite_covariance_vec[index][9];
 
       count++;
     }

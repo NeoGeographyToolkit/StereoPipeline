@@ -924,7 +924,7 @@ int add_to_outliers(ControlNetwork & cnet,
 // opt.camera_models, but make copies as needed.
 void calcOptimizedCameras(Options const& opt,
                           asp::BAParams const& param_storage,
-                          std::vector<asp::CameraModelPtr> & optimized_cams) {
+                          std::vector<vw::CamPtr> & optimized_cams) {
 
   optimized_cams.clear();
   
@@ -942,7 +942,7 @@ void calcOptimizedCameras(Options const& opt,
           vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
         vw::camera::PinholeModel * out_cam = new PinholeModel();
         *out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
-        optimized_cams.push_back(asp::CameraModelPtr(out_cam));
+        optimized_cams.push_back(vw::CamPtr(out_cam));
       }
       break;
       
@@ -954,14 +954,14 @@ void calcOptimizedCameras(Options const& opt,
           vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
         vw::camera::OpticalBarModel * out_cam = new OpticalBarModel();
         *out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
-        optimized_cams.push_back(asp::CameraModelPtr(out_cam));
+        optimized_cams.push_back(vw::CamPtr(out_cam));
       }
       break;
       
     default:
       {
         CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-        asp::CameraModelPtr out_cam
+        vw::CamPtr out_cam
           (new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
                                           cam_adjust.position(), cam_adjust.pose()));
         optimized_cams.push_back(out_cam);
@@ -1492,7 +1492,7 @@ int do_ba_ceres_one_pass(Options             & opt,
 
   // Find the cameras with the latest adjustments. Note that we do not modify
   // opt.camera_models, but make copies as needed.
-  std::vector<asp::CameraModelPtr> optimized_cams;
+  std::vector<vw::CamPtr> optimized_cams;
   calcOptimizedCameras(opt, param_storage, optimized_cams);
   
   // Calculate convergence angles. Remove the outliers flagged earlier,

@@ -736,7 +736,7 @@ void save_residuals(std::string const& residual_prefix,
   return;
 }
 
-// TODO(oalexan1): Move these out of here
+// Move this to a new CsmModelUtils.cc class.
 void normalizeQuaternions(UsgsAstroLsSensorModel * ls_model) {
 
   for (int qit = 0; qit < ls_model->m_numQuaternions / 4; qit++) {
@@ -754,7 +754,9 @@ void normalizeQuaternions(UsgsAstroLsSensorModel * ls_model) {
   }
 }
   
-// Get quaternions. This duplicates the UsgsAstroLsSensorModel function as that one is private    
+// Get quaternions. This duplicates the UsgsAstroLsSensorModel function as that one is private
+// TODO(oalexan1): Move this to a new CsmModelUtils.cc file and
+// call it from here and from LinescanDGModel.cc.
 void interpQuaternions(UsgsAstroLsSensorModel * ls_model, double time,
                       double q[4]) {
   int nOrder = 8;
@@ -767,16 +769,19 @@ void interpQuaternions(UsgsAstroLsSensorModel * ls_model, double time,
 }
 
 // Get positions. Based on the UsgsAstroLsSensorModel code.
+// TODO(oalexan1): Move this to a new CsmModelUtils.cc.
 void interpPositions(UsgsAstroLsSensorModel * ls_model, double time,
                      double pos[3]) {
   int nOrder = 8;
   if (ls_model->m_platformFlag == 0) nOrder = 4;
+  // TODO(oalexan1): What if the number of positions is < 4.
   lagrangeInterp(ls_model->m_numPositions / 3, &ls_model->m_positions[0],
                  ls_model->m_t0Ephem, ls_model->m_dtEphem,
                  time, 3, nOrder, pos);
 }
 
 // Get positions. Based on the UsgsAstroLsSensorModel code.
+// TODO(oalexan1): Move this to a new CsmModelUtils.cc file and
 void interpVelocities(UsgsAstroLsSensorModel * ls_model, double time,
                   double vel[3]) {
   int nOrder = 8;
@@ -790,6 +795,7 @@ void interpVelocities(UsgsAstroLsSensorModel * ls_model, double time,
 // Calc the time of first image line, last image line, elapsed time
 // between these lines, and elapsed time per line.  This assumes a
 // linear relationship between lines and time.
+// TODO(oalexan1): This is fragile. Maybe it can be avoided.
 void calcTimes(UsgsAstroLsSensorModel const* ls_model,
                double & first_line_time, double & last_line_time,
                double & elapsed_time, double & dt_per_line) {
@@ -814,6 +820,8 @@ void calcTimes(UsgsAstroLsSensorModel const* ls_model,
 // Calculate the line index for first and last tabulated position.
 // We always expect these to be less than first line index (0), and no less
 // than last valid image line index (numLines - 1), respectively.
+// TODO(oalexan1): This assumes a linear relationship between time and lines,
+// which is fragile. At least need to check that this assumption is satisfied.
 void calcFirstLastPositionLines(UsgsAstroLsSensorModel const* ls_model, 
                                 double & beg_position_line, double & end_position_line) {
 

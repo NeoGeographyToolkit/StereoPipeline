@@ -199,7 +199,7 @@ vw::Vector2 PleiadesCameraModel::point_to_pixel(vw::Vector3 const& point) const 
   csm::WarningList * warnings_ptr = NULL;
   bool show_warnings = false;
   csm::ImageCoord csm_pix = m_ls_model->groundToImage(ecef, m_desired_precision,
-                                                       &achievedPrecision, warnings_ptr);
+                                                      &achievedPrecision, warnings_ptr);
   
   vw::Vector2 asp_pix;
   asp::fromCsmPixel(asp_pix, csm_pix);
@@ -208,7 +208,6 @@ vw::Vector2 PleiadesCameraModel::point_to_pixel(vw::Vector3 const& point) const 
   
 // This function is tricky to implement 
 vw::Quaternion<double> PleiadesCameraModel::camera_pose(vw::Vector2 const& pix) const {
-    
   // This is not implemented for now for the CSM model
   vw_throw(vw::NoImplErr() << "LinescanPleiadesModel: Cannot retrieve camera_pose!");
   return vw::Quaternion<double>();
@@ -301,11 +300,11 @@ load_pleiades_camera_model_from_xml(std::string const& path) {
 
   // Get all the initial functors
   vw::camera::LinearTimeInterpolation
-    time_func      = xml_reader.setup_time_func();
+    time_func = xml_reader.setup_time_func();
   vw::camera::LagrangianInterpolation
-    position_func  = xml_reader.setup_position_func(time_func);
+    position_func = xml_reader.setup_position_func(time_func);
   vw::camera::LagrangianInterpolation
-    velocity_func  = xml_reader.setup_velocity_func(time_func);
+    velocity_func = xml_reader.setup_velocity_func(time_func);
 
   // Find the range of times for which we can solve for position and pose
   double min_position_time = position_func.get_t0();

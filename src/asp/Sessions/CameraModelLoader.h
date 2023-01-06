@@ -30,8 +30,6 @@ namespace asp {
   class CameraModelLoader {
   public:
 
-    typedef boost::shared_ptr<vw::camera::CameraModel> CameraModelPtr;
-
     // Setup/teardown code is handled here
     // - Currently this just means the Xerces XML init/deinit functions.
     CameraModelLoader();
@@ -40,16 +38,16 @@ namespace asp {
     // TODO: Add a generic loading function.
 
     // Camera model loading functions
-    CameraModelPtr load_rpc_camera_model        (std::string const& path) const;
-    CameraModelPtr load_dg_camera_model         (std::string const& path) const;
-    CameraModelPtr load_pinhole_camera_model    (std::string const& path) const;
-    CameraModelPtr load_isis_camera_model       (std::string const& path) const;
-    CameraModelPtr load_spot5_camera_model      (std::string const& path) const;
-    CameraModelPtr load_perusat_camera_model    (std::string const& path) const;
-    CameraModelPtr load_pleiades_camera_model   (std::string const& path) const;
-    CameraModelPtr load_ASTER_camera_model      (std::string const& path) const;
-    CameraModelPtr load_optical_bar_camera_model(std::string const& path) const;
-    CameraModelPtr load_csm_camera_model        (std::string const& path) const;
+    vw::CamPtr load_rpc_camera_model        (std::string const& path) const;
+    vw::CamPtr load_dg_camera_model         (std::string const& path) const;
+    vw::CamPtr load_pinhole_camera_model    (std::string const& path) const;
+    vw::CamPtr load_isis_camera_model       (std::string const& path) const;
+    vw::CamPtr load_spot5_camera_model      (std::string const& path) const;
+    vw::CamPtr load_perusat_camera_model    (std::string const& path) const;
+    vw::CamPtr load_pleiades_camera_model   (std::string const& path) const;
+    vw::CamPtr load_ASTER_camera_model      (std::string const& path) const;
+    vw::CamPtr load_optical_bar_camera_model(std::string const& path) const;
+    vw::CamPtr load_csm_camera_model        (std::string const& path) const;
   }; // End class CameraModelLoader
 
   

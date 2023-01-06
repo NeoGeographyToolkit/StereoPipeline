@@ -43,7 +43,7 @@ boost::posix_time::ptime parse_dg_time(std::string str) {
   return boost::posix_time::time_from_string(str); // Never reached!
 }
 
-boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::string const& path){
+vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
 
   // Parse the Digital Globe XML file
   GeometricXML geo;
@@ -85,14 +85,17 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::st
 
   // I'm going make the assumption that EPH and ATT are sampled at the same rate and time.
   VW_ASSERT(eph.position_vec.size() == att.quat_vec.size(),
-            vw::MathErr() << "Ephemeris and Attitude don't have the same number of samples.");
+            vw::MathErr() << "Ephemeris and attitude don't have the same number of samples.");
   VW_ASSERT(eph.start_time == att.start_time && eph.time_interval == att.time_interval,
-            vw::MathErr() << "Ephemeris and Attitude don't seem to sample with the same t0 or dt.");
+            vw::MathErr() << "Ephemeris and attitude don't seem to use the same t0 or dt.");
 
-  // Convert ephemeris to be position of camera. Change attitude to
-  // be the rotation from camera frame to world frame. We also add an
+  // Convert ephemeris to be position of camera. Change attitude to be
+  // the rotation from camera frame to world frame. We also add an
   // additional rotation to the camera frame so X is the horizontal
-  // direction to the picture and +Y points down the image (in the direction of flight).
+  // direction to the picture and +Y points down the image (in the
+  // direction of flight).
+  // Important note: Logic parallel to this will be used to
+  // handle covariances, so careful when modifying here.
   vw::Quat sensor_coordinate = vw::math::euler_xyz_to_quaternion
     (vw::Vector3(0,0,geo.detector_rotation - M_PI/2));
   for (size_t i = 0; i < eph.position_vec.size(); i++) {
@@ -113,8 +116,7 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::st
 
   // Build the TLCTimeInterpolation object and do a quick sanity check.
   vw::camera::TLCTimeInterpolation
-    tlc_time_interpolation(img.tlc_vec,
-                           convert(parse_dg_time(img.tlc_start_time)));
+    tlc_time_interpolation(img.tlc_vec, convert(parse_dg_time(img.tlc_start_time)));
   
   VW_ASSERT(fabs(convert(parse_dg_time(img.first_line_start_time)) -
   tlc_time_interpolation(0)) < fabs(1.0 / (10.0 * img.avg_line_rate)),
@@ -129,7 +131,8 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::st
 	     << "Maximum allowed difference is 1/10 of avg line rate, which is: "
 	     << fabs(1.0 / (10.0 * img.avg_line_rate))
 	     << ".\n");
-   
+
+  // TODO(oalexan1): Understand how this may affect the covariances
   vw::Vector2 final_detector_origin
     = subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
 							      geo.detector_origin[1],
@@ -146,19 +149,18 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::st
     vw::vw_throw(vw::ArgumentErr() << "Cannot correct velocity aberration or "
                  << "atmospheric refraction with the CSM model.\n");
   
-  return boost::shared_ptr<vw::camera::CameraModel>
-    (new DGCameraModel
-     (vw::camera::PiecewiseAPositionInterpolation(eph.position_vec,
-                                                  eph.velocity_vec, et0, edt),
-      vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec,
-                                                       et0, edt),
-      vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
-      tlc_time_interpolation, img.image_size, final_detector_origin,
-      geo.principal_distance, mean_ground_elevation,
-      stereo_settings().enable_correct_velocity_aberration,
-      stereo_settings().enable_correct_atmospheric_refraction));
+  return vw::CamPtr(new DGCameraModel
+                    (vw::camera::PiecewiseAPositionInterpolation(eph.position_vec,
+                                                                 eph.velocity_vec, et0, edt),
+                     vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec,
+                                                                      et0, edt),
+                     vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
+                     tlc_time_interpolation, img.image_size, final_detector_origin,
+                     geo.principal_distance, mean_ground_elevation,
+                     stereo_settings().enable_correct_velocity_aberration,
+                     stereo_settings().enable_correct_atmospheric_refraction));
 } // End function load_dg_camera_model()
-
+  
 
 // Constructor
 DGCameraModel::DGCameraModel
@@ -373,7 +375,8 @@ vw::Vector3 DGCameraModel::get_camera_velocity_at_time(double time) const {
 }
 
 // Function to interpolate quaternions with the CSM model. This is used
-// for CSM model validation but not in production.  
+// for CSM model validation but not in production.
+// TODO(oalexan1): Move this to a new CsmModelUtils.cc file and call it from here.
 void DGCameraModel::getQuaternions(const double& time, double q[4]) const {
 
   if (!stereo_settings().dg_use_csm)
