@@ -22,13 +22,9 @@
 #ifndef __ASP_CORE_COMMON_H__
 #define __ASP_CORE_COMMON_H__
 
-// TODO(oalexan1): Rename vw/config.h to vw/vw_config.h.
 // TODO(oalexan1): Break up Common.h into more manageable pieces.
 // Image-writing code should be in VW. Low-level file utils
 // should be in their own header file and .cc fie.
-
-#include <vw/config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
-#include <asp/asp_config.h>
 
 #include <vw/Core/StringUtils.h>
 #include <vw/Image/ImageIO.h>
