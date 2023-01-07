@@ -15,10 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-#include <vw/config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
-#include <asp/asp_config.h>
-
 #include <vw/Core/Log.h>
 #include <vw/Core/System.h>
 #include <vw/Math/BBox.h>

@@ -116,16 +116,18 @@ namespace asp {
 
     std::string start_time;      // UTC
     double time_interval;        // seconds
-    std::vector<vw::Vector3> position_vec, velocity_vec; // ECEF
 
-    // Later position_vec will be converted from being satellite
-    // position to being camera position. We need the original satellite
-    // position to be able to propagate the covariances, which are relative
-    // to the satellite. See also a longer note in AttitudeXML.
+    // Satellite position vector (ECEF). This will be used later to
+    // find the camera positions. We will still need even then the
+    // satellite position vector if propagating covariances, as those
+    // are for the satellite positions and not the camera positions.
+    // See another note in AttitudeXML.
     std::vector<vw::Vector3> satellite_position_vec;
     // Satellite covariances. Only the region at and above the main
     // diagonal is saved, as this matrix is symmetric.
     std::vector<vw::Vector<double,6>> satellite_position_covariance_vec;
+
+    std::vector<vw::Vector3> velocity_vec; // ECEF
   };
 
 
@@ -142,21 +144,17 @@ namespace asp {
 
     std::string start_time;
     double time_interval;
-    std::vector<vw::Quat> quat_vec;
 
     // The satellite_quat_vec keeps the quaternions with original
     // values and original order, to be in sync with
-    // satellite_quat_covariance_vec. While in quat_vec the order is
-    // changed to accommodate how VW processes quaternions, and later
-    // those quaternions will be converted from being satellite
-    // quaternions to sensor quaternions. This double book-keeping is
-    // necessary to handle covariances correctly. Since we'd rather
-    // use satellite_quat_covariance_vec as it is, rather than applying any
-    // transforms to it in parallel, we must keep satellite_quat_vec
-    // in sync with it. These two are only used to propagate
-    // covariances, and not for regular camera operations. See also
-    // note in the EphemerisXML class.
-    std::vector<vw::Quat> satellite_quat_vec;
+    // satellite_quat_covariance_vec. Later, those will be used to
+    // manufacture the camera orientation vector, which will result in
+    // some swapping around of these values and some rotations. We
+    // need to keep even later satellite_quat_vec if we want to
+    // compute covariances, as it is one-to-one correspondence with
+    // satellite_quat_covariance_vec. See also note in the
+    // EphemerisXML class.
+    std::vector<vw::Vector<double, 4>> satellite_quat_vec;
     // This has entries at and above main diagonal
     std::vector<vw::Vector<double,10>> satellite_quat_covariance_vec;
   };

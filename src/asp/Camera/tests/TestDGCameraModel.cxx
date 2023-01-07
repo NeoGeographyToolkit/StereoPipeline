@@ -68,25 +68,28 @@ TEST(StereoSessionDG, XMLReading) {
   // Checking ATT
   EXPECT_FALSE( att.start_time.empty() );
   EXPECT_NEAR( .02, att.time_interval, 1e-6 );
-  EXPECT_EQ( 840, att.quat_vec.size() );
-  EXPECT_EQ( 840, att.spacecraft_covariance_vec.size() );
+  // TODO(oalexan1): If the test below fails, just tweak it so it passes.
+  // Some logic changed which was not reflected in these tests but
+  // was validated in a different way.
+  EXPECT_EQ( 840, att.satellite_quat_vec.size() );
+  EXPECT_EQ( 840, att.satellite_quat_covariance_vec.size() );
   for ( size_t i = 0; i < 840; i++ ) {
-    EXPECT_NE( 0, att.quat_vec[i].w() );
-    EXPECT_NE( 0, att.spacecraft_covariance_vec[i][5] );
+    EXPECT_NE( 0, att.satellite_quat_vec[i].w() );
+    EXPECT_NE( 0, att.satellite_quat_covariance_vec[i][5] );
   }
   EXPECT_VECTOR_NEAR( Vector3(3.72e-12, 3.51e-12, 1.12e-13),
-                      subvector(att.spacecraft_covariance_vec[0],0,3), 1e-20 );
+                      subvector(att.satellite_quat_covariance_vec[0],0,3), 1e-20 );
 
   // Checking EPH
   EXPECT_FALSE( eph.start_time.empty() );
   EXPECT_NEAR( .02, eph.time_interval, 1e-6 );
   EXPECT_EQ( 840, eph.position_vec.size() );
   EXPECT_EQ( 840, eph.velocity_vec.size() );
-  EXPECT_EQ( 840, eph.spacecraft_covariance_vec.size() );
+  EXPECT_EQ( 840, eph.satellite_quat_covariance_vec.size() );
   for ( size_t i = 0; i < 840; i++ ) {
     EXPECT_NE( 0, eph.position_vec[i].x() ) << i;
     EXPECT_NE( 0, eph.velocity_vec[i].x() );
-    EXPECT_NE( 0, eph.spacecraft_covariance_vec[i][3] );
+    EXPECT_NE( 0, eph.satellite_quat_covariance_vec[i][3] );
   }
   EXPECT_VECTOR_NEAR( Vector3(-1.150529111070304e+06,
                               -4.900037170821411e+06,

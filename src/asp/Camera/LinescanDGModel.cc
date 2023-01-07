@@ -83,26 +83,11 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
   // start time will be our reference frame to calculate seconds against.
   SecondsFromRef convert(parse_dg_time(eph.start_time));
 
-  // I'm going make the assumption that EPH and ATT are sampled at the same rate and time.
-  VW_ASSERT(eph.position_vec.size() == att.quat_vec.size(),
+  // It is assumed that EPH and ATT are sampled at the same rate and time.
+  VW_ASSERT(eph.satellite_position_vec.size() == att.satellite_quat_vec.size(),
             vw::MathErr() << "Ephemeris and attitude don't have the same number of samples.");
   VW_ASSERT(eph.start_time == att.start_time && eph.time_interval == att.time_interval,
             vw::MathErr() << "Ephemeris and attitude don't seem to use the same t0 or dt.");
-
-  // Convert ephemeris to be position of camera. Change attitude to be
-  // the rotation from camera frame to world frame. We also add an
-  // additional 90 degree rotation to the camera frame so X is the horizontal
-  // direction to the picture and +Y points down the image (in the
-  // direction of flight).
-  // Important note: Logic parallel to this will be used to
-  // handle covariances, so careful when modifying here.
-  vw::Quat sensor_rotation = vw::math::euler_xyz_to_quaternion
-    (vw::Vector3(0,0,geo.detector_rotation - M_PI/2)); // explained earlier
-  vw::Quat sensor_to_body = geo.camera_attitude * sensor_rotation;
-  for (size_t i = 0; i < eph.position_vec.size(); i++) {
-    eph.position_vec[i] += att.quat_vec[i].rotate(geo.perspective_center);
-    att.quat_vec[i] = att.quat_vec[i] * sensor_to_body;
-  }
 
   // Load up the time interpolation class. If the TLCList only has
   // one entry, then we have to manually drop in the slope and offset.
@@ -122,7 +107,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
   VW_ASSERT(fabs(convert(parse_dg_time(img.first_line_start_time)) -
   tlc_time_interpolation(0)) < fabs(1.0 / (10.0 * img.avg_line_rate)),
 	     vw::MathErr()
-	     << "First Line Time and output from TLC lookup table "
+	     << "First line time and output from TLC lookup table "
 	     << "do not agree of the ephemeris time for the first line of the image. "
 	     << "If your XML camera files are not from the WorldView satellites, "
 	     << "you may try the switch -t rpc to use the RPC camera model.\n"
@@ -132,11 +117,6 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
 	     << "Maximum allowed difference is 1/10 of avg line rate, which is: "
 	     << fabs(1.0 / (10.0 * img.avg_line_rate))
 	     << ".\n");
-
-  vw::Vector2 final_detector_origin
-    = subvector(inverse(sensor_rotation).rotate(vw::Vector3(geo.detector_origin[0],
-							      geo.detector_origin[1],
-							      0)), 0, 2);
 
   double et0 = convert(parse_dg_time(eph.start_time));
   double at0 = convert(parse_dg_time(att.start_time));
@@ -149,30 +129,41 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
     vw::vw_throw(vw::ArgumentErr() << "Cannot correct velocity aberration or "
                  << "atmospheric refraction with the CSM model.\n");
   
-  DGCameraModel * cam_ptr
-    = new DGCameraModel(vw::camera::PiecewiseAPositionInterpolation(eph.position_vec,
-                                                                    eph.velocity_vec, et0, edt),
-                        vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec,
-                                                                         et0, edt),
-                        vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
-                        tlc_time_interpolation, img.image_size, final_detector_origin,
-                        geo.principal_distance, mean_ground_elevation,
-                        stereo_settings().enable_correct_velocity_aberration,
-                        stereo_settings().enable_correct_atmospheric_refraction);
-
-  if (stereo_settings().compute_point_cloud_covariances) {
-    // Additional data needed to compute covariances
-    cam_ptr->sensor_to_body = sensor_to_body; 
-    cam_ptr->perspective_center = geo.perspective_center;
-    cam_ptr->satellite_position_vec = eph.satellite_position_vec; // not same as camera center
-    cam_ptr->satellite_position_covariance_vec = eph.satellite_position_covariance_vec;
-    cam_ptr->satellite_quat_vec = att.satellite_quat_vec; // not same as camera orientation 
-    cam_ptr->satellite_quat_covariance_vec = att.satellite_quat_covariance_vec;
+  vw::Quat sensor_rotation = vw::math::euler_xyz_to_quaternion
+    (vw::Vector3(0,0,geo.detector_rotation - M_PI/2)); // explained earlier
+  vw::Quat sensor_to_body = geo.camera_attitude * sensor_rotation;
+  vw::Vector2 final_detector_origin
+    = subvector(inverse(sensor_rotation).rotate(vw::Vector3(geo.detector_origin[0],
+							      geo.detector_origin[1],
+                                                            0)), 0, 2);
+  
+  // Convert ephemeris to be position of camera. Change attitude to be
+  // the rotation from camera frame to world frame. We also add an
+  // additional 90 degree rotation to the camera frame so X is the horizontal
+  // direction to the picture and +Y points down the image (in the
+  // direction of flight).
+  std::vector<vw::Vector3> camera_position_vec(eph.satellite_position_vec.size());
+  std::vector<vw::Quat>    camera_quat_vec(att.satellite_quat_vec.size());
+  for (size_t i = 0; i < eph.satellite_position_vec.size(); i++) {
+    auto const& qv = att.satellite_quat_vec[i];
+    vw::Quat q(qv[3], qv[0], qv[1], qv[2]); // Note the swapping, the order is now w, x, y, z.
+    camera_position_vec[i] = eph.satellite_position_vec[i] + q.rotate(geo.perspective_center);
+    camera_quat_vec[i] = q * sensor_to_body;
   }
-  
-  return vw::CamPtr(cam_ptr);
+
+  vw::CamPtr cam_ptr
+    (new DGCameraModel(vw::camera::PiecewiseAPositionInterpolation(camera_position_vec,
+                                                                   eph.velocity_vec, et0, edt),
+                       vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec,
+                                                                        et0, edt),
+                       vw::camera::SLERPPoseInterpolation(camera_quat_vec, at0, adt),
+                       tlc_time_interpolation, img.image_size, final_detector_origin,
+                       geo.principal_distance, mean_ground_elevation,
+                       stereo_settings().enable_correct_velocity_aberration,
+                       stereo_settings().enable_correct_atmospheric_refraction));
+     
+  return cam_ptr;
 } // End function load_dg_camera_model()
-  
 
 // Constructor
 DGCameraModel::DGCameraModel

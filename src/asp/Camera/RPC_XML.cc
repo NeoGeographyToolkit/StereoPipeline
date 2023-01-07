@@ -316,7 +316,6 @@ void asp::EphemerisXML::parse_meta(xercesc::DOMElement* node) {
   cast_xmlch(get_node<DOMElement>(node, "TIMEINTERVAL")->getTextContent(), time_interval);
   size_t num_points;
   cast_xmlch(get_node<DOMElement>(node, "NUMPOINTS"   )->getTextContent(), num_points);
-  position_vec.resize(num_points);
   satellite_position_vec.resize(num_points);
   velocity_vec.resize(num_points);
   satellite_position_covariance_vec.resize(num_points);
@@ -342,8 +341,12 @@ void asp::EphemerisXML::parse_eph_list(xercesc::DOMElement* node) {
         vw_throw(ArgumentErr() << "Failed to parse string: " << index_b << "\n");
       }
 
-      istr >> position_vec[index][0] >> position_vec[index][1] >> position_vec[index][2]
-           >> velocity_vec[index][0] >> velocity_vec[index][1] >> velocity_vec[index][2];
+      istr >> satellite_position_vec[index][0]
+           >> satellite_position_vec[index][1]
+           >> satellite_position_vec[index][2]
+           >> velocity_vec[index][0]
+           >> velocity_vec[index][1]
+           >> velocity_vec[index][2];
       istr >> satellite_position_covariance_vec[index][0]
            >> satellite_position_covariance_vec[index][1]
            >> satellite_position_covariance_vec[index][2]
@@ -351,14 +354,11 @@ void asp::EphemerisXML::parse_eph_list(xercesc::DOMElement* node) {
            >> satellite_position_covariance_vec[index][4]
            >> satellite_position_covariance_vec[index][5];
 
-      // Keep the satellite position in satellite_position_vec. In position_vec
-      // we will later store the camera position. See the .h file for more details.
-      satellite_position_vec[index] = position_vec[index];
       count++;
     }
   }
 
-  VW_ASSERT(count == position_vec.size(),
+  VW_ASSERT(count == satellite_position_vec.size(),
             IOErr() << "Read incorrect number of points.");
 }
 
@@ -380,7 +380,6 @@ void asp::AttitudeXML::parse_meta(xercesc::DOMElement* node) {
   cast_xmlch(get_node<DOMElement>(node, "TIMEINTERVAL")->getTextContent(), time_interval);
   size_t num_points;
   cast_xmlch(get_node<DOMElement>(node, "NUMPOINTS"   )->getTextContent(), num_points);
-  quat_vec.resize(num_points);
   satellite_quat_vec.resize(num_points);
   satellite_quat_covariance_vec.resize(num_points);
 }
@@ -406,12 +405,11 @@ void asp::AttitudeXML::parse_att_list(xercesc::DOMElement* node) {
         vw_throw(ArgumentErr() << "Failed to parse string: " << index_b << "\n");
       }
 
-      // Care here, the quat is swapped in quat_vec, to conform to how VW
-      // manipulates quaternions. Keep the original in satellite_quat_vec,
-      // to be in sync with satellite_quat_covariance_vec.
-      istr >> qbuf[0] >> qbuf[1] >> qbuf[2] >> qbuf[3];
-      quat_vec[index] = Quat(qbuf[3], qbuf[0], qbuf[1], qbuf[2]); // swapped! 
-      satellite_quat_vec[index] = Quat(qbuf[0], qbuf[1], qbuf[2], qbuf[3]); // not swapped!
+      // Read the quaternion values for satellite orientation.
+      istr >> satellite_quat_vec[index][0]
+           >> satellite_quat_vec[index][1]
+           >> satellite_quat_vec[index][2]
+           >> satellite_quat_vec[index][3];
       // Only the upper-right portion of the 4x4 covariance matrix is saved
       istr >> satellite_quat_covariance_vec[index][0] >> satellite_quat_covariance_vec[index][1]
            >> satellite_quat_covariance_vec[index][2] >> satellite_quat_covariance_vec[index][3]
@@ -423,7 +421,7 @@ void asp::AttitudeXML::parse_att_list(xercesc::DOMElement* node) {
     }
   }
 
-  VW_ASSERT(count == quat_vec.size(),
+  VW_ASSERT(count == satellite_quat_vec.size(),
             IOErr() << "Read incorrect number of points.");
 }
 
