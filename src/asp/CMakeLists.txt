@@ -3,10 +3,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}" )
 
 include(Utilities) # Contains functions
 
-#===============================================================================
 # Configuration options
 
-# --- Directory paths ---
+# Directory paths
 set(VISIONWORKBENCH_INSTALL_DIR "" CACHE FILEPATH "Path to the user-built and installed VisionWorkbench")
 set(ASP_DEPS_DIR "" CACHE FILEPATH "Path to the conda environment that has the ASP dependencies")
 
@@ -48,7 +47,6 @@ if(Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIR})
     link_directories(${Boost_LIBRARY_DIRS})
 endif(Boost_FOUND)
-message("--------------------------------------------------------------")
 
 # If VW was not built and installed separately, it should have been
 # built and installed in ASP_DEPS_DIR.
@@ -56,7 +54,7 @@ if (NOT VISIONWORKBENCH_INSTALL_DIR)
   set(VISIONWORKBENCH_INSTALL_DIR ${ASP_DEPS_DIR})
 endif()
 
-# --- Custom options ---
+# Custom options
 option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
 
 # Use full length RPATHS in the installed files
@@ -65,7 +63,7 @@ SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 # Make sure installed files can find installed libraries
 SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${CMAKE_INSTALL_PREFIX}/lib ${ASP_DEPS_DIR}/lib)
 
-# --- Fixed options ---
+# Fixed options
 set(Boost_USE_STATIC_LIBS   OFF)
 set(Boost_USE_MULTITHREADED ON)
 
@@ -104,7 +102,6 @@ if (UNIX AND NOT APPLE)
 endif()
 
 
-#==================================================================================
 # Find dependencies
 
 set(REQUIRED     True )
@@ -112,8 +109,7 @@ set(NOT_REQUIRED False)
 
 #TODO: Replace with FindVisionWorkbench module?
 # Set up VisionWorkbench
-message("--------------------------------------------------------------")
-message(" Vision Workbench installation directory: ${VISIONWORKBENCH_INSTALL_DIR}")
+message("Vision Workbench installation directory: ${VISIONWORKBENCH_INSTALL_DIR}")
 set(VISIONWORKBENCH_INCLUDE_DIR ${VISIONWORKBENCH_INSTALL_DIR}/include)
 set(VISIONWORKBENCH_LIBRARY_DIR ${VISIONWORKBENCH_INSTALL_DIR}/lib)
 set(ASP_HAVE_PACKAGE_VW 1)
@@ -136,8 +132,7 @@ endforeach(n)
 include_directories(${VISIONWORKBENCH_INCLUDE_DIR})
 #link_directories(${VISIONWORKBENCH_LIBRARY_DIR})
 
-message("--------------------------------------------------------------")
-message("Searching for QT...")
+message("Searching for Qt.")
 # QT is complicated to use and should go through find_package
 set(QT_QMAKE_EXECUTABLE  ${ASP_DEPS_DIR}/bin/qmake)
 set(QT_MOC_EXECUTABLE    ${ASP_DEPS_DIR}/bin/moc)
@@ -161,7 +156,7 @@ if(Qt5_FOUND)
     # INCLUDE_DIRECTORIES() works just like INCLUDEPATH from qmake)
     INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR})
     set (ASP_HAVE_PKG_QT 1)
-    message("QT found: ${Qt5Core_INCLUDE_DIRS}")
+    message("Qt found: ${Qt5Core_INCLUDE_DIRS}")
 endif(Qt5_FOUND)
 
 find_external_library(QWT ${ASP_DEPS_DIR} "" "qwt" REQUIRED)
@@ -185,7 +180,7 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
       
 find_external_library(LAPACK ${ASP_DEPS_DIR} "" "lapack;blas" REQUIRED)
-set(VW_HAVE_PKG_FLAPACK 1) # --> This specifies that it is a Fortran derived version
+set(VW_HAVE_PKG_FLAPACK 1) # This specifies that it is a Fortran derived version
 
 find_external_library(FLANN   ${ASP_DEPS_DIR} "" "flann_cpp" REQUIRED)
 find_external_library(Z       ${ASP_DEPS_DIR} "" "z"         REQUIRED)
@@ -214,7 +209,6 @@ find_external_library(LASZIP ${ASP_DEPS_DIR} "laszip" "laszip" REQUIRED)
 find_external_library(GFLAGS ${ASP_DEPS_DIR} "gflags" "gflags" REQUIRED)
 find_external_library(GLOG ${ASP_DEPS_DIR} "glog" "glog" REQUIRED)
 find_external_library(ARMADILLO ${ASP_DEPS_DIR} "" "armadillo" REQUIRED)
-
 find_external_library(ISIS ${ASP_DEPS_DIR} "isis" "isis" REQUIRED)
 
 if(ASP_HAVE_PKG_ISIS)
@@ -285,76 +279,68 @@ include_directories(BEFORE ../)
 # Now that we have found all our external dependencies, generate a config.h file
 include("GenerateConfig.cmake")
 
-# TODO: Do we need this?
-#set(ENABLE_EXCEPTIONS True)
-
-#message("Listing all include directories...")
-#get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-#foreach(dir ${dirs})
-#  message(STATUS "dir='${dir}'")
-#endforeach()
-
 # Add all the header files at the top level to the install command
+# Note: This does not install the headers in subdirectories.
+# Separate code exists in add_library_wrapper() for taking
+# care of that.
 get_all_source_files("." MAIN_HEADER_FILES)
 foreach(f ${MAIN_HEADER_FILES})
   INSTALL(FILES ${f} DESTINATION include/asp)
 endforeach()
 
-#=========================================================================
 # Define each of the libaries
 
-# --- ASP_CORE ------------------------------------------------------------
+# ASP_CORE
 get_all_source_files( "Core"       ASP_CORE_SRC_FILES)
 get_all_source_files( "Core/tests" ASP_CORE_TEST_FILES)
 set(ASP_CORE_LIB_DEPENDENCIES ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES}
     ${LIBLAS_LIBRARIES} ${LASZIP_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${CMAKE_DL_LIBS})
 
-# --- ASP_SPICEIO ------------------------------------------------------------
+# ASP_SPICEIO
 get_all_source_files( "SpiceIO"       ASP_SPICEIO_SRC_FILES)
 get_all_source_files( "SpiceIO/tests" ASP_SPICEIO_TEST_FILES)
 set(ASP_SPICEIO_LIB_DEPENDENCIES AspCore ${SPICE_LIBRARIES})
 
-# --- ASP_ISISIO ------------------------------------------------------------
+# ASP_ISISIO
 get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
 get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
 set(ASP_ISISIO_LIB_DEPENDENCIES  AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
                                  ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
-# --- ASP_CAMERA ------------------------------------------------------------
+# ASP_CAMERA
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
 set(ASP_CAMERA_LIB_DEPENDENCIES AspCore ${XERCESC_LIBRARIES}
     ${CSM_LIBRARIES} ${USGSCSM_LIBRARIES} ${ALE_LIBRARIES})
 
-# --- ASP_SESSIONS ------------------------------------------------------------
+# ASP_SESSIONS
 ## This code is more complicated and is specified in the lower level file
 get_all_source_files( "Sessions"       ASP_SESSIONS_SRC_FILES)
 get_all_source_files( "Sessions/tests" ASP_SESSIONS_TEST_FILES)
 set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspSpiceIO AspIsisIO AspCamera)
 
-# --- ASP_GUI ------------------------------------------------------------
+# ASP_GUI
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
 set(ASP_GUI_LIB_DEPENDENCIES AspCore Qt5::Core Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
 
-# --- ASP_GOTCHA ------------------------------------------------------------
+# ASP_GOTCHA
 get_all_source_files( "Gotcha"       ASP_GOTCHA_SRC_FILES)
 get_all_source_files( "Gotcha/tests" ASP_GOTCHA_TEST_FILES)
 set(ASP_GOTCHA_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${OPENCV_LIBRARIES} ${Boost_LIBRARIES})
 
-# --- ASP_PclIO ------------------------------------------------------------
+# ASP_PclIO
 get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
 get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
 set(ASP_PCLIO_LIB_DEPENDENCIES  pcl_common pcl_io_ply pcl_io
     AspCore ${VISIONWORKBENCH_LIBRARIES})
 
-#=========================================================================
 # Add all of the library subdirectories
 
 add_subdirectory(Core)
 add_subdirectory(SpiceIO)
 if(ASP_HAVE_PKG_ISISIO)
     add_subdirectory(IsisIO)
-    # PCL is imported via ISIS
+    # PCL is imported via ISIS as ISIS depends on it
     add_subdirectory(PclIO)
 endif()
 add_subdirectory(Camera)

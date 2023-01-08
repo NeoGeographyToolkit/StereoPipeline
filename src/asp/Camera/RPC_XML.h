@@ -118,10 +118,10 @@ namespace asp {
     double time_interval;        // seconds
 
     // Satellite position vector (ECEF). This will be used later to
-    // find the camera positions. We will still need even then the
-    // satellite position vector if propagating covariances, as those
-    // are for the satellite positions and not the camera positions.
-    // See another note in AttitudeXML.
+    // find the camera positions. We will need this even then, if
+    // propagating covariances, as those are for the satellite
+    // positions and not the camera positions.  See another note in
+    // AttitudeXML.
     std::vector<vw::Vector3> satellite_position_vec;
     // Satellite covariances. Only the region at and above the main
     // diagonal is saved, as this matrix is symmetric.
@@ -146,12 +146,11 @@ namespace asp {
     double time_interval;
 
     // The satellite_quat_vec keeps the quaternions with original
-    // values and original order, to be in sync with
-    // satellite_quat_covariance_vec. Later, those will be used to
+    // values and original order. Later, those will be used to
     // manufacture the camera orientation vector, which will result in
     // some swapping around of these values and some rotations. We
     // need to keep even later satellite_quat_vec if we want to
-    // compute covariances, as it is one-to-one correspondence with
+    // compute covariances, as they are one-to-one correspondence with
     // satellite_quat_covariance_vec. See also note in the
     // EphemerisXML class.
     std::vector<vw::Vector<double, 4>> satellite_quat_vec;

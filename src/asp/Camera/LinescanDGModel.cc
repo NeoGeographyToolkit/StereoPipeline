@@ -19,6 +19,7 @@
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Core/Covariance.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/Utilities.h>
@@ -42,7 +43,7 @@ boost::posix_time::ptime parse_dg_time(std::string str) {
   }
   return boost::posix_time::time_from_string(str); // Never reached!
 }
-
+  
 vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
 
   // Parse the Digital Globe XML file
@@ -61,7 +62,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
                  << "-t rpcmaprpc, -t aster, etc.\n"
 		 << e.what() << "\n");
   }
-  
+
   // Get an estimate of the surface elevation from the corners specified in the file.
   // - Not every file has this information, in which case we will just use zero.
   double mean_ground_elevation = 0.0;
@@ -136,33 +137,66 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
     = subvector(inverse(sensor_rotation).rotate(vw::Vector3(geo.detector_origin[0],
 							      geo.detector_origin[1],
                                                             0)), 0, 2);
+
+  // We will create one camera model in regular use, and 14 more of them with slight
+  // perturbations if needed for covariance computation. This approach results
+  // in avoiding writing a lot of new code which would be in some places similar
+  // and in others different than existing one. See Covariance.h for more details.
+  vw::CamPtr nominal_cam;
+  std::vector<vw::CamPtr> perturbed_cams;
+  int num_cams = 1;
+  if (asp::stereo_settings().compute_point_cloud_covariances)
+    num_cams = numCamsForCovariance();
   
-  // Convert ephemeris to be position of camera. Change attitude to be
-  // the rotation from camera frame to world frame. We also add an
-  // additional 90 degree rotation to the camera frame so X is the horizontal
-  // direction to the picture and +Y points down the image (in the
-  // direction of flight).
-  std::vector<vw::Vector3> camera_position_vec(eph.satellite_position_vec.size());
-  std::vector<vw::Quat>    camera_quat_vec(att.satellite_quat_vec.size());
-  for (size_t i = 0; i < eph.satellite_position_vec.size(); i++) {
-    auto const& qv = att.satellite_quat_vec[i];
-    vw::Quat q(qv[3], qv[0], qv[1], qv[2]); // Note the swapping, the order is now w, x, y, z.
-    camera_position_vec[i] = eph.satellite_position_vec[i] + q.rotate(geo.perspective_center);
-    camera_quat_vec[i] = q * sensor_to_body;
+  for (int cam_it = 0; cam_it < num_cams; cam_it++) {
+    vw::Vector<double, 3> dp = asp::positionDelta(cam_it);
+    vw::Vector<double, 4> dq = asp::quatDelta(cam_it);
+
+    std::cout << "--perturbation " << cam_it << ' ' << dp << ' ' << dq << std::endl;
+    
+    // Convert ephemeris from satellite to camera position. Change
+    // attitude to be the rotation from camera frame to world
+    // frame. We also add an additional 90 degree rotation to the
+    // camera frame so X is the horizontal direction to the picture
+    // and +Y points down the image (in the direction of flight). Must
+    // apply any perturbations when still in satellite coordinates, to
+    // be consistent with input covariances.
+    std::vector<vw::Vector3> camera_position_vec(eph.satellite_position_vec.size());
+    std::vector<vw::Quat>    camera_quat_vec(att.satellite_quat_vec.size());
+    for (size_t i = 0; i < eph.satellite_position_vec.size(); i++) {
+      Vector<double, 3> p = eph.satellite_position_vec[i] + dp; // add the perturbation
+      Vector<double, 4> q = att.satellite_quat_vec[i];
+      // The dq perturbations are chosen under the assumption that q is normalized
+      double len = norm_2(q);
+      if (len > 0 && asp::stereo_settings().compute_point_cloud_covariances) 
+        q = q / norm_2(q);
+      q = q + dq;
+      vw::Quat qt(q[3], q[0], q[1], q[2]); // Note the swapping, the order is now w, x, y, z.
+      camera_position_vec[i] = p + qt.rotate(geo.perspective_center);
+      camera_quat_vec[i] = qt * sensor_to_body;
+    }
+
+    vw::CamPtr cam_ptr
+      (new DGCameraModel(vw::camera::PiecewiseAPositionInterpolation(camera_position_vec,
+                                                                     eph.velocity_vec, et0, edt),
+                         vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec,
+                                                                          et0, edt),
+                         vw::camera::SLERPPoseInterpolation(camera_quat_vec, at0, adt),
+                         tlc_time_interpolation, img.image_size, final_detector_origin,
+                         geo.principal_distance, mean_ground_elevation,
+                         stereo_settings().enable_correct_velocity_aberration,
+                         stereo_settings().enable_correct_atmospheric_refraction));
+
+    if (cam_it == 0) 
+      nominal_cam = cam_ptr;
+    else
+      perturbed_cams.push_back(cam_ptr);
   }
 
-  vw::CamPtr cam_ptr
-    (new DGCameraModel(vw::camera::PiecewiseAPositionInterpolation(camera_position_vec,
-                                                                   eph.velocity_vec, et0, edt),
-                       vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec,
-                                                                        et0, edt),
-                       vw::camera::SLERPPoseInterpolation(camera_quat_vec, at0, adt),
-                       tlc_time_interpolation, img.image_size, final_detector_origin,
-                       geo.principal_distance, mean_ground_elevation,
-                       stereo_settings().enable_correct_velocity_aberration,
-                       stereo_settings().enable_correct_atmospheric_refraction));
-     
-  return cam_ptr;
+  // Let the nominal camera own the other ones
+  ((DGCameraModel*)nominal_cam.get())->perturbed_cams = perturbed_cams;
+    
+  return nominal_cam;
 } // End function load_dg_camera_model()
 
 // Constructor
@@ -184,7 +218,7 @@ DGCameraModel::DGCameraModel
     vw_out() << "Using the CSM model with DigitalGlobe cameras.\n";
 
   // It is convenient to have the CSM model exist even if it is not used.
-  // The cam_test.cc and jitter_solve.cc tools uses this assumption.
+  // The cam_test.cc and jitter_solve.cc tool uses this assumption.
   populateCsmModel();
 }
   

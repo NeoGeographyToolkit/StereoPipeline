@@ -74,7 +74,7 @@ TEST(StereoSessionDG, XMLReading) {
   EXPECT_EQ( 840, att.satellite_quat_vec.size() );
   EXPECT_EQ( 840, att.satellite_quat_covariance_vec.size() );
   for ( size_t i = 0; i < 840; i++ ) {
-    EXPECT_NE( 0, att.satellite_quat_vec[i].w() );
+    EXPECT_NE( 0, att.satellite_quat_vec[i][3] );
     EXPECT_NE( 0, att.satellite_quat_covariance_vec[i][5] );
   }
   EXPECT_VECTOR_NEAR( Vector3(3.72e-12, 3.51e-12, 1.12e-13),

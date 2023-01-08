@@ -313,6 +313,9 @@ namespace asp {
     boost::shared_ptr<CsmModel> m_csm_model; // wrapper
     boost::shared_ptr<UsgsAstroLsSensorModel> m_ls_model; // actual model
 
+    // For covariance computation
+    std::vector<vw::CamPtr> perturbed_cams;
+    
   private:
     // Function to interpolate quaternions with the CSM model. This is used
     // for validation of the CSM model but not in production.  

@@ -368,6 +368,7 @@ void asp::EphemerisXML::parse(xercesc::DOMElement* node) {
   parse_meta(node);
   check_argument(0);
 
+  // TODO(oalexan1): This is slow to parse
   parse_eph_list(get_node<DOMElement>(node, "EPHEMLISTList"));
   check_argument(1);
 }
@@ -431,6 +432,7 @@ void asp::AttitudeXML::parse(xercesc::DOMElement* node) {
   parse_meta(node);
   check_argument(0);
 
+  // TODO(oalexan1): This is slow to parse
   parse_att_list(get_node<DOMElement>(node, "ATTLISTList"));
   check_argument(1);
 }
@@ -726,6 +728,7 @@ void asp::read_xml(std::string const& filename,
     parser->setErrorHandler(errHandler.get());
 
     parser->parse(filename.c_str());
+
     DOMDocument* xmlDoc = parser->getDocument();
     DOMElement* elementRoot = xmlDoc->getDocumentElement();
 
@@ -734,14 +737,13 @@ void asp::read_xml(std::string const& filename,
     } catch(...){}
 
     DOMNodeList* children = elementRoot->getChildNodes();
-    for (XMLSize_t i = 0; i < children->getLength(); ++i) {
+    for (XMLSize_t i = 0; i < children->getLength(); i++) {
       DOMNode* curr_node = children->item(i);
       if (curr_node->getNodeType() == DOMNode::ELEMENT_NODE) {
         DOMElement* curr_element =
           dynamic_cast<DOMElement*>(curr_node);
 
         std::string tag(XMLString::transcode(curr_element->getTagName()));
-
         if (tag == "GEO")
           geo.parse(curr_element);
         else if (tag == "EPH")
