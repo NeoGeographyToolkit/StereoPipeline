@@ -56,7 +56,9 @@ namespace asp {
   char ISISROOT_ENV_STR[COMMON_BUF_SIZE];
   char QT_PLUGIN_PATH_ENV_STR[COMMON_BUF_SIZE];
   char GDAL_DATA_ENV_STR[COMMON_BUF_SIZE];
-  char PROJ_LIB_ENV_STR[COMMON_BUF_SIZE];
+  char GDAL_DRIVER_PATH_ENV_STR[COMMON_BUF_SIZE];
+  char PROJ_LIB_ENV_STR[COMMON_BUF_SIZE]; // older api
+  char PROJ_DATA_ENV_STR[COMMON_BUF_SIZE]; // newer api
   char LC_ALL_STR[COMMON_BUF_SIZE];
   char LANG_STR[COMMON_BUF_SIZE];
 }
@@ -505,6 +507,16 @@ void asp::set_asp_env_vars() {
     vw::vw_throw(vw::ArgumentErr() << "Cannot find GDAL data in "
                  << getenv("GDAL_DATA"));
 
+  // Set GDAL_DRIVER_PATH and check for share/gdal
+  snprintf(GDAL_DRIVER_PATH_ENV_STR, COMMON_BUF_SIZE, "GDAL_DRIVER_PATH=%s%s",
+           base_dir.c_str(), "/lib/gdalplugins");
+  if (putenv(GDAL_DRIVER_PATH_ENV_STR) != 0) 
+    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << GDAL_DRIVER_PATH_ENV_STR << "\n");
+  if (!fs::exists(std::string(getenv("GDAL_DRIVER_PATH")))) 
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find GDAL plugins in "
+                 << getenv("GDAL_DRIVER_PATH"));
+
+  // Older proj api
   // Set PROJ_LIB and check for share/proj
   snprintf(PROJ_LIB_ENV_STR, COMMON_BUF_SIZE, "PROJ_LIB=%s%s",
            base_dir.c_str(), "/share/proj");
@@ -513,6 +525,16 @@ void asp::set_asp_env_vars() {
   if (!fs::exists(std::string(getenv("PROJ_LIB")))) 
     vw::vw_throw(vw::ArgumentErr() << "Cannot find PROJ data in "
                  << getenv("PROJ_LIB"));
+
+  // Newer proj api
+  // Set PROJ_DATA and check for share/proj
+  snprintf(PROJ_DATA_ENV_STR, COMMON_BUF_SIZE, "PROJ_DATA=%s%s",
+           base_dir.c_str(), "/share/proj");
+  if (putenv(PROJ_DATA_ENV_STR) != 0) 
+    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << PROJ_DATA_ENV_STR << "\n");
+  if (!fs::exists(std::string(getenv("PROJ_DATA")))) 
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find PROJ data in "
+                 << getenv("PROJ_DATA"));
 
   // Force the US English locale as long as ASP is running to avoid
   // ISIS choking on a decimal separator which shows up as a comma for 
