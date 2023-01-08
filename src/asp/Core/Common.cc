@@ -507,15 +507,17 @@ void asp::set_asp_env_vars() {
     vw::vw_throw(vw::ArgumentErr() << "Cannot find GDAL data in "
                  << getenv("GDAL_DATA"));
 
-  // Set GDAL_DRIVER_PATH and check for share/gdal
-  snprintf(GDAL_DRIVER_PATH_ENV_STR, COMMON_BUF_SIZE, "GDAL_DRIVER_PATH=%s%s",
-           base_dir.c_str(), "/lib/gdalplugins");
+  // Set GDAL_DRIVER_PATH and check for share/gdal. There are two locations, because
+  // BinaryBuilder moves the plugins from lib/gdalplugins to lib.
+  // TODO(oalexan1): Figure out why this happens.
+  snprintf(GDAL_DRIVER_PATH_ENV_STR, COMMON_BUF_SIZE, "GDAL_DRIVER_PATH=%s%s:%s%s",
+           base_dir.c_str(), "/lib/gdalplugins", base_dir.c_str(), "/lib");
   if (putenv(GDAL_DRIVER_PATH_ENV_STR) != 0) 
     vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << GDAL_DRIVER_PATH_ENV_STR << "\n");
-  if (!fs::exists(std::string(getenv("GDAL_DRIVER_PATH")))) 
-    vw::vw_throw(vw::ArgumentErr() << "Cannot find GDAL plugins in "
-                 << getenv("GDAL_DRIVER_PATH"));
-
+  //if (!fs::exists(std::string(getenv("GDAL_DRIVER_PATH")))) 
+  //  vw::vw_throw(vw::ArgumentErr() << "Cannot find GDAL plugins in "
+  //               << getenv("GDAL_DRIVER_PATH"));
+  
   // Older proj api
   // Set PROJ_LIB and check for share/proj
   snprintf(PROJ_LIB_ENV_STR, COMMON_BUF_SIZE, "PROJ_LIB=%s%s",
