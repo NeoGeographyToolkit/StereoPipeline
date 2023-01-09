@@ -137,8 +137,8 @@ namespace vw { namespace gui {
               std::map<std::string, std::string> const& properties =
               std::map<std::string, std::string>());
 
-    bool isPoly() const { return asp::has_shp_extension(name); }
-    bool isCsv()  const { return vw::gui::hasCsv(name); }
+    bool isPoly() const;
+    bool isCsv()  const;
   };
 
   /// Convert a QRect object to a BBox2 object.

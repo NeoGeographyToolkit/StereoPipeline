@@ -92,7 +92,8 @@ namespace vw { namespace gui {
     void setLineWidth               ();
     void viewThreshImages           ();
     void contourImages              ();
-    void saveVectorLayer            ();
+    void saveVectorLayerAsShapeFile ();
+    void saveVectorLayerAsTextFile  ();
     void viewHillshadedImages       ();
     void viewGeoreferencedImages    ();
     void overlayGeoreferencedImages ();
@@ -169,7 +170,8 @@ namespace vw { namespace gui {
     QAction *m_overlayGeoreferencedImages_action;
     QAction *m_viewThreshImages_action;
     QAction *m_contourImages_action;
-    QAction *m_saveVectorLayer_action;
+    QAction *m_saveVectorLayerAsShapeFile_action;
+    QAction *m_saveVectorLayerAsTextFile_action;
     QAction *m_zoomAllToSameRegion_action;
     QAction *m_viewNextImage_action;
     QAction *m_viewPrevImage_action;

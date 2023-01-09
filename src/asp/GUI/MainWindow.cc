@@ -741,10 +741,17 @@ void MainWindow::createMenus() {
   m_contourImages_action->setStatusTip(tr("Find contour at threshold"));
   connect(m_contourImages_action, SIGNAL(triggered()), this, SLOT(contourImages()));
   
-  // Save vector layer
-  m_saveVectorLayer_action = new QAction(tr("Save vector layer as shapefile"), this);
-  m_saveVectorLayer_action->setStatusTip(tr("Save vector layer as shapefile"));
-  connect(m_saveVectorLayer_action, SIGNAL(triggered()), this, SLOT(saveVectorLayer()));
+  // Save vector layer as shape file
+  m_saveVectorLayerAsShapeFile_action = new QAction(tr("Save vector layer as shapefile"), this);
+  m_saveVectorLayerAsShapeFile_action->setStatusTip(tr("Save vector layer as shapefile"));
+  connect(m_saveVectorLayerAsShapeFile_action, SIGNAL(triggered()), this,
+          SLOT(saveVectorLayerAsShapeFile()));
+
+  // Save vector layer as text file
+  m_saveVectorLayerAsTextFile_action = new QAction(tr("Save vector layer as text file"), this);
+  m_saveVectorLayerAsTextFile_action->setStatusTip(tr("Save vector layer as text file"));
+  connect(m_saveVectorLayerAsTextFile_action, SIGNAL(triggered()), this,
+          SLOT(saveVectorLayerAsTextFile()));
 
   // The About box
   m_about_action = new QAction(tr("About stereo_gui"), this);
@@ -802,7 +809,8 @@ void MainWindow::createMenus() {
   m_vector_layer_menu->addAction(m_setLineWidth_action);
   m_vector_layer_menu->addAction(m_setPolyColor_action);
   m_vector_layer_menu->addAction(m_contourImages_action);
-  m_vector_layer_menu->addAction(m_saveVectorLayer_action);
+  m_vector_layer_menu->addAction(m_saveVectorLayerAsShapeFile_action);
+  m_vector_layer_menu->addAction(m_saveVectorLayerAsTextFile_action);
 
   // Help menu
   m_help_menu = menu->addMenu(tr("&Help"));
@@ -1676,14 +1684,24 @@ void MainWindow::contourImages() {
   }
 }
 
-void MainWindow::saveVectorLayer() {
+void MainWindow::saveVectorLayerAsShapeFile() {
   if (m_widgets.size() > 1) {
     popUp("More than one pane exists. Use the right-click menu of the desired pane instead.");
     return;
   }
 
   if (m_widgets.size() == 1 && mw(m_widgets[0])) 
-    mw(m_widgets[0])->saveVectorLayer();
+    mw(m_widgets[0])->saveVectorLayerAsShapeFile();
+}
+
+void MainWindow::saveVectorLayerAsTextFile() {
+  if (m_widgets.size() > 1) {
+    popUp("More than one pane exists. Use the right-click menu of the desired pane instead.");
+    return;
+  }
+
+  if (m_widgets.size() == 1 && mw(m_widgets[0])) 
+    mw(m_widgets[0])->saveVectorLayerAsTextFile();
 }
 
 void MainWindow::thresholdGetSet() {

@@ -191,7 +191,8 @@ public slots:
     void allowMultipleSelections(); ///< Allow the user to select multiple regions
     void deleteSelection        (); ///< Delete an area selected with the mouse at current point
     void hideImagesNotInRegion  (); ///< Hide images not intersecting a given region 
-    void saveVectorLayer        (); ///< Save polygons in current layer as shapefile
+    void saveVectorLayerAsShapeFile(); ///< Save polygons in current layer as shapefile
+    void saveVectorLayerAsTextFile(); ///< Save polygons in current layer as a text file
     bool contourImage           (); ///< Contour an image at a specified threshold
     void setProfileMode (bool profile_mode); ///< Turn on and off the 1D profile tool
     void setPolyEditMode(bool polyEditMode, bool refresh); ///< Turn on and off the vector layer drawing
@@ -349,7 +350,8 @@ public slots:
     QAction* m_allowMultipleSelections_action;
     QAction* m_deleteSelection;
     QAction* m_hideImagesNotInRegion;
-    QAction* m_saveVectorLayer;
+    QAction* m_saveVectorLayerAsShapeFile;
+    QAction* m_saveVectorLayerAsTextFile;
     QAction* m_deleteVertex;
     QAction* m_deleteVertices;
     QAction* m_insertVertex;

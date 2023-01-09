@@ -372,7 +372,8 @@ bool read_datum_from_csv(std::string const& file, vw::cartography::Datum & datum
 
 // Given one or more of --csv-format-str, --csv-proj4, and datum, extract
 // the needed metatadata.
-void read_csv_metadata(std::string              const& csv_file, 
+void read_csv_metadata(std::string              const& csv_file,
+                       bool                            isPoly,
                        asp::CsvConv                  & csv_conv,
                        bool                          & has_pixel_vals,
                        bool                          & has_georef,
@@ -401,8 +402,12 @@ void read_csv_metadata(std::string              const& csv_file,
     vw_out() << "Using projection: " << asp::stereo_settings().csv_proj4 << "\n";
 
   try {
+    int min_num_fields = 3;
+    if (isPoly) 
+      min_num_fields = 2; // only x and y coordinates may exist
     csv_conv.parse_csv_format(asp::stereo_settings().csv_format_str,
-                              asp::stereo_settings().csv_proj4);
+                              asp::stereo_settings().csv_proj4,
+                              min_num_fields);
 
   }catch (...) {
     // Give a more specific error message
@@ -521,12 +526,14 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     
   } else if (vw::gui::hasCsv(name_in)) {
 
+    bool isPoly = (style == "poly" || style == "fpoly" || style == "line");
+
     // Read CSV
     int numCols = asp::fileNumCols(name_in);
     bool has_pixel_vals = false; // may change later
     has_georef = true; // this may change later
     asp::CsvConv csv_conv;
-    read_csv_metadata(name_in, csv_conv, has_pixel_vals, has_georef, georef);
+    read_csv_metadata(name_in, isPoly, csv_conv, has_pixel_vals, has_georef, georef);
 
     // Read the file
     std::list<asp::CsvConv::CsvRecord> pos_records;
@@ -551,7 +558,7 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     val_range[0] = bounds.min()[2];
     val_range[1] = bounds.max()[2];
 
-    if (style == "poly" || style == "fpoly" || style == "line") {
+    if (isPoly) {
       // Convert to polygon
       polyVec.clear();
       polyVec.resize(1);
@@ -600,6 +607,13 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
   }
 }
 
+bool imageData::isPoly() const {
+  return (asp::has_shp_extension(name) || style == "poly" || style == "fpoly" || style == "line");
+}
+bool imageData::isCsv() const {
+  return vw::gui::hasCsv(name) && !isPoly();
+}
+  
 vw::Vector2 QPoint2Vec(QPoint const& qpt) {
   return vw::Vector2(qpt.x(), qpt.y());
 }

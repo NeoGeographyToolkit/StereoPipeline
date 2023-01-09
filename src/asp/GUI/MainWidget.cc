@@ -375,7 +375,8 @@ namespace vw { namespace gui {
 
     m_mergePolys = m_ContextMenu->addAction("Merge polygons");
     
-    m_saveVectorLayer = m_ContextMenu->addAction("Save vector layer as shape file");
+    m_saveVectorLayerAsShapeFile = m_ContextMenu->addAction("Save vector layer as shape file");
+    m_saveVectorLayerAsTextFile = m_ContextMenu->addAction("Save vector layer as text file");
       
     // Other options
     m_addMatchPoint      = m_ContextMenu->addAction("Add match point");
@@ -404,7 +405,8 @@ namespace vw { namespace gui {
                                                                 SLOT(allowMultipleSelections()));
     connect(m_deleteSelection,       SIGNAL(triggered()), this, SLOT(deleteSelection()));
     connect(m_hideImagesNotInRegion, SIGNAL(triggered()), this, SLOT(hideImagesNotInRegion()));
-    connect(m_saveVectorLayer,       SIGNAL(triggered()), this, SLOT(saveVectorLayer()));
+    connect(m_saveVectorLayerAsShapeFile,       SIGNAL(triggered()), this, SLOT(saveVectorLayerAsShapeFile()));
+    connect(m_saveVectorLayerAsTextFile,       SIGNAL(triggered()), this, SLOT(saveVectorLayerAsTextFile()));
     connect(m_deleteVertex,          SIGNAL(triggered()), this, SLOT(deleteVertex()));
     connect(m_deleteVertices,        SIGNAL(triggered()), this, SLOT(deleteVertices()));
     connect(m_insertVertex,          SIGNAL(triggered()), this, SLOT(insertVertex()));
@@ -2372,7 +2374,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
   }
   
   // Save the currently created vector layer
-  void MainWidget::saveVectorLayer(){
+  void MainWidget::saveVectorLayerAsShapeFile(){
     
     if (m_polyLayerIndex < m_beg_image_id || m_polyLayerIndex >= m_end_image_id){
       popUp("Images are inconsistent. Cannot save vector layer.");
@@ -2396,6 +2398,38 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     // TODO(oalexan1): What if there are polygons for many images?
     vw_out() << "Writing: " << shapefile << std::endl;
     write_shapefile(shapefile, has_geo, geo, m_images[m_polyLayerIndex].polyVec);
+  }
+  
+  // Save the currently created vector layer
+  void MainWidget::saveVectorLayerAsTextFile(){
+    
+    if (m_polyLayerIndex < m_beg_image_id || m_polyLayerIndex >= m_end_image_id){
+      popUp("Images are inconsistent. Cannot save vector layer.");
+      return;
+    }
+    
+    std::string textFile = m_images[m_polyLayerIndex].name;
+    textFile =  boost::filesystem::path(textFile).replace_extension(".txt").string();
+    QString qtextFile = QFileDialog::getSaveFileName(this,
+                                                    tr("Save text file"), textFile.c_str(),
+                                                    tr("(*.txt)"));
+
+    textFile = qtextFile.toStdString();
+    if (textFile == "") 
+      return;
+
+    bool has_geo = m_images[m_polyLayerIndex].has_georef;
+    vw::cartography::GeoReference const& geo = m_images[m_polyLayerIndex].georef;
+
+    // TODO(oalexan1): What if there are polygons for many images?
+    vw_out() << "Writing: " << textFile << std::endl;
+    vw::geometry::dPoly poly; // Put all the polygons into a single poly structure
+    for (size_t polyIter = 0; polyIter < m_images[m_polyLayerIndex].polyVec.size(); polyIter++)
+      poly.appendPolygons(m_images[m_polyLayerIndex].polyVec[polyIter]);
+    
+    std::string defaultColor = "green";
+    bool emptyLineAsSeparator = true; // Don't want to use a "NEXT" statement as separator
+    poly.writePoly(textFile, defaultColor, emptyLineAsSeparator);
   }
   
   // Contour the current image
@@ -3272,7 +3306,8 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     m_showPolysFilled->setVisible(m_polyEditMode);
 
     // Add the saving polygon option even when not editing
-    m_saveVectorLayer->setVisible(true);
+    m_saveVectorLayerAsShapeFile->setVisible(true);
+    m_saveVectorLayerAsTextFile->setVisible(true);
     
     m_mergePolys->setVisible(m_polyEditMode);
     
