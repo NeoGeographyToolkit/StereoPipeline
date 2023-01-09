@@ -24,6 +24,8 @@
 #define __ASP_CORE_COVARIANCE_H__
 
 #include <vw/Math/Vector.h>
+#include <vw/Math/Matrix.h>
+#include <vw/Camera/CameraModel.h>
 
 namespace asp {
 
@@ -41,6 +43,20 @@ namespace asp {
 
   // Number of nominal and perturbed cameras when the covariance is computed
   int numCamsForCovariance();
+
+  // Given two cameras and a pixel in each camera image, compute the
+  // Jacobian of the transformation which goes from the joint vector
+  // of satellite positions and quaternions to the triangulated point,
+  // with this point then converted to North-East-Down, and computing
+  // (sqrt(x^2 + y^2), z). This will be used to find the horizontal
+  // and vertical triangulated point covariances given the input
+  // satellite covariances. Use numerical differentiation.
+  // Works only for Maxar (DigitalGlobe) cameras.
+  void triangulationJacobian(vw::camera::CameraModel const* cam1,
+                             vw::camera::CameraModel const* cam2,
+                             vw::Vector2 const& pix1,
+                             vw::Vector2 const& pix2,
+                             vw::Matrix<double> & J);
   
 } // end namespace asp
 

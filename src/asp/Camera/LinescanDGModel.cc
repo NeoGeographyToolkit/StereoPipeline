@@ -44,7 +44,7 @@ boost::posix_time::ptime parse_dg_time(std::string str) {
   return boost::posix_time::time_from_string(str); // Never reached!
 }
   
-vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
+vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
 
   // Parse the Digital Globe XML file
   GeometricXML geo;
@@ -63,6 +63,9 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
 		 << e.what() << "\n");
   }
 
+  if (stereo_settings().dg_use_csm) 
+    vw_out() << "Using the CSM model with DigitalGlobe cameras.\n";
+  
   // Get an estimate of the surface elevation from the corners specified in the file.
   // - Not every file has this information, in which case we will just use zero.
   double mean_ground_elevation = 0.0;
@@ -147,7 +150,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
   int num_cams = 1;
   if (asp::stereo_settings().compute_point_cloud_covariances)
     num_cams = numCamsForCovariance();
-  
+
   for (int cam_it = 0; cam_it < num_cams; cam_it++) {
     vw::Vector<double, 3> dp = asp::positionDelta(cam_it);
     vw::Vector<double, 4> dq = asp::quatDelta(cam_it);
@@ -212,11 +215,8 @@ DGCameraModel::DGCameraModel
     DGCameraModelBase(position, velocity, pose, time, image_size, detector_origin, focal_length,
                       mean_ground_elevation, correct_velocity, correct_atmosphere) {
 
-  if (stereo_settings().dg_use_csm) 
-    vw_out() << "Using the CSM model with DigitalGlobe cameras.\n";
-
   // It is convenient to have the CSM model exist even if it is not used.
-  // The cam_test.cc and jitter_solve.cc tool uses this assumption.
+  // The cam_test.cc and jitter_solve.cc tools uses this assumption.
   populateCsmModel();
 }
   
@@ -416,7 +416,7 @@ void DGCameraModel::getQuaternions(const double& time, double q[4]) const {
 
   if (!stereo_settings().dg_use_csm)
     vw::vw_throw(vw::ArgumentErr()
-                 << "getQuaternions: It was expected the CSM model was used.\n");
+                 << "getQuaternions: It was expected that the CSM model was used.\n");
     
   int nOrder = 8;
   if (m_ls_model->m_platformFlag == 0)

@@ -15,9 +15,11 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <asp/Core/Covariance.h>
-
 // Logic for propagation of covariance through stereo triangulation 
+
+#include <asp/Core/Covariance.h>
+#include <asp/Camera/LinescanDGModel.h>
+#include <iostream>
 
 namespace asp {
 
@@ -82,6 +84,30 @@ int numCamsForCovariance() {
   // One nominal camera. Then one positive and negative perturbation
   // for each position (3) and quaternion (4).
   return 15; 
+}
+
+// See the .h file for the description
+void triangulationJacobian(vw::camera::CameraModel const* cam1,
+                           vw::camera::CameraModel const* cam2,
+                           vw::Vector2 const& pix1,
+                           vw::Vector2 const& pix2,
+                           vw::Matrix<double> & J) {
+  std::cout << "--now in triangulationJacobian" << std::endl;
+
+  // Load the cameras
+  DGCameraModel const* dg_cam1 = dynamic_cast<DGCameraModel const*>(cam1);
+  DGCameraModel const* dg_cam2 = dynamic_cast<DGCameraModel const*>(cam2);
+  if (dg_cam1 == NULL || dg_cam2 == NULL) 
+    vw::vw_throw(vw::ArgumentErr() << "Expecting DG cameras.\n");
+
+  // Numerical differences will be used. Camera models with deltaPosition and deltaQuat
+  // perturbations have already been created in LinescanDGModel.cc.
+  // TODO(oalexan1): Support adjusted cameras and mapprojection.
+
+  std::cout << "--got cams " << dg_cam1 << ' ' << dg_cam2 << std::endl;
+
+  exit(0);
+  
 }
   
 } // end namespace asp
