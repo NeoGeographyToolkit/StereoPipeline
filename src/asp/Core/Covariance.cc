@@ -25,7 +25,7 @@ namespace asp {
 // measured in normalized quaternions, to be used for numerical differencing.
 // One has to be mindful of the fact that the positions are on the order of
 // 7.0e6 meters given the distance from satellite to Earth center in ECEF,
-// so the position should not be that large.
+// so the position delta should not be too tiny.
 // TODO(oalexan1): Need to experiment with both of these, especially
 // deltaQuat.
 const double deltaPosition = 0.01; // measured in meters

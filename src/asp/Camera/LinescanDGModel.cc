@@ -152,8 +152,6 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
     vw::Vector<double, 3> dp = asp::positionDelta(cam_it);
     vw::Vector<double, 4> dq = asp::quatDelta(cam_it);
 
-    std::cout << "--perturbation " << cam_it << ' ' << dp << ' ' << dq << std::endl;
-    
     // Convert ephemeris from satellite to camera position. Change
     // attitude to be the rotation from camera frame to world
     // frame. We also add an additional 90 degree rotation to the
@@ -169,7 +167,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path){
       // The dq perturbations are chosen under the assumption that q is normalized
       double len = norm_2(q);
       if (len > 0 && asp::stereo_settings().compute_point_cloud_covariances) 
-        q = q / norm_2(q);
+        q = q / norm_2(q); // Normalization is not needed without covariance logic
       q = q + dq;
       vw::Quat qt(q[3], q[0], q[1], q[2]); // Note the swapping, the order is now w, x, y, z.
       camera_position_vec[i] = p + qt.rotate(geo.perspective_center);
