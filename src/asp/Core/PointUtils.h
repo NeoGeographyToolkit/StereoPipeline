@@ -48,7 +48,7 @@ namespace asp {
   class BaseOptions;
 
   /// A Data structure which converts from CSV to Cartesian and vice-versa.
-  class CsvConv{
+  class CsvConv {
 
   public: // Definitions
 
@@ -69,7 +69,7 @@ namespace asp {
 
     /// Default Constructor, the object is not ready to use.
     CsvConv() : format(XYZ), utm_zone(-1), utm_north(false),
-                num_targets(0) {}
+                num_fields(0) {}
 
     bool      is_configured() const {return csv_format_str != "";}
     CsvFormat get_format   () const {return format;}
@@ -80,7 +80,8 @@ namespace asp {
 
     /// Initialize using a pair of CSV format strings
     void parse_csv_format(std::string const& csv_format_str,
-                          std::string const& csv_proj4_str);
+                          std::string const& csv_proj4_str,
+                          int min_num_fields = 3);
 
     /// If the user passed in a csv file containing easting, northing, height
     /// above datum, and either a utm zone or a custom proj4 string,
@@ -147,7 +148,7 @@ namespace asp {
     CsvFormat   format;
     int         utm_zone;
     bool        utm_north;
-    int         num_targets; ///< The number of elements to extract from each CSV line
+    int         num_fields; ///< The number of elements to extract from each CSV line
     
     friend class CsvReader;
 
@@ -207,6 +208,9 @@ namespace asp {
   /// A valid line is not empty and does not start with '#'.
   bool is_valid_csv_line(std::string const& line);
 
+  /// If a line has spaces only
+  bool hasSpacesOnly(std::string const& str);
+  
   /// Returns the number of points contained in a CSV file
   std::int64_t csv_file_size(std::string const& file);
 

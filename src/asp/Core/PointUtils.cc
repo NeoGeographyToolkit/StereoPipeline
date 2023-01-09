@@ -410,12 +410,13 @@ int asp::CsvConv::get_sorted_index_for_name(std::string const& name){
   vw_throw( ArgumentErr() << "Unsupported column name: " << name );
 }
 
+// Parse the CSV format string and build the data structure which
+// will enable to convert from CSV to Cartesian and vice-versa.
+// The user specifies 3 fields that determine the coordinate.
+// If min_num_fields 2, autocomplete the third value to 0.
 void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
-                                    std::string const& csv_proj4_str){
-
-  // Parse the CSV format string and build the data structure which
-  // will enable to convert from CSV to Cartesian and vice-versa.
-  // - The user specifies THREE values that determine the coordinate.
+                                    std::string const& csv_proj4_str,
+                                    int min_num_fields) {
 
   // Make sure that these custom terms do not appear in the proj4 string.
   if ((csv_proj4_str.find("D_MOON") != std::string::npos) ||
@@ -439,7 +440,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
   boost::replace_all(local, ",", " ");
   std::istringstream is(local);
 
-  // The case of utm: "utm:23N 1:x 2:y 3:height_above_datum".  Parse
+  // The case of utm: "utm:23N 1:x 2:y 3:height_above_datum". Parse
   // the initial bit to get utm_zone and utm_north, leave the rest
   // alone.
   std::string str;
@@ -462,33 +463,49 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
 
     // Convert to zero-based indexing and error check
     col--;
-    if ( (col<0) || (this->col2name.count(col)) )
+    if (col < 0 || this->col2name.count(col))
       vw_throw(ArgumentErr() << "Illegal column index in: '" << csv_format_str << "'\n");
-
+    
     // Store in the lookup maps
     this->name2col[name] = col;
-    this->col2name[col ] = name;
+    this->col2name[col]  = name;
   }
-  this->num_targets = this->name2col.size();
-  const int NUM_POINT_VALS  = 3;
-  const int MIN_NUM_TARGETS = NUM_POINT_VALS;
-  const int MAX_NUM_TARGETS = NUM_POINT_VALS + 1; // Location and a file
-  if ((this->num_targets < MIN_NUM_TARGETS) || (this->num_targets > MAX_NUM_TARGETS))
+  this->num_fields = this->name2col.size();
+  const int MAX_NUM_FIELDS = 4; // Location and a file
+  if ((this->num_fields < min_num_fields) || (this->num_fields > MAX_NUM_FIELDS))
     vw_throw(ArgumentErr() << "Invalid number of column indices in: '" << csv_format_str << "'\n");
-
+  if (min_num_fields < 2) 
+    vw::vw_throw(vw::ArgumentErr() << "Expecting at least two fields in the csv format.\n");
+  
   // Sort the names into a pre-specified order.
-  std::vector<std::string> sorted_names(this->num_targets);
-  for (auto it = this->name2col.begin(); it != this->name2col.end() ; it++){
+  std::vector<std::string> sorted_names(this->num_fields);
+  for (auto it = this->name2col.begin(); it != this->name2col.end(); it++){
     int index = get_sorted_index_for_name(it->first);
     sorted_names[index] = it->first;
-    if (index < NUM_POINT_VALS) // Currently only the point data goes into a vector
+    if (it->first != "file") // Only the point data goes into a vector, not the filename
       this->col2sort[it->second] = index;
   }
 
+  // If only two fields are set, auto-complete the third. Values for that field
+  // will be set to 0. This makes it convenient to use many of the functions
+  // expecting 3 fields.
+  if (this->num_fields == 2 && sorted_names.size() == 2) {
+    if (sorted_names[0] == "x" && sorted_names[1] == "y")
+      sorted_names.push_back("z");
+    else if (sorted_names[0] == "lon" && sorted_names[1] == "lat")
+      sorted_names.push_back("height_above_datum");
+    else if (sorted_names[0] == "easting"  && sorted_names[1] == "northing")
+      sorted_names.push_back("height_above_datum");
+    else if (sorted_names[0] == "pixel_x" && sorted_names[1] == "pixel_y")
+      sorted_names.push_back("pixel_val");
+    else
+      sorted_names.push_back("not_found"); // will trigger a failure below
+  }
+  
   // From the input strings, determine which set type applies to this file.
   if (sorted_names[0] == "x" &&
       sorted_names[1] == "y" &&
-      sorted_names[2] == "z"){
+      sorted_names[2] == "z") {
     this->format = XYZ;
   }else if (sorted_names[0] == "lon" &&
             sorted_names[1] == "lat" &&
@@ -560,23 +577,22 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
   int num_values_read = 0;
 
   CsvRecord values;
-  // Be prepared for the fact that the first line may be the header,
-  // so almost certainly we won't read it correctly, but don't
-  // complain about it.
-  if (!line.empty() && line[0] == '#') {
+
+  // Quietly ignore empty lines, lines with spaces only, and lines starting with comments
+  if (line.empty() || line[0] == '#' || hasSpacesOnly(line)) {
     success = false;
     is_first_line = false;
     return values;
   }
-
+  
   char * ptr = temp;
-  while(1){
+  while (1) {
 
     col_index++; // Increment the column counter
     const char* token = strtok(ptr, sep.c_str());  // Split line on seperator char
     ptr = NULL; // After the first call, strtok expects a null pointer as input.
     if (token == NULL) break; // no more tokens
-    if (num_values_read >= this->num_targets) break; // read enough values
+    if (num_values_read >= this->num_fields) break; // read enough values
 
     // Check if this is one of the columns we need to read
     if (this->col2name.find(col_index) == this->col2name.end())
@@ -599,11 +615,11 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
 
   } // End loop through columns
   
-  if (num_values_read != this->num_targets)
+  if (num_values_read != this->num_fields)
     success = false;
 
-  if (!success){
-    if (!is_first_line){
+  if (!success) {
+    if (!is_first_line) {
       // Not the header
       vw_out () << "Failed to read line: " << line << "\n";
     }
@@ -781,7 +797,6 @@ vw::Vector3 asp::CsvConv::csv_to_geodetic(CsvRecord const& csv,
   }
   return llh;
 }
-
 
 vw::Vector2 asp::CsvConv::csv_to_lonlat(CsvRecord const& csv,
                                         vw::cartography::GeoReference const& geo) const {
@@ -1031,16 +1046,21 @@ void asp::parse_utm_str(std::string const& utm, int & zone, bool & north){
     vw_throw(ArgumentErr() << "Could not parse UTM string: '" << utm << "'\n");
 }
 
-bool asp::is_valid_csv_line(std::string const& line){
-  // A valid line is not empty and does not start with '#' and does not have spaces only.
-
+bool asp::hasSpacesOnly(std::string const& str) {
   bool only_spaces = true;
-  for (size_t it = 0; it < line.size(); it++) {
-    if (line[it] != ' ' && line[it] != '\n' && line[it] != '\t') {
+  for (size_t it = 0; it < str.size(); it++) {
+    if (str[it] != ' ' && str[it] != '\n' && str[it] != '\t') {
       only_spaces = false;
       break;
     }
   }
+  return only_spaces;
+}
+
+bool asp::is_valid_csv_line(std::string const& line) {
+  // A valid line is not empty and does not start with '#' and does not have spaces only.
+
+  bool only_spaces = hasSpacesOnly(line);
   
   return (!only_spaces) && (!line.empty()) && (line[0] != '#');
 }
