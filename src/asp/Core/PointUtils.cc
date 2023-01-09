@@ -614,8 +614,9 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
     num_values_read++;
 
   } // End loop through columns
-  
-  if (num_values_read != this->num_fields)
+
+  // Check if enough values were read and for NaN values
+  if (num_values_read != this->num_fields || values.point_data != values.point_data)
     success = false;
 
   if (!success) {
@@ -629,12 +630,19 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
   return values;
 }
 
-
 size_t asp::CsvConv::read_csv_file(std::string    const & file_path,
-				   std::list<CsvRecord> & output_list) const {
+				   std::list<CsvRecord> & output_list,
+                                   // Store contiguous blocks here, if needed to assemble polygons
+                                   std::vector<int> * contiguous_blocks) const {
+
   // Clear output object
   output_list.clear();
 
+  if (contiguous_blocks != NULL) {
+    contiguous_blocks->clear();  
+    contiguous_blocks->push_back(0);
+  }
+  
   // Open input file
   std::ifstream file( file_path.c_str() );
   if (!file)
@@ -642,15 +650,32 @@ size_t asp::CsvConv::read_csv_file(std::string    const & file_path,
 
   // Read through all the lines of the input file, parse each line, and build the output list.
   bool success;
-  bool first_line = true;
+  bool first_line = true; // TODO(oalexan1): Wipe this variable.
   std::string line = "";
-  while ( std::getline(file, line, '\n') ){
+  while (std::getline(file, line, '\n')){
     CsvRecord new_record = asp::CsvConv::parse_csv_line(first_line, success, line);
-    if (success)
+    if (success) {
+
       output_list.push_back(new_record);
+      if (contiguous_blocks != NULL)
+        contiguous_blocks->back()++; // add an element
+
+    } else {
+      
+      if (contiguous_blocks != NULL && contiguous_blocks->back() > 0) 
+        contiguous_blocks->push_back(0);         // Add a new block
+
+    }
+    
     first_line = false;
   }
 
+  if (contiguous_blocks != NULL) {
+    // Wipe all blocks of length 0. Likely there is only one at the end.
+    std::vector<int> & v = *contiguous_blocks; // alias
+    v.erase(std::remove(v.begin(), v.end(), 0), v.end());
+  }
+  
   file.close();
 
   return output_list.size();
