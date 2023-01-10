@@ -157,7 +157,7 @@ void calc_translation_vec(DP const& source, DP const& trans_source,
                           vw::Vector3 & trans_xyz,
                           vw::Vector3 & trans_ned,
                           vw::Vector3 & trans_llh,
-                          vw::Matrix3x3 & NED2ECEF);
+                          vw::Matrix3x3 & NedToEcef);
 
 /// Calculate max distance between any two points of two point clouds.
 double calc_max_displacment(DP const& source, DP const& trans_source);

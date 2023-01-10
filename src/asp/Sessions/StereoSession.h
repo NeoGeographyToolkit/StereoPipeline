@@ -128,12 +128,12 @@ namespace asp {
 
     // If we have adjusted camera models, load them. The adjustment
     // may be in the rotation matrix, camera center, or pixel offset.
+    // Otherwise return unadjusted cameras.
     static boost::shared_ptr<vw::camera::CameraModel>
     load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
                         std::string const& image_file,
                         std::string const& camera_file,
                         vw::Vector2 const& pixel_offset);
-
 
     /// Returns the target datum to use for a given camera model.
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,

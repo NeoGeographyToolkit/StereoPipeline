@@ -50,7 +50,12 @@
 
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
+
+// Can't do much about external warnings except hide them
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <FastGlobalRegistration/app.h>
+#pragma GCC diagnostic pop
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/EulerAngles.h>
@@ -1079,8 +1084,8 @@ PointMatcher<RealT>::Matrix ned_to_caresian_transform(vw::cartography::Datum con
   vw::Vector3 ned = vw::str_to_vec<vw::Vector3>(ned_str);
 
   vw::Vector3 loc_llh = datum.cartesian_to_geodetic(location);
-  vw::Matrix3x3 M = datum.lonlat_to_ned_matrix(subvector(loc_llh, 0, 2));
-  vw::Vector3 xyz_shift = M*ned;
+  vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(subvector(loc_llh, 0, 2));
+  vw::Vector3 xyz_shift = NedToEcef * ned;
   
   PointMatcher<RealT>::Matrix T = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
 
@@ -1462,10 +1467,10 @@ int main( int argc, char *argv[] ) {
     double max_obtained_disp = calc_max_displacment(source_point_cloud, trans_source_point_cloud);
     Vector3 source_ctr_vec, source_ctr_llh;
     Vector3 trans_xyz, trans_ned, trans_llh;
-    vw::Matrix3x3 NED2ECEF;
+    vw::Matrix3x3 NedToEcef;
     calc_translation_vec(initT, source_point_cloud, trans_source_point_cloud, shift,
 			 geo.datum(), source_ctr_vec, source_ctr_llh,
-                         trans_xyz, trans_ned, trans_llh, NED2ECEF);
+                         trans_xyz, trans_ned, trans_llh, NedToEcef);
 
     // For each point, compute the distance to the nearest reference point.
     PointMatcher<RealT>::Matrix end_errors;
@@ -1526,7 +1531,7 @@ int main( int argc, char *argv[] ) {
     // Subtract one before printing the scale, to see a lot of digits of precision
     vw_out() << "Transform scale - 1 = " << (scale-1.0) << std::endl;
     
-    Matrix3x3 rot_NED = inverse(NED2ECEF) * rot * NED2ECEF;
+    Matrix3x3 rot_NED = inverse(NedToEcef) * rot * NedToEcef;
    
     Vector3 euler_angles = math::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
     Vector3 euler_angles_NED = math::rotation_matrix_to_euler_xyz(rot_NED) * 180/M_PI;

@@ -1054,15 +1054,15 @@ vw::Vector2 StereoSession::camera_pixel_offset(std::string const& input_dem,
 
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-                                   std::string const& image_file,
-                                   std::string const& camera_file,
-                                   vw::Vector2 const& pixel_offset){
+                                  std::string const& image_file,
+                                  std::string const& camera_file,
+                                  vw::Vector2 const& pixel_offset){
 
   // Any tool using adjusted camera models must pre-populate the
   // prefix at which to find them.
   std::string ba_pref = stereo_settings().bundle_adjust_prefix;
   if (ba_pref == "" && pixel_offset == vw::Vector2())
-    return cam; // Just return if nothing is adjusting the camera
+    return cam; // Return the unadjusted cameras if there is no adjustment
 
   std::vector<Vector3> position_correction;
   std::vector<Quat   > pose_correction;
