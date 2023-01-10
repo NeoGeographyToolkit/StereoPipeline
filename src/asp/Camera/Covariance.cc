@@ -17,9 +17,14 @@
 
 // Logic for propagation of covariance through stereo triangulation 
 
-#include <asp/Core/Covariance.h>
+#include <asp/Camera/Covariance.h>
 #include <asp/Camera/LinescanDGModel.h>
+
+#include <vw/Stereo/StereoModel.h>
+
 #include <iostream>
+
+using namespace vw::camera;
 
 namespace asp {
 
@@ -33,7 +38,7 @@ namespace asp {
 const double deltaPosition = 0.01; // measured in meters
 const double deltaQuat     = 1.0e-6; // given that quaternions are normalized
 
-// Given 0 <= num < 15, return a perturbation in position.  The
+// Given 0 <= num < 15, return a perturbation in satellite position. The
 // starting one is the zero perturbation, then perturb first
 // coordinate in the positive and then negative direction, then same
 // for second and third coordinate. The rest of the perturbations are
@@ -87,26 +92,135 @@ int numCamsForCovariance() {
 }
 
 // See the .h file for the description
-void triangulationJacobian(vw::camera::CameraModel const* cam1,
-                           vw::camera::CameraModel const* cam2,
-                           vw::Vector2 const& pix1,
-                           vw::Vector2 const& pix2,
-                           vw::Matrix<double> & J) {
-  std::cout << "--now in triangulationJacobian" << std::endl;
+void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
+                                 vw::camera::CameraModel const* cam2,
+                                 vw::Vector2 const& pix1,
+                                 vw::Vector2 const& pix2,
+                                 vw::Matrix<double> & J) {
 
   // Load the cameras
-  DGCameraModel const* dg_cam1 = dynamic_cast<DGCameraModel const*>(cam1);
-  DGCameraModel const* dg_cam2 = dynamic_cast<DGCameraModel const*>(cam2);
+  const AdjustedCameraModel *adj_cam1 = dynamic_cast<const AdjustedCameraModel*>(cam1);
+  const AdjustedCameraModel *adj_cam2 = dynamic_cast<const AdjustedCameraModel*>(cam2);
+  if (adj_cam1 == NULL || adj_cam2 == NULL) {
+    // std::cout << "Cameras are not adjusted" << std::endl;
+  } else {
+    // TODO(oalexan1): Must apply the adjustments to the covariance.
+    // std::cout << "Camera are adjusted." << std::endl;
+  }
+  
+  // TODO(oalexan1): Support mapprojection.
+  
+  DGCameraModel const* dg_cam1 = dynamic_cast<DGCameraModel const*>(unadjusted_model(cam1));
+  DGCameraModel const* dg_cam2 = dynamic_cast<DGCameraModel const*>(unadjusted_model(cam2));
   if (dg_cam1 == NULL || dg_cam2 == NULL) 
     vw::vw_throw(vw::ArgumentErr() << "Expecting DG cameras.\n");
 
   // Numerical differences will be used. Camera models with deltaPosition and deltaQuat
-  // perturbations have already been created in LinescanDGModel.cc.
-  // TODO(oalexan1): Support adjusted cameras and mapprojection.
+  // perturbations have already been created in LinescanDGModel.cc using the positionDelta()
+  // and quatDelta() functions from above.
+  if (dg_cam1->perturbed_cams.empty() || dg_cam2->perturbed_cams.empty()) 
+    vw::vw_throw(vw::ArgumentErr() << "The perturbed cameras were not set up.\n");
+  
+  if (dg_cam1->perturbed_cams.size() != dg_cam2->perturbed_cams.size())
+    vw::vw_throw(vw::ArgumentErr()
+                 << "The number of perturbations in the two cameras do not agree.\n");
 
-  std::cout << "--got cams " << dg_cam1 << ' ' << dg_cam2 << std::endl;
+  // Find the camera center and direction for first unperturbed
+  // camera, and for the perturbed versions. Same for the second
+  // camera.
+  std::vector<vw::Vector3> cam1_dirs, cam1_ctrs, cam2_dirs, cam2_ctrs;
+  cam1_dirs.push_back(dg_cam1->pixel_to_vector(pix1));
+  cam1_ctrs.push_back(dg_cam1->camera_center(pix1));
+  cam2_dirs.push_back(dg_cam2->pixel_to_vector(pix2));
+  cam2_ctrs.push_back(dg_cam2->camera_center(pix2));
+  for (size_t it = 0; it < dg_cam1->perturbed_cams.size(); it++) {
+    cam1_dirs.push_back(dg_cam1->perturbed_cams[it]->pixel_to_vector(pix1));
+    cam1_ctrs.push_back(dg_cam1->perturbed_cams[it]->camera_center(pix1));
+    cam2_dirs.push_back(dg_cam2->perturbed_cams[it]->pixel_to_vector(pix2));
+    cam2_ctrs.push_back(dg_cam2->perturbed_cams[it]->camera_center(pix2));
+  }
 
-  exit(0);
+  // Nominal triangulation point
+  vw::Vector3 tri_nominal, err_nominal;
+  // If triangulation fails, it can return NaN
+  tri_nominal
+    = vw::stereo::triangulate_pair(cam1_dirs[0], cam1_ctrs[0], cam2_dirs[0], cam2_ctrs[0],
+                                   err_nominal);
+  if (tri_nominal != tri_nominal) // NaN
+    vw::vw_throw(vw::ArgumentErr() << "Could not triangulate.\n");
+
+  // The matrix to go from the NED coordinate system to the ECEF coordinate system
+  vw::cartography::Datum const& datum = dg_cam1->datum; // alias
+  vw::Vector3 llh = datum.cartesian_to_geodetic(tri_nominal);
+  vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(subvector(llh, 0, 2));
+  vw::Matrix3x3 EcefToNed = inverse(NedToEcef);
+
+  // TODO(oalexan1): Test here more the triangulation errors and now NED compares
+  // to lon-lat-height difference.
+  // std::cout << "tri " << tri_nominal << std::endl;
+  // std::cout << "err " << err_nominal << std::endl;
+  
+  // There are 14 input variables: 3 positions and 4 quaternions for
+  // cam1, and same for cam2. For each of them must compute a centered
+  // difference.  The output has two variables. As documented in the
+  // .h file for this function, the vector from nominal to perturbed
+  // triangulated point will be converted to North-East-Down
+  // coordinates at the nominal triangulated point.
+  J.set_size(3, 14);
+  J.set_zero();
+  for (int coord = 0; coord < 14; coord++) {
+
+    vw::Vector3 cam1_dir_plus, cam1_ctr_plus, cam2_dir_plus, cam2_ctr_plus;
+    vw::Vector3 cam1_dir_minus, cam1_ctr_minus, cam2_dir_minus, cam2_ctr_minus;
+    if (coord < 7) {
+      // The perturbed cameras store positive and negative
+      // perturbations, in alternating. See positionDelta() and
+      // quatDelta() for the book-keeping. Note that a perturbation in
+      // the satellite quaternion also affects the camera center,
+      // given how one converts from satellite to camera coordinates.
+
+      // Since at position 0 in cam_dirs we store the unperturbed
+      // values, add 1 below.
+      cam1_dir_plus  = cam1_dirs[2*coord + 1]; cam1_ctr_plus  = cam1_ctrs[2*coord + 1];
+      cam1_dir_minus = cam1_dirs[2*coord + 2]; cam1_ctr_minus = cam1_ctrs[2*coord + 2];
+    } else {
+      // When variables affecting second camera change, the first one stays at nominal value.
+      cam1_dir_plus  = cam1_dirs[0]; cam1_ctr_plus  = cam1_ctrs[0];
+      cam1_dir_minus = cam1_dirs[0]; cam1_ctr_minus = cam1_ctrs[0];
+    }
+
+    // For the second camera, the book-keeping is reversed
+    if (coord < 7) {
+      cam2_dir_plus  = cam2_dirs[0]; cam2_ctr_plus  = cam2_ctrs[0];
+      cam2_dir_minus = cam2_dirs[0]; cam2_ctr_minus = cam2_ctrs[0];
+    } else {
+      int coord2 = coord - 7; // has values 0, 1, ..., 6
+      cam2_dir_plus  = cam2_dirs[2*coord2 + 1]; cam2_ctr_plus  = cam2_ctrs[2*coord2 + 1];
+      cam2_dir_minus = cam2_dirs[2*coord2 + 2]; cam2_ctr_minus = cam2_ctrs[2*coord2 + 2];
+    }
+
+    vw::Vector3 tri_plus, err_plus, tri_minus, err_minus;
+    tri_plus = vw::stereo::triangulate_pair(cam1_dir_plus, cam1_ctr_plus,
+                                            cam2_dir_plus, cam2_ctr_plus, err_plus);
+    tri_minus = vw::stereo::triangulate_pair(cam1_dir_minus, cam1_ctr_minus,
+                                             cam2_dir_minus, cam2_ctr_minus, err_minus);
+
+    // Find the triangulated points in the local NED (horizontal-vertical)
+    // coordinate system.
+    vw::Vector3 ned_plus = EcefToNed * (tri_plus - tri_nominal);
+    vw::Vector3 ned_minus = EcefToNed * (tri_minus - tri_nominal);
+
+    // Find the numerical partial derivative, but do not divide by the spacing
+    // (deltaPosition or deltaQuat) as that makes the numbers huge. We will
+    // compensate for that when multiplying this scaled Jacobian by the covariance
+    // of the inputs by dividing those by squares of these delta values. That will
+    // help there as covariances are really tiny, and, in fact, on the order
+    // of the squares of the delta values.
+    vw::Vector3 ned_diff = (ned_plus - ned_minus)/2.0;
+
+    for (int row = 0; row < 3; row++) 
+      J(row, coord) = ned_diff[row];
+  }
   
 }
   

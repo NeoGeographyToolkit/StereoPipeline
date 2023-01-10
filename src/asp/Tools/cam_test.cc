@@ -35,6 +35,9 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 
+// Temporary header
+#include <asp/Camera/Covariance.h>
+
 using namespace vw;
 using namespace vw::cartography;
 namespace po = boost::program_options;
@@ -179,6 +182,29 @@ int main(int argc, char *argv[]) {
       vw_throw(ArgumentErr() << "The session names for both cameras "
                << "were guessed as: '" << opt.session1 << "'. It is suggested that they be "
                << "explicitly specified using --session1 and --session2.\n");
+
+#if 0
+    // Temporary test code
+    if (opt.test_covariance_computation) {
+      double major_axis = datum.semi_major_axis() + opt.height_above_datum;
+      double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
+
+      vw::Vector2 pix1(10000, 10000);
+      Vector3 cam1_dir = cam1_model->pixel_to_vector(pix1);
+      Vector3 cam1_ctr = cam1_model->camera_center(pix1);
+      
+      // Shoot a ray from the cam1 camera, intersect it with the
+      // given height above datum
+      Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+                                                          cam1_ctr, cam1_dir);
+      
+      // Project to second camera
+      vw::Vector2 pix2 = cam2_model->point_to_pixel(xyz);
+      
+      vw::Matrix<double> J;
+      asp::scaledTriangulationJacobian(cam1_model.get(), cam2_model.get(), pix1, pix2, J);
+    }
+#endif
     
     // Find the input image dimensions
     int image_cols = 0, image_rows = 0;

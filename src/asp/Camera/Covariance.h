@@ -20,8 +20,8 @@
 
 // Logic for propagation of covariance through stereo triangulation 
 
-#ifndef __ASP_CORE_COVARIANCE_H__
-#define __ASP_CORE_COVARIANCE_H__
+#ifndef __ASP_CAMERA_COVARIANCE_H__
+#define __ASP_CAMERA_COVARIANCE_H__
 
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
@@ -29,12 +29,12 @@
 
 namespace asp {
 
-  // Given 0 <= num < 15, return a perturbation in position.  The
+  // Given 0 <= num < 15, return a perturbation in position. The
   // starting one is the zero perturbation, then perturb first
   // coordinate in the positive and then negative direction, then same
-  // for second and third coordinate. The rest of the perturbations are
-  // 0 as those indices are used to perturb the quaternions.
-  // So, return (0, 0, 0), (deltaPosition, 0, 0), (-deltaPosition, 0, 0)
+  // for second and third coordinate. The rest of the perturbations
+  // are 0 as those indices are used to perturb the quaternions.  So,
+  // return (0, 0, 0), (deltaPosition, 0, 0), (-deltaPosition, 0, 0)
   // (0, deltaPosition, 0), and so on.
   vw::Vector<double, 3> positionDelta(int num);
 
@@ -44,20 +44,29 @@ namespace asp {
   // Number of nominal and perturbed cameras when the covariance is computed
   int numCamsForCovariance();
 
-  // Given two cameras and a pixel in each camera image, compute the
-  // Jacobian of the transformation which goes from the joint vector
-  // of satellite positions and quaternions to the triangulated point,
-  // with this point then converted to North-East-Down, and computing
-  // (sqrt(x^2 + y^2), z). This will be used to find the horizontal
-  // and vertical triangulated point covariances given the input
-  // satellite covariances. Use numerical differentiation.
-  // Works only for Maxar (DigitalGlobe) cameras.
-  void triangulationJacobian(vw::camera::CameraModel const* cam1,
-                             vw::camera::CameraModel const* cam2,
-                             vw::Vector2 const& pix1,
-                             vw::Vector2 const& pix2,
-                             vw::Matrix<double> & J);
+  // Given two cameras and a pixel in each camera image, consider the
+  // following transform. Go from the perturbed joint vector of
+  // satellite positions and quaternions for this pixel pair to the
+  // perturbed triangulated point. Then, the vector from nominal to
+  // perturbed triangulation point is converted to North-East-Down
+  // relative to the nominal point. Use numerical differentiation to
+  // find the Jacobian of this transform with centered
+  // differences. This will be used to find the NED covariances given
+  // the input satellite covariances. This works only for Maxar
+  // (DigitalGlobe) cameras. This may throw exceptions.  Do not divide
+  // the numerical derivatives by deltaPosition and deltaQuat, but
+  // only by 2.0 (since these are centered differences). That is
+  // because this makes the partial derivatives in quaternion huge and
+  // is not good for numerical stability. We will compensate for this
+  // when we multiply by the actual covariances, which are huge, so
+  // those will be pre-multiplied by the squares of deltaPosition and
+  // deltaQuat.
+  void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
+                                   vw::camera::CameraModel const* cam2,
+                                   vw::Vector2 const& pix1,
+                                   vw::Vector2 const& pix2,
+                                   vw::Matrix<double> & J);
   
 } // end namespace asp
 
-#endif//__ASP_CORE_COVARIANCE_H__
+#endif//__ASP_CAMERA_COVARIANCE_H__

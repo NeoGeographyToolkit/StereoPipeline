@@ -19,7 +19,7 @@
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/CsmModel.h>
-#include <asp/Core/Covariance.h>
+#include <asp/Camera/Covariance.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/Utilities.h>
@@ -202,21 +202,24 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
 
 // Constructor
 DGCameraModel::DGCameraModel
-  (vw::camera::PiecewiseAPositionInterpolation      const& position,
-   vw::camera::LinearPiecewisePositionInterpolation const& velocity,
-   vw::camera::SLERPPoseInterpolation               const& pose,
-   vw::camera::TLCTimeInterpolation                 const& time,
-   vw::Vector2i                                     const& image_size, 
-   vw::Vector2                                      const& detector_origin,
-   double                                           const  focal_length,
-   double                                           const  mean_ground_elevation,
-   bool                                                    correct_velocity,
-   bool                                                    correct_atmosphere):
-    DGCameraModelBase(position, velocity, pose, time, image_size, detector_origin, focal_length,
-                      mean_ground_elevation, correct_velocity, correct_atmosphere) {
-
+(vw::camera::PiecewiseAPositionInterpolation      const& position,
+ vw::camera::LinearPiecewisePositionInterpolation const& velocity,
+ vw::camera::SLERPPoseInterpolation               const& pose,
+ vw::camera::TLCTimeInterpolation                 const& time,
+ vw::Vector2i                                     const& image_size, 
+ vw::Vector2                                      const& detector_origin,
+ double                                           const  focal_length,
+ double                                           const  mean_ground_elevation,
+ bool                                                    correct_velocity,
+ bool                                                    correct_atmosphere):
+  DGCameraModelBase(position, velocity, pose, time, image_size, detector_origin, focal_length,
+                    mean_ground_elevation, correct_velocity, correct_atmosphere) {
+  
+  datum = vw::cartography::Datum("WGS84"); // this sensor is used for Earth only
+  
   // It is convenient to have the CSM model exist even if it is not used.
   // The cam_test.cc and jitter_solve.cc tools uses this assumption.
+  // Soon the other implementation will go away and this will be the default.
   populateCsmModel();
 }
   
@@ -231,9 +234,8 @@ void DGCameraModel::populateCsmModel() {
   // 2,002,252.25.
   m_csm_model.reset(new CsmModel);
   m_csm_model->m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
-  vw::cartography::Datum datum("WGS84"); // this sensor is used for Earth only
-  m_csm_model->m_semi_major_axis = datum.semi_major_axis();
-  m_csm_model->m_semi_minor_axis = datum.semi_minor_axis();
+  m_csm_model->m_semi_major_axis = datum.semi_major_axis(); // WGS84
+  m_csm_model->m_semi_minor_axis = datum.semi_minor_axis(); // WGS84
     
   // Create a linescan model as a smart pointer, and do smart pointer
   // casting Follow the CSM API. The type of m_gm_model is

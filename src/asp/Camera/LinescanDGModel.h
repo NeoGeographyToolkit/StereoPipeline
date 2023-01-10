@@ -30,6 +30,7 @@
 #include <vw/Camera/LinescanModel.h>
 #include <vw/Camera/Extrinsics.h>
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Cartography/Datum.h>
 #include <vw/Math/EulerAngles.h>
 
 // Forward declaration
@@ -312,6 +313,9 @@ namespace asp {
     // to the CSM linescan model, which is of type UsgsAstroLsSensorModel.
     boost::shared_ptr<CsmModel> m_csm_model; // wrapper
     boost::shared_ptr<UsgsAstroLsSensorModel> m_ls_model; // actual model
+
+    // The datum is hard-coded to WGS84
+    vw::cartography::Datum datum;
 
     // For covariance computation
     std::vector<vw::CamPtr> perturbed_cams;
