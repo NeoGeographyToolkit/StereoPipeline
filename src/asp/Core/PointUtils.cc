@@ -655,16 +655,12 @@ size_t asp::CsvConv::read_csv_file(std::string    const & file_path,
   while (std::getline(file, line, '\n')){
     CsvRecord new_record = asp::CsvConv::parse_csv_line(first_line, success, line);
     if (success) {
-
       output_list.push_back(new_record);
       if (contiguous_blocks != NULL)
         contiguous_blocks->back()++; // add an element
-
     } else {
-      
       if (contiguous_blocks != NULL && contiguous_blocks->back() > 0) 
         contiguous_blocks->push_back(0);         // Add a new block
-
     }
     
     first_line = false;
