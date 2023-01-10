@@ -162,7 +162,7 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
   
   // There are 14 input variables: 3 positions and 4 quaternions for
   // cam1, and same for cam2. For each of them must compute a centered
-  // difference.  The output has two variables. As documented in the
+  // difference.  The output has 3 variables. As documented in the
   // .h file for this function, the vector from nominal to perturbed
   // triangulated point will be converted to North-East-Down
   // coordinates at the nominal triangulated point.
@@ -174,10 +174,11 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
     vw::Vector3 cam1_dir_minus, cam1_ctr_minus, cam2_dir_minus, cam2_ctr_minus;
     if (coord < 7) {
       // The perturbed cameras store positive and negative
-      // perturbations, in alternating. See positionDelta() and
+      // perturbations, in alternating order. See positionDelta() and
       // quatDelta() for the book-keeping. Note that a perturbation in
       // the satellite quaternion also affects the camera center,
-      // given how one converts from satellite to camera coordinates.
+      // given how one converts from satellite to camera coordinates
+      // when the DG model is created.
 
       // Since at position 0 in cam_dirs we store the unperturbed
       // values, add 1 below.
@@ -210,12 +211,14 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
     vw::Vector3 ned_plus = EcefToNed * (tri_plus - tri_nominal);
     vw::Vector3 ned_minus = EcefToNed * (tri_minus - tri_nominal);
 
-    // Find the numerical partial derivative, but do not divide by the spacing
-    // (deltaPosition or deltaQuat) as that makes the numbers huge. We will
-    // compensate for that when multiplying this scaled Jacobian by the covariance
-    // of the inputs by dividing those by squares of these delta values. That will
-    // help there as covariances are really tiny, and, in fact, on the order
-    // of the squares of the delta values.
+    // Find the numerical partial derivative, but do not divide by the
+    // spacing (deltaPosition or deltaQuat) as that makes the numbers
+    // huge. We will compensate for when use use this Jacobian to
+    // propagate the satellite position and quaternion covariances
+    // (matrix SC), by the formula J * SC * J^T. Then, we will divide SC
+    // by these squared delta quantities, which is the right thing to
+    // do, because the values in SC are tiny, and, in fact, on the
+    // order of the squares of the delta values.
     vw::Vector3 ned_diff = (ned_plus - ned_minus)/2.0;
 
     for (int row = 0; row < 3; row++) 
