@@ -381,7 +381,7 @@ def main():
                               help="Number of threads to use.",type="int")
             parser.add_option("-m", "--match", dest="match",type="int",
                               help="CCD number of match CCD, passed as the match argument to noproj (default 5).")
-            parser.add_option("-w", "--web", dest="web",
+            parser.add_option("-w", "--web", action="store_true", dest="web",
                               help="Uses spiceinit web (default False).")
             parser.add_option("-k", "--keep", action="store_false",
                               dest="delete",
