@@ -202,9 +202,9 @@ def histitch( cub_files, threads, delete=False ):
         for cub in to_del_cubs: os.remove( cub )
     return histitch_cubs
 
-def spice( cub_files, threads):
+def spice( cub_files, threads, web):
     for cub in cub_files:
-        cmd = 'spiceinit from= '+ cub
+        cmd = f'spiceinit WEB={web} from={cub}'
         add_job(cmd, threads)
     wait_on_all_jobs()
     for cub in cub_files:
@@ -365,11 +365,12 @@ def get_ccd(path):
 def main():
     try:
         try:
-            usage = "usage: hiedr2mosaic.py [--help][--manual][--threads N][--keep][-m match] HiRISE-EDR.IMG-files\n  " + get_asp_version()
+            usage = "usage: hiedr2mosaic.py [--help][--manual][--threads N][--keep][-m match][-w bool] HiRISE-EDR.IMG-files\n  " + get_asp_version()
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(delete=True)
             parser.set_defaults(match=5)
             parser.set_defaults(threads=4)
+            parser.set_defaults(web=False)
             parser.add_option("--manual", action="callback", callback=man,
                               help="Read the manual.")
             parser.add_option("--stop-at-no-proj", dest="stop_no_proj", action="store_true",
@@ -380,11 +381,14 @@ def main():
                               help="Number of threads to use.",type="int")
             parser.add_option("-m", "--match", dest="match",type="int",
                               help="CCD number of match CCD, passed as the match argument to noproj (default 5).")
+            parser.add_option("-w", "--web", dest="web",
+                              help="Uses spiceinit web (default False).")
             parser.add_option("-k", "--keep", action="store_false",
                               dest="delete",
                               help="Will not delete intermediate files.")
             parser.add_option("--download-folder", dest="download_folder", default=None,
                               help="Download files to this folder. Hence the second argument to this is the URL of the page to download the files from.")
+            
 
             (options, args) = parser.parse_args()
 
@@ -426,7 +430,7 @@ def main():
             histitched = histitch( hicaled, options.threads, options.delete )
 
             # attach spice
-            spice( histitched, options.threads )
+            spice( histitched, options.threads, options.web)
 
         if options.stop_no_proj:
             print("Finished")
