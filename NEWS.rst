@@ -18,8 +18,7 @@ stereo_gui:
 
 misc: 
    * Added to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`) the option
-   * ``--web`` to invoke ``spiceinit``
-     with ``web=True``.
+   * ``--web`` to invoke ``spiceinit`` with ``web=True``.
    * Bugfix for reading .jp2 files. Needed to ship the JPEG2000 driver
      and set GDAL_DRIVER_PATH.
 
