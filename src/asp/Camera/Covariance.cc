@@ -33,8 +33,6 @@ namespace asp {
 // One has to be mindful of the fact that the positions are on the order of
 // 7.0e6 meters given the distance from satellite to Earth center in ECEF,
 // so the position delta should not be too tiny.
-// TODO(oalexan1): Need to experiment with both of these, especially
-// deltaQuat.
 const double deltaPosition = 0.01; // measured in meters
 const double deltaQuat     = 1.0e-6; // given that quaternions are normalized
 
@@ -44,7 +42,7 @@ const double deltaQuat     = 1.0e-6; // given that quaternions are normalized
 // for second and third coordinate. The rest of the perturbations are
 // 0 as those indices are used to perturb the quaternions.
 // So, return (0, 0, 0), (deltaPosition, 0, 0), (-deltaPosition, 0, 0)
-// (0, deltaPosition, 0), and so on.
+// (0, deltaPosition, 0), (0, -deltaPosition, 0), and so on.
 vw::Vector<double, 3> positionDelta(int num) {
 
   vw::Vector<double, 3> ans; // this is 0
@@ -118,10 +116,10 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
   // Numerical differences will be used. Camera models with deltaPosition and deltaQuat
   // perturbations have already been created in LinescanDGModel.cc using the positionDelta()
   // and quatDelta() functions from above.
-  if (dg_cam1->perturbed_cams.empty() || dg_cam2->perturbed_cams.empty()) 
+  if (dg_cam1->m_perturbed_cams.empty() || dg_cam2->m_perturbed_cams.empty()) 
     vw::vw_throw(vw::ArgumentErr() << "The perturbed cameras were not set up.\n");
   
-  if (dg_cam1->perturbed_cams.size() != dg_cam2->perturbed_cams.size())
+  if (dg_cam1->m_perturbed_cams.size() != dg_cam2->m_perturbed_cams.size())
     vw::vw_throw(vw::ArgumentErr()
                  << "The number of perturbations in the two cameras do not agree.\n");
 
@@ -133,11 +131,11 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
   cam1_ctrs.push_back(dg_cam1->camera_center(pix1));
   cam2_dirs.push_back(dg_cam2->pixel_to_vector(pix2));
   cam2_ctrs.push_back(dg_cam2->camera_center(pix2));
-  for (size_t it = 0; it < dg_cam1->perturbed_cams.size(); it++) {
-    cam1_dirs.push_back(dg_cam1->perturbed_cams[it]->pixel_to_vector(pix1));
-    cam1_ctrs.push_back(dg_cam1->perturbed_cams[it]->camera_center(pix1));
-    cam2_dirs.push_back(dg_cam2->perturbed_cams[it]->pixel_to_vector(pix2));
-    cam2_ctrs.push_back(dg_cam2->perturbed_cams[it]->camera_center(pix2));
+  for (size_t it = 0; it < dg_cam1->m_perturbed_cams.size(); it++) {
+    cam1_dirs.push_back(dg_cam1->m_perturbed_cams[it]->pixel_to_vector(pix1));
+    cam1_ctrs.push_back(dg_cam1->m_perturbed_cams[it]->camera_center(pix1));
+    cam2_dirs.push_back(dg_cam2->m_perturbed_cams[it]->pixel_to_vector(pix2));
+    cam2_ctrs.push_back(dg_cam2->m_perturbed_cams[it]->camera_center(pix2));
   }
 
   // Nominal triangulation point
@@ -149,7 +147,7 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
   if (tri_nominal != tri_nominal) // NaN
     vw::vw_throw(vw::ArgumentErr() << "Could not triangulate.\n");
 
-  // The matrix to go from the NED coordinate system to the ECEF coordinate system
+  // The matrix to go from the NED coordinate system to ECEF
   vw::cartography::Datum const& datum = dg_cam1->datum; // alias
   vw::Vector3 llh = datum.cartesian_to_geodetic(tri_nominal);
   vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(subvector(llh, 0, 2));
@@ -163,7 +161,7 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
   // There are 14 input variables: 3 positions and 4 quaternions for
   // cam1, and same for cam2. For each of them must compute a centered
   // difference.  The output has 3 variables. As documented in the
-  // .h file for this function, the vector from nominal to perturbed
+  // .h file for this function, the vector from the nominal to perturbed
   // triangulated point will be converted to North-East-Down
   // coordinates at the nominal triangulated point.
   J.set_size(3, 14);
@@ -180,7 +178,7 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
       // given how one converts from satellite to camera coordinates
       // when the DG model is created.
 
-      // Since at position 0 in cam_dirs we store the unperturbed
+      // Since at position 0 in cam_dirs we store the nominal (unperturbed)
       // values, add 1 below.
       cam1_dir_plus  = cam1_dirs[2*coord + 1]; cam1_ctr_plus  = cam1_ctrs[2*coord + 1];
       cam1_dir_minus = cam1_dirs[2*coord + 2]; cam1_ctr_minus = cam1_ctrs[2*coord + 2];
@@ -192,6 +190,7 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
 
     // For the second camera, the book-keeping is reversed
     if (coord < 7) {
+      // Second camera values do not change when first camera inputs change
       cam2_dir_plus  = cam2_dirs[0]; cam2_ctr_plus  = cam2_ctrs[0];
       cam2_dir_minus = cam2_dirs[0]; cam2_ctr_minus = cam2_ctrs[0];
     } else {
@@ -220,11 +219,115 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
     // do, because the values in SC are tiny, and, in fact, on the
     // order of the squares of the delta values.
     vw::Vector3 ned_diff = (ned_plus - ned_minus)/2.0;
-
+    
     for (int row = 0; row < 3; row++) 
       J(row, coord) = ned_diff[row];
   }
+
+  return;
+}
+
+// Given upper-right values in a symmetric matrix of given size, find
+// the lower-left values by reflection, and insert them as a block
+// starting at the desired row and column. Used to populate the joint
+// covariance matrix. Per DigitalGlobe's doc, the covariances are
+// stored as c11, c12, c13, ..., c22, c23, ...
+void insertBlock(int start, int size, double* inputVals, vw::Matrix<double> & C) {
+  int count = 0;
+  for (int row = 0; row < size; row++) {
+    for (int col = row; col < size; col++) {
+      C(start + row, start + col) = inputVals[count];
+      C(start + col, start + row) = inputVals[count];
+      count++;
+    }
+  }
+}
   
+// See the .h file for the description
+void scaledSatelliteCovariance(vw::camera::CameraModel const* cam1,
+                               vw::camera::CameraModel const* cam2,
+                               vw::Vector2 const& pix1,
+                               vw::Vector2 const& pix2,
+                               vw::Matrix<double> & C) {
+
+  // Initialize the output
+  // 3 positions for cam 1, 4 orientations for cam1, 3 positions for cam2, 4 orientations
+  // for cam2. So, four blocks in total. The resulting matrix must be symmetric.
+  C.set_size(14, 14);
+  C.set_zero();
+
+  // Here it is not important that the camera are adjusted or not.
+  DGCameraModel const* dg_cam1 = dynamic_cast<DGCameraModel const*>(unadjusted_model(cam1));
+  DGCameraModel const* dg_cam2 = dynamic_cast<DGCameraModel const*>(unadjusted_model(cam2));
+  if (dg_cam1 == NULL || dg_cam2 == NULL) 
+    vw::vw_throw(vw::ArgumentErr() << "Expecting DG cameras.\n");
+
+  double p_cov1[SAT_POS_COV_SIZE], p_cov2[SAT_POS_COV_SIZE];
+  double q_cov1[SAT_QUAT_COV_SIZE], q_cov2[SAT_QUAT_COV_SIZE];  
+
+#if 0
+  // Debug code
+  std::cout.precision(17);
+  int numCov = dg_cam1->m_satellite_quat_cov.size() / SAT_QUAT_COV_SIZE;
+  for (int c = 0; c < numCov; c++) {
+    std::cout << "cov index " << c << std::endl;
+    for (int s = 0; s < SAT_QUAT_COV_SIZE; s++) {
+      q_cov1[s] = dg_cam1->m_satellite_quat_cov[c * SAT_QUAT_COV_SIZE + s]
+        / (deltaQuat * deltaQuat);
+      std::cout << q_cov1[s] << ' ';
+    }
+    insertBlock(3,  4, q_cov1, C);
+    std::cout << std::endl;
+    std::cout << "Exact determinant: " << det(submatrix(C, 3, 3, 4, 4)) << std::endl;
+
+    std::cout << std::endl;
+    }
+#endif
+
+  // TODO(oalexan1): Expose these scale factors to the user as
+  // --satellite-position-covariance-factor and --satellite-quaternion-covariance-factor.
+  double ps = 1.0;
+  double qs = 1.0;
+  
+  dg_cam1->interpSatellitePosCov(pix1, p_cov1);
+  dg_cam1->interpSatelliteQuatCov(pix1, q_cov1);
+
+  dg_cam2->interpSatellitePosCov(pix2, p_cov2);
+  dg_cam2->interpSatelliteQuatCov(pix2, q_cov2);
+
+  // Scale these per scaledTriangulationJacobian().
+  for (int ip = 0; ip < SAT_POS_COV_SIZE; ip++) {
+    p_cov1[ip] = ps * p_cov1[ip] / (deltaPosition * deltaPosition); 
+    p_cov2[ip] = ps * p_cov2[ip] / (deltaPosition * deltaPosition); 
+  }
+  for (int iq = 0; iq < SAT_QUAT_COV_SIZE; iq++) {
+    q_cov1[iq] = qs * q_cov1[iq] / (deltaQuat * deltaQuat); 
+    q_cov2[iq] = qs * q_cov2[iq] / (deltaQuat * deltaQuat); 
+  }
+
+  // Put these in the covariance matrix
+  insertBlock(0,  3, p_cov1, C);
+  insertBlock(3,  4, q_cov1, C);
+  insertBlock(7,  3, p_cov2, C);
+  insertBlock(10, 4, q_cov2, C);
+
+#if 0
+  std::cout << "Produced matrix " << std::endl;
+  for (int row = 0; row < 14; row++) {
+    for (int col = 0; col < 14; col++) {
+      std::cout << C(row, col) << " ";
+    }
+    std::cout << std::endl;
+  }
+
+  // Debug code
+  std::cout << "determinant1 " << det(submatrix(C, 0, 0, 3, 3)) << std::endl;
+  std::cout << "determinant2 " << det(submatrix(C, 3, 3, 4, 4)) << std::endl;
+  std::cout << "determinant3 " << det(submatrix(C, 7, 7, 3, 3)) << std::endl;
+  std::cout << "determinant4 " << det(submatrix(C, 10, 10, 4, 4)) << std::endl;
+#endif
+  
+  return;
 }
   
 } // end namespace asp

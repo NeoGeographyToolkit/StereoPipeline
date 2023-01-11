@@ -51,21 +51,40 @@ namespace asp {
   // perturbed triangulation point is converted to North-East-Down
   // relative to the nominal point. Use numerical differentiation to
   // find the Jacobian of this transform with centered
-  // differences. This will be used to find the NED covariances given
-  // the input satellite covariances. This works only for Maxar
-  // (DigitalGlobe) cameras. This may throw exceptions.  Do not divide
-  // the numerical derivatives by deltaPosition and deltaQuat, but
-  // only by 2.0 (since these are centered differences). That is
-  // because this makes the partial derivatives in quaternion huge and
-  // is not good for numerical stability. We will compensate for this
+  // differences. This will be used to find the covariances of the
+  // triangulated point in NED coordinates given the input satellite
+  // covariances. This works only for Maxar (DigitalGlobe)
+  // cameras. This function may throw exceptions. Do not divide the
+  // numerical derivatives by deltaPosition and deltaQuat, but only by
+  // 2.0 (since these are centered differences). That because the
+  // division makes the partial derivatives in quaternions huge and is
+  // not good for numerical stability. We will compensate for this
   // when we multiply by the actual covariances, which are huge, so
   // those will be pre-multiplied by the squares of deltaPosition and
-  // deltaQuat.
+  // deltaQuat, with the same final result.
   void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
                                    vw::camera::CameraModel const* cam2,
                                    vw::Vector2 const& pix1,
                                    vw::Vector2 const& pix2,
                                    vw::Matrix<double> & J);
+
+  // Based on tabulated satellite position and quaternion covariance
+  // for each camera, find the interpolated covariances for cam1 at
+  // pix1 (6 for position, 10 for orientation, as just the upper-right
+  // corner is used), same for cam2 at pix2, autocomplete these to the
+  // full matrices (3x3 and 4x4 for each), create a combined matrix of
+  // covariances (14 x 14), and divide the entries by squares of
+  // deltaPosition and deltaQuat which normalizes them, and which are
+  // compensated by not dividing by these numbers (without the square)
+  // what is found in scaledTriangulationJacobian(). Later we will do
+  // J * C * J^T. The same order of variables as in
+  // scaledTriangulationJacobian must be used.
+  void scaledSatelliteCovariance(vw::camera::CameraModel const* cam1,
+                                 vw::camera::CameraModel const* cam2,
+                                 vw::Vector2 const& pix1,
+                                 vw::Vector2 const& pix2,
+                                 vw::Matrix<double> & C);
+
   
 } // end namespace asp
 

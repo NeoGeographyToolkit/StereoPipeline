@@ -760,9 +760,11 @@ void normalizeQuaternions(UsgsAstroLsSensorModel * ls_model) {
 void interpQuaternions(UsgsAstroLsSensorModel * ls_model, double time,
                       double q[4]) {
   int nOrder = 8;
-  if (ls_model->m_platformFlag == 0) nOrder = 4;
+  if (ls_model->m_platformFlag == 0)
+    nOrder = 4;
   int nOrderQuat = nOrder;
-  if (ls_model->m_numQuaternions < 6 && nOrder == 8) nOrderQuat = 4;
+  if (ls_model->m_numQuaternions/4 < 6 && nOrder == 8)
+    nOrderQuat = 4;
   
   lagrangeInterp(ls_model->m_numQuaternions / 4, &ls_model->m_quaternions[0],
                  ls_model->m_t0Quat, ls_model->m_dtQuat, time, 4, nOrderQuat, q);
@@ -773,7 +775,9 @@ void interpQuaternions(UsgsAstroLsSensorModel * ls_model, double time,
 void interpPositions(UsgsAstroLsSensorModel * ls_model, double time,
                      double pos[3]) {
   int nOrder = 8;
-  if (ls_model->m_platformFlag == 0) nOrder = 4;
+  if (ls_model->m_platformFlag == 0)
+    nOrder = 4;
+  
   // TODO(oalexan1): What if the number of positions is < 4.
   lagrangeInterp(ls_model->m_numPositions / 3, &ls_model->m_positions[0],
                  ls_model->m_t0Ephem, ls_model->m_dtEphem,
@@ -785,7 +789,8 @@ void interpPositions(UsgsAstroLsSensorModel * ls_model, double time,
 void interpVelocities(UsgsAstroLsSensorModel * ls_model, double time,
                   double vel[3]) {
   int nOrder = 8;
-  if (ls_model->m_platformFlag == 0) nOrder = 4;
+  if (ls_model->m_platformFlag == 0)
+    nOrder = 4;
   double sensPosNom[3];
   lagrangeInterp(ls_model->m_numPositions / 3, &ls_model->m_velocities[0],
                  ls_model->m_t0Ephem, ls_model->m_dtEphem,

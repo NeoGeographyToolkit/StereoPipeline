@@ -170,15 +170,16 @@ it at the top of README.rst, in the appropriate ``target`` field.
 Increment the version in the ``image`` field right above that.
 Push this update.
 
-10.) Ask fellow ASP developers to do some tests and review the
-documentation.
+Get the text on the GitHub release page right the first time, as once
+Zenodo picks it up, the Zenodo page cannot be modified. But the binaries
+attached to the release can be modified or added later.
 
-11.) Send an announcement of the new release to the mailing list, at
+10.) Send an announcement of the new release to the mailing list, at
 https://groups.google.com/forum/\#!forum/ames-stereo-pipeline-support
 and the old stereo-pipeline@lists.nasa.gov, listing the changes
 specified in NEWS.rst.
 
-12.) Modify the build system.
+11.) Modify the build system.
 
 After the release has been done, prep the repo for the next phase of
 development, by updating the version number in:
@@ -192,6 +193,4 @@ release will be 3.3.0, if a major release, or 3.2.1 if a minor
 release, so the version tag should be updated to 3.2.1-alpha in
 anticipation (see https://semver.org for guidance).
 
-13.) Reflect any changes in release policy by modifying this document.
-
-14.) Commit changes.
+12.) Update this document as it becomes necessary.

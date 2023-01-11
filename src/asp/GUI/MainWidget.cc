@@ -1932,13 +1932,22 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     vw::geometry::dPoly poly;
     poly.reset();
     bool isPolyClosed = true;
-    std::string color, layer;
+    std::string color = m_images[m_polyLayerIndex].color;
+    std::string layer;
+    // See if to use a custom color for this polygon, specified by the user from the gui
+    // TODO(oalexan1): Test this
+    auto color_it = m_perImagePolyColor.find(m_polyLayerIndex);
+    if (color_it != m_perImagePolyColor.end()) {
+      color = color_it->second;
+      m_images[m_polyLayerIndex].color = color; // save for the future
+    }
+    
     poly.appendPolygon(pSize,
 		    vw::geometry::vecPtr(m_currPolyX), vw::geometry::vecPtr(m_currPolyY),
                     isPolyClosed, color, layer);
 
     appendToPolyVec(poly);
-    
+
     m_currPolyX.clear();
     m_currPolyY.clear();
 

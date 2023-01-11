@@ -168,9 +168,9 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
       Vector<double, 3> p = eph.satellite_position_vec[i] + dp; // add the perturbation
       Vector<double, 4> q = att.satellite_quat_vec[i];
       // The dq perturbations are chosen under the assumption that q is normalized
-      double len = norm_2(q);
-      if (len > 0 && asp::stereo_settings().compute_point_cloud_covariances) 
-        q = q / norm_2(q); // Normalization is not needed without covariance logic
+      double len_q = norm_2(q);
+      if (len_q > 0 && asp::stereo_settings().compute_point_cloud_covariances) 
+        q = q / len_q; // Normalization is not needed without covariance logic
       q = q + dq;
       vw::Quat qt(q[3], q[0], q[1], q[2]); // Note the swapping, the order is now w, x, y, z.
       camera_position_vec[i] = p + qt.rotate(geo.perspective_center);
@@ -194,9 +194,19 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
       perturbed_cams.push_back(cam_ptr);
   }
 
-  // Let the nominal camera own the other ones
-  ((DGCameraModel*)nominal_cam.get())->perturbed_cams = perturbed_cams;
-    
+  DGCameraModel * cam = (DGCameraModel*)nominal_cam.get();
+  // Store the starting time and spacing for the satellite, in case later some resampling
+  // happens to the cameras when those would use a different spacing.
+  cam->m_satellite_pos_t0 = et0;
+  cam->m_satellite_pos_dt = edt;
+  cam->m_satellite_quat_t0 = at0;
+  cam->m_satellite_quat_dt = adt;
+  if (asp::stereo_settings().compute_point_cloud_covariances) {
+    cam->m_perturbed_cams = perturbed_cams; 
+    cam->m_satellite_pos_cov = eph.satellite_pos_cov;
+    cam->m_satellite_quat_cov = att.satellite_quat_cov;
+  }
+  
   return nominal_cam;
 } // End function load_dg_camera_model()
 
@@ -424,7 +434,7 @@ void DGCameraModel::getQuaternions(const double& time, double q[4]) const {
   if (m_ls_model->m_platformFlag == 0)
     nOrder = 4;
   int nOrderQuat = nOrder;
-  if (m_ls_model->m_numQuaternions < 6 && nOrder == 8)
+  if (m_ls_model->m_numQuaternions/4 < 6 && nOrder == 8)
     nOrderQuat = 4;
 
   lagrangeInterp(m_ls_model->m_numQuaternions / 4,
@@ -433,9 +443,80 @@ void DGCameraModel::getQuaternions(const double& time, double q[4]) const {
                  time, 4, nOrderQuat, q);
 }
 
+// Nearest neighbor interpolation into a sequence of vectors of length
+// vectorLength, stored one after another in valueArray. The result
+// goes in valueVector.
+// TODO(oalexan1): Move this to some utilities.
+void nearestNeibInterp(const int &numTimes, const double *valueArray,
+                       const double &startTime, const double &delTime,
+                       const double &time, const int &vectorLength,
+                       double *valueVector) {
+  
+  if (numTimes < 1)
+    vw::vw_throw(vw::ArgumentErr() << "Cannot interpolate into a vector of zero length.\n");
+  
+  // Compute index
+  int index = round((time - startTime) / delTime);
+  if (index < 0) 
+    index = 0;
+  if (index >= numTimes)
+    index = numTimes - 1;
+
+  int start = index * vectorLength;
+  for (int i = 0; i < vectorLength; i++)
+    valueVector[i] = valueArray[start + i];
+
+  return;
+}
+  
+// Interpolate the satellite position covariance at given pixel
+void DGCameraModel::interpSatellitePosCov(vw::Vector2 const& pix,
+                                          double p_cov[SAT_POS_COV_SIZE]) const {
+  
+  if (!stereo_settings().dg_use_csm)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "interpSatellitePosCov: It was expected that the CSM model was used.\n");
+
+  double time = get_time_at_line(pix.y());
+
+  int numCov = m_satellite_pos_cov.size() / SAT_POS_COV_SIZE;
+
+  int nOrder = 8;
+  if (m_ls_model->m_platformFlag == 0)
+    nOrder = 4;
+
+  //lagrangeInterp(numCov, &m_satellite_pos_cov[0], m_satellite_pos_t0, m_satellite_pos_dt,
+  //               time, SAT_POS_COV_SIZE, nOrder, p_cov);
+  nearestNeibInterp(numCov, &m_satellite_pos_cov[0], m_satellite_pos_t0, m_satellite_pos_dt,
+                    time, SAT_POS_COV_SIZE, p_cov);
+}
+
+// Interpolate the satellite quaternion covariance at given pixel
+void DGCameraModel::interpSatelliteQuatCov(vw::Vector2 const& pix,
+                                           double q_cov[SAT_QUAT_COV_SIZE]) const {
+
+  if (!stereo_settings().dg_use_csm)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "interpSatelliteQuatCov: It was expected that the CSM model was used.\n");
+
+  double time = get_time_at_line(pix.y());
+  int numCov = m_satellite_quat_cov.size() / SAT_QUAT_COV_SIZE;
+  
+  int nOrder = 8;
+  if (m_ls_model->m_platformFlag == 0)
+    nOrder = 4;
+  int nOrderQuat = nOrder;
+  if (numCov < 6 && nOrder == 8)
+    nOrderQuat = 4;
+
+  //lagrangeInterp(numCov, &m_satellite_quat_cov[0], m_satellite_quat_t0, m_satellite_quat_dt,
+  //               time, SAT_QUAT_COV_SIZE, nOrderQuat, q_cov);
+  nearestNeibInterp(numCov, &m_satellite_quat_cov[0], m_satellite_quat_t0, m_satellite_quat_dt,
+                    time, SAT_QUAT_COV_SIZE, q_cov);
+}
+
 vw::Quat DGCameraModel::get_camera_pose_at_time(double time) const {
   if (stereo_settings().dg_use_csm) {
-    vw::Quat old_q = m_pose_func(time);
     double q[4];
     getQuaternions(time, q);
     return vw::Quat(q[3], q[0], q[1], q[2]); // go from (x, y, z, w) to (w, x, y, z)

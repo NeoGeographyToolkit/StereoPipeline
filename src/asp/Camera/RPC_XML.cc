@@ -318,7 +318,7 @@ void asp::EphemerisXML::parse_meta(xercesc::DOMElement* node) {
   cast_xmlch(get_node<DOMElement>(node, "NUMPOINTS"   )->getTextContent(), num_points);
   satellite_position_vec.resize(num_points);
   velocity_vec.resize(num_points);
-  satellite_position_covariance_vec.resize(num_points);
+  satellite_pos_cov.resize(6 * num_points); // see RPC_XML.h
 }
 
 void asp::EphemerisXML::parse_eph_list(xercesc::DOMElement* node) {
@@ -347,12 +347,12 @@ void asp::EphemerisXML::parse_eph_list(xercesc::DOMElement* node) {
            >> velocity_vec[index][0]
            >> velocity_vec[index][1]
            >> velocity_vec[index][2];
-      istr >> satellite_position_covariance_vec[index][0]
-           >> satellite_position_covariance_vec[index][1]
-           >> satellite_position_covariance_vec[index][2]
-           >> satellite_position_covariance_vec[index][3]
-           >> satellite_position_covariance_vec[index][4]
-           >> satellite_position_covariance_vec[index][5];
+      istr >> satellite_pos_cov[6*index + 0]
+           >> satellite_pos_cov[6*index + 1]
+           >> satellite_pos_cov[6*index + 2]
+           >> satellite_pos_cov[6*index + 3]
+           >> satellite_pos_cov[6*index + 4]
+           >> satellite_pos_cov[6*index + 5];
 
       count++;
     }
@@ -382,7 +382,7 @@ void asp::AttitudeXML::parse_meta(xercesc::DOMElement* node) {
   size_t num_points;
   cast_xmlch(get_node<DOMElement>(node, "NUMPOINTS"   )->getTextContent(), num_points);
   satellite_quat_vec.resize(num_points);
-  satellite_quat_covariance_vec.resize(num_points);
+  satellite_quat_cov.resize(10 * num_points); // see RPC_XML.h
 }
 
 void asp::AttitudeXML::parse_att_list(xercesc::DOMElement* node) {
@@ -412,11 +412,11 @@ void asp::AttitudeXML::parse_att_list(xercesc::DOMElement* node) {
            >> satellite_quat_vec[index][2]
            >> satellite_quat_vec[index][3];
       // Only the upper-right portion of the 4x4 covariance matrix is saved
-      istr >> satellite_quat_covariance_vec[index][0] >> satellite_quat_covariance_vec[index][1]
-           >> satellite_quat_covariance_vec[index][2] >> satellite_quat_covariance_vec[index][3]
-           >> satellite_quat_covariance_vec[index][4] >> satellite_quat_covariance_vec[index][5]
-           >> satellite_quat_covariance_vec[index][6] >> satellite_quat_covariance_vec[index][7]
-           >> satellite_quat_covariance_vec[index][8] >> satellite_quat_covariance_vec[index][9];
+      istr >> satellite_quat_cov[10*index + 0] >> satellite_quat_cov[10*index + 1]
+           >> satellite_quat_cov[10*index + 2] >> satellite_quat_cov[10*index + 3]
+           >> satellite_quat_cov[10*index + 4] >> satellite_quat_cov[10*index + 5]
+           >> satellite_quat_cov[10*index + 6] >> satellite_quat_cov[10*index + 7]
+           >> satellite_quat_cov[10*index + 8] >> satellite_quat_cov[10*index + 9];
 
       count++;
     }

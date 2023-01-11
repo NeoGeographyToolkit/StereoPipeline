@@ -2,11 +2,27 @@ Changes since last release
 --------------------------
 
 stereo:
-
+  * Added the triangulation option ``--compute-point-cloud-covariances`` to
+    propagate the uncertainty from satellite positions and quaternions
+    of the input sensors to the triangulated point cloud. Applicable only for
+    Maxar (DigitalGlobe) cameras, like WorldView and QuickBird
+    (with linescan sensors, not RPC). This option implies
+    ``--dg-use-csm`` (:numref:`stereodefault`).
   * Documented the pre-processing options ``--stddev-mask-kernel``
     and ``--stddev-mask-thresh`` (:numref:`stereo-default-preprocessing`).
     Also fixed a bug in writing out debug images for this option.
- 
+
+stereo_gui: 
+  * Can read, write, edit, and overlay on top of images polygons in
+    plain text format in addition to .shp format.
+
+misc: 
+   * Added to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`) the option
+   * ``--web`` to invoke ``spiceinit``
+     with ``web=True``.
+   * Bugfix for reading .jp2 files. Needed to ship the JPEG2000 driver
+     and set GDAL_DRIVER_PATH.
+
 RELEASE 3.2.0, December 30, 2022
 --------------------------------
 DOI: `10.5281/zenodo.7497499 <https://doi.org/10.5281/zenodo.7497499>`_

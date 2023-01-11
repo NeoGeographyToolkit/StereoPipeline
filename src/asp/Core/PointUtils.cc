@@ -652,7 +652,7 @@ size_t asp::CsvConv::read_csv_file(std::string    const & file_path,
   bool success;
   bool first_line = true; // TODO(oalexan1): Wipe this variable.
   std::string line = "";
-  while (std::getline(file, line, '\n')){
+  while (std::getline(file, line, '\n')) {
     CsvRecord new_record = asp::CsvConv::parse_csv_line(first_line, success, line);
     if (success) {
       output_list.push_back(new_record);

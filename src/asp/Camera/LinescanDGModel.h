@@ -38,7 +38,11 @@ class UsgsAstroLsSensorModel;
 
 namespace asp {
 
-  // The intrinisic model expects +Z to be point out the camera. +X is
+  // Upper-right portion of the 3x3 satellite position covariance
+  // matrix and 4x4 satellite quaternion matrix.
+  const int SAT_POS_COV_SIZE = 6, SAT_QUAT_COV_SIZE = 10;
+  
+  // The intrinsic model expects +Z to be point out the camera. +X is
   // the column direction of the image and is perpendicular to
   // direction of flight. +Y is the row direction of the image (down
   // the image); it is also the flight direction. This is different
@@ -318,7 +322,16 @@ namespace asp {
     vw::cartography::Datum datum;
 
     // For covariance computation
-    std::vector<vw::CamPtr> perturbed_cams;
+    std::vector<vw::CamPtr> m_perturbed_cams;
+    std::vector<double> m_satellite_pos_cov, m_satellite_quat_cov;
+    double m_satellite_pos_t0, m_satellite_pos_dt;
+    double m_satellite_quat_t0, m_satellite_quat_dt;
+
+    // Interpolate the satellite position covariance at given pixel
+    void interpSatellitePosCov(vw::Vector2 const& pix, double p_cov[SAT_POS_COV_SIZE]) const;
+
+    // Interpolate the satellite quaternion covariance at given pixel
+    void interpSatelliteQuatCov(vw::Vector2 const& pix, double q_cov[SAT_QUAT_COV_SIZE]) const;
     
   private:
     // Function to interpolate quaternions with the CSM model. This is used
@@ -339,6 +352,7 @@ namespace asp {
     // atmospheric refraction correction. That needs to be rectified
     // before removing the older approach.
     void populateCsmModel();
+
   };
 
   /// Load a DG camera model from an XML file. This function does not

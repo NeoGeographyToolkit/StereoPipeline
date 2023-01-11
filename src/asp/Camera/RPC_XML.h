@@ -125,7 +125,9 @@ namespace asp {
     std::vector<vw::Vector3> satellite_position_vec;
     // Satellite covariances. Only the region at and above the main
     // diagonal is saved, as this matrix is symmetric.
-    std::vector<vw::Vector<double,6>> satellite_position_covariance_vec;
+    // Concatenate all of them in the same vector, will be easier to
+    // interpolate later.
+    std::vector<double> satellite_pos_cov;
 
     std::vector<vw::Vector3> velocity_vec; // ECEF
   };
@@ -151,11 +153,12 @@ namespace asp {
     // some swapping around of these values and some rotations. We
     // need to keep even later satellite_quat_vec if we want to
     // compute covariances, as they are one-to-one correspondence with
-    // satellite_quat_covariance_vec. See also note in the
+    // satellite_quat_cov. See also note in the
     // EphemerisXML class.
     std::vector<vw::Vector<double, 4>> satellite_quat_vec;
-    // This has entries at and above main diagonal
-    std::vector<vw::Vector<double,10>> satellite_quat_covariance_vec;
+    // This has entries at and above main diagonal (4x4 matrix, 10 entries).
+    // Keep them concatenated into a single vector, for easy of interpolation later.
+    std::vector<double> satellite_quat_cov;
   };
 
   /// Reads from Digital Globe XML format

@@ -1,3 +1,5 @@
+.. _hiedr2mosaic:
+
 hiedr2mosaic.py
 ---------------
 
@@ -20,6 +22,9 @@ Command-line options for hiedr2mosaic.py:
 
 --manual
     Display the help message.
+
+-w, --web
+    Invokes spiceinit with web=true, to fetch the kernels from the web.
 
 -m, --match
     The CCD number passed as the match argument to noproj (default 5).

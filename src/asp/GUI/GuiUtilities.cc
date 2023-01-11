@@ -508,7 +508,7 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
   
   std::string default_poly_color = "green"; // default, will be overwritten later
   
-  if (asp::has_shp_extension(name_in)){
+  if (asp::has_shp_extension(name_in)) {
     // Read a shape file
     read_shapefile(name_in, default_poly_color, has_georef, georef, polyVec);
 
@@ -565,9 +565,9 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
 
     if (isPoly) {
       // Convert to polygon
+      // TODO(oalexan1): This must be a function
       polyVec.clear();
       polyVec.resize(1);
-      bool isPolyClosed = (style == "poly" || style == "fpoly");
       std::string layer;
       size_t vertexCount = 0;
       for (size_t polyIt = 0; polyIt < contiguous_blocks.size(); polyIt++) {
@@ -588,6 +588,7 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
         std::string curr_color = default_poly_color;
         if (color != "default" && color != "")
           curr_color = color;
+        bool isPolyClosed = (style == "poly" || style == "fpoly");
         polyVec[0].appendPolygon(x.size(),
                                  vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
                                  isPolyClosed, curr_color, layer);
@@ -598,7 +599,6 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
       
       scattered_data.clear(); // the data is now in the poly structure
     }
-    
   }else{
     // Read an image
     int top_image_max_pix = 1000*1000;
@@ -625,8 +625,10 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
 }
 
 bool imageData::isPoly() const {
-  return (asp::has_shp_extension(name) || style == "poly" || style == "fpoly" || style == "line");
+  return (asp::has_shp_extension(name) ||
+          (vw::gui::hasCsv(name) && (style == "poly" || style == "fpoly" || style == "line")));
 }
+  
 bool imageData::isCsv() const {
   return vw::gui::hasCsv(name) && !isPoly();
 }

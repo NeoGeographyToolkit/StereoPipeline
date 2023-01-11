@@ -86,16 +86,16 @@ and involves living with some imperfections.
 
 One cannot simply use the HiRISE RDR products, as they do not have the
 required geometric stability. Instead, the HiRISE EDR products must be
-assembled using ISIS ``noproj``. The USGS distributes a script in use by
-the HiRISE team that works forward from the team-produced 'balance'
+assembled using ISIS ``noproj``. The USGS distributes a script in use
+by the HiRISE team that works forward from the team-produced 'balance'
 cubes, which provides a de-jittered, noproj'ed mosaic of a single
-observation, which is perfectly suitable for use by the Stereo Pipeline
-(this script was originally engineered to provide input for SOCET SET).
-However, the 'balance' cubes are not available to the general public,
-and so we include a program (``hiedr2mosaic.py``, written in
-`Python <http://www.python.org>`__) that will take PDS available HiRISE
-EDR products and walk through the processing steps required to provide
-good input images for ``parallel_stereo``.
+observation, which is perfectly suitable for use by the Stereo
+Pipeline (this script was originally engineered to provide input for
+SOCET SET).  However, the 'balance' cubes are not available to the
+general public, and so we include a program (``hiedr2mosaic.py``
+(:numref:`hiedr2mosaic`), written in Python, that will take PDS
+available HiRISE EDR products and walk through the processing steps
+required to provide good input images for ``parallel_stereo``.
 
 The program takes all the red CCDs and projects them using the ISIS
 ``noproj`` command into the perspective of the RED5 CCD. From there,

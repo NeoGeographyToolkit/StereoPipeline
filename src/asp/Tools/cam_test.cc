@@ -35,8 +35,9 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 
-// Temporary header
+// Temporary headers
 #include <asp/Camera/Covariance.h>
+#include <vw/Math/LinearAlgebra.h>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -200,9 +201,28 @@ int main(int argc, char *argv[]) {
       
       // Project to second camera
       vw::Vector2 pix2 = cam2_model->point_to_pixel(xyz);
-      
+
       vw::Matrix<double> J;
       asp::scaledTriangulationJacobian(cam1_model.get(), cam2_model.get(), pix1, pix2, J);
+
+      vw::Matrix<double> C;
+      asp::scaledSatelliteCovariance(cam1_model.get(), cam2_model.get(), pix1, pix2, C);
+      std::cout.precision(17);
+
+      std::cout << "--J is " << J << std::endl;
+      std::cout << "-- C is " << C << std::endl;
+      vw::Matrix<double> JT = transpose(J);
+      std::cout << "JT is " << JT << std::endl;
+      
+      vw::Matrix<double> P = J * C * JT;
+
+      std::cout << "NED covariance matrix\n" << P << std::endl;
+
+      typedef std::complex<double> cdouble;
+      Vector<cdouble> e;
+      vw::math::eigen(P, e);
+      std::cout << "Eigenvalues: " << e << std::endl;
+      exit(0);
     }
 #endif
     
