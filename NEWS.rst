@@ -3,11 +3,13 @@ Changes since last release
 
 stereo:
   * Added the triangulation option ``--compute-point-cloud-covariances`` to
-    propagate the uncertainty from satellite positions and quaternions
-    of the input sensors to the triangulated point cloud. Applicable only for
+    propagate the covariances of satellite positions and quaternions
+    to the triangulated point cloud. Applicable only for
     Maxar (DigitalGlobe) cameras, like WorldView and QuickBird
     (with linescan sensors, not RPC). This option implies
-    ``--dg-use-csm`` (:numref:`stereodefault`).
+    ``--dg-use-csm`` (:numref:`stereodefault`). See also
+    new options ``--position-covariance-factor`` and
+    ``--orientation-covariance-factor``.
   * Documented the pre-processing options ``--stddev-mask-kernel``
     and ``--stddev-mask-thresh`` (:numref:`stereo-default-preprocessing`).
     Also fixed a bug in writing out debug images for this option.

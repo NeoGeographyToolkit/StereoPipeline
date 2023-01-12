@@ -396,10 +396,15 @@ namespace asp {
       ("bundle-adjust-prefix", po::value(&global.bundle_adjust_prefix),
        "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
       ("compute-point-cloud-covariances",  po::bool_switch(&global.compute_point_cloud_covariances)->default_value(false)->implicit_value(true),
-       "Propagate the uncertainty from positions and quaternions of the "
-       "input sensor to the triangulated point cloud. Applicable only for "
+       "Propagate the covariances of satellite positions and orientations "
+       "to the triangulated point cloud. Applicable only for "
        "Maxar (DigitalGlobe) sensors. This option implies "
        "--dg-use-csm.")
+      ("position-covariance-factor", po::value(&global.position_covariance_factor)->default_value(1.0),
+       "Multiply the satellite position covariances by this number before propagating them to the triangulated point cloud.")
+      ("orientation-covariance-factor", po::value(&global.orientation_covariance_factor)->default_value(1.0),
+       "Multiply the satellite quaternion covariances by this number before propagating them to the triangulated point cloud.")
+      
       ("unalign-disparity",                 po::bool_switch(&global.unalign_disparity)->default_value(false)->implicit_value(true),
        "Take the computed disparity, and compute the disparity between unaligned images.")
       ("num-matches-from-disparity", po::value(&global.num_matches_from_disparity)->default_value(0), "Create a match file with this many points uniformly sampled from the stereo disparity. The matches are between original images (that is, before any alignment or map-projection). See also num-matches-from-disp-triplets.")

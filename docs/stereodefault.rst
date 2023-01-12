@@ -759,12 +759,6 @@ bundle-adjust-prefix (*string*)
     Use the camera adjustments obtained by previously running
     bundle_adjust with this output prefix.
 
-compute-point-cloud-covariances
-    Propagate the uncertainty from positions and quaternions of the
-    input sensor to the triangulated point cloud. Applicable only for
-    Maxar (DigitalGlobe) sensors. This option implies
-    ``--dg-use-csm``.
-
 min-triangulation-angle (*double*)
     The minimum angle, in degrees, at which rays must meet at a
     triangulated point to accept this point as valid. It must be 
@@ -818,6 +812,24 @@ compute-error-vector
     specifying the ``--errorimage`` option, the error image will
     contain the three components of the triangulation error vector in
     the North-East-Down coordinate system.
+
+
+Error propagation (used in triangulation)
+-----------------------------------------
+
+compute-point-cloud-covariances
+    Propagate the covariances of satellite positions and orientations
+    to the triangulated point cloud. Applicable only for
+    Maxar (DigitalGlobe) sensors. This option implies
+    ``--dg-use-csm``.
+
+position-covariance-factor <double (default: 1.0)>
+    Multiply the satellite position covariances by this number before
+    propagating them to the triangulated point cloud.
+
+orientation-covariance-factor <double (default: 1.0)>
+    Multiply the satellite quaternion covariances by this number
+    before propagating them to the triangulated point cloud.
 
 Bathymetry correction options
 -----------------------------

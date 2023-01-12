@@ -43,7 +43,7 @@ boost::posix_time::ptime parse_dg_time(std::string str) {
   }
   return boost::posix_time::time_from_string(str); // Never reached!
 }
-  
+
 vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
 
   // Parse the Digital Globe XML file
@@ -65,7 +65,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
 
   if (stereo_settings().dg_use_csm) 
     vw_out() << "Using the CSM model with DigitalGlobe cameras.\n";
-  
+
   // Get an estimate of the surface elevation from the corners specified in the file.
   // - Not every file has this information, in which case we will just use zero.
   double mean_ground_elevation = 0.0;

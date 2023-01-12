@@ -834,8 +834,8 @@ namespace asp {
     if (stereo_settings().compute_point_cloud_covariances) {
       if (opt.session->name() != "dg" && opt.session->name() != "dgmaprpc")
         vw::vw_throw(vw::ArgumentErr()
-                     << "Option --compute-point-cloud-covariances works only "
-                     << "for Maxar (DigitalGlobe) cameras.\n");
+                     << "Option --compute-point-cloud-covariances "
+                     << "works only for Maxar (DigitalGlobe) cameras.\n");
     }
     
     // Need the percentage to be more than 50 as we look at the range [100 - pct, pct].

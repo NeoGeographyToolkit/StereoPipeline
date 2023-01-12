@@ -263,6 +263,8 @@ namespace asp {
     bool   compute_piecewise_adjustments_only;
 
     bool compute_point_cloud_covariances;
+    double position_covariance_factor, orientation_covariance_factor;
+    
     bool compute_error_vector;              // Compute the triangulation error vector, not just its length
 
     double min_triangulation_angle;           // min angle for valid triangulation

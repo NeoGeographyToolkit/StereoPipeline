@@ -36,6 +36,7 @@
 #include <asp/IsisIO/IsisCameraModel.h>
 
 // Temporary headers
+#include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/Covariance.h>
 #include <vw/Math/LinearAlgebra.h>
 
@@ -167,7 +168,7 @@ int main(int argc, char *argv[]) {
     vw::cartography::Datum datum = cam1_session->get_datum(cam1_model.get(),
                                                            use_sphere_for_non_earth);
     vw_out() << "Datum: " << datum << std::endl;
-    
+
     // Load cam2
     std::string default_session2 = opt.session2; // save it before it changes
     SessionPtr cam2_session(asp::StereoSessionFactory::create
@@ -201,7 +202,11 @@ int main(int argc, char *argv[]) {
       
       // Project to second camera
       vw::Vector2 pix2 = cam2_model->point_to_pixel(xyz);
-
+      
+      std::cout << "pix1 " << pix1 << std::endl;
+      std::cout << "pix2 " << pix2 << std::endl;
+      std::cout << "xyz " << xyz << std::endl;
+      
       vw::Matrix<double> J;
       asp::scaledTriangulationJacobian(cam1_model.get(), cam2_model.get(), pix1, pix2, J);
 
@@ -209,13 +214,11 @@ int main(int argc, char *argv[]) {
       asp::scaledSatelliteCovariance(cam1_model.get(), cam2_model.get(), pix1, pix2, C);
       std::cout.precision(17);
 
-      std::cout << "--J is " << J << std::endl;
-      std::cout << "-- C is " << C << std::endl;
       vw::Matrix<double> JT = transpose(J);
-      std::cout << "JT is " << JT << std::endl;
-      
       vw::Matrix<double> P = J * C * JT;
 
+      std::cout << "J = " << J << std::endl;
+      std::cout << "C = " << C << std::endl;
       std::cout << "NED covariance matrix\n" << P << std::endl;
 
       typedef std::complex<double> cdouble;

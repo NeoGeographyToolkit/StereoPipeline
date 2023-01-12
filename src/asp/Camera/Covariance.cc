@@ -19,6 +19,7 @@
 
 #include <asp/Camera/Covariance.h>
 #include <asp/Camera/LinescanDGModel.h>
+#include <asp/Core/StereoSettings.h>
 
 #include <vw/Stereo/StereoModel.h>
 
@@ -155,8 +156,8 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
 
   // TODO(oalexan1): Test here more the triangulation errors and now NED compares
   // to lon-lat-height difference.
-  // std::cout << "tri " << tri_nominal << std::endl;
-  // std::cout << "err " << err_nominal << std::endl;
+  //std::cout << "tri " << tri_nominal << std::endl;
+  //std::cout << "err " << err_nominal << std::endl;
   
   // There are 14 input variables: 3 positions and 4 quaternions for
   // cam1, and same for cam2. For each of them must compute a centered
@@ -262,47 +263,29 @@ void scaledSatelliteCovariance(vw::camera::CameraModel const* cam1,
   if (dg_cam1 == NULL || dg_cam2 == NULL) 
     vw::vw_throw(vw::ArgumentErr() << "Expecting DG cameras.\n");
 
+  // Find the covariances at given pixel by interpolation in the input table.
+  // Use nearest neighbor interpolation as covariances are known with
+  // just a few digits of precision and are not meant to be smooth.
   double p_cov1[SAT_POS_COV_SIZE], p_cov2[SAT_POS_COV_SIZE];
   double q_cov1[SAT_QUAT_COV_SIZE], q_cov2[SAT_QUAT_COV_SIZE];  
-
-#if 0
-  // Debug code
-  std::cout.precision(17);
-  int numCov = dg_cam1->m_satellite_quat_cov.size() / SAT_QUAT_COV_SIZE;
-  for (int c = 0; c < numCov; c++) {
-    std::cout << "cov index " << c << std::endl;
-    for (int s = 0; s < SAT_QUAT_COV_SIZE; s++) {
-      q_cov1[s] = dg_cam1->m_satellite_quat_cov[c * SAT_QUAT_COV_SIZE + s]
-        / (deltaQuat * deltaQuat);
-      std::cout << q_cov1[s] << ' ';
-    }
-    insertBlock(3,  4, q_cov1, C);
-    std::cout << std::endl;
-    std::cout << "Exact determinant: " << det(submatrix(C, 3, 3, 4, 4)) << std::endl;
-
-    std::cout << std::endl;
-    }
-#endif
-
-  // TODO(oalexan1): Expose these scale factors to the user as
-  // --satellite-position-covariance-factor and --satellite-quaternion-covariance-factor.
-  double ps = 1.0;
-  double qs = 1.0;
-  
   dg_cam1->interpSatellitePosCov(pix1, p_cov1);
   dg_cam1->interpSatelliteQuatCov(pix1, q_cov1);
-
   dg_cam2->interpSatellitePosCov(pix2, p_cov2);
   dg_cam2->interpSatelliteQuatCov(pix2, q_cov2);
 
+  // This is useful for seeing which input covariance has a bigger effect.
+  // The default value of these factors is 1.
+  double pf = asp::stereo_settings().position_covariance_factor;
+  double qf = asp::stereo_settings().orientation_covariance_factor;
+  
   // Scale these per scaledTriangulationJacobian().
   for (int ip = 0; ip < SAT_POS_COV_SIZE; ip++) {
-    p_cov1[ip] = ps * p_cov1[ip] / (deltaPosition * deltaPosition); 
-    p_cov2[ip] = ps * p_cov2[ip] / (deltaPosition * deltaPosition); 
+    p_cov1[ip] = pf * p_cov1[ip] / (deltaPosition * deltaPosition); 
+    p_cov2[ip] = pf * p_cov2[ip] / (deltaPosition * deltaPosition); 
   }
   for (int iq = 0; iq < SAT_QUAT_COV_SIZE; iq++) {
-    q_cov1[iq] = qs * q_cov1[iq] / (deltaQuat * deltaQuat); 
-    q_cov2[iq] = qs * q_cov2[iq] / (deltaQuat * deltaQuat); 
+    q_cov1[iq] = qf * q_cov1[iq] / (deltaQuat * deltaQuat); 
+    q_cov2[iq] = qf * q_cov2[iq] / (deltaQuat * deltaQuat); 
   }
 
   // Put these in the covariance matrix
@@ -320,7 +303,10 @@ void scaledSatelliteCovariance(vw::camera::CameraModel const* cam1,
     std::cout << std::endl;
   }
 
-  // Debug code
+  // Debug code. This shows that some quaternion covariances have a
+  // negative determinant. That is because an eigenvalue is very close
+  // to 0 or even negative (but small). This singularity goes away
+  // after the covariances are propagated.
   std::cout << "determinant1 " << det(submatrix(C, 0, 0, 3, 3)) << std::endl;
   std::cout << "determinant2 " << det(submatrix(C, 3, 3, 4, 4)) << std::endl;
   std::cout << "determinant3 " << det(submatrix(C, 7, 7, 3, 3)) << std::endl;
