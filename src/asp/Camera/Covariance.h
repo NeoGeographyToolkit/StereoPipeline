@@ -85,6 +85,13 @@ namespace asp {
                                  vw::Vector2 const& pix2,
                                  vw::Matrix<double> & C);
 
+  // Propagate satellite ephemeris and attitude covariance to triangulation
+  // in NED coordinates. Return its horizontal and vertical components.
+  vw::Vector2 propagateCovariance(vw::camera::CameraModel const* cam1,
+                                  vw::camera::CameraModel const* cam2,
+                                  vw::Vector2 const& pix1,
+                                  vw::Vector2 const& pix2);
+
   
 } // end namespace asp
 

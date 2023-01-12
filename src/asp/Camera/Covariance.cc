@@ -22,6 +22,7 @@
 #include <asp/Core/StereoSettings.h>
 
 #include <vw/Stereo/StereoModel.h>
+#include <vw/Math/LinearAlgebra.h>
 
 #include <iostream>
 
@@ -314,6 +315,44 @@ void scaledSatelliteCovariance(vw::camera::CameraModel const* cam1,
 #endif
   
   return;
+}
+
+// See .h for the doc.
+vw::Vector2 propagateCovariance(vw::camera::CameraModel const* cam1,
+                                vw::camera::CameraModel const* cam2,
+                                vw::Vector2 const& pix1,
+                                vw::Vector2 const& pix2) {
+
+  // The Jacobian of the transform from ephemeris and attitude to the triangulated
+  // point in NED coordinates, multiplied by a scale factor.
+  vw::Matrix<double> J;
+  asp::scaledTriangulationJacobian(cam1, cam2, pix1, pix2, J);
+
+  // The input covariance, divided by the square of the above scale factor.
+  vw::Matrix<double> C;
+  asp::scaledSatelliteCovariance(cam1, cam2, pix1, pix2, C);
+
+  // Propagate the covariance to NED
+  // Per: https://en.wikipedia.org/wiki/Propagation_of_uncertainty#Non-linear_combinations
+  vw::Matrix<double> JT = transpose(J);
+  vw::Matrix<double> P = J * C * JT;
+
+  // Horizontal component is the square root of the determinant of the
+  // upper-left 2x2 block (horizontal plane component), which is the
+  // same as the square root of the product of eigenvalues of this
+  // matrix.  Intuitively, the area of an ellipse is the product of
+  // semi-axes, which is the product of eigenvalues. Then, a circle
+  // with radius which is the square root of the product of semi-axes
+  // has the same area.
+  vw::Matrix2x2 H = submatrix(P, 0, 0, 2, 2);
+  vw::Vector2 ans;
+  ans[0] = sqrt(det(H));
+
+  // Vertical component is the z variance
+  ans[1] = P(2, 2);
+
+  // Horizontal component
+  return ans;
 }
   
 } // end namespace asp
