@@ -153,8 +153,12 @@ namespace asp {
     if (num_pairs <= 0)
       vw_throw(ArgumentErr() << "Insufficient number of images provided.\n");
 
+    if (num_pairs > 1 && stereo_settings().compute_point_cloud_covariances) 
+      vw::vw_throw(vw::ArgumentErr() << "Computing point cloud covariances is not "
+                   << "implemented for more than two images.\n");
+ 
     // Must signal to the children runs that they are part of a multiview run
-    if (num_pairs > 1){
+    if (num_pairs > 1) {
       std::string opt_str = "--part-of-multiview-run";
       vector<string>::iterator it = find(options.begin(), options.end(), opt_str);
       if (it == options.end())
@@ -244,7 +248,7 @@ namespace asp {
                        is_multiview, files, usage, exit_early);
       opt_vec[p-1] = opt;
 
-      if (verbose){
+      if (verbose) {
         // Needed for stereo_parse
         int big = 10000; // helps keep things in order in the python script
         vw_out() << "multiview_command_" << big + p << ",";
@@ -267,6 +271,10 @@ namespace asp {
     if (num_pairs > 1 && opt.session->do_bathymetry()) 
       vw_throw(ArgumentErr() << "Bathymetry correction does not work with "
                << "multiview stereo.\n");
+    
+    if (opt.session->do_bathymetry() && stereo_settings().compute_point_cloud_covariances) 
+      vw_throw(ArgumentErr() << "Propagation of covariances is not implemented when "
+               << "bathymetry is modeled.\n");
   }
 
   // Parse input command line arguments
@@ -352,7 +360,7 @@ namespace asp {
     // Do this early, before any cameras are loaded
     if (stereo_settings().compute_point_cloud_covariances) {
       if (!stereo_settings().dg_use_csm) {
-        vw_out() << "Enabling option --dg-use-csm as point cloud covariances will be computed.\n";
+        vw_out() << "Enabling option --dg-use-csm as point cloud covariances will be computed. No velocity aberration or atmospheric correction happens.\n";
         stereo_settings().dg_use_csm = true;
       }
     }
@@ -836,6 +844,10 @@ namespace asp {
         vw::vw_throw(vw::ArgumentErr()
                      << "Option --compute-point-cloud-covariances "
                      << "works only for Maxar (DigitalGlobe) cameras.\n");
+
+      if (stereo_settings().compute_error_vector) 
+        vw::vw_throw(vw::ArgumentErr() << "Cannot use option --error-vector when computing "
+                     << "covariances, as those are stored instead in bands 2 and 5.\n");
     }
     
     // Need the percentage to be more than 50 as we look at the range [100 - pct, pct].

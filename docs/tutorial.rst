@@ -509,6 +509,115 @@ the one shipped with ASP. Note that if GDAL is fetched from a
 different repository than conda-forge, one may run into issues with
 dependencies not being correct, and then it will fail at runtime.
 
+.. _dg_cov:
+
+Propagation of covariances
+--------------------------
+
+DigitalGlobe linescan camera models store for each satellite position
+and orientation a covariance matrix, expressing the uncertainty in
+these measurements. At the triangulation stage of stereo, the option
+``--compute-point-cloud-covariances``
+(:numref:`stereo-default-covariance`) can be used to propagate these
+covariances through the triangulation operation.
+
+These covariances are then converted from ECEF to North-East-Down
+(NED) coordinates at each nominal triangulated point, and further
+decomposed into the horizontal and vertical components, which are
+saved as the 5th and 6th band in the point cloud (\*-PC.tif tile).
+
+The covariances in the point cloud can then be gridded with
+``point2dem`` (:numref:`point2dem`) with the option ``--covariances``,
+using the same algorithm as for creating the DEM heights.
+
+Example::
+
+    parallel_stereo --alignment-method local_epipolar \
+      --stereo-algorithm asp_mgm --subpixel-mode 9    \
+      -t dg --compute-point-cloud-covariances         \
+      left.tif right.tif left.xml right.xml 
+      run/run
+   point2dem --covariances run/run-PC.tif
+
+This will produce ``run/run-HorizontalCovariance.tif`` and
+``run/VerticalCovariance.tif``.
+
+Horizontal and vertical covariance definitions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The vertical covariance is defined as the lower-right corner of the
+3x3 NED covariance matrix (since x=North, y=East, z=Down). 
+
+To find the horizontal covariance, consider the upper-left 2x2 block
+of the NED covariance matrix.  Geometrically this represents an
+ellipsoid. The radius of the circle with the same area is found, which
+is the square root of the product of ellipsoid semiaxes. This is also
+the product of the eigenvalues of this 2x2 symmetric matrix, or its
+determinant. So, the the horizontal component of the covariance is
+defined as the square root of the upper-left 2x2 bock of the NED
+covariance matrix.
+
+The produced outputs are in unit of square meters. Running
+``gdalinfo`` on the point cloud will show some metadata describing
+each band in the produced point cloud.
+
+Validation
+~~~~~~~~~~
+
+The horizontal covariance has a value on the order of 7 :math:`m^2` or so,
+which suggests that the horizontal standard deviation is the square root
+of that, so under 3 meters.
+
+The vertical covariance varies very strongly with the convergence angle,
+and is usually above 25 :math:`m^2`, so the vertical standard deviation
+is, roughly speaking, at least 5 meters, and perhaps double that and more
+for stereo pairs with a convergence angle under 30 degrees.
+
+The dependence on the convergence angle is very expected. Yet, these numbers
+appear too large given the ground sample distance of DigitalGlobe WorldView 
+cameras. Yet, we are very confident that they are correct. The reason
+why the results are so large is because of the input orientation covariances
+(the relative contribution of input position and orientation covariances
+can be determined with the options ``--position-covariance-factor`` and
+``--orientation-covariance-factor``).
+
+The curious user can use the following independent approach to
+validate these numbers. The linescan camera files in XML format have
+the orientations on lines with the XML tag ``<ATTLIST>``. The
+numbers on that line are measurement index, then the quaternions (4
+values, in order x, y, z, w) and the upper-right half of the 4x4
+covariance matrix (10 numbers, stored row-wise).
+
+The ``w`` variance (the last number), can be, for example, on the order of
+6.3e-12, so, its square root, which is 2.5e-6 or so, is the expected
+variability in the ``w`` component of the quaternion.
+
+The tool ``bias_dg_cam.py``, invoked as::
+
+   python bias_dg_cam.py --position-bias "0 0 0" \
+     --orientation-bias "0 0 0 2e-6"             \
+     left.xml -o left_bias.xml
+   python bias_dg_cam.py --position-bias "0 0 0" \
+     --orientation-bias "0 0 0 -2e-6"            \
+     right.xml -o right_bias.xml
+
+can be used to bias the quaternions in the camera files by given
+amounts (note that values with different sign were used in the two
+camera files), creating the camera files ``left_bias.xml`` and
+``right_bias.xml``. It is instructive to compare the original and
+produced camera files side-by-side.
+
+Then, ``parallel_stereo`` can be run twice, first with original
+cameras, and then the biased ones, in both cases without propagation of
+covariance. Use ``--left-image-crop-win`` and
+``--right-image-crop-win`` (:numref:`stereo_gui`) to run on small
+clips only.
+
+DEMs can be created, and the heights compared with ``geodiff``
+(:numref:`geodiff`). We found a height difference of at least 5 meters
+among these, which was consistent with the vertical covariance produced
+earlier.
+
 Processing multi-spectral images
 --------------------------------
 

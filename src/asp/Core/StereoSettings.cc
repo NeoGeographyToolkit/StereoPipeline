@@ -397,7 +397,7 @@ namespace asp {
        "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
       ("compute-point-cloud-covariances",  po::bool_switch(&global.compute_point_cloud_covariances)->default_value(false)->implicit_value(true),
        "Propagate the covariances of satellite positions and orientations "
-       "to the triangulated point cloud. Applicable only for "
+       "to the triangulated point cloud. Applicable only to "
        "Maxar (DigitalGlobe) sensors. This option implies "
        "--dg-use-csm.")
       ("position-covariance-factor", po::value(&global.position_covariance_factor)->default_value(1.0),

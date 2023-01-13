@@ -187,12 +187,11 @@ do_work(Vector3 const& shift, Options const& opt) {
   // If shift != zero then this will cast the output data to type float.
   //  Otherwise it will keep its data type.
   double point_cloud_rounding_error = 0.0;
-  asp::block_write_approx_gdal_image
-    ( opt.out_file, shift,
-      point_cloud_rounding_error,
-      merged_cloud,
-      has_georef, georef, has_nodata, nodata,
-      opt, TerminalProgressCallback("asp", "\t--> Merging: "));
+  asp::block_write_approx_gdal_image(opt.out_file, shift,
+                                     point_cloud_rounding_error,
+                                     merged_cloud,
+                                     has_georef, georef, has_nodata, nodata,
+                                     opt, TerminalProgressCallback("asp", "\t--> Merging: "));
 }
 
 //-----------------------------------------------------------------------------------

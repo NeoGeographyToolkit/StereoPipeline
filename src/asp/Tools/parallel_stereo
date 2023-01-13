@@ -342,11 +342,12 @@ def build_vrt(prog, settings, georef, postfix, tile_postfix, contract_tiles=Fals
             if num_bands < b:
                 num_bands = b
 
-    # Extract the shift in a point clound file, if present
-    POINT_OFFSET = "POINT_OFFSET" # Tag name must be synced with C++ code
-    if POINT_OFFSET in gdal_settings:
-        f.write("  <Metadata>\n    <MDI key=\"" + POINT_OFFSET + "\">" +
-                gdal_settings[POINT_OFFSET][0] + "</MDI>\n  </Metadata>\n")
+    # Copy some keys over to the vrt
+    keys = ["POINT_OFFSET", "AREA_OR_POINT", "BAND1", "BAND2", "BAND3", "BAND4", "BAND5", "BAND6"]
+    for key in keys:
+        if key in gdal_settings:
+            f.write("  <Metadata>\n    <MDI key=\"" + key + "\">" +
+                    gdal_settings[key][0] + "</MDI>\n  </Metadata>\n")
 
     # Write each band
     for b in range(1, num_bands + 1):

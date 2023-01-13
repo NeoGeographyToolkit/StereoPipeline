@@ -207,24 +207,9 @@ int main(int argc, char *argv[]) {
       std::cout << "pix2 " << pix2 << std::endl;
       std::cout << "xyz " << xyz << std::endl;
       
-      vw::Matrix<double> J;
-      asp::scaledTriangulationJacobian(cam1_model.get(), cam2_model.get(), pix1, pix2, J);
+      vw::Vector2 ans = asp::propagateCovariance(cam1_model.get(), cam2_model.get(), pix1, pix2);
+      std::cout << "Horizontal and vertical covariance: " << ans << std::endl;
 
-      vw::Matrix<double> C;
-      asp::scaledSatelliteCovariance(cam1_model.get(), cam2_model.get(), pix1, pix2, C);
-      std::cout.precision(17);
-
-      vw::Matrix<double> JT = transpose(J);
-      vw::Matrix<double> P = J * C * JT;
-
-      std::cout << "J = " << J << std::endl;
-      std::cout << "C = " << C << std::endl;
-      std::cout << "NED covariance matrix\n" << P << std::endl;
-
-      typedef std::complex<double> cdouble;
-      Vector<cdouble> e;
-      vw::math::eigen(P, e);
-      std::cout << "Eigenvalues: " << e << std::endl;
       exit(0);
     }
 #endif

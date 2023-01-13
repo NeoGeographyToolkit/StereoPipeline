@@ -1,26 +1,31 @@
 Changes since last release
 --------------------------
 
-stereo:
+parallel_stereo (:numref:`parallel_stereo`):
   * Added the triangulation option ``--compute-point-cloud-covariances`` to
     propagate the covariances of satellite positions and quaternions
-    to the triangulated point cloud. Applicable only for
+    to the triangulated point cloud. Applicable only to
     Maxar (DigitalGlobe) cameras, like WorldView and QuickBird
-    (with linescan sensors, not RPC). This option implies
-    ``--dg-use-csm`` (:numref:`stereodefault`). See also
-    new options ``--position-covariance-factor`` and
+    (with linescan sensors, not RPC). See :numref:`dg_cov`. This
+    option implies ``--dg-use-csm`` (:numref:`stereodefault`). See also
+    the new options ``--position-covariance-factor`` and
     ``--orientation-covariance-factor``.
   * Documented the pre-processing options ``--stddev-mask-kernel``
     and ``--stddev-mask-thresh`` (:numref:`stereo-default-preprocessing`).
     Also fixed a bug in writing out debug images for this option.
 
-stereo_gui: 
+point2dem (:numref:`point2dem`): 
+  * Added the option ``--covariances`` to grid the covariances computed
+    during triangulation. 
+
+stereo_gui (:numref:`stereo_gui`): 
   * Can read, write, edit, and overlay on top of images polygons in
     plain text format in addition to .shp format.
 
 misc: 
    * Added to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`) the option
-   * ``--web`` to invoke ``spiceinit`` with ``web=True``.
+     ``--web`` to invoke ``spiceinit`` with ``web=True``. Contributed
+     by Giacomo Nodjoumi.
    * Bugfix for reading .jp2 files. Needed to ship the JPEG2000 driver
      and set GDAL_DRIVER_PATH.
 

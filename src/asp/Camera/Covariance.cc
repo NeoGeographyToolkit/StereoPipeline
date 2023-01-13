@@ -332,11 +332,19 @@ vw::Vector2 propagateCovariance(vw::camera::CameraModel const* cam1,
   vw::Matrix<double> C;
   asp::scaledSatelliteCovariance(cam1, cam2, pix1, pix2, C);
 
-  // Propagate the covariance to NED
+  // Propagate the covariance
   // Per: https://en.wikipedia.org/wiki/Propagation_of_uncertainty#Non-linear_combinations
   vw::Matrix<double> JT = transpose(J);
   vw::Matrix<double> P = J * C * JT;
 
+#if 0
+  // Useful debug code
+  std::cout << "NED covariance " << P << std::endl;
+  vw::Vector<std::complex<double>> e;
+  vw::math::eigen(P, e);
+  std::cout << "Eigenvalues: " << e << std::endl;
+#endif
+  
   // Horizontal component is the square root of the determinant of the
   // upper-left 2x2 block (horizontal plane component), which is the
   // same as the square root of the product of eigenvalues of this
@@ -351,7 +359,11 @@ vw::Vector2 propagateCovariance(vw::camera::CameraModel const* cam1,
   // Vertical component is the z variance
   ans[1] = P(2, 2);
 
-  // Horizontal component
+  // Check for NaN. Then the caller will return the zero vector, which
+  // signifies that the there is no valid data
+  if (ans != ans) 
+    vw::vw_throw(vw::ArgumentErr() << "Could not compute the covariance.\n");
+  
   return ans;
 }
   

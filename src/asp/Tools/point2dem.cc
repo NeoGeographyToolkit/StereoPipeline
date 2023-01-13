@@ -74,7 +74,7 @@ struct Options : vw::GdalWriteOptions {
   double      lon_offset, lat_offset, height_offset;
   size_t      utm_zone;
   ProjectionType projection;
-  bool        has_alpha, do_normalize, do_ortho, do_error, no_dem;
+  bool        has_alpha, do_normalize, do_ortho, do_error, covariances, no_dem;
   double      rounding_error;
   std::string target_srs_string;
   BBox2       target_projwin;
@@ -407,6 +407,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
      "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
+    ("covariances", po::bool_switch(&opt.covariances)->default_value(false), "Write files with names {output-prefix}-horizontalCovariance.tif and {output-prefix}-verticalCovariance.tif having the gridded covariances produced from bands 5 and 6 of the input point cloud, if this cloud was created with the option --compute-point-cloud-covariances. The same gridding algorithm is used as for creating the DEM.")
     ("gaussian-sigma-factor", po::value(&opt.sigma_factor)->default_value(0.0),
      "The value s to be used in the Gaussian exp(-s*(x/grid_size)^2) when computing the DEM. The default is -log(0.25) = 1.3863. A smaller value will result in a smoother terrain.")
     ("default-grid-size-multiplier", po::value(&opt.default_grid_size_multiplier)->default_value(1.0),
@@ -942,24 +943,36 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     int num_channels = asp::num_channels(opt.pointcloud_files);
 
     int hole_fill_len = 0;
-    if (num_channels == 4){
+    if (num_channels == 4 && !opt.covariances) {
       // The error is a scalar.
       ImageViewRef<Vector4> point_disk_image
         = asp::form_point_cloud_composite<Vector4>
         (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);
-      ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
+      ImageViewRef<double> error_channel = select_channel(point_disk_image, 3);
       rasterizer.set_texture(error_channel);
       rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
       save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
                                                           opt.rounding_error,
                                                           opt.nodata_value),
                  georef, hole_fill_len, "IntersectionErr");
-    }else if (num_channels == 6){
+    }else if (num_channels == 6 && opt.covariances) {
+      // 6 channels, but only channel 4 has the error
+      ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>
+        (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);
+      ImageViewRef<double> error_channel = select_channel(point_disk_image, 3);
+      rasterizer.set_texture(error_channel);
+      rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
+      save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
+                                                          opt.rounding_error,
+                                                          opt.nodata_value),
+                 georef, hole_fill_len, "IntersectionErr");
+      
+    }else if (num_channels == 6) {
       // The error is a 3D vector. Convert it to NED coordinate system, and rasterize it.
       ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>
         (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);
       ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
-      std::vector< ImageViewRef< PixelGray<float> > >  rasterized(3);
+      std::vector<ImageViewRef<PixelGray<float>>>  rasterized(3);
       for (int ch_index = 0; ch_index < 3; ch_index++){
         ImageViewRef<double> ch = select_channel(ned_err, ch_index);
         rasterizer.set_texture(ch);
@@ -980,6 +993,37 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     }
   }
 
+  if (opt.covariances) {
+    int num_channels = asp::num_channels(opt.pointcloud_files);
+    
+    // Note: We don't throw here. We still would like to write the
+    // DRG (below) even if we can't write the covariances.
+    if (num_channels != 6) {
+      vw_out() << "The input point cloud(s) must have 6 channels to be able to "
+               << "compute the covariances.\n";
+    } else {
+      int hole_fill_len = 0;
+      ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>
+        (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);
+      
+      ImageViewRef<double> horizontal_cov_channel = select_channel(point_disk_image, 4);
+      rasterizer.set_texture(horizontal_cov_channel);
+      rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
+      save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
+                                                          opt.rounding_error,
+                                                          opt.nodata_value),
+                 georef, hole_fill_len, "HorizontalCovariance");
+      
+      ImageViewRef<double> vertical_cov_channel = select_channel(point_disk_image, 5);
+      rasterizer.set_texture(vertical_cov_channel);
+      rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
+      save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
+                                                          opt.rounding_error,
+                                                          opt.nodata_value),
+                 georef, hole_fill_len, "VerticalCovariance");
+    }
+  }
+  
   // Write out a normalized version of the DEM, if requested (for debugging)
   if (opt.do_normalize) {
     int hole_fill_len = 0;

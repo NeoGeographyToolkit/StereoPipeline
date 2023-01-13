@@ -813,15 +813,20 @@ compute-error-vector
     contain the three components of the triangulation error vector in
     the North-East-Down coordinate system.
 
+.. _stereo-default-covariance:
+
 
 Error propagation (used in triangulation)
 -----------------------------------------
 
+For context, see :numref:`dg_cov`.
+
 compute-point-cloud-covariances
     Propagate the covariances of satellite positions and orientations
-    to the triangulated point cloud. Applicable only for
+    to the triangulated point cloud. Applicable only to
     Maxar (DigitalGlobe) sensors. This option implies
-    ``--dg-use-csm``.
+    ``--dg-use-csm``. No velocity aberration or atmospheric refraction
+    correction gets applied.
 
 position-covariance-factor <double (default: 1.0)>
     Multiply the satellite position covariances by this number before

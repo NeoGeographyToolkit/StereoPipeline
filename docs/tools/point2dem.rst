@@ -463,6 +463,15 @@ Command-line options for point2dem
       the filter will be added to the obtained DEM file name, e.g.,
       ``output-min-DEM.tif`` if ``--filter min`` is used.
 
+--covariances
+    Write files with names ``{output-prefix}-horizontalCovariance.tif``
+    and ``{output-prefix}-verticalCovariance.tif`` having the gridded
+    covariances produced from bands 5 and 6 of the input point cloud,
+    if this cloud was created with the option
+    ``--compute-point-cloud-covariances``
+    (:numref:`stereo-default-covariance`). The same gridding algorithm
+    is used as for creating the DEM.
+
 --use-surface-sampling
     Use the older algorithm, interpret the point cloud as a surface
     made up of triangles and sample it (prone to aliasing).

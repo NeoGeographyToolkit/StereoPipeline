@@ -18,20 +18,6 @@
 /// \file stereo_tri.cc
 ///
 
-#include <vw/Camera/CameraModel.h>
-#include <vw/Stereo/StereoView.h>
-#include <vw/Stereo/DisparityMap.h>
-#include <vw/Image/Filter.h>
-#include <vw/InterestPoint/Matcher.h>
-
-#include <asp/Camera/RPCModel.h>
-#include <asp/Core/DisparityProcessing.h>
-#include <asp/Core/Bathymetry.h>
-#include <asp/Tools/stereo.h>
-#include <asp/Tools/jitter_adjust.h>
-#include <asp/Tools/ccd_adjust.h>
-#include <asp/Core/IpMatchingAlgs.h>
-
 // We must have the implementations of all sessions for triangulation
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Sessions/StereoSessionMapProj.h>
@@ -40,6 +26,21 @@
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Sessions/StereoSessionASTER.h>
+
+#include <asp/Camera/RPCModel.h>
+#include <asp/Core/DisparityProcessing.h>
+#include <asp/Core/Bathymetry.h>
+#include <asp/Tools/stereo.h>
+#include <asp/Tools/jitter_adjust.h>
+#include <asp/Tools/ccd_adjust.h>
+#include <asp/Core/IpMatchingAlgs.h>
+#include <asp/Camera/Covariance.h>
+
+#include <vw/Camera/CameraModel.h>
+#include <vw/Stereo/StereoView.h>
+#include <vw/Stereo/DisparityMap.h>
+#include <vw/Image/Filter.h>
+#include <vw/InterestPoint/Matcher.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 #include <ctime>
@@ -51,10 +52,12 @@ namespace asp{
 enum OUTPUT_CLOUD_TYPE {FULL_CLOUD, BATHY_CLOUD, TOPO_CLOUD}; // all, below water, above water
 
 /// The main class for taking in a set of disparities and returning a
-/// point cloud via joint triangulation.
-class StereoTXAndErrorView:
-  public ImageViewBase<StereoTXAndErrorView> {
+/// point cloud using triangulation. Will compute the triangulation
+/// error, and perhaps covariances.
+class StereoTriangulation:
+  public ImageViewBase<StereoTriangulation> {
   std::vector<DispImageType>    m_disparity_maps;
+  std::vector<const vw::camera::CameraModel*> m_camera_ptrs;
   std::vector<vw::TransformPtr> m_transforms; // e.g., map-projection or homography to undo
   vw::stereo::StereoModel       m_stereo_model;
   asp::BathyStereoModel         m_bathy_model;
@@ -70,18 +73,20 @@ public:
 
   typedef Vector6 pixel_type;
   typedef Vector6 result_type;
-  typedef ProceduralPixelAccessor<StereoTXAndErrorView> pixel_accessor;
+  typedef ProceduralPixelAccessor<StereoTriangulation> pixel_accessor;
 
   /// Constructor
-  StereoTXAndErrorView(std::vector<DispImageType>    const& disparity_maps,
-                       std::vector<vw::TransformPtr> const& transforms,
-                       vw::stereo::StereoModel       const& stereo_model,
-                       asp::BathyStereoModel         const& bathy_model,
-                       bool is_map_projected,
-                       bool bathy_correct, OUTPUT_CLOUD_TYPE cloud_type,
-                       ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
-                       ImageViewRef<PixelMask<float>> right_aligned_bathy_mask):
+  StereoTriangulation(std::vector<DispImageType>    const& disparity_maps,
+                      std::vector<const vw::camera::CameraModel*> const& camera_ptrs,
+                      std::vector<vw::TransformPtr> const& transforms,
+                      vw::stereo::StereoModel       const& stereo_model,
+                      asp::BathyStereoModel         const& bathy_model,
+                      bool is_map_projected,
+                      bool bathy_correct, OUTPUT_CLOUD_TYPE cloud_type,
+                      ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
+                      ImageViewRef<PixelMask<float>> right_aligned_bathy_mask):
     m_disparity_maps(disparity_maps),
+    m_camera_ptrs(camera_ptrs),
     m_transforms(transforms),
     m_stereo_model(stereo_model),
     m_bathy_model(bathy_model),
@@ -132,16 +137,27 @@ public:
     if (!m_bathy_correct) {
       try {
         subvector(result,0,3) = m_stereo_model(pixVec, errorVec);
-        subvector(result,3,3) = errorVec;
 
+        double errLen = norm_2(errorVec);
+        if (!stereo_settings().compute_point_cloud_covariances) {
+          subvector(result, 3, 3) = errorVec;
+        } else {
+          // Store error length in band 3, horizontal covariance
+          // in band 4, and vertical covariance in band 5.
+          result[3] = errLen;
+          subvector(result, 4, 2)
+            = asp::propagateCovariance(m_camera_ptrs[0], m_camera_ptrs[1],
+                                       pixVec[0], pixVec[1]);
+        }
+        
         // Filter by triangulation error, if desired
         if (stereo_settings().max_valid_triangulation_error > 0.0 &&
-            norm_2(errorVec) > stereo_settings().max_valid_triangulation_error) {
+            errLen > stereo_settings().max_valid_triangulation_error) {
           result = pixel_type();
           errorVec = Vector3();
         }
       }catch(...) {
-        return result;
+        return pixel_type(); // The zero vector, it means that there is no valid data
       }
       
       return result; // Contains location and error vector
@@ -201,7 +217,7 @@ public:
     return result; // Contains location and error vector
   }
   
-  typedef StereoTXAndErrorView prerasterize_type;
+  typedef StereoTriangulation prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
     return PreRasterHelper(bbox, m_transforms);
   }
@@ -261,7 +277,7 @@ private:
         }
       }
 
-      return prerasterize_type(disparity_cropviews, transforms,
+      return prerasterize_type(disparity_cropviews, m_camera_ptrs, transforms,
                                m_stereo_model, m_bathy_model,
                                m_is_map_projected, m_bathy_correct, m_cloud_type,
                                in_memory_left_aligned_bathy_mask,
@@ -325,27 +341,29 @@ private:
       transforms_copy[p+1]->reverse_bbox(right_bbox);
     }
 
-    return prerasterize_type(disparity_cropviews, transforms_copy,
-                             m_stereo_model, m_bathy_model,
-                             m_is_map_projected, m_bathy_correct, m_cloud_type,
-                             in_memory_left_aligned_bathy_mask, in_memory_right_aligned_bathy_mask);
+    return prerasterize_type(disparity_cropviews, m_camera_ptrs, transforms_copy,
+                             m_stereo_model, m_bathy_model, m_is_map_projected,
+                             m_bathy_correct, m_cloud_type,
+                             in_memory_left_aligned_bathy_mask,
+                             in_memory_right_aligned_bathy_mask);
   } // End function PreRasterHelper() maprojected version
-}; // End class StereoTXAndErrorView
+}; // End class StereoTriangulation
 
-/// Just a wrapper function for StereoTXAndErrorView view construction
-StereoTXAndErrorView
-stereo_error_triangulate(std::vector<DispImageType> const& disparities,
-                         std::vector<vw::TransformPtr>  const& transforms,
-                         vw::stereo::StereoModel        const& stereo_model,
-                         asp::BathyStereoModel          const& bathy_model,
-                         bool is_map_projected,
-                         bool bathy_correct,
-                         OUTPUT_CLOUD_TYPE cloud_type,
-                         ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
-                         ImageViewRef<PixelMask<float>> right_aligned_bathy_mask) {
+/// A wrapper function for StereoTriangulation view construction
+StereoTriangulation
+stereo_triangulation(std::vector<DispImageType> const& disparities,
+                     std::vector<const vw::camera::CameraModel*> const& camera_ptrs,
+                     std::vector<vw::TransformPtr>  const& transforms,
+                     vw::stereo::StereoModel        const& stereo_model,
+                     asp::BathyStereoModel          const& bathy_model,
+                     bool is_map_projected,
+                     bool bathy_correct,
+                     OUTPUT_CLOUD_TYPE cloud_type,
+                     ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
+                     ImageViewRef<PixelMask<float>> right_aligned_bathy_mask) {
   
-  typedef StereoTXAndErrorView result_type;
-  return result_type(disparities, transforms, stereo_model, bathy_model,
+  typedef StereoTriangulation result_type;
+  return result_type(disparities, camera_ptrs, transforms, stereo_model, bathy_model,
                      is_map_projected, bathy_correct, cloud_type,
                      left_aligned_bathy_mask, right_aligned_bathy_mask);
 }
@@ -381,14 +399,25 @@ void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
 
   bool has_nodata = false;
   double nodata = -std::numeric_limits<float>::max(); // smallest float
-
+  vw::ProgressCallback progress = TerminalProgressCallback("asp", "\t--> Triangulating: ");
+  
+  std::map<std::string, std::string> keywords; // will go to the geoheader
+  if (stereo_settings().compute_point_cloud_covariances) {
+    keywords["BAND1"] = "ECEF_X";
+    keywords["BAND2"] = "ECEF_Y";
+    keywords["BAND3"] = "ECEF_Z";
+    keywords["BAND4"] = "IntersectionErr";
+    keywords["BAND5"] = "horizontalCovariance";
+    keywords["BAND6"] = "verticalCovariance";
+  }
+  
   if (opt.session->supports_multi_threading()){
     asp::block_write_approx_gdal_image
       (point_cloud_file, shift,
        stereo_settings().point_cloud_rounding_error,
        point_cloud,
        has_georef, georef, has_nodata, nodata,
-       opt, TerminalProgressCallback("asp", "\t--> Triangulating: "));
+       opt, progress, keywords);
   }else{
     // ISIS does not support multi-threading
     asp::write_approx_gdal_image
@@ -396,7 +425,7 @@ void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
        stereo_settings().point_cloud_rounding_error,
        point_cloud,
        has_georef, georef, has_nodata, nodata,
-       opt, TerminalProgressCallback("asp", "\t--> Triangulating: "));
+       opt, progress, keywords);
   }
 }
 
@@ -687,11 +716,10 @@ void stereo_triangulation(std::string const& output_prefix,
       vw_out() << "\t--> Inputs are map projected." << std::endl;
 
     // Strip the smart pointers and form the stereo model
-    std::vector<const vw::camera::CameraModel *> camera_ptrs;
+    std::vector<const vw::camera::CameraModel*> camera_ptrs;
     int num_cams = cameras.size();
-    for (int c = 0; c < num_cams; c++) {
+    for (int c = 0; c < num_cams; c++)
       camera_ptrs.push_back(cameras[c].get());
-    }
 
     // Convert the angle tol to be in terms of dot product and pass it
     // to the stereo model.
@@ -740,7 +768,6 @@ void stereo_triangulation(std::string const& output_prefix,
         vw_throw(ArgumentErr() << "Bathymetry correction does not work with multiview stereo\n");
       
       read_bathy_plane_set(stereo_settings().bathy_plane, bathy_plane_set);
-      
       opt_vec[0].session->read_aligned_bathy_masks(left_aligned_bathy_mask,
                                                    right_aligned_bathy_mask); 
       
@@ -756,10 +783,10 @@ void stereo_triangulation(std::string const& output_prefix,
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << std::endl;
     ImageViewRef<Vector6> point_cloud = per_pixel_filter
-        (stereo_error_triangulate
-         (disparity_maps, transforms, stereo_model, bathy_stereo_model,
-          is_map_projected, bathy_correct,
-          cloud_type, left_aligned_bathy_mask, right_aligned_bathy_mask),
+      (stereo_triangulation(disparity_maps, camera_ptrs,
+                            transforms, stereo_model, bathy_stereo_model,
+                            is_map_projected, bathy_correct,
+                            cloud_type, left_aligned_bathy_mask, right_aligned_bathy_mask),
          universe_radius_func);
     
     // If we crop the left and right images, at each run we must
@@ -769,7 +796,7 @@ void stereo_triangulation(std::string const& output_prefix,
 
     // Compute the point cloud center, unless done by now
     Vector3 cloud_center = Vector3();
-    if (!stereo_settings().save_double_precision_point_cloud){
+    if (!stereo_settings().save_double_precision_point_cloud) {
       std::string cloud_center_file = output_prefix + "-PC-center.txt";
       if (!read_point(cloud_center_file, cloud_center) || crop_left || crop_right){
         if (!stereo_settings().skip_point_cloud_center_comp) {
@@ -788,11 +815,16 @@ void stereo_triangulation(std::string const& output_prefix,
 
     // We are supposed to do the triangulation in trans_crop_win only
     // so force rasterization in that box only using crop().
+    // The cloud has 4 bands unless computing the error vector or covariances,
+    // when it has 6.
     BBox2i cbox = stereo_settings().trans_crop_win;
     std::string point_cloud_file = output_prefix + "-PC.tif";
-    if (stereo_settings().compute_error_vector){
+    if (stereo_settings().compute_error_vector ||
+        stereo_settings().compute_point_cloud_covariances) {
 
-      if (num_cams > 2)
+      // The case num_cams > 2 && stereo_settings().compute_point_cloud_covariances
+      // will throw an exception, so we won't get here.
+      if (num_cams > 2 && stereo_settings().compute_error_vector)
         vw_out(WarningMessage) << "For more than two cameras, the error "
                                << "vector between rays is not meaningful. "
                                << "Setting it to (err_len, 0, 0)." << std::endl;
