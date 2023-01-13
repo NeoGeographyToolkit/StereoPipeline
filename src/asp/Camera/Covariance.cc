@@ -98,23 +98,34 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
                                  vw::Vector2 const& pix2,
                                  vw::Matrix<double> & J) {
 
-  // Load the cameras
+  // Handle adjusted cameras
+  bool adjusted_cameras = false;
   const AdjustedCameraModel *adj_cam1 = dynamic_cast<const AdjustedCameraModel*>(cam1);
   const AdjustedCameraModel *adj_cam2 = dynamic_cast<const AdjustedCameraModel*>(cam2);
-  if (adj_cam1 == NULL || adj_cam2 == NULL) {
-    // std::cout << "Cameras are not adjusted" << std::endl;
-  } else {
-    // TODO(oalexan1): Must apply the adjustments to the covariance.
-    // std::cout << "Camera are adjusted." << std::endl;
+  if ((adj_cam1 == NULL) != (adj_cam2 == NULL))
+    vw::vw_throw(vw::ArgumentErr() << "The cameras must be either both "
+                 << "adjusted or both unadjusted.\n");
+
+  vw::Matrix3x3 cam1_rot, cam2_rot;
+  vw::Vector3 cam1_shift, cam2_shift;
+  if (adj_cam1 != NULL && adj_cam2 != NULL) {
+    adjusted_cameras = true;
+    // transforms from unadjusted to adjusted coordinates
+    vw::Matrix4x4 cam1_adj = adj_cam1->ecef_transform();
+    vw::Matrix4x4 cam2_adj = adj_cam2->ecef_transform();
+    cam1_rot = submatrix(cam1_adj, 0, 0, 3, 3);
+    cam2_rot = submatrix(cam2_adj, 0, 0, 3, 3);
+    cam1_shift = vw::Vector3(cam1_adj(0, 3), cam1_adj(1, 3), cam1_adj(2, 3));
+    cam2_shift = vw::Vector3(cam2_adj(0, 3), cam2_adj(1, 3), cam2_adj(2, 3));
   }
-  
-  // TODO(oalexan1): Support mapprojection.
   
   DGCameraModel const* dg_cam1 = dynamic_cast<DGCameraModel const*>(unadjusted_model(cam1));
   DGCameraModel const* dg_cam2 = dynamic_cast<DGCameraModel const*>(unadjusted_model(cam2));
   if (dg_cam1 == NULL || dg_cam2 == NULL) 
     vw::vw_throw(vw::ArgumentErr() << "Expecting DG cameras.\n");
 
+  // TODO(oalexan1): Support mapprojection.
+  
   // Numerical differences will be used. Camera models with deltaPosition and deltaQuat
   // perturbations have already been created in LinescanDGModel.cc using the positionDelta()
   // and quatDelta() functions from above.
@@ -140,6 +151,16 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
     cam2_ctrs.push_back(dg_cam2->m_perturbed_cams[it]->camera_center(pix2));
   }
 
+  // Apply adjustments
+  if (adjusted_cameras) {
+    for (size_t it = 0; it < cam1_dirs.size(); it++) {
+      cam1_dirs[it] = cam1_rot * cam1_dirs[it];
+      cam2_dirs[it] = cam2_rot * cam2_dirs[it];
+      cam1_ctrs[it] = cam1_rot * cam1_ctrs[it] + cam1_shift;
+      cam2_ctrs[it] = cam2_rot * cam2_ctrs[it] + cam2_shift;
+    }
+  }
+  
   // Nominal triangulation point
   vw::Vector3 tri_nominal, err_nominal;
   // If triangulation fails, it can return NaN
@@ -155,14 +176,9 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
   vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(subvector(llh, 0, 2));
   vw::Matrix3x3 EcefToNed = inverse(NedToEcef);
 
-  // TODO(oalexan1): Test here more the triangulation errors and now NED compares
-  // to lon-lat-height difference.
-  //std::cout << "tri " << tri_nominal << std::endl;
-  //std::cout << "err " << err_nominal << std::endl;
-  
   // There are 14 input variables: 3 positions and 4 quaternions for
   // cam1, and same for cam2. For each of them must compute a centered
-  // difference.  The output has 3 variables. As documented in the
+  // difference. The output has 3 variables. As documented in the
   // .h file for this function, the vector from the nominal to perturbed
   // triangulated point will be converted to North-East-Down
   // coordinates at the nominal triangulated point.
@@ -258,7 +274,8 @@ void scaledSatelliteCovariance(vw::camera::CameraModel const* cam1,
   C.set_size(14, 14);
   C.set_zero();
 
-  // Here it is not important that the camera are adjusted or not.
+  // Here it is not important that the camera are adjusted or not, as all that is needed
+  // are the input covariances.
   DGCameraModel const* dg_cam1 = dynamic_cast<DGCameraModel const*>(unadjusted_model(cam1));
   DGCameraModel const* dg_cam2 = dynamic_cast<DGCameraModel const*>(unadjusted_model(cam2));
   if (dg_cam1 == NULL || dg_cam2 == NULL) 

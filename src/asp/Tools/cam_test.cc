@@ -48,7 +48,7 @@ namespace fs = boost::filesystem;
 typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 struct Options : vw::GdalWriteOptions {
-  std::string image_file, cam1_file, cam2_file, session1, session2;
+  std::string image_file, cam1_file, cam2_file, session1, session2, bundle_adjust_prefix;
   int sample_rate; // use one out of these many pixels
   double subpixel_offset, height_above_datum;
   bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
@@ -89,6 +89,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use the CSM model with DigitalGlobe linescan cameras (-t dg). No corrections are done for velocity aberration or atmospheric refraction.")
     ("dg-vs-csm", po::bool_switch(&opt.dg_vs_csm)->default_value(false)->implicit_value(true),
      "Compare projecting into the camera without and with using the CSM model for Digital Globe.")
+    ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
+     "Adjust the cameras using this prefix.")
     ("test-covariance-computation", po::bool_switch(&opt.test_covariance_computation)->default_value(false)->implicit_value(true),
      "Test computing the covariances (see --compute-point-cloud-covariances). This is an undocumented developer option.")
     ;  
@@ -119,6 +121,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     = opt.enable_correct_atmospheric_refraction;
   asp::stereo_settings().dg_use_csm = opt.dg_use_csm;
   
+  // Need this to be able to load adjusted camera models. This must be set
+  // before loading the cameras. 
+  asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
+  
   if (opt.test_covariance_computation) {
     if (!asp::stereo_settings().dg_use_csm) {
       vw_out() << "Enabling option --dg-use-csm as point cloud covariances will be computed.\n";
@@ -143,6 +149,34 @@ void print_diffs(std::string const& tag, std::vector<double> & diffs) {
   vw_out() << "Min:    " << diffs[0] << "\n";
   vw_out() << "Median: " << diffs[diffs.size()/2] << "\n";
   vw_out() << "Max:    " << diffs.back() << "\n";
+}
+
+void testCovarianceComputation(Options const& opt,
+                               vw::cartography::Datum const& datum,
+                               vw::CamPtr cam1_model,
+                               vw::CamPtr cam2_model) {
+
+  double major_axis = datum.semi_major_axis() + opt.height_above_datum;
+  double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
+  
+  vw::Vector2 pix1(10000, 10000);
+  Vector3 cam1_dir = cam1_model->pixel_to_vector(pix1);
+  Vector3 cam1_ctr = cam1_model->camera_center(pix1);
+  
+  // Shoot a ray from the cam1 camera, intersect it with the
+  // given height above datum
+  Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+                                                    cam1_ctr, cam1_dir);
+  
+  // Project to second camera
+  vw::Vector2 pix2 = cam2_model->point_to_pixel(xyz);
+  
+  std::cout << "pix1 " << pix1 << std::endl;
+  std::cout << "pix2 " << pix2 << std::endl;
+  std::cout << "xyz " << xyz << std::endl;
+  
+  vw::Vector2 ans = asp::propagateCovariance(cam1_model.get(), cam2_model.get(), pix1, pix2);
+  std::cout << "Horizontal and vertical covariance: " << ans << std::endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -185,34 +219,10 @@ int main(int argc, char *argv[]) {
                << "were guessed as: '" << opt.session1 << "'. It is suggested that they be "
                << "explicitly specified using --session1 and --session2.\n");
 
-#if 0
-    // Temporary test code
     if (opt.test_covariance_computation) {
-      double major_axis = datum.semi_major_axis() + opt.height_above_datum;
-      double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
-
-      vw::Vector2 pix1(10000, 10000);
-      Vector3 cam1_dir = cam1_model->pixel_to_vector(pix1);
-      Vector3 cam1_ctr = cam1_model->camera_center(pix1);
-      
-      // Shoot a ray from the cam1 camera, intersect it with the
-      // given height above datum
-      Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
-                                                          cam1_ctr, cam1_dir);
-      
-      // Project to second camera
-      vw::Vector2 pix2 = cam2_model->point_to_pixel(xyz);
-      
-      std::cout << "pix1 " << pix1 << std::endl;
-      std::cout << "pix2 " << pix2 << std::endl;
-      std::cout << "xyz " << xyz << std::endl;
-      
-      vw::Vector2 ans = asp::propagateCovariance(cam1_model.get(), cam2_model.get(), pix1, pix2);
-      std::cout << "Horizontal and vertical covariance: " << ans << std::endl;
-
-      exit(0);
+      testCovarianceComputation(opt, datum, cam1_model, cam2_model);
+      return 0;
     }
-#endif
     
     // Find the input image dimensions
     int image_cols = 0, image_rows = 0;

@@ -549,15 +549,14 @@ meter.
 The vertical covariance is defined as the lower-right corner of the
 3x3 NED covariance matrix (since x=North, y=East, z=Down). 
 
-To find the horizontal covariance, consider the upper-left :math:`2
-\times 2` block of that matrix.  Geometrically, the horizontal
-covariances represent an ellipse. The radius of the circle with the
-same area is found, which is the square root of the product of
-ellipse semiaxes, which is the product of the eigenvalues of
-this symmetric matrix, or its determinant. So, the
-the horizontal component of the covariance is defined as the square
-root of the upper-left :math:`2 \times 2` bock of the NED covariance
-matrix.
+To find the horizontal covariance component, consider the upper-left
+:math:`2 \times 2` block of that matrix.  Geometrically, the
+horizontal covariances represent an ellipse. The radius of the circle
+with the same area is found, which is the square root of the product
+of ellipse semiaxes, which is the product of the eigenvalues of this
+symmetric matrix, or its determinant. So, the the horizontal component
+of the covariance is defined as the square root of the upper-left
+:math:`2 \times 2` bock of the NED covariance matrix.
 
 Theory
 ~~~~~~
@@ -571,18 +570,18 @@ covariances of the inputs and outputs are related via
 
   Cov_Y = J Cov_X J^T
 
-Here, :math:`J` is the Jacobian of the function :math:`f` and :math:`J^T` is its transpose.
+Here, :math:`J` is the Jacobian of the function :math:`f` and
+:math:`J^T` is its transpose.
 
 For this particular application, the input variables are the satellite
 positions and orientations (quaternions), and the output is the
 triangulated point. The Jacobian was computed using centered finite
-differences, with a step size of 0.01 meters for the position and
-1e-6 for the (normalized) quaternions. The computation was not
-particularly sensitive to these step sizes. A much smaller position
-step size is not recommended, since the positions are on the order of
-7e6 meters, given the distance from the satellite to the origin in ECEF
-coordinates, and the 16 digits of accuracy of double-precision
-computations.
+differences, with a step size of 0.01 meters for the position and 1e-6
+for the (normalized) quaternions. The computation was not particularly
+sensitive to these step sizes. A much smaller position step size is
+not recommended, since the positions are on the order of 7e6 meters,
+(being measured from planet center) and because double-precision
+computations have only 16 digits of precision.
 
 Validation
 ~~~~~~~~~~
