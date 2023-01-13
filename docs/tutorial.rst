@@ -596,9 +596,9 @@ and is usually above 25 :math:`m^2`, so the vertical standard deviation
 is, roughly speaking, at least 5 meters, and perhaps double that and more
 for stereo pairs with a convergence angle under 30 degrees.
 
-The dependence on the convergence angle is very expected. Yet, these numbers
+The dependence on the convergence angle is very expected. But these numbers
 appear too large given the ground sample distance of DigitalGlobe WorldView 
-cameras. Yet, we are very confident that they are correct. The reason
+cameras. We are very confident that they are correct. The reason
 why the results are so large is because of the input orientation covariances
 (the relative contribution of input position and orientation covariances
 can be determined with the options ``--position-covariance-factor`` and
