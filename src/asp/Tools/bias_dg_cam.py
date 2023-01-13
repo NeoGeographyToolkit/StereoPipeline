@@ -43,8 +43,6 @@ try:
 except optparse.OptionError as msg:
     raise Usage(msg)
 
-print("input and output ", opt.in_cam, opt.out_cam)
-
 if opt.in_cam is None or opt.out_cam is None:
     print("Must specify input and output cameras.\n" + usage)
     sys.exit(1)

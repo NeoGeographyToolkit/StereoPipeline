@@ -174,6 +174,11 @@ Files created at triangulation
     ``--save-double-precision-point-cloud``. This can effectively
     double the size of the point cloud.
 
+    If the option ``--compute-error-vector`` (:numref:`triangulation_options`)
+    or ``--compute-point-cloud-covariances`` (:numref:`dg_cov`) is set,
+    the point cloud will have 6 channels. The first 3 channels store,
+    as before, the triangulated points.
+
 \*-PC-center.txt - the point cloud rough center of gravity.
    Stored in plain text. Has the same information as the
    ``POINT_OFFSET`` header in ``PC.tif``.

@@ -519,16 +519,19 @@ and orientation a covariance matrix, expressing the uncertainty in
 these measurements. At the triangulation stage of stereo, the option
 ``--compute-point-cloud-covariances``
 (:numref:`stereo-default-covariance`) can be used to propagate these
-covariances through the triangulation operation.
+covariances through the triangulation operation, producing
+the uncertainty for triangulated points.
 
 These covariances are then converted from ECEF to North-East-Down
 (NED) coordinates at each nominal triangulated point, and further
 decomposed into the horizontal and vertical components, which are
 saved as the 5th and 6th band in the point cloud (\*-PC.tif tile).
+Running ``gdalinfo`` on the point cloud will show some metadata
+describing each band in the produced point cloud.
 
 The covariances in the point cloud can then be gridded with
 ``point2dem`` (:numref:`point2dem`) with the option ``--covariances``,
-using the same algorithm as for creating the DEM heights.
+using the same algorithm as for computing the DEM heights.
 
 Example::
 
@@ -540,26 +543,46 @@ Example::
    point2dem --covariances run/run-PC.tif
 
 This will produce ``run/run-HorizontalCovariance.tif`` and
-``run/VerticalCovariance.tif``.
-
-Horizontal and vertical covariance definitions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``run/VerticalCovariance.tif``. The covariances are in units of square
+meter.
 
 The vertical covariance is defined as the lower-right corner of the
 3x3 NED covariance matrix (since x=North, y=East, z=Down). 
 
-To find the horizontal covariance, consider the upper-left 2x2 block
-of the NED covariance matrix.  Geometrically this represents an
-ellipsoid. The radius of the circle with the same area is found, which
-is the square root of the product of ellipsoid semiaxes. This is also
-the product of the eigenvalues of this 2x2 symmetric matrix, or its
-determinant. So, the the horizontal component of the covariance is
-defined as the square root of the upper-left 2x2 bock of the NED
-covariance matrix.
+To find the horizontal covariance, consider the upper-left :math:`2
+\times 2` block of that matrix.  Geometrically, the horizontal
+covariances represent an ellipse. The radius of the circle with the
+same area is found, which is the square root of the product of
+ellipse semiaxes, which is the product of the eigenvalues of
+this symmetric matrix, or its determinant. So, the
+the horizontal component of the covariance is defined as the square
+root of the upper-left :math:`2 \times 2` bock of the NED covariance
+matrix.
 
-The produced outputs are in unit of square meters. Running
-``gdalinfo`` on the point cloud will show some metadata describing
-each band in the produced point cloud.
+Theory
+~~~~~~
+
+According to the theory of `propagation of uncertainty
+<https://en.wikipedia.org/wiki/Propagation_of_uncertainty>`_, given a
+function :math:`y = f(x)` between multi-dimensional spaces, the
+covariances of the inputs and outputs are related via
+
+.. math::
+
+  Cov_Y = J Cov_X J^T
+
+Here, :math:`J` is the Jacobian of the function :math:`f` and :math:`J^T` is its transpose.
+
+For this particular application, the input variables are the satellite
+positions and orientations (quaternions), and the output is the
+triangulated point. The Jacobian was computed using centered finite
+differences, with a step size of 0.01 meters for the position and
+1e-6 for the (normalized) quaternions. The computation was not
+particularly sensitive to these step sizes. A much smaller position
+step size is not recommended, since the positions are on the order of
+7e6 meters, given the distance from the satellite to the origin in ECEF
+coordinates, and the 16 digits of accuracy of double-precision
+computations.
 
 Validation
 ~~~~~~~~~~
@@ -592,30 +615,32 @@ The ``w`` variance (the last number), can be, for example, on the order of
 6.3e-12, so, its square root, which is 2.5e-6 or so, is the expected
 variability in the ``w`` component of the quaternion.
 
-The tool ``bias_dg_cam.py``, invoked as::
+Fetch and save the Python script 
+`bias_dg_cam.py <https://raw.githubusercontent.com/NeoGeographyToolkit/StereoPipeline/master/src/asp/Tools/bias_dg_cam.py>`_. Invoke it as::
 
    python bias_dg_cam.py --position-bias "0 0 0" \
-     --orientation-bias "0 0 0 2e-6"             \
-     left.xml -o left_bias.xml
+     --orientation-bias "0 0 0 2.5e-6"           \
+     -i left.xml -o left_bias.xml
    python bias_dg_cam.py --position-bias "0 0 0" \
-     --orientation-bias "0 0 0 -2e-6"            \
-     right.xml -o right_bias.xml
+     --orientation-bias "0 0 0 -2.5e-6"          \
+     -i right.xml -o right_bias.xml
 
-can be used to bias the quaternions in the camera files by given
-amounts (note that values with different sign were used in the two
-camera files), creating the camera files ``left_bias.xml`` and
-``right_bias.xml``. It is instructive to compare the original and
-produced camera files side-by-side.
+This will bias the positions and quaternions in the camera files by
+the given amounts, creating ``left_bias.xml`` and
+``right_bias.xml``. Note that values with different sign were used in
+the two camera files. It is instructive to compare the original and
+produced camera files side-by-side, and see the effect of using a
+different sign and magnitude for the biases.
 
-Then, ``parallel_stereo`` can be run twice, first with original
-cameras, and then the biased ones, in both cases without propagation of
-covariance. Use ``--left-image-crop-win`` and
-``--right-image-crop-win`` (:numref:`stereo_gui`) to run on small
-clips only.
+Then, ``parallel_stereo`` can be run twice, with different output
+prefixes, first with the original cameras, and then the biased ones, in
+both cases without propagation of covariance. Use
+``--left-image-crop-win`` and ``--right-image-crop-win``
+(:numref:`stereo_gui`) to run on small clips only.
 
 DEMs can be created, and the heights compared with ``geodiff``
 (:numref:`geodiff`). We found a height difference of at least 5 meters
-among these, which was consistent with the vertical covariance produced
+among these, which is consistent with the vertical covariance produced
 earlier.
 
 Processing multi-spectral images
