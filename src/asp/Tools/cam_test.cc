@@ -158,23 +158,32 @@ void testCovarianceComputation(Options const& opt,
 
   double major_axis = datum.semi_major_axis() + opt.height_above_datum;
   double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
+
+  // Try to find a pair of pixels corresponding to same tri point,
+  // within image bounds
+  vw::Vector2 pix1, pix2;
+
+  for (int i = 0; i < 20; i++) {
+
+    pix1 = Vector2(i * 1000, i * 1000);
+    Vector3 cam1_dir = cam1_model->pixel_to_vector(pix1);
+    Vector3 cam1_ctr = cam1_model->camera_center(pix1);
+    
+    // Shoot a ray from the cam1 camera, intersect it with the
+    // given height above datum
+    Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+                                                      cam1_ctr, cam1_dir);
+    
+    // Project to second camera
+    pix2 = cam2_model->point_to_pixel(xyz);
+
+    if (pix2.x() > 0 && pix2.y() > 0) 
+      break;
+  }
   
-  vw::Vector2 pix1(10000, 10000);
-  Vector3 cam1_dir = cam1_model->pixel_to_vector(pix1);
-  Vector3 cam1_ctr = cam1_model->camera_center(pix1);
-  
-  // Shoot a ray from the cam1 camera, intersect it with the
-  // given height above datum
-  Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
-                                                    cam1_ctr, cam1_dir);
-  
-  // Project to second camera
-  vw::Vector2 pix2 = cam2_model->point_to_pixel(xyz);
-  
-  std::cout << "pix1 " << pix1 << std::endl;
-  std::cout << "pix2 " << pix2 << std::endl;
-  std::cout << "xyz " << xyz << std::endl;
-  
+  std::cout << "Left pixel:  " << pix1 << std::endl;
+  std::cout << "Right pixel: " << pix2 << std::endl;
+    
   vw::Vector2 ans = asp::propagateCovariance(cam1_model.get(), cam2_model.get(), pix1, pix2);
   std::cout << "Horizontal and vertical covariance: " << ans << std::endl;
 }
