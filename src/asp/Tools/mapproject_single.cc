@@ -327,12 +327,11 @@ Vector2 demPixToCamPix(Vector2i const& dem_pixel,
 /// Expand the ground BBox to contain all the corners of the DEM if they intersect the camera.
 /// - TODO: This method still does not guarantee all points will be included in the bbox.
 /// - TODO: This should probably take pixel validity into account!
-void expandBboxToContainCornerIntersections(boost::shared_ptr<camera::CameraModel> const& camera_model,
+void expandBboxToContainCornerIntersections(vw::CamPtr camera_model,
                                             ImageViewRef<DemPixelT> const& dem,
                                             GeoReference const &dem_georef,
                                             Vector2i const& image_size,
-                                            BBox2 & bbox_on_ground)
-{
+                                            BBox2 & bbox_on_ground) {
   // Each of the corners of the DEM
   std::vector<Vector2> dem_pixel_list(4);
   dem_pixel_list[0] = Vector2(0,            0           );
@@ -575,10 +574,8 @@ void project_image_alpha(Options & opt,
                                 virtual_image_size[0],
                                 virtual_image_size[1],
                                 ConstantEdgeExtension(),
-                                NearestPixelInterpolation(), transparent_pixel
-                                ),
-              croppedImageBB
-            ),
+                                NearestPixelInterpolation(), transparent_pixel),
+              croppedImageBB),
         croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
         TerminalProgressCallback("","")
         );
@@ -594,13 +591,10 @@ void project_image_alpha(Options & opt,
                                 virtual_image_size[0],
                                 virtual_image_size[1],
                                 ConstantEdgeExtension(),
-                                BicubicInterpolation(), transparent_pixel
-                                ),
-              croppedImageBB
-            ),
+                                BicubicInterpolation(), transparent_pixel),
+              croppedImageBB),
         croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
-        TerminalProgressCallback("","")
-        );
+        TerminalProgressCallback("",""));
     }
 
 }
@@ -664,8 +658,7 @@ void project_image_alpha_pick_transform(Options & opt,
                                                          camera_model.get(), target_georef,
                                                          dem_georef, opt.dem_file, image_size,
                                                          call_from_mapproject,
-                                                         opt.nearest_neighbor)
-                                            );
+                                                         opt.nearest_neighbor));
   } else {
     // A constant datum elevation was provided
     return project_image_alpha<ImagePixelT>(opt, croppedGeoRef,
@@ -675,8 +668,7 @@ void project_image_alpha_pick_transform(Options & opt,
                                                            camera_model.get(), target_georef,
                                                            dem_georef, opt.datum_offset, image_size,
                                                            call_from_mapproject,
-                                                           opt.nearest_neighbor)
-                                            );
+                                                           opt.nearest_neighbor));
   }
 }
 
@@ -892,32 +884,32 @@ int main(int argc, char* argv[]) {
       // - Always use an alpha channel with RGB images.
       switch(image_fmt.channel_type) {
       case VW_CHANNEL_UINT8:
-        project_image_alpha_pick_transform<PixelRGBA<uint8> >(opt, dem_georef, target_georef,
-                                                              croppedGeoRef, image_size, 
-                                                              Vector2i(virtual_image_width,
-                                                                       virtual_image_height),
-                                                              croppedImageBB, opt.camera_model);
+        project_image_alpha_pick_transform<PixelRGBA<uint8>>(opt, dem_georef, target_georef,
+                                                             croppedGeoRef, image_size, 
+                                                             Vector2i(virtual_image_width,
+                                                                      virtual_image_height),
+                                                             croppedImageBB, opt.camera_model);
         break;
       case VW_CHANNEL_INT16:
-        project_image_alpha_pick_transform<PixelRGBA<int16> >(opt, dem_georef, target_georef,
+        project_image_alpha_pick_transform<PixelRGBA<int16>>(opt, dem_georef, target_georef,
+                                                             croppedGeoRef, image_size, 
+                                                             Vector2i(virtual_image_width,
+                                                                      virtual_image_height),
+                                                             croppedImageBB, opt.camera_model);
+        break;
+      case VW_CHANNEL_UINT16:
+        project_image_alpha_pick_transform<PixelRGBA<uint16>>(opt, dem_georef, target_georef,
                                                               croppedGeoRef, image_size, 
                                                               Vector2i(virtual_image_width,
                                                                        virtual_image_height),
                                                               croppedImageBB, opt.camera_model);
         break;
-      case VW_CHANNEL_UINT16:
-        project_image_alpha_pick_transform<PixelRGBA<uint16> >(opt, dem_georef, target_georef,
+      default:
+        project_image_alpha_pick_transform<PixelRGBA<float32>>(opt, dem_georef, target_georef,
                                                                croppedGeoRef, image_size, 
                                                                Vector2i(virtual_image_width,
                                                                         virtual_image_height),
                                                                croppedImageBB, opt.camera_model);
-        break;
-      default:
-        project_image_alpha_pick_transform<PixelRGBA<float32> >(opt, dem_georef, target_georef,
-                                                                croppedGeoRef, image_size, 
-                                                                Vector2i(virtual_image_width,
-                                                                         virtual_image_height),
-                                                                croppedImageBB, opt.camera_model);
         break;
       };
       
