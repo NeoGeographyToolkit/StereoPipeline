@@ -439,6 +439,9 @@ std::string get_cloud_type(std::string const& file_name);
 // error channels, which start at channel 4.
 int num_channels(std::vector<std::string> const& pc_files);
 
+// See if all the input point cloud files have covariances  
+bool has_covariances(std::vector<std::string> const& pc_files);
+    
 // Per pixel operator returning the norm of a vector  
 template<class VectorT>
 struct VectorNorm: public vw::ReturnFixedType<double> {

@@ -938,12 +938,21 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     *num_invalid_pixels = 0; // Reset this count
   }
 
+  bool has_cov = asp::has_covariances(opt.pointcloud_files);
+  if (opt.covariances && !has_cov) {
+    // Do not throw an error. Go on and save at least the intersection
+    // error and orthoimage.
+    vw_out() << "Cannot compute the covariances as the point cloud file is "
+             << "not in the expected format.\n";
+    opt.covariances = false;
+  }
+  
   // Write triangulation error image if requested
   if (opt.do_error) {
     int num_channels = asp::num_channels(opt.pointcloud_files);
-
+    
     int hole_fill_len = 0;
-    if (num_channels == 4 && !opt.covariances) {
+    if (num_channels == 4) {
       // The error is a scalar.
       ImageViewRef<Vector4> point_disk_image
         = asp::form_point_cloud_composite<Vector4>
@@ -955,7 +964,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
                                                           opt.rounding_error,
                                                           opt.nodata_value),
                  georef, hole_fill_len, "IntersectionErr");
-    }else if (num_channels == 6 && opt.covariances) {
+    } else if (num_channels == 6 && has_cov) {
       // 6 channels, but only channel 4 has the error
       ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>
         (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);

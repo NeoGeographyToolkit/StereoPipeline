@@ -1237,15 +1237,14 @@ std::string asp::get_cloud_type(std::string const& file_name){
                          << " is neither a point cloud nor a DEM.\n");
 }
 
-
 // Find the number of channels in the point clouds.
 // If the point clouds have inconsistent number of channels,
 // return the minimum of 3 and the minimum number of channels.
 // This will be used to flag that we cannot reliable extract the
 // error channels, which start at channel 4.
-int asp::num_channels(std::vector<std::string> const& pc_files){
+int asp::num_channels(std::vector<std::string> const& pc_files) {
 
-  VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
+  VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one point cloud file.\n");
 
   int num_channels0 = get_num_channels(pc_files[0]);
   int min_num_channels = num_channels0;
@@ -1256,6 +1255,27 @@ int asp::num_channels(std::vector<std::string> const& pc_files){
       min_num_channels = std::min(min_num_channels, 3);
   }
   return min_num_channels;
+}
+
+// See if all the input point cloud files have covariances  
+bool asp::has_covariances(std::vector<std::string> const& pc_files) {
+  
+  VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one point cloud file.\n");
+
+  bool has_cov = true;
+  for (size_t i = 0; i < pc_files.size(); i++) {
+    std::string val;
+    std::string adj_key = "BAND5";
+    boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(pc_files[i]));
+    vw::cartography::read_header_string(*rsrc.get(), adj_key, val);
+    if (val != "horizontalCovariance")
+      has_cov = false;
+  }
+
+  if (has_cov && asp::num_channels(pc_files) < 6) 
+    has_cov = false;
+
+  return has_cov;
 }
 
 // Get a handle to the error image given a set of point clouds with 4 or 6 bands

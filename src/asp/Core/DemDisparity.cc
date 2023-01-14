@@ -153,8 +153,7 @@ namespace asp {
                                               has_intersection,
                                               height_error_tol, max_abs_tol,
                                               max_rel_tol, num_max_iter,
-                                              prev_xyz
-                                              );
+                                              prev_xyz);
         if ( !has_intersection || xyz == Vector3() ) continue;
         prev_xyz = xyz;
 

@@ -546,6 +546,9 @@ This will produce ``run/run-HorizontalCovariance.tif`` and
 ``run/VerticalCovariance.tif``. The covariances are in units of square
 meter.
 
+The input cameras can be bundle-adjusted (:numref:`bundle_adjust`),
+and the images can be mapprojected (:numref:`mapproj-example`).
+
 The vertical covariance is defined as the lower-right corner of the
 3x3 NED covariance matrix (since x=North, y=East, z=Down). 
 
