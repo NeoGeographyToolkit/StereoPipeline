@@ -124,8 +124,6 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
   if (dg_cam1 == NULL || dg_cam2 == NULL) 
     vw::vw_throw(vw::ArgumentErr() << "Expecting DG cameras.\n");
 
-  // TODO(oalexan1): Support mapprojection.
-  
   // Numerical differences will be used. Camera models with deltaPosition and deltaQuat
   // perturbations have already been created in LinescanDGModel.cc using the positionDelta()
   // and quatDelta() functions from above.
