@@ -2,17 +2,12 @@ Changes since last release
 --------------------------
 
 parallel_stereo (:numref:`parallel_stereo`):
-  * Added the triangulation option ``--compute-point-cloud-covariances`` to
-    propagate the covariances of satellite positions and quaternions
-    to the triangulated point cloud. Applicable only to
-    Maxar (DigitalGlobe) cameras, like WorldView and QuickBird
-    (with linescan sensors, not RPC). See :numref:`dg_cov`. This
-    option implies ``--dg-use-csm`` (:numref:`stereodefault`). See also
-    the new options ``--position-covariance-factor`` and
-    ``--orientation-covariance-factor``.
+  * Can propagate the covariances of satellite positions and quaternions
+    to the triangulated point cloud for Maxar (DigitalGlobe) linescan
+    cameras (:numref:`dg_cov`).
   * Documented the pre-processing options ``--stddev-mask-kernel``
     and ``--stddev-mask-thresh`` (:numref:`stereo-default-preprocessing`).
-    Also fixed a bug in writing out debug images for this option.
+    Fixed a bug in writing out debug images for this option.
 
 point2dem (:numref:`point2dem`): 
   * Added the option ``--covariances`` to grid the covariances computed
@@ -28,6 +23,7 @@ misc:
      by Giacomo Nodjoumi.
    * Bugfix for reading .jp2 files. Needed to ship the JPEG2000 driver
      and set GDAL_DRIVER_PATH.
+   * Fixed a failure in ``mapproject`` with a small DEM.
 
 RELEASE 3.2.0, December 30, 2022
 --------------------------------

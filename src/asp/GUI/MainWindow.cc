@@ -259,15 +259,17 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     m_image_files.push_back(local_images[i]);
   }
 
-  m_images.resize(m_image_files.size());
+  if (m_image_files.empty()) {
+    popUp("No input images.");
+    exit(1);
+  }
 
+  m_images.resize(m_image_files.size());
   std::vector<int> propertyIndices;
   lookupProperyIndices(properties, m_image_files, propertyIndices);
 
   bool has_georef = true;
-
   for (size_t i = 0; i < m_image_files.size(); i++) {
-
     m_images[i].read(m_image_files[i], m_opt, REGULAR_VIEW, properties[propertyIndices[i]]);
     // Above we read the image in regular mode. If plan to display hillshade,
     // for now set the flag for that, and the hillshaded image will be created
@@ -278,14 +280,6 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   if (has_georef)
     m_use_georef = true; // use georef if all images have it
 
-  // Allow the gui to start with no data. This way at least one can draw a vector layer
-  if (m_image_files.empty()) {
-    m_images.resize(1);
-    m_image_files.push_back("image.tif");
-    m_images[0].name = m_image_files[0];
-    m_images[0].image_bbox = BBox2(0, 0, 1, 1);
-  }
-  
   // Ensure the inputs are reasonable
   if (!MainWindow::sanityChecks(m_image_files.size()))
     forceQuit();

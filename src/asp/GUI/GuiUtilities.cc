@@ -397,6 +397,10 @@ void read_csv_metadata(std::string              const& csv_file,
     if (csv_file.find("-diff.csv") != std::string::npos)
       asp::stereo_settings().csv_format_str = "1:lon, 2:lat, 3:height_above_datum";
   }
+
+  // For polygons, can assume that first coordinate is x and second is y
+  if (isPoly && asp::stereo_settings().csv_format_str.empty())
+    asp::stereo_settings().csv_format_str = "1:x, 2:y";
   
   if (asp::stereo_settings().csv_proj4 != "")
     vw_out() << "Using projection: " << asp::stereo_settings().csv_proj4 << "\n";
@@ -411,7 +415,7 @@ void read_csv_metadata(std::string              const& csv_file,
   } catch (...) {
     // Give a more specific error message
     popUp("Could not parse the csv format. Check or specify --csv-format.\n");
-    return;
+    exit(0); // This is fatal, can't do anything without the format
   }
 
   // For the x, y, z format we will just plot pixel x, pixel y, and value (z).
@@ -426,6 +430,7 @@ void read_csv_metadata(std::string              const& csv_file,
   
   if (asp::stereo_settings().csv_format_str == "") {
     popUp("The option --csv-format-str must be specified.");
+    exit(0); // this is fatal
     return;
   }
   vw_out() << "Using CSV format: " << asp::stereo_settings().csv_format_str << "\n";
@@ -470,12 +475,59 @@ void read_csv_metadata(std::string              const& csv_file,
   return;
 }
 
+// Assemble the polygon structure
+void formPoly(std::string              const& override_color,
+              std::vector<int>         const& contiguous_blocks,
+              std::vector<std::string> const& colors,
+              std::vector<vw::Vector3> const& scattered_data, // input vertices
+              std::vector<vw::geometry::dPoly> & polyVec) {
+
+  // Wipe the output
+  polyVec.clear();
+  polyVec.resize(1);
+
+  if (colors.size() != contiguous_blocks.size()) 
+    vw::vw_throw(vw::ArgumentErr() << "There must be as many polygons as colors for them.\n");
+  
+  size_t vertexCount = 0;
+  for (size_t polyIt = 0; polyIt < contiguous_blocks.size(); polyIt++) {
+    
+    std::vector<double> x, y;
+    for (int vertexIt = 0; vertexIt < contiguous_blocks[polyIt]; vertexIt++) {
+      
+      if (vertexCount >= scattered_data.size())
+        vw::vw_throw(vw::ArgumentErr() << "Book-keeping error in reading polygons.\n");
+      
+      x.push_back(scattered_data[vertexCount].x());
+      y.push_back(scattered_data[vertexCount].y());
+      vertexCount++;
+    }
+    
+    std::string curr_color = colors[polyIt]; // use color from file if it exists
+    
+    // The command line color overrides what is in the file
+    if (override_color != "default" && override_color != "")
+      curr_color = override_color;
+    
+    bool isPolyClosed = true;
+    std::string layer;
+    polyVec[0].appendPolygon(x.size(),
+                             vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
+                             isPolyClosed, curr_color, layer);
+  }
+  
+  if (vertexCount != scattered_data.size()) 
+    vw::vw_throw(vw::ArgumentErr() << "The number of read vertices is not what is expected.\n");
+  
+  return;
+}
+  
 void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt,
                      DisplayMode display_mode,
                      std::map<std::string, std::string> const& properties) {
-
+  
   vw_out() << "Reading: " << name_in << std::endl; 
-
+  
   if (display_mode == REGULAR_VIEW)
     name = name_in;
   else if (display_mode == HILLSHADED_VIEW)
@@ -495,6 +547,7 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
   m_opt = opt;
   m_display_mode = display_mode;
 
+  // Properties passed on the command line; they take precedence
   for (auto it = properties.begin(); it != properties.end(); it++) {
     if (it->first == "color")
       color = it->second; // copy the poly/line/points color
@@ -510,7 +563,10 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
   
   if (asp::has_shp_extension(name_in)) {
     // Read a shape file
-    read_shapefile(name_in, default_poly_color, has_georef, georef, polyVec);
+    std::string poly_color = default_poly_color;
+    if (color != "default" && color != "") 
+      poly_color = color;
+    read_shapefile(name_in, poly_color, has_georef, georef, polyVec);
 
     double xll, yll, xur, yur;
     shapefile_bdbox(polyVec,
@@ -534,17 +590,16 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     asp::CsvConv csv_conv;
     read_csv_metadata(name_in, isPoly, csv_conv, has_pixel_vals, has_georef, georef);
 
+    std::vector<int> contiguous_blocks;
+    std::vector<std::string> colors;
+    colors.push_back(default_poly_color); // to provide a default color for the reader
+
     // Read the file
     std::list<asp::CsvConv::CsvRecord> pos_records;
-
-    // If reading polygons, note that each individual polygon is a contiguous
-    // block of lines separated by other polygons by an invalid line, typically en
-    // empty line.
-    std::vector<int> contiguous_blocks;
-    std::vector<int> * contiguous_blocks_ptr = NULL;
-    if (isPoly) 
-      contiguous_blocks_ptr = &contiguous_blocks;
-    csv_conv.read_csv_file(name_in, pos_records, contiguous_blocks_ptr);
+    if (!isPoly)
+      csv_conv.read_csv_file(name_in, pos_records);
+    else
+      csv_conv.read_poly_file(name_in, pos_records, contiguous_blocks, colors);
     
     scattered_data.clear();
     vw::BBox3 bounds;
@@ -564,41 +619,10 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     val_range[1] = bounds.max()[2];
 
     if (isPoly) {
-      // Convert to polygon
-      // TODO(oalexan1): This must be a function
-      polyVec.clear();
-      polyVec.resize(1);
-      std::string layer;
-      size_t vertexCount = 0;
-      for (size_t polyIt = 0; polyIt < contiguous_blocks.size(); polyIt++) {
-        
-        std::vector<double> x, y;
-        for (int vertexIt = 0; vertexIt < contiguous_blocks[polyIt]; vertexIt++) {
-          
-          if (vertexCount >= scattered_data.size())
-            vw::vw_throw(vw::ArgumentErr() << "Book-keeping error in reading polygons.\n");
-          
-          x.push_back(scattered_data[vertexCount].x());
-          y.push_back(scattered_data[vertexCount].y());
-          vertexCount++;
-        }
-        
-        // TODO(oalexan1): This logic is temporary. Read the color from the
-        // file if present.
-        std::string curr_color = default_poly_color;
-        if (color != "default" && color != "")
-          curr_color = color;
-        bool isPolyClosed = (style == "poly" || style == "fpoly");
-        polyVec[0].appendPolygon(x.size(),
-                                 vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
-                                 isPolyClosed, curr_color, layer);
-      }
-
-      if (vertexCount != scattered_data.size()) 
-        vw::vw_throw(vw::ArgumentErr() << "The number of read vertices is not what is expected.\n");
-      
+      formPoly(color, contiguous_blocks, colors, scattered_data, polyVec);
       scattered_data.clear(); // the data is now in the poly structure
     }
+    
   }else{
     // Read an image
     int top_image_max_pix = 1000*1000;

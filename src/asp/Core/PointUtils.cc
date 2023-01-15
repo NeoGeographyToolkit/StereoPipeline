@@ -630,19 +630,49 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
   return values;
 }
 
+// Search for "color = red" and find "red". Return false on failure.
+// Can handle uppercase strings, also "color=red" and "color red".
+bool parse_color(std::string const& line, std::string & color) {
+
+  color = ""; // reset the output
+  if (line.empty() || line[0] == '#') 
+    return false;
+
+  std::string line_lc = boost::to_lower_copy(line); // make lowercase
+
+  size_t pos = line_lc.find("color");
+  if (pos == std::string::npos) 
+    return false;
+
+  pos += 5; // go past the color
+
+  // Skip past spaces and equal sign
+  while (pos < line_lc.size() && (line_lc[pos] < 'a' || line_lc[pos] > 'z'))
+    pos++;
+  
+  if (pos >= line_lc.size())
+    return false; // no color was set
+
+  line_lc = line_lc.substr(pos);
+
+  // Return the first token. This is useful if there are spaces and other things
+  // afterward.
+  std::istringstream iss(line_lc);
+  std::string token;
+  if (iss >> token) {
+    color = token;
+    return true;
+  }
+  
+  return false;
+}
+
 size_t asp::CsvConv::read_csv_file(std::string    const & file_path,
-				   std::list<CsvRecord> & output_list,
-                                   // Store contiguous blocks here, if needed to assemble polygons
-                                   std::vector<int> * contiguous_blocks) const {
+				   std::list<CsvRecord> & output_list) const {
 
   // Clear output object
   output_list.clear();
 
-  if (contiguous_blocks != NULL) {
-    contiguous_blocks->clear();  
-    contiguous_blocks->push_back(0);
-  }
-  
   // Open input file
   std::ifstream file( file_path.c_str() );
   if (!file)
@@ -652,25 +682,81 @@ size_t asp::CsvConv::read_csv_file(std::string    const & file_path,
   bool success;
   bool first_line = true; // TODO(oalexan1): Wipe this variable.
   std::string line = "";
+  
   while (std::getline(file, line, '\n')) {
+    
+    CsvRecord new_record = asp::CsvConv::parse_csv_line(first_line, success, line);
+    if (success)
+      output_list.push_back(new_record);
+    
+    first_line = false;
+  }
+
+  file.close();
+
+  return output_list.size();
+}
+
+size_t asp::CsvConv::read_poly_file(std::string    const & file_path,
+                                    std::list<CsvRecord> & output_list,
+                                    std::vector<int>         & contiguous_blocks,
+                                    std::vector<std::string> & colors) const {
+
+  // Clear output object
+  output_list.clear();
+
+  std::string color = "green"; // some default
+  if (colors.size() > 0) {
+    color = colors[0]; // use as default color what is passed from outside
+    colors.clear(); // so we can keep on pushing for each polygon
+  }
+  
+  contiguous_blocks.clear();  
+  contiguous_blocks.push_back(0);
+  
+  // Open the input file
+  std::ifstream file( file_path.c_str() );
+  if (!file)
+    vw_throw(vw::IOErr() << "Unable to open file \"" << file_path << "\"");
+
+  // Read through all the lines of the input file, parse each line, and build the output list.
+  bool success;
+  bool first_line = true; // TODO(oalexan1): Wipe this variable.
+  std::string line = "";
+  
+  while (std::getline(file, line, '\n')) {
+
+    std::string local_color;
+    if (parse_color(line, local_color)) {
+      color = local_color; 
+      while (colors.size() < contiguous_blocks.size())
+        colors.push_back(color); // catch up on colors
+    }
+    
     CsvRecord new_record = asp::CsvConv::parse_csv_line(first_line, success, line);
     if (success) {
       output_list.push_back(new_record);
-      if (contiguous_blocks != NULL)
-        contiguous_blocks->back()++; // add an element
+      contiguous_blocks.back()++; // add an element
     } else {
-      if (contiguous_blocks != NULL && contiguous_blocks->back() > 0) 
-        contiguous_blocks->push_back(0);         // Add a new block
+      if (contiguous_blocks.back() > 0) {
+        contiguous_blocks.push_back(0);         // Add a new block
+        while (colors.size() < contiguous_blocks.size())
+          colors.push_back(color); // catch up on colors
+      }
     }
     
     first_line = false;
   }
 
-  if (contiguous_blocks != NULL) {
-    // Wipe all blocks of length 0. Likely there is only one at the end.
-    std::vector<int> & v = *contiguous_blocks; // alias
-    v.erase(std::remove(v.begin(), v.end(), 0), v.end());
-  }
+  // This is needed in case no colors were found
+  while (colors.size() < contiguous_blocks.size())
+    colors.push_back(color);
+
+  // Wipe all blocks of length 0. Likely there is only one at the end.
+  std::vector<int> & v = contiguous_blocks; // alias
+  v.erase(std::remove(v.begin(), v.end(), 0), v.end());
+  if (colors.size() > contiguous_blocks.size())
+    colors.resize(contiguous_blocks.size()); 
   
   file.close();
 

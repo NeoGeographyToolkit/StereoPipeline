@@ -419,13 +419,13 @@ namespace vw { namespace gui {
   MainWidget::~MainWidget() {
   }
 
-  bool MainWidget::eventFilter(QObject *obj, QEvent *E){
+  bool MainWidget::eventFilter(QObject *obj, QEvent *E) {
     return QWidget::eventFilter(obj, E);
   }
 
   // What will happen when the user right-clicks on the table
   // listing the files.
-  void MainWidget::customMenuRequested(QPoint pos){
+  void MainWidget::customMenuRequested(QPoint pos) {
 
     // Process user's choice from m_chooseFiles.
     if (!m_chooseFiles)
@@ -465,13 +465,13 @@ namespace vw { namespace gui {
     connect(m_zoomToImageFromTable, SIGNAL(triggered()),
             this, SLOT(zoomToImage()));
     
-    // If having shapefiles, make it possible to change their colors
-    bool has_shp = false;
+    // If having polygons, make it possible to change their colors
+    bool hasPoly = false;
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-      if (vw::get_extension(m_images[image_iter].name) == ".shp")
-        has_shp = true;
+      if (m_images[image_iter].isPoly())
+        hasPoly = true;
     }
-    if (has_shp) {
+    if (hasPoly) {
       m_changePolyColor = menu->addAction("Change colors of polygons");
       connect(m_changePolyColor, SIGNAL(triggered()), this, SLOT(changePolyColor()));
     }
@@ -839,7 +839,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
   }
 
   // Change the color of given layer of polygons
-  void MainWidget::changePolyColor(){
+  void MainWidget::changePolyColor() {
     std::string polyColor;
     bool ans = getStringFromGui(this,
                                 "Polygonal line color",
@@ -856,8 +856,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     for (std::set<int>::iterator it = m_indicesWithAction.begin();
 	 it != m_indicesWithAction.end(); it++) {
 
-      // We will assume if the user wants to zoom to this image,
-      // it should be on top.
+      // We will assume the user wants to see this on top
       bringImageOnTop(*it);
       m_perImagePolyColor[*it] = polyColor;
     }
@@ -1618,22 +1617,19 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
           polyVec.push_back(poly);
       }
 
-      // See if the user specified a color on the command line
-      if (m_images[image_it].color != "" && m_images[image_it].color != "default")
-        polyColor = QColor(m_images[image_it].color.c_str());
-      
       // See if to use a custom color for this polygon, specified by the user from the gui
-      QColor currPolyColor = polyColor;
       auto color_it = m_perImagePolyColor.find(image_it);
       if (color_it != m_perImagePolyColor.end()) {
-        currPolyColor = QColor((color_it->second).c_str());
         m_images[image_it].color = color_it->second; // save for the future
+        for (size_t polyIter = 0; polyIter < m_images[image_it].polyVec.size(); polyIter++) 
+          m_images[image_it].polyVec[polyIter].set_color(m_images[image_it].color);
       }
       
       // Plot the polygon being drawn now, and pre-existing polygons
       for (size_t polyIter = 0; polyIter < polyVec.size(); polyIter++){
       
         vw::geometry::dPoly poly = polyVec[polyIter]; // make a deep copy
+        const std::vector<std::string> & colors = poly.get_colors();
 
         // Convert to world units
         int            numVerts  = poly.get_totalNumVerts();
@@ -1657,8 +1653,8 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
         }
 
         MainWidget::plotDPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
-                              m_showIndices->isChecked(),
-                              lineWidth, drawVertIndex, currPolyColor, paint, poly);
+                              m_showIndices->isChecked(), lineWidth, drawVertIndex,
+                              QColor(colors[polyIter].c_str()), paint, poly);
       }
     } // end iterating over polygons for all images
     
@@ -1934,14 +1930,11 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     bool isPolyClosed = true;
     std::string color = m_images[m_polyLayerIndex].color;
     std::string layer;
-    // See if to use a custom color for this polygon, specified by the user from the gui
-    // TODO(oalexan1): Test this
     auto color_it = m_perImagePolyColor.find(m_polyLayerIndex);
     if (color_it != m_perImagePolyColor.end()) {
       color = color_it->second;
       m_images[m_polyLayerIndex].color = color; // save for the future
     }
-    
     poly.appendPolygon(pSize,
 		    vw::geometry::vecPtr(m_currPolyX), vw::geometry::vecPtr(m_currPolyY),
                     isPolyClosed, color, layer);
@@ -3534,13 +3527,19 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
   }
 
   // TODO(oalexan1): Each image must know its threshold
-  double MainWidget::getThreshold(){
+  double MainWidget::getThreshold() {
     return m_thresh;
   }
 
-  void MainWidget::setPolyColor(std::string const& polyColor){
+  void MainWidget::setPolyColor(std::string const& polyColor) {
     m_polyColor = polyColor;
-    update();
+
+    // When the color is set from the top menu rather than right-clicking
+    // on an individual layer in the table on the left, it applies to all polygons
+    for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++)
+      m_perImagePolyColor[image_iter] = polyColor;
+    
+    refreshPixmap();
   }
   
   std::string MainWidget::getPolyColor() {

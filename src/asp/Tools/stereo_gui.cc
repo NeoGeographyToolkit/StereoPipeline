@@ -91,8 +91,6 @@ namespace asp{
     // Store the files
     if (vm.count("input-files") > 0) 
       input_files = vm["input-files"].as<std::vector<std::string>>();
-    else if (asp::stereo_settings().nvm.empty())
-      vw_out() << "Missing input arguments.\n";
     else
       input_files.clear(); // no input files, will be read from nvm later
     

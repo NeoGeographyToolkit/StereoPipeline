@@ -98,9 +98,14 @@ namespace asp {
     /// Reads an entire CSV file and stores a record for each line.
     /// - Intended for use with smaller files.
     size_t read_csv_file(std::string const    & file_path,
-                         std::list<CsvRecord> & output_list,
-                         // Store contiguous blocks here, if needed to assemble polygons
-                         std::vector<int> * contiguous_blocks = NULL) const;
+                         std::list<CsvRecord> & output_list) const;
+      
+    /// Reads an entire CSV file having polygons. Individual
+    /// polygons are separated by a newline or some other unexpected text.
+    size_t read_poly_file(std::string     const   & file_path,
+                         std::list<CsvRecord>     & output_list,
+                         std::vector<int>         & contiguous_blocks,
+                         std::vector<std::string> & colors) const;
       
     /// Convert values read from a csv file using parse_csv_line (in
     /// the same order they appear in the file) to a Cartesian
