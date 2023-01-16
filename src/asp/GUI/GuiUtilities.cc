@@ -539,6 +539,8 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
   else
     vw::vw_throw(vw::ArgumentErr() << "Unknown display mode.\n");
 
+  // TODO(oalexan1): There is no need to make the color a class member,
+  // as it is already stored in individual polygons
   color = "default";
   style = "default";
   colormap = "binary-red-blue";

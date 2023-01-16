@@ -121,13 +121,14 @@ namespace vw { namespace gui {
     void drawOneVertex(int x0, int y0, QColor color, int lineWidth,
                        int drawVertIndex, QPainter &paint);
 
-    void plotDPoly(bool plotPoints, bool plotEdges,
-                   bool plotFilled, bool showIndices, int lineWidth,
-                   int drawVertIndex, // 0 is a good choice here
-                   QColor const& color,
-                   QPainter &paint,
-                   vw::geometry::dPoly currPoly // Make a local copy on purpose
-                  );
+    void plotPolys(QPainter & paint);
+    
+    void plotPoly(bool plotPoints, bool plotEdges,
+                  bool plotFilled, bool showIndices, int lineWidth,
+                  int drawVertIndex, // 0 is a good choice here
+                  QColor const& color,
+                  QPainter &paint,
+                  vw::geometry::dPoly currPoly); // Make a local copy on purpose
 
     //void plotProfilePolyLine(QStylePainter & paint,
     void plotProfilePolyLine(QPainter & paint,

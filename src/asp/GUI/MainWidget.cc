@@ -852,13 +852,13 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       popUp("The polygonal line color must be set.");
       return;
     }
-    
+
     for (std::set<int>::iterator it = m_indicesWithAction.begin();
 	 it != m_indicesWithAction.end(); it++) {
 
       // We will assume the user wants to see this on top
-      bringImageOnTop(*it);
       m_perImagePolyColor[*it] = polyColor;
+      bringImageOnTop(*it);
     }
 
     // This is no longer needed
@@ -1505,9 +1505,97 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     update();
 
     return;
-  }
+}
 
-  void MainWidget::paintEvent(QPaintEvent * /* event */) {
+// TODO(oalexan1): Should the persistent polygons be drawn
+// as part of the drawImage() call? That will be a lot more efficient
+// than being redrawn any time the mouse moves, etc. How about polygons
+// actively being edited?
+void MainWidget::plotPolys(QPainter & paint) {
+
+  // Loop through the input images. Plot the polygons. Note how we
+  // add one more fake image at the end to take care of the polygon
+  // we are in the middle of drawing. This extra fake image is a hackish thing
+  for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per above
+    
+    bool currDrawnPoly = (j == m_end_image_id); // last poly is the currently drawn one
+    
+    int image_it = m_polyLayerIndex; // for currently drawn poly
+    if (!currDrawnPoly) {
+      image_it = m_filesOrder[j]; // for the other polys
+      
+      // Don't show files the user wants hidden
+      std::string fileName = m_images[image_it].name;
+      if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
+        continue;
+    }
+
+    // See if to use a custom color for this polygon, specified by the user from the gui
+    auto color_it = m_perImagePolyColor.find(image_it);
+    if (!currDrawnPoly && color_it != m_perImagePolyColor.end()) {
+      m_images[image_it].color = color_it->second; // save for the future
+      for (size_t polyIter = 0; polyIter < m_images[image_it].polyVec.size(); polyIter++) 
+        m_images[image_it].polyVec[polyIter].set_color(m_images[image_it].color);
+    }
+    
+    // Let polyVec be the polygons for the current image, or,
+    // at the end, the polygon we are in the middle of drawing
+    // TODO(oalexan1): How to avoid a deep copy?
+    std::vector<vw::geometry::dPoly> polyVec;
+    if (!currDrawnPoly) {
+      polyVec = m_images[image_it].polyVec; // deep copy
+    } else {
+      if (m_currPolyX.empty() || !m_polyEditMode)
+        continue;
+      
+      vw::geometry::dPoly poly;
+      poly.reset();
+      bool isPolyClosed = false; // because we are in the middle of drawing it
+      std::string layer = "";
+      poly.appendPolygon(m_currPolyX.size(),  
+                         vw::geometry::vecPtr(m_currPolyX),  
+                         vw::geometry::vecPtr(m_currPolyY),  
+                         isPolyClosed, m_polyColor, layer);
+      polyVec.push_back(poly);
+    }
+    
+    // Plot the polygon being drawn now, and pre-existing polygons
+    for (size_t polyIter = 0; polyIter < polyVec.size(); polyIter++){
+      
+      vw::geometry::dPoly poly = polyVec[polyIter]; // make a deep copy
+      const std::vector<std::string> & colors = poly.get_colors();
+      
+      // Convert to world units
+      int            numVerts  = poly.get_totalNumVerts();
+      double *             xv  = poly.get_xv();
+      double *             yv  = poly.get_yv();
+      for (int vIter = 0; vIter < numVerts; vIter++){
+        
+        Vector2 P;
+        P = projpoint2world(Vector2(xv[vIter], yv[vIter]), image_it);
+        
+        xv[vIter] = P.x();
+        yv[vIter] = P.y();
+      }
+
+      int drawVertIndex = 0;
+      bool plotPoints = false, plotEdges = true, plotFilled = false;
+      if (m_polyEditMode && m_moveVertex->isChecked()) {
+        drawVertIndex = 1; // to draw a little square at each movable vertex
+        plotPoints = true;
+      }else{
+        drawVertIndex = 0;
+        plotPoints = false;
+      }
+      
+      MainWidget::plotPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
+                           m_showIndices->isChecked(), m_lineWidth, drawVertIndex,
+                           QColor(colors[polyIter].c_str()), paint, poly);
+    }
+  } // end iterating over polygons for all images
+}
+  
+void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
     if (m_firstPaintEvent){
       // This will be called the very first time the display is
@@ -1556,11 +1644,11 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
     // TODO(oalexan1): All the logic below must be in its own function,
     // called for example plotPolygons().
-    // Also replace plotDPoly() with plotPoly().
+    // Also replace plotPoly() with plotPoly().
     // When deleting vertices need to use a georef as well.
     
     bool plotPoints    = false, plotEdges = true, plotFilled = false;
-    int  drawVertIndex = 0, lineWidth = m_lineWidth;
+    int  drawVertIndex = 0;
     bool isPolyClosed  = false;
     std::string layer  = "";
     
@@ -1572,91 +1660,16 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
                          vw::geometry::vecPtr(m_profileY),  
                          isPolyClosed, polyColorStr, layer);
       bool showIndices = false;
-      MainWidget::plotDPoly(plotPoints, plotEdges, plotFilled, showIndices,
-                            lineWidth,  
-                            drawVertIndex, polyColor, paint,  
-                            poly);
+      MainWidget::plotPoly(plotPoints, plotEdges, plotFilled, showIndices,
+                           m_lineWidth, drawVertIndex, polyColor, paint,  
+                           poly);
     }
 
     // TODO(oalexan1): Should the persistent polygons be drawn
-    // as part of the drawImage() call? How about polygons
+    // as part of the drawImage() call? That will be a lot more efficient
+    // than being redrawn any time the mouse moves, etc. How about polygons
     // actively being edited?
-    // Loop through the input images. Plot the polygons. Note how we
-    // add one more fake image at the end to take care of the polygon
-    // we are in the middle of drawing. This extra fake image is a hackish thing
-    for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per above
-
-      bool currDrawnPoly = (j == m_end_image_id); // last poly is the currently drawn one
-
-      int image_it = m_polyLayerIndex; // for currently drawn poly
-      if (!currDrawnPoly) {
-        image_it = m_filesOrder[j]; // for the other polys
-      
-        // Don't show files the user wants hidden
-        std::string fileName = m_images[image_it].name;
-        if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
-          continue;
-      }
-
-      // Let polyVec be the polygons for the current image, or,
-      // at the end, the polygon we are in the middle of drawing
-      // TODO(oalexan1): How to avoid a deep copy?
-      std::vector<vw::geometry::dPoly> polyVec;
-      if (!currDrawnPoly) {
-        polyVec = m_images[image_it].polyVec; // deep copy
-      } else {
-          if (m_currPolyX.empty() || !m_polyEditMode)
-            continue;
-
-          vw::geometry::dPoly poly;
-          poly.reset();
-          poly.appendPolygon(m_currPolyX.size(),  
-                             vw::geometry::vecPtr(m_currPolyX),  
-                             vw::geometry::vecPtr(m_currPolyY),  
-                             isPolyClosed, polyColorStr, layer);
-          polyVec.push_back(poly);
-      }
-
-      // See if to use a custom color for this polygon, specified by the user from the gui
-      auto color_it = m_perImagePolyColor.find(image_it);
-      if (color_it != m_perImagePolyColor.end()) {
-        m_images[image_it].color = color_it->second; // save for the future
-        for (size_t polyIter = 0; polyIter < m_images[image_it].polyVec.size(); polyIter++) 
-          m_images[image_it].polyVec[polyIter].set_color(m_images[image_it].color);
-      }
-      
-      // Plot the polygon being drawn now, and pre-existing polygons
-      for (size_t polyIter = 0; polyIter < polyVec.size(); polyIter++){
-      
-        vw::geometry::dPoly poly = polyVec[polyIter]; // make a deep copy
-        const std::vector<std::string> & colors = poly.get_colors();
-
-        // Convert to world units
-        int            numVerts  = poly.get_totalNumVerts();
-        double *             xv  = poly.get_xv();
-        double *             yv  = poly.get_yv();
-        for (int vIter = 0; vIter < numVerts; vIter++){
-
-          Vector2 P;
-          P = projpoint2world(Vector2(xv[vIter], yv[vIter]), image_it);
-
-          xv[vIter] = P.x();
-          yv[vIter] = P.y();
-        }
-
-        if (m_polyEditMode && m_moveVertex->isChecked()) {
-          drawVertIndex = 1; // to draw a little square at each movable vertex
-          plotPoints = true;
-        }else{
-          drawVertIndex = 0;
-          plotPoints = false;
-        }
-
-        MainWidget::plotDPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
-                              m_showIndices->isChecked(), lineWidth, drawVertIndex,
-                              QColor(colors[polyIter].c_str()), paint, poly);
-      }
-    } // end iterating over polygons for all images
+    MainWidget::plotPolys(paint);
     
     // Call another function to handle drawing the interest points
     // This drawing is expensive as it happens every time paintEvent()
@@ -2397,7 +2410,8 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     bool has_geo = m_images[m_polyLayerIndex].has_georef;
     vw::cartography::GeoReference const& geo = m_images[m_polyLayerIndex].georef;
 
-    // TODO(oalexan1): What if there are polygons for many images?
+    // Save only polygons in the given layer. Polygons in other layers
+    // can have individual georeferences.
     vw_out() << "Writing: " << shapefile << std::endl;
     write_shapefile(shapefile, has_geo, geo, m_images[m_polyLayerIndex].polyVec);
   }
@@ -2423,13 +2437,14 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     bool has_geo = m_images[m_polyLayerIndex].has_georef;
     vw::cartography::GeoReference const& geo = m_images[m_polyLayerIndex].georef;
 
-    // TODO(oalexan1): What if there are polygons for many images?
+    // Save only polygons in the given layer. Polygons in other layers
+    // can have individual georeferences.
     vw_out() << "Writing: " << textFile << std::endl;
     vw::geometry::dPoly poly; // Put all the polygons into a single poly structure
     for (size_t polyIter = 0; polyIter < m_images[m_polyLayerIndex].polyVec.size(); polyIter++)
       poly.appendPolygons(m_images[m_polyLayerIndex].polyVec[polyIter]);
     
-    std::string defaultColor = "green";
+    std::string defaultColor = "green"; // only to be used if individual colors are missing
     bool emptyLineAsSeparator = true; // Don't want to use a "NEXT" statement as separator
     poly.writePoly(textFile, defaultColor, emptyLineAsSeparator);
   }
@@ -2525,7 +2540,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     return;
   }
   
-  void MainWidget::plotDPoly(bool plotPoints, bool plotEdges,
+  void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
                              bool plotFilled, bool showIndices,
                              int lineWidth,
                              int drawVertIndex, // 0 is a good choice here
@@ -3532,7 +3547,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
   }
 
   void MainWidget::setPolyColor(std::string const& polyColor) {
-    m_polyColor = polyColor;
+    m_polyColor = polyColor; // // TODO(oalexan1): Eliminate this
 
     // When the color is set from the top menu rather than right-clicking
     // on an individual layer in the table on the left, it applies to all polygons
