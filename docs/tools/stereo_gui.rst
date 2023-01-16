@@ -91,7 +91,7 @@ the images.
 
   - Overlay scatterplots on top of images (:numref:`plot_csv`).
 
-  - Overlay and edit polygons (:numref:`poly`).
+  - Overlay and edit polygons (:numref:`plot_poly`).
 
   - Find pixel values and region bounds (:numref:`image_bounds`).
 
@@ -183,8 +183,9 @@ To plot an arbitrary CSV file with longitude, latitude and value, do::
 
 If the file has data in projected units (such as using Easting and
 Northing values), specify the option ``--csv-proj4`` having the
-projection, and use for the CSV format ``"1:easting 2:northing
-3:height_above_datum"``.
+projection, and use for the CSV format a string such as::
+
+  "1:easting 2:northing 3:height_above_datum"
 
 .. figure:: ../images/scattered_points.png
    :name: scattered_points
@@ -192,17 +193,18 @@ projection, and use for the CSV format ``"1:easting 2:northing
 
    A colorized CSV file overlayed on top of a georeferenced image.
 
-.. _poly:
+.. _plot_poly:
 
 Polygon editing and contouring
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``stereo_gui`` can be used to draw and edit polygonal shapes on top of
-georeferenced images, save them as shape files (``*.shp``), and load such
-files from the command line (including ones produced with external
-tools). The editing functionality can be accessed by turning on
-polygon editing from the ``Vector layer`` menu, and then right-clicking
-with the mouse to access the various functions.
+georeferenced images, save them as shape files (``*.shp``) or in plain
+text and load such files from the command line (including ones
+produced with external tools). The editing functionality can be
+accessed by turning on polygon editing from the ``Vector layer`` menu,
+and then right-clicking with the mouse to access the various
+functions.
 
 To create polygons, click with the left mouse button on points to be
 added. When clicking close to the starting point, the polygon becomes
@@ -217,6 +219,29 @@ same kind.
 
 When reading polygons and georeferenced images from disk, choose "View
 as Georeferenced Images" to plot the polygons on top of the images.
+
+Plain text polygon files
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+If read from text files, polygons can have individual colors. The 
+polygon format is described in :numref:`poly_files`. Such a file
+can be loaded as::
+
+  stereo_gui --style poly --csv-format 1:lon,2:lat \
+    --csv-datum D_MOON poly.csv
+
+If such a file has multiple columns, the indices above can be changed
+to the ones desired to plot. Files having Easting-Northing information
+can be loaded as in :numref:`plot_csv`, while omitting the third
+column in the csv format string.
+
+If no georeference information exists, the CSV format can be 
+set to ``1:x,2:y`` if it is desired to have the y axis point up, and 
+``1:pix_x,2:pix_y`` if it should point down, so that such polygons
+can be overlayed on top of images.
+
+Application
+^^^^^^^^^^^
 
 As an application, the ``gdal_rasterize`` command can be used to keep
 or exclude the portion of a given georeferenced image or a DEM that is

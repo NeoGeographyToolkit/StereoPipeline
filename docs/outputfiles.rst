@@ -195,6 +195,20 @@ Other files created at all stages
     ``parallel_stereo`` tile, containing the elapsed time and memory
     usage, as output by ``/usr/bin/time``.
 
+.. _poly_files:
+
+Format of polygon files
+-----------------------
+
+The ``stereo_gui`` program can read and write polygons stored in plain
+text with a ``.txt`` or ``.csv`` extension. The x and y coordinates
+are stored as columns side-by side. Individual polygons
+are separated by an empty line. A color for the polygons is specified
+as a line of the form: ``color = red``. The given color applies
+to all polygons on subsequent lines until overridden by another
+such statement. An example use is in :numref:`plot_poly`.
+
+
 Inspection and properties of the output files
 ---------------------------------------------
 

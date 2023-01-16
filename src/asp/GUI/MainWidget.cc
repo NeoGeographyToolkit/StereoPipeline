@@ -239,7 +239,8 @@ namespace vw { namespace gui {
       m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false),
       m_polyEditMode(false), m_polyLayerIndex(beg_image_id),
       m_pixelTol(6), m_backgroundColor(QColor("black")),
-      m_lineWidth(1), m_polyColor("green"), m_editingMatches(false) {
+      m_lineWidth(1), m_polyColor("green"), // default colors when polys are created from scratch
+      m_editingMatches(false) {
 
     installEventFilter(this);
 
@@ -1942,18 +1943,20 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     poly.reset();
     bool isPolyClosed = true;
     std::string color = m_images[m_polyLayerIndex].color;
-    std::string layer;
+    if (color == "default") 
+      color = m_polyColor; // if no color was set from the command line
+
+    // If the user set a custom color
     auto color_it = m_perImagePolyColor.find(m_polyLayerIndex);
     if (color_it != m_perImagePolyColor.end()) {
       color = color_it->second;
       m_images[m_polyLayerIndex].color = color; // save for the future
     }
+    std::string layer = "";
     poly.appendPolygon(pSize,
 		    vw::geometry::vecPtr(m_currPolyX), vw::geometry::vecPtr(m_currPolyY),
                     isPolyClosed, color, layer);
-
     appendToPolyVec(poly);
-
     m_currPolyX.clear();
     m_currPolyY.clear();
 
@@ -3547,7 +3550,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   }
 
   void MainWidget::setPolyColor(std::string const& polyColor) {
-    m_polyColor = polyColor; // // TODO(oalexan1): Eliminate this
+    m_polyColor = polyColor;
 
     // When the color is set from the top menu rather than right-clicking
     // on an individual layer in the table on the left, it applies to all polygons
