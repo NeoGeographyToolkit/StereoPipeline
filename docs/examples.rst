@@ -816,8 +816,8 @@ observation contains both stereo channels, one observation is sufficient
 to create a DEM.
 
 HRSC data is organized into categories. Level 2 is radiometrically
-corrected, level 3 is corrected and map projected onto MOLA, and level 4
-is corrected and map projected on to a DEM created from the HRSC data.
+corrected, level 3 is corrected and mapprojected onto MOLA, and level 4
+is corrected and mapprojected on to a DEM created from the HRSC data.
 You should use the level 2 data for creating DEMs with ASP. If you would
 like to download one of the already created DEMs, it may be easiest to
 use the areoid referenced version (.da4 extension) since that is
@@ -1742,24 +1742,36 @@ into the ``bundle_adjust`` tool with the same file name even if they are
 in different folders. A simple workaround is to create symbolic links to
 the original header files with different names::
 
-       > ln -s  front/SEGMT01/METADATA.DIM front/SEGMT01/METADATA_FRONT.DIM
-       > ln -s  back/SEGMT01/METADATA.DIM  back/SEGMT01/METADATA_BACK.DIM
-       > bundle_adjust -t spot5 front/SEGMT01/IMAGERY.BIL back/SEGMT01/IMAGERY.BIL   \
-         front/SEGMT01/METADATA_FRONT.DIM back/SEGMT01/METADATA_BACK.DIM -o ba_run/out
-       > parallel_stereo -t spot5 front/SEGMT01/IMAGERY.BIL back/SEGMT01/IMAGERY.BIL \ 
-         front/SEGMT01/METADATA_FRONT.DIM back/SEGMT01/METADATA_BACK.DIM             \ 
-         st_run/out --bundle-adjust-prefix ba_run/out
+    ln -s  front/SEGMT01/METADATA.DIM front/SEGMT01/METADATA_FRONT.DIM
+    ln -s  back/SEGMT01/METADATA.DIM  back/SEGMT01/METADATA_BACK.DIM
+    bundle_adjust -t spot5                                            \
+      front/SEGMT01/IMAGERY.BIL back/SEGMT01/IMAGERY.BIL              \
+      front/SEGMT01/METADATA_FRONT.DIM back/SEGMT01/METADATA_BACK.DIM \
+      -o ba_run/out
+    parallel_stereo -t spot5                                          \
+      front/SEGMT01/IMAGERY.BIL back/SEGMT01/IMAGERY.BIL              \ 
+      front/SEGMT01/METADATA_FRONT.DIM back/SEGMT01/METADATA_BACK.DIM \ 
+      st_run/out --bundle-adjust-prefix ba_run/out
 
-You can also map project the SPOT5 images before they are passed to the
+See :numref:`nextsteps` for a discussion about various
+speed-vs-quality choices of the stereo algorithms.
+
+You can also mapproject the SPOT5 images before they are passed to the
 ``parallel_stereo`` tool. In order to do so, you must first use the
 ``add_spot_rpc`` tool to generate an RPC model approximation of the
-SPOT5 sensor model, then use the ``spot5maprpc`` session type when
-running parallel_stereo on the map projected images.
+SPOT5 sensor model.
 
 ::
 
     add_spot_rpc front/SEGMT01/METADATA.DIM -o front/SEGMT01/METADATA.DIM
     add_spot_rpc back/SEGMT01/METADATA.DIM  -o back/SEGMT01/METADATA.DIM
+
+This will append the RPC model to the existing file. If the output
+is a separate file, only the RPC model will be saved to the new file.
+
+Then use the ``spot5maprpc`` session type when running parallel_stereo
+on the mapprojected images::
+
     mapproject --tr gridSize sample_dem.tif front/SEGMT01/IMAGERY.BIL   \
       front/SEGMT01/METADATA.DIM front_map_proj.tif -t rpc
     mapproject --tr gridSize sample_dem.tif back/SEGMT01/IMAGERY.BIL    \
@@ -1772,13 +1784,18 @@ Notice how we used the same resolution (option ``--tr``) for both
 images when mapprojecting. That helps making the resulting images more
 similar and reduces the processing time (:numref:`mapproj-res`).
 
+See the note in :numref:`mapproj-example` about perhaps reducing the 
+resolution of the DEM to mapproject onto if ghosting artifacts are
+seen in the produced DEM.
+
+See :numref:`nextsteps` for a discussion about various
+speed-vs-quality choices of the stereo algorithms.
+
 .. figure:: images/examples/spot5_figure.png
    :name: spot5_output
          
    Cropped region of SPOT5 image and a portion of the associated stereo
    DEM overlaid on a low resolution Bedmap2 DEM.
-
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 .. _dawn_isis:
 
@@ -3339,7 +3356,7 @@ of the order of coordinates.
 
 A quick way to evaluate the camera models is to use the
 ``camera_footprint`` tool to create KML footprint files, then look at
-them in Google Earth. For a more detailed view, you can map project them
+them in Google Earth. For a more detailed view, you can mapproject them
 and overlay them on the reference DEM in ``stereo_gui``.
 
 ::

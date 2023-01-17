@@ -389,6 +389,14 @@ The Copernicus 30 m DEM heights are relative to the EGM96 geoid. Any such
 DEM must be converted to WGS84 ellipsoid heights, for any processing
 to be accurate (:numref:`conv_to_ellipsoid`).
 
+If your cameras have a lower resolution, such as SPOT 5, which may
+be on the order of 5-7 m/pixel, the resolution of the DEM above may be
+too high, and this may create ghosting artifacts if used for
+mapprojection. The initial DEM can be smoothed first, for example,
+with the command::
+
+   dem_mosaic --dem-blur-sigma 2 dem.tif -o dem_sigma2.tif
+
 There exist pre-made terrain models for other planets as well, for
 example the Moon LRO LOLA global DEM and the Mars MGS MOLA
 DEM. Additionally, for Mars, consider downloading HRSC DEMs from:

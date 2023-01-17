@@ -303,7 +303,8 @@ void las_or_csv_or_pcd_to_tifs(Options& opt, cartography::Datum const& datum,
   }
 
   sw.stop();
-  vw_out(DebugMessage,"asp") << "LAS or CSV to TIF conversion time: " << sw.elapsed_seconds() << std::endl;
+  vw_out(DebugMessage,"asp") << "LAS or CSV to TIF conversion time: "
+                             << sw.elapsed_seconds() << " seconds.\n";
 
 }
 

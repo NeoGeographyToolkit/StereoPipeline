@@ -27,6 +27,7 @@
 #include <vw/Math/EulerAngles.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/OpticalBarModel.h>
+#include <vw/Core/Stopwatch.h>
 
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
@@ -97,7 +98,14 @@ CameraModelLoader::load_dg_camera_model(std::string const& path) const {
 // Load a spot5 camera file
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_spot5_camera_model(std::string const& path) const {
-  return vw::CamPtr(load_spot5_camera_model_from_xml(path));
+  vw::vw_out() << "Loading a SPOT5 camera model can take about a couple of minutes.\n";
+  vw::Stopwatch sw;
+  sw.start();
+  vw::CamPtr ans = load_spot5_camera_model_from_xml(path);
+  sw.stop();
+  vw::vw_out() << "Load time: " << sw.elapsed_seconds() << " seconds.\n";
+
+  return ans;
 }
 
 // Load a PeruSat linescan camera file

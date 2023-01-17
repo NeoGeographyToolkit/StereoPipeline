@@ -1,6 +1,10 @@
 Changes since last release
 --------------------------
 
+Note: The latest XML parser Xerces-C became on the order of 10 times
+slower than before, which may affect the speed of processing for
+XML-based camera models.
+
 parallel_stereo (:numref:`parallel_stereo`):
   * Can propagate the covariances of satellite positions and quaternions
     to the triangulated point cloud for Maxar (DigitalGlobe) linescan
