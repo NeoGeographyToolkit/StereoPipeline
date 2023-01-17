@@ -275,3 +275,7 @@ dependencies:
   - yaml=0.2.5=h7f98852_2
   - zlib=1.2.13=h166bdaf_4
   - zstd=1.5.2=h6239696_4
+  - mesa-libgl-cos6-x86_64
+  - xorg-libxmu
+  - mesalib
+  
