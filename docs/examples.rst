@@ -1770,7 +1770,11 @@ This will append the RPC model to the existing file. If the output
 is a separate file, only the RPC model will be saved to the new file.
 
 Then use the ``spot5maprpc`` session type when running parallel_stereo
-on the mapprojected images::
+on the mapprojected images. See the note in :numref:`mapproj-example`
+about perhaps reducing the resolution of the DEM to mapproject onto if
+ghosting artifacts are seen in the produced DEM.
+
+::
 
     mapproject --tr gridSize sample_dem.tif front/SEGMT01/IMAGERY.BIL   \
       front/SEGMT01/METADATA.DIM front_map_proj.tif -t rpc
@@ -1783,10 +1787,6 @@ on the mapprojected images::
 Notice how we used the same resolution (option ``--tr``) for both
 images when mapprojecting. That helps making the resulting images more
 similar and reduces the processing time (:numref:`mapproj-res`).
-
-See the note in :numref:`mapproj-example` about perhaps reducing the 
-resolution of the DEM to mapproject onto if ghosting artifacts are
-seen in the produced DEM.
 
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices of the stereo algorithms.
