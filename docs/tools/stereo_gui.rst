@@ -200,7 +200,7 @@ Polygon editing and contouring
 
 ``stereo_gui`` can be used to draw and edit polygonal shapes on top of
 georeferenced images, save them as shape files (``*.shp``) or in plain
-text and load such files from the command line (including ones
+text, and load such files from the command line (including ones
 produced with external tools). The editing functionality can be
 accessed by turning on polygon editing from the ``Vector layer`` menu,
 and then right-clicking with the mouse to access the various

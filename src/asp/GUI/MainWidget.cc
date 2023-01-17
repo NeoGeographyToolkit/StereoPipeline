@@ -239,7 +239,7 @@ namespace vw { namespace gui {
       m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false),
       m_polyEditMode(false), m_polyLayerIndex(beg_image_id),
       m_pixelTol(6), m_backgroundColor(QColor("black")),
-      m_lineWidth(1), m_polyColor("green"), // default colors when polys are created from scratch
+      m_lineWidth(1), m_polyColor("green"), // default color when polys are created from scratch
       m_editingMatches(false) {
 
     installEventFilter(this);
@@ -1645,7 +1645,6 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
     // TODO(oalexan1): All the logic below must be in its own function,
     // called for example plotPolygons().
-    // Also replace plotPoly() with plotPoly().
     // When deleting vertices need to use a georef as well.
     
     bool plotPoints    = false, plotEdges = true, plotFilled = false;

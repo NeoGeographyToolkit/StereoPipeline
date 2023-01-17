@@ -110,6 +110,7 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
   xercesc::DOMElement* metadata_profile = get_node<DOMElement>(metadata_id, "METADATA_PROFILE");
 
   std::string sensor_name(XMLString::transcode(metadata_profile->getTextContent()));
+  
   std::string expected_name = "PHR_SENSOR";
   if (sensor_name != expected_name) 
     vw_throw(ArgumentErr() << "Incorrect sensor name. Expected: "
@@ -254,6 +255,8 @@ void PleiadesXML::read_attitudes(xercesc::DOMElement* attitudes) {
   double midnight_time = PleiadesXML::convert_time(midnight_time_str, is_start_time);
   m_quat_offset_time = midnight_time + atof(offset_str.c_str());
 
+#if 0
+  // Turning this off as it is fails on a real test case.
   // Untested adjustments for the case when the midnight is computed
   // for the wrong day. Not sure if this will ever happen. Try to
   // ensure that m_start_time <= m_quat_offset_time <= m_end_time.
@@ -267,8 +270,19 @@ void PleiadesXML::read_attitudes(xercesc::DOMElement* attitudes) {
     vw_throw(ArgumentErr() << "Failed to compute the quaternion offset. "
              << "Check the start time, end time, and the quaternion OFFSET field, "
              << "which is meant to be in seconds since midnight.\n");
-
-
+#endif
+  
+  if (m_quat_offset_time < m_start_time)  // This never happened
+    vw_out(WarningMessage) << "Quaternion offset time is less than start time (difference: "
+                           << m_quat_offset_time - m_start_time << " seconds). "
+                           << "Some caution may be advised.\n";
+  if (m_quat_offset_time > m_end_time) // This was observed to happen
+    vw_out(WarningMessage) << "Quaternion offset time in seconds ("
+                           << m_quat_offset_time - m_start_time << ") "
+                           << "is greater than end time ("
+                           << m_end_time - m_start_time
+                           << "). A discrepancy of a few seconds is likely acceptable.\n";
+  
   // Read the quaternion scale field
   std::string scale_str;
   cast_xmlch(get_node<DOMElement>(quaternion_root, "SCALE")->getTextContent(), scale_str);
