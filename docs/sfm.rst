@@ -155,9 +155,26 @@ If we do not see any obvious problems we can go ahead and run the
    camera_solve out/ AS15-M-0414_MED.png AS15-M-1134_MED.png \
      --datum D_MOON --calib-file metric_model.tsai
 
-We should get some camera models in the output folder and see a printout
-of the final bundle adjustment error among the program output
-information::
+The reconstruction can be visualized as::
+
+    view_reconstruction --reconstruction out/theia_reconstruction.dat
+
+One may need to zoom out to see all cameras. See this tool's manual in
+the `Theia documentation <https://github.com/oleg-alexandrov/TheiaSfM/blob/rig_calibrator/docs/source/applications.rst#view-reconstruction>`_. 
+
+If this tool shows a black window, it is likely an issue with the
+libGL shipped by ASP. Then install it separately with conda, as::
+
+    conda create -n multiview  -c nasa-ames-stereo-pipeline \
+      -c usgs-astrogeology -c conda-forge multiview=asp3.2.0 
+
+and run it using the path::
+
+    $HOME/miniconda3/envs/multiview/bin/view_reconstruction 
+
+When ``camera_solve`` concludes, we should get some camera models in
+the output folder and see a printout of the final bundle adjustment
+error among the program output information::
 
    Cost:
    Initial                          1.450385e+01

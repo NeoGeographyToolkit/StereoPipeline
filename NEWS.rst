@@ -15,9 +15,12 @@ point2dem (:numref:`point2dem`):
 
 stereo_gui (:numref:`stereo_gui`): 
   * Can read, write, edit, and overlay on top of images polygons in
-    plain text format in addition to .shp format.
+    plain text format in addition to .shp format. Per-polygon
+    colors are supported.
 
 misc: 
+   * Added back the tool view_reconstruction to view Theia's SfM
+     solution (:numref:`sfm`).
    * Added to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`) the option
      ``--web`` to invoke ``spiceinit`` with ``web=True``. Contributed
      by Giacomo Nodjoumi.
