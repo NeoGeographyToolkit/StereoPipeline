@@ -19,14 +19,14 @@ stereo_gui (:numref:`stereo_gui`):
     colors are supported.
 
 misc: 
-   * Added back the tool view_reconstruction to view Theia's SfM
-     solution (:numref:`sfm`).
-   * Added to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`) the option
-     ``--web`` to invoke ``spiceinit`` with ``web=True``. Contributed
-     by Giacomo Nodjoumi.
-   * Bugfix for reading .jp2 files. Needed to ship the JPEG2000 driver
-     and set GDAL_DRIVER_PATH.
-   * Fixed a failure in ``mapproject`` with a small DEM.
+  * Added back the tool ``view_reconstruction``, for examining
+    Theia's SfM solution (:numref:`sfm`).
+  * Added to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`) the option
+    ``--web`` to invoke ``spiceinit`` with ``web=True``. Contributed
+    by Giacomo Nodjoumi.
+  * Bugfix for reading .jp2 files. Needed to ship the JPEG2000 driver
+    and set GDAL_DRIVER_PATH.
+  * Fixed a failure in ``mapproject`` with a small DEM.
 
 RELEASE 3.2.0, December 30, 2022
 --------------------------------
