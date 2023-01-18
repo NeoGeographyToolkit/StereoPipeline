@@ -558,6 +558,12 @@ The robust threshold was set to 0.2 because the jitter signal is rather
 weak. This allows the optimization to focus on this signal and not on
 the larger errors due to the steep terrain. 
 
+Here ``--translation-weight 0`` is used. If the camera positions are
+trusted, and it is suspected that jitter is primarily due to
+high-frequency oscillations in orientations, this should be set to a
+positive value, perhaps between 1.0 and 100.0 (in the latter case
+the camera centers will move very little or not at all).
+
 .. _fig_dg_jitter_pointmap_anchor_points:
 
 .. figure:: ../images/dg_jitter_pointmap_anchor_points.png
