@@ -802,23 +802,30 @@ void interpVelocities(UsgsAstroLsSensorModel * ls_model, double time,
 // linear relationship between lines and time.
 // TODO(oalexan1): This is fragile. Maybe it can be avoided.
 void calcTimes(UsgsAstroLsSensorModel const* ls_model,
-               double & first_line_time, double & last_line_time,
+               double & earlier_line_time, double & later_line_time,
                double & elapsed_time, double & dt_per_line) {
 
   int numLines = ls_model->m_nLines;
   csm::ImageCoord imagePt;
 
   asp::toCsmPixel(vw::Vector2(0, 0), imagePt);
-  first_line_time = ls_model->getImageTime(imagePt);
+  earlier_line_time = ls_model->getImageTime(imagePt);
 
   asp::toCsmPixel(vw::Vector2(0, numLines - 1), imagePt);
-  last_line_time = ls_model->getImageTime(imagePt);
+  later_line_time = ls_model->getImageTime(imagePt);
 
-  elapsed_time = last_line_time - first_line_time;
+  // See note in resampleModel().
+  if (earlier_line_time > later_line_time)
+    std::swap(earlier_line_time, later_line_time);
+  
+  elapsed_time = later_line_time - earlier_line_time;
   dt_per_line = elapsed_time / (numLines - 1.0);
-  if (last_line_time <= first_line_time)
+
+  if (later_line_time <= earlier_line_time)
     vw::vw_throw(vw::ArgumentErr()
-                 << "Last line time must be larger than first line time.\n");
+                 << "The time of the last line (in scanning order) must be larger than "
+                 << "first line time.\n");
+  
   return;
 }
 
@@ -830,24 +837,24 @@ void calcTimes(UsgsAstroLsSensorModel const* ls_model,
 void calcFirstLastPositionLines(UsgsAstroLsSensorModel const* ls_model, 
                                 double & beg_position_line, double & end_position_line) {
 
-  double first_line_time = -1.0, last_line_time = -1.0, elapsed_time = -1.0, dt_per_line = -1.0;
-  calcTimes(ls_model, first_line_time, last_line_time, elapsed_time,  
+  double earlier_line_time = -1.0, later_line_time = -1.0, elapsed_time = -1.0, dt_per_line = -1.0;
+  calcTimes(ls_model, earlier_line_time, later_line_time, elapsed_time,  
                dt_per_line);
   
   // Find time of first and last tabulated position.
   double bt = ls_model->m_t0Ephem;
   double et = bt + (ls_model->m_positions.size()/NUM_XYZ_PARAMS - 1) * ls_model->m_dtEphem;
 
-  // Use the equation: time = first_line_time + line * dt_per_line.
-  beg_position_line = (bt - first_line_time) / dt_per_line;
-  end_position_line = (et - first_line_time) / dt_per_line;
+  // Use the equation: time = earlier_line_time + line * dt_per_line.
+  // See note in resampleModel() about scan direction.
+  beg_position_line = (bt - earlier_line_time) / dt_per_line;
+  end_position_line = (et - earlier_line_time) / dt_per_line;
 
   // Sanity checks
   if (beg_position_line > 1e-3) // allow for rounding errors 
     vw::vw_throw(vw::ArgumentErr() << "Line of first tabulated position is "
                  << beg_position_line << ", which is after first image line, which is "
                  << 0 << ".\n");
-  
   int numLines = ls_model->m_nLines;
   if (end_position_line < numLines - 1 - 1e-3)  // allow for rounding errors
     vw::vw_throw(vw::ArgumentErr() << "Line of last tabulated position is "
@@ -861,45 +868,46 @@ void calcFirstLastPositionLines(UsgsAstroLsSensorModel const* ls_model,
 void calcFirstLastOrientationLines(UsgsAstroLsSensorModel const* ls_model, 
                                    double & beg_orientation_line, double & end_orientation_line) {
 
-  double first_line_time = -1.0, last_line_time = -1.0, elapsed_time = -1.0, dt_per_line = -1.0;
-  calcTimes(ls_model, first_line_time, last_line_time, elapsed_time,  
+  double earlier_line_time = -1.0, later_line_time = -1.0, elapsed_time = -1.0, dt_per_line = -1.0;
+  calcTimes(ls_model, earlier_line_time, later_line_time, elapsed_time,  
                dt_per_line);
   
   // Find time of first and last tabulated orientation.
   double bt = ls_model->m_t0Quat;
   double et = bt + (ls_model->m_quaternions.size()/NUM_QUAT_PARAMS - 1) * ls_model->m_dtQuat;
   
-  // Use the equation: time = first_line_time + line * dt_per_line.
-  beg_orientation_line = (bt - first_line_time) / dt_per_line;
-  end_orientation_line = (et - first_line_time) / dt_per_line;
+  // Use the equation: time = earlier_line_time + line * dt_per_line.
+  beg_orientation_line = (bt - earlier_line_time) / dt_per_line;
+  end_orientation_line = (et - earlier_line_time) / dt_per_line;
 
   // Sanity checks
   if (beg_orientation_line > 1e-3) // allow for rounding errors 
     vw::vw_throw(vw::ArgumentErr() << "Line of first tabulated orientation is "
                  << beg_orientation_line << ", which is after first image line, which is "
-                 << 0 << ".\n");
-  
+                   << 0 << ".\n");
   int numLines = ls_model->m_nLines;
   if (end_orientation_line < numLines - 1 - 1e-3)  // allow for rounding errors
     vw::vw_throw(vw::ArgumentErr() << "Line of last tabulated orientation is "
                  << end_orientation_line << ", which is before last image line, which is "
-                 << numLines - 1 << ".\n");
+                   << numLines - 1 << ".\n");
 }
 
 // The provided tabulated positions, velocities and quaternions may be too few,
 // so resample them with --num-lines-per-position and --num-lines-per-orientation,
-// if those are set.
+// if those are set. Throughout this function the lines are indexed in the order
+// they are acquired, which can be the reverse of the order they are eventually
+// stored in the file if the scan direction is reverse.
 void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
   
   // The positions and quaternions can go way beyond the valid range of image lines,
   // so need to estimate how many of them are within the range.
   
   int numLines = ls_model->m_nLines;
-  vw_out() << "Number of lines: " << numLines << "\n";
+  vw_out() << "Number of lines: " << numLines << ".\n";
 
-  double first_line_time = -1.0, last_line_time = -1.0, elapsed_time = -1.0, dt_per_line = -1.0;
-  calcTimes(ls_model, first_line_time, last_line_time, elapsed_time,  
-               dt_per_line);
+  double earlier_line_time = -1.0, later_line_time = -1.0, elapsed_time = -1.0, dt_per_line = -1.0;
+  calcTimes(ls_model, earlier_line_time, later_line_time, elapsed_time,  
+            dt_per_line);
 
   // Line index of first and last tabulated position
   double beg_position_line = -1.0, end_position_line = -1.0;

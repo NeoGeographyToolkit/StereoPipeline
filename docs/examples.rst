@@ -289,6 +289,9 @@ If they succeed in this, the distortions will still be present in the
 raw images, but the jitter will no longer produce ripple artifacts in
 the DEMs produced using ours or other stereo reconstruction software.
 
+ASP has its own jitter solver, which was shown to reduce the jitter
+for CTX (Mars) and DigitalGlobe (Earth) data (:numref:`jitter_solve`).
+
 Ceraunius Tholus
 ~~~~~~~~~~~~~~~~
 

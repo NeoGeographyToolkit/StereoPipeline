@@ -22,6 +22,9 @@ stereo_gui (:numref:`stereo_gui`):
     plain text format in addition to .shp format. Per-polygon
     colors are supported.
 
+jitter_solve:
+  * Bugfix for reverse scan direction.
+  
 misc: 
   * Added back the tool ``view_reconstruction``, for examining
     Theia's SfM solution (:numref:`sfm`).
