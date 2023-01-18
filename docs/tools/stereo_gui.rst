@@ -338,7 +338,7 @@ from an .nvm file. It is assumed that those interest points are saved
 without being translated relative to optical center, as the nvm file
 cannot save that translation. Such untranslated .nvm files are created
 by ``rig_calibrator`` with the ``--save_nvm_no_shift`` option
-(:numref:`rig_calibrator`). Example loading:
+(:numref:`rig_calibrator`). Example loading::
 
     stereo_gui --nvm nvm_noshift.nvm
 
@@ -355,9 +355,9 @@ This mode allows viewing (and editing, see
 but some rigid and a bit awkward conventions are used, to be able to
 display all those points at the same time.
 
-For image i, the match file must contain the matches from image i-1 or
-from image 0. You can provide these match files to ``stereo_gui`` by
-conforming to its naming convention
+For image i, the match file must contain the matches from image i-1 to
+i, or from image 0 to i. You can provide these match files to
+``stereo_gui`` by conforming to its naming convention
 (``output-prefix-fname1__fname2.match``) or by selecting them from the
 GUI when prompted. All match files must describe the same set of
 interest points. The tool will check the positions of loaded points

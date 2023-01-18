@@ -397,6 +397,11 @@ with the command::
 
    dem_mosaic --dem-blur-sigma 2 dem.tif -o dem_sigma2.tif
 
+The amount of blur may depend on the input DEM resolution, image
+ground sample distance, and how misregistered the initial DEM is
+relative to the images. One can experiment on a clip with values 1 and
+2 for sigma, for example.
+
 There exist pre-made terrain models for other planets as well, for
 example the Moon LRO LOLA global DEM and the Mars MGS MOLA
 DEM. Additionally, for Mars, consider downloading HRSC DEMs from:

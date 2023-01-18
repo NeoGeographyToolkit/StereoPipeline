@@ -2426,7 +2426,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       if (!is_good)
         vw_throw( ArgumentErr() << "The DEM " << dem_file
                   << " does not have a georeference.\n");
-      if (opt.datum_str == "" ){
+
+      if (opt.datum_str == "" ) {
         opt.datum = georef.datum();
         opt.datum_str = opt.datum.name();
         guessed_datum = true;
@@ -2438,7 +2439,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.datum_str != "" && !guessed_datum) {
     try {
       opt.datum.set_well_known_datum(opt.datum_str);
-    }catch(...) {
+    } catch(...) {
       // Whatever datum name we had, it was bad, so we'll make more attempts below
       opt.datum_str = "";
       guessed_datum = false;
@@ -2450,11 +2451,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                                    "Reference Meridian",
                                    opt.semi_major, opt.semi_minor, 0.0);
     opt.datum_str = opt.datum.name();
+    guessed_datum = true;
   }
 
-  // Otherwise try to set the datum based on cameras, except for the
-  // pinhole session as that one could be used with rovers on the
-  // ground, and the datum does not make sense.
+  // Otherwise try to set the datum based on cameras.  It will return
+  // WGS84 if all else fails.
+  // TODO(oalexan1): That may not be desirable with ground-level cameras.
   if (opt.datum_str == "") {
     asp::datum_from_cameras(opt.image_files, opt.camera_files,  
                             opt.stereo_session,  // may change

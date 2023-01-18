@@ -525,7 +525,7 @@ the uncertainty for triangulated points.
 These covariances are then converted from ECEF to North-East-Down
 (NED) coordinates at each nominal triangulated point, and further
 decomposed into the horizontal and vertical components, which are
-saved as the 5th and 6th band in the point cloud (\*-PC.tif tile).
+saved as the 5th and 6th band in the point cloud (\*-PC.tif file).
 Running ``gdalinfo`` on the point cloud will show some metadata
 describing each band in the produced point cloud.
 
@@ -598,12 +598,13 @@ and is usually above 25 :math:`m^2`, so the vertical standard deviation
 is, roughly speaking, at least 5 meters, and perhaps double that and more
 for stereo pairs with a convergence angle under 30 degrees.
 
-The dependence on the convergence angle is very expected. But these numbers
-appear too large given the ground sample distance of DigitalGlobe WorldView 
-cameras. We are very confident that they are correct. The reason
-why the results are so large is because of the input orientation covariances
-(the relative contribution of input position and orientation covariances
-can be determined with the options ``--position-covariance-factor`` and
+The dependence on the convergence angle is very expected. But these
+numbers appear too large given the ground sample distance of
+DigitalGlobe WorldView cameras. We are very confident that they are
+correct. The results are so large is because of the input orientation
+covariances (the relative contribution of input position and
+orientation covariances can be determined with the options
+``--position-covariance-factor`` and
 ``--orientation-covariance-factor``).
 
 The curious user can use the following independent approach to
