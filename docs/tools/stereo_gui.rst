@@ -345,6 +345,8 @@ by ``rig_calibrator`` with the ``--save_nvm_no_shift`` option
 (The ``--nvm`` option can also be omitted, and only the file itself
 can be specified.)
 
+.. _stereo_gui_N_image_matches:
+
 View all matches for *N* images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -355,14 +357,21 @@ display all those points at the same time.
 
 For image i, the match file must contain the matches from image i-1 or
 from image 0. You can provide these match files to ``stereo_gui`` by
-conforming to its naming convention (prefix-fname1__fname2.match) or
-by selecting them from the GUI when prompted. All match files must
-describe the same set of interest points, the tool will check the
-positions of loaded points and discard any that do not correspond to
-the already loaded points.
+conforming to its naming convention
+(``output-prefix-fname1__fname2.match``) or by selecting them from the
+GUI when prompted. All match files must describe the same set of
+interest points. The tool will check the positions of loaded points
+and discard any that do not correspond to the already loaded points.
+
+Run::
+
+    stereo_gui image1.tif ... imageN.tif run/run
+
+(the last string is the output prefix). Select viewing of interest
+point matches. 
 
 If one of the match files fails to load or does not contain
-enough matching points, the missing points will be added to an
+enough match points, the missing points will be added to an
 arbitrary position and flagged as invalid. You must either validate
 these points by manually moving them to the correct position or else
 delete them.
@@ -386,22 +395,33 @@ specify as many such files as images when launching this program.
 Edit interest point matches
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``stereo_gui`` can be used to manually create and delete matches
-(useful in situations when automatic interest point matching is
-unreliable due to large changes in illumination). This works when a
-pair of images is present, or *N* images, but without the
-``--pairwise-matches`` and ``--pairwise-clean-matches`` options.
+``stereo_gui`` can be used to manually create and delete interest
+point matches (useful in situations when automatic interest point
+matching is unreliable due to large changes in illumination). This
+works for *N* images.
 
-Interest point matches can be created or
-deleted with the right-mouse click. This works whether a pre-existing
-match file was loaded, or starting from scratch.
+Run::
 
-To move interest points, right click on a panel and check "Move match
+    stereo_gui image1.tif ... imageN.tif run/run
+
+(the last string is the output prefix). Select viewing of interest
+point matches. If some matches exist already, they will be loaded, per
+:numref:`stereo_gui_N_image_matches`. Do not use
+``--pairwise-matches`` and ``--pairwise-clean-matches`` here.
+
+Interest point matches can be created or deleted with the right-mouse
+click. This works whether a pre-existing match file was loaded, or
+starting from scratch.
+
+To move interest points, right-click on an image and check "Move match
 point". While this is checked you can move interest points by clicking
-and dragging them within the panel.  Uncheck "Move match point" to
+and dragging them within the image extent.  Uncheck "Move match point" to
 stop moving interest points.
 
 The edited interest point matches can be saved from the menu.
+
+If handling *N* images at once becomes to complicated, it is suggested
+to edit the matches one pair at a time.
 
 .. _creatinggcp:
 

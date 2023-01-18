@@ -1729,13 +1729,13 @@ The header file is a plain text XML file. When using SPOT5 images with
 ASP tools, pass in the data file as the image file and the header file
 as the camera model file.
 
-All ASP tools can handle ``.bil`` images (and also ``.bip`` and
-``.bsq``) as long as a similarly named ``.dim`` file exists that can be
-looked up. The lookup succeeds if, for example, the ``.dim`` and
-``.bil`` files differ only by extension (lower or upper case), or, as
-below, when an IMAGERY.BIL file has a corresponding METADATA file.
+All ASP tools can handle ``.bil`` images (and also ``.bip`` and ``.bsq``)
+as long as a similarly named ``.dim`` file exists that can be looked
+up. The lookup succeeds if, for example, the ``.dim`` and ``.bil``
+files differ only by extension (lower or upper case), or, as below,
+when an IMAGERY.BIL file has a corresponding METADATA file.
 
-You can find a sample SPOT5 image at
+A sample SPOT5 image can be found at at
 http://www.geo-airbusds.com/en/23-sample-imagery.
 
 One issue to watch out for is that SPOT5 data typically comes in a
@@ -1759,8 +1759,8 @@ the original header files with different names::
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices of the stereo algorithms.
 
-You can also mapproject the SPOT5 images before they are passed to the
-``parallel_stereo`` tool. In order to do so, you must first use the
+One can also mapproject the SPOT5 images before they are passed to
+``parallel_stereo``. In order to do so, you must first use the
 ``add_spot_rpc`` tool to generate an RPC model approximation of the
 SPOT5 sensor model.
 

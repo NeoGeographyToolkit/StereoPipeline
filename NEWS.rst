@@ -1,9 +1,9 @@
 Changes since last release
 --------------------------
 
-Note: The latest XML parser Xerces-C became on the order of 10 times
-slower than before, which may affect the speed of processing for
-XML-based camera models.
+Note: The latest version of the Xerces-C XML parser became on the
+order of 10 times slower than before, which may affect the speed of
+processing for XML-based camera models.
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Can propagate the covariances of satellite positions and quaternions
@@ -22,7 +22,7 @@ stereo_gui (:numref:`stereo_gui`):
     plain text format in addition to .shp format. Per-polygon
     colors are supported.
 
-jitter_solve:
+jitter_solve (:numref:`jitter_solve`):
   * Bugfix for reverse scan direction.
   
 misc: 
