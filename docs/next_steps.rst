@@ -890,8 +890,8 @@ preserves any georeference.
 
 .. _longrun:
 
-Dealing with long run-times
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Dealing with long run-times and failures
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If ``stereo_corr`` takes unreasonably long, it may have encountered a
 portion of the image where, due to noise (such as clouds, shadows, etc.)
@@ -914,6 +914,10 @@ the ``parallel_stereo`` option ``--resume-at-corr``
 (:numref:`parallel_stereo`). A ran can be started at the triangulation
 stage after making changes to the cameras while reusing a previous run
 with the option ``--prev-run-prefix``.
+
+If a run failed due to running out of memory with
+``asp_mgm``/``asp_sgm``, also consider lowering the value of
+``--processes``.
 
 See also :numref:`handling_clouds` with considers the situation
 that clouds are present in the input images. The suggestions there
