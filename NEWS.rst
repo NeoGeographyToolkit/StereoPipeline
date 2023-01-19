@@ -12,6 +12,9 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Documented the pre-processing options ``--stddev-mask-kernel``
     and ``--stddev-mask-thresh`` (:numref:`stereo-default-preprocessing`).
     Fixed a bug in writing out debug images for this option.
+  * Bugfix for stereo with mapprojected Pleiades images. If the
+    mapprojection is done with the exact (non-RPC) cameras, stereo
+    must load the exact cameras when undoing the mapprojection.
 
 point2dem (:numref:`point2dem`): 
   * Added the option ``--covariances`` to grid the covariances computed
