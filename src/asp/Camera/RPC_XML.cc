@@ -540,6 +540,7 @@ void asp::RPCXML::parse_bbox(xercesc::DOMElement* root_node) {
   //VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
 }
 
+// Parse the RPB node. Used for DG XML files.
 void asp::RPCXML::parse_rpb(xercesc::DOMElement* node) {
   DOMElement* image = get_node<DOMElement>(node, "IMAGE");
 
@@ -567,6 +568,20 @@ void asp::RPCXML::parse_rpb(xercesc::DOMElement* node) {
   parse_vector(get_node<DOMElement>(get_node<DOMElement>(image, "SAMPDENCOEFList"), "SAMPDENCOEF"), samp_den_coeff);
   check_argument(1);
 
+  // These are only used for covariance propagation
+  double err_bias = 0.0;
+  try {
+    cast_xmlch(get_node<DOMElement>(image, "ERRBIAS")->getTextContent(), err_bias);
+  } catch(...) {
+    err_bias = 0.0;
+  }
+  double err_rand = 0.0;
+  try {
+    cast_xmlch(get_node<DOMElement>(image, "ERRRAND")->getTextContent(), err_rand);
+  } catch(...) {
+    err_rand = 0.0;
+  }
+  
   // The CAM2RPC_DATUM field is only written by cam2rpc
   try {
     cast_xmlch(get_node<DOMElement>(image, "CAM2RPC_DATUM")->getTextContent(), cam2rpc_datum_wkt);
@@ -594,9 +609,11 @@ void asp::RPCXML::parse_rpb(xercesc::DOMElement* node) {
                            line_num_coeff, line_den_coeff,
                            samp_num_coeff, samp_den_coeff,
                            xy_offset, xy_scale,
-                           geodetic_offset, geodetic_scale));
+                           geodetic_offset, geodetic_scale,
+                           err_bias, err_rand));
 }
 
+// Pleiades/Astrium RPC
 void asp::RPCXML::parse_rational_function_model(xercesc::DOMElement* node) {
   DOMElement* inverse_model =
     get_node<DOMElement>(node, "Inverse_Model"); // Inverse model

@@ -68,7 +68,9 @@ namespace asp {
               vw::Vector2 const& xy_offset,
               vw::Vector2 const& xy_scale,
               vw::Vector3 const& lonlatheight_offset,
-              vw::Vector3 const& lonlatheight_scale );
+              vw::Vector3 const& lonlatheight_scale,
+              double err_bias = 0.0,
+              double err_rand = 0.0);
 
     virtual std::string type() const { return "RPC"; }
     virtual ~RPCModel() {}
@@ -128,6 +130,9 @@ namespace asp {
     /// Find a point which gets projected onto the current pixel,
     /// and the direction of the ray going through that point.
     void point_and_dir(vw::Vector2 const& pix, vw::Vector3 & P, vw::Vector3 & dir ) const;
+
+    // Will be read only for DG RPC camera models and set to 0 for the rest
+    double m_err_bias, m_err_rand;
 
   private:
     vw::cartography::Datum m_datum;

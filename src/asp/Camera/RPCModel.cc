@@ -39,6 +39,10 @@ namespace asp {
     cartography::read_georeference(georef, *resource);
     m_datum = georef.datum();
 
+    // Initialize to 0
+    m_err_bias = 0.0;
+    m_err_rand = 0.0;
+
     // Extract RPC Info
     boost::shared_ptr<GDALDataset> dataset = resource->get_dataset_ptr();
     if (!dataset)
@@ -63,9 +67,15 @@ namespace asp {
     m_line_den_coeff   = CoeffVec(gdal_rpc.adfLINE_DEN_COEFF);
     m_sample_num_coeff = CoeffVec(gdal_rpc.adfSAMP_NUM_COEFF);
     m_sample_den_coeff = CoeffVec(gdal_rpc.adfSAMP_DEN_COEFF);
+
   }
 
   RPCModel::RPCModel(std::string const& filename) {
+
+    // Initialize to 0
+    m_err_bias = 0.0;
+    m_err_rand = 0.0;
+
     std::string ext = get_extension(filename);
     if (ext == ".rpb") {
       load_rpb_file(filename);
@@ -97,7 +107,8 @@ namespace asp {
                      Vector2           const& xy_offset,
                      Vector2           const& xy_scale,
                      Vector3           const& lonlatheight_offset,
-                     Vector3           const& lonlatheight_scale) :
+                     Vector3           const& lonlatheight_scale,
+                     double err_bias, double err_rand):
     m_datum(datum), 
     m_line_num_coeff(line_num_coeff),
     m_line_den_coeff(line_den_coeff), 
@@ -106,13 +117,17 @@ namespace asp {
     m_xy_offset(xy_offset),
     m_xy_scale(xy_scale), 
     m_lonlatheight_offset(lonlatheight_offset),
-    m_lonlatheight_scale(lonlatheight_scale) {}
-    
+    m_lonlatheight_scale(lonlatheight_scale),
+    m_err_bias(err_bias), m_err_rand(err_rand) {}
 
   void RPCModel::load_rpb_file(std::string const& filename) {
     //vw_out() << "Reading RPC model from RPB file, defaulting to WGS84 datum.\n";
     m_datum.set_well_known_datum("WGS84");
     std::ifstream f(filename.c_str());
+
+    // Initialize to 0
+    m_err_bias = 0.0;
+    m_err_rand = 0.0;
     
     std::string line;
     std::vector<std::string> tokens;
@@ -244,8 +259,7 @@ namespace asp {
                                                    m_line_num_coeff,
                                                    m_line_den_coeff,
                                                    m_sample_num_coeff,
-                                                   m_sample_den_coeff
-                                                   );
+                                                   m_sample_den_coeff);
   }
 
   RPCModel::CoeffVec RPCModel::calculate_terms(vw::Vector3 const& normalized_geodetic) {
