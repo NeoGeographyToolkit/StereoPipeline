@@ -42,13 +42,13 @@ PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
                     vw::Vector2                         const& coeff_psi_y,
                     vw::Vector2i                        const& image_size,
                     double min_time, double max_time,
-                    int ref_col, int ref_row):
+                    int ref_col, int ref_row, double accuracy_stdv):
   m_position_func(position), m_velocity_func(velocity),
   m_quat_offset_time(quat_offset_time), m_quat_scale(quat_scale),
   m_quaternion_coeffs(quaternion_coeffs),
   m_time_func(time), m_coeff_psi_x(coeff_psi_x), m_coeff_psi_y(coeff_psi_y),
   m_min_time(min_time), m_max_time(max_time), m_ref_col(ref_col), m_ref_row(ref_row),
-  m_image_size(image_size) {
+  m_image_size(image_size), m_accuracy_stdv(accuracy_stdv) {
 
   populateCsmModel();
 }
@@ -325,7 +325,8 @@ load_pleiades_camera_model_from_xml(std::string const& path) {
                              xml_reader.m_coeff_psi_y,
                              xml_reader.m_image_size,
                              min_time, max_time,
-                             xml_reader.m_ref_col, xml_reader.m_ref_row));
+                             xml_reader.m_ref_col, xml_reader.m_ref_row,
+                             xml_reader.m_accuracy_stdv));
   
   return cam;
 } // End function load_pleiades_camera_model()

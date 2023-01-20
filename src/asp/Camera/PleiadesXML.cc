@@ -132,13 +132,17 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
   read_attitudes(attitudes);
   
   xercesc::DOMElement* geom_calib  = get_node<DOMElement>(refined_model, "Geometric_Calibration");
-  xercesc::DOMElement* instr_calib = get_node<DOMElement>(geom_calib,    "Instrument_Calibration");
+  xercesc::DOMElement* instr_calib = get_node<DOMElement>(geom_calib, "Instrument_Calibration");
 
-  xercesc::DOMElement* swath_range = get_node<DOMElement>(instr_calib,   "Swath_Range");
+  xercesc::DOMElement* swath_range = get_node<DOMElement>(instr_calib, "Swath_Range");
   read_ref_col_row(swath_range);
 
-  xercesc::DOMElement* look_angles = get_node<DOMElement>(instr_calib,   "Polynomial_Look_Angles");
+  xercesc::DOMElement* look_angles = get_node<DOMElement>(instr_calib, "Polynomial_Look_Angles");
   read_look_angles(look_angles);
+
+  PleiadesXML::parse_accuracy_stdv(root);
+
+  return;
 }
 
 void PleiadesXML::read_image_size(xercesc::DOMElement* raster_data_node) {
@@ -374,6 +378,26 @@ double PleiadesXML::convert_time(std::string const& s, bool is_start_time) {
     vw::vw_throw(vw::ArgumentErr() << "Failed to parse time from string: " << s << "\n");
   }
   return -1.0; // Never reached
+}
+
+// This is an optional field, used only for error propagation  
+void PleiadesXML::parse_accuracy_stdv(xercesc::DOMElement* root) {
+  m_accuracy_stdv = 0.0;
+  try {
+    xercesc::DOMElement* quality_assessment = get_node<DOMElement>(root, "Quality_Assessment");
+    xercesc::DOMElement* planimetric_accuracy_measurement
+      = get_node<DOMElement>(quality_assessment, "Planimetric_Accuracy_Measurement");
+    xercesc::DOMElement* quality_values = get_node<DOMElement>(planimetric_accuracy_measurement,
+                                                               "Quality_Values");
+    std::string accuracy_stdv;
+    cast_xmlch(get_node<DOMElement>(quality_values, "ACCURACY_STDV")->getTextContent(),
+               accuracy_stdv);
+    m_accuracy_stdv = atof(accuracy_stdv.c_str());
+  } catch (...) {
+    m_accuracy_stdv = 0.0; 
+  }
+
+  return;
 }
 
 // Find the time at each line. According to the doc (page 76),

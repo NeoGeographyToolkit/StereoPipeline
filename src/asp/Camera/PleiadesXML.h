@@ -54,7 +54,7 @@ namespace asp {
   public:
 
     /// Constructor
-    PleiadesXML(): m_start_time_is_set(false){}
+    PleiadesXML(): m_start_time_is_set(false), m_ref_row(0), m_ref_col(0), m_accuracy_stdv(0.0) {}
 
     vw::Vector2i m_image_size;
     vw::Vector2 m_coeff_psi_x, m_coeff_psi_y;
@@ -63,6 +63,8 @@ namespace asp {
     // These will be used to fit the quaternions
     double m_quat_offset_time, m_quat_scale;
     std::vector<vw::Vector<double, 4>> m_quaternion_coeffs;
+
+    double m_accuracy_stdv;
     
     /// Parse an XML file to populate the data
     void read_xml(std::string const& xml_path);
@@ -88,6 +90,7 @@ namespace asp {
     void read_attitudes   (xercesc::DOMElement* attitudes);
     void read_ref_col_row (xercesc::DOMElement* swath_range);
     void read_look_angles (xercesc::DOMElement* look_angles);
+    void parse_accuracy_stdv(xercesc::DOMElement* root);
 
     /// Converts a time from string to double precision in seconds.
     /// All times are in seconds relative to the start time.

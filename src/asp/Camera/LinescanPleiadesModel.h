@@ -52,7 +52,7 @@ namespace asp {
                         vw::Vector2                         const& coeff_psi_y,
                         vw::Vector2i                        const& image_size,
                         double min_time, double max_time,
-                        int ref_col, int ref_row);
+                        int ref_col, int ref_row, double accuracy_stdv);
     
     virtual ~PleiadesCameraModel() {}
     virtual std::string type() const { return "LinescanPleiades"; }
@@ -78,6 +78,9 @@ namespace asp {
     virtual vw::Vector3 get_local_pixel_vector(vw::Vector2 const& pix) const;
 
     virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const;
+
+    // Horizontal accuracy standard deviation
+    double m_accuracy_stdv;
 
   private:
 
