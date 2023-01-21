@@ -23,6 +23,7 @@
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/PixelTypeInfo.h>
 #include <vw/FileIO/MatrixIO.h>
+#include <vw/Math/Geometry.h>
 
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
@@ -34,7 +35,7 @@ namespace po = boost::program_options;
 struct Options: vw::GdalWriteOptions {
   std::vector<std::string> input_images;
   std::string alignment_transform, output_image, output_prefix, output_data_string,
-    input_transform, disparity_params;
+    input_transform, disparity_params, ecef_transform_type, dem1, dem2;
   bool has_input_nodata_value, has_output_nodata_value;
   double input_nodata_value, output_nodata_value, inlier_threshold;
   int ip_per_image, num_ransac_iterations, output_data_type;
@@ -183,7 +184,103 @@ Matrix<double> do_ransac(std::vector<Vector3> const& ransac_ip1,
              << "Alignment transform computation failed.\n");
   }
 }
+
+// Compute the ECEF transform (around planet center) given the
+// interest point matches
+void calc_ecef_transform(std::vector<ip::InterestPoint> const& inlier_ip1,
+                         std::vector<ip::InterestPoint> const& inlier_ip2,
+                         Options const& opt,
+                         Matrix<double> & ecef_transform) { // output
+
+  // Go from pixels to 3D points
+  int num_matches = inlier_ip1.size();
+  vw::Matrix<double> points_ref(3, num_matches), points_src(3, num_matches);
+
+  // The value of the invalid pixel used in interpolation
+  PixelMask<float> invalid_pix; invalid_pix.invalidate();
+  vw::ValueEdgeExtension<PixelMask<float>> invalid_ext(invalid_pix);
+
+  vw::cartography::GeoReference img1_geo, img2_geo, dem1_geo, dem2_geo;
+
+  // Read first image and DEM, and set up interpolation.  Out-of-range
+  // values are set to invalid.
+  bool has_img1_geo = vw::cartography::read_georeference(img1_geo, opt.input_images[0]);
+  if (!has_img1_geo)
+    vw::vw_throw(vw::ArgumentErr() << "The first image does not have a georeference.\n");
+  bool has_dem1_geo = vw::cartography::read_georeference(dem1_geo, opt.dem1);
+  if (!has_dem1_geo)
+    vw::vw_throw(vw::ArgumentErr() << "The first DEM does not have a georeference.\n");
+  double dem1_nodata = -std::numeric_limits<double>::max();
+  vw::read_nodata_val(opt.dem1, dem1_nodata);
+  DiskImageView<float> dem1(opt.dem1);
+  auto interp_dem1 = interpolate(create_mask(dem1, dem1_nodata),
+                                 BilinearInterpolation(), invalid_ext);
+
+  // Repeat for 2nd DEM and image
+  bool has_img2_geo = vw::cartography::read_georeference(img2_geo, opt.input_images[1]);
+  if (!has_img2_geo)
+    vw::vw_throw(vw::ArgumentErr() << "The second image does not have a georeference.\n");
+  bool has_dem2_geo = vw::cartography::read_georeference(dem2_geo, opt.dem2);
+  if (!has_dem2_geo)
+    vw::vw_throw(vw::ArgumentErr() << "The second DEM does not have a georeference.\n");
+  double dem2_nodata = -std::numeric_limits<double>::max();
+  vw::read_nodata_val(opt.dem2, dem2_nodata);
+  DiskImageView<float> dem2(opt.dem2);
+  auto interp_dem2 = interpolate(create_mask(dem2, dem2_nodata),
+                                 BilinearInterpolation(), invalid_ext);
+
+  // Find the 3D coordinates
+  for (size_t ip_it = 0; ip_it < inlier_ip1.size(); ip_it++) {
+
+    // ECEF point for first image ip
+    vw::Vector2 pix1(inlier_ip1[ip_it].x, inlier_ip1[ip_it].y);
+    vw::Vector2 img1_lonlat = img1_geo.pixel_to_lonlat(pix1);
+    vw::Vector2 dem1_pix = dem1_geo.lonlat_to_pixel(img1_lonlat);
+    PixelMask<float> dem1_val = interp_dem1(dem1_pix.x(), dem1_pix.y());
+    if (!is_valid(dem1_val)) 
+      continue;
+    vw::Vector3 xyz1 = dem1_geo.datum().geodetic_to_cartesian
+      (vw::Vector3(img1_lonlat.x(), img1_lonlat.y(), dem1_val.child()));
     
+    // ECEF point for second image ip
+    vw::Vector2 pix2(inlier_ip2[ip_it].x, inlier_ip2[ip_it].y);
+    vw::Vector2 img2_lonlat = img2_geo.pixel_to_lonlat(pix2);
+    vw::Vector2 dem2_pix = dem2_geo.lonlat_to_pixel(img2_lonlat);
+    PixelMask<float> dem2_val = interp_dem2(dem2_pix.x(), dem2_pix.y());
+    if (!is_valid(dem2_val)) 
+      continue;
+    vw::Vector3 xyz2 = dem2_geo.datum().geodetic_to_cartesian
+      (vw::Vector3(img2_lonlat.x(), img2_lonlat.y(), dem2_val.child()));
+    
+    // Store in matrices
+    typedef vw::math::MatrixCol<vw::Matrix<double>> ColView;
+    ColView col_ref(points_ref, ip_it); 
+    ColView col_src(points_src, ip_it);
+    col_ref = xyz1;
+    col_src = xyz2;
+  }
+
+  // Find the 3D transform from second to first set of ECEF points
+  vw::Matrix3x3 rotation;
+  vw::Vector3   translation;
+  double        scale;
+  bool filter_outliers = true;
+  Vector2 ransac_params;
+  ransac_params[0] = opt.num_ransac_iterations;
+  ransac_params[1] = 1.0; // factor; not the same as opt.inlier_threshold
+  vw::math::find_3D_transform(points_src, points_ref,
+                              rotation, translation, scale,
+                              opt.ecef_transform_type,
+                              filter_outliers,
+                              ransac_params);
+
+  // Convert to pc_align transform format
+  ecef_transform = identity_matrix(4);
+  submatrix(ecef_transform, 0, 0, 3, 3) = rotation * scale;
+  for (int row = 0; row < 3; row++)
+    ecef_transform(row, 3) = translation[row];
+}
+
 /// Compute a matrix transform between images, searching for IP in
 ///  the specified regions.
 Matrix<double>
@@ -191,7 +288,8 @@ calc_alignment_transform(std::string const& image_file1,
                          std::string const& image_file2,
                          std::vector<ip::InterestPoint> &matched_ip1,
                          std::vector<ip::InterestPoint> &matched_ip2,
-                         Options const& opt) {
+                         Options const& opt,
+                         Matrix<double> & ecef_transform) { // potential output
   
   // Convert to 3D points with the third coordinate being 1, obtaining
   // homogeneous coordinates.
@@ -248,6 +346,9 @@ calc_alignment_transform(std::string const& image_file1,
   }
 
   vw_out() << "Alignment transform:\n" << tf << std::endl;
+
+  if (opt.ecef_transform_type != "") 
+    calc_ecef_transform(inlier_ip1, inlier_ip2, opt, ecef_transform);
   
   return tf;
 }
@@ -277,6 +378,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The inlier threshold (in pixels) to separate inliers from outliers when computing interest point matches. A smaller threshold will result in fewer inliers.")
     ("input-transform", po::value(&opt.input_transform)->default_value(""),
      "Instead of computing an alignment transform, read and apply the one from this file. Must be stored as a 3x3 matrix.")
+    ("ecef-transform-type", po::value(&opt.ecef_transform_type)->default_value(""), "Save the ECEF transform corresponding to the image alignment transform to <output prefix>-ecef-transform.txt. The type can be: 'translation', 'rigid' (rotation + translation), or 'similarity' (rotation + translation + scale).")
+    ("dem1", po::value(&opt.dem1)->default_value(""), "The DEM associated with the first image. To be used with --ecef-transform-type.")
+    ("dem2", po::value(&opt.dem2)->default_value(""), "The DEM associated with the second image. To be used with --ecef-transform-type.")
     ("disparity-params", po::value(&opt.disparity_params)->default_value(""),
      "Find the alignment transform by using, instead of interest points, a disparity, such as produced by 'parallel_stereo --correlator-mode'. Specify as a string in quotes, in the format: 'disparity.tif num_samples'.");
     
@@ -313,6 +417,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              "rigid, similarity, affine, homography.\n" << usage << general_options);    
   }
 
+  if (opt.ecef_transform_type != "") {
+    if (opt.ecef_transform_type != "translation" && opt.ecef_transform_type != "rigid" &&
+        opt.ecef_transform_type != "similarity" && opt.ecef_transform_type != "affine" &&
+        opt.ecef_transform_type != "homography") 
+      vw_throw(ArgumentErr() << "The value of --ecef-transform-type must be one of: translation, "
+               "rigid, similarity.\n");    
+    if (opt.dem1 == "" || opt.dem2 == "") 
+      vw::vw_throw(vw::ArgumentErr() << "When using the option --ecef-transform-type, "
+                   " the options --dem1 and --dem2 must be set.\n");
+    if (opt.output_prefix == "") 
+      vw::vw_throw(vw::ArgumentErr() << "When using the option --ecef-transform-type, "
+                   " the option --output-prefix must be set.\n");
+  }
+    
   // Determining the format of the second input image
   boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(opt.input_images[1]));
   ChannelTypeEnum input_data_type = rsrc->channel_type();
@@ -429,7 +547,7 @@ int main(int argc, char *argv[]) {
     load_image(image_file1, image1, nodata1, has_georef1, georef1);
     load_image(image_file2, image2, nodata2, has_georef2, georef2);
 
-    Matrix<double> tf;
+    Matrix<double> tf, ecef_transform;
     if (opt.input_transform.empty()) {
       std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
       if (opt.disparity_params == "")
@@ -439,7 +557,7 @@ int main(int argc, char *argv[]) {
         find_matches_from_disp(matched_ip1, matched_ip2, opt);
       
       tf = calc_alignment_transform(image_file1, image_file2,  
-                                    matched_ip1, matched_ip2, opt);
+                                    matched_ip1, matched_ip2, opt, ecef_transform);
     } else {
       vw_out() << "Reading the alignment transform from: " << opt.input_transform << "\n";
       read_matrix_as_txt(opt.input_transform, tf);
@@ -449,6 +567,12 @@ int main(int argc, char *argv[]) {
       std::string transform_file = opt.output_prefix + "-transform.txt";
       vw_out() << "Writing the transform to: " << transform_file << std::endl;
       write_matrix_as_txt(transform_file, tf);
+    }
+    
+    if (opt.output_prefix != "" && opt.ecef_transform_type != "") {
+      std::string ecef_transform_file = opt.output_prefix + "-ecef-transform.txt";
+      vw_out() << "Writing the ECEF transform to: " << ecef_transform_file << std::endl;
+      write_matrix_as_txt(ecef_transform_file, ecef_transform);
     }
     
     // Any transforms supported by this tool fit in a homography transform object

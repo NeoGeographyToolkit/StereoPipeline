@@ -110,6 +110,52 @@ of point clouds. That one is likely to perform better than
 ``image_align``, as it makes use of the 3D nature of of point clouds,
 the inputs need not be gridded, and one of the clouds can be sparse.
 
+.. _image_align_ecef_trans:
+
+Determination of ECEF transform
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the images are georeferenced, this program can find the approximate
+3D transform around the planet that brings the second image in
+alignment with the first one. It is assumed that there exist DEMs associated
+with these images, from which the 3D coordinates of the locations of
+interest point matches are determined, and the best-fit 3D transform
+is found.
+
+Example::
+
+    image_align img1.tif img2.tif       \
+      -o img2_align.tif                 \
+      --ecef-transform-type translation \
+      --dem1 dem1.tif --dem2 dem2.tif   \
+      --output-prefix run/run
+ 
+This will save ``run/run-ecef-transform.txt`` in the ``pc_align``
+format (rotation + translation + scale, 
+:numref:`alignmenttransform`). This transform can be passed to
+``pc_align`` in order to transform a point cloud
+(:numref:`prevtrans`), and to ``bundle_adjust`` if desired to
+transform cameras (:numref:`ba_pc_align`).
+
+If no DEMs exist, the images themselves can be used in their
+place. The grayscale values will be interpreted as heights above the
+datum in meters. The ``image_calc`` program (:numref:`image_calc`)
+can modify these values before the DEMs are passed to ``image_align``.
+
+The produced translation will be around planet center, rather
+than in a local coordinate system.
+
+It is suggested to use ``--ecef-transform-type rigid`` if it is
+thought a rotation will work better than a translation.  Note that
+this will produce a rotation + translation around planet center,
+rather than a local "in-plane" transform, so this transform
+can be hard to interpret. Using a similarity transform (so, with a
+scale factor) should likely be a measure of last resort.
+
+Note that this transform is an approximation. It is not possible to
+precisely convert a 2D transform between images to a 3D transform
+in ECEF unless the underlying terrain is perfectly flat.
+
 Usage
 ~~~~~
 
@@ -161,6 +207,21 @@ Command-line options for image_align
 --input-transform <string (default: "")>    
     Instead of computing an alignment transform, read and apply the one from 
     this file. Must be stored as a 3x3 matrix.
+
+--ecef-transform-type <string (default: "")>
+    Save the ECEF transform corresponding to the image alignment
+    transform to ``<output prefix>-ecef-transform.txt``. The type can
+    be: 'translation', 'rigid' (rotation + translation), or 'similarity'
+    (rotation + translation + scale). See :numref:`image_align_ecef_trans`
+    for an example.
+
+--dem1 <string (default: "")>
+    The DEM associated with the first image. To be used with
+    ``--ecef-transform-type``.
+
+--dem2 <string (default: "")>
+    The DEM associated with the first second. To be used with
+    ``--ecef-transform-type``.
 
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
