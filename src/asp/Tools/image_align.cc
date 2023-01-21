@@ -419,16 +419,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.ecef_transform_type != "") {
     if (opt.ecef_transform_type != "translation" && opt.ecef_transform_type != "rigid" &&
-        opt.ecef_transform_type != "similarity" && opt.ecef_transform_type != "affine" &&
-        opt.ecef_transform_type != "homography") 
+        opt.ecef_transform_type != "similarity") 
       vw_throw(ArgumentErr() << "The value of --ecef-transform-type must be one of: translation, "
-               "rigid, similarity.\n");    
+               "rigid, or similarity.\n");    
     if (opt.dem1 == "" || opt.dem2 == "") 
       vw::vw_throw(vw::ArgumentErr() << "When using the option --ecef-transform-type, "
-                   " the options --dem1 and --dem2 must be set.\n");
+                   "the options --dem1 and --dem2 must be set.\n");
     if (opt.output_prefix == "") 
       vw::vw_throw(vw::ArgumentErr() << "When using the option --ecef-transform-type, "
-                   " the option --output-prefix must be set.\n");
+                   "the option --output-prefix must be set.\n");
   }
     
   // Determining the format of the second input image
