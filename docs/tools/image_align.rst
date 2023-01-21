@@ -220,7 +220,7 @@ Command-line options for image_align
     ``--ecef-transform-type``.
 
 --dem2 <string (default: "")>
-    The DEM associated with the first second. To be used with
+    The DEM associated with the second image. To be used with
     ``--ecef-transform-type``.
 
 --threads <integer (default: 0)>
