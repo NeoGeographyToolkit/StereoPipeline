@@ -410,16 +410,32 @@ void triangulationJacobian(vw::cartography::Datum const& datum,
   vw::Matrix3x3 EcefToNed = inverse(NedToEcef);
 
   // Camera centers and directions in ECEF
-  vw::Vector3 cam1_ctr = cam1->camera_center(pix1);
-  vw::Vector3 cam2_ctr = cam2->camera_center(pix2);
-  vw::Vector3 cam1_dir = cam1->pixel_to_vector(pix1);
-  vw::Vector3 cam2_dir = cam2->pixel_to_vector(pix2);
+  vw::Vector3 cam1_ctr = cam1->camera_center(pix1), cam1_dir = cam1->pixel_to_vector(pix1);
+  vw::Vector3 cam2_ctr = cam2->camera_center(pix2), cam2_dir = cam2->pixel_to_vector(pix2);
 
-  // Convert to ned
+  // Convert to NED
   vw::Vector3 cam1_ctr_ned = EcefToNed * (cam1_ctr - tri_nominal);
-  vw::Vector3 cam2_ctr_ned = EcefToNed * (cam2_ctr - tri_nominal);
   vw::Vector3 cam1_dir_ned = EcefToNed * cam1_dir;
+  vw::Vector3 cam2_ctr_ned = EcefToNed * (cam2_ctr - tri_nominal);
   vw::Vector3 cam2_dir_ned = EcefToNed * cam2_dir;
+
+  std::cout << "cam1 ctr ned " << cam1_ctr_ned << std::endl;
+  std::cout << "cam2 ctr ned " << cam2_ctr_ned << std::endl;
+  
+  // See where the rays intersect the local horizontal plane
+  // Find alpha1 so that cam1_ctr_ned + alpha1 * cam1_dir_ned has 3rd coordinate equal to zero
+  std::cout << "--ned ray1 dir " << cam1_dir_ned << std::endl;
+  std::cout << "--ned ray2 dir " << cam2_dir_ned << std::endl;
+  double alpha1 = -cam1_ctr_ned.z() / cam1_dir_ned.z();
+  double x1 = cam1_ctr_ned.x() + alpha1 * cam1_dir_ned.x();
+  double y1 = cam1_ctr_ned.y() + alpha1 * cam1_dir_ned.y();
+  double z1 = cam1_ctr_ned.z() + alpha1 * cam1_dir_ned.z();
+  std::cout << "--xyz1 " << x1 << ' ' << y1 << ' ' << z1 << std::endl;
+  double alpha2 = -cam2_ctr_ned.z() / cam2_dir_ned.z();
+  double x2 = cam2_ctr_ned.x() + alpha2 * cam2_dir_ned.x();
+  double y2 = cam2_ctr_ned.y() + alpha2 * cam2_dir_ned.y();
+  double z2 = cam2_ctr_ned.z() + alpha2 * cam2_dir_ned.z();
+  std::cout << "--xyz2 " << x2 << ' ' << y2 << ' ' << z2 << std::endl;
   
   vw::Vector3 tri, err;
   tri = vw::stereo::triangulate_pair(cam1_dir, cam1_ctr, cam2_dir, cam2_ctr, err);
@@ -441,29 +457,29 @@ void triangulationJacobian(vw::cartography::Datum const& datum,
   std::cout << "--cams ned " << cam1_ctr_ned << ' ' << cam2_ctr_ned << std::endl;
 
   std::cout << "---will do nominal in ecef!" << std::endl;
-  vw::Vector3 xyz_0 = nedTri(cam1_ctr_ned, cam2_ctr_ned, 0, 0, 0, 0);
+  vw::Vector3 xyz_0 = nedTri(cam1_ctr_ned, cam2_ctr_ned, x1, y1, x2, y2);
   std::cout << "---xyz_0 " << xyz_0 << std::endl;
   //vw::Vector3 xyz1 = NedToEcef * xyz_0 + 
   //std::cout << "--nominal diff " << norm_2(tri_nominal - xyz_0) << std::endl;
   
   for (int coord = 0; coord < 4; coord++) {
 
-    double x1_plus = 0.0, x1_minus = 0.0, x2_plus = 0.0, x2_minus = 0.0;
-    double y1_plus = 0.0, y1_minus = 0.0, y2_plus = 0.0, y2_minus = 0.0;
-
+    // Perturb one variable at a time
+    double x1_plus = x1, x1_minus = x1, x2_plus = x2, x2_minus = x2;
+    double y1_plus = y1, y1_minus = y1, y2_plus = y2, y2_minus = y2;
     std::cout << "--coord " << coord << std::endl;
     if (coord == 0) {
-      x1_minus = -deltaPosition;
-      x1_plus  = deltaPosition;
+      x1_minus += -deltaPosition;
+      x1_plus  +=  deltaPosition;
     } else if (coord == 1) {
-      y1_minus = -deltaPosition;
-      y1_plus  = deltaPosition;
+      y1_minus += -deltaPosition;
+      y1_plus  +=  deltaPosition;
     } else if (coord == 2) {
-      x2_minus = -deltaPosition;
-      x2_plus  = deltaPosition;
+      x2_minus += -deltaPosition;
+      x2_plus  +=  deltaPosition;
     } else if (coord == 3) {
-      y2_minus = -deltaPosition;
-      y2_plus  = deltaPosition;
+      y2_minus += -deltaPosition;
+      y2_plus  +=  deltaPosition;
     }
 
     std::cout << "--plus " << x1_plus << ' ' << y1_plus << ' ' << x2_plus << ' ' << y2_plus
