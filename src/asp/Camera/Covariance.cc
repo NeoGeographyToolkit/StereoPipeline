@@ -84,20 +84,38 @@ vw::Vector<double, 4> quatDelta(int num) {
   return ans;
 }
 
-// Number of nominal and perturbed cameras when the covariance is computed.
+// Number of nominal and perturbed cameras when the covariance is computed with DG cameras.
 int numCamsForCovariance() {
   // One nominal camera. Then one positive and negative perturbation
   // for each position (3) and quaternion (4).
   return 15; 
 }
 
-// See the .h file for the description
-void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
-                                 vw::camera::CameraModel const* cam2,
-                                 vw::Vector2 const& pix1,
-                                 vw::Vector2 const& pix2,
-                                 vw::Matrix<double> & J) {
-
+// Given two DG cameras and a pixel in each camera image, consider the
+// following transform. Go from the perturbed joint vector of
+// satellite positions and quaternions for this pixel pair to the
+// perturbed triangulated point. Then, the vector from nominal to
+// perturbed triangulation point is converted to North-East-Down
+// relative to the nominal point. Use numerical differentiation to
+// find the Jacobian of this transform with centered
+// differences. This will be used to find the covariances of the
+// triangulated point in NED coordinates given the input satellite
+// covariances. This works only for Maxar (DigitalGlobe)
+// cameras. This function may throw exceptions. Do not divide the
+// numerical derivatives by deltaPosition and deltaQuat, but only by
+// 2.0 (since these are centered differences). That because the
+// division makes the partial derivatives in quaternions huge and is
+// not good for numerical stability. We will compensate for this
+// when we multiply by the actual covariances, which are huge, so
+// those will be pre-multiplied by the squares of deltaPosition and
+// deltaQuat, with the same final result.
+void scaledDGTriangulationJacobian(vw::cartography::Datum const& datum,
+                                   vw::camera::CameraModel const* cam1,
+                                   vw::camera::CameraModel const* cam2,
+                                   vw::Vector2 const& pix1,
+                                   vw::Vector2 const& pix2,
+                                   vw::Matrix<double> & J) {
+  
   // Handle adjusted cameras
   bool adjusted_cameras = false;
   const AdjustedCameraModel *adj_cam1 = dynamic_cast<const AdjustedCameraModel*>(cam1);
@@ -169,15 +187,14 @@ void scaledTriangulationJacobian(vw::camera::CameraModel const* cam1,
     vw::vw_throw(vw::ArgumentErr() << "Could not triangulate.\n");
 
   // The matrix to go from the NED coordinate system to ECEF
-  vw::cartography::Datum const& datum = dg_cam1->datum; // alias
   vw::Vector3 llh = datum.cartesian_to_geodetic(tri_nominal);
   vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(subvector(llh, 0, 2));
   vw::Matrix3x3 EcefToNed = inverse(NedToEcef);
 
   // There are 14 input variables: 3 positions and 4 quaternions for
   // cam1, and same for cam2. For each of them must compute a centered
-  // difference. The output has 3 variables. As documented in the
-  // .h file for this function, the vector from the nominal to perturbed
+  // difference. The output has 3 variables. As documented above,
+  // the vector from the nominal to perturbed
   // triangulated point will be converted to North-East-Down
   // coordinates at the nominal triangulated point.
   J.set_size(3, 14);
@@ -259,13 +276,23 @@ void insertBlock(int start, int size, double* inputVals, vw::Matrix<double> & C)
   }
 }
   
-// See the .h file for the description
-void scaledSatelliteCovariance(vw::camera::CameraModel const* cam1,
-                               vw::camera::CameraModel const* cam2,
-                               vw::Vector2 const& pix1,
-                               vw::Vector2 const& pix2,
-                               vw::Matrix<double> & C) {
-
+// Based on tabulated satellite position and quaternion covariance
+// for each DG camera, find the interpolated covariances for cam1 at
+// pix1 (6 for position, 10 for orientation, as just the upper-right
+// corner is used), same for cam2 at pix2, autocomplete these to the
+// full matrices (3x3 and 4x4 for each), create a combined matrix of
+// covariances (14 x 14), and divide the entries by squares of
+// deltaPosition and deltaQuat which normalizes them, and which are
+// compensated by not dividing by these numbers (without the square)
+// what is found in scaledDGTriangulationJacobian(). Later we will do
+// J * C * J^T. The same order of variables as in
+// scaledDGTriangulationJacobian must be used.
+void scaledDGSatelliteCovariance(vw::camera::CameraModel const* cam1,
+                                 vw::camera::CameraModel const* cam2,
+                                 vw::Vector2 const& pix1,
+                                 vw::Vector2 const& pix2,
+                                 vw::Matrix<double> & C) {
+  
   // Initialize the output
   // 3 positions for cam 1, 4 orientations for cam1, 3 positions for cam2, 4 orientations
   // for cam2. So, four blocks in total. The resulting matrix must be symmetric.
@@ -294,7 +321,7 @@ void scaledSatelliteCovariance(vw::camera::CameraModel const* cam1,
   double pf = asp::stereo_settings().position_covariance_factor;
   double qf = asp::stereo_settings().orientation_covariance_factor;
   
-  // Scale these per scaledTriangulationJacobian().
+  // Scale these per scaledDGTriangulationJacobian().
   for (int ip = 0; ip < SAT_POS_COV_SIZE; ip++) {
     p_cov1[ip] = pf * p_cov1[ip] / (deltaPosition * deltaPosition); 
     p_cov2[ip] = pf * p_cov2[ip] / (deltaPosition * deltaPosition); 
@@ -332,33 +359,184 @@ void scaledSatelliteCovariance(vw::camera::CameraModel const* cam1,
   return;
 }
 
+// Given a North-East-Down coordinate system at a point on a planet surface,
+// left camera center, the x and y coordinates of where the ray from that
+// center intersects the plane z = 0, and the same for the right camera,
+// all in NED coordinates, find where the rays intersect, also in NED.
+vw::Vector3 nedTri(vw::Vector3 const& cam1_ctr, vw::Vector3 const& cam2_ctr,
+                   double x1, double y1, double x2, double y2) {
+
+  // TODO(oalexan1): A problem with RPC! Camera center is not accurate!
+
+  std::cout << "--cam1 ctr in NED: " << cam1_ctr << std::endl;
+  std::cout << "--cam2 ctr in NED: " << cam2_ctr << std::endl;
+  
+  // Find the normalized direction from camera to ground
+  vw::Vector3 ground_pt1(x1, y1, 0.0);
+  vw::Vector3 cam1_dir = ground_pt1 - cam1_ctr; cam1_dir /= norm_2(cam1_dir);
+  vw::Vector3 ground_pt2(x2, y2, 0.0);
+  vw::Vector3 cam2_dir = ground_pt2 - cam2_ctr; cam2_dir /= norm_2(cam2_dir);
+
+  std::cout << "--NED cam1_dir " << cam1_dir << std::endl;
+  std::cout << "--NED cam2_dir " << cam2_dir << std::endl;
+  
+  vw::Vector3 tri, err;
+  tri = vw::stereo::triangulate_pair(cam1_dir, cam1_ctr, cam2_dir, cam2_ctr, err);
+  
+  std::cout << "--tri " << tri << std::endl;
+  std::cout << "--err norm is " << norm_2(err) << std::endl;
+  
+  return tri;
+}
+
+// Given a triangulated point in ECEF, create the local
+// North-East-Down (NED) coordinate system centered at that
+// point. Find the Jacobian of the nedTri() function, which will
+// propagate uncertainties from the North-East horizontal plane
+// through triangulation, with the result also being in NED.
+// Bundle-adjusted cameras need no special treatment.
+void triangulationJacobian(vw::cartography::Datum const& datum,
+                           vw::Vector3 const& tri_nominal,
+                           vw::camera::CameraModel const* cam1,
+                           vw::camera::CameraModel const* cam2,
+                           vw::Vector2 const& pix1,
+                           vw::Vector2 const& pix2,
+                           vw::Matrix<double> & J) {
+  
+  // The matrix to go from the NED coordinate system to ECEF at the
+  // nominal triangulation point
+  vw::Vector3 llh = datum.cartesian_to_geodetic(tri_nominal);
+  vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(subvector(llh, 0, 2));
+  vw::Matrix3x3 EcefToNed = inverse(NedToEcef);
+
+  // Camera centers and directions in ECEF
+  vw::Vector3 cam1_ctr = cam1->camera_center(pix1);
+  vw::Vector3 cam2_ctr = cam2->camera_center(pix2);
+  vw::Vector3 cam1_dir = cam1->pixel_to_vector(pix1);
+  vw::Vector3 cam2_dir = cam2->pixel_to_vector(pix2);
+
+  // Convert to ned
+  vw::Vector3 cam1_ctr_ned = EcefToNed * (cam1_ctr - tri_nominal);
+  vw::Vector3 cam2_ctr_ned = EcefToNed * (cam2_ctr - tri_nominal);
+  vw::Vector3 cam1_dir_ned = EcefToNed * cam1_dir;
+  vw::Vector3 cam2_dir_ned = EcefToNed * cam2_dir;
+  
+  vw::Vector3 tri, err;
+  tri = vw::stereo::triangulate_pair(cam1_dir, cam1_ctr, cam2_dir, cam2_ctr, err);
+  std::cout << "--nominal vs calc tri " << tri << ' ' << norm_2(tri - tri_nominal) << std::endl;
+  std::cout << "--intersection err " << err << std::endl;
+  
+  tri = vw::stereo::triangulate_pair(cam1_dir_ned, cam1_ctr_ned, cam2_dir_ned, cam2_ctr_ned, err);
+  std::cout << "--ned tri " << tri << std::endl;
+  std::cout << "--ned intersection err " << err << std::endl;
+
+  // There are 4 input variables: x and y position in the horizontal
+  // plane for the first camera, then for the second one. For each of
+  // them must compute a centered difference. The output has 3
+  // variables, the NED triangulation point.
+  J.set_size(3, 4);
+  J.set_zero();
+
+  std::cout << "cams ctr ecef " << cam1_ctr << ' ' << cam2_ctr << std::endl;
+  std::cout << "--cams ned " << cam1_ctr_ned << ' ' << cam2_ctr_ned << std::endl;
+
+  std::cout << "---will do nominal in ecef!" << std::endl;
+  vw::Vector3 xyz_0 = nedTri(cam1_ctr_ned, cam2_ctr_ned, 0, 0, 0, 0);
+  std::cout << "---xyz_0 " << xyz_0 << std::endl;
+  //vw::Vector3 xyz1 = NedToEcef * xyz_0 + 
+  //std::cout << "--nominal diff " << norm_2(tri_nominal - xyz_0) << std::endl;
+  
+  for (int coord = 0; coord < 4; coord++) {
+
+    double x1_plus = 0.0, x1_minus = 0.0, x2_plus = 0.0, x2_minus = 0.0;
+    double y1_plus = 0.0, y1_minus = 0.0, y2_plus = 0.0, y2_minus = 0.0;
+
+    std::cout << "--coord " << coord << std::endl;
+    if (coord == 0) {
+      x1_minus = -deltaPosition;
+      x1_plus  = deltaPosition;
+    } else if (coord == 1) {
+      y1_minus = -deltaPosition;
+      y1_plus  = deltaPosition;
+    } else if (coord == 2) {
+      x2_minus = -deltaPosition;
+      x2_plus  = deltaPosition;
+    } else if (coord == 3) {
+      y2_minus = -deltaPosition;
+      y2_plus  = deltaPosition;
+    }
+
+    std::cout << "--plus " << x1_plus << ' ' << y1_plus << ' ' << x2_plus << ' ' << y2_plus
+              << std::endl;
+    std::cout << "--minus " << x1_minus << ' ' << y1_minus << ' ' << x2_minus << ' ' << y2_minus
+              << std::endl;
+
+    vw::Vector3 xyz_plus = nedTri(cam1_ctr_ned, cam2_ctr_ned,
+                                  x1_plus, y1_plus, x2_plus, y2_plus);
+    vw::Vector3 xyz_minus = nedTri(cam1_ctr_ned, cam2_ctr_ned,
+                                   x1_minus, y1_minus, x2_minus, y2_minus);
+
+    // Centered difference
+    vw::Vector3 partial_deriv = (xyz_plus - xyz_minus) / (2.0 * deltaPosition);
+    std::cout << "--partial " << partial_deriv << std::endl;
+    
+    for (int row = 0; row < 3; row++) 
+      J(row, coord) = partial_deriv[row];
+  }
+
+  return;
+}
+  
 // See .h for the doc.
-vw::Vector2 propagateCovariance(vw::camera::CameraModel const* cam1,
+vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
+                                vw::cartography::Datum const& datum,
+                                vw::camera::CameraModel const* cam1,
                                 vw::camera::CameraModel const* cam2,
                                 vw::Vector2 const& pix1,
                                 vw::Vector2 const& pix2) {
 
-  // The Jacobian of the transform from ephemeris and attitude to the triangulated
-  // point in NED coordinates, multiplied by a scale factor.
-  vw::Matrix<double> J;
-  asp::scaledTriangulationJacobian(cam1, cam2, pix1, pix2, J);
+  // Return right away if triangulation was not successful. The caller will set the result
+  // to (0, 0, 0).
+  if (tri_nominal == vw::Vector3(0, 0, 0) || tri_nominal != tri_nominal) 
+    vw::vw_throw(vw::ArgumentErr() << "Could not compute the covariance.\n");
 
-  // The input covariance, divided by the square of the above scale factor.
-  vw::Matrix<double> C;
-  asp::scaledSatelliteCovariance(cam1, cam2, pix1, pix2, C);
+  vw::Matrix<double> J, C;
 
+  vw::Vector2 const& v = asp::stereo_settings().horizontal_variances; // alias
+  if (v[0] > 0 && v[1] > 0) {
+    // The user set horizontal variances
+    std::cout << "---v " << v << std::endl;
+    triangulationJacobian(datum, tri_nominal, cam1, cam2, pix1, pix2, J);
+    std::cout << "--found J " << J << std::endl;
+    C = vw::math::identity_matrix(4);
+    // The first two covariances are the left camera horizontal variance,
+    // and last two are for the right camera.
+    C(0, 0) = v[0]; C(1, 1) = v[0];
+    C(2, 2) = v[1]; C(3, 3) = v[1];
+  } else {
+    // Will arrive here only for DG cameras and if the user did not
+    // set --horizontal-variances.  The Jacobian of the transform from
+    // ephemeris and attitude to the triangulated point in NED
+    // coordinates, multiplied by a scale factor.
+    asp::scaledDGTriangulationJacobian(datum, cam1, cam2, pix1, pix2, J);
+    
+    // The input covariance, divided by the square of the above scale factor.
+    asp::scaledDGSatelliteCovariance(cam1, cam2, pix1, pix2, C);
+  }
+  
   // Propagate the covariance
   // Per: https://en.wikipedia.org/wiki/Propagation_of_uncertainty#Non-linear_combinations
   vw::Matrix<double> JT = transpose(J);
   vw::Matrix<double> P = J * C * JT;
 
-#if 0
+#if 1
   // Useful debug code
   std::cout << "NED covariance " << P << std::endl;
   vw::Vector<std::complex<double>> e;
   vw::math::eigen(P, e);
   std::cout << "Eigenvalues: " << e << std::endl;
 #endif
+
   
   // Horizontal component is the square root of the determinant of the
   // upper-left 2x2 block (horizontal plane component), which is the
@@ -374,6 +552,9 @@ vw::Vector2 propagateCovariance(vw::camera::CameraModel const* cam1,
   // Vertical component is the z variance
   ans[1] = P(2, 2);
 
+  std::cout << "--horizontal " << ans[0] << std::endl;
+  std::cout << "--vertical " << ans[1] << std::endl;
+  
   // Check for NaN. Then the caller will return the zero vector, which
   // signifies that the there is no valid data
   if (ans != ans) 
