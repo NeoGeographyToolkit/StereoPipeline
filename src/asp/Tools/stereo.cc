@@ -310,7 +310,7 @@ namespace asp {
         double bias1 = rpc1->m_err_bias, rand1 = rpc1->m_err_rand;
         double bias2 = rpc2->m_err_bias, rand2 = rpc2->m_err_rand;
         if (bias1 > 0 && rand1 > 0 && bias2 > 0 && rand2 > 0) {
-          vw_out() << "Computing horizontal variances from RPC cameras.\n";
+          vw_out() << "Computing horizontal variances from RPC camera files.\n";
           v.x() = bias1 * bias1 + rand1 * rand1;
           v.y() = bias2 * bias2 + rand2 * rand2;
         } else {
@@ -333,7 +333,7 @@ namespace asp {
         double accuracy1 = pleiades1->m_accuracy_stdv;
         double accuracy2 = pleiades2->m_accuracy_stdv;
         if (accuracy1 > 0 && accuracy2 > 0 ) {
-          vw_out() << "Computing horizontal variances from Pleiades linescan cameras.\n";
+          vw_out() << "Computing horizontal variances from Pleiades linescan camera files.\n";
           v.x() = accuracy1 * accuracy1; 
           v.y() = accuracy2 * accuracy2;
         } else {
@@ -344,16 +344,9 @@ namespace asp {
                        << "instead.\n");
         }
       }
-
-      // See if the produced data is valid
-      bool isGood = (v[0] > 0 && v[1] > 0); // NaN will result in a false value
-      if (!isGood) 
-        vw::vw_throw(vw::ArgumentErr() << "Could not compute the camera horizontal "
-                     << "variances from input camera files.\n");
     }
-
-    bool isDg = (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc");
     
+    bool isDg = (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc");
     if (v[0] > 0 && v[1] > 0) {
       vw_out() << "Horizontal variance per camera: " << v[0]  << ", " << v[1] << " (meter^2).\n";
       if (isDg) 
@@ -452,12 +445,16 @@ namespace asp {
     bool print_dg_csm_cov_message = false;
     if (stereo_settings().compute_point_cloud_covariances) {
       if (!stereo_settings().dg_use_csm) {
-        // Will print a message later, only when we know the camera is actually DG
-        stereo_settings().dg_use_csm = true;
-        print_dg_csm_cov_message = true;
+        vw::Vector2 const& v = asp::stereo_settings().horizontal_variances; // alias
+        if (v[0] <= 0 || v[1] <= 0) {
+          // Have to use the CSM model to propagate the covariances
+          // Will print a message later, only when we know the camera is actually DG
+          stereo_settings().dg_use_csm = true;
+          print_dg_csm_cov_message = true;
+        }
       }
     }
-    
+        
     if (stereo_settings().correlator_mode) {
       stereo_settings().alignment_method = "none"; // images are assumed aligned
       opt.stereo_session = "rpc";                  // since inputs are images this seems simpler
@@ -726,7 +723,7 @@ namespace asp {
         (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc"))
       vw_out() << "Enabling option --dg-use-csm as point cloud covariances will be computed. "
                << "No velocity aberration or atmospheric correction happens.\n";
-    
+
     // Run a set of checks to make sure the settings are compatible.
     user_safety_checks(opt);
 

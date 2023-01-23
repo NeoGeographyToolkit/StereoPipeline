@@ -51,7 +51,11 @@ show some metadata describing each band in the produced point cloud.
 
 The covariances in the point cloud can then be gridded with
 ``point2dem`` (:numref:`point2dem`) with the option ``--covariances``,
-using the same algorithm as for computing the DEM heights.
+using the same algorithm as for computing the DEM heights. This will
+produce files ending with the suffixes ``HorizontalCovariance.tif``
+and ``VerticalCovariance.tif`` alongside the output DEM.
+
+The covariances are in units of square meter.
 
 Example
 -------
@@ -70,10 +74,6 @@ Alternatively, if horizontal variances for the cameras are set as::
    --horizontal-variances 1.05 1.11
 
 these will be used instead (for any camera model).
-
-This will produce ``run/run-HorizontalCovariance.tif`` and
-``run/VerticalCovariance.tif``. The covariances are in units of square
-meter.
 
 .. _produced_covariances:
 

@@ -138,7 +138,6 @@ public:
     if (!m_bathy_correct) {
       try {
         subvector(result, 0, 3) = m_stereo_model(pixVec, errorVec);
-
         double errLen = norm_2(errorVec);
         if (!stereo_settings().compute_point_cloud_covariances) {
           subvector(result, 3, 3) = errorVec;

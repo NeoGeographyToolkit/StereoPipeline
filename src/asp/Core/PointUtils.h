@@ -235,7 +235,7 @@ namespace asp {
   /// We must have 1 <= m <= n <= 6.
   /// If the image was written by subtracting a shift, put that shift back.
   template<int m>
-  vw::ImageViewRef< vw::Vector<double, m> > read_asp_point_cloud(std::string const& filename);
+  vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& filename);
 
   /// Hide these functions from external users
   namespace point_utils_private {
@@ -245,15 +245,15 @@ namespace asp {
 
     /// Read a texture file
     template<class PixelT>
-    typename boost::enable_if<boost::is_same<PixelT, vw::PixelGray<float> >, vw::ImageViewRef<PixelT> >::type
+    typename boost::enable_if<boost::is_same<PixelT, vw::PixelGray<float>>, vw::ImageViewRef<PixelT>>::type
     read_point_cloud_compatible_file(std::string const& file){
       return vw::DiskImageView<PixelT>(file);
     }
     /// Read a point cloud file
     template<class PixelT>
-    typename boost::disable_if<boost::is_same<PixelT, vw::PixelGray<float>>, vw::ImageViewRef<PixelT> >::type
+    typename boost::disable_if<boost::is_same<PixelT, vw::PixelGray<float>>, vw::ImageViewRef<PixelT>>::type
     read_point_cloud_compatible_file(std::string const& file){
-      return asp::read_asp_point_cloud< vw::math::VectorSize<PixelT>::value >(file);
+      return asp::read_asp_point_cloud<vw::math::VectorSize<PixelT>::value >(file);
     }
 
   } // end namespace point_utils_private
@@ -376,7 +376,7 @@ namespace asp {
 // Template function definitions
 
 template<int m>
-vw::ImageViewRef< vw::Vector<double, m> > read_asp_point_cloud(std::string const& filename){
+vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& filename){
 
   vw::Vector3 shift;
   std::string shift_str;
@@ -387,7 +387,7 @@ vw::ImageViewRef< vw::Vector<double, m> > read_asp_point_cloud(std::string const
   }
 
   // Read the first m channels
-  vw::ImageViewRef< vw::Vector<double, m> > out_image
+  vw::ImageViewRef<vw::Vector<double, m>> out_image
     = vw::read_channels<m, double>(filename, 0);
 
   // Add the shift back to the first several channels.
@@ -465,13 +465,13 @@ vw::ImageViewRef<double> error_norm(std::vector<std::string> const& pc_files){
 
   const int beg_ech = 3; // errors start at this channel
   const int num_ech = num_ch - beg_ech; // number of error channels
-  ImageViewRef< Vector<double, num_ch> > point_disk_image
-    = asp::form_point_cloud_composite<Vector<double, num_ch> >
+  ImageViewRef<Vector<double, num_ch>> point_disk_image
+    = asp::form_point_cloud_composite<Vector<double, num_ch>>
     (pc_files, ASP_MAX_SUBBLOCK_SIZE);
-  ImageViewRef< Vector<double, num_ech> > error_channels =
+  ImageViewRef<Vector<double, num_ech>> error_channels =
     select_channels<num_ech, num_ch, double>(point_disk_image, beg_ech);
 
-  return per_pixel_filter(error_channels, VectorNorm< Vector<double, num_ech> >());
+  return per_pixel_filter(error_channels, VectorNorm<Vector<double, num_ech>>());
 }
 
 // Get a handle to the error image given a set of point clouds with 4 or 6 bands

@@ -953,31 +953,16 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     int num_channels = asp::num_channels(opt.pointcloud_files);
     
     int hole_fill_len = 0;
-    if (num_channels == 4) {
-      // The error is a scalar.
-      ImageViewRef<Vector4> point_disk_image
-        = asp::form_point_cloud_composite<Vector4>
-        (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);
-      ImageViewRef<double> error_channel = select_channel(point_disk_image, 3);
+    if (num_channels == 4 || (num_channels == 6 && has_cov)) {
+      // The error is a scalar (4 channels or 6 channels but last two are covariance)
+      ImageViewRef<double> error_channel = asp::point_cloud_error_image(opt.pointcloud_files);
       rasterizer.set_texture(error_channel);
       rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
       save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
                                                           opt.rounding_error,
                                                           opt.nodata_value),
                  georef, hole_fill_len, "IntersectionErr");
-    } else if (num_channels == 6 && has_cov) {
-      // 6 channels, but only channel 4 has the error
-      ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>
-        (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);
-      ImageViewRef<double> error_channel = select_channel(point_disk_image, 3);
-      rasterizer.set_texture(error_channel);
-      rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
-      save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
-                                                          opt.rounding_error,
-                                                          opt.nodata_value),
-                 georef, hole_fill_len, "IntersectionErr");
-      
-    }else if (num_channels == 6) {
+    } else if (num_channels == 6) {
       // The error is a 3D vector. Convert it to NED coordinate system, and rasterize it.
       ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>
         (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);

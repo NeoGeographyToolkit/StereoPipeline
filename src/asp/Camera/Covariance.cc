@@ -506,7 +506,6 @@ vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
   vw::math::eigen(P, e);
   std::cout << "Eigenvalues: " << e << std::endl;
 #endif
-
   
   // Horizontal component is the square root of the determinant of the
   // upper-left 2x2 block (horizontal plane component), which is the

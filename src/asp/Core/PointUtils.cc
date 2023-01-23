@@ -1370,8 +1370,10 @@ vw::ImageViewRef<double> asp::point_cloud_error_image
 
   ImageViewRef<double> error_image;
   int num_channels = asp::num_channels(pointcloud_files);
+  bool has_cov = asp::has_covariances(pointcloud_files);
   
-  if      (num_channels == 4) {
+  if (num_channels == 4 || (num_channels == 6 && has_cov)) {
+    // The error is a scalar (4 channels or 6 channels but last two are covariance)
     error_image = asp::error_norm<4>(pointcloud_files);
   } else if (num_channels == 6) {
     error_image = asp::error_norm<6>(pointcloud_files);

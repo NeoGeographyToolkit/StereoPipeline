@@ -469,7 +469,7 @@ Command-line options for point2dem
     covariances produced from bands 5 and 6 of the input point cloud,
     if this cloud was created with the option
     ``--compute-point-cloud-covariances``
-    (:numref:`stereo-default-covariance`). The same gridding algorithm
+    (:numref:`error_propagation`). The same gridding algorithm
     is used as for creating the DEM.
 
 --use-surface-sampling
