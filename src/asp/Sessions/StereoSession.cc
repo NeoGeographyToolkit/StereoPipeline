@@ -107,13 +107,11 @@ namespace asp {
       stereo_settings().bundle_adjust_prefix = l_adj_prefix;
 
     if (uses_rpc_map_projection()) {
-      vw_out() << "Loading RPC camera used in mapprojection from: "
-               << m_left_image_file << ' ' << m_left_camera_file << "\n";
+      vw_out() << "Loading RPC camera used in mapprojection.\n";
       m_left_map_proj_model = load_rpc_camera_model(m_left_image_file,  m_left_camera_file,
                                                     zero_pixel_offset);
     } else { // Use the native model
-      vw_out() << "Loading original (non-RPC) camera used in mapprojection from: "
-               << m_left_image_file << ' ' << m_left_camera_file << "\n";
+      vw_out() << "Loading original (non-RPC) camera used in mapprojection.\n";
       m_left_map_proj_model = load_camera_model(m_left_image_file,  m_left_camera_file,
                                                 zero_pixel_offset);
     }
@@ -147,10 +145,25 @@ namespace asp {
   vw::cartography::GeoReference StereoSession::get_georef() {
 
     vw::cartography::GeoReference georef;
-
+    
     // First try to see if the image is map-projected.
     bool has_georef = read_georeference(georef, m_left_image_file);
 
+    bool has_datum = false;
+    vw::cartography::Datum datum;
+    if (!stereo_settings().correlator_mode) {
+      has_datum = true;
+      boost::shared_ptr<vw::camera::CameraModel> cam = this->camera_model(m_left_image_file,
+                                                                          m_left_camera_file);
+      // Spherical datum for non-Earth, as done usually. Used
+      // consistently this way in bundle adjustment and stereo.
+      bool use_sphere_for_non_earth = true; 
+      datum = this->get_datum(cam.get(), use_sphere_for_non_earth);
+    }
+    
+    // TODO(oalexan1): If the datum read from the image and the one read from the
+    // session disagree, what to do? 
+    
     if (!has_georef) {
       // The best we can do is to get the datum, even non-projected
       // images have that. Create however a fake valid georeference to
@@ -169,15 +182,9 @@ namespace asp {
       georef.set_transform(transform);
 
       georef.set_geographic();
-
-      if (!stereo_settings().correlator_mode) {
-        boost::shared_ptr<vw::camera::CameraModel> cam = this->camera_model(m_left_image_file,
-                                                                            m_left_camera_file);
-        // Spherical datum for non-Earth, as done usually. Used
-        // consistently this way in bundle adjustment and stereo.
-        bool use_sphere_for_non_earth = true; 
-        georef.set_datum(this->get_datum(cam.get(), use_sphere_for_non_earth));
-      }
+      
+      if (has_datum)
+        georef.set_datum(datum);
     }
 
     return georef;

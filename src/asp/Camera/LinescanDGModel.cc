@@ -225,8 +225,6 @@ DGCameraModel::DGCameraModel
   DGCameraModelBase(position, velocity, pose, time, image_size, detector_origin, focal_length,
                     mean_ground_elevation, correct_velocity, correct_atmosphere) {
   
-  datum = vw::cartography::Datum("WGS84"); // this sensor is used for Earth only
-  
   // It is convenient to have the CSM model exist even if it is not used.
   // The cam_test.cc and jitter_solve.cc tools uses this assumption.
   // Soon the other implementation will go away and this will be the default.
@@ -243,6 +241,9 @@ void DGCameraModel::populateCsmModel() {
   // be traced to the DG camera using a focal length (in pixels) of
   // 2,002,252.25.
   m_csm_model.reset(new CsmModel);
+
+  // this sensor is used for Earth only
+  vw::cartography::Datum datum = vw::cartography::Datum("WGS84"); 
   m_csm_model->m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
   m_csm_model->m_semi_major_axis = datum.semi_major_axis(); // WGS84
   m_csm_model->m_semi_minor_axis = datum.semi_minor_axis(); // WGS84

@@ -162,7 +162,7 @@ void testCovarianceComputation(Options const& opt,
   // Try to find a pair of pixels corresponding to same tri point,
   // within image bounds
   vw::Vector2 pix1, pix2;
-
+  Vector3 triPt;
   for (int i = 0; i < 20; i++) {
 
     pix1 = Vector2(i * 1000, i * 1000);
@@ -171,11 +171,11 @@ void testCovarianceComputation(Options const& opt,
     
     // Shoot a ray from the cam1 camera, intersect it with the
     // given height above datum
-    Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+    triPt = vw::cartography::datum_intersection(major_axis, minor_axis,
                                                       cam1_ctr, cam1_dir);
     
     // Project to second camera
-    pix2 = cam2_model->point_to_pixel(xyz);
+    pix2 = cam2_model->point_to_pixel(triPt);
 
     if (pix2.x() > 0 && pix2.y() > 0) 
       break;
@@ -184,7 +184,9 @@ void testCovarianceComputation(Options const& opt,
   std::cout << "Left pixel:  " << pix1 << std::endl;
   std::cout << "Right pixel: " << pix2 << std::endl;
     
-  vw::Vector2 ans = asp::propagateCovariance(cam1_model.get(), cam2_model.get(), pix1, pix2);
+  vw::Vector2 ans = asp::propagateCovariance(triPt, datum,
+                                             cam1_model.get(), cam2_model.get(),
+                                             pix1, pix2);
   std::cout << "Horizontal and vertical covariance: " << ans << std::endl;
 }
 
@@ -228,7 +230,7 @@ int main(int argc, char *argv[]) {
                << "were guessed as: '" << opt.session1 << "'. It is suggested that they be "
                << "explicitly specified using --session1 and --session2.\n");
 
-    if (opt.test_covariance_computation) {
+    if (opt.test_covariance_computation && opt.session1 == "dg" && opt.session2 == "dg") {
       testCovarianceComputation(opt, datum, cam1_model, cam2_model);
       return 0;
     }

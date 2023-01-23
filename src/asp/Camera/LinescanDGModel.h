@@ -318,9 +318,6 @@ namespace asp {
     boost::shared_ptr<CsmModel> m_csm_model; // wrapper
     boost::shared_ptr<UsgsAstroLsSensorModel> m_ls_model; // actual model
 
-    // The datum is hard-coded to WGS84
-    vw::cartography::Datum datum;
-
     // For covariance computation
     std::vector<vw::CamPtr> m_perturbed_cams;
     std::vector<double> m_satellite_pos_cov, m_satellite_quat_cov;

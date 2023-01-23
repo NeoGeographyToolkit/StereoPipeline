@@ -216,7 +216,7 @@ stddev-mask-thresh (*double*) (default = 0.5)
     ``--stddev-mask-kernel``.
 
 datum (default = WGS_1984)
-    Set the datum to use with RPC camera models. Options: WGS_1984,
+    Set the datum. Used chiefly with RPC cameras. Options: WGS_1984,
     D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA
     (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth
     (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).
@@ -815,26 +815,28 @@ compute-error-vector
 
 .. _stereo-default-covariance:
 
-
 Error propagation (used in triangulation)
 -----------------------------------------
 
-For context, see :numref:`dg_cov`.
-
 compute-point-cloud-covariances
-    Propagate the covariances of satellite positions and orientations
-    to the triangulated point cloud. Applicable only to
-    Maxar (DigitalGlobe) sensors. This option implies
-    ``--dg-use-csm``. No velocity aberration or atmospheric refraction
-    correction gets applied.
+    Propagate the covariances from the input cameras to the triangulated
+    point cloud. See :numref:`error_propagation`. This option implies
+    ``--dg-use-csm`` for Maxar (DigitalGlobe) linescan cameras. 
+
+horizontal-variances <*double double* (default = 0.0 0.0)>
+    If positive, propagate these left and right camera horizontal
+    ground plane variances through triangulation. To be used with
+    ``--compute-point-cloud-covariances``.
 
 position-covariance-factor <double (default: 1.0)>
     Multiply the satellite position covariances by this number before
-    propagating them to the triangulated point cloud.
+    propagating them to the triangulated point cloud. Applicable
+    only to Maxar(DigitalGlobe) linescan cameras.
 
 orientation-covariance-factor <double (default: 1.0)>
     Multiply the satellite quaternion covariances by this number
     before propagating them to the triangulated point cloud.
+    Applicable only to Maxar(DigitalGlobe) linescan cameras.
 
 Bathymetry correction options
 -----------------------------

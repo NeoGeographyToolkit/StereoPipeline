@@ -5,7 +5,8 @@ image_align
 
 The program ``image_align`` aligns a second image to a first image. In
 the produced aligned second image, each feature has the same row and
-column coordinates as in the first image.
+column coordinates as in the first image. It can return a transform
+in pixel space and one in planet's coordinate system.
 
 Several alignment transforms are supported. The alignment transform is
 determined with subpixel precision and is applied using bilinear
@@ -117,10 +118,10 @@ Determination of ECEF transform
 
 If the images are georeferenced, this program can find the approximate
 3D transform around the planet that brings the second image in
-alignment with the first one. It is assumed that there exist DEMs associated
-with these images, from which the 3D coordinates of the locations of
-interest point matches are determined, and the best-fit 3D transform
-is found.
+alignment with the first one. It is assumed that there exist DEMs
+associated with these images, from which the 3D coordinates of the
+locations of interest point matches are determined, and the best-fit
+3D transform is computed.
 
 Example::
 
@@ -142,15 +143,12 @@ place. The grayscale values will be interpreted as heights above the
 datum in meters. The ``image_calc`` program (:numref:`image_calc`)
 can modify these values before the DEMs are passed to ``image_align``.
 
-The produced translation will be around planet center, rather
-than in a local coordinate system.
-
 It is suggested to use ``--ecef-transform-type rigid`` if it is
-thought a rotation will work better than a translation.  Note that
+thought that a rotational component exists.  Note that
 this will produce a rotation + translation around planet center,
-rather than a local "in-plane" transform, so this transform
-can be hard to interpret. Using a similarity transform (so, with a
-scale factor) should likely be a measure of last resort.
+rather than a local "in-plane" transform, so it 
+can be hard to interpret. A similarity transform can be used
+when there is a difference in scale.
 
 Note that this transform is an approximation. It is not possible to
 precisely convert a 2D transform between images to a 3D transform

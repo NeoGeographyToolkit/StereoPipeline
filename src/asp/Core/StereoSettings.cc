@@ -175,7 +175,7 @@ namespace asp {
       ("disparity-range-expansion-percent", po::value(&global.disparity_range_expansion_percent)->default_value(20),
        "Expand the disparity range estimated from interest points by this percentage before computing the stereo correlation with local epipolar alignment.")
       ("datum",                    po::value(&global.datum)->default_value("WGS_1984"),
-       "Set the datum to use with RPC camera models. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+       "Set the datum. Used chiefly with RPC cameras. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
       ("match-files-prefix",  po::value(&global.match_files_prefix)->default_value(""),
        "Use the match file from this prefix. Normally contains match files "
        "created with bundle_adjust`` or parallel_stereo.")
@@ -396,14 +396,14 @@ namespace asp {
       ("bundle-adjust-prefix", po::value(&global.bundle_adjust_prefix),
        "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
       ("compute-point-cloud-covariances",  po::bool_switch(&global.compute_point_cloud_covariances)->default_value(false)->implicit_value(true),
-       "Propagate the covariances of satellite positions and orientations "
-       "to the triangulated point cloud. Applicable only to "
-       "Maxar (DigitalGlobe) sensors. This option implies "
-       "--dg-use-csm.")
+       "Propagate the covariances from the input cameras to the triangulated point cloud. "
+       "This option implies --dg-use-csm for Maxar (DigitalGlobe) linescan cameras.")
+      ("horizontal-variances", po::value(&global.horizontal_variances)->default_value(Vector2(0, 0), "0 0"), "If positive, propagate these left and right camera horizontal ground plane variances through triangulation. To be used with --compute-point-cloud-covariances.")
+      
       ("position-covariance-factor", po::value(&global.position_covariance_factor)->default_value(1.0),
-       "Multiply the satellite position covariances by this number before propagating them to the triangulated point cloud.")
+       "Multiply the satellite position covariances by this number before propagating them to the triangulated point cloud. Applicable only to Maxar(DigitalGlobe) linescan cameras.")
       ("orientation-covariance-factor", po::value(&global.orientation_covariance_factor)->default_value(1.0),
-       "Multiply the satellite quaternion covariances by this number before propagating them to the triangulated point cloud.")
+       "Multiply the satellite quaternion covariances by this number before propagating them to the triangulated point cloud. Applicable only to Maxar(DigitalGlobe) linescan cameras.")
       
       ("unalign-disparity",                 po::bool_switch(&global.unalign_disparity)->default_value(false)->implicit_value(true),
        "Take the computed disparity, and compute the disparity between unaligned images.")

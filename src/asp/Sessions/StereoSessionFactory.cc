@@ -100,7 +100,7 @@ namespace asp{
         if (actual_session_type.empty()) {
           
           // TODO(oalexan1): Try to peek in the xml file instead of doing this exhaustive
-          // checking
+          // checking.
           
           // Try DG exact linescan model
           try {

@@ -905,9 +905,13 @@ system. This requires transforming the DEM clip (and later the cameras)::
       --save-inv-transformed-reference-points        \
       -o run_align/run 
 
-The 50th *error percentile of smallest errors* should be under
+The output 50th *error percentile of smallest errors* should be under
 1-2 meters, and ideally less. Otherwise likely something is not right,
-and coregistration of images may fail later.
+and coregistration of images may fail later. 
+
+The ``pc_align`` tool can be quite sensitive to the
+``--max-displacement`` value. It should be somewhat larger than the
+estimated translation among the two datasets.
 
 The resulting transformed cloud needs to be regridded::
 
@@ -1211,7 +1215,8 @@ ordered by Sun azimuth angle.
     parallel_bundle_adjust --processes 4 --ip-per-image 20000 \
       --overlap-limit 50 --num-iterations 1000 --num-passes 1 \
       --min-matches 1 --max-pairwise-matches 1000             \
-      --camera-weight 0 --robust-threshold 5                  \ 
+      --camera-weight 0 --robust-threshold 5                  \
+      --tri-weight 0.1 --tri-robust-threshold 0.1             \
       --remove-outliers-params "75.0 3.0 100 100"             \
       --nodes-list <list of computing nodes>                  \
       --datum D_MOON <images> <cameras>                       \

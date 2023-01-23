@@ -1004,7 +1004,7 @@ initial_transform_from_match_file(std::string const& ref_file,
   // Go from pixels to 3D points
   int num_matches = ref_ip.size();
   vw::Matrix<double> points_ref(DIM, num_matches), points_src(DIM, num_matches);
-  typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
+  typedef vw::math::MatrixCol<vw::Matrix<double>> ColView;
   int count = 0;
   for (int match_id = 0; match_id < num_matches; match_id++) {
     int ref_x = ref_ip[match_id].x;

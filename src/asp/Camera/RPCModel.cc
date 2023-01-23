@@ -460,7 +460,11 @@ namespace asp {
     return J;
   }
 
-  Vector2 RPCModel::image_to_ground(Vector2 const& pixel, double height, Vector2 lonlat_guess) const {
+  // Intersect the ray from the given pixel with surface at this
+  // height above the datum.  Use Newton's method. The obtained
+  // intersection point must project back into the pixel.
+  Vector2 RPCModel::image_to_ground(Vector2 const& pixel, double height,
+                                    Vector2 lonlat_guess) const {
 
     // The absolute tolerance is experimental, needs more investigation
     double abs_tolerance = 1e-6;
@@ -468,12 +472,11 @@ namespace asp {
     Vector2 normalized_pixel = elem_quot(pixel - m_xy_offset, m_xy_scale);
 
     // Initial guess for the normalized lon and lat
-    if (lonlat_guess == Vector2(0.0, 0.0)){
+    if (lonlat_guess == Vector2(0.0, 0.0))
       lonlat_guess = subvector(m_lonlatheight_offset, 0, 2);
-    }
+
     Vector2 normalized_lonlat = elem_quot(lonlat_guess - subvector(m_lonlatheight_offset, 0, 2),
-                                          subvector(m_lonlatheight_scale, 0, 2)
-                                          );
+                                          subvector(m_lonlatheight_scale, 0, 2));
     double len = norm_2(normalized_lonlat);
     if (len != len || len > 1.5){
       // If the input guess is NaN or unreasonable, use 0 as initial guess
@@ -529,26 +532,14 @@ namespace asp {
     double  height_up = m_lonlatheight_offset[2] + m_lonlatheight_scale[2]*VERT_SCALE_FACTOR;
     double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2]*VERT_SCALE_FACTOR;
 
-    //vw_out() << "m_lonlatheight_offset = " << m_lonlatheight_offset << std::endl;
-    //vw_out() << "m_lonlatheight_scale = " << m_lonlatheight_scale << std::endl;
-
-    //vw_out() << "Height up = " << height_up << std::endl;
-    //vw_out() << "Height dn = " << height_dn << std::endl;
-
     // Given the pixel and elevation, estimate lon-lat.
     // Use m_lonlatheight_offset as initial guess for lonlat_up,
     // and then use lonlat_up as initial guess for lonlat_dn.
     Vector2 lonlat_up = image_to_ground(pix, height_up, subvector(m_lonlatheight_offset, 0, 2));
     Vector2 lonlat_dn = image_to_ground(pix, height_dn, lonlat_up);
 
-    //vw_out() << "lonlat_up = " << lonlat_up << std::endl;
-    //vw_out() << "lonlat_dn = " << lonlat_dn << std::endl;
-
     Vector3 geo_up = Vector3(lonlat_up[0], lonlat_up[1], height_up);
     Vector3 geo_dn = Vector3(lonlat_dn[0], lonlat_dn[1], height_dn);
-
-    //vw_out() << "geo_up = " << geo_up << std::endl;
-    //vw_out() << "geo_dn = " << geo_dn << std::endl;
 
     Vector3 P_up = m_datum.geodetic_to_cartesian(geo_up);
     Vector3 P_dn = m_datum.geodetic_to_cartesian(geo_dn);
@@ -556,8 +547,13 @@ namespace asp {
     dir = normalize(P_dn - P_up);
     
     // Set the origin location very far in the opposite direction of the pointing vector,
-    //  to put it high above the terrain.
-    const double LONG_SCALE_UP = 10000; // This is a distance in meters approx from the top of the llh valid cube
+    //  to put it high above the terrain. Normally the precise position along the ray
+    // should not make any difference, except perhaps in error propagation
+    // (see Covariance.cc).
+    // TODO(oalexan1): Use the logic from cam_gen.cc to shoot rays from the ground
+    // up and estimate where they intersect. That will give a better idea of the true
+    // elevation of the camera above the ground.
+    const double LONG_SCALE_UP = 100000.0; // 100 km above ground
     P = P_up - dir*LONG_SCALE_UP;
   }
 

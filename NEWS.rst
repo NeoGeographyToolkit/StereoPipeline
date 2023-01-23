@@ -1,17 +1,19 @@
 Changes since last release
 --------------------------
 
-Note: The latest version of the Xerces-C XML parser became on the
-order of 10 times slower than before, which may affect the speed of
-processing for XML-based camera models.
-
 parallel_stereo (:numref:`parallel_stereo`):
-  * Can propagate the covariances of satellite positions and quaternions
-    to the triangulated point cloud for Maxar (DigitalGlobe) linescan
-    cameras (:numref:`dg_cov`).
+  * Can propagate horizontal ground plane variances specified for each
+    camera through triangulation, obtaining the horizontal and
+    vertical covariance for each triangulated point. For DigitalGlobe
+    RPC and Pleiades linescan cameras the input horizontal variances
+    can be read from camera files (:numref:`error_propagation`).
+  * Can propagate the covariances of satellite positions and
+    quaternions to the triangulated point cloud for Maxar
+    (DigitalGlobe) linescan cameras (:numref:`error_propagation`).
   * Documented the pre-processing options ``--stddev-mask-kernel``
-    and ``--stddev-mask-thresh`` (:numref:`stereo-default-preprocessing`).
-    Fixed a bug in writing out debug images for this option.
+    and ``--stddev-mask-thresh``
+    (:numref:`stereo-default-preprocessing`). Fixed a bug in writing
+    out debug images for this option.
   * Bugfix for stereo with mapprojected Pleiades images. If the
     mapprojection is done with the exact (non-RPC) cameras, stereo
     must load the exact cameras when undoing the mapprojection.
@@ -22,13 +24,28 @@ point2dem (:numref:`point2dem`):
 
 stereo_gui (:numref:`stereo_gui`): 
   * Can read, write, edit, and overlay on top of images polygons in
-    plain text format in addition to .shp format. Per-polygon
+    plain text format in addition to the .shp format. Per-polygon
     colors are supported.
 
 jitter_solve (:numref:`jitter_solve`):
   * Bugfix for reverse scan direction.
   
+image_align:
+  * Can find the 3D alignment around planet center that transforms the
+    second georeferenced image to the first one. This transform can be
+    used to apply the alignment to cameras and point clouds
+    (:numref:`image_align_ecef_trans`).
+
 misc: 
+  * Changed the "pretend" height of the RPC cameras from 10 km 
+    above ground to around 100 km. RPC camera models do not store this
+    number and it does not make a difference normally, as only ray
+    directions to the ground matter. Yet, .adjust
+    files created with an earlier version of ASP for RPC cameras
+    should be re-created as those use the camera center.
+  * The latest version of the Xerces-C XML parser became on the
+    order of 10 times slower than before, which may affect the speed of
+    processing for XML-based camera models.
   * Added back the tool ``view_reconstruction``, for examining
     Theia's SfM solution (:numref:`sfm`).
   * Added to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`) the option

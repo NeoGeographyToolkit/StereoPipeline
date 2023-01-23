@@ -660,7 +660,7 @@ namespace asp{
 
   // Take a given point xyz and the error at that point. Convert the
   // error to the NED (North-East-Down) coordinate system.
-  struct ErrorToNED : public ReturnFixedType<Vector3> {
+  struct ErrorToNED: public ReturnFixedType<Vector3> {
     GeoReference m_georef;
     ErrorToNED(GeoReference const& georef):m_georef(georef){}
 

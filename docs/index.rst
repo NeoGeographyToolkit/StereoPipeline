@@ -17,6 +17,7 @@ Welcome to Ames Stereo Pipeline's documentation (version |version|)!
    bundle_adjustment
    sfm
    sfs_usage
+   error_propagation
    experimental
    tools
    stereodefault

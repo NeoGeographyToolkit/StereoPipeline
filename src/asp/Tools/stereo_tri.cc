@@ -59,6 +59,7 @@ class StereoTriangulation:
   std::vector<DispImageType>    m_disparity_maps;
   std::vector<const vw::camera::CameraModel*> m_camera_ptrs;
   std::vector<vw::TransformPtr> m_transforms; // e.g., map-projection or homography to undo
+  vw::cartography::Datum        m_datum;
   vw::stereo::StereoModel       m_stereo_model;
   asp::BathyStereoModel         m_bathy_model;
   bool                          m_is_map_projected;
@@ -79,15 +80,15 @@ public:
   StereoTriangulation(std::vector<DispImageType>    const& disparity_maps,
                       std::vector<const vw::camera::CameraModel*> const& camera_ptrs,
                       std::vector<vw::TransformPtr> const& transforms,
+                      vw::cartography::Datum        const& datum,
                       vw::stereo::StereoModel       const& stereo_model,
                       asp::BathyStereoModel         const& bathy_model,
                       bool is_map_projected,
                       bool bathy_correct, OUTPUT_CLOUD_TYPE cloud_type,
                       ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
                       ImageViewRef<PixelMask<float>> right_aligned_bathy_mask):
-    m_disparity_maps(disparity_maps),
-    m_camera_ptrs(camera_ptrs),
-    m_transforms(transforms),
+    m_disparity_maps(disparity_maps), m_camera_ptrs(camera_ptrs),
+    m_transforms(transforms), m_datum(datum),
     m_stereo_model(stereo_model),
     m_bathy_model(bathy_model),
     m_is_map_projected(is_map_projected),
@@ -136,7 +137,7 @@ public:
     pixel_type result;
     if (!m_bathy_correct) {
       try {
-        subvector(result,0,3) = m_stereo_model(pixVec, errorVec);
+        subvector(result, 0, 3) = m_stereo_model(pixVec, errorVec);
 
         double errLen = norm_2(errorVec);
         if (!stereo_settings().compute_point_cloud_covariances) {
@@ -146,7 +147,8 @@ public:
           // in band 4, and vertical covariance in band 5.
           result[3] = errLen;
           subvector(result, 4, 2)
-            = asp::propagateCovariance(m_camera_ptrs[0], m_camera_ptrs[1],
+            = asp::propagateCovariance(subvector(result, 0, 3),
+                                       m_datum, m_camera_ptrs[0], m_camera_ptrs[1],
                                        pixVec[0], pixVec[1]);
         }
         
@@ -277,7 +279,7 @@ private:
         }
       }
 
-      return prerasterize_type(disparity_cropviews, m_camera_ptrs, transforms,
+      return prerasterize_type(disparity_cropviews, m_camera_ptrs, transforms, m_datum,
                                m_stereo_model, m_bathy_model,
                                m_is_map_projected, m_bathy_correct, m_cloud_type,
                                in_memory_left_aligned_bathy_mask,
@@ -341,7 +343,7 @@ private:
       transforms_copy[p+1]->reverse_bbox(right_bbox);
     }
 
-    return prerasterize_type(disparity_cropviews, m_camera_ptrs, transforms_copy,
+    return prerasterize_type(disparity_cropviews, m_camera_ptrs, transforms_copy, m_datum,
                              m_stereo_model, m_bathy_model, m_is_map_projected,
                              m_bathy_correct, m_cloud_type,
                              in_memory_left_aligned_bathy_mask,
@@ -354,6 +356,7 @@ StereoTriangulation
 stereo_triangulation(std::vector<DispImageType> const& disparities,
                      std::vector<const vw::camera::CameraModel*> const& camera_ptrs,
                      std::vector<vw::TransformPtr>  const& transforms,
+                     vw::cartography::Datum         const& datum,
                      vw::stereo::StereoModel        const& stereo_model,
                      asp::BathyStereoModel          const& bathy_model,
                      bool is_map_projected,
@@ -363,7 +366,7 @@ stereo_triangulation(std::vector<DispImageType> const& disparities,
                      ImageViewRef<PixelMask<float>> right_aligned_bathy_mask) {
   
   typedef StereoTriangulation result_type;
-  return result_type(disparities, camera_ptrs, transforms, stereo_model, bathy_model,
+  return result_type(disparities, camera_ptrs, transforms, datum, stereo_model, bathy_model,
                      is_map_projected, bathy_correct, cloud_type,
                      left_aligned_bathy_mask, right_aligned_bathy_mask);
 }
@@ -391,15 +394,14 @@ inline point_and_error_norm( ImageViewBase<ImageT> const& image ) {
 template <class ImageT>
 void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
                       std::string const& point_cloud_file,
+                      vw::cartography::GeoReference const& georef,
                       ASPGlobalOptions const& opt) {
 
   vw_out() << "Writing point cloud: " << point_cloud_file << "\n";
   bool has_georef = true;
-  cartography::GeoReference georef = opt.session->get_georef();
 
   bool has_nodata = false;
   double nodata = -std::numeric_limits<float>::max(); // smallest float
-  vw::ProgressCallback progress = TerminalProgressCallback("asp", "\t--> Triangulating: ");
   
   std::map<std::string, std::string> keywords; // will go to the geoheader
   if (stereo_settings().compute_point_cloud_covariances) {
@@ -417,7 +419,8 @@ void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
        stereo_settings().point_cloud_rounding_error,
        point_cloud,
        has_georef, georef, has_nodata, nodata,
-       opt, progress, keywords);
+       opt, TerminalProgressCallback("asp", "\t--> Triangulating: "),
+       keywords);
   }else{
     // ISIS does not support multi-threading
     asp::write_approx_gdal_image
@@ -425,7 +428,8 @@ void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
        stereo_settings().point_cloud_rounding_error,
        point_cloud,
        has_georef, georef, has_nodata, nodata,
-       opt, progress, keywords);
+       opt, TerminalProgressCallback("asp", "\t--> Triangulating: "),
+       keywords);
   }
 }
 
@@ -772,7 +776,7 @@ void stereo_triangulation(std::string const& output_prefix,
                                                    right_aligned_bathy_mask); 
       
       if (left_aligned_bathy_mask.cols() != disparity_maps[0].cols() ||
-          left_aligned_bathy_mask.rows() != disparity_maps[0].rows() )
+          left_aligned_bathy_mask.rows() != disparity_maps[0].rows())
         vw_throw( ArgumentErr() << "The dimensions of disparity and left "
                   << "aligned bathymetry mask must agree.\n");
       
@@ -780,13 +784,16 @@ void stereo_triangulation(std::string const& output_prefix,
       bathy_stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane_set);
     }
 
+    // Used to find the datum for the given planet
+    vw::cartography::GeoReference georef = opt_vec[0].session->get_georef();
+    
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << std::endl;
     ImageViewRef<Vector6> point_cloud = per_pixel_filter
-      (stereo_triangulation(disparity_maps, camera_ptrs,
-                            transforms, stereo_model, bathy_stereo_model,
-                            is_map_projected, bathy_correct,
-                            cloud_type, left_aligned_bathy_mask, right_aligned_bathy_mask),
+      (stereo_triangulation(disparity_maps, camera_ptrs, transforms, georef.datum(),
+                            stereo_model, bathy_stereo_model,
+                            is_map_projected, bathy_correct, cloud_type,
+                            left_aligned_bathy_mask, right_aligned_bathy_mask),
          universe_radius_func);
     
     // If we crop the left and right images, at each run we must
@@ -830,10 +837,10 @@ void stereo_triangulation(std::string const& output_prefix,
                                << "Setting it to (err_len, 0, 0)." << std::endl;
 
       ImageViewRef<Vector6> crop_pc = crop(point_cloud, cbox);
-      save_point_cloud(cloud_center, crop_pc, point_cloud_file, opt_vec[0]);
+      save_point_cloud(cloud_center, crop_pc, point_cloud_file, georef, opt_vec[0]);
     }else{
       ImageViewRef<Vector4> crop_pc = crop(point_and_error_norm(point_cloud), cbox);
-      save_point_cloud(cloud_center, crop_pc, point_cloud_file, opt_vec[0]);
+      save_point_cloud(cloud_center, crop_pc, point_cloud_file, georef, opt_vec[0]);
     } // End if/else
 
     // Must print this at the end, as it contains statistics on the number of rejected points.

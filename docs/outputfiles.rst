@@ -175,7 +175,7 @@ Files created at triangulation
     double the size of the point cloud.
 
     If the option ``--compute-error-vector`` (:numref:`triangulation_options`)
-    or ``--compute-point-cloud-covariances`` (:numref:`dg_cov`) is set,
+    or ``--compute-point-cloud-covariances`` (:numref:`error_propagation`) is set,
     the point cloud will have 6 channels. The first 3 channels store,
     as before, the triangulated points.
 

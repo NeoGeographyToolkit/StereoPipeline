@@ -165,7 +165,7 @@ the `Theia documentation <https://github.com/oleg-alexandrov/TheiaSfM/blob/rig_c
 If this tool shows a black window, it is likely an issue with the
 libGL shipped by ASP. Then install it separately with conda, as::
 
-    conda create -n multiview  -c nasa-ames-stereo-pipeline \
+    conda create -n multiview -c nasa-ames-stereo-pipeline   \
       -c usgs-astrogeology -c conda-forge multiview=asp3.2.0 
 
 and run it using the path::
