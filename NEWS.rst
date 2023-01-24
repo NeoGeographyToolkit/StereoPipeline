@@ -43,8 +43,8 @@ misc:
     directions to the ground matter. Yet, .adjust
     files created with an earlier version of ASP for RPC cameras
     should be re-created as those use the camera center.
-  * The latest version of the Xerces-C XML parser became on the
-    order of 10 times slower than before, which may affect the speed of
+  * The latest version of the Xerces-C XML parser became 10 times
+    slower than before, which may affect the speed of
     processing for XML-based camera models.
   * Added back the tool ``view_reconstruction``, for examining
     Theia's SfM solution (:numref:`sfm`).

@@ -28,7 +28,8 @@ If this option is not set, the following strategies are used:
 
  - For Maxar (DigitalGlobe) RPC cameras, the values ``ERRBIAS`` and
    ``ERRRAND`` are read from each camera model file. The sum of 
-   squares of these quantities is the input variance for a camera. 
+   squares of these quantities is the input horizontal variance for a
+   camera.
 
  - For Maxar (DigitalGlobe) linescan cameras, the inputs are the 
    satellite position and orientation covariances, read from the
@@ -73,7 +74,8 @@ Alternatively, if horizontal variances for the cameras are set as::
 
    --horizontal-variances 1.05 1.11
 
-these will be used instead (for any camera model).
+these will be used instead (for any camera model supported by ASP, not
+just DigitalGlobe).
 
 .. _produced_covariances:
 
@@ -85,7 +87,7 @@ lower-right corner of the 3x3 NED covariance matrix (since x=North,
 y=East, z=Down).
 
 To find the horizontal covariance component, consider the upper-left
-:math:`2 \times 2` block of that matrix.  Geometrically, the
+:math:`2 \times 2` block of that matrix. Geometrically, the
 horizontal covariances represent an ellipse. The radius of the circle
 with the same area is found, which is the square root of the product
 of ellipse semiaxes, which is the product of the eigenvalues of this
@@ -108,11 +110,12 @@ covariances of the inputs and outputs are related via
 Here, :math:`J` is the Jacobian of the function :math:`f` and
 :math:`J^T` is its transpose.
 
-For this particular application, the input variables are either
-in the local horizontal plane having the triangulated
-point or the satellite positions and orientations (quaternions). The
-output is the triangulated point in the local North-East-Down
-coordinates.
+For this particular application, the input variables are either the
+coordinates in the local horizontal ground plane having the
+triangulated point (two real values for each camera), or the satellite
+positions and orientations (quaternions), which are 7 real values for
+each camera. The output is the triangulated point in the local
+North-East-Down coordinates.
 
 The Jacobian was computed using centered finite
 differences, with a step size of 0.01 meters for the position and 1e-6
