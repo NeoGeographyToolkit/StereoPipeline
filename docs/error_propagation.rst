@@ -26,16 +26,17 @@ If this option is not set, the following strategies are used:
    (in the *Absolute Horizontal Accuracy* secion of the camera
    model), and its square is used as the horizontal variance.
 
- - For Maxar (DigitalGlobe) RPC cameras, the values ``ERRBIAS`` and
-   ``ERRRAND`` are read from each camera model file. The sum of 
-   squares of these quantities is the input horizontal variance for a
-   camera.
+ - For Maxar (DigitalGlobe) RPC cameras (:numref:`rpc`), the values
+   ``ERRBIAS`` and ``ERRRAND`` are read from each camera model
+   file. The sum of squares of these quantities is the input
+   horizontal variance for a camera.
 
- - For Maxar (DigitalGlobe) linescan cameras, the inputs are the 
-   satellite position and orientation covariances, read from the
-   ``EPHEMLIST`` and ``ATTLIST`` fields. These are propagated from the
-   satellites to the ground and then through triangulation. This use
-   case implies ``--dg-use-csm``.
+ - For Maxar (DigitalGlobe) linescan cameras (:numref:`dg_tutorial`), 
+   the inputs are the satellite position and orientation covariances,
+   read from the ``EPHEMLIST`` and ``ATTLIST`` fields. These are
+   propagated from the satellites to the ground and then through
+   triangulation. This use case implies ``--dg-use-csm``
+   (:numref:`stereodefault`).
 
 In all cases, the error propagation takes into account whether the
 cameras are bundle-adjusted or not (:numref:`bundle_adjust`), and if
@@ -74,8 +75,8 @@ Alternatively, if horizontal variances for the cameras are set as::
 
    --horizontal-variances 1.05 1.11
 
-these will be used instead (for any camera model supported by ASP, not
-just DigitalGlobe).
+these will be used instead. This works for any orbital camera model
+supported by ASP (:numref:`examples`).
 
 .. _produced_covariances:
 
