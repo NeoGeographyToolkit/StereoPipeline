@@ -506,7 +506,7 @@ def run_bundle_adjust(options):
         # Try to export Theia matches to VW so that matching only needs to happen once.
         # - ASP will try to find any matches that Theia did not find.
         cmd = ['export_matches_file_to_vw', '-theia_matches_file', options.theia_match_path, 
-                                            '-output_prefix', output_prefix]
+                                            '-vw_output_prefix', output_prefix]
         print(cmd)
         asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
