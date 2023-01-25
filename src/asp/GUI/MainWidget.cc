@@ -289,11 +289,13 @@ namespace vw { namespace gui {
     for (int i = 0; i < num_images; i++) {
 
       // Make sure we set these up before the image2world call below!
-      m_world2image_geotransforms[i]
-        = GeoTransform(m_images[m_base_image_id].georef, m_images[i].georef);
-      m_image2world_geotransforms[i]
-        = GeoTransform(m_images[i].georef, m_images[m_base_image_id].georef);
-
+      if (m_use_georef) {
+        m_world2image_geotransforms[i]
+          = GeoTransform(m_images[m_base_image_id].georef, m_images[i].georef);
+        m_image2world_geotransforms[i]
+          = GeoTransform(m_images[i].georef, m_images[m_base_image_id].georef);
+      }
+      
       m_filesOrder[i] = i; // start by keeping the order of files being read
 
       // Grow the world box to fit all the images
