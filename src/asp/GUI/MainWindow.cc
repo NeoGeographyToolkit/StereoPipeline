@@ -129,7 +129,6 @@ bool MainWindow::sanityChecks(int num_images) {
       popUp("The --match-file option only works with two valid input images.");
       return false;
     }
-    
     asp::stereo_settings().view_matches = true;
   }
 
@@ -142,6 +141,15 @@ bool MainWindow::sanityChecks(int num_images) {
     return false;
   }
 
+  // Cannot show matches when georeferencing is on
+  if (num > 0)
+    m_use_georef = false;
+
+  if (num > 0 && !stereo_settings().zoom_proj_win.empty()) {
+    popUp("Cannot zoom to proj win when showing matches.");
+    return false;
+  }
+  
   if (num_images <= 1 &&
       (asp::stereo_settings().view_matches ||
        asp::stereo_settings().pairwise_matches ||
@@ -227,7 +235,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   std::vector<std::string> local_images = images;
 
   // When loading an NVM file, will assume we want to inspect pairwise
-  // matches.  Also set the images from the NVM file.  It is assumed
+  // matches. Also set the images from the NVM file.  It is assumed
   // that the interest points to be loaded are not shifted relative to
   // the optical center.
   if (!asp::stereo_settings().nvm.empty()) {
@@ -277,8 +285,12 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     m_images[i].m_display_mode = m_display_mode;
     has_georef = has_georef && m_images[i].has_georef;
   }
+
+
+  // Use georef if all images have it. This may be turned off later if it is desired
+  // to show matches.
   if (has_georef)
-    m_use_georef = true; // use georef if all images have it
+    m_use_georef = true;
 
   // Ensure the inputs are reasonable
   if (!MainWindow::sanityChecks(m_image_files.size()))

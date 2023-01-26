@@ -87,7 +87,7 @@ def get_num_cpus():
 
 
 def checkIfToolExists(toolName):
-    """Returns true if the system knows about the utility with this name (it is on the PATH)"""
+    """Returns true if the system knows about the utility with this name (it is on the PATH)."""
 
     # Look for the tool using the 'which' command
     cmd = ['which', toolName]
@@ -98,7 +98,8 @@ def checkIfToolExists(toolName):
     # Check if that command failed to find the file
     failString = 'no ' + toolName + ' in ('
     if translateOut.find(failString) >= 0:
-        raise Exception('Missing required executable "' + toolName + '", please add it to your PATH.')
+        raise Exception('Missing required executable "' + toolName + \
+                        '", please add it to your PATH.')
     else:
         return True
 

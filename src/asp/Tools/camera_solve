@@ -93,7 +93,7 @@ def generate_flagfile(options):
     flagfile_path    = os.path.join(options.output_folder, 'theia_flagfile.txt')
     options.theia_output_path = output_path
     options.flagfile_path     = flagfile_path
-    options.theia_match_path  = match_path
+    options.theia_match_dir   = match_dir
 
     # Control solving for intrinsic parameters
     intrinsics_options = 'NONE'
@@ -325,7 +325,6 @@ def generate_flagfile(options):
 
     return flagfile_path
 
-
 def build_reconstruction(options):
     '''Call Theia to generate a 3D camera reconstruction'''
 
@@ -348,7 +347,6 @@ def build_reconstruction(options):
         shutil.move(theia_temp_output_path, options.theia_output_path)
 
     return options.theia_output_path
-
 
 # This function is not being used but if we ever decide to support large image sets
 #  we may need to switch to using it.  Since we don't use it, it can sit in an incomplete state.
@@ -411,9 +409,6 @@ def guided_build_reconstruction(options):
 
     return options.theia_output_path
 
-
-
-
 def update_tsai_file(input_camera_path, new_pose_path, output_camera_path):
     '''Copies a .tsai camera file with an updated position from another .tsai camera file.'''
 
@@ -465,7 +460,7 @@ def update_tsai_file(input_camera_path, new_pose_path, output_camera_path):
     
 
 def export_cameras_to_vw(options):
-    '''Convert from Theia's camera format to VW's pinhole format'''
+    """Convert from Theia's camera format to VW's pinhole format."""
 
     # Need to wrap the image wildcard in quotes so it does not get expanded too early!
     cmd = ['export_reconstruction_to_vw',  '--reconstruction', options.theia_output_path, 
@@ -496,7 +491,6 @@ def export_cameras_to_vw(options):
     if not all_found:
         raise Exception('Failed to extract camera models for all input image files.')
 
-
 def run_bundle_adjust(options):
     '''Run the ASP bundle adjust program to move the camera models into global coordinates'''
 
@@ -504,10 +498,9 @@ def run_bundle_adjust(options):
 
     if options.use_theia_matches:
         # Try to export Theia matches to VW so that matching only needs to happen once.
-        # - ASP will try to find any matches that Theia did not find.
-        cmd = ['export_matches_file_to_vw', '-theia_matches_file', options.theia_match_path, 
-                                            '-vw_output_prefix', output_prefix]
-        print(cmd)
+        # If this fails, bundle_adjust will try to find matches.
+        cmd = ['export_matches_file_to_vw', '-theia_match_dir', options.theia_match_dir, 
+               '-vw_output_prefix', output_prefix]
         asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
     # Some extra bundle adjust params
@@ -524,8 +517,9 @@ def run_bundle_adjust(options):
             options.bundle_params = options.bundle_params.replace('--solve-intrinsics', '')
     
     if options.bundle_params:
-        ba_params += shlex.split(options.bundle_params) # Split on spaces but keep quoted parts together
-    # Always run this step as otherwise there was no point to calling the tool
+        ba_params += shlex.split(options.bundle_params)
+        # Split on spaces but keep quoted parts together.
+        # Always run this step as otherwise there was no point to calling the tool.
 
     # Run ASP's bundle_adjust tool    
     cmd = ['bundle_adjust'] + options.input_images + options.theia_camera_models
@@ -747,11 +741,16 @@ def main(argsIn):
     except optparse.OptionError as msg:
         raise Usage(msg)
 
-
     startTime = time.time()
 
-    # Step 1 - Call Theia's build_reconstruction tool.
-    
+    # Set this env variable to find some libraries. At some point OIIO will be replaced
+    # with OpenCV.
+    key = 'OIIO_LIBRARY_PATH'
+    if key not in os.environ:
+        progPath = asp_system_utils.which("build_reconstruction")
+        os.environ[key] = os.path.dirname(os.path.dirname(progPath)) + '/lib'
+
+    # Step 1: Call Theia's build_reconstruction tool.
     # Theia's reconstruction tool sometimes fails for no apparent reason but
     #  this does not happen often.  If it fails, try a few more times
     #  to see if we can get it to succeed.
@@ -770,12 +769,12 @@ def main(argsIn):
 
     print('Finished generating reconstruction using Theia')
 
-    # Step 2 - Call an extra tool to export Theia's camera output.
+    # Step 2: Call an extra tool to export Theia's camera output.
     export_cameras_to_vw(options)
     
     print('Finished extracting camera models')
 
-    # Step 3 - Call ASP's bundle_adjust to adjust for lens distortion and 
+    # Step 3: Call ASP's bundle_adjust to adjust for lens distortion and 
     #          to move the cameras into global coordinates if possible.
     run_bundle_adjust(options)
 
@@ -783,9 +782,5 @@ def main(argsIn):
     print("Finished in " + str(endTime - startTime) + " seconds.")
 
 if __name__ == "__main__":
-
-    # Set the path to OpenIO. This will not be needed when this dependency is removed
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
-    os.environ['OIIO_LIBRARY_PATH'] = base_dir + "/lib"
 
     sys.exit(main(sys.argv[1:]))
