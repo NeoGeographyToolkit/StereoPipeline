@@ -1698,10 +1698,10 @@ speed-vs-quality choices for stereo.
 
 .. _airbus_tiled:
 
-Airbus tiled images
-~~~~~~~~~~~~~~~~~~~
+Pleiades tiled images
+~~~~~~~~~~~~~~~~~~~~~
 
-With recent Airbus Pleiades data, each of the left and right images
+With some Airbus Pleiades data, each of the left and right images
 may arrive broken up into .TIF or .JP2 tiles, with names ending in
 R1C1.tif, R2C1.tif, etc.
 
