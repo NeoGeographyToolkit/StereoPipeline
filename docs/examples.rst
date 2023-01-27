@@ -1573,23 +1573,6 @@ See :numref:`other-mapproj` for how ``parallel_stereo`` is invoked
 with mapprojected images when the cameras are stored either separately
 or part of the images.
 
-.. _airbus_tiled:
-
-Airbus tiled images
-~~~~~~~~~~~~~~~~~~~
-
-With recent Airbus Pleiades data, each of the left and right
-images may arrive broken up into .JP2 tiles, and they would need to be
-mosaicked before being used. That can be done as follows (individually
-for the left and right stereo image):
-
-::
-
-      gdalbuildvrt mosaic.vrt *.JP2
-      gdal_translate -co TILED=YES -co BIGTIFF=IF_SAFER mosaic.vrt image.tif
-
-The Orfeo Toolbox provides functionality for stitching such images as well.
-
 .. _perusat1:
 
 PeruSat-1
@@ -1636,9 +1619,12 @@ names for these start with "DIM" and "RPC", respectively, and end with
 ".XML". 
 
 ASP supports the linescan model for the 1A/1B satellites. It can also
-use the RPC model (:numref:`rpc`), likely for all Pleiades
-satellites. The linescan support is based on the USGS CSM library
+use the RPC model (:numref:`rpc`), likely for all Pleiades satellites,
+including *Neo*. The linescan support is based on the USGS CSM library
 (:numref:`csm`).
+
+See :numref:`airbus_tiled` if the input images arrive in multiple
+tiles.
 
 With the exact model, the stereo command is::
 
@@ -1704,11 +1690,37 @@ cameras not to each other but against themselves. This tool will also
 print timing information for the operation of projecting a pixel to
 the ground and back.
 
-See :numref:`airbus_tiled` if the input images arrive in multiple
-tiles.
-
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices for stereo.
+
+.. _airbus_tiled:
+
+Airbus tiled images
+~~~~~~~~~~~~~~~~~~~
+
+With recent Airbus Pleiades data, each of the left and right images
+may arrive broken up into .TIF or .JP2 tiles, with names ending in
+R1C1.tif, R2C1.tif, etc.
+
+These need to be mosaicked before being used. That can be done as
+follows (individually for the left and right stereo image), using
+``gdalbuildvrt`` (:numref:`gdal_tools`)::
+
+      gdalbuildvrt vrt.tif *R*C*.tif
+
+If both PAN and multispectral tiles are present, use only the PAN ones.
+
+This will create a virtual mosaic, which is just a plain text file
+having pointers to the subimages. ASP can use that one as if it was a real image.
+If desired, an actual self-contained image can be produced with::
+
+    gdal_translate -co TILED=YES -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 \
+      -co BIGTIFF=IF_SAFER vrt.tif image.tif
+
+Note that the size of this image will be comparable to the sum of sizes
+of the original tiles.
+
+The Orfeo Toolbox provides functionality for stitching such images as well.
 
 .. _spot5:
 
