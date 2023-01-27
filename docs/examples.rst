@@ -1523,6 +1523,9 @@ Cartosat-1. Otherwise, the camera files must be specified separately
 in XML files, as done for DigitalGlobe/Maxar images (:numref:`rawdg`)
 and PeruSat-1.
 
+See :numref:`airbus_tiled` if the input Pleiades images arrive in multiple
+tiles.
+
 For a first test, you can download an example stereo pair from
 GeoEye's website at :cite:`geoeye:samples`. When we accessed the site,
 we downloaded a GeoEye-1 image of Hobart, Australia. As previously
