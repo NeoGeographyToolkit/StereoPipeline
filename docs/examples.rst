@@ -1627,7 +1627,8 @@ including *Neo*. The linescan support is based on the USGS CSM library
 (:numref:`csm`).
 
 See :numref:`airbus_tiled` if the input images arrive in multiple
-tiles.
+tiles. See :numref:`jitter_pleiades` for an example of solving for
+jitter for these cameras.
 
 With the exact model, the stereo command is::
 

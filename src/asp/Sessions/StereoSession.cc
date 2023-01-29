@@ -107,11 +107,11 @@ namespace asp {
       stereo_settings().bundle_adjust_prefix = l_adj_prefix;
 
     if (uses_rpc_map_projection()) {
-      vw_out() << "Loading RPC camera used in mapprojection.\n";
+      vw_out() << "Loading RPC cameras used in mapprojection.\n";
       m_left_map_proj_model = load_rpc_camera_model(m_left_image_file,  m_left_camera_file,
                                                     zero_pixel_offset);
     } else { // Use the native model
-      vw_out() << "Loading original (non-RPC) camera used in mapprojection.\n";
+      vw_out() << "Loading original (non-RPC) cameras used in mapprojection.\n";
       m_left_map_proj_model = load_camera_model(m_left_image_file,  m_left_camera_file,
                                                 zero_pixel_offset);
     }

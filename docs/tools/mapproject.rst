@@ -139,7 +139,8 @@ Command-line options for mapproject:
     Same as --processes. Used for backwards compatibility.
 
 --nodes-list
-    List of available computing nodes.
+    List of available computing nodes to use. If not set, use the local
+    machine. See also :numref:`pbs_slurm`.
 
 --tile-size
     Size of square tiles to break up processing into. Each tile is run

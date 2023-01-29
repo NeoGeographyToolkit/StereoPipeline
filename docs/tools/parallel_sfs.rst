@@ -18,7 +18,7 @@ Usage::
     parallel_sfs -i <input DEM> -n <max iterations> -o <output prefix> \
       <images> [other options]
 
-Command-line options for parallel_sfs:
+Command-line options for ``parallel_sfs``:
 
 --tile-size <integer (default: 300)>
     Size of approximately square tiles to break up processing into
@@ -37,7 +37,8 @@ Command-line options for parallel_sfs:
 
 --nodes-list <filename>
     A file containing the list of computing nodes, one per line.
-    If not provided, run on the local machine.
+    If not provided, run on the local machine. See also
+    :numref:`pbs_slurm`.
 
 --threads <integer (default: 8)>
     How many threads each process should use. This will be changed to 

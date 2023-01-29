@@ -695,9 +695,11 @@ Command-line options for bundle_adjust
     If the cameras have already been bundle-adjusted and aligned
     to a known high-quality DEM, in the triangulated xyz points
     replace the heights with the ones from this DEM, and fix those
-    points unless ``--heights-from-dem-weight`` is positive. It
-    is strongly suggested to pick positive and small values of
-    ``--heights-from-dem-weight`` and
+    points unless ``--heights-from-dem-weight`` is positive. 
+    In that case multiply the differences between the triangulated
+    points and their corresponding DEM points by this weight
+    in bundle adjsutment. It is strongly suggested to pick positive
+    and small values of ``--heights-from-dem-weight`` and
     ``--heights-from-dem-robust-threshold`` with this option.
     See :numref:`heights_from_dem`.
 

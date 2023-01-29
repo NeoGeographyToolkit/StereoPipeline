@@ -20,6 +20,8 @@ Usage::
      jitter_solve <images> <cameras> <input adjustments> \
        -o <output prefix> [options]
 
+.. _jitter_ground:
+
 Ground constraints
 ~~~~~~~~~~~~~~~~~~
 
@@ -28,7 +30,8 @@ self-consistent can result in the camera system moving away from the
 initial location or warping in any eventually produced DEM.
 
 Hence, ground constraints are very important. This tool uses several
-kinds of constraints.
+kinds of constraints. They are described below, and an example
+of comparing them is given in :numref:`jitter_pleiades`.
 
 Intrinsic constraint
 ^^^^^^^^^^^^^^^^^^^^
@@ -256,7 +259,7 @@ Then, jitter was solved for, using the aligned cameras::
       img/J03_045820_1915_XN_11N210W.cal.json  \
       img/K05_055472_1916_XN_11N210W.cal.json  \
       --input-adjustments-prefix ba_align/run  \
-      --max-pairwise-matches 100000            \
+      --max-pairwise-matches 1000000           \
       --match-files-prefix stereo/run-disp     \
       --num-lines-per-position    1000         \
       --num-lines-per-orientation 1000         \
@@ -485,7 +488,7 @@ be used later to solve for jitter.
     parallel_stereo                         \
       -t dgmaprpc                           \
       --max-disp-spread 100                 \
-      --nodes-list $PBS_NODEFILE            \
+      --nodes-list nodes_list.txt           \
       --ip-per-image 10000                  \
       --stereo-algorithm asp_mgm            \
       --subpixel-mode 9                     \
@@ -562,7 +565,8 @@ Here ``--translation-weight 0`` is used. If the camera positions are
 trusted, and it is suspected that jitter is primarily due to
 high-frequency oscillations in orientations, this should be set to a
 positive value, perhaps between 1.0 and 100.0 (in the latter case
-the camera centers will move very little or not at all).
+the camera centers will move very little or not at all). 
+See :numref:`jitter_pleiades` where this is done.
 
 .. _fig_dg_jitter_pointmap_anchor_points:
 
@@ -596,7 +600,7 @@ Run stereo::
 
     parallel_stereo                                 \
       --max-disp-spread 100                         \
-      --nodes-list $PBS_NODEFILE                    \
+      --nodes-list nodes_list.txt                   \
       --ip-per-image 20000                          \
       --stereo-algorithm asp_mgm                    \
       --subpixel-mode 9                             \
@@ -633,6 +637,194 @@ See :numref:`fig_dg_jitter_intersection_err_dem_diff` for results.
    remaining signal is due to the steep terrain, and is
    rather small.
 
+.. _jitter_pleiades:
+
+Example 3: Airbus Pleiades
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this section we will solve for jitter with Pleiades linescan
+cameras.  We will investigate the effects of two kinds of ground
+constraints: ``--tri-weight`` and ``--heights-from-dem``
+(:numref:`jitter_ground`). The first constraint tries to keep the
+triangulated points close to where they are, and the second tries to
+tie them to a prior (reference) DEM. Only one kind of constraint is
+used at a time.
+
+In both cases we use a somewhat strong camera position constraint
+(``--translation-weight``) as it is believed that it is vibrations in
+camera orientations which cause the jitter.
+
+The conclusion is that if the two kinds of ground constraints are weak,
+and the prior DEM is decent, the results are rather similar.
+Likely the intrinsic ``--tri-weight`` constraint is preferred,
+unless desired to pull the solution towards the reference DEM.
+
+Of course, if the prior DEM is very accurate, and if the 
+jitter causes bad agreement with it, using the DEM constraint and a
+larger weight will correct that. Some user judgment is needed in
+choosing the type of constraint and its weight, depending on the
+circumstances.
+
+Creation of terrain model
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The site used is Grand Mesa, as in :numref:`jitter_dg`, and a similar
+recipe as there is used, with some differences.
+
+First, a Copernicus DEM is fetched, and adjusted to be relative to
+WGS84, creating the file ``ref-adj.tif`` (:numref:`initial_terrain`).
+
+Let the images be called ``1.tif`` and ``2.tif``, with corresponding
+exact linescan cameras ``1.xml`` and ``2.xml``. Since the GSD
+specified in these files is about 0.72 m, this value is used in
+mapprojection of both images (:numref:`mapproj-example`)::
+
+    proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
+      mapproject --processes 4 --threads 4 \
+      --tr 0.72 --t_srs "$proj"            \
+      --nodes-list nodes_list.txt          \
+      ref-adj.tif 1.tif 1.xml 1.map.tif
+
+and same for the other image.
+
+Since the two mapprojected images agree very well with the hillshaded
+reference DEM when overlaid in ``stereo_gui`` (:numref:`stereo_gui`), 
+no bundle adjustment was used. 
+
+Stereo was run::
+
+    outPrefix=stereo_map_12/run
+    parallel_stereo                      \
+      --max-disp-spread 100              \
+      --nodes-list nodes_list.txt        \
+      --ip-per-image 10000               \
+      --num-matches-from-disparity 90000 \
+      --stereo-algorithm asp_mgm         \
+      --subpixel-mode 9                  \
+      --processes 6                      \
+      --alignment-method none            \
+      1.map.tif 2.map.tif                \
+      1.xml 2.xml                        \
+      $outPrefix                         \
+      ref-adj.tif                        \
+
+DEM creation::
+
+    proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
+    point2dem --t_srs "$proj" \
+      --errorimage            \
+      ${outPrefix}-PC.tif
+
+Colorize the intersection error, and create some image pyramids for
+inspection later::
+
+    colormap --min 0 --max 1.0 ${outPrefix}-IntersectionErr.tif
+    stereo_gui --create-image-pyramids-only \
+      --hillshade ${outPrefix}-DEM.tif
+    stereo_gui --create-image-pyramids-only \
+      ${outPrefix}-IntersectionErr_CMAP.tif
+
+.. _pleiades_img_dem:
+.. figure:: ../images/pleiades_imag_dem.png
+   :name: pleiades_image_and_dem
+
+   Left to right: One of the input images, the produced hillshaded DEM,
+   and the reference Copernicus DEM.
+
+It can be seen in :numref:`pleiades_img_dem` (center) that a small
+portion having snow failed to correlate. That is not a
+showstopper here. Perhaps adjusting the image normalization options in
+:numref:`stereodefault` may have resulted in that texture being
+resolved.
+
+Correcting the jitter
+~~~~~~~~~~~~~~~~~~~~~
+
+The jitter can clearly be seen in :numref:`pleiades_err` (left).
+There seem to be about a dozen oscillations. Hence, ``jitter_solve``
+will be invoked with one position and orientation sample for each 500
+image lines, which results in about 100 samples for these, along the
+satellite track. Note that earlier we used
+``--num-matches-from-disparity 90000`` which created about 300 x
+300 dense interest point matches for these roughly square input
+images. These numbers usually need to be chosen with some care.
+
+Copy the dense interest point matches found in stereo, using 
+the convention expected later by ``jitter_solve``:: 
+
+    mkdir -p matches
+    /bin/cp -fv stereo_map_12/run-disp-1.map__2.map.match \
+      matches/run-1__2.match
+
+Solve for jitter with the intrinsic ``--tri-weight`` constraint::
+
+    jitter_solve                               \
+      1.tif 1.tif                              \
+      2.xml 2.xml                              \
+      --match-files-prefix matches/run         \
+      --num-iterations 10                      \
+      --max-pairwise-matches 1000000           \
+      --max-initial-reprojection-error 20      \
+      --robust-threshold 0.5                   \
+      --tri-weight 0.1                         \
+      --tri-robust-threshold 0.1               \
+      --num-lines-per-position    500          \
+      --num-lines-per-orientation 500          \
+      --num-anchor-points 40000                \
+      --num-anchor-points-extra-lines 500      \
+      --translation-weight 10.0                \
+      --rotation-weight 0.0                    \
+      --anchor-dem ref-adj.tif                 \
+      --anchor-weight 0.1                      \
+      -o jitter_tri/run
+
+The translation weight is set to 10.0, which is rather high. This
+multiplies the differences of initial and optimized camera centers
+in the optimization problem, with no robust threshold, so this should
+not let the camera centers move much, giving a chance to the camera
+orientations to do most of the work. The rotation weight is set to
+0.0, so the quaternions can move freely, subject to the ground and
+pixel reprojection error constraints.
+
+Next, we invoke the solver with the same initial data, but with a
+constraint tying to the prior (reference) DEM, with the option
+``--heights-from-dem ref-adj.tif``. Since the difference between the
+created stereo DEM and the reference DEM is on the order of 5-10
+meters, we will use ``--heights-from-dem-weight 0.05`` and
+``--heights-from-dem-robust-threshold 0.05``. The weight times the
+uncertainty in the reference DEM better be less than the image ground
+sample distance.
+
+The pixel reprojection error ``--robust-threshold`` value is 0.5,
+which is larger than the DEM robust threshold. So, pixel reprojection
+errors will be given higher priority than errors to ground. Therefore,
+we want the solution to be first of all self-consistent, and only then
+consistency with the ground will be attempted.
+
+.. figure:: ../images/pleiades_err.png
+   :name: pleiades_err
+
+   Stereo intersection error before solving for jitter (left),
+   after solving for it with the ``--tri-weight`` constraint (middle)
+   and with the ``--heights-from-dem`` constraint (right). Blue = 0
+   m, red = 1 m.
+
+It can be seen in :numref:`pleiades_err` that any of these constraints
+can work at eliminating the jitter.
+
+.. figure:: ../images/pleiades_dem_abs_diff.png
+   :name: pleiades_dem_diff
+
+   Absolute difference of the stereo DEMs before and after 
+   solving for jitter. Left: with the ``--tri-weight``
+   constraint. Right: with the ``--heights-from-dem`` constraint. Blue
+   = 0 m, red = 1 m.
+
+It is very instructive to examine how much the DEM changed as a
+result. It can be seen in :numref:`pleiades_dem_diff` that the prior
+DEM constraint changes the result more. Likely, a smaller value
+of the weight for that constraint could have been used.
+
 .. _jitter_out_files:
 
 Output files
@@ -661,6 +853,11 @@ Such CSV files can be colorized and overlaid with ``stereo_gui``
 (:numref:`plot_csv`) to see at which pixels the residual error is
 large.
 
+These files are very correlated to the dense results produced with stereo
+(the DEM and intersection error, respectively, before and after
+solving for jitter), but the csv files can be examined before stereo
+runs, which can take many hours.
+
 If anchor points are used, the coordinates of each anchor point and
 the norm of the pixel residual at those points are saved as well, to::
 
@@ -684,6 +881,13 @@ for example, with::
     stereo_gui --colorize --min 0 --max 0.5   \
       --plot-point-radius 2                   \
       {output-prefix}-final_residuals_anchor_points.csv
+
+Note that the initial ``pointmap.csv`` file created with the
+``--heights-from-dem`` option reflects the fact that the triangulated
+points have had their heights set to the DEM height, which can be
+confusing. Yet in the final (optimized) file these points have moved,
+so then the result makes more sense. When using the ``--tri-weight``
+option the true initial triangulated points and errors are used.
 
 .. _jitter_options:
 
@@ -752,10 +956,10 @@ Command-line options for jitter_solve
 --heights-from-dem <string>
     If the cameras have already been bundle-adjusted and aligned
     to a known DEM, in the triangulated points obtained from 
-    interest point matches replace the heights with the ones from this
-    DEM before optimizing them while tying the points to this DEM via
+    interest point matches replace their heights above datum with the
+    ones from this DEM before optimizing them, and then constrain them via
     ``--heights-from-dem-weight`` and
-    ``--heights-from-dem-robust-threshold``.
+    ``--heights-from-dem-robust-threshold``. See :numref:`heights_from_dem`.
 
 --heights-from-dem-weight <double (default: 0.5)>
     How much weight to give to keep the triangulated points close

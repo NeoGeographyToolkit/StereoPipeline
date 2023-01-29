@@ -423,7 +423,9 @@ constrained to not vary too much from these initial positions.
 The option for this is ``--heights-from-dem dem.tif``. An additional
 control is given, in the form of the option
 ``--heights-from-dem-weight``. The larger its value is, the more
-constrained those points will be. 
+constrained those points will be. This multiplies the difference
+between the triangulated points being optimized and their initial
+value on the DEM.
 
 This weight value should be inversely proportional with ground sample
 distance, as then it will convert the measurements from meters to
@@ -432,11 +434,11 @@ projecting pixels into the camera). A less reliable DEM should result
 in a smaller weight being used.
 
 Then, the option ``--heights-from-dem-robust-threshold`` ensures that
-the errors when comparing to the DEM plateau at a certain level and do
-not dominate the problem.  Below we set this to 0.1, which is smaller
-than the ``--robust-threshold`` value of 0.5 which is used to control
-the reprojection error. Some experimentation with this weight and
-threshold may be needed.
+the weighted differences defined earlier when comparing to the DEM
+plateau at a certain level and do not dominate the problem.  Below we
+set this to 0.1, which is smaller than the ``--robust-threshold``
+value of 0.5 which is used to control the reprojection error. Some
+experimentation with this weight and threshold may be needed.
 
 Here is an example, and note that, as in the earlier section,
 we assume that the cameras and the terrain are already aligned::

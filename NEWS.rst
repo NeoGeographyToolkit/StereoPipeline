@@ -29,6 +29,8 @@ stereo_gui (:numref:`stereo_gui`):
 
 jitter_solve (:numref:`jitter_solve`):
   * Bugfix for reverse scan direction.
+  * Added an example for Pleiades cameras (:numref:`jitter_pleiades`),
+    comparing two ways of setting ground constraints.
   
 image_align:
   * Can find the 3D alignment around planet center that transforms the
