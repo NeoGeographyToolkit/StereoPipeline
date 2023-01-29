@@ -654,28 +654,25 @@ In both cases we use a somewhat strong camera position constraint
 (``--translation-weight``) as it is believed that it is vibrations in
 camera orientations which cause the jitter.
 
-The conclusion is that if the two kinds of ground constraints are weak,
-and the prior DEM is decent, the results are rather similar.
-Likely the intrinsic ``--tri-weight`` constraint is preferred,
-unless desired to pull the solution towards the reference DEM.
-
-Of course, if the prior DEM is very accurate, and if the 
-jitter causes bad agreement with it, using the DEM constraint and a
-larger weight will correct that. Some user judgment is needed in
-choosing the type of constraint and its weight, depending on the
-circumstances.
+The conclusion is that if the two kinds of ground constraints are
+weak, and the prior DEM is decent, the results are rather similar.
+Likely the intrinsic ``--tri-weight`` constraint is preferred, unless
+desired to pull the solution towards the reference DEM.  Some user
+judgment is needed in choosing the type of constraint and its weight,
+depending on the circumstances.
 
 Creation of terrain model
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The site used is Grand Mesa, as in :numref:`jitter_dg`, and a similar
-recipe as there is used, with some differences.
+The site used is Grand Mesa, as in :numref:`jitter_dg`, and the two
+recipes also have similarities.
 
-First, a Copernicus DEM is fetched, and adjusted to be relative to
-WGS84, creating the file ``ref-adj.tif`` (:numref:`initial_terrain`).
+First, a Copernicus DEM for the area is fetched, and adjusted to be
+relative to WGS84, creating the file ``ref-adj.tif``
+(:numref:`initial_terrain`).
 
 Let the images be called ``1.tif`` and ``2.tif``, with corresponding
-exact linescan cameras ``1.xml`` and ``2.xml``. Since the GSD
+Pleiades exact linescan cameras ``1.xml`` and ``2.xml``. Since the GSD
 specified in these files is about 0.72 m, this value is used in
 mapprojection of both images (:numref:`mapproj-example`)::
 
@@ -734,11 +731,10 @@ inspection later::
 It can be seen in :numref:`pleiades_img_dem` (center) that a small
 portion having snow failed to correlate. That is not a
 showstopper here. Perhaps adjusting the image normalization options in
-:numref:`stereodefault` may have resulted in that texture being
-resolved.
+:numref:`stereodefault` may resolve this.
 
 Correcting the jitter
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 The jitter can clearly be seen in :numref:`pleiades_err` (left).
 There seem to be about a dozen oscillations. Hence, ``jitter_solve``
@@ -796,7 +792,7 @@ uncertainty in the reference DEM better be less than the image ground
 sample distance.
 
 The pixel reprojection error ``--robust-threshold`` value is 0.5,
-which is larger than the DEM robust threshold. So, pixel reprojection
+which is larger than the DEM constraint robust threshold. So, pixel reprojection
 errors will be given higher priority than errors to ground. Therefore,
 we want the solution to be first of all self-consistent, and only then
 consistency with the ground will be attempted.
