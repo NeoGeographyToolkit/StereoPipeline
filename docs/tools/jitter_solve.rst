@@ -5,9 +5,10 @@ jitter_solve
 
 The ``jitter_solve`` program takes as input several overlapping images
 and linescan camera models in CSM format (such as for LRO NAC, CTX,
-HiRISE, Airbus Pleiades, DigitalGlobe, etc.) and adjusts each
-individual camera position and orientation in the linescan model to
-make them more consistent to each other and to the ground.
+HiRISE, Airbus Pleiades, DigitalGlobe, etc., :numref:`csm`) and
+adjusts each individual camera position and orientation in the
+linescan model to make them more consistent to each other and to the
+ground.
 
 The goal is to reduce the effect of unmeasured perturbations in the
 linescan sensor as it acquires the data. This is quite analogous to
@@ -29,9 +30,10 @@ Optimizing the cameras to reduce the jitter and make them
 self-consistent can result in the camera system moving away from the
 initial location or warping in any eventually produced DEM.
 
-Hence, ground constraints are very important. This tool uses several
-kinds of constraints. They are described below, and an example
-of comparing them is given in :numref:`jitter_pleiades`.
+Hence, ground (and camera) constraints are very important. This tool
+uses several kinds of constraints. They are described below, and an
+example of comparing different ground constraints them is given in
+:numref:`jitter_pleiades`.
 
 Intrinsic constraint
 ^^^^^^^^^^^^^^^^^^^^
@@ -88,6 +90,21 @@ The relevant options are ``--num-anchor-points``,
 ``--anchor-weight``, ``--anchor-dem``, and
 ``--num-anchor-points-extra-lines``.  An example is given in
 :numref:`jitter_dg`.
+
+.. _jitter_camera:
+
+Camera constraints
+~~~~~~~~~~~~~~~~~~
+
+Jitter is believed to be caused by vibrations in the linescan camera
+as it acquires the image. If that is the case, the camera positions
+are likely accurate, and can be constrained to not move much, while
+the orientations can move more. This can be achieved by setting the
+option ``--translation-weight`` to a value on the order of 1.0 to
+100.0, while keeping ``--rotation-weight`` at 0 or some other small
+value.  These options are described in :numref:`jitter_options`. See
+an example of using the translation weight in
+:numref:`jitter_pleiades`.
 
 Resampling the poses
 ~~~~~~~~~~~~~~~~~~~~
@@ -264,6 +281,8 @@ Then, jitter was solved for, using the aligned cameras::
       --num-lines-per-position    1000         \
       --num-lines-per-orientation 1000         \
       --max-initial-reprojection-error 20      \
+      --translation-weight 0                   \
+      --rotation-weight 0                      \
       --heights-from-dem ref_dem.tif           \
       --heights-from-dem-weight 0.05           \
       --heights-from-dem-robust-threshold 0.05 \
@@ -283,6 +302,11 @@ the DEM produced later agrees with the reference one.  Otherwise, the
 final solution may not be unique, as a long-wavelength perturbation
 consistently applied to all obtained camera trajectories may work just
 as well.
+
+Here we set ``--rotation-weight 0`` and ``--translation-weight 0``.
+These are camera constraints, and at least a positive position
+(translation) constraint is normally recommneded. See
+:numref:`jitter_camera`.
 
 The model states (:numref:`csm_state`) of optimized cameras are saved
 with names like::
@@ -404,8 +428,9 @@ DEM.
 Example 2: WorldView-3 DigitalGlobe images on Earth
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Jitter was successfully solved for a pair of WorldView-3 images
-over a mountainous site in Grand Mesa, Colorado, US.
+Jitter was successfully solved for a pair of WorldView-3 images over a
+mountainous site in `Grand Mesa
+<https://en.wikipedia.org/wiki/Grand_Mesa>`_, Colorado, US.
 
 This is a much more challenging example than the earlier one for CTX,
 because:
@@ -549,6 +574,8 @@ Solve for jitter::
       --robust-threshold 0.2               \
       --tri-weight 0.1                     \
       --tri-robust-threshold 0.1           \
+      --translation-weight 0               \
+      --rotation-weight 0                  \
       --num-lines-per-position    50       \
       --num-lines-per-orientation 50       \
       --num-anchor-points 40000            \
@@ -561,12 +588,10 @@ The robust threshold was set to 0.2 because the jitter signal is rather
 weak. This allows the optimization to focus on this signal and not on
 the larger errors due to the steep terrain. 
 
-Here ``--translation-weight 0`` is used. If the camera positions are
-trusted, and it is suspected that jitter is primarily due to
-high-frequency oscillations in orientations, this should be set to a
-positive value, perhaps between 1.0 and 100.0 (in the latter case
-the camera centers will move very little or not at all). 
-See :numref:`jitter_pleiades` where this is done.
+Here we set ``--rotation-weight 0`` and ``--translation-weight 0``.
+These are camera constraints, and at least a positive position
+(translation) constraint is normally recommended. See
+:numref:`jitter_camera`.
 
 .. _fig_dg_jitter_pointmap_anchor_points:
 
@@ -643,11 +668,11 @@ Example 3: Airbus Pleiades
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In this section we will solve for jitter with Pleiades linescan
-cameras.  We will investigate the effects of two kinds of ground
+cameras. We will investigate the effects of two kinds of ground
 constraints: ``--tri-weight`` and ``--heights-from-dem``
 (:numref:`jitter_ground`). The first constraint tries to keep the
 triangulated points close to where they are, and the second tries to
-tie them to a prior (reference) DEM. Only one kind of constraint is
+tie them to a reference DEM. Only one kind of constraint is
 used at a time.
 
 In both cases we use a somewhat strong camera position constraint
@@ -655,7 +680,7 @@ In both cases we use a somewhat strong camera position constraint
 camera orientations which cause the jitter.
 
 The conclusion is that if the two kinds of ground constraints are
-weak, and the prior DEM is decent, the results are rather similar.
+weak, and the reference DEM is decent, the results are rather similar.
 Likely the intrinsic ``--tri-weight`` constraint is preferred, unless
 desired to pull the solution towards the reference DEM.  Some user
 judgment is needed in choosing the type of constraint and its weight,
@@ -667,8 +692,8 @@ Creation of terrain model
 The site used is Grand Mesa, as in :numref:`jitter_dg`, and the two
 recipes also have similarities.
 
-First, a Copernicus DEM for the area is fetched, and adjusted to be
-relative to WGS84, creating the file ``ref-adj.tif``
+First, a reference DEM (Copernicus) for the area is fetched, and
+adjusted to be relative to WGS84, creating the file ``ref-adj.tif``
 (:numref:`initial_terrain`).
 
 Let the images be called ``1.tif`` and ``2.tif``, with corresponding
@@ -775,27 +800,29 @@ Solve for jitter with the intrinsic ``--tri-weight`` constraint::
       -o jitter_tri/run
 
 The translation weight is set to 10.0, which is rather high. This
-multiplies the differences of initial and optimized camera centers
-in the optimization problem, with no robust threshold, so this should
-not let the camera centers move much, giving a chance to the camera
+multiplies the differences of initial and optimized camera centers in
+the optimization problem, with no robust threshold, so this should not
+let the camera centers move much, giving a chance to the camera
 orientations to do most of the work. The rotation weight is set to
 0.0, so the quaternions can move freely, subject to the ground and
-pixel reprojection error constraints.
+pixel reprojection error constraints. See also
+:numref:`jitter_camera`.
 
 Next, we invoke the solver with the same initial data, but with a
-constraint tying to the prior (reference) DEM, with the option
+constraint tying to the reference DEM, with the option
 ``--heights-from-dem ref-adj.tif``. Since the difference between the
 created stereo DEM and the reference DEM is on the order of 5-10
 meters, we will use ``--heights-from-dem-weight 0.05`` and
-``--heights-from-dem-robust-threshold 0.05``. The weight times the
-uncertainty in the reference DEM better be less than the image ground
-sample distance.
+``--heights-from-dem-robust-threshold 0.05``. The reference DEM weight
+times its uncertainty better be less 1.0, to make it comparable to
+pixel reprojection error or less.
 
 The pixel reprojection error ``--robust-threshold`` value is 0.5,
-which is larger than the DEM constraint robust threshold. So, pixel reprojection
-errors will be given higher priority than errors to ground. Therefore,
-we want the solution to be first of all self-consistent, and only then
-consistency with the ground will be attempted.
+which is larger than the DEM constraint robust threshold used here, at
+0.05. So, pixel reprojection errors will be given higher priority than
+errors to ground. Therefore, we want the solution to be first of all
+self-consistent, and only then consistency with the ground will be
+attempted.
 
 .. figure:: ../images/pleiades_err.png
    :name: pleiades_err
@@ -817,7 +844,7 @@ can work at eliminating the jitter.
    = 0 m, red = 1 m.
 
 It is very instructive to examine how much the DEM changed as a
-result. It can be seen in :numref:`pleiades_dem_diff` that the prior
+result. It can be seen in :numref:`pleiades_dem_diff` that the reference
 DEM constraint changes the result more. Likely, a smaller value
 of the weight for that constraint could have been used.
 
@@ -1009,15 +1036,25 @@ Command-line options for jitter_solve
 
 --quat-norm-weight <double (default: 1.0)>
     How much weight to give to the constraint that the norm of each
-    quaternion must be 1.
+    quaternion must be 1. It is implicitly assumed in the solver 
+    that the quaternion norm does not deviate much from 1, so,
+    this should be kept positive.
 
 --rotation-weight <double (default: 0.0)>
     A higher weight will penalize more deviations from the
-    original camera orientations.
+    original camera orientations. This adds to the cost function
+    the per-coordinate differences between initial and optimized
+    normalized camera quaternions, multiplied by this weight, and then
+    squared. No robust threshold is used to attenuate this term.
+    See also :numref:`jitter_camera`.
 
 --translation-weight <double (default: 0.0)>
     A higher weight will penalize more deviations from
-    the original camera positions.
+    the original camera positions. This adds to the cost function
+    the per-coordinate differences between initial and optimized
+    camera positions, multiplied by this weight, and then squared. No
+    robust threshold is used to attenuate this term. See also
+    :numref:`jitter_camera`.
 
 --reference-dem <string>
     If specified, constrain every ground point where rays from

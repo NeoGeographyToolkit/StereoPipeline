@@ -513,12 +513,18 @@ Command-line options for bundle_adjust
     after multiplying them by ``--tri-weight``.
 
 --rotation-weight <double (default: 0.0)>
-    A higher weight will penalize more rotation deviations from the
-    original configuration.
+    A higher weight will penalize more camera rotation deviations from the
+    original configuration.  This adds to the cost function
+    the per-coordinate differences between initial and optimized
+    normalized camera quaternions, multiplied by this weight, and then
+    squared. No robust threshold is used to attenuate this term.
 
 --translation-weight <double (default: 0.0)>
-    A higher weight will penalize more translation deviations from
-    the original configuration.
+    A higher weight will penalize more camera center deviations from
+    the original configuration. This adds to the cost function
+    the per-coordinate differences between initial and optimized
+    camera positions, multiplied by this weight, and then squared. No
+    robust threshold is used to attenuate this term.
 
 --camera-weight <double(=1.0)>
     The weight to give to the constraint that the camera
@@ -698,7 +704,7 @@ Command-line options for bundle_adjust
     points unless ``--heights-from-dem-weight`` is positive. 
     In that case multiply the differences between the triangulated
     points and their corresponding DEM points by this weight
-    in bundle adjsutment. It is strongly suggested to pick positive
+    in bundle adjustment. It is strongly suggested to pick positive
     and small values of ``--heights-from-dem-weight`` and
     ``--heights-from-dem-robust-threshold`` with this option.
     See :numref:`heights_from_dem`.
