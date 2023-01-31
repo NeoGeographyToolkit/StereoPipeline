@@ -23,7 +23,7 @@ If this option is not set, the following strategies are used:
 
  - For Pleiades linescan camera models (:numref:`pleiades`) the value
    ``ACCURACY_STDV`` is read from the "DIM" XML file for each camera
-   (in the *Absolute Horizontal Accuracy* secion of the camera
+   (in the *Absolute Horizontal Accuracy* section of the camera
    model), and its square is used as the horizontal variance.
 
  - For Maxar (DigitalGlobe) RPC cameras (:numref:`rpc`), the values
@@ -37,6 +37,13 @@ If this option is not set, the following strategies are used:
    propagated from the satellites to the ground and then through
    triangulation. This use case implies ``--dg-use-csm``
    (:numref:`stereodefault`).
+
+ - For datasets with a known CE90 measure, or in general a
+   :math:`CE_X` measure, where :math:`X` is between 0% and 100%,
+   manually compute the horizontal variance
+   as :math:`-CE_X^2/(2 \ln(1-X/100.0))` (`reference
+   <https://en.wikipedia.org/wiki/Circular_error_probable#Conversion>`_)
+   and pass it using the ``--horizontal-variances`` option.
 
 In all cases, the error propagation takes into account whether the
 cameras are bundle-adjusted or not (:numref:`bundle_adjust`), and if

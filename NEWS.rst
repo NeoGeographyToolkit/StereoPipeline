@@ -6,7 +6,8 @@ parallel_stereo (:numref:`parallel_stereo`):
     camera through triangulation, obtaining the horizontal and
     vertical covariance for each triangulated point. For DigitalGlobe
     RPC and Pleiades linescan cameras the input horizontal variances
-    can be read from camera files (:numref:`error_propagation`).
+    can be read from camera files. A formula to go from known CE90 to
+    input horizontal variance is provided. (:numref:`error_propagation`).
   * Can propagate the covariances of satellite positions and
     quaternions to the triangulated point cloud for Maxar
     (DigitalGlobe) linescan cameras (:numref:`error_propagation`).
