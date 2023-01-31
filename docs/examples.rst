@@ -2194,7 +2194,7 @@ there are very many pairs of images to match.
     --camera-list cameras.txt                 \
     --tri-weight 0.1                          \
     --tri-robust-threshold 0.1                \
-    --translation-weight 10.0                 \
+    --translation-weight 100.0                \
     --camera-weight 0                         \
     --auto-overlap-params "ref.tif 15"        \
     --min-matches 5                           \
@@ -2253,18 +2253,33 @@ Use ``stereo_gui`` to inspect the reprojection errors in the final
 ``pointmap.csv`` file (:numref:`plot_csv`). See the outcome in
 :numref:`skysat_stereo_grand_mesa_pointmap`.
 
+.. _skysat_stereo_grand_mesa_poses:
+.. figure:: images/skysat_stereo_grand_mesa_poses.png
+   :name: skysat-stereo-example-poses
+   :alt: SkySat stereo example camera poses
+
+   The roll, pitch, and yaw of the camera orientations before
+   and after bundle adjustment for the Aft, Forward, and Nadir cameras
+   (for the center sensor of the Skysat triplet).
+   The best linear fit of this data before bundle adjustment was
+   subtracted to emphasize the differences, which are very small.
+   The cameras centers were very constrained and did not change.
+   Yet, see :numref:`skysat_stereo_grand_mesa_pointmap` for
+   the effect on the reprojection errors.
+
 .. _skysat_stereo_grand_mesa_pointmap:
 .. figure:: images/skysat_stereo_grand_mesa.png
    :name: skysat-stereo-example
    :alt: SkySat stereo example
 
-   The colorized optimized bundle adjustment residuals
-   (final_residuals_pointmap.csv) overlayed on top of the Copernicus
-   30 m DEM for a site in Grand Mesa, Colorado. Plotted with
-   ``stereo_gui``. Maximum shade of red is 0.5 pixels. There seems to
-   be some correlation between errors and elevation or vegetation, but not with
-   individual SkySat image frames. Here, only the center sensor of the
-   Skysat sensor triplet was used.
+   The colorized bundle adjustment camera reprojection errors
+   (pointmap.csv) overlayed on top of the Copernicus 30 m DEM for Grand
+   Mesa, Colorado, before optimization (left) and after
+   (right). Maximum shade of red is reprojection error of at least 5
+   pixels. The same set of clean interest points was used in both
+   plots. It can be seen that while bundle
+   adjustment changes the cameras very little, it makes a very big
+   difference in how consistent the cameras become.
 
 The camera positions and orientations (the latter in NED coordinates)
 are summarized in two report files, before and after optimization
