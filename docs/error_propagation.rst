@@ -79,6 +79,12 @@ are saved with a float precision of 1e-8 meters (rather than the usual
 gridding the rather slowly varying propagated errors
 (:numref:`triangulation_options`).
 
+When error propagation is enabled, the triangulated point cloud stores
+6 bands instead of the usual 4, and the LZW compression is somewhat
+less efficient since the precision is higher. The size of the point
+cloud roughly doubles. This does not affect the size of the DEM,
+but its values and extent may change slightly.
+
 The computed stddev values are in units of meter.
 
 What the produced uncertainties are not
