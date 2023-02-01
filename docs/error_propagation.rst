@@ -39,12 +39,17 @@ If this option is not set, the following strategies are used:
    triangulation. This use case implies ``--dg-use-csm``
    (:numref:`stereodefault`).
 
- - For datasets with a known CE90 measure, or in general a
-   :math:`CE_X` measure, where :math:`X` is between 0% and 100%,
-   manually compute the horizontal stddev
-   as :math:`CE_X/sqrt(-2 \ln(1-X/100.0))` (`reference
-   <https://en.wikipedia.org/wiki/Circular_error_probable#Conversion>`_)
-   and pass it using the ``--horizontal-stddev`` option.
+For datasets with a known CE90 measure, or in general a
+:math:`CE_X` measure, where :math:`X` is between 0% and 100%,
+use the  ``--horizontal-stddev`` option, with values computed
+using the formula:
+
+.. math::
+
+     StdDev = CE_X/\sqrt{-2 \ln(1-X/100.0)}
+
+(`reference
+<https://en.wikipedia.org/wiki/Circular_error_probable#Conversion>`_).
 
 In all cases, the error propagation takes into account whether the
 cameras are bundle-adjusted or not (:numref:`bundle_adjust`), and if
