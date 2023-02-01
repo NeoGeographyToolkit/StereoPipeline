@@ -77,7 +77,6 @@ namespace asp {
                                std::map<std::string, std::string> const& keywords){
 
     if (norm_2(shift) > 0){
-
       // Add the point shift to keywords
       std::map<std::string, std::string> local_keywords = keywords;
       local_keywords[ASP_POINT_OFFSET_TAG_STR] = vw::vec_to_str(shift);

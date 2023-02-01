@@ -405,7 +405,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("csv-proj4",      po::value(&opt.csv_proj4_str)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV files, if those files contain Easting and Northing fields. If not specified, --t_srs will be used.")
     ("filter",      po::value(&opt.filter)->default_value("weighted_average"), "The filter to apply to the heights of the cloud points within a given circular neighborhood when gridding (its radius is controlled via --search-radius-factor). Options: weighted_average (default), min, max, mean, median, stddev, count (number of points), nmad (= 1.4826 * median(abs(X - median(X)))), n-pct (where n is a real value between 0 and 100, for example, 80-pct, meaning, 80th percentile). Except for the default, the name of the filter will be added to the obtained DEM file name, e.g., output-min-DEM.tif.")
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
-            "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
+     "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. Default: 1/2^10.")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
      "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
     ("propagate-errors", po::bool_switch(&opt.propagate_errors)->default_value(false), "Write files with names {output-prefix}-HorizontalStdDev.tif and {output-prefix}-VerticalStdDev.tif having the gridded stddev produced from bands 5 and 6 of the input point cloud, if this cloud was created with the option --propagate-errors. The same gridding algorithm is used as for creating the DEM.")
@@ -878,7 +878,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
 
   // Do not round the DEM heights for small bodies
   if (georef.datum().semi_major_axis() <= asp::MIN_RADIUS_FOR_ROUNDING ||
-      georef.datum().semi_minor_axis() <= asp::MIN_RADIUS_FOR_ROUNDING){
+      georef.datum().semi_minor_axis() <= asp::MIN_RADIUS_FOR_ROUNDING) {
     opt.rounding_error = 0.0;
   }
 
@@ -990,6 +990,9 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
 
   if (opt.propagate_errors) {
     int num_channels = asp::num_channels(opt.pointcloud_files);
+    double rounding_error = 0.0;
+    vw_out() << "Not rounding propagated errors (option: --rounding-error) to avoid "
+             << "introducing step artifacts.\n";
     
     // Note: We don't throw here. We still would like to write the
     // DRG (below) even if we can't write the stddev.
@@ -1005,7 +1008,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
       rasterizer.set_texture(horizontal_cov_channel);
       rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
       save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
-                                                          opt.rounding_error,
+                                                          rounding_error, // local value
                                                           opt.nodata_value),
                  georef, hole_fill_len, "HorizontalStdDev");
       
@@ -1013,7 +1016,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
       rasterizer.set_texture(vertical_cov_channel);
       rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
       save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
-                                                          opt.rounding_error,
+                                                          rounding_error, // local value
                                                           opt.nodata_value),
                  georef, hole_fill_len, "VerticalStdDev");
     }

@@ -411,7 +411,7 @@ void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
     keywords["BAND5"] = "HorizontalStdDev";
     keywords["BAND6"] = "VerticalStdDev";
   }
-  
+
   if (opt.session->supports_multi_threading()){
     asp::block_write_approx_gdal_image
       (point_cloud_file, shift,
@@ -827,7 +827,6 @@ void stereo_triangulation(std::string const& output_prefix,
     std::string point_cloud_file = output_prefix + "-PC.tif";
     if (stereo_settings().compute_error_vector ||
         stereo_settings().propagate_errors) {
-
       // The case num_cams > 2 && stereo_settings().propagate_errors
       // will throw an exception, so we won't get here.
       if (num_cams > 2 && stereo_settings().compute_error_vector)

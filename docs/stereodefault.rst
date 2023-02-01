@@ -773,7 +773,10 @@ point-cloud-rounding-error (*double*)
     rounding means less precision but potentially smaller size on
     disk). The inverse of a power of 2 is suggested. Default:
     :math:`1/2^{10}` meters (about 1mm) for Earth and proportionally
-    less for smaller bodies.
+    less for smaller bodies, unless error propagation happens
+    (:numref:`error_propagation`), when it is set by default to 
+    :math:`10^{-8}` meters, to avoid introducing step artifacts in
+    these errors.
 
 save-double-precision-point-cloud (default = false)
     Save the final point cloud in double precision rather than bringing

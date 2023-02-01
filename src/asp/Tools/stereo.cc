@@ -283,10 +283,27 @@ namespace asp {
                    << "the triangulation error vector when propagating errors (covariances) "
                    << "from cameras, as those are stored instead in " 
                    << "bands 5 and 6.\n");
+    
+    return;
   }
 
   // Parse data needed for error propagation
   void setup_error_propagation(ASPGlobalOptions const& opt) {
+    
+    // A bugfix for the propagated errors not being saved with enough digits
+    if (stereo_settings().point_cloud_rounding_error > 0) {
+      vw_out(WarningMessage) << "Option --point-cloud-rounding-error is set to " <<
+        stereo_settings().point_cloud_rounding_error << " meters. If too coarse, "
+        "it may create artifacts in the propagated horizontal and vertical errors.\n";
+    } else {
+        stereo_settings().point_cloud_rounding_error = 1.0e-8;
+        vw_out() << "Round triangulated points to "
+                 << stereo_settings().point_cloud_rounding_error << " meters. "
+                 << "(Option: --point-cloud-rounding-error.) "  
+                 << "This is much finer rounding than usual, motivated by the "
+                 << "fact that the propagated errors vary slowly and will be "
+                 << "saved with step artifacts otherwise.\n";
+    }
     
     vw::Vector2 & v = asp::stereo_settings().horizontal_stddev; // alias, will modify
     
@@ -464,7 +481,7 @@ namespace asp {
       if (stereo_settings().propagate_errors)
         vw::vw_throw(vw::ArgumentErr() << "Cannot propagate errors in correlator mode.\n");
     }
-    
+
     // Make sure that algorithm 0 is same as asp_bm, etc.
     boost::to_lower(stereo_settings().stereo_algorithm);
     if (stereo_settings().stereo_algorithm == "0") 
@@ -499,8 +516,7 @@ namespace asp {
     if (!opt.out_prefix.empty()) files.push_back(opt.out_prefix);
     if (!opt.input_dem.empty())  files.push_back(opt.input_dem);
     if (!parse_multiview_cmd_files(files, // inputs
-                                   images, cameras, opt.out_prefix, opt.input_dem // outputs
-                                   ))
+                                   images, cameras, opt.out_prefix, opt.input_dem)) // outputs
       vw_throw(ArgumentErr() << "Missing all of the correct input files.\n\n" << usage);
 
     opt.in_file1 = "";  if (images.size() >= 1)  opt.in_file1  = images[0];
@@ -602,7 +618,8 @@ namespace asp {
          stereo_settings().trans_crop_win.height() <= 0) &&
         !fs::exists(opt.out_prefix+"-L-cropped.tif")     &&
         !fs::exists(opt.out_prefix+"-R-cropped.tif") ){
-      vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n" << usage << general_options);
+      vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n"
+               << usage << general_options);
     }
 
     // Ensure good order

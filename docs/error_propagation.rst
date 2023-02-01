@@ -67,6 +67,13 @@ DEM heights. This will produce files ending with the suffixes
 ``HorizontalStdDev.tif`` and ``VerticalStdDev.tif`` alongside the
 output DEM.
 
+Note that propagating the errors subtly changes the behavior of stereo
+triangulation, and hence also of the output DEM. Triangulated points
+are saved with a float precision of 1e-8 meters (rather than the usual
+1e-3 meters or so), to avoid creating step artifacts later when
+gridding the rather slowly varying propagated errors
+(:numref:`triangulation_options`).
+
 The computed stddev values are in units of meter.
 
 What the produced uncertainties are not
@@ -170,8 +177,8 @@ The horizontal stddev values propagated through triangulation are on
 the order of the order 3 meters.
 
 The obtained vertical stddev varies very strongly with the convergence
-angle, and is usually, 5-10 meters, and perhaps more for
-stereo pairs with a convergence angle under 30 degrees.
+angle, and is usually, 5-10 meters, and perhaps more for stereo pairs
+with a convergence angle under 30 degrees.
 
 The dependence on the convergence angle is very expected. But these
 numbers appear too large given the ground sample distance of
@@ -184,17 +191,18 @@ orientation covariances can be determined with the options
 
 The curious user can use the following independent approach to
 validate these numbers. The linescan camera files in XML format have
-the orientations on lines with the ``ATTLIST`` field. The
-numbers on that line are measurement index, then the quaternions (4
-values, in order x, y, z, w) and the upper-right half of the 4x4
-covariance matrix (10 numbers, stored row-wise).
+the orientations on lines with the ``ATTLIST`` field. The numbers on
+that line are measurement index, then the quaternions (4 values, in
+order x, y, z, w) and the upper-right half of the 4x4 covariance
+matrix (10 numbers, stored row-wise).
 
-The ``w`` variance (the last number), can be, for example, on the order of
-6.3e-12, so, its square root, which is 2.5e-6 or so, is the expected
-variability in the ``w`` component of the quaternion.
+The ``w`` variance (the last number), can be, for example, on the
+order of 6.3e-12, so, its square root, which is 2.5e-6 or so, is the
+expected variability in the ``w`` component of the quaternion.
 
-Fetch and save the Python script 
-`bias_dg_cam.py <https://raw.githubusercontent.com/NeoGeographyToolkit/StereoPipeline/master/src/asp/Tools/bias_dg_cam.py>`_. Invoke it as::
+Fetch and save the Python script `bias_dg_cam.py
+<https://raw.githubusercontent.com/NeoGeographyToolkit/StereoPipeline/master/src/asp/Tools/bias_dg_cam.py>`_. Invoke
+it as::
 
    python bias_dg_cam.py --position-bias "0 0 0" \
      --orientation-bias "0 0 0 2.5e-6"           \
@@ -211,8 +219,8 @@ produced camera files side-by-side, and see the effect of using a
 different sign and magnitude for the biases.
 
 Then, ``parallel_stereo`` can be run twice, with different output
-prefixes, first with the original cameras, and then the biased ones, in
-both cases without propagation of errors. Use
+prefixes, first with the original cameras, and then the biased ones,
+in both cases without propagation of errors. Use
 ``--left-image-crop-win`` and ``--right-image-crop-win``
 (:numref:`stereo_gui`) to run on small clips only.
 
@@ -220,4 +228,3 @@ DEMs can be created, and the heights compared with the ``geodiff
 --absolute`` command (:numref:`geodiff`). We found a height difference
 that is very similar to the vertical standard deviation produced
 earlier.
-

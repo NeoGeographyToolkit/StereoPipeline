@@ -488,10 +488,10 @@ void DGCameraModel::interpSatellitePosCov(vw::Vector2 const& pix,
   if (m_ls_model->m_platformFlag == 0)
     nOrder = 4;
 
-  //lagrangeInterp(numCov, &m_satellite_pos_cov[0], m_satellite_pos_t0, m_satellite_pos_dt,
-  //               time, SAT_POS_COV_SIZE, nOrder, p_cov);
-  nearestNeibInterp(numCov, &m_satellite_pos_cov[0], m_satellite_pos_t0, m_satellite_pos_dt,
-                    time, SAT_POS_COV_SIZE, p_cov);
+  lagrangeInterp(numCov, &m_satellite_pos_cov[0], m_satellite_pos_t0, m_satellite_pos_dt,
+                 time, SAT_POS_COV_SIZE, nOrder, p_cov);
+  //nearestNeibInterp(numCov, &m_satellite_pos_cov[0], m_satellite_pos_t0, m_satellite_pos_dt,
+  //                  time, SAT_POS_COV_SIZE, p_cov);
 }
 
 // Interpolate the satellite quaternion covariance at given pixel
