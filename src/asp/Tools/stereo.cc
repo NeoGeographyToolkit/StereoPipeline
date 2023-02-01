@@ -334,7 +334,7 @@ namespace asp {
       if (pleiades1 != NULL && pleiades2 != NULL) {
         double accuracy1 = pleiades1->m_accuracy_stdv;
         double accuracy2 = pleiades2->m_accuracy_stdv;
-        if (accuracy1 > 0 && accuracy2 > 0 ) {
+        if (accuracy1 > 0 && accuracy2 > 0) {
           vw_out() << "Reading horizontal stddev values from Pleiades linescan camera files.\n";
           v.x() = accuracy1; 
           v.y() = accuracy2;
@@ -350,7 +350,7 @@ namespace asp {
     
     bool isDg = (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc");
     if (v[0] > 0 && v[1] > 0) {
-      vw_out() << "Horizontal stddev per camera: " << v[0]  << ", " << v[1] << " (meter^2).\n";
+      vw_out() << "Horizontal stddev per camera: " << v[0]  << ", " << v[1] << " (meters).\n";
       if (isDg) 
         vw_out() << "Will use these to find the point cloud stddev, rather than "
                  << "satellite position and orientation covariances.\n";

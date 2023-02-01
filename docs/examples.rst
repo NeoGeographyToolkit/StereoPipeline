@@ -1712,6 +1712,9 @@ follows (individually for the left and right stereo image), using
 
       gdalbuildvrt vrt.tif *R*C*.tif
 
+This expects any input .tif file to have an associated .tfw (.TFW) file
+containing information about how the tiles should be combined.
+
 If both PAN and multispectral tiles are present, use only the PAN ones.
 
 This will create a virtual mosaic, which is just a plain text file
