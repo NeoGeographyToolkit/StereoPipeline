@@ -141,14 +141,16 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
 							      geo.detector_origin[1],
                                                             0)), 0, 2);
 
-  // We will create one camera model in regular use, and 14 more of them with slight
-  // perturbations if needed for covariance computation. This approach results
-  // in avoiding writing a lot of new code which would be in some places similar
-  // and in others different than existing one. See Covariance.h for more details.
+  // We will create one camera model in regular use, and 14 more of
+  // them with slight perturbations if needed for error propagation
+  // (covariance computation). This approach results in avoiding
+  // writing a lot of new code which would be in some places similar
+  // and in others different than existing one. See Covariance.h for
+  // more details.
   vw::CamPtr nominal_cam;
   std::vector<vw::CamPtr> perturbed_cams;
   int num_cams = 1;
-  if (asp::stereo_settings().compute_point_cloud_covariances)
+  if (asp::stereo_settings().propagate_errors)
     num_cams = numCamsForCovariance();
 
   for (int cam_it = 0; cam_it < num_cams; cam_it++) {
@@ -169,7 +171,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
       Vector<double, 4> q = att.satellite_quat_vec[i];
       // The dq perturbations are chosen under the assumption that q is normalized
       double len_q = norm_2(q);
-      if (len_q > 0 && asp::stereo_settings().compute_point_cloud_covariances) 
+      if (len_q > 0 && asp::stereo_settings().propagate_errors) 
         q = q / len_q; // Normalization is not needed without covariance logic
       q = q + dq;
       vw::Quat qt(q[3], q[0], q[1], q[2]); // Note the swapping, the order is now w, x, y, z.
@@ -201,7 +203,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
   cam->m_satellite_pos_dt = edt;
   cam->m_satellite_quat_t0 = at0;
   cam->m_satellite_quat_dt = adt;
-  if (asp::stereo_settings().compute_point_cloud_covariances) {
+  if (asp::stereo_settings().propagate_errors) {
     cam->m_perturbed_cams = perturbed_cams; 
     cam->m_satellite_pos_cov = eph.satellite_pos_cov;
     cam->m_satellite_quat_cov = att.satellite_quat_cov;

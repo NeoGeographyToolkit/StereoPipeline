@@ -154,8 +154,8 @@ namespace asp {
     if (num_pairs <= 0)
       vw_throw(ArgumentErr() << "Insufficient number of images provided.\n");
 
-    if (num_pairs > 1 && stereo_settings().compute_point_cloud_covariances) 
-      vw::vw_throw(vw::ArgumentErr() << "Computing point cloud covariances is not "
+    if (num_pairs > 1 && stereo_settings().propagate_errors) 
+      vw::vw_throw(vw::ArgumentErr() << "Error propagation is not "
                    << "implemented for more than two images.\n");
  
     // Must signal to the children runs that they are part of a multiview run
@@ -273,27 +273,29 @@ namespace asp {
       vw_throw(ArgumentErr() << "Bathymetry correction does not work with "
                << "multiview stereo.\n");
     
-    if (opt.session->do_bathymetry() && stereo_settings().compute_point_cloud_covariances) 
-      vw_throw(ArgumentErr() << "Propagation of covariances is not implemented when "
+    if (opt.session->do_bathymetry() && stereo_settings().propagate_errors) 
+      vw_throw(ArgumentErr() << "Error propagation is not implemented when "
                << "bathymetry is modeled.\n");
     
-    if (stereo_settings().compute_point_cloud_covariances && 
+    if (stereo_settings().propagate_errors && 
         stereo_settings().compute_error_vector) 
-      vw::vw_throw(vw::ArgumentErr() << "Cannot use option --error-vector when computing "
-                   << "covariances, as those are stored instead in bands 2 and 5.\n");
+      vw::vw_throw(vw::ArgumentErr() << "Cannot use option --error-vector for computing "
+                   << "the triangulation error vector when propagating errors (covariances) "
+                   << "from cameras, as those are stored instead in " 
+                   << "bands 5 and 6.\n");
   }
 
-  // Parse data needed for propagation of covariances
-  void setup_covariances(ASPGlobalOptions const& opt) {
+  // Parse data needed for error propagation
+  void setup_error_propagation(ASPGlobalOptions const& opt) {
     
-    vw::Vector2 & v = asp::stereo_settings().horizontal_variances; // alias, will modify
+    vw::Vector2 & v = asp::stereo_settings().horizontal_stddev; // alias, will modify
     
     if (v[0] < 0 || v[1] < 0) 
-      vw::vw_throw(vw::ArgumentErr() << "Cannot have negative horizontal variances.\n");
+      vw::vw_throw(vw::ArgumentErr() << "Cannot have negative horizontal stddev.\n");
     
     if (int(v[0] > 0) + int(v[1] > 0) == 1)
       vw::vw_throw(vw::ArgumentErr() << "Cannot have one positive horizontal "
-                   << "covariance and the other one equal to zero.\n");
+                   << "stddev and the other one equal to zero.\n");
 
     if (v[0] == 0 && v[1] == 0) {
 
@@ -301,7 +303,7 @@ namespace asp {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt.session->camera_models(camera_model1, camera_model2);
 
-      // Try to create horizontal variances based on the RPC camera files
+      // Try to create horizontal stddev based on the RPC camera files
       const asp::RPCModel *rpc1
         = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(camera_model1.get()));
       const asp::RPCModel *rpc2
@@ -310,19 +312,19 @@ namespace asp {
         double bias1 = rpc1->m_err_bias, rand1 = rpc1->m_err_rand;
         double bias2 = rpc2->m_err_bias, rand2 = rpc2->m_err_rand;
         if (bias1 > 0 && rand1 > 0 && bias2 > 0 && rand2 > 0) {
-          vw_out() << "Computing horizontal variances from RPC camera files.\n";
-          v.x() = bias1 * bias1 + rand1 * rand1;
-          v.y() = bias2 * bias2 + rand2 * rand2;
+          vw_out() << "Computing horizontal stddev values from RPC camera files.\n";
+          v.x() = sqrt(bias1 * bias1 + rand1 * rand1);
+          v.y() = sqrt(bias2 * bias2 + rand2 * rand2);
         } else {
           vw::vw_throw(vw::ArgumentErr()
-                       << "Cannot compute point cloud covariances, as no input horizontal "
-                       << "variances were specified, and the RPC camera models lacks "
+                       << "Cannot propagate errors, as no input horizontal "
+                       << "stddev values were specified, and the RPC camera models lacks "
                        << "the necessary ERRBIAS and ERRRAND fields that could be used "
                        << "instead.\n");
         }
       }
 
-      // Try to create horizontal variances based on the Pleiades camera files
+      // Try to create horizontal stddev based on the Pleiades camera files
       const asp::PleiadesCameraModel *pleiades1
         = dynamic_cast<const asp::PleiadesCameraModel*>
         (vw::camera::unadjusted_model(camera_model1.get()));
@@ -333,13 +335,13 @@ namespace asp {
         double accuracy1 = pleiades1->m_accuracy_stdv;
         double accuracy2 = pleiades2->m_accuracy_stdv;
         if (accuracy1 > 0 && accuracy2 > 0 ) {
-          vw_out() << "Computing horizontal variances from Pleiades linescan camera files.\n";
-          v.x() = accuracy1 * accuracy1; 
-          v.y() = accuracy2 * accuracy2;
+          vw_out() << "Reading horizontal stddev values from Pleiades linescan camera files.\n";
+          v.x() = accuracy1; 
+          v.y() = accuracy2;
         } else {
           vw::vw_throw(vw::ArgumentErr()
-                       << "Cannot compute point cloud covariances, as no input horizontal "
-                       << "variances were specified, and the Pleiades camera models lacks "
+                       << "Cannot propagate errors, as no input horizontal "
+                       << "stddev values were specified, and the Pleiades camera models lacks "
                        << "the necessary ACCURACY_STDV field that could be used "
                        << "instead.\n");
         }
@@ -348,15 +350,15 @@ namespace asp {
     
     bool isDg = (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc");
     if (v[0] > 0 && v[1] > 0) {
-      vw_out() << "Horizontal variance per camera: " << v[0]  << ", " << v[1] << " (meter^2).\n";
+      vw_out() << "Horizontal stddev per camera: " << v[0]  << ", " << v[1] << " (meter^2).\n";
       if (isDg) 
-        vw_out() << "Will use these to find the point cloud covariances, rather than "
+        vw_out() << "Will use these to find the point cloud stddev, rather than "
                  << "satellite position and orientation covariances.\n";
     } else {
       if (!isDg)
         vw::vw_throw(vw::ArgumentErr()
-                     << "Cannot compute point cloud covariances, as no input horizontal "
-                     << "variances were specified.\n");
+                     << "Cannot propagate errors, as no input horizontal "
+                     << "stddev values were specified.\n");
     }
       
   }
@@ -443,11 +445,11 @@ namespace asp {
 
     // Do this early, before any cameras are loaded
     bool print_dg_csm_cov_message = false;
-    if (stereo_settings().compute_point_cloud_covariances) {
+    if (stereo_settings().propagate_errors) {
       if (!stereo_settings().dg_use_csm) {
-        vw::Vector2 const& v = asp::stereo_settings().horizontal_variances; // alias
+        vw::Vector2 const& v = asp::stereo_settings().horizontal_stddev; // alias
         if (v[0] <= 0 || v[1] <= 0) {
-          // Have to use the CSM model to propagate the covariances
+          // Have to use the CSM model to propagate the errors
           // Will print a message later, only when we know the camera is actually DG
           stereo_settings().dg_use_csm = true;
           print_dg_csm_cov_message = true;
@@ -459,8 +461,8 @@ namespace asp {
       stereo_settings().alignment_method = "none"; // images are assumed aligned
       opt.stereo_session = "rpc";                  // since inputs are images this seems simpler
 
-      if (stereo_settings().compute_point_cloud_covariances)
-        vw::vw_throw(vw::ArgumentErr() << "Cannot propagate covariances in correlator mode.\n");
+      if (stereo_settings().propagate_errors)
+        vw::vw_throw(vw::ArgumentErr() << "Cannot propagate errors in correlator mode.\n");
     }
     
     // Make sure that algorithm 0 is same as asp_bm, etc.
@@ -721,15 +723,15 @@ namespace asp {
     // The printing of this message was delayed till we knew the session
     if (print_dg_csm_cov_message &&
         (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc"))
-      vw_out() << "Enabling option --dg-use-csm as point cloud covariances will be computed. "
+      vw_out() << "Enabling option --dg-use-csm as error propagation will take place. "
                << "No velocity aberration or atmospheric correction happens.\n";
 
     // Run a set of checks to make sure the settings are compatible.
     user_safety_checks(opt);
 
     // This logic must happen after the cameras are loaded.
-    if (stereo_settings().compute_point_cloud_covariances)
-      setup_covariances(opt);
+    if (stereo_settings().propagate_errors)
+      setup_error_propagation(opt);
 
     // The last thing we do before we get started is to copy the
     // stereo.default settings over into the results directory so that

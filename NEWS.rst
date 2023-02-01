@@ -2,12 +2,12 @@ Changes since last release
 --------------------------
 
 parallel_stereo (:numref:`parallel_stereo`):
-  * Can propagate horizontal ground plane variances specified for each
-    camera through triangulation, obtaining the horizontal and
-    vertical covariance for each triangulated point. For DigitalGlobe
-    RPC and Pleiades linescan cameras the input horizontal variances
-    can be read from camera files. A formula to go from known CE90 to
-    input horizontal variance is provided. (:numref:`error_propagation`).
+  * Can propagate horizontal ground plane standard deviations (stddev)
+    specified for each camera through triangulation, obtaining the
+    horizontal and vertical stddev for each triangulated point. 
+    For DigitalGlobe RPC and Pleiades linescan cameras the input horizontal 
+    stddev can be read from camera files. A formula to go from known CE90 to
+    input horizontal stddev is provided. (:numref:`error_propagation`).
   * Can propagate the covariances of satellite positions and
     quaternions to the triangulated point cloud for Maxar
     (DigitalGlobe) linescan cameras (:numref:`error_propagation`).
@@ -20,8 +20,8 @@ parallel_stereo (:numref:`parallel_stereo`):
     must load the exact cameras when undoing the mapprojection.
 
 point2dem (:numref:`point2dem`): 
-  * Added the option ``--covariances`` to grid the covariances computed
-    during triangulation. 
+  * Added the option ``--propagate-errors`` to grid the stddev values
+    computed during stereo triangulation. 
 
 stereo_gui (:numref:`stereo_gui`): 
   * Can read, write, edit, and overlay on top of images polygons in

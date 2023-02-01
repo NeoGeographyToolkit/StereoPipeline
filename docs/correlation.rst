@@ -506,14 +506,17 @@ intersection point :math:`P`.
 
 Additionally, the actual shortest distance between the rays at this
 point is an interesting and important error metric that measures how
-self-consistent our two camera models are for this point. It will be seen
-in the next chapter that this information, when computed and
+self-consistent our two camera models are for this point. It will be
+seen in the next chapter that this information, when computed and
 averaged over all reconstructed 3D points, can be a valuable statistic
-for determining whether to carry out bundle adjustment. The distance
-between the two rays at their closest intersection is recorded in the
-fourth channel of the point cloud file, ``output-prefix-PC.tif``. This
-information can be brought to the same perspective as the output DEM
-by using the ``--errorimage`` argument on the ``point2dem`` command.
+for determining whether to carry out bundle adjustment
+(:numref:`bundle_adjust`). 
+
+The distance between the two rays at their
+closest intersection is recorded in the fourth channel of the point
+cloud file, ``output-prefix-PC.tif``. This error can be gridded when a
+DEM is created from the point cloud by using the ``--errorimage``
+argument on the ``point2dem`` command (:numref:`point2dem`).
 
 This error in the triangulation, the shortest distance between two
 rays emanating from matching pixels (measured in meters), *is not the
@@ -527,6 +530,11 @@ measurement. Where small areas are found with high triangulation error
 came from correlation mistakes and large areas of error came from
 camera model inadequacies.
 
+To improve the location of a triangulated point cloud or created DEM
+relative to a known ground truth, use alignment (:numref:`pc_align`).
+
+See :numref:`error_propagation` for another metric qualifying
+the accuracy of a point cloud or DEM.
 
 .. _sensor_corrections:
 

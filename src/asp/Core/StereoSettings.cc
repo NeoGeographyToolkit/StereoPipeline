@@ -395,10 +395,10 @@ namespace asp {
             "If positive, points with triangulation error larger than this will be removed from the cloud. Measured in meters.")
       ("bundle-adjust-prefix", po::value(&global.bundle_adjust_prefix),
        "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
-      ("compute-point-cloud-covariances",  po::bool_switch(&global.compute_point_cloud_covariances)->default_value(false)->implicit_value(true),
-       "Propagate the covariances from the input cameras to the triangulated point cloud. "
+      ("propagate-errors",  po::bool_switch(&global.propagate_errors)->default_value(false)->implicit_value(true),
+       "Propagate the errors from the input cameras to the triangulated point cloud. "
        "This option implies --dg-use-csm for Maxar (DigitalGlobe) linescan cameras.")
-      ("horizontal-variances", po::value(&global.horizontal_variances)->default_value(Vector2(0, 0), "0 0"), "If positive, propagate these left and right camera horizontal ground plane variances through triangulation. To be used with --compute-point-cloud-covariances.")
+      ("horizontal-stddev", po::value(&global.horizontal_stddev)->default_value(Vector2(0, 0), "0 0"), "If positive, propagate these left and right camera horizontal ground plane stddev through triangulation. To be used with --propagate-errors.")
       
       ("position-covariance-factor", po::value(&global.position_covariance_factor)->default_value(1.0),
        "Multiply the satellite position covariances by this number before propagating them to the triangulated point cloud. Applicable only to Maxar(DigitalGlobe) linescan cameras.")

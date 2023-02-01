@@ -239,20 +239,21 @@ Command-line options for point2dem
 -n, --normalized
     Also write a normalized version of the DEM (for debugging).
 
+-o, --output-prefix <string>
+    Specify the output prefix. The output DEM will be 
+    ``<output prefix>-DEM.tif``.
+
 --orthoimage
     Write an orthoimage based on the texture files passed in as
-    inputs (after the point clouds). Filename is ``-DRG.tif``.
+    inputs (after the point clouds). Filename is 
+    ``<output prefix>-DRG.tif``.
 
 --errorimage
     Write an additional image, whose values represent the
     triangulation ray intersection error in meters (the closest
     distance between the rays emanating from the two cameras
     corresponding to the same point on the ground). Filename
-    is ``-IntersectionErr.tif``.
-
--o, --output-prefix <string>
-    Specify the output prefix. The output DEM will be ``<output
-    prefix>-DEM.tif``.
+    is ``<output prefix>-IntersectionErr.tif``.
 
 -t, --output-filetype <string (default: tif)>
     Specify the output file type.
@@ -463,14 +464,13 @@ Command-line options for point2dem
       the filter will be added to the obtained DEM file name, e.g.,
       ``output-min-DEM.tif`` if ``--filter min`` is used.
 
---covariances
-    Write files with names ``{output-prefix}-horizontalCovariance.tif``
-    and ``{output-prefix}-verticalCovariance.tif`` having the gridded
-    covariances produced from bands 5 and 6 of the input point cloud,
-    if this cloud was created with the option
-    ``--compute-point-cloud-covariances``
-    (:numref:`error_propagation`). The same gridding algorithm
-    is used as for creating the DEM.
+--propagate-errors
+    Write files with names ``<output prefix>-HorizontalStdDev.tif``
+    and ``<output prefix>-VerticalStdDev.tif`` having the gridded
+    stddev produced from bands 5 and 6 of the input point cloud,
+    if this cloud was created with the ``parallel_stereo`` option
+    ``--propagate-errors`` (:numref:`error_propagation`). The same
+    gridding algorithm is used as for creating the DEM.
 
 --use-surface-sampling
     Use the older algorithm, interpret the point cloud as a surface

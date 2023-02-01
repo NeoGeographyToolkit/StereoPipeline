@@ -813,20 +813,20 @@ compute-error-vector
     contain the three components of the triangulation error vector in
     the North-East-Down coordinate system.
 
-.. _stereo-default-covariance:
+.. _stereo-default-error-propagation:
 
 Error propagation (used in triangulation)
 -----------------------------------------
 
-compute-point-cloud-covariances
-    Propagate the covariances from the input cameras to the triangulated
+propagate-errors
+    Propagate the errors from the input cameras to the triangulated
     point cloud. See :numref:`error_propagation`. This option implies
     ``--dg-use-csm`` for Maxar (DigitalGlobe) linescan cameras. 
 
-horizontal-variances <*double double* (default = 0.0 0.0)>
+horizontal-stddev <*double double* (default = 0.0 0.0)>
     If positive, propagate these left and right camera horizontal
-    ground plane variances through triangulation. To be used with
-    ``--compute-point-cloud-covariances``.
+    ground plane stddev values through triangulation. To be used with
+    ``--propagate-errors``.
 
 position-covariance-factor <double (default: 1.0)>
     Multiply the satellite position covariances by this number before

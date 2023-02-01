@@ -262,8 +262,8 @@ namespace asp {
     bool   skip_computing_piecewise_adjustments;
     bool   compute_piecewise_adjustments_only;
 
-    bool compute_point_cloud_covariances;
-    vw::Vector2 horizontal_variances;
+    bool propagate_errors;
+    vw::Vector2 horizontal_stddev;
     double position_covariance_factor, orientation_covariance_factor;
     
     bool compute_error_vector;              // Compute the triangulation error vector, not just its length

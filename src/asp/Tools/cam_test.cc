@@ -36,6 +36,7 @@
 #include <asp/IsisIO/IsisCameraModel.h>
 
 // Temporary headers
+#include <vw/Camera/CAHVModel.h>
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/Covariance.h>
 #include <vw/Math/LinearAlgebra.h>
@@ -52,7 +53,7 @@ struct Options : vw::GdalWriteOptions {
   int sample_rate; // use one out of these many pixels
   double subpixel_offset, height_above_datum;
   bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
-    print_per_pixel_results, dg_use_csm, dg_vs_csm, test_covariance_computation;
+    print_per_pixel_results, dg_use_csm, dg_vs_csm, test_error_propagation;
   vw::Vector2 single_pixel;
   
   Options() {}
@@ -91,8 +92,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Compare projecting into the camera without and with using the CSM model for Digital Globe.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Adjust the cameras using this prefix.")
-    ("test-covariance-computation", po::bool_switch(&opt.test_covariance_computation)->default_value(false)->implicit_value(true),
-     "Test computing the covariances (see --compute-point-cloud-covariances). This is an undocumented developer option.")
+    ("test-error-propagation", po::bool_switch(&opt.test_error_propagation)->default_value(false)->implicit_value(true),
+     "Test computing the stddev (see --propagate-errors). This is an undocumented developer option.")
     ;  
   general_options.add(vw::GdalWriteOptionsDescription(opt));
   
@@ -125,12 +126,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // before loading the cameras. 
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
   
-  if (opt.test_covariance_computation) {
+  if (opt.test_error_propagation) {
     if (!asp::stereo_settings().dg_use_csm) {
-      vw_out() << "Enabling option --dg-use-csm as point cloud covariances will be computed.\n";
+      vw_out() << "Enabling option --dg-use-csm as point cloud stddev will be computed.\n";
       asp::stereo_settings().dg_use_csm = true;
     }
-    asp::stereo_settings().compute_point_cloud_covariances = true;  
+    asp::stereo_settings().propagate_errors = true;  
   }
 }
 
@@ -151,10 +152,10 @@ void print_diffs(std::string const& tag, std::vector<double> & diffs) {
   vw_out() << "Max:    " << diffs.back() << "\n";
 }
 
-void testCovarianceComputation(Options const& opt,
-                               vw::cartography::Datum const& datum,
-                               vw::CamPtr cam1_model,
-                               vw::CamPtr cam2_model) {
+void testErrorPropagation(Options const& opt,
+                          vw::cartography::Datum const& datum,
+                          vw::CamPtr cam1_model,
+                          vw::CamPtr cam2_model) {
 
   double major_axis = datum.semi_major_axis() + opt.height_above_datum;
   double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
@@ -187,7 +188,7 @@ void testCovarianceComputation(Options const& opt,
   vw::Vector2 ans = asp::propagateCovariance(triPt, datum,
                                              cam1_model.get(), cam2_model.get(),
                                              pix1, pix2);
-  std::cout << "Horizontal and vertical covariance: " << ans << std::endl;
+  std::cout << "Horizontal and vertical stddev: " << ans << std::endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -230,8 +231,8 @@ int main(int argc, char *argv[]) {
                << "were guessed as: '" << opt.session1 << "'. It is suggested that they be "
                << "explicitly specified using --session1 and --session2.\n");
 
-    if (opt.test_covariance_computation && opt.session1 == "dg" && opt.session2 == "dg") {
-      testCovarianceComputation(opt, datum, cam1_model, cam2_model);
+    if (opt.test_error_propagation && opt.session1 == "dg" && opt.session2 == "dg") {
+      testErrorPropagation(opt, datum, cam1_model, cam2_model);
       return 0;
     }
     

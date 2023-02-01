@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// Logic for propagation of covariance through stereo triangulation 
+// Logic for propagation of errors (covariance) through stereo triangulation 
 
 #include <asp/Camera/Covariance.h>
 #include <asp/Camera/LinescanDGModel.h>
@@ -458,8 +458,8 @@ void triangulationJacobian(vw::cartography::Datum const& datum,
 
   return;
 }
-  
-// See .h for the doc.
+
+// Propagate the covariances. Return stddev. See the .h file for more info.
 vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
                                 vw::cartography::Datum const& datum,
                                 vw::camera::CameraModel const* cam1,
@@ -474,18 +474,22 @@ vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
 
   vw::Matrix<double> J, C;
 
-  vw::Vector2 const& v = asp::stereo_settings().horizontal_variances; // alias
-  if (v[0] > 0 && v[1] > 0) {
-    // The user set horizontal variances
+  vw::Vector2 const& stddev = asp::stereo_settings().horizontal_stddev; // alias
+  vw::Vector2 variance;
+  for (int s = 0; s < 2; s++)
+    variance[s] = stddev[s] * stddev[s]; // square these to create variances  
+  
+  if (variance[0] > 0 && variance[1] > 0) {
+    // The user set horizontal stddev
     triangulationJacobian(datum, tri_nominal, cam1, cam2, pix1, pix2, J);
     C = vw::math::identity_matrix(4);
-    // The first two covariances are the left camera horizontal variance,
+    // The first two covariances are the left camera horizontal square stddev,
     // and last two are for the right camera.
-    C(0, 0) = v[0]; C(1, 1) = v[0];
-    C(2, 2) = v[1]; C(3, 3) = v[1];
+    C(0, 0) = variance[0]; C(1, 1) = variance[0];
+    C(2, 2) = variance[1]; C(3, 3) = variance[1];
   } else {
     // Will arrive here only for DG cameras and if the user did not
-    // set --horizontal-variances.  The Jacobian of the transform from
+    // set --horizontal-stddev.  The Jacobian of the transform from
     // ephemeris and attitude to the triangulated point in NED
     // coordinates, multiplied by a scale factor.
     asp::scaledDGTriangulationJacobian(datum, cam1, cam2, pix1, pix2, J);
@@ -525,8 +529,9 @@ vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
   // signifies that the there is no valid data
   if (ans != ans) 
     vw::vw_throw(vw::ArgumentErr() << "Could not compute the covariance.\n");
-  
-  return ans;
+
+  // Take the square root, so return the standard deviation
+  return vw::Vector2(sqrt(ans[0]), sqrt(ans[1]));
 }
   
 } // end namespace asp

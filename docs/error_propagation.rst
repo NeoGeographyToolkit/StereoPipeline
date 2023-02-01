@@ -4,32 +4,33 @@ Error propagation
 =================
 
 At the triangulation stage, ``parallel_stereo`` can propagate the
-errors (uncertainties, covariances) from the input cameras to the
-triangulated points. This is enabled with the option
-``--compute-point-cloud-covariances``
-(:numref:`stereo-default-covariance`).
+errors (uncertainties, standard deviations, covariances) from the
+input cameras, computing the horizontal and vertical standard
+deviation (stddev) of the uncertainty for each triangulated
+point. This is enabled with the option ``--propagate-errors``
+(:numref:`stereo-default-error-propagation`).
 
 The input uncertainties can be either numbers that are passed on the
 command line, or, otherwise, for a few camera models, they can be read
 from the camera files.
 
-If the option ``--horizontal-variances`` is set, with two positive
-numbers as values, representing the left and right camera variance in
+If the option ``--horizontal-stddev`` is set, with two positive
+numbers as values, representing the left and right camera stddev in
 the local horizontal ground plane having the triangulated point, then these
-values will be used. The input variances are measured in meters
-square. This functionality works with any cameras supported by ASP.
+values will be used. The input stddev values are measured in meters.
+This functionality works with any cameras supported by ASP.
 
 If this option is not set, the following strategies are used:
 
  - For Pleiades linescan camera models (:numref:`pleiades`) the value
    ``ACCURACY_STDV`` is read from the "DIM" XML file for each camera
    (in the *Absolute Horizontal Accuracy* section of the camera
-   model), and its square is used as the horizontal variance.
+   model), and it is used as the horizontal stddev.
 
  - For Maxar (DigitalGlobe) RPC cameras (:numref:`rpc`), the values
    ``ERRBIAS`` and ``ERRRAND`` are read from each camera model
-   file. The sum of squares of these quantities is the input
-   horizontal variance for a camera.
+   file. The square root of sum of squares of these quantities is the
+   input horizontal stddev for a camera.
 
  - For Maxar (DigitalGlobe) linescan cameras (:numref:`dg_tutorial`), 
    the inputs are the satellite position and orientation covariances,
@@ -40,10 +41,10 @@ If this option is not set, the following strategies are used:
 
  - For datasets with a known CE90 measure, or in general a
    :math:`CE_X` measure, where :math:`X` is between 0% and 100%,
-   manually compute the horizontal variance
-   as :math:`-CE_X^2/(2 \ln(1-X/100.0))` (`reference
+   manually compute the horizontal stddev
+   as :math:`CE_X/sqrt(-2 \ln(1-X/100.0))` (`reference
    <https://en.wikipedia.org/wiki/Circular_error_probable#Conversion>`_)
-   and pass it using the ``--horizontal-variances`` option.
+   and pass it using the ``--horizontal-stddev`` option.
 
 In all cases, the error propagation takes into account whether the
 cameras are bundle-adjusted or not (:numref:`bundle_adjust`), and if
@@ -52,19 +53,43 @@ the images are mapprojected (:numref:`mapproj-example`).
 The triangulation covariance matrix is computed in the local
 North-East-Down (NED) coordinates at each nominal triangulated point,
 and further decomposed into the horizontal and vertical components
-(:numref:`produced_covariances`), which are saved as the 5th and 6th
+(:numref:`produced_covariances`), the square root is taken,
+creating the stddev, which are saved as the 5th and 6th
 band in the point cloud (\*-PC.tif file, :numref:`outputfiles`).
 
 Running ``gdalinfo`` (:numref:`gdal_tools`) on the point cloud will
 show some metadata describing each band in the produced point cloud.
 
-The covariances in the point cloud can then be gridded with
-``point2dem`` (:numref:`point2dem`) with the option ``--covariances``,
-using the same algorithm as for computing the DEM heights. This will
-produce files ending with the suffixes ``HorizontalCovariance.tif``
-and ``VerticalCovariance.tif`` alongside the output DEM.
+The stddev values in the point cloud can then be gridded with
+``point2dem`` (:numref:`point2dem`) with the option
+``--propagate-errors``, using the same algorithm as for computing the
+DEM heights. This will produce files ending with the suffixes
+``HorizontalStdDev.tif`` and ``VerticalStdDev.tif`` alongside the
+output DEM.
 
-The covariances are in units of square meter.
+The computed stddev values are in units of meter.
+
+What the produced uncertainties are not
+---------------------------------------
+
+The horizontal and vertical stddev values created by stereo
+triangulation and later gridded by ``point2dem`` measure the 
+uncertainty of the nominal triangulated point, given the uncertainties
+in the input cameras.
+
+This is not the discrepancy between this point's location as compared
+to to a known ground truth. If the input cameras are translated by the
+same amount in the ECEF coordinate system, the triangulated point
+position can change a lot, but the produced uncertainties will change
+very little. To estimate and correct a point cloud's geolocation 
+invoke an alignment algorithm (:numref:`pc_align`).
+
+The produced uncertainties are not a measure of the pointing accuracy
+(:numref:`triangulation_error`). Whether the rays from the cameras
+meet at the nominal triangulated point perfectly, or their closest
+distance is, for example, 5 meters, the produced uncertainties around
+the nominal point will be about the same. The pointing accuracy can be
+improved by using bundle adjustment (:numref:`bundle_adjust`).
 
 Example
 -------
@@ -73,14 +98,14 @@ For Maxar (DigitalGlobe) linescan cameras::
 
     parallel_stereo --alignment-method local_epipolar \
       --stereo-algorithm asp_mgm --subpixel-mode 9    \
-      -t dg --compute-point-cloud-covariances         \
+      -t dg --propagate-errors                        \
       left.tif right.tif left.xml right.xml 
       run/run
-   point2dem --covariances run/run-PC.tif
+   point2dem --propagate-errors run/run-PC.tif
 
-Alternatively, if horizontal variances for the cameras are set as::
+Alternatively, if horizontal stddev for the cameras are set as::
 
-   --horizontal-variances 1.05 1.11
+   --horizontal-stddev 1.05 1.11
 
 these will be used instead. This works for any orbital camera model
 supported by ASP (:numref:`examples`).
@@ -90,11 +115,11 @@ supported by ASP (:numref:`examples`).
 Definitions
 -----------
 
-The vertical covariance of a triangulated point is defined as the
+The vertical variance of a triangulated point is defined as the
 lower-right corner of the 3x3 NED covariance matrix (since x=North,
 y=East, z=Down).
 
-To find the horizontal covariance component, consider the upper-left
+To find the horizontal variance component, consider the upper-left
 :math:`2 \times 2` block of that matrix. Geometrically, the
 horizontal covariances represent an ellipse. The radius of the circle
 with the same area is found, which is the square root of the product
@@ -102,6 +127,8 @@ of ellipse semiaxes, which is the product of the eigenvalues of this
 symmetric matrix, or its determinant. So, the the horizontal component
 of the covariance is defined as the square root of the upper-left
 :math:`2 \times 2` bock of the NED covariance matrix.
+
+The square root is taken to go from variance to stddev.
 
 Theory
 ------
@@ -125,6 +152,9 @@ positions and orientations (quaternions), which are 7 real values for
 each camera. The output is the triangulated point in the local
 North-East-Down coordinates.
 
+If the inputs are stddev values, then these are squared, creating
+variances, before being propagated.
+
 The Jacobian was computed using centered finite
 differences, with a step size of 0.01 meters for the position and 1e-6
 for the (normalized) quaternions. The computation was not particularly
@@ -136,13 +166,11 @@ computations have only 16 digits of precision.
 Validation for Maxar (DigitalGlobe) linescan cameras
 ----------------------------------------------------
 
-The computed horizontal covariance has a value on the order of 7-10
-:math:`m^2` or so, which suggests that the horizontal standard
-deviation is the square root of that, so about 3 meters.
+The horizontal stddev values propagated through triangulation are on
+the order of the order 3 meters.
 
-The vertical covariance varies very strongly with the convergence
-angle, and is usually 25-100 :math:`m^2`, so the vertical standard
-deviation is, roughly speaking, 5-10 meters, and perhaps more for
+The obtained vertical stddev varies very strongly with the convergence
+angle, and is usually, 5-10 meters, and perhaps more for
 stereo pairs with a convergence angle under 30 degrees.
 
 The dependence on the convergence angle is very expected. But these
@@ -184,7 +212,7 @@ different sign and magnitude for the biases.
 
 Then, ``parallel_stereo`` can be run twice, with different output
 prefixes, first with the original cameras, and then the biased ones, in
-both cases without propagation of covariance. Use
+both cases without propagation of errors. Use
 ``--left-image-crop-win`` and ``--right-image-crop-win``
 (:numref:`stereo_gui`) to run on small clips only.
 

@@ -1343,25 +1343,25 @@ int asp::num_channels(std::vector<std::string> const& pc_files) {
   return min_num_channels;
 }
 
-// See if all the input point cloud files have covariances  
-bool asp::has_covariances(std::vector<std::string> const& pc_files) {
+// See if all the input point cloud files have stddev values
+bool asp::has_stddev(std::vector<std::string> const& pc_files) {
   
   VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one point cloud file.\n");
 
-  bool has_cov = true;
+  bool has_sd = true;
   for (size_t i = 0; i < pc_files.size(); i++) {
     std::string val;
     std::string adj_key = "BAND5";
     boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(pc_files[i]));
     vw::cartography::read_header_string(*rsrc.get(), adj_key, val);
-    if (val != "horizontalCovariance")
-      has_cov = false;
+    if (val != "HorizontalStdDev")
+      has_sd = false;
   }
 
-  if (has_cov && asp::num_channels(pc_files) < 6) 
-    has_cov = false;
+  if (has_sd && asp::num_channels(pc_files) < 6) 
+    has_sd = false;
 
-  return has_cov;
+  return has_sd;
 }
 
 // Get a handle to the error image given a set of point clouds with 4 or 6 bands
@@ -1370,10 +1370,10 @@ vw::ImageViewRef<double> asp::point_cloud_error_image
 
   ImageViewRef<double> error_image;
   int num_channels = asp::num_channels(pointcloud_files);
-  bool has_cov = asp::has_covariances(pointcloud_files);
+  bool has_sd = asp::has_stddev(pointcloud_files);
   
-  if (num_channels == 4 || (num_channels == 6 && has_cov)) {
-    // The error is a scalar (4 channels or 6 channels but last two are covariance)
+  if (num_channels == 4 || (num_channels == 6 && has_sd)) {
+    // The error is a scalar (4 channels or 6 channels but last two are stddev values)
     error_image = asp::error_norm<4>(pointcloud_files);
   } else if (num_channels == 6) {
     error_image = asp::error_norm<6>(pointcloud_files);

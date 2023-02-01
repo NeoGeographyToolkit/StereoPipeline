@@ -53,7 +53,7 @@ enum OUTPUT_CLOUD_TYPE {FULL_CLOUD, BATHY_CLOUD, TOPO_CLOUD}; // all, below wate
 
 /// The main class for taking in a set of disparities and returning a
 /// point cloud using triangulation. Will compute the triangulation
-/// error, and perhaps covariances.
+/// error, and perhaps propagate covariances (creating stddev).
 class StereoTriangulation:
   public ImageViewBase<StereoTriangulation> {
   std::vector<DispImageType>    m_disparity_maps;
@@ -139,11 +139,12 @@ public:
       try {
         subvector(result, 0, 3) = m_stereo_model(pixVec, errorVec);
         double errLen = norm_2(errorVec);
-        if (!stereo_settings().compute_point_cloud_covariances) {
+        if (!stereo_settings().propagate_errors) {
           subvector(result, 3, 3) = errorVec;
         } else {
-          // Store error length in band 3, horizontal covariance
-          // in band 4, and vertical covariance in band 5.
+          // Store intersection error norm in band 3, horizontal
+          // stddev in band 4, and vertical stddev in band 5 (if band
+          // index starts from 0).
           result[3] = errLen;
           subvector(result, 4, 2)
             = asp::propagateCovariance(subvector(result, 0, 3),
@@ -398,18 +399,17 @@ void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
 
   vw_out() << "Writing point cloud: " << point_cloud_file << "\n";
   bool has_georef = true;
-
   bool has_nodata = false;
   double nodata = -std::numeric_limits<float>::max(); // smallest float
   
   std::map<std::string, std::string> keywords; // will go to the geoheader
-  if (stereo_settings().compute_point_cloud_covariances) {
+  if (stereo_settings().propagate_errors) {
     keywords["BAND1"] = "ECEF_X";
     keywords["BAND2"] = "ECEF_Y";
     keywords["BAND3"] = "ECEF_Z";
     keywords["BAND4"] = "IntersectionErr";
-    keywords["BAND5"] = "horizontalCovariance";
-    keywords["BAND6"] = "verticalCovariance";
+    keywords["BAND5"] = "HorizontalStdDev";
+    keywords["BAND6"] = "VerticalStdDev";
   }
   
   if (opt.session->supports_multi_threading()){
@@ -821,14 +821,14 @@ void stereo_triangulation(std::string const& output_prefix,
 
     // We are supposed to do the triangulation in trans_crop_win only
     // so force rasterization in that box only using crop().
-    // The cloud has 4 bands unless computing the error vector or covariances,
+    // The cloud has 4 bands unless computing the error vector or stddev,
     // when it has 6.
     BBox2i cbox = stereo_settings().trans_crop_win;
     std::string point_cloud_file = output_prefix + "-PC.tif";
     if (stereo_settings().compute_error_vector ||
-        stereo_settings().compute_point_cloud_covariances) {
+        stereo_settings().propagate_errors) {
 
-      // The case num_cams > 2 && stereo_settings().compute_point_cloud_covariances
+      // The case num_cams > 2 && stereo_settings().propagate_errors
       // will throw an exception, so we won't get here.
       if (num_cams > 2 && stereo_settings().compute_error_vector)
         vw_out(WarningMessage) << "For more than two cameras, the error "

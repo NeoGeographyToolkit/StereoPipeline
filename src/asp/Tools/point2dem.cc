@@ -74,7 +74,7 @@ struct Options : vw::GdalWriteOptions {
   double      lon_offset, lat_offset, height_offset;
   size_t      utm_zone;
   ProjectionType projection;
-  bool        has_alpha, do_normalize, do_ortho, do_error, covariances, no_dem;
+  bool        has_alpha, do_normalize, do_ortho, do_error, propagate_errors, no_dem;
   double      rounding_error;
   std::string target_srs_string;
   BBox2       target_projwin;
@@ -408,7 +408,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
      "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
-    ("covariances", po::bool_switch(&opt.covariances)->default_value(false), "Write files with names {output-prefix}-horizontalCovariance.tif and {output-prefix}-verticalCovariance.tif having the gridded covariances produced from bands 5 and 6 of the input point cloud, if this cloud was created with the option --compute-point-cloud-covariances. The same gridding algorithm is used as for creating the DEM.")
+    ("propagate-errors", po::bool_switch(&opt.propagate_errors)->default_value(false), "Write files with names {output-prefix}-HorizontalStdDev.tif and {output-prefix}-VerticalStdDev.tif having the gridded stddev produced from bands 5 and 6 of the input point cloud, if this cloud was created with the option --propagate-errors. The same gridding algorithm is used as for creating the DEM.")
     ("gaussian-sigma-factor", po::value(&opt.sigma_factor)->default_value(0.0),
      "The value s to be used in the Gaussian exp(-s*(x/grid_size)^2) when computing the DEM. The default is -log(0.25) = 1.3863. A smaller value will result in a smoother terrain.")
     ("default-grid-size-multiplier", po::value(&opt.default_grid_size_multiplier)->default_value(1.0),
@@ -939,13 +939,13 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     *num_invalid_pixels = 0; // Reset this count
   }
 
-  bool has_cov = asp::has_covariances(opt.pointcloud_files);
-  if (opt.covariances && !has_cov) {
+  bool has_sd = asp::has_stddev(opt.pointcloud_files);
+  if (opt.propagate_errors && !has_sd) {
     // Do not throw an error. Go on and save at least the intersection
     // error and orthoimage.
-    vw_out() << "Cannot compute the covariances as the point cloud file is "
+    vw_out() << "Cannot grid the horizontal and vertical stddev as the point cloud file is "
              << "not in the expected format.\n";
-    opt.covariances = false;
+    opt.propagate_errors = false;
   }
   
   // Write triangulation error image if requested
@@ -953,8 +953,8 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     int num_channels = asp::num_channels(opt.pointcloud_files);
     
     int hole_fill_len = 0;
-    if (num_channels == 4 || (num_channels == 6 && has_cov)) {
-      // The error is a scalar (4 channels or 6 channels but last two are covariance)
+    if (num_channels == 4 || (num_channels == 6 && has_sd)) {
+      // The error is a scalar (4 channels or 6 channels but last two are stddev)
       ImageViewRef<double> error_channel = asp::point_cloud_error_image(opt.pointcloud_files);
       rasterizer.set_texture(error_channel);
       rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
@@ -988,14 +988,14 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     }
   }
 
-  if (opt.covariances) {
+  if (opt.propagate_errors) {
     int num_channels = asp::num_channels(opt.pointcloud_files);
     
     // Note: We don't throw here. We still would like to write the
-    // DRG (below) even if we can't write the covariances.
+    // DRG (below) even if we can't write the stddev.
     if (num_channels != 6) {
       vw_out() << "The input point cloud(s) must have 6 channels to be able to "
-               << "compute the covariances.\n";
+               << "grid the horizontal and vertical stddev.\n";
     } else {
       int hole_fill_len = 0;
       ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>
@@ -1007,7 +1007,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
       save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
                                                           opt.rounding_error,
                                                           opt.nodata_value),
-                 georef, hole_fill_len, "HorizontalCovariance");
+                 georef, hole_fill_len, "HorizontalStdDev");
       
       ImageViewRef<double> vertical_cov_channel = select_channel(point_disk_image, 5);
       rasterizer.set_texture(vertical_cov_channel);
@@ -1015,7 +1015,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
       save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
                                                           opt.rounding_error,
                                                           opt.nodata_value),
-                 georef, hole_fill_len, "VerticalCovariance");
+                 georef, hole_fill_len, "VerticalStdDev");
     }
   }
   

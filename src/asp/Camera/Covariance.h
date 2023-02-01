@@ -18,7 +18,7 @@
 
 /// \file Covariance.h
 
-// Logic for propagation of covariance through stereo triangulation 
+// Logic for propagation of errors (covariances) through stereo triangulation 
 
 #ifndef __ASP_CAMERA_COVARIANCE_H__
 #define __ASP_CAMERA_COVARIANCE_H__
@@ -52,7 +52,8 @@ namespace asp {
 
   // Propagate horizontal ground plane covariances or DG's satellite
   // ephemeris and attitude covariances to triangulation in NED
-  // coordinates. Return its horizontal and vertical components.
+  // coordinates. Return the square root of horizontal and vertical
+  // components, so the standard deviations.
   vw::Vector2 propagateCovariance(vw::Vector3 const& triPt,
                                   vw::cartography::Datum const& datum,
                                   vw::camera::CameraModel const* cam1,
