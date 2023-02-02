@@ -87,6 +87,8 @@ but its values and extent may change slightly.
 
 The computed stddev values are in units of meter.
 
+.. _uncertainty_vs_triangulation_err:
+
 What the produced uncertainties are not
 ---------------------------------------
 
@@ -106,8 +108,12 @@ The produced uncertainties are not a measure of the pointing accuracy
 (:numref:`triangulation_error`). Whether the rays from the cameras
 meet at the nominal triangulated point perfectly, or their closest
 distance is, for example, 5 meters, the produced uncertainties around
-the nominal point will be about the same. The pointing accuracy can be
-improved by using bundle adjustment (:numref:`bundle_adjust`).
+the nominal point will be about the same. See a comparison between
+these errors in :numref:`grand_mesa_dem_intersection_err` and the
+figure under it.
+
+The pointing accuracy can be improved by using bundle adjustment
+(:numref:`bundle_adjust`).
 
 Example
 -------
@@ -121,12 +127,32 @@ For Maxar (DigitalGlobe) linescan cameras::
       run/run
    point2dem --propagate-errors run/run-PC.tif
 
-Alternatively, if horizontal stddev for the cameras are set as::
+Alternatively, the input horizontal stddev values for the cameras
+can be set as::
 
    --horizontal-stddev 1.05 1.11
 
-these will be used instead. This works for any orbital camera model
-supported by ASP (:numref:`examples`).
+Then these will be used instead. This last approach works for any
+orbital camera model supported by ASP (:numref:`examples`).
+
+.. figure:: images/grand_mesa_dem_intersection_err.png
+   :name: grand_mesa_dem_intersection_err
+
+   A hillshaded DEM created with DigitalGlobe WorldView images for
+   Grand Mesa, Colorado (left), and the triangulation error
+   (:numref:`triangulation_error`) in meters (right). The input images were
+   mapprojected (:numref:`mapproj-example`). No bundle adjustment was
+   used. Jitter (:numref:`jitter_solve`) is noticeable.  
+
+.. figure:: images/horizontal_vertical_error.png
+   :name: horizontal_vertical_error
+
+   Horizontal and vertical errors (left and right) for the same dataset. 
+   It can be seen from the scales (units are in meter) and comparing
+   with :numref:`grand_mesa_dem_intersection_err` that these
+   errors vary little overall, and depend more on the geometry
+   of the stereo pair than the underlying terrain. See
+   :numref:`uncertainty_vs_triangulation_err` for a discussion.
 
 .. _produced_covariances:
 

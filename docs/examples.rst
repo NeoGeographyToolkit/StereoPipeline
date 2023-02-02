@@ -304,7 +304,6 @@ found at 23.96 N and 262.60 E. This DEM crosses the volcano's caldera.
    Example output for MOC-NA of Ceraunius Tholus. Notice the presence
    of severe washboarding artifacts due to spacecraft jitter.
 
-
 .. _commands-2:
 
 Commands
