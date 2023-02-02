@@ -2236,6 +2236,10 @@ The option ``--auto-overlap-params`` automatically determines which
 image pairs overlap. We used ``--max-pairwise-matches 200`` as
 otherwise too many interest point matches were found.
 
+The option ``--mapproj-dem`` (:numref:`ba_mapproj_dem`) can be used to
+preview the quality of registration of the images on the ground after
+bundle adjustment.
+
 The option ``--min-triangulation-angle 15.0`` filtered out interest
 point matches with a convergence angle less than this. This is very
 important for creating a reliable sparse set of triangulated points

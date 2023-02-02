@@ -56,7 +56,8 @@ perform as well when finding interest points in planetary context.
 Large-scale usage of bundle adjustment is illustrated in the SkySat
 processing example (:numref:`skysat`), with many Pinhole cameras, and
 with a large number of Lunar images with variable illumination
-(:numref:`sfs-lola-dem`).
+(:numref:`sfs-lola-dem`). See also the related jitter-solving tool
+(:numref:`jitter_solve`).
 
 This tool will write the adjustments to the cameras as ``*.adjust``
 files starting with the specified output prefix

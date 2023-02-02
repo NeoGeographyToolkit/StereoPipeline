@@ -147,9 +147,9 @@ orbital camera model supported by ASP (:numref:`examples`).
 .. figure:: images/horizontal_vertical_error.png
    :name: horizontal_vertical_error
 
-   Horizontal and vertical errors (left and right) for the same dataset. 
-   It can be seen from the scales (units are in meter) and comparing
-   with :numref:`grand_mesa_dem_intersection_err` that these
+   Produced horizontal and vertical stddev (left and right) for the
+   same dataset. It can be seen from the scales (units are in meter)
+   and comparing with :numref:`grand_mesa_dem_intersection_err` that these
    errors vary little overall, and depend more on the geometry
    of the stereo pair than the underlying terrain. See
    :numref:`uncertainty_vs_triangulation_err` for a discussion.
