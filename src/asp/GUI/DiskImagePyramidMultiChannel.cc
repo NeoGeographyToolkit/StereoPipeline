@@ -16,6 +16,7 @@
 // __END_LICENSE__
 
 #include <asp/GUI/DiskImagePyramidMultiChannel.h>
+#include <asp/Core/StereoSettings.h>
 
 #include <QtWidgets>
 
@@ -133,7 +134,15 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
 
     //Stopwatch sw0;
     //sw0.start();
-    approx_bounds = m_img_ch1_double.get_approx_bounds();
+    if (asp::stereo_settings().min < asp::stereo_settings().max) {
+      // If the min and max are set, not NaN, and first is less than the second
+      approx_bounds = vw::Vector2(asp::stereo_settings().min, asp::stereo_settings().max); 
+    } else {
+      // Normally these are auto-estimated rather well, except for images with
+      // most data being very small, like in shadow.
+      approx_bounds = m_img_ch1_double.get_approx_bounds();
+    }
+    
     //sw0.stop();
     //vw_out() << "Render time sw0 (seconds): " << sw0.elapsed_seconds() << std::endl;
     

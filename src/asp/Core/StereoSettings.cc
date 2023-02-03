@@ -479,9 +479,9 @@ namespace asp {
       ("colorize",   po::bool_switch(&global.colorize)->default_value(false)->implicit_value(true),
        "Colorize input raster and CSV files (must set --min and --max).")
       ("min", po::value(&global.min)->default_value(g_nan_val),
-       "Value corresponding to 'coldest' color in the color map, when using the --colorize option and plotting csv data. If not set, use the dataset minimum.")
+       "Value corresponding to 'coldest' color in the color map, when using the --colorize option and plotting csv data. Also used to manually set the minimum value in grayscale images. If not set, use the dataset minimum for color images, and estimate the minimum for grayscale images.")
       ("max", po::value(&global.max)->default_value(g_nan_val),
-       "Value corresponding to the 'hottest' color in the color map, when using the --colorize option and plotting csv data. If not set, use the dataset maximum.")
+       "Value corresponding to the 'hottest' color in the color map, when using the --colorize option and plotting csv data. Also used to manually set the maximum value in grayscale images. If not set, use the dataset maximum for color images, and estimate the maximum for grayscale images.")
       ("plot-point-radius", po::value(&global.plot_point_radius)->default_value(2),
        "When plotting points from CSV files, let each point be drawn as a filled ball with this radius, in pixels.")
       ;

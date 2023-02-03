@@ -3018,6 +3018,15 @@ int main(int argc, char* argv[]) {
     }
     start_index -= this_count;
 
+    // TODO(oalexan1): The above logic is confusing. It is some
+    // kind of partitioning. At least when parallel_bundle_adjust
+    // is not invoked, for now check that things are as expected,
+    // so all the matches are used.
+    if (opt.instance_count == 1) {
+      if (start_index != 0 || this_count != all_pairs.size()) 
+        vw::vw_throw(vw::ArgumentErr() << "Book-keeping failure in bundle_adjust.\n");
+    }
+    
     std::vector<std::pair<int,int>> this_instance_pairs;
     for (size_t i=0; i<this_count; i++)
       this_instance_pairs.push_back(all_pairs[i+start_index]);
