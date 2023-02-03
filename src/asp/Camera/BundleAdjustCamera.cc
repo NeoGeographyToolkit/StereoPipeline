@@ -867,12 +867,13 @@ void asp::saveConvergenceAngles(std::string const& conv_angles_file,
   vw_out() << "Writing: " << conv_angles_file << "\n";
   std::ofstream ofs (conv_angles_file.c_str());
   ofs << "# Convergence angle percentiles (in degrees) for each image pair having matches\n";
-  ofs << "# left_image right_image 25% 50% 75% num_angles_per_pair\n";
+  ofs << "# left_image right_image 25% 50% 75% 85% 95% num_angles_per_pair\n";
   ofs.precision(17);
   for (size_t conv_it = 0; conv_it < convAngles.size(); conv_it++) {
     auto const & c = convAngles[conv_it]; // alias
     ofs << imageFiles[c.left_cam_index] << ' ' << imageFiles[c.right_cam_index] << ' '
-        << c.val25 << ' ' << c.val50 << ' '  << c.val75 << ' ' << c.num_vals << "\n";
+        << c.val25 << ' ' << c.val50 << ' ' << c.val75 << ' '
+        << c.val85 << ' ' << c.val95 << ' ' << c.num_vals << "\n";
   }
   ofs.close();
 
@@ -957,17 +958,20 @@ void asp::saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
   for (size_t image_it = 0; image_it < imageFiles.size(); image_it++) {
     auto & vals = mapprojOffsetsPerCam[image_it]; // alias
     int len = vals.size();
-    double val25 = -1.0, val50 = -1.0, val75 = -1.0, count = 0;
+    double val25 = -1.0, val50 = -1.0, val75 = -1.0, val85 = -1.0, val95 = -1.0, count = 0;
     if (!vals.empty()) {
       std::sort(vals.begin(), vals.end());
       val25 = vals[0.25 * len];
       val50 = vals[0.50 * len];
       val75 = vals[0.75 * len];
+      val85 = vals[0.85 * len];
+      val95 = vals[0.95 * len];
       count = len;
     }
 
     ofs << imageFiles[image_it] << ' '
-        << val25 << ' ' << val50 << ' ' << val75 << ' ' << count << "\n";
+        << val25 << ' ' << val50 << ' ' << val75 << ' '
+        << val85 << ' ' << val95 << ' ' << count << "\n";
   }
 
   ofs << "# Percentiles of distances between matching pixels after mapprojecting onto DEM.\n"
@@ -977,7 +981,8 @@ void asp::saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
   for (size_t conv_it = 0; conv_it < mapprojOffsets.size(); conv_it++) {
     auto const & c = mapprojOffsets[conv_it]; // alias
     ofs << imageFiles[c.left_cam_index] << ' ' << imageFiles[c.right_cam_index] << ' '
-        << c.val25 << ' ' << c.val50 << ' '  << c.val75 << ' ' << c.num_vals << "\n";
+        << c.val25 << ' ' << c.val50 << ' ' << c.val75 << ' '
+        << c.val85 << ' ' << c.val95 << ' ' << c.num_vals << "\n";
   }
 
   ofs.close();

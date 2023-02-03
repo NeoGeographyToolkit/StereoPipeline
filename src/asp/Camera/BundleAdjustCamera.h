@@ -80,9 +80,9 @@ const std::string UNSPECIFIED_DATUM = "unspecified_datum";
 // A structure to hold percentiles of given sorted values. This sorts the inputs.
 struct MatchPairStats {
   int left_cam_index, right_cam_index, num_vals;
-  double val25, val50, val75;
+  double val25, val50, val75, val85, val95;
   MatchPairStats(): left_cam_index(0), right_cam_index(0), num_vals(0), val25(0), val50(0),
-               val75(0) {}
+                    val75(0), val85(0), val95(0) {}
   void populate(int left_index, int right_index, std::vector<double> & vals) {
     std::sort(vals.begin(), vals.end());
     left_cam_index  = left_index;
@@ -92,6 +92,8 @@ struct MatchPairStats {
       val25 = vals[0.25*num_vals];
       val50 = vals[0.50*num_vals];
       val75 = vals[0.75*num_vals];
+      val85 = vals[0.85*num_vals];
+      val95 = vals[0.95*num_vals];
     }
   }
 };
