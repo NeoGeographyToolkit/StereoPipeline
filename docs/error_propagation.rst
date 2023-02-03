@@ -199,7 +199,7 @@ each camera. The output is the triangulated point in the local
 North-East-Down coordinates.
 
 If the input uncertainties are stddev values, then these are squared,
-creating variances, before being propagated (and converted back to
+creating variances, before being propagated (then converted back to
 stddev values at the last step).
 
 The Jacobian was computed using centered finite
