@@ -15,10 +15,11 @@ command line, or, otherwise, for a few camera models, they can be read
 from the camera files.
 
 If the option ``--horizontal-stddev`` is set, with two positive
-numbers as values, representing the left and right camera stddev in
-the local horizontal ground plane having the triangulated point, then these
-values will be used. The input stddev values are measured in meters.
-This functionality works with any cameras supported by ASP.
+numbers as values, representing the left and right camera stddev of
+position uncertainty in the local horizontal ground plane having the
+triangulated point, then these values will be used. The input stddev
+values are measured in meters.  This functionality works with any
+cameras supported by ASP.
 
 If this option is not set, the following strategies are used:
 
@@ -61,7 +62,6 @@ and further decomposed into the horizontal and vertical components
 (:numref:`produced_covariances`), the square root is taken,
 creating the stddev, which are saved as the 5th and 6th
 band in the point cloud (\*-PC.tif file, :numref:`outputfiles`).
-
 Running ``gdalinfo`` (:numref:`gdal_tools`) on the point cloud will
 show some metadata describing each band in the produced point cloud.
 
@@ -75,15 +75,16 @@ output DEM.
 Note that propagating the errors subtly changes the behavior of stereo
 triangulation, and hence also of the output DEM. Triangulated points
 are saved with a float precision of 1e-8 meters (rather than the usual
-1e-3 meters or so), to avoid creating step artifacts later when
-gridding the rather slowly varying propagated errors
-(:numref:`triangulation_options`).
+1e-3 meters or so, :numref:`triangulation_options`), to avoid creating
+step artifacts later when gridding the rather slowly varying
+propagated errors.
 
 When error propagation is enabled, the triangulated point cloud stores
-6 bands instead of the usual 4, and the LZW compression is somewhat
-less efficient since the precision is higher. The size of the point
-cloud roughly doubles. This does not affect the size of the DEM,
-but its values and extent may change slightly.
+6 bands instead of the usual 4 (:numref:`outputfiles`), and the LZW
+compression is somewhat less efficient since more digits of precision
+are stored. The size of the point cloud roughly doubles. This does not
+affect the size of the DEM, but its values and extent may change
+slightly.
 
 The computed stddev values are in units of meter.
 
@@ -93,9 +94,9 @@ What the produced uncertainties are not
 ---------------------------------------
 
 The horizontal and vertical stddev values created by stereo
-triangulation and later gridded by ``point2dem`` measure the 
-uncertainty of the nominal triangulated point, given the uncertainties
-in the input cameras.
+triangulation and later gridded by ``point2dem`` measure the
+uncertainty of each nominal triangulated point, given the
+uncertainties in the input cameras.
 
 This is not the discrepancy between this point's location as compared
 to to a known ground truth. If the input cameras are translated by the
@@ -109,11 +110,12 @@ The produced uncertainties are not a measure of the pointing accuracy
 meet at the nominal triangulated point perfectly, or their closest
 distance is, for example, 5 meters, the produced uncertainties around
 the nominal point will be about the same. See a comparison between
-these errors in :numref:`grand_mesa_dem_intersection_err` and the
-figure under it.
+these errors in :numref:`grand_mesa_dem_intersection_err` and 
+:numref:`horizontal_vertical_error`.
 
 The pointing accuracy can be improved by using bundle adjustment
-(:numref:`bundle_adjust`).
+(:numref:`bundle_adjust`) and solving for jitter
+(:numref:`jitter_solve`).
 
 Example
 -------
@@ -147,7 +149,7 @@ orbital camera model supported by ASP (:numref:`examples`).
 .. figure:: images/horizontal_vertical_error.png
    :name: horizontal_vertical_error
 
-   Produced horizontal and vertical stddev (left and right) for the
+   Produced horizontal and vertical stddev values (left and right) for the
    same dataset. It can be seen from the scales (units are in meter)
    and comparing with :numref:`grand_mesa_dem_intersection_err` that these
    errors vary little overall, and depend more on the geometry
@@ -196,22 +198,23 @@ positions and orientations (quaternions), which are 7 real values for
 each camera. The output is the triangulated point in the local
 North-East-Down coordinates.
 
-If the inputs are stddev values, then these are squared, creating
-variances, before being propagated.
+If the input uncertainties are stddev values, then these are squared,
+creating variances, before being propagated (and converted back to
+stddev values at the last step).
 
 The Jacobian was computed using centered finite
 differences, with a step size of 0.01 meters for the position and 1e-6
 for the (normalized) quaternions. The computation was not particularly
 sensitive to these step sizes. A much smaller position step size is
 not recommended, since the positions are on the order of 7e6 meters,
-(being measured from planet center) and because double-precision
+(being measured from planet center) and because double precision
 computations have only 16 digits of precision.
 
 Validation for Maxar (DigitalGlobe) linescan cameras
 ----------------------------------------------------
 
 The horizontal stddev values propagated through triangulation are on
-the order of the order 3 meters.
+the order of 3 meters.
 
 The obtained vertical stddev varies very strongly with the convergence
 angle, and is usually, 5-10 meters, and perhaps more for stereo pairs
@@ -226,7 +229,7 @@ orientation covariances can be determined with the options
 ``--position-covariance-factor`` and
 ``--orientation-covariance-factor``).
 
-The curious user can use the following independent approach to
+The curious user can try the following independent approach to
 validate these numbers. The linescan camera files in XML format have
 the orientations on lines with the ``ATTLIST`` field. The numbers on
 that line are measurement index, then the quaternions (4 values, in
@@ -234,8 +237,9 @@ order x, y, z, w) and the upper-right half of the 4x4 covariance
 matrix (10 numbers, stored row-wise).
 
 The ``w`` variance (the last number), can be, for example, on the
-order of 6.3e-12, so, its square root, which is 2.5e-6 or so, is the
-expected variability in the ``w`` component of the quaternion.
+order of 6.3e-12. Its square root, the standard deviation, which is
+2.5e-6 or so, is the expected variability in the ``w`` component of
+the quaternion.
 
 Fetch and save the Python script `bias_dg_cam.py
 <https://raw.githubusercontent.com/NeoGeographyToolkit/StereoPipeline/master/src/asp/Tools/bias_dg_cam.py>`_. Invoke
@@ -261,7 +265,7 @@ in both cases without propagation of errors. Use
 ``--left-image-crop-win`` and ``--right-image-crop-win``
 (:numref:`stereo_gui`) to run on small clips only.
 
-DEMs can be created, and the heights compared with the ``geodiff
---absolute`` command (:numref:`geodiff`). We found a height difference
-that is very similar to the vertical standard deviation produced
-earlier.
+The created DEMs (with nominal and then with biased cameras) can have
+their heights compared using the ``geodiff --absolute`` command
+(:numref:`geodiff`). We found a height difference that is very similar
+to the vertical standard deviation produced earlier.

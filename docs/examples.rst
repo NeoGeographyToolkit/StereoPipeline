@@ -2196,7 +2196,8 @@ there are very many pairs of images to match.
     --camera-list cameras.txt                 \
     --tri-weight 0.1                          \
     --tri-robust-threshold 0.1                \
-    --translation-weight 100.0                \
+    --translation-weight 10.0                 \
+    --rotation-weight 0                       \
     --camera-weight 0                         \
     --auto-overlap-params "ref.tif 15"        \
     --min-matches 5                           \
@@ -2216,8 +2217,13 @@ proportional to the ground sample distance in meters). The value of
 ``--tri-robust-threshold`` (0.1) is intentionally set to be less than
 the one used for ``--robust-threshold`` (0.5) to ensure pixel
 reprojection errors are always given a higher priority than
-triangulation errors. The value of ``--translation-weight`` is rather
-high, as the camera centers are known reasonably well.
+triangulation errors. 
+
+The value of ``--translation-weight`` is rather high, as the camera
+centers are known reasonably well. This will prevent the camera
+centers from moving, and should be relaxed if position refinement is
+desired. The ``--rotation-weight`` was set to 0, so the camera
+orientations can change with no restrictions.
  
 If the input cameras are reasonably accurate to start with, for example,
 consistent with a known DEM to within a small handful of meters, that DEM
