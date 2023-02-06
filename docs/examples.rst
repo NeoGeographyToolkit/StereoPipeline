@@ -3189,8 +3189,7 @@ Followed by stereo::
        ba_small/run-for_small.tsai ba_small/run-aft_small.tsai          \
        stereo_small_mgm/run --alignment-method affineepipolar           \
        -t opticalbar --skip-rough-homography --disable-tri-ip-filter    \
-       --skip-low-res-disparity-comp --ip-detect-method 1               \
-       --stereo-algorithm 2 
+       --ip-detect-method 1 --stereo-algorithm 2 
 
 If stereo takes too long, and in particular, if the printed disparity
 search range is large (its width and height is more than 100 pixels),
