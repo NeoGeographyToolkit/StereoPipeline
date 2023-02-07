@@ -25,6 +25,7 @@ bundle_adjust:
     the cameras in bundle adjustment, while improving the
     self-consistency of the camera configuration
     (:numref:`skysat_stereo`).
+  *  Bugfix for slow performance for a large number of images.
 
 point2dem (:numref:`point2dem`): 
   * Added the option ``--propagate-errors`` to grid the stddev values

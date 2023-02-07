@@ -867,13 +867,12 @@ void asp::saveConvergenceAngles(std::string const& conv_angles_file,
   vw_out() << "Writing: " << conv_angles_file << "\n";
   std::ofstream ofs (conv_angles_file.c_str());
   ofs << "# Convergence angle percentiles (in degrees) for each image pair having matches\n";
-  ofs << "# left_image right_image 25% 50% 75% 85% 95% num_angles_per_pair\n";
+  ofs << "# left_image right_image 25% 50% 75% num_angles_per_pair\n";
   ofs.precision(17);
   for (size_t conv_it = 0; conv_it < convAngles.size(); conv_it++) {
     auto const & c = convAngles[conv_it]; // alias
     ofs << imageFiles[c.left_cam_index] << ' ' << imageFiles[c.right_cam_index] << ' '
-        << c.val25 << ' ' << c.val50 << ' ' << c.val75 << ' '
-        << c.val85 << ' ' << c.val95 << ' ' << c.num_vals << "\n";
+        << c.val25 << ' ' << c.val50 << ' ' << c.val75  << ' ' << c.num_vals << "\n";
   }
   ofs.close();
 
@@ -954,7 +953,7 @@ void asp::saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
 
   ofs << "# Percentiles of distances between mapprojected matching pixels in an "
       << "image and the others.\n";
-  ofs << "# image_name 25% 50% 75% count\n";
+  ofs << "# image_name 25% 50% 75% 85% 95% count\n";
   for (size_t image_it = 0; image_it < imageFiles.size(); image_it++) {
     auto & vals = mapprojOffsetsPerCam[image_it]; // alias
     int len = vals.size();
@@ -976,7 +975,7 @@ void asp::saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
 
   ofs << "# Percentiles of distances between matching pixels after mapprojecting onto DEM.\n"
       << "# Per image pair and measured in DEM pixel units.\n";
-  ofs << "# left_image right_image 25% 50% 75% num_matches_per_pair\n";
+  ofs << "# left_image right_image 25% 50% 75% 85% 95% num_matches_per_pair\n";
   ofs.precision(17);
   for (size_t conv_it = 0; conv_it < mapprojOffsets.size(); conv_it++) {
     auto const & c = mapprojOffsets[conv_it]; // alias
@@ -1023,6 +1022,8 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                                std::vector<asp::MatchPairStats> & mapprojOffsets,
                                std::vector<std::vector<double>> & mapprojOffsetsPerCam) {
 
+  vw_out() << "Filtering outliers and creating reports.\n";
+  
   mapprojPoints.clear();
   convAngles.clear();
   mapprojOffsets.clear();
@@ -1033,14 +1034,45 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
   ImageViewRef<PixelMask<double>> interp_mapproj_dem;
   if (save_mapproj_match_points_offsets)
     asp::create_interp_dem(mapproj_dem, mapproj_dem_georef, interp_mapproj_dem);
-  
+
   int num_cameras = opt.image_files.size();
   mapprojOffsetsPerCam.resize(num_cameras);
+
+  // Iterate over the control network, and, for each inlier pair of matches,
+  // remember what pair it is from. Needed only if there is outlier filtering.
+  // TODO(oalexan1): This uses a lot of memory. Need to keep just indices, somehow, not
+  // quadruplets of floats.
+  typedef std::tuple<float, float, float, float> Quadruplet;
+  std::map<std::pair<int, int>, std::set<Quadruplet>> inlier_pairs;
+  if (remove_outliers) {
+    int ipt = -1;
+    for (ControlNetwork::const_iterator iter = cnet.begin(); iter != cnet.end(); iter++) {
+      // Control point index
+      ipt++; 
+      // Skip outliers
+      if (outliers.find(ipt) != outliers.end())
+        continue;
+      // Skip gcp
+      if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+        continue;
+      
+      for (auto m1 = (*iter).begin(); m1 != (*iter).end(); m1++) {
+        for (auto m2 = (*iter).begin(); m2 != (*iter).end(); m2++) {
+          int left_index = m1->image_id();
+          int right_index = m2->image_id();
+          if (left_index >= right_index) 
+            continue;
+          inlier_pairs[std::make_pair(left_index, right_index)].insert
+            (Quadruplet(m1->position()[0], m1->position()[1], m2->position()[0], m2->position()[1]));
+        }
+      }
+    }
+  }
   
   // Work on individual image pairs
   for (auto match_it = opt.match_files.begin(); match_it != opt.match_files.end(); match_it++) {
 
-    std::vector<double> mapproj_offsets;
+    std::vector<double> localMapprojOffsets;
 
     // IP from the control network, for which we flagged outliers
     std::vector<vw::ip::InterestPoint> left_ip, right_ip;
@@ -1049,7 +1081,10 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
     std::string         match_file = match_it->second;
     size_t left_index  = cam_pair.first;
     size_t right_index = cam_pair.second;
-
+    if (left_index >= right_index) 
+      vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Left image index "
+                   << "must be less than right image index.\n");
+    
     // Just skip over match files that don't exist.
     if (!boost::filesystem::exists(match_file)) {
       vw_out() << "Skipping non-existent match file: " << match_file << std::endl;
@@ -1066,13 +1101,12 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
     convAngles.push_back(asp::MatchPairStats()); // add an element, will populate it soon
     asp::MatchPairStats & convAngle = convAngles.back(); // alias
     std::vector<double> sorted_angles;
-
     asp::MatchPairStats * mapprojOffset = NULL; // may not always exist
     if (save_mapproj_match_points_offsets) {
       mapprojOffsets.push_back(asp::MatchPairStats()); // add an elem
       mapprojOffset = &mapprojOffsets.back(); // pointer
     }
-    
+
     if (!remove_outliers) {
       asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
                               orig_left_ip, orig_right_ip, sorted_angles);
@@ -1084,75 +1118,37 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                                     orig_left_ip, orig_right_ip,
                                     mapproj_dem_georef, interp_mapproj_dem,  
                                     mapprojPoints, // will append here
-                                    mapproj_offsets);
-        mapprojOffset->populate(left_index, right_index, mapproj_offsets);
-        for (size_t map_it = 0; map_it < mapproj_offsets.size(); map_it++) {
-          mapprojOffsetsPerCam[left_index].push_back(mapproj_offsets[map_it]);
-          mapprojOffsetsPerCam[right_index].push_back(mapproj_offsets[map_it]);
+                                    localMapprojOffsets);
+        mapprojOffset->populate(left_index, right_index, localMapprojOffsets);
+        for (size_t map_it = 0; map_it < localMapprojOffsets.size(); map_it++) {
+          mapprojOffsetsPerCam[left_index].push_back(localMapprojOffsets[map_it]);
+          mapprojOffsetsPerCam[right_index].push_back(localMapprojOffsets[map_it]);
         }
       }
       
       // Since no outliers are removed, nothing else to do
       continue;
     }
-    
-    typedef std::tuple<double, double, double> Triplet;
-    std::map<Triplet, Triplet> lookup;
+
+    // Keep only inliers and non-gcp. GCP are used in optimization but are not
+    // part of the originally found interest point matches.
     for (size_t ip_iter = 0; ip_iter < orig_left_ip.size(); ip_iter++) {
-      // Note how we store both the camera index and the ip coordinates
-      Triplet left_set(left_index, orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y); 
-      Triplet right_set(right_index, orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y); 
-      lookup[left_set] = right_set;
-    }
-
-    // Iterate over the control network, and, for each control point,
-    // look only at the measure for left_index and right_index
-    int ipt = -1;
-    for (ControlNetwork::const_iterator iter = cnet.begin(); iter != cnet.end(); iter++) {
-
-      ipt++; // control point index
-
-      // Skip gcp
-      if (cnet[ipt].type() == ControlPoint::GroundControlPoint) {
-        continue;
-      }
-        
-      bool has_left = true, has_right = false;
-      ip::InterestPoint cnet_left_ip, cnet_right_ip;
-      for (ControlPoint::const_iterator measure = (*iter).begin();
-            measure != (*iter).end(); ++measure) {
-        if (measure->image_id() == left_index) {
-          has_left = true;
-          cnet_left_ip = ip::InterestPoint(measure->position()[0], measure->position()[1],
-                                   measure->sigma()[0]);
-        }else if (measure->image_id() == right_index) {
-          has_right = true;
-          cnet_right_ip = ip::InterestPoint(measure->position()[0], measure->position()[1],
-                                   measure->sigma()[0]);
-        }
-      }
-
-      // Keep only ip for these two images
-      if (!has_left || !has_right)
+      Quadruplet q(orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y,
+                   orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y);
+      auto & inlier_pair = inlier_pairs[std::make_pair(left_index, right_index)]; // alias
+      if (inlier_pair.find(q) == inlier_pair.end()) 
         continue;
 
-      if (outliers.find(ipt) != outliers.end())
-        continue; // skip outliers
-
-      // Only add ip that were there originally
-      Triplet left_set(left_index, cnet_left_ip.x, cnet_left_ip.y); 
-      Triplet right_set(right_index, cnet_right_ip.x, cnet_right_ip.y); 
-      if (lookup.find(left_set) == lookup.end() || lookup[left_set] != right_set)
-        continue;
-      
-      left_ip.push_back (cnet_left_ip);
-      right_ip.push_back(cnet_right_ip);
+      // We do not copy descriptors, those take storage
+      left_ip.push_back(ip::InterestPoint(orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y,
+                                          orig_left_ip[ip_iter].scale));
+      right_ip.push_back(ip::InterestPoint(orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y,
+                                           orig_right_ip[ip_iter].scale));
     }
     
     // Filter by disparity
-    // TODO(oalexan1): Remove this param. Use instead --outlier-removal-params.
-    // Not sure this code should be here to start with. Note that it
-    // does not update the outliers set.
+    // TODO(oalexan1): Note that this does not update the outliers set. Likely this
+    // processing needs to move where other outlier filtering logic is.
     bool quiet = true; // Otherwise too many messages are printed
     if (opt.remove_outliers_params[0] > 0 && opt.remove_outliers_params[1] > 0.0) {
       // The typical value of 75 for opt.remove_outliers_params[1] may be too low.
@@ -1204,11 +1200,11 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                                   left_ip, right_ip,
                                   mapproj_dem_georef, interp_mapproj_dem,  
                                   mapprojPoints, // will append here
-                                  mapproj_offsets);
-      mapprojOffset->populate(left_index, right_index, mapproj_offsets);
-      for (size_t map_it = 0; map_it < mapproj_offsets.size(); map_it++) {
-        mapprojOffsetsPerCam[left_index].push_back(mapproj_offsets[map_it]);
-        mapprojOffsetsPerCam[right_index].push_back(mapproj_offsets[map_it]);
+                                  localMapprojOffsets);
+      mapprojOffset->populate(left_index, right_index, localMapprojOffsets);
+      for (size_t map_it = 0; map_it < localMapprojOffsets.size(); map_it++) {
+        mapprojOffsetsPerCam[left_index].push_back(localMapprojOffsets[map_it]);
+        mapprojOffsetsPerCam[right_index].push_back(localMapprojOffsets[map_it]);
       }
     }
     
