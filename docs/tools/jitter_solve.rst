@@ -306,7 +306,7 @@ as well.
 
 Here we set ``--rotation-weight 0`` and ``--translation-weight 0``.
 These are camera constraints, and at least a positive position
-(translation) constraint is normally recommneded. See
+(translation) constraint is normally recommended. See
 :numref:`jitter_camera`.
 
 The model states (:numref:`csm_state`) of optimized cameras are saved
@@ -674,8 +674,9 @@ cameras. We will investigate the effects of two kinds of ground
 constraints: ``--tri-weight`` and ``--heights-from-dem``
 (:numref:`jitter_ground`). The first constraint tries to keep the
 triangulated points close to where they are, and the second tries to
-tie them to a reference DEM. Only one kind of constraint is
-used at a time.
+tie them to a reference DEM. Note that if these are used together, the
+first one will kick in only in regions where there is no coverage in
+the provided DEM.
 
 In both cases we use a somewhat strong camera position constraint
 (``--translation-weight``) as it is believed that it is vibrations in
@@ -969,10 +970,10 @@ Command-line options for jitter_solve
     points stay close to original triangulated points. A positive
     value will help ensure the cameras do not move too far, but a
     large value may prevent convergence. Does not apply to GCP or
-    points constrained by a DEM. This adds a robust cost function 
-    with the threshold given by ``--tri-robust-threshold``. 
-    The suggested value is 0.1 to 0.5 divided by the image ground
-    sample distance.
+    points constrained by a DEM via ``--heights-from-dem``. This adds
+    a robust cost function with the threshold given by
+    ``--tri-robust-threshold``. The suggested value is 0.1 to 0.5
+    divided by the image ground sample distance.
 
 --tri-robust-threshold <double (default: 0.1)>
     Use this robust threshold to attenuate large

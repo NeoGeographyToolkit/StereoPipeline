@@ -507,9 +507,10 @@ Command-line options for bundle_adjust
     value will help ensure the cameras do not move too far, but a
     large value may prevent convergence. It is suggested to use 
     here 0.1 to 0.5 divided by image gsd. Does not apply to GCP or
-    points constrained by a DEM. This adds a robust cost function 
-    with the threshold given by ``--tri-robust-threshold``. Set
-    ``--camera-weight`` to 0 when using this. 
+    points constrained by a DEM via ``--heights-from-dem``. This adds
+    a robust cost function with the threshold given by
+    ``--tri-robust-threshold``. Set ``--camera-weight`` to 0 when
+    using this.
 
 --tri-robust-threshold <double (default: 0.1)>
     Use this robust threshold to attenuate large
