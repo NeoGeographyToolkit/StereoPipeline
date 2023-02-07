@@ -20,10 +20,10 @@ parallel_stereo (:numref:`parallel_stereo`):
     must load the exact cameras when undoing the mapprojection.
 
 bundle_adjust:
-  * Validated, in the SkySat example, that, given about a thousand
-    input images acquired with three views, one can have very
-    tight control of the cameras in bundle adjustment, while improving
-    the self-consistency of the camera configuration
+  * Validated that given about a thousand input images acquired with
+    three views and much overlap, one can have very tight control of
+    the cameras in bundle adjustment, while improving the
+    self-consistency of the camera configuration
     (:numref:`skysat_stereo`).
 
 point2dem (:numref:`point2dem`): 
