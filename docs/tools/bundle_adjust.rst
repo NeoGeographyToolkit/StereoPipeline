@@ -376,9 +376,12 @@ In addition, more condensed statistics will be saved as well. The file::
 
     {output-prefix}-mapproj_match_offset_stats.txt
 
-will be written. It will have the percentiles of these disagreements
-for each pair of images and for each image against the rest, also in
-units of meter.
+will be written. It will have the percentiles,(25%, 50%, 75%, 85%,
+95%) of these disagreements for each image against the rest, and for each
+pair of images, also in units of meter. 
+
+This stats file is very useful at estimating the quality of registration
+with the optimized cameras between the images and to the ground.
 
 .. _adjust_files:
 

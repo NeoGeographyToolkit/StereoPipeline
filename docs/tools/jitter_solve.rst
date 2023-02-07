@@ -124,7 +124,8 @@ on screen, before and after resampling.
 
 In the two examples below drastically different sampling rates will be
 used. Inspection of residual files (:numref:`jitter_out_files`),
-and of intersection errors and DEM differences after solving for jitter
+and of triangulation errors (:numref:`triangulation_error`)
+and DEM differences after solving for jitter
 (:numref:`jitter_dg`) can help decide the sampling rate.
 
 .. _jitter_ctx:
@@ -328,7 +329,7 @@ used::
       stereo_jitter/run
       point2dem --errorimage stereo_jitter/run-PC.tif
 
-To validate the results, first the ray intersection error
+To validate the results, first the triangulation (ray intersection) error
 (:numref:`point2dem`) was plotted, before and after solving for
 jitter. These were colorized as::
 
@@ -340,7 +341,7 @@ The result is below.
 .. figure:: ../images/jitter_intersection_error.png
    :name: ctx_jitter_intersection_error
 
-   The colorized intersection error (max shade of red is 10 m)
+   The colorized triangulation error (max shade of red is 10 m)
    before and after optimization for jitter.
 
 Then, the absolute difference was computed between the sparse MOLA
@@ -393,7 +394,7 @@ DEMs can later be hillshaded.
    hillshaded reference DEM . The max shade of red is 20 m difference.
 
 It can be seen that the banded systematic error due to jitter is gone,
-both in the intersection error maps and DEM differences. The produced
+both in the triangulation error maps and DEM differences. The produced
 DEM still disagrees somewhat with the reference, but we believe that
 this is due to the reference DEM being very coarse, per plots (e) and
 (f) in the figure.
@@ -655,8 +656,9 @@ See :numref:`fig_dg_jitter_intersection_err_dem_diff` for results.
 .. figure:: ../images/dg_jitter_intersection_err_dem_diff.png
    :name: dg_jitter_intersection_err_dem_diff
 
-   The colorized intersection error before and after solving for jitter,
-   and the absolute difference of the DEMs before and after solving for jitter
+   The colorized triangulation error (:numref:`triangulation_error`)
+   before and after solving for jitter, and the absolute difference of
+   the DEMs before and after solving for jitter
    (left-to-right). It can be seen that the oscillatory pattern in the
    intersection error is gone, and the DEM changes as a result. The
    remaining signal is due to the steep terrain, and is
@@ -737,8 +739,8 @@ DEM creation::
       --errorimage            \
       ${outPrefix}-PC.tif
 
-Colorize the intersection error, and create some image pyramids for
-inspection later::
+Colorize the triangulation (ray intersection) error, and create some
+image pyramids for inspection later::
 
     colormap --min 0 --max 1.0 ${outPrefix}-IntersectionErr.tif
     stereo_gui --create-image-pyramids-only \
@@ -827,7 +829,8 @@ attempted.
 .. figure:: ../images/pleiades_err.png
    :name: pleiades_err
 
-   Stereo intersection error before solving for jitter (left),
+   Stereo intersection error (:numref:`triangulation_error`)
+   before solving for jitter (left),
    after solving for it with the ``--tri-weight`` constraint (middle)
    and with the ``--heights-from-dem`` constraint (right). Blue = 0
    m, red = 1 m.
