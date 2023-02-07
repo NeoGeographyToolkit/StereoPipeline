@@ -512,29 +512,30 @@ averaged over all reconstructed 3D points, can be a valuable statistic
 for determining whether to carry out bundle adjustment
 (:numref:`bundle_adjust`). 
 
-The distance between the two rays at their
-closest intersection is recorded in the fourth channel of the point
-cloud file, ``output-prefix-PC.tif``. This error can be gridded when a
-DEM is created from the point cloud by using the ``--errorimage``
-argument on the ``point2dem`` command (:numref:`point2dem`).
+The distance between the two rays emanating from matching points in
+the cameras at their closest intersection is recorded in the fourth
+channel of the point cloud file, ``output-prefix-PC.tif``.  This is
+called the *triangulation error*, or the *ray intersection error*. It
+is measured in meters. This error can be gridded when a DEM is created
+from the point cloud by using the ``--errorimage`` argument on the
+``point2dem`` command (:numref:`point2dem`).
 
-This error in the triangulation, the shortest distance between two
-rays emanating from matching pixels (measured in meters), *is not the
-true accuracy of the DEM*. It is only another indirect measure of
-quality. A DEM with high triangulation error, as compared to the
-ground sample distance, is always bad and should have its images
-bundle-adjusted. A DEM with low triangulation error is at least
-self-consistent but could still be bad, or at least misaligned. A map
-of the triangulation error should only be interpreted as a relative
-measurement. Where small areas are found with high triangulation error
-came from correlation mistakes and large areas of error came from
-camera model inadequacies.
+This error *is not* the true accuracy of the DEM. It is only another
+indirect measure of quality. A DEM with high triangulation error, as
+compared to the ground sample distance, is always bad and should have
+its images bundle-adjusted. A DEM with low triangulation error is at
+least self-consistent but could still be bad, or at least
+misaligned. A map of the triangulation error should only be
+interpreted as a relative measurement. Where small areas are found
+with high triangulation error came from correlation mistakes and large
+areas of error came from camera model inadequacies.
 
 To improve the location of a triangulated point cloud or created DEM
 relative to a known ground truth, use alignment (:numref:`pc_align`).
 
 See :numref:`error_propagation` for another metric qualifying
-the accuracy of a point cloud or DEM.
+the accuracy of a point cloud or DEM, namely the horizontal and vertical
+uncertainty, as propagated from the input cameras.
 
 .. _sensor_corrections:
 
