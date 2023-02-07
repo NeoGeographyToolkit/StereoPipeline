@@ -59,11 +59,11 @@ the images are mapprojected (:numref:`mapproj-example`).
 The triangulation covariance matrix is computed in the local
 North-East-Down (NED) coordinates at each nominal triangulated point,
 and further decomposed into the horizontal and vertical components
-(:numref:`produced_covariances`), the square root is taken,
+(:numref:`produced_covariances`). The square root is taken,
 creating the stddev, which are saved as the 5th and 6th
 band in the point cloud (\*-PC.tif file, :numref:`outputfiles`).
 Running ``gdalinfo`` (:numref:`gdal_tools`) on the point cloud will
-show some metadata describing each band in the produced point cloud.
+show some metadata describing each band in that file.
 
 The stddev values in the point cloud can then be gridded with
 ``point2dem`` (:numref:`point2dem`) with the option
@@ -189,7 +189,9 @@ covariances of the inputs and outputs are related via
   Cov_Y = J Cov_X J^T
 
 Here, :math:`J` is the Jacobian of the function :math:`f` and
-:math:`J^T` is its transpose.
+:math:`J^T` is its transpose. It is assumed that the uncertainties are
+small enough that this function can be linearized around the nominal
+location.
 
 For this particular application, the input variables are either the
 coordinates in the local horizontal ground plane having the
