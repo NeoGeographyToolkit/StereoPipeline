@@ -912,7 +912,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
     if (!load_D_sub(d_sub_file, sub_disp)) {
       std::string msg = "Could not read " + d_sub_file + ".";
       if (stereo_settings().skip_low_res_disparity_comp)
-        msg += " Perhaps one should disable --skip-low-res-disparity-comp.";
+        msg += "\nPerhaps one should disable --skip-low-res-disparity-comp.";
       vw_throw(ArgumentErr() << msg << "\n");
     }
   }

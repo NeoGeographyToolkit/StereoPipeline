@@ -78,7 +78,8 @@ void saveCameraReport(Options const& opt, asp::BAParams const& param_storage,
   vw_out() << "Writing: " << output_path << std::endl;
   std::ofstream fh(output_path.c_str());
   fh.precision(17);
-  fh << "# input_cam_file, cam_ctr_x, cam_ctr_y, cam_ctr_z (ecef meters), cam2ned rotation rows\n";
+  fh << "# input_cam_file, cam_ctr_x, cam_ctr_y, cam_ctr_z (ecef meters), "
+     << "cam2ned rotation rows\n";
   
   int num_cameras = opt.image_files.size();
 
@@ -498,7 +499,7 @@ void write_residual_map(std::string const& output_prefix,
   vw_out() << "Writing: " << output_path << std::endl;
   std::ofstream file;
   file.open(output_path.c_str());
-  file.precision(18); // TODO(oalexan1): Replace here by 17
+  file.precision(17);
   file << "# lon, lat, height_above_datum, mean_residual, num_observations\n";
 
   // stereo_gui counts on being able to parse the datum from this file, so
@@ -567,16 +568,16 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   vw_out() << "Writing: " << residual_raw_cams_path << std::endl;
   
   residual_file.open(residual_path.c_str());
-  residual_file.precision(18); // TODO(oalexan1): Replace here with 17
+  residual_file.precision(17);
   residual_file_raw_pixels.open(residual_raw_pixels_path.c_str());
-  residual_file_raw_pixels.precision(18); // TODO(oalexan1): Replace here with 17
+  residual_file_raw_pixels.precision(17);
   residual_file_raw_cams.open(residual_raw_cams_path.c_str());
-  residual_file_raw_cams.precision(18); // TODO(oalexan1): Replace here with 17
+  residual_file_raw_cams.precision(17);
 
   if (reference_vec.size() > 0) {
     //vw_out() << "Writing: " << residual_reference_xyz_path << std::endl;
     residual_file_reference_xyz.open(residual_reference_xyz_path.c_str());
-    residual_file_reference_xyz.precision(18); // TODO(oalexan1): Replace here with 17
+    residual_file_reference_xyz.precision(17);
   }
   
   size_t index = 0;
@@ -626,7 +627,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   // List the GCP residuals
   if (num_gcp_or_dem_residuals > 0) {
     residual_file_raw_gcp.open(residual_raw_gcp_path.c_str());
-    residual_file_raw_gcp.precision(18); // TODO(oalexan1): Replace here with 17
+    residual_file_raw_gcp.precision(17);
     residual_file << "GCP or DEM residual errors:\n";
     for (size_t i = 0; i < num_gcp_or_dem_residuals; i++) {
       double mean_residual = 0; // Take average of XYZ error for each point
@@ -973,6 +974,7 @@ void calcOptimizedCameras(Options const& opt,
 // End outlier functions
 // ----------------------------------------------------------------
 // TODO(oalexan1): Use this in jitter_solve.
+// TODO(oalexan1): This needs to be done before subsampling the matches
 void initial_filter_by_proj_win(Options             & opt,
                                 asp::BAParams      & param_storage, 
                                 ControlNetwork const& cnet) {
@@ -1468,7 +1470,8 @@ int do_ba_ceres_one_pass(Options             & opt,
   vw_out() << "Writing final condition log files." << std::endl;
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
   bool apply_loss_function = false;
-  write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, cam_residual_counts,
+  write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage,
+                      cam_residual_counts,
                       num_gcp_or_dem_residuals, num_tri_residuals,
                       reference_vec, cnet, crn, problem);
   
@@ -1513,7 +1516,7 @@ int do_ba_ceres_one_pass(Options             & opt,
                             convAngles, 
                             opt.mapproj_dem,
                             mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam);
-  
+
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
 
