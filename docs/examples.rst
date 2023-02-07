@@ -3274,14 +3274,17 @@ one does::
 
     convert_pinhole_model for_small.tif for_small.tsai \
       -o for_small_rpc.tsai --output-type RPC          \
+      --camera-to-ground-dist 300000                   \
       --sample-spacing 50 --rpc-degree 2
 
-and the same for the other camera. The obtained cameras should be
-bundle-adjusted as before. One can create a DEM and compare it with the
-one obtained with the earlier cameras. Likely some shift in the position
-of the DEM will be present, but hopefully not too large. The
-``pc_align`` tool can be used to make this DEM aligned to the reference
-DEM.
+and the same for the other camera. Here, one has to choose carefully
+the camera-to-ground-distance. Above it was set to 300 km.  
+
+The obtained cameras should be bundle-adjusted as before. One can
+create a DEM and compare it with the one obtained with the earlier
+cameras. Likely some shift in the position of the DEM will be present,
+but hopefully not too large. The ``pc_align`` tool can be used to make
+this DEM aligned to the reference DEM.
 
 Next, one follows the same process as outlined in :numref:`skysat` and
 :numref:`floatingintrinsics` to refine the RPC
