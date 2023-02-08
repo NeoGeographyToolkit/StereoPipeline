@@ -985,6 +985,8 @@ reprojection error are not thrown out as outliers.
 See also the ``--auto-overlap-limit`` option, which can be used to
 determine which images overlap.
 
+.. _sfs_ba_validation:
+
 Validation of bundle adjustment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1044,13 +1046,15 @@ meter. Inspect the triangulation error (:numref:`point2dem`). Ideally
 its average should not be more than 1 meter.
 
 The created DEMs can be mosaicked with ``dem_mosaic``
-(:numref:`dem_mosaic`).
+(:numref:`dem_mosaic`) as::
+
+    dem_mosaic -o stereo_mosaic.tif dem1.tif dem2.tif ...
 
 Align the mosaicked DEM to the initial LOLA terrain in ``ref.tif``
 using ``pc_align`` (:numref:`pc_align`)::
  
     pc_align --max-displacement 500           \
-      sereo_mosaic.tif ref.tif                \
+      stereo_mosaic.tif ref.tif               \
       --save-inv-transformed-reference-points \
       -o run_align/run 
 
@@ -1156,7 +1160,7 @@ the reference DEM at the expense of self-consistency between the
 cameras. Yet making it too low may not constrain sufficiently the
 cameras to the ground.
 
-.. _sfs_validation:
+.. _sfs_registration_validation:
 
 Validation of registration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1226,8 +1230,8 @@ overview earlier in :numref:`sfs-lola`:
 
  - See if many mapprojected images are misregistered with the DEM. If 
    yes, bundle adjustment and/or alignment failed and needs to be redone.
- - Throw out images with a high error in report file
-   (:numref:`sfs_validation`).
+ - Throw out images with a high error in report files
+   (:numref:`sfs_registration_validation`, :numref:`sfs_ba_validation`).
  - Crop all mapprojected images to a small site, and overlay them while
    sorted by illumination (solar azimuth angle). See for which images 
    the registration failure occurs.
@@ -1427,7 +1431,7 @@ One can use the ``--absolute`` option for this tool and then invoke
 DEM should not differ from the reference DEM by more than 1-2 meters.
 
 It is also suggested to produce produce a maximally-list mosaic,
-as in :numref:`sfs_validation`. This should not look too different
+as in :numref:`sfs_registration_validation`. This should not look too different
 if projecting on the initial guess DEM or on the refined one created
 with SfS. 
 
