@@ -94,6 +94,8 @@ not be the right choice for other planetary bodies, hence some
 research may be needed to decide the correct model for your
 application.
 
+.. _fetch_lro_images:
+
 How to get images
 -----------------
 
@@ -108,7 +110,8 @@ bigger than several tens of GB, so several attempts may be necessary.
 The related site http://ode.rsl.wustl.edu/moon/indextools.aspx?displaypage=lolardr 
 can provide LOLA datasets which can be used as (sparse) ground truth.
 
-If desired to use gridded LOLA DEMs, see :numref:`sfs-lola-dem`.
+If desired to use a gridded LOLA DEM as an initial guess, see
+:numref:`sfs-lola`.
 
 We advise the following strategy for picking images. First choose a
 small longitude-latitude window in which to perform a search for
@@ -224,26 +227,36 @@ Initial DEM creation
 ^^^^^^^^^^^^^^^^^^^^
 
 The first step is to run stereo to create an initial guess DEM. We
-picked for this the first two of these images. These form a stereo pair,
-that is, they have a reasonable baseline and sufficiently close times of
-acquisition (hence very similar illuminations). These conditions are
-necessary to obtain a good stereo result.
+picked for this the first two of these images. These form a stereo
+pair (:numref:`stereo_pairs`), that is, they have a reasonable
+baseline and sufficiently close times of acquisition (hence very
+similar illuminations). These conditions are necessary to obtain a
+good stereo result.
 
 ::
 
-    parallel_stereo --job-size-w 1024 --job-size-h 1024 A.cub B.cub \
-      --left-image-crop-win 0 7998 2728 2696                        \
-      --right-image-crop-win 0 9377 2733 2505                       \
-      --threads 16 --corr-seed-mode 1  --subpixel-mode 3            \
+    parallel_stereo --job-size-w 1024 --job-size-h 1024 \
+      --left-image-crop-win 0 7998 2728 2696            \
+      --right-image-crop-win 0 9377 2733 2505           \
+      --subpixel-mode 3                                 \
+      --threads 16 --corr-seed-mode 1                   \
+      A.cub B.cub                                       \
       run_full1/run
 
-See :numref:`running-stereo` for a discussion about various speed-vs-quality choices,
-and :numref:`mapproj-example` about handling artifacts in steep terrain.
-Consider using CSM cameras instead of ISIS cameras (:numref:`sfs_isis_vs_csm`).
+See :numref:`running-stereo` for a discussion about various
+speed-vs-quality choices.  In particular, using ``--stereo-algorithm
+asp_mgm --subpixel-mode 9`` may be faster and still rather
+accurate. See :numref:`mapproj-example` about handling artifacts in
+steep terrain. Consider using CSM cameras instead of ISIS cameras
+(:numref:`sfs_isis_vs_csm`).
 
-Next we create a DEM at 1 meter/pixel, which is about the resolution of
-the input images. We use the stereographic projection since this dataset
-is very close to the South Pole.
+Ideally the cameras should be bundle-adjusted
+(:numref:`bundle_adjust`), then above one should pass
+``--bundle-adjust-prefix``. 
+
+Next we create a DEM at 1 meter/pixel, which is about the resolution
+of the input images. We use the stereographic projection since this
+dataset is very close to the South Pole.
 
 ::
 
@@ -253,7 +266,8 @@ is very close to the South Pole.
 SfS can only be run on a DEM with valid data at each grid point.  The
 DEM obtained above should be opened in ``stereo_gui``, and the bounds
 of a clip having only valid data should be determined
-(:numref:`image_bounds`). Such a clip is cropped as::
+(:numref:`image_bounds`). Such a clip is cropped using
+``gdal_translate`` (:numref:`gdal_tools`) as::
 
     gdal_translate -projwin -15471.9 150986 -14986.7 150549  \
       run_full1/run-DEM.tif run_full1/run-crop-DEM.tif
@@ -305,6 +319,8 @@ more parameters which can control the quality of the result will be
 explored.
 
 See :numref:`sfs_outputs` for where ``sfs`` stores its outputs.
+
+.. _sfs_inspection:
 
 Inspecting the results
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -406,11 +422,10 @@ position and orientation. It is suggested to bundle-adjust the cameras
 first (:numref:`bundle_adjust`). 
 
 It is important to note that bundle adjustment may fail if the images
-have sufficiently different illumination, as it will not be able to
+have very different illumination, as it will not be able to
 find matches among images. A solution to this is discussed in
-:numref:`sfs-lola-comparison`, and it amounts to bridging the gap
-between images with dis-similar illumination with more images of
-intermediate illumination. 
+:numref:`sfs-lola`, and it amounts to bridging the gap with more
+images of intermediate illumination.
 
 It is strongly suggested that, when doing bundle adjustment, the
 images should be specified in the order given by Sun azimuth angle
@@ -438,12 +453,13 @@ images. In that case, it is suggested to mapproject the input images
 onto some smooth DEM whose extent corresponds to the terrain to be
 created with ``sfs`` (with some extra padding), then run bundle
 adjustment with mapprojected images (option ``--mapprojected-data``,
-illustrated in :numref:`sfs-lola-comparison`) and stereo also with
+illustrated in :numref:`sfs-lola`) and stereo also with
 mapprojected images (:numref:`mapproj-example`). This will not only be
 automated and faster, but also more accurate, as the inputs will be
 more similar after mapprojection.
 
-Bundle adjustment and stereo happens as follows::
+Bundle adjustment (:numref:`bundle_adjust`) and stereo happens as
+follows::
 
     bundle_adjust A_crop.cub B_crop.cub C_crop.cub D_crop.cub \
       --num-iterations 100 --save-intermediate-cameras        \
@@ -457,9 +473,10 @@ One can try using the stereo option ``--nodata-value``
 result in more holes but less noise in the terrain created from
 stereo.
 
-See :numref:`running-stereo` for a discussion about various speed-vs-quality choices,
-and :numref:`mapproj-example` about handling artifacts in steep terrain.
-Consider using CSM cameras instead of ISIS cameras (:numref:`sfs_isis_vs_csm`).
+See :numref:`running-stereo` for a discussion about various
+speed-vs-quality choices, and :numref:`mapproj-example` about handling
+artifacts in steep terrain.  Consider using CSM cameras instead of
+ISIS cameras (:numref:`sfs_isis_vs_csm`).
 
 The resulting cloud, ``run_full2/run-PC.tif``, will be used to create
 the "ground truth" DEM. As mentioned before, we'll in fact run SfS
@@ -693,338 +710,65 @@ resolution.
    rather than flat, but more modeling is needed to ensure a seamless
    transition.
 
-.. _sfs-lola-comparison:
+.. _sfs-lola:
 
-SfS with big illumination changes and comparison with LOLA
-----------------------------------------------------------
-
-SfS is very sensitive to errors in camera positions and orientations.
-As discussed earlier, bundle adjustment should be used to correct
-these errors, and if the images have different enough illumination
-that bundle adjustment fails, one should add new images with
-intermediate illumination conditions (while sorting the full set of
-images by Sun azimuth angle (:numref:`sfs_azimuth`) and verifying
-visually by mapprojection the gradual change in illumination, as
-described in :numref:`sfs-lola-dem`).
-
-As a fallback alternative, interest point matches among the images can
-be selected manually. Picking about 4 interest pints in each image may
-be sufficient. Ideally they should be positioned far from each other,
-to improve the accuracy.
-
-Below is one example of how we select interest points, run SfS, and then
-compare to LOLA, which is an independently acquired sparse dataset of 3D
-points on the Moon. According to :cite:`smith2011results`,
-the LOLA accuracy is on the order of 1 m. To ensure a meaningful
-comparison of stereo and SfS with LOLA, we resample the LRO NAC images
-by a factor of 4, making them nominally 4 m/pixel. This is not strictly
-necessary, the same exercise can be repeated with the original images,
-but it is easier to see the improvement due to SfS when comparing to
-LOLA when the images are coarser than the LOLA error itself.
-
-.. _sfs_initial_terrain:
-
-Initial terrain creation
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-We work with the same images as before. They are resampled as follows::
-
-    for f in A B C D; do 
-      reduce from = ${f}_crop.cub to = ${f}_crop_sub4.cub sscale=4 lscale=4
-    done
-
-The ``parallel_stereo`` and ``point2dem`` tools are run to get a first-cut DEM.
-Bundle adjustment is not done at this stage yet::
-
-    parallel_stereo A_crop_sub4.cub B_crop_sub4.cub                  \
-      run_stereo_noba_sub4/run --subpixel-mode 3
-    point2dem --stereographic --proj-lon -5.7113 --proj-lat -85.0003 \
-      run_stereo_noba_sub4/run-PC.tif --tr 4 
-
-One can try using the stereo option ``--nodata-value``
-(:numref:`stereodefault`) to mask away shadowed regions, which may
-result in more holes but less noise in the terrain created from
-stereo.
-
-See :numref:`running-stereo` for a discussion about various
-speed-vs-quality choices, and :numref:`mapproj-example` about handling
-artifacts in steep terrain.  Consider using CSM cameras instead of
-ISIS cameras (:numref:`sfs_isis_vs_csm`).
-
-To find stereo pairs, one can bundle-adjust a handful of images together
-(sorted by illumination), then inspect the produced file::
-
-    {output-prefix}-convergence_angles.txt
-
-See :numref:`ba_out_files` and :numref:`stereo_pairs` for more details
-and criteria for picking a stereo pair.
-
-We would like now to automatically or manually pick interest points
-for the purpose of doing bundle adjustment. It much easier to compute
-these if the images are first mapprojected, which brings them all
-into the same perspective. This approach is described in :numref:`mapip`,
-and here just the relevant commands are shown.
-
-::
-
-    for f in A B C D; do 
-      mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif \
-        ${f}_crop_sub4.cub ${f}_crop_sub4.noba.tif       \
-        --tile-size 1024
-    done
-
-Optional manual interest point picking in the mapprojected images can
-happen here. Those should be saved using the output prefix expected
-below.  Here mapprojection was used without
-``--bundle-adjust-prefix``. Here it is not important that the
-mapprojected images are misaligned, as after match points are found
-these points will be projected back to camera pixel space.
-
-::
-
-    mapped_images=$(echo {A,B,C,D}_crop_sub4.noba.tif)
-    dem=run_stereo_noba_sub4/run-DEM.tif
-    bundle_adjust A_crop_sub4.cub B_crop_sub4.cub      \
-      C_crop_sub4.cub D_crop_sub4.cub                  \
-      --mapprojected-data "$mapped_images $dem"        \
-      --num-iterations 100 --save-intermediate-cameras \
-      --min-matches 1 --max-pairwise-matches 1000      \
-      --ip-per-image 20000 --overlap-limit 50          \
-      --match-first-to-last --num-passes 1             \
-      -o run_ba_sub4/run
-
-An illustration is shown in :numref:`sfs3`.
-
-.. figure:: images/sfs3.jpg
-   :name: sfs3
-   :alt: interest points picked manually
-
-   An illustration of how interest points are picked manually for the
-   purpose of bundle adjustment and then SfS. This is normally not necessary
-   if there exist images with intermediate illumination.
-
-If in doubt, it is suggested that more points be picked, and one should
-examine the resulting reprojection errors in the final ``pointmap`` file
-(:numref:`ba_out_files`).
-
-Note that if several attempts are used to pick and save interest
-points in the mapprojected images, the resulting match file among the
-unprojected images needs to be deleted before re-running bundle
-adjustment, as otherwise it won't be recreated.
-
-Then we run ``parallel_stereo`` with the adjusted cameras::
-
-    parallel_stereo A_crop_sub4.cub B_crop_sub4.cub                    \
-      run_stereo_yesba_sub4/run --subpixel-mode 3                      \
-      --bundle-adjust-prefix run_ba_sub4/run
-    point2dem --stereographic --proj-lon -5.7113 --proj-lat -85.0003   \
-      run_stereo_yesba_sub4/run-PC.tif --tr 4
-
-Mapproject the bundle-adjusted images onto the stereo terrain obtained
-with bundle-adjusted images::
-
-    for f in A B C D; do 
-      mapproject --tr 4 run_stereo_yesba_sub4/run-DEM.tif      \
-        ${f}_crop_sub4.cub ${f}_crop_sub4.ba.tif               \
-        --tile-size 1024 --bundle-adjust-prefix run_ba_sub4/run
-    done
-
-A good sanity check is to overlay this DEM and the resulting
-mapprojected images and check for registration errors.
-
-This will also show where the images overlap, and hence on what
-portion of the DEM we can run SfS. We select a clip for that as
-follows::
-
-    gdal_translate -srcwin 138 347 273 506   \
-      run_stereo_yesba_sub4/run-DEM.tif      \
-      run_stereo_yesba_sub4/run-crop-DEM.tif 
-
-SfS and alignment in current DEM's coordinate system
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-We would like to compare the DEM clip, before and after SfS, to measured 
-LOLA data. For that, an alignment of the two is first necessary. 
-Here we will bring the LOLA data in DEM's coordinate system, as that seems
-simpler, and later we will discuss the reverse approach.
- 
-Run SfS::
-
-    sfs -i run_stereo_yesba_sub4/run-crop-DEM.tif A_crop_sub4.cub \
-      C_crop_sub4.cub D_crop_sub4.cub                             \
-      -o sfs_sub4_ref1_th_reg0.12_wt0.001/run                     \
-      --shadow-thresholds '0.00149055 0.00138248 0.000747531'     \
-      --threads 4 --smoothness-weight 0.12                        \
-      --initial-dem-constraint-weight 0.001 --reflectance-type 1  \
-      --max-iterations 10 --use-approx-camera-models              \
-      --blending-dist 10 --min-blend-size 30                      \
-      --crop-input-images --bundle-adjust-prefix run_ba_sub4/run
-
-One should experiment with floating the albedo (option
-``--float-albedo``) if noticeable albedo variations are seen in the
-images. See :numref:`sfs_albedo` for a longer discussion.
-
-To get more seamless results around small shadowed craters reduce the
-value of ``--min-blend-size``. If you have many such craters very
-close to each other, this may result in some erosion, however.
-
-Fetch the portion of the LOLA dataset around the current DEM from the
-site described earlier, and save it as
-``RDR_354E355E_85p5S84SPointPerRow_csv_table.csv``. Bring the LOLA
-dataset into the coordinate system of the DEM::
-
-    pc_align --max-displacement 280 run_stereo_yesba_sub4/run-DEM.tif \
-      RDR_354E355E_85p5S84SPointPerRow_csv_table.csv                  \
-      -o run_stereo_yesba_sub4/run --save-transformed-source-points
-
-Then we compare to the aligned LOLA dataset the input to SfS and its
-output::
-
-    geodiff --absolute -o beg --csv-format '1:lon 2:lat 3:radius_km' \
-      run_stereo_yesba_sub4/run-crop-DEM.tif                        \
-      run_stereo_yesba_sub4/run-trans_source.csv
-    geodiff --absolute -o end --csv-format '1:lon 2:lat 3:radius_km' \
-      sfs_sub4_ref1_th_reg0.12_wt0.001/run-DEM-final.tif             \
-      run_stereo_yesba_sub4/run-trans_source.csv
-
-We see that the mean error between the DEM and LOLA goes down, after
-SfS, from 1.14 m to 0.90 m, while the standard deviation decreases from
-1.18 m to 1.06 m.
-
-.. _sfs-move-cameras:
-
-SfS and alignment in LOLA's coordinates
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The alternative to the approach above is to work in the LOLA coordinate
-system. This requires transforming the DEM clip (and later the cameras)::
-
-    pc_align --max-displacement 280                  \
-      run_stereo_yesba_sub4/run-crop-DEM.tif         \
-      RDR_354E355E_85p5S84SPointPerRow_csv_table.csv \
-      --save-inv-transformed-reference-points        \
-      -o run_align/run 
-
-The output 50th *error percentile of smallest errors* should be under
-1-2 meters, and ideally less. Otherwise likely something is not right,
-and coregistration of images may fail later. 
-
-The ``pc_align`` tool can be quite sensitive to the
-``--max-displacement`` value. It should be somewhat larger than the
-estimated translation among the two datasets.
-
-The resulting transformed cloud needs to be regridded::
-
-    point2dem --stereographic --proj-lon -5.7113 --proj-lat -85.0003 \
-      run_align/run-trans_reference.tif --tr 4
- 
-obtaining ``run_align/run-trans_reference-DEM.tif``. This DEM should
-be hillshaded and overlayed on top of the LOLA DEM and see if there is
-any noticeable shift, which would be a sign of alignment not being
-successful. The ``geodiff`` tool can be used to examine any
-discrepancy among the two (:numref:`geodiff`), followed by
-``colormap`` (:numref:`colormap`) and inspection in ``stereo_gui``.
-
-The cameras can be moved with ``bundle_adjust``::
-
-    bundle_adjust --input-adjustments-prefix run_ba_sub4/run  \
-      --initial-transform run_align/run-inverse-transform.txt \
-      --apply-initial-transform-only                          \
-      -o ba_align/run
-
-It is very important to note that we used above
-``run-inverse-transform.txt``, which goes from the DEM coordinate
-system to the LOLA one. This is discussed in detail in
-:numref:`ba_pc_align`.
-
-It is suggested to mapproject the images using the obtained
-bundle-adjusted cameras onto the obtained DEM, and check for alignment
-errors. Large ones means that something went wrong. Either not enough
-iterations took place, or there are not enough matches among some
-images.
-
-Very small alignment errors may be reduced by invoking
-``bundle_adjust`` one more time, using latest cameras in
-``ba_align/run``, with this aligned DEM as a constraint, and the
-option ``--heights-from-dem``, as discussed in :numref:`sfs-lola-dem`.
-
-SfS is done as above, while changing the initial terrain and the
-cameras to use the newly aligned versions::
-
-    sfs -i run_align/run-trans_reference-DEM.tif                 \
-      A_crop_sub4.cub C_crop_sub4.cub D_crop_sub4.cub            \
-      -o sfs_align_sub4_ref1_th_reg0.12_wt0.001/run              \
-      --shadow-thresholds '0.00149055 0.00138248 0.000747531'    \
-      --threads 4 --smoothness-weight 0.12                       \
-      --initial-dem-constraint-weight 0.001 --reflectance-type 1 \
-      --max-iterations 10 --use-approx-camera-models             \
-      --blending-dist 10 --min-blend-size 30                     \
-      --crop-input-images --bundle-adjust-prefix ba_align/run
-
-See more comments about some of these parameters at the previous
-invocation of ``sfs`` higher up.
-
-The ``geodiff`` tool can then be used to compare the obtained SfS DEM
-with the original LOLA dataset. Care is needed to populate correctly
-the ``--csv-format`` option of ``geodiff``.
-
-.. _sfs-lola-dem:
-
-Running SfS with an external initial guess DEM and extreme illumination
------------------------------------------------------------------------
+Large-scale SfS
+---------------
 
 Challenges
 ^^^^^^^^^^
 
-Here we will illustrate how SfS can be run in a very difficult
-situation. 
+SfS has been run successfully on a site close to the Lunar South Pole,
+at around 85.5 degrees South. Its size was 10,000 x 10,000 pixels. It
+had more than 150 LRO NAC images. The shadows on the ground were
+observed to make a full 360 degree loop. A seamless terrain was
+created.
 
-It is very strongly suggested to follow the instructions below very
-carefully, and be very meticulous in doing various checks along the
-way, as suggested. Otherwise one is looking at spending a lot of time
-and producing suboptimal results. It is very hard to figure out
-what the problems are by tracing one's work backward, hence, one
-should proceed step-by-step and very carefully.
+The challenges encountered were that the topography was very steep, the
+shadows extensive and varied drastically from image to image, and some
+portions of the terrain showed up only in some images. All this made
+it difficult to register the images to each other and to the ground.
 
-We chose a site very close to the Lunar South Pole, at around
-89.7 degrees South. We used an external DEM as an initial guess
-terrain, in this case the LOLA gridded DEM, as such a DEM has values in
-permanently shadowed regions. The terrain size is 5 km by 5 km at 1
-meter/pixel (we also ran a 10 km by 10 km region in the same location).
+We solved this by doing bundle adjustment with a large number of
+images that were sorted by illumination conditions. We made sure that
+there exist images close to each other in the image list that overlap
+and have similar enough illumination, which resulted in all
+images being tied together.
 
-A difficulty here is that the topography is very steep, the
-shadows are very long and vary drastically from image to image, and
-some portions of the terrain show up only in some images. All this
-makes it very hard to register images to each other and to the
-ground. We solved this by choosing very carefully a large set of
-representative images with gradually varying illumination.
+The user is strongly cautioned that the difficulty of getting things
+right greatly increases with dataset complexity. 
 
-We recommend that the process outlined below first be practiced with
-just a couple of images on a small region, which will make it much
-faster to iron out any issues.
+It is very strongly suggested to first try SfS on a site of size
+perhaps 2000 x 2000 pixels, with a dozen carefully inspected images
+with slowly varying illumination, and having at least one stereo pair
+among them that can be used for alignment to the ground.
 
-Initial LOLA terrain
-^^^^^^^^^^^^^^^^^^^^
+If happy with the results, more images can be added and the site size
+increased, while the camera poses determined so far can be kept fixed
+during later rounds of bundle adjustment (options
+``--input-adjustments-prefix`` and ``--fixed-image-list``; newly added
+cameras can be given the nominal adjustment, see
+:numref:`adjust_files`).
 
-The first step is to fetch the underlying LOLA DEM. We use the 20
-meter/pixel one, resampled to 1 meter/pixel, creating a DEM named
-``ref.tif``.
+Given a failed run over a site with 20,000 x 20,000 pixels and 1000
+images, it can be very hard to trace back where things went wrong. So,
+it is more efficient of one's time to incrementally increase the
+complexity.
+
+The initial terrain
+^^^^^^^^^^^^^^^^^^^
+
+A LOLA DEM was used as an initial guess terrain for SfS and as
+reference ground truth. A mosaic of several stereo DEMs with
+bundle-adjusted cameras can be used as well.
+
+Fetch the 20 meter/pixel LOLA product:
 
 ::
 
     wget http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.IMG
     wget http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.LBL
     pds2isis from = LDEM_80S_20M.LBL to = ldem_80s_20m.cub
-    image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
-    gdalwarp -overwrite -r cubicspline -tr 1 1 -co COMPRESSION=LZW \
-      -co TILED=yes -co INTERLEAVE=BAND                            \
-      -co BLOCKXSIZE=256 -co BLOCKYSIZE=256                        \
-      -te -7050.5 -10890.5 -1919.5 -5759.5                         \
-      ldem_80s_20m_scale.tif ref.tif
-
-Note that we scaled its heights by 0.5 per the information in the LBL
-file. The documentation of your DEM needs to be carefully studied to
-see if this applies in your case. 
 
 The site::
 
@@ -1032,62 +776,97 @@ The site::
 
 has higher-accuracy LOLA DEMs but only for a few locations.
 
-Later when we mapproject images onto this DEM at 1 m/pixel, those will
-be computed at integer multiples of this grid. Given that the grid
-size is 1 m, the extent of those images as displayed by ``gdalinfo``
-will have a fractional value of 0.5. It is very recommended to have
-``gdalwarp`` above produce a result on the same grid (for when
-``sfs_blend`` is used later). Hence, ``gdalwarp`` was used
-with the ``-te`` option, with the bounds having a fractional part of 0.5.
-Note that the bounds passed to ``-te`` are in the order::
+Multiply the DEM heights by 0.5 per the information in the LBL file using
+``image_calc`` (:numref:`image_calc`). The documentation of your DEM
+needs to be carefully studied to see if this applies in your case.
 
-    xmin, ymin, xmax, ymax
+    image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
 
-The ``dem_mosaic`` program can be used to automatically compute the bounds
-of a DEM or orthoimage and change them to integer multiples at pixel size. It
-can be invoked, for example, as::
+Resample the DEM to 1 m/pixel using ``gdalwarp``
+(:numref:`gdal_tools`), creating a DEM named ``ref.tif``::
 
-    dem_mosaic --tr 1 --tap input.tif -o output.tif
+    gdalwarp -overwrite -r cubicspline -tr 1 1              \
+      -co COMPRESSION=LZW -co TILED=yes -co INTERLEAVE=BAND \
+      -co BLOCKXSIZE=256 -co BLOCKYSIZE=256                 \
+      -te -7050.5 -10890.5 -1919.5 -5759.5                  \
+      ldem_80s_20m_scale.tif ref.tif
+
+It is suggested to use a polar stereographic projection centered
+around the area of interest when resampling the terrain
+(``gdalwarp`` option ``-t_srs``). 
+
+The interpolated DEM was created with bicubic spline interpolation,
+which is preferable to the default nearest neighbor interpolation, and
+it was saved internally using blocks of size 256 x 256, which ASP
+handles better than the GDAL default with each block as tall or wide
+as a row or column.
 
 The DEM grid size should be not too different from the *ground sample
 distance (GSD)* of the images, for optimal results. That one can be found
 with ``mapproject`` (:numref:`mapproject`).
 
-Above the interpolated DEM was created with bicubic spline
-interpolation, which is preferable to the default nearest neighbor
-interpolation, and it was saved internally using blocks of size 256 x
-256, which ASP handles better than the GDAL default with each block
-as tall or wide as a row or column.
+Terrain bounds
+^^^^^^^^^^^^^^
+
+Later when we mapproject images onto this DEM, those will
+be computed at integer multiples of the grid size. Given that the grid
+size is 1 m, the extent of those images as displayed by ``gdalinfo``
+will have a fractional value of 0.5. 
+
+The ``sfs_blend`` program will fail later unless the resampled initial
+DEM also has this property, as it expects a one-to-one
+correspondence between mapprojected images and the ground. Hence,
+``gdalwarp`` was used earlier with the ``-te`` option, with the bounds
+having a fractional part of 0.5.  Note that the bounds passed to
+``-te`` are in the order::
+
+    xmin, ymin, xmax, ymax
+
+The ``dem_mosaic`` program (:numref:`dem_mosaic`) can be used to
+automatically compute the bounds of a DEM or orthoimage and change
+them to integer multiples at pixel size. It can be invoked, for
+example, as::
+
+    dem_mosaic --tr 1 --tap input.tif -o output.tif
 
 .. _sfs_azimuth:
 
 Image selection and sorting by illumination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-By far the hardest part of this exercise is choosing the images. 
-We downloaded several hundred of them by visiting the web site noted
-earlier and searching by the longitude-latitude bounds. The .IMG images
-were converted to .cub as before, and they were mapprojected onto the
+By far the hardest part of this exercise is choosing the images. We
+downloaded several hundred of them as described in
+:numref:`fetch_lro_images`, given the desired longitude-latitude
+bounds. The .IMG images were converted to .cub as in
+:numref:`sfs_single_image`, and they were mapprojected onto the
 reference DEM, initially at a lower resolution to get a preview of
-things.
+things (:numref:`sfs_inspection`).
 
-The mapprojected images were mosaicked together using ``dem_mosaic``
-with the option ``--block-max``, with a large value of ``--block-size``
-(larger than the image size), and using the ``--t_projwin`` option to
-specify the region of interest (in ``stereo_gui`` one can find this
-region by selecting it with Control-Mouse). When the mosaicking tool
-runs, the sum of pixels in the current region for each image will be
-printed to the screen. Images with a positive sum of pixels are likely
-to contribute to the desired region. Example::
+It is very strongly recommended to use the CSM camera models instead
+of ISIS models, as mentioned in :numref:`sfs_isis_vs_csm`.
+
+Inspection of many hundreds of images and choosing those that have
+valid pixels in the area of interest can be very arduous.  To make this
+easier, we make use of the reporting facility of ``dem_mosaic``
+(:numref:`dem_mosaic`) when invoked with the the option
+``--block-max``, with a large value of ``--block-size`` (larger than
+the image size), and using the ``--t_projwin`` option to specify the
+region of interest (in ``stereo_gui`` one can find this region by
+selecting it with Control-Mouse).
+
+When the mosaicking tool runs, the sum of pixels in the current region
+for each image will be printed to the screen. Images with a positive
+sum of pixels are likely to contribute to the desired
+region. Example::
 
    dem_mosaic --block-max --block-size 10000 --threads 1   \
      --t_projwin -7050.500 -10890.500 -1919.500 -5759.500  \
      M*.map.lowres.tif -o tmp.tif | tee pixel_sum_list.txt
 
-The obtained subset of images should be sorted by illumination
+The obtained subset of images must be sorted by illumination
 conditions, that is, the Sun azimuth. This angle is printed when
-running ``sfs`` with the ``--query`` option on the .cub files. Out of
-those, the following were kept::
+running ``sfs`` with the ``--query`` option on the .cub files. Here
+is an example::
 
     M114859732RE.cal.echo.cub       73.1771
     M148012947LE.cal.echo.cub       75.9232
@@ -1121,114 +900,62 @@ those, the following were kept::
     M103776992RE.cal.echo.cub       196.643
     M103776992LE.cal.echo.cub       196.643
 
-(the Sun azimuth is shown on the right, in degrees). These were then
-mapprojected onto the reference DEM at 1 m/pixel using the South Pole
-stereographic projection specified in this DEM.
+(the Sun azimuth is shown on the right, in degrees).
 
 It is best to avoid images with very low illumination angles as those
 can result in artifacts in the produced SfS terrain.
 
-The primary reason why registration may fail later is illumination
-varying too drastically from image to next images in the list,
-and not being able to find matching interest points. Hence, there must
-be sufficient images so illumination conditions change slowly as
-one goes down the list.
+The primary reason why registration can fail later is illumination
+varying too drastically between nearby images, and not being able to
+find matching interest points. Hence, there must be sufficient images
+so that the illumination conditions over the entire site change slowly
+as one goes down the list.
 
-Consider using here CSM models instead of ISIS models, as mentioned in
-:numref:`sfs_isis_vs_csm`.
+Bundle adjustment
+^^^^^^^^^^^^^^^^^
 
-.. _sfs_exclude_lowres:
+The ``parallel_bundle_adjust`` tool (:numref:`parallel_bundle_adjust`)
+is employed to co-register the images and correct camera errors. The
+images must be, as mentioned earlier, ordered by Sun azimuth angle.
 
-Excluding low-resolution images
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+It is very important to have interest point matches that tie all
+images together. To make the determination of such matches more
+successful, the images were first mapprojected at 1 m/pixel to have
+them in the same perspective. See See :numref:`mapip` for more
+details.
 
-It may be possible that images with low resolution may affect the
-overall registration accuracy. Use a command as::
+Create three lists, each being a plain text file with one file name on
+each line, having the input images (sorted by illumination),
+corresponding cameras (in .json or .cub format), and corresponding
+mapprojected images. Append to the last list also the input DEM that
+was used in mapprojection.
 
-  mapproject --query-projection dem.tif image.cub image.json out.tif
+Run bundle adjustment::
 
-to identify an image's ground sample distance (pixel size on the
-ground). 
+    parallel_bundle_adjust                           \
+      --image-list image_list.txt                    \
+      --camera-list camera_list.txt                  \
+      --mapprojected-data-list mapprojected_list.txt \
+      --processes 4                                  \
+      --ip-per-image 20000                           \
+      --overlap-limit 50                             \
+      --num-iterations 100                           \
+      --num-passes 2                                 \
+      --min-matches 1                                \
+      --max-pairwise-matches 1000                    \
+      --camera-weight 0                              \
+      --robust-threshold 2                           \
+      --tri-weight 0.05                              \
+      --tri-robust-threshold 0.05                    \
+      --remove-outliers-params "75.0 3.0 100 100"    \
+      --save-intermediate-cameras                    \
+      --match-first-to-last                          \
+      --min-triangulation-angle 0.1                  \
+      --datum D_MOON                                 \
+      --nodes-list <list of computing nodes>         \
+      -o ba/run 
 
-For LRO NAC, ideally it is suggested to exclude all images where this
-value is above 1.5 meters. However, note that excluding images may
-make it hard to match images with different illumination conditions,
-as valuable images with intermediate illumination may be taken out. In
-that case, one may want to keep low-resolution images for registration
-but exclude them from shape-from-shading.
-
-Handling a very large number of images
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If the chosen site is large, one may be looking at perhaps 1500 to
-2000 images in it, and then it becomes quite hard to choose which
-images to use. Two approaches can help with that.
-
-One is to break up the input DEM in four quadrants with overlap.
-Examine all images overlapping with a quadrant (after mapprojection at
-a low resolution), sort them by Sun azimuth, and choose a subset of
-good images for that quadrant. Repeat for the other quadrants. (Some
-images may be repeated across quadrants, which is a good thing, as
-eventually all these will be bundle-adjusted together; repeated images
-should be removed before bundle adjustment.)
-
-Alternatively, divide the images into groups, by Sun azimuth angle,
-for example into 36 groups with variation of at most 10 degrees within
-each group. Mapproject these as before, examine each group
-individually, such as by opening them with::
-
-  stereo_gui --hide-all --single-window --use-georef $(cat group1.txt)
-
-and select a subset of them which cover reasonably well the desired
-area, while eliminating those which don't seem to provide new
-information. One should avoid the temptation of using the images with
-the biggest footprint, as those may also be the ones at lower
-resolution.
-
-Note that clicking on an image in ``stereo_gui`` will print the image
-name in the terminal, and that way a list can be assembled.
-
-These two strategies can be used together, and they may be
-automated at some point.
-
-It is strongly suggested to carefully reduce the number of images to
-at most 300 or so, with good overlap among them and representative and
-gradually changing illumination, as otherwise the problem becomes
-quickly unmanageable.  That may require working on a site which is
-perhaps no more than 5000 pixels on the side. Note that removing
-images with intermediate illumination can make bundle adjustment fail
-to produce accurate results.
-
-The complexity of the problem and the amount of work becomes very high
-as the number of images and dimensions of the site goes up, and as
-the illumination becomes more difficult.
-
-Bundle adjustment (registration)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The ``parallel_bundle_adjust`` tool is employed to co-register the images
-and correct camera errors. The images should be, as mentioned earlier,
-ordered by Sun azimuth angle.
-
-::
-
-    parallel_bundle_adjust --processes 4 --ip-per-image 20000 \
-      --overlap-limit 50 --num-iterations 1000 --num-passes 1 \
-      --min-matches 1 --max-pairwise-matches 1000             \
-      --camera-weight 0 --robust-threshold 5                  \
-      --tri-weight 0.1 --tri-robust-threshold 0.1             \
-      --remove-outliers-params "75.0 3.0 100 100"             \
-      --nodes-list <list of computing nodes>                  \
-      --datum D_MOON <images> <cameras>                       \
-      --mapprojected-data "<mapprojected images> ref.tif"     \
-      --save-intermediate-cameras --match-first-to-last       \
-      --min-triangulation-angle 0.1 -o ba/run 
-
-For bundle adjustment we in fact used even more images that overlap
-with this area, but likely this set is sufficient, and it is this set
-that was used later for shape-from-shading (see also the
-``--auto-overlap-limit`` option, which can be used to determine which
-images overlap). Here more bundle adjustment iterations are desirable,
+Here more bundle adjustment iterations are desirable,
 but this step takes too long. A large ``--ip-per-image`` can make a
 difference in images with rather different different illumination
 conditions but it can also slow down the process a lot. Note that the
@@ -1236,21 +963,10 @@ value of ``--max-pairwise-matches`` was set to 1000. That should
 hopefully create enough matches among any two images. A higher value
 here will make bundle adjustment run slower and use more memory.
 
-It is very important to have a lot of images during bundle adjustment,
-and that they are sorted by illumination (Sun azimuth angle) to ensure that
-there are enough overlaps and sufficiently similar illumination
-conditions among them for bundle adjustment to succeed. Later, just a
-subset can be used for shape-from-shading, enough to cover the entire
-region, preferable with multiple illumination conditions at each
-location.
-
 Towards the poles the Sun may describe a full loop in the sky, and
 hence the earliest images (sorted by Sun azimuth angle) may become
 similar to the latest ones. That is the reason above we used the
 option ``--match-first-to-last``.
-
-The option ``--mapprojected-data`` is needed when the interest point
-matches are hard to find. See See :numref:`mapip` for more details.
 
 Note that this invocation may run for more than a day, or even
 more. And it may be necessary to get good convergence. If the process
@@ -1259,254 +975,319 @@ obtained so far can still be usable, if invoking bundle adjustment,
 as above, with ``--save-intermediate-cameras``. As before, using
 the CSM model can result in much-improved performance. 
 
-Here we used ``--camera-weight 0`` and ``--robust-threshold 5`` to
+Here we used ``--camera-weight 0`` and ``--robust-threshold 2`` to
 give cameras which start far from the solution more chances to
-converge. We used ``--num-passes 1`` in case 100 iterations may not be
-enough to converge fully, and then outliers will be removed
-prematurely if there is more than one pass. That would remove along
-the way good interest point matches, which may make the solution
-worse. The option ``--remove-outliers-params`` above also used very
-generous outlier filtering, if more than 1 pass is desired, when
-outlier filter takes place.
+converge. We are very generous with outlier filtering in the option
+``--remove-outliers-params``. That will ensure that in case the
+solution did not fully converge, valid matches with large
+reprojection error are not thrown out as outliers.
 
-If there are on the order of 1000 input images, the underlying GNU
-Parallel program may fail. In that case use the ``--image-list``,
-``--camera-list`` and ``--mapprojected-data-list`` options
-(:numref:`bundle_adjust`).
+See also the ``--auto-overlap-limit`` option, which can be used to
+determine which images overlap.
+
+Validation of bundle adjustment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The file::
 
    ba/run-final_residuals_stats.txt
 
-should also be examined. If many cameras have large median
-reprojection error, that may be a sign of issues. Normally the option
-``--robust-threshold 5`` should be good enough at making the camera
-poses converge. One should consider removing cameras with the biggest
-errors and too few interest point matches at this stage.
+should be examined. The median reprojection error per camera must be
+at most 1-2 pixels. If that is not the case, bundle adjustment failed
+to converge. To help it, consider doing a preliminary step of bundle
+adjustment with ``--robust-threshold 5`` to force the larger errors to
+go down, and then do a second invocation to refine the cameras with
+``--robust-threshold 2`` as earlier. In the second invocation, pass
+the cameras obtained at the preliminary stage using the option
+``--input-adjustments-prefix``, and reuse the match files with the
+option ``--match-files-prefix``.
 
-Alignment to ground
-^^^^^^^^^^^^^^^^^^^
+Consider throwing out the images with large reprojection errors or
+too few interest point matches (the point count field in that report
+file).
+
+.. _sfs_ground_align:
+
+Alignment to the ground
+^^^^^^^^^^^^^^^^^^^^^^^
 
 A very critical part of the process is to move from the coordinate
-system of the cameras to the coordinate system of the ground in
-``ref.tif``. For that, we perform an alignment transform from the
-sparse cloud::
+system of the cameras to the coordinate system of the initial guess
+terrain in ``ref.tif``. The only reliable approach for this is to
+create a terrain model using stereo with some of the images and
+bundle-adjusted cameras produced so far, align that one to ``ref.tif``,
+and then apply this alignment to the cameras.
 
-    ba/run-final_residuals_pointmap.csv  
+Examine the file having the stereo convergence angles for each pair of
+images as produced by bundle adjustment (:numref:`ba_conv_angle`).
+Pick one or more pairs of images with a solid convergence angle
+(say 15-30 degrees) and a good number of matches, which is at least
+several dozens.
 
-in camera coordinates to ``ref.tif``::
+Create one or more stereo DEMs. If the site is large, the created
+terrains should cover a representative extent. They need not cover it
+fully, as we will use this data for alignment only.
+
+It is very important that the camera adjustments created so far are
+used in stereo, by passing them via ``--bundle-adjust-prefix``. So,
+the stereo command can look as follows::
+
+    parallel_stereo A.cub B.cub A.json B.json \
+      --bundle-adjust-prefix ba/run           \
+      --stereo-algorithm asp_mgm              \
+      --subpixel-mode 9                       \
+      run_stereo/run
+
+When invoking ``point2dem``, use the same projection (``--t_srs``) as
+in the reference terrain and a grid size (``--tr``) of 1
+meter. Inspect the triangulation error (:numref:`point2dem`). Ideally
+its average should not be more than 1 meter.
+
+The created DEMs can be mosaicked with ``dem_mosaic``
+(:numref:`dem_mosaic`).
+
+Align the mosaicked DEM to the initial LOLA terrain in ``ref.tif``
+using ``pc_align`` (:numref:`pc_align`)::
  
-    pc_align --max-displacement 400 --save-transformed-source-points \
-      --compute-translation-only                                     \
-      --csv-format '1:lon 2:lat 3:height_above_datum'                \
-      ref.tif ba/run-final_residuals_pointmap.csv                    \
-      -o ba/run 
+    pc_align --max-displacement 500           \
+      sereo_mosaic.tif ref.tif                \
+      --save-inv-transformed-reference-points \
+      -o run_align/run 
 
-This operation is rather fragile, and the resulting alignment may not
-be sufficiently precise. If among the input images there exists a
-stereo pair, it is suggested to instead align ``ref.tif`` to the DEM
-obtained from that stereo pair, then use that alignment to transform
-the cameras to the coordinate system of ``ref.tif``, before continuing
-with SfS, as shown in :numref:`sfs-move-cameras`.
+The output 50th *error percentile of smallest errors* as printed by
+this tool should be under 1-2 meters, and ideally less. Otherwise
+likely something is not right, and the registration of images may fail
+later.
 
-The value of ``--max-displacement`` could be too high perhaps, it is
-suggested to also experiment with half of that and keep the result that
-has the smaller error.
+The ``pc_align`` tool can be quite sensitive to the
+``--max-displacement`` value. It should be somewhat larger than the
+total estimated translation (horizontal + vertical) among the two
+datasets. The option ``--compute-translation-only`` may be necessary
+if ``pc_align`` introduces a bogus rotation.
 
-Note that earlier, in bundle adjustment, the option
-``--min-triangulation-angle 0.1`` was used. If in doubt, that value
-can be increased, perhaps to 0.5 degrees. The effect will be to remove
-from the file ``residuals_pointmap.csv`` somewhat unreliable
-triangulated points obtained from rays which are too close to being
-parallel. This may improve the reliability of the alignment above,
-but there is the risk that too many points may be removed. A solid
-value for this min triangulation angle is 5-10 degrees, but LRO NAC
-images are very rarely acquired with such a big difference in
-perspective, and then this will remove a majoirty of interest points.
+The resulting transformed cloud ``run_align/run-trans_reference.tif``
+needs to be regridded with ``point2dem`` with the same projection
+and grid size as before.
 
-The flag ``--compute-translation-only`` turned out to be necessary as
-``pc_align`` was introducing a bogus rotation.
+This DEM should be hillshaded and overlayed on top of the LOLA DEM and
+see if there is any noticeable shift, which would be a sign of
+alignment not being successful. The ``geodiff`` tool can be used to
+examine any discrepancy among the two (:numref:`geodiff`), followed by
+``colormap`` (:numref:`colormap`) and inspection in ``stereo_gui``.
 
-The obtained alignment transform can be applied to the cameras to make
-them aligned to the ground in ``ref.tif``::
+If happy with the results, the alignment transform can be applied
+to the cameras::
 
-    mkdir -p ba_align
-    bundle_adjust --initial-transform ba/run-transform.txt       \
-      --apply-initial-transform-only                             \
-      --input-adjustments-prefix ba/run <images> -o ba_align/run
+    bundle_adjust                                             \
+      --image-list image_list.txt                             \
+      --camera-list camera_list.txt                           \
+      --input-adjustments-prefix ba/run                       \
+      --initial-transform run_align/run-inverse-transform.txt \
+      --apply-initial-transform-only                          \
+      -o ba_align/run
 
-Since ``ref.tif`` was the first argument to ``pc_align``, above we
-applied the transform ``ba/run-transform.txt`` which goes from the
-coordinate system of cameras to the one of ``ref.tif``. If
-``pc_align`` was invoked with the clouds in reverse order, for some
-reason, then this transform would go from ``ref.tif`` to camera
-coordinates, so to bring the cameras in the coordinates of ``ref.tif``
-one would then apply the transform in
-``ba/run-inverse-transform.txt``. See also :numref:`ba_pc_align`.
+It is very important to note that we used above
+``run-inverse-transform.txt``, which goes from the stereo DEM
+coordinate system to the LOLA one. This is discussed in detail in
+:numref:`ba_pc_align`. We used the adjustments created so far in
+``ba/run``.
 
-The images should now be projected onto this DEM as::
+It is suggested to mapproject the images using the obtained
+bundle-adjusted cameras in ``ba_align/run`` onto ``ref.tif``, and
+check for alignment errors in ``stereo_gui`` by overlaying the images
+using georeference information. Small errors (under 5-10 pixels) are
+likely fine and will be corrected at the next step.
 
-    mapproject --tr 1 --bundle-adjust-prefix ba_align/run \
-      ref.tif image.cub image.map.tif
+If the images are too many, inspect at least a dozen of them. The
+report file introduced at the next step will help with a large number
+of images. 
 
-One should verify if they are precisely on top of each other and on
-top of the LOLA DEM in ``stereo_gui`` :numref:`stereo_gui`). If any
-shifts are noticed, with the images relative to each other, or to this
-DEM, that is a sign of some issues. If the shift is relative to this
-DEM, perhaps one can try the alignment above with a different value of
-the max displacement.
+The following command can be used to quickly overlay a few
+dozen mapprojected images::
 
-Alignment using a stereo terrain
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  stereo_gui --hide-all --single-window --use-georef $(cat list.txt)
 
-The above alignment may not always be successful, since, if all the
-cameras have small convergence angles, the ``residuals_pointmap.csv``
-file may not have accurate 3D positions. If a stereo pair exists among
-the bundle-adjusted images, it is strongly suggested to create a DEM from
-that one and use it for alignment to the reference DEM
-(:numref:`sfs-move-cameras`).
+Then individual images can be toggled on and off.
 
-At the end of bundle adjustment the convergence angles for each pair
-of images having matches are saved to disk (:numref:`ba_out_files`), 
-to::
-
-    {output-prefix}-convergence_angles.txt
-
-That list can be used to uncover stereo pairs (the convergence angle
-for a reliable stereo pair should be no less than 10 degrees,
-:numref:`stereo_pairs`).
- 
 Registration refinement
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-If the images mapproject reasonably well onto the given DEM, with no
+If the images mapproject reasonably well onto the reference DEM, with no
 shift across the board, but there are still some registration errors,
 one can refine the cameras using the reference terrain as a constraint
 in bundle adjustment (:numref:`heights_from_dem`)::
 
-    bundle_adjust --skip-matching --num-iterations 500  \
-      --num-passes 1 --camera-weight 0                  \
-      --input-adjustments-prefix ba_align/run <images>  \
-      --save-intermediate-cameras                       \
-      --heights-from-dem ref.tif                        \
-      --heights-from-dem-weight 1.0                     \
-      --heights-from-dem-robust-threshold 0.25          \
-      --remove-outliers-params "75.0 3.0 100 100"       \
-      --match-first-to-last --max-pairwise-matches 1000 \
-      --match-files-prefix ba/run -o ba_align_ref/run
+    bundle_adjust                                 \
+      --image-list image_list.txt                 \
+      --camera-list camera_list.txt               \
+      --max-pairwise-matches 1000                 \
+      --skip-matching                             \
+      --num-iterations 100                        \
+      --num-passes 2                              \
+      --camera-weight 0                           \
+      --input-adjustments-prefix ba_align/run     \
+      --save-intermediate-cameras                 \
+      --heights-from-dem ref.tif                  \
+      --heights-from-dem-weight 0.1               \
+      --heights-from-dem-robust-threshold 0.1     \
+      --mapproj-dem ref.tif                       \
+      --remove-outliers-params "75.0 3.0 100 100" \
+      --match-first-to-last                       \
+      --match-files-prefix ba/run                 \
+      -o ba_align_ref/run
 
-Note how we use the match files from the original ``ba`` directory,
+Note how we use the match files with the original ``ba/run`` prefix,
 and also use ``--skip-matching`` to save time by not recomputing
-them. But the camera adjustments come from ``ba_align``, as the ones
-in ``ba`` are before alignment. 
+them. But the camera adjustments come from ``ba_align/run``, as the
+ones with the ``ba/run`` prfix are before alignment.
 
-If 500 iterations turns out to take more than a day, it is suggested
-to switch to CSM cameras (:numref:`sfs_isis_vs_csm`). It is suggested
-that the images be map-projected with the cameras both before and
-after this step, and see if things improve. If this procedure resulted
-in improved but imperfect alignment, it may be run second time using
-the new cameras as initial guess (and reusing the match files, etc.,
-as before).
+It is strongly suggested to use CSM cameras
+(:numref:`sfs_isis_vs_csm`).
+
+The option ``--mapproj-dem`` is very helpful for identifying
+misregistered images (see below).
 
 The switch ``--save-intermediate cameras`` is helpful, as before, if
 desired to stop if things take too long.
-
-After mapprojecting with the newly refined cameras in
-``ba_align_ref``, any residual alignment errors should go away. 
 
 The value used for ``--heights-from-dem-weight`` may need some
 experimentation. Making it too high may result in a tight coupling to
 the reference DEM at the expense of self-consistency between the
 cameras. Yet making it too low may not constrain sufficiently the
-uncertainty that exists in the height of triangulated points after
-bundle adjustment, which is rather high since LRO NAC is mostly
-looking down so the convergence angle among any rays going through
-matching interest points is small.
+cameras to the ground.
 
-It is suggested that the user examine the file::
+.. _sfs_validation:
 
-    ba_align_ref/run-final_residuals_pointmap.csv
+Validation of registration
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-to see if the reprojection errors (column 4) are reasonably small, say
-mostly on the order of 0.1 pixels (some outliers are expected
-though). The triangulated point cloud from this file should also
-hopefully be close to the reference DEM. Their difference is found
-as::
+Mapproject the input images with the latest aligned cameras::
 
-    geodiff --absolute                                         \
-      --csv-format '1:lon 2:lat 3:height_above_datum' ref.tif  \
-      ba_align_ref/run-final_residuals_pointmap.csv            \
-      -o ba_align_ref/run
+    mapproject --tr 1.0                        \
+      --bundle-adjust-prefix ba_align_ref/run  \
+      ref.tif image.cub image.json             \
+      image.align.map.tif    
 
-Some of the differences that will be saved to disk are likely outliers,
-but mostly they should be small, perhaps on the order of 1 meter.
+These can be overlayed in ``stereo_gui`` with georeference information
+and checked for misregistration. A maximally-lit mosaic can be created
+with the command::
 
-The file::
+  dem_mosaic --max -o max_lit.tif *.align.map.tif
 
-   ba_align_ref/run-final_residuals_stats.txt
+Misregistered images will create ghosting in this mosaic.
 
-should also be examined. For each camera it has the median of the
-norms of all residuals (reprojection errors) of pixels
-projecting in that camera. Images for which this median is larger than
-1 pixel or which have too few such residuals (see the ``count`` field
-in that file) should be excluded from running SfS, as likely for those
-cameras are not correctly positioned.
+Given, for example, a few hundred input images, it is very
+time-consuming to do pairwise inspections to find the misaligned
+images. Bundle adjustment created a report file with the name::
 
-If, even after this step, the mapprojected images fail to be perfectly
-on top of each other, or areas with poor coverage exist, more images
-with intermediate illumination conditions and more terrain coverage
-should be added and the process should be restarted. As a last resort,
-any images that do not overlay correctly must be removed from
-consideration for the shape-from-shading step.
+     ba_align_ref/run-mapproj_match_offset_stats.txt
 
-Handling remaining registration errors
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+which greatly simplifies this job. See :numref:`ba_mapproj_dem` for
+its description.
 
-If the results are not good so far, it could be because images
-were not sorted by illumination for bundle adjustment, or the illumination
-changed too drastically for an image in the list and all images that
-follow it, or there are not enough overlaps between and image and the rest.
+Consider the top part of its file, measuring how much each image
+disagrees with the rest, in meters. Percentiles of registration errors
+are provided, and also the number of inlier matches that between each
+image and the others.
 
-it is suggested to perhaps narrow down the domain of computation, by
-cropping the input DEM to a region of perhaps 5000 pixels on the side,
-ensure the images are sorted by illumination, align them using a
-stereo pair (:numref:`sfs-move-cameras`), select a smaller subset of
-perhaps 100-200 images, then redo bundle adjustment with the options
-``--proj-win`` and ``--proj-str`` to exclude interest points outside
-of given area.
+Images with too few matches (say under 50), should be thrown out. If
+the 85th percentile of registration errors for an image is over 1.5
+meters (assuming a 1 meter ground resolution), it likely registered
+badly. Those can be thrown out too.
 
-The previously obtained camera adjustments can be used as initial
-guesses when re-running bundle adjustment. 
+However, the more images are eliminated, the more one risks loss of
+coverage. It is suggested to sort the images in increasing order of
+these percentiles, and create a few candidate sets, with each set
+having a different threshold for what is considered an acceptable
+registration error. For example, use cutoffs of 1.25 m, 1.5 m, 1.75 m.
 
-If still no luck, mapproject the images using the latest cameras, open
-them in ``stereo_gui`` while sorted by illumination, and carefully
-inspect them. If a problematic image pair was found, see if it has
-interest point matches in the earliest bundle adjustment directory.
+Create the maximally lit mosaic for each of these and overlay them
+in ``stereo_gui``. Inspect them carefully. Choose the set which
+does not sacrifice coverage and has a small amount of misregistration.
+Some images from a larger set can also be added to a smaller
+one, after manual inspection, to increase the coverage.
 
-If good results are obtained for such small subregions, the hope is
-that a new bundle adjustment which uses the union of the individually
-validated subsets (and using as input adjustments computed so far)
-will result in a good solution.
+When registration fails
+^^^^^^^^^^^^^^^^^^^^^^^
 
-If the option ``--mapproj-dem`` (with a DEM file as a value) is
-specified, a report will be written having measurements regarding how
-well images with bundle-adjusted cameras agree after mapprojection
-(:numref:`ba_out_files`). This is very helpful in identifying
-misregistered images.
+If the maximally lit mosaic has registration errors, there can be
+several causes:
+
+ - Images were not sorted by illumination in bundle adjustment.
+ - There are not enough images of intermediate illumination to tie the
+   data together.
+ - Some images may have bad jitter (:numref:`jitter_solve`).
+ - Lower-resolution images with large footprint may not register well.
+   The command ``mapproject --query-projection`` can be used to find 
+   the ground sample distance (resolution) of an image.
+
+Here are several possible strategies, apart from the high-level
+overview earlier in :numref:`sfs-lola`:
+
+ - See if many mapprojected images are misregistered with the DEM. If 
+   yes, bundle adjustment and/or alignment failed and needs to be redone.
+ - Throw out images with a high error in report file
+   (:numref:`sfs_validation`).
+ - Crop all mapprojected images to a small site, and overlay them while
+   sorted by illumination (solar azimuth angle). See for which images 
+   the registration failure occurs.
+ - Inspect the match files for unprojected images (.match and
+   -clean.match) in ``stereo_gui`` (:numref:`stereo_gui`). Perhaps
+   there were not enough matches or too many of them were thrown
+   out as outliers.
+ - Fallback to a smaller subset of images which are self-consistent,
+   even if losing coverage that way. 
+ - See if more images can be added with intermediate illumination
+   conditions and to increase coverage.
+ - Change some bundle adjustment parameters.
+
+If no luck, break up a large site into 4 quadrants, and create a
+solution for each. If these are individually self-consistent and
+individually consistent with the ground, but have some misregistration
+among them, do a combined bundle adjustment using the .adjust files
+for the quadrants as initial guesses by copying them to a single
+directory. Ensure that the match files cover the combined region in
+that case.
+
+If some .adjust files occur in more than one quadrant, a certain
+quadrant may be chosen as an anchor, and its .adjust files be given
+preference, so have them overwrite those from the other quadrants,
+before a joint bundle adjustment (during which the cameras from that
+quadrant can also be kept fixed). Ensure, as always, that the joint
+bundle adjustment has the images sorted by illumination.
 
 Running SfS
 ^^^^^^^^^^^
 
 Next, SfS follows::
 
-    parallel_sfs -i ref.tif <images> --shadow-threshold 0.005        \
-      --bundle-adjust-prefix ba_align_ref/run -o sfs/run             \ 
-      --use-approx-camera-models --crop-input-images                 \
-      --blending-dist 10 --min-blend-size 50 --threads 4             \
-      --smoothness-weight 0.08 --initial-dem-constraint-weight 0.001 \
-      --reflectance-type 1 --max-iterations 5  --save-sparingly      \
-      --tile-size 200 --padding 50 --processes 20                    \
-      --nodes-list <machine list>
+    parallel_sfs -i ref.tif                   \
+      <images and cameras>                    \
+      --nodes-list nodes_list.txt             \
+      --shadow-threshold 0.005                \
+      --bundle-adjust-prefix ba_align_ref/run \
+      --use-approx-camera-models              \
+      --crop-input-images                     \
+      --blending-dist 10                      \
+      --min-blend-size 50                     \
+      --threads 4                             \
+      --smoothness-weight 0.08                \
+      --initial-dem-constraint-weight 0.001   \
+      --reflectance-type 1                    \
+      --max-iterations 5                      \
+      --save-sparingly                        \
+      --tile-size 200                         \
+      --padding 50                            \
+      --processes 20                          \
+      -o sfs/run
+
+For this step not all images need to be used, just a representative
+enough subset. Normally, having two or three sufficiently different
+illumination conditions at each location is good enough, ideally with 
+the shadows from one image being roughly perpendicular to shadows
+from other images. It is quite tricky to select such a subset, however,
+and normally SfS should work fine with a few hundred input images, so
+a subselection may not be necessary.
 
 It was found empirically that a shadow threshold of 0.005 was good
 enough.  It is also possible to specify individual shadow thresholds
@@ -1515,15 +1296,19 @@ for images having diffuse shadows cast from elevated areas that are
 far-off. For those, the threshold may need to be raised to as much as
 0.01.
 
+The option ``--use-approx-camera-models`` is not necessary with CSM
+cameras.
+
 The first step that will happen when this is launched is computing the
-exposures. That one can be a bit slow, and can be done offline, using
-the flag ``--compute-exposures-only`` in this tool, and then the
-computed exposures can be passed to the command above via the
-``--image-exposures-prefix`` option.
+image exposures. That step can be slow and is not parallelizable, so
+it can be done offline, using the flag ``--compute-exposures-only`` in
+this tool. Then the computed exposures can be passed to the command
+above via the ``--image-exposures-prefix`` option.
 
 One should experiment with floating the albedo (option
 ``--float-albedo``) if noticeable albedo variations are seen in the
-images. See :numref:`sfs_albedo` for a longer discussion.
+images. See :numref:`sfs_albedo` for a longer discussion. It is suggested
+to run SfS without this flag first and inspect the results.
 
 To get more seamless results around small shadowed craters reduce the
 value of ``--min-blend-size``. If you have many such
@@ -1552,7 +1337,7 @@ initial LOLA gridded terrain. For that, the SfS terrain can be
 overlayed as a georeferenced image on top of the initial terrain in
 ``stereo_gui``, and the SfS terrain can be toggled on and off.
 
-If that is the case, another step of alignment can be used. This time
+If a shift is found, another step of alignment can be used. This time
 one can do features-based alignment rather than based on
 point-to-point calculations. This works better on lower-resolution
 versions of the inputs, when the high-frequency discrepancies do not
@@ -1580,7 +1365,7 @@ cloud as::
       align/run-trans_source.tif
 
 Here, the projection string should be the same one as in the reference 
-LOLA DEM named ref.tif. It can be found by invoking::
+LOLA DEM named ``ref.tif``. It can be found by invoking::
 
     gdalinfo -proj4 ref.tif
 
@@ -1632,8 +1417,8 @@ if copying them over to the new output directory.)
 Ideally, after all this, there should be no systematic offset
 between the SfS terrain and the reference LOLA terrain.
  
-Comparison with initial terrain and image mosaic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Comparison with initial terrain
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``geodiff`` tool can be deployed to see how the SfS DEM compares
 to the initial guess or to the raw ungridded LOLA measurements.
@@ -1641,28 +1426,17 @@ One can use the ``--absolute`` option for this tool and then invoke
 ``colormap`` to colorize the difference map. By and large, the SfS
 DEM should not differ from the reference DEM by more than 1-2 meters.
 
-To create a maximally-lit mosaic one can mosaic together all the mapprojected
-images using the same camera adjustments that were used for SfS. That is
-done as follows::
+It is also suggested to produce produce a maximally-list mosaic,
+as in :numref:`sfs_validation`. This should not look too different
+if projecting on the initial guess DEM or on the refined one created
+with SfS. 
 
-    dem_mosaic --max -o max_lit.tif image1.map.tif ... imageN.map.tif
+Handling issues in the SfS result
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Inspecting this image will show where misregistration occurred, as those
-locations will show up blurry in this mosaic.
-
-Handling issues
-^^^^^^^^^^^^^^^
-
-After an SfS solution was found, with the cameras well-adjusted to
-each other and to the ground, and it is desired to add new camera
-images (or perhaps fix some of the existing poorly aligned cameras),
-one can create .adjust files for the new camera images (by perhaps
-using the identity adjustment, see :numref:`adjust_files` for the
-format of such files), run bundle adjustment again with the
-supplemented set of camera adjustments as initial guess using
-``--input-adjustments-prefix``, and one may keep fixed the cameras for
-which the adjustment is already good using the option
-``--fixed-camera-indices``.
+Misregistration errors between the images can result in craters or
+other features being duplicated in the SfS terrain. Then, registration
+must be redone as discussed in the earlier sections.
 
 If in some low-light locations the SfS DEM still has seams, one may
 consider invoking ``sfs`` with ``--robust-threshold 0.004``, removing
@@ -1774,16 +1548,8 @@ Here are a few suggestions we have found helpful when running ``sfs``:
   set to something small, like :math:`0.0001.` This can be increased to
   :math:`0.001` if noticing that the output DEM strays too far.
 
-- Bundle-adjustment for multiple images and alignment to ground is
-  crucial, to eliminate camera errors which will result in ``sfs``
-  converging to a local minimum. This is described in
-  :numref:`sfs-lola-comparison`.
-
 - More images with more diverse illumination conditions result in more 
-  accurate terrain. Ideally there should be at least 3 images, with the 
-  shadows being, respectively, on the left, right, and then perhaps 
-  missing or small. Images with intermediate illumination conditions may 
-  be needed for bundle adjustment to work.
+  accurate terrain. 
 
 - Floating the albedo (option ``--float-albedo``) can introduce
   instability and divergence, it should be avoided unless obvious
@@ -1796,29 +1562,5 @@ Here are a few suggestions we have found helpful when running ``sfs``:
 
 - Floating the DEM at the boundary (option ``--float-dem-at-boundary``)
   is also suggested to be avoided.
-
-- If an input DEM is large, see the :numref:`sfs-lola-dem` for a detailed
-  recipe using ``parallel_sfs``.
-
-- The ``mapproject`` program can be used to map-project each image onto
-  the resulting SfS DEM (with the camera adjustments solved using
-  ``bundle_adjust``). These orthoimages can be mosaicked using
-  ``dem_mosaic``. If the ``--max`` option is used with this tool, it
-  create a mosaic with the most illuminated pixels from this image. If
-  the camera adjustments were solved accurately, this mosaic should
-  have little or no blur or misregistration (ghosting).
-
-- For challenging datasets it is suggested to first work at 1/4th of
-  the full resolution (the resolution of an ISIS cube can be changed
-  using the ``reduce`` command, and the DEM can be made coarser with
-  ``gdalwarp`` or by converting it to a cloud with ``pc_align`` with
-  zero iterations and then regenerated with ``point2dem``). This should
-  make the whole process perhaps an order of magnitude faster. Any
-  obtained camera adjustment files are still usable at the full
-  resolution (after an appropriate rename), but it is suggested that
-  these adjustments be reoptimized using the full resolution cameras,
-  hence these should be initial guesses for ``bundle_adjust``'s
-  ``--input-adjustments-prefix`` option, and also using the
-  ``--heights-from-dem`` option.
 
  .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

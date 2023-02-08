@@ -18,12 +18,15 @@ Usage::
      bundle_adjust <images> <cameras> <optional ground control points> \
        -o <output prefix> [options]
 
-Example (for ISIS, :numref:`planetary_images`)::
+Examples
+~~~~~~~~
+
+Example for ISIS cameras (:numref:`planetary_images`)::
 
      bundle_adjust file1.cub file2.cub file3.cub -o run_ba/run
 
-Example (for DigitalGlobe Earth data, :numref:`dg_tutorial`, using
-ground control points, :numref:`bagcp`)::
+Example for Maxar (DigitalGlobe) Earth data (:numref:`dg_tutorial`). Ground
+control points are used (:numref:`bagcp`)::
 
      bundle_adjust file1.tif file2.tif file1.xml file2.xml gcp_file.gcp \
        --datum WGS_1984 -o run_ba/run --num-passes 2
@@ -40,8 +43,8 @@ With the cameras embedded in the images::
 
     bundle_adjust -t rpc left.tif right.tif -o run_ba/run
 
-Example (for generic pinhole camera data, using optional estimated camera
-positions)::
+Example for generic Pinhole cameras (:numref:`pinholemodels`),
+using optional estimated camera positions::
 
      bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai   \
         -o run_ba/run -t nadirpinhole --inline-adjustments     \
@@ -49,15 +52,35 @@ positions)::
         --csv-format "1:file 6:lat 7:lon 9:height_above_datum"
 
 Here we assumed that the cameras point towards some planet's surface and
-used the ``nadirpinhole`` session. If this assumption is not true one
-should use the ``pinhole`` session, though this one often does not
-perform as well when finding interest points in planetary context.
+used the ``nadirpinhole`` session. If this assumption is not true, one
+should use the ``pinhole`` session.
+
+Large-scale bundle adjustment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Bundle adjustment has been tested extensively and used successfully
+with thousands of frame (pinhole) cameras and with close to 1000
+linescan cameras. 
+
+This tool provides options for constraints relative to a known ground,
+can constrain the camera positions and orientations, and can apply an
+alignment transform to the cameras (:numref:`ba_pc_align`).
+
+Attention to choices of parameters and solid validation is needed in
+such cases. The tool creates report files with various metrics
+that can help judge how good the solution is (:numref:`ba_out_files`).
 
 Large-scale usage of bundle adjustment is illustrated in the SkySat
 processing example (:numref:`skysat`), with many Pinhole cameras, and
-with a large number of Lunar images with variable illumination
-(:numref:`sfs-lola-dem`). See also the related jitter-solving tool
-(:numref:`jitter_solve`).
+with a large number of linescan Lunar images with variable illumination
+(:numref:`sfs-lola`). See :numref:`bundle_adjustment` for how to solve
+for intrinsics.
+
+See also the related jitter-solving tool (:numref:`jitter_solve`),
+and the rig calibrator (:numref:`rig_calibrator`).
+
+Use of the results
+~~~~~~~~~~~~~~~~~~
 
 This tool will write the adjustments to the cameras as ``*.adjust``
 files starting with the specified output prefix
@@ -308,20 +331,25 @@ of those rays having an angle of at least this while some a much
 smaller angle.)
 
 The initial and final mean and median of residual error norms for the
-pixels each camera are written to ``residuals_stats.txt`` files in
-the output directory.
+pixels each camera, and their count, are written to
+``residuals_stats.txt`` files in the output directory.
 
 As a finer-grained metric, initial and final ``raw_pixels.txt`` files
 will be written, having the row and column residuals (reprojection
 errors) for each pixel in each camera.
 
+.. _ba_conv_angle:
+
 Convergence angles
 ^^^^^^^^^^^^^^^^^^
 
-The convergence angle percentiles for each pair of images having matches
+The convergence angle percentiles for rays emanating from matching 
+interest points and intersecting on the ground (:numref:`stereo_pairs`)
 are saved to::
 
     {output-prefix}-convergence_angles.txt
+
+There is one entry for each pair of images having matches.
 
 .. _ba_cam_pose:
 
@@ -391,8 +419,8 @@ Format of .adjust files
 Unless ``bundle_adjust`` is invoked with the ``--inline-adjustments``
 option, when it modifies the cameras in-place, it will save the camera
 adjustments in ``.adjust`` files using the specified output prefix.
-Such a file stores a translation *T* as *x y z* (measured in
-meters) and a rotation *R* as a quaternion in the order *w x y
+Such a file stores a translation *T* as *x, y, z* (measured in
+meters) and a rotation *R* as a quaternion in the order *w, x, y,
 z*. The rotation is around the camera center *C* for pixel (0, 0)
 (for a linescan camera the camera center depends on the pixel).
 
@@ -407,6 +435,11 @@ in the adjusted camera.
 Note that currently the camera center *C* is not exposed in the
 ``.adjust`` file, so external tools cannot recreate this
 transform. This will be rectified at a future time.
+
+Adjustments are relative to the initial cameras, so a starting
+adjustment has the zero translation and identity rotation (quaternion
+1, 0, 0, 0).  Pre-existing adjustments can be specified with
+``--input-adjustments-prefix``.
 
 .. _ba_options:
 
@@ -868,7 +901,8 @@ Command-line options for bundle_adjust
     mapprojected images, unproject and save those matches, then
     continue with bundle adjustment. Existing match files will be
     reused. Specify the mapprojected images and the DEM as a string in
-    quotes, separated by spaces. See :numref:`mapip` for an example.
+    quotes, separated by spaces. The DEM must be the last file.
+    See :numref:`mapip` for an example.
 
 --save-intermediate-cameras
     Save the values for the cameras at each iteration.
@@ -894,7 +928,7 @@ Command-line options for bundle_adjust
 --mapprojected-data-list
     A file containing the list of mapprojected images and the DEM (see
     ``--mapprojected-data``), when they are too many to specify on the
-    command line.
+    command line. The DEM must be the last entry.
 
 --proj-win
     Flag as outliers input triangulated points not in this proj

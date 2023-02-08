@@ -345,6 +345,8 @@ in the coordinate system of the source dataset, and
 ``run/run-trans_source.csv`` which is in reference coordinate system
 of the reference dataset.
 
+Care is needed, as before, with setting ``--max-displacement``.
+
 The convergence history for ``pc_align`` (the translation and rotation
 change at each iteration) is saved to disk with a name like::
 
@@ -495,10 +497,10 @@ Command-line options for pc_align
     Maximum number of iterations.
 
 --max-displacement <float>
-    Maximum expected displacement of source points as result of
-    alignment, in meters (after the initial guess transform is
-    applied to the source points).  Used for removing gross outliers
-    in the source (movable) point cloud.
+    Maximum expected displacement (horizonal + vertical) of source
+    points as result of alignment, in meters (after the initial guess
+    transform is applied to the source points).  Used for removing
+    gross outliers in the source (movable) point cloud.
 
 -o, --output-prefix <filename>
     Specify the output file prefix.

@@ -186,20 +186,27 @@ If the interest points are not well-distributed, this may result in
 large ray intersection errors where they are missing. If so, they can be
 re-created by modifying ``--ip-detect-method`` and ``--ip-per-tile``.
 Or, one can take advantage of the just-completed stereo run and invoke
-``stereo_tri`` with the additional option::
+``stereo_tri`` with of the two additional options::
 
      --num-matches-from-disp-triplets 10000
 
+or::
+  
+    --num-matches-from-disparity 10000
+
 to create dense and uniformly distributed interest points with desired
 density (the latter creates a .match file that needs to be copied to
-the name ``bundle_adjust`` expects). This option also ensures that if
-three images are present, and ``parallel_stereo`` is invoked on the
-first and second image, and then on the second and the third, followed
-by interest point generation, many interest points will be triplets,
-that is, the same feature will often will be identified in all three
-images, which can be a very good constraint on bundle adjustment
-later. (To not generate the triangulated point cloud after
-this, add the option ``--compute-point-cloud-center-only``.)
+the name ``bundle_adjust`` expects). See :numref:`triangulation_options`
+for more details.
+
+The first of these options also ensures that if three images are
+present, and ``parallel_stereo`` is invoked on the first and second
+image, and then on the second and the third, followed by interest
+point generation, many interest points will be triplets, that is, the
+same feature will often will be identified in all three images, which
+can be a very good constraint on bundle adjustment later. (To not
+generate the triangulated point cloud after this, add the option
+``--compute-point-cloud-center-only``.)
 
 If the interest points are good and the mean intersection error is
 acceptable, but this error shows an odd nonlinear pattern, that means
@@ -252,10 +259,10 @@ times.
 Using ground truth when floating the intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If a ground truth lidar file (or DEM) is present, say named
-``lidar.csv``, it can be used as part of bundle adjustment. For that,
-the DEM obtained with the earlier stereo pass needs to be first aligned
-to this ground truth, such as::
+If a point cloud having ground truth, such as a lidar file or DEM
+exists, say named ``lidar.csv``, it can be used as part of bundle
+adjustment. For that, the stereo DEM obtained earlier 
+needs to be first aligned to this ground truth, such as::
 
     pc_align --max-displacement VAL run_stereo/run-DEM.tif \
       lidar.csv -o run_align/run 
@@ -278,12 +285,17 @@ cloud should always be the first), when applying the transform to the
 cameras in ``bundle_adjust`` one should use ``transform.txt`` instead of
 ``inverse-transform.txt`` above.
 
+See :numref:`ba_pc_align` for how to handle the case when input
+adjustments exist.
+
 There are two ways of incorporating a ground constraint in bundle
-adjustment.  Here we will discuss an approach which works when the
-ground truth can be sparse, and we make use of the stereo
-disparity. In :numref:`heights_from_dem`, further down, another
-approach is discussed, where the ground is a DEM. That may be easier
-to use with a large number of images.
+adjustment. The first one assumes that the ground truth is a DEM,
+and is very easy to use with a large number of images. See
+:numref:`heights_from_dem` for more details.
+
+Here we will discuss an approach that works when the ground truth can
+be sparse, and we make use of the stereo disparity. It requires more
+work to set up than the earlier one.
 
 We will need to create a disparity from the left and right images
 that we will use during bundle adjustment. For that we will take the
@@ -443,17 +455,19 @@ experimentation with this weight and threshold may be needed.
 Here is an example, and note that, as in the earlier section,
 we assume that the cameras and the terrain are already aligned::
 
-     bundle_adjust -t nadirpinhole --inline-adjustments         \
-       --max-pairwise-matches 10000                             \
-       --solve-intrinsics --camera-weight 0                     \
-       --max-pairwise-matches 20000                             \
-       --heights-from-dem dem.tif                               \
-       --heights-from-dem-weight 0.5                            \
-       --heights-from-dem-robust-threshold 0.1                  \
-       --parameter-tolerance 1e-12                              \
-       --remove-outliers-params "75.0 3.0 20 25"                \
-       left.tif right.tif                                       \
-       run_align/run-run-left.tsai run_align/run-run-right.tsai \
+     bundle_adjust -t nadirpinhole               \
+       --inline-adjustments                      \
+       --max-pairwise-matches 10000              \
+       --solve-intrinsics --camera-weight 0      \
+       --max-pairwise-matches 20000              \
+       --heights-from-dem dem.tif                \
+       --heights-from-dem-weight 0.1             \
+       --heights-from-dem-robust-threshold 0.1   \
+       --parameter-tolerance 1e-12               \
+       --remove-outliers-params "75.0 3.0 20 25" \
+       left.tif right.tif                        \
+       run_align/run-run-left.tsai               \
+       run_align/run-run-right.tsai              \
        -o run_ba_hts_from_dem/run
 
 Here we were rather generous with the parameters for removing
@@ -473,6 +487,12 @@ adjustment should be done without it, or one should consider using a
 smaller weight above. This option can however be more effective than
 using ``--reference-terrain`` when there is a large uncertainty in
 camera intrinsics.
+
+See two other large-scale examples of using this option, without
+floating the intrinsics, in the SkySat processing example
+(:numref:`skysat`), using Pinhole cameras, and with 
+linescan Lunar images with variable illumination
+(:numref:`sfs-lola`).
 
 It is suggested to look at the documentation of all the options
 above and adjust them for your use case.
@@ -501,16 +521,17 @@ An example showing how to convert a camera model to RPC is given in
 Working with map-projected images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If ``parallel_stereo`` was run with map-projected images, one can still extract
-dense interest point matches and the unaligned disparity from such a
-run, and these can be applied with the original unprojected images for
-the purpose of bundle adjustment (after being renamed appropriately).
-This may be convenient since while bundle adjustment must always happen
-with the original images, ``parallel_stereo`` could be faster and more accurate when
-images are map-projected. It is suggested that the unaligned disparity
-and interest points obtained this way be examined carefully.
-Particularly the grid size used in mapprojection should be similar to
-the ground sample distance for the raw images for best results.
+If ``parallel_stereo`` was run with map-projected images, one can
+still extract dense interest point matches and the unaligned disparity
+from such a run, and these can be applied with the original
+unprojected images for the purpose of bundle adjustment (after being
+renamed appropriately).  This may be convenient since while bundle
+adjustment must always happen with the original images,
+``parallel_stereo`` could be faster and more accurate when images are
+map-projected. It is suggested that the unaligned disparity and
+interest points obtained this way be examined carefully.  Particularly
+the grid size used in mapprojection should be similar to the ground
+sample distance for the raw images for best results.
 
 Bundle adjustment using ISIS
 ----------------------------

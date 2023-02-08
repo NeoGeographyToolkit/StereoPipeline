@@ -467,7 +467,7 @@ GCP file.
 .. _mapip:
 
 Creating interest point matches using mapprojected images
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To make it easier to create interest point matches in situations when
 the images are very different or taken from very diverse perspectives,
@@ -517,6 +517,14 @@ and turn on viewing of interest point matches to study if the mapprojection
 was reversed correctly. 
 
 See :numref:`sfs3` for an illustration of this process.
+
+.. figure:: ../images/sfs3.jpg
+   :name: sfs3
+   :alt: interest points picked manually
+
+   An illustration of how interest points are picked manually for the
+   purpose of bundle adjustment. This is normally not necessary
+   if there exist images with intermediate illumination.
 
 .. _thresh:
 

@@ -27,6 +27,11 @@ bundle_adjust:
     (:numref:`skysat_stereo`).
   *  Bugfix for slow performance for a large number of images.
 
+ sfs: 
+    Made a big update to the documentation for large-scale bundle
+    adjustment and SfS processing, reflecting latest best practices
+    (:numref:`sfs-lola`).
+
 point2dem (:numref:`point2dem`): 
   * Added the option ``--propagate-errors`` to grid the stddev values
     computed during stereo triangulation. 
