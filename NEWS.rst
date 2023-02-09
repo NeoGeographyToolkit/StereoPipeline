@@ -27,8 +27,8 @@ bundle_adjust:
     (:numref:`skysat_stereo`).
   *  Bugfix for slow performance for a large number of images.
 
- sfs: 
-    Made a big update to the documentation for large-scale bundle
+sfs: 
+  * Made a big update to the documentation for large-scale bundle
     adjustment and SfS processing, reflecting latest best practices
     (:numref:`sfs-lola`).
 

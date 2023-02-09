@@ -1010,8 +1010,8 @@ void initial_filter_by_proj_win(Options             & opt,
 int do_ba_ceres_one_pass(Options             & opt,
                          CRNJ                & crn,
                          bool                  first_pass,
-                         asp::BAParams      & param_storage, 
-                         asp::BAParams const& orig_parameters,
+                         asp::BAParams       & param_storage, 
+                         asp::BAParams const & orig_parameters,
                          bool                & convergence_reached,
                          double              & final_cost) {
 

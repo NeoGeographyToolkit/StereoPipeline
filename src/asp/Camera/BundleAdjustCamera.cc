@@ -1063,7 +1063,8 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
           if (left_index >= right_index) 
             continue;
           inlier_pairs[std::make_pair(left_index, right_index)].insert
-            (Quadruplet(m1->position()[0], m1->position()[1], m2->position()[0], m2->position()[1]));
+            (Quadruplet(m1->position()[0], m1->position()[1],
+                        m2->position()[0], m2->position()[1]));
         }
       }
     }
@@ -1073,9 +1074,6 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
   for (auto match_it = opt.match_files.begin(); match_it != opt.match_files.end(); match_it++) {
 
     std::vector<double> localMapprojOffsets;
-
-    // IP from the control network, for which we flagged outliers
-    std::vector<vw::ip::InterestPoint> left_ip, right_ip;
 
     std::pair<int, int> cam_pair   = match_it->first;
     std::string         match_file = match_it->second;
@@ -1132,6 +1130,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
 
     // Keep only inliers and non-gcp. GCP are used in optimization but are not
     // part of the originally found interest point matches.
+    std::vector<vw::ip::InterestPoint> left_ip, right_ip;
     for (size_t ip_iter = 0; ip_iter < orig_left_ip.size(); ip_iter++) {
       Quadruplet q(orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y,
                    orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y);

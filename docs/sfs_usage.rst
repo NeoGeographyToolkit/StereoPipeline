@@ -745,10 +745,13 @@ among them that can be used for alignment to the ground.
 
 If happy with the results, more images can be added and the site size
 increased, while the camera poses determined so far can be kept fixed
-during later rounds of bundle adjustment (options
-``--input-adjustments-prefix`` and ``--fixed-image-list``; newly added
-cameras can be given the nominal adjustment, see
-:numref:`adjust_files`).
+during the rounds of bundle adjustment (options
+``--input-adjustments-prefix`` and ``--fixed-image-list``). Newly
+added cameras can be given the nominal adjustment, see
+:numref:`adjust_files`. This will make the ``pc_align`` step likely
+redundant, since a subset of images is already in the right place, and
+the hope is that the other ones will conform to these and to the
+terrain.
 
 Given a failed run over a site with 20,000 x 20,000 pixels and 1000
 images, it can be very hard to trace back where things went wrong. So,
@@ -1143,7 +1146,7 @@ in bundle adjustment (:numref:`heights_from_dem`)::
 Note how we use the match files with the original ``ba/run`` prefix,
 and also use ``--skip-matching`` to save time by not recomputing
 them. But the camera adjustments come from ``ba_align/run``, as the
-ones with the ``ba/run`` prfix are before alignment.
+ones with the ``ba/run`` prefix are before alignment.
 
 It is strongly suggested to use CSM cameras
 (:numref:`sfs_isis_vs_csm`).
