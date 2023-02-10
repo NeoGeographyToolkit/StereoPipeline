@@ -677,8 +677,9 @@ void transform_cameras_with_shared_gcp(boost::shared_ptr<vw::ba::ControlNetwork>
   
 // Given at least two images, each having at least 3 GCP that are not seen in other
 // images, find and apply a transform to the camera system based on them.
-void transform_cameras_with_indiv_image_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
-                                            std::vector<vw::CamPtr> & camera_models);
+void transform_cameras_with_indiv_image_gcp
+  (boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
+   std::vector<vw::CamPtr> & camera_models);
 
 // Given original cams in sfm_cams and individually scaled cameras in
 // aux_cams, get the median scale change from the first set to the second one.
@@ -715,14 +716,14 @@ void saveConvergenceAngles(std::string const& conv_angles_file,
 // Mapproject interest points onto a DEM and find the norm of their
 // disagreement in DEM pixel units. It is assumed that dem_georef
 // was created by bilinear interpolation.
-void calcPairMapprojOffsets(std::vector<vw::CamPtr> const& optimized_cams,
-                            int left_cam_index, int right_cam_index,
+void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
+                            std::vector<vw::CamPtr>            const& optimized_cams,
                             std::vector<vw::ip::InterestPoint> const& left_ip,
-                            std::vector<vw::ip::InterestPoint> const right_ip,
-                            vw::cartography::GeoReference const& dem_georef,
-                            vw::ImageViewRef<vw::PixelMask<double>> interp_dem,
-                            std::vector<vw::Vector<float, 4>> & mapprojPoints, 
-                            std::vector<float> & mapproj_offsets);
+                            std::vector<vw::ip::InterestPoint> const& right_ip,
+                            vw::cartography::GeoReference      const& dem_georef,
+                            vw::ImageViewRef<vw::PixelMask<double>> & interp_dem,
+                            std::vector<vw::Vector<float, 4>>       & mapprojPoints,  // append
+                            std::vector<float>                      & mapprojOffsets);
 
 // Save mapprojected matches offsets for each image pair having matches
 void saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
@@ -738,15 +739,16 @@ void saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
 // if a DEM is given. These are done together as they rely on
 // reloading interest point matches, which is expensive so the matches
 // are used for both operations.
-void matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
-                          asp::BaBaseOptions const& opt,
-                          std::vector<vw::CamPtr> const& optimized_cams,
-                          bool remove_outliers, std::set<int> const& outliers,
-                          std::vector<asp::MatchPairStats> & convAngles,
-                          std::string const& mapproj_dem,
+void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
+                          asp::BaBaseOptions           const& opt,
+                          std::vector<vw::CamPtr>      const& optimized_cams,
+                          bool remove_outliers,
+                          std::set<int>                const& outliers,
+                          std::string                  const& mapproj_dem,
+                          std::vector<asp::MatchPairStats>  & convAngles,
                           std::vector<vw::Vector<float, 4>> & mapprojPoints,
-                          std::vector<asp::MatchPairStats> & mapprojOffsets,
-                          std::vector<std::vector<float>> & mapprojOffsetsPerCam);
+                          std::vector<asp::MatchPairStats>  & mapprojOffsets,
+                          std::vector<std::vector<float>>   & mapprojOffsetsPerCam);
   
 }
 #endif // __BUNDLE_ADJUST_CAMERA_H__

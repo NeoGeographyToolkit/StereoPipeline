@@ -1519,8 +1519,8 @@ int do_ba_ceres_one_pass(Options             & opt,
       outliers.insert(i); // update this based on param_storage
   asp::matchFilesProcessing(cnet,
                             asp::BaBaseOptions(opt), // note the slicing
-                            optimized_cams, remove_outliers, outliers, convAngles, 
-                            opt.mapproj_dem, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam);
+                            optimized_cams, remove_outliers, outliers, opt.mapproj_dem,
+                            convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam);
 
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);

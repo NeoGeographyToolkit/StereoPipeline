@@ -883,16 +883,18 @@ void asp::saveConvergenceAngles(std::string const& conv_angles_file,
 // disagreement in meters. It is assumed that dem_georef
 // was created by bilinear interpolation. The cameras must be with
 // the latest adjustments applied to them.
-void asp::calcPairMapprojOffsets(std::vector<vw::CamPtr> const& optimized_cams,
-                                 int left_cam_index, int right_cam_index,
+void asp::calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
+                                 std::vector<vw::CamPtr>            const& optimized_cams,
                                  std::vector<vw::ip::InterestPoint> const& left_ip,
-                                 std::vector<vw::ip::InterestPoint> const right_ip,
-                                 vw::cartography::GeoReference const& dem_georef,
-                                 vw::ImageViewRef<vw::PixelMask<double>> interp_mapproj_dem,
-                                 std::vector<vw::Vector<float, 4>> & mapprojPoints,  // will append
-                                 std::vector<float> & mapproj_offsets) {
-  // Wipe the output
-  mapproj_offsets.clear();
+                                 std::vector<vw::ip::InterestPoint> const& right_ip,
+                                 vw::cartography::GeoReference      const& dem_georef,
+                                 vw::ImageViewRef<vw::PixelMask<double>>  & interp_dem,
+                                 // Will append below
+                                 std::vector<vw::Vector<float, 4>>       & mapprojPoints,
+                                 std::vector<float>                      & mapprojOffsets) {
+  
+  // Wipe mapprojOffsets
+  mapprojOffsets.clear();
   // Will append to mapprojPoints, so don't wipe it
   
   for (size_t ip_it = 0; ip_it < left_ip.size(); ip_it++) {
@@ -909,7 +911,7 @@ void asp::calcPairMapprojOffsets(std::vector<vw::CamPtr> const& optimized_cams,
     Vector3 left_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
       (optimized_cams[left_cam_index]->camera_center(left_pix),
        optimized_cams[left_cam_index]->pixel_to_vector(left_pix),
-       interp_mapproj_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+       interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
        height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
     if (!has_intersection) 
       continue;
@@ -920,7 +922,7 @@ void asp::calcPairMapprojOffsets(std::vector<vw::CamPtr> const& optimized_cams,
     Vector3 right_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
       (optimized_cams[right_cam_index]->camera_center(right_pix),
        optimized_cams[right_cam_index]->pixel_to_vector(right_pix),
-       interp_mapproj_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+       interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
        height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
     if (!has_intersection) 
       continue;
@@ -930,14 +932,14 @@ void asp::calcPairMapprojOffsets(std::vector<vw::CamPtr> const& optimized_cams,
 
     // Keep in the same structure both the midpoint between these two
     // mapprojected ip, as lon-lat,height, and their distance, as
-    // later the bookkeeping of mapproj_offsets will be different.
+    // later the bookkeeping of mapprojOffsets will be different.
     // Float precision is enough, and will save on memory.
     Vector<float, 4> point;
     subvector(point, 0, 3) = dem_georef.datum().cartesian_to_geodetic(mid_pt);
     point[3] = dist;
     
     mapprojPoints.push_back(point);
-    mapproj_offsets.push_back(dist);
+    mapprojOffsets.push_back(dist);
   }
 }
 
@@ -997,7 +999,6 @@ void asp::saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
 
   // Write all the points to the file
   for (size_t it = 0; it < mapprojPoints.size(); it++) {
-    
     Vector3 llh = subvector(mapprojPoints[it], 0, 3);
     ofs << llh[0] << ", " << llh[1] <<", " << llh[2] << ", "
          << mapprojPoints[it][3] << std::endl;
@@ -1013,15 +1014,16 @@ void asp::saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
 // if a DEM is given. These are done together as they rely on
 // reloading interest point matches, which is expensive so the matches
 // are used for both operations.
-void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
-                               asp::BaBaseOptions const& opt,
-                               std::vector<vw::CamPtr> const& optimized_cams,
-                               bool remove_outliers, std::set<int> const& outliers,
-                               std::vector<asp::MatchPairStats> & convAngles,
-                               std::string const& mapproj_dem,
+void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
+                               asp::BaBaseOptions           const& opt,
+                               std::vector<vw::CamPtr>      const& optimized_cams,
+                               bool                                remove_outliers,
+                               std::set<int>                const& outliers,
+                               std::string                  const& mapproj_dem,
+                               std::vector<asp::MatchPairStats>  & convAngles,
                                std::vector<vw::Vector<float, 4>> & mapprojPoints,
-                               std::vector<asp::MatchPairStats> & mapprojOffsets,
-                               std::vector<std::vector<float>> & mapprojOffsetsPerCam) {
+                               std::vector<asp::MatchPairStats>  & mapprojOffsets,
+                               std::vector<std::vector<float>>   & mapprojOffsetsPerCam) {
 
   vw_out() << "Filtering outliers and creating reports.\n";
   
@@ -1074,8 +1076,6 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
   // Work on individual image pairs
   for (auto match_it = opt.match_files.begin(); match_it != opt.match_files.end(); match_it++) {
 
-    std::vector<float> localMapprojOffsets;
-
     std::pair<int, int> cam_pair   = match_it->first;
     std::string         match_file = match_it->second;
     size_t left_index  = cam_pair.first;
@@ -1100,25 +1100,23 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
     convAngles.push_back(asp::MatchPairStats()); // add an element, will populate it soon
     asp::MatchPairStats & convAngle = convAngles.back(); // alias
     std::vector<double> sorted_angles;
-    asp::MatchPairStats * mapprojOffset = NULL; // may not always exist
-    if (save_mapproj_match_points_offsets) {
+    if (save_mapproj_match_points_offsets)
       mapprojOffsets.push_back(asp::MatchPairStats()); // add an elem
-      mapprojOffset = &mapprojOffsets.back(); // pointer
-    }
 
     if (!remove_outliers) {
       asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
                               orig_left_ip, orig_right_ip, sorted_angles);
       convAngle.populate(left_index, right_index, sorted_angles);
 
-      if (mapprojOffset != NULL) {
-        asp::calcPairMapprojOffsets(optimized_cams,
-                                    left_index, right_index,
+      if (save_mapproj_match_points_offsets) {
+        std::vector<float> localMapprojOffsets;
+        asp::calcPairMapprojOffsets(left_index, right_index,
+                                    optimized_cams,
                                     orig_left_ip, orig_right_ip,
                                     mapproj_dem_georef, interp_mapproj_dem,  
                                     mapprojPoints, // will append here
                                     localMapprojOffsets);
-        mapprojOffset->populate(left_index, right_index, localMapprojOffsets);
+        mapprojOffsets.back().populate(left_index, right_index, localMapprojOffsets);
         for (size_t map_it = 0; map_it < localMapprojOffsets.size(); map_it++) {
           mapprojOffsetsPerCam[left_index].push_back(localMapprojOffsets[map_it]);
           mapprojOffsetsPerCam[right_index].push_back(localMapprojOffsets[map_it]);
@@ -1194,14 +1192,15 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                             left_ip, right_ip, sorted_angles);
     convAngle.populate(left_index, right_index, sorted_angles);
     
-    if (mapprojOffset != NULL) {
-      asp::calcPairMapprojOffsets(optimized_cams,
-                                  left_index, right_index,
+    if (save_mapproj_match_points_offsets) {
+      std::vector<float> localMapprojOffsets;
+      asp::calcPairMapprojOffsets(left_index, right_index,
+                                  optimized_cams,
                                   left_ip, right_ip,
                                   mapproj_dem_georef, interp_mapproj_dem,  
                                   mapprojPoints, // will append here
                                   localMapprojOffsets);
-      mapprojOffset->populate(left_index, right_index, localMapprojOffsets);
+      mapprojOffsets.back().populate(left_index, right_index, localMapprojOffsets);
       for (size_t map_it = 0; map_it < localMapprojOffsets.size(); map_it++) {
         mapprojOffsetsPerCam[left_index].push_back(localMapprojOffsets[map_it]);
         mapprojOffsetsPerCam[right_index].push_back(localMapprojOffsets[map_it]);
