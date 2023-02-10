@@ -1503,9 +1503,16 @@ int do_ba_ceres_one_pass(Options             & opt,
   // if a DEM is given. These are done together as they rely on
   // reloading interest point matches, which is expensive so the matches
   // are used for both operations.
-  std::vector<vw::Vector<double, 4>> mapprojPoints; // all points, not just stats
+  std::vector<vw::Vector<float, 4>> mapprojPoints; // all points, not just stats
   std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
-  std::vector<std::vector<double>> mapprojOffsetsPerCam;
+  std::vector<std::vector<float>> mapprojOffsetsPerCam;
+  vw::cartography::GeoReference mapproj_dem_georef;
+  if (!opt.mapproj_dem.empty()) {
+    bool is_good = vw::cartography::read_georeference(mapproj_dem_georef, opt.mapproj_dem);
+    if (!is_good) 
+      vw::vw_throw(vw::ArgumentErr() << "Could not read a georeference from: "
+                   << opt.mapproj_dem << ".\n");
+  }
   outliers.clear(); 
   for (int i = 0; i < param_storage.num_points(); i++)
     if (param_storage.get_point_outlier(i))
@@ -1521,12 +1528,6 @@ int do_ba_ceres_one_pass(Options             & opt,
   if (!opt.mapproj_dem.empty()) {
     std::string mapproj_offsets_stats_file = opt.out_prefix + "-mapproj_match_offset_stats.txt";
     std::string mapproj_offsets_file = opt.out_prefix + "-mapproj_match_offsets.txt";
- 
-    vw::cartography::GeoReference mapproj_dem_georef;
-    bool is_good = vw::cartography::read_georeference(mapproj_dem_georef, opt.mapproj_dem);
-    if (!is_good) 
-      vw::vw_throw(vw::ArgumentErr() << "Could not read a georeference from: "
-                   << opt.mapproj_dem << ".\n");
     asp::saveMapprojOffsets(mapproj_offsets_stats_file, mapproj_offsets_file,
                             mapproj_dem_georef,
                             mapprojPoints,
@@ -2147,15 +2148,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   std::vector<std::string> inputs = opt.image_files;
 
   if (!opt.image_list.empty()) {
+    // Read the images and cameras and put them in 'inputs' to be parsed later
     if (opt.camera_list.empty())
       vw_throw(ArgumentErr()
                << "The option --image-list must be invoked together with --camera-list.\n");
-
     if (!inputs.empty())
       vw_throw(ArgumentErr() << "The option --image-list was specified, but also "
                << "images or cameras on the command line.\n");
-
-    // Read the images and cameras and put them in 'inputs' to be parsed later
     asp::read_list(opt.image_list, inputs);
     std::vector<std::string> tmp;
     asp::read_list(opt.camera_list, tmp);

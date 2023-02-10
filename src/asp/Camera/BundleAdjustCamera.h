@@ -78,12 +78,14 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
 const std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
 // A structure to hold percentiles of given sorted values. This sorts the inputs.
+// The input can be float or double. We will keep the result as double.
 struct MatchPairStats {
   int left_cam_index, right_cam_index, num_vals;
   double val25, val50, val75, val85, val95;
   MatchPairStats(): left_cam_index(0), right_cam_index(0), num_vals(0), val25(0), val50(0),
                     val75(0), val85(0), val95(0) {}
-  void populate(int left_index, int right_index, std::vector<double> & vals) {
+  template<class T>
+  void populate(int left_index, int right_index, std::vector<T> & vals) {
     std::sort(vals.begin(), vals.end());
     left_cam_index  = left_index;
     right_cam_index = right_index;
@@ -719,16 +721,16 @@ void calcPairMapprojOffsets(std::vector<vw::CamPtr> const& optimized_cams,
                             std::vector<vw::ip::InterestPoint> const right_ip,
                             vw::cartography::GeoReference const& dem_georef,
                             vw::ImageViewRef<vw::PixelMask<double>> interp_dem,
-                            std::vector<vw::Vector<double, 4>> & mapprojPoints, 
-                            std::vector<double> & mapproj_offsets);
+                            std::vector<vw::Vector<float, 4>> & mapprojPoints, 
+                            std::vector<float> & mapproj_offsets);
 
 // Save mapprojected matches offsets for each image pair having matches
 void saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
                         std::string const& mapproj_offsets_file,
                         vw::cartography::GeoReference const& mapproj_dem_georef,
-                        std::vector<vw::Vector<double, 4>> const & mapprojPoints,
+                        std::vector<vw::Vector<float, 4>> const & mapprojPoints,
                         std::vector<asp::MatchPairStats> const& mapprojOffsets,
-                        std::vector<std::vector<double>> & mapprojOffsetsPerCam, // will change
+                        std::vector<std::vector<float>> & mapprojOffsetsPerCam, // will change
                         std::vector<std::string> const& imageFiles);
 
 // Calculate convergence angles. Remove the outliers flagged earlier,
@@ -742,9 +744,9 @@ void matchFilesProcessing(vw::ba::ControlNetwork const& cnet,
                           bool remove_outliers, std::set<int> const& outliers,
                           std::vector<asp::MatchPairStats> & convAngles,
                           std::string const& mapproj_dem,
-                          std::vector<vw::Vector<double, 4>> & mapprojPoints,
+                          std::vector<vw::Vector<float, 4>> & mapprojPoints,
                           std::vector<asp::MatchPairStats> & mapprojOffsets,
-                          std::vector<std::vector<double>> & mapprojOffsetsPerCam);
+                          std::vector<std::vector<float>> & mapprojOffsetsPerCam);
   
 }
 #endif // __BUNDLE_ADJUST_CAMERA_H__
