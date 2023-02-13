@@ -719,10 +719,10 @@ Challenges
 ^^^^^^^^^^
 
 SfS has been run successfully on a site close to the Lunar South Pole,
-at around 85.5 degrees South. Its size was 10,000 x 10,000 pixels. It
-had more than 150 LRO NAC images. The shadows on the ground were
-observed to make a full 360 degree loop. A seamless terrain was
-created.
+at around 85.5 degrees South. Its size was 14336 x 11008 pixels, at 1
+m/pixel. It had more than 814 LRO NAC images. The shadows on the
+ground were observed to make a full 360 degree loop. A seamless
+terrain was created.
 
 The challenges encountered were that the topography was very steep, the
 shadows extensive and varied drastically from image to image, and some
@@ -736,27 +736,19 @@ and have similar enough illumination, which resulted in all
 images being tied together.
 
 The user is strongly cautioned that the difficulty of getting things
-right greatly increases with dataset complexity. 
+right and figuring out what went wrong greatly increases with dataset
+complexity.
 
-It is very strongly suggested to first try SfS on a site of size
+It is strongly suggested to first try SfS on a site of size
 perhaps 2000 x 2000 pixels, with a dozen carefully inspected images
 with slowly varying illumination, and having at least one stereo pair
 among them that can be used for alignment to the ground.
 
 If happy with the results, more images can be added and the site size
-increased, while the camera poses determined so far can be kept fixed
-during the rounds of bundle adjustment (options
-``--input-adjustments-prefix`` and ``--fixed-image-list``). Newly
-added cameras can be given the nominal adjustment, see
-:numref:`adjust_files`. This will make the ``pc_align`` step likely
-redundant, since a subset of images is already in the right place, and
-the hope is that the other ones will conform to these and to the
-terrain.
-
-Given a failed run over a site with 20,000 x 20,000 pixels and 1000
-images, it can be very hard to trace back where things went wrong. So,
-it is more efficient of one's time to incrementally increase the
-complexity.
+increased, while the camera poses determined so far may be kept fixed
+during bundle adjustment (options ``--input-adjustments-prefix`` and
+``--fixed-image-list``). Newly added cameras can be given the nominal
+adjustment (:numref:`adjust_files`).
 
 The initial terrain
 ^^^^^^^^^^^^^^^^^^^
@@ -780,10 +772,12 @@ The site::
 has higher-accuracy LOLA DEMs but only for a few locations.
 
 Multiply the DEM heights by 0.5 per the information in the LBL file using
-``image_calc`` (:numref:`image_calc`). The documentation of your DEM
-needs to be carefully studied to see if this applies in your case.
+``image_calc`` (:numref:`image_calc`)::
 
     image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
+
+The documentation of your DEM needs to be carefully studied to see if
+this applies to your case.
 
 Resample the DEM to 1 m/pixel using ``gdalwarp``
 (:numref:`gdal_tools`), creating a DEM named ``ref.tif``::
@@ -811,10 +805,10 @@ with ``mapproject`` (:numref:`mapproject`).
 Terrain bounds
 ^^^^^^^^^^^^^^
 
-Later when we mapproject images onto this DEM, those will
-be computed at integer multiples of the grid size. Given that the grid
-size is 1 m, the extent of those images as displayed by ``gdalinfo``
-will have a fractional value of 0.5. 
+Later when we mapproject images onto this DEM, those will be computed
+at integer multiples of the grid size. Given that the grid size is 1
+m, the extent of those images as displayed by ``gdalinfo`` will have a
+fractional value of 0.5.
 
 The ``sfs_blend`` program will fail later unless the resampled initial
 DEM also has this property, as it expects a one-to-one
@@ -840,13 +834,13 @@ Image selection and sorting by illumination
 By far the hardest part of this exercise is choosing the images. We
 downloaded several hundred of them as described in
 :numref:`fetch_lro_images`, given the desired longitude-latitude
-bounds. The .IMG images were converted to .cub as in
+bounds. The PDS .IMG files were converted to ISIS .cub cameras as in
 :numref:`sfs_single_image`, and they were mapprojected onto the
 reference DEM, initially at a lower resolution to get a preview of
 things (:numref:`sfs_inspection`).
 
 It is very strongly recommended to use the CSM camera models instead
-of ISIS models, as mentioned in :numref:`sfs_isis_vs_csm`.
+of ISIS models (:numref:`sfs_isis_vs_csm`).
 
 Inspection of many hundreds of images and choosing those that have
 valid pixels in the area of interest can be very arduous.  To make this
@@ -1192,12 +1186,12 @@ images. Bundle adjustment created a report file with the name::
 which greatly simplifies this job. See :numref:`ba_mapproj_dem` for
 its description.
 
-Consider the top part of its file, measuring how much each image
-disagrees with the rest, in meters. Percentiles of registration errors
-are provided, and also the number of inlier matches that between each
-image and the others.
+Consider the top part of its file, measuring how much each
+mapprojected image disagrees with the rest, in meters. Percentiles of
+registration errors are provided, and also the number of inlier
+matches that between each image and the others.
 
-Images with too few matches (say under 50), should be thrown out. If
+Images with too few matches (say under 100), should be thrown out. If
 the 85th percentile of registration errors for an image is over 1.5
 meters (assuming a 1 meter ground resolution), it likely registered
 badly. Those can be thrown out too.
@@ -1211,8 +1205,8 @@ registration error. For example, use cutoffs of 1.25 m, 1.5 m, 1.75 m.
 Create the maximally lit mosaic for each of these and overlay them
 in ``stereo_gui``. Inspect them carefully. Choose the set which
 does not sacrifice coverage and has a small amount of misregistration.
-Some images from a larger set can also be added to a smaller
-one, after manual inspection, to increase the coverage.
+Some images with a larger registration error could be added after
+careful inspection, to increase the coverage.
 
 When registration fails
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -1250,7 +1244,7 @@ overview earlier in :numref:`sfs-lola`:
 
 If no luck, break up a large site into 4 quadrants, and create a
 solution for each. If these are individually self-consistent and
-individually consistent with the ground, but have some misregistration
+consistent with the ground, but have some misregistration
 among them, do a combined bundle adjustment using the .adjust files
 for the quadrants as initial guesses by copying them to a single
 directory. Ensure that the match files cover the combined region in
@@ -1341,8 +1335,9 @@ Inspection and further iterations
 The obtained shape-from-shading terrain should be studied carefully to
 see if it shows any systematic shift or rotation compared to the
 initial LOLA gridded terrain. For that, the SfS terrain can be
-overlayed as a georeferenced image on top of the initial terrain in
-``stereo_gui``, and the SfS terrain can be toggled on and off.
+overlayed as a hillshaded and georeferenced image on top of the
+initial terrain in ``stereo_gui``, and the SfS terrain can be toggled
+on and off.
 
 If a shift is found, another step of alignment can be used. This time
 one can do features-based alignment rather than based on
@@ -1433,10 +1428,10 @@ One can use the ``--absolute`` option for this tool and then invoke
 ``colormap`` to colorize the difference map. By and large, the SfS
 DEM should not differ from the reference DEM by more than 1-2 meters.
 
-It is also suggested to produce produce a maximally-list mosaic,
-as in :numref:`sfs_registration_validation`. This should not look too different
-if projecting on the initial guess DEM or on the refined one created
-with SfS. 
+It is also suggested to produce produce a maximally-list mosaic, as in
+:numref:`sfs_registration_validation`. This should not look too
+different if projecting on the initial guess DEM or on the refined one
+created with SfS.
 
 Handling issues in the SfS result
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
