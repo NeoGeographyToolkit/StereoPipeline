@@ -20,7 +20,8 @@ are placed at integer multiples of the grid size, and the created
 DEM has a ground footprint which is half a grid pixel larger
 than the bounding box of the grid points.
 
-The obtained DEMs can be visualized with ``stereo_gui``
+The obtained DEMs can be colorized or hillshaded 
+(:numref:`genhillshade`), visualized with ``stereo_gui``
 (:numref:`stereo_gui`) or analyzed using GDAL tools
 (:numref:`gdal_tools`).
 

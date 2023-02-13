@@ -6,14 +6,14 @@ GDAL tools
 ASP distributes in the ``bin`` directory the following `GDAL
 <https://gdal.org/>`_ tools:
 
-- gdal_rasterize
-- gdal_translate
-- gdalbuildvrt
-- gdaldem
-- gdalinfo
-- gdaltransform
-- gdalwarp
-- gdaladdo
+- gdal_rasterize (modify images based on shape files)
+- gdal_translate (crop, resample)
+- gdalbuildvrt (mosaic)
+- gdaldem (hillshade)
+- gdalinfo (show stats)
+- gdaltransform (transforms between coordinate systems)
+- gdalwarp (convert to another projection and interpolate)
+- gdaladdo (create multi-resolution pyramids)
 
 and a handful of other ones.
 

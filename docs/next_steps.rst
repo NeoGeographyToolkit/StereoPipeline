@@ -3,14 +3,16 @@
 The next steps
 ==============
 
-This chapter will discuss in more detail ASP's stereo process and other
-tools available to either pre-process the input images/cameras or to
-manipulate ``parallel_stereo``'s outputs, both in the context of planetary ISIS
-data and for Earth images. This includes how to (a) customize
-``parallel_stereo``'s settings (b) use ``point2dem`` to create 3D terrain
-models, (c) visualize the results, (d) align the obtained point clouds
-to another data source, (e) perform 3D terrain adjustments in respect to
-a geoid, etc.
+This chapter will discuss in more detail ASP's stereo process and
+other tools available to either pre-process the input images/cameras
+or to manipulate ``parallel_stereo``'s outputs, both in the context of
+planetary ISIS data and for Earth images. This includes how to
+customize ``parallel_stereo``'s settings (:numref:`running-stereo`),
+use ``point2dem`` to create 3D terrain models (:numref:`visualising`),
+visualize the results (:numref:`genhillshade`), align the obtained
+point clouds to another data source (:numref:`pc-align-example`),
+perform 3D terrain adjustments in respect to a geoid
+(:numref:`geoid_adj`), converted to LAS (:numref:`gen_las`), etc.
 
 .. _running-stereo:
 
@@ -940,8 +942,9 @@ When ``parallel_stereo`` finishes, it will have produced a point cloud
 image, with a name like ``results/output-PC.tif``
 (:numref:`outputfiles`), which can be used to create many kinds of
 data products, such as DEMs, orthoimages, textured meshes, LAS files,
-colormaps, hillshaded images, etc. DEMs can also be mosaicked,
-aligned, etc.
+colormaps (:numref:`colormap`), hillshaded images
+(:numref:`genhillshade`), etc. DEMs can also be mosaicked
+(:numref:`dem_mosaic`), aligned (:numref:`pc-align-example`), etc.
 
 .. _p19-osg:
 
@@ -1197,15 +1200,20 @@ option. If all that is wanted is to shift the cameras, without doing
 any actual adjustments, the tool can be invoked with the option
 ``--apply-initial-transform-only``.
 
+.. _geoid_adj:
+
 Creating DEMs relative to the geoid/areoid
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The DEMs generated using ``point2dem`` are in reference to a datum
-ellipsoid. If desired, the ``dem_geoid`` program can be used to convert
+ellipsoid. If desired, the ``dem_geoid`` (:numref:`dem_geoid`)
+program can be used to convert
 this DEM to be relative to a geoid/areoid on Earth/Mars respectively.
 Example usage::
 
     dem_geoid results/output-DEM.tif
+
+.. _gen_las:
 
 Converting to the LAS format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -720,14 +720,14 @@ Challenges
 
 SfS has been run successfully on a site close to the Lunar South Pole,
 at around 85.5 degrees South. Its size was 14336 x 11008 pixels, at 1
-m/pixel. It had more than 814 LRO NAC images. The shadows on the
+m/pixel. It used 814 LRO NAC images. The shadows on the
 ground were observed to make a full 360 degree loop. A seamless
 terrain was created.
 
-The challenges encountered were that the topography was very steep, the
-shadows extensive and varied drastically from image to image, and some
-portions of the terrain showed up only in some images. All this made
-it difficult to register the images to each other and to the ground.
+The challenges encountered were that the shadows were extensive and
+varied drastically from image to image, and some portions of the
+terrain showed up only in some images. All this made it difficult to
+register the images to each other and to the ground.
 
 We solved this by doing bundle adjustment with a large number of
 images that were sorted by illumination conditions. We made sure that

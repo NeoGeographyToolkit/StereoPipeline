@@ -11,7 +11,9 @@ Example::
 
     hillshade -a 300 -e 30 dem.tif -o hillshaded.tif
 
-View these side-by-side::
+See an illustration in :numref:`genhillshade`.
+
+View these side-by-side with ``stereo_gui`` (:numref:`stereo_gui`)::
 
     stereo_gui dem.tif hillshaded.tif
 
