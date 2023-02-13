@@ -197,21 +197,6 @@ int main(int argc, char *argv[]) {
   try {
     handle_arguments(argc, argv, opt);
 
-#if 0
-    // TODO(oalexan1): This tests exposes a bug
-    vw::Vector3 C(9.135975e-01, 4.756959e-01, -1.972485e+00);
-    vw::Vector3 A(3.792996e-01, 9.250115e-01, 2.203606e-02);
-    vw::Vector3 H(-4.092509e+03, 2.251883e+03, 3.856433e+01);
-    vw::Vector3 V(6.361380e+01, 8.434781e+01, 4.644263e+03);
-    vw::camera::CAHVModel cah(C, A, H, V);
-    std::cout << "cahv model:\n" << cah << std::endl;
-    vw::camera::PinholeModel pin = cah.toPinhole();
-    std::cout << "pin model " << pin << std::endl;
-    vw::camera::CAHVModel cah2 = pin;
-    std::cout << "cahv2 model " << cah2 << std::endl;
-    exit(0);
-#endif
-    
     // Load cam1
     std::string out_prefix;
     std::string default_session1 = opt.session1; // save it before it changes
