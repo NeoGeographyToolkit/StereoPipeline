@@ -626,7 +626,7 @@ namespace vw {
     // TODO: Why does this use EdgeExtension if Helper() restricts access to the bounds?
     InterpolationView<EdgeExtensionView<DEMImageT, ConstantEdgeExtension>,
                       BilinearInterpolation> m_dem;
-    GeoReference m_georef;
+    GeoReference const& m_georef; // alias
     Vector3      m_camera_ctr;
     Vector3      m_camera_vec;
     bool         m_treat_nodata_as_zero;
@@ -672,9 +672,9 @@ namespace vw {
 
     /// Constructor
     RayDEMIntersectionLMA2(ImageViewBase<DEMImageT> const& dem_image,
-                          GeoReference const& georef,
-                          Vector3 const& camera_ctr,
-                          Vector3 const& camera_vec,
+                           GeoReference const& georef,
+                           Vector3 const& camera_ctr,
+                           Vector3 const& camera_vec,
                            bool treat_nodata_as_zero):
       m_dem(interpolate(dem_image)), m_georef(georef),
       m_camera_ctr(camera_ctr), m_camera_vec(camera_vec),

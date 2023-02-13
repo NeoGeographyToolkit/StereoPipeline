@@ -44,15 +44,14 @@ using namespace std;
 /// Image view which adds or subtracts the ellipsoid/geoid difference
 ///  from elevations in a DEM image.
 template <class ImageT>
-class DemGeoidView : public ImageViewBase<DemGeoidView<ImageT> >
-{
-  ImageT                m_img; ///< The DEM
-  GeoReference   const& m_georef;
+class DemGeoidView : public ImageViewBase<DemGeoidView<ImageT>> {
+  ImageT                m_img;    // The DEM
+  GeoReference   const& m_georef; // alias
   bool                  m_is_egm2008;
-  vector<double>                   const& m_egm2008_grid; ///< Special variable storing EGM2008 data
-  ImageViewRef<PixelMask<double> > const& m_geoid; ///< Interpolation view of the geoid
-  GeoReference                     const& m_geoid_georef;
-  bool     m_reverse_adjustment; ///< If true, convert from orthometric height to geoid height
+  vector<double> const& m_egm2008_grid; // Special variable storing EGM2008 data
+  ImageViewRef<PixelMask<double>> const& m_geoid; // Interpolation view of the geoid
+  GeoReference const& m_geoid_georef; // alias
+  bool     m_reverse_adjustment; // If true, convert from orthometric height to geoid height
   double   m_correction;
   double   m_nodata_val;
 

@@ -336,7 +336,7 @@ namespace asp {
   // Classes to read points from CSV and LAS files one point at a
   // time. We basically implement an interface for CSV files
   // mimicking the existing interface for las files in liblas.
-  class BaseReader{
+  class BaseReader {
   public:
     std::int64_t m_num_points;
     bool         m_has_georef; ///< ??
