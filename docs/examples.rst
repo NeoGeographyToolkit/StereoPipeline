@@ -473,7 +473,6 @@ correction. Here are the steps, illustrated on one image::
     lronaccal   from = ${f}.cub     to = ${f}.cal.cub
     lronacecho  from = ${f}.cal.cub to = ${f}.cal.echo.cub
 
-
 Note that for these commands to succeed ISIS and its supporting data
 must be downloaded, per :numref:`planetary_images`.
 
@@ -504,6 +503,10 @@ Here's an example::
     parallel_stereo M104318871LE*.mosaic.norm.cub  \
       M104311715LE*.mosaic.norm.cub result/output  \
       --alignment-method affineepipolar
+
+Check the stereo convergence angle as printed during preprocessing
+(:numref:`stereo_pairs`). That angle is often too small for LRO NAC,
+and then the results are not going to be great.
 
 See :numref:`nextsteps` for a discussion about various stereo
 speed-vs-quality choices. Consider using mapprojection
@@ -1140,7 +1143,6 @@ We will work with the dataset pair::
 which, for simplicity, we will rename to ``left.cub`` and ``right.cub``
 and the same for the associated camera files.
 
-
 .. _create_csm_linescan:
 
 Creating CSM cameras from ISIS .cub files
@@ -1195,6 +1197,10 @@ Running stereo
      parallel_stereo left.cub right.cub left.json right.json run/run    
      point2dem -r mars --stereographic --proj-lon 77.4 \
        --proj-lat 18.4 run/run-PC.tif
+
+Check the stereo convergence angle as printed during preprocessing
+(:numref:`stereo_pairs`). If that angle is small, the results are not
+going to be great.
 
 See :numref:`nextsteps` for a discussion about various stereo
 algorithms and speed-vs-quality choices.

@@ -38,6 +38,9 @@ tools, including this one.
    <http://www.kennethmoreland.com/color-advice/>`_, `source2
    <https://matplotlib.org/stable/tutorials/colors/colormaps.html>`_).
 
+
+To add a colorbar and axes, use ``stereo_gui`` (:numref:`colorize`).
+
 Using your own colormap
 ^^^^^^^^^^^^^^^^^^^^^^^
 

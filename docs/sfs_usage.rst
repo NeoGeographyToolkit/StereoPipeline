@@ -250,6 +250,9 @@ accurate. See :numref:`mapproj-example` about handling artifacts in
 steep terrain. Consider using CSM cameras instead of ISIS cameras
 (:numref:`sfs_isis_vs_csm`).
 
+The crop windows above were chosen with ``stereo_gui``
+(:numref:`stereo_gui`).
+
 Ideally the cameras should be bundle-adjusted
 (:numref:`bundle_adjust`), then above one should pass
 ``--bundle-adjust-prefix``. 
