@@ -1236,7 +1236,7 @@ void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
 }
 
 struct Options : public vw::GdalWriteOptions {
-  std::string input_dems_str, out_prefix, stereo_session, bundle_adjust_prefix;
+  std::string input_dems_str, image_list, camera_list, out_prefix, stereo_session, bundle_adjust_prefix;
   std::vector<std::string> input_dems, input_images, input_cameras;
   std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposure_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list;
   std::vector<float> shadow_threshold_vec, max_valid_image_vals_vec;
@@ -1251,8 +1251,9 @@ struct Options : public vw::GdalWriteOptions {
     compute_exposures_only,
     save_dem_with_nodata, use_approx_camera_models, use_approx_adjusted_camera_models,
     use_rpc_approximation, use_semi_approx,
-    crop_input_images, float_dem_at_boundary, boundary_fix, fix_dem, 
+    crop_input_images, allow_borderline_data, float_dem_at_boundary, boundary_fix, fix_dem, 
     float_reflectance_model, float_sun_position, query, save_sparingly, float_haze;
+    
   double smoothness_weight, steepness_factor, curvature_in_shadow, curvature_in_shadow_weight,
     lit_curvature_dist, shadow_curvature_dist, gradient_weight,
     integrability_weight, smoothness_weight_pq, init_dem_height, nodata_val,
@@ -1277,7 +1278,8 @@ struct Options : public vw::GdalWriteOptions {
             use_approx_adjusted_camera_models(false),
             use_rpc_approximation(false),
             use_semi_approx(false),
-            crop_input_images(false), 
+            crop_input_images(false),
+            allow_borderline_data(false), 
             float_dem_at_boundary(false), boundary_fix(false), fix_dem(false),
             float_reflectance_model(false), float_sun_position(false),
             query(false), save_sparingly(false), float_haze(false),
@@ -2317,7 +2319,6 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                      reflectance_model_coeffs,
                                      slopeErrEstim,
                                      heightErrEstim);
-
     }
   }
   
@@ -2413,22 +2414,22 @@ void sun_angles(Options const& opt,
 
 // A function to invoke at every iteration of ceres.
 // We need a lot of global variables to do something useful.
-Options                                const * g_opt = NULL;
-int                                            g_iter = -1;
-std::vector< ImageView<double> >             * g_dem = NULL;
-std::vector< ImageView<Vector2> >            * g_pq = NULL;
-std::vector< ImageView<double> >             * g_albedo = NULL;
+Options                               const * g_opt = NULL;
+int                                           g_iter = -1;
+std::vector<ImageView<double>>              * g_dem = NULL;
+std::vector<ImageView<Vector2>>             * g_pq = NULL;
+std::vector<ImageView<double>>              * g_albedo = NULL;
 std::vector<cartography::GeoReference> const * g_geo = NULL;
 GlobalParams                           const * g_global_params = NULL;
 std::vector<ModelParams>               const * g_model_params = NULL;
-std::vector< std::vector<BBox2i> >     const * g_crop_boxes = NULL;
-std::vector< std::vector<MaskedImgT> > const * g_masked_images = NULL;
-std::vector< std::vector<DoubleImgT> > const * g_blend_weights = NULL;
-std::vector< std::vector<boost::shared_ptr<CameraModel> > > * g_cameras = NULL;
+std::vector<std::vector<BBox2i>>       const * g_crop_boxes = NULL;
+std::vector<std::vector<MaskedImgT>>   const * g_masked_images = NULL;
+std::vector<std::vector<DoubleImgT>>   const * g_blend_weights = NULL;
+std::vector<std::vector<boost::shared_ptr<CameraModel>> > * g_cameras = NULL;
 double                                       * g_dem_nodata_val = NULL;
 float                                        * g_img_nodata_val = NULL;
 std::vector<double>                          * g_exposures = NULL;
-std::vector< std::vector<double> >           * g_haze = NULL;
+std::vector<std::vector<double>>             * g_haze = NULL;
 std::vector<double>                          * g_adjustments = NULL;
 std::vector<double>                          * g_scaled_sun_posns = NULL;
 std::vector<double>                          * g_max_dem_height = NULL;
@@ -2586,8 +2587,8 @@ public:
         // Separate into blocks for each image
         vw_out() << "\n";
 
-        ImageView< PixelMask<double> > reflectance, intensity, comp_intensity;
-        ImageView< double            > blend_weight;
+        ImageView<PixelMask<double>> reflectance, intensity, comp_intensity;
+        ImageView<double> blend_weight;
 
         std::string out_camera_file
           = asp::bundle_adjust_file_name(g_opt->out_prefix,
@@ -3114,7 +3115,8 @@ struct IntensityErrorFloatDemOnly {
                                             max_dem_height,
                                             gridx, gridy,
                                             global_params, model_params,
-                                            crop_box, image, blend_weight, scaled_sun_posn, camera)));
+                                            crop_box, image, blend_weight, scaled_sun_posn,
+                                            camera)));
   }
 
   int                                       m_col, m_row;
@@ -3682,10 +3684,11 @@ ImageView<double> comp_blending_weights(MaskedImgT const& img,
   else
     weights = vw::copy(grassfire(vw::copy(vw::fill_holes_grass(vw::copy(img), min_blend_size))));
 
-  // Make the weights plateau at blending_dist distance from the edge.
+  // Make the weights plateau at the value 1 at blending_dist distance from the edge.
+  // We will later count on this value.
   for (int col = 0; col < weights.cols(); col++) {
     for (int row = 0; row < weights.rows(); row++) {
-      weights(col, row) = pow( std::min(weights(col, row)/blending_dist, 1.0), blending_power );
+      weights(col, row) = pow(std::min(weights(col, row)/blending_dist, 1.0), blending_power);
     }
   }
   return weights;
@@ -3751,6 +3754,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   general_options.add_options()
     ("input-dem,i",  po::value(&opt.input_dems_str),
      "The input DEM(s) to refine using SfS. If more than one, their list should be in quotes.")
+    ("image-list", po::value(&opt.image_list)->default_value(""),
+     "A file containing the list of images, when they are too many to specify on the command line. Use space or newline as separator. See also --camera-list and --mapprojected-data-list.")
+    ("camera-list", po::value(&opt.camera_list)->default_value(""),
+     "A file containing the list of cameras, when they are too many to specify on the command "
+     "line. If the images have embedded camera information, such as for ISIS, this file must "
+     "be empty but must be specified if --image-list is specified.")
     ("output-prefix,o", po::value(&opt.out_prefix),
      "Prefix for output filenames.")
     ("max-iterations,n", po::value(&opt.max_iterations)->default_value(10),
@@ -3829,6 +3838,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A higher value will result in smoother blending.")
     ("min-blend-size", po::value(&opt.min_blend_size)->default_value(0),
      "Do not apply blending in shadowed areas of dimensions less than this.")
+    ("allow-borderline-data",   po::bool_switch(&opt.allow_borderline_data)->default_value(false)->implicit_value(true),
+     "In regions where some image portions have only a mix of low-light and shadow data, allow those if no other images have anything better.")
     ("steepness-factor", po::value(&opt.steepness_factor)->default_value(1.0),
      "Try to make the terrain steeper by this factor. This is not recommended in regular use.")
     ("curvature-in-shadow", po::value(&opt.curvature_in_shadow)->default_value(0.0),
@@ -3912,6 +3923,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Separate the cameras from the images
   std::vector<std::string> inputs = opt.input_images;
+
+  if (!opt.image_list.empty()) {
+    // Read the images and cameras and put them in 'inputs' to be parsed later
+    if (opt.camera_list.empty())
+      vw_throw(ArgumentErr()
+               << "The option --image-list must be invoked together with --camera-list.\n");
+    if (!inputs.empty())
+      vw_throw(ArgumentErr() << "The option --image-list was specified, but also "
+               << "images or cameras on the command line.\n");
+    asp::read_list(opt.image_list, inputs);
+    std::vector<std::string> tmp;
+    asp::read_list(opt.camera_list, tmp);
+    for (size_t it = 0; it < tmp.size(); it++) 
+      inputs.push_back(tmp[it]);
+  }
+  
   bool ensure_equal_sizes = true;
   asp::separate_images_from_cameras(inputs,
                                     opt.input_images, opt.input_cameras, // outputs
@@ -4007,6 +4034,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr()
               << "Using cropped input images implies that the cameras are not floated.\n" );
 
+  if (opt.allow_borderline_data && !opt.crop_input_images)
+    vw_throw(ArgumentErr() << "Option --allow-borderline-data needs option --crop-input-images.\n");
+    
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -4315,21 +4345,21 @@ void run_sfs_level(// Fixed inputs
                    std::vector<GeoReference> const& geo,
                    double smoothness_weight,
                    double dem_nodata_val,
-                   std::vector< std::vector<BBox2i>     > const& crop_boxes,
-                   std::vector< std::vector<MaskedImgT> > const& masked_images,
-                   std::vector< std::vector<DoubleImgT> > const& blend_weights,
+                   std::vector< std::vector<BBox2i>>     const& crop_boxes,
+                   std::vector< std::vector<MaskedImgT>> const& masked_images,
+                   std::vector< std::vector<DoubleImgT>> const& blend_weights,
                    GlobalParams const& global_params,
                    std::vector<ModelParams> const & model_params,
-                   std::vector< ImageView<double> > const& orig_dems, 
+                   std::vector< ImageView<double>> const& orig_dems, 
                    double initial_albedo,
                    ImageView<int> const& lit_image_mask,
                    ImageView<double> const& curvature_in_shadow_weight,
                    // Quantities that will float
-                   std::vector< ImageView<double> > & dems,
-                   std::vector< ImageView<double> > & albedos,
-                   std::vector< std::vector<boost::shared_ptr<CameraModel> > > & cameras,
+                   std::vector< ImageView<double>> & dems,
+                   std::vector< ImageView<double>> & albedos,
+                   std::vector< std::vector<boost::shared_ptr<CameraModel>>> & cameras,
                    std::vector<double> & exposures,
-                   std::vector< std::vector<double> > & haze,
+                   std::vector< std::vector<double>> & haze,
                    std::vector<double> & scaled_sun_posns,
                    std::vector<double> & adjustments,
                    std::vector<double> & reflectance_model_coeffs){
@@ -5248,16 +5278,14 @@ int main(int argc, char* argv[]) {
     int factor = 2;
     std::vector<int> factors;
     factors.push_back(1);
-    for (int level = 1; level <= levels; level++) {
+    for (int level = 1; level <= levels; level++)
       factors.push_back(factors[level-1]*factor);
-    }
     
     // We won't load the full images, just portions restricted
     // to the area we we will compute the DEM.
-    std::vector<std::vector< std::vector<BBox2i> > > crop_boxes(levels+1);
-    for (int level = 0; level <= levels; level++) {
+    std::vector<std::vector<std::vector<BBox2i>>> crop_boxes(levels+1);
+    for (int level = 0; level <= levels; level++)
       crop_boxes[level].resize(num_dems);
-    }
     
     // The crop box starts as the original image bounding box. We'll shrink it later.
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
@@ -5536,8 +5564,7 @@ int main(int argc, char* argv[]) {
             masked_images_vec[0][dem_iter][image_iter]
               = create_pixel_range_mask2(cropped_img,
                                          std::max(img_nodata_val, shadow_thresh),
-                                         opt.max_valid_image_vals_vec[image_iter]
-                                         );
+                                         opt.max_valid_image_vals_vec[image_iter]);
 
             // Compute blending weights only when cropping the
             // images. Otherwise the weights are too huge.
@@ -5712,13 +5739,20 @@ int main(int argc, char* argv[]) {
         }
       }
     }
+
+    // If opt.allow_borderline_data is true, create for each image that will not be skipped
+    // a weight matrix with dimensions equal to DEM dimensions, that will be used instead
+    // of weights in the camera image space. These are balanced among each other and give more
+    // weight to barely lit and unlit nearby pixels.
+    std::vector<ImageView<double>> extended_weights(num_images);
     
     // Note that below we may use the exposures computed at the previous step
     if (opt.save_computed_intensity_only || opt.estimate_slope_errors ||
-        opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0) {
+        opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0 ||
+        opt.allow_borderline_data) {
       // In this case simply save the computed and actual intensity, and for most of these quit
       ImageView<PixelMask<double>> reflectance, meas_intensity, comp_intensity;
-      ImageView<double> weight;
+      ImageView<double> ground_level_weight;
       ImageView<Vector2> pq; // no need for these just for initialization
       int sample_col_rate = 1, sample_row_rate = 1;
 
@@ -5765,10 +5799,16 @@ int main(int argc, char* argv[]) {
                                        blend_weights_vec[0][0][image_iter],
                                        cameras[0][image_iter].get(),
                                        &scaled_sun_posns[3*image_iter],
-                                       reflectance, meas_intensity, weight,
+                                       reflectance, meas_intensity, ground_level_weight,
                                        &opt.model_coeffs_vec[0],
                                        slopeErrEstim.get(), heightErrEstim.get());
 
+        if (opt.skip_images[0].find(image_iter) == opt.skip_images[0].end() &&
+            opt.allow_borderline_data) {
+          // if not skipping, save the weight
+          extended_weights[image_iter] = copy(ground_level_weight);
+        }
+        
         // Find the computed intensity.
         // TODO(oalexan1): Should one mark the no-data values rather than setting
         // them to 0? 
@@ -5810,22 +5850,22 @@ int main(int argc, char* argv[]) {
             = asp::bundle_adjust_file_name(opt.out_prefix,
                                            opt.input_images[image_iter],
                                            opt.input_cameras[image_iter]);
-          std::string iter_str2 = fs::path(out_camera_file).replace_extension("").string();
-          std::string out_meas_intensity_file = iter_str2 + "-meas-intensity.tif";
+          std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
+          std::string out_meas_intensity_file = local_prefix + "-meas-intensity.tif";
           vw_out() << "Writing: " << out_meas_intensity_file << std::endl;
           block_write_gdal_image(out_meas_intensity_file,
                                  apply_mask(meas_intensity, img_nodata_val),
                                  has_georef, geos[0][0], has_nodata,
                                  img_nodata_val, opt, tpc);
           
-          std::string out_comp_intensity_file = iter_str2 + "-comp-intensity.tif";
+          std::string out_comp_intensity_file = local_prefix + "-comp-intensity.tif";
           vw_out() << "Writing: " << out_comp_intensity_file << std::endl;
           block_write_gdal_image(out_comp_intensity_file,
                                  apply_mask(comp_intensity, img_nodata_val),
                                  has_georef, geos[0][0], has_nodata, img_nodata_val,
                                  opt, tpc);
         }
-          
+
       } // End iterating over images
 
       if (opt.estimate_slope_errors) {
@@ -5894,12 +5934,193 @@ int main(int argc, char* argv[]) {
     } // End doing intensity computations and/or height and/or slope error estimations
       
     if (opt.save_computed_intensity_only || opt.estimate_slope_errors ||
-        opt.estimate_height_errors){
+        opt.estimate_height_errors) {
       save_exposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
       // All done
       return 0;
     }
 
+    // TODO(oalexan1): Read all this very carefully!!!!
+    // TODO(oalexan1): Make this a function!
+
+    // Allow weights to go beyond valid image bounds where the data is
+    // weak and there is nothing else. Then do weighted averaging
+    // among them, follows by bringing them close to 0 again but
+    // further way.
+    double min_wt = 1e-6;
+    std::vector<ImageView<double>> work_weights(num_images);
+    std::vector<ImageView<double>> avg_weights(num_images);
+    int cols = dems[0][0].cols(), rows = dems[0][0].rows();
+    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+      auto & wt = extended_weights[image_iter]; // alias
+      if (opt.allow_borderline_data && wt.cols() > 0 && wt.rows() > 0) {
+
+        if (wt.cols() != cols || wt.rows() != rows) 
+          vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended weights must "
+                       << "have the same dimensions.\n");
+        
+        // Prepare to create some weights smaller than min_wt. First, bump up
+        // the existing weights. Normally they are already well above this.
+        for (int col = 0; col < wt.cols(); col++) {
+          for (int row = 0; row < wt.rows(); row++) {
+            if (wt(col, row) > 0 && wt(col, row) < min_wt) 
+              wt(col, row) = min_wt;
+          }
+        }
+
+        work_weights[image_iter] = copy(wt); // A copy of the original
+        auto & work_wt = work_weights[image_iter];
+
+        double blending_dist_sq = opt.blending_dist * opt.blending_dist;
+        int max_dist_int = ceil(opt.blending_dist); // an int overestimate
+
+        for (int col = 0; col < cols; col++) {
+          for (int row = 0; row < rows; row++) {
+            
+            // Look for a boundary pixel, which is a pixel with zero weight but with neighbors
+            // with positive weight
+            if (wt(col, row) > 0)
+              continue;
+            bool is_bd_pix = false;
+            for (int c = col - 1; c <= col + 1; c++) {
+              for (int r = row - 1; r <= row + 1; r++) {
+                if (c < 0 || c >= cols || r < 0 || r >= rows)
+                  continue;
+                if (wt(c, r) > 0) {
+                  is_bd_pix = true;
+                  break; // found it
+                }
+              }
+              if (is_bd_pix) 
+                break; // found it
+            }
+            if (!is_bd_pix) 
+              continue; // did not find it
+
+            // Found the boundary pixel. Increase the weight in the
+            // circular neighborhood.  It will still be below min_wt
+            // and decay to 0 at the boundary of this neighborhood.
+            for (int c = col - max_dist_int; c <= col + max_dist_int; c++) {
+              for (int r = row - max_dist_int; r <= row + max_dist_int; r++) {
+                if (c < 0 || c >= cols || r < 0 || r >= rows)
+                  continue;
+                
+                // Cast to double before multiplying to avoid integer overflow
+                double dsq = double(c - col) * double(c - col) + 
+                  double(r - row) * double(r - row);
+                
+                // Too far 
+                if (dsq >= blending_dist_sq) 
+                  continue;
+                
+                double d = sqrt(dsq);
+                d = opt.blending_dist - d; // get a cone pointing up, with base at height 0.
+                d /= double(opt.blending_dist); // make it between 0 and 1
+                d *= min_wt; // make it between 0 and min_wt
+                d = std::max(d, 0.0); // should not be necessary
+                // Add its contribution
+                work_weights[image_iter](c, r) = std::max(work_weights[image_iter](c, r), d);
+              }
+            }
+            
+          }
+        }
+      }
+    } // end iterating over images
+    
+    // Do the weighted average. First initialize to 0.
+    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+      auto & wt = work_weights[image_iter]; // alias
+      if (opt.allow_borderline_data && wt.cols() > 0 && wt.rows() > 0) {
+        //avg_weights[image_iter].set_size(cols, rows);
+        avg_weights[image_iter] = copy(wt);
+        for (int col = 0; col < cols; col++) {
+          for (int row = 0; row < rows; row++) {
+            //avg_weights[image_iter](col, row) = 0;
+          }
+        }
+      }
+    }
+      
+    // TODO(oalexan1): There is no need for this if statement everywhere. Remove
+    // it once this is in its own function.
+    // Weighted average
+    if (opt.allow_borderline_data) {
+      
+      for (int col = 0; col < cols; col++) {
+        for (int row = 0; row < rows; row++) {
+          
+          // Find the sum at each pixel
+          double sum = 0.0;
+          for (int image_iter = 0; image_iter < num_images; image_iter++) {
+            auto & wt = work_weights[image_iter]; // alias
+            if (wt.cols() > 0 && wt.rows() > 0 && wt(col, row) > 0) {
+                sum += wt(col, row);
+            }
+          }
+          if (sum <= 0) 
+            continue;
+          
+          // Divide by the sum at each pixel
+          for (int image_iter = 0; image_iter < num_images; image_iter++) {
+            auto & wt = work_weights[image_iter]; // alias
+            if (wt.cols() > 0 && wt.rows() > 0 && wt(col, row) > 0) {
+              avg_weights[image_iter](col, row) = wt(col, row) / sum;
+
+              // For a single image the weights will be 1 before they suddenly
+              // drop to 0. Make them decay gradually.
+              avg_weights[image_iter](col, row) = std::min(avg_weights[image_iter](col, row),
+                                                           wt(col, row) / min_wt);
+
+              //avg_weights[image_iter](col, row) = std::max(avg_weights[image_iter](col, row),
+              //                                             extended_weights[image_iter](col, row));
+
+              // In areas where these weight are not helpful they will stay small. Then
+              // just drop them back to 0, to recover the original weight.
+              if (avg_weights[image_iter](col, row) < min_wt)
+                avg_weights[image_iter](col, row) = 0;
+              
+            }
+          }
+          
+        }
+      }
+      
+      // TODO(oalexan1): Must make sure to make the images have non-negative but valid values
+      // where the weights are positive and invalid values where they are zero.
+      // TODO(oalexan1): Must use the extended weights instead of regular weights!
+      // TODO(oalexan1): Use blending power?
+      // TODO(oalexan1): Should these weights be updated as the terrain changes?
+      // TODO(oalexan1): Weights which at the end stay below min_wt should go back
+      // to being 0. They add nothing but can introduce invalid data.
+      if (opt.allow_borderline_data) {
+        for (int image_iter = 0; image_iter < num_images; image_iter++) {
+          std::string out_camera_file
+            = asp::bundle_adjust_file_name(opt.out_prefix,
+                                           opt.input_images[image_iter],
+                                           opt.input_cameras[image_iter]);
+          std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
+          bool has_georef = true, has_nodata = false;
+          std::string extended_weight_file = local_prefix + "-extended_weight.tif";
+          vw_out() << "Writing: " << extended_weight_file << std::endl;
+          block_write_gdal_image(extended_weight_file,
+                                 extended_weights[image_iter],
+                                 has_georef, geos[0][0], has_nodata,
+                                 img_nodata_val, opt,
+                                 TerminalProgressCallback("asp", ": "));
+          
+          std::string avg_weight_file = local_prefix + "-avg_weight.tif";
+          vw_out() << "Writing: " << avg_weight_file << std::endl;
+          block_write_gdal_image(avg_weight_file,
+                                 avg_weights[image_iter],
+                                 has_georef, geos[0][0], has_nodata,
+                                 img_nodata_val, opt,
+                                 TerminalProgressCallback("asp", ": "));
+
+        }
+      }
+    }
+    
     ImageView<double> curvature_in_shadow_weight;
     if (opt.curvature_in_shadow_weight > 0.0) {
       TerminalProgressCallback tpc("asp", ": ");
@@ -5948,8 +6169,8 @@ int main(int argc, char* argv[]) {
       }
     }
     
-    g_exposures     = &opt.image_exposures_vec;
-    g_haze          = &opt.image_haze_vec;
+    g_exposures        = &opt.image_exposures_vec;
+    g_haze             = &opt.image_haze_vec;
     g_scaled_sun_posns = &scaled_sun_posns;
     
     // For images that we don't use, wipe the cameras and all other
@@ -5957,7 +6178,7 @@ int main(int argc, char* argv[]) {
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
         if (opt.skip_images[dem_iter].find(image_iter) != opt.skip_images[dem_iter].end()) {
-          masked_images_vec[0][dem_iter][image_iter] = ImageView< PixelMask<float> >();
+          masked_images_vec[0][dem_iter][image_iter] = ImageView<PixelMask<float>>();
           blend_weights_vec[0][dem_iter][image_iter] = ImageView<double>();
           cameras[dem_iter][image_iter] = boost::shared_ptr<CameraModel>();
         }
@@ -6040,7 +6261,7 @@ int main(int argc, char* argv[]) {
         }
 
         albedos[level][dem_iter] = pixel_cast<double>(vw::resample_aa
-                                                      (pixel_cast< PixelMask<double> >
+                                                      (pixel_cast< PixelMask<double>>
                                                        (albedos[level-1][dem_iter]), sub_scale));
 
         // We must write the subsampled images to disk, and then read
