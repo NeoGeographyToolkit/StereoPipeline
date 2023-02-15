@@ -34,7 +34,7 @@ sfs:
     (:numref:`sfs-lola`).
   * Created an SfS DEM of size 14336 x 11008 pixels, at 1 m pixel.
     Reliably bundle-adjusted 814 LRO NAC images in which the shadows
-    described a full 360 degree loop, with a total of 614k
+    were observed to make a full 360 degree loop, with a total of 614k
     triangulated points.
   * Added the options ``--image-list`` and ``--camera-list`` for when
     the number of images becomes too large to set on the command line.
