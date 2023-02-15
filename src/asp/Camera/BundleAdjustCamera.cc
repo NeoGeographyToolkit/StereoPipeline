@@ -944,13 +944,13 @@ void asp::calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
 }
 
 // Save mapprojected matches offsets for each image pair having matches
-void asp::saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
-                             std::string const& mapproj_offsets_file,
-                             vw::cartography::GeoReference const& mapproj_dem_georef,
-                             std::vector<vw::Vector<float, 4>> const & mapprojPoints,
-                             std::vector<asp::MatchPairStats> const& mapprojOffsets,
-                             std::vector<std::vector<float>> & mapprojOffsetsPerCam, 
-                             std::vector<std::string> const& imageFiles) {
+void asp::saveMapprojOffsets(std::string                       const& mapproj_offsets_stats_file,
+                             std::string                       const& mapproj_offsets_file,
+                             vw::cartography::GeoReference     const& mapproj_dem_georef,
+                             std::vector<vw::Vector<float, 4>> const& mapprojPoints,
+                             std::vector<asp::MatchPairStats>  const& mapprojOffsets,
+                             std::vector<std::vector<float>>        & mapprojOffsetsPerCam,
+                             std::vector<std::string>          const& imageFiles) {
   
   vw_out() << "Writing: " << mapproj_offsets_stats_file << "\n";
   std::ofstream ofs (mapproj_offsets_stats_file.c_str());

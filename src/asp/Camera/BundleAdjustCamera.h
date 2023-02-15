@@ -726,13 +726,13 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
                             std::vector<float>                      & mapprojOffsets);
 
 // Save mapprojected matches offsets for each image pair having matches
-void saveMapprojOffsets(std::string const& mapproj_offsets_stats_file,
-                        std::string const& mapproj_offsets_file,
-                        vw::cartography::GeoReference const& mapproj_dem_georef,
-                        std::vector<vw::Vector<float, 4>> const & mapprojPoints,
-                        std::vector<asp::MatchPairStats> const& mapprojOffsets,
-                        std::vector<std::vector<float>> & mapprojOffsetsPerCam, // will change
-                        std::vector<std::string> const& imageFiles);
+void saveMapprojOffsets(std::string                       const& mapproj_offsets_stats_file,
+                        std::string                       const& mapproj_offsets_file,
+                        vw::cartography::GeoReference     const& mapproj_dem_georef,
+                        std::vector<vw::Vector<float, 4>> const& mapprojPoints,
+                        std::vector<asp::MatchPairStats>  const& mapprojOffsets,
+                        std::vector<std::vector<float>>        & mapprojOffsetsPerCam,
+                        std::vector<std::string>          const& imageFiles);
 
 // Calculate convergence angles. Remove the outliers flagged earlier,
 // if remove_outliers is true. Compute offsets of mapprojected matches,

@@ -9,7 +9,8 @@ or to manipulate ``parallel_stereo``'s outputs, both in the context of
 planetary ISIS data and for Earth images. This includes how to
 customize ``parallel_stereo``'s settings (:numref:`running-stereo`),
 use ``point2dem`` to create 3D terrain models (:numref:`visualising`),
-visualize the results (:numref:`genhillshade`), align the obtained
+visualize the results (:numref:`genhillshade`), 
+bundle adjustment (:numref:`next_steps_ba`), align the obtained
 point clouds to another data source (:numref:`pc-align-example`),
 perform 3D terrain adjustments in respect to a geoid
 (:numref:`geoid_adj`), converted to LAS (:numref:`gen_las`), etc.
@@ -933,6 +934,138 @@ location a file of the form::
 having the elapsed time and memory usage, as output by ``/usr/bin/time``.
 This can guide tuning of parameters to reduce resource usage.
 
+.. _next_steps_ba:
+
+Correcting camera positions and orientations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``bundle_adjust`` program (:numref:`bundle_adjust`)
+ can be used to adjust the camera positions
+and orientations before running stereo. These adjustments only makes the
+cameras self-consistent. For the adjustments to be absolute, it is
+necessary to use ``bundle_adjust`` with ground control points. 
+
+.. _pc-align-example:
+
+Alignment to point clouds from a different source
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Often the 3D terrain models output by ``parallel_stereo`` (point
+clouds and DEMs) can be intrinsically quite accurate yet their actual
+position on the planet may be off by several meters or several
+kilometers, depending on the spacecraft. This can result from small
+errors in the position and orientation of the satellite cameras taking
+the pictures.
+
+Such errors can be corrected in advance using bundle adjustment, as
+described in the previous section. That requires using ground control
+points, that may not be easy to collect. Alternatively, the images and
+cameras can be used as they are, and the absolute position of the output
+point clouds can be corrected in post-processing. For that, ASP provides
+a tool named ``pc_align``. It aligns a 3D terrain to a much more
+accurately positioned (if potentially sparser) dataset. Such datasets
+can be made up of GPS measurements (in the case of Earth), or from laser
+altimetry instruments on satellites, such as ICESat/GLASS for Earth,
+LRO/LOLA on the Moon, and MGS/MOLA on Mars. Under the hood, ``pc_align``
+uses the Iterative Closest Point algorithm (ICP) (both the
+point-to-plane and point-to-point flavors are supported, and with
+point-to-point ICP it is also possible to solve for a scale change).
+
+The ``pc_align`` tool requires another input, an a priori guess for the
+maximum displacement we expect to see as result of alignment, i.e., by
+how much the points are allowed to move when the alignment transform is
+applied. If not known, a large (but not unreasonably so) number can be
+specified. It is used to remove most of the points in the source
+(movable) point cloud which have no chance of having a corresponding
+point in the reference (fixed) point cloud.
+
+Here is how ``pc_align`` can be called (the denser cloud is specified
+first).
+
+.. figure:: images/examples/align_compare_500px.png
+   :alt:  pc_align results
+   :name: pc-align-fig
+
+   Example of using ``pc_align`` to align a DEM obtained using stereo
+   from CTX images to a set of MOLA tracks. The MOLA points are colored
+   by the offset error initially (left) and after pc align was applied
+   (right) to the terrain model. The red dots indicate more than 100 m
+   of error and blue less than 5 m. The ``pc_align`` algorithm
+   determined that by moving the terrain model approximately 40 m south,
+   70 m west, and 175 m vertically, goodness of fit between MOLA and the
+   CTX model was increased substantially.
+
+::
+
+    pc_align --max-displacement 200 --datum MOLA   \
+      --save-inv-transformed-reference-points      \
+      --csv-format '1:lon 2:lat 3:radius_m'        \
+      stereo-PC.tif mola.csv
+
+It is important to note here that there are two widely used Mars datums,
+and if your CSV file has, unlike above, the heights relative to a datum,
+the correct datum name must be specified via ``--datum``.  :numref:`molacmp`
+talks in more detail about the Mars datums.
+
+:numref:`pc-align-fig` shows an example of using ``pc_align``.
+The complete documentation for this program is in :numref:`pc_align`.
+
+.. _pc_align_validation:
+
+Validation of alignment
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``pc_align`` program can save the source cloud after being aligned
+to the reference cloud and vice-versa, via
+``--save-transformed-source-points`` and
+``--save-inv-transformed-reference-points``. To validate that the
+aligned source cloud is very close to the reference cloud, DEMs can be
+made out of them with ``point2dem``, and those can be overlayed
+in ``stereo_gui`` (:numref:`stereo_gui`) for inspection.
+
+Alternatively, the ``geodiff`` program (:numref:`geodiff`) can be used
+to compute the (absolute) difference between aligned DEMs, which can
+be colorized with ``colormap`` (:numref:`colormap`). The ``geodiff``
+tool can take the difference between a DEM and a CSV file as well.
+
+Alignment and orthoimages
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Two related issues are discussed here. The first is that sometimes,
+after ASP has created a DEM, and the left and right images are
+mapprojected to it, they are shifted in respect to each other. That is
+due to the errors in camera positions. To rectify it, one has to run
+``bundle_adjust`` first, then rerun the stereo and mapprojection tools,
+with the adjusted cameras being passed to both via
+``--bundle-adjust-prefix``.
+
+Note that this approach will create self-consistent outputs, but not
+necessarily aligned with pre-existing ground truth. That we deal with
+next.
+
+Once an ASP-generated DEM has been aligned to known ground data using
+``pc_align``, it may be desired to create orthoimages that are also
+aligned to the ground. That can be accomplished in two ways.
+
+The ``point2dem --orthoimage`` approach be used, and one can pass to it
+the point cloud after alignment and the ``L`` image before alignment
+(all this tool does is copy pixels from the texture image, so position
+errors are not a problem).
+
+Alternatively, one can invoke the ``mapproject`` tool again. Yet, there
+is a challenge, because this tool uses the original cameras, before
+alignment, but will project onto the DEM after alignment, so the
+obtained orthoimage location on the ground will be wrong.
+
+The solution is to invoke ``bundle_adjust`` on the two input images
+and cameras, while passing to it the transform obtained from
+``pc_align`` via the ``--initial-transform`` option. This will shift
+the cameras to the right place, and then ``mapproject`` can be called
+with the adjusted cameras, using again the ``--bundle-adjust-prefix``
+option. If all that is wanted is to shift the cameras, without doing
+any actual adjustments, the tool can be invoked with the option
+``--apply-initial-transform-only``.
+
 .. _visualising:
 
 Visualizing and manipulating the results
@@ -1069,136 +1202,6 @@ Orthorectification of an image from a different source
 If you have already obtained a DEM, using ASP or some other approach,
 and have an image and camera pair which you would like to overlay on top
 of this terrain, use the ``mapproject`` tool (:numref:`mapproject`).
-
-Correcting camera positions and orientations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``bundle_adjust`` program can be used to adjust the camera positions
-and orientations before running stereo. These adjustments only makes the
-cameras self-consistent. For the adjustments to be absolute, it is
-necessary to use ``bundle_adjust`` with ground control points. This tool
-is described in :numref:`bundle_adjust`.
-
-.. _pc-align-example:
-
-Alignment to point clouds from a different source
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Often the 3D terrain models output by ``parallel_stereo`` (point
-clouds and DEMs) can be intrinsically quite accurate yet their actual
-position on the planet may be off by several meters or several
-kilometers, depending on the spacecraft. This can result from small
-errors in the position and orientation of the satellite cameras taking
-the pictures.
-
-Such errors can be corrected in advance using bundle adjustment, as
-described in the previous section. That requires using ground control
-points, that may not be easy to collect. Alternatively, the images and
-cameras can be used as they are, and the absolute position of the output
-point clouds can be corrected in post-processing. For that, ASP provides
-a tool named ``pc_align``. It aligns a 3D terrain to a much more
-accurately positioned (if potentially sparser) dataset. Such datasets
-can be made up of GPS measurements (in the case of Earth), or from laser
-altimetry instruments on satellites, such as ICESat/GLASS for Earth,
-LRO/LOLA on the Moon, and MGS/MOLA on Mars. Under the hood, ``pc_align``
-uses the Iterative Closest Point algorithm (ICP) (both the
-point-to-plane and point-to-point flavors are supported, and with
-point-to-point ICP it is also possible to solve for a scale change).
-
-The ``pc_align`` tool requires another input, an a priori guess for the
-maximum displacement we expect to see as result of alignment, i.e., by
-how much the points are allowed to move when the alignment transform is
-applied. If not known, a large (but not unreasonably so) number can be
-specified. It is used to remove most of the points in the source
-(movable) point cloud which have no chance of having a corresponding
-point in the reference (fixed) point cloud.
-
-Here is how ``pc_align`` can be called (the denser cloud is specified
-first).
-
-.. figure:: images/examples/align_compare_500px.png
-   :alt:  pc_align results
-   :name: pc-align-fig
-
-   Example of using ``pc_align`` to align a DEM obtained using stereo
-   from CTX images to a set of MOLA tracks. The MOLA points are colored
-   by the offset error initially (left) and after pc align was applied
-   (right) to the terrain model. The red dots indicate more than 100 m
-   of error and blue less than 5 m. The ``pc_align`` algorithm
-   determined that by moving the terrain model approximately 40 m south,
-   70 m west, and 175 m vertically, goodness of fit between MOLA and the
-   CTX model was increased substantially.
-
-::
-
-    pc_align --max-displacement 200 --datum MOLA   \
-      --save-inv-transformed-reference-points      \
-      --csv-format '1:lon 2:lat 3:radius_m'        \
-      stereo-PC.tif mola.csv
-
-It is important to note here that there are two widely used Mars datums,
-and if your CSV file has, unlike above, the heights relative to a datum,
-the correct datum name must be specified via ``--datum``.  :numref:`molacmp`
-talks in more detail about the Mars datums.
-
-:numref:`pc-align-fig` shows an example of using ``pc_align``.
-The complete documentation for this program is in :numref:`pc_align`.
-
-.. _pc_align_validation:
-
-Validation of alignment
-~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``pc_align`` program can save the source cloud after being aligned
-to the reference cloud and vice-versa, via
-``--save-transformed-source-points`` and
-``--save-inv-transformed-reference-points``. To validate that the
-aligned source cloud is very close to the reference cloud, DEMs can be
-made out of them with ``point2dem``, and those can be overlayed
-in ``stereo_gui`` (:numref:`stereo_gui`) for inspection.
-
-Alternatively, the ``geodiff`` program (:numref:`geodiff`) can be used
-to compute the (absolute) difference between aligned DEMs, which can
-be colorized with ``colormap`` (:numref:`colormap`). The ``geodiff``
-tool can take the difference between a DEM and a CSV file as well.
-
-Alignment and orthoimages
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Two related issues are discussed here. The first is that sometimes,
-after ASP has created a DEM, and the left and right images are
-mapprojected to it, they are shifted in respect to each other. That is
-due to the errors in camera positions. To rectify it, one has to run
-``bundle_adjust`` first, then rerun the stereo and mapprojection tools,
-with the adjusted cameras being passed to both via
-``--bundle-adjust-prefix``.
-
-Note that this approach will create self-consistent outputs, but not
-necessarily aligned with pre-existing ground truth. That we deal with
-next.
-
-Once an ASP-generated DEM has been aligned to known ground data using
-``pc_align``, it may be desired to create orthoimages that are also
-aligned to the ground. That can be accomplished in two ways.
-
-The ``point2dem --orthoimage`` approach be used, and one can pass to it
-the point cloud after alignment and the ``L`` image before alignment
-(all this tool does is copy pixels from the texture image, so position
-errors are not a problem).
-
-Alternatively, one can invoke the ``mapproject`` tool again. Yet, there
-is a challenge, because this tool uses the original cameras, before
-alignment, but will project onto the DEM after alignment, so the
-obtained orthoimage location on the ground will be wrong.
-
-The solution is to invoke ``bundle_adjust`` on the two input images
-and cameras, while passing to it the transform obtained from
-``pc_align`` via the ``--initial-transform`` option. This will shift
-the cameras to the right place, and then ``mapproject`` can be called
-with the adjusted cameras, using again the ``--bundle-adjust-prefix``
-option. If all that is wanted is to shift the cameras, without doing
-any actual adjustments, the tool can be invoked with the option
-``--apply-initial-transform-only``.
 
 .. _geoid_adj:
 
