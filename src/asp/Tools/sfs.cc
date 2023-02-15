@@ -83,17 +83,21 @@
 #include <vw/Image/DistanceFunction.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/Core/CmdUtils.h>
+
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <vw/Core/CmdUtils.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/SfsImageProc.h>
 #include <asp/Camera/RPCModelGen.h>
+
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
+
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -115,13 +119,17 @@ int g_max_warning_count = 1000;
 const size_t g_num_model_coeffs = 16;
 const size_t g_max_num_haze_coeffs = 6; // see nonlin_reflectance()
 
+// If the blend weight is ground weight, rather than image weight,
+// use it as it is, without projecting into camera and interpolating.
+// It is a lot of work to pass this all over the place.
+bool g_blend_weight_is_ground_weight = false;
+
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 
-typedef ImageViewRef< PixelMask<float> > MaskedImgT;
+typedef ImageViewRef<PixelMask<float>> MaskedImgT;
 typedef ImageViewRef<double> DoubleImgT;
-
 
 namespace vw { namespace camera {
 
@@ -1103,6 +1111,7 @@ namespace vw { namespace camera {
 
 // Get the memory usage for the given process.
 void callTop() {
+  // TODO(oalexan1): This does not work on OSX
 
   std::ostringstream os;
   int pid = getpid();
@@ -2062,7 +2071,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
                                     double       const * scaled_sun_posn,
                                     PixelMask<double>  & reflectance,
                                     PixelMask<double>  & intensity,
-                                    double             & weight,
+                                    double             & ground_weight,
                                     const double       * reflectance_model_coeffs,
                                     SlopeErrEstim      * slopeErrEstim = NULL,
                                     HeightErrEstim     * heightErrEstim = NULL) {
@@ -2070,7 +2079,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   // Set output values
   reflectance = 0.0; reflectance.invalidate();
   intensity   = 0.0; intensity.invalidate();
-  weight      = 0.0;
+  ground_weight = 0.0;
   
   if (col >= dem.cols() - 1 || row >= dem.rows() - 1) return false;
   if (crop_box.empty()) return false;
@@ -2141,7 +2150,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   } catch(...){
     reflectance = 0.0; reflectance.invalidate();
     intensity   = 0.0; intensity.invalidate();
-    weight      = 0.0;
+    ground_weight = 0.0;
     return false;
   }
   
@@ -2157,10 +2166,10 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   pix -= crop_box.min();
 
   // Check for out of range
-  if (pix[0] < 0 || pix[0] >= image.cols()-1 || pix[1] < 0 || pix[1] >= image.rows()-1) {
+  if (pix[0] < 0 || pix[0] >= image.cols() - 1 || pix[1] < 0 || pix[1] >= image.rows() - 1) {
     reflectance = 0.0; reflectance.invalidate();
     intensity   = 0.0; intensity.invalidate();
-    weight      = 0.0;
+    ground_weight = 0.0;
     return false;
   }
 
@@ -2169,20 +2178,26 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
                                ConstantEdgeExtension());
   intensity = interp_image(pix[0], pix[1]); // this interpolates
 
-  InterpolationView<EdgeExtensionView<DoubleImgT, ConstantEdgeExtension>, BilinearInterpolation>
-    interp_weight = interpolate(blend_weight, BilinearInterpolation(),
-                                ConstantEdgeExtension());
-  if (blend_weight.cols() > 0 && blend_weight.rows() > 0) // The weight may not exist
-    weight = interp_weight(pix[0], pix[1]); // this interpolates
-  else
-    weight = 1.0;
-
+  if (g_blend_weight_is_ground_weight) {
+    if (blend_weight.cols() != dem.cols() || blend_weight.rows() != dem.rows()) 
+      vw::vw_throw(vw::ArgumentErr() << "Ground weight must have the same size as the DEM.\n");
+    ground_weight = blend_weight(col, row);
+  } else {
+    InterpolationView<EdgeExtensionView<DoubleImgT, ConstantEdgeExtension>, BilinearInterpolation>
+      interp_weight = interpolate(blend_weight, BilinearInterpolation(),
+                                  ConstantEdgeExtension());
+    if (blend_weight.cols() > 0 && blend_weight.rows() > 0) // The weight may not exist
+      ground_weight = interp_weight(pix[0], pix[1]); // this interpolates
+    else
+      ground_weight = 1.0;
+  }
+  
   // Note that we allow negative reflectance. It will hopefully guide
   // the SfS solution the right way.
   if (!is_valid(intensity)) {
     reflectance = 0.0; reflectance.invalidate();
     intensity   = 0.0; intensity.invalidate();
-    weight      = 0.0;
+    ground_weight = 0.0;
     return false;
   }
 
@@ -2262,11 +2277,11 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     DoubleImgT const  & blend_weight,
                                     CameraModel const * camera,
                                     double     const  * scaled_sun_posn,
-                                    ImageView< PixelMask<double> > & reflectance,
-                                    ImageView< PixelMask<double> > & intensity,
-                                    ImageView< double            > & weight,
-                                    const double  * reflectance_model_coeffs,
-                                    SlopeErrEstim * slopeErrEstim = NULL,
+                                    ImageView<PixelMask<double>> & reflectance,
+                                    ImageView<PixelMask<double>> & intensity,
+                                    ImageView<double>            & ground_weight,
+                                    const double   * reflectance_model_coeffs,
+                                    SlopeErrEstim  * slopeErrEstim = NULL,
                                     HeightErrEstim * heightErrEstim = NULL) {
   
   // Update max_dem_height
@@ -2287,12 +2302,12 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
   // are fully initialized.
   reflectance.set_size(dem.cols(), dem.rows());
   intensity.set_size(dem.cols(), dem.rows());
-  weight.set_size(dem.cols(), dem.rows());
+  ground_weight.set_size(dem.cols(), dem.rows());
   for (int col = 0; col < dem.cols(); col++) {
     for (int row = 0; row < dem.rows(); row++) {
       reflectance(col, row).invalidate();
       intensity(col, row).invalidate();
-      weight(col, row) = 0.0;
+      ground_weight(col, row) = 0.0;
     }
   }
 
@@ -2315,7 +2330,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                      crop_box, image, blend_weight, camera,
                                      scaled_sun_posn, 
                                      reflectance(col, row), intensity(col, row),
-                                     weight(col, row),
+                                     ground_weight(col, row),
                                      reflectance_model_coeffs,
                                      slopeErrEstim,
                                      heightErrEstim);
@@ -2588,7 +2603,7 @@ public:
         vw_out() << "\n";
 
         ImageView<PixelMask<double>> reflectance, intensity, comp_intensity;
-        ImageView<double> blend_weight;
+        ImageView<double> ground_weight;
 
         std::string out_camera_file
           = asp::bundle_adjust_file_name(g_opt->out_prefix,
@@ -2643,7 +2658,7 @@ public:
                                        (*g_blend_weights)[dem_iter][image_iter],
                                        (*g_cameras)[dem_iter][image_iter].get(),
                                        &(*g_scaled_sun_posns)[3*image_iter],
-                                       reflectance, intensity, blend_weight, 
+                                       reflectance, intensity, ground_weight, 
                                        g_reflectance_model_coeffs);
 
         // dem_nodata equals to dem if the image has valid pixels and no shadows
@@ -2691,7 +2706,7 @@ public:
         std::string out_weight_file = iter_str2 + "-blending-weight.tif";
         vw_out() << "Writing: " << out_weight_file << std::endl;
         block_write_gdal_image(out_weight_file,
-                               blend_weight,
+                               ground_weight,
                                has_georef, (*g_geo)[dem_iter], has_nodata, *g_img_nodata_val,
                                *g_opt, tpc);
 
@@ -2851,7 +2866,7 @@ calc_intensity_residual(const F* const exposure,
     }
     
     PixelMask<double> reflectance(0), intensity(0);
-    double weight = 0;
+    double ground_weight = 0;
 
     // Need to be careful not to access an array which does not exist
     G p = 0, q = 0;
@@ -2870,18 +2885,18 @@ calc_intensity_residual(const F* const exposure,
                                      m_model_params,  m_global_params,
                                      m_crop_box, m_image, m_blend_weight, camera,
                                      scaled_sun_posn,
-                                     reflectance, intensity, weight, reflectance_model_coeffs);
+                                     reflectance, intensity, ground_weight, reflectance_model_coeffs);
       
     if (g_opt->unreliable_intensity_threshold > 0){
       if (is_valid(intensity) && intensity.child() <= g_opt->unreliable_intensity_threshold &&
           intensity.child() >= 0) {
-        weight *=
+        ground_weight *=
           pow(intensity.child()/g_opt->unreliable_intensity_threshold, 2.0);
       }
     }
       
     if (success && is_valid(intensity) && is_valid(reflectance))
-      residuals[0] = weight * (intensity - albedo[0] *
+      residuals[0] = ground_weight * (intensity - albedo[0] *
                                nonlin_reflectance(reflectance.child(), exposure[0],
                                                   g_opt->steepness_factor,
                                                   haze, g_opt->num_haze_coeffs));
@@ -4020,10 +4035,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.crop_input_images = false;
       opt.use_semi_approx = false;
       opt.blending_dist = 0;
+      opt.allow_borderline_data = false;
     }
 
     if (!opt.crop_win.empty()) {
-      vw_throw(ArgumentErr() << "When computing exposures only, cannot crop the input DEM as that will give wrong results. Use the full DEM.\n");
+      vw_throw(ArgumentErr() << "When computing exposures only, cannot crop the "
+               << "input DEM as that will give wrong results. Use the full DEM.\n");
     }
   }
   
@@ -4036,7 +4053,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.allow_borderline_data && !opt.crop_input_images)
     vw_throw(ArgumentErr() << "Option --allow-borderline-data needs option --crop-input-images.\n");
-    
+
+  if (opt.allow_borderline_data && opt.blending_dist <= 0) 
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Option --allow-borderline-data needs a positive --blending-dist.\n");
+
+  if (opt.allow_borderline_data && opt.coarse_levels > 0) 
+    vw::vw_throw(vw::ArgumentErr() << "Option --allow-borderline-data cannot be "
+                 << "used with multiple coarseness levels.\n");
+  
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -5646,7 +5671,7 @@ int main(int argc, char* argv[]) {
             opt.skip_images[dem_iter].end()) continue;
         
         ImageView<PixelMask<double>> reflectance, intensity;
-        ImageView<double> weight;
+        ImageView<double> ground_weight;
         ImageView<Vector2> pq; // no need for these just for initialization
         
         // Sample the large DEMs. Keep about 200 row and column samples.
@@ -5662,7 +5687,7 @@ int main(int argc, char* argv[]) {
                                        blend_weights_vec[0][dem_iter][image_iter],
                                        cameras[dem_iter][image_iter].get(),
                                        &scaled_sun_posns[3*image_iter],
-                                       reflectance, intensity, weight,
+                                       reflectance, intensity, ground_weight,
                                        &opt.model_coeffs_vec[0]);
         
         // TODO: Below is not the optimal way of finding the exposure!
@@ -5718,7 +5743,7 @@ int main(int argc, char* argv[]) {
         opt.image_haze_vec.push_back(haze_vec);
       }
     }
-    if (opt.compute_exposures_only){
+    if (opt.compute_exposures_only) {
       save_exposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
       // all done
       return 0;
@@ -5744,7 +5769,7 @@ int main(int argc, char* argv[]) {
     // a weight matrix with dimensions equal to DEM dimensions, that will be used instead
     // of weights in the camera image space. These are balanced among each other and give more
     // weight to barely lit and unlit nearby pixels.
-    std::vector<ImageView<double>> image_weights(num_images);
+    std::vector<ImageView<double>> ground_weights(num_images);
     
     // Note that below we may use the exposures computed at the previous step
     if (opt.save_computed_intensity_only || opt.estimate_slope_errors ||
@@ -5752,7 +5777,7 @@ int main(int argc, char* argv[]) {
         opt.allow_borderline_data) {
       // In this case simply save the computed and actual intensity, and for most of these quit
       ImageView<PixelMask<double>> reflectance, meas_intensity, comp_intensity;
-      ImageView<double> ground_level_weight;
+      ImageView<double> ground_weight;
       ImageView<Vector2> pq; // no need for these just for initialization
       int sample_col_rate = 1, sample_row_rate = 1;
 
@@ -5799,14 +5824,14 @@ int main(int argc, char* argv[]) {
                                        blend_weights_vec[0][0][image_iter],
                                        cameras[0][image_iter].get(),
                                        &scaled_sun_posns[3*image_iter],
-                                       reflectance, meas_intensity, ground_level_weight,
+                                       reflectance, meas_intensity, ground_weight,
                                        &opt.model_coeffs_vec[0],
                                        slopeErrEstim.get(), heightErrEstim.get());
 
         if (opt.skip_images[0].find(image_iter) == opt.skip_images[0].end() &&
             opt.allow_borderline_data) {
           // if not skipping, save the weight
-          image_weights[image_iter] = copy(ground_level_weight);
+          ground_weights[image_iter] = copy(ground_weight);
         }
         
         // Find the computed intensity.
@@ -5940,256 +5965,46 @@ int main(int argc, char* argv[]) {
       return 0;
     }
 
-    // TODO(oalexan1): Read all this very carefully!!!!
-    // TODO(oalexan1): Make this a function!
-
-    // weak and there is nothing else. Then do weighted averaging
-    // among them, follows by bringing them close to 0 again but
-    // further way.
-    // TODO(oalexan1): This must happen only when opt.allow_borderline_data is true.
     if (opt.allow_borderline_data) {
       int cols = dems[0][0].cols(), rows = dems[0][0].rows();
-      ImageView<double> union_weight(cols, rows), boundary_weight(cols, rows);
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++) {
-          union_weight(col, row) = 0.0;
-          boundary_weight(col, row) = 0.0;
-        }
-      }
-      for (int image_iter = 0; image_iter < num_images; image_iter++) {
-        auto & wt = image_weights[image_iter]; // alias
-        if (wt.cols() > 0 && wt.rows() > 0) {
-          
-          if (wt.cols() != cols || wt.rows() != rows) 
-            vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended weights must "
-                         << "have the same dimensions.\n");
-          
-          // Prepare to create some weights smaller than min_wt. First, bump up
-          // the existing weights. Normally they are already well above this.
-          for (int col = 0; col < wt.cols(); col++) {
-            for (int row = 0; row < wt.rows(); row++) {
-              union_weight(col, row) = std::max(union_weight(col, row), wt(col, row));
-            }
-          }
-        }
-      }
-      
-#if 1
-      // TODO(oalexan1): The boundary weight decays linearly, it does not respect the power!
-      
-      // TODO(oalexan1): Must be a function!
-      double blending_dist_sq = opt.blending_dist * opt.blending_dist;
-      int max_dist_int = ceil(opt.blending_dist); // an int overestimate
-      
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++) {
-          
-          // Look for a boundary pixel, which is a pixel with zero weight but with neighbors
-          // with positive weight
-          if (union_weight(col, row) > 0)
-            continue;
-          bool is_bd_pix = false;
-          for (int c = col - 1; c <= col + 1; c++) {
-            for (int r = row - 1; r <= row + 1; r++) {
-              if (c < 0 || c >= cols || r < 0 || r >= rows)
-                continue;
-              if (union_weight(c, r) > 0) {
-                is_bd_pix = true;
-                break; // found it
-              }
-            }
-            if (is_bd_pix) 
-              break; // found it
-          }
-          if (!is_bd_pix) 
-            continue; // did not find it
-          
-          // Found the boundary pixel. Increase the weight in the
-          // circular neighborhood.  It will still be below min_wt
-          // and decay to 0 at the boundary of this neighborhood.
-          for (int c = col - max_dist_int; c <= col + max_dist_int; c++) {
-            for (int r = row - max_dist_int; r <= row + max_dist_int; r++) {
-              if (c < 0 || c >= cols || r < 0 || r >= rows)
-                continue;
-              
-              // Cast to double before multiplying to avoid integer overflow
-              double dsq = double(c - col) * double(c - col) + 
-                double(r - row) * double(r - row);
-              
-              // Too far 
-              if (dsq >= blending_dist_sq) 
-                continue;
-              
-              double d = sqrt(dsq);
-              d = opt.blending_dist - d; // get a cone pointing up, with base at height 0.
-              d /= double(opt.blending_dist); // make it between 0 and 1
-              d = std::max(d, 0.0); // should not be necessary
-              // Add its contribution
-              boundary_weight(c, r) = std::max(boundary_weight(c, r), d);
-            }
-          }
-        }
-      }
-#endif
-      
-      std::vector<ImageView<double>> avg_weights(num_images);
-      for (int image_iter = 0; image_iter < num_images; image_iter++) {
-        auto & image_wt = image_weights[image_iter]; // alias
-        if (image_wt.cols() > 0 && image_wt.rows() > 0) {
-          
-          if (image_wt.cols() != cols || image_wt.rows() != rows) 
-            vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended weights must "
-                         << "have the same dimensions.\n");
-          
-          avg_weights[image_iter].set_size(cols, rows);
-          for (int col = 0; col < image_wt.cols(); col++) {
-            for (int row = 0; row < image_wt.rows(); row++) {
-              avg_weights[image_iter](col, row) = (image_wt(col, row) > 0);
-            }
-          }
-          
-          double blending_dist_sq = opt.blending_dist * opt.blending_dist;
-          int max_dist_int = ceil(opt.blending_dist); // an int overestimate
-          
-          for (int col = 0; col < cols; col++) {
-            for (int row = 0; row < rows; row++) {
-              
-              // Look for a boundary pixel, which is a pixel with zero weight but with neighbors
-              // with positive weight
-              if (image_wt(col, row) > 0)
-                continue;
-              bool is_bd_pix = false;
-              for (int c = col - 1; c <= col + 1; c++) {
-                for (int r = row - 1; r <= row + 1; r++) {
-                  if (c < 0 || c >= cols || r < 0 || r >= rows)
-                    continue;
-                  if (image_wt(c, r) > 0) {
-                    is_bd_pix = true;
-                    break; // found it
-                  }
-                }
-                if (is_bd_pix) 
-                  break; // found it
-              }
-              if (!is_bd_pix) 
-                continue; // did not find it
-              
-              // Found the boundary pixel. Increase the weight in the
-              // circular neighborhood.  It will still be below 1
-              // and decay to 0 at the boundary of this neighborhood.
-              for (int c = col - max_dist_int; c <= col + max_dist_int; c++) {
-                for (int r = row - max_dist_int; r <= row + max_dist_int; r++) {
-                  if (c < 0 || c >= cols || r < 0 || r >= rows)
-                    continue;
-                  
-                  // Cast to double before multiplying to avoid integer overflow
-                  double dsq = double(c - col) * double(c - col) + 
-                    double(r - row) * double(r - row);
-                  
-                  // Too far 
-                  if (dsq >= blending_dist_sq) 
-                    continue;
-                  
-                  double d = sqrt(dsq);
-                  d = opt.blending_dist - d; // get a cone pointing up, with base at height 0.
-                  d /= double(opt.blending_dist); // make it between 0 and 1
-                  d = std::max(d, 0.0); // should not be necessary
-                  // Add its contribution
-                  avg_weights[image_iter](c, r) = std::max(avg_weights[image_iter](c, r), d);
-                }
-              }
-              
-            }
-          }
-        }
-      } // end iterating over images
-      
-#if 1
-      // Do the weighted average. First initialize to 0.
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++) {
-          
-          // Find the sum at each pixel
-          double sum = 0.0;
-          for (int image_iter = 0; image_iter < num_images; image_iter++) {
-            auto & avg_wt = avg_weights[image_iter]; // alias
-            if (avg_wt.cols() > 0 && avg_wt.rows() > 0 && avg_wt(col, row) > 0) {
-              sum += avg_wt(col, row);
-            }
-          }
-          if (sum <= 0) 
-            continue;
-          
-          // Divide by the sum at each pixel
-          for (int image_iter = 0; image_iter < num_images; image_iter++) {
-            auto & avg_wt = avg_weights[image_iter]; // alias
-            if (avg_wt.cols() > 0 && avg_wt.rows() > 0 && avg_wt(col, row) > 0) {
-              avg_wt(col, row) = avg_wt(col, row) / sum;
-            }
-            
-            avg_wt(col, row) *= boundary_weight(col, row);
+      asp::adjustBorderlineDataWeights(cols, rows, opt.blending_dist, opt.blending_power,  
+                                       ground_weights);
 
-            // undo the power in the weight, add the new contribution, and put back the power
-            double wt = pow(image_weights[image_iter](col, row), 1.0/opt.blending_power)
-              + avg_wt(col, row);
-            wt = std::min(wt, 1.0); // make sure the weight is no more than one
-            avg_wt(col, row) = pow(wt, opt.blending_power); // put back the power
+      // Use the ground weights from now on instead of blending weights
+      g_blend_weight_is_ground_weight = true;
+      if (num_dems != 1) 
+        vw::vw_throw(vw::ArgumentErr() << "Cannot use more than one DEM with "
+                     << "--allow-borderline-data.\n");
+
+      // Redo the image masks. All data with non-negative values is
+      // valid. The weights will control which data gets used. It is
+      // assumed opt.crop_input_images is true and opt.blending_dist > 0.
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+        for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
+          if (opt.skip_images[dem_iter].find(image_iter) != opt.skip_images[dem_iter].end())
+            continue;
+          
+          std::string img_file = opt.input_images[image_iter];
+          vw::read_nodata_val(img_file, img_nodata_val);
+          // Model the shadow threshold
+          float shadow_thresh = 0.0;
+          // Make a copy in memory for faster access
+          if (!crop_boxes[0][dem_iter][image_iter].empty()) {
+            ImageView<float> cropped_img = 
+              crop(DiskImageView<float>(img_file), crop_boxes[0][dem_iter][image_iter]);
+            masked_images_vec[0][dem_iter][image_iter]
+              = create_pixel_range_mask2(cropped_img,
+                                         std::max(img_nodata_val, shadow_thresh),
+                                         opt.max_valid_image_vals_vec[image_iter]);
+
+            // Overwrite the blending weights with ground weights
+            blend_weights_vec[0][dem_iter][image_iter] = copy(ground_weights[image_iter]);
           }
         }
       }
-      
-#endif
-        
-      // TODO(oalexan1): Must make sure to make the images have non-negative but valid values
-      // where the weights are positive and invalid values where they are zero.
-      // TODO(oalexan1): Must use the extended weights instead of regular weights!
-      // TODO(oalexan1): Use blending power?
-      // TODO(oalexan1): Should these weights be updated as the terrain changes?
-      // TODO(oalexan1): Weights which at the end stay below min_wt should go back
-      // to being 0. They add nothing but can introduce invalid data.
-      
-      bool has_georef = true, has_nodata = false;
-      std::string union_weight_file = opt.out_prefix + "-union_weight.tif";
-      vw_out() << "Writing: " << union_weight_file << std::endl;
-      block_write_gdal_image(union_weight_file,
-                             union_weight,
-                             has_georef, geos[0][0], has_nodata,
-                             img_nodata_val, opt,
-                             TerminalProgressCallback("asp", ": "));
-      
-      std::string boundary_weight_file = opt.out_prefix + "-boundary_weight.tif";
-      vw_out() << "Writing: " << boundary_weight_file << std::endl;
-      block_write_gdal_image(boundary_weight_file,
-                             boundary_weight,
-                             has_georef, geos[0][0], has_nodata,
-                             img_nodata_val, opt,
-                             TerminalProgressCallback("asp", ": "));
-      
-      for (int image_iter = 0; image_iter < num_images; image_iter++) {
-        std::string out_camera_file
-          = asp::bundle_adjust_file_name(opt.out_prefix,
-                                         opt.input_images[image_iter],
-                                         opt.input_cameras[image_iter]);
-        std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
-        bool has_georef = true, has_nodata = false;
-        std::string image_weight_file = local_prefix + "-image_weight.tif";
-        vw_out() << "Writing: " << image_weight_file << std::endl;
-        block_write_gdal_image(image_weight_file,
-                               image_weights[image_iter],
-                               has_georef, geos[0][0], has_nodata,
-                               img_nodata_val, opt,
-                               TerminalProgressCallback("asp", ": "));
-        
-        std::string avg_weight_file = local_prefix + "-avg_weight.tif";
-        vw_out() << "Writing: " << avg_weight_file << std::endl;
-        block_write_gdal_image(avg_weight_file,
-                               avg_weights[image_iter],
-                               has_georef, geos[0][0], has_nodata,
-                               img_nodata_val, opt,
-                               TerminalProgressCallback("asp", ": "));
-        
-      }
-    } // and allow borderline data
+
+      ground_weights.clear(); // not needed anymore
+    } // end allow borderline data
     
     ImageView<double> curvature_in_shadow_weight;
     if (opt.curvature_in_shadow_weight > 0.0) {
