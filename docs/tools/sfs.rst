@@ -80,6 +80,17 @@ Command-line options for sfs
 -i, --input-dem <filename>
     The input DEM to refine using SfS.
 
+--image-list
+    A file containing the list of images, when they are too many to
+    specify on the command line. Use space or newline as
+    separator. See also ``--camera-list``.
+
+--camera-list
+    A file containing the list of cameras, when they are too many to
+    specify on the command line. If the images have embedded camera
+    information, such as for ISIS, this file must be empty but must
+    be specified if ``--image-list`` is specified.
+
 -o, --output-prefix <string>
     Prefix for output filenames. 
 
@@ -214,14 +225,18 @@ Command-line options for sfs
     values. Enabled only when crop-input-images is true, for
     performance reasons. Blend over this many pixels.
 
---blending-power <integer (default: 2)>
-    A higher value will result in smoother blending.
+--blending-power <double (default: 2.0)>
+    Raise the blending weights (they are no more to 1.0) to this
+    power. A higher value will result in smoother (but more abrupt)
+    blending as the weights decay faster close to 0.
 
 --min-blend-size <integer (default: 0)>
-    Do not apply blending in shadowed areas of dimensions less than this.
+    Do not apply blending in shadowed areas of dimensions less than
+    this. This avoids losing data around small holes, but the solution
+    may become less smooth.
 
 --compute-exposures-only
-    Quit after saving the exposures.  This should be done once for
+    Quit after saving the exposures. This should be done once for
     a big DEM, before using these for small sub-clips without
     recomputing them.
 
@@ -235,6 +250,13 @@ Command-line options for sfs
     DEM. The exposures will be computed along the way unless specified
     via ``--image-exposures-prefix``, and saved to 
     <output prefix>-exposures.txt.
+
+--allow-borderline-data
+    In regions where some image portions have only a mix of low-light
+    and shadow data, allow those if no other images have anything
+    better. For now this works on small clips with a very small number
+    of images. To be improved. See an illustration in
+    :numref:`sfs_borderline`.
 
 --model-coeffs-prefix <path>
     Use this prefix to optionally read model coefficients from a

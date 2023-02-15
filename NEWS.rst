@@ -25,12 +25,22 @@ bundle_adjust:
     the cameras in bundle adjustment, while improving the
     self-consistency of the camera configuration
     (:numref:`skysat_stereo`).
-  *  Bugfix for slow performance for a large number of images.
+  *  Bugfix for slow performance and memory usage for a large number
+     of images.
 
 sfs: 
   * Made a big update to the documentation for large-scale bundle
     adjustment and SfS processing, reflecting latest best practices
     (:numref:`sfs-lola`).
+  * Created an SfS DEM of size 14336 x 11008 pixels, at 1 m pixel.
+    Reliably bundle-adjusted 814 LRO NAC images in which the shadows
+    described a full 360 degree loop, with a total of 614k
+    triangulated points.
+  * Added the options ``--image-list`` and ``--camera-list`` for when
+    the number of images becomes too large to set on the command line.
+  * Create more detail in the reconstructed DEM in borderline lit regions.
+    Option: ``--allow-borderline-data``. For now this works on small
+    clips with a very small number of images. To be improved.
 
 point2dem (:numref:`point2dem`): 
   * Added the option ``--propagate-errors`` to grid the stddev values

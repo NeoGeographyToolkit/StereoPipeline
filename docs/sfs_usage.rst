@@ -694,7 +694,6 @@ resolution.
 
 .. _sfs2_fig:
 .. figure:: images/sfs2.jpg
-   :name: sfs2_fig_name
    :alt: Another sfs illustration 
 
    An illustration of ``sfs``. The images are, from left to right, the
@@ -704,7 +703,6 @@ resolution.
 
 .. _sfs2_fix_fig:
 .. figure:: images/sfs2_fix_depth.jpg
-   :name: sfs2_fix_fig_name
    :alt: SfS with curved crater bottom
 
    An illustration of adding a curvature term to the SfS cost
@@ -712,6 +710,27 @@ resolution.
    compared to the earlier figure, the crater bottom is now curved,
    rather than flat, but more modeling is needed to ensure a seamless
    transition.
+
+.. _sfs_borderline:
+
+Handling borderline areas
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+With the option ``--allow-borderline-data``, ``sfs`` tries to to do a
+better job at resolving the terrain in areas where the only available
+data is a mix of barely lit and shadow pixels. The level of detail
+noticeably improves with this option in those areas. However, likely
+the slopes are shallower than they would be if the data was better.
+
+For now this works only small clips with 1-3 carefully chosen images.
+
+.. figure:: images/sfs_borderline.png
+   :name: sfs_borderline_fig
+   :alt: SfS with borderline image data.
+
+   A max-lit mosaic in a low-light area (left), the SfS result 
+   without option ``--allow-borderline-data`` (middle) and with it
+   (right). See the text about this option's limitations.
 
 .. _sfs-lola:
 
