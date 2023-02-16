@@ -38,10 +38,12 @@ size in degrees::
      mapproject --tr 0.0001 DEM.tif image.tif camera.tsai output.tif
 
 Map-project a .cub file (it has both image and camera
-information). Use a custom stereographic projection, with a grid size
-of 1 meter/pixel::
+information) for the Moon. Use a custom stereographic projection::
 
     proj="+proj=stere +lat_0=-85.3643 +lon_0=31.2387 +R=1737400 +units=m +no_defs"
+
+The grid size is set to 1 meter/pixel::
+
     mapproject --tr 1.0 --t_srs "$proj" DEM.tif image.cub output.tif
 
 Map-project an image file with associated .xml camera file. Use bundle-adjusted cameras
