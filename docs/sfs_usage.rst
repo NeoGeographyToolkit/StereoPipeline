@@ -805,19 +805,19 @@ this applies to your case.
 Resample the DEM to 1 m/pixel using ``gdalwarp``
 (:numref:`gdal_tools`), creating a DEM named ``ref.tif``::
 
-    proj="+proj=stere +lat_0=-85.3 +lon_0=31.2 +R=1737400 +units=m +no_defs"
-
     gdalwarp -overwrite -r cubicspline -tr 1 1              \
       -co COMPRESSION=LZW -co TILED=yes -co INTERLEAVE=BAND \
       -co BLOCKXSIZE=256 -co BLOCKYSIZE=256                 \
-      -t_srs "$proj"                                        \
       -te -7050.5 -10890.5 -1919.5 -5759.5                  \
       ldem_80s_20m_scale.tif ref.tif
 
-It is suggested to use a 
-`stereographic projection <https://proj.org/operations/projections/stere.html>`_
-centered around the area of interest when resampling the terrain
-(``gdalwarp`` option ``-t_srs``). 
+It is suggested to use a `stereographic projection
+<https://proj.org/operations/projections/stere.html>`_ centered around
+the area of interest when resampling the terrain. For example, set::
+
+    proj="+proj=stere +lat_0=-85.3643 +lon_0=31.2387 +R=1737400 +units=m +no_defs"
+
+then run ``gdalwarp`` with the option ``-t_srs "$proj"``.
 
 The interpolated DEM was created with bicubic spline interpolation,
 which is preferable to the default nearest neighbor interpolation, and
@@ -842,7 +842,7 @@ The ``sfs_blend`` program will fail later unless the resampled initial
 DEM also has this property, as it expects a one-to-one
 correspondence between mapprojected images and the ground. Hence,
 ``gdalwarp`` was used earlier with the ``-te`` option, with the bounds
-having a fractional part of 0.5.  Note that the bounds passed to
+having a fractional part of 0.5. Note that the bounds passed to
 ``-te`` are in the order::
 
     xmin, ymin, xmax, ymax
