@@ -37,13 +37,18 @@ size in degrees::
 
      mapproject --tr 0.0001 DEM.tif image.tif camera.tsai output.tif
 
-Map-project a .cub file (it has both image and camera information)::
+Map-project a .cub file (it has both image and camera
+information). Use a custom stereographic projection, with a grid size
+of 1 meter/pixel::
 
-     mapproject -t isis --ppd 256 DEM.tif image.cub output.tif
+    proj="+proj=stere +lat_0=-85.3643 +lon_0=31.2387 +R=1737400 +units=m +no_defs"
+    mapproject --tr 1.0 --t_srs "$proj" DEM.tif image.cub output.tif
 
-Map-project an image file with associated .xml camera file::
+Map-project an image file with associated .xml camera file. Use bundle-adjusted cameras
+(:numref:`bundle_adjust`)::
 
-     mapproject -t rpc --mpp 20 DEM.tif image.tif image.xml output.tif
+     mapproject -t rpc --bundle-adjust-prefix ba/run \
+       DEM.tif image.tif image.xml output.tif
 
 Mapproject using the CSM camera model (:numref:`csm`)::
 
