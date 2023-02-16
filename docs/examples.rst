@@ -43,7 +43,9 @@ preprocessing stage (:numref:`entrypoints`), with the result
 printed on the screen and saved to the log file. In ``bundle_adjust``
 this computation takes place after the optimization of the cameras
 finishes, and the results are saved to a file on disk
-(:numref:`ba_out_files`).
+(:numref:`ba_out_files`). To find good stereo pairs, one can run
+bundle adjustment on a large set of images and pick a pair with a
+decent convergence angle.
 
 Although images do not need to be mapprojected before running the
 ``parallel_stereo`` program, we recommend that you do run ``cam2map`` (or

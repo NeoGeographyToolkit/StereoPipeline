@@ -722,7 +722,7 @@ data is a mix of barely lit and shadow pixels. The level of detail
 noticeably improves with this option in those areas. However, likely
 the slopes are shallower than they would be if the data was better.
 
-For now this works only small clips with 1-3 carefully chosen images.
+For now this works only on small clips with 1-3 carefully chosen images.
 
 .. figure:: images/sfs_borderline.png
    :name: sfs_borderline_fig
@@ -761,10 +761,11 @@ The user is strongly cautioned that the difficulty of getting things
 right and figuring out what went wrong greatly increases with dataset
 complexity.
 
-It is strongly suggested to first try SfS on a site of size
-perhaps 2000 x 2000 pixels, with a dozen carefully inspected images
-with slowly varying illumination, and having at least one stereo pair
-among them that can be used for alignment to the ground.
+It is strongly suggested to first try SfS on a site of size perhaps
+2000 x 2000 pixels, with a dozen carefully inspected images with
+slowly varying illumination, and having at least one stereo pair among
+them (:numref:`stereo_pairs`) that can be used for alignment to the
+ground.
 
 If happy with the results, more images can be added and the site size
 increased, while the camera poses determined so far may be kept fixed
@@ -804,14 +805,18 @@ this applies to your case.
 Resample the DEM to 1 m/pixel using ``gdalwarp``
 (:numref:`gdal_tools`), creating a DEM named ``ref.tif``::
 
+    proj="+proj=stere +lat_0=-85.3 +lon_0=31.2 +R=1737400 +units=m +no_defs"
+
     gdalwarp -overwrite -r cubicspline -tr 1 1              \
       -co COMPRESSION=LZW -co TILED=yes -co INTERLEAVE=BAND \
       -co BLOCKXSIZE=256 -co BLOCKYSIZE=256                 \
+      -t_srs "$proj"                                        \
       -te -7050.5 -10890.5 -1919.5 -5759.5                  \
       ldem_80s_20m_scale.tif ref.tif
 
-It is suggested to use a polar stereographic projection centered
-around the area of interest when resampling the terrain
+It is suggested to use a 
+`stereographic projection <https://proj.org/operations/projections/stere.html>`_
+centered around the area of interest when resampling the terrain
 (``gdalwarp`` option ``-t_srs``). 
 
 The interpolated DEM was created with bicubic spline interpolation,
@@ -828,7 +833,8 @@ Terrain bounds
 ^^^^^^^^^^^^^^
 
 Later when we mapproject images onto this DEM, those will be computed
-at integer multiples of the grid size. Given that the grid size is 1
+at integer multiples of the grid size, with each ground pixel centered
+at a grid point. Given that the grid size is 1
 m, the extent of those images as displayed by ``gdalinfo`` will have a
 fractional value of 0.5.
 
