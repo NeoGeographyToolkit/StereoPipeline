@@ -194,6 +194,13 @@ void lookupProperyIndices(std::vector<std::map<std::string, std::string>> const&
       }
     }
 
+    if (start_p >= properties.size()) {
+      if (properties.empty()) 
+        vw::vw_throw(vw::ArgumentErr() << "No image properties were found.\n");
+
+      // For the nvm case, to not go out of bounds
+      start_p = properties.size() - 1; 
+    }
     propertyIndices.push_back(start_p);
 
     start_p++; // next time start the search after the entry just identified
@@ -274,6 +281,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
 
   m_images.resize(m_image_files.size());
   std::vector<int> propertyIndices;
+  
   lookupProperyIndices(properties, m_image_files, propertyIndices);
 
   bool has_georef = true;

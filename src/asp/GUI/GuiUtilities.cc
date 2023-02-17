@@ -545,7 +545,7 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
   style = "default";
   colormap = "binary-red-blue";
   colorize_image = false;
-  
+
   m_opt = opt;
   m_display_mode = display_mode;
 
@@ -560,7 +560,7 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     if (it->first == "colorize_image")
       colorize_image = atof(it->second.c_str()); 
   }
-  
+
   std::string default_poly_color = "green"; // default, will be overwritten later
   
   if (asp::has_shp_extension(name_in)) {
@@ -947,9 +947,6 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
 
     std::vector<vw::ip::InterestPoint> left, right;
     try {
-      //std::cout << "For image index " << i
-      //          << ", reading matches from file " << match_file 
-      //          << ", matching to index " << j << std::endl;
       vw_out() << "Reading binary match file: " << match_file << std::endl;
       ip::read_binary_match_file(match_file, left, right);
     }catch(...){
@@ -963,11 +960,10 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
       setIpValid(0);
       setIpValid(1);
       num_ip = left.size(); // The first image sets the number of IP
-      //std::cout << "First image has " << num_ip << " ip.\n";
       continue;
     }
 
-    // For other cases, we need to isolate the same IP in the left image!
+    // For other cases, we need to isolate the same IP in the left image.
     // Loop through the ip in the "left" image
     size_t count = 0;
     for (size_t pnew=0; pnew<left.size(); ++pnew) {

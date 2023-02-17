@@ -29,13 +29,11 @@ bundle_adjust:
      of images.
 
 sfs: 
-  * Made a big update to the documentation for large-scale bundle
-    adjustment and SfS processing, reflecting latest best practices
-    (:numref:`sfs-lola`).
   * Created an SfS DEM of size 14336 x 11008 pixels, at 1 m pixel.
     Reliably bundle-adjusted 814 LRO NAC images in which the shadows
     were observed to make a full 360 degree loop, with a total of 614k
-    triangulated points.
+    triangulated points. Updated documentation reflecting
+    latest best practices is in :numref:`sfs-lola`.
   * Added the options ``--image-list`` and ``--camera-list`` for when
     the number of images becomes too large to set on the command line.
   * Create more detail in the reconstructed DEM in borderline lit regions.
