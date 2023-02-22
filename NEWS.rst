@@ -19,7 +19,7 @@ parallel_stereo (:numref:`parallel_stereo`):
     mapprojection is done with the exact (non-RPC) cameras, stereo
     must load the exact cameras when undoing the mapprojection.
 
-bundle_adjust:
+bundle_adjust (:numref:`bundle_adjust`):
   * Validated that given about a thousand input images acquired with
     three views and much overlap, one can have very tight control of
     the cameras in bundle adjustment, while improving the
@@ -28,7 +28,7 @@ bundle_adjust:
   *  Bugfix for slow performance and memory usage for a large number
      of images.
 
-sfs: 
+sfs (:numref:`sfs`): 
   * Created an SfS DEM of size 14336 x 11008 pixels, at 1 m pixel.
     Reliably bundle-adjusted 814 LRO NAC images in which the shadows
     were observed to make a full 360 degree loop, with a total of 614k
@@ -40,6 +40,15 @@ sfs:
     Option: ``--allow-borderline-data``. For now this works on small
     clips with a very small number of images. To be improved.
 
+rig_calibrator (:numref:`rig_calibrator`):
+  * Fix for too many valid interest point matches being filtered out.
+  * Always write the .nvm file having cameras and inlier interest point
+    matches. The values of optical center point that are subtracted
+    from each interest point are saved to a separate file.
+  * Add the option ``--extra_list`` to insert additional images 
+    similar to existing ones or for a different sensor around the same
+    time.
+
 point2dem (:numref:`point2dem`): 
   * Added the option ``--propagate-errors`` to grid the stddev values
     computed during stereo triangulation. 
@@ -48,6 +57,10 @@ stereo_gui (:numref:`stereo_gui`):
   * Can read, write, edit, and overlay on top of images polygons in
     plain text format in addition to the .shp format. Per-polygon
     colors are supported.
+  * Bug fix in loading .nvm files (an SfM format).
+  * Can read nvm files whose features are shifted relative to the 
+    optical center, if an ``.nvm`` file is accompanied by an
+    ``_offsets.txt`` file.
 
 jitter_solve (:numref:`jitter_solve`):
   * Bugfix for reverse scan direction.
@@ -72,6 +85,8 @@ misc:
     processing for XML-based camera models.
   * Added back the tool ``view_reconstruction``, for examining
     Theia's SfM solution (:numref:`sfm`).
+  * The theia_sfm tool can write the optical offsets for a given
+    nvm file which can be used in plotting such files in ``stereo_gui``. 
   * Added to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`) the option
     ``--web`` to invoke ``spiceinit`` with ``web=True``. Contributed
     by Giacomo Nodjoumi.

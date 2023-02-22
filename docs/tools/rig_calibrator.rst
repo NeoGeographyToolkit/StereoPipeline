@@ -195,22 +195,33 @@ The image names, camera poses, and interest point matches are stored
 in the NVM format. These are determined using the Theia
 structure-from-motion software, and are read by ``rig_calibrator`` via the
 ``--nvm`` option. The optimized camera poses and inlier interest point
-matches will be written in the same format when this program finishes
-if the ``--save_nvm`` option is set. Then the output nvm file name
-is::
+matches will be written in the same format when this program finishes. 
+Then the output nvm file name is::
 
   <output dir>/cameras.nvm
 
-If the option ``--save_nvm_no_shift`` is specified, the file::
+In this file, the interest point matches are offset relative to the
+optical center. This file can be passed in to a new invocation
+``rig_calibrator`` via ``--nvm``. 
+
+The optical centers per image are written separately, to::
+
+  <output dir>/cameras_offsets.nvm
+
+This is because these are not part of the .nvm file format.
+
+If the option ``--save_nvm_no_shift`` is specified, the additional
+file::
 
   <output dir>/cameras_noshift.nvm
 
 will be saved, in the same format as above, but without interest
 points being shifted relative to the optical center for the
-corresponding image.
+corresponding image. This file is is easier to plot, as there is
+no shift to undo, with the latter needing to be stored separately.
 
 In addition, a plain text file having just the list of images and
-world-to-camera poses will always be written, with the name::
+world-to-camera poses will be written, with the name::
 
   <output dir>/cameras.txt
 
@@ -221,7 +232,9 @@ Each line in this file has the format::
 Here, the 12 values are the rows of the world-to-camera rotation and
 then the world-to-camera translation. See the ``--camera_poses``
 option (:numref:`rig_calibrator_command_line`) for how this file can
-be read back in.
+be read back in. Note that camera's position and orientation in world
+coordinates are determined by taking the inverse of this rotation +
+translation transform.
 
 The inlier residuals for each camera (that is, norm of reprojection
 errors, with reprojection errors defined as the difference of interest
@@ -236,7 +249,8 @@ in the format::
   distorted_pixel_x distorted_pixel_y norm(residual_x, residual_y)
 
 The convergence angle percentiles for each pair of images having
-inlier matches are saved to::
+inlier matches, together with the number of such matches for each pair,
+are saved to::
 
   <output dir>/convergence_angles.txt
 
@@ -619,7 +633,8 @@ Command-line options for rig_calibrator
   positive value will help ensure the cameras do not move too far, but a
   large value may prevent convergence. Type: double. Default: 0. 
 ``--tri_robust_threshold`` The robust threshold to use with the
-  triangulation weight. Must be positive. Type: double. Default: 0.
+  triangulation weight. Must be positive. See also ``--robust_threshold``.
+  Type: double. Default: 0. 
 ``--depth_mesh_weight`` A larger value will give more weight to the constraint
   that the depth clouds stay close to the mesh. Not suggested by default.)
   Type: double. Default: 0.
@@ -645,8 +660,6 @@ Command-line options for rig_calibrator
   than rigid and a scale. Type: bool. Default: false.
 ``--float_timestamp_offsets`` If to optimize the timestamp offsets among the
   cameras. This is experimental. Type: bool. Default: false.
-``--hugin_file`` The path to the hugin .pto file used for registration.)
-  Type: string. Default: "".
 ``--camera_poses`` Read the images and world-to-camera poses from this list.
   The same format is used as when this tool saves the updated
   poses in the output directory. It is preferred to read the camera
@@ -705,20 +718,24 @@ Command-line options for rig_calibrator
 ``--min_triangulation_angle`` If filtering outliers, remove triangulated points for
   which all rays converging to it make an angle (in degrees) less than
   this. Note that some cameras in the rig may be very close to each other
-  relative to the triangulated points, so care is needed here.)
-  Type: double. Default: 0.5.
+  relative to the triangulated points, so care is needed here.
+  Type: double. Default: 0.01.
 ``--registration`` If true, and registration control points for the sparse map
   exist and are specified by ``--hugin_file`` and ``--xyz_file``, register all
   camera poses and the rig transforms before starting the optimization. For
   now, the depth-to-image transforms do not change as result of this, which
   may be a problem. To apply the registration only, use zero iterations.)
   Type: bool. Default: false.
-``--skip_post_registration``
-  If true and registration to world coordinates takes place, do not apply the
-  registration again after the cameras are optimized. This is usually not recommended,
+``--skip_post_registration`` If true and registration to world
+  coordinates takes place, do not apply the registration again after
+  the cameras are optimized. This is usually not recommended,
   unless one is quite confident that other constraints (such as using ``--tri_weight``
   or ``--mesh_tri_weight``) are sufficient to keep the cameras from drifting.
   Type: bool. Default: false.
+``--hugin_file`` The path to the hugin .pto file used for registration.)
+  Type: string. Default: "".
+``--xyz_file`` The path to the xyz file used for registration. Type:
+  string. Default: "".
 ``--rig_config`` Read the rig configuration from file. Type: string. 
   Default: "".
 ``--rig_transforms_to_float`` Specify the names of sensors whose transforms to
@@ -727,13 +744,8 @@ Command-line options for rig_calibrator
   Type: string. Default: "".
 ``--robust_threshold`` Residual pixel errors and 3D point residuals (the latter
   multiplied by corresponding weight) much larger than this will be
-  exponentially attenuated to affect less the cost function.
-  Type: double. Default: 3.
-``--save_nvm`` Save the optimized camera poses and inlier interest
-  point matches as <out dir>/cameras.nvm. Interest point matches are
-  offset relative to the optical center, to be consistent with
-  Theia. This file can be passed in to a new invocation of this
-  tool via ``--nvm``. Type: bool. Default: false.
+  exponentially attenuated to affect less the cost function. See also
+  ``--tri_robust_threshold``. Type: double. Default: 0.5.
 ``--save_nvm_no_shift`` Save the optimized camera poses and inlier interest point 
   matches to <out dir>/cameras_noshift.nvm. Interest point matches are not offset 
   relative to the optical center, which is not standard, but which 
@@ -748,7 +760,13 @@ Command-line options for rig_calibrator
 ``--use_initial_rig_transforms`` Use the transforms among the sensors of the
   rig specified via ``--rig_config.`` Otherwise derive it from the poses of
   individual cameras. Type: bool. Default: false.
-``--xyz_file`` The path to the xyz file used for registration. Type:
-  string. Default: "".
+``--extra_list`` Add to the SfM solution the camera poses for the
+  additional images/depth clouds in this list. Use bilinear
+  interpolation of poses in time and nearest neighbor extrapolation
+  (within ``--bracket_len``) and/or the rig constraint to find the new poses
+  (will be followed by bundle adjustment refinement). This can give
+  incorrect results if the new images are not very similar or not close
+  in time to the existing ones. This list can contain entries for the
+  data already present. Type: string. Default: "".
 ``--verbose`` Print a lot of verbose information about how matching goes.)
   Type: bool. Default: false.

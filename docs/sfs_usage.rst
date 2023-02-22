@@ -742,9 +742,9 @@ Challenges
 
 SfS has been run successfully on a site close to the Lunar South Pole,
 at around 85.5 degrees South. Its size was 14336 x 11008 pixels, at 1
-m/pixel. It used 814 LRO NAC images. The shadows on the
-ground were observed to make a full 360 degree loop. A seamless
-terrain was created.
+m/pixel. It used 814 LRO NAC images for bundle adjustment and 420 of
+those for SfS. The shadows on the ground were observed to make a full
+360 degree loop. A seamless terrain was created.
 
 The challenges encountered were that the shadows were extensive and
 varied drastically from image to image, and some portions of the
@@ -926,9 +926,6 @@ is an example::
     M103776992LE.cal.echo.cub       196.643
 
 (the Sun azimuth is shown on the right, in degrees).
-
-It is best to avoid images with very low illumination angles as those
-can result in artifacts in the produced SfS terrain.
 
 The primary reason why registration can fail later is illumination
 varying too drastically between nearby images, and not being able to
@@ -1318,6 +1315,9 @@ from other images. It is quite tricky to select such a subset, however,
 and normally SfS should work fine with a few hundred input images, so
 a subselection may not be necessary.
 
+It is best to avoid images with very low illumination angles as those
+can result in artifacts in the produced SfS terrain.
+
 It was found empirically that a shadow threshold of 0.005 was good
 enough.  It is also possible to specify individual shadow thresholds
 if desired, via ``--custom-shadow-threshold-list``. This may be useful
@@ -1349,13 +1349,15 @@ notice how many tiles the ``parallel_sfs`` program produces (the tool
 prints that), as a process will be launched for each tile. Since above
 it is chosen to run 20 processes on each node, the number of nodes can
 be the number of tiles over 20, or perhaps half or a quarter of that,
-in which case it will take longer to run things. One should examine
+in which case it will take longer to run. One should examine
 how much memory these processes use and adjust this number
 accordingly.
 
-See :numref:`sfs_crater_bottoms` for a potential solution for SfS 
+See :numref:`sfs_crater_bottoms` for a potential solution for SfS
 producing flat crater bottoms where there is no illumination to guide
-the solver.
+the solver. See :numref:`sfs_borderline` for a very preliminary
+solutionf for how one can try to improve very low-lit areas (it only
+works on manually selected clips and 1-3 images for each clip).
 
 Inspection and further iterations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

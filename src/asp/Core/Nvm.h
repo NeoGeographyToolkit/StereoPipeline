@@ -43,6 +43,8 @@ void ReadNVM(std::string const& input_filename, nvmData & nvm);
   
 // Reads the NVM control network format. The interest points may or may not
 // be shifted relative to optical center. The user is responsible for knowing that.
+// If a filename having extension _offset.txt instead of .nvm exists, read
+// from it the optical center offsets and apply them.
 void ReadNVM(std::string const& input_filename,
              std::vector<Eigen::Matrix2Xd> * cid_to_keypoint_map,
              std::vector<std::string> * cid_to_filename,

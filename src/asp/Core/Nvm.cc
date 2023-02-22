@@ -37,6 +37,8 @@ void ReadNVM(std::string const& input_filename, nvmData & nvm) {
   
 // Reads the NVM control network format. The interest points may or may not
 // be shifted relative to optical center. The user is responsible for knowing that.
+// If a filename having extension _offset.txt instead of .nvm exists, read
+// from it the optical center offsets and apply them.
 void ReadNVM(std::string const& input_filename,
              std::vector<Eigen::Matrix2Xd> * cid_to_keypoint_map,
              std::vector<std::string> * cid_to_filename,
@@ -44,6 +46,21 @@ void ReadNVM(std::string const& input_filename,
              std::vector<Eigen::Vector3d> * pid_to_xyz,
              std::vector<Eigen::Affine3d> * cid_to_cam_t_global) {
 
+  int file_len = input_filename.size(); // cast to int to make subtraction safe
+  std::string offset_path = input_filename.substr(0, std::max(file_len - 4, 0)) + "_offsets.txt";
+  std::ifstream offset_fh(offset_path.c_str());
+  std::map<std::string, Eigen::Vector2d> offsets;
+  bool have_offsets = false;
+  if (offset_fh.good()) {
+    std::cout << "Read and apply optical offsets from: " << offset_path << std::endl;
+    std::string name;
+    double x, y;
+    while (offset_fh >> name >> x >> y) {
+      offsets[name] = Eigen::Vector2d(x, y);
+    }
+    have_offsets = true;
+  }
+  
   std::ifstream f(input_filename, std::ios::in);
   std::string token;
   std::getline(f, token);
@@ -106,6 +123,16 @@ void ReadNVM(std::string const& input_filename,
     for (ptrdiff_t m = 0; m < number_of_measures; m++) {
       f >> cid >> fid >> pt[0] >> pt[1];
 
+      if (have_offsets) {
+        auto map_it = offsets.find(cid_to_filename->at(cid));
+        if (map_it == offsets.end()) {
+          vw::vw_throw(vw::ArgumentErr() << "Cannot find optical offset for image "
+                       << cid_to_filename->at(cid) << "\n");
+        }
+        pt[0] += (map_it->second)[0];
+        pt[1] += (map_it->second)[1];
+      }
+      
       pid_to_cid_fid->at(pid)[cid] = fid;
 
       if (cid_to_keypoint_map->at(cid).cols() <= fid) {

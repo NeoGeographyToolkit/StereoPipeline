@@ -334,11 +334,18 @@ View pairwise matches loaded from an NVM file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This tool can also visualize pairwise interest point matches loaded
-from an .nvm file. It is assumed that those interest points are saved
-without being translated relative to optical center, as the nvm file
-cannot save that translation. Such untranslated .nvm files are created
-by ``rig_calibrator`` with the ``--save_nvm_no_shift`` option
-(:numref:`rig_calibrator`). Example loading::
+from an .nvm file. This file normally shifts all saved features
+relative to the origin. For ``stereo_gui`` to read such a file,
+each .nvm file must have an associated ``_offsets.txt`` file having
+the optical offsets per image. The ``rig_calibrator`` writes
+such an offset file. This file is auto-loaded along with the .nvm
+file if detected.
+
+An .nvm file having features that are not shifted can be loaded as
+well. Such files are created by ``rig_calibrator`` with the
+``--save_nvm_no_shift`` option (:numref:`rig_calibrator`). 
+
+Example::
 
     stereo_gui --nvm nvm_noshift.nvm
 
