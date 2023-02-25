@@ -73,6 +73,13 @@ image_align:
     used to apply the alignment to cameras and point clouds
     (:numref:`image_align_ecef_trans`).
 
+wv_correct (:numref:`wv_correct`):
+  * Maxar (DigitalGlobe) WorldView-2 images with a processing date (not
+    acquisition date), of May 26, 2022 or newer have much-reduced CCD
+    artifacts, and for those this tool will in fact make the solution
+    worse, not better. This does not apply to WorldView-1, 3, or
+    GeoEye-1.
+
 misc: 
   * Changed the "pretend" height of the RPC cameras from 10 km 
     above ground to around 100 km. RPC camera models do not store this

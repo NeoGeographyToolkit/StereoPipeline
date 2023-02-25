@@ -3,7 +3,7 @@
 wv_correct
 ----------
 
-An image taken by one of Digital Globe's World View satellite cameras
+An image taken by one of Maxar (DigitalGlobe) World View satellite cameras
 is formed of several blocks as tall as the image, mosaicked from left
 to right, with each block coming from an individual CCD sensor
 :cite:`digital-globe:camera`. Either due to imperfections in the
@@ -28,12 +28,15 @@ for the forward and reverse scan directions. For WV03 PAN images, CCD
 artifacts are less noticeable than for WV01 and WV02, and they are not
 corrected at this time.
 
-For multispectral images, only a few select TDI are supported
-for band 3 of WV02 data.
+For multispectral images, only a few select TDI are supported for band
+3 of WV02 data. If a certain combination of spacecraft/TDI is not
+supported, the tool will print a warning and will write on output the
+uncorrected input image.
 
-If a certain combination of spacecraft/TDI is not supported, the tool
-will print a warning and will write on output the uncorrected input
-image.
+Note that Maxar (DigitalGlobe) WorldView-2 images with a processing
+date (not acquisition date) of May 26, 2022 or newer have much-reduced
+CCD artifacts, and for those this tool will in fact make the solution
+worse, not better. This does not apply to WorldView-1, 3, or GeoEye-1.
 
 The ASP source code repository has additional documentation
 and tools for how to tabulate the corrections for the cases

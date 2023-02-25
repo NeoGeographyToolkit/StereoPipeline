@@ -395,8 +395,14 @@ DigitalGlobe/Maxar WorldView images :cite:`digital-globe:camera`
 may exhibit slight subpixel artifacts which manifest themselves as
 discontinuities in the 3D terrain obtained using ASP. We provide a tool
 named ``wv_correct``, that can largely correct such artifacts for World
-View-1 and WorldView-2 images for most TDI. It can be invoked as
-follows::
+View-1 and WorldView-2 images for most TDI. 
+
+Note that Maxar (DigitalGlobe) WorldView-2 images with a processing
+date (not acquisition date) of May 26, 2022 or newer have much-reduced
+CCD artifacts, and for those this tool will in fact make the solution
+worse, not better. This does not apply to WorldView-1, 3, or GeoEye-1.
+
+This tool can be invoked as follows::
 
     wv_correct image_in.ntf image.xml image_out.tif
 
