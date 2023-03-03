@@ -233,10 +233,6 @@ have focused on. If we can make models of wooded or urban areas, that is
 a bonus, but we can't provide any advice for how to perform or improve
 the results if you choose to use ASP in that way.
 
-ASP can only process Level 1B satellite images, and cannot process
-DigitalGlobe's aerial images or orthorectified images (see the `product info 
-<https://securewatchdocs.maxar.com/en-us/Orders/Orders_ProductInfo.htm>`_).
-
 The camera information for DigitalGlobe/Maxar images is contained in an XML
 file for each image. In addition to the exact linear camera model, the
 XML file also has its RPC approximation. In this chapter we will focus
@@ -261,6 +257,14 @@ which captures the city of Stockholm, found on DigitalGlobe/Maxar's website
 (https://www.digitalglobe.com/samples). These images represent a
 non-ideal problem for us since this is an urban location, but at least
 you should be able to download these images yourself and follow along.
+
+Supported products
+------------------
+
+ASP can only process Level 1B satellite images, and cannot process
+DigitalGlobe's aerial images or orthorectified images (see the `product info 
+<https://securewatchdocs.maxar.com/en-us/Orders/Orders_ProductInfo.htm>`_).
+
 
 .. _rawdg:
 
