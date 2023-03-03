@@ -32,6 +32,9 @@ each left sub-image needs to be paired up with one more more right
 sub-images, create individual DEMs, and then mosaic those into a
 single output DEM. Hence this program simplifies the data processing.
 
+Only level 1B images are supported (see the `product info 
+<https://securewatchdocs.maxar.com/en-us/Orders/Orders_ProductInfo.htm>`_).
+
 Example::
 
     dg_mosaic WV03_20160925183217*P1BS_R*C1-012844055010_01_P001.tif
