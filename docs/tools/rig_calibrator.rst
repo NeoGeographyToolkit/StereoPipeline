@@ -4,9 +4,9 @@ rig_calibrator
 --------------
 
 The ``rig_calibrator`` program takes as input image and/or depth+image
-datasets acquired with a rig of *N* cameras. It finds the relationship among
-the rig sensors, the pose of each camera image, and refines the
-intrinsics of each sensor. 
+datasets acquired with one or more rigs, each having one or more
+cameras. It finds the relationship among the rig sensors, the pose of
+each camera image, and refines the intrinsics of each sensor.
 
 This tool was extensively tested with actual hardware and can model
 many real-world issues encountered with a rig. Its output can be used
@@ -37,6 +37,7 @@ Capabilities
 - All images acquired with one sensor are assumed to share intrinsics.
   The user may choose which intrinsics of which sensor are optimized
   or kept fixed, while the rig transforms and camera poses are optimized.
+- There can be zero, one, or more rigs.
 - It is not assumed that the rig sensors have a shared field of view. 
   Yet, a surface seen in one sensor should at some point be seen 
   also in other sensors.
@@ -112,8 +113,8 @@ following bash script::
 Configuration file
 ^^^^^^^^^^^^^^^^^^
 
-What is known about the rig should be specified in a plain text file,
-with the following syntax::
+What is known about the rig, or set of rigs, should be specified in a
+plain text file, with the following syntax::
 
   # Anything after the pound sign is a comment
   ref_sensor_name: <string>
@@ -130,6 +131,8 @@ with the following syntax::
   ref_to_sensor_transform: <12 doubles>
   depth_to_image_transform: <12 doubles>
   ref_to_sensor_timestamp_offset: <double>
+
+If there is more than one rig, the same logic is repeated.
 
 Here, ``ref_to_sensor_transform`` has the rotation (9 doubles, stored
 row after row) and translation (3 doubles) transform from the
@@ -765,7 +768,8 @@ Command-line options for rig_calibrator
   of the rig specified via ``--rig_config``. That regardless if we
   continue with using a rig (``--no_rig`` is not set) or not.
   If this option is not set, and a rig is desired, derive the rig
-  transforms from the poses of individual cameras. Type: bool. Default: false.
+  transforms from the poses of individual cameras. Type: bool. 
+  Default: false.
 ``--fixed_image_list`` A file having a list of images (separated by
   spaces or newlines) whose camera poses should be fixed during
   optimization. These can be only reference sensor images when the rig
