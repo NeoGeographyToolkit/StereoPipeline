@@ -347,13 +347,13 @@ namespace vw { namespace gui {
       QObject::connect(m_chooseFiles->getFilesTable(), SIGNAL(cellClicked(int, int)),
                        this, SLOT(showFilesChosenByUser(int, int)));
       
-      // When the user clicks on the table header on top to toggle all on/off
-      QObject::connect(m_chooseFiles->getFilesTable()->horizontalHeader(),
-                       SIGNAL(sectionClicked(int)), this, SLOT(toggleAllOnOff()));
-      
       m_chooseFiles->getFilesTable()->setContextMenuPolicy(Qt::CustomContextMenu);
       QObject::connect(m_chooseFiles->getFilesTable(), SIGNAL(customContextMenuRequested(QPoint)),
                        this, SLOT(customMenuRequested(QPoint)));
+
+      // When the user clicks on the table header on top to show or hide all
+      QObject::connect(m_chooseFiles->getFilesTable()->horizontalHeader(),
+                       SIGNAL(sectionClicked(int)), this, SLOT(hideShowAll()));
     }
 
     // Right-click context menu
@@ -581,7 +581,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     zoomToImage();
   }
   
-  void MainWidget::toggleAllOnOff() {
+  void MainWidget::hideShowAll() {
 
     // Process user's choice from m_chooseFiles.
     if (!m_chooseFiles)

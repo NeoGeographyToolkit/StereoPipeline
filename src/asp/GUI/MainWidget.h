@@ -172,7 +172,7 @@ public slots:
     void zoomToImageInTableCell(int rowClicked, int columnClicked);
     void viewNextImage();
     void viewPrevImage();
-    void toggleAllOnOff();
+    void hideShowAll();
     void customMenuRequested(QPoint pos);
     void viewUnthreshImages();
     void viewThreshImages  (bool refresh_pixmap);
