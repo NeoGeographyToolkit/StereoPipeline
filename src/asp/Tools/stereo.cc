@@ -40,7 +40,6 @@
 
 using namespace vw;
 using namespace vw::cartography;
-using namespace std;
 
 namespace asp {
 
@@ -50,13 +49,13 @@ namespace asp {
     BBox2i b = stereo_settings().left_image_crop_win;
     boost::shared_ptr<vw::DiskImageResource> rsrc = 
             vw::DiskImageResourcePtr(opt.in_file1);
-    DiskImageView<PixelGray<float> > left_image(rsrc);
+    DiskImageView<PixelGray<float>> left_image(rsrc);
     BBox2i full_box = bounding_box(left_image);
     if (b == BBox2i(0, 0, 0, 0)){
 
       // No box was provided. Use the full box.
       if ( fs::exists(opt.out_prefix+"-L.tif") ){
-        DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
+        DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
         b = bounding_box(L_img);
       }else{
         b = full_box; // To not have an empty box
@@ -75,7 +74,7 @@ namespace asp {
 
       if ( fs::exists(opt.out_prefix+"-L.tif") ){
         // Intersect with L.tif which is the transformed and processed left image
-        DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
+        DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
         b.crop(bounding_box(L_img));
       }
 
@@ -88,8 +87,8 @@ namespace asp {
                        boost::program_options::options_description const&
                        additional_options,
                        bool verbose,
-                       string & output_prefix,
-                       vector<ASPGlobalOptions> & opt_vec,
+                       std::string & output_prefix,
+                       std::vector<ASPGlobalOptions> & opt_vec,
                        bool exit_early){
 
     // If a stereo program is invoked as:
@@ -108,7 +107,7 @@ namespace asp {
     opt_vec.clear();
 
     // Extract the images/cameras/output prefix, and perhaps the input DEM
-    vector<string> files;
+    std::vector<std::string> files;
     bool is_multiview = true;
     ASPGlobalOptions opt;
     std::string usage;
@@ -123,7 +122,7 @@ namespace asp {
 
     // If a file shows up more than once as input, that will confuse
     // the logic at the next step, so forbid that.
-    std::map<string, int> vals;
+    std::map<std::string, int> vals;
     for (int s = 1; s < argc; s++)
       vals[argv[s]]++;
     for (int s = 0; s < (int)files.size(); s++){
@@ -135,18 +134,18 @@ namespace asp {
     }
 
     // Store the options and their values (that is, not the input files).
-    set<string> file_set;
+    std::set<std::string> file_set;
     for (int s = 0; s < (int)files.size(); s++)
       file_set.insert(files[s]);
-    vector<string> options;
+    std::vector<std::string> options;
     for (int s = 1; s < argc; s++){
       if (file_set.find(argv[s]) == file_set.end())
         options.push_back(argv[s]);
     }
 
     // Extract all the positional elements
-    vector<string> images, cameras;
-    string input_dem;
+    std::vector<std::string> images, cameras;
+    std::string input_dem;
     if (!parse_multiview_cmd_files(files, images, cameras, output_prefix, input_dem))
       vw_throw(ArgumentErr() << "Missing all of the correct input files.\n\n" << usage);
 
@@ -161,7 +160,7 @@ namespace asp {
     // Must signal to the children runs that they are part of a multiview run
     if (num_pairs > 1) {
       std::string opt_str = "--part-of-multiview-run";
-      vector<string>::iterator it = find(options.begin(), options.end(), opt_str);
+      std::vector<std::string>::iterator it = find(options.begin(), options.end(), opt_str);
       if (it == options.end())
         options.push_back(opt_str);
     }
@@ -185,7 +184,7 @@ namespace asp {
 
       // Set this for future runs as well
       std::string align_opt = "--alignment-method";
-      vector<string>::iterator it = find(options.begin(), options.end(), align_opt);
+      std::vector<std::string>::iterator it = find(options.begin(), options.end(), align_opt);
       if (it != options.end() && it + 1 != options.end()){
         // Modify existing alignment
         *(it+1) = new_alignment;
@@ -207,7 +206,7 @@ namespace asp {
     opt_vec.resize(num_pairs);
     for (int p = 1; p <= num_pairs; p++){
 
-      vector<string> cmd;
+      std::vector<std::string> cmd;
       cmd.push_back(prog_name);
 
       // The command line options go first
@@ -225,10 +224,10 @@ namespace asp {
         }
       }
 
-      string local_prefix = output_prefix;
+      std::string local_prefix = output_prefix;
       if (num_pairs > 1){
         // Need to have a separate output prefix for each pair
-        ostringstream os;
+        std::ostringstream os;
         os << local_prefix << "-pair" << p << "/" << p;
         local_prefix = os.str();
       }
@@ -239,12 +238,12 @@ namespace asp {
 
       // Create a local argc and argv for the given stereo pair and parse them.
       int largc = cmd.size();
-      vector<char*> largv;
+      std::vector<char*> largv;
       for (int t = 0; t < largc; t++)
         largv.push_back((char*)cmd[t].c_str());
       ASPGlobalOptions opt;
       bool is_multiview = false;
-      vector<string> files;
+      std::vector<std::string> files;
       handle_arguments(largc, &largv[0], opt, additional_options,
                        is_multiview, files, usage, exit_early);
       opt_vec[p-1] = opt;
@@ -384,7 +383,7 @@ namespace asp {
   void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
                         boost::program_options::options_description const&
                         additional_options,
-                        bool is_multiview, vector<string> & input_files,
+                        bool is_multiview, std::vector<std::string> & input_files,
                         std::string & usage, bool exit_early){
 
     // Add options whose values are stored in ASPGlobalOptions rather than in stereo_settings()
@@ -411,7 +410,7 @@ namespace asp {
       // The number of input files could be huge. Just store them in a vector,
       // we'll parse them in the caller.
       positional_options.add_options()
-        ("input-files", po::value< std::vector<std::string> >(), "Input files");
+        ("input-files", po::value< std::vector<std::string>>(), "Input files");
       positional_desc.add("input-files", -1);
     }else{
       // Two-view, have left and right.
@@ -502,7 +501,7 @@ namespace asp {
     if (is_multiview){
       if (vm.count("input-files") == 0)
         vw_throw(ArgumentErr() << "Missing input arguments.\n" << usage);
-      input_files = vm["input-files"].as< std::vector<std::string> >();
+      input_files = vm["input-files"].as< std::vector<std::string>>();
       return;
     }
 
@@ -582,7 +581,7 @@ namespace asp {
 
       // Intersect with L.tif which is the transformed and processed left image.
       if ( fs::exists(opt.out_prefix+"-L.tif") ){
-        DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
+        DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
         stereo_settings().trans_crop_win.crop(bounding_box(L_img));
       }
     }else{ 
@@ -595,7 +594,7 @@ namespace asp {
       if (stereo_settings().trans_crop_win == BBox2i(0, 0, 0, 0)) {
         stereo_settings().trans_crop_win = bounding_box(left_image);
         if ( fs::exists(opt.out_prefix+"-L.tif") ){
-          DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
+          DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
           stereo_settings().trans_crop_win = bounding_box(L_img);
         }
       }
@@ -843,7 +842,7 @@ namespace asp {
     if (stereo_settings().alignment_method != "none" && dem_provided) {
         stereo_settings().alignment_method  = "none";
       vw_out(WarningMessage) << "Changing the alignment method to 'none' "
-                             << "as the images are map-projected." << endl;
+                             << "as the images are map-projected." << std::endl;
     }
 
     if (dem_provided) {
@@ -851,8 +850,8 @@ namespace asp {
       // Given session XmapY make sure that the mapprojected images were
       // done with camera Y. Normally X equals Y, with the exceptions
       // of dgmaprpc, spot5maprpc, and astermaprpc.
-      string cam_tag = "CAMERA_MODEL_TYPE";
-      string l_cam_type, r_cam_type;
+      std::string cam_tag = "CAMERA_MODEL_TYPE";
+      std::string l_cam_type, r_cam_type;
       boost::shared_ptr<vw::DiskImageResource> l_rsrc(new vw::DiskImageResourceGDAL(opt.in_file1));
       vw::cartography::read_header_string(*l_rsrc.get(), cam_tag, l_cam_type);
       boost::shared_ptr<vw::DiskImageResource> r_rsrc(new vw::DiskImageResourceGDAL(opt.in_file2));
@@ -1051,12 +1050,12 @@ namespace asp {
             << "be able to triangulate.\n";
         }
         
-      } catch (const exception& e) {
+      } catch (const std::exception& e) {
         // Don't throw an error here. There are legitimate reasons as to
         // why the first checks may fail. For example, the top left pixel
         // might not be valid on a map projected image. But notify the
         // user anyway. Make an exception for the piecewise adjustment checks.
-        vw_out(DebugMessage,"asp") << e.what() << endl;
+        vw_out(DebugMessage,"asp") << e.what() << std::endl;
       }
     }
     
