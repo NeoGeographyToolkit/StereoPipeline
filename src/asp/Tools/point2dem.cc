@@ -89,6 +89,7 @@ struct Options : vw::GdalWriteOptions {
   bool        use_surface_sampling;
   bool        has_las_or_csv_or_pcd;
   Vector2i    max_output_size;
+  bool        input_is_projected;
 
   // Output
   std::string out_prefix, output_file_type;
@@ -102,7 +103,7 @@ struct Options : vw::GdalWriteOptions {
     max_valid_triangulation_error(0),
     erode_len(0), search_radius_factor(0), sigma_factor(0),
     default_grid_size_multiplier(1.0), use_surface_sampling(false),
-    has_las_or_csv_or_pcd(false), max_output_size(9999999, 9999999){}
+    has_las_or_csv_or_pcd(false), max_output_size(9999999, 9999999), input_is_projected(false){}
 };
 
 void parse_input_clouds_textures(std::vector<std::string> const& files,
@@ -416,8 +417,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("use-surface-sampling", po::bool_switch(&opt.use_surface_sampling)->default_value(false),
      "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).")
     ("fsaa",   po::value<int>(&opt.fsaa)->default_value(1),            "Oversampling amount to perform antialiasing (obsolete).")
-    ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.");
-  
+    ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.")
+    ("input-is-projected", po::bool_switch(&opt.input_is_projected)->default_value(false), "Input data is already in projected coordinates.");
+
   general_options.add(manipulation_options);
   general_options.add(projection_options);
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -1296,23 +1298,29 @@ int main(int argc, char *argv[]) {
     // - The cartesian_to_geodetic call converts invalid (0,0,0,0) points to NaN,
     //   which is checked for in the OrthoRasterizer class.
     ImageViewRef<Vector3> proj_points;
-    if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {
-      vw_out() << "\t--> Applying offset: " << opt.lon_offset
-               << " " << opt.lat_offset << " " << opt.height_offset << "\n";
-      proj_points
-        = geodetic_to_point         // GDC to XYZ
-        (asp::point_image_offset    // Add user coordinate offset
-         (asp::recenter_longitude   // XYZ to GDC, then normalize longitude
-          (cartesian_to_geodetic(point_image, output_georef), 
-           avg_lon),
-          Vector3(opt.lon_offset, opt.lat_offset, opt.height_offset)
-         ),
-         output_georef);
+
+    if (opt.input_is_projected) {
+      vw_out() << "\t--> Bypassing geodetic conversion!\n";
+      proj_points = point_image;
     } else {
-      proj_points = geodetic_to_point(asp::recenter_longitude
-                                      (cartesian_to_geodetic(point_image, output_georef),
-                                       avg_lon),
-                                      output_georef);
+      if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {
+        vw_out() << "\t--> Applying offset: " << opt.lon_offset
+                << " " << opt.lat_offset << " " << opt.height_offset << "\n";
+        proj_points
+          = geodetic_to_point         // GDC to XYZ
+          (asp::point_image_offset    // Add user coordinate offset
+          (asp::recenter_longitude   // XYZ to GDC, then normalize longitude
+            (cartesian_to_geodetic(point_image, output_georef),
+            avg_lon),
+            Vector3(opt.lon_offset, opt.lat_offset, opt.height_offset)
+          ),
+          output_georef);
+      } else {
+        proj_points = geodetic_to_point(asp::recenter_longitude
+                                        (cartesian_to_geodetic(point_image, output_georef),
+                                        avg_lon),
+                                        output_georef);
+      }
     }
 
     // TODO(oalexan1): The proj box estimation should happen even when

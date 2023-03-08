@@ -397,6 +397,10 @@ Command-line options for point2dem
     files, if those files contain Easting and Northing fields. If
     not specified, ``--t_srs`` will be used.
 
+--input-is-projected
+    Treat the input coordinates as already in the projected coordinate
+    system, avoiding the need to convert to geodetic coordinates.
+
 --rounding-error <float (default: 1/2^{10}=0.0009765625)>
     How much to round the output DEM and errors, in meters (more
     rounding means less precision but potentially smaller size on
