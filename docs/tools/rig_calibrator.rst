@@ -219,6 +219,7 @@ will be saved, in the same format as above, but without interest
 points being shifted relative to the optical center for the
 corresponding image. This file is is easier to plot, as there is
 no shift to undo, with the latter needing to be stored separately.
+To read this back, use ``--read_nvm_no_shift``.
 
 In addition, a plain text file having just the list of images and
 world-to-camera poses will be written, with the name::
@@ -292,24 +293,23 @@ Next, we run ``rig_calibrator``::
 
     float="focal_length,optical_center,distortion"
     float_all="nav_cam:${float} haz_cam:${float} sci_cam:${float}" 
-    rig_calibrator                                     \
-        --rig_config rig_input/rig_config.txt          \
-        --nvm rig_theia/cameras.nvm                    \
-        --camera_poses_to_float "nav_cam"              \
-        --rig_transforms_to_float "sci_cam haz_cam"    \
-        --intrinsics_to_float "$float_all"             \
-        --depth_to_image_transforms_to_float "haz_cam" \
-        --affine_depth_to_image                        \
-        --bracket_len 2.0                              \
-        --depth_tri_weight 1000                        \
-        --tri-weight 10                                \
-        --tri_robust_threshold 0.1                     \
-        --num_iterations 50                            \
-        --calibrator_num_passes 2                      \
-        --registration                                 \
-        --hugin_file control_points.pto                \
-        --xyz_file xyz.txt                             \
-        --export_to_voxblox                            \
+    rig_calibrator                                        \
+        --rig_config rig_input/rig_config.txt             \
+        --nvm rig_theia/cameras.nvm                       \
+        --camera_poses_to_float "nav_cam sci_cam haz_cam" \
+        --intrinsics_to_float "$float_all"                \
+        --depth_to_image_transforms_to_float "haz_cam"    \
+        --affine_depth_to_image                           \
+        --bracket_len 2.0                                 \
+        --depth_tri_weight 1000                           \
+        --tri-weight 10                                   \
+        --tri_robust_threshold 0.1                        \
+        --num_iterations 50                               \
+        --calibrator_num_passes 2                         \
+        --registration                                    \
+        --hugin_file control_points.pto                   \
+        --xyz_file xyz.txt                                \
+        --export_to_voxblox                               \
         --out_dir rig_out
 
 The previously found camera poses are read in. They are registered to
@@ -323,8 +323,9 @@ coordinates were saved in ``xyz.txt``. See
 The ``nav_cam`` camera is chosen to be the reference sensor in the rig
 configuration. Its poses are allowed to float, that is, to be
 optimized (``--camera_poses_to_float``), and the rig transforms from
-this one to the other ones are floated as well
-(``--rig_transforms_to_float``). The intrinsics are optimized as well.
+this one to the other ones are floated as well, when passed in via the 
+same option. The intrinsics are optimized as well 
+(option ``--intrinsics_to_float``).
 
 The value of ``--depth_tri_weight`` controls how close the
 triangulated points should be to the depth measurements (after
@@ -339,8 +340,11 @@ in ``distorted_crop_size`` in the rig configuration are smaller than
 actual image dimensions to reduce the worst effects of peripheral
 distortion.
 
-One could pass in ``--num_overlaps 10`` to get more interest point 
+One could pass in ``--num_overlaps 3`` to get more interest point 
 matches than what Theia finds, but this is usually not necessary.
+This number better be kept small, especially if the features
+are poor, as it may result in many outliers among images that
+do not match well.
 
 See :numref:`rig_calibrator_command_line` for the full list of options.
 
@@ -414,10 +418,11 @@ necessary to know the Euclidean coordinates of at least three control
 points in the scene, and then to pick the pixel of coordinates of each
 of these points in at least two images.
 
-To find the pixel coordinates, open a subset of the reference
-camera images in Hugin, such as::
+All images used in registration must be for the same sensor. To find
+the pixel coordinates, open, for example, a subset of the 
+camera images for one of the sensors in Hugin, such as::
 
-    hugin <image dir>/<ref cam>/*.jpg
+    hugin <image dir>/<sensor name>/*.jpg
 
 It will ask to enter a value for the FoV (field of view). That value
 is not important since we won't use it. One can input 10 degrees,
@@ -563,8 +568,8 @@ If it performs poorly, it may be because:
 
 - The options ``--camera_poses_to_float``, ``--intrinsics_to_float``,
   ``--depth_to_image_transforms_to_float``,
-  ``--rig_transforms_to_float`` are not fully specified and hence
-  some optimizations do not take place.
+  were not all specified and hence some optimizations did not take
+  place.
 
 For understanding issues, it is strongly suggested to drastically
 reduce the problem to perhaps one or two images from each sensor, and
@@ -608,6 +613,10 @@ instructions <https://github.com/NeoGeographyToolkit/MultiView>`_.
 Command-line options for rig_calibrator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+``--robust_threshold`` Residual pixel errors and 3D point residuals (the latter
+  multiplied by corresponding weight) much larger than this will be
+  logarithmically attenuated to affect less the cost function. See also
+  ``--tri_robust_threshold``. Type: double. Default: 0.5.
 ``--affine_depth_to_image`` Assume that the depth-to-image transform for each
   depth + image camera is an arbitrary affine transform rather than a
   rotation times a scale. Type: bool. Default: false.
@@ -624,10 +633,11 @@ Command-line options for rig_calibrator
   Type: int32. Default: 2.
 ``--camera_poses_to_float`` Specify the cameras of which sensor types can have
   their poses floated. Note that allowing the cameras for all sensors types
-  to float can invalidate the registration and scale (while making the
-  overall configuration more internally consistent). Hence, one may need to
-  use an external mesh as a constraint, or otherwise subsequent
-  registration may be needed. Example: 'cam1 cam3'. Type: string. Default: "".
+  to float can change the scene location, orientation, and scale. Hence,
+  registration may be needed. Example: 'cam1 cam3'. 
+  With this example, the rig transform from cam1 to cam3 will be
+  floated with the rig constraint, and the cam3 poses will be floated
+  without the rig constraint. Type: string. Default: "".
 ``--tri_weight`` The weight to give to the constraint that optimized
   triangulated points stay close to original triangulated points. A
   positive value will help ensure the cameras do not move too far, but a
@@ -738,14 +748,8 @@ Command-line options for rig_calibrator
   string. Default: "".
 ``--rig_config`` Read the rig configuration from file. Type: string. 
   Default: "".
-``--rig_transforms_to_float`` Specify the names of sensors whose transforms to
-  float, relative to the ref sensor. Use quotes around this string if it
-  has spaces. Also can use comma as separator. Example: 'cam1 cam2'.)
-  Type: string. Default: "".
-``--robust_threshold`` Residual pixel errors and 3D point residuals (the latter
-  multiplied by corresponding weight) much larger than this will be
-  exponentially attenuated to affect less the cost function. See also
-  ``--tri_robust_threshold``. Type: double. Default: 0.5.
+``--read_nvm_no_shift`` Read an nvm file assuming that interest point
+  matches were not shifted to the origin.
 ``--save_nvm_no_shift`` Save the optimized camera poses and inlier interest point 
   matches to <out dir>/cameras_noshift.nvm. Interest point matches are not offset 
   relative to the optical center, which is not standard, but which 
@@ -757,9 +761,15 @@ Command-line options for rig_calibrator
 ``--timestamp_offsets_max_change`` If floating the timestamp offsets, do not
   let them change by more than this (measured in seconds). Existing image
   bracketing acts as an additional constraint. Type: double. Default: 1.
-``--use_initial_rig_transforms`` Use the transforms among the sensors of the
-  rig specified via ``--rig_config.`` Otherwise derive it from the poses of
-  individual cameras. Type: bool. Default: false.
+``--use_initial_rig_transforms`` Use the transforms among the sensors
+  of the rig specified via ``--rig_config``. That regardless if we
+  continue with using a rig (``--no_rig`` is not set) or not.
+  If this option is not set, and a rig is desired, derive the rig
+  transforms from the poses of individual cameras. Type: bool. Default: false.
+``--fixed_image_list`` A file having a list of images (separated by
+  spaces or newlines) whose camera poses should be fixed during
+  optimization. These can be only reference sensor images when the rig
+  constraint is on.
 ``--extra_list`` Add to the SfM solution the camera poses for the
   additional images/depth clouds in this list. Use bilinear
   interpolation of poses in time and nearest neighbor extrapolation
@@ -768,5 +778,7 @@ Command-line options for rig_calibrator
   incorrect results if the new images are not very similar or not close
   in time to the existing ones. This list can contain entries for the
   data already present. Type: string. Default: "".
+``--nearest_neighbor_interp`` Use nearest neighbor interpolation (in
+  time) when inserting extra camera poses. Type: bool. Default: false.
 ``--verbose`` Print a lot of verbose information about how matching goes.)
   Type: bool. Default: false.

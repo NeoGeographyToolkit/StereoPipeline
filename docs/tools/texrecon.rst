@@ -4,9 +4,10 @@ texrecon
 --------
 
 The ``texrecon`` script takes as input several images, their camera
-poses, camera intrinsics, and a mesh, and creates a textured mesh as
-an .obj file. This tool is a wrapper around the third-party 
-`MVS-Texturing <https://github.com/nmoehrle/mvs-texturing>`_ software.
+poses, camera intrinsics, and a mesh, for one or ore sensors, and
+creates a textured mesh as an .obj file. This tool is a wrapper around
+the third-party `MVS-Texturing
+<https://github.com/nmoehrle/mvs-texturing>`_ software.
 
 Example
 ^^^^^^^
@@ -38,8 +39,8 @@ Command-line options
 --rig_config <string>
    Rig configuration file.
 --rig_sensor <string>
-   Which rig sensor images to texture. Must be among the sensors 
-   specified via ``--rig_config``.
+   Which rig sensor images to texture. Can be more than one. Must be
+   among the sensors specified via ``--rig_config``.
 --camera_poses <string>
    Read images and camera poses from this list.
 --mesh <string>
@@ -56,3 +57,6 @@ Command-line options
 --out_dir <string>
    The directory where to write the textured mesh and
    other data.
+--skip_local_seam_leveling
+   If set, skip a postprocesing algorithm which may remove some seams
+   but which on occasion can cause a crash.
