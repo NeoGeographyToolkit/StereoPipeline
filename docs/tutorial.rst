@@ -265,7 +265,6 @@ ASP can only process Level 1B satellite images, and cannot process
 DigitalGlobe's aerial images or orthorectified images (see the `product info 
 <https://securewatchdocs.maxar.com/en-us/Orders/Orders_ProductInfo.htm>`_).
 
-
 .. _rawdg:
 
 Processing raw
