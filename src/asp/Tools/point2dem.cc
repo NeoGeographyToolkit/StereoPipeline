@@ -1300,7 +1300,7 @@ int main(int argc, char *argv[]) {
     ImageViewRef<Vector3> proj_points;
 
     if (opt.input_is_projected) {
-      vw_out() << "\t--> Bypassing geodetic conversion!\n";
+      vw_out() << "\t--> Assuming the input cloud is already projected.\n";
       proj_points = point_image;
     } else {
       if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {
