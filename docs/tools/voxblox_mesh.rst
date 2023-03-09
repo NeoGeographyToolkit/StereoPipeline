@@ -8,7 +8,7 @@ for each such pose a point cloud in that camera's coordinates, and
 fuses them into a mesh. The input point clouds can be created
 either with stereo or a depth sensor.
 
-A basic median filter can be applied on the input clouds.
+A basic median filter can be applied to the input clouds before fusing them.
 
 This tool is a wrapper around `VoxBlox <https://github.com/ethz-asl/voxblox>`_.
  
