@@ -1,6 +1,12 @@
 Changes since last release
 --------------------------
 
+New tools:
+  * Added ``sfm_submap`` (:numref:`sfm_submap`), a tool to extract  
+    a submap from a Structure-from-Motion map in .nvm format, 
+    as produced by ``theia_sfm`` (:numref:`theia_sfm`) or refined
+    with ``rig_calibrator`` (:numref:`rig_calibrator`).
+    
 parallel_stereo (:numref:`parallel_stereo`):
   * Can propagate horizontal ground plane standard deviations (stddev)
     specified for each camera through triangulation, obtaining the
@@ -29,26 +35,41 @@ bundle_adjust (:numref:`bundle_adjust`):
      of images.
 
 sfs (:numref:`sfs`): 
-  * Created an SfS DEM of size 14336 x 11008 pixels, at 1 m pixel.
+  * Created an SfS DEM of size 14336 x 11008 pixels, at 1 m pixel with
+    420 LRO NAC images with various illuminations and orientations.
     Reliably bundle-adjusted 814 LRO NAC images in which the shadows
     were observed to make a full 360 degree loop, with a total of 614k
-    triangulated points. Updated documentation reflecting
-    latest best practices is in :numref:`sfs-lola`.
+    triangulated points. Updated the documentation reflecting
+    latest best practices (:numref:`sfs-lola`).
   * Added the options ``--image-list`` and ``--camera-list`` for when
     the number of images becomes too large to set on the command line.
-  * Create more detail in the reconstructed DEM in borderline lit regions.
-    Option: ``--allow-borderline-data``. For now this works on small
-    clips with a very small number of images. To be improved.
+  * Create more detail in the reconstructed DEM in borderline lit
+    regions. Option: ``--allow-borderline-data``. For now this works
+    on small clips with a very small number of images. To be improved.
 
 rig_calibrator (:numref:`rig_calibrator`):
-  * Fix for too many valid interest point matches being filtered out.
-  * Always write the .nvm file having cameras and inlier interest point
-    matches. The values of optical center point that are subtracted
-    from each interest point are saved to a separate file.
+  * Allow multiple rigs to be jointly optimized (the rig constraint
+    applies within individual rigs and not between them).
   * Add the option ``--extra_list`` to insert additional images 
-    similar to existing ones or for a different sensor around the same
-    time.
+    close in time to some of the images already on the rig (for
+    the same or different rig sensor). Helps easily grow a map and
+    complete a rig.
+  * Added the option of keeping a subset of the camera poses fixed (for
+    when those have been validated in a smaller map).
+  * Images for any of the rig sensors (not just the reference one) can
+    be used in registration (but all must be for same sensor).
+  * Absorb ``--rig_transforms_to_float`` into ``--camera_poses_to_float``. 
+  * Save alongside an .nvm file a separate file having the values of
+    optical center point that are subtracted from each interest point
+    (for plotting in ``stereo_gui``).
+  * Fix for too many valid interest point matches being filtered out.
 
+voxblox_mesh (:numref:`voxblox_mesh`):
+  * Added median filtering of input point clouds.
+
+texrecon (:numref:`texrecon`):
+  * Can create a texture from multiple sensors in a set of rigs.
+ 
 point2dem (:numref:`point2dem`): 
   * Added the option ``--propagate-errors`` to grid the stddev values
     computed during stereo triangulation. 

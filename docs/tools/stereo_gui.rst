@@ -330,6 +330,9 @@ image pair if the output prefix was specified. For that, run::
 then select a couple of images to view using the checkboxes on the
 left, and their match file will be displayed automatically.
 
+
+.. _stereo_gui_nvm:
+
 View pairwise matches loaded from an NVM file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -337,7 +340,7 @@ This tool can also visualize pairwise interest point matches loaded
 from an .nvm file. This file normally shifts all saved features
 relative to the origin. For ``stereo_gui`` to read such a file,
 each .nvm file must have an associated ``_offsets.txt`` file having
-the optical offsets per image. The ``rig_calibrator`` writes
+the optical offsets per image. The ``rig_calibrator`` program writes
 such an offset file. This file is auto-loaded along with the .nvm
 file if detected.
 

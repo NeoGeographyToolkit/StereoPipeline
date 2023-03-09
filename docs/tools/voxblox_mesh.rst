@@ -8,6 +8,8 @@ for each such pose a point cloud in that camera's coordinates, and
 fuses them into a mesh. The input point clouds can be created
 either with stereo or a depth sensor.
 
+A basic median filter can be applied on the input clouds.
+
 This tool is a wrapper around `VoxBlox <https://github.com/ethz-asl/voxblox>`_.
  
 Example
@@ -95,6 +97,14 @@ Command-line options for voxblox_mesh
 ``--voxel_carving_enabled`` If true, the entire length of a ray is integrated.
     Otherwise only the region inside the truncation distance is used. This is
     an advanced option. Type: bool. Default: false.
+``--median_filter`` Filter out depth points that differ in any of the coordinates by more
+    than a given threshold from the median of such
+    coordinates in a square window of given size. Specify in quotes,
+    as: 'window thresh'. The window is an odd integer and in units of pixel
+    (given the image storage format of the cloud) and the threshold is
+    measured in meters. This assumes that the input .pcd files have more
+    than one row and column, rather than the data being
+    stored in a single row. Type: string. Default: "".
 
 See also the `VoxBlox documentation
 <https://voxblox.readthedocs.io/en/latest/pages/The-Voxblox-Node.html#parameters>`_.

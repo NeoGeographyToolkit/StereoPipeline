@@ -189,6 +189,8 @@ Example (only one of the *N* sensors is shown)::
   depth_to_image_transform: 1 0 0 0 1 0 0 0 1 0 0 0
   ref_to_sensor_timestamp_offset: 0
 
+.. _rig_calibrator_outputs:
+
 Output files
 ^^^^^^^^^^^^
 
@@ -219,13 +221,17 @@ This is because these are not part of the .nvm file format.
 If the option ``--save_nvm_no_shift`` is specified, the additional
 file::
 
-  <output dir>/cameras_noshift.nvm
+  <output dir>/cameras_no_shift.nvm
 
 will be saved, in the same format as above, but without interest
 points being shifted relative to the optical center for the
 corresponding image. This file is is easier to plot, as there is
 no shift to undo, with the latter needing to be stored separately.
 To read this back, use ``--read_nvm_no_shift``.
+
+The produced .nvm files can be visualized with ``stereo_gui`` 
+(:numref:`stereo_gui_nvm`). A submap can be extracted with ``sfm_submap``
+(:numref:`sfm_submap`).
 
 In addition, a plain text file having just the list of images and
 world-to-camera poses will be written, with the name::
@@ -757,7 +763,7 @@ Command-line options for rig_calibrator
 ``--read_nvm_no_shift`` Read an nvm file assuming that interest point
   matches were not shifted to the origin.
 ``--save_nvm_no_shift`` Save the optimized camera poses and inlier interest point 
-  matches to <out dir>/cameras_noshift.nvm. Interest point matches are not offset 
+  matches to <out dir>/cameras_no_shift.nvm. Interest point matches are not offset 
   relative to the optical center, which is not standard, but which 
   allows this file to be self-contained and for the matches to be 
   drawn with ``stereo_gui``.
