@@ -399,7 +399,7 @@ Command-line options for point2dem
 
 --input-is-projected
     Treat the input coordinates as already in the projected coordinate
-    system, avoiding the need to convert to geodetic coordinates.
+    system, avoiding the need to convert the points from ECEF.
 
 --rounding-error <float (default: 1/2^{10}=0.0009765625)>
     How much to round the output DEM and errors, in meters (more

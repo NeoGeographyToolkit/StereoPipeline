@@ -72,7 +72,9 @@ texrecon (:numref:`texrecon`):
  
 point2dem (:numref:`point2dem`): 
   * Added the option ``--propagate-errors`` to grid the stddev values
-    computed during stereo triangulation. 
+    computed during stereo triangulation.
+  * Added the option ``--input-is-projected`` to specify that the input
+    coordinates are already in the projected coordinate system.
 
 stereo_gui (:numref:`stereo_gui`): 
   * Can read, write, edit, and overlay on top of images polygons in
