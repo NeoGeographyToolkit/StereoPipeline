@@ -4,10 +4,13 @@ texrecon
 --------
 
 The ``texrecon`` script takes as input several images, their camera
-poses, camera intrinsics, and a mesh, for one or ore sensors, and
-creates a textured mesh as an .obj file. This tool is a wrapper around
+poses, camera intrinsics, and a mesh, for one or ore sensors, in .ply format,
+and creates a textured mesh as an .obj file. This tool is a wrapper around
 the third-party `MVS-Texturing
 <https://github.com/nmoehrle/mvs-texturing>`_ software.
+
+See also the ``voxblox_mesh`` program (:numref:`voxblox_mesh`) which
+can produce a mesh that is usable with this tool.
 
 Example
 ^^^^^^^
@@ -58,5 +61,5 @@ Command-line options
    The directory where to write the textured mesh and
    other data.
 --skip_local_seam_leveling
-   If set, skip a postprocesing algorithm which may remove some seams
+   If set, skip a postprocessing algorithm which may remove some seams
    but which on occasion can cause a crash.
