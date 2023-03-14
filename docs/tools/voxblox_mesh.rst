@@ -7,7 +7,9 @@ The ``voxblox_mesh`` program takes as input several camera poses, for
 each such pose a point cloud in that camera's coordinates, and fuses
 them into a mesh. The input point clouds can be created either with
 stereo (such as with ``multi_stereo``, :numref:`multi_stereo`) or a
-depth sensor (see the example below).
+depth sensor (see the example below). 
+
+The produced mesh can be textured with ``texrecon`` (:numref:`texrecon`).
 
 A basic median filter can be applied to the input clouds before fusing them.
 
