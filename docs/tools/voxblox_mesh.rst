@@ -3,10 +3,11 @@
 voxblox_mesh
 ------------
 
-The ``voxblox_mesh`` program takes as input several camera poses, 
-for each such pose a point cloud in that camera's coordinates, and
-fuses them into a mesh. The input point clouds can be created
-either with stereo or a depth sensor.
+The ``voxblox_mesh`` program takes as input several camera poses, for
+each such pose a point cloud in that camera's coordinates, and fuses
+them into a mesh. The input point clouds can be created either with
+stereo (such as with ``multi_stereo``, :numref:`multi_stereo`) or a
+depth sensor (see the example below).
 
 A basic median filter can be applied to the input clouds before fusing them.
 
@@ -19,8 +20,8 @@ The dataset:
 
     https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/rig_calibrator
 
-has an example of how a set of camera images and clouds acquired with
-a rig were co-registered using the ``rig_calibrator`` program
+has an example of how a set of camera images and depth clouds acquired
+with a rig were co-registered using the ``rig_calibrator`` program
 (:numref:`rig_calibrator`).
 
 With that data and this tool, a fused mesh can be obtained as follows::
