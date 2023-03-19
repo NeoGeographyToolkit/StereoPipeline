@@ -472,8 +472,8 @@ public:
 
     // A vector of images the size of the output tile.
     // - Used for median, nmad, and stddev calculation.
-    std::vector< ImageView<double> > tile_vec, weight_vec;
-    std::vector< std::string > dem_vec;
+    std::vector<ImageView<double>> tile_vec, weight_vec;
+    std::vector<std::string> dem_vec;
     if (m_opt.median || m_opt.nmad) // Store each input separately
       tile_vec.reserve(m_imgMgr.size());
     if (m_opt.stddev) { // Need one working image
