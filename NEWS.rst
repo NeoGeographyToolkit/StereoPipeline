@@ -6,14 +6,19 @@ New tools:
     a submap from a Structure-from-Motion map in .nvm format, 
     as produced by ``theia_sfm`` (:numref:`theia_sfm`) or refined
     with ``rig_calibrator`` (:numref:`rig_calibrator`).
-    
+  * Added ``sfm_merge`` (:numref:`sfm_merge`) to merge several SfM
+    reconstructions that may or may not have shared images.
+  * Added a couple of small Python scripts for handling ROS bags
+    (:numref:`ros_tools`). No ROS binaries are shipped.
+  
 parallel_stereo (:numref:`parallel_stereo`):
   * Can propagate horizontal ground plane standard deviations (stddev)
     specified for each camera through triangulation, obtaining the
     horizontal and vertical stddev for each triangulated point. 
-    For DigitalGlobe RPC and Pleiades linescan cameras the input horizontal 
-    stddev can be read from camera files. A formula to go from known CE90 to
-    input horizontal stddev is provided. (:numref:`error_propagation`).
+    For DigitalGlobe RPC and Pleiades linescan cameras the input
+    horizontal stddev can be read from camera files. A formula to go
+    from known CE90 to input horizontal stddev is provided
+    (:numref:`error_propagation`).
   * Can propagate the covariances of satellite positions and
     quaternions to the triangulated point cloud for Maxar
     (DigitalGlobe) linescan cameras (:numref:`error_propagation`).
@@ -48,6 +53,9 @@ sfs (:numref:`sfs`):
     on small clips with a very small number of images. To be improved.
 
 rig_calibrator (:numref:`rig_calibrator`):
+  * Added a detailed tutorial describing how this tool was used to
+    create a full 360-degree textured mesh of the JEM ISS module
+    (:numref:`sfm_iss`) using data acquired with two rigs (6 sensors).
   * Allow multiple rigs to be jointly optimized (the rig constraint
     applies within individual rigs and not between them).
   * Add the option ``--extra_list`` to insert additional images 
@@ -62,6 +70,8 @@ rig_calibrator (:numref:`rig_calibrator`):
   * Save alongside an .nvm file a separate file having the values of
     optical center point that are subtracted from each interest point
     (for plotting in ``stereo_gui``).
+  * Merge the interest point tracks created as part of rig calibration
+    with the matches read from disk beforehand.
   * Fix for too many valid interest point matches being filtered out.
 
 voxblox_mesh (:numref:`voxblox_mesh`):
