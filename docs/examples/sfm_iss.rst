@@ -157,8 +157,8 @@ using the GDAL tool suite shipped with ASP (:numref:`gdal_tools`) as::
       input.jpg output.jpg
 
 The obtained images should be distributed in directories
-corresponding to the robot, with names like ``my_data/bumble_sci_cam``
-and ``my_data/queen_sci_cam`` (:numref:`rig_calibrator_data_conv`).
+corresponding to the robot, with names like ``my_data/bumble_sci``
+and ``my_data/queen_sci`` (:numref:`rig_calibrator_data_conv`).
 
 nav_cam
 ~~~~~~~
@@ -222,12 +222,12 @@ to change the timestamp values (and hence the names of the produced
 files) to conform to ``nav_cam`` timestamps.
 
 This tool is called with two topics, to extract the intensity (image) and
-depth datasets, with the outputs going to the same directory
+depth (point cloud) datasets, with the outputs going to the same directory
 (specified twice, for each topic). The format of the depth clouds
 is described in :numref:`point_cloud_format`.
 
-The same operations should happen for the other rig, with the outputs
-going to new directories per the existing conventions.
+An analogous invocation should happen for the other rig, with the
+outputs going to new directories per the existing conventions.
 
 A first small run
 ^^^^^^^^^^^^^^^^^
@@ -235,8 +235,7 @@ A first small run
 The strategy in :numref:`sfm_iss_processing` will be followed.
 Consider a region that is seen in all ``nav_cam`` and ``haz_cam``
 images (4 sensors in total). We will take advantage of the fact that
-the rig configuration is reasonably well-known
-(:numref:`sfm_iss_sample_rig_config`), so we will create a map with
+the rig configuration is reasonably well-known, so we will create a map with
 only the ``nav_cam`` data for both robots. The other sensors will be
 added later.  If no initial rig configuration exists, see
 :numref:`rig_calibrator_example`.
@@ -244,10 +243,15 @@ added later.  If no initial rig configuration exists, see
 The initial map
 ~~~~~~~~~~~~~~~
 
-Create a text file having a few dozen images in the desired region named
-``small_nav_list.txt``, one per line. Inspect the images in ``eog``.
-Run ``theia_sfm`` (:numref:`theia_sfm`) with the initial rig configuration,
-which we will keep in a file called ``initial_rig.txt``::
+Create a text file having a few dozen images in the desired region
+named ``small_nav_list.txt``, with one image per line. Inspect the
+images in ``eog``. Ensure that each image has a decent overlap
+(75%-90%) with some of the other ones, and they cover a connected
+surface portion.
+
+Run ``theia_sfm`` (:numref:`theia_sfm`) with the initial rig
+configuration (:numref:`sfm_iss_sample_rig_config`), which we will
+keep in a file called ``initial_rig.txt``::
 
     theia_sfm --rig_config initial_rig.txt \
       --image_list small_nav_list.txt      \
@@ -272,25 +276,26 @@ instructions can be found in the `Astrobee documentation
 
 If precise registration is not required, one could simply pick some
 visible object in the scene, roughly estimate its dimensions, and
-create control points base on that.  The produced 3D model will then
+create control points based on that.  The produced 3D model will then
 still be geometrically self-consistent, but the orientation and scale
 may be off.
 
-We will call the produced registration files ``small_map.pto`` and
-``small_map.txt``. 
+We will call the produced registration files ``jem_map.pto`` and
+``jem_map.txt``. The control points for the images in the future map
+that are currently not used will be ignored for the time being.
 
 Adding haz_cam
 ~~~~~~~~~~~~~~
 
-Create a list called ``small_haz_list.txt`` having ``haz_cam`` images
+Create a list called ``small_haz_list.txt`` having the ``haz_cam`` images
 with the same timestamps as the ``nav_cam`` images. Insert these in
 the small map, and optimize all poses together as::
 
     float="bumble_nav bumble_haz queen_nav queen_haz"
     bin/rig_calibrator                              \
       --registration                                \
-      --hugin_file small_map.pto                    \
-      --xyz_file small_map.txt                      \
+      --hugin_file jem_map.pto                      \
+      --xyz_file jem_map.txt                        \
       --use_initial_rig_transforms                  \
       --extra_list small_haz_list.txt               \
       --rig_config initial_rig.txt                  \
@@ -306,6 +311,9 @@ the small map, and optimize all poses together as::
       --max_reprojection_error 10                   \
       --min_triangulation_angle 1.0                 \
       --initial_max_reprojection_error 200
+
+The depth files will the same names but with the .pc extension will
+will be picked up automatically.
 
 It is suggested to carefully examine the text printed on screen by this
 tool. See :numref:`rig_calibrator_registration` and
@@ -324,30 +332,33 @@ above. The scales will still be adjusted, but not as part of the
 optimization but when the registration with control points
 happens. Then they will be multiplied by the same factor.
 
-Open the produced ``small_rig.nvm`` file in ``stereo_gui`` and examine the features
-between the ``nav_cam`` and ``haz_cam`` images. Usually they are very few,
-but hopefully at least some are present between some of the images.
+Open the produced ``small_rig/cameras.nvm`` file in ``stereo_gui`` and
+examine the features between the ``nav_cam`` and ``haz_cam``
+images. Usually they are very few, but hopefully at least some are
+present.
 
-Notice that in this run we do not optimize the intrinsics, only the camera poses
-and depth-to-image transforms. If desired to do so, optimizing the focal 
-length may provide the most payoff, followed by optical center. It can be tricky 
-to optimize the distortion model, as one needs to ensure there are many features
-at the periphery of images where distortion is strongest. 
+Notice that in this run we do not optimize the intrinsics, only the
+camera poses and depth-to-image transforms. If desired to do so,
+optimizing the focal length may provide the most payoff, followed by
+the optical center. It can be tricky to optimize the distortion model,
+as one needs to ensure there are many features at the periphery of
+images where the distortion is strongest.
 
-It is better to avoid optimizing the intrinsics unless the final texture has subtle
-misregistration, which may due to intrinsics. Gross misregistration is usually due to 
-other factors, such as insufficient features being matched among the images,
-or not images that see the same view have been matched together.
+It is better to avoid optimizing the intrinsics unless the final
+texture has subtle misregistration, which may due to intrinsics. Gross
+misregistration is usually due to other factors, such as insufficient
+features being matched between the images. Or, perhaps, not all images
+that see the same view have been matched together.
 
-Normally certain amount of unmodeled distortion in the images is fine
+Normally some unmodeled distortion in the images is tolerable
 if there are many overlapping images, as then their central areas are
 used the most, and then the effect of distortion on the final textured
-image is minimal or none. 
+mesh is minimal or none. 
 
 Mesh creation
 ~~~~~~~~~~~~~
 
-The registered depth point clouds can be used with ``voxblox_mesh``
+The registered depth point clouds can be fused with ``voxblox_mesh``
 (:numref:`voxblox_mesh`)::
 
     cat small_rig/voxblox/*haz*/index.txt > \
@@ -358,33 +369,28 @@ The registered depth point clouds can be used with ``voxblox_mesh``
       --output_mesh small_rig/fused_mesh.ply      \
       --min_ray_length 0.1                        \
       --max_ray_length 2.0                        \
-      --median_filter '5 0.02'                    \
+      --median_filter '5 0.01'                    \
       --voxel_size 0.01
 
 The first line combines the index files for the ``bumble_haz`` and
 ``queen_haz`` sensors.
 
-The voxel size should be on the order of 1/100 of the scale
-of the depth clouds, as recorded in the rig configuration file
-``depth_to_image_transform`` entry.
-
 The produced mesh can be examined in ``meshlab``. Normally it should
 be quite seamless, otherwise the images failed to be tied properly
 together. There can be noise where the surface being imaged has black
-objects, cables, etc.
+objects (which the depth sensor handles poorly), cables, etc.
+Some rather big holes can be created in the occluded areas.
 
 To not use all the input images and clouds, the index file passed in
 can be edited and entries removed. The names in these files are in
 one-to-one correspondence with the list of ``haz_cam`` images used
 earlier.
 
-TODO(oalexan1): Add here commands:
-
 The mesh should be post-processed with the CGAL tools
-(:numref:`cgal_tools`).  It is suggested to do some smoothing,
-hole-filling, and removal of small connected components, in this
-order. Several iterations of may be needed, and some tuning of the
-parameters.
+(:numref:`cgal_tools`).  It is suggested to first remove most small
+connected components, then do some smoothing and hole-filling, in
+this order. Several iterations of may be needed, and some tuning of
+the parameters.
 
 Texturing
 ~~~~~~~~~
@@ -463,12 +469,12 @@ The texturing command is::
       --skip_local_seam_leveling               \
       --out_dir small_sci_rig
 
-Notice how used the rig configuration and poses from ``small_sci_rig``
-but with the earlier mesh. The sensor names now refer to ``sci_cam``
-as well. 
+Notice how we used the rig configuration and poses from
+``small_sci_rig`` but with the earlier mesh from ``small_rig``. The
+sensor names now refer to ``sci_cam`` as well.
 
-The produced textured mesh can be overlayed onto the earlier ones in
-``meshlab``.
+The produced textured mesh can be overlayed on top of the earlier ones
+in ``meshlab``.
 
 Scaling up the problem
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -478,7 +484,7 @@ of ``nav_cam`` images corresponding to different module portions.  For
 example, for the JEM, which is long in one dimension, one can
 subdivide it along that axis.
 
-Ensure that the portions have generous overlap, so many images will
+Ensure that the portions have generous overlap, so many images 
 show up in more than one list, and that each obtained group of images
 forms a connected component. That is to say, the union of surface
 patches as seen from all images in a group should be a contiguous
@@ -489,10 +495,10 @@ images being shared with each neighboring group. More images being
 shared will result in a tighter coupling of the datasets and in less
 registration error.
 
-Run ``theia_sfm`` on each group of ``nav_cam`` images. This should
-take about 2 hours for each group.  While in principle this tool can
-run on all images at once, that may take longer than running it on
-smaller sets with overlaps.
+Run ``theia_sfm`` on each group of ``nav_cam`` images. A run can take
+about 2 hours.  While in principle this tool can be run on all images at
+once, that may take longer than running it on smaller sets with
+overlaps, unless one has under 500 images or so.
 
 The obtained .nvm files can be merged with ``sfm_merge``
 (:numref:`sfm_merge`) as::
@@ -516,23 +522,23 @@ clouds and images that are closest to the surface being imaged and
 face it head-on.  Both of these tools can work with a subset of the
 data. Manual inspection can be used to delete the low-quality inputs.
 
-Consider experimenting with the ``--median_filter`` option in
-``voxblox_mesh`` (:numref:`voxblox_mesh`). 
+Consider experimenting with the ``--median_filter``,
+``--max_ray_length``, and ``--distance_weight`` options in
+``voxblox_mesh`` (:numref:`voxblox_mesh`).
 
-Some experimentation can be done with two ways of creating the textures
-given by the ``texrecon`` option ``--texture_alg``
-(:numref:`texrecon`). The default method, named "center",
-uses the most central area of each image, so, if there are
-any seams when the the camera is panning, they will be when
-transitioning from a surface portion using one image to a different
-one. The other approach, called "area", tries for every small surface
-portion to find the camera whose direction is more aligned with the
-surface normal. This may give better results when imaging a round
-object from many perspectives.
+Some experimentation can be done with the two ways of creating
+textures given by the ``texrecon`` option ``--texture_alg``
+(:numref:`texrecon`). The default method, named "center", uses the
+most central area of each image, so, if there are any seams when the
+the camera is panning, they will be when transitioning from a surface
+portion using one image to a different one. The other approach, called
+"area", tries for every small surface portion to find the camera whose
+direction is more aligned with the surface normal. This may give
+better results when imaging a round object from many perspectives.
 
 In either case, seams are a symptom of registration having failed.
 It is likely because not all images seeing the same surface have been
-tied together.  Or, perhaps the intrinsics of the sensor were
+tied together.  Or, perhaps the intrinsics of the sensors were
 inaccurate.
 
 .. _sfm_iss_sample_rig_config:
