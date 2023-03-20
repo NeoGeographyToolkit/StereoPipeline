@@ -137,6 +137,14 @@ the rig and time acquisition constraints helps with accuracy.
 
 How all this is done will be shown in detail below.
 
+Installing the software
+^^^^^^^^^^^^^^^^^^^^^^^
+
+See :numref:`installation`. The ``bin`` directory of the ASP software
+should be added to the $PATH environmental variable. Note that ASP
+ships its own version of Python. That can cause conflicts if ROS
+and ASP are run in the same terminal.
+
 .. _sfm_isis_data_prep:
 
 Data preparation
@@ -205,14 +213,14 @@ much simpler to find the closest ``haz_cam`` images to the chosen
 
 For that, the data should be extracted as follows::
 
-    ls my_data/bumble_nav/*.jpg > bumble_nav.txt
+    ls my_data/bumble_nav/*.jpg > small_bumble_nav.txt
     /usr/bin/python /path/to/ASP/libexec/extract_bag       \
     --bag mybag.bag                                        \
-    --timestamp_list bumble_nav.txt                        \
+    --timestamp_list small_bumble_nav.txt                  \
     --topics "/my/haz_intensity/topic /my/haz_depth/topic" \
     --dirs "my_data/bumble_haz my_data/bumble_haz"         \
     --timestamp_tol 0.2                                    \
-     --approx_timestamp
+    --approx_timestamp
 
 Notice several important differences with the earlier command.  We use
 the ``nav_cam`` timestamps for querying. The tolerance for how close
@@ -227,7 +235,7 @@ depth (point cloud) datasets, with the outputs going to the same directory
 is described in :numref:`point_cloud_format`.
 
 An analogous invocation should happen for the other rig, with the
-outputs going to new directories per the existing conventions.
+outputs going to subdirectories for those sensors.
 
 A first small run
 ^^^^^^^^^^^^^^^^^
@@ -243,11 +251,11 @@ added later.  If no initial rig configuration exists, see
 The initial map
 ~~~~~~~~~~~~~~~
 
-Create a text file having a few dozen images in the desired region
-named ``small_nav_list.txt``, with one image per line. Inspect the
-images in ``eog``. Ensure that each image has a decent overlap
-(75%-90%) with some of the other ones, and they cover a connected
-surface portion.
+Create a text file having a few dozen ``nav_cam`` images from both
+rigs in the desired region named ``small_nav_list.txt``, with one
+image per line. Inspect the images in ``eog``. Ensure that each image
+has a decent overlap (75%-90%) with some of the other ones, and they
+cover a connected surface portion.
 
 Run ``theia_sfm`` (:numref:`theia_sfm`) with the initial rig
 configuration (:numref:`sfm_iss_sample_rig_config`), which we will
@@ -288,11 +296,14 @@ Adding haz_cam
 ~~~~~~~~~~~~~~
 
 Create a list called ``small_haz_list.txt`` having the ``haz_cam`` images
-with the same timestamps as the ``nav_cam`` images. Insert these in
-the small map, and optimize all poses together as::
+with the same timestamps as the ``nav_cam`` images::
+
+    ls my_data/*_haz/*.jpg > small_haz_list.txt
+
+Insert these in the small map, and optimize all poses together as::
 
     float="bumble_nav bumble_haz queen_nav queen_haz"
-    bin/rig_calibrator                              \
+    rig_calibrator                                  \
       --registration                                \
       --hugin_file jem_map.pto                      \
       --xyz_file jem_map.txt                        \
@@ -307,10 +318,8 @@ the small map, and optimize all poses together as::
       --intrinsics_to_float ""                      \
       --num_iterations 20                           \
       --export_to_voxblox                           \
-      --num_overlaps 3                              \
-      --max_reprojection_error 10                   \
-      --min_triangulation_angle 1.0                 \
-      --initial_max_reprojection_error 200
+      --num_overlaps 5                              \
+      --min_triangulation_angle 1.0
 
 The depth files will the same names but with the .pc extension will
 will be picked up automatically.
@@ -361,7 +370,7 @@ Mesh creation
 The registered depth point clouds can be fused with ``voxblox_mesh``
 (:numref:`voxblox_mesh`)::
 
-    cat small_rig/voxblox/*haz*/index.txt > \
+    cat small_rig/voxblox/*haz*/index.txt >       \
       small_rig/all_haz_index.txt 
 
     voxblox_mesh                                  \
@@ -386,6 +395,9 @@ can be edited and entries removed. The names in these files are in
 one-to-one correspondence with the list of ``haz_cam`` images used
 earlier.
 
+The options ``--min_ray_length`` and ``--max_ray_length`` are used to
+filter out depth points that are too close or too far from the sensor.
+
 The mesh should be post-processed with the CGAL tools
 (:numref:`cgal_tools`).  It is suggested to first remove most small
 connected components, then do some smoothing and hole-filling, in
@@ -399,7 +411,7 @@ Create the ``nav_cam`` texture with ``texrecon``
 (:numref:`texrecon`)::
 
     sensor="bumble_nav haz queen_nav"
-    bin/texrecon                          \
+    texrecon                              \
     --rig_config small_rig/rig_config.txt \
     --camera_poses small_rig/cameras.txt  \
     --mesh small_rig/fused_mesh.ply       \
@@ -430,12 +442,15 @@ If the above steps are successful, the ``sci_cam`` images for the
 same region can be added in, while keeping the cameras for the sensors
 already solved for fixed. This goes as follows::
 
+    ls my_data/*_sci/*.jpg > small_sci_list.txt
+
     float="bumble_sci queen_sci"
     rig_calibrator                                  \
       --use_initial_rig_transforms                  \
       --nearest_neighbor_interp                     \
       --no_rig                                      \
-      --extra_list selected_sci.txt                 \
+      --bracket_len 1.0                             \
+      --extra_list small_sci_list.txt               \
       --rig_config small_rig/rig_config.txt         \
       --nvm small_rig/cameras.nvm                   \
       --out_dir small_sci_rig                       \
@@ -444,10 +459,8 @@ already solved for fixed. This goes as follows::
       --intrinsics_to_float ""                      \
       --num_iterations 20                           \
       --export_to_voxblox                           \
-      --num_overlaps 3                              \
-      --max_reprojection_error 10                   \
-      --min_triangulation_angle 1.0                 \
-      --initial_max_reprojection_error 200
+      --num_overlaps 5                              \
+      --min_triangulation_angle 1.0
 
 The notable differences with the earlier invocation is that this time
 only the ``sci_cam`` images are optimized (floated), the option
@@ -455,18 +468,20 @@ only the ``sci_cam`` images are optimized (floated), the option
 ``sci_cam`` images will not have the same timestamps as for the
 earlier sensor, and the option ``--no_rig`` was added, which decouples
 the ``sci_cam`` images from the rig, while still optimizing them with
-the rest of the data, which is fixed and used as a constraint.
+the rest of the data, which is fixed and used as a constraint.  The
+option ``--bracket_len`` helps with checking how far in time newly
+added images are from existing ones.
 
 The texturing command is::
 
     sensor="bumble_sci queen_sci"
-    texrecon                                   \
-      --rig_config small_rig/rig_config.txt    \
-      --camera_poses small_sci_rig/cameras.txt \
-      --mesh small_rig/fused_mesh.ply          \
-      --rig_sensor "${sensor}"                 \
-      --undistorted_crop_win '1300 1200'       \
-      --skip_local_seam_leveling               \
+    texrecon                                    \
+      --rig_config small_sci_rig/rig_config.txt \
+      --camera_poses small_sci_rig/cameras.txt  \
+      --mesh small_rig/fused_mesh.ply           \
+      --rig_sensor "${sensor}"                  \
+      --undistorted_crop_win '1300 1200'        \
+      --skip_local_seam_leveling                \
       --out_dir small_sci_rig
 
 Notice how we used the rig configuration and poses from
@@ -503,7 +518,8 @@ overlaps, unless one has under 500 images or so.
 The obtained .nvm files can be merged with ``sfm_merge``
 (:numref:`sfm_merge`) as::
 
-    sfm_merge -fast_merge theia*/cameras.nvm -output_map merged.nvm
+    sfm_merge --fast_merge --rig_config small_rig/rig_config.txt \
+      theia*/cameras.nvm --output_map merged.nvm
 
 Then, given the large merged map, one can continue as earlier in the
 document, with registration, adding ``haz_cam`` and ``sci_cam``
@@ -540,6 +556,37 @@ In either case, seams are a symptom of registration having failed.
 It is likely because not all images seeing the same surface have been
 tied together. Or, perhaps the intrinsics of the sensors were
 inaccurate.
+
+Localized fixes
+^^^^^^^^^^^^^^^
+
+If a produced textured mesh is mostly good, but some local portion has
+artifacts and may benefit from more images and/or depth clouds, 
+either acquired in between existing ones or from a new
+dataset, this can be done without redoing all the work.
+
+A small portion of the existing map can be extracted with the
+``sfm_submap`` program (:numref:`sfm_submap`), having just ``nav_cam``
+images.  A new small map can be made with images from this map and
+additional ones using ``theia_sfm``. This map can be merged into the
+existing small map with ``sfm_merge --fast_merge``
+(:numref:`sfm_merge`). If the first map passed to this tool is the
+original small map, its coordinate system will be kept, and the new
+Theia map will conform to it.
+
+Depth clouds for the additional images can be extracted. The combined
+small map can be refined with ``rig_calibrator``, and depth clouds
+corresponding to the new data can be inserted, as earlier. The option
+``--fixed_image_list`` can be used to keep some images (from the
+original small map) fixed to not change the scale or position of the
+optimized combined small map.
+
+These operations should be quite fast if the chosen subset of data is
+small.
+
+Then, a mesh can be created and textured just for this
+data. If happy with the results, this data can then be merged into the
+original large map, and the combined map can be optimized as before.
 
 .. _sfm_iss_sample_rig_config:
 
