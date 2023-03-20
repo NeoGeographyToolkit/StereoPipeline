@@ -4,7 +4,7 @@ texrecon
 --------
 
 The ``texrecon`` script takes as input several images, their camera
-poses, camera intrinsics, and a mesh, for one or ore sensors, in .ply format,
+poses, camera intrinsics for one or more sensors, a mesh, in .ply format,
 and creates a textured mesh as an .obj file. This tool is a wrapper around
 the third-party `MVS-Texturing
 <https://github.com/nmoehrle/mvs-texturing>`_ software.
@@ -42,12 +42,15 @@ Command-line options
 --rig_config <string>
    Rig configuration file.
 --rig_sensor <string>
-   Which rig sensor images to texture. Can be more than one. Must be
-   among the sensors specified via ``--rig_config``.
+   Which rig sensor images to texture. Can be more than one (bound by
+   quotes then). Must be among the sensors specified via
+   ``--rig_config``.
 --camera_poses <string>
    Read images and camera poses from this list.
 --mesh <string>
    The mesh to use for texturing, in .ply format.
+--subset <string> 
+   Use only the subset of images from this list.
 --undistorted_crop_win <string>
    The dimensions of the central image region to keep
    after undistorting an image and before using it in texturing.
@@ -60,6 +63,12 @@ Command-line options
 --out_dir <string>
    The directory where to write the textured mesh and
    other data.
+--texture_alg <string> 
+   Use one of the two texture creation modes: 'center' (for a surface
+   patch choose the image in which the patch shows up closer to the
+   image center; this is the default), or 'area' (for a surface patch
+   choose the image whose camera view direction is most aligned with the
+   surface normal).
 --skip_local_seam_leveling
    If set, skip a postprocessing algorithm which may remove some seams
    but which on occasion can cause a crash.

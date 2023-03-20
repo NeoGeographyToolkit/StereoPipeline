@@ -18,14 +18,6 @@ This tool is a wrapper around `VoxBlox <https://github.com/ethz-asl/voxblox>`_.
 Example
 ^^^^^^^
 
-The dataset:
-
-    https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/rig_calibrator
-
-has an example of how a set of camera images and depth clouds acquired
-with a rig were co-registered using the ``rig_calibrator`` program
-(:numref:`rig_calibrator`).
-
 With that data and this tool, a fused mesh can be obtained as follows::
 
     voxblox_mesh --index rig_out/voxblox/haz_cam/index.txt \
@@ -39,6 +31,12 @@ after binning the points into voxels of 1 cm in size.
 
 The obtained mesh can be post-processed, by smoothing it, filling in holes,
 etc., using several CGAL tools shipped with ASP (:numref:`cgal_tools`).
+
+This `dataset
+<https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/rig_calibrator>`_
+has an example of how a set of camera images and depth clouds acquired
+with a rig were co-registered using the ``rig_calibrator`` program
+(:numref:`rig_calibrator`).
 
 Format of the inputs
 ^^^^^^^^^^^^^^^^^^^^
@@ -80,34 +78,48 @@ cloud is passed in as an argument.
 Command-line options for voxblox_mesh
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``--index`` A list having input camera transforms and point cloud files.
-    Type: string. Default: "".
-``--output_mesh`` The output mesh file name, in .ply format. Type: string.
-    Default: "".
-``--voxel_size`` Voxel size, in meters. Type: double. 
-    Default: 0.01.
-``--min_ray_length`` (The minimum length of a ray from camera center to the
-  points. Points closer than that will be ignored. Type: double. Default: -1.
-``--max_ray_length`` The maximum length of a ray from camera center to the
-    points. Points beyond that will be ignored. Type: double. Default: -1.
-``--enable_anti_grazing`` If true, enable anti-grazing. This is an advanced
-    option. Type: bool. Default: false.
-``--integrator`` Specify how the points should be integrated. Options:
+``--index`` (*string*) (default = "")
+    A list having input camera transforms and point cloud files.
+``--output_mesh`` (*string*) (default = "")
+    The output mesh file name, in .ply format.
+``--voxel_size`` (*double*) (default = 0.01)
+    Voxel size, in meters. 
+``--min_ray_length`` (*double*) (default = -1.0)
+    The minimum length of a ray from camera center to the
+    points. Points closer than that will be ignored.
+``--max_ray_length`` (*double*) (default = -1.0)
+    The maximum length of a ray from camera center to the
+    points. Points beyond that will be ignored.
+``--enable_anti_grazing``
+    If true, enable anti-grazing. This is an advanced
+    option.
+``--integrator`` (*string*) (default = "")
+    Specify how the points should be integrated. Options:
     "simple", "merged", "fast". See the VoxBlox documentation for details.
-    Type: string. Default: "merged".
-``--min_weight`` The minimum weighting needed for a point to be included in the
-    mesh. Type: double. Default: 1e-6.
-``--voxel_carving_enabled`` If true, the entire length of a ray is integrated.
+``--min_weight`` (*double*) (default = 1e-6) 
+    The minimum weighht for a point to be included in the
+    mesh.
+``--voxel_carving_enabled``
+    If true, the entire length of a ray is integrated.
     Otherwise only the region inside the truncation distance is used. This is
-    an advanced option. Type: bool. Default: false.
-``--median_filter`` Filter out depth points that differ in any of the coordinates by more
+    an advanced option.
+``--median_filter`` (*string*) (default = "") 
+    Filter out depth points that differ in any of the coordinates by more
     than a given threshold from the median of such
     coordinates in a square window of given size. Specify in quotes,
     as: 'window thresh'. The window is an odd integer and in units of pixel
     (given the image storage format of the cloud) and the threshold is
     measured in meters. This assumes that the input .pcd files have more
     than one row and column, rather than the data being
-    stored in a single row. Type: string. Default: "".
+    stored in a single row. 
+``--distance_weight``  (*string*) (default = "")
+    Give to an input depth point ``P`` the
+    weight ``1/(1 + (norm(P)/d)^a)``. This makes points further
+    from the sensor have less weight. Specify the input parameters as
+    'd a'. This multiplies any other per-point weight read from the
+    point cloud (normally the input weight is 1 unless ``pc_filter``
+    (:numref:`pc_filter`) is used). See also ``--min_weight`` and
+    ``--max_ray_length``. 
 
 See also the `VoxBlox documentation
 <https://voxblox.readthedocs.io/en/latest/pages/The-Voxblox-Node.html#parameters>`_.

@@ -27,6 +27,9 @@ Command-line options for theia_sfm
 --images <string (default: "")>
     Images, as individual wildcards. Example: 
     ``'dir/cam1/*tif dir/cam2/*tif'``.
+--image_list <string (default: "")>
+    Use the images from this list, instead of setting ``--images``.
+    Images must be seprated by a newline.
 --theia_flags <string (default: "")>
     The flags to pass to Theia. By default, the file
     ``share/theia_flags.txt`` in the software distribution is used.

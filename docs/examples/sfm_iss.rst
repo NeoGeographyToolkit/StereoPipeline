@@ -1,7 +1,7 @@
 .. _sfm_iss:
 
-Mapping the ISS
----------------
+Mapping the ISS using 2 rigs with 3 cameras each
+------------------------------------------------
 
 This example will show how to use the tools shipped with ASP to create
 a 360-degree textured mesh of the `Japanese Experiment Module
@@ -21,7 +21,7 @@ project.
 
    A mesh created with the ``haz_cam`` depth + image sensor 
    and textured with ``sci_cam`` (top). A ``sci_cam`` image that
-   was used to make it (bottom). The JPM module has many cables
+   was used to make it (bottom). The JEM module has many cables
    and cargo, and the bot acquired the data spinning in place. This
    resulted in some noise and holes in the mesh. The ``sci_cam`` texture was,
    however, quite seamless, with very good agreement with the ``nav_cam``
@@ -70,8 +70,8 @@ Challenges
 This example required care to address the in-place rotations, which
 resulted in very little perspective change between nearby images
 (hence in uncertain triangulated points), a wide range of resolutions
-and distances, and occlusions (which resulted in holes). Other
-difficulties were the low resolution and unique imaging modality of
+and distances, and occlusions (which resulted in holes). Another
+difficulty was the low resolution and unique imaging modality of
 ``haz_cam``, which made it tricky to find interest point matches
 (tie points) to other sensor data.
 
@@ -107,7 +107,7 @@ The approach that ``rig_calibrator`` uses is to bracket each
 :numref:`rig_calibrator_example`, followed by pose interpolation in
 time. This however doubles the number of ``nav_cam`` images and the
 amount of time for the various iterations that may be needed to refine
-the processing. To avoid that, we use the approach outlined below.
+the processing. To avoid that, we use the following approach.
 
 We assume that a reasonably accurate rig configuration file for the
 2-rig 6-sensor setup already exists, but it may not be fully precise.
@@ -127,7 +127,7 @@ constraint, but without bracketing the ``nav_cam`` images, so the
 placement was approximate. Lastly, the combined map was optimized,
 while keeping the ``nav_cam`` and ``haz_cam`` poses fixed and refining
 the ``sci_cam`` poses without the rig constraint or using the
-timestamp information, which allow the ``sci_cam`` poses to move
+timestamp information, which allows the ``sci_cam`` poses to move
 freely to conform to the other already registered images.
 
 This approach also helps with the fact that the ``sci_cam`` timestamp
@@ -410,9 +410,9 @@ Create the ``nav_cam`` texture with ``texrecon``
 
 The same can be done for ``haz_cam``. Then reduce the undistorted crop
 window to '250 200'. It is helpful to open these together in
-``meshlab`` and see if there are seams differences among them.
+``meshlab`` and see if there are seams or differences between them.
 
-To use just a subset of the images, use the option ``--subset``. That
+To use just a subset of the images, see the ``--subset`` option. That
 is especially important if the robot spins in place, as then some of
 the depth clouds have points that are far away and may be less
 accurate.
@@ -477,7 +477,7 @@ The produced textured mesh can be overlayed on top of the earlier ones
 in ``meshlab``.
 
 Scaling up the problem
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
 If all goes well, one can map the whole module. Create several lists
 of ``nav_cam`` images corresponding to different module portions.  For
@@ -510,7 +510,7 @@ document, with registration, adding ``haz_cam`` and ``sci_cam``
 images, mesh creation, and texturing.
 
 Fine-tuning
-~~~~~~~~~~~
+^^^^^^^^^^^
 
 If the input images show many perspectives and correspond to many
 distances from the surface being imaged, all this variety is good for
@@ -538,7 +538,7 @@ better results when imaging a round object from many perspectives.
 
 In either case, seams are a symptom of registration having failed.
 It is likely because not all images seeing the same surface have been
-tied together.  Or, perhaps the intrinsics of the sensors were
+tied together. Or, perhaps the intrinsics of the sensors were
 inaccurate.
 
 .. _sfm_iss_sample_rig_config:

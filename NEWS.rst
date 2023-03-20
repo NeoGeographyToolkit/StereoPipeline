@@ -134,6 +134,8 @@ misc:
     and set GDAL_DRIVER_PATH.
   * Fixed a failure in ``mapproject`` with a small DEM.
   * Bugfix for exporting the TheiaSfM matches in ``camera_solve``.
+  * The documentation of the examples chapter was broken up into
+    individual pages. 
 
 RELEASE 3.2.0, December 30, 2022
 --------------------------------

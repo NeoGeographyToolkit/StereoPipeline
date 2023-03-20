@@ -8,9 +8,9 @@ manipulating meshes in .ply format, which are produced with the
 ``multi_stereo`` (:numref:`multi_stereo`) and ``voxblox_mesh``
 (:numref:`voxblox_mesh`) tools::
 
+- rm_connected_components
 - smoothe_mesh
 - fill_holes
-- rm_connected_components
 - simplify_mesh
 
 These tools can be built and used independently of ASP. See the
@@ -19,28 +19,28 @@ These tools can be built and used independently of ASP. See the
 
 Examples
 ~~~~~~~~
+Remove small connected components from the mesh::
+
+    num_min_faces_in_component=100
+    num_components_to_keep=10
+    rm_connected_components                  \
+      $num_min_faces_in_component            \
+      $num_components_to_keep                \
+      <input_mesh.ply> <output_mesh.ply>
+
 Mesh smoothing::
 
-    num_iter=1; smoothing_time=0.00005; smoothe_boundary=1
+    num_iter=1; smoothing_time=5e-5; smoothe_boundary=1
     smoothe_mesh                                  \
       $num_iter $smoothing_time $smoothe_boundary \
       <input_mesh.ply> <output_mesh.ply>
 
 Hole-filling::
 
-    max_hole_diameter=0.4
-    max_num_hole_edges=1000
+    max_hole_diameter=0.8
+    max_num_hole_edges=100
     fill_holes                               \
       $max_hole_diameter $max_num_hole_edges \
-      <input_mesh.ply> <output_mesh.ply>
-
-Remove small connected components from the mesh::
-
-    num_min_faces_in_component=1000
-    num_components_to_keep=1
-    rm_connected_components                  \
-      $num_min_faces_in_component            \
-      $num_components_to_keep                \
       <input_mesh.ply> <output_mesh.ply>
 
 Mesh simplification::

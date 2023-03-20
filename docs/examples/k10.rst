@@ -1,0 +1,13 @@
+.. _k10example:
+
+K10
+---
+
+K10 is an Earth-based research rover within the Intelligent Robotics
+Group at NASA Ames, the group ASP developers belong to. The cameras on
+this rover use a simple Pinhole model. The use of ASP with these cameras
+is illustrated in the ``examples/K10`` directory (just type 'make'
+there). Just as for the MER datatset (:numref:`mer-example`),
+only the creation of a point cloud is supported.
+
+See :numref:`examples` for other examples.
