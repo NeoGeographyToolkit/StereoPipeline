@@ -123,7 +123,7 @@ and textured, for each sensor. Any issues with mesh quality and
 registration challenges can be dealt with at this time.
 
 Then, the ``sci_cam`` images were also inserted via the rig
-constraint, but without bracketing the ``nav_cam`` images, so the
+constraint, but not using ``nav_cam`` for bracketing, so the
 placement was approximate. Lastly, the combined map was optimized,
 while keeping the ``nav_cam`` and ``haz_cam`` poses fixed and refining
 the ``sci_cam`` poses without the rig constraint or using the
@@ -132,7 +132,7 @@ freely to conform to the other already registered images.
 
 This approach also helps with the fact that the ``sci_cam`` timestamp
 can be somewhat unreliable, given that those images are acquired with
-a different processor on the robot, so freeing up these images from
+a different processor on the robot, so freeing these images from
 the rig and time acquisition constraints helps with accuracy.
 
 How all this is done will be shown in detail below.
@@ -213,10 +213,10 @@ much simpler to find the closest ``haz_cam`` images to the chosen
 
 For that, the data should be extracted as follows::
 
-    ls my_data/bumble_nav/*.jpg > small_bumble_nav.txt
+    ls my_data/bumble_nav/*.jpg > bumble_nav.txt
     /usr/bin/python /path/to/ASP/libexec/extract_bag       \
     --bag mybag.bag                                        \
-    --timestamp_list small_bumble_nav.txt                  \
+    --timestamp_list bumble_nav.txt                        \
     --topics "/my/haz_intensity/topic /my/haz_depth/topic" \
     --dirs "my_data/bumble_haz my_data/bumble_haz"         \
     --timestamp_tol 0.2                                    \
@@ -243,10 +243,10 @@ A first small run
 The strategy in :numref:`sfm_iss_processing` will be followed.
 Consider a region that is seen in all ``nav_cam`` and ``haz_cam``
 images (4 sensors in total). We will take advantage of the fact that
-the rig configuration is reasonably well-known, so we will create a map with
-only the ``nav_cam`` data for both robots. The other sensors will be
-added later.  If no initial rig configuration exists, see
-:numref:`rig_calibrator_example`.
+each rig configuration is reasonably well-known, so we will create a
+map with only the ``nav_cam`` data for both robots, and the other
+sensors will be added later.  If no initial rig configuration exists,
+see :numref:`rig_calibrator_example`.
 
 The initial map
 ~~~~~~~~~~~~~~~
@@ -361,8 +361,8 @@ that see the same view have been matched together.
 
 Normally some unmodeled distortion in the images is tolerable
 if there are many overlapping images, as then their central areas are
-used the most, and then the effect of distortion on the final textured
-mesh is minimal or none. 
+used the most, and the effect of distortion on the final textured
+mesh is likely minimal. 
 
 Mesh creation
 ~~~~~~~~~~~~~
