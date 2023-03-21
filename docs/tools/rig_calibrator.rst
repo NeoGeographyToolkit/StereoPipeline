@@ -8,10 +8,14 @@ datasets acquired with one or more rigs, each having one or more
 cameras. It finds the relationship among the rig sensors, the pose of
 each camera image, and refines the intrinsics of each sensor.
 
-This tool was extensively tested with actual hardware and can model
-many real-world issues encountered with a rig. Its output can be used
-to create a fused surface mesh with seamless texture from each of its
-sensors.
+This tool was created as part of the `ISAAC
+<https://www.nasa.gov/directorates/spacetech/game_changing_development/projects/ISAAC>`_
+project.
+
+The ``rig_calibrator`` program was extensively tested with actual
+hardware and can model many real-world issues encountered with a
+rig. Its output can be used to create a fused surface mesh with
+seamless texture from each of its sensors.
 
 The intrinsics of the sensors and each camera pose can also be
 optimized without the rig assumption. Then the sensors can acquire data
