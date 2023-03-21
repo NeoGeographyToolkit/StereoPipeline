@@ -1109,9 +1109,9 @@ namespace vw { namespace camera {
   
 }}
 
-// Get the memory usage for the given process.
+// Get the memory usage for the given process. This is for debugging, not used
+// in production code. It does not work on OSX.
 void callTop() {
-  // TODO(oalexan1): This does not work on OSX
 
   std::ostringstream os;
   int pid = getpid();
@@ -1260,15 +1260,17 @@ struct Options : public vw::GdalWriteOptions {
     compute_exposures_only,
     save_dem_with_nodata, use_approx_camera_models, use_approx_adjusted_camera_models,
     use_rpc_approximation, use_semi_approx,
-    crop_input_images, allow_borderline_data, float_dem_at_boundary, boundary_fix, fix_dem, 
-    float_reflectance_model, float_sun_position, query, save_sparingly, float_haze;
+    crop_input_images, allow_borderline_data, float_dem_at_boundary, boundary_fix,
+    fix_dem, float_reflectance_model, float_sun_position, query, save_sparingly,
+    float_haze;
     
-  double smoothness_weight, steepness_factor, curvature_in_shadow, curvature_in_shadow_weight,
+  double smoothness_weight, steepness_factor, curvature_in_shadow,
+    curvature_in_shadow_weight,
     lit_curvature_dist, shadow_curvature_dist, gradient_weight,
-    blending_power, integrability_weight, smoothness_weight_pq, init_dem_height, nodata_val,
-    initial_dem_constraint_weight, albedo_constraint_weight, camera_position_step_size,
-    rpc_penalty_weight, rpc_max_error, unreliable_intensity_threshold, robust_threshold,
-    shadow_threshold;
+    blending_power, integrability_weight, smoothness_weight_pq, init_dem_height,
+    nodata_val, initial_dem_constraint_weight, albedo_constraint_weight,
+    camera_position_step_size, rpc_penalty_weight, rpc_max_error,
+    unreliable_intensity_threshold, robust_threshold, shadow_threshold;
   vw::BBox2 crop_win;
   vw::Vector2 height_error_params;
   
@@ -2469,7 +2471,7 @@ public:
     g_iter++;
 
     vw_out() << "Finished iteration: " << g_iter << std::endl;
-    callTop();
+    // callTop();
 
     if (!g_opt->save_computed_intensity_only)
       save_exposures(g_opt->out_prefix, g_opt->input_images, *g_exposures);
@@ -4052,7 +4054,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << "Using cropped input images implies that the cameras are not floated.\n" );
 
   if (opt.allow_borderline_data && !opt.crop_input_images)
-    vw_throw(ArgumentErr() << "Option --allow-borderline-data needs option --crop-input-images.\n");
+    vw_throw(ArgumentErr() << "Option --allow-borderline-data needs option "
+             << "--crop-input-images.\n");
 
   if (opt.allow_borderline_data && opt.blending_dist <= 0) 
     vw::vw_throw(vw::ArgumentErr()
@@ -5122,7 +5125,7 @@ int main(int argc, char* argv[]) {
     // for each DEM. Same about albedo and georeferences.
     std::vector< std::vector< ImageView<double> > >
       orig_dems(levels+1), dems(levels+1), albedos(levels+1);
-    std::vector< std::vector< GeoReference > > geos(levels+1);
+    std::vector<std::vector<GeoReference>> geos(levels+1);
     for (int level = 0; level <= levels; level++) {
       orig_dems [level].resize(num_dems);
       dems      [level].resize(num_dems);
@@ -5420,8 +5423,9 @@ int main(int argc, char* argv[]) {
                   Vector2 pix2 = apcam->point_to_pixel(xyz);
                   max_curr_err = std::max(max_curr_err, norm_2(pix1 - pix2));
                   
-                  // Use these pixels to expand the crop box, as we now also know the adjustments.
-                  // This is a bug fix.
+                  // Use these pixels to expand the crop box, as we
+                  // now also know the adjustments.  This is a bug
+                  // fix.
                   cam_ptr->crop_box().grow(pix1);
                   cam_ptr->crop_box().grow(pix2);
                 }
@@ -5451,7 +5455,8 @@ int main(int argc, char* argv[]) {
             // the approx camera model has incorrect values.
             if (model_is_valid)
               vw_out() << "Error is too big.\n";
-            vw_out() << "Skip image " << image_iter << " for clip " << dem_iter << std::endl;
+            vw_out() << "Skip image " << image_iter << " for clip "
+                     << dem_iter << std::endl;
             opt.skip_images[dem_iter].insert(image_iter);
             cam_ptr->crop_box() = BBox2();
             max_curr_err = 0.0;
@@ -5481,7 +5486,8 @@ int main(int argc, char* argv[]) {
           }
           
         } // end iterating over images
-        vw_out() << "Max total approximate model error in pixels: " << max_approx_err << std::endl;
+        vw_out() << "Max total approximate model error in pixels: "
+                 << max_approx_err << std::endl;
         
       } // end iterating over dem clips
 
@@ -5526,7 +5532,8 @@ int main(int argc, char* argv[]) {
             
           vw_out() << "Estimated crop box for image " 
                    << opt.input_images[image_iter] << " and clip "
-                   << opt.input_dems[dem_iter] << ": " << crop_boxes[0][dem_iter][image_iter]
+                   << opt.input_dems[dem_iter] << ": "
+                   << crop_boxes[0][dem_iter][image_iter]
                    << std::endl;
           
           if (crop_boxes[0][dem_iter][image_iter].empty()) 
@@ -5543,14 +5550,16 @@ int main(int argc, char* argv[]) {
       for (int image_iter = 0; image_iter < num_images; image_iter++){
         if (!crop_boxes[0][dem_iter][image_iter].empty()) {
           Vector2i mn = crop_boxes[0][dem_iter][image_iter].min();
-          crop_boxes[0][dem_iter][image_iter].min() = last_factor*(floor(mn/double(last_factor)));
+          crop_boxes[0][dem_iter][image_iter].min()
+            = last_factor*(floor(mn/double(last_factor)));
         }
       }
       
       // Crop boxes at the coarser resolutions
       for (int image_iter = 0; image_iter < num_images; image_iter++){
         for (int level = 1; level <= levels; level++) {
-          crop_boxes[level][dem_iter].push_back(crop_boxes[0][dem_iter][image_iter]/factors[level]);
+          crop_boxes[level][dem_iter]
+            .push_back(crop_boxes[0][dem_iter][image_iter]/factors[level]);
         }
       }
     }
@@ -5967,7 +5976,12 @@ int main(int argc, char* argv[]) {
 
     if (opt.allow_borderline_data) {
       int cols = dems[0][0].cols(), rows = dems[0][0].rows();
-      asp::adjustBorderlineDataWeights(cols, rows, opt.blending_dist, opt.blending_power,  
+      asp::adjustBorderlineDataWeights(cols, rows, opt.blending_dist, opt.blending_power,
+                                       vw::GdalWriteOptions(opt), // slice
+                                       geos[0][0],
+                                       opt.skip_images[0],
+                                       opt.out_prefix, // for debug data
+                                       opt.input_images, opt.input_cameras, 
                                        ground_weights);
 
       // Use the ground weights from now on instead of blending weights
@@ -5979,6 +5993,8 @@ int main(int argc, char* argv[]) {
       // Redo the image masks. All data with non-negative values is
       // valid. The weights will control which data gets used. It is
       // assumed opt.crop_input_images is true and opt.blending_dist > 0.
+      // TODO(oalexan1): Why are the masks redone? Try to delete this
+      // code and see if it makes a difference.
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
         for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
           if (opt.skip_images[dem_iter].find(image_iter) != opt.skip_images[dem_iter].end())
@@ -6145,9 +6161,10 @@ int main(int argc, char* argv[]) {
           break;
         }
 
-        albedos[level][dem_iter] = pixel_cast<double>(vw::resample_aa
-                                                      (pixel_cast< PixelMask<double>>
-                                                       (albedos[level-1][dem_iter]), sub_scale));
+        albedos[level][dem_iter]
+          = pixel_cast<double>(vw::resample_aa
+                               (pixel_cast< PixelMask<double>>
+                                (albedos[level-1][dem_iter]), sub_scale));
 
         // We must write the subsampled images to disk, and then read
         // them back, as VW cannot access individual pixels of the

@@ -18,67 +18,114 @@
 /// \file SfsImageProc.cc
 /// Image processing routines for SfS
 
+#include <asp/Core/SfsImageProc.h>
+
 #include <vw/Core/Log.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/FileIO/DiskImageView.h>
-#include <asp/Core/SfsImageProc.h>
+#include <vw/FileIO/GdalWriteOptions.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
+#include <asp/Core/BundleAdjustUtils.h>
+
+#include <boost/filesystem.hpp>
 
 #include <string>
 
+namespace fs = boost::filesystem;
 using namespace vw;
 
 
 namespace asp {
 
-void adjustBorderlineDataWeights(int cols, int rows,
-                                 int blending_dist, double blending_power,
-                                 std::vector<ImageView<double>> & ground_weights) {
+// Given a set of images of same dimensions, find the per-pixel maximum.
+void maxImage(int cols, int rows,
+              std::set<int> const& skip_images,
+              std::vector<vw::ImageView<double>> const& images,
+              ImageView<double> & max_image) {
   
-  int num_images = ground_weights.size();
-  
-  ImageView<double> union_weight(cols, rows), boundary_weight(cols, rows);
+  int num_images = images.size();
+
+  max_image.set_size(cols, rows);
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
-      union_weight(col, row) = 0.0;
-      boundary_weight(col, row) = 0.0;
+      max_image(col, row) = 0.0;
     }
   }
+
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
-    auto & wt = ground_weights[image_iter]; // alias
-    if (wt.cols() > 0 && wt.rows() > 0) {
-      
-      if (wt.cols() != cols || wt.rows() != rows) 
-        vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended weights must "
-                     << "have the same dimensions.\n");
-      
-      // Prepare to create some weights smaller than min_wt. First, bump up
-      // the existing weights. Normally they are already well above this.
-      for (int col = 0; col < wt.cols(); col++) {
-        for (int row = 0; row < wt.rows(); row++) {
-          union_weight(col, row) = std::max(union_weight(col, row), wt(col, row));
-        }
+
+    if (skip_images.find(image_iter) != skip_images.end())
+      continue;
+
+    auto & img = images[image_iter]; // alias
+    if (img.cols() <= 0 || img.rows() <= 0) 
+      continue;
+    
+    if (img.cols() != cols || img.rows() != rows) 
+      vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended images "
+                   << "must have the same dimensions.\n");
+    
+    for (int col = 0; col < img.cols(); col++) {
+      for (int row = 0; row < img.rows(); row++) {
+        max_image(col, row) = std::max(max_image(col, row), img(col, row));
       }
     }
   }
-  // TODO(oalexan1): Make the block below a small function which finds the unsigned
-  // distance to boundary.
+
+  return;
+}
+                 
+// Find the unsigned distance to the perimeter of max lit region. Add
+// portions of this to the blending weights, in proportion to how
+// relevant the images are likely to contribute. Hence, in the area
+// where all data is borderline, we give more weight to the borderline
+// data, because there is nothing else.  This improves the level of
+// detail in borderline areas.
+void adjustBorderlineDataWeights(int cols, int rows,
+                                 int blending_dist, double blending_power,
+                                 vw::GdalWriteOptions const& opt,
+                                 vw::cartography::GeoReference const& geo,
+                                 std::set<int> const& skip_images,
+                                 std::string const& out_prefix, // for debug data
+                                 std::vector<std::string> const& input_images, 
+                                 std::vector<std::string> const& input_cameras, 
+                                 std::vector<vw::ImageView<double>> & ground_weights) {
+  
+  int num_images = ground_weights.size();
+
+  // Find the max weight
+  ImageView<double> max_weight;
+  maxImage(cols, rows, skip_images, ground_weights,
+           max_weight);
+
+  // Let the union weight be the max of all weights. This will tell us
+  // what pixels have image value above threshold in at least one image.
+  // TODO(oalexan1): Make this a function called max_weight().
+  ImageView<double> boundary_weight(cols, rows);
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+      boundary_weight(col, row) = 0.0;
+    }
+  }
+  
+  // For each image, find a weight function which is 1 at each lit boundary pixel and
+  // linearly decreases to 0 away from the boundary (inward or outward).
   double blending_dist_sq = blending_dist * blending_dist;
   int max_dist_int = ceil(blending_dist); // an int overestimate
-      
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
           
       // Look for a boundary pixel, which is a pixel with zero weight but with neighbors
       // with positive weight
-      if (union_weight(col, row) > 0)
+      if (max_weight(col, row) > 0)
         continue;
       bool is_bd_pix = false;
       for (int c = col - 1; c <= col + 1; c++) {
         for (int r = row - 1; r <= row + 1; r++) {
           if (c < 0 || c >= cols || r < 0 || r >= rows)
             continue;
-          if (union_weight(c, r) > 0) {
+          if (max_weight(c, r) > 0) {
             is_bd_pix = true;
             break; // found it
           }
@@ -115,15 +162,23 @@ void adjustBorderlineDataWeights(int cols, int rows,
       }
     }
   }
-  
+
+  // TODO(oalexan1): Factor this out.
+  // For any input image, find the the weight which is 1 inside where
+  // the image pixels are lit, and linearly decreases from 1 to 0 at
+  // image boundary (outwardly, in the area of unlit pixels).
   std::vector<ImageView<double>> avg_weights(num_images);
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
+
+    if (skip_images.find(image_iter) != skip_images.end())
+      continue;
+    
     auto & ground_wt = ground_weights[image_iter]; // alias
     if (ground_wt.cols() > 0 && ground_wt.rows() > 0) {
       
       if (ground_wt.cols() != cols || ground_wt.rows() != rows) 
-        vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended weights must "
-                     << "have the same dimensions.\n");
+        vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended "
+                     << "weights must have the same dimensions.\n");
       
       avg_weights[image_iter].set_size(cols, rows);
       for (int col = 0; col < ground_wt.cols(); col++) {
@@ -138,8 +193,8 @@ void adjustBorderlineDataWeights(int cols, int rows,
       for (int col = 0; col < cols; col++) {
         for (int row = 0; row < rows; row++) {
           
-          // Look for a boundary pixel, which is a pixel with zero weight but with neighbors
-          // with positive weight
+          // Look for a boundary pixel, which is a pixel with zero
+          // weight but with neighbors with positive weight
           if (ground_wt(col, row) > 0)
             continue;
           bool is_bd_pix = false;
@@ -195,6 +250,8 @@ void adjustBorderlineDataWeights(int cols, int rows,
       // Find the sum at each pixel
       double sum = 0.0;
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
+        if (skip_images.find(image_iter) != skip_images.end())
+          continue;
         auto & avg_wt = avg_weights[image_iter]; // alias
         if (avg_wt.cols() > 0 && avg_wt.rows() > 0 && avg_wt(col, row) > 0) {
           sum += avg_wt(col, row);
@@ -205,12 +262,18 @@ void adjustBorderlineDataWeights(int cols, int rows,
           
       // Divide by the sum at each pixel
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
+        
+        if (skip_images.find(image_iter) != skip_images.end())
+          continue;
+        
         auto & avg_wt = avg_weights[image_iter]; // alias
         if (avg_wt.cols() > 0 && avg_wt.rows() > 0 && avg_wt(col, row) > 0) {
-          avg_wt(col, row) = avg_wt(col, row) / sum; // weighted average
+#if 1 // TODO(oalexan1): Need to improve here
+          avg_wt(col, row) = avg_wt(col, row) * std::max(1.0, 1.0/sum); // weighted average
+#endif
           avg_wt(col, row) *= boundary_weight(col, row); // get a share of the bd weight
               
-          // undo the power in the weight, add the new contribution, and put back the power
+          // Undo the power in the weight, add the new contribution, and put back the power
           double wt = pow(ground_weights[image_iter](col, row), 1.0/blending_power)
             + avg_wt(col, row);
           wt = std::min(wt, 1.0); // make sure the weight is no more than one
@@ -231,25 +294,26 @@ void adjustBorderlineDataWeights(int cols, int rows,
 #if 0
   // Debug code
   bool has_georef = true, has_nodata = false;
-  std::string union_weight_file = out_prefix + "-union_weight.tif";
-  vw_out() << "Writing: " << union_weight_file << std::endl;
-  block_write_gdal_image(union_weight_file,
-                         union_weight,
-                         has_georef, geos[0][0], has_nodata,
+  float img_nodata_val = false; // will not be used
+  std::string max_weight_file = out_prefix + "-max_weight.tif";
+  vw_out() << "Writing: " << max_weight_file << std::endl;
+  vw::cartography::block_write_gdal_image(max_weight_file,
+                         max_weight,
+                         has_georef, geo, has_nodata,
                          img_nodata_val, opt,
                          TerminalProgressCallback("asp", ": "));
       
   std::string boundary_weight_file = out_prefix + "-boundary_weight.tif";
   vw_out() << "Writing: " << boundary_weight_file << std::endl;
-  block_write_gdal_image(boundary_weight_file,
+  vw::cartography::block_write_gdal_image(boundary_weight_file,
                          boundary_weight,
-                         has_georef, geos[0][0], has_nodata,
+                         has_georef, geo, has_nodata,
                          img_nodata_val, opt,
                          TerminalProgressCallback("asp", ": "));
       
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
-    if (skip_images[0].find(image_iter) != skip_images[0].end())
+    if (skip_images.find(image_iter) != skip_images.end())
       continue;
 
     std::string out_camera_file
@@ -257,20 +321,21 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                      input_images[image_iter],
                                      input_cameras[image_iter]);
     std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
+    
     bool has_georef = true, has_nodata = false;
     std::string image_weight_file = local_prefix + "-image_weight.tif";
     vw_out() << "Writing: " << image_weight_file << std::endl;
-    block_write_gdal_image(image_weight_file,
+    vw::cartography::block_write_gdal_image(image_weight_file,
                            ground_weights[image_iter],
-                           has_georef, geos[0][0], has_nodata,
+                           has_georef, geo, has_nodata,
                            img_nodata_val, opt,
                            TerminalProgressCallback("asp", ": "));
         
     std::string avg_weight_file = local_prefix + "-avg_weight.tif";
     vw_out() << "Writing: " << avg_weight_file << std::endl;
-    block_write_gdal_image(avg_weight_file,
+    vw::cartography::block_write_gdal_image(avg_weight_file,
                            avg_weights[image_iter],
-                           has_georef, geos[0][0], has_nodata,
+                           has_georef, geo, has_nodata,
                            img_nodata_val, opt,
                            TerminalProgressCallback("asp", ": "));
   }

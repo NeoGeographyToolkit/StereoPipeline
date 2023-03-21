@@ -23,17 +23,30 @@
 
 #include <vw/Image/ImageView.h>
 
+namespace vw {
+  class GdalWriteOptions;
+  namespace cartography {
+    class GeoReference;
+  }
+}
+
 #include <vector>
 namespace asp{
 
-  // Find the unsigned distance to the perimeter of max lit
-  // region. Add portions of this to the blending weights, in
-  // proportion to how relevant the images are likely to
-  // contribute. This improves the level of detail in borderline
-  // areas, but does not scale up, where likely the portions are
-  // sliced up too thinly.
+// Find the unsigned distance to the perimeter of max lit region. Add
+// portions of this to the blending weights, in proportion to how
+// relevant the images are likely to contribute. Hence, in the area
+// where all data is borderline, we give more weight to the borderline
+// data, because there is nothing else.  This improves the level of
+// detail in borderline areas.
 void adjustBorderlineDataWeights(int cols, int rows,
                                  int blending_dist, double blending_power,
+                                 vw::GdalWriteOptions const& opt,
+                                 vw::cartography::GeoReference const& geo,
+                                 std::set<int> const& skip_images,
+                                 std::string const& out_prefix, // for debug data
+                                 std::vector<std::string> const& input_images, 
+                                 std::vector<std::string> const& input_cameras, 
                                  std::vector<vw::ImageView<double>> & ground_weights);
   
 } // end namespace asp
