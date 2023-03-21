@@ -1444,7 +1444,7 @@ bundle adjustment while doing registration to the ground should take
 place as earlier, with ``--heights-from-dem`` and other related
 options. Lastly mapprojection and SfS should be repeated. (Any bundle
 adjustment operation can reuse the match files from previous attempts
-if copying them over to the new output directory.)
+if the ``--match-files-prefix`` option is used.)
 
 Ideally, after all this, there should be no systematic offset
 between the SfS terrain and the reference LOLA terrain.
