@@ -716,21 +716,28 @@ resolution.
 Handling borderline areas
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-With the option ``--allow-borderline-data``, ``sfs`` tries to to do a
-better job at resolving the terrain in areas where the only available
-data is a mix of barely lit and shadow pixels. The level of detail
-noticeably improves with this option in those areas. However, likely
-the slopes are shallower than they would be if the data was better.
+With the option ``--allow-borderline-data``, ``sfs`` is able to do a
+better job at resolving the terrain in areas where the the
+illumination is weak and there are many shadows. In the example in
+:numref:`sfs_borderline_fig`, in some input images the top portion was lit,
+and in some the bottom portion. With this option, as it can be seen,
+the blur in the transition zone is removed. The craters are 
+still too shallow, but that is a known issue with weak illumination,
+and something to to be addressed at a future time.
 
-For now this works only on small clips with 1-3 carefully chosen images.
+One may need to then use the ``sfs_blend`` tool (:numref:`sfs_blend`)
+to further tune the areas in permanent shadow after doing SfS.
 
 .. figure:: images/sfs_borderline.png
    :name: sfs_borderline_fig
    :alt: SfS with borderline image data.
 
-   A max-lit mosaic in a low-light area (left), the SfS result 
-   without option ``--allow-borderline-data`` (middle) and with it
-   (right). See the text about this option's limitations.
+   The SfS result without option ``--allow-borderline-data`` (left),
+   with it (center), and the max-lit mosaic (right). It can be seen
+   in the max-lit mosaic that the illumination direction is quite
+   different in the top and bottom halves (which appear to be
+   separated by a horizontal ridge), which was causing issues
+   for the algorithm.
 
 .. _sfs-lola:
 
@@ -1296,6 +1303,7 @@ Next, SfS follows::
       --crop-input-images                     \
       --blending-dist 10                      \
       --min-blend-size 50                     \
+      --allow-borderline-data                 \
       --threads 4                             \
       --smoothness-weight 0.08                \
       --initial-dem-constraint-weight 0.001   \
@@ -1318,6 +1326,12 @@ a subselection may not be necessary.
 It is best to avoid images with very low illumination angles as those
 can result in artifacts in the produced SfS terrain.
 
+The first step that will happen when this is launched is computing the
+image exposures. That step can be slow and is not parallelizable, so
+it can be done offline, using the flag ``--compute-exposures-only`` in
+this tool. Then the computed exposures can be passed to the command
+above via the ``--image-exposures-prefix`` option.
+
 It was found empirically that a shadow threshold of 0.005 was good
 enough.  It is also possible to specify individual shadow thresholds
 if desired, via ``--custom-shadow-threshold-list``. This may be useful
@@ -1328,21 +1342,18 @@ far-off. For those, the threshold may need to be raised to as much as
 The option ``--use-approx-camera-models`` is not necessary with CSM
 cameras.
 
-The first step that will happen when this is launched is computing the
-image exposures. That step can be slow and is not parallelizable, so
-it can be done offline, using the flag ``--compute-exposures-only`` in
-this tool. Then the computed exposures can be passed to the command
-above via the ``--image-exposures-prefix`` option.
+The option ``--allow-borderline-data`` improves the level of detail
+close to permanently shadowed areas. See :numref:`sfs_borderline`.
+
+To get more seamless results around small shadowed craters reduce the
+value of ``--min-blend-size``. If you have many such
+craters very close to each other, this may result in some erosion,
+however. Also consider experimenting with ``--blending-dist``.
 
 One should experiment with floating the albedo (option
 ``--float-albedo``) if noticeable albedo variations are seen in the
 images. See :numref:`sfs_albedo` for a longer discussion. It is suggested
 to run SfS without this flag first and inspect the results.
-
-To get more seamless results around small shadowed craters reduce the
-value of ``--min-blend-size``. If you have many such
-craters very close to each other, this may result in some erosion,
-however.
 
 When it comes to selecting the number of nodes to use, it is good to
 notice how many tiles the ``parallel_sfs`` program produces (the tool
@@ -1356,7 +1367,7 @@ accordingly.
 See :numref:`sfs_crater_bottoms` for a potential solution for SfS
 producing flat crater bottoms where there is no illumination to guide
 the solver. See :numref:`sfs_borderline` for a very preliminary
-solutionf for how one can try to improve very low-lit areas (it only
+solution for how one can try to improve very low-lit areas (it only
 works on manually selected clips and 1-3 images for each clip).
 
 Inspection and further iterations
