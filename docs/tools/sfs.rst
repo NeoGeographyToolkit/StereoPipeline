@@ -254,7 +254,8 @@ Command-line options for sfs
 --allow-borderline-data
     In regions where some image portions have only a mix of low-light
     and shadow data, give more weight to such data. This noticeably
-    improves the level of detail. The ``sfs_blend``
+    improves the level of detail. This weighing scheme assumes
+    the DEM heights change little as result of SfS. The ``sfs_blend``
     (:numref:`sfs_blend`) tool may need to be
     used to further tune the permanently shadowed areas. See an
     illustration in :numref:`sfs_borderline`.

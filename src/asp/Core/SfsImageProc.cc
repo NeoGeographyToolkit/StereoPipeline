@@ -76,53 +76,40 @@ void maxImage(int cols, int rows,
   return;
 }
 
-// Find the function which is 1 on the boundary of the max lit region
-// and linearly decays to 0 away from it. Give portions of this to the
-// image blending weights, in proportion to how relevant the images are
-// likely to contribute. Hence, in the area where all data is
-// borderline, we give more weight to the borderline data, because
-// there is nothing else.  This improves the reconstruction.
-void adjustBorderlineDataWeights(int cols, int rows,
-                                 int blending_dist, double blending_power,
-                                 vw::GdalWriteOptions const& opt,
-                                 vw::cartography::GeoReference const& geo,
-                                 std::set<int> const& skip_images,
-                                 std::string const& out_prefix, // for debug data
-                                 std::vector<std::string> const& input_images, 
-                                 std::vector<std::string> const& input_cameras, 
-                                 std::vector<vw::ImageView<double>> & ground_weights) {
+// Given an image with float pixels, find the pixels where the image
+// value is non-positive but some of its neighbors have positive
+// values. Create an image which has the value 1 at such pixels and
+// whose values linearly decrease to 0 both in the direction of pixels
+// with positive and non-positive input values. 
+void boundaryWeight(int blending_dist, ImageView<double> const & image, // inputs
+                    ImageView<double> & boundary_weight) { // output
   
-  int num_images = ground_weights.size();
+  double blending_dist_sq = blending_dist * blending_dist;
+  int max_dist_int = ceil(blending_dist); // an int overestimate
 
-  // Find the max per-pixel weight
-  ImageView<double> max_weight;
-  maxImage(cols, rows, skip_images, ground_weights,
-           max_weight);
-
-  ImageView<double> boundary_weight(cols, rows);
+  // Initialize the output to 0
+  int cols = image.cols(), rows = image.rows();
+  boundary_weight.set_size(cols, rows);
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
       boundary_weight(col, row) = 0.0;
     }
   }
-  
-  // For each image, find a weight function which is 1 at each lit boundary pixel and
-  // linearly decreases to 0 away from the boundary (inward or outward).
-  double blending_dist_sq = blending_dist * blending_dist;
-  int max_dist_int = ceil(blending_dist); // an int overestimate
+
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
           
-      // Look for a boundary pixel, which is a pixel with zero weight but with neighbors
-      // with positive weight
-      if (max_weight(col, row) > 0)
+      // Look for a boundary pixel, which is a pixel with non-positive
+      // value but with neighbors with positive value
+      if (image(col, row) > 0)
         continue;
+      
       bool is_bd_pix = false;
       for (int c = col - 1; c <= col + 1; c++) {
         for (int r = row - 1; r <= row + 1; r++) {
           if (c < 0 || c >= cols || r < 0 || r >= rows)
             continue;
-          if (max_weight(c, r) > 0) {
+          if (image(c, r) > 0) {
             is_bd_pix = true;
             break; // found it
           }
@@ -159,6 +146,41 @@ void adjustBorderlineDataWeights(int cols, int rows,
       }
     }
   }
+
+  return;
+}
+  
+// Find the function which is 1 on the boundary of the max lit region
+// and linearly decays to 0 away from it. Give portions of this to the
+// image blending weights, in proportion to how relevant the images are
+// likely to contribute. Hence, in the area where all data is
+// borderline, we give more weight to the borderline data, because
+// there is nothing else.  This improves the reconstruction.
+// Note: Input image blending weights are 1 away from shadows and decay to 0
+// at the shadow boundary. Output weights will decay then to 0 a bit
+// deeper in the shadow area where there is no other data.
+void adjustBorderlineDataWeights(int cols, int rows,
+                                 int blending_dist, double blending_power,
+                                 vw::GdalWriteOptions const& opt,
+                                 vw::cartography::GeoReference const& geo,
+                                 std::set<int> const& skip_images,
+                                 std::string const& out_prefix, // for debug data
+                                 std::vector<std::string> const& input_images, 
+                                 std::vector<std::string> const& input_cameras, 
+                                 std::vector<vw::ImageView<double>> & ground_weights) {
+  
+  int num_images = ground_weights.size();
+
+  // Find the max per-pixel weight
+  ImageView<double> max_weight;
+  maxImage(cols, rows, skip_images, ground_weights,
+           max_weight);
+
+  // Find a weight which is 1 at the lit/unlit interface and decaying linearly
+  // to 0.
+  ImageView<double> boundary_weight;
+  boundaryWeight(blending_dist, max_weight, // inputs
+                 boundary_weight); // output
 
   // TODO(oalexan1): Factor this out.
   // For any input image, find the the weight which is 1 inside where
@@ -265,14 +287,20 @@ void adjustBorderlineDataWeights(int cols, int rows,
         
         auto & avg_wt = avg_weights[image_iter]; // alias
         if (avg_wt.cols() > 0 && avg_wt.rows() > 0 && avg_wt(col, row) > 0) {
-#if 1 // TODO(oalexan1): Need to improve here
+
+          // This is the core of the logic. When only one image has lit pixels nearby,
+          // ensure this weight is 1. When there's a lot of them, ensure the others
+          // don't dilute this weight. But still ensure this weight is continuous.
           avg_wt(col, row) = avg_wt(col, row) * std::max(1.0, 1.0/sum); // weighted average
-#endif
-          avg_wt(col, row) *= boundary_weight(col, row); // get a share of the bd weight
+
+          // Adjust by a share of the bd weight. This way this correction will only
+          // happen at the max-lit boundary and not other per-image boundaries.
+          avg_wt(col, row) *= boundary_weight(col, row);
               
-          // Undo the power in the weight, add the new contribution, and put back the power
+          // Undo the power in the weight being passed in, add the new
+          // contribution, and put back the power.
           double wt = pow(ground_weights[image_iter](col, row), 1.0/blending_power)
-            + avg_wt(col, row);
+            + avg_wt(col, row); // undo
           wt = std::min(wt, 1.0); // make sure the weight is no more than one
           avg_wt(col, row) = pow(wt, blending_power); // put back the power
         }

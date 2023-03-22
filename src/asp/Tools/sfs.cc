@@ -5979,19 +5979,18 @@ int main(int argc, char* argv[]) {
                                        opt.skip_images[0],
                                        opt.out_prefix, // for debug data
                                        opt.input_images, opt.input_cameras, 
-                                       ground_weights);
+                                       ground_weights); // output
 
-      // Use the ground weights from now on instead of blending weights
+      // Use the ground weights from now on instead of blending weights.
+      // Will overwrite the weights below.
       g_blend_weight_is_ground_weight = true;
       if (num_dems != 1) 
         vw::vw_throw(vw::ArgumentErr() << "Cannot use more than one DEM with "
                      << "--allow-borderline-data.\n");
 
-      // Redo the image masks. All data with non-negative values is
-      // valid. The weights will control which data gets used. It is
-      // assumed opt.crop_input_images is true and opt.blending_dist > 0.
-      // TODO(oalexan1): Why are the masks redone? Try to delete this
-      // code and see if it makes a difference.
+      // Redo the image masks. Unlike before, the shadow threshold is set to 0
+      // to allow shadow pixels. The weights will control how much of these
+      // are actually used. This approach is better than a hard cutoff with the mask.
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
         for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
           if (opt.skip_images[dem_iter].find(image_iter) != opt.skip_images[dem_iter].end())
@@ -5999,8 +5998,7 @@ int main(int argc, char* argv[]) {
           
           std::string img_file = opt.input_images[image_iter];
           vw::read_nodata_val(img_file, img_nodata_val);
-          // Model the shadow threshold
-          float shadow_thresh = 0.0;
+          float shadow_thresh = 0.0; // Note how the shadow thresh is now 0, unlike before
           // Make a copy in memory for faster access
           if (!crop_boxes[0][dem_iter][image_iter].empty()) {
             ImageView<float> cropped_img = 
