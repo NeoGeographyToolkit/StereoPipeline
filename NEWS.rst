@@ -2,12 +2,12 @@ Changes since last release
 --------------------------
 
 New tools:
+  * Added ``sfm_merge`` (:numref:`sfm_merge`) to merge several SfM
+    reconstructions that may or may not have shared images.
   * Added ``sfm_submap`` (:numref:`sfm_submap`), a tool to extract  
     a submap from a Structure-from-Motion map in .nvm format, 
     as produced by ``theia_sfm`` (:numref:`theia_sfm`) or refined
     with ``rig_calibrator`` (:numref:`rig_calibrator`).
-  * Added ``sfm_merge`` (:numref:`sfm_merge`) to merge several SfM
-    reconstructions that may or may not have shared images.
   * Added a couple of small Python scripts for handling ROS bags
     (:numref:`ros_tools`). No ROS binaries are shipped.
   
@@ -46,11 +46,11 @@ sfs (:numref:`sfs`):
     were observed to make a full 360 degree loop, with a total of 614k
     triangulated points. Updated the documentation reflecting
     latest best practices (:numref:`sfs-lola`).
+  * Create more detail in the reconstructed DEM in borderline lit
+    regions. Option: ``--allow-borderline-data``
+    (:numref:`sfs_borderline`).
   * Added the options ``--image-list`` and ``--camera-list`` for when
     the number of images becomes too large to set on the command line.
-  * Create more detail in the reconstructed DEM in borderline lit
-    regions. Option: ``--allow-borderline-data``. For now this works
-    on small clips with a very small number of images. To be improved.
 
 rig_calibrator (:numref:`rig_calibrator`):
   * Added a detailed tutorial describing how this tool was used to
@@ -75,7 +75,10 @@ rig_calibrator (:numref:`rig_calibrator`):
   * Fix for too many valid interest point matches being filtered out.
 
 voxblox_mesh (:numref:`voxblox_mesh`):
-  * Added median filtering of input point clouds.
+  * Added median filtering of input point clouds (option
+    ``--median_filter``).
+  * Added weighing of depth points given their distance from the
+    sensor (option ``--distance_weight``).
 
 texrecon (:numref:`texrecon`):
   * Can create a texture from multiple sensors in a set of rigs.
@@ -125,7 +128,7 @@ misc:
     processing for XML-based camera models.
   * Added back the tool ``view_reconstruction``, for examining
     Theia's SfM solution (:numref:`sfm`).
-  * The theia_sfm tool can write the optical offsets for a given
+  * The ``theia_sfm`` tool can write the optical offsets for a given
     nvm file which can be used in plotting such files in ``stereo_gui``. 
   * Added to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`) the option
     ``--web`` to invoke ``spiceinit`` with ``web=True``. Contributed
