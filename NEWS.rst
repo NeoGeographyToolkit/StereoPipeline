@@ -2,7 +2,7 @@ Changes since last release
 --------------------------
 
 New tools:
-  * Added ``sfm_merge`` (:numref:`sfm_merge`), tool to merge several
+  * Added ``sfm_merge`` (:numref:`sfm_merge`), a tool to merge several
     SfM reconstructions that may or may not have shared images.
   * Added ``sfm_submap`` (:numref:`sfm_submap`), a tool to extract  
     a submap from a Structure-from-Motion map in .nvm format, 

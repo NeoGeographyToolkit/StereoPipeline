@@ -186,7 +186,7 @@ void adjustBorderlineDataWeights(int cols, int rows,
   // For any input image, find the the weight which is 1 inside where
   // the image pixels are lit, and linearly decreases from 1 to 0 at
   // image boundary (outwardly, in the area of unlit pixels).
-  std::vector<ImageView<double>> avg_weights(num_images);
+  std::vector<ImageView<double>> expanded_weights(num_images);
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
     if (skip_images.find(image_iter) != skip_images.end())
@@ -199,10 +199,10 @@ void adjustBorderlineDataWeights(int cols, int rows,
         vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended "
                      << "weights must have the same dimensions.\n");
       
-      avg_weights[image_iter].set_size(cols, rows);
+      expanded_weights[image_iter].set_size(cols, rows);
       for (int col = 0; col < ground_wt.cols(); col++) {
         for (int row = 0; row < ground_wt.rows(); row++) {
-          avg_weights[image_iter](col, row) = (ground_wt(col, row) > 0);
+          expanded_weights[image_iter](col, row) = (ground_wt(col, row) > 0);
         }
       }
       
@@ -253,7 +253,7 @@ void adjustBorderlineDataWeights(int cols, int rows,
               d /= double(blending_dist); // make it between 0 and 1
               d = std::max(d, 0.0); // should not be necessary
               // Add its contribution
-              avg_weights[image_iter](c, r) = std::max(avg_weights[image_iter](c, r), d);
+              expanded_weights[image_iter](c, r) = std::max(expanded_weights[image_iter](c, r), d);
             }
           }
           
@@ -271,9 +271,9 @@ void adjustBorderlineDataWeights(int cols, int rows,
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
         if (skip_images.find(image_iter) != skip_images.end())
           continue;
-        auto & avg_wt = avg_weights[image_iter]; // alias
-        if (avg_wt.cols() > 0 && avg_wt.rows() > 0 && avg_wt(col, row) > 0) {
-          sum += avg_wt(col, row);
+        auto & expanded_wt = expanded_weights[image_iter]; // alias
+        if (expanded_wt.cols() > 0 && expanded_wt.rows() > 0 && expanded_wt(col, row) > 0) {
+          sum += expanded_wt(col, row);
         }
       }
       if (sum <= 0) 
@@ -285,32 +285,33 @@ void adjustBorderlineDataWeights(int cols, int rows,
         if (skip_images.find(image_iter) != skip_images.end())
           continue;
         
-        auto & avg_wt = avg_weights[image_iter]; // alias
-        if (avg_wt.cols() > 0 && avg_wt.rows() > 0 && avg_wt(col, row) > 0) {
+        auto & expanded_wt = expanded_weights[image_iter]; // alias
+        if (expanded_wt.cols() > 0 && expanded_wt.rows() > 0 && expanded_wt(col, row) > 0) {
 
           // This is the core of the logic. When only one image has lit pixels nearby,
           // ensure this weight is 1. When there's a lot of them, ensure the others
           // don't dilute this weight. But still ensure this weight is continuous.
-          avg_wt(col, row) = avg_wt(col, row) * std::max(1.0, 1.0/sum); // weighted average
+          expanded_wt(col, row) = expanded_wt(col, row) * std::max(1.0, 1.0/sum); 
 
           // Adjust by a share of the bd weight. This way this correction will only
           // happen at the max-lit boundary and not other per-image boundaries.
-          avg_wt(col, row) *= boundary_weight(col, row);
+          expanded_wt(col, row) *= boundary_weight(col, row);
               
           // Undo the power in the weight being passed in, add the new
           // contribution, and put back the power.
           double wt = pow(ground_weights[image_iter](col, row), 1.0/blending_power)
-            + avg_wt(col, row); // undo
+            + expanded_wt(col, row); // undo
           wt = std::min(wt, 1.0); // make sure the weight is no more than one
-          avg_wt(col, row) = pow(wt, blending_power); // put back the power
+          expanded_wt(col, row) = pow(wt, blending_power); // put back the power
         }
       }
     }
   }
 
   // Use the newly created weights
+  // TODO(oalexan1): Copy directly into ground_weights above
   for (int image_iter = 0; image_iter < num_images; image_iter++)
-    ground_weights[image_iter] = copy(avg_weights[image_iter]);
+    ground_weights[image_iter] = copy(expanded_weights[image_iter]);
 
   // TODO(oalexan1): Must make sure to make the images have non-negative but valid values
   // where the weights are positive and invalid values where they are zero.
@@ -359,13 +360,13 @@ void adjustBorderlineDataWeights(int cols, int rows,
     std::string avg_weight_file = local_prefix + "-avg_weight.tif";
     vw_out() << "Writing: " << avg_weight_file << std::endl;
     vw::cartography::block_write_gdal_image(avg_weight_file,
-                           avg_weights[image_iter],
+                           expanded_weights[image_iter],
                            has_georef, geo, has_nodata,
                            img_nodata_val, opt,
                            TerminalProgressCallback("asp", ": "));
   }
 #endif
-  avg_weights.clear(); // not needed anymore
+  expanded_weights.clear(); // not needed anymore
 
   return;
 }
