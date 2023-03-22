@@ -2601,9 +2601,6 @@ public:
           continue;
         }
       
-        // Separate into blocks for each image
-        vw_out() << "\n";
-
         ImageView<PixelMask<double>> reflectance, intensity, comp_intensity;
         ImageView<double> ground_weight;
 
@@ -3856,7 +3853,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("min-blend-size", po::value(&opt.min_blend_size)->default_value(0),
      "Do not apply blending in shadowed areas of dimensions less than this.")
     ("allow-borderline-data",   po::bool_switch(&opt.allow_borderline_data)->default_value(false)->implicit_value(true),
-     "In regions where some image portions have only a mix of low-light and shadow data, allow those if no other images have anything better. For now this works on small clips with a very small number of images. To be improved.")
+     "In regions where some image portions have only a mix of low-light and shadow data, allow those if no other images have anything better. This noticeably improves the level of detail. The sfs_blend tool may need to be used to further tune the permanently shadowed areas.")
     ("steepness-factor", po::value(&opt.steepness_factor)->default_value(1.0),
      "Try to make the terrain steeper by this factor. This is not recommended in regular use.")
     ("curvature-in-shadow", po::value(&opt.curvature_in_shadow)->default_value(0.0),

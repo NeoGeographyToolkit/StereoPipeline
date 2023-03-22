@@ -185,7 +185,8 @@ This produces ``stereo_out/nav_cam/texture.obj``.
 
    Fused .ply mesh and textured .obj file produced by ``voxblox_mesh``
    and ``texrecon`` (left and right). Here, no smoothing or hole-filling
-   of the meshes was used (:numref:`cgal_tools`).
+   of the meshes was used (:numref:`cgal_tools`). See :numref:`sfm_iss`
+   for an example of mesh and texture creation for depth data.
 
 Handling issues
 ^^^^^^^^^^^^^^^

@@ -75,13 +75,13 @@ void maxImage(int cols, int rows,
 
   return;
 }
-                 
-// Find the unsigned distance to the perimeter of max lit region. Add
-// portions of this to the blending weights, in proportion to how
-// relevant the images are likely to contribute. Hence, in the area
-// where all data is borderline, we give more weight to the borderline
-// data, because there is nothing else.  This improves the level of
-// detail in borderline areas.
+
+// Find the function which is 1 on the boundary of the max lit region
+// and linearly decays to 0 away from it. Give portions of this to the
+// image blending weights, in proportion to how relevant the images are
+// likely to contribute. Hence, in the area where all data is
+// borderline, we give more weight to the borderline data, because
+// there is nothing else.  This improves the reconstruction.
 void adjustBorderlineDataWeights(int cols, int rows,
                                  int blending_dist, double blending_power,
                                  vw::GdalWriteOptions const& opt,
@@ -94,14 +94,11 @@ void adjustBorderlineDataWeights(int cols, int rows,
   
   int num_images = ground_weights.size();
 
-  // Find the max weight
+  // Find the max per-pixel weight
   ImageView<double> max_weight;
   maxImage(cols, rows, skip_images, ground_weights,
            max_weight);
 
-  // Let the union weight be the max of all weights. This will tell us
-  // what pixels have image value above threshold in at least one image.
-  // TODO(oalexan1): Make this a function called max_weight().
   ImageView<double> boundary_weight(cols, rows);
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
@@ -136,9 +133,9 @@ void adjustBorderlineDataWeights(int cols, int rows,
       if (!is_bd_pix) 
         continue; // did not find it
           
-      // Found the boundary pixel. Increase the weight in the
-      // circular neighborhood.  It will still be below min_wt
-      // and decay to 0 at the boundary of this neighborhood.
+      // Found the boundary pixel. Increase the weight in the circular
+      // neighborhood. It will decay to 0 at the boundary of this
+      // neighborhood.
       for (int c = col - max_dist_int; c <= col + max_dist_int; c++) {
         for (int r = row - max_dist_int; r <= row + max_dist_int; r++) {
           if (c < 0 || c >= cols || r < 0 || r >= rows)

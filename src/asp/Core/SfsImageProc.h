@@ -33,12 +33,7 @@ namespace vw {
 #include <vector>
 namespace asp{
 
-// Find the unsigned distance to the perimeter of max lit region. Add
-// portions of this to the blending weights, in proportion to how
-// relevant the images are likely to contribute. Hence, in the area
-// where all data is borderline, we give more weight to the borderline
-// data, because there is nothing else.  This improves the level of
-// detail in borderline areas.
+// See the .cc file for the documentation.
 void adjustBorderlineDataWeights(int cols, int rows,
                                  int blending_dist, double blending_power,
                                  vw::GdalWriteOptions const& opt,

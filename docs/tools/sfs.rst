@@ -253,10 +253,11 @@ Command-line options for sfs
 
 --allow-borderline-data
     In regions where some image portions have only a mix of low-light
-    and shadow data, allow those if no other images have anything
-    better. For now this works on small clips with a very small number
-    of images. To be improved. See an illustration in
-    :numref:`sfs_borderline`.
+    and shadow data, give more weight to such data. This noticeably
+    improves the level of detail. The ``sfs_blend``
+    (:numref:`sfs_blend`) tool may need to be
+    used to further tune the permanently shadowed areas. See an
+    illustration in :numref:`sfs_borderline`.
 
 --model-coeffs-prefix <path>
     Use this prefix to optionally read model coefficients from a

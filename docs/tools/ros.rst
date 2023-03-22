@@ -3,15 +3,14 @@
 ROS bag handling tools
 ----------------------
 
-ASP does not ship the ROS robot stack, but provides a couple of Python
-scripts that can query and extract images and depth clouds from a ROS
-bag. These tools are stored in the ``libexec`` directory of the ASP
-distribution, as they use the local system's Python rather than the
-Python shipped with ASP.  It is assumed that ROS is installed on the local
-system.
+ASP provides a couple of Python scripts that can query and extract
+images and depth clouds from a ROS bag. These are stored in the
+``libexec`` directory of the ASP distribution, as they use the local
+system's Python rather than the Python shipped with ASP. It is
+assumed that ROS is installed on the local system.
 
 These tools are motivated by the fact that robot Structure-from-Motion
-datasets often come in ROS bags. For further context and examples, see
+datasets often come in ROS bags. For context and examples, see
 :numref:`sfm_isis_data_prep`.
 
 .. _ros_tools_list:
