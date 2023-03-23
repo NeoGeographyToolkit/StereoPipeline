@@ -725,6 +725,10 @@ the blur in the transition zone is removed. The craters are
 still too shallow, but that is a known issue with weak illumination,
 and something to to be addressed at a future time.
 
+Another paramter which can strongly affect the behavior close to shadows
+is ``--blending-dist``. It should be set to 5 or so. A smaller value may 
+resolve the terrain better but may result in seams. 
+
 One may need to then use the ``sfs_blend`` tool (:numref:`sfs_blend`)
 to further tune the areas in permanent shadow after doing SfS.
 
@@ -1301,7 +1305,7 @@ Next, SfS follows::
       --bundle-adjust-prefix ba_align_ref/run \
       --use-approx-camera-models              \
       --crop-input-images                     \
-      --blending-dist 10                      \
+      --blending-dist 5                       \
       --min-blend-size 50                     \
       --allow-borderline-data                 \
       --threads 4                             \

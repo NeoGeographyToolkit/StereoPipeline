@@ -149,16 +149,87 @@ void boundaryWeight(int blending_dist, ImageView<double> const & image, // input
 
   return;
 }
+
+// Given an image with non-negative values, create another image
+// which is 1 where the input image has positive values, and decays
+// to 0 linearly beyond that.
+void extendedWeight(int blending_dist, ImageView<double> const & image, // inputs         
+                    ImageView<double> & extended_weight) { // output
+
+  int cols = image.cols(), rows = image.rows();
+  extended_weight.set_size(cols, rows);
+  for (int col = 0; col < image.cols(); col++) {
+    for (int row = 0; row < image.rows(); row++) {
+      extended_weight(col, row) = (image(col, row) > 0);
+    }
+  }
+  
+  double blending_dist_sq = blending_dist * blending_dist;
+  int max_dist_int = ceil(blending_dist); // an int overestimate
+  
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+      
+      // Look for a boundary pixel, which is a pixel with zero
+          // weight but with neighbors with positive weight
+      if (image(col, row) > 0)
+            continue;
+      bool is_bd_pix = false;
+      for (int c = col - 1; c <= col + 1; c++) {
+        for (int r = row - 1; r <= row + 1; r++) {
+          if (c < 0 || c >= cols || r < 0 || r >= rows)
+            continue;
+          if (image(c, r) > 0) {
+            is_bd_pix = true;
+            break; // found it
+          }
+        }
+        if (is_bd_pix) 
+          break; // found it
+      }
+      if (!is_bd_pix) 
+        continue; // did not find it
+      
+      // Found the boundary pixel. Increase the weight in the
+      // circular neighborhood.  It will still be below 1
+      // and decay to 0 at the boundary of this neighborhood.
+      for (int c = col - max_dist_int; c <= col + max_dist_int; c++) {
+        for (int r = row - max_dist_int; r <= row + max_dist_int; r++) {
+          if (c < 0 || c >= cols || r < 0 || r >= rows)
+            continue;
+          
+          // Cast to double before multiplying to avoid integer overflow
+          double dsq = double(c - col) * double(c - col) + 
+            double(r - row) * double(r - row);
+          
+          // Too far 
+          if (dsq >= blending_dist_sq) 
+            continue;
+          
+          double d = sqrt(dsq);
+          d = blending_dist - d; // get a cone pointing up, with base at height 0.
+          d /= double(blending_dist); // make it between 0 and 1
+          d = std::max(d, 0.0); // should not be necessary
+          // Add its contribution
+          extended_weight(c, r) = std::max(extended_weight(c, r), d);
+        }
+      }
+    }
+  }
+
+  return;
+}
   
 // Find the function which is 1 on the boundary of the max lit region
-// and linearly decays to 0 away from it. Give portions of this to the
+// and linearly decays to 0 away from it. Add portions of this to the
 // image blending weights, in proportion to how relevant the images are
 // likely to contribute. Hence, in the area where all data is
 // borderline, we give more weight to the borderline data, because
 // there is nothing else.  This improves the reconstruction.
 // Note: Input image blending weights are 1 away from shadows and decay to 0
 // at the shadow boundary. Output weights will decay then to 0 a bit
-// deeper in the shadow area where there is no other data.
+// deeper in the shadow area where there is no other data. We do not
+// recompute these weights as the DEM changes, which is an approximation.
 void adjustBorderlineDataWeights(int cols, int rows,
                                  int blending_dist, double blending_power,
                                  vw::GdalWriteOptions const& opt,
@@ -176,93 +247,35 @@ void adjustBorderlineDataWeights(int cols, int rows,
   maxImage(cols, rows, skip_images, ground_weights,
            max_weight);
 
-  // Find a weight which is 1 at the lit/unlit interface and decaying linearly
+  // Find a weight which is 1 at the max-lit/unlit interface and decaying linearly
   // to 0.
   ImageView<double> boundary_weight;
   boundaryWeight(blending_dist, max_weight, // inputs
                  boundary_weight); // output
 
-  // TODO(oalexan1): Factor this out.
-  // For any input image, find the the weight which is 1 inside where
+  // For an input ground weight (which shows where the image is lit),
+  // find the the weight which is 1 inside where
   // the image pixels are lit, and linearly decreases from 1 to 0 at
   // image boundary (outwardly, in the area of unlit pixels).
-  std::vector<ImageView<double>> expanded_weights(num_images);
+  std::vector<ImageView<double>> extended_weights(num_images);
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
     if (skip_images.find(image_iter) != skip_images.end())
       continue;
-    
     auto & ground_wt = ground_weights[image_iter]; // alias
-    if (ground_wt.cols() > 0 && ground_wt.rows() > 0) {
-      
-      if (ground_wt.cols() != cols || ground_wt.rows() != rows) 
-        vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended "
-                     << "weights must have the same dimensions.\n");
-      
-      expanded_weights[image_iter].set_size(cols, rows);
-      for (int col = 0; col < ground_wt.cols(); col++) {
-        for (int row = 0; row < ground_wt.rows(); row++) {
-          expanded_weights[image_iter](col, row) = (ground_wt(col, row) > 0);
-        }
-      }
-      
-      double blending_dist_sq = blending_dist * blending_dist;
-      int max_dist_int = ceil(blending_dist); // an int overestimate
-      
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++) {
-          
-          // Look for a boundary pixel, which is a pixel with zero
-          // weight but with neighbors with positive weight
-          if (ground_wt(col, row) > 0)
-            continue;
-          bool is_bd_pix = false;
-          for (int c = col - 1; c <= col + 1; c++) {
-            for (int r = row - 1; r <= row + 1; r++) {
-              if (c < 0 || c >= cols || r < 0 || r >= rows)
-                continue;
-              if (ground_wt(c, r) > 0) {
-                is_bd_pix = true;
-                break; // found it
-              }
-            }
-            if (is_bd_pix) 
-                  break; // found it
-          }
-          if (!is_bd_pix) 
-            continue; // did not find it
-          
-          // Found the boundary pixel. Increase the weight in the
-          // circular neighborhood.  It will still be below 1
-          // and decay to 0 at the boundary of this neighborhood.
-          for (int c = col - max_dist_int; c <= col + max_dist_int; c++) {
-            for (int r = row - max_dist_int; r <= row + max_dist_int; r++) {
-              if (c < 0 || c >= cols || r < 0 || r >= rows)
-                continue;
-              
-              // Cast to double before multiplying to avoid integer overflow
-              double dsq = double(c - col) * double(c - col) + 
-                double(r - row) * double(r - row);
-              
-              // Too far 
-              if (dsq >= blending_dist_sq) 
-                continue;
-              
-              double d = sqrt(dsq);
-              d = blending_dist - d; // get a cone pointing up, with base at height 0.
-              d /= double(blending_dist); // make it between 0 and 1
-              d = std::max(d, 0.0); // should not be necessary
-              // Add its contribution
-              expanded_weights[image_iter](c, r) = std::max(expanded_weights[image_iter](c, r), d);
-            }
-          }
-          
-        }
-      }
-    }
+    if (ground_wt.cols() <= 0 || ground_wt.rows() <= 0) 
+      continue;
+    if (ground_wt.cols() != cols || ground_wt.rows() != rows) 
+      vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended "
+                   << "weights must have the same dimensions.\n");
+    
+    extendedWeight(blending_dist, ground_wt,  // inputs         
+                   extended_weights[image_iter]); // output
   } // end iterating over images
 
-  // Do the weighted average. First initialize to 0.
+  // Distribute the boundary weight to each extended image weight
+  // intersecting with it. Then add that contribution to the existing
+  // image weight.
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
           
@@ -271,104 +284,93 @@ void adjustBorderlineDataWeights(int cols, int rows,
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
         if (skip_images.find(image_iter) != skip_images.end())
           continue;
-        auto & expanded_wt = expanded_weights[image_iter]; // alias
-        if (expanded_wt.cols() > 0 && expanded_wt.rows() > 0 && expanded_wt(col, row) > 0) {
-          sum += expanded_wt(col, row);
+        auto & extended_wt = extended_weights[image_iter]; // alias
+        if (extended_wt.cols() > 0 && extended_wt.rows() > 0
+            && extended_wt(col, row) > 0) {
+          sum += extended_wt(col, row);
         }
       }
       if (sum <= 0) 
         continue;
           
-      // Divide by the sum at each pixel
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
         
         if (skip_images.find(image_iter) != skip_images.end())
           continue;
         
-        auto & expanded_wt = expanded_weights[image_iter]; // alias
-        if (expanded_wt.cols() > 0 && expanded_wt.rows() > 0 && expanded_wt(col, row) > 0) {
-
-          // This is the core of the logic. When only one image has lit pixels nearby,
-          // ensure this weight is 1. When there's a lot of them, ensure the others
-          // don't dilute this weight. But still ensure this weight is continuous.
-          expanded_wt(col, row) = expanded_wt(col, row) * std::max(1.0, 1.0/sum); 
-
-          // Adjust by a share of the bd weight. This way this correction will only
-          // happen at the max-lit boundary and not other per-image boundaries.
-          expanded_wt(col, row) *= boundary_weight(col, row);
-              
-          // Undo the power in the weight being passed in, add the new
-          // contribution, and put back the power.
-          double wt = pow(ground_weights[image_iter](col, row), 1.0/blending_power)
-            + expanded_wt(col, row); // undo
-          wt = std::min(wt, 1.0); // make sure the weight is no more than one
-          expanded_wt(col, row) = pow(wt, blending_power); // put back the power
-        }
+        auto & extended_wt = extended_weights[image_iter]; // alias
+        if (extended_wt.cols() <= 0 || extended_wt.rows() <= 0 ||
+            extended_wt(col, row) <= 0) continue;
+        
+        // This is the core of the logic. When only for one image this
+        // pixel is lit, ensure this weight is 1. When there's a lot
+        // of them, ensure the others don't dilute this weight. But
+        // still ensure this weight is continuous.
+        double delta_wt = extended_wt(col, row) * std::max(1.0, 1.0/sum); 
+        
+        // Restrict this to the max-lit mosaic boundary
+        delta_wt *= boundary_weight(col, row);
+        
+        // Undo the power in the weight being passed in, add the new
+        // contribution, extending it, and put back the power.
+        double ground_wt = ground_weights[image_iter](col, row);
+        ground_wt = pow(ground_wt, 1.0/blending_power);
+        ground_wt = ground_wt + delta_wt;
+        ground_wt = pow(ground_wt, blending_power);
+        ground_weights[image_iter](col, row) = ground_wt;
       }
     }
   }
 
-  // Use the newly created weights
-  // TODO(oalexan1): Copy directly into ground_weights above
-  for (int image_iter = 0; image_iter < num_images; image_iter++)
-    ground_weights[image_iter] = copy(expanded_weights[image_iter]);
+  extended_weights.clear(); // not needed anymore
 
   // TODO(oalexan1): Must make sure to make the images have non-negative but valid values
   // where the weights are positive and invalid values where they are zero.
-  // TODO(oalexan1): Should these weights be updated as the terrain changes?
-  
-#if 0
-  // Debug code
-  bool has_georef = true, has_nodata = false;
-  float img_nodata_val = false; // will not be used
-  std::string max_weight_file = out_prefix + "-max_weight.tif";
-  vw_out() << "Writing: " << max_weight_file << std::endl;
-  vw::cartography::block_write_gdal_image(max_weight_file,
-                         max_weight,
-                         has_georef, geo, has_nodata,
-                         img_nodata_val, opt,
-                         TerminalProgressCallback("asp", ": "));
-      
-  std::string boundary_weight_file = out_prefix + "-boundary_weight.tif";
-  vw_out() << "Writing: " << boundary_weight_file << std::endl;
-  vw::cartography::block_write_gdal_image(boundary_weight_file,
-                         boundary_weight,
-                         has_georef, geo, has_nodata,
-                         img_nodata_val, opt,
-                         TerminalProgressCallback("asp", ": "));
-      
-  for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
-    if (skip_images.find(image_iter) != skip_images.end())
-      continue;
-
-    std::string out_camera_file
-      = asp::bundle_adjust_file_name(out_prefix,
-                                     input_images[image_iter],
-                                     input_cameras[image_iter]);
-    std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
-    
+  bool save_debug_info = false;
+  if (save_debug_info) {
     bool has_georef = true, has_nodata = false;
-    std::string image_weight_file = local_prefix + "-image_weight.tif";
-    vw_out() << "Writing: " << image_weight_file << std::endl;
-    vw::cartography::block_write_gdal_image(image_weight_file,
-                           ground_weights[image_iter],
-                           has_georef, geo, has_nodata,
-                           img_nodata_val, opt,
-                           TerminalProgressCallback("asp", ": "));
+    float img_nodata_val = false; // will not be used
+    std::string max_weight_file = out_prefix + "-max_weight.tif";
+    vw_out() << "Writing: " << max_weight_file << std::endl;
+    vw::cartography::block_write_gdal_image(max_weight_file,
+                                            max_weight,
+                                            has_georef, geo, has_nodata,
+                                            img_nodata_val, opt,
+                                            TerminalProgressCallback("asp", ": "));
+      
+    std::string boundary_weight_file = out_prefix + "-boundary_weight.tif";
+    vw_out() << "Writing: " << boundary_weight_file << std::endl;
+    vw::cartography::block_write_gdal_image(boundary_weight_file,
+                                            boundary_weight,
+                                            has_georef, geo, has_nodata,
+                                            img_nodata_val, opt,
+                                            TerminalProgressCallback("asp", ": "));
+      
+    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+
+      if (skip_images.find(image_iter) != skip_images.end())
+        continue;
+
+      std::string out_camera_file
+        = asp::bundle_adjust_file_name(out_prefix,
+                                       input_images[image_iter],
+                                       input_cameras[image_iter]);
+      std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
+    
+      bool has_georef = true, has_nodata = false;
+      std::string ground_weight_file = local_prefix + "-ground_weight.tif";
+      vw_out() << "Writing: " << ground_weight_file << std::endl;
+      vw::cartography::block_write_gdal_image(ground_weight_file,
+                                              ground_weights[image_iter],
+                                              has_georef, geo, has_nodata,
+                                              img_nodata_val, opt,
+                                              TerminalProgressCallback("asp", ": "));
         
-    std::string avg_weight_file = local_prefix + "-avg_weight.tif";
-    vw_out() << "Writing: " << avg_weight_file << std::endl;
-    vw::cartography::block_write_gdal_image(avg_weight_file,
-                           expanded_weights[image_iter],
-                           has_georef, geo, has_nodata,
-                           img_nodata_val, opt,
-                           TerminalProgressCallback("asp", ": "));
-  }
-#endif
-  expanded_weights.clear(); // not needed anymore
+    }
+  } // end saving debug info
 
   return;
 }
-
-}
+  
+} // end namespace asp
