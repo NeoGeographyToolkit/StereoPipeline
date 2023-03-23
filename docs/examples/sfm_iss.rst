@@ -491,6 +491,11 @@ sensor names now refer to ``sci_cam`` as well.
 The produced textured mesh can be overlayed on top of the earlier ones
 in ``meshlab``.
 
+Results
+^^^^^^^
+
+See :numref:`sfm_iss_texture`.
+
 Scaling up the problem
 ^^^^^^^^^^^^^^^^^^^^^^
 

@@ -11,7 +11,7 @@ assumed that ROS is installed on the local system.
 
 These tools are motivated by the fact that robot Structure-from-Motion
 datasets often come in ROS bags. For context and examples, see
-:numref:`sfm_isis_data_prep`.
+:numref:`sfm_iss`.
 
 .. _ros_tools_list:
 

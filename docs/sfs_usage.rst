@@ -726,8 +726,8 @@ still too shallow, but that is a known issue with weak illumination,
 and something to to be addressed at a future time.
 
 Another paramter which can strongly affect the behavior close to shadows
-is ``--blending-dist``. It should be set to 5 or so. A smaller value may 
-resolve the terrain better but may result in seams. 
+is ``--blending-dist``. It should be set to 10 or so. A smaller value may 
+result in seams. 
 
 One may need to then use the ``sfs_blend`` tool (:numref:`sfs_blend`)
 to further tune the areas in permanent shadow after doing SfS.
