@@ -15,7 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// TODO:
+// TODO(oalexan1): Move image logic to SfsImageProc.cc. Add also
+// SfS camera approx logic, and SfS cost function logic.
 // Remove all logic with multiple DEM clips, it turned out not to work.
 // Remove all floating of cameras from the code and the doc, one has to use bundle adjust.
 // Then also remove all the logic using unadjusted cameras except the place
@@ -1155,95 +1156,6 @@ void compute_image_stats(ImageT const& I1, ImageT const& I2,
 
 }
 
-// Find the points on a given DEM that are shadowed by other points of
-// the DEM.  Start marching from the point on the DEM on a ray towards
-// the sun in small increments, until hitting the maximum DEM height.
-bool isInShadow(int col, int row, Vector3 & sunPos,
-                ImageView<double> const& dem, double max_dem_height,
-                double gridx, double gridy,
-                cartography::GeoReference const& geo){
-
-  // Here bicubic interpolation won't work. It is easier to interpret
-  // the DEM as piecewise-linear when dealing with rays intersecting
-  // it.
-  InterpolationView<EdgeExtensionView< ImageView<double>,
-    ConstantEdgeExtension >, BilinearInterpolation>
-    interp_dem = interpolate(dem, BilinearInterpolation(),
-                             ConstantEdgeExtension());
-
-  // The xyz position at the center grid point
-  Vector2 dem_llh = geo.pixel_to_lonlat(Vector2(col, row));
-  Vector3 dem_lonlat_height = Vector3(dem_llh(0), dem_llh(1), dem(col, row));
-  Vector3 xyz = geo.datum().geodetic_to_cartesian(dem_lonlat_height);
-
-  // Normalized direction from the view point
-  Vector3 dir = sunPos - xyz;
-  if (dir == Vector3())
-    return false;
-  dir = dir/norm_2(dir);
-
-  // The projection of dir onto the tangent plane at xyz,
-  // that is, the "horizontal" component at the current sphere surface.
-  Vector3 dir2 = dir - dot_prod(dir, xyz)*xyz/dot_prod(xyz, xyz);
-
-  // Ensure that we advance by at most half a grid point each time
-  double delta = 0.5*std::min(gridx, gridy)/std::max(norm_2(dir2), 1e-16);
-
-  // Go along the ray. Don't allow the loop to go forever.
-  for (int i = 1; i < 10000000; i++) {
-    Vector3 ray_P = xyz + i * delta * dir;
-    Vector3 ray_llh = geo.datum().cartesian_to_geodetic(ray_P);
-    if (ray_llh[2] > max_dem_height) {
-      // We're above the highest terrain, no point in continuing
-      return false;
-    }
-
-    // Compensate for any longitude 360 degree offset, e.g., 270 deg vs -90 deg
-    ray_llh[0] += 360.0*round((dem_llh[0] - ray_llh[0])/360.0);
-
-    Vector2 ray_pix = geo.lonlat_to_pixel(Vector2(ray_llh[0], ray_llh[1]));
-
-    if (ray_pix[0] < 0 || ray_pix[0] > dem.cols() - 1 ||
-        ray_pix[1] < 0 || ray_pix[1] > dem.rows() - 1 ) {
-      return false; // got out of the DEM, no point continuing
-    }
-
-    // Dem height at the current point on the ray
-    double dem_h = interp_dem(ray_pix[0], ray_pix[1]);
-
-    if (ray_llh[2] < dem_h) {
-      // The ray goes under the DEM, so we are in shadow.
-      return true;
-    }
-  }
-
-  return false;
-}
-
-void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
-                 double gridx, double gridy,
-                 cartography::GeoReference const& geo,
-                 ImageView<float> & shadow){
-
-  // Find the max DEM height
-  double max_dem_height = -std::numeric_limits<double>::max();
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      if (dem(col, row) > max_dem_height) {
-        max_dem_height = dem(col, row);
-      }
-    }
-  }
-
-  shadow.set_size(dem.cols(), dem.rows());
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      shadow(col, row) = isInShadow(col, row, sunPos, dem,
-                                    max_dem_height, gridx, gridy, geo);
-    }
-  }
-}
-
 struct Options : public vw::GdalWriteOptions {
   std::string input_dems_str, image_list, camera_list, out_prefix, stereo_session, bundle_adjust_prefix;
   std::vector<std::string> input_dems, input_images, input_cameras;
@@ -2204,9 +2116,9 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   }
 
   if (model_shadows) {
-    bool inShadow = isInShadow(col, row, local_model_params.sunPosition,
-                               dem, max_dem_height, gridx, gridy,
-                               geo);
+    bool inShadow = asp::isInShadow(col, row, local_model_params.sunPosition,
+                                    dem, max_dem_height, gridx, gridy,
+                                    geo);
 
     if (inShadow) {
       // The reflectance is valid, it is just zero
@@ -2755,21 +2667,6 @@ public:
           }
           vw_out() << std::endl;
         }
-        
-#if 0
-        // Dump the points in shadow
-        ImageView<float> shadow; // don't use int, scaled weirdly by ASP on reading
-        
-        Vector3 sunPos = // all wrong here &(*g_scaled_sun_posns)[3*image_iter]; // fix here
-          // = (*g_model_params)[image_iter].sunPosition;
-          areInShadow(sunPos, (*g_dem)[dem_iter], *g_gridx, *g_gridy,  (*g_geo)[dem_iter], shadow);
-
-        std::string out_shadow_file = iter_str2 + "-shadow.tif";
-        vw_out() << "Writing: " << out_shadow_file << std::endl;
-        block_write_gdal_image(out_shadow_file, shadow, has_georef, (*g_geo)[dem_iter], has_nodata,
-                               -std::numeric_limits<float>::max(), *g_opt, tpc);
-#endif
-
       }
 
       if (g_opt->save_dem_with_nodata) {
@@ -2778,7 +2675,8 @@ public:
             + iter_str + ".tif";
           vw_out() << "Writing: " << out_dem_nodata_file << std::endl;
           TerminalProgressCallback tpc("asp", ": ");
-          block_write_gdal_image(out_dem_nodata_file, dem_nodata, has_georef, (*g_geo)[dem_iter],
+          block_write_gdal_image(out_dem_nodata_file, dem_nodata,
+                                 has_georef, (*g_geo)[dem_iter],
                                  has_nodata, *g_dem_nodata_val,
                                  *g_opt, tpc);
         }

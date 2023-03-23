@@ -43,6 +43,19 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                  std::vector<std::string> const& input_images, 
                                  std::vector<std::string> const& input_cameras, 
                                  std::vector<vw::ImageView<double>> & ground_weights);
+
+// Find the points on a given DEM that are shadowed by other points of
+// the DEM.  Start marching from the point on the DEM on a ray towards
+// the sun in small increments, until hitting the maximum DEM height.
+bool isInShadow(int col, int row, vw::Vector3 const& sunPos,
+                vw::ImageView<double> const& dem, double max_dem_height,
+                double gridx, double gridy,
+                vw::cartography::GeoReference const& geo);
+
+void areInShadow(vw::Vector3 const& sunPos, vw::ImageView<double> const& dem,
+                 double gridx, double gridy,
+                 vw::cartography::GeoReference const& geo,
+                 vw::ImageView<float> & shadow);
   
 } // end namespace asp
 
