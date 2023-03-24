@@ -3573,39 +3573,6 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
   if (!gridy_vec.empty()) gridy = gridy_vec[gridy_vec.size()/2];
 }
 
-ImageView<double> comp_blending_weights(MaskedImgT const& img,
-                                        double blending_dist,
-                                        double blending_power,
-                                        int min_blend_size){
- 
-  //   if (img.cols() <= 2 || img.rows() <= 2) {
-  //     // The image is too small to have good weights. grassfire crashes.
-  //     ImageView<double> weights(img.cols(), img.rows());
-  //     for (int col = 0; col < weights.cols(); col++) {
-  //       for (int row = 0; row < weights.rows(); row++) {
-  //     weights(col, row) = 0;
-  //       }
-  //     }
-  //     return weights;
-  //   }
-
-  ImageView<double> weights;
-
-  if (min_blend_size <= 0)
-    weights = grassfire(img);
-  else
-    weights = vw::copy(grassfire(vw::copy(vw::fill_holes_grass(vw::copy(img), min_blend_size))));
-
-  // Make the weights plateau at the value 1 at blending_dist distance from the edge.
-  // We will later count on this value.
-  for (int col = 0; col < weights.cols(); col++) {
-    for (int row = 0; row < weights.rows(); row++) {
-      weights(col, row) = pow(std::min(weights(col, row)/blending_dist, 1.0), blending_power);
-    }
-  }
-  return weights;
-}
-
 void read_sun_positions_from_list(Options const& opt,
                                   std::vector<ModelParams> &model_params) {
 
@@ -5499,9 +5466,9 @@ int main(int argc, char* argv[]) {
             // images. Otherwise the weights are too huge.
             if (opt.blending_dist > 0)
               blend_weights_vec[0][dem_iter][image_iter]
-                = comp_blending_weights(masked_images_vec[0][dem_iter][image_iter],
-                                        opt.blending_dist, opt.blending_power,
-                                        opt.min_blend_size);
+                = asp::blendingWeights(masked_images_vec[0][dem_iter][image_iter],
+                                       opt.blending_dist, opt.blending_power,
+                                       opt.min_blend_size);
           }
         }else{
           masked_images_vec[0][dem_iter][image_iter]

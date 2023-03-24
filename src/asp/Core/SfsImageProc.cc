@@ -27,6 +27,7 @@
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Image/Transform.h>
+#include <vw/Image/InpaintView.h>
 
 #include <asp/Core/BundleAdjustUtils.h>
 
@@ -221,16 +222,13 @@ void extendedWeight(int blending_dist, ImageView<double> const & image, // input
 
   return;
 }
-  
-// Find the function which is 1 on the boundary of the max lit region
-// and linearly decays to 0 away from it. Add portions of this to the
-// image blending weights, in proportion to how relevant the images are
-// likely to contribute. Hence, in the area where all data is
-// borderline, we give more weight to the borderline data, because
-// there is nothing else.  This improves the reconstruction.
-// Note: Input image blending weights are 1 away from shadows and decay to 0
-// at the shadow boundary. Output weights will decay then to 0 a bit
-// deeper in the shadow area where there is no other data. We do not
+
+// Adjust the weights at the boundary of the max-lit region
+// so they don't decay to 0, as there we need all the image data
+// we get, and there's no concern that we'll create a seam
+// with some other better data. Weights which are already 0 by then
+// but are non-zero close to that interface get grown too, depending,
+// on how close they get to that interface.
 // recompute these weights as the DEM changes, which is an approximation.
 void adjustBorderlineDataWeights(int cols, int rows,
                                  int blending_dist, double blending_power,
@@ -255,79 +253,46 @@ void adjustBorderlineDataWeights(int cols, int rows,
   boundaryWeight(blending_dist, max_weight, // inputs
                  boundary_weight); // output
 
-  // For an input ground weight (which shows where the image is lit),
-  // find the the weight which is 1 inside where
-  // the image pixels are lit, and linearly decreases from 1 to 0 at
-  // image boundary (outwardly, in the area of unlit pixels).
-  std::vector<ImageView<double>> extended_weights(num_images);
-  for (int image_iter = 0; image_iter < num_images; image_iter++) {
-
-    if (skip_images.find(image_iter) != skip_images.end())
-      continue;
-    auto & ground_wt = ground_weights[image_iter]; // alias
-    if (ground_wt.cols() <= 0 || ground_wt.rows() <= 0) 
-      continue;
-    if (ground_wt.cols() != cols || ground_wt.rows() != rows) 
-      vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended "
-                   << "weights must have the same dimensions.\n");
-    
-    extendedWeight(blending_dist, ground_wt,  // inputs         
-                   extended_weights[image_iter]); // output
-  } // end iterating over images
-
-  // Distribute the boundary weight to each extended image weight
-  // intersecting with it. Then add that contribution to the existing
-  // image weight.
+  // Weights at the boundary of the max lit mosaic are not allowed to decay
+  // all the way to 0 as they are not needed for blending there, and
+  // just result in blur.
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
-          
-      // Find the sum at each pixel
-      double sum = 0.0;
-      for (int image_iter = 0; image_iter < num_images; image_iter++) {
-        if (skip_images.find(image_iter) != skip_images.end())
-          continue;
-        auto & extended_wt = extended_weights[image_iter]; // alias
-        if (extended_wt.cols() > 0 && extended_wt.rows() > 0
-            && extended_wt(col, row) > 0) {
-          sum += extended_wt(col, row);
-        }
-      }
-      if (sum <= 0) 
-        continue;
-          
+
+      if (max_weight(col, row) <= 0 || boundary_weight(col, row) <= 0)
+        continue; // not in the region of interest
+        
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
         
         if (skip_images.find(image_iter) != skip_images.end())
           continue;
         
-        auto & extended_wt = extended_weights[image_iter]; // alias
-        if (extended_wt.cols() <= 0 || extended_wt.rows() <= 0 ||
-            extended_wt(col, row) <= 0) continue;
-        
-        // This is the core of the logic. When only for one image this
-        // pixel is lit, ensure this weight is 1. When there's a lot
-        // of them, ensure the others don't dilute this weight. But
-        // still ensure this weight is continuous.
-        double delta_wt = extended_wt(col, row) * std::max(1.0, 1.0/sum); 
-        
-        // Restrict this to the max-lit mosaic boundary
-        delta_wt *= boundary_weight(col, row);
-        
-        // Undo the power in the weight being passed in, add the new
-        // contribution, extending it, and put back the power.
+        // Undo the power in the weight being passed in
         double ground_wt = ground_weights[image_iter](col, row);
+        if (ground_wt <= 0.0) 
+          continue;
+        
+        double max_wt = max_weight(col, row);
         ground_wt = pow(ground_wt, 1.0/blending_power);
-        ground_wt = ground_wt + delta_wt;
+        max_wt = pow(max_wt, 1.0/blending_power);
+
+        // The closer one is to the max-lit boundary, the more this
+        // weight is important
+        ground_wt = std::max(ground_wt, ground_wt / max_wt);
+        ground_wt = std::min(ground_wt, 1.0); // not necessary
+        
+        // put back the power
         ground_wt = pow(ground_wt, blending_power);
+
+        // Put back the weight
         ground_weights[image_iter](col, row) = ground_wt;
       }
     }
   }
 
-  extended_weights.clear(); // not needed anymore
-
-  // TODO(oalexan1): Must make sure to make the images have non-negative but valid values
-  // where the weights are positive and invalid values where they are zero.
+  // TODO(oalexan1): Must make sure to make the images have
+  // non-negative but valid values where the weights are positive and
+  // invalid values where they are zero.
 
   bool save_debug_info = false;
   if (save_debug_info) {
@@ -376,6 +341,47 @@ void adjustBorderlineDataWeights(int cols, int rows,
 }
 
 using namespace vw;
+
+// Find the blending weight for an image. This is 1 inside the lit area and away
+// from any edges or shadows, then linearly decrease to 0 towards such edges,
+// and then is raised to a power to change how it decays to 0.
+// Do not make these decrease around holes smaller than min_blend_size,
+// TODO(oalexan1): Grassfire weights use the Manhattan distance, which
+// result in noisy weights. The Euclidean distance to boundary would work
+// better.
+vw::ImageView<double> blendingWeights(vw::ImageViewRef<vw::PixelMask<float>> const& img,
+                                      double blending_dist,
+                                      double blending_power,
+                                      int min_blend_size) {
+
+  //   if (img.cols() <= 2 || img.rows() <= 2) {
+  //     // The image is too small to have good weights. grassfire crashes.
+  //     ImageView<double> weights(img.cols(), img.rows());
+  //     for (int col = 0; col < weights.cols(); col++) {
+  //       for (int row = 0; row < weights.rows(); row++) {
+  //     weights(col, row) = 0;
+  //       }
+  //     }
+  //     return weights;
+  //   }
+
+  ImageView<double> weights;
+
+  // The copying seems necessary at each stage to get the correct answer
+  if (min_blend_size <= 0)
+    weights = grassfire(img);
+  else
+    weights = vw::copy(grassfire(vw::copy(vw::fill_holes_grass(vw::copy(img), min_blend_size))));
+
+  // We will later count on this precise logic.
+  for (int col = 0; col < weights.cols(); col++) {
+    for (int row = 0; row < weights.rows(); row++) {
+      weights(col, row) = pow(std::min(weights(col, row)/blending_dist, 1.0),
+                              blending_power);
+    }
+  }
+  return weights;
+}
   
 // Find the points on a given DEM that are shadowed by other points of
 // the DEM.  Start marching from the point on the DEM on a ray towards

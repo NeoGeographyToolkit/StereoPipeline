@@ -22,6 +22,7 @@
 #define __SFS_IMAGE_PROC_H__
 
 #include <vw/Image/ImageView.h>
+#include <vw/Image/ImageViewRef.h>
 
 namespace vw {
   class GdalWriteOptions;
@@ -31,7 +32,7 @@ namespace vw {
 }
 
 #include <vector>
-namespace asp{
+namespace asp {
 
 // See the .cc file for the documentation.
 void adjustBorderlineDataWeights(int cols, int rows,
@@ -44,6 +45,12 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                  std::vector<std::string> const& input_cameras, 
                                  std::vector<vw::ImageView<double>> & ground_weights);
 
+// See the .cc file for the documentation.
+vw::ImageView<double> blendingWeights(vw::ImageViewRef<vw::PixelMask<float>> const& img,
+                                      double blending_dist,
+                                      double blending_power,
+                                      int min_blend_size);
+  
 // Find the points on a given DEM that are shadowed by other points of
 // the DEM.  Start marching from the point on the DEM on a ray towards
 // the sun in small increments, until hitting the maximum DEM height.
