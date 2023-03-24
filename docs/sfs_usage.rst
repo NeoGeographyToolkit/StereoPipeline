@@ -596,13 +596,16 @@ overestimate them somewhat.
 
 Then, we run ``sfs``::
 
-    sfs -i run_sub10/run-crop-DEM.tif A_crop_sub10.cub C_crop_sub10.cub \
-      D_crop_sub10.cub -o sfs_sub10_ref1/run --threads 4                \
-      --smoothness-weight 0.12 --initial-dem-constraint-weight 0.001    \
-      --reflectance-type 1 --use-approx-camera-models                   \
-      --max-iterations 5  --crop-input-images                           \
-      --bundle-adjust-prefix run_ba_sub10/run                           \
-      --blending-dist 10 --min-blend-size 20                            \
+    sfs -i run_sub10/run-crop-DEM.tif                    \
+      A_crop_sub10.cub C_crop_sub10.cub D_crop_sub10.cub \
+      -o sfs_sub10_ref1/run --threads 4                  \
+      --smoothness-weight 0.12                           \
+      --initial-dem-constraint-weight 0.001              \
+      --reflectance-type 1 --use-approx-camera-models    \
+      --max-iterations 5  --crop-input-images            \
+      --bundle-adjust-prefix run_ba_sub10/run            \
+      --blending-dist 10 --allow-borderline-data         \
+      --min-blend-size 20                                \
       --shadow-thresholds '0.00162484 0.0012166 0.000781663'
 
 It is suggested to not vary the cameras with ``sfs`` (option
@@ -650,6 +653,8 @@ otherwise the image will show as shifted from its true location::
 
     mapproject sfs_sub10_ref1/run-DEM-final.tif A_crop_sub10.cub   \
       A_crop_sub10_map.tif --bundle-adjust-prefix run_ba_sub10/run
+
+See :numref:`sfs-lola` for a large-scale example.
 
 .. _sfs_crater_bottoms:
 
@@ -719,18 +724,18 @@ Handling borderline areas
 With the option ``--allow-borderline-data``, ``sfs`` is able to do a
 better job at resolving the terrain in areas where the the
 illumination is weak and there are many shadows. In the example in
-:numref:`sfs_borderline_fig`, in some input images the top portion was lit,
-and in some the bottom portion. With this option, as it can be seen,
-the blur in the transition zone is removed. The craters are 
-still too shallow, but that is a known issue with weak illumination,
-and something to to be addressed at a future time.
+:numref:`sfs_borderline_fig`, in some input images the top terrain
+portion was lit, and in some the bottom portion. With this option, as
+it can be seen, the blur in the transition zone is removed. The
+craters are still too shallow, but that is a known issue with weak
+illumination, and something to to be addressed at a future time.
 
-Another paramter which can strongly affect the behavior close to shadows
+Another parameter which can strongly affect the behavior close to shadows
 is ``--blending-dist``. It should be set to 10 or so. A smaller value may 
 result in seams. 
 
-One may need to then use the ``sfs_blend`` tool (:numref:`sfs_blend`)
-to further tune the areas in permanent shadow after doing SfS.
+The tool ``sfs_blend`` tool (:numref:`sfs_blend`) can be used to tune
+the areas in permanent shadow after doing SfS.
 
 .. figure:: images/sfs_borderline.png
    :name: sfs_borderline_fig
@@ -738,24 +743,35 @@ to further tune the areas in permanent shadow after doing SfS.
 
    The SfS result without option ``--allow-borderline-data`` (left),
    with it (center), and the max-lit mosaic (right). It can be seen
-   in the max-lit mosaic that the illumination direction is quite
-   different in the top and bottom halves (which appear to be
-   separated by a horizontal ridge), which was causing issues
-   for the algorithm.
+   in the max-lit mosaic that the illumination direction (position of
+   lit crater rim) is quite different in the top and bottom halves
+   (which appear to be separated by a horizontal ridge), which was
+   causing issues for the algorithm.
 
 .. _sfs-lola:
 
 Large-scale SfS
 ---------------
 
-Challenges
-^^^^^^^^^^
-
 SfS has been run successfully on a site close to the Lunar South Pole,
 at around 85.5 degrees South. Its size was 14336 x 11008 pixels, at 1
 m/pixel. It used 814 LRO NAC images for bundle adjustment and 420 of
 those for SfS. The shadows on the ground were observed to make a full
-360 degree loop. A seamless terrain was created.
+360 degree loop. A seamless terrain was created (see the `LPSC
+poster <https://www.hou.usra.edu/meetings/lpsc2023/pdf/2377.pdf>`_).
+
+.. figure:: images/large_scale_sfs.png
+   :name: large_scale_sfs
+   :alt: A portion of a large scale SfS terrain.
+
+   A portion of a large-scale terrain produced with SfS showing a challenging
+   area with very diverse illumination around some permanently-shadowed
+   regions. Left: hillshaded SfS terrain. Right: max-lit mosaic. The
+   quality of the produced terrain gracefully degrades as illumination
+   gets worse.
+
+Challenges
+^^^^^^^^^^
 
 The challenges encountered were that the shadows were extensive and
 varied drastically from image to image, and some portions of the
@@ -1305,7 +1321,7 @@ Next, SfS follows::
       --bundle-adjust-prefix ba_align_ref/run \
       --use-approx-camera-models              \
       --crop-input-images                     \
-      --blending-dist 5                       \
+      --blending-dist 10                      \
       --min-blend-size 50                     \
       --allow-borderline-data                 \
       --threads 4                             \
@@ -1316,7 +1332,7 @@ Next, SfS follows::
       --save-sparingly                        \
       --tile-size 200                         \
       --padding 50                            \
-      --processes 20                          \
+      --processes 10                          \
       -o sfs/run
 
 For this step not all images need to be used, just a representative
@@ -1362,8 +1378,8 @@ to run SfS without this flag first and inspect the results.
 When it comes to selecting the number of nodes to use, it is good to
 notice how many tiles the ``parallel_sfs`` program produces (the tool
 prints that), as a process will be launched for each tile. Since above
-it is chosen to run 20 processes on each node, the number of nodes can
-be the number of tiles over 20, or perhaps half or a quarter of that,
+it is chosen to run 10 processes on each node, the number of nodes can
+be the number of tiles over 10, or perhaps half or a quarter of that,
 in which case it will take longer to run. One should examine
 how much memory these processes use and adjust this number
 accordingly.
@@ -1373,6 +1389,8 @@ producing flat crater bottoms where there is no illumination to guide
 the solver. See :numref:`sfs_borderline` for a very preliminary
 solution for how one can try to improve very low-lit areas (it only
 works on manually selected clips and 1-3 images for each clip).
+
+See an illustration of the produced terrain in :numref:`large_scale_sfs`.
 
 Inspection and further iterations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

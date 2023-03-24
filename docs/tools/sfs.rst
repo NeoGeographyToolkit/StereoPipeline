@@ -223,7 +223,9 @@ Command-line options for sfs
 --blending-dist <integer (default: 0)>
     Give less weight to image pixels close to no-data or boundary
     values. Enabled only when crop-input-images is true, for
-    performance reasons. Blend over this many pixels.
+    performance reasons. Blend over this many pixels. See also
+    ``--blending-power``, ``--min-blend-size`` and
+    ``--allow-borderline-data``. See example in :numref:`sfs-lola`.
 
 --blending-power <double (default: 2.0)>
     Raise the blending weights (they are no more to 1.0) to this
