@@ -3,10 +3,11 @@
 A 3-sensor rig example
 ^^^^^^^^^^^^^^^^^^^^^^
 
-This is an example using ``rig_calibrator`` on images acquired in a lab with
-cameras mounted on the Astrobee robot
-(https://github.com/nasa/astrobee). The data that can be used to reproduce this
-is available `for download <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/rig_calibrator>`_.
+This is an example using ``rig_calibrator`` on images acquired in a
+lab with cameras mounted on the `Astrobee
+<https://github.com/nasa/astrobee>`_ robot. The data that can be used
+to reproduce this is available `for download
+<https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/rig_calibrator>`_.
 
 This robot has three cameras: ``nav_cam`` (wide field of view, using
 the fisheye distortion model), ``sci_cam`` (narrow field of view,
@@ -33,13 +34,12 @@ edited, and passed to this program via ``--theia_fags``.
 
 Next, we run ``rig_calibrator``::
 
-    float="focal_length,optical_center,distortion"
-    float_all="nav_cam:${float} haz_cam:${float} sci_cam:${float}" 
+    float_intr="" # not floating intrinsics
     rig_calibrator                                        \
         --rig_config rig_input/rig_config.txt             \
         --nvm rig_theia/cameras.nvm                       \
         --camera_poses_to_float "nav_cam sci_cam haz_cam" \
-        --intrinsics_to_float "$float_all"                \
+        --intrinsics_to_float "$float_intr"               \
         --depth_to_image_transforms_to_float "haz_cam"    \
         --float_scale                                     \
         --bracket_len 1.0                                 \
@@ -63,9 +63,19 @@ The ``nav_cam`` camera is chosen to be the reference sensor in the rig
 configuration. Its poses are allowed to float, that is, to be
 optimized (``--camera_poses_to_float``), and the rig transforms from
 this one to the other ones are floated as well, when passed in via the 
-same option. The intrinsics are optimized as well 
-(option ``--intrinsics_to_float``), and the scale of depth clouds
+same option. The scale of depth clouds is floated as well
 (``--float_scale``).
+
+Here we chose to optimize the rig while keeping the intrinsics
+fixed. Floating the intrinsics, especially the distortion parameters,
+requires many interest point matches, especially towards image boundary,
+and can make the problem less stable. If desired to float them,
+one can replace ``float_intr=""`` with::
+
+    intr="focal_length,optical_center,distortion"
+    float_intr="nav_cam:${intr} haz_cam:${intr} sci_cam:${intr}"
+
+which will be passed above to the option ``--intrinsics_to_float``.
 
 In this particular case, the real-world scale (but not orientation) would
 have been solved for correctly even without registration, as it would
