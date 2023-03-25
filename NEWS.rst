@@ -58,7 +58,7 @@ rig_calibrator (:numref:`rig_calibrator`):
     (:numref:`sfm_iss`) using data acquired with two rigs (6 sensors).
   * Allow multiple rigs to be jointly optimized (the rig constraint
     applies within individual rigs and not between them).
-  * Add the option ``--extra_list`` to insert additional images 
+  * Added the option ``--extra_list`` to insert additional images 
     close in time to some of the images already on the rig (for
     the same or different rig sensor). Helps easily grow a map and
     complete a rig.
@@ -100,7 +100,7 @@ stereo_gui (:numref:`stereo_gui`):
     ``_offsets.txt`` file.
   * Added the option ``--preview`` to load one image at a time, 
     and quickly cycle through them with the 'n' and 'p' keys.
-  * Add the option ``--font-size``, with the default of 9. 
+  * Added the option ``--font-size``, with the default of 9. 
   * Added the option ``--lowest-resolution-subimage-num-pixels`` to
     control the behavior of the pyramid of subimages.
 
@@ -508,13 +508,13 @@ parallel_stereo:
     NASA proposal 19-PDART19_2-0094.
  
 bundle_adjust:
-  * Add the option ``--apply-initial-transform-only`` to apply an initial
+  * Added the option ``--apply-initial-transform-only`` to apply an initial
     transform to cameras while skipping image matching and other
     steps, making the process much faster.
   * Added the option ``--auto-overlap-params`` to automatically compute
     which camera images overlap, if a DEM and camera footprint
     expansion percentage are given. 
-  * Add the option ``--max-pairwise-matches`` to put an upper limit on
+  * Added the option ``--max-pairwise-matches`` to put an upper limit on
     the number of matches, as a large number can slow down bundle
     adjustment. The default is 10000, likely a large overestimate (but
     this includes potential outliers). If creating interest points
@@ -527,7 +527,7 @@ bundle_adjust:
     ``final_residuals_no_loss_function_raw_pixels.txt`` to 
     ``final_residuals_raw_pixels.txt``, etc.
   * Document the useful initial and final ``residuals_stats.txt`` files. 
-  * Add new options for reusing a previous run:
+  * Added new options for reusing a previous run:
     ``--match-files-prefix`` and ``--clean-match-files-prefix``.
 
 sfs:
