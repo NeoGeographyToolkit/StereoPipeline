@@ -628,7 +628,7 @@ accept all other ``parallel_stereo`` options as well.
 --pairwise-clean-matches
     Same as ``--pairwise-matches``, but use ``*-clean.match`` files.
 
---nvm (*string*) (default = "")
+--nvm <string (default="")>
     Load this .nvm file having interest point matches. It is assumed
     it was saved with no shift of the interest points relative to the
     optical center. The ``rig_calibrator`` program
@@ -647,7 +647,7 @@ accept all other ``parallel_stereo`` options as well.
     Start with all images turned off (if all images are in the same
     window, useful with a large number of images).
 
---zoom-proj-win (*double double double double*)
+--zoom-proj-win <double double double double>
     Zoom to this proj win on startup (:numref:`image_bounds`). It is
     assumed that the images are georeferenced. Also accessible from
     the *View* menu.
@@ -671,21 +671,21 @@ accept all other ``parallel_stereo`` options as well.
     overridden by another instance of this option with a different
     value.
 
---min (*double*) (default = NaN)
+--min <double (default = NaN)>
     Value corresponding to 'coldest' color in the color map, when
     using the ``--colorize`` option and plotting csv data.
     Also used to manually set the minimum value in grayscale
     images. If not set, use the dataset minimum for
     color images, and estimate the minimum for grayscale images.
 
---max (*double*) (default = NaN)
+--max <double (default = NaN)>
     Value corresponding to the 'hottest' color in the color map, when
     using the ``--colorize`` option and plotting csv data.
     Also used to manually set the maximum value in grayscale
     images. If not set, use the dataset maximum for color images, and
     estimate the maximum for grayscale images.
 
---plot-point-radius (*integer*) (default = 2)
+--plot-point-radius <integer (default = 2)>
     When plotting points from CSV files, let each point be drawn as a
     filled ball with this radius, in pixels.
 
@@ -708,7 +708,7 @@ accept all other ``parallel_stereo`` options as well.
     (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth
     (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).
 
---csv-proj4 (*string*) (default = "")
+--csv-proj4 <string (default="")>
     The PROJ.4 string to use when plotting a CSV
     file. If not specified, try to use the ``--datum`` option. 
 
@@ -749,8 +749,8 @@ accept all other ``parallel_stereo`` options as well.
 --no-bigtiff
     Tell GDAL to not create bigtiffs.
 
---tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
-    TIFF compression method.
+--tif-compress <string (default = "LZW")>
+    TIFF compression method. Options: None, LZW, Deflate, Packbits.
 
 -v, --version
     Display the version of software.
