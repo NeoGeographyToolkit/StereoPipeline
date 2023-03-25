@@ -14,7 +14,7 @@ a cookbook for strategies that will get you started in processing your
 own data. We recommend that you second check your results against
 another source.
 
-Further down are some Structure-from-Motion examples.
+Structure-from-Motion examples are in :numref:`sfm_examples`.
 
 .. toctree::
 
@@ -30,18 +30,20 @@ Further down are some Structure-from-Motion examples.
    examples/hrsc
    examples/cassini
    examples/csm
+   examples/dawn
+   examples/isis_minirf
+   examples/pbs_slurm
+   examples/aster
    examples/dg
    examples/rpc
    examples/perusat1
    examples/pleiades
    examples/spot5
-   examples/dawn
-   examples/aster
-   examples/isis_minirf
    examples/skysat
    examples/historical
    examples/bathy
-   examples/pbs_slurm
+
+.. _sfm_examples:
 
 Structure-from-Motion examples
 ==============================

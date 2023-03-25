@@ -93,10 +93,16 @@ stereo_gui (:numref:`stereo_gui`):
   * Can read, write, edit, and overlay on top of images polygons in
     plain text format in addition to the .shp format. Per-polygon
     colors are supported.
+  * Noticeable speedup in loading images.
   * Bug fix in loading .nvm files (an SfM format).
   * Can read nvm files whose features are shifted relative to the 
     optical center, if an ``.nvm`` file is accompanied by an
     ``_offsets.txt`` file.
+  * Added the option ``--preview`` to load one image at a time, 
+    and quickly cycle through them with the 'n' and 'p' keys.
+  * Add the option ``--font-size``, with the default of 9. 
+  * Added the option ``--lowest-resolution-subimage-num-pixels`` to
+    control the behavior of the pyramid of subimages.
 
 jitter_solve (:numref:`jitter_solve`):
   * Bugfix for reverse scan direction.

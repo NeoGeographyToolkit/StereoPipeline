@@ -453,6 +453,8 @@ namespace asp {
                             "The azimuth value when showing hillshaded images.")
       ("hillshade-elevation", po::value(&global.hillshade_elevation)->default_value(20),
                             "The elevation value when showing hillshaded images.")
+      ("lowest-resolution-subimage-num-pixels", po::value(&global.lowest_resolution_subimage_num_pixels)->default_value(-1),
+       "When building a pyramid of lower-resolution versions of an image, the coarsest image will have no more than this many pixels. If not set, it will internally default to 1000 x 1000. This is increased to 10000 x 10000 when loading .nvm files or with the --preview option.")
       ("view-matches",   po::bool_switch(&global.view_matches)->default_value(false)->implicit_value(true),
                             "Locate and display the interest point matches for a stereo pair.")
       ("match-file", po::value(&global.match_file)->default_value(""),
@@ -470,12 +472,14 @@ namespace asp {
       ("pairwise-matches",   po::bool_switch(&global.pairwise_matches)->default_value(false)->implicit_value(true), "Show images side-by-side. If just two of them are selected, load their corresponding match file, determined by the output prefix. Also accessible from the menu.")
       ("pairwise-clean-matches",   po::bool_switch(&global.pairwise_clean_matches)->default_value(false)->implicit_value(true), "Same as --pairwise-matches, but use *-clean.match files.")
       ("nvm", po::value(&global.nvm)->default_value(""),
-       "Load this .nvm file having interest point matches. It is assumed it was saved with no shift of the interest points relative to the optical center. The rig_calibrator program can create such files. This option implies --pairwise-matches.")
+       "Load this .nvm file having interest point matches. It is assumed it was saved with no shift of the interest points relative to the optical center. The rig_calibrator program can create such files. This option implies --pairwise-matches, --preview, and a larger value of --lowest-resolution-subimage-num-pixels.")
       ("zoom-proj-win", po::value(&global.zoom_proj_win)->default_value(BBox2(0,0,0,0), ""),
        "Zoom to this proj win on startup. It is assumed that the images are georeferenced. Also accessible from the View menu.")
       ("csv-format",     po::value(&global.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
       ("csv-proj4",      po::value(&global.csv_proj4)->default_value(""), "The PROJ.4 string to use to interpret the entries in a CSV file. If not specified, try to use the --datum option.")
       ("csv-datum",      po::value(&global.csv_datum)->default_value(""), "The datum to use when plotting a CSV file.")
+      ("preview",   po::bool_switch(&global.preview)->default_value(false)->implicit_value(true),
+       "Load and display the images one at a time. The 'n' and 'p' keys can be used to cycle through them.")
       ("colorize",   po::bool_switch(&global.colorize)->default_value(false)->implicit_value(true),
        "Colorize input raster and CSV files (must set --min and --max).")
       ("min", po::value(&global.min)->default_value(g_nan_val),
@@ -484,6 +488,8 @@ namespace asp {
        "Value corresponding to the 'hottest' color in the color map, when using the --colorize option and plotting csv data. Also used to manually set the maximum value in grayscale images. If not set, use the dataset maximum for color images, and estimate the maximum for grayscale images.")
       ("plot-point-radius", po::value(&global.plot_point_radius)->default_value(2),
        "When plotting points from CSV files, let each point be drawn as a filled ball with this radius, in pixels.")
+      ("font-size", po::value(&global.font_size)->default_value(9),
+       "Set the font size.")
       ;
   }
 

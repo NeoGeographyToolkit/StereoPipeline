@@ -39,16 +39,22 @@ TemporaryFiles& temporary_files() {
   return *temporary_files_ptr;
 }
   
-DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& image_file,
-                             vw::GdalWriteOptions const& opt,
+DiskImagePyramidMultiChannel::
+DiskImagePyramidMultiChannel(std::string const& image_file,
+ vw::GdalWriteOptions const& opt,
                              int top_image_max_pix, int subsample):
   m_opt(opt), m_num_channels(0), m_rows(0), m_cols(0), m_type(UNINIT) {
   
-  if (image_file == "") return;
+  if (image_file == "")
+    return;
 
-  boost::shared_ptr<DiskImageResource> image_rsrc = vw::DiskImageResourcePtr(image_file);
+  // alias
+  int & lowres_size = asp::stereo_settings().lowest_resolution_subimage_num_pixels;
+
+  boost::shared_ptr<DiskImageResource> image_rsrc
+    = vw::DiskImageResourcePtr(image_file);
   ImageFormat image_fmt = image_rsrc->format();
-  
+
   // Redirect to the correctly typed function to perform the actual map projection.
   // - Must correspond to the type of the input image.
   // Instantiate the correct DiskImagePyramid then record information including
@@ -64,33 +70,37 @@ DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& im
     
     if (m_num_channels == 1 || image_fmt.channel_type != VW_CHANNEL_UINT8) {
       // Single channel image with float pixels.
-      m_img_ch1_double = vw::mosaic::DiskImagePyramid<double>(image_file, m_opt);
+      m_img_ch1_double =
+        vw::mosaic::DiskImagePyramid<double>(image_file, m_opt, lowres_size);
       m_rows = m_img_ch1_double.rows();
       m_cols = m_img_ch1_double.cols();
       m_type = CH1_DOUBLE;
       temporary_files().files.insert(m_img_ch1_double.get_temporary_files().begin(), 
                                      m_img_ch1_double.get_temporary_files().end());
-    }else if (m_num_channels == 2){
+    }else if (m_num_channels == 2) {
       // uint8 image with an alpha channel.
-      m_img_ch2_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>>(image_file, m_opt);
+      m_img_ch2_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>>
+        (image_file, m_opt, lowres_size);
       m_num_channels = 2; // we read only 1 channel
       m_rows = m_img_ch2_uint8.rows();
       m_cols = m_img_ch2_uint8.cols();
       m_type = CH2_UINT8;
       temporary_files().files.insert(m_img_ch2_uint8.get_temporary_files().begin(), 
                                      m_img_ch2_uint8.get_temporary_files().end());
-    } else if (m_num_channels == 3){
+    } else if (m_num_channels == 3) {
       // RGB image with three uint8 channels.
-      m_img_ch3_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 3>>(image_file, m_opt);
+      m_img_ch3_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 3>>
+        (image_file, m_opt, lowres_size);
       m_num_channels = 3;
       m_rows = m_img_ch3_uint8.rows();
       m_cols = m_img_ch3_uint8.cols();
       m_type = CH3_UINT8;
       temporary_files().files.insert(m_img_ch3_uint8.get_temporary_files().begin(), 
                                      m_img_ch3_uint8.get_temporary_files().end());
-    } else if (m_num_channels == 4){
+    } else if (m_num_channels == 4) {
       // RGB image with three uint8 channels and an alpha channel
-      m_img_ch4_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 4>>(image_file, m_opt);
+      m_img_ch4_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 4>>
+        (image_file, m_opt, lowres_size);
       m_num_channels = 4;
       m_rows = m_img_ch4_uint8.rows();
       m_cols = m_img_ch4_uint8.cols();
@@ -98,7 +108,8 @@ DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& im
       temporary_files().files.insert(m_img_ch4_uint8.get_temporary_files().begin(), 
                                      m_img_ch4_uint8.get_temporary_files().end());
     }else{
-      vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands.\n");
+      vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels
+               << " bands.\n");
     }
   } catch (const Exception& e) {
       popUp(e.what());
@@ -136,11 +147,11 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
     //sw0.start();
     if (asp::stereo_settings().min < asp::stereo_settings().max) {
       // If the min and max are set, not NaN, and first is less than the second
-      approx_bounds = vw::Vector2(asp::stereo_settings().min, asp::stereo_settings().max); 
+      approx_bounds = vw::Vector2(asp::stereo_settings().min, asp::stereo_settings().max);
     } else {
       // Normally these are auto-estimated rather well, except for images with
       // most data being very small, like in shadow.
-      approx_bounds = m_img_ch1_double.get_approx_bounds();
+      approx_bounds = m_img_ch1_double.approx_bounds();
     }
     
     //sw0.stop();
@@ -155,8 +166,8 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
 
     //Stopwatch sw2;
     //sw2.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch1_double.get_nodata_val(), approx_bounds,
-               clip, qimg);
+    formQimage(highlight_nodata, scale_pixels, m_img_ch1_double.get_nodata_val(),
+               approx_bounds, clip, qimg);
     //sw2.stop();
     //vw_out() << "Render time sw2 (seconds): " << sw2.elapsed_seconds() << std::endl;
   } else if (m_type == CH2_UINT8) {
@@ -171,8 +182,8 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
 
     //Stopwatch sw5;
     //sw5.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch2_uint8.get_nodata_val(), approx_bounds,
-               clip, qimg);
+    formQimage(highlight_nodata, scale_pixels, m_img_ch2_uint8.get_nodata_val(),
+               approx_bounds, clip, qimg);
     //sw5.stop();
     //vw_out() << "Render time sw5 (seconds): " << sw5.elapsed_seconds() << std::endl;
     
@@ -187,8 +198,8 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
 
     //Stopwatch sw7;
     //sw7.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch3_uint8.get_nodata_val(), approx_bounds,
-               clip, qimg);
+    formQimage(highlight_nodata, scale_pixels, m_img_ch3_uint8.get_nodata_val(),
+               approx_bounds, clip, qimg);
     //sw7.stop();
     //vw_out() << "Render time sw7 (seconds): " << sw7.elapsed_seconds() << std::endl;
 
@@ -203,8 +214,8 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
 
     //Stopwatch sw9;
     //sw9.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch4_uint8.get_nodata_val(), approx_bounds,
-               clip, qimg);
+    formQimage(highlight_nodata, scale_pixels, m_img_ch4_uint8.get_nodata_val(),
+               approx_bounds, clip, qimg);
     //sw9.stop();
     //vw_out() << "Render time sw9 (seconds): " << sw9.elapsed_seconds() << std::endl;
   }else{
@@ -235,7 +246,7 @@ std::string DiskImagePyramidMultiChannel::get_value_as_str(int32 x, int32 y) con
 double DiskImagePyramidMultiChannel::get_value_as_double(int32 x, int32 y) const {
   if (m_type == CH1_DOUBLE) {
     return m_img_ch1_double.bottom()(x, y, 0);
-  }else if (m_type == CH2_UINT8){
+  }else if (m_type == CH2_UINT8) {
     return m_img_ch2_uint8.bottom()(x, y, 0)[0];
   }else{
     vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");

@@ -155,15 +155,15 @@ void chooseFilesDlg::unhide(std::string const& image) {
     item->setCheckState(Qt::Checked);
 }
 
-// Show only first two images; this is the best default for viewing pairwise matches.
-void chooseFilesDlg::showTwoImages() {
+// Show this many of the first several input images
+void chooseFilesDlg::setNumImagesToShow(int num) {
 
   int rows = m_filesTable->rowCount();
-  for (int row = 0; row < std::min(2, rows); row++) {
+  for (int row = 0; row < std::min(num, rows); row++) {
     QTableWidgetItem *item = m_filesTable->item(row, 0);
     item->setCheckState(Qt::Checked);
   }
-  for (int row = 2; row < rows; row++) {
+  for (int row = num; row < rows; row++) {
     QTableWidgetItem *item = m_filesTable->item(row, 0);
     item->setCheckState(Qt::Unchecked);
   }

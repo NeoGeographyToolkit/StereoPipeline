@@ -524,9 +524,8 @@ void formPoly(std::string              const& override_color,
   
 void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt,
                      DisplayMode display_mode,
-                     std::map<std::string, std::string> const& properties) {
-  
-  vw_out() << "Reading: " << name_in << std::endl; 
+                     std::map<std::string, std::string> const& properties,
+                     bool delay_loading) {
   
   if (display_mode == REGULAR_VIEW)
     name = name_in;
@@ -561,14 +560,29 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
       colorize_image = atof(it->second.c_str()); 
   }
 
+  // When there are many images, we may prefer to load them on demand
+  if (!delay_loading) 
+    load();
+}
+
+// Load the image is not loaded so far
+void imageData::load() {
+
+  if (loaded) 
+    return;
+  
+  loaded = true;
+  
+  vw_out() << "Reading: " << name << std::endl; 
+  
   std::string default_poly_color = "green"; // default, will be overwritten later
   
-  if (asp::has_shp_extension(name_in)) {
+  if (asp::has_shp_extension(name)) {
     // Read a shape file
     std::string poly_color = default_poly_color;
     if (color != "default" && color != "") 
       poly_color = color;
-    read_shapefile(name_in, poly_color, has_georef, georef, polyVec);
+    read_shapefile(name, poly_color, has_georef, georef, polyVec);
 
     double xll, yll, xur, yur;
     shapefile_bdbox(polyVec,
@@ -581,16 +595,16 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     if (!has_georef)
       vw_out() << "The shapefile lacks a georeference.\n";
     
-  } else if (vw::gui::hasCsv(name_in)) {
+  } else if (vw::gui::hasCsv(name)) {
 
     bool isPoly = (style == "poly" || style == "fpoly" || style == "line");
 
     // Read CSV
-    int numCols = asp::fileNumCols(name_in);
+    int numCols = asp::fileNumCols(name);
     bool has_pixel_vals = false; // may change later
     has_georef = true; // this may change later
     asp::CsvConv csv_conv;
-    read_csv_metadata(name_in, isPoly, csv_conv, has_pixel_vals, has_georef, georef);
+    read_csv_metadata(name, isPoly, csv_conv, has_pixel_vals, has_georef, georef);
 
     std::vector<int> contiguous_blocks;
     std::vector<std::string> colors;
@@ -599,9 +613,9 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     // Read the file
     std::list<asp::CsvConv::CsvRecord> pos_records;
     if (!isPoly)
-      csv_conv.read_csv_file(name_in, pos_records);
+      csv_conv.read_csv_file(name, pos_records);
     else
-      csv_conv.read_poly_file(name_in, pos_records, contiguous_blocks, colors);
+      csv_conv.read_poly_file(name, pos_records, contiguous_blocks, colors);
     
     scattered_data.clear();
     vw::BBox3 bounds;
@@ -629,20 +643,19 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     // Read an image
     int top_image_max_pix = 1000*1000;
     int subsample = 4;
-    has_georef = vw::cartography::read_georeference(georef, name_in);
-
-    if (display_mode == REGULAR_VIEW) {
+    has_georef = vw::cartography::read_georeference(georef, name);
+    if (m_display_mode == REGULAR_VIEW) {
       img = DiskImagePyramidMultiChannel(name, m_opt, top_image_max_pix, subsample);
       image_bbox = BBox2(0, 0, img.cols(), img.rows());
-    } else if (display_mode == HILLSHADED_VIEW) {
+    } else if (m_display_mode == HILLSHADED_VIEW) {
       hillshaded_img = DiskImagePyramidMultiChannel(hillshaded_name, m_opt,
                                                     top_image_max_pix, subsample);
       image_bbox = BBox2(0, 0, hillshaded_img.cols(), hillshaded_img.rows());
-    } else if (display_mode == THRESHOLDED_VIEW) {
+    } else if (m_display_mode == THRESHOLDED_VIEW) {
       thresholded_img = DiskImagePyramidMultiChannel(thresholded_name, m_opt,
                                                      top_image_max_pix, subsample);
       image_bbox = BBox2(0, 0, thresholded_img.cols(), thresholded_img.rows());
-    } else if (display_mode == COLORIZED_VIEW) {
+    } else if (m_display_mode == COLORIZED_VIEW) {
       colorized_img = DiskImagePyramidMultiChannel(colorized_name, m_opt,
                                                      top_image_max_pix, subsample);
       image_bbox = BBox2(0, 0, colorized_img.cols(), colorized_img.rows());
@@ -652,7 +665,8 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
 
 bool imageData::isPoly() const {
   return (asp::has_shp_extension(name) ||
-          (vw::gui::hasCsv(name) && (style == "poly" || style == "fpoly" || style == "line")));
+          (vw::gui::hasCsv(name) &&
+           (style == "poly" || style == "fpoly" || style == "line")));
 }
   
 bool imageData::isCsv() const {
@@ -660,6 +674,10 @@ bool imageData::isCsv() const {
 }
   
 vw::Vector2 QPoint2Vec(QPoint const& qpt) {
+  return vw::Vector2(qpt.x(), qpt.y());
+}
+
+vw::Vector2 QPointF2Vec(QPointF const& qpt) {
   return vw::Vector2(qpt.x(), qpt.y());
 }
 
@@ -674,7 +692,6 @@ void PointList::push_back(std::list<vw::Vector2> pts) {
     ++iter;
   }
 }
-
 
 //========================
 // Functions for MatchList

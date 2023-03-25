@@ -356,7 +356,7 @@ must be used with ``bathy_plane_calc`` (see
 :numref:`bathy_plane_calc_example1`).
 
 Validation of alignment
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 It is very strongly suggested to use visual inspection in
 ``stereo_gui`` and the ``geodiff`` and ``colormap`` tools for

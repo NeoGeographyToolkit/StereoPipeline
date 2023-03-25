@@ -53,8 +53,8 @@ namespace vw { namespace gui {
     // Show the given image  
     void unhide(std::string const& image);
 
-    // Show only first two images; this is the best default for pairwise stereo
-    void showTwoImages();
+    // Show this many of the first several input images
+    void setNumImagesToShow(int num);
     
     // Show all images
     void showAllImages();

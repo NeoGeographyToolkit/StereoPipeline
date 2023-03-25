@@ -201,7 +201,8 @@ namespace vw { namespace gui {
     // This function will return a QImage to be shown on screen.
     // How we create it, depends on the type of image we want to display.
     void get_image_clip(double scale_in, vw::BBox2i region_in, bool highlight_nodata,
-                        QImage & qimg, double & scale_out, vw::BBox2i & region_out) const;
+                        QImage & qimg, double & scale_out,
+                        vw::BBox2i & region_out) const;
     double get_nodata_val() const;
     
     int32 cols  () const { return m_cols;  }

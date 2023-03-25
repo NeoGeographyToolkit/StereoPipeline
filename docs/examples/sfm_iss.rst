@@ -11,10 +11,15 @@ created as part of the `ISAAC
 <https://www.nasa.gov/directorates/spacetech/game_changing_development/projects/ISAAC>`_
 project.
 
+.. _sfm_iss_figure:
+
+Illustration 
+^^^^^^^^^^^^
+
 .. figure:: ../images/sci_cam_texture.png
    :name: sfm_iss_texture
    :alt:  Rig calibrator texture.
-
+ 
 .. figure:: ../images/sci_cam_photo.png
    :name: sfm_iss_photo
    :alt:  Rig calibrator photo.
@@ -494,7 +499,7 @@ in ``meshlab``.
 Results
 ^^^^^^^
 
-See :numref:`sfm_iss_texture`.
+See :numref:`sfm_iss`.
 
 Scaling up the problem
 ^^^^^^^^^^^^^^^^^^^^^^

@@ -236,10 +236,11 @@ namespace vw { namespace gui {
       m_editMatchPointVecIndex(editMatchPointVecIndex),
       m_use_georef(use_georef),
       m_zoom_all_to_same_region(zoom_all_to_same_region),
-      m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false),
+      m_allowMultipleSelections(allowMultipleSelections),
+      m_can_emit_zoom_all_signal(false),
       m_polyEditMode(false), m_polyLayerIndex(beg_image_id),
       m_pixelTol(6), m_backgroundColor(QColor("black")),
-      m_lineWidth(1), m_polyColor("green"), // default color when polys are created from scratch
+      m_lineWidth(1), m_polyColor("green"),
       m_editingMatches(false) {
 
     installEventFilter(this);
@@ -278,16 +279,32 @@ namespace vw { namespace gui {
     m_filesOrder.resize(num_images);
     m_world2image_geotransforms.resize(num_images);
     m_image2world_geotransforms.resize(num_images);
-    for (int i = 0; i < num_images; i++) {
-      if (m_use_georef && !m_images[i].has_georef){
-        popUp("No georeference present in: " + m_images[i].name + ".");
-        vw_throw(ArgumentErr() << "Missing georeference.\n");
-      }
-    }
 
     // Set geotransforms and other data
     for (int i = 0; i < num_images; i++) {
 
+      m_filesOrder[i] = i; // start by keeping the order of files being read
+
+      bool in_range = (m_beg_image_id <= i && i < m_end_image_id);
+      
+      if (!in_range) 
+        continue;
+
+      // Don't load show files the user wants hidden in preview mode
+      // This won't play nice with georefs or with images
+      // with different sizes, or likely with polygons.
+      bool delay = !asp::stereo_settings().nvm.empty() || asp::stereo_settings().preview;
+      if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name) && delay)
+        continue;
+      
+      // Load if not loaded so far
+      m_images[i].load();
+      
+      if (m_use_georef && !m_images[i].has_georef) {
+        popUp("No georeference present in: " + m_images[i].name + ".");
+        vw_throw(ArgumentErr() << "Missing georeference.\n");
+      }
+    
       // Make sure we set these up before the image2world call below!
       if (m_use_georef) {
         m_world2image_geotransforms[i]
@@ -295,21 +312,16 @@ namespace vw { namespace gui {
         m_image2world_geotransforms[i]
           = GeoTransform(m_images[i].georef, m_images[m_base_image_id].georef);
       }
-      
-      m_filesOrder[i] = i; // start by keeping the order of files being read
 
       // Grow the world box to fit all the images
-      if (m_beg_image_id <= i && i < m_end_image_id) {
-        BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
-        m_world_box.grow(B);
-      }
+      BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
+      m_world_box.grow(B);
       
       // The first existing vector layer in the current widget becomes
       // the one we draw on.  Otherwise we keep m_polyLayerIndex at
       // m_beg_image_id so we store any new polygons in
       // m_images[m_beg_image_id].
-      if (m_beg_image_id <= i && i < m_end_image_id &&
-          m_images[i].isPoly() && m_polyLayerIndex == m_beg_image_id)
+      if (m_images[i].isPoly() && m_polyLayerIndex == m_beg_image_id)
         m_polyLayerIndex = i;
       
     } // end iterating over the images
@@ -348,7 +360,8 @@ namespace vw { namespace gui {
                        this, SLOT(showFilesChosenByUser(int, int)));
       
       m_chooseFiles->getFilesTable()->setContextMenuPolicy(Qt::CustomContextMenu);
-      QObject::connect(m_chooseFiles->getFilesTable(), SIGNAL(customContextMenuRequested(QPoint)),
+      QObject::connect(m_chooseFiles->getFilesTable(),
+                       SIGNAL(customContextMenuRequested(QPoint)),
                        this, SLOT(customMenuRequested(QPoint)));
 
       // When the user clicks on the table header on top to show or hide all
@@ -669,7 +682,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     // necessary since otherwise Qt will first call this function,
     // invoking refreshPixmap(), then will call update() one more time
     // invoking needlessly refreshPixmap() again, which is expensive.
-    if (m_firstPaintEvent){
+    if (m_firstPaintEvent) {
       update();
     }else {
       refreshPixmap();
@@ -760,7 +773,8 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       std::string thresholded_file
         = write_in_orig_or_curr_dir(m_opt,
                                     thresh_image, input_file, suffix,
-                                    m_images[image_iter].has_georef, m_images[image_iter].georef,
+                                    m_images[image_iter].has_georef,
+                                    m_images[image_iter].georef,
                                     has_nodata, nodata_val);
 
       // Read it back right away
@@ -1110,6 +1124,9 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
       if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
         continue;
 
+      // Load if not loaded so far. This won't play well with georefs
+      m_images[i].load();
+      
       // The portion of the image in the current view. 
       BBox2 curr_world_box = m_current_view;
       BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
@@ -1600,7 +1617,7 @@ void MainWidget::plotPolys(QPainter & paint) {
   
 void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
-    if (m_firstPaintEvent){
+    if (m_firstPaintEvent) {
       // This will be called the very first time the display is
       // initialized. We will paint into the pixmap, and
       // then display the pixmap on the screen.
@@ -1733,7 +1750,8 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
       if (num_pts == 1)
         endP = begP; // only one point is present
       else
-        endP = MainWidget::world2image(Vector2(profileX[pt_iter+1], profileY[pt_iter+1]), imgInd);
+        endP = MainWidget::world2image(Vector2(profileX[pt_iter+1], profileY[pt_iter+1]),
+                                       imgInd);
       
       int begX = begP.x(),   begY = begP.y();
       int endX = endP.x(),   endY = endP.y();
@@ -1810,7 +1828,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     m_profilePlot->show();
   }
   
-  void MainWidget::setProfileMode(bool profile_mode){
+  void MainWidget::setProfileMode(bool profile_mode) {
     m_profileMode = profile_mode;
 
     if (!m_profileMode) {
@@ -1834,6 +1852,10 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
       bool refresh = true;
       setPolyEditMode(false, refresh);
+
+      // Load the data if not loaded already
+      for (size_t it = 0; it < m_images.size(); it++)
+        m_images[it].img;
       
       // Show the profile window
       MainWidget::plotProfile(m_images, m_profileX, m_profileY);
@@ -3027,7 +3049,8 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
           m_world_box.grow(P); // to not cut when plotting later
           P = world2projpoint(P, m_polyLayerIndex); // projected units
           m_images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
-            .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly, P.x(), P.y());
+            .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly,
+                               P.x(), P.y());
 
           // These are no longer needed for the time being
           m_editPolyVecIndex        = -1;
@@ -3247,7 +3270,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
     zoom(scale);
 
-    m_curr_pixel_pos = QPoint2Vec(event->pos());
+    m_curr_pixel_pos = QPointF2Vec(event->position());
     updateCurrentMousePosition();
   }
 
@@ -3490,7 +3513,8 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
       int image_it = m_filesOrder[j];
       std::string fileName = m_images[image_it].name;
       BBox2i image_box = world2image(m_stereoCropWin, image_it);
-      image_box.crop(BBox2(0, 0, m_images[image_it].img.cols(), m_images[image_it].img.rows()));
+      image_box.crop(BBox2(0, 0, m_images[image_it].img.cols(),
+                           m_images[image_it].img.rows()));
 
       if (image_box.empty())
         m_chooseFiles->hide(fileName);

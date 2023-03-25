@@ -215,9 +215,9 @@ void preprocessArgs(int &argc, char** argv,
   return;
 }
 
-void readImages(std::vector<std::string> const& all_files,
-                std::vector<std::string> & images,
-                std::string & output_prefix) {
+void readImageNames(std::vector<std::string> const& all_files,
+                    std::vector<std::string> & images,
+                    std::string & output_prefix) {
 
   output_prefix = "";
   images.clear();
@@ -292,7 +292,7 @@ int main(int argc, char** argv) {
     stereo_settings().vwip_files.clear();
     handle_arguments(argc, argv, opt, all_files);
 
-    readImages(all_files, images, output_prefix);
+    readImageNames(all_files, images, output_prefix);
 
     if (stereo_settings().create_image_pyramids_only) {
       // Just create the image pyramids and exit. 
@@ -322,6 +322,11 @@ int main(int argc, char** argv) {
     // building image pyramids as that does not need a gui.
     asp::StereoApplication app(argc, argv);
 
+    // Set the font size
+    QFont f = app.font();
+    f.setPointSize(asp::stereo_settings().font_size);
+    app.setFont(f);
+    
     vw::create_out_dir(output_prefix);
 
     // Use OpenMP to speed things up.

@@ -167,7 +167,7 @@ private:
       max_val = m_nodata_val;
     }
     
-    Vector2 approx_bounds = m_image.img.m_img_ch1_double.get_approx_bounds();
+    Vector2 approx_bounds = m_image.img.m_img_ch1_double.approx_bounds();
     // The approx_bounds are computed on the lowest resolution level
     // of the pyramid and are likely exaggerated, but were computed
     // with outlier removal.  Use them to adjust the existing bounds

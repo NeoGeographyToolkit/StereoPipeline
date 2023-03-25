@@ -49,26 +49,72 @@ namespace fs = boost::filesystem;
 // See MainWidget.h for what this id does
 int BASE_IMAGE_ID = 0;
 
-namespace vw { namespace gui {
+namespace asp {
 
-  void rm_option_and_vals(int argc, char ** argv, std::string const& opt, int num_vals){
-    // Wipe say --left-image-crop-win 0 0 100 100, that is, an option
-    // with 4 values.
-    for (int i = 0; i < argc; i++) {
-      if (std::string(argv[i]) != opt)
-        continue;
-
-      for (int j = i; j < i + num_vals + 1; j++) {
-        if (j >= argc) break;
-        // To avoid problems with empty strings, set the string to space instead
-        if (strlen(argv[j]) > 0) {
-          argv[j][0] = ' ';
-          argv[j][1] = '\0';
-        }
+// TODO(oalexan1): Move to utils
+void rm_option_and_vals(int argc, char ** argv, std::string const& opt, int num_vals) {
+  // Wipe say --left-image-crop-win 0 0 100 100, that is, an option
+  // with 4 values.
+  for (int i = 0; i < argc; i++) {
+    if (std::string(argv[i]) != opt)
+      continue;
+    
+    for (int j = i; j < i + num_vals + 1; j++) {
+      if (j >= argc) break;
+      // To avoid problems with empty strings, set the string to space instead
+      if (strlen(argv[j]) > 0) {
+        argv[j][0] = ' ';
+        argv[j][1] = '\0';
       }
     }
   }
-}}
+}
+
+// TODO(oalexan1): Move to utils.
+// Given a vector of properties, with each property having a
+// potentially non-unique image name as an attribute and other
+// attributes as well, and a list of images, find the index of the
+// property for that image. Such logic is necessary because the same
+// image may show up twice, but with different properties each
+// time. So, the first occurrence of an image is matched to the first
+// occurrence of a property with that name, and so on. Also, there may
+// be properties for entities which are no longer in the list of
+// images.
+void lookupProperyIndices(std::vector<std::map<std::string, std::string>> const&
+                          properties,
+                          std::vector<std::string> const& images,
+                          std::vector<int> & propertyIndices) {
+
+  propertyIndices.clear();
+
+  size_t start_p = 0;
+  for (size_t i = 0; i < images.size(); i++) {
+
+    for (size_t p_it = start_p; p_it < properties.size(); p_it++) {
+      auto key_ptr = properties[p_it].find("name");
+      if (key_ptr == properties[p_it].end())
+        continue;
+      if (key_ptr->second == images[i]) {
+        start_p = p_it; // Found the right index for the property for the current file
+        break; 
+      }
+    }
+
+    if (start_p >= properties.size()) {
+      if (properties.empty()) 
+        vw::vw_throw(vw::ArgumentErr() << "No image properties were found.\n");
+
+      // For the nvm case, to not go out of bounds
+      start_p = properties.size() - 1; 
+    }
+    propertyIndices.push_back(start_p);
+
+    start_p++; // next time start the search after the entry just identified
+  }
+  
+}
+
+} // end namespace asp
 
 // Need this class to manage what happens when keys are pressed while
 // the chooseFilesDlg table is in focus. Do not let it accept key
@@ -162,50 +208,8 @@ bool MainWindow::sanityChecks(int num_images) {
     popUp("The value --plot-point-radius must be positive.");
     return false;
   }
-  
+
   return true;
-}
-
-// Given a vector of properties, with each property having a
-// potentially non-unique image name as an attribute and other
-// attributes as well, and a list of images, find the index of the
-// property for that image. Such logic is necessary because the same
-// image may show up twice, but with different properties each
-// time. So, the first occurrence of an image is matched to the first
-// occurrence of a property with that name, and so on. Also, there may
-// be properties for entities which are no longer in the list of
-// images.
-void lookupProperyIndices(std::vector<std::map<std::string, std::string>> const& properties,
-                          std::vector<std::string> const& images,
-                          std::vector<int> & propertyIndices) {
-
-  propertyIndices.clear();
-
-  size_t start_p = 0;
-  for (size_t i = 0; i < images.size(); i++) {
-
-    for (size_t p_it = start_p; p_it < properties.size(); p_it++) {
-      auto key_ptr = properties[p_it].find("name");
-      if (key_ptr == properties[p_it].end())
-        continue;
-      if (key_ptr->second == images[i]) {
-        start_p = p_it; // Found the right index for the property for the current file
-        break; 
-      }
-    }
-
-    if (start_p >= properties.size()) {
-      if (properties.empty()) 
-        vw::vw_throw(vw::ArgumentErr() << "No image properties were found.\n");
-
-      // For the nvm case, to not go out of bounds
-      start_p = properties.size() - 1; 
-    }
-    propertyIndices.push_back(start_p);
-
-    start_p++; // next time start the search after the entry just identified
-  }
-  
 }
 
 MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
@@ -279,14 +283,29 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     exit(1);
   }
 
+  // Set the default lowest resolution subimage size. Use a shorthand below.
+  // Must happen before images are loaded.
+  int & lowres_size = asp::stereo_settings().lowest_resolution_subimage_num_pixels;
+  bool delay = !asp::stereo_settings().nvm.empty() || asp::stereo_settings().preview;
+  if (lowres_size <= 0) {
+    if (delay) {
+      lowres_size = 10000 * 10000; // to avoid creating many small subimages
+    } else {
+      lowres_size = 1000 * 1000;
+    }
+  }
+  
   m_images.resize(m_image_files.size());
   std::vector<int> propertyIndices;
-  
-  lookupProperyIndices(properties, m_image_files, propertyIndices);
+  asp::lookupProperyIndices(properties, m_image_files, propertyIndices);
 
+  // TODO(oalexan1): How will the preview mode play along with georeferences?
   bool has_georef = true;
   for (size_t i = 0; i < m_image_files.size(); i++) {
-    m_images[i].read(m_image_files[i], m_opt, REGULAR_VIEW, properties[propertyIndices[i]]);
+    m_images[i].read(m_image_files[i], m_opt, REGULAR_VIEW,
+                     properties[propertyIndices[i]],
+                     delay);
+    
     // Above we read the image in regular mode. If plan to display hillshade,
     // for now set the flag for that, and the hillshaded image will be created
     // and set later. (Something more straightforward could be done.)
@@ -294,12 +313,16 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     has_georef = has_georef && m_images[i].has_georef;
   }
 
-
   // Use georef if all images have it. This may be turned off later if it is desired
   // to show matches.
   if (has_georef)
     m_use_georef = true;
 
+  // It is tricky to set up a layout for georeferenced images if they are loaded
+  // one or a few at a time.
+  if (delay) 
+    m_use_georef = false;
+  
   // Ensure the inputs are reasonable
   if (!MainWindow::sanityChecks(m_image_files.size()))
     forceQuit();
@@ -322,7 +345,13 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   if (m_grid_cols <= 0)
     m_grid_cols = std::numeric_limits<int>::max();
 
+  // If no custom view mode, this is the default
   m_view_type = VIEW_SIDE_BY_SIDE;
+
+  // Preview mode normally implies a single window.
+  if (asp::stereo_settings().preview && !sideBySideWithDialog()) 
+    single_window = true;
+  
   if (m_grid_cols > 0 && m_grid_cols < int(m_image_files.size()) &&
       !sideBySideWithDialog())
     m_view_type = VIEW_AS_TILES_ON_GRID;
@@ -372,6 +401,9 @@ void MainWindow::createLayout() {
   // Set up the dialog for choosing files
   m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
 
+  if (asp::stereo_settings().preview && !sideBySideWithDialog())
+    m_chooseFiles->setNumImagesToShow(1); // show only the first one
+    
   // When showing matches or other ways of showing images side-by-side,
   // automatically change the layout
   if (sideBySideWithDialog() || asp::stereo_settings().view_matches) {
@@ -379,7 +411,7 @@ void MainWindow::createLayout() {
     if (m_show_two_images_when_side_by_side_with_dialog) {
       // This must be triggered only when the tool starts or when switched
       // into sideBySideWithDialog() mode from the menu.
-      m_chooseFiles->showTwoImages();
+      m_chooseFiles->setNumImagesToShow(2);
       m_show_two_images_when_side_by_side_with_dialog = false;
     }
   }
@@ -439,7 +471,9 @@ void MainWindow::createLayout() {
       bool poly_or_xyz = (m_images[i].isPoly() || m_images[i].isCsv());
       
       QWidget * widget = NULL;
-      if (!m_images[i].colorize_image || poly_or_xyz || m_images[i].img.planes() != 1) {
+      if (!m_images[i].colorize_image || poly_or_xyz ||
+          asp::stereo_settings().preview || sideBySideWithDialog() ||
+          m_images[i].img.planes() != 1) {
         // regular plot
         widget = new MainWidget(centralWidget,
                                 m_opt,
@@ -1590,17 +1624,17 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
   std::string run_cmd = vw::program_path(cmd, m_argv[0]);
 
   // Wipe pre-existing left-image-crop-win and right-image-crop-win
-  rm_option_and_vals(m_argc, m_argv, "--left-image-crop-win", 4);
-  rm_option_and_vals(m_argc, m_argv, "--right-image-crop-win", 4);
+  asp::rm_option_and_vals(m_argc, m_argv, "--left-image-crop-win", 4);
+  asp::rm_option_and_vals(m_argc, m_argv, "--right-image-crop-win", 4);
 
   // Wipe the stereo_gui --window-size option, has no use for 
   // batch stereo.
-  rm_option_and_vals(m_argc, m_argv, "--window-size", 2);
+  asp::rm_option_and_vals(m_argc, m_argv, "--window-size", 2);
 
   // Add the options
   for (int i = 1; i < m_argc; i++) {
     std::string token = std::string(m_argv[i]);
-    // Skip adding empty spaces we may have introduced with rm_option_and_vals().
+    // Skip adding empty spaces we may have introduced with asp::rm_option_and_vals().
     if (token == " ")
       continue;
     // Use quotes if there are spaces

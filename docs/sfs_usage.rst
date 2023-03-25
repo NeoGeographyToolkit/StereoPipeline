@@ -960,6 +960,9 @@ find matching interest points. Hence, there must be sufficient images
 so that the illumination conditions over the entire site change slowly
 as one goes down the list.
 
+The paper :cite:`bertone2023highly` discusses how to automate
+the process of selecting images. 
+
 Bundle adjustment
 ^^^^^^^^^^^^^^^^^
 

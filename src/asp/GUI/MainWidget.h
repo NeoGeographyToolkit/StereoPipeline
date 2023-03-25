@@ -298,7 +298,9 @@ public slots:
     // if really necessary, and display it when paintEvent is called.
     QPixmap m_pixmap;
 
+    // Default color when polys are created from scratch
     std::string m_polyColor;
+    
     std::map<int, std::string> m_perImagePolyColor;
     int m_lineWidth;
 

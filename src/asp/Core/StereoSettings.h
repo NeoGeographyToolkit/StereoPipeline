@@ -283,8 +283,9 @@ namespace asp {
     bool single_window;
     bool use_georef;
     bool hillshade;
+    int lowest_resolution_subimage_num_pixels;
     double hillshade_azimuth, hillshade_elevation;
-    bool view_matches, colorize;
+    bool view_matches, colorize, preview;
     std::string match_file, gcp_file, dem_file, csv_datum, csv_format_str, csv_proj4, nvm;
     bool delete_temporary_files_on_exit;
     bool create_image_pyramids_only, hide_all;
@@ -292,7 +293,7 @@ namespace asp {
     std::vector<std::string> vwip_files;
     vw::BBox2 zoom_proj_win;
     double min, max;
-    int plot_point_radius;
+    int plot_point_radius, font_size;
     
     // stereo_parse options
     std::string tile_at_loc;

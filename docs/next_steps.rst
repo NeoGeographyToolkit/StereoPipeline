@@ -939,11 +939,15 @@ This can guide tuning of parameters to reduce resource usage.
 Correcting camera positions and orientations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``bundle_adjust`` program (:numref:`bundle_adjust`)
- can be used to adjust the camera positions
-and orientations before running stereo. These adjustments only makes the
-cameras self-consistent. For the adjustments to be absolute, it is
-necessary to use ``bundle_adjust`` with ground control points. 
+The ``bundle_adjust`` program (:numref:`bundle_adjust`) can be used to
+adjust the camera positions and orientations before running
+stereo. These adjustments makes the cameras self-consistent, but not
+consistent with the ground.
+
+A stereo terrain created with bundle-adjusted cameras can be aligned
+to an existing reference using ``pc_align``
+(:numref:`pc-align-example`).  The same alignment transform can be
+applied to the bundle-adjusted cameras (:numref:`ba_pc_align`).
 
 .. _pc-align-example:
 
@@ -1007,8 +1011,11 @@ and if your CSV file has, unlike above, the heights relative to a datum,
 the correct datum name must be specified via ``--datum``.  :numref:`molacmp`
 talks in more detail about the Mars datums.
 
-:numref:`pc-align-fig` shows an example of using ``pc_align``.
-The complete documentation for this program is in :numref:`pc_align`.
+See an illustration in :numref:`pc-align-fig`.
+
+An alignment transform can be applied to cameras models
+(:numref:`ba_pc_align`). The complete documentation for this program
+is in :numref:`pc_align`.
 
 .. _pc_align_validation:
 

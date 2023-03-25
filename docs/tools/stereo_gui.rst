@@ -77,7 +77,8 @@ etc.
 In this mode, the keys ``n`` and ``p`` can be used to cycle among
 the images.
 
-``stereo_gui`` also can:
+Other features
+~~~~~~~~~~~~~~
 
   - Create and show hillshaded DEMs, either via the ``--hillshade``
     option, or by choosing from the GUI View menu the ``Hillshaded images``
@@ -93,10 +94,18 @@ the images.
 
   - Overlay and edit polygons (:numref:`plot_poly`).
 
+  - Load only one image at a time, for speed, with the ``--preview``
+    option. Can cycle through them with the 'n' and 'p' key. In this
+    mode, the lowest-resolution subimage size is larger than usual to
+    avoid creating small images. See
+    ``--lowest-resolution-subimage-num-pixels``.
+
   - Find pixel values and region bounds (:numref:`image_bounds`).
 
   - Show, add, and edit interest point matches displayed on top of images
     (:numref:`stereo_gui_view_ip`).
+
+  - Load .nvm files having an SfM solution (:numref:`stereo_gui_nvm`).
   
   - View GCP and .vwip files (:numref:`stereo_gui_vwip_gcp`).
 
@@ -330,31 +339,6 @@ image pair if the output prefix was specified. For that, run::
 then select a couple of images to view using the checkboxes on the
 left, and their match file will be displayed automatically.
 
-
-.. _stereo_gui_nvm:
-
-View pairwise matches loaded from an NVM file
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This tool can also visualize pairwise interest point matches loaded
-from an .nvm file. This file normally shifts all saved features
-relative to the origin. For ``stereo_gui`` to read such a file,
-each .nvm file must have an associated ``_offsets.txt`` file having
-the optical offsets per image. The ``rig_calibrator`` program writes
-such an offset file. This file is auto-loaded along with the .nvm
-file if detected.
-
-An .nvm file having features that are not shifted can be loaded as
-well. Such files are created by ``rig_calibrator`` with the
-``--save_nvm_no_shift`` option (:numref:`rig_calibrator`). 
-
-Example::
-
-    stereo_gui --nvm nvm_noshift.nvm
-
-(The ``--nvm`` option can also be omitted, and only the file itself
-can be specified.)
-
 .. _stereo_gui_N_image_matches:
 
 View all matches for *N* images
@@ -385,6 +369,37 @@ enough match points, the missing points will be added to an
 arbitrary position and flagged as invalid. You must either validate
 these points by manually moving them to the correct position or else
 delete them.
+
+.. _stereo_gui_nvm:
+
+View NVM files
+^^^^^^^^^^^^^^
+
+This tool can also visualize pairwise interest point matches loaded
+from an .nvm file created by a Structure-from-Motion tool, such as
+``theia_sfm`` (:numref:`theia_sfm`) and ``rig_calibrator``
+(:numref:`rig_calibrator`).
+
+This file normally shifts all saved features relative to the camera
+optical center. For ``stereo_gui`` to read such a file, each .nvm file
+must have an associated ``_offsets.txt`` file having the optical
+center per image. The above-mentioned programs write such an offset
+file. This file is auto-loaded along with the .nvm file if detected.
+
+An .nvm file having features that are not shifted can be loaded as
+well. Such files are created by ``rig_calibrator`` with the
+``--save_nvm_no_shift`` option (:numref:`rig_calibrator`). 
+
+Example::
+
+    stereo_gui --nvm nvm_noshift.nvm
+
+(The ``--nvm`` option can also be omitted, and only the file itself
+can be specified.)
+
+In this mode, the lowest-resolution subimage size is larger than
+usual, to avoid creating small files.  See
+``--lowest-resolution-subimage-num-pixels``.
 
 .. _stereo_gui_vwip_gcp:
 
@@ -696,6 +711,20 @@ accept all other ``parallel_stereo`` options as well.
 --csv-proj4 (*string*) (default = "")
     The PROJ.4 string to use when plotting a CSV
     file. If not specified, try to use the ``--datum`` option. 
+
+--preview
+    Load and display the images one at a time, for speed. The 'n' and
+    'p' keys can be used to cycle through them.
+
+--lowest-resolution-subimage-num-pixels <integer (default: -1)>
+    When building a pyramid of lower-resolution versions of an image,
+    the coarsest image will have no more than this many pixels. If not
+    set, it will internally default to 1000 x 1000. This is
+    increased to 10000 x 10000 when loading .nvm files or with the
+    ``--preview`` option to avoid creating many small files.
+
+--font-size <integer (default = 9)>
+    Set the font size.
 
 --delete-temporary-files-on-exit
     Delete any subsampled and other files created by the GUI when

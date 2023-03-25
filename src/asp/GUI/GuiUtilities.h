@@ -69,7 +69,8 @@ class QPolygon;
 
 namespace vw { namespace gui {
 
-  enum DisplayMode {REGULAR_VIEW, HILLSHADED_VIEW, COLORIZED_VIEW, HILLSHADE_COLORIZED_VIEW,
+  enum DisplayMode {REGULAR_VIEW, HILLSHADED_VIEW, COLORIZED_VIEW,
+                    HILLSHADE_COLORIZED_VIEW,
                     THRESHOLDED_VIEW};
   
   // TODO(oalexan1): Remove this def out of this header file
@@ -109,7 +110,7 @@ namespace vw { namespace gui {
     vw::cartography::GeoReference georef;
     vw::BBox2        image_bbox;
     vw::Vector2      val_range;
-    
+    bool             loaded; // if the image was loaded
     // There are several display modes. The one being shown is
     // determined by m_display_mode. Store the corresponding
     // image in one of the structures below
@@ -129,16 +130,20 @@ namespace vw { namespace gui {
     // the intensity. May be colorized.
     std::vector<vw::Vector3> scattered_data;
     
-    imageData(): m_display_mode(REGULAR_VIEW) {}
+    imageData(): m_display_mode(REGULAR_VIEW), has_georef(false), loaded(false) {}
     
-    /// Load an image from disk into img and set the other variables.
+    /// Read an image from disk into img and set the other variables.
     void read(std::string const& image, vw::GdalWriteOptions const& opt,
               DisplayMode display_mode = REGULAR_VIEW,
               std::map<std::string, std::string> const& properties =
-              std::map<std::string, std::string>());
+              std::map<std::string, std::string>(), bool delay_loading = false);
+
+    // The actual loading happens here
+    void load();
 
     bool isPoly() const;
     bool isCsv()  const;
+
   };
 
   /// Convert a QRect object to a BBox2 object.
@@ -207,6 +212,7 @@ namespace vw { namespace gui {
   
   // QT conversion functions
   vw::Vector2 QPoint2Vec(QPoint      const& qpt);
+  vw::Vector2 QPointF2Vec(QPointF    const& qpt);
   QPoint      Vec2QPoint(vw::Vector2 const& V  );
 
   /// A simple class for keeping track of crosshair locations and colors.
