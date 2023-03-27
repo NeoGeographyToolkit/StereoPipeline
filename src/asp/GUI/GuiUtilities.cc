@@ -1057,6 +1057,10 @@ bool sideBySideWithDialog() {
           asp::stereo_settings().pairwise_clean_matches);
 }
 
+bool previewOrSideBySideWithDialog() {
+  return asp::stereo_settings().preview || sideBySideWithDialog();
+}
+  
 // Turn off any such side-by-side logic
 void setNoSideBySideWithDialog() {
   asp::stereo_settings().pairwise_matches         = false;

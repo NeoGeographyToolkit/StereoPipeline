@@ -50,14 +50,22 @@ namespace vw { namespace gui {
     bool isHidden(std::string const& image) const;
     // Hide the given image  
     void hide(std::string const& image);
+    void hide(int image_id);
     // Show the given image  
     void unhide(std::string const& image);
+    void unhide(int image_id);
 
     // Show this many of the first several input images
     void setNumImagesToShow(int num);
     
     // Show all images
     void showAllImages();
+
+    // Number of images being shown
+    int numShown(); 
+
+    // If some images are shown, hide all. Else, show all.
+    void hideShowAll();
     
   private:
     int imageRow(std::string const& image) const;

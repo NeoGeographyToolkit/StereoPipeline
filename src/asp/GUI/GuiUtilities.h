@@ -366,6 +366,7 @@ std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
 // See if we are in the mode where the images are displayed side-by-side with a
 // dialog to choose which ones to display.
 bool sideBySideWithDialog();
+bool previewOrSideBySideWithDialog();
 void setNoSideBySideWithDialog(); // turn off such logic
 
 }} // namespace vw::gui

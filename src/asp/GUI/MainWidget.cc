@@ -351,9 +351,10 @@ namespace vw { namespace gui {
 
     // To do: Warn the user if some images have georef while others don't.
 
-    // Choose which files to hide/show in the GUI. In sideBySideWithDialog()
-    // mode, communication is handled in MainWindow.
-    if (m_chooseFiles && !sideBySideWithDialog()) {
+    // Choose which files to hide/show in the GUI. In previewOrSideBySideWithDialog()
+    // mode, see MainWindow() for alternative functionality which requires
+    // redrawing the layout.
+    if (m_chooseFiles && !previewOrSideBySideWithDialog()) {
       // When the user clicks on a table entry, say by modifying a 
       // checkbox, update the display.
       QObject::connect(m_chooseFiles->getFilesTable(), SIGNAL(cellClicked(int, int)),
@@ -363,12 +364,16 @@ namespace vw { namespace gui {
       QObject::connect(m_chooseFiles->getFilesTable(),
                        SIGNAL(customContextMenuRequested(QPoint)),
                        this, SLOT(customMenuRequested(QPoint)));
-
-      // When the user clicks on the table header on top to show or hide all
-      QObject::connect(m_chooseFiles->getFilesTable()->horizontalHeader(),
-                       SIGNAL(sectionClicked(int)), this, SLOT(hideShowAll()));
     }
-
+    
+    if (m_chooseFiles && !sideBySideWithDialog()) {
+      // When the user clicks on the table header on top to show or hide all
+      // When sideBySideWithDialog() is on, do not let every widget trigger this,
+      // it will be done instead from the parent window.
+      QObject::connect(m_chooseFiles->getFilesTable()->horizontalHeader(),
+                       SIGNAL(sectionClicked(int)), this, SLOT(hideShowAll_widgetVersion()));
+    }
+    
     // Right-click context menu
     m_ContextMenu = new QMenu();
     //setContextMenuPolicy(Qt::CustomContextMenu);
@@ -569,11 +574,20 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     }
 
     // Print count and image file (count starts from 1)
+    // TODO(oalexan1): Implement a function called image(int id) to avoid this
+    // lengthy text. It can be used in other places too.
     std::string fileName = (filesTable->item(shownRow, 1)->data(0)).toString().toStdString();
     vw_out() << "Image: " << shownRow + 1  << ' ' << fileName << "\n";
-    
+
+    if (asp::stereo_settings().preview) {
+      // In this mode one image at a time is shown, and the widget needs
+      // to be recreated with new world coordinates for each one
+      emit recreateLayoutSignal();
+      return;
+    }
+
+    // Otherwise just refresh the widget
     refreshPixmap();
-    
     return;
   }
 
@@ -594,47 +608,19 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     zoomToImage();
   }
   
-  void MainWidget::hideShowAll() {
+void MainWidget::hideShowAll_widgetVersion() {
 
     // Process user's choice from m_chooseFiles.
     if (!m_chooseFiles)
       return;
 
-    QTableWidget * filesTable = m_chooseFiles->getFilesTable();
-    int rows = filesTable->rowCount();
+    m_chooseFiles->hideShowAll();
 
-    // See if all files are hidden
-    bool allOff = true;
-    for (int rowIter = 0; rowIter < rows; rowIter++){
-      QTableWidgetItem *item = filesTable->item(rowIter, 0);
-      if (item->checkState() == Qt::Checked){
-        allOff = false;
-      }
-    }
-
-    // If all files are hidden, we will show all. Else hide all.
-    for (int rowIter = 0; rowIter < rows; rowIter++){
-      QTableWidgetItem *item = filesTable->item(rowIter, 0);
-      std::string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
-      if (allOff)
-        item->setCheckState(Qt::Checked);
-      else
-        item->setCheckState(Qt::Unchecked);
-    }
-
-    if (!allOff) {
-      // Now all files are hidden, per above. So reset the order, so that when
-      // we show them, they are in the original order.
-      int num_images = m_images.size();
-      m_filesOrder.resize(num_images);
-      for (int i = 0; i < num_images; i++)
-        m_filesOrder[i] = i;
-    }
-    
-    // Force the horizontal scrollbar in the table to go left, so one can see
-    // the checkboxes.
-    QScrollBar * hScrollBar = filesTable->horizontalScrollBar();
-    hScrollBar->triggerAction(QScrollBar::SliderToMinimum);
+    // In either case, reset the order in which the images are displayed
+    int num_images = m_images.size();
+    m_filesOrder.resize(num_images);
+    for (int i = 0; i < num_images; i++)
+      m_filesOrder[i] = i;
     
     refreshPixmap();
   }

@@ -22,6 +22,7 @@
 #include <QWidget>
 #include <QHeaderView>
 #include <QVBoxLayout>
+#include <QScrollBar>
 
 namespace vw { namespace gui {
 
@@ -116,7 +117,7 @@ void chooseFilesDlg::chooseFiles(const std::vector<std::string> & image_files) {
   return;
 }
 
-  // Quickly find in what table row the current image is  
+// Quickly find in what table row the current image is  
 int chooseFilesDlg::imageRow(std::string const& image) const {
   auto it = image_to_row.find(image);
   if (it == image_to_row.end()) {
@@ -131,6 +132,8 @@ bool chooseFilesDlg::isHidden(std::string const& image) const {
 
   int row = imageRow(image);
   QTableWidgetItem *item = m_filesTable->item(row, 0);
+  // TODO(oalexan1): Use below a function called image(int id).
+  // There are more places like that.
   std::string curr_image = (m_filesTable->item(row, 1)->data(0)).toString().toStdString();
   if (image == curr_image)
     return (item->checkState() == Qt::Unchecked);
@@ -139,20 +142,22 @@ bool chooseFilesDlg::isHidden(std::string const& image) const {
 
 // Hide the given image  
 void chooseFilesDlg::hide(std::string const& image) {
-  int row = imageRow(image);
-  QTableWidgetItem *item = m_filesTable->item(row, 0);
-  std::string curr_image = (m_filesTable->item(row, 1)->data(0)).toString().toStdString();
-  if (image == curr_image)
-    item->setCheckState(Qt::Unchecked);
+  int image_id = imageRow(image);
+  chooseFilesDlg::hide(image_id);
+}
+void chooseFilesDlg::hide(int image_id) {
+  QTableWidgetItem *item = m_filesTable->item(image_id, 0);
+  item->setCheckState(Qt::Unchecked);
 }
 
 // Show the given image by turning on the checkbox in the table
 void chooseFilesDlg::unhide(std::string const& image) {
-  int row = imageRow(image);
-  QTableWidgetItem *item = m_filesTable->item(row, 0);
-  std::string curr_image = (m_filesTable->item(row, 1)->data(0)).toString().toStdString();
-  if (image == curr_image)
-    item->setCheckState(Qt::Checked);
+  int image_id = imageRow(image);
+  chooseFilesDlg::unhide(image_id);
+}
+void chooseFilesDlg::unhide(int image_id) {
+  QTableWidgetItem *item = m_filesTable->item(image_id, 0);
+  item->setCheckState(Qt::Checked);
 }
 
 // Show this many of the first several input images
@@ -178,6 +183,49 @@ void chooseFilesDlg::showAllImages() {
   }
 }
 
+// Number of images being shown
+int chooseFilesDlg::numShown() {
+  int num = 0;
+  int rows = m_filesTable->rowCount();
+  for (int row = 0; row < rows; row++) {
+    QTableWidgetItem *item = m_filesTable->item(row, 0);
+    num += (item->checkState() == Qt::Checked);
+  }
+
+  return num;
+}
+
+// If some images are shown, hide all. Else, show all.
+void chooseFilesDlg::hideShowAll() {
+    
+  int rows = m_filesTable->rowCount();
+
+  // See if all files are hidden
+  bool allOff = true;
+  for (int rowIter = 0; rowIter < rows; rowIter++){
+    QTableWidgetItem *item = m_filesTable->item(rowIter, 0);
+    if (item->checkState() == Qt::Checked){
+      allOff = false;
+    }
+  }
+  
+  // If all files are hidden, we will show all. Else hide all.
+  for (int rowIter = 0; rowIter < rows; rowIter++){
+    QTableWidgetItem *item = m_filesTable->item(rowIter, 0);
+    // TODO(oalexan1): Use below a function called image(int id).
+    std::string fileName = (m_filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+    if (allOff)
+      item->setCheckState(Qt::Checked);
+    else
+      item->setCheckState(Qt::Unchecked);
+  }
+
+  // Force the horizontal scrollbar in the table to go left, so one can see
+  // the checkboxes.
+  QScrollBar * hScrollBar = m_filesTable->horizontalScrollBar();
+  hScrollBar->triggerAction(QScrollBar::SliderToMinimum);
+}
+  
 void chooseFilesDlg::keyPressEvent(QKeyEvent *event) {
   // std::cout << "Key was pressed " << event->key() << std::endl;
 }

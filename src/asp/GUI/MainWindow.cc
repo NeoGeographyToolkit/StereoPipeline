@@ -335,8 +335,11 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   m_chooseFiles->getFilesTable()->installEventFilter(this);
   
   QObject::connect(m_chooseFiles->getFilesTable(), SIGNAL(cellClicked(int, int)),
-                   this, SLOT(perhapsCreateLayout()));
-  
+                   this, SLOT(perhapsCreateLayout(int, int)));
+
+  QObject::connect(m_chooseFiles->getFilesTable()->horizontalHeader(),
+                   SIGNAL(sectionClicked(int)), this, SLOT(hideShowAll_windowVersion()));
+
   // For editing match points
   m_editMatchPointVecIndex = -1;
   m_matchlist.resize(m_image_files.size());
@@ -401,9 +404,13 @@ void MainWindow::createLayout() {
   // Set up the dialog for choosing files
   m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
 
-  if (asp::stereo_settings().preview && !sideBySideWithDialog())
-    m_chooseFiles->setNumImagesToShow(1); // show only the first one
-    
+  if (asp::stereo_settings().preview && !sideBySideWithDialog()) {
+    // Show only the first image, unless it was decided somewhere else
+    // another one image is to be shown.
+    if (m_chooseFiles && m_chooseFiles->numShown() != 1) 
+      m_chooseFiles->setNumImagesToShow(1);
+  }
+  
   // When showing matches or other ways of showing images side-by-side,
   // automatically change the layout
   if (sideBySideWithDialog() || asp::stereo_settings().view_matches) {
@@ -472,8 +479,7 @@ void MainWindow::createLayout() {
       
       QWidget * widget = NULL;
       if (!m_images[i].colorize_image || poly_or_xyz ||
-          asp::stereo_settings().preview || sideBySideWithDialog() ||
-          m_images[i].img.planes() != 1) {
+          previewOrSideBySideWithDialog() || m_images[i].img.planes() != 1) {
         // regular plot
         widget = new MainWidget(centralWidget,
                                 m_opt,
@@ -533,6 +539,8 @@ void MainWindow::createLayout() {
             this, SLOT(uncheckPolyEditModeCheckbox()));
     connect(mw(m_widgets[i]), SIGNAL(zoomAllToSameRegionSignal(int)),
             this, SLOT(zoomAllToSameRegionAction(int)));
+    connect(mw(m_widgets[i]), SIGNAL(recreateLayoutSignal()),
+            this, SLOT(createLayout()));
   }
 
   QWidget *container = new QWidget(centralWidget);
@@ -865,11 +873,36 @@ void MainWindow::createMenus() {
   m_help_menu->addAction(m_about_action);
 }
 
-// In sideBySideWithDialog mode, checking/unchecking images has to result
+// In previewOrSideBySideWithDialog mode, checking/unchecking images has to result
 // in redisplay of selected ones.
-void MainWindow::perhapsCreateLayout() {
-  if (sideBySideWithDialog())
+void MainWindow::perhapsCreateLayout(int row, int col) {
+
+  if (m_chooseFiles && asp::stereo_settings().preview) {
+    // If clicked on a cell, must show this image, and hide the rest
+    int rows = m_chooseFiles->getFilesTable()->rowCount();
+    for (int row_it = 0; row_it < rows; row_it++) {
+      if (row_it == row) 
+        m_chooseFiles->unhide(row_it);
+      else
+        m_chooseFiles->hide(row_it);
+    }
+  }
+    
+  if (previewOrSideBySideWithDialog())
     createLayout();
+}
+
+// When in sideBySideWithDialog mode, hide or show all images. Otherwise
+// this function does nothing, and hideShowAll_widgetVersion() gets called.
+void MainWindow::hideShowAll_windowVersion() {
+  if (m_chooseFiles) 
+    m_chooseFiles->hideShowAll();
+  
+   if (sideBySideWithDialog()) {
+     // This ensures we don't override how many images are shown
+     m_show_two_images_when_side_by_side_with_dialog = false;
+    createLayout();
+  }
 }
 
 void MainWindow::resizeEvent(QResizeEvent *){

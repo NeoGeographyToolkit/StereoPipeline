@@ -161,6 +161,7 @@ namespace vw { namespace gui {
 
 signals:
     void toggleViewMatchesSignal    ();
+    void recreateLayoutSignal       ();
     void updateMatchesSignal        (); // this one will do less work and keep the zoom level
     void uncheckProfileModeCheckbox ();
     void uncheckPolyEditModeCheckbox();
@@ -172,7 +173,7 @@ public slots:
     void zoomToImageInTableCell(int rowClicked, int columnClicked);
     void viewNextImage();
     void viewPrevImage();
-    void hideShowAll();
+    void hideShowAll_widgetVersion();
     void customMenuRequested(QPoint pos);
     void viewUnthreshImages();
     void viewThreshImages  (bool refresh_pixmap);

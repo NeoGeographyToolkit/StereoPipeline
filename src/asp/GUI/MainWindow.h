@@ -112,13 +112,13 @@ namespace vw { namespace gui {
     void keyPressEvent(QKeyEvent *event);
     bool eventFilter(QObject *obj, QEvent *e);
 
-
   private slots:
-  void perhapsCreateLayout(); 
+    void perhapsCreateLayout(int row, int col); 
+    void hideShowAll_windowVersion(); 
+    void createLayout();
 
   private:
 
-    void createLayout();
     void run_stereo_or_parallel_stereo(std::string const& cmd);
 
     /// Go through m_matches and retain only IPs detected in the first image.
