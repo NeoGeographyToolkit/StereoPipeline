@@ -25,9 +25,14 @@ is not set, the Sun information is read from the camera files.
 
 ``sfs`` has been tested thoroughly with Lunar LRO NAC datasets, and
 some experiments were done with Mars HiRISE images and with pictures
-from Charon, Pluto's moon. As seen later in the text, it returns
-reasonable results on the Moon as far as 85 degrees and even 89.6
-degrees South.
+from Charon, Pluto's moon. Using this fool for Mars is complicated by
+the fact that Mars has very diverse geological properties and an
+atmosphere. It will likely not do as well for Mars as for other Solar
+System bodies. For non-Moon datasets one can also experiment with the
+Hapke model.
+
+As can be seen below, ``sfs`` returns reasonable results on the Moon
+as far as 85 degrees and even 89.6 degrees South.
 
 The ``sfs`` program is sensitive to errors in the position and
 orientation of the cameras, the accuracy of the initial DEM, and to
