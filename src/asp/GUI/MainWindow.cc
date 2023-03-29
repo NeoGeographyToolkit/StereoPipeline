@@ -209,6 +209,11 @@ bool MainWindow::sanityChecks(int num_images) {
     return false;
   }
 
+  if (asp::stereo_settings().preview && sideBySideWithDialog()) {
+    popUp("Cannot have both the preview mode and side-by-side images.");
+    return false;
+  }
+  
   return true;
 }
 
@@ -929,7 +934,8 @@ void MainWindow::forceQuit(){
   // See if in the middle of editing of matches with unsaved matches
   if (MainWindow::editingMatches()) {
     QMessageBox::StandardButton reply;
-    reply = QMessageBox::question(this, "Quit", "Interest point matches were not saved. Quit?",
+    reply = QMessageBox::question(this, "Quit",
+                                  "Interest point matches were not saved. Quit?",
                                   QMessageBox::Yes|QMessageBox::No);
     if (reply != QMessageBox::Yes) {
       return;

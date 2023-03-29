@@ -324,10 +324,17 @@ Insert these in the small map, and optimize all poses together as::
       --num_iterations 20                           \
       --export_to_voxblox                           \
       --num_overlaps 5                              \
-      --min_triangulation_angle 1.0
+      --min_triangulation_angle 0.5
 
 The depth files will the same names but with the .pc extension will
 will be picked up automatically.
+
+The value of ``--min_triangulation_angle`` filters out rays with a
+very small angle of convergence. That usually makes the geometry more
+stable, but if the surface is far from the sensor, and there is not
+enough perspetive difference between images, it may eliminate too many
+features. The ``--max_reprojection_error`` option may eliminate
+features as well.
 
 It is suggested to carefully examine the text printed on screen by this
 tool. See :numref:`rig_calibrator_registration` and
@@ -465,7 +472,7 @@ already solved for fixed. This goes as follows::
       --num_iterations 20                           \
       --export_to_voxblox                           \
       --num_overlaps 5                              \
-      --min_triangulation_angle 1.0
+      --min_triangulation_angle 0.5
 
 The notable differences with the earlier invocation is that this time
 only the ``sci_cam`` images are optimized (floated), the option

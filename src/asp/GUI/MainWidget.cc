@@ -280,6 +280,16 @@ namespace vw { namespace gui {
     m_world2image_geotransforms.resize(num_images);
     m_image2world_geotransforms.resize(num_images);
 
+    // Each image can be hillshaded independently of the other ones
+    m_hillshade_azimuth   = asp::stereo_settings().hillshade_azimuth;
+    m_hillshade_elevation = asp::stereo_settings().hillshade_elevation;
+    
+    // Image threshold
+    m_thresh = -std::numeric_limits<double>::max();
+    m_thresh_calc_mode = false;
+
+    MainWidget::maybeGenHillshade();
+
     // Set geotransforms and other data
     for (int i = 0; i < num_images; i++) {
 
@@ -341,14 +351,6 @@ namespace vw { namespace gui {
       asp::stereo_settings().zoom_proj_win = BBox2(); // no longer needed
     }
     
-    // Each image can be hillshaded independently of the other ones
-    m_hillshade_azimuth   = asp::stereo_settings().hillshade_azimuth;
-    m_hillshade_elevation = asp::stereo_settings().hillshade_elevation;
-    
-    // Image threshold
-    m_thresh = -std::numeric_limits<double>::max();
-    m_thresh_calc_mode = false;
-
     // To do: Warn the user if some images have georef while others don't.
 
     // Choose which files to hide/show in the GUI. In previewOrSideBySideWithDialog()
@@ -409,11 +411,13 @@ namespace vw { namespace gui {
     m_setHillshadeParams = m_ContextMenu->addAction("View/set hillshade azimuth and elevation");
     m_saveScreenshot     = m_ContextMenu->addAction("Save screenshot");
     m_setThreshold       = m_ContextMenu->addAction("View/set threshold");
-    m_allowMultipleSelections_action = m_ContextMenu->addAction("Allow multiple selected regions");
+    m_allowMultipleSelections_action
+      = m_ContextMenu->addAction("Allow multiple selected regions");
     m_allowMultipleSelections_action->setCheckable(true);
     m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
     m_deleteSelection = m_ContextMenu->addAction("Delete selected regions around this point");
-    m_hideImagesNotInRegion = m_ContextMenu->addAction("Hide images not intersecting selected region");
+    m_hideImagesNotInRegion
+      = m_ContextMenu->addAction("Hide images not intersecting selected region");
 
     connect(m_addMatchPoint,         SIGNAL(triggered()), this, SLOT(addMatchPoint()));
     connect(m_deleteMatchPoint,      SIGNAL(triggered()), this, SLOT(deleteMatchPoint()));
@@ -423,17 +427,17 @@ namespace vw { namespace gui {
     connect(m_setThreshold,          SIGNAL(triggered()), this, SLOT(setThreshold()));
     connect(m_saveScreenshot,        SIGNAL(triggered()), this, SLOT(saveScreenshot()));
     connect(m_allowMultipleSelections_action, SIGNAL(triggered()), this,
-                                                                SLOT(allowMultipleSelections()));
+            SLOT(allowMultipleSelections()));
     connect(m_deleteSelection,       SIGNAL(triggered()), this, SLOT(deleteSelection()));
     connect(m_hideImagesNotInRegion, SIGNAL(triggered()), this, SLOT(hideImagesNotInRegion()));
-    connect(m_saveVectorLayerAsShapeFile,       SIGNAL(triggered()), this, SLOT(saveVectorLayerAsShapeFile()));
-    connect(m_saveVectorLayerAsTextFile,       SIGNAL(triggered()), this, SLOT(saveVectorLayerAsTextFile()));
+    connect(m_saveVectorLayerAsShapeFile,       SIGNAL(triggered()), this,
+            SLOT(saveVectorLayerAsShapeFile()));
+    connect(m_saveVectorLayerAsTextFile,       SIGNAL(triggered()), this,
+            SLOT(saveVectorLayerAsTextFile()));
     connect(m_deleteVertex,          SIGNAL(triggered()), this, SLOT(deleteVertex()));
     connect(m_deleteVertices,        SIGNAL(triggered()), this, SLOT(deleteVertices()));
     connect(m_insertVertex,          SIGNAL(triggered()), this, SLOT(insertVertex()));
     connect(m_mergePolys,            SIGNAL(triggered()), this, SLOT(mergePolys()));
-
-    MainWidget::maybeGenHillshade();
 
   } // End constructor
 
@@ -835,7 +839,6 @@ void MainWidget::hideShowAll_widgetVersion() {
         return;
       }
 
-      vw_out() << "Reading: " << hillshaded_file << std::endl;
       m_images[image_iter].read(hillshaded_file, m_opt, HILLSHADED_VIEW);
       temporary_files().files.insert(hillshaded_file);
     }

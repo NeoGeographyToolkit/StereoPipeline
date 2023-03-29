@@ -110,7 +110,8 @@ namespace vw { namespace gui {
     vw::cartography::GeoReference georef;
     vw::BBox2        image_bbox;
     vw::Vector2      val_range;
-    bool             loaded; // if the image was loaded
+    bool             loaded_regular, loaded_hillshaded,
+      loaded_thresholded, loaded_colorized; // if the image was loaded
     // There are several display modes. The one being shown is
     // determined by m_display_mode. Store the corresponding
     // image in one of the structures below
@@ -130,7 +131,9 @@ namespace vw { namespace gui {
     // the intensity. May be colorized.
     std::vector<vw::Vector3> scattered_data;
     
-    imageData(): m_display_mode(REGULAR_VIEW), has_georef(false), loaded(false) {}
+    imageData(): m_display_mode(REGULAR_VIEW), has_georef(false),
+                 loaded_regular(false), loaded_hillshaded(false),
+                 loaded_thresholded(false), loaded_colorized(false) {}
     
     /// Read an image from disk into img and set the other variables.
     void read(std::string const& image, vw::GdalWriteOptions const& opt,

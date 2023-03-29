@@ -526,7 +526,7 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
                      DisplayMode display_mode,
                      std::map<std::string, std::string> const& properties,
                      bool delay_loading) {
-  
+
   if (display_mode == REGULAR_VIEW)
     name = name_in;
   else if (display_mode == HILLSHADED_VIEW)
@@ -568,12 +568,29 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
 // Load the image is not loaded so far
 void imageData::load() {
 
-  if (loaded) 
-    return;
-  
-  loaded = true;
-  
-  vw_out() << "Reading: " << name << std::endl; 
+  // Loaded data need not be reloaded
+  if (m_display_mode == REGULAR_VIEW) {
+    if (loaded_regular) 
+      return;
+    vw_out() << "Reading: " << name << std::endl; 
+    loaded_regular = true;
+  } else if (m_display_mode == HILLSHADED_VIEW) {
+    if (loaded_hillshaded) 
+      return;
+    vw_out() << "Reading: " << hillshaded_name << std::endl; 
+    loaded_hillshaded = true;
+  } else if (m_display_mode == THRESHOLDED_VIEW) {
+    if (loaded_thresholded) 
+      return;
+    vw_out() << "Reading: " << thresholded_name << std::endl; 
+    loaded_thresholded = true;
+  } else if (m_display_mode == COLORIZED_VIEW) {
+    if (loaded_colorized) 
+      return;
+    vw_out() << "Reading: " << colorized_name << std::endl; 
+    loaded_colorized = true;
+  }
+    
   
   std::string default_poly_color = "green"; // default, will be overwritten later
   
