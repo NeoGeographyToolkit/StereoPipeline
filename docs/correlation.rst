@@ -530,6 +530,12 @@ interpreted as a relative measurement. Where small areas are found
 with high triangulation error came from correlation mistakes and large
 areas of error came from camera model inadequacies.
 
+If, after bundle adjustment the triangulation error is still high at
+the image corners and the inputs are Pinhole cameras, one may have to
+refine the intrinsics, including the distortion model.
+:numref:`bundle_adjustment` discusses bundle adjustment, including
+handling intrinsics.
+
 To improve the location of a triangulated point cloud or created DEM
 relative to a known ground truth, use alignment (:numref:`pc_align`).
 

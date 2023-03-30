@@ -91,7 +91,7 @@ and its effect on decreasing the stereo triangulation error.
    :name: asp-ba-example
 
    Illustration of the triangulation error (intersection error) map
-   (:numref:`point2dem`) for a pair of images before (left) and after
+   (:numref:`triangulation_error`) for a pair of images before (left) and after
    (right) using Stereo Pipeline's ``bundle_adjust``. Red and black
    colors suggest higher error.
 
@@ -102,6 +102,10 @@ Running ``parallel_stereo`` without using bundle-adjusted camera models::
 Performing bundle adjustment::
 
     bundle_adjust AS15-M-1134.cub AS15-M-1135.cub -o run_ba/run
+
+Here only camera orientations are refined. How to optimize the
+intrinsics (if applicable) is discussed further down
+(:numref:`floatingintrinsics`).
 
 Running ``parallel_stereo`` while using the bundle-adjusted camera models::
 
@@ -134,22 +138,22 @@ This section documents some advanced functionality, and it suggested the
 reader study it carefully and invest a certain amount of time to fully
 take advantage of these concepts.
 
-When the input cameras are of pinhole type, it is possible to optimize
-the intrinsic parameters, in addition to the extrinsics. It is also
-possible to take advantage of an existing terrain ground truth, such as
-a lidar file or a DEM, to correct imperfectly calibrated intrinsic
-parameters, which can result in greatly improved results, such as
-creating less distorted DEMs that agree much better with the ground
-truth.
+When the input cameras are of Pinhole type (:numref:`pinholemodels`),
+it is possible to optimize the intrinsic parameters, in addition to
+the extrinsics. It is also possible to take advantage of an existing
+terrain ground truth, such as a lidar file or a DEM, to correct
+imperfectly calibrated intrinsic parameters, which can result in
+greatly improved results, such as creating less distorted DEMs that
+agree much better with the ground truth.
 
 A first attempt at floating the intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We recommend that first bundle adjustment is run with the intrinsics
 fixed, to get the extrinsics mostly correct, as optimizing for both of
-them at the same time may result in a non-convex problem which may lead
-to a suboptimal local minimum. Then, we will jointly optimize the
-intrinsics and extrinsics.
+them at the same time may result in a non-convex problem which may
+lead to a suboptimal local minimum. Then, we will jointly optimize
+(float) the intrinsics and extrinsics.
 
 Note that when solving for intrinsics, ``bundle_adjust`` will by default
 optimize all intrinsic parameters and will share them across all cameras
@@ -161,32 +165,40 @@ Hence, the first invocation of camera optimization should be like::
      bundle_adjust -t nadirpinhole --inline-adjustments      \
        left.tif right.tif left.tsai right.tsai -o run_ba/run
 
-It is suggested that one run ``parallel_stereo`` with the obtained cameras, and
-then examine the intersection error::
+It is suggested that one run ``parallel_stereo`` with the obtained cameras::
 
      parallel_stereo -t nadirpinhole --alignment-method epipolar      \
         left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai \
-        run_stereo/run 
+        run_stereo/run
+
+followed by DEM creation (:numref:`point2dem`)::
+
      point2dem --tr RESOLUTION --errorimage run_stereo/run-PC.tif
+
+Then examine and plot the intersection error::
+
      gdalinfo -stats run_stereo/run-IntersectionErr.tif
      colormap run_stereo/run-IntersectionErr.tif
      stereo_gui run_stereo/run-IntersectionErr_CMAP.tif
 
 If desired, fancier stereo correlation algorithms can be used, such as
-MGM, as detailed in :numref:`correlation`. For
-``colormap``, ``--min`` and ``--max`` bounds can be specified if the
-automatic range is too large. We also suggest inspecting the interest
-points::
+MGM, as detailed in :numref:`running-stereo`. For ``colormap``
+(:numref:`colormap`), ``--min`` and ``--max`` bounds can be specified
+if the automatic range is too large.
+
+We also suggest inspecting the interest points
+(:numref:`stereo_gui_view_ip`)::
 
      stereo_gui left.tif right.tif run_ba/run
 
 and then viewing the interest points from the menu.
 
 If the interest points are not well-distributed, this may result in
-large ray intersection errors where they are missing. If so, they can be
-re-created by modifying ``--ip-detect-method`` and ``--ip-per-tile``.
-Or, one can take advantage of the just-completed stereo run and invoke
-``stereo_tri`` with of the two additional options::
+large ray intersection errors where they are missing. If so, they can
+be re-created by deleting the existing ones and then modifying
+``--ip-detect-method`` and ``--ip-per-tile``.  Or, one can take
+advantage of the just-completed stereo run and invoke ``stereo_tri``
+with of the two additional options::
 
      --num-matches-from-disp-triplets 10000
 
@@ -291,7 +303,11 @@ adjustments exist.
 There are two ways of incorporating a ground constraint in bundle
 adjustment. The first one assumes that the ground truth is a DEM,
 and is very easy to use with a large number of images. See
-:numref:`heights_from_dem` for more details.
+:numref:`heights_from_dem` for more details. The second approach
+is in the upcoming section.
+
+Sparse ground truth and using the disparity
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Here we will discuss an approach that works when the ground truth can
 be sparse, and we make use of the stereo disparity. It requires more
@@ -360,8 +376,8 @@ When the lidar file is large, in bundle adjustment one can use the flag
 ``--lon-lat-limit`` to read only a relevant portion of it. This can
 speed up setting up the problem but does not affect the optimization.
 
-Using multiple images
-^^^^^^^^^^^^^^^^^^^^^
+Sparse ground truth and multiple images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Everything mentioned earlier works with more than two images, in fact,
 having more images is highly desirable, and ideally the images overlap a
