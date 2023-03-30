@@ -3,14 +3,18 @@
 sfm_merge
 ---------
 
-The ``sfm_merge`` program takes as two or more Structure-from-Motion
+The ``sfm_merge`` program takes two or more Structure-from-Motion
 (SfM) maps in .nvm format, as produced by ``theia_sfm``
 (:numref:`theia_sfm`) or ``rig_calibrator``
-(:numref:`rig_calibrator`), and merges them into a single map,
-by transforming to first map's coordinate system the other maps.
+(:numref:`rig_calibrator`), and merges them into a single map. It
+finds correspondences (feature matches) between the images in the maps,
+and then transforms the maps to first map's coordinate system.
 
-Tracks (sequences of matching interest points) in the input maps
-that have shared interest points are merged as well.
+The input maps may or may not have shared images, but the surfaces
+they see must overlap.
+
+If there are more than two maps, the second is merged to the first,
+which is then merged with the third, etc.
 
 The produced map must be bundle-adjusted to refine it, using
 ``rig_calibrator`` (with or without the rig constraint).
@@ -18,10 +22,39 @@ The produced map must be bundle-adjusted to refine it, using
 The output map can be visualized in ``stereo_gui``
 (:numref:`stereo_gui_nvm`).
 
-Example::
+See also ``sfm_submap`` (:numref:`sfm_submap`), a program to extract
+a submap from a larger map. A discussion for how this tool can be used
+is in :numref:`map_surgery`.
 
-    sfm_merge --num_image_overlaps_at_endpoints 100 \
+Example
+^^^^^^^
+
+::
+
+    sfm_merge --rig_config rig_config.txt   \
+      --num_image_overlaps_at_endpoints 100 \
       map1.nvm map2.nvm -output_map merged.nvm
+
+Increasing the number of overlaps can make the program quite slow as
+its complexity is the square of this number. However, if very few
+similar images are detected between the maps, they will not be merged
+accurately.
+
+The option ``--fast_merge`` can be used when the input maps are known
+to have a good number of images in common.
+
+Handling tracks
+^^^^^^^^^^^^^^^
+
+A track is a feature (interest point) seen in multiple images,
+corresponding to a triangulated position on the ground. This tool
+preserves the tracks from the input maps. Matching of features creates
+additional tracks.  Duplicate tracks (showing in multiple input maps
+and/or created during matching) are removed.
+
+This tool does not merge tracks that have a subsequence in common, or
+eliminate a track if another track exists which is longer than a given
+one. These features may be added in future versions.
 
 Command-line options for sfm_merge
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -40,9 +73,16 @@ Command-line options for sfm_merge
   for matches to this many images at the beginning and end of the 
   second map. Default: 10,
 
+--fast_merge
+    When merging maps that have shared images, use their camera poses to 
+    find the transform from other maps to first map, and skip finding 
+    additional matches among the images.
+
 --fix_first_map
   If true, after merging the maps and reconciling the camera poses for
-  the shared images, overwrite the shared poses with those from the first map.
+  the shared images, overwrite the shared poses with those from the
+  first map, so it does not change. This is helpful if the first map
+  is already registered and evaluated.
 
 --no_shift
   Assume that in the input .nvm files the features are not shifted

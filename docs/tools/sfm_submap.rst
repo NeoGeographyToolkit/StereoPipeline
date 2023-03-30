@@ -23,12 +23,17 @@ correctly. It is suggested to always use ``rig_calibrator`` with the
 option ``--save_nvm_no_shift`` to create an unshifted file to start
 with.
 
-Example (specify the images to have in the submap on the command line)::
+See also ``sfm_merge`` (:numref:`sfm_merge`), a tool for merging maps.
+
+Examples
+^^^^^^^^
+
+Example 1 (specify the images to have in the submap on the command line)::
 
     sfm_submap -input_map in_map.nvm -output_map out_map.nvm \
       image1.jpg image2.jpg ... 
 
-Example (let those images be in a file, one per line)::
+Example 2 (let those images be in a file, one per line)::
 
     sfm_submap -input_map in_map.nvm -output_map out_map.nvm \
       -image_list list.txt

@@ -574,8 +574,10 @@ It is likely because not all images seeing the same surface have been
 tied together. Or, perhaps the intrinsics of the sensors were
 inaccurate.
 
-Localized fixes
-^^^^^^^^^^^^^^^
+.. _map_surgery:
+
+Surgery with maps
+^^^^^^^^^^^^^^^^^
 
 If a produced textured mesh is mostly good, but some local portion has
 artifacts and may benefit from more images and/or depth clouds, 
