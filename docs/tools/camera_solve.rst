@@ -39,7 +39,7 @@ To customize the options passed to Theia, edit the flag file which is
 saved in each output folder and pass it back to ``camera_solve`` via
 ``--theia-flagfile``, or use the option ``--theia-overrides``.
 
-A related tool is `theia_sfm`` (:numref:`theia_sfm`).
+A related tool is ``theia_sfm`` (:numref:`theia_sfm`).
 
 Example
 ^^^^^^^
