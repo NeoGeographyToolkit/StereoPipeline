@@ -536,101 +536,40 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
     return;
   }
 
-  // View next or previous image
-  void MainWidget::viewOtherImage(int delta) {
-    
-    if (!m_chooseFiles)
-      return;
-
-    if (delta != -1 && delta != 1) 
-      return;
-
-    QTableWidget * filesTable = m_chooseFiles->getFilesTable();
-    int rows = filesTable->rowCount();
-    
-    if (rows == 0) 
-      return;
-    
-    // First see how many images have a checkbox now, so are being shown
-    std::set<int> shown;
-    for (int rowIter = 0; rowIter < rows; rowIter++) {
-      QTableWidgetItem *item = filesTable->item(rowIter, 0);
-      if (item->checkState() == Qt::Checked)
-        shown.insert(rowIter);
-    }
-    
-    // If no images are being shown or more than one, show the first
-    int shownRow = 0;
-    if (shown.size() == 1) {
-      // Else show the next or previous image. Note how we add 'rows'
-      // before we find the remainder, as delta could be negative.
-      shownRow = *shown.begin();
-      shownRow = (shownRow + delta + rows) % rows;
-    }
-    
-    // Show the next/previous one, and hide the rest 
-    for (int rowIter = 0; rowIter < rows; rowIter++){
-      QTableWidgetItem *item = filesTable->item(rowIter, 0);
-      if (rowIter == shownRow)
-        item->setCheckState(Qt::Checked);
-      else
-        item->setCheckState(Qt::Unchecked);
-    }
-
-    // Print count and image file (count starts from 1)
-    // TODO(oalexan1): Implement a function called image(int id) to avoid this
-    // lengthy text. It can be used in other places too.
-    std::string fileName = (filesTable->item(shownRow, 1)->data(0)).toString().toStdString();
-    vw_out() << "Image: " << shownRow + 1  << ' ' << fileName << "\n";
-
-    if (asp::stereo_settings().preview) {
-      // In this mode one image at a time is shown, and the widget needs
-      // to be recreated with new world coordinates for each one
-      emit recreateLayoutSignal();
-      return;
-    }
-
-    // Otherwise just refresh the widget
-    refreshPixmap();
-    return;
-  }
-
-  void MainWidget::viewNextImage(){
-    MainWidget::viewOtherImage(1);
-  }
-
-  void MainWidget::viewPrevImage(){
-    MainWidget::viewOtherImage(-1);
-  }
+void MainWidget::zoomToImageInTableCell(int rowClicked, int columnClicked){
+  // We will pass this index to the desired slot via this global variable
+  m_indicesWithAction.clear();
+  m_indicesWithAction.insert(rowClicked);
   
-  void MainWidget::zoomToImageInTableCell(int rowClicked, int columnClicked){
-    // We will pass this index to the desired slot via this global variable
-    m_indicesWithAction.clear();
-    m_indicesWithAction.insert(rowClicked);
-
-    // Do the actual work for given value
-    zoomToImage();
-  }
+  // Do the actual work for given value
+  zoomToImage();
+}
   
 void MainWidget::hideShowAll_widgetVersion() {
 
-    // Process user's choice from m_chooseFiles.
-    if (!m_chooseFiles)
-      return;
-
-    m_chooseFiles->hideShowAll();
-
-    // In either case, reset the order in which the images are displayed
-    int num_images = m_images.size();
-    m_filesOrder.resize(num_images);
-    for (int i = 0; i < num_images; i++)
-      m_filesOrder[i] = i;
-    
-    refreshPixmap();
+  if (sideBySideWithDialog()) {
+    // The function hideShowAll_windowVersion() will be called, as
+    // the layout and all widgets need to be recreated.
+    return;
   }
-
-  BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
-    
+  
+  // Process user's choice from m_chooseFiles.
+  if (!m_chooseFiles)
+    return;
+  
+  m_chooseFiles->hideShowAll();
+  
+  // In either case, reset the order in which the images are displayed
+  int num_images = m_images.size();
+  m_filesOrder.resize(num_images);
+  for (int i = 0; i < num_images; i++)
+    m_filesOrder[i] = i;
+  
+  refreshPixmap();
+}
+  
+BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
+  
     BBox2 in_box = box; // local copy
     if (in_box.empty())
       in_box = BBox2(0, 0, 1, 1); // if it came to worst

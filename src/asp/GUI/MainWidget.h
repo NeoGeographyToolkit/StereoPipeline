@@ -171,8 +171,6 @@ public slots:
     void sizeToFit();
     void showFilesChosenByUser (int rowClicked, int columnClicked);
     void zoomToImageInTableCell(int rowClicked, int columnClicked);
-    void viewNextImage();
-    void viewPrevImage();
     void hideShowAll_widgetVersion();
     void customMenuRequested(QPoint pos);
     void viewUnthreshImages();
@@ -434,7 +432,6 @@ public slots:
     void bringImageOnTop  (int image_index);
     void pushImageToBottom(int image_index);
 
-    void viewOtherImage(int delta);
     void updateFilesToHide();
     
     // For polygon drawing

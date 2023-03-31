@@ -380,6 +380,8 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
 // the previous widget and all of its children.
 void MainWindow::createLayout() {
 
+  MainWindow::updateViewMenuEntries();
+
   // We must cleanup the previous profiles before wiping the existing
   // widgets. There must be a better way of doing it.
   for (size_t wit = 0; wit < m_widgets.size(); wit++) {
@@ -576,7 +578,8 @@ void MainWindow::createLayout() {
 
   // Refresh the menu checkboxes
   m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
-  m_viewSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE);
+  m_viewAllSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE && !asp::stereo_settings().view_several_side_by_side);
+  m_viewSeveralSideBySide_action->setChecked(asp::stereo_settings().view_several_side_by_side);
   m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
   MainWindow::updateDisplayModeMenuEntries();
   m_viewGeoreferencedImages_action->setChecked(m_use_georef);
@@ -650,12 +653,18 @@ void MainWindow::createMenus() {
   m_viewSingleWindow_action->setShortcut(tr("W"));
   connect(m_viewSingleWindow_action, SIGNAL(triggered()), this, SLOT(viewSingleWindow()));
 
-  m_viewSideBySide_action = new QAction(tr("Side-by-side"), this);
-  m_viewSideBySide_action->setStatusTip(tr("View images side-by-side"));
-  m_viewSideBySide_action->setCheckable(true);
-  m_viewSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE);
-  m_viewSideBySide_action->setShortcut(tr("S"));
-  connect(m_viewSideBySide_action, SIGNAL(triggered()), this, SLOT(viewSideBySide()));
+  m_viewAllSideBySide_action = new QAction(tr("All side-by-side"), this);
+  m_viewAllSideBySide_action->setStatusTip(tr("View all images side-by-side"));
+  m_viewAllSideBySide_action->setCheckable(true);
+  m_viewAllSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE && !sideBySideWithDialog());
+  m_viewAllSideBySide_action->setShortcut(tr("S"));
+  connect(m_viewAllSideBySide_action, SIGNAL(triggered()), this, SLOT(viewAllSideBySide()));
+
+  m_viewSeveralSideBySide_action = new QAction(tr("Several side-by-side"), this);
+  m_viewSeveralSideBySide_action->setStatusTip(tr("View several images side-by-side"));
+  m_viewSeveralSideBySide_action->setCheckable(true);
+  m_viewSeveralSideBySide_action->setChecked(asp::stereo_settings().view_several_side_by_side);
+  connect(m_viewSeveralSideBySide_action, SIGNAL(triggered()), this, SLOT(viewSeveralSideBySide()));
 
   m_viewAsTiles_action = new QAction(tr("As tiles on grid"), this);
   m_viewAsTiles_action->setStatusTip(tr("View images as tiles on grid"));
@@ -835,7 +844,8 @@ void MainWindow::createMenus() {
   m_view_menu = menu->addMenu(tr("&View"));
   m_view_menu->addAction(m_sizeToFit_action);
   m_view_menu->addAction(m_viewSingleWindow_action);
-  m_view_menu->addAction(m_viewSideBySide_action);
+  m_view_menu->addAction(m_viewAllSideBySide_action);
+  m_view_menu->addAction(m_viewSeveralSideBySide_action);
   m_view_menu->addAction(m_viewAsTiles_action);
   m_view_menu->addAction(m_viewHillshadedImages_action);
   m_view_menu->addAction(m_viewGeoreferencedImages_action);
@@ -900,14 +910,18 @@ void MainWindow::perhapsCreateLayout(int row, int col) {
 // When in sideBySideWithDialog mode, hide or show all images. Otherwise
 // this function does nothing, and hideShowAll_widgetVersion() gets called.
 void MainWindow::hideShowAll_windowVersion() {
+  if (!sideBySideWithDialog()) {
+    // The function hideShowAll_widgetVersion will be called, which
+    // does not need to recreate the layout.
+    return;
+  }
+  
   if (m_chooseFiles) 
     m_chooseFiles->hideShowAll();
   
-   if (sideBySideWithDialog()) {
-     // This ensures we don't override how many images are shown
-     m_show_two_images_when_side_by_side_with_dialog = false;
-    createLayout();
-  }
+  // This ensures we don't override how many images are shown
+  m_show_two_images_when_side_by_side_with_dialog = false;
+  createLayout();
 }
 
 void MainWindow::resizeEvent(QResizeEvent *){
@@ -1003,7 +1017,7 @@ void MainWindow::viewSingleWindow(){
     // Since we will view all in single window, can't select images with matches
     asp::stereo_settings().view_matches = false;
     setNoSideBySideWithDialog();
-    MainWindow::updateMatchesMenuEntries();
+    MainWindow::updateViewMenuEntries();
 
     // Turn off zooming all images to same region if all are in the same window
     bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
@@ -1024,18 +1038,31 @@ void MainWindow::viewSingleWindow(){
   createLayout();
 }
 
-void MainWindow::viewSideBySide() {
+void MainWindow::viewAllSideBySide() {
   m_view_type = VIEW_SIDE_BY_SIDE;
+  asp::stereo_settings().preview = false;
+  setNoSideBySideWithDialog();
   createLayout();
 }
 
-void MainWindow::viewAsTiles(){
+void MainWindow::viewSeveralSideBySide() {
+  m_view_type = VIEW_SIDE_BY_SIDE;
+  asp::stereo_settings().preview = false;
+  asp::stereo_settings().view_several_side_by_side = true;
+  m_show_two_images_when_side_by_side_with_dialog = true; // start with 2 
+  createLayout();
+}
+
+void MainWindow::viewAsTiles() {
 
   if (!m_viewAsTiles_action->isChecked()) {
     if (m_view_type_old != VIEW_AS_TILES_ON_GRID)
       m_view_type = m_view_type_old; // restore this
     else
       m_view_type = VIEW_SIDE_BY_SIDE;
+
+    asp::stereo_settings().preview = false;
+    setNoSideBySideWithDialog();
     
     createLayout();
     return;
@@ -1056,13 +1083,14 @@ void MainWindow::viewAsTiles(){
 
   // When viewing as tile we cannot show matches
   asp::stereo_settings().view_matches = false;
+  asp::stereo_settings().preview = false;
   setNoSideBySideWithDialog();
-  MainWindow::updateMatchesMenuEntries();
+  MainWindow::updateViewMenuEntries();
   
   createLayout();
 }
 
-void MainWindow::zoomToProjWin(){
+void MainWindow::zoomToProjWin() {
   std::string projWinStr;
   bool ans = getStringFromGui(this,
                               "Enter proj win (4 values)",
@@ -1100,7 +1128,8 @@ void MainWindow::zoomToProjWin(){
   else
     image_box = m_images[BASE_IMAGE_ID].georef.point_to_pixel_bbox(proj_win);
 
-  BBox2 world_box = mw(m_widgets[BASE_IMAGE_ID])->image2world(image_box, BASE_IMAGE_ID);
+  BBox2 world_box = mw(m_widgets[BASE_IMAGE_ID])->image2world(image_box,
+                                                              BASE_IMAGE_ID);
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (!mw(m_widgets[i]))
       continue;
@@ -1111,10 +1140,11 @@ void MainWindow::zoomToProjWin(){
 
 // Update the checkboxes for the matches menu entries based on stereo_settings()
 // values.
-void MainWindow::updateMatchesMenuEntries() {
+void MainWindow::updateViewMenuEntries() {
   m_viewMatches_action->setChecked(asp::stereo_settings().view_matches);
   m_viewPairwiseCleanMatches_action->setChecked(asp::stereo_settings().pairwise_clean_matches);
   m_viewPairwiseMatches_action->setChecked(asp::stereo_settings().pairwise_matches);
+  m_viewSeveralSideBySide_action->setChecked(asp::stereo_settings().view_several_side_by_side);
 }
 
 // Update checkboxes for viewing thresholded and hillshaded images
@@ -1130,12 +1160,14 @@ void MainWindow::viewMatchesFromMenu() {
   toggleViewMatches();
 }
 
-// The value of asp::stereo_settings().view_matches must be set before calling this.
-// It will be invoked as result of user clicking on the menu or adding/deleting match points.
+// The value of asp::stereo_settings().view_matches must be set before
+// calling this. It will be invoked as result of user clicking on the
+// menu or adding/deleting match points.
 void MainWindow::toggleViewMatches() {
   asp::stereo_settings().pairwise_matches = false;
   asp::stereo_settings().pairwise_clean_matches = false;
-  MainWindow::updateMatchesMenuEntries();
+  asp::stereo_settings().preview = false;
+  MainWindow::updateViewMenuEntries();
   m_show_two_images_when_side_by_side_with_dialog = false;
   m_chooseFiles->showAllImages();
   MainWindow::createLayout(); // This will call viewMatches() after a GUI reorg
@@ -1150,17 +1182,18 @@ void MainWindow::viewMatches(){
 
   // Record user's intent
   asp::stereo_settings().view_matches = m_viewMatches_action->isChecked();
-
+  asp::stereo_settings().preview = false;
+  
   // Turn off the other ways of viewing matches
   if (asp::stereo_settings().view_matches) {
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
-    MainWindow::updateMatchesMenuEntries();
+    MainWindow::updateViewMenuEntries();
 
     if (m_use_georef) {
       popUp("To view matches, turn off viewing the images as georeferenced.");
       asp::stereo_settings().view_matches = false;
-      MainWindow::updateMatchesMenuEntries();
+      MainWindow::updateViewMenuEntries();
       MainWindow::createLayout();
       return;
     }
@@ -1170,10 +1203,12 @@ void MainWindow::viewMatches(){
   if (MainWindow::editingMatches())
     m_matches_exist = true;
     
-  // TODO(oalexan1): Improve match loading when done this way, it is rather ad hoc.
-  // Maybe just switch to pairwise matches each time there's more than two images.
+  // TODO(oalexan1): Improve match loading when done this way, it is
+  // rather ad hoc.  Maybe just switch to pairwise matches each time
+  // there's more than two images.
   
-  // We will load the matches just once, as we later will add/delete matches manually.
+  // We will load the matches just once, as we later will add/delete
+  // matches manually.
   if (!m_matches_exist && asp::stereo_settings().view_matches) {
 
     // We will try to load matches
@@ -1296,7 +1331,7 @@ void MainWindow::viewPairwiseMatchesSlot() {
   // Turn off the other ways of viewing matches
   asp::stereo_settings().view_matches = false;
   asp::stereo_settings().pairwise_clean_matches = false;
-  MainWindow::updateMatchesMenuEntries();
+  MainWindow::updateViewMenuEntries();
 
   // Must always recreate the layout as this option can totally change the interface
   createLayout();
@@ -1312,7 +1347,7 @@ void MainWindow::viewPairwiseCleanMatchesSlot() {
   // Turn off the other ways of viewing matches
   asp::stereo_settings().view_matches = false;
   asp::stereo_settings().pairwise_matches = false;
-  MainWindow::updateMatchesMenuEntries();
+  MainWindow::updateViewMenuEntries();
 
   // Must always recreate the layout as this option can totally change the interface
   createLayout();
@@ -1322,7 +1357,7 @@ void MainWindow::viewPairwiseCleanMatchesSlot() {
 // similar.
 void MainWindow::viewPairwiseMatchesOrCleanMatches() {
 
-  MainWindow::updateMatchesMenuEntries();
+  MainWindow::updateViewMenuEntries();
 
   if (!asp::stereo_settings().pairwise_matches && !asp::stereo_settings().pairwise_clean_matches) {
     return;
@@ -1332,7 +1367,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     popUp("To view matches, turn off viewing the images as georeferenced.");
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
-    MainWindow::updateMatchesMenuEntries();
+    MainWindow::updateViewMenuEntries();
     createLayout();
     return;
   }
@@ -1341,7 +1376,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     popUp("Cannot show both pairwise matches and pairwise clean matches at the same time.");
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
-    MainWindow::updateMatchesMenuEntries();
+    MainWindow::updateViewMenuEntries();
     createLayout();
     return;
   }
@@ -1350,7 +1385,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     popUp("Cannot show pairwise (clean) matches, as the output prefix was not set.");
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
-    MainWindow::updateMatchesMenuEntries();
+    MainWindow::updateViewMenuEntries();
     createLayout();
     return;
   }
@@ -1984,26 +2019,36 @@ void MainWindow::zoomAllToSameRegionAction(int widget_id){
   
 }
 
-void MainWindow::viewNextImage() {
-  if (m_view_type != VIEW_IN_SINGLE_WINDOW) {
-    popUp("Viewing the next image requires that all images be in the same window.");
+// View next or previous image
+void MainWindow::viewOtherImage(int delta) {
+  
+  if (!m_chooseFiles) {
+    popUp("The file chooser is not on.");
     return;
   }
 
-  if (m_widgets.size() == 1)
-    if (mw(m_widgets[0]))
-      mw(m_widgets[0])->viewNextImage();
+  if (m_view_type != VIEW_IN_SINGLE_WINDOW && !previewOrSideBySideWithDialog()) {
+    popUp("Viewing the next/prev image requires that all images be in the same window or side-by-side with a dialog.");
+    return;
+  }
+
+  m_chooseFiles->viewOtherImage(delta);
+
+  if (m_view_type == VIEW_IN_SINGLE_WINDOW && !previewOrSideBySideWithDialog() && 
+      m_widgets.size() == 1 && mw(m_widgets[0]))
+    mw(m_widgets[0])->sizeToFit();
+  else if (previewOrSideBySideWithDialog())
+    createLayout();
+  
+  return;
+}
+
+void MainWindow::viewNextImage() {
+  MainWindow::viewOtherImage(1); 
 }
 
 void MainWindow::viewPrevImage() {
-  if (m_view_type != VIEW_IN_SINGLE_WINDOW) {
-    popUp("Viewing the previous image requires that all images be in the same window.");
-    return;
-  }
-
-  if (m_widgets.size() == 1) 
-    if (mw(m_widgets[0]))
-      mw(m_widgets[0])->viewPrevImage();
+  MainWindow::viewOtherImage(-1); 
 }
 
 void MainWindow::uncheckProfileModeCheckbox(){

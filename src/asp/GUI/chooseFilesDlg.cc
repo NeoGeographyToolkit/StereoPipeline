@@ -197,7 +197,7 @@ int chooseFilesDlg::numShown() {
 
 // If some images are shown, hide all. Else, show all.
 void chooseFilesDlg::hideShowAll() {
-    
+
   int rows = m_filesTable->rowCount();
 
   // See if all files are hidden
@@ -224,6 +224,48 @@ void chooseFilesDlg::hideShowAll() {
   // the checkboxes.
   QScrollBar * hScrollBar = m_filesTable->horizontalScrollBar();
   hScrollBar->triggerAction(QScrollBar::SliderToMinimum);
+}
+
+void chooseFilesDlg::viewOtherImage(int delta) {
+  if (delta != -1 && delta != 1) 
+    return;
+  
+  int rows = m_filesTable->rowCount();
+  
+  if (rows == 0) 
+    return;
+  
+  // First see how many images have a checkbox now, so are being shown
+  std::set<int> shown;
+  for (int rowIter = 0; rowIter < rows; rowIter++) {
+    QTableWidgetItem *item = m_filesTable->item(rowIter, 0);
+    if (item->checkState() == Qt::Checked)
+      shown.insert(rowIter);
+  }
+  
+  // If no images are being shown or more than one, show the first
+  int shownRow = 0;
+  if (shown.size() == 1) {
+    // Else show the next or previous image. Note how we add 'rows'
+    // before we find the remainder, as delta could be negative.
+    shownRow = *shown.begin();
+    shownRow = (shownRow + delta + rows) % rows;
+  }
+  
+  // Show the next/previous one, and hide the rest 
+  for (int rowIter = 0; rowIter < rows; rowIter++){
+    QTableWidgetItem *item = m_filesTable->item(rowIter, 0);
+    if (rowIter == shownRow)
+      item->setCheckState(Qt::Checked);
+    else
+      item->setCheckState(Qt::Unchecked);
+  }
+  
+  // Print count and image file (count starts from 1)
+  // TODO(oalexan1): Implement a function called image(int id) to avoid this
+  // lengthy text. It can be used in other places too.
+  std::string fileName = (m_filesTable->item(shownRow, 1)->data(0)).toString().toStdString();
+  vw_out() << "Image: " << shownRow + 1  << ' ' << fileName << "\n";
 }
   
 void chooseFilesDlg::keyPressEvent(QKeyEvent *event) {

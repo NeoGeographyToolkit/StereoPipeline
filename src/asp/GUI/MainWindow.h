@@ -69,7 +69,8 @@ namespace vw { namespace gui {
     void forceQuit                  (); // Ensure the program shuts down.
     void sizeToFit                  ();
     void viewSingleWindow           ();
-    void viewSideBySide             ();
+    void viewAllSideBySide          ();
+    void viewSeveralSideBySide      ();
     void viewAsTiles                ();
     void zoomToProjWin              ();
     void viewMatchesFromMenu();
@@ -101,6 +102,7 @@ namespace vw { namespace gui {
     void setZoomAllToSameRegionAux(bool do_zoom);
     void viewNextImage              ();
     void viewPrevImage              ();
+    void viewOtherImage(int delta);
 
     void profileMode                ();
     void polyEditMode               ();
@@ -134,7 +136,7 @@ namespace vw { namespace gui {
     // See if in the middle of editing matches
     bool editingMatches() const;
 
-    void updateMatchesMenuEntries();
+    void updateViewMenuEntries();
     void updateDisplayModeMenuEntries();
     
     bool sanityChecks(int num_images);
@@ -162,7 +164,8 @@ namespace vw { namespace gui {
     QAction *m_setPolyColor_action;
     QAction *m_sizeToFit_action;
     QAction *m_viewSingleWindow_action;
-    QAction *m_viewSideBySide_action;
+    QAction *m_viewAllSideBySide_action;
+    QAction *m_viewSeveralSideBySide_action;
     QAction *m_viewAsTiles_action;
     QAction *m_zoomToProjWin_action;
     QAction *m_viewHillshadedImages_action;

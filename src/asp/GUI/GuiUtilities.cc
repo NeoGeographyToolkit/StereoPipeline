@@ -1070,8 +1070,9 @@ bool MatchList::savePointsToDisk(std::string const& prefix,
 // See if we are in the mode where the images are displayed side-by-side with a
 // dialog to choose which ones to display.
 bool sideBySideWithDialog() {
-  return (asp::stereo_settings().pairwise_matches         ||
-          asp::stereo_settings().pairwise_clean_matches);
+  return (asp::stereo_settings().pairwise_matches       ||
+          asp::stereo_settings().pairwise_clean_matches ||
+          asp::stereo_settings().view_several_side_by_side);
 }
 
 bool previewOrSideBySideWithDialog() {
@@ -1080,8 +1081,9 @@ bool previewOrSideBySideWithDialog() {
   
 // Turn off any such side-by-side logic
 void setNoSideBySideWithDialog() {
-  asp::stereo_settings().pairwise_matches         = false;
-  asp::stereo_settings().pairwise_clean_matches   = false;
+  asp::stereo_settings().pairwise_matches          = false;
+  asp::stereo_settings().pairwise_clean_matches    = false;
+  asp::stereo_settings().view_several_side_by_side = false;
 }
 
   

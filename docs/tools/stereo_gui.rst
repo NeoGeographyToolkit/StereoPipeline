@@ -57,13 +57,14 @@ building on disk pyramids of increasingly coarser subsampled images and
 displaying the subsampled versions that are appropriate for the current
 level of zoom.
 
-The images can be shown either side-by-side, as tiles on a grid (using
-``--grid-cols integer``), or on top of each other (using
+The images can be shown either all side-by-side (default), several
+side-by-side (``--view-several-side-by-side``), as tiles on a grid
+(using ``--grid-cols integer``), or on top of each other (using
 ``--single-window``), with a dialog to choose among them. In the last
 usage scenario, the option ``--use-georef`` will overlay the images
 correctly if georeference information is present. It is possible to
-switch among these modes, once the GUI has been open, from the ``View``
-menu.
+switch among these modes, once the GUI has been open, from the
+``View`` menu.
 
 When the images are shown side-by-side, the GUI can zoom in all images
 to the same region, for easier comparison among them.
@@ -593,6 +594,14 @@ accept all other ``parallel_stereo`` options as well.
     Show all images in the same window (with a dialog to choose
     among them) rather than next to each other.
 
+--preview
+    Load and display the images one at a time, for speed. The 'n' and
+    'p' keys can be used to cycle through them.
+
+--view-several-side-by-side
+    View several images side-by-side, with a dialog to choose which
+    images to show (also accessible from the View menu).
+
 --use-georef
     Plot the images in the projected coordinate system given by
     the image georeferences.
@@ -711,10 +720,6 @@ accept all other ``parallel_stereo`` options as well.
 --csv-proj4 <string (default="")>
     The PROJ.4 string to use when plotting a CSV
     file. If not specified, try to use the ``--datum`` option. 
-
---preview
-    Load and display the images one at a time, for speed. The 'n' and
-    'p' keys can be used to cycle through them.
 
 --lowest-resolution-subimage-num-pixels <integer (default: -1)>
     When building a pyramid of lower-resolution versions of an image,

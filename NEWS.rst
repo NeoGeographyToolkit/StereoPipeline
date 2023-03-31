@@ -100,6 +100,9 @@ stereo_gui (:numref:`stereo_gui`):
     ``_offsets.txt`` file.
   * Added the option ``--preview`` to load one image at a time, 
     and quickly cycle through them with the 'n' and 'p' keys.
+  * Added the option ``--view-several-side-by-side``
+    to view several images side-by-side with a dialog to choose which
+    images to show (also accessible from the View menu).
   * Added the option ``--font-size``, with the default of 9. 
   * Added the option ``--lowest-resolution-subimage-num-pixels`` to
     control the behavior of the pyramid of subimages.

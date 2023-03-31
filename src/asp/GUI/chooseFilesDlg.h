@@ -66,6 +66,8 @@ namespace vw { namespace gui {
 
     // If some images are shown, hide all. Else, show all.
     void hideShowAll();
+
+    void viewOtherImage(int delta);
     
   private:
     int imageRow(std::string const& image) const;
