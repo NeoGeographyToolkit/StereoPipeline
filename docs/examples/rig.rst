@@ -3,11 +3,12 @@
 A 3-sensor rig example
 ^^^^^^^^^^^^^^^^^^^^^^
 
-This is an example using ``rig_calibrator`` on images acquired in a
-lab with cameras mounted on the `Astrobee
+This is an example using ``rig_calibrator`` (:numref:`rig_calibrator`)
+on images acquired in a lab with cameras mounted on the `Astrobee
 <https://github.com/nasa/astrobee>`_ robot. The data that can be used
 to reproduce this is available `for download
 <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/rig_calibrator>`_.
+A similar example, with more sensors, is in :numref:`sfm_iss`.
 
 This robot has three cameras: ``nav_cam`` (wide field of view, using
 the fisheye distortion model), ``sci_cam`` (narrow field of view,
@@ -16,9 +17,12 @@ measurements, with one depth xyz value per pixel, narrow field of
 view, using the radtan distortion model).
 
 We assume the intrinsics of each sensor are reasonably well-known (but
-will be optimized later), and we do not know each camera's pose. The
-first step is then determining these, for which we use 
-``theia_sfm`` (:numref:`theia_sfm`), as follows::
+can be optimized later). Those are set in the rig configuration
+(:numref:`rig_config`). The images are organized as as in
+:numref:`rig_calibrator_data_conv`.
+
+The first step is solving for the camera poses, for which we use 
+``theia_sfm`` (:numref:`theia_sfm`)::
 
     theia_sfm --rig_config rig_input/rig_config.txt \
       --images 'rig_input/nav_cam/*tif
@@ -26,7 +30,15 @@ first step is then determining these, for which we use
                 rig_input/sci_cam/*tif'             \
       --out_dir rig_theia
 
-It will write the solved camera poses to ``rig_theia/cameras.nvm``.
+The created cameras can be visualized as::
+
+    view_reconstruction --reconstruction rig_theia/reconstruction-0
+
+The solved camera poses are exported to ``rig_theia/cameras.nvm``. The images
+and interest point matches can be visualized in a pairwise manner using
+``stereo_gui`` (:numref:`stereo_gui_nvm`) as::
+
+    stereo_gui rig_theia/cameras.nvm
 
 This tool will use the Theia flags file from ``share/theia_flags.txt``
 in the software distribution, which can be copied to a new name,

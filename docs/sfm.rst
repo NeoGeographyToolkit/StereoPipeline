@@ -14,6 +14,10 @@ Reference information for this tool can be found in :numref:`camera_solve`.
 This tool can be optionally bypassed if, for example, the longitude and
 latitude of the corners of all images are known (:numref:`imagecorners`).
 
+ASP offers another tool to build reconstructions, named ``theia_sfm``
+(:numref:`theia_sfm`). That one more geared to work with rigs, or
+otherwise images created with just a few sensors.
+
 Camera solving overview
 -----------------------
 

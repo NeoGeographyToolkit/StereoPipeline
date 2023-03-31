@@ -26,13 +26,6 @@ ground control points but it may be easier to use. To do this, use the
 ``--bundle-adjust-params`` option similar to the example line below. If
 you see the camera models shifting too far from their starting positions
 try using the ``--camera-weight`` option to restrain their movement.
-Here is an example::
-
-    camera_solve                                                \ 
-      --bundle-adjust-params '--camera-positions nav.csv        \
-      --csv-format "1:file 12:lat 13:lon 14:height_above_datum" \
-      --camera-weight 100.0'                                    \
-      <other options>
 
 This tool will generate two .tsai camera model files in the output
 folder per input image. The first file, appended with .tsai, is in a
@@ -46,11 +39,28 @@ To customize the options passed to Theia, edit the flag file which is
 saved in each output folder and pass it back to ``camera_solve`` via
 ``--theia-flagfile``, or use the option ``--theia-overrides``.
 
-Usage::
+A related tool is `theia_sfm`` (:numref:`theia_sfm`).
+
+Example
+^^^^^^^
+
+::
+
+    camera_solve                                                \ 
+      --bundle-adjust-params '--camera-positions nav.csv        \
+      --csv-format "1:file 12:lat 13:lon 14:height_above_datum" \
+      --camera-weight 100.0'                                    \
+      <other options>
+
+Usage
+^^^^^
+
+::
 
    camera_solve [options] <output folder> <input images>
 
-Command-line options for camera_solve:
+Command-line options
+^^^^^^^^^^^^^^^^^^^^
 
 -h, --help
     Display this help message.

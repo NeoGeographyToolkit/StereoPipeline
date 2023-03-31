@@ -144,8 +144,8 @@ plain text file, with the following syntax::
   sensor_name: <string>
   focal_length: <double> # units of pixel
   optical_center: <double double> # units of pixel
-  distortion_type: <string> # 'none', 'fisheye', or 'radtan'
-  distortion_coeffs: <n doubles> # n = 0: none, 1: fisheye, 4/5: radtan
+  distortion_coeffs: <n doubles> # n = 0: no distortion, 1: fisheye, 4/5: radtan
+  distortion_type: <string> # 'no_distortion', 'fisheye', or 'radtan'
   image_size: <int, int>
   distorted_crop_size: <int int> 
   undistorted_image_size: <int int> 
@@ -153,7 +153,24 @@ plain text file, with the following syntax::
   depth_to_image_transform: <12 doubles>
   ref_to_sensor_timestamp_offset: <double>
 
-If there is more than one rig, the same logic is repeated. 
+Example (only one of the *N* sensors is shown)::
+
+  ref_sensor_name: nav_cam
+
+  sensor_name: nav_cam
+  focal_length: 621.04422
+  optical_center: 580.56426999999996 495.51236
+  distortion_coeffs: 1.0092038999999999
+  distortion_type: fisheye
+  image_size: 1280 960
+  distorted_crop_size: 1280 960
+  undistorted_image_size: 1500 1200
+  ref_to_sensor_transform: 1 0 0 0 1 0 0 0 1 0 0 0
+  depth_to_image_transform: 1 0 0 0 1 0 0 0 1 0 0 0
+  ref_to_sensor_timestamp_offset: 0
+
+If there is more than one rig, the same logic is repeated.
+See a full example with two rigs in :numref:`sfm_iss_sample_rig_config`.
 
 Here, ``ref_to_sensor_transform`` has the rotation (9 doubles, stored
 row after row) and translation (3 doubles) transform from the
@@ -193,24 +210,6 @@ This time the transforms among the rig sensors will be known, having
 been computed and optimized. 
 
 Such a file can be read with the option ``--rig_config``.
-
-Example (only one of the *N* sensors is shown)::
-
-  ref_sensor_name: nav_cam
-
-  sensor_name: nav_cam
-  focal_length: 621.04422
-  optical_center: 580.56426999999996 495.51236
-  distortion_type: fisheye
-  distortion_coeffs: 1.0092038999999999
-  image_size: 1280 960
-  distorted_crop_size: 1280 960
-  undistorted_image_size: 1500 1200
-  ref_to_sensor_transform: 1 0 0 0 1 0 0 0 1 0 0 0
-  depth_to_image_transform: 1 0 0 0 1 0 0 0 1 0 0 0
-  ref_to_sensor_timestamp_offset: 0
-
-See a full example with two rigs in :numref:`sfm_iss_sample_rig_config`.
 
 .. _rig_calibrator_outputs:
 
