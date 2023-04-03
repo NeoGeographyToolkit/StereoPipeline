@@ -23,22 +23,6 @@ planets. The option ``--sun-positions`` can be used to to specify the
 Sun position for each image. For ISIS and CSM cameras, if this option
 is not set, the Sun information is read from the camera files.
 
-``sfs`` has been tested thoroughly with Lunar LRO NAC datasets, and
-some experiments were done with Mars HiRISE images and with pictures
-from Charon, Pluto's moon. Using this fool for Mars is complicated by
-the fact that Mars has very diverse geological properties and an
-atmosphere. It will likely not do as well for Mars as for other Solar
-System bodies. For non-Moon datasets one can also experiment with the
-Hapke model.
-
-As can be seen below, ``sfs`` returns reasonable results on the Moon
-as far as 85 degrees and even 89.6 degrees South.
-
-The ``sfs`` program is sensitive to errors in the position and
-orientation of the cameras, the accuracy of the initial DEM, and to
-the value of the weights it uses. Yet, with some effort, it can
-work quite well.
-
 A tool named ``parallel_sfs`` is provided (:numref:`parallel_sfs`)
 that parallelizes ``sfs`` using multiple processes (optionally on
 multiple machines) by splitting the input DEM into tiles with padding,
@@ -48,6 +32,31 @@ to create DEMs of dimensions 10,000 by 10,000 pixels.
 The ``sfs`` program can model position-dependent albedo
 (:numref:`sfs_albedo`), exposure values for each camera, shadows in
 the input images, and regions in the DEM occluded from the Sun.
+
+Limitations
+-----------
+
+This program is experimental. It assumes a certain reflectance model
+of the surface, which may or may not be accurate for a given setting. 
+
+``sfs`` is very sensitive to errors in the position and
+orientation of the cameras, the accuracy of the initial DEM, and to
+the value of the weights it uses.
+
+``sfs`` has been tested thoroughly with Lunar LRO NAC datasets.
+As can be seen below, ``sfs`` returns reasonable results on the Moon
+as far as 85 degrees and even 89.6 degrees South.
+
+This tool's performance is mixed with Mars data. That is likely because
+Mars has very diverse geological properties and an atmosphere which
+scatters light. The program has experimental support for modeling haze
+and the Hapke model (:numref:`sfs`), but this was not thoroughly
+investigated.
+
+It is suggested to invoke this tool with a terrain model that is
+already reasonably accurate, and with images with diverse illumiation
+conditions registered to it, when ``sfs`` can do fine-level
+refinements.
 
 .. _sfs_formulation:
 
