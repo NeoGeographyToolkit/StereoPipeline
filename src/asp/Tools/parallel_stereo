@@ -934,7 +934,9 @@ if __name__ == '__main__':
     if opt.version:
         args.append('-v')
 
-    sep2 = '--non-comma-separator--' # for values having commas which we don't want disturbed
+    # For values having commas which we don't want disturbed
+    sep2 = '--non-comma-separator--'
+    
     georef=run_and_parse_output("stereo_parse", args, sep2, opt.verbose)
     georef["WKT"] = "".join(georef["WKT"])
     georef["GeoTransform"] = "".join(georef["GeoTransform"])
@@ -948,10 +950,11 @@ if __name__ == '__main__':
             opt.job_size_w = corr_tile_size
             opt.job_size_h = opt.job_size_w
         else:
-            # If the user specified these, they better be equal, and equal to corr_tile_size
+            # If the user specified these, they better be equal, and
+            # equal to corr_tile_size
             if opt.job_size_h != opt.job_size_w:
-                raise Exception('If --stereo-algorithm is not "bm", must use the same value ' + \
-                                'for --job-size-h and --job-size-w.')
+                raise Exception('If --stereo-algorithm is not "bm", must use the ' + \
+                                'same value  for --job-size-h and --job-size-w.')
             if opt.job_size_w != corr_tile_size:
                 print("Making --corr-tile-size equal to --job-size-h, that is equal to " \
                       + str(opt.job_size_h) + ".")

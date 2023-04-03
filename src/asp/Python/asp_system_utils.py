@@ -274,7 +274,7 @@ def mkdir_p(path):
 # comma-separated values.  The first value on each line becomes the
 # output variable name, the other values are read into the array of
 # variable values.
-def run_and_parse_output(cmd, args, sep, verbose, return_full_lines = False, **kw ):
+def run_and_parse_output(cmd, args, sep, verbose, return_full_lines = False, **kw):
     libexecpath = libexec_path(cmd)
     call = [libexecpath]
     call.extend(args)
@@ -287,11 +287,14 @@ def run_and_parse_output(cmd, args, sep, verbose, return_full_lines = False, **k
     except OSError as e:
         raise Exception('%s: %s' % (libexecpath, e))
     (stdout, stderr) = p.communicate()
-
     p.wait()
     if p.returncode != 0:
-        print(stdout)
-        print(stderr)
+        if stdout is not None:
+            stdout = stdout.rstrip()
+            print(stdout)
+        if stderr is not None:
+            stderr = stderr.rstrip()
+            print(stderr)
         raise Exception('Failed executing: ' + " ".join(call))
     data = {}
     if verbose:
