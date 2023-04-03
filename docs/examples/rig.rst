@@ -25,9 +25,9 @@ The first step is solving for the camera poses, for which we use
 ``theia_sfm`` (:numref:`theia_sfm`)::
 
     theia_sfm --rig_config rig_input/rig_config.txt \
-      --images 'rig_input/nav_cam/*tif
-                rig_input/haz_cam/*tif 
-                rig_input/sci_cam/*tif'             \
+      --images 'rig_input/nav_cam/*.tif
+                rig_input/haz_cam/*.tif 
+                rig_input/sci_cam/*.tif'            \
       --out_dir rig_theia
 
 The created cameras can be visualized as::

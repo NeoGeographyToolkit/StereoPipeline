@@ -12,15 +12,51 @@ ASP offers another wrapper around Theia, namely ``camera_solve``
 (:numref:`camera_solve`), whose aim is to work with ASP's ``bundle_adjust``
 program (:numref:`bundle_adjust`). 
 
-Usage:: 
-
-    theia_sfm --rig_config <rig config> --images <wildcards> \
-      [--theia_flags <flag file>] --out_dir <out dir>
-
 As for ``rig_calibrator``, the images are stored in subdirectories
 corresponding to sensor name, but it is not assumed that the image
 files (without directory name) represent a timestamp. So, an image
 name can be of the form: ``dir/sensor/string.png``.
+
+Usage
+~~~~~
+
+::
+
+    theia_sfm --rig_config <rig config> [images]  \
+      [--theia_flags <flag file>] --out_dir <out dir>
+
+Examples
+~~~~~~~~
+
+The input images can be specified as::
+
+wildcards::
+
+    theia_sfm --rig_config rig_input/rig_config.txt        \
+      --images 'rig_input/cam1/*.tif rig_input/cam2/*.tif' \
+      --out_dir rig_theia
+ 
+in a list::
+
+    ls rig_input/cam*/*.jpg > image_list.txt
+    theia_sfm --rig_config rig_input/rig_config.txt        \
+      --image_list image_list.txt                          \
+      --out_dir rig_theia
+ 
+on the command line::
+
+    theia_sfm --rig_config rig_input/rig_config.txt        \
+      rig_input/cam1/image1.png rig_input/cam2/image2.png  \
+      --out_dir rig_theia
+
+Visualization
+~~~~~~~~~~~~~
+The created camera poses can be visualized as::
+
+    view_reconstruction --reconstruction out_dir/reconstruction-0
+
+The .nvm file can be visualized with ``stereo_gui``
+(:numref:`stereo_gui_nvm`).
 
 Manipulating SfM solutions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -31,15 +67,6 @@ reconstruction with the ``sfm_merge`` (:numref:`sfm_merge`)
 program. Portions can be extracted with ``sfm_submap``
 (:numref:`sfm_submap`).
  
-Visualization
-~~~~~~~~~~~~~
-The created camera poses can be visualized as::
-
-    view_reconstruction --reconstruction out_dir/reconstruction-0
-
-The .nvm file can be visualized with ``stereo_gui``
-(:numref:`stereo_gui_nvm`).
-
 .. _theia_sfm_command_line:
 
 Command-line options for theia_sfm

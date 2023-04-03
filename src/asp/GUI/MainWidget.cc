@@ -1307,6 +1307,8 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
         
         if (static_cast<int>(ip_iter) == m_editMatchPointVecIndex)
           paint->setPen(ipMoveHighlightColor);
+      } else {
+        paint->setBrush(ipColor); // make the point filled
       }
       
       QPoint Q(P.x(), P.y());

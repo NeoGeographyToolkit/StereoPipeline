@@ -160,7 +160,8 @@ namespace asp {
     // Must signal to the children runs that they are part of a multiview run
     if (num_pairs > 1) {
       std::string opt_str = "--part-of-multiview-run";
-      std::vector<std::string>::iterator it = find(options.begin(), options.end(), opt_str);
+      std::vector<std::string>::iterator it = find(options.begin(), options.end(),
+                                                   opt_str);
       if (it == options.end())
         options.push_back(opt_str);
     }
@@ -184,7 +185,7 @@ namespace asp {
 
       // Set this for future runs as well
       std::string align_opt = "--alignment-method";
-      std::vector<std::string>::iterator it = find(options.begin(), options.end(), align_opt);
+      auto it = std::find(options.begin(), options.end(), align_opt);
       if (it != options.end() && it + 1 != options.end()){
         // Modify existing alignment
         *(it+1) = new_alignment;

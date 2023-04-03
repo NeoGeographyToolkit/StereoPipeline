@@ -94,19 +94,6 @@ For example, two images acquired at time 1004.6 can be named::
     my_images/ref_cam/10004.6.jpg
     my_images/alt_cam/10004.6.jpg
 
-The exact value of the timestamps is not important, any integer
-or double precision value would do, as long as all sensors on the rig
-acquire images at the same time, and images have the same timestamp
-only if taken at the same time. 
-
-The images can be distributed over several directories, as long as
-the above convention is satisfied.
-
-If each sensor acquires images independently, accurate timestamps are
-important, and one of the sensors, named the *reference* sensor,
-should acquire images frequently enough to help bracket the other
-sensors in time using bilinear pose interpolation.
-
 The images are expected to be 8 bit, with .jpg, .png, or .tif extension.
 
 If some sensors also have depth data, the same convention is followed,
@@ -118,8 +105,26 @@ All such depth cloud files will be loaded automatically alongside
 images if present. See :numref:`point_cloud_format` for the file
 format.
 
-To convert a set of images to this convention, one can use the
-following bash script::
+Assumptions about the timestamp
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If the rig constraint is used (omitting ``--no_rig``), and the
+sensors acquire the images at independent times, it is strongly
+suggested that the timestamp be a number of the form
+``<digits>.<digits>``, representing the precise image acquisition
+time. 
+
+Without the rig constraint, or if all the sensors on the rig take
+pictures simultaneously, the only assumption is that images have the
+same timestamp only if taken at the same time, with the precise
+timestamp value not used (see also ``--num_overlaps``).
+
+Any characters in the timestamp string that are not digits or the
+decimal period will be removed and the rest will be converted to a
+double-precision value, interpreted as time in seconds.
+
+The following bash script can make a copy of the images with file
+names of the form ``dir/sensor/digits.jpg``::
 
     mkdir -p new_images/my_cam
     ext=".jpg"
@@ -128,6 +133,14 @@ following bash script::
         /bin/cp -fv $image new_images/my_cam/${timestamp}${ext}
         ((timestamp++))
     done
+
+The reference sensor
+^^^^^^^^^^^^^^^^^^^^
+
+With the rig constraint, if each sensor acquires images independently,
+one of the sensors, named the *reference* sensor, should acquire
+images frequently enough to help bracket the other sensors in time
+using bilinear pose interpolation.
 
 .. _rig_config:
 
@@ -611,10 +624,11 @@ Command-line options for rig_calibrator
   obtained .obj files in the given directory. Type: string. Default: "".
 ``--nvm`` Read images and camera poses from this nvm file, as exported by
   Theia. Type: string. Default: "".
-``--num_overlaps`` Match an image with this many images (of all camera types)
-  following it in increasing order of timestamp value. Set to a positive value
+``--num_overlaps`` Match an image with this many images (of all camera
+  types for the same rig) following it in increasing order of
+  timestamp value. Set to a positive value
   only if desired to find more interest point matches than read from the input
-  nvm file. Not suggested by default. For advanced controls, run: 
+  nvm file. Not suggested by default. For advanced controls of interest points, run: 
   ``rig_calibrator --help | grep -B 2 -A 1 -i sift``. Type: integer. Default: 0.
 ``--no_nvm_matches`` Do not read interest point matches from the nvm file. 
   So read only camera poses. This implies ``--num_overlaps`` is positive, 

@@ -45,8 +45,8 @@ To record the data, the robots took several stops along the center
 module axis, and at each stop acquired data from a multitude of
 perspectives, while rotating in place. 
 
-The data was combined into a sparse SfM map using the ``theia_sfm``
-(:numref:`theia_sfm`) program. The camera poses were refined with
+The data was combined into a sparse SfM map using ``theia_sfm``
+(:numref:`theia_sfm`). The camera poses were refined with
 ``rig_calibrator`` (:numref:`rig_calibrator`). That tool models the
 fact that each set of sensors is on a rig (contained within a rigid
 robot frame). Then, the depth clouds were fused into a mesh 
@@ -146,7 +146,7 @@ Installing the software
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 See :numref:`installation`. The ``bin`` directory of the ASP software
-should be added to the $PATH environmental variable. Note that ASP
+should be added to the ``PATH`` environmental variable. Note that ASP
 ships its own version of Python. That can cause conflicts if ROS
 and ASP are run in the same terminal.
 

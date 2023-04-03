@@ -80,8 +80,13 @@ voxblox_mesh (:numref:`voxblox_mesh`):
   * Added weighing of depth points given their distance from the
     sensor (option ``--distance_weight``).
 
+multi_stereo (:numref:`multi_stereo`):
+  * Left and right images can be acquired with different sensors.
+  * Use ``--left`` and ``--right`` to specify which stereo pairs to
+    run.
+
 texrecon (:numref:`texrecon`):
-  * Can create a texture from multiple sensors in a set of rigs.
+  * Can create a texture with images from multiple sensors.
  
 point2dem (:numref:`point2dem`): 
   * Added the option ``--propagate-errors`` to grid the stddev values

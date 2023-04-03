@@ -7,9 +7,9 @@ The ``multi_stereo`` program takes as input a set of images and
 cameras, runs pairwise stereo between each image/camera and the next
 one in the list, filters the produced points clouds, fuses them, and
 creates a mesh. The input cameras are found using
-structure-from-motion.
+Structure-from-Motion.
 
-For the moment this program is very tied to ``rig_calibrator``
+For the moment, this program is very tied to ``rig_calibrator``
 (:numref:`rig_calibrator`).  It will become more generic and versatile
 with time. In particular, logic is planned for automatically selecting
 stereo pairs and for distributing and load-balancing all resulting
@@ -27,29 +27,25 @@ In this example it is very important to choose for pairwise stereo
 images with a convergence angle of about 5-10 degrees. A smaller
 convergence angle results in unreliable depth determination, while for
 a bigger one the scene changes enough sometimes that stereo
-correlation can be erroneous, resulting in artifacts. Note that the
-``rig_calibrator`` tool (as well as ``bundle_adjust`` and
+correlation can be erroneous, resulting in artifacts. Note that
+``rig_calibrator`` (as well as ``bundle_adjust`` and
 ``parallel_stereo``) compute the convergence angles.
 
-Then, the ``pc_filter`` tool was used for filtering blunders according
+Then, ``pc_filter`` was used for filtering blunders according
 to many geometric criteria.
 
 The 7-image dataset used below, the full recipe, and output mesh, are
-all available at:
-
-  https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/multi_stereo
+available for `download 
+<https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/multi_stereo>`_.
 
 Creation of camera models
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We broadly follow the tools and approach from section :numref:`rig_calibrator`,
-but with a rig consisting of just one camera.
+We follow the approach in :numref:`rig_calibrator`, but with a rig
+consisting of just one camera.
 
-Determination of initial camera poses. The inputs for this are the images
-and some educated guess about camera intrinsics. The latter can be optimized
-later with ``rig_calibrator``.
-
-::
+The camera intrinsics and the images are used to find the camera
+poses::
 
     theia_sfm --rig_config camera_config.txt \
       --images 'images/nav_cam/*jpg'         \
@@ -60,16 +56,17 @@ each image name consists of a number and an image extension, following
 the conventions used by ``rig_calibrator``, even though here we have
 just a single sensor acquiring all images.
 
-Refinement of camera poses and registration to world coordinates (this
-requires first manually picking some features with known 3D positions
-in the images, per :numref:`rig_calibrator_registration`)::
+Next is refinement of camera poses and registration to world
+coordinates (this requires first manually picking some features with
+known 3D positions in the images, per
+:numref:`rig_calibrator_registration`)::
 
     rig_calibrator                                \
       --rig_config camera_config.txt              \
       --nvm theia_out/cameras.nvm                 \
       --camera_poses_to_float "nav_cam"           \
       --intrinsics_to_float ""                    \
-      --num_iterations 100                        \
+      --num_iterations 30                         \
       --calibrator_num_passes 2                   \
       --num_overlaps 10                           \
       --registration                              \
@@ -211,7 +208,9 @@ Command-line options for multi_stereo
     Rig configuration file.
 --rig_sensor <string (default: "")>
     Which rig sensor images to use. Must be among the
-    sensors specified via ``--rig_config``.
+    sensors specified via ``--rig_config``.  To use images from
+    several sensors, pass in a quoted list of them, separated by a
+    space.
 --camera_poses <string (default: "")>
     Read images and camera poses for this sensor from this 
     list.
@@ -249,5 +248,13 @@ Command-line options for multi_stereo
     The index of the last image to use for stereo, in the
     list of images. Indices start from 1. By default, use
     all the images.
+--left <string (default: "")>
+    Instead of running pairwise stereo between every image and the
+    next one given in ``--camera_poses``, use every image from this
+    list and corresponding one from the list given by the ``--right``
+    option.  
+--right <string (default: "")>
+    To be used with ``--left``.
+
 -h, --help
   Show this help message and exit.
