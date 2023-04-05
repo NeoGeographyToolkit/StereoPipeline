@@ -54,7 +54,7 @@ and the Hapke model (:numref:`sfs`), but this was not thoroughly
 investigated.
 
 It is suggested to invoke this tool with a terrain model that is
-already reasonably accurate, and with images with diverse illumiation
+already reasonably accurate, and with images with diverse illumination
 conditions registered to it, when ``sfs`` can do fine-level
 refinements.
 
