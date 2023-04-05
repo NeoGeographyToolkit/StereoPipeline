@@ -737,16 +737,19 @@ Handling borderline areas
 
 With the option ``--allow-borderline-data``, ``sfs`` is able to do a
 better job at resolving the terrain in areas where the the
-illumination is weak and there are many shadows. In the example in
+illumination is weak and there are many shadows. It works by not
+letting the blending weights decay to 0 at the light-shadow boundary,
+as is usually the case when ``--blending-dist`` is used. 
+
+In the example in
 :numref:`sfs_borderline_fig`, in some input images the top terrain
 portion was lit, and in some the bottom portion. With this option, as
 it can be seen, the blur in the transition zone is removed. The
 craters are still too shallow, but that is a known issue with weak
 illumination, and something to to be addressed at a future time.
 
-Another parameter which can strongly affect the behavior close to shadows
-is ``--blending-dist``. It should be set to 10 or so. A smaller value may 
-result in seams. 
+The value of ``--blending-dist`` should be set to 10 or so. A smaller
+value may result in seams.
 
 The tool ``sfs_blend`` tool (:numref:`sfs_blend`) can be used to tune
 the areas in permanent shadow after doing SfS.
