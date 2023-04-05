@@ -254,11 +254,11 @@ Command-line options for sfs
     <output prefix>-exposures.txt.
 
 --allow-borderline-data
-    In regions where some image portions have only a mix of low-light
-    and shadow data, do not let the blending weights decay to 0 at the
-    lit boundary. This noticeably improves the level of detail. The
+    At the border of the region where there are no lit pixels in any
+    images, do not let the blending weights decay to 0. This
+    noticeably improves the level of detail. The
     ``sfs_blend`` (:numref:`sfs_blend`) tool may need to be
-    used to further tune the permanently shadowed areas. See an
+    used to further tune this region. See an
     illustration in :numref:`sfs_borderline`.
 
 --model-coeffs-prefix <path>

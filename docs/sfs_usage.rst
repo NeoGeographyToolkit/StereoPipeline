@@ -736,10 +736,10 @@ Handling borderline areas
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 With the option ``--allow-borderline-data``, ``sfs`` is able to do a
-better job at resolving the terrain in areas where the the
-illumination is weak and there are many shadows. It works by not
-letting the blending weights decay to 0 at the light-shadow boundary,
-as is usually the case when ``--blending-dist`` is used. 
+better job at resolving the terrain at the border of regions that have
+no lit pixels in any images. It works by not letting the blending
+weights decay to 0, as is usually the case when ``--blending-dist`` is
+used.
 
 In the example in
 :numref:`sfs_borderline_fig`, in some input images the top terrain
@@ -752,7 +752,7 @@ The value of ``--blending-dist`` should be set to 10 or so. A smaller
 value may result in seams.
 
 The tool ``sfs_blend`` tool (:numref:`sfs_blend`) can be used to tune
-the areas in permanent shadow after doing SfS.
+the areas in complete shadow after doing SfS.
 
 .. figure:: images/sfs_borderline.png
    :name: sfs_borderline_fig
