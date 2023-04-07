@@ -66,6 +66,8 @@ rig_calibrator (:numref:`rig_calibrator`):
     when those have been validated in a smaller map).
   * Images for any of the rig sensors (not just the reference one) can
     be used in registration (but all must be for same sensor).
+  * Added the ``--save_pinhole_cameras`` option to save the optimized
+    cameras in ASP's Pinhole format (with no distortion for now).
   * Absorb ``--rig_transforms_to_float`` into ``--camera_poses_to_float``. 
   * Save alongside an .nvm file a separate file having the values of
     optical center point that are subtracted from each interest point

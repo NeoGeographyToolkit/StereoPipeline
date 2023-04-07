@@ -41,7 +41,17 @@ similar images are detected between the maps, they will not be merged
 accurately.
 
 The option ``--fast_merge`` can be used when the input maps are known
-to have a good number of images in common.
+to have a good number of images in common. 
+
+The option ``--no_transform`` is useful when the maps are
+individually registered or when they do not overlap, but in either
+case it is desired to integrate them without changing the camera
+poses.
+
+Unless the ``--no_shift`` option is used, this invocation will write
+a file of the form ``<merged>_offsets.txt`` having the optical center of each
+camera. The .nvm file has these offsets subtracted from the features,
+and the offsets are needed for plotting the features with ``stereo_gui``.
 
 Handling tracks
 ^^^^^^^^^^^^^^^
@@ -88,6 +98,12 @@ Command-line options for sfm_merge
   Assume that in the input .nvm files the features are not shifted
   relative to the optical center. The merged map will then be saved
   the same way. 
+
+--no_transform
+  Do not compute and apply a transform from the other 
+  maps to the first one. This keeps the camera poses as 
+  they are (shared poses and features will be reconciled). 
+  This will succeed even when the two maps do not overlap.
 
 --close_dist <double (default: -1.0)>
   Two triangulated points are considered to be close if no further

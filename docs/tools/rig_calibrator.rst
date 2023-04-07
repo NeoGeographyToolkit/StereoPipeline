@@ -302,6 +302,10 @@ are saved to::
 
   <output dir>/convergence_angles.txt
 
+The options ``--export_to_voxblox`` and ``--save_pinhole_cameras``
+save files that can be used with ``voxblox_mesh`` (:numref:`voxblox_mesh`)
+and other ASP tools, respectively.
+
 A solved example
 ^^^^^^^^^^^^^^^^
 
@@ -568,10 +572,6 @@ Command-line options for rig_calibrator
   measurements agree with triangulated points. Use a bigger number as depth
   errors are usually on the order of 0.01 meters while reprojection errors
   are on the order of 1 pixel. Type: double. Default: 1000.
-``--export_to_voxblox`` Save the depth clouds and optimized transforms needed
-  to create a mesh with voxblox (if depth clouds exist). Type: bool. Default: false.
-``--save_transformed_depth_clouds`` Save the depth clouds with the
-  camera transform applied to them to make them be in world coordinates.
 ``--float_scale`` If to optimize the scale of the clouds, part of
   depth-to-image transform. If kept fixed, the configuration of cameras
   should adjust to respect the given scale. This parameter should not be
@@ -667,7 +667,14 @@ Command-line options for rig_calibrator
   drawn with ``stereo_gui``.
 ``--save_matches`` Save the interest point matches (all matches and
   inlier matches after filtering). ``stereo_gui`` can be used
-  for visualizing these. Type: bool. Default: false.
+  to visualize these (:numref:`stereo_gui_view_ip`). Type: bool. Default: false.
+``--export_to_voxblox`` Save the depth clouds and optimized transforms needed
+  to create a mesh with ``voxblox`` (if depth clouds exist). Type: bool. Default: false.
+``--save_transformed_depth_clouds`` Save the depth clouds with the
+  camera transform applied to them to make them be in world coordinates.
+``--save_pinhole_cameras``
+  Save the optimized cameras in ASP's Pinhole format (:numref:`pinholemodels`). 
+  The distortion model does not get saved. Type: bool. Default: false.
 ``--timestamp_offsets_max_change`` If floating the timestamp offsets, do not
   let them change by more than this (measured in seconds). Existing image
   bracketing acts as an additional constraint. Type: double. Default: 1.

@@ -430,8 +430,13 @@ Run::
 
     stereo_gui image1.tif ... imageN.tif run/run
 
-(the last string is the output prefix). Select viewing of interest
-point matches. If some matches exist already, they will be loaded, per
+(the last string is the output prefix).
+
+Select from the top menu::
+
+    IP matches -> View IP matches
+
+If some matches exist already, they will be loaded, per
 :numref:`stereo_gui_N_image_matches`. Do not use
 ``--pairwise-matches`` and ``--pairwise-clean-matches`` here.
 
@@ -440,13 +445,13 @@ click. This works whether a pre-existing match file was loaded, or
 starting from scratch.
 
 To move interest points, right-click on an image and check "Move match
-point". While this is checked you can move interest points by clicking
+point". While this is checked, one can move interest points by clicking
 and dragging them within the image extent.  Uncheck "Move match point" to
 stop moving interest points.
 
 The edited interest point matches can be saved from the menu.
 
-If handling *N* images at once becomes to complicated, it is suggested
+If handling *N* images at once becomes too complicated, it is suggested
 to edit the matches one pair at a time.
 
 .. _creatinggcp:
