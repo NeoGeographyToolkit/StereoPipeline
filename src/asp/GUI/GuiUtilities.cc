@@ -719,8 +719,6 @@ void MatchList::throwIfNoPoint(size_t image, size_t point) const {
 }
 
 void MatchList::resize(size_t num_images) {
-  m_matches.clear();
-  m_valid_matches.clear();
   m_matches.resize(num_images);
   m_valid_matches.resize(num_images);
 }
@@ -729,7 +727,7 @@ bool MatchList::addPoint(size_t image, vw::ip::InterestPoint const &pt, bool val
 
   if (image >= m_matches.size())
     return false;
-
+  
   // We will start with an interest point in the left-most image,
   // and add matches to it in the other images.
   // At any time, an image to the left must have no fewer ip than

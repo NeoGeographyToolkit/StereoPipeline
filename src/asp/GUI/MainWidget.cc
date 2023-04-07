@@ -3568,10 +3568,9 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   // Save the current view to a file
   void MainWidget::saveScreenshot(){
 
-    QString fileName = QFileDialog::getSaveFileName(this,
-                                                    tr("Save screenshot"), "./screenshot.bmp",
-                                                    tr("(*.bmp *.xpm)"));
-
+    QString fileName =
+      QFileDialog::getSaveFileName(this, tr("Save screenshot"),
+                                     "./screenshot.bmp", tr("(*.bmp *.xpm)"));
     if (fileName.toStdString() == "") 
       return;
 
