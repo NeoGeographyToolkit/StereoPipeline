@@ -67,11 +67,6 @@ infrared) for Digital Globe multispectral images to find this water
 threshold, as in them the water appears universally darker than the
 land.
 
-A manual approach for finding this threshold in an image is pick some
-sample pixels in ``stereo_gui`` over the water region, with the pixel
-of the largest value declared as the threshold. How to do this is
-described in :numref:`thresh`.
-
 ASP provides two tools for finding the threshold in automated way
 based on histogram analysis. One is ``bathy_threshold_calc.py``
 (:numref:`bathy_threshold_calc`), and the second one is
@@ -134,9 +129,8 @@ It will produce the following output:
 
    Example of the graph plotted by bathy_threshold_calc.py
 
-Once the threshold is found, either manually or automatically, the
-``stereo_gui`` tool can be used to visualize
-the regions at or below threshold, see again :numref:`thresh`.
+Once the threshold is found, ``stereo_gui`` can be used to visualize
+the regions at or below threshold (:numref:`thresh`).
 
 .. _bathy_mask_creation:
 
