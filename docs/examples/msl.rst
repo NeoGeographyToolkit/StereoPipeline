@@ -28,7 +28,7 @@ Sensor information
 ------------------
 
 Curiosity has two navcam sensors (left and right) mounted on a stereo
-rig. Each acquires images at a resolution of 1024 x 1024 pixels. The
+rig. Each records images at a resolution of 1024 x 1024 pixels. The
 field of view is 45 degrees.
 
 .. _msl_challenges:
@@ -40,8 +40,8 @@ The navcam images are used to plan the path of the rover. They are not
 acquired specifically for mapping.
 
 While there is good overlap and perspective difference between images
-that are acquired at the same time with the stereo rig, these
-assumptions may not hold for images acquired at different times.
+that are taken at the same time with the stereo rig, these
+assumptions may not hold for images produced at different times.
 Moreover, after the rover changes position, there is usually a large
 perspective difference and little overlap with earlier images.
 
@@ -235,13 +235,13 @@ Set up the pairs to run stereo on::
     grep lnav list.txt > ${outDir}/left.txt
     grep rnav list.txt > ${outDir}/right.txt
 
-The optimized rig, in ``${outDir}/rig_config.txt``, and optimized
-cameras, in ``${outDir}/cameras.txt``, are passed to ``multi_stereo``
+The optimized rig, in ``rig_out/rig_config.txt``, and optimized
+cameras, in ``rig_out/cameras.txt``, are passed to ``multi_stereo``
 (:numref:`multi_stereo`)::
 
     multi_stereo                              \
-      --rig_config ${outDir}/rig_config.txt   \
-      --camera_poses ${outDir}/cameras.txt    \
+      --rig_config rig_out/rig_config.txt     \
+      --camera_poses rig_out/cameras.txt      \
       --undistorted_crop_win '1100 1100'      \
       --rig_sensor "lnav rnav"                \
       --first_step stereo                     \
@@ -251,7 +251,7 @@ cameras, in ``${outDir}/cameras.txt``, are passed to ``multi_stereo``
       --mesh_gen_options "$mesh_gen_opts"     \
       --left ${outDir}/left.txt               \
       --right ${outDir}/right.txt             \
-      --out_dir ${outDir} 
+      --out_dir ${outDir}
 
 This created::
 
