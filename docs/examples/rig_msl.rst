@@ -49,7 +49,7 @@ A very useful reference on processing MSL images is
 :cite:`caravaca20203d`. It uses the commercial Agisoft Photoscan
 software.
 
-To help with matching the images, it uses the global position and
+To help with matching the images, this paper uses the global position and
 orientation of each image and projects these onto the ground. Such
 data is not fully present in the .LBL files in PDS, as those contain
 only local coordinates, and would necessitate queering the SPICE
@@ -99,11 +99,13 @@ commands are along the lines of::
 Image selection
 ---------------
 
-A subset of images was chosen after visual inspection. A fully
+Images were chosen based on visual inspection. A fully
 automatic approach may be challenging (:numref:`msl_challenges`).
 
-22 images were selected for SOL00597 (half for each of the left and
-right navcam sensors). This dataset is available for `download <here>`_.
+A subset of 22 images were selected for SOL00597 (half for each of the
+left and right navcam sensors). This dataset is available for
+`download <here>`_.
+TODO(oalexan1): Fix here!
 
 Setting up the initial rig
 --------------------------
@@ -118,7 +120,7 @@ using the formula:
 where :math:`w` is sensor width in pixels and :math:`\theta` is the field of
 view. The focal length is then about 1236.0773 pixels. We will start
 by assuming that the optical center is at the image center, and 
-no distortion. Hence, the rig configuration (:numref:`rig_config`)
+no distortion. Hence, the initial rig configuration (:numref:`rig_config`)
 will look like::
 
     ref_sensor_name: lnav
@@ -152,7 +154,8 @@ program (:numref:`theia_sfm`) was run to find initial camera poses::
 
 
 Next, ``rig_calibrator`` (:numref:`rig_calibrator`) is used, to
-enforce the rig constraint between the left and right navcam sensors::
+enforce the rig constraint between the left and right navcam sensors
+and refine the intrinsics::
 
     params="focal_length,optical_center"
     float="lnav:${params} rnav:${params}"
@@ -233,8 +236,8 @@ Set up the pairs to run stereo on::
     grep lnav list.txt > ${outDir}/left.txt
     grep rnav list.txt > ${outDir}/right.txt
 
-The optimized rig, in ``rig_out/rig_config.txt``, and optimized
-cameras, in ``rig_out/cameras.nvm``, are passed to ``multi_stereo``
+The optimized rig, in ``${outDir}/rig_config.txt``, and optimized
+cameras, in ``${outDir}/cameras.txt``, are passed to ``multi_stereo``
 (:numref:`multi_stereo`)::
 
     multi_stereo                              \
@@ -243,7 +246,7 @@ cameras, in ``rig_out/cameras.nvm``, are passed to ``multi_stereo``
       --undistorted_crop_win '1100 1100'      \
       --rig_sensor "lnav rnav"                \
       --first_step stereo                     \
-      --last_step  mesh_gen                   \
+      --last_step mesh_gen                    \
       --stereo_options "$stereo_opts"         \
       --pc_filter_options "$pc_filter_opts"   \
       --mesh_gen_options "$mesh_gen_opts"     \
@@ -261,7 +264,7 @@ Notes
 -----
 
  - No ground registration was done, so neither the scale nor the
-   position of the produced mesh is accurate. The mesh is, however,
+   pose of the produced mesh is accurate. The mesh is, however,
    self-consistent.
  - The voxel size for binning and meshing the point cloud was chosen
    manually. An automated approach for choosing a representative voxel
