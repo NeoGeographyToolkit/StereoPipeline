@@ -171,7 +171,7 @@ and refine the intrinsics::
       --out_dir rig_out
 
 Here, ``--robust_threshold`` was increased from the default value of
-0.5 to focus harder larger errors. To optimize the distortion,
+0.5 to focus more on larger errors. To optimize the distortion,
 one can adjust the rig configuration by setting initial distortion
 values and type::
 
