@@ -419,7 +419,9 @@ View GCP and .vwip files
 
 This tool can show the interest points from a GCP file (but cannot edit
 them with this interface, creating such points is described later in
-this section). The ``--gcp-file`` option is used.
+:numref:`creatinggcp`). Example::
+
+    stereo_gui image1.tif ... imageN.tif --gcp-file mygcp.gcp
 
 The ``stereo_gui`` program can also display ``.vwip`` files. Those are
 interest points created by ``ipfind``, ``bundle_adjust``, or
@@ -436,7 +438,7 @@ point matches (useful in situations when automatic interest point
 matching is unreliable due to large changes in illumination). This
 works for *N* images.
 
-Run::
+Example::
 
     stereo_gui image1.tif ... imageN.tif run/run
 

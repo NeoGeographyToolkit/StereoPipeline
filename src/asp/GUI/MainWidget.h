@@ -62,6 +62,7 @@
 
 // ASP
 #include <asp/Core/Common.h>
+#include <asp/Core/MatchList.h>
 #include <asp/GUI/GuiUtilities.h>
 
 class QMouseEvent;
@@ -92,7 +93,7 @@ namespace vw { namespace gui {
                int beg_image_id, int end_image_id, int base_image_id,
                std::vector<imageData> & images, // will be aliased
                std::string & output_prefix,     // will be aliased
-               MatchList & matches,
+               asp::MatchList & matches,
                pairwiseMatchList & pairwiseMatches,
                pairwiseMatchList & pairwiseCleanMatches,
                int & editMatchPointVecIndex,
@@ -269,7 +270,7 @@ public slots:
 
     /// Structure to keep track of all interest point matches.
     /// - Note that these are aliass wrapping an object passed in through the constructor.
-    MatchList & m_matchlist;
+    asp::MatchList & m_matchlist;
     pairwiseMatchList & m_pairwiseMatches;
     pairwiseMatchList & m_pairwiseCleanMatches;
     int       &m_editMatchPointVecIndex; /// Point being edited

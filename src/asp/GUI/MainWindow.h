@@ -32,6 +32,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/InterestPoint/InterestData.h>
 #include <asp/Core/Common.h>
+#include <asp/Core/MatchList.h>
 #include <asp/GUI/GuiUtilities.h>
 
 // Forward declarations
@@ -207,7 +208,7 @@ namespace vw { namespace gui {
     std::vector<imageData>    m_images;      // Handles to loaded images
 
     /// Structures to keep track of all interest point matches.
-    MatchList         m_matchlist;
+    asp::MatchList    m_matchlist;
     pairwiseMatchList m_pairwiseMatches;
     pairwiseMatchList m_pairwiseCleanMatches;
     boost::shared_ptr<asp::nvmData> m_nvm;

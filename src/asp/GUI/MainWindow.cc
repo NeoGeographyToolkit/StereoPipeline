@@ -27,6 +27,7 @@
 #include <asp/Core/Nvm.h>
 #include <asp/GUI/chooseFilesDlg.h>
 #include <asp/GUI/ColorAxes.h>
+#include <asp/Core/GCP.h>
 
 using namespace asp;
 using namespace vw::gui;
@@ -170,7 +171,7 @@ bool MainWindow::sanityChecks(int num_images) {
   }
   
   // If a match file was explicitly specified, use it.
-  if (stereo_settings().match_file != ""){
+  if (stereo_settings().match_file != "") {
     if (m_image_files.size() != 2){
       popUp("The --match-file option only works with two valid input images.");
       return false;
@@ -422,9 +423,10 @@ void MainWindow::createLayout() {
   // automatically change the layout
   if (sideBySideWithDialog() || asp::stereo_settings().view_matches) {
     m_view_type = VIEW_SIDE_BY_SIDE;
-    if (m_show_two_images_when_side_by_side_with_dialog) {
+    if (sideBySideWithDialog() && m_show_two_images_when_side_by_side_with_dialog) {
       // This must be triggered only when the tool starts or when switched
-      // into sideBySideWithDialog() mode from the menu.
+      // into sideBySideWithDialog() mode from the menu. Later the use
+      // can change the number of images shown.
       m_chooseFiles->setNumImagesToShow(2);
       m_show_two_images_when_side_by_side_with_dialog = false;
     }
@@ -1180,7 +1182,7 @@ void MainWindow::toggleViewMatches() {
 // images. We allow ip without matches in other images, that can be
 // useful, but not before saving, when their numbers must agree for
 // all images.
-void MainWindow::viewMatches(){
+void MainWindow::viewMatches() {
 
   // Record user's intent
   asp::stereo_settings().view_matches = m_viewMatches_action->isChecked();
@@ -1222,17 +1224,27 @@ void MainWindow::viewMatches(){
 
     if (stereo_settings().gcp_file != "") {
 
-      // Try to read matches from gcp
-      m_matchlist.loadPointsFromGCPs(stereo_settings().gcp_file, m_image_files);
-      return;
+      // Try to read matches from gcp. The interface also allow specifying
+      // a non-existent file, which will be created on saving.
+      if (fs::exists(stereo_settings().gcp_file)) {
 
-    }else if (!stereo_settings().vwip_files.empty()){
+        if (stereo_settings().dem_file != "") {
+          popUp("A DEM file was specified. Then, the GCP file passed in must not exist, since it is supposed to be created based on the DEM.");
+          return;
+        }
+        
+        try {
+          m_matchlist.loadPointsFromGCPs(stereo_settings().gcp_file, m_image_files);
+        } catch (std::exception const& e) {
+          popUp(e.what());
+          return;
+        }
+      }
 
+    } else if (!stereo_settings().vwip_files.empty()) {
       // Try to read matches from vwip files
       m_matchlist.loadPointsFromVwip(stereo_settings().vwip_files, m_image_files);
-      
-    }else{
-
+    } else {
       // If no match file was specified by now, ask the user for the output prefix.
       if (stereo_settings().match_file == "") {
         if (!supplyOutputPrefixIfNeeded(this, m_output_prefix))
@@ -1242,7 +1254,7 @@ void MainWindow::viewMatches(){
       std::string trial_match="";
       int leftIndex=0;
       std::vector<std::string> matchFiles (num_images-1);
-      std::vector<size_t     > leftIndices(num_images-1);
+      std::vector<size_t>      leftIndices(num_images-1);
       std::vector<vw::ip::InterestPoint> left, right; // Just temp variables
       for (size_t i = 1; i < num_images; i++) {
 
@@ -1298,7 +1310,7 @@ void MainWindow::viewMatches(){
     if (mw(m_widgets[i]))
       mw(m_widgets[i])->viewMatches();
   }
-
+  
   return;
 }
 
@@ -1320,7 +1332,8 @@ void MainWindow::viewPairwiseMatchesSlot() {
 
 void MainWindow::viewPairwiseCleanMatchesSlot() {
   // Record user's intent
-  asp::stereo_settings().pairwise_clean_matches = m_viewPairwiseCleanMatches_action->isChecked();
+  asp::stereo_settings().pairwise_clean_matches
+    = m_viewPairwiseCleanMatches_action->isChecked();
 
   if (asp::stereo_settings().pairwise_clean_matches)
     m_show_two_images_when_side_by_side_with_dialog = true;
@@ -1340,7 +1353,8 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
 
   MainWindow::updateViewMenuEntries();
 
-  if (!asp::stereo_settings().pairwise_matches && !asp::stereo_settings().pairwise_clean_matches) {
+  if (!asp::stereo_settings().pairwise_matches &&
+      !asp::stereo_settings().pairwise_clean_matches) {
     return;
   }
 
@@ -1397,6 +1411,8 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   // if pairwiseMatches->match_files[index_pair] is initialized.
   // Read either matches from first to second image, or vice versa.
   // First consider the case of loading from nvm.
+  // TODO(oalexan1): Move this code out, perhaps to MatchList.cc.
+  // Also there defined the pairwiseMatches struct.
   if (asp::stereo_settings().pairwise_matches) {
     
     pairwiseMatches = &m_pairwiseMatches;
@@ -1499,7 +1515,14 @@ void MainWindow::saveMatches(){
       return;
   }
 
-  m_matchlist.savePointsToDisk(m_output_prefix, m_image_files, stereo_settings().match_file);
+  try {
+    m_matchlist.savePointsToDisk(m_output_prefix, m_image_files,
+                                 stereo_settings().match_file);
+  } catch (std::exception const& e) {
+    popUp(e.what());
+    return;
+  }
+    
   m_matches_exist = true;
 
    // matches got saved, no more editing for now
@@ -1533,132 +1556,50 @@ void MainWindow::writeGroundControlPoints() {
   // Prompt the user for a DEM path unless specified via --dem-file.
   if (stereo_settings().dem_file == "") {
     try {
-      stereo_settings().dem_file
-	= QFileDialog::getOpenFileName(0,
-				       "Select DEM to use for point elevations",
-				       m_output_prefix.c_str()).toStdString();
-    }catch(...){
+      stereo_settings().dem_file = 
+        QFileDialog::getOpenFileName(0,
+                                     "Select DEM to use for point elevations",
+                                     m_output_prefix.c_str()).toStdString();
+    } catch(...) {
       return popUp("Error selecting the DEM path.");
     }
   }
 
   if (stereo_settings().dem_file == "") 
-    return; // Likely the user did not choose a file
+    return; // Likely the user did not choose a file, so cancel the save.
   
-  // Load a georeference to use for the GCPs from the last image
-  cartography::GeoReference georef_image, georef_dem;
-  const size_t GEOREF_INDEX = m_image_files.size() - 1;
-  const std::string georef_image_file = m_image_files[GEOREF_INDEX];
-  bool has_georef = vw::cartography::read_georeference(georef_image, georef_image_file);
-  if (!has_georef) {
-    return popUp(std::string("Error: Could not load a valid georeference to use for ")
-		 + "ground control points in file: " + georef_image_file);
-  }
-  vw_out() << "Loaded georef from file " << georef_image_file << std::endl;
-
-  // Init the DEM to use for height interpolation
-  boost::shared_ptr<DiskImageResource>
-    dem_rsrc(DiskImageResourcePtr(stereo_settings().dem_file));
-  DiskImageView<float> dem_disk_image(stereo_settings().dem_file);
-  vw::ImageViewRef<PixelMask<float> > raw_dem;
-  float nodata_val = -std::numeric_limits<float>::max();
-  if (dem_rsrc->has_nodata_read()){
-    nodata_val = dem_rsrc->nodata_read();
-    raw_dem    = create_mask_less_or_equal(dem_disk_image, nodata_val);
-  }else{
-    raw_dem = pixel_cast<PixelMask<float> >(dem_disk_image);
-  }
-  PixelMask<float> fill_val;
-  fill_val[0] = -99999;
-  fill_val.invalidate();
-  vw::ImageViewRef<PixelMask<float> > interp_dem
-    = interpolate(raw_dem,
-                  BilinearInterpolation(),
-                  ValueEdgeExtension<PixelMask<float> >(fill_val));
-  
-  // Load the georef from the DEM
-  has_georef = vw::cartography::read_georeference(georef_dem, stereo_settings().dem_file);
-  if (!has_georef) {
-    return popUp("Error: Could not load a valid georeference from dem file: "
-                 + stereo_settings().dem_file);
-  }
-  vw_out() << "Loaded georef from dem file " << stereo_settings().dem_file << std::endl;
-
   // Prompt the user for the desired output path unless specified in --gcp-file.
   if (stereo_settings().gcp_file == "") {
     try {
       std::string default_path = m_output_prefix + "/ground_control_points.gcp";
       if (m_output_prefix.empty()) // Default to current dir if prefix not set
-	default_path = "ground_control_points.gcp";
+	      default_path = "ground_control_points.gcp";
       stereo_settings().gcp_file = QFileDialog::getSaveFileName(0,
 					       "Select a path to save the GCP file to",
 					       default_path.c_str()).toStdString();
-    }catch(...){
+    }catch(...) {
       return popUp("Error selecting the output path.");
     }
   }
+
+  try {
+    asp::writeGCP(m_image_files,  
+                  stereo_settings().gcp_file,  
+                  stereo_settings().dem_file,
+                  m_output_prefix,
+                  m_matchlist);
+  } catch (std::exception const& e) {
+    popUp(e.what());
+    return;
+  }
   
-  BBox2 image_bb = bounding_box(interp_dem);
-
-  // TODO(oalexan1): This logic should be a function in VW
-  vw_out() << "Writing: " << stereo_settings().gcp_file << "\n";
-  std::ofstream output_handle(stereo_settings().gcp_file.c_str());
-  output_handle << std::setprecision(17);
-  size_t num_pts_skipped = 0, num_pts_used = 0;
-  for (size_t p = 0; p < num_ips; p++) { // Loop through IPs
-
-    // Compute the GDC coordinate of the point
-    ip::InterestPoint ip = m_matchlist.getPoint(GEOREF_INDEX, p);
-    Vector2 lonlat    = georef_image.pixel_to_lonlat(Vector2(ip.x, ip.y));
-    Vector2 dem_pixel = georef_dem.lonlat_to_pixel(lonlat);
-    PixelMask<float> height = interp_dem(dem_pixel[0], dem_pixel[1])[0];
-
-    // We make a separate bounding box check because the ValueEdgeExtension
-    //  functionality may not work properly!
-    if ( (!image_bb.contains(dem_pixel)) || (!is_valid(height)) ) {
-      vw_out() << "Warning: Skipped IP # " << p
-               << " because it does not fall on the DEM.\n";
-      ++num_pts_skipped;
-      continue; // Skip locations which do not fall on the DEM
-    }
-
-    // Write the per-point information
-    output_handle << num_pts_used; // The ground control point ID
-    //// Write lat, lon, height
-    output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << height[0];
-
-#if 0
-    // TODO(oalexan1): It can be convenient to export GCP in ECEF, for software
-    // which does not know about projections. Could be an option.
-    // Write x, y, z
-    vw::Vector3 P(lonlat[0], lonlat[1], height[0]);
-    P = georef_dem.datum().geodetic_to_cartesian(P);
-    output_handle << ", " << P[0] << ' ' << P[1] << ' ' << P[2];
-#endif
-    
-    output_handle << ", " << 1 << ", " << 1 << ", " << 1; // Sigma values
-
-    // Write the per-image information
-    for (size_t i = 0; i < num_images_to_save; i++) {
-      // Add this IP to the current line
-      ip::InterestPoint ip = m_matchlist.getPoint(i, p);
-      output_handle << ", " << m_image_files[i];
-      output_handle << ", " << ip.x << ", " << ip.y; // IP location in image
-      output_handle << ", " << 1 << ", " << 1; // Sigma values
-    } // End loop through IP sets
-    output_handle << std::endl; // Finish the line
-    ++num_pts_used;
-  } // End loop through IPs
-
-  output_handle.close();
-
-  // matches got saved, no more editing for now
+  // Matches got saved, no more editing for now
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (mw(m_widgets[i]) != NULL) 
       mw(m_widgets[i])->setEditingMatches(false);
   }
   
-  popUp("Finished writing file: " + stereo_settings().gcp_file);
+  popUp("Wrote: " + stereo_settings().gcp_file);
 }
 
 void MainWindow::addDelMatches(){

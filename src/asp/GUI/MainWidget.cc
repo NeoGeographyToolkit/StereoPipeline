@@ -218,7 +218,7 @@ namespace vw { namespace gui {
                          int beg_image_id, int end_image_id, int base_image_id,
                          std::vector<imageData> & images, // will be aliased
                          std::string & output_prefix,     // will be aliased
-                         MatchList & matches,
+                         asp::MatchList & matches,
                          pairwiseMatchList & pairwiseMatches,
                          pairwiseMatchList & pairwiseCleanMatches,
                          int &editMatchPointVecIndex,
@@ -1296,19 +1296,25 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
       }
       
       paint->setPen(ipColor); // The default IP color
+      paint->setBrush(ipColor); // make the point filled
 
       if (asp::stereo_settings().view_matches) {
-        if (!m_matchlist.isPointValid(m_beg_image_id, ip_iter))
+        // Some special handling for when we add matches
+        if (!m_matchlist.isPointValid(m_beg_image_id, ip_iter)) {
           paint->setPen(ipInvalidColor);
-
-        // Highlighting the last point
-        if (highlight_last && (ip_iter == m_matchlist.getNumPoints(m_beg_image_id)-1)) 
-          paint->setPen(ipAddHighlightColor);
+          paint->setBrush(ipInvalidColor);
+        }
         
-        if (static_cast<int>(ip_iter) == m_editMatchPointVecIndex)
+        // Highlighting the last point
+        if (highlight_last && (ip_iter == m_matchlist.getNumPoints(m_beg_image_id)-1)) {
+          paint->setPen(ipAddHighlightColor);
+          paint->setBrush(ipAddHighlightColor);
+        }
+        
+        if (static_cast<int>(ip_iter) == m_editMatchPointVecIndex) {
           paint->setPen(ipMoveHighlightColor);
-      } else {
-        paint->setBrush(ipColor); // make the point filled
+          paint->setBrush(ipMoveHighlightColor);
+        }
       }
       
       QPoint Q(P.x(), P.y());
@@ -3362,7 +3368,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   }
 
   // We cannot delete match points unless all images have the same number of them.
-  void MainWidget::deleteMatchPoint(){
+  void MainWidget::deleteMatchPoint() {
 
     if (m_end_image_id - m_beg_image_id != 1) {
       popUp("Must have just one image in each window to delete matches.");
@@ -3386,8 +3392,14 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
     m_editingMatches = true;
 
-    bool result = m_matchlist.deletePointAcrossImages(min_index);
-    
+    bool result = false;
+    try {
+      m_matchlist.deletePointAcrossImages(min_index);
+    } catch (std::exception const& e) {
+      popUp(e.what());
+      return;
+    }
+
     if (result) {
       // Must refresh the matches in all the images, not just this one
       if (asp::stereo_settings().view_matches) {
