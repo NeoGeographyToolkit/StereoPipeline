@@ -127,6 +127,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.blending_dist > 0 && opt.blending_power <= 0) 
     vw_throw(ArgumentErr() << "When setting --blending-dist, a "
               << "positive value of blending power must be used.");
+
+    // Create the output directory
+    vw::create_out_dir(opt.output_cloud);
+
+    // Turn on logging to file
+    std::string prog_name = asp::extract_prog_name(argv[0]);
+    asp::log_to_file(argc, argv, "", opt.output_cloud);
   
   return;
 }

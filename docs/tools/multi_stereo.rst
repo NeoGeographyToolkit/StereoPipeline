@@ -15,8 +15,8 @@ with time. In particular, logic is planned for automatically selecting
 stereo pairs and for distributing and load-balancing all resulting
 processing jobs over multiple machines.
 
-Example
-^^^^^^^
+Examples
+^^^^^^^^
 
 Here we will create a mesh of a small portion of the International
 Space Station (ISS), based on images acquired with the `Astrobee
@@ -37,6 +37,10 @@ to many geometric criteria.
 The 7-image dataset used below, the full recipe, and output mesh, are
 available for `download 
 <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/multi_stereo>`_.
+
+See another example in :numref:`rig_msl`. That one runs stereo on
+pairs of images created with a stereo rig onboard the MSL Curiosity
+rover.
 
 Creation of camera models
 ~~~~~~~~~~~~~~~~~~~~~~~~~

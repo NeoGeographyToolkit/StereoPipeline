@@ -26,9 +26,9 @@ acquired with the same sensor still share intrinsics.
 The `Theia <https://github.com/sweeneychris/TheiaSfM>`_ package is used
 to find the initial camera poses.
  
-See :numref:`rig_calibrator_example` for a solved example having all
-inputs, outputs, and commands, and :numref:`sfm_iss` for a larger example
-covering a full ISS module.
+See :numref:`rig_calibrator_example` for a solved example,
+:numref:`sfm_iss` for a larger example covering a full ISS module, and
+:numref:`rig_msl` for an example using MSL Curiosity rover images.
 
 .. figure:: ../images/rig_calibrator_textures.png
    :name: rig_calibrator_textures
@@ -36,13 +36,12 @@ covering a full ISS module.
 
    Textures obtained with the ``nav_cam`` and ``sci_cam`` rig cameras,
    (left and right) projected onto the mesh obtained with the
-   ``haz_cam`` depth+image camera. The textures are nearly seamless and agree very well
-   when overlayed, which shows that the rig calibration was successful. 
-   Note that the ``sci_cam`` pictures (on the right) have some lightning
-   variation due to the fact that auto-exposure was used. The images
-   show a portion of the Granite Lab at NASA Ames. See
-   :numref:`rig_calibrator_example` for context. See another
-   illustration in :numref:`sfm_iss`.
+   ``haz_cam`` depth+image camera. The textures are nearly seamless
+   and agree very well when overlayed, which shows that the rig
+   calibration was successful. Note that the ``sci_cam`` pictures (on
+   the right) have some lightning variation due to the fact that
+   auto-exposure was used. The images show a portion of the Granite
+   Lab at NASA Ames.
 
 Capabilities
 ^^^^^^^^^^^^

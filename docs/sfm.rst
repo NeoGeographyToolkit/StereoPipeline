@@ -1,12 +1,13 @@
 .. _sfm:
 
-Solving for camera poses based on images
-========================================
+SfM examples with orbital images
+================================
 
-The ASP tool ``camera_solve`` offers several ways to find the true
-position of frame camera images that do not come with any attached pose
-metadata. This can be useful with aerial, hand-held, and historical
-images for which such information may be incomplete or inaccurate.
+The Structure-from-Motion (SfM) ASP tool ``camera_solve`` offers
+several ways to find the pose of frame camera images that do
+not come with any attached pose metadata. This can be useful with
+aerial, hand-held, and historical images for which such information
+may be incomplete or inaccurate.
 
 An overview of the tool and examples are provided in this chapter.
 Reference information for this tool can be found in :numref:`camera_solve`.
@@ -15,8 +16,9 @@ This tool can be optionally bypassed if, for example, the longitude and
 latitude of the corners of all images are known (:numref:`imagecorners`).
 
 ASP offers another tool to build reconstructions, named ``theia_sfm``
-(:numref:`theia_sfm`). That one more geared to work with rigs, or
-otherwise images created with just a few sensors.
+(:numref:`theia_sfm`). That one more geared to work with a rig
+mounted on a robot (:numref:`rig_calibrator`). See examples
+of that in :numref:`rig_examples`.
 
 Camera solving overview
 -----------------------

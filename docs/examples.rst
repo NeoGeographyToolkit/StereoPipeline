@@ -14,7 +14,8 @@ a cookbook for strategies that will get you started in processing your
 own data. We recommend that you second check your results against
 another source.
 
-Structure-from-Motion examples are in :numref:`sfm_examples`.
+Structure-from-Motion examples are in :numref:`rig_examples` (using a rig and robot images)
+and in :numref:`sfm` (for orbital images with no rig).
 
 .. toctree::
 
@@ -43,13 +44,25 @@ Structure-from-Motion examples are in :numref:`sfm_examples`.
    examples/historical
    examples/bathy
 
-.. _sfm_examples:
+.. _rig_examples:
 
-Structure-from-Motion examples
+SfM examples using a robot rig
 ==============================
+
+These examples shows how to solve for camera poses using
+Structure-from-Motion (SfM) and then create textured meshes. 
+
+The images are acquired using a rig mounted on a robot on the ISS
+(:numref:`rig_calibrator_example`, :numref:`sfm_iss`) and with the MSL
+Curiosity rover (:numref:`rig_msl`).
+
+See :numref:`sfm` for examples when the images are acquired in orbit
+using a satellite, and DEMs are created instead. A two-image example
+for the MER rovers is in :numref:`mer-example`.
 
 .. toctree::
 
    examples/rig
    examples/sfm_iss
+   examples/msl
 

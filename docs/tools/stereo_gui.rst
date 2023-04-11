@@ -338,7 +338,9 @@ image pair if the output prefix was specified. For that, run::
    stereo_gui --pairwise-matches image1.tif ... imageN.tif run/run
 
 then select a couple of images to view using the checkboxes on the
-left, and their match file will be displayed automatically.
+left, and their match file will be displayed automatically. 
+
+See an illustration in :numref:`asp_gui_nvm`.
 
 .. _stereo_gui_N_image_matches:
 
@@ -402,6 +404,14 @@ In this mode, the lowest-resolution subimage size is larger than
 usual, to avoid creating small files.  See
 ``--lowest-resolution-subimage-num-pixels``.
 
+.. figure:: ../images/stereo_gui_nvm.png
+   :name: asp_gui_nvm
+   :alt: stereo_gui_nvm.
+
+   An illustration of ``stereo_gui`` displaying an .nvm file. 
+   Pairs of images can be chosen on the left, and matches will be shown.
+   The images were created with the MSL Curiosity rover (:numref:`rig_msl`).
+
 .. _stereo_gui_vwip_gcp:
 
 View GCP and .vwip files
@@ -459,41 +469,52 @@ to edit the matches one pair at a time.
 Creating GCP with georeferenced images and a DEM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-There exist situations when one has one or more images for which
-the camera files are either inaccurate or, for Pinhole camera models,
-just the intrinsics may be known. Given a DEM of the area, and
+There exist situations when one has one or more images for which the
+camera files are either inaccurate or, for Pinhole camera models, just
+the intrinsics may be known. Given a DEM of the area of interest, and
 optionally a georeferenced image, it is possible to create GCP files
 (:numref:`bagcp`) that can later be used with ``bundle_adjust`` to
 either improve the alignment of these cameras to the DEM, or create
 new Pinhole cameras from scratch (the latter is shown in
 :numref:`imagecorners`).
 
-One starts by opening these desired camera images and the georeferenced image
-in the GUI, in this order (hence the georeferenced image is the last).
-If no georeferenced image exists, one can use the given DEM instead (and
-it can be hillshaded after loading to easier identify features).
+One starts by opening the desired images, the georeferenced
+image, the DEM, and the GCP file to be created in the GUI, as
+follows::
 
-Next, a feature is identified and manually added as an interest point in
-all open images, using the right-click menu, and this process is
-repeated a few times. These newly created interest points can also be moved
-around by right-clicking to turn on this mode, and then dragging them
-with the mouse (this can be slow).
+    stereo_gui img1.tif img2.tif img3.tif georeferenced.tif \
+      --dem-file dem.tif --gcp-file output.gcp
+
+The georeferenced image must be after the images for which GCP will be
+created. If no georeferenced image exists, one can use the given DEM
+instead (and it can be hillshaded after loading to easier identify
+features).
+
+The georeferenced image is only used to find the positions on the
+ground, which in turn are used to find the heights for the GCPs from
+the DEM. The interest points in the reference image are not
+saved to the GCP file.
+
+Next, a feature is identified and manually added as a matching
+interest point (match point) in all open images, from left to
+right. For that, use the right right-click menu, and select ``Add
+match point``. This process is repeated a few times. If the match
+point is not added in all images before starting with a new one, that
+will result in an error.  These newly created match points can also be
+moved around by right-clicking to turn on this mode, and then dragging
+them with the mouse (this can be slow).
 
 If the input images and the georeferenced image are very similar
 visually, one can also try to automatically detect interest point
 matches in them using ``ipfind``/``ipmatch`` and load the .match files
-as described in the earlier section on creating interest points.
+as described in :numref:`stereo_gui_N_image_matches`.
 
-When you are finished creating interest points, use the "IP
+When done creating interest points, use the "IP
 matches"->"Write GCP file" menu item to generate a ground control point
-file containing the selected points. You will be prompted for the
-reference DEM and for the desired output file name, unless this DEM was
-already specified via ``--dem-file`` upon launch and the GCP file was
-already specified via ``--gcp-file``. The last image, that is the
-reference, is only used to find the positions on the ground, which in
-turn are used to find the heights for the GCPs from the DEM. The
-selected interest points from the reference image are not saved to the
-GCP file.
+file containing the selected points. 
+
+If above the reference DEM and GCP file were not set, the tool
+will prompt for their names.
 
 .. _mapip:
 

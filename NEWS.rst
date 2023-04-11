@@ -56,6 +56,7 @@ rig_calibrator (:numref:`rig_calibrator`):
   * Added a detailed tutorial describing how this tool was used to
     create a full 360-degree textured mesh of the JEM ISS module
     (:numref:`sfm_iss`) using data acquired with two rigs (6 sensors).
+  * Added an example for the MSL Curiosity rover (:numref:`rig_msl`).
   * Allow multiple rigs to be jointly optimized (the rig constraint
     applies within individual rigs and not between them).
   * Added the option ``--extra_list`` to insert additional images 
@@ -100,8 +101,6 @@ stereo_gui (:numref:`stereo_gui`):
   * Can read, write, edit, and overlay on top of images polygons in
     plain text format in addition to the .shp format. Per-polygon
     colors are supported.
-  * Noticeable speedup in loading images.
-  * Bug fix in loading .nvm files (an SfM format).
   * Can read nvm files whose features are shifted relative to the 
     optical center, if an ``.nvm`` file is accompanied by an
     ``_offsets.txt`` file.
@@ -113,6 +112,8 @@ stereo_gui (:numref:`stereo_gui`):
   * Added the option ``--font-size``, with the default of 9. 
   * Added the option ``--lowest-resolution-subimage-num-pixels`` to
     control the behavior of the pyramid of subimages.
+  * Noticeable speedup in loading images.
+  * Bug fix in loading .nvm files (an SfM format).
 
 jitter_solve (:numref:`jitter_solve`):
   * Bugfix for reverse scan direction.

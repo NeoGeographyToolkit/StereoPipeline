@@ -5,10 +5,11 @@ A 3-sensor rig example
 
 This is an example using ``rig_calibrator`` (:numref:`rig_calibrator`)
 on images acquired in a lab with cameras mounted on the `Astrobee
-<https://github.com/nasa/astrobee>`_ robot. The data that can be used
-to reproduce this is available `for download
+<https://github.com/nasa/astrobee>`_ robot. See :numref:`rig_examples`
+for more examples.
+
+The dataset for this example is available `for download
 <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/rig_calibrator>`_.
-A similar example, with more sensors, is in :numref:`sfm_iss`.
 
 This robot has three cameras: ``nav_cam`` (wide field of view, using
 the fisheye distortion model), ``sci_cam`` (narrow field of view,

@@ -99,13 +99,13 @@ commands are along the lines of::
 Image selection
 ---------------
 
-Images were chosen based on visual inspection. A fully
-automatic approach may be challenging (:numref:`msl_challenges`).
+A subset of 22 images was selected for SOL 597 (half for each of the
+left and right navcam sensors). Images were chosen based on visual
+inspection. A fully automatic approach may be challenging
+(:numref:`msl_challenges`).
 
-A subset of 22 images were selected for SOL00597 (half for each of the
-left and right navcam sensors). This dataset is available for
-`download <here>`_.
-TODO(oalexan1): Fix here!
+This dataset is available for
+`download <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/MSL>`_.
 
 Setting up the initial rig
 --------------------------
@@ -151,7 +151,6 @@ program (:numref:`theia_sfm`) was run to find initial camera poses::
       --rig_config rig_config.txt \
       --image_list list.txt       \
       --out_dir theia_rig
-
 
 Next, ``rig_calibrator`` (:numref:`rig_calibrator`) is used, to
 enforce the rig constraint between the left and right navcam sensors

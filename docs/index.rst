@@ -13,9 +13,9 @@ Welcome to Ames Stereo Pipeline's documentation (version |version|)!
    next_steps
    tips_tricks
    examples
+   sfm
    correlation
    bundle_adjustment
-   sfm
    sfs_usage
    error_propagation
    experimental

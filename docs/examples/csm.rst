@@ -454,8 +454,8 @@ speed-vs-quality choices when running stereo.
 
 .. _csm_state:
 
-Exporting CSM model state after bundle adjustment and alignment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Exporting CSM model state
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ASP's bundle adjustment program (:numref:`bundle_adjust`) normally
 writes plain text ``.adjust`` files which encode how the position and
@@ -512,10 +512,9 @@ the model state files after the initial bundle adjustment which encode
 that adjustment. (See also :numref:`ba_pc_align` for how to combine
 bundle adjustment with the alignment transform.) 
 
-
-To evaluate how well the obtained CSM camera approximates the ISIS camera model, run
-the program ``cam_test`` shipped with ASP (:numref:`cam_test`) as
-follows::
+To evaluate how well the obtained CSM camera approximates the ISIS
+camera model, run the program ``cam_test`` shipped with ASP
+(:numref:`cam_test`) as follows::
 
     cam_test --sample-rate 100 --image camera.cub \
       --cam1 camera.cub --cam2 camera.json
