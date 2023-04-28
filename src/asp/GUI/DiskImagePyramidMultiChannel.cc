@@ -50,6 +50,8 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
 
   // alias
   int & lowres_size = asp::stereo_settings().lowest_resolution_subimage_num_pixels;
+  if (lowres_size <= 0) // bug fix, longer term need to improve the workflow
+    lowres_size = 1000 * 1000;
 
   boost::shared_ptr<DiskImageResource> image_rsrc
     = vw::DiskImageResourcePtr(image_file);
@@ -70,6 +72,7 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
     
     if (m_num_channels == 1 || image_fmt.channel_type != VW_CHANNEL_UINT8) {
       // Single channel image with float pixels.
+
       m_img_ch1_double =
         vw::mosaic::DiskImagePyramid<double>(image_file, m_opt, lowres_size);
       m_rows = m_img_ch1_double.rows();
@@ -112,7 +115,8 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
                << " bands.\n");
     }
   } catch (const Exception& e) {
-      popUp(e.what());
+    // Do not invoke popUp() here, since this function can be called without a GUI.
+      vw_throw(ArgumentErr() << e.what());
       return;
   }
 }
