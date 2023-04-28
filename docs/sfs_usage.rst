@@ -737,9 +737,10 @@ Handling borderline areas
 
 With the option ``--allow-borderline-data``, ``sfs`` is able to do a
 better job at resolving the terrain at the border of regions that have
-no lit pixels in any images. It works by not letting the blending
-weights decay to 0, as is usually the case when ``--blending-dist`` is
-used.
+no lit pixels in any images. It works by not letting the image
+blending weights decay to 0 at at this boundary, which is normally the
+case when ``--blending-dist`` is used. These weights still decrease
+to 0 at other image boundaries.
 
 In the example in
 :numref:`sfs_borderline_fig`, in some input images the top terrain
