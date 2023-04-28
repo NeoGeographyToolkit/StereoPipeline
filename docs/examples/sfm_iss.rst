@@ -6,7 +6,10 @@ Mapping the ISS using 2 rigs with 3 cameras each
 This example will show how to use the tools shipped with ASP to create
 a 360-degree textured mesh of the `Japanese Experiment Module
 <https://en.wikipedia.org/wiki/Kib%C5%8D_(ISS_module)>`_ (JEM, also
-known as Kibo), on the International Space Station. These tools were
+known as Kibo), on the International Space Station. See :numref:`rig_examples`
+for more examples.
+
+These tools were
 created as part of the `ISAAC
 <https://www.nasa.gov/directorates/spacetech/game_changing_development/projects/ISAAC>`_
 project.
@@ -20,13 +23,18 @@ Illustration
    :name: sfm_iss_texture
    :alt:  Rig calibrator texture.
  
+.. figure:: ../images/sci_cam_large_texture.png
+   :name: sfm_large_iss_texture
+   :alt:  Rig calibrator texture.
+
 .. figure:: ../images/sci_cam_photo.png
    :name: sfm_iss_photo
    :alt:  Rig calibrator photo.
 
    A mesh created with the ``haz_cam`` depth + image sensor 
-   and textured with ``sci_cam`` (top). A ``sci_cam`` image that
-   was used to make it (bottom). The JEM module has many cables
+   and textured with ``sci_cam`` (top). A zoomed-out version showing
+   more of the module (middle). A ``sci_cam`` image that
+   was used to texture the mesh (bottom). The JEM module has many cables
    and cargo, and the bot acquired the data spinning in place. This
    resulted in some noise and holes in the mesh. The ``sci_cam`` texture was,
    however, quite seamless, with very good agreement with the ``nav_cam``

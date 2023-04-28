@@ -98,7 +98,7 @@ Other features
   - Load only one image at a time, for speed, with the ``--preview``
     option. Can cycle through them with the 'n' and 'p' key. In this
     mode, the lowest-resolution subimage size is larger than usual to
-    avoid creating small images. See
+    avoid creating small images when building an image pyramid. See
     ``--lowest-resolution-subimage-num-pixels``.
 
   - Find pixel values and region bounds (:numref:`image_bounds`).
