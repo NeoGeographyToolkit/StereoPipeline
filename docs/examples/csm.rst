@@ -452,6 +452,27 @@ speed-vs-quality choices when running stereo.
 
    The produced colorized DEM and orthoimage for the CSM SAR example. 
 
+.. _csm_msl:
+
+Using CSM cameras with MSL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example shows how given a set of Mars Science Laboratory (MSL) Curiosity rover ``navcam`` images, CSM camera models can be created. Stereo pairs are then used to make DEMs.
+
+It is important to note that, as long as the rover is fixed in place, the cameras corresponding to overlapping images are self-consistent, and the produced DEMs have a roughly correct position and orientation.
+
+If the rover moves, however, the rover height above the Mars datum and the corresponding DEM can jump vertically by 60 meters or so, in some circumstances, which appears to be due to problems in in the input SPICE data. The orientation can jump as well, sometimes by a few tens of degreses in azimuth. The altitude seems rather stable, so the rover maintains a roughly horizontal orientation. It is not known if the orientation issue is because of the input data or insufficeintly accurate modeling.
+
+Hence, for now this functionality can only be used to create small fused DEMs from 6-12 images, and not for large DEMs covering the whole rover traverse.
+
+See :numref:`rig_msl` for a Structure-from-Motion solution without using CSM cameras.
+
+Fetching the data
+^^^^^^^^^^^^^^^^^^
+
+See :numref:`msl_image_prep`. Here we will work with .cub files rather than converting them to .png. The same Mars day will be used (SOL 597).
+
+
 .. _csm_state:
 
 Exporting CSM model state
@@ -521,3 +542,4 @@ camera model, run the program ``cam_test`` shipped with ASP
 
 The pixel errors are expected to be at most on the order of 0.2
 pixels.
+
