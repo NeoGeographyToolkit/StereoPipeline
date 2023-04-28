@@ -28,7 +28,7 @@ Usage
 Examples
 ~~~~~~~~
 
-The input images can be specified as::
+The input images can be specified as:
 
 wildcards::
 

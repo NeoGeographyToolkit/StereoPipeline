@@ -8,7 +8,8 @@ on images acquired in a lab with cameras mounted on the `Astrobee
 <https://github.com/nasa/astrobee>`_ robot. See :numref:`rig_examples`
 for more examples.
 
-The dataset for this example is available `for download
+An illustration is in :numref:`rig_calibrator_textures`. The dataset
+for this example is available `for download
 <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/rig_calibrator>`_.
 
 This robot has three cameras: ``nav_cam`` (wide field of view, using

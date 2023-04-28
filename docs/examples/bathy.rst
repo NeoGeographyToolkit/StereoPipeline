@@ -418,7 +418,8 @@ the software a hint that the alignment of such masks should be redone.
 
 As an example, consider a run with no bathymetry modeling::
 
-    parallel_stereo -t dg left.tif right.tif left.xml right.xml         \
+    parallel_stereo -t dg left.tif right.tif left.xml right.xml \
+      --stereo-algorithm asp_mgm                                \
       run_nobathy/run 
  
 A second run, with output prefix ``run_bathy/run``, can be started
