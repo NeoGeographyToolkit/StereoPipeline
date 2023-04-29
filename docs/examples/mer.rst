@@ -20,8 +20,9 @@ DEMs from these images and that is left as an exercise for the user.
 An example of using ASP with MER data is included in the
 ``examples/MER`` directory (just type 'make' there).
 
-See :numref:`rig_msl` for a processing example for the MSL Curiosity
-rover.
+See :numref:`csm_msl` for an analogous example for the MSL Curiosity 
+rover using CSM cameras, and :numref:`rig_msl` for a processing 
+example for MSL based on Structure-from-Motion.
 
 PANCAM, NAVCAM, HAZCAM
 ~~~~~~~~~~~~~~~~~~~~~~

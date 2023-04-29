@@ -10,7 +10,11 @@ New tools:
     with ``rig_calibrator`` (:numref:`rig_calibrator`).
   * Added a couple of small Python scripts for handling ROS bags
     (:numref:`ros_tools`). No ROS binaries are shipped.
-  
+
+csm:
+  * Added initial support for using CSM camera models with MSL 
+    Curiosity (:numref:`csm_msl`).
+
 parallel_stereo (:numref:`parallel_stereo`):
   * Can propagate horizontal ground plane standard deviations (stddev)
     specified for each camera through triangulation, obtaining the

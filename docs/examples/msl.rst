@@ -8,6 +8,8 @@ Science Laboratory (MSL) rover `Curiosity
 <https://en.wikipedia.org/wiki/Curiosity_(rover)>`_. See :numref:`rig_examples` for
 other examples.
 
+This approach uses only the images to create a self-consistent solution, without placing it in the right location on the Mars surface. Section :numref:`csm_msl` discusses using the known camera poses for MSL.
+
 .. _rig_msl_figure:
 
 Illustration
@@ -58,6 +60,8 @@ the data together.
 
 In the current example only a small set of data from a single day is
 used.
+
+.. _msl_image_prep:
 
 Data preparation
 ----------------

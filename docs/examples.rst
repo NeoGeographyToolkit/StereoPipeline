@@ -56,13 +56,14 @@ The images are acquired using a rig mounted on a robot on the ISS
 (:numref:`rig_calibrator_example`, :numref:`sfm_iss`) and with the MSL
 Curiosity rover (:numref:`rig_msl`).
 
-See :numref:`sfm` for examples when the images are acquired in orbit
-using a satellite, and DEMs are created instead. A two-image example
-for the MER rovers is in :numref:`mer-example`.
+Somewhat related examples, but without using a rig or the above
+workflow, are in :numref:`sfm` (the images are acquired in orbit using
+a satellite and a DEM is produced) and :numref:`mer-example` (a basic and
+rather old two-image example for the MER rovers). See also :numref:`csm_msl`
+for an example using CSM cameras for the MSL rover, without employing SfM.
 
 .. toctree::
 
    examples/rig
    examples/sfm_iss
    examples/msl
-

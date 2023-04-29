@@ -239,8 +239,10 @@ Running stereo
 
 ::
 
-     parallel_stereo left.cub right.cub left.json right.json run/run    
-     point2dem -r mars --stereographic --proj-lon 77.4 \
+    parallel_stereo --stereo-algorithm asp_mgm         \
+      --subpixel-mode 9                                \
+       left.cub right.cub left.json right.json run/run    
+    point2dem -r mars --stereographic --proj-lon 77.4  \
        --proj-lat 18.4 run/run-PC.tif
 
 Check the stereo convergence angle as printed during preprocessing
@@ -266,12 +268,14 @@ low-resolution smooth DEM from the previous cloud::
 
 followed by mapprojecting onto it and redoing stereo::
 
-     mapproject --tr 6 run/run-smooth-DEM.tif left.cub left.json     \
-       left.map.tif
-     mapproject --tr 6 run/run-smooth-DEM.tif right.cub right.json   \
-       right.map.tif
-     parallel_stereo left.map.tif right.map.tif left.json right.json \
-       run_map/run run/run-smooth-DEM.tif
+    mapproject --tr 6 run/run-smooth-DEM.tif left.cub  \
+      left.json left.map.tif
+    mapproject --tr 6 run/run-smooth-DEM.tif right.cub \
+     right.json right.map.tif
+    parallel_stereo --stereo-algorithm asp_mgm         \
+      --subpixel-mode 9                                \
+      left.map.tif right.map.tif left.json right.json  \
+      run_map/run run/run-smooth-DEM.tif
 
 Notice how we used the same resolution for both images when
 mapprojecting. That helps making the resulting images more similar and
@@ -457,21 +461,170 @@ speed-vs-quality choices when running stereo.
 Using CSM cameras with MSL
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This example shows how given a set of Mars Science Laboratory (MSL) Curiosity rover ``navcam`` images, CSM camera models can be created. Stereo pairs are then used to make DEMs.
+This example shows how given a set of Mars Science Laboratory (MSL) Curiosity rover ``NavCam`` or ``MastCam`` images, CSM camera models can be created. Stereo pairs are then used (tested with ``NavCam`` only) to make DEMs and orthoimages.
 
-It is important to note that, as long as the rover is fixed in place, the cameras corresponding to overlapping images are self-consistent, and the produced DEMs have a roughly correct position and orientation.
+It is important to note that, as long as the rover is fixed in place, the cameras corresponding to overlapping images are self-consistent. If the rover moves, however, the rover height above the Mars datum and the produced DEM can jump vertically by 60 meters or so, in some circumstances, which appears to be due to problems in the input SPICE data (a temporary fix is in :numref:`csm_msl_create`). 
 
-If the rover moves, however, the rover height above the Mars datum and the corresponding DEM can jump vertically by 60 meters or so, in some circumstances, which appears to be due to problems in in the input SPICE data. The orientation can jump as well, sometimes by a few tens of degreses in azimuth. The altitude seems rather stable, so the rover maintains a roughly horizontal orientation. It is not known if the orientation issue is because of the input data or insufficeintly accurate modeling.
+There is also 10-20 degrees of uncertainty in orientation of the created DEMs. That is likely because the transform from the rover frame to the frame having the mounted cameras was estimated empirically. This will be resolved in the future.
 
-Hence, for now this functionality can only be used to create small fused DEMs from 6-12 images, and not for large DEMs covering the whole rover traverse.
+Hence, for now this functionality can only be used to create DEMs from a handful of images.
 
-See :numref:`rig_msl` for a Structure-from-Motion solution without using CSM cameras.
+See :numref:`rig_msl` for a Structure-from-Motion solution without using CSM cameras. That one results in self-consistent meshes that, unlike the DEMs produced here, are not geolocated.
 
-Fetching the data
-^^^^^^^^^^^^^^^^^^
+Illustration
+^^^^^^^^^^^^
 
-See :numref:`msl_image_prep`. Here we will work with .cub files rather than converting them to .png. The same Mars day will be used (SOL 597).
+.. figure:: ../images/MSL_Kimberly_images.png
+  :name: csm_msl_figure1
+  :alt:  MSL Kimberly mesh
 
+  Four out of the 10 images (5 stereo pairs) used in this example.
+
+.. figure:: ../images/MSL_Kimberly_DEM_DRG.png
+  :name: csm_msl_figure2
+  :alt:  MSL Kimberly photo
+
+  Produced DEM and orthoimage.
+
+Fetch the images and metadata from PDS
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+See :numref:`msl_image_prep`. Here we will work with .cub files rather than converting them to .png. The same Mars day will be used as there (SOL 597).
+
+The dataset used in this example (having .LBL, .cub, and .json files) is available
+`for download <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/MSL_CSM>`_.
+
+Download the SPICE data
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The .LBL metadata files from PDS do not have the SPICE data that is needed to find the position and orientation of the MSL rover on Mars. For that, need to fetch the SPICE kernels from the USGS ISIS server. 
+
+Get a recent version of ``rclone.conf`` for ISIS::
+  
+    wget https://raw.githubusercontent.com/USGS-Astrogeology/ISIS3/dev/isis/config/rclone.conf \ 
+    -O rclone.conf 
+
+Set the ISIS data environmental variable and download the kernels (adjust the path below)::
+
+    export ISISDATA=/path/to/isisdata
+    mkdir -p $ISISDATA
+    downloadIsisData msl $ISISDATA --config rclone.conf
+
+The ``downloadIsisData`` script is shipped with ISIS (:numref:`planetary_images`).
+
+Set up ALE
+^^^^^^^^^^
+
+The functionality for creating CSM camera models is available in the ALE package. For the time being, handling the MSL cameras requires fetching a forked version of ALE, as this is not merged upstream yet. Run::
+
+    git clone git@github.com:oleg-alexandrov/ale.git
+    cd ale
+    conda env create -n ale -f environment.yml
+
+See :numref:`conda_intro` for how to install ``conda``.
+
+Make sure Python can find the needed routines (adjust the path below)::
+
+    export PYTHONPATH=/path/to/ale
+
+.. _csm_msl_create:
+
+Creation of CSM cameras
+^^^^^^^^^^^^^^^^^^^^^^^
+
+ALE expects the following variable to be set::
+
+    export ALESPICEROOT=$ISISDATA
+
+Set the environmental variable::
+
+    export HEIGHT_ABOVE_DATUM=-4898.515408052597
+
+as a temporary workaround for the vertical datum issue mentioned in :numref:`csm_msl`. 
+If set, this will move the rover position vertically to be at this height above the Mars datum (whose radius is assumed to be 3,396,190 meters).
+
+A full-resolution MSL left ``NavCam`` image uses the naming convention::
+
+      NLB_<string>_F<string>.cub
+
+with the right image starting instead with ``NRB``. The metadata files downloaded from PDS end with ``.LBL``.
+
+Create a Python script called ``gen_csm.py`` with the following code::
+
+    #!/usr/bin/python
+
+    import os, sys, json, ale
+
+    labelFile = sys.argv[1]
+    prefix = os.path.splitext(labelFile)[0]
+    usgscsm_str = ale.loads(labelFile, formatter = "ale",
+                            verbose = True)
+
+    csm_isd = prefix + '.json'
+    print("Saving: " + csm_isd)
+    with open(csm_isd, 'w') as isd_file:
+      isd_file.write(usgscsm_str)
+
+A CSM camera file can be created by running this script as::
+
+    ~/miniconda3/envs/ale/bin/python gen_csm.py image.LBL 
+
+This will produce the file ``image.json``. We called the Python program from the newly created conda environment.
+
+If you get an error saying::
+
+    The first file 
+    '/usgs/cpkgs/isis3/data/msl/kernels/lsk/naif0012.tls' 
+    specified by KERNELS_TO_LOAD in the file 
+    /path/to/isisdata/msl/kernels/mk/msl_v01.tm 
+    could not be located.
+  
+that is due to a bug in the ISIS data. Edit that .tls file and specify the correct location of ``msl_v01.tm`` in your ISIS data directory. Once things are working, the ``verbose`` flag can be set to ``False`` in the above script.
+
+Running stereo
+^^^^^^^^^^^^^^
+
+In this example the camera orientations are not refined using bundle adjustment, as the camera poses are reasonably good. If desired to do that, one could run ``bundle_adjust`` (:numref:`bundle_adjust`) as::
+  
+    bundle_adjust --no-datum --camera-weight 0 --tri-weight 0.1 \
+      data/*.cub data/*.json -o ba/run
+  
+For each stereo pair, run ``parallel_stereo`` (:numref:`parallel_stereo`) as::
+
+    parallel_stereo --stereo-algorithm asp_mgm \
+      --subpixel-mode 3 --no-datum             \
+      left.cub right.cub left.json right.json  \
+      run/run
+
+If bundle adjustment was used, the above command should be run with the option ``--bundle-adjust-prefix ba/run``.
+
+This is followed by DEM and orthoimage creation (:numref:`point2dem`) with::
+
+    point2dem --stereographic                \
+      --proj-lon 137.402 --proj-lat -4.638   \
+      --search-radius-factor 5 --orthoimage  \
+      run/run-PC.tif run/run-L.tif
+     
+Here, the option ``--search-radius-factor 5`` is used to fill the point cloud when moving further from the rover. A local stereographic projection was used. 
+
+The produced DEMs can be mosaicked together with ``dem_mosaic`` (:numref:`dem_mosaic`) as::
+
+    dem_mosaic */*DEM.tif -o dem_mosaic.tif
+
+For the orthoimages, one can use::
+
+    dem_mosaic --first */*DRG.tif -o ortho_mosaic.tif
+
+The option ``--first`` picks the first encountered image pixel at each location, rather than  blending them together which may blur the output mosaic. 
+
+See an illustration in :numref:`csm_msl_figure2`, with the input images in :numref:`csm_msl_figure1`. 
+
+Mapprojection
+^^^^^^^^^^^^^
+
+The input .cub image files and the camera .json files can be used to create mapprojected images with the ``mapproject`` program (:numref:`mapproject`). That tool can have a hard time with the MSL cameras, as these are not orbital cameras and can point towards the horizon. It is suggested to use this tool with an input DEM that is shifted vertically downward by about 50 meters relative to the rover position for the rays from the ground to the camera to be traced correctly. 
+
+Use the option ``--t_projwin`` to avoid the produced images from extending for a very long distance towards the horizon.
 
 .. _csm_state:
 
