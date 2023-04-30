@@ -44,7 +44,7 @@ system, extract, and run the executables in the ``bin`` subdirectory.
   (`pdf documentation <https://github.com/NeoGeographyToolkit/StereoPipeline/releases/latest/download/asp_book.pdf>`_)
 
 See the `NEWS
-<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/NEWS.rst>`_
+<https://stereopipeline.readthedocs.io/en/latest/news.html>`_
 for the most recent additions.
 
 To permanently add the ASP executable subdirectory to your PATH,
