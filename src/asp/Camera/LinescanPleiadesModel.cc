@@ -120,7 +120,7 @@ void PleiadesCameraModel::populateCsmModel() {
 
   // Positions and velocities
   m_ls_model->m_numPositions = 3 * num_pos; // concatenate all coordinates
-  m_ls_model->m_t0Ephem = m_position_func.get_t0();// + atof(getenv("T"));
+  m_ls_model->m_t0Ephem = m_position_func.get_t0();
   
   m_ls_model->m_dtEphem = m_position_func.get_dt();
   m_ls_model->m_positions.resize(m_ls_model->m_numPositions);
@@ -140,7 +140,7 @@ void PleiadesCameraModel::populateCsmModel() {
   // TODO(oalexan1): What is the right factor (inverse of sampling rate)?
   if (m_isNeo) {
     m_ls_model->m_numQuaternions = 4 * m_quaternion_coeffs.size();
-    m_ls_model->m_t0Quat = m_t0Quat; //  + atof(getenv("T"));
+    m_ls_model->m_t0Quat = m_t0Quat;
     m_ls_model->m_dtQuat = m_dtQuat;
   } else {
     int factor = 100;

@@ -9,7 +9,8 @@ For NEO, see :numref:`pleiades_neo` for additional notes.
 The Airbus Pleiades data have both an exact linescan camera model
 and an approximate RPC model (:numref:`rpc`). These are stored in separate files. The
 names for these start with "DIM" and "RPC", respectively, and end with
-".XML". The linescan model support is based on the USGS CSM library (:numref:`csm`).
+".XML". ASP supports both kinds. The USGS CSM library (:numref:`csm`) is 
+used for linescan models.
 
 See :numref:`airbus_tiled` if the input images arrive in multiple
 tiles. See :numref:`jitter_pleiades` for an example of solving for
