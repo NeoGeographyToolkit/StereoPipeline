@@ -104,23 +104,12 @@ void PleiadesCameraModel::populateCsmModel() {
   // Using this:
   // double detSample = (col + 0.5) * sampleSumming + startingSample;
   // double detLine = line * lineSumming + startingLine; // but it will use line = 0
-  std::cout << "m_ref_col " << m_ref_col << "\n";
-  std::cout << "m_coeff_psi_x " << m_coeff_psi_x << "\n";
-  std::cout << "m_coeff_psi_y " << m_coeff_psi_y << "\n";
 
-#if 1
-  double N = 0; // atof(getenv("N"));
   m_ls_model->m_detectorLineSumming    = 1.0;
-  m_ls_model->m_startingDetectorLine   =  m_coeff_psi_y[0] + N * m_coeff_psi_x[1]; // note that m_coeff_psi_y[1] = 0
+  m_ls_model->m_startingDetectorLine   =  m_coeff_psi_y[0]; // note that m_coeff_psi_y[1] = 0
   m_ls_model->m_detectorSampleSumming  = -m_coeff_psi_x[1];
-  m_ls_model->m_startingDetectorSample = -m_coeff_psi_x[0] - m_coeff_psi_x[1] * N - m_coeff_psi_x[1] * (m_ref_col - 0.5);
-#else
-  m_ls_model->m_detectorLineSumming    = 1.0;
-  m_ls_model->m_startingDetectorLine   = -(m_coeff_psi_x[0] + atof(getenv("X")) * m_coeff_psi_x[1]); // m_coeff_psi_x[0]; // note that m_coeff_psi_y[1] = 0
-  m_ls_model->m_detectorSampleSumming  = -m_coeff_psi_x[1];
-  //m_ls_model->m_startingDetectorSample = -m_coeff_psi_y[0] - m_coeff_psi_x[1] * (m_ref_col - 0.5); // v3
-  m_ls_model->m_startingDetectorSample = (m_coeff_psi_y[0] + atof(getenv("Y")) * m_coeff_psi_x[1]);
- #endif 
+  m_ls_model->m_startingDetectorSample = -m_coeff_psi_x[0] - m_coeff_psi_x[1] * (m_ref_col - 0.5);
+
   // Time
   m_ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
   m_ls_model->m_intTimeStartTimes.push_back(m_time_func.m_t0);
@@ -132,10 +121,8 @@ void PleiadesCameraModel::populateCsmModel() {
   // Positions and velocities
   m_ls_model->m_numPositions = 3 * num_pos; // concatenate all coordinates
   m_ls_model->m_t0Ephem = m_position_func.get_t0();// + atof(getenv("T"));
-  std::cout << "t0Ephem = " << m_ls_model->m_t0Ephem << std::endl;
   
   m_ls_model->m_dtEphem = m_position_func.get_dt();
-  std::cout << "dtEphem = " << m_ls_model->m_dtEphem << std::endl;          
   m_ls_model->m_positions.resize(m_ls_model->m_numPositions);
   m_ls_model->m_velocities.resize(m_ls_model->m_numPositions);
   for (int pos_it = 0; pos_it < num_pos; pos_it++) {
@@ -151,17 +138,10 @@ void PleiadesCameraModel::populateCsmModel() {
   // and velocity are available, which a way longer range than the time spent
   // acquiring image lines.
   // TODO(oalexan1): What is the right factor (inverse of sampling rate)?
-  std::cout << "Is neo " << m_isNeo << "\n";
-  std::cout << "Start quat " << m_t0Quat << "\n";
-  std::cout << "Dt quat " << m_dtQuat << "\n";
-
   if (m_isNeo) {
     m_ls_model->m_numQuaternions = 4 * m_quaternion_coeffs.size();
     m_ls_model->m_t0Quat = m_t0Quat; //  + atof(getenv("T"));
     m_ls_model->m_dtQuat = m_dtQuat;
-    std::cout << "--inside pleiades t0 quat " << m_ls_model->m_t0Quat  << "\n";
-    std::cout << "inside pleiades dt quat " << m_ls_model->m_dtQuat  << "\n";
-
   } else {
     int factor = 100;
     // concatenate all coordinates
@@ -182,8 +162,6 @@ void PleiadesCameraModel::populateCsmModel() {
     if (m_isNeo) {
       vw::Vector<double, 4> const& v = m_quaternion_coeffs[pos_it]; // alias
       q = vw::Quat(v[0], v[1], v[2], v[3]); // order is w, x, y, z
-      //std::cout << "v is " << v << "\n";
-      //std::cout << "Quat " << q << std::endl;
     } else {
       // Sample the polynomial
       double t = m_ls_model->m_t0Quat + pos_it * m_ls_model->m_dtQuat;

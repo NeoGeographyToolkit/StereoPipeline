@@ -23,8 +23,9 @@ cameras supported by ASP.
 
 If this option is not set, the following strategies are used:
 
- - For Pleiades linescan camera models (:numref:`pleiades`) the value
-   ``ACCURACY_STDV`` is read from the "DIM" XML file for each camera
+ - For Pleiades 1A/1B linescan camera models (:numref:`pleiades`) 
+   (but not for NEO, :numref:`pleiades_neo`) the
+   ``ACCURACY_STDV`` field is read from the "DIM" XML file for each camera
    (in the *Absolute Horizontal Accuracy* section of the camera
    model), and it is used as the horizontal stddev.
 

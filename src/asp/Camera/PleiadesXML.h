@@ -80,12 +80,10 @@ namespace asp {
     // Functions to setup functors which manage the raw input data.
     vw::camera::LinearTimeInterpolation setup_time_func() const;
     vw::camera::LagrangianInterpolation setup_position_func
-    (vw::camera::LinearTimeInterpolation const& time_func) const;
+    (vw::camera::LinearTimeInterpolation const& time_func);
     vw::camera::LagrangianInterpolation setup_velocity_func
-    (vw::camera::LinearTimeInterpolation const& time_func) const;
-    // TODO(oalexan1): Remove the interpolation logic, only keep the delta, etc.
-    vw::camera::SLERPPoseInterpolation setup_pose_func
-    (vw::camera::LinearTimeInterpolation const& time_func) const;
+    (vw::camera::LinearTimeInterpolation const& time_func);
+    void setup_pose_func(vw::camera::LinearTimeInterpolation const& time_func);
     
   private: // The various XML data reading sections
   

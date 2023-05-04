@@ -3,24 +3,36 @@
 Pleiades
 --------
 
-The Airbus Pleiades satellites data have both an exact linescan camera model
-and an approximate RPC model. These are stored in separate files. The
-names for these start with "DIM" and "RPC", respectively, and end with
-".XML". 
+ASP supports the 1A/1B and NEO satellites from Airbus Pleiades. 
+For NEO, see :numref:`pleiades_neo` for additional notes.
 
-ASP supports the linescan model for the 1A/1B satellites. It can also
-use the RPC model (:numref:`rpc`), likely for all Pleiades satellites,
-including *Neo*. The linescan support is based on the USGS CSM library
-(:numref:`csm`).
+The Airbus Pleiades data have both an exact linescan camera model
+and an approximate RPC model (:numref:`rpc`). These are stored in separate files. The
+names for these start with "DIM" and "RPC", respectively, and end with
+".XML". The linescan model support is based on the USGS CSM library (:numref:`csm`).
 
 See :numref:`airbus_tiled` if the input images arrive in multiple
 tiles. See :numref:`jitter_pleiades` for an example of solving for
 jitter for these cameras.
 
-With the exact model, the stereo command is::
+If desired to process a Pleiades triplet, bundle adjustment (:numref:`bundle_adjust`) 
+is very recommended before stereo. It should be run as::
 
-    parallel_stereo -t pleiades --stereo-algorithm asp_mgm           \
-        left.tif right.tif left_exact.xml right_exact.xml results/run
+    bundle_adjust -t pleiades --camera-weight 0 --tri-weight 0.1 \
+      <images> <cameras> -o ba/run
+
+Then, pass ``--bundle-adjust-prefix ba/run`` to ``parallel_stereo`` in 
+all examples further down.
+
+With the exact models, the stereo command is::
+
+    parallel_stereo -t pleiades --stereo-algorithm asp_mgm  \
+        --subpixel-mode 9                                   \
+        left.tif right.tif left_exact.xml right_exact.xml   \
+        results/run
+
+See :numref:`nextsteps` for a discussion about various
+speed-vs-quality choices for stereo.
 
 For the RPC model the option ``-t rpc`` should be used and the correct
 camera files should be passed in. If the ``-t`` option is not
@@ -81,8 +93,16 @@ cameras not to each other but against themselves. This tool will also
 print timing information for the operation of projecting a pixel to
 the ground and back.
 
-See :numref:`nextsteps` for a discussion about various
-speed-vs-quality choices for stereo.
+.. _pleiades_neo:
+
+Pleiades NEO
+~~~~~~~~~~~~
+
+Several peculiarities make the Pleiades NEO data different from 1A/1B (:numref:`pleiades`):
+
+- The tabulated positions and orientations may start slightly after the first image line and end slightly before the last image line. If these scenarios are encountered, linear extrapolation based on two immediate values is used to fill in the missing values and a warning is printed for each such operation.
+- There is no field for standard deviation of the ground locations of pixels projected from the cameras, so error propagation is not possible unless such a value is specified manually (:numref:`error_propagation`).
+- The RPC camera models for a stereo triplet can be rather inconsistent with each other, resulting in large triangulation error. It is suggested to use instead the exact linescan camera model.
 
 .. _airbus_tiled:
 

@@ -10,7 +10,8 @@ New tools:
     with ``rig_calibrator`` (:numref:`rig_calibrator`).
   * Added a couple of small Python scripts for handling ROS bags
     (:numref:`ros_tools`). No ROS binaries are shipped.
-
+  * Added support for the Pleiades NEO exact linescan model
+    (:numref:`pleiades_neo`). 
 csm:
   * Added initial support for using CSM camera models with MSL 
     Curiosity (:numref:`csm_msl`).
