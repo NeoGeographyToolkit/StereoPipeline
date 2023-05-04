@@ -54,15 +54,20 @@ namespace asp {
   public:
 
     /// Constructor
-    PleiadesXML(): m_start_time_is_set(false), m_ref_row(0), m_ref_col(0), m_accuracy_stdv(0.0) {}
+    PleiadesXML(): m_start_time_is_set(false), m_ref_row(0), m_ref_col(0), m_accuracy_stdv(0.0), m_isNeo(false), m_t0Quat(-1.0), m_dtQuat(-1.0) {}
 
     vw::Vector2i m_image_size;
     vw::Vector2 m_coeff_psi_x, m_coeff_psi_y;
     int m_ref_row, m_ref_col;
 
-    // These will be used to fit the quaternions
+    // These will be used to fit the quaternions for L1A and L1B data
     double m_quat_offset_time, m_quat_scale;
     std::vector<vw::Vector<double, 4>> m_quaternion_coeffs;
+    // For NEO
+    bool m_isNeo;
+    double m_t0Quat, m_dtQuat;
+
+    // These will be used to fit the quaternions for Neo data
 
     double m_accuracy_stdv;
     
@@ -78,6 +83,9 @@ namespace asp {
     (vw::camera::LinearTimeInterpolation const& time_func) const;
     vw::camera::LagrangianInterpolation setup_velocity_func
     (vw::camera::LinearTimeInterpolation const& time_func) const;
+    // TODO(oalexan1): Remove the interpolation logic, only keep the delta, etc.
+    vw::camera::SLERPPoseInterpolation setup_pose_func
+    (vw::camera::LinearTimeInterpolation const& time_func) const;
     
   private: // The various XML data reading sections
   
@@ -88,6 +96,8 @@ namespace asp {
     void read_times       (xercesc::DOMElement* time);
     void read_ephemeris   (xercesc::DOMElement* ephemeris);
     void read_attitudes   (xercesc::DOMElement* attitudes);
+    void read_attitudes_1A1B(xercesc::DOMElement* attitudes);
+    void read_attitudes_Neo(xercesc::DOMElement* attitudes);
     void read_ref_col_row (xercesc::DOMElement* swath_range);
     void read_look_angles (xercesc::DOMElement* look_angles);
     void parse_accuracy_stdv(xercesc::DOMElement* root);
@@ -106,9 +116,10 @@ namespace asp {
 
     double m_line_period;
     
-    std::list<std::pair<double, vw::Vector3>> m_positions;        // (time,   X/Y/Z)
-    std::list<std::pair<double, vw::Vector3>> m_velocities;       // (time,   dX/dY/dZ)
-
+    std::list<std::pair<double, vw::Vector3>> m_positions;        // time,   X/Y/Z)
+    std::list<std::pair<double, vw::Vector3>> m_velocities;       // time,   dX/dY/dZ)
+    std::list<std::pair<double, vw::Quaternion<double>>> m_poses; // time, quat, for NEO only
+    
     boost::shared_ptr<xercesc::XercesDOMParser> m_parser;
     boost::shared_ptr<xercesc::ErrorHandler>    m_err_handler;
     

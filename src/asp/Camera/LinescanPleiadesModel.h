@@ -45,8 +45,8 @@ namespace asp {
     PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
                         vw::camera::LagrangianInterpolation const& position,
                         vw::camera::LagrangianInterpolation const& velocity,
-                        double                                     quat_offset_time,
-                        double                                     quat_scale,
+                        bool isNeo, double m_t0Quat, double m_dtQuat,
+                        double quat_offset_time, double quat_scale,
                         std::vector<vw::Vector<double, 4>>  const& quaternion_coeffs,
                         vw::Vector2                         const& coeff_psi_x,
                         vw::Vector2                         const& coeff_psi_y,
@@ -97,6 +97,8 @@ namespace asp {
     double m_min_time, m_max_time;
     
     // These will be used to fit the quaternions
+    bool m_isNeo;
+    double m_t0Quat, m_dtQuat;
     double m_quat_offset_time, m_quat_scale;
     std::vector<vw::Vector<double, 4>> m_quaternion_coeffs;
 

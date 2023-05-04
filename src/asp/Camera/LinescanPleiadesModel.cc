@@ -35,8 +35,8 @@ PleiadesCameraModel::
 PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
                     vw::camera::LagrangianInterpolation const& position,
                     vw::camera::LagrangianInterpolation const& velocity,
-                    double                                     quat_offset_time,
-                    double                                     quat_scale,
+                    bool isNeo, double t0Quat, double dtQuat,
+                    double quat_offset_time, double quat_scale,
                     std::vector<vw::Vector<double, 4>>  const& quaternion_coeffs,
                     vw::Vector2                         const& coeff_psi_x,
                     vw::Vector2                         const& coeff_psi_y,
@@ -44,6 +44,7 @@ PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
                     double min_time, double max_time,
                     int ref_col, int ref_row, double accuracy_stdv):
   m_position_func(position), m_velocity_func(velocity),
+  m_isNeo(isNeo), m_t0Quat(t0Quat), m_dtQuat(dtQuat),
   m_quat_offset_time(quat_offset_time), m_quat_scale(quat_scale),
   m_quaternion_coeffs(quaternion_coeffs),
   m_time_func(time), m_coeff_psi_x(coeff_psi_x), m_coeff_psi_y(coeff_psi_y),
@@ -103,11 +104,23 @@ void PleiadesCameraModel::populateCsmModel() {
   // Using this:
   // double detSample = (col + 0.5) * sampleSumming + startingSample;
   // double detLine = line * lineSumming + startingLine; // but it will use line = 0
+  std::cout << "m_ref_col " << m_ref_col << "\n";
+  std::cout << "m_coeff_psi_x " << m_coeff_psi_x << "\n";
+  std::cout << "m_coeff_psi_y " << m_coeff_psi_y << "\n";
+
+#if 1
+  double N = 0; // atof(getenv("N"));
   m_ls_model->m_detectorLineSumming    = 1.0;
-  m_ls_model->m_startingDetectorLine   =  m_coeff_psi_y[0]; // note that m_coeff_psi_y[1] = 0
+  m_ls_model->m_startingDetectorLine   =  m_coeff_psi_y[0] + N * m_coeff_psi_x[1]; // note that m_coeff_psi_y[1] = 0
   m_ls_model->m_detectorSampleSumming  = -m_coeff_psi_x[1];
-  m_ls_model->m_startingDetectorSample = -m_coeff_psi_x[0] - m_coeff_psi_x[1] * (m_ref_col - 0.5);
-  
+  m_ls_model->m_startingDetectorSample = -m_coeff_psi_x[0] - m_coeff_psi_x[1] * N - m_coeff_psi_x[1] * (m_ref_col - 0.5);
+#else
+  m_ls_model->m_detectorLineSumming    = 1.0;
+  m_ls_model->m_startingDetectorLine   = -(m_coeff_psi_x[0] + atof(getenv("X")) * m_coeff_psi_x[1]); // m_coeff_psi_x[0]; // note that m_coeff_psi_y[1] = 0
+  m_ls_model->m_detectorSampleSumming  = -m_coeff_psi_x[1];
+  //m_ls_model->m_startingDetectorSample = -m_coeff_psi_y[0] - m_coeff_psi_x[1] * (m_ref_col - 0.5); // v3
+  m_ls_model->m_startingDetectorSample = (m_coeff_psi_y[0] + atof(getenv("Y")) * m_coeff_psi_x[1]);
+ #endif 
   // Time
   m_ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
   m_ls_model->m_intTimeStartTimes.push_back(m_time_func.m_t0);
@@ -118,8 +131,11 @@ void PleiadesCameraModel::populateCsmModel() {
 
   // Positions and velocities
   m_ls_model->m_numPositions = 3 * num_pos; // concatenate all coordinates
-  m_ls_model->m_t0Ephem = m_position_func.get_t0();
+  m_ls_model->m_t0Ephem = m_position_func.get_t0();// + atof(getenv("T"));
+  std::cout << "t0Ephem = " << m_ls_model->m_t0Ephem << std::endl;
+  
   m_ls_model->m_dtEphem = m_position_func.get_dt();
+  std::cout << "dtEphem = " << m_ls_model->m_dtEphem << std::endl;          
   m_ls_model->m_positions.resize(m_ls_model->m_numPositions);
   m_ls_model->m_velocities.resize(m_ls_model->m_numPositions);
   for (int pos_it = 0; pos_it < num_pos; pos_it++) {
@@ -129,22 +145,50 @@ void PleiadesCameraModel::populateCsmModel() {
     }
   }
 
-  // Quaternions. These are sampled over the range of times for which the position
+  // Quaternions. For NEO these are tabulated, while for 1A/1B they come
+  // from sampling a polynomial. In the latter case, 
+  // quaternions are sampled over the range of times for which the position
   // and velocity are available, which a way longer range than the time spent
   // acquiring image lines.
   // TODO(oalexan1): What is the right factor (inverse of sampling rate)?
-  int factor = 100;
-  m_ls_model->m_numQuaternions = 4 * num_pos * factor;    // concatenate all coordinates
-  m_ls_model->m_t0Quat = m_ls_model->m_t0Ephem;          // quaternion t0, borrow from position t0
-  m_ls_model->m_dtQuat = m_ls_model->m_dtEphem / factor; // quaternion dt, borrow from position dt
+  std::cout << "Is neo " << m_isNeo << "\n";
+  std::cout << "Start quat " << m_t0Quat << "\n";
+  std::cout << "Dt quat " << m_dtQuat << "\n";
+
+  if (m_isNeo) {
+    m_ls_model->m_numQuaternions = 4 * m_quaternion_coeffs.size();
+    m_ls_model->m_t0Quat = m_t0Quat; //  + atof(getenv("T"));
+    m_ls_model->m_dtQuat = m_dtQuat;
+    std::cout << "--inside pleiades t0 quat " << m_ls_model->m_t0Quat  << "\n";
+    std::cout << "inside pleiades dt quat " << m_ls_model->m_dtQuat  << "\n";
+
+  } else {
+    int factor = 100;
+    // concatenate all coordinates
+    m_ls_model->m_numQuaternions = 4 * num_pos * factor;    
+    // quaternion t0, borrow from position t0
+    m_ls_model->m_t0Quat = m_ls_model->m_t0Ephem; 
+    // quaternion dt, borrow from position dt
+    m_ls_model->m_dtQuat = m_ls_model->m_dtEphem / factor; 
+  }
+
   m_ls_model->m_quaternions.resize(m_ls_model->m_numQuaternions);
   for (int pos_it = 0; pos_it < m_ls_model->m_numQuaternions / 4; pos_it++) {
     // Note that if factor > 1, the t values will exceed the time for
     // the last ephemeris, but that is fine, since we sample a
     // polynomial rather than from a table where we'd go out of
     // bounds.
-    double t = m_ls_model->m_t0Quat + pos_it * m_ls_model->m_dtQuat;
-    vw::Quat q = get_camera_pose_at_time(t);
+    vw::Quat q;
+    if (m_isNeo) {
+      vw::Vector<double, 4> const& v = m_quaternion_coeffs[pos_it]; // alias
+      q = vw::Quat(v[0], v[1], v[2], v[3]); // order is w, x, y, z
+      //std::cout << "v is " << v << "\n";
+      //std::cout << "Quat " << q << std::endl;
+    } else {
+      // Sample the polynomial
+      double t = m_ls_model->m_t0Quat + pos_it * m_ls_model->m_dtQuat;
+      q = get_camera_pose_at_time(t);
+    }
 
     // ASP stores the quaternions as (w, x, y, z). CSM wants them as
     // x, y, z, w.
@@ -247,8 +291,13 @@ vw::Vector3 PleiadesCameraModel::get_camera_velocity_at_time(double time) const 
 
 // Compute the quaternion at given time using the polynomial
 // expression (doc page 77). This should work whether or not the CSM
-// model is used.
+// model is used. This applies only to L1A/B products, and not to the NEO
+// product, when the quaternions are tabulated instead.
 vw::Quat PleiadesCameraModel::get_camera_pose_at_time(double time) const {
+
+  if (m_isNeo)
+    vw::vw_throw(vw::NoImplErr() << "PleiadesCameraModel: Cannot compute camera pose "
+      << "from polynomial for NEO products. This is a programmer error.\n");
 
   double scaled_t = (time - m_quat_offset_time) / m_quat_scale;
 
@@ -268,8 +317,9 @@ vw::Quat PleiadesCameraModel::get_camera_pose_at_time(double time) const {
   return vw::Quaternion<double>(v[0], v[1], v[2], v[3]); // order is w, x, y, z
 }
 
-// The pointing vector in sensor coordinates  
-// Page 76 in the doc
+// The pointing vector in sensor coordinates. This function is now not used,
+// because CSM does the work. 
+// Page 76 in the doc.
 vw::Vector3 PleiadesCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
 
   double col = pix[0];
@@ -305,6 +355,11 @@ load_pleiades_camera_model_from_xml(std::string const& path) {
     position_func = xml_reader.setup_position_func(time_func);
   vw::camera::LagrangianInterpolation
     velocity_func = xml_reader.setup_velocity_func(time_func);
+  
+  // Set up the quaternions for NEO. This will create xml_reader m_t0Quat, 
+  // m_dtQuat, m_quaternion_coeffs.
+  if (xml_reader.m_isNeo)
+    xml_reader.setup_pose_func(time_func);
 
   // Find the range of times for which we can solve for position and pose
   double min_position_time = position_func.get_t0();
@@ -318,6 +373,9 @@ load_pleiades_camera_model_from_xml(std::string const& path) {
   // Create the model. This can throw an exception.
   boost::shared_ptr<PleiadesCameraModel> cam
     (new PleiadesCameraModel(time_func, position_func, velocity_func,
+                             xml_reader.m_isNeo,
+                             xml_reader.m_t0Quat,
+                             xml_reader.m_dtQuat,
                              xml_reader.m_quat_offset_time,
                              xml_reader.m_quat_scale,
                              xml_reader.m_quaternion_coeffs,
