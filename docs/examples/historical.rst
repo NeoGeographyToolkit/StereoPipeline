@@ -581,6 +581,12 @@ model so this example describes how to set up the panoramic cameras for
 processing. Processing this data is similar to processing KH-4B data
 except that the images are much larger.
 
+The ASP support for this satellite is highly experimental. There is no reliable
+way of determining the camera orientation to use below. As of now, sometimes
+one may get plausible results, and sometimes this approach will fail. The use
+is strongly advised not to spend much time on this data until the support is
+improved.
+
 For this example we use the following images from the Earth Explorer
 declassified collection 3::
 
