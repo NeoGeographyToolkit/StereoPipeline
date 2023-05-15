@@ -193,69 +193,6 @@ void testErrorPropagation(Options const& opt,
 
 int main(int argc, char *argv[]) {
 
-  {
-    vw::cartography::Datum datum("WGS84");
-    vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(Vector2(0, -90));
-    std::cout << "NedToEcef at South Pole:\n" << NedToEcef << std::endl;
-    //exit(0);
-  }
-
-  double minx = 0.15094999969;
-  double maxx = 599.15095;
-  double miny = 0.949889999989;
-  double maxy = 599.94989;
-  double shift_x = 364368.55011;
-  double shift_y = 4305710.65095;
-  double shift_z = 1.01000;
-
-  // imageNamePrefix:ima_camera005
-  double X_cam = 145223.947592;
-  double Y_cam = -233989.723480;
-  double Z_cam = 450000;
-
-  // camera 7
-  //X_cam = 0;//84675.081123;
-  //Y_cam = 0;//28138.722265;
-  //Z_cam = 450000;
-
-  //X_cam = 1000;
-  //Y_cam = 1000;
-
-  double x_out = shift_x + Y_cam;
-  double y_out = shift_y + (maxx - minx) - X_cam;
-  double z_out = Z_cam; //z_out = shift_z + Z_cam;
-
-  std::string proj = "+proj=utm +zone=18 +datum=WGS84 +units=m +no_defs +type=crs";
-  vw::cartography::GeoReference georef;
-  bool have_user_datum = false, have_input_georef = false;
-  vw::cartography::Datum user_datum;
-  asp::set_srs_string(proj, have_user_datum, user_datum,
-                      have_input_georef, georef);
-
-
-  //georef.set_proj4_projection_str(proj);
-  std::cout << "Projection is " << georef << "\n";
-  
-  // Center of terrain in DART in UTM
-  double x = 364668.55011;
-  double y = 4306010.65095; 
-  vw::Vector2 ut(x, y);
-
-  vw::Vector2 ll = georef.point_to_lonlat(ut);
-  std::cout.precision(17);
-  std::cout << "Lon lat is " << ll << "\n";
-
-  vw::Matrix3x3 NedToEcef = georef.datum().lonlat_to_ned_matrix(ll);
-  std::cout << "NedToEcef is " << NedToEcef << "\n";
-
-  vw::Vector3 llh3(ll[0], ll[1], 1.01);
-  vw::Vector3 xyz3  = georef.datum().geodetic_to_cartesian(llh3);
-  std::cout.precision(17);
-  std::cout << "xyz3 is " << xyz3 << "\n";
-
-
-  exit(0);
-
   Options opt;
   try {
     handle_arguments(argc, argv, opt);

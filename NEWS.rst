@@ -12,10 +12,6 @@ New tools:
     (:numref:`ros_tools`). No ROS binaries are shipped.
   * Added support for the Pleiades NEO exact linescan model
     (:numref:`pleiades_neo`).
-  * Added ``sfm_view``, a tool for viewing polygonal meshes and 
-    camera orientations (both for orbital and close-range cameras). 
-    It is a slight modification of the ``umve`` program
-    (https://github.com/simonfuhrmann/mve)
    
 csm:
   * Added initial support for using CSM camera models with MSL 
