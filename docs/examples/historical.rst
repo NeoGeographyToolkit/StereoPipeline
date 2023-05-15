@@ -588,7 +588,7 @@ images appear notably distorted at the corners.
 The processing is similar to handling KH-4B (:numref:`kh4`) except that 
 the images are much larger.
 
-The ASP support for this satellite is highly experimental. There is no reliable
+The ASP support for panoramic images is highly experimental. There is no reliable
 way of determining the camera orientation to use below. As of now, sometimes
 one may get plausible results, and sometimes this approach will fail. The use
 is strongly advised not to spend much time on this data until the support is
