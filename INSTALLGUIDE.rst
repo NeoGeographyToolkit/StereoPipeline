@@ -10,8 +10,11 @@ source, but this is not recommended (:numref:`building_asp`).
 Precompiled binaries (Linux and macOS)
 --------------------------------------
 
-Download the appropriate distribution for your operating system,
-choosing either the latest build (recommended) or a stable release
+ASP builds are for Linux and OSX (with the Intel processor). 
+ASP was verified to work under Microsoft Windows using the Windows 
+Subsystem for Linux, and under the OSX M1 processor using Rosetta.
+
+Choose either the latest build (recommended) or a stable release
 from:
 
 - `<https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_
@@ -23,8 +26,6 @@ the archive, and run the executables in the ``bin`` subdirectory as::
     ./StereoPipeline-3.2.0-2022-12-30-x86_64-Linux/bin/stereo --help
 
 The result of the last command should be a help message.
-
-ASP builds are for Linux and OSX (with the Intel processor). ASP was verified to work under Microsoft Windows using the Windows Subsystem for Linux, and under the OSX M1 processor using Rosetta.
 
 See the NEWS file (:numref:`news`) for the most recent additions.
 
@@ -194,7 +195,7 @@ the processing time should go down. Both ``gdalinfo`` and
 Fetching pre-compiled ASP with conda
 ------------------------------------
 
-ASP's official releases can be fetched with ``conda``, for Linux and OSX with the Intel processor. See (:numref:`precompiled_binaries`) for how other platforms may be handled.
+ASP's official releases can be fetched with ``conda``, for Linux and OSX with the Intel processor. See :numref:`precompiled_binaries` for how other platforms may be handled.
 
 The latest conda release is version 3.2.0, published on December 30, 2022. See
 :numref:`news` for what changed since then.  The newer functionality
