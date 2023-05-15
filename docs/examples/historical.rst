@@ -584,7 +584,7 @@ The images produced with it could be processed as for KH-7 (:numref:`kh7`),
 SkySat (:numref:`skysat`), or using Structure-from-Motion (:numref:`sfm`). 
 
 This example describes how to process the the panoramic camera images. These
-images appear notably distorted at the end points. 
+images appear notably distorted at the corners. 
 The processing is similar to handling KH-4B (:numref:`kh4`) except that 
 the images are much larger.
 

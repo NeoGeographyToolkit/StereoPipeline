@@ -367,7 +367,8 @@ namespace asp {
     
     bool isDg = (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc");
     if (v[0] > 0 && v[1] > 0) {
-      vw_out() << "Horizontal stddev per camera: " << v[0]  << ", " << v[1] << " (meters).\n";
+      vw_out() << "Horizontal stddev per camera: " << v[0]  << ", " << v[1] 
+      << " (meters).\n";
       if (isDg) 
         vw_out() << "Will use these to find the point cloud stddev, rather than "
                  << "satellite position and orientation covariances.\n";

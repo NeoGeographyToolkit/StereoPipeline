@@ -11,7 +11,12 @@ New tools:
   * Added a couple of small Python scripts for handling ROS bags
     (:numref:`ros_tools`). No ROS binaries are shipped.
   * Added support for the Pleiades NEO exact linescan model
-    (:numref:`pleiades_neo`). 
+    (:numref:`pleiades_neo`).
+  * Added ``sfm_view``, a tool for viewing polygonal meshes and 
+    camera orientations (both for orbital and close-range cameras). 
+    It is a slight modification of the ``umve`` program
+    (https://github.com/simonfuhrmann/mve)
+   
 csm:
   * Added initial support for using CSM camera models with MSL 
     Curiosity (:numref:`csm_msl`).
@@ -160,7 +165,7 @@ misc:
   * Fixed a failure in ``mapproject`` with a small DEM.
   * Bugfix for exporting the TheiaSfM matches in ``camera_solve``.
   * The documentation of the examples chapter was broken up into
-    individual pages. 
+    individual pages (:numref:`examples`). 
 
 RELEASE 3.2.0, December 30, 2022
 --------------------------------

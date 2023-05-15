@@ -55,7 +55,7 @@ struct Options : vw::GdalWriteOptions {
   bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
     print_per_pixel_results, dg_use_csm, dg_vs_csm, test_error_propagation;
   vw::Vector2 single_pixel;
-  
+
   Options() {}
 };
 
@@ -94,15 +94,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Adjust the cameras using this prefix.")
     ("test-error-propagation", po::bool_switch(&opt.test_error_propagation)->default_value(false)->implicit_value(true),
      "Test computing the stddev (see --propagate-errors). This is an undocumented developer option.")
-    ;  
+    ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
-  
+
   po::options_description positional("");
   po::positional_options_description positional_desc;
-  
+
   std::string usage("--image <image file> --cam1 <camera 1 file> --cam2 <camera 2 file> "
                     "[other options]");
-  
+
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -121,17 +121,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::stereo_settings().enable_correct_atmospheric_refraction
     = opt.enable_correct_atmospheric_refraction;
   asp::stereo_settings().dg_use_csm = opt.dg_use_csm;
-  
+
   // Need this to be able to load adjusted camera models. This must be set
-  // before loading the cameras. 
+  // before loading the cameras.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
-  
+
   if (opt.test_error_propagation) {
     if (!asp::stereo_settings().dg_use_csm) {
       vw_out() << "Enabling option --dg-use-csm as point cloud stddev will be computed.\n";
       asp::stereo_settings().dg_use_csm = true;
     }
-    asp::stereo_settings().propagate_errors = true;  
+    asp::stereo_settings().propagate_errors = true;
   }
 }
 
@@ -140,12 +140,12 @@ void print_diffs(std::string const& tag, std::vector<double> & diffs) {
   std::sort(diffs.begin(), diffs.end());
 
   vw_out() << "\n";
-  
+
   if (diffs.empty()) {
     vw_out() << "Empty list of diffs for: " << tag << "\n";
     return;
   }
-  
+
   vw_out() << tag << "\n";
   vw_out() << "Min:    " << diffs[0] << "\n";
   vw_out() << "Median: " << diffs[diffs.size()/2] << "\n";
@@ -169,22 +169,22 @@ void testErrorPropagation(Options const& opt,
     pix1 = Vector2(i * 1000, i * 1000);
     Vector3 cam1_dir = cam1_model->pixel_to_vector(pix1);
     Vector3 cam1_ctr = cam1_model->camera_center(pix1);
-    
+
     // Shoot a ray from the cam1 camera, intersect it with the
     // given height above datum
     triPt = vw::cartography::datum_intersection(major_axis, minor_axis,
                                                       cam1_ctr, cam1_dir);
-    
+
     // Project to second camera
     pix2 = cam2_model->point_to_pixel(triPt);
 
-    if (pix2.x() > 0 && pix2.y() > 0) 
+    if (pix2.x() > 0 && pix2.y() > 0)
       break;
   }
-  
+
   std::cout << "Left pixel:  " << pix1 << std::endl;
   std::cout << "Right pixel: " << pix2 << std::endl;
-    
+
   vw::Vector2 ans = asp::propagateCovariance(triPt, datum,
                                              cam1_model.get(), cam2_model.get(),
                                              pix1, pix2);
@@ -192,6 +192,69 @@ void testErrorPropagation(Options const& opt,
 }
 
 int main(int argc, char *argv[]) {
+
+  {
+    vw::cartography::Datum datum("WGS84");
+    vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(Vector2(0, -90));
+    std::cout << "NedToEcef at South Pole:\n" << NedToEcef << std::endl;
+    //exit(0);
+  }
+
+  double minx = 0.15094999969;
+  double maxx = 599.15095;
+  double miny = 0.949889999989;
+  double maxy = 599.94989;
+  double shift_x = 364368.55011;
+  double shift_y = 4305710.65095;
+  double shift_z = 1.01000;
+
+  // imageNamePrefix:ima_camera005
+  double X_cam = 145223.947592;
+  double Y_cam = -233989.723480;
+  double Z_cam = 450000;
+
+  // camera 7
+  //X_cam = 0;//84675.081123;
+  //Y_cam = 0;//28138.722265;
+  //Z_cam = 450000;
+
+  //X_cam = 1000;
+  //Y_cam = 1000;
+
+  double x_out = shift_x + Y_cam;
+  double y_out = shift_y + (maxx - minx) - X_cam;
+  double z_out = Z_cam; //z_out = shift_z + Z_cam;
+
+  std::string proj = "+proj=utm +zone=18 +datum=WGS84 +units=m +no_defs +type=crs";
+  vw::cartography::GeoReference georef;
+  bool have_user_datum = false, have_input_georef = false;
+  vw::cartography::Datum user_datum;
+  asp::set_srs_string(proj, have_user_datum, user_datum,
+                      have_input_georef, georef);
+
+
+  //georef.set_proj4_projection_str(proj);
+  std::cout << "Projection is " << georef << "\n";
+  
+  // Center of terrain in DART in UTM
+  double x = 364668.55011;
+  double y = 4306010.65095; 
+  vw::Vector2 ut(x, y);
+
+  vw::Vector2 ll = georef.point_to_lonlat(ut);
+  std::cout.precision(17);
+  std::cout << "Lon lat is " << ll << "\n";
+
+  vw::Matrix3x3 NedToEcef = georef.datum().lonlat_to_ned_matrix(ll);
+  std::cout << "NedToEcef is " << NedToEcef << "\n";
+
+  vw::Vector3 llh3(ll[0], ll[1], 1.01);
+  vw::Vector3 xyz3  = georef.datum().geodetic_to_cartesian(llh3);
+  std::cout.precision(17);
+  std::cout << "xyz3 is " << xyz3 << "\n";
+
+
+  exit(0);
 
   Options opt;
   try {
@@ -226,7 +289,7 @@ int main(int argc, char *argv[]) {
     boost::shared_ptr<vw::camera::CameraModel> cam2_model
       = cam2_session->camera_model(opt.image_file, opt.cam2_file);
 
-    if (opt.session1 == opt.session2 && (default_session1 == "" || default_session2 == "")) 
+    if (opt.session1 == opt.session2 && (default_session1 == "" || default_session2 == ""))
       vw_throw(ArgumentErr() << "The session names for both cameras "
                << "were guessed as: '" << opt.session1 << "'. It is suggested that they be "
                << "explicitly specified using --session1 and --session2.\n");
@@ -235,7 +298,7 @@ int main(int argc, char *argv[]) {
       testErrorPropagation(opt, datum, cam1_model, cam2_model);
       return 0;
     }
-    
+
     // Find the input image dimensions
     int image_cols = 0, image_rows = 0;
     try {
@@ -256,12 +319,12 @@ int main(int argc, char *argv[]) {
     }
 
     vw_out() << "Image dimensions: " << image_cols << ' ' << image_rows << std::endl;
-    
+
     bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
 
     Stopwatch sw;
     sw.start();
-    
+
     double major_axis = datum.semi_major_axis() + opt.height_above_datum;
     double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
     // Iterate over the image
@@ -271,7 +334,7 @@ int main(int argc, char *argv[]) {
 
         Vector2 image_pix(col + opt.subpixel_offset, row + opt.subpixel_offset);
 
-        if (single_pix) 
+        if (single_pix)
           image_pix = opt.single_pixel;
 
         if (opt.print_per_pixel_results || single_pix)
@@ -283,14 +346,14 @@ int main(int argc, char *argv[]) {
 
         if (opt.print_per_pixel_results)
           vw_out() << "Camera center diff: " << ctr_diff.back() << std::endl;
-        
+
         Vector3 cam1_dir = cam1_model->pixel_to_vector(image_pix);
         Vector3 cam2_dir = cam2_model->pixel_to_vector(image_pix);
         dir_diff.push_back(norm_2(cam1_dir - cam2_dir));
-        
+
         if (opt.print_per_pixel_results)
           vw_out() << "Camera direction diff: " << dir_diff.back() << std::endl;
-        
+
         // Shoot a ray from the cam1 camera, intersect it with the
         // given height above datum, and project it back into the cam2
         // camera.
@@ -299,17 +362,17 @@ int main(int argc, char *argv[]) {
 
         Vector2 cam2_pix = cam2_model->point_to_pixel(xyz);
         cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
-        
+
         if (opt.print_per_pixel_results)
           vw_out() << "cam1 to cam2 pixel diff: " << image_pix - cam2_pix << std::endl;
 
         if (opt.dg_vs_csm) {
-          asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm; 
+          asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
           Vector2 cam2_pix2 = cam2_model->point_to_pixel(xyz);
           asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
           dg_vs_csm_diff.push_back(norm_2(cam2_pix - cam2_pix2));
         }
-                
+
         // Shoot a ray from the cam2 camera, intersect it with the
         // given height above the datum, and project it back into the
         // cam1 camera.
@@ -317,28 +380,28 @@ int main(int argc, char *argv[]) {
                                                   cam2_ctr, cam2_dir);
         Vector2 cam1_pix = cam1_model->point_to_pixel(xyz);
         cam2_to_cam1_diff.push_back(norm_2(image_pix - cam1_pix));
-        
+
         if (opt.print_per_pixel_results)
           vw_out() << "cam2 to cam1 pixel diff: " << image_pix - cam1_pix << "\n\n";
 
         if (opt.dg_vs_csm) {
-          asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm; 
+          asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
           Vector2 cam1_pix2 = cam1_model->point_to_pixel(xyz);
           asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
           dg_vs_csm_diff.push_back(norm_2(cam1_pix - cam1_pix2));
         }
 
-        if (single_pix) 
+        if (single_pix)
           break;
       }
-      
-      if (single_pix) 
+
+      if (single_pix)
         break;
     }
 
     sw.stop();
     vw_out() << "Number of samples used: " << ctr_diff.size() << "\n";
-    
+
     print_diffs("cam1 to cam2 camera direction diff norm", dir_diff);
     print_diffs("cam1 to cam2 camera center diff (meters)", ctr_diff);
     print_diffs("cam1 to cam2 pixel diff", cam1_to_cam2_diff);
@@ -353,8 +416,8 @@ int main(int argc, char *argv[]) {
     if (elapsed_sec < 5)
       vw_out() << "It is suggested to adjust the sample rate to produce more samples "
                << "if desired to evaluate more accurately the elapsed time per sample.\n";
-    
+
   } ASP_STANDARD_CATCHES;
-  
+
   return 0;
 }

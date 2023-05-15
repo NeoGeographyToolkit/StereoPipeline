@@ -24,12 +24,10 @@
 
 // This class implements the Pleiades linescan model
 // based on the CSM model.
-
 // TODO(oalexan1): Need to think more about the desired precision of the CSM
 // model. Need high accuracy for bundle adjustment, but may get away
 // with less for mapprojection. For now, err towards more accuracy.
 namespace asp {
-
 // Constructor
 PleiadesCameraModel::
 PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,

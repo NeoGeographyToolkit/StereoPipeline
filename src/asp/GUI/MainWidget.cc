@@ -1586,6 +1586,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     // Draw the stereo crop window.  Note that the stereo crop window
     // may exist independently of whether the rubber band exists.
     if (!m_stereoCropWin.empty()) {
+      // TODO(oalexan1): Is this logic redundant given the block below?
       QRect R = bbox2qrect(world2screen(m_stereoCropWin));
       paint.setPen(cropWinColor);
       paint.drawRect(R.normalized().adjusted(0, 0, -1, -1));
@@ -1596,6 +1597,18 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
       QRect R = bbox2qrect(world2screen(m_selectionRectangles[win]));
       paint.setPen(cropWinColor);
       paint.drawRect(R.normalized().adjusted(0, 0, -1, -1));
+
+      // Bugfix for when the selection rectangle is too small to be seen
+      // by the user.  We draw a small circle.
+      if (R.width() < 2 && R.height() < 2) {
+        paint.setPen(cropWinColor);
+        paint.setBrush(cropWinColor);
+        // Find Qrect upper-left-corner
+        int x0 = R.x() + R.width()/2;
+        int y0 = R.y() + R.height()/2;
+        int len = 2;
+        paint.drawEllipse(x0, y0, 2*len, 2*len);
+      }
     }
 
     // TODO(oalexan1): All the logic below must be in its own function,
