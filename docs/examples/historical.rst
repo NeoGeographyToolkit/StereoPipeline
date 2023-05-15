@@ -576,15 +576,17 @@ Declassified satellite images: KH-9
 -----------------------------------
 
 The KH-9 satellite contained one frame camera and two panoramic cameras,
-one pitched forwards and one aft. 
+one pitched forwards and one aft. It is important to check which of these 
+sensors your images are acquired with.
 
 The frame camera is a regular pinhole model (:numref:`pinholemodels`). 
 That one could be processed as for KH-7 (:numref:`kh7`), 
 SkySat (:numref:`skysat`), or using Structure-from-Motion (:numref:`sfm`). 
 
-This example describes how to set up the panoramic cameras for
-processing. Processing this data is similar to processing KH-4B data
-except that the images are much larger.
+This example describes how to process the the panoramic camera images. These
+images appear notably distorted at the end points. 
+The processing is similar to handling KH-4B (:numref:`kh4`) except that 
+the images are much larger.
 
 The ASP support for this satellite is highly experimental. There is no reliable
 way of determining the camera orientation to use below. As of now, sometimes
