@@ -10,7 +10,7 @@ clouds. The clouds can be created by the ``parallel_stereo`` command
 
 The heights in the produced DEM are relative to a datum (ellipsoid). 
 They are calculated by weighted averaging around each grid point
-of the heights of points in the cloud.
+of the heights of points in the cloud (see ``--search-radius-factor``).
 
 The output DEM is by default in the geographic coordinate system
 (longitude and latitude).  Any projection can be specified via the
@@ -366,12 +366,13 @@ Command-line options for point2dem
     (in quotes) to generate multiple output files.
 
 --search-radius-factor <float>
-    Multiply this factor by ``dem-spacing`` to get the search radius.
+    Multiply this factor by the ``--dem-spacing`` value to get the search radius.
     The DEM height at a given grid point is obtained as a weighted
     average of heights of all points in the cloud within search
     radius of the grid point, with the weights given by a Gaussian.
     If not specified, the default search radius is max(``dem-spacing``,
-    default_dem_spacing), so the default factor is about 1.
+    default_dem_spacing), so the default factor is about 1. See also
+    ``--gaussian-sigma-factor``.
 
 --gaussian-sigma-factor <float (default: 0)>
     The value :math:`s` to be used in the Gaussian
