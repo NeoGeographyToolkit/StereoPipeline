@@ -580,7 +580,7 @@ one pitched forwards and one aft. It is important to check which of these
 sensors your images are acquired with.
 
 The frame camera is a regular pinhole model (:numref:`pinholemodels`). 
-That one could be processed as for KH-7 (:numref:`kh7`), 
+The images produced with it could be processed as for KH-7 (:numref:`kh7`), 
 SkySat (:numref:`skysat`), or using Structure-from-Motion (:numref:`sfm`). 
 
 This example describes how to process the the panoramic camera images. These
