@@ -576,8 +576,13 @@ Declassified satellite images: KH-9
 -----------------------------------
 
 The KH-9 satellite contained one frame camera and two panoramic cameras,
-one pitched forwards and one aft. The frame camera is a normal pinhole
-model so this example describes how to set up the panoramic cameras for
+one pitched forwards and one aft. 
+
+The frame camera is a regular pinhole model (:numref:`pinholemodels`). 
+That one could be processed as for KH-7 (:numref:`kh7`), 
+SkySat (:numref:`skysat`), or using Structure-from-Motion (:numref:`sfm`). 
+
+This example describes how to set up the panoramic cameras for
 processing. Processing this data is similar to processing KH-4B data
 except that the images are much larger.
 
