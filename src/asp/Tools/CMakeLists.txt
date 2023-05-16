@@ -217,6 +217,10 @@ add_executable(cam_test cam_test.cc)
 target_link_libraries(cam_test AspSessions)
 install(TARGETS cam_test DESTINATION bin)
 
+add_executable(sat_sim sat_sim.cc) 
+target_link_libraries(sat_sim AspSessions)
+install(TARGETS sat_sim DESTINATION bin)
+
 add_executable(ccd_solve ccd_solve.cc) 
 target_link_libraries(ccd_solve AspSessions ${SOLVER_LIBRARIES})
 install(TARGETS ccd_solve DESTINATION bin)

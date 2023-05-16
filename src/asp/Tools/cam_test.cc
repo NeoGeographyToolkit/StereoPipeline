@@ -34,12 +34,7 @@
 #include <vw/Core/Stopwatch.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/IsisIO/IsisCameraModel.h>
-
-// Temporary headers
-#include <vw/Camera/CAHVModel.h>
-#include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/Covariance.h>
-#include <vw/Math/LinearAlgebra.h>
 
 using namespace vw;
 using namespace vw::cartography;

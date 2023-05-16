@@ -806,13 +806,14 @@ namespace boost {
 namespace program_options {
 
   // Custom value semantics, these explain how many tokens should be ingested.
+  
+  // 2 values
   typed_2_value<vw::Vector2i>*
   value( vw::Vector2i* v ) {
     typed_2_value<vw::Vector2i>* r =
       new typed_2_value<vw::Vector2i>(v);
     return r;
   }
-
   typed_2_value<vw::Vector2>*
   value( vw::Vector2* v ) {
     typed_2_value<vw::Vector2>* r =
@@ -820,13 +821,27 @@ namespace program_options {
     return r;
   }
 
+  // 3 values
+  typed_3_value<vw::Vector3i>*
+  value( vw::Vector3i* v ) {
+    typed_3_value<vw::Vector3i>* r =
+      new typed_3_value<vw::Vector3i>(v);
+    return r;
+  }
+  typed_3_value<vw::Vector3>*
+  value( vw::Vector3* v ) {
+    typed_3_value<vw::Vector3>* r =
+      new typed_3_value<vw::Vector3>(v);
+    return r;
+  }
+
+  // 4 values
   typed_4_value<vw::BBox2i>*
   value( vw::BBox2i* v ) {
     typed_4_value<vw::BBox2i>* r =
       new typed_4_value<vw::BBox2i>(v);
     return r;
   }
-
   typed_4_value<vw::BBox2>*
   value( vw::BBox2* v ) {
     typed_4_value<vw::BBox2>* r =
@@ -834,6 +849,7 @@ namespace program_options {
     return r;
   }
 
+  // 6 values
   typed_6_value<vw::BBox3>*
   value( vw::BBox3* v ) {
     typed_6_value<vw::BBox3>* r =
@@ -887,6 +903,59 @@ namespace program_options {
     try {
       Vector2 output( boost::lexical_cast<double>( cvalues[0] ),
                       boost::lexical_cast<double>( cvalues[1] ) );
+      v = output;
+    } catch (boost::bad_lexical_cast const& e ) {
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+    }
+  }
+
+  // Validator for Vector3i
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::Vector3i*, long ) {
+    validators::check_first_occurrence(v);
+
+    // Concatenate and then split again, so that the user can mix
+    // comma and space delimited values.
+    std::string joined = boost::algorithm::join(values, " ");
+    std::vector<std::string> cvalues;
+    boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
+
+    if ( cvalues.size() != 3 )
+      boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
+
+    try {
+      Vector3i output(boost::lexical_cast<int32>(cvalues[0]),
+                      boost::lexical_cast<int32>(cvalues[1]),
+                      boost::lexical_cast<int32>(cvalues[2]));
+      v = output;
+    } catch (boost::bad_lexical_cast const& e ) {
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+    }
+  }
+
+  // Validator for Vector3
+  template <>
+  void validate(boost::any& v,
+                const std::vector<std::string>& values,
+                vw::Vector3*, long) {
+    validators::check_first_occurrence(v);
+
+    // Concatenate and then split again, so that the user can mix
+    // comma and space delimited values.
+    std::string joined = boost::algorithm::join(values, " ");
+    std::vector<std::string> cvalues;
+    boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
+
+    if (cvalues.size() != 3)
+      boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
+
+    try {
+      Vector3 output(boost::lexical_cast<double>(cvalues[0]),
+                     boost::lexical_cast<double>(cvalues[1]),
+                     boost::lexical_cast<double>(cvalues[2]));
+
       v = output;
     } catch (boost::bad_lexical_cast const& e ) {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));

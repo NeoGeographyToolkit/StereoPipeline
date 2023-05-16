@@ -287,6 +287,7 @@ namespace program_options {
 
   // Custom value semantics, these explain how many tokens should be ingested.
 
+  // 2 params
   template <class T, class charT = char>
   class typed_2_value : public typed_value<T,charT> {
   public:
@@ -298,6 +299,19 @@ namespace program_options {
     unsigned max_tokens() const { return 2; }
   };
 
+  // 3 params
+  template <class T, class charT = char>
+  class typed_3_value : public typed_value<T,charT> {
+  public:
+    typed_3_value(T* store_to) : typed_value<T,charT>(store_to) {
+      this->multitoken();
+    }
+
+    unsigned min_tokens() const { return 3; }
+    unsigned max_tokens() const { return 3; }
+  };
+
+  // 4 params
   template <class T, class charT = char>
   class typed_4_value : public typed_value<T,charT> {
   public:
@@ -309,6 +323,7 @@ namespace program_options {
     unsigned max_tokens() const { return 4; }
   };
 
+  // 6 params  
   template <class T, class charT = char>
   class typed_6_value : public typed_value<T,charT> {
   public:
@@ -322,31 +337,41 @@ namespace program_options {
 
   typed_2_value<vw::Vector2i>* value( vw::Vector2i* v );
   typed_2_value<vw::Vector2>*  value( vw::Vector2* v );
+  typed_3_value<vw::Vector3i>* value( vw::Vector3i* v );
+  typed_3_value<vw::Vector3>*  value( vw::Vector3* v );
   typed_4_value<vw::BBox2i>*   value( vw::BBox2i* v );
   typed_4_value<vw::BBox2>*    value( vw::BBox2* v );
   typed_6_value<vw::BBox3>*    value( vw::BBox3* v );
 
   // Custom validators which describe how text is turned into a value
+  // 2 params
   template <>
   void validate( boost::any& v,
                  const std::vector<std::string>& values,
                  vw::Vector2i*, long );
-
   template <>
   void validate( boost::any& v,
                  const std::vector<std::string>& values,
                  vw::Vector2*, long );
-
+  // 3 params
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::Vector3i*, long );
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::Vector3*, long );
+  // 4 params
   template <>
   void validate( boost::any& v,
                  const std::vector<std::string>& values,
                  vw::BBox2i*, long );
-
   template <>
   void validate( boost::any& v,
                  const std::vector<std::string>& values,
                  vw::BBox2*, long );
-
+  // 6 params
   template <>
   void validate( boost::any& v,
                  const std::vector<std::string>& values,
