@@ -24,6 +24,7 @@
 #include <asp/Sessions/StereoSession.h>
 
 using namespace vw::cartography;
+using namespace vw::math;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -76,8 +77,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw::vw_throw(vw::ArgumentErr() << "The first and last camera positions must be "
       "specified.\n");
 
-  if (opt.num_cameras < 1)
-    vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be positive.\n");
+  if (opt.num_cameras < 2)
+    vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
 
   // Create the output directory based on the output prefix
   vw::create_out_dir(opt.out_prefix);
@@ -112,6 +113,109 @@ void readGeorefImage(std::string const& image_file,
                                      << image_file << ".\n");
 }
 
+// A function to convert from projected coordinates to ECEF
+vw::Vector3 projToEcef(vw::cartography::GeoReference const& georef,
+                vw::Vector3                          const& proj) {
+  vw::Vector3 llh = georef.point_to_geodetic(proj);
+  vw::Vector3 ecef = georef.datum().geodetic_to_cartesian(llh);
+  return ecef;
+}
+
+// A function that will take as input the endpoints and will compute the
+// satellite trajectory and along track/across track/down directions in ECEF,
+// which will give the camera to world rotation matrix.
+// The key observation is that the trajectory will be a straight edge in
+// projected coordinates so will be computed there first.
+void calcTrajectory(vw::cartography::GeoReference const& dem_georef,
+                    vw::Vector3                   const& first_pix_height, 
+                    vw::Vector3                   const& last_pix_height, 
+                    int num_cameras,
+                    // Outputs
+                    std::vector<vw::Vector3> & trajectory,
+                    // the vector of camera to world
+                    // rotation matrices
+                    std::vector<vw::Matrix3x3> & cam2world) {
+
+  // Convert the first and last positions to projected coordinates
+  vw::Vector3 first_proj, last_proj;
+  subvector(first_proj, 0, 2) = dem_georef.pixel_to_point
+      (vw::math::subvector(first_pix_height, 0, 2)); // x and y
+  first_proj[2] = first_pix_height[2]; // z
+  subvector(last_proj, 0, 2) = dem_georef.pixel_to_point
+      (vw::math::subvector(last_pix_height,  0, 2)); // x and y
+  last_proj[2] = last_pix_height[2]; // z
+
+  // Validate one more time that we have at least two cameras
+  if (num_cameras < 2)
+    vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
+
+  // Direction along the edge in proj coords (along track alongection)
+  vw::Vector3 along = last_proj - first_proj;
+  // Sanity check
+  if (along == vw::Vector3())
+    vw::vw_throw(vw::ArgumentErr()
+      << "The first and last camera positions are the same.\n");
+
+  // Normalize
+  along = along / norm_2(along);
+
+  // One more sanity check
+  if (std::max(std::abs(along[0]), std::abs(along[1])) < 1e-6)
+    vw::vw_throw(vw::ArgumentErr()
+      << "It appears that the satellite is aiming for the ground. "
+      <<  "Correct the orbit end points.\n");
+
+  // Find the across-track direction, parallel to the ground
+  vw::Vector3 across = vw::math::cross_prod(along, vw::Vector3(0, 0, 1));
+  across = across / norm_2(across);
+
+  // Find the trajectory, as well as points in the along track and across track 
+  // directions in the projected space with a spacing of 0.1 m. Do not use
+  // a small spacing as in ECEF these will be large numbers and we may
+  // have precision issues
+  double delta = 0.1; 
+  std::vector<vw::Vector3> along_track(num_cameras), across_track(num_cameras);
+  trajectory.resize(num_cameras);
+  cam2world.resize(num_cameras);
+  for (int i = 0; i < num_cameras; i++) {
+    double t = double(i) / double(num_cameras - 1);
+    vw::Vector3 P = first_proj * (1.0 - t) + last_proj * t; // traj
+    vw::Vector3 L = P + delta * along; // along track point
+    vw::Vector3 C = P + delta * across; // across track point
+
+    // Convert to cartesian
+    P = projToEcef(dem_georef, P);
+    L = projToEcef(dem_georef, L);
+    C = projToEcef(dem_georef, C);
+
+    // Create the along track and across track vectors
+    vw::Vector3 along = L - P;
+    vw::Vector3 across = C - P;
+    // Normalize
+    along = along / norm_2(along);
+    across = across / norm_2(across);
+    // ensure that across is perpendicular to along
+    across = across - dot_prod(along, across) * along;
+    // Normalize again
+    across = across / norm_2(across);
+
+    // Find the down vector
+    vw::Vector3 down = vw::math::cross_prod(along, across);
+    down = down / norm_2(down);
+
+    // Trajectory
+    trajectory[i] = P;
+
+    // The camera to world rotation has these vectors as the columns
+    for (int row = 0; row < 3; row++) {
+      cam2world[i](row, 0) = along[row];
+      cam2world[i](row, 1) = across[row];
+      cam2world[i](row, 2) = down[row];
+    }
+  }
+  return;
+}
+
 int main(int argc, char *argv[]) {
 
   Options opt;
@@ -137,15 +241,12 @@ int main(int argc, char *argv[]) {
     std::cout << "First camera position: " << opt.first << std::endl;
     std::cout << "Last camera position:  " << opt.last << std::endl;
 
-    // Convert the first and last positions to projected coordinates
-    vw::Vector2 first_proj = dem_georef.pixel_to_point
-        (vw::math::subvector(opt.first, 0, 2));
-    vw::Vector2 last_proj  = dem_georef.pixel_to_point
-        (vw::math::subvector(opt.last,  0, 2));
-    std::cout << "First camera position in projected coordinates: " << first_proj << std::endl;
-    std::cout << "Last camera position in projected coordinates:  " << last_proj << std::endl;
-
-    std::cout << "Number of cameras: " << opt.num_cameras << std::endl;
+    // Call the above function to compute the satellite trajectory
+    std::vector<vw::Vector3> trajectory(opt.num_cameras);
+    // vector of rot matrices
+    std::vector<vw::Matrix3x3> cam2world(opt.num_cameras);
+    calcTrajectory(dem_georef, opt.first, opt.last, opt.num_cameras, 
+    trajectory, cam2world);
 
   } ASP_STANDARD_CATCHES;
 
