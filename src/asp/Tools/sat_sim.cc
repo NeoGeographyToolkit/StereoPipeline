@@ -22,9 +22,14 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSession.h>
+#include <vw/Camera/PinholeModel.h>
+#include <vw/Geometry/baseUtils.h>
+#include <vw/Cartography/CameraBBox.h>
 
 using namespace vw::cartography;
 using namespace vw::math;
+using namespace vw::geometry;
+
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -32,11 +37,14 @@ struct Options : vw::GdalWriteOptions {
   std::string dem_file, ortho_file, out_prefix;
   vw::Vector3 first, last; // dem pixel and height above dem datum
   int num_cameras;
+  vw::Vector2 optical_center, image_size;
+  double focal_length;
   Options() {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
+  double NaN = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("General options");
   general_options.add_options()
     ("dem", po::value(&opt.dem_file)->default_value(""), "Input DEM file.")
@@ -53,6 +61,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     "Number of cameras to generate, including the first and last ones. Must be positive. "
     "The cameras are uniformly distributed along the straight edge from first to last (in "
     "projected coordinates).")
+    ("focal-length", po::value(&opt.focal_length)->default_value(NaN),
+     "Output camera focal length in units of pixel.")
+    ("optical-center", po::value(&opt.optical_center)->default_value(vw::Vector2(NaN, NaN),"NaN NaN"),
+     "Output camera optical center (image column and row).")
+    ("image-size", po::value(&opt.image_size)->default_value(vw::Vector2(NaN, NaN),"NaN NaN"),
+      "Output camera image size (width and height).")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -79,6 +93,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.num_cameras < 2)
     vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
+
+  // Validate focal length, optical center, and image size
+  if (std::isnan(opt.focal_length))
+    vw::vw_throw(vw::ArgumentErr() << "The focal length must be positive.\n");
+  if (std::isnan(opt.optical_center[0]) || std::isnan(opt.optical_center[1]))
+    vw::vw_throw(vw::ArgumentErr() << "The optical center must be specified.\n");
+  if (std::isnan(opt.image_size[0]) || std::isnan(opt.image_size[1]))
+    vw::vw_throw(vw::ArgumentErr() << "The image size must be specified.\n");
 
   // Create the output directory based on the output prefix
   vw::create_out_dir(opt.out_prefix);
@@ -212,8 +234,136 @@ void calcTrajectory(vw::cartography::GeoReference const& dem_georef,
       cam2world[i](row, 1) = across[row];
       cam2world[i](row, 2) = down[row];
     }
+    std::cout << "cam2world[" << i << "] = " << cam2world[i] << std::endl;
+    std::cout << "Inverse is " << inverse(cam2world[i]) << "\n";
+
+    // Find the lon-lat from cartesian
+    vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(P);
+    std::cout << "lon-lat-height: " << llh << std::endl;
+    // Find NED matrix
+    vw::Matrix3x3 ned = dem_georef.datum().lonlat_to_ned_matrix(subvector(llh, 0, 2));
+    std::cout << "ned: " << ned << std::endl;
+
   }
   return;
+}
+
+// A function to create and save the cameras. Assume no distortion, and pixel
+// pitch = 1. Also export the image names.
+void genCameras(Options const& opt, std::vector<vw::Vector3> const & trajectory,
+                  std::vector<vw::Matrix3x3> const & cam2world,
+                  std::vector<vw::camera::PinholeModel> & cams,
+                  std::vector<std::string> & imageNames) {
+
+  // Ensure we have as many camera positions as we have camera orientations
+  if (trajectory.size() != cam2world.size())
+    vw::vw_throw(vw::ArgumentErr()
+      << "Expecting as many camera positions as camera orientations.\n");
+
+    cams.resize(trajectory.size());
+    imageNames.resize(trajectory.size());
+    for (int i = 0; i < int(trajectory.size()); i++) {
+
+      cams[i] = vw::camera::PinholeModel(trajectory[i], cam2world[i],
+                                   opt.focal_length, opt.focal_length,
+                                   opt.image_size[0], opt.image_size[1]);
+      
+      std::string prefix = opt.out_prefix + num2str(10000 + i);
+      std::string camName = prefix + ".tsai";
+      vw::vw_out() << "Writing: " << camName << std::endl;
+      cams[i].write(camName);
+      imageNames[i] = prefix + ".tif";
+    }
+  
+  return;
+}
+
+// Generate images by projecting rays from the sensor to the ground
+void genImages(Options const& opt,
+    std::vector<vw::camera::PinholeModel> const& cams,
+    std::vector<std::string> const& imageNames,
+    vw::cartography::GeoReference const& dem_georef,
+    vw::ImageViewRef<vw::PixelMask<float>> dem,
+    vw::cartography::GeoReference const& ortho_georef,
+    vw::ImageViewRef<vw::PixelMask<float>> ortho,
+    float ortho_nodata_val) {
+
+   // Ensure we have as many image names as cameras
+  if (imageNames.size() != cams.size())
+    vw::vw_throw(vw::ArgumentErr()
+      << "Expecting as many image names as cameras.\n");
+
+  // Create interpolated image with bicubic interpolation with invalid pixel 
+  // edge extension
+  vw::PixelMask<float> nodata_mask = vw::PixelMask<float>(); // invalid value
+  nodata_mask.invalidate();
+  auto interp_ortho = vw::interpolate(ortho, vw::BicubicInterpolation(),
+                                      vw::ValueEdgeExtension<vw::PixelMask<float>>(nodata_mask));
+  int cols = opt.image_size[0];
+  int rows = opt.image_size[1];
+  vw::vw_out() << "Generating images.\n";
+
+  std::cout << "Height error tol must be a param!" << "\n";
+
+  for (size_t i = 0; i < cams.size(); i++) {
+    vw::ImageView<vw::PixelMask<float>> image(cols, rows);
+
+    vw::TerminalProgressCallback tpc("", imageNames[i] + ": ");
+    tpc.report_progress(0);
+    double inc_amount = 1.0 / double(cols);
+
+    for (int col = 0; col < cols; col++) {
+      for (int row = 0; row < rows; row++) {
+
+        // Start with an invalid pixel
+        image(col, row) = vw::PixelMask<float>();
+        image(col, row).invalidate();
+
+        vw::Vector2 pix(col, row);
+        vw::Vector3 cam_ctr = cams[i].camera_center(pix);
+        vw::Vector3 cam_dir = cams[i].pixel_to_vector(pix);
+
+        // Intersect the ray going from the given camera pixel with a DEM.
+        bool treat_nodata_as_zero = false;
+        bool has_intersection = false;
+        double height_error_tol = 0.001; // in meters
+        double max_abs_tol = 1e-14;
+        double max_rel_tol = 1e-14;
+        int num_max_iter = 100;
+        vw::Vector3 xyz_guess(0, 0, 0);
+        vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
+          (cam_ctr, cam_dir, dem,
+           dem_georef, treat_nodata_as_zero,
+           has_intersection, height_error_tol, max_abs_tol, max_rel_tol, 
+           num_max_iter, xyz_guess);
+
+        if (!has_intersection) 
+          continue;
+
+        // Find the texture value at the intersection point by interpolation.
+        // This will result in an invalid value if if out of range or if the
+        // image itself has invalid pixels.
+        vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
+        vw::Vector2 ortho_pix = ortho_georef.lonlat_to_pixel(vw::Vector2(llh[0], llh[1]));
+        image(col, row) = interp_ortho(ortho_pix[0], ortho_pix[1]);
+        image(col, row).validate();
+      }
+
+      tpc.report_incremental_progress( inc_amount );
+    } 
+    tpc.report_finished();
+
+    // Save the image using the block write function
+    vw::vw_out() << "Writing: " << imageNames[i] << std::endl;
+    bool has_georef = false; // the produced image is raw, it has no georef
+    bool has_nodata = true;
+
+    block_write_gdal_image(imageNames[i], 
+      vw::apply_mask(image, ortho_nodata_val), 
+      has_georef, ortho_georef, // the ortho georef will not be used
+      has_nodata, ortho_nodata_val, // borrow the nodata from ortho
+      opt, vw::TerminalProgressCallback("", "\t--> "));
+  }  
 }
 
 int main(int argc, char *argv[]) {
@@ -246,7 +396,15 @@ int main(int argc, char *argv[]) {
     // vector of rot matrices
     std::vector<vw::Matrix3x3> cam2world(opt.num_cameras);
     calcTrajectory(dem_georef, opt.first, opt.last, opt.num_cameras, 
-    trajectory, cam2world);
+      trajectory, cam2world);
+
+    std::vector<vw::camera::PinholeModel> cams;
+    std::vector<std::string> imageNames;
+    genCameras(opt, trajectory, cam2world, cams, imageNames);
+
+    // Generate images
+    genImages(opt, cams, imageNames, dem_georef, dem, ortho_georef, ortho,
+      ortho_nodata_val);
 
   } ASP_STANDARD_CATCHES;
 
