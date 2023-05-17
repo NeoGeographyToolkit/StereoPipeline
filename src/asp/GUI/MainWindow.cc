@@ -1637,11 +1637,13 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
   asp::rm_option_and_vals(m_argc, m_argv, "--left-image-crop-win", 4);
   asp::rm_option_and_vals(m_argc, m_argv, "--right-image-crop-win", 4);
 
-  // Wipe the stereo_gui --window-size option, has no use for 
-  // batch stereo.
+  // Wipe the stereo_gui --window-size option and some others that are no
+  // use for stereo.
   asp::rm_option_and_vals(m_argc, m_argv, "--window-size", 2);
+  asp::rm_option_and_vals(m_argc, m_argv, "--font-size", 2);
+  asp::rm_option_and_vals(m_argc, m_argv, "--lowest-resolution-subimage-num-pixels", 2);
 
-  // Add the options
+  // Form the command to run
   for (int i = 1; i < m_argc; i++) {
     std::string token = std::string(m_argv[i]);
     // Skip adding empty spaces we may have introduced with asp::rm_option_and_vals().
@@ -1654,6 +1656,7 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
     run_cmd += " " + token;
   }
   
+  // Add crop win options
   std::ostringstream os;
   os << " --left-image-crop-win " << left_x << " " << left_y << " "
      << left_wx << " " << left_wy;
