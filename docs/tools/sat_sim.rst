@@ -18,7 +18,7 @@ Example
     --first 397 496 2500 --last 397 495 2500 --num 5 \
     --focal-length 10000 --optical-center 400 300    \
     --image-size 800 600                             \
-    -o out/run 
+    -o out/run
 
 Command-line options
 ^^^^^^^^^^^^^^^^^^^^
@@ -49,6 +49,11 @@ Command-line options
 
 --image-size <int, int>
     Output camera image size (width and height).
+
+--dem-height-error-tol <float (default: 0.001)>
+    When intersecting a ray with a DEM, use this as the height error tolerance
+    (measured in meters). It is expected that the default will be always good
+    enough.
 
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
