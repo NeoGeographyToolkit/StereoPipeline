@@ -1543,10 +1543,15 @@ void MainWidget::plotPolys(QPainter & paint) {
         drawVertIndex = 0;
         plotPoints = false;
       }
-      
+
+      // Note: We plot below the whole set of polygons in 'poly'. We pass in
+      // the first color in the first poly to respect this API. In that function
+      // we will iterate over polygons and plot each with its own color.
+      // At some point need to revisit if plotPoly() actually needs a color
+      // as an argument or it can always be read from 'poly' itself.      
       MainWidget::plotPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
                            m_showIndices->isChecked(), m_lineWidth, drawVertIndex,
-                           QColor(colors[polyIter].c_str()), paint, poly);
+                           QColor(colors[0].c_str()), paint, poly);
     }
   } // end iterating over polygons for all images
 }
@@ -2462,7 +2467,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   }
   
   void MainWidget::drawOneVertex(int x0, int y0, QColor color, int lineWidth,
-                                 int drawVertIndex, QPainter &paint){
+                                 int drawVertIndex, QPainter &paint) {
 
     // Draw a vertex as a small shape (a circle, rectangle, triangle)
 
@@ -2474,7 +2479,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     paint.setPen(QPen(color, lineWidth));
 
     int numTypes = 4;
-    if (drawVertIndex < 0){
+    if (drawVertIndex < 0) {
 
       // This will be reached only for the case when a polygon
       // is so small that it collapses into a point.
@@ -2482,19 +2487,19 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
       paint.setBrush(color);
       paint.drawRect(x0 - len, y0 - len, 2*len, 2*len);
 
-    } else if (drawVertIndex%numTypes == 0){
+    } else if (drawVertIndex%numTypes == 0) {
 
       // Draw a small empty ellipse
       paint.setBrush(Qt::NoBrush);
       paint.drawEllipse(x0 - len, y0 - len, 2*len, 2*len);
 
-    }else if (drawVertIndex%numTypes == 1){
+    } else if (drawVertIndex%numTypes == 1) {
 
       // Draw an empty square
       paint.setBrush(Qt::NoBrush);
       paint.drawRect(x0 - len, y0 - len, 2*len, 2*len);
 
-    }else if (drawVertIndex%numTypes == 2){
+    } else if (drawVertIndex%numTypes == 2) {
 
       // Draw an empty triangle
       paint.setBrush(Qt::NoBrush);
@@ -2502,7 +2507,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
       paint.drawLine(x0 - len, y0 - len, x0 + 0,   y0 + len);
       paint.drawLine(x0 + len, y0 - len, x0 + 0,   y0 + len);
 
-    }else{
+    } else {
 
       // Draw an empty reversed triangle
       paint.setBrush(Qt::NoBrush);
@@ -2522,12 +2527,13 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
                              QColor const& color,
                              QPainter & paint,
                              // Make a local copy of the poly on purpose
-                             vw::geometry::dPoly currPoly){
+                             vw::geometry::dPoly currPoly) {
 
     using namespace vw::geometry;
 
-    if (m_world_box.empty()) return;
-      
+    if (m_world_box.empty())
+      return;
+    
     // The box in world coordinates
     double x_min = m_world_box.min().x();
     double y_min = m_world_box.min().y();
@@ -2549,13 +2555,17 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     // Clip the polygon a bit beyond the viewing window, as to not see
     // the edges where the cut took place. It is a bit tricky to
     // decide how much the extra should be.
-    double tol    = 1e-12;
+    double tol = 1e-12;
     double pixelSize = std::max(m_world_box.width()/m_window_width,
                                 m_world_box.height()/m_window_height);
 
     double extra  = 2*pixelSize*lineWidth;
     double extraX = extra + tol * std::max(std::abs(x_min), std::abs(x_max));
     double extraY = extra + tol * std::max(std::abs(y_min), std::abs(y_max));
+
+    // Will try to use the color from polygons if they exist. Otherwise
+    // use the default color.
+    QColor local_color = color;
 
     dPoly clippedPoly;
     currPoly.clipPoly(// Inputs
@@ -2580,12 +2590,19 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
       = clippedPoly.get_isPolyClosed();
     const std::vector<std::string> & colors
       = clippedPoly.get_colors(); // we ignore these
-
+    
     int start = 0;
-    for (int pIter = 0; pIter < numPolys; pIter++){
+
+    for (int pIter = 0; pIter < numPolys; pIter++) {
 
       if (pIter > 0) start += numVerts[pIter - 1];
       int pSize = numVerts[pIter];
+      // Use the corresponding color if it exists and is valid
+      if (colors.size() > pIter) {
+        QColor curr_color = QColor(colors[pIter].c_str());
+        if (curr_color.isValid())
+          local_color = curr_color;
+      }
 
       // Determine the orientation of polygons
       double signedArea = 0.0;
@@ -2606,39 +2623,39 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
         //           // why this is necessary and why the number 4 is right.
         if (plotPoints                                                                 &&
             P.x() > screen_min_x - tol && P.x() < screen_min_x + m_window_width  + tol &&
-            P.y() > screen_min_y - tol && P.y() < screen_min_y + m_window_height + tol){
-          drawOneVertex(P.x(), P.y(), color, lineWidth, drawVertIndex, paint);
+            P.y() > screen_min_y - tol && P.y() < screen_min_y + m_window_height + tol) {
+          drawOneVertex(P.x(), P.y(), local_color, lineWidth, drawVertIndex, paint);
         }
       }
 
       if (pa.size() <= 0) continue;
 
-      if (plotEdges){
+      if (plotEdges) {
 
-        if (plotFilled && isPolyClosed[pIter]){
+        if (plotFilled && isPolyClosed[pIter]) {
           // Notice that we fill clockwise polygons, those with
           // negative area. That because on screen they in fact
           // appear counter-clockwise, since the screen y axis is
           // always down, and because the ESRI shapefile format
           // expects an outer polygon to be clockwise.
-          if (signedArea < 0.0)  paint.setBrush( color );
+          if (signedArea < 0.0)  paint.setBrush(local_color);
           else                   paint.setBrush( m_backgroundColor );
           paint.setPen(Qt::NoPen);
-        }else {
+        } else {
           paint.setBrush(Qt::NoBrush);
-          paint.setPen(QPen(color, lineWidth));
+          paint.setPen(QPen(local_color, lineWidth));
         }
 
-        if ( isPolyZeroDim(pa) ){
+        if (isPolyZeroDim(pa)) {
           // Treat the case of polygons which are made up of just one point
           int l_drawVertIndex = -1;
-          drawOneVertex(pa[0].x(), pa[0].y(), color, lineWidth, l_drawVertIndex,
+          drawOneVertex(pa[0].x(), pa[0].y(), local_color, lineWidth, l_drawVertIndex,
                         paint);
-        }else if (isPolyClosed[pIter]){
+        } else if (isPolyClosed[pIter]) {
 
-          if (plotFilled){
+          if (plotFilled) {
             paint.drawPolygon(pa);
-          }else{
+          } else {
             // In some versions of Qt, drawPolygon is buggy when not
             // called to fill polygons. Don't use it, just draw the
             // edges one by one.
@@ -2650,11 +2667,9 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
               paint.drawPolyline(pb);
             }
           }
-
-        }else{
+        } else {
           paint.drawPolyline(pa); // don't join the last vertex to the first
         }
-
       }
     }
 
@@ -2692,7 +2707,6 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     }
     paint.drawPolyline(&profilePixels[0], profilePixels.size());
   }
-
   
   void MainWidget::mousePressEvent(QMouseEvent *event) {
 

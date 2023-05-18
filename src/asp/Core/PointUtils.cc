@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 // TODO(oalexan1): Move all LAS, PCD, and CSV logic to its own
-// PointReader.cc class, as this file is too big.
+// PointReader.cc class, as this file is too big and very slow to compile.
 
 /// \file PointUtils.cc
 ///
@@ -101,15 +101,14 @@ namespace asp{
 
     }
 
-    virtual bool ReadNextPoint(){
+    virtual bool ReadNextPoint() {
 
       std::string line;
       asp::CsvConv::CsvRecord vals;
 
       // Keep on reading, until a valid point is hit or the end of the file
       // is reached.
-      while (1){
-	
+      while (1) {
         m_has_valid_point = static_cast<bool>(getline(*m_ifs, line, '\n'));
         if (!m_has_valid_point) return m_has_valid_point; // reached end of file
 
@@ -122,8 +121,8 @@ namespace asp{
       // easier time grouping spatially points close together, as it
       // operates the first two coordinates.
       bool return_point_height = true;
-      m_curr_point
-	= m_csv_conv.csv_to_cartesian_or_point_height(vals, m_georef, return_point_height);
+      m_curr_point = m_csv_conv.csv_to_cartesian_or_point_height
+        (vals, m_georef, return_point_height);
 
       return m_has_valid_point;
     }
@@ -283,13 +282,10 @@ namespace asp{
     m_ifs = NULL;
   }
 
-
-
   std::int64_t pcd_file_size(std::string const& file) {
     PcdReader reader(file);
     return reader.m_num_points;
   }
-
 
   /// Create a point cloud image from a las file. The image will be
   /// created block by block, when it needs to be written to disk. It is
@@ -667,7 +663,7 @@ bool parse_color(std::string const& line, std::string & color) {
   return false;
 }
 
-size_t asp::CsvConv::read_csv_file(std::string    const & file_path,
+size_t asp::CsvConv::read_csv_file(std::string const & file_path,
 				   std::list<CsvRecord> & output_list) const {
 
   // Clear output object
@@ -697,6 +693,8 @@ size_t asp::CsvConv::read_csv_file(std::string    const & file_path,
   return output_list.size();
 }
 
+// Reads an entire CSV file having polygons. Individual
+// polygons are separated by a newline or some other unexpected text.
 size_t asp::CsvConv::read_poly_file(std::string    const & file_path,
                                     std::list<CsvRecord> & output_list,
                                     std::vector<int>         & contiguous_blocks,
@@ -719,13 +717,14 @@ size_t asp::CsvConv::read_poly_file(std::string    const & file_path,
   if (!file)
     vw_throw(vw::IOErr() << "Unable to open file \"" << file_path << "\"");
 
-  // Read through all the lines of the input file, parse each line, and build the output list.
+  // Read through all the lines of the input file, parse each line, and build
+  // the output list. We ignore failed lines and lines having colors, and use
+  // them as separators between polygons.
   bool success;
-  bool first_line = true; // TODO(oalexan1): Wipe this variable.
+  bool first_line = true; // TODO(oalexan1): Rename this to: quiet_on_failure.
   std::string line = "";
   
   while (std::getline(file, line, '\n')) {
-
     std::string local_color;
     if (parse_color(line, local_color)) {
       color = local_color; 
@@ -734,18 +733,26 @@ size_t asp::CsvConv::read_poly_file(std::string    const & file_path,
     }
     
     CsvRecord new_record = asp::CsvConv::parse_csv_line(first_line, success, line);
+    first_line = true; // Because for now the api changes this var. To fix at some point.
+    
     if (success) {
       output_list.push_back(new_record);
-      contiguous_blocks.back()++; // add an element
+      // This is a bugfix. If we are just starting a block, and there were some
+      // invalid lines before, and some were colors, let the color of this 
+      // block be the last collected color
+      if (contiguous_blocks.size() > 0 && 
+        contiguous_blocks.back() == 0 && colors.size() == contiguous_blocks.size()) {
+        colors.back() = color;
+      }
+      // add an element to the last block
+      contiguous_blocks.back()++; 
     } else {
       if (contiguous_blocks.back() > 0) {
-        contiguous_blocks.push_back(0);         // Add a new block
+        contiguous_blocks.push_back(0); // Add a new block
         while (colors.size() < contiguous_blocks.size())
           colors.push_back(color); // catch up on colors
       }
     }
-    
-    first_line = false;
   }
 
   // This is needed in case no colors were found
@@ -763,7 +770,6 @@ size_t asp::CsvConv::read_poly_file(std::string    const & file_path,
   return output_list.size();
 }
 
-
 vw::Vector3 asp::CsvConv::sort_parsed_vector3(CsvRecord const& csv) const {
   Vector3 ordered_csv;
   int count = 0;
@@ -775,7 +781,6 @@ vw::Vector3 asp::CsvConv::sort_parsed_vector3(CsvRecord const& csv) const {
   }
   return ordered_csv;
 }
-
 
 vw::Vector3 asp::CsvConv::unsort_vector3(vw::Vector3 const& csv) const {
   Vector3 csv2;
