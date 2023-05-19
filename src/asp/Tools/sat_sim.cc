@@ -26,7 +26,7 @@
 #include <vw/Geometry/baseUtils.h>
 #include <vw/Cartography/CameraBBox.h>
 
-#if 0
+#if 1
 // Temporary debugging code. 
 // TODO(oalexan1): Remove this in due time. It is so much more convenient to debug
 // here, however, compared to the code in CameraBBox.h, which requires a wholesale
@@ -212,9 +212,13 @@ namespace vw { namespace cartography2 {
         if (attempt == 0 && i == 0)
           delta = 0.0; // If first attempt and first try, start at the initial guess
 
+        //std::cout << "Attempt and i and delta = " << attempt << ' ' << i << ' ' << delta << std::endl;
+
         for (int k = -1; k <= 1; k += 2) { // For k==-1, k==1
           // Use below -k because we want len to increase first time
           len[0] = len0[0] - k*delta; // Ray guess length +/- 2% planetary radius
+          //  std::cout << "len is " << len[0] << "\n";
+
           // Use our model to compute the height diff at this length
           Vector<double, 1> height_diff = model(len);
           // TODO: This is a very lenient threshold. big_val()/10.0 == 1.0e+49.
@@ -244,35 +248,72 @@ namespace vw { namespace cartography2 {
       len = math::levenberg_marquardt(model, len, observation, status,
         max_abs_tol, max_rel_tol, num_max_iter);
       Vector<double, 1> dem_height = model(len);
-      
+      //std::cout << "dem_height is " << dem_height[0] << "\n";
+
+#if 0
+      // We don't really care of the status of the minimization algorithm, since
+      // we use it as a root solver. The good test is whether the height difference
+      // is small enough. This test can fail even if we are close enough to the root.
       if (status < 0) {
         // Failed. No hope.
+        //std::cout << "status is " << status << "\n";
         has_intersection = false;
         return Vector3();
       }
+#endif
 
-      if (std::abs(dem_height[0]) > height_error_tol) {
-        // Success, but did not hit the tolerance. Try again.  
-        if (attempt > 10) {
-          // Tried enough attempts, give up
-          has_intersection = false;
-          return Vector3();
+      if (std::abs(dem_height[0]) <= height_error_tol) {
+          has_intersection = true;
+          xyz = camera_ctr + len[0]*camera_vec;
+          return xyz;
+      } else {
+
+        // Try the secant method. The value of j will control the step size
+        int num_j = 100; // will use this in two places
+        for (int j = 0; j <= num_j; j++) {
+        
+          // TODO(oalexan1): This function needs a serious overhaul!
+          // May use the secant method altogether, and not the L-M solver.
+          double x0 = len[0];
+          double f0 = model(len)[0];
+          double x1 = len[0] + 10.0 * (j + 1); 
+          Vector<double, 1> len1; len1[0] = x1;
+          double f1 = model(x1)[0];
+          //std::cout << "x0 and x1 are " << x0 << ' ' << x1 << "\n";
+          //std::cout << "f0 and f1 are " << f0 << ' ' << f1 << "\n";
+          if (std::abs(f0 - f1) < 1e-6 && j < num_j)
+            continue; // Try next j, as the f values are too close
+
+          // Do 100 iterations of secant method
+          for (int i = 0; i < 100; i++) {
+            double x2 = x1 - f1 * (x1 - x0) / (f1 - f0);
+            //std::cout << "i and j " << i << ' ' << j << "\n";
+            //std::cout << "x2 is " << x2 << "\n";
+
+            Vector<double, 1> len2; len2[0] = x2;
+            double f2 = model(len2)[0];
+            //std::cout << "f2 is " << f2 << "\n";
+            if (std::abs(f2) < height_error_tol) {
+              x0 = x2;
+              f0 = f2;
+              break;
+            }
+            x0 = x1; f0 = f1;
+            x1 = x2; f1 = f2;
+          }
+
+          if (std::abs(f0) < height_error_tol) {
+            len[0] = x0;
+            has_intersection = true;
+            xyz = camera_ctr + len[0]*camera_vec;
+            return xyz;
+          }
         }
 
-        // Call itself recursively. Next time will start at a different
-        // location xyz_guess, determined as below.
-        double height_guess = 0.0; // since we use xyz_guess, set this to 0.0.
-        Vector3 xyz_guess = camera_ctr + len[0]*camera_vec;
-        return camera_pixel_to_dem_xyz2(camera_ctr, camera_vec, dem_image, georef,
-                                        treat_nodata_as_zero, has_intersection,
-                                        height_error_tol, max_abs_tol, max_rel_tol,
-                                        num_max_iter, xyz_guess, height_guess, 
-                                        attempt + 1);
+        // Failed
+        has_intersection = false;
+        return Vector3();
       }
-
-      has_intersection = true;
-      xyz = camera_ctr + len[0]*camera_vec;
-      return xyz;
     }catch(...){
       has_intersection = false;
     }
@@ -505,7 +546,7 @@ void calcTrajectory(vw::cartography::GeoReference const& dem_georef,
     vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(P);
     // Find NED matrix
     vw::Matrix3x3 ned = dem_georef.datum().lonlat_to_ned_matrix(subvector(llh, 0, 2));
-    std::cout << "ned: " << ned << std::endl;
+    //std::cout << "ned: " << ned << std::endl;
 #endif
 
   }
@@ -594,24 +635,25 @@ void genImages(Options const& opt,
         // Intersect the ray going from the given camera pixel with a DEM.
         bool treat_nodata_as_zero = false;
         bool has_intersection = false;
-        double height_error_tol = 0.001; // in meters
-        double max_abs_tol = 1e-14;
-        double max_rel_tol = 1e-14;
+        // Minimizer errors. 
+        // TODO(oalexan1): Need to use a root solver instead of a minimizer.
+        double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
+        double max_rel_tol = max_abs_tol;
         int num_max_iter = 100;
 
         // Find xyz, and use it for the next guess
-        xyz = vw::cartography::camera_pixel_to_dem_xyz
+        xyz = vw::cartography2::camera_pixel_to_dem_xyz2
           (cam_ctr, cam_dir, dem,
            dem_georef, treat_nodata_as_zero,
            has_intersection, opt.dem_height_error_tol, 
            max_abs_tol, max_rel_tol, 
            num_max_iter, xyz);
 
-        // if (!has_intersection) {
-        // //Temporary debug code
-        //   std::cout << "Failed for pixel " << pix << "\n";
-        //   exit(0);
-        // }
+        //if (!has_intersection) {
+        //  //Temporary debug code
+        //  std::cout << "Failed for pixel " << pix << "\n";
+        //  exit(0);
+        //}
 
         if (!has_intersection) 
           continue;
