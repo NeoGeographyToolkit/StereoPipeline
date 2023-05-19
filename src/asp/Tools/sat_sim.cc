@@ -26,7 +26,7 @@
 #include <vw/Geometry/baseUtils.h>
 #include <vw/Cartography/CameraBBox.h>
 
-#if 1
+#if 0
 // Temporary debugging code. 
 // TODO(oalexan1): Remove this in due time. It is so much more convenient to debug
 // here, however, compared to the code in CameraBBox.h, which requires a wholesale
@@ -149,6 +149,124 @@ namespace vw { namespace cartography2 {
     }
   };
 
+  // The first step in finding where a ray intersects the DEM. Find a position
+  // on the ray where one is at least above the DEM. Do that by wiggling the
+  // initial guess along the ray.
+  template<class ModelT>
+  void findInitPositionAboveDEM(ModelT & model,
+                                Vector3 const& camera_ctr,
+                                Vector3 const& xyz,
+                                // outputs
+                                bool & has_intersection,
+                                Vector<double, 1> & len) {
+
+    Vector<double, 1> len0;
+    len0[0] = norm_2(xyz - camera_ctr);
+
+    // Initialize the outputs
+    len = len0;
+    has_intersection = false;
+
+    // If the ray intersects the datum at a point which does not
+    // correspond to a valid location in the DEM, wiggle that point
+    // along the ray until hopefully it does.
+    const double radius     = norm_2(xyz); // Radius from XZY coordinate center
+    const int    ITER_LIMIT = 10; // There are two solver attempts per iteration
+    const double small      = radius*0.02/(1 << ITER_LIMIT); // Wiggle
+    for (int i = 0; i <= ITER_LIMIT; i++) {
+
+      // Gradually expand delta magnitude until on final iteration it is == radius*0.02.
+      // We flip between positive and negative values of ever-increasing magnitude.
+      double delta = small*(1 << i);
+      if (i == 0)
+        delta = 0.0; // In first try, start at the initial guess
+
+      for (int k = -1; k <= 1; k += 2) { // For k==-1, k==1
+        // Use below -k because we want len to increase first time
+        len[0] = len0[0] - k*delta; // Ray guess length +/- 2% planetary radius
+        //  std::cout << "len is " << len[0] << "\n";
+
+        // Use our model to compute the height diff at this length
+        Vector<double, 1> height_diff = model(len);
+        // TODO: This is a very lenient threshold. big_val()/10.0 == 1.0e+49.
+        // The effect of this is to stop this loop when we get over valid DEM terrain.
+        if (std::abs(height_diff[0]) < (model.big_val()/10.0)) {
+          has_intersection = true;
+          break;
+        }
+      } // End k loop
+
+      if (has_intersection) {
+        break;
+      }
+    } // End i loop
+  } // End function
+
+  // A very customized secant method function, for this specific application.
+  // Make several attempts to improve robustness. Return the solved length along
+  // the ray (which is also passed in as an initial guess) and the
+  // has_intersection flag.
+  template <class ModelT>
+  void secantMethod(ModelT & model, Vector3 const& camera_ctr, 
+    Vector3 const& camera_vec, double height_error_tol,
+    // outputs
+    bool & has_intersection,  Vector<double, 1> & len) {
+    
+    // Initialize the output
+    has_intersection = false;
+
+    // Do several attempts with different starting values for x1. The value of j
+    // will control the step size.
+    int num_j = 100; // will use this variable in two places below
+    Vector<double, 1> len1, len2; 
+
+    for (int j = 0; j <= num_j; j++) {
+
+      double x0 = len[0];
+      double f0 = model(len)[0];
+    
+      if (std::abs(f0) < height_error_tol) {
+        // As a robustness check, return early if we are already close enough.
+        // Otherwise may end up with a denominator close to 0 below.
+        len[0] = x0;
+        has_intersection = true;
+        return; // Done
+      }
+
+      double x1 = len[0] + 10.0 * (j + 1); 
+      len1[0] = x1;
+      double f1 = model(len1)[0];
+
+      if (std::abs(f0 - f1) < 1e-6 && j < num_j)
+        continue; // Try next j, as the f values are too close
+
+      // Do 100 iterations of secant method
+      for (int i = 0; i < 100; i++) {
+        double x2 = x1 - f1 * (x1 - x0) / (f1 - f0);
+        len2[0] = x2;
+        double f2 = model(len2)[0];
+        if (std::abs(f2) < height_error_tol) {
+          x0 = x2;
+          f0 = f2;
+          break;
+        }
+        x0 = x1; f0 = f1;
+        x1 = x2; f1 = f2;
+      }
+
+      if (std::abs(f0) < height_error_tol) {
+        len[0] = x0;
+        has_intersection = true;
+        return; // Done
+      } else {
+        has_intersection = false;
+        // Try again
+      }
+    }
+
+    return;
+  }
+
   // Intersect the ray going from the given camera pixel with a DEM.
   // The return value is a Cartesian point. If the ray goes through a
   // hole in the DEM where there is no data, we return no-intersection
@@ -165,9 +283,7 @@ namespace vw { namespace cartography2 {
                                   double max_rel_tol      = 1e-14,
                                   int num_max_iter        = 100,
                                   Vector3 xyz_guess       = Vector3(),
-                                  double height_guess     = 0.0,
-                                  // Can call itself recursively if it fails
-                                  int attempt = 0) {
+                                  double height_guess     = 0.0) {
     
     // This is a very fragile function and things can easily go wrong. 
     try {
@@ -190,106 +306,28 @@ namespace vw { namespace cartography2 {
         xyz = xyz_guess;
       }
 
-      // Length along the ray from camera center to intersection point
-      Vector<double, 1> len0, len;
-      len0[0] = norm_2(xyz - camera_ctr);
+      // Now wiggle xyz along the ray until it is somewhere above the DEM.
+      // Will return not xyz, but the 'len' along the ray for it.
+      Vector<double, 1> len;
+      findInitPositionAboveDEM(model, camera_ctr, xyz, 
+        // outputs
+        has_intersection, len);
 
-      // If the ray intersects the datum at a point which does not
-      // correspond to a valid location in the DEM, wiggle that point
-      // along the ray until hopefully it does.
-      const double radius     = norm_2(xyz); // Radius from XZY coordinate center
-      const int    ITER_LIMIT = 10; // There are two solver attempts per iteration
-      const double small      = radius*0.02/(1 << ITER_LIMIT); // Wiggle
-      for (int i = 0; i <= ITER_LIMIT; i++){
-
-        // Gradually expand delta magnitude until on final iteration it is == radius*0.02.
-        // If attempt == 0 and i == 0, start with a delta of 0.0, so that we
-        // are at the initial guess. Else, start with a positive value, as
-        // in this case this code is calling itself recursively because it failed
-        // previously and we want to keep on going forward. Either way,
-        // next we flip between positive and negative values of ever-increasing magnitude.
-        double delta = small*(1 << i)*(1 << attempt); // go further in later attempts
-        if (attempt == 0 && i == 0)
-          delta = 0.0; // If first attempt and first try, start at the initial guess
-
-        //std::cout << "Attempt and i and delta = " << attempt << ' ' << i << ' ' << delta << std::endl;
-
-        for (int k = -1; k <= 1; k += 2) { // For k==-1, k==1
-          // Use below -k because we want len to increase first time
-          len[0] = len0[0] - k*delta; // Ray guess length +/- 2% planetary radius
-          //  std::cout << "len is " << len[0] << "\n";
-
-          // Use our model to compute the height diff at this length
-          Vector<double, 1> height_diff = model(len);
-          // TODO: This is a very lenient threshold. big_val()/10.0 == 1.0e+49.
-          // The effect of this is to stop this loop when we get over valid DEM terrain.
-          if (std::abs(height_diff[0]) < (model.big_val()/10.0)) {
-            has_intersection = true;
-            break;
-          }
-        } // End k loop
-
-        if (has_intersection) {
-          break;
-        }
-      } // End i loop
-
-      // Failed to compute an intersection in the hard coded iteration limit!
-      if (!has_intersection) {
-        return Vector3();
+      // Call the secant method function to find the intersection with the
+      // ground. Return has_intersection and len. This is 10x faster and more
+      // robust than the Levenberg-Marquardt method used below (which used to be
+      // the original method).
+      Vector<double, 1> len_secant = len; // will change
+      secantMethod(model, camera_ctr, camera_vec, height_error_tol,
+                   has_intersection, len_secant);
+      if (has_intersection) {
+        xyz = camera_ctr +  len_secant[0] * camera_vec;
+        return xyz;
       }
 
-      Vector<double, 1> orig_len = len;
-
-        // Try the secant method. The value of j will control the step size
-        int num_j = 100; // will use this in two places
-        for (int j = 0; j <= num_j; j++) {
-        
-          // TODO(oalexan1): This function needs a serious overhaul!
-          // May use the secant method altogether, and not the L-M solver.
-          double x0 = len[0];
-          double f0 = model(len)[0];
-          double x1 = len[0] + 10.0 * (j + 1); 
-          Vector<double, 1> len1; len1[0] = x1;
-          double f1 = model(x1)[0];
-          //std::cout << "x0 and x1 are " << x0 << ' ' << x1 << "\n";
-          //std::cout << "f0 and f1 are " << f0 << ' ' << f1 << "\n";
-          if (std::abs(f0 - f1) < 1e-6 && j < num_j)
-            continue; // Try next j, as the f values are too close
-
-          // Do 100 iterations of secant method
-          for (int i = 0; i < 100; i++) {
-            double x2 = x1 - f1 * (x1 - x0) / (f1 - f0);
-            //std::cout << "i and j " << i << ' ' << j << "\n";
-            //std::cout << "x2 is " << x2 << "\n";
-
-            Vector<double, 1> len2; len2[0] = x2;
-            double f2 = model(len2)[0];
-            //std::cout << "f2 is " << f2 << "\n";
-            if (std::abs(f2) < height_error_tol) {
-              x0 = x2;
-              f0 = f2;
-              break;
-            }
-            x0 = x1; f0 = f1;
-            x1 = x2; f1 = f2;
-          }
-
-          if (std::abs(f0) < height_error_tol) {
-            len[0] = x0;
-            has_intersection = true;
-            xyz = camera_ctr + len[0]*camera_vec;
-            return xyz;
-          }
-        }
-
-
-      // Refining the intersection using Levenberg-Marquardt, using the value
-      // of 'len' just found.
-      // - This will actually use the L-M solver to play around with the len
-      //   value to minimize the height difference from the DEM.
+      // If no luck, fallback to using Levenberg-Marquardt, with the original
+      // value of len.
       int status = 0;
-      len = orig_len; // This will go away when the above code becomes a function
       Vector<double, 1> observation; observation[0] = 0;
       len = math::levenberg_marquardt(model, len, observation, status,
         max_abs_tol, max_rel_tol, num_max_iter);
@@ -301,8 +339,6 @@ namespace vw { namespace cartography2 {
       // we use it as a root solver. The good test is whether the height difference
       // is small enough. This test can fail even if we are close enough to the root.
       if (status < 0) {
-        // Failed. No hope.
-        //std::cout << "status is " << status << "\n";
         has_intersection = false;
         return Vector3();
       }
@@ -638,14 +674,12 @@ void genImages(Options const& opt,
         // Intersect the ray going from the given camera pixel with a DEM.
         bool treat_nodata_as_zero = false;
         bool has_intersection = false;
-        // Minimizer errors. 
-        // TODO(oalexan1): Need to use a root solver instead of a minimizer.
         double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
         double max_rel_tol = max_abs_tol;
         int num_max_iter = 100;
 
         // Find xyz, and use it for the next guess
-        xyz = vw::cartography2::camera_pixel_to_dem_xyz2
+        xyz = vw::cartography::camera_pixel_to_dem_xyz
           (cam_ctr, cam_dir, dem,
            dem_georef, treat_nodata_as_zero,
            has_intersection, opt.dem_height_error_tol, 
