@@ -239,34 +239,7 @@ namespace vw { namespace cartography2 {
         return Vector3();
       }
 
-      // Refining the intersection using Levenberg-Marquardt, using the value
-      // of 'len' just found.
-      // - This will actually use the L-M solver to play around with the len
-      //   value to minimize the height difference from the DEM.
-      int status = 0;
-      Vector<double, 1> observation; observation[0] = 0;
-      len = math::levenberg_marquardt(model, len, observation, status,
-        max_abs_tol, max_rel_tol, num_max_iter);
-      Vector<double, 1> dem_height = model(len);
-      //std::cout << "dem_height is " << dem_height[0] << "\n";
-
-#if 0
-      // We don't really care of the status of the minimization algorithm, since
-      // we use it as a root solver. The good test is whether the height difference
-      // is small enough. This test can fail even if we are close enough to the root.
-      if (status < 0) {
-        // Failed. No hope.
-        //std::cout << "status is " << status << "\n";
-        has_intersection = false;
-        return Vector3();
-      }
-#endif
-
-      if (std::abs(dem_height[0]) <= height_error_tol) {
-          has_intersection = true;
-          xyz = camera_ctr + len[0]*camera_vec;
-          return xyz;
-      } else {
+      Vector<double, 1> orig_len = len;
 
         // Try the secant method. The value of j will control the step size
         int num_j = 100; // will use this in two places
@@ -310,6 +283,36 @@ namespace vw { namespace cartography2 {
           }
         }
 
+
+      // Refining the intersection using Levenberg-Marquardt, using the value
+      // of 'len' just found.
+      // - This will actually use the L-M solver to play around with the len
+      //   value to minimize the height difference from the DEM.
+      int status = 0;
+      len = orig_len; // This will go away when the above code becomes a function
+      Vector<double, 1> observation; observation[0] = 0;
+      len = math::levenberg_marquardt(model, len, observation, status,
+        max_abs_tol, max_rel_tol, num_max_iter);
+      Vector<double, 1> dem_height = model(len);
+      //std::cout << "dem_height is " << dem_height[0] << "\n";
+
+#if 0
+      // We don't really care of the status of the minimization algorithm, since
+      // we use it as a root solver. The good test is whether the height difference
+      // is small enough. This test can fail even if we are close enough to the root.
+      if (status < 0) {
+        // Failed. No hope.
+        //std::cout << "status is " << status << "\n";
+        has_intersection = false;
+        return Vector3();
+      }
+#endif
+
+      if (std::abs(dem_height[0]) <= height_error_tol) {
+          has_intersection = true;
+          xyz = camera_ctr + len[0]*camera_vec;
+          return xyz;
+      } else {
         // Failed
         has_intersection = false;
         return Vector3();
