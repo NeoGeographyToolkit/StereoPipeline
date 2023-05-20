@@ -49,6 +49,9 @@
 #include <vw/Cartography/GeoReference.h>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/filesystem.hpp>
+
+namespace fs = boost::filesystem;
 
 // TODO(oalexan1): Move most of this code to .cc. Use it all with
 // ImageViewRef<float> for the DEM.
@@ -375,7 +378,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 struct Options : vw::GdalWriteOptions {
-  std::string dem_file, ortho_file, out_prefix;
+  std::string dem_file, ortho_file, out_prefix, camera_list;
   vw::Vector3 first, last; // dem pixel and height above dem datum
   int num_cameras;
   vw::Vector2 optical_center, image_size;
@@ -389,9 +392,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("General options");
   general_options.add_options()
     ("dem", po::value(&opt.dem_file)->default_value(""), "Input DEM file.")
-    ("ortho", po::value(&opt.ortho_file)->default_value(""), "Input ortho image file.")
+    ("ortho", po::value(&opt.ortho_file)->default_value(""), "Input georeferenced image file.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix. All the "
     "files that are saved will start with this prefix.")
+    ("camera-list", po::value(&opt.camera_list)->default_value(""),
+     "A file containing the list of pinhole cameras to create synthetic images for. "
+     "Then these cameras will be used instead of generating them. Specify one file "
+     "per line. The options --first, --last, --num, --focal-length, "
+     "and --optical-center will be ignored.")
     ("first", po::value(&opt.first)->default_value(vw::Vector3(), ""),
     "First camera position, specified as DEM pixel column and row, and height above "
     "the DEM datum.")
@@ -406,7 +414,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Output camera focal length in units of pixel.")
     ("optical-center", po::value(&opt.optical_center)->default_value(vw::Vector2(NaN, NaN),"NaN NaN"),
      "Output camera optical center (image column and row).")
-    ("image-size", po::value(&opt.image_size)->default_value(vw::Vector2(NaN, NaN),"NaN NaN"),
+    ("image-size", po::value(&opt.image_size)->default_value(vw::Vector2(NaN, NaN),
+      "NaN NaN"),
       "Output camera image size (width and height).")
     ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
      "When intersecting a ray with a DEM, use this as the height error tolerance "
@@ -430,21 +439,23 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw::vw_throw(vw::ArgumentErr() << "Missing input DEM and/or ortho image.\n");
   if (opt.out_prefix == "")
     vw::vw_throw(vw::ArgumentErr() << "Missing output prefix.\n");
-
-  if (opt.first == vw::Vector3() || opt.last == vw::Vector3())
-    vw::vw_throw(vw::ArgumentErr() << "The first and last camera positions must be "
-      "specified.\n");
-
-  if (opt.num_cameras < 2)
-    vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
-
-  // Validate focal length, optical center, and image size
-  if (std::isnan(opt.focal_length))
-    vw::vw_throw(vw::ArgumentErr() << "The focal length must be positive.\n");
-  if (std::isnan(opt.optical_center[0]) || std::isnan(opt.optical_center[1]))
-    vw::vw_throw(vw::ArgumentErr() << "The optical center must be specified.\n");
   if (std::isnan(opt.image_size[0]) || std::isnan(opt.image_size[1]))
     vw::vw_throw(vw::ArgumentErr() << "The image size must be specified.\n");
+
+  if (opt.camera_list == "") {
+    if (opt.first == vw::Vector3() || opt.last == vw::Vector3())
+      vw::vw_throw(vw::ArgumentErr() << "The first and last camera positions must be "
+        "specified.\n");
+
+    if (opt.num_cameras < 2)
+      vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
+
+    // Validate focal length, optical center, and image size
+    if (std::isnan(opt.focal_length))
+      vw::vw_throw(vw::ArgumentErr() << "The focal length must be positive.\n");
+    if (std::isnan(opt.optical_center[0]) || std::isnan(opt.optical_center[1]))
+      vw::vw_throw(vw::ArgumentErr() << "The optical center must be specified.\n");
+  }
 
   // Create the output directory based on the output prefix
   vw::create_out_dir(opt.out_prefix);
@@ -592,12 +603,38 @@ void calcTrajectory(vw::cartography::GeoReference const& dem_georef,
   return;
 }
 
+// Generate a prefix that will be used for image names and camera names
+std::string genPrefix(Options const& opt, int i) {
+  return opt.out_prefix + "-" + num2str(10000 + i);
+}
+
+// A function to read the pinhole cameras from disk
+void readCameras(Options const& opt, 
+    std::vector<std::string> & cam_names,
+    std::vector<vw::camera::PinholeModel> & cams) {
+
+  // Read the camera names
+  vw::vw_out() << "Reading: " << opt.camera_list << std::endl;
+  asp::read_list(opt.camera_list, cam_names);
+
+  // Sanity check
+  if (cam_names.empty())
+    vw::vw_throw(vw::ArgumentErr() << "No cameras were found.\n");
+
+  cams.resize(cam_names.size());
+  for (int i = 0; i < int(cam_names.size()); i++)
+    cams[i].read(cam_names[i]);
+  
+  return;
+}
+
 // A function to create and save the cameras. Assume no distortion, and pixel
-// pitch = 1. Also export the image names.
+// pitch = 1.
 void genCameras(Options const& opt, std::vector<vw::Vector3> const & trajectory,
                   std::vector<vw::Matrix3x3> const & cam2world,
-                  std::vector<vw::camera::PinholeModel> & cams,
-                  std::vector<std::string> & imageNames) {
+                  // outputs
+                  std::vector<std::string> & cam_names,
+                  std::vector<vw::camera::PinholeModel> & cams) {
 
   // Ensure we have as many camera positions as we have camera orientations
   if (trajectory.size() != cam2world.size())
@@ -605,18 +642,17 @@ void genCameras(Options const& opt, std::vector<vw::Vector3> const & trajectory,
       << "Expecting as many camera positions as camera orientations.\n");
 
     cams.resize(trajectory.size());
-    imageNames.resize(trajectory.size());
+    cam_names.resize(trajectory.size());
     for (int i = 0; i < int(trajectory.size()); i++) {
 
       cams[i] = vw::camera::PinholeModel(trajectory[i], cam2world[i],
                                    opt.focal_length, opt.focal_length,
                                    opt.image_size[0], opt.image_size[1]);
       
-      std::string prefix = opt.out_prefix + num2str(10000 + i);
-      std::string camName = prefix + ".tsai";
+      std::string camName = genPrefix(opt, i) + ".tsai";
+      cam_names[i] = camName;
       vw::vw_out() << "Writing: " << camName << std::endl;
       cams[i].write(camName);
-      imageNames[i] = prefix + ".tif";
     }
   
   return;
@@ -624,18 +660,27 @@ void genCameras(Options const& opt, std::vector<vw::Vector3> const & trajectory,
 
 // Generate images by projecting rays from the sensor to the ground
 void genImages(Options const& opt,
+    bool external_cameras,
+    std::vector<std::string> const& cam_names,
     std::vector<vw::camera::PinholeModel> const& cams,
-    std::vector<std::string> const& imageNames,
     vw::cartography::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> dem,
     vw::cartography::GeoReference const& ortho_georef,
     vw::ImageViewRef<vw::PixelMask<float>> ortho,
     float ortho_nodata_val) {
 
-   // Ensure we have as many image names as cameras
-  if (imageNames.size() != cams.size())
-    vw::vw_throw(vw::ArgumentErr()
-      << "Expecting as many image names as cameras.\n");
+    // Generate image names from camera names by replacing the extension
+    std::vector<std::string> image_names;
+    image_names.resize(cam_names.size());
+    for (int i = 0; i < int(cam_names.size()); i++) {
+      if (external_cameras)
+       image_names[i] = opt.out_prefix + "-" 
+        + fs::path(cam_names[i]).filename().replace_extension(".tif").string();
+      else
+        image_names[i] = genPrefix(opt, i) + ".tif";
+
+       std::cout << "Writing: " << image_names[i] << std::endl;
+    }
 
   // Create interpolated image with bicubic interpolation with invalid pixel 
   // edge extension
@@ -656,7 +701,7 @@ void genImages(Options const& opt,
   for (size_t i = 0; i < cams.size(); i++) {
     vw::ImageView<vw::PixelMask<float>> image(cols, rows);
 
-    vw::TerminalProgressCallback tpc("", imageNames[i] + ": ");
+    vw::TerminalProgressCallback tpc("", image_names[i] + ": ");
     tpc.report_progress(0);
     double inc_amount = 1.0 / double(cols);
 
@@ -709,11 +754,11 @@ void genImages(Options const& opt,
     tpc.report_finished();
 
     // Save the image using the block write function
-    vw::vw_out() << "Writing: " << imageNames[i] << std::endl;
+    vw::vw_out() << "Writing: " << image_names[i] << std::endl;
     bool has_georef = false; // the produced image is raw, it has no georef
     bool has_nodata = true;
 
-    block_write_gdal_image(imageNames[i], 
+    block_write_gdal_image(image_names[i], 
       vw::apply_mask(image, ortho_nodata_val), 
       has_georef, ortho_georef, // the ortho georef will not be used
       has_nodata, ortho_nodata_val, // borrow the nodata from ortho
@@ -739,19 +784,26 @@ int main(int argc, char *argv[]) {
     vw::cartography::GeoReference ortho_georef;
     readGeorefImage(opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
 
-    // Call the above function to compute the satellite trajectory
-    std::vector<vw::Vector3> trajectory(opt.num_cameras);
-    // vector of rot matrices
-    std::vector<vw::Matrix3x3> cam2world(opt.num_cameras);
-    calcTrajectory(dem_georef, opt.first, opt.last, opt.num_cameras, 
-      trajectory, cam2world);
-
+    std::vector<std::string> cam_names;
     std::vector<vw::camera::PinholeModel> cams;
-    std::vector<std::string> imageNames;
-    genCameras(opt, trajectory, cam2world, cams, imageNames);
+    bool external_cameras = false;
+    if (!opt.camera_list.empty()) {
+      // Read the cameras
+      readCameras(opt, cam_names, cams);
+      external_cameras = true;
+    } else {
+     // Generate the cameras   
+      std::vector<vw::Vector3> trajectory(opt.num_cameras);
+      // vector of rot matrices
+      std::vector<vw::Matrix3x3> cam2world(opt.num_cameras);
+      calcTrajectory(dem_georef, opt.first, opt.last, opt.num_cameras, 
+        trajectory, cam2world);
+      // Generate cameras
+      genCameras(opt, trajectory, cam2world, cam_names, cams);
+    }
 
     // Generate images
-    genImages(opt, cams, imageNames, dem_georef, dem, ortho_georef, ortho,
+    genImages(opt, external_cameras, cam_names, cams, dem_georef, dem, ortho_georef, ortho,
       ortho_nodata_val);
 
   } ASP_STANDARD_CATCHES;

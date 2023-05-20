@@ -12,6 +12,8 @@ New tools:
     (:numref:`ros_tools`). No ROS binaries are shipped.
   * Added support for the Pleiades NEO exact linescan model
     (:numref:`pleiades_neo`).
+  * Added ``sat_sim`` (:numref:`sat_sim`), a tool to create simulated
+    satellite images and/or pinhole camera models.
    
 csm:
   * Added initial support for using CSM camera models with MSL 
