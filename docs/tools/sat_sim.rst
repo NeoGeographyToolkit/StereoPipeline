@@ -16,6 +16,9 @@ coordinate system of the DEM, which results in an arc around the planet.
 The images are created with bicubic interpolation in the ortho image and are
 saved with float pixels. Missing pixels will have nodata values.
 
+If the cameras are created from scratch, the camera view can follow a custom
+path on the surface (:numref:`sat_sim_custom_path`).
+
 Example (use given cameras)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
@@ -35,13 +38,20 @@ The value of ``--image-size`` should be chosen so that the ground sample
 distance of the produced images is close to the ground sample distance of the
 input ortho image. 
 
-Example (generate cameras)
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+To see how a created image projects onto the ground, run ``mapproject``
+(:numref:`mapproject`) as::
+
+    mapproject dem.tif run/run-camera.tif path/to/camera.tsai \
+      camera.map.tif
+
+Example (generate nadir-pointing cameras)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
   
     sat_sim --dem dem.tif --ortho ortho.tif              \
-    --first 397 400 450000 --last 397 500 450000 --num 5 \
+    --first 397.1 400.7 450000 --last 397.1 500.7 450000 \
+    --num 5                                              \
     --focal-length 450000 --optical-center 500 500       \
     --image-size 1000 1000                               \
     -o run/run
@@ -59,6 +69,22 @@ The produced image and camera names will be along the lines of::
     
     run/run-10000.tif
     run/run-10000.tsai
+
+.. _sat_sim_custom_path:
+
+Example (follow custom ground path)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Given two locations on the DEM, each specified by the column and row of DEM
+pixel, to ensure that the center of the camera footprint travels along the straight
+edge (in DEM pixel coordinates) between these, add to the tool options along the
+lines of::
+
+    --first-ground-pos 484.3 510.7 \
+    --last-ground-pos 332.5 893.6    
+
+This will result in the camera roll and pitch changing gradually to keep the
+desired view.
 
 Command-line options
 ^^^^^^^^^^^^^^^^^^^^
@@ -79,11 +105,11 @@ Command-line options
     file per line. The options ``--first``, ``--last``, ``--num``, ``--focal-length``,
     and ``--optical-center`` will be ignored.
 
---first <string (default="")>
+--first <float, float, float>
     First camera position, specified as DEM pixel column and row, and height
     above the DEM datum.
 
---last <string (default="")>
+--last <float, float, float>
     Last camera position, specified as DEM pixel column and row, and height
     above the DEM datum.
 
@@ -91,6 +117,16 @@ Command-line options
     Number of cameras to generate, including the first and last ones. Must be
     positive. The cameras are uniformly distributed along the straight edge from
     first to last (in projected coordinates).
+
+--first-ground-pos <float, float>
+    Coordinates of first camera ground footprint center (DEM column and row). If
+    not set, the cameras will look straight down (perpendicular to along and
+    across track directions).
+
+--last-ground-pos <float, float>
+    Coordinates of last camera ground footprint center (DEM column and row). If
+    not set, the cameras will look straight down (perpendicular to along and
+    across track directions).
 
 --focal-length <double>
     Output camera focal length in units of pixel.
