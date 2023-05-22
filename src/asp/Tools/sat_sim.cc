@@ -29,12 +29,12 @@
 #if 0
 // Temporary debugging code. 
 // TODO(oalexan1): Remove this in due time. It is so much more convenient to debug
-// here, however, compared to the code in CameraBBox.h, which requires a wholesale
-// code recompilation.
+// here, however, compared to the code in CameraBBox.h, which requires recompilation
+// of a large number of files.
 #ifndef __VW_CARTOGRAPHY_CAMERABBOX2_H__
 #define __VW_CARTOGRAPHY_CAMERABBOX2_H__
 
-/// \file CameraBBox.h Contains bounding box, pixel interesection, and misc utilities.
+/// \file CameraBBox.h Contains bounding box, pixel intersection, and misc utilities.
 
 #include <vw/config.h>
 #if defined(VW_HAVE_PKG_CAMERA)
@@ -381,7 +381,7 @@ struct Options : vw::GdalWriteOptions {
   std::string dem_file, ortho_file, out_prefix, camera_list;
   vw::Vector3 first, last; // dem pixel and height above dem datum
   int num_cameras;
-  vw::Vector2 optical_center, image_size;
+  vw::Vector2 optical_center, image_size, first_ground_pos, last_ground_pos;
   double focal_length, dem_height_error_tol;
   Options() {}
 };
@@ -410,6 +410,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     "Number of cameras to generate, including the first and last ones. Must be positive. "
     "The cameras are uniformly distributed along the straight edge from first to last (in "
     "projected coordinates).")
+    ("first-ground-pos", po::value(&opt.first_ground_pos)->default_value(vw::Vector2(NaN, NaN), ""),
+    "Coordinates of first camera ground footprint center (DEM column and row). "
+    "If not set, the cameras will look straight down (perpendicular to along "
+    "and across track directions).")
+    ("last-ground-pos", po::value(&opt.last_ground_pos)->default_value(vw::Vector2(NaN, NaN), ""),
+    "Coordinates of last camera ground footprint center (DEM column and row). "
+    "If not set, the cameras will look straight down (perpendicular to along "
+    "and across track directions).")
     ("focal-length", po::value(&opt.focal_length)->default_value(NaN),
      "Output camera focal length in units of pixel.")
     ("optical-center", po::value(&opt.optical_center)->default_value(vw::Vector2(NaN, NaN),"NaN NaN"),
@@ -455,6 +463,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw::vw_throw(vw::ArgumentErr() << "The focal length must be positive.\n");
     if (std::isnan(opt.optical_center[0]) || std::isnan(opt.optical_center[1]))
       vw::vw_throw(vw::ArgumentErr() << "The optical center must be specified.\n");
+
+      // Either both first and last ground positions are specified, or none.
+    if (std::isnan(norm_2(opt.first_ground_pos)) != 
+      std::isnan(norm_2(opt.last_ground_pos)))
+      vw::vw_throw(vw::ArgumentErr() << "Either both first and last ground positions "
+        "must be specified, or none.\n");
   }
 
   // Create the output directory based on the output prefix
@@ -503,62 +517,71 @@ vw::Vector3 projToEcef(vw::cartography::GeoReference const& georef,
 // which will give the camera to world rotation matrix.
 // The key observation is that the trajectory will be a straight edge in
 // projected coordinates so will be computed there first.
-void calcTrajectory(vw::cartography::GeoReference const& dem_georef,
-                    vw::Vector3                   const& first_pix_height, 
-                    vw::Vector3                   const& last_pix_height, 
-                    int num_cameras,
+void calcTrajectory(Options const& opt, 
+                    vw::cartography::GeoReference const& dem_georef,
+                    vw::ImageViewRef<vw::PixelMask<float>> dem,
                     // Outputs
                     std::vector<vw::Vector3> & trajectory,
                     // the vector of camera to world
                     // rotation matrices
                     std::vector<vw::Matrix3x3> & cam2world) {
 
-  // Convert the first and last positions to projected coordinates
+  // Convert the first and last camera center positions to projected coordinates
   vw::Vector3 first_proj, last_proj;
   subvector(first_proj, 0, 2) = dem_georef.pixel_to_point
-      (vw::math::subvector(first_pix_height, 0, 2)); // x and y
-  first_proj[2] = first_pix_height[2]; // z
+      (vw::math::subvector(opt.first, 0, 2)); // x and y
+  first_proj[2] = opt.first[2]; // z
   subvector(last_proj, 0, 2) = dem_georef.pixel_to_point
-      (vw::math::subvector(last_pix_height,  0, 2)); // x and y
-  last_proj[2] = last_pix_height[2]; // z
+      (vw::math::subvector(opt.last,  0, 2)); // x and y
+  last_proj[2] = opt.last[2]; // z
 
   // Validate one more time that we have at least two cameras
-  if (num_cameras < 2)
+  if (opt.num_cameras < 2)
     vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
 
-  // Direction along the edge in proj coords (along track alongection)
-  vw::Vector3 along = last_proj - first_proj;
+  // Create interpolated DEM with bilinear interpolation with invalid pixel 
+  // edge extension
+  vw::PixelMask<float> nodata_mask = vw::PixelMask<float>(); // invalid value
+  nodata_mask.invalidate();
+  auto interp_dem = vw::interpolate(dem, vw::BilinearInterpolation(),
+    vw::ValueEdgeExtension<vw::PixelMask<float>>(nodata_mask));
+
+  // Direction along the edge in proj coords (along track direction)
+  vw::Vector3 proj_along = last_proj - first_proj;
   // Sanity check
-  if (along == vw::Vector3())
+  if (proj_along == vw::Vector3())
     vw::vw_throw(vw::ArgumentErr()
       << "The first and last camera positions are the same.\n");
 
   // Normalize
-  along = along / norm_2(along);
+  proj_along = proj_along / norm_2(proj_along);
 
   // One more sanity check
-  if (std::max(std::abs(along[0]), std::abs(along[1])) < 1e-6)
+  if (std::max(std::abs(proj_along[0]), std::abs(proj_along[1])) < 1e-6)
     vw::vw_throw(vw::ArgumentErr()
       << "It appears that the satellite is aiming for the ground. "
       <<  "Correct the orbit end points.\n");
 
-  // Find the across-track direction, parallel to the ground
-  vw::Vector3 across = vw::math::cross_prod(along, vw::Vector3(0, 0, 1));
-  across = across / norm_2(across);
+  // Find the across-track direction, parallel to the ground, in projected coords
+  vw::Vector3 proj_across = vw::math::cross_prod(proj_along, vw::Vector3(0, 0, 1));
+  proj_across = proj_across / norm_2(proj_across);
+
+  bool have_ground_pos = !std::isnan(norm_2(opt.first_ground_pos)) &&  
+      !std::isnan(norm_2(opt.last_ground_pos));
 
   // Find the trajectory, as well as points in the along track and across track 
   // directions in the projected space with a spacing of 0.1 m. Do not use
   // a small spacing as in ECEF these will be large numbers and we may
-  // have precision issues
+  // have precision issues.
   double delta = 0.1; 
-  std::vector<vw::Vector3> along_track(num_cameras), across_track(num_cameras);
-  trajectory.resize(num_cameras);
-  cam2world.resize(num_cameras);
-  for (int i = 0; i < num_cameras; i++) {
-    double t = double(i) / double(num_cameras - 1);
+  std::vector<vw::Vector3> along_track(opt.num_cameras), across_track(opt.num_cameras);
+  trajectory.resize(opt.num_cameras);
+  cam2world.resize(opt.num_cameras);
+  for (int i = 0; i < opt.num_cameras; i++) {
+    double t = double(i) / double(opt.num_cameras - 1);
     vw::Vector3 P = first_proj * (1.0 - t) + last_proj * t; // traj
-    vw::Vector3 L = P + delta * along; // along track point
-    vw::Vector3 C = P + delta * across; // across track point
+    vw::Vector3 L = P + delta * proj_along; // along track point
+    vw::Vector3 C = P + delta * proj_across; // across track point
 
     // Convert to cartesian
     P = projToEcef(dem_georef, P);
@@ -568,15 +591,49 @@ void calcTrajectory(vw::cartography::GeoReference const& dem_georef,
     // Create the along track and across track vectors
     vw::Vector3 along = L - P;
     vw::Vector3 across = C - P;
+
+    if (have_ground_pos) {
+      // The camera won't look straight down, but constrained by ground positions
+      vw::Vector2 ground_pix = opt.first_ground_pos * (1.0 - t) + opt.last_ground_pos * t;
+
+      // Find the projected position along the ground path
+      vw::Vector3 ground_proj_pos;
+      subvector(ground_proj_pos, 0, 2) = dem_georef.pixel_to_point(ground_pix); // x and y
+      auto val = interp_dem(ground_pix[0], ground_pix[1]);
+      if (!is_valid(val))
+        vw::vw_throw(vw::ArgumentErr() 
+          << "Could not interpolate into the DEM along the ground path.\n");
+      ground_proj_pos[2] = val.child(); // z
+
+      // Convert the ground point to ECEF
+      vw::Vector3 G = projToEcef(dem_georef, ground_proj_pos);
+
+      // Find the ground direction
+      vw::Vector3 ground_dir = G - P;
+      if (norm_2(ground_dir) < 1e-6)
+        vw::vw_throw(vw::ArgumentErr()
+          << "The ground position is too close to the camera.\n");
+
+      // Normalize      
+      along = along / norm_2(along);
+      ground_dir = ground_dir / norm_2(ground_dir);
+
+      // Adjust the along-track direction to make it perpendicular to ground dir
+      along = along - dot_prod(ground_dir, along) * ground_dir;
+
+      // Find 'across' as y direction, given that 'along' is x, and 'ground_dir' is z
+      across = -vw::math::cross_prod(along, ground_dir);
+    }
+
     // Normalize
     along = along / norm_2(along);
     across = across / norm_2(across);
-    // ensure that across is perpendicular to along
+    // Ensure that across is perpendicular to along
     across = across - dot_prod(along, across) * along;
     // Normalize again
     across = across / norm_2(across);
 
-    // Find the down vector
+    // Find the z vector. It goes towards the planet
     vw::Vector3 down = vw::math::cross_prod(along, across);
     down = down / norm_2(down);
 
@@ -679,7 +736,7 @@ void genImages(Options const& opt,
       else
         image_names[i] = genPrefix(opt, i) + ".tif";
 
-       std::cout << "Writing: " << image_names[i] << std::endl;
+      vw::vw_out() << "Writing: " << image_names[i] << std::endl;
     }
 
   // Create interpolated image with bicubic interpolation with invalid pixel 
@@ -746,7 +803,6 @@ void genImages(Options const& opt,
         vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
         vw::Vector2 ortho_pix = ortho_georef.lonlat_to_pixel(vw::Vector2(llh[0], llh[1]));
         image(col, row) = interp_ortho(ortho_pix[0], ortho_pix[1]);
-        image(col, row).validate();
       }
 
       tpc.report_incremental_progress(inc_amount);
@@ -796,15 +852,15 @@ int main(int argc, char *argv[]) {
       std::vector<vw::Vector3> trajectory(opt.num_cameras);
       // vector of rot matrices
       std::vector<vw::Matrix3x3> cam2world(opt.num_cameras);
-      calcTrajectory(dem_georef, opt.first, opt.last, opt.num_cameras, 
+      calcTrajectory(opt, dem_georef, dem,
         trajectory, cam2world);
       // Generate cameras
       genCameras(opt, trajectory, cam2world, cam_names, cams);
     }
 
     // Generate images
-    genImages(opt, external_cameras, cam_names, cams, dem_georef, dem, ortho_georef, ortho,
-      ortho_nodata_val);
+    genImages(opt, external_cameras, cam_names, cams, dem_georef, dem, 
+      ortho_georef, ortho, ortho_nodata_val);
 
   } ASP_STANDARD_CATCHES;
 
