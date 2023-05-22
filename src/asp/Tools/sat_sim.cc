@@ -633,7 +633,7 @@ void calcTrajectory(Options const& opt,
     // Normalize again
     across = across / norm_2(across);
 
-    // Find the z vector. It goes towards the planet
+    // Find the z vector as perpendicular to both along and across
     vw::Vector3 down = vw::math::cross_prod(along, across);
     down = down / norm_2(down);
 
