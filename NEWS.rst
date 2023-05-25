@@ -14,6 +14,8 @@ New tools:
     (:numref:`pleiades_neo`).
   * Added ``sat_sim`` (:numref:`sat_sim`), a tool to create simulated
     satellite images and/or pinhole camera models.
+  * Added ``sfm_view`` (:numref:`sfm_view`), a tool for viewing orbital 
+    Pinhole camera models. It is a modification of the ``umve`` program.
    
 csm:
   * Added initial support for using CSM camera models with MSL 

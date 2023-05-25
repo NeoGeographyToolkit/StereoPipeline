@@ -86,6 +86,13 @@ lines of::
 This will result in the camera roll and pitch changing gradually to keep the
 desired view.
 
+.. figure:: ../images/sfm_view.png
+   :name: sat_sim_illustration
+   :alt:  Illustration of ``sat_sim``
+
+   An example of several generated cameras looking at the same ground point. 
+   Plotted with ``sfm_view`` (:numref:`sfm_view`).
+
 Command-line options
 ^^^^^^^^^^^^^^^^^^^^
 
