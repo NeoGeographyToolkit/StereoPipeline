@@ -21,6 +21,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/CameraTransforms.h>
 #include <asp/Sessions/StereoSession.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Geometry/baseUtils.h>
@@ -383,6 +384,8 @@ struct Options : vw::GdalWriteOptions {
   int num_cameras;
   vw::Vector2 optical_center, image_size, first_ground_pos, last_ground_pos;
   double focal_length, dem_height_error_tol;
+  double roll, pitch, yaw;
+  bool no_images;
   Options() {}
 };
 
@@ -425,6 +428,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("image-size", po::value(&opt.image_size)->default_value(vw::Vector2(NaN, NaN),
       "NaN NaN"),
       "Output camera image size (width and height).")
+    ("roll", po::value(&opt.roll)->default_value(NaN),
+    "Camera roll angle, in degrees. See the documentation for more details.")
+    ("pitch", po::value(&opt.pitch)->default_value(NaN),
+    "Camera pitch angle, in degrees.")
+    ("yaw", po::value(&opt.yaw)->default_value(NaN),
+    "Camera yaw angle, in degrees.")
+    ("no-images", po::bool_switch(&opt.no_images)->default_value(false)->implicit_value(true),
+     "Create only cameras, and no images. Cannot be used with --camera-list.")
     ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
      "When intersecting a ray with a DEM, use this as the height error tolerance "
      "(measured in meters). It is expected that the default will be always good enough.")
@@ -450,6 +461,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (std::isnan(opt.image_size[0]) || std::isnan(opt.image_size[1]))
     vw::vw_throw(vw::ArgumentErr() << "The image size must be specified.\n");
 
+  if (opt.camera_list != "" && opt.no_images)
+    vw::vw_throw(vw::ArgumentErr() << "The --camera-list and --no-images options "
+      "cannot be used together.\n");
+
   if (opt.camera_list == "") {
     if (opt.first == vw::Vector3() || opt.last == vw::Vector3())
       vw::vw_throw(vw::ArgumentErr() << "The first and last camera positions must be "
@@ -464,11 +479,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     if (std::isnan(opt.optical_center[0]) || std::isnan(opt.optical_center[1]))
       vw::vw_throw(vw::ArgumentErr() << "The optical center must be specified.\n");
 
-      // Either both first and last ground positions are specified, or none.
+    // Either both first and last ground positions are specified, or none.
     if (std::isnan(norm_2(opt.first_ground_pos)) != 
       std::isnan(norm_2(opt.last_ground_pos)))
       vw::vw_throw(vw::ArgumentErr() << "Either both first and last ground positions "
         "must be specified, or none.\n");
+
+    // Check that either all of roll, pitch, and yaw are specified, or none.
+    int ans = int(std::isnan(opt.roll)) +
+              int(std::isnan(opt.pitch)) +
+              int(std::isnan(opt.yaw));
+    if (ans != 0 && ans != 3)
+      vw::vw_throw(vw::ArgumentErr() << "Either all of roll, pitch, and yaw must be "
+        "specified, or none.\n");
   }
 
   // Create the output directory based on the output prefix
@@ -645,6 +668,12 @@ void calcTrajectory(Options const& opt,
       cam2world[i](row, 0) = along[row];
       cam2world[i](row, 1) = across[row];
       cam2world[i](row, 2) = down[row];
+    }
+
+    // if to apply a roll, pitch, yaw rotation
+    if (!std::isnan(opt.roll) && !std::isnan(opt.pitch) && !std::isnan(opt.yaw)) {
+      vw::Matrix3x3 R = asp::rollPitchYaw(opt.roll, opt.pitch, opt.yaw);
+      cam2world[i] = cam2world[i] * R;
     }
 
 #if 0
@@ -859,8 +888,9 @@ int main(int argc, char *argv[]) {
     }
 
     // Generate images
-    genImages(opt, external_cameras, cam_names, cams, dem_georef, dem, 
-      ortho_georef, ortho, ortho_nodata_val);
+    if (!opt.no_images)
+      genImages(opt, external_cameras, cam_names, cams, dem_georef, dem, 
+        ortho_georef, ortho, ortho_nodata_val);
 
   } ASP_STANDARD_CATCHES;
 

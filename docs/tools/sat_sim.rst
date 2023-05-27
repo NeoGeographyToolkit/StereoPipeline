@@ -17,7 +17,8 @@ The images are created with bicubic interpolation in the ortho image and are
 saved with float pixels. Missing pixels will have nodata values.
 
 If the cameras are created from scratch, the camera view can follow a custom
-path on the surface (:numref:`sat_sim_custom_path`).
+path on the surface (:numref:`sat_sim_custom_path`), or the cameras can have a
+fixed orientation (:numref:`sat_sim_roll_pitch_yaw`).
 
 Example (use given cameras)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -58,6 +59,8 @@ Example (generate nadir-pointing cameras)
 
 The camera orientations are with the *x*, *y* and *z* axes pointing along
 satellite track, across track, and towards the planet, respectively.
+See :numref:`sat_sim_roll_pitch_yaw` for how to apply a custom rotation
+to the cameras.
 
 The focal length and camera elevations above the datum should be chosen
 carefully. In this example, the camera is 450,000 m above the ground and the
@@ -92,6 +95,35 @@ desired view.
 
    An example of several generated cameras looking at the same ground point. 
    Plotted with ``sfm_view`` (:numref:`sfm_view`).
+
+.. _sat_sim_roll_pitch_yaw:
+
+Camera roll, pitch and yaw
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When custom cameras are created (not read from disk), and unless the
+``--first-ground-pos`` and ``--last-ground-pos`` options are specified, the
+cameras will look straight down (perpendicular to along and across track
+directions). 
+
+If desired to have a custom orientation, use the ``--roll``,
+``--pitch`` and ``--yaw`` options (measured in degrees, all three must be
+specified). These are, respectively, the rotations around the *x*, *y* and *z*
+camera axes. 
+
+For example, a pitch of 45 degrees will result in the camera
+rotating by 45 degrees relative to the nadir direction to see further ahead
+(along track). If a non-zero yaw is set, the camera will rotate around the view axis.
+
+All these angles are equal to zero for the default orientation. The rotations are
+applied to the camera body in the roll, pitch, and yaw order. So, the combined
+rotation matrix is::
+
+    R = yawRot * pitchRot * rollRot
+
+(the application is from right to left). The camera-to-ECEF rotation is produced
+by further multiplying this matrix on the left by the rotation from the satellite
+body to ECEF.
 
 Command-line options
 ^^^^^^^^^^^^^^^^^^^^
@@ -144,6 +176,20 @@ Command-line options
 --image-size <int, int>
     Output camera image size (width and height).
 
+--roll <double>
+    Camera roll angle, in degrees. See :numref:`sat_sim_roll_pitch_yaw` for
+    details.
+
+--pitch <double>
+    Camera pitch angle, in degrees. See :numref:`sat_sim_roll_pitch_yaw` for
+    details.
+
+--yaw <double>
+    Camera yaw angle, in degrees. See :numref:`sat_sim_roll_pitch_yaw` for  details.
+
+--no-images
+    Create only cameras, and no images. Cannot be used with ``--camera-list``.
+    
 --dem-height-error-tol <float (default: 0.001)>
     When intersecting a ray with a DEM, use this as the height error tolerance
     (measured in meters). It is expected that the default will be always good
