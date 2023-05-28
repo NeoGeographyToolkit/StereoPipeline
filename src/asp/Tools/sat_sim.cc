@@ -27,354 +27,9 @@
 #include <vw/Geometry/baseUtils.h>
 #include <vw/Cartography/CameraBBox.h>
 
-#if 0
-// Temporary debugging code. 
-// TODO(oalexan1): Remove this in due time. It is so much more convenient to debug
-// here, however, compared to the code in CameraBBox.h, which requires recompilation
-// of a large number of files.
-#ifndef __VW_CARTOGRAPHY_CAMERABBOX2_H__
-#define __VW_CARTOGRAPHY_CAMERABBOX2_H__
-
-/// \file CameraBBox.h Contains bounding box, pixel intersection, and misc utilities.
-
-#include <vw/config.h>
-#if defined(VW_HAVE_PKG_CAMERA)
-
-#include <vw/Image/ImageViewRef.h>
-#include <vw/Image/Algorithms.h>
-#include <vw/Image/Interpolation.h>
-#include <vw/Math/LevenbergMarquardt.h>
-#include <vw/Math/BresenhamLine.h>
-#include <vw/Camera/CameraModel.h>
-#include <vw/Cartography/PointImageManipulation.h>
-#include <vw/Cartography/GeoReference.h>
-
-#include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
-
-namespace fs = boost::filesystem;
-
-// TODO(oalexan1): Move most of this code to .cc. Use it all with
-// ImageViewRef<float> for the DEM.
-namespace vw { namespace cartography2 {
-
-  using namespace vw::cartography;
-
-  // Define an LMA model to solve for a DEM intersecting a ray. The
-  // variable of optimization is position on the ray. The cost
-  // function is difference between datum height and DEM height at
-  // current point on the ray.
-  template <class DEMImageT>
-  class RayDEMIntersectionLMA2:
-    public math::LeastSquaresModelBase<RayDEMIntersectionLMA2<DEMImageT>> {
-
-    // TODO: Why does this use EdgeExtension if Helper() restricts access to the bounds?
-    InterpolationView<EdgeExtensionView<DEMImageT, ConstantEdgeExtension>,
-                      BilinearInterpolation> m_dem;
-    GeoReference const& m_georef; // use an alias, as making a copy will likely leak memory
-    Vector3      m_camera_ctr;
-    Vector3      m_camera_vec;
-    bool         m_treat_nodata_as_zero;
-
-    /// Provide safe interaction with DEMs that are scalar
-    /// - If m_dem(x,y) is in bounds, return the interpolated value.
-    /// - Otherwise return 0 or big_val()
-    template <class PixelT>
-    typename boost::enable_if<IsScalar<PixelT>, double>::type
-    inline Helper(double x, double y) const {
-      if ((0 <= x) && (x <= m_dem.cols() - 1) && // for interpolation
-           (0 <= y) && (y <= m_dem.rows() - 1)){
-        PixelT val = m_dem(x, y);
-        if (is_valid(val)) {
-        return val;
-        }
-      }
-      if (m_treat_nodata_as_zero)
-        return 0;
-
-      return big_val();
-    }
-
-    /// Provide safe interaction with DEMs that are compound
-    template <class PixelT>
-    typename boost::enable_if<IsCompound<PixelT>, double>::type
-    inline Helper(double x, double y) const {
-      if ((0 <= x) && (x <= m_dem.cols() - 1) && // for interpolation
-           (0 <= y) && (y <= m_dem.rows() - 1)){
-        PixelT val = m_dem(x, y);
-        if (is_valid(val))  {
-          return val[0];
-        }
-      }
-      if (m_treat_nodata_as_zero) {
-        return 0;
-      }
-
-      return big_val();
-    }
-
-  public:
-    typedef Vector<double, 1> result_type;
-    typedef Vector<double, 1> domain_type;
-    typedef Matrix<double>    jacobian_type; ///< Jacobian form. Auto.
-
-    /// Return a very large error to penalize locations that fall off the edge of the DEM.
-    inline double big_val() const {
-      // Don't make this too big as in the LMA algorithm it may get
-      // squared and may cause overflow.
-      return 1.0e+50;
-    }
-
-    /// Constructor
-    RayDEMIntersectionLMA2(ImageViewBase<DEMImageT> const& dem_image,
-                          GeoReference const& georef,
-                          Vector3 const& camera_ctr,
-                          Vector3 const& camera_vec,
-                          bool treat_nodata_as_zero):
-      m_dem(interpolate(dem_image)), // create an interpolation object
-      m_georef(georef),
-      m_camera_ctr(camera_ctr), m_camera_vec(camera_vec),
-      m_treat_nodata_as_zero(treat_nodata_as_zero){}
-    
-    /// Evaluator. See description above.
-    inline result_type operator()(domain_type const& len) const {
-      // The proposed intersection point
-      Vector3 xyz = m_camera_ctr + len[0]*m_camera_vec;
-
-      // Convert to geodetic coordinates, then to DEM pixel coordinates
-      Vector3 llh = m_georef.datum().cartesian_to_geodetic(xyz);
-      Vector2 pix = m_georef.lonlat_to_pixel(Vector2(llh.x(), llh.y()));
-
-      // Return a measure of the elevation difference between the DEM and the guess
-      // at its current location.
-      result_type result;
-      result[0] = Helper<typename DEMImageT::pixel_type>(pix.x(), pix.y()) - llh[2];
-      return result;
-    }
-  };
-
-  // The first step in finding where a ray intersects the DEM. Find a position
-  // on the ray where one is at least above the DEM. Do that by wiggling the
-  // initial guess along the ray.
-  template<class ModelT>
-  void findInitPositionAboveDEM(ModelT & model,
-                                Vector3 const& camera_ctr,
-                                Vector3 const& xyz,
-                                // outputs
-                                bool & has_intersection,
-                                Vector<double, 1> & len) {
-
-    Vector<double, 1> len0;
-    len0[0] = norm_2(xyz - camera_ctr);
-
-    // Initialize the outputs
-    len = len0;
-    has_intersection = false;
-
-    // If the ray intersects the datum at a point which does not
-    // correspond to a valid location in the DEM, wiggle that point
-    // along the ray until hopefully it does.
-    const double radius     = norm_2(xyz); // Radius from XZY coordinate center
-    const int    ITER_LIMIT = 10; // There are two solver attempts per iteration
-    const double small      = radius*0.02/(1 << ITER_LIMIT); // Wiggle
-    for (int i = 0; i <= ITER_LIMIT; i++) {
-
-      // Gradually expand delta magnitude until on final iteration it is == radius*0.02.
-      // We flip between positive and negative values of ever-increasing magnitude.
-      double delta = small*(1 << i);
-      if (i == 0)
-        delta = 0.0; // In first try, start at the initial guess
-
-      for (int k = -1; k <= 1; k += 2) { // For k==-1, k==1
-        // Use below -k because we want len to increase first time
-        len[0] = len0[0] - k*delta; // Ray guess length +/- 2% planetary radius
-        //  std::cout << "len is " << len[0] << "\n";
-
-        // Use our model to compute the height diff at this length
-        Vector<double, 1> height_diff = model(len);
-        // TODO: This is a very lenient threshold. big_val()/10.0 == 1.0e+49.
-        // The effect of this is to stop this loop when we get over valid DEM terrain.
-        if (std::abs(height_diff[0]) < (model.big_val()/10.0)) {
-          has_intersection = true;
-          break;
-        }
-      } // End k loop
-
-      if (has_intersection) {
-        break;
-      }
-    } // End i loop
-  } // End function
-
-  // A very customized secant method function, for this specific application.
-  // Make several attempts to improve robustness. Return the solved length along
-  // the ray (which is also passed in as an initial guess) and the
-  // has_intersection flag.
-  template <class ModelT>
-  void secantMethod(ModelT & model, Vector3 const& camera_ctr, 
-    Vector3 const& camera_vec, double height_error_tol,
-    // outputs
-    bool & has_intersection,  Vector<double, 1> & len) {
-    
-    // Initialize the output
-    has_intersection = false;
-
-    // Do several attempts with different starting values for x1. The value of j
-    // will control the step size.
-    int num_j = 100; // will use this variable in two places below
-    Vector<double, 1> len1, len2; 
-
-    for (int j = 0; j <= num_j; j++) {
-
-      double x0 = len[0];
-      double f0 = model(len)[0];
-    
-      if (std::abs(f0) < height_error_tol) {
-        // As a robustness check, return early if we are already close enough.
-        // Otherwise may end up with a denominator close to 0 below.
-        len[0] = x0;
-        has_intersection = true;
-        return; // Done
-      }
-
-      double x1 = len[0] + 10.0 * (j + 1); 
-      len1[0] = x1;
-      double f1 = model(len1)[0];
-
-      if (std::abs(f0 - f1) < 1e-6 && j < num_j)
-        continue; // Try next j, as the f values are too close
-
-      // Do 100 iterations of secant method
-      for (int i = 0; i < 100; i++) {
-        double x2 = x1 - f1 * (x1 - x0) / (f1 - f0);
-        len2[0] = x2;
-        double f2 = model(len2)[0];
-        if (std::abs(f2) < height_error_tol) {
-          x0 = x2;
-          f0 = f2;
-          break;
-        }
-        x0 = x1; f0 = f1;
-        x1 = x2; f1 = f2;
-      }
-
-      if (std::abs(f0) < height_error_tol) {
-        len[0] = x0;
-        has_intersection = true;
-        return; // Done
-      } else {
-        has_intersection = false;
-        // Try again
-      }
-    }
-
-    return;
-  }
-
-  // Intersect the ray going from the given camera pixel with a DEM.
-  // The return value is a Cartesian point. If the ray goes through a
-  // hole in the DEM where there is no data, we return no-intersection
-  // or intersection with the datum, depending on whether the variable
-  // treat_nodata_as_zero is false or true.
-  template <class DEMImageT>
-  Vector3 camera_pixel_to_dem_xyz2(Vector3 const& camera_ctr, Vector3 const& camera_vec,
-                                  ImageViewBase<DEMImageT> const& dem_image,
-                                  GeoReference const& georef,
-                                  bool treat_nodata_as_zero,
-                                  bool & has_intersection,
-                                  double height_error_tol = 1e-1,  // error in DEM height
-                                  double max_abs_tol      = 1e-14, // abs cost fun change b/w iters
-                                  double max_rel_tol      = 1e-14,
-                                  int num_max_iter        = 100,
-                                  Vector3 xyz_guess       = Vector3(),
-                                  double height_guess     = 0.0) {
-    
-    // This is a very fragile function and things can easily go wrong. 
-    try {
-      has_intersection = false;
-      RayDEMIntersectionLMA2<DEMImageT> model(dem_image, georef, camera_ctr,
-                                             camera_vec, treat_nodata_as_zero);
-
-      Vector3 xyz;
-      if (xyz_guess == Vector3()){ // If no guess provided
-        // Intersect the ray with the datum, this is a good initial guess.
-        xyz = datum_intersection(georef.datum().semi_major_axis() + height_guess,
-                                 georef.datum().semi_minor_axis() + height_guess,
-                                 camera_ctr, camera_vec);
-
-        if (xyz == Vector3()) { // If we failed to intersect the datum, give up.
-          has_intersection = false;
-          return Vector3();
-        }
-      } else { // User provided guess
-        xyz = xyz_guess;
-      }
-
-      // Now wiggle xyz along the ray until it is somewhere above the DEM.
-      // Will return not xyz, but the 'len' along the ray for it.
-      Vector<double, 1> len;
-      findInitPositionAboveDEM(model, camera_ctr, xyz, 
-        // outputs
-        has_intersection, len);
-
-      // Call the secant method function to find the intersection with the
-      // ground. Return has_intersection and len. This is 10x faster and more
-      // robust than the Levenberg-Marquardt method used below (which used to be
-      // the original method).
-      Vector<double, 1> len_secant = len; // will change
-      secantMethod(model, camera_ctr, camera_vec, height_error_tol,
-                   has_intersection, len_secant);
-      if (has_intersection) {
-        xyz = camera_ctr +  len_secant[0] * camera_vec;
-        return xyz;
-      }
-
-      // If no luck, fallback to using Levenberg-Marquardt, with the original
-      // value of len.
-      int status = 0;
-      Vector<double, 1> observation; observation[0] = 0;
-      len = math::levenberg_marquardt(model, len, observation, status,
-        max_abs_tol, max_rel_tol, num_max_iter);
-      Vector<double, 1> dem_height = model(len);
-      //std::cout << "dem_height is " << dem_height[0] << "\n";
-
-#if 0
-      // We don't really care of the status of the minimization algorithm, since
-      // we use it as a root solver. The good test is whether the height difference
-      // is small enough. This test can fail even if we are close enough to the root.
-      if (status < 0) {
-        has_intersection = false;
-        return Vector3();
-      }
-#endif
-
-      if (std::abs(dem_height[0]) <= height_error_tol) {
-          has_intersection = true;
-          xyz = camera_ctr + len[0]*camera_vec;
-          return xyz;
-      } else {
-        // Failed
-        has_intersection = false;
-        return Vector3();
-      }
-    }catch(...){
-      has_intersection = false;
-    }
-    return Vector3();
-  }
- 
-} // namespace cartography
-} // namespace vw
-
-#endif // VW_HAVE_PKG_CAMERA
-
-#endif // __VW_CARTOGRAPHY_CAMERABBOX_H__
-#endif
-
 using namespace vw::cartography;
 using namespace vw::math;
 using namespace vw::geometry;
-
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -535,6 +190,238 @@ vw::Vector3 projToEcef(vw::cartography::GeoReference const& georef,
   return ecef;
 }
 
+// Compute point on trajectory and along and across track normalized vectors in
+// ECEF coordinates, given the first and last proj points and a value t giving
+// the position along this line
+void calcTrajPtAlongAcross(vw::Vector3 const& first_proj,
+                           vw::Vector3 const& last_proj,
+                           vw::cartography::GeoReference const& dem_georef,
+                           double t,
+                           double delta,
+                           vw::Vector3 const& proj_along,
+                           vw::Vector3 const& proj_across,
+                           // Outputs
+                           vw::Vector3 & P,
+                           vw::Vector3 & along,
+                           vw::Vector3 & across) {
+
+    P = first_proj * (1.0 - t) + last_proj * t; // traj
+
+    // Use centered diffrerence to compute the along and across track points
+    // This achieves higher quality results
+
+    vw::Vector3 L1 = P - delta * proj_along; // along track point
+    vw::Vector3 C1 = P - delta * proj_across; // across track point
+    vw::Vector3 L2 = P + delta * proj_along; // along track point
+    vw::Vector3 C2 = P + delta * proj_across; // across track point
+
+    // Convert to cartesian
+    P = projToEcef(dem_georef, P);
+    L1 = projToEcef(dem_georef, L1);
+    C1 = projToEcef(dem_georef, C1);
+    L2 = projToEcef(dem_georef, L2);
+    C2 = projToEcef(dem_georef, C2);
+
+    // Create the along track and across track vectors
+    along = L2 - L1;
+    across = C2 - C1;
+
+    // Normalize
+    along = along/norm_2(along);
+    across = across/norm_2(across);
+
+    // Ensure that across is perpendicular to along
+    across = across - dot_prod(along, across) * along;
+
+    // Normalize again
+    across = across / norm_2(across);
+}
+
+// Assemble the cam2world matrix
+void assembleCam2WorldMatrix(vw::Vector3 const& along, 
+                             vw::Vector3 const& across, 
+                             vw::Vector3 const& down,
+                             // Output
+                             vw::Matrix3x3 & cam2world) {
+
+  // The camera to world rotation has these vectors as the columns
+  for (int row = 0; row < 3; row++) {
+    cam2world(row, 0) = along[row];
+    cam2world(row, 1) = across[row];
+    cam2world(row, 2) = down[row];
+  }
+ return;
+}
+
+// Given an orbit given by the first and last camera center positions in
+// projected coordinates, a real number t describing the position along this
+// line, roll, pitch, and yaw for the camera (relative to nadir), find the z
+// direction for the camera (camera look), intersect it with the ground, find
+// the DEM pixel location, and return the distance from this location to a given
+// pixel location.
+double demPixelErr(Options const& opt,
+                   vw::cartography::GeoReference const& dem_georef,
+                   vw::ImageViewRef<vw::PixelMask<float>> dem,
+                   vw::Vector3 const& first_proj,
+                   vw::Vector3 const& last_proj,
+                   vw::Vector3 const& proj_along,
+                   vw::Vector3 const& proj_across,
+                   double t,
+                   double delta, // a small number to move along track
+                   double roll, double pitch, double yaw,
+                   vw::Vector2 const& pixel_loc) {
+
+    // Calc position along the trajectory and normalized along and across vectors
+    // in ECEF
+    vw::Vector3 P, along, across;
+    calcTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
+                          proj_along, proj_across, 
+                          // Outputs
+                          P, along, across);
+
+    // Find the z vector as perpendicular to both along and across
+    vw::Vector3 down = vw::math::cross_prod(along, across);
+    down = down / norm_2(down);
+
+    // The camera to world rotation has these vectors as the columns
+    vw::Matrix3x3 cam2world;
+    assembleCam2WorldMatrix(along, across, down, cam2world);
+    std::cout << "cam2world = " << cam2world << std::endl;
+
+    // Apply the roll-pitch-yaw rotation
+    vw::Matrix3x3 R = asp::rollPitchYaw(roll, pitch, yaw);
+    std::cout << "R = " << R << std::endl;
+
+    cam2world = cam2world * R;
+
+    // Ray from camera to ground going through image center
+    vw::Vector3 cam_dir = cam2world * vw::Vector3(0, 0, 1);
+
+    // Find the intersection of this ray with the ground
+    bool treat_nodata_as_zero = false;
+    bool has_intersection = false;
+    double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
+    double max_rel_tol = max_abs_tol;
+    int num_max_iter = 100;
+    vw::Vector3 xyz;
+    xyz = vw::cartography::camera_pixel_to_dem_xyz
+      (P, cam_dir, dem,
+        dem_georef, treat_nodata_as_zero,
+        has_intersection, opt.dem_height_error_tol, 
+        max_abs_tol, max_rel_tol, 
+        num_max_iter, xyz);
+    std::cout << "xyz = " << xyz << std::endl;
+
+    // Convert to llh
+    vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
+    std::cout << "llh = " << llh << std::endl;
+
+    // Find pixel location 
+    vw::Vector2 pixel_loc2 = dem_georef.lonlat_to_pixel
+      (subvector(llh, 0, 2));
+    std::cout << "pixel_loc2 = " << pixel_loc2 << std::endl;
+    std::cout << "pixel_loc = " << pixel_loc << std::endl;
+
+    // Return norm of difference to input pixel location
+    return norm_2(pixel_loc - pixel_loc2);
+}
+
+// A model with the error given by demPixelErr(). The variable will be t,
+// which will give the position along the trajectory.
+class RayDemPixelLMA : public vw::math::LeastSquaresModelBase<RayDemPixelLMA> {
+
+  Options const& m_opt;
+  vw::cartography::GeoReference const& m_dem_georef;
+  vw::ImageViewRef<vw::PixelMask<float>> m_dem;
+  vw::Vector3 m_first_proj;
+  vw::Vector3 m_last_proj;
+  vw::Vector3 m_proj_along;
+  vw::Vector3 m_proj_across;
+  double m_delta;
+  double m_roll, m_pitch, m_yaw;
+  vw::Vector2 m_pixel_loc;
+
+public:
+  typedef vw::Vector<double, 1> result_type;
+  typedef vw::Vector<double, 1> domain_type;
+  typedef vw::Matrix<double>    jacobian_type; ///< Jacobian form. Auto.
+
+  // Return a very large error to penalize locations that fall off the edge of the DEM.
+  inline double big_val() const {
+    // Don't make this too big as in the LMA algorithm it may get
+    // squared and may cause overflow.
+    return 1.0e+50;
+  }
+
+  /// Constructor
+  RayDemPixelLMA(Options const& opt,
+                 vw::cartography::GeoReference const& dem_georef,
+                 vw::ImageViewRef<vw::PixelMask<float>> dem,
+                 vw::Vector3 const& first_proj,
+                 vw::Vector3 const& last_proj,
+                 vw::Vector3 const& proj_along,
+                 vw::Vector3 const& proj_across,
+                 double delta, // a small number to move along track
+                 double roll, double pitch, double yaw,
+                 vw::Vector2 const& pixel_loc):
+    m_opt(opt), m_dem_georef(dem_georef), m_dem(dem),
+    m_first_proj(first_proj), m_last_proj(last_proj),
+    m_proj_along(proj_along), m_proj_across(proj_across),
+    m_delta(delta), m_roll(roll), m_pitch(pitch), m_yaw(yaw),
+    m_pixel_loc(pixel_loc){}
+
+  // Evaluator operator. The goal is described earlier.
+  inline result_type operator()(domain_type const& t) const {
+
+    double err = demPixelErr(m_opt, m_dem_georef, m_dem,
+                             m_first_proj, m_last_proj,
+                             m_proj_along, m_proj_across,
+                             t[0], m_delta, m_roll, m_pitch, m_yaw,
+                             m_pixel_loc);
+
+    result_type result;
+    result[0] = err;
+    return result;
+  }
+};
+
+// Find the location of camera center along the trajectory, in projected
+// coordinates, so that the ray from the camera center to the ground goes
+// closest to given ground point.
+void findBestProjCamLocation
+  (Options const& opt,
+   vw::cartography::GeoReference const& dem_georef,
+   vw::ImageViewRef<vw::PixelMask<float>> dem,
+   vw::Vector3 const& first_proj, vw::Vector3 const& last_proj,
+   vw::Vector3 const& proj_along, vw::Vector3 const& proj_across,
+   double delta, double roll, double pitch, double yaw,
+   vw::Vector2 const& pixel_loc,
+   // Outputs
+   vw::Vector3 & best_proj) {
+
+  // Set up the LMA problem
+  RayDemPixelLMA model(opt, dem_georef, dem, first_proj, last_proj,
+                       proj_along, proj_across, delta, roll, pitch, yaw,
+                       pixel_loc);
+
+  // Solve for the best location
+  int status = -1;
+  double max_abs_tol = 1e-14;
+  double max_rel_tol = max_abs_tol;
+  int num_max_iter = 100;
+  vw::Vector<double, 1> observation; 
+  observation[0] = 0; // because we want to minimize the error
+
+  Vector<double, 1> len; len[0] = 0; // initial guess 
+    len = vw::math::levenberg_marquardt(model, len, observation, status, 
+      max_abs_tol, max_rel_tol, num_max_iter);
+
+  std::cout << "Status is " << status << std::endl;
+  std::cout << "Len is " << len << std::endl;
+  std::cout << "Error is " << model(len) << std::endl;
+  std::cout << "Must find the best proj!" << std::endl;
+ }
+
 // A function that will take as input the endpoints and will compute the
 // satellite trajectory and along track/across track/down directions in ECEF,
 // which will give the camera to world rotation matrix.
@@ -589,31 +476,41 @@ void calcTrajectory(Options const& opt,
   vw::Vector3 proj_across = vw::math::cross_prod(proj_along, vw::Vector3(0, 0, 1));
   proj_across = proj_across / norm_2(proj_across);
 
+  // A small number to help convert directions from being in projected space to
+  // being in ECEF (the transform between these is nonlinear).
+  // Do not use a small value, as in ECEF these will be large numbers
+  // and we may have precision issues. The value 0.01 was tested well.
+  double delta = 0.01; // in meters
+
+  // Compute the dem pixel error
+  double t = 0;
+  double err = demPixelErr(opt, dem_georef, dem, first_proj,
+                           last_proj, proj_along, proj_across, t, delta,
+                           opt.roll, opt.pitch, opt.yaw, opt.first_ground_pos);
+  std::cout << "Dem pixel err1 is " << err << std::endl;
+
+  t = 1.0;
+  double err2 = demPixelErr(opt, dem_georef, dem, first_proj,
+                           last_proj, proj_along, proj_across, t, delta,
+                           opt.roll, opt.pitch, opt.yaw, opt.last_ground_pos);
+  std::cout << "Dem pixel err2 is " << err2 << std::endl;
+
   bool have_ground_pos = !std::isnan(norm_2(opt.first_ground_pos)) &&  
       !std::isnan(norm_2(opt.last_ground_pos));
 
   // Find the trajectory, as well as points in the along track and across track 
-  // directions in the projected space with a spacing of 0.1 m. Do not use
-  // a small spacing as in ECEF these will be large numbers and we may
-  // have precision issues.
-  double delta = 0.1; 
+  // directions in the projected space
   std::vector<vw::Vector3> along_track(opt.num_cameras), across_track(opt.num_cameras);
   trajectory.resize(opt.num_cameras);
   cam2world.resize(opt.num_cameras);
   for (int i = 0; i < opt.num_cameras; i++) {
     double t = double(i) / double(opt.num_cameras - 1);
-    vw::Vector3 P = first_proj * (1.0 - t) + last_proj * t; // traj
-    vw::Vector3 L = P + delta * proj_along; // along track point
-    vw::Vector3 C = P + delta * proj_across; // across track point
 
-    // Convert to cartesian
-    P = projToEcef(dem_georef, P);
-    L = projToEcef(dem_georef, L);
-    C = projToEcef(dem_georef, C);
-
-    // Create the along track and across track vectors
-    vw::Vector3 along = L - P;
-    vw::Vector3 across = C - P;
+    // Calc position along the trajectory and normalized along and across vectors
+    // in ECEF
+    vw::Vector3 P, along, across;
+    calcTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
+                          proj_along, proj_across, P, along, across);
 
     if (have_ground_pos) {
       // The camera won't look straight down, but constrained by ground positions
@@ -664,27 +561,13 @@ void calcTrajectory(Options const& opt,
     trajectory[i] = P;
 
     // The camera to world rotation has these vectors as the columns
-    for (int row = 0; row < 3; row++) {
-      cam2world[i](row, 0) = along[row];
-      cam2world[i](row, 1) = across[row];
-      cam2world[i](row, 2) = down[row];
-    }
+    assembleCam2WorldMatrix(along, across, down, cam2world[i]);
 
     // if to apply a roll, pitch, yaw rotation
     if (!std::isnan(opt.roll) && !std::isnan(opt.pitch) && !std::isnan(opt.yaw)) {
       vw::Matrix3x3 R = asp::rollPitchYaw(opt.roll, opt.pitch, opt.yaw);
       cam2world[i] = cam2world[i] * R;
     }
-
-#if 0
-    // Useful for debugging purposes
-    // Find the lon-lat from cartesian
-    vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(P);
-    // Find NED matrix
-    vw::Matrix3x3 ned = dem_georef.datum().lonlat_to_ned_matrix(subvector(llh, 0, 2));
-    //std::cout << "ned: " << ned << std::endl;
-#endif
-
   }
   return;
 }
@@ -802,14 +685,13 @@ void genImages(Options const& opt,
         vw::Vector3 cam_ctr = cams[i].camera_center(pix);
         vw::Vector3 cam_dir = cams[i].pixel_to_vector(pix);
 
-        // Intersect the ray going from the given camera pixel with a DEM.
+        // Intersect the ray going from the given camera pixel with a DEM
+        // Use xyz as initial guess and overwrite it with the new value
         bool treat_nodata_as_zero = false;
         bool has_intersection = false;
         double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
         double max_rel_tol = max_abs_tol;
         int num_max_iter = 100;
-
-        // Find xyz, and use it for the next guess
         xyz = vw::cartography::camera_pixel_to_dem_xyz
           (cam_ctr, cam_dir, dem,
            dem_georef, treat_nodata_as_zero,
