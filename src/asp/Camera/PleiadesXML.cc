@@ -683,18 +683,18 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
   // This is a persistent problem with Pleiades NEOdata. Try to fix it.
   for (int attempt = 0; attempt < 4; attempt++) {
     if (velocity_start_time > first_line_time) {
-      std::cout << "Warning: The first tabulated velocity time is "
+      vw_out()  << "Warning: The first tabulated velocity time is "
                 << "after the first line time. Will do linear extrapolation.\n";
       if (attempt > 0)
-        std::cout << "This is a repeated attempt.\n";
+        vw_out() << "This is a repeated attempt.\n";
       extrapolateAtStartTime(velocity_delta_t, m_velocities);
     }
 
     if (velocity_stop_time < last_line_time) {
-      std::cout << "Warning: The last tabulated velocity time is before "
+      vw_out() << "Warning: The last tabulated velocity time is before "
                 << "the last line time. Will do linear extrapolation.\n";
       if (attempt > 0)
-        std::cout << "This is a repeated attempt.\n";
+        vw_out()  << "This is a repeated attempt.\n";
       extrapolateAtEndTime(velocity_delta_t, m_velocities);
     }
 
@@ -757,12 +757,12 @@ void PleiadesXML::setup_pose_func
   // This is a persistent problem with the Pleiades NEO data. Try to fix it.
   for (int attempt = 0; attempt < 4; attempt++) {
     if (pose_start_time > first_line_time) {
-      std::cout << "Warning: The first tabulated quaternion time is "
+      vw_out()  << "Warning: The first tabulated quaternion time is "
                 << "after the first line time. Will do linear extrapolation.\n";
       extrapolateAtStartTime(pose_delta_t, m_poses);
     }
     if (pose_stop_time < last_line_time) {
-      std::cout << "Warning: The last tabulated quaternion time is before "
+      vw_out()  << "Warning: The last tabulated quaternion time is before "
                 << "the last line time. Will do linear extrapolation.\n";
       extrapolateAtEndTime(pose_delta_t, m_poses);
     }

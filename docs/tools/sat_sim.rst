@@ -172,8 +172,8 @@ in turn will be used to find the camera positions in orbit.
    :alt:  sat_sim_illustration_nadir_off_nadir
    
    Illustration of ``sat_sim`` creating two sets of cameras, with different 
-   orientations for each, with both sets looking at the same ground path.
-   An invocation of ``sat_sim`` is needed for each set. 
+   fixed orientations for each, with both sets looking at the same ground path.
+   A separate invocation of ``sat_sim`` is needed for each set. 
 
 Command-line options
 ^^^^^^^^^^^^^^^^^^^^

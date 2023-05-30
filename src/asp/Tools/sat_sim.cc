@@ -338,13 +338,6 @@ public:
   typedef vw::Vector<double, 1> domain_type;
   typedef vw::Matrix<double>    jacobian_type; ///< Jacobian form. Auto.
 
-  // Return a very large error to penalize locations that fall off the edge of the DEM.
-  inline double big_val() const {
-    // Don't make this too big as in the LMA algorithm it may get
-    // squared and may cause overflow.
-    return 1.0e+50;
-  }
-
   /// Constructor
   RayDemPixelLMA(Options const& opt,
                  vw::cartography::GeoReference const& dem_georef,
@@ -569,7 +562,7 @@ void calcTrajectory(Options & opt,
     assembleCam2WorldMatrix(along, across, down, cam2world[i]);
 
     // if to apply a roll, pitch, yaw rotation
-    if (!std::isnan(opt.roll) && !std::isnan(opt.pitch) && !std::isnan(opt.yaw)) {
+    if (have_roll_pitch_yaw) {
       vw::Matrix3x3 R = asp::rollPitchYaw(opt.roll, opt.pitch, opt.yaw);
       cam2world[i] = cam2world[i] * R;
     }

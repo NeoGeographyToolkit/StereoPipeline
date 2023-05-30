@@ -23,12 +23,18 @@ Examples
 
 Example for ISIS cameras (:numref:`planetary_images`)::
 
-     bundle_adjust file1.cub file2.cub file3.cub -o run_ba/run
+     bundle_adjust --camera-weight 0 --tri-weight 0.1 \
+       file1.cub file2.cub file3.cub -o run_ba/run
+
+The above choices for camera weight and triangulation weight are a recent
+implementation and suggested going forward, but not yet the defaults. These are
+helpful in preventing the cameras from drifting too far from initial locations.
 
 Example for Maxar (DigitalGlobe) Earth data (:numref:`dg_tutorial`). Ground
 control points are used (:numref:`bagcp`)::
 
-     bundle_adjust file1.tif file2.tif file1.xml file2.xml gcp_file.gcp \
+     bundle_adjust --camera-weight 0 --tri-weight 0.1       \
+       file1.tif file2.tif file1.xml file2.xml gcp_file.gcp \
        --datum WGS_1984 -o run_ba/run --num-passes 2
 
 Here, we invoked the tool with two passes, which also enables removal
@@ -53,7 +59,7 @@ using optional estimated camera positions::
 
 Here we assumed that the cameras point towards some planet's surface and
 used the ``nadirpinhole`` session. If this assumption is not true, one
-should use the ``pinhole`` session.
+should use the ``pinhole`` session or the ``--no-datum`` option.
 
 Large-scale bundle adjustment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -893,7 +899,9 @@ Command-line options for bundle_adjust
 
 --no-datum
     Do not assume a reliable datum exists, such as for irregularly
-    shaped bodies.
+    shaped bodies or when at the ground level. This is also helpful
+    when the input cameras are not very accurate, as this option
+    is used to do some camera-based filtering of interest points.
 
 --mapprojected-data <string>
     Given map-projected versions of the input images and the DEM they

@@ -10,10 +10,10 @@ passed along to one of several programs that convert a point cloud
 into a mesh for 3D viewing, a gridded digital terrain model (DTM) for
 GIS purposes, or a LAS/LAZ point cloud.
 
-There are a number of ways to fine-tune parameters and analyze the
-results, but ultimately this software suite takes images and builds
-models in a mostly automatic way. To create a point cloud file, you
-simply pass two image files to the ``parallel_stereo`` command::
+There are a number of ways to fine-tune parameters and analyze the results, but
+ultimately this software suite takes images and builds models in a mostly
+automatic way. To create a point cloud file, you simply pass two image files to
+the ``parallel_stereo`` (:numref:`parallel_stereo`) command::
 
     parallel_stereo --stereo-algorithm asp_bm \
       left_image.cub right_image.cub results/run
@@ -58,6 +58,9 @@ are created by the ``parallel_stereo`` program above)::
 
      point2mesh results/run-PC.tif results/run-L.tif
      point2dem results/run-PC.tif
+
+Here a custom projection may need to be used closer to poles
+(:numref:`point2dem`).
 
 Visualization is further discussed in :numref:`visualising`.
 
@@ -104,7 +107,7 @@ to process it are as follows:
      --alignment-method local_epipolar                    \
      --left-image-crop-win 2259 1196 900 973              \
      --right-image-crop-win 2432 1423 1173 1218           \
-     --stereo-algorithm asp_mgm                           \
+     --stereo-algorithm asp_mgm --subpixel-mode 9         \
      run/run
 
 The crop windows from above will show up as red rectangles.
@@ -300,10 +303,11 @@ you use affine epipolar alignment to reduce the search range. The
 
 ::
 
-    parallel_stereo -t dg --subpixel-mode 1               \
-      --alignment-method affineepipolar                   \
+    parallel_stereo -t dg --stereo-algorithm asp_mgm      \
+      --subpixel-mode 9 --alignment-method affineepipolar \  
       12FEB16101327.r50.tif 12FEB16101426.r50.tif         \
-      12FEB16101327.r50.xml 12FEB16101426.r50.xml dg/out
+      12FEB16101327.r50.xml 12FEB16101426.r50.xml         \
+      run/run
 
 As discussed in :numref:`tutorial`, one can experiment with various
 tradeoffs of quality versus run time by using various stereo
