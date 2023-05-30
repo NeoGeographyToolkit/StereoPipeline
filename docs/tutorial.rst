@@ -304,7 +304,7 @@ you use affine epipolar alignment to reduce the search range. The
 ::
 
     parallel_stereo -t dg --stereo-algorithm asp_mgm      \
-      --subpixel-mode 9 --alignment-method affineepipolar \  
+      --subpixel-mode 9 --alignment-method affineepipolar \
       12FEB16101327.r50.tif 12FEB16101426.r50.tif         \
       12FEB16101327.r50.xml 12FEB16101426.r50.xml         \
       run/run
