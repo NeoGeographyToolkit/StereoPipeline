@@ -286,12 +286,8 @@ double demPixelErr(Options const& opt,
     // The camera to world rotation has these vectors as the columns
     vw::Matrix3x3 cam2world;
     assembleCam2WorldMatrix(along, across, down, cam2world);
-    std::cout << "cam2world = " << cam2world << std::endl;
-
     // Apply the roll-pitch-yaw rotation
     vw::Matrix3x3 R = asp::rollPitchYaw(roll, pitch, yaw);
-    std::cout << "R = " << R << std::endl;
-
     cam2world = cam2world * R;
 
     // Ray from camera to ground going through image center
@@ -310,17 +306,13 @@ double demPixelErr(Options const& opt,
         has_intersection, opt.dem_height_error_tol, 
         max_abs_tol, max_rel_tol, 
         num_max_iter, xyz);
-    std::cout << "xyz = " << xyz << std::endl;
 
     // Convert to llh
     vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
-    std::cout << "llh = " << llh << std::endl;
 
     // Find pixel location 
     vw::Vector2 pixel_loc2 = dem_georef.lonlat_to_pixel
       (subvector(llh, 0, 2));
-    std::cout << "pixel_loc2 = " << pixel_loc2 << std::endl;
-    std::cout << "pixel_loc = " << pixel_loc << std::endl;
 
     // Return norm of difference to input pixel location
     return norm_2(pixel_loc - pixel_loc2);
@@ -416,24 +408,27 @@ void findBestProjCamLocation
     len = vw::math::levenberg_marquardt(model, len, observation, status, 
       max_abs_tol, max_rel_tol, num_max_iter);
 
-  std::cout << "Status is " << status << std::endl;
-  std::cout << "Len is " << len << std::endl;
-  std::cout << "Error is " << model(len) << std::endl;
-  std::cout << "Must find the best proj!" << std::endl;
- }
+  // Note: The status is ignored here. We will just take whatever the solver
+  // outputs, as it may not converge within tolerance. May need to do a 
+  // sanity check on the output, maybe.
+
+  // Compute the best location given the just-found position on the segment
+  double t = len[0];
+  best_proj = first_proj * (1.0 - t) + last_proj * t;
+}
 
 // A function that will take as input the endpoints and will compute the
 // satellite trajectory and along track/across track/down directions in ECEF,
 // which will give the camera to world rotation matrix.
 // The key observation is that the trajectory will be a straight edge in
-// projected coordinates so will be computed there first.
-void calcTrajectory(Options const& opt, 
+// projected coordinates so will be computed there first. In some usage
+// modes we will adjust the end points of the trajectory along the way.
+void calcTrajectory(Options & opt,
                     vw::cartography::GeoReference const& dem_georef,
                     vw::ImageViewRef<vw::PixelMask<float>> dem,
                     // Outputs
                     std::vector<vw::Vector3> & trajectory,
-                    // the vector of camera to world
-                    // rotation matrices
+                    // the vector of camera to world rotation matrices
                     std::vector<vw::Matrix3x3> & cam2world) {
 
   // Convert the first and last camera center positions to projected coordinates
@@ -462,10 +457,8 @@ void calcTrajectory(Options const& opt,
   if (proj_along == vw::Vector3())
     vw::vw_throw(vw::ArgumentErr()
       << "The first and last camera positions are the same.\n");
-
   // Normalize
   proj_along = proj_along / norm_2(proj_along);
-
   // One more sanity check
   if (std::max(std::abs(proj_along[0]), std::abs(proj_along[1])) < 1e-6)
     vw::vw_throw(vw::ArgumentErr()
@@ -477,26 +470,35 @@ void calcTrajectory(Options const& opt,
   proj_across = proj_across / norm_2(proj_across);
 
   // A small number to help convert directions from being in projected space to
-  // being in ECEF (the transform between these is nonlinear).
-  // Do not use a small value, as in ECEF these will be large numbers
-  // and we may have precision issues. The value 0.01 was tested well.
+  // ECEF (the transform between these is nonlinear). Do not use a small value,
+  // as in ECEF these will be large numbers and we may have precision issues.
+  // The value 0.01 was tested well.
   double delta = 0.01; // in meters
-
-  // Compute the dem pixel error
-  double t = 0;
-  double err = demPixelErr(opt, dem_georef, dem, first_proj,
-                           last_proj, proj_along, proj_across, t, delta,
-                           opt.roll, opt.pitch, opt.yaw, opt.first_ground_pos);
-  std::cout << "Dem pixel err1 is " << err << std::endl;
-
-  t = 1.0;
-  double err2 = demPixelErr(opt, dem_georef, dem, first_proj,
-                           last_proj, proj_along, proj_across, t, delta,
-                           opt.roll, opt.pitch, opt.yaw, opt.last_ground_pos);
-  std::cout << "Dem pixel err2 is " << err2 << std::endl;
 
   bool have_ground_pos = !std::isnan(norm_2(opt.first_ground_pos)) &&  
       !std::isnan(norm_2(opt.last_ground_pos));
+  bool have_roll_pitch_yaw = !std::isnan(opt.roll) && !std::isnan(opt.pitch) &&
+      !std::isnan(opt.yaw);
+
+  if (have_ground_pos && have_roll_pitch_yaw) {
+    // Find best starting and ending points for the orbit given desired
+    // ground locations and roll/pitch/yaw angles.
+    vw::Vector3 first_best_cam_loc_proj;
+    findBestProjCamLocation(opt, dem_georef, dem, first_proj, last_proj,
+                            proj_along, proj_across, delta, 
+                            opt.roll, opt.pitch, opt.yaw,
+                            opt.first_ground_pos, first_best_cam_loc_proj);
+    // Same thing for the last camera
+    vw::Vector3 last_best_cam_loc_proj;
+    findBestProjCamLocation(opt, dem_georef, dem, first_proj, last_proj,
+                            proj_along, proj_across, delta, 
+                            opt.roll, opt.pitch, opt.yaw,
+                            opt.last_ground_pos, last_best_cam_loc_proj);
+    // Overwrite the first and last camera locations in projected coordinates
+    // with the best ones
+    first_proj = first_best_cam_loc_proj;
+    last_proj  = last_best_cam_loc_proj;
+  }                  
 
   // Find the trajectory, as well as points in the along track and across track 
   // directions in the projected space
@@ -510,10 +512,13 @@ void calcTrajectory(Options const& opt,
     // in ECEF
     vw::Vector3 P, along, across;
     calcTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
-                          proj_along, proj_across, P, along, across);
+                          proj_along, proj_across, 
+                          // Outputs
+                          P, along, across);
 
-    if (have_ground_pos) {
-      // The camera won't look straight down, but constrained by ground positions
+    if (have_ground_pos && !have_roll_pitch_yaw) {
+      // The camera will be constrained by the ground, but not by the roll/pitch/yaw,
+      // then the orientation will change along the trajectory.
       vw::Vector2 ground_pix = opt.first_ground_pos * (1.0 - t) + opt.last_ground_pos * t;
 
       // Find the projected position along the ground path
@@ -764,9 +769,10 @@ int main(int argc, char *argv[]) {
       // vector of rot matrices
       std::vector<vw::Matrix3x3> cam2world(opt.num_cameras);
       calcTrajectory(opt, dem_georef, dem,
+        // Outputs
         trajectory, cam2world);
-      // Generate cameras
-      genCameras(opt, trajectory, cam2world, cam_names, cams);
+        // Generate cameras
+        genCameras(opt, trajectory, cam2world, cam_names, cams);
     }
 
     // Generate images

@@ -21,14 +21,14 @@ cameras are not reflected in the plots.
 
 Zooming and scene rotation are done with the computer mouse. 
 
-.. figure:: ../images/sfm_view.png
-   :name: sfm_view_illustration
+.. figure:: ../images/sfm_view_nadir.png
+   :name: nadir_sfm_view_illustration
    :alt:  Illustration of ``sfm_view``
 
-   Illustration of ``sfm_view`` showing orbital cameras pointing towards the
-   same ground point. Such cameras can be created with ``sat_sim``
-   (:numref:`sat_sim`).
-
+   Illustration of ``sfm_view`` showing nadir-pointing cameras. The entries in
+   the left tab are in the same order as the cameras specified on the
+   command line. Clicking on an entry highlights that camera's view direction.
+   Synthetic cameras can be created with ``sat_sim`` (:numref:`sat_sim`).
 
 Example
 ^^^^^^^

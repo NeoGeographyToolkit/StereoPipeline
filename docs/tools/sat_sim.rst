@@ -17,8 +17,10 @@ The images are created with bicubic interpolation in the ortho image and are
 saved with float pixels. Missing pixels will have nodata values.
 
 If the cameras are created from scratch, the camera view can follow a custom
-path on the surface (:numref:`sat_sim_custom_path`), or the cameras can have a
-fixed orientation (:numref:`sat_sim_roll_pitch_yaw`).
+path on the surface with varying orientation (:numref:`sat_sim_custom_path`), or
+the cameras can have a fixed orientation, without
+(:numref:`sat_sim_roll_pitch_yaw`) and with
+(:numref:`sat_sim_roll_pitch_yaw_ground`) ground constraints.
 
 Example (use given cameras)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -45,6 +47,8 @@ To see how a created image projects onto the ground, run ``mapproject``
     mapproject dem.tif run/run-camera.tif path/to/camera.tsai \
       camera.map.tif
 
+.. _sat_sim_nadir:
+
 Example (generate nadir-pointing cameras)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -62,8 +66,10 @@ satellite track, across track, and towards the planet, respectively.
 See :numref:`sat_sim_roll_pitch_yaw` for how to apply a custom rotation
 to the cameras.
 
-The focal length and camera elevations above the datum should be chosen
-carefully. In this example, the camera is 450,000 m above the ground and the
+The first and last cameras will be located as specified by ``--first`` and
+``--last``.
+
+In this example, the camera is 450,000 m above the ground and the
 focal length is 450,000 pixels. If the magnitude of DEM heights is within
 several hundred meters, this will result in the ground sample distance being
 around 1 meter per pixel.
@@ -72,6 +78,12 @@ The produced image and camera names will be along the lines of::
     
     run/run-10000.tif
     run/run-10000.tsai
+
+.. figure:: ../images/sfm_view_nadir_clip.png
+   :name: sat_sim_illustration_nadir_clip
+   :alt:  sat_sim_illustration_nadir_clip
+   
+   Illustration of ``sat_sim`` creating nadir-looking cameras.
 
 .. _sat_sim_custom_path:
 
@@ -86,20 +98,20 @@ lines of::
     --first-ground-pos 484.3 510.7 \
     --last-ground-pos 332.5 893.6    
 
-This will result in the camera roll and pitch changing gradually to keep the
+This will result in the camera orientation changing gradually to keep the
 desired view.
 
 .. figure:: ../images/sfm_view.png
    :name: sat_sim_illustration
-   :alt:  Illustration of ``sat_sim``
+   :alt:  Illustration of ``sat_sim`` looking at a ground point.
 
    An example of several generated cameras looking at the same ground point. 
    Plotted with ``sfm_view`` (:numref:`sfm_view`).
 
 .. _sat_sim_roll_pitch_yaw:
 
-Camera roll, pitch and yaw
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Fixed camera orientation
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 When custom cameras are created (not read from disk), and unless the
 ``--first-ground-pos`` and ``--last-ground-pos`` options are specified, the
@@ -124,6 +136,44 @@ rotation matrix is::
 (the application is from right to left). The camera-to-ECEF rotation is produced
 by further multiplying this matrix on the left by the rotation from the satellite
 body to ECEF.
+
+.. _sat_sim_roll_pitch_yaw_ground:
+
+Pose and ground constraints
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Given an orbital trajectory, a path on the ground, and a desired fixed camera
+orientation (roll, pitch, yaw), this tool can find the correct endpoints along
+the orbit for the camera, then use those to generate the cameras. Example::
+
+    sat_sim --dem dem.tif --ortho ortho.tif                \
+     --first 428 688 -2000 --last 428 911 -2000            \
+     --first-ground-pos 428 688 --last-ground-pos 428 911  \
+     --roll 0 --pitch 25 --yaw 0                           \
+     --num 5 --focal-length 10000 --optical-center 500 500 \
+     --image-size 1000 1000                                \
+     -o run/run
+
+Here, unlike in :numref:`sat_sim_nadir`, we will use ``--first`` and ``--last``
+only to identify the orbit. The endpoints to use on it will be found
+given that we have to satisfy the orientation constraints in ``--roll``,
+``--pitch``, ``--yaw`` and the ground path constraints in ``--first-ground-pos``
+and ``--last-ground-pos``. 
+
+Unlike in :numref:`sat_sim_custom_path`, the camera orientations will not change.
+
+It is not important to know very accurately the values of ``--first-ground-pos``
+and ``--last-ground-pos``. The trajectory of the camera center ground footprint
+will be computed, its endpoints closest to these two values will be found, which
+in turn will be used to find the camera positions in orbit.
+
+.. figure:: ../images/sfm_view_nadir_off_nadir.png
+   :name: sat_sim_illustration_nadir_off_nadir
+   :alt:  sat_sim_illustration_nadir_off_nadir
+   
+   Illustration of ``sat_sim`` creating two sets of cameras, with different 
+   orientations for each, with both sets looking at the same ground path.
+   An invocation of ``sat_sim`` is needed for each set. 
 
 Command-line options
 ^^^^^^^^^^^^^^^^^^^^
