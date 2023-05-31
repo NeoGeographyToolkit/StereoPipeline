@@ -302,6 +302,9 @@ void assembleCam2WorldMatrix(vw::Vector3 const& along,
  return;
 }
 
+// This is used to signify when the algorithm below fails to find a solution
+const double g_big_val = 1e+100;
+
 // Given an orbit given by the first and last camera center positions in
 // projected coordinates, a real number t describing the position along this
 // line, roll, pitch, and yaw for the camera (relative to nadir), find the z
@@ -362,6 +365,11 @@ double demPixelErr(Options const& opt,
     // Find pixel location 
     vw::Vector2 pixel_loc2 = dem_georef.lonlat_to_pixel
       (subvector(llh, 0, 2));
+
+    // If the pixel is outside the DEM, return a big value
+    if (!vw::bounding_box(dem).contains(pixel_loc2)) {
+      return g_big_val;
+    }
 
     // Return norm of difference to input pixel location
     return norm_2(pixel_loc - pixel_loc2);
@@ -437,22 +445,57 @@ void findBestProjCamLocation
   RayDemPixelLMA model(opt, dem_georef, dem, first_proj, last_proj,
                        proj_along, proj_across, delta, roll, pitch, yaw,
                        pixel_loc);
-
-  // Solve for the best location
   int status = -1;
   double max_abs_tol = 1e-14;
   double max_rel_tol = max_abs_tol;
   int num_max_iter = 100;
   vw::Vector<double, 1> observation; 
   observation[0] = 0; // because we want to minimize the error
-
   Vector<double, 1> len; len[0] = 0; // initial guess 
-    len = vw::math::levenberg_marquardt(model, len, observation, status, 
+
+  // Find a spacing in len that corresponds to 100 meters movement in orbit
+  double dt = 1e-3;
+  vw::Vector3 P1 = projToEcef(dem_georef, first_proj);
+  vw::Vector3 P2 = projToEcef(dem_georef, first_proj + dt * proj_along);
+  double slope = norm_2(P2 - P1) / dt;
+  double spacing = 100.0 / slope;
+
+  // First need to search around for a good initial guess. This is a bug fix.
+  // Number of attempts times spacing in m is 1e+8 m, which is 100,000 km. 
+  // Enough for any orbit length.
+  int attempts = int(1e+6);
+  double best_val = g_big_val;
+  for (int i = 0; i < attempts; i++) {
+    
+    // Move towards the positive direction then the negative one
+    double curr_best_val = best_val;
+    for (int j = -1; j <= 1; j += 2) {
+      Vector<double, 1> len2; len2[0] = spacing * i * j;
+      double val = model(len2)[0];
+
+      if (val < best_val) {
+        best_val = val;
+        len = len2;
+      }
+    }
+    
+    if (curr_best_val == best_val && curr_best_val < g_big_val) {
+      // We are not improving anymore, so so stop here, as otherwise
+      // we may be going too far.
+      break;
+    }
+
+  } // end doing attempts
+
+  len = vw::math::levenberg_marquardt(model, len, observation, status, 
       max_abs_tol, max_rel_tol, num_max_iter);
 
   // Note: The status is ignored here. We will just take whatever the solver
-  // outputs, as it may not converge within tolerance. May need to do a 
-  // sanity check on the output, maybe.
+  // outputs, as it may not converge within tolerance. 
+  // Sanity check
+  if (std::abs(model(len)[0]) > 0.1) {
+    vw::vw_throw(vw::ArgumentErr() << "Error: The solver for finding correct ends of orbital segment did not converge to a good solution. Check your DEM, roll, pitch, yaw, and ground path endpoints.\n");
+  }
 
   // Compute the best location given the just-found position on the segment
   double t = len[0];
@@ -664,18 +707,16 @@ void calcTrajectory(Options & opt,
       // different roll, pitch, and yaw, d will not always start as 0 at
       // the beginning of each segment.
       double dist = calcOrbitLength(orig_first_proj, curr_proj, dem_georef);
+      double v = opt.velocity; 
+      double f = opt.jitter_frequency;
+      double T = v / f; // period in meters
 
       for (int c = 0; c < 3; c++) {
         // jitter amplitude as angular uncertainty given ground uncertainty
         double a = atan(opt.horizontal_uncertainty[c] / height_above_datum);
         // Covert to degrees
         a = a * 180.0 / M_PI;
-
-        // Distance traveled in orbit from starting point
-        double v = opt.velocity; 
-        double f = opt.jitter_frequency;
-        double T = v / f; // period in meters
-        amp[c] = a * sin(dist * 2 * M_PI / T);
+        amp[c] = a * sin(dist * 2.0 * M_PI / T);
       }
     }
 

@@ -210,9 +210,11 @@ Some care is needed to define the parameter *d*. We set it to be the distance
 from the starting orbit point as specified by ``--first`` to the current camera
 center (both in ECEF, along the curved orbit). This starting point is *before*
 adjusting the orbital segment for roll, pitch, yaw, and ground constraints
-(:numref:`sat_sim_roll_pitch_yaw_ground`). This way the
-jitter amplitude at the adjusted starting point (first camera position) is
-uncorrelated between several sets of cameras along the same orbit.
+(:numref:`sat_sim_roll_pitch_yaw_ground`). 
+
+This way the jitter amplitude at the adjusted starting point (first camera
+position) is uncorrelated between several sets of cameras along the same orbit
+but with different values of roll, pitch yaw.
 
 Specifying the jitter amplitude
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
