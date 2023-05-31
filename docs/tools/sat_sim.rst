@@ -144,14 +144,17 @@ Pose and ground constraints
 
 Given an orbital trajectory, a path on the ground, and a desired fixed camera
 orientation (roll, pitch, yaw), this tool can find the correct endpoints along
-the orbit for the camera, then use those to generate the cameras. Example::
+the orbit for the satellite, then use those to generate the cameras (positioned
+between those endpoints). Example::
 
-    sat_sim --dem dem.tif --ortho ortho.tif                \
-     --first 428 688 -2000 --last 428 911 -2000            \
-     --first-ground-pos 428 688 --last-ground-pos 428 911  \
-     --roll 0 --pitch 25 --yaw 0                           \
-     --num 5 --focal-length 10000 --optical-center 500 500 \
-     --image-size 1000 1000                                \
+    sat_sim --dem dem.tif --ortho ortho.tif               \
+    --first 397.1 400.7 450000 --last 397.1 500.7 450000  \
+     --first-ground-pos 397.1 400.7                       \
+     --last-ground-pos 397.1 500.7                        \
+     --roll 0 --pitch 25 --yaw 0                          \
+    --num 5                                               \
+    --focal-length 450000 --optical-center 500 500        \
+     --optical-center 500 500 --image-size 1000 1000      \
      -o run/run
 
 Here, unlike in :numref:`sat_sim_nadir`, we will use ``--first`` and ``--last``
@@ -165,7 +168,7 @@ Unlike in :numref:`sat_sim_custom_path`, the camera orientations will not change
 It is not important to know very accurately the values of ``--first-ground-pos``
 and ``--last-ground-pos``. The trajectory of the camera center ground footprint
 will be computed, its endpoints closest to these two values will be found, which
-in turn will be used to find the camera positions in orbit.
+in turn will be used to find the orbital segment endpoints.
 
 .. figure:: ../images/sfm_view_nadir_off_nadir.png
    :name: sat_sim_illustration_nadir_off_nadir
@@ -174,6 +177,92 @@ in turn will be used to find the camera positions in orbit.
    Illustration of ``sat_sim`` creating two sets of cameras, with different 
    fixed orientations for each, with both sets looking at the same ground path.
    A separate invocation of ``sat_sim`` is needed for each set. 
+
+.. _sat_sim_jitter_model:
+
+Jitter modelling
+^^^^^^^^^^^^^^^^
+
+As a satellite moves in orbit, it vibrates ever so slightly. The effect of this
+on the acquired images is called *jitter*, and it occurs for both linescan and
+Pinhole cameras. See :numref:`jitter_solve` for how jitter is solved for when
+the cameras are linescan. Here we will discuss modeling jitter for synthetic
+Pinhole cameras.
+
+We assume the jitter is a periodic perturbation of the roll, pitch, and yaw
+angles. We will use the same period for each of these, but individual amplitudes.
+For example, to model along-track jitter only, the amplitudes for the other 
+angles can be set to zero.
+
+The jitter frequency will be measured in Hz. For example, *f* = 45 Hz (45
+oscillations per second). If the satellite velocity is *v* meters per second,
+the jitter period in meters is :math:`T = v / f`.
+
+Denote by :math:`A_i` the jitter amplitude, in degrees (i = 1, 2, 3, for roll,
+pitch, and yaw). The jitter
+perturbation is modeled as:
+
+.. math::
+    
+        A_i \sin\left(d \frac{2 \pi}{T}\right)
+
+Some care is needed to define the parameter *d*. We set it to be the distance
+from the starting orbit point as specified by ``--first`` to the current camera
+center (both in ECEF, along the curved orbit). This starting point is *before*
+adjusting the orbital segment for roll, pitch, yaw, and ground constraints
+(:numref:`sat_sim_roll_pitch_yaw_ground`). This way the
+jitter amplitude at the adjusted starting point (first camera position) is
+uncorrelated between several sets of cameras along the same orbit.
+
+Specifying the jitter amplitude
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The jitter amplitude is usually very small and not easy to measure or interpret.
+For this reason, we will define it indirectly, via the effect of jitter on the
+*horizontal uncertainty* of the intersection of a ray emanating from the camera
+center with the datum (see also :numref:`error_propagation`).
+
+Consider a nadir-facing camera with the camera center at height *D* meters above
+the datum. If the ray pointing straight down from that camera intersects the
+datum at a certain point, and then that ray is perturbed by :math:`A_i` degrees, the
+intersection point will move horizontally by
+
+.. math::
+    
+      H_i = D \tan\left( \frac{\pi}{180} A_i \right)
+
+This is the horizontal ground uncertainty of the intersection point. It is a
+rather intuitive concept and many vendors publish it for their cameras. For
+example, if the camera ground sample distance (pixel size on the ground) is 1
+m/pixel, a horizontal uncertainty of 0.1 m or less is very good. If the camera
+orientation is found using a star-tracker or some other estimations in orbit,
+and no bundle adjustment (:numref:`bundle_adjust`) is performed, the horizontal
+uncertainty will likely be much larger, for example on the order of 1-4 meters. 
+
+In either case, this number is easy to understand, and the jitter amplitude
+can be defined as the value of :math:`A_i` that produces the desired horizontal
+uncertainty:
+
+.. math::
+    
+      A_i = \frac{180}{\pi} \arctan\left( \frac{H_i}{D} \right)
+
+The height above datum for the starting and ending points of the orbital segment
+is the third value in ``--first`` and ``--last``. These values can, in
+principle, be different, and then a linearly interpolated value will be used at
+each camera position (and note that the orbital segment endpoints are adjusted,
+per :numref:`sat_sim_roll_pitch_yaw_ground`).
+
+As an illustration of using this functionality, consider the ``sat_sim``
+invocation as in :numref:`sat_sim_roll_pitch_yaw_ground`, and add the options::
+
+    --velocity 7500 --jitter-frequency 45 \
+    --horizontal-uncertainty 2.0 2.0 2.0
+
+See :numref:`sat_sim_options` for more information on
+these options.
+
+.. _sat_sim_options:
 
 Command-line options
 ^^^^^^^^^^^^^^^^^^^^
@@ -236,6 +325,25 @@ Command-line options
 
 --yaw <double>
     Camera yaw angle, in degrees. See :numref:`sat_sim_roll_pitch_yaw` for  details.
+
+--velocity <double>
+    Satellite velocity, in meters per second. Used for modeling jitter. A value of
+    around 8000 m/s is typical for a satellite like SkySat in Sun-synchronous orbit
+    (90 minute period) at an altitude of about 450 km. For WorldView, the velocity
+    is around 7500 m/s, with a higher altitude and longer period.
+
+--horizontal-uncertainty <float, float, float>
+    Camera horizontal uncertainty on the ground, in meters, at nadir
+    orientation. Specify as three numbers, used for roll, pitch, and yaw. The
+    angular uncertainty in the camera orientation for each of these angles is
+    found as ``tan(angular_uncertainty) = horizontal_uncertainty /
+    satellite_elevation_above_datum``, then converted to degrees. See 
+    :numref:`sat_sim_jitter_model` for details.
+
+--jitter-frequency <float>
+    Jitter frequency, in Hz. Used for modeling jitter (satellite vibration). The
+    jitter amplitude will be the angular horizontal uncertainty (see
+    ``--horizontal-uncertainty``.
 
 --no-images
     Create only cameras, and no images. Cannot be used with ``--camera-list``.

@@ -39,7 +39,8 @@ struct Options : vw::GdalWriteOptions {
   int num_cameras;
   vw::Vector2 optical_center, image_size, first_ground_pos, last_ground_pos;
   double focal_length, dem_height_error_tol;
-  double roll, pitch, yaw;
+  double roll, pitch, yaw, velocity, jitter_frequency;
+  vw::Vector3 horizontal_uncertainty; // for roll, pitch, yaw
   bool no_images;
   Options() {}
 };
@@ -89,6 +90,21 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     "Camera pitch angle, in degrees.")
     ("yaw", po::value(&opt.yaw)->default_value(NaN),
     "Camera yaw angle, in degrees.")
+    ("velocity", po::value(&opt.velocity)->default_value(NaN),
+    "Satellite velocity, in meters per second. Used for modeling jitter. A value of "
+    "around 8000 m/s is typical for a satellite like SkySat in Sun-synchronous orbit "
+    "(90 minute period) at an altitude of about 450 km. For WorldView, the velocity "
+    "is around 7500 m/s, with a higher altitude and longer period.")
+    ("horizontal-uncertainty", po::value(&opt.horizontal_uncertainty)->default_value(vw::Vector3(NaN, NaN, NaN)),
+    "Camera horizontal uncertainty on the ground, in meters, at nadir orientation. "
+    "Specify as three numbers, used for roll, pitch, and yaw. The "
+    "angular uncertainty in the camera orientation for each of these angles "
+    "is found as tan(angular_uncertainty) "
+    "= horizontal_uncertainty / satellite_elevation_above_datum, then converted to degrees.")
+    ("jitter-frequency", po::value(&opt.jitter_frequency)->default_value(NaN),
+    "Jitter frequency, in Hz. Used for modeling jitter (satellite vibration). "
+    "The jitter amplitude will be the angular horizontal uncertainty (see "
+    "--horizontal-uncertainty).")
     ("no-images", po::bool_switch(&opt.no_images)->default_value(false)->implicit_value(true),
      "Create only cameras, and no images. Cannot be used with --camera-list.")
     ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
@@ -125,6 +141,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw::vw_throw(vw::ArgumentErr() << "The first and last camera positions must be "
         "specified.\n");
 
+    if (opt.first[2] != opt.last[2])
+      vw::vw_out() << "Warning: The first and last camera positions have different "
+                   << "heights above the datum. This is supported but is not usual. "
+                   << "Check your inputs.\n";
+
     if (opt.num_cameras < 2)
       vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
 
@@ -148,6 +169,34 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw::vw_throw(vw::ArgumentErr() << "Either all of roll, pitch, and yaw must be "
         "specified, or none.\n");
   }
+
+  int ans = int(!std::isnan(opt.jitter_frequency)) +
+            int(!std::isnan(opt.velocity)) +
+            int(!std::isnan(opt.horizontal_uncertainty[0])) +
+            int(!std::isnan(opt.horizontal_uncertainty[1])) +
+            int(!std::isnan(opt.horizontal_uncertainty[2]));
+  if (ans != 0 && ans != 5)
+    vw::vw_throw(vw::ArgumentErr() << "Either all of jitter-frequency, velocity, and "
+      "horizontal uncertainty must be specified, or none.\n");
+  
+  bool have_roll_pitch_yaw = !std::isnan(opt.roll) && !std::isnan(opt.pitch) &&
+      !std::isnan(opt.yaw);
+  if (ans != 0 && !have_roll_pitch_yaw)
+    vw::vw_throw(vw::ArgumentErr() << "Modelling jitter requires specifying --roll, --pitch, and --yaw.\n");
+
+  if (opt.camera_list != "" && ans != 0) 
+    vw::vw_throw(vw::ArgumentErr() << "The --camera-list, --jitter-frequency, "
+      "--velocity, and --horizontal-uncertainty options cannot be used together.\n");
+
+  if (opt.velocity <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "The satellite velocity must be positive.\n");
+
+  if (opt.horizontal_uncertainty[0] < 0 || opt.horizontal_uncertainty[1] < 0 ||
+      opt.horizontal_uncertainty[2] < 0)
+    vw::vw_throw(vw::ArgumentErr() << "The horizontal uncertainty must be non-negative.\n");
+
+  if (opt.jitter_frequency <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "The jitter frequency must be positive.\n");
 
   // Create the output directory based on the output prefix
   vw::create_out_dir(opt.out_prefix);
@@ -410,6 +459,38 @@ void findBestProjCamLocation
   best_proj = first_proj * (1.0 - t) + last_proj * t;
 }
 
+// A function to compute orbit length in ECEF given its endpoints in projected
+// coordinates. Use 100,000 samples along the orbit. Should be enough.
+double calcOrbitLength(vw::Vector3 const& first_proj,
+                       vw::Vector3 const& last_proj,
+                       vw::cartography::GeoReference const& dem_georef) {
+
+  // Number of samples along the orbit and corresponding segments                     
+  int num = 100000;  
+
+  // Start of each segment
+  vw::Vector3 beg = projToEcef(dem_georef, first_proj);
+  // End of each segment
+  vw::Vector3 end = beg;
+  double orbitLength = 0.0;
+
+  for (int i = 1; i < num; i++) { // note we start at 1
+
+    double t = double(i) / double(num - 1); 
+    // Find the projected position of the current point
+    vw::Vector3 curr_proj = first_proj + t * (last_proj - first_proj);
+    // Find the ECEF position of the current point
+    end = projToEcef(dem_georef, curr_proj);
+
+    // Add the length of the segment
+    orbitLength += norm_2(end - beg);
+    // Move to the next segment
+    beg = end;
+  }
+
+  return orbitLength;
+}
+
 // A function that will take as input the endpoints and will compute the
 // satellite trajectory and along track/across track/down directions in ECEF,
 // which will give the camera to world rotation matrix.
@@ -473,6 +554,10 @@ void calcTrajectory(Options & opt,
   bool have_roll_pitch_yaw = !std::isnan(opt.roll) && !std::isnan(opt.pitch) &&
       !std::isnan(opt.yaw);
 
+  // Starting point of orbit before we adjust it to match the desired
+  // ground locations and roll/pitch/yaw angles.
+  vw::Vector3 orig_first_proj = first_proj;
+
   if (have_ground_pos && have_roll_pitch_yaw) {
     // Find best starting and ending points for the orbit given desired
     // ground locations and roll/pitch/yaw angles.
@@ -492,6 +577,10 @@ void calcTrajectory(Options & opt,
     first_proj = first_best_cam_loc_proj;
     last_proj  = last_best_cam_loc_proj;
   }                  
+
+  // We did a sanity check to ensure that when opt.jitter_frequency is set,
+  // opt.velocity and and opt.horizontal_uncertainty are also set and not NaN.
+  bool model_jitter = (!std::isnan(opt.jitter_frequency));
 
   // Find the trajectory, as well as points in the along track and across track 
   // directions in the projected space
@@ -561,9 +650,40 @@ void calcTrajectory(Options & opt,
     // The camera to world rotation has these vectors as the columns
     assembleCam2WorldMatrix(along, across, down, cam2world[i]);
 
+    vw::Vector3 amp(0, 0, 0);
+    if (model_jitter) {
+      // Model the jitter as a sinusoidal motion in the along-track direction
+      // Use a different amplitude for roll, pitch, and yaw.
+
+      // Current postion in projected coordinates and height above datum for it
+      vw::Vector3 curr_proj = first_proj * (1.0 - t) + last_proj * t;
+      double height_above_datum = curr_proj[2];
+
+      // Length of the orbit from starting point, before adjustment for roll,
+      // pitch, and yaw. This way when different orbital segments are used, for
+      // different roll, pitch, and yaw, d will not always start as 0 at
+      // the beginning of each segment.
+      double dist = calcOrbitLength(orig_first_proj, curr_proj, dem_georef);
+
+      for (int c = 0; c < 3; c++) {
+        // jitter amplitude as angular uncertainty given ground uncertainty
+        double a = atan(opt.horizontal_uncertainty[c] / height_above_datum);
+        // Covert to degrees
+        a = a * 180.0 / M_PI;
+
+        // Distance traveled in orbit from starting point
+        double v = opt.velocity; 
+        double f = opt.jitter_frequency;
+        double T = v / f; // period in meters
+        amp[c] = a * sin(dist * 2 * M_PI / T);
+      }
+    }
+
     // if to apply a roll, pitch, yaw rotation
     if (have_roll_pitch_yaw) {
-      vw::Matrix3x3 R = asp::rollPitchYaw(opt.roll, opt.pitch, opt.yaw);
+      vw::Matrix3x3 R = asp::rollPitchYaw(opt.roll  + amp[0], 
+                                          opt.pitch + amp[1], 
+                                          opt.yaw   + amp[2]);
       cam2world[i] = cam2world[i] * R;
     }
   }
@@ -668,7 +788,7 @@ void genImages(Options const& opt,
   for (size_t i = 0; i < cams.size(); i++) {
     vw::ImageView<vw::PixelMask<float>> image(cols, rows);
 
-    vw::TerminalProgressCallback tpc("", image_names[i] + ": ");
+    vw::TerminalProgressCallback tpc("Computing: ", image_names[i] + ": ");
     tpc.report_progress(0);
     double inc_amount = 1.0 / double(cols);
 
@@ -697,14 +817,8 @@ void genImages(Options const& opt,
            max_abs_tol, max_rel_tol, 
            num_max_iter, xyz);
 
-        //if (!has_intersection) {
-        //  //Temporary debug code
-        //  std::cout << "Failed for pixel " << pix << "\n";
-        //  exit(0);
-        //}
-
         if (!has_intersection) 
-          continue;
+          continue; // will result in nodata pixels
 
         // Find the texture value at the intersection point by interpolation.
         // This will result in an invalid value if if out of range or if the
