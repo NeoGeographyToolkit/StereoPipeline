@@ -32,6 +32,10 @@ to these programs via the ``--left-image-crop-win`` and
 be displayed on screen, and can be re-run on a more powerful
 machine/cluster without GUI access.
 
+If the images are map-projected (:numref:`mapproj-example`), the low-resolution
+DEM will show up as the third image. There is no need to select a clip in that
+DEM.
+
 .. figure:: ../images/stereo_gui.jpg
    :name: asp_gui_fig
    :alt: stereo_gui.

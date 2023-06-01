@@ -1609,7 +1609,8 @@ void MainWindow::addDelMatches(){
 
 void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
 
-  if (m_widgets.size() != 2) {
+  if (m_widgets.size() < 2) {
+    // Note: We allow three images, as the third may be the DEM
     QMessageBox::about(this, tr("Error"),
                        tr("Need to have two images side-by-side to run stereo."));
     return;
@@ -1640,8 +1641,8 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
   // Wipe the stereo_gui --window-size option and some others that are no
   // use for stereo.
   asp::rm_option_and_vals(m_argc, m_argv, "--window-size", 2);
-  asp::rm_option_and_vals(m_argc, m_argv, "--font-size", 2);
-  asp::rm_option_and_vals(m_argc, m_argv, "--lowest-resolution-subimage-num-pixels", 2);
+  asp::rm_option_and_vals(m_argc, m_argv, "--font-size", 1);
+  asp::rm_option_and_vals(m_argc, m_argv, "--lowest-resolution-subimage-num-pixels", 1);
 
   // Form the command to run
   for (int i = 1; i < m_argc; i++) {
