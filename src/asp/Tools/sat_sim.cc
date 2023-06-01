@@ -37,7 +37,7 @@ using namespace vw::geometry;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-struct Options : vw::GdalWriteOptions {
+struct SatSimOptions : vw::GdalWriteOptions {
   std::string dem_file, ortho_file, out_prefix, camera_list;
   vw::Vector3 first, last; // dem pixel and height above dem datum
   int num_cameras;
@@ -46,10 +46,10 @@ struct Options : vw::GdalWriteOptions {
   double roll, pitch, yaw, velocity, jitter_frequency;
   vw::Vector3 horizontal_uncertainty; // for roll, pitch, yaw
   bool no_images;
-  Options() {}
+  SatSimOptions() {}
 };
 
-void handle_arguments(int argc, char *argv[], Options& opt) {
+void handle_arguments(int argc, char *argv[], SatSimOptions& opt) {
 
   double NaN = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("General options");
@@ -288,7 +288,7 @@ const double g_big_val = 1e+100;
 // direction for the camera (camera look), intersect it with the ground, find
 // the DEM pixel location, and return the distance from this location to a given
 // pixel location.
-double demPixelErr(Options const& opt,
+double demPixelErr(SatSimOptions const& opt,
                    vw::cartography::GeoReference const& dem_georef,
                    vw::ImageViewRef<vw::PixelMask<float>> dem,
                    vw::Vector3 const& first_proj,
@@ -356,7 +356,7 @@ double demPixelErr(Options const& opt,
 // which will give the position along the trajectory.
 class RayDemPixelLMA : public vw::math::LeastSquaresModelBase<RayDemPixelLMA> {
 
-  Options const& m_opt;
+  SatSimOptions const& m_opt;
   vw::cartography::GeoReference const& m_dem_georef;
   vw::ImageViewRef<vw::PixelMask<float>> m_dem;
   vw::Vector3 m_first_proj;
@@ -373,7 +373,7 @@ public:
   typedef vw::Matrix<double>    jacobian_type; ///< Jacobian form. Auto.
 
   /// Constructor
-  RayDemPixelLMA(Options const& opt,
+  RayDemPixelLMA(SatSimOptions const& opt,
                  vw::cartography::GeoReference const& dem_georef,
                  vw::ImageViewRef<vw::PixelMask<float>> dem,
                  vw::Vector3 const& first_proj,
@@ -408,7 +408,7 @@ public:
 // coordinates, so that the ray from the camera center to the ground goes
 // closest to given ground point.
 void findBestProjCamLocation
-  (Options const& opt,
+  (SatSimOptions const& opt,
    vw::cartography::GeoReference const& dem_georef,
    vw::ImageViewRef<vw::PixelMask<float>> dem,
    vw::Vector3 const& first_proj, vw::Vector3 const& last_proj,
@@ -517,7 +517,7 @@ double calcOrbitLength(vw::Vector3 const& first_proj,
 // The key observation is that the trajectory will be a straight edge in
 // projected coordinates so will be computed there first. In some usage
 // modes we will adjust the end points of the trajectory along the way.
-void calcTrajectory(Options & opt,
+void calcTrajectory(SatSimOptions & opt,
                     vw::cartography::GeoReference const& dem_georef,
                     vw::ImageViewRef<vw::PixelMask<float>> dem,
                     // Outputs
@@ -709,12 +709,12 @@ void calcTrajectory(Options & opt,
 }
 
 // Generate a prefix that will be used for image names and camera names
-std::string genPrefix(Options const& opt, int i) {
+std::string genPrefix(SatSimOptions const& opt, int i) {
   return opt.out_prefix + "-" + num2str(10000 + i);
 }
 
 // A function to read the pinhole cameras from disk
-void readCameras(Options const& opt, 
+void readCameras(SatSimOptions const& opt, 
     std::vector<std::string> & cam_names,
     std::vector<vw::camera::PinholeModel> & cams) {
 
@@ -735,7 +735,7 @@ void readCameras(Options const& opt,
 
 // A function to create and save the cameras. Assume no distortion, and pixel
 // pitch = 1.
-void genCameras(Options const& opt, std::vector<vw::Vector3> const & trajectory,
+void genCameras(SatSimOptions const& opt, std::vector<vw::Vector3> const & trajectory,
                   std::vector<vw::Matrix3x3> const & cam2world,
                   // outputs
                   std::vector<std::string> & cam_names,
@@ -768,7 +768,7 @@ typedef vw::ImageView<vw::PixelMask<float>> ImageT;
 class SynImageView: public vw::ImageViewBase<SynImageView> {
   
   typedef typename ImageT::pixel_type PixelT;
-  Options                         const& m_opt;
+  SatSimOptions                         const& m_opt;
   vw::camera::PinholeModel m_cam;
    vw::cartography::GeoReference m_dem_georef; // make a copy to be thread-safe
    vw::ImageView<vw::PixelMask<float>> const& m_dem;
@@ -777,7 +777,7 @@ class SynImageView: public vw::ImageViewBase<SynImageView> {
    float m_ortho_nodata_val;
 
 public:
-  SynImageView(Options const& opt,
+  SynImageView(SatSimOptions const& opt,
                vw::camera::PinholeModel        const& cam,
                vw::cartography::GeoReference   const& dem_georef,
                vw::ImageView<vw::PixelMask<float>> dem,
@@ -807,19 +807,6 @@ public:
 
   typedef vw::CropView<vw::ImageView<pixel_type>> prerasterize_type;
   inline prerasterize_type prerasterize(vw::BBox2i const& bbox) const {
-
-
-    // // Read the DEM
-    // vw::ImageViewRef<vw::PixelMask<float>> dem;
-    // float dem_nodata_val = -std::numeric_limits<float>::max(); // will change
-    // vw::cartography::GeoReference dem_georef;
-    // asp::readGeorefImage(m_opt.dem_file, dem_nodata_val, dem_georef, dem);
-
-    // // Read the ortho image
-    // vw::ImageViewRef<vw::PixelMask<float>> ortho;
-    // float ortho_nodata_val = -std::numeric_limits<float>::max(); // will change
-    // vw::cartography::GeoReference ortho_georef;
-    // asp::readGeorefImage(m_opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
 
   // Create interpolated image with bicubic interpolation with invalid pixel 
   // edge extension
@@ -891,8 +878,51 @@ public:
   }
 };
 
+// Bring crops in memory. It greatly helps with multi-threading speed.  
+void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
+  vw::camera::PinholeModel const& cam,
+    vw::ImageViewRef<vw::PixelMask<float>> const& dem,
+    vw::cartography::GeoReference const& dem_georef,
+    vw::ImageViewRef<vw::PixelMask<float>> const& ortho,
+    vw::cartography::GeoReference const& ortho_georef,
+    // Outputs
+    vw::ImageView<vw::PixelMask<float>> & crop_dem,
+    vw::cartography::GeoReference & crop_dem_georef,
+    vw::ImageView<vw::PixelMask<float>> & crop_ortho,
+    vw::cartography::GeoReference & crop_ortho_georef) {
+
+    // Find the bounding box of the dem and ortho portions seen in the camera,
+    // in projected coordinates
+    float mean_gsd = 0.0;    
+    boost::shared_ptr<vw::camera::CameraModel> 
+      camera_model(new vw::camera::PinholeModel(cam)); // expected by the API
+    bool quick = true; // Assumes a big DEM fully containing the image    
+    vw::BBox2 dem_box = vw::cartography::camera_bbox(dem, dem_georef, dem_georef,
+      camera_model, image_size[0], image_size[1], mean_gsd, quick);
+    vw::cartography::GeoTransform d2o(dem_georef, ortho_georef);
+    vw::BBox2 ortho_box = d2o.point_to_point_bbox(dem_box);
+
+    // Find the DEM pixel box and expand it in case there was some inaccuracies
+    // in finding the box
+    vw::BBox2i dem_pixel_box = dem_georef.point_to_pixel_bbox(dem_box);
+    int expand = 50;
+    dem_pixel_box.expand(expand);
+    dem_pixel_box.crop(vw::bounding_box(dem));
+
+    // Same for the ortho
+    vw::BBox2i ortho_pixel_box = ortho_georef.point_to_pixel_bbox(ortho_box);
+    ortho_pixel_box.expand(expand);
+    ortho_pixel_box.crop(vw::bounding_box(ortho));
+
+    // Crop
+    crop_dem = vw::crop(dem, dem_pixel_box);
+    crop_dem_georef = crop(dem_georef, dem_pixel_box);
+    crop_ortho = vw::crop(ortho, ortho_pixel_box);
+    crop_ortho_georef = crop(ortho_georef, ortho_pixel_box);
+}
+
 // Generate images by projecting rays from the sensor to the ground
-void genImages(Options const& opt,
+void genImages(SatSimOptions const& opt,
     bool external_cameras,
     std::vector<std::string> const& cam_names,
     std::vector<vw::camera::PinholeModel> const& cams,
@@ -902,83 +932,28 @@ void genImages(Options const& opt,
     vw::ImageViewRef<vw::PixelMask<float>> ortho,
     float ortho_nodata_val) {
 
-    // Generate image names from camera names by replacing the extension
-    std::vector<std::string> image_names;
-    image_names.resize(cam_names.size());
-    for (int i = 0; i < int(cam_names.size()); i++) {
-      if (external_cameras)
-       image_names[i] = opt.out_prefix + "-" 
-        + fs::path(cam_names[i]).filename().replace_extension(".tif").string();
-      else
-        image_names[i] = genPrefix(opt, i) + ".tif";
-
-      vw::vw_out() << "Writing: " << image_names[i] << std::endl;
-    }
-
   vw::vw_out() << "Generating images.\n";
+
+  // Generate image names from camera names by replacing the extension
+  std::vector<std::string> image_names;
+  image_names.resize(cam_names.size());
+  for (int i = 0; i < int(cam_names.size()); i++) {
+    if (external_cameras)
+      image_names[i] = opt.out_prefix + "-" 
+      + fs::path(cam_names[i]).filename().replace_extension(".tif").string();
+    else
+      image_names[i] = genPrefix(opt, i) + ".tif";
+  }
 
   for (size_t i = 0; i < cams.size(); i++) {
 
-    float mean_gsd = 0.0;    
-    boost::shared_ptr<vw::camera::CameraModel> camera_model(new vw::camera::PinholeModel(cams[i]));           
-
-    bool quick = true;     
-    vw::BBox2 dem_box = vw::cartography::camera_bbox(dem, dem_georef, dem_georef,
-      camera_model, opt.image_size[0], opt.image_size[1], mean_gsd, quick);
-     std::cout << "dem box is " << dem_box << std::endl;
-     // Convert to pixel box for the DEM using the dem georef
-      vw::BBox2i dem_pixel_box = dem_georef.point_to_pixel_bbox(dem_box);
-      std::cout << "dem pixel box is " << dem_pixel_box << std::endl;
-
-      vw::cartography::GeoTransform d2o(dem_georef, ortho_georef);
-      vw::BBox2 ortho_box = d2o.point_to_point_bbox(dem_box);
-      std::cout << "ortho box is " << ortho_box << std::endl;
-      // Convert to pixel box for the ortho using the ortho georef
-      vw::BBox2i ortho_pixel_box = ortho_georef.point_to_pixel_bbox(ortho_box);
-      std::cout << "ortho pixel box is " << ortho_pixel_box << std::endl;
-
-      // expand the the dem pixel box by 50 pixels each side
-      int expand = 50;
-      dem_pixel_box.expand(expand);
-      // Crop to dem bounding box
-      dem_pixel_box.crop(vw::bounding_box(dem));
-      // Make a copy
-      vw::ImageView<vw::PixelMask<float>> crop_dem = vw::crop(dem, dem_pixel_box);
-      // Crop the georef too to match the dem
-      vw::cartography::GeoReference crop_dem_georef = crop(dem_georef, dem_pixel_box);
-
-      // expand the the ortho pixel box by 50 pixels each side
-      ortho_pixel_box.expand(expand);
-      // Crop to ortho bounding box
-      ortho_pixel_box.crop(vw::bounding_box(ortho));
-      // Make a copy
-      vw::ImageView<vw::PixelMask<float>> crop_ortho = vw::crop(ortho, ortho_pixel_box);
-      // Crop the georef too to match the ortho
-      vw::cartography::GeoReference crop_ortho_georef = crop(ortho_georef, ortho_pixel_box);
-      
-      // // Save to disk using the block write function with multiple threads
-      // std::string dem_name = opt.out_prefix + "-dem.tif";
-      // bool has_georef2 = true;
-      // bool has_nodata2 = true;
-      // std::cout << "Writing: " << dem_name << std::endl;
-      // block_write_gdal_image(dem_name, 
-      //   apply_mask(crop_dem, ortho_nodata_val),
-      //   has_georef2, crop_dem_georef,
-      //   has_nodata2, ortho_nodata_val, opt, 
-      //   vw::TerminalProgressCallback("", "\t--> "));
-
-      // // Save to disk using the block write function with multiple threads
-      // std::string ortho_name = opt.out_prefix + "-ortho.tif";
-      // // bool has_georef2 = true;
-      // // bool has_nodata2 = true;
-      // std::cout << "Writing: " << ortho_name << std::endl;
-      // block_write_gdal_image(ortho_name, 
-      //   apply_mask(crop_ortho, ortho_nodata_val),
-      //   has_georef2, crop_ortho_georef,
-      //   has_nodata2, ortho_nodata_val, opt, 
-      //   vw::TerminalProgressCallback("", "\t--> "));
-
-      // //exit(0);
+    // Bring crops in memory. It greatly helps with multi-threading speed.  
+    vw::ImageView<vw::PixelMask<float>> crop_dem, crop_ortho;
+    vw::cartography::GeoReference crop_dem_georef, crop_ortho_georef;
+    setupCroppedDemAndOrtho(opt.image_size,
+      cams[i], dem, dem_georef, ortho, ortho_georef, 
+      // Outputs
+      crop_dem, crop_dem_georef, crop_ortho, crop_ortho_georef);
 
     // Save the image using the block write function with multiple threads
     vw::vw_out() << "Writing: " << image_names[i] << std::endl;
@@ -987,15 +962,15 @@ void genImages(Options const& opt,
     block_write_gdal_image(image_names[i], 
       vw::apply_mask(SynImageView(opt, cams[i], 
       crop_dem_georef, crop_dem, crop_ortho_georef, crop_ortho, ortho_nodata_val), ortho_nodata_val),
-      has_georef, crop_ortho_georef,     // the ortho georef will not be used
-      has_nodata, ortho_nodata_val, // borrow the nodata from ortho
+      has_georef, crop_ortho_georef,  // the ortho georef will not be used
+      has_nodata, ortho_nodata_val,   // borrow the nodata from ortho
       opt, vw::TerminalProgressCallback("", "\t--> "));
   }  
 }
 
 int main(int argc, char *argv[]) {
 
-  Options opt;
+  SatSimOptions opt;
   try {
     handle_arguments(argc, argv, opt);
 
