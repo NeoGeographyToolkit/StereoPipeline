@@ -18,11 +18,14 @@
 // Tool to create simulated satellite images and/or pinhole cameras for them.
 // See the manual for details.
 
+// TODO(oalexan1): Modularize this code. It is getting slow to compile.
+// Move at least the templated parts out, the LMA ones.
+
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Core/StereoSettings.h>
 #include <asp/Core/CameraTransforms.h>
-#include <asp/Sessions/StereoSession.h>
+#include <asp/Core/SatSim.h>
+
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Geometry/baseUtils.h>
 #include <vw/Cartography/CameraBBox.h>
@@ -202,33 +205,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   vw::create_out_dir(opt.out_prefix);
 
   return;
-}
-
-// A function that will read a geo-referenced image, its nodata value,
-// and the georeference, and will return a PixelMasked image, the nodata
-// value, and the georeference.
-// TODO(oalexan1): May need to move this to a more general place.
-void readGeorefImage(std::string const& image_file, 
-  float & nodata_val, vw::cartography::GeoReference & georef,
-  vw::ImageViewRef<vw::PixelMask<float>> & masked_image) {
-
-  // Initial value, in case the image has no nodata field
-  nodata_val = std::numeric_limits<float>::quiet_NaN();
-  if (!vw::read_nodata_val(image_file, nodata_val))
-        vw::vw_out() << "Warning: Could not read the nodata value for: "
-                      << image_file << "\nUsing: " << nodata_val << ".\n";
-
-    // Read the image
-    vw::vw_out() << "Reading: " << image_file << std::endl;
-    vw::DiskImageView<float> image(image_file);
-    // Create the masked image
-    masked_image = vw::create_mask(image, nodata_val);
-
-    // Read the georeference, and throw an exception if it is missing
-    bool has_georef = vw::cartography::read_georeference(georef, image_file);
-    if (!has_georef)
-      vw::vw_throw(vw::ArgumentErr() << "Missing georeference in: "
-                                     << image_file << ".\n");
 }
 
 // A function to convert from projected coordinates to ECEF
@@ -786,6 +762,137 @@ void genCameras(Options const& opt, std::vector<vw::Vector3> const & trajectory,
   return;
 }
 
+// Create a synthetic image with multiple threads
+typedef vw::ImageView<vw::PixelMask<float>> ImageT;
+class SynImageView: public vw::ImageViewBase<SynImageView> {
+  
+  typedef typename ImageT::pixel_type PixelT;
+  Options                         const& m_opt;
+  vw::camera::PinholeModel         m_cam;
+   vw::cartography::GeoReference          m_dem_georef; // make a copy to be thread-safe
+   vw::ImageViewRef<vw::PixelMask<float>> const& m_dem;
+   vw::cartography::GeoReference          m_ortho_georef; // make a copy to be thread-safe
+   vw::ImageViewRef<vw::PixelMask<float>> const& m_ortho;
+   float m_ortho_nodata_val;
+
+public:
+  SynImageView(Options const& opt,
+               vw::camera::PinholeModel        const& cam,
+             vw::cartography::GeoReference   const& dem_georef,
+             vw::ImageViewRef<vw::PixelMask<float>> dem,
+             vw::cartography::GeoReference   const& ortho_georef,
+             vw::ImageViewRef<vw::PixelMask<float>> ortho,
+             float ortho_nodata_val
+               ):
+                m_opt(opt), m_cam(cam), 
+                m_dem_georef(dem_georef), m_dem(dem),
+                m_ortho_georef(ortho_georef), m_ortho(ortho),
+                m_ortho_nodata_val(ortho_nodata_val) 
+                {}
+
+  typedef PixelT pixel_type;
+  typedef PixelT result_type;
+  typedef vw::ProceduralPixelAccessor<SynImageView> pixel_accessor;
+
+  inline vw::int32 cols() const { return m_opt.image_size[0]; }
+  inline vw::int32 rows() const { return m_opt.image_size[1]; }
+  inline vw::int32 planes() const { return 1; }
+
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
+
+  inline pixel_type operator()( double/*i*/, double/*j*/, vw::int32/*p*/ = 0 ) const {
+    vw::vw_throw(vw::NoImplErr() 
+      << "SynImageView::operator()(...) is not implemented");
+    return pixel_type();
+  }
+
+  typedef vw::CropView<vw::ImageView<pixel_type>> prerasterize_type;
+  inline prerasterize_type prerasterize(vw::BBox2i const& bbox) const {
+
+
+    // // Read the DEM
+    // vw::ImageViewRef<vw::PixelMask<float>> dem;
+    // float dem_nodata_val = -std::numeric_limits<float>::max(); // will change
+    // vw::cartography::GeoReference dem_georef;
+    // asp::readGeorefImage(m_opt.dem_file, dem_nodata_val, dem_georef, dem);
+
+    // // Read the ortho image
+    // vw::ImageViewRef<vw::PixelMask<float>> ortho;
+    // float ortho_nodata_val = -std::numeric_limits<float>::max(); // will change
+    // vw::cartography::GeoReference ortho_georef;
+    // asp::readGeorefImage(m_opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
+
+  // Create interpolated image with bicubic interpolation with invalid pixel 
+  // edge extension
+  vw::PixelMask<float> nodata_mask = vw::PixelMask<float>(); // invalid value
+  nodata_mask.invalidate();
+  auto interp_ortho = vw::interpolate(m_ortho, vw::BicubicInterpolation(),
+                                      vw::ValueEdgeExtension<vw::PixelMask<float>>(nodata_mask));
+
+  // The location where the ray intersects the ground. We will use each obtained
+  // location as initial guess for the next ray. This may not be always a great
+  // guess, but it is better than starting nowhere. It should work decently
+  // if the camera is high, and with a small footprint on the ground.
+  vw::Vector3 xyz(0, 0, 0);
+
+  vw::ImageView<result_type> tile(bbox.width(), bbox.height());
+  std::cout << "Tile is " << bbox << std::endl;
+
+    for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
+      for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
+
+        // These will use to index into the tile 
+        int c = col - bbox.min().x();
+        int r = row - bbox.min().y();
+
+        // Start with an invalid pixel
+        tile(c, r) = vw::PixelMask<float>();
+        tile(c, r).invalidate();
+
+        // Here use the full image pixel indices
+        vw::Vector2 pix(col, row);
+
+        vw::Vector3 cam_ctr = m_cam.camera_center(pix);
+        vw::Vector3 cam_dir = m_cam.pixel_to_vector(pix);
+
+        // Intersect the ray going from the given camera pixel with a DEM
+        // Use xyz as initial guess and overwrite it with the new value
+        bool treat_nodata_as_zero = false;
+        bool has_intersection = false;
+        double max_abs_tol = std::min(m_opt.dem_height_error_tol, 1e-14);
+        double max_rel_tol = max_abs_tol;
+        int num_max_iter = 100;
+        xyz = vw::cartography::camera_pixel_to_dem_xyz
+          (cam_ctr, cam_dir, m_dem,
+            m_dem_georef, treat_nodata_as_zero,
+            has_intersection, m_opt.dem_height_error_tol, 
+            max_abs_tol, max_rel_tol, 
+            num_max_iter, xyz);
+
+        if (!has_intersection) 
+          continue; // will result in nodata pixels
+
+        // Find the texture value at the intersection point by interpolation.
+        // This will result in an invalid value if if out of range or if the
+        // image itself has invalid pixels.
+        vw::Vector3 llh = m_dem_georef.datum().cartesian_to_geodetic(xyz);
+        vw::Vector2 ortho_pix = m_ortho_georef.lonlat_to_pixel
+                                 (vw::Vector2(llh[0], llh[1]));
+
+        tile(c, r) = interp_ortho(ortho_pix[0], ortho_pix[1]);
+      }
+    }
+
+    return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
+                             cols(), rows());
+  }
+
+  template <class DestT>
+  inline void rasterize(DestT const& dest, vw::BBox2i bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
+  }
+};
+
 // Generate images by projecting rays from the sensor to the ground
 void genImages(Options const& opt,
     bool external_cameras,
@@ -810,77 +917,36 @@ void genImages(Options const& opt,
       vw::vw_out() << "Writing: " << image_names[i] << std::endl;
     }
 
-  // Create interpolated image with bicubic interpolation with invalid pixel 
-  // edge extension
-  vw::PixelMask<float> nodata_mask = vw::PixelMask<float>(); // invalid value
-  nodata_mask.invalidate();
-  auto interp_ortho = vw::interpolate(ortho, vw::BicubicInterpolation(),
-                                      vw::ValueEdgeExtension<vw::PixelMask<float>>(nodata_mask));
-  int cols = opt.image_size[0];
-  int rows = opt.image_size[1];
   vw::vw_out() << "Generating images.\n";
 
-  // The location where the ray intersects the ground. We will use each obtained
-  // location as initial guess for the next ray. This may not be always a great
-  // guess, but it is better than starting nowhere. It should work decently
-  // if the camera is high, and with a small footprint on the ground.
-  vw::Vector3 xyz(0, 0, 0);
-
   for (size_t i = 0; i < cams.size(); i++) {
-    vw::ImageView<vw::PixelMask<float>> image(cols, rows);
 
-    vw::TerminalProgressCallback tpc("Computing: ", image_names[i] + ": ");
-    tpc.report_progress(0);
-    double inc_amount = 1.0 / double(cols);
+    float mean_gsd = 0.0;    
+    boost::shared_ptr<vw::camera::CameraModel> camera_model(new vw::camera::PinholeModel(cams[i]));           
 
-    for (int col = 0; col < cols; col++) {
-      for (int row = 0; row < rows; row++) {
+    bool quick = true;     
+    vw::BBox2 dem_box = vw::cartography::camera_bbox(dem, dem_georef, dem_georef,
+      camera_model, opt.image_size[0], opt.image_size[1], mean_gsd, quick);
+     std::cout << "dem box is " << dem_box << std::endl;
+     // Convert to pixel box for the DEM using the dem georef
+      vw::BBox2i dem_pixel_box = dem_georef.point_to_pixel_bbox(dem_box);
+      std::cout << "dem pixel box is " << dem_pixel_box << std::endl;
 
-        // Start with an invalid pixel
-        image(col, row) = vw::PixelMask<float>();
-        image(col, row).invalidate();
-        vw::Vector2 pix(col, row);
+     // Do the same for th ortho
+     vw::BBox2 ortho_box = vw::cartography::camera_bbox(ortho, ortho_georef, ortho_georef,
+      camera_model, opt.image_size[0], opt.image_size[1], mean_gsd, quick);
+     std::cout << "ortho box is " << ortho_box << std::endl;
+     // Convert to pixel box for the ortho using the ortho georef
+     vw::BBox2i ortho_pixel_box = ortho_georef.point_to_pixel_bbox(ortho_box);
+     std::cout << "ortho pixel box is " << ortho_pixel_box << std::endl;
 
-        vw::Vector3 cam_ctr = cams[i].camera_center(pix);
-        vw::Vector3 cam_dir = cams[i].pixel_to_vector(pix);
-
-        // Intersect the ray going from the given camera pixel with a DEM
-        // Use xyz as initial guess and overwrite it with the new value
-        bool treat_nodata_as_zero = false;
-        bool has_intersection = false;
-        double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
-        double max_rel_tol = max_abs_tol;
-        int num_max_iter = 100;
-        xyz = vw::cartography::camera_pixel_to_dem_xyz
-          (cam_ctr, cam_dir, dem,
-           dem_georef, treat_nodata_as_zero,
-           has_intersection, opt.dem_height_error_tol, 
-           max_abs_tol, max_rel_tol, 
-           num_max_iter, xyz);
-
-        if (!has_intersection) 
-          continue; // will result in nodata pixels
-
-        // Find the texture value at the intersection point by interpolation.
-        // This will result in an invalid value if if out of range or if the
-        // image itself has invalid pixels.
-        vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
-        vw::Vector2 ortho_pix = ortho_georef.lonlat_to_pixel(vw::Vector2(llh[0], llh[1]));
-        image(col, row) = interp_ortho(ortho_pix[0], ortho_pix[1]);
-      }
-
-      tpc.report_incremental_progress(inc_amount);
-    } 
-    tpc.report_finished();
-
-    // Save the image using the block write function
+    // Save the image using the block write function with multiple threads
     vw::vw_out() << "Writing: " << image_names[i] << std::endl;
     bool has_georef = false; // the produced image is raw, it has no georef
     bool has_nodata = true;
-
     block_write_gdal_image(image_names[i], 
-      vw::apply_mask(image, ortho_nodata_val), 
-      has_georef, ortho_georef, // the ortho georef will not be used
+      vw::apply_mask(SynImageView(opt, cams[i], dem_georef, dem, ortho_georef, ortho, ortho_nodata_val), ortho_nodata_val),
+      has_georef, ortho_georef,     // the ortho georef will not be used
       has_nodata, ortho_nodata_val, // borrow the nodata from ortho
       opt, vw::TerminalProgressCallback("", "\t--> "));
   }  
@@ -896,13 +962,13 @@ int main(int argc, char *argv[]) {
     vw::ImageViewRef<vw::PixelMask<float>> dem;
     float dem_nodata_val = -std::numeric_limits<float>::max(); // will change
     vw::cartography::GeoReference dem_georef;
-    readGeorefImage(opt.dem_file, dem_nodata_val, dem_georef, dem);
+    asp::readGeorefImage(opt.dem_file, dem_nodata_val, dem_georef, dem);
 
     // Read the ortho image
     vw::ImageViewRef<vw::PixelMask<float>> ortho;
     float ortho_nodata_val = -std::numeric_limits<float>::max(); // will change
     vw::cartography::GeoReference ortho_georef;
-    readGeorefImage(opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
+    asp::readGeorefImage(opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
 
     std::vector<std::string> cam_names;
     std::vector<vw::camera::PinholeModel> cams;
