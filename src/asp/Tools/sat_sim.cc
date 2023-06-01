@@ -29,6 +29,7 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Geometry/baseUtils.h>
 #include <vw/Cartography/CameraBBox.h>
+#include <vw/Cartography/GeoTransform.h>
 
 using namespace vw::cartography;
 using namespace vw::math;
@@ -768,27 +769,25 @@ class SynImageView: public vw::ImageViewBase<SynImageView> {
   
   typedef typename ImageT::pixel_type PixelT;
   Options                         const& m_opt;
-  vw::camera::PinholeModel         m_cam;
-   vw::cartography::GeoReference          m_dem_georef; // make a copy to be thread-safe
-   vw::ImageViewRef<vw::PixelMask<float>> const& m_dem;
-   vw::cartography::GeoReference          m_ortho_georef; // make a copy to be thread-safe
-   vw::ImageViewRef<vw::PixelMask<float>> const& m_ortho;
+  vw::camera::PinholeModel m_cam;
+   vw::cartography::GeoReference m_dem_georef; // make a copy to be thread-safe
+   vw::ImageView<vw::PixelMask<float>> const& m_dem;
+   vw::cartography::GeoReference m_ortho_georef; // make a copy to be thread-safe
+   vw::ImageView<vw::PixelMask<float>> const& m_ortho;
    float m_ortho_nodata_val;
 
 public:
   SynImageView(Options const& opt,
                vw::camera::PinholeModel        const& cam,
-             vw::cartography::GeoReference   const& dem_georef,
-             vw::ImageViewRef<vw::PixelMask<float>> dem,
-             vw::cartography::GeoReference   const& ortho_georef,
-             vw::ImageViewRef<vw::PixelMask<float>> ortho,
-             float ortho_nodata_val
-               ):
+               vw::cartography::GeoReference   const& dem_georef,
+               vw::ImageView<vw::PixelMask<float>> dem,
+               vw::cartography::GeoReference   const& ortho_georef,
+               vw::ImageView<vw::PixelMask<float>> ortho,
+               float ortho_nodata_val):
                 m_opt(opt), m_cam(cam), 
                 m_dem_georef(dem_georef), m_dem(dem),
                 m_ortho_georef(ortho_georef), m_ortho(ortho),
-                m_ortho_nodata_val(ortho_nodata_val) 
-                {}
+                m_ortho_nodata_val(ortho_nodata_val) {}
 
   typedef PixelT pixel_type;
   typedef PixelT result_type;
@@ -836,7 +835,6 @@ public:
   vw::Vector3 xyz(0, 0, 0);
 
   vw::ImageView<result_type> tile(bbox.width(), bbox.height());
-  std::cout << "Tile is " << bbox << std::endl;
 
     for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
       for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
@@ -932,21 +930,64 @@ void genImages(Options const& opt,
       vw::BBox2i dem_pixel_box = dem_georef.point_to_pixel_bbox(dem_box);
       std::cout << "dem pixel box is " << dem_pixel_box << std::endl;
 
-     // Do the same for th ortho
-     vw::BBox2 ortho_box = vw::cartography::camera_bbox(ortho, ortho_georef, ortho_georef,
-      camera_model, opt.image_size[0], opt.image_size[1], mean_gsd, quick);
-     std::cout << "ortho box is " << ortho_box << std::endl;
-     // Convert to pixel box for the ortho using the ortho georef
-     vw::BBox2i ortho_pixel_box = ortho_georef.point_to_pixel_bbox(ortho_box);
-     std::cout << "ortho pixel box is " << ortho_pixel_box << std::endl;
+      vw::cartography::GeoTransform d2o(dem_georef, ortho_georef);
+      vw::BBox2 ortho_box = d2o.point_to_point_bbox(dem_box);
+      std::cout << "ortho box is " << ortho_box << std::endl;
+      // Convert to pixel box for the ortho using the ortho georef
+      vw::BBox2i ortho_pixel_box = ortho_georef.point_to_pixel_bbox(ortho_box);
+      std::cout << "ortho pixel box is " << ortho_pixel_box << std::endl;
+
+      // expand the the dem pixel box by 50 pixels each side
+      int expand = 50;
+      dem_pixel_box.expand(expand);
+      // Crop to dem bounding box
+      dem_pixel_box.crop(vw::bounding_box(dem));
+      // Make a copy
+      vw::ImageView<vw::PixelMask<float>> crop_dem = vw::crop(dem, dem_pixel_box);
+      // Crop the georef too to match the dem
+      vw::cartography::GeoReference crop_dem_georef = crop(dem_georef, dem_pixel_box);
+
+      // expand the the ortho pixel box by 50 pixels each side
+      ortho_pixel_box.expand(expand);
+      // Crop to ortho bounding box
+      ortho_pixel_box.crop(vw::bounding_box(ortho));
+      // Make a copy
+      vw::ImageView<vw::PixelMask<float>> crop_ortho = vw::crop(ortho, ortho_pixel_box);
+      // Crop the georef too to match the ortho
+      vw::cartography::GeoReference crop_ortho_georef = crop(ortho_georef, ortho_pixel_box);
+      
+      // // Save to disk using the block write function with multiple threads
+      // std::string dem_name = opt.out_prefix + "-dem.tif";
+      // bool has_georef2 = true;
+      // bool has_nodata2 = true;
+      // std::cout << "Writing: " << dem_name << std::endl;
+      // block_write_gdal_image(dem_name, 
+      //   apply_mask(crop_dem, ortho_nodata_val),
+      //   has_georef2, crop_dem_georef,
+      //   has_nodata2, ortho_nodata_val, opt, 
+      //   vw::TerminalProgressCallback("", "\t--> "));
+
+      // // Save to disk using the block write function with multiple threads
+      // std::string ortho_name = opt.out_prefix + "-ortho.tif";
+      // // bool has_georef2 = true;
+      // // bool has_nodata2 = true;
+      // std::cout << "Writing: " << ortho_name << std::endl;
+      // block_write_gdal_image(ortho_name, 
+      //   apply_mask(crop_ortho, ortho_nodata_val),
+      //   has_georef2, crop_ortho_georef,
+      //   has_nodata2, ortho_nodata_val, opt, 
+      //   vw::TerminalProgressCallback("", "\t--> "));
+
+      // //exit(0);
 
     // Save the image using the block write function with multiple threads
     vw::vw_out() << "Writing: " << image_names[i] << std::endl;
     bool has_georef = false; // the produced image is raw, it has no georef
     bool has_nodata = true;
     block_write_gdal_image(image_names[i], 
-      vw::apply_mask(SynImageView(opt, cams[i], dem_georef, dem, ortho_georef, ortho, ortho_nodata_val), ortho_nodata_val),
-      has_georef, ortho_georef,     // the ortho georef will not be used
+      vw::apply_mask(SynImageView(opt, cams[i], 
+      crop_dem_georef, crop_dem, crop_ortho_georef, crop_ortho, ortho_nodata_val), ortho_nodata_val),
+      has_georef, crop_ortho_georef,     // the ortho georef will not be used
       has_nodata, ortho_nodata_val, // borrow the nodata from ortho
       opt, vw::TerminalProgressCallback("", "\t--> "));
   }  
