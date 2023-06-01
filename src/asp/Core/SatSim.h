@@ -27,10 +27,24 @@
 #include <vw/Image/ImageViewRef.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Image/PixelMask.h>
+#include <vw/FileIO/GdalWriteOptions.h>
+#include <vw/Camera/PinholeModel.h>
 
 #include <string>
 
 namespace asp {
+
+struct SatSimOptions : vw::GdalWriteOptions {
+  std::string dem_file, ortho_file, out_prefix, camera_list;
+  vw::Vector3 first, last; // dem pixel and height above dem datum
+  int num_cameras;
+  vw::Vector2 optical_center, image_size, first_ground_pos, last_ground_pos;
+  double focal_length, dem_height_error_tol;
+  double roll, pitch, yaw, velocity, jitter_frequency;
+  vw::Vector3 horizontal_uncertainty; // for roll, pitch, yaw
+  bool no_images;
+  SatSimOptions() {}
+};
 
 // A function that will read a geo-referenced image, its nodata value,
 // and the georeference, and will return a PixelMasked image, the nodata
@@ -38,6 +52,44 @@ namespace asp {
 void readGeorefImage(std::string const& image_file, 
   float & nodata_val, vw::cartography::GeoReference & georef,
   vw::ImageViewRef<vw::PixelMask<float>> & masked_image);
+
+// A function that will take as input the endpoints and will compute the
+// satellite trajectory and along track/across track/down directions in ECEF,
+// which will give the camera to world rotation matrix.
+// The key observation is that the trajectory will be a straight edge in
+// projected coordinates so will be computed there first. In some usage
+// modes we will adjust the end points of the trajectory along the way.
+void calcTrajectory(SatSimOptions & opt,
+                    vw::cartography::GeoReference const& dem_georef,
+                    vw::ImageViewRef<vw::PixelMask<float>> dem,
+                    // Outputs
+                    std::vector<vw::Vector3> & trajectory,
+                    // the vector of camera to world rotation matrices
+                    std::vector<vw::Matrix3x3> & cam2world);
+
+// A function to read the cameras from a file
+void readCameras(SatSimOptions const& opt, 
+    std::vector<std::string> & cam_names,
+    std::vector<vw::camera::PinholeModel> & cams);
+
+// A function to create and save the cameras. Assume no distortion, and pixel
+// pitch = 1.
+void genCameras(SatSimOptions const& opt, std::vector<vw::Vector3> const & trajectory,
+                std::vector<vw::Matrix3x3> const & cam2world,
+                // outputs
+                std::vector<std::string> & cam_names,
+                std::vector<vw::camera::PinholeModel> & cams);
+
+// Generate images by projecting rays from the sensor to the ground
+void genImages(SatSimOptions const& opt,
+    bool external_cameras,
+    std::vector<std::string> const& cam_names,
+    std::vector<vw::camera::PinholeModel> const& cams,
+    vw::cartography::GeoReference const& dem_georef,
+    vw::ImageViewRef<vw::PixelMask<float>> dem,
+    vw::cartography::GeoReference const& ortho_georef,
+    vw::ImageViewRef<vw::PixelMask<float>> ortho,
+    float ortho_nodata_val);
 
 } // end namespace asp
 
