@@ -117,17 +117,18 @@ void calcTrajPtAlongAcross(vw::Vector3 const& first_proj,
     across = across / norm_2(across);
 }
 
-// Assemble the cam2world matrix from the local x, y, z vectors
+// Assemble the cam2world matrix from the along track, across track, and down vectors
+// Note how we swap the first two columns and flip one sign. We went the along
+// direction to be the camera y direction
 void assembleCam2WorldMatrix(vw::Vector3 const& along, 
                              vw::Vector3 const& across, 
                              vw::Vector3 const& down,
                              // Output
                              vw::Matrix3x3 & cam2world) {
 
-  // The camera to world rotation has these vectors as the columns
   for (int row = 0; row < 3; row++) {
-    cam2world(row, 0) = along[row];
-    cam2world(row, 1) = across[row];
+    cam2world(row, 0) = -across[row];
+    cam2world(row, 1) = along[row];
     cam2world(row, 2) = down[row];
   }
  return;
@@ -166,7 +167,7 @@ double demPixelErr(SatSimOptions const& opt,
     vw::Vector3 down = vw::math::cross_prod(along, across);
     down = down / norm_2(down);
 
-    // The camera to world rotation has these vectors as the columns
+    // The camera to world rotation
     vw::Matrix3x3 cam2world;
     assembleCam2WorldMatrix(along, across, down, cam2world);
     // Apply the roll-pitch-yaw rotation
@@ -401,6 +402,7 @@ void calcTrajectory(SatSimOptions & opt,
 
   // Direction along the edge in proj coords (along track direction)
   vw::Vector3 proj_along = last_proj - first_proj;
+  
   // Sanity check
   if (proj_along == vw::Vector3())
     vw::vw_throw(vw::ArgumentErr()
@@ -606,7 +608,7 @@ void genCameras(SatSimOptions const& opt, std::vector<vw::Vector3> const & traje
 
       cams[i] = vw::camera::PinholeModel(trajectory[i], cam2world[i],
                                    opt.focal_length, opt.focal_length,
-                                   opt.image_size[0], opt.image_size[1]);
+                                   opt.optical_center[0], opt.optical_center[1]);
       
       std::string camName = genPrefix(opt, i) + ".tsai";
       cam_names[i] = camName;

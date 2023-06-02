@@ -61,8 +61,6 @@ Example (generate nadir-pointing cameras)
     --image-size 1000 1000                               \
     -o run/run
 
-The camera orientations are with the *x*, *y* and *z* axes pointing along
-satellite track, across track, and towards the planet, respectively.
 See :numref:`sat_sim_roll_pitch_yaw` for how to apply a custom rotation
 to the cameras.
 
@@ -115,27 +113,46 @@ Fixed camera orientation
 
 When custom cameras are created (not read from disk), and unless the
 ``--first-ground-pos`` and ``--last-ground-pos`` options are specified, the
-cameras will look straight down (perpendicular to along and across track
+cameras will look straight down (nadir, perpendicular to along and across track
 directions). 
 
-If desired to have a custom orientation, use the ``--roll``,
-``--pitch`` and ``--yaw`` options (measured in degrees, all three must be
-specified). These are, respectively, the rotations around the *x*, *y* and *z*
-camera axes. 
+If desired to have a custom orientation, use the ``--roll``, ``--pitch`` and
+``--yaw`` options (measured in degrees, all three must be specified). When all
+these are set to 0 (the default is ``NaN``) the default nadir-looking orientation is
+recovered. 
 
-For example, a pitch of 45 degrees will result in the camera
-rotating by 45 degrees relative to the nadir direction to see further ahead
-(along track). If a non-zero yaw is set, the camera will rotate around the view axis.
+As an example, if the pitch is 90 degrees and the other angles are zero, the
+camera will look along the track rather than down. If a non-zero yaw is set, the
+camera will rotate around the view axis.
 
-All these angles are equal to zero for the default orientation. The rotations are
-applied to the camera body in the roll, pitch, and yaw order. So, the combined
-rotation matrix is::
+Example invocation::
+
+    sat_sim --dem dem.tif --ortho ortho.tif              \
+    --first 397.1 400.7 450000 --last 397.1 500.7 450000 \
+    --num 5                                              \
+    --roll 0 --pitch 25 --yaw 0                          \
+    --focal-length 450000 --optical-center 500 500       \
+    --image-size 1000 1000                               \
+    -o run/run
+
+The rotations are applied to the camera body in the roll, pitch, and yaw order.
+So, the combined rotation matrix is::
 
     R = yawRot * pitchRot * rollRot
 
 (the application is from right to left). The camera-to-ECEF rotation is produced
 by further multiplying this matrix on the left by the rotation from the satellite
 body to ECEF.
+
+It is important to note that the satellite and the camera use different coordinate
+systems. The satellite orientation is with the *x*, *y* and *z* axes pointing along
+satellite track, across track, and towards the planet, respectively.
+
+For the camera, it is preferable for the rows of pixels to be parallel to the
+across track direction, and for the columns to be parallel to the along track
+direction. So, the camera *y* direction is along the track, the camera *x*
+direction is the negative of the across-track direction, and *z* points towards
+the ground as before.
 
 .. _sat_sim_roll_pitch_yaw_ground:
 
@@ -144,18 +161,19 @@ Pose and ground constraints
 
 Given an orbital trajectory, a path on the ground, and a desired fixed camera
 orientation (roll, pitch, yaw), this tool can find the correct endpoints along
-the orbit for the satellite, then use those to generate the cameras (positioned
-between those endpoints). Example::
+the satellite orbit, then use those to generate the cameras (positioned
+between those endpoints), with the center of the camera ground footprint following 
+the desired ground path. Example::
 
-    sat_sim --dem dem.tif --ortho ortho.tif               \
-    --first 397.1 400.7 450000 --last 397.1 500.7 450000  \
-     --first-ground-pos 397.1 400.7                       \
-     --last-ground-pos 397.1 500.7                        \
-     --roll 0 --pitch 25 --yaw 0                          \
-    --num 5                                               \
-    --focal-length 450000 --optical-center 500 500        \
-     --optical-center 500 500 --image-size 1000 1000      \
-     -o run/run
+    sat_sim --dem dem.tif --ortho ortho.tif                 \
+      --first 397.1 400.7 450000 --last 397.1 500.7 450000  \
+      --first-ground-pos 397.1 400.7                        \
+      --last-ground-pos 397.1 500.7                         \
+      --roll 0 --pitch 25 --yaw 0                           \
+      --num 5                                               \
+      --focal-length 450000 --optical-center 500 500        \
+      --image-size 1000 1000                                \
+      -o run/run
 
 Here, unlike in :numref:`sat_sim_nadir`, we will use ``--first`` and ``--last``
 only to identify the orbit. The endpoints to use on it will be found
@@ -167,8 +185,8 @@ Unlike in :numref:`sat_sim_custom_path`, the camera orientations will not change
 
 It is not important to know very accurately the values of ``--first-ground-pos``
 and ``--last-ground-pos``. The trajectory of the camera center ground footprint
-will be computed, its endpoints closest to these two values will be found, which
-in turn will be used to find the orbital segment endpoints.
+will be computed, its endpoints closest to these two ground coordinates will be
+found, which in turn will be used to find the orbital segment endpoints.
 
 .. figure:: ../images/sfm_view_nadir_off_nadir.png
    :name: sat_sim_illustration_nadir_off_nadir
