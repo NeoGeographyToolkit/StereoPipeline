@@ -10,11 +10,11 @@ This program is a modified version of `umve
 development and not all features of umve are available yet.
 
 The cameras are represented as pyramids (the pyramid tip is the camera center
-and the base is sensor plane), and the ground as a plane. The ground plane is
-meant to be only a suggestion, and is not at the correct distance or scale from
-the cameras. It is determined as the plane perpendicular to the vector from
-planet center to the mean of camera centers. The planet curvature is not
-modeled. 
+and the base is the sensor plane), and the ground as shown as a plane. The
+ground plane is meant to be only a suggestion, and is not at the correct
+distance or scale from the cameras. It is determined as the plane perpendicular
+to the vector from the planet center to the mean of camera centers. The planet
+curvature is not modeled. 
 
 The actual field of view (focal length) and optical center of the
 cameras are not reflected in the plots.

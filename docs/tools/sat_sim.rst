@@ -185,7 +185,7 @@ Unlike in :numref:`sat_sim_custom_path`, the camera orientations will not change
 
 It is not important to know very accurately the values of ``--first-ground-pos``
 and ``--last-ground-pos``. The trajectory of the camera center ground footprint
-will be computed, its endpoints closest to these two ground coordinates will be
+will be computed, points on it closest to these two ground coordinates will be
 found, which in turn will be used to find the orbital segment endpoints.
 
 .. figure:: ../images/sfm_view_nadir_off_nadir.png

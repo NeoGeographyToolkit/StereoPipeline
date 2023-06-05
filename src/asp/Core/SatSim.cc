@@ -127,11 +127,27 @@ void assembleCam2WorldMatrix(vw::Vector3 const& along,
                              vw::Matrix3x3 & cam2world) {
 
   for (int row = 0; row < 3; row++) {
-    cam2world(row, 0) = -across[row];
-    cam2world(row, 1) = along[row];
+    cam2world(row, 0) = along[row];
+    cam2world(row, 1) = across[row];
     cam2world(row, 2) = down[row];
   }
  return;
+}
+
+// Return the matrix of rotation in the xy plane
+vw::Matrix3x3 rotationXY() {
+
+  vw::Matrix3x3 T;
+  // Set all elements to zero
+  for (int row = 0; row < 3; row++)
+    for (int col = 0; col < 3; col++)
+      T(row, col) = 0.0;
+  
+  T(0, 1) = 1;
+  T(1, 0) = -1;
+  T(2, 2) = 1;
+
+  return T;
 }
 
 // This is used to signify when the algorithm below fails to find a solution
@@ -172,7 +188,7 @@ double demPixelErr(SatSimOptions const& opt,
     assembleCam2WorldMatrix(along, across, down, cam2world);
     // Apply the roll-pitch-yaw rotation
     vw::Matrix3x3 R = asp::rollPitchYaw(roll, pitch, yaw);
-    cam2world = cam2world * R;
+    cam2world = cam2world * R * rotationXY();
 
     // Ray from camera to ground going through image center
     vw::Vector3 cam_dir = cam2world * vw::Vector3(0, 0, 1);
@@ -187,7 +203,10 @@ double demPixelErr(SatSimOptions const& opt,
     xyz = vw::cartography::camera_pixel_to_dem_xyz
       (P, cam_dir, dem,
         dem_georef, treat_nodata_as_zero,
-        has_intersection, opt.dem_height_error_tol, 
+        has_intersection, 
+        // Below we use a prudent approach. Try to make the solver work
+        // hard. It is not clear if this is needed.
+        std::min(opt.dem_height_error_tol, 1e-8),
         max_abs_tol, max_rel_tol, 
         num_max_iter, xyz);
 
@@ -197,13 +216,12 @@ double demPixelErr(SatSimOptions const& opt,
     // Find pixel location 
     vw::Vector2 pixel_loc2 = dem_georef.lonlat_to_pixel
       (subvector(llh, 0, 2));
-
+    
     // If the pixel is outside the DEM, return a big value
     if (!vw::bounding_box(dem).contains(pixel_loc2)) {
       return g_big_val;
     }
 
-    // Return norm of difference to input pixel location
     return norm_2(pixel_loc - pixel_loc2);
 }
 
@@ -218,7 +236,7 @@ class RayDemPixelLMA : public vw::math::LeastSquaresModelBase<RayDemPixelLMA> {
   vw::Vector3 m_last_proj;
   vw::Vector3 m_proj_along;
   vw::Vector3 m_proj_across;
-  double m_delta;
+  double m_delta, m_param_scale_factor;
   double m_roll, m_pitch, m_yaw;
   vw::Vector2 m_pixel_loc;
 
@@ -236,21 +254,25 @@ public:
                  vw::Vector3 const& proj_along,
                  vw::Vector3 const& proj_across,
                  double delta, // a small number to move along track
+                 double param_scale_factor, // to go from optimizer units to t in [0, 1]
                  double roll, double pitch, double yaw,
                  vw::Vector2 const& pixel_loc):
     m_opt(opt), m_dem_georef(dem_georef), m_dem(dem),
     m_first_proj(first_proj), m_last_proj(last_proj),
     m_proj_along(proj_along), m_proj_across(proj_across),
-    m_delta(delta), m_roll(roll), m_pitch(pitch), m_yaw(yaw),
+    m_delta(delta), m_param_scale_factor(param_scale_factor),
+    m_roll(roll), m_pitch(pitch), m_yaw(yaw),
     m_pixel_loc(pixel_loc){}
 
   // Evaluator operator. The goal is described earlier.
-  inline result_type operator()(domain_type const& t) const {
+  inline result_type operator()(domain_type const& len) const {
 
+    // See note where param_scale_factor is defined.
+    double t = len[0] * m_param_scale_factor;
     double err = demPixelErr(m_opt, m_dem_georef, m_dem,
                              m_first_proj, m_last_proj,
                              m_proj_along, m_proj_across,
-                             t[0], m_delta, m_roll, m_pitch, m_yaw,
+                             t, m_delta, m_roll, m_pitch, m_yaw,
                              m_pixel_loc);
 
     result_type result;
@@ -273,10 +295,48 @@ void findBestProjCamLocation
    // Outputs
    vw::Vector3 & best_proj) {
 
+  // Note(oalexan1): This algorithm had issues with convergence. Let eps = 1e-7.
+  // This is used in LevenbergMarquardt.h for numerical differentiation. Need to
+  // ensure model(len) and model(len + eps) are sufficiently different. For
+  // that, ensure that len and len + eps correspond to points in orbit separated
+  // by about 1 meter. That is why, we start with t in [0, 1], which
+  // parametrizes the orbital segment between first_proj and last_proj, and
+  // parametrize using value len, with t = len * param_scale_factor. 
+  double eps = 1e-7;
+  vw::Vector3 P1 = projToEcef(dem_georef, first_proj); // t = 0
+  vw::Vector3 P2 = projToEcef(dem_georef, last_proj);  // t = 1
+  double d = norm_2(P2 - P1);
+  if (d < 1.0)
+    vw::vw_throw(vw::ArgumentErr() 
+      << "Ensure that the input orbit end points are at least 1 m apart.\n");
+  double param_scale_factor = 1.0 / (eps * d);
+#if 0 
+  // Verification that param_scale_factor is correct
+  double l1 = 0, l2 = eps;
+  double t1 = param_scale_factor * l1; 
+  double t2 = param_scale_factor * l2;
+  P1 = projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
+  P2 = projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
+  std::cout << "Distance must be 1 meter: " << norm_2(P1 - P2) << std::endl;
+#endif
+
+  // Find a spacing in t that corresponds to 10 meters movement in orbit.
+  // We will use this to find a good initial guess.
+  double dt = 1e-3;
+  P1 = projToEcef(dem_georef, first_proj);
+  P2 = projToEcef(dem_georef, first_proj + dt * proj_along);
+  double slope = norm_2(P2 - P1) / dt;
+  double spacing = 10.0 / slope;
+#if 0 
+  // Verification that spacing is correct
+  P2 = projToEcef(dem_georef, first_proj + spacing * proj_along);
+  std::cout << "Distance must be 10 meters: " << norm_2(P2 - P1) << std::endl;
+#endif
+
   // Set up the LMA problem
   RayDemPixelLMA model(opt, dem_georef, dem, first_proj, last_proj,
-                       proj_along, proj_across, delta, roll, pitch, yaw,
-                       pixel_loc);
+                       proj_along, proj_across, delta, param_scale_factor,
+                       roll, pitch, yaw, pixel_loc);
   int status = -1;
   double max_abs_tol = 1e-14;
   double max_rel_tol = max_abs_tol;
@@ -285,24 +345,19 @@ void findBestProjCamLocation
   observation[0] = 0; // because we want to minimize the error
   vw::Vector<double, 1> len; len[0] = 0; // initial guess 
 
-  // Find a spacing in len that corresponds to 100 meters movement in orbit
-  double dt = 1e-3;
-  vw::Vector3 P1 = projToEcef(dem_georef, first_proj);
-  vw::Vector3 P2 = projToEcef(dem_georef, first_proj + dt * proj_along);
-  double slope = norm_2(P2 - P1) / dt;
-  double spacing = 100.0 / slope;
-
   // First need to search around for a good initial guess. This is a bug fix.
   // Number of attempts times spacing in m is 1e+8 m, which is 100,000 km. 
   // Enough for any orbit length.
-  int attempts = int(1e+6);
+  int attempts = int(1e+8);
   double best_val = g_big_val;
   for (int i = 0; i < attempts; i++) {
     
     // Move towards the positive direction then the negative one
     double curr_best_val = best_val;
     for (int j = -1; j <= 1; j += 2) {
-      vw::Vector<double, 1> len2; len2[0] = spacing * i * j;
+      double t = spacing * i * j;
+      vw::Vector<double, 1> len2; 
+      len2[0] = t / param_scale_factor;
       double val = model(len2)[0];
 
       if (val < best_val) {
@@ -319,18 +374,26 @@ void findBestProjCamLocation
 
   } // end doing attempts
 
+
   len = vw::math::levenberg_marquardt(model, len, observation, status, 
       max_abs_tol, max_rel_tol, num_max_iter);
 
   // Note: The status is ignored here. We will just take whatever the solver
   // outputs, as it may not converge within tolerance. 
-  // Sanity check
-  if (std::abs(model(len)[0]) > 0.1) {
-    vw::vw_throw(vw::ArgumentErr() << "Error: The solver for finding correct ends of orbital segment did not converge to a good solution. Check your DEM, roll, pitch, yaw, and ground path endpoints.\n");
+
+#if 0
+// Turning this off, as the minimum cost function may be far from zero.
+// May need to add some other check here.
+  if (std::abs(model(len)[0]) > 1.0) {
+    std::cout << "Abs of model value is " << std::abs(model(len)[0]) << std::endl;
+    vw::vw_throw(vw::ArgumentErr() << "Error: The solver for finding correct ends of "
+      << "orbital segment did not converge to a good solution. Check your DEM, " 
+      << "roll, pitch, yaw, and ground path endpoints.\n");
   }
+#endif
 
   // Compute the best location given the just-found position on the segment
-  double t = len[0];
+  double t = len[0] * param_scale_factor;
   best_proj = first_proj * (1.0 - t) + last_proj * t;
 }
 
@@ -412,8 +475,8 @@ void calcTrajectory(SatSimOptions & opt,
   // One more sanity check
   if (std::max(std::abs(proj_along[0]), std::abs(proj_along[1])) < 1e-6)
     vw::vw_throw(vw::ArgumentErr()
-      << "It appears that the satellite is aiming for the ground. "
-      <<  "Correct the orbit end points.\n");
+      << "It appears that the satellite is aiming for the ground or "
+      << "the orbital segment is too short. Correct the orbit end points.\n");
 
   // Find the across-track direction, parallel to the ground, in projected coords
   vw::Vector3 proj_across = vw::math::cross_prod(proj_along, vw::Vector3(0, 0, 1));
@@ -442,6 +505,7 @@ void calcTrajectory(SatSimOptions & opt,
                             proj_along, proj_across, delta, 
                             opt.roll, opt.pitch, opt.yaw,
                             opt.first_ground_pos, first_best_cam_loc_proj);
+
     // Same thing for the last camera
     vw::Vector3 last_best_cam_loc_proj;
     findBestProjCamLocation(opt, dem_georef, dem, first_proj, last_proj,
@@ -558,7 +622,7 @@ void calcTrajectory(SatSimOptions & opt,
       vw::Matrix3x3 R = asp::rollPitchYaw(opt.roll  + amp[0], 
                                           opt.pitch + amp[1], 
                                           opt.yaw   + amp[2]);
-      cam2world[i] = cam2world[i] * R;
+      cam2world[i] = cam2world[i] * R * rotationXY();
     }
   }
   return;
