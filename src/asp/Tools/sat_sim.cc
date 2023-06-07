@@ -59,6 +59,12 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     "Coordinates of last camera ground footprint center (DEM column and row). "
     "If not set, the cameras will look straight down (perpendicular to along "
     "and across track directions).")
+    ("first-index", po::value(&opt.first_index)->default_value(-1),
+    "Index of first camera and/or image to generate, starting from 0. If not set, will create "
+    "all images/cameras. This is used for parallelization.")
+    ("last-index", po::value(&opt.last_index)->default_value(-1),
+    "Index of last image and/or camera to generate, starting from 0. Stop before this index. "
+    "If not set, will create all images/cameras. This is used for parallelization.")
     ("focal-length", po::value(&opt.focal_length)->default_value(NaN),
      "Output camera focal length in units of pixel.")
     ("optical-center", po::value(&opt.optical_center)->default_value(vw::Vector2(NaN, NaN),"NaN NaN"),
@@ -107,6 +113,7 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
+
   if (opt.dem_file == "" || opt.ortho_file == "")
     vw::vw_throw(vw::ArgumentErr() << "Missing input DEM and/or ortho image.\n");
   if (opt.out_prefix == "")
@@ -160,7 +167,6 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
   if (ans != 0 && ans != 5)
     vw::vw_throw(vw::ArgumentErr() << "Either all of jitter-frequency, velocity, and "
       "horizontal uncertainty must be specified, or none.\n");
-  
   bool have_roll_pitch_yaw = !std::isnan(opt.roll) && !std::isnan(opt.pitch) &&
       !std::isnan(opt.yaw);
   if (ans != 0 && !have_roll_pitch_yaw)
@@ -179,6 +185,12 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
 
   if (opt.jitter_frequency <= 0)
     vw::vw_throw(vw::ArgumentErr() << "The jitter frequency must be positive.\n");
+
+  // Sanity check the first and last indices
+  ans = int(opt.first_index < 0) + int(opt.last_index < 0);
+  if (ans != 0 && ans != 2)
+    vw::vw_throw(vw::ArgumentErr() << "Either both first and last indices must be "
+      "specified, or none.\n");
 
   // Create the output directory based on the output prefix
   vw::create_out_dir(opt.out_prefix);
@@ -212,7 +224,7 @@ int main(int argc, char *argv[]) {
       asp::readCameras(opt, cam_names, cams);
       external_cameras = true;
     } else {
-     // Generate the cameras   
+      // Generate the cameras   
       std::vector<vw::Vector3> trajectory(opt.num_cameras);
       // vector of rot matrices
       std::vector<vw::Matrix3x3> cam2world(opt.num_cameras);

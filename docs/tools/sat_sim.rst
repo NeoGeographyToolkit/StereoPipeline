@@ -13,6 +13,10 @@ interest. If the input cameras are not specified, the orbit is determined by
 given endpoints. It is represented as a straight edge in the projected
 coordinate system of the DEM, which results in an arc around the planet. 
 
+The input DEM must not have holes, be reasonalbly smooth, and extend well-beyond
+the area of interest. The ``dem_mosaic`` (:numref:`dem_mosaic`) tool can be used
+to preprocess such a DEM (hole-filling and blur options).
+
 The images are created with bicubic interpolation in the ortho image and are
 saved with float pixels. Missing pixels will have nodata values.
 
@@ -22,8 +26,10 @@ the cameras can have a fixed orientation, without
 (:numref:`sat_sim_roll_pitch_yaw`) and with
 (:numref:`sat_sim_roll_pitch_yaw_ground`) ground constraints.
 
-Example (use given cameras)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Several use cases are below. 
+
+Use given cameras
+^^^^^^^^^^^^^^^^^
 ::
   
     sat_sim --dem dem.tif --ortho ortho.tif          \
@@ -49,8 +55,8 @@ To see how a created image projects onto the ground, run ``mapproject``
 
 .. _sat_sim_nadir:
 
-Example (generate nadir-pointing cameras)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Generate nadir-pointing cameras
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
   
@@ -85,8 +91,8 @@ The produced image and camera names will be along the lines of::
 
 .. _sat_sim_custom_path:
 
-Example (follow custom ground path)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Follow custom ground path with varying orientation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Given two locations on the DEM, each specified by the column and row of DEM
 pixel, to ensure that the center of the camera footprint travels along the straight
@@ -282,6 +288,15 @@ invocation as in :numref:`sat_sim_roll_pitch_yaw_ground`, and add the options::
 See :numref:`sat_sim_options` for more information on
 these options.
 
+Efficiency considerations
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Each image (of size about 2000 x 1000 pixels) can take about 10 seconds to
+create using multiple threads. A job can be divided over several processes
+using the ``--first-index`` and ``--last-index`` options (see
+:numref:`sat_sim_options`). The last index is the index before the last camera.
+The option ``--no-images`` can be used to skip the image creation step.
+
 .. _sat_sim_options:
 
 Command-line options
@@ -365,9 +380,18 @@ Command-line options
     jitter amplitude will be the angular horizontal uncertainty (see
     ``--horizontal-uncertainty``.
 
+--first-index <int (default: -1)>
+    Index of first camera and/or image to generate, starting from 0. If not set,
+    will create all images/cameras. This is used for parallelization.
+
+--last-index <int (default: -1)>
+    Index of last image and/or camera to generate, starting from 0. Stop before
+    this index. If not set, will create all images/cameras. This is used for
+    parallelization.    
+
 --no-images
     Create only cameras, and no images. Cannot be used with ``--camera-list``.
-    
+
 --dem-height-error-tol <float (default: 0.001)>
     When intersecting a ray with a DEM, use this as the height error tolerance
     (measured in meters). It is expected that the default will be always good

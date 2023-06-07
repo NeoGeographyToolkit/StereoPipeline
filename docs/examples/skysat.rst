@@ -239,7 +239,7 @@ Use ``stereo_gui`` to inspect the reprojection errors in the final
    :alt: SkySat stereo example
 
    The colorized bundle adjustment camera reprojection errors
-   (pointmap.csv) overlayed on top of the Copernicus 30 m DEM for Grand
+   (pointmap.csv) overlaid on top of the Copernicus 30 m DEM for Grand
    Mesa, Colorado, before optimization (left) and after
    (right). Maximum shade of red is reprojection error of at least 5
    pixels. The same set of clean interest points was used in both
@@ -570,7 +570,7 @@ mosaicked::
      dem_mosaic stereo_v12/run-DEM.tif stereo_v23/run-DEM.tif \
        stereo_v34/run-DEM.tif -o mosaic.tif
 
-This DEM can be hillshaded and overlayed on top of the reference DEM.
+This DEM can be hillshaded and overlaid on top of the reference DEM.
 
 The next step is aligning it to the reference.
 

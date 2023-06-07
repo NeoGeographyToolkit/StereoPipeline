@@ -169,7 +169,7 @@ double demPixelErr(SatSimOptions const& opt,
                    double t,
                    double delta, // a small number to move along track
                    double roll, double pitch, double yaw,
-                   vw::Vector2 const& pixel_loc) {
+                   vw::Vector2 const& pixel_loc) { 
 
     // Calc position along the trajectory and normalized along and across vectors
     // in ECEF
@@ -199,8 +199,9 @@ double demPixelErr(SatSimOptions const& opt,
     double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
     double max_rel_tol = max_abs_tol;
     int num_max_iter = 100;
-    vw::Vector3 xyz;
-    xyz = vw::cartography::camera_pixel_to_dem_xyz
+    vw::Vector3 xyz_guess = vw::Vector3(0, 0, 0);
+    // TODO(oalexan1): Consider saving the result from here as guess for next time
+    vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
       (P, cam_dir, dem,
         dem_georef, treat_nodata_as_zero,
         has_intersection, 
@@ -208,7 +209,7 @@ double demPixelErr(SatSimOptions const& opt,
         // hard. It is not clear if this is needed.
         std::min(opt.dem_height_error_tol, 1e-8),
         max_abs_tol, max_rel_tol, 
-        num_max_iter, xyz);
+        num_max_iter, xyz_guess);
 
     // Convert to llh
     vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
@@ -216,11 +217,10 @@ double demPixelErr(SatSimOptions const& opt,
     // Find pixel location 
     vw::Vector2 pixel_loc2 = dem_georef.lonlat_to_pixel
       (subvector(llh, 0, 2));
-    
+
     // If the pixel is outside the DEM, return a big value
-    if (!vw::bounding_box(dem).contains(pixel_loc2)) {
+    if (!vw::bounding_box(dem).contains(pixel_loc2))
       return g_big_val;
-    }
 
     return norm_2(pixel_loc - pixel_loc2);
 }
@@ -268,6 +268,8 @@ public:
   inline result_type operator()(domain_type const& len) const {
 
     // See note where param_scale_factor is defined.
+    //std::cout << "\n";
+    //std::cout << "Len is " << len << std::endl;
     double t = len[0] * m_param_scale_factor;
     double err = demPixelErr(m_opt, m_dem_georef, m_dem,
                              m_first_proj, m_last_proj,
@@ -277,6 +279,8 @@ public:
 
     result_type result;
     result[0] = err;
+    //std::cout.precision(17);
+    //std::cout << "t = " << t << ", err = " << err << std::endl;
     return result;
   }
 };
@@ -312,25 +316,34 @@ void findBestProjCamLocation
   double param_scale_factor = 1.0 / (eps * d);
 #if 0 
   // Verification that param_scale_factor is correct
-  double l1 = 0, l2 = eps;
-  double t1 = param_scale_factor * l1; 
-  double t2 = param_scale_factor * l2;
-  P1 = projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
-  P2 = projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
-  std::cout << "Distance must be 1 meter: " << norm_2(P1 - P2) << std::endl;
+  {
+    double l1 = 0, l2 = eps;
+    double t1 = param_scale_factor * l1; 
+    double t2 = param_scale_factor * l2;
+    P1 = projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
+    P2 = projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
+    std::cout << "Param scale factor is " << param_scale_factor << std::endl;
+    std::cout << "Distance must be 1 meter: " << norm_2(P1 - P2) << std::endl;
+  }
 #endif
 
   // Find a spacing in t that corresponds to 10 meters movement in orbit.
   // We will use this to find a good initial guess.
   double dt = 1e-3;
-  P1 = projToEcef(dem_georef, first_proj);
-  P2 = projToEcef(dem_georef, first_proj + dt * proj_along);
-  double slope = norm_2(P2 - P1) / dt;
-  double spacing = 10.0 / slope;
+  double t1 = -dt, t2 = dt;
+  P1 = projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
+  P2 = projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
+  double slope = norm_2(P2 - P1) / (2*dt);
+  double spacing = 100.0 / slope;
 #if 0 
   // Verification that spacing is correct
-  P2 = projToEcef(dem_georef, first_proj + spacing * proj_along);
-  std::cout << "Distance must be 10 meters: " << norm_2(P2 - P1) << std::endl;
+  std::cout << "Spacing is " << spacing << std::endl;
+  {
+    double t1 = 0, t2 = spacing;
+    P1 = projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
+    P2 = projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
+    std::cout << "Distance must be 100 meters: " << norm_2(P2 - P1) << std::endl;
+  }
 #endif
 
   // Set up the LMA problem
@@ -374,7 +387,7 @@ void findBestProjCamLocation
 
   } // end doing attempts
 
-
+  // Run the optimization with the just-found initial guess
   len = vw::math::levenberg_marquardt(model, len, observation, status, 
       max_abs_tol, max_rel_tol, num_max_iter);
 
@@ -500,12 +513,13 @@ void calcTrajectory(SatSimOptions & opt,
   if (have_ground_pos && have_roll_pitch_yaw) {
     // Find best starting and ending points for the orbit given desired
     // ground locations and roll/pitch/yaw angles.
+    // Print a message as this step can take a while
+    vw::vw_out() << "Estimating orbit endpoints.\n";
     vw::Vector3 first_best_cam_loc_proj;
     findBestProjCamLocation(opt, dem_georef, dem, first_proj, last_proj,
                             proj_along, proj_across, delta, 
                             opt.roll, opt.pitch, opt.yaw,
                             opt.first_ground_pos, first_best_cam_loc_proj);
-
     // Same thing for the last camera
     vw::Vector3 last_best_cam_loc_proj;
     findBestProjCamLocation(opt, dem_georef, dem, first_proj, last_proj,
@@ -653,6 +667,15 @@ void readCameras(SatSimOptions const& opt,
   return;
 }
 
+// Check if we do a range
+bool skipCamera(int i, SatSimOptions const& opt) {
+
+  if (opt.first_index >= 0 && opt.last_index >= 0 &&
+     (i < opt.first_index || i >= opt.last_index))
+       return true;
+  return false;
+}
+
 // A function to create and save the cameras. Assume no distortion, and pixel
 // pitch = 1.
 void genCameras(SatSimOptions const& opt, std::vector<vw::Vector3> const & trajectory,
@@ -670,12 +693,18 @@ void genCameras(SatSimOptions const& opt, std::vector<vw::Vector3> const & traje
     cam_names.resize(trajectory.size());
     for (int i = 0; i < int(trajectory.size()); i++) {
 
+      // Always create the cameras, but only save them if we are not skipping
       cams[i] = vw::camera::PinholeModel(trajectory[i], cam2world[i],
                                    opt.focal_length, opt.focal_length,
                                    opt.optical_center[0], opt.optical_center[1]);
       
+
       std::string camName = genPrefix(opt, i) + ".tsai";
       cam_names[i] = camName;
+
+      // Check if we do a range
+      if (skipCamera(i, opt)) continue;
+
       vw::vw_out() << "Writing: " << camName << std::endl;
       cams[i].write(camName);
     }
@@ -867,6 +896,9 @@ void genImages(SatSimOptions const& opt,
 
   for (size_t i = 0; i < cams.size(); i++) {
 
+    // Check if we do a range
+    if (skipCamera(i, opt)) continue;
+
     // Bring crops in memory. It greatly helps with multi-threading speed.  
     vw::ImageView<vw::PixelMask<float>> crop_dem, crop_ortho;
     vw::cartography::GeoReference crop_dem_georef, crop_ortho_georef;
@@ -886,6 +918,8 @@ void genImages(SatSimOptions const& opt,
       has_nodata, ortho_nodata_val,   // borrow the nodata from ortho
       opt, vw::TerminalProgressCallback("", "\t--> "));
   }  
+
+  return;
 }
 
-}
+} // end namespace asp
