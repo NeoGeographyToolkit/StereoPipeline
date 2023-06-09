@@ -42,7 +42,7 @@ struct SatSimOptions : vw::GdalWriteOptions {
   double focal_length, dem_height_error_tol;
   double roll, pitch, yaw, velocity, jitter_frequency;
   vw::Vector3 horizontal_uncertainty; // for roll, pitch, yaw
-  bool no_images;
+  bool no_images, save_ref_cams;
   SatSimOptions() {}
 };
 
@@ -65,7 +65,8 @@ void calcTrajectory(SatSimOptions & opt,
                     // Outputs
                     std::vector<vw::Vector3> & trajectory,
                     // the vector of camera to world rotation matrices
-                    std::vector<vw::Matrix3x3> & cam2world);
+                    std::vector<vw::Matrix3x3> & cam2world,
+                    std::vector<vw::Matrix3x3> & ref_cam2world);
 
 // A function to read the cameras from a file
 void readCameras(SatSimOptions const& opt, 
@@ -76,6 +77,7 @@ void readCameras(SatSimOptions const& opt,
 // pitch = 1.
 void genCameras(SatSimOptions const& opt, std::vector<vw::Vector3> const & trajectory,
                 std::vector<vw::Matrix3x3> const & cam2world,
+                std::vector<vw::Matrix3x3> const & ref_cam2world,
                 // outputs
                 std::vector<std::string> & cam_names,
                 std::vector<vw::camera::PinholeModel> & cams);

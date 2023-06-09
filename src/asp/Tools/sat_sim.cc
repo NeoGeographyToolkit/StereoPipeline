@@ -95,6 +95,10 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     "--horizontal-uncertainty).")
     ("no-images", po::bool_switch(&opt.no_images)->default_value(false)->implicit_value(true),
      "Create only cameras, and no images. Cannot be used with --camera-list.")
+     ("save-ref-cams", po::bool_switch(&opt.save_ref_cams)->default_value(false)->implicit_value(true),
+     "For each created camera, save also the 'reference' camera that has no roll, pitch, "
+     "yaw, jitter, or 90 degree in-sensor-plane rotation from camera to satellite " 
+     "coordinates. Their names have '-ref-' after the output prefix.")
     ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
      "When intersecting a ray with a DEM, use this as the height error tolerance "
      "(measured in meters). It is expected that the default will be always good enough.")
@@ -217,7 +221,7 @@ int main(int argc, char *argv[]) {
     asp::readGeorefImage(opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
 
     std::vector<std::string> cam_names;
-    std::vector<vw::camera::PinholeModel> cams;
+    std::vector<vw::camera::PinholeModel> cams, ref_cams;
     bool external_cameras = false;
     if (!opt.camera_list.empty()) {
       // Read the cameras
@@ -227,12 +231,13 @@ int main(int argc, char *argv[]) {
       // Generate the cameras   
       std::vector<vw::Vector3> trajectory(opt.num_cameras);
       // vector of rot matrices
-      std::vector<vw::Matrix3x3> cam2world(opt.num_cameras);
+      std::vector<vw::Matrix3x3> cam2world, ref_cam2world;
       asp::calcTrajectory(opt, dem_georef, dem,
         // Outputs
-        trajectory, cam2world);
-        // Generate cameras
-        asp::genCameras(opt, trajectory, cam2world, cam_names, cams);
+        trajectory, cam2world, ref_cam2world);
+      // Generate cameras
+      asp::genCameras(opt, trajectory, cam2world, ref_cam2world,
+        cam_names, cams);
     }
 
     // Generate images

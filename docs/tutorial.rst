@@ -12,7 +12,10 @@ GIS purposes, or a LAS/LAZ point cloud.
 
 There are a number of ways to fine-tune parameters and analyze the results, but
 ultimately this software suite takes images and builds models in a mostly
-automatic way. To create a point cloud file, you simply pass two image files to
+automatic way. 
+
+To create a point cloud file, not necessarily of best quality, for now, 
+one simply passes two image files to
 the ``parallel_stereo`` (:numref:`parallel_stereo`) command::
 
     parallel_stereo --stereo-algorithm asp_bm \

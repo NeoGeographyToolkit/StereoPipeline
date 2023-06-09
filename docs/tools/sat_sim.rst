@@ -9,13 +9,11 @@ models (:numref:`pinholemodels`) or read them from disk. In either case it
 creates synthetic images for the given cameras. 
 
 The inputs are a DEM and georeferenced image (ortho image) of the area of
-interest. If the input cameras are not specified, the orbit is determined by
+interest. See :numref:`sat_sim_dem` for how to create such inputs.
+
+If the input cameras are not specified, the orbit is determined by
 given endpoints. It is represented as a straight edge in the projected
 coordinate system of the DEM, which results in an arc around the planet. 
-
-The input DEM must not have holes, be reasonalbly smooth, and extend well-beyond
-the area of interest. The ``dem_mosaic`` (:numref:`dem_mosaic`) tool can be used
-to preprocess such a DEM (hole-filling and blur options).
 
 The images are created with bicubic interpolation in the ortho image and are
 saved with float pixels. Missing pixels will have nodata values.
@@ -297,6 +295,54 @@ using the ``--first-index`` and ``--last-index`` options (see
 :numref:`sat_sim_options`). The last index is the index before the last camera.
 The option ``--no-images`` can be used to skip the image creation step.
 
+.. _sat_sim_dem:
+
+Preparing the input DEM and orthoimage
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The input DEM must not have holes, be reasonably smooth, and extend well-beyond
+the area of interest. It is suggested to create it using stereo
+(:numref:`tutorial`). For steep terrain one should first mapproject the images
+(:numref:`mapproj-example`).
+
+The stereo cloud should be converted to a DEM, preferably in the local
+stereographic projection, using a grid size that is perhaps 4 times the ground
+sample distance (GSD). For example, for images having a GSD of 0.4 meters, a
+command as follows may work (adjust the actual projection center and datum to your
+location)::
+
+  proj='+proj=stere +lat_0=-25.34361 +lon_0=131.0329 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'
+  point2dem --t_srs "$proj" --tr 1.6 run/run-PC.tif
+
+The ``dem_mosaic`` (:numref:`dem_mosaic`) tool can be used to fill holes in the
+DEM, using the ``--hole-fill-length`` option. It is also suggested to blur it a
+little, which may reduce some of the noise in the DEM. For that, use
+``dem_mosaic`` with the option ``--blur-sigma`` with a value of 1 or 2.
+
+Very large holes may be infilled from a third-party low-resolution DEM, like
+Copernicus (:numref:`initial_terrain`), but this is a measure of last resort.
+Do not forget to first convert it to be relative to the WGS84 ellipsoid, using
+``dem_geoid`` (:numref:`conv_to_ellipsoid`). This DEM can be converted to the
+local projection and grid size using ``gdalwarp`` (:numref:`gdal_tools`), and
+cropped to desired area with ``gdal_translate``. Then, it can be used as::
+
+    dem_mosaic --priority-blending-length 100 \
+      stereo-DEM.tif copernicus-DEM.tif       \
+      -o filled-DEM.tif
+
+This assumes that the two DEMs being blended are reasonably well-aligned.
+Otherwise, alignment may be needed (:numref:`pc_align`).
+
+One can also use such a third party DEM if no stereo DEM can be produced. 
+
+The orthoimage can be obtained by mapprojecting (:numref:`mapproject`) a
+satellite image onto the DEM at the native resolution of the image::
+
+    mapproject --tr 0.4 -t rpc filled-DEM.tif image.tif image.xml ortho.tif
+
+Here we assumed a WorldView satellite, so option ``-t rpc`` was used. See
+:numref:`other-mapproj` for how to handle other satellites.
+
 .. _sat_sim_options:
 
 Command-line options
@@ -391,6 +437,11 @@ Command-line options
 
 --no-images
     Create only cameras, and no images. Cannot be used with ``--camera-list``.
+
+--save-ref-cams
+    For each created camera, save also the 'reference' camera that has no roll, pitch,
+    yaw, jitter, or 90 degree in-sensor-plane rotation from camera to satellite
+    coordinates. Their names have ``-ref-`` after the output prefix.
 
 --dem-height-error-tol <float (default: 0.001)>
     When intersecting a ray with a DEM, use this as the height error tolerance

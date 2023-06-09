@@ -96,7 +96,7 @@ void calcTrajPtAlongAcross(vw::Vector3 const& first_proj,
     vw::Vector3 C2 = P + delta * proj_across; // across track point
 
     // Convert to cartesian
-    P = projToEcef(dem_georef, P);
+    P  = projToEcef(dem_georef, P);
     L1 = projToEcef(dem_georef, L1);
     C1 = projToEcef(dem_georef, C1);
     L2 = projToEcef(dem_georef, L2);
@@ -109,10 +109,8 @@ void calcTrajPtAlongAcross(vw::Vector3 const& first_proj,
     // Normalize
     along = along/norm_2(along);
     across = across/norm_2(across);
-
     // Ensure that across is perpendicular to along
     across = across - dot_prod(along, across) * along;
-
     // Normalize again
     across = across / norm_2(across);
 }
@@ -361,6 +359,7 @@ void findBestProjCamLocation
   // First need to search around for a good initial guess. This is a bug fix.
   // Number of attempts times spacing in m is 1e+8 m, which is 100,000 km. 
   // Enough for any orbit length.
+  // std::cout << "Searching for a good initial guess.\n";
   int attempts = int(1e+8);
   double best_val = g_big_val;
   for (int i = 0; i < attempts; i++) {
@@ -388,6 +387,7 @@ void findBestProjCamLocation
   } // end doing attempts
 
   // Run the optimization with the just-found initial guess
+  // std::cout << "Running the solver.\n";
   len = vw::math::levenberg_marquardt(model, len, observation, status, 
       max_abs_tol, max_rel_tol, num_max_iter);
 
@@ -417,6 +417,8 @@ double calcOrbitLength(vw::Vector3 const& first_proj,
                        vw::cartography::GeoReference const& dem_georef) {
 
   // Number of samples along the orbit and corresponding segments                     
+  // TODO(oalexan1): See if this is slow. May help to calculate orbit length
+  // not from the beginning, but between consecutive samples and add these up.
   int num = 100000;  
 
   // Start of each segment
@@ -454,7 +456,8 @@ void calcTrajectory(SatSimOptions & opt,
                     // Outputs
                     std::vector<vw::Vector3> & trajectory,
                     // the vector of camera to world rotation matrices
-                    std::vector<vw::Matrix3x3> & cam2world) {
+                    std::vector<vw::Matrix3x3> & cam2world,
+                    std::vector<vw::Matrix3x3> & ref_cam2world) {
 
   // Convert the first and last camera center positions to projected coordinates
   vw::Vector3 first_proj, last_proj;
@@ -541,6 +544,7 @@ void calcTrajectory(SatSimOptions & opt,
   std::vector<vw::Vector3> along_track(opt.num_cameras), across_track(opt.num_cameras);
   trajectory.resize(opt.num_cameras);
   cam2world.resize(opt.num_cameras);
+  ref_cam2world.resize(opt.num_cameras);
   for (int i = 0; i < opt.num_cameras; i++) {
     double t = double(i) / double(opt.num_cameras - 1);
 
@@ -600,7 +604,7 @@ void calcTrajectory(SatSimOptions & opt,
 
     // Trajectory
     trajectory[i] = P;
-
+    
     // The camera to world rotation has these vectors as the columns
     assembleCam2WorldMatrix(along, across, down, cam2world[i]);
 
@@ -618,10 +622,10 @@ void calcTrajectory(SatSimOptions & opt,
       // different roll, pitch, and yaw, d will not always start as 0 at
       // the beginning of each segment.
       double dist = calcOrbitLength(orig_first_proj, curr_proj, dem_georef);
-      double v = opt.velocity; 
+      double v = opt.velocity;
       double f = opt.jitter_frequency;
       double T = v / f; // period in meters
-
+      
       for (int c = 0; c < 3; c++) {
         // jitter amplitude as angular uncertainty given ground uncertainty
         double a = atan(opt.horizontal_uncertainty[c] / height_above_datum);
@@ -630,6 +634,9 @@ void calcTrajectory(SatSimOptions & opt,
         amp[c] = a * sin(dist * 2.0 * M_PI / T);
       }
     }
+
+    // Save this before applying adjustments as below
+    ref_cam2world[i] = cam2world[i];
 
     // if to apply a roll, pitch, yaw rotation
     if (have_roll_pitch_yaw) {
@@ -645,6 +652,12 @@ void calcTrajectory(SatSimOptions & opt,
 // Generate a prefix that will be used for image names and camera names
 std::string genPrefix(SatSimOptions const& opt, int i) {
   return opt.out_prefix + "-" + num2str(10000 + i);
+}
+
+// Generate a prefix that will be used for reference camera, without 
+// roll, pitch, yaw, jitter, or rotation from camera to satellite frame
+std::string genRefPrefix(SatSimOptions const& opt, int i) {
+  return opt.out_prefix + "-ref-" + num2str(10000 + i);
 }
 
 // A function to read the pinhole cameras from disk
@@ -680,6 +693,7 @@ bool skipCamera(int i, SatSimOptions const& opt) {
 // pitch = 1.
 void genCameras(SatSimOptions const& opt, std::vector<vw::Vector3> const & trajectory,
                 std::vector<vw::Matrix3x3> const & cam2world,
+                std::vector<vw::Matrix3x3> const & ref_cam2world,
                 // outputs
                 std::vector<std::string> & cam_names,
                 std::vector<vw::camera::PinholeModel> & cams) {
@@ -698,6 +712,12 @@ void genCameras(SatSimOptions const& opt, std::vector<vw::Vector3> const & traje
                                    opt.focal_length, opt.focal_length,
                                    opt.optical_center[0], opt.optical_center[1]);
       
+      // This is useful for understanding things in the satellite frame
+      vw::camera::PinholeModel refCam;
+      if (opt.save_ref_cams)  
+          refCam = vw::camera::PinholeModel(trajectory[i], ref_cam2world[i],
+                                   opt.focal_length, opt.focal_length,
+                                   opt.optical_center[0], opt.optical_center[1]); 
 
       std::string camName = genPrefix(opt, i) + ".tsai";
       cam_names[i] = camName;
@@ -707,6 +727,12 @@ void genCameras(SatSimOptions const& opt, std::vector<vw::Vector3> const & traje
 
       vw::vw_out() << "Writing: " << camName << std::endl;
       cams[i].write(camName);
+
+      if (opt.save_ref_cams) {
+        std::string refCamName = genRefPrefix(opt, i) + ".tsai";
+        vw::vw_out() << "Writing: " << refCamName << std::endl;
+        refCam.write(refCamName);
+      }
     }
   
   return;
@@ -717,7 +743,7 @@ typedef vw::ImageView<vw::PixelMask<float>> ImageT;
 class SynImageView: public vw::ImageViewBase<SynImageView> {
   
   typedef typename ImageT::pixel_type PixelT;
-  SatSimOptions                         const& m_opt;
+  SatSimOptions const& m_opt;
   vw::camera::PinholeModel m_cam;
    vw::cartography::GeoReference m_dem_georef; // make a copy to be thread-safe
    vw::ImageView<vw::PixelMask<float>> const& m_dem;
