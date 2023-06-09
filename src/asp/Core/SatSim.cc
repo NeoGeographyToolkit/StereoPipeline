@@ -643,8 +643,11 @@ void calcTrajectory(SatSimOptions & opt,
       vw::Matrix3x3 R = asp::rollPitchYaw(opt.roll  + amp[0], 
                                           opt.pitch + amp[1], 
                                           opt.yaw   + amp[2]);
-      cam2world[i] = cam2world[i] * R * rotationXY();
+      cam2world[i] = cam2world[i] * R;
     }
+
+    // In either case apply the in-plane rotation from camera to satellite frame
+    cam2world[i] = cam2world[i] * rotationXY();
   }
   return;
 }
