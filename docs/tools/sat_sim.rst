@@ -127,7 +127,7 @@ recovered.
 
 As an example, if the pitch is 90 degrees and the other angles are zero, the
 camera will look along the track rather than down. If a non-zero yaw is set, the
-camera will rotate around the view axis.
+camera will rotate around its view axis.
 
 Example invocation::
 
@@ -211,22 +211,24 @@ Pinhole cameras. See :numref:`jitter_solve` for how jitter is solved for when
 the cameras are linescan. Here we will discuss modeling jitter for synthetic
 Pinhole cameras.
 
-We assume the jitter is a periodic perturbation of the roll, pitch, and yaw
-angles. We will use the same period for each of these, but individual amplitudes.
-For example, to model along-track jitter only, the amplitudes for the other 
-angles can be set to zero.
+We assume the jitter is a superposition of periodic perturbations of the roll,
+pitch, and yaw angles. For each period, there will be an individual
+amplitude and phase for these three angles. For example, to model along-track
+(pitch) jitter only, the amplitudes for the other angles can be set to zero.
+Across-track jitter is modeled by a roll perturbation.
 
 The jitter frequency will be measured in Hz. For example, *f* = 45 Hz (45
 oscillations per second). If the satellite velocity is *v* meters per second,
-the jitter period in meters is :math:`T = v / f`.
+the jitter period in meters is :math:`v / f`. More than one jitter frequency
+(hence period) can be specified. Their contributions will be summed up.
 
-Denote by :math:`A_i` the jitter amplitude, in degrees (i = 1, 2, 3, for roll,
-pitch, and yaw). The jitter
-perturbation is modeled as:
+Denote by :math:`A_{ij}` the jitter amplitude, in degrees. The index :math:`i`
+corresponds to jitter frequency :math:`f_i`, and :math:`j` = 1, 2, 3 is
+the index for roll, pitch, and yaw. The jitter perturbation is modeled as:
 
 .. math::
     
-        A_i \sin\left(d \frac{2 \pi}{T}\right)
+    \sum_i A_{ij} \sin\left(d \frac{2 \pi f_i}{v} + \phi_{ij}\right)
 
 Some care is needed to define the parameter *d*. We set it to be the distance
 from the starting orbit point as specified by ``--first`` to the current camera
@@ -238,22 +240,27 @@ This way the jitter amplitude at the adjusted starting point (first camera
 position) is uncorrelated between several sets of cameras along the same orbit
 but with different values of roll, pitch yaw.
 
-Specifying the jitter amplitude
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The phase :math:`\phi_{ij}` is measured in radians. If not specified, it is set
+to zero. How to set it is discussed below.
+
+Specifying the jitter amplitude in meters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The jitter amplitude is usually very small and not easy to measure or interpret.
-For this reason, we will define it indirectly, via the effect of jitter on the
-*horizontal uncertainty* of the intersection of a ray emanating from the camera
-center with the datum (see also :numref:`error_propagation`).
+It can be set in micro radians, as done in :numref:`sat_sim_jitter_amplitude_micro_radians`.
+
+Here we will discuss how jitter to be defined indirectly, via its effect
+jitter on the *horizontal uncertainty* of the intersection of a ray emanating
+from the camera center with the datum (see also :numref:`error_propagation`).
 
 Consider a nadir-facing camera with the camera center at height *D* meters above
 the datum. If the ray pointing straight down from that camera intersects the
-datum at a certain point, and then that ray is perturbed by :math:`A_i` degrees, the
+datum at a certain point, and then that ray is perturbed by :math:`A` degrees, the
 intersection point will move horizontally by
 
 .. math::
     
-      H_i = D \tan\left( \frac{\pi}{180} A_i \right)
+      H = D \tan\left( \frac{\pi}{180} A \right)
 
 This is the horizontal ground uncertainty of the intersection point. It is a
 rather intuitive concept and many vendors publish it for their cameras. For
@@ -264,12 +271,21 @@ and no bundle adjustment (:numref:`bundle_adjust`) is performed, the horizontal
 uncertainty will likely be much larger, for example on the order of 1-4 meters. 
 
 In either case, this number is easy to understand, and the jitter amplitude
-can be defined as the value of :math:`A_i` that produces the desired horizontal
+can be defined as the value of :math:`A_{ij}` that produces the desired horizontal
 uncertainty:
 
 .. math::
     
-      A_i = \frac{180}{\pi} \arctan\left( \frac{H_i}{D} \right)
+      A_{ij} = \frac{180}{\pi} \arctan\left( \frac{H_j}{D} \right)
+
+Note that we will use the same jitter amplitude for all frequencies, since we
+are limited by just a single horizontal uncertainty value for each of roll,
+pitch, and yaw. 
+
+One should also note that the effect of a yaw perturbation by a given amount
+is much less than the effect of the same amount of roll or pitch perturbation,
+because for the latter two the effect is magnified by distance from the camera
+center to the datum, unlike for yaw.
 
 The height above datum for the starting and ending points of the orbital segment
 is the third value in ``--first`` and ``--last``. These values can, in
@@ -277,14 +293,42 @@ principle, be different, and then a linearly interpolated value will be used at
 each camera position (and note that the orbital segment endpoints are adjusted,
 per :numref:`sat_sim_roll_pitch_yaw_ground`).
 
-As an illustration of using this functionality, consider the ``sat_sim``
+As an example of using this functionality, consider the ``sat_sim``
 invocation as in :numref:`sat_sim_roll_pitch_yaw_ground`, and add the options::
 
-    --velocity 7500 --jitter-frequency 45 \
-    --horizontal-uncertainty 2.0 2.0 2.0
+    --velocity 7500 --jitter-frequency "45.0 100.0" \
+    --horizontal-uncertainty "0.0 2.0 0.0"
+
+This will produce a set of cameras with along-track (pitch) jitter only. 
+Two frequencies will be used, of 45 and 100 Hz. 
+
+To add a phase :math:`\phi_{ij}`, in radians, to roll, pitch, and yaw jitter,
+specify it as::
+
+    --jitter-phase "1.5708 1.5708 1.5708 0.0 0.0 0.0"
+
+Here we used an approximation of :math:`\pi/2` radians, which is 90 degrees,
+for the 45 Hz frequency, and 0 radians for the 100 Hz frequency.
 
 See :numref:`sat_sim_options` for more information on
 these options.
+
+.. _sat_sim_jitter_amplitude_micro_radians:
+
+Specifying the jitter amplitude in micro radians
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Alternatively, instead of three horizontal uncertainties, the full set of amplitudes
+can be specified directly, in micro radians. The option for that is ``--jitter-amplitude``.
+Use a quoted list of values separated by lines of spaces. The first three values
+are for roll, pitch and yaw of the first frequency, the next three values are for
+the second frequency, and so on. For example::
+
+    --jitter-amplitude "0 1 0 0 1 0"
+
+These will be multiplied by 1e-6 to convert to radians, then converted to
+degrees, and used as the jitter amplitudes :math:`A_{ij}`. In this example
+only the pitch amplitudes are nonzero, and equal to 1 micro radian.
 
 Efficiency considerations
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -320,11 +364,12 @@ little, which may reduce some of the noise in the DEM. For that, use
 ``dem_mosaic`` with the option ``--blur-sigma`` with a value of 1 or 2.
 
 Very large holes may be infilled from a third-party low-resolution DEM, like
-Copernicus (:numref:`initial_terrain`), but this is a measure of last resort.
-Do not forget to first convert it to be relative to the WGS84 ellipsoid, using
+Copernicus (:numref:`initial_terrain`), but this is a measure of last resort. Do
+not forget to first convert it to be relative to the WGS84 ellipsoid, using
 ``dem_geoid`` (:numref:`conv_to_ellipsoid`). This DEM can be converted to the
-local projection and grid size using ``gdalwarp`` (:numref:`gdal_tools`), and
-cropped to desired area with ``gdal_translate``. Then, it can be used as::
+local projection and grid size using ``gdalwarp`` (:numref:`gdal_tools`, bicubic
+or bilinear interpolation is suggested), and cropped to desired area with
+``gdal_translate``. Then, it can be used as::
 
     dem_mosaic --priority-blending-length 100 \
       stereo-DEM.tif copernicus-DEM.tif       \
@@ -338,7 +383,8 @@ One can also use such a third party DEM if no stereo DEM can be produced.
 The orthoimage can be obtained by mapprojecting (:numref:`mapproject`) a
 satellite image onto the DEM at the native resolution of the image::
 
-    mapproject --tr 0.4 -t rpc filled-DEM.tif image.tif image.xml ortho.tif
+    mapproject --t_srs "$proj" --tr 0.4 -t rpc filled-DEM.tif \
+      image.tif image.xml ortho.tif
 
 Here we assumed a WorldView satellite, so option ``-t rpc`` was used. See
 :numref:`other-mapproj` for how to handle other satellites.
@@ -413,18 +459,31 @@ Command-line options
     (90 minute period) at an altitude of about 450 km. For WorldView, the velocity
     is around 7500 m/s, with a higher altitude and longer period.
 
---horizontal-uncertainty <float, float, float>
-    Camera horizontal uncertainty on the ground, in meters, at nadir
-    orientation. Specify as three numbers, used for roll, pitch, and yaw. The
-    angular uncertainty in the camera orientation for each of these angles is
-    found as ``tan(angular_uncertainty) = horizontal_uncertainty /
-    satellite_elevation_above_datum``, then converted to degrees. See 
-    :numref:`sat_sim_jitter_model` for details.
-
---jitter-frequency <float>
-    Jitter frequency, in Hz. Used for modeling jitter (satellite vibration). The
-    jitter amplitude will be the angular horizontal uncertainty (see
+--jitter-frequency <string>
+    Jitter frequency, in Hz. Used for modeling jitter (satellite vibration).
+    Several frequencies can be specified. Use a quoted list, with spaces or
+    commas as separators. See also  ``--jitter-amplitude`` and
     ``--horizontal-uncertainty``.
+
+--jitter-phase <string>
+    Jitter phase, in radians. Measures the jitter phase offset from the start of
+    the orbit as set by ``--first``. Specify as a quoted list of numbers. Number
+    of values must be 3 times the number of frequencies. The order in this list
+    corresponds to phase for roll, pitch, and yaw for first frequency, then
+    second frequency, etc. If not specified, will be set to 0. 
+    
+--jitter-amplitude <string>
+    Jitter amplitude, in micro radians. Specify as a quoted list having
+    amplitude in roll, pitch, yaw for first frequency, then second frequency,
+    etc. Separate the values by spaces or commas.
+
+--horizontal-uncertainty <string>
+    Camera horizontal uncertainty on the ground, in meters, at nadir
+    orientation. Specify as three numbers, in quotes, used for roll, pitch, and
+    yaw. The jitter amplitude for each of these
+    angles is found as ``amplitude = atan(horizontal_uncertainty /
+    satellite_elevation_above_datum)``, then converted to degrees. See
+    :numref:`sat_sim_jitter_model` for details.
 
 --first-index <int (default: -1)>
     Index of first camera and/or image to generate, starting from 0. If not set,

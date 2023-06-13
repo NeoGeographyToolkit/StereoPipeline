@@ -537,7 +537,7 @@ void calcTrajectory(SatSimOptions & opt,
 
   // We did a sanity check to ensure that when opt.jitter_frequency is set,
   // opt.velocity and and opt.horizontal_uncertainty are also set and not NaN.
-  bool model_jitter = (!std::isnan(opt.jitter_frequency));
+  bool model_jitter = (!std::isnan(opt.jitter_frequency[0]));
 
   // Find the trajectory, as well as points in the along track and across track 
   // directions in the projected space
@@ -557,6 +557,7 @@ void calcTrajectory(SatSimOptions & opt,
                           P, along, across);
 
     if (have_ground_pos && !have_roll_pitch_yaw) {
+      // TODO(oalexan1): This must be a function called groundAdjustment().
       // The camera will be constrained by the ground, but not by the roll/pitch/yaw,
       // then the orientation will change along the trajectory.
       vw::Vector2 ground_pix = opt.first_ground_pos * (1.0 - t) + opt.last_ground_pos * t;
@@ -608,6 +609,7 @@ void calcTrajectory(SatSimOptions & opt,
     // The camera to world rotation has these vectors as the columns
     assembleCam2WorldMatrix(along, across, down, cam2world[i]);
 
+    // Accumulate jitter amplitude
     vw::Vector3 amp(0, 0, 0);
     if (model_jitter) {
       // Model the jitter as a sinusoidal motion in the along-track direction
@@ -621,19 +623,40 @@ void calcTrajectory(SatSimOptions & opt,
       // pitch, and yaw. This way when different orbital segments are used, for
       // different roll, pitch, and yaw, d will not always start as 0 at
       // the beginning of each segment.
+      // TODO(oalexan1): Better calculate orbit length from prev proj
+      // to curr proj, then add up to previous value.
       double dist = calcOrbitLength(orig_first_proj, curr_proj, dem_georef);
-      double v = opt.velocity;
-      double f = opt.jitter_frequency;
-      double T = v / f; // period in meters
-      
-      for (int c = 0; c < 3; c++) {
-        // jitter amplitude as angular uncertainty given ground uncertainty
-        double a = atan(opt.horizontal_uncertainty[c] / height_above_datum);
-        // Covert to degrees
-        a = a * 180.0 / M_PI;
-        amp[c] = a * sin(dist * 2.0 * M_PI / T);
-      }
-    }
+      for (size_t freq_iter = 0; freq_iter < opt.jitter_frequency.size(); freq_iter++) {
+        double f = opt.jitter_frequency[freq_iter];
+        double v = opt.velocity;
+        double T = v / f; // period in meters
+
+        // Iterate over roll, pitch, and yaw
+        for (int c = 0; c < 3; c++) {
+          
+          int index = 3 * freq_iter + c;
+          double a = 0.0;
+          // We have either horizontal uncertainty or jitter amplitude.
+          if (!opt.horizontal_uncertainty.empty()) {
+            // jitter amplitude as angular uncertainty given ground uncertainty
+            a = atan(opt.horizontal_uncertainty[c] / height_above_datum);
+            // Covert to degrees
+            a = a * 180.0 / M_PI;
+          } else {
+            // Amplitude in micro radians
+            a = opt.jitter_amplitude[index];
+            // Convert to radians
+            a = a * 1e-6;
+            // Convert to degrees
+            a = a * 180.0 / M_PI;
+          }
+
+          // Compute the jitter, in degrees. Add the phase.
+          amp[c] += a * sin(dist * 2.0 * M_PI / T + opt.jitter_phase[index]);
+        }
+
+      } // End loop through frequencies
+    } // End if model jitter
 
     // Save this before applying adjustments as below
     ref_cam2world[i] = cam2world[i];

@@ -23,6 +23,7 @@
 #include <asp/Core/SatSim.h>
 
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Core/StringUtils.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -83,16 +84,26 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     "around 8000 m/s is typical for a satellite like SkySat in Sun-synchronous orbit "
     "(90 minute period) at an altitude of about 450 km. For WorldView, the velocity "
     "is around 7500 m/s, with a higher altitude and longer period.")
-    ("horizontal-uncertainty", po::value(&opt.horizontal_uncertainty)->default_value(vw::Vector3(NaN, NaN, NaN)),
+    ("jitter-frequency", po::value(&opt.jitter_frequency_str)->default_value(""),
+     "Jitter frequency, in Hz. Used for modeling jitter (satellite vibration). "
+     "Several frequencies can be specified. Use a quoted list, with spaces or "
+     "commas as separators. See also  --jitter-amplitude and --horizontal-uncertainty.")
+    ("jitter-phase", po::value(&opt.jitter_phase_str)->default_value(""),
+     "Jitter phase, in radians. Measures the jitter phase offset from the start of "
+     "the orbit as set by ``--first``. Specify as a quoted list of numbers. Number "
+     "of values must be 3 times the number of frequencies. The order in this list "
+     "corresponds to phase for roll, pitch, and yaw for first frequency, then "
+     "second frequency, etc. If not specified, will be set to 0.")
+    ("horizontal-uncertainty", po::value(&opt.horizontal_uncertainty_str)->default_value(""),
     "Camera horizontal uncertainty on the ground, in meters, at nadir orientation. "
-    "Specify as three numbers, used for roll, pitch, and yaw. The "
-    "angular uncertainty in the camera orientation for each of these angles "
-    "is found as tan(angular_uncertainty) "
-    "= horizontal_uncertainty / satellite_elevation_above_datum, then converted to degrees.")
-    ("jitter-frequency", po::value(&opt.jitter_frequency)->default_value(NaN),
-    "Jitter frequency, in Hz. Used for modeling jitter (satellite vibration). "
-    "The jitter amplitude will be the angular horizontal uncertainty (see "
-    "--horizontal-uncertainty).")
+    "Specify as a quoted list of three numbers, used for roll, pitch, and yaw. The "
+    "jitter amplitude for each of these angles is found as "
+    "= atan(horizontal_uncertainty / satellite_elevation_above_datum), then converted "
+    "to degrees. See also --jitter-amplitude.")
+    ("jitter-amplitude", po::value(&opt.jitter_amplitude_str)->default_value(""),
+    "Jitter amplitude, in micro radians. Specify as a quoted list having "
+    "amplitude in roll, pitch, yaw for first frequency, then for second, and so on. "
+    "Separate the values by spaces or commas.")
     ("no-images", po::bool_switch(&opt.no_images)->default_value(false)->implicit_value(true),
      "Create only cameras, and no images. Cannot be used with --camera-list.")
      ("save-ref-cams", po::bool_switch(&opt.save_ref_cams)->default_value(false)->implicit_value(true),
@@ -163,35 +174,98 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
         "specified, or none.\n");
   }
 
-  int ans = int(!std::isnan(opt.jitter_frequency)) +
-            int(!std::isnan(opt.velocity)) +
-            int(!std::isnan(opt.horizontal_uncertainty[0])) +
-            int(!std::isnan(opt.horizontal_uncertainty[1])) +
-            int(!std::isnan(opt.horizontal_uncertainty[2]));
-  if (ans != 0 && ans != 5)
-    vw::vw_throw(vw::ArgumentErr() << "Either all of jitter-frequency, velocity, and "
-      "horizontal uncertainty must be specified, or none.\n");
-  bool have_roll_pitch_yaw = !std::isnan(opt.roll) && !std::isnan(opt.pitch) &&
-      !std::isnan(opt.yaw);
-  if (ans != 0 && !have_roll_pitch_yaw)
-    vw::vw_throw(vw::ArgumentErr() << "Modelling jitter requires specifying --roll, --pitch, and --yaw.\n");
+  // Parse jitter frequency
+  // Convert from string to vector of doubles
+  std::string sep = ", ";
+  opt.jitter_frequency = vw::str_to_std_vec(opt.jitter_frequency_str, sep);
+  if (opt.jitter_frequency.empty())
+    opt.jitter_frequency.push_back(NaN);
 
-  if (opt.camera_list != "" && ans != 0) 
-    vw::vw_throw(vw::ArgumentErr() << "The --camera-list, --jitter-frequency, "
-      "--velocity, and --horizontal-uncertainty options cannot be used together.\n");
+  // Horizontal uncertainty must be 3 values. Must specify either this or 
+  // jitter amplitude.
+  opt.horizontal_uncertainty 
+    = vw::str_to_std_vec(opt.horizontal_uncertainty_str, sep);
+  if (!opt.horizontal_uncertainty.empty() && opt.horizontal_uncertainty.size() != 3)
+    vw::vw_throw(vw::ArgumentErr() << "The horizontal uncertainty must be specified "
+      "as three values, separated by commas or spaces.\n");
+
+  // Number of jitter amplitudes must be 3x the number of frequencies. It can 
+  // be empty, if horizontal uncertainty is specified.
+  opt.jitter_amplitude = vw::str_to_std_vec(opt.jitter_amplitude_str, sep);
+  if (opt.jitter_amplitude.empty() && opt.horizontal_uncertainty.empty()) {
+    // Default amplitude is 0
+    for (size_t i = 0; i < opt.jitter_frequency.size() * 3; i++)
+      opt.jitter_amplitude.push_back(0.0);
+  }
+
+  // Number of jitter phases must be 3x the number of frequencies.
+  opt.jitter_phase = vw::str_to_std_vec(opt.jitter_phase_str, sep);
+  if (opt.jitter_phase.empty()) {
+    // Default phase is 0
+    for (size_t i = 0; i < opt.jitter_frequency.size() * 3; i++)
+      opt.jitter_phase.push_back(0.0);
+  }
+
+  // Sanity checks
+  if (!opt.horizontal_uncertainty_str.empty() && !opt.jitter_amplitude_str.empty()) 
+    vw::vw_throw(vw::ArgumentErr() 
+      << "Cannot specify both jitter uncertainty and jitter amplitude.\n");
+  if (!opt.horizontal_uncertainty.empty() && !opt.jitter_amplitude.empty()) 
+    vw::vw_throw(vw::ArgumentErr() 
+      << "Cannot specify both jitter uncertainty and jitter amplitude.\n");
+
+  bool model_jitter = (!std::isnan(opt.jitter_frequency[0]));
+  if (model_jitter) {
+
+    bool have_roll_pitch_yaw = !std::isnan(opt.roll) && !std::isnan(opt.pitch) &&
+      !std::isnan(opt.yaw);
+    if (!have_roll_pitch_yaw)
+      vw::vw_throw(vw::ArgumentErr() << "Modelling jitter requires specifying --roll, --pitch, and --yaw.\n");
+    
+    if (opt.camera_list != "") 
+      vw::vw_throw(vw::ArgumentErr() << "The --camera-list, --jitter-frequency, "
+        "--velocity, and --horizontal-uncertainty options cannot be used together.\n");
+
+    // See if the user specified either horizontal uncertainty or jitter amplitude
+    if (opt.horizontal_uncertainty_str.empty() && opt.jitter_amplitude_str.empty()) 
+      vw::vw_throw(vw::ArgumentErr() << "Must specify either horizontal uncertainty "
+        << "or jitter amplitude.\n");
+
+    if (3 * opt.jitter_frequency.size() != opt.jitter_phase.size())
+      vw::vw_throw(vw::ArgumentErr() << "The number of jitter phases must be "
+        << "three times the number of jitter frequencies.\n");
+
+    if (opt.horizontal_uncertainty.empty()) {
+      // Jitter amplitude was specified
+      if (3 * opt.jitter_frequency.size() != opt.jitter_amplitude.size())
+        vw::vw_throw(vw::ArgumentErr() << "The number of jitter amplitudes must be "
+          << "three times the number of jitter frequencies.\n");
+    } else {
+      // Horizontal uncertainty was specified.
+      if (opt.horizontal_uncertainty.size() != 3)
+        vw::vw_throw(vw::ArgumentErr() << "The number of horizontal uncertainty values "
+          << "must be 3.\n");
+      
+    if (opt.horizontal_uncertainty[0] < 0 || opt.horizontal_uncertainty[1] < 0 ||
+        opt.horizontal_uncertainty[2] < 0)
+      vw::vw_throw(vw::ArgumentErr() << "The horizontal uncertainty must be non-negative.\n");
+    }
+
+    // Check that all jitter frequencies are not NaN and positive
+    for (size_t i = 0; i < opt.jitter_frequency.size(); i++) {
+      if (std::isnan(opt.jitter_frequency[i]))
+        vw::vw_throw(vw::ArgumentErr() << "The jitter frequency must be specified.\n");
+      if (opt.jitter_frequency[i] <= 0)
+        vw::vw_throw(vw::ArgumentErr() << "The jitter frequency must be positive.\n");
+    }
+    
+  } // end if model jitter
 
   if (opt.velocity <= 0)
     vw::vw_throw(vw::ArgumentErr() << "The satellite velocity must be positive.\n");
 
-  if (opt.horizontal_uncertainty[0] < 0 || opt.horizontal_uncertainty[1] < 0 ||
-      opt.horizontal_uncertainty[2] < 0)
-    vw::vw_throw(vw::ArgumentErr() << "The horizontal uncertainty must be non-negative.\n");
-
-  if (opt.jitter_frequency <= 0)
-    vw::vw_throw(vw::ArgumentErr() << "The jitter frequency must be positive.\n");
-
   // Sanity check the first and last indices
-  ans = int(opt.first_index < 0) + int(opt.last_index < 0);
+  int ans = int(opt.first_index < 0) + int(opt.last_index < 0);
   if (ans != 0 && ans != 2)
     vw::vw_throw(vw::ArgumentErr() << "Either both first and last indices must be "
       "specified, or none.\n");

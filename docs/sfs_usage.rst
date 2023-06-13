@@ -818,6 +818,8 @@ during bundle adjustment (options ``--input-adjustments-prefix`` and
 ``--fixed-image-list``). Newly added cameras can be given the nominal
 adjustment (:numref:`adjust_files`).
 
+.. _sfs_initial_terrain:
+
 The initial terrain
 ^^^^^^^^^^^^^^^^^^^
 
