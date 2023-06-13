@@ -208,20 +208,23 @@ void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
                      boost::shared_ptr<ControlNetwork> const& cnet_ptr,
                      double forced_triangulation_distance) {
 
-  // Make one iteration just to count the points.
+  // Count the points and triangulate
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
   const int num_cnet_points = static_cast<int>(cnet.size());
-  double gcp_count=0, ip_count=0;
-  for (int ipt = 0; ipt < num_cnet_points; ipt++){
+  double gcp_count = 0, ip_count = 0;
+  Vector3 mean_gcp(0, 0, 0);
+  Vector3 mean_ip (0, 0, 0);
+  for (int ipt = 0; ipt < num_cnet_points; ipt++) {
 
     if (cnet[ipt].position() == Vector3() || cnet[ipt].size() <= 1)
       continue;
     
-    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+    if (cnet[ipt].type() == ControlPoint::GroundControlPoint) {
       gcp_count += 1.0;
-    else {
+      mean_gcp += cnet[ipt].position();
+    } else {
       // Use triangulation to estimate the position of this control point using
-      //   the current set of camera models.
+      // the current set of camera models.
       ControlPoint cp_new = cnet[ipt];
       double minimum_angle = 0;
       double ans = vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle,
@@ -230,37 +233,16 @@ void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
         continue; // Skip points that fail to triangulate
 
       ip_count += 1.0;
+      mean_ip += cp_new.position();
     }
   } // End loop through control network points
+
   if (ip_count == 0 || gcp_count == 0)
     return; // Can't do this check if we don't have both point types.
 
-  // Make another iteration to compute the mean.
-  Vector3 mean_gcp(0,0,0);
-  Vector3 mean_ip (0,0,0);
-  for (int ipt = 0; ipt < num_cnet_points; ipt++){
-
-    if (cnet[ipt].position() == Vector3() || cnet[ipt].size() <= 1)
-      continue;
-    
-    if (cnet[ipt].type() == ControlPoint::GroundControlPoint) {
-
-      mean_gcp += (cnet[ipt].position() / gcp_count);
-      ++gcp_count;
-    }else {
-      // Use triangulation to estimate the position of this control point using
-      //   the current set of camera models.
-      ControlPoint cp_new = cnet[ipt];
-      double minimum_angle = 0;
-      double ans = vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle,
-						     forced_triangulation_distance);
-      // Skip points for which triangulation failed
-      if (cp_new.position() == Vector3() || ans < 0)
-	continue;
-
-      mean_ip += (cp_new.position() / ip_count);
-    }
-  } // End loop through control network points
+  // Average the points
+  mean_gcp = mean_gcp / gcp_count;
+  mean_ip = mean_ip / ip_count;
 
   double dist = norm_2(mean_ip - mean_gcp);
   if (dist > 100000)

@@ -176,7 +176,7 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
 
   // Parse jitter frequency
   // Convert from string to vector of doubles
-  std::string sep = ", ";
+  std::string sep = ", \t\n"; // separators: comma, space, tab, newline
   opt.jitter_frequency = vw::str_to_std_vec(opt.jitter_frequency_str, sep);
   if (opt.jitter_frequency.empty())
     opt.jitter_frequency.push_back(NaN);
@@ -223,8 +223,8 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
       vw::vw_throw(vw::ArgumentErr() << "Modelling jitter requires specifying --roll, --pitch, and --yaw.\n");
     
     if (opt.camera_list != "") 
-      vw::vw_throw(vw::ArgumentErr() << "The --camera-list, --jitter-frequency, "
-        "--velocity, and --horizontal-uncertainty options cannot be used together.\n");
+      vw::vw_throw(vw::ArgumentErr() << "The --camera-list option must not be set "
+        << "when modeling jitter.\n");
 
     // See if the user specified either horizontal uncertainty or jitter amplitude
     if (opt.horizontal_uncertainty_str.empty() && opt.jitter_amplitude_str.empty()) 
@@ -246,9 +246,9 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
         vw::vw_throw(vw::ArgumentErr() << "The number of horizontal uncertainty values "
           << "must be 3.\n");
       
-    if (opt.horizontal_uncertainty[0] < 0 || opt.horizontal_uncertainty[1] < 0 ||
-        opt.horizontal_uncertainty[2] < 0)
-      vw::vw_throw(vw::ArgumentErr() << "The horizontal uncertainty must be non-negative.\n");
+      if (opt.horizontal_uncertainty[0] < 0 || opt.horizontal_uncertainty[1] < 0 ||
+          opt.horizontal_uncertainty[2] < 0)
+        vw::vw_throw(vw::ArgumentErr() << "The horizontal uncertainty must be non-negative.\n");
     }
 
     // Check that all jitter frequencies are not NaN and positive
