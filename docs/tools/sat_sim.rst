@@ -42,14 +42,15 @@ output prefix. Hence, if the input camera is ``path/to/camera.tsai``, the output
 image will be ``run/run-camera.tif``.
 
 The value of ``--image-size`` should be chosen so that the ground sample
-distance of the produced images is close to the ground sample distance of the
-input ortho image. 
+distance of the produced images is close to the one of the input ortho image. 
 
 To see how a created image projects onto the ground, run ``mapproject``
 (:numref:`mapproject`) as::
 
     mapproject dem.tif run/run-camera.tif path/to/camera.tsai \
       camera.map.tif
+
+The images can be overlaid in ``stereo_gui`` (:numref:`stereo_gui`).
 
 .. _sat_sim_nadir:
 
@@ -69,7 +70,7 @@ See :numref:`sat_sim_roll_pitch_yaw` for how to apply a custom rotation
 to the cameras.
 
 The first and last cameras will be located as specified by ``--first`` and
-``--last``.
+``--last`` (:numref:`sat_sim_options`).
 
 In this example, the camera is 450,000 m above the ground and the
 focal length is 450,000 pixels. If the magnitude of DEM heights is within
@@ -80,6 +81,10 @@ The produced image and camera names will be along the lines of::
     
     run/run-10000.tif
     run/run-10000.tsai
+
+The resulting cameras will point in a direction perpendicular to the orbit
+trajectory. They will point precisely to the planet center only if the orbit
+endpoints are at the same height and the datum is spherical.
 
 .. figure:: ../images/sfm_view_nadir_clip.png
    :name: sat_sim_illustration_nadir_clip
@@ -94,11 +99,10 @@ Follow custom ground path with varying orientation
 
 Given two locations on the DEM, each specified by the column and row of DEM
 pixel, to ensure that the center of the camera footprint travels along the straight
-edge (in DEM pixel coordinates) between these, add to the tool options along the
-lines of::
+edge (in DEM pixel coordinates) between these, use options as::
 
     --first-ground-pos 484.3 510.7 \
-    --last-ground-pos 332.5 893.6    
+    --last-ground-pos  332.5 893.6    
 
 This will result in the camera orientation changing gradually to keep the
 desired view.
@@ -172,7 +176,7 @@ the desired ground path. Example::
     sat_sim --dem dem.tif --ortho ortho.tif                 \
       --first 397.1 400.7 450000 --last 397.1 500.7 450000  \
       --first-ground-pos 397.1 400.7                        \
-      --last-ground-pos 397.1 500.7                         \
+      --last-ground-pos  397.1 500.7                        \
       --roll 0 --pitch 25 --yaw 0                           \
       --num 5                                               \
       --focal-length 450000 --optical-center 500 500        \
@@ -212,8 +216,8 @@ the cameras are linescan. Here we will discuss modeling jitter for synthetic
 Pinhole cameras.
 
 We assume the jitter is a superposition of periodic perturbations of the roll,
-pitch, and yaw angles. For each period, there will be an individual
-amplitude and phase for these three angles. For example, to model along-track
+pitch, and yaw angles. For each period, there will be an individual amplitude
+and phase shift for these three angles. For example, to model along-track
 (pitch) jitter only, the amplitudes for the other angles can be set to zero.
 Across-track jitter is modeled by a roll perturbation.
 
@@ -238,19 +242,20 @@ adjusting the orbital segment for roll, pitch, yaw, and ground constraints
 
 This way the jitter amplitude at the adjusted starting point (first camera
 position) is uncorrelated between several sets of cameras along the same orbit
-but with different values of roll, pitch yaw.
+but with different values of roll, pitch, yaw.
 
-The phase :math:`\phi_{ij}` is measured in radians. If not specified, it is set
+The phase shift :math:`\phi_{ij}` is measured in radians. If not specified, it is set
 to zero. How to set it is discussed below.
 
 Specifying the jitter amplitude in meters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The jitter amplitude is usually very small and not easy to measure or interpret.
-It can be set in micro radians, as done in :numref:`sat_sim_jitter_amplitude_micro_radians`.
+It can be set in micro radians, as done in
+:numref:`sat_sim_jitter_amplitude_micro_radians`.
 
-Here we will discuss how jitter to be defined indirectly, via its effect
-jitter on the *horizontal uncertainty* of the intersection of a ray emanating
+Here we will discuss how jitter can be defined indirectly, via its effect
+on the *horizontal uncertainty* of the intersection of a ray emanating
 from the camera center with the datum (see also :numref:`error_propagation`).
 
 Consider a nadir-facing camera with the camera center at height *D* meters above
@@ -284,7 +289,7 @@ pitch, and yaw.
 
 One should also note that the effect of a yaw perturbation by a given amount
 is much less than the effect of the same amount of roll or pitch perturbation,
-because for the latter two the effect is magnified by distance from the camera
+because for the latter two the effect is magnified by the distance from the camera
 center to the datum, unlike for yaw.
 
 The height above datum for the starting and ending points of the orbital segment
@@ -320,7 +325,7 @@ Specifying the jitter amplitude in micro radians
 
 Alternatively, instead of three horizontal uncertainties, the full set of amplitudes
 can be specified directly, in micro radians. The option for that is ``--jitter-amplitude``.
-Use a quoted list of values separated by lines of spaces. The first three values
+Use a quoted list of values separated by commas of spaces. The first three values
 are for roll, pitch and yaw of the first frequency, the next three values are for
 the second frequency, and so on. For example::
 
@@ -328,7 +333,7 @@ the second frequency, and so on. For example::
 
 These will be multiplied by 1e-6 to convert to radians, then converted to
 degrees, and used as the jitter amplitudes :math:`A_{ij}`. In this example
-only the pitch amplitudes are nonzero, and equal to 1 micro radian.
+only the pitch amplitudes are nonzero, and are equal to 1 micro radian.
 
 Efficiency considerations
 ^^^^^^^^^^^^^^^^^^^^^^^^^
