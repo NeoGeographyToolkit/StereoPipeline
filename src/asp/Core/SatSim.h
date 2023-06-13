@@ -40,7 +40,7 @@ struct SatSimOptions : vw::GdalWriteOptions {
   int num_cameras, first_index, last_index;
   vw::Vector2 optical_center, image_size, first_ground_pos, last_ground_pos;
   double focal_length, dem_height_error_tol;
-  double roll, pitch, yaw, velocity;
+  double roll, pitch, yaw, velocity, frame_rate;
   std::vector<double> jitter_frequency, jitter_amplitude, jitter_phase, horizontal_uncertainty;
   std::string jitter_frequency_str, jitter_amplitude_str, jitter_phase_str, 
     horizontal_uncertainty_str;

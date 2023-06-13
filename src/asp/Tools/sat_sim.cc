@@ -60,12 +60,6 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     "Coordinates of last camera ground footprint center (DEM column and row). "
     "If not set, the cameras will look straight down (perpendicular to along "
     "and across track directions).")
-    ("first-index", po::value(&opt.first_index)->default_value(-1),
-    "Index of first camera and/or image to generate, starting from 0. If not set, will create "
-    "all images/cameras. This is used for parallelization.")
-    ("last-index", po::value(&opt.last_index)->default_value(-1),
-    "Index of last image and/or camera to generate, starting from 0. Stop before this index. "
-    "If not set, will create all images/cameras. This is used for parallelization.")
     ("focal-length", po::value(&opt.focal_length)->default_value(NaN),
      "Output camera focal length in units of pixel.")
     ("optical-center", po::value(&opt.optical_center)->default_value(vw::Vector2(NaN, NaN),"NaN NaN"),
@@ -104,6 +98,18 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     "Jitter amplitude, in micro radians. Specify as a quoted list having "
     "amplitude in roll, pitch, yaw for first frequency, then for second, and so on. "
     "Separate the values by spaces or commas.")
+    ("first-index", po::value(&opt.first_index)->default_value(-1),
+    "Index of first camera and/or image to generate, starting from 0. If not set, will create "
+    "all images/cameras. This is used for parallelization.")
+    ("last-index", po::value(&opt.last_index)->default_value(-1),
+    "Index of last image and/or camera to generate, starting from 0. Stop before this index. "
+    "If not set, will create all images/cameras. This is used for parallelization.")
+    ("frame-rate", po::value(&opt.frame_rate)->default_value(NaN), 
+    "Camera frame rate, in Hz. Can be in double precision. If set, will override "
+    "--num. The cameras will be generated at this frame rate, starting from "
+    "--first (after any starting position adjustment, if applicable, per "
+    "the doc). Set the --velocity value. The last camera will be no further "
+    "than the (adjusted) value of --last along the orbit.")
     ("no-images", po::bool_switch(&opt.no_images)->default_value(false)->implicit_value(true),
      "Create only cameras, and no images. Cannot be used with --camera-list.")
      ("save-ref-cams", po::bool_switch(&opt.save_ref_cams)->default_value(false)->implicit_value(true),
@@ -149,9 +155,19 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
       vw::vw_out() << "Warning: The first and last camera positions have different "
                    << "heights above the datum. This is supported but is not usual. "
                    << "Check your inputs.\n";
-
-    if (opt.num_cameras < 2)
-      vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
+    
+    if (std::isnan(opt.frame_rate)) {
+      if (opt.num_cameras < 2)
+        vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
+    } else {
+      // Frame rate is set. Then need not set num cameras.
+      if (opt.num_cameras > 0)
+        vw::vw_throw(vw::ArgumentErr() << "Cannot set both --num and --frame-rate.\n");
+      // Must have a positive velocity
+      if (std::isnan(opt.velocity) || opt.velocity <= 0.0)
+        vw::vw_throw(vw::ArgumentErr() << "The velocity must be positive if using "
+         << " --frame-rate.\n");
+    }
 
     // Validate focal length, optical center, and image size
     if (std::isnan(opt.focal_length))
@@ -303,7 +319,7 @@ int main(int argc, char *argv[]) {
       external_cameras = true;
     } else {
       // Generate the cameras   
-      std::vector<vw::Vector3> trajectory(opt.num_cameras);
+      std::vector<vw::Vector3> trajectory;
       // vector of rot matrices
       std::vector<vw::Matrix3x3> cam2world, ref_cam2world;
       asp::calcTrajectory(opt, dem_georef, dem,

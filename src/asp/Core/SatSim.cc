@@ -266,8 +266,6 @@ public:
   inline result_type operator()(domain_type const& len) const {
 
     // See note where param_scale_factor is defined.
-    //std::cout << "\n";
-    //std::cout << "Len is " << len << std::endl;
     double t = len[0] * m_param_scale_factor;
     double err = demPixelErr(m_opt, m_dem_georef, m_dem,
                              m_first_proj, m_last_proj,
@@ -277,7 +275,6 @@ public:
 
     result_type result;
     result[0] = err;
-    //std::cout.precision(17);
     //std::cout << "t = " << t << ", err = " << err << std::endl;
     return result;
   }
@@ -444,6 +441,60 @@ double calcOrbitLength(vw::Vector3 const& first_proj,
   return orbitLength;
 }
 
+// The camera will be constrained by the ground, but not by the roll/pitch/yaw,
+// then the orientation will change along the trajectory. Then adjust the along
+// and across directions to reflect this. This will adjust the camera direction
+// as well.
+void cameraAdjustment(vw::Vector2 const& first_ground_pos,
+                      vw::Vector2 const& last_ground_pos,
+                      double t,
+                      vw::cartography::GeoReference const& dem_georef,
+                      vw::ImageViewRef<vw::PixelMask<float>> dem,
+                      vw::Vector3 const& P, // camera center
+                      // Outputs
+                      vw::Vector3 & along, vw::Vector3 & across) {
+
+  // Create interpolated DEM with bilinear interpolation with invalid pixel 
+  // edge extension
+  vw::PixelMask<float> nodata_mask = vw::PixelMask<float>(); // invalid value
+  nodata_mask.invalidate();
+  auto interp_dem = vw::interpolate(dem, vw::BilinearInterpolation(),
+    vw::ValueEdgeExtension<vw::PixelMask<float>>(nodata_mask));
+
+    // The camera will be constrained by the ground, but not by the roll/pitch/yaw,
+    // then the orientation will change along the trajectory.
+    vw::Vector2 ground_pix = first_ground_pos * (1.0 - t) + last_ground_pos * t;
+
+    // Find the projected position along the ground path
+    vw::Vector3 ground_proj_pos;
+    subvector(ground_proj_pos, 0, 2) = dem_georef.pixel_to_point(ground_pix); // x and y
+
+    auto val = interp_dem(ground_pix[0], ground_pix[1]);
+    if (!is_valid(val))
+      vw::vw_throw(vw::ArgumentErr() 
+        << "Could not interpolate into the DEM along the ground path.\n");
+    ground_proj_pos[2] = val.child(); // z
+
+    // Convert the ground point to ECEF
+    vw::Vector3 G = projToEcef(dem_georef, ground_proj_pos);
+
+    // Find the ground direction
+    vw::Vector3 ground_dir = G - P;
+    if (norm_2(ground_dir) < 1e-6)
+      vw::vw_throw(vw::ArgumentErr()
+        << "The ground position is too close to the camera.\n");
+
+    // Normalize      
+    along = along / norm_2(along);
+    ground_dir = ground_dir / norm_2(ground_dir);
+
+    // Adjust the along-track direction to make it perpendicular to ground dir
+    along = along - dot_prod(ground_dir, along) * ground_dir;
+
+    // Find 'across' as y direction, given that 'along' is x, and 'ground_dir' is z
+    across = -vw::math::cross_prod(along, ground_dir);
+}
+
 // A function that will take as input the endpoints and will compute the
 // satellite trajectory and along track/across track/down directions in ECEF,
 // which will give the camera to world rotation matrix.
@@ -467,17 +518,6 @@ void calcTrajectory(SatSimOptions & opt,
   subvector(last_proj, 0, 2) = dem_georef.pixel_to_point
       (vw::math::subvector(opt.last,  0, 2)); // x and y
   last_proj[2] = opt.last[2]; // z
-
-  // Validate one more time that we have at least two cameras
-  if (opt.num_cameras < 2)
-    vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
-
-  // Create interpolated DEM with bilinear interpolation with invalid pixel 
-  // edge extension
-  vw::PixelMask<float> nodata_mask = vw::PixelMask<float>(); // invalid value
-  nodata_mask.invalidate();
-  auto interp_dem = vw::interpolate(dem, vw::BilinearInterpolation(),
-    vw::ValueEdgeExtension<vw::PixelMask<float>>(nodata_mask));
 
   // Direction along the edge in proj coords (along track direction)
   vw::Vector3 proj_along = last_proj - first_proj;
@@ -539,6 +579,10 @@ void calcTrajectory(SatSimOptions & opt,
   // opt.velocity and and opt.horizontal_uncertainty are also set and not NaN.
   bool model_jitter = (!std::isnan(opt.jitter_frequency[0]));
 
+  // Validate one more time that we have at least two cameras
+  if (opt.num_cameras < 2)
+    vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
+
   // Find the trajectory, as well as points in the along track and across track 
   // directions in the projected space
   std::vector<vw::Vector3> along_track(opt.num_cameras), across_track(opt.num_cameras);
@@ -556,40 +600,11 @@ void calcTrajectory(SatSimOptions & opt,
                           // Outputs
                           P, along, across);
 
-    if (have_ground_pos && !have_roll_pitch_yaw) {
-      // TODO(oalexan1): This must be a function called groundAdjustment().
-      // The camera will be constrained by the ground, but not by the roll/pitch/yaw,
-      // then the orientation will change along the trajectory.
-      vw::Vector2 ground_pix = opt.first_ground_pos * (1.0 - t) + opt.last_ground_pos * t;
-
-      // Find the projected position along the ground path
-      vw::Vector3 ground_proj_pos;
-      subvector(ground_proj_pos, 0, 2) = dem_georef.pixel_to_point(ground_pix); // x and y
-      auto val = interp_dem(ground_pix[0], ground_pix[1]);
-      if (!is_valid(val))
-        vw::vw_throw(vw::ArgumentErr() 
-          << "Could not interpolate into the DEM along the ground path.\n");
-      ground_proj_pos[2] = val.child(); // z
-
-      // Convert the ground point to ECEF
-      vw::Vector3 G = projToEcef(dem_georef, ground_proj_pos);
-
-      // Find the ground direction
-      vw::Vector3 ground_dir = G - P;
-      if (norm_2(ground_dir) < 1e-6)
-        vw::vw_throw(vw::ArgumentErr()
-          << "The ground position is too close to the camera.\n");
-
-      // Normalize      
-      along = along / norm_2(along);
-      ground_dir = ground_dir / norm_2(ground_dir);
-
-      // Adjust the along-track direction to make it perpendicular to ground dir
-      along = along - dot_prod(ground_dir, along) * ground_dir;
-
-      // Find 'across' as y direction, given that 'along' is x, and 'ground_dir' is z
-      across = -vw::math::cross_prod(along, ground_dir);
-    }
+    // Adjust the camera if constrained by the ground but not by roll/pitch/yaw
+    if (have_ground_pos && !have_roll_pitch_yaw)
+      cameraAdjustment(opt.first_ground_pos, opt.last_ground_pos, t, dem_georef, dem, P, 
+                       // outputs
+                       along, across);
 
     // Normalize
     along = along / norm_2(along);
@@ -633,7 +648,6 @@ void calcTrajectory(SatSimOptions & opt,
 
         // Iterate over roll, pitch, and yaw
         for (int c = 0; c < 3; c++) {
-          
           int index = 3 * freq_iter + c;
           double a = 0.0;
           // We have either horizontal uncertainty or jitter amplitude.
