@@ -105,7 +105,7 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     "Index of last image and/or camera to generate, starting from 0. Stop before this index. "
     "If not set, will create all images/cameras. This is used for parallelization.")
     ("frame-rate", po::value(&opt.frame_rate)->default_value(NaN), 
-    "Camera frame rate, in Hz. Can be in double precision. If set, will override "
+    "Camera frame rate, per second. Can be in double precision. If set, will override "
     "--num. The cameras will be generated at this frame rate, starting from "
     "--first (after any starting position adjustment, if applicable, per "
     "the doc). Set the --velocity value. The last camera will be no further "

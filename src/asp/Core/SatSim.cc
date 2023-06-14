@@ -85,9 +85,10 @@ void calcTrajPtAlongAcross(vw::Vector3 const& first_proj,
                            vw::Vector3 & along,
                            vw::Vector3 & across) {
 
-    P = first_proj * (1.0 - t) + last_proj * t; // traj
+    // Compute the point on the trajectory, in projected coordinates
+    P = first_proj * (1.0 - t) + last_proj * t;
 
-    // Use centered diffrerence to compute the along and across track points
+    // Use centered difference to compute the along and across track points
     // This achieves higher quality results
 
     vw::Vector3 L1 = P - delta * proj_along; // along track point
@@ -495,6 +496,68 @@ void cameraAdjustment(vw::Vector2 const& first_ground_pos,
     across = -vw::math::cross_prod(along, ground_dir);
 }
 
+// Adjust the orbit end point and set the number of cameras given the frame rate
+// This is a bit tricky because need to sample finely the oribit
+void adjustForFrameRate(SatSimOptions                  const& opt,
+                        vw::cartography::GeoReference const& dem_georef,
+                        vw::Vector3                   const& first_proj,
+                        // Outputs
+                        vw::Vector3                        & last_proj, // in/out
+                        int                                & num_cameras) {
+
+  // Initialize the outputs, this value will change
+  num_cameras = 0;
+
+  // Orbit length in meters
+  double orbit_len = calcOrbitLength(first_proj, last_proj, dem_georef);
+  double period = opt.velocity / opt.frame_rate;
+
+  // It is important to let the user know this
+  vw::vw_out() << std::setprecision(17) 
+      << "Distance between successive cameras = velocity / frame_rate = "
+      << period << " meters.\n";
+
+  // Number of cameras. Add 1 because we need to include the last camera.
+  num_cameras = int(orbit_len  / period) + 1;
+  // Update the orbit length
+  orbit_len = period * (num_cameras - 1.0);
+
+  // Sanity check, important for the work below
+  if (norm_2(last_proj - first_proj) < 1e-6)
+    vw::vw_throw(vw::ArgumentErr()
+      << "The first and last camera positions are too close. Check your inputs.\n");
+
+  // Travel along the orbit in very small increments. Return the last point
+  // before exceeding the orbit length. 
+  int num = 1000000; // one million samples along the orbit should be enough
+  vw::Vector3 beg = projToEcef(dem_georef, first_proj);
+  vw::Vector3 end = beg;
+  vw::Vector3 out_proj = first_proj; // will keep the result here
+  double curr_len = 0.0;
+  int i = 1;
+  while (1) {
+
+    // Find the projected position of the current point
+    double t = double(i) / double(num - 1); 
+    vw::Vector3 curr_proj = first_proj + t * (last_proj - first_proj);
+
+    // Find the ECEF position of the current point and distance from previous
+    end = projToEcef(dem_georef, curr_proj);
+    double curr_dist = norm_2(end - beg);
+
+    if (curr_len + curr_dist > orbit_len)
+      break; // done, exceeded orbit length, will keep the previous point in out_proj
+    
+    curr_len += curr_dist;
+    beg = end;
+    i++;
+    out_proj = curr_proj;
+  }
+
+  // Update the last orbit point, in projected coords
+  last_proj = out_proj;
+}
+
 // A function that will take as input the endpoints and will compute the
 // satellite trajectory and along track/across track/down directions in ECEF,
 // which will give the camera to world rotation matrix.
@@ -575,13 +638,25 @@ void calcTrajectory(SatSimOptions & opt,
     last_proj  = last_best_cam_loc_proj;
   }                  
 
+  if (!std::isnan(opt.frame_rate)) {
+    // Adjust the orbit end point and set the number of cameras given the frame rate
+    adjustForFrameRate(opt, dem_georef, first_proj, 
+                      // outputs
+                      last_proj, opt.num_cameras);                      
+  }
+
+  // Validate that we have at least two cameras
+  if (opt.num_cameras < 2)
+    vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
+
+  // It is good to know this
+  double orbit_len = calcOrbitLength(first_proj, last_proj, dem_georef);
+  vw::vw_out() << "Orbit length between first and last adjusted cameras: "
+     << orbit_len << " meters.\n";
+
   // We did a sanity check to ensure that when opt.jitter_frequency is set,
   // opt.velocity and and opt.horizontal_uncertainty are also set and not NaN.
   bool model_jitter = (!std::isnan(opt.jitter_frequency[0]));
-
-  // Validate one more time that we have at least two cameras
-  if (opt.num_cameras < 2)
-    vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
 
   // Find the trajectory, as well as points in the along track and across track 
   // directions in the projected space
@@ -627,6 +702,7 @@ void calcTrajectory(SatSimOptions & opt,
     // Accumulate jitter amplitude
     vw::Vector3 amp(0, 0, 0);
     if (model_jitter) {
+      // TODO(oalexan1): Factor out this block as a function
       // Model the jitter as a sinusoidal motion in the along-track direction
       // Use a different amplitude for roll, pitch, and yaw.
 
@@ -634,12 +710,12 @@ void calcTrajectory(SatSimOptions & opt,
       vw::Vector3 curr_proj = first_proj * (1.0 - t) + last_proj * t;
       double height_above_datum = curr_proj[2];
 
-      // Length of the orbit from starting point, before adjustment for roll,
-      // pitch, and yaw. This way when different orbital segments are used, for
-      // different roll, pitch, and yaw, d will not always start as 0 at
-      // the beginning of each segment.
-      // TODO(oalexan1): Better calculate orbit length from prev proj
-      // to curr proj, then add up to previous value.
+      // Length of the orbit from starting point, orig_first_proj, before
+      // adjustment for roll, pitch, and yaw. This way when different orbital
+      // segments are used, for different roll, pitch, and yaw, d will not
+      // always start as 0 at the beginning of each segment. TODO(oalexan1):
+      // Better calculate orbit length from prev proj to curr proj, then add up
+      // to previous value.
       double dist = calcOrbitLength(orig_first_proj, curr_proj, dem_georef);
       for (size_t freq_iter = 0; freq_iter < opt.jitter_frequency.size(); freq_iter++) {
         double f = opt.jitter_frequency[freq_iter];
@@ -675,7 +751,7 @@ void calcTrajectory(SatSimOptions & opt,
     // Save this before applying adjustments as below
     ref_cam2world[i] = cam2world[i];
 
-    // if to apply a roll, pitch, yaw rotation
+    // If to apply a roll, pitch, yaw rotation
     if (have_roll_pitch_yaw) {
       vw::Matrix3x3 R = asp::rollPitchYaw(opt.roll  + amp[0], 
                                           opt.pitch + amp[1], 

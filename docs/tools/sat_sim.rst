@@ -70,7 +70,7 @@ See :numref:`sat_sim_roll_pitch_yaw` for how to apply a custom rotation
 to the cameras.
 
 The first and last cameras will be located as specified by ``--first`` and
-``--last`` (:numref:`sat_sim_options`).
+``--last`` (:numref:`sat_sim_options`). See also ``--frame-rate``.
 
 In this example, the camera is 450,000 m above the ground and the
 focal length is 450,000 pixels. If the magnitude of DEM heights is within
@@ -417,16 +417,17 @@ Command-line options
 
 --first <float, float, float>
     First camera position, specified as DEM pixel column and row, and height
-    above the DEM datum.
+    above the DEM datum. This may be adjusted, per
+    :numref:`sat_sim_roll_pitch_yaw_ground`.
 
 --last <float, float, float>
     Last camera position, specified as DEM pixel column and row, and height
-    above the DEM datum.
+    above the DEM datum. See also ``--first``.
 
 --num <int (default=0)>
     Number of cameras to generate, including the first and last ones. Must be
     positive. The cameras are uniformly distributed along the straight edge from
-    first to last (in projected coordinates).
+    first to last (in projected coordinates). See also ``--frame-rate``.
 
 --first-ground-pos <float, float>
     Coordinates of first camera ground footprint center (DEM column and row). If
@@ -489,6 +490,14 @@ Command-line options
     angles is found as ``amplitude = atan(horizontal_uncertainty /
     satellite_elevation_above_datum)``, then converted to degrees. See
     :numref:`sat_sim_jitter_model` for details.
+
+--frame-rate <double>
+    Camera frame rate, per second. Can be in double precision. If set, will override
+    ``--num``. The cameras will be generated at this frame rate, starting from
+    ``--first`` (after any starting position adjustment, if applicable, per
+    :numref:`sat_sim_roll_pitch_yaw_ground`). Set the ``--velocity`` value. The
+    last camera will be no further than the (adjusted) value of ``--last`` along
+    the orbit. 
 
 --first-index <int (default: -1)>
     Index of first camera and/or image to generate, starting from 0. If not set,
