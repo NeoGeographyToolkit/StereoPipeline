@@ -21,7 +21,7 @@
 #include <asp/Core/SatSim.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/Common.h>
-
+#include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Geometry/baseUtils.h>
 #include <vw/Cartography/CameraBBox.h>
@@ -310,7 +310,7 @@ void findBestProjCamLocation
     vw::vw_throw(vw::ArgumentErr() 
       << "Ensure that the input orbit end points are at least 1 m apart.\n");
   double param_scale_factor = 1.0 / (eps * d);
-#if 0 
+#if 0
   // Verification that param_scale_factor is correct
   {
     double l1 = 0, l2 = eps;
@@ -323,7 +323,7 @@ void findBestProjCamLocation
   }
 #endif
 
-  // Find a spacing in t that corresponds to 10 meters movement in orbit.
+  // Find a spacing in t that corresponds to 100 meters movement in orbit.
   // We will use this to find a good initial guess.
   double dt = 1e-3;
   double t1 = -dt, t2 = dt;
@@ -331,7 +331,7 @@ void findBestProjCamLocation
   P2 = projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
   double slope = norm_2(P2 - P1) / (2*dt);
   double spacing = 100.0 / slope;
-#if 0 
+#if 0
   // Verification that spacing is correct
   std::cout << "Spacing is " << spacing << std::endl;
   {
@@ -409,15 +409,13 @@ void findBestProjCamLocation
 }
 
 // A function to compute orbit length in ECEF given its endpoints in projected
-// coordinates. Use 100,000 samples along the orbit. Should be enough.
+// coordinates. 1e+5 points are used to approximate the orbit length. Should be
+// enough. This gets slow when using 1e+6 points.
 double calcOrbitLength(vw::Vector3 const& first_proj,
                        vw::Vector3 const& last_proj,
                        vw::cartography::GeoReference const& dem_georef) {
 
-  // Number of samples along the orbit and corresponding segments                     
-  // TODO(oalexan1): See if this is slow. May help to calculate orbit length
-  // not from the beginning, but between consecutive samples and add these up.
-  int num = 100000;  
+  int num = 1.0e+5;
 
   // Start of each segment
   vw::Vector3 beg = projToEcef(dem_georef, first_proj);
@@ -497,7 +495,7 @@ void cameraAdjustment(vw::Vector2 const& first_ground_pos,
 }
 
 // Adjust the orbit end point and set the number of cameras given the frame rate
-// This is a bit tricky because need to sample finely the oribit
+// This is a bit tricky because need to sample finely the orbit
 void adjustForFrameRate(SatSimOptions                  const& opt,
                         vw::cartography::GeoReference const& dem_georef,
                         vw::Vector3                   const& first_proj,
@@ -620,18 +618,26 @@ void calcTrajectory(SatSimOptions & opt,
     // Find best starting and ending points for the orbit given desired
     // ground locations and roll/pitch/yaw angles.
     // Print a message as this step can take a while
-    vw::vw_out() << "Estimating orbit endpoints.\n";
+    vw::vw_out() << "Estimating orbital segment endpoints given ground constraints.\n";
     vw::Vector3 first_best_cam_loc_proj;
+    vw::Stopwatch sw1;
+    sw1.start();
     findBestProjCamLocation(opt, dem_georef, dem, first_proj, last_proj,
                             proj_along, proj_across, delta, 
                             opt.roll, opt.pitch, opt.yaw,
                             opt.first_ground_pos, first_best_cam_loc_proj);
+    sw1.stop();
+    vw::vw_out() << "Elapsed time for starting endpoint: " << sw1.elapsed_seconds() << " s.\n";
     // Same thing for the last camera
+    vw::Stopwatch sw2;
+    sw2.start();
     vw::Vector3 last_best_cam_loc_proj;
     findBestProjCamLocation(opt, dem_georef, dem, first_proj, last_proj,
                             proj_along, proj_across, delta, 
                             opt.roll, opt.pitch, opt.yaw,
                             opt.last_ground_pos, last_best_cam_loc_proj);
+    sw2.stop();
+    vw::vw_out() << "Elapsed time for ending endpoint: " << sw2.elapsed_seconds() << " s.\n";
     // Overwrite the first and last camera locations in projected coordinates
     // with the best ones
     first_proj = first_best_cam_loc_proj;
@@ -660,15 +666,22 @@ void calcTrajectory(SatSimOptions & opt,
 
   // Find the trajectory, as well as points in the along track and across track 
   // directions in the projected space
+  vw::vw_out() << "Computing the camera poses.\n"; 
   std::vector<vw::Vector3> along_track(opt.num_cameras), across_track(opt.num_cameras);
   trajectory.resize(opt.num_cameras);
   cam2world.resize(opt.num_cameras);
   ref_cam2world.resize(opt.num_cameras);
+
+  // Print progress
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  double inc_amount = 1.0 / opt.num_cameras;
+  tpc.report_progress(0);
+
   for (int i = 0; i < opt.num_cameras; i++) {
-    double t = double(i) / double(opt.num_cameras - 1);
 
     // Calc position along the trajectory and normalized along and across vectors
     // in ECEF
+    double t = double(i) / double(opt.num_cameras - 1);
     vw::Vector3 P, along, across;
     calcTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
                           proj_along, proj_across, 
@@ -761,7 +774,11 @@ void calcTrajectory(SatSimOptions & opt,
 
     // In either case apply the in-plane rotation from camera to satellite frame
     cam2world[i] = cam2world[i] * rotationXY();
+
+    tpc.report_incremental_progress(inc_amount);
   }
+  tpc.report_finished();
+
   return;
 }
 

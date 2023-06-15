@@ -70,14 +70,14 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     ("roll", po::value(&opt.roll)->default_value(NaN),
     "Camera roll angle, in degrees. See the documentation for more details.")
     ("pitch", po::value(&opt.pitch)->default_value(NaN),
-    "Camera pitch angle, in degrees.")
+     "Camera pitch angle, in degrees.")
     ("yaw", po::value(&opt.yaw)->default_value(NaN),
-    "Camera yaw angle, in degrees.")
+     "Camera yaw angle, in degrees.")
     ("velocity", po::value(&opt.velocity)->default_value(NaN),
-    "Satellite velocity, in meters per second. Used for modeling jitter. A value of "
-    "around 8000 m/s is typical for a satellite like SkySat in Sun-synchronous orbit "
-    "(90 minute period) at an altitude of about 450 km. For WorldView, the velocity "
-    "is around 7500 m/s, with a higher altitude and longer period.")
+     "Satellite velocity, in meters per second. Used for modeling jitter. A value of "
+     "around 8000 m/s is typical for a satellite like SkySat in Sun-synchronous orbit "
+     "(90 minute period) at an altitude of about 450 km. For WorldView, the velocity "
+     "is around 7500 m/s, with a higher altitude and longer period.")
     ("jitter-frequency", po::value(&opt.jitter_frequency_str)->default_value(""),
      "Jitter frequency, in Hz. Used for modeling jitter (satellite vibration). "
      "Several frequencies can be specified. Use a quoted list, with spaces or "
@@ -89,27 +89,26 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
      "corresponds to phase for roll, pitch, and yaw for first frequency, then "
      "second frequency, etc. If not specified, will be set to 0.")
     ("horizontal-uncertainty", po::value(&opt.horizontal_uncertainty_str)->default_value(""),
-    "Camera horizontal uncertainty on the ground, in meters, at nadir orientation. "
-    "Specify as a quoted list of three numbers, used for roll, pitch, and yaw. The "
-    "jitter amplitude for each of these angles is found as "
-    "= atan(horizontal_uncertainty / satellite_elevation_above_datum), then converted "
-    "to degrees. See also --jitter-amplitude.")
+     "Camera horizontal uncertainty on the ground, in meters, at nadir orientation. "
+     "Specify as a quoted list of three numbers, used for roll, pitch, and yaw. The "
+     "jitter amplitude for each of these angles is found as "
+     "= atan(horizontal_uncertainty / satellite_elevation_above_datum), then converted "
+     "to degrees. See also --jitter-amplitude.")
     ("jitter-amplitude", po::value(&opt.jitter_amplitude_str)->default_value(""),
-    "Jitter amplitude, in micro radians. Specify as a quoted list having "
-    "amplitude in roll, pitch, yaw for first frequency, then for second, and so on. "
-    "Separate the values by spaces or commas.")
+     "Jitter amplitude, in micro radians. Specify as a quoted list having "
+     "amplitude in roll, pitch, yaw for first frequency, then for second, and so on. "
+     "Separate the values by spaces or commas.")
     ("first-index", po::value(&opt.first_index)->default_value(-1),
-    "Index of first camera and/or image to generate, starting from 0. If not set, will create "
-    "all images/cameras. This is used for parallelization.")
+     "Index of first camera and/or image to generate, starting from 0. If not set, will create "
+     "all images/cameras. This is used for parallelization.")
     ("last-index", po::value(&opt.last_index)->default_value(-1),
-    "Index of last image and/or camera to generate, starting from 0. Stop before this index. "
-    "If not set, will create all images/cameras. This is used for parallelization.")
+     "Index of last image and/or camera to generate, starting from 0. Stop before this index. "
+     "If not set, will create all images/cameras. This is used for parallelization.")
     ("frame-rate", po::value(&opt.frame_rate)->default_value(NaN), 
-    "Camera frame rate, per second. Can be in double precision. If set, will override "
-    "--num. The cameras will be generated at this frame rate, starting from "
-    "--first (after any starting position adjustment, if applicable, per "
-    "the doc). Set the --velocity value. The last camera will be no further "
-    "than the (adjusted) value of --last along the orbit.")
+     "Camera frame rate, per second. Can be in double precision. If set, it will override "
+     "--num. The cameras will start from --first (after any position adjustment, if "
+     "applicable, per the doc). Set the --velocity value. The last camera will be no further "
+     "than the (adjusted) value of --last along the orbit.")
     ("no-images", po::bool_switch(&opt.no_images)->default_value(false)->implicit_value(true),
      "Create only cameras, and no images. Cannot be used with --camera-list.")
      ("save-ref-cams", po::bool_switch(&opt.save_ref_cams)->default_value(false)->implicit_value(true),

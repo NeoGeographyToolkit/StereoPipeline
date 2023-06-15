@@ -492,9 +492,9 @@ Command-line options
     :numref:`sat_sim_jitter_model` for details.
 
 --frame-rate <double>
-    Camera frame rate, per second. Can be in double precision. If set, will override
-    ``--num``. The cameras will be generated at this frame rate, starting from
-    ``--first`` (after any starting position adjustment, if applicable, per
+    Camera frame rate, per second. Can be in double precision. If set, it will
+    override ``--num``. The cameras will start from ``--first`` (after any
+    position adjustment, if applicable, per
     :numref:`sat_sim_roll_pitch_yaw_ground`). Set the ``--velocity`` value. The
     last camera will be no further than the (adjusted) value of ``--last`` along
     the orbit. 
