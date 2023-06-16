@@ -168,7 +168,9 @@ double demPixelErr(SatSimOptions const& opt,
                    double t,
                    double delta, // a small number to move along track
                    double roll, double pitch, double yaw,
-                   vw::Vector2 const& pixel_loc) { 
+                   vw::Vector2 const& pixel_loc,
+                   double height_guess,
+                   vw::Vector3 & xyz_guess) { // xyz_guess may change
 
     // Calc position along the trajectory and normalized along and across vectors
     // in ECEF
@@ -198,8 +200,6 @@ double demPixelErr(SatSimOptions const& opt,
     double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
     double max_rel_tol = max_abs_tol;
     int num_max_iter = 100;
-    vw::Vector3 xyz_guess = vw::Vector3(0, 0, 0);
-    // TODO(oalexan1): Consider saving the result from here as guess for next time
     vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
       (P, cam_dir, dem,
         dem_georef, treat_nodata_as_zero,
@@ -208,7 +208,10 @@ double demPixelErr(SatSimOptions const& opt,
         // hard. It is not clear if this is needed.
         std::min(opt.dem_height_error_tol, 1e-8),
         max_abs_tol, max_rel_tol, 
-        num_max_iter, xyz_guess);
+        num_max_iter, xyz_guess, height_guess);
+
+    if (!has_intersection)
+         return g_big_val;
 
     // Convert to llh
     vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
@@ -221,6 +224,9 @@ double demPixelErr(SatSimOptions const& opt,
     if (!vw::bounding_box(dem).contains(pixel_loc2))
       return g_big_val;
 
+    // At this stage it is safe to update the guess, as we got a good result
+    xyz_guess = xyz;
+
     return norm_2(pixel_loc - pixel_loc2);
 }
 
@@ -231,6 +237,7 @@ class RayDemPixelLMA : public vw::math::LeastSquaresModelBase<RayDemPixelLMA> {
   SatSimOptions const& m_opt;
   vw::cartography::GeoReference const& m_dem_georef;
   vw::ImageViewRef<vw::PixelMask<float>> m_dem;
+  double m_height_guess;
   vw::Vector3 m_first_proj;
   vw::Vector3 m_last_proj;
   vw::Vector3 m_proj_along;
@@ -238,6 +245,7 @@ class RayDemPixelLMA : public vw::math::LeastSquaresModelBase<RayDemPixelLMA> {
   double m_delta, m_param_scale_factor;
   double m_roll, m_pitch, m_yaw;
   vw::Vector2 m_pixel_loc;
+  mutable vw::Vector3 m_xyz_guess; // used to speed up the solver, not thread-safe
 
 public:
   typedef vw::Vector<double, 1> result_type;
@@ -248,6 +256,7 @@ public:
   RayDemPixelLMA(SatSimOptions const& opt,
                  vw::cartography::GeoReference const& dem_georef,
                  vw::ImageViewRef<vw::PixelMask<float>> dem,
+                 double height_guess,
                  vw::Vector3 const& first_proj,
                  vw::Vector3 const& last_proj,
                  vw::Vector3 const& proj_along,
@@ -256,23 +265,24 @@ public:
                  double param_scale_factor, // to go from optimizer units to t in [0, 1]
                  double roll, double pitch, double yaw,
                  vw::Vector2 const& pixel_loc):
-    m_opt(opt), m_dem_georef(dem_georef), m_dem(dem),
+    m_opt(opt), m_dem_georef(dem_georef), m_dem(dem), m_height_guess(height_guess),
     m_first_proj(first_proj), m_last_proj(last_proj),
     m_proj_along(proj_along), m_proj_across(proj_across),
     m_delta(delta), m_param_scale_factor(param_scale_factor),
     m_roll(roll), m_pitch(pitch), m_yaw(yaw),
-    m_pixel_loc(pixel_loc){}
+    m_pixel_loc(pixel_loc), m_xyz_guess(vw::Vector3(0, 0, 0)) {}
 
   // Evaluator operator. The goal is described earlier.
   inline result_type operator()(domain_type const& len) const {
 
     // See note where param_scale_factor is defined.
     double t = len[0] * m_param_scale_factor;
-    double err = demPixelErr(m_opt, m_dem_georef, m_dem,
+    double err = demPixelErr(m_opt, m_dem_georef, m_dem, 
                              m_first_proj, m_last_proj,
                              m_proj_along, m_proj_across,
-                             t, m_delta, m_roll, m_pitch, m_yaw,
-                             m_pixel_loc);
+                             t, m_delta, m_roll, m_pitch, m_yaw, m_pixel_loc,
+                             m_height_guess,
+                             m_xyz_guess); // will change
 
     result_type result;
     result[0] = err;
@@ -288,6 +298,7 @@ void findBestProjCamLocation
   (SatSimOptions const& opt,
    vw::cartography::GeoReference const& dem_georef,
    vw::ImageViewRef<vw::PixelMask<float>> dem,
+   double height_guess, 
    vw::Vector3 const& first_proj, vw::Vector3 const& last_proj,
    vw::Vector3 const& proj_along, vw::Vector3 const& proj_across,
    double delta, double roll, double pitch, double yaw,
@@ -343,7 +354,7 @@ void findBestProjCamLocation
 #endif
 
   // Set up the LMA problem
-  RayDemPixelLMA model(opt, dem_georef, dem, first_proj, last_proj,
+  RayDemPixelLMA model(opt, dem_georef, dem, height_guess, first_proj, last_proj,
                        proj_along, proj_across, delta, param_scale_factor,
                        roll, pitch, yaw, pixel_loc);
   int status = -1;
@@ -565,11 +576,18 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
 void calcTrajectory(SatSimOptions & opt,
                     vw::cartography::GeoReference const& dem_georef,
                     vw::ImageViewRef<vw::PixelMask<float>> dem,
+                    double height_guess,
                     // Outputs
-                    std::vector<vw::Vector3> & trajectory,
-                    // the vector of camera to world rotation matrices
+                    double                     & orbit_len,
+                    std::vector<vw::Vector3>   & trajectory,
                     std::vector<vw::Matrix3x3> & cam2world,
                     std::vector<vw::Matrix3x3> & ref_cam2world) {
+
+  // Initialize the outputs
+  orbit_len = 0.0;
+  trajectory.clear();
+  cam2world.clear();
+  ref_cam2world.clear();
 
   // Convert the first and last camera center positions to projected coordinates
   vw::Vector3 first_proj, last_proj;
@@ -622,7 +640,7 @@ void calcTrajectory(SatSimOptions & opt,
     vw::Vector3 first_best_cam_loc_proj;
     vw::Stopwatch sw1;
     sw1.start();
-    findBestProjCamLocation(opt, dem_georef, dem, first_proj, last_proj,
+    findBestProjCamLocation(opt, dem_georef, dem, height_guess, first_proj, last_proj,
                             proj_along, proj_across, delta, 
                             opt.roll, opt.pitch, opt.yaw,
                             opt.first_ground_pos, first_best_cam_loc_proj);
@@ -632,7 +650,7 @@ void calcTrajectory(SatSimOptions & opt,
     vw::Stopwatch sw2;
     sw2.start();
     vw::Vector3 last_best_cam_loc_proj;
-    findBestProjCamLocation(opt, dem_georef, dem, first_proj, last_proj,
+    findBestProjCamLocation(opt, dem_georef, dem, height_guess, first_proj, last_proj,
                             proj_along, proj_across, delta, 
                             opt.roll, opt.pitch, opt.yaw,
                             opt.last_ground_pos, last_best_cam_loc_proj);
@@ -655,10 +673,9 @@ void calcTrajectory(SatSimOptions & opt,
   if (opt.num_cameras < 2)
     vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
 
-  // It is good to know this
-  double orbit_len = calcOrbitLength(first_proj, last_proj, dem_georef);
-  vw::vw_out() << "Orbit length between first and last adjusted cameras: "
-     << orbit_len << " meters.\n";
+  orbit_len = calcOrbitLength(first_proj, last_proj, dem_georef); // will be passed out
+  vw::vw_out() << "Orbit length between first and last adjusted cameras: " 
+     << orbit_len << " meters.\n"; // good to print this
 
   // We did a sanity check to ensure that when opt.jitter_frequency is set,
   // opt.velocity and and opt.horizontal_uncertainty are also set and not NaN.
@@ -822,14 +839,15 @@ bool skipCamera(int i, SatSimOptions const& opt) {
   return false;
 }
 
-// A function to create and save the cameras. Assume no distortion, and pixel
+// A function to create and save Pinhole cameras. Assume no distortion, and pixel
 // pitch = 1.
-void genCameras(SatSimOptions const& opt, std::vector<vw::Vector3> const & trajectory,
-                std::vector<vw::Matrix3x3> const & cam2world,
-                std::vector<vw::Matrix3x3> const & ref_cam2world,
-                // outputs
-                std::vector<std::string> & cam_names,
-                std::vector<vw::camera::PinholeModel> & cams) {
+void genPinholeCameras(SatSimOptions   const & opt,
+            std::vector<vw::Vector3>   const & trajectory,
+            std::vector<vw::Matrix3x3> const & cam2world,
+            std::vector<vw::Matrix3x3> const & ref_cam2world,
+            // outputs
+            std::vector<std::string>              & cam_names,
+            std::vector<vw::camera::PinholeModel> & cams) {
 
   // Ensure we have as many camera positions as we have camera orientations
   if (trajectory.size() != cam2world.size())
@@ -880,6 +898,7 @@ class SynImageView: public vw::ImageViewBase<SynImageView> {
   vw::camera::PinholeModel m_cam;
    vw::cartography::GeoReference m_dem_georef; // make a copy to be thread-safe
    vw::ImageView<vw::PixelMask<float>> const& m_dem;
+   double m_height_guess;
    vw::cartography::GeoReference m_ortho_georef; // make a copy to be thread-safe
    vw::ImageView<vw::PixelMask<float>> const& m_ortho;
    float m_ortho_nodata_val;
@@ -889,11 +908,13 @@ public:
                vw::camera::PinholeModel        const& cam,
                vw::cartography::GeoReference   const& dem_georef,
                vw::ImageView<vw::PixelMask<float>> dem,
+               double height_guess,
                vw::cartography::GeoReference   const& ortho_georef,
                vw::ImageView<vw::PixelMask<float>> ortho,
                float ortho_nodata_val):
                 m_opt(opt), m_cam(cam), 
                 m_dem_georef(dem_georef), m_dem(dem),
+                m_height_guess(height_guess),
                 m_ortho_georef(ortho_georef), m_ortho(ortho),
                 m_ortho_nodata_val(ortho_nodata_val) {}
 
@@ -927,7 +948,7 @@ public:
   // location as initial guess for the next ray. This may not be always a great
   // guess, but it is better than starting nowhere. It should work decently
   // if the camera is high, and with a small footprint on the ground.
-  vw::Vector3 xyz(0, 0, 0);
+  vw::Vector3 xyz_guess(0, 0, 0);
 
   vw::ImageView<result_type> tile(bbox.width(), bbox.height());
 
@@ -949,21 +970,24 @@ public:
         vw::Vector3 cam_dir = m_cam.pixel_to_vector(pix);
 
         // Intersect the ray going from the given camera pixel with a DEM
-        // Use xyz as initial guess and overwrite it with the new value
+        // Use xyz_guess as initial guess and overwrite it with the new value
         bool treat_nodata_as_zero = false;
         bool has_intersection = false;
         double max_abs_tol = std::min(m_opt.dem_height_error_tol, 1e-14);
         double max_rel_tol = max_abs_tol;
         int num_max_iter = 100;
-        xyz = vw::cartography::camera_pixel_to_dem_xyz
+        vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
           (cam_ctr, cam_dir, m_dem,
             m_dem_georef, treat_nodata_as_zero,
             has_intersection, m_opt.dem_height_error_tol, 
             max_abs_tol, max_rel_tol, 
-            num_max_iter, xyz);
+            num_max_iter, xyz_guess, m_height_guess);
 
-        if (!has_intersection) 
+        if (!has_intersection)
           continue; // will result in nodata pixels
+
+        // Update the guess for nex time, now that we have a valid intersection point
+        xyz_guess = xyz;
 
         // Find the texture value at the intersection point by interpolation.
         // This will result in an invalid value if if out of range or if the
@@ -971,7 +995,6 @@ public:
         vw::Vector3 llh = m_dem_georef.datum().cartesian_to_geodetic(xyz);
         vw::Vector2 ortho_pix = m_ortho_georef.lonlat_to_pixel
                                  (vw::Vector2(llh[0], llh[1]));
-
         tile(c, r) = interp_ortho(ortho_pix[0], ortho_pix[1]);
       }
     }
@@ -1036,6 +1059,7 @@ void genImages(SatSimOptions const& opt,
     std::vector<vw::camera::PinholeModel> const& cams,
     vw::cartography::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> dem,
+    double height_guess,
     vw::cartography::GeoReference const& ortho_georef,
     vw::ImageViewRef<vw::PixelMask<float>> ortho,
     float ortho_nodata_val) {
@@ -1072,7 +1096,7 @@ void genImages(SatSimOptions const& opt,
     bool has_nodata = true;
     block_write_gdal_image(image_names[i], 
       vw::apply_mask(SynImageView(opt, cams[i], 
-      crop_dem_georef, crop_dem, crop_ortho_georef, crop_ortho, ortho_nodata_val), ortho_nodata_val),
+      crop_dem_georef, crop_dem, height_guess, crop_ortho_georef, crop_ortho, ortho_nodata_val), ortho_nodata_val),
       has_georef, crop_ortho_georef,  // the ortho georef will not be used
       has_nodata, ortho_nodata_val,   // borrow the nodata from ortho
       opt, vw::TerminalProgressCallback("", "\t--> "));

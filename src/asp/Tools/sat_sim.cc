@@ -21,9 +21,11 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/SatSim.h>
+#include <asp/Camera/SyntheticLinescan.h>
 
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Core/StringUtils.h>
+#include <vw/Core/Stopwatch.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -109,6 +111,8 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
      "--num. The cameras will start from --first (after any position adjustment, if "
      "applicable, per the doc). Set the --velocity value. The last camera will be no further "
      "than the (adjusted) value of --last along the orbit.")
+     ("sensor-type", po::value(&opt.sensor_type)->default_value("pinhole"),
+      "Sensor type for created cameras and images. Can be one of: pinhole, linescan.")
     ("no-images", po::bool_switch(&opt.no_images)->default_value(false)->implicit_value(true),
      "Create only cameras, and no images. Cannot be used with --camera-list.")
      ("save-ref-cams", po::bool_switch(&opt.save_ref_cams)->default_value(false)->implicit_value(true),
@@ -279,11 +283,20 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
   if (opt.velocity <= 0)
     vw::vw_throw(vw::ArgumentErr() << "The satellite velocity must be positive.\n");
 
+  if (opt.sensor_type == "linescan" && std::isnan(opt.velocity)) {
+    vw::vw_throw(vw::ArgumentErr() << "The satellite velocity must be specified "
+      << "in order to create linescan cameras.\n");
+  } 
+
   // Sanity check the first and last indices
   int ans = int(opt.first_index < 0) + int(opt.last_index < 0);
   if (ans != 0 && ans != 2)
     vw::vw_throw(vw::ArgumentErr() << "Either both first and last indices must be "
       "specified, or none.\n");
+
+  // Check for sensor type
+  if (opt.sensor_type != "pinhole" && opt.sensor_type != "linescan")
+    vw::vw_throw(vw::ArgumentErr() << "The sensor type must be either pinhole or linescan.\n");
 
   // Create the output directory based on the output prefix
   vw::create_out_dir(opt.out_prefix);
@@ -303,6 +316,36 @@ int main(int argc, char *argv[]) {
     vw::cartography::GeoReference dem_georef;
     asp::readGeorefImage(opt.dem_file, dem_nodata_val, dem_georef, dem);
 
+    // Find a handful of valid DEM values. It helps later when intersecting with the DEM,
+    // especially for Mars, where the DEM heights ca be very far from the datum.
+    // Start a stop watch
+    // TODO(oalexan1): Make this into a function
+    vw::Stopwatch sw;
+    sw.start();
+    double height_guess = 0.0;
+    bool found = false;
+    double sum = 0.0, num = 0.0;
+    for (double row = 0; row < dem.rows(); row += dem.rows()/10.0) {
+      for (double col = 0; col < dem.cols(); col += dem.cols()/10.0) {
+        if (is_valid(dem(col, row))) {
+          sum += dem(col, row).child();
+          num++;
+          if (num > 20) {
+            // Those are enough, going on for too long may take too much time.
+            found = true;
+            break;
+          }
+        }
+      }
+      if (found) break;
+    }
+    if (num > 0) 
+      height_guess = sum/num;
+    sw.stop();
+    
+    std::cout << "Found a valid DEM value in " << sw.elapsed_seconds() << " seconds.\n";
+    std::cout << "Value is " << height_guess << std::endl;
+
     // Read the ortho image
     vw::ImageViewRef<vw::PixelMask<float>> ortho;
     float ortho_nodata_val = -std::numeric_limits<float>::max(); // will change
@@ -318,21 +361,24 @@ int main(int argc, char *argv[]) {
       external_cameras = true;
     } else {
       // Generate the cameras   
+      double orbit_len = 0.0;
       std::vector<vw::Vector3> trajectory;
       // vector of rot matrices
       std::vector<vw::Matrix3x3> cam2world, ref_cam2world;
-      asp::calcTrajectory(opt, dem_georef, dem,
-        // Outputs
-        trajectory, cam2world, ref_cam2world);
+      asp::calcTrajectory(opt, dem_georef, dem, height_guess,
+        orbit_len, trajectory, cam2world, ref_cam2world); // outputs
       // Generate cameras
-      asp::genCameras(opt, trajectory, cam2world, ref_cam2world,
-        cam_names, cams);
+      if (opt.sensor_type == "pinhole")
+        asp::genPinholeCameras(opt, trajectory, cam2world, ref_cam2world,
+          cam_names, cams);
+      else
+        asp::genLinescanCamera(opt, orbit_len, dem_georef, trajectory, cam2world);
     }
 
     // Generate images
-    if (!opt.no_images)
+    if (!opt.no_images && opt.sensor_type == "pinhole")
       asp::genImages(opt, external_cameras, cam_names, cams, dem_georef, dem, 
-        ortho_georef, ortho, ortho_nodata_val);
+        height_guess, ortho_georef, ortho, ortho_nodata_val);
 
   } ASP_STANDARD_CATCHES;
 

@@ -35,7 +35,7 @@
 namespace asp {
 
 struct SatSimOptions : vw::GdalWriteOptions {
-  std::string dem_file, ortho_file, out_prefix, camera_list;
+  std::string dem_file, ortho_file, out_prefix, camera_list, sensor_type;
   vw::Vector3 first, last; // dem pixel and height above dem datum
   int num_cameras, first_index, last_index;
   vw::Vector2 optical_center, image_size, first_ground_pos, last_ground_pos;
@@ -64,9 +64,10 @@ void readGeorefImage(std::string const& image_file,
 void calcTrajectory(SatSimOptions & opt,
                     vw::cartography::GeoReference const& dem_georef,
                     vw::ImageViewRef<vw::PixelMask<float>> dem,
+                    double height_guess,
                     // Outputs
+                    double & orbit_len,
                     std::vector<vw::Vector3> & trajectory,
-                    // the vector of camera to world rotation matrices
                     std::vector<vw::Matrix3x3> & cam2world,
                     std::vector<vw::Matrix3x3> & ref_cam2world);
 
@@ -77,7 +78,8 @@ void readCameras(SatSimOptions const& opt,
 
 // A function to create and save the cameras. Assume no distortion, and pixel
 // pitch = 1.
-void genCameras(SatSimOptions const& opt, std::vector<vw::Vector3> const & trajectory,
+void genPinholeCameras(SatSimOptions const& opt, 
+                std::vector<vw::Vector3> const & trajectory,
                 std::vector<vw::Matrix3x3> const & cam2world,
                 std::vector<vw::Matrix3x3> const & ref_cam2world,
                 // outputs
@@ -91,6 +93,7 @@ void genImages(SatSimOptions const& opt,
     std::vector<vw::camera::PinholeModel> const& cams,
     vw::cartography::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> dem,
+    double height_guess,
     vw::cartography::GeoReference const& ortho_georef,
     vw::ImageViewRef<vw::PixelMask<float>> ortho,
     float ortho_nodata_val);
