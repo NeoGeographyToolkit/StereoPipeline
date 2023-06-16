@@ -598,9 +598,11 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
 
 // Calc the jitter amplitude at a given location along the orbit. We will
 // accumulate over all frequencies. We measure the orbit length from original
-// user-set starting point, even if the first camera is not there.
-// Use a different amplitude and phase shift for roll, pitch, and yaw.
-// But all these share the same set of frequencies.
+// user-set starting point, even if the first camera is not there. That because
+// we will end up using different orbital segments for different roll, pitch,
+// and yaw, but we want to always measure from same starting point. Use a
+// different amplitude and phase shift for roll, pitch, and yaw. But all these
+// share the same set of frequencies.
 vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
                               vw::Vector3 const& orig_first_proj, // user-set
                               vw::Vector3 const& first_proj, // first actual camera
