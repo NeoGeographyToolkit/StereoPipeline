@@ -35,6 +35,35 @@ namespace fs = boost::filesystem;
 
 namespace asp {
 
+// Find a handful of valid DEM values and average them. It helps later when
+// intersecting with the DEM, especially for Mars, where the DEM heights ca be
+// very far from the datum. 
+double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem) {
+
+  double height_guess = 0.0;
+  bool found = false;
+  double sum = 0.0, num = 0.0;
+  for (double row = 0; row < dem.rows(); row += dem.rows()/10.0) {
+    for (double col = 0; col < dem.cols(); col += dem.cols()/10.0) {
+      if (is_valid(dem(col, row))) {
+        sum += dem(col, row).child();
+        num++;
+        if (num > 20) {
+          // Those are enough, as going on for too long may take too much time
+          found = true;
+          break;
+        }
+      }
+    }
+    if (found) break;
+  }
+  if (num > 0) 
+    height_guess = sum/num;
+    
+  return height_guess;
+
+} // End function findDemHeightGuess()
+
 // Convert from projected coordinates to ECEF
 vw::Vector3 projToEcef(vw::cartography::GeoReference const& georef,
                 vw::Vector3                          const& proj) {

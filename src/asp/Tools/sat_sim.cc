@@ -315,36 +315,7 @@ int main(int argc, char *argv[]) {
     float dem_nodata_val = -std::numeric_limits<float>::max(); // will change
     vw::cartography::GeoReference dem_georef;
     asp::readGeorefImage(opt.dem_file, dem_nodata_val, dem_georef, dem);
-
-    // Find a handful of valid DEM values. It helps later when intersecting with the DEM,
-    // especially for Mars, where the DEM heights ca be very far from the datum.
-    // Start a stop watch
-    // TODO(oalexan1): Make this into a function
-    vw::Stopwatch sw;
-    sw.start();
-    double height_guess = 0.0;
-    bool found = false;
-    double sum = 0.0, num = 0.0;
-    for (double row = 0; row < dem.rows(); row += dem.rows()/10.0) {
-      for (double col = 0; col < dem.cols(); col += dem.cols()/10.0) {
-        if (is_valid(dem(col, row))) {
-          sum += dem(col, row).child();
-          num++;
-          if (num > 20) {
-            // Those are enough, going on for too long may take too much time.
-            found = true;
-            break;
-          }
-        }
-      }
-      if (found) break;
-    }
-    if (num > 0) 
-      height_guess = sum/num;
-    sw.stop();
-    
-    std::cout << "Found a valid DEM value in " << sw.elapsed_seconds() << " seconds.\n";
-    std::cout << "Value is " << height_guess << std::endl;
+    double height_guess = asp::findDemHeightGuess(dem); // useful for ray-dem intersection
 
     // Read the ortho image
     vw::ImageViewRef<vw::PixelMask<float>> ortho;
