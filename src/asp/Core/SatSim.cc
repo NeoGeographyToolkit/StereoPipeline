@@ -596,6 +596,65 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
   last_proj = out_proj;
 }
 
+// Calc the jitter amplitude at a given location along the orbit. We will
+// accumulate over all frequencies. We measure the orbit length from original
+// user-set starting point, even if the first camera is not there.
+// Use a different amplitude and phase shift for roll, pitch, and yaw.
+// But all these share the same set of frequencies.
+vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
+                              vw::Vector3 const& orig_first_proj, // user-set
+                              vw::Vector3 const& first_proj, // first actual camera
+                              vw::Vector3 const& last_proj,  // last actual camera
+                              vw::cartography::GeoReference const& dem_georef,
+                              double t) {
+
+  vw::Vector3 amp(0, 0, 0);
+
+  // Current postion in projected coordinates and height above datum for it
+  vw::Vector3 curr_proj = first_proj * (1.0 - t) + last_proj * t;
+  double height_above_datum = curr_proj[2];
+
+  // Length of the orbit from starting point, orig_first_proj, before
+  // adjustment for roll, pitch, and yaw. This way when different orbital
+  // segments are used, for different roll, pitch, and yaw, d will not
+  // always start as 0 at the beginning of each segment. TODO(oalexan1):
+  // Better calculate orbit length from prev proj to curr proj, then add up
+  // to previous value.
+  double dist = calcOrbitLength(orig_first_proj, curr_proj, dem_georef);
+
+  for (size_t freq_iter = 0; freq_iter < opt.jitter_frequency.size(); freq_iter++) {
+    double f = opt.jitter_frequency[freq_iter];
+    double v = opt.velocity;
+    double T = v / f; // period in meters
+
+    // Iterate over roll, pitch, and yaw
+    for (int c = 0; c < 3; c++) {
+      int index = 3 * freq_iter + c;
+      double a = 0.0;
+      // We have either horizontal uncertainty or jitter amplitude.
+      if (!opt.horizontal_uncertainty.empty()) {
+        // jitter amplitude as angular uncertainty given ground uncertainty
+        a = atan(opt.horizontal_uncertainty[c] / height_above_datum);
+        // Covert to degrees
+        a = a * 180.0 / M_PI;
+      } else {
+        // Amplitude in micro radians
+        a = opt.jitter_amplitude[index];
+        // Convert to radians
+        a = a * 1e-6;
+        // Convert to degrees
+        a = a * 180.0 / M_PI;
+      }
+
+      // Compute the jitter, in degrees. Add the phase.
+      amp[c] += a * sin(dist * 2.0 * M_PI / T + opt.jitter_phase[index]);
+    }
+
+  } // End loop through frequencies
+
+  return amp;
+}
+
 // A function that will take as input the endpoints and will compute the
 // satellite trajectory and along track/across track/down directions in ECEF,
 // which will give the camera to world rotation matrix.
@@ -758,63 +817,20 @@ void calcTrajectory(SatSimOptions & opt,
     // The camera to world rotation has these vectors as the columns
     assembleCam2WorldMatrix(along, across, down, cam2world[i]);
 
-    // Accumulate jitter amplitude
-    vw::Vector3 amp(0, 0, 0);
-    if (model_jitter) {
-      // TODO(oalexan1): Factor out this block as a function
-      // Model the jitter as a sinusoidal motion in the along-track direction
-      // Use a different amplitude for roll, pitch, and yaw.
-
-      // Current postion in projected coordinates and height above datum for it
-      vw::Vector3 curr_proj = first_proj * (1.0 - t) + last_proj * t;
-      double height_above_datum = curr_proj[2];
-
-      // Length of the orbit from starting point, orig_first_proj, before
-      // adjustment for roll, pitch, and yaw. This way when different orbital
-      // segments are used, for different roll, pitch, and yaw, d will not
-      // always start as 0 at the beginning of each segment. TODO(oalexan1):
-      // Better calculate orbit length from prev proj to curr proj, then add up
-      // to previous value.
-      double dist = calcOrbitLength(orig_first_proj, curr_proj, dem_georef);
-      for (size_t freq_iter = 0; freq_iter < opt.jitter_frequency.size(); freq_iter++) {
-        double f = opt.jitter_frequency[freq_iter];
-        double v = opt.velocity;
-        double T = v / f; // period in meters
-
-        // Iterate over roll, pitch, and yaw
-        for (int c = 0; c < 3; c++) {
-          int index = 3 * freq_iter + c;
-          double a = 0.0;
-          // We have either horizontal uncertainty or jitter amplitude.
-          if (!opt.horizontal_uncertainty.empty()) {
-            // jitter amplitude as angular uncertainty given ground uncertainty
-            a = atan(opt.horizontal_uncertainty[c] / height_above_datum);
-            // Covert to degrees
-            a = a * 180.0 / M_PI;
-          } else {
-            // Amplitude in micro radians
-            a = opt.jitter_amplitude[index];
-            // Convert to radians
-            a = a * 1e-6;
-            // Convert to degrees
-            a = a * 180.0 / M_PI;
-          }
-
-          // Compute the jitter, in degrees. Add the phase.
-          amp[c] += a * sin(dist * 2.0 * M_PI / T + opt.jitter_phase[index]);
-        }
-
-      } // End loop through frequencies
-    } // End if model jitter
-
     // Save this before applying adjustments as below
     ref_cam2world[i] = cam2world[i];
 
+    // See if to apply the jitter
+    vw::Vector3 jitter_amp(0, 0, 0);
+    if (model_jitter)
+      jitter_amp = calcJitterAmplitude(opt, orig_first_proj, first_proj, last_proj, 
+                                       dem_georef, t);                       
+
     // If to apply a roll, pitch, yaw rotation
     if (have_roll_pitch_yaw) {
-      vw::Matrix3x3 R = asp::rollPitchYaw(opt.roll  + amp[0], 
-                                          opt.pitch + amp[1], 
-                                          opt.yaw   + amp[2]);
+      vw::Matrix3x3 R = asp::rollPitchYaw(opt.roll  + jitter_amp[0], 
+                                          opt.pitch + jitter_amp[1], 
+                                          opt.yaw   + jitter_amp[2]);
       cam2world[i] = cam2world[i] * R;
     }
 
