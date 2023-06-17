@@ -22,6 +22,8 @@
 #ifndef __STEREO_CAMERA_SYNTHETIC_LINESCAN_H__
 #define __STEREO_CAMERA_SYNTHETIC_LINESCAN_H__
 
+#include <vw/Camera/CameraModel.h>
+
 namespace vw {
   namespace cartography {
     class GeoReference;
@@ -33,12 +35,21 @@ namespace asp {
 struct SatSimOptions;
 
 // Create and save a linescan camera with given camera positions and orientations.
-void genLinescanCamera(SatSimOptions const& opt, 
-                       double orbit_len,     
-                       vw::cartography::GeoReference const & georef,
-                       std::vector<vw::Vector3>      const & positions,
-                       std::vector<vw::Matrix3x3>    const & cam2world);
+// There will be just one of them, as all poses are part of the same linescan camera.
+void genLinescanCameras(SatSimOptions const& opt, 
+                        double orbit_len,     
+                        vw::cartography::GeoReference const & georef,
+                        std::vector<vw::Vector3>      const & positions,
+                        std::vector<vw::Matrix3x3>    const & cam2world,
+                        // Outputs
+                        std::vector<std::string>              & cam_names,
+                        std::vector<vw::CamPtr>               & cams);
 
+// A function to read Linescan cameras from disk in CSM format. There will
+// be just one of them.
+void readLinescanCameras(SatSimOptions const& opt, 
+    std::vector<std::string> & cam_names,
+    std::vector<vw::CamPtr> & cams);
 
 } // end namespace asp
 

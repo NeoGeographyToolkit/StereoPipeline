@@ -26,6 +26,7 @@
 #include <vw/Geometry/baseUtils.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Cartography/GeoTransform.h>
+#include <vw/Camera/PinholeModel.h>
 
 using namespace vw::cartography;
 using namespace vw::math;
@@ -556,7 +557,7 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
       << period << " meters.\n";
 
   // Number of cameras. Add 1 because we need to include the last camera.
-  num_cameras = int(orbit_len  / period) + 1;
+  num_cameras = int(orbit_len / period) + 1;
   // Update the orbit length
   orbit_len = period * (num_cameras - 1.0);
 
@@ -857,10 +858,10 @@ std::string genRefPrefix(SatSimOptions const& opt, int i) {
   return opt.out_prefix + "-ref-" + num2str(10000 + i);
 }
 
-// A function to read the pinhole cameras from disk
-void readCameras(SatSimOptions const& opt, 
+// A function to read Pinhole cameras from disk
+void readPinholeCameras(SatSimOptions const& opt, 
     std::vector<std::string> & cam_names,
-    std::vector<vw::camera::PinholeModel> & cams) {
+    std::vector<vw::CamPtr> & cams) {
 
   // Read the camera names
   vw::vw_out() << "Reading: " << opt.camera_list << std::endl;
@@ -872,8 +873,8 @@ void readCameras(SatSimOptions const& opt,
 
   cams.resize(cam_names.size());
   for (int i = 0; i < int(cam_names.size()); i++)
-    cams[i].read(cam_names[i]);
-  
+    cams[i] = vw::CamPtr(new vw::camera::PinholeModel(cam_names[i]));
+
   return;
 }
 
@@ -893,46 +894,48 @@ void genPinholeCameras(SatSimOptions   const & opt,
             std::vector<vw::Matrix3x3> const & cam2world,
             std::vector<vw::Matrix3x3> const & ref_cam2world,
             // outputs
-            std::vector<std::string>              & cam_names,
-            std::vector<vw::camera::PinholeModel> & cams) {
+            std::vector<std::string>         & cam_names,
+            std::vector<vw::CamPtr>          & cams) {
 
   // Ensure we have as many camera positions as we have camera orientations
   if (trajectory.size() != cam2world.size())
-    vw::vw_throw(vw::ArgumentErr()
-      << "Expecting as many camera positions as camera orientations.\n");
+  vw::vw_throw(vw::ArgumentErr()
+    << "Expecting as many camera positions as camera orientations.\n");
 
-    cams.resize(trajectory.size());
-    cam_names.resize(trajectory.size());
-    for (int i = 0; i < int(trajectory.size()); i++) {
+  cams.resize(trajectory.size());
+  cam_names.resize(trajectory.size());
+  for (int i = 0; i < int(trajectory.size()); i++) {
 
-      // Always create the cameras, but only save them if we are not skipping
-      cams[i] = vw::camera::PinholeModel(trajectory[i], cam2world[i],
-                                   opt.focal_length, opt.focal_length,
-                                   opt.optical_center[0], opt.optical_center[1]);
-      
-      // This is useful for understanding things in the satellite frame
-      vw::camera::PinholeModel refCam;
-      if (opt.save_ref_cams)  
-          refCam = vw::camera::PinholeModel(trajectory[i], ref_cam2world[i],
-                                   opt.focal_length, opt.focal_length,
-                                   opt.optical_center[0], opt.optical_center[1]); 
+    // Always create the cameras, but only save them if we are not skipping
+    vw::camera::PinholeModel *pinPtr 
+      = new vw::camera::PinholeModel(trajectory[i], cam2world[i],
+                                    opt.focal_length, opt.focal_length,
+                                    opt.optical_center[0], opt.optical_center[1]);
+    cams[i] = vw::CamPtr(pinPtr); // will own this pointer
+          
+    // This is useful for understanding things in the satellite frame
+    vw::camera::PinholeModel refCam;
+    if (opt.save_ref_cams)  
+        refCam = vw::camera::PinholeModel(trajectory[i], ref_cam2world[i],
+                                          opt.focal_length, opt.focal_length,
+                                          opt.optical_center[0], opt.optical_center[1]);
 
-      std::string camName = genPrefix(opt, i) + ".tsai";
-      cam_names[i] = camName;
+    std::string camName = genPrefix(opt, i) + ".tsai";
+    cam_names[i] = camName;
 
-      // Check if we do a range
-      if (skipCamera(i, opt)) continue;
+    // Check if we do a range
+    if (skipCamera(i, opt)) continue;
 
-      vw::vw_out() << "Writing: " << camName << std::endl;
-      cams[i].write(camName);
+    vw::vw_out() << "Writing: " << camName << std::endl;
+    pinPtr->write(camName);
 
-      if (opt.save_ref_cams) {
-        std::string refCamName = genRefPrefix(opt, i) + ".tsai";
-        vw::vw_out() << "Writing: " << refCamName << std::endl;
-        refCam.write(refCamName);
-      }
+    if (opt.save_ref_cams) {
+      std::string refCamName = genRefPrefix(opt, i) + ".tsai";
+      vw::vw_out() << "Writing: " << refCamName << std::endl;
+      refCam.write(refCamName);
     }
-  
+  }
+
   return;
 }
 
@@ -942,17 +945,17 @@ class SynImageView: public vw::ImageViewBase<SynImageView> {
   
   typedef typename ImageT::pixel_type PixelT;
   SatSimOptions const& m_opt;
-  vw::camera::PinholeModel m_cam;
-   vw::cartography::GeoReference m_dem_georef; // make a copy to be thread-safe
-   vw::ImageView<vw::PixelMask<float>> const& m_dem;
-   double m_height_guess;
-   vw::cartography::GeoReference m_ortho_georef; // make a copy to be thread-safe
-   vw::ImageView<vw::PixelMask<float>> const& m_ortho;
-   float m_ortho_nodata_val;
+  vw::CamPtr m_cam;
+  vw::cartography::GeoReference m_dem_georef; // make a copy to be thread-safe
+  vw::ImageView<vw::PixelMask<float>> const& m_dem;
+  double m_height_guess;
+  vw::cartography::GeoReference m_ortho_georef; // make a copy to be thread-safe
+  vw::ImageView<vw::PixelMask<float>> const& m_ortho;
+  float m_ortho_nodata_val;
 
 public:
   SynImageView(SatSimOptions const& opt,
-               vw::camera::PinholeModel        const& cam,
+               vw::CamPtr    const& cam,
                vw::cartography::GeoReference   const& dem_georef,
                vw::ImageView<vw::PixelMask<float>> dem,
                double height_guess,
@@ -1013,8 +1016,8 @@ public:
         // Here use the full image pixel indices
         vw::Vector2 pix(col, row);
 
-        vw::Vector3 cam_ctr = m_cam.camera_center(pix);
-        vw::Vector3 cam_dir = m_cam.pixel_to_vector(pix);
+        vw::Vector3 cam_ctr = m_cam->camera_center(pix);
+        vw::Vector3 cam_dir = m_cam->pixel_to_vector(pix);
 
         // Intersect the ray going from the given camera pixel with a DEM
         // Use xyz_guess as initial guess and overwrite it with the new value
@@ -1058,7 +1061,7 @@ public:
 
 // Bring crops in memory. It greatly helps with multi-threading speed.  
 void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
-  vw::camera::PinholeModel const& cam,
+    vw::CamPtr const& cam,
     vw::ImageViewRef<vw::PixelMask<float>> const& dem,
     vw::cartography::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> const& ortho,
@@ -1072,11 +1075,9 @@ void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
     // Find the bounding box of the dem and ortho portions seen in the camera,
     // in projected coordinates
     float mean_gsd = 0.0;    
-    boost::shared_ptr<vw::camera::CameraModel> 
-      camera_model(new vw::camera::PinholeModel(cam)); // expected by the API
     bool quick = true; // Assumes a big DEM fully containing the image    
     vw::BBox2 dem_box = vw::cartography::camera_bbox(dem, dem_georef, dem_georef,
-      camera_model, image_size[0], image_size[1], mean_gsd, quick);
+      cam, image_size[0], image_size[1], mean_gsd, quick);
     vw::cartography::GeoTransform d2o(dem_georef, ortho_georef);
     vw::BBox2 ortho_box = d2o.point_to_point_bbox(dem_box);
 
@@ -1103,7 +1104,7 @@ void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
 void genImages(SatSimOptions const& opt,
     bool external_cameras,
     std::vector<std::string> const& cam_names,
-    std::vector<vw::camera::PinholeModel> const& cams,
+    std::vector<vw::CamPtr> const& cams,
     vw::cartography::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> dem,
     double height_guess,
@@ -1120,8 +1121,10 @@ void genImages(SatSimOptions const& opt,
     if (external_cameras)
       image_names[i] = opt.out_prefix + "-" 
       + fs::path(cam_names[i]).filename().replace_extension(".tif").string();
-    else
+    else if (opt.sensor_type == "pinhole")
       image_names[i] = genPrefix(opt, i) + ".tif";
+    else // just replace the extension
+     image_names[i] = fs::path(cam_names[i]).replace_extension(".tif").string();
   }
 
   for (size_t i = 0; i < cams.size(); i++) {

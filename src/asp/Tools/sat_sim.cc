@@ -142,8 +142,11 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     vw::vw_throw(vw::ArgumentErr() << "Missing input DEM and/or ortho image.\n");
   if (opt.out_prefix == "")
     vw::vw_throw(vw::ArgumentErr() << "Missing output prefix.\n");
+
   if (std::isnan(opt.image_size[0]) || std::isnan(opt.image_size[1]))
     vw::vw_throw(vw::ArgumentErr() << "The image size must be specified.\n");
+  if (opt.image_size[0] <= 0 || opt.image_size[1] <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "The image size must be positive.\n");
 
   if (opt.camera_list != "" && opt.no_images)
     vw::vw_throw(vw::ArgumentErr() << "The --camera-list and --no-images options "
@@ -324,11 +327,15 @@ int main(int argc, char *argv[]) {
     asp::readGeorefImage(opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
 
     std::vector<std::string> cam_names;
-    std::vector<vw::camera::PinholeModel> cams, ref_cams;
+    std::vector<vw::CamPtr> cams;
+    // smart point
     bool external_cameras = false;
     if (!opt.camera_list.empty()) {
       // Read the cameras
-      asp::readCameras(opt, cam_names, cams);
+      if (opt.sensor_type == "pinhole")
+        asp::readPinholeCameras(opt, cam_names, cams);
+      else
+        asp::readLinescanCameras(opt, cam_names, cams);
       external_cameras = true;
     } else {
       // Generate the cameras   
@@ -343,11 +350,12 @@ int main(int argc, char *argv[]) {
         asp::genPinholeCameras(opt, trajectory, cam2world, ref_cam2world,
           cam_names, cams);
       else
-        asp::genLinescanCamera(opt, orbit_len, dem_georef, trajectory, cam2world);
+        asp::genLinescanCameras(opt, orbit_len, dem_georef, trajectory, cam2world,
+          cam_names, cams);
     }
 
     // Generate images
-    if (!opt.no_images && opt.sensor_type == "pinhole")
+    if (!opt.no_images)
       asp::genImages(opt, external_cameras, cam_names, cams, dem_georef, dem, 
         height_guess, ortho_georef, ortho, ortho_nodata_val);
 

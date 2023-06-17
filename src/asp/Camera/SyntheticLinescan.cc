@@ -16,13 +16,16 @@
 // __END_LICENSE__
 
 #include <asp/Camera/CsmModel.h>
-#include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <asp/Camera/SyntheticLinescan.h>
+#include <asp/Core/Common.h>
 #include <asp/Core/SatSim.h>
+
+#include <usgscsm/UsgsAstroLsSensorModel.h>
+
+#include <vw/Camera/PinholeModel.h>
 
 #include <Eigen/Geometry>
 
-// A synthetic linescan model as a wrapper around CSM. 
 namespace asp {
 
 // A function to convert a 3x3 VW matrix to Eigen
@@ -34,110 +37,123 @@ Eigen::Matrix3d eigenMatrix(vw::Matrix3x3 const& m) {
   return result;
 }
 
+// A synthetic linescan model as a wrapper around CSM. 
+// TODO(oalexan1): This need not be its own class, 
+// can just populate the CSM model.
 class SyntheticLinescan: public asp::CsmModel {
 
 public:
     
-    // Constructor
-    SyntheticLinescan(SatSimOptions const& opt, 
-                       double orbit_len, 
-                       vw::cartography::GeoReference const & georef,    
-                       std::vector<vw::Vector3>      const & positions,
-                       std::vector<vw::Matrix3x3>    const & cam2world):
-                    m_opt(opt), m_orbit_len(orbit_len), m_georef(georef), 
-                    m_positions(positions), m_cam2world(cam2world),
-                    m_ls_model(NULL) {
-        // Create the CSM model
-        populateCsmModel();
-    }
+  // Constructor
+  SyntheticLinescan(SatSimOptions const& opt, 
+                      double orbit_len, 
+                      vw::cartography::GeoReference const & georef,    
+                      std::vector<vw::Vector3>      const & positions,
+                      std::vector<vw::Matrix3x3>    const & cam2world):
+                  m_opt(opt), m_orbit_len(orbit_len), m_georef(georef), 
+                  m_positions(positions), m_cam2world(cam2world),
+                  m_ls_model(NULL) {
+      // Create the CSM model
+      populateCsmModel();
+  }
 
-    virtual ~SyntheticLinescan() {}
-    virtual std::string type() const { return "SyntheticLinescan"; }
+  virtual ~SyntheticLinescan() {}
+  virtual std::string type() const { return "SyntheticLinescan"; }
 
-    // Gives the camera position in world coordinates.    
-    virtual vw::Vector3 camera_center(vw::Vector2 const& pix) const {
-        csm::ImageCoord csm_pix;
-        asp::toCsmPixel(pix, csm_pix);
+  // Gives the camera position in world coordinates.    
+  virtual vw::Vector3 camera_center(vw::Vector2 const& pix) const {
+      csm::ImageCoord csm_pix;
+      asp::toCsmPixel(pix, csm_pix);
 
-        double time = m_ls_model->getImageTime(csm_pix);
-        csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
+      double time = m_ls_model->getImageTime(csm_pix);
+      csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
 
-        return vw::Vector3(ecef.x, ecef.y, ecef.z);
-    }
+      return vw::Vector3(ecef.x, ecef.y, ecef.z);
+  }
 
-    // Pixel_to_vector (camera direction in ECEF coordinates)
-    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const {
-        csm::ImageCoord csm_pix;
-        asp::toCsmPixel(pix, csm_pix);
-        
-        csm::EcefLocus locus = m_ls_model->imageToRemoteImagingLocus(csm_pix);
-        return vw::Vector3(locus.direction.x, locus.direction.y, locus.direction.z);
-    }
+  // Pixel_to_vector (camera direction in ECEF coordinates)
+  virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const {
+      csm::ImageCoord csm_pix;
+      asp::toCsmPixel(pix, csm_pix);
+      
+      csm::EcefLocus locus = m_ls_model->imageToRemoteImagingLocus(csm_pix);
+      return vw::Vector3(locus.direction.x, locus.direction.y, locus.direction.z);
+  }
 
-    // Go from ground to the camera
-    vw::Vector2 point_to_pixel(vw::Vector3 const& point) const {
+  // Go from ground to the camera
+  vw::Vector2 point_to_pixel(vw::Vector3 const& point) const {
 
-        csm::EcefCoord ecef(point[0], point[1], point[2]);
-        
-        // Do not show warnings, it becomes too verbose
-        double achievedPrecision = -1.0;
-        csm::WarningList warnings;
-        csm::WarningList * warnings_ptr = NULL;
-        bool show_warnings = false;
-        csm::ImageCoord csm_pix = m_ls_model->groundToImage(ecef, m_desired_precision,
-                                                            &achievedPrecision, warnings_ptr);
-        
-        vw::Vector2 asp_pix;
-        asp::fromCsmPixel(asp_pix, csm_pix);
-        return asp_pix;
-    }
+      csm::EcefCoord ecef(point[0], point[1], point[2]);
+      
+      // Do not show warnings, it becomes too verbose
+      double achievedPrecision = -1.0;
+      csm::WarningList warnings;
+      csm::WarningList * warnings_ptr = NULL;
+      bool show_warnings = false;
+      csm::ImageCoord csm_pix = m_ls_model->groundToImage(ecef, m_desired_precision,
+                                                          &achievedPrecision, warnings_ptr);
+      
+      vw::Vector2 asp_pix;
+      asp::fromCsmPixel(asp_pix, csm_pix);
+      return asp_pix;
+  }
 
-    //  Camera pose at given pixel
-    // Do not implement this for now, as it is not needed
-    virtual vw::Quaternion<double> camera_pose(vw::Vector2 const& pix) const {
-      // This is not implemented for now for the CSM model
-      vw::vw_throw(vw::NoImplErr() << "LinescanPleiadesModel: Cannot retrieve camera_pose!");
-      return vw::Quaternion<double>();
-    }
+  //  Camera pose at given pixel
+  // Do not implement this for now, as it is not needed
+  virtual vw::Quaternion<double> camera_pose(vw::Vector2 const& pix) const {
+    // This is not implemented for now for the CSM model
+    vw::vw_throw(vw::NoImplErr() << "SyntheticLinescan: Camera pose not implemented.\n");
+    return vw::Quaternion<double>();
+  }
 
-    // Allow finding the time at any line, even negative ones. Here a
-    // simple slope-intercept formula is used rather than a table so one
-    // cannot run out of bounds. Page 76 in the doc.
-    double get_time_at_line(double line) const {
-        csm::ImageCoord csm_pix;
-        asp::toCsmPixel(vw::Vector2(0, line), csm_pix);
-        return m_ls_model->getImageTime(csm_pix);
-    }
+  // Allow finding the time at any line, even negative ones. Here a
+  // simple slope-intercept formula is used rather than a table. 
+  double get_time_at_line(double line) const {
+      csm::ImageCoord csm_pix;
+      asp::toCsmPixel(vw::Vector2(0, line), csm_pix);
+      return m_ls_model->getImageTime(csm_pix);
+  }
 
   // The pointing vector in sensor coordinates, before applying cam2world. This
   // is for testing purposes. Normally CSM takes care of this internally.
   vw::Vector3 get_local_pixel_to_vector(vw::Vector2 const& pix) const {
 
     vw::Vector3 result(pix[0] + m_detector_origin[0], 
-                       m_detector_origin[1], 
-                       m_ls_model->m_focalLength);
-  
+                        m_detector_origin[1], 
+                        m_ls_model->m_focalLength);
+
     // Make the direction have unit length
     result = normalize(result);
 
     return result;
 }
 
+// Write the CSM model state in .json format. This is not the same as the CSM
+// ISD format, but it has all that is needed for stereo, mapprojection,
+// and bundle adjustment.
+void write(std::string const& filename) const {
+  std::string modelState = m_ls_model->getModelState(); 
+  vw::vw_out() << "Writing: " << filename << std::endl;
+  std::ofstream ofs(filename.c_str());
+  ofs << modelState << std::endl;
+  ofs.close();
+}
+
 private:
 
-    SatSimOptions               const& m_opt;
-    std::vector<vw::Vector3>   const & m_positions;
-    std::vector<vw::Matrix3x3> const & m_cam2world;
-    vw::cartography::GeoReference m_georef; // make a local copy, safer that way
-    double m_orbit_len; // in meters
+  SatSimOptions               const& m_opt;
+  std::vector<vw::Vector3>   const & m_positions;
+  std::vector<vw::Matrix3x3> const & m_cam2world;
+  vw::cartography::GeoReference m_georef; // make a local copy, safer that way
+  double m_orbit_len; // in meters
 
-    // Pointer to linescan sensor. It will be managed by CsmModel::m_gm_model
-    UsgsAstroLsSensorModel * m_ls_model;
+  // Pointer to linescan sensor. It will be managed by CsmModel::m_gm_model.
+  UsgsAstroLsSensorModel * m_ls_model;
 
-    // These are used to find the look direction in camera coordinates at a given line
-    vw::Vector2 m_detector_origin;
+  // These are used to find the look direction in camera coordinates at a given line
+  vw::Vector2 m_detector_origin;
 
-void populateCsmModel() {
+  void populateCsmModel() {
 
     // Do not use a precision below 1.0-e8 as then the linescan model will return junk.
     m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
@@ -163,7 +179,7 @@ void populateCsmModel() {
     m_ls_model->m_nLines   = m_opt.image_size[1];
     m_ls_model->m_platformFlag     = 1; // Use 1, for order 8 Lagrange interpolation
     m_ls_model->m_minElevation     = -10000.0; // -10 km
-    m_ls_model->m_maxElevation     = 10000.0; //  10 km
+    m_ls_model->m_maxElevation     =  10000.0; //  10 km
     m_ls_model->m_focalLength      = m_opt.focal_length;
     m_ls_model->m_zDirection       = 1.0;
     m_ls_model->m_halfSwath        = 1.0;
@@ -238,15 +254,6 @@ void populateCsmModel() {
     // take place which are inaccessible otherwise.
     std::string modelState = m_ls_model->getModelState();
     m_ls_model->replaceModelState(modelState);
-
-#if 0 // For debugging
-    std::string json_state_file = "tmp.json";
-    modelState = m_ls_model->getModelState(); // refresh this
-    vw::vw_out() << "Writing model state: " << json_state_file << std::endl;
-    std::ofstream ofs(json_state_file.c_str());
-    ofs << modelState << std::endl;
-    ofs.close();
-#endif
   }
 
 }; // End class SyntheticLinescan
@@ -270,6 +277,7 @@ void PinLinescanTest(SatSimOptions              const & opt,
     vw::Vector2 pin_pix(opt.optical_center[0], opt.optical_center[1]);
     vw::Vector2 ls_pix (opt.optical_center[0], line);
 
+    // The differences below must be 0
     vw::Vector3 ls_ctr  = ls_cam.camera_center(ls_pix);
     vw::Vector3 pin_ctr = pin_cam.camera_center(pin_pix);
     std::cout << "ls ctr and and pin - ls ctr diff: " << ls_ctr << " "
@@ -283,20 +291,61 @@ void PinLinescanTest(SatSimOptions              const & opt,
 }
 
 // Create and save a linescan camera with given camera positions and orientations.
-void genLinescanCamera(SatSimOptions                 const & opt, 
-                       double                                orbit_len, 
-                       vw::cartography::GeoReference const & georef,    
-                       std::vector<vw::Vector3>      const & positions,
-                       std::vector<vw::Matrix3x3>    const & cam2world) {
-  std::cout.precision(17);                        
-  std::cout << "Orbit length is " << orbit_len << std::endl;          
+// There will be just one of them, as all poses are part of the same linescan camera.
+void genLinescanCameras(SatSimOptions                 const & opt, 
+                        double                                orbit_len, 
+                        vw::cartography::GeoReference const & georef,    
+                        std::vector<vw::Vector3>      const & positions,
+                        std::vector<vw::Matrix3x3>    const & cam2world,
+                        // Outputs
+                        std::vector<std::string>              & cam_names,
+                        std::vector<vw::CamPtr>               & cams) {
 
-  SyntheticLinescan ls_cam(opt, orbit_len, georef, positions, cam2world); 
+  // Initialize the outputs
+  cam_names.clear();
+  cams.clear();
 
-  // Sanity check
-  PinLinescanTest(opt, ls_cam, positions, cam2world);
+  // Create the camera. Will be later owned by a smart pointer.
+  SyntheticLinescan * ls_cam 
+    = new SyntheticLinescan(opt, orbit_len, georef, positions, cam2world); 
 
-  exit(0);
+  // Sanity check (very useful)
+  // PinLinescanTest(opt, *ls_cam, positions, cam2world);
+
+  std::string filename = opt.out_prefix + ".json";
+  ls_cam->write(filename);
+
+  // Save the camera name and smart pointer to camera
+  cam_names.push_back(filename);
+  cams.push_back(vw::CamPtr(ls_cam));
+
+  return;
+}
+
+// A function to read Linescan cameras from disk. There will
+// be just one of them, but same convention is kept as for Pinhole
+// where there is many of them. Note that the camera is created as of CSM type,
+// rather than SyntheticLinescan type. This is not important as we will
+// abstract it right away to the base class.
+void readLinescanCameras(SatSimOptions const& opt, 
+    std::vector<std::string> & cam_names,
+    std::vector<vw::CamPtr> & cams) {
+
+  // Read the camera names
+  vw::vw_out() << "Reading: " << opt.camera_list << std::endl;
+  asp::read_list(opt.camera_list, cam_names);
+
+  // Sanity checks
+  if (cam_names.empty())
+    vw::vw_throw(vw::ArgumentErr() << "No cameras were found.\n");
+  if (cam_names.size() != 1)
+    vw::vw_throw(vw::ArgumentErr() << "Only one linescan camera is expected.\n");
+
+  cams.resize(cam_names.size());
+  for (int i = 0; i < int(cam_names.size()); i++)
+    cams[i] = vw::CamPtr(new asp::CsmModel(cam_names[i]));
+
+  return;
 }
 
 } // end namespace asp

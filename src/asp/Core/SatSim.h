@@ -28,7 +28,7 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Image/PixelMask.h>
 #include <vw/FileIO/GdalWriteOptions.h>
-#include <vw/Camera/PinholeModel.h>
+#include <vw/Camera/CameraModel.h>
 
 #include <string>
 
@@ -72,14 +72,14 @@ void calcTrajectory(SatSimOptions & opt,
                     double height_guess,
                     // Outputs
                     double & orbit_len,
-                    std::vector<vw::Vector3> & trajectory,
+                    std::vector<vw::Vector3>   & trajectory,
                     std::vector<vw::Matrix3x3> & cam2world,
                     std::vector<vw::Matrix3x3> & ref_cam2world);
 
 // A function to read the cameras from a file
-void readCameras(SatSimOptions const& opt, 
+void readPinholeCameras(SatSimOptions const& opt, 
     std::vector<std::string> & cam_names,
-    std::vector<vw::camera::PinholeModel> & cams);
+    std::vector<vw::CamPtr> & cams);
 
 // A function to create and save the cameras. Assume no distortion, and pixel
 // pitch = 1.
@@ -89,13 +89,13 @@ void genPinholeCameras(SatSimOptions const& opt,
                 std::vector<vw::Matrix3x3> const & ref_cam2world,
                 // outputs
                 std::vector<std::string> & cam_names,
-                std::vector<vw::camera::PinholeModel> & cams);
+                std::vector<vw::CamPtr> & cams);
 
 // Generate images by projecting rays from the sensor to the ground
 void genImages(SatSimOptions const& opt,
     bool external_cameras,
-    std::vector<std::string> const& cam_names,
-    std::vector<vw::camera::PinholeModel> const& cams,
+    std::vector<std::string>      const& cam_names,
+    std::vector<vw::CamPtr>       const& cams,
     vw::cartography::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> dem,
     double height_guess,
