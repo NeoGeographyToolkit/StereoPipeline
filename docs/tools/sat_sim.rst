@@ -4,16 +4,16 @@ sat_sim
 -------
 
 The ``sat_sim`` satellite simulator program models a satellite traveling around
-a planet and taking pictures. It can either create Pinhole camera
-models (:numref:`pinholemodels`) or read them from disk. In either case it
-creates synthetic images for the given cameras. 
+a planet and taking pictures. It can either create camera models (Pinhole or
+Linescan), or read them from disk. In either case it creates synthetic images
+for the given cameras. 
 
 The inputs are a DEM and georeferenced image (ortho image) of the area of
 interest. See :numref:`sat_sim_dem` for how to create such inputs.
 
-If the input cameras are not specified, the orbit is determined by
-given endpoints. It is represented as a straight edge in the projected
-coordinate system of the DEM, which results in an arc around the planet. 
+If the input cameras are not specified, the orbit is determined by given
+endpoints. It is represented as a straight edge in the projected coordinate
+system of the DEM, which results in an arc around the planet. 
 
 The images are created with bicubic interpolation in the ortho image and are
 saved with float pixels. Missing pixels will have nodata values.
@@ -24,7 +24,9 @@ the cameras can have a fixed orientation, without
 (:numref:`sat_sim_roll_pitch_yaw`) and with
 (:numref:`sat_sim_roll_pitch_yaw_ground`) ground constraints.
 
-Several use cases are below. 
+Several use cases are below. Cameras are assumed to be of Pinhole
+(:numref:`pinholemodels`) by default. See :numref:`sat_sim_linescan`
+for Linescan cameras.
 
 Use given cameras
 ^^^^^^^^^^^^^^^^^
@@ -210,10 +212,11 @@ Jitter modelling
 ^^^^^^^^^^^^^^^^
 
 As a satellite moves in orbit, it vibrates ever so slightly. The effect of this
-on the acquired images is called *jitter*, and it occurs for both linescan and
+on the acquired images is called *jitter*, and it occurs for both Linescan and
 Pinhole cameras. See :numref:`jitter_solve` for how jitter is solved for when
-the cameras are linescan. Here we will discuss modeling jitter for synthetic
-Pinhole cameras.
+the cameras are Linescan. Here we will discuss modeling jitter for synthetic
+Pinhole cameras. See :numref:`sat_sim_linescan` for how to create synthetic
+Linescan cameras (with or without jitter).
 
 We assume the jitter is a superposition of periodic perturbations of the roll,
 pitch, and yaw angles. For each period, there will be an individual amplitude
@@ -334,6 +337,29 @@ the second frequency, and so on. For example::
 These will be multiplied by 1e-6 to convert to radians, then converted to
 degrees, and used as the jitter amplitudes :math:`A_{ij}`. In this example
 only the pitch amplitudes are nonzero, and are equal to 1 micro radian.
+
+.. _sat_sim_linescan:
+
+Linescan cameras
+^^^^^^^^^^^^^^^^
+
+The ``sat_sim`` tool can be used to simulate Linescan cameras, with or without
+jitter. Then, instead of many Pinhole cameras and/or images along the orbit, a
+single Linescan camera and/or image will be created. The option ``--num`` (or
+``--frame-rate``) will control how many camera samples are created in the
+Linescan camera. Lagrange interpolation will be used in between the samples.
+
+All above modes are supported. One has to add to ``sat_sim`` the option::
+
+  --sensor-type linescan
+
+The produced Linescan camera is in the CSM model state format (:numref:`csm_state`).
+This is a standard CSM format and can be read by any ASP tools including this one.
+
+In this mode the row coordinate of the optical center (the second value in
+``--optical-center``) will be ignored and will be treated as if it is set to 0.
+Hence, we assume that the ray from the camera center that is perpendicular to
+the sensor plane intersects the single-row sensor array. 
 
 Efficiency considerations
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -498,6 +524,9 @@ Command-line options
     :numref:`sat_sim_roll_pitch_yaw_ground`). Set the ``--velocity`` value. The
     last camera will be no further than the (adjusted) value of ``--last`` along
     the orbit. 
+
+--sensor-type <string (default="pinhole")>
+    Sensor type for created cameras and images. Can be one of: pinhole, linescan.
 
 --first-index <int (default: -1)>
     Index of first camera and/or image to generate, starting from 0. If not set,

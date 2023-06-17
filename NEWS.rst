@@ -13,7 +13,7 @@ New tools:
   * Added support for the Pleiades NEO exact linescan model
     (:numref:`pleiades_neo`).
   * Added ``sat_sim`` (:numref:`sat_sim`), a tool to create simulated
-    satellite images and/or pinhole camera models.
+    satellite images camera models for pinhole or linescan sensors.
   * Added ``sfm_view`` (:numref:`sfm_view`), a tool for viewing orbital 
     Pinhole camera models. It is a modification of the ``umve`` program.
    

@@ -650,14 +650,14 @@ ISD`` file) has the transforms from sensor coordinates to J2000 and from
 J2000 to ECEF. These are then combined together to form the model
 state, which has the transforms from the sensor to ECEF. The model
 state is used to project ground points into the camera and vice-versa,
-so it is sufficient for the purposes of bundle adjustment and stereo.
+so it is sufficient for the purposes of bundle adjustment, stereo,
+and mapprojection.
 
 ASP's ``parallel_stereo`` and bundle adjustment programs can, in addition to CSM
-ISD camera model files, also load such model state files, either as
-previously written by ASP or from an external source (it will
-auto-detect the type from the format of the JSON files). Hence, the
-model state is a convenient format for data exchange, while being
-less complex than the ISD format.
+ISD camera model files, also load such model state files, either as previously
+written by ASP or from an external source (it will auto-detect the type from the
+format of the JSON files). Hence, the model state is a convenient format for
+data exchange, while being less complex than the ISD format.
 
 If ASP's ``parallel_stereo`` program is used to create a point cloud from
 images and CSM cameras, and then that point cloud has a transform
