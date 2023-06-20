@@ -23,6 +23,10 @@
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Image/ImageViewRef.h>
+#include <vw/Cartography/CameraBBox.h>
+#include <vw/Math/Functors.h>
+#include <vw/Core/Stopwatch.h>
 
 #include <Eigen/Geometry>
 
@@ -51,10 +55,6 @@ void populateSyntheticLinescan(SatSimOptions const& opt,
 
   model.m_semi_major_axis = georef.datum().semi_major_axis();
   model.m_semi_minor_axis = georef.datum().semi_minor_axis();
-
-  std::cout.precision(17);
-  std::cout << "semi major is " << model.m_semi_major_axis << std::endl;
-  std::cout << "semi minor is " << model.m_semi_minor_axis << std::endl;
 
   // Create the linescan model
   model.m_gm_model.reset(new UsgsAstroLsSensorModel); // m_gm_model will manage the deallocation
@@ -204,14 +204,131 @@ void PinLinescanTest(SatSimOptions              const & opt,
   }
 }
 
-// Create and save a linescan camera with given camera positions and orientations.
-// There will be just one of them, as all poses are part of the same linescan camera.
-void genLinescanCameras(SatSimOptions                 const & opt, 
-                        double                                orbit_len, 
-                        vw::cartography::GeoReference const & georef,    
+// Wrapper for logic to intersect DEM with ground. The xyz provided on input serves
+// as initial guess and gets updated on output if the intersection succeeds. Return
+// true on success.
+bool intersectDemWithRay(SatSimOptions const& opt,
+                         vw::cartography::GeoReference const& dem_georef,vw::ImageViewRef<vw::PixelMask<float>> dem,
+                         vw::Vector3 const& cam_ctr, 
+                         vw::Vector3 const& cam_dir,
+                         double height_guess,
+                         // Output
+                         vw::Vector3 & xyz) {
+
+    // Find the intersection of this ray with the ground
+    bool treat_nodata_as_zero = false;
+    bool has_intersection = false;
+    double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
+    double max_rel_tol = max_abs_tol;
+    int num_max_iter = 100;
+
+    vw::Vector3 local_xyz 
+      = vw::cartography::camera_pixel_to_dem_xyz
+        (cam_ctr, cam_dir, dem, dem_georef, treat_nodata_as_zero, has_intersection, 
+        // Below we use a prudent approach. Try to make the solver work
+        // hard. It is not clear if this is needed.
+        std::min(opt.dem_height_error_tol, 1e-8),
+        max_abs_tol, max_rel_tol, 
+        num_max_iter, xyz, height_guess);
+
+    if (!has_intersection)
+      return false;
+
+    // Update xyz with produced value if we succeeded
+    xyz = local_xyz;
+    return true;
+}
+
+// Estimate pixel aspect ratio (width / height) of a pixel on the ground
+double pixelAspectRatio(SatSimOptions                 const & opt,     
+                        vw::cartography::GeoReference const & dem_georef,
                         std::vector<vw::Vector3>      const & positions,
                         std::vector<vw::Matrix3x3>    const & cam2world,
+                        asp::CsmModel                 const & ls_cam,
+                        vw::ImageViewRef<vw::PixelMask<float>>  dem,  
+                        double height_guess) {
+
+  // Put here a stop watch
+  //vw::Stopwatch sw;
+  //sw.start();
+
+  // We checked that the image width and height is at least 2 pixels. That is
+  // needed to properly create the CSM model. Now do some samples to see how the
+  // pixel width and height are on the ground. Use a small set of samples. Should be good
+  // enough. Note how we go a little beyond each sample, while still not exceeding
+  // the designed image size. 
+  double samp_x = (opt.image_size[0] - 1.0) / 10.0;
+  double samp_y = (opt.image_size[1] - 1.0) / 10.0;
+
+  std::vector<double> ratios; 
+  vw::Vector3 xyz(0, 0, 0); // intersection with DEM, will be updated below
+  
+  for (double x = 0; x < opt.image_size[0] - 1.0; x += samp_x) {
+    for (double y = 0; y < opt.image_size[1] - 1.0; y += samp_y) {
+
+      // Find the intersection of the ray from this pixel with the ground
+      vw::Vector2 pix(x, y);
+      vw::Vector3 ctr = ls_cam.camera_center(pix);
+      vw::Vector3 dir = ls_cam.pixel_to_vector(pix);
+      bool ans = intersectDemWithRay(opt, dem_georef, dem, ctr, dir, 
+         height_guess, xyz);
+      if (!ans) 
+        continue;
+      vw::Vector3 P0 = xyz;
+
+      // Add a little to the pixel, but stay within the image bounds
+      double dx = std::min(samp_x, 0.5);
+      double dy = std::min(samp_y, 0.5);
+
+      // See pixel width on the ground
+      pix = vw::Vector2(x + dx, y);
+      ctr = ls_cam.camera_center(pix);
+      dir = ls_cam.pixel_to_vector(pix);
+      ans = intersectDemWithRay(opt, dem_georef, dem, ctr, dir, 
+         height_guess, xyz);
+      if (!ans) 
+        continue;
+      vw::Vector3 Px = xyz;
+
+      // See pixel height on the ground
+      pix = vw::Vector2(x, y + dy);
+      ctr = ls_cam.camera_center(pix);
+      dir = ls_cam.pixel_to_vector(pix);
+      ans = intersectDemWithRay(opt, dem_georef, dem, ctr, dir, 
+         height_guess, xyz);
+      if (!ans)
+        continue;
+      vw::Vector3 Py = xyz;
+
+      double ratio = norm_2(Px - P0) / norm_2(Py - P0);
+      if (std::isnan(ratio) || std::isinf(ratio) || ratio <= 0.0)
+        continue;
+      ratios.push_back(ratio);
+    }
+  }
+
+  if (ratios.empty())
+    vw::vw_throw(vw::ArgumentErr() << "No valid samples found to compute "
+             << "the pixel width and height on the ground.\n");
+
+  double ratio = vw::math::destructive_median(ratios);
+
+  //sw.stop();
+  //std::cout << "Time to compute pixel aspect ratio: " << sw.elapsed_seconds() << std::endl;
+
+  return ratio;
+}
+
+// Create and save a linescan camera with given camera positions and orientations.
+// There will be just one of them, as all poses are part of the same linescan camera.
+void genLinescanCameras(double                                orbit_len, 
+                        vw::cartography::GeoReference const & dem_georef,
+                        vw::ImageViewRef<vw::PixelMask<float>> dem,  
+                        std::vector<vw::Vector3>      const & positions,
+                        std::vector<vw::Matrix3x3>    const & cam2world,
+                        double                                height_guess,
                         // Outputs
+                        SatSimOptions                         & opt, 
                         std::vector<std::string>              & cam_names,
                         std::vector<vw::CamPtr>               & cams) {
 
@@ -221,11 +338,28 @@ void genLinescanCameras(SatSimOptions                 const & opt,
 
   // Create the camera. Will be later owned by a smart pointer.
   asp::CsmModel * ls_cam = new asp::CsmModel;
-  populateSyntheticLinescan(opt, orbit_len, georef, positions, cam2world, *ls_cam); 
+  populateSyntheticLinescan(opt, orbit_len, dem_georef, positions, cam2world, *ls_cam); 
 
   // Sanity check (very useful)
   // PinLinescanTest(opt, *ls_cam, positions, cam2world);
 
+  if (opt.square_pixels) {
+    // Find the pixel aspect ratio on the ground (x/y)
+    vw::vw_out() << "Adjusting image height from: " << opt.image_size[1] << " to ";
+    double ratio = pixelAspectRatio(opt, dem_georef, positions, cam2world, 
+                                    *ls_cam, dem, height_guess);
+    // Adjust the image height to make the pixels square
+    opt.image_size[1] = std::max(round(opt.image_size[1] / ratio), 2.0);
+    vw::vw_out() << opt.image_size[1] << " pixels, to make the ground "
+                 << "projection of an image pixel be roughly square.\n";
+
+    // Recreate the camera with this aspect ratio
+    populateSyntheticLinescan(opt, orbit_len, dem_georef, positions, cam2world, *ls_cam); 
+    // Sanity check (very useful)
+    // ratio = pixelAspectRatio(opt, dem_georef, positions, cam2world, 
+    //                                *ls_cam, dem, height_guess);
+
+  }
   std::string filename = opt.out_prefix + ".json";
   ls_cam->saveState(filename);
 

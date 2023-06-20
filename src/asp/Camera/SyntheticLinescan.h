@@ -23,6 +23,7 @@
 #define __STEREO_CAMERA_SYNTHETIC_LINESCAN_H__
 
 #include <vw/Camera/CameraModel.h>
+#include <vw/Image/ImageViewRef.h>
 
 namespace vw {
   namespace cartography {
@@ -36,12 +37,14 @@ struct SatSimOptions;
 
 // Create and save a linescan camera with given camera positions and orientations.
 // There will be just one of them, as all poses are part of the same linescan camera.
-void genLinescanCameras(SatSimOptions const& opt, 
-                        double orbit_len,     
-                        vw::cartography::GeoReference const & georef,
+void genLinescanCameras(double orbit_len,     
+                        vw::cartography::GeoReference const & dem_georef,
+                        vw::ImageViewRef<vw::PixelMask<float>> dem,
                         std::vector<vw::Vector3>      const & positions,
                         std::vector<vw::Matrix3x3>    const & cam2world,
+                        double                                height_guess,
                         // Outputs
+                        SatSimOptions                         & opt, 
                         std::vector<std::string>              & cam_names,
                         std::vector<vw::CamPtr>               & cams);
 

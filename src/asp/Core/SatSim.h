@@ -44,7 +44,7 @@ struct SatSimOptions : vw::GdalWriteOptions {
   std::vector<double> jitter_frequency, jitter_amplitude, jitter_phase, horizontal_uncertainty;
   std::string jitter_frequency_str, jitter_amplitude_str, jitter_phase_str, 
     horizontal_uncertainty_str;
-  bool no_images, save_ref_cams;
+  bool no_images, save_ref_cams, square_pixels;
   SatSimOptions() {}
 };
 

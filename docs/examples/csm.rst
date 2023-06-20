@@ -622,7 +622,13 @@ See an illustration in :numref:`csm_msl_figure2`, with the input images in :numr
 Mapprojection
 ^^^^^^^^^^^^^
 
-The input .cub image files and the camera .json files can be used to create mapprojected images with the ``mapproject`` program (:numref:`mapproject`). That tool can have a hard time with the MSL cameras, as these are not orbital cameras and can point towards the horizon. It is suggested to use this tool with an input DEM that is shifted vertically downward by about 50 meters relative to the rover position for the rays from the ground to the camera to be traced correctly. 
+The input .cub image files and the camera .json files can be used to create
+mapprojected images with the ``mapproject`` program (:numref:`mapproject`). That
+tool can have a hard time with the MSL cameras, as these are not orbital cameras
+and can point towards the horizon. It is suggested to use this tool with an
+input DEM that is shifted vertically downward by about 50 meters relative to the
+rover position for the rays from the ground to the camera to be traced
+correctly.    
 
 Use the option ``--t_projwin`` to avoid the produced images from extending for a very long distance towards the horizon.
 
@@ -631,17 +637,16 @@ Use the option ``--t_projwin`` to avoid the produced images from extending for a
 Exporting CSM model state
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-ASP's bundle adjustment program (:numref:`bundle_adjust`) normally
-writes plain text ``.adjust`` files which encode how the position and
-orientation of the cameras were modified (:numref:`adjust_files`). If
-invoked for CSM cameras, additional files with extension
-``.adjusted_state.json`` are saved in the same output directory, which
-contain the model state from the input CSM cameras with the
-optimization adjustments applied to them (use zero iterations in
+ASP's bundle adjustment program (:numref:`bundle_adjust`) normally writes plain
+text ``.adjust`` files which encode how the position and orientation of the
+cameras were modified (:numref:`adjust_files`). If invoked for CSM cameras,
+additional files with extension ``.adjusted_state.json`` are saved in the same
+output directory, which contain the model state from the input CSM cameras with
+the optimization adjustments applied to them (use zero iterations in
 ``bundle_adjust`` to save the states of the original cameras).
 
-This functionality is only implemented for USGS CSM ``linescan`` and
-``SAR`` models.
+This functionality is implemented for all USGS CSM sensors, so, for ``frame``,
+``linescan``, ``pushframe``, and ``SAR`` models.
 
 It is important to note that the ``model state`` of a CSM camera
 and the CSM camera itself, while both stored on disk as JSON files,

@@ -113,6 +113,10 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
      "than the (adjusted) value of --last along the orbit.")
      ("sensor-type", po::value(&opt.sensor_type)->default_value("pinhole"),
       "Sensor type for created cameras and images. Can be one of: pinhole, linescan.")
+    ("square-pixels", po::bool_switch(&opt.square_pixels)->default_value(false)->implicit_value(true),
+      "When creating linescan images, override the image height (the second value "
+      "in --image-size) to ensure that the horizontal and vertical ground "
+      "sample distances are very similar.")
     ("no-images", po::bool_switch(&opt.no_images)->default_value(false)->implicit_value(true),
      "Create only cameras, and no images. Cannot be used with --camera-list.")
      ("save-ref-cams", po::bool_switch(&opt.save_ref_cams)->default_value(false)->implicit_value(true),
@@ -145,12 +149,17 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
 
   if (std::isnan(opt.image_size[0]) || std::isnan(opt.image_size[1]))
     vw::vw_throw(vw::ArgumentErr() << "The image size must be specified.\n");
-  if (opt.image_size[0] <= 0 || opt.image_size[1] <= 0)
-    vw::vw_throw(vw::ArgumentErr() << "The image size must be positive.\n");
+  if (opt.image_size[0] <= 1 || opt.image_size[1] <= 1)
+    vw::vw_throw(vw::ArgumentErr() << "The image size must be at least 2 x 2.\n");
 
   if (opt.camera_list != "" && opt.no_images)
     vw::vw_throw(vw::ArgumentErr() << "The --camera-list and --no-images options "
       "cannot be used together.\n");
+  
+  if (opt.camera_list != "" && opt.square_pixels)
+    vw::vw_throw(vw::ArgumentErr() << "The --camera-list and --square-pixels options "
+      "cannot be used together. Making the mapprojected pixels be approximately "
+      "square requires modifying the camera model.\n");
 
   if (opt.camera_list == "") {
     if (opt.first == vw::Vector3() || opt.last == vw::Vector3())
@@ -286,10 +295,13 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
   if (opt.velocity <= 0)
     vw::vw_throw(vw::ArgumentErr() << "The satellite velocity must be positive.\n");
 
-  if (opt.sensor_type == "linescan" && std::isnan(opt.velocity)) {
+  // Checks for linescan cameras
+  if (opt.sensor_type == "linescan" && std::isnan(opt.velocity))
     vw::vw_throw(vw::ArgumentErr() << "The satellite velocity must be specified "
       << "in order to create linescan cameras.\n");
-  } 
+  if (opt.square_pixels && opt.sensor_type != "linescan")
+    vw::vw_throw(vw::ArgumentErr() << "Cannot specify --square-pixels unless creating "
+      << "linescan cameras.\n");
 
   // Sanity check the first and last indices
   int ans = int(opt.first_index < 0) + int(opt.last_index < 0);
@@ -350,8 +362,9 @@ int main(int argc, char *argv[]) {
         asp::genPinholeCameras(opt, trajectory, cam2world, ref_cam2world,
           cam_names, cams);
       else
-        asp::genLinescanCameras(opt, orbit_len, dem_georef, trajectory, cam2world,
-          cam_names, cams);
+        asp::genLinescanCameras(orbit_len, dem_georef, dem, trajectory, 
+          cam2world, height_guess,
+          opt, cam_names, cams); // outputs
     }
 
     // Generate images

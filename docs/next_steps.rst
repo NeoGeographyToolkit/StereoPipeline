@@ -716,9 +716,9 @@ cameras).
 
 The cameras can also be bundle-adjusted, as discussed later.
 
-As earlier, when invoking ``parallel_stereo``, the first two arguments
-should be the mapprojected images, followed by the camera models,
-output prefix, and the name of the DEM used for mapprojection.
+As earlier, when invoking ``parallel_stereo`` with mapprojected images, the
+first two arguments should be these images, followed by the camera
+models, output prefix, and the name of the DEM used for mapprojection.
 
 The session name (``-t``) passed to ``parallel_stereo`` should be
 ``rpcmaprpc``, ``pinholemappinhole``, or just ``rpc``, ``pinhole``,

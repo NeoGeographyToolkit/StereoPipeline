@@ -6,7 +6,7 @@ sat_sim
 The ``sat_sim`` satellite simulator program models a satellite traveling around
 a planet and taking pictures. It can either create camera models (Pinhole or
 Linescan), or read them from disk. In either case it creates synthetic images
-for the given cameras. 
+for the given cameras. This tool can model camera jitter.  
 
 The inputs are a DEM and georeferenced image (ortho image) of the area of
 interest. See :numref:`sat_sim_dem` for how to create such inputs.
@@ -24,9 +24,9 @@ the cameras can have a fixed orientation, without
 (:numref:`sat_sim_roll_pitch_yaw`) and with
 (:numref:`sat_sim_roll_pitch_yaw_ground`) ground constraints.
 
-Several use cases are below. Cameras are assumed to be of Pinhole
+Several use cases are below. The cameras are assumed to be of Pinhole
 (:numref:`pinholemodels`) by default. See :numref:`sat_sim_linescan`
-for Linescan cameras.
+for Linescan cameras. Lens distortion is not modeled.
 
 Use given cameras
 ^^^^^^^^^^^^^^^^^
@@ -349,17 +349,21 @@ single Linescan camera and/or image will be created. The option ``--num`` (or
 ``--frame-rate``) will control how many camera samples are created in the
 Linescan camera. Lagrange interpolation will be used in between the samples.
 
-All above modes are supported. One has to add to ``sat_sim`` the option::
+All above modes are supported. One has to add to ``sat_sim`` the option
+``--sensor-type linescan``.
 
-  --sensor-type linescan
-
-The produced Linescan camera is in the CSM model state format (:numref:`csm_state`).
-This is a standard CSM format and can be read by any ASP tools including this one.
+Add the option ``--square-pixels`` to autocompute and override the input image
+height (number of scan lines, the second value in ``--image-size``) to ensure
+that the horizontal and vertical ground sample distances are very similar.
 
 In this mode the row coordinate of the optical center (the second value in
-``--optical-center``) will be ignored and will be treated as if it is set to 0.
-Hence, we assume that the ray from the camera center that is perpendicular to
-the sensor plane intersects the single-row sensor array. 
+``--optical-center``) will be ignored and will be treated as set to 0. Hence, we
+assume that the ray from the camera center that is perpendicular to the sensor
+plane intersects the single-row sensor array. 
+
+The produced Linescan camera is in the CSM model state format
+(:numref:`csm_state`). This is a standard CSM format and can be read by all ASP
+tools including this one.
 
 Efficiency considerations
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -527,6 +531,11 @@ Command-line options
 
 --sensor-type <string (default="pinhole")>
     Sensor type for created cameras and images. Can be one of: pinhole, linescan.
+
+--square-pixels
+    When creating linescan images, override the image height (the second value
+    in ``--image-size``) to ensure that the horizontal and vertical ground
+    sample distances are very similar.
 
 --first-index <int (default: -1)>
     Index of first camera and/or image to generate, starting from 0. If not set,
