@@ -353,17 +353,19 @@ int main(int argc, char *argv[]) {
       // Generate the cameras   
       double orbit_len = 0.0;
       std::vector<vw::Vector3> trajectory;
-      // vector of rot matrices
-      std::vector<vw::Matrix3x3> cam2world, ref_cam2world;
+      // vector of rot matrices. The matrix cam2world_no_jitter
+      // is only needed with linescan cameras, but compute it for consistency 
+      // in all cases.
+      std::vector<vw::Matrix3x3> cam2world, ref_cam2world, cam2world_no_jitter;
       asp::calcTrajectory(opt, dem_georef, dem, height_guess,
-        orbit_len, trajectory, cam2world, ref_cam2world); // outputs
+        orbit_len, trajectory, cam2world, ref_cam2world, cam2world_no_jitter); // outputs
       // Generate cameras
       if (opt.sensor_type == "pinhole")
         asp::genPinholeCameras(opt, trajectory, cam2world, ref_cam2world,
           cam_names, cams);
       else
         asp::genLinescanCameras(orbit_len, dem_georef, dem, trajectory, 
-          cam2world, height_guess,
+          cam2world, cam2world_no_jitter, height_guess,
           opt, cam_names, cams); // outputs
     }
 

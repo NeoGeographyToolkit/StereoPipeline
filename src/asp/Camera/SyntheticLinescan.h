@@ -42,6 +42,7 @@ void genLinescanCameras(double orbit_len,
                         vw::ImageViewRef<vw::PixelMask<float>> dem,
                         std::vector<vw::Vector3>      const & positions,
                         std::vector<vw::Matrix3x3>    const & cam2world,
+                        std::vector<vw::Matrix3x3>    const & cam2world_no_jitter,
                         double                                height_guess,
                         // Outputs
                         SatSimOptions                         & opt, 

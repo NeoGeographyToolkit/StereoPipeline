@@ -326,11 +326,16 @@ void genLinescanCameras(double                                orbit_len,
                         vw::ImageViewRef<vw::PixelMask<float>> dem,  
                         std::vector<vw::Vector3>      const & positions,
                         std::vector<vw::Matrix3x3>    const & cam2world,
+                        std::vector<vw::Matrix3x3>    const & cam2world_no_jitter,
                         double                                height_guess,
                         // Outputs
                         SatSimOptions                         & opt, 
                         std::vector<std::string>              & cam_names,
                         std::vector<vw::CamPtr>               & cams) {
+
+  // Sanity checks
+  if (cam2world.size() != positions.size() || cam2world_no_jitter.size() != positions.size())
+    vw::vw_throw(vw::ArgumentErr() << "Expecting as many camera orientations as positions.\n");
 
   // Initialize the outputs
   cam_names.clear();
@@ -338,14 +343,23 @@ void genLinescanCameras(double                                orbit_len,
 
   // Create the camera. Will be later owned by a smart pointer.
   asp::CsmModel * ls_cam = new asp::CsmModel;
-  populateSyntheticLinescan(opt, orbit_len, dem_georef, positions, cam2world, *ls_cam); 
+
+  // If creating square pixels, must use the camera without jitter to estimate
+  // the image height. Otherwise the image height produced from the camera with
+  // jitter will be inconsistent with the one without jitter. This is a bugfix. 
+  if (!opt.square_pixels) 
+    populateSyntheticLinescan(opt, orbit_len, dem_georef, positions, cam2world, 
+      *ls_cam); // output 
+  else
+    populateSyntheticLinescan(opt, orbit_len, dem_georef, positions, cam2world_no_jitter,   
+      *ls_cam); // output
 
   // Sanity check (very useful)
   // PinLinescanTest(opt, *ls_cam, positions, cam2world);
 
   if (opt.square_pixels) {
     // Find the pixel aspect ratio on the ground (x/y)
-    vw::vw_out() << "Adjusting image height from: " << opt.image_size[1] << " to ";
+    vw::vw_out() << "Adjusting image height from " << opt.image_size[1] << " to ";
     double ratio = pixelAspectRatio(opt, dem_georef, positions, cam2world, 
                                     *ls_cam, dem, height_guess);
     // Adjust the image height to make the pixels square
@@ -353,9 +367,10 @@ void genLinescanCameras(double                                orbit_len,
     vw::vw_out() << opt.image_size[1] << " pixels, to make the ground "
                  << "projection of an image pixel be roughly square.\n";
 
-    // Recreate the camera with this aspect ratio
+    // Recreate the camera with this aspect ratio. This time potentially use the 
+    // camera with jitter. 
     populateSyntheticLinescan(opt, orbit_len, dem_georef, positions, cam2world, *ls_cam); 
-    // Sanity check (very useful)
+    // Sanity check (very useful for testing, the new ratio must be close to 1.0)
     // ratio = pixelAspectRatio(opt, dem_georef, positions, cam2world, 
     //                                *ls_cam, dem, height_guess);
 

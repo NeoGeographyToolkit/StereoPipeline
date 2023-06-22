@@ -511,19 +511,19 @@ be used later to solve for jitter.
 
 ::
 
-    parallel_stereo                         \
-      -t dgmaprpc                           \
-      --max-disp-spread 100                 \
-      --nodes-list nodes_list.txt           \
-      --ip-per-image 10000                  \
-      --stereo-algorithm asp_mgm            \
-      --subpixel-mode 9                     \
-      --processes 6                         \
-      --alignment-method none               \
-      --num-matches-from-disparity 60000    \
-      --keep-only '.exr L.tif F.tif PC.tif' \
-      1.map.tif 2.map.tif 1.xml 2.xml       \
-      run_1_2_map/run                       \
+    parallel_stereo                                \
+      -t dgmaprpc                                  \
+      --max-disp-spread 100                        \
+      --nodes-list nodes_list.txt                  \
+      --ip-per-image 10000                         \
+      --stereo-algorithm asp_mgm                   \
+      --subpixel-mode 9                            \
+      --processes 6                                \
+      --alignment-method none                      \
+      --num-matches-from-disparity 60000           \
+      --keep-only '.exr L.tif F.tif PC.tif .match' \
+      1.map.tif 2.map.tif 1.xml 2.xml              \
+      run_1_2_map/run                              \
       ref.tif
 
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
@@ -624,22 +624,22 @@ Mapproject the optimized CSM cameras::
  
 Run stereo::
 
-    parallel_stereo                                 \
-      --max-disp-spread 100                         \
-      --nodes-list nodes_list.txt                   \
-      --ip-per-image 20000                          \
-      --stereo-algorithm asp_mgm                    \
-      --subpixel-mode 9                             \
-      --processes 6                                 \
-      --alignment-method none                       \
-      --keep-only '.exr L.tif F.tif PC.tif map.tif' \
-      1.jitter.map.tif 2.jitter.map.tif             \
-      jitter/run-1.adjusted_state.json              \
-      jitter/run-2.adjusted_state.json              \
-      stereo_jitter/run                             \
+    parallel_stereo                                        \
+      --max-disp-spread 100                                \
+      --nodes-list nodes_list.txt                          \
+      --ip-per-image 20000                                 \
+      --stereo-algorithm asp_mgm                           \
+      --subpixel-mode 9                                    \
+      --processes 6                                        \
+      --alignment-method none                              \
+      --keep-only '.exr L.tif F.tif PC.tif map.tif .match' \
+      1.jitter.map.tif 2.jitter.map.tif                    \
+      jitter/run-1.adjusted_state.json                     \
+      jitter/run-2.adjusted_state.json                     \
+      stereo_jitter/run                                    \
       ref.tif
-    point2dem --tr 0.4 --t_srs "$proj"              \
-      --errorimage                                  \
+    point2dem --tr 0.4 --t_srs "$proj"                     \
+      --errorimage                                         \
       stereo_jitter/run-PC.tif
 
 The geodiff command (:numref:`geodiff`) can be used to take the absolute
@@ -1103,6 +1103,4 @@ Command-line options for jitter_solve
 -v, --version
     Display the version of software.
 
-
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN
-

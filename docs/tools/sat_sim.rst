@@ -346,8 +346,8 @@ Linescan cameras
 The ``sat_sim`` tool can be used to simulate Linescan cameras, with or without
 jitter. Then, instead of many Pinhole cameras and/or images along the orbit, a
 single Linescan camera and/or image will be created. The option ``--num`` (or
-``--frame-rate``) will control how many camera samples are created in the
-Linescan camera. Lagrange interpolation will be used in between the samples.
+``--frame-rate``) will control how many camera samples are created. Lagrange
+interpolation (with 8th degree polynomials) will be used in between the samples.
 
 All above modes are supported. One has to add to ``sat_sim`` the option
 ``--sensor-type linescan``.
@@ -356,7 +356,7 @@ Add the option ``--square-pixels`` to autocompute and override the input image
 height (number of scan lines, the second value in ``--image-size``) to ensure
 that the horizontal and vertical ground sample distances are very similar.
 
-In this mode the row coordinate of the optical center (the second value in
+In this mode, the row coordinate of the optical center (the second value in
 ``--optical-center``) will be ignored and will be treated as set to 0. Hence, we
 assume that the ray from the camera center that is perpendicular to the sensor
 plane intersects the single-row sensor array. 

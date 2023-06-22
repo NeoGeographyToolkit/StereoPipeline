@@ -672,13 +672,15 @@ void calcTrajectory(SatSimOptions & opt,
                     double                     & orbit_len,
                     std::vector<vw::Vector3>   & trajectory,
                     std::vector<vw::Matrix3x3> & cam2world,
-                    std::vector<vw::Matrix3x3> & ref_cam2world) {
+                    std::vector<vw::Matrix3x3> & ref_cam2world,
+                    std::vector<vw::Matrix3x3> & cam2world_no_jitter) {
 
   // Initialize the outputs
   orbit_len = 0.0;
   trajectory.clear();
   cam2world.clear();
   ref_cam2world.clear();
+  cam2world_no_jitter.clear();
 
   // Convert the first and last camera center positions to projected coordinates
   vw::Vector3 first_proj, last_proj;
@@ -779,6 +781,7 @@ void calcTrajectory(SatSimOptions & opt,
   trajectory.resize(opt.num_cameras);
   cam2world.resize(opt.num_cameras);
   ref_cam2world.resize(opt.num_cameras);
+  cam2world_no_jitter.resize(opt.num_cameras);
 
   // Print progress
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
@@ -820,8 +823,10 @@ void calcTrajectory(SatSimOptions & opt,
     // The camera to world rotation has these vectors as the columns
     assembleCam2WorldMatrix(along, across, down, cam2world[i]);
 
-    // Save this before applying adjustments as below
+    // Save this before applying adjustments as below. These two 
+    // have some important differences, as can be seen below.
     ref_cam2world[i] = cam2world[i];
+    cam2world_no_jitter[i] = cam2world[i];
 
     // See if to apply the jitter
     vw::Vector3 jitter_amp(0, 0, 0);
@@ -837,8 +842,15 @@ void calcTrajectory(SatSimOptions & opt,
       cam2world[i] = cam2world[i] * R;
     }
 
+    // The rotation without jitter
+    vw::Matrix3x3 R0 = vw::math::identity_matrix<3>();
+    if (have_roll_pitch_yaw)
+      R0 = asp::rollPitchYaw(opt.roll, opt.pitch, opt.yaw);
+    cam2world_no_jitter[i] = cam2world_no_jitter[i] * R0;
+
     // In either case apply the in-plane rotation from camera to satellite frame
     cam2world[i] = cam2world[i] * rotationXY();
+    cam2world_no_jitter[i] = cam2world_no_jitter[i] * rotationXY();
 
     tpc.report_incremental_progress(inc_amount);
   }
