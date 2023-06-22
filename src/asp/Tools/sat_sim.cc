@@ -352,7 +352,7 @@ int main(int argc, char *argv[]) {
     } else {
       // Generate the cameras   
       double orbit_len = 0.0;
-      std::vector<vw::Vector3> trajectory;
+      std::map<int, vw::Vector3> trajectory;
       // vector of rot matrices. The matrix cam2world_no_jitter
       // is only needed with linescan cameras, but compute it for consistency 
       // in all cases.

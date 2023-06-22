@@ -45,7 +45,7 @@ Eigen::Matrix3d eigenMatrix(vw::Matrix3x3 const& m) {
 void populateSyntheticLinescan(SatSimOptions const& opt, 
                       double orbit_len, 
                       vw::cartography::GeoReference const & georef,    
-                      std::vector<vw::Vector3>      const & positions,
+                      std::map<int, vw::Vector3>    const & positions,
                       std::map<int, vw::Matrix3x3>  const & cam2world,
                       // Outputs
                       asp::CsmModel & model) {
@@ -115,8 +115,9 @@ void populateSyntheticLinescan(SatSimOptions const& opt,
   ls_model->m_positions.resize(ls_model->m_numPositions);
   ls_model->m_velocities.resize(ls_model->m_numPositions);
   for (int pos_it = 0; pos_it < num_pos; pos_it++) {
+    auto ctr = asp::mapVal(positions, pos_it);
     for (int coord = 0; coord < 3; coord++) {
-      ls_model->m_positions [3*pos_it + coord] = positions[pos_it][coord];
+      ls_model->m_positions [3*pos_it + coord] = ctr[coord];
       ls_model->m_velocities[3*pos_it + coord] = 0.0; // should not be used
     }
   }
@@ -130,11 +131,7 @@ void populateSyntheticLinescan(SatSimOptions const& opt,
   for (int pos_it = 0; pos_it < ls_model->m_numQuaternions / 4; pos_it++) {
 
     // find the camera at the given index
-    auto it = cam2world.find(pos_it);
-    if (it == cam2world.end())
-      vw::vw_throw(vw::ArgumentErr() 
-        << "Could not find camera position " << pos_it << " in the input file.\n");
-    auto c2w = it->second;
+    auto c2w = asp::mapVal(cam2world, pos_it);
 
     // Convert to Eigen
     Eigen::Matrix3d M = eigenMatrix(c2w);
@@ -181,19 +178,16 @@ void populateSyntheticLinescan(SatSimOptions const& opt,
 // test.
 void PinLinescanTest(SatSimOptions                const & opt, 
                      asp::CsmModel                const & ls_cam,
-                     std::vector<vw::Vector3>     const & positions,
+                     std::map<int, vw::Vector3>   const & positions,
                      std::map<int, vw::Matrix3x3> const & cam2world) {
                         
   for (int i = 0; i < int(positions.size()); i++) {
 
-    auto it = cam2world.find(i);
-    if (it == cam2world.end())
-      vw::vw_throw(vw::ArgumentErr() 
-        << "Could not find camera position " << i << " in the input file.\n");
-    auto c2w = it->second;
-    auto pin_cam = vw::camera::PinholeModel(positions[i], c2w,
-                                  opt.focal_length, opt.focal_length,
-                                  opt.optical_center[0], opt.optical_center[1]);
+    auto pin_cam 
+      = vw::camera::PinholeModel(asp::mapVal(positions, i),
+                                 asp::mapVal(cam2world, i),
+                                 opt.focal_length, opt.focal_length,
+                                 opt.optical_center[0], opt.optical_center[1]);
   
     double line = (opt.image_size[1] - 1.0) * i / (positions.size() - 1.0);
   
@@ -332,7 +326,7 @@ double pixelAspectRatio(SatSimOptions                 const & opt,
 void genLinescanCameras(double                                orbit_len, 
                         vw::cartography::GeoReference const & dem_georef,
                         vw::ImageViewRef<vw::PixelMask<float>> dem,  
-                        std::vector<vw::Vector3>      const & positions,
+                        std::map<int, vw::Vector3>    const & positions,
                         std::map<int, vw::Matrix3x3>  const & cam2world,
                         std::map<int, vw::Matrix3x3>  const & cam2world_no_jitter,
                         double                                height_guess,

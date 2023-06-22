@@ -670,7 +670,7 @@ void calcTrajectory(SatSimOptions & opt,
                     double height_guess,
                     // Outputs
                     double                       & orbit_len,
-                    std::vector<vw::Vector3>     & trajectory,
+                    std::map<int, vw::Vector3>   & trajectory,
                     std::map<int, vw::Matrix3x3> & cam2world,
                     std::map<int, vw::Matrix3x3> & cam2world_no_jitter,
                     std::vector<vw::Matrix3x3>   & ref_cam2world) {
@@ -778,7 +778,6 @@ void calcTrajectory(SatSimOptions & opt,
   // directions in the projected space
   vw::vw_out() << "Computing the camera poses.\n"; 
   std::vector<vw::Vector3> along_track(opt.num_cameras), across_track(opt.num_cameras);
-  trajectory.resize(opt.num_cameras);
   ref_cam2world.resize(opt.num_cameras);
 
   // Print progress
@@ -900,7 +899,7 @@ bool skipCamera(int i, SatSimOptions const& opt) {
 // A function to create and save Pinhole cameras. Assume no distortion, and pixel
 // pitch = 1.
 void genPinholeCameras(SatSimOptions     const & opt,
-            std::vector<vw::Vector3>     const & trajectory,
+            std::map<int, vw::Vector3>   const & trajectory,
             std::map<int, vw::Matrix3x3> const & cam2world,
             std::vector<vw::Matrix3x3>   const & ref_cam2world,
             // outputs
@@ -917,22 +916,17 @@ void genPinholeCameras(SatSimOptions     const & opt,
   for (int i = 0; i < int(trajectory.size()); i++) {
 
     // Always create the cameras, but only save them if we are not skipping
-    auto it = cam2world.find(i);
-    if (it == cam2world.end()) 
-      vw::vw_throw(vw::ArgumentErr() 
-        << "Could not find camera orientation for index: " << i << "\n");
-
-    auto c2w = it->second;  
     vw::camera::PinholeModel *pinPtr 
-      = new vw::camera::PinholeModel(trajectory[i], c2w,
-                                    opt.focal_length, opt.focal_length,
-                                    opt.optical_center[0], opt.optical_center[1]);
+      = new vw::camera::PinholeModel(asp::mapVal(trajectory, i), 
+                                     asp::mapVal(cam2world, i),
+                                     opt.focal_length, opt.focal_length,
+                                     opt.optical_center[0], opt.optical_center[1]);
     cams[i] = vw::CamPtr(pinPtr); // will own this pointer
           
     // This is useful for understanding things in the satellite frame
     vw::camera::PinholeModel refCam;
     if (opt.save_ref_cams)  
-        refCam = vw::camera::PinholeModel(trajectory[i], ref_cam2world[i],
+        refCam = vw::camera::PinholeModel(asp::mapVal(trajectory, i), ref_cam2world[i],
                                           opt.focal_length, opt.focal_length,
                                           opt.optical_center[0], opt.optical_center[1]);
 

@@ -29,8 +29,10 @@
 #include <vw/Image/PixelMask.h>
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Camera/CameraModel.h>
+#include <vw/Core/Exception.h>
 
 #include <string>
+#include <map>
 
 namespace asp {
 
@@ -72,7 +74,7 @@ void calcTrajectory(SatSimOptions & opt,
                     double height_guess,
                     // Outputs
                     double                       & orbit_len,
-                    std::vector<vw::Vector3>     & trajectory,
+                    std::map<int, vw::Vector3>   & trajectory,
                     std::map<int, vw::Matrix3x3> & cam2world,
                     std::map<int, vw::Matrix3x3> & cam2world_no_jitter,
                     std::vector<vw::Matrix3x3>   & ref_cam2world);
@@ -85,12 +87,12 @@ void readPinholeCameras(SatSimOptions const& opt,
 // A function to create and save the cameras. Assume no distortion, and pixel
 // pitch = 1.
 void genPinholeCameras(SatSimOptions const& opt, 
-                std::vector<vw::Vector3> const & trajectory,
+                std::map<int, vw::Vector3>   const & trajectory,
                 std::map<int, vw::Matrix3x3> const & cam2world,
-                std::vector<vw::Matrix3x3> const & ref_cam2world,
+                std::vector<vw::Matrix3x3>   const & ref_cam2world,
                 // outputs
                 std::vector<std::string> & cam_names,
-                std::vector<vw::CamPtr> & cams);
+                std::vector<vw::CamPtr>  & cams);
 
 // Generate images by projecting rays from the sensor to the ground
 void genImages(SatSimOptions const& opt,
@@ -103,6 +105,16 @@ void genImages(SatSimOptions const& opt,
     vw::cartography::GeoReference const& ortho_georef,
     vw::ImageViewRef<vw::PixelMask<float>> ortho,
     float ortho_nodata_val);
+
+// A little function to avoid repetitive code in many places.
+// Get the value of a map key if known to exist.
+template<class A, class B>
+A mapVal(std::map<B, A> const& m, B const& key){
+  typename std::map<B, A>::const_iterator it = m.find(key);
+  if (it == m.end()) 
+    vw::vw_throw(vw::ArgumentErr() << "Could not find key " << key << " in map.\n");
+  return it->second;
+}
 
 } // end namespace asp
 
