@@ -669,18 +669,18 @@ void calcTrajectory(SatSimOptions & opt,
                     vw::ImageViewRef<vw::PixelMask<float>> dem,
                     double height_guess,
                     // Outputs
-                    double                     & orbit_len,
-                    std::vector<vw::Vector3>   & trajectory,
-                    std::vector<vw::Matrix3x3> & cam2world,
-                    std::vector<vw::Matrix3x3> & ref_cam2world,
-                    std::vector<vw::Matrix3x3> & cam2world_no_jitter) {
+                    double                       & orbit_len,
+                    std::vector<vw::Vector3>     & trajectory,
+                    std::map<int, vw::Matrix3x3> & cam2world,
+                    std::map<int, vw::Matrix3x3> & cam2world_no_jitter,
+                    std::vector<vw::Matrix3x3>   & ref_cam2world) {
 
   // Initialize the outputs
   orbit_len = 0.0;
   trajectory.clear();
   cam2world.clear();
-  ref_cam2world.clear();
   cam2world_no_jitter.clear();
+  ref_cam2world.clear();
 
   // Convert the first and last camera center positions to projected coordinates
   vw::Vector3 first_proj, last_proj;
@@ -779,9 +779,7 @@ void calcTrajectory(SatSimOptions & opt,
   vw::vw_out() << "Computing the camera poses.\n"; 
   std::vector<vw::Vector3> along_track(opt.num_cameras), across_track(opt.num_cameras);
   trajectory.resize(opt.num_cameras);
-  cam2world.resize(opt.num_cameras);
   ref_cam2world.resize(opt.num_cameras);
-  cam2world_no_jitter.resize(opt.num_cameras);
 
   // Print progress
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
@@ -901,16 +899,16 @@ bool skipCamera(int i, SatSimOptions const& opt) {
 
 // A function to create and save Pinhole cameras. Assume no distortion, and pixel
 // pitch = 1.
-void genPinholeCameras(SatSimOptions   const & opt,
-            std::vector<vw::Vector3>   const & trajectory,
-            std::vector<vw::Matrix3x3> const & cam2world,
-            std::vector<vw::Matrix3x3> const & ref_cam2world,
+void genPinholeCameras(SatSimOptions     const & opt,
+            std::vector<vw::Vector3>     const & trajectory,
+            std::map<int, vw::Matrix3x3> const & cam2world,
+            std::vector<vw::Matrix3x3>   const & ref_cam2world,
             // outputs
-            std::vector<std::string>         & cam_names,
-            std::vector<vw::CamPtr>          & cams) {
+            std::vector<std::string>           & cam_names,
+            std::vector<vw::CamPtr>            & cams) {
 
   // Ensure we have as many camera positions as we have camera orientations
-  if (trajectory.size() != cam2world.size())
+  if (trajectory.size() != cam2world.size() || trajectory.size() != ref_cam2world.size())
   vw::vw_throw(vw::ArgumentErr()
     << "Expecting as many camera positions as camera orientations.\n");
 
@@ -919,8 +917,14 @@ void genPinholeCameras(SatSimOptions   const & opt,
   for (int i = 0; i < int(trajectory.size()); i++) {
 
     // Always create the cameras, but only save them if we are not skipping
+    auto it = cam2world.find(i);
+    if (it == cam2world.end()) 
+      vw::vw_throw(vw::ArgumentErr() 
+        << "Could not find camera orientation for index: " << i << "\n");
+
+    auto c2w = it->second;  
     vw::camera::PinholeModel *pinPtr 
-      = new vw::camera::PinholeModel(trajectory[i], cam2world[i],
+      = new vw::camera::PinholeModel(trajectory[i], c2w,
                                     opt.focal_length, opt.focal_length,
                                     opt.optical_center[0], opt.optical_center[1]);
     cams[i] = vw::CamPtr(pinPtr); // will own this pointer

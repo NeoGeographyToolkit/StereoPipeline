@@ -49,7 +49,7 @@ automatically detect this and will not apply the correction (a copy of the input
 image will be written on output). A warning will be printed in that case. This
 holds for both PAN and multi-spectral images.
 
-The above-mentioned scenario does not apply to WorldView-1, 3, or GeoEye-1.
+This scenario does not apply to WorldView-1, 3, or GeoEye-1.
 
 Usage
 ^^^^^

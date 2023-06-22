@@ -71,11 +71,11 @@ void calcTrajectory(SatSimOptions & opt,
                     vw::ImageViewRef<vw::PixelMask<float>> dem,
                     double height_guess,
                     // Outputs
-                    double & orbit_len,
-                    std::vector<vw::Vector3>   & trajectory,
-                    std::vector<vw::Matrix3x3> & cam2world,
-                    std::vector<vw::Matrix3x3> & ref_cam2world,
-                    std::vector<vw::Matrix3x3> & cam2world_no_jitter);
+                    double                       & orbit_len,
+                    std::vector<vw::Vector3>     & trajectory,
+                    std::map<int, vw::Matrix3x3> & cam2world,
+                    std::map<int, vw::Matrix3x3> & cam2world_no_jitter,
+                    std::vector<vw::Matrix3x3>   & ref_cam2world);
 
 // A function to read the cameras from a file
 void readPinholeCameras(SatSimOptions const& opt, 
@@ -86,7 +86,7 @@ void readPinholeCameras(SatSimOptions const& opt,
 // pitch = 1.
 void genPinholeCameras(SatSimOptions const& opt, 
                 std::vector<vw::Vector3> const & trajectory,
-                std::vector<vw::Matrix3x3> const & cam2world,
+                std::map<int, vw::Matrix3x3> const & cam2world,
                 std::vector<vw::Matrix3x3> const & ref_cam2world,
                 // outputs
                 std::vector<std::string> & cam_names,

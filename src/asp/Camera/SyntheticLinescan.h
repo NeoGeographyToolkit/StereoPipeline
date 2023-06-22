@@ -38,11 +38,11 @@ struct SatSimOptions;
 // Create and save a linescan camera with given camera positions and orientations.
 // There will be just one of them, as all poses are part of the same linescan camera.
 void genLinescanCameras(double orbit_len,     
-                        vw::cartography::GeoReference const & dem_georef,
+                        vw::cartography::GeoReference  const & dem_georef,
                         vw::ImageViewRef<vw::PixelMask<float>> dem,
-                        std::vector<vw::Vector3>      const & positions,
-                        std::vector<vw::Matrix3x3>    const & cam2world,
-                        std::vector<vw::Matrix3x3>    const & cam2world_no_jitter,
+                        std::vector<vw::Vector3>        const & positions,
+                        std::map<int, vw::Matrix3x3>    const & cam2world,
+                        std::map<int, vw::Matrix3x3>    const & cam2world_no_jitter,
                         double                                height_guess,
                         // Outputs
                         SatSimOptions                         & opt, 

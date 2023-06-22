@@ -46,142 +46,152 @@ void populateSyntheticLinescan(SatSimOptions const& opt,
                       double orbit_len, 
                       vw::cartography::GeoReference const & georef,    
                       std::vector<vw::Vector3>      const & positions,
-                      std::vector<vw::Matrix3x3>    const & cam2world,
+                      std::map<int, vw::Matrix3x3>  const & cam2world,
                       // Outputs
                       asp::CsmModel & model) {
 
   // Do not use a precision below 1.0-e8 as then the linescan model will return junk.
   model.m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
-
   model.m_semi_major_axis = georef.datum().semi_major_axis();
   model.m_semi_minor_axis = georef.datum().semi_minor_axis();
 
-  // Create the linescan model
-  model.m_gm_model.reset(new UsgsAstroLsSensorModel); // m_gm_model will manage the deallocation
+  // Create the linescan model. Memory is managed by m_gm_model.
+  model.m_gm_model.reset(new UsgsAstroLsSensorModel);
   UsgsAstroLsSensorModel* ls_model
-    = dynamic_cast<UsgsAstroLsSensorModel*>(model.m_gm_model.get()); // pointer to ls model
+    = dynamic_cast<UsgsAstroLsSensorModel*>(model.m_gm_model.get());
   if (ls_model == NULL)
-  vw::vw_throw(vw::ArgumentErr() << "Invalid initialization of the linescan model.\n");
+    vw::vw_throw(vw::ArgumentErr() << "Invalid initialization of the linescan model.\n");
 
   // This performs many initializations apart from the above
   ls_model->reset();
 
-    // Override some initializations
-    ls_model->m_nSamples         = opt.image_size[0]; 
-    ls_model->m_nLines           = opt.image_size[1];
-    ls_model->m_platformFlag     = 1; // Use 1, for order 8 Lagrange interpolation
-    ls_model->m_minElevation     = -10000.0; // -10 km
-    ls_model->m_maxElevation     =  10000.0; //  10 km
-    ls_model->m_focalLength      = opt.focal_length;
-    ls_model->m_zDirection       = 1.0;
-    ls_model->m_halfSwath        = 1.0;
-    ls_model->m_sensorIdentifier = "SyntheticLinescan";
-    ls_model->m_majorAxis        = model.m_semi_major_axis;
-    ls_model->m_minorAxis        = model.m_semi_minor_axis;
-    
-    // The choices below are copied from the DigitalGlobe CSM linescan model.
-    // Better to keep same convention than dig deep inside UsAstroLsSensorModel.
-    // Also keep in mind that a CSM pixel has extra 0.5 added to it.
-    vw::Vector2 detector_origin;
-    detector_origin[0]                 = -opt.optical_center[0]; 
-    detector_origin[1]                 = 0.0;
-    ls_model->m_iTransL[0]             = 0.0;  
-    ls_model->m_iTransL[1]             = 0.0;
-    ls_model->m_iTransL[2]             = 1.0;
-    ls_model->m_iTransS[0]             = 0.0;
-    ls_model->m_iTransS[1]             = 1.0;
-    ls_model->m_iTransS[2]             = 0.0;
-    ls_model->m_detectorLineOrigin     = 0.0;
-    ls_model->m_detectorSampleOrigin   = 0.0;
-    ls_model->m_detectorLineSumming    = 1.0;
-    ls_model->m_startingDetectorLine   = detector_origin[1];
-    ls_model->m_detectorSampleSumming  = 1.0;
-    ls_model->m_startingDetectorSample = (detector_origin[0] - 0.5);
+  // Override some initializations
+  ls_model->m_nSamples         = opt.image_size[0]; 
+  ls_model->m_nLines           = opt.image_size[1];
+  ls_model->m_platformFlag     = 1; // Use 1, for order 8 Lagrange interpolation
+  ls_model->m_minElevation     = -10000.0; // -10 km
+  ls_model->m_maxElevation     =  10000.0; //  10 km
+  ls_model->m_focalLength      = opt.focal_length;
+  ls_model->m_zDirection       = 1.0;
+  ls_model->m_halfSwath        = 1.0;
+  ls_model->m_sensorIdentifier = "SyntheticLinescan";
+  ls_model->m_majorAxis        = model.m_semi_major_axis;
+  ls_model->m_minorAxis        = model.m_semi_minor_axis;
+  
+  // The choices below are copied from the DigitalGlobe CSM linescan model.
+  // Better to keep same convention than dig deep inside UsAstroLsSensorModel.
+  // Also keep in mind that a CSM pixel has extra 0.5 added to it.
+  vw::Vector2 detector_origin;
+  detector_origin[0]                 = -opt.optical_center[0]; 
+  detector_origin[1]                 = 0.0;
+  ls_model->m_iTransL[0]             = 0.0;  
+  ls_model->m_iTransL[1]             = 0.0;
+  ls_model->m_iTransL[2]             = 1.0;
+  ls_model->m_iTransS[0]             = 0.0;
+  ls_model->m_iTransS[1]             = 1.0;
+  ls_model->m_iTransS[2]             = 0.0;
+  ls_model->m_detectorLineOrigin     = 0.0;
+  ls_model->m_detectorSampleOrigin   = 0.0;
+  ls_model->m_detectorLineSumming    = 1.0;
+  ls_model->m_startingDetectorLine   = detector_origin[1];
+  ls_model->m_detectorSampleSumming  = 1.0;
+  ls_model->m_startingDetectorSample = (detector_origin[0] - 0.5);
 
-    // Set the time. The first camera will be at time 0. The last camera
-    // will be at time depending on distance traveled and speed.
-    double beg_t = 0.0;
-    double end_t = orbit_len / opt.velocity;
-    double dt = (end_t - beg_t) / (opt.image_size[1] - 1.0);
-    ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
-    ls_model->m_intTimeStartTimes.push_back(beg_t);
-    ls_model->m_intTimes.push_back(dt);
+  // Set the time. The first camera will be at time 0. The last camera
+  // will be at time depending on distance traveled and speed.
+  double beg_t = 0.0;
+  double end_t = orbit_len / opt.velocity;
+  double dt = (end_t - beg_t) / (opt.image_size[1] - 1.0);
+  ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
+  ls_model->m_intTimeStartTimes.push_back(beg_t);
+  ls_model->m_intTimes.push_back(dt);
 
-    // Positions and velocities
-    int num_pos = positions.size();
-    ls_model->m_numPositions = 3 * num_pos; // concatenate all coordinates
-    ls_model->m_t0Ephem = beg_t;
-    ls_model->m_dtEphem = (end_t - beg_t) / (num_pos - 1.0);
+  // Positions and velocities
+  int num_pos = positions.size();
+  ls_model->m_numPositions = 3 * num_pos; // concatenate all coordinates
+  ls_model->m_t0Ephem = beg_t;
+  ls_model->m_dtEphem = (end_t - beg_t) / (num_pos - 1.0);
 
-    ls_model->m_positions.resize(ls_model->m_numPositions);
-    ls_model->m_velocities.resize(ls_model->m_numPositions);
-    for (int pos_it = 0; pos_it < num_pos; pos_it++) {
-      for (int coord = 0; coord < 3; coord++) {
-        ls_model->m_positions [3*pos_it + coord] = positions[pos_it][coord];
-        ls_model->m_velocities[3*pos_it + coord] = 0.0; // should not be used
-      }
+  ls_model->m_positions.resize(ls_model->m_numPositions);
+  ls_model->m_velocities.resize(ls_model->m_numPositions);
+  for (int pos_it = 0; pos_it < num_pos; pos_it++) {
+    for (int coord = 0; coord < 3; coord++) {
+      ls_model->m_positions [3*pos_it + coord] = positions[pos_it][coord];
+      ls_model->m_velocities[3*pos_it + coord] = 0.0; // should not be used
     }
-
-    // Orientations
-    ls_model->m_numQuaternions = 4 * cam2world.size();
-    ls_model->m_t0Quat = beg_t;
-    ls_model->m_dtQuat = (end_t - beg_t) / (cam2world.size() - 1.0);
- 
-    ls_model->m_quaternions.resize(ls_model->m_numQuaternions);
-    for (int pos_it = 0; pos_it < ls_model->m_numQuaternions / 4; pos_it++) {
-        auto m = cam2world[pos_it];
-        // Convert to Eigen
-        Eigen::Matrix3d M = eigenMatrix(m);
-        // Convert to Eigen quaternion
-        Eigen::Quaterniond q(M);
-
-        // CSM wants quaternions as x, y, z, w.
-        int coord = 0;
-        ls_model->m_quaternions[4*pos_it + coord] = q.x(); coord++;
-        ls_model->m_quaternions[4*pos_it + coord] = q.y(); coord++;
-        ls_model->m_quaternions[4*pos_it + coord] = q.z(); coord++;
-        ls_model->m_quaternions[4*pos_it + coord] = q.w(); coord++;
-    }
-
-    // Re-creating the model from the state forces some operations to
-    // take place which are inaccessible otherwise.
-    std::string modelState = ls_model->getModelState();
-    ls_model->replaceModelState(modelState);
   }
 
-  // Allow finding the time at any line, even negative ones. Here a
-  // simple slope-intercept formula is used rather than a table. 
-  // This was a temporary function used for debugging
-  // double get_time_at_line(double line) const {
-  //     csm::ImageCoord csm_pix;
-  //     asp::toCsmPixel(vw::Vector2(0, line), csm_pix);
-  //     return ls_model->getImageTime(csm_pix);
-  // }
+  // Orientations
+  ls_model->m_numQuaternions = 4 * cam2world.size();
+  ls_model->m_t0Quat = beg_t;
+  ls_model->m_dtQuat = (end_t - beg_t) / (cam2world.size() - 1.0);
 
-  // The pointing vector in sensor coordinates, before applying cam2world. This
-  // is for testing purposes. Normally CSM takes care of this internally.
-  // This was a temporary function used for debugging
-  // vw::Vector3 get_local_pixel_to_vector(vw::Vector2 const& pix) const {
+  ls_model->m_quaternions.resize(ls_model->m_numQuaternions);
+  for (int pos_it = 0; pos_it < ls_model->m_numQuaternions / 4; pos_it++) {
 
-  //   vw::Vector3 result(pix[0] + detector_origin[0], 
-  //                       detector_origin[1], 
-  //                       ls_model->m_focalLength);
-  //   // Make the direction have unit length
-  //   result = normalize(result);
-  //   return result;
-  // }
+    // find the camera at the given index
+    auto it = cam2world.find(pos_it);
+    if (it == cam2world.end())
+      vw::vw_throw(vw::ArgumentErr() 
+        << "Could not find camera position " << pos_it << " in the input file.\n");
+    auto c2w = it->second;
 
+    // Convert to Eigen
+    Eigen::Matrix3d M = eigenMatrix(c2w);
+    // Convert to Eigen quaternion
+    Eigen::Quaterniond q(M);
+
+    // CSM wants quaternions as x, y, z, w.
+    int coord = 0;
+    ls_model->m_quaternions[4*pos_it + coord] = q.x(); coord++;
+    ls_model->m_quaternions[4*pos_it + coord] = q.y(); coord++;
+    ls_model->m_quaternions[4*pos_it + coord] = q.z(); coord++;
+    ls_model->m_quaternions[4*pos_it + coord] = q.w(); coord++;
+  }
+
+  // Re-creating the model from the state forces some operations to
+  // take place which are inaccessible otherwise.
+  std::string modelState = ls_model->getModelState();
+  ls_model->replaceModelState(modelState);
+}
+
+// Allow finding the time at any line, even negative ones. Here a
+// simple slope-intercept formula is used rather than a table. 
+// This was a temporary function used for debugging
+// double get_time_at_line(double line) const {
+//     csm::ImageCoord csm_pix;
+//     asp::toCsmPixel(vw::Vector2(0, line), csm_pix);
+//     return ls_model->getImageTime(csm_pix);
+// }
+
+// The pointing vector in sensor coordinates, before applying cam2world. This
+// is for testing purposes. Normally CSM takes care of this internally.
+// This was a temporary function used for debugging
+// vw::Vector3 get_local_pixel_to_vector(vw::Vector2 const& pix) const {
+
+//   vw::Vector3 result(pix[0] + detector_origin[0], 
+//                       detector_origin[1], 
+//                       ls_model->m_focalLength);
+//   // Make the direction have unit length
+//   result = normalize(result);
+//   return result;
+// }
 
 // Compare the camera center and direction with pinhole. A very useful
 // test.
-void PinLinescanTest(SatSimOptions              const & opt, 
-                     asp::CsmModel              const & ls_cam,
-                     std::vector<vw::Vector3>   const & positions,
-                     std::vector<vw::Matrix3x3> const & cam2world) {
+void PinLinescanTest(SatSimOptions                const & opt, 
+                     asp::CsmModel                const & ls_cam,
+                     std::vector<vw::Vector3>     const & positions,
+                     std::map<int, vw::Matrix3x3> const & cam2world) {
                         
   for (int i = 0; i < int(positions.size()); i++) {
 
-    auto pin_cam = vw::camera::PinholeModel(positions[i], cam2world[i],
+    auto it = cam2world.find(i);
+    if (it == cam2world.end())
+      vw::vw_throw(vw::ArgumentErr() 
+        << "Could not find camera position " << i << " in the input file.\n");
+    auto c2w = it->second;
+    auto pin_cam = vw::camera::PinholeModel(positions[i], c2w,
                                   opt.focal_length, opt.focal_length,
                                   opt.optical_center[0], opt.optical_center[1]);
   
@@ -242,8 +252,6 @@ bool intersectDemWithRay(SatSimOptions const& opt,
 // Estimate pixel aspect ratio (width / height) of a pixel on the ground
 double pixelAspectRatio(SatSimOptions                 const & opt,     
                         vw::cartography::GeoReference const & dem_georef,
-                        std::vector<vw::Vector3>      const & positions,
-                        std::vector<vw::Matrix3x3>    const & cam2world,
                         asp::CsmModel                 const & ls_cam,
                         vw::ImageViewRef<vw::PixelMask<float>>  dem,  
                         double height_guess) {
@@ -325,8 +333,8 @@ void genLinescanCameras(double                                orbit_len,
                         vw::cartography::GeoReference const & dem_georef,
                         vw::ImageViewRef<vw::PixelMask<float>> dem,  
                         std::vector<vw::Vector3>      const & positions,
-                        std::vector<vw::Matrix3x3>    const & cam2world,
-                        std::vector<vw::Matrix3x3>    const & cam2world_no_jitter,
+                        std::map<int, vw::Matrix3x3>  const & cam2world,
+                        std::map<int, vw::Matrix3x3>  const & cam2world_no_jitter,
                         double                                height_guess,
                         // Outputs
                         SatSimOptions                         & opt, 
@@ -360,8 +368,7 @@ void genLinescanCameras(double                                orbit_len,
   if (opt.square_pixels) {
     // Find the pixel aspect ratio on the ground (x/y)
     vw::vw_out() << "Adjusting image height from " << opt.image_size[1] << " to ";
-    double ratio = pixelAspectRatio(opt, dem_georef, positions, cam2world, 
-                                    *ls_cam, dem, height_guess);
+    double ratio = pixelAspectRatio(opt, dem_georef, *ls_cam, dem, height_guess);
     // Adjust the image height to make the pixels square
     opt.image_size[1] = std::max(round(opt.image_size[1] / ratio), 2.0);
     vw::vw_out() << opt.image_size[1] << " pixels, to make the ground "
@@ -371,9 +378,7 @@ void genLinescanCameras(double                                orbit_len,
     // camera with jitter. 
     populateSyntheticLinescan(opt, orbit_len, dem_georef, positions, cam2world, *ls_cam); 
     // Sanity check (very useful for testing, the new ratio must be close to 1.0)
-    // ratio = pixelAspectRatio(opt, dem_georef, positions, cam2world, 
-    //                                *ls_cam, dem, height_guess);
-
+    // ratio = pixelAspectRatio(opt, dem_georef, *ls_cam, dem, height_guess);
   }
   std::string filename = opt.out_prefix + ".json";
   ls_cam->saveState(filename);

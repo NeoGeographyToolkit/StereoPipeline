@@ -356,9 +356,10 @@ int main(int argc, char *argv[]) {
       // vector of rot matrices. The matrix cam2world_no_jitter
       // is only needed with linescan cameras, but compute it for consistency 
       // in all cases.
-      std::vector<vw::Matrix3x3> cam2world, ref_cam2world, cam2world_no_jitter;
+      std::map<int, vw::Matrix3x3> cam2world, cam2world_no_jitter;
+      std::vector<vw::Matrix3x3> ref_cam2world;
       asp::calcTrajectory(opt, dem_georef, dem, height_guess,
-        orbit_len, trajectory, cam2world, ref_cam2world, cam2world_no_jitter); // outputs
+        orbit_len, trajectory, cam2world, cam2world_no_jitter, ref_cam2world); // outputs
       // Generate cameras
       if (opt.sensor_type == "pinhole")
         asp::genPinholeCameras(opt, trajectory, cam2world, ref_cam2world,
