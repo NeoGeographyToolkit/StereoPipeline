@@ -41,7 +41,12 @@ Eigen::Matrix3d eigenMatrix(vw::Matrix3x3 const& m) {
   return result;
 }
 
-// Populate the CSM model with the given camera positions and orientations.
+// Populate the CSM model with the given camera positions and orientations. Note
+// that opt.num_cameras is the number of cameras within the desired orbital segment
+// of length orbit_len. We will have extra cameras beyond that segment to make it 
+// easy to interpolate the camera position and orientation at any time and also to 
+// solve for jitter. We can have -opt.num_cams/2 <= i < 2*opt.num_cams - opt.num_cams/2. 
+// When 0 <= i < opt.num_cams, we are within the orbital segment.
 void populateSyntheticLinescan(SatSimOptions const& opt, 
                       double orbit_len, 
                       vw::cartography::GeoReference const & georef,    
@@ -49,6 +54,10 @@ void populateSyntheticLinescan(SatSimOptions const& opt,
                       std::map<int, vw::Matrix3x3>  const & cam2world,
                       // Outputs
                       asp::CsmModel & model) {
+
+  // Must have as many positions as orientations
+  if (positions.size() != cam2world.size())
+    vw_throw(vw::ArgumentErr() << "Expecting as many positions as orientations.\n");
 
   // Do not use a precision below 1.0-e8 as then the linescan model will return junk.
   model.m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
@@ -106,32 +115,47 @@ void populateSyntheticLinescan(SatSimOptions const& opt,
   ls_model->m_intTimeStartTimes.push_back(beg_t);
   ls_model->m_intTimes.push_back(dt);
 
-  // Positions and velocities
-  int num_pos = positions.size();
-  ls_model->m_numPositions = 3 * num_pos; // concatenate all coordinates
-  ls_model->m_t0Ephem = beg_t;
-  ls_model->m_dtEphem = (end_t - beg_t) / (num_pos - 1.0);
+  // Positions and velocities. Note how, as above, there are more positions than
+  // opt.num_cameras as they extend beyond orbital segment. So care is needed
+  // below. Time is 0 when we reach the starting orbit position, and it is end_t
+  // at the ending point. Positions before that have negative time. 
+  // Time at position with index i is m_t0Ephem + i*m_dtEphem, if index 0 is
+  // for the earliest postion, but that is way before the orbital segment starting point.
+  // We can have -opt.num_cams/2 <= pos_it->first < 2*opt.num_cams - opt.num_cams/2.
+  int beg_pos_index = positions.begin()->first; // normally equals -opt.num_cameras/2
+  if (beg_pos_index > 0)
+    vw::vw_throw(vw::ArgumentErr() << "First position index must be non-positive.\n");
+  ls_model->m_numPositions = 3 * positions.size(); // concatenate all coordinates
+  ls_model->m_dtEphem = (end_t - beg_t) / (opt.num_cameras - 1.0); // care here
+  ls_model->m_t0Ephem = beg_t + beg_pos_index * ls_model->m_dtEphem; // care here
 
   ls_model->m_positions.resize(ls_model->m_numPositions);
   ls_model->m_velocities.resize(ls_model->m_numPositions);
-  for (int pos_it = 0; pos_it < num_pos; pos_it++) {
-    auto ctr = asp::mapVal(positions, pos_it);
+  for (auto pos_it = positions.begin(); pos_it != positions.end(); pos_it++) {
+    int index = pos_it->first - beg_pos_index; // so we can start at 0
+    auto ctr = pos_it->second;
     for (int coord = 0; coord < 3; coord++) {
-      ls_model->m_positions [3*pos_it + coord] = ctr[coord];
-      ls_model->m_velocities[3*pos_it + coord] = 0.0; // should not be used
+      ls_model->m_positions [3*index + coord] = ctr[coord];
+      ls_model->m_velocities[3*index + coord] = 0.0; // should not be used
     }
   }
 
-  // Orientations
+  // Orientations. Care with defining dt as above.
+  int beg_quat_index = cam2world.begin()->first; // normally equals -opt.num_cameras/2
+  if (beg_quat_index > 0)
+    vw::vw_throw(vw::ArgumentErr() << "First orientation index must be non-positive.\n");
+  if (beg_pos_index != beg_quat_index)
+    vw::vw_throw(vw::ArgumentErr() 
+      << "First position index must equal first orientation index.\n");
+      
   ls_model->m_numQuaternions = 4 * cam2world.size();
-  ls_model->m_t0Quat = beg_t;
-  ls_model->m_dtQuat = (end_t - beg_t) / (cam2world.size() - 1.0);
+  ls_model->m_dtQuat = (end_t - beg_t) / (opt.num_cameras - 1.0);
+  ls_model->m_t0Quat = beg_t + beg_quat_index * ls_model->m_dtQuat;
 
   ls_model->m_quaternions.resize(ls_model->m_numQuaternions);
-  for (int pos_it = 0; pos_it < ls_model->m_numQuaternions / 4; pos_it++) {
-
-    // find the camera at the given index
-    auto c2w = asp::mapVal(cam2world, pos_it);
+  for (auto quat_it = cam2world.begin(); quat_it != cam2world.end(); quat_it++) {
+    int index = quat_it->first - beg_quat_index; // so we can start at 0
+    auto c2w = quat_it->second;
 
     // Convert to Eigen
     Eigen::Matrix3d M = eigenMatrix(c2w);
@@ -140,10 +164,10 @@ void populateSyntheticLinescan(SatSimOptions const& opt,
 
     // CSM wants quaternions as x, y, z, w.
     int coord = 0;
-    ls_model->m_quaternions[4*pos_it + coord] = q.x(); coord++;
-    ls_model->m_quaternions[4*pos_it + coord] = q.y(); coord++;
-    ls_model->m_quaternions[4*pos_it + coord] = q.z(); coord++;
-    ls_model->m_quaternions[4*pos_it + coord] = q.w(); coord++;
+    ls_model->m_quaternions[4*index + coord] = q.x(); coord++;
+    ls_model->m_quaternions[4*index + coord] = q.y(); coord++;
+    ls_model->m_quaternions[4*index + coord] = q.z(); coord++;
+    ls_model->m_quaternions[4*index + coord] = q.w(); coord++;
   }
 
   // Re-creating the model from the state forces some operations to

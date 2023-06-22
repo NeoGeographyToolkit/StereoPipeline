@@ -102,7 +102,8 @@ void readGeorefImage(std::string const& image_file,
 
 // Compute point on trajectory and along and across track normalized vectors in
 // ECEF coordinates, given the first and last proj points and a value t giving
-// the position along this line
+// the position along this line. Produced along and across vectors are
+// normalized and perpendicular to each other.
 void calcTrajPtAlongAcross(vw::Vector3 const& first_proj,
                            vw::Vector3 const& last_proj,
                            vw::cartography::GeoReference const& dem_georef,
@@ -780,15 +781,26 @@ void calcTrajectory(SatSimOptions & opt,
   std::vector<vw::Vector3> along_track(opt.num_cameras), across_track(opt.num_cameras);
   ref_cam2world.resize(opt.num_cameras);
 
+  // For linescan cameras we want to go beyond the positions and orientations
+  // needed for the first and last image line, to have room for interpolation
+  // and jitter. For Pinhole cameras we do not need this.
+  int first_pos = 0, last_pos = opt.num_cameras; // stop before last
+  if (opt.sensor_type == "linescan") {
+     // Double the number of cameras, half of extra ones going beyond image lines
+     first_pos = -opt.num_cameras/2;
+     last_pos  = 2 * opt.num_cameras + first_pos;
+  }
+
   // Print progress
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  double inc_amount = 1.0 / opt.num_cameras;
+  double inc_amount = 1.0 / (last_pos - first_pos);
   tpc.report_progress(0);
 
-  for (int i = 0; i < opt.num_cameras; i++) {
+  for (int i = first_pos; i < last_pos; i++) {
 
     // Calc position along the trajectory and normalized along and across vectors
-    // in ECEF
+    // in ECEF. Produced along and across vectors are normalized and perpendicular
+    // to each other.
     double t = double(i) / double(opt.num_cameras - 1);
     vw::Vector3 P, along, across;
     calcTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
@@ -802,6 +814,9 @@ void calcTrajectory(SatSimOptions & opt,
                        // outputs
                        along, across);
 
+    // TODO(oalexan1): Move this code to cameraAdjustment(). Document this in the API.
+    // Ensure results don't change with or without invoking cameraAdjustment().
+    
     // Normalize
     along = along / norm_2(along);
     across = across / norm_2(across);
@@ -822,7 +837,8 @@ void calcTrajectory(SatSimOptions & opt,
 
     // Save this before applying adjustments as below. These two 
     // have some important differences, as can be seen below.
-    ref_cam2world[i] = cam2world[i];
+    if (i >= 0 && i < opt.num_cameras)
+      ref_cam2world[i] = cam2world[i];
     cam2world_no_jitter[i] = cam2world[i];
 
     // See if to apply the jitter

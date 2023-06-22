@@ -345,9 +345,16 @@ Linescan cameras
 
 The ``sat_sim`` tool can be used to simulate Linescan cameras, with or without
 jitter. Then, instead of many Pinhole cameras and/or images along the orbit, a
-single Linescan camera and/or image will be created. The option ``--num`` (or
-``--frame-rate``) will control how many camera samples are created. Lagrange
-interpolation (with 8th degree polynomials) will be used in between the samples.
+single Linescan camera and/or image will be created. 
+
+The option ``--num`` (or ``--frame-rate``) will control how many camera samples
+are created between the first and last image lines (including these lines). An
+additional set of camera samples will be created, with the same total size,
+before the first and after the last image line, evenly divided between the two,
+to help with along-track pose interpolation and jitter modeling. 
+
+Lagrange interpolation (with 8th degree polynomials) will be used in between the
+samples.
 
 All above modes are supported. One has to add to ``sat_sim`` the option
 ``--sensor-type linescan``.
@@ -364,6 +371,33 @@ plane intersects the single-row sensor array.
 The produced Linescan camera is in the CSM model state format
 (:numref:`csm_state`). This is a standard CSM format and can be read by all ASP
 tools including this one.
+
+Here is an example invocation. The use case here is as in
+:numref:`sat_sim_roll_pitch_yaw_ground`. The camera maintains fixed roll, pitch,
+and yaw, and the ground path determines the orbital segment endpoints. Here we
+also model along-track jitter.
+
+::
+
+    sat_sim --dem dem.tif                \
+      --ortho ortho.tif                  \
+      --first 397.1 400.7 450000         \
+      --last  397.1 500.7 450000         \
+      --first-ground-pos 397.1 400.7     \
+      --last-ground-pos  397.1 500.7     \
+      --roll 0 --pitch 25 --yaw 0        \
+      --num 5                            \
+      --focal-length 450000              \
+      --optical-center 500 500           \
+      --image-size 1000 1000             \
+      --sensor-type linescan             \
+      --square-pixels                    \
+      --jitter-frequency 45              \
+      --velocity 7500                    \
+      --horizontal-uncertainty '0 2 0'   \
+      -o run/run
+
+Note that the image height will be overridden given the ``--square-pixels`` option.
 
 Efficiency considerations
 ^^^^^^^^^^^^^^^^^^^^^^^^^
