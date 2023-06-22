@@ -118,6 +118,13 @@ void asp::ImageXML::parse(xercesc::DOMElement* node) {
 
   cast_xmlch(get_node<DOMElement>(node, "BANDID")->getTextContent(), band_id);
 
+  generation_time = "";
+  try {
+    cast_xmlch(get_node<DOMElement>(node, "GENERATIONTIME")->getTextContent(), generation_time);
+  } catch (...) {
+    // generation_time may not exist  
+  }
+  
   // Multispectral or panchromatic, or maybe MS1 or something else
   //if (band_id != "P" && band_id != "Multi" && band_id != "MS1") 
   //  vw_throw(ArgumentErr() << "Expecting BANDID in the XML file to be 'P', 'Multi', or 'MS1'.\n");

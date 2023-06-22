@@ -137,11 +137,14 @@ image_align:
     (:numref:`image_align_ecef_trans`).
 
 wv_correct (:numref:`wv_correct`):
-  * Maxar (DigitalGlobe) WorldView-2 images with a processing date (not
-    acquisition date), of May 26, 2022 or newer have much-reduced CCD
-    artifacts, and for those this tool will in fact make the solution
-    worse, not better. This does not apply to WorldView-1, 3, or
-    GeoEye-1.
+  * Maxar (DigitalGlobe) WorldView-2 images with a processing (generation) date
+    (not acquisition date), of May 26, 2022 or newer have much-reduced CCD
+    artifacts, and for those this tool will in fact make the solution worse, not
+    better. This does not apply to WorldView-1, 3, or GeoEye-1.
+  * ASP builds after 2023-06-21 (so, version later than 3.2.0), will detect the
+    above-mentioned scenario, and will not apply any correction in that case (a
+    copy of the original image will be written instead and a warning will be
+    printed). This applies to both PAN and multi-spectral images.
 
 misc: 
   * Changed the "pretend" height of the RPC cameras from 10 km 

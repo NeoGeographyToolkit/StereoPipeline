@@ -223,7 +223,7 @@ namespace asp {
     vw::Vector2  m_detector_origin; 
     double       m_focal_length;  ///< The focal length, also stored in pixels.
 
-    // Levenberg Marquardt solver for linescan number
+    // The Levenberg-Marquardt solver for linescan number
     //
     // We solve for the line number of the image that position the
     // camera so that the projection into the camera model actually

@@ -33,18 +33,33 @@ For multispectral images, only a few select TDI are supported for band
 supported, the tool will print a warning and will write on output the
 uncorrected input image.
 
-Note that Maxar (DigitalGlobe) WorldView-2 images with a processing
-date (not acquisition date) of May 26, 2022 or newer have much-reduced
-CCD artifacts, and for those this tool will in fact make the solution
-worse, not better. This does not apply to WorldView-1, 3, or GeoEye-1.
+The ASP source code repository has additional documentation and tools for how to
+tabulate the corrections for the cases not yet covered by this tool.
 
-The ASP source code repository has additional documentation
-and tools for how to tabulate the corrections for the cases
-not yet covered by this tool.
+Note for WV-2 images
+^^^^^^^^^^^^^^^^^^^^
 
-Usage::
+Maxar (DigitalGlobe) WorldView-2 images with a processing (generation) date
+(rather than acquisition date) of May 26, 2022 or newer have much-reduced CCD
+artifacts, and for those this tool will in fact make the solution worse, not
+better. 
+
+ASP of version later than 3.2.0 and any development build after 2023-06-21 will
+automatically detect this and will not apply the correction (a copy of the input
+image will be written on output). A warning will be printed in that case. This
+holds for both PAN and multi-spectral images.
+
+The above-mentioned scenario does not apply to WorldView-1, 3, or GeoEye-1.
+
+Usage
+^^^^^
+
+::
 
     wv_correct [options] <input image> <input camera model> <output image>
+
+Examples
+^^^^^^^^
 
 Example for PAN images::
 
@@ -61,7 +76,8 @@ multispectral images::
 
     wv_correct --dx dx.txt --dy dy.txt image.tif image.xml image_corr.tif
 
-Command-line options for wv_correct:
+Command-line options for wv_correct
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 --ot <string (default: Float32)>
     Output data type. Supported types: Byte, UInt16, Int16, UInt32,

@@ -166,7 +166,7 @@ void arr_to_vec(double arr[], int len, vector<double> & vec){
   for (int i = 0; i < len; i++) vec.push_back(arr[i]);
 }
 
-void get_offsets(int tdi, bool is_wv01, bool is_forward,
+void get_offsets(int tdi, bool is_wv01, bool is_forward, 
                  std::vector<double> & posx, std::vector<double> & ccdx,
                  std::vector<double> & posy, std::vector<double> & ccdy){
 
@@ -544,7 +544,7 @@ template <class ImageT>
 class WVPerBlockCorrectView: public ImageViewBase<WVPerBlockCorrectView<ImageT>>{
   ImageT m_img;
   int m_tdi;
-  bool m_is_wv01, m_is_forward;
+  bool m_is_wv01, m_is_forward, m_no_correction;
   double m_pitch_ratio;
   std::vector<double> m_posx, m_ccdx, m_posy, m_ccdy;
   
@@ -552,12 +552,16 @@ class WVPerBlockCorrectView: public ImageViewBase<WVPerBlockCorrectView<ImageT>>
 
 public:
   WVPerBlockCorrectView(ImageT const& img, int tdi, bool is_wv01, bool is_forward,
-                 double pitch_ratio):
+    bool no_correction, double pitch_ratio):
     m_img(img), m_tdi(tdi), m_is_wv01(is_wv01), m_is_forward(is_forward),
-    m_pitch_ratio(pitch_ratio){
+    m_no_correction(no_correction), m_pitch_ratio(pitch_ratio) {
     
-    get_offsets(m_tdi, m_is_wv01, m_is_forward,  
-                m_posx, m_ccdx, m_posy, m_ccdy);
+    // Ensure these variables are clean
+    m_posx.clear(); m_ccdx.clear(); m_posy.clear(); m_ccdy.clear();
+    
+    if (!m_no_correction)
+      get_offsets(m_tdi, m_is_wv01, m_is_forward,  
+                  m_posx, m_ccdx, m_posy, m_ccdy);
 
     // Compensate for the variable pitch ratio
     for (int i = 0; i < (int)m_posx.size(); i++) m_posx[i] *= m_pitch_ratio;
@@ -639,9 +643,10 @@ public:
 };
 template <class ImageT>
 WVPerBlockCorrectView<ImageT> wv_correct(ImageT const& img,
-                                 int tdi, bool is_wv01, bool is_forward,
+                                 int tdi, bool is_wv01, bool is_forward, bool no_correction,
                                  double pitch_ratio){
-  return WVPerBlockCorrectView<ImageT>(img, tdi, is_wv01, is_forward, pitch_ratio);
+  return WVPerBlockCorrectView<ImageT>(img, tdi, is_wv01, is_forward, no_correction,
+                                       pitch_ratio);
 }
 
 // Apply WorldView corrections to each column individually. This is more precise
@@ -755,6 +760,9 @@ int main(int argc, char *argv[]) {
     // corrections, which is coarser-grained (the older approach).
     bool per_column_correction = false;
     
+    // If true, do not apply any corrections
+    bool no_correction = false;
+    
     try{
       XMLPlatformUtils::Initialize();
       read_xml(opt.camera_file, geo, att, eph, img, rpc);
@@ -769,20 +777,26 @@ int main(int argc, char *argv[]) {
       band_id = img.band_id;
 
       if (band_id == "P") {
-        
         tdi = img.tdi;
         if (opt.dx != "" || opt.dy != "") 
           per_column_correction = true;
-        
       } else if (band_id == "Multi") {
-
         per_column_correction = true;
-        
         if (img.tdi_multi.size() != 8) 
           vw_throw( ArgumentErr() << "Expecting 8 TDI values, one per multispectral band.\n" );
-
       }
       
+      // For WV2 data generated on May 26, 2022 or later a new calibration scheme
+      // is used, which makes wv_correct unnecessary. 
+      if (sat_id == "WV02" && img.generation_time >= "2022-05-26") {
+        vw_out() << "WARNING: wv_correct is not needed for WV02 data with generation time of "
+        << "2022-05-26 or later. The vendor processing method changed starting with that "
+        << "date, so applying the corrections will make the results worse. Will write " 
+        << "a copy of the original uncorrected image.\n";
+        no_correction = true;
+        per_column_correction = false;
+      }
+
       det_pitch = geo.detector_pixel_pitch;
       if (det_pitch <= 0.0)
         vw_throw( ArgumentErr() << "XML file \"" << opt.camera_file
@@ -794,7 +808,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (sat_id != "WV01" && sat_id != "WV02" && sat_id != "WV03") 
-      vw_throw( ArgumentErr() << "Only WV01, WV02, and WV03 satellites are supported." );
+      vw_throw(ArgumentErr() << "Only WV01, WV02, and WV03 satellites are supported.\n");
     
     if ( (opt.dx != "" && opt.dy == "") || (opt.dx == "" && opt.dy != "") )
       vw_throw( ArgumentErr() << "Only one of --dx and --dy was specified." );
@@ -830,14 +844,15 @@ int main(int argc, char *argv[]) {
     
     ImageViewRef<float> corr_img;
     std::vector<double> dx, dy;
-    if (!per_column_correction) {
-      // Per block correction
+    if ((!per_column_correction) || no_correction) {
+      // Per block correction or no correction
       if (has_nodata) 
         corr_img = apply_mask(wv_correct(create_mask(input_img, nodata),
-                                         tdi, is_wv01, is_forward,
+                                         tdi, is_wv01, is_forward, no_correction,
                                          pitch_ratio), nodata);
       else
-        corr_img = wv_correct(input_img, tdi, is_wv01, is_forward, pitch_ratio);
+        corr_img = wv_correct(input_img, tdi, is_wv01, is_forward, no_correction,
+                              pitch_ratio);
     } else {
       // Per column correction
       
