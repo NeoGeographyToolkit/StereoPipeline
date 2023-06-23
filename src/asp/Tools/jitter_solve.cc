@@ -1007,7 +1007,7 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
 // Calculate a set of anchor points uniformly distributed over the image
 // Will use opt.num_anchor_points_extra_lines.
 void calcAnchorPoints(Options                              const & opt,
-                      ImageViewRef<PixelMask<double>>              interp_acnhor_dem,
+                      ImageViewRef<PixelMask<double>>              interp_anchor_dem,
                       vw::cartography::GeoReference         const& anchor_georef,
                       std::vector<UsgsAstroLsSensorModel*> const & ls_models,
                       // Append to these, they already have entries
@@ -1056,7 +1056,7 @@ void calcAnchorPoints(Options                              const & opt,
         Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
           (opt.camera_models[icam]->camera_center(pix),
            opt.camera_models[icam]->pixel_to_vector(pix),
-           interp_acnhor_dem, anchor_georef, treat_nodata_as_zero, has_intersection,
+           interp_anchor_dem, anchor_georef, treat_nodata_as_zero, has_intersection,
            height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
 
         if (!has_intersection) 
@@ -1146,8 +1146,12 @@ void addReprojectionErrors
         // Keep in bounds
         begQuatIndex = std::max(0, begQuatIndex);
         endQuatIndex = std::min(endQuatIndex, numQuat);
-        if (begQuatIndex >= endQuatIndex) // Must not happen 
-          vw_throw(ArgumentErr() << "Book-keeping error for pixel: " << observation << ".\n"); 
+        if (begQuatIndex >= endQuatIndex) {
+          // Must not happen 
+          vw_throw(ArgumentErr() << "Book-keeping error for quaternions for pixel: " 
+            << observation << ". Check your image dimensions and compare "
+            << "with the camera file.\n"); 
+        }
 
         // Same for positions
         int numPosPerObs = 8;
@@ -1165,7 +1169,9 @@ void addReprojectionErrors
         begPosIndex = std::max(0, begPosIndex);
         endPosIndex = std::min(endPosIndex, numPos);
         if (begPosIndex >= endPosIndex) // Must not happen 
-          vw_throw(ArgumentErr() << "Book-keeping error for pixel: " << observation << ".\n"); 
+          vw_throw(ArgumentErr() << "Book-keeping error for positions for pixel: " 
+            << observation << ". Check your image dimensions and compare "
+            << "with the camera file.\n");
 
         ceres::CostFunction* pixel_cost_function =
           pixelReprojectionError::Create(observation, weight, ls_models[icam],
