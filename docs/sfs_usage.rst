@@ -103,6 +103,11 @@ nominal value is 1.  The image intensity ideally equals the image
 exposure times albedo times reflectance, hence the image exposure
 absorbs any existing constant multiplier.
 
+The exposure value for a camera is computed as the average of the image
+intensity divided by the average reflectance, both computed over the DEM.
+Later, if the problem is parallelized using ``parallel_sfs``, the exposures
+are found just once, over the entire DEM, rather than for each tile.
+
 It is important to note that the default Lunar-Lambertian model may
 not be the right choice for other planetary bodies, hence some
 research may be needed to decide the correct model for your
