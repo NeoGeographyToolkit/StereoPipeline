@@ -356,8 +356,7 @@ int main(int argc, char *argv[]) {
       // vector of rot matrices. The matrix cam2world_no_jitter
       // is only needed with linescan cameras, but compute it for consistency 
       // in all cases.
-      std::map<int, vw::Matrix3x3> cam2world, cam2world_no_jitter;
-      std::vector<vw::Matrix3x3> ref_cam2world;
+      std::map<int, vw::Matrix3x3> cam2world, cam2world_no_jitter, ref_cam2world;
       asp::calcTrajectory(opt, dem_georef, dem, height_guess,
         orbit_len, trajectory, cam2world, cam2world_no_jitter, ref_cam2world); // outputs
       // Generate cameras
@@ -366,7 +365,7 @@ int main(int argc, char *argv[]) {
           cam_names, cams);
       else
         asp::genLinescanCameras(orbit_len, dem_georef, dem, trajectory, 
-          cam2world, cam2world_no_jitter, height_guess,
+          cam2world, cam2world_no_jitter, ref_cam2world, height_guess,
           opt, cam_names, cams); // outputs
     }
 

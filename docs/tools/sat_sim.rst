@@ -250,6 +250,8 @@ but with different values of roll, pitch, yaw.
 The phase shift :math:`\phi_{ij}` is measured in radians. If not specified, it is set
 to zero. How to set it is discussed below.
 
+.. _sat_sim_jitter_amplitude_meters:
+
 Specifying the jitter amplitude in meters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -321,6 +323,30 @@ for the 45 Hz frequency, and 0 radians for the 100 Hz frequency.
 See :numref:`sat_sim_options` for more information on
 these options.
 
+A useful test is compare a camera without jitter with the corresponding one with
+jitter.  For that, project a pixel from the first camera to the datum, and
+project the obtained point back into the second camera. See how different the
+produced pixel value is compared to the original pixel. That is done with
+``cam_test`` (:numref:`cam_test`)::
+
+    cam_test --session1 pinhole        \
+      --session2 pinhole               \
+      --image sim_jitter0/n-10020.tif  \
+      --cam1  sim_jitter0/n-10020.tsai \
+      --cam2  sim_jitter2/n-10020.tsai
+
+It will produce an output as::
+
+    cam1 to cam2 pixel diff
+    Min:    1.89408
+    Median: 1.89408
+    Max:    1.89408
+
+    cam2 to cam1 pixel diff
+    Min:    1.89408
+    Median: 1.89408
+    Max:    1.89408
+
 .. _sat_sim_jitter_amplitude_micro_radians:
 
 Specifying the jitter amplitude in micro radians
@@ -362,11 +388,13 @@ All above modes are supported. One has to add to ``sat_sim`` the option
 Add the option ``--square-pixels`` to autocompute and override the input image
 height (number of scan lines, the second value in ``--image-size``) to ensure
 that the horizontal and vertical ground sample distances are very similar.
+The produced image height will be the same regardless of amount of jitter 
+in the input cameras or whether jitter is modeled at all.
 
-In this mode, the row coordinate of the optical center (the second value in
-``--optical-center``) will be ignored and will be treated as set to 0. Hence, we
-assume that the ray from the camera center that is perpendicular to the sensor
-plane intersects the single-row sensor array. 
+When creating synthetic linescan cameras, the row coordinate of the optical
+center (the second value in ``--optical-center``) will be ignored and will be
+treated as set to 0. Hence, we assume that the ray from the camera center that
+is perpendicular to the sensor plane intersects the single-row sensor array. 
 
 The produced Linescan camera is in the CSM model state format
 (:numref:`csm_state`). This is a standard CSM format and can be read by all ASP
@@ -395,9 +423,20 @@ also model along-track jitter.
       --jitter-frequency 45              \
       --velocity 7500                    \
       --horizontal-uncertainty '0 2 0'   \
+      --jitter-phase "0.4 0.8 1.2"       \
       -o run/run
 
 Note that the image height will be overridden given the ``--square-pixels`` option.
+
+As in :numref:`sat_sim_jitter_amplitude_meters`, one can compare cameras with
+and without jitter as::
+    
+    cam_test                 \
+      --session1 csm         \
+      --session2 csm         \
+      --image jitter0/f.tif  \
+      --cam1  jitter0/f.json \
+      --cam2  jitter2/f.json
 
 Efficiency considerations
 ^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -1266,7 +1266,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("no-border-blend", po::bool_switch(&opt.no_border_blend)->default_value(false),
 	   "Only apply blending around holes, don't blend at image borders.  Not compatible with centerline weights.")
     ("hole-fill-length",   po::value(&opt.hole_fill_len)->default_value(0),
-	   "Maximum dimensions of a hole in the DEM to fill in, in pixels.")
+	   "Maximum dimensions of a hole in the DEM to fill, in pixels.")
     ("tr",              po::value(&opt.tr),
 	   "Output grid size, that is, the DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.")
     ("t_srs",           po::value(&opt.target_srs_string)->default_value(""),

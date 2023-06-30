@@ -105,7 +105,7 @@ absorbs any existing constant multiplier.
 
 The exposure value for a camera is computed as the average of the image
 intensity divided by the average reflectance, both computed over the DEM.
-Later, if the problem is parallelized using ``parallel_sfs``, the exposures
+If the problem is parallelized using ``parallel_sfs``, the exposures
 are found just once, over the entire DEM, rather than for each tile.
 
 It is important to note that the default Lunar-Lambertian model may

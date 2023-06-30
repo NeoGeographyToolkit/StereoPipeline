@@ -353,6 +353,7 @@ void genLinescanCameras(double                                orbit_len,
                         std::map<int, vw::Vector3>    const & positions,
                         std::map<int, vw::Matrix3x3>  const & cam2world,
                         std::map<int, vw::Matrix3x3>  const & cam2world_no_jitter,
+                        std::map<int, vw::Matrix3x3>  const & ref_cam2world,
                         double                                height_guess,
                         // Outputs
                         SatSimOptions                         & opt, 
@@ -400,6 +401,14 @@ void genLinescanCameras(double                                orbit_len,
   }
   std::string filename = opt.out_prefix + ".json";
   ls_cam->saveState(filename);
+
+  if (opt.save_ref_cams) {
+      asp::CsmModel ref_cam;
+      populateSyntheticLinescan(opt, orbit_len, dem_georef, positions, ref_cam2world,
+        ref_cam); // output
+    std::string ref_filename = opt.out_prefix + "-ref.json";
+    ref_cam.saveState(ref_filename);
+  }
 
   // Save the camera name and smart pointer to camera
   cam_names.push_back(filename);

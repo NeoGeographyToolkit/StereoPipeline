@@ -158,7 +158,7 @@ Command-line options
     boundary where blending with subsequent DEMs will happen.
 
 --hole-fill-length <integer (default: 0)>
-    Maximum dimensions of a hole in the DEM to fill in, in
+    Maximum dimensions of a hole in the DEM to fill, in
     pixels.
 
 --tr <double>

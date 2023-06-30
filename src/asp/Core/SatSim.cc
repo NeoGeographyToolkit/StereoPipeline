@@ -598,6 +598,34 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
   last_proj = out_proj;
 }
 
+// Given the direction going from first_proj to last_proj, and knowing
+// that we are at curr_proj, find if we are before or after orig_first_proj.
+// Return 1 if after, -1 if before, 0 if at that point. 
+double findDirectionAlongOrbit(vw::Vector3 const& orig_first_proj,
+                                vw::Vector3 const& first_proj,
+                                vw::Vector3 const& last_proj,
+                                vw::Vector3 const& curr_proj) {
+  double sign = 0.0;
+  vw::Vector3 dir1 = last_proj - first_proj;
+  double len1 = norm_2(dir1);
+  if (len1 != 0)
+    dir1 = dir1 / len1;
+
+  // Handle the case when we are at orig_first_proj
+  vw::Vector3 dir2 = curr_proj - orig_first_proj;
+  double len2 = norm_2(dir2);
+  if (len2 == 0)
+    return 0;
+
+   dir2 = dir2 / len2;
+   if (norm_2(dir1 - dir2) <= norm_2(dir1 + dir2))
+     sign = 1.0; // curr_proj is after orig_first_proj
+   else  
+    sign = -1.0; // curr_proj is before orig_first_proj
+
+  return sign;
+}
+
 // Calc the jitter amplitude at a given location along the orbit. We will
 // accumulate over all frequencies. We measure the orbit length from original
 // user-set starting point, even if the first camera is not there. That because
@@ -626,6 +654,9 @@ vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
   // to previous value.
   double dist = calcOrbitLength(orig_first_proj, curr_proj, dem_georef);
 
+  // Find if we are before or after orig_first_proj. This will multiply 'dist' below.
+  double sign = findDirectionAlongOrbit(orig_first_proj, first_proj, last_proj, curr_proj);
+
   for (size_t freq_iter = 0; freq_iter < opt.jitter_frequency.size(); freq_iter++) {
     double f = opt.jitter_frequency[freq_iter];
     double v = opt.velocity;
@@ -651,7 +682,7 @@ vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
       }
 
       // Compute the jitter, in degrees. Add the phase.
-      amp[c] += a * sin(dist * 2.0 * M_PI / T + opt.jitter_phase[index]);
+      amp[c] += a * sin(sign * dist * 2.0 * M_PI / T + opt.jitter_phase[index]);
     }
 
   } // End loop through frequencies
@@ -674,7 +705,7 @@ void calcTrajectory(SatSimOptions & opt,
                     std::map<int, vw::Vector3>   & trajectory,
                     std::map<int, vw::Matrix3x3> & cam2world,
                     std::map<int, vw::Matrix3x3> & cam2world_no_jitter,
-                    std::vector<vw::Matrix3x3>   & ref_cam2world) {
+                    std::map<int, vw::Matrix3x3> & ref_cam2world) {
 
   // Initialize the outputs
   orbit_len = 0.0;
@@ -779,7 +810,6 @@ void calcTrajectory(SatSimOptions & opt,
   // directions in the projected space
   vw::vw_out() << "Computing the camera poses.\n"; 
   std::vector<vw::Vector3> along_track(opt.num_cameras), across_track(opt.num_cameras);
-  ref_cam2world.resize(opt.num_cameras);
 
   // For linescan cameras we want to go beyond the positions and orientations
   // needed for the first and last image line, to have room for interpolation
@@ -837,8 +867,7 @@ void calcTrajectory(SatSimOptions & opt,
 
     // Save this before applying adjustments as below. These two 
     // have some important differences, as can be seen below.
-    if (i >= 0 && i < opt.num_cameras)
-      ref_cam2world[i] = cam2world[i];
+    ref_cam2world[i] = cam2world[i];
     cam2world_no_jitter[i] = cam2world[i];
 
     // See if to apply the jitter
@@ -917,7 +946,7 @@ bool skipCamera(int i, SatSimOptions const& opt) {
 void genPinholeCameras(SatSimOptions     const & opt,
             std::map<int, vw::Vector3>   const & trajectory,
             std::map<int, vw::Matrix3x3> const & cam2world,
-            std::vector<vw::Matrix3x3>   const & ref_cam2world,
+            std::map<int, vw::Matrix3x3> const & ref_cam2world,
             // outputs
             std::vector<std::string>           & cam_names,
             std::vector<vw::CamPtr>            & cams) {
@@ -942,7 +971,8 @@ void genPinholeCameras(SatSimOptions     const & opt,
     // This is useful for understanding things in the satellite frame
     vw::camera::PinholeModel refCam;
     if (opt.save_ref_cams)  
-        refCam = vw::camera::PinholeModel(asp::mapVal(trajectory, i), ref_cam2world[i],
+        refCam = vw::camera::PinholeModel(asp::mapVal(trajectory, i), 
+                                          asp::mapVal(ref_cam2world, i),
                                           opt.focal_length, opt.focal_length,
                                           opt.optical_center[0], opt.optical_center[1]);
 
