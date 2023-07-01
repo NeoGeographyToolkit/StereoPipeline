@@ -106,8 +106,8 @@ void populateSyntheticLinescan(SatSimOptions const& opt,
   ls_model->m_detectorSampleSumming  = 1.0;
   ls_model->m_startingDetectorSample = (detector_origin[0] - 0.5);
 
-  // Set the time. The first camera will be at time 0. The last camera
-  // will be at time depending on distance traveled and speed.
+  // Set the time. The first image line time is 0. The last image line time
+  // will depend on distance traveled and speed.
   double beg_t = 0.0;
   double end_t = orbit_len / opt.velocity;
   double dt = (end_t - beg_t) / (opt.image_size[1] - 1.0);
@@ -117,11 +117,12 @@ void populateSyntheticLinescan(SatSimOptions const& opt,
 
   // Positions and velocities. Note how, as above, there are more positions than
   // opt.num_cameras as they extend beyond orbital segment. So care is needed
-  // below. Time is 0 when we reach the starting orbit position, and it is end_t
-  // at the ending point. Positions before that have negative time. 
-  // Time at position with index i is m_t0Ephem + i*m_dtEphem, if index 0 is
-  // for the earliest postion, but that is way before the orbital segment starting point.
-  // We can have -opt.num_cams/2 <= pos_it->first < 2*opt.num_cams - opt.num_cams/2.
+  // below. Time is 0 when we reach the first image line, and it is end_t at the
+  // last line. Positions before that have negative time. Time at position with
+  // index i is m_t0Ephem + i*m_dtEphem, if index 0 is for the earliest postion,
+  // but that is way before the orbital segment starting point which is the
+  // first image line. We can have -opt.num_cams/2 <= pos_it->first <
+  // 2*opt.num_cams - opt.num_cams/2.
   int beg_pos_index = positions.begin()->first; // normally equals -opt.num_cameras/2
   if (beg_pos_index > 0)
     vw::vw_throw(vw::ArgumentErr() << "First position index must be non-positive.\n");

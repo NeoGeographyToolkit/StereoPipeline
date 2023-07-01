@@ -66,8 +66,9 @@ double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem) {
 } // End function findDemHeightGuess()
 
 // Convert from projected coordinates to ECEF
+// TODO(oalexan1): Move this to GeoReference.cc.
 vw::Vector3 projToEcef(vw::cartography::GeoReference const& georef,
-                vw::Vector3                          const& proj) {
+                       vw::Vector3                   const& proj) {
   vw::Vector3 llh = georef.point_to_geodetic(proj);
   vw::Vector3 ecef = georef.datum().geodetic_to_cartesian(llh);
   return ecef;
@@ -100,6 +101,20 @@ void readGeorefImage(std::string const& image_file,
                                      << image_file << ".\n");
 }
 
+// Make these vectors have norm 1, and make across perpendicular to along
+void normalizeOrthogonalizeAlongAcross(vw::Vector3 & along, vw::Vector3 & across) {
+    
+  // Normalize
+  along = along / norm_2(along);
+  across = across / norm_2(across);
+
+  // Ensure that across is perpendicular to along
+  across = across - dot_prod(along, across) * along;
+
+  // Normalize again
+  across = across / norm_2(across);
+}
+
 // Compute point on trajectory and along and across track normalized vectors in
 // ECEF coordinates, given the first and last proj points and a value t giving
 // the position along this line. Produced along and across vectors are
@@ -116,35 +131,30 @@ void calcTrajPtAlongAcross(vw::Vector3 const& first_proj,
                            vw::Vector3 & along,
                            vw::Vector3 & across) {
 
-    // Compute the point on the trajectory, in projected coordinates
-    P = first_proj * (1.0 - t) + last_proj * t;
+  // Compute the point on the trajectory, in projected coordinates
+  P = first_proj * (1.0 - t) + last_proj * t;
 
-    // Use centered difference to compute the along and across track points
-    // This achieves higher quality results
+  // Use centered difference to compute the along and across track points
+  // This achieves higher quality results
 
-    vw::Vector3 L1 = P - delta * proj_along; // along track point
-    vw::Vector3 C1 = P - delta * proj_across; // across track point
-    vw::Vector3 L2 = P + delta * proj_along; // along track point
-    vw::Vector3 C2 = P + delta * proj_across; // across track point
+  vw::Vector3 L1 = P - delta * proj_along; // along track point
+  vw::Vector3 C1 = P - delta * proj_across; // across track point
+  vw::Vector3 L2 = P + delta * proj_along; // along track point
+  vw::Vector3 C2 = P + delta * proj_across; // across track point
 
-    // Convert to cartesian
-    P  = projToEcef(dem_georef, P);
-    L1 = projToEcef(dem_georef, L1);
-    C1 = projToEcef(dem_georef, C1);
-    L2 = projToEcef(dem_georef, L2);
-    C2 = projToEcef(dem_georef, C2);
+  // Convert to cartesian
+  P  = projToEcef(dem_georef, P);
+  L1 = projToEcef(dem_georef, L1);
+  C1 = projToEcef(dem_georef, C1);
+  L2 = projToEcef(dem_georef, L2);
+  C2 = projToEcef(dem_georef, C2);
 
-    // Create the along track and across track vectors
-    along = L2 - L1;
-    across = C2 - C1;
+  // Create the along track and across track vectors
+  along = L2 - L1;
+  across = C2 - C1;
 
-    // Normalize
-    along = along/norm_2(along);
-    across = across/norm_2(across);
-    // Ensure that across is perpendicular to along
-    across = across - dot_prod(along, across) * along;
-    // Normalize again
-    across = across / norm_2(across);
+  // Make these vector have norm 1, and make across perpendicular to along
+  normalizeOrthogonalizeAlongAcross(along, across);
 }
 
 // Assemble the cam2world matrix from the along track, across track, and down vectors
@@ -208,7 +218,7 @@ double demPixelErr(SatSimOptions const& opt,
     vw::Vector3 P, along, across;
     calcTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
                           proj_along, proj_across, 
-                          // Outputs
+                          // Outputs, perpendicular and normal vectors
                           P, along, across);
 
     // Find the z vector as perpendicular to both along and across
@@ -500,40 +510,44 @@ void cameraAdjustment(vw::Vector2 const& first_ground_pos,
   vw::PixelMask<float> nodata_mask = vw::PixelMask<float>(); // invalid value
   nodata_mask.invalidate();
   auto interp_dem = vw::interpolate(dem, vw::BilinearInterpolation(),
-    vw::ValueEdgeExtension<vw::PixelMask<float>>(nodata_mask));
+  vw::ValueEdgeExtension<vw::PixelMask<float>>(nodata_mask));
 
-    // The camera will be constrained by the ground, but not by the roll/pitch/yaw,
-    // then the orientation will change along the trajectory.
-    vw::Vector2 ground_pix = first_ground_pos * (1.0 - t) + last_ground_pos * t;
+  // The camera will be constrained by the ground, but not by the roll/pitch/yaw,
+  // then the orientation will change along the trajectory.
+  vw::Vector2 ground_pix = first_ground_pos * (1.0 - t) + last_ground_pos * t;
 
-    // Find the projected position along the ground path
-    vw::Vector3 ground_proj_pos;
-    subvector(ground_proj_pos, 0, 2) = dem_georef.pixel_to_point(ground_pix); // x and y
+  // Find the projected position along the ground path
+  vw::Vector3 ground_proj_pos;
+  subvector(ground_proj_pos, 0, 2) = dem_georef.pixel_to_point(ground_pix); // x and y
 
-    auto val = interp_dem(ground_pix[0], ground_pix[1]);
-    if (!is_valid(val))
-      vw::vw_throw(vw::ArgumentErr() 
-        << "Could not interpolate into the DEM along the ground path.\n");
-    ground_proj_pos[2] = val.child(); // z
+  auto val = interp_dem(ground_pix[0], ground_pix[1]);
+  if (!is_valid(val))
+    vw::vw_throw(vw::ArgumentErr() 
+      << "Could not interpolate into the DEM along the ground path.\n");
+  ground_proj_pos[2] = val.child(); // z
 
-    // Convert the ground point to ECEF
-    vw::Vector3 G = projToEcef(dem_georef, ground_proj_pos);
+  // Convert the ground point to ECEF
+  vw::Vector3 G = projToEcef(dem_georef, ground_proj_pos);
 
-    // Find the ground direction
-    vw::Vector3 ground_dir = G - P;
-    if (norm_2(ground_dir) < 1e-6)
-      vw::vw_throw(vw::ArgumentErr()
-        << "The ground position is too close to the camera.\n");
+  // Find the ground direction
+  vw::Vector3 ground_dir = G - P;
+  if (norm_2(ground_dir) < 1e-6)
+    vw::vw_throw(vw::ArgumentErr()
+      << "The ground position is too close to the camera.\n");
 
-    // Normalize      
-    along = along / norm_2(along);
-    ground_dir = ground_dir / norm_2(ground_dir);
+  // Normalize      
+  along = along / norm_2(along);
+  ground_dir = ground_dir / norm_2(ground_dir);
 
-    // Adjust the along-track direction to make it perpendicular to ground dir
-    along = along - dot_prod(ground_dir, along) * ground_dir;
+  // Adjust the along-track direction to make it perpendicular to ground dir
+  along = along - dot_prod(ground_dir, along) * ground_dir;
 
-    // Find 'across' as y direction, given that 'along' is x, and 'ground_dir' is z
-    across = -vw::math::cross_prod(along, ground_dir);
+  // Find 'across' as y direction, given that 'along' is x, and 'ground_dir' is z
+  across = -vw::math::cross_prod(along, ground_dir);
+
+  // Make these vectors have norm 1, and make across perpendicular to along
+  // Should already be that way by now, but do it just in case
+  normalizeOrthogonalizeAlongAcross(along, across);
 }
 
 // Adjust the orbit end point and set the number of cameras given the frame rate
@@ -841,20 +855,9 @@ void calcTrajectory(SatSimOptions & opt,
     // Adjust the camera if constrained by the ground but not by roll/pitch/yaw
     if (have_ground_pos && !have_roll_pitch_yaw)
       cameraAdjustment(opt.first_ground_pos, opt.last_ground_pos, t, dem_georef, dem, P, 
-                       // outputs
+                       // outputs, will be normalized and perpendicular to each other
                        along, across);
-
-    // TODO(oalexan1): Move this code to cameraAdjustment(). Document this in the API.
-    // Ensure results don't change with or without invoking cameraAdjustment().
     
-    // Normalize
-    along = along / norm_2(along);
-    across = across / norm_2(across);
-    // Ensure that across is perpendicular to along
-    across = across - dot_prod(along, across) * along;
-    // Normalize again
-    across = across / norm_2(across);
-
     // Find the z vector as perpendicular to both along and across
     vw::Vector3 down = vw::math::cross_prod(along, across);
     down = down / norm_2(down);

@@ -27,10 +27,6 @@
 // TODO(oalexan1): Add two passes and outlier filtering. For now
 // try to use clean matches.
 
-// TODO(oalexan1): Likely rotation and translation constraint can be
-// eliminated. Keep however the constraint that quaternion norm must
-// be close to 1.
-
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Core/Stopwatch.h>
