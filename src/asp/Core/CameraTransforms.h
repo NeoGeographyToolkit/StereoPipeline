@@ -19,6 +19,9 @@
 #define __CORE_CAMERA_TRANSFORMS_H__
 #include <vw/Math/Matrix.h>
 
+// TODO(oalexan1): Rename this to EigenCameraTransforms.h. Do not
+// include Eigen headers here, as that will slow down the compilation.
+
 // A set of routines for handling camera transformations. It is best to not
 // include here any Eigen headers, as that will slow down the compilation.
 
@@ -27,6 +30,20 @@ namespace asp {
 // Find the roll-pitch-yaw rotation in ZYX order. The inputs are in
 // degrees.
 vw::Matrix3x3 rollPitchYaw(double roll, double pitch, double yaw);
+
+// A function to go from a VW matrix to a quaternion, represented
+// as four values, x, y, z, w. Care with the order of values. It is not
+// w, x, y, z as in the Eigen convention.
+void matrixToQuaternion(vw::Matrix3x3 const& R, 
+                         // Outputs
+                         double & x, double & y, double & z, double & w);
+
+// Given a matrix obtained by multiplying roll, pitch, and yaw rotations, by applying
+// then in this order from right to left, find the roll, pitch, and yaw angles in degrees.
+// This can return 180 +/- x, if x was the original angle, so it is not a true inverse.
+void rollPitchYawFromRotationMatrix(vw::Matrix3x3 const& R, 
+  // Outputs
+  double & roll, double & pitch, double & yaw);
 
 } //end namespace asp
 

@@ -17,6 +17,7 @@
 
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/SyntheticLinescan.h>
+#include <asp/Core/CameraTransforms.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/SatSim.h>
 
@@ -28,18 +29,7 @@
 #include <vw/Math/Functors.h>
 #include <vw/Core/Stopwatch.h>
 
-#include <Eigen/Geometry>
-
 namespace asp {
-
-// A function to convert a 3x3 VW matrix to Eigen
-Eigen::Matrix3d eigenMatrix(vw::Matrix3x3 const& m) {
-  Eigen::Matrix3d result;
-  for (int r = 0; r < 3; r++)
-    for (int c = 0; c < 3; c++)
-      result(r, c) = m(r, c);
-  return result;
-}
 
 // Populate the CSM model with the given camera positions and orientations. Note
 // that opt.num_cameras is the number of cameras within the desired orbital segment
@@ -156,19 +146,18 @@ void populateSyntheticLinescan(SatSimOptions const& opt,
   ls_model->m_quaternions.resize(ls_model->m_numQuaternions);
   for (auto quat_it = cam2world.begin(); quat_it != cam2world.end(); quat_it++) {
     int index = quat_it->first - beg_quat_index; // so we can start at 0
+
+    // Find the quaternion at this index.
     auto c2w = quat_it->second;
+    double x, y, z, w;
+    asp::matrixToQuaternion(c2w, x, y, z, w);
 
-    // Convert to Eigen
-    Eigen::Matrix3d M = eigenMatrix(c2w);
-    // Convert to Eigen quaternion
-    Eigen::Quaterniond q(M);
-
-    // CSM wants quaternions as x, y, z, w.
+    // Note how we store the quaternions in the order x, y, z, w, not w, x, y, z.
     int coord = 0;
-    ls_model->m_quaternions[4*index + coord] = q.x(); coord++;
-    ls_model->m_quaternions[4*index + coord] = q.y(); coord++;
-    ls_model->m_quaternions[4*index + coord] = q.z(); coord++;
-    ls_model->m_quaternions[4*index + coord] = q.w(); coord++;
+    ls_model->m_quaternions[4*index + coord] = x; coord++;
+    ls_model->m_quaternions[4*index + coord] = y; coord++;
+    ls_model->m_quaternions[4*index + coord] = z; coord++;
+    ls_model->m_quaternions[4*index + coord] = w; coord++;
   }
 
   // Re-creating the model from the state forces some operations to

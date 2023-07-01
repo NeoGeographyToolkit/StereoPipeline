@@ -74,6 +74,15 @@ vw::Vector3 projToEcef(vw::cartography::GeoReference const& georef,
   return ecef;
 }
 
+// Convert from ECEF to projected coordinates
+// TODO(oalexan1): Must test this.
+vw::Vector3 ecefToProj(vw::cartography::GeoReference const& georef,
+                       vw::Vector3                   const& ecef) {
+  vw::Vector3 llh = georef.datum().cartesian_to_geodetic(ecef);
+  vw::Vector3 proj = georef.geodetic_to_point(llh);
+  return proj;
+}
+
 // A function that will read a geo-referenced image, its nodata value,
 // and the georeference, and will return a PixelMasked image, the nodata
 // value, and the georeference.
