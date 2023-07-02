@@ -19,6 +19,7 @@
 // somewhere else.
 
 #include <asp/Core/SatSim.h>
+#include <asp/Core/SatSimBase.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/Common.h>
 #include <vw/Core/Stopwatch.h>
@@ -65,24 +66,6 @@ double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem) {
 
 } // End function findDemHeightGuess()
 
-// Convert from projected coordinates to ECEF
-// TODO(oalexan1): Move this to GeoReference.cc.
-vw::Vector3 projToEcef(vw::cartography::GeoReference const& georef,
-                       vw::Vector3                   const& proj) {
-  vw::Vector3 llh = georef.point_to_geodetic(proj);
-  vw::Vector3 ecef = georef.datum().geodetic_to_cartesian(llh);
-  return ecef;
-}
-
-// Convert from ECEF to projected coordinates
-// TODO(oalexan1): Must test this.
-vw::Vector3 ecefToProj(vw::cartography::GeoReference const& georef,
-                       vw::Vector3                   const& ecef) {
-  vw::Vector3 llh = georef.datum().cartesian_to_geodetic(ecef);
-  vw::Vector3 proj = georef.geodetic_to_point(llh);
-  return proj;
-}
-
 // A function that will read a geo-referenced image, its nodata value,
 // and the georeference, and will return a PixelMasked image, the nodata
 // value, and the georeference.
@@ -110,93 +93,31 @@ void readGeorefImage(std::string const& image_file,
                                      << image_file << ".\n");
 }
 
-// Make these vectors have norm 1, and make across perpendicular to along
-void normalizeOrthogonalizeAlongAcross(vw::Vector3 & along, vw::Vector3 & across) {
-    
-  // Normalize
-  along = along / norm_2(along);
-  across = across / norm_2(across);
-
-  // Ensure that across is perpendicular to along
-  across = across - dot_prod(along, across) * along;
-
-  // Normalize again
-  across = across / norm_2(across);
-}
-
 // Compute point on trajectory and along and across track normalized vectors in
 // ECEF coordinates, given the first and last proj points and a value t giving
 // the position along this line. Produced along and across vectors are
 // normalized and perpendicular to each other.
-void calcTrajPtAlongAcross(vw::Vector3 const& first_proj,
-                           vw::Vector3 const& last_proj,
-                           vw::cartography::GeoReference const& dem_georef,
-                           double t,
-                           double delta,
-                           vw::Vector3 const& proj_along,
-                           vw::Vector3 const& proj_across,
-                           // Outputs
-                           vw::Vector3 & P,
-                           vw::Vector3 & along,
-                           vw::Vector3 & across) {
+void calcEcefTrajPtAlongAcross(vw::Vector3 const& first_proj,
+                               vw::Vector3 const& last_proj,
+                               vw::cartography::GeoReference const& dem_georef,
+                               double t,
+                               double delta,
+                               vw::Vector3 const& proj_along,
+                               vw::Vector3 const& proj_across,
+                               // Outputs
+                               vw::Vector3 & P,
+                               vw::Vector3 & along,
+                               vw::Vector3 & across) {
 
   // Compute the point on the trajectory, in projected coordinates
-  P = first_proj * (1.0 - t) + last_proj * t;
+  vw::Vector3 proj_pt = first_proj * (1.0 - t) + last_proj * t;
 
-  // Use centered difference to compute the along and across track points
-  // This achieves higher quality results
+  asp::calcEcefAlongAcross(dem_georef, delta, proj_along, proj_across, proj_pt,
+                          // Outputs, as vectors in ECEF
+                          along, across);
 
-  vw::Vector3 L1 = P - delta * proj_along; // along track point
-  vw::Vector3 C1 = P - delta * proj_across; // across track point
-  vw::Vector3 L2 = P + delta * proj_along; // along track point
-  vw::Vector3 C2 = P + delta * proj_across; // across track point
-
-  // Convert to cartesian
-  P  = projToEcef(dem_georef, P);
-  L1 = projToEcef(dem_georef, L1);
-  C1 = projToEcef(dem_georef, C1);
-  L2 = projToEcef(dem_georef, L2);
-  C2 = projToEcef(dem_georef, C2);
-
-  // Create the along track and across track vectors
-  along = L2 - L1;
-  across = C2 - C1;
-
-  // Make these vector have norm 1, and make across perpendicular to along
-  normalizeOrthogonalizeAlongAcross(along, across);
-}
-
-// Assemble the cam2world matrix from the along track, across track, and down vectors
-// Note how we swap the first two columns and flip one sign. We went the along
-// direction to be the camera y direction
-void assembleCam2WorldMatrix(vw::Vector3 const& along, 
-                             vw::Vector3 const& across, 
-                             vw::Vector3 const& down,
-                             // Output
-                             vw::Matrix3x3 & cam2world) {
-
-  for (int row = 0; row < 3; row++) {
-    cam2world(row, 0) = along[row];
-    cam2world(row, 1) = across[row];
-    cam2world(row, 2) = down[row];
-  }
- return;
-}
-
-// Return the matrix of rotation in the xy plane
-vw::Matrix3x3 rotationXY() {
-
-  vw::Matrix3x3 T;
-  // Set all elements to zero
-  for (int row = 0; row < 3; row++)
-    for (int col = 0; col < 3; col++)
-      T(row, col) = 0.0;
-  
-  T(0, 1) = 1;
-  T(1, 0) = -1;
-  T(2, 2) = 1;
-
-  return T;
+  // Convert the point along trajectory to ECEF
+  P  = vw::cartography::projToEcef(dem_georef, proj_pt);
 }
 
 // This is used to signify when the algorithm below fails to find a solution
@@ -225,10 +146,10 @@ double demPixelErr(SatSimOptions const& opt,
     // Calc position along the trajectory and normalized along and across vectors
     // in ECEF
     vw::Vector3 P, along, across;
-    calcTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
-                          proj_along, proj_across, 
-                          // Outputs, perpendicular and normal vectors
-                          P, along, across);
+    calcEcefTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
+                              proj_along, proj_across, 
+                              // Outputs, perpendicular and normal vectors
+                              P, along, across);
 
     // Find the z vector as perpendicular to both along and across
     vw::Vector3 down = vw::math::cross_prod(along, across);
@@ -236,10 +157,10 @@ double demPixelErr(SatSimOptions const& opt,
 
     // The camera to world rotation
     vw::Matrix3x3 cam2world;
-    assembleCam2WorldMatrix(along, across, down, cam2world);
+    asp::assembleCam2WorldMatrix(along, across, down, cam2world);
     // Apply the roll-pitch-yaw rotation
     vw::Matrix3x3 R = asp::rollPitchYaw(roll, pitch, yaw);
-    cam2world = cam2world * R * rotationXY();
+    cam2world = cam2world * R * asp::rotationXY();
 
     // Ray from camera to ground going through image center
     vw::Vector3 cam_dir = cam2world * vw::Vector3(0, 0, 1);
@@ -364,8 +285,8 @@ void findBestProjCamLocation
   // parametrizes the orbital segment between first_proj and last_proj, and
   // parametrize using value len, with t = len * param_scale_factor. 
   double eps = 1e-7;
-  vw::Vector3 P1 = projToEcef(dem_georef, first_proj); // t = 0
-  vw::Vector3 P2 = projToEcef(dem_georef, last_proj);  // t = 1
+  vw::Vector3 P1 = vw::cartography::projToEcef(dem_georef, first_proj); // t = 0
+  vw::Vector3 P2 = vw::cartography::projToEcef(dem_georef, last_proj);  // t = 1
   double d = norm_2(P2 - P1);
   if (d < 1.0)
     vw::vw_throw(vw::ArgumentErr() 
@@ -377,8 +298,8 @@ void findBestProjCamLocation
     double l1 = 0, l2 = eps;
     double t1 = param_scale_factor * l1; 
     double t2 = param_scale_factor * l2;
-    P1 = projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
-    P2 = projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
+    P1 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
+    P2 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
     std::cout << "Param scale factor is " << param_scale_factor << std::endl;
     std::cout << "Distance must be 1 meter: " << norm_2(P1 - P2) << std::endl;
   }
@@ -388,8 +309,8 @@ void findBestProjCamLocation
   // We will use this to find a good initial guess.
   double dt = 1e-3;
   double t1 = -dt, t2 = dt;
-  P1 = projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
-  P2 = projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
+  P1 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
+  P2 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
   double slope = norm_2(P2 - P1) / (2*dt);
   double spacing = 100.0 / slope;
 #if 0
@@ -397,8 +318,8 @@ void findBestProjCamLocation
   std::cout << "Spacing is " << spacing << std::endl;
   {
     double t1 = 0, t2 = spacing;
-    P1 = projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
-    P2 = projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
+    P1 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
+    P2 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
     std::cout << "Distance must be 100 meters: " << norm_2(P2 - P1) << std::endl;
   }
 #endif
@@ -479,7 +400,7 @@ double calcOrbitLength(vw::Vector3 const& first_proj,
   int num = 1.0e+5;
 
   // Start of each segment
-  vw::Vector3 beg = projToEcef(dem_georef, first_proj);
+  vw::Vector3 beg = vw::cartography::projToEcef(dem_georef, first_proj);
   // End of each segment
   vw::Vector3 end = beg;
   double orbitLength = 0.0;
@@ -490,7 +411,7 @@ double calcOrbitLength(vw::Vector3 const& first_proj,
     // Find the projected position of the current point
     vw::Vector3 curr_proj = first_proj + t * (last_proj - first_proj);
     // Find the ECEF position of the current point
-    end = projToEcef(dem_georef, curr_proj);
+    end = vw::cartography::projToEcef(dem_georef, curr_proj);
 
     // Add the length of the segment
     orbitLength += norm_2(end - beg);
@@ -536,7 +457,7 @@ void cameraAdjustment(vw::Vector2 const& first_ground_pos,
   ground_proj_pos[2] = val.child(); // z
 
   // Convert the ground point to ECEF
-  vw::Vector3 G = projToEcef(dem_georef, ground_proj_pos);
+  vw::Vector3 G = vw::cartography::projToEcef(dem_georef, ground_proj_pos);
 
   // Find the ground direction
   vw::Vector3 ground_dir = G - P;
@@ -556,7 +477,7 @@ void cameraAdjustment(vw::Vector2 const& first_ground_pos,
 
   // Make these vectors have norm 1, and make across perpendicular to along
   // Should already be that way by now, but do it just in case
-  normalizeOrthogonalizeAlongAcross(along, across);
+  asp::normalizeOrthogonalizeAlongAcross(along, across);
 }
 
 // Adjust the orbit end point and set the number of cameras given the frame rate
@@ -593,7 +514,7 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
   // Travel along the orbit in very small increments. Return the last point
   // before exceeding the orbit length. 
   int num = 1000000; // one million samples along the orbit should be enough
-  vw::Vector3 beg = projToEcef(dem_georef, first_proj);
+  vw::Vector3 beg = vw::cartography::projToEcef(dem_georef, first_proj);
   vw::Vector3 end = beg;
   vw::Vector3 out_proj = first_proj; // will keep the result here
   double curr_len = 0.0;
@@ -605,7 +526,7 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
     vw::Vector3 curr_proj = first_proj + t * (last_proj - first_proj);
 
     // Find the ECEF position of the current point and distance from previous
-    end = projToEcef(dem_georef, curr_proj);
+    end = vw::cartography::projToEcef(dem_georef, curr_proj);
     double curr_dist = norm_2(end - beg);
 
     if (curr_len + curr_dist > orbit_len)
@@ -746,30 +667,16 @@ void calcTrajectory(SatSimOptions & opt,
       (vw::math::subvector(opt.last,  0, 2)); // x and y
   last_proj[2] = opt.last[2]; // z
 
-  // Direction along the edge in proj coords (along track direction)
-  vw::Vector3 proj_along = last_proj - first_proj;
+  // Direction along the edge in proj coords (along track direction),
+  // and then the across track direction
+  vw::Vector3 proj_along, proj_across;
+  asp::calcProjAlongAcross(first_proj, last_proj, proj_along, proj_across);
   
-  // Sanity check
-  if (proj_along == vw::Vector3())
-    vw::vw_throw(vw::ArgumentErr()
-      << "The first and last camera positions are the same.\n");
-  // Normalize
-  proj_along = proj_along / norm_2(proj_along);
-  // One more sanity check
-  if (std::max(std::abs(proj_along[0]), std::abs(proj_along[1])) < 1e-6)
-    vw::vw_throw(vw::ArgumentErr()
-      << "It appears that the satellite is aiming for the ground or "
-      << "the orbital segment is too short. Correct the orbit end points.\n");
-
-  // Find the across-track direction, parallel to the ground, in projected coords
-  vw::Vector3 proj_across = vw::math::cross_prod(proj_along, vw::Vector3(0, 0, 1));
-  proj_across = proj_across / norm_2(proj_across);
-
   // A small number to help convert directions from being in projected space to
   // ECEF (the transform between these is nonlinear). Do not use a small value,
   // as in ECEF these will be large numbers and we may have precision issues.
   // The value 0.01 was tested well.
-  double delta = 0.01; // in meters
+  double delta = asp::satSimDelta(); // in meters
 
   bool have_ground_pos = !std::isnan(norm_2(opt.first_ground_pos)) &&  
       !std::isnan(norm_2(opt.last_ground_pos));
@@ -856,10 +763,10 @@ void calcTrajectory(SatSimOptions & opt,
     // to each other.
     double t = double(i) / double(opt.num_cameras - 1);
     vw::Vector3 P, along, across;
-    calcTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
-                          proj_along, proj_across, 
-                          // Outputs
-                          P, along, across);
+    calcEcefTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
+                              proj_along, proj_across, 
+                              // Outputs, in ECEF
+                              P, along, across);
 
     // Adjust the camera if constrained by the ground but not by roll/pitch/yaw
     if (have_ground_pos && !have_roll_pitch_yaw)
@@ -875,7 +782,7 @@ void calcTrajectory(SatSimOptions & opt,
     trajectory[i] = P;
     
     // The camera to world rotation has these vectors as the columns
-    assembleCam2WorldMatrix(along, across, down, cam2world[i]);
+    asp::assembleCam2WorldMatrix(along, across, down, cam2world[i]);
 
     // Save this before applying adjustments as below. These two 
     // have some important differences, as can be seen below.
@@ -903,8 +810,8 @@ void calcTrajectory(SatSimOptions & opt,
     cam2world_no_jitter[i] = cam2world_no_jitter[i] * R0;
 
     // In either case apply the in-plane rotation from camera to satellite frame
-    cam2world[i] = cam2world[i] * rotationXY();
-    cam2world_no_jitter[i] = cam2world_no_jitter[i] * rotationXY();
+    cam2world[i] = cam2world[i] * asp::rotationXY();
+    cam2world_no_jitter[i] = cam2world_no_jitter[i] * asp::rotationXY();
 
     tpc.report_incremental_progress(inc_amount);
   }
