@@ -16,13 +16,11 @@
 // __END_LICENSE__
 
 /// \file CameraTransforms.cc
-///
 
 #include <asp/Core/CameraTransforms.h>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
-
 
 namespace asp {
 
@@ -62,7 +60,6 @@ void matrixToQuaternion(vw::Matrix3x3 const& R,
 // A function to convert a quaternion given by 4 numbers to a VW matrix. It is
 // very important to note that were we assume the order of the quaternion
 // numbers is (x, y, z, w) and not (w, x, y, z).
-// TODO(oalexan1): This must be tested.
 vw::Matrix3x3 quaternionToMatrix(double x, double y, double z, double w) {
   Eigen::Quaterniond q;
   q.x() = x;
