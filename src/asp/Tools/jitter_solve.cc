@@ -334,7 +334,7 @@ struct weightedYawError {
     // TODO(oalexan1): Wipe everything below this line
     // Current quaternion
     double const * q = &quaternions[cur_pos * NUM_QUAT_PARAMS];
-    vw::Matrix3x3 cam2world = asp::quaternionToMatrix(q[0], q[1], q[2], q[3]);
+    vw::Matrix3x3 cam2world = asp::quaternionToMatrix(q);
 
     vw::Matrix3x3 rollPitchYaw  
       = vw::math::inverse(m_satToWorld) * cam2world * vw::math::inverse(m_rotXY);
@@ -355,33 +355,18 @@ struct weightedYawError {
   // yaw.
   bool operator()(double const * const * parameters, double * residuals) const {
 
-    // Fetch and normalize the current quaternion
-    double q[4];
-    for (int i = 0; i < NUM_QUAT_PARAMS; i++)
-      q[i] = parameters[0][i];
-    double q_len = 0;
-    for (int i = 0; i < NUM_QUAT_PARAMS; i++)
-      q_len += q[i]*q[i];
-    q_len = sqrt(q_len);
-    std::cout << "len of q is " << q_len << std::endl;
-    // Normalize q
-    for (int i = 0; i < NUM_QUAT_PARAMS; i++)
-      q[i] /= q_len;
-      
     // Convert to rotation matrix. Order of quaternion is x, y, z, w.  
-    vw::Matrix3x3 cam2world = asp::quaternionToMatrix(q[0], q[1], q[2], q[3]);
+    vw::Matrix3x3 cam2world = asp::quaternionToMatrix(parameters[0]);
 
     vw::Matrix3x3 rollPitchYaw  
       = vw::math::inverse(m_satToWorld) * cam2world * vw::math::inverse(m_rotXY);
 
     double roll, pitch, yaw;
     rollPitchYawFromRotationMatrix(rollPitchYaw, roll, pitch, yaw);
-    std::cout << "roll, pitch, yaw = " << roll << ' ' << pitch << ' ' << yaw << std::endl;
 
     // Yaw can be determined with +/- 180 degree ambiguity. We want to
     // keep the smallest yaw value.
     yaw = yaw - 180.0 * round(yaw / 180.0);
-    std::cout << "residual yaw = " << yaw << std::endl;
 
     residuals[0] = yaw * m_yawWeight;
 
@@ -557,7 +542,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("quat-norm-weight", po::value(&opt.quat_norm_weight)->default_value(1.0),
      "How much weight to give to the constraint that the norm of each quaternion must be 1.")
     ("yaw-weight", po::value(&opt.yaw_weight)->default_value(0.0),
-     "A weight to penalize the deviation of camera yaw orientation as measured from along-track direction. This is best used only with linescan cameras created with sat_sim.")
+     "A weight to penalize the deviation of camera yaw orientation as measured from the along-track direction. Pass in a large value, such as 1e+4. This is best used only with linescan cameras created with sat_sim.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1.0),
      "Remove matched IPs this percentage from the image left/right sides.");
   

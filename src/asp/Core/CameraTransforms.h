@@ -47,7 +47,7 @@ void rollPitchYawFromRotationMatrix(vw::Matrix3x3 const& R,
 
 // A function to convert a quaternion given by 4 numbers in x, y, z, w order 
 // to a VW matrix.
-vw::Matrix3x3 quaternionToMatrix(double x, double y, double z, double w);
+vw::Matrix3x3 quaternionToMatrix(double const* q);
 
 } //end namespace asp
 

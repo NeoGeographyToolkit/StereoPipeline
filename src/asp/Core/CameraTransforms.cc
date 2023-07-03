@@ -60,13 +60,15 @@ void matrixToQuaternion(vw::Matrix3x3 const& R,
 // A function to convert a quaternion given by 4 numbers to a VW matrix. It is
 // very important to note that were we assume the order of the quaternion
 // numbers is (x, y, z, w) and not (w, x, y, z).
-vw::Matrix3x3 quaternionToMatrix(double x, double y, double z, double w) {
-  Eigen::Quaterniond q;
-  q.x() = x;
-  q.y() = y;
-  q.z() = z;
-  q.w() = w;
-  Eigen::Matrix3d m = q.toRotationMatrix();
+vw::Matrix3x3 quaternionToMatrix(double const* q) {
+  Eigen::Quaterniond eq;
+  eq.x() = q[0];
+  eq.y() = q[1];
+  eq.z() = q[2];
+  eq.w() = q[3];
+  // Normalize it
+  eq.normalize();
+  Eigen::Matrix3d m = eq.toRotationMatrix();
 
   // Convert to vw::Matrix3x3
   return eigenToVwMat(m);
