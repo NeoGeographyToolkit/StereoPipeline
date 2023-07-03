@@ -15,6 +15,9 @@ point clouds to another data source (:numref:`pc-align-example`),
 perform 3D terrain adjustments in respect to a geoid
 (:numref:`geoid_adj`), converted to LAS (:numref:`gen_las`), etc.
 
+It is suggested to read the tutorial (:numref:`tutorial`) before
+this chapter.
+
 .. _running-stereo:
 
 Stereo Pipeline in more detail
