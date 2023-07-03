@@ -126,9 +126,11 @@ Open the computed DEM and orthoimage as::
 
 Right-click on the DEM on the left and choose to toggle hillshading to
 show the DEM hillshaded. See the figure below for the output.
-
+   
 How to get higher quality results is described in  :numref:`nextsteps`. 
 
+For other examples, see :numref:`examples`. 
+ 
 .. figure:: images/lronac_csm_example.png
    :name: lronac_csm_example
 
@@ -183,8 +185,8 @@ the ISIS Session Log, usually written out to a file named ``print.prt``).
    different ground scales. The view on the right shows both images zoomed
    in on the same feature.
 
-Datasets for other type of cameras or other planets can be pre-processed
-similarly, using the ISIS tools specific to them.
+See :numref:`examples` for many solved examples, including how to preprocess the
+data with tools specific for each mission.
 
 Once the ``.cub`` files are obtained, it is possible to run
 ``parallel_stereo`` right away::
