@@ -258,33 +258,34 @@ struct weightedTranslationError {
   double  m_weight;
 };
 
-// A Ceres cost function. The residual is the yaw component of the camera
+// A Ceres cost function. The residual is the roll and/or yaw component of the camera
 // rotation, as measured relative to the initial along-track direction. We assume
 // that all positions are along the same segment in projected coordinates, or at
 // least that the current position and its nearest neighbors are roughly on
-// such a segment. That one is used to measure the yaw from. This is consistent
+// such a segment. That one is used to measure the roll/yaw from. This is consistent
 // with how sat_sim creates the cameras.
-struct weightedYawError {
-  weightedYawError(std::vector<double>           const& positions, 
+struct weightedRollYawError {
+  weightedRollYawError(std::vector<double>       const& positions, 
                    std::vector<double>           const& quaternions,
                    vw::cartography::GeoReference const& georef,
-                   int cur_pos, double yawWeight): m_yawWeight(yawWeight) {
+                   int cur_pos, double rollWeight, double yawWeight): 
+                   m_rollWeight(rollWeight), m_yawWeight(yawWeight) {
 
     int num_pos = positions.size()/NUM_XYZ_PARAMS;
     int num_quat = quaternions.size()/NUM_QUAT_PARAMS;
     if (num_pos != num_quat)
       vw::vw_throw(ArgumentErr() 
-        << "weightedYawError: Expecting the same number of positions and quaternions.\n");
+        << "weightedRollYawError: Expecting the same number of positions and quaternions.\n");
     if (cur_pos < 0 || cur_pos >= num_pos)
       vw::vw_throw(ArgumentErr() 
-        << "weightedYawError: Expecting position index in range.\n");
+        << "weightedRollYawError: Expecting position index in range.\n");
 
     // Find the nearest neighbors of the current position
     int beg_pos = std::max(0, cur_pos - 1);
     int end_pos = std::min(num_pos - 1, cur_pos + 1);
     if (beg_pos >= end_pos)
       vw::vw_throw(ArgumentErr() 
-        << "weightedYawError: Expecting at least 2 camera positions.\n");
+        << "weightedRollYawError: Expecting at least 2 camera positions.\n");
 
     // Find the segment along which the cameras are located, in projected coordinates
     // Here we mirror the logic from SatSim.cc
@@ -295,31 +296,21 @@ struct weightedYawError {
     vw::Vector3 cur_pt(positions[c], positions[c+1], positions[c+2]);
     vw::Vector3 end_pt(positions[e], positions[e+1], positions[e+2]);
 
-    // TODO(oalexan1): Move all logic below to SatSimBase.cc. Call it: 
-    // findYawAngle()
-
     // Orbital points before the current one, after the current one, and the current one
     // in projected coordinates
     vw::Vector3 beg_proj = vw::cartography::ecefToProj(georef, beg_pt);
     vw::Vector3 cur_proj = vw::cartography::ecefToProj(georef, cur_pt);
     vw::Vector3 end_proj = vw::cartography::ecefToProj(georef, end_pt);
-    std::cout << "beg proj = " << beg_proj << std::endl;
-    std::cout << "cur proj = " << cur_proj << std::endl;
-    std::cout << "end proj = " << end_proj << std::endl;
     
     // Find satellite along and across track directions in projected coordinates
     vw::Vector3 proj_along, proj_across;
     asp::calcProjAlongAcross(beg_proj, end_proj, proj_along, proj_across);
-
-    std::cout << "proj_along = " << proj_along << std::endl;
-    std::cout << "proj_across = " << proj_across << std::endl;
 
     // Find along and across in ECEF
     vw::Vector3 along, across;
     asp::calcEcefAlongAcross(georef, asp::satSimDelta(), 
                               proj_along, proj_across, cur_proj,
                               along, across); // outputs
-    std::cout << "along and across = " << along << ' ' << across << std::endl;                               
 
     // Find the z vector as perpendicular to both along and across
     vw::Vector3 down = vw::math::cross_prod(along, across);
@@ -330,26 +321,9 @@ struct weightedYawError {
     // cam2world = satToWorld * rollPitchYaw * rotXY.
     asp::assembleCam2WorldMatrix(along, across, down, m_satToWorld);
     m_rotXY = asp::rotationXY();
-
-    // TODO(oalexan1): Wipe everything below this line
-    // Current quaternion
-    double const * q = &quaternions[cur_pos * NUM_QUAT_PARAMS];
-    vw::Matrix3x3 cam2world = asp::quaternionToMatrix(q);
-
-    vw::Matrix3x3 rollPitchYaw  
-      = vw::math::inverse(m_satToWorld) * cam2world * vw::math::inverse(m_rotXY);
-
-    double roll, pitch, yaw;
-    rollPitchYawFromRotationMatrix(rollPitchYaw, roll, pitch, yaw);
-    std::cout << "roll, pitch, yaw = " << roll << ' ' << pitch << ' ' << yaw << std::endl;
-
-    // Yaw can be determined with +/- 180 degree ambiguity. We want to
-    // keep the smallest yaw value.
-    yaw = yaw - 180.0 * round(yaw / 180.0);
-    std::cout << "yaw = " << yaw << std::endl;
   }
 
-  // Compute the weighted yaw error between the current position and along-track
+  // Compute the weighted roll/yaw error between the current position and along-track
   // direction. Recall that q = m_satToWorld * rollPitchYaw * m_rotXY.
   // rollPitchYaw is variable and can have jitter. Extract from it roll, pitch,
   // yaw.
@@ -364,11 +338,13 @@ struct weightedYawError {
     double roll, pitch, yaw;
     rollPitchYawFromRotationMatrix(rollPitchYaw, roll, pitch, yaw);
 
-    // Yaw can be determined with +/- 180 degree ambiguity. We want to
+    // Roll / yaw can be determined with +/- 180 degree ambiguity. We want to
     // keep the smallest yaw value.
+    roll = roll - 180.0 * round(roll / 180.0);
     yaw = yaw - 180.0 * round(yaw / 180.0);
 
-    residuals[0] = yaw * m_yawWeight;
+    residuals[0] = roll * m_rollWeight;
+    residuals[1] = yaw * m_yawWeight;
 
     return true;
   }
@@ -378,19 +354,21 @@ struct weightedYawError {
   static ceres::CostFunction* Create(std::vector<double>           const& positions, 
                                      std::vector<double>           const& quaternions, 
                                      vw::cartography::GeoReference const& georef,
-                                     int cur_pos, double yawWeight) {
+                                     int cur_pos, 
+                                     double rollWeight, double yawWeight) {
 
-    ceres::DynamicNumericDiffCostFunction<weightedYawError>* cost_function =
-          new ceres::DynamicNumericDiffCostFunction<weightedYawError>
-          (new weightedYawError(positions, quaternions, georef, cur_pos, yawWeight));
+    ceres::DynamicNumericDiffCostFunction<weightedRollYawError>* cost_function =
+          new ceres::DynamicNumericDiffCostFunction<weightedRollYawError>
+          (new weightedRollYawError(positions, quaternions, georef, cur_pos, 
+                                    rollWeight, yawWeight));
 
-    cost_function->SetNumResiduals(1);
+    cost_function->SetNumResiduals(2); // for roll and yaw
     cost_function->AddParameterBlock(NUM_QUAT_PARAMS);
 
     return cost_function;
   }
 
-  double m_yawWeight;
+  double m_rollWeight, m_yawWeight;
   vw::Matrix3x3 m_rotXY, m_satToWorld;
 };
 
@@ -423,7 +401,7 @@ struct weightedQuatNormError {
 
 struct Options: public asp::BaBaseOptions {
   int num_lines_per_position, num_lines_per_orientation, num_anchor_points;
-  double quat_norm_weight, anchor_weight, yaw_weight;
+  double quat_norm_weight, anchor_weight, roll_weight, yaw_weight;
   std::string anchor_dem;
   int num_anchor_points_extra_lines;
 };
@@ -541,8 +519,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "the original camera positions.")
     ("quat-norm-weight", po::value(&opt.quat_norm_weight)->default_value(1.0),
      "How much weight to give to the constraint that the norm of each quaternion must be 1.")
+    ("roll-weight", po::value(&opt.roll_weight)->default_value(0.0),
+     "A weight to penalize the deviation of camera roll orientation as measured from the along-track direction. Pass in a large value, such as 1e+5. This is best used only with linescan cameras created with sat_sim.")
     ("yaw-weight", po::value(&opt.yaw_weight)->default_value(0.0),
-     "A weight to penalize the deviation of camera yaw orientation as measured from the along-track direction. Pass in a large value, such as 1e+4. This is best used only with linescan cameras created with sat_sim.")
+     "A weight to penalize the deviation of camera yaw orientation as measured from the along-track direction. Pass in a large value, such as 1e+5. This is best used only with linescan cameras created with sat_sim.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1.0),
      "Remove matched IPs this percentage from the image left/right sides.");
   
@@ -642,13 +622,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.quat_norm_weight <= 0)
     vw_throw(ArgumentErr() << "Quaternion norm weight must be positive.\n");
 
+  if (opt.roll_weight < 0.0)
+    vw_throw(ArgumentErr() << "Roll weight must be non-negative.\n");
+
   if (opt.yaw_weight < 0.0)
     vw_throw(ArgumentErr() << "Yaw weight must be non-negative.\n");
 
-  // Handle the yaw constraint DEM
-  if (opt.yaw_weight > 0 && opt.heights_from_dem == "" && opt.ref_dem == "" && 
-    opt.anchor_dem == "")
-      vw::vw_throw(ArgumentErr() << "Cannot use the yaw constraint without a DEM. "
+  // Handle the roll/yaw constraint DEM
+  if ((opt.roll_weight > 0 || opt.yaw_weight > 0) &&
+     opt.heights_from_dem == "" && opt.ref_dem == "" && opt.anchor_dem == "")
+      vw::vw_throw(ArgumentErr() << "Cannot use the roll/yaw constraint without a DEM. "
         << "Set either --heights-from-dem, --anchor-dem, or --reference-dem.\n");
 
   if (opt.num_anchor_points < 0)
@@ -1499,7 +1482,7 @@ void addQuatNormRotationTranslationConstraints(
   }
 }
 
-void addYawConstraint
+void addRollYawConstraint
    (Options                                         const& opt,
     vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
     std::vector<UsgsAstroLsSensorModel*>            const& ls_models,
@@ -1508,23 +1491,26 @@ void addYawConstraint
     std::vector<double>                                  & weight_per_residual,
     ceres::Problem                                       & problem) {
   
-  if (opt.yaw_weight <= 0.0) 
+  if (opt.roll_weight <= 0.0 && opt.yaw_weight <= 0.0)
      vw::vw_throw(vw::ArgumentErr() 
-         << "addYawConstraint: The yaw weight must be positive.\n");
+         << "addRollYawConstraint: The roll or yaw weight must be positive.\n");
 
   for (int icam = 0; icam < (int)crn.size(); icam++) {
     int numQuat = ls_models[icam]->m_quaternions.size() / NUM_QUAT_PARAMS;
     for (int iq = 0; iq < numQuat; iq++) {
-      ceres::CostFunction* yaw_cost_function
-        = weightedYawError::Create(ls_models[icam]->m_positions, 
+      ceres::CostFunction* roll_yaw_cost_function
+        = weightedRollYawError::Create(ls_models[icam]->m_positions, 
                                    ls_models[icam]->m_quaternions,
-                                   georef, iq, opt.yaw_weight);
+                                   georef, iq,
+                                   opt.roll_weight, opt.yaw_weight);
 
       // We use no loss function, as the quaternions have no outliers
-      ceres::LossFunction* yaw_loss_function = NULL;
-      problem.AddResidualBlock(yaw_cost_function, yaw_loss_function,
+      ceres::LossFunction* roll_yaw_loss_function = NULL;
+      problem.AddResidualBlock(roll_yaw_cost_function, roll_yaw_loss_function,
                                &ls_models[icam]->m_quaternions[iq * NUM_QUAT_PARAMS]);
-      weight_per_residual.push_back(opt.yaw_weight); // 1 single residual
+      // The recorded weight should not be 0 as we will divide by it
+      weight_per_residual.push_back(opt.roll_weight || 1.0);
+      weight_per_residual.push_back(opt.yaw_weight  || 1.0);
     } // end loop through quaternions for given camera
   } // end loop through cameras
 
@@ -1700,16 +1686,16 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (opt.anchor_dem != "")
     asp::create_interp_dem(opt.anchor_dem, anchor_georef, interp_anchor_dem);
   
-  // Handle the yaw constraint DEM. We already checked that one of thse cases should work
-  vw::cartography::GeoReference yaw_georef;
-  if (opt.yaw_weight > 0) {
+  // Handle the roll/yaw constraint DEM. We already checked that one of thse cases should work
+  vw::cartography::GeoReference roll_yaw_georef;
+  if (opt.roll_weight > 0 || opt.yaw_weight > 0) {
     if (opt.heights_from_dem != "" || opt.ref_dem != "") {
-      yaw_georef = dem_georef;
+      roll_yaw_georef = dem_georef;
       vw::vw_out() << "Using the DEM from --heights-from-dem or --reference-dem "
-                   << "for the yaw constraint.\n";
+                   << "for the roll/yaw constraint.\n";
     } else if (opt.anchor_dem != "") {
-      yaw_georef = anchor_georef;
-      vw::vw_out() << "Using the DEM from --anchor-dem for the yaw constraint.\n";
+      roll_yaw_georef = anchor_georef;
+      vw::vw_out() << "Using the DEM from --anchor-dem for the roll/yaw constraint.\n";
     }
   } 
 
@@ -1826,8 +1812,8 @@ void run_jitter_solve(int argc, char* argv[]) {
                                             weight_per_residual,  // append
                                             problem);
 
-  if (opt.yaw_weight > 0)
-    addYawConstraint(opt, crn, ls_models, yaw_georef,
+  if (opt.roll_weight > 0 || opt.yaw_weight > 0)
+    addRollYawConstraint(opt, crn, ls_models, roll_yaw_georef,
                      weight_per_residual, problem); // outputs
 
   // Save residuals before optimization
