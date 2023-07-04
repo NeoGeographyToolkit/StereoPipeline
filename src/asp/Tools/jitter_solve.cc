@@ -296,8 +296,8 @@ struct weightedRollYawError {
     vw::Vector3 cur_pt(positions[c], positions[c+1], positions[c+2]);
     vw::Vector3 end_pt(positions[e], positions[e+1], positions[e+2]);
 
-    // Orbital points before the current one, after the current one, and the current one
-    // in projected coordinates
+    // Orbital points before the current one, the current one, and after the
+    // current one, in projected coordinates
     vw::Vector3 beg_proj = vw::cartography::ecefToProj(georef, beg_pt);
     vw::Vector3 cur_proj = vw::cartography::ecefToProj(georef, cur_pt);
     vw::Vector3 end_proj = vw::cartography::ecefToProj(georef, end_pt);
@@ -316,15 +316,15 @@ struct weightedRollYawError {
     vw::Vector3 down = vw::math::cross_prod(along, across);
     down = down / norm_2(down);
 
-    // Find the rotation matrix from satellite to world coordinates,
-    // and 90 degree in-camera rotation
+    // Find the rotation matrix from satellite to world coordinates, and 90
+    // degree in-camera rotation. It is assumed, as in sat_sim, that:
     // cam2world = satToWorld * rollPitchYaw * rotXY.
     asp::assembleCam2WorldMatrix(along, across, down, m_satToWorld);
     m_rotXY = asp::rotationXY();
   }
 
   // Compute the weighted roll/yaw error between the current position and along-track
-  // direction. Recall that q = m_satToWorld * rollPitchYaw * m_rotXY.
+  // direction. Recall that quaternion = cam2world = satToWorld * rollPitchYaw * rotXY.
   // rollPitchYaw is variable and can have jitter. Extract from it roll, pitch,
   // yaw.
   bool operator()(double const * const * parameters, double * residuals) const {
@@ -338,13 +338,14 @@ struct weightedRollYawError {
     double roll, pitch, yaw;
     rollPitchYawFromRotationMatrix(rollPitchYaw, roll, pitch, yaw);
 
-    // Roll / yaw can be determined with +/- 180 degree ambiguity. We want to
-    // keep the smallest yaw value.
+    // Fix for roll / yaw being determined with +/- 180 degree ambiguity.
     roll = roll - 180.0 * round(roll / 180.0);
-    yaw = yaw - 180.0 * round(yaw / 180.0);
+    yaw  = yaw  - 180.0 * round(yaw  / 180.0);
 
+    // CERES is very tolerant if one of the weights used below is 0. So there is
+    // no need to use a special cost function for such cases.
     residuals[0] = roll * m_rollWeight;
-    residuals[1] = yaw * m_yawWeight;
+    residuals[1] = yaw  * m_yawWeight;
 
     return true;
   }

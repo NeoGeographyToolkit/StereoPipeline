@@ -46,9 +46,18 @@ bundle_adjust (:numref:`bundle_adjust`):
     the cameras in bundle adjustment, while improving the
     self-consistency of the camera configuration
     (:numref:`skysat_stereo`).
-  *  Bugfix for slow performance and memory usage for a large number
-     of images.
+  * Bugfix for slow performance and memory usage for a large number
+    of images.
 
+jitter_solve (:numref:`jitter_solve`):
+  * Added the options ``--yaw-weight`` and ``--roll-weight`` to control the
+    amount of change in these angles relative to the along-track direction. To
+    be used with synthetic cameras created with ``sat_sim`` (:numref:`sat_sim`). 
+  * Added a section discussing solving for jitter with synthetic camera models
+    (:numref:`jitter_sat_sim`).
+  * Added a section on how to prepare interest point matches
+    (:numref:`jitter_ip`).
+    
 sfs (:numref:`sfs`): 
   * Created an SfS DEM of size 14336 x 11008 pixels, at 1 m pixel with
     420 LRO NAC images with various illuminations and orientations.

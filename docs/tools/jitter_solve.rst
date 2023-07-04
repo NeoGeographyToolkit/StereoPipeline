@@ -128,6 +128,44 @@ and of triangulation errors (:numref:`triangulation_error`)
 and DEM differences after solving for jitter
 (:numref:`jitter_dg`) can help decide the sampling rate.
 
+.. _jitter_ip:
+
+Interest point matches
+~~~~~~~~~~~~~~~~~~~~~~
+
+Since solving for jitter is a fine-grained operation, modifying many positions
+and orientations along the satellite track, many dense and uniformly distributed
+interest points are necessary. It is suggested to create these with stereo, with
+the option ``--num-matches-from-disparity``. An example is shown in
+:numref:`jitter_ctx`.
+
+The most accurate interest points are obtained when the images are mapprojected.
+This is illustrated in :numref:`jitter_dg`. The produced interest point
+matches will be, however, between the original, unprojected images, as expected
+by the solver.
+
+If there are more than two images, it is good to have a lot of triplets among
+the interest point matches (features that show up in at least three images).
+Otherwise, the triangulated surface may decouple into disjoint pairwise triangulated
+surfaces (though this is less likely to happen with the ``--heights-from-dem`` option).
+
+Plenty of triplets are usually generated with the option
+``--num-matches-from-disparity``, if this is invoked with stereo between first
+and second image, first and third, second and third, etc. The image that overlaps
+the most with other images should be used as the first one.
+
+It is suggested to call ``jitter_solve`` with a large value of
+``--max-pairwise-matches``, such as 1000000, to ensure that all interest point
+matches are used, especially the triplets.
+
+To determine if a triangulated point corresponds to a triplet of interest point
+matches, examine the produced ``*-pointmap.csv`` files. Their format is
+described in :numref:`jitter_out_files`.
+
+The dense interest point matches need to be copied from each output stereo directory
+to a location and with a naming convention such that they can be used
+by ``jitter_solve``. That is illustrated in :numref:`jitter_dg`.
+
 .. _jitter_ctx:
 
 Example 1: CTX images on Mars
@@ -196,7 +234,7 @@ Bundle adjustment is run first::
 
     bundle_adjust                               \
       --ip-per-image 20000                      \
-      --max-pairwise-matches 10000              \
+      --max-pairwise-matches 1000000            \
       --tri-weight 0.05                         \
       --tri-robust-threshold 0.1                \
       --camera-weight 0                         \
@@ -213,6 +251,11 @@ Outlier removal was allowed to be more generous (hence the values of
 obtained from interest point matches may not project perfectly in the
 cameras.
 
+Here we chose to use a large value for ``--max-pairwise-matches`` and
+we will do the same when solving for jitter below. That is because
+jitter-solving is a finer-grained operation than bundle adjustment,
+and a lot of interest point matches are needed. 
+
 Stereo is run next. The ``local_epipolar`` alignment
 (:numref:`running-stereo`) here did a flawless job, unlike
 ``affineepipolar`` alignment which resulted in some blunders.
@@ -221,7 +264,7 @@ Stereo is run next. The ``local_epipolar`` alignment
     parallel_stereo                           \
       --bundle-adjust-prefix ba/run           \
       --stereo-algorithm asp_mgm              \
-      --num-matches-from-disp-triplets 40000  \
+      --num-matches-from-disparity 40000      \
       --alignment-method local_epipolar       \
       img/J03_045820_1915_XN_11N210W.cal.cub  \
       img/K05_055472_1916_XN_11N210W.cal.cub  \
@@ -231,10 +274,9 @@ Stereo is run next. The ``local_epipolar`` alignment
     point2dem --errorimage stereo/run-PC.tif
 
 Note how above we chose to create dense interest point matches from
-disparity. They will be used to solve for jitter. The option used
-``--num-matches-from-disp-triplets`` can be very slow for images
-larger than 50,000 pixels on the side, or so. Then, use
-``--num-matches-from-disparity``.
+disparity. They will be used to solve for jitter. We used the option
+``--num-matches-from-disparity``. See :numref:`jitter_ip` for
+more details.
 
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices for stereo. Close to the poles a polar
@@ -424,6 +466,9 @@ simultaneously for all these, or in pairs, and the logic in the
 earlier example could be repeated, but with a higher quality reference
 DEM.
 
+See :numref:`jitter_ip` for how to create interest point matches when
+taking into account that multiple images are used.
+
 .. _jitter_dg:
 
 Example 2: WorldView-3 DigitalGlobe images on Earth
@@ -561,6 +606,9 @@ solving for jitter::
     mkdir -p dense
     cp run_1_2_map/run-disp-1.map__2.map.match \
       dense/run-1__2.match
+
+See :numref:`jitter_ip` for a longer explanation regarding interest point
+matches.
 
 Solve for jitter::
 
@@ -780,6 +828,9 @@ the convention expected later by ``jitter_solve``::
     /bin/cp -fv stereo_map_12/run-disp-1.map__2.map.match \
       matches/run-1__2.match
 
+See :numref:`jitter_ip` for a longer explanation regarding interest point
+matches.
+
 Solve for jitter with the intrinsic ``--tri-weight`` constraint::
 
     jitter_solve                               \
@@ -851,6 +902,33 @@ It is very instructive to examine how much the DEM changed as a
 result. It can be seen in :numref:`pleiades_dem_diff` that the reference
 DEM constraint changes the result more. Likely, a smaller value
 of the weight for that constraint could have been used.
+
+.. _jitter_sat_sim:
+
+Jitter and synthetic cameras
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The effectiveness of ``jitter_solve`` can be validated using synthetic data,
+when we know what the answer should be ahead of time. The synthetic data can 
+created with ``sat_sim`` (:numref:`sat_sim`). See a recipe in
+:numref:`sat_sim_linescan`. 
+
+For example, for a given path on the ground, one may create three linescan
+images and cameras, using various values for the pitch angle, such as -30, 0,
+and 30 degrees, modeling a camera that looks forward, down, and aft.
+One can choose to not have any jitter in the images or cameras, then
+create a second set of cameras with *pitch* (along-track) jitter.
+
+Then, ``jitter_solve`` can be used to solve for the jitter. It can be invoked
+with the images not having jitter and the cameras having the jitter. It should
+then greatly reduce the amount of jitter present in the cameras.
+
+It is suggested to use the roll and yaw constraints (``--roll-weight`` and
+``--yaw-weight``, with values on the order of 1e+5), to keep these angles in
+check while correcting the pitch jitter.
+
+The ``--heights-from-dem`` option should be used as well, to tie the solution to
+the reference DEM. 
 
 .. _jitter_out_files:
 
@@ -942,6 +1020,10 @@ Command-line options for jitter_solve
     Reduce the number of matches per pair of images to at most this
     number, by selecting a random subset, if needed. This happens
     when setting up the optimization, and before outlier filtering.
+    It is suggested to set this to a large number, such as one million,
+    to avoid filtering out too many matches. It may be reduced
+    only if the number of images is large and the number of matches
+    becomes unsustainable.
 
 --num-iterations <integer (default: 100)>
     Set the maximum number of iterations.
@@ -1059,6 +1141,18 @@ Command-line options for jitter_solve
     camera positions, multiplied by this weight, and then squared. No
     robust threshold is used to attenuate this term. See also
     :numref:`jitter_camera`.
+
+--roll-weight <double (default: 0.0)>
+    A weight to penalize the deviation of camera roll orientation as measured
+    from the along-track direction. Pass in a large value, such as 1e+5. This is
+    best used only with linescan cameras created with ``sat_sim``
+    (:ref:`sat_sim`). 
+
+--yaw-weight <double (default: 0.0)>
+    A weight to penalize the deviation of camera yaw orientation as measured
+    from the along-track direction. Pass in a large value, such as 1e+5. This is
+    best used only with linescan cameras created with ``sat_sim``
+    (:ref:`sat_sim`). 
 
 --reference-dem <string>
     If specified, constrain every ground point where rays from
