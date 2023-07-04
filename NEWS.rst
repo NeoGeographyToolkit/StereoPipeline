@@ -50,7 +50,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     of images.
 
 jitter_solve (:numref:`jitter_solve`):
-  * Added the options ``--yaw-weight`` and ``--roll-weight`` to control the
+  * Added the options ``--roll-weight`` and ``--yaw-weight`` to control the
     amount of change in these angles relative to the along-track direction. To
     be used with synthetic cameras created with ``sat_sim`` (:numref:`sat_sim`). 
   * Added a section discussing solving for jitter with synthetic camera models
