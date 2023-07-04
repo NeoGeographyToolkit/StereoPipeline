@@ -1518,39 +1518,21 @@ void addRollYawConstraint
   return;
 }
 
-void run_jitter_solve(int argc, char* argv[]) {
+// Extract the linescan models from the camera models. Apply adjustments. Resample.
+void populateLinescanCameras(Options    const& opt,
+  std::vector<vw::CamPtr>               const& camera_models,
+  std::vector<UsgsAstroLsSensorModel*>       & ls_models) {
 
-  // Parse arguments and perform validation
-  Options opt;
-  handle_arguments(argc, argv, opt);
-
-  bool approximate_pinhole_intrinsics = false;
-  asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
-                    approximate_pinhole_intrinsics,  
-                    // Outputs
-                    opt.stereo_session,  // may change
-                    opt.single_threaded_cameras,  
-                    opt.camera_models);
-
-  // Find the datum
-  vw::cartography::Datum datum;
-  asp::datum_from_cameras(opt.image_files, opt.camera_files,  
-                          opt.stereo_session,  // may change
-                          // Outputs
-                          datum);
-  
-  // Apply the input adjustments to the CSM cameras. Get pointers to the underlying
-  // linescan cameras, as need to manipulate those directly.
-  std::vector<UsgsAstroLsSensorModel*> ls_models;
+  // Wipe the output
+  ls_models.clear();
   
   for (size_t icam = 0; icam < opt.camera_models.size(); icam++) {
-
     asp::CsmModel * csm_cam = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
-
+    std::cout << "now here 2" << std::endl;
     if (!opt.input_prefix.empty()) {
       std::string adjust_file
         = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[icam],
-                                       opt.camera_files[icam]);
+                                      opt.camera_files[icam]);
       vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
       // This modifies opt.camera_models
       vw::camera::AdjustedCameraModel
@@ -1579,15 +1561,96 @@ void run_jitter_solve(int argc, char* argv[]) {
     
     ls_models.push_back(ls_model);
   }
+}
+
+// Create structures for pixels, xyz, and weights, to be used in optimization
+// TODO(oalexan1): Avoid using xyz_vec_ptr. If the vector gets resized, the pointers
+// will be invalidated.
+typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CrnT;
+typedef boost::shared_ptr<Vector3> Vec3Ptr;
+void createProblemStructure(Options                      const& opt,
+                            CrnT                         const& crn,
+                            vw::ba::ControlNetwork       const& cnet, 
+                            std::set<int>                const& outliers,
+                            // Outputs
+                            std::vector<double>               & tri_points_vec,
+                            std::vector<std::vector<Vector2>> & pixel_vec,
+                            std::vector<std::vector<Vec3Ptr>> & xyz_vec,
+                            std::vector<std::vector<double*>> & xyz_vec_ptr,
+                            std::vector<std::vector<double>>  & weight_vec,
+                            std::vector<std::vector<int>>     & isAnchor_vec) {
+
+  int num_cameras = opt.camera_models.size();
+
+  pixel_vec.resize(num_cameras);
+  xyz_vec.resize(num_cameras);
+  xyz_vec_ptr.resize(num_cameras);
+  weight_vec.resize(num_cameras);
+  isAnchor_vec.resize(num_cameras);
+
+  for (int icam = 0; icam < (int)crn.size(); icam++) {
+    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
+      
+      // The index of the 3D point
+      int ipt = (**fiter).m_point_id;
+      
+      if (outliers.find(ipt) != outliers.end())
+        continue; // Skip outliers
+      
+      // The observed value for the projection of point with index ipt into
+      // the camera with index icam.
+      Vector2 observation = (**fiter).m_location;
+
+      // Ideally this point projects back to the pixel observation.
+      double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+
+      double weight = 1.0;
+      
+      pixel_vec[icam].push_back(observation);
+      weight_vec[icam].push_back(weight);
+      isAnchor_vec[icam].push_back(0);
+      // It is bad logic to store pointers as below. What if tri_points_vec
+      // later gets resized?
+      xyz_vec_ptr[icam].push_back(tri_point); 
+    }
+  }
+
+  return;
+}
+
+void run_jitter_solve(int argc, char* argv[]) {
+
+  // Parse arguments and perform validation
+  Options opt;
+  handle_arguments(argc, argv, opt);
+
+  bool approximate_pinhole_intrinsics = false;
+  asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
+                    approximate_pinhole_intrinsics,  
+                    // Outputs
+                    opt.stereo_session,  // may change
+                    opt.single_threaded_cameras,  
+                    opt.camera_models);
+
+  // Find the datum
+  vw::cartography::Datum datum;
+  asp::datum_from_cameras(opt.image_files, opt.camera_files,  
+                          opt.stereo_session,  // may change
+                          // Outputs
+                          datum);
   
-  // Quantities that are not needed but are part of the API below
+  // Apply the input adjustments to the CSM cameras. Resample. Get pointers to
+  // the underlying linescan cameras, as need to manipulate those directly.
+  std::vector<UsgsAstroLsSensorModel*> ls_models;
+  populateLinescanCameras(opt, opt.camera_models, ls_models);
+  
+  // Make a list of all the image pairs to find matches for. Some quantities
+  // below are not needed but are part of the API.
   bool got_est_cam_positions = false;
   double position_filter_dist = -1.0;
   std::vector<vw::Vector3> estimated_camera_gcc;
   bool have_overlap_list = false;
   std::set<std::pair<std::string, std::string>> overlap_list;
-
-  // Make a list of all the image pairs to find matches for 
   std::vector<std::pair<int,int>> all_pairs;
   asp::determine_image_pairs(// Inputs
                              opt.overlap_limit, opt.match_first_to_last,  
@@ -1733,38 +1796,15 @@ void run_jitter_solve(int argc, char* argv[]) {
   }
 
   // Create structures for pixels, xyz, and weights, to be used in optimization
-  // TODO(oalexan1): Make this into a function
-  std::vector<std::vector<Vector2>> pixel_vec(num_cameras);
-  std::vector<std::vector<boost::shared_ptr<Vector3>>> xyz_vec(num_cameras);
-  std::vector<std::vector<double*>> xyz_vec_ptr(num_cameras);
-  std::vector<std::vector<double>> weight_vec(num_cameras);
-  std::vector<std::vector<int>> isAnchor_vec(num_cameras);
-  for (int icam = 0; icam < (int)crn.size(); icam++) {
-    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
-      
-      // The index of the 3D point
-      int ipt = (**fiter).m_point_id;
-      
-      if (outliers.find(ipt) != outliers.end())
-        continue; // Skip outliers
-      
-      // The observed value for the projection of point with index ipt into
-      // the camera with index icam.
-      Vector2 observation = (**fiter).m_location;
-
-      // Ideally this point projects back to the pixel observation.
-      double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
-
-      double weight = 1.0;
-      
-      pixel_vec[icam].push_back(observation);
-      weight_vec[icam].push_back(weight);
-      isAnchor_vec[icam].push_back(0);
-      // It is bad logic to store pointers as below. What if tri_points_vec
-      // later gets resized?
-      xyz_vec_ptr[icam].push_back(tri_point); 
-    }
-  }
+  std::vector<std::vector<Vector2>> pixel_vec;
+  std::vector<std::vector<boost::shared_ptr<Vector3>>> xyz_vec;
+  std::vector<std::vector<double*>> xyz_vec_ptr;
+  std::vector<std::vector<double>> weight_vec;
+  std::vector<std::vector<int>> isAnchor_vec;
+  createProblemStructure(opt, crn, cnet, outliers,
+                         // Outputs
+                         tri_points_vec, pixel_vec, xyz_vec, xyz_vec_ptr,
+                         weight_vec, isAnchor_vec);
 
   // Find anchor points and append to pixel_vec, weight_vec, etc.
   if (opt.num_anchor_points > 0 && opt.anchor_weight > 0)
