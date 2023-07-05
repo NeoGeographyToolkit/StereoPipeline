@@ -57,6 +57,9 @@ jitter_solve (:numref:`jitter_solve`):
     (:numref:`jitter_sat_sim`).
   * Added a section on how to prepare interest point matches
     (:numref:`jitter_ip`).
+  * Bugfix for reverse scan direction.
+  * Added an example for Pleiades cameras (:numref:`jitter_pleiades`),
+    comparing two ways of setting ground constraints.
     
 sfs (:numref:`sfs`): 
   * Created an SfS DEM of size 14336 x 11008 pixels, at 1 m pixel with
@@ -134,11 +137,6 @@ stereo_gui (:numref:`stereo_gui`):
   * Noticeable speedup in loading images.
   * Bug fix in loading .nvm files (an SfM format).
 
-jitter_solve (:numref:`jitter_solve`):
-  * Bugfix for reverse scan direction.
-  * Added an example for Pleiades cameras (:numref:`jitter_pleiades`),
-    comparing two ways of setting ground constraints.
-  
 image_align:
   * Can find the 3D alignment around planet center that transforms the
     second georeferenced image to the first one. This transform can be
