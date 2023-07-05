@@ -95,8 +95,12 @@ Example 1. Blend DEMs::
 
      dem_mosaic dem1.tif dem2.tif -o blended.tif
 
-Example 2. Read the DEMs from a list, and apply priority blending::
+Example 2. Read the DEMs from a list, and apply priority blending. The first DEM
+in the list is given priority, with the others used as a background with this
+transition length.
 
+::
+    
      echo dem1.tif dem2.tif > image_list.txt
      dem_mosaic -l image_list.txt --priority-blending-length 14 \
        -o priority_blended
@@ -169,6 +173,12 @@ a hole.
 It is suggested to blur a little the obtained DEM, such as::
 
     dem_mosaic --dem-blur-sigma 2 filled.tif -o blurred.tif
+
+To keep the original input DEM unchanged except towards the boundary of the
+no-data regions, run::
+
+    dem_mosaic --priority-blending-length 20 \
+      input.tif blurred.tif -o output.tif
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
