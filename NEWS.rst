@@ -137,11 +137,16 @@ stereo_gui (:numref:`stereo_gui`):
   * Noticeable speedup in loading images.
   * Bug fix in loading .nvm files (an SfM format).
 
-image_align:
+image_align (:numref:`image_align`):
   * Can find the 3D alignment around planet center that transforms the
     second georeferenced image to the first one. This transform can be
     used to apply the alignment to cameras and point clouds
     (:numref:`image_align_ecef_trans`).
+
+dem_mosaic (:numref:`dem_mosaic`):
+  * Added the option ``--fill-search-radius`` to fill nodata pixels in 
+    a DEM with nearby valid values. This is different from
+    ``--hole-fill-length``. See an example in :numref:`dem_mosaic_examples`.
 
 wv_correct (:numref:`wv_correct`):
   * Maxar (DigitalGlobe) WorldView-2 images with a processing (generation) date

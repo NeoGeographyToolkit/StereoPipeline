@@ -929,12 +929,13 @@ check while correcting the pitch jitter.
 The ``--heights-from-dem`` option should be used as well, to tie the solution to
 the reference DEM. 
 
-We found experimentally that if the scan lines for the input cameras are perfectly
-parallel, then the jitter solver will not converge. This is because the 
-optimization problem is under-constrained. If the scan lines meet at, for example,
-a 15 degree angle, then the "rigidity" of a given scan line will be able to help
-correct the jitter in the scan lines for the other cameras intersecting it, resulting
-in a good solution.
+We found experimentally that, if the scan lines for all the input cameras are
+perfectly parallel, then the jitter solver will not converge to the known
+solution. This is because the optimization problem is under-constrained. If the
+scan lines for different cameras meet at, for example, a 15 degree angle, then
+the "rigidity" of a given scan line will be able to help correct the jitter in
+the scan lines for the other cameras intersecting it, resulting in a solution
+close to the expected one.
 
 .. _jitter_out_files:
 

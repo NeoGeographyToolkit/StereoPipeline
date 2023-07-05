@@ -413,30 +413,32 @@ also model along-track jitter.
       --last  397.1 500.7 450000         \
       --first-ground-pos 397.1 400.7     \
       --last-ground-pos  397.1 500.7     \
-      --roll 0 --pitch 25 --yaw 0        \
+      --roll 0 --pitch 30 --yaw 0        \
       --num 5                            \
       --focal-length 450000              \
       --optical-center 500 500           \
       --image-size 1000 1000             \
       --sensor-type linescan             \
       --square-pixels                    \
-      --jitter-frequency 45              \
+      --jitter-frequency 5               \
       --velocity 7500                    \
       --horizontal-uncertainty '0 2 0'   \
       --jitter-phase "0.4 0.8 1.2"       \
-      -o run/run
+      -o jitter2/run
 
 Note that the image height will be overridden given the ``--square-pixels`` option.
+
+See :numref:`jitter_sat_sim` for how such cameras can be used with ASP's jitter solver.
 
 As in :numref:`sat_sim_jitter_amplitude_meters`, one can compare cameras with
 and without jitter as::
     
-    cam_test                 \
-      --session1 csm         \
-      --session2 csm         \
-      --image jitter0/f.tif  \
-      --cam1  jitter0/f.json \
-      --cam2  jitter2/f.json
+    cam_test                   \
+      --session1 csm           \
+      --session2 csm           \
+      --image jitter0/run.tif  \
+      --cam1  jitter0/run.json \
+      --cam2  jitter2/run.json
 
 Efficiency considerations
 ^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -86,6 +86,8 @@ blending may be obtained by using ``--use-centerline-weights``.
 This tool can also apply hole-filling, smoothing, and pixel erosion at
 boundary.
 
+.. _dem_mosaic_examples:
+
 Examples
 ~~~~~~~~
 
@@ -126,6 +128,48 @@ and extends for half a grid vertically and horizontally.
 if ``dem_mosaic`` is invoked on such datasets, it will respect the
 input grid even without ``--tap`` being explicitly set.)
 
+Example 6: Blur a DEM::
+
+    dem_mosaic --dem-blur-sigma 1 input.tif -o output.tif
+
+Example 7: Fill small holes in a DEM::
+
+    dem_mosaic --hole-fill-length 50 input.tif -o output.tif
+
+Example 8: Grow a DEM that may have very big holes::
+
+    dem_mosaic                  \
+        --fill-search-radius 50 \
+        --fill-power 8          \
+        --fill-percent 10       \
+        --fill-num-passes 2     \
+        input.tif -o filled.tif 
+
+Unlike the earlier example, in this mode the tool will not try to fill small
+holes of a given diameter that are fully surrounded by valid data. Instead, for
+any pixel that is invalid (lacks data), ``dem_mosaic`` will search for valid
+pixels within the specified search radius. If the percentage of valid to total
+number of found pixels is no less than the specified percentage, the invalid
+pixel will be filled with a weighted average of the valid pixel values, with the
+weight given as:
+
+.. math::    
+  
+    \frac{1}{d^p + 1}
+
+where :math:`d` is the distance from the invalid to the valid pixel to borrow
+the value from, and :math:`p` is given by ``--fill-power``. 
+
+This process will be repeated the specified number of times, with the valid
+portion of the DEM growing each time.
+
+This method will also grow the DEM outwards, not just within
+a hole.
+
+It is suggested to blur a little the obtained DEM, such as::
+
+    dem_mosaic --dem-blur-sigma 2 filled.tif -o blurred.tif
+
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -149,17 +193,10 @@ Command-line options
     List of tile indices (in quotes) to save. A tile index starts
     from 0.
 
---erode-length <integer (default: 0)>
-    Erode the DEM by this many pixels at boundary.
-
 --priority-blending-length <integer (default: 0)>
     If positive, keep unmodified values from the earliest available
     DEM except a band this wide measured in pixels inward of its
     boundary where blending with subsequent DEMs will happen.
-
---hole-fill-length <integer (default: 0)>
-    Maximum dimensions of a hole in the DEM to fill, in
-    pixels.
 
 --tr <double>
     Output grid size, that is, the DEM resolution in target
@@ -210,6 +247,31 @@ Command-line options
 
 --count
     Each pixel is set to the number of valid DEM heights at that pixel.
+
+--hole-fill-length <integer (default: 0)>
+    Maximum dimensions of a hole in the DEM to fill, in
+    pixels. See also ``--fill-search-radius``.
+
+--fill-search-radius <double (default: 0.0)>
+    Fill an invalid pixel with a weighted average of pixel values within this
+    radius in pixels. The weight is :math:`1/(d^p + 1)`, where the distance is
+    measured in pixels. See an example in :numref:`dem_mosaic_examples`. See
+    also ``--fill-power``, ``--fill-percent`` and ``--fill-num-passes``.
+
+--fill-power <double (default: 8.0)>
+    Power exponent to use when filling nodata values with
+    ``--fill-search-radius``.
+
+--fill-percent <double (default: 10.0)>
+    Fill an invalid pixel using weighted values of neighbors only if
+    the percentage of valid pixels within the radius given by
+    ``--fill-search-radius`` is at least this.
+
+--fill-num-passes <integer (default: 0)>
+    Fill invalid values using ``--fill-search-radius`` this many times.
+
+--erode-length <integer (default: 0)>
+    Erode the DEM by this many pixels at boundary.
 
 --georef-tile-size <double>
     Set the tile size in georeferenced (projected) units (e.g.,
