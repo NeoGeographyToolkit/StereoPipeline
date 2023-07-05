@@ -913,15 +913,14 @@ when we know what the answer should be ahead of time. The synthetic data can
 created with ``sat_sim`` (:numref:`sat_sim`). See a recipe in
 :numref:`sat_sim_linescan`. 
 
-For example, for a given path on the ground, one may create three linescan
-images and cameras, using various values for the pitch angle, such as -30, 0,
-and 30 degrees, modeling a camera that looks forward, down, and aft.
-One can choose to not have any jitter in the images or cameras, then
-create a second set of cameras with *pitch* (along-track) jitter.
+For example, one may create three linescan images and cameras, using various
+values for the pitch angle, such as -30, 0, and 30 degrees, modeling a camera
+that looks forward, down, and aft. One can choose to not have any jitter in the
+images or cameras, then create a second set of cameras with *pitch*
+(along-track) jitter.
 
 Then, ``jitter_solve`` can be used to solve for the jitter. It can be invoked
-with the images not having jitter and the cameras having the jitter. It should
-then greatly reduce the amount of jitter present in the cameras.
+with the images not having jitter and the cameras having the jitter. 
 
 It is suggested to use the roll and yaw constraints (``--roll-weight`` and
 ``--yaw-weight``, with values on the order of 1e+5), to keep these angles in
@@ -929,6 +928,13 @@ check while correcting the pitch jitter.
 
 The ``--heights-from-dem`` option should be used as well, to tie the solution to
 the reference DEM. 
+
+We found experimentally that if the scan lines for the input cameras are perfectly
+parallel, then the jitter solver will not converge. This is because the 
+optimization problem is under-constrained. If the scan lines meet at, for example,
+a 15 degree angle, then the "rigidity" of a given scan line will be able to help
+correct the jitter in the scan lines for the other cameras intersecting it, resulting
+in a good solution.
 
 .. _jitter_out_files:
 
