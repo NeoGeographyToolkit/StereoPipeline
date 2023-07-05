@@ -1618,6 +1618,44 @@ void createProblemStructure(Options                      const& opt,
   return;
 }
 
+// Put the triangulated points in a vector. Update the cnet from the DEM,
+// if we have one.
+void formTriVec(std::vector<Vector3> const& dem_xyz_vec,
+                bool have_dem,
+                // Outputs
+                ba::ControlNetwork  & cnet,
+                std::vector<double> & tri_points_vec) {
+
+  int num_tri_points = cnet.size();
+  if (num_tri_points == 0)
+    vw::vw_throw(ArgumentErr() << "No triangulated ground points were found.\n"); 
+
+  tri_points_vec.resize(num_tri_points*NUM_XYZ_PARAMS, 0.0);
+
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+    // We overwrite the triangulated point when we have an input DEM.
+    // It is instructive to examine the pointmap residual file to see
+    // what effect that has on residuals.  This point will likely try
+    // to move back somewhat to its triangulated position during
+    // optimization, depending on the strength of the weight which
+    // tries to keep it back in place.
+    Vector3 tri_point = cnet[ipt].position();
+    if (have_dem && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) {
+      tri_point = dem_xyz_vec.at(ipt);
+
+      // Update in the cnet too
+      cnet[ipt].set_position(Vector3(tri_point[0], tri_point[1], tri_point[2]));
+      
+      // Ensure we can track it later
+      cnet[ipt].set_type(vw::ba::ControlPoint::PointFromDem); 
+    }
+    
+    for (int q = 0; q < NUM_XYZ_PARAMS; q++)
+      tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
+  }
+  return;
+}
+
 void run_jitter_solve(int argc, char* argv[]) {
 
   // Parse arguments and perform validation
@@ -1701,7 +1739,7 @@ void run_jitter_solve(int argc, char* argv[]) {
                                                forced_triangulation_distance,
                                                opt.max_pairwise_matches);
   if (!success)
-    vw_throw(ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
              << "Failed to build a control network. Check the bundle adjustment directory "
              << "for clean matches. Or, consider removing all .vwip and "
              << ".match files and increasing the number of interest points "
@@ -1767,34 +1805,12 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (num_cameras < 2)
     vw_throw(ArgumentErr() << "Expecting at least two input cameras.\n");
     
-  // Put the triangulated points in a vector
-  // TODO(oalexan1): Make this into a function
-  int num_tri_points = cnet.size();
-  if (num_tri_points == 0)
-   vw_throw(ArgumentErr() << "No triangulated ground points were found.\n"); 
-  std::vector<double> tri_points_vec(num_tri_points*NUM_XYZ_PARAMS, 0.0);
-  for (int ipt = 0; ipt < num_tri_points; ipt++) {
-    // We overwrite the triangulated point when we have an input DEM.
-    // It is instructive to examine the pointmap residual file to see
-    // what effect that has on residuals.  This point will likely try
-    // to move back somewhat to its triangulated position during
-    // optimization, depending on the strength of the weight which
-    // tries to keep it back in place.
-    Vector3 tri_point = cnet[ipt].position();
-    if (have_dem && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) {
-      tri_point = dem_xyz_vec.at(ipt);
-
-      // Update in the cnet too
-      cnet[ipt].set_position(Vector3(tri_point[0], tri_point[1], tri_point[2]));
-      
-      // Ensure we can track it later
-      cnet[ipt].set_type(vw::ba::ControlPoint::PointFromDem); 
-    }
-    
-    for (int q = 0; q < NUM_XYZ_PARAMS; q++)
-      tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
-  }
-
+  // Put the triangulated points in a vector. Update the cnet from the DEM,
+  // if we have one.
+  std::vector<double> tri_points_vec;
+  formTriVec(dem_xyz_vec, have_dem, 
+    cnet, tri_points_vec); // outputs
+  
   // Create structures for pixels, xyz, and weights, to be used in optimization
   std::vector<std::vector<Vector2>> pixel_vec;
   std::vector<std::vector<boost::shared_ptr<Vector3>>> xyz_vec;
