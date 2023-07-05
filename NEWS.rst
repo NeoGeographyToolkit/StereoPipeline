@@ -159,6 +159,8 @@ wv_correct (:numref:`wv_correct`):
     printed). This applies to both PAN and multi-spectral images.
 
 misc: 
+  * Throw an error for WorldView products that are not Stereo1B or Basic1B.
+    That because ASP does not support orthorectified Maxar products.
   * Changed the "pretend" height of the RPC cameras from 10 km 
     above ground to around 100 km. RPC camera models do not store this
     number and it does not make a difference normally, as only ray

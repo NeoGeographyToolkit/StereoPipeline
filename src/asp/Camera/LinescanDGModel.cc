@@ -63,6 +63,17 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
 		 << e.what() << "\n");
   }
 
+  // For WV, only Stereo1B and Basic1B products are supported. Users
+  // often say wrong results are produced with other products.
+  std::string sat_id = img.sat_id; 
+  boost::algorithm::to_lower(sat_id);
+  std::string image_descriptor = img.image_descriptor; 
+  boost::algorithm::to_lower(image_descriptor); 
+  if (sat_id.size() >= 2 && sat_id.substr(0, 2) == "wv" && 
+      image_descriptor != "stereo1b" && image_descriptor != "basic1b") {
+    vw::vw_throw(vw::ArgumentErr() << "For WorldView images, only Stereo1B and Basic1B products are supported.\n");
+  } 
+
   if (stereo_settings().dg_use_csm) 
     vw_out() << "Using the CSM model with DigitalGlobe cameras.\n";
 

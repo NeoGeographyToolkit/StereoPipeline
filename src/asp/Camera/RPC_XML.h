@@ -74,6 +74,7 @@ namespace asp {
     double       avg_line_rate;
     vw::Vector2i image_size;
     std::string generation_time;      // e.g., 2013-10-12T10:48:48.000000Z
+    std::string image_descriptor;     // e.g., "Stereo1B"
   };
 
 
