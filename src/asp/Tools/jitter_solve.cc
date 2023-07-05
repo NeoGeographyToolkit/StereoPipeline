@@ -1528,7 +1528,6 @@ void populateLinescanCameras(Options    const& opt,
   
   for (size_t icam = 0; icam < opt.camera_models.size(); icam++) {
     asp::CsmModel * csm_cam = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
-    std::cout << "now here 2" << std::endl;
     if (!opt.input_prefix.empty()) {
       std::string adjust_file
         = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[icam],
