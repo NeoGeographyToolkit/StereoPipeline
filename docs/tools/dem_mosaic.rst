@@ -12,15 +12,7 @@ The input DEMs can either be set on the command line, or, if too many,
 they can be listed in a text file (one per line) and that file can be
 passed to the tool.
 
-Usage
-~~~~~
-::
-
-     dem_mosaic [options] <dem files> -o output_file_prefix
-
-or::
-
-     dem_mosaic [options] -l dem_files_list.txt -o output_file_prefix
+See many examples in :numref:`dem_mosaic_examples`.
 
 Overview
 ~~~~~~~~
@@ -91,16 +83,22 @@ boundary.
 Examples
 ~~~~~~~~
 
-Example 1. Blend DEMs::
+Blend DEMs
+^^^^^^^^^^
+
+::
 
      dem_mosaic dem1.tif dem2.tif -o blended.tif
 
-Example 2. Read the DEMs from a list, and apply priority blending. The first DEM
+Priority blending
+^^^^^^^^^^^^^^^^^
+
+Read the DEMs from a list, and apply priority blending. The first DEM
 in the list is given priority, with the others used as a background with this
 transition length.
 
 ::
-    
+
      echo dem1.tif dem2.tif > image_list.txt
      dem_mosaic -l image_list.txt --priority-blending-length 14 \
        -o priority_blended
@@ -109,15 +107,29 @@ Since an extension for the output was not specified, it will be saved
 as ``priority_blended/tile-0.tif`` (there may be more than one tile if
 the ``--tile-size`` parameter is set).
 
-Example 3. Find the DEM of mean heights. No blending is used::
+Mean height DEM
+^^^^^^^^^^^^^^^
+
+::
 
      dem_mosaic -l image_list.txt --mean -o mosaic
 
-Example 4: Erode 3 pixels at the boundary::
+This uses no blending. Also supported are the options ``--first``,
+``--last``, ``--min``, ``--max``, ``--stddev``, ``--median``, ``--nmad``,
+and ``--count``.
+
+Erosion
+^^^^^^^
+
+Erode 3 pixels at the boundary::
 
      dem_mosaic --erode-length 3 input.tif -o output.tif
 
-Example 5: Enforce that the grid is at integer multiples of grid size
+
+Regridding
+^^^^^^^^^^
+
+Enforce that the grid is at integer multiples of grid size
 (like the GDAL ``gdalwarp`` tool, :numref:`gdal_tools`)::
 
     dem_mosaic --tr 0.10 --tap input.tif -o output.tif
@@ -132,15 +144,24 @@ and extends for half a grid vertically and horizontally.
 if ``dem_mosaic`` is invoked on such datasets, it will respect the
 input grid even without ``--tap`` being explicitly set.)
 
-Example 6: Blur a DEM::
+Apply a blur
+^^^^^^^^^^^^
+
+::
 
     dem_mosaic --dem-blur-sigma 1 input.tif -o output.tif
 
-Example 7: Fill small holes in a DEM::
+Fill small holes
+^^^^^^^^^^^^^^^^
+
+::
 
     dem_mosaic --hole-fill-length 50 input.tif -o output.tif
 
-Example 8: Grow a DEM that may have very big holes::
+Grow a DEM
+^^^^^^^^^^
+
+::
 
     dem_mosaic                  \
         --fill-search-radius 50 \
@@ -174,11 +195,21 @@ It is suggested to blur a little the obtained DEM, such as::
 
     dem_mosaic --dem-blur-sigma 2 filled.tif -o blurred.tif
 
-To keep the original input DEM unchanged except towards the boundary of the
-no-data regions, run::
-
+To preserve as much as possible the input DEM values in the produced DEM,
+except a small transition area at the boundary, run::
+    
     dem_mosaic --priority-blending-length 20 \
       input.tif blurred.tif -o output.tif
+
+Usage
+~~~~~
+::
+
+     dem_mosaic [options] <dem files> -o output_file_prefix
+
+or::
+
+     dem_mosaic [options] -l dem_files_list.txt -o output_file_prefix
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
