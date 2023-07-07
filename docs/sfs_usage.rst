@@ -884,11 +884,10 @@ with ``mapproject`` (:numref:`mapproject`).
 Terrain bounds
 ^^^^^^^^^^^^^^
 
-Later when we mapproject images onto this DEM, those will be computed
-at integer multiples of the grid size, with each ground pixel centered
-at a grid point. Given that the grid size is 1
-m, the extent of those images as displayed by ``gdalinfo`` will have a
-fractional value of 0.5.
+Later when we mapproject images onto this DEM, those will be computed at integer
+multiples of the grid size, with each ground pixel centered at a grid point.
+Given that the grid size is 1 m, the extent of those images as displayed by
+``gdalinfo`` will have a fractional value of 0.5.
 
 The ``sfs_blend`` program will fail later unless the resampled initial
 DEM also has this property, as it expects a one-to-one
@@ -901,10 +900,12 @@ having a fractional part of 0.5. Note that the bounds passed to
 
 The ``dem_mosaic`` program (:numref:`dem_mosaic`) can be used to
 automatically compute the bounds of a DEM or orthoimage and change
-them to integer multiples at pixel size. It can be invoked, for
+them to integer multiples of pixel size. It can be invoked, for
 example, as::
 
     dem_mosaic --tr 1 --tap input.tif -o output.tif
+
+This will use bilinear interpolation.    
 
 .. _sfs_azimuth:
 
