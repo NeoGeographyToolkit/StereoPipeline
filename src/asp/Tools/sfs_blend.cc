@@ -516,7 +516,7 @@ int main(int argc, char *argv[]) {
     vw::Vector2 sfs_corner = sfs_georef.pixel_to_point(Vector2(0, 0));
     vw::Vector2 lola_corner = lola_georef.pixel_to_point(Vector2(0, 0));
     vw::Vector2 image_corner = image_georef.pixel_to_point(Vector2(0, 0));
-    if (sfs_corner != lola_corner || sfs_corner != image_corner) 
+    if (norm_2(sfs_corner - lola_corner) > 1e-8 || norm_2(sfs_corner - image_corner) > 1e-8) 
       vw_throw(ArgumentErr() << "The SfS DEM, LOLA DEM, and image mosaic "
                << "must be on the same grid.");
 
