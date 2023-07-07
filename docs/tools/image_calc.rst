@@ -26,26 +26,78 @@ it parses equal priority operations from right to left, *not* the
 expected left to right.  Parentheses can be used to enforce any
 preferred order of evaluation.
 
-Usage::
+Examples
+~~~~~~~~
 
-     image_calc [options] -c <arithmetic formula> <inputs> -o <output>
+Apply operation and save pixels as float32
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Example (apply a given operation and save the pixels as float32 values)::
+::
 
      image_calc -c "pow(var_0/3.0, 1.1)" input_image.tif \
       -o output_image.tif -d float32
 
-Example (add a variable and its value to the geoheader metadata)::
+Invalidate values no more than a threshold
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+    thresh=5.2
+    image_calc -c "max($thresh, var_0)" -d float32 \
+        --output-nodata-value $thresh              \
+        input.tif -o output.tif
+
+
+Apply a mask to an image
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+    image_calc -c "min(var_0, var_1)" -d float32 \
+        --output-nodata-value 0                  \
+        input.tif -o output.tif
+
+Here it is assumed that the image and the mask have the same
+dimensions, the image values are non-negative, the mask
+has positive values for desired valid pixels and 0 otherwise, 
+and that the output pixels with value 0 are invalid.
+
+Create a mask
+^^^^^^^^^^^^^
+
+::
+
+    image_calc -c "sign(max(var_0, 0))" -d float32 \
+        input.tif -o output.tif
+
+Positive values will become 1, and the rest will become 0. 
+
+Add a variable and its value to the geoheader metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
 
      image_calc -c "var_0" --mo 'VAR1=VAL1' -d float32 \
        input.tif -o output.tif
 
-Example (subtract 360 degrees from the longitudes in a GeoTiff file)::
+Subtract 360 degrees from the longitudes in a GeoTiff file
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
 
     image_calc -c "var_0" input.tif -o output.tif \
       --longitude-offset -360 -d float32 
 
-Command-line options for image_calc:
+
+Usage
+~~~~~
+
+::
+
+     image_calc [options] -c <arithmetic formula> <inputs> -o <output>
+
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
 -c, --calc <string>
     The arithmetic string in quotes (required).

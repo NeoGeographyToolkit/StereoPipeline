@@ -5,12 +5,7 @@ dem_mosaic
 
 The program ``dem_mosaic`` takes as input a list of DEM files and
 creates a mosaic. By default, it seamlessly blends the DEMs where they
-overlap.  It can also process the inputs to be combined in other ways,
-as described below.
-
-The input DEMs can either be set on the command line, or, if too many,
-they can be listed in a text file (one per line) and that file can be
-passed to the tool.
+overlap. It can also combine the inputs in other ways.
 
 See many examples in :numref:`dem_mosaic_examples`.
 
@@ -86,7 +81,7 @@ Examples
 Blend DEMs
 ^^^^^^^^^^
 
-::
+This creates a seamless DEM::
 
      dem_mosaic dem1.tif dem2.tif -o blended.tif
 
@@ -118,14 +113,6 @@ This uses no blending. Also supported are the options ``--first``,
 ``--last``, ``--min``, ``--max``, ``--stddev``, ``--median``, ``--nmad``,
 and ``--count``.
 
-Erosion
-^^^^^^^
-
-Erode 3 pixels at the boundary::
-
-     dem_mosaic --erode-length 3 input.tif -o output.tif
-
-
 Regridding
 ^^^^^^^^^^
 
@@ -150,6 +137,13 @@ Apply a blur
 ::
 
     dem_mosaic --dem-blur-sigma 1 input.tif -o output.tif
+
+Erosion
+^^^^^^^
+
+Erode 3 pixels at the boundary::
+
+     dem_mosaic --erode-length 3 input.tif -o output.tif
 
 Fill small holes
 ^^^^^^^^^^^^^^^^

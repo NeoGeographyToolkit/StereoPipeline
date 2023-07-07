@@ -257,9 +257,10 @@ can be overlayed on top of images.
 Application
 ^^^^^^^^^^^
 
-As an application, the ``gdal_rasterize`` command can be used to keep
-or exclude the portion of a given georeferenced image or a DEM that is
-within or outside the polygonal shape. Example::
+As an application of drawing a polygon with ``stereo_gui``, the
+``gdal_rasterize`` command can be used to keep or exclude the portion of a given
+georeferenced image or a DEM that is within or outside the polygonal shape.
+Example::
 
   gdal_rasterize -i -burn <nodata_value> poly.shp dem.tif
 
