@@ -3800,6 +3800,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.float_all_cameras)
     opt.float_cameras = true;
 
+  std::istringstream idem(opt.input_dems_str);
+  std::string dem;
+  while (idem >> dem) opt.input_dems.push_back(dem);
+    
+  // Sanity checks. Put this early, before separating images from cameras, as that
+  // function can print a message not reflecting the true issue of missing the DEM.
+  if (opt.input_dems.empty())
+    vw_throw( ArgumentErr() << "Missing input DEM(s).\n"
+              << usage << general_options );
+
   // Separate the cameras from the images
   std::vector<std::string> inputs = opt.input_images;
 
@@ -3823,15 +3833,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                                     opt.input_images, opt.input_cameras, // outputs
                                     ensure_equal_sizes); 
   
-  std::istringstream idem(opt.input_dems_str);
-  std::string dem;
-  while (idem >> dem) opt.input_dems.push_back(dem);
-    
-  // Sanity checks
-  if (opt.input_dems.empty())
-    vw_throw( ArgumentErr() << "Missing input DEM(s).\n"
-              << usage << general_options );
-
   if (opt.out_prefix.empty())
     vw_throw( ArgumentErr() << "Missing output prefix.\n"
               << usage << general_options );
