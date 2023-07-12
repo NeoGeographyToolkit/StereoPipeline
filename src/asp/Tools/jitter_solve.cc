@@ -560,7 +560,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1.0),
      "Remove matched IPs this percentage from the image left/right sides.")
     ("initial-camera-constraint", po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
-     "When constraining roll and yaw, measure these not in the satellite along-track/across-track/down coordinate system, but relative to the initial camera poses. This is experimental. Internally, the roll weight will then be applied to the pitch angle, because the camera coordinate system is rotated by 90 degrees in the sensor plane relative to the satellite coordinate system. The goal is the same, to penalize deviations that are not aligned with satellite pitch.")
+     "When constraining roll and yaw, measure these not in the satellite along-track/across-track/down coordinate system, but relative to the initial camera poses. This is experimental. Internally, the roll weight will then be applied to the camera pitch angle (rotation around the camera y axis), because the camera coordinate system is rotated by 90 degrees in the sensor plane relative to the satellite coordinate system. The goal is the same, to penalize deviations that are not aligned with satellite pitch.")
     ;
   
     general_options.add(vw::GdalWriteOptionsDescription(opt));
