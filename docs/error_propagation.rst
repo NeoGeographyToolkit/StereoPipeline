@@ -10,6 +10,12 @@ deviation (stddev) of the uncertainty for each triangulated
 point. This is enabled with the option ``--propagate-errors``
 (:numref:`stereo-default-error-propagation`).
 
+The produced uncertainties are then propagated from the point cloud 
+to the produced DEM (:numref:`error_propagation_dem`).
+
+The input uncertainties
+-----------------------
+
 The input uncertainties can be either numbers that are passed on the
 command line, or, otherwise, for a few camera models, they can be read
 from the camera files.
@@ -53,25 +59,45 @@ using the formula:
 (`reference
 <https://en.wikipedia.org/wiki/Circular_error_probable#Conversion>`_).
 
-In all cases, the error propagation takes into account whether the
-cameras are bundle-adjusted or not (:numref:`bundle_adjust`), and if
-the images are mapprojected (:numref:`mapproj-example`).
+In all cases, the error propagation takes into account whether the cameras are
+bundle-adjusted or not (:numref:`bundle_adjust`), and if the images are
+mapprojected (:numref:`mapproj-example`).
 
-The triangulation covariance matrix is computed in the local
-North-East-Down (NED) coordinates at each nominal triangulated point,
-and further decomposed into the horizontal and vertical components
-(:numref:`produced_covariances`). The square root is taken,
-creating the stddev, which are saved as the 5th and 6th
-band in the point cloud (\*-PC.tif file, :numref:`outputfiles`).
-Running ``gdalinfo`` (:numref:`gdal_tools`) on the point cloud will
-show some metadata describing each band in that file.
+Produced uncertainty for triangulated points
+--------------------------------------------
 
-The stddev values in the point cloud can then be gridded with
-``point2dem`` (:numref:`point2dem`) with the option
-``--propagate-errors``, using the same algorithm as for computing the
-DEM heights. This will produce files ending with the suffixes
-``HorizontalStdDev.tif`` and ``VerticalStdDev.tif`` alongside the
-output DEM.
+The triangulation covariance matrix is computed in the local North-East-Down
+(NED) coordinates at each nominal triangulated point, and further decomposed
+into the horizontal and vertical components (:numref:`produced_covariances`). 
+
+The square root is taken, creating the stddev, which are saved as the 5th and
+6th band in the point cloud (\*-PC.tif file, :numref:`outputfiles`). Running
+``gdalinfo`` (:numref:`gdal_tools`) on the point cloud will show some metadata
+describing each band in that file.
+
+The computed stddev values are in units of meter.
+
+.. _error_propagation_dem:
+
+Propagation of uncertainties to the DEM
+---------------------------------------
+
+The stddev values in the point cloud can then be gridded with ``point2dem``
+(:numref:`point2dem`) with the option ``--propagate-errors``, using the same
+algorithm as for computing the DEM heights.
+
+Example::
+
+    point2dem --t_srs <projection string> --tr <grid size> \
+      --propagate-errors run/run-PC.tif
+
+This will produce the files ``run/run-HorizontalStdDev.tif`` and
+``run/run-VerticalStdDev.tif`` alongside the output DEM, ``run/run-DEM.tif``.
+
+In all these files the values are in units of meter.
+
+Implementation details
+----------------------
 
 Note that propagating the errors subtly changes the behavior of stereo
 triangulation, and hence also of the output DEM. Triangulated points
@@ -86,8 +112,6 @@ compression is somewhat less efficient since more digits of precision
 are stored. The size of the point cloud roughly doubles. This does not
 affect the size of the DEM, but its values and extent may change
 slightly.
-
-The computed stddev values are in units of meter.
 
 .. _uncertainty_vs_triangulation_err:
 
@@ -128,7 +152,11 @@ For Maxar (DigitalGlobe) linescan cameras::
       -t dg --propagate-errors                        \
       left.tif right.tif left.xml right.xml 
       run/run
-   point2dem --propagate-errors run/run-PC.tif
+   point2dem --tr 1.6                                            \
+     --t_srs "+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs" \
+     --propagate-errors run/run-PC.tif
+
+The projection and grid size above are dependent on the dataset. 
 
 Alternatively, the input horizontal stddev values for the cameras
 can be set as::
