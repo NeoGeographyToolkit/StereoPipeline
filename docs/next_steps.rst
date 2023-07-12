@@ -658,14 +658,16 @@ Commands
       12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF          \
       12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML          \
       left_mapproj.tif
+
     mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
       --tr 0.5 ref_dem.tif                                      \
       12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF          \
       12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML          \
       right_mapproj.tif
+      
     parallel_stereo --subpixel-mode 1                           \
       --alignment-method none                                   \
-      left_mapproj.tif right_mapproj.tif
+      left_mapproj.tif right_mapproj.tif                        \
       12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML          \
       12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML          \
       dg/dg ref_dem.tif
