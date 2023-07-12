@@ -149,8 +149,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
   vw::Quat sensor_to_body = geo.camera_attitude * sensor_rotation;
   vw::Vector2 final_detector_origin
     = subvector(inverse(sensor_rotation).rotate(vw::Vector3(geo.detector_origin[0],
-							      geo.detector_origin[1],
-                                                            0)), 0, 2);
+							      geo.detector_origin[1], 0)), 0, 2);
 
   // We will create one camera model in regular use, and 14 more of
   // them with slight perturbations if needed for error propagation

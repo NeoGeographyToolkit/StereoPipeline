@@ -196,7 +196,7 @@ void write_parallel_type(std::string              const& filename,
                          TerminalProgressCallback const& tpc) {
 
   typedef typename ImageT::pixel_type InputType;
-  
+
   if (opt.output_type == "Float32") 
     write_parallel_cond(filename, image, georef, has_nodata, nodata_val, opt, tpc);
   else if (opt.output_type == "Byte") 
@@ -242,13 +242,11 @@ void write_parallel_cond(std::string              const& filename,
                          Options                  const& opt,
                          TerminalProgressCallback const& tpc) {
 
-  // TODO: Relying on StereoSession to handle this mapproject stuff is problematic!
-  // Save the session type. Later in stereo we will check that we use
-  // only images written by mapproject with the -t rpc session.
-  // - Write the type of sensor model used, not the underlying session class.
+  // Write names of the bundle adjust prefix, input image file, camera file,    
+  // dem, and session type. Those will be used in StereoSession to load the
+  // mapprojected image.
   // There is no difference between pinhole and nadirpinhole when it comes
   // to how mapprojection happens, that becomes important only in stereo.
-  // TODO(oalexan1): This is fragile. Just keep the word after 'map'.
   std::string session_type = opt.stereo_session;
   if (session_type == "isismapisis")
     session_type = "isis";
@@ -258,12 +256,15 @@ void write_parallel_cond(std::string              const& filename,
     session_type = "pinhole";
   
   // Save some keywords that we will check later when using the mapprojected file
+
   std::map<std::string, std::string> keywords;
   if (!opt.noGeoHeaderInfo) {
-    keywords["CAMERA_MODEL_TYPE" ]    = session_type;
     std::string prefix = asp::stereo_settings().bundle_adjust_prefix;;
     if (prefix == "") prefix = "NONE"; // to save the field, need to make it non-empty
     keywords["BUNDLE_ADJUST_PREFIX" ] = prefix;
+    keywords["CAMERA_MODEL_TYPE" ]    = session_type;
+    keywords["INPUT_IMAGE_FILE" ]     = opt.image_file;
+    keywords["CAMERA_FILE" ]          = opt.camera_file;
 
     // Save the camera adjustment. That is an important record
     // for how the image got mapprojected and is good to keep.

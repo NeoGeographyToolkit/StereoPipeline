@@ -868,6 +868,14 @@ namespace asp {
         expected_cam_type = opt.session->name().substr(it, opt.session->name().size());
       }
 
+      // csmmapcsm can also do csmmaprpc
+      if (opt.session->name().find("csm") == 0) {
+        if (l_cam_type == "rpc")
+          l_cam_type = "csm";
+        if (r_cam_type == "rpc")
+          r_cam_type = "csm";
+      }
+
       if ((l_cam_type != "" && l_cam_type != expected_cam_type) ||
           (r_cam_type != "" && r_cam_type != expected_cam_type)   ){
         vw_throw(ArgumentErr() << "For session type "
