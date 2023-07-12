@@ -496,6 +496,9 @@ because:
 We consider a datatset with two images named 1.tif and 2.tif, and corresponding
 camera files 1.xml and 2.xml, having the exact DigitalGlobe linescan model.
 
+Bundle adjustment
+^^^^^^^^^^^^^^^^^
+
 Bundle adjustment was invoked first to reduce any gross errors between
 the cameras::
 
@@ -514,6 +517,9 @@ A lot of interest points were used, and the outlier filter threshold
 was generous, since because of trees and shadows in the images likely
 some interest points may not be too precise but they could still be
 good.
+
+Mapprojection
+^^^^^^^^^^^^^
 
 Because of the steep terrain, the images were mapprojected onto the
 Copernicus 30 m DEM (:numref:`initial_terrain`). We name that DEM
@@ -540,6 +546,9 @@ Mapprojection of the two images (:numref:`mapproj-example`)::
       ref.tif ${i}.tif ${i}.xml ${i}.map.ba.tif
     done
 
+Stereo
+^^^^^^
+
 Stereo was done with the ``asp_mgm`` algorithm. It was very important
 to use ``--subpixel-mode 9``. Using ``--subpixel-mode 1`` was
 resulting in subpixel artifacts which were dominating the jitter. Mode
@@ -551,7 +560,7 @@ obscure the jitter signal which we will solve for.
 The option ``--max-disp-spread 100`` was used because the images
 had many clouds (:numref:`handling_clouds`).
 
-A large number of dense matches from stereo disparity were created, to
+A large number of dense matches from stereo disparity will be created, to
 be used later to solve for jitter.
 
 ::
@@ -574,6 +583,9 @@ be used later to solve for jitter.
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
     point2dem --tr 0.4 --t_srs "$proj" --errorimage \ 
       run_1_2_map/run-PC.tif
+
+Alignment
+^^^^^^^^^
 
 Align the stereo DEM to the reference DEM::
 
@@ -599,6 +611,9 @@ to align them with the reference terrain::
       1.tif 2.tif 1.xml 2.xml                             \
       --apply-initial-transform-only                      \
       -o align/run
+
+Solving for jitter
+^^^^^^^^^^^^^^^^^^
 
 Copy the produced dense interest point matches for use in
 solving for jitter::
@@ -658,6 +673,11 @@ errors per anchor point do not increase much. The remaining red points
 are because of the steep terrain. See :numref:`jitter_out_files` for
 description of these output files and how they were plotted.
 
+Redoing mapprojection and stereo
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+(See also section :numref:`jitter_reuse_run` for an alternative approach in the latest build.)
+
 Mapproject the optimized CSM cameras::
 
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
@@ -689,6 +709,41 @@ Run stereo::
     point2dem --tr 0.4 --t_srs "$proj"                     \
       --errorimage                                         \
       stereo_jitter/run-PC.tif
+
+.. _jitter_reuse_run:
+
+Reusing a previous run
+^^^^^^^^^^^^^^^^^^^^^^
+
+In the latest build (post version 3.2.0), the mapprojection need not be redone,
+and stereo can only be restarted at the triangulation stage (:numref:`mapproj_reuse`).
+This saves a lot of work and computing. So, the commands in the previous
+section can be replaced with::
+
+    parallel_stereo                                        \
+      --max-disp-spread 100                                \
+      --nodes-list nodes_list.txt                          \
+      --ip-per-image 20000                                 \
+      --stereo-algorithm asp_mgm                           \
+      --subpixel-mode 9                                    \
+      --processes 6                                        \
+      --alignment-method none                              \
+      --keep-only '.exr L.tif F.tif PC.tif map.tif .match' \
+      --prev-run-prefix run_1_2_map/run                    \
+      1.map.tif 2.map.tif                                  \
+      jitter/run-1.adjusted_state.json                     \
+      jitter/run-2.adjusted_state.json                     \
+      stereo_jitter/run                                    \
+      ref.tif
+    point2dem --tr 0.4 --t_srs "$proj"                     \
+      --errorimage                                         \
+      stereo_jitter/run-PC.tif
+
+Note how we used the old maprojected images ``1.map.tif`` and ``2.map.tif``,
+and the option ``--prev-run-prefix`` pointing to the old run. 
+
+Validation
+^^^^^^^^^^
 
 The geodiff command (:numref:`geodiff`) can be used to take the absolute
 difference of the aligned DEM before jitter correction and the one

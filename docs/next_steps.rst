@@ -619,7 +619,7 @@ be used for any satellite images from any vendor
 Unlike the previous section, here we will use an external DEM to
 mapproject onto, rather than creating our own. We will use a variant of
 NASA SRTM data with no holes. See :numref:`initial_terrain` for how
-to fetch such a terrain. We will name this DEM ``ref.tif``. 
+to fetch such a terrain. We will name this DEM ``ref_dem.tif``. 
 
 It is important to note that ASP expects the input low-resolution DEM
 to be in reference to a datum ellipsoid, such as WGS84 or NAD83. If
@@ -654,21 +654,21 @@ Commands
 ::
 
     mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
-      --tr 0.5 ref.tif                                          \
+      --tr 0.5 ref_dem.tif                                      \
       12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF          \
       12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML          \
-      left_mapped.tif
+      left_mapproj.tif
     mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
-      --tr 0.5 ref.tif                                          \
+      --tr 0.5 ref_dem.tif                                      \
       12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF          \
       12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML          \
-      right_mapped.tif
+      right_mapproj.tif
     parallel_stereo --subpixel-mode 1                           \
       --alignment-method none                                   \
-      left_mapped.tif right_mapped.tif                          \
+      left_mapproj.tif right_mapproj.tif
       12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML          \
       12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML          \
-      dg/dg ref.tif
+      dg/dg ref_dem.tif
 
 It is very important to specify the argument ``-t rpc`` to
 ``mapproject``, as otherwise the exact DG model will be used, which is
@@ -733,23 +733,74 @@ stored separately is along the lines of::
 
     parallel_stereo -t rpc --stereo-algorithm asp_mgm  \
       left.map.tif right.map.tif left.xml right.xml    \
-      run/run ref.tif
+      run/run ref_dem.tif
 
 or::
 
     parallel_stereo -t pinhole --stereo-algorithm asp_mgm  \
       left.map.tif right.map.tif left.tsai right.tsai      \
-      run/run ref.tif
+      run/run ref_dem.tif
 
 and when the cameras are embedded in the images, it is::
 
     parallel_stereo -t rpc --stereo-algorithm asp_mgm \
-      left.map.tif right.map.tif run/run ref.tif
+      left.map.tif right.map.tif run/run ref_dem.tif
 
 If your cameras have been corrected with bundle adjustment
 (:numref:`bundle_adjust`), one should pass ``--bundle-adjust-prefix``
 to all ``mapproject`` and ``parallel_stereo`` invocations. See also
 :numref:`ba_pc_align` for when alignment was used as well.
+
+.. _mapproj_reuse:
+
+Reusing a run with mapprojected images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Mapprojection of input images is a preprocessing step, to help rectify them. The
+camera model type, bundle adjust prefix, and even camera names used in
+mapprojection are completely independent of the camera model type, bundle adjust
+prefix, and camera names used later in stereo with these mapprojected images.
+
+Moreover, once stereo is done with one choices of these, the produced run can 
+be reused with a whole new set of choices, with only the triangulation step 
+needing to be redone. That because the correlation between the images is still
+valid when the cameras change. 
+
+As an example, in the scenario in :numref:`dg-mapproj`, we mapprojected with 
+the RPC camera model, so with ``-t rpc``, and no bundle adjustment. For stereo,
+one can use ``-t dg`` or ``-t rpc``, and add or not ``--bundle-adjust-prefix``.
+
+Once such a run is done, using say the output prefix ``dg/dg``,
+``parallel_stereo`` can be done with the option ``--prev-run-prefix dg/dg``,
+a new output prefix, and modifications to the variables above, which will
+redo only the triangulation step. 
+
+Even the camera files can be changed for stereo (only with the latest build,
+post version 3.2.0). For example, ``jitter_solve`` (:numref:`jitter_solve`) can
+produce CSM cameras given input cameras in Maxar / DigitalGlobe .xml files or
+input CSM .json files (:numref:`csm`). So, if stereo was done with mapprojected
+images named ``left_mapproj.tif`` and ``right_mapproj.tif``, cameras with
+names like ``left.xml`` and ``right.xml``, before solving for jitter, and this
+solver produced cameras of the form ``adjusted_left.json``,
+``adjusted_right.json``, the reuse of the previous run can be done as::
+
+   parallel_stereo left_mapproj.tif right_mapproj.tif \
+     adjusted_left.json adjusted_right.json           \
+     --prev-run-prefix dg/dg                          \
+     jitter/run                                       \
+     ref_dem.tif
+
+Under the hood, this will read the metadata from the mapprojected images
+(:numref:`mapproj_metadata`), will look up the original ``left.xml`` and
+``right.xml`` cameras, figure out what camera model was used in mapprojection
+(in this case, ``rpc``), will undo the mapprojection with this data, and then
+will do the triangulation with the new cameras.
+
+It is very important that ``--bundle-adjust-prefix`` needs to be used or not
+depending on the circumstances. For example, jitter-solved cameras already
+incorporate any prior bundle adjustment that ``jitter_solve`` was passed on
+input, so it was not specified in the above invocation, and in fact the results
+would be wrong if it was specified.  
 
 .. _multiview:
 

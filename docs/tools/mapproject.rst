@@ -30,7 +30,8 @@ from the ``--t_srs`` option. If the grid size is not set, it will be
 estimated as the mean *ground sampling distance (GSD)*.  See the
 ``--tr`` option for how this affects the extent of the output image.
 
-Examples:
+Examples
+~~~~~~~~
 
 Mapproject assuming the ``longlat`` projection and setting the grid
 size in degrees::
@@ -73,11 +74,37 @@ If desired to change the range of longitudes from [0, 360] to [-180,
 180], or vice-versa, post-process obtained mapprojected image with
 ``image_calc`` (:numref:`image_calc`).
 
-Usage::
+
+.. _mapproj_metadata:
+
+Saved metadata
+~~~~~~~~~~~~~~
+
+The output image will have the following metadata saved to its geoheader:
+   
+   * ``INPUT_IMAGE_FILE``, the input image name. 
+   * ``BUNDLE_ADJUST_PREFIX``, the bundle adjustment prefix. Set to ``NONE`` if not present.
+   * ``CAMERA_MODEL_TYPE``, this is the session name, such as set with ``-t rpc``.
+   * ``CAMERA_FILE``, the camera file used on input. Can be empty if the camera is contained within the input image.
+   * ``DEM_FILE``, the DEM used in mapprojection.
+
+These metadata values are used to undo the mapprojection in stereo triangulation (:numref:`mapproj_reuse`). The geoheader can be inspected with ``gdalinfo`` (:numref:`gdal_tools`).
+
+In addition, if the cameras have been bundle-adjusted, the translation and
+quaternion rotation from the .adjust file will be saved to the fields
+``ADJUSTMENT_TRANSLATION`` and ``ADJUSTMENT_QUATERNION``. This is useful for
+having mapprojection be reproducible if the separately stored ``.adjust`` files
+are not available.
+
+Usage
+~~~~~
+
+::
 
      mapproject [options] <dem> <camera-image> <camera-model> <output-image>
 
-Command-line options for mapproject:
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
 --nodata-value <float(default: -32768)>
     No-data value to use unless specified in the input image.

@@ -45,9 +45,6 @@ namespace asp {
 
     virtual tx_type tx_left () const {return tx_left_map_trans ();}
     virtual tx_type tx_right() const {return tx_right_map_trans();}
-
-    // Must be set for each individual application
-    virtual bool uses_rpc_map_projection() const = 0;
   };
   
   
@@ -61,8 +58,6 @@ namespace asp {
     virtual std::string name() const { return "dgmaprpc"; }
 
     static StereoSession* construct() { return new StereoSessionDGMapRPC; }
-
-    virtual bool uses_rpc_map_projection() const {return true;}
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -85,8 +80,6 @@ namespace asp {
     virtual std::string name() const { return "rpcmaprpc"; }
 
     static StereoSession* construct() { return new StereoSessionRPCMapRPC; }
-    
-    virtual bool uses_rpc_map_projection() const {return true;}
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -112,7 +105,6 @@ namespace asp {
     virtual ~StereoSessionIsisMapIsis(){};
 
     virtual std::string name() const { return "isismapisis"; }
-    virtual bool uses_rpc_map_projection() const {return false;}
 
     virtual bool supports_multi_threading() const {
       return false;
@@ -140,7 +132,6 @@ namespace asp {
     virtual ~StereoSessionPinholeMapPinhole() {}
 
     virtual std::string name() const { return "pinholemappinhole"; }
-    virtual bool uses_rpc_map_projection() const {return false;}
 
     static StereoSession* construct() { return new StereoSessionPinholeMapPinhole; }
     
@@ -165,7 +156,6 @@ namespace asp {
     virtual ~StereoSessionBarMapBar() {}
 
     virtual std::string name() const { return "opticalbarmapopticalbar"; }
-    virtual bool uses_rpc_map_projection() const {return false;}
 
     static StereoSession* construct() { return new StereoSessionBarMapBar; }
 
@@ -188,7 +178,6 @@ namespace asp {
     virtual ~StereoSessionCsmMapCsm() {}
 
     virtual std::string name() const { return "csmmapcsm"; }
-    virtual bool uses_rpc_map_projection() const {return false;}
 
     static StereoSession* construct() { return new StereoSessionCsmMapCsm; }
 
@@ -211,7 +200,6 @@ namespace asp {
     virtual ~StereoSessionSpot5MapRPC(){};
 
     virtual std::string name() const { return "spot5maprpc"; }
-    virtual bool uses_rpc_map_projection() const {return true;}
 
     static StereoSession* construct() { return new StereoSessionSpot5MapRPC; }
     
@@ -235,7 +223,6 @@ namespace asp {
     virtual ~StereoSessionASTERMapRPC(){};
 
     virtual std::string name() const { return "astermaprpc"; }
-    virtual bool uses_rpc_map_projection() const {return true;}
 
     static StereoSession* construct() { return new StereoSessionASTERMapRPC; }
     
@@ -261,7 +248,6 @@ namespace asp {
     virtual std::string name() const { return "pleiadesmappleiades"; }
 
     static StereoSession* construct() { return new StereoSessionPleiadesMapPleiades; }
-    virtual bool uses_rpc_map_projection() const {return false;}
  
   protected:
     /// Function to load a camera model of the particular type.

@@ -69,7 +69,6 @@ namespace asp {
     // - These could be made in to some sort of static constant if needed.
     virtual bool isMapProjected() const { return false; } // TODO: Delete?
     virtual bool uses_map_projected_inputs() const {return isMapProjected();}
-    virtual bool uses_rpc_map_projection  () const {return isMapProjected();} // Set to false if using another type
     virtual bool requires_input_dem       () const {return isMapProjected();}
     virtual bool supports_image_alignment () const {return !isMapProjected(); }
     virtual bool have_datum               () const {
