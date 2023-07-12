@@ -268,8 +268,10 @@ struct weightedRollYawError {
   weightedRollYawError(std::vector<double>       const& positions, 
                    std::vector<double>           const& quaternions,
                    vw::cartography::GeoReference const& georef,
-                   int cur_pos, double rollWeight, double yawWeight): 
-                   m_rollWeight(rollWeight), m_yawWeight(yawWeight) {
+                   int cur_pos, double rollWeight, double yawWeight,
+                   bool initial_camera_constraint): 
+                   m_rollWeight(rollWeight), m_yawWeight(yawWeight), 
+                   m_initial_camera_constraint(initial_camera_constraint) {
 
     int num_pos = positions.size()/NUM_XYZ_PARAMS;
     int num_quat = quaternions.size()/NUM_QUAT_PARAMS;
@@ -318,13 +320,16 @@ struct weightedRollYawError {
 
     // Find the rotation matrix from satellite to world coordinates, and 90
     // degree in-camera rotation. It is assumed, as in sat_sim, that:
-    // cam2world = satToWorld * rollPitchYaw * rotXY.
-    asp::assembleCam2WorldMatrix(along, across, down, m_satToWorld);
+    // cam2world = sat2World * rollPitchYaw * rotXY.
+    asp::assembleCam2WorldMatrix(along, across, down, m_sat2World);
     m_rotXY = asp::rotationXY();
+
+    // Initial camera rotation matrix, before we optimize it
+    m_initCam2World = asp::quaternionToMatrix(&quaternions[cur_pos*NUM_QUAT_PARAMS]);
   }
 
   // Compute the weighted roll/yaw error between the current position and along-track
-  // direction. Recall that quaternion = cam2world = satToWorld * rollPitchYaw * rotXY.
+  // direction. Recall that quaternion = cam2world = sat2World * rollPitchYaw * rotXY.
   // rollPitchYaw is variable and can have jitter. Extract from it roll, pitch,
   // yaw.
   bool operator()(double const * const * parameters, double * residuals) const {
@@ -332,14 +337,39 @@ struct weightedRollYawError {
     // Convert to rotation matrix. Order of quaternion is x, y, z, w.  
     vw::Matrix3x3 cam2world = asp::quaternionToMatrix(parameters[0]);
 
+    if (m_initial_camera_constraint) {
+      // Find the new camera orientation relative to the initial camera, not
+      // relative to the satellite along-track direction. Then find the roll and
+      // yaw from it. This is experimental.
+      vw::Matrix3x3 cam2cam =  vw::math::inverse(cam2world) * m_initCam2World;
+
+      double roll, pitch, yaw;
+      rollPitchYawFromRotationMatrix(cam2cam, roll, pitch, yaw);
+
+      // Fix for roll / yaw being determined with +/- 180 degree ambiguity.
+      roll  = roll  - 180.0 * round(roll  / 180.0);
+      pitch = pitch - 180.0 * round(pitch / 180.0);
+      yaw   = yaw   - 180.0 * round(yaw   / 180.0);
+
+      // Roll, pitch, yaw in camera coordinates are pitch, roll, yaw in satellite
+      // coordinates. So adjust below accordingly.
+      // CERES is very tolerant if one of the weights used below is 0. So there is
+      // no need to use a special cost function for such cases.
+      residuals[0] = pitch * m_rollWeight; // per above, swap roll and pitch
+      residuals[1] = yaw  * m_yawWeight;
+
+      return true;
+    }
+
     vw::Matrix3x3 rollPitchYaw  
-      = vw::math::inverse(m_satToWorld) * cam2world * vw::math::inverse(m_rotXY);
+      = vw::math::inverse(m_sat2World) * cam2world * vw::math::inverse(m_rotXY);
 
     double roll, pitch, yaw;
     rollPitchYawFromRotationMatrix(rollPitchYaw, roll, pitch, yaw);
 
     // Fix for roll / yaw being determined with +/- 180 degree ambiguity.
     roll = roll - 180.0 * round(roll / 180.0);
+    pitch = pitch - 180.0 * round(pitch / 180.0);
     yaw  = yaw  - 180.0 * round(yaw  / 180.0);
 
     // CERES is very tolerant if one of the weights used below is 0. So there is
@@ -356,12 +386,13 @@ struct weightedRollYawError {
                                      std::vector<double>           const& quaternions, 
                                      vw::cartography::GeoReference const& georef,
                                      int cur_pos, 
-                                     double rollWeight, double yawWeight) {
+                                     double rollWeight, double yawWeight,
+                                     bool initial_camera_constraint) {
 
     ceres::DynamicNumericDiffCostFunction<weightedRollYawError>* cost_function =
           new ceres::DynamicNumericDiffCostFunction<weightedRollYawError>
           (new weightedRollYawError(positions, quaternions, georef, cur_pos, 
-                                    rollWeight, yawWeight));
+                                    rollWeight, yawWeight, initial_camera_constraint));
 
     cost_function->SetNumResiduals(2); // for roll and yaw
     cost_function->AddParameterBlock(NUM_QUAT_PARAMS);
@@ -370,7 +401,8 @@ struct weightedRollYawError {
   }
 
   double m_rollWeight, m_yawWeight;
-  vw::Matrix3x3 m_rotXY, m_satToWorld;
+  vw::Matrix3x3 m_rotXY, m_sat2World, m_initCam2World;
+  bool m_initial_camera_constraint;
 };
 
 /// A Ceres cost function. The residual is the weighted difference between 1 and
@@ -405,6 +437,7 @@ struct Options: public asp::BaBaseOptions {
   double quat_norm_weight, anchor_weight, roll_weight, yaw_weight;
   std::string anchor_dem;
   int num_anchor_points_extra_lines;
+  bool initial_camera_constraint;
 };
     
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -525,7 +558,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("yaw-weight", po::value(&opt.yaw_weight)->default_value(0.0),
      "A weight to penalize the deviation of camera yaw orientation as measured from the along-track direction. Pass in a large value, such as 1e+5. This is best used only with linescan cameras created with sat_sim.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1.0),
-     "Remove matched IPs this percentage from the image left/right sides.");
+     "Remove matched IPs this percentage from the image left/right sides.")
+    ("initial-camera-constraint", po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
+     "When constraining roll and yaw, measure these not in the satellite along-track/across-track/down coordinate system, but relative to the initial camera poses. This is experimental. Internally, the roll weight will then be applied to the pitch angle, because the camera coordinate system is rotated by 90 degrees in the sensor plane relative to the satellite coordinate system. The goal is the same, to penalize deviations that are not aligned with satellite pitch.")
+    ;
   
     general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -1503,7 +1539,7 @@ void addRollYawConstraint
         = weightedRollYawError::Create(ls_models[icam]->m_positions, 
                                    ls_models[icam]->m_quaternions,
                                    georef, iq,
-                                   opt.roll_weight, opt.yaw_weight);
+                                   opt.roll_weight, opt.yaw_weight, opt.initial_camera_constraint);
 
       // We use no loss function, as the quaternions have no outliers
       ceres::LossFunction* roll_yaw_loss_function = NULL;

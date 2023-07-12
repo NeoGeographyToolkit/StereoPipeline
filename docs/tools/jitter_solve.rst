@@ -706,6 +706,7 @@ Run stereo::
       jitter/run-2.adjusted_state.json                     \
       stereo_jitter/run                                    \
       ref.tif
+
     point2dem --tr 0.4 --t_srs "$proj"                     \
       --errorimage                                         \
       stereo_jitter/run-PC.tif
@@ -735,6 +736,7 @@ section can be replaced with::
       jitter/run-2.adjusted_state.json                     \
       stereo_jitter/run                                    \
       ref.tif
+
     point2dem --tr 0.4 --t_srs "$proj"                     \
       --errorimage                                         \
       stereo_jitter/run-PC.tif
@@ -1215,6 +1217,15 @@ Command-line options for jitter_solve
     from the along-track direction. Pass in a large value, such as 1e+5. This is
     best used only with linescan cameras created with ``sat_sim``
     (:ref:`sat_sim`). 
+
+--initial-camera-constraint
+    When constraining roll and yaw, measure these not in the satellite
+    along-track/across-track/down coordinate system, but relative to the initial
+    camera poses. This is experimental. Internally, the roll weight will then be
+    applied to the pitch angle, because the camera coordinate system is rotated
+    by 90 degrees in the sensor plane relative to the satellite coordinate
+    system. The goal is the same, to penalize deviations that are not aligned
+    with satellite pitch.
 
 --reference-dem <string>
     If specified, constrain every ground point where rays from
