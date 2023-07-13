@@ -97,6 +97,11 @@ Using the packaged ASP tarball
 #. Fetch ISIS data, as detailed at
    https://github.com/USGS-Astrogeology/ISIS3#the-isis-data-area
 
+#. Add the ISIS executables to your path:
+
+   - bash: ``export PATH="/path/to/isis/bin:${PATH}"``
+   - csh:  ``setenv PATH "/path/to/isis/bin:${PATH}"``
+
 #. Set the ``ISISDATA`` environmental variable to point to where your
    ISIS data was downloaded, per the installation link above. For
    example, in the ``bash`` shell, this is done as follows::
@@ -109,10 +114,10 @@ Using the packaged ASP tarball
 
      tar xzvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.gz
 
-#. Add Stereo Pipeline to your path (optional):
+#. Add Stereo Pipeline to your path:
 
    - bash: ``export PATH="/path/to/StereoPipeline/bin:${PATH}"``
-   - csh: ``setenv PATH "/path/to/StereoPipeline/bin:${PATH}"``
+   - csh:  ``setenv PATH "/path/to/StereoPipeline/bin:${PATH}"``
 
 #. Try it out. See :numref:`lronac_csm` for a quick Lunar example
    which does not require installing ISIS or it supporting data as
@@ -134,9 +139,10 @@ Quick start for Digital Globe users
 
      tar xzvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.gz
 
+#. Add StereoPipeline to your path, as above.
+ 
 #. Try it out: Processing Earth images is described in the data processing
    tutorial in :numref:`dg_tutorial`.
-
 
 Quick start for aerial and historical images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -172,6 +178,12 @@ location for ``ISISDATA`` (:numref:`isis_start`).
 You need to add the ``bin`` directory of your deployed Stereo Pipeline
 installation to the environmental variable ``PATH``
 (:numref:`isis_start`).
+
+::
+
+    /bin/sh: camrange: command not found
+
+You need to to add the ``bin`` directory of your ISIS installation to your path (:numref:`isis_start`).
 
 ::
 
