@@ -122,6 +122,15 @@ namespace asp {
         << "do not match. Got: \" " << l_cam_type << "\" and \"" 
         << r_cam_type << "\".\n");
 
+    // If l_cam_type is empty, and session is dg or rpc, use the rpc model.
+    // TODO(oalexan1): This is a hack. What if the session is csmmaprpc or csmmapcsm?
+    if (l_cam_type == "" && (this->name().find("dg") == 0 || this->name().find("rpc") == 0)) {
+      vw::vw_out() << "WARNING: The camera type was not specified in the mapprojected "
+                   << "images header. Assuming mapprojection was done with RPC cameras.\n";
+      l_cam_type = "rpc";
+      r_cam_type = "rpc";
+    }
+
     // We will use the camera file from the mapprojected image to undo the
     // mapprojection, not the one specified by the user, which is used in
     // triangulation. We check for l_image_file and r_image_file,
@@ -152,7 +161,7 @@ namespace asp {
       m_left_map_proj_model = load_rpc_camera_model(m_left_image_file,  curr_left_camera_file,
                                                     zero_pixel_offset);
     } else { // Use the native model
-      vw_out() << "Loading original (non-RPC) cameras used in mapprojection.\n";
+      vw_out() << "Loading " << l_cam_type << " cameras used in mapprojection.\n";
       m_left_map_proj_model = load_camera_model(m_left_image_file,  curr_left_camera_file,
                                                 zero_pixel_offset);
     }
