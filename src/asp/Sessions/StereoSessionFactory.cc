@@ -172,8 +172,15 @@ namespace asp{
       }
       if (!input_dem.empty() && actual_session_type == "csm") {
         // User says CSM but also gives a DEM.
-        actual_session_type = "csmmapcsm";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: csmmapcsm.\n";
+        // Mapprojection can happen either with csm or RPC cameras (the latter for DG)
+        std::string cam_tag = "CAMERA_MODEL_TYPE";
+        std::string l_cam_type = vw::cartography::read_header_string(left_image_file, cam_tag);
+        if (l_cam_type == "rpc")
+          actual_session_type = "csmmaprpc";
+        else
+          actual_session_type = "csmmapcsm"; // used also when l_cam_type is empty
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: " 
+          << actual_session_type << ".\n";
       }
       if (!input_dem.empty() && actual_session_type == "isis") {
         // User says ISIS but also gives a DEM.
@@ -221,7 +228,7 @@ namespace asp{
     VW_ASSERT(!actual_session_type.empty(),
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
-              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster perusat pleiades opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm pleiadesmappleiades].\n");
+              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster perusat pleiades opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm csmmaprpc pleiadesmappleiades].\n");
     vw::vw_out() << "Using session: " << actual_session_type << "\n";
 
     // Compare the current session name to all recognized types
@@ -269,6 +276,8 @@ namespace asp{
       session = StereoSessionCsm::construct();
     else if (actual_session_type == "csmmapcsm")
       session = StereoSessionCsmMapCsm::construct();
+    else if (actual_session_type == "csmmaprpc")
+      session = StereoSessionCsmMapRpc::construct();
     if (session == 0)
       vw_throw(vw::NoImplErr() << "Unsupported stereo session type: " << actual_session_type);
 

@@ -193,6 +193,31 @@ namespace asp {
   };
 
   /// Specialization of the StereoSessionGDAL class to use RPC
+  /// map-projected inputs with the CSM sensor model. The 
+  /// loading of the camera model used to undo the mapprojection
+  /// happens in init_disk_transform().
+  class StereoSessionCsmMapRpc : public StereoSessionMapProj{
+  public:
+    StereoSessionCsmMapRpc() {}
+    virtual ~StereoSessionCsmMapRpc() {}
+
+    virtual std::string name() const { return "csmmaprpc"; }
+
+    static StereoSession* construct() { return new StereoSessionCsmMapRpc; }
+
+  protected:
+    /// Function to load a camera model of the particular type, for
+    /// the purpose of triangulation.
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file, 
+                      std::string const& camera_file,
+                      vw::Vector2 pixel_offset) const {
+      return load_adjusted_model(m_camera_loader.load_csm_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
+  };
+
+  /// Specialization of the StereoSessionGDAL class to use RPC
   /// map-projected inputs with the SPOT5 sensor model.
   class StereoSessionSpot5MapRPC : public StereoSessionMapProj  {
   public:

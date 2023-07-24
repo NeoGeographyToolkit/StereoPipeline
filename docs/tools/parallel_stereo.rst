@@ -179,7 +179,7 @@ Command-line options
     - spot5maprpc
     - astermaprpc
     - opticalbarmapopticalbar
-    - csmmapcsm
+    - csmmapcsm / csmmaprpc
     - pleiadesmappleiades
 
 -e, --entry-point <integer (from 0 to 5)>

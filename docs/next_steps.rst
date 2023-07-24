@@ -781,15 +781,16 @@ Even the camera files can be changed for stereo (only with the latest build,
 post version 3.2.0). For example, ``jitter_solve`` (:numref:`jitter_solve`) can
 produce CSM cameras given input cameras in Maxar / DigitalGlobe .xml files or
 input CSM .json files (:numref:`csm`). So, if stereo was done with mapprojected
-images named ``left_mapproj.tif`` and ``right_mapproj.tif``, cameras with
+images named ``left_mapproj.tif`` and ``right_mapproj.tif``, with cameras with
 names like ``left.xml`` and ``right.xml``, before solving for jitter, and this
 solver produced cameras of the form ``adjusted_left.json``,
 ``adjusted_right.json``, the reuse of the previous run can be done as::
 
-   parallel_stereo left_mapproj.tif right_mapproj.tif \
-     adjusted_left.json adjusted_right.json           \
-     --prev-run-prefix dg/dg                          \
-     jitter/run                                       \
+   parallel_stereo -t csmmaprpc             \
+     left_mapproj.tif right_mapproj.tif     \
+     adjusted_left.json adjusted_right.json \
+     --prev-run-prefix dg/dg                \
+     jitter/run                             \
      ref_dem.tif
 
 Under the hood, this will read the metadata from the mapprojected images

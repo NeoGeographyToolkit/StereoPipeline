@@ -17,6 +17,13 @@
 
 /// \file stereo.cc
 
+#include <asp/Tools/stereo.h>
+#include <asp/Camera/RPCModel.h>
+#include <asp/Core/Bathymetry.h>
+#include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Camera/LinescanPleiadesModel.h>
+#include <asp/Core/AspStringUtils.h>
+
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Stereo/StereoView.h>
 #include <vw/Stereo/PreFilter.h>
@@ -24,12 +31,6 @@
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/FileIO/MatrixIO.h>
-
-#include <asp/Tools/stereo.h>
-#include <asp/Camera/RPCModel.h>
-#include <asp/Core/Bathymetry.h>
-#include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/Camera/LinescanPleiadesModel.h>
 
 // Can't do much about warnings in boost except to hide them
 #pragma GCC diagnostic push
@@ -853,35 +854,20 @@ namespace asp {
       // done with camera Y. Normally X equals Y, with the exceptions
       // of dgmaprpc, spot5maprpc, and astermaprpc.
       std::string cam_tag = "CAMERA_MODEL_TYPE";
-      std::string l_cam_type, r_cam_type;
-      boost::shared_ptr<vw::DiskImageResource> l_rsrc(new vw::DiskImageResourceGDAL(opt.in_file1));
-      vw::cartography::read_header_string(*l_rsrc.get(), cam_tag, l_cam_type);
-      boost::shared_ptr<vw::DiskImageResource> r_rsrc(new vw::DiskImageResourceGDAL(opt.in_file2));
-      vw::cartography::read_header_string(*r_rsrc.get(), cam_tag, r_cam_type);
+      std::string l_cam_type = vw::cartography::read_header_string(opt.in_file1, cam_tag);
+      std::string r_cam_type = vw::cartography::read_header_string(opt.in_file2, cam_tag);
 
       // Extract the 'rpc' from 'rpcmaprpc' and 'dgmaprc', and 'pinhole' from 'pinholemappinhole'
-      std::string expected_cam_type;
-      std::string sep = "map";
-      std::size_t it = opt.session->name().find(sep);
-      if (it != std::string::npos) {
-        it += sep.size();
-        expected_cam_type = opt.session->name().substr(it, opt.session->name().size());
-      }
+      std::string tri_cam_type, mapproj_cam_type; 
+      asp::parseCamTypes(opt.session->name(), tri_cam_type, mapproj_cam_type);
 
-      // csmmapcsm can also do csmmaprpc
-      if (opt.session->name().find("csm") == 0) {
-        if (l_cam_type == "rpc")
-          l_cam_type = "csm";
-        if (r_cam_type == "rpc")
-          r_cam_type = "csm";
-      }
-
-      if ((l_cam_type != "" && l_cam_type != expected_cam_type) ||
-          (r_cam_type != "" && r_cam_type != expected_cam_type)   ){
+      // Sanity check. note that l_cam_type and r_cam_type can be empty
+      if ((l_cam_type != "" && l_cam_type != mapproj_cam_type) ||
+          (r_cam_type != "" && r_cam_type != mapproj_cam_type)   ){
         vw_throw(ArgumentErr() << "For session type "
                  << opt.session->name()
                  << ", the images should have been map-projected with "
-                 << "the option -t \"" << expected_cam_type << "\". Instead, got: \""
+                 << "the option -t \"" << mapproj_cam_type << "\". Instead, got: \""
                  << l_cam_type << "\" and \"" << r_cam_type << "\".\n");
       }
 

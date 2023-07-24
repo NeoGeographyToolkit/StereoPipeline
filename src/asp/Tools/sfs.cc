@@ -3742,7 +3742,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("haze-prefix", po::value(&opt.image_haze_prefix)->default_value(""),
      "Use this prefix to read initial haze values (filename is <haze-prefix>-haze.txt). The file format is the same as what the tool writes itself, when triggered by the earlier options. If haze is modeled, it will be initially set to 0 unless read from such a file, and will be floated or not depending on whether --float-haze is on. The final haze values will be saved to <output prefix>-haze.txt.")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
-     "Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.")
+     "Use this value for initial DEM heights (measured in meters, relative to the datum). "
+     "An input DEM still needs to be provided for georeference information.")
     ("crop-win", po::value(&opt.crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
      "Crop the input DEM to this region before continuing.")
     ("nodata-value", po::value(&opt.nodata_val)->default_value(std::numeric_limits<double>::quiet_NaN()),

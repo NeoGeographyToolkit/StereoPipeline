@@ -17,6 +17,14 @@
 
 /// \file StereoSession.cc
 ///
+
+#include <asp/Sessions/StereoSession.h>
+#include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Camera/AdjustedLinescanDGModel.h>
+#include <asp/Camera/RPCModel.h>
+#include <asp/Sessions/StereoSessionASTER.h>
+#include <asp/Core/AspStringUtils.h>
+
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
 #include <vw/Math/Vector.h>
@@ -29,12 +37,6 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/FileIO/MatrixIO.h>
-
-#include <asp/Sessions/StereoSession.h>
-#include <asp/Core/BundleAdjustUtils.h>
-#include <asp/Camera/AdjustedLinescanDGModel.h>
-#include <asp/Camera/RPCModel.h>
-#include <asp/Sessions/StereoSessionASTER.h>
 
 #include <boost/filesystem/operations.hpp>
 
@@ -122,13 +124,16 @@ namespace asp {
         << "do not match. Got: \" " << l_cam_type << "\" and \"" 
         << r_cam_type << "\".\n");
 
-    // If l_cam_type is empty, and session is dg or rpc, use the rpc model.
-    // TODO(oalexan1): This is a hack. What if the session is csmmaprpc or csmmapcsm?
-    if (l_cam_type == "" && (this->name().find("dg") == 0 || this->name().find("rpc") == 0)) {
-      vw::vw_out() << "WARNING: The camera type was not specified in the mapprojected "
-                   << "images header. Assuming mapprojection was done with RPC cameras.\n";
-      l_cam_type = "rpc";
-      r_cam_type = "rpc";
+    // If l_cam_type is empty, and session name is XmapY, use cam type Y.
+    if (l_cam_type == "") {
+      std::string tri_cam_type, mapproj_cam_type; 
+      asp::parseCamTypes(this->name(), tri_cam_type, mapproj_cam_type);
+      vw::vw_out(WarningMessage)
+           << "The camera type was not specified in the mapprojected "
+           << "images header. Assuming mapprojection was done with camera type: "
+           << mapproj_cam_type << ".\n";
+      l_cam_type = mapproj_cam_type;
+      r_cam_type = mapproj_cam_type;
     }
 
     // We will use the camera file from the mapprojected image to undo the
@@ -405,7 +410,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   bool use_percentile_stretch = false;
   bool do_not_exceed_min_max = (this->name() == "isis" ||
                                 this->name() == "isismapisis");
-  // TODO(oalexan1): Should one add above "csm" and "csmmapcsm"?
+  // TODO(oalexan1): Should one add above "csm" and "csmmapcsm" / "csmmaprpc"?
   asp::normalize_images(stereo_settings().force_use_entire_range,
                         stereo_settings().individually_normalize,
                         use_percentile_stretch, 

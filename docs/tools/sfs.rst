@@ -276,9 +276,10 @@ Command-line options for sfs
 --crop-win <xoff yoff xsize ysize>
     Crop the input DEM to this region before continuing.
 
---init-dem-height <float (default: nan)>
-    Use this value for initial DEM heights. An input DEM still needs
-    to be provided for georeference information.
+--init-dem-height <float (default: NaN)>
+    Use this value for initial DEM heights (measured in meters, relative to the
+    datum). An input DEM still needs to be provided for georeference
+    information.
 
 --nodata-value <float (default: nan)>
     Use this as the DEM no-data value, over-riding what is in the

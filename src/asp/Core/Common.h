@@ -28,8 +28,8 @@
 #include <asp/asp_config.h>
 
 // TODO(oalexan1): Break up Common.h into more manageable pieces.
-// Image-writing code should be in VW. Low-level file utils
-// should be in their own header file and .cc fie.
+// Image-writing code should be in VW. Low-level string utils
+// should be moved to AspStringUtils.h. 
 
 #include <vw/Core/StringUtils.h>
 #include <vw/Image/ImageIO.h>
