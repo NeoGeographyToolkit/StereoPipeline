@@ -117,6 +117,9 @@ namespace asp {
   /// Set env variables for some of ASP's dependencies
   void set_asp_env_vars();
   
+  /// Write a vector of strings from a file, one per line.
+  void write_list(std::string const& file, std::vector<std::string> const & list);
+
   /// Read a vector of strings from a file, with spaces and newlines acting as separators.
   /// Throw an exception if the list is empty.
   void read_list(std::string const& file, std::vector<std::string> & list);

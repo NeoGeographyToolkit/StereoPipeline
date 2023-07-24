@@ -708,6 +708,14 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
 
 }
 
+// Write a vector of strings from a file, one per line.
+void asp::write_list(std::string const& file, std::vector<std::string> const & list) {
+  std::ofstream fh(file.c_str());
+  for (size_t i = 0; i < list.size(); i++)
+    fh << list[i] << std::endl;
+  fh.close();
+}
+
 // Read a vector of strings from a file, with spaces and newlines acting as separators.
 // Throw an exception if the list is empty.
 void asp::read_list(std::string const& file, std::vector<std::string> & list) {
