@@ -911,6 +911,18 @@ void genPinholeCameras(SatSimOptions     const & opt,
     }
   }
 
+  // Write the list of cameras only if we are not skipping the first camera
+  // Otherwise the same file may be written by multiple processes. 
+  if (!skipCamera(0, opt)) {
+    std::string cam_list = opt.out_prefix + "-cameras.txt"; 
+    vw::vw_out() << "Writing: " << cam_list << std::endl;
+    asp::write_list(cam_list, cam_names);
+  } else {
+     // Print a warning message that the list won't be saved
+     vw::vw_out(vw::WarningMessage) << "The camera list is saved only when " 
+        << "--first-index is 0, to avoid a race condition.\n";
+  }
+
   return;
 }
 
@@ -1126,6 +1138,22 @@ void genImages(SatSimOptions const& opt,
       has_nodata, ortho_nodata_val,   // borrow the nodata from ortho
       opt, vw::TerminalProgressCallback("", "\t--> "));
   }  
+
+  // Write the list of images only if we are not skipping the first camera
+  // Otherwise the same file may be written by multiple processes. Also
+  // do this only for pinhole cameras, as for linescan there is only one 
+  // image/camera rather than a set.
+  if (opt.sensor_type == "pinhole") {
+    if (!skipCamera(0, opt)) {
+      std::string image_list = opt.out_prefix + "-images.txt"; 
+      vw::vw_out() << "Writing: " << image_list << std::endl;
+      asp::write_list(image_list, image_names);
+    } else {
+      // Print a warning message that the list won't be saved
+      vw::vw_out(vw::WarningMessage) << "The image list is saved only when " 
+        << "--first-index is 0, to avoid a race condition.\n";
+    }
+  }
 
   return;
 }

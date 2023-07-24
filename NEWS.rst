@@ -161,6 +161,12 @@ wv_correct (:numref:`wv_correct`):
     copy of the original image will be written instead and a warning will be
     printed). This applies to both PAN and multi-spectral images.
 
+corr_eval:
+  * Remove an excessive check. The refined/filtered disparity can be such 
+    that left image pixel plus disparity may be outside the right image.
+    Don't fail in that case, but just skip the pixel, resulting in empty 
+    correlation for that pixel.
+  
 misc: 
   * Throw an error for WorldView products that are not Stereo1B or Basic1B.
     That because ASP does not support orthorectified Maxar products.

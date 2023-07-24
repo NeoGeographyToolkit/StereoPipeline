@@ -308,6 +308,9 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
   if (ans != 0 && ans != 2)
     vw::vw_throw(vw::ArgumentErr() << "Either both first and last indices must be "
       "specified, or none.\n");
+  if (ans == 0 && opt.first_index >= opt.last_index)
+    vw::vw_throw(vw::ArgumentErr() << "The first index must be less than "
+      "the last index.\n");
 
   // Check for sensor type
   if (opt.sensor_type != "pinhole" && opt.sensor_type != "linescan")
