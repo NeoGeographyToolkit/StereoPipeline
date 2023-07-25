@@ -93,6 +93,15 @@ namespace asp {
     // Apply a transform to a CSM model
     void applyTransform(vw::Matrix4x4 const& transform);
     
+    // Create a CSM frame camera model. Assumes that focal length and optical
+    // center are in pixels, the pixel pitch is 1, and no distortion.
+    void createFrameModel(int cols, int rows,  // in pixels
+        double cx, double cy, // col and row optical center, in pixels
+        double focal_length,  // in pixels
+        double semi_major_axis, double semi_minor_axis, // in meters
+        vw::Vector3 C, // camera center
+        vw::Matrix3x3 R); // camera to world rotation matrix
+
     vw::Vector3 sun_position() const {
       return m_sun_position;
     }
@@ -102,6 +111,10 @@ namespace asp {
     void setDesiredPrecision(double desired_precision) {
       m_desired_precision = desired_precision;
     }
+
+    /// Create the model from a state string. Use recreate_model = false,
+    /// if desired to adjust an existing model.
+    void setModelFromStateString(std::string const& model_state, bool recreate_model);
 
     boost::shared_ptr<csm::RasterGM> m_gm_model;
 
@@ -123,10 +136,6 @@ namespace asp {
     /// A model state is obtained from an ISD model by pre-processing
     /// and combining its data in a form ready to be used.
     void loadModelFromStateFile(std::string const& state_file);
-
-    /// Create the model from a state string. Use recreate_model = false,
-    /// if desired to adjust an existing model.
-    void setModelFromStateString(std::string const& model_state, bool recreate_model);
 
     /// Find and load any available CSM plugin libraries from disk.
     /// - This does nothing after the first time it finds any plugins.

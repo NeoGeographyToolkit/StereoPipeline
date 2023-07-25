@@ -41,6 +41,7 @@
 #include <usgscsm/Utilities.h>
 
 #include <ale/Rotation.h>
+#include <Eigen/Dense>
 #include <Eigen/Geometry>
 
 #include <streambuf>
@@ -142,7 +143,7 @@ bool CsmModel::file_has_isd_extension(std::string const& path) {
   return ((ext == ".json") || (ext == ".isd"));
 }
 
-std::string CsmModel::get_csm_plugin_folder(){
+std::string CsmModel::get_csm_plugin_folder() {
 
   // Look up the CSM_PLUGIN_PATH environmental variable.
   // It is set in the "libexec/libexec-funcs.sh" deploy file.
@@ -488,11 +489,12 @@ void setModelFromStateStringAux(bool recreate_model,
     if (!new_gm_model)
       vw::vw_throw(vw::ArgumentErr() << "Failed to cast linescan model to raster type.");
     
-    gm_model.reset(new_gm_model); // This will wipe any preexisting model
+    // This will wipe any preexisting model. Prior gm_model pointer will become invalid.
+    gm_model.reset(new_gm_model); 
     
   } else {
     
-    // Update existing model
+    // Update existing model. This does not destroy gm_model.
     ModelT * specific_model = static_cast<ModelT*>(gm_model.get());
     if (specific_model == NULL)
       vw::vw_throw(vw::ArgumentErr() << "Incorrect model type passed in.\n");
@@ -772,5 +774,71 @@ void CsmModel::applyTransform(vw::Matrix4x4 const& transform) {
   setModelFromStateString(modelState, recreate_model);
 }
   
+ // Create a CSM frame camera model. Assumes that focal length and optical
+ // center are in pixels, the pixel pitch is 1, and no distortion.
+ // This requires a lot of bookkeeping. Use cam_test to compare
+ // such model with ASP's Pinhole model with same data.
+ // That is created as: 
+ // vw::camera::PinholeModel pin(C, R, focal_length, focal_length, cx, cy);
+ void CsmModel::createFrameModel(int cols, int rows,  // in pixels
+        double cx, double cy, // col and row optical center, in pixels
+        double focal_length,  // in pixels
+        double semi_major_axis, double semi_minor_axis, // in meters
+        vw::Vector3 C, // camera center
+        vw::Matrix3x3 R) { // camera to world rotation matrix
+
+  // Make a copy of R as an Eigen matrix, and convert to quaternion
+  Eigen::Matrix3d R_copy;
+  for (int r = 0; r < 3; r++){
+    for (int c = 0; c < 3; c++)
+      R_copy(r, c) = R(r, c);
+  }
+  Eigen::Quaterniond q(R_copy);
+
+  // Creating a frame model requires populating a json file
+  UsgsAstroFrameSensorModel cam;
+  cam.reset();
+  std::string state = cam.getModelState();
+  nlohmann::json j = stateAsJson(state);
+
+  j["m_sensorName"] = "csm";
+  j["m_platformName"] = "csm";
+  j["m_majorAxis"] = semi_major_axis;
+  j["m_minorAxis"] = semi_minor_axis;
+  j["m_minElevation"] = -10000.0; // -10 km
+  j["m_maxElevation"] = 10000.0;  // 10 km
+
+  // Use negative signs below and for focal length due to idiosyncrasies of the
+  // USGS frame sensor model. These are related to pitch, and we assume
+  // pitch = 1.0.
+  j["m_iTransL"] = std::vector<double>({0.0, 0.0, -1.0});
+  j["m_iTransS"] = std::vector<double>({0.0, -1.0, 0.0});
+  j["m_focalLength"] = -focal_length; 
+  
+  j["m_ccdCenter"] = std::vector<double>({cy, cx}); // note the order (row, col)
+  j["m_pixelPitch"] = 1.0; // pixel pitch is set to 1.0
+  j["m_nLines"] = rows;
+  j["m_nSamples"] = cols;
+  j["m_distortionType"] = 0;
+
+  // Need to apply this offset to make CSM agree with ASP's Pinhole
+  j["m_startingDetectorLine"] = -0.5;
+  j["m_startingDetectorSample"] = -0.5;
+    
+  // The quantities below don't seem to matter
+  j["m_focalLengthEpsilon"] = 1.0; 
+  j["m_transX"] = std::vector<double>({0.0, 0.0, -1.0});
+  j["m_transY"] = std::vector<double>({0.0, -1.0, 0.0});
+
+  // Set the translation and quaternion. The quaternion is stored as x, y, z, w.
+  j["m_currentParameterValue"] = std::vector<double>({C[0], C[1], C[2], 
+                                                     q.x(), q.y(), q.z(), q.w()});
+
+  // Update the state string and create the CSM model
+  state = cam.getModelName() + "\n" + j.dump(2);
+  bool recreate_model = true;
+  setModelFromStateString(state, recreate_model);
+}
+
 } // end namespace asp
 
