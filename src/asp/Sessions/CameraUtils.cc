@@ -82,19 +82,6 @@ void load_cameras(std::vector<std::string> const& image_files,
       vw::camera::update_pinhole_for_fast_point2pixel<vw::camera::TsaiLensDistortion>
         (*(pinhole_ptr.get()), file_image_size(image_files[i]));
     }
-    
-    // Since CERES does numerical differences, it needs high precision in the inputs.
-    // Inform about that the CSM cameras, which normally settle for less.
-    // TODO(oalexan1): Need to examine other cameras too.
-    if (stereo_session == "csm") {
-      vw::camera::CameraModel * base_cam = vw::camera::unadjusted_model(camera_models[i]).get();
-      asp::CsmModel * csm_cam = dynamic_cast<asp::CsmModel*>(base_cam);
-      if (csm_cam == NULL) 
-        vw::vw_throw(vw::ArgumentErr() << "Expected a CSM camera model.");
-      // Do not change the precision here. Leave it at the default value, which is
-      // 1e-8. CSM can give junk results if this is too low.
-      //csm_cam->setDesiredPrecision(asp::DEFAULT_CSM_DESIRED_PRECISISON); 
-    }
   } // End loop through images loading all the camera models
   
   return;
@@ -108,21 +95,32 @@ void datum_from_cameras(std::vector<std::string> const& image_files,
                         vw::cartography::Datum & datum) {
   
   datum.set_well_known_datum("WGS84"); // if no luck
-
   std::string out_prefix = "run";
-  SessionPtr session(asp::StereoSessionFactory::create(stereo_session, // may change
-                                                       vw::GdalWriteOptions(),
-                                                       image_files [0], image_files [0],
-                                                       camera_files[0], camera_files[0],
-                                                       out_prefix)); 
-  
-  if (stereo_session != "pinhole") { // for pinhole, no datum is assumed
+
+  // Look for a non-pinole camera, as a pinhole camera does not have a datum
+  for (size_t i = 0; i < image_files.size(); i++) {
+
+    // This is for the case when there is a mix of pinhole and non-pinhole
+    // cameras. In that case, the pinhole cameras will be ignored. Must
+    // reset the session to be able to load the non-pinhole cameras.
+    if (stereo_session == "pinhole")
+      stereo_session = "";
+
+    SessionPtr session(asp::StereoSessionFactory::create(stereo_session, // may change
+                                                         vw::GdalWriteOptions(),
+                                                         image_files [i], image_files [i],
+                                                         camera_files[i], camera_files[i],
+                                                         out_prefix)); 
+    if (stereo_session == "pinhole")
+      continue;
+
     bool use_sphere_for_non_earth = true;
-    datum = session->get_datum(session->camera_model(image_files [0],
-                                                     camera_files[0]).get(),
+    datum = session->get_datum(session->camera_model(image_files [i],
+                                                     camera_files[i]).get(),
                                use_sphere_for_non_earth);
+    break; // found the datum
   }
-  
+
   return;
 }
   

@@ -81,8 +81,8 @@ namespace asp {
   get_files_with_ext( std::vector<std::string>& files, std::string const& ext, 
                       bool prune_input_list );
 
-  /// Given a list of images/cameras, put the images and the cameras
-  /// in separate vectors.
+  /// Given a list of images/cameras and/or lists of such things, put the images
+  /// and the cameras in separate vectors.
   void separate_images_from_cameras(std::vector<std::string> const& inputs,
 				    std::vector<std::string>      & images,
 				    std::vector<std::string>      & cameras,

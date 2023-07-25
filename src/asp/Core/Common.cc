@@ -138,8 +138,50 @@ asp::get_files_with_ext( std::vector<std::string>& files, std::string const& ext
   return match_files;
 }
 
-// Given a list of images/cameras, put the images and the cameras
-// in separate vectors.
+// Given a vector of files, with each file being an image, camera,
+// or a text file having images or cameras, return the list of
+// all found images and cameras. This is a local auxiliary 
+// function not exposed in the header file.
+void readImagesCamsOrLists(std::vector<std::string> const & in,
+                          std::vector<std::string>       & out){
+
+  // Wipe the output
+  out.clear();
+
+  for (size_t i = 0; i < in.size(); i++) {
+
+    if (asp::has_image_extension(in[i]) || asp::has_cam_extension(in[i])) {
+    
+      // Simply append the image or camera to the list
+      out.push_back(in[i]);
+      
+    } else {
+
+      // Read the list, append all entries from it
+      std::string ext = vw::get_extension(in[i]);
+      if (ext == ".txt") {
+
+        std::vector<std::string> list;
+        asp::read_list(in[i], list);
+        for (size_t j = 0; j < list.size(); j++) 
+            out.push_back(list[j]);
+
+      } else {
+        vw::vw_throw(vw::ArgumentErr() << "Unknown file type passed on input: "
+          << in[i] << ".\n");
+      }
+    }
+  }
+
+  // Print what we found in out
+  for (size_t i = 0; i < out.size(); i++) 
+    vw_out() << "Found: " << out[i] << std::endl;
+
+  return;
+} 
+
+// Given a list of images/cameras and/or lists of such things, put the images
+// and the cameras in separate vectors.
 void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
                                        std::vector<std::string>      & images,
                                        std::vector<std::string>      & cameras,
@@ -152,52 +194,53 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
   // 3. img1.tif ... imgN.tif for RPC with embedded RPC in the tif files 
   // 4. img1.tif ... imgN.tif cam1 .... camN for all other cases.
 
-  // In addition, For orbitviz, images and cameras may be interleaved.
-  // Hence reorder them first. 
+  // Consider the case when some of the inputs are lists of images/cameras
+  std::vector<std::string> inputs2;
+  readImagesCamsOrLists(inputs, inputs2);
+
+  // Images and cameras may be interleaved. Separate them.
   images.clear();
   cameras.clear();
-  for (size_t i = 0; i < inputs.size(); i++) {
-    if (has_image_extension(inputs[i]))
-      images.push_back(inputs[i]);
+  for (size_t i = 0; i < inputs2.size(); i++) {
+    if (has_image_extension(inputs2[i]))
+      images.push_back(inputs2[i]);
     else
-      cameras.push_back(inputs[i]);
+      cameras.push_back(inputs2[i]);
   }
-  std::vector<std::string> inputs2;
+
+  // Then concatenate them again, but with the images first and the cameras
+  // second.
+  inputs2.clear();
   for (size_t i = 0; i < images.size(); i++)  inputs2.push_back(images[i]);
   for (size_t i = 0; i < cameras.size(); i++) inputs2.push_back(cameras[i]);
   images.clear();
   cameras.clear();
-  
+
+  // See if we have cub files and/or camera files (.cub files are also cameras)  
   bool has_cub    = false;
   bool has_nocub  = false;
   bool has_cam    = false;
-  
   for (size_t i = 0; i < inputs2.size(); i++) {
-    
     std::string ext = get_extension(inputs2[i]);
-    
     if (ext == ".cub")                      has_cub   = true;
     if (ext != ".cub")                      has_nocub = true;
     if (asp::has_cam_extension(inputs2[i])) has_cam   = true;
   }
   
+  // Let the first half of the data be images, and the second half be cameras.
+  // Unless we have only .cub files, when all the data are images.
   if ( (has_cub && !has_nocub) || (!has_cam) ) {
-
     // Only cubes, or only non-cameras, cases 1 and 3 above
     for (size_t i=0; i < inputs2.size(); ++i) 
       images.push_back(inputs2[i]);
-    
-  } else{
-
+  } else {
     // Images and cameras (cameras could be cubes)
-    if (inputs2.size() % 2 != 0) {
+    if (inputs2.size() % 2 != 0)
       vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n");
-    }
     
     int half = inputs2.size()/2;
     for (int i = 0;    i < half;   i++) images.push_back(inputs2[i]);
     for (int i = half; i < 2*half; i++) cameras.push_back(inputs2[i]);
-
   }
   
   // Verification for images
