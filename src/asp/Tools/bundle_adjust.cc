@@ -2587,7 +2587,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 // A wrapper around ip matching. Can also work with NULL cameras.
 void ba_match_ip(Options & opt, SessionPtr session, 
                  std::string const& image1_path,  std::string const& image2_path,
-                 std::string const& camera1_path, std::string const& camera2_path,
                  vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
                  std::string const& match_filename) {
   
@@ -2683,7 +2682,6 @@ void matches_from_mapproj_images(int i, int j,
   try{
     
     ba_match_ip(opt, session, map_files[i], map_files[j],
-                opt.camera_files[i], opt.camera_files[j],
                 NULL, NULL, // cameras are set to null since images are mapprojected
                 map_match_file);
   } catch ( const std::exception& e ){
@@ -3112,7 +3110,6 @@ int main(int argc, char* argv[]) {
 
         if (opt.mapprojected_data == "") 
           ba_match_ip(opt, session, image1_path, image2_path,
-                      camera1_path, camera2_path,
                       opt.camera_models[i].get(),
                       opt.camera_models[j].get(),
                       match_file);
