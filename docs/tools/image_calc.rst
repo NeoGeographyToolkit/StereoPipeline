@@ -53,14 +53,13 @@ Apply a mask to an image
 
 ::
 
-    image_calc -c "min(var_0, var_1)" -d float32 \
-        --output-nodata-value 0                  \
-        input.tif -o output.tif
+    image_calc -c "var_0 * var_1" -d float32 \
+        --output-nodata-value 0              \
+        input.tif mask.tif -o output.tif
 
 Here it is assumed that the image and the mask have the same
-dimensions, the image values are non-negative, the mask
-has positive values for desired valid pixels and 0 otherwise, 
-and that the output pixels with value 0 are invalid.
+dimensions, the mask has value 1 for pixels to keep and 0 for pixels
+to discard, and that the output pixels with value 0 are invalid.
 
 Create a mask
 ^^^^^^^^^^^^^
