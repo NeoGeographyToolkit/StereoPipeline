@@ -31,10 +31,11 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Camera/RPCModel.h>
-#include <vw/Core/Stopwatch.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Camera/Covariance.h>
+
+#include <vw/Core/Stopwatch.h>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -44,7 +45,7 @@ namespace fs = boost::filesystem;
 typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 struct Options : vw::GdalWriteOptions {
-  std::string image_file, cam1_file, cam2_file, session1, session2, bundle_adjust_prefix;
+  std::string image_file, cam1_file, cam2_file, session1, session2, bundle_adjust_prefix, datum;
   int sample_rate; // use one out of these many pixels
   double subpixel_offset, height_above_datum;
   bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
@@ -70,13 +71,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use one out of these many pixels when sampling the image.")
     ("subpixel-offset",   po::value(&opt.subpixel_offset)->default_value(0.0),
      "Add to each integer pixel this offset (in x and y) when sampling the image.")
-    ("height-above-datum",   po::value(&opt.height_above_datum)->default_value(0.0),
-     "Let the ground be obtained from the datum for this camera by "
-     "adding to its radii this value (the units are meters).")
     ("single-pixel",   po::value(&opt.single_pixel)->default_value(Vector2(nan, nan)),
      "Instead of sampling pixels from the image use only this pixel.")
     ("print-per-pixel-results", po::bool_switch(&opt.print_per_pixel_results)->default_value(false)->implicit_value(true),
      "Print the results at each pixel.")
+    ("height-above-datum",   po::value(&opt.height_above_datum)->default_value(0.0),
+     "Let the ground be obtained from the datum for this camera by "
+     "adding to its radii this value (the units are meters).")
+    ("datum", po::value(&opt.datum),
+     "Set the datum. This will override the datum from the input cameras. Usually needed "
+     "only for Pinhole cameras for non-Earth planets, when the camera does not have "
+     "the datum information. Options: WGS_1984, D_MOON (1,737,400 meters), "
+     "D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, "
+     "and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("enable-correct-velocity-aberration", po::bool_switch(&opt.enable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
      "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
     ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
@@ -204,12 +211,6 @@ int main(int argc, char *argv[]) {
     boost::shared_ptr<vw::camera::CameraModel> cam1_model
       = cam1_session->camera_model(opt.image_file, opt.cam1_file);
 
-    // Auto-guess the datum
-    bool use_sphere_for_non_earth = true;
-    vw::cartography::Datum datum = cam1_session->get_datum(cam1_model.get(),
-                                                           use_sphere_for_non_earth);
-    vw_out() << "Datum: " << datum << std::endl;
-
     // Load cam2
     std::string default_session2 = opt.session2; // save it before it changes
     SessionPtr cam2_session(asp::StereoSessionFactory::create
@@ -220,6 +221,33 @@ int main(int argc, char *argv[]) {
                             out_prefix));
     boost::shared_ptr<vw::camera::CameraModel> cam2_model
       = cam2_session->camera_model(opt.image_file, opt.cam2_file);
+
+    vw::cartography::Datum datum;
+    if (opt.datum == "") {
+      // Auto-guess the datum, this is the default
+      bool use_sphere_for_non_earth = true;
+      datum = cam1_session->get_datum(cam1_model.get(), use_sphere_for_non_earth);
+
+      // Sanity check
+      vw::cartography::Datum datum2 = cam2_session->get_datum(cam2_model.get(), 
+                                                              use_sphere_for_non_earth);
+      if (datum.semi_major_axis() != datum2.semi_major_axis() ||
+          datum.semi_minor_axis() != datum2.semi_minor_axis())
+            vw::vw_out(vw::WarningMessage) << "The two cameras have different datums:\n" 
+                                           << datum << "\n" << datum2 << "\n"
+                                           << "Consider using the --datum option.\n";
+    } else {
+      // Use the datum specified by the user
+      datum.set_well_known_datum(opt.datum);
+    }
+    vw_out() << "Using datum: " << datum << std::endl;
+
+    // Sanity check
+    if (norm_2(cam1_model->camera_center(Vector2())) < datum.semi_major_axis() ||
+        norm_2(cam2_model->camera_center(Vector2())) < datum.semi_major_axis())   
+            vw::vw_out(vw::WarningMessage) << "First or second camera center is below "
+            << "the datum semi-major axis. Check your data. Consider using "
+            << "the --datum and/or --height-above-datum options.\n"; 
 
     if (opt.session1 == opt.session2 && (default_session1 == "" || default_session2 == ""))
       vw_throw(ArgumentErr() << "The session names for both cameras "

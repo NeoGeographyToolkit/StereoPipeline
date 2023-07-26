@@ -166,7 +166,12 @@ corr_eval:
     that left image pixel plus disparity may be outside the right image.
     Don't fail in that case, but just skip the pixel, resulting in empty 
     correlation for that pixel.
-  
+
+cam_test: 
+  * Added the option ``--datum``. Useful for Pinhole cameras as those don't 
+    know their datum. 
+  * Added a warning if the camera center is below the datum. 
+
 misc: 
   * Throw an error for WorldView products that are not Stereo1B or Basic1B.
     That because ASP does not support orthorectified Maxar products.
