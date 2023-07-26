@@ -26,7 +26,7 @@
 
 namespace asp {
 
-// Call to work with ceres::DynamicCostFunction.
+// See the .h file for the documentation.
 bool LsPixelReprojErr::operator()(double const * const * parameters, 
                                   double * residuals) const {
 
@@ -60,6 +60,57 @@ bool LsPixelReprojErr::operator()(double const * const * parameters,
     P.x = parameters[shift][0];
     P.y = parameters[shift][1];
     P.z = parameters[shift][2];
+
+    // Project in the camera with high precision. Do not use here
+    // anything lower than 1e-8, as the linescan model will then
+    // return junk.
+    double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
+    csm::ImageCoord imagePt = cam.groundToImage(P, desired_precision);
+
+    // Convert to what ASP expects
+    vw::Vector2 pix;
+    asp::fromCsmPixel(pix, imagePt);
+
+    residuals[0] = m_weight*(pix[0] - m_observation[0]);
+    residuals[1] = m_weight*(pix[1] - m_observation[1]);
+    
+  } catch (std::exception const& e) {
+    residuals[0] = g_big_pixel_value;
+    residuals[1] = g_big_pixel_value;
+    return true; // accept the solution anyway
+  }
+
+  return true;
+}
+
+// See the .h file for the documentation.
+bool FramePixelReprojErr::operator()(double const * const * parameters, 
+                                     double * residuals) const {
+
+  try {
+    // Make a copy of the model, as we will update position and quaternion
+    // values that are being modified now. Use the same order as in
+    // UsdAstroFrameSensorModel::m_currentParameterValue.
+    UsgsAstroFrameSensorModel cam = *m_frame_model;
+
+    // The latest position is in parameters[0].
+    for (int coord = 0; coord < NUM_XYZ_PARAMS; coord++) {
+      std::cout << "--camera position " << coord << " " << parameters[0][coord] << std::endl;
+      cam.setParameterValue(coord, parameters[0][coord]);
+    }
+
+    // The latest quaternion is in parameters[1]. Note how we below
+    // move forward when invoking cam.setParameterValue().
+    for (int coord = 0; coord < NUM_QUAT_PARAMS; coord++) {
+      std::cout << "--camera orientation " << coord << " " << parameters[1][coord] << std::endl;
+      cam.setParameterValue(coord + NUM_XYZ_PARAMS, parameters[1][coord]);
+    }
+
+    // The triangulation parameter is after the position and orientation
+    csm::EcefCoord P;
+    P.x = parameters[2][0];
+    P.y = parameters[2][1];
+    P.z = parameters[2][2];
 
     // Project in the camera with high precision. Do not use here
     // anything lower than 1e-8, as the linescan model will then

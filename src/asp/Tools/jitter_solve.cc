@@ -899,6 +899,111 @@ void calcAnchorPoints(Options                              const  & opt,
   }   
 }
 
+// Add the linescan model reprojection error to the cost function
+void addLsReprojectionErr(Options          const & opt,
+                          UsgsAstroLsSensorModel * ls_model,
+                          vw::Vector2      const & observation,
+                          double                 * tri_point,
+                          double                   weight,
+                          ceres::Problem         & problem) {
+
+  // Must grow the number of quaternions and positions a bit
+  // because during optimization the 3D point and corresponding
+  // pixel may move somewhat.
+  double line_extra = opt.max_init_reproj_error + 5.0; // add some more just in case
+  csm::ImageCoord imagePt1, imagePt2;
+  asp::toCsmPixel(observation - Vector2(0.0, line_extra), imagePt1);
+  asp::toCsmPixel(observation + Vector2(0.0, line_extra), imagePt2);
+  double time1 = ls_model->getImageTime(imagePt1);
+  double time2 = ls_model->getImageTime(imagePt2);
+
+  // Handle quaternions. We follow closely the conventions for UsgsAstroLsSensorModel.
+  int numQuatPerObs = 8; // Max num of quaternions used in pose interpolation 
+  int numQuat       = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+  double quatT0     = ls_model->m_t0Quat;
+  double quatDt     = ls_model->m_dtQuat;
+
+  // Starting and ending quat index (ending is exclusive). Based on lagrangeInterp().
+  int qindex1      = static_cast<int>((time1 - quatT0) / quatDt);
+  int qindex2      = static_cast<int>((time2 - quatT0) / quatDt);
+  int begQuatIndex = std::min(qindex1, qindex2) - numQuatPerObs / 2 + 1;
+  int endQuatIndex = std::max(qindex1, qindex2) + numQuatPerObs / 2 + 1;
+
+  // Keep in bounds
+  begQuatIndex = std::max(0, begQuatIndex);
+  endQuatIndex = std::min(endQuatIndex, numQuat);
+  if (begQuatIndex >= endQuatIndex) {
+    // Must not happen 
+    vw::vw_throw(vw::ArgumentErr() << "Book-keeping error for quaternions for pixel: " 
+      << observation << ". Check your image dimensions and compare "
+      << "with the camera file.\n"); 
+  }
+
+  // Same for positions
+  int numPosPerObs = 8;
+  int numPos       = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+  double posT0     = ls_model->m_t0Ephem;
+  double posDt     = ls_model->m_dtEphem;
+
+  // Starting and ending pos index (ending is exclusive). Based on lagrangeInterp().
+  int pindex1 = static_cast<int>((time1 - posT0) / posDt);
+  int pindex2 = static_cast<int>((time2 - posT0) / posDt);
+  int begPosIndex = std::min(pindex1, pindex2) - numPosPerObs / 2 + 1;
+  int endPosIndex = std::max(pindex1, pindex2) + numPosPerObs / 2 + 1;
+
+  // Keep in bounds
+  begPosIndex = std::max(0, begPosIndex);
+  endPosIndex = std::min(endPosIndex, numPos);
+  if (begPosIndex >= endPosIndex) // Must not happen 
+    vw_throw(ArgumentErr() << "Book-keeping error for positions for pixel: " 
+      << observation << ". Check your image dimensions and compare "
+      << "with the camera file.\n");
+
+  ceres::CostFunction* pixel_cost_function =
+    LsPixelReprojErr::Create(observation, weight, ls_model,
+                              begQuatIndex, endQuatIndex,
+                              begPosIndex, endPosIndex);
+  ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
+
+  // The variable of optimization are camera quaternions and positions stored in the
+  // camera models, and the triangulated point.
+  std::vector<double*> vars;
+  for (int it = begQuatIndex; it < endQuatIndex; it++)
+    vars.push_back(&ls_model->m_quaternions[it * NUM_QUAT_PARAMS]);
+  for (int it = begPosIndex; it < endPosIndex; it++)
+    vars.push_back(&ls_model->m_positions[it * NUM_XYZ_PARAMS]);
+  vars.push_back(tri_point);
+  problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
+
+  return;   
+}
+
+// Add the frame camera model reprojection error to the cost function
+void addFrameReprojectionErr(Options             const & opt,
+                             UsgsAstroFrameSensorModel * frame_model,
+                             vw::Vector2         const & observation,
+                             double                    * frame_params,
+                             double                    * tri_point,
+                             double                      weight,
+                             ceres::Problem            & problem) {
+
+  ceres::CostFunction* pixel_cost_function =
+    FramePixelReprojErr::Create(observation, weight, frame_model);
+  ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
+
+  // The variable of optimization are camera positions and quaternion stored 
+  // in frame_cam_params, in this order, and the triangulated point.
+  // This is different from the linescan model, where we can directly access
+  // these quantities inside the model, so they need not be stored separately.
+  std::vector<double*> vars;
+  vars.push_back(&frame_params[0]);              // positions start here
+  vars.push_back(&frame_params[NUM_XYZ_PARAMS]); // quaternions start here
+  vars.push_back(tri_point);
+  problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
+
+  return;   
+}
+
 void addReprojectionErrors
 (Options                                              const & opt,
  vw::ba::CameraRelationNetwork<vw::ba::JFeature>      const & crn,
@@ -919,90 +1024,34 @@ void addReprojectionErrors
   for (int pass = 0; pass < 2; pass++) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
 
-      UsgsAstroLsSensorModel * ls_model
-        = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
-      if (ls_model == NULL)
-        vw::vw_throw(vw::ArgumentErr() << "Expecting a UsgsAstroLsSensorModel.\n");
-
       for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
 
-        Vector2 observation =  pixel_vec[icam][ipix];
-        double * tri_point = xyz_vec_ptr[icam][ipix];
-        double weight = weight_vec[icam][ipix];
-        bool isAnchor = isAnchor_vec[icam][ipix];
+        Vector2 observation = pixel_vec[icam][ipix];
+        double * tri_point  = xyz_vec_ptr[icam][ipix];
+        double weight       = weight_vec[icam][ipix];
+        bool isAnchor       = isAnchor_vec[icam][ipix];
 
         // Pass 0 is without anchor points, while pass 1 uses them
         if ((int)isAnchor != pass) 
           continue;
-        
-        // Must grow the number of quaternions and positions a bit
-        // because during optimization the 3D point and corresponding
-        // pixel may move somewhat.
-        double line_extra = opt.max_init_reproj_error + 5.0; // add some more just in case
-        csm::ImageCoord imagePt1, imagePt2;
-        asp::toCsmPixel(observation - Vector2(0.0, line_extra), imagePt1);
-        asp::toCsmPixel(observation + Vector2(0.0, line_extra), imagePt2);
-        double time1 = ls_model->getImageTime(imagePt1);
-        double time2 = ls_model->getImageTime(imagePt2);
 
-        // Handle quaternions. We follow closely the conventions for UsgsAstroLsSensorModel.
-        int numQuatPerObs = 8; // Max num of quaternions used in pose interpolation 
-        int numQuat       = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
-        double quatT0     = ls_model->m_t0Quat;
-        double quatDt     = ls_model->m_dtQuat;
+        // We can have linescan or frame cameras 
+        UsgsAstroLsSensorModel * ls_model
+          = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+        UsgsAstroFrameSensorModel * frame_model
+          = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+  
+        // Note how for the frame model we pass the frame_params for the current camera.
+        if (ls_model != NULL)
+          addLsReprojectionErr(opt, ls_model, observation, tri_point, weight, problem);
+        else if (frame_model != NULL)
+          addFrameReprojectionErr(opt, frame_model, observation, 
+              &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)],
+              tri_point, weight, problem);                   
+        else
+          vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
 
-        // Starting and ending quat index (ending is exclusive). Based on lagrangeInterp().
-        int qindex1      = static_cast<int>((time1 - quatT0) / quatDt);
-        int qindex2      = static_cast<int>((time2 - quatT0) / quatDt);
-        int begQuatIndex = std::min(qindex1, qindex2) - numQuatPerObs / 2 + 1;
-        int endQuatIndex = std::max(qindex1, qindex2) + numQuatPerObs / 2 + 1;
-
-        // Keep in bounds
-        begQuatIndex = std::max(0, begQuatIndex);
-        endQuatIndex = std::min(endQuatIndex, numQuat);
-        if (begQuatIndex >= endQuatIndex) {
-          // Must not happen 
-          vw_throw(ArgumentErr() << "Book-keeping error for quaternions for pixel: " 
-            << observation << ". Check your image dimensions and compare "
-            << "with the camera file.\n"); 
-        }
-
-        // Same for positions
-        int numPosPerObs = 8;
-        int numPos       = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
-        double posT0     = ls_model->m_t0Ephem;
-        double posDt     = ls_model->m_dtEphem;
-      
-        // Starting and ending pos index (ending is exclusive). Based on lagrangeInterp().
-        int pindex1 = static_cast<int>((time1 - posT0) / posDt);
-        int pindex2 = static_cast<int>((time2 - posT0) / posDt);
-        int begPosIndex = std::min(pindex1, pindex2) - numPosPerObs / 2 + 1;
-        int endPosIndex = std::max(pindex1, pindex2) + numPosPerObs / 2 + 1;
-
-        // Keep in bounds
-        begPosIndex = std::max(0, begPosIndex);
-        endPosIndex = std::min(endPosIndex, numPos);
-        if (begPosIndex >= endPosIndex) // Must not happen 
-          vw_throw(ArgumentErr() << "Book-keeping error for positions for pixel: " 
-            << observation << ". Check your image dimensions and compare "
-            << "with the camera file.\n");
-
-        ceres::CostFunction* pixel_cost_function =
-          LsPixelReprojErr::Create(observation, weight, ls_model,
-                                   begQuatIndex, endQuatIndex,
-                                   begPosIndex, endPosIndex);
-        ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
-      
-        // The variable of optimization are camera quaternions and positions stored in the
-        // camera models, and the triangulated point.
-        std::vector<double*> vars;
-        for (int it = begQuatIndex; it < endQuatIndex; it++)
-          vars.push_back(&ls_model->m_quaternions[it * NUM_QUAT_PARAMS]);
-        for (int it = begPosIndex; it < endPosIndex; it++)
-          vars.push_back(&ls_model->m_positions[it * NUM_XYZ_PARAMS]);
-        vars.push_back(tri_point);
-        problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
-
+        // Two residuals were added. Save the corresponding weights.
         for (int c = 0; c < PIXEL_SIZE; c++)
           weight_per_residual.push_back(weight);
 
@@ -1316,7 +1365,7 @@ void initFrameCameraParams(Options const& opt,
     double * vals = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
     for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++) {
       vals[i] = frame_model->getParameterValue(i); 
-      std::cout << "--fetch frame param []" << i << "] = " << vals[i] << std::endl;
+      std::cout << "--fetch frame param [" << i << "] = " << vals[i] << std::endl;
     }
   }
 }
@@ -1348,7 +1397,7 @@ void updateFrameCameras(Options const& opt,
     // first 3 position parameters, then 4 quaternion parameters.
     const double * vals = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
     for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++) {
-      std::cout << "--update frame param []" << i << "] = " << vals[i] << std::endl;
+      std::cout << "--update frame param [" << i << "] = " << vals[i] << std::endl;
       frame_model->setParameterValue(i, vals[i]); 
       std::cout << "Updated value is " << frame_model->getParameterValue(i) << std::endl;
     }

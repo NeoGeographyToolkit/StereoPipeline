@@ -49,11 +49,13 @@ const double g_big_pixel_value = 1000.0;  // don't make this too big
 
 // An error function minimizing the error of projecting an xyz point
 // into a given CSM linescan camera pixel. The variables of optimization are a
-// portion of the position and quaternion variables affected by this.
+// portion of the position and quaternion variables affected by this, and the 
+// triangulation point.
 struct LsPixelReprojErr {
   LsPixelReprojErr(vw::Vector2 const& observation, double weight,
                    UsgsAstroLsSensorModel* ls_model,
-                   int begQuatIndex, int endQuatIndex, int begPosIndex, int endPosIndex):
+                   int begQuatIndex, int endQuatIndex, 
+                   int begPosIndex, int endPosIndex):
     m_observation(observation), m_weight(weight),
     m_begQuatIndex(begQuatIndex), m_endQuatIndex(endQuatIndex),
     m_begPosIndex(begPosIndex),   m_endPosIndex(endPosIndex),
@@ -97,6 +99,46 @@ private:
   int m_begQuatIndex, m_endQuatIndex;
   int m_begPosIndex, m_endPosIndex;
 }; // End class LsPixelReprojErr
+
+// An error function minimizing the error of projecting an xyz point
+// into a given CSM Frame camera pixel. The variables of optimization are 
+// the camera position, quaternion, and triangulation point.
+struct FramePixelReprojErr {
+  FramePixelReprojErr(vw::Vector2 const& observation, double weight,
+                   UsgsAstroFrameSensorModel* frame_model):
+    m_observation(observation), m_weight(weight),
+    m_frame_model(frame_model) {}
+
+  // The implementation is in the .cc file
+  bool operator()(double const * const * parameters, double * residuals) const; 
+
+  // Factory to hide the construction of the CostFunction object from the client code.
+  static ceres::CostFunction* Create(vw::Vector2 const& observation, double weight,
+                                     UsgsAstroFrameSensorModel* frame_model) {
+
+    // TODO(oalexan1): Try using here the analytical cost function
+    ceres::DynamicNumericDiffCostFunction<FramePixelReprojErr>* cost_function =
+      new ceres::DynamicNumericDiffCostFunction<FramePixelReprojErr>
+      (new FramePixelReprojErr(observation, weight, frame_model));
+
+    // The residual size is always the same.
+    cost_function->SetNumResiduals(PIXEL_SIZE);
+
+    // Add a parameter block for each position and quaternion, in this order
+    cost_function->AddParameterBlock(NUM_XYZ_PARAMS);
+    cost_function->AddParameterBlock(NUM_QUAT_PARAMS);
+
+    // Add a parameter block for the xyz point
+    cost_function->AddParameterBlock(NUM_XYZ_PARAMS);
+    
+    return cost_function;
+  }
+
+private:
+  vw::Vector2 m_observation; // The pixel observation for this camera/point pair
+  double m_weight;
+  UsgsAstroFrameSensorModel* m_frame_model;
+}; // End class FramePixelReprojErr
 
 /// A ceres cost function. The residual is the difference between the observed
 /// 3D point and the current (floating) 3D point, multiplied by given weight.
