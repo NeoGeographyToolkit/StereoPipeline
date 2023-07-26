@@ -554,13 +554,23 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("quat-norm-weight", po::value(&opt.quat_norm_weight)->default_value(1.0),
      "How much weight to give to the constraint that the norm of each quaternion must be 1.")
     ("roll-weight", po::value(&opt.roll_weight)->default_value(0.0),
-     "A weight to penalize the deviation of camera roll orientation as measured from the along-track direction. Pass in a large value, such as 1e+5. This is best used only with linescan cameras created with sat_sim.")
+     "A weight to penalize the deviation of camera roll orientation as measured from the "
+     "along-track direction. Pass in a large value, such as 1e+5. This is best used only with "
+     "linescan cameras created with sat_sim.")
     ("yaw-weight", po::value(&opt.yaw_weight)->default_value(0.0),
-     "A weight to penalize the deviation of camera yaw orientation as measured from the along-track direction. Pass in a large value, such as 1e+5. This is best used only with linescan cameras created with sat_sim.")
+     "A weight to penalize the deviation of camera yaw orientation as measured from the "
+     "along-track direction. Pass in a large value, such as 1e+5. This is best used only "
+     "with linescan cameras created with sat_sim.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1.0),
      "Remove matched IPs this percentage from the image left/right sides.")
-    ("initial-camera-constraint", po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
-     "When constraining roll and yaw, measure these not in the satellite along-track/across-track/down coordinate system, but relative to the initial camera poses. This is experimental. Internally, the roll weight will then be applied to the camera pitch angle (rotation around the camera y axis), because the camera coordinate system is rotated by 90 degrees in the sensor plane relative to the satellite coordinate system. The goal is the same, to penalize deviations that are not aligned with satellite pitch.")
+    ("initial-camera-constraint", 
+    po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
+     "When constraining roll and yaw, measure these not in the satellite along-track/ "
+     "across-track/down coordinate system, but relative to the initial camera poses. This "
+     "is experimental. Internally, the roll weight will then be applied to the camera pitch "
+     "angle (rotation around the camera y axis), because the camera coordinate system is "
+     "rotated by 90 degrees in the sensor plane relative to the satellite coordinate system. "
+     "The goal is the same, to penalize deviations that are not aligned with satellite pitch.")
     ;
   
     general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -582,7 +592,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered);
+                            allow_unregistered, unregistered);
 
   // Do this check first, as the output prefix is used below many times
   if (opt.out_prefix == "") 
@@ -1877,7 +1887,6 @@ void run_jitter_solve(int argc, char* argv[]) {
  
   // Add the DEM constraint. We check earlier that only one
   // of the two options below can be set at a time.
-  // TODO(oalexan1): Make this into a function.
   if (have_dem)
     addDemConstraint(opt, xyz_vec, xyz_vec_ptr, dem_xyz_vec, outliers, cnet,  
                      // Outputs
