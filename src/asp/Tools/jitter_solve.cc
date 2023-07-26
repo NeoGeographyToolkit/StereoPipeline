@@ -353,7 +353,7 @@ void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
 
   int num_tri_points = tri_points_vec.size() / NUM_XYZ_PARAMS;
   
-  // Open the output file and write the header.  TODO(oalexan1): See
+  // Open the output file and write the header. TODO(oalexan1): See
   // if it is possible to integrate this with the analogous
   // bundle_adjust function.
   vw_out() << "Writing: " << output_path << std::endl;
@@ -440,7 +440,6 @@ void save_residuals(std::string const& residual_prefix,
     xyz_residual_norm.resize(num_tri_points, -1.0); // so we can ignore bad ones
   
   int ires = 0;
-
   for (int icam = 0; icam < (int)crn.size(); icam++) {
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
       
@@ -638,7 +637,8 @@ void calcTimes(UsgsAstroLsSensorModel const* ls_model,
 void calcFirstLastPositionLines(UsgsAstroLsSensorModel const* ls_model, 
                                 double & beg_position_line, double & end_position_line) {
 
-  double earlier_line_time = -1.0, later_line_time = -1.0, elapsed_time = -1.0, dt_per_line = -1.0;
+  double earlier_line_time = -1.0, later_line_time = -1.0, 
+         elapsed_time = -1.0, dt_per_line = -1.0;
   calcTimes(ls_model, earlier_line_time, later_line_time, elapsed_time,  
                dt_per_line);
   
@@ -669,7 +669,8 @@ void calcFirstLastPositionLines(UsgsAstroLsSensorModel const* ls_model,
 void calcFirstLastOrientationLines(UsgsAstroLsSensorModel const* ls_model, 
                                    double & beg_orientation_line, double & end_orientation_line) {
 
-  double earlier_line_time = -1.0, later_line_time = -1.0, elapsed_time = -1.0, dt_per_line = -1.0;
+  double earlier_line_time = -1.0, later_line_time = -1.0, 
+         elapsed_time = -1.0, dt_per_line = -1.0;
   calcTimes(ls_model, earlier_line_time, later_line_time, elapsed_time,  
                dt_per_line);
   
@@ -1234,7 +1235,7 @@ void addRollYawConstraint
 
 // Apply the input adjustments to the CSM cameras. Resample linescan models.
 // Get pointers to the underlying CSM cameras, as need to manipulate
-// those directly.
+// those directly. This modifies camera_models in place.
 void prepareCsmCameras(Options const& opt,
   std::vector<vw::CamPtr>      const& camera_models,
   std::vector<asp::CsmModel*>       & csm_models) {
@@ -1242,16 +1243,21 @@ void prepareCsmCameras(Options const& opt,
   // Wipe the output
   csm_models.clear();
   
-  for (size_t icam = 0; icam < opt.camera_models.size(); icam++) {
-    asp::CsmModel * csm_cam = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
+  for (size_t icam = 0; icam < camera_models.size(); icam++) {
+    asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], opt.stereo_session);
+
+    // Sanity check
+    if (csm_cam == NULL)
+      vw::vw_throw(vw::ArgumentErr() << "Expecting CSM cameras.\n");
+
     if (!opt.input_prefix.empty()) {
       std::string adjust_file
         = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[icam],
                                       opt.camera_files[icam]);
       vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
-      // This modifies opt.camera_models
+      // This modifies camera_models
       vw::camera::AdjustedCameraModel
-        adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]));
+        adj_cam(vw::camera::unadjusted_model(camera_models[icam]));
       adj_cam.read(adjust_file);
       vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
       csm_cam->applyTransform(ecef_transform);
@@ -1280,6 +1286,72 @@ void prepareCsmCameras(Options const& opt,
     }
 
     csm_models.push_back(csm_cam);
+  }
+}
+
+// For the cameras that are of frame type, copy the initial values of camera position
+// and orientation to the vector of variables that we will optimize. Have to keep this 
+// vector separate since UsgsAstroFrameSensorModel does not have a way to access the
+// underlying array of variables directly.
+void initFrameCameraParams(Options const& opt,
+  std::vector<vw::CamPtr>          const& camera_models,
+  std::vector<double>                   & frame_params) { // output
+
+  frame_params.resize((NUM_XYZ_PARAMS + NUM_QUAT_PARAMS) * camera_models.size(), 0.0);
+
+  for (size_t icam = 0; icam < camera_models.size(); icam++) {
+
+    // Get the camera pointer and do a sanity check
+    asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], opt.stereo_session);
+    if (csm_cam == NULL)
+      vw::vw_throw(vw::ArgumentErr() << "Expecting CSM cameras.\n");
+
+    UsgsAstroFrameSensorModel * frame_model
+      = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_cam->m_gm_model).get());
+    if (frame_model == NULL)
+      continue;
+
+    // The UsgsAstroFrameSensorModel stores first 3 position parameters, then 4
+    // quaternion parameters.
+    double * vals = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+    for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++) {
+      vals[i] = frame_model->getParameterValue(i); 
+      std::cout << "--fetch frame param []" << i << "] = " << vals[i] << std::endl;
+    }
+  }
+}
+
+// Given the optimized values of the frame camera parameters, update
+// the frame camera models. If there are none, do nothing. This modifies
+// camera_models.
+void updateFrameCameras(Options const& opt,
+  std::vector<vw::CamPtr>       const& camera_models,
+  std::vector<double>           const& frame_params) {
+
+  // Sanity check
+  if (frame_params.size() != (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS) * camera_models.size())
+    vw::vw_throw(vw::ArgumentErr() << "Invalid number of frame camera parameters.");
+
+  for (size_t icam = 0; icam < camera_models.size(); icam++) {
+
+    // Get the camera pointer and do a sanity check
+    asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], opt.stereo_session);
+    if (csm_cam == NULL)
+      vw::vw_throw(vw::ArgumentErr() << "Expecting CSM cameras.\n");
+
+    UsgsAstroFrameSensorModel * frame_model
+      = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_cam->m_gm_model).get());
+    if (frame_model == NULL)
+      continue;
+
+    // Update the frame camera model. The UsgsAstroFrameSensorModel stores
+    // first 3 position parameters, then 4 quaternion parameters.
+    const double * vals = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+    for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++) {
+      std::cout << "--update frame param []" << i << "] = " << vals[i] << std::endl;
+      frame_model->setParameterValue(i, vals[i]); 
+      std::cout << "Updated value is " << frame_model->getParameterValue(i) << std::endl;
+    }
   }
 }
 
@@ -1531,7 +1603,8 @@ void run_jitter_solve(int argc, char* argv[]) {
   // private for UsgsAstroFrameCameraModel, unlike for UsgsAstroLsSensorModel.
   // It is easier to just allocate the space for all cameras, even if it may go
   // unused mostly or at all.
-  std::vector<double> frame_params(num_cameras * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS), 0.0);
+  std::vector<double> frame_params;
+  initFrameCameraParams(opt, opt.camera_models, frame_params);
 
   // Put the triangulated points in a vector. Update the cnet from the DEM,
   // if we have one.
@@ -1637,7 +1710,9 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (summary.termination_type == ceres::NO_CONVERGENCE) 
     vw_out() << "Found a valid solution, but did not reach the actual minimum.\n";
 
-  std::cout << "Add here a function to update the camera models from the optimization workspace.\n";
+  // With the problem solved, update camera_models based on frame_params
+  // (applies only to frame cameras, if any)
+  updateFrameCameras(opt, opt.camera_models, frame_params);  
 
   // Save residuals after optimization
   // TODO(oalexan1): Add here the anchor residuals
