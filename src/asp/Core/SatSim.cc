@@ -22,6 +22,8 @@
 #include <asp/Core/SatSimBase.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/Common.h>
+#include <asp/Camera/CsmModel.h>
+
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Geometry/baseUtils.h>
@@ -880,6 +882,7 @@ void genPinholeCameras(SatSimOptions     const & opt,
   for (int i = 0; i < int(trajectory.size()); i++) {
 
     // Always create the cameras, but only save them if we are not skipping
+    //asp::CsmModel csmCam;
     vw::camera::PinholeModel *pinPtr 
       = new vw::camera::PinholeModel(asp::mapVal(trajectory, i), 
                                      asp::mapVal(cam2world, i),
@@ -888,14 +891,27 @@ void genPinholeCameras(SatSimOptions     const & opt,
     cams[i] = vw::CamPtr(pinPtr); // will own this pointer
           
     // This is useful for understanding things in the satellite frame
-    vw::camera::PinholeModel refCam;
-    if (opt.save_ref_cams)  
-        refCam = vw::camera::PinholeModel(asp::mapVal(trajectory, i), 
-                                          asp::mapVal(ref_cam2world, i),
-                                          opt.focal_length, opt.focal_length,
-                                          opt.optical_center[0], opt.optical_center[1]);
+    vw::camera::PinholeModel pinRefCam;
+    //asp::CsmModel csmRefCam;
+    if (opt.save_ref_cams) {
+      if (opt.save_as_csm) {
 
-    std::string camName = genPrefix(opt, i) + ".tsai";
+      }
+        //csmRefCam.createFrameModel(
+      else
+        pinRefCam = vw::camera::PinholeModel(asp::mapVal(trajectory, i), 
+                                             asp::mapVal(ref_cam2world, i),
+                                              opt.focal_length, opt.focal_length,
+                                              opt.optical_center[0], opt.optical_center[1]);
+    }
+
+    std::string ext;
+    if (opt.save_as_csm)
+      ext = ".json";
+    else
+      ext = ".tsai"; 
+
+    std::string camName = genPrefix(opt, i) + ext;
     cam_names[i] = camName;
 
     // Check if we do a range
@@ -905,9 +921,12 @@ void genPinholeCameras(SatSimOptions     const & opt,
     pinPtr->write(camName);
 
     if (opt.save_ref_cams) {
-      std::string refCamName = genRefPrefix(opt, i) + ".tsai";
+      std::string refCamName = genRefPrefix(opt, i) + ext;
       vw::vw_out() << "Writing: " << refCamName << std::endl;
-      refCam.write(refCamName);
+      if (opt.save_as_csm) {
+        //csmRefCam.saveState(refCamName);
+      }else
+       pinRefCam.write(refCamName);
     }
   }
 

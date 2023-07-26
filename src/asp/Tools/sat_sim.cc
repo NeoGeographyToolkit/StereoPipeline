@@ -123,6 +123,10 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
      "For each created camera, save also the 'reference' camera that has no roll, pitch, "
      "yaw, jitter, or 90 degree in-sensor-plane rotation from camera to satellite " 
      "coordinates. Their names have '-ref-' after the output prefix.")
+    ("save-as-csm", 
+      po::bool_switch(&opt.save_as_csm)->default_value(false)->implicit_value(true),
+      "Save Pinhole/frame cameras in the CSM format, as done for linescan cameras. "
+      "Can be used to combine these sensors in bundle adjustment and solving for jitter")
     ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
      "When intersecting a ray with a DEM, use this as the height error tolerance "
      "(measured in meters). It is expected that the default will be always good enough.")
@@ -302,6 +306,11 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
   if (opt.square_pixels && opt.sensor_type != "linescan")
     vw::vw_throw(vw::ArgumentErr() << "Cannot specify --square-pixels unless creating "
       << "linescan cameras.\n");
+
+  if (opt.sensor_type == "linescan" && opt.save_as_csm) 
+    vw::vw_out(vw::WarningMessage) << "The --save-as-csm option is "
+      << "ignored for linescan cameras as saving as CSM is the only "
+      << "option in that case.\n";
 
   // Sanity check the first and last indices
   int ans = int(opt.first_index < 0) + int(opt.last_index < 0);

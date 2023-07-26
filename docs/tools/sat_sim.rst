@@ -648,6 +648,10 @@ Command-line options
     yaw, jitter, or 90 degree in-sensor-plane rotation from camera to satellite
     coordinates. Their names have ``-ref-`` after the output prefix.
 
+--save-as-csm
+    Save Pinhole/frame cameras in the CSM format, as done for linescan cameras. 
+    Can be used to combine these sensors in bundle adjustment and solving for jitter.
+
 --dem-height-error-tol <float (default: 0.001)>
     When intersecting a ray with a DEM, use this as the height error tolerance
     (measured in meters). It is expected that the default will be always good
