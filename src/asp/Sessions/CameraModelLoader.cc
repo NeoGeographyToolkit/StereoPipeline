@@ -168,7 +168,9 @@ asp::CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam,
   asp::CsmModel * csm_model = NULL;
   
   // If we have a DG model, then the CSM model is a member of it.
-  // TODO(oalexan1): This is temporary.
+  // TODO(oalexan1): This is temporary. Need to move wholesale
+  // to CSM model in DG, as done for Pleiades. 
+  // TODO(oalexan1): Then remove the stereo_session argument.
   if (stereo_session != "dg") {
     csm_model = dynamic_cast<asp::CsmModel*>
       (vw::camera::unadjusted_model(cam.get()));
