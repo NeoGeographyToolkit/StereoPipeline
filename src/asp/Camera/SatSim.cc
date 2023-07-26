@@ -864,45 +864,61 @@ bool skipCamera(int i, SatSimOptions const& opt) {
 
 // A function to create and save Pinhole cameras. Assume no distortion, and pixel
 // pitch = 1.
-void genPinholeCameras(SatSimOptions     const & opt,
-            std::map<int, vw::Vector3>   const & trajectory,
-            std::map<int, vw::Matrix3x3> const & cam2world,
-            std::map<int, vw::Matrix3x3> const & ref_cam2world,
+void genPinholeCameras(SatSimOptions       const & opt,
+            vw::cartography::GeoReference  const & dem_georef,
+            std::map<int, vw::Vector3>     const & trajectory,
+            std::map<int, vw::Matrix3x3>   const & cam2world,
+            std::map<int, vw::Matrix3x3>   const & ref_cam2world,
             // outputs
-            std::vector<std::string>           & cam_names,
-            std::vector<vw::CamPtr>            & cams) {
+            std::vector<std::string>             & cam_names,
+            std::vector<vw::CamPtr>              & cams) {
 
   // Ensure we have as many camera positions as we have camera orientations
   if (trajectory.size() != cam2world.size() || trajectory.size() != ref_cam2world.size())
-  vw::vw_throw(vw::ArgumentErr()
-    << "Expecting as many camera positions as camera orientations.\n");
+    vw::vw_throw(vw::ArgumentErr()
+      << "Expecting as many camera positions as camera orientations.\n");
 
   cams.resize(trajectory.size());
   cam_names.resize(trajectory.size());
   for (int i = 0; i < int(trajectory.size()); i++) {
 
     // Always create the cameras, but only save them if we are not skipping
-    //asp::CsmModel csmCam;
-    vw::camera::PinholeModel *pinPtr 
-      = new vw::camera::PinholeModel(asp::mapVal(trajectory, i), 
-                                     asp::mapVal(cam2world, i),
-                                     opt.focal_length, opt.focal_length,
-                                     opt.optical_center[0], opt.optical_center[1]);
-    cams[i] = vw::CamPtr(pinPtr); // will own this pointer
-          
+    asp::CsmModel * csmPtr = NULL;
+    vw::camera::PinholeModel *pinPtr = NULL; 
+    vw::cartography::Datum d = dem_georef.datum();
+    if (opt.save_as_csm) {
+      csmPtr = new asp::CsmModel;
+      csmPtr->createFrameModel(opt.image_size[0], opt.image_size[1],
+                              opt.optical_center[0], opt.optical_center[1],
+                              opt.focal_length, 
+                              d.semi_major_axis(), d.semi_minor_axis(),
+                              asp::mapVal(trajectory, i), 
+                              asp::mapVal(cam2world, i));
+      cams[i] = vw::CamPtr(csmPtr); // will own this pointer
+    } else {
+      pinPtr = new vw::camera::PinholeModel(asp::mapVal(trajectory, i), 
+                                           asp::mapVal(cam2world, i),
+                                           opt.focal_length, opt.focal_length,
+                                           opt.optical_center[0], opt.optical_center[1]);
+      cams[i] = vw::CamPtr(pinPtr); // will own this pointer
+    }
+
     // This is useful for understanding things in the satellite frame
     vw::camera::PinholeModel pinRefCam;
-    //asp::CsmModel csmRefCam;
+    asp::CsmModel csmRefCam;
     if (opt.save_ref_cams) {
-      if (opt.save_as_csm) {
-
-      }
-        //csmRefCam.createFrameModel(
+      if (opt.save_as_csm) 
+        csmRefCam.createFrameModel(opt.image_size[0], opt.image_size[1],
+                                   opt.optical_center[0], opt.optical_center[1],
+                                   opt.focal_length, 
+                                   d.semi_major_axis(), d.semi_minor_axis(),
+                                   asp::mapVal(trajectory, i), 
+                                   asp::mapVal(ref_cam2world, i));
       else
         pinRefCam = vw::camera::PinholeModel(asp::mapVal(trajectory, i), 
                                              asp::mapVal(ref_cam2world, i),
-                                              opt.focal_length, opt.focal_length,
-                                              opt.optical_center[0], opt.optical_center[1]);
+                                             opt.focal_length, opt.focal_length,
+                                             opt.optical_center[0], opt.optical_center[1]);
     }
 
     std::string ext;
@@ -918,14 +934,17 @@ void genPinholeCameras(SatSimOptions     const & opt,
     if (skipCamera(i, opt)) continue;
 
     vw::vw_out() << "Writing: " << camName << std::endl;
-    pinPtr->write(camName);
+    if (opt.save_as_csm) 
+      csmPtr->saveState(camName);
+    else
+      pinPtr->write(camName);
 
     if (opt.save_ref_cams) {
       std::string refCamName = genRefPrefix(opt, i) + ext;
       vw::vw_out() << "Writing: " << refCamName << std::endl;
-      if (opt.save_as_csm) {
-        //csmRefCam.saveState(refCamName);
-      }else
+      if (opt.save_as_csm)
+        csmRefCam.saveState(refCamName);
+      else
        pinRefCam.write(refCamName);
     }
   }

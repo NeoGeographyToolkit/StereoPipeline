@@ -20,8 +20,8 @@
 // Functions used for the sat_sim.cc tool that are not general enough to put
 // somewhere else.
 
-#ifndef __ASP_CORE_SATSIM_H__
-#define __ASP_CORE_SATSIM_H__
+#ifndef __ASP_CAMERA_SATSIM_H__
+#define __ASP_CAMERA_SATSIM_H__
 
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Image/ImageViewRef.h>
@@ -86,10 +86,11 @@ void readPinholeCameras(SatSimOptions const& opt,
 
 // A function to create and save the cameras. Assume no distortion, and pixel
 // pitch = 1.
-void genPinholeCameras(SatSimOptions const& opt, 
-                std::map<int, vw::Vector3>   const & trajectory,
-                std::map<int, vw::Matrix3x3> const & cam2world,
-                std::map<int, vw::Matrix3x3> const & ref_cam2world,
+void genPinholeCameras(SatSimOptions           const & opt, 
+                vw::cartography::GeoReference  const & dem_georef,
+                std::map<int, vw::Vector3>     const & trajectory,
+                std::map<int, vw::Matrix3x3>   const & cam2world,
+                std::map<int, vw::Matrix3x3>   const & ref_cam2world,
                 // outputs
                 std::vector<std::string> & cam_names,
                 std::vector<vw::CamPtr>  & cams);
@@ -118,4 +119,4 @@ A mapVal(std::map<B, A> const& m, B const& key){
 
 } // end namespace asp
 
-#endif//__ASP_CORE_SATSIM_H__
+#endif//__ASP_CAMERA_SATSIM_H__

@@ -65,7 +65,7 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     ("focal-length", po::value(&opt.focal_length)->default_value(NaN),
      "Output camera focal length in units of pixel.")
     ("optical-center", po::value(&opt.optical_center)->default_value(vw::Vector2(NaN, NaN),"NaN NaN"),
-     "Output camera optical center (image column and row).")
+     "Output camera optical center (image column and row). Units of pixel.")
     ("image-size", po::value(&opt.image_size)->default_value(vw::Vector2(NaN, NaN),
       "NaN NaN"),
       "Output camera image size (width and height).")
@@ -125,7 +125,7 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
      "coordinates. Their names have '-ref-' after the output prefix.")
     ("save-as-csm", 
       po::bool_switch(&opt.save_as_csm)->default_value(false)->implicit_value(true),
-      "Save Pinhole/frame cameras in the CSM format, as done for linescan cameras. "
+      "Save Pinhole (frame) cameras in the CSM format, as done for linescan cameras. "
       "Can be used to combine these sensors in bundle adjustment and solving for jitter")
     ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
      "When intersecting a ray with a DEM, use this as the height error tolerance "
@@ -373,7 +373,7 @@ int main(int argc, char *argv[]) {
         orbit_len, trajectory, cam2world, cam2world_no_jitter, ref_cam2world); // outputs
       // Generate cameras
       if (opt.sensor_type == "pinhole")
-        asp::genPinholeCameras(opt, trajectory, cam2world, ref_cam2world,
+        asp::genPinholeCameras(opt, dem_georef, trajectory, cam2world, ref_cam2world,
           cam_names, cams);
       else
         asp::genLinescanCameras(orbit_len, dem_georef, dem, trajectory, 

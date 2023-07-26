@@ -567,7 +567,7 @@ Command-line options
     Output camera focal length in units of pixel.
 
 --optical-center <float, float>
-    Output camera optical center (image column and row).
+    Output camera optical center (image column and row). Units of pixel.
 
 --image-size <int, int>
     Output camera image size (width and height).
@@ -649,7 +649,7 @@ Command-line options
     coordinates. Their names have ``-ref-`` after the output prefix.
 
 --save-as-csm
-    Save Pinhole/frame cameras in the CSM format, as done for linescan cameras. 
+    Save Pinhole (frame) cameras in the CSM format, as done for linescan cameras. 
     Can be used to combine these sensors in bundle adjustment and solving for jitter.
 
 --dem-height-error-tol <float (default: 0.001)>
