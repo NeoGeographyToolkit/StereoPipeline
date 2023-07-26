@@ -30,6 +30,7 @@
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/BundleAdjustUtils.h>
@@ -57,118 +58,7 @@ namespace fs = boost::filesystem;
 using namespace vw;
 using namespace vw::math;
 
-
 namespace asp {
-
-const int NUM_XYZ_PARAMS  = 3;
-const int NUM_QUAT_PARAMS = 4;
-const int PIXEL_SIZE      = 2;
-
-const double g_big_pixel_value = 1000.0;  // don't make this too big
-
-// An error function minimizing the error of projecting an xyz point
-// into a given camera pixel. The variables of optimization are a
-// portion of the position and quaternion variables affected by this.
-  
-struct pixelReprojectionError {
-  pixelReprojectionError(vw::Vector2 const& observation, double weight,
-                         UsgsAstroLsSensorModel* ls_model,
-                         int begQuatIndex, int endQuatIndex, int begPosIndex, int endPosIndex):
-    m_observation(observation), m_weight(weight),
-    m_begQuatIndex(begQuatIndex), m_endQuatIndex(endQuatIndex),
-    m_begPosIndex(begPosIndex),   m_endPosIndex(endPosIndex),
-    m_ls_model(ls_model) {}
-
-  // Call to work with ceres::DynamicCostFunction.
-  bool operator()(double const * const * parameters, double * residuals) const {
-
-    try {
-      // Make a copy of the model, as we will update quaternion and position values
-      // that are being modified now. This may be expensive.
-      UsgsAstroLsSensorModel cam = *m_ls_model;
-
-      // Update the relevant quaternions in the local copy
-      int shift = 0;
-      for (int qi = m_begQuatIndex; qi < m_endQuatIndex; qi++) {
-        for (int coord = 0; coord < NUM_QUAT_PARAMS; coord++) {
-          cam.m_quaternions[NUM_QUAT_PARAMS * qi + coord]
-            = parameters[qi + shift - m_begQuatIndex][coord];
-        }
-      }
-
-      // Same for the positions. Note how we move forward in the parameters array,
-      // as this is after the quaternions
-      shift += (m_endQuatIndex - m_begQuatIndex);
-      for (int pi = m_begPosIndex; pi < m_endPosIndex; pi++) {
-        for (int coord = 0; coord < NUM_XYZ_PARAMS; coord++) {
-          cam.m_positions[NUM_XYZ_PARAMS * pi + coord]
-            = parameters[pi + shift - m_begPosIndex][coord];
-        }
-      }
-
-      // Move forward in the array of parameters, then recover the triangulated point
-      shift += (m_endPosIndex - m_begPosIndex);
-      csm::EcefCoord P;
-      P.x = parameters[shift][0];
-      P.y = parameters[shift][1];
-      P.z = parameters[shift][2];
-
-      // Project in the camera with high precision. Do not use here
-      // anything lower than 1e-8, as the linescan model will then
-      // return junk.
-      double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
-      csm::ImageCoord imagePt = cam.groundToImage(P, desired_precision);
-
-      // Convert to what ASP expects
-      vw::Vector2 pix;
-      asp::fromCsmPixel(pix, imagePt);
-
-      residuals[0] = m_weight*(pix[0] - m_observation[0]);
-      residuals[1] = m_weight*(pix[1] - m_observation[1]);
-      
-    } catch (std::exception const& e) {
-      residuals[0] = g_big_pixel_value;
-      residuals[1] = g_big_pixel_value;
-      return true; // accept the solution anyway
-    }
-    return true;
-  }
-
-  // Factory to hide the construction of the CostFunction object from the client code.
-  static ceres::CostFunction* Create(vw::Vector2 const& observation, double weight,
-                                     UsgsAstroLsSensorModel* ls_model,
-                                     int begQuatIndex, int endQuatIndex,
-                                     int begPosIndex, int endPosIndex){
-
-    // TODO(oalexan1): Try using here the analytical cost function
-    ceres::DynamicNumericDiffCostFunction<pixelReprojectionError>* cost_function =
-      new ceres::DynamicNumericDiffCostFunction<pixelReprojectionError>
-      (new pixelReprojectionError(observation, weight, ls_model,
-                                  begQuatIndex, endQuatIndex,
-                                  begPosIndex, endPosIndex));
-
-    // The residual size is always the same.
-    cost_function->SetNumResiduals(PIXEL_SIZE);
-
-    // Add a parameter block for each quaternion and each position
-    for (int it = begQuatIndex; it < endQuatIndex; it++)
-      cost_function->AddParameterBlock(NUM_QUAT_PARAMS);
-    for (int it = begPosIndex; it < endPosIndex; it++)
-      cost_function->AddParameterBlock(NUM_XYZ_PARAMS);
-
-    // Add a parameter block for the xyz point
-    cost_function->AddParameterBlock(NUM_XYZ_PARAMS);
-    
-    return cost_function;
-  }
-
-private:
-  Vector2 m_observation; // The pixel observation for this camera/point pair
-  double m_weight;
-  UsgsAstroLsSensorModel* m_ls_model;
-  int m_begQuatIndex, m_endQuatIndex;
-  int m_begPosIndex, m_endPosIndex;
-}; // End class pixelReprojectionError
 
 /// A ceres cost function. The residual is the difference between the
 /// observed 3D point and the current (floating) 3D point, multiplied by given weight.
@@ -1281,6 +1171,7 @@ void addReprojectionErrors
  std::vector<std::vector<int>>                        const & isAnchor_vec,
  std::vector<asp::CsmModel*>                          const & csm_models,
  // Outputs
+ std::vector<double>                                        & frame_params,
  std::vector<double>                                        & weight_per_residual, // append
  ceres::Problem                                             & problem) {
 
@@ -1359,9 +1250,9 @@ void addReprojectionErrors
             << "with the camera file.\n");
 
         ceres::CostFunction* pixel_cost_function =
-          pixelReprojectionError::Create(observation, weight, ls_model,
-                                         begQuatIndex, endQuatIndex,
-                                         begPosIndex, endPosIndex);
+          LsPixelReprojErr::Create(observation, weight, ls_model,
+                                   begQuatIndex, endQuatIndex,
+                                   begPosIndex, endPosIndex);
         ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
       
         // The variable of optimization are camera quaternions and positions stored in the
@@ -1395,6 +1286,7 @@ void addDemConstraint
  std::set<int>                                        const& outliers,
  vw::ba::ControlNetwork                               const& cnet,
  // Outputs
+ std::vector<double>                                       & frame_params, // const?
  std::vector<double>                                       & tri_points_vec,
  std::vector<double>                                       & weight_per_residual, // append
  ceres::Problem                                            & problem) {
@@ -1447,6 +1339,7 @@ void addTriConstraint
  std::set<int>                                        const& outliers,
  vw::ba::ControlNetwork                               const& cnet,
  // Outputs
+ std::vector<double>                                       & frame_params, // const?
  std::vector<double>                                       & tri_points_vec,
  std::vector<double>                                       & weight_per_residual, // append
  ceres::Problem                                            & problem) {
@@ -1481,6 +1374,7 @@ void addQuatNormRotationTranslationConstraints(
     vw::ba::CameraRelationNetwork<vw::ba::JFeature> const & crn,
     std::vector<asp::CsmModel*>                     const & csm_models,
     // Outputs
+    std::vector<double>                                   & frame_params, // const?
     std::vector<double>                                   & tri_points_vec,
     std::vector<double>                                   & weight_per_residual, // append
     ceres::Problem                                        & problem) {
@@ -1492,7 +1386,7 @@ void addQuatNormRotationTranslationConstraints(
       UsgsAstroLsSensorModel * ls_model
         = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
       if (ls_model == NULL)
-       vw::vw_throw(vw::ArgumentErr() << "Expecting a UsgsAstroLsSensorModel.\n");
+        vw::vw_throw(vw::ArgumentErr() << "Expecting a UsgsAstroLsSensorModel.\n");
 
       int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
       for (int iq = 0; iq < numQuat; iq++) {
@@ -1565,6 +1459,7 @@ void addRollYawConstraint
     std::vector<asp::CsmModel*>                     const& csm_models,
     vw::cartography::GeoReference                   const& georef,
     // Outputs (append to residual)
+    std::vector<double>                                  & frame_params,
     std::vector<double>                                  & weight_per_residual,
     ceres::Problem                                       & problem) {
   
@@ -1893,7 +1788,14 @@ void run_jitter_solve(int argc, char* argv[]) {
   int num_cameras = opt.camera_models.size();
   if (num_cameras < 2)
     vw_throw(ArgumentErr() << "Expecting at least two input cameras.\n");
-    
+
+  // If some of the input cameras are frame, need to store position and
+  // quaternion variables for them outside the camera model, as these are
+  // private for UsgsAstroFrameCameraModel, unlike for UsgsAstroLsSensorModel.
+  // It is easier to just allocate the space for all cameras, even if it may go
+  // unused mostly or at all.
+  std::vector<double> frame_params(num_cameras * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS), 0.0);
+
   // Put the triangulated points in a vector. Update the cnet from the DEM,
   // if we have one.
   std::vector<double> tri_points_vec;
@@ -1927,14 +1829,15 @@ void run_jitter_solve(int argc, char* argv[]) {
   addReprojectionErrors(opt, crn, pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec,
                         isAnchor_vec, csm_models,
                         // Outputs
-                        weight_per_residual, problem);
+                        frame_params, weight_per_residual, problem);
  
   // Add the DEM constraint. We check earlier that only one
   // of the two options below can be set at a time.
   if (have_dem)
     addDemConstraint(opt, xyz_vec, xyz_vec_ptr, dem_xyz_vec, outliers, cnet,  
                      // Outputs
-                     tri_points_vec, weight_per_residual,  // append
+                     frame_params, tri_points_vec, 
+                     weight_per_residual,  // append
                      problem);
 
   // Add the constraint to keep triangulated points close to initial values
@@ -1945,6 +1848,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (opt.tri_weight > 0) 
     addTriConstraint(opt, outliers, cnet,  
                      // Outputs
+                     frame_params,
                      tri_points_vec,  
                      weight_per_residual,  // append
                      problem);
@@ -1953,13 +1857,14 @@ void run_jitter_solve(int argc, char* argv[]) {
   // not change too much
   addQuatNormRotationTranslationConstraints(opt, outliers, crn, csm_models,  
                                             // Outputs
+                                            frame_params,
                                             tri_points_vec,  
                                             weight_per_residual,  // append
                                             problem);
 
   if (opt.roll_weight > 0 || opt.yaw_weight > 0)
     addRollYawConstraint(opt, crn, csm_models, roll_yaw_georef,
-                     weight_per_residual, problem); // outputs
+                        frame_params, weight_per_residual, problem); // outputs
 
   // Save residuals before optimization
   std::string residual_prefix = opt.out_prefix + "-initial_residuals";
@@ -1994,6 +1899,8 @@ void run_jitter_solve(int argc, char* argv[]) {
   vw_out() << summary.FullReport() << "\n";
   if (summary.termination_type == ceres::NO_CONVERGENCE) 
     vw_out() << "Found a valid solution, but did not reach the actual minimum.\n";
+
+  std::cout << "Add here a function to update the camera models from the optimization workspace.\n";
 
   // Save residuals after optimization
   // TODO(oalexan1): Add here the anchor residuals
