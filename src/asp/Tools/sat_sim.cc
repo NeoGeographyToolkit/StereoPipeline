@@ -20,8 +20,8 @@
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Core/SatSim.h>
 #include <asp/Camera/SyntheticLinescan.h>
+#include <asp/Camera/SatSim.h>
 
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Core/StringUtils.h>

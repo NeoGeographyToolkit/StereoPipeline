@@ -18,10 +18,10 @@
 // Functions used for the sat_sim.cc tool that are not general enough to put
 // somewhere else.
 
-#include <asp/Core/SatSim.h>
 #include <asp/Core/SatSimBase.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/Common.h>
+#include <asp/Camera/SatSim.h>
 #include <asp/Camera/CsmModel.h>
 
 #include <vw/Core/Stopwatch.h>
