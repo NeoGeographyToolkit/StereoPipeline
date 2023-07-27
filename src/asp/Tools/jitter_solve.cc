@@ -1073,7 +1073,6 @@ void addDemConstraint
  std::set<int>                                        const& outliers,
  vw::ba::ControlNetwork                               const& cnet,
  // Outputs
- std::vector<double>                                       & frame_params, // const?
  std::vector<double>                                       & tri_points_vec,
  std::vector<double>                                       & weight_per_residual, // append
  ceres::Problem                                            & problem) {
@@ -1126,7 +1125,6 @@ void addTriConstraint
  std::set<int>                                        const& outliers,
  vw::ba::ControlNetwork                               const& cnet,
  // Outputs
- std::vector<double>                                       & frame_params, // const?
  std::vector<double>                                       & tri_points_vec,
  std::vector<double>                                       & weight_per_residual, // append
  ceres::Problem                                            & problem) {
@@ -1167,74 +1165,152 @@ void addQuatNormRotationTranslationConstraints(
     ceres::Problem                                        & problem) {
   
   // Constrain the rotations
+  // TODO(oalexan1): Make this a standalone function
   if (opt.rotation_weight > 0.0) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
 
       UsgsAstroLsSensorModel * ls_model
         = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
-      if (ls_model == NULL)
-        vw::vw_throw(vw::ArgumentErr() << "Expecting a UsgsAstroLsSensorModel.\n");
+      UsgsAstroFrameSensorModel * frame_model
+        = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
 
-      int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
-      for (int iq = 0; iq < numQuat; iq++) {
+      if (ls_model != NULL) {
+        // There are multiple quaternion parameters per camera
+        int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+        for (int iq = 0; iq < numQuat; iq++) {
+          ceres::CostFunction* rotation_cost_function
+            = weightedRotationError::Create(&ls_model->m_quaternions[iq * NUM_QUAT_PARAMS],
+                                            opt.rotation_weight);
+          // We use no loss function, as the quaternions have no outliers
+          ceres::LossFunction* rotation_loss_function = NULL;
+          problem.AddResidualBlock(rotation_cost_function, rotation_loss_function,
+                                  &ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+          
+          for (int c = 0; c < NUM_QUAT_PARAMS; c++)
+            weight_per_residual.push_back(opt.rotation_weight);
+        }
+
+      } else if (frame_model != NULL) {
+        // There is one quaternion per camera, stored after the translation
+        double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+          
+        
+        std::cout << "rotation quat = " << curr_params[NUM_XYZ_PARAMS] << ' '
+                  << curr_params[NUM_XYZ_PARAMS+1] << ' '
+                  << curr_params[NUM_XYZ_PARAMS+2] << ' '
+                  << curr_params[NUM_XYZ_PARAMS+3] << std::endl;
+
+        // Copy from curr_params the initial quaternion
         ceres::CostFunction* rotation_cost_function
-          = weightedRotationError::Create(&ls_model->m_quaternions[iq * NUM_QUAT_PARAMS],
+          = weightedRotationError::Create(&curr_params[NUM_XYZ_PARAMS], // quat starts here
                                           opt.rotation_weight);
+        // Pass the quaternion to optimize to the problem                                  
         // We use no loss function, as the quaternions have no outliers
         ceres::LossFunction* rotation_loss_function = NULL;
         problem.AddResidualBlock(rotation_cost_function, rotation_loss_function,
-                                 &ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+                                &curr_params[NUM_XYZ_PARAMS]); // quat starts here
         
         for (int c = 0; c < NUM_QUAT_PARAMS; c++)
           weight_per_residual.push_back(opt.rotation_weight);
+      } else {
+         vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
       }
-    }
+
+    } // end loop through cameras
   }
 
   // Constrain the translations
+  // TODO(oalexan1): Make this a standalone function
   if (opt.translation_weight > 0.0) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
 
       UsgsAstroLsSensorModel * ls_model
         = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
-      if (ls_model == NULL)
-        vw::vw_throw(vw::ArgumentErr() << "Expecting a UsgsAstroLsSensorModel.\n");
+      UsgsAstroFrameSensorModel * frame_model
+        = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
 
-      int numPos = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
-      for (int ip = 0; ip < numPos; ip++) {
+      if (ls_model != NULL) {
+
+        int numPos = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+        for (int ip = 0; ip < numPos; ip++) {
+          ceres::CostFunction* translation_cost_function
+            = weightedTranslationError::Create(&ls_model->m_positions[ip * NUM_XYZ_PARAMS],
+                                            opt.translation_weight);
+          // We use no loss function, as the positions have no outliers
+          ceres::LossFunction* translation_loss_function = NULL;
+          problem.AddResidualBlock(translation_cost_function, translation_loss_function,
+                                  &ls_model->m_positions[ip * NUM_XYZ_PARAMS]);
+          
+          for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+            weight_per_residual.push_back(opt.translation_weight);
+        }
+
+      } else if (frame_model != NULL) {
+
+        // There is only one position per camera
+        double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+        // we will copy from curr_params the initial position
         ceres::CostFunction* translation_cost_function
-          = weightedTranslationError::Create(&ls_model->m_positions[ip * NUM_XYZ_PARAMS],
-                                          opt.translation_weight);
+          = weightedTranslationError::Create(&curr_params[0], // translation starts here
+                                             opt.translation_weight);
+        std::cout << "translation = " << curr_params[0] << ' '
+                  << curr_params[1] << ' '
+                  << curr_params[2] << std::endl;
         // We use no loss function, as the positions have no outliers
         ceres::LossFunction* translation_loss_function = NULL;
         problem.AddResidualBlock(translation_cost_function, translation_loss_function,
-                                 &ls_model->m_positions[ip * NUM_XYZ_PARAMS]);
+                                &curr_params[0]); // translation starts here
         
         for (int c = 0; c < NUM_XYZ_PARAMS; c++)
           weight_per_residual.push_back(opt.translation_weight);
+
+      } else {
+         vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
       }
+
     }
   }
 
   // Try to make the norm of quaternions be close to 1
+  // TODO(oalexan1): Make this a standalone function
   if (opt.quat_norm_weight > 0.0) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
 
       UsgsAstroLsSensorModel * ls_model
         = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
-      if (ls_model == NULL)
-        vw::vw_throw(vw::ArgumentErr() << "Expecting a UsgsAstroLsSensorModel.\n");
+      UsgsAstroFrameSensorModel * frame_model
+        = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
 
-      int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
-      for (int iq = 0; iq < numQuat; iq++) {
+      if (ls_model != NULL) {
+
+        int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+        for (int iq = 0; iq < numQuat; iq++) {
+          ceres::CostFunction* quat_norm_cost_function
+            = weightedQuatNormError::Create(opt.quat_norm_weight);
+          // We use no loss function, as the quaternions have no outliers
+          ceres::LossFunction* quat_norm_loss_function = NULL;
+          problem.AddResidualBlock(quat_norm_cost_function, quat_norm_loss_function,
+                                  &ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+          
+          weight_per_residual.push_back(opt.quat_norm_weight); // 1 single residual
+        }
+
+      } else if (frame_model != NULL) {
+
+        // There is one quaternion per camera, stored after the translation
+        double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+
         ceres::CostFunction* quat_norm_cost_function
           = weightedQuatNormError::Create(opt.quat_norm_weight);
         // We use no loss function, as the quaternions have no outliers
         ceres::LossFunction* quat_norm_loss_function = NULL;
         problem.AddResidualBlock(quat_norm_cost_function, quat_norm_loss_function,
-                                 &ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+                                &curr_params[NUM_XYZ_PARAMS]); // quat starts here
         
         weight_per_residual.push_back(opt.quat_norm_weight); // 1 single residual
+
+      } else {
+         vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
       }
     }
   }
@@ -1332,6 +1408,13 @@ void prepareCsmCameras(Options const& opt,
       // so resample them with --num-lines-per-position and --num-lines-per-orientation,
       // if those are set.
       resampleModel(opt, ls_model);
+    } else if (frame_model != NULL) {
+      std::cout << "--must normalize quaternions for frame model\n";
+      // Normalize quaternions. Later, the quaternions being optimized will
+      // be kept close to being normalized.  This makes it easy to ensure
+      // that quaternion interpolation gives good results, especially that
+      // some quaternions may get optimized and some not.
+      //normalizeQuaternions(frame_model);
     }
 
     csm_models.push_back(csm_cam);
@@ -1695,7 +1778,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (have_dem)
     addDemConstraint(opt, xyz_vec, xyz_vec_ptr, dem_xyz_vec, outliers, cnet,  
                      // Outputs
-                     frame_params, tri_points_vec, 
+                     tri_points_vec, 
                      weight_per_residual,  // append
                      problem);
 
@@ -1707,7 +1790,6 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (opt.tri_weight > 0) 
     addTriConstraint(opt, outliers, cnet,  
                      // Outputs
-                     frame_params,
                      tri_points_vec,  
                      weight_per_residual,  // append
                      problem);
