@@ -19,10 +19,14 @@
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/Covariance.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/Utilities.h>
+
+// TODO(oalexan1): Convert this to populating a CSM model. Remove all legacy
+// code also remove the old linescan jitter code that inherits from this.
 
 using namespace vw;
 
@@ -456,32 +460,6 @@ void DGCameraModel::getQuaternions(const double& time, double q[4]) const {
                  time, 4, nOrderQuat, q);
 }
 
-// Nearest neighbor interpolation into a sequence of vectors of length
-// vectorLength, stored one after another in valueArray. The result
-// goes in valueVector.
-// TODO(oalexan1): Move this to some utilities.
-void nearestNeibInterp(const int &numTimes, const double *valueArray,
-                       const double &startTime, const double &delTime,
-                       const double &time, const int &vectorLength,
-                       double *valueVector) {
-  
-  if (numTimes < 1)
-    vw::vw_throw(vw::ArgumentErr() << "Cannot interpolate into a vector of zero length.\n");
-  
-  // Compute index
-  int index = round((time - startTime) / delTime);
-  if (index < 0) 
-    index = 0;
-  if (index >= numTimes)
-    index = numTimes - 1;
-
-  int start = index * vectorLength;
-  for (int i = 0; i < vectorLength; i++)
-    valueVector[i] = valueArray[start + i];
-
-  return;
-}
-  
 // Interpolate the satellite position covariance at given pixel
 void DGCameraModel::interpSatellitePosCov(vw::Vector2 const& pix,
                                           double p_cov[SAT_POS_COV_SIZE]) const {
@@ -500,8 +478,8 @@ void DGCameraModel::interpSatellitePosCov(vw::Vector2 const& pix,
 
   lagrangeInterp(numCov, &m_satellite_pos_cov[0], m_satellite_pos_t0, m_satellite_pos_dt,
                  time, SAT_POS_COV_SIZE, nOrder, p_cov);
-  //nearestNeibInterp(numCov, &m_satellite_pos_cov[0], m_satellite_pos_t0, m_satellite_pos_dt,
-  //                  time, SAT_POS_COV_SIZE, p_cov);
+  //asp::nearestNeibInterp(numCov, &m_satellite_pos_cov[0], m_satellite_pos_t0, 
+  //                       m_satellite_pos_dt, time, SAT_POS_COV_SIZE, p_cov);
 }
 
 // Interpolate the satellite quaternion covariance at given pixel
@@ -524,7 +502,8 @@ void DGCameraModel::interpSatelliteQuatCov(vw::Vector2 const& pix,
 
   //lagrangeInterp(numCov, &m_satellite_quat_cov[0], m_satellite_quat_t0, m_satellite_quat_dt,
   //               time, SAT_QUAT_COV_SIZE, nOrderQuat, q_cov);
-  nearestNeibInterp(numCov, &m_satellite_quat_cov[0], m_satellite_quat_t0, m_satellite_quat_dt,
+  asp::nearestNeibInterp(numCov, &m_satellite_quat_cov[0], 
+                    m_satellite_quat_t0, m_satellite_quat_dt,
                     time, SAT_QUAT_COV_SIZE, q_cov);
 }
 

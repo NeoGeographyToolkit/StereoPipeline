@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file LinescanDGModel.h
 ///
 /// A generic linescan camera model object
