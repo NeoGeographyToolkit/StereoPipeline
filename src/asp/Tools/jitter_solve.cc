@@ -1263,12 +1263,20 @@ void addRollYawConstraint
      vw::vw_throw(vw::ArgumentErr() 
          << "addRollYawConstraint: The roll or yaw weight must be positive.\n");
 
+  bool printed_warning = false;
+
   for (int icam = 0; icam < (int)crn.size(); icam++) {
 
     UsgsAstroLsSensorModel * ls_model
       = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
-   if (ls_model == NULL)
-      vw::vw_throw(vw::ArgumentErr() << "Expecting a UsgsAstroLsSensorModel.\n");
+    if (ls_model == NULL) {
+      if (!printed_warning) {
+        vw::vw_out(vw::WarningMessage) << "Not adding roll and yaw constraints "
+            << "for frame cameras.\n";
+        printed_warning = true;
+      }
+      continue;
+    }
 
     int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
     for (int iq = 0; iq < numQuat; iq++) {
@@ -1685,7 +1693,7 @@ void run_jitter_solve(int argc, char* argv[]) {
     calcAnchorPoints(opt, interp_anchor_dem, anchor_georef, csm_models,  
                      // Append to these
                      pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
-  
+
   // Need this in order to undo the multiplication by weight before saving the residuals
   std::vector<double> weight_per_residual;
 

@@ -58,6 +58,8 @@ jitter_solve (:numref:`jitter_solve`):
     be used with synthetic cameras created with ``sat_sim`` (:numref:`sat_sim`). 
   * Added a section discussing solving for jitter with synthetic camera models
     (:numref:`jitter_sat_sim`).
+  * The solver can mix and match linescan and pinhole (frame) camera images if
+    the inputs are all in the CSM format (:numref:`jitter_linescan_frame_cam`).
   * Added a section on how to prepare interest point matches
     (:numref:`jitter_ip`).
   * Bugfix for reverse scan direction.

@@ -3,12 +3,11 @@
 jitter_solve
 -------------
 
-The ``jitter_solve`` program takes as input several overlapping images
-and linescan camera models in CSM format (such as for LRO NAC, CTX,
-HiRISE, Airbus Pleiades, DigitalGlobe, etc., :numref:`csm`) and
-adjusts each individual camera position and orientation in the
-linescan model to make them more consistent to each other and to the
-ground.
+The ``jitter_solve`` program takes as input several overlapping images and
+linescan and/or frame camera models in CSM format (such as for LRO NAC, CTX,
+HiRISE, Airbus Pleiades, DigitalGlobe, etc., :numref:`csm`) and adjusts each
+individual camera position and orientation in the linescan model to make them
+more consistent to each other and to the ground.
 
 The goal is to reduce the effect of unmeasured perturbations in the
 linescan sensor as it acquires the data. This is quite analogous to
@@ -85,6 +84,9 @@ Anchor points are strongly encouraged either with an intrinsic
 constraint or an external DEM constraint. Their number should be
 similar to the number of interest points, and it should be large if
 the poses are resampled very finely (see next section).
+
+Anchor points can be used only with linescan cameras, so without
+frame cameras as inputs (:numref:`jitter_linescan_frame_cam`). 
 
 The relevant options are ``--num-anchor-points``,
 ``--anchor-weight``, ``--anchor-dem``, and
@@ -662,10 +664,9 @@ These are camera constraints, and at least a positive position
 .. figure:: ../images/dg_jitter_pointmap_anchor_points.png
    :name: dg_jitter_pointmap_anchor_points
 
-   The pixel reprojection errors per triangulated point (first row) 
-   and per anchor point (second row)
-   before and after (left and right) solving for jitter. Blue shows an
-   error of 0, and red is an error of at least 0.3 pixels.
+   The pixel reprojection errors per triangulated point (first row) and per
+   anchor point (second row) before and after (left and right) solving for
+   jitter. Blue shows an error of 0, and red is an error of at least 0.3 pixels.
 
 It can be seen in :numref:`fig_dg_jitter_pointmap_anchor_points` that
 after optimization the jitter (oscillatory pattern) goes away, but the
@@ -676,7 +677,8 @@ description of these output files and how they were plotted.
 Redoing mapprojection and stereo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-(See also section :numref:`jitter_reuse_run` for an alternative approach in the latest build.)
+(See also section :numref:`jitter_reuse_run` for a more efficient approach in
+the latest build.)
 
 Mapproject the optimized CSM cameras::
 
@@ -717,9 +719,9 @@ Reusing a previous run
 ^^^^^^^^^^^^^^^^^^^^^^
 
 In the latest build (post version 3.2.0), the mapprojection need not be redone,
-and stereo can only be restarted at the triangulation stage (:numref:`mapproj_reuse`).
-This saves a lot of work and computing. So, the commands in the previous
-section can be replaced with::
+and stereo can resume at the triangulation stage
+(:numref:`mapproj_reuse`). This saves a lot of computing. The commands in the
+previous section can be replaced with::
 
     parallel_stereo                                        \
       --max-disp-spread 100                                \
@@ -741,8 +743,9 @@ section can be replaced with::
       --errorimage                                         \
       stereo_jitter/run-PC.tif
 
-Note how we used the old maprojected images ``1.map.tif`` and ``2.map.tif``,
-and the option ``--prev-run-prefix`` pointing to the old run. 
+Note how we used the old mapprojected images ``1.map.tif`` and ``2.map.tif``,
+the option ``--prev-run-prefix`` pointing to the old run, while
+the triangulation is done with the new jitter-corrected cameras. 
 
 Validation
 ^^^^^^^^^^
@@ -962,8 +965,8 @@ of the weight for that constraint could have been used.
 
 .. _jitter_sat_sim:
 
-Jitter and synthetic cameras
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Jitter with synthetic cameras and orientation constraints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The effectiveness of ``jitter_solve`` can be validated using synthetic data,
 when we know what the answer should be ahead of time. The synthetic data can 
@@ -972,7 +975,7 @@ created with ``sat_sim`` (:numref:`sat_sim`). See a recipe in
 
 For example, one may create three linescan images and cameras, using various
 values for the pitch angle, such as -30, 0, and 30 degrees, modeling a camera
-that looks forward, down, and aft. One can choose to not have any jitter in the
+that looks forward, down, and aft. One can choose to *not* have any jitter in the
 images or cameras, then create a second set of cameras with *pitch*
 (along-track) jitter.
 
@@ -993,6 +996,60 @@ scan lines for different cameras meet at, for example, a 15 degree angle, then
 the "rigidity" of a given scan line will be able to help correct the jitter in
 the scan lines for the other cameras intersecting it, resulting in a solution
 close to the expected one.
+
+.. _jitter_real_cameras:
+
+Constraining direction of jitter with real cameras
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For synthetic cameras created with ``sat_sim`` (:numref:`sat_sim`), it is
+assumed that the orbit is a straight segment in projected coordinates (hence
+an ellipse if the orbit end points are at the same height above the datum). It
+is also assumed that such a camera has a fixed roll, pitch, and yaw relative to
+the satellite along-track / across-track directions, with jitter added to these
+angles (:numref:`sat_sim_roll_pitch_yaw`, and :numref:`sat_sim_jitter_model`).
+
+For a real linescan satellite camera, the camera orientation is variable and not
+correlated to the orbit trajectory. The ``jitter_solve`` program can then
+constrain each camera sample being optimized not relative to the orbit
+trajectory, but relative to initial camera orientation for that sample.
+
+That is accomplished by invoking the jitter solver as in
+:numref:`jitter_sat_sim`, with the additional option
+``--initial-camera-constraint``. See the description of this option in
+:numref:`jitter_options`.
+
+This option is very experimental and its effectiveness was only partially
+validated. 
+
+This option can be used with synthetic cameras as well. The results then will be
+somewhat different than without this option, especially towards orbit end
+points, where the overlap with other cameras is small.
+
+.. _jitter_linescan_frame_cam:
+
+Mixing linescan and frame cameras
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Linescan cameras acquire one image line at a time, while frame cameras record
+the entire image at once. Hence, frame cameras record more information, and
+these sensors have "rigidity" in the along-track direction, that linescan
+cameras lack. 
+
+This solver allows using a combination of linescan and frame cameras, if both of
+these are stored in the CSM (:numref:`csm`) format. It is hoped that the frame
+camera images provide additional information that helps solve for jitter. That
+may be true even when the field of view of the frame camera is narrower than of
+linescan, and if acquired with a lower frame rate. 
+
+This solver does not create anchor points for the frame cameras, and, for the
+moment, roll and yaw constraints are not supported when mixing the two sensors
+types.
+
+For now, this functionality was validated only with synthetic cameras created
+with ``sat_sim`` (:numref:`sat_sim`). 
+
+An example of using this functionality will be provided shortly.
 
 .. _jitter_out_files:
 
@@ -1165,10 +1222,10 @@ Command-line options for jitter_solve
     need not be too big.
 
 --num-anchor-points <integer (default: 0)>
-    How many anchor points to create tying each pixel to a point on
-    a DEM along the ray from that pixel to the ground. These points
-    will be uniformly distributed across each input image. (This is
-    being tested.) Set also ``--anchor-weight`` and ``--anchor-dem``.
+    How many anchor points to create tying each pixel to a point on a DEM along
+    the ray from that pixel to the ground. These points will be uniformly
+    distributed across each input image. Only applies to linescan cameras. See
+    also ``--anchor-weight`` and ``--anchor-dem``.
 
 --anchor-weight <double (default: 0.0)>
     How much weight to give to each anchor point. Anchor points are
