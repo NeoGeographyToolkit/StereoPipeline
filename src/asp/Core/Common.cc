@@ -173,10 +173,6 @@ void readImagesCamsOrLists(std::vector<std::string> const & in,
     }
   }
 
-  // Print what we found in out
-  for (size_t i = 0; i < out.size(); i++) 
-    vw_out() << "Found: " << out[i] << std::endl;
-
   return;
 } 
 

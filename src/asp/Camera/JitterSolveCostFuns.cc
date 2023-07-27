@@ -94,17 +94,13 @@ bool FramePixelReprojErr::operator()(double const * const * parameters,
     UsgsAstroFrameSensorModel cam = *m_frame_model;
 
     // The latest position is in parameters[0].
-    for (int coord = 0; coord < NUM_XYZ_PARAMS; coord++) {
-      std::cout << "--camera position " << coord << " " << parameters[0][coord] << std::endl;
+    for (int coord = 0; coord < NUM_XYZ_PARAMS; coord++)
       cam.setParameterValue(coord, parameters[0][coord]);
-    }
 
     // The latest quaternion is in parameters[1]. Note how we below
     // move forward when invoking cam.setParameterValue().
-    for (int coord = 0; coord < NUM_QUAT_PARAMS; coord++) {
-      std::cout << "--camera orientation " << coord << " " << parameters[1][coord] << std::endl;
+    for (int coord = 0; coord < NUM_QUAT_PARAMS; coord++) 
       cam.setParameterValue(coord + NUM_XYZ_PARAMS, parameters[1][coord]);
-    }
 
     // The triangulation parameter is after the position and orientation
     csm::EcefCoord P;

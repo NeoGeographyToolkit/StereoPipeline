@@ -162,7 +162,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use this robust threshold for the weighted xyz differences.")
     ("num-anchor-points", po::value(&opt.num_anchor_points)->default_value(0),
      "How many anchor points to create. They will be uniformly distributed "
-     "across each input image. This is being tested.")
+     "across each input image. Only applies to linescan cameras.")
     ("anchor-weight", po::value(&opt.anchor_weight)->default_value(0.0),
      "How much weight to give to each anchor point. Anchor points are "
      "obtained by intersecting rays from initial cameras with the DEM given by "
@@ -771,7 +771,7 @@ void calcAnchorPoints(Options                              const  & opt,
     UsgsAstroLsSensorModel * ls_model
       = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
     if (ls_model == NULL)
-      vw::vw_throw(vw::ArgumentErr() << "Expecting a UsgsAstroLsSensorModel.\n");
+      continue; // anchor points not implemented for Frame cameras
 
     // Use int64 and double to avoid int32 overflow
     std::int64_t numLines   = ls_model->m_nLines;
@@ -1135,12 +1135,6 @@ void addQuatNormRotationTranslationConstraints(
         // There is one quaternion per camera, stored after the translation
         double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
           
-        
-        std::cout << "rotation quat = " << curr_params[NUM_XYZ_PARAMS] << ' '
-                  << curr_params[NUM_XYZ_PARAMS+1] << ' '
-                  << curr_params[NUM_XYZ_PARAMS+2] << ' '
-                  << curr_params[NUM_XYZ_PARAMS+3] << std::endl;
-
         // Copy from curr_params the initial quaternion
         ceres::CostFunction* rotation_cost_function
           = weightedRotationError::Create(&curr_params[NUM_XYZ_PARAMS], // quat starts here
@@ -1194,9 +1188,7 @@ void addQuatNormRotationTranslationConstraints(
         ceres::CostFunction* translation_cost_function
           = weightedTranslationError::Create(&curr_params[0], // translation starts here
                                              opt.translation_weight);
-        std::cout << "translation = " << curr_params[0] << ' '
-                  << curr_params[1] << ' '
-                  << curr_params[2] << std::endl;
+
         // We use no loss function, as the positions have no outliers
         ceres::LossFunction* translation_loss_function = NULL;
         problem.AddResidualBlock(translation_cost_function, translation_loss_function,
@@ -1384,10 +1376,8 @@ void initFrameCameraParams(Options const& opt,
     // The UsgsAstroFrameSensorModel stores first 3 position parameters, then 4
     // quaternion parameters.
     double * vals = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
-    for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++) {
+    for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++)
       vals[i] = frame_model->getParameterValue(i); 
-      std::cout << "--fetch frame param [" << i << "] = " << vals[i] << std::endl;
-    }
   }
 }
 
@@ -1417,11 +1407,8 @@ void updateFrameCameras(Options const& opt,
     // Update the frame camera model. The UsgsAstroFrameSensorModel stores
     // first 3 position parameters, then 4 quaternion parameters.
     const double * vals = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
-    for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++) {
-      std::cout << "--update frame param [" << i << "] = " << vals[i] << std::endl;
+    for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++)
       frame_model->setParameterValue(i, vals[i]); 
-      std::cout << "Updated value is " << frame_model->getParameterValue(i) << std::endl;
-    }
   }
 }
 

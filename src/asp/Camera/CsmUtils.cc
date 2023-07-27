@@ -47,8 +47,6 @@ void normalizeQuaternions(UsgsAstroLsSensorModel * ls_model) {
 // Normalize quaternions in UsgsAstroFrameSensorModel.
 void normalizeQuaternions(UsgsAstroFrameSensorModel * frame_model) {
 
-  std::cout << "normalizeQuaternions() called.\n";
-
   // Fetch the quaternions. In the model, the positions are stored first, then
   // the quaternions. 
   double q[4];
@@ -56,15 +54,12 @@ void normalizeQuaternions(UsgsAstroFrameSensorModel * frame_model) {
   for (size_t i = 0; i < 4; i++) {
     q[i] = frame_model->getParameterValue(i + 3); 
     norm += q[i]*q[i];
-    std::cout << "--fetch frame param [" << i << "] = " << q[i] << std::endl;
   }
   norm = sqrt(norm);
 
   // Normalize the quaternions. Put them back in the model.
   for (size_t i = 0; i < 4; i++) {
-    std::cout << "before normalization frame param [" << i << "] = " << q[i] << std::endl;
     q[i] /= norm;
-    std::cout << "--normalized frame param [" << i << "] = " << q[i] << std::endl;
     frame_model->setParameterValue(i + 3, q[i]);
   }
 
