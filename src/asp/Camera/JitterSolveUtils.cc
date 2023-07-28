@@ -23,6 +23,10 @@
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/UsgsAstroFrameSensorModel.h>
 
+#include <boost/filesystem.hpp>
+
+namespace fs = boost::filesystem;
+
 namespace asp {
 
 // If several images are acquired in quick succession along the same orbit and
@@ -40,13 +44,9 @@ void readGroupStructure(std::vector<std::string> const & image_lists,
   int group_count = 0, image_count = 0;
   for (size_t i = 0; i < image_lists.size(); i++) {
 
-    std::cout << "---now do " << image_lists[i] << std::endl;
-
     // The case when we have a standalone image
     if (asp::has_image_extension(image_lists[i])) {
       orbital_groups[image_count] = group_count;
-      std::cout << "name is " << image_lists[i] << std::endl;
-      std::cout << "image and group is " << image_count << ' ' << group_count << std::endl;
       group_count++;
       image_count++;
       continue;
@@ -70,9 +70,7 @@ void readGroupStructure(std::vector<std::string> const & image_lists,
         continue; 
 
       has_images = true;
-      std::cout << "name is " << image_names[j] << std::endl;
       orbital_groups[image_count] = group_count;
-      std::cout << "image and group is " << image_count << ' ' << group_count << std::endl;
       image_count++;
     }
 
@@ -129,13 +127,11 @@ void formPositionQuatVecPerGroup(std::map<int, int> const& orbital_groups,
   int num_cams = csm_models.size();
   for (int icam = 0; icam < num_cams; icam++) {
     
-    std::cout << "icam is " << icam << std::endl;
     auto it = orbital_groups.find(icam);
     if (it == orbital_groups.end())
       vw::vw_throw(vw::ArgumentErr() 
          << "addRollYawConstraint: Failed to find orbital group for camera.\n"); 
     int group_id = it->second;
-    std::cout << "group is " << group_id << std::endl;
 
     UsgsAstroFrameSensorModel * frame_model
       = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
@@ -143,16 +139,66 @@ void formPositionQuatVecPerGroup(std::map<int, int> const& orbital_groups,
       continue; // Skip non-frame cameras
    
     // Append the positions
-    for (int c = 0; c < NUM_XYZ_PARAMS; c++) {
-      std::cout << "append frame position " << frame_model->getParameterValue(c) << " for coordinate " << c << " to group with id " << group_id << std::endl;
+    for (int c = 0; c < NUM_XYZ_PARAMS; c++)
         orbital_group_positions[group_id].push_back(frame_model->getParameterValue(c));
-    }
     // Append the quaternions
-    for (int c = NUM_XYZ_PARAMS; c < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; c++) {
-      std::cout << "append frame orientation " << frame_model->getParameterValue(c) << " for coordinate " << c << " to group with id " << group_id << std::endl;
+    for (int c = NUM_XYZ_PARAMS; c < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; c++)
         orbital_group_quaternions[group_id].push_back(frame_model->getParameterValue(c));
-    }
   }
+
+  return;
+}
+
+// For the cameras that are of frame type, copy the initial values of camera position
+// and orientation to the vector of variables that we will optimize. Have to keep this 
+// vector separate since UsgsAstroFrameSensorModel does not have a way to access the
+// underlying array of variables directly.
+void initFrameCameraParams(std::vector<asp::CsmModel*> const& csm_models,
+  std::vector<double> & frame_params) { // output
+
+  frame_params.resize((NUM_XYZ_PARAMS + NUM_QUAT_PARAMS) * csm_models.size(), 0.0);
+
+  for (size_t icam = 0; icam < csm_models.size(); icam++) {
+
+    UsgsAstroFrameSensorModel * frame_model
+     = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+    if (frame_model == NULL)
+      continue;
+
+    // The UsgsAstroFrameSensorModel stores first 3 position parameters, then 4
+    // quaternion parameters.
+    double * vals = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+    for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++)
+      vals[i] = frame_model->getParameterValue(i); 
+  }
+}
+
+// Given the optimized values of the frame camera parameters, update
+// the frame camera models. If there are none, do nothing. This modifies
+// csm_models.
+void updateFrameCameras(std::vector<asp::CsmModel*> & csm_models,
+  std::vector<double> const& frame_params) {
+
+  // Sanity check
+  if (frame_params.size() != (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS) * csm_models.size())
+    vw::vw_throw(vw::ArgumentErr() << "Invalid number of frame camera parameters.");
+
+  for (size_t icam = 0; icam < csm_models.size(); icam++) {
+
+    UsgsAstroFrameSensorModel * frame_model
+     = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+
+    if (frame_model == NULL)
+      continue;
+
+    // Update the frame camera model. The UsgsAstroFrameSensorModel stores
+    // first 3 position parameters, then 4 quaternion parameters.
+    const double * vals = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+    for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++)
+      frame_model->setParameterValue(i, vals[i]); 
+  }
+
+  return;
 }
 
 } // end namespace asp

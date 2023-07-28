@@ -246,7 +246,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // This is needed when several images are acquired in quick succession
   // and we want to impose roll and yaw constraints given their orbital 
   // trajectory.
-  std::cout << "read group structure" << std::endl;
   asp::readGroupStructure(inputs, opt.orbital_groups);
 
   // Throw if there are duplicate camera file names.
@@ -1109,7 +1108,7 @@ void addQuatNormRotationTranslationConstraints(
     vw::ba::CameraRelationNetwork<vw::ba::JFeature> const & crn,
     std::vector<asp::CsmModel*>                     const & csm_models,
     // Outputs
-    std::vector<double>                                   & frame_params, // const?
+    std::vector<double>                                   & frame_params,
     std::vector<double>                                   & tri_points_vec,
     std::vector<double>                                   & weight_per_residual, // append
     ceres::Problem                                        & problem) {
@@ -1279,9 +1278,6 @@ void addRollYawConstraint
 
   // Frame cameras can be grouped by orbital portion. Ensure that all cameras
   // belong to a group.
-  std::cout << "num cams is " << num_cams << std::endl;
-  std::cout << "number of groups is " << opt.orbital_groups.size() << std::endl;
-
   if (num_cams != int(opt.orbital_groups.size()))
     vw::vw_throw(vw::ArgumentErr() 
          << "addRollYawConstraint: Failed to add each input camera to an orbital group.\n");
@@ -1324,29 +1320,15 @@ void addRollYawConstraint
       // Frame cameras. Use the positions and quaternions of the cameras
       // in the same orbital group to enforce the roll/yaw constraint for
       // each camera in the group.
-      std::cout << "camera id is " << icam << std::endl;
-      std::cout << "this is a frame camera!" << std::endl;
       auto it = opt.orbital_groups.find(icam);
       if (it == opt.orbital_groups.end())
         vw::vw_throw(vw::ArgumentErr() 
            << "addRollYawConstraint: Failed to find orbital group for camera.\n"); 
       int group_id = it->second;
-      std::cout << "group is " << group_id << std::endl;
 
       int index_in_group = indexInGroup(icam, opt.orbital_groups);
-      std::cout << "index in group for cam " << icam << " is " << index_in_group << std::endl;
-
       std::vector<double> positions = orbital_group_positions[group_id];
       std::vector<double> quaternions = orbital_group_quaternions[group_id];
-  
-      std::cout << "size of positions is " << positions.size() << std::endl;
-      std::cout << "size of quaternions is " << quaternions.size() << std::endl;
-      int p = index_in_group * NUM_XYZ_PARAMS;
-      int q = index_in_group * NUM_QUAT_PARAMS;
-      std::cout << "current param values: " << std::endl;
-      std::cout << "position is " << positions[p] << " " << positions[p+1] << " " << positions[p+2] << std::endl;
-      std::cout << "quaternion is " << quaternions[q] << " " << quaternions[q+1] << " " << quaternions[q+2] << " " << quaternions[q+3] << std::endl;
-
       ceres::CostFunction* roll_yaw_cost_function
         = weightedRollYawError::Create(positions, quaternions, 
                                    georef, index_in_group,
@@ -1432,67 +1414,6 @@ void prepareCsmCameras(Options const& opt,
     }
 
     csm_models.push_back(csm_cam);
-  }
-}
-
-// For the cameras that are of frame type, copy the initial values of camera position
-// and orientation to the vector of variables that we will optimize. Have to keep this 
-// vector separate since UsgsAstroFrameSensorModel does not have a way to access the
-// underlying array of variables directly.
-void initFrameCameraParams(Options const& opt,
-  std::vector<vw::CamPtr>          const& camera_models,
-  std::vector<double>                   & frame_params) { // output
-
-  frame_params.resize((NUM_XYZ_PARAMS + NUM_QUAT_PARAMS) * camera_models.size(), 0.0);
-
-  for (size_t icam = 0; icam < camera_models.size(); icam++) {
-
-    // Get the camera pointer and do a sanity check
-    asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], opt.stereo_session);
-    if (csm_cam == NULL)
-      vw::vw_throw(vw::ArgumentErr() << "Expecting CSM cameras.\n");
-
-    UsgsAstroFrameSensorModel * frame_model
-      = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_cam->m_gm_model).get());
-    if (frame_model == NULL)
-      continue;
-
-    // The UsgsAstroFrameSensorModel stores first 3 position parameters, then 4
-    // quaternion parameters.
-    double * vals = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
-    for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++)
-      vals[i] = frame_model->getParameterValue(i); 
-  }
-}
-
-// Given the optimized values of the frame camera parameters, update
-// the frame camera models. If there are none, do nothing. This modifies
-// camera_models.
-void updateFrameCameras(Options const& opt,
-  std::vector<vw::CamPtr>       const& camera_models,
-  std::vector<double>           const& frame_params) {
-
-  // Sanity check
-  if (frame_params.size() != (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS) * camera_models.size())
-    vw::vw_throw(vw::ArgumentErr() << "Invalid number of frame camera parameters.");
-
-  for (size_t icam = 0; icam < camera_models.size(); icam++) {
-
-    // Get the camera pointer and do a sanity check
-    asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], opt.stereo_session);
-    if (csm_cam == NULL)
-      vw::vw_throw(vw::ArgumentErr() << "Expecting CSM cameras.\n");
-
-    UsgsAstroFrameSensorModel * frame_model
-      = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_cam->m_gm_model).get());
-    if (frame_model == NULL)
-      continue;
-
-    // Update the frame camera model. The UsgsAstroFrameSensorModel stores
-    // first 3 position parameters, then 4 quaternion parameters.
-    const double * vals = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
-    for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++)
-      frame_model->setParameterValue(i, vals[i]); 
   }
 }
 
@@ -1745,7 +1666,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   // It is easier to just allocate the space for all cameras, even if it may go
   // unused mostly or at all.
   std::vector<double> frame_params;
-  initFrameCameraParams(opt, opt.camera_models, frame_params);
+  initFrameCameraParams(csm_models, frame_params);
 
   // Put the triangulated points in a vector. Update the cnet from the DEM,
   // if we have one.
@@ -1852,7 +1773,7 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // With the problem solved, update camera_models based on frame_params
   // (applies only to frame cameras, if any)
-  updateFrameCameras(opt, opt.camera_models, frame_params);  
+  updateFrameCameras(csm_models, frame_params);  
 
   // Save residuals after optimization
   // TODO(oalexan1): Add here the anchor residuals

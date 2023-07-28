@@ -59,6 +59,19 @@ void formPositionQuatVecPerGroup(std::map<int, int> const& orbital_groups,
                std::map<int, std::vector<double>> & orbital_group_positions,
                std::map<int, std::vector<double>> & orbital_group_quaternions);
 
+// For the cameras that are of frame type, copy the initial values of camera position
+// and orientation to the vector of variables that we will optimize. Have to keep this 
+// vector separate since UsgsAstroFrameSensorModel does not have a way to access the
+// underlying array of variables directly.
+void initFrameCameraParams(std::vector<asp::CsmModel*> const& csm_models,
+  std::vector<double> & frame_params); // output
+
+// Given the optimized values of the frame camera parameters, update
+// the frame camera models. If there are none, do nothing. This modifies
+// camera_models.
+void updateFrameCameras(std::vector<asp::CsmModel*> & csm_models,
+  std::vector<double> const& frame_params);
+
 } // end namespace asp
 
 #endif //__ASP_CAMERA_JITTER_SOLVE_UTILS_H__
