@@ -308,9 +308,8 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
       << "linescan cameras.\n");
 
   if (opt.sensor_type == "linescan" && opt.save_as_csm) 
-    vw::vw_out(vw::WarningMessage) << "The --save-as-csm option is "
-      << "ignored for linescan cameras as saving as CSM is the only "
-      << "option in that case.\n";
+    vw::vw_out(vw::WarningMessage) << "The --save-as-csm option is ignored "
+      << "for linescan cameras since there is no other approach in this case.\n";
 
   // Sanity check the first and last indices
   int ans = int(opt.first_index < 0) + int(opt.last_index < 0);

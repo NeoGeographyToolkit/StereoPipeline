@@ -32,7 +32,9 @@
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
+#include <asp/Camera/JitterSolveUtils.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/IpMatchingAlgs.h> // Lightweight header for matching algorithms
@@ -67,6 +69,7 @@ struct Options: public asp::BaBaseOptions {
   std::string anchor_dem;
   int num_anchor_points_extra_lines;
   bool initial_camera_constraint;
+  std::map<int, int> orbital_groups;
 };
     
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -239,6 +242,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::separate_images_from_cameras(inputs,
                                     opt.image_files, opt.camera_files, // outputs
                                     ensure_equal_sizes); 
+
+  // This is needed when several images are acquired in quick succession
+  // and we want to impose roll and yaw constraints given their orbital 
+  // trajectory.
+  std::cout << "read group structure" << std::endl;
+  asp::readGroupStructure(inputs, opt.orbital_groups);
 
   // Throw if there are duplicate camera file names.
   asp::check_for_duplicates(opt.image_files, opt.camera_files, opt.out_prefix);
@@ -1249,6 +1258,9 @@ void addQuatNormRotationTranslationConstraints(
   }
 }
 
+// Add roll / yaw constraints. For linescan, use the whole set of samples for given
+// camera model. For frame cameras, use the trajectory of all cameras in the same orbital
+// group as the current camera.
 void addRollYawConstraint
    (Options                                         const& opt,
     vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
@@ -1263,37 +1275,101 @@ void addRollYawConstraint
      vw::vw_throw(vw::ArgumentErr() 
          << "addRollYawConstraint: The roll or yaw weight must be positive.\n");
 
-  bool printed_warning = false;
+  int num_cams = crn.size();
 
-  for (int icam = 0; icam < (int)crn.size(); icam++) {
+  // Frame cameras can be grouped by orbital portion. Ensure that all cameras
+  // belong to a group.
+  std::cout << "num cams is " << num_cams << std::endl;
+  std::cout << "number of groups is " << opt.orbital_groups.size() << std::endl;
+
+  if (num_cams != int(opt.orbital_groups.size()))
+    vw::vw_throw(vw::ArgumentErr() 
+         << "addRollYawConstraint: Failed to add each input camera to an orbital group.\n");
+
+  // Create the orbital trajectory for each group of frame cameras
+  std::map<int, std::vector<double>> orbital_group_positions;
+  std::map<int, std::vector<double>> orbital_group_quaternions;
+  formPositionQuatVecPerGroup(opt.orbital_groups, csm_models, 
+    orbital_group_positions, orbital_group_quaternions); // outputs
+
+  for (int icam = 0; icam < num_cams; icam++) {
 
     UsgsAstroLsSensorModel * ls_model
       = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
-    if (ls_model == NULL) {
-      if (!printed_warning) {
-        vw::vw_out(vw::WarningMessage) << "Not adding roll and yaw constraints "
-            << "for frame cameras.\n";
-        printed_warning = true;
-      }
-      continue;
-    }
+    UsgsAstroFrameSensorModel * frame_model
+      = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
 
-    int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
-    for (int iq = 0; iq < numQuat; iq++) {
+    if (ls_model != NULL) {
+      // Linescan cameras. Use the full sequence of cameras in the model
+      // to enforce the roll/yaw constraint for each camera in the sequence.
+      int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+      for (int iq = 0; iq < numQuat; iq++) {
+        ceres::CostFunction* roll_yaw_cost_function
+          = weightedRollYawError::Create(ls_model->m_positions, 
+                                    ls_model->m_quaternions,
+                                    georef, iq,
+                                    opt.roll_weight, opt.yaw_weight, 
+                                    opt.initial_camera_constraint);
+
+        // We use no loss function, as the quaternions have no outliers
+        ceres::LossFunction* roll_yaw_loss_function = NULL;
+        problem.AddResidualBlock(roll_yaw_cost_function, roll_yaw_loss_function,
+                                &ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+        // The recorded weight should not be 0 as we will divide by it
+        weight_per_residual.push_back(opt.roll_weight || 1.0);
+        weight_per_residual.push_back(opt.yaw_weight  || 1.0);
+      } // end loop through quaternions for given camera
+    
+    } else if (frame_model != NULL) {
+      // Frame cameras. Use the positions and quaternions of the cameras
+      // in the same orbital group to enforce the roll/yaw constraint for
+      // each camera in the group.
+      std::cout << "camera id is " << icam << std::endl;
+      std::cout << "this is a frame camera!" << std::endl;
+      auto it = opt.orbital_groups.find(icam);
+      if (it == opt.orbital_groups.end())
+        vw::vw_throw(vw::ArgumentErr() 
+           << "addRollYawConstraint: Failed to find orbital group for camera.\n"); 
+      int group_id = it->second;
+      std::cout << "group is " << group_id << std::endl;
+
+      int index_in_group = indexInGroup(icam, opt.orbital_groups);
+      std::cout << "index in group for cam " << icam << " is " << index_in_group << std::endl;
+
+      std::vector<double> positions = orbital_group_positions[group_id];
+      std::vector<double> quaternions = orbital_group_quaternions[group_id];
+  
+      std::cout << "size of positions is " << positions.size() << std::endl;
+      std::cout << "size of quaternions is " << quaternions.size() << std::endl;
+      int p = index_in_group * NUM_XYZ_PARAMS;
+      int q = index_in_group * NUM_QUAT_PARAMS;
+      std::cout << "current param values: " << std::endl;
+      std::cout << "position is " << positions[p] << " " << positions[p+1] << " " << positions[p+2] << std::endl;
+      std::cout << "quaternion is " << quaternions[q] << " " << quaternions[q+1] << " " << quaternions[q+2] << " " << quaternions[q+3] << std::endl;
+
       ceres::CostFunction* roll_yaw_cost_function
-        = weightedRollYawError::Create(ls_model->m_positions, 
-                                   ls_model->m_quaternions,
-                                   georef, iq,
-                                   opt.roll_weight, opt.yaw_weight, opt.initial_camera_constraint);
+        = weightedRollYawError::Create(positions, quaternions, 
+                                   georef, index_in_group,
+                                   opt.roll_weight, opt.yaw_weight, 
+                                   opt.initial_camera_constraint);
 
       // We use no loss function, as the quaternions have no outliers
       ceres::LossFunction* roll_yaw_loss_function = NULL;
+
+      // Note how we set the quaternions to be optimized from frame_params.
+      // Above, we only cared for initial positions and quaternions.
+      double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
       problem.AddResidualBlock(roll_yaw_cost_function, roll_yaw_loss_function,
-                               &ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+                                &curr_params[NUM_XYZ_PARAMS]); // quat starts here
+
       // The recorded weight should not be 0 as we will divide by it
       weight_per_residual.push_back(opt.roll_weight || 1.0);
       weight_per_residual.push_back(opt.yaw_weight  || 1.0);
-    } // end loop through quaternions for given camera
+    } else {
+      vw::vw_throw(vw::ArgumentErr() 
+         << "addRollYawConstraint: Expecting CSM linescan or frame cameras.\n");
+    }
+
   } // end loop through cameras
 
   return;

@@ -132,7 +132,7 @@ bool FramePixelReprojErr::operator()(double const * const * parameters,
 
 // Constructor for weightedRollYawError. See the .h file for the documentation.
 weightedRollYawError::weightedRollYawError
-                  (std::vector<double>       const& positions, 
+                  (std::vector<double>           const& positions, 
                    std::vector<double>           const& quaternions,
                    vw::cartography::GeoReference const& georef,
                    int cur_pos, double rollWeight, double yawWeight,
@@ -197,7 +197,7 @@ weightedRollYawError::weightedRollYawError
 
   // See the .h file for the documentation.
   bool weightedRollYawError::operator()(double const * const * parameters, 
-                                       double * residuals) const {
+                                        double * residuals) const {
 
     // Convert to rotation matrix. Order of quaternion is x, y, z, w.  
     vw::Matrix3x3 cam2world = asp::quaternionToMatrix(parameters[0]);

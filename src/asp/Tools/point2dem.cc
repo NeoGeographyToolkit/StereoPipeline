@@ -515,10 +515,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "The value of --orthoimage-hole-fill-len must be non-negative.\n");
   if (opt.ortho_hole_fill_extra_len < 0)
     vw_throw(ArgumentErr() << "The value of --orthoimage-hole-fill-extra-len must be non-negative.\n");
-  if (!opt.do_ortho && opt.ortho_hole_fill_len > 0) {
-    vw_throw(ArgumentErr() << "The value of --orthoimage-hole-fill-len"
-                            << " is positive, but orthoimage generation was not requested.\n");
-  }
+  if (!opt.do_ortho && opt.ortho_hole_fill_len > 0)
+    vw_throw(ArgumentErr() << "The value of --orthoimage-hole-fill-len is positive, "
+                           << "but orthoimage generation was not requested.\n");
 
   if (opt.ortho_hole_fill_len > 0) {
     // We do hole-filling before erosion and outlier removal, for performance reason,
@@ -1042,8 +1041,8 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
   if (opt.do_ortho) {
     Stopwatch sw3;
     sw3.start();
-    ImageViewRef< PixelGray<float> > texture
-      = asp::form_point_cloud_composite< PixelGray<float> >
+    ImageViewRef<PixelGray<float>> texture
+      = asp::form_point_cloud_composite<PixelGray<float>>
       (opt.texture_files, ASP_MAX_SUBBLOCK_SIZE);
     rasterizer.set_texture(texture);
 
@@ -1058,7 +1057,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
       ImageViewRef<Vector3> point_image = rasterizer.get_point_image();
 
       // Mask the NaNs
-      ImageViewRef< PixelMask<Vector3> > point_image_mask
+      ImageViewRef<PixelMask<Vector3>> point_image_mask
         = per_pixel_filter(point_image, asp::NaN2Mask<Vector3>());
 
       // If to grow the cloud a bit, to help hole-filling later. This should

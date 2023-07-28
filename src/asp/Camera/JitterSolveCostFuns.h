@@ -25,6 +25,7 @@
 #define __ASP_CAMERA_JITTER_SOLVE_COST_FUNS_H__
 
 #include <asp/Camera/CsmModel.h>
+#include <asp/Camera/JitterSolveUtils.h>
 
 #include <vw/Cartography/GeoReference.h>
 
@@ -40,10 +41,6 @@
 #include <vector>
 
 namespace asp {
-
-const int NUM_XYZ_PARAMS  = 3;
-const int NUM_QUAT_PARAMS = 4;
-const int PIXEL_SIZE      = 2;
 
 const double g_big_pixel_value = 1000.0;  // don't make this too big
 
