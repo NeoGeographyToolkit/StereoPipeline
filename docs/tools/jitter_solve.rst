@@ -1029,27 +1029,185 @@ points, where the overlap with other cameras is small.
 .. _jitter_linescan_frame_cam:
 
 Mixing linescan and frame cameras
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Linescan cameras acquire one image line at a time, while frame cameras record
-the entire image at once. Hence, frame cameras record more information, and
-these sensors have "rigidity" in the along-track direction, that linescan
-cameras lack. 
-
-This solver allows using a combination of linescan and frame cameras, if both of
-these are stored in the CSM (:numref:`csm`) format. It is hoped that the frame
-camera images provide additional information that helps solve for jitter. That
-may be true even when the field of view of the frame camera is narrower than of
-linescan, and if acquired with a lower frame rate. 
-
-This solver does not create anchor points for the frame cameras, and, for the
-moment, roll and yaw constraints are not supported when mixing the two sensors
-types.
+This solver allows solving for jitter using a combination of linescan and frame
+cameras, if both of these are stored in the CSM (:numref:`csm`) format. 
 
 For now, this functionality was validated only with synthetic cameras created
-with ``sat_sim`` (:numref:`sat_sim`). 
+with ``sat_sim`` (:numref:`sat_sim`). Here is a detailed recipe for all the steps
+involved.
 
-An example of using this functionality will be provided shortly.
+Consider a DEM named ``dem.tif``, an orthoimage named ``ortho.tif``. Let
+``x`` be a column index in the DEM and ``y1`` and ``y2`` be two row indices.
+These will determine path on the ground seen by the satellite.
+Let ``h`` be the satellite height above the datum.
+Set, for example::
+
+    x=4115
+    y1=38498
+    y2=47006
+    h=501589
+    opt="--dem dem.tif
+      --ortho ortho.tif
+      --first $x $y1 $h
+      --last  $x $y2 $h
+      --first-ground-pos $x $y1
+      --last-ground-pos  $x $y2
+      --frame-rate 45
+      --jitter-frequency 5
+      --focal-length 551589
+      --optical-center 2560 2560
+      --image-size 5120 5120
+      --velocity 7500
+      --save-ref-cams
+      "
+
+Create nadir-looking frame images and cameras with no jitter::
+
+    sat_sim $opt                  \
+      --save-as-csm               \
+      --sensor-type pinhole       \
+      --roll 0 --pitch 0 --yaw 0  \
+      --horizontal-uncertainty    \
+      "0.0 0.0 0.0"               \
+      --output-prefix jitter0.0/n
+
+Create a forward-looking linescan image and camera, with no jitter::
+
+    sat_sim $opt                  \
+      --sensor-type linescan      \
+      --square-pixels             \
+      --roll 0 --pitch 0 --yaw 0  \
+      --horizontal-uncertainty    \
+      "0.0 30.0 0.0"              \
+      --output-prefix jitter0.0/f
+
+Create a forward-looking linescan camera, with no images, with pitch jitter::
+
+    sat_sim $opt                  \
+      --no-images                 \
+      --sensor-type linescan      \
+      --square-pixels             \
+      --roll 0 --pitch 0 --yaw 0  \
+      --horizontal-uncertainty    \
+      "0.0 2.0 0.0"               \
+      --output-prefix jitter2.0/f
+
+The tool ``cam_test`` (:numref:`cam_test`) can be run to compare the camera
+with and without jitter::
+
+    cam_test --session1 csm    \
+      --session2 csm           \
+      --image jitter0.0/f.tif  \
+      --cam1  jitter0.0/f.json \
+      --cam2  jitter2.0/f.json
+
+This will show that projecting a pixel from the first camera to the ground and
+then projecting it back to the second camera will result in around 2 pixels of
+discrepancy, which makes sense give the horizontal uncertainty set above and the
+fact that our images are at around 0.9 m/pixel resolution. 
+
+To reliably create reasonably dense interest point matches between the frame and
+linescan images, first mapproject (:numref:`mapproject`) them::
+
+    for f in jitter0.0/f.tif                    \
+             jitter0.0/n-1[0-9][0-9][0-9][0-9].tif; do 
+        g=${f/.tif/} # remove .tif
+        mapproject --tr 0.9                     \
+          dem.tif ${g}.tif ${g}.json ${g}.map.tif
+    done
+
+This assumes that the DEM is in a local projection in units of meter. Otherwise
+the ``--t_srs`` option should be set.
+
+Create the lists of images, cameras, then a list for the mapprojected images and
+the DEM. We use individual ``ls`` command to avoid the inputs being reordered::
+
+    dir=ba
+    mkdir -p $dir
+    ls jitter0.0/f.tif                        >  $dir/images.txt
+    ls jitter0.0/n-1[0-9][0-9][0-9][0-9].tif  >> $dir/images.txt
+
+    ls jitter0.0/f.json                       >  $dir/cameras.txt
+    ls jitter0.0/n-1[0-9][0-9][0-9][0-9].json >> $dir/cameras.txt
+    
+    ls jitter0.0/f.map.tif                       >  $dir/map_images.txt
+    ls jitter0.0/n-1[0-9][0-9][0-9][0-9].map.tif >> $dir/map_images.txt
+    ls dem.tif                                   >> $dir/map_images.txt
+
+Run bundle adjustment to get interest point matches::
+
+    parallel_bundle_adjust                           \
+        --processes 10                               \
+        --nodes-list nodes_list.txt                  \
+        --num-iterations 10                          \
+        --tri-weight 0.1                             \
+        --camera-weight 0                            \
+        --translation-weight 1000                    \
+        --rotation-weight 0                          \
+        --auto-overlap-params "dem.tif 15"           \
+        --min-matches 5                              \
+        --remove-outliers-params '75.0 3.0 20 20'    \
+        --min-triangulation-angle 5.0                \
+        --ip-per-tile 1000                           \
+        --max-pairwise-matches 10000                 \
+        --image-list $dir/images.txt                 \
+        --camera-list $dir/cameras.txt               \
+        --mapprojected-data-list $dir/map_images.txt \
+        -o ba/run
+
+Here we assumed a minimum convergence angle of 15 degrees between the two sets
+of cameras. See :numref:`pbs_slurm` for how to set up the computing nodes needed
+for ``--nodes-list``.
+
+Solve for jitter with roll and yaw constraints, to ensure movement only for the
+pitch angle::
+
+    jitter_solve                                 \
+        --num-iterations 10                      \
+        --translation-weight 10000               \
+        --rotation-weight 0.0                    \
+        --max-pairwise-matches 1000000           \
+        --clean-match-files-prefix               \
+          ba/run                                 \
+        --roll-weight 10000                      \
+        --yaw-weight 10000                       \
+        --max-initial-reprojection-error 100     \
+        --tri-weight 0.05                        \
+        --tri-robust-threshold 0.05              \
+        --num-anchor-points 10000                \
+        --num-anchor-points-extra-lines 5000     \
+        --anchor-dem dem.tif                     \
+        --anchor-weight 0.05                     \
+        --heights-from-dem dem.tif               \
+        --heights-from-dem-weight 0.05           \
+        --heights-from-dem-robust-threshold 0.05 \
+        jitter0.0/f.tif                          \
+        jitter0.0/n-images.txt                   \
+        jitter2.0/f.json                         \
+        jitter0.0/n-cameras.txt                  \
+        -o jitter_solve/run
+
+Notice that the nadir-looking frame images are read from a list, in
+``jitter0.0/f-images.txt``. This file is created by ``sat_sim``. All the images
+in such a list must be acquired in quick succession and be along the same
+satellite orbit portion, as the trajectory of all these images will be used to
+enforce the roll and yaw constraints. 
+
+If the input images are for several such orbital stretches, a separate list must
+be created for each such stretch, then added to the invocation above. The same
+logic is applied to the cameras for theses images.
+
+There is a single forward-looking image, but it is linescan, so there are many
+camera samples for it. 
+
+The forward-looking camera has jitter, so we used its version from the
+``jitter2.0`` directory, not the one in ``jitter0.0``.
+
+This solver does not create anchor points for the frame cameras. There
+are usually many such images and they overlap a lot, so anchor points
+are not needed as much as for linescan cameras.
 
 .. _jitter_out_files:
 

@@ -505,6 +505,7 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
 
   // Number of cameras. Add 1 because we need to include the last camera.
   num_cameras = int(orbit_len / period) + 1;
+
   // Update the orbit length
   orbit_len = period * (num_cameras - 1.0);
 
@@ -731,8 +732,11 @@ void calcTrajectory(SatSimOptions & opt,
     vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
 
   orbit_len = calcOrbitLength(first_proj, last_proj, dem_georef); // will be passed out
+
+  // Good to print these
   vw::vw_out() << "Orbit length between first and last adjusted cameras: " 
-     << orbit_len << " meters.\n"; // good to print this
+     << orbit_len << " meters.\n"; 
+  vw::vw_out() << "Number of camera samples: " << opt.num_cameras << "." << std::endl;
 
   // We did a sanity check to ensure that when opt.jitter_frequency is set,
   // opt.velocity and and opt.horizontal_uncertainty are also set and not NaN.
