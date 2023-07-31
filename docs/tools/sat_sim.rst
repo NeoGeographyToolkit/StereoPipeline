@@ -24,9 +24,12 @@ the cameras can have a fixed orientation, without
 (:numref:`sat_sim_roll_pitch_yaw`) and with
 (:numref:`sat_sim_roll_pitch_yaw_ground`) ground constraints.
 
-Several use cases are below. The cameras are assumed to be of Pinhole
-(:numref:`pinholemodels`) by default. See :numref:`sat_sim_linescan`
-for Linescan cameras. Lens distortion is not modeled.
+The cameras are assumed to be of Pinhole (Frame) type by default, and are saved
+as .tsai files (:numref:`pinholemodels`). The option ``--save-as-csm`` can be
+used to save the cameras in CSM format (:numref:`csm`). Linescan cameras are
+supported as well (:numref:`sat_sim_linescan`). Lens distortion is not modeled.
+
+Several use cases are below. 
 
 Use given cameras
 ^^^^^^^^^^^^^^^^^
@@ -649,8 +652,9 @@ Command-line options
     coordinates. Their names have ``-ref-`` after the output prefix.
 
 --save-as-csm
-    Save Pinhole (frame) cameras in the CSM format, as done for linescan cameras. 
-    Can be used to combine these sensors in bundle adjustment and solving for jitter.
+    Save Pinhole (frame) cameras in the CSM format, as done for linescan
+    cameras. Can be used to combine these sensors in bundle adjustment and
+    solving for jitter. See an example in :numref:`jitter_linescan_frame_cam`.
 
 --dem-height-error-tol <float (default: 0.001)>
     When intersecting a ray with a DEM, use this as the height error tolerance

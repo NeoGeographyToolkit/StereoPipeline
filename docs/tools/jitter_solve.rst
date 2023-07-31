@@ -997,6 +997,10 @@ the "rigidity" of a given scan line will be able to help correct the jitter in
 the scan lines for the other cameras intersecting it, resulting in a solution
 close to the expected one.
 
+See a worked-out example for how to set orientation constraints in
+:numref:`jitter_linescan_frame_cam`. There, frame cameras are used as well, 
+to add "rigidity" to the setup.
+
 .. _jitter_real_cameras:
 
 Constraining direction of jitter with real cameras
@@ -1032,17 +1036,19 @@ Mixing linescan and frame cameras
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This solver allows solving for jitter using a combination of linescan and frame
-cameras, if both of these are stored in the CSM (:numref:`csm`) format. 
+(pinhole) cameras, if both of these are stored in the CSM format (:numref:`csm`). 
 
 For now, this functionality was validated only with synthetic cameras created
-with ``sat_sim`` (:numref:`sat_sim`). Here is a detailed recipe for all the steps
-involved.
+with ``sat_sim`` (:numref:`sat_sim`). In this case, roll and yaw constraints for
+the orientations of cameras being optimized are supported, for both linescan and
+frame cameras.
 
-Consider a DEM named ``dem.tif``, an orthoimage named ``ortho.tif``. Let
-``x`` be a column index in the DEM and ``y1`` and ``y2`` be two row indices.
-These will determine path on the ground seen by the satellite.
-Let ``h`` be the satellite height above the datum.
-Set, for example::
+Here is a detailed recipe.
+
+Consider a DEM named ``dem.tif``, and an orthoimage named ``ortho.tif``. Let ``x``
+be a column index in the DEM and ``y1`` and ``y2`` be two row indices. These
+will determine path on the ground seen by the satellite. Let ``h`` be the
+satellite height above the datum, in meters. Set, for example::
 
     x=4115
     y1=38498
@@ -1060,8 +1066,7 @@ Set, for example::
       --optical-center 2560 2560
       --image-size 5120 5120
       --velocity 7500
-      --save-ref-cams
-      "
+      --save-ref-cams"
 
 Create nadir-looking frame images and cameras with no jitter::
 
@@ -1078,9 +1083,9 @@ Create a forward-looking linescan image and camera, with no jitter::
     sat_sim $opt                  \
       --sensor-type linescan      \
       --square-pixels             \
-      --roll 0 --pitch 0 --yaw 0  \
+      --roll 0 --pitch 30 --yaw 0 \
       --horizontal-uncertainty    \
-      "0.0 30.0 0.0"              \
+      "0.0 0.0 0.0"               \
       --output-prefix jitter0.0/f
 
 Create a forward-looking linescan camera, with no images, with pitch jitter::
@@ -1089,7 +1094,7 @@ Create a forward-looking linescan camera, with no images, with pitch jitter::
       --no-images                 \
       --sensor-type linescan      \
       --square-pixels             \
-      --roll 0 --pitch 0 --yaw 0  \
+      --roll 0 --pitch 30 --yaw 0 \
       --horizontal-uncertainty    \
       "0.0 2.0 0.0"               \
       --output-prefix jitter2.0/f
@@ -1106,7 +1111,7 @@ with and without jitter::
 This will show that projecting a pixel from the first camera to the ground and
 then projecting it back to the second camera will result in around 2 pixels of
 discrepancy, which makes sense give the horizontal uncertainty set above and the
-fact that our images are at around 0.9 m/pixel resolution. 
+fact that our images are at around 0.9 m/pixel ground resolution. 
 
 To reliably create reasonably dense interest point matches between the frame and
 linescan images, first mapproject (:numref:`mapproject`) them::
@@ -1190,14 +1195,13 @@ pitch angle::
         -o jitter_solve/run
 
 Notice that the nadir-looking frame images are read from a list, in
-``jitter0.0/f-images.txt``. This file is created by ``sat_sim``. All the images
+``jitter0.0/n-images.txt``. This file is created by ``sat_sim``. All the images
 in such a list must be acquired in quick succession and be along the same
-satellite orbit portion, as the trajectory of all these images will be used to
+satellite orbit portion, as the trajectory of all these cameras will be used to
 enforce the roll and yaw constraints. 
 
-If the input images are for several such orbital stretches, a separate list must
-be created for each such stretch, then added to the invocation above. The same
-logic is applied to the cameras for theses images.
+A separate list must be created for each such orbital stretch, then added to the
+invocation above. The same logic is applied to the cameras for these images.
 
 There is a single forward-looking image, but it is linescan, so there are many
 camera samples for it. 

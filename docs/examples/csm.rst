@@ -1,7 +1,7 @@
 .. _csm:
 
-Community Sensor Model (CSM)
-----------------------------
+Community Sensor Model
+----------------------
 
 The Community Sensor Model (CSM), established by the U.S. defense
 and intelligence community, has the goal of standardizing camera
@@ -12,7 +12,7 @@ software systems :cite:`hare2017community,2019EA000713`.
 
 ASP supports and ships the USGS implementation of CSM for planetary images
 (https://github.com/USGS-Astrogeology/usgscsm), which provides
-Linescan, Frame, and  Synthetic Aperture Radar (SAR) implementations.
+Linescan, Frame, Pushframe, and Synthetic Aperture Radar (SAR) implementations.
 
 CSM is handled via dynamically loaded plugins. Hence, if a user has a
 new sensor model, ASP should, in principle, be able to use it as soon
@@ -31,8 +31,8 @@ USGS CSM repository mentioned earlier.
 
 .. _csm_frame:
 
-Example using the USGS CSM Frame sensor
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The USGS CSM Frame sensor
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The USGS CSM *Frame* sensor models a frame camera. All the
 pixels get acquired at the same time, unlike for pushbroom and
@@ -172,13 +172,12 @@ speed-vs-quality choices when running stereo.
    example. Likely using mapprojection (:numref:`mapproj-example`)
    may have reduced the number and size of the holes in the DEM.
 
-Example using the USGS CSM linescan sensor
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The USGS CSM linescan sensor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Here we use CSM for Mars images, specifically for the CTX camera,
-which is a linescan sensor. The images are regular ``.cub`` files as
-in the tutorial in :numref:`moc_tutorial`, hence the only distinction
-compared to that example is that the cameras are stored as ``.json``
+In this example we will use the Mars CTX linescan sensor. The images are regular
+``.cub`` files as in the tutorial in :numref:`moc_tutorial`, hence the only
+distinction compared to that example is that the cameras are stored as ``.json``
 files.
 
 We will work with the dataset pair::
@@ -280,6 +279,11 @@ followed by mapprojecting onto it and redoing stereo::
 Notice how we used the same resolution for both images when
 mapprojecting. That helps making the resulting images more similar and
 reduces the processing time (:numref:`mapproj-res`).
+
+CSM Pushframe camera example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+See :numref:`csm_wac`.
 
 .. _csm_minirf:
 

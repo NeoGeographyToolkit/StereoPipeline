@@ -18,8 +18,8 @@ New tools:
     Pinhole camera models. It is a modification of the ``umve`` program.
    
 csm:
-  * Added initial support for using CSM camera models with MSL 
-    Curiosity (:numref:`csm_msl`).
+  * Added initial support for using CSM camera models with MSL Curiosity
+    (:numref:`csm_msl`).
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Can propagate horizontal ground plane standard deviations (stddev)
@@ -38,7 +38,7 @@ parallel_stereo (:numref:`parallel_stereo`):
     out debug images for this option.
   * The cameras files used in mapprojection can be switched to other
     ones for the purpose of doing stereo or reusing a stereo run
-    (:numref:`mapproj_reuse`). 
+    (:numref:`mapproj_reuse`).
   * Bugfix for stereo with mapprojected Pleiades images. If the
     mapprojection is done with the exact (non-RPC) cameras, stereo
     must load the exact cameras when undoing the mapprojection.

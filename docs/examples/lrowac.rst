@@ -1,3 +1,4 @@
+.. _csm_wac:
 
 Lunar Reconnaissance Orbiter (LRO) WAC
 --------------------------------------
@@ -116,9 +117,11 @@ at framelet borders, as can be seen further down.
 Creation of CSM camera models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This process is still being ironed out. Generally speaking, for the
-time being one should fetch the latest ALE and its conda environemnt
-from GitHub, at:
+CSM is a standard for describing camera models (:numref:`csm`).
+
+The support in ISIS and ASP for pushframe sensors in CSM format is a work in
+progress. For the time being one should fetch the latest ALE and its conda
+environment from GitHub, at:
 
     https://github.com/USGS-Astrogeology/ale
 
