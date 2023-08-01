@@ -1155,8 +1155,8 @@ Run bundle adjustment to get interest point matches::
         --min-matches 5                              \
         --remove-outliers-params '75.0 3.0 20 20'    \
         --min-triangulation-angle 5.0                \
-        --ip-per-tile 1000                           \
-        --max-pairwise-matches 10000                 \
+        --ip-per-tile 500                            \
+        --max-pairwise-matches 6000                  \
         --image-list $dir/images.txt                 \
         --camera-list $dir/cameras.txt               \
         --mapprojected-data-list $dir/map_images.txt \
@@ -1173,7 +1173,7 @@ pitch angle::
         --num-iterations 10                      \
         --translation-weight 10000               \
         --rotation-weight 0.0                    \
-        --max-pairwise-matches 1000000           \
+        --max-pairwise-matches 3000              \
         --clean-match-files-prefix               \
           ba/run                                 \
         --roll-weight 10000                      \
@@ -1193,6 +1193,11 @@ pitch angle::
         jitter2.0/f.json                         \
         jitter0.0/n-cameras.txt                  \
         -o jitter_solve/run
+
+Here we used ``--max-pairwise-matches 3000`` as the linescan camera has many
+matches with each frame camera image, and there are many such frame camera
+images. A much larger number would be used if we had only a couple of linescan
+camera images and no frame camera images.
 
 Notice that the nadir-looking frame images are read from a list, in
 ``jitter0.0/n-images.txt``. This file is created by ``sat_sim``. All the images
@@ -1447,9 +1452,11 @@ Command-line options for jitter_solve
     penalize deviations that are not aligned with satellite pitch.
 
 --reference-dem <string>
-    If specified, constrain every ground point where rays from
-    matching pixels intersect to be not too far from the average of
-    intersections of those rays with this DEM. This is being tested.
+    If specified, intersect rays from matching pixels with this DEM,
+    find their average, and constrain during optimization that rays
+    keep on intersecting close to this point. This works even when
+    the rays are almost parallel. See also ``--reference-dem-weight``
+    and ``--reference-dem-robust-threshold``.
 
 --reference-dem-weight <double (default: 1.0)>
     Multiply the xyz differences for the ``--reference-dem`` option by

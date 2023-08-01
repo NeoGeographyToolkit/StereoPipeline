@@ -776,9 +776,11 @@ Command-line options for bundle_adjust
     Measured in meters. See :numref:`ba_mapproj_dem` for more details.
 
 --reference-dem <string>
-    If specified, constrain every ground point where rays from
-    matching pixels intersect to be not too far from the average of
-    intersections of those rays with this DEM. This is being tested.
+    If specified, intersect rays from matching pixels with this DEM,
+    find the average, and constrain during optimization that rays
+    keep on intersecting close to this point. This works even when
+    the rays are almost parallel. See also ``--reference-dem-weight``
+    and ``--reference-dem-robust-threshold``.
 
 --reference-dem-weight <double (default: 1.0)>
     Multiply the xyz differences for the ``--reference-dem`` option by

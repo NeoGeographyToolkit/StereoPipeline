@@ -49,6 +49,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     the cameras in bundle adjustment, while improving the
     self-consistency of the camera configuration
     (:numref:`skysat_stereo`).
+  * Validated the option ``--reference-dem`` for bundle adjustment. This works
+    even when rays obtained during triangulation are parallel.
   * Bugfix for slow performance and memory usage for a large number
     of images.
 
@@ -62,6 +64,8 @@ jitter_solve (:numref:`jitter_solve`):
     the inputs are all in the CSM format (:numref:`jitter_linescan_frame_cam`).
   * Added a section on how to prepare interest point matches
     (:numref:`jitter_ip`).
+  * Validated the option ``--reference-dem`` for bundle adjustment. This works
+    even when rays obtained during triangulation are parallel.
   * Bugfix for reverse scan direction.
   * Added an example for Pleiades cameras (:numref:`jitter_pleiades`),
     comparing two ways of setting ground constraints.

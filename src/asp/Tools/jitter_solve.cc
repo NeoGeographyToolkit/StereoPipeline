@@ -157,8 +157,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "attenuating large height difference outliers. It is suggested to make this equal to "
      "--heights-from-dem-weight.")
     ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
-     "If specified, constrain every ground point where rays from matching pixels intersect "
-     "to be not too far from the average of intersections of those rays with this DEM.")
+     "If specified, intersect rays from matching pixels with this DEM, find the average, and constrain during optimization that rays keep on intersecting close to this point. This works even when the rays are almost parallel. See also --reference-dem-weight and --reference-dem-robust-threshold.")
     ("reference-dem-weight", po::value(&opt.ref_dem_weight)->default_value(1.0),
      "Multiply the xyz differences for the --reference-dem option by this weight.")
     ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),
@@ -1553,6 +1552,14 @@ void run_jitter_solve(int argc, char* argv[]) {
                              // Output
                              all_pairs);
 
+  // List existing match files. This can take a while.
+  vw_out() << "Computing the list of existing match files.\n";
+  std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
+                                              opt.match_files_prefix,  
+                                              opt.out_prefix);
+  std::set<std::string> existing_files;
+  asp::listExistingMatchFiles(prefix, existing_files);
+
   // Load match files
   std::map<std::pair<int, int>, std::string> match_files;
   for (size_t k = 0; k < all_pairs.size(); k++) {
@@ -1562,13 +1569,6 @@ void run_jitter_solve(int argc, char* argv[]) {
     std::string const& image2_path  = opt.image_files[j];  // alias
     std::string const& camera1_path = opt.camera_files[i]; // alias
     std::string const& camera2_path = opt.camera_files[j]; // alias
-
-    // List existing match files
-    std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
-                                                opt.match_files_prefix,  
-                                                opt.out_prefix);
-    std::set<std::string> existing_files;
-    asp::listExistingMatchFiles(prefix, existing_files);
 
       // Load match files from a different source
     std::string match_file 
