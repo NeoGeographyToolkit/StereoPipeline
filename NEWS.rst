@@ -66,6 +66,9 @@ jitter_solve (:numref:`jitter_solve`):
     (:numref:`jitter_ip`).
   * Validated the option ``--reference-dem`` for bundle adjustment. This works
     even when rays obtained during triangulation are parallel.
+  * Ensure jitter can be solved for the case of one frame and one linescan
+    camera with no baseline, when triangulation becomes tricky 
+    (:numref:`jitter_no_baseline`).
   * Bugfix for reverse scan direction.
   * Added an example for Pleiades cameras (:numref:`jitter_pleiades`),
     comparing two ways of setting ground constraints.

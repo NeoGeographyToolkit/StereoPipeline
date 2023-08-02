@@ -1218,6 +1218,8 @@ This solver does not create anchor points for the frame cameras. There
 are usually many such images and they overlap a lot, so anchor points
 are not needed as much as for linescan cameras.
 
+.. _jitter_no_baseline:
+
 Solving for jitter with no baseline
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
