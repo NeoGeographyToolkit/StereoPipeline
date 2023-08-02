@@ -74,10 +74,10 @@ void calcProjAlongAcross(vw::Vector3 const& first_proj,
 
   proj_along = last_proj - first_proj;
   
-  // Sanity check
+  // Sanity check. 
   if (proj_along == vw::Vector3())
     vw::vw_throw(vw::ArgumentErr()
-      << "The first and last camera positions are the same.\n");
+       << "The first and last camera positions are the same. It is not possible find the camera orientation. Specify at the very least two positions that are close but distinct.\n");
 
   // Normalize
   proj_along = proj_along / norm_2(proj_along);

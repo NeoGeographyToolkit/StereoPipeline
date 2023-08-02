@@ -203,7 +203,7 @@ void PinLinescanTest(SatSimOptions                const & opt,
                                  opt.focal_length, opt.focal_length,
                                  opt.optical_center[0], opt.optical_center[1]);
   
-    double line = (opt.image_size[1] - 1.0) * i / (positions.size() - 1.0);
+    double line = (opt.image_size[1] - 1.0) * i / std::max((positions.size() - 1.0), 1.0);
   
     // Need care here
     vw::Vector2 pin_pix(opt.optical_center[0], opt.optical_center[1]);

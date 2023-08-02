@@ -70,6 +70,7 @@ struct Options: public asp::BaBaseOptions {
   int num_anchor_points_extra_lines;
   bool initial_camera_constraint;
   std::map<int, int> orbital_groups;
+  double forced_triangulation_distance;
 };
     
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -157,7 +158,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "attenuating large height difference outliers. It is suggested to make this equal to "
      "--heights-from-dem-weight.")
     ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
-     "If specified, intersect rays from matching pixels with this DEM, find the average, and constrain during optimization that rays keep on intersecting close to this point. This works even when the rays are almost parallel. See also --reference-dem-weight and --reference-dem-robust-threshold.")
+     "If specified, intersect rays from matching pixels with this DEM, find the average, and constrain during optimization that rays keep on intersecting close to this point. This works even when the rays are almost parallel, but then consider using the option --forced-triangulation-distance. See also --reference-dem-weight and --reference-dem-robust-threshold.")
     ("reference-dem-weight", po::value(&opt.ref_dem_weight)->default_value(1.0),
      "Multiply the xyz differences for the --reference-dem option by this weight.")
     ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),
@@ -202,6 +203,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "angle (rotation around the camera y axis), because the camera coordinate system is "
      "rotated by 90 degrees in the sensor plane relative to the satellite coordinate system. "
      "The goal is the same, to penalize deviations that are not aligned with satellite pitch.")
+    ("forced-triangulation-distance",      po::value(&opt.forced_triangulation_distance)->default_value(-1),
+     "When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.")     
     ;
   
     general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -1328,6 +1331,14 @@ void addRollYawConstraint
       int index_in_group = indexInGroup(icam, opt.orbital_groups);
       std::vector<double> positions = orbital_group_positions[group_id];
       std::vector<double> quaternions = orbital_group_quaternions[group_id];
+      if (positions.size() / NUM_XYZ_PARAMS < 2) {
+        // It can happen that we have just one frame camera, but then we just
+        // can't add this constraint
+        vw::vw_out(vw::WarningMessage) << "Cannot add roll and/or yaw constraint for "
+          << "for an orbital group consisting of only one frame camera.\n";
+        continue;
+      }
+        
       ceres::CostFunction* roll_yaw_cost_function
         = weightedRollYawError::Create(positions, quaternions, 
                                    georef, index_in_group,
@@ -1585,13 +1596,12 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Build control network and perform triangulation with adjusted input cameras
   ba::ControlNetwork cnet("jitter_solve");
   bool triangulate_control_points = true;
-  double forced_triangulation_distance = -1.0;
   bool success = vw::ba::build_control_network(triangulate_control_points,
                                                cnet, // output
                                                opt.camera_models, opt.image_files,
                                                match_files, opt.min_matches,
                                                opt.min_triangulation_angle*(M_PI/180.0),
-                                               forced_triangulation_distance,
+                                               opt.forced_triangulation_distance,
                                                opt.max_pairwise_matches);
   if (!success)
     vw::vw_throw(vw::ArgumentErr()

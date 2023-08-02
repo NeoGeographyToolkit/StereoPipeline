@@ -776,11 +776,11 @@ Command-line options for bundle_adjust
     Measured in meters. See :numref:`ba_mapproj_dem` for more details.
 
 --reference-dem <string>
-    If specified, intersect rays from matching pixels with this DEM,
-    find the average, and constrain during optimization that rays
-    keep on intersecting close to this point. This works even when
-    the rays are almost parallel. See also ``--reference-dem-weight``
-    and ``--reference-dem-robust-threshold``.
+    If specified, intersect rays from matching pixels with this DEM, find the
+    average, and constrain during optimization that rays keep on intersecting
+    close to this point. This works even when the rays are almost parallel, but
+    then then consider using the option ``--forced-triangulation-distance``. See
+    also ``--reference-dem-weight`` and ``--reference-dem-robust-threshold``.
 
 --reference-dem-weight <double (default: 1.0)>
     Multiply the xyz differences for the ``--reference-dem`` option by
@@ -819,7 +819,8 @@ Command-line options for bundle_adjust
 --forced-triangulation-distance <meters>
     When triangulation fails, for example, when input cameras are
     inaccurate, artificially create a triangulation point this far
-    ahead of the camera, in units of meters.
+    ahead of the camera, in units of meters. Some of these may 
+    later be filtered as outliers.
 
 --ip-num-ransac-iterations <iterations (default: 1000)>
     How many RANSAC iterations to do in interest point matching.

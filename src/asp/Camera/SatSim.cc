@@ -506,13 +506,19 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
   // Number of cameras. Add 1 because we need to include the last camera.
   num_cameras = int(orbit_len / period) + 1;
 
+  // Sanity checks. It is fine to have one single camera, but that is not usual.
+  if (num_cameras < 1)
+    vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 1.\n");
+  if (num_cameras == 1)
+    vw::vw_out(vw::WarningMessage) << "Warning: Creating only one camera.\n";
+
   // Update the orbit length
   orbit_len = period * (num_cameras - 1.0);
 
-  // Sanity check, important for the work below
+  // Sanity check, important for the work below. It is fine for first and last 
+  // proj to be in the same location, but that is not usual.
   if (norm_2(last_proj - first_proj) < 1e-6)
-    vw::vw_throw(vw::ArgumentErr()
-      << "The first and last camera positions are too close. Check your inputs.\n");
+    vw::vw_out(vw::WarningMessage) << "Warning: The first and last camera positions are too close. Check your inputs.\n";
 
   // Travel along the orbit in very small increments. Return the last point
   // before exceeding the orbit length. 
@@ -539,6 +545,13 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
     beg = end;
     i++;
     out_proj = curr_proj;
+
+    // Sanity check
+    if (i >= 100 * num) {
+      vw::vw_out() << "Warning: Could not find the last camera along the orbit. Perhaps the frame rate is too low.\n";
+      break;
+    }
+
   }
 
   // Update the last orbit point, in projected coords
@@ -727,10 +740,6 @@ void calcTrajectory(SatSimOptions & opt,
                       last_proj, opt.num_cameras);                      
   }
 
-  // Validate that we have at least two cameras
-  if (opt.num_cameras < 2)
-    vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
-
   orbit_len = calcOrbitLength(first_proj, last_proj, dem_georef); // will be passed out
 
   // Good to print these
@@ -767,7 +776,7 @@ void calcTrajectory(SatSimOptions & opt,
     // Calc position along the trajectory and normalized along and across vectors
     // in ECEF. Produced along and across vectors are normalized and perpendicular
     // to each other.
-    double t = double(i) / double(opt.num_cameras - 1);
+    double t = double(i) / std::max(double(opt.num_cameras - 1.0), 1.0);
     vw::Vector3 P, along, across;
     calcEcefTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
                               proj_along, proj_across, 

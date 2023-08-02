@@ -1934,7 +1934,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "This is done after bundle adjustment and outlier removal. "
      "Measured in meters.")
     ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
-     "If specified, intersect rays from matching pixels with this DEM, find the average, and constrain during optimization that rays keep on intersecting close to this point. This works even when the rays are almost parallel. See also --reference-dem-weight and --reference-dem-robust-threshold.")
+     "If specified, intersect rays from matching pixels with this DEM, find the average, and constrain during optimization that rays keep on intersecting close to this point. This works even when the rays are almost parallel, but then consider using the option --forced-triangulation-distance. See also --reference-dem-weight and --reference-dem-robust-threshold.")
     ("reference-dem-weight", po::value(&opt.ref_dem_weight)->default_value(1.0),
      "Multiply the xyz differences for the --reference-dem option by this weight.")
     ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),

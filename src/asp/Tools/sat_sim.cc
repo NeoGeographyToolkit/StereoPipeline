@@ -176,8 +176,10 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
                    << "Check your inputs.\n";
     
     if (std::isnan(opt.frame_rate)) {
-      if (opt.num_cameras < 2)
-        vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 2.\n");
+      if (opt.num_cameras < 1)
+        vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 1.\n");
+      if (opt.num_cameras == 1)
+        vw::vw_out(vw::WarningMessage) << "Warning: Creating only one camera.\n";
     } else {
       // Frame rate is set. Then need not set num cameras.
       if (opt.num_cameras > 0)

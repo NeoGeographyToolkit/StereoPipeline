@@ -1218,6 +1218,30 @@ This solver does not create anchor points for the frame cameras. There
 are usually many such images and they overlap a lot, so anchor points
 are not needed as much as for linescan cameras.
 
+Solving for jitter with no baseline
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this example we consider a single frame (pinhole) camera and a single linescan camera,
+both looking straight down and seeing the same view. The linescan camera has jitter
+that needs to be corrected.
+
+A straightforward application of the recipe above will fail, as it is not possible
+to triangulate properly the points seen by the two cameras. The following adjustments:
+
+- Use ``--forced-triangulation-distance 500000`` for both bundle adjustment and
+  jitter solving. This will result in a triangulated point even when the rays are
+  parallel or even a little divergent (during optimization this point will get
+  refined, so the above value need not be perfectly known). 
+- Instead of ``--heights-from-dem`` use the option ``--reference-dem`` in
+  ``jitter_solve``, with associated options ``--reference-dem-weight`` and
+  ``--reference-dem-robust-threshold``.  See :numref:`jitter_options` for details.
+- Use ``--match-files-prefix`` instead of ``--clean-match-files-prefix`` in
+  ``jitter_solve``, as maybe bundle adjustment filtered out too many good matches
+  with small convergence angle.
+- Use ``--min-triangulation-angle 0.0`` in both bundle adjustment and jitter
+  solving, to ensure we don't throw away features with small convergence angle,
+  as that will be almost all of them.
+
 .. _jitter_out_files:
 
 Output files
@@ -1452,11 +1476,11 @@ Command-line options for jitter_solve
     penalize deviations that are not aligned with satellite pitch.
 
 --reference-dem <string>
-    If specified, intersect rays from matching pixels with this DEM,
-    find their average, and constrain during optimization that rays
-    keep on intersecting close to this point. This works even when
-    the rays are almost parallel. See also ``--reference-dem-weight``
-    and ``--reference-dem-robust-threshold``.
+    If specified, intersect rays from matching pixels with this DEM, find the
+    average, and constrain during optimization that rays keep on intersecting
+    close to this point. This works even when the rays are almost parallel, but
+    then consider using the option ``--forced-triangulation-distance``. See also
+    ``--reference-dem-weight`` and ``--reference-dem-robust-threshold``.
 
 --reference-dem-weight <double (default: 1.0)>
     Multiply the xyz differences for the ``--reference-dem`` option by
@@ -1470,6 +1494,12 @@ Command-line options for jitter_solve
     The minimum angle, in degrees, at which rays must meet at a
     triangulated point to accept this point as valid. It must
     be a positive value.
+
+--forced-triangulation-distance <meters>
+    When triangulation fails, for example, when input cameras are
+    inaccurate, artificially create a triangulation point this far
+    ahead of the camera, in units of meters. Some of these
+    may be later filtered as outliers. 
 
 --overlap-limit <integer (default: 0)>
     Limit the number of subsequent images to search for matches to
