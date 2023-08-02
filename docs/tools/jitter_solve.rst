@@ -1228,7 +1228,8 @@ both looking straight down and seeing the same view. The linescan camera has jit
 that needs to be corrected.
 
 A straightforward application of the recipe above will fail, as it is not possible
-to triangulate properly the points seen by the two cameras. The following adjustments:
+to triangulate properly the points seen by the two cameras. The following adjustments
+are suggested:
 
 - Use ``--forced-triangulation-distance 500000`` for both bundle adjustment and
   jitter solving. This will result in a triangulated point even when the rays are
