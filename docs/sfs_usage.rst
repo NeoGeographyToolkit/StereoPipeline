@@ -245,45 +245,48 @@ For simplicity, we create we create shorter aliases for these images::
 Initial DEM creation
 ^^^^^^^^^^^^^^^^^^^^
 
-The first step is to run stereo to create an initial guess DEM. We
-picked for this the first two of these images. These form a stereo
-pair (:numref:`stereo_pairs`), that is, they have a reasonable
-baseline and sufficiently close times of acquisition (hence very
-similar illuminations). These conditions are necessary to obtain a
-good stereo result.
+The first step is to run bundle adjustment (:numref:`bundle_adjust`) and stereo
+(:numref:`parallel_stereo`) to create an initial guess DEM. We picked for this
+the first two of these images. These form a stereo pair
+(:numref:`stereo_pairs`), that is, they have a reasonable baseline and
+sufficiently close times of acquisition hence very similar illuminations). These
+conditions are necessary to obtain a good stereo result.
+
+Below we assume CSM cameras are used (:numref:`sfs_isis_vs_csm`).
+Otherwise the ``.json`` files should be omitted. 
 
 ::
 
-    parallel_stereo --job-size-w 1024 --job-size-h 1024 \
-      --left-image-crop-win 0 7998 2728 2696            \
-      --right-image-crop-win 0 9377 2733 2505           \
-      --subpixel-mode 3                                 \
-      --threads 16 --corr-seed-mode 1                   \
-      A.cub B.cub                                       \
+    bundle_adjust A.cub B.cub A.json B.json   \
+      --num-iterations 100 -o ba/run
+
+    parallel_stereo                           \
+      --left-image-crop-win 0 7998 2728 2696  \
+      --right-image-crop-win 0 9377 2733 2505 \
+      --stereo-algorithm asp_mgm              \
+      --subpixel-mode 9                       \
+      --bundle-adjust-prefix ba/run           \
+      A.cub B.cub A.json B.json               \
       run_full1/run
 
-See :numref:`running-stereo` for a discussion about various
-speed-vs-quality choices.  In particular, using ``--stereo-algorithm
-asp_mgm --subpixel-mode 9`` may be faster and still rather
-accurate. See :numref:`mapproj-example` about handling artifacts in
-steep terrain. Consider using CSM cameras instead of ISIS cameras
-(:numref:`sfs_isis_vs_csm`).
+See :numref:`running-stereo` for a discussion about various speed-vs-quality
+choices in stereo. See :numref:`mapproj-example` about handling artifacts in
+steep terrain. 
 
-The crop windows above were chosen with ``stereo_gui``
-(:numref:`stereo_gui`).
+The crop windows above were chosen with ``stereo_gui`` (:numref:`stereo_gui`).
 
-Ideally the cameras should be bundle-adjusted
-(:numref:`bundle_adjust`), then above one should pass
-``--bundle-adjust-prefix``. 
+Next we create a DEM. We use the stereographic projection since this dataset is
+very close to the South Pole. Normally a projection centered close to area of
+interest is suggested.
 
-Next we create a DEM at 1 meter/pixel, which is about the resolution
-of the input images. We use the stereographic projection since this
-dataset is very close to the South Pole.
+It is very important that the resolution of the DEM be comparable to the ground
+sample distance (GSD) of the images. This will ensure optimal sampling.
 
 ::
 
-    point2dem -r moon --stereographic --proj-lon 0           \
+    point2dem -r moon --stereographic --proj-lon 0  \
       --proj-lat -90 run_full1/run-PC.tif
+
 
 SfS can only be run on a DEM with valid data at each grid point.  The
 DEM obtained above should be opened in ``stereo_gui``, and the bounds
@@ -305,10 +308,11 @@ quality. The ``mapproject`` program (:numref:`mapproject`), when
 invoked with no input grid size, computes the grid size as the image
 GSD, and that value can then be used when creating the input SfS DEM.
 
-If this DEM has holes, those can be filled in ``dem_mosaic`` or with
-``point2dem`` itself. The ``dem_mosaic`` tool can also apply some blur
-to attenuate artifacts, though ``sfs`` has a smoothing term itself
-which should take care of small imperfections in the input.
+If this DEM has holes, those can be filled in ``dem_mosaic`` (see examples of
+filling/growing a DEM in :numref:`dem_mosaic`) or with ``point2dem`` itself
+(:numref:`point2dem`). The ``dem_mosaic`` tool can also apply some blur to
+attenuate big artifacts, though ``sfs`` has a smoothing term itself which should
+take care of small imperfections in the input.
 
 Running SfS
 ^^^^^^^^^^^
@@ -423,6 +427,8 @@ be interpreted as lit terrain with a pitch-black color, and the computed
 albedo and terrain will have artifacts.
 
 See :numref:`sfs_outputs` for the location of the computed albedo.
+
+.. _sfs_multiview:
 
 SfS with multiple images in the presence of shadows
 ---------------------------------------------------
