@@ -381,7 +381,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              "Write an orthoimage based on the texture files passed in as inputs (after the point clouds).")
     ("output-prefix,o",   po::value(&opt.out_prefix),                             "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file.")
-    ("errorimage",        po::bool_switch(&opt.do_error)->default_value(false),   "Write an additional image whose values represent the triangulation ray intersection error in meters (the closest distance between the rays emanating from the two cameras corresponding to the same point on the ground).")
+    ("errorimage",        po::bool_switch(&opt.do_error)->default_value(false),
+    "Write an additional image, whose values represent the triangulation ray "
+    "intersection error in meters (the closest distance between the rays "
+    "emanating from the two cameras corresponding to the same point on the "
+    "ground). Filename is <output prefix>-IntersectionErr.tif. If stereo "
+    "triangulation was done with the option --compute-error-vector, this "
+    "intersection error will instead have 3 bands, corresponding to the "
+    "coordinates of that vector.")
     ("dem-hole-fill-len", po::value(&opt.dem_hole_fill_len)->default_value(0),    "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
     ("orthoimage-hole-fill-len",      po::value(&opt.ortho_hole_fill_len)->default_value(0),
             "Maximum dimensions of a hole in the output orthoimage to fill in, in pixels.")

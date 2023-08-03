@@ -250,11 +250,13 @@ Command-line options for point2dem
     ``<output prefix>-DRG.tif``.
 
 --errorimage
-    Write an additional image, whose values represent the
-    triangulation ray intersection error in meters (the closest
-    distance between the rays emanating from the two cameras
-    corresponding to the same point on the ground). Filename
-    is ``<output prefix>-IntersectionErr.tif``.
+    Write an additional image, whose values represent the triangulation ray
+    intersection error in meters (the closest distance between the rays
+    emanating from the two cameras corresponding to the same point on the
+    ground). Filename is ``<output prefix>-IntersectionErr.tif``. If stereo
+    triangulation was done with the option ``--compute-error-vector``, this
+    intersection error will instead have 3 bands, corresponding to the
+    coordinates of that vector (:numref:`triangulation_options`).
 
 -t, --output-filetype <string (default: tif)>
     Specify the output file type.
