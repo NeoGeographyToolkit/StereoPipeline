@@ -307,14 +307,16 @@ void findBestProjCamLocation
   }
 #endif
 
-  // Find a spacing in t that corresponds to 100 meters movement in orbit.
+  // Find a spacing in t that corresponds to 1 km movement in orbit.
   // We will use this to find a good initial guess.
+  // This is very fragile code.
+  // TODO(oalexan1): Find a robust way of finding an initial guess. Sometimes this fails.
   double dt = 1e-3;
   double t1 = -dt, t2 = dt;
   P1 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
   P2 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
   double slope = norm_2(P2 - P1) / (2*dt);
-  double spacing = 100.0 / slope;
+  double spacing = 1000.0 / slope;
 #if 0
   // Verification that spacing is correct
   std::cout << "Spacing is " << spacing << std::endl;
@@ -353,6 +355,8 @@ void findBestProjCamLocation
       vw::Vector<double, 1> len2; 
       len2[0] = t / param_scale_factor;
       double val = model(len2)[0];
+
+      //std::cout << "len, val, attempt = " << len2[0] << ' ' << val << ' ' << i << std::endl;
 
       if (val < best_val) {
         best_val = val;
@@ -494,8 +498,11 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
   // Initialize the outputs, this value will change
   num_cameras = 0;
 
-  // Orbit length in meters
+  // Orbit length in meters. Throw an error if getting an orbit of length 0,
+  // as that suggests there was a failure in finding in orbit end points.
   double orbit_len = calcOrbitLength(first_proj, last_proj, dem_georef);
+  if (orbit_len <= 0.0)
+    vw::vw_throw(vw::ArgumentErr() << "Failure in computing orbit end points.\n");
   double period = opt.velocity / opt.frame_rate;
 
   // It is important to let the user know this
@@ -510,7 +517,7 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
   if (num_cameras < 1)
     vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 1.\n");
   if (num_cameras == 1)
-    vw::vw_out(vw::WarningMessage) << "Warning: Creating only one camera.\n";
+    vw::vw_out(vw::WarningMessage) << "Warning: Creating only one camera sample.\n";
 
   // Update the orbit length
   orbit_len = period * (num_cameras - 1.0);
