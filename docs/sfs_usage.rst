@@ -189,13 +189,17 @@ coming from the .json files.
 
 For example, if ``sfs`` is run with an ISIS camera as::
 
-  sfs --use-approx-camera-models --crop-input-images \
-    -i input_dem.tif image.cub -o sfs_isis/run
+  sfs --use-approx-camera-models\
+   --crop-input-images          \
+    -i input_dem.tif image.cub  \
+    -o sfs_isis/run
 
 then, the corresponding command using the CSM model will be::
 
-  sfs --crop-input-images                                \
-    -i input_dem.tif image.cub image.json -o sfs_csm/run
+  sfs --crop-input-images \
+    -i input_dem.tif      \
+    image.cub image.json  \
+    -o sfs_csm/run
 
 The option ``--use-approx-camera-models`` is no longer necessary
 as the CSM model is fast enough. It is however suggested to still
@@ -320,29 +324,36 @@ Running SfS
 Then we run ``sfs`` on this clip (for a larger clip ``parallel_sfs``
 should be used instead, see :numref:`parallel_sfs`)::
 
-    sfs -i run_full1/run-crop-DEM.tif A.cub -o sfs_ref1/run           \
-      --reflectance-type 1 --crop-input-images                        \
-      --smoothness-weight 0.08 --initial-dem-constraint-weight 0.001  \
-      --max-iterations 10 --use-approx-camera-models
+    sfs -i run_full1/run-crop-DEM.tif       \
+      A.cub A.json                          \
+      --use-approx-camera-models            \
+      --crop-input-images                   \
+      --reflectance-type 1                  \
+      --smoothness-weight 0.08              \
+      --initial-dem-constraint-weight 0.001 \
+      --max-iterations 10                   \
+      -o sfs_ref1/run
 
 The smoothness weight is a parameter that needs tuning. If it is too
 small, SfS will return noisy results, if it is too large, too much
-detail will be blurred. Here we used the Lunar-Lambertian model. The
-meaning of the other ``sfs`` options can be looked up in :numref:`sfs`.
+detail will be blurred. One can experiment with values between 0.01
+and 100000 with a factor of 10 to find this weight, and then refine
+it in smaller steps.
 
-The value of ``--initial-dem-constraint-weight`` is best set to 0 when
-the initial DEM is not very reliable, as otherwise defects from it can
-be inherited by the SfS result. Otherwise a value between 0.0001 and
-0.001 may be good enough.
+Here we used the Lunar-Lambertian model. The meaning of the other ``sfs``
+options can be looked up in :numref:`sfs`.
 
-See :numref:`sfs_albedo` for modeling of albedo. Shadow thresholds may
-be needed to avoid artifacts in shadow. See
-:numref:`sfs_crater_bottoms` for a potential solution to flat crater
-bottoms in areas in shadow.
+The value of ``--initial-dem-constraint-weight`` is best set to 0 when the
+initial DEM is not very reliable, as otherwise defects from it can be inherited
+by the SfS result. Otherwise a value between 0.0001 and 0.001 may be good
+enough.
 
-In the next sections, where SfS will be done with multiple images,
-more parameters which can control the quality of the result will be
-explored.
+See :numref:`sfs_albedo` for modeling of albedo. Shadow thresholds may be needed
+to avoid artifacts in shadow. See :numref:`sfs_crater_bottoms` for a potential
+solution to flat crater bottoms in areas in shadow.
+
+In the next sections, where SfS will be done with multiple images, more
+parameters which can control the quality of the result will be explored.
 
 See :numref:`sfs_outputs` for where ``sfs`` stores its outputs.
 
