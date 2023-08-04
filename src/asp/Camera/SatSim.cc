@@ -985,6 +985,8 @@ void genPinholeCameras(SatSimOptions       const & opt,
 }
 
 // Bring crops in memory. It greatly helps with multi-threading speed.  
+// This function is used only for small tiles, to avoid running out of memory
+// (which did happen).
 void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
     vw::CamPtr const& cam,
     vw::ImageViewRef<vw::PixelMask<float>> const& dem,
@@ -1030,7 +1032,6 @@ void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
     ortho_pixel_box.expand(expand);
     ortho_pixel_box.crop(vw::bounding_box(ortho));
 
-    std::cout << "ortho pixel box = " << ortho_pixel_box << std::endl;
     // Crop
     crop_dem = vw::crop(dem, dem_pixel_box);
     crop_dem_georef = crop(dem_georef, dem_pixel_box);
@@ -1045,27 +1046,26 @@ class SynImageView: public vw::ImageViewBase<SynImageView> {
   typedef typename ImageT::pixel_type PixelT;
   SatSimOptions const& m_opt;
   vw::CamPtr m_cam;
-  //vw::cartography::GeoReference m_dem_georef; // make a copy to be thread-safe
-  //vw::ImageView<vw::PixelMask<float>> const& m_dem;
+  vw::cartography::GeoReference m_dem_georef; // make a copy to be thread-safe
+  vw::ImageViewRef<vw::PixelMask<float>> const& m_dem;
   double m_height_guess;
-  //vw::cartography::GeoReference m_ortho_georef; // make a copy to be thread-safe
-  //vw::ImageView<vw::PixelMask<float>> const& m_ortho;
+  vw::cartography::GeoReference m_ortho_georef; // make a copy to be thread-safe
+  vw::ImageViewRef<vw::PixelMask<float>> const& m_ortho;
   float m_ortho_nodata_val;
 
 public:
   SynImageView(SatSimOptions const& opt,
                vw::CamPtr    const& cam,
                vw::cartography::GeoReference   const& dem_georef,
-               vw::ImageView<vw::PixelMask<float>> dem,
+               vw::ImageViewRef<vw::PixelMask<float>> dem,
                double height_guess,
                vw::cartography::GeoReference   const& ortho_georef,
-               vw::ImageView<vw::PixelMask<float>> ortho,
+               vw::ImageViewRef<vw::PixelMask<float>> ortho,
                float ortho_nodata_val):
-                m_opt(opt), 
-                m_cam(cam), 
-                //m_dem_georef(dem_georef), m_dem(dem),
+                m_opt(opt), m_cam(cam), 
+                m_dem_georef(dem_georef), m_dem(dem),
                 m_height_guess(height_guess),
-                //m_ortho_georef(ortho_georef), m_ortho(ortho),
+                m_ortho_georef(ortho_georef), m_ortho(ortho),
                 m_ortho_nodata_val(ortho_nodata_val) {}
 
   typedef PixelT pixel_type;
@@ -1087,68 +1087,47 @@ public:
   typedef vw::CropView<vw::ImageView<pixel_type>> prerasterize_type;
   inline prerasterize_type prerasterize(vw::BBox2i const& bbox) const {
 
-  // Read the DEM from disk again
-  vw::ImageViewRef<vw::PixelMask<float>> dem;
-  float dem_nodata_val = -std::numeric_limits<float>::max(); // will change
-  vw::cartography::GeoReference dem_georef;
-  asp::readGeorefImage(m_opt.dem_file, dem_nodata_val, dem_georef, dem);
+    // Expand the box a bit, to help with interpolation in the ortho image later
+    vw::BBox2i extra_bbox = bbox;
+    extra_bbox.expand(10);
+    extra_bbox.crop(vw::BBox2i(0, 0, cols(), rows()));
+    vw::Vector2 crop_start = extra_bbox.min();
+    vw::Vector2 crop_image_size = extra_bbox.max() - extra_bbox.min();
 
-  // Read the ortho image
-  vw::ImageViewRef<vw::PixelMask<float>> ortho;
-  float ortho_nodata_val = -std::numeric_limits<float>::max(); // will change
-  vw::cartography::GeoReference ortho_georef;
-  asp::readGeorefImage(m_opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
+    // Must adjust the camera to be able work with the current box, which 
+    // does not necessarily start at (0,0). We only adjust the starting
+    // position, and not any other params
+    vw::Vector3 translation(0, 0, 0);
+    vw::Quat    rotation(vw::math::identity_matrix<3>());
+    vw::Vector2 pixel_offset = crop_start;
+    double      scale = 1.0;
+    vw::CamPtr crop_cam(new vw::camera::AdjustedCameraModel(m_cam, translation, rotation, 
+                        pixel_offset, scale));
 
-  //vw::ImageViewRef<vw::PixelMask<float>> dem;
-  //vw::cartography::GeoReference dem_georef;
-  //vw::ImageViewRef<vw::PixelMask<float>> ortho;
-  //vw::cartography::GeoReference ortho_georef;
+    // Bring crops in memory. It greatly helps with multi-threading speed.  
+    vw::cartography::GeoReference crop_dem_georef; // make a copy to be thread-safe
+    vw::ImageView<vw::PixelMask<float>> crop_dem;
+    vw::cartography::GeoReference crop_ortho_georef; // make a copy to be thread-safe
+    vw::ImageView<vw::PixelMask<float>> crop_ortho;
+    setupCroppedDemAndOrtho(crop_image_size,
+      crop_cam, m_dem, m_dem_georef, m_ortho, m_ortho_georef, 
+      // Outputs
+      crop_dem, crop_dem_georef, crop_ortho, crop_ortho_georef);
 
-  // Expand the box a bit, to help with interpolation in the ortho image later
-  vw::BBox2i extra_bbox = bbox;
-  std::cout << "extra before = " << extra_bbox << std::endl;
-  extra_bbox.expand(10);
-  extra_bbox.crop(vw::BBox2i(0, 0, cols(), rows()));
-  std::cout << "extra after = " << extra_bbox << std::endl;
-  vw::Vector2 crop_start = extra_bbox.min();
-  vw::Vector2 crop_image_size = extra_bbox.max() - extra_bbox.min();
-  std::cout << "--start = " << crop_start << std::endl;
-  std::cout << "--image_size = " << crop_image_size << std::endl;
+    // Create interpolated image with bicubic interpolation with invalid pixel 
+    // edge extension
+    vw::PixelMask<float> nodata_mask = vw::PixelMask<float>(); // invalid value
+    nodata_mask.invalidate();
+    auto interp_ortho = vw::interpolate(crop_ortho, vw::BicubicInterpolation(),
+                                        vw::ValueEdgeExtension<vw::PixelMask<float>>(nodata_mask));
 
-  // Must adjust the camera to be able work with the current box, which 
-  // does not necessarily start at (0,0). We only adjust the starting
-  // position, and not any other params
-  vw::Vector3 translation(0, 0, 0);
-  vw::Quat    rotation(vw::math::identity_matrix<3>());
-  vw::Vector2 pixel_offset = crop_start;
-  double      scale = 1.0;
-  vw::CamPtr crop_cam(new vw::camera::AdjustedCameraModel(m_cam, translation, rotation, 
-                      pixel_offset, scale));
+    // The location where the ray intersects the ground. We will use each obtained
+    // location as initial guess for the next ray. This may not be always a great
+    // guess, but it is better than starting nowhere. It should work decently
+    // if the camera is high, and with a small footprint on the ground.
+    vw::Vector3 xyz_guess(0, 0, 0);
 
-  // Bring crops in memory. It greatly helps with multi-threading speed.  
-  vw::cartography::GeoReference crop_dem_georef; // make a copy to be thread-safe
-  vw::ImageView<vw::PixelMask<float>> crop_dem;
-  vw::cartography::GeoReference crop_ortho_georef; // make a copy to be thread-safe
-  vw::ImageView<vw::PixelMask<float>> crop_ortho;
-  setupCroppedDemAndOrtho(crop_image_size,
-     crop_cam, dem, dem_georef, ortho, ortho_georef, 
-     // Outputs
-     crop_dem, crop_dem_georef, crop_ortho, crop_ortho_georef);
-
-  // Create interpolated image with bicubic interpolation with invalid pixel 
-  // edge extension
-  vw::PixelMask<float> nodata_mask = vw::PixelMask<float>(); // invalid value
-  nodata_mask.invalidate();
-  auto interp_ortho = vw::interpolate(crop_ortho, vw::BicubicInterpolation(),
-                                      vw::ValueEdgeExtension<vw::PixelMask<float>>(nodata_mask));
-
-  // The location where the ray intersects the ground. We will use each obtained
-  // location as initial guess for the next ray. This may not be always a great
-  // guess, but it is better than starting nowhere. It should work decently
-  // if the camera is high, and with a small footprint on the ground.
-  vw::Vector3 xyz_guess(0, 0, 0);
-
-  vw::ImageView<result_type> tile(bbox.width(), bbox.height());
+    vw::ImageView<result_type> tile(bbox.width(), bbox.height());
 
     for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
       for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
@@ -1239,15 +1218,9 @@ void genImages(SatSimOptions const& opt,
     // Check if we do a range
     if (skipCamera(i, opt)) continue;
 
-    // Bring crops in memory. It greatly helps with multi-threading speed.  
-    vw::ImageView<vw::PixelMask<float>> crop_dem, crop_ortho;
-    vw::cartography::GeoReference crop_dem_georef, crop_ortho_georef;
-    //setupCroppedDemAndOrtho(opt.image_size,
-    //  cams[i], dem, dem_georef, ortho, ortho_georef, 
-    //  // Outputs
-    //  crop_dem, crop_dem_georef, crop_ortho, crop_ortho_georef);
-
     // Save the image using the block write function with multiple threads
+    // Increase the tile size, as otherwise this code becomes very slow
+    // since a time-consuming camera box calculation happens in each tile.
     vw::vw_out() << "Writing: " << image_names[i] << std::endl;
     bool has_georef = false; // the produced image is raw, it has no georef
     bool has_nodata = true;
@@ -1256,9 +1229,9 @@ void genImages(SatSimOptions const& opt,
 
     block_write_gdal_image(image_names[i], 
       vw::apply_mask(SynImageView(opt, cams[i], 
-      crop_dem_georef, crop_dem, height_guess, crop_ortho_georef, crop_ortho, ortho_nodata_val), ortho_nodata_val),
-      has_georef, crop_ortho_georef,  // the ortho georef will not be used
-      has_nodata, ortho_nodata_val,   // borrow the nodata from ortho
+      dem_georef, dem, height_guess, ortho_georef, ortho, ortho_nodata_val), ortho_nodata_val),
+      has_georef, ortho_georef,  // ortho georef will not be used, but needed for the api
+      has_nodata, ortho_nodata_val, // borrow the nodata from ortho
       local_opt, vw::TerminalProgressCallback("", "\t--> "));
   }  
 
