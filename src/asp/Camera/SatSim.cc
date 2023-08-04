@@ -984,6 +984,60 @@ void genPinholeCameras(SatSimOptions       const & opt,
   return;
 }
 
+// Bring crops in memory. It greatly helps with multi-threading speed.  
+void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
+    vw::CamPtr const& cam,
+    vw::ImageViewRef<vw::PixelMask<float>> const& dem,
+    vw::cartography::GeoReference const& dem_georef,
+    vw::ImageViewRef<vw::PixelMask<float>> const& ortho,
+    vw::cartography::GeoReference const& ortho_georef,
+    // Outputs
+    vw::ImageView<vw::PixelMask<float>> & crop_dem,
+    vw::cartography::GeoReference & crop_dem_georef,
+    vw::ImageView<vw::PixelMask<float>> & crop_ortho,
+    vw::cartography::GeoReference & crop_ortho_georef) {
+
+    // Find the bounding box of the dem and ortho portions seen in the camera,
+    // in projected coordinates
+    float mean_gsd = 0.0;    
+    bool quick = true; // Assumes a big DEM fully containing the image    
+    vw::BBox2 dem_box;
+    try {
+      // This is a bugfix. The camera_bbox function can fail if we want an
+      // extent that does not fit fully with the input DEM/orthoimage.
+      // We could use above quick = false, but then we'd get only partial
+      // synthetic images, which isn't good.
+      dem_box = vw::cartography::camera_bbox(dem, dem_georef, dem_georef,
+        cam, image_size[0], image_size[1], mean_gsd, quick);
+    } catch (const vw::Exception& e) {
+       vw::vw_throw(vw::ArgumentErr() << "sat_sim: Failed to compute a synthetic image. "
+       << "The most likely cause is that the desired image is out of bounds given "
+       << "the input DEM and orthoimage.\n");
+    }
+
+    vw::cartography::GeoTransform d2o(dem_georef, ortho_georef);
+    vw::BBox2 ortho_box = d2o.point_to_point_bbox(dem_box);
+
+    // Find the DEM pixel box and expand it in case there was some inaccuracies
+    // in finding the box
+    vw::BBox2i dem_pixel_box = dem_georef.point_to_pixel_bbox(dem_box);
+    int expand = 50;
+    dem_pixel_box.expand(expand);
+    dem_pixel_box.crop(vw::bounding_box(dem));
+
+    // Same for the ortho
+    vw::BBox2i ortho_pixel_box = ortho_georef.point_to_pixel_bbox(ortho_box);
+    ortho_pixel_box.expand(expand);
+    ortho_pixel_box.crop(vw::bounding_box(ortho));
+
+    std::cout << "ortho pixel box = " << ortho_pixel_box << std::endl;
+    // Crop
+    crop_dem = vw::crop(dem, dem_pixel_box);
+    crop_dem_georef = crop(dem_georef, dem_pixel_box);
+    crop_ortho = vw::crop(ortho, ortho_pixel_box);
+    crop_ortho_georef = crop(ortho_georef, ortho_pixel_box);
+}
+
 // Create a synthetic image with multiple threads
 typedef vw::ImageView<vw::PixelMask<float>> ImageT;
 class SynImageView: public vw::ImageViewBase<SynImageView> {
@@ -991,11 +1045,11 @@ class SynImageView: public vw::ImageViewBase<SynImageView> {
   typedef typename ImageT::pixel_type PixelT;
   SatSimOptions const& m_opt;
   vw::CamPtr m_cam;
-  vw::cartography::GeoReference m_dem_georef; // make a copy to be thread-safe
-  vw::ImageView<vw::PixelMask<float>> const& m_dem;
+  //vw::cartography::GeoReference m_dem_georef; // make a copy to be thread-safe
+  //vw::ImageView<vw::PixelMask<float>> const& m_dem;
   double m_height_guess;
-  vw::cartography::GeoReference m_ortho_georef; // make a copy to be thread-safe
-  vw::ImageView<vw::PixelMask<float>> const& m_ortho;
+  //vw::cartography::GeoReference m_ortho_georef; // make a copy to be thread-safe
+  //vw::ImageView<vw::PixelMask<float>> const& m_ortho;
   float m_ortho_nodata_val;
 
 public:
@@ -1007,10 +1061,11 @@ public:
                vw::cartography::GeoReference   const& ortho_georef,
                vw::ImageView<vw::PixelMask<float>> ortho,
                float ortho_nodata_val):
-                m_opt(opt), m_cam(cam), 
-                m_dem_georef(dem_georef), m_dem(dem),
+                m_opt(opt), 
+                m_cam(cam), 
+                //m_dem_georef(dem_georef), m_dem(dem),
                 m_height_guess(height_guess),
-                m_ortho_georef(ortho_georef), m_ortho(ortho),
+                //m_ortho_georef(ortho_georef), m_ortho(ortho),
                 m_ortho_nodata_val(ortho_nodata_val) {}
 
   typedef PixelT pixel_type;
@@ -1032,11 +1087,59 @@ public:
   typedef vw::CropView<vw::ImageView<pixel_type>> prerasterize_type;
   inline prerasterize_type prerasterize(vw::BBox2i const& bbox) const {
 
+  // Read the DEM from disk again
+  vw::ImageViewRef<vw::PixelMask<float>> dem;
+  float dem_nodata_val = -std::numeric_limits<float>::max(); // will change
+  vw::cartography::GeoReference dem_georef;
+  asp::readGeorefImage(m_opt.dem_file, dem_nodata_val, dem_georef, dem);
+
+  // Read the ortho image
+  vw::ImageViewRef<vw::PixelMask<float>> ortho;
+  float ortho_nodata_val = -std::numeric_limits<float>::max(); // will change
+  vw::cartography::GeoReference ortho_georef;
+  asp::readGeorefImage(m_opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
+
+  //vw::ImageViewRef<vw::PixelMask<float>> dem;
+  //vw::cartography::GeoReference dem_georef;
+  //vw::ImageViewRef<vw::PixelMask<float>> ortho;
+  //vw::cartography::GeoReference ortho_georef;
+
+  // Expand the box a bit, to help with interpolation in the ortho image later
+  vw::BBox2i extra_bbox = bbox;
+  std::cout << "extra before = " << extra_bbox << std::endl;
+  extra_bbox.expand(10);
+  extra_bbox.crop(vw::BBox2i(0, 0, cols(), rows()));
+  std::cout << "extra after = " << extra_bbox << std::endl;
+  vw::Vector2 crop_start = extra_bbox.min();
+  vw::Vector2 crop_image_size = extra_bbox.max() - extra_bbox.min();
+  std::cout << "--start = " << crop_start << std::endl;
+  std::cout << "--image_size = " << crop_image_size << std::endl;
+
+  // Must adjust the camera to be able work with the current box, which 
+  // does not necessarily start at (0,0). We only adjust the starting
+  // position, and not any other params
+  vw::Vector3 translation(0, 0, 0);
+  vw::Quat    rotation(vw::math::identity_matrix<3>());
+  vw::Vector2 pixel_offset = crop_start;
+  double      scale = 1.0;
+  vw::CamPtr crop_cam(new vw::camera::AdjustedCameraModel(m_cam, translation, rotation, 
+                      pixel_offset, scale));
+
+  // Bring crops in memory. It greatly helps with multi-threading speed.  
+  vw::cartography::GeoReference crop_dem_georef; // make a copy to be thread-safe
+  vw::ImageView<vw::PixelMask<float>> crop_dem;
+  vw::cartography::GeoReference crop_ortho_georef; // make a copy to be thread-safe
+  vw::ImageView<vw::PixelMask<float>> crop_ortho;
+  setupCroppedDemAndOrtho(crop_image_size,
+     crop_cam, dem, dem_georef, ortho, ortho_georef, 
+     // Outputs
+     crop_dem, crop_dem_georef, crop_ortho, crop_ortho_georef);
+
   // Create interpolated image with bicubic interpolation with invalid pixel 
   // edge extension
   vw::PixelMask<float> nodata_mask = vw::PixelMask<float>(); // invalid value
   nodata_mask.invalidate();
-  auto interp_ortho = vw::interpolate(m_ortho, vw::BicubicInterpolation(),
+  auto interp_ortho = vw::interpolate(crop_ortho, vw::BicubicInterpolation(),
                                       vw::ValueEdgeExtension<vw::PixelMask<float>>(nodata_mask));
 
   // The location where the ray intersects the ground. We will use each obtained
@@ -1060,7 +1163,7 @@ public:
 
         // Here use the full image pixel indices
         vw::Vector2 pix(col, row);
-
+        // Also use original camera
         vw::Vector3 cam_ctr = m_cam->camera_center(pix);
         vw::Vector3 cam_dir = m_cam->pixel_to_vector(pix);
 
@@ -1072,8 +1175,8 @@ public:
         double max_rel_tol = max_abs_tol;
         int num_max_iter = 100;
         vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
-          (cam_ctr, cam_dir, m_dem,
-            m_dem_georef, treat_nodata_as_zero,
+          (cam_ctr, cam_dir, crop_dem,
+            crop_dem_georef, treat_nodata_as_zero,
             has_intersection, m_opt.dem_height_error_tol, 
             max_abs_tol, max_rel_tol, 
             num_max_iter, xyz_guess, m_height_guess);
@@ -1087,8 +1190,8 @@ public:
         // Find the texture value at the intersection point by interpolation.
         // This will result in an invalid value if if out of range or if the
         // image itself has invalid pixels.
-        vw::Vector3 llh = m_dem_georef.datum().cartesian_to_geodetic(xyz);
-        vw::Vector2 ortho_pix = m_ortho_georef.lonlat_to_pixel
+        vw::Vector3 llh = crop_dem_georef.datum().cartesian_to_geodetic(xyz);
+        vw::Vector2 ortho_pix = crop_ortho_georef.lonlat_to_pixel
                                  (vw::Vector2(llh[0], llh[1]));
         tile(c, r) = interp_ortho(ortho_pix[0], ortho_pix[1]);
       }
@@ -1103,47 +1206,6 @@ public:
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
 };
-
-// Bring crops in memory. It greatly helps with multi-threading speed.  
-void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
-    vw::CamPtr const& cam,
-    vw::ImageViewRef<vw::PixelMask<float>> const& dem,
-    vw::cartography::GeoReference const& dem_georef,
-    vw::ImageViewRef<vw::PixelMask<float>> const& ortho,
-    vw::cartography::GeoReference const& ortho_georef,
-    // Outputs
-    vw::ImageView<vw::PixelMask<float>> & crop_dem,
-    vw::cartography::GeoReference & crop_dem_georef,
-    vw::ImageView<vw::PixelMask<float>> & crop_ortho,
-    vw::cartography::GeoReference & crop_ortho_georef) {
-
-    // Find the bounding box of the dem and ortho portions seen in the camera,
-    // in projected coordinates
-    float mean_gsd = 0.0;    
-    bool quick = true; // Assumes a big DEM fully containing the image    
-    vw::BBox2 dem_box = vw::cartography::camera_bbox(dem, dem_georef, dem_georef,
-      cam, image_size[0], image_size[1], mean_gsd, quick);
-    vw::cartography::GeoTransform d2o(dem_georef, ortho_georef);
-    vw::BBox2 ortho_box = d2o.point_to_point_bbox(dem_box);
-
-    // Find the DEM pixel box and expand it in case there was some inaccuracies
-    // in finding the box
-    vw::BBox2i dem_pixel_box = dem_georef.point_to_pixel_bbox(dem_box);
-    int expand = 50;
-    dem_pixel_box.expand(expand);
-    dem_pixel_box.crop(vw::bounding_box(dem));
-
-    // Same for the ortho
-    vw::BBox2i ortho_pixel_box = ortho_georef.point_to_pixel_bbox(ortho_box);
-    ortho_pixel_box.expand(expand);
-    ortho_pixel_box.crop(vw::bounding_box(ortho));
-
-    // Crop
-    crop_dem = vw::crop(dem, dem_pixel_box);
-    crop_dem_georef = crop(dem_georef, dem_pixel_box);
-    crop_ortho = vw::crop(ortho, ortho_pixel_box);
-    crop_ortho_georef = crop(ortho_georef, ortho_pixel_box);
-}
 
 // Generate images by projecting rays from the sensor to the ground
 void genImages(SatSimOptions const& opt,
@@ -1180,21 +1242,24 @@ void genImages(SatSimOptions const& opt,
     // Bring crops in memory. It greatly helps with multi-threading speed.  
     vw::ImageView<vw::PixelMask<float>> crop_dem, crop_ortho;
     vw::cartography::GeoReference crop_dem_georef, crop_ortho_georef;
-    setupCroppedDemAndOrtho(opt.image_size,
-      cams[i], dem, dem_georef, ortho, ortho_georef, 
-      // Outputs
-      crop_dem, crop_dem_georef, crop_ortho, crop_ortho_georef);
+    //setupCroppedDemAndOrtho(opt.image_size,
+    //  cams[i], dem, dem_georef, ortho, ortho_georef, 
+    //  // Outputs
+    //  crop_dem, crop_dem_georef, crop_ortho, crop_ortho_georef);
 
     // Save the image using the block write function with multiple threads
     vw::vw_out() << "Writing: " << image_names[i] << std::endl;
     bool has_georef = false; // the produced image is raw, it has no georef
     bool has_nodata = true;
+    SatSimOptions local_opt = opt;
+    local_opt.raster_tile_size = vw::Vector2i(1024, 1024);
+
     block_write_gdal_image(image_names[i], 
       vw::apply_mask(SynImageView(opt, cams[i], 
       crop_dem_georef, crop_dem, height_guess, crop_ortho_georef, crop_ortho, ortho_nodata_val), ortho_nodata_val),
       has_georef, crop_ortho_georef,  // the ortho georef will not be used
       has_nodata, ortho_nodata_val,   // borrow the nodata from ortho
-      opt, vw::TerminalProgressCallback("", "\t--> "));
+      local_opt, vw::TerminalProgressCallback("", "\t--> "));
   }  
 
   // Write the list of images only if we are not skipping the first camera
