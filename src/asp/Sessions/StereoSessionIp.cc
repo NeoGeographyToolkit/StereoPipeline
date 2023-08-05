@@ -197,7 +197,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                     nodata1, nodata2);
     } else {
       vw_out() << "\t    Using rough homography.\n";
-      inlier = ip_matching_w_alignment(!supports_multi_threading(), cam1, cam2,
+      inlier = ip_matching_with_alignment(!supports_multi_threading(), cam1, cam2,
                                        image1_norm, image2_norm,
                                        ip_per_tile,
                                        datum, match_filename,

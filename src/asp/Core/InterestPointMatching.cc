@@ -56,16 +56,16 @@ Vector3 EpipolarLinePointMatcher::epipolar_line(Vector2 const& feature,
   try{
 
     // Intersect the interest point pixel with the datum
-    Vector3 p0 = cartography::datum_intersection( datum, cam_ip, feature );
+    Vector3 p0 = cartography::datum_intersection(datum, cam_ip, feature);
 
-    if (p0 == Vector3()){ // No intersection
+    if (p0 == Vector3()) { // No intersection
       success = false;
       return Vector3();
     }
 
-    Vector3 p1  = p0 + 10*cam_ip->pixel_to_vector( feature ); // Extend the point below the datum
-    Vector2 ep0 = cam_obj->point_to_pixel( p0 ); // Project the intersection and extension into the other camera
-    Vector2 ep1 = cam_obj->point_to_pixel( p1 );
+    Vector3 p1  = p0 + 10*cam_ip->pixel_to_vector(feature); // Extend the point below the datum
+    Vector2 ep0 = cam_obj->point_to_pixel(p0); // Project the intersection and extension into the other camera
+    Vector2 ep1 = cam_obj->point_to_pixel(p1);
     Matrix<double> matrix( 2, 3 );
     select_col( matrix, 2 ) = Vector2(1,1);
     matrix(0,0) = ep0.x();
@@ -73,13 +73,13 @@ Vector3 EpipolarLinePointMatcher::epipolar_line(Vector2 const& feature,
     matrix(1,0) = ep1.x();
     matrix(1,1) = ep1.y();
 
-    if (matrix != matrix){ // Got back NaN values. Can't proceed.
+    if (matrix != matrix) { // Got back NaN values. Can't proceed.
       success = false;
       return Vector3();
     }
 
     // If the input matrix is bad this can result in some weird errors!
-    Matrix<double> nsp = nullspace( matrix );
+    Matrix<double> nsp = nullspace(matrix);
     if (nsp.cols() <= 0 || nsp.rows() <= 0){ // Failed to find the nullspace
       success = false;
       return Vector3();
@@ -89,13 +89,13 @@ Vector3 EpipolarLinePointMatcher::epipolar_line(Vector2 const& feature,
 
   } catch (std::exception const& e) {
     // Turn this off, it can be verbose
-    //Mutex::Lock lock( g_ip_mutex );
-    //g_ip_num_errors++;
-    //if (g_ip_num_errors < 100) {
+    // Mutex::Lock lock(g_ip_mutex);
+    // g_ip_num_errors++;
+    // if (g_ip_num_errors < 100) {
     //  vw_out(ErrorMessage) << e.what() << std::endl;
-    //}else if (g_ip_num_errors == 100) {
+    // }else if (g_ip_num_errors == 100) {
     //  vw_out() << "Will print no more error messages about failing to find epipolar line.\n";
-    //}
+    // }
   }
 
   success = false;
@@ -176,9 +176,11 @@ public:
         vw::Vector<unsigned char> uchar_descriptor(ip->descriptor.size());
         for (size_t i=0; i<ip->descriptor.size(); ++i)
           uchar_descriptor[i] = static_cast<unsigned char>(ip->descriptor[i]);
-        num_matches_valid = m_tree_uchar.knn_search( uchar_descriptor, indices, distances, NUM_MATCHES_TO_FIND );
+        num_matches_valid = m_tree_uchar.knn_search(uchar_descriptor, indices, distances, 
+                                                    NUM_MATCHES_TO_FIND);
       } else {
-        num_matches_valid = m_tree_float.knn_search( ip->descriptor, indices, distances, NUM_MATCHES_TO_FIND );
+        num_matches_valid = m_tree_float.knn_search(ip->descriptor, indices, distances, 
+                                                    NUM_MATCHES_TO_FIND);
       }
 
       if (num_matches_valid < 1) {
@@ -233,12 +235,12 @@ public:
 
 }; // End class EpipolarLineMatchTask -------------------
 
-void EpipolarLinePointMatcher::operator()( ip::InterestPointList const& ip1,
-                                           ip::InterestPointList const& ip2,
-                                           DetectIpMethod  ip_detect_method,
-                                           camera::CameraModel        * cam1,
-                                           camera::CameraModel        * cam2,
-                                           std::vector<size_t>        & output_indices ) const {
+void EpipolarLinePointMatcher::operator()(ip::InterestPointList const& ip1,
+                                          ip::InterestPointList const& ip2,
+                                          DetectIpMethod  ip_detect_method,
+                                          camera::CameraModel        * cam1,
+                                          camera::CameraModel        * cam2,
+                                          std::vector<size_t>        & output_indices) const {
   typedef ip::InterestPointList::const_iterator IPListIter;
 
   Timer total_time("Total elapsed time", DebugMessage, "interest_point");
@@ -293,26 +295,26 @@ void EpipolarLinePointMatcher::operator()( ip::InterestPointList const& ip1,
   IPListIter start_it = ip1.begin();
   std::vector<size_t>::iterator output_it = output_indices.begin();
 
-  for ( size_t i = 0; i < number_of_jobs - 1; i++ ) { // For each job...
+  for (size_t i = 0; i < number_of_jobs - 1; i++) {
     // Update iterators and launch the job.
     IPListIter end_it = start_it;
-    std::advance( end_it, ip1_size / number_of_jobs );
+    std::advance(end_it, ip1_size / number_of_jobs);
     boost::shared_ptr<Task>
-      match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
-                                             use_uchar_FLANN, kd_float, kd_uchar,
-                                             start_it, end_it,
-                                             ip2, cam1, cam2, *this,
-                                             camera_mutex, output_it ) );
+      match_task(new EpipolarLineMatchTask(m_single_threaded_camera,
+                                           use_uchar_FLANN, kd_float, kd_uchar,
+                                           start_it, end_it,
+                                           ip2, cam1, cam2, *this,
+                                           camera_mutex, output_it));
     matching_queue.add_task( match_task );
     start_it = end_it;
-    std::advance( output_it, ip1_size / number_of_jobs );
+    std::advance(output_it, ip1_size / number_of_jobs);
   }
   boost::shared_ptr<Task>
-    match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
-                                           use_uchar_FLANN, kd_float, kd_uchar,
-                                           start_it, ip1.end(),
-                                           ip2, cam1, cam2, *this,
-                                           camera_mutex, output_it ) );
+    match_task(new EpipolarLineMatchTask(m_single_threaded_camera,
+                                         use_uchar_FLANN, kd_float, kd_uchar,
+                                         start_it, ip1.end(),
+                                         ip2, cam1, cam2, *this,
+                                         camera_mutex, output_it));
   matching_queue.add_task( match_task );
   matching_queue.join_all(); // Wait for all the jobs to finish.
 }
@@ -417,7 +419,7 @@ rough_homography_fit(camera::CameraModel* cam1,
             norm_2(Vector2(box1.width(),box1.height())) * (1.5*thresh_factor), // inlier threshold
             left_points.size()/2 // min output inliers
             );
-  Matrix<double> H = ransac( right_points, left_points );
+  Matrix<double> H = ransac(right_points, left_points);
   std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
   check_homography_matrix(H, left_points, right_points, indices);
 
@@ -1206,6 +1208,106 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
 
   return T;
 
+}
+
+// See the .h file for documentation.
+bool ip_matching_with_alignment(bool single_threaded_camera,
+			     vw::camera::CameraModel* cam1,
+			     vw::camera::CameraModel* cam2,
+			     vw::ImageViewRef<float> const& image1,
+           vw::ImageViewRef<float> const& image2,
+			     int ip_per_tile,
+			     vw::cartography::Datum const& datum,
+			     std::string const& output_name,
+			     double epipolar_threshold,
+			     double uniqueness_threshold,
+			     std::string const left_file_path,
+			     double nodata1,
+			     double nodata2) {
+
+  using namespace vw;
+
+  vw_out() << "Performing IP matching with alignment." << std::endl;
+
+  // This call aligns the right image to the left image then detects IPs in the two images.
+  vw::ip::InterestPointList ip1, ip2;
+  Matrix<double> rough_homography;
+  detect_ip_aligned_pair(cam1, cam2, image1, image2,
+                         ip_per_tile, datum, ip1, ip2, rough_homography, 
+                         left_file_path, nodata1, nodata2);
+
+
+  // Match the detected IPs which are in the original image coordinates.
+  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+  bool inlier =
+    epipolar_ip_matching(single_threaded_camera,
+			 ip1, ip2,
+			 cam1, cam2,
+			 image1, image2,
+			 datum, epipolar_threshold, uniqueness_threshold,
+			 matched_ip1, matched_ip2,
+			 nodata1, nodata2);
+  if (!inlier)
+    return false;
+
+  // Write the matches to disk
+  vw_out() << "\t    * Writing match file: " << output_name << "\n";
+  ip::write_binary_match_file(output_name, matched_ip1, matched_ip2);
+
+  // Use the interest points that we found to compute an aligning
+  // homography transform for the two images.
+  // - This is just a sanity check.
+  bool adjust_left_image_size = true;
+  Matrix<double> matrix1, matrix2;
+  homography_rectification(adjust_left_image_size,
+			   image1.get_size(), image2.get_size(),
+			   matched_ip1, matched_ip2, matrix1, matrix2);
+  if (sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4) {
+    vw_out() << "Homography transform has largely different scale and skew "
+             << "compared with the rough homography. Homography transform is " 
+	           << matrix2 << ". Examine your images, or consider using the option "
+             << "--skip-rough-homography.\n";
+    //return false;
+  }
+
+  return inlier;
+}
+
+bool ip_matching_no_align(bool single_threaded_camera,
+			  vw::camera::CameraModel* cam1,
+			  vw::camera::CameraModel* cam2,
+			  vw::ImageViewRef<float> const& image1,
+        vw::ImageViewRef<float> const& image2,
+			  int ip_per_tile,
+			  vw::cartography::Datum const& datum,
+			  double epipolar_threshold,
+			  double uniqueness_threshold,
+			  std::string const& output_name,
+			  std::string const  left_file_path,
+			  std::string const  right_file_path,
+			  double nodata1,
+			  double nodata2) {
+  using namespace vw;
+  
+  // Find IP
+  vw::ip::InterestPointList ip1, ip2;
+  detect_ip_pair(ip1, ip2, image1, image2,
+                 ip_per_tile, left_file_path, right_file_path,
+                 nodata1, nodata2);
+
+  // Match them
+  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+  if (!epipolar_ip_matching(single_threaded_camera,
+			    ip1, ip2, cam1, cam2, image1, image2,
+			    datum, epipolar_threshold, uniqueness_threshold,
+			    matched_ip1, matched_ip2, nodata1, nodata2))
+    return false;
+
+  // Write to disk
+  vw_out() << "\t    * Writing match file: " << output_name << "\n";
+  ip::write_binary_match_file(output_name, matched_ip1, matched_ip2);
+
+  return true;
 }
 
 }
