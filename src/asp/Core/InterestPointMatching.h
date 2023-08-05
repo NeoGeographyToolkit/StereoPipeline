@@ -39,71 +39,18 @@
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>
 
-// TODO(oalexan1): This function should live somewhere else.It was
-// pulled from vw->tools->ipmatch.cc. Move it InterestPointUtils.cc
-// in VisionWorkbench, but after removing templates from most functions
-// in this file.
-#include <vw/Mosaic/ImageComposite.h>
-template <typename Image1T, typename Image2T>
-void write_match_image(std::string const& out_file_name,
-                       vw::ImageViewBase<Image1T> const& image1,
-                       vw::ImageViewBase<Image2T> const& image2,
-                       std::vector<vw::ip::InterestPoint> const& matched_ip1,
-                       std::vector<vw::ip::InterestPoint> const& matched_ip2) {
-  vw::vw_out() << "\t    Starting write_match_image " << std::endl;
-
-  // Skip image pairs with no matches.
-  if (matched_ip1.empty())
-    return;
-
-  // Work out the scaling to produce the subsampled images. These
-  // values are choosen just allow a reasonable rendering time.
-  float sub_scale  = sqrt(1500.0 * 1500.0 / float(image1.impl().cols() * image1.impl().rows()));
-  sub_scale += sqrt(1500.0 * 1500.0 / float(image2.impl().cols() * image2.impl().rows()));
-  sub_scale /= 2;
-  //if (sub_scale > 1)
-  sub_scale = 1;
-
-  vw::mosaic::ImageComposite<vw::PixelRGB<vw::uint8> > composite;
-  //composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image1), sub_scale)), 0, 0);
-  //composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image2), sub_scale)), vw::int32(image1.impl().cols() * sub_scale), 0);
-  composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(image1), 0, 0);
-  composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(image2), vw::int32(image1.impl().cols() * sub_scale), 0);
-  composite.set_draft_mode(true);
-  composite.prepare();
-
-  vw::vw_out() << "\t    rasterize composite " << std::endl;
-
-  // Rasterize the composite so that we can draw on it.
-  vw::ImageView<vw::PixelRGB<vw::uint8> > comp = composite;
-
-  vw::vw_out() << "\t    Draw lines "<<  std::endl;
-
-  // Draw a red line between matching interest points
-  for (size_t k = 0; k < matched_ip1.size(); ++k) {
-    vw::Vector2f start(matched_ip1[k].x, matched_ip1[k].y);
-    vw::Vector2f end(matched_ip2[k].x+image1.impl().cols(), matched_ip2[k].y);
-    start *= sub_scale;
-    end   *= sub_scale;
-    float inc_amt = 1/norm_2(end-start);
-    for (float r=0; r<1.0; r+=inc_amt){
-      int i = (int)(0.5 + start.x() + r*(end.x()-start.x()));
-      int j = (int)(0.5 + start.y() + r*(end.y()-start.y()));
-      if (i >=0 && j >=0 && i < comp.cols() && j < comp.rows())
-        comp(i,j) = vw::PixelRGB<vw::uint8>(255, 0, 0);
-    }
-  }
-
-  vw::vw_out() << "\t    Write to disk "  <<std::endl;
-  boost::scoped_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResource::create(out_file_name, comp.format()));
-  block_write_image(*rsrc, comp, vw::TerminalProgressCallback("tools.ipmatch", "Writing Debug:"));
-}
-
 namespace asp {
 
 // These are the top level IP matching functions that detect IP, match them, and
 // then write a match file to disk.
-  
+
+// Debug utility to write out a matches on top of the images
+void write_match_image(std::string const& out_file_name,
+                       vw::ImageViewRef<float> const& image1,
+                       vw::ImageViewRef<float> const& image2,
+                       std::vector<vw::ip::InterestPoint> const& matched_ip1,
+                       std::vector<vw::ip::InterestPoint> const& matched_ip2);
+
 /// Smart IP matching that uses clustering on triangulation and
 /// datum information to determine inliers.
 ///
@@ -287,24 +234,6 @@ vw::BBox2 search_range_using_spread(double max_disp_spread,
 		      double nodata1 = std::numeric_limits<double>::quiet_NaN(),
 		      double nodata2 = std::numeric_limits<double>::quiet_NaN());
 
-
-  /// Find IP's for a pair as above but with an additional step where we
-  /// apply a homography to make right image like left image. This is
-  /// useful so that both images have similar scale and similar affine qualities.
-  template <class Image1T, class Image2T>
-  bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
-			      vw::camera::CameraModel* cam2,
-			      vw::ImageViewBase<Image1T> const& image1,
-			      vw::ImageViewBase<Image2T> const& image2,
-			      int ip_per_tile,
-			      vw::cartography::Datum const& datum,
-			      vw::ip::InterestPointList& ip1,   // Output IP.
-			      vw::ip::InterestPointList& ip2,  
-			      vw::Matrix<double> &rough_homography, // The homography that was used.
-			      std::string const left_file_path ="",
-			      double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-			      double nodata2 = std::numeric_limits<double>::quiet_NaN());
-
   /// Detect interest points and use a simple matching technique.
   /// This is not meant to be used directly. Use ip_matching().
   template <class Image1T, class Image2T>
@@ -473,7 +402,7 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
 		    double nodata1, double nodata2) {
   using namespace vw;
 
-  // Detect Interest Points
+  // Detect interest points in the two images
   vw_out() << "\t    Looking for IP in left image...\n";
   detect_ip(ip1, image1.impl(), ip_per_tile, left_file_path, nodata1);
   vw_out() << "\t    Looking for IP in right image...\n";
@@ -489,84 +418,6 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
   
   return ((ip1.size() > 0) && (ip2.size() > 0));
 }
-
-template <class Image1T, class Image2T>
-bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
-			    vw::camera::CameraModel* cam2,
-			    vw::ImageViewBase<Image1T> const& image1,
-			    vw::ImageViewBase<Image2T> const& image2,
-			    int ip_per_tile,
-			    vw::cartography::Datum const& datum,
-			    vw::ip::InterestPointList& ip1,
-			    vw::ip::InterestPointList& ip2,
-			    vw::Matrix<double> &rough_homography,
-			    std::string const left_file_path,
-			    double nodata1, double nodata2) {
-
-  using namespace vw;
-
-  // No longer supporting input transforms, set them to identity.
-  const TransformRef left_tx (TranslateTransform(Vector2(0,0)));
-  const TransformRef right_tx(TranslateTransform(Vector2(0,0)));
-
-  BBox2i box1 = bounding_box(image1.impl()),
-    box2 = bounding_box(image2.impl());
-
-  try {
-    // Homography is defined in the original camera coordinates
-    rough_homography = rough_homography_fit(cam1, cam2, left_tx.reverse_bbox(box1),
-					     right_tx.reverse_bbox(box2), datum);
-  } catch(...) {
-    vw_out() << "Rough homography fit failed, trying with identity transform. " << std::endl;
-    rough_homography.set_identity(3);
-  }
-
-  // Remove the main translation and solve for BBox that fits the
-  // image. If we used the translation from the solved homography with
-  // poorly position cameras, the right image might be moved out of frame.
-  rough_homography(0,2) = rough_homography(1,2) = 0;
-  vw_out() << "Aligning right to left for IP capture using rough homography: " 
-	   << rough_homography << std::endl;
-  
-  { // Check to see if this rough homography works
-    HomographyTransform func(rough_homography);
-    VW_ASSERT(box1.intersects(func.forward_bbox(box2)),
-	      LogicErr() << "The rough homography alignment based on datum and camera geometry shows that input images do not overlap at all. Unable to proceed. Examine your images, or consider using the option --skip-rough-homography.\n");
-  }
-
-  TransformRef tx(compose(right_tx, HomographyTransform(rough_homography)));
-  BBox2i raster_box = tx.forward_bbox(right_tx.reverse_bbox(box2));
-  tx = TransformRef(compose(TranslateTransform(-raster_box.min()),
-                            right_tx, HomographyTransform(rough_homography)));
-  raster_box -= Vector2i(raster_box.min());
-  
-  // Detect interest points for the left and (transformed) right image.
-  // - It is important that we use NearestPixelInterpolation in the
-  //   next step. Using anything else will interpolate nodata values
-  //   and stop them from being masked out.
-  if (!detect_ip_pair(ip1, ip2,
-                      image1.impl(),
-                      crop(transform(image2.impl(), compose(tx, inverse(right_tx)),
-                                     ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
-                                     NearestPixelInterpolation()),
-                           raster_box),
-                      ip_per_tile, left_file_path, "", // Don't record IP from transformed images.
-                      nodata1, nodata2)) {
-    vw_out() << "Unable to detect interest points." << std::endl;
-    return false;
-  }
-
-  // Factor the transform out of the right interest points
-  ip::InterestPointList::iterator ip_it;
-  for (ip_it = ip2.begin(); ip_it != ip2.end(); ++ip_it) {
-    Vector2 pt(ip_it->x, ip_it->y);
-    pt = tx.reverse(pt);
-    ip_it->ix = ip_it->x = pt.x();
-    ip_it->iy = ip_it->y = pt.y();
-  }
-
-  return true;
-} // End function detect_ip_aligned_pair
 
 // Homography IP matching
 // This applies only the homography constraint. Not the best.
@@ -594,7 +445,7 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 		     double nodata1, double nodata2, std::string const& match_file) {
 
   using namespace vw;
-  // Detect Interest Points
+  // Detect interest points in the two images
   vw::ip::InterestPointList ip1, ip2;
   detect_ip_pair(ip1, ip2, image1, image2, ip_per_tile,
                  left_file_path, right_file_path, nodata1, nodata2);
@@ -634,8 +485,11 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 
   if (stereo_settings().ip_debug_images) {
     vw_out() << "\t    Writing IP initial match debug image.\n";
+    // Cast to float to make this compile
+    ImageViewRef<float> im1 = vw::pixel_cast<float>(image1.impl());
+    ImageViewRef<float> im2 = vw::pixel_cast<float>(image2.impl());
     write_match_image("InterestPointMatching__ip_matching_debug.tif",
-                      image1, image2, matched_ip1, matched_ip2);
+                      im1, im2, matched_ip1, matched_ip2);
   }
 
   // Save ip
