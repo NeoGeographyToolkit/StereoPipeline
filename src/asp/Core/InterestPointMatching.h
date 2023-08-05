@@ -237,31 +237,30 @@ template <class Image1T>
 void detect_ip(vw::ip::InterestPointList& ip,
 	       vw::ImageViewBase<Image1T> const& image,
 	       int ip_per_tile, std::string const file_path, double nodata) {
-  using namespace vw;
   ip.clear();
 
   // If the images are cropped, redo the ip
   // TODO(oalexan1): This won't handle well the case when the input
   // images changed on disk. 
-  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  bool crop_left  = (stereo_settings().left_image_crop_win  != vw::BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != vw::BBox2i(0, 0, 0, 0));
   bool rebuild = crop_left || crop_right;
   
   // If a valid file_path was provided, just try to read in the IP's from that file.
   if ((file_path != "") && (boost::filesystem::exists(file_path)) && !rebuild) {
-    vw_out() << "\t    Reading interest points from file: " << file_path << std::endl;
-    ip = ip::read_binary_ip_file_list(file_path);
-    vw_out() << "\t    Found interest points: " << ip.size() << std::endl;
+    vw::vw_out() << "\t    Reading interest points from file: " << file_path << std::endl;
+    ip = vw::ip::read_binary_ip_file_list(file_path);
+    vw::vw_out() << "\t    Found interest points: " << ip.size() << std::endl;
     return;
   }
   
-  Stopwatch sw;
+  vw::Stopwatch sw;
   sw.start();
 
   // Automatically determine how many ip we need. Can be overridden below
   // either by --ip-per-image or --ip-per-tile (the latter takes priority).
   double tile_size = 1024.0;
-  BBox2i box = bounding_box(image.impl());
+  vw::BBox2i box = vw::bounding_box(image.impl());
   double number_tiles = (box.width() / tile_size) * (box.height() / tile_size);
 
   int ip_per_image = 5000; // default
@@ -276,7 +275,8 @@ void detect_ip(vw::ip::InterestPointList& ip,
   if (ip_per_tile != 0)
     points_per_tile = ip_per_tile;
 
-  vw_out() << "\t    Using " << points_per_tile << " interest points per tile (1024^2 px).\n";
+  vw::vw_out() << "\t    Using " << points_per_tile 
+    << " interest points per tile (1024^2 px).\n";
 
   const bool has_nodata = !boost::math::isnan(nodata);
   
@@ -294,13 +294,14 @@ void detect_ip(vw::ip::InterestPointList& ip,
       num_scales = vw::ip::IntegralInterestPointDetector
         <vw::ip::OBALoGInterestOperator>::IP_DEFAULT_SCALES;
     else
-      vw_out() << "\t    Using " << num_scales << " scales in OBALoG interest point detection.\n";
+      vw::vw_out() << "\t    Using " << num_scales 
+        << " scales in OBALoG interest point detection.\n";
 
     vw::ip::IntegralAutoGainDetector detector(points_per_tile, num_scales);
 
     // This detector can't handle a mask so if there is nodata just set those pixels to zero.
 
-    vw_out() << "\t    Detecting IP\n";
+    vw::vw_out() << "\t    Detecting IP\n";
     if (!has_nodata)
       ip = detect_interest_points(image.impl(), detector, points_per_tile);
     else
@@ -321,14 +322,14 @@ void detect_ip(vw::ip::InterestPointList& ip,
     if (stereo_settings().ip_normalize_tiles)
       opencv_normalize = true;
     if (opencv_normalize)
-      vw_out() << "\t    Using per-tile image normalization for IP detection...\n";
+      vw::vw_out() << "\t    Using per-tile image normalization for IP detection...\n";
 
     bool build_opencv_descriptors = true;
     vw::ip::OpenCvInterestPointDetector detector(cv_method, opencv_normalize, build_opencv_descriptors, points_per_tile);
 
     // These detectors do accept a mask so use one if applicable.
 
-    vw_out() << "\t    Detecting IP\n";
+    vw::vw_out() << "\t    Detecting IP\n";
     if (!has_nodata)
       ip = detect_interest_points(image.impl(), detector, points_per_tile);
     else
@@ -336,11 +337,11 @@ void detect_ip(vw::ip::InterestPointList& ip,
   } // End OpenCV case
 
   sw.stop();
-  vw_out(DebugMessage,"asp") << "Detect interest points elapsed time: "
+  vw::vw_out(vw::DebugMessage,"asp") << "Detect interest points elapsed time: "
 			     << sw.elapsed_seconds() << " s." << std::endl;
 
   if (!boost::math::isnan(nodata)) {
-    vw_out() << "\t    Removing IP near nodata with radius "
+    vw::vw_out() << "\t    Removing IP near nodata with radius "
              << stereo_settings().ip_nodata_radius << std::endl;
     remove_ip_near_nodata(image.impl(), nodata, ip, stereo_settings().ip_nodata_radius);
   }
@@ -349,24 +350,26 @@ void detect_ip(vw::ip::InterestPointList& ip,
   // only do this for the integral method.
   if (detect_method == DETECT_IP_METHOD_INTEGRAL) {
     sw.start();
-    vw_out() << "\t    Building descriptors" << std::endl;
-    ip::SGradDescriptorGenerator descriptor;
+    vw::vw_out() << "\t    Building descriptors" << std::endl;
+    vw::ip::SGradDescriptorGenerator descriptor;
     if (!has_nodata)
       describe_interest_points(image.impl(), descriptor, ip);
     else
       describe_interest_points(apply_mask(create_mask_less_or_equal(image.impl(),nodata)), descriptor, ip);
 
-    vw_out(DebugMessage,"asp") << "Building descriptors elapsed time: "
+    vw::vw_out(vw::DebugMessage,"asp") << "Building descriptors elapsed time: "
                                << sw.elapsed_seconds() << " s." << std::endl;
   }
 
-  vw_out() << "\t    Found interest points: " << ip.size() << std::endl;
+  vw::vw_out() << "\t    Found interest points: " << ip.size() << std::endl;
 
   // If a file path was provided, record the IP to disk.
   if (file_path != "") {
-    vw_out() << "\t    Recording interest points to file: " << file_path << std::endl;
-    ip::write_binary_ip_file(file_path, ip);
+    vw::vw_out() << "\t    Recording interest points to file: " << file_path << std::endl;
+    vw::ip::write_binary_ip_file(file_path, ip);
   }
+
+  return;
 }
 
 /// Detect IP in a pair of images and apply rudimentary filtering.
@@ -380,16 +383,15 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
 		    std::string const left_file_path,
 		    std::string const right_file_path,
 		    double nodata1, double nodata2) {
-  using namespace vw;
 
   // Detect interest points in the two images
-  vw_out() << "\t    Looking for IP in left image...\n";
+  vw::vw_out() << "\t    Looking for IP in left image...\n";
   detect_ip(ip1, image1.impl(), ip_per_tile, left_file_path, nodata1);
-  vw_out() << "\t    Looking for IP in right image...\n";
+  vw::vw_out() << "\t    Looking for IP in right image...\n";
   detect_ip(ip2, image2.impl(), ip_per_tile, right_file_path, nodata2);
   
   if (stereo_settings().ip_debug_images) {
-    vw_out() << "\t    Writing detected IP debug images. " << std::endl;
+    vw::vw_out() << "\t    Writing detected IP debug images. " << std::endl;
     write_ip_debug_image("ASP_IP_detect_debug1.tif", image1, ip1, !boost::math::isnan(nodata1), nodata1);
     write_ip_debug_image("ASP_IP_detect_debug2.tif", image2, ip2, !boost::math::isnan(nodata2), nodata2);
   }
