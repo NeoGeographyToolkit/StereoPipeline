@@ -182,7 +182,7 @@ public:
   void operator()() {
 
     const size_t NUM_MATCHES_TO_FIND = 10;
-    Vector<int   > indices  (NUM_MATCHES_TO_FIND);
+    Vector<int> indices(NUM_MATCHES_TO_FIND);
     Vector<double> distances(NUM_MATCHES_TO_FIND);
 
     for ( IPListIter ip = m_start; ip != m_end; ip++ ) {
@@ -347,13 +347,15 @@ void EpipolarLinePointMatcher::operator()(ip::InterestPointList const& ip1,
     start_it = end_it;
     std::advance(output_it, ip1_size / number_of_jobs);
   }
+  // Launch the last job.
+  // TODO(oalexan1): Integrate this into the above loop.
   boost::shared_ptr<Task>
     match_task(new EpipolarLineMatchTask(m_single_threaded_camera,
                                          use_uchar_FLANN, kd_float, kd_uchar,
                                          start_it, ip1.end(),
                                          ip2, cam1, cam2, *this,
                                          camera_mutex, output_it));
-  matching_queue.add_task( match_task );
+  matching_queue.add_task(match_task);
   matching_queue.join_all(); // Wait for all the jobs to finish.
 }
 
@@ -1610,6 +1612,67 @@ bool ip_matching_no_align(bool single_threaded_camera,
   ip::write_binary_match_file(output_name, matched_ip1, matched_ip2);
 
   return true;
+}
+
+// Match the ip and save the match file. No epipolar constraint
+// is used in this mode.
+void match_ip_pair(vw::ip::InterestPointList const& ip1, 
+                   vw::ip::InterestPointList const& ip2,
+                   vw::ImageViewRef<float> const& image1,
+                   vw::ImageViewRef<float> const& image2,
+                   // Outputs
+                   std::vector<vw::ip::InterestPoint>& matched_ip1,
+                   std::vector<vw::ip::InterestPoint>& matched_ip2,
+                   std::string const& match_file) {
+
+  std::vector<vw::ip::InterestPoint> ip1_copy, ip2_copy;
+  ip1_copy.reserve(ip1.size());
+  ip2_copy.reserve(ip2.size());
+  std::copy(ip1.begin(), ip1.end(), std::back_inserter(ip1_copy));
+  std::copy(ip2.begin(), ip2.end(), std::back_inserter(ip2_copy));
+
+  DetectIpMethod detect_method = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
+
+  // Best point must be closer than the next best point
+  double th = stereo_settings().ip_uniqueness_thresh;
+  vw_out() << "\t--> Uniqueness threshold: " << th << "\n";
+  // TODO: Should probably unify the ip::InterestPointMatcher class
+  // with the EpipolarLinePointMatcher class!
+  if (detect_method != DETECT_IP_METHOD_ORB) {
+    // For all L2Norm distance metrics
+    ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(th);
+    matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
+	    TerminalProgressCallback("asp", "\t   Matching: "));
+  }
+  else {
+    // For Hamming distance metrics
+    ip::InterestPointMatcher<ip::HammingMetric,ip::NullConstraint> matcher(th);
+    matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
+	    TerminalProgressCallback("asp", "\t   Matching: "));
+  }
+
+  ip::remove_duplicates(matched_ip1, matched_ip2);
+
+  vw_out() << "\n\t    Matched points: " << matched_ip1.size() << std::endl;
+
+  if (stereo_settings().ip_debug_images) {
+    vw_out() << "\t    Writing IP initial match debug image.\n";
+    // Cast to float to make this compile
+    ImageViewRef<float> im1 = vw::pixel_cast<float>(image1);
+    ImageViewRef<float> im2 = vw::pixel_cast<float>(image2);
+    write_match_image("InterestPointMatching__ip_matching_debug.tif",
+                      im1, im2, matched_ip1, matched_ip2);
+  }
+
+  // Save ip
+  if (match_file != "") {
+    // Create the output directory
+    vw::create_out_dir(match_file);
+    vw_out() << "Writing: " << match_file << std::endl;
+    ip::write_binary_match_file(match_file, matched_ip1, matched_ip2);
+  }
+
+  return;
 }
 
 // TODO(oalexan1): This function should live somewhere else. Move it
