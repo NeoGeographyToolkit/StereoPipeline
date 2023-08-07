@@ -105,7 +105,8 @@ namespace asp {
                                             ///         individually with their
                                             ///         own hi's and lo's
     int   ip_per_tile;                      ///< How many ip to find in each 1024^2 tile
-    int   ip_per_image;                      ///< How many ip to find in each image
+    int   ip_per_image;                     ///< How many ip to find in each image
+    int   matches_per_tile;                 ///< How many ip matches to find in each 1024^2 tile
     int   ip_matching_method;               ///< Method used for matching interest points
                                             /// 0 = Zack's integral Obalog method
                                             /// 1 = OpenCV SIFT method

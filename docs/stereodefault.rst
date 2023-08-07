@@ -4,10 +4,10 @@ The ``stereo.default`` file
 ===========================
 
 The ``stereo.default`` file contains configuration parameters that the
-``parallel_stereo`` and ``stereo`` programs use to process images. The
-``stereo.default`` file is loaded from the current working directory,
-unless a different file is specified with the ``-s`` option. The
-file extension is not important. 
+``parallel_stereo`` (:numref:`parallel_stereo`) and ``stereo`` programs use to
+process images. The ``stereo.default`` file is loaded from the current working
+directory, unless a different file is specified with the ``-s`` option. The file
+extension is not important. 
 
 As mentioned in :numref:`cmdline`, all the ``parallel_stereo``
 parameters can also be specified on the command line, by prepending
@@ -30,23 +30,24 @@ Preprocessing
 Interest point determination
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-ip-per-tile
+ip-per-tile <integer (default: unspecified)>
     How many interest points to detect in each :math:`1024^2` image
-    tile (default: automatic determination).
+    tile (default: automatic determination). This is before matching. 
+    Not all interest points will have a match. See also ``--matches-per-tile``.
 
-ip-per-image
+ip-per-image <integer (default: unspecified)>
     How many interest points to detect in each image (default: automatic 
     determination, usually 5000). It is overridden by ``--ip-per-tile`` if
     provided.
 
-ip-detect-method
+ip-detect-method <integer (default: 0)>
     What type of interest point detection algorithm to use for image
     alignment. 0 = Custom OBAloG implementation (default), 1 = SIFT
     implementation from OpenCV, 2 = ORB implementation from OpenCV. If
     the default method does not perform well, try out one of the other
     two methods.
 
-epipolar-threshold
+epipolar-threshold <double (default: unspecified)>
     Maximum distance in pixels from the epipolar line to search for
     matches for each interest point. Due to the way ASP finds matches,
     reducing this value can actually increase the number of interest
@@ -55,38 +56,43 @@ epipolar-threshold
     range estimate, try setting this value to a small number, perhaps
     in the low double digits.
 
-ip-inlier-factor (default = 1.0/15)
+ip-inlier-factor <double (default: 1.0/15)>
     A higher factor will result in more interest points, but perhaps
     also more outliers. It is important to note that this parameter
-    overlaps somewhat in scope and effect with ``epipolar-threshold``
+    overlaps somewhat in scope and effect with ``--epipolar-threshold``
     and sometimes not both are active. It is suggested to experiment
-    with both, as well as with ``ip-uniqueness-threshold`` below, which
+    with both, as well as with ``--ip-uniqueness-threshold`` below, which
     has a different justification but also somewhat similar effects.
 
-ip-uniqueness-threshold (default = 0.8)
+ip-uniqueness-threshold <double (default: 0.8)>
     A higher threshold will result in more interest points, but perhaps
     less unique ones.
 
-ip-triangulation-max-error *double*
+matches-per-tile <int (default: unspecified)>
+    How many interest point matches to compute in each :math:`1024^2` image
+    tile (default: automatic determination). Use a value of ``--ip-per-tile``
+    a few times larger than this.
+
+ip-triangulation-max-error <double (default: unspecified)>
     When matching IP, filter out any pairs with a triangulation error
     higher than this.
 
-ip-num-ransac-iterations *int(=100)*
+ip-num-ransac-iterations <int (default: 100)>
     How many RANSAC iterations to do in interest point matching.
 
-ip-nodata-radius integer (default = 4)
+ip-nodata-radius <integer (default: 4)>
     Remove IP near nodata with this radius, in pixels.
 
 force-reuse-match-files
     Force reusing the match files even if older than the images or
     cameras.
 
-match-files-prefix
+match-files-prefix <string (default: unspecified)>
     Use the match file from this prefix. Normally contains match files
     created with ``bundle_adjust`` or ``parallel_stereo``. Works only
     with non-mapprojected images.
 
-clean-match-files-prefix
+clean-match-files-prefix <string (default: unspecified)>
     Use as input match file the ``*-clean.match`` file from this prefix
     (this had the outliers filtered out). See also
     ``match-files-prefix``.

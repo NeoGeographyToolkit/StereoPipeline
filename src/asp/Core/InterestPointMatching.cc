@@ -50,6 +50,7 @@ public:
   void operator()(vw::ip::InterestPointList const& ip1,
       vw::ip::InterestPointList const& ip2,
       DetectIpMethod  ip_detect_method,
+      size_t          number_of_jobs,
       vw::camera::CameraModel        * cam1,
       vw::camera::CameraModel        * cam2,
       std::vector<size_t>            & output_indices) const;
@@ -276,6 +277,7 @@ public:
 void EpipolarLinePointMatcher::operator()(ip::InterestPointList const& ip1,
                                           ip::InterestPointList const& ip2,
                                           DetectIpMethod  ip_detect_method,
+                                          size_t          number_of_jobs,
                                           camera::CameraModel        * cam1,
                                           camera::CameraModel        * cam2,
                                           std::vector<size_t>        & output_indices) const {
@@ -315,16 +317,6 @@ void EpipolarLinePointMatcher::operator()(ip::InterestPointList const& ip1,
   FifoWorkQueue matching_queue; // Create a thread pool object
   Mutex camera_mutex;
 
-  // Jobs set to 2x the number of cores. This is just incase all jobs are not equal.
-  // The total number of interest points will be divided up among the jobs.
-  size_t number_of_jobs = vw_settings().default_num_threads() * 2;
-#if __APPLE__
-  // Fix due to OpenBLAS crashing and/or giving different results
-  // each time. May need to be revisited.
-  number_of_jobs = std::min(int(vw_settings().default_num_threads()), 1);
-  vw_out() << "\t    Using " << number_of_jobs << " thread(s) for matching.\n";
-#endif
-    
   // Robustness fix
   if (ip1_size < number_of_jobs)
     number_of_jobs = ip1_size;
@@ -362,6 +354,71 @@ void EpipolarLinePointMatcher::operator()(ip::InterestPointList const& ip1,
 // End class EpipolarLinePointMatcher
 //---------------------------------------------------------------------------------------
 
+void epipolar_ip_matching_task(bool single_threaded_camera,
+        DetectIpMethod detect_method, 
+        double epipolar_threshold,
+        double uniqueness_threshold,
+        int number_of_jobs,
+        vw::cartography::Datum const& datum,
+        bool verbose,
+			  vw::camera::CameraModel* cam1,
+			  vw::camera::CameraModel* cam2,
+        vw::ip::InterestPointList const& ip1,
+        vw::ip::InterestPointList const& ip2,
+        // Outputs
+        std::vector<vw::ip::InterestPoint>& matched_ip1,
+        std::vector<vw::ip::InterestPoint>& matched_ip2) {
+
+  std::vector<size_t> forward_match, backward_match;
+  EpipolarLinePointMatcher matcher(single_threaded_camera,
+				   uniqueness_threshold, epipolar_threshold, datum);
+
+  if (verbose)           
+    vw_out() << "\t    Matching forward" << std::endl;
+  
+  matcher(ip1, ip2, detect_method, number_of_jobs, cam1, cam2, forward_match); 
+
+  if (verbose) {
+    vw_out() << "\t    ---> Obtained " << forward_match.size() << " matches." << std::endl;
+    vw_out() << "\t    Matching backward" << std::endl;
+  }
+
+  matcher(ip2, ip1, detect_method, number_of_jobs, cam2, cam1, backward_match);
+  
+  if (verbose)
+    vw_out() << "\t    ---> Obtained " << backward_match.size() << " matches." << std::endl;
+
+  // Perform circle consistency check
+  size_t valid_count = 0;
+  const size_t NULL_INDEX = (size_t)(-1);
+  for (size_t i = 0; i < forward_match.size(); i++) {
+    if (forward_match[i] != NULL_INDEX) {
+      if (backward_match[forward_match[i]] != i) {
+        forward_match[i] = NULL_INDEX;
+      } else {
+        valid_count++;
+      }
+    }
+  }
+
+  // Produce listing of valid indices that agree with forward and backward matching
+  matched_ip1.reserve(valid_count); // Get our allocations out of the way.
+  matched_ip2.reserve(valid_count);
+
+  auto ip1_it = ip1.begin(), ip2_it = ip2.begin();
+  for (size_t i = 0; i < forward_match.size(); i++) {
+    if (forward_match[i] != NULL_INDEX) {
+      matched_ip1.push_back(*ip1_it);
+      ip2_it = ip2.begin();
+      std::advance(ip2_it, forward_match[i]);
+      matched_ip2.push_back(*ip2_it);
+    }
+    ip1_it++;
+  }
+
+  return;
+}
+
 // TODO(oalexan1): Break up this function as it is too long.
 bool epipolar_ip_matching(bool single_threaded_camera,
 			  vw::ip::InterestPointList const& ip1,
@@ -376,65 +433,52 @@ bool epipolar_ip_matching(bool single_threaded_camera,
 			  std::vector<vw::ip::InterestPoint>& matched_ip1,
 			  std::vector<vw::ip::InterestPoint>& matched_ip2,
 			  double nodata1, double nodata2) {
-  using namespace vw;
   
   matched_ip1.clear();
   matched_ip2.clear();
 
   // Match interest points forward/backward .. constraining on epipolar line
   DetectIpMethod detect_method = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
-  std::vector<size_t> forward_match, backward_match;
   vw_out() << "\t--> Matching interest points using the epipolar line." << std::endl;
   vw_out() << "\t    Uniqueness threshold: " << uniqueness_threshold << "\n";
   vw_out() << "\t    Epipolar threshold:   " << epipolar_threshold   << "\n";
   
-  EpipolarLinePointMatcher matcher(single_threaded_camera,
-				   uniqueness_threshold, epipolar_threshold, datum);
-  vw_out() << "\t    Matching forward" << std::endl;
-  matcher(ip1, ip2, detect_method, cam1, cam2, forward_match);
-  vw_out() << "\t    ---> Obtained " << forward_match.size() << " matches." << std::endl;
-  vw_out() << "\t    Matching backward" << std::endl;
-  matcher(ip2, ip1, detect_method, cam2, cam1, backward_match);
-  vw_out() << "\t    ---> Obtained " << backward_match.size() << " matches." << std::endl;
+  // Jobs set to 2x the number of cores. This is just incase all jobs are not equal.
+  // The total number of interest points will be divided up among the jobs.
+  size_t number_of_jobs = vw_settings().default_num_threads() * 2;
+#if __APPLE__
+  // Fix due to OpenBLAS crashing and/or giving different results
+  // each time. May need to be revisited.
+  number_of_jobs = std::min(int(vw_settings().default_num_threads()), 1);
+  vw_out() << "\t    Using " << number_of_jobs << " thread(s) for matching.\n";
+#endif
 
-  // Perform circle consistency check
-  size_t valid_count = 0;
-  const size_t NULL_INDEX = (size_t)(-1);
-  for (size_t i = 0; i < forward_match.size(); i++) {
-    if (forward_match[i] != NULL_INDEX) {
-      if (backward_match[forward_match[i]] != i) {
-        forward_match[i] = NULL_INDEX;
-      } else {
-        valid_count++;
-      }
-    }
-  }
-  vw_out() << "\t    Matched " << valid_count << " points." << std::endl;
+  // TODO(oalexan1): Must use one job if using multiple tiles
+  // TODO(oalexan1): Tile size is 1024x1024. 
+  // To put right image ip in tile need to apply alignment. May also need to 
+  // Make the tiles have some overlap then remove duplicates lr and rl.
 
-  if (valid_count == 0)
+  // Do matching
+  bool verbose = true; // has to be false if many such jobs exist
+  epipolar_ip_matching_task(single_threaded_camera, detect_method, 
+        epipolar_threshold, uniqueness_threshold, number_of_jobs, 
+        datum, verbose, cam1, cam2, ip1, ip2,
+        matched_ip1, matched_ip2); // outputs
+
+  vw_out() << "\t    Matched " << matched_ip1.size() << " points." << std::endl;
+
+  if (matched_ip1.empty())
     return false;
 
-  // Produce listing of valid indices that agree with forward and backward matching
-  matched_ip1.reserve(valid_count); // Get our allocations out of the way.
-  matched_ip2.reserve(valid_count);
-  {
-    ip::InterestPointList::const_iterator ip1_it = ip1.begin(), ip2_it = ip2.begin();
-    for (size_t i = 0; i < forward_match.size(); i++) {
-      if (forward_match[i] != NULL_INDEX) {
-        matched_ip1.push_back(*ip1_it);
-        ip2_it = ip2.begin();
-        std::advance(ip2_it, forward_match[i]);
-        matched_ip2.push_back(*ip2_it);
-      }
-      ip1_it++;
-    }
-  }
-
+  // Write out debug image
   if (stereo_settings().ip_debug_images) {
     vw_out() << "\t    Writing IP match debug image prior to geometric filtering.\n";
     write_match_image("InterestPointMatching__ip_matching_debug.tif",
                       image1, image2, matched_ip1, matched_ip2);
   }
+
+  // TODO(oalexan1): All the filtering logic below must be in a separate function
+  // that will be called here.
 
   // Apply filtering of IP by a selection of assumptions. Low
   // triangulation error, agreement with klt tracking, and local
@@ -512,8 +556,7 @@ bool epipolar_ip_matching(bool single_threaded_camera,
 void check_homography_matrix(Matrix<double>       const& H,
                              std::vector<Vector3> const& left_points,
                              std::vector<Vector3> const& right_points,
-                             std::vector<size_t>  const& indices
-                             ){
+                             std::vector<size_t>  const& indices) {
 
   // Sanity checks. If these fail, most likely the two images are too different
   // for stereo to succeed.
@@ -749,12 +792,13 @@ bool tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
       error_samples[count] = HIGH_ERROR;
     count++;
   }
-  VW_ASSERT( count == valid_indices.size(),
-             vw::MathErr() << "tri_ip_filtering: Programmer error. Count indices not aligned." );
+  VW_ASSERT(count == valid_indices.size(),
+            vw::MathErr() << "Error: tri_ip_filtering: count indices not aligned.");
 
   typedef std::vector<std::pair<Vector<double>, Vector<double> > > ClusterT;
   const size_t NUM_CLUSTERS = 2;
-  ClusterT error_clusters = gaussian_clustering<ArrayT>(error_samples.begin(), error_samples.end(), NUM_CLUSTERS);
+  ClusterT error_clusters = gaussian_clustering<ArrayT>(error_samples.begin(), 
+      error_samples.end(), NUM_CLUSTERS);
 
   // The best triangulation error is the one that has the smallest
   // standard deviations. They are focused on the tight pack of
@@ -1675,14 +1719,12 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
   return;
 }
 
-// TODO(oalexan1): This function should live somewhere else. Move it
-// InterestPointUtils.cc in VisionWorkbench.
+// A debug routine to save images with matches on top of them.
 void write_match_image(std::string const& out_file_name,
                        vw::ImageViewRef<float> const& image1,
                        vw::ImageViewRef<float> const& image2,
                        std::vector<vw::ip::InterestPoint> const& matched_ip1,
                        std::vector<vw::ip::InterestPoint> const& matched_ip2) {
-  vw::vw_out() << "\t    Starting write_match_image " << std::endl;
 
   // Skip image pairs with no matches.
   if (matched_ip1.empty())
@@ -1696,7 +1738,7 @@ void write_match_image(std::string const& out_file_name,
   //if (sub_scale > 1)
   sub_scale = 1;
 
-  vw::mosaic::ImageComposite<vw::PixelRGB<vw::uint8> > composite;
+  vw::mosaic::ImageComposite<vw::PixelRGB<vw::uint8>> composite;
   //composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image1), sub_scale)), 0, 0);
   //composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image2), sub_scale)), vw::int32(image1.impl().cols() * sub_scale), 0);
   composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(image1), 0, 0);
@@ -1704,15 +1746,11 @@ void write_match_image(std::string const& out_file_name,
   composite.set_draft_mode(true);
   composite.prepare();
 
-  vw::vw_out() << "\t    rasterize composite " << std::endl;
-
   // Rasterize the composite so that we can draw on it.
-  vw::ImageView<vw::PixelRGB<vw::uint8> > comp = composite;
-
-  vw::vw_out() << "\t    Draw lines "<<  std::endl;
+  vw::ImageView<vw::PixelRGB<vw::uint8>> comp = composite;
 
   // Draw a red line between matching interest points
-  for (size_t k = 0; k < matched_ip1.size(); ++k) {
+  for (size_t k = 0; k < matched_ip1.size(); k++) {
     vw::Vector2f start(matched_ip1[k].x, matched_ip1[k].y);
     vw::Vector2f end(matched_ip2[k].x+image1.impl().cols(), matched_ip2[k].y);
     start *= sub_scale;
@@ -1726,10 +1764,9 @@ void write_match_image(std::string const& out_file_name,
     }
   }
 
-  vw::vw_out() << "\t    Write to disk "  <<std::endl;
+  vw::vw_out() << "Writing: " << out_file_name << std::endl;
   boost::scoped_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResource::create(out_file_name, comp.format()));
-  vw::block_write_image(*rsrc, comp, 
-    vw::TerminalProgressCallback("tools.ipmatch", "Writing Debug:"));
+  vw::block_write_image(*rsrc, comp, vw::TerminalProgressCallback("", ""));
 }
 
 } // end namespace asp
