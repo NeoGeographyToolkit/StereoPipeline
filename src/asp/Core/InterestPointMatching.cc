@@ -650,12 +650,13 @@ rough_homography_fit(camera::CameraModel* cam1,
 
   double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
   typedef math::HomographyFittingFunctor hfit_func;
+  int min_num_inliers = left_points.size()/2;
+  double inlier_thresh = norm_2(Vector2(box1.width(),box1.height())) * (1.5*thresh_factor);
   math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
-    ransac( hfit_func(), math::InterestPointErrorMetric(),
-            stereo_settings().ip_num_ransac_iterations,
-            norm_2(Vector2(box1.width(),box1.height())) * (1.5*thresh_factor), // inlier threshold
-            left_points.size()/2 // min output inliers
-            );
+    ransac(hfit_func(), math::InterestPointErrorMetric(),
+           asp::stereo_settings().ip_num_ransac_iterations,
+           inlier_thresh, min_num_inliers);
+
   Matrix<double> H = ransac(right_points, left_points);
   std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
   check_homography_matrix(H, left_points, right_points, indices);
@@ -1520,9 +1521,12 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   rough_homography(0,2) = rough_homography(1,2) = 0;
   vw_out() << "Aligning right to left for IP capture using rough homography: " 
 	   << rough_homography << std::endl;
+
+#if 0
   
   HomographyTransform rough_trans(rough_homography);
   BBox2i trans_box2 = rough_trans.forward_bbox(box2);
+
   { 
     // Check to see if this rough homography works
     VW_ASSERT(box1.intersects(trans_box2),
@@ -1534,7 +1538,42 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   TransformRef tx = TransformRef(compose(TranslateTransform(-trans_box2.min()),
                             rough_trans));
   trans_box2 -= Vector2i( trans_box2.min());
-  
+  std::cout << "---final box 000 " << trans_box2 << std::endl;
+
+#else 
+  // Find the image of the right image bounding box after applying the rough homography  
+  HomographyTransform rough_trans(rough_homography);
+  BBox2i trans_box2 = rough_trans.forward_bbox(box2);
+  std::cout << "--box before " << box2 << std::endl;
+  std::cout << "trans box before " << trans_box2 << std::endl;
+  { 
+    // Check to see if this rough homography works
+    VW_ASSERT(box1.intersects(trans_box2),
+	      LogicErr() << "The rough homography alignment based on datum and camera "
+          << "geometry shows that input images do not overlap at all. Unable to proceed. "
+          << "Examine your images, or consider using the option --skip-rough-homography.\n");
+  }
+
+  // Adjust the homography transform so that the right image bounding box has
+  // (0, 0) as the minimum. We will count on this below and outside of this function.
+  // See Transform.h for definition of homography transform.
+  vw::Vector2 offset = trans_box2.min();
+  std::cout << "--offset " << offset << std::endl;
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 2; j++) {
+     rough_homography(j, i) -= offset[j] * rough_homography(2, i);
+    }
+  }
+
+  TransformRef tx = TransformRef(HomographyTransform(rough_homography));
+  trans_box2 = tx.forward_bbox(box2);
+
+  std::cout << "--box after3xxx " << tx.forward_bbox(box2) << std::endl;
+
+  //trans_box2 -= Vector2i( trans_box2.min());
+  std::cout << "box after 2xx" << trans_box2 << std::endl;
+#endif
+
   // Detect interest points for the left and (transformed) right image.
   // - It is important that we use NearestPixelInterpolation in the
   //   next step. Using anything else will interpolate nodata values
