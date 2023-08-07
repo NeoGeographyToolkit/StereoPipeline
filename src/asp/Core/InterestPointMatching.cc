@@ -34,6 +34,8 @@ Mutex g_ip_mutex;
 /// filters them by whom are closest to the epipolar line via a
 /// threshold. The first 2 are then selected to be a match if
 /// their descriptor distance is sufficiently far apart.
+// TODO(oalexan1): Move this to VW as low-level? 
+// VW has the related class InterestPointMatcher.
 class EpipolarLinePointMatcher {
   bool   m_single_threaded_camera;
   double m_uniqueness_threshold, m_epipolar_threshold;
@@ -162,23 +164,23 @@ class EpipolarLineMatchTask : public Task, private boost::noncopyable {
   Mutex&                          m_camera_mutex;
   std::vector<size_t>::iterator   m_output;
 public:
-  EpipolarLineMatchTask( bool single_threaded_camera,
-                         bool use_uchar_tree,
-                         math::FLANNTree<float        >& tree_float,
-                         math::FLANNTree<unsigned char>& tree_uchar,
-                         ip::InterestPointList::const_iterator start,
-                         ip::InterestPointList::const_iterator end,
-                         ip::InterestPointList const& ip2,
-                         camera::CameraModel* cam1,
-                         camera::CameraModel* cam2,
-                         EpipolarLinePointMatcher const& matcher,
-                         Mutex& camera_mutex,
-                         std::vector<size_t>::iterator output ) :
+  EpipolarLineMatchTask(bool single_threaded_camera,
+                        bool use_uchar_tree,
+                        math::FLANNTree<float>        & tree_float,
+                        math::FLANNTree<unsigned char>& tree_uchar,
+                        ip::InterestPointList::const_iterator start,
+                        ip::InterestPointList::const_iterator end,
+                        ip::InterestPointList const& ip2,
+                        vw::camera::CameraModel* cam1,
+                        vw::camera::CameraModel* cam2,
+                        EpipolarLinePointMatcher const& matcher,
+                        Mutex& camera_mutex,
+                        std::vector<size_t>::iterator output):
     m_single_threaded_camera(single_threaded_camera),
     m_use_uchar_tree(use_uchar_tree), m_tree_float(tree_float), m_tree_uchar(tree_uchar),
     m_start(start), m_end(end), m_ip_other(ip2),
     m_cam1(cam1), m_cam2(cam2),
-    m_matcher( matcher ), m_camera_mutex(camera_mutex), m_output(output) {}
+    m_matcher( matcher), m_camera_mutex(camera_mutex), m_output(output) {}
 
   void operator()() {
 
@@ -186,15 +188,15 @@ public:
     Vector<int> indices(NUM_MATCHES_TO_FIND);
     Vector<double> distances(NUM_MATCHES_TO_FIND);
 
-    for ( IPListIter ip = m_start; ip != m_end; ip++ ) {
-      Vector2 ip_org_coord = Vector2( ip->x, ip->y );
+    for (IPListIter ip = m_start; ip != m_end; ip++) {
+      Vector2 ip_org_coord = Vector2(ip->x, ip->y);
       Vector3 line_eq;
 
       // Find the equation that describes the epipolar line
       bool found_epipolar = false;
       if (m_single_threaded_camera){
         // ISIS camera is single-threaded
-        Mutex::Lock lock( m_camera_mutex );
+        Mutex::Lock lock(m_camera_mutex);
         line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
       }else{
         line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
@@ -213,7 +215,7 @@ public:
       size_t num_matches_valid = 0;
       if (m_use_uchar_tree) {
         vw::Vector<unsigned char> uchar_descriptor(ip->descriptor.size());
-        for (size_t i=0; i<ip->descriptor.size(); ++i)
+        for (size_t i=0; i<ip->descriptor.size(); i++)
           uchar_descriptor[i] = static_cast<unsigned char>(ip->descriptor[i]);
         num_matches_valid = m_tree_uchar.knn_search(uchar_descriptor, indices, distances, 
                                                     NUM_MATCHES_TO_FIND);
@@ -243,27 +245,27 @@ public:
         if (found_epipolar){
           Vector2 ip2_org_coord = Vector2( ip2_it->x, ip2_it->y );
           double  line_distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
-          if ( line_distance < large_epipolar_threshold ) {
-            if ( line_distance < small_epipolar_threshold )
-              kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
+          if (line_distance < large_epipolar_threshold) {
+            if (line_distance < small_epipolar_threshold)
+              kept_indices.push_back(std::pair<float,int>(distances[i], indices[i]));
             else // In between thresholds
-              kept_indices.push_back( std::pair<float,int>( distances[i], -1 ) );
+              kept_indices.push_back(std::pair<float,int>(distances[i], -1));
           }
           else {
-            Vector2 ip1_coord( ip->x, ip->y );
+            Vector2 ip1_coord(ip->x, ip->y);
             //double normDist = norm_2(ip1_coord - ip2_org_coord);
             //vw_out() << "Discarding match between " << ip1_coord << " and " << ip2_org_coord
             //        << " because distance is " << line_distance << " and threshold is "
             //        << m_matcher.m_epipolar_threshold << " norm dist = " << normDist<<"\n";
           }
         }
-      } // End loop for match prunining
+      } // End loop for match pruning
 
         // If we only found one match or the first descriptor match is much better than the second
-      if ( ( (kept_indices.size() > 2)     &&
-             (kept_indices[0].second >= 0) &&
-             (kept_indices[0].first < m_matcher.m_uniqueness_threshold * kept_indices[1].first) )
-           || (kept_indices.size() == 1) ){
+      if (((kept_indices.size() > 2)     &&
+            (kept_indices[0].second >= 0) &&
+            (kept_indices[0].first < m_matcher.m_uniqueness_threshold * kept_indices[1].first))
+           || (kept_indices.size() == 1)) {
         *m_output++ = kept_indices[0].second; // Return the first of the matches we found
         //vw_out() << "Kept distance: " << kept_indices[0].first << std::endl;
       } else { // No matches or no clear winner
@@ -354,6 +356,10 @@ void EpipolarLinePointMatcher::operator()(ip::InterestPointList const& ip1,
 // End class EpipolarLinePointMatcher
 //---------------------------------------------------------------------------------------
 
+// Match a set of interest points. This can be invoked for all interest points
+// in the image, then multiple threads are used, for for partial subsets,
+// when this should be called with a single thread, as mulitple such calls
+// may be running in parallel.
 void epipolar_ip_matching_task(bool single_threaded_camera,
         DetectIpMethod detect_method, 
         double epipolar_threshold,
@@ -438,7 +444,8 @@ bool epipolar_ip_matching(bool single_threaded_camera,
   matched_ip2.clear();
 
   // Match interest points forward/backward .. constraining on epipolar line
-  DetectIpMethod detect_method = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
+  DetectIpMethod detect_method 
+      = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
   vw_out() << "\t--> Matching interest points using the epipolar line." << std::endl;
   vw_out() << "\t    Uniqueness threshold: " << uniqueness_threshold << "\n";
   vw_out() << "\t    Epipolar threshold:   " << epipolar_threshold   << "\n";
@@ -1192,11 +1199,11 @@ size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
     typedef math::RandomSampleConsensus<math::HomographyFittingFunctor,
       math::InterestPointErrorMetric> RansacT;
     const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
-    RansacT ransac( math::HomographyFittingFunctor(),
-                    math::InterestPointErrorMetric(),
-                    stereo_settings().ip_num_ransac_iterations,
-                    inlier_threshold,
-                    MIN_NUM_OUTPUT_INLIERS, true);
+    RansacT ransac(math::HomographyFittingFunctor(),
+                   math::InterestPointErrorMetric(),
+                   stereo_settings().ip_num_ransac_iterations,
+                   inlier_threshold,
+                   MIN_NUM_OUTPUT_INLIERS, true);
     Matrix<double> H(ransac(ransac_ip2,ransac_ip1)); // 2 then 1 is used here for legacy reasons
     //vw_out() << "\t--> Homography: " << H << "\n";
     indices = ransac.inlier_indices(H,ransac_ip2,ransac_ip1);
@@ -1482,30 +1489,26 @@ bool homography_ip_matching(
   return true;
 }
 
+// Detect interest points. Return also the rough homography that aligns the right image
+// to the left.
 bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   vw::camera::CameraModel* cam2,
   vw::ImageViewRef<float> const& image1,
   vw::ImageViewRef<float> const& image2,
   int ip_per_tile,
   vw::cartography::Datum const& datum,
+  std::string const left_file_path,
+  double nodata1, double nodata2,
+  // Outputs
   vw::ip::InterestPointList& ip1,
   vw::ip::InterestPointList& ip2,
-  vw::Matrix<double> &rough_homography,
-  std::string const left_file_path,
-  double nodata1, double nodata2) {
-
-  using namespace vw;
-
-  // No longer supporting input transforms, set them to identity.
-  const TransformRef left_tx (TranslateTransform(Vector2(0,0)));
-  const TransformRef right_tx(TranslateTransform(Vector2(0,0)));
+  vw::Matrix<double> &rough_homography) {
 
   BBox2i box1 = bounding_box(image1), box2 = bounding_box(image2);
 
   try {
     // Homography is defined in the original camera coordinates
-    rough_homography = rough_homography_fit(cam1, cam2, left_tx.reverse_bbox(box1),
-					     right_tx.reverse_bbox(box2), datum);
+    rough_homography = rough_homography_fit(cam1, cam2, box1, box2, datum);
   } catch(...) {
     vw_out() << "Rough homography fit failed, trying with identity transform. " << std::endl;
     rough_homography.set_identity(3);
@@ -1518,20 +1521,19 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   vw_out() << "Aligning right to left for IP capture using rough homography: " 
 	   << rough_homography << std::endl;
   
+  HomographyTransform rough_trans(rough_homography);
+  BBox2i trans_box2 = rough_trans.forward_bbox(box2);
   { 
     // Check to see if this rough homography works
-    HomographyTransform func(rough_homography);
-    VW_ASSERT(box1.intersects(func.forward_bbox(box2)),
+    VW_ASSERT(box1.intersects(trans_box2),
 	      LogicErr() << "The rough homography alignment based on datum and camera "
           << "geometry shows that input images do not overlap at all. Unable to proceed. "
           << "Examine your images, or consider using the option --skip-rough-homography.\n");
   }
 
-  TransformRef tx(compose(right_tx, HomographyTransform(rough_homography)));
-  BBox2i raster_box = tx.forward_bbox(right_tx.reverse_bbox(box2));
-  tx = TransformRef(compose(TranslateTransform(-raster_box.min()),
-                            right_tx, HomographyTransform(rough_homography)));
-  raster_box -= Vector2i(raster_box.min());
+  TransformRef tx = TransformRef(compose(TranslateTransform(-trans_box2.min()),
+                            rough_trans));
+  trans_box2 -= Vector2i( trans_box2.min());
   
   // Detect interest points for the left and (transformed) right image.
   // - It is important that we use NearestPixelInterpolation in the
@@ -1539,17 +1541,17 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   //   and stop them from being masked out.
   // TODO(oalexan1): Would it be better to pass masked images and use interpolation?
   auto ext = ValueEdgeExtension<float>(boost::math::isnan(nodata2) ? 0 : nodata2);
+  std::string right_file_path = ""; // Don't record IP from transformed images
   if (!detect_ip_pair(ip1, ip2, image1,
-                      crop(transform(image2, compose(tx, inverse(right_tx)), ext,
-                                     NearestPixelInterpolation()),
-                           raster_box),
-                      ip_per_tile, left_file_path, "", // Don't record IP from transformed images.
+                      crop(transform(image2, tx, ext,
+                                     NearestPixelInterpolation()), trans_box2),
+                      ip_per_tile, left_file_path, right_file_path,
                       nodata1, nodata2)) {
     vw_out() << "Unable to detect interest points." << std::endl;
     return false;
   }
 
-  // Factor the transform out of the right interest points
+  // Undo the rough homography transform for the interest points
   ip::InterestPointList::iterator ip_it;
   for (ip_it = ip2.begin(); ip_it != ip2.end(); ++ip_it) {
     Vector2 pt(ip_it->x, ip_it->y);
@@ -1585,9 +1587,8 @@ bool ip_matching_with_alignment(
   vw::ip::InterestPointList ip1, ip2;
   Matrix<double> rough_homography;
   detect_ip_aligned_pair(cam1, cam2, image1, image2,
-                         ip_per_tile, datum, ip1, ip2, rough_homography, 
-                         left_file_path, nodata1, nodata2);
-
+                         ip_per_tile, datum, left_file_path, nodata1, nodata2,
+                         ip1, ip2, rough_homography); // Outputs
 
   // Match the detected IPs which are in the original image coordinates.
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
@@ -1688,18 +1689,18 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
   // with the EpipolarLinePointMatcher class!
   if (detect_method != DETECT_IP_METHOD_ORB) {
     // For all L2Norm distance metrics
-    ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(th);
+    vw::ip::InterestPointMatcher<vw::ip::L2NormMetric,ip::NullConstraint> matcher(th);
     matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
 	    TerminalProgressCallback("asp", "\t   Matching: "));
   }
   else {
     // For Hamming distance metrics
-    ip::InterestPointMatcher<ip::HammingMetric,ip::NullConstraint> matcher(th);
+    vw::ip::InterestPointMatcher<ip::HammingMetric,ip::NullConstraint> matcher(th);
     matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
 	    TerminalProgressCallback("asp", "\t   Matching: "));
   }
 
-  ip::remove_duplicates(matched_ip1, matched_ip2);
+  vw::ip::remove_duplicates(matched_ip1, matched_ip2);
 
   vw_out() << "\n\t    Matched points: " << matched_ip1.size() << std::endl;
 
@@ -1717,7 +1718,7 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
     // Create the output directory
     vw::create_out_dir(match_file);
     vw_out() << "Writing: " << match_file << std::endl;
-    ip::write_binary_match_file(match_file, matched_ip1, matched_ip2);
+    vw::ip::write_binary_match_file(match_file, matched_ip1, matched_ip2);
   }
 
   return;
