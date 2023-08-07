@@ -421,18 +421,18 @@ void epipolar_ip_matching_task(bool single_threaded_camera,
 
 // TODO(oalexan1): Break up this function as it is too long.
 bool epipolar_ip_matching(bool single_threaded_camera,
-			  vw::ip::InterestPointList const& ip1,
-			  vw::ip::InterestPointList const& ip2,
-			  vw::camera::CameraModel* cam1,
-			  vw::camera::CameraModel* cam2,
-			  vw::ImageViewRef<float> const& image1,
+        vw::ip::InterestPointList const& ip1,
+        vw::ip::InterestPointList const& ip2,
+        vw::camera::CameraModel* cam1,
+        vw::camera::CameraModel* cam2,
+        vw::ImageViewRef<float> const& image1,
         vw::ImageViewRef<float> const& image2,
-			  vw::cartography::Datum const& datum,
-			  double epipolar_threshold,
-			  double uniqueness_threshold,
-			  std::vector<vw::ip::InterestPoint>& matched_ip1,
-			  std::vector<vw::ip::InterestPoint>& matched_ip2,
-			  double nodata1, double nodata2) {
+        vw::cartography::Datum const& datum,
+        double epipolar_threshold,
+        double uniqueness_threshold,
+        std::vector<vw::ip::InterestPoint>& matched_ip1,
+        std::vector<vw::ip::InterestPoint>& matched_ip2,
+        double nodata1, double nodata2) {
   
   matched_ip1.clear();
   matched_ip2.clear();
@@ -1444,14 +1444,14 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
 // Homography IP matching
 // This applies only the homography constraint. Not the best.
 bool homography_ip_matching(
-    vw::ImageViewRef<float> const& image1,
-    vw::ImageViewRef<float> const& image2,
-		int    ip_per_tile,
-		int    inlier_threshold,
-		std::string const& output_name,
-		std::string const  left_file_path,
-		std::string const  right_file_path,
-		double nodata1, double nodata2) {
+      vw::ImageViewRef<float> const& image1,
+      vw::ImageViewRef<float> const& image2,
+      int    ip_per_tile,
+      int    inlier_threshold,
+      std::string const& output_name,
+      std::string const  left_file_path,
+      std::string const  right_file_path,
+      double nodata1, double nodata2) {
 
   vw_out() << "\t--> Matching interest points using homography.\n";
 
@@ -1518,10 +1518,13 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   vw_out() << "Aligning right to left for IP capture using rough homography: " 
 	   << rough_homography << std::endl;
   
-  { // Check to see if this rough homography works
+  { 
+    // Check to see if this rough homography works
     HomographyTransform func(rough_homography);
     VW_ASSERT(box1.intersects(func.forward_bbox(box2)),
-	      LogicErr() << "The rough homography alignment based on datum and camera geometry shows that input images do not overlap at all. Unable to proceed. Examine your images, or consider using the option --skip-rough-homography.\n");
+	      LogicErr() << "The rough homography alignment based on datum and camera "
+          << "geometry shows that input images do not overlap at all. Unable to proceed. "
+          << "Examine your images, or consider using the option --skip-rough-homography.\n");
   }
 
   TransformRef tx(compose(right_tx, HomographyTransform(rough_homography)));
@@ -1559,19 +1562,20 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
 } // End function detect_ip_aligned_pair
 
 // See the .h file for documentation.
-bool ip_matching_with_alignment(bool single_threaded_camera,
-			     vw::camera::CameraModel* cam1,
-			     vw::camera::CameraModel* cam2,
-			     vw::ImageViewRef<float> const& image1,
-           vw::ImageViewRef<float> const& image2,
-			     int ip_per_tile,
-			     vw::cartography::Datum const& datum,
-			     std::string const& output_name,
-			     double epipolar_threshold,
-			     double uniqueness_threshold,
-			     std::string const left_file_path,
-			     double nodata1,
-			     double nodata2) {
+bool ip_matching_with_alignment(
+            bool single_threaded_camera,
+            vw::camera::CameraModel* cam1,
+            vw::camera::CameraModel* cam2,
+            vw::ImageViewRef<float> const& image1,
+            vw::ImageViewRef<float> const& image2,
+            int ip_per_tile,
+            vw::cartography::Datum const& datum,
+            std::string const& output_name,
+            double epipolar_threshold,
+            double uniqueness_threshold,
+            std::string const left_file_path,
+            double nodata1,
+            double nodata2) {
 
   using namespace vw;
 
