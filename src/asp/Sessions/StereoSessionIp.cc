@@ -66,6 +66,13 @@ bool StereoSession::ip_matching(std::string const& input_file1,
 
   vw_out() << "\t--> Matching interest points in StereoSession.\n";
 
+  bool inlier = false;
+
+  // Try to give a useful error message if things fail
+  std::string err = "";
+
+  try {
+
   // If we crop the images we must always create new matching files.
   // Otherwise, do not rebuild with externally provided match files,
   // or if a match file newer than the image and cameras is found in
@@ -136,7 +143,6 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     have_datum = false;
   }
     
-  bool inlier = false;
   if (have_datum) {
     // Run an IP matching function that takes the camera and datum info into account
 
@@ -222,10 +228,21 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                     left_ip_file, right_ip_file,
                                     nodata1, nodata2);
   }
-  if (!inlier) {
-    boost::filesystem::remove(match_filename);
-    vw_throw(IOErr() << "Unable to match left and right images.");
+
+  } catch (std::exception const& e) {
+    err = e.what();
   }
+
+  if (!inlier || err != "") {
+    boost::filesystem::remove(match_filename);
+    
+    std::string msg = "Unable to find enough interest point matches in the images. Check if the images are similar enough in illumination and if they have enough overlap.\n";
+    if (err != "") 
+      msg += "A more technical error message is as follows.\n" + err;
+
+    vw_throw(IOErr() << msg);
+  }
+
   return inlier;
 } // End function ip_matching()
 

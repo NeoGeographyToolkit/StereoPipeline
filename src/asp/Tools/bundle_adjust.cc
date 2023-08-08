@@ -1559,11 +1559,13 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                                                  opt.forced_triangulation_distance,
                                                  opt.max_pairwise_matches);
     if (!success) {
-      vw_out() << "Failed to build a control network. Consider removing "
-               << "all .vwip and .match files and increasing "
-               << "the number of interest points per tile using "
-               << "--ip-per-tile, or decreasing --min-matches. Will continue "
-               << "if ground control points are present.\n";
+      vw_out() << "Failed to build a control network.\n"
+               << " - Consider removing all .vwip and .match files and \n"
+               << "   increasing the number of interest points per tile using\n "
+               << "   --ip-per-tile, or decreasing --min-matches.\n"
+               << " - Check if your images are similar enough in illumination,\n"
+               << "   and if they have enough overlap.\n"   
+               << "Will continue if ground control points are present.\n";
     }
     vw_out() << "Loading GCP files...\n";
     num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
