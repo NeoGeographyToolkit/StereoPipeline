@@ -1522,57 +1522,28 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   vw_out() << "Aligning right to left for IP capture using rough homography: " 
 	   << rough_homography << std::endl;
 
-#if 0
-  
-  HomographyTransform rough_trans(rough_homography);
-  BBox2i trans_box2 = rough_trans.forward_bbox(box2);
-
-  { 
-    // Check to see if this rough homography works
-    VW_ASSERT(box1.intersects(trans_box2),
-	      LogicErr() << "The rough homography alignment based on datum and camera "
-          << "geometry shows that input images do not overlap at all. Unable to proceed. "
-          << "Examine your images, or consider using the option --skip-rough-homography.\n");
-  }
-
-  TransformRef tx = TransformRef(compose(TranslateTransform(-trans_box2.min()),
-                            rough_trans));
-  trans_box2 -= Vector2i( trans_box2.min());
-  std::cout << "---final box 000 " << trans_box2 << std::endl;
-
-#else 
   // Find the image of the right image bounding box after applying the rough homography  
   HomographyTransform rough_trans(rough_homography);
   BBox2i trans_box2 = rough_trans.forward_bbox(box2);
-  std::cout << "--box before " << box2 << std::endl;
-  std::cout << "trans box before " << trans_box2 << std::endl;
-  { 
-    // Check to see if this rough homography works
-    VW_ASSERT(box1.intersects(trans_box2),
-	      LogicErr() << "The rough homography alignment based on datum and camera "
-          << "geometry shows that input images do not overlap at all. Unable to proceed. "
-          << "Examine your images, or consider using the option --skip-rough-homography.\n");
-  }
+
+  // Check to see if this rough homography works
+  VW_ASSERT(box1.intersects(trans_box2),
+     LogicErr() << "The rough homography alignment based on datum and camera "
+        << "geometry shows that input images do not overlap at all. Unable to proceed. "
+        << "Examine your images, or consider using the option --skip-rough-homography.\n");
 
   // Adjust the homography transform so that the right image bounding box has
-  // (0, 0) as the minimum. We will count on this below and outside of this function.
-  // See Transform.h for definition of homography transform.
-  vw::Vector2 offset = trans_box2.min();
-  std::cout << "--offset " << offset << std::endl;
+  // (0, 0) as the minimum. We will count on this below and outside of this
+  // function. See Transform.h for definition of homography transform.
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 2; j++) {
-     rough_homography(j, i) -= offset[j] * rough_homography(2, i);
+      rough_homography(j, i) -= trans_box2.min()[j] * rough_homography(2, i);
     }
   }
 
-  TransformRef tx = TransformRef(HomographyTransform(rough_homography));
-  trans_box2 = tx.forward_bbox(box2);
-
-  std::cout << "--box after3xxx " << tx.forward_bbox(box2) << std::endl;
-
-  //trans_box2 -= Vector2i( trans_box2.min());
-  std::cout << "box after 2xx" << trans_box2 << std::endl;
-#endif
+  // Update these after the adjustment to the homography transform
+  rough_trans = HomographyTransform(rough_homography);
+  trans_box2 = rough_trans.forward_bbox(box2);
 
   // Detect interest points for the left and (transformed) right image.
   // - It is important that we use NearestPixelInterpolation in the
@@ -1582,7 +1553,7 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   auto ext = ValueEdgeExtension<float>(boost::math::isnan(nodata2) ? 0 : nodata2);
   std::string right_file_path = ""; // Don't record IP from transformed images
   if (!detect_ip_pair(ip1, ip2, image1,
-                      crop(transform(image2, tx, ext,
+                      crop(transform(image2, rough_trans, ext,
                                      NearestPixelInterpolation()), trans_box2),
                       ip_per_tile, left_file_path, right_file_path,
                       nodata1, nodata2)) {
@@ -1592,9 +1563,9 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
 
   // Undo the rough homography transform for the interest points
   ip::InterestPointList::iterator ip_it;
-  for (ip_it = ip2.begin(); ip_it != ip2.end(); ++ip_it) {
+  for (ip_it = ip2.begin(); ip_it != ip2.end(); ip_it++) {
     Vector2 pt(ip_it->x, ip_it->y);
-    pt = tx.reverse(pt);
+    pt = rough_trans.reverse(pt);
     ip_it->ix = ip_it->x = pt.x();
     ip_it->iy = ip_it->y = pt.y();
   }
