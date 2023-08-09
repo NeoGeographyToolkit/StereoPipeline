@@ -320,6 +320,10 @@ The ``dem_mosaic`` tool can also apply some blur to attenuate big artifacts (for
 example, use ``--dem-blur-sigma 1``). Note that ``sfs`` has a smoothing term
 itself which should take care of small imperfections in the input.
 
+See :numref:`sfs_initial_terrain` for how to use a third-party DEM as input to
+SfS. Then, alignment of the cameras to that DEM is needed. This is a multi-step
+process, outlined in detail in :numref:`sfs-lola`.
+
 Running SfS
 ^^^^^^^^^^^
 
