@@ -313,10 +313,12 @@ invoked with no input grid size, computes the grid size as the image
 GSD, and that value can then be used when creating the input SfS DEM.
 
 If this DEM has holes, those can be filled in ``dem_mosaic`` (see examples of
-filling/growing a DEM in :numref:`dem_mosaic`) or with ``point2dem`` itself
-(:numref:`point2dem`). The ``dem_mosaic`` tool can also apply some blur to
-attenuate big artifacts, though ``sfs`` has a smoothing term itself which should
-take care of small imperfections in the input.
+filling or growing a DEM in :numref:`dem_mosaic`), or with ``point2dem`` itself
+(:numref:`point2dem`). 
+
+The ``dem_mosaic`` tool can also apply some blur to attenuate big artifacts (for
+example, use ``--dem-blur-sigma 1``). Note that ``sfs`` has a smoothing term
+itself which should take care of small imperfections in the input.
 
 Running SfS
 ^^^^^^^^^^^
@@ -897,6 +899,9 @@ as a row or column.
 The DEM grid size should be not too different from the *ground sample
 distance (GSD)* of the images, for optimal results. That one can be found
 with ``mapproject`` (:numref:`mapproject`).
+
+See :numref:`initial_sfs_dem` for how to create an initial DEM using stereo.
+A stereo DEM can also be blended with the LOLA DEM using ``dem_mosaic``.
 
 Terrain bounds
 ^^^^^^^^^^^^^^

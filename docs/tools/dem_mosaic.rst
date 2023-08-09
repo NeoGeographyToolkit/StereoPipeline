@@ -168,8 +168,8 @@ Unlike the earlier example, in this mode the tool will not try to fill small
 holes of a given diameter that are fully surrounded by valid data. Instead, for
 any pixel that is invalid (lacks data), ``dem_mosaic`` will search for valid
 pixels within the specified search radius. If the percentage of valid to total
-number of found pixels is no less than the specified percentage, the invalid
-pixel will be filled with a weighted average of the valid pixel values, with the
+number of found pixels is no less than the specified value, the invalid
+pixel will be filled with the weighted average of the valid pixel values, with the
 weight given as:
 
 .. math::    
