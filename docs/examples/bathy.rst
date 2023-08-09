@@ -13,8 +13,9 @@ those features will be bent according to Snell's law at the water
 interface, hence determining correctly the position of underwater
 terrain.
 
-For an application of this bathymetry module see
-:cite:`palaseanu2021bathy`.
+The bathymetry module is evaluated in :cite:`palaseanu2021bathy` and
+:cite:`palaseanu2023`.
+
 
 Software considerations
 ~~~~~~~~~~~~~~~~~~~~~~~
