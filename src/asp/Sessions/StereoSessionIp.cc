@@ -204,8 +204,8 @@ bool StereoSession::ip_matching(std::string const& input_file1,
       inlier = ip_matching_no_align(!supports_multi_threading(), cam1, cam2,
                                     image1_norm, image2_norm,
                                     asp::stereo_settings().ip_per_tile, datum,
-                                    epipolar_threshold, ip_uniqueness_thresh,
                                     match_filename,
+                                    epipolar_threshold, ip_uniqueness_thresh,
                                     left_ip_file, right_ip_file,
                                     nodata1, nodata2);
     } else {

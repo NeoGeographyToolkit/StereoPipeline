@@ -912,7 +912,11 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   std::vector<size_t> indices = ransac.inlier_indices(H, right_copy, left_copy);
   check_homography_matrix(H, left_copy, right_copy, indices);
 
-  // Set right to a homography that has been refined just to our inliers
+  // Set right to a homography that has been refined just to our inliers.
+  // May be adjusted with a translation below.
+  // TODO(oalexan1): It is not clear if adjusting a homography transform's
+  // translation coefficients is the right way of applying a translation to it,
+  // because it has a denominator too.
   left_matrix  = math::identity_matrix<3>();
   right_matrix = math::HomographyFittingFunctor()(right_copy, left_copy, H);
 
@@ -931,18 +935,18 @@ Vector2i homography_rectification(bool adjust_left_image_size,
     // cloud pixels.
     Vector3 temp = right_matrix*Vector3(0,0,1);
     temp /= temp.z();
-    right_bbox.grow( subvector(temp,0,2) );
+    right_bbox.grow(subvector(temp,0,2));
     temp = right_matrix*Vector3(right_size.x(),0,1);
     temp /= temp.z();
-    right_bbox.grow( subvector(temp,0,2) );
+    right_bbox.grow(subvector(temp,0,2));
     temp = right_matrix*Vector3(0,right_size.y(),1);
     temp /= temp.z();
-    right_bbox.grow( subvector(temp,0,2) );
+    right_bbox.grow(subvector(temp,0,2));
     temp = right_matrix*Vector3(right_size.x(),right_size.y(),1);
     temp /= temp.z();
-    right_bbox.grow( subvector(temp,0,2) );
+    right_bbox.grow(subvector(temp,0,2));
 
-    output_bbox.crop( right_bbox );
+    output_bbox.crop(right_bbox );
 
     //  Move the ideal render size to be aligned up with origin
     left_matrix (0,2) -= output_bbox.min().x();
@@ -1675,7 +1679,7 @@ bool homography_ip_matching(
       vw::ImageViewRef<float> const& image2,
       int    ip_per_tile,
       int    inlier_threshold,
-      std::string const& output_name,
+      std::string const& match_filename,
       std::string const  left_file_path,
       std::string const  right_file_path,
       double nodata1, double nodata2) {
@@ -1703,8 +1707,8 @@ bool homography_ip_matching(
                       image1, image2, final_ip1, final_ip2);
   }
 
-  vw_out() << "\t    * Writing match file: " << output_name << "\n";
-  ip::write_binary_match_file(output_name, final_ip1, final_ip2);
+  vw_out() << "\t    * Writing match file: " << match_filename << "\n";
+  ip::write_binary_match_file(match_filename, final_ip1, final_ip2);
 
   return true;
 }
@@ -1802,7 +1806,7 @@ bool ip_matching_with_alignment(
             vw::ImageViewRef<float> const& image2,
             int ip_per_tile,
             vw::cartography::Datum const& datum,
-            std::string const& output_name,
+            std::string const& match_filename,
             double epipolar_threshold,
             double uniqueness_threshold,
             std::string const left_file_path,
@@ -1876,8 +1880,8 @@ bool ip_matching_with_alignment(
   }
 
   // Write the matches to disk
-  vw_out() << "\t    * Writing match file: " << output_name << "\n";
-  ip::write_binary_match_file(output_name, matched_ip1, matched_ip2);
+  vw_out() << "\t    * Writing match file: " << match_filename << "\n";
+  ip::write_binary_match_file(match_filename, matched_ip1, matched_ip2);
 
   return inlier;
 }
@@ -1889,15 +1893,17 @@ bool ip_matching_no_align(bool single_threaded_camera,
         vw::ImageViewRef<float> const& image2,
 			  int ip_per_tile,
 			  vw::cartography::Datum const& datum,
+			  std::string const& match_filename,
 			  double epipolar_threshold,
 			  double uniqueness_threshold,
-			  std::string const& output_name,
 			  std::string const  left_file_path,
 			  std::string const  right_file_path,
 			  double nodata1,
 			  double nodata2) {
 
   // Find IP
+  std::cout << "ip matching no align" << std::endl;
+
   vw::ip::InterestPointList ip1, ip2;
   detect_ip_pair(ip1, ip2, image1, image2,
                  ip_per_tile, left_file_path, right_file_path,
@@ -1919,8 +1925,8 @@ bool ip_matching_no_align(bool single_threaded_camera,
   std::cout << "Must find alignment matrix" << std::endl;
 
   // Write to disk
-  vw_out() << "\t    * Writing match file: " << output_name << "\n";
-  ip::write_binary_match_file(output_name, matched_ip1, matched_ip2);
+  vw_out() << "\t    * Writing match file: " << match_filename << "\n";
+  ip::write_binary_match_file(match_filename, matched_ip1, matched_ip2);
 
   return true;
 }
