@@ -472,9 +472,10 @@ location)::
   point2dem --t_srs "$proj" --tr 1.6 run/run-PC.tif
 
 The ``dem_mosaic`` (:numref:`dem_mosaic`) tool can be used to fill holes in the
-DEM, using the ``--hole-fill-length`` option. It is also suggested to blur it a
-little, which may reduce some of the noise in the DEM. For that, use
-``dem_mosaic`` with the option ``--blur-sigma`` with a value of 1 or 2.
+DEM, using either the ``--hole-fill-length`` or ``--fill-search-radius`` option.
+It is also suggested to blur it a little, which may reduce some of the noise in
+the DEM. For that, use ``dem_mosaic`` with the option ``--blur-sigma`` with a
+value of 1 or 2.
 
 Very large holes may be infilled from a third-party low-resolution DEM, like
 Copernicus (:numref:`initial_terrain`), but this is a measure of last resort. Do

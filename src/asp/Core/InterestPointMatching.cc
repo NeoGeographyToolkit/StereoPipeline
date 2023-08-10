@@ -1798,8 +1798,9 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
 } // End function detect_ip_aligned_pair
 
 // See the .h file for documentation.
-bool ip_matching_with_alignment(
+bool ip_matching_with_datum(
             bool single_threaded_camera,
+            bool use_rough_homography,
             vw::camera::CameraModel* cam1,
             vw::camera::CameraModel* cam2,
             vw::ImageViewRef<float> const& image1,
@@ -1810,16 +1811,27 @@ bool ip_matching_with_alignment(
             double epipolar_threshold,
             double uniqueness_threshold,
             std::string const left_file_path,
+            std::string const right_file_path,
             double nodata1,
             double nodata2) {
+
+  if (use_rough_homography)
+    vw_out() << "\t    Using rough homography.\n";
+  else
+    vw_out() << "\t    Skipping rough homography.\n";
 
   // This call aligns the right image to the left image then detects IPs in the two images.
   // Undo the alignment transform in the ip before returning, and return the transform.
   vw::ip::InterestPointList ip1, ip2;
-  Matrix<double> rough_homography;
-  detect_ip_aligned_pair(cam1, cam2, image1, image2,
-                         ip_per_tile, datum, left_file_path, nodata1, nodata2,
-                         ip1, ip2, rough_homography); // Outputs
+  vw::Matrix<double> rough_homography = vw::math::identity_matrix<3>();
+  if (use_rough_homography) 
+    detect_ip_aligned_pair(cam1, cam2, image1, image2,
+                           ip_per_tile, datum, left_file_path, nodata1, nodata2,
+                           ip1, ip2, rough_homography); // Outputs
+  else
+     detect_ip_pair(ip1, ip2, image1, image2,
+                 ip_per_tile, left_file_path, right_file_path,
+                 nodata1, nodata2);
 
   std::cout << "finished with detect_ip_aligned_pair" << std::endl;
 
@@ -1830,8 +1842,7 @@ bool ip_matching_with_alignment(
   bool inlier =
     epipolar_ip_matching(single_threaded_camera,
 			 ip1, ip2, cam1, cam2, image1, image2, 
-       datum, epipolar_threshold, uniqueness_threshold,
-			 nodata1, nodata2,
+       datum, epipolar_threshold, uniqueness_threshold, nodata1, nodata2,
        match_per_tile, align_matrix,
 			 matched_ip1, matched_ip2); // Outputs
   if (!inlier)
@@ -1849,7 +1860,8 @@ bool ip_matching_with_alignment(
 			   matched_ip1, matched_ip2, matrix1, matrix2);
   std::cout << "matrix 1 = " << matrix1 << std::endl;
   std::cout << "matrix 2 = " << matrix2 << std::endl;
-  if (sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4) {
+  if (use_rough_homography && 
+      sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4) {
     vw_out() << "Homography transform has largely different scale and skew "
              << "compared with the rough homography. Homography transform is " 
 	           << matrix2 << ". Examine your images, or consider using the option "
@@ -1884,51 +1896,6 @@ bool ip_matching_with_alignment(
   ip::write_binary_match_file(match_filename, matched_ip1, matched_ip2);
 
   return inlier;
-}
-
-bool ip_matching_no_align(bool single_threaded_camera,
-			  vw::camera::CameraModel* cam1,
-			  vw::camera::CameraModel* cam2,
-			  vw::ImageViewRef<float> const& image1,
-        vw::ImageViewRef<float> const& image2,
-			  int ip_per_tile,
-			  vw::cartography::Datum const& datum,
-			  std::string const& match_filename,
-			  double epipolar_threshold,
-			  double uniqueness_threshold,
-			  std::string const  left_file_path,
-			  std::string const  right_file_path,
-			  double nodata1,
-			  double nodata2) {
-
-  // Find IP
-  std::cout << "ip matching no align" << std::endl;
-
-  vw::ip::InterestPointList ip1, ip2;
-  detect_ip_pair(ip1, ip2, image1, image2,
-                 ip_per_tile, left_file_path, right_file_path,
-                 nodata1, nodata2);
-
-  bool match_per_tile = false;
-  vw::Matrix<double> align_matrix = vw::math::identity_matrix<3>();
-
-  // Match them
-  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-  if (!epipolar_ip_matching(single_threaded_camera,
-			    ip1, ip2, cam1, cam2, image1, image2,
-			    datum, epipolar_threshold, uniqueness_threshold, nodata1, nodata2,
-          match_per_tile, align_matrix,
-			    matched_ip1, matched_ip2)) // Outputs
-    return false;
-
-  std::cout << "Must do second pass with matches per tile" << std::endl;
-  std::cout << "Must find alignment matrix" << std::endl;
-
-  // Write to disk
-  vw_out() << "\t    * Writing match file: " << match_filename << "\n";
-  ip::write_binary_match_file(match_filename, matched_ip1, matched_ip2);
-
-  return true;
 }
 
 // Use one of the two modalities to detect interest points.

@@ -186,7 +186,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
       }
     } // End RPC case
 
-      // A smaller value here makes IP more unique, but also fewer. 
+    // A smaller value here makes IP more unique, but also fewer 
     double ip_uniqueness_thresh = stereo_settings().ip_uniqueness_thresh;
 
     // TODO: Improve calculation of epipolar parameter!
@@ -199,24 +199,15 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     vw_out() << "\t    Using epipolar threshold = " << epipolar_threshold << std::endl;
     vw_out() << "\t    IP uniqueness threshold  = " << ip_uniqueness_thresh  << std::endl;
     vw_out() << "\t    Datum:                     " << datum << std::endl;
-    if (stereo_settings().skip_rough_homography) {
-      vw_out() << "\t    Skipping rough homography.\n";
-      inlier = ip_matching_no_align(!supports_multi_threading(), cam1, cam2,
-                                    image1_norm, image2_norm,
-                                    asp::stereo_settings().ip_per_tile, datum,
-                                    match_filename,
-                                    epipolar_threshold, ip_uniqueness_thresh,
-                                    left_ip_file, right_ip_file,
-                                    nodata1, nodata2);
-    } else {
-      vw_out() << "\t    Using rough homography.\n";
-      inlier = ip_matching_with_alignment(!supports_multi_threading(), cam1, cam2,
-                                       image1_norm, image2_norm,
-                                       asp::stereo_settings().ip_per_tile,
-                                       datum, match_filename,
-                                       epipolar_threshold, ip_uniqueness_thresh,
-                                       left_ip_file, nodata1, nodata2);
-    }
+    inlier = ip_matching_with_datum(!supports_multi_threading(), 
+                                    !stereo_settings().skip_rough_homography,
+                                     cam1, cam2,
+                                     image1_norm, image2_norm,
+                                     asp::stereo_settings().ip_per_tile,
+                                     datum, match_filename,
+                                     epipolar_threshold, ip_uniqueness_thresh,
+                                     left_ip_file, right_ip_file,
+                                     nodata1, nodata2);
   } else { // Not nadir facing
     // Run a simpler purely image-based matching function
     double ip_inlier_factor = stereo_settings().ip_inlier_factor;

@@ -577,9 +577,10 @@ Command-line options for bundle_adjust
     ``--rotation-weight`` and ``--translation-weight`` can be used for
     finer-grained control.
         
---ip-per-tile <integer>
-    How many interest points to detect in each :math:`1024^2` image tile.
-    If this option isn't given, it will default to an automatic determination.
+--ip-per-tile <integer (default: unspecified)>
+    How many interest points to detect in each :math:`1024^2` image
+    tile (default: automatic determination). This is before matching. 
+    Not all interest points will have a match. See also ``--matches-per-tile``.
 
 --ip-per-image <integer>
     How many interest points to detect in each image (default:
@@ -589,6 +590,11 @@ Command-line options for bundle_adjust
 --ip-detect-method <integer (default: 0)>
     Choose an interest point detection method from: 0=OBAloG, 1=SIFT,
     2=ORB.
+
+--matches-per-tile <int (default: unspecified)>
+    How many interest point matches to compute in each :math:`1024^2` image
+    tile (default: automatic determination). Use a value of ``--ip-per-tile``
+    a few times larger than this.
 
 --epipolar-threshold <double (default: -1)>
     Maximum distance from the epipolar line to search for IP matches.

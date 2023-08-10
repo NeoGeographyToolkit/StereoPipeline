@@ -44,43 +44,26 @@ void write_match_image(std::string const& out_file_name,
                        std::vector<vw::ip::InterestPoint> const& matched_ip1,
                        std::vector<vw::ip::InterestPoint> const& matched_ip2);
 
-/// Smart IP matching that uses clustering on triangulation and
-/// datum information to determine inliers.
-///
-/// Left and Right TX define transforms that have been performed on
-/// the images that that camera data doesn't know about. (ie scaling).
-bool ip_matching_no_align(bool single_threaded_camera,
-  vw::camera::CameraModel* cam1,
-  vw::camera::CameraModel* cam2,
-  vw::ImageViewRef<float> const& image1,
-  vw::ImageViewRef<float> const& image2,
-  int ip_per_tile,
-  vw::cartography::Datum const& datum,
-  std::string const& match_filename,
-  double epipolar_threshold,
-  double uniqueness_threshold,
-  std::string const  left_file_path ="",
-  std::string const  right_file_path="",
-  double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-  double nodata2 = std::numeric_limits<double>::quiet_NaN());
-  
-  // Calls ip matching above but with an additional step where we
-  // apply a homography to make right image like left image. This is
-  // useful so that both images have similar scale and similar affine qualities.
-  // - Only the left image will use an IP file since the right image is modified.
-  bool ip_matching_with_alignment(bool single_threaded_camera,
-                                 vw::camera::CameraModel* cam1,
-                                 vw::camera::CameraModel* cam2,
-                                 vw::ImageViewRef<float> const& image1,
-                                 vw::ImageViewRef<float> const& image2,
-                                 int ip_per_tile,
-                                 vw::cartography::Datum const& datum,
-                                 std::string const& output_name,
-                                 double epipolar_threshold,
-                                 double uniqueness_threshold,
-                                 std::string const left_file_path ="",
-                                 double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                                 double nodata2 = std::numeric_limits<double>::quiet_NaN());
+  // Calls ip matching assuming a datum. We may or not apply a homography to
+  // make right image like left image. This is useful so that both images have
+  // similar scale and similar affine qualities.
+  // - Only the left image will use an IP file since the right image is
+  //   modified.
+  bool ip_matching_with_datum(bool single_threaded_camera,
+                             bool use_rough_homography,
+                             vw::camera::CameraModel* cam1,
+                             vw::camera::CameraModel* cam2,
+                             vw::ImageViewRef<float> const& image1,
+                             vw::ImageViewRef<float> const& image2,
+                             int ip_per_tile,
+                             vw::cartography::Datum const& datum,
+                             std::string const& output_name,
+                             double epipolar_threshold,
+                             double uniqueness_threshold,
+                             std::string const left_file_path ="",
+                             std::string const right_file_path ="",
+                             double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                             double nodata2 = std::numeric_limits<double>::quiet_NaN());
   
   // Do IP matching, return, the best translation+scale fitting functor.
   vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> const& image1,

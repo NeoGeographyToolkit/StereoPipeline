@@ -39,6 +39,8 @@ parallel_stereo (:numref:`parallel_stereo`):
   * The cameras files used in mapprojection can be switched to other
     ones for the purpose of doing stereo or reusing a stereo run
     (:numref:`mapproj_reuse`).
+  * Added the option ``--matches-per-tile``, to attempt to guarantee
+    that each 1024 x 1024 tile has about this many number of matches.
   * Bugfix for stereo with mapprojected Pleiades images. If the
     mapprojection is done with the exact (non-RPC) cameras, stereo
     must load the exact cameras when undoing the mapprojection.
@@ -51,6 +53,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     (:numref:`skysat_stereo`).
   * Validated the option ``--reference-dem`` for bundle adjustment. This works
     even when rays obtained during triangulation are parallel.
+  * Added the option ``--matches-per-tile``, to attempt to guarantee
+    that each 1024 x 1024 tile has about this many number of matches.
   * Bugfix for slow performance and memory usage for a large number
     of images.
 
