@@ -58,7 +58,7 @@ struct Options: public asp::BaBaseOptions {
     cost_function, mapprojected_data, gcp_from_mapprojected,
     image_list, camera_list, mapprojected_data_list,
     fixed_image_list;
-  int ip_per_tile, ip_per_image, ip_edge_buffer_percent;
+  int ip_per_tile, ip_per_image, matches_per_tile, ip_edge_buffer_percent;
   double forced_triangulation_distance, overlap_exponent, ip_triangulation_max_error;
   int    instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
   bool   save_intermediate_cameras, approximate_pinhole_intrinsics,
@@ -110,7 +110,7 @@ struct Options: public asp::BaBaseOptions {
              ip_detect_method(0), num_scales(-1), skip_rough_homography(false),
              individually_normalize(false), use_llh_error(false), force_reuse_match_files(false){}
 
-  /// Duplicate info to asp settings where it needs to go.
+  /// Bundle adjustment settings that must be passed to the asp settings
   void copy_to_asp_settings() const{
     asp::stereo_settings().ip_matching_method         = ip_detect_method;
     asp::stereo_settings().epipolar_threshold         = epipolar_threshold;
@@ -123,14 +123,15 @@ struct Options: public asp::BaBaseOptions {
     asp::stereo_settings().enable_correct_velocity_aberration
       = enable_correct_velocity_aberration;
     asp::stereo_settings().dg_use_csm = dg_use_csm;
+    asp::stereo_settings().ip_per_tile = ip_per_tile;
     asp::stereo_settings().ip_per_image = ip_per_image;
+    asp::stereo_settings().matches_per_tile = matches_per_tile;
+    asp::stereo_settings().no_datum = no_datum;
 
     // Note that by default rough homography and tri filtering are disabled
     // as input cameras may be too inaccurate for that.
     asp::stereo_settings().skip_rough_homography      = !enable_rough_homography;
     asp::stereo_settings().disable_tri_filtering      = !enable_tri_filtering;
-
-    asp::stereo_settings().no_datum                   = no_datum;
 
     // Do not pass this as it will results in filtering by elevation and lonlat
     // with unoptimized cameras. We will do that filtering with optimized

@@ -437,10 +437,8 @@ void load_camera_and_find_ip(Options const& opt,
                          Vector2(masked_image1.cols(), masked_image1.rows()),
                          image1_stats,
                          image2_stats,
-                         opt.ip_per_tile,
                          nodata1, nodata2, cam.get(), cam.get(),
-                         match_filename, "", ""
-                        );
+                         match_filename, "", "");
   } catch ( const std::exception& e ){
     vw_throw( ArgumentErr()
               << "Could not find interest points between images "
@@ -967,22 +965,23 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
-  // Copy the IP settings to the global stereosettings() object
+  // Copy the IP settings to the global stereo_settings() object
   asp::stereo_settings().ip_matching_method       = opt.ip_detect_method;
   asp::stereo_settings().individually_normalize   = opt.individually_normalize;
   asp::stereo_settings().skip_image_normalization = opt.skip_image_normalization;
   asp::stereo_settings().ip_inlier_factor         = opt.ip_inlier_factor;
-  
-  if ( opt.raw_image.empty() )
+  asp::stereo_settings().ip_per_tile              = opt.ip_per_tile;
+
+  if (opt.raw_image.empty())
     vw_throw( ArgumentErr() << "Missing input raw image.\n" << usage << general_options );
 
-  if ( opt.ortho_image.empty() )
+  if (opt.ortho_image.empty())
     vw_throw( ArgumentErr() << "Missing input ortho image.\n" << usage << general_options );
 
-  if ( opt.input_cam.empty() )
+  if (opt.input_cam.empty())
     vw_throw( ArgumentErr() << "Missing input pinhole camera.\n" << usage << general_options );
 
-  if ( opt.output_cam.empty() )
+  if (opt.output_cam.empty())
     vw_throw( ArgumentErr() << "Missing output pinhole camera.\n" << usage << general_options );
 
   if (opt.camera_estimate != "") {
@@ -999,7 +998,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.output_cam);
-  
 }
 
 // ================================================================================

@@ -56,7 +56,6 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                 vw::Vector2 const& uncropped_image_size,
                                 Vector6f    const& stats1,
                                 Vector6f    const& stats2,
-                                int ip_per_tile,
                                 float nodata1, float nodata2,
                                 vw::camera::CameraModel* cam1,
                                 vw::camera::CameraModel* cam2,
@@ -65,6 +64,14 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                 std::string const  right_ip_file) {
 
   vw_out() << "\t--> Matching interest points in StereoSession.\n";
+
+  // Sanity checks
+  if (asp::stereo_settings().matches_per_tile > 0 &&  
+   (asp::stereo_settings().ip_per_tile < asp::stereo_settings().matches_per_tile ||
+      asp::stereo_settings().ip_per_image > 0)) 
+        vw::vw_throw(vw::ArgumentErr() 
+          << "When setting --matches-per-tile, must set --ip-per-tile to at least " 
+          << "a factor of that, and do not set --ip-per-image.\n");
 
   bool inlier = false;
 
@@ -196,7 +203,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
       vw_out() << "\t    Skipping rough homography.\n";
       inlier = ip_matching_no_align(!supports_multi_threading(), cam1, cam2,
                                     image1_norm, image2_norm,
-                                    ip_per_tile, datum,
+                                    asp::stereo_settings().ip_per_tile, datum,
                                     epipolar_threshold, ip_uniqueness_thresh,
                                     match_filename,
                                     left_ip_file, right_ip_file,
@@ -205,7 +212,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
       vw_out() << "\t    Using rough homography.\n";
       inlier = ip_matching_with_alignment(!supports_multi_threading(), cam1, cam2,
                                        image1_norm, image2_norm,
-                                       ip_per_tile,
+                                       asp::stereo_settings().ip_per_tile,
                                        datum, match_filename,
                                        epipolar_threshold, ip_uniqueness_thresh,
                                        left_ip_file, nodata1, nodata2);
@@ -222,7 +229,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
 
     vw_out() << "\t    Not using a datum in interest point matching.\n";
     inlier = homography_ip_matching(image1_norm, image2_norm,
-                                    ip_per_tile,
+                                    asp::stereo_settings().ip_per_tile,
                                     inlier_threshold,
                                     match_filename,
                                     left_ip_file, right_ip_file,
@@ -311,7 +318,6 @@ void StereoSession::determine_image_alignment(// Inputs
   this->ip_matching(left_cropped_file, right_cropped_file,
                     uncropped_left_image_size,
                     left_stats, right_stats,
-                    stereo_settings().ip_per_tile,
                     left_nodata_value, right_nodata_value,
                     left_cam.get(), right_cam.get(),
                     match_filename, left_ip_filename, right_ip_filename);

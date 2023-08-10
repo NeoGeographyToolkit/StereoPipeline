@@ -102,7 +102,6 @@ namespace asp {
                      vw::Vector2  const& uncropped_image_size,
                      Vector6f     const& stats1,
                      Vector6f     const& stats2,
-                     int   ip_per_tile,
                      float nodata1, float nodata2,
                      vw::camera::CameraModel* cam1,
                      vw::camera::CameraModel* cam2,

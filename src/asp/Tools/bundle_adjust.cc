@@ -2026,7 +2026,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("overlap-exponent",     po::value(&opt.overlap_exponent)->default_value(0.0),
      "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
     ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
-     "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
+      "How many interest points to detect in each 1024^2 image tile (default: automatic determination). This is before matching. Not all interest points will have a match. See also --matches-per-tile.")
     ("ip-per-image",              po::value(&opt.ip_per_image)->default_value(0),
      "How many interest points to detect in each image (default: automatic determination). It is overridden by --ip-per-tile if provided.")
     ("num-passes",           po::value(&opt.num_ba_passes)->default_value(2),
@@ -2088,7 +2088,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "continue with bundle adjustment. Existing match files will be  "
      "reused. Specify the mapprojected images and the DEM as a string in  "
      "quotes, separated by spaces. An example is in the documentation.")
-    
+    ("matches-per-tile",  po::value(&opt.matches_per_tile)->default_value(0),
+      "How many interest point matches to compute in each 1024^2 image tile (default: automatic determination). Use a value of --ip-per-tile a few times larger than this.")    
     ("save-cnet-as-csv", po::bool_switch(&opt.save_cnet_as_csv)->default_value(false)->implicit_value(true),
      "Save the control network containing all interest points in the format used by ground control points, so it can be inspected.")
     ("gcp-from-mapprojected-images", po::value(&opt.gcp_from_mapprojected)->default_value(""),
@@ -2636,8 +2637,9 @@ void ba_match_ip(Options & opt, SessionPtr session,
   // are newer than them.
   session->ip_matching(image1_path, image2_path,
                        Vector2(masked_image1.cols(), masked_image1.rows()),
-                       image1_stats, image2_stats, opt.ip_per_tile,
-                       nodata1, nodata2, cam1, cam2, match_filename, ip_file1, ip_file2);
+                       image1_stats, image2_stats, 
+                       nodata1, nodata2, cam1, cam2, match_filename, 
+                       ip_file1, ip_file2);
 }
 
 //==================================================================================
