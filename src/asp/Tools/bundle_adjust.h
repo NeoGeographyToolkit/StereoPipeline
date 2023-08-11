@@ -96,7 +96,8 @@ struct Options: public asp::BaBaseOptions {
   std::string   fixed_cameras_indices_str;
   std::set<int> fixed_cameras_indices;
   IntrinsicOptions intrinisc_options;
-  
+  vw::Vector2i matches_per_tile_params;
+
   // Make sure all values are initialized, even though they will be
   // over-written later.
   Options(): ip_per_tile(0), ip_per_image(0), 
@@ -126,6 +127,7 @@ struct Options: public asp::BaBaseOptions {
     asp::stereo_settings().ip_per_tile = ip_per_tile;
     asp::stereo_settings().ip_per_image = ip_per_image;
     asp::stereo_settings().matches_per_tile = matches_per_tile;
+    asp::stereo_settings().matches_per_tile_params = matches_per_tile_params;
     asp::stereo_settings().no_datum = no_datum;
 
     // Note that by default rough homography and tri filtering are disabled

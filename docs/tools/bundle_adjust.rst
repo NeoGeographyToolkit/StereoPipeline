@@ -594,7 +594,14 @@ Command-line options for bundle_adjust
 --matches-per-tile <int (default: unspecified)>
     How many interest point matches to compute in each :math:`1024^2` image
     tile (default: automatic determination). Use a value of ``--ip-per-tile``
-    a few times larger than this.
+    a few times larger than this. See also ``--matches-per-tile-params``.
+
+--matches-per-tile-params <int int (default: 1024 1280)>
+    To be used with ``--matches-per-tile``. A larger second value allows each
+    right image interest point to be matched to more than one left image
+    interest point. This may be needed if the homography alignment between these
+    images is not great, as this transform is used to pair up left and right
+    image tiles.
 
 --epipolar-threshold <double (default: -1)>
     Maximum distance from the epipolar line to search for IP matches.

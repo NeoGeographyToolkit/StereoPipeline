@@ -2089,7 +2089,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "reused. Specify the mapprojected images and the DEM as a string in  "
      "quotes, separated by spaces. An example is in the documentation.")
     ("matches-per-tile",  po::value(&opt.matches_per_tile)->default_value(0),
-      "How many interest point matches to compute in each 1024^2 image tile (default: automatic determination). Use a value of --ip-per-tile a few times larger than this.")    
+      "How many interest point matches to compute in each 1024^2 image tile (default: automatic determination). Use a value of --ip-per-tile a few times larger than this. See also --matches-per-tile-params.")    
     ("save-cnet-as-csv", po::bool_switch(&opt.save_cnet_as_csv)->default_value(false)->implicit_value(true),
      "Save the control network containing all interest points in the format used by ground control points, so it can be inspected.")
     ("gcp-from-mapprojected-images", po::value(&opt.gcp_from_mapprojected)->default_value(""),
@@ -2117,6 +2117,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Flag as outliers input triangulated points not in this proj win (box in projected units as provided by --proj_str). This should be generous if the input cameras have significant errors.")
     ("proj-str",   po::value(&opt.proj_str)->default_value(""),
      "To be used in conjunction with --proj_win.")
+    ("matches-per-tile-params",  po::value(&opt.matches_per_tile_params)->default_value(Vector2(1024, 1280), "1024 1280"),
+       "To be used with --matches-per-tile. A larger second value allows each right image interest point to be matched to more than one left image interest point. This may be needed if the homography alignment between these images is not great, as this transform is used to pair up left and right image tiles.")            
     ("save-vwip",    po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
      "Save .vwip files (intermediate files for creating .match files). For parallel_bundle_adjust these will be saved in subdirectories, as they depend on the image pair. Must start with an empty output directory for this to work.")
     ("vwip-prefix",  po::value(&opt.vwip_prefix),

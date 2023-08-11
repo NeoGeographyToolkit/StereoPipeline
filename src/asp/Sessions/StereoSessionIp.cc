@@ -65,13 +65,20 @@ bool StereoSession::ip_matching(std::string const& input_file1,
 
   vw_out() << "\t--> Matching interest points in StereoSession.\n";
 
-  // Sanity checks
-  if (asp::stereo_settings().matches_per_tile > 0 &&  
-   (asp::stereo_settings().ip_per_tile < asp::stereo_settings().matches_per_tile ||
-      asp::stereo_settings().ip_per_image > 0)) 
+  // Sanity checks. Must be here since we will use this code in stereo and bundle_adjust.
+  if (asp::stereo_settings().matches_per_tile > 0) {  
+
+   if (asp::stereo_settings().ip_per_tile < asp::stereo_settings().matches_per_tile ||
+      asp::stereo_settings().ip_per_image > 0) 
         vw::vw_throw(vw::ArgumentErr() 
           << "When setting --matches-per-tile, must set --ip-per-tile to at least " 
           << "a factor of that, and do not set --ip-per-image.\n");
+
+    Vector2i params = asp::stereo_settings().matches_per_tile_params;
+    if (params[0] <= 0 || params[1] < params[0] || params[1] > 2 * params[0])
+      vw::vw_throw(vw::ArgumentErr() 
+          << "First value in --matches-per-tile-params must be positive, and second one must be no less than first one but no more than twice the first one.\n");
+  }
 
   bool inlier = false;
 

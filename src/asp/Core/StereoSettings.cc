@@ -123,7 +123,7 @@ namespace asp {
       ("ip-per-image", po::value(&global.ip_per_image)->default_value(0),
                      "How many interest points to detect in each image, before matching (default: automatic determination). It is overridden by --ip-per-tile if provided.")
       ("matches-per-tile",  po::value(&global.matches_per_tile)->default_value(0),
-                     "How many interest point matches to compute in each 1024^2 image tile (default: automatic determination). Use a value of --ip-per-tile a few times larger than this.")
+                     "How many interest point matches to compute in each 1024^2 image tile (default: automatic determination). Use a value of --ip-per-tile a few times larger than this. See also --matches-per-tile-params.")
       ("ip-detect-method",          po::value(&global.ip_matching_method)->default_value(0),
        "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
       ("epipolar-threshold",       po::value(&global.epipolar_threshold)->default_value(-1),
@@ -174,6 +174,8 @@ namespace asp {
        "How many RANSAC iterations to use for global or local epipolar alignment.")
       ("outlier-removal-params",  po::value(&global.outlier_removal_params)->default_value(Vector2(95.0, 3.0), "pct factor"),
        "Outlier removal params (percentage and factor) to be used in filtering interest points and the disparity with the box-and-whisker algorithm. Set the percentage to 100 to turn this off.")
+      ("matches-per-tile-params",  po::value(&global.matches_per_tile_params)->default_value(Vector2(1024, 1280), "1024 1280"),
+       "To be used with --matches-per-tile. A larger second value allows each right image interest point to be matched to more than one left image interest point. This may be needed if the homography alignment between these images is not great, as this transform is used to pair up left and right image tiles.")       
       ("disparity-range-expansion-percent", po::value(&global.disparity_range_expansion_percent)->default_value(20),
        "Expand the disparity range estimated from interest points by this percentage before computing the stereo correlation with local epipolar alignment.")
       ("datum",                    po::value(&global.datum)->default_value("WGS_1984"),

@@ -142,6 +142,7 @@ namespace asp {
     double local_alignment_threshold;         /// Max distance from the epipolar line when doing local affine epipolar alignment
     int    alignment_num_ransac_iterations;   ///< How many ransac iterations to do in global or local epipolar alignment transform computation
     vw::Vector2 outlier_removal_params;
+    vw::Vector2i matches_per_tile_params;
     
     bool enable_correct_velocity_aberration;
     bool enable_correct_atmospheric_refraction;

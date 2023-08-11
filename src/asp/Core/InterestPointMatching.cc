@@ -428,6 +428,39 @@ void epipolar_ip_matching_task(bool single_threaded_camera,
   return;
 }
 
+// Given a value x, find all n such that x is in the interval 
+// [n*tile_size - extra, (n+1)*tile_size + extra]. We assume
+// that extra is at most half of tile size, so there are at most 
+// 3 such indices.
+void tile_extra_indices(double x, int tile_size, int extra, std::vector<int> & indices) {
+
+  // This check should not be reached as the input parameters are validated.
+  if (extra > tile_size/2 || extra < 0)
+    vw_throw(ArgumentErr() << "tile_indices: extra is too large or too small.\n");
+
+  // wipe the output
+  indices.clear();
+
+  int n = (int)floor(x / double(tile_size));
+  // iterate in -1, 0, 1
+  for (int i = -1; i <= 1; i++) {
+    int m = n + i;
+    if (m*tile_size - extra <= x && x <= (m+1)*tile_size + extra) {
+      indices.push_back(m);
+    }
+  }
+
+  return;
+}
+
+// Divide the left image and right aligned image into corresponding tiles. Find
+// the vector interest points in each left tile, and the corresponding one in
+// each right tile. These per-tile vectors will later be matched. The returned
+// interest points do not have alignment applied to them, that is only used
+// during processing. The division into tiles is virtual, as no actual tiles get
+// created. TODO(oalexan1): Tiles on the right and bottom edges may be small. We
+// do not take that into account. This may result in interest points there be
+// too dense.
 void group_ip_in_tiles(std::vector<vw::ip::InterestPoint> const& ip1_copy,
                        std::vector<vw::ip::InterestPoint> const& ip2_copy,
                        vw::Matrix<double> align_matrix,
@@ -449,40 +482,46 @@ void group_ip_in_tiles(std::vector<vw::ip::InterestPoint> const& ip1_copy,
   std::cout << "will do matches per tile!\n";
   std::cout << "For last tile, must expand inward!\n";
 
-  int tile_size = 1024; 
   // We will have tiles overlap, to ensure no interest points
   // fall between the cracks. That may happen if alignment is not perfect.
-  int extra = 0; 
-  int extra_tile = tile_size + extra;
-  std::cout << "fix the extra! Need to find how to fast insert ip in multiple boxes!\n";
+  Vector2i params = asp::stereo_settings().matches_per_tile_params;
+  int tile_size = params[0];
+  int extra = (params[1] - params[0])/2;
 
   // Map each ip to a box. 
-  std::cout << "must add to neighboring boxes too!\n";
-  std::cout << "number of input ip is " << ip1_copy.size() << std::endl;
-  std::cout << "must add to multiple boxes!\n";
   std::cout << "size of copy is " << ip1_copy.size() << std::endl;
   std::cout << "don't make copy, iterate over original ip using foreach!\n";
   for (int i = 0; i < (int)ip1_copy.size(); i++) {
     auto & ip = ip1_copy[i];
     vw::Vector2 pt(ip.x, ip.y);
-    // Doing floor on purpose, so ip in [0, extra_tile]^2 go to first box
-    int cx = floor(pt[0]/double(extra_tile));
-    int cy = floor(pt[1]/double(extra_tile));
+    // Doing floor on purpose, so ip in [0, tile_size]^2 go to first box
+    int cx = floor(pt[0]/double(tile_size));
+    int cy = floor(pt[1]/double(tile_size));
     auto p = std::make_pair(cx, cy);
     ip1_vec[p].push_back(ip1_copy[i]);
   }
   // Repeat for ip2. First bring to image1 coordinates
-  std::cout << "Here is where must add a margin!\n";
-  std::cout << "-- forward2?\n";
   for (int i = 0; i < (int)ip2_copy.size(); i++) {
     auto & ip = ip2_copy[i];
-    vw::Vector2 pt(ip.x, ip.y); // bring to left image coordinates
+
+    // Bring to left image coordinates
+    vw::Vector2 pt(ip.x, ip.y); 
     pt = align_trans.forward(pt);
-    // Doing floor on purpose, so ip in [0, extra_tile]^2 go to first box
-    int cx = floor(pt[0]/double(extra_tile));
-    int cy = floor(pt[1]/double(extra_tile));
-    auto p = std::make_pair(cx, cy);
-    ip2_vec[p].push_back(ip2_copy[i]);
+
+    // Find all tiles of size tile_size with padding of extra on each side to
+    // which this belongs. For example, assume for the moment that tiles are in
+    // 1D. Then, the value 3 * tile_size - 0.8 * extra will belong to both tile
+    // 3 and tile 2. Value 3 * tile_size + 0.7 * extra will belong to both tile
+    // 3 and tile 4.
+    std::vector<int> x_indices, y_indices;
+    tile_extra_indices(pt[0], tile_size, extra, x_indices);
+    tile_extra_indices(pt[1], tile_size, extra, y_indices);
+    for (int cx : x_indices) {
+      for (int cy : y_indices) {
+        auto p = std::make_pair(cx, cy);
+        ip2_vec[p].push_back(ip2_copy[i]);
+      }
+    }
   }
 
   return;
@@ -1951,8 +1990,6 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
   double th = stereo_settings().ip_uniqueness_thresh;
   vw_out() << "\t--> Uniqueness threshold: " << th << "\n";
 
-  std::cout << "must introduce alignment matrix here" << std::endl;
-
   std::cout << "---matches per tile is " << asp::stereo_settings().matches_per_tile << std::endl;
   
   bool quiet = false;
@@ -1978,15 +2015,15 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
     std::cout << "matrix 1 = " << matrix1 << std::endl;
     std::cout << "matrix 2 = " << matrix2 << std::endl;
 
-    // Wipe the prior matches
-    matched_ip1.clear(); 
-    matched_ip2.clear();
-
     std::cout << "---now here---" << std::endl;
     // We will use the homography matrix from left to right ip, stored in matrix2.
     // It is expected that matrix1 is the identity matrix.
     if (matrix1 != vw::math::identity_matrix<3>())
       vw::vw_throw( ArgumentErr() << "Expecting identity matrix for left image alignment.\n");
+
+    // Wipe the prior matches
+    matched_ip1.clear(); 
+    matched_ip2.clear();
 
     vw::Matrix<double> align_matrix = matrix2; // use the homography matrix
     std::cout << "alignment transform is " << align_matrix << std::endl;
