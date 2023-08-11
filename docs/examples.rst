@@ -26,7 +26,6 @@ and in :numref:`sfm` (for orbital images with no rig).
    examples/mer
    examples/k10
    examples/lronac
-   examples/lrowac
    examples/apollo15
    examples/hrsc
    examples/cassini
