@@ -472,15 +472,7 @@ void group_ip_in_tiles(std::vector<vw::ip::InterestPoint> const& ip1_copy,
   ip1_vec.clear();
   ip2_vec.clear();
 
-  std::cout << "alignment transform is " << align_matrix << std::endl;
   HomographyTransform align_trans(align_matrix);
-
-  std::cout << "--ip per tile is " << asp::stereo_settings().ip_per_tile << std::endl;
-  std::cout << "matches per tile is " << asp::stereo_settings().matches_per_tile << std::endl;
-  std::cout << "ip per image is " << asp::stereo_settings().ip_per_image << std::endl;
-  
-  std::cout << "will do matches per tile!\n";
-  std::cout << "For last tile, must expand inward!\n";
 
   // We will have tiles overlap, to ensure no interest points
   // fall between the cracks. That may happen if alignment is not perfect.
@@ -489,8 +481,6 @@ void group_ip_in_tiles(std::vector<vw::ip::InterestPoint> const& ip1_copy,
   int extra = (params[1] - params[0])/2;
 
   // Map each ip to a box. 
-  std::cout << "size of copy is " << ip1_copy.size() << std::endl;
-  std::cout << "don't make copy, iterate over original ip using foreach!\n";
   for (int i = 0; i < (int)ip1_copy.size(); i++) {
     auto & ip = ip1_copy[i];
     vw::Vector2 pt(ip.x, ip.y);
@@ -595,7 +585,7 @@ bool epipolar_ip_matching(bool single_threaded_camera,
   matched_ip1.clear();
   matched_ip2.clear();
 
-  std::cout << "remove the copy\n";
+  // TODO(oalexan1): Avoid this copy
   std::vector<vw::ip::InterestPoint> ip1_copy, ip2_copy;
   ip1_copy.reserve(ip1.size());
   ip2_copy.reserve(ip2.size());
@@ -644,31 +634,19 @@ bool epipolar_ip_matching(bool single_threaded_camera,
           datum, quiet, cam1, cam2, ip1, ip2,
           matched_ip1, matched_ip2); // outputs
   } else {
-    bool quiet = false;
-    std::cout << "must make quiet be true\n";
+    bool quiet = true;
     number_of_jobs = 1;
-
-    std::cout << "alignment transform is " << align_matrix << std::endl;
-    std::cout << "---matches per tile is " << asp::stereo_settings().matches_per_tile <<  std::endl;
 
     std::map<std::pair<int, int>, std::vector<vw::ip::InterestPoint>> ip1_vec, ip2_vec;
 
-    std::cout << "alignment transform is " << align_matrix << std::endl;
-
     group_ip_in_tiles(ip1_copy, ip2_copy, align_matrix, 
       ip1_vec, ip2_vec); // outputs
-
-    std::cout << "--now here\n";
-    std::cout << "ip1 vec size is " << ip1_vec.size() << std::endl;
-    std::cout << "ip2 vec size is " << ip2_vec.size() << std::endl;
 
     matched_ip1.clear(); 
     matched_ip2.clear();
     std::set<std::pair<float, float>> set1, set2; // to help find unique matches
     // Now iterate over each set of ip in ip1_vec
     for (auto it1 = ip1_vec.begin(); it1 != ip1_vec.end(); it1++) {
-
-      std::cout << "--now start in tile\n";
 
       // Find the corresponding set of ip in ip1_vec and ip2_vec
       auto key = it1->first;
@@ -681,18 +659,13 @@ bool epipolar_ip_matching(bool single_threaded_camera,
 
       // Copy from std::vector<vw::ip::InterestPoint> to 
       // vw::ip::InterestPointList
-      std::cout << "Must remove this copy\n";
+      // TODO(oalexan1): Avoid this copy
       vw::ip::InterestPointList ip1_list, ip2_list;
-      std::cout << "---input size is " << tile_ip1.size() << std::endl;
-      std::cout << "---input size is " << tile_ip2.size() << std::endl;
       for (size_t i = 0; i < tile_ip1.size(); i++)
         ip1_list.push_back(tile_ip1[i]);
       for (size_t i = 0; i < tile_ip2.size(); i++)
         ip2_list.push_back(tile_ip2[i]);
       
-      std::cout << "--output size is " << ip1_list.size() << std::endl;
-      std::cout << "--output size is " << ip2_list.size() << std::endl;
-      std::cout << "--list size is " << ip1_list.size() << std::endl;
       std::vector<vw::ip::InterestPoint> local_matched_ip1, local_matched_ip2;
       try {
         epipolar_ip_matching_task(single_threaded_camera, detect_method, 
@@ -703,25 +676,14 @@ bool epipolar_ip_matching(bool single_threaded_camera,
         // This need not succeed
         continue;
       }
-      std::cout << "end of epipolar_ip_matching_task\n";
 
       // Add to the global list
-
-      std::cout << "number of matches in box is " << local_matched_ip1.size() << std::endl;
-      std::cout << "number of matches in box is " << local_matched_ip2.size() << std::endl;
-      std::cout << "---now 1\n";
-      std::cout << "matches per tile is " << asp::stereo_settings().matches_per_tile << std::endl;
       if (local_matched_ip1.size() > asp::stereo_settings().matches_per_tile)
         pick_subset(asp::stereo_settings().matches_per_tile, 
           local_matched_ip1, local_matched_ip2);
 
-      std::cout << "now 2\n";
-      
-      std::cout << "will append new matches\n"; 
       append_new_matches(local_matched_ip1, local_matched_ip2,
          set1, set2, matched_ip1, matched_ip2); // append here
-      std::cout << "--end of append new matches\n";
-
     } // end iterating over sets of ip
   } // end if matches per tile
 
@@ -1776,7 +1738,6 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
     vw_out() << "Rough homography fit failed, trying with identity transform. " << std::endl;
     rough_homography.set_identity(3);
   }
-  std::cout << "xxx4 " << rough_homography << std::endl;
 
   // Remove the main translation and solve for BBox that fits the
   // image. If we used the translation from the solved homography with
@@ -1872,8 +1833,6 @@ bool ip_matching_with_datum(
                  ip_per_tile, left_file_path, right_file_path,
                  nodata1, nodata2);
 
-  std::cout << "finished with detect_ip_aligned_pair" << std::endl;
-
   // Match the detected IPs which are in the original image coordinates.
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   bool match_per_tile = false;
@@ -1887,8 +1846,6 @@ bool ip_matching_with_datum(
   if (!inlier)
     return false;
 
-  std::cout << "finished with epipolar_ip_matching" << std::endl;
-
   // Use the interest points that we found to compute an aligning
   // homography transform for the two images.
   // - This is just a sanity check.
@@ -1897,8 +1854,6 @@ bool ip_matching_with_datum(
   homography_rectification(adjust_left_image_size,
 			   image1.get_size(), image2.get_size(),
 			   matched_ip1, matched_ip2, matrix1, matrix2);
-  std::cout << "matrix 1 = " << matrix1 << std::endl;
-  std::cout << "matrix 2 = " << matrix2 << std::endl;
   if (use_rough_homography && 
       sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4) {
     vw_out() << "Homography transform has largely different scale and skew "
@@ -1910,7 +1865,6 @@ bool ip_matching_with_datum(
 
   // Second pass if doing matches per tile
   if (asp::stereo_settings().matches_per_tile > 0) {
-    std::cout << "---now here---" << std::endl;
     // We will use the homography matrix from left to right ip, stored in matrix2.
     // It is expected that matrix1 is the identity matrix.
     if (matrix1 != vw::math::identity_matrix<3>())
@@ -1990,16 +1944,13 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
   double th = stereo_settings().ip_uniqueness_thresh;
   vw_out() << "\t--> Uniqueness threshold: " << th << "\n";
 
-  std::cout << "---matches per tile is " << asp::stereo_settings().matches_per_tile << std::endl;
-  
   bool quiet = false;
   match_ip_task(ip1_copy, ip2_copy, detect_method, th, quiet,
     matched_ip1, matched_ip2); // outputs
-  std::cout << "--Set here matcher task, verbose or not, and number of jobs.\n";
-  std::cout << "Then break up into tiles, and call for each tile:\n";
-  std::cout << "no multithreading yet, so use 1 job. Just checking that it works.\n";
-  std::cout << "Must make unique here!\n";
-  std::cout << "This is O(N^2)!\n";
+
+  // TODO(oalexan1): Make multi-threaded.
+
+  // TODO(oalexan1): The code below is O(N^2).
   vw::ip::remove_duplicates(matched_ip1, matched_ip2);
 
   if (asp::stereo_settings().matches_per_tile != 0) {
@@ -2012,10 +1963,7 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
     homography_rectification(adjust_left_image_size,
           image1.get_size(), image2.get_size(),
           matched_ip1, matched_ip2, matrix1, matrix2);
-    std::cout << "matrix 1 = " << matrix1 << std::endl;
-    std::cout << "matrix 2 = " << matrix2 << std::endl;
 
-    std::cout << "---now here---" << std::endl;
     // We will use the homography matrix from left to right ip, stored in matrix2.
     // It is expected that matrix1 is the identity matrix.
     if (matrix1 != vw::math::identity_matrix<3>())
@@ -2026,15 +1974,10 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
     matched_ip2.clear();
 
     vw::Matrix<double> align_matrix = matrix2; // use the homography matrix
-    std::cout << "alignment transform is " << align_matrix << std::endl;
 
     std::map<std::pair<int, int>, std::vector<vw::ip::InterestPoint>> ip1_vec, ip2_vec;
     group_ip_in_tiles(ip1_copy, ip2_copy, align_matrix, 
       ip1_vec, ip2_vec); // outputs
-
-    std::cout << "--now here\n";
-    std::cout << "ip1 vec size is " << ip1_vec.size() << std::endl;
-    std::cout << "ip2 vec size is " << ip2_vec.size() << std::endl;
 
     bool quiet = true;  
     std::set<std::pair<float, float>> set1, set2; // to help find unique matches
@@ -2055,12 +1998,8 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
                       local_matched_ip1, local_matched_ip2); // outputs
       } catch (const vw::Exception& e) {
         // This can fail
-        std::cout << "Caught exception! " << e.what() << std::endl;
         continue;
       }
-
-      std::cout << "number of matches in box is " << local_matched_ip1.size() << std::endl;
-      std::cout << "number of matches in box is " << local_matched_ip2.size() << std::endl;
 
       if (local_matched_ip1.size() > asp::stereo_settings().matches_per_tile)
         pick_subset(asp::stereo_settings().matches_per_tile, 
