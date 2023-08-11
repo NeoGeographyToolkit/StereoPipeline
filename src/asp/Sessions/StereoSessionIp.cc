@@ -157,6 +157,18 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     have_datum = false;
   }
     
+  // Jobs set to 2x the number of cores. This is just incase all jobs are not equal.
+  // The total number of interest points will be divided up among the jobs.
+  size_t number_of_jobs = vw_settings().default_num_threads() * 2;
+#if __APPLE__
+  // Fix due to OpenBLAS crashing and/or giving different results
+  // each time. 
+  // TODO(oalexan1): Revisit this.
+  number_of_jobs = std::min(int(vw_settings().default_num_threads()), 1);
+  vw_out() << "\t    Using " << number_of_jobs << " thread(s) for matching.\n";
+#endif
+
+
   if (have_datum) {
     // Run an IP matching function that takes the camera and datum info into account
 
@@ -211,7 +223,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                      cam1, cam2,
                                      image1_norm, image2_norm,
                                      asp::stereo_settings().ip_per_tile,
-                                     datum, match_filename,
+                                     datum, match_filename, number_of_jobs,
                                      epipolar_threshold, ip_uniqueness_thresh,
                                      left_ip_file, right_ip_file,
                                      nodata1, nodata2);
@@ -229,7 +241,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     inlier = homography_ip_matching(image1_norm, image2_norm,
                                     asp::stereo_settings().ip_per_tile,
                                     inlier_threshold,
-                                    match_filename,
+                                    match_filename, number_of_jobs,
                                     left_ip_file, right_ip_file,
                                     nodata1, nodata2);
   }

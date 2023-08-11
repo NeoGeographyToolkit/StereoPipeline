@@ -61,6 +61,15 @@ Here we assumed that the cameras point towards some planet's surface and
 used the ``nadirpinhole`` session. If this assumption is not true, one
 should use the ``pinhole`` session or the ``--no-datum`` option.
 
+Example when it is desired to distribute the interest points somewhat uniformly
+(helpful when different parts of image have different properties)::
+
+    bundle_adjust image1.tif image2.tif          \
+        image1.tsai image2.tsai                  \
+        --ip-per-tile 300 --matches-per-tile 100 \
+        --camera-weight 0 --tri-weight 0.1       \
+        -o run_ba/run 
+
 Large-scale bundle adjustment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

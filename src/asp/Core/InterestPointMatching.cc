@@ -889,7 +889,8 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
   using namespace vw;
 
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-  detect_match_ip(matched_ip1, matched_ip2, image1,  image2, ip_per_tile,
+  size_t number_of_jobs = 1;
+  detect_match_ip(matched_ip1, matched_ip2, image1,  image2, ip_per_tile, number_of_jobs,
                   left_file_path, right_file_path, nodata1, nodata2);
   
   std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
@@ -935,6 +936,7 @@ bool homography_ip_matching(
       int    ip_per_tile,
       int    inlier_threshold,
       std::string const& match_filename,
+      size_t number_of_jobs,
       std::string const  left_file_path,
       std::string const  right_file_path,
       double nodata1, double nodata2) {
@@ -944,7 +946,7 @@ bool homography_ip_matching(
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   detect_match_ip(matched_ip1, matched_ip2,
 		  image1, image2,
-		  ip_per_tile,
+		  ip_per_tile, number_of_jobs,
 		  left_file_path, right_file_path,
 		  nodata1, nodata2);
   if (matched_ip1.size() == 0 || matched_ip2.size() == 0)

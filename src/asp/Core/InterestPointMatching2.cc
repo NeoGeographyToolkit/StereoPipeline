@@ -366,13 +366,13 @@ void EpipolarLinePointMatcher::operator()(ip::InterestPointList const& ip1,
 
 // Match a set of interest points. This can be invoked for all interest points
 // in the image, then multiple threads are used, for for partial subsets,
-// when this should be called with a single thread, as mulitple such calls
+// when this should be called with a single thread, as multiple such calls
 // may be running in parallel.
 void epipolar_ip_matching_task(bool single_threaded_camera,
         DetectIpMethod detect_method, 
+        int number_of_jobs,
         double epipolar_threshold,
         double uniqueness_threshold,
-        int number_of_jobs,
         vw::cartography::Datum const& datum,
         bool quiet,
         vw::camera::CameraModel* cam1,
@@ -610,6 +610,7 @@ void matches_per_tile(bool have_datum,
                       vw::ImageViewRef<float> const& image1,
                       vw::ImageViewRef<float> const& image2,
                       vw::cartography::Datum const& datum,
+                      size_t number_of_jobs,
                       double epipolar_threshold,
                       double uniqueness_threshold,
                       double nodata1, double nodata2,
@@ -623,7 +624,6 @@ void matches_per_tile(bool have_datum,
   matched_ip2.clear();
 
   // TODO(oalexan1): Add multi-threading here.
-  int number_of_jobs = 1;
   bool quiet = true;
   std::map<std::pair<int, int>, std::vector<vw::ip::InterestPoint>> ip1_vec, ip2_vec;
   group_ip_in_tiles(ip1_copy, ip2_copy, align_matrix, 
@@ -653,8 +653,9 @@ void matches_per_tile(bool have_datum,
             ip1_list.push_back(tile_ip1[i]);
         for (size_t i = 0; i < tile_ip2.size(); i++)
             ip2_list.push_back(tile_ip2[i]);
+        int local_number_of_jobs = 1;
         epipolar_ip_matching_task(single_threaded_camera, detect_method, 
-            epipolar_threshold, uniqueness_threshold, number_of_jobs, 
+            local_number_of_jobs, epipolar_threshold, uniqueness_threshold, 
             datum, quiet, cam1, cam2, ip1_list, ip2_list,
             local_matched_ip1, local_matched_ip2); // outputs
       } else {
@@ -690,6 +691,7 @@ bool epipolar_ip_matching(bool single_threaded_camera,
         vw::ImageViewRef<float> const& image1,
         vw::ImageViewRef<float> const& image2,
         vw::cartography::Datum const& datum,
+        size_t number_of_jobs,
         double epipolar_threshold,
         double uniqueness_threshold,
         double nodata1, double nodata2,
@@ -722,29 +724,19 @@ bool epipolar_ip_matching(bool single_threaded_camera,
   vw_out() << "\t    Uniqueness threshold: " << uniqueness_threshold << "\n";
   vw_out() << "\t    Epipolar threshold:   " << epipolar_threshold   << "\n";
   
-  // Jobs set to 2x the number of cores. This is just incase all jobs are not equal.
-  // The total number of interest points will be divided up among the jobs.
-  size_t number_of_jobs = vw_settings().default_num_threads() * 2;
-#if __APPLE__
-  // Fix due to OpenBLAS crashing and/or giving different results
-  // each time. May need to be revisited.
-  number_of_jobs = std::min(int(vw_settings().default_num_threads()), 1);
-  vw_out() << "\t    Using " << number_of_jobs << " thread(s) for matching.\n";
-#endif
-
   // Do matching
   if (!match_per_tile) {
     bool quiet = false; // has to be true if many such jobs exist
     epipolar_ip_matching_task(single_threaded_camera, detect_method, 
-          epipolar_threshold, uniqueness_threshold, number_of_jobs, 
+          number_of_jobs, epipolar_threshold, uniqueness_threshold, 
           datum, quiet, cam1, cam2, ip1, ip2,
           matched_ip1, matched_ip2); // outputs
   } else {
     bool have_datum = true;
     matches_per_tile(have_datum, single_threaded_camera, detect_method,
                      ip1_copy, ip2_copy, cam1, cam2, image1, image2, datum,
-                     epipolar_threshold, uniqueness_threshold, nodata1, nodata2,
-                     align_matrix, 
+                     number_of_jobs, epipolar_threshold, uniqueness_threshold,
+                     nodata1, nodata2, align_matrix, 
                      matched_ip1, matched_ip2); // outputs
   }
 
@@ -847,6 +839,7 @@ bool ip_matching_with_datum(
             int ip_per_tile,
             vw::cartography::Datum const& datum,
             std::string const& match_filename,
+            size_t number_of_jobs,
             double epipolar_threshold,
             double uniqueness_threshold,
             std::string const left_file_path,
@@ -879,7 +872,7 @@ bool ip_matching_with_datum(
   bool inlier = epipolar_ip_matching(
        single_threaded_camera,
 			 ip1, ip2, cam1, cam2, image1, image2, 
-       datum, epipolar_threshold, uniqueness_threshold, nodata1, nodata2,
+       datum, number_of_jobs, epipolar_threshold, uniqueness_threshold, nodata1, nodata2,
        match_per_tile, align_matrix,
 			 matched_ip1, matched_ip2); // Outputs
   if (!inlier)
@@ -916,11 +909,11 @@ bool ip_matching_with_datum(
     align_matrix = matrix2; // use the homography matrix
     bool inlier =
       epipolar_ip_matching(single_threaded_camera,
-          ip1, ip2, cam1, cam2, image1, image2, 
-          datum, epipolar_threshold, uniqueness_threshold,
-          nodata1, nodata2,
-          match_per_tile, align_matrix,
-          matched_ip1, matched_ip2); // Outputs
+        ip1, ip2, cam1, cam2, image1, image2, 
+        datum, number_of_jobs, epipolar_threshold, uniqueness_threshold,
+        nodata1, nodata2,
+        match_per_tile, align_matrix,
+        matched_ip1, matched_ip2); // Outputs
     if (!inlier)
       return false;
   }
@@ -938,6 +931,7 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
                    vw::ip::InterestPointList const& ip2,
                    vw::ImageViewRef<float> const& image1,
                    vw::ImageViewRef<float> const& image2,
+                   size_t number_of_jobs,
                    // Outputs
                    std::vector<vw::ip::InterestPoint>& matched_ip1,
                    std::vector<vw::ip::InterestPoint>& matched_ip2,
@@ -993,8 +987,8 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
     vw::cartography::Datum datum;
     matches_per_tile(have_datum, single_threaded_camera, detect_method,
                      ip1_copy, ip2_copy, cam1, cam2, image1, image2, datum,
-                     epipolar_threshold, uniqueness_threshold, nodata1, nodata2,
-                     align_matrix, 
+                     number_of_jobs, epipolar_threshold, uniqueness_threshold,
+                     nodata1, nodata2, align_matrix, 
                      matched_ip1, matched_ip2); // outputs
   }
 

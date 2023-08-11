@@ -350,9 +350,11 @@ void load_or_compute_ip(std::string const & left_unalgined_image,
   
   // This range is extra large to handle elevation differences.
   const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default
+  size_t number_of_jobs = 1;
   success = asp::homography_ip_matching(left_image, right_image,
                                         stereo_settings().ip_per_tile,
                                         inlier_threshold, match_filename,
+                                        number_of_jobs,
                                         left_ip_filename, right_ip_filename,
                                         left_nodata_value, right_nodata_value);
 
