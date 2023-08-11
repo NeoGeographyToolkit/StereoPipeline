@@ -384,6 +384,21 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
   return ((ip1.size() > 0) && (ip2.size() > 0));
 }
 
+// Detect interest points. Return also the rough homography that aligns the right image
+// to the left.
+bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
+  vw::camera::CameraModel* cam2,
+  vw::ImageViewRef<float> const& image1,
+  vw::ImageViewRef<float> const& image2,
+  int ip_per_tile,
+  vw::cartography::Datum const& datum,
+  std::string const left_file_path,
+  double nodata1, double nodata2,
+  // Outputs
+  vw::ip::InterestPointList& ip1,
+  vw::ip::InterestPointList& ip2,
+  vw::Matrix<double> &rough_homography);
+
 /// Detect interest points and use a simple matching technique.
 /// This is not meant to be used directly. Use ip_matching().
 template <class Image1T, class Image2T>
@@ -413,6 +428,13 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
     matched_ip1, matched_ip2, match_file); // outputs
 
 } // End function detect_match_ip
+
+// A debug routine to save images with matches on top of them.
+void write_match_image(std::string const& out_file_name,
+                       vw::ImageViewRef<float> const& image1,
+                       vw::ImageViewRef<float> const& image2,
+                       std::vector<vw::ip::InterestPoint> const& matched_ip1,
+                       std::vector<vw::ip::InterestPoint> const& matched_ip2);
 
 } // End namespace asp
 
