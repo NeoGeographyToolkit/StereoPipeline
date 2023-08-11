@@ -329,6 +329,9 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
   // Create the output directory based on the output prefix
   vw::create_out_dir(opt.out_prefix);
 
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
+
   return;
 }
 

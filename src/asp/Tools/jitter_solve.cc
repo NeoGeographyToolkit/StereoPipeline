@@ -235,6 +235,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
+
   // Set this before loading cameras, as jitter for DG can be modeled only with CSM
   // cameras.
   asp::stereo_settings().dg_use_csm = true;

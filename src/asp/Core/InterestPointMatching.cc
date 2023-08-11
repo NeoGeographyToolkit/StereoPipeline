@@ -22,7 +22,7 @@
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Mosaic/ImageComposite.h>
 #include <vw/Image/AlgorithmFunctions.h>
-#include <vw/Math/RandomSet.h> // Move this when moving the random subset code
+#include <vw/Math/RandomSet.h> // TODO(oalexan1): Rm this when moving the random subset code
 #include <vw/Core/Stopwatch.h>
 
 using namespace vw;
@@ -158,7 +158,7 @@ class EpipolarLineMatchTask: public Task, private boost::noncopyable {
   typedef ip::InterestPointList::const_iterator IPListIter;
   bool                            m_single_threaded_camera;
   bool                            m_use_uchar_tree;
-  math::FLANNTree<float        >& m_tree_float;
+  math::FLANNTree<float>        & m_tree_float;
   math::FLANNTree<unsigned char>& m_tree_uchar;
   IPListIter                      m_start, m_end;
   ip::InterestPointList const&    m_ip_other;
@@ -200,9 +200,11 @@ public:
       if (m_single_threaded_camera){
         // ISIS camera is single-threaded
         Mutex::Lock lock(m_camera_mutex);
-        line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
+        line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, 
+          m_cam1, m_cam2, found_epipolar);
       }else{
-        line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
+        line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, 
+          m_cam1, m_cam2, found_epipolar);
       }
 
       if (!found_epipolar) {
@@ -370,8 +372,8 @@ void epipolar_ip_matching_task(bool single_threaded_camera,
         int number_of_jobs,
         vw::cartography::Datum const& datum,
         bool quiet,
-			  vw::camera::CameraModel* cam1,
-			  vw::camera::CameraModel* cam2,
+        vw::camera::CameraModel* cam1,
+        vw::camera::CameraModel* cam2,
         vw::ip::InterestPointList const& ip1,
         vw::ip::InterestPointList const& ip2,
         // Outputs
@@ -542,8 +544,8 @@ void append_new_matches(
   return;
 }
 
-// Make the code above a function for picking a subset
-// TODO(oalexan1): Call it in ControlNetworkLoader.cc
+// TODO(oalexan1): Move this function out of here.
+// TODO(oalexan1): Call this function in ControlNetworkLoader.cc
 void pick_subset(int max_pairwise_matches, 
   std::vector<ip::InterestPoint> & ip1, 
   std::vector<ip::InterestPoint> & ip2) {
@@ -614,17 +616,6 @@ bool epipolar_ip_matching(bool single_threaded_camera,
   number_of_jobs = std::min(int(vw_settings().default_num_threads()), 1);
   vw_out() << "\t    Using " << number_of_jobs << " thread(s) for matching.\n";
 #endif
-
-  // TODO(oalexan1): Must use one job if using multiple tiles
-  // TODO(oalexan1): Tile size is 1024x1024. 
-  // To put right image ip in tile need to apply alignment. May also need to 
-  // Make the tiles have some overlap then remove duplicates lr and rl.
-
-  // TODO(oalexan1): Mapproject both images to same extent. Divide into tiles,
-  // run on each tile, combine, make unique, l-r, and r-l. Save to disk. 
-  // If that works, consider estimating the alignment. 
-
-  // Note that actually the code to change is not here, but in homography!
 
   // Do matching
   if (!match_per_tile) {
@@ -1837,8 +1828,8 @@ bool ip_matching_with_datum(
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   bool match_per_tile = false;
   vw::Matrix<double> align_matrix = vw::math::identity_matrix<3>();
-  bool inlier =
-    epipolar_ip_matching(single_threaded_camera,
+  bool inlier = epipolar_ip_matching(
+       single_threaded_camera,
 			 ip1, ip2, cam1, cam2, image1, image2, 
        datum, epipolar_threshold, uniqueness_threshold, nodata1, nodata2,
        match_per_tile, align_matrix,
@@ -1846,14 +1837,17 @@ bool ip_matching_with_datum(
   if (!inlier)
     return false;
 
-  // Use the interest points that we found to compute an aligning
-  // homography transform for the two images.
-  // - This is just a sanity check.
+  // Use the interest points that we found to compute an aligning homography
+  // transform for the two images. This is always needed when finding matches
+  // per tile or with rough homography.
   bool adjust_left_image_size = false;
-  Matrix<double> matrix1, matrix2;
-  homography_rectification(adjust_left_image_size,
+  Matrix<double> matrix1 = vw::math::identity_matrix<3>();
+  Matrix<double> matrix2 = vw::math::identity_matrix<3>();
+  if (use_rough_homography || asp::stereo_settings().matches_per_tile > 0) {
+    homography_rectification(adjust_left_image_size,
 			   image1.get_size(), image2.get_size(),
 			   matched_ip1, matched_ip2, matrix1, matrix2);
+  }
   if (use_rough_homography && 
       sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4) {
     vw_out() << "Homography transform has largely different scale and skew "
