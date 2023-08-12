@@ -18,6 +18,8 @@ Usage::
      bundle_adjust <images> <cameras> <optional ground control points> \
        -o <output prefix> [options]
 
+.. _ba_examples:
+
 Examples
 ~~~~~~~~
 
@@ -67,6 +69,7 @@ Example when it is desired to distribute the interest points somewhat uniformly
     bundle_adjust image1.tif image2.tif          \
         image1.tsai image2.tsai                  \
         --ip-per-tile 300 --matches-per-tile 100 \
+        --max-pairwise-matches 20000             \
         --camera-weight 0 --tri-weight 0.1       \
         -o run_ba/run 
 
@@ -603,7 +606,8 @@ Command-line options for bundle_adjust
 --matches-per-tile <int (default: unspecified)>
     How many interest point matches to compute in each image tile (of size
     normally :math:`1024^2` pixels). Use a value of ``--ip-per-tile`` a few
-    times larger than this. See also ``--matches-per-tile-params``.
+    times larger than this. See an example in :numref:`ba_examples`. See also
+    ``--matches-per-tile-params``.
 
 --matches-per-tile-params <int int (default: 1024 1280)>
     To be used with ``--matches-per-tile``. The first value is the image tile

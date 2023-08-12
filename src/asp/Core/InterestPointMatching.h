@@ -418,9 +418,14 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 
   // Detect interest points in the two images
   vw::ip::InterestPointList ip1, ip2;
+  vw::Stopwatch sw;
+  sw.start();
   detect_ip_pair(ip1, ip2, image1, image2, ip_per_tile,
                  left_file_path, right_file_path, nodata1, nodata2);
-  
+  sw.stop();
+  vw::vw_out() << "Detecting interest points elapsed time: "
+               << sw.elapsed_seconds() << " s." << std::endl;
+               
   // Cast to float to make this compile
   vw::ImageViewRef<float> im1 = vw::pixel_cast<float>(image1);
   vw::ImageViewRef<float> im2 = vw::pixel_cast<float>(image2);

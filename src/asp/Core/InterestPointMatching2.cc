@@ -527,8 +527,8 @@ void append_new_matches(
           std::vector<vw::ip::InterestPoint> const& local_matched_ip1,
           std::vector<vw::ip::InterestPoint> const& local_matched_ip2,
           // Outputs (append)
-          std::set<std::pair<float, float>> & set1,
-          std::set<std::pair<float, float>> & set2,
+          std::set<std::pair<float, float>> & seen1,
+          std::set<std::pair<float, float>> & seen2,
           std::vector<vw::ip::InterestPoint> & matched_ip1,
           std::vector<vw::ip::InterestPoint> & matched_ip2) {
 
@@ -537,11 +537,11 @@ void append_new_matches(
     auto & ip2 = local_matched_ip2[i];
     auto p1 = std::make_pair(ip1.x, ip1.y);
     auto p2 = std::make_pair(ip2.x, ip2.y);
-    if (set1.find(p1) == set1.end() && set2.find(p2) == set2.end()) {
+    if (seen1.find(p1) == seen1.end() && seen2.find(p2) == seen2.end()) {
       matched_ip1.push_back(ip1);
       matched_ip2.push_back(ip2);
-      set1.insert(p1);
-      set2.insert(p2);
+      seen1.insert(p1);
+      seen2.insert(p2);
     }
   }
   return;
@@ -597,6 +597,128 @@ void match_ip_no_datum(std::vector<vw::ip::InterestPoint> const& ip1_copy,
   return;
 }
 
+// Local class definition
+class MatchPerTileTask: public Task, private boost::noncopyable {
+
+  int m_start_tile, m_num_tiles_per_job;
+  bool m_have_datum, m_single_threaded_camera;
+  DetectIpMethod m_detect_method;
+  std::map<std::pair<int, int>, std::vector<vw::ip::InterestPoint>> const& m_ip1_vec;
+  std::map<std::pair<int, int>, std::vector<vw::ip::InterestPoint>> const& m_ip2_vec;
+  vw::camera::CameraModel* m_cam1;
+  vw::camera::CameraModel* m_cam2;
+  vw::cartography::Datum const& m_datum;
+  double m_epipolar_threshold;
+  double m_uniqueness_threshold;
+  vw::Matrix<double> const& m_align_matrix;
+  int m_matches_per_tile;
+  // Outputs
+  std::set<std::pair<float, float>> & m_seen1;
+  std::set<std::pair<float, float>> & m_seen2;
+  std::vector<vw::ip::InterestPoint> & m_matched_ip1;
+  std::vector<vw::ip::InterestPoint> & m_matched_ip2;
+  Mutex& m_match_mutex;
+
+public:
+  MatchPerTileTask(int start_tile, int num_tiles_per_job,
+                   bool have_datum, 
+                   bool single_threaded_camera,
+                   DetectIpMethod detect_method,
+                   std::map<std::pair<int, int>, std::vector<vw::ip::InterestPoint>> 
+                   const& ip1_vec,
+                   std::map<std::pair<int, int>, std::vector<vw::ip::InterestPoint>> 
+                   const& ip2_vec,
+                   vw::camera::CameraModel* cam1,
+                   vw::camera::CameraModel* cam2,
+                   vw::cartography::Datum const& datum,
+                   double epipolar_threshold,
+                   double uniqueness_threshold,
+                   vw::Matrix<double> const& align_matrix,
+                   int matches_per_tile,
+                   // Outputs
+                   std::set<std::pair<float, float>> & seen1, 
+                   std::set<std::pair<float, float>> & seen2, 
+                   std::vector<vw::ip::InterestPoint> & matched_ip1,
+                   std::vector<vw::ip::InterestPoint> & matched_ip2,
+                   Mutex& match_mutex):
+    m_start_tile(start_tile), 
+    m_num_tiles_per_job(num_tiles_per_job),
+    m_have_datum(have_datum),
+    m_single_threaded_camera(single_threaded_camera),
+    m_detect_method(detect_method),
+    m_ip1_vec(ip1_vec), m_ip2_vec(ip2_vec),
+    m_cam1(cam1), m_cam2(cam2), m_datum(datum),
+    m_epipolar_threshold(epipolar_threshold),
+    m_uniqueness_threshold(uniqueness_threshold),
+    m_align_matrix(align_matrix),
+    m_matches_per_tile(matches_per_tile),
+    m_seen1(seen1), m_seen2(seen2),
+    m_matched_ip1(matched_ip1), m_matched_ip2(matched_ip2),
+    m_match_mutex(match_mutex) {}
+
+  void operator()() {
+  
+    bool quiet = true;
+
+    // Do the tiles within the range [m_start_tile, m_start_tile + m_num_tiles_per_job)
+    int tile_id = -1;
+    for (auto it1 = m_ip1_vec.begin(); it1 != m_ip1_vec.end(); it1++) {
+
+      // Do only the tiles within desired range
+      tile_id++;
+      if (tile_id < m_start_tile) continue;
+      if (tile_id >= m_start_tile + m_num_tiles_per_job) break;
+
+      // Find the corresponding set of ip in ip1_vec and ip2_vec
+      auto key = it1->first;
+      auto it2 = m_ip2_vec.find(key);
+      if (it2 == m_ip2_vec.end()) 
+        continue; // no matches in this tile
+
+      std::vector<vw::ip::InterestPoint> const & tile_ip1 = it1->second; // alias
+      std::vector<vw::ip::InterestPoint> const & tile_ip2 = it2->second; // alias
+
+      std::vector<vw::ip::InterestPoint> local_matched_ip1, local_matched_ip2;
+      try {
+        if (m_have_datum) {
+          // Copy from std::vector<vw::ip::InterestPoint> to vw::ip::InterestPointList
+          // TODO(oalexan1): Avoid this copy
+          vw::ip::InterestPointList ip1_list, ip2_list;
+          for (size_t i = 0; i < tile_ip1.size(); i++)
+              ip1_list.push_back(tile_ip1[i]);
+          for (size_t i = 0; i < tile_ip2.size(); i++)
+              ip2_list.push_back(tile_ip2[i]);
+          int local_number_of_jobs = 1;
+          epipolar_ip_matching_task(m_single_threaded_camera, m_detect_method, 
+              local_number_of_jobs, m_epipolar_threshold, m_uniqueness_threshold, 
+              m_datum, quiet, m_cam1, m_cam2, ip1_list, ip2_list,
+              local_matched_ip1, local_matched_ip2); // outputs
+        } else {
+          match_ip_no_datum(tile_ip1, tile_ip2, m_detect_method, m_uniqueness_threshold, 
+            quiet, local_matched_ip1, local_matched_ip2); // outputs
+        }
+      } catch(...) {
+        // This need not succeed
+        return;
+      }
+
+      // Remove some ip if too many
+      if (local_matched_ip1.size() > m_matches_per_tile)
+      pick_subset(m_matches_per_tile, local_matched_ip1, local_matched_ip2);
+
+      {
+        // Update the global output variables
+        Mutex::Lock lock(m_match_mutex);
+        append_new_matches(local_matched_ip1, local_matched_ip2,
+          m_seen1, m_seen2, m_matched_ip1, m_matched_ip2); // append here
+      }
+  }
+
+    return;
+  } // End function operator()
+
+}; // End class MatchPerTileTask
+
 // Do interest point matching per tile, with and without having a datum. The
 // alignment matrix is used to bring the interest points in image2 to image1
 // coordinates. Use stereo_settings().matches_per_tile_params.
@@ -607,13 +729,10 @@ void matches_per_tile(bool have_datum,
                       std::vector<vw::ip::InterestPoint> const& ip2_copy,
                       vw::camera::CameraModel* cam1,
                       vw::camera::CameraModel* cam2,
-                      vw::ImageViewRef<float> const& image1,
-                      vw::ImageViewRef<float> const& image2,
                       vw::cartography::Datum const& datum,
                       size_t number_of_jobs,
                       double epipolar_threshold,
                       double uniqueness_threshold,
-                      double nodata1, double nodata2,
                       vw::Matrix<double> const& align_matrix,
                       // Outputs
                       std::vector<vw::ip::InterestPoint>& matched_ip1,
@@ -629,55 +748,37 @@ void matches_per_tile(bool have_datum,
   group_ip_in_tiles(ip1_copy, ip2_copy, align_matrix, 
       ip1_vec, ip2_vec); // outputs
 
-  std::set<std::pair<float, float>> set1, set2; // to help find unique matches
+  // Adjust the number of jobs
+  int num_tiles = ip1_vec.size();
+  if (num_tiles < number_of_jobs) 
+    number_of_jobs = num_tiles;
 
-  // Now iterate over each set of ip in ip1_vec
-  for (auto it1 = ip1_vec.begin(); it1 != ip1_vec.end(); it1++) {
+  // The number of tiles per job
+  int num_tiles_per_job = ceil(double(num_tiles) / number_of_jobs);
+  if (num_tiles_per_job == 0) 
+    num_tiles_per_job = 1;
+  int start_tile = 0;
 
-    // Find the corresponding set of ip in ip1_vec and ip2_vec
-    auto key = it1->first;
-    auto it2 = ip2_vec.find(key);
-    if (it2 == ip2_vec.end()) 
-    continue; // no matches in this tile
+   // To help find unique matches
+  std::set<std::pair<float, float>> seen1, seen2;
 
-    std::vector<vw::ip::InterestPoint> & tile_ip1 = it1->second; // alias
-    std::vector<vw::ip::InterestPoint> & tile_ip2 = it2->second; // alias
-
-    std::vector<vw::ip::InterestPoint> local_matched_ip1, local_matched_ip2;
-    try {
-      if (have_datum) {
-        // Copy from std::vector<vw::ip::InterestPoint> to vw::ip::InterestPointList
-        // TODO(oalexan1): Avoid this copy
-        vw::ip::InterestPointList ip1_list, ip2_list;
-        for (size_t i = 0; i < tile_ip1.size(); i++)
-            ip1_list.push_back(tile_ip1[i]);
-        for (size_t i = 0; i < tile_ip2.size(); i++)
-            ip2_list.push_back(tile_ip2[i]);
-        int local_number_of_jobs = 1;
-        epipolar_ip_matching_task(single_threaded_camera, detect_method, 
-            local_number_of_jobs, epipolar_threshold, uniqueness_threshold, 
-            datum, quiet, cam1, cam2, ip1_list, ip2_list,
-            local_matched_ip1, local_matched_ip2); // outputs
-      } else {
-        match_ip_no_datum(tile_ip1, tile_ip2, detect_method, uniqueness_threshold, quiet,
-                        local_matched_ip1, local_matched_ip2); // outputs
-      }
-
-    } catch(...) {
-      // This need not succeed
-      continue;
-    }
-
-    // Remove some ip if too many
-    if (local_matched_ip1.size() > asp::stereo_settings().matches_per_tile)
-    pick_subset(asp::stereo_settings().matches_per_tile, 
-        local_matched_ip1, local_matched_ip2);
-
-    // Add to the global list
-    append_new_matches(local_matched_ip1, local_matched_ip2,
-        set1, set2, matched_ip1, matched_ip2); // append here
+  // Iterate over each set of ip in ip1_vec
+  FifoWorkQueue matching_queue; // Create a thread pool object
+  Mutex match_mutex;
+  for (size_t i = 0; i < number_of_jobs; i++) {
+    boost::shared_ptr<Task> match_task(new 
+    MatchPerTileTask(start_tile, num_tiles_per_job,
+                     have_datum, single_threaded_camera, 
+                     detect_method, ip1_vec, ip2_vec, cam1, cam2, datum, 
+                     epipolar_threshold, uniqueness_threshold, align_matrix,
+                     asp::stereo_settings().matches_per_tile,
+                     seen1, seen2, matched_ip1, matched_ip2, match_mutex));
+    matching_queue.add_task(match_task);
+    start_tile += num_tiles_per_job; // for the next job
 
   } // end iterating over sets of ip
+
+  matching_queue.join_all(); // Wait for all jobs to finish
 
   return;
 } // end if matches per tile
@@ -720,9 +821,14 @@ bool epipolar_ip_matching(bool single_threaded_camera,
   vw::vw_throw(vw::ArgumentErr()
     << "epipolar_ip_matching: matches_per_tile must be positive.\n");
 
-  vw_out() << "\t--> Matching interest points using the epipolar line." << std::endl;
-  vw_out() << "\t    Uniqueness threshold: " << uniqueness_threshold << "\n";
-  vw_out() << "\t    Epipolar threshold:   " << epipolar_threshold   << "\n";
+  if (!match_per_tile) {
+    vw_out() << "\t--> Matching interest points using the epipolar line." << std::endl;
+    vw_out() << "\t    Uniqueness threshold: " << uniqueness_threshold << "\n";
+    vw_out() << "\t    Epipolar threshold:   " << epipolar_threshold   << "\n";
+  } else {
+    // This will be printed on the second pass
+    vw_out() << "\t--> Performing matching per tile.\n";
+  }
   
   // Do matching
   if (!match_per_tile) {
@@ -734,9 +840,9 @@ bool epipolar_ip_matching(bool single_threaded_camera,
   } else {
     bool have_datum = true;
     matches_per_tile(have_datum, single_threaded_camera, detect_method,
-                     ip1_copy, ip2_copy, cam1, cam2, image1, image2, datum,
+                     ip1_copy, ip2_copy, cam1, cam2, datum,
                      number_of_jobs, epipolar_threshold, uniqueness_threshold,
-                     nodata1, nodata2, align_matrix, 
+                     align_matrix, 
                      matched_ip1, matched_ip2); // outputs
   }
 
@@ -856,6 +962,8 @@ bool ip_matching_with_datum(
   // Undo the alignment transform in the ip before returning, and return the transform.
   vw::ip::InterestPointList ip1, ip2;
   vw::Matrix<double> rough_homography = vw::math::identity_matrix<3>();
+  vw::Stopwatch sw1;
+  sw1.start();
   if (use_rough_homography) 
     detect_ip_aligned_pair(cam1, cam2, image1, image2,
                            ip_per_tile, datum, left_file_path, nodata1, nodata2,
@@ -865,16 +973,24 @@ bool ip_matching_with_datum(
                  ip_per_tile, left_file_path, right_file_path,
                  nodata1, nodata2);
 
+  sw1.stop();
+  vw_out() << "Elapsed time in ip detection: " << sw1.elapsed_seconds() << " s.\n";
+
   // Match the detected IPs which are in the original image coordinates.
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   bool match_per_tile = false;
   vw::Matrix<double> align_matrix = vw::math::identity_matrix<3>();
+  vw::Stopwatch sw2;
+  sw2.start();
   bool inlier = epipolar_ip_matching(
        single_threaded_camera,
 			 ip1, ip2, cam1, cam2, image1, image2, 
        datum, number_of_jobs, epipolar_threshold, uniqueness_threshold, nodata1, nodata2,
        match_per_tile, align_matrix,
 			 matched_ip1, matched_ip2); // Outputs
+  sw2.stop();
+  vw_out() << "Elapsed time in ip matching: " << sw2.elapsed_seconds() << " s.\n";
+
   if (!inlier)
     return false;
 
@@ -885,9 +1001,14 @@ bool ip_matching_with_datum(
   Matrix<double> matrix1 = vw::math::identity_matrix<3>();
   Matrix<double> matrix2 = vw::math::identity_matrix<3>();
   if (use_rough_homography || asp::stereo_settings().matches_per_tile > 0) {
+    vw_out() << "\t    Computing homography transform.\n";
+    vw::Stopwatch sw3;
+    sw3.start();
     homography_rectification(adjust_left_image_size,
 			   image1.get_size(), image2.get_size(),
 			   matched_ip1, matched_ip2, matrix1, matrix2);
+    sw3.stop();
+    vw_out() << "Elapsed time in homography computation: " << sw3.elapsed_seconds() << " s.\n";
   }
   if (use_rough_homography && 
       sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4) {
@@ -907,6 +1028,8 @@ bool ip_matching_with_datum(
 
     match_per_tile = true;
     align_matrix = matrix2; // use the homography matrix
+    vw::Stopwatch sw4;
+    sw4.start();
     bool inlier =
       epipolar_ip_matching(single_threaded_camera,
         ip1, ip2, cam1, cam2, image1, image2, 
@@ -914,6 +1037,10 @@ bool ip_matching_with_datum(
         nodata1, nodata2,
         match_per_tile, align_matrix,
         matched_ip1, matched_ip2); // Outputs
+    sw4.stop();
+    vw_out() << "Elapsed time in ip matching when using tiles: " 
+      << sw4.elapsed_seconds() << " s.\n";
+
     if (!inlier)
       return false;
   }
@@ -955,10 +1082,12 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
   vw_out() << "\t--> Uniqueness threshold: " << uniqueness_threshold << "\n";
 
   bool quiet = false;
+  vw::Stopwatch sw1;
+  sw1.start();
   match_ip_no_datum(ip1_copy, ip2_copy, detect_method, uniqueness_threshold, quiet,
     matched_ip1, matched_ip2); // outputs
-
-  // TODO(oalexan1): Make multi-threaded.
+  sw1.stop();
+  vw_out() << "Elapsed time in ip matching: " << sw1.elapsed_seconds() << " s.\n";
 
   // TODO(oalexan1): The code below is O(N^2).
   vw::ip::remove_duplicates(matched_ip1, matched_ip2);
@@ -967,12 +1096,16 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
 
     // Use the interest points that we found to compute an aligning
     // homography transform for the two images.
-    // - This is just a sanity check.
+    vw_out() << "\t    Computing homography transform.\n";
     bool adjust_left_image_size = false;
     Matrix<double> matrix1, matrix2;
+    vw::Stopwatch sw2;
+    sw2.start();
     homography_rectification(adjust_left_image_size,
           image1.get_size(), image2.get_size(),
           matched_ip1, matched_ip2, matrix1, matrix2);
+    sw2.stop();
+    vw_out() << "Elapsed time in homography computation: " << sw2.elapsed_seconds() << " s.\n";
 
     // We will use the homography matrix from left to right ip, stored in matrix2.
     // It is expected that matrix1 is the identity matrix.
@@ -985,11 +1118,17 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
     double epipolar_threshold = -1, nodata1 = -1, nodata2 = -1;
     vw::camera::CameraModel *cam1 = NULL, *cam2 = NULL;
     vw::cartography::Datum datum;
+    vw::Stopwatch sw3;
+    sw3.start();
+    vw_out() << "\t    Performing matching per tile.\n";
     matches_per_tile(have_datum, single_threaded_camera, detect_method,
-                     ip1_copy, ip2_copy, cam1, cam2, image1, image2, datum,
+                     ip1_copy, ip2_copy, cam1, cam2, datum,
                      number_of_jobs, epipolar_threshold, uniqueness_threshold,
-                     nodata1, nodata2, align_matrix, 
+                     align_matrix, 
                      matched_ip1, matched_ip2); // outputs
+    sw3.stop();
+    vw_out() << "Elapsed time in ip matching when using tiles: " 
+      << sw3.elapsed_seconds() << " s.\n";
   }
 
   vw_out() << "\n\t    Matched points: " << matched_ip1.size() << std::endl;
