@@ -989,7 +989,11 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
 
   try {
     // Homography is defined in the original camera coordinates
+    vw::Stopwatch sw;
+    sw.start();
     rough_homography = rough_homography_fit(cam1, cam2, box1, box2, datum);
+    sw.stop();
+    vw_out() << "Rough homography fit elapsed time: " << sw.elapsed_seconds() << " s.\n";
   } catch(...) {
     vw_out() << "Rough homography fit failed, trying with identity transform. " << std::endl;
     rough_homography.set_identity(3);

@@ -71,7 +71,15 @@ Example when it is desired to distribute the interest points somewhat uniformly
         --ip-per-tile 300 --matches-per-tile 100 \
         --max-pairwise-matches 20000             \
         --camera-weight 0 --tri-weight 0.1       \
+        --remove-outliers-params '75 3 10 10'    \
         -o run_ba/run 
+
+For very large images, the number of interest points and matches per tile (whose
+size is 1024 pixels on the side) should decrease from the above. 
+
+For images that have very large variation in elevation, it is suggested to use
+bundle adjustment with the option ``--mapprojected-data``. An example is given
+in :numref:`mapip`.
 
 Large-scale bundle adjustment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

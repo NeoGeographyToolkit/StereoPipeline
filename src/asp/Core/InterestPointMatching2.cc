@@ -482,6 +482,9 @@ void group_ip_in_tiles(std::vector<vw::ip::InterestPoint> const& ip1_copy,
   // We will have tiles overlap, to ensure no interest points
   // fall between the cracks. That may happen if alignment is not perfect.
   Vector2i params = asp::stereo_settings().matches_per_tile_params;
+  vw_out() << "Tile size used in matching: " << params[0] << "\n";
+  vw_out() << "Expanded tile size:         " << params[1] << "\n";
+  
   int tile_size = params[0];
   int extra = (params[1] - params[0])/2;
 

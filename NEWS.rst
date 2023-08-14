@@ -46,17 +46,16 @@ parallel_stereo (:numref:`parallel_stereo`):
     must load the exact cameras when undoing the mapprojection.
 
 bundle_adjust (:numref:`bundle_adjust`):
-  * Validated that given about a thousand input images acquired with
-    three views and much overlap, one can have very tight control of
-    the cameras in bundle adjustment, while improving the
-    self-consistency of the camera configuration
+  * Validated that given about a thousand input images acquired with three views
+    and much overlap, one can have very tight control of the cameras in bundle
+    adjustment, while improving the self-consistency of the camera configuration
     (:numref:`skysat_stereo`).
   * Validated the option ``--reference-dem`` for bundle adjustment. This works
     even when rays obtained during triangulation are parallel.
-  * Added the option ``--matches-per-tile``, to attempt to guarantee
-    that each 1024 x 1024 tile has about this many number of matches.
-  * Bugfix for slow performance and memory usage for a large number
-    of images.
+  * Added the option ``--matches-per-tile``, to attempt to guarantee that each
+    1024 x 1024 tile has about this many number of matches (example in
+    :numref:`ba_examples`).
+  * Bugfix for slow performance and memory usage for a large number of images.
 
 jitter_solve (:numref:`jitter_solve`):
   * Added the options ``--roll-weight`` and ``--yaw-weight`` to control the

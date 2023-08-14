@@ -537,7 +537,7 @@ We run bundle adjustment and parallel_stereo with the subsampled
 images using commands analogous to the above. It was quite challenging
 to find match points, hence the ``--mapprojected-data`` option in
 ``bundle_adjust`` was used, to find interest matches among
-mapprojected images, so the process went as follows::
+mapprojected images. The the process went as follows::
 
     # Prepare mapprojected images (see note in the text below)
     parallel_stereo A_crop_sub10.cub B_crop_sub10.cub \
@@ -566,6 +566,10 @@ created. While that may provide robustness, in some occasions, given
 that LRO NAC images are very long and can have jitter, interest points far
 away could actually degrade the quality of eventual registration in 
 the desired smaller area.
+
+The same resolution should be used for both mapprojected images
+(option ``--tr``), and it should be similar to the ground sample
+distance of these images.
 
 The option ``--max-pairwise-matches`` in ``bundle_adjust`` should
 reduce the number of matches to the set value, if too many were
