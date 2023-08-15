@@ -185,6 +185,7 @@ cam_test:
   * Added a warning if the camera center is below the datum. 
 
 misc: 
+  * Upgraded to ISIS 8.0.0 and USGSCSM 1.7.
   * Throw an error for WorldView products that are not Stereo1B or Basic1B.
     That because ASP does not support orthorectified Maxar products.
   * Changed the "pretend" height of the RPC cameras from 10 km 
