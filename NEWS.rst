@@ -1,5 +1,5 @@
-Changes since last release
---------------------------
+RELEASE 3.3.0, August 16, 2023
+------------------------------
 
 New tools:
   * Added ``sfm_merge`` (:numref:`sfm_merge`), a tool to merge several
