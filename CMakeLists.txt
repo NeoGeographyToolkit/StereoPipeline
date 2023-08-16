@@ -19,6 +19,8 @@ if (APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mlinker-version=305")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mlinker-version=305")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mlinker-version=305")
+    # Prevent a pedantic error in recent clang
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-enum-constexpr-conversion")
 else()
     # On Linux need to link to additional libraries
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lm -lrt -lgcc_s")
