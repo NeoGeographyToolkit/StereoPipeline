@@ -41,6 +41,10 @@
 #include <QtGui>
 #include <QtWidgets>
 
+// TODO(oalexan1): In Qt version > 5.14 switch from event->pos() to event->position() 
+// an using #if statement, so compilation still works for Qt 5.12.
+#include <QtGlobal> // has QT_VERSION_CHECK. 
+
 #include <string>
 #include <vector>
 
@@ -2793,7 +2797,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     QPoint Q = event->pos();
     int mouseMoveX = Q.x(), mouseMoveY = Q.y();
     
-    m_curr_pixel_pos = QPoint2Vec(event->pos());
+    m_curr_pixel_pos = QPoint2Vec(Q);
     updateCurrentMousePosition();
 
     if (!((event->buttons() & Qt::LeftButton)))
@@ -3233,7 +3237,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
     zoom(scale);
 
-    m_curr_pixel_pos = QPointF2Vec(event->position());
+    m_curr_pixel_pos = QPointF2Vec(event->pos());
     updateCurrentMousePosition();
   }
 
