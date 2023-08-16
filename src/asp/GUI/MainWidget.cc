@@ -42,7 +42,7 @@
 #include <QtWidgets>
 
 // TODO(oalexan1): In Qt version > 5.14 switch from event->pos() to event->position() 
-// an using #if statement, so compilation still works for Qt 5.12.
+// using #if statement, so compilation still works for Qt 5.12.
 #include <QtGlobal> // has QT_VERSION_CHECK. 
 
 #include <string>
