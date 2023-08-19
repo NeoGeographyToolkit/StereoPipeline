@@ -1374,7 +1374,8 @@ Running SfS
 Next, SfS follows::
 
     parallel_sfs -i ref.tif                   \
-      <images and cameras>                    \
+      --image-list image_list.txt             \
+      --camera-list camera_list.txt           \
       --nodes-list nodes_list.txt             \
       --shadow-threshold 0.005                \
       --bundle-adjust-prefix ba_align_ref/run \
@@ -1457,7 +1458,7 @@ Inspection and further iterations
 The obtained shape-from-shading terrain should be studied carefully to
 see if it shows any systematic shift or rotation compared to the
 initial LOLA gridded terrain. For that, the SfS terrain can be
-overlayed as a hillshaded and georeferenced image on top of the
+overlaid as a hillshaded and georeferenced image on top of the
 initial terrain in ``stereo_gui``, and the SfS terrain can be toggled
 on and off.
 

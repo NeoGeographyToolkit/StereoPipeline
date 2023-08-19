@@ -12,7 +12,7 @@ Precompiled binaries (Linux and macOS)
 
 ASP builds are for Linux and OSX (with the Intel processor). 
 ASP was verified to work under Microsoft Windows using the Windows 
-Subsystem for Linux, and under the OSX M1 processor using Rosetta.
+Subsystem for Linux, and under the OSX M1 processor using Rosetta 2.
 
 Choose either the latest build (recommended) or a stable release
 from:
@@ -22,8 +22,8 @@ from:
 No installation steps or administrative rights are necessary.  Extract
 the archive, and run the executables in the ``bin`` subdirectory as::
 
-    tar -xvf StereoPipeline-3.2.0-2022-12-30-x86_64-Linux.tar.bz2
-    ./StereoPipeline-3.2.0-2022-12-30-x86_64-Linux/bin/stereo --help
+    tar xvf StereoPipeline-3.3.0-2023-08-16-x86_64-Linux.tar.bz2
+    ./StereoPipeline-3.3.0-2023-08-16-x86_64-Linux/bin/stereo --help
 
 The result of the last command should be a help message.
 
@@ -55,7 +55,10 @@ to process terrestrial images, skip to :numref:`dg_tutorial`.
 To perform pre-processing (radiometric calibration, ephemeris
 processing, etc.), of non-terrestrial images prior to running Stereo
 Pipeline, you will need to install :term:`ISIS`.  Just as with our 
-binaries, you can use the ISIS binaries as-is.
+binaries, you can use the ISIS binaries as-is. See the ISIS installation
+instructions at:
+
+    https://github.com/DOI-USGS/ISIS3
 
 ASP has its own self-contained version of the ISIS libraries, and on
 occasion it is behind the latest ISIS (see the release notes in
@@ -65,14 +68,17 @@ those work with the version of ISIS shipped with ASP, assuming no
 major changes have taken place in the data formats or camera models by
 the ISIS developers. At the very least, you should be able to install
 the older standalone version of ISIS that ASP uses if a failure is
-found.  To do so, follow the ISIS installation instructions, but
-create a new conda environment (not the one with your current ISIS),
-and right before you would run ``conda install isis``, run ``conda
-search isis`` to find all of the versions of ISIS available for
-installation.  For example, if you wanted to install ISIS 7.1.0, and
-it is available in the ``conda search isis`` listing, you can run
-``conda install isis=7.1.0`` and then follow the remainder of the ISIS
-installation instructions.
+found.  
+
+To install a specific version of ISIS, follow the ISIS installation
+instructions, but create a new conda environment (not the one with your current
+ISIS), and right before you would run ``conda install isis``, run ``conda search
+isis`` to find all of the versions of ISIS available for installation.  For
+example, if you wanted to install ISIS 8.0.0, run::
+
+        conda install -c usgs-astrogeology -c conda-forge isis=8.0.0
+
+and then follow the remainder of the ISIS installation instructions.
 
 In closing, running the Stereo Pipeline executables only requires
 that you have downloaded the ISIS secondary data and have
@@ -92,10 +98,10 @@ Using the packaged ASP tarball
    https://github.com/NeoGeographyToolkit/StereoPipeline/releases
 
 #. Fetch ISIS binaries and install, following
-   https://github.com/USGS-Astrogeology/ISIS3#installation
+   https://github.com/DOI-USGS/ISIS3#installation
 
 #. Fetch ISIS data, as detailed at
-   https://github.com/USGS-Astrogeology/ISIS3#the-isis-data-area
+   https://github.com/DOI-USGS/ISIS3#the-isis-data-area
 
 #. Add the ISIS executables to your path:
 
@@ -110,9 +116,9 @@ Using the packaged ASP tarball
    
    Check that you have the directory ``$ISISDATA/base``.
 
-#. Untar Stereo Pipeline::
+#. Extract Stereo Pipeline::
 
-     tar xzvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.gz
+     tar xvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.bz2
 
 #. Add Stereo Pipeline to your path:
 
@@ -135,9 +141,9 @@ Quick start for Digital Globe users
 #. Fetch Stereo Pipeline from
    https://github.com/NeoGeographyToolkit/StereoPipeline/releases
 
-#. Untar Stereo Pipeline::
+#. Extract Stereo Pipeline::
 
-     tar xzvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.gz
+     tar xvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.bz2
 
 #. Add StereoPipeline to your path, as above.
  
@@ -209,7 +215,7 @@ Fetching pre-compiled ASP with conda
 
 ASP's official releases can be fetched with ``conda``, for Linux and OSX with the Intel processor. See :numref:`precompiled_binaries` for how other platforms may be handled.
 
-The latest conda release is version 3.2.0, published on December 30, 2022. See
+The latest conda release is version 3.3.0, published on December 30, 2022. See
 :numref:`news` for what changed since then.  The newer functionality
 is available only with the daily build (:numref:`precompiled_binaries`).
 
@@ -272,11 +278,18 @@ and not all environments.
 
 Install ASP with the command::
 
-    conda install stereo-pipeline==3.2.0
+    conda install                 \
+     -c nasa-ames-stereo-pipeline \
+     -c usgs-astrogeology         \
+     -c conda-forge               \
+     stereo-pipeline==3.3.0
 
-This will install ASP 3.2.0 together with ISIS 7.1.0. Note that the
+This will install ASP 3.3.0 together with ISIS 8.0.0. Note that the
 latest build (see above) may have more fixes or features than this
 official release.
+
+Alternatively, consider using ``mamba`` instead of ``conda``. It is
+must faster though it is not always guaranteed to work. 
 
 If using ISIS, the environmental variable ISISROOT should be set to
 point to this distribution, such as::
@@ -293,11 +306,11 @@ found as a set of .yaml files in the ``conda`` subdirectory of the
 Stereo Pipeline GitHub repository. So, alternatively, the installation
 can happen as::
 
-    conda env create -f asp_3.2.0_linux_env.yaml
+    conda env create -n asp -f asp_3.3.0_linux_env.yaml
 
 or::
 
-    conda env create -f asp_3.2.0_osx_env.yaml
+    conda env create -n asp -f asp_3.3.0_osx_env.yaml
 
 depending on your platform. Then invoke, as earlier::
 
