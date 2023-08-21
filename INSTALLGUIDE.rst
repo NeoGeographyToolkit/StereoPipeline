@@ -213,7 +213,7 @@ the processing time should go down. Both ``gdalinfo`` and
 Fetching pre-compiled ASP with conda
 ------------------------------------
 
-ASP's official releases can be fetched with ``conda``, for Linux and OSX with the Intel processor. See :numref:`precompiled_binaries` for how other platforms may be handled.
+ASP's official releases can be downloaded with ``conda``, for Linux and OSX with the Intel processor. See :numref:`precompiled_binaries` for how other platforms may be handled.
 
 The latest conda release is version 3.3.0, published on December 30, 2022. See
 :numref:`news` for what changed since then.  The newer functionality
@@ -291,14 +291,42 @@ official release.
 Alternatively, consider using ``mamba`` instead of ``conda``. It is
 must faster though it is not always guaranteed to work. 
 
+Fixes for potential OSX issues
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On OSX, if an error about ``tbb`` is encountered, run::
+
+    conda activate asp
+    conda install -c usgs-astrogeology -c conda-forge \
+      embree -y --force-reinstall
+
+If the ``ipfind`` (or ``pc_align`` with the option
+``--initial-transform-from-hillshading``, which uses ``ipfind``) fails, try to
+run this tool along the lines of::
+
+    DYLD_LIBRARY_PATH=$HOME/miniconda3/envs/asp/lib ipfind \
+      <other options>
+
+These issues seem to be caused by how conda handles third-party libraries. This
+is not a problem with the binary release (:numref:`precompiled_binaries`) or 
+with conda on Linux.
+
+Post-installation
+~~~~~~~~~~~~~~~~~
+
+Check that the ``stereo`` command can be found as::
+
+    which stereo
+
 If using ISIS, the environmental variable ISISROOT should be set to
 point to this distribution, such as::
 
     export ISISROOT=$HOME/miniconda3/envs/asp
 
-Check that the ``stereo`` command can be found as::
+Also read :numref:`planetary_images` for how to set up ISIS data.
 
-    which stereo
+Using a precise list of packages
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some variability may exist in the precise dependencies fetched by
 conda. For the record, the full environment for this release can be

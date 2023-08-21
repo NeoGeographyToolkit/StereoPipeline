@@ -211,7 +211,7 @@ Packages to build
 ~~~~~~~~~~~~~~~~~
 
 Many additional package need to be built, using ``conda build``. These packages
-can be fetched with ``git clone`` from:
+can be downloaded with ``git clone`` from:
 
   https://github.com/NeoGeographyToolkit/geoid-feedstock.git
   https://github.com/NeoGeographyToolkit/htdp-feedstock.git
@@ -541,8 +541,7 @@ Run in ``BinaryBuilder`` the command::
 The same command can be used to package the ``asp`` conda environment created
 earlier. Then, one should use instead of ``build_asp/install`` the directory
 ``$HOME/miniconda3/envs/asp``. The dependencies will still come from
-``$HOME/miniconda3/envs/asp_deps``. Any files that show in more than one
-environment will be taken from the ``asp`` environment.
+``$HOME/miniconda3/envs/asp_deps``.
 
 Building and packaging should be done separately for Linux and OSX.
 

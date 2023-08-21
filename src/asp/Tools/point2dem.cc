@@ -598,7 +598,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 }
 
 template <class ImageT>
-ImageViewRef< PixelGray<float> >
+ImageViewRef< PixelGray<float>>
 generate_fsaa_raster(ImageViewBase<ImageT> const& rasterizer, Options const& opt) {
   // This probably needs a lanczos filter. Sinc filter is the ideal
   // since it is the ideal brick filter.

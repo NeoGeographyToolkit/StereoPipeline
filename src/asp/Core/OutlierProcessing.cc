@@ -46,6 +46,10 @@ void estimate_inliers_bbox(double pct_factor_x, double pct_factor_y, double pct_
   if (!vw::math::find_outlier_brackets(z_vals, pct_factor_z, outlier_factor, bz, ez))
     return;
 
+  // NaN values will result in an error further down
+  if (ex != ex || ey != ey || ez != ez)
+    return;  
+
   // Need to compute the next double because the VW bounding box is
   // exclusive at the top.
   ex = boost::math::nextafter(ex, std::numeric_limits<double>::max());
@@ -73,7 +77,7 @@ void estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points,
 
       // Avoid points marked as not valid
       Vector3 P = proj_points(col, row);
-      if (boost::math::isnan(P.z()))
+      if (P != P)
         continue;
 
       // Make use of the estimated error, if available

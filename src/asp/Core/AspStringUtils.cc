@@ -41,11 +41,6 @@ void parseCamTypes(std::string const& session_name,
 
   it += sep.size();
   mapproj_cam_type = session_name.substr(it, session_name.size());
-
-  std::cout << "input was " << session_name << std::endl;
-  std::cout << "tri_cam_type is " << tri_cam_type << std::endl;
-  std::cout << "mapproj_cam_type is " << mapproj_cam_type << std::endl;
-
 } 
 
 } // end namespace asp
