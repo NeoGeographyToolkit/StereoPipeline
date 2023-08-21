@@ -63,12 +63,10 @@ as::
 
 For Linux only, install the ``chrpath`` tool. 
 
-Set up a work directory::
+Set the compiler names. They may differ somewhat from what is in the block
+below, so this step may need some adjustments.
 
-    buildDir=$HOME/build_asp
-    mkdir -p $buildDir
-
-Set up the compiler, on Linux and OSX::
+::
 
     isMac=$(uname -s | grep Darwin)
     if [ "$isMac" != "" ]; then
@@ -78,6 +76,11 @@ Set up the compiler, on Linux and OSX::
       cc_comp=x86_64-conda_cos6-linux-gnu-gcc
       cxx_comp=x86_64-conda_cos6-linux-gnu-g++
     fi
+
+Set up a work directory::
+
+    buildDir=$HOME/build_asp
+    mkdir -p $buildDir
 
 Build VisionWorkbench and Stereo Pipeline::
 
