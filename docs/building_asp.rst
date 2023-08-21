@@ -528,8 +528,13 @@ can be used to look up the desired versions.
 Prepare the documentation
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Follow the instructions in :numref:`build_asp_doc`. Copy ``asp_book.pdf``
-to the ``BinaryBuilder/dist-add/`` directory.
+Follow the instructions in :numref:`build_asp_doc`. 
+
+Copy ``asp_book.pdf`` to the ``BinaryBuilder/dist-add/`` directory. Then it will
+be added to the packaged build. 
+
+If this operation is not done, likely ``dist-add/`` has the previous release
+documentation, which will be shipped instead. So this step must not be missed.
 
 Package the build
 ~~~~~~~~~~~~~~~~~
@@ -551,11 +556,13 @@ Building and packaging should be done separately for Linux and OSX.
 Creating a GitHub release
 -------------------------
 
-Create a release from the GitHub web interface. Use the tag for the current
-release. Upload the binaries (for Linux and OSX, :numref:`build_binaries`) and
-pdf documentation (asp_book.pdf, :numref:`build_asp_doc`). Add to the release
-notes a link to the appropriate NEWS section of the documentation. *Only after
-all this save the release.* 
+Create a release on `GitHub
+<https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_. Use the tag
+for the current release. Upload the binaries (for Linux and OSX,
+:numref:`build_binaries`) and pdf documentation (asp_book.pdf,
+:numref:`build_asp_doc`). Add to the release notes a link to the appropriate
+NEWS section of the documentation (:numref:`news`). *Only after all this save
+the release.* 
 
 Zenodo link for the release
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -566,7 +573,7 @@ changed either.
 
 It is very important to create the release just once for the given tag. Otherwise,
 the Zenodo link will be messed up. It is fine to later overwrite the binaries
-for this release, if only minor changes happened. Just do not delete and recreate
+for this release, or even to upload them later. Just do not delete and recreate
 the release.
 
 Do not just rename the latest automatically uploaded daily build, as that will
@@ -592,9 +599,9 @@ The GitHub tool ``gh`` can be used to push files to a release.
 Here's an example usage::
 
   cd BinaryBuilder
-  for file in asp_tarballs/StereoPipeline-3.3.0-Linux.tar.bz2 \
-              asp_tarballs/StereoPipeline-3.3.0-OSX.tar.bz2   \
-              dist-add/asp_book.pdf; do 
+  for file in StereoPipeline-3.3.0-Linux.tar.bz2 \
+              StereoPipeline-3.3.0-OSX.tar.bz2   \
+              asp_book.pdf; do 
     gh release upload 3.3.0 $file \
       -R git@github.com:NeoGeographyToolkit/StereoPipeline.git   
   done
@@ -623,6 +630,11 @@ release will be 3.4.0, if a major release, or 3.3.1 if a minor
 release. So, the version tag should be updated to 3.3.1-alpha in
 anticipation (see https://semver.org for guidance).
 
+Ensure the nightly build and regression (:numref:`nightly`) scripts are modified
+to use the latest dependencies.
+
+.. _nightly:
+
 Nightly regression
 ------------------
 
@@ -630,5 +642,5 @@ The script ``auto_build/launch_master.sh`` in ``BinaryBuilder`` is used to
 build and test ASP nightly. If these succeed, the produced daily build is 
 automatically uploaded to the GitHub release page.
 
-This script needs to be read carefully and some variables adjusted.
-
+This script and also ``auto_build/utils.sh`` need to be read carefully and some
+variables adjusted.

@@ -5,8 +5,8 @@ Ames Stereo Pipeline (ASP)
 .. image:: https://zenodo.org/badge/DOI/latest.svg
    :target: https://zenodo.org/badge/latestdoi/714891
 
-.. image:: https://zenodo.org/badge/DOI/Version%203.2.0.svg
-   :target: https://zenodo.org/record/7497499
+.. image:: https://zenodo.org/badge/DOI/Version%203.3.0.svg
+   :target: https://zenodo.org/record/8270270
 
 .. image:: https://readthedocs.org/projects/stereopipeline/badge/?version=latest
    :target: https://stereopipeline.readthedocs.io/en/latest/?badge=latest
@@ -52,7 +52,7 @@ you can add the following line to your shell configuration (e.g.,
 ``~/.bashrc``), replacing ``/path/to/StereoPipeline/bin`` with the location
 on your filesystem: ``export PATH=${PATH}:/path/to/StereoPipeline/bin``
 
-*ISIS Users*: Please install USGS ISIS version 7.1.0 or later if you
+*ISIS Users*: Please install USGS ISIS version 8.0.0 or later if you
 would like to process NASA non-terrestrial images. Users wishing to
 process Earth images, such as Digital Globe, satellites with RPC
 cameras, or various frame/pinhole cameras do not need to download

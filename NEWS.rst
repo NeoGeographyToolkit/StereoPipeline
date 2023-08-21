@@ -1,6 +1,8 @@
 RELEASE 3.3.0, August 16, 2023
 ------------------------------
 
+DOI: `10.5281/zenodo.8270270 <https://zenodo.org/record/8270270>`_
+
 New tools:
   * Added ``sfm_merge`` (:numref:`sfm_merge`), a tool to merge several
     SfM reconstructions that may or may not have shared images.
@@ -17,7 +19,7 @@ New tools:
   * Added ``sfm_view`` (:numref:`sfm_view`), a tool for viewing orbital 
     Pinhole camera models. It is a modification of the ``umve`` program.
    
-csm:
+csm (:numref:`csm`):
   * Added initial support for using CSM camera models with MSL Curiosity
     (:numref:`csm_msl`).
 
@@ -173,13 +175,13 @@ wv_correct (:numref:`wv_correct`):
     copy of the original image will be written instead and a warning will be
     printed). This applies to both PAN and multi-spectral images.
 
-corr_eval:
+corr_eval (:numref:`corr_eval`):
   * Remove an excessive check. The refined/filtered disparity can be such 
     that left image pixel plus disparity may be outside the right image.
     Don't fail in that case, but just skip the pixel, resulting in empty 
     correlation for that pixel.
 
-cam_test: 
+cam_test (:numref:`cam_test`):
   * Added the option ``--datum``. Useful for Pinhole cameras as those don't 
     know their datum. 
   * Added a warning if the camera center is below the datum. 
