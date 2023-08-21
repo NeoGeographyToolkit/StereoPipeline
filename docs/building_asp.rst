@@ -612,12 +612,10 @@ to delete and re-upload the binaries and documentation.
 Announce the release
 ~~~~~~~~~~~~~~~~~~~~
 
-Send an announcement of the new release to the mailing list, at:
-
-  https://groups.google.com/forum/\#!forum/ames-stereo-pipeline-support
-
-and the old stereo-pipeline@lists.nasa.gov, with a link to the NEWS section
-for the current release from the documentation.
+Send an announcement of the new release to the `mailing list
+<https://groups.google.com/forum/\#!forum/ames-stereo-pipeline-support>`_ and to
+the old stereo-pipeline@lists.nasa.gov, with a link to the NEWS section for the
+current release from the documentation.
 
 Post-release work
 ~~~~~~~~~~~~~~~~~
