@@ -59,7 +59,7 @@ The following command could be used::
 Ensure that ``cmake>=3.15.5`` and ``pbzip2`` are installed. This can be done
 as::
 
-    conda install -c conda-forge cmake pbzip2
+    conda install -c conda-forge "cmake>=3.15.5" pbzip2
 
 For Linux only, install the ``chrpath`` tool. 
 

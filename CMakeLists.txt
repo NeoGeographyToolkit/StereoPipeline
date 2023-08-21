@@ -1,9 +1,12 @@
+cmake_minimum_required (VERSION 3.15.5)
+
+project(StereoPipeline)
+
 if(APPLE)
     # Needed for conda build on OSX with conda
     cmake_policy(SET CMP0025 NEW) 
 endif(APPLE)
     
-cmake_minimum_required (VERSION 3.15)
 
 # Make it possible to append to these from the command line
 set(CMAKE_CXX_FLAGS "" CACHE STRING "")
@@ -32,8 +35,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # Make sure we do a release type
 set(CMAKE_BUILD_TYPE "Release")
 message("Setting CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
-
-project(StereoPipeline)
 
 add_subdirectory(src)
 

@@ -294,7 +294,8 @@ must faster though it is not always guaranteed to work.
 Fixes for potential OSX issues
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-On OSX, if an error about ``tbb`` is encountered, run::
+On OSX, if an error about ``embree`` not finding ``tbb`` is encountered (these
+are third-party libraries), run::
 
     conda activate asp
     conda install -c usgs-astrogeology -c conda-forge \
