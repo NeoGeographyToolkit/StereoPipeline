@@ -1,3 +1,15 @@
+Changes since the last release
+------------------------------
+
+jitter_solve (:numref:`jitter_solve`):
+  * The roll and yaw constraints no longer assume linescan camera positions and
+    orientations are one-to-one. 
+
+misc:
+ * Adjusted the number of camera poses sampled from the polynomials determining
+   the quaternions for PleiadesHR cameras. It has no effect in practice but
+   results in ``jitter_solve`` assumptions being satisfied.
+
 RELEASE 3.3.0, August 16, 2023
 ------------------------------
 
