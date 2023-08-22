@@ -648,6 +648,7 @@ void calcFirstLastOrientationLines(UsgsAstroLsSensorModel const* ls_model,
                    << numLines - 1 << ".\n");
 }
 
+// TODO(oalexan1): Move the function below out of here, to CsmUtils.cc.
 // The provided tabulated positions, velocities and quaternions may be too few,
 // so resample them with --num-lines-per-position and --num-lines-per-orientation,
 // if those are set. Throughout this function the lines are indexed in the order
@@ -684,15 +685,24 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
   vw_out() << "Number of image lines per input orientation: "
            << round(numInputLinesPerOrientation) << "\n";
 
+  std::cout << "position dt " << ls_model->m_dtEphem << std::endl;
+  std::cout << "position start time " << ls_model->m_t0Ephem << std::endl;
+  std::cout << "orientation dt " << ls_model->m_dtQuat << std::endl;
+  std::cout << "orientation start time " << ls_model->m_t0Quat << std::endl;
+
+
   if (opt.num_lines_per_position > 0) {
     // Resample in such a way that first and last samples are preserved. This is tricky.
     double posFactor = double(numInputLinesPerPosition) / double(opt.num_lines_per_position);
     if (posFactor <= 0.0)
       vw::vw_throw(vw::ArgumentErr() << "Invalid image.\n");
 
+    std::cout << "pos factor " << posFactor << std::endl;
     int numOldMeas = ls_model->m_numPositions / NUM_XYZ_PARAMS;
     int numNewMeas = round(posFactor * (numOldMeas - 1.0)) + 1; // careful here
     numNewMeas = std::max(numNewMeas, 2);
+    std::cout << "num old pos meas " << numOldMeas << std::endl;
+    std::cout << "num new pos meas " << numNewMeas << std::endl;
 
     posFactor = double(numNewMeas - 1.0) / double(numOldMeas - 1.0);
     double currDtEphem = ls_model->m_dtEphem / posFactor;
@@ -731,6 +741,10 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
     int numOldMeas = ls_model->m_numQuaternions / NUM_QUAT_PARAMS;
     int numNewMeas = round(posFactor * (numOldMeas - 1.0)) + 1; // careful here
     numNewMeas = std::max(numNewMeas, 2);
+
+    std::cout << "quat factor " << posFactor << std::endl;
+    std::cout << "num old quat meas " << numOldMeas << std::endl;
+    std::cout << "num new quat meas " << numNewMeas << std::endl;
     
     posFactor = double(numNewMeas - 1.0) / double(numOldMeas - 1.0);
     double currDtQuat = ls_model->m_dtQuat / posFactor;
@@ -1304,13 +1318,18 @@ void addRollYawConstraint
       // Linescan cameras. Use the full sequence of cameras in the model
       // to enforce the roll/yaw constraint for each camera in the sequence.
       int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+
+      // Make positions one-to-one with quaternions
+      std::vector<double> interp_positions;
+      asp::orbitInterpExtrap(ls_model, georef, interp_positions);
+      
       for (int iq = 0; iq < numQuat; iq++) {
         ceres::CostFunction* roll_yaw_cost_function
-          = weightedRollYawError::Create(ls_model->m_positions, 
-                                    ls_model->m_quaternions,
-                                    georef, iq,
-                                    opt.roll_weight, opt.yaw_weight, 
-                                    opt.initial_camera_constraint);
+          = weightedRollYawError::Create(interp_positions,
+                                         ls_model->m_quaternions,
+                                         georef, iq,
+                                         opt.roll_weight, opt.yaw_weight, 
+                                         opt.initial_camera_constraint);
 
         // We use no loss function, as the quaternions have no outliers
         ceres::LossFunction* roll_yaw_loss_function = NULL;
