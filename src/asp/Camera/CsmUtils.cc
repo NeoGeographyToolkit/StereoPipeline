@@ -176,8 +176,6 @@ void orbitInterpExtrap(double t0_in, double dt_in, int platformFlag,
   if (dt_in <= 0.0 || dt_out <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "Expecting positive time step in interpolation.\n");
 
-    std::cout.precision(17);
-  
   // May need to create new orbital points for interpolation/extrapolation. Start
   // by putting the existing ones in a map.
   std::map<double, vw::Vector3> time_to_pos;
