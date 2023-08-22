@@ -685,12 +685,6 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
   vw_out() << "Number of image lines per input orientation: "
            << round(numInputLinesPerOrientation) << "\n";
 
-  std::cout << "position dt " << ls_model->m_dtEphem << std::endl;
-  std::cout << "position start time " << ls_model->m_t0Ephem << std::endl;
-  std::cout << "orientation dt " << ls_model->m_dtQuat << std::endl;
-  std::cout << "orientation start time " << ls_model->m_t0Quat << std::endl;
-
-
   if (opt.num_lines_per_position > 0) {
     // Resample in such a way that first and last samples are preserved. This is tricky.
     double posFactor = double(numInputLinesPerPosition) / double(opt.num_lines_per_position);
@@ -1674,7 +1668,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   if (opt.anchor_dem != "")
     asp::create_interp_dem(opt.anchor_dem, anchor_georef, interp_anchor_dem);
-  
+
   // Handle the roll/yaw constraint DEM. We already checked that one of thse cases should work
   vw::cartography::GeoReference roll_yaw_georef;
   if (opt.roll_weight > 0 || opt.yaw_weight > 0) {
