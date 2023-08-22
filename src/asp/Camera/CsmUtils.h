@@ -28,6 +28,12 @@
 #include <string>
 #include <iostream>
 
+namespace vw {
+    namespace cartography {
+        class GeoReference;
+    }
+}
+
 namespace asp {
 
 // Normalize quaternions in UsgsAstroLsSensorModel.
@@ -55,6 +61,12 @@ void nearestNeibInterp(const int &numTimes, const double *valueArray,
                        const double &startTime, const double &delTime,
                        const double &time, const int &vectorLength,
                        double *valueVector);
+
+// Find interpolated/extrapolated positions at all camera pose times.
+// See the implementation for more details.
+void orbitInterpExtrap(UsgsAstroLsSensorModel const * ls_model,
+                       vw::cartography::GeoReference const& geo,
+                       std::vector<double> & positions_out);
 
 } // end namespace asp
 

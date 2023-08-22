@@ -29,7 +29,7 @@ namespace asp {
 // as in ECEF these will be large numbers and we may have precision issues.
 // The value 0.01 was tested well. Measured in meters.
 double satSimDelta() { 
-return 0.01;
+  return 0.01;
 }
 
 // Assemble the cam2world matrix from the along track, across track, and down vectors
