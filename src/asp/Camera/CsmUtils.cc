@@ -188,7 +188,8 @@ void orbitInterpExtrap(double t0_in, double dt_in, int platformFlag,
 
   // Add left extrapolated points. Use first two positions for linear extrapolation.
   // Extrapolation is done in projected coordinates, to stay in orbit,
-  // and then converted back to ECEF.
+  // and then converted back to ECEF. Add at least 8 points to help with Lagrange
+  // interpolation later.
   auto it = time_to_pos.begin();
   vw::Vector3 P0 = it->second;
   it++; 
@@ -226,7 +227,7 @@ void orbitInterpExtrap(double t0_in, double dt_in, int platformFlag,
     time_to_pos[t] = P;
   }
 
-  // Put all the produced value in the same vector
+  // Put all the produced values in the same vector, in order of time
   int num_extra = time_to_pos.size();
   double t0_extra = time_to_pos.begin()->first;
   double dt_extra = dt_in;
