@@ -142,20 +142,21 @@ void PleiadesCameraModel::populateCsmModel() {
     m_ls_model->m_dtQuat = m_dtQuat;
   } else {
     int factor = 100;
-    // concatenate all coordinates
-    m_ls_model->m_numQuaternions = 4 * num_pos * factor;    
     // quaternion t0, borrow from position t0
     m_ls_model->m_t0Quat = m_ls_model->m_t0Ephem; 
     // quaternion dt, borrow from position dt
     m_ls_model->m_dtQuat = m_ls_model->m_dtEphem / factor; 
+    // Great care is needed here. Number of samples is obtained
+    // by dividing the range of times by the sampling rate, and
+    // then adding one. 
+    double beg_time = m_ls_model->m_t0Ephem;
+    double end_time = beg_time + m_ls_model->m_dtEphem * (num_pos - 1);
+    int num_new_pos = (int)round((end_time - beg_time) / m_ls_model->m_dtQuat) + 1;
+    m_ls_model->m_numQuaternions = 4 * num_new_pos;
   }
 
   m_ls_model->m_quaternions.resize(m_ls_model->m_numQuaternions);
   for (int pos_it = 0; pos_it < m_ls_model->m_numQuaternions / 4; pos_it++) {
-    // Note that if factor > 1, the t values will exceed the time for
-    // the last ephemeris, but that is fine, since we sample a
-    // polynomial rather than from a table where we'd go out of
-    // bounds.
     vw::Quat q;
     if (m_isNeo) {
       vw::Vector<double, 4> const& v = m_quaternion_coeffs[pos_it]; // alias
