@@ -42,7 +42,7 @@ with::
 
     -L/path/to -lmylibrary
 
-This can be done with the following commands::
+This can be done as::
 
     cd ~/miniconda3/envs/asp_deps/lib
     mkdir -p backup
@@ -51,13 +51,13 @@ This can be done with the following commands::
 
 The `conda-provided compilers
 <https://conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_
-are used and should be installed in the environment, if not present already.
-The following command could be used::
+should be installed in the environment, if not present already.
+
+::
 
     conda install -c conda-forge compilers
 
-Ensure that ``cmake>=3.15.5`` and ``pbzip2`` are installed. This can be done
-as::
+Ensure that ``cmake>=3.15.5`` and ``pbzip2`` are installed::
 
     conda install -c conda-forge "cmake>=3.15.5" pbzip2
 
