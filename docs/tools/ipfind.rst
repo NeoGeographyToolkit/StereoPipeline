@@ -31,8 +31,8 @@ Command-line options for ipfind:
 
 --interest-operator <sift|orb|OBALoG|LoG|Harris|IAGD (default: sift)>
     Choose an interest point detector. SIFT and ORB are implemented
-    in OpenCV. OBALoG is from :cite:`jakkula2010efficient`. IAGD is
-    a variant of OBALoG.
+    in OpenCV. OBALoG is from :cite:`jakkula2010efficient`. 
+    IAGD (Integral Auto Gain Detector) is a variant of OBALoG.
 
 --descriptor-generator <sift|orb|sgrad|sgrad2|patch|pca (default: sift)>
     Choose a descriptor generator. Some descriptors work only with
