@@ -294,6 +294,11 @@ must faster though it is not always guaranteed to work.
 Fixes for potential OSX issues
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+The ASP 3.3.0 conda package for OSX had a couple of issues that are documented
+below. These were later fixed and the conda packages for this release have been
+updated with the fix. For the record, these issues and workarounds for them are
+described below, even though they are no longer applicable. 
+
 On OSX, if an error about ``embree`` not finding ``tbb`` is encountered (these
 are third-party libraries), run::
 
@@ -324,7 +329,17 @@ point to this distribution, such as::
 
     export ISISROOT=$HOME/miniconda3/envs/asp
 
-Also read :numref:`planetary_images` for how to set up ISIS data.
+If you are working with planetary data, you need to complete
+the ISIS installation steps from this new ``asp`` conda environment.
+Your new ``asp`` environment already has the base ISIS software
+installed, but you must run the script which sets the ISIS environment
+variables, and also install the appropriate ISIS data files (if you also
+have a separate ISIS conda environment, you can use the set-up script
+to point the ``asp`` conda environment's ``ISISDATA`` environment
+variable to your existing data area).  
+
+For more information see the `ISIS installation instructions
+<https://github.com/USGS-Astrogeology/ISIS3>`_ and :numref:`planetary_images`. 
 
 Using a precise list of packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -344,17 +359,6 @@ or::
 depending on your platform. Then invoke, as earlier::
 
     conda activate asp
-
-Finally, if you are working with planetary data, you need to complete
-the ISIS installation steps from this new ``asp`` conda environment.
-Your new ``asp`` environment already has the base ISIS software
-installed, but you must run the script which sets the ISIS environment
-variables, and also install the appropriate ISIS data files (if you also
-have a separate ISIS conda environment, you can use the set-up script
-to point the ``asp`` conda environment's ``ISISDATA`` environment
-variable to your existing data area).  For more information see 
-the `ISIS installation instructions
-<https://github.com/USGS-Astrogeology/ISIS3>`_.
 
 For how to build ASP, without and with conda, see
 :numref:`build_from_source` and :numref:`conda_build`.

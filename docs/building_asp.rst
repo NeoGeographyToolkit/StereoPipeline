@@ -203,11 +203,6 @@ are kept separate.
     conda install -c conda-forge anaconda-client conda-build \
       conda-verify
 
-For local builds it is necessary to also fetch the compilers (for C, C++, and
-Fortran), which can be done with::
-
-    conda install -c conda-forge compilers
-
 .. _packages_to_build:
 
 Packages to build
@@ -229,6 +224,14 @@ can be downloaded with ``git clone`` from:
   https://github.com/NeoGeographyToolkit/multiview-feedstock
   https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
   https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
+
+On OSX, also fetch and build:
+
+  https://github.com/NeoGeographyToolkit/tbb-feedstock.git
+
+This is needed as a workaround for the ``tbb`` conda package
+on OSX conflicting with the ``embree`` package which is rather old
+but is needed by ``ISIS``. 
 
 Also, per the earlier note, consider rebuilding ``usgscsm`` if
 there there are updates in its GitHub repository which are not yet
@@ -275,17 +278,18 @@ the appropriate version for those dependencies.
 It is very important to also ensure there is a new version for this package at
 the top of ``meta.yaml``.
 
-Each of the packages above can be built as follows::
+Each of the packages above can be built, in the order specified in
+:numref:`conda_build_order`, as follows::
 
     conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
       -c conda-forge gdal-feedstock
 
-(Consider using the options ``--no-verify --no-test`` with this tool
+Consider using the options ``--no-verify --no-test`` with this tool
 if it fails with with unrelated errors at the packaging stage, as
 it happened on OSX on occasion. This is a risky option and should
-be a measure of last resort.)
+be a measure of last resort.
 
-Upload it to the ``nasa-ames-stereo-pipeline`` channel by
+Upload the produced packages to the ``nasa-ames-stereo-pipeline`` channel by
 first logging in, via the command:
 
 ::
@@ -323,6 +327,8 @@ To delete a package from this channel, run::
 
     anaconda remove nasa-ames-stereo-pipeline/mypackage/myversion
   
+.. _conda_build_order:
+
 Order of building the packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -331,8 +337,10 @@ earlier, as some of them depend on others.
 
 Note that ``libpointmatcher`` depends on ``libnabo``, while ``liblas``
 depends on ``laszip`` and ``gdal``, ``theia`` depends on
-``imagemagick``, and ``visionworkbench`` depends on ``gdal``. The
-``stereopipeline`` package depends on all of these so it should be
+``imagemagick``, ``visionworkbench`` depends on ``gdal``, and ``multiview``
+depends on ``tbb`` (the latter for OSX only). 
+
+The ``stereopipeline`` package depends on all of these so it should be
 built the last.
 
 Additional ASP dependencies

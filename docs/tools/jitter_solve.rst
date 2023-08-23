@@ -992,10 +992,11 @@ the reference DEM.
 We found experimentally that, if the scan lines for all the input cameras are
 perfectly parallel, then the jitter solver will not converge to the known
 solution. This is because the optimization problem is under-constrained. If the
-scan lines for different cameras meet at, for example, a 15 degree angle, then
-the "rigidity" of a given scan line will be able to help correct the jitter in
-the scan lines for the other cameras intersecting it, resulting in a solution
-close to the expected one.
+scan lines for different cameras meet at, for example, a 6-15 degree angle, and
+the lines are long enough to offer good overlap, then the "rigidity" of a given
+scan line will be able to help correct the jitter in the scan lines for the
+other cameras intersecting it, resulting in a solution close to the expected
+one.
 
 See a worked-out example for how to set orientation constraints in
 :numref:`jitter_linescan_frame_cam`. There, frame cameras are used as well, 
