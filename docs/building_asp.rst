@@ -335,10 +335,9 @@ Order of building the packages
 It is suggested to build the above packages in the order listed
 earlier, as some of them depend on others.
 
-Note that ``libpointmatcher`` depends on ``libnabo``, while ``liblas``
-depends on ``laszip`` and ``gdal``, ``theia`` depends on
-``imagemagick``, ``visionworkbench`` depends on ``gdal``, and ``multiview``
-depends on ``tbb`` (the latter for OSX only). 
+Note that ``libpointmatcher`` depends on ``libnabo``, while ``liblas`` depends
+on ``laszip`` and ``gdal``, ``visionworkbench`` depends on ``gdal``, and
+``multiview`` depends on ``tbb`` (the latter for OSX only). 
 
 The ``stereopipeline`` package depends on all of these so it should be
 built the last.
