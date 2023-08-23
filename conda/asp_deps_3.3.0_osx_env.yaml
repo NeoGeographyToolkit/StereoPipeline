@@ -180,8 +180,8 @@ dependencies:
   - suitesparse=5.10.1=h7aff33d_1
   - superlu=5.2.2=h1f0f902_0
   - svt-av1=1.3.0=hf0c8a7f_0
-  - tbb=2021.10.0=h1c7c39f_0
-  - tbb-devel=2021.10.0=h1c7c39f_0
+  - tbb=2021.10.0.custom_asp=h6b95b14_0
+  - tbb-devel=2021.10.0.custom_asp=h6b95b14_0
   - tk=8.6.12=h5dbffcc_0
   - tnt=126=0
   - typing-extensions=4.7.1=hd8ed1ab_0

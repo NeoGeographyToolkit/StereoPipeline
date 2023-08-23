@@ -75,18 +75,18 @@ for it in range(len(lines)):
         continue
 
     # Match the package
-    m = re.match('^(\s+-[\t ]+)([^\s]+)(\s*)(.*?)$', line)
+    m = re.match('^(\s+-\s*)(.*?)([\s=]+)(.*?)$', line)
     if not m:
         continue
     
     pre = m.group(1)
     package = m.group(2)
-    spaces = m.group(3).rstrip("\n")
+    separator = m.group(3).rstrip("\n")
     old_version = m.group(4).rstrip("\n")
 
-    if spaces == "":
+    if separator == "":
         # Ensure there's at least one space
-        spaces = " "
+        separator = " "
         
     if old_version == "":
         # If there was no version before, don't put one now
@@ -103,7 +103,7 @@ for it in range(len(lines)):
         else:
             print("For package " + package + ", replacing version "
                   + old_version + " with " + version)
-            lines[it] = pre + package + spaces + version + "\n"
+            lines[it] = pre + package + separator + version + "\n"
 
 # Save the updated lines to disk
 print("Updating: " + outFile)
