@@ -44,7 +44,7 @@ Maxar (DigitalGlobe) WorldView-2 images with a processing (generation) date
 artifacts, and for those this tool will in fact make the solution worse, not
 better. 
 
-ASP of version later than 3.2.0 and any development build after 2023-06-21 will
+ASP of version 3.3.0 or later (and any development build after 2023-06-21) will
 automatically detect this and will not apply the correction (a copy of the input
 image will be written on output). A warning will be printed in that case. This
 holds for both PAN and multi-spectral images.

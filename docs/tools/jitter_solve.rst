@@ -678,7 +678,7 @@ Redoing mapprojection and stereo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 (See also section :numref:`jitter_reuse_run` for a more efficient approach in
-the latest build.)
+ASP 3.3.0 or later.)
 
 Mapproject the optimized CSM cameras::
 
@@ -718,7 +718,7 @@ Run stereo::
 Reusing a previous run
 ^^^^^^^^^^^^^^^^^^^^^^
 
-In the latest build (post version 3.2.0), the mapprojection need not be redone,
+In ASP 3.3.0 or later, the mapprojection need not be redone,
 and stereo can resume at the triangulation stage
 (:numref:`mapproj_reuse`). This saves a lot of computing. The commands in the
 previous section can be replaced with::

@@ -777,14 +777,14 @@ Once such a run is done, using say the output prefix ``dg/dg``,
 a new output prefix, and modifications to the variables above, which will
 redo only the triangulation step. 
 
-Even the camera files can be changed for stereo (only with the latest build,
-post version 3.2.0). For example, ``jitter_solve`` (:numref:`jitter_solve`) can
-produce CSM cameras given input cameras in Maxar / DigitalGlobe .xml files or
-input CSM .json files (:numref:`csm`). So, if stereo was done with mapprojected
-images named ``left_mapproj.tif`` and ``right_mapproj.tif``, with cameras with
-names like ``left.xml`` and ``right.xml``, before solving for jitter, and this
-solver produced cameras of the form ``adjusted_left.json``,
-``adjusted_right.json``, the reuse of the previous run can be done as::
+Even the camera files can be changed for stereo (only with ASP 3.3.0 or later).
+For example, ``jitter_solve`` (:numref:`jitter_solve`) can produce CSM cameras
+given input cameras in Maxar / DigitalGlobe .xml files or input CSM .json files
+(:numref:`csm`). So, if stereo was done with mapprojected images named
+``left_mapproj.tif`` and ``right_mapproj.tif``, with cameras with names like
+``left.xml`` and ``right.xml``, before solving for jitter, and this solver
+produced cameras of the form ``adjusted_left.json``, ``adjusted_right.json``,
+the reuse of the previous run can be done as::
 
    parallel_stereo -t csmmaprpc             \
      left_mapproj.tif right_mapproj.tif     \
