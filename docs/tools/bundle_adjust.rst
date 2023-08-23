@@ -608,8 +608,8 @@ Command-line options for bundle_adjust
     provided.
 
 --ip-detect-method <integer (default: 0)>
-    Choose an interest point detection method from: 0=OBAloG, 1=SIFT,
-    2=ORB.
+    Choose an interest point detection method from: 0 = OBAloG
+    (:cite:`jakkula2010efficient`), 1 = SIFT (from OpenCV), 2 = ORB (from OpenCV).
 
 --matches-per-tile <int (default: unspecified)>
     How many interest point matches to compute in each image tile (of size

@@ -9,7 +9,8 @@ misc:
  * Adjusted the number of camera poses sampled from the polynomials determining
    the quaternions for PleiadesHR cameras. It has no effect in practice but
    results in ``jitter_solve`` assumptions being satisfied.
-
+ * Fixed a couple of runtime errors when using conda packages on OSX.
+  
 RELEASE 3.3.0, August 16, 2023
 ------------------------------
 
