@@ -1,7 +1,7 @@
 .. _orbit_plot:
 
-orbit_plot
-----------
+orbit_plot.py
+-------------
 
 The ``orbit_plot.py`` program is a Python script that takes an input one or more
 orbital sequences of cameras, and plots the camera orientation as it changes
@@ -19,53 +19,57 @@ single linescan camera in the CSM model state format (:numref:`csm_state`).
 
 At some point this tool will also plot the camera positions.
  
-Example
-~~~~~~~
+Example: Plot a single orbital sequence
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Here we will consider synthetic cameras, created with ``sat_sim`` (:numref:`sat_sim`).
+Here we will consider synthetic cameras, created with ``sat_sim``
+(:numref:`sat_sim`).
 
+::
 
-Command-line options for bathy_plane_calc
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ~/miniconda3/envs/orbit_plot/bin/python         \
+      $(which orbit_plot.py)                        \
+      --dataset sim_fn_jitter0.0/,sim_fn_jitter2.0/ \
+      --orbit-id pinhole-fwd                        \
+      --label Orig,Adjust                           \
+      --trim-ratio 0.5
 
---shapefile <filename>
-    The shapefile with vertices whose coordinates will be looked up in
-    the DEM.
+Here it is assumed that ASP's ``bin`` directory is in the path, otherwise
+the full path to this Python script must be specified above.
 
---dem <filename>
-    The DEM to use.
+The ``orbit_plot`` conda environment is installed as described below.
 
---mask <string (default: "")>
-    A input mask, created from a raw camera image and hence having the
-    same dimensions, with values of 1 on land and 0 on water, or
-    positive values on land and no-data values on water.
+Dependencies
+~~~~~~~~~~~~
 
---camera <string (default: "")>
-    The camera file to use with the mask.
+This tool needs Python 3 and some additional Python packages to be installed with 
+``conda``. 
 
---bundle-adjust-prefix <string (default: "")>
-    Use the camera adjustment at this output prefix, if the cameras
-    changed based on bundle adjustment or alignment.
+Conda can be obtained from 
 
--t, --session-type <string (default: "")>
-    Select the stereo session type to use for processing. Usually
-    the program can select this automatically by the file extension, 
-    except for xml cameras. See :numref:`parallel_stereo_options` for
-    options.
+    https://docs.conda.io/en/latest/miniconda.html
 
---outlier-threshold <double>
-    A value, in meters, to determine the distance from a sampled point
-    on the DEM to the best-fit plane to determine if it will be marked as 
-    outlier and not included in the calculation of that plane. The default
-    is 0.5. Its value should be roughly the expected vertical uncertainty
-    of the DEM.
+Run::
 
+    ./Miniconda3-latest-Linux-x86_64.sh
 
---tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
-    TIFF compression method.
+on Linux, and the appropriate version on OSX (this script needs to be
+made executable first). Use the suggested::
 
--v, --version
-    Display the version of software.
+    $HOME/miniconda3
+
+directory for installation. 
+
+Activate conda. The needed packages can be installed, for example,
+as follows:
+
+::
+    conda create -n orbit_plot numpy=1.23.5 scipy=1.9.3 \
+      pyproj=3.4.0 matplotlib=3.6.2 -y
+
+Command-line options for orbit_plot.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 -h, --help
     Display this help message.

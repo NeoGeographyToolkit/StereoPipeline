@@ -17,75 +17,15 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-# Plot roll, pitch, and yaw of ASP Pinhole .tsai cameras, and/or of CSM #
+# Plot roll, pitch, and yaw of ASP Pinhole .tsai cameras, and/or of CSM 
 # Frame/Linescan .json cameras, before and after bundle adjustment.
-
-# The naming convention used is that Forward images and cameras are # named like
-#${prefix}f-00000.tif, ${prefix}f-00000.tsai, and analogously for Nadir and # Aft
-#(use 'n' and 'a'). If there is a dash before "f", it must be part of the prefix.
-# For CSM cameras, the extension is .json instead of .tsai.
-
-# Also can handle any other single-character above, such as '1', '2', etc.
-# Ensure these entries are used as part of the 'types' variable below.
-
-# To get cameras named this way, can create symlinks from original data.
-
-# For every camera before bundle-adjustment named a-10000.tsai, there must be a
-# reference camera named a-ref-10000.tsai. This is the camera that will be used
-# to convert from ECEF to NED coordinates. This camera is created by sat_sim #
-#with the option --save-ref-cams. 
-
-# This tool works the same way for linescan cameras. Then, instead of many .tsai
-# files there exists a single .json file for every orbital segment. 
-
-# Inputs
-
-# numCams=1000 # how many cameras to plot (if a large number is used, plot all)
-#types="a,f,n" # Plot only given types. Use any strings separated by commas.
-#beforeOpt="inputs/" # Cameras must be ${beforeOpt}type*{.tsai,.json}, with type as above.
-#afterOpt="ba/run-" # Cameras must be ${afterOpt}type*{.tsai,.json} 
-# beforeCaption="PlanetOrig"
-# afterCaption="BundleAdjust"
-# subtractLineFit=1 # if to subtract the best line fit before plotting (same fit for before/after).
-
-# trimRatio=0.5. Trim ratio. If not set, assume 0. Given a value between 0 and 1
-# (inclusive), remove this fraction of camera poses from each sequence, with
-# half of this amount for poses at the beginning and half at the end of the
-# sequence. This is usually set to 0.5 for linescan, as then the total number of
-# cameras is double the amount needed to cover the image, with the extra cameras
-# making it easier to solve for jitter and interpolate the camera poses.
-# This parameter is not used for frame cameras.
-
-# Usage:
-
-# python plot_orient.py $numCams $types $beforeOpt $afterOpt \
-#    $beforeCaption $afterCaption $subtractLineFit $TrimRatio
-
-# This tool needs python 3, and a handful of python packages, as seen below.
-# Install them conda.
+# See the documentation for more info.
 
 import sys, os, re, math, json, argparse, shutil, glob
 import numpy as np
 import matplotlib.pyplot as plt
 from pyproj import Proj, transform, Transformer
 from scipy.spatial.transform import Rotation as R
-
-usage  = "python orbit_plot.py <options>"
-
-parser = argparse.ArgumentParser(usage=usage,
-                                 formatter_class=argparse.RawTextHelpFormatter)
-
-parser.add_argument('--image',  dest = 'image', default = "", 
-                    help='The single-channel image to use to find the water-land threshold.')
-
-parser.add_argument("--num-samples",  dest="num_samples", type=int, default = 1000000,
-                    help="The number of samples to pick from the image (more samples " +
-                    "will result in more accuracy but will be slower).")
-
-parser.add_argument("--no-plot", action="store_true", default=False,
-                        dest="no_plot",  help="Do not show the plot.")
-
-(options, args) = parser.parse_known_args(sys.argv)
 
 def produce_m(lon,lat,m_meridian_offset=0):
     """
@@ -364,7 +304,7 @@ def ned_rotation_from_cam(cam_file, ref_cam_file):
 
 # Return at most this many elements from an array
 def getFirstN(arr, N):
-    if len(arr) > N:
+    if N >= 0 and len(arr) > N:
         return arr[:N]
     else:
         return arr
@@ -387,34 +327,61 @@ def multi_glob(prefix, extensions):
 
 # Main function
 
-if len(sys.argv) < 8:
-    print("Usage: " + argv.sys[0] + " <num> <camera types> <orig prefix> <opt prefix> <orig tag> <opt tag> <subtract line fit> [<line scan>]")
+usage  = "python orbit_plot.py <options>"
+
+parser = argparse.ArgumentParser(usage=usage,
+                                 formatter_class=argparse.RawTextHelpFormatter)
+
+parser.add_argument('--dataset', dest = 'dataset', default = "", 
+                    help='The dataset to plot. If more than one, separate them by comma, with no spaces in between. The dataset is the prefix of the cameras, such as  "cameras/" or "opt/run-". It is to be followed by the orbit id, such as, "nadir" or "aft". If more than one dataset, they will be plotted on top of each other.')
+
+parser.add_argument('--orbit-id', dest = 'orbit_id', default = "", 
+                    help='The id (a string) that determines an orbital group of cameras. If more than one, separate them by comma, with no spaces in between.')
+
+parser.add_argument('--label', dest = 'label', default = "", 
+                    help='The label to use for each dataset in the legend. If more than one, separate them by comma, with no spaces in between. If not set, will use the dataset name.')
+
+parser.add_argument("--num-cameras",  dest="num_cameras", type=int, default = -1,
+                    help="Plot only the first this many cameras from each orbital sequence. By default, plot all of them.")
+
+parser.add_argument("--trim-ratio",  dest="trim_ratio", type=float, default = 0.0,
+                    help="Trim ratio. Given a value between 0 and 1 (inclusive), remove this fraction of camera poses from each sequence, with half of this amount for poses at the beginning and half at the end of the sequence. This is used only for linescan, to not plot camera poses beyond image lines. For cameras created with sat_sim, a value of 0.5 should be used.")
+
+parser.add_argument('--subtract-line-fit', dest = 'subtract_line_fit', action='store_true',
+                    help='If set, subtract the best line fit from the curves being plotted.')
+
+(options, args) = parser.parse_known_args(sys.argv)
+
+if options.orbit_id == "" or options.dataset == "":
+    print("Must set the --orbit-id and --dataset options.")
+    parser.print_help()
     sys.exit(1)
 
-Num   = int(sys.argv[1]) # How many to plot
-Types = sys.argv[2] # camera types, can be 'n', 'f,n,a', etc.
-
-# Assume cameras are named ${origPrefix}n1352.tsai and same for optPrefix
-origPrefix = sys.argv[3]
-optPrefix  = sys.argv[4]
-
-origTag = sys.argv[5]
-optTag = sys.argv[6]
-
-subtractLineFit = int(sys.argv[7])
-
-trimRatio = 0.0
-if len(sys.argv) > 8:
-    trimRatio = float(sys.argv[8])
+if options.trim_ratio < 0:
+    print("The value of --trim-ratio must be non-negative.")
+    parser.print_help()
+    sys.exit(1)
 
 # Split by comma
-Types = Types.split(',')
+Types = options.orbit_id.split(',')
+datasets = options.dataset.split(',')
+labels = options.label.split(',')
+if len(labels) == 0:
+    labels = datasets[:]
+if len(labels) != len(datasets):
+    print("Number of datasets and labels must agree. Got ", datasets, " and ", labels)
+    sys.exit(1)
 
-print("Camera types are: ", ','.join(Types))
+origPrefix = datasets[0]
+optPrefix  = datasets[1]
+origTag = labels[0]
+optTag  = labels[1]
+
+print("Orbit ids: ", ','.join(Types))
 print("orig prefix ", origPrefix)
 print("opt prefix ", optPrefix)
-print("Subtract line fit: ", subtractLineFit)
-print("Trim ratio (for linescan): ", trimRatio)
+print("Subtract line fit: ", options.subtract_line_fit)
+print("Trim ratio (for linescan): ", options.trim_ratio)
 
 # Below ensure we have at least two plots, or else ax[i][j] will fail below
 f, ax = plt.subplots(max(2, len(Types)), 3, sharex=True, sharey = False, figsize = (15, 15))
@@ -476,10 +443,10 @@ for s in Types:
     #print ("opt cams are ", opt_cams)
     #print ("ref cams are ", ref_cams)
 
-    # Reduce the number of cameras to Num
-    orig_cams = getFirstN(orig_cams, Num)
-    opt_cams  = getFirstN(opt_cams, Num)
-    ref_cams  = getFirstN(ref_cams, Num)
+    # Reduce the number of cameras to options.num_cameras
+    orig_cams = getFirstN(orig_cams, options.num_cameras)
+    opt_cams  = getFirstN(opt_cams, options.num_cameras)
+    ref_cams  = getFirstN(ref_cams, options.num_cameras)
  
     # Check that these sets are the same size
     if len(orig_cams) != len(opt_cams):
@@ -508,10 +475,10 @@ for s in Types:
 
     lineScan = isLinenscan(orig_cams[0])
 
-    # Eliminate the first and last few values, based on trimRatio
+    # Eliminate the first and last few values, based on options.trim_ratio
     if lineScan:
         totalNum = len(orig_rotation_angles)
-        removeNum = int(trimRatio * totalNum)
+        removeNum = int(options.trim_ratio * totalNum)
         removeNumBefore = int(removeNum / 2)
         removeNumAfter = removeNum - removeNumBefore
         b = removeNumBefore
@@ -530,7 +497,7 @@ for s in Types:
     opt_yaw   = [r[2] for r in opt_rotation_angles]
 
     residualTag = ''
-    if subtractLineFit:
+    if options.subtract_line_fit:
         fit_roll = poly_fit(np.array(range(len(orig_roll))), orig_roll)
         fit_pitch = poly_fit(np.array(range(len(orig_pitch))), orig_pitch)
         fit_yaw = poly_fit(np.array(range(len(orig_yaw))), orig_yaw)
@@ -553,8 +520,7 @@ for s in Types:
     if s == 'f':
         t = 'fwd'
     
-    fmt = "{:.2e}" 
-    print("format is", fmt)
+    fmt = "{:.2e}" # 2 digits of precision are enough for display 
     orig_roll_std = fmt.format(np.std(orig_roll))
     orig_pitch_std = fmt.format(np.std(orig_pitch))
     orig_yaw_std = fmt.format(np.std(orig_yaw))
