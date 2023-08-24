@@ -682,9 +682,11 @@ namespace asp {
     vw::stereo::CorrelationAlgorithm stereo_alg
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
     
-    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM ||
-                        stereo_settings().alignment_method == "local_epipolar");
-    if (using_tiles) {
+    // This is for asp_sgm, asp_mgm, asp_final_mgm    
+    bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM && 
+        stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
+
+    if (using_sgm) {
       // If these parameters were not specified by the user, override
       // the normal default values.  Note that by setting
       // subpixel_mode to SGM_DEFAULT_SUBPIXEL_MODE, we will do no
@@ -711,8 +713,55 @@ namespace asp {
         stereo_settings().disp_smooth_size = SGM_DEFAULT_TEXTURE_SMOOTH_SIZE;
       if (vm["texture-smooth-scale"].defaulted())
         stereo_settings().disp_smooth_texture = SGM_DEFAULT_TEXTURE_SMOOTH_SCALE;
+
+       // This is a fix for the user setting cost-mode in stereo.default, when
+       // it is not defaulted. Do not allow cost mode to be different than
+       // 3 or 4 for asp_sgm / asp_mgm, as it produced junk.
+       if (stereo_settings().cost_mode != 3 && stereo_settings().cost_mode != 4)
+         vw_throw(ArgumentErr() << "When using the asp_sgm or asp_mgm "
+                 << "stereo algorithm, cost-mode must be 3 or 4.\n");
+
+       // Also do not allow corr-kernel to be outside of [3, 9]
+       if (stereo_settings().corr_kernel[0] < 3 || stereo_settings().corr_kernel[0] > 9) 
+         vw_throw(ArgumentErr() << "For the asp_sgm / asp_mgm algorithm, "
+           << "the corr kernel size must be between 3 and 9 (inclusive).\n");
+
+       // For other values that are different than the suggested defaults,
+       // print a warning only. Most likely these are fine, but the user may
+       // not expect these to be read from stereo.default.
+       if (stereo_settings().rm_cleanup_passes != SGM_DEFAULT_RM_CLEANUP_PASSES)
+         vw_out(WarningMessage) << "When using the asp_sgm or asp_mgm "
+                                << "stereo algorithm, the default suggested value for "
+                                << "rm-cleanup-passes is "
+                                << SGM_DEFAULT_RM_CLEANUP_PASSES << ". "
+                                << "Got instead " << stereo_settings().rm_cleanup_passes 
+                                << ".\n";
+       if (stereo_settings().median_filter_size != SGM_DEFAULT_MEDIAN_FILTER_SIZE)
+         vw_out(WarningMessage) << "When using the asp_sgm or asp_mgm "
+                                << "stereo algorithm, the default suggested value for "
+                                << "median-filter-size is "
+                                << SGM_DEFAULT_MEDIAN_FILTER_SIZE << ". "
+                                << "Got instead " << stereo_settings().median_filter_size
+                                << ".\n";
+       if (stereo_settings().disp_smooth_size != SGM_DEFAULT_TEXTURE_SMOOTH_SIZE)
+         vw_out(WarningMessage) << "When using the asp_sgm or asp_mgm "
+                                << "stereo algorithm, the default suggested value for "
+                                << "texture-smooth-size is "
+                                << SGM_DEFAULT_TEXTURE_SMOOTH_SIZE << ". "
+                                << "Got instead " << stereo_settings().disp_smooth_size
+                                << ".\n";
+
+       if (stereo_settings().disp_smooth_texture != SGM_DEFAULT_TEXTURE_SMOOTH_SCALE)
+         vw_out(WarningMessage) << "When using the asp_sgm or asp_mgm "
+                                << "stereo algorithm, the default suggested value for "
+                                << "texture-smooth-scale is "
+                                << SGM_DEFAULT_TEXTURE_SMOOTH_SCALE << ". "
+                                 << "Got instead " << stereo_settings().disp_smooth_texture
+                                 << ".\n";
     }
     
+    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM ||
+                        stereo_settings().alignment_method == "local_epipolar");
     if (!using_tiles) {
       // No need for a collar when we are not using tiles.
       stereo_settings().sgm_collar_size = 0;
@@ -897,7 +946,10 @@ namespace asp {
     bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM ||
                         stereo_settings().alignment_method == "local_epipolar");
 
-    if (!using_tiles) {
+    bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM && 
+        stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
+
+    if (!using_sgm) {
       if (stereo_settings().cost_mode == 3)
         vw_throw(ArgumentErr() << "Cannot use the census transform without SGM!\n" );
       if (stereo_settings().cost_mode == 4)
@@ -907,13 +959,6 @@ namespace asp {
     if (stereo_settings().cost_mode > 4)
       vw_throw(ArgumentErr() << "Unknown value " << stereo_settings().cost_mode
                << " for cost-mode.\n");
-
-    if ( using_tiles &&
-         (stereo_settings().cost_mode == 3 || stereo_settings().cost_mode == 4) &&
-         (stereo_settings().corr_kernel[0] < 3 || stereo_settings().corr_kernel[0] > 9) ){
-      vw_throw(ArgumentErr() << "For this kernel size, use --cost-mode 2, 1, or 0, "
-                << "with 2 preferred.\n");
-    }
 
     if (stereo_settings().min_triangulation_angle <= 0 &&
         stereo_settings().min_triangulation_angle != -1) {

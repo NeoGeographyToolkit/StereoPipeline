@@ -242,7 +242,7 @@ namespace asp {
     int   mask_buffer_size;           // Size of region filtered out of image edges.
     int   median_filter_size;         // Filter subpixel results with median filter of this size
     int   disp_smooth_size;           // Adaptive disparity smoothing size
-    float disp_smooth_texture;        // Adaptive disparity smoothing max texture value    
+    double disp_smooth_texture;        // Adaptive disparity smoothing max texture value    
     bool  gotcha_disparity_refinement;
     std::string casp_go_param_file;
 

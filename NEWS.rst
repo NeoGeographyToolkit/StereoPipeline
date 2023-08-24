@@ -5,6 +5,13 @@ jitter_solve (:numref:`jitter_solve`):
   * The roll and yaw constraints no longer assume linescan camera positions and
     orientations are one-to-one. 
 
+parallel_stereo (:numref:`parallel_stereo`):
+   * For the ``asp_sgm`` and ``asp_mgm`` algorithms allow ``cost-mode`` to
+     have the value 3 or 4 only, as other values produce bad results. Also print
+     warnings when the user specifies values for ``rm-cleanup-passes``,
+     ``median-filter-size``, ``texture-smooth-size``, ``texture-smooth-scale``
+     that are different than the default values, as those were tested the most.
+
 misc:
  * Adjusted the number of camera poses sampled from the polynomials determining
    the quaternions for PleiadesHR cameras. It has no effect in practice but
