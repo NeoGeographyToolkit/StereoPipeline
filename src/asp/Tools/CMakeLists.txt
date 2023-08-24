@@ -4,6 +4,9 @@
 #TODO: Turn them off when components are not present
 
 # Install all of the python files.
+# Note: When packaged, the files with a .py extension will
+# not get a shell script wrapper. See add_executable() 
+# in BinaryDist.py.
 set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
                  lronac2mosaic.py     parse_match_file.py
                  dg_mosaic            parallel_stereo
@@ -12,12 +15,14 @@ set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
                  camera_solve         parallel_sfs
                  mapproject           parallel_bundle_adjust
                  historical_helper.py datum_convert
-                 bathy_threshold_calc.py scale_bathy_mask.py
-                 crs2crs2grid.py)
+                 bathy_threshold_calc.py 
+                 scale_bathy_mask.py
+                 crs2crs2grid.py 
+                 orbit_plot.py)
 set(PYTHON_LIBS stereo_utils.py)
 
 foreach(p ${PYTHON_TOOLS})
-INSTALL(FILES ${p} PERMISSIONS
+  INSTALL(FILES ${p} PERMISSIONS
     OWNER_READ OWNER_WRITE OWNER_EXECUTE
     GROUP_READ GROUP_EXECUTE
     WORLD_READ WORLD_EXECUTE

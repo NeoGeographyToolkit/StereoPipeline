@@ -1163,9 +1163,9 @@ Run bundle adjustment to get interest point matches::
         --mapprojected-data-list $dir/map_images.txt \
         -o ba/run
 
-Here we assumed a minimum convergence angle of 15 degrees between the two sets
-of cameras. See :numref:`pbs_slurm` for how to set up the computing nodes needed
-for ``--nodes-list``.
+Here we assumed a minimum triangulation convergence angle of 15 degrees between
+the two sets of cameras (:numref:`stereo_pairs`). See :numref:`pbs_slurm` for
+how to set up the computing nodes needed for ``--nodes-list``.
 
 Solve for jitter with roll and yaw constraints, to ensure movement only for the
 pitch angle::

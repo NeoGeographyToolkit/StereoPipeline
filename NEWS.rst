@@ -1,6 +1,10 @@
 Changes since the last release
 ------------------------------
 
+New tools:
+  * Added ``orbit_plot.py`` (:numref:`orbit_plot`), a tool for plotting
+    camera orientations along an orbit.
+    
 jitter_solve (:numref:`jitter_solve`):
   * The roll and yaw constraints no longer assume linescan camera positions and
     orientations are one-to-one. 
