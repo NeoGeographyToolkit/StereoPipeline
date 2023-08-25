@@ -103,6 +103,44 @@ def read_frame_cam_dict(cam):
     else:
         raise Exception('Unknown camera file extension: ' + cam)
 
+def estim_satellite_orientation(positions):
+    """
+    Given a list of satellite positions, estimate the satellite
+    orientation at each position. The x axis is the direction of
+    motion, z points roughly down while perpendicular to x, and
+    y is the cross product of z and x.
+    """
+    num = len(positions)
+    rotations = []
+    for i in range(num):
+        prev_i = i - 1
+        if prev_i < 0:
+            prev_i = 0
+        next_i = i + 1
+        if next_i >= num:
+            next_i = num - 1
+
+        # x is tangent to orbit, z goes down    
+        x = np.array(positions[next_i]) - np.array(positions[prev_i])
+        z = -np.array(positions[i])
+
+        # Normalize
+        z = z / np.linalg.norm(z)
+        x = x / np.linalg.norm(x)
+
+        # Make sure z is perpendicular to x
+        z = z - np.dot(z, x) * x
+        z = z / np.linalg.norm(z)
+
+        # Find y as the cross product
+        y = np.cross(z, x)
+
+        # Make these as columns in a matrix r
+        r = np.column_stack((x, y, z))
+        rotations.append(r)
+    
+    return rotations
+
 def read_tsai_cam(tsai):
     """
     read tsai frame model from asp and return a python dictionary containing the parameters
@@ -134,13 +172,13 @@ def read_tsai_cam(tsai):
     rot_mat = np.reshape(rot_mat,(3,3))
 
     pitch = np.float64(content[11].split(' = ', 10)[1]) # pixel pitch
-    
-    ecef_proj = 'EPSG:4978'
-    geo_proj = 'EPSG:4326'
-    ecef2wgs = Transformer.from_crs(ecef_proj, geo_proj)
-    cam_cen_lat_lon = ecef2wgs.transform(cam_cen[0], cam_cen[1], cam_cen[2]) # this returns lat, lon and height
-    # cam_cen_lat_lon = geolib.ecef2ll(cam_cen[0], cam_cen[1], cam_cen[2]) # camera center coordinates in geographic coordinates
-    tsai_dict = {'camera':camera, 'focal_length':(fu, fv), 'optical_center':(cu, cv), 'cam_cen_ecef':cam_cen, 'cam_cen_wgs':cam_cen_lat_lon, 'rotation_matrix':rot_mat, 'pitch':pitch}
+    tsai_dict = {
+      'camera': camera, 
+      'focal_length': (fu, fv),
+      'optical_center': (cu, cv), 
+      'cam_cen_ecef': cam_cen, 
+      'rotation_matrix': rot_mat, 
+      'pitch': pitch}
     return tsai_dict
 
 def read_frame_csm_cam(json_file):
@@ -341,7 +379,7 @@ def read_positions_rotations(cams):
 def read_angles(orig_cams, opt_cams, ref_cams):
 
   # orig_cams and ref_cams must be the same size
-  if len(orig_cams) != len(ref_cams):
+  if len(ref_cams) > 0 and len(orig_cams) != len(ref_cams):
       print("Number of input and reference cameras must be the same. Got: ", \
            len(ref_cams), " and ", len(opt_cams))
       sys.exit(1)
@@ -349,22 +387,29 @@ def read_angles(orig_cams, opt_cams, ref_cams):
   (orig_positions, orig_rotations) = read_positions_rotations(orig_cams)
   (opt_positions, opt_rotations)   = read_positions_rotations(opt_cams)
   (ref_positions, ref_rotations)   = read_positions_rotations(ref_cams)
+  
+  # If we do not have ref cameras that determine the satellite orientation,
+  # estimate them from the camera positions
+  if len(ref_cams) == 0:
+    orig_ref_rotations = estim_satellite_orientation(orig_positions)
+    opt_ref_rotations  = estim_satellite_orientation(opt_positions)
+  else:
+    orig_ref_rotations = ref_rotations[:]
+    opt_ref_rotations  = ref_rotations[:]
 
   orig_rotation_angles = []
   opt_rotation_angles = []
   for i in range(len(orig_rotations)):
-      angles = roll_pitch_yaw(orig_rotations[i], ref_rotations[i])
+      angles = roll_pitch_yaw(orig_rotations[i], orig_ref_rotations[i])
       orig_rotation_angles.append(angles)
   for i in range(len(opt_rotations)):
-      angles = roll_pitch_yaw(opt_rotations[i], ref_rotations[i])
+      angles = roll_pitch_yaw(opt_rotations[i], opt_ref_rotations[i])
       opt_rotation_angles.append(angles)
 
   return (orig_rotation_angles, opt_rotation_angles)
 
 # Main function
-
 usage  = "python orbit_plot.py <options>"
-
 parser = argparse.ArgumentParser(usage=usage,
                                  formatter_class=argparse.RawTextHelpFormatter)
 
@@ -383,8 +428,11 @@ parser.add_argument("--num-cameras",  dest="num_cameras", type=int, default = -1
 parser.add_argument("--trim-ratio",  dest="trim_ratio", type=float, default = 0.0,
                     help="Trim ratio. Given a value between 0 and 1 (inclusive), remove this fraction of camera poses from each sequence, with half of this amount for poses at the beginning and half at the end of the sequence. This is used only for linescan, to not plot camera poses beyond image lines. For cameras created with sat_sim, a value of 0.5 should be used.")
 
-parser.add_argument('--plot-size', dest = 'plot_size', default = "15,15", 
+parser.add_argument('--figure-size', dest = 'figure_size', default = "15,15", 
                     help='Specify the width and height of the figure having the plots, in inches. Use two numbers with comma as separator (no spaces).')
+
+parser.add_argument('--use-ref-cams', dest = 'use_ref_cams', action='store_true',
+                    help='Read from, disk reference cameras that determine the satellite orientation. This assumes the first dataset was created with sat_sim with the option --save-ref-cams. Otherwise the satellite orientation is estimated based on camera positions.')
 
 parser.add_argument('--subtract-line-fit', dest = 'subtract_line_fit', action='store_true',
                     help='If set, subtract the best line fit from the curves being plotted.')
@@ -411,12 +459,12 @@ if len(labels) != len(datasets):
     print("Number of datasets and labels must agree. Got ", datasets, " and ", labels)
     sys.exit(1)
 
-plot_size = options.plot_size.split(',')
-if len(plot_size) != 2:
-    print("The --plot-size option must have two values. Got: ", plot_size)
+# Read the figure dimensions
+figure_size = options.figure_size.split(',')
+if len(figure_size) != 2:
+    print("The --figure-size option must have two values. Got: ", figure_size)
     sys.exit(1)
-# Convert to float
-plot_size = [float(x) for x in plot_size]
+figure_size = [float(x) for x in figure_size]
 
 # We assume we have one or two datasets that we want to plot on top of each other.
 numSets = len(datasets)
@@ -431,7 +479,7 @@ if numSets == 2:
     optTag  = labels[1]
 
 f, ax = plt.subplots(len(Types), 3, sharex=True, sharey = False, 
-                     figsize = (plot_size[0], plot_size[1]))
+                     figsize = (figure_size[0], figure_size[1]))
 
 # Set up the legend in the upper right corner. We will have text in upper-left
 plt.rcParams["legend.loc"] = 'upper right' 
@@ -449,6 +497,7 @@ plt.rc('figure', titlesize = fs) # fontsize of the figure title
 # This tool can mix and match ASP Pinhole .tsai files and CSM frame/linescan .json files.
 extensions = ['.tsai', '.json']
 
+# TODO(oalexan1): Make the code below a function
 for row in range(len(Types)):
     s = Types[row]
 
@@ -456,9 +505,14 @@ for row in range(len(Types)):
     # maybe we optimized only a subset
     # Keep ref cams separate from actual cameras
     opt_cams = []
+    ref_cams = []
+    print_ref_cam_warning = False
     if numSets == 2:
         all_opt_cams = sorted(multi_glob(optPrefix + s, extensions))
         ref_cams     = sorted(multi_glob(optPrefix + s + '-ref', extensions))
+        if (not options.use_ref_cams) and len(ref_cams) > 0:
+            print_ref_cam_warning = True
+
         camMap = set()
         # Add ref_cams to camMap set
         for c in ref_cams:
@@ -473,6 +527,8 @@ for row in range(len(Types)):
     # as we will use the orig ref cams
     all_orig_cams = sorted(multi_glob(origPrefix + s, extensions))
     ref_cams      = sorted(multi_glob(origPrefix + s + '-ref', extensions))
+    if (not options.use_ref_cams) and len(ref_cams) > 0:
+        print_ref_cam_warning = True
 
     camMap = set()
     # Add ref_cams to camMap set
@@ -485,14 +541,21 @@ for row in range(len(Types)):
         if c not in camMap:
             orig_cams.append(c) 
 
+    # If not using ref cams, wipe them
+    if not options.use_ref_cams:
+        if (print_ref_cam_warning):
+            print("Found reference cameras but will not use them.")
+        ref_cams = []
+
     # Reduce the number of cameras to options.num_cameras
     orig_cams = getFirstN(orig_cams, options.num_cameras)
-    ref_cams  = getFirstN(ref_cams, options.num_cameras)
+    if options.use_ref_cams:
+      ref_cams  = getFirstN(ref_cams, options.num_cameras)
     if numSets == 2:
         opt_cams  = getFirstN(opt_cams, options.num_cameras)
  
     # Check that these sets are the same size
-    if len(orig_cams) != len(ref_cams):
+    if options.use_ref_cams and len(orig_cams) != len(ref_cams):
         print("Number of input and reference cameras must be thee same. Got: ", \
              len(ref_cams), " and ", len(opt_cams))
         sys.exit(1)
@@ -501,9 +564,9 @@ for row in range(len(Types)):
             len(orig_cams), " and ", len(opt_cams))
         sys.exit(1)
 
-    print("number of cameras for view " + s + ': ' + str(len(orig_cams)))
+    print("Number of cameras for view " + s + ': ' + str(len(orig_cams)))
 
-    # Read the rotations and convert them to NED
+    # Read the rotations and convert them to roll, pitch, yaw
     (orig_rotation_angles, opt_rotation_angles) = read_angles(orig_cams, opt_cams, ref_cams)
 
     # Eliminate several first and last few values, based on options.trim_ratio
