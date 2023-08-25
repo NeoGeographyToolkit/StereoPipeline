@@ -251,7 +251,7 @@ def Ryaw(theta):
                    [ math.sin(theta), math.cos(theta) , 0 ],
                    [ 0           , 0            , 1 ]])
 
-def isLinenscan(cam_file):
+def isLinescan(cam_file):
     """
     Read the first line from cam_file which tells if the sensor is linescan.
     """
@@ -263,36 +263,8 @@ def isLinenscan(cam_file):
     
     return lineScan
 
-def roll_pitch_yaw(cam_file, ref_cam_file):
-    #coordinate conversion step
-    #from pyproj import Transformer
-    #ecef_proj = 'EPSG:4978'
-    #geo_proj = 'EPSG:4326'
-    #ecef2wgs = Transformer.from_crs(ecef_proj,geo_proj)
-    
-    # Read the first line from cam_file
-    lineScan = isLinenscan(cam_file)
+def roll_pitch_yaw(rot_mat, ref_rot_mat):
 
-    positions = []
-    rotations = []
-    ref_rotations = []
-
-    if lineScan:
-        # Read linescan data
-        (positions, rotations) = read_linescan_csm_cam(cam_file)
-        (ref_positions, ref_rotations) = read_linescan_csm_cam(ref_cam_file)
-    else:   
-        # read Pinhole (Frame) files in ASP .tsai or CSM .json format
-        asp_dict = read_frame_cam_dict(cam_file)
-        ref_asp_dict = read_frame_cam_dict(ref_cam_file)
-        # get camera rotation
-        position = asp_dict['cam_cen_ecef']
-        rot_mat = asp_dict['rotation_matrix']
-        ref_rot_mat = ref_asp_dict['rotation_matrix']
-        positions.append(position)
-        rotations.append(rot_mat)
-        ref_rotations.append(ref_rot_mat)
-    
     # rotate about z axis by 90 degrees
     # This will be a problem for non-sat_sim cameras
     T = np.zeros((3,3),float)
@@ -301,21 +273,10 @@ def roll_pitch_yaw(cam_file, ref_cam_file):
     T[2, 2] = 1
     Tinv = np.linalg.inv(T)
 
-    # Sanity check
-    if len(rotations) != len(ref_rotations):
-        raise Exception("Number of rotations (%d) and reference rotations (%d) do not match. This is likely due to orientations being resampled in jitter_solve." % (len(rotations), len(ref_rotations)))
+    inv_ref_rot_mat = np.linalg.inv(ref_rot_mat)
+    N = np.matmul(inv_ref_rot_mat, rot_mat)
 
-    angles = []
-    for i in range(len(rotations)):
-        rot_mat = rotations[i]
-        ref_rot_mat = ref_rotations[i]
-
-        inv_ref_rot_mat = np.linalg.inv(ref_rot_mat)
-        N = np.matmul(inv_ref_rot_mat, rot_mat)
-
-        angles.append(R.from_matrix(np.matmul(N, Tinv)).as_euler('XYZ',degrees=True))
-
-    return angles
+    return R.from_matrix(np.matmul(N, Tinv)).as_euler('XYZ',degrees=True)
 
 # Return at most this many elements from an array
 def getFirstN(arr, N):
@@ -339,6 +300,66 @@ def multi_glob(prefix, extensions):
     for ext in extensions:
         files += glob.glob(prefix + '*' + ext)  
     return files
+
+# Read the positions and rotations from the given files. For linescan we will
+# have a single camera, but with many poses in it. For Pinhole we we will have
+# many cameras, each with a single pose.
+def read_positions_rotations_from_file(cam_file):
+    
+    # Read the first line from cam_file
+    lineScan = isLinescan(cam_file)
+
+    positions = []
+    rotations = []
+
+    if lineScan:
+        # Read linescan data
+        (positions, rotations) = read_linescan_csm_cam(cam_file)
+    else:   
+        # read Pinhole (Frame) files in ASP .tsai or CSM .json format
+        asp_dict = read_frame_cam_dict(cam_file)
+        # get camera rotation
+        position = asp_dict['cam_cen_ecef']
+        rot_mat = asp_dict['rotation_matrix']
+        positions.append(position)
+        rotations.append(rot_mat)
+
+    return (positions, rotations)
+
+# Read the positions, rotations, and reference rotations from the given files
+def read_positions_rotations(cams):
+
+  (positions, rotations) = ([], [])
+  for i in range(len(cams)):
+      (p, r) = read_positions_rotations_from_file(cams[i])
+      positions += p
+      rotations += r
+
+  return (positions, rotations)
+
+# Get rotations, then convert to NED.  That's why the loops below. 
+def read_angles(orig_cams, opt_cams, ref_cams):
+
+  # orig_cams and ref_cams must be the same size
+  if len(orig_cams) != len(ref_cams):
+      print("Number of input and reference cameras must be the same. Got: ", \
+           len(ref_cams), " and ", len(opt_cams))
+      sys.exit(1)
+
+  (orig_positions, orig_rotations) = read_positions_rotations(orig_cams)
+  (opt_positions, opt_rotations)   = read_positions_rotations(opt_cams)
+  (ref_positions, ref_rotations)   = read_positions_rotations(ref_cams)
+
+  orig_rotation_angles = []
+  opt_rotation_angles = []
+  for i in range(len(orig_rotations)):
+      angles = roll_pitch_yaw(orig_rotations[i], ref_rotations[i])
+      orig_rotation_angles.append(angles)
+  for i in range(len(opt_rotations)):
+      angles = roll_pitch_yaw(opt_rotations[i], ref_rotations[i])
+      opt_rotation_angles.append(angles)
+
+  return (orig_rotation_angles, opt_rotation_angles)
 
 # Main function
 
@@ -428,10 +449,8 @@ plt.rc('figure', titlesize = fs) # fontsize of the figure title
 # This tool can mix and match ASP Pinhole .tsai files and CSM frame/linescan .json files.
 extensions = ['.tsai', '.json']
 
-row = -1
-for s in Types:
-
-    row += 1
+for row in range(len(Types)):
+    s = Types[row]
 
     # Based on opt cameras find the original cameras. That because
     # maybe we optimized only a subset
@@ -484,24 +503,11 @@ for s in Types:
 
     print("number of cameras for view " + s + ': ' + str(len(orig_cams)))
 
-    # Get rotations, then convert to NED. For linescan we will have a single
-    # camera, but with many poses in it. For Pinhole we we will have many
-    # cameras, each with a single pose. That's why the loops below. 
-    orig_rotation_angles = []
-    opt_rotation_angles = []
-    for i in range(len(orig_cams)):
-        angles = roll_pitch_yaw(orig_cams[i], ref_cams[i])
-        for angle in angles:
-            orig_rotation_angles.append(angle)
-    for i in range(len(opt_cams)):
-        angles = roll_pitch_yaw(opt_cams[i], ref_cams[i])
-        for angle in angles:
-            opt_rotation_angles.append(angle)
-
-    lineScan = isLinenscan(orig_cams[0])
+    # Read the rotations and convert them to NED
+    (orig_rotation_angles, opt_rotation_angles) = read_angles(orig_cams, opt_cams, ref_cams)
 
     # Eliminate several first and last few values, based on options.trim_ratio
-    if lineScan:
+    if isLinescan(orig_cams[0]):
         totalNum = len(orig_rotation_angles)
         removeNum = int(options.trim_ratio * totalNum)
         removeNumBefore = int(removeNum / 2)
@@ -514,16 +520,18 @@ for s in Types:
         print("Plotting the most central %d out of %d poses for linescan cameras." % \
             (len(orig_rotation_angles), totalNum))  
 
-    # The order is roll, pitch, yaw, as returned by R.from_matrix().as_euler('XYZ',degrees=True)
+    # The order is roll, pitch, yaw, as returned by
+    # R.from_matrix().as_euler('XYZ',degrees=True)
     orig_roll  = [r[0] for r in orig_rotation_angles]
     orig_pitch = [r[1] for r in orig_rotation_angles]
     orig_yaw   = [r[2] for r in orig_rotation_angles]
-    opt_roll  = [r[0] for r in opt_rotation_angles]
-    opt_pitch = [r[1] for r in opt_rotation_angles]
-    opt_yaw   = [r[2] for r in opt_rotation_angles]
+    opt_roll   = [r[0] for r in opt_rotation_angles]
+    opt_pitch  = [r[1] for r in opt_rotation_angles]
+    opt_yaw    = [r[2] for r in opt_rotation_angles]
 
     residualTag = ''
     if options.subtract_line_fit:
+        residualTag = ' residual'
         fit_roll = poly_fit(np.array(range(len(orig_roll))), orig_roll)
         fit_pitch = poly_fit(np.array(range(len(orig_pitch))), orig_pitch)
         fit_yaw = poly_fit(np.array(range(len(orig_yaw))), orig_yaw)
@@ -531,13 +539,10 @@ for s in Types:
         orig_roll = orig_roll - fit_roll
         orig_pitch = orig_pitch - fit_pitch
         orig_yaw = orig_yaw - fit_yaw
-        
         if numSets == 2:
             opt_roll = opt_roll - fit_roll
             opt_pitch = opt_pitch - fit_pitch
             opt_yaw = opt_yaw - fit_yaw
-
-        residualTag = ' residual'
 
     # Tag for the title
     t = s 
@@ -549,7 +554,6 @@ for s in Types:
     print(origTag + " " + t + " roll std: " + orig_roll_std + " degrees")
     print(origTag + " " + t + " pitch std: " + orig_pitch_std + " degrees")
     print(origTag + " " + t + " yaw std: " + orig_yaw_std + " degrees")
-
     if numSets == 2:
         opt_roll_std = fmt.format(np.std(opt_roll))
         opt_pitch_std = fmt.format(np.std(opt_pitch))
@@ -568,7 +572,6 @@ for s in Types:
     A[0].plot(np.arange(len(orig_roll)), orig_roll, label=origTag, color = 'r')
     A[1].plot(np.arange(len(orig_pitch)), orig_pitch, label=origTag, color = 'r')
     A[2].plot(np.arange(len(orig_yaw)), orig_yaw, label=origTag, color = 'r')
-
     if numSets == 2:
         A[0].plot(np.arange(len(opt_roll)), opt_roll, label=optTag, color = 'b')
         A[1].plot(np.arange(len(opt_pitch)), opt_pitch, label=optTag, color = 'b')
@@ -582,11 +585,8 @@ for s in Types:
     #A[1].set_ylabel('Degrees') # don't repeat this as it takes space
     #A[2].set_ylabel('Degrees')
 
-    A[0].set_xlabel('Frame index')
-    A[1].set_xlabel('Frame index')
-    A[2].set_xlabel('Frame index')
-    
     for index in range(3):
+        A[index].set_xlabel('Frame index')
         # Calc stddev text
         if numSets == 1:
             txt = 'StDev:' + orig_roll_std
