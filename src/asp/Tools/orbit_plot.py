@@ -252,7 +252,7 @@ def read_linescan_csm_cam(json_file):
     positions_vec = j['m_positions']
 
     # Reshape to Nx3 matrix using the reshape function
-    positions_vec = np.reshape(positions, (-1, 3))
+    positions_vec = np.reshape(positions_vec, (-1, 3))
 
     # Create a vector of vectors
     positions = []
@@ -344,27 +344,27 @@ def multi_glob(prefix, extensions):
 # many cameras, each with a single pose.
 def read_positions_rotations_from_file(cam_file):
     
-    # Read the first line from cam_file
-    lineScan = isLinescan(cam_file)
+  # Read the first line from cam_file
+  lineScan = isLinescan(cam_file)
 
-    positions = []
-    rotations = []
+  positions = []
+  rotations = []
 
-    if lineScan:
-        # Read linescan data
-        (positions, rotations) = read_linescan_csm_cam(cam_file)
-    else:   
-        # read Pinhole (Frame) files in ASP .tsai or CSM .json format
-        asp_dict = read_frame_cam_dict(cam_file)
-        # get camera rotation
-        position = asp_dict['cam_cen_ecef']
-        rot_mat = asp_dict['rotation_matrix']
-        positions.append(position)
-        rotations.append(rot_mat)
+  if lineScan:
+      # Read linescan data
+      (positions, rotations) = read_linescan_csm_cam(cam_file)
+  else:   
+      # read Pinhole (Frame) files in ASP .tsai or CSM .json format
+      asp_dict = read_frame_cam_dict(cam_file)
+      # get camera rotation
+      position = asp_dict['cam_cen_ecef']
+      rot_mat = asp_dict['rotation_matrix']
+      positions.append(position)
+      rotations.append(rot_mat)
 
-    return (positions, rotations)
+  return (positions, rotations)
 
-# Read the positions, rotations, and reference rotations from the given files
+# Read the positions and rotations from the given files
 def read_positions_rotations(cams):
 
   (positions, rotations) = ([], [])
@@ -372,6 +372,12 @@ def read_positions_rotations(cams):
       (p, r) = read_positions_rotations_from_file(cams[i])
       positions += p
       rotations += r
+
+  # Must have as many rotations as positions. That is needed as later
+  # we build ref rotations from positions.
+  if len(rotations) != len(positions):
+    print("Number of camera positions and orientations must be the same.")
+    sys.exit(1)
 
   return (positions, rotations)
 
@@ -423,9 +429,13 @@ def read_angles(orig_cams, opt_cams, ref_cams):
   return (orig_rotation_angles, opt_rotation_angles)
 
 # Load and plot each row in the figure given by 'ax'
-def plot_row(ax, row, Types, origPrefix, optPrefix, origTag, optTag, extensions, options):
+def plot_row(ax, row, orbits, origPrefix, optPrefix, orbit_labels, origTag, optTag, options):
 
-  camType = Types[row]
+  camType = orbits[row]
+  camLabel = orbit_labels[row]
+
+  # This tool can mix and match ASP Pinhole .tsai files and CSM frame/linescan .json files.
+  extensions = ['.tsai', '.json']
 
   # Read the opt cameras and their ref cameras. The latter may not exist as
   # bundle adjusted does not create them. We will use the ref cams for orig cams.
@@ -462,12 +472,12 @@ def plot_row(ax, row, Types, origPrefix, optPrefix, origTag, optTag, extensions,
 
   # Check that these sets are the same size
   if options.use_ref_cams and len(orig_cams) != len(ref_cams):
-      print("Number of input and reference cameras must be thee same. Got: ", \
+      print("Number of input and reference cameras must be thee same. See the option --use-ref-cams for more info. For these numbers, got: ", \
               len(ref_cams), " and ", len(opt_cams))
       sys.exit(1)
-  if numSets == 2 and len(orig_cams) != len(opt_cams):
-      print("Number of cameras in both datasets must be the same. Got: ", \
-          len(orig_cams), " and ", len(opt_cams))
+  if numSets == 2 and options.use_ref_cams and len(orig_cams) != len(opt_cams):
+      print("Number of cameras in both datasets must be the same when using " + \
+        "reference cameras. Got: ", len(orig_cams), " and ", len(opt_cams))
       sys.exit(1)
 
   print("Number of cameras for view " + camType + ': ' + str(len(orig_cams)))
@@ -535,17 +545,18 @@ def plot_row(ax, row, Types, origPrefix, optPrefix, origTag, optTag, extensions,
       A = ax[row]
 
   # Plot residuals
-  A[0].plot(np.arange(len(orig_roll)), orig_roll, label=origTag, color = 'r')
-  A[1].plot(np.arange(len(orig_pitch)), orig_pitch, label=origTag, color = 'r')
-  A[2].plot(np.arange(len(orig_yaw)), orig_yaw, label=origTag, color = 'r')
+  lw = options.line_width
+  A[0].plot(np.arange(len(orig_roll)), orig_roll, label=origTag, color = 'r', linewidth = lw)
+  A[1].plot(np.arange(len(orig_pitch)), orig_pitch, label=origTag, color = 'r', linewidth = lw)
+  A[2].plot(np.arange(len(orig_yaw)), orig_yaw, label=origTag, color = 'r', linewidth = lw)
   if numSets == 2:
-      A[0].plot(np.arange(len(opt_roll)), opt_roll, label=optTag, color = 'b')
-      A[1].plot(np.arange(len(opt_pitch)), opt_pitch, label=optTag, color = 'b')
-      A[2].plot(np.arange(len(opt_yaw)), opt_yaw, label=optTag, color = 'b')
+      A[0].plot(np.arange(len(opt_roll)), opt_roll, label=optTag, color = 'b', linewidth = lw)
+      A[1].plot(np.arange(len(opt_pitch)), opt_pitch, label=optTag, color = 'b', linewidth = lw)
+      A[2].plot(np.arange(len(opt_yaw)), opt_yaw, label=optTag, color = 'b', linewidth = lw)
 
-  A[0].set_title(camType + ' roll'  + residualTag)
-  A[1].set_title(camType + ' pitch' + residualTag)
-  A[2].set_title(camType + ' yaw '  + residualTag)
+  A[0].set_title(camLabel + ' roll'  + residualTag)
+  A[1].set_title(camLabel + ' pitch' + residualTag)
+  A[2].set_title(camLabel + ' yaw '  + residualTag)
 
   A[0].set_ylabel('Degrees')
   #A[1].set_ylabel('Degrees') # don't repeat this as it takes space
@@ -569,36 +580,68 @@ def plot_row(ax, row, Types, origPrefix, optPrefix, origTag, optTag, extensions,
                       ac.get_xticklabels() + ac.get_yticklabels()):
           item.set_fontsize(fs)
 
-# Main function
-usage  = "python orbit_plot.py <options>"
+# Main function. Set up the arguments.
+usage = "python orbit_plot.py <options>\n"
+
 parser = argparse.ArgumentParser(usage=usage,
                                  formatter_class=argparse.RawTextHelpFormatter)
 
-parser.add_argument('--dataset', dest = 'dataset', default = "", 
-                    help='The dataset to plot. If more than one, separate them by comma, with no spaces in between. The dataset is the prefix of the cameras, such as  "cameras/" or "opt/run-". It is to be followed by the orbit id, such as, "nadir" or "aft". If more than one dataset, they will be plotted on top of each other.')
+parser.add_argument('--dataset', dest = 'dataset', default = '',
+                    help='The dataset to plot. If more than one, separate them '            + \
+                    'by comma, with no spaces in between. The dataset is the prefix '       + \
+                    'of the cameras, such as  "cameras/" or "opt/run-". It is to be '       + \
+                    'followed by the orbit id, such as, "nadir" or "aft". If more than '    + \
+                    'one dataset, they will be plotted on top of each other.')
 
-parser.add_argument('--orbit-id', dest = 'orbit_id', default = "", 
-                    help='The id (a string) that determines an orbital group of cameras. If more than one, separate them by comma, with no spaces in between.')
+parser.add_argument('--orbit-id', dest = 'orbit_id', default = '',
+                    help='The id (a string) that determines an orbital group of cameras. '  + \
+                    'If more than one, separate them by comma, with no spaces in between.') 
 
-parser.add_argument('--label', dest = 'label', default = "", 
-                    help='The label to use for each dataset in the legend. If more than one, separate them by comma, with no spaces in between. If not set, will use the dataset name.')
+parser.add_argument('--dataset-label', dest = 'dataset_label', default = '',
+                    help='The label to use for each dataset in the legend. If more than '   + \
+                    'one, separate them by comma, with no spaces in between. If not set, '  + \
+                    'will use the dataset name.')
 
-parser.add_argument("--num-cameras",  dest="num_cameras", type=int, default = -1,
-                    help="Plot only the first this many cameras from each orbital sequence. By default, plot all of them.")
-
-parser.add_argument("--trim-ratio",  dest="trim_ratio", type=float, default = 0.0,
-                    help="Trim ratio. Given a value between 0 and 1 (inclusive), remove this fraction of camera poses from each sequence, with half of this amount for poses at the beginning and half at the end of the sequence. This is used only for linescan, to not plot camera poses beyond image lines. For cameras created with sat_sim, a value of 0.5 should be used.")
-
-parser.add_argument('--figure-size', dest = 'figure_size', default = "15,15", 
-                    help='Specify the width and height of the figure having the plots, in inches. Use two numbers with comma as separator (no spaces).')
+parser.add_argument('orbit-label', dest = 'orbit_label', default = '',
+                    help='The label to use for each orbital group (will be shown as part '  + \
+                    'of the title). If more than one, separate them by comma, with no '     + \
+                    'spaces in between. If not set, will use the orbit id.')
 
 parser.add_argument('--use-ref-cams', dest = 'use_ref_cams', action='store_true',
-                    help='Read from, disk reference cameras that determine the satellite orientation. This assumes the first dataset was created with sat_sim with the option --save-ref-cams. Otherwise the satellite orientation is estimated based on camera positions.')
+                    help='Read from disk reference cameras that determine the satellite '   + \
+                    'orientation. This assumes the first dataset was created with sat_sim ' + \
+                    'with the option --save-ref-cams. Otherwise do not use this option. '   + \
+                    'In that case the satellite orientation is estimated based on '         + \
+                    'camera positions.') 
 
 parser.add_argument('--subtract-line-fit', dest = 'subtract_line_fit', action='store_true',
                     help='If set, subtract the best line fit from the curves being plotted.')
 
+parser.add_argument('--num-cameras',  dest='num_cameras', type=int, default = -1,
+                    help='Plot only the first this many cameras from each orbital '         + \
+                    'sequence. By default, plot all of them.')
+
+parser.add_argument('--trim-ratio',  dest='trim_ratio', type=float, default = 0.0,
+                    help='Trim ratio. Given a value between 0 and 1 (inclusive), '          + \
+                    'remove this fraction of camera poses from each sequence, with half '   + \
+                    'of this amount for poses at the beginning and half at the end of '     + \
+                    'the sequence. This is used only for linescan cameras, to not plot '    + \
+                    'camera poses beyond image lines. For cameras created with sat_sim, '   + \
+                    'a value of 0.5 should be used.')
+
+parser.add_argument('--figure-size', dest = 'figure_size', default = '15,15',
+                    help='Specify the width and height of the figure having the plots, '    + \
+                    'in inches. Use two numbers with comma as separator (no spaces).')
+
+parser.add_argument('--line-width', dest = 'line_width', type=float, default = 1.5,
+                    help='Line width for the plots.')
+
 (options, args) = parser.parse_known_args(sys.argv)
+
+# Throw an error if not all args have been parsed
+if len(args) > 1:
+    print("Not all arguments were parsed. Unprocessed values:", args[1:])
+    sys.exit(1)
 
 if options.orbit_id == "" or options.dataset == "":
     print("Must set the --orbit-id and --dataset options.")
@@ -610,14 +653,27 @@ if options.trim_ratio < 0:
     parser.print_help()
     sys.exit(1)
 
-# Split by comma
-Types = options.orbit_id.split(',')
+if options.line_width <= 0:
+    print("The value of --line-width must be positive.")
+    parser.print_help()
+    sys.exit(1)
+
+# Parse the datasets and their labels. Split by comma.
 datasets = options.dataset.split(',')
-labels = options.label.split(',')
-if len(labels) == 0 or (len(labels) == 1 and labels[0] == ""):
-    labels = datasets[:]
-if len(labels) != len(datasets):
-    print("Number of datasets and labels must agree. Got ", datasets, " and ", labels)
+dataset_labels = options.dataset_label.split(',')
+if len(dataset_labels) == 0 or (len(dataset_labels) == 1 and dataset_labels[0] == ""):
+    dataset_labels = datasets[:]
+if len(dataset_labels) != len(datasets):
+    print("Number of datasets and dataset_labels must agree. Got ", datasets, " and ", dataset_labels)
+    sys.exit(1)
+
+# Parse the orbits and their labels. Split by comma.
+orbits = options.orbit_id.split(',')
+orbit_labels = options.orbit_label.split(',')
+if len(orbit_labels) == 0 or (len(orbit_labels) == 1 and orbit_labels[0] == ""):
+    orbit_labels = orbits[:]
+if len(orbit_labels) != len(orbits):
+    print("Number of orbits and orbit_labels must agree. Got ", orbits, " and ", orbit_labels)
     sys.exit(1)
 
 # Read the figure dimensions
@@ -634,14 +690,14 @@ if numSets < 1 or numSets > 2:
     sys.exit(1)
 
 origPrefix = datasets[0]
-origTag = labels[0]
+origTag = dataset_labels[0]
 optPrefix = ""
 optTag = ""
 if numSets == 2:
     optPrefix  = datasets[1]
-    optTag  = labels[1]
+    optTag  = dataset_labels[1]
 
-f, ax = plt.subplots(len(Types), 3, sharex=True, sharey = False, 
+f, ax = plt.subplots(len(orbits), 3, sharex=True, sharey = False, 
                      figsize = (figure_size[0], figure_size[1]))
 
 # Set up the legend in the upper right corner. We will have text in upper-left
@@ -657,12 +713,9 @@ plt.rc('ytick', labelsize = fs)  # fontsize of the tick labels
 plt.rc('legend', fontsize = fs)  # legend fontsize
 plt.rc('figure', titlesize = fs) # fontsize of the figure title
 
-# This tool can mix and match ASP Pinhole .tsai files and CSM frame/linescan .json files.
-extensions = ['.tsai', '.json']
-
 # Plot each row in the figure
-for row in range(len(Types)):
-  plot_row(ax, row, Types, origPrefix, optPrefix, origTag, optTag, extensions, options)
+for row in range(len(orbits)):
+  plot_row(ax, row, orbits, origPrefix, optPrefix, orbit_labels, origTag, optTag, options)
 
 plt.tight_layout()
 plt.show()

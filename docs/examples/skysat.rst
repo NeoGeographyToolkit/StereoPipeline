@@ -224,14 +224,14 @@ Use ``stereo_gui`` to inspect the reprojection errors in the final
    :name: skysat-stereo-example-poses
    :alt: SkySat stereo example camera poses
 
-   The roll, pitch, and yaw of the camera orientations before
-   and after bundle adjustment for the Aft, Forward, and Nadir cameras
-   (for the center sensor of the Skysat triplet).
-   The best linear fit of this data before bundle adjustment was
-   subtracted to emphasize the differences, which are very small.
-   The cameras centers were very constrained and did not change.
-   Yet, see :numref:`skysat_stereo_grand_mesa_pointmap` for
-   the effect on the reprojection errors.
+   The roll, pitch, and yaw of the camera orientations before and after bundle
+   adjustment for the Aft, Forward, and Nadir cameras (for the center sensor of
+   the Skysat triplet). Plotted with ``orbit_plot.py`` (:numref:`orbit_plot`). The
+   best linear fit of this data before bundle adjustment was subtracted to
+   emphasize the differences, which are very small. The cameras centers were
+   very constrained and did not change. Yet, see
+   :numref:`skysat_stereo_grand_mesa_pointmap` for the effect on the
+   reprojection errors.
 
 .. _skysat_stereo_grand_mesa_pointmap:
 .. figure:: ../images/skysat_stereo_grand_mesa.png

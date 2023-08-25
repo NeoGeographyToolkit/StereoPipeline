@@ -30,6 +30,12 @@ Zooming and scene rotation are done with the computer mouse.
    command line. Clicking on an entry highlights that camera's view direction.
    Synthetic cameras can be created with ``sat_sim`` (:numref:`sat_sim`).
 
+See also
+^^^^^^^^
+
+The ``orbit_plot.py`` tool (:numref:`orbit_plot`) can visualize the roll,
+pitch, and yaw angles of a set of pinhole and linescan cameras.
+
 Example
 ^^^^^^^
 

@@ -95,7 +95,9 @@ endpoints are at the same height and the datum is spherical.
    :name: sat_sim_illustration_nadir_clip
    :alt:  sat_sim_illustration_nadir_clip
    
-   Illustration of ``sat_sim`` creating nadir-looking cameras.
+   Illustration of ``sat_sim`` creating nadir-looking cameras. 
+   See :numref:`orbit_plot` for how to visualize the roll, pitch, 
+   and yaw angles of the cameras with ``orbit_plot.py``.
 
 .. _sat_sim_custom_path:
 
@@ -130,13 +132,8 @@ cameras will look straight down (nadir, perpendicular to along and across track
 directions). 
 
 If desired to have a custom orientation, use the ``--roll``, ``--pitch`` and
-``--yaw`` options (measured in degrees, all three must be specified). When all
-these are set to 0 (the default is ``NaN``) the default nadir-looking orientation is
-recovered. 
-
-As an example, if the pitch is 90 degrees and the other angles are zero, the
-camera will look along the track rather than down. If a non-zero yaw is set, the
-camera will rotate around its view axis.
+``--yaw`` options (measured in degrees, all three must be specified). 
+See :numref:`roll_pitch_yaw_def` for how these angles are defined.
 
 Example invocation::
 
@@ -148,24 +145,8 @@ Example invocation::
     --image-size 1000 1000                               \
     -o run/run
 
-The rotations are applied to the camera body in the roll, pitch, and yaw order.
-So, the combined rotation matrix is::
-
-    R = yawRot * pitchRot * rollRot
-
-(the application is from right to left). The camera-to-ECEF rotation is produced
-by further multiplying this matrix on the left by the rotation from the satellite
-body to ECEF.
-
-It is important to note that the satellite and the camera use different coordinate
-systems. The satellite orientation is with the *x*, *y* and *z* axes pointing along
-satellite track, across track, and towards the planet, respectively.
-
-For the camera, it is preferable for the rows of pixels to be parallel to the
-across track direction, and for the columns to be parallel to the along track
-direction. So, the camera *y* direction is along the track, the camera *x*
-direction is the negative of the across-track direction, and *z* points towards
-the ground as before.
+See :numref:`orbit_plot` for how to visualize the roll, pitch, and yaw angles of
+the cameras with ``orbit_plot.py``.
 
 .. _sat_sim_roll_pitch_yaw_ground:
 
@@ -442,6 +423,39 @@ and without jitter as::
       --image jitter0/run.tif  \
       --cam1  jitter0/run.json \
       --cam2  jitter2/run.json
+
+.. _roll_pitch_yaw_def:
+
+Roll, pitch, and yaw
+^^^^^^^^^^^^^^^^^^^^
+
+The roll, pitch and yaw angles (measured in degrees) are used to determine
+the camera orientation relative to the local coordinate system in orbit.
+
+When all these are set to 0 (the default is ``NaN``) the camera looks straight down.
+
+If the pitch is 90 degrees and the other angles are zero, the camera will look
+along the track rather than down. If a non-zero yaw is set, the camera will
+rotate around its view axis.
+
+The rotations are applied to the camera body in the roll, pitch, and yaw order.
+So, the combined rotation matrix is::
+
+    R = yawRot * pitchRot * rollRot
+
+(the application is from right to left). The camera-to-ECEF rotation is produced
+by further multiplying this matrix on the left by the rotation from the local 
+satellite coordinate system to ECEF.
+
+It is important to note that the satellite and the camera use different coordinate
+systems. The satellite orientation is with the *x*, *y* and *z* axes pointing along
+satellite track, across track, and towards the planet, respectively.
+
+For the camera, it is preferable for the rows of pixels to be parallel to the
+across track direction, and for the columns to be parallel to the along track
+direction. So, the camera *y* direction is along the track, the camera *x*
+direction is the negative of the across-track direction, and *z* points towards
+the ground as before.
 
 Efficiency considerations
 ^^^^^^^^^^^^^^^^^^^^^^^^^
