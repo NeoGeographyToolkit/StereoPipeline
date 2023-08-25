@@ -383,8 +383,7 @@ print("opt prefix ", optPrefix)
 print("Subtract line fit: ", options.subtract_line_fit)
 print("Trim ratio (for linescan): ", options.trim_ratio)
 
-# Below ensure we have at least two plots, or else ax[i][j] will fail below
-f, ax = plt.subplots(max(2, len(Types)), 3, sharex=True, sharey = False, figsize = (15, 15))
+f, ax = plt.subplots(len(Types), 3, sharex=True, sharey = False, figsize = (15, 15))
 
 # Set up the legend in the upper right corner. We will have text in upper-left
 plt.rcParams["legend.loc"] = 'upper right' 
@@ -402,10 +401,10 @@ plt.rc('figure', titlesize = fs) # fontsize of the figure title
 # This tool can mix and match ASP Pinhole .tsai files and CSM frame/linescan .json files.
 extensions = ['.tsai', '.json']
 
-count = -1
+row = -1
 for s in Types:
 
-    count += 1
+    row += 1
 
     # Based on opt cameras find the original cameras. That because
     # maybe we optimized only a subset
@@ -537,45 +536,55 @@ for s in Types:
     print(optTag + " " + t + " pitch std: " + opt_pitch_std + " degrees")
     print(optTag + " " + t + " yaw std: " + opt_yaw_std + " degrees")
 
+    # print the shape of axxx
+    print("shape of ax is ", ax.shape)
+    print("shape of ax is ", len(ax.shape))
+    # Find the handle to the axis object for the current row
+    if len(ax.shape) == 1:
+        A = ax
+    else:
+        A = ax[row]
+
     # Plot residuals
-    ax[count][0].plot(np.arange(len(orig_roll)), orig_roll, label=origTag, color = 'r')
-    ax[count][0].plot(np.arange(len(opt_roll)), opt_roll, label=optTag, color = 'b')
+    A[0].plot(np.arange(len(orig_roll)), orig_roll, label=origTag, color = 'r')
+    A[0].plot(np.arange(len(opt_roll)), opt_roll, label=optTag, color = 'b')
 
-    ax[count][1].plot(np.arange(len(orig_pitch)), orig_pitch, label=origTag, color = 'r')
-    ax[count][1].plot(np.arange(len(opt_pitch)), opt_pitch, label=optTag, color = 'b')
+    A[1].plot(np.arange(len(orig_pitch)), orig_pitch, label=origTag, color = 'r')
+    A[1].plot(np.arange(len(opt_pitch)), opt_pitch, label=optTag, color = 'b')
 
-    ax[count][2].plot(np.arange(len(orig_yaw)), orig_yaw, label=origTag, color = 'r')
-    ax[count][2].plot(np.arange(len(opt_yaw)), opt_yaw, label=optTag, color = 'b')
+    A[2].plot(np.arange(len(orig_yaw)), orig_yaw, label=origTag, color = 'r')
+    A[2].plot(np.arange(len(opt_yaw)), opt_yaw, label=optTag, color = 'b')
 
-    ax[count][0].set_title(t + ' roll'  + residualTag)
-    ax[count][1].set_title(t + ' pitch' + residualTag)
-    ax[count][2].set_title(t + ' yaw '  + residualTag)
+    A[0].set_title(t + ' roll'  + residualTag)
+    A[1].set_title(t + ' pitch' + residualTag)
+    A[2].set_title(t + ' yaw '  + residualTag)
 
-    ax[count][0].set_ylabel('Degrees')
-    #ax[count][1].set_ylabel('Degrees') # don't repeat this as it takes space
-    #ax[count][2].set_ylabel('Degrees')
+    A[0].set_ylabel('Degrees')
+    #A[1].set_ylabel('Degrees') # don't repeat this as it takes space
+    #A[2].set_ylabel('Degrees')
 
-    ax[count][0].set_xlabel('Frame index')
-    ax[count][1].set_xlabel('Frame index')
-    ax[count][2].set_xlabel('Frame index')
+    A[0].set_xlabel('Frame index')
+    A[1].set_xlabel('Frame index')
+    A[2].set_xlabel('Frame index')
     
     # Add stdev values as text
-    ax[count][0].text(0.05, 0.05, 
+    A[0].text(0.05, 0.05, 
      'StDev before/after:' + orig_roll_std + ", " + opt_roll_std, 
-        va='top', color='k', transform=ax[count][0].transAxes, fontsize=fs)    
-    ax[count][1].text(0.05, 0.05, 
+        va='top', color='k', transform=A[0].transAxes, fontsize=fs)    
+    A[1].text(0.05, 0.05, 
         'StDev before/after:' + orig_pitch_std + ", " + opt_pitch_std,
-        va='top', color='k', transform=ax[count][1].transAxes, fontsize=fs)    
-    ax[count][2].text(0.05, 0.05,
+        va='top', color='k', transform=A[1].transAxes, fontsize=fs)    
+    A[2].text(0.05, 0.05,
         'StDev before/after:' + orig_yaw_std + ", " + opt_yaw_std,
-        va='top', color='k', transform=ax[count][2].transAxes, fontsize=fs)    
+        va='top', color='k', transform=A[2].transAxes, fontsize=fs)    
 
-    ax[count][0].legend()
-    ax[count][1].legend()
-    ax[count][2].legend()
+    A[0].legend()
+    A[1].legend()
+    A[2].legend()
 
+    # Se the font size
     for index in range(3):
-        ac = ax[count][index]
+        ac = A[index]
         for item in ([ac.title, ac.xaxis.label, ac.yaxis.label] +
              ac.get_xticklabels() + ac.get_yticklabels()):
           item.set_fontsize(fs)
