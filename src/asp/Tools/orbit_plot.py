@@ -210,11 +210,23 @@ def read_linescan_csm_cam(json_file):
     # for key in j.keys():
     #     print(key)
 
+    # Read the positions
+    positions_vec = j['m_positions']
+
+    # Reshape to Nx3 matrix using the reshape function
+    positions_vec = np.reshape(positions, (-1, 3))
+
+    # Create a vector of vectors
+    positions = []
+    for i in range(positions_vec.shape[0]):
+        positions.append(positions_vec[i, :])
+
     # Read the quaternions
     quats = j['m_quaternions']
 
     # Reshape to Nx4 matrix using the reshape function
     quats = np.reshape(quats, (-1, 4))
+    
     # Iterate over the rows and convert to rotation matrix
     rotations = []
     for i in range(quats.shape[0]):
@@ -222,7 +234,7 @@ def read_linescan_csm_cam(json_file):
         # print the rotation matrix
         rotations.append(r.as_matrix())
 
-    return rotations
+    return (positions, rotations)
 
 def Rroll(theta):
   return np.matrix([[ 1, 0           , 0           ],
@@ -251,7 +263,7 @@ def isLinenscan(cam_file):
     
     return lineScan
 
-def ned_rotation_from_cam(cam_file, ref_cam_file):
+def roll_pitch_yaw(cam_file, ref_cam_file):
     #coordinate conversion step
     #from pyproj import Transformer
     #ecef_proj = 'EPSG:4978'
@@ -261,20 +273,23 @@ def ned_rotation_from_cam(cam_file, ref_cam_file):
     # Read the first line from cam_file
     lineScan = isLinenscan(cam_file)
 
+    positions = []
     rotations = []
     ref_rotations = []
 
     if lineScan:
         # Read linescan data
-        rotations = read_linescan_csm_cam(cam_file)
-        ref_rotations = read_linescan_csm_cam(ref_cam_file)
+        (positions, rotations) = read_linescan_csm_cam(cam_file)
+        (ref_positions, ref_rotations) = read_linescan_csm_cam(ref_cam_file)
     else:   
         # read Pinhole (Frame) files in ASP .tsai or CSM .json format
         asp_dict = read_frame_cam_dict(cam_file)
         ref_asp_dict = read_frame_cam_dict(ref_cam_file)
         # get camera rotation
+        position = asp_dict['cam_cen_ecef']
         rot_mat = asp_dict['rotation_matrix']
         ref_rot_mat = ref_asp_dict['rotation_matrix']
+        positions.append(position)
         rotations.append(rot_mat)
         ref_rotations.append(ref_rot_mat)
     
@@ -347,6 +362,9 @@ parser.add_argument("--num-cameras",  dest="num_cameras", type=int, default = -1
 parser.add_argument("--trim-ratio",  dest="trim_ratio", type=float, default = 0.0,
                     help="Trim ratio. Given a value between 0 and 1 (inclusive), remove this fraction of camera poses from each sequence, with half of this amount for poses at the beginning and half at the end of the sequence. This is used only for linescan, to not plot camera poses beyond image lines. For cameras created with sat_sim, a value of 0.5 should be used.")
 
+parser.add_argument('--plot-size', dest = 'plot_size', default = "15,15", 
+                    help='Specify the width and height of the figure having the plots, in inches. Use two numbers with comma as separator (no spaces).')
+
 parser.add_argument('--subtract-line-fit', dest = 'subtract_line_fit', action='store_true',
                     help='If set, subtract the best line fit from the curves being plotted.')
 
@@ -366,24 +384,33 @@ if options.trim_ratio < 0:
 Types = options.orbit_id.split(',')
 datasets = options.dataset.split(',')
 labels = options.label.split(',')
-if len(labels) == 0:
+if len(labels) == 0 or (len(labels) == 1 and labels[0] == ""):
     labels = datasets[:]
 if len(labels) != len(datasets):
     print("Number of datasets and labels must agree. Got ", datasets, " and ", labels)
     sys.exit(1)
 
+plot_size = options.plot_size.split(',')
+if len(plot_size) != 2:
+    print("The --plot-size option must have two values. Got: ", plot_size)
+    sys.exit(1)
+# Convert to float
+plot_size = [float(x) for x in plot_size]
+
+# We assume we have one or two datasets that we want to plot on top of each other.
+numSets = len(datasets)
+if numSets < 1 or numSets > 2:
+    print("Can only plot one or two datasets, but their number is ", numSets)
+    sys.exit(1)
+
 origPrefix = datasets[0]
-optPrefix  = datasets[1]
 origTag = labels[0]
-optTag  = labels[1]
+if numSets == 2:
+    optPrefix  = datasets[1]
+    optTag  = labels[1]
 
-print("Orbit ids: ", ','.join(Types))
-print("orig prefix ", origPrefix)
-print("opt prefix ", optPrefix)
-print("Subtract line fit: ", options.subtract_line_fit)
-print("Trim ratio (for linescan): ", options.trim_ratio)
-
-f, ax = plt.subplots(len(Types), 3, sharex=True, sharey = False, figsize = (15, 15))
+f, ax = plt.subplots(len(Types), 3, sharex=True, sharey = False, 
+                     figsize = (plot_size[0], plot_size[1]))
 
 # Set up the legend in the upper right corner. We will have text in upper-left
 plt.rcParams["legend.loc"] = 'upper right' 
@@ -409,18 +436,19 @@ for s in Types:
     # Based on opt cameras find the original cameras. That because
     # maybe we optimized only a subset
     # Keep ref cams separate from actual cameras
-    all_opt_cams = sorted(multi_glob(optPrefix + s, extensions))
-    ref_cams     = sorted(multi_glob(optPrefix + s + '-ref', extensions))
-    camMap = set()
-    # Add ref_cams to camMap set
-    for c in ref_cams:
-        camMap.add(c)
     opt_cams = []
-    # Add to opt_cams only those cameras that are not in camMap
-    # This is to avoid adding ref_cams to opt_cams
-    for c in all_opt_cams:
-        if c not in camMap:
-            opt_cams.append(c) 
+    if numSets == 2:
+        all_opt_cams = sorted(multi_glob(optPrefix + s, extensions))
+        ref_cams     = sorted(multi_glob(optPrefix + s + '-ref', extensions))
+        camMap = set()
+        # Add ref_cams to camMap set
+        for c in ref_cams:
+            camMap.add(c)
+        # Add to opt_cams only those cameras that are not in camMap
+        # This is to avoid adding ref_cams to opt_cams
+        for c in all_opt_cams:
+            if c not in camMap:
+                opt_cams.append(c) 
     
     # Same for orig cams. Overwrite the earlier ref cams, if present,
     # as we will use the orig ref cams
@@ -438,21 +466,20 @@ for s in Types:
         if c not in camMap:
             orig_cams.append(c) 
 
-    #print ("orig cams are ", orig_cams)
-    #print ("opt cams are ", opt_cams)
-    #print ("ref cams are ", ref_cams)
-
     # Reduce the number of cameras to options.num_cameras
     orig_cams = getFirstN(orig_cams, options.num_cameras)
-    opt_cams  = getFirstN(opt_cams, options.num_cameras)
     ref_cams  = getFirstN(ref_cams, options.num_cameras)
+    if numSets == 2:
+        opt_cams  = getFirstN(opt_cams, options.num_cameras)
  
     # Check that these sets are the same size
-    if len(orig_cams) != len(opt_cams):
-        print("Number of orig and opt cameras must be the same, got",  len(orig_cams), " and ", len(opt_cams))
+    if len(orig_cams) != len(ref_cams):
+        print("Number of input and reference cameras must be thee same. Got: ", \
+             len(ref_cams), " and ", len(opt_cams))
         sys.exit(1)
-    if len(ref_cams) != len(opt_cams):
-        print("Number of ref and opt cameras must be the same, got",  len(ref_cams), " and ", len(opt_cams))
+    if numSets == 2 and len(orig_cams) != len(opt_cams):
+        print("Number of cameras in both datasets must be the same. Got: ", \
+            len(orig_cams), " and ", len(opt_cams))
         sys.exit(1)
 
     print("number of cameras for view " + s + ': ' + str(len(orig_cams)))
@@ -461,20 +488,19 @@ for s in Types:
     # camera, but with many poses in it. For Pinhole we we will have many
     # cameras, each with a single pose. That's why the loops below. 
     orig_rotation_angles = []
-    I = range(len(orig_cams))
     opt_rotation_angles = []
-    for i in I:
-        angles = ned_rotation_from_cam(orig_cams[i], ref_cams[i])
+    for i in range(len(orig_cams)):
+        angles = roll_pitch_yaw(orig_cams[i], ref_cams[i])
         for angle in angles:
             orig_rotation_angles.append(angle)
-    for i in I:
-        angles = ned_rotation_from_cam(opt_cams[i], ref_cams[i])
+    for i in range(len(opt_cams)):
+        angles = roll_pitch_yaw(opt_cams[i], ref_cams[i])
         for angle in angles:
             opt_rotation_angles.append(angle)
 
     lineScan = isLinenscan(orig_cams[0])
 
-    # Eliminate the first and last few values, based on options.trim_ratio
+    # Eliminate several first and last few values, based on options.trim_ratio
     if lineScan:
         totalNum = len(orig_rotation_angles)
         removeNum = int(options.trim_ratio * totalNum)
@@ -483,7 +509,8 @@ for s in Types:
         b = removeNumBefore
         e = totalNum - removeNumAfter
         orig_rotation_angles = orig_rotation_angles[b:e]
-        opt_rotation_angles = opt_rotation_angles[b:e]
+        if numSets == 2:
+            opt_rotation_angles = opt_rotation_angles[b:e]
         print("Plotting the most central %d out of %d poses for linescan cameras." % \
             (len(orig_rotation_angles), totalNum))  
 
@@ -505,55 +532,47 @@ for s in Types:
         orig_pitch = orig_pitch - fit_pitch
         orig_yaw = orig_yaw - fit_yaw
         
-        opt_roll = opt_roll - fit_roll
-        opt_pitch = opt_pitch - fit_pitch
-        opt_yaw = opt_yaw - fit_yaw
+        if numSets == 2:
+            opt_roll = opt_roll - fit_roll
+            opt_pitch = opt_pitch - fit_pitch
+            opt_yaw = opt_yaw - fit_yaw
 
         residualTag = ' residual'
 
-    t = s # if no match below, use the same string
-    if s == 'a':
-        t = 'aft'
-    if s == 'n':
-        t = 'nadir'
-    if s == 'f':
-        t = 'fwd'
+    # Tag for the title
+    t = s 
     
     fmt = "{:.2e}" # 2 digits of precision are enough for display 
     orig_roll_std = fmt.format(np.std(orig_roll))
     orig_pitch_std = fmt.format(np.std(orig_pitch))
     orig_yaw_std = fmt.format(np.std(orig_yaw))
-
-    opt_roll_std = fmt.format(np.std(opt_roll))
-    opt_pitch_std = fmt.format(np.std(opt_pitch))
-    opt_yaw_std = fmt.format(np.std(opt_yaw))
-
     print(origTag + " " + t + " roll std: " + orig_roll_std + " degrees")
     print(origTag + " " + t + " pitch std: " + orig_pitch_std + " degrees")
     print(origTag + " " + t + " yaw std: " + orig_yaw_std + " degrees")
 
-    print(optTag + " " + t + " roll std: " + opt_roll_std + " degrees")
-    print(optTag + " " + t + " pitch std: " + opt_pitch_std + " degrees")
-    print(optTag + " " + t + " yaw std: " + opt_yaw_std + " degrees")
+    if numSets == 2:
+        opt_roll_std = fmt.format(np.std(opt_roll))
+        opt_pitch_std = fmt.format(np.std(opt_pitch))
+        opt_yaw_std = fmt.format(np.std(opt_yaw))
+        print(optTag + " " + t + " roll std: " + opt_roll_std + " degrees")
+        print(optTag + " " + t + " pitch std: " + opt_pitch_std + " degrees")
+        print(optTag + " " + t + " yaw std: " + opt_yaw_std + " degrees")
 
-    # print the shape of axxx
-    print("shape of ax is ", ax.shape)
-    print("shape of ax is ", len(ax.shape))
     # Find the handle to the axis object for the current row
     if len(ax.shape) == 1:
-        A = ax
+        A = ax # otherwise get an indexing error
     else:
         A = ax[row]
 
     # Plot residuals
     A[0].plot(np.arange(len(orig_roll)), orig_roll, label=origTag, color = 'r')
-    A[0].plot(np.arange(len(opt_roll)), opt_roll, label=optTag, color = 'b')
-
     A[1].plot(np.arange(len(orig_pitch)), orig_pitch, label=origTag, color = 'r')
-    A[1].plot(np.arange(len(opt_pitch)), opt_pitch, label=optTag, color = 'b')
-
     A[2].plot(np.arange(len(orig_yaw)), orig_yaw, label=origTag, color = 'r')
-    A[2].plot(np.arange(len(opt_yaw)), opt_yaw, label=optTag, color = 'b')
+
+    if numSets == 2:
+        A[0].plot(np.arange(len(opt_roll)), opt_roll, label=optTag, color = 'b')
+        A[1].plot(np.arange(len(opt_pitch)), opt_pitch, label=optTag, color = 'b')
+        A[2].plot(np.arange(len(opt_yaw)), opt_yaw, label=optTag, color = 'b')
 
     A[0].set_title(t + ' roll'  + residualTag)
     A[1].set_title(t + ' pitch' + residualTag)
@@ -567,26 +586,21 @@ for s in Types:
     A[1].set_xlabel('Frame index')
     A[2].set_xlabel('Frame index')
     
-    # Add stdev values as text
-    A[0].text(0.05, 0.05, 
-     'StDev before/after:' + orig_roll_std + ", " + opt_roll_std, 
-        va='top', color='k', transform=A[0].transAxes, fontsize=fs)    
-    A[1].text(0.05, 0.05, 
-        'StDev before/after:' + orig_pitch_std + ", " + opt_pitch_std,
-        va='top', color='k', transform=A[1].transAxes, fontsize=fs)    
-    A[2].text(0.05, 0.05,
-        'StDev before/after:' + orig_yaw_std + ", " + opt_yaw_std,
-        va='top', color='k', transform=A[2].transAxes, fontsize=fs)    
-
-    A[0].legend()
-    A[1].legend()
-    A[2].legend()
-
-    # Se the font size
     for index in range(3):
+        # Calc stddev text
+        if numSets == 1:
+            txt = 'StDev:' + orig_roll_std
+        else: 
+            txt = 'StDev before/after:' + orig_roll_std + ", " + opt_roll_std
+        # Add stdev values as text
+        A[index].text(0.05, 0.05, txt,
+            va='top', color='k', transform=A[index].transAxes, fontsize=fs)    
+        # legend
+        A[index].legend()
+        # Se the font size
         ac = A[index]
         for item in ([ac.title, ac.xaxis.label, ac.yaxis.label] +
-             ac.get_xticklabels() + ac.get_yticklabels()):
+                     ac.get_xticklabels() + ac.get_yticklabels()):
           item.set_fontsize(fs)
 
 plt.tight_layout()

@@ -18,26 +18,88 @@ Each orbital sequence consists of several frame (pinhole) cameras, in .tsai
 single linescan camera in the CSM model state format (:numref:`csm_state`).  
 
 At some point this tool will also plot the camera positions.
- 
-Example: Plot a single orbital sequence
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Here we will consider synthetic cameras, created with ``sat_sim``
-(:numref:`sat_sim`).
+Examples
+~~~~~~~~
+
+Plot one dataset
+^^^^^^^^^^^^^^^^
+
+The ``orbit_plot`` conda environment should be first installed 
+as described in :numref:`orbit_plot_dependencies`.
+
+We assume that ASP's ``bin`` directory is in the path, otherwise
+the full path to this script must be specified below.
+
+Plot a single set of cameras along a given orbit::
+
+    ~/miniconda3/envs/orbit_plot/bin/python         \
+      $(which orbit_plot.py)                        \
+      --dataset  dataset1/                          \
+      --label    dataset1                           \
+      --orbit-id pinhole-fwd
+
+We assume that the cameras are in the directory ``dataset1/``, and their names
+in that directory start with ``pinhole-fwd``. 
+
+The slash (``/``) at the end of the directory name is important, as the two
+strings above will be concatenated to find the camera names.
+
+The rest of a camera name can be any string ending in ``.tsai`` or ``.json``.
+Hence, only the cameras satisfying this convention will be read.
+
+Plot two datasets
+^^^^^^^^^^^^^^^^^
+
+We consider two camera datasets, with the camera names starting with::
+
+    dataset1/pinhole-fwd
+    dataset2/run-pinhole-fwd  
+
+The naming convention used above is suggestive of the first dataset being a set
+of input cameras, while the second being created from the first using
+``bundle_adjust`` or ``jitter_solve``. The string ``pinhole-fwd`` is the orbit
+id, and suggests that these cameras are of pinhole type and were created by a
+forward-looking camera.
 
 ::
 
     ~/miniconda3/envs/orbit_plot/bin/python         \
       $(which orbit_plot.py)                        \
-      --dataset sim_fn_jitter0.0/,sim_fn_jitter2.0/ \
+      --dataset dataset1/,dataset2/run-             \
       --orbit-id pinhole-fwd                        \
-      --label Orig,Adjust                           \
-      --trim-ratio 0.5
+      --label Orig,Opt
 
-Here it is assumed that ASP's ``bin`` directory is in the path, otherwise
-the full path to this Python script must be specified above.
+Notice how above the shared orbit id is specified separately from the dataset
+names.
 
-The ``orbit_plot`` conda environment is installed as described below.
+These two datasets will be plotted on top of each other, in red and blue, respectively.
+
+Plot two orbital groups
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Here, in addition to a group of pinhole cameras looking forward, before and after bundle adjustment, we also consider a linescan camera looking down, before and after solving for jitter. The linescan camera will have many position and orientation samples.
+
+The only change in the command above is that the orbit id now has the additional value ``linescan-nadir``, so the plot command becomes::
+
+    ~/miniconda3/envs/orbit_plot/bin/python         \
+      $(which orbit_plot.py)                        \
+      --dataset dataset1/,dataset2/run-             \
+      --orbit-id pinhole-fwd,linescan-nadir         \
+      --label Orig,Opt
+
+The cameras before optimization will be in directory ``dataset1/``, with the
+pinhole camera names starting with ``pinhole-fwd``, and the linescan camera
+name starting with ``linescan-nadir``. 
+
+The cameras after optimization will start with ``dataset2/run-``, followed
+again by the orbit id.
+
+The resulting plot will have two rows, with the first one showing the pinhole
+cameras, before and after optimization, and the second one having the
+orientation samples in the linescan camera.
+
+.. _orbit_plot_dependencies:
 
 Dependencies
 ~~~~~~~~~~~~
@@ -64,12 +126,11 @@ Activate conda. The needed packages can be installed, for example,
 as follows:
 
 ::
-    conda create -n orbit_plot numpy=1.23.5 scipy=1.9.3 \
-      pyproj=3.4.0 matplotlib=3.6.2 -y
+    
+    conda create -n orbit_plot numpy scipy pyproj matplotlib
 
 Command-line options for orbit_plot.py
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 
 -h, --help
     Display this help message.
