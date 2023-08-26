@@ -686,7 +686,7 @@ namespace asp {
     bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM && 
         stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
 
-    if (using_sgm) {
+    if (stereo_alg > vw::stereo::VW_CORRELATION_BM) {
       // If these parameters were not specified by the user, override
       // the normal default values.  Note that by setting
       // subpixel_mode to SGM_DEFAULT_SUBPIXEL_MODE, we will do no
@@ -694,6 +694,19 @@ namespace asp {
       // ASP's block matching are intrinsically capable of.  if the
       // user however explicitly specifies, for example,
       // --subpixel-mode 3, that one will be used later on.
+
+      // These are also useful with external algorithms, as the results are then
+      // smoother.
+      if (vm["rm-cleanup-passes"].defaulted())
+        stereo_settings().rm_cleanup_passes = SGM_DEFAULT_RM_CLEANUP_PASSES;
+      if (vm["median-filter-size"].defaulted())
+        stereo_settings().median_filter_size = SGM_DEFAULT_MEDIAN_FILTER_SIZE;
+      if (vm["texture-smooth-size"].defaulted())
+        stereo_settings().disp_smooth_size = SGM_DEFAULT_TEXTURE_SMOOTH_SIZE;
+      if (vm["texture-smooth-scale"].defaulted())
+        stereo_settings().disp_smooth_texture = SGM_DEFAULT_TEXTURE_SMOOTH_SCALE;
+
+      // Settings specifically for asp_sgm, asp_mgm, asp_final_mgm
       if (vm["subpixel-mode"].defaulted()) 
         stereo_settings().subpixel_mode = SGM_DEFAULT_SUBPIXEL_MODE;
       else
@@ -704,16 +717,9 @@ namespace asp {
         stereo_settings().cost_mode = SGM_DEFAULT_COST_MODE;
       if (vm["corr-kernel"].defaulted())
         stereo_settings().corr_kernel = Vector2i(SGM_DEFAULT_KERNELSIZE, SGM_DEFAULT_KERNELSIZE);
+    }
 
-      if (vm["rm-cleanup-passes"].defaulted())
-        stereo_settings().rm_cleanup_passes = SGM_DEFAULT_RM_CLEANUP_PASSES;
-      if (vm["median-filter-size"].defaulted())
-        stereo_settings().median_filter_size = SGM_DEFAULT_MEDIAN_FILTER_SIZE;
-      if (vm["texture-smooth-size"].defaulted())
-        stereo_settings().disp_smooth_size = SGM_DEFAULT_TEXTURE_SMOOTH_SIZE;
-      if (vm["texture-smooth-scale"].defaulted())
-        stereo_settings().disp_smooth_texture = SGM_DEFAULT_TEXTURE_SMOOTH_SCALE;
-
+    if (using_sgm) {
        // This is a fix for the user setting cost-mode in stereo.default, when
        // it is not defaulted. Do not allow cost mode to be different than
        // 3 or 4 for asp_sgm / asp_mgm, as it produced junk.
@@ -949,7 +955,7 @@ namespace asp {
     bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM && 
         stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
 
-    if (!using_sgm) {
+    if (stereo_alg <= vw::stereo::VW_CORRELATION_BM) {
       if (stereo_settings().cost_mode == 3)
         vw_throw(ArgumentErr() << "Cannot use the census transform without SGM!\n" );
       if (stereo_settings().cost_mode == 4)
