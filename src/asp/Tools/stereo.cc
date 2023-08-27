@@ -587,7 +587,7 @@ namespace asp {
         DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
         stereo_settings().trans_crop_win.crop(bounding_box(L_img));
       }
-    }else{ 
+    } else {
       // If left_image_crop_win is specified, as can be see in
       // StereoSession::preprocessing_hook(), we actually
       // physically crop the image.  The trans_crop_win as passed 
@@ -625,13 +625,12 @@ namespace asp {
     }
 
     // Ensure good order
-    if ( stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
-      if ( stereo_settings().lon_lat_limit.min().y() > stereo_settings().lon_lat_limit.max().y() ) 
-	std::swap( stereo_settings().lon_lat_limit.min().y(),
-		   stereo_settings().lon_lat_limit.max().y() );
-      if ( stereo_settings().lon_lat_limit.min().x() > stereo_settings().lon_lat_limit.max().x() ) 
-	std::swap( stereo_settings().lon_lat_limit.min().x(),
-		   stereo_settings().lon_lat_limit.max().x() );
+    BBox2 & b = stereo_settings().lon_lat_limit; // alias
+    if (b != BBox2(0,0,0,0)) {
+      if (b.min().y() > b.max().y()) 
+	      std::swap(b.min().y(), b.max().y());
+      if (b.min().x() > b.max().x()) 
+	      std::swap(b.min().x(), b.max().x());
     }
 
     if (!stereo_settings().match_files_prefix.empty() &&
@@ -743,14 +742,14 @@ namespace asp {
                                << ".\n";
     }
 
+    // Settings specifically for asp_sgm, asp_mgm, asp_final_mgm
     if (using_sgm) {
 
-      // Settings specifically for asp_sgm, asp_mgm, asp_final_mgm
       if (vm["corr-kernel"].defaulted())
         stereo_settings().corr_kernel = Vector2i(SGM_DEFAULT_KERNELSIZE, SGM_DEFAULT_KERNELSIZE);
 
       if (vm["cost-mode"].defaulted())
-      stereo_settings().cost_mode = SGM_DEFAULT_COST_MODE;
+        stereo_settings().cost_mode = SGM_DEFAULT_COST_MODE;
 
       // This is a fix for the user setting cost-mode in stereo.default, when
       // it is not defaulted. Do not allow cost mode to be different than
@@ -954,7 +953,7 @@ namespace asp {
     bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM && 
         stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
 
-    if (using_sgm) {
+    if (!using_sgm) {
       if (stereo_settings().cost_mode == 3)
         vw_throw(ArgumentErr() << "Cannot use the census transform without SGM!\n" );
       if (stereo_settings().cost_mode == 4)
