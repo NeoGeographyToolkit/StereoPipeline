@@ -60,12 +60,12 @@ namespace vw { namespace gui {
   // Convert a position in the world coordinate system to a pixel
   // position as seen on screen (the screen origin is the
   // visible upper-left corner of the widget).
-  Vector2 MainWidget::world2screen(Vector2 const p) const{
+  Vector2 MainWidget::world2screen(Vector2 const p) const {
 
     double x = m_window_width*((p.x() - m_current_view.min().x())
-                               /m_current_view.width());
+                               / m_current_view.width());
     double y = m_window_height*((p.y() - m_current_view.min().y())
-                                /m_current_view.height());
+                                / m_current_view.height());
 
     // Create an empty border margin, to make it easier to zoom
     // by allowing the zoom window to slightly exceed the visible image
@@ -179,7 +179,7 @@ namespace vw { namespace gui {
   }
 
   // The reverse of world2image()
-  BBox2 MainWidget::image2world(BBox2 const& R, int imageIndex) const{
+  BBox2 MainWidget::image2world(BBox2 const& R, int imageIndex) const {
 
     if (R.empty()) return R;
     if (m_images.empty()) return R;
@@ -202,21 +202,6 @@ namespace vw { namespace gui {
     return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point_bbox(R));
   }
 
-  // Convert from world coordinates to projected coordinates in given geospatial
-  // projection
-  Vector2 MainWidget::world2projpoint(Vector2 P, int imageIndex) const{
-    if (!m_use_georef)
-      return flip_in_y(P);
-    return m_world2image_geotransforms[imageIndex].point_to_point(flip_in_y(P)); 
-  }
-  
-  // The reverse of world2projpoint
-  Vector2 MainWidget::projpoint2world(Vector2 P, int imageIndex) const{
-    if (!m_use_georef)
-      return flip_in_y(P);
-    return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point(P));
-  }
-
   MainWidget::MainWidget(QWidget *parent,
                          vw::GdalWriteOptions const& opt,
                          int beg_image_id, int end_image_id, int base_image_id,
@@ -227,18 +212,15 @@ namespace vw { namespace gui {
                          pairwiseMatchList & pairwiseCleanMatches,
                          int &editMatchPointVecIndex,
                          chooseFilesDlg * chooseFiles, bool use_georef,
-                         bool zoom_all_to_same_region, bool & allowMultipleSelections)
-    : QwtScaleWidget(parent), m_opt(opt), m_chooseFiles(chooseFiles),
-      m_beg_image_id(beg_image_id),
-      m_end_image_id(end_image_id),
-      m_base_image_id(base_image_id), 
-      m_images(images), // alias
+                         bool zoom_all_to_same_region, bool & allowMultipleSelections):
+      QwtScaleWidget(parent), 
+      WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images),
+      m_opt(opt), m_chooseFiles(chooseFiles),
       m_output_prefix(output_prefix), // alias
       m_matchlist(matches),
       m_pairwiseMatches(pairwiseMatches),
       m_pairwiseCleanMatches(pairwiseCleanMatches),
       m_editMatchPointVecIndex(editMatchPointVecIndex),
-      m_use_georef(use_georef),
       m_zoom_all_to_same_region(zoom_all_to_same_region),
       m_allowMultipleSelections(allowMultipleSelections),
       m_can_emit_zoom_all_signal(false),
@@ -281,8 +263,6 @@ namespace vw { namespace gui {
     // in both directions.
     int num_images = m_images.size();
     m_filesOrder.resize(num_images);
-    m_world2image_geotransforms.resize(num_images);
-    m_image2world_geotransforms.resize(num_images);
 
     // Each image can be hillshaded independently of the other ones
     m_hillshade_azimuth   = asp::stereo_settings().hillshade_azimuth;
@@ -294,7 +274,7 @@ namespace vw { namespace gui {
 
     MainWidget::maybeGenHillshade();
 
-    // Set geotransforms and other data
+    // Set data per image. 
     for (int i = 0; i < num_images; i++) {
 
       m_filesOrder[i] = i; // start by keeping the order of files being read
@@ -304,7 +284,7 @@ namespace vw { namespace gui {
       if (!in_range) 
         continue;
 
-      // Don't load show files the user wants hidden in preview mode
+      // Don't load the files the user wants hidden in preview mode
       // This won't play nice with georefs or with images
       // with different sizes, or likely with polygons.
       bool delay = !asp::stereo_settings().nvm.empty() || asp::stereo_settings().preview;
@@ -321,10 +301,13 @@ namespace vw { namespace gui {
     
       // Make sure we set these up before the image2world call below!
       if (m_use_georef) {
+        std::cout << "--use georef!\n";
         m_world2image_geotransforms[i]
-          = GeoTransform(m_images[m_base_image_id].georef, m_images[i].georef);
+          = vw::cartography::GeoTransform(m_images[m_base_image_id].georef, 
+                                         m_images[i].georef);
         m_image2world_geotransforms[i]
-          = GeoTransform(m_images[i].georef, m_images[m_base_image_id].georef);
+          = vw::cartography::GeoTransform(m_images[i].georef, 
+                                          m_images[m_base_image_id].georef);
       }
 
       // Grow the world box to fit all the images
@@ -802,8 +785,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
       return;
     }
 
-    for (std::set<int>::iterator it = m_indicesWithAction.begin();
-	 it != m_indicesWithAction.end(); it++) {
+    for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++) {
 
       // We will assume the user wants to see this on top
       m_perImagePolyColor[*it] = polyColor;
@@ -829,8 +811,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
 
   // This is reached with right-click from the list of images on the left
   void MainWidget::toggleHillshadeFromImageList() {
-    for (std::set<int>::iterator it = m_indicesWithAction.begin();
-	 it != m_indicesWithAction.end(); it++) {
+    for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++) {
       if (m_images[*it].m_display_mode == HILLSHADED_VIEW)
         m_images[*it].m_display_mode = REGULAR_VIEW;
       else if (m_images[*it].m_display_mode != HILLSHADED_VIEW)
@@ -864,10 +845,9 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     refreshPixmap();
   }
 
-  void MainWidget::zoomToImage(){
+  void MainWidget::zoomToImage() {
 
-    for (std::set<int>::iterator it = m_indicesWithAction.begin();
-	 it != m_indicesWithAction.end(); it++) {
+    for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++) {
 
       // We will assume if the user wants to zoom to this image,
       // it should be on top.
@@ -887,10 +867,8 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
 
   void MainWidget::bringImageOnTopSlot(){
 
-    for (std::set<int>::iterator it = m_indicesWithAction.begin();
-	 it != m_indicesWithAction.end(); it++) {
+    for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++)
       bringImageOnTop(*it); 
-    }
     
     m_indicesWithAction.clear();
 
@@ -899,11 +877,9 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
 
   void MainWidget::pushImageToBottomSlot(){
 
-    for (std::set<int>::iterator it = m_indicesWithAction.begin();
-	 it != m_indicesWithAction.end(); it++) {
+    for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++)
       pushImageToBottom(*it); 
-    }
-    
+        
     m_indicesWithAction.clear();
 
     refreshPixmap();
@@ -1175,6 +1151,9 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
         //sw6.start();
     
 #pragma omp parallel for
+        // TODO(oalexan1): This may not be thread-safe. Better do it in tiles,
+        // with each tile having its own georef.
+
         for (int x = screen_box.min().x(); x < screen_box.max().x(); x++){
           for (int y = screen_box.min().y(); y < screen_box.max().y(); y++){
 
@@ -1333,29 +1312,15 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     
     int r = asp::stereo_settings().plot_point_radius;
 
+    std::cout << "--now in draw scattered data2\n";
+
     // If set, use --min and --max values. Otherwise, find them and 
     // remove outliers along the way to not skew the plotting range.
-    // TODO(oalexan1): This must be a function.
     double min_val = asp::stereo_settings().min;
     double max_val = asp::stereo_settings().max;
-    if (std::isnan(min_val) || std::isnan(max_val)) {
-      std::vector<double> vals;
-      for (size_t pt_it = 0; pt_it < m_images[image_index].scattered_data.size(); pt_it++)
-        vals.push_back(m_images[image_index].scattered_data[pt_it][2]);
-      double beg_inlier = -1, end_inlier = -1, pct_fraction = 0.25, factor = 3.0;
-      vw::math::find_outlier_brackets(vals, pct_fraction, factor, beg_inlier, end_inlier);
-      min_val = end_inlier;
-      max_val = beg_inlier;
-      size_t num_inliers = 0;
-      for (size_t it = 0; it < vals.size(); it++) {
-        if (vals[it] < beg_inlier || vals[it] > end_inlier) 
-          continue;
-        min_val = std::min(min_val, vals[it]);
-        max_val = std::max(max_val, vals[it]);
-        num_inliers++;
-      }
-    }
-
+    if (std::isnan(min_val) || std::isnan(max_val)) 
+      findRobustBounds(m_images[image_index].scattered_data, min_val, max_val);
+    
     std::map<float, vw::cm::Vector3u> lut_map;
     try {
       vw::cm::parse_color_style(m_images[image_index].colormap, lut_map);

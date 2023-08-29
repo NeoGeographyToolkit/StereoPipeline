@@ -64,6 +64,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/MatchList.h>
 #include <asp/GUI/GuiUtilities.h>
+#include <asp/GUI/WidgetBase.h>
 
 class QMouseEvent;
 class QWheelEvent;
@@ -82,7 +83,7 @@ namespace vw { namespace gui {
   namespace fs = boost::filesystem;
 
    /// This class handles user interaction with the a single image pane.
-  class MainWidget : public QwtScaleWidget {
+  class MainWidget : public QwtScaleWidget, public WidgetBase {
     Q_OBJECT
 
   public:
@@ -248,23 +249,6 @@ public slots:
     chooseFilesDlg  *     m_chooseFiles;
     std::vector<int>      m_filesOrder;     ///< The order the images are drawn in.
 
-    int m_beg_image_id;  // The id of the first image among m_images in this widget
-    int m_end_image_id;  // The id of the image past the last image among m_images in this widget
-
-    // The index of the image on top of which the rest are overlaid.
-    // We will render in this image's pixel or projected domain. This
-    // only becomes important if using georeference, and the images
-    // have different projections.
-    int m_base_image_id;
-    
-    // Note that this is an alias. We would like to be able to modify
-    // in this widget the states of all images in m_images (such as
-    // the flag noting if hillshading is on) which would persist after
-    // the widgets themselves are gone when the display layout
-    // changes. The images actually drawn in this widget have indices
-    // in [m_beg_image_id, m_end_image_id) in m_images.
-    std::vector<imageData> & m_images;
-
     std::string & m_output_prefix; // alias
     double m_hillshade_azimuth, m_hillshade_elevation;
 
@@ -275,8 +259,6 @@ public slots:
     pairwiseMatchList & m_pairwiseCleanMatches;
     int       &m_editMatchPointVecIndex; /// Point being edited
     bool      m_editingMatches;          /// If we are in the middle of editing match points
-    
-    bool m_use_georef;
 
     bool  m_firstPaintEvent;
     QRect m_emptyRubberBand;
@@ -312,9 +294,6 @@ public slots:
     // last view.  This is normally smaller than m_world_box.
     vw::BBox2 m_current_view, m_last_view;
 
-    std::vector<vw::cartography::GeoTransform> m_world2image_geotransforms;
-    std::vector<vw::cartography::GeoTransform> m_image2world_geotransforms;
-    
     // Adjustment mode
     enum AdjustmentMode { NoAdjustment,
                           TransformAdjustment, GainAdjustment,
@@ -393,8 +372,6 @@ public slots:
     // Need this public
     BBox2   image2world    (BBox2   const& R, int imageIndex) const;
   private:
-    Vector2 world2projpoint(Vector2 const  P, int imageIndex) const;
-    Vector2 projpoint2world(Vector2 const  P, int imageIndex) const;
     BBox2   expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
 
     // Find the closest point in a given set of imageData structures to a given point

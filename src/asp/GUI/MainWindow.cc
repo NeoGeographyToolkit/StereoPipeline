@@ -188,7 +188,7 @@ bool MainWindow::sanityChecks(int num_images) {
     return false;
   }
 
-  // Cannot show matches when georeferencing is on
+  // Cannot show matches when viewing as georeferenced images
   if (num > 0)
     m_use_georef = false;
 
@@ -432,20 +432,39 @@ void MainWindow::createLayout() {
     }
   }
 
-  // When colorizing images, always show them side by side
-  if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
-    for (size_t i = 0; i < m_images.size(); i++) {
-      bool poly_or_xyz = (m_images[i].isPoly() || m_images[i].isCsv());
-      if (!poly_or_xyz && m_images[i].colorize_image) {
-        m_view_type = VIEW_SIDE_BY_SIDE;
-        popUp("Colorized images can only be shown side-by-side.");
-        createLayout();
-        return;
-      }
-    }
-  }
-  
+std::cout << "Must not have a selection dialog with colorized images\n";
+  // // When colorizing images, always show them side by side
+  // if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
+  //   for (size_t i = 0; i < m_images.size(); i++) {
+  //     bool poly_or_xyz = (m_images[i].isPoly() || m_images[i].isCsv());
+  //     if (!poly_or_xyz && m_images[i].colorize_image) {
+  //       m_view_type = VIEW_SIDE_BY_SIDE;
+  //       popUp("Colorized images can only be shown side-by-side.");
+  //       createLayout();
+  //       return;
+  //     }
+  //   }
+  // }
+  std::cout << "--fix the side-by-side view when colorizing images\n";
+
   splitter->addWidget(m_chooseFiles);
+
+  bool do_colorize = false;
+  for (size_t i = 0; i < m_images.size(); i++) 
+    do_colorize = do_colorize || m_images[i].colorize_image;
+
+  bool delay = !asp::stereo_settings().nvm.empty() || asp::stereo_settings().preview;
+  if (delay && do_colorize) {
+    popUp("Cannot colorize images when using the preview mode or when loading an NVM file.");
+    // This is hard to get right
+    do_colorize = false;
+  }
+  if (do_colorize && m_view_type == VIEW_IN_SINGLE_WINDOW && m_images.size() > 1) {
+    popUp("Colorized images can only be shown side-by-side.");
+    m_view_type = VIEW_SIDE_BY_SIDE;
+  }
+
+  std::cout << "--do colorize is " << do_colorize << std::endl;
 
   // See if to show it. In a side-by-side view it is normally not needed. 
   bool showChooseFiles
@@ -455,25 +474,32 @@ void MainWindow::createLayout() {
 
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
     // Pass all images to a single MainWidget object
-    MainWidget * widget = new MainWidget(centralWidget,
-                                         m_opt,
-                                         0,               // beg image id
-                                         m_images.size(), // end image id
-                                         BASE_IMAGE_ID,
-                                         m_images, 
-                                         m_output_prefix,
-                                         m_matchlist,
-                                         m_pairwiseMatches, m_pairwiseCleanMatches,
-                                         m_editMatchPointVecIndex,
-                                         m_chooseFiles,
-                                         m_use_georef,
-                                         zoom_all_to_same_region,
-					 m_allowMultipleSelections);
-
-    // Tell the widget if the poly edit mode and hillshade mode is on or not
-    bool refresh = false; // Do not refresh prematurely
-    widget->setPolyEditMode(m_polyEditMode_action->isChecked(), refresh);
-    m_widgets.push_back(widget);
+    int beg_image_id = 0, end_image_id = m_images.size();
+    if (!do_colorize || m_images[0].img.planes() > 1) {
+      std::cout << "--grayscale1\n";
+      MainWidget * widget = new MainWidget(centralWidget,
+                                  m_opt,
+                                  beg_image_id, end_image_id, BASE_IMAGE_ID,
+                                  m_images, 
+                                  m_output_prefix,
+                                  m_matchlist,
+                                  m_pairwiseMatches, m_pairwiseCleanMatches,
+                                  m_editMatchPointVecIndex,
+                                  m_chooseFiles,
+                                  m_use_georef,
+                                  zoom_all_to_same_region,
+                                  m_allowMultipleSelections);
+      // Tell the widget if the poly edit mode and hillshade mode is on or not
+      bool refresh = false; // Do not refresh prematurely
+      widget->setPolyEditMode(m_polyEditMode_action->isChecked(), refresh);
+      m_widgets.push_back((QWidget*)widget);
+    } else {
+      std::cout << "--colorize1\n";
+      ColorAxes * widget = new ColorAxes(this, 
+                              beg_image_id, end_image_id, BASE_IMAGE_ID,
+                              m_use_georef, m_images);
+      m_widgets.push_back((QWidget*)widget);
+    }
   } else {
     // Each MainWidget object gets passed a single image
     for (size_t i = 0; i < m_images.size(); i++) {
@@ -487,15 +513,17 @@ void MainWindow::createLayout() {
 
       bool poly_or_xyz = (m_images[i].isPoly() || m_images[i].isCsv());
       
+      std::cout << "---multiple widgets\n";
+      std::cout << "num planes is " << m_images[i].img.planes() << std::endl;
       QWidget * widget = NULL;
-      if (!m_images[i].colorize_image || poly_or_xyz ||
-          previewOrSideBySideWithDialog() || m_images[i].img.planes() != 1) {
+      int beg_image_id = i, end_image_id = i + 1;
+      if (!m_images[i].colorize_image ||
+          previewOrSideBySideWithDialog() || m_images[i].img.planes() > 1) {
         // regular plot
+        std::cout << "grayscale2\n";
         widget = new MainWidget(centralWidget,
                                 m_opt,
-                                i,     // beg image id
-                                i + 1, // end image id
-                                BASE_IMAGE_ID, 
+                                beg_image_id, end_image_id, BASE_IMAGE_ID, 
                                 m_images, 
                                 m_output_prefix,
                                 m_matchlist, m_pairwiseMatches, m_pairwiseCleanMatches,
@@ -508,7 +536,10 @@ void MainWindow::createLayout() {
         // Qwt plot with axes and colorbar. Hard to use the same API
         // as earlier.
         // TODO(oalexan1): Must integrate the two approaches.
-        widget = new ColorAxes(this, m_images[i]);
+        std::cout << "colorize2\n";
+        widget = new ColorAxes(this, 
+                               beg_image_id, end_image_id, BASE_IMAGE_ID, 
+                               m_use_georef, m_images);
       }
       
       m_widgets.push_back(widget);

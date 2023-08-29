@@ -37,6 +37,7 @@
 #include <QResizeEvent>
 #include <QMouseEvent>
 #include <QPen>
+#include <QPainter>
 
 #include <asp/GUI/ColorAxes.h>
 #include <asp/GUI/GuiUtilities.h>
@@ -78,7 +79,6 @@ QRectF expand_box_to_aspect_ratio(QRectF const& in_box, double aspect_ratio) {
   return out_box;
 }
   
-  
 // Small auxiliary function
 inline QColor rgb2color(vw::cm::Vector3u const& c) {
   return QColor(c[0], c[1], c[2]);
@@ -113,6 +113,87 @@ public:
   
 };
 
+void calcLowResMinMax(imageData const& image, double nodata_val,
+                      double& min_val, double& max_val) {
+  
+  // TODO(oalexan1): How about removing a small percentile of intensity from ends?
+
+  // Get the lowest-resolution image version from the pyramid
+  std::cout << "fix here1\n";
+  bool poly_or_xyz = (image.isPoly() || image.isCsv());
+  std::cout << "poly or xyz is " << poly_or_xyz << std::endl;
+  ImageView<double> lowres_img = image.img.m_img_ch1_double.pyramid().back();
+  std::cout << "fix here2\n";
+  min_val = std::numeric_limits<double>::max();
+  max_val = -min_val;
+  for (int col = 0; col < lowres_img.cols(); col++) {
+    for (int row = 0; row < lowres_img.rows(); row++) {
+      
+      double val = lowres_img(col, row);
+      if (val == nodata_val) 
+        continue;
+      
+      min_val = std::min(min_val, val);
+      max_val = std::max(max_val, val);
+    }
+  }
+
+  if (min_val > max_val) {
+    // If the image turned out to be empty
+    min_val = nodata_val;
+    max_val = nodata_val;
+  }
+  
+  std::cout << "fix here3\n";
+  Vector2 approx_bounds = image.img.m_img_ch1_double.approx_bounds();
+  // The approx_bounds are computed on the lowest resolution level
+  // of the pyramid and are likely exaggerated, but were computed
+  // with outlier removal.  Use them to adjust the existing bounds
+  // which may have outliers.
+  // TODO(oalexan1): Integrate this with formQimage logic.
+  if (approx_bounds[0] < approx_bounds[1]) {
+    min_val = std::max(min_val, approx_bounds[0]);
+    max_val = std::min(max_val, approx_bounds[1]);
+  }
+  
+  return;
+}
+
+// Find spatial bounds. When the data is scattered, expand the bounds by 2% on each side.
+void findSpatialBounds(imageData const& image, 
+  // Outputs
+  double & min_x, double & min_y, double & max_x, double & max_y) {
+  
+  bool poly_or_xyz = (image.isPoly() || image.isCsv());
+  std::cout << "******--poly or xyz is " << poly_or_xyz << std::endl;
+  if (poly_or_xyz) {
+
+    min_x = image.image_bbox.min().x();
+    min_y = image.image_bbox.min().y();
+    max_x = image.image_bbox.max().x();
+    max_y = image.image_bbox.max().y();
+
+    // Expand the bounds
+    double small = 0.02;
+    double dx = (max_x - min_x)*small;
+    double dy = (max_y - min_y)*small;
+    min_x -= dx; max_x += dx;
+    min_y -= dy; max_y += dy;
+    
+  } else {
+
+    vw::mosaic::DiskImagePyramid<double> const& img = image.img.m_img_ch1_double;
+    min_x = 0;
+    min_y = 0;
+    max_x = img.cols() - 1;
+    max_y = img.rows() - 1;
+  }
+
+  std::cout << "min_x, min_y, max_x, max_y " << min_x << ' ' << min_y << ' ' << max_x << ' ' << max_y << std::endl;
+
+  return;
+}
+
 class ColorAxesZoomer: public QwtPlotZoomer {
 public:
 ColorAxesZoomer(QWidget *canvas, double aspect_ratio):
@@ -140,75 +221,55 @@ class ColorAxesData: public QwtMatrixRasterData {
 
 private:
   
-  void calcLowResMinMax(double& min_val, double& max_val) const {
-    
-    // TODO(oalexan1): How about removing a small percentile of intensity from ends?
-
-    // Get the lowest-resolution image version from the pyramid
-    ImageView<double> lowres_img = m_image.img.m_img_ch1_double.pyramid().back();
-
-    min_val = std::numeric_limits<double>::max();
-    max_val = -min_val;
-    for (int col = 0; col < lowres_img.cols(); col++) {
-      for (int row = 0; row < lowres_img.rows(); row++) {
-        
-        double val = lowres_img(col, row);
-        if (val == m_nodata_val) 
-          continue;
-        
-        min_val = std::min(min_val, val);
-        max_val = std::max(max_val, val);
-      }
-    }
-
-    if (min_val > max_val) {
-      // If the image turned out to be empty
-      min_val = m_nodata_val;
-      max_val = m_nodata_val;
-    }
-    
-    Vector2 approx_bounds = m_image.img.m_img_ch1_double.approx_bounds();
-    // The approx_bounds are computed on the lowest resolution level
-    // of the pyramid and are likely exaggerated, but were computed
-    // with outlier removal.  Use them to adjust the existing bounds
-    // which may have outliers.
-    // TODO(oalexan1): Integrate this with formQimage logic.
-    if (approx_bounds[0] < approx_bounds[1]) {
-      min_val = std::max(min_val, approx_bounds[0]);
-      max_val = std::min(max_val, approx_bounds[1]);
-    }
-    
-    return;
-  }
-  
 public:
 
-  ColorAxesData(imageData & image): m_image(image) {
+  ColorAxesData(imageData & image):  m_image(image) {
     // TODO(oalexan1): Need to handle georeferences.
+    std::cout << "ColorAxesData constructor\n";
+    std::cout << "fix here4\n";
 
-    vw::mosaic::DiskImagePyramid<double> & img = image.img.m_img_ch1_double;
-    
-    if (img.planes() != 1) {
-      // This will be caught before we get here, but is good to have for extra
-      // robustness.
-      popUp("Only images with one channel can be colorized.");
-      return;
-    }
-
-    // Some initializations
-    m_nodata_val = img.get_nodata_val();
     m_sub_scale = -1;  // This must be set properly before being used
     m_beg_x = 0;
     m_beg_y = 0;
-    
+ 
     // TODO(oalexan1): Handle no-data properly by using transparent pixels.
     m_min_val = asp::stereo_settings().min;
     m_max_val = asp::stereo_settings().max;
-    if (std::isnan(m_min_val) || std::isnan(m_max_val)) // if the user did not set these
-      calcLowResMinMax(m_min_val, m_max_val);
 
-    QwtMatrixRasterData::setInterval(Qt::XAxis, QwtInterval(0, img.cols() - 1));
-    QwtMatrixRasterData::setInterval(Qt::YAxis, QwtInterval(0, img.rows() - 1));
+    double min_x = -1 , min_y = -1, max_x = -1, max_y = -1;
+    std::cout << "----find spatial bounds\n";
+    findSpatialBounds(image, min_x, min_y, max_x, max_y);
+
+    // Create a function that uses the code below
+#if 1         
+    bool poly_or_xyz = (m_image.isPoly() || m_image.isCsv());
+    std::cout << "--poly or xyz is " << poly_or_xyz << std::endl;
+    if (poly_or_xyz) {
+
+      m_nodata_val = -std::numeric_limits<double>::max();
+      if (std::isnan(m_min_val) || std::isnan(m_max_val)) 
+        findRobustBounds(m_image.scattered_data, m_min_val, m_max_val);
+
+    } else {
+      vw::mosaic::DiskImagePyramid<double> const& img = m_image.img.m_img_ch1_double;
+    
+      if (img.planes() != 1) {
+        // This will be caught before we get here, but is good to have for extra
+        // robustness.
+        popUp("Only images with one channel can be colorized.");
+        return;
+      }
+
+      // Some initializations
+      m_nodata_val = img.get_nodata_val();
+
+      if (std::isnan(m_min_val) || std::isnan(m_max_val)) // if the user did not set these
+        calcLowResMinMax(m_image, m_nodata_val, m_min_val, m_max_val);
+    }
+#endif
+
+    QwtMatrixRasterData::setInterval(Qt::XAxis, QwtInterval(min_x, max_x));
+    QwtMatrixRasterData::setInterval(Qt::YAxis, QwtInterval(min_y, max_y));
     QwtMatrixRasterData::setInterval(Qt::ZAxis, QwtInterval(m_min_val, m_max_val));
   }
 
@@ -217,6 +278,8 @@ public:
   // and extent just enough for the job, or a little higher res and bigger.
   void prepareClip(double x0, double y0, double x1, double y1, QSize const& imageSize) {
 
+    std::cout << "prepareClip " << x0 << ' ' << y0 << ' ' << x1 << ' ' << y1 << std::endl;
+
     // Note that y0 and y1 are normally flipped
     int beg_x = floor(std::min(x0, x1)), end_x = ceil(std::max(x0, x1));
     int beg_y = floor(std::min(y0, y1)), end_y = ceil(std::max(y0, y1));
@@ -224,8 +287,8 @@ public:
     // if in doubt, go with lower sub_scale, so higher resolution.
     double sub_scale = std::min((end_x - beg_x) / imageSize.width(),
                             (end_y - beg_y) / imageSize.height());
-      
-    m_level = m_image.img.m_img_ch1_double.pyramidLevel(sub_scale);
+    std::cout << "fix here6\n";
+    m_level =  m_image.img.m_img_ch1_double.pyramidLevel(sub_scale);
     m_sub_scale = round(pow(2.0, m_level));
 
     beg_x = floor(beg_x/m_sub_scale); end_x = ceil(end_x/m_sub_scale);
@@ -234,6 +297,7 @@ public:
     vw::BBox2i box;
     box.min() = Vector2i(beg_x, beg_y);
     box.max() = Vector2i(end_x + 1, end_y + 1); // because max is exclusive
+    std::cout << "fix here7\n";
     box.crop(vw::bounding_box(m_image.img.m_img_ch1_double.pyramid()[m_level]));
 
     // Instead of returning image(x, y), we will return
@@ -247,13 +311,11 @@ public:
   
   virtual double value(double x, double y) const {
     
-    // Instead of returning m_image(x, y), we will return
+    // Instead of returning  m_image(x, y), we will return
     // m_sub_image(x/m_sub_scale - m_beg_x, y/m_sub_scale - m_beg_y).
     if (m_sub_scale <= 0) 
       vw::vw_throw(vw::ArgumentErr() << "Programmer error. Not ready yet to render the image.\n");
     
-    vw::mosaic::DiskImagePyramid<double> const& img = m_image.img.m_img_ch1_double;
-
     // Return pixels at the appropriate level of resolution
     x = round(x/m_sub_scale) - m_beg_x;
     y = round(y/m_sub_scale) - m_beg_y;
@@ -293,24 +355,50 @@ public:
                    const QwtScaleMap & xMap,
                    const QwtScaleMap & yMap,
                    const QRectF      & canvasRect) const {
-
+   std::cout << "now in draw\n";
    // canvasRect is the region, in screen pixel units, where the image
    // will go. If the image is narrow, it may not fill fully the
    // canvas. If the labels on the axes take up more space when
    // zooming, the image region will be affected. So, it is not
    // fixed once and for all.
-   // std::cout << "--canvasRect " << canvasRect.left() << ' ' << canvasRect.top() << ' ' << canvasRect.width() << ' ' << canvasRect.height() << std::endl;
+   // xMap and yMap are used to convert from world units to screen.
+   std::cout << "--canvasRect " << canvasRect.left() << ' ' << canvasRect.top() << '\n';
+   std::cout << "canvas height and width " << canvasRect.height() << ' ' << canvasRect.width() << '\n';
+   std::cout << "Compare canvas rect size with Qt pixel buffer size, which is imageSize\n";
    
    QwtPlotSpectrogram::draw(painter, xMap, yMap, canvasRect);
+
+   // TODO(oalexan1): Plot a dot and see if it moves correctly with the image
+   // when zooming and panning. Use xMap and yMap to convert from world units
+   // to screen.
+
+   // STart with a pixel in world coordinates
+    QPointF p(0, 0);
+    // Now convert to Qt pixel coordinates. Must use xMap and yMap.
+    QPointF q(0, 0);
+    q.setX(q.x() + canvasRect.left());
+    q.setY(q.y() + canvasRect.top());
+    //q.setX(xMap.transform(p.x()));
+    //q.setY(yMap.transform(p.y()));
+    std::cout << "p " << p.x() << ' ' << p.y() << std::endl;
+    // Now draw a dot at that location
+    // Make sure the dot is filled and red
+    painter->setPen(Qt::red);
+    painter->setBrush(Qt::red);
+    painter->drawEllipse(q, 5, 5);
+
+   std::cout << "---finished drawing\n";
  }
 
 virtual QImage renderImage(const QwtScaleMap & xMap,
                            const QwtScaleMap & yMap,
                            const QRectF & area,
                            const QSize & imageSize) const {
-
+  std::cout << "now in renderImage\n";
   // 'area' is in world units, not in pixel units
   // imageSize has the dimensions, in pixels, of the canvas portion having the image
+  std::cout << "--area " << area.left() << ' ' << area.top() << ' ' << area.width() << ' ' << area.height() << std::endl;
+  std::cout << "--imageSize " << imageSize.width() << ' ' << imageSize.height() << std::endl;
   
   // Based on size of the rendered image, determine the appropriate level of
   // resolution and extent to read from disk. This greatly helps with
@@ -326,11 +414,47 @@ virtual QImage renderImage(const QwtScaleMap & xMap,
   
   ColorAxesData * m_data;  
 };
-  
-ColorAxes::ColorAxes(QWidget *parent, imageData & image):
-  QwtPlot(parent), m_image(image) {
 
-  ColorAxesData * data = new ColorAxesData(m_image);
+ColorAxes::ColorAxes(QWidget *parent, 
+  int beg_image_id, int end_image_id, int base_image_id, bool use_georef,
+  std::vector<imageData> & images):
+    QwtPlot(parent),  
+    WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images) {
+
+  int num_images = m_images.size();
+
+  // TODO(oalexan1): Integrate this with MainWidget.cc
+  // Set data per image. 
+  for (int i = 0; i < num_images; i++) {
+
+    bool in_range = (m_beg_image_id <= i && i < m_end_image_id);
+    
+    if (!in_range) 
+      continue;
+
+    // Load if not loaded so far
+    std::cout << "---loaded image " << m_images[i].name << std::endl;
+    m_images[i].load();
+    
+    if (m_use_georef && !m_images[i].has_georef) {
+      popUp("No georeference present in: " + m_images[i].name + ".");
+      vw_throw(ArgumentErr() << "Missing georeference.\n");
+    }
+
+    std::cout << "--color use georef!\n";
+
+    // Make sure we set these up before the image2world call below!
+    if (m_use_georef) {
+      m_world2image_geotransforms[i]
+        = vw::cartography::GeoTransform(m_images[m_base_image_id].georef, 
+                                        m_images[i].georef);
+      m_image2world_geotransforms[i]
+        = vw::cartography::GeoTransform(m_images[i].georef, 
+                                        m_images[m_base_image_id].georef);
+    }
+  }
+
+  ColorAxesData * data = new ColorAxesData(m_images[m_beg_image_id]);
 
   // Have to pass the data twice, because the second such statement
   // does not know about the precise implementation and extra
@@ -344,12 +468,13 @@ ColorAxes::ColorAxes(QWidget *parent, imageData & image):
 
   // Parse and set the colormap
   std::map<float, vw::cm::Vector3u> lut_map;
+  std::cout << "fix here5\n";
   try {
-    vw::cm::parse_color_style(m_image.colormap, lut_map);
+    vw::cm::parse_color_style(m_images[m_beg_image_id].colormap, lut_map);
   } catch (...) {
-    popUp("Unknown colormap style: " + m_image.colormap);
-    m_image.colormap = "binary-red-blue";
-    vw::cm::parse_color_style(m_image.colormap, lut_map);
+    popUp("Unknown colormap style: " +  m_images[m_beg_image_id].colormap);
+     m_images[m_beg_image_id].colormap = "binary-red-blue";
+    vw::cm::parse_color_style(m_images[m_beg_image_id].colormap, lut_map);
   }
   m_plotter->setColorMap(new LutColormap(lut_map));
   
@@ -369,8 +494,22 @@ ColorAxes::ColorAxes(QWidget *parent, imageData & image):
   setAxisScale(QwtPlot::yRight, zInterval.minValue(), zInterval.maxValue());
 
   // These two scales will be over-ridden later
-  setAxisScale(QwtPlot::yLeft, m_image.img.rows(), 0); // y axis goes down
-  setAxisScale(QwtPlot::xBottom, 0, m_image.img.cols());
+  std::cout << "--fix here9\n";
+  std::cout << "--will data be georeferenced? " << std::endl;
+  auto & img = m_images[m_beg_image_id];
+  bool poly_or_xyz = (img.isPoly() || img.isCsv());
+  std::cout << "--make this into a function?\n";
+  std::cout << "adjust by some percentage?\n";
+  std::cout << "Must also call further down!\n";
+  double min_x = img.image_bbox.min().x();
+  double min_y = img.image_bbox.min().y();
+  double max_x = img.image_bbox.max().x();
+  double max_y = img.image_bbox.max().y();
+
+  std::cout << "---fix here10\n";
+  std::cout << "Fix next function too!\n";
+  setAxisScale(QwtPlot::yLeft, img.img.rows(), 0); // y axis goes down
+  setAxisScale(QwtPlot::xBottom, 0, img.img.cols());
   
   enableAxis(QwtPlot::yRight);
   setAxisAutoScale(QwtPlot::yRight, false);
@@ -413,7 +552,8 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
   // The true image area is known only in renderImage(), so much later.
   // The scales should be set up before that.
   double aspect_ratio = double(rect.width()) / double(rect.height());
-  QRectF in_box(0, 0, m_image.img.cols(), m_image.img.rows()); 
+  std::cout << "fix here 111\n";
+  QRectF in_box(0, 0,  m_images[m_beg_image_id].img.cols(), m_images[m_beg_image_id].img.rows()); 
   QRectF box = expand_box_to_aspect_ratio(in_box, aspect_ratio);
   
   // Adjust the scales accordingly
@@ -426,7 +566,7 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
   // LeftButton for the zooming
   // MidButton for the panning
   // RightButton: zoom out by 1
-  // Ctrl+RighButton: zoom out to full size
+  // Ctrl+RightButton: zoom out to full size
   
   QwtPlotZoomer* zoomer = new ColorAxesZoomer(canvas(), aspect_ratio);
   zoomer->setMousePattern(QwtEventPattern::MouseSelect2,

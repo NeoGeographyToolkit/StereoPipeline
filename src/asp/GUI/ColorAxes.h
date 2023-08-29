@@ -28,16 +28,21 @@
 #include <qwt_plot.h>
 #include <qwt_plot_spectrogram.h>
 
+#include <asp/GUI/WidgetBase.h>
+
 namespace vw { namespace gui {
 
 class imageData;
 class ColorAxesPlotter;
   
-class ColorAxes: public QwtPlot {
+class ColorAxes: public QwtPlot, public WidgetBase {
   Q_OBJECT
   
 public:
-  ColorAxes(QWidget * parent, imageData & image);
+  ColorAxes(QWidget * parent, 
+  int beg_image_id, int end_image_id, int base_image_id,
+  bool use_georef,
+  std::vector<imageData> & images);  // will be modifed
 
   virtual void mousePressEvent(QMouseEvent *e);
 
@@ -47,7 +52,6 @@ public Q_SLOTS:
 
 private:
   ColorAxesPlotter *m_plotter;
-  imageData & m_image;
 };
 
 }}
