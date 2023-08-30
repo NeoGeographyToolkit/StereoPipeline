@@ -44,6 +44,7 @@
 #include <asp/GUI/GuiBase.h>
 #include <asp/Core/StereoSettings.h>
 #include <vw/Image/Colormap.h> // colormaps supported by ASP
+#include <vw/Core/Stopwatch.h>
 
 namespace vw { namespace gui {
 
@@ -93,37 +94,88 @@ public:
 
   // Custom constructor
   LutColormap(std::map<float, vw::cm::Vector3u> const& lut_map) {
-
+    std::cout << "is the lut map slow?\n";  
     // Sanity check: the first and last color keys must be 0 and 1.
     if (lut_map.empty() || lut_map.begin()->first != 0.0 || lut_map.rbegin()->first != 1.0)
       popUp("First colormap stop must be at 0.0 and last at 1.0.");
 
+     // To be able to deal with no-data, set the starting color to be black.
+     // We will make sure to use it later only for no-data.
+     vw::cm::Vector3u black(0, 0, 0);
+     double tol = 1e-4;
+
     // Must replace the automatically initialized endpoints
-    setColorInterval(rgb2color(lut_map.begin()->second), rgb2color(lut_map.rbegin()->second));
+    setColorInterval(rgb2color(black), rgb2color(lut_map.rbegin()->second));
     
     for (auto it = lut_map.begin(); it != lut_map.end(); it++) {
-      
-      if (it->first == 0.0 || it->first == 1.0) 
+      double index = it->first;
+      if (index == 0)
+        index += tol; // shift the starting color a little forward to not overwrite the black
+      if (index == 0.0 || index == 1.0) 
         continue; // endpoints already added
-      
       auto const& c = it->second; // c has 3 indices between 0 and 255
-      addColorStop(it->first, rgb2color(it->second));
+      addColorStop(index, rgb2color(it->second));
     }
   }
   
 };
 
+// Find spatial bounds. When the data is scattered, expand the bounds by 2% on each side
+// to help with plotting later.
+void findSpatialBounds(imageData const& image, 
+  // Outputs
+  double & min_x, double & min_y, double & max_x, double & max_y) {
+  
+  bool poly_or_xyz = (image.isPoly() || image.isCsv());
+  if (poly_or_xyz) {
+
+    min_x = image.image_bbox.min().x();
+    min_y = image.image_bbox.min().y();
+    max_x = image.image_bbox.max().x();
+    max_y = image.image_bbox.max().y();
+
+    // Expand the bounds
+    double small = 0.02;
+    double dx = (max_x - min_x)*small;
+    double dy = (max_y - min_y)*small;
+    min_x -= dx; max_x += dx;
+    min_y -= dy; max_y += dy;
+
+  } else {
+
+    vw::mosaic::DiskImagePyramid<double> const& img = image.img.m_img_ch1_double;
+    min_x = 0;
+    min_y = 0;
+    max_x = img.cols() - 1;
+    max_y = img.rows() - 1;
+  }
+
+  return;
+}
+
+// Make min_val smaller than any actual value, too to be able
+// to use it for no-data and show it as black
+void adjustMinVal(double & min_val, double max_val) {
+  double len = max_val - min_val;
+  if (len <= 0.0)
+    len = 1.0;
+  std::cout << "--old min val is " << min_val << std::endl;
+  min_val -= 1e-2 * len; // 1% smaller  
+  std::cout << "--new min val is " << min_val << std::endl;
+}
+
+// Find min and max value based on a low-res image version
 void calcLowResMinMax(imageData const& image, double nodata_val,
                       double& min_val, double& max_val) {
   
   // TODO(oalexan1): How about removing a small percentile of intensity from ends?
 
   // Get the lowest-resolution image version from the pyramid
-  std::cout << "fix here1\n";
   bool poly_or_xyz = (image.isPoly() || image.isCsv());
-  std::cout << "poly or xyz is " << poly_or_xyz << std::endl;
+  if (poly_or_xyz) // will not get here
+    vw_throw(ArgumentErr() << "Expecting an image, not scattered points.\n");
+  
   ImageView<double> lowres_img = image.img.m_img_ch1_double.pyramid().back();
-  std::cout << "fix here2\n";
   min_val = std::numeric_limits<double>::max();
   max_val = -min_val;
   for (int col = 0; col < lowres_img.cols(); col++) {
@@ -144,7 +196,6 @@ void calcLowResMinMax(imageData const& image, double nodata_val,
     max_val = nodata_val;
   }
   
-  std::cout << "fix here3\n";
   Vector2 approx_bounds = image.img.m_img_ch1_double.approx_bounds();
   // The approx_bounds are computed on the lowest resolution level
   // of the pyramid and are likely exaggerated, but were computed
@@ -156,41 +207,7 @@ void calcLowResMinMax(imageData const& image, double nodata_val,
     max_val = std::min(max_val, approx_bounds[1]);
   }
   
-  return;
-}
-
-// Find spatial bounds. When the data is scattered, expand the bounds by 2% on each side.
-void findSpatialBounds(imageData const& image, 
-  // Outputs
-  double & min_x, double & min_y, double & max_x, double & max_y) {
-  
-  bool poly_or_xyz = (image.isPoly() || image.isCsv());
-  std::cout << "******--poly or xyz is " << poly_or_xyz << std::endl;
-  if (poly_or_xyz) {
-
-    min_x = image.image_bbox.min().x();
-    min_y = image.image_bbox.min().y();
-    max_x = image.image_bbox.max().x();
-    max_y = image.image_bbox.max().y();
-
-    // Expand the bounds
-    double small = 0.02;
-    double dx = (max_x - min_x)*small;
-    double dy = (max_y - min_y)*small;
-    min_x -= dx; max_x += dx;
-    min_y -= dy; max_y += dy;
-    
-  } else {
-
-    vw::mosaic::DiskImagePyramid<double> const& img = image.img.m_img_ch1_double;
-    min_x = 0;
-    min_y = 0;
-    max_x = img.cols() - 1;
-    max_y = img.rows() - 1;
-  }
-
-  std::cout << "min_x, min_y, max_x, max_y " << min_x << ' ' << min_y << ' ' << max_x << ' ' << max_y << std::endl;
-
+  std::cout << "---got approx bounds " << min_val << ' ' << max_val << std::endl;
   return;
 }
 
@@ -226,7 +243,6 @@ public:
   ColorAxesData(imageData & image):  m_image(image) {
     // TODO(oalexan1): Need to handle georeferences.
     std::cout << "ColorAxesData constructor\n";
-    std::cout << "fix here4\n";
 
     m_sub_scale = -1;  // This must be set properly before being used
     m_beg_x = 0;
@@ -237,13 +253,11 @@ public:
     m_max_val = asp::stereo_settings().max;
 
     double min_x = -1 , min_y = -1, max_x = -1, max_y = -1;
-    std::cout << "----find spatial bounds\n";
     findSpatialBounds(image, min_x, min_y, max_x, max_y);
 
     // Create a function that uses the code below
 #if 1         
     bool poly_or_xyz = (m_image.isPoly() || m_image.isCsv());
-    std::cout << "--poly or xyz is " << poly_or_xyz << std::endl;
     if (poly_or_xyz) {
 
       m_nodata_val = -std::numeric_limits<double>::max();
@@ -268,9 +282,18 @@ public:
     }
 #endif
 
+
     QwtMatrixRasterData::setInterval(Qt::XAxis, QwtInterval(min_x, max_x));
     QwtMatrixRasterData::setInterval(Qt::YAxis, QwtInterval(min_y, max_y));
     QwtMatrixRasterData::setInterval(Qt::ZAxis, QwtInterval(m_min_val, m_max_val));
+
+    // Make min_val smaller than any actual value, too to be able
+    // to use it for no-data and show it as black 
+    // Do this after we set the axes intervals
+    adjustMinVal(m_min_val, m_max_val);
+    std::cout << "--updated min and max val are " << m_min_val << ' ' << m_max_val << std::endl;
+
+    return;
   }
 
   // Given that we plan to render a portion of an image on disk within these
@@ -280,6 +303,18 @@ public:
 
     std::cout << "prepareClip " << x0 << ' ' << y0 << ' ' << x1 << ' ' << y1 << std::endl;
 
+    // Ensure initialization
+    m_level = 0;
+    m_sub_scale = 1;
+    m_beg_x = 0;
+    m_beg_y = 0;
+
+    bool poly_or_xyz = (m_image.isPoly() || m_image.isCsv());
+    if (poly_or_xyz) 
+      return; // nothing to do
+
+    // Have an image.
+    
     // Note that y0 and y1 are normally flipped
     int beg_x = floor(std::min(x0, x1)), end_x = ceil(std::max(x0, x1));
     int beg_y = floor(std::min(y0, y1)), end_y = ceil(std::max(y0, y1));
@@ -287,9 +322,9 @@ public:
     // if in doubt, go with lower sub_scale, so higher resolution.
     double sub_scale = std::min((end_x - beg_x) / imageSize.width(),
                             (end_y - beg_y) / imageSize.height());
-    std::cout << "fix here6\n";
     m_level =  m_image.img.m_img_ch1_double.pyramidLevel(sub_scale);
     m_sub_scale = round(pow(2.0, m_level));
+    std::cout << "level is " << m_level << std::endl;
 
     beg_x = floor(beg_x/m_sub_scale); end_x = ceil(end_x/m_sub_scale);
     beg_y = floor(beg_y/m_sub_scale); end_y = ceil(end_y/m_sub_scale);
@@ -297,16 +332,26 @@ public:
     vw::BBox2i box;
     box.min() = Vector2i(beg_x, beg_y);
     box.max() = Vector2i(end_x + 1, end_y + 1); // because max is exclusive
-    std::cout << "fix here7\n";
+    std::cout << "---found box " << box.min().x() << ' ' << box.min().y() << ' '
+              << box.max().x() << ' ' << box.max().y() << std::endl;
+
     box.crop(vw::bounding_box(m_image.img.m_img_ch1_double.pyramid()[m_level]));
+    std::cout << "box is " << box << std::endl;
 
     // Instead of returning image(x, y), we will return
     // sub_image(x/scale + beg_x, y/scale + beg_y).
+    std::cout << "start crop\n";
+    vw::Stopwatch sw;
+    sw.start();
     m_sub_image = crop(m_image.img.m_img_ch1_double.pyramid()[m_level], box);
+    sw.stop();
+    std::cout << "cropping took " << sw.elapsed_seconds() << " s\n";
+    std::cout << "end crop\n";
 
     m_beg_x = box.min().x();
     m_beg_y = box.min().y();
-    
+
+    std::cout << "end prepareClip\n";
   }
   
   virtual double value(double x, double y) const {
@@ -316,33 +361,83 @@ public:
     if (m_sub_scale <= 0) 
       vw::vw_throw(vw::ArgumentErr() << "Programmer error. Not ready yet to render the image.\n");
     
+    bool poly_or_xyz = (m_image.isPoly() || m_image.isCsv());
+    if (poly_or_xyz)
+      return m_min_val; // TODO(oalexan1): Make transparent
+
     // Return pixels at the appropriate level of resolution
     x = round(x/m_sub_scale) - m_beg_x;
     y = round(y/m_sub_scale) - m_beg_y;
 
-    if (x < 0 || y < 0 || 
-        x > m_sub_image.cols() - 1 || y > m_sub_image.rows() - 1)
+    if (x < 0 || y < 0 || x > m_sub_image.cols() - 1 || y > m_sub_image.rows() - 1)
       return m_min_val;
     
     double val = m_sub_image(x, y);
     
     if (val == m_nodata_val || val != val) 
-      return m_min_val; // TODO(oalexan1): Make transparent
+      return m_min_val; // TODO(oalexan1): Make transparent, for now it is black
 
     return val;
   }
-  
-private:
-  
+
+public:
   imageData & m_image;
   double m_min_val, m_max_val, m_nodata_val;
 
+private:
+  
   // Can get away by using a lower-res image version at this sub scale.
   int m_level, m_beg_x, m_beg_y;
   double m_sub_scale;
   ImageView<double> m_sub_image;
 };
 
+// Draw irregular xyz data to be plotted at (x, y) location with z giving
+// the intensity. May be colorized.
+// TODO(oalexan1): Integrate with function in main widget.
+void drawScatteredData(imageData const& image, 
+                  const QwtScaleMap & xMap,
+                  const QwtScaleMap & yMap,
+                  const QRectF      & canvasRect, 
+                  QwtInterval       const& I, 
+                  QwtLinearColorMap const * cmap,
+                  double min_val, double max_val, double nodata_val,
+                  QPainter          * painter) {
+  
+  int r = asp::stereo_settings().plot_point_radius;
+  std::cout << "plot point radius is " << r << std::endl;
+  std::cout << "--now in draw scattered data2\n";
+
+  double den = max_val - min_val;
+  if (den <= 0.0)
+    den = 1.0;
+
+  for (size_t pt_it = 0; pt_it < image.scattered_data.size(); pt_it++) {
+    auto const& P = image.scattered_data[pt_it];
+
+    // Find the location on the screen. Adjust for the canvas offset.
+    QPointF q;
+    q.setX(xMap.transform(P.x()) + canvasRect.left());
+    q.setY(yMap.transform(P.y()) + canvasRect.top());
+  
+    // Find the scaled intensity
+    double val = P.z();
+    if (val < min_val || val != val || val == nodata_val) 
+      val = min_val;
+    if (val > max_val)
+      val = max_val;
+    double s = (val - min_val) / den;
+
+    // Find and draw the color 
+    QColor c = cmap->rgb(I, s);
+    painter->setPen(c);
+    painter->setBrush(c);
+    painter->drawEllipse(q, r, r); 
+  }
+
+  return;
+}
+  
 // Manages the plotting of the data at the correct resolution level
 // Sources: https://qwt.sourceforge.io/qwt__plot__spectrogram_8cpp_source.html
 //          https://qwt.sourceforge.io/qwt__plot__spectrogram_8h_source.html
@@ -351,67 +446,79 @@ public:
   ColorAxesPlotter(ColorAxesData * data, const QString& title = QString()):
     m_data(data), QwtPlotSpectrogram(title) {}
   
- virtual void draw(QPainter * painter,
-                   const QwtScaleMap & xMap,
-                   const QwtScaleMap & yMap,
-                   const QRectF      & canvasRect) const {
-   std::cout << "now in draw\n";
-   // canvasRect is the region, in screen pixel units, where the image
-   // will go. If the image is narrow, it may not fill fully the
-   // canvas. If the labels on the axes take up more space when
-   // zooming, the image region will be affected. So, it is not
-   // fixed once and for all.
-   // xMap and yMap are used to convert from world units to screen.
-   std::cout << "--canvasRect " << canvasRect.left() << ' ' << canvasRect.top() << '\n';
-   std::cout << "canvas height and width " << canvasRect.height() << ' ' << canvasRect.width() << '\n';
-   std::cout << "Compare canvas rect size with Qt pixel buffer size, which is imageSize\n";
-   
-   QwtPlotSpectrogram::draw(painter, xMap, yMap, canvasRect);
+  virtual void draw(QPainter * painter,
+                    const QwtScaleMap & xMap,
+                    const QwtScaleMap & yMap,
+                    const QRectF      & canvasRect) const {
+    std::cout << "now in draw\n";
+    // canvasRect is the region, in screen pixel units, where the image
+    // will go. If the image is narrow, it may not fill fully the
+    // canvas. If the labels on the axes take up more space when
+    // zooming, the image region will be affected. So, it is not
+    // fixed once and for all.
+    // xMap and yMap are used to convert from world units to screen.
+    std::cout << "--canvasRect " << canvasRect.left() << ' ' << canvasRect.top() << '\n';
+    std::cout << "canvas height and width " << canvasRect.height() << ' ' << canvasRect.width() << '\n';
 
-   // TODO(oalexan1): Plot a dot and see if it moves correctly with the image
-   // when zooming and panning. Use xMap and yMap to convert from world units
-   // to screen.
+    std::cout << "--start drawing5\n";
+    vw::Stopwatch sw2;
+    sw2.start();   
+    std::cout << "set transparency\n";
+    //this->setAlpha(0);
+    QwtPlotSpectrogram::draw(painter, xMap, yMap, canvasRect);
+    std::cout << "--finished drawing5\n";
+    sw2.stop();
+    std::cout << "drawing took " << sw2.elapsed_seconds() << " s\n";
 
-   // STart with a pixel in world coordinates
-    QPointF p(0, 0);
-    // Now convert to Qt pixel coordinates. Must use xMap and yMap.
-    QPointF q(0, 0);
-    q.setX(q.x() + canvasRect.left());
-    q.setY(q.y() + canvasRect.top());
-    //q.setX(xMap.transform(p.x()));
-    //q.setY(yMap.transform(p.y()));
-    std::cout << "p " << p.x() << ' ' << p.y() << std::endl;
-    // Now draw a dot at that location
-    // Make sure the dot is filled and red
-    painter->setPen(Qt::red);
-    painter->setBrush(Qt::red);
-    painter->drawEllipse(q, 5, 5);
+    QwtLinearColorMap const * cmap = (QwtLinearColorMap*)this->colorMap();
+    QwtLinearColorMap::Mode mode = cmap->mode();
+    std::cout << "mode is " << mode << std::endl;
+    std::cout << "fixed mode is " << QwtLinearColorMap::FixedColors << std::endl;
+    std::cout << "continuous mode is " << QwtLinearColorMap::ScaledColors << std::endl;
 
-   std::cout << "---finished drawing\n";
- }
+    QwtInterval I(0.0, 1.0);
+    QColor c1 = cmap->color1();
+    QColor c11 = cmap->rgb(I, 0.0);
+    std::cout << "c1 " << c1.red() << ' ' << c1.green() << ' ' << c1.blue() << std::endl;
+    std::cout << "c11 " << c11.red() << ' ' << c11.green() << ' ' << c11.blue() << std::endl;
+    QColor c2 = cmap->color2(); 
+    QColor c22 = cmap->rgb(I, 1.0);
+    std::cout << "c2 " << c2.red() << ' ' << c2.green() << ' ' << c2.blue() << std::endl;
+    std::cout << "c22 " << c22.red() << ' ' << c22.green() << ' ' << c22.blue() << std::endl;
 
-virtual QImage renderImage(const QwtScaleMap & xMap,
-                           const QwtScaleMap & yMap,
-                           const QRectF & area,
-                           const QSize & imageSize) const {
-  std::cout << "now in renderImage\n";
-  // 'area' is in world units, not in pixel units
-  // imageSize has the dimensions, in pixels, of the canvas portion having the image
-  std::cout << "--area " << area.left() << ' ' << area.top() << ' ' << area.width() << ' ' << area.height() << std::endl;
-  std::cout << "--imageSize " << imageSize.width() << ' ' << imageSize.height() << std::endl;
-  
-  // Based on size of the rendered image, determine the appropriate level of
-  // resolution and extent to read from disk. This greatly helps with
-  // reducing memory usage and latency.
-  m_data->prepareClip(xMap.invTransform(0),
+    //this->setAlpha(255);
+    drawScatteredData(m_data->m_image, xMap, yMap, canvasRect, I, cmap, 
+        m_data->m_min_val, m_data->m_max_val,  m_data->m_nodata_val,
+        painter);
+
+    std::cout << "---finished scatter\n";
+  }
+
+  virtual QImage renderImage(const QwtScaleMap & xMap,
+                            const QwtScaleMap & yMap,
+                            const QRectF & area,
+                            const QSize & imageSize) const {
+    std::cout << "now in renderImage\n";
+    // 'area' is in world units, not in pixel units
+    // imageSize has the dimensions, in pixels, of the canvas portion having the image
+    std::cout << "--area " << area.left() << ' ' << area.top() << ' ' << area.width() << ' ' << area.height() << std::endl;
+    std::cout << "--imageSize " << imageSize.width() << ' ' << imageSize.height() << std::endl;
+
+    // Based on size of the rendered image, determine the appropriate level of
+    // resolution and extent to read from disk. This greatly helps with
+    // reducing memory usage and latency.
+    std::cout << "start prepareClip\n";
+    m_data->prepareClip(xMap.invTransform(0),
                       yMap.invTransform(0),
                       xMap.invTransform(imageSize.width()),
                       yMap.invTransform(imageSize.height()),
                       imageSize);
-  
+    std::cout << "finish prepareClip\n";
+
+    std::cout << "start renderImage\n";
     return QwtPlotSpectrogram::renderImage(xMap, yMap, area, imageSize);
   }
-  
+
   ColorAxesData * m_data;  
 };
 
@@ -428,20 +535,15 @@ ColorAxes::ColorAxes(QWidget *parent,
   for (int i = 0; i < num_images; i++) {
 
     bool in_range = (m_beg_image_id <= i && i < m_end_image_id);
-    
     if (!in_range) 
       continue;
 
-    // Load if not loaded so far
-    std::cout << "---loaded image " << m_images[i].name << std::endl;
     m_images[i].load();
     
     if (m_use_georef && !m_images[i].has_georef) {
       popUp("No georeference present in: " + m_images[i].name + ".");
       vw_throw(ArgumentErr() << "Missing georeference.\n");
     }
-
-    std::cout << "--color use georef!\n";
 
     // Make sure we set these up before the image2world call below!
     if (m_use_georef) {
@@ -464,16 +566,16 @@ ColorAxes::ColorAxes(QWidget *parent,
   m_plotter->setData(data);
 
   // Use system specific thread count
+  std::cout << "check how many threads are used\n";
   m_plotter->setRenderThreadCount(0);
 
   // Parse and set the colormap
   std::map<float, vw::cm::Vector3u> lut_map;
-  std::cout << "fix here5\n";
   try {
     vw::cm::parse_color_style(m_images[m_beg_image_id].colormap, lut_map);
   } catch (...) {
     popUp("Unknown colormap style: " +  m_images[m_beg_image_id].colormap);
-     m_images[m_beg_image_id].colormap = "binary-red-blue";
+    m_images[m_beg_image_id].colormap = "binary-red-blue"; // fallback to this
     vw::cm::parse_color_style(m_images[m_beg_image_id].colormap, lut_map);
   }
   m_plotter->setColorMap(new LutColormap(lut_map));
@@ -484,6 +586,7 @@ ColorAxes::ColorAxes(QWidget *parent,
   QwtInterval zInterval = m_plotter->data()->interval(Qt::ZAxis);
   //rightAxis->setTitle("Intensity");
   rightAxis->setColorBarEnabled(true);
+  std::cout << "see if faster without colorbar\n";
   rightAxis->setColorMap(zInterval, new LutColormap(lut_map));
   rightAxis->setColorBarWidth(30);
 
@@ -493,23 +596,17 @@ ColorAxes::ColorAxes(QWidget *parent,
   // TODO(oalexan1): Make equal aspect ratio work
   setAxisScale(QwtPlot::yRight, zInterval.minValue(), zInterval.maxValue());
 
-  // These two scales will be over-ridden later
-  std::cout << "--fix here9\n";
-  std::cout << "--will data be georeferenced? " << std::endl;
-  auto & img = m_images[m_beg_image_id];
-  bool poly_or_xyz = (img.isPoly() || img.isCsv());
-  std::cout << "--make this into a function?\n";
-  std::cout << "adjust by some percentage?\n";
-  std::cout << "Must also call further down!\n";
-  double min_x = img.image_bbox.min().x();
-  double min_y = img.image_bbox.min().y();
-  double max_x = img.image_bbox.max().x();
-  double max_y = img.image_bbox.max().y();
+  double min_x = -1 , min_y = -1, max_x = -1, max_y = -1;
+  std::cout << "----find spatial bounds\n";
+  findSpatialBounds(m_images[m_beg_image_id], min_x, min_y, max_x, max_y);
 
-  std::cout << "---fix here10\n";
-  std::cout << "Fix next function too!\n";
-  setAxisScale(QwtPlot::yLeft, img.img.rows(), 0); // y axis goes down
-  setAxisScale(QwtPlot::xBottom, 0, img.img.cols());
+  bool poly_or_xyz = (m_images[m_beg_image_id].isPoly() || m_images[m_beg_image_id].isCsv());
+  if (!poly_or_xyz)
+    setAxisScale(QwtPlot::yLeft, max_y, min_y); // y axis goes down
+  else
+    setAxisScale(QwtPlot::yLeft, min_y, max_y); // y axis goes up
+
+  setAxisScale(QwtPlot::xBottom, min_x, max_x);
   
   enableAxis(QwtPlot::yRight);
   setAxisAutoScale(QwtPlot::yRight, false);
@@ -546,19 +643,33 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
   plotLayout()->activate(this, resizedWin);
   auto rect = plotLayout()->canvasRect();
   
+  std::cout << "Must call here findSpatialBounds\n";
+  std::cout << "for image must flip y axis, but not for poly\n";
+  double min_x = -1 , min_y = -1, max_x = -1, max_y = -1;
+  std::cout << "----find spatial bounds\n";
+  findSpatialBounds(m_images[m_beg_image_id], min_x, min_y, max_x, max_y);
+
   // Note: This is not purely the image area, as it bigger
   // by a few pixels than the area having the image later, but it is good
   // enough given that its size is on the order of 1000 pixels.
   // The true image area is known only in renderImage(), so much later.
   // The scales should be set up before that.
   double aspect_ratio = double(rect.width()) / double(rect.height());
-  std::cout << "fix here 111\n";
-  QRectF in_box(0, 0,  m_images[m_beg_image_id].img.cols(), m_images[m_beg_image_id].img.rows()); 
+  // QRectF in_box(0, 0,  m_images[m_beg_image_id].img.cols(), m_images[m_beg_image_id].img.rows()); 
+  QRectF in_box(0, 0, max_x - min_x, max_y - min_y);
+  std::cout << "box before is " << QRectFToStr(in_box) << std::endl;
   QRectF box = expand_box_to_aspect_ratio(in_box, aspect_ratio);
-  
+  std::cout << "box after is " << QRectFToStr(box) << std::endl;
+
+  bool poly_or_xyz = (m_images[m_beg_image_id].isPoly() || m_images[m_beg_image_id].isCsv());
+
   // Adjust the scales accordingly
-  setAxisScale(QwtPlot::yLeft, box.height(), 0); // y axis goes down
-  setAxisScale(QwtPlot::xBottom, 0, box.width());
+  if (!poly_or_xyz)
+    setAxisScale(QwtPlot::yLeft, min_y + box.height(), min_y); // y axis goes down
+  else
+    setAxisScale(QwtPlot::yLeft, min_y, min_y + box.height()); // y axis goes up
+
+  setAxisScale(QwtPlot::xBottom, min_x, min_x + box.width());
 
   // Set up the zooming and panning after we know the aspect ratio.
   // This makes zooming out work correctly.

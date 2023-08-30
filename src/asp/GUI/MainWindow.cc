@@ -473,33 +473,25 @@ std::cout << "Must not have a selection dialog with colorized images\n";
   m_chooseFiles->setVisible(showChooseFiles);
 
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
-    // Pass all images to a single MainWidget object
+    // Pass all images to a single MainWidget object. No colorizing in this mode.
     int beg_image_id = 0, end_image_id = m_images.size();
-    if (!do_colorize || m_images[0].img.planes() > 1) {
-      std::cout << "--grayscale1\n";
-      MainWidget * widget = new MainWidget(centralWidget,
-                                  m_opt,
-                                  beg_image_id, end_image_id, BASE_IMAGE_ID,
-                                  m_images, 
-                                  m_output_prefix,
-                                  m_matchlist,
-                                  m_pairwiseMatches, m_pairwiseCleanMatches,
-                                  m_editMatchPointVecIndex,
-                                  m_chooseFiles,
-                                  m_use_georef,
-                                  zoom_all_to_same_region,
-                                  m_allowMultipleSelections);
-      // Tell the widget if the poly edit mode and hillshade mode is on or not
-      bool refresh = false; // Do not refresh prematurely
-      widget->setPolyEditMode(m_polyEditMode_action->isChecked(), refresh);
-      m_widgets.push_back((QWidget*)widget);
-    } else {
-      std::cout << "--colorize1\n";
-      ColorAxes * widget = new ColorAxes(this, 
-                              beg_image_id, end_image_id, BASE_IMAGE_ID,
-                              m_use_georef, m_images);
-      m_widgets.push_back((QWidget*)widget);
-    }
+    std::cout << "--grayscale1\n";
+    MainWidget * widget = new MainWidget(centralWidget,
+                                m_opt,
+                                beg_image_id, end_image_id, BASE_IMAGE_ID,
+                                m_images, 
+                                m_output_prefix,
+                                m_matchlist,
+                                m_pairwiseMatches, m_pairwiseCleanMatches,
+                                m_editMatchPointVecIndex,
+                                m_chooseFiles,
+                                m_use_georef,
+                                zoom_all_to_same_region,
+                                m_allowMultipleSelections);
+    // Tell the widget if the poly edit mode and hillshade mode is on or not
+    bool refresh = false; // Do not refresh prematurely
+    widget->setPolyEditMode(m_polyEditMode_action->isChecked(), refresh);
+    m_widgets.push_back((QWidget*)widget);
   } else {
     // Each MainWidget object gets passed a single image
     for (size_t i = 0; i < m_images.size(); i++) {
