@@ -79,7 +79,10 @@ QRectF expand_box_to_aspect_ratio(QRectF const& in_box, double aspect_ratio) {
 
   return out_box;
 }
-  
+
+// The background will be set to black. This will be used in a few places
+vw::cm::Vector3u bgColor(0, 0, 0);
+
 // Small auxiliary function
 inline QColor rgb2color(vw::cm::Vector3u const& c) {
   return QColor(c[0], c[1], c[2]);
@@ -99,18 +102,17 @@ public:
     if (lut_map.empty() || lut_map.begin()->first != 0.0 || lut_map.rbegin()->first != 1.0)
       popUp("First colormap stop must be at 0.0 and last at 1.0.");
 
-     // To be able to deal with no-data, set the starting color to be black.
+     // To be able to deal with no-data, set the starting color to the background.
      // We will make sure to use it later only for no-data.
-     vw::cm::Vector3u black(0, 0, 0);
      double tol = 1e-4;
 
     // Must replace the automatically initialized endpoints
-    setColorInterval(rgb2color(black), rgb2color(lut_map.rbegin()->second));
+    setColorInterval(rgb2color(bgColor), rgb2color(lut_map.rbegin()->second));
     
     for (auto it = lut_map.begin(); it != lut_map.end(); it++) {
       double index = it->first;
       if (index == 0)
-        index += tol; // shift the starting color a little forward to not overwrite the black
+        index += tol; // shift the starting color a little forward to not overwrite the bg
       if (index == 0.0 || index == 1.0) 
         continue; // endpoints already added
       auto const& c = it->second; // c has 3 indices between 0 and 255
@@ -121,7 +123,7 @@ public:
 };
 
 // Find spatial bounds. When the data is scattered, expand the bounds by 2% on each side
-// to help with plotting later.
+// to help with plotting later. Return a box with positive area even if there is no data.
 void findSpatialBounds(imageData const& image, 
   // Outputs
   double & min_x, double & min_y, double & max_x, double & max_y) {
@@ -145,8 +147,12 @@ void findSpatialBounds(imageData const& image,
 
     // Expand the bounds
     double small = 0.02;
-    double dx = (max_x - min_x)*small;
-    double dy = (max_y - min_y)*small;
+    double dx = (max_x - min_x) * small;
+    double dy = (max_y - min_y) * small;
+    if (dx <= 0.0)
+      dx = 1.0;
+    if (dy <= 0.0)
+      dy = 1.0;
     min_x -= dx; max_x += dx;
     min_y -= dy; max_y += dy;
 
@@ -155,8 +161,8 @@ void findSpatialBounds(imageData const& image,
     vw::mosaic::DiskImagePyramid<double> const& img = image.img.m_img_ch1_double;
     min_x = 0;
     min_y = 0;
-    max_x = img.cols() - 1;
-    max_y = img.rows() - 1;
+    max_x = std::max(img.cols() - 1, 1);
+    max_y = std::max(img.rows() - 1, 1);
   }
 
   return;
@@ -398,8 +404,6 @@ void drawScatteredData(imageData const& image,
                   QPainter          * painter) {
   
   int r = asp::stereo_settings().plot_point_radius;
-  std::cout << "plot point radius is " << r << std::endl;
-  std::cout << "--now in draw scattered data2\n";
 
   double den = max_val - min_val;
   if (den <= 0.0)
@@ -456,8 +460,15 @@ public:
 
     std::cout << "--start drawing\n";
     vw::Stopwatch sw2;
-    sw2.start();   
-    QwtPlotSpectrogram::draw(painter, xMap, yMap, canvasRect);
+    sw2.start();
+    bool poly_or_xyz = (m_data->m_image.isPoly() || m_data->m_image.isCsv());   
+    if (!poly_or_xyz) {
+      // Draw the image
+     QwtPlotSpectrogram::draw(painter, xMap, yMap, canvasRect);
+    } else {
+      // Just draw the background
+      painter->fillRect(canvasRect, rgb2color(bgColor));
+    }
     std::cout << "--finished drawing\n";
     sw2.stop();
     std::cout << "drawing took " << sw2.elapsed_seconds() << " s\n";
@@ -612,16 +623,16 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
   // The true image area is known only in renderImage(), so much later. The
   // scales should be set up before that.
   double aspect_ratio = double(rect.width()) / double(rect.height());
-  QRectF in_box(0, 0, m_max_x - m_min_x, m_max_y - m_min_y);
+  QRectF in_box(m_min_x, m_min_y, m_max_x - m_min_x, m_max_y - m_min_y);
   QRectF box = expand_box_to_aspect_ratio(in_box, aspect_ratio);
 
   // Adjust the scales accordingly
   bool poly_or_xyz = (m_images[m_beg_image_id].isPoly() || m_images[m_beg_image_id].isCsv());
-  setAxisScale(QwtPlot::xBottom, m_min_x, m_min_x + box.width());
+  setAxisScale(QwtPlot::xBottom, box.left(), box.right());
   if (!poly_or_xyz)
-    setAxisScale(QwtPlot::yLeft, m_min_y + box.height(), m_min_y); // y axis goes down
+    setAxisScale(QwtPlot::yLeft, box.bottom(), box.top()); // y axis goes down
   else
-    setAxisScale(QwtPlot::yLeft, m_min_y, m_min_y + box.height()); // y axis goes up
+    setAxisScale(QwtPlot::yLeft, box.top(), box.bottom()); // y axis goes up
 
   // Set up the zooming and panning after we know the aspect ratio.
   // This makes zooming out work correctly.
