@@ -52,6 +52,8 @@ public Q_SLOTS:
 
 private:
   ColorAxesPlotter *m_plotter;
+  // Spatial extent of the data to be plotted
+  double m_min_x, m_min_y, m_max_x, m_max_y;
 };
 
 }}

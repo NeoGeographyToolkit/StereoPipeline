@@ -129,6 +129,15 @@ void findSpatialBounds(imageData const& image,
   bool poly_or_xyz = (image.isPoly() || image.isCsv());
   if (poly_or_xyz) {
 
+    if (image.scattered_data.empty()) {
+      // If there is no data, better return some valid box
+      min_x = 0.0;
+      min_y = 0.0;
+      max_x = 1.0;
+      max_y = 1.0;
+      return;
+    }
+
     min_x = image.image_bbox.min().x();
     min_y = image.image_bbox.min().y();
     max_x = image.image_bbox.max().x();
@@ -159,9 +168,7 @@ void adjustMinVal(double & min_val, double max_val) {
   double len = max_val - min_val;
   if (len <= 0.0)
     len = 1.0;
-  std::cout << "--old min val is " << min_val << std::endl;
   min_val -= 1e-2 * len; // 1% smaller  
-  std::cout << "--new min val is " << min_val << std::endl;
 }
 
 // Find min and max value based on a low-res image version
@@ -236,11 +243,11 @@ private:
 // Manages the image to display for the ColorAxes widget 
 class ColorAxesData: public QwtMatrixRasterData {
 
-private:
-  
 public:
 
-  ColorAxesData(imageData & image):  m_image(image) {
+ColorAxesData(imageData & image, double min_x, double min_y, double max_x, double max_y):
+  m_image(image), m_min_x(min_x), m_min_y(min_y), m_max_x(max_x), m_max_y(max_y) {
+
     // TODO(oalexan1): Need to handle georeferences.
     std::cout << "ColorAxesData constructor\n";
 
@@ -252,46 +259,31 @@ public:
     m_min_val = asp::stereo_settings().min;
     m_max_val = asp::stereo_settings().max;
 
-    double min_x = -1 , min_y = -1, max_x = -1, max_y = -1;
-    findSpatialBounds(image, min_x, min_y, max_x, max_y);
-
-    // Create a function that uses the code below
-#if 1         
+    // Find the min and max values, and the no-data value
     bool poly_or_xyz = (m_image.isPoly() || m_image.isCsv());
     if (poly_or_xyz) {
-
       m_nodata_val = -std::numeric_limits<double>::max();
       if (std::isnan(m_min_val) || std::isnan(m_max_val)) 
         findRobustBounds(m_image.scattered_data, m_min_val, m_max_val);
-
     } else {
-      vw::mosaic::DiskImagePyramid<double> const& img = m_image.img.m_img_ch1_double;
-    
-      if (img.planes() != 1) {
-        // This will be caught before we get here, but is good to have for extra
-        // robustness.
-        popUp("Only images with one channel can be colorized.");
-        return;
-      }
+      auto const& img = m_image.img.m_img_ch1_double;
+      if (img.planes() != 1)
+        vw::vw_throw(vw::ArgumentErr() 
+          << "Only images with one channel can be colorized.\n"); // should not be reached
 
-      // Some initializations
       m_nodata_val = img.get_nodata_val();
-
       if (std::isnan(m_min_val) || std::isnan(m_max_val)) // if the user did not set these
         calcLowResMinMax(m_image, m_nodata_val, m_min_val, m_max_val);
     }
-#endif
 
-
-    QwtMatrixRasterData::setInterval(Qt::XAxis, QwtInterval(min_x, max_x));
-    QwtMatrixRasterData::setInterval(Qt::YAxis, QwtInterval(min_y, max_y));
+    QwtMatrixRasterData::setInterval(Qt::XAxis, QwtInterval(m_min_x, m_max_x));
+    QwtMatrixRasterData::setInterval(Qt::YAxis, QwtInterval(m_min_y, m_max_y));
     QwtMatrixRasterData::setInterval(Qt::ZAxis, QwtInterval(m_min_val, m_max_val));
 
     // Make min_val smaller than any actual value, too to be able
     // to use it for no-data and show it as black 
     // Do this after we set the axes intervals
     adjustMinVal(m_min_val, m_max_val);
-    std::cout << "--updated min and max val are " << m_min_val << ' ' << m_max_val << std::endl;
 
     return;
   }
@@ -382,7 +374,8 @@ public:
 
 public:
   imageData & m_image;
-  double m_min_val, m_max_val, m_nodata_val;
+  double m_min_x, m_min_y, m_max_x, m_max_y; // spatial extent
+  double m_min_val, m_max_val, m_nodata_val; // values 
 
 private:
   
@@ -458,46 +451,30 @@ public:
     // fixed once and for all.
     // xMap and yMap are used to convert from world units to screen.
     std::cout << "--canvasRect " << canvasRect.left() << ' ' << canvasRect.top() << '\n';
-    std::cout << "canvas height and width " << canvasRect.height() << ' ' << canvasRect.width() << '\n';
+    std::cout << "canvas height and width " 
+      << canvasRect.height() << ' ' << canvasRect.width() << '\n';
 
-    std::cout << "--start drawing5\n";
+    std::cout << "--start drawing\n";
     vw::Stopwatch sw2;
     sw2.start();   
-    std::cout << "set transparency\n";
-    //this->setAlpha(0);
     QwtPlotSpectrogram::draw(painter, xMap, yMap, canvasRect);
-    std::cout << "--finished drawing5\n";
+    std::cout << "--finished drawing\n";
     sw2.stop();
     std::cout << "drawing took " << sw2.elapsed_seconds() << " s\n";
 
     QwtLinearColorMap const * cmap = (QwtLinearColorMap*)this->colorMap();
-    QwtLinearColorMap::Mode mode = cmap->mode();
-    std::cout << "mode is " << mode << std::endl;
-    std::cout << "fixed mode is " << QwtLinearColorMap::FixedColors << std::endl;
-    std::cout << "continuous mode is " << QwtLinearColorMap::ScaledColors << std::endl;
-
-    QwtInterval I(0.0, 1.0);
-    QColor c1 = cmap->color1();
-    QColor c11 = cmap->rgb(I, 0.0);
-    std::cout << "c1 " << c1.red() << ' ' << c1.green() << ' ' << c1.blue() << std::endl;
-    std::cout << "c11 " << c11.red() << ' ' << c11.green() << ' ' << c11.blue() << std::endl;
-    QColor c2 = cmap->color2(); 
-    QColor c22 = cmap->rgb(I, 1.0);
-    std::cout << "c2 " << c2.red() << ' ' << c2.green() << ' ' << c2.blue() << std::endl;
-    std::cout << "c22 " << c22.red() << ' ' << c22.green() << ' ' << c22.blue() << std::endl;
-
-    //this->setAlpha(255);
+    QwtInterval I(0.0, 1.0); // QwtLinearColorMap does not remember its interval
     drawScatteredData(m_data->m_image, xMap, yMap, canvasRect, I, cmap, 
         m_data->m_min_val, m_data->m_max_val,  m_data->m_nodata_val,
         painter);
 
-    std::cout << "---finished scatter\n";
+    return;
   }
 
   virtual QImage renderImage(const QwtScaleMap & xMap,
-                            const QwtScaleMap & yMap,
-                            const QRectF & area,
-                            const QSize & imageSize) const {
+                            const QwtScaleMap  & yMap,
+                            const QRectF       & area,
+                            const QSize        & imageSize) const {
     std::cout << "now in renderImage\n";
     // 'area' is in world units, not in pixel units
     // imageSize has the dimensions, in pixels, of the canvas portion having the image
@@ -525,8 +502,7 @@ public:
 ColorAxes::ColorAxes(QWidget *parent, 
   int beg_image_id, int end_image_id, int base_image_id, bool use_georef,
   std::vector<imageData> & images):
-    QwtPlot(parent),  
-    WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images) {
+    QwtPlot(parent), WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images) {
 
   int num_images = m_images.size();
 
@@ -556,7 +532,9 @@ ColorAxes::ColorAxes(QWidget *parent,
     }
   }
 
-  ColorAxesData * data = new ColorAxesData(m_images[m_beg_image_id]);
+  findSpatialBounds(m_images[m_beg_image_id], m_min_x, m_min_y, m_max_x, m_max_y);
+  ColorAxesData * data = new ColorAxesData(m_images[m_beg_image_id], m_min_x, m_min_y, 
+                                           m_max_x, m_max_y);
 
   // Have to pass the data twice, because the second such statement
   // does not know about the precise implementation and extra
@@ -580,41 +558,29 @@ ColorAxes::ColorAxes(QWidget *parent,
   }
   m_plotter->setColorMap(new LutColormap(lut_map));
   
-  // A color bar on the right axis. Must create a new colormap object
-  // with the same data, to avoid a crash if using the same one.
+  // Set the axes and the color bar. The axes will be adjusted later
+  // when we know the aspect ratio.
   QwtScaleWidget *rightAxis = axisWidget(QwtPlot::yRight);
   QwtInterval zInterval = m_plotter->data()->interval(Qt::ZAxis);
-  //rightAxis->setTitle("Intensity");
   rightAxis->setColorBarEnabled(true);
-  std::cout << "see if faster without colorbar\n";
   rightAxis->setColorMap(zInterval, new LutColormap(lut_map));
   rightAxis->setColorBarWidth(30);
-
   m_plotter->setCachePolicy(QwtPlotRasterItem::PaintCache);
   m_plotter->attach(this);
-
-  // TODO(oalexan1): Make equal aspect ratio work
+  setAxisScale(QwtPlot::xBottom, m_min_x, m_max_x);
   setAxisScale(QwtPlot::yRight, zInterval.minValue(), zInterval.maxValue());
-
-  double min_x = -1 , min_y = -1, max_x = -1, max_y = -1;
-  std::cout << "----find spatial bounds\n";
-  findSpatialBounds(m_images[m_beg_image_id], min_x, min_y, max_x, max_y);
-
   bool poly_or_xyz = (m_images[m_beg_image_id].isPoly() || m_images[m_beg_image_id].isCsv());
   if (!poly_or_xyz)
-    setAxisScale(QwtPlot::yLeft, max_y, min_y); // y axis goes down
+    setAxisScale(QwtPlot::yLeft, m_max_y, m_min_y); // y axis goes down
   else
-    setAxisScale(QwtPlot::yLeft, min_y, max_y); // y axis goes up
-
-  setAxisScale(QwtPlot::xBottom, min_x, max_x);
-  
+    setAxisScale(QwtPlot::yLeft, m_min_y, m_max_y); // y axis goes up
   enableAxis(QwtPlot::yRight);
   setAxisAutoScale(QwtPlot::yRight, false);
   setAxisAutoScale(QwtPlot::xBottom, false);
   setAxisAutoScale(QwtPlot::yLeft, false);
   plotLayout()->setAlignCanvasToScales(true);
 
-  // Show it in image mode, not contour mode
+  // Use image mode, not contour mode
   m_plotter->setDisplayMode(QwtPlotSpectrogram::ImageMode, true);
 
   // An attempt to find the true canvas dimensions.
@@ -625,8 +591,6 @@ ColorAxes::ColorAxes(QWidget *parent,
   
   replot();
 }
-
-bool first_resize_event = true;
 
 void ColorAxes::mousePressEvent(QMouseEvent *e) {
   QwtPlot::mousePressEvent(e);
@@ -643,33 +607,21 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
   plotLayout()->activate(this, resizedWin);
   auto rect = plotLayout()->canvasRect();
   
-  std::cout << "Must call here findSpatialBounds\n";
-  std::cout << "for image must flip y axis, but not for poly\n";
-  double min_x = -1 , min_y = -1, max_x = -1, max_y = -1;
-  std::cout << "----find spatial bounds\n";
-  findSpatialBounds(m_images[m_beg_image_id], min_x, min_y, max_x, max_y);
-
-  // Note: This is not purely the image area, as it bigger
-  // by a few pixels than the area having the image later, but it is good
-  // enough given that its size is on the order of 1000 pixels.
-  // The true image area is known only in renderImage(), so much later.
-  // The scales should be set up before that.
+  // Note: This is bigger by a few pixels than the area having the image later,
+  // but it is good enough given that its size is on the order of 1000 pixels.
+  // The true image area is known only in renderImage(), so much later. The
+  // scales should be set up before that.
   double aspect_ratio = double(rect.width()) / double(rect.height());
-  // QRectF in_box(0, 0,  m_images[m_beg_image_id].img.cols(), m_images[m_beg_image_id].img.rows()); 
-  QRectF in_box(0, 0, max_x - min_x, max_y - min_y);
-  std::cout << "box before is " << QRectFToStr(in_box) << std::endl;
+  QRectF in_box(0, 0, m_max_x - m_min_x, m_max_y - m_min_y);
   QRectF box = expand_box_to_aspect_ratio(in_box, aspect_ratio);
-  std::cout << "box after is " << QRectFToStr(box) << std::endl;
-
-  bool poly_or_xyz = (m_images[m_beg_image_id].isPoly() || m_images[m_beg_image_id].isCsv());
 
   // Adjust the scales accordingly
+  bool poly_or_xyz = (m_images[m_beg_image_id].isPoly() || m_images[m_beg_image_id].isCsv());
+  setAxisScale(QwtPlot::xBottom, m_min_x, m_min_x + box.width());
   if (!poly_or_xyz)
-    setAxisScale(QwtPlot::yLeft, min_y + box.height(), min_y); // y axis goes down
+    setAxisScale(QwtPlot::yLeft, m_min_y + box.height(), m_min_y); // y axis goes down
   else
-    setAxisScale(QwtPlot::yLeft, min_y, min_y + box.height()); // y axis goes up
-
-  setAxisScale(QwtPlot::xBottom, min_x, min_x + box.width());
+    setAxisScale(QwtPlot::yLeft, m_min_y, m_min_y + box.height()); // y axis goes up
 
   // Set up the zooming and panning after we know the aspect ratio.
   // This makes zooming out work correctly.
