@@ -200,7 +200,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
     //sw6.stop();
     //vw_out() << "Render time sw6 (seconds): " << sw6.elapsed_seconds() << std::endl;
 
-    //Stopwatch sw7;
+    // Stopwatch sw7;
     //sw7.start();
     formQimage(highlight_nodata, scale_pixels, m_img_ch3_uint8.get_nodata_val(),
                approx_bounds, clip, qimg);

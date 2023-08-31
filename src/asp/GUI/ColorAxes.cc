@@ -126,7 +126,7 @@ void findSpatialBounds(imageData const& image,
   // Outputs
   double & min_x, double & min_y, double & max_x, double & max_y) {
   
-  bool poly_or_xyz = (image.isPoly() || image.isCsv());
+  bool poly_or_xyz = (image.m_isPoly || image.m_isCsv);
   if (poly_or_xyz) {
 
     if (image.scattered_data.empty()) {
@@ -182,7 +182,7 @@ void calcLowResMinMax(imageData const& image, double nodata_val,
   // TODO(oalexan1): How about removing a small percentile of intensity from ends?
 
   // Get the lowest-resolution image version from the pyramid
-  bool poly_or_xyz = (image.isPoly() || image.isCsv());
+  bool poly_or_xyz = (image.m_isPoly || image.m_isCsv);
   if (poly_or_xyz) // will not get here
     vw_throw(ArgumentErr() << "Expecting an image, not scattered points.\n");
   
@@ -262,7 +262,7 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
     m_max_val = asp::stereo_settings().max;
 
     // Find the min and max values, and the no-data value
-    bool poly_or_xyz = (m_image.isPoly() || m_image.isCsv());
+    bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
     if (poly_or_xyz) {
       m_nodata_val = -std::numeric_limits<double>::max();
       if (std::isnan(m_min_val) || std::isnan(m_max_val)) 
@@ -301,7 +301,7 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
     m_beg_x = 0;
     m_beg_y = 0;
 
-    bool poly_or_xyz = (m_image.isPoly() || m_image.isCsv());
+    bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
     if (poly_or_xyz) 
       return; // nothing to do
 
@@ -312,16 +312,16 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
     int beg_y = floor(std::min(y0, y1)), end_y = ceil(std::max(y0, y1));
 
     // if in doubt, go with lower sub_scale, so higher resolution.
-    double sub_scale = std::min((end_x - beg_x) / imageSize.width(),
-                            (end_y - beg_y) / imageSize.height());
-    //std::cout << "see how these two ratios compare " << (end_x - beg_x) / imageSize.width()
-    //          << ' ' << (end_y - beg_y) / imageSize.height() << std::endl;
+    double sub_scale_x = (end_x - beg_x) / imageSize.width();
+    double sub_scale_y = (end_y - beg_y) / imageSize.height();
+    double sub_scale = sqrt(sub_scale_x * sub_scale_y);
+
+    // Make the image a little blurrier. But this will run faster. Same logic
+    // is used in MainWidget.cc
+    sub_scale *= 1.3; 
 
     m_level =  m_image.img.m_img_ch1_double.pyramidLevel(sub_scale);
     m_sub_scale = round(pow(2.0, m_level));
-    // TODO(oalexan1): Consider multiplying there the scale by 1.3 to make the
-    // image a little blurrier but displaying faster.
-
     beg_x = floor(beg_x/m_sub_scale); end_x = ceil(end_x/m_sub_scale);
     beg_y = floor(beg_y/m_sub_scale); end_y = ceil(end_y/m_sub_scale);
 
@@ -333,11 +333,7 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
 
     // Instead of returning image(x, y), we will return
     // sub_image(x/scale + beg_x, y/scale + beg_y).
-    //vw::Stopwatch sw;
-    //sw.start();
     m_sub_image = crop(m_image.img.m_img_ch1_double.pyramid()[m_level], box);
-    //sw.stop();
-    //std::cout << "cropping took " << sw.elapsed_seconds() << " s\n";
 
     m_beg_x = box.min().x();
     m_beg_y = box.min().y();
@@ -350,7 +346,7 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
     if (m_sub_scale <= 0) 
       vw::vw_throw(vw::ArgumentErr() << "Programmer error. Not ready yet to render the image.\n");
     
-    bool poly_or_xyz = (m_image.isPoly() || m_image.isCsv());
+    bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
     if (poly_or_xyz)
       return m_min_val; // TODO(oalexan1): Make transparent
 
@@ -447,7 +443,7 @@ public:
 
     //vw::Stopwatch sw2;
     //sw2.start();
-    bool poly_or_xyz = (m_data->m_image.isPoly() || m_data->m_image.isCsv());   
+    bool poly_or_xyz = (m_data->m_image.m_isPoly || m_data->m_image.m_isCsv);   
     if (!poly_or_xyz) {
       // Draw the image
      QwtPlotSpectrogram::draw(painter, xMap, yMap, canvasRect);
@@ -557,7 +553,7 @@ ColorAxes::ColorAxes(QWidget *parent,
   m_plotter->attach(this);
   setAxisScale(QwtPlot::xBottom, m_min_x, m_max_x);
   setAxisScale(QwtPlot::yRight, zInterval.minValue(), zInterval.maxValue());
-  bool poly_or_xyz = (m_images[m_beg_image_id].isPoly() || m_images[m_beg_image_id].isCsv());
+  bool poly_or_xyz = (m_images[m_beg_image_id].m_isPoly || m_images[m_beg_image_id].m_isCsv);
   if (!poly_or_xyz)
     setAxisScale(QwtPlot::yLeft, m_max_y, m_min_y); // y axis goes down
   else
@@ -604,7 +600,7 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
   QRectF box = expand_box_to_aspect_ratio(in_box, aspect_ratio);
 
   // Adjust the scales accordingly
-  bool poly_or_xyz = (m_images[m_beg_image_id].isPoly() || m_images[m_beg_image_id].isCsv());
+  bool poly_or_xyz = (m_images[m_beg_image_id].m_isPoly || m_images[m_beg_image_id].m_isCsv);
   setAxisScale(QwtPlot::xBottom, box.left(), box.right());
   if (!poly_or_xyz)
     setAxisScale(QwtPlot::yLeft, box.bottom(), box.top()); // y axis goes down

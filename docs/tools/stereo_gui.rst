@@ -214,7 +214,7 @@ projection, and use for the CSV format a string such as::
    :alt:  scattered_points_colorbar
 
    A colorized CSV file with a colorbar and axes. This uses the  ``--colorbar``
-   option. For the moment several datasets with colorbars can only be displayed
+   option. For the moment, several datasets with colorbars can only be displayed
    side-by-side (:numref:`colorize`).
 
 .. _plot_poly:

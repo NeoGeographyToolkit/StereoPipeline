@@ -60,7 +60,7 @@ namespace vw { namespace gui {
   // Convert a position in the world coordinate system to a pixel
   // position as seen on screen (the screen origin is the
   // visible upper-left corner of the widget).
-  Vector2 MainWidget::world2screen(Vector2 const p) const {
+  Vector2 MainWidget::world2screen(Vector2 const& p) const {
 
     double x = m_window_width*((p.x() - m_current_view.min().x())
                                / m_current_view.width());
@@ -78,7 +78,7 @@ namespace vw { namespace gui {
 
   // Convert a pixel on the screen to world coordinates.
   // See world2image() for the definition.
-  Vector2 MainWidget::screen2world(Vector2 const p) const{
+  Vector2 MainWidget::screen2world(Vector2 const& p) const {
 
     // First undo the empty border margin
     double x = p.x(), y = p.y();
@@ -86,13 +86,13 @@ namespace vw { namespace gui {
     y = (y - m_window_height/2.0)/m_border_factor + m_window_height/2.0;
 
     // Scale to world coordinates
-    x = m_current_view.min().x() + (m_current_view.width () * x / m_window_width );
+    x = m_current_view.min().x() + (m_current_view.width () * x / m_window_width);
     y = m_current_view.min().y() + (m_current_view.height() * y / m_window_height);
 
     return vw::Vector2(x, y);
   }
 
-  BBox2 MainWidget::screen2world(BBox2 const& R) const{
+  BBox2 MainWidget::screen2world(BBox2 const& R) const {
     if (R.empty()) return R;
     Vector2 A = screen2world(R.min());
     Vector2 B = screen2world(R.max());
@@ -116,9 +116,8 @@ namespace vw { namespace gui {
   // first image, with y replaced with -y, to keep the y axis downward,
   // for consistency with how images are plotted.  Convert a world box
   // to a pixel box for the given image.
-  Vector2 MainWidget::world2image(Vector2 const P, int imageIndex) const{
-
-    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isCsv());
+  Vector2 MainWidget::world2image(Vector2 const& P, int imageIndex) const{
+    bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
 
     if (poly_or_xyz) {
       
@@ -138,7 +137,7 @@ namespace vw { namespace gui {
 
   BBox2 MainWidget::world2image(BBox2 const& R, int imageIndex) const{
 
-    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isCsv());
+    bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
 
     if (R.empty()) 
       return R;
@@ -161,9 +160,9 @@ namespace vw { namespace gui {
   }
 
   // The reverse of world2image()
-  Vector2 MainWidget::image2world(Vector2 const P, int imageIndex) const{
+  Vector2 MainWidget::image2world(Vector2 const& P, int imageIndex) const{
 
-    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isCsv());
+    bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
 
     if (poly_or_xyz) {
       if (!m_use_georef)
@@ -184,7 +183,7 @@ namespace vw { namespace gui {
     if (R.empty()) return R;
     if (m_images.empty()) return R;
 
-    bool poly_or_xyz = (m_images[imageIndex].isPoly() || m_images[imageIndex].isCsv());
+    bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
 
     // Consider the case when the current layer is a polygon.
     // TODO(oalexan1): What if a layer has both an image and a polygon?
@@ -317,7 +316,7 @@ namespace vw { namespace gui {
       // the one we draw on.  Otherwise we keep m_polyLayerIndex at
       // m_beg_image_id so we store any new polygons in
       // m_images[m_beg_image_id].
-      if (m_images[i].isPoly() && m_polyLayerIndex == m_beg_image_id)
+      if (m_images[i].m_isPoly && m_polyLayerIndex == m_beg_image_id)
         m_polyLayerIndex = i;
       
     } // end iterating over the images
@@ -327,7 +326,7 @@ namespace vw { namespace gui {
       // size, this region's dimensions will be adjusted to have
       // correct aspect ratio.
       BBox2 proj_win = asp::stereo_settings().zoom_proj_win, image_box;
-      if (m_images[m_base_image_id].isPoly() || m_images[m_base_image_id].isCsv())
+      if (m_images[m_base_image_id].m_isPoly || m_images[m_base_image_id].m_isCsv)
         image_box = proj_win;
       else
         image_box = m_images[m_base_image_id].georef.point_to_pixel_bbox(proj_win);
@@ -479,7 +478,7 @@ namespace vw { namespace gui {
     // If having polygons, make it possible to change their colors
     bool hasPoly = false;
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-      if (m_images[image_iter].isPoly())
+      if (m_images[image_iter].m_isPoly)
         hasPoly = true;
     }
     if (hasPoly) {
@@ -637,7 +636,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     int num_non_poly_images = 0;
     int num_images = m_images.size();
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-      if (!m_images[image_iter].isPoly() && !m_images[image_iter].isCsv())
+      if (!m_images[image_iter].m_isPoly && !m_images[image_iter].m_isCsv)
         num_non_poly_images++;
     }
 
@@ -659,7 +658,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
       std::string input_file = m_images[image_iter].name;
 
-      if (m_images[image_iter].isPoly() || m_images[image_iter].isCsv())
+      if (m_images[image_iter].m_isPoly || m_images[image_iter].m_isCsv)
         continue;
       
       double nodata_val = -std::numeric_limits<double>::max();
@@ -720,7 +719,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
       }
       
       // Cannot hillshade a polygon or xyz data
-      if (m_images[image_iter].isPoly() || m_images[image_iter].isCsv()) {
+      if (m_images[image_iter].m_isPoly || m_images[image_iter].m_isCsv) {
         m_images[image_iter].m_display_mode = REGULAR_VIEW;
         continue;
       }
@@ -1061,10 +1060,10 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
       image_box.min() = floor(image_box.min());
       image_box.max() = ceil(image_box.max());
 
-      if (m_images[i].isPoly())
+      if (m_images[i].m_isPoly)
         continue; // those will be always drawn on top of images, to be done later
       
-      if (m_images[i].isCsv()) {
+      if (m_images[i].m_isCsv) {
         MainWidget::drawScatteredData(paint, i);
         continue; // there is no image, so no point going on
       }
@@ -1079,6 +1078,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
         std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
       // Increase the scale a little. This will make the image a little blurrier
       // but will be faster to render. One can always zoom in more for detail.
+      // Same logic is used in ColorAxes.cc
       scale *= 1.3;
       double scale_out = 1.0; // will be modified by get_image_clip()
       BBox2i region_out;
@@ -2395,7 +2395,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     int non_poly_image = -1;
     int num_non_poly_images = 0;
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-      if (!m_images[image_iter].isPoly() && !m_images[image_iter].isCsv())
+      if (!m_images[image_iter].m_isPoly && !m_images[image_iter].m_isCsv)
         num_non_poly_images++;
       non_poly_image = image_iter;
     }
@@ -3086,7 +3086,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
           Vector2 proj_min, proj_max;
           // Convert pixels to projected coordinates
           BBox2 point_box;
-          if (m_images[image_it].isPoly() || m_images[image_it].isCsv())
+          if (m_images[image_it].m_isPoly || m_images[image_it].m_isCsv)
             point_box = image_box;
           else 
             point_box = m_images[image_it].georef.pixel_to_point_bbox(image_box);
@@ -3480,7 +3480,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     int non_poly_image = 0;
     int num_non_poly_images = 0;
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-      if (!m_images[image_iter].isPoly() && !m_images[image_iter].isCsv())
+      if (!m_images[image_iter].m_isPoly && !m_images[image_iter].m_isCsv)
         num_non_poly_images++;
       non_poly_image = image_iter;
     }

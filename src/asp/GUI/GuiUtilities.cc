@@ -81,11 +81,8 @@ bool supplyOutputPrefixIfNeeded(QWidget * parent, std::string & output_prefix){
 
   if (output_prefix != "") return true;
 
-  bool ans = getStringFromGui(parent,
-                              "Enter the output prefix to use for the interest point match file.",
-                              "Enter the output prefix to use for the interest point match file.",
-                              "",
-                              output_prefix);
+  std::string caption = "Enter the output prefix to use for the interest point match file.";
+  bool ans = getStringFromGui(parent, caption, caption, "", output_prefix);
 
   if (ans)
     vw::create_out_dir(output_prefix);
@@ -560,6 +557,10 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
       colorbar = atof(it->second.c_str()); 
   }
 
+  // These must be set once we know the name and the style
+  m_isPoly = imageData::isPolyInternal(name, style);
+  m_isCsv = imageData::isCsvInternal(name, style);
+
   // When there are many images, we may prefer to load them on demand
   if (!delay_loading) 
     load();
@@ -590,7 +591,6 @@ void imageData::load() {
     vw_out() << "Reading: " << colorized_name << std::endl; 
     loaded_colorized = true;
   }
-    
   
   std::string default_poly_color = "green"; // default, will be overwritten later
   
@@ -680,16 +680,17 @@ void imageData::load() {
   }
 }
 
-bool imageData::isPoly() const {
+// The two functions below are very slow if used per pixel, so we cache their
+// values in member variables. Never call these directly.
+bool imageData::isPolyInternal(std::string const& name, std::string const& style) const {
   return (asp::has_shp_extension(name) ||
           (vw::gui::hasCsv(name) &&
            (style == "poly" || style == "fpoly" || style == "line")));
 }
-  
-bool imageData::isCsv() const {
-  return vw::gui::hasCsv(name) && !isPoly();
+bool imageData::isCsvInternal(std::string const& name, std::string const& style) const {
+  return vw::gui::hasCsv(name) && !imageData::isPolyInternal(name, style);
 }
-  
+
 vw::Vector2 QPoint2Vec(QPoint const& qpt) {
   return vw::Vector2(qpt.x(), qpt.y());
 }

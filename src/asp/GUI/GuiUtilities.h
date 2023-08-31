@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file GuiUtilities.h
 ///
 /// Low-level GUI logic
@@ -103,7 +102,8 @@ namespace vw { namespace gui {
   bool hasCsv(std::string const& fileName);
   
   /// A class to keep all data associated with an image file
-  struct imageData{
+  class imageData{
+  public:
     std::string      name, hillshaded_name, thresholded_name, colorized_name;
     vw::GdalWriteOptions m_opt;
     bool             has_georef;
@@ -133,7 +133,8 @@ namespace vw { namespace gui {
     
     imageData(): m_display_mode(REGULAR_VIEW), has_georef(false),
                  loaded_regular(false), loaded_hillshaded(false),
-                 loaded_thresholded(false), loaded_colorized(false) {}
+                 loaded_thresholded(false), loaded_colorized(false),
+                 m_isPoly(false), m_isCsv(false), colorbar(false) {}
     
     /// Read an image from disk into img and set the other variables.
     void read(std::string const& image, vw::GdalWriteOptions const& opt,
@@ -144,8 +145,13 @@ namespace vw { namespace gui {
     // The actual loading happens here
     void load();
 
-    bool isPoly() const;
-    bool isCsv()  const;
+    bool m_isPoly, m_isCsv;  
+
+private:
+    // These are very slow if used per pixel, so we cache their results in
+    // member variables. Never call these directly.
+    bool isPolyInternal(std::string const& name, std::string const& style) const;
+    bool isCsvInternal(std::string const& name, std::string const& style) const;
 
   };
 
