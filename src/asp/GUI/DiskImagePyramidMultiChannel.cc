@@ -17,7 +17,7 @@
 
 #include <asp/GUI/DiskImagePyramidMultiChannel.h>
 #include <asp/Core/StereoSettings.h>
-
+#include <vw/Core/Stopwatch.h>
 #include <QtWidgets>
 
 #include <string>
@@ -222,7 +222,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
                approx_bounds, clip, qimg);
     //sw9.stop();
     //vw_out() << "Render time sw9 (seconds): " << sw9.elapsed_seconds() << std::endl;
-  }else{
+  } else {
     vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
   }
 }

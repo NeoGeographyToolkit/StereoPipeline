@@ -502,7 +502,10 @@ namespace asp {
        "When plotting points from CSV files, let each point be drawn as a filled ball with this radius, in pixels.")
       ("font-size", po::value(&global.font_size)->default_value(9),
        "Set the font size.")
-      ;
+      ("no-georef", 
+        po::bool_switch(&global.no_georef)->default_value(false)->implicit_value(true),
+       "Do not use georeference information when displaying the data, even when it exists.")
+       ;
   }
 
   // Options for stereo_parse

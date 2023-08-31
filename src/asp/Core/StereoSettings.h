@@ -291,7 +291,7 @@ namespace asp {
     std::string match_file, gcp_file, dem_file, csv_datum, csv_format_str, csv_proj4, nvm;
     bool delete_temporary_files_on_exit;
     bool create_image_pyramids_only, hide_all;
-    bool pairwise_matches, pairwise_clean_matches;
+    bool pairwise_matches, pairwise_clean_matches, no_georef;
     std::vector<std::string> vwip_files;
     vw::BBox2 zoom_proj_win;
     double min, max;

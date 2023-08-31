@@ -30,6 +30,8 @@
 
 #include <asp/GUI/WidgetBase.h>
 
+ class QwtPlotZoomer;
+
 namespace vw { namespace gui {
 
 class imageData;
@@ -48,10 +50,12 @@ public:
 
   virtual void resizeEvent(QResizeEvent *e);
   
-public Q_SLOTS:
+  void sizeToFit();
 
 private:
   ColorAxesPlotter *m_plotter;
+  QwtPlotZoomer* m_zoomer;
+
   // Spatial extent of the data to be plotted
   double m_min_x, m_min_y, m_max_x, m_max_y;
 };

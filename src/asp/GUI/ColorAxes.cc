@@ -97,18 +97,15 @@ public:
 
   // Custom constructor
   LutColormap(std::map<float, vw::cm::Vector3u> const& lut_map) {
-    std::cout << "is the lut map slow?\n";  
     // Sanity check: the first and last color keys must be 0 and 1.
     if (lut_map.empty() || lut_map.begin()->first != 0.0 || lut_map.rbegin()->first != 1.0)
       popUp("First colormap stop must be at 0.0 and last at 1.0.");
 
-     // To be able to deal with no-data, set the starting color to the background.
-     // We will make sure to use it later only for no-data.
+     // To be able to deal with no-data, set the starting color to the
+     // background. We will make sure to use it later only for no-data.
      double tol = 1e-4;
-
     // Must replace the automatically initialized endpoints
     setColorInterval(rgb2color(bgColor), rgb2color(lut_map.rbegin()->second));
-    
     for (auto it = lut_map.begin(); it != lut_map.end(); it++) {
       double index = it->first;
       if (index == 0)
@@ -118,8 +115,9 @@ public:
       auto const& c = it->second; // c has 3 indices between 0 and 255
       addColorStop(index, rgb2color(it->second));
     }
+
+    return;
   }
-  
 };
 
 // Find spatial bounds. When the data is scattered, expand the bounds by 2% on each side
@@ -220,7 +218,6 @@ void calcLowResMinMax(imageData const& image, double nodata_val,
     max_val = std::min(max_val, approx_bounds[1]);
   }
   
-  std::cout << "---got approx bounds " << min_val << ' ' << max_val << std::endl;
   return;
 }
 
@@ -255,7 +252,6 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
   m_image(image), m_min_x(min_x), m_min_y(min_y), m_max_x(max_x), m_max_y(max_y) {
 
     // TODO(oalexan1): Need to handle georeferences.
-    std::cout << "ColorAxesData constructor\n";
 
     m_sub_scale = -1;  // This must be set properly before being used
     m_beg_x = 0;
@@ -299,8 +295,6 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
   // and extent just enough for the job, or a little higher res and bigger.
   void prepareClip(double x0, double y0, double x1, double y1, QSize const& imageSize) {
 
-    std::cout << "prepareClip " << x0 << ' ' << y0 << ' ' << x1 << ' ' << y1 << std::endl;
-
     // Ensure initialization
     m_level = 0;
     m_sub_scale = 1;
@@ -320,9 +314,13 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
     // if in doubt, go with lower sub_scale, so higher resolution.
     double sub_scale = std::min((end_x - beg_x) / imageSize.width(),
                             (end_y - beg_y) / imageSize.height());
+    //std::cout << "see how these two ratios compare " << (end_x - beg_x) / imageSize.width()
+    //          << ' ' << (end_y - beg_y) / imageSize.height() << std::endl;
+
     m_level =  m_image.img.m_img_ch1_double.pyramidLevel(sub_scale);
     m_sub_scale = round(pow(2.0, m_level));
-    std::cout << "level is " << m_level << std::endl;
+    // TODO(oalexan1): Consider multiplying there the scale by 1.3 to make the
+    // image a little blurrier but displaying faster.
 
     beg_x = floor(beg_x/m_sub_scale); end_x = ceil(end_x/m_sub_scale);
     beg_y = floor(beg_y/m_sub_scale); end_y = ceil(end_y/m_sub_scale);
@@ -330,26 +328,19 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
     vw::BBox2i box;
     box.min() = Vector2i(beg_x, beg_y);
     box.max() = Vector2i(end_x + 1, end_y + 1); // because max is exclusive
-    std::cout << "---found box " << box.min().x() << ' ' << box.min().y() << ' '
-              << box.max().x() << ' ' << box.max().y() << std::endl;
 
     box.crop(vw::bounding_box(m_image.img.m_img_ch1_double.pyramid()[m_level]));
-    std::cout << "box is " << box << std::endl;
 
     // Instead of returning image(x, y), we will return
     // sub_image(x/scale + beg_x, y/scale + beg_y).
-    std::cout << "start crop\n";
-    vw::Stopwatch sw;
-    sw.start();
+    //vw::Stopwatch sw;
+    //sw.start();
     m_sub_image = crop(m_image.img.m_img_ch1_double.pyramid()[m_level], box);
-    sw.stop();
-    std::cout << "cropping took " << sw.elapsed_seconds() << " s\n";
-    std::cout << "end crop\n";
+    //sw.stop();
+    //std::cout << "cropping took " << sw.elapsed_seconds() << " s\n";
 
     m_beg_x = box.min().x();
     m_beg_y = box.min().y();
-
-    std::cout << "end prepareClip\n";
   }
   
   virtual double value(double x, double y) const {
@@ -447,20 +438,15 @@ public:
                     const QwtScaleMap & xMap,
                     const QwtScaleMap & yMap,
                     const QRectF      & canvasRect) const {
-    std::cout << "now in draw\n";
     // canvasRect is the region, in screen pixel units, where the image
     // will go. If the image is narrow, it may not fill fully the
     // canvas. If the labels on the axes take up more space when
     // zooming, the image region will be affected. So, it is not
     // fixed once and for all.
     // xMap and yMap are used to convert from world units to screen.
-    std::cout << "--canvasRect " << canvasRect.left() << ' ' << canvasRect.top() << '\n';
-    std::cout << "canvas height and width " 
-      << canvasRect.height() << ' ' << canvasRect.width() << '\n';
 
-    std::cout << "--start drawing\n";
-    vw::Stopwatch sw2;
-    sw2.start();
+    //vw::Stopwatch sw2;
+    //sw2.start();
     bool poly_or_xyz = (m_data->m_image.isPoly() || m_data->m_image.isCsv());   
     if (!poly_or_xyz) {
       // Draw the image
@@ -469,9 +455,8 @@ public:
       // Just draw the background
       painter->fillRect(canvasRect, rgb2color(bgColor));
     }
-    std::cout << "--finished drawing\n";
-    sw2.stop();
-    std::cout << "drawing took " << sw2.elapsed_seconds() << " s\n";
+    //sw2.stop();
+    //std::cout << "drawing took " << sw2.elapsed_seconds() << " s\n";
 
     QwtLinearColorMap const * cmap = (QwtLinearColorMap*)this->colorMap();
     QwtInterval I(0.0, 1.0); // QwtLinearColorMap does not remember its interval
@@ -486,24 +471,17 @@ public:
                             const QwtScaleMap  & yMap,
                             const QRectF       & area,
                             const QSize        & imageSize) const {
-    std::cout << "now in renderImage\n";
-    // 'area' is in world units, not in pixel units
-    // imageSize has the dimensions, in pixels, of the canvas portion having the image
-    std::cout << "--area " << area.left() << ' ' << area.top() << ' ' << area.width() << ' ' << area.height() << std::endl;
-    std::cout << "--imageSize " << imageSize.width() << ' ' << imageSize.height() << std::endl;
+    // The rectangle in 'area' is in world units, not in pixel units. imageSize
+    // has the dimensions, in pixels, of the canvas portion having the image.
 
     // Based on size of the rendered image, determine the appropriate level of
     // resolution and extent to read from disk. This greatly helps with
     // reducing memory usage and latency.
-    std::cout << "start prepareClip\n";
     m_data->prepareClip(xMap.invTransform(0),
                       yMap.invTransform(0),
                       xMap.invTransform(imageSize.width()),
                       yMap.invTransform(imageSize.height()),
                       imageSize);
-    std::cout << "finish prepareClip\n";
-
-    std::cout << "start renderImage\n";
     return QwtPlotSpectrogram::renderImage(xMap, yMap, area, imageSize);
   }
 
@@ -555,7 +533,6 @@ ColorAxes::ColorAxes(QWidget *parent,
   m_plotter->setData(data);
 
   // Use system specific thread count
-  std::cout << "check how many threads are used\n";
   m_plotter->setRenderThreadCount(0);
 
   // Parse and set the colormap
@@ -642,15 +619,15 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
   // RightButton: zoom out by 1
   // Ctrl+RightButton: zoom out to full size
   
-  QwtPlotZoomer* zoomer = new ColorAxesZoomer(canvas(), aspect_ratio);
-  zoomer->setMousePattern(QwtEventPattern::MouseSelect2,
+  m_zoomer = new ColorAxesZoomer(canvas(), aspect_ratio);
+  m_zoomer->setMousePattern(QwtEventPattern::MouseSelect2,
                           Qt::RightButton, Qt::ControlModifier);
-  zoomer->setMousePattern(QwtEventPattern::MouseSelect3,
+  m_zoomer->setMousePattern(QwtEventPattern::MouseSelect3,
                           Qt::RightButton);
   
   const QColor c(Qt::darkBlue);
-  zoomer->setRubberBandPen(QPen(c));
-  zoomer->setTrackerPen(QPen(c));
+  m_zoomer->setRubberBandPen(QPen(c));
+  m_zoomer->setTrackerPen(QPen(c));
 
   QwtPlotPanner *panner = new QwtPlotPanner(canvas());
   panner->setAxisEnabled(QwtPlot::yRight, false);
@@ -658,7 +635,6 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
   
   // Avoid jumping when labels with more/less digits
   // appear/disappear when scrolling vertically
-  
   const QFontMetrics fm(axisWidget(QwtPlot::yLeft)->font());
   QwtScaleDraw *sd = axisScaleDraw(QwtPlot::yLeft);
   sd->setMinimumExtent(fm.width("100.00"));
@@ -667,5 +643,10 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
   QwtPlot::resizeEvent(e);
 }
   
+// Zoom to full extent
+void ColorAxes::sizeToFit() {
+  m_zoomer->zoom(m_zoomer->zoomBase());
+}
+
 }} // end namespace vw::gui
 

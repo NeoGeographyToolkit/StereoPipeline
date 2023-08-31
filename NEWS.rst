@@ -16,6 +16,11 @@ parallel_stereo (:numref:`parallel_stereo`):
      ``median-filter-size``, ``texture-smooth-size``, ``texture-smooth-scale``
      that are different than the default values, as those were tested the most.
 
+stereo_gui (:numref:`stereo_gui`):
+   * Can show scattered data with a colorbar and axes 
+     (:numref:`scattered_points_colorbar`).
+   * Renamed ``--colorize-image`` to ``--colorbar``.
+    
 misc:
  * Adjusted the number of camera poses sampled from the polynomials determining
    the quaternions for PleiadesHR cameras. It has no effect in practice but

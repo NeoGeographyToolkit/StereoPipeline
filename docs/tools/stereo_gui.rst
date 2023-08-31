@@ -133,12 +133,12 @@ are be plotted with a colorbar and axes (with ticks).
 
 An example invocation is as follows::
 
-    stereo_gui --colorize-image        \
+    stereo_gui --colorbar              \
       --colormap-style inferno         \
       img1.tif                         \
       --colormap-style binary-red-blue \
       img2.tif                         \
-      --no-colorize-image              \
+      --no-colorbar                    \
       img3.tif
 
 This will colorize the first image using the ``inferno`` colormap, the
@@ -147,8 +147,8 @@ colorize the third one. See :numref:`colormap` for the full list of
 colormaps. Use the ``--min`` and ``--max`` options to narrow down
 the range of values to colorize.
 
-The ``--colorize-image`` option applies to all subsequent images until
-``--no-colorize-image`` is encountered, and vice-versa. Each
+The ``--colorbar`` option applies to all subsequent images until
+``--no-colorbar`` is encountered, and vice-versa. Each 
 ``--colormap-style`` option also applies to all subsequent images until
 overridden by this option with another value.
 
@@ -156,17 +156,19 @@ overridden by this option with another value.
    :name: colorbar_axes_fig
    :alt: colorbar_axes_fig.
 
-   An illustration of displaying images with specified colormap, with
-   colorbar and axes, and without them. 
+   An illustration of displaying images with specified colormap, with colorbar
+   and axes, and without them. See :numref:`scattered_points_colorbar` for
+   an example having scattered points.
 
 .. _plot_csv:
 
 View scattered points
 ~~~~~~~~~~~~~~~~~~~~~
 
-``stereo_gui`` can plot and colorize scattered points stored in CSV
-files, and overlay them on top of images or each other. Each point
-will show up as a dot with a radius given by ``--plot-point-radius``.
+``stereo_gui`` can plot and colorize scattered points stored in CSV files, and
+overlay them on top of images or each other. Each point will show up as a dot
+with a radius given by ``--plot-point-radius``. A colorbar and axes can be shown
+as well (:numref:`scattered_points_colorbar`).
 
 Here is an example of plotting the final ``*pointmap.csv``
 residuals created by ``bundle_adjust`` for each interest point
@@ -205,7 +207,15 @@ projection, and use for the CSV format a string such as::
    :name: scattered_points
    :alt:  scattered_points
 
-   A colorized CSV file overlayed on top of a georeferenced image.
+   A colorized CSV file overlaid on top of a georeferenced image.
+
+.. figure:: ../images/scattered_points_colorbar.png
+   :name: scattered_points_colorbar
+   :alt:  scattered_points_colorbar
+
+   A colorized CSV file with a colorbar and axes. This uses the  ``--colorbar``
+   option. For the moment several datasets with colorbars can only be displayed
+   side-by-side (:numref:`colorize`).
 
 .. _plot_poly:
 
@@ -651,7 +661,8 @@ accept all other ``parallel_stereo`` options as well.
 
 --use-georef
     Plot the images in the projected coordinate system given by
-    the image georeferences.
+    the image georeferences. This is currently the default, and 
+    can be turned off with ``--no-georef`` or from the View menu.
 
 --nodata-value <double (default: NaN)>
     Pixels with values less than or equal to this number are treated
@@ -711,15 +722,14 @@ accept all other ``parallel_stereo`` options as well.
 --colorize
     Colorize input CSV files (must set ``--min`` and ``--max``).
 
---colorize-image
-    Colorize all images after this option until the ``--no-colorize``
-    option is encountered. For now this works only for very small
-    images. Show these images with a colorbar and axes. See
-    ``--colormap-style`` for how to set a colormap.
+--colorbar
+    Colorize all images and/or csv files after this option until the
+    ``--no-colorbar`` option is encountered. Show these images with a colorbar
+    and axes (:numref:`colorize`).
 
---no-colorize-image
+--no-colorbar
     Do not colorize any images after this option, until the option 
-    ``--colorize-image`` is encountered. 
+    ``--colorbar`` is encountered. 
 
 --colormap-style <string (default="binary-red-blue")>
     Specify the colormap style. See :numref:`colormap` for options.
@@ -778,6 +788,10 @@ accept all other ``parallel_stereo`` options as well.
 --font-size <integer (default = 9)>
     Set the font size.
 
+--no-georef
+    Do not use the georeference information when displaying the data,
+    even when it exists. Also controllable from the View menu.
+
 --delete-temporary-files-on-exit
     Delete any subsampled and other files created by the GUI when
     exiting.
@@ -799,7 +813,7 @@ accept all other ``parallel_stereo`` options as well.
     Image tile size used for multi-threaded processing.
 
 --no-bigtiff
-    Tell GDAL to not create bigtiffs.
+    Tell GDAL to not create BigTIFF files.
 
 --tif-compress <string (default = "LZW")>
     TIFF compression method. Options: None, LZW, Deflate, Packbits.

@@ -145,7 +145,7 @@ void preprocessArgs(int &argc, char** argv,
                     std::vector<std::map<std::string, std::string>> & properties) {
 
   std::string curr_style = "default", curr_color = "default", curr_colormap = "binary-red-blue",
-    colorize_image = "0";
+    colorbar = "0";
   int out_it = 1;
   // One set of properties for each argument. That to make sure that a filename
   // can show up twice with different properties
@@ -183,14 +183,14 @@ void preprocessArgs(int &argc, char** argv,
     }
 
     // This is an option with no value
-    if (std::string(argv[it]) == "--colorize-image") {
-      colorize_image = "1";
+    if (std::string(argv[it]) == "--colorbar") {
+      colorbar = "1";
       continue;
     }
 
     // This is an option with no value
-    if (std::string(argv[it]) == "--no-colorize-image") {
-      colorize_image = "0";
+    if (std::string(argv[it]) == "--no-colorbar") {
+      colorbar = "0";
       continue;
     }
 
@@ -201,7 +201,7 @@ void preprocessArgs(int &argc, char** argv,
       properties[it]["style"] = curr_style;  
       properties[it]["color"] = curr_color;
       properties[it]["colormap"] = curr_colormap;
-      properties[it]["colorize_image"] = colorize_image;
+      properties[it]["colorbar"] = colorbar;
     }
     
     // Shift arguments left, which will wipe what we processed above

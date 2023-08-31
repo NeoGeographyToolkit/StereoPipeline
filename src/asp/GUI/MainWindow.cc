@@ -81,10 +81,10 @@ void rm_option_and_vals(int argc, char ** argv, std::string const& opt, int num_
 // occurrence of a property with that name, and so on. Also, there may
 // be properties for entities which are no longer in the list of
 // images.
-void lookupProperyIndices(std::vector<std::map<std::string, std::string>> const&
-                          properties,
-                          std::vector<std::string> const& images,
-                          std::vector<int> & propertyIndices) {
+void lookupPropertyIndices(std::vector<std::map<std::string, std::string>> const&
+                           properties,
+                           std::vector<std::string> const& images,
+                           std::vector<int> & propertyIndices) {
 
   propertyIndices.clear();
 
@@ -141,6 +141,11 @@ private:
 // Will return non-NULL if the input pointer is to a MainWidget object.
 MainWidget* mw(QWidget * wid) {
   return dynamic_cast<MainWidget*>(wid);
+}
+
+// Same function for the ColorAxes widget
+ColorAxes* ca(QWidget * wid) {
+  return dynamic_cast<ColorAxes*>(wid);
 }
 
 bool MainWindow::sanityChecks(int num_images) {
@@ -215,6 +220,11 @@ bool MainWindow::sanityChecks(int num_images) {
     return false;
   }
   
+  if (asp::stereo_settings().no_georef && asp::stereo_settings().use_georef) {
+    popUp("Cannot have both the no-georef and use-georef options.");
+    return false;
+  }
+
   return true;
 }
 
@@ -303,7 +313,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   
   m_images.resize(m_image_files.size());
   std::vector<int> propertyIndices;
-  asp::lookupProperyIndices(properties, m_image_files, propertyIndices);
+  asp::lookupPropertyIndices(properties, m_image_files, propertyIndices);
 
   // TODO(oalexan1): How will the preview mode play along with georeferences?
   bool has_georef = true;
@@ -329,6 +339,13 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   if (delay) 
     m_use_georef = false;
   
+  // If the user explicitly asked to not use georef, do not use it on startup
+  if (stereo_settings().no_georef) {
+    m_use_georef = false; 
+    // Further control of georef is from the gui menu
+    stereo_settings().no_georef = false; 
+  }
+
   // Ensure the inputs are reasonable
   if (!MainWindow::sanityChecks(m_image_files.size()))
     forceQuit();
@@ -432,39 +449,22 @@ void MainWindow::createLayout() {
     }
   }
 
-std::cout << "Must not have a selection dialog with colorized images\n";
-  // // When colorizing images, always show them side by side
-  // if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
-  //   for (size_t i = 0; i < m_images.size(); i++) {
-  //     bool poly_or_xyz = (m_images[i].isPoly() || m_images[i].isCsv());
-  //     if (!poly_or_xyz && m_images[i].colorize_image) {
-  //       m_view_type = VIEW_SIDE_BY_SIDE;
-  //       popUp("Colorized images can only be shown side-by-side.");
-  //       createLayout();
-  //       return;
-  //     }
-  //   }
-  // }
-  std::cout << "--fix the side-by-side view when colorizing images\n";
-
   splitter->addWidget(m_chooseFiles);
 
   bool do_colorize = false;
   for (size_t i = 0; i < m_images.size(); i++) 
-    do_colorize = do_colorize || m_images[i].colorize_image;
-
+    do_colorize = do_colorize || m_images[i].colorbar;
   bool delay = !asp::stereo_settings().nvm.empty() || asp::stereo_settings().preview;
   if (delay && do_colorize) {
     popUp("Cannot colorize images when using the preview mode or when loading an NVM file.");
     // This is hard to get right
     do_colorize = false;
   }
-  if (do_colorize && m_view_type == VIEW_IN_SINGLE_WINDOW && m_images.size() > 1) {
-    popUp("Colorized images can only be shown side-by-side.");
+  if (do_colorize && m_view_type == VIEW_IN_SINGLE_WINDOW) {
+     if (m_images.size() > 1) // for one image do this quietly
+      popUp("Colorized images can only be shown side-by-side.");
     m_view_type = VIEW_SIDE_BY_SIDE;
   }
-
-  std::cout << "--do colorize is " << do_colorize << std::endl;
 
   // See if to show it. In a side-by-side view it is normally not needed. 
   bool showChooseFiles
@@ -475,7 +475,6 @@ std::cout << "Must not have a selection dialog with colorized images\n";
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
     // Pass all images to a single MainWidget object. No colorizing in this mode.
     int beg_image_id = 0, end_image_id = m_images.size();
-    std::cout << "--grayscale1\n";
     MainWidget * widget = new MainWidget(centralWidget,
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID,
@@ -503,16 +502,11 @@ std::cout << "Must not have a selection dialog with colorized images\n";
       if (isHidden) 
         continue;
 
-      bool poly_or_xyz = (m_images[i].isPoly() || m_images[i].isCsv());
-      
-      std::cout << "---multiple widgets\n";
-      std::cout << "num planes is " << m_images[i].img.planes() << std::endl;
       QWidget * widget = NULL;
       int beg_image_id = i, end_image_id = i + 1;
-      if (!m_images[i].colorize_image ||
+      if (!m_images[i].colorbar ||
           previewOrSideBySideWithDialog() || m_images[i].img.planes() > 1) {
         // regular plot
-        std::cout << "grayscale2\n";
         widget = new MainWidget(centralWidget,
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID, 
@@ -528,12 +522,10 @@ std::cout << "Must not have a selection dialog with colorized images\n";
         // Qwt plot with axes and colorbar. Hard to use the same API
         // as earlier.
         // TODO(oalexan1): Must integrate the two approaches.
-        std::cout << "colorize2\n";
         widget = new ColorAxes(this, 
                                beg_image_id, end_image_id, BASE_IMAGE_ID, 
                                m_use_georef, m_images);
       }
-      
       m_widgets.push_back(widget);
     }
   }
@@ -666,8 +658,8 @@ void MainWindow::createMenus() {
   m_run_stereo_action->setStatusTip(tr("Run stereo on selected clips"));
   connect(m_run_stereo_action, SIGNAL(triggered()), this, SLOT(run_stereo()));
 
-  // Size to fit
-  m_sizeToFit_action = new QAction(tr("Size to fit"), this);
+  // Zoom to full view
+  m_sizeToFit_action = new QAction(tr("Zoom to full view"), this);
   m_sizeToFit_action->setStatusTip(tr("Change the view to encompass the images"));
   connect(m_sizeToFit_action, SIGNAL(triggered()), this, SLOT(sizeToFit()));
   m_sizeToFit_action->setShortcut(tr("F"));
@@ -1000,7 +992,7 @@ void MainWindow::forceQuit(){
 
 // Zoom in/out of each image so that it fits fully within its allocated display area.
 // If we zoom all images to same region, zoom all to the union of display areas.
-void MainWindow::sizeToFit(){
+void MainWindow::sizeToFit() {
 
   bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
   if (zoom_all_to_same_region) {
@@ -1008,26 +1000,28 @@ void MainWindow::sizeToFit(){
     BBox2 big_region; 
     for (size_t i = 0; i < m_widgets.size(); i++) {
       if (!mw(m_widgets[i]))
-	continue;
+        continue;
 
       vw::BBox2 region = mw(m_widgets[i])->worldBox();
       big_region.grow(region);
     }
-    
+
     for (size_t i = 0; i < m_widgets.size(); i++) {
       if (!mw(m_widgets[i]))
-	continue;
+        continue;
       mw(m_widgets[i])->zoomToRegion(big_region);
     }
-    
+
   }else{
     // Full view for each individual image
     for (size_t i = 0; i < m_widgets.size(); i++) {
-      if (mw(m_widgets[i]))
-	mw(m_widgets[i])->sizeToFit();
+      if (mw(m_widgets[i])) // for MainWidget
+        mw(m_widgets[i])->sizeToFit();
+      else if (ca(m_widgets[i])) // for ColorAxes widget
+       ca(m_widgets[i])->sizeToFit();
     }
   }
-  
+
 }
 
 void MainWindow::viewSingleWindow(){

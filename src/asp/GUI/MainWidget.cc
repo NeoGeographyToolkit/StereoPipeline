@@ -301,7 +301,6 @@ namespace vw { namespace gui {
     
       // Make sure we set these up before the image2world call below!
       if (m_use_georef) {
-        std::cout << "--use georef!\n";
         m_world2image_geotransforms[i]
           = vw::cartography::GeoTransform(m_images[m_base_image_id].georef, 
                                          m_images[i].georef);
@@ -1006,7 +1005,8 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
   // --------------------------------------------------------------
 
   // TODO(oalexan1): This function is too long. Break it into smaller pieces.
-  // TODO(oalexan1): Also, the buffer to be rendered can be split into tiles,
+  // Especially the georef vs non-georef modes.
+  // TODO(oalexan1): The buffer to be rendered can be split into tiles,
   // with each tile being rendered in its own thread.
   void MainWidget::drawImage(QPainter* paint) {
 
@@ -1015,33 +1015,21 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
 
     if (m_current_view.empty()) return;
     
-    Stopwatch sw1;
-    sw1.start();
+    //Stopwatch sw1;
+    //sw1.start();
 
-    // Loop through input images
-    // - These images get drawn in the same buffer
-
-    // Find the order in which the images should be drawn
-    // Draw first the images that are on top, and if a pixel is drawn, don't
-    // draw the ones below it.
-    std::vector<int> imageOrder;
+    // Draw the images in the desired order
     for (int j = m_beg_image_id; j < m_end_image_id; j++) {
       int i = m_filesOrder[j]; // image index
-      imageOrder.push_back(i);
-    }
 
-    // Go forward through images 
-    // go for each i in imageOrder
-    for(const auto& i: imageOrder) {
-
-      Stopwatch sw2;
-      sw2.start();
+      //Stopwatch sw2;
+      //sw2.start();
 
       // Don't show files the user wants hidden
       if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
         continue;
 
-      // Load if not loaded so far. This won't play well with georefs
+      // Load if not loaded so far. 
       m_images[i].load();
       
       // The portion of the image in the current view. 
@@ -1090,9 +1078,8 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
       double scale = sqrt((1.0*image_box.width()) * image_box.height())/
         std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
       // Increase the scale a little. This will make the image a little blurrier
-      // but will be faster to render.
-      //scale *= 1.3;
-      std::cout << "fix here" << std::endl;
+      // but will be faster to render. One can always zoom in more for detail.
+      scale *= 1.3;
       double scale_out = 1.0; // will be modified by get_image_clip()
       BBox2i region_out;
       bool highlight_nodata = (m_images[i].m_display_mode == THRESHOLDED_VIEW);
@@ -1102,12 +1089,11 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
         highlight_nodata = false;
       }
       
-      sw2.stop();
-      vw_out() << "Render time 2 (seconds): " << sw2.elapsed_seconds() << std::endl;
+      //sw2.stop();
+      //vw_out() << "Render time 2 (seconds): " << sw2.elapsed_seconds() << std::endl;
 
-      Stopwatch sw3;
-      sw3.start();
-      
+      //Stopwatch sw3;
+      //sw3.start();
       if (m_images[i].m_display_mode == THRESHOLDED_VIEW) {
         m_images[i].thresholded_img.get_image_clip(scale, image_box,
                                                    highlight_nodata,
@@ -1121,30 +1107,25 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
         m_images[i].img.get_image_clip(scale, image_box,
                                        highlight_nodata,
                                        qimg, scale_out, region_out);
-        std::cout << "scale is " << scale << std::endl;
-        std::cout << "scale_out is " << scale_out << std::endl;
       }
-
-      sw3.stop();
-      vw_out() << "Render time 3 (seconds): " << sw3.elapsed_seconds() << std::endl;
+      //sw3.stop();
+      //vw_out() << "Render time 3 (seconds): " << sw3.elapsed_seconds() << std::endl;
 
       // Draw on image screen
-      if (!m_use_georef){
-        Stopwatch sw4;
-        sw4.start();
+      if (!m_use_georef) {
+        //Stopwatch sw4;
+        //sw4.start();
         // This is a regular image, no georeference, just pass it to the QT painter
         QRect rect(screen_box.min().x(), screen_box.min().y(),
                    screen_box.width(), screen_box.height());
         paint->drawImage(rect, qimg);
-        sw4.stop();
-        vw_out() << "Render time 4 (seconds): " << sw4.elapsed_seconds() << std::endl;
+        //sw4.stop();
+        //vw_out() << "Render time 4 (seconds): " << sw4.elapsed_seconds() << std::endl;
         
       }else{
-
         // Overlay georeferenced images
-        
-        Stopwatch sw5;
-        sw5.start();
+        //Stopwatch sw5;
+        //sw5.start();
         
         // We fetched a bunch of pixels at some scale.
         // Need to place them on the screen at given projected position.
@@ -1158,14 +1139,12 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
             qimg2.setPixel(col, row,  QColor(0, 0, 0, 0).rgba());
           }
         }
-
-        sw5.stop();
-        vw_out() << "Render time 5 (seconds): " << sw5.elapsed_seconds() << std::endl;
-        
-        Stopwatch sw6;
-        sw6.start();
-    
-#pragma omp parallel for
+        //sw5.stop();
+        //vw_out() << "Render time 5 (seconds): " << sw5.elapsed_seconds() << std::endl;
+        //Stopwatch sw6;
+        //sw6.start();
+        // TODO(oalexan1): Make the logic below a function
+#pragma omp parallel for // this makes a big difference on Linux
         // TODO(oalexan1): This may not be thread-safe. Better do it in tiles,
         // with each tile having its own georef.
 
@@ -1204,26 +1183,25 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
           }
         } // End loop through pixels
 
-        sw6.stop();
-        vw_out() << "Render time 6 (seconds): " << sw6.elapsed_seconds() << std::endl;
+        //sw6.stop();
+        //vw_out() << "Render time 6 (seconds): " << sw6.elapsed_seconds() << std::endl;
 
-        Stopwatch sw7;
-        sw7.start();
+        //Stopwatch sw7;
+        //sw7.start();
         
-        // Send the temp QImage object to the painter
+        // Send the QImage object to the painter
         QRect rect(screen_box.min().x(), screen_box.min().y(),
                    screen_box.width(), screen_box.height());
         paint->drawImage(rect, qimg2);
 
-        sw7.stop();
-        vw_out() << "Render time 7 (seconds): " << sw7.elapsed_seconds() << std::endl;
-        
+        //sw7.stop();
+        //vw_out() << "Render time 7 (seconds): " << sw7.elapsed_seconds() << std::endl;
       }
 
     } // End loop through input images
 
-    sw1.stop();
-    vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << std::endl;
+    //sw1.stop();
+    //vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << std::endl;
     
     return;
   } // End function drawImage()
@@ -1326,8 +1304,6 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
   void MainWidget::drawScatteredData(QPainter* paint, int image_index) {
     
     int r = asp::stereo_settings().plot_point_radius;
-
-    std::cout << "--now in draw scattered data2\n";
 
     // If set, use --min and --max values. Otherwise, find them and 
     // remove outliers along the way to not skew the plotting range.
