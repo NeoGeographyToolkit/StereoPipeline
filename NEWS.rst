@@ -20,7 +20,11 @@ stereo_gui (:numref:`stereo_gui`):
    * Can show scattered data with a colorbar and axes 
      (:numref:`scattered_points_colorbar`).
    * Renamed ``--colorize-image`` to ``--colorbar``.
-    
+
+image_calc (:numref:`image_calc`):
+    * When adding new keywords to metadata geoheader, do not erase the existing
+      ones (if a keyword already exists, its value will be modified).
+
 misc:
  * Eliminated a procedure for cleaning the name of an input path that was replacing
    two slashes with one slash, as that was resulting in inconsistent behavior. 

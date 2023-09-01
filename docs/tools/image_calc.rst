@@ -71,13 +71,17 @@ Create a mask
 
 Positive values will become 1, and the rest will become 0. 
 
-Add a variable and its value to the geoheader metadata
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Add a value to the geoheader metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
      image_calc -c "var_0" --mo 'VAR1=VAL1' -d float32 \
        input.tif -o output.tif
+
+If this variable already exists, its value will be overwritten. Other
+existing variables will be preserved. Use ``gdalinfo`` to view the
+metadata.
 
 Subtract 360 degrees from the longitudes in a GeoTiff file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

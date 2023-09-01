@@ -618,10 +618,17 @@ void generate_output(const std::string                         & output_file,
                      const std::vector<bool>                   & has_nodata_vec,
                      const std::vector<double>                 & nodata_vec) {
 
-  // Parse keywords from --mo.
+  // Read previous keywords and append any new keywords from --mo. Overwrite
+  // any previous value of a keyword.
   std::map<std::string, std::string> keywords;
-  asp::parse_append_metadata(opt.metadata, keywords);
-  
+  if (opt.metadata != "") {
+    if (!opt.input_files.empty()) {
+      boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(opt.input_files[0]));
+      vw::cartography::read_header_strings(*rsrc.get(), keywords);
+    }
+    asp::parse_append_metadata(opt.metadata, keywords);
+  }
+
   vw_out() << "Writing: " << output_file << std::endl;
   vw::cartography::block_write_gdal_image
     (output_file,
