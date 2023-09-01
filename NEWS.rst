@@ -22,6 +22,8 @@ stereo_gui (:numref:`stereo_gui`):
    * Renamed ``--colorize-image`` to ``--colorbar``.
     
 misc:
+ * Eliminated a procedure for cleaning the name of an input path that was replacing
+   two slashes with one slash, as that was resulting in inconsistent behavior. 
  * Adjusted the number of camera poses sampled from the polynomials determining
    the quaternions for PleiadesHR cameras. It has no effect in practice but
    results in ``jitter_solve`` assumptions being satisfied.

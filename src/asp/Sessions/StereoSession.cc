@@ -149,7 +149,10 @@ namespace asp {
       // The DEM the user provided better be the one used for map projection.
       if (m_input_dem != l_dem_file || m_input_dem != r_dem_file)
         vw_throw(ArgumentErr() << "The DEM used for map projection is different "
-          << "from the one provided on the command line.\n");
+          << "from the one provided on the command line.\n"
+          << "Left image DEM:   " << l_dem_file << "\n"
+          << "Right image DEM:  " << r_dem_file << "\n"
+          << "Command line DEM: " << m_input_dem << "\n");
     }
 
     // When loading camera models from the image files, we either use the sensor model for

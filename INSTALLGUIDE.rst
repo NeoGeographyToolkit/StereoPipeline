@@ -294,10 +294,10 @@ must faster though it is not always guaranteed to work.
 Fixes for potential OSX issues
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ASP 3.3.0 conda package for OSX had a couple of issues that are documented
-below. These were later fixed and the conda packages for this release have been
-updated with the fix. For the record, these issues and workarounds for them are
-described below, even though they are no longer applicable. 
+The ASP 3.3.0 conda package for OSX had a couple of issues with external
+packages. These were later fixed and the conda packages for this release have
+been updated. For the record, these issues and workarounds for them
+are described below, even though they are no longer applicable. 
 
 On OSX, if an error about ``embree`` not finding ``tbb`` is encountered (these
 are third-party libraries), run::
