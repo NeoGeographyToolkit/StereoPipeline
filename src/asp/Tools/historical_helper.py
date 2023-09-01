@@ -22,7 +22,7 @@ Python tool for working with historical data products.
 '''
 from __future__ import print_function
 import sys
-import os, shutil, string, errno, argparse
+import os, shutil, string, errno, argparse, subprocess
 #import simplekml, json
 import numpy as np
 
@@ -131,19 +131,41 @@ def rotateAndCrop(options):
     if options.operation == 'rotate-crop':
         cropCmd = ("-crop '%dx%d+%d+%d'" % (cropX, cropY, offsetX, offsetY))
 
-    cmd = ("convert %s -define tiff:tile-geometry=256x256 -distort ScaleRotateTranslate '0,0 %lf' %s %s"
-           % (options.inputPath, degrees, cropCmd, options.outputPath))
+    cmd = ("%s %s -define tiff:tile-geometry=256x256 -distort ScaleRotateTranslate '0,0 %lf' %s %s"
+           % (options.convertPath, options.inputPath, degrees, cropCmd, options.outputPath))
     print(cmd)
     os.system(cmd)
 
+def refineConvertPath(convertPath):
+    """Returns the full path to a validated ImageMagic 'convert' executable. In particular, fail if the the embree tool with the same name is found."""
+
+    if convertPath == "":
+        convertPath = "convert"
+
+    # Look for the tool using the 'which' command
+    cmd = ['which', convertPath]
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         universal_newlines=True)
+    out, err = p.communicate()
+
+    # Check if that command failed to find the file
+    failString = 'no ' + convertPath + ' in ('
+    if out.find(failString) >= 0 or p.returncode != 0:
+        raise Exception('Failed to find "convert".')
+    
+    # So far so good, have a tool. Now check if it is the right one
+    convertPath = out.rstrip()
+
+    cmd = [convertPath, '--help']
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         universal_newlines=True)
+    out, err = p.communicate()
+    if 'ImageMagick' not in out:
+        raise Exception('The tool "' + convertPath + '" does not appear to be ImageMagick convert.')
+
+    return convertPath
 
 def main(argsIn):
-
-    try:
-        asp_system_utils.checkIfToolExists('convert')
-    except:
-        print('Cannot find the "convert" tool. Install the ImageMagick software, and then add the directory of this tool to PATH.')
-        return -1
 
     try:
 
@@ -158,8 +180,11 @@ def main(argsIn):
                                               help="The output file to write.")
 
         parser.add_argument("--interest-points", dest="interestPoints", default=None,
-                                          help="List of col row pairs contained in quotes.")
+                                          help="List of column and row pairs contained in quotes.")
         parser.add_argument('operation')
+
+        parser.add_argument("--convert-path", dest="convertPath", default="", required=False,
+                                              help="Path to the ImageMagick 'convert' executable to use in processing. If not set, the directory having this tool must be prepended to the system path.")
 
         # This call handles all the parallel_mapproject specific options.
         options = parser.parse_args(argsIn)
@@ -167,6 +192,19 @@ def main(argsIn):
     except argparse.ArgumentError as msg:
         raise Usage(msg)
 
+    try:
+        options.convertPath = refineConvertPath(options.convertPath)
+    except Exception as e:
+        print('Cannot find the "convert" tool, or the wrong tool was found. Install the ImageMagick software, for example, with conda, and then prepend the directory having that tool to PATH, or pass it to this program as --convert-path /path/to/convert.')
+        # Uncomment below for further debug info. It can be too verbose for the user though.
+        #print(e)
+        return -1
+
+    # Make a directory having the output file
+    outDir = os.path.dirname(options.outputPath)
+    if outDir != "" and (not os.path.exists(outDir)):
+        os.makedirs(outDir)
+        
     if options.operation == 'rotate-crop' or options.operation == 'rotate':
         rotateAndCrop(options)
 

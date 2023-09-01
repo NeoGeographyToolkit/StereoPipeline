@@ -25,13 +25,17 @@ image_calc (:numref:`image_calc`):
     * When adding new keywords to metadata geoheader, do not erase the existing
       ones (if a keyword already exists, its value will be modified).
 
+historical_helper.py (:numref:`historical_helper`):
+    * Added the ability to set a custom path to the needed ``convert``
+      executable and described how that tool can be installed.
+
 misc:
- * Eliminated a procedure for cleaning the name of an input path that was replacing
-   two slashes with one slash, as that was resulting in inconsistent behavior. 
  * Adjusted the number of camera poses sampled from the polynomials determining
    the quaternions for PleiadesHR cameras. It has no effect in practice but
    results in ``jitter_solve`` assumptions being satisfied.
  * Fixed a couple of runtime errors when using conda packages on OSX.
+ * Eliminated a procedure for cleaning the name of an input path that was replacing
+   two slashes with one slash, as that was resulting in inconsistent behavior. 
   
 RELEASE 3.3.0, August 16, 2023
 ------------------------------

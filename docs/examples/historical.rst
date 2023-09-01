@@ -59,12 +59,15 @@ determined by looking at two of the sub images in ``stereo_gui``.
 With this in mind, image mosaicking for these two images will happen as
 follows::
 
-     image_mosaic DS1105-2248DF076_d.tif  DS1105-2248DF076_c.tif              \
-       DS1105-2248DF076_b.tif  DS1105-2248DF076_a.tif -o DS1105-2248DF076.tif \
+     image_mosaic DS1105-2248DF076_d.tif  DS1105-2248DF076_c.tif \
+       DS1105-2248DF076_b.tif  DS1105-2248DF076_a.tif            \
+       -o DS1105-2248DF076.tif                                   \
        --ot byte --overlap-width 7000 --blend-radius 2000
-     image_mosaic DS1105-2248DA082_d.tif DS1105-2248DA082_c.tif               \
-       DS1105-2248DA082_b.tif  DS1105-2248DA082_a.tif -o DS1105-2248DA082.tif \
-       --ot byte --overlap-width 7000 --blend-radius 2000 --rotate
+     image_mosaic DS1105-2248DA082_d.tif DS1105-2248DA082_c.tif  \
+       DS1105-2248DA082_b.tif  DS1105-2248DA082_a.tif            \
+       -o DS1105-2248DA082.tif                                   \
+       --ot byte --overlap-width 7000 --blend-radius 2000        \
+       --rotate
 
 In order to process with the optical bar camera model these images need
 to be cropped to remove the most of empty area around the image. The
@@ -73,22 +76,28 @@ on the corners in ``stereo_gui``. Note that for some input images it can
 be unclear where the proper location for the corner is due to edge
 artifacts in the film. Do your best to select the image corners such
 that obvious artifacts are kept out and all reasonable image sections
-are kept in. ASP provides a simple Python tool called
-``historical_helper.py`` to rotate the image so that the top edge is
-horizontal while also cropping the boundaries. Pass in the corner
-coordinates as shown below in the order top-left, top-right, bot-right,
-bot-left (column then row). This is also a good opportunity to simplify
-the file names going forwards.
+are kept in. 
 
-This tool expects the ``convert`` tool, part of the ImageMagick
-software.
+ASP provides a simple Python tool called
+``historical_helper.py`` to rotate the image so that the top edge is
+horizontal while also cropping the boundaries. This tool requires
+installing the ImageMagick software. See :numref:`historical_helper`
+for more details.
+
+Pass in the corner coordinates as shown below in the order top-left, top-right,
+bot-right, bot-left (column then row). This is also a good opportunity to
+simplify the file names going forwards.
 
 ::
 
-     historical_helper.py rotate-crop --input-path DS1105-2248DA082.tif  --output-path aft.tif \
-       --interest-points '4523 1506  114956 1450  114956 9355  4453 9408'
-     historical_helper.py rotate-crop --input-path DS1105-2248DF076.tif  --output-path for.tif \
-       --interest-points '6335 1093  115555 1315  115536 9205  6265 8992'
+     historical_helper.py rotate-crop                                     \
+       --interest-points '4523 1506  114956 1450  114956 9355  4453 9408' \
+       --input-path DS1105-2248DA082.tif                                  \
+       --output-path aft.tif
+     historical_helper.py rotate-crop                                     \
+       --interest-points '6335 1093  115555 1315  115536 9205  6265 8992' \
+       --input-path DS1105-2248DF076.tif                                  \
+       --output-path for.tif 
 
 Fetching a ground truth DEM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -418,10 +427,12 @@ for each image.
 
 ::
 
-     image_mosaic DZB00401800038H025001_b.tif  DZB00401800038H025001_a.tif      \
-       -o DZB00401800038H025001.tif  --ot byte --blend-radius 2000  --overlap-width 10000 \
-     image_mosaic DZB00401800038H026001_a.tif  DZB00401800038H026001_b.tif      \
-       -o DZB00401800038H026001.tif  --ot byte --blend-radius 2000  --overlap-width 10000 \
+     image_mosaic DZB00401800038H025001_b.tif  DZB00401800038H025001_a.tif \
+       -o DZB00401800038H025001.tif  --ot byte --blend-radius 2000         \
+       --overlap-width 10000
+     image_mosaic DZB00401800038H026001_a.tif  DZB00401800038H026001_b.tif \
+       -o DZB00401800038H026001.tif  --ot byte --blend-radius 2000         \
+       --overlap-width 10000
 
 For this image pair we will use the following SRTM images from Earth
 Explorer::
@@ -432,14 +443,20 @@ Explorer::
 
 (The SRTM DEM may need adjustment, as discussed in :numref:`refdem`.)
 
-Next we crop the input images so they only contain valid image area.
+Next we crop the input images so they only contain valid image area. We
+use, as above, the ``historical_helper.py`` tool. See :numref:`historical_helper`
+for how to install the ImageMagick software that it needs.
 
 ::
 
-     historical_helper.py rotate-crop --input-path DZB00401800038H025001.tif \
-     --output-path 5001.tif  --interest-points '1847 2656  61348 2599  61338 33523  1880 33567'
-     historical_helper.py rotate-crop --input-path DZB00401800038H026001.tif \
-     --output-path 6001.tif  --interest-points '566 2678  62421 2683  62290 33596  465 33595'
+     historical_helper.py rotate-crop                                    \
+       --interest-points '1847 2656  61348 2599  61338 33523  1880 33567'\
+       --input-path DZB00401800038H025001.tif                            \
+       --output-path 5001.tif
+     historical_helper.py rotate-crop                                    \
+       --interest-points '566 2678  62421 2683  62290 33596  465 33595'  \
+       --input-path DZB00401800038H026001.tif                            \
+       --output-path 6001.tif
 
 We will try to approximate the KH7 camera using a pinhole model. The
 pitch of the image is determined by the scanner, which is 7.0e-06 meters
@@ -622,10 +639,15 @@ After downloading and unpacking the images, we merge them with the
 These images also need to be cropped to remove most of the area around
 the images::
 
-     historical_helper.py rotate-crop --input-path D3C1216-200548F040.tif --output-path for.tif \
+     historical_helper.py rotate-crop --input-path D3C1216-200548F040.tif \
+       --output-path for.tif                                              \
        --interest-points '2414 1190  346001 1714  345952 23960  2356 23174'
-     historical_helper.py rotate-crop --input-path D3C1216-200548A041.tif --output-path aft.tif \
+     historical_helper.py rotate-crop --input-path D3C1216-200548A041.tif \
+       --output-path aft.tif                                              \
        --interest-points '1624 1333  346183 1812  346212 24085  1538 23504'
+
+We used, as above, the ``historical_helper.py`` tool. See :numref:`historical_helper`
+for how to install the ImageMagick software that it needs.
 
 For this example there are ASTER DEMs which can be used for reference.
 They can be downloaded from https://gdex.cr.usgs.gov/gdex/ as single
