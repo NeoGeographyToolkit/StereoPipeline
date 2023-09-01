@@ -105,9 +105,7 @@ def clean_args(args):
     '''Fix various problems that can happen in the input args'''
     args = unescape_vals(args)
     argsout = []
-    for arg in args:
-        argsout.append(arg.replace('//','/'))
-    return argsout
+    return args
 
 # TODO(oalexan1): Move to asp_cmd_utils.py
 def get_option(options, opt, n):
