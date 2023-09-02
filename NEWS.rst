@@ -9,6 +9,9 @@ jitter_solve (:numref:`jitter_solve`):
   * The roll and yaw constraints no longer assume linescan camera positions and
     orientations are one-to-one. 
 
+bundle_adjust (:numref:`bundle_adjust`):
+  * For ASTER cameras, use the RPC model to find interest points. This does
+    not affect the final results but is much faster.
 parallel_stereo (:numref:`parallel_stereo`):
    * For the ``asp_sgm`` and ``asp_mgm`` algorithms allow ``cost-mode`` to
      have the value 3 or 4 only, as other values produce bad results. Also print

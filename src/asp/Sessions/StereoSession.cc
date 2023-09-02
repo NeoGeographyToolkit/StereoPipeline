@@ -22,7 +22,6 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/AdjustedLinescanDGModel.h>
 #include <asp/Camera/RPCModel.h>
-#include <asp/Sessions/StereoSessionASTER.h>
 #include <asp/Core/AspStringUtils.h>
 
 #include <vw/Core/Exception.h>
@@ -375,16 +374,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
     
     // Load the cameras
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-    if (this->name() != "aster") {
-      this->camera_models(left_cam, right_cam);
-    }else{
-      vw_out() << "Using the RPC model instead of the exact ASTER model for interest point "
-               << "matching, for speed. This does not affect the final DEM accuracy.\n";
-      StereoSessionASTER * aster_session = dynamic_cast<StereoSessionASTER*>(this);
-      if (aster_session == NULL) 
-        vw_throw( ArgumentErr() << "ASTER session is expected." );
-      aster_session->rpc_camera_models(left_cam, right_cam);
-    }
+    this->camera_models(left_cam, right_cam);
     
     determine_image_alignment(// Inputs
                               m_out_prefix, left_cropped_file, right_cropped_file,  
