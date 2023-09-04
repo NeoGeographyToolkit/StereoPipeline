@@ -36,7 +36,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/FileIO/MatrixIO.h>
-
+#include <vw/Core/Stopwatch.h>
 #include <boost/filesystem/operations.hpp>
 
 #include <map>
@@ -328,9 +328,9 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   if (exit_early)
     return;
   
-  // Load the cropped images
-  DiskImageView<float> left_disk_image(left_cropped_file),
-    right_disk_image(right_cropped_file);
+  // Load the images (can be cropped or original ones)
+  DiskImageView<float> left_disk_image(left_cropped_file);
+  DiskImageView<float> right_disk_image(right_cropped_file);
   
   // Get the image sizes. Later alignment options can choose to
   // change this parameters (such as affine epipolar alignment).
@@ -343,12 +343,19 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   ImageViewRef<PixelMask<float>> right_masked_image
     = create_mask_less_or_equal(right_disk_image, right_nodata_value);
   
-  // Compute input image statistics
+  // Compute input image statistics. This can be slow so use a timer.
+  vw::Stopwatch sw1;
+  sw1.start();
   Vector6f left_stats  = gather_stats(left_masked_image,  "left",
                                       this->m_out_prefix, left_cropped_file);
+  sw1.stop();  
+  vw_out() << "Left image stats time: " << sw1.elapsed_seconds() << std::endl;
+  vw::Stopwatch sw2;
+  sw2.start();  
   Vector6f right_stats = gather_stats(right_masked_image, "right",
                                       this->m_out_prefix, right_cropped_file);
-  
+  sw2.stop();
+  vw_out() << "Right image stats time: " << sw2.elapsed_seconds() << std::endl;
   ImageViewRef<PixelMask<float>> Limg, Rimg;
   
   // Use no-data in interpolation and edge extension
@@ -427,12 +434,18 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   float output_nodata = -32768.0;
   vw_out() << "\t--> Writing pre-aligned images.\n";
   vw_out() << "\t--> Writing: " << left_output_file << ".\n";
+  vw::Stopwatch sw3;
+  sw3.start();
   block_write_gdal_image(left_output_file, apply_mask(Limg, output_nodata),
                          has_left_georef, left_georef,
                          has_nodata, output_nodata, options,
                          TerminalProgressCallback("asp","\t  L:  "));
+  sw3.stop();
+  vw_out() << "Time to write left image: " << sw3.elapsed_seconds() << std::endl;
     
   vw_out() << "\t--> Writing: " << right_output_file << ".\n";
+  vw::Stopwatch sw4;
+  sw4.start();
   if (stereo_settings().alignment_method == "none") {
     // Do not crop the right image to have the same dimensions as the
     // left image. Since there is no alignment, and images may not be
@@ -454,6 +467,8 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                            has_nodata, output_nodata, options,
                            TerminalProgressCallback("asp","\t  R:  ") );
   }
+  sw4.stop();
+  vw_out() << "Time to write right image: " << sw4.elapsed_seconds() << std::endl;
 
   // For bathy runs only
   if (this->do_bathymetry())
@@ -1230,6 +1245,157 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
                                                 (cam, position_correction[0],
                                                  pose_correction[0], local_pixel_offset,
 						 local_scale));
+}
+
+/// Function to apply a functor to each pixel of an input image.
+/// Traverse the image row by row.
+template <class ViewT, class FuncT>
+void for_each_pixel_rowwise(const vw::ImageViewBase<ViewT> &view_, FuncT &func, 
+  vw::TerminalProgressCallback const& progress) {
+  using namespace vw;
+  const ViewT& view = view_.impl();
+  typedef typename ViewT::pixel_accessor pixel_accessor;
+  pixel_accessor plane_acc = view.origin();
+
+  for (int32 plane = view.planes(); plane; plane--) { // Loop through planes
+
+    pixel_accessor row_acc = plane_acc;
+    for (int32 row = 0; row<view.rows(); row++) { // Loop through rows
+      progress.report_fractional_progress(row, view.rows());
+      pixel_accessor col_acc = row_acc;
+      for (int32 col = view.cols(); col; col--) { // Loop along the row
+        func(*col_acc);  // Apply the functor to this pixel value
+        col_acc.next_col();
+      }
+      row_acc.next_row();
+    }
+    plane_acc.next_plane();
+  }
+  progress.report_finished();
+}
+
+/// Function to apply a functor to each pixel of an input image.
+/// Traverse the image column by column.
+template <class ViewT, class FuncT>
+void for_each_pixel_columnwise(const vw::ImageViewBase<ViewT> &view_, FuncT &func, 
+  vw::TerminalProgressCallback const& progress) {
+  using namespace vw;
+  const ViewT& view = view_.impl();
+  typedef typename ViewT::pixel_accessor pixel_accessor;
+  pixel_accessor plane_acc = view.origin();
+
+  for (int32 plane = view.planes(); plane; plane--) { // Loop through planes
+    
+    pixel_accessor col_acc = plane_acc;
+    for (int32 col = 0; col < view.cols(); col++) { // Loop through cols
+      progress.report_fractional_progress(col, view.cols());
+      pixel_accessor row_acc = col_acc;
+      for (int32 row = view.rows(); row; row--) { // Loop along cols
+        func(*row_acc);  // Apply the functor to this pixel value
+        row_acc.next_row();
+      }
+      col_acc.next_col();
+    }
+    plane_acc.next_plane();
+  }
+  progress.report_finished();
+
+  return;
+}
+
+// Compute the min, max, mean, and standard deviation of an image object and
+// write them to a log. This is not a member function.
+// - "tag" is only used to make the log messages more descriptive.
+// - If prefix and image_path is set, will cache the results to a file.
+// For efficiency, the image must be traversed either rowwise or columnwise,
+// depending on how it is stored on disk.
+vw::Vector6f gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image, 
+                          std::string const& tag,
+                          std::string const& prefix, 
+                          std::string const& image_path) {
+
+  using namespace vw;
+  namespace fs = boost::filesystem;
+  Vector6f result;
+
+  vw_out(InfoMessage) << "Computing statistics for " + tag << std::endl;
+
+  const bool use_cache = ((prefix != "") && (image_path != ""));
+  std::string cache_path = "";
+  if (use_cache) {
+    if (image_path.find(prefix) == 0) {
+      // If the image is, for example, run/run-L.tif,
+      // then cache_path = run/run-L-stats.tif.
+      cache_path =  fs::change_extension(image_path, "").string() + "-stats.tif";
+    }else {
+      // If the image is left_image.tif, 
+      // then cache_path = run/run-left_image.tif
+      cache_path = prefix + '-' + fs::path(image_path).stem().string() + "-stats.tif";
+    }
+  }
+  
+  // Check if this stats file was computed after any image modifications.
+  if ((use_cache && asp::is_latest_timestamp(cache_path, image_path)) ||
+      (stereo_settings().force_reuse_match_files && fs::exists(cache_path))) {
+    vw_out(InfoMessage) << "\t--> Reading statistics from file " + cache_path << std::endl;
+    Vector<float32> stats;
+    read_vector(stats, cache_path); // Just fetch the stats from the file on disk.
+    result = stats;
+
+  } else { // Compute the results
+
+    // Read the resource and determine the block structure on disk. Use a boost shared ptr.
+    vw::Vector2i block_size;
+    {
+      boost::shared_ptr<DiskImageResource> rsrc (DiskImageResourcePtr(image_path));
+      block_size  = rsrc->block_read_size();
+    }
+    // print a warning that procesing can be slow if any of the block size coords are bigger than 5120
+    if (block_size[0] > 5120 || block_size[1] > 5120) {
+      vw_out(WarningMessage) << "Image " << image_path 
+        << " has block sizes of dimensions " << block_size[0] << " x " << block_size[1] 
+        << " (as shown by gdalinfo). This can make processing slow. Consider converting "
+        << "it to tile format, using the command:\n" 
+        << "gdal_translate -co TILED=yes -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 " 
+        << "input.tif output.tif\n";
+    }
+
+    // Compute statistics at a reduced resolution
+    const float TARGET_NUM_PIXELS = 1000000;
+    float num_pixels = float(image.cols())*float(image.rows());
+    int   stat_scale = int(ceil(sqrt(num_pixels / TARGET_NUM_PIXELS)));
+
+    vw_out(InfoMessage) << "Using downsample scale: " << stat_scale << std::endl;
+
+    ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
+    vw::TerminalProgressCallback tp("asp","\t  stats:  ");
+    if (block_size[0] > block_size[1]) // Rows are long, so go row by row
+     for_each_pixel_rowwise(subsample( edge_extend(image, ConstantEdgeExtension()),
+                               stat_scale), accumulator, tp);
+    else // Columns are long, so go column by column
+     for_each_pixel_columnwise(subsample( edge_extend(image, ConstantEdgeExtension()),
+                                  stat_scale), accumulator, tp);
+
+    result[0] = accumulator.quantile(0); // Min
+    result[1] = accumulator.quantile(1); // Max
+    result[2] = accumulator.approximate_mean();
+    result[3] = accumulator.approximate_stddev();
+    result[4] = accumulator.quantile(0.02); // Percentile values
+    result[5] = accumulator.quantile(0.98);
+
+    // Cache the results to disk
+    if (use_cache) {
+      vw_out() << "\t    Writing stats file: " << cache_path << std::endl;
+      Vector<float32> stats = result;  // cast
+      write_vector(cache_path, stats);
+    }
+
+  } // Done computing the results
+
+  vw_out(InfoMessage) << "\t    " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
+                      << " mean: " << result[2] << " std_dev: "  << result[3] << " ]\n";
+
+  return result;
 }
 
 } // End namespace asp

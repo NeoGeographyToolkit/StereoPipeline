@@ -158,8 +158,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     right_rsrc(vw::DiskImageResourcePtr(right_image_file));
 
   // Load the normalized images.
-  DiskImageView<PixelGray<float> > left_image (left_rsrc ),
-                                   right_image(right_rsrc);
+  DiskImageView<PixelGray<float>> left_image (left_rsrc ),
+                                  right_image(right_rsrc);
 
   // If we crop the images, we must always rebuild the masks
   // and subsample the images and masks.
@@ -510,16 +510,28 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     // This code is not in stereo_rfne, as that one is meant to be distributed
     // across multiple machines, so we want the stats to be computed just once,
     // hence they are done here.
+    // TODO(oalexan1): Must integrate this in shared_preprocessing_hook,
+    // as this repeats a lot of logic from there
     vw_out() << "Computing statistics for the un-normalized images.\n";
-    DiskImageView<uint8> left_mask(left_mask_file), right_mask(right_mask_file);
-    ImageViewRef< PixelMask< PixelGray<float> > > left_masked_image
-      = copy_mask(left_image, create_mask(left_mask));
-    ImageViewRef< PixelMask< PixelGray<float> > > right_masked_image
-      = copy_mask(right_image, create_mask(right_mask));
-    Vector6f left_stats       = StereoSession::gather_stats(left_masked_image,  "left",
-                                                            opt.out_prefix, left_image_file);
-    Vector6f right_stats      = StereoSession::gather_stats(right_masked_image, "right",
-                                                            opt.out_prefix, right_image_file);
+    float left_no_data_value, right_no_data_value;
+    asp::get_nodata_values(left_rsrc, right_rsrc,
+                           left_no_data_value, right_no_data_value); 
+    if (!std::isnan(stereo_settings().nodata_value)){
+      left_no_data_value  = stereo_settings().nodata_value;
+      right_no_data_value = stereo_settings().nodata_value;
+    }
+
+    ImageViewRef<PixelMask<PixelGray<float>>> left_masked_image
+      = create_mask_less_or_equal(left_image, left_no_data_value);
+    ImageViewRef< PixelMask<PixelGray<float>>> right_masked_image
+      = create_mask_less_or_equal(right_image, right_no_data_value); 
+
+    Vector6f left_stats  = gather_stats(pixel_cast<PixelMask<float>>(left_masked_image), 
+                                        "left",
+                                        opt.out_prefix, left_image_file);
+    Vector6f right_stats = gather_stats(pixel_cast<PixelMask<float>>(right_masked_image), 
+                                        "right",
+                                        opt.out_prefix, right_image_file);
     std::string   left_stats_file  = opt.out_prefix + "-lStats.tif";
     std::string   right_stats_file = opt.out_prefix + "-rStats.tif";
 

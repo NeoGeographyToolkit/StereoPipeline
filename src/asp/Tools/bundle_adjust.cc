@@ -2620,12 +2620,11 @@ void ba_match_ip(Options & opt, SessionPtr session,
   
   // Since we computed statistics earlier, this will just be loading files.
   vw::Vector<vw::float32,6> image1_stats, image2_stats;
-  image1_stats = asp::StereoSession::gather_stats(masked_image1,
-                                                  image1_path, opt.out_prefix, image1_path);
-  image2_stats = asp::StereoSession::gather_stats(masked_image2,
-                                                  image2_path, opt.out_prefix, image2_path);
+  image1_stats = asp::gather_stats(masked_image1, image1_path, 
+                                   opt.out_prefix, image1_path);
+  image2_stats = asp::gather_stats(masked_image2, image2_path, 
+                                   opt.out_prefix, image2_path);
   
-
   // Do not save by default .vwip files as those take space and are
   // not needed after a match file is created. If the user wants them,
   // they must be saved in a subdirectory for each match pair, as
@@ -2955,7 +2954,7 @@ int main(int argc, char* argv[]) {
         = create_mask_less_or_equal(image_view,  nodata);
 
       // Use caching function call to compute the image statistics.
-      asp::StereoSession::gather_stats(masked_image, image_path, opt.out_prefix, image_path);
+      asp::gather_stats(masked_image, image_path, opt.out_prefix, image_path);
 
       // Compute and cache the camera footprint bbox
       if (opt.auto_overlap_params != "")

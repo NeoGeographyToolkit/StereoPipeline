@@ -109,12 +109,6 @@ namespace asp {
                      std::string const left_ip_file = "",
                      std::string const right_ip_file = "");
 
-    /// Compute the min, max, mean, and standard deviation of an image object and write them to a log.
-    /// - "tag" is only used to make the log messages more descriptive.
-    /// - If prefix and image_path is set, will cache the results to a file.
-    template <class ViewT> static inline
-    Vector6f gather_stats( vw::ImageViewBase<ViewT> const& view_base, std::string const& tag,
-                           std::string const& prefix="", std::string const& image_path="");
 
     // If both left-image-crop-win and right-image-crop win are specified,
     // we crop the images to these boxes, and hence the need to keep
@@ -304,84 +298,14 @@ namespace asp {
     
   };
 
-// ===========================================================================
-// --- Template function definitions ---
-
-template <class ViewT>
-Vector6f StereoSession::gather_stats(vw::ImageViewBase<ViewT> const& view_base,
-                                     std::string const& tag, std::string const& prefix,
-                                     std::string const& image_path) {
-  using namespace vw;
-  namespace fs = boost::filesystem;
-  Vector6f result;
-
-  vw_out(InfoMessage) << "Computing statistics for " + tag << std::endl;
-  ViewT image = view_base.impl();
-
-  const bool use_cache = ((prefix != "") && (image_path != ""));
-  std::string cache_path = "";
-  if (use_cache) {
-    if (image_path.find(prefix) == 0) {
-      // If the image is, for example, run/run-L.tif,
-      // then cache_path = run/run-L-stats.tif.
-      cache_path =  fs::change_extension(image_path, "").string() + "-stats.tif";
-    }else {
-      // If the image is left_image.tif, 
-      // then cache_path = run/run-left_image.tif
-      cache_path = prefix + '-' + fs::path(image_path).stem().string() + "-stats.tif";
-    }
-  }
-  
-  // Check if this stats file was computed after any image modifications.
-  if ((use_cache && asp::is_latest_timestamp(cache_path, image_path)) ||
-      (stereo_settings().force_reuse_match_files && fs::exists(cache_path))) {
-    vw_out(InfoMessage) << "\t--> Reading statistics from file " + cache_path << std::endl;
-    Vector<float32> stats;
-    read_vector(stats, cache_path); // Just fetch the stats from the file on disk.
-    result = stats;
-
-  } else { // Compute the results
-
-    // Compute statistics at a reduced resolution
-    const float TARGET_NUM_PIXELS = 1000000;
-    float num_pixels = float(image.cols())*float(image.rows());
-    int   stat_scale = int(ceil(sqrt(num_pixels / TARGET_NUM_PIXELS)));
-
-    vw_out(InfoMessage) << "Using downsample scale: " << stat_scale << std::endl;
-
-    ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
-    for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
-                              stat_scale ),
-                    accumulator );
-
-    // Compute the CDF in parallel.
-    // -> Turned off because it makes the unit tests non-deterministic.
-    //Vector2i block_size(256,256);
-    //int buffer_size = 100000; // TODO: If this gets too large the CDFAccumulator class fails!
-    //vw::math::CDFAccumulator<float> accumulator(buffer_size);
-    //block_cdf_computation(image, accumulator, stat_scale, block_size);
-
-    result[0] = accumulator.quantile(0); // Min
-    result[1] = accumulator.quantile(1); // Max
-    result[2] = accumulator.approximate_mean();
-    result[3] = accumulator.approximate_stddev();
-    result[4] = accumulator.quantile(0.02); // Percentile values
-    result[5] = accumulator.quantile(0.98);
-
-    // Cache the results to disk
-    if (use_cache) {
-      vw_out() << "\t    Writing stats file: " << cache_path << std::endl;
-      Vector<float32> stats = result;  // cast
-      write_vector(cache_path, stats);
-    }
-
-  } // Done computing the results
-
-  vw_out(InfoMessage) << "\t    " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
-                      << " mean: " << result[2] << " std_dev: "  << result[3] << " ]\n";
-
-  return result;
-}
+// Compute the min, max, mean, and standard deviation of an image object and
+// write them to a file. This is not a member function.
+// - "tag" is only used to make the log messages more descriptive.
+// - If prefix and image_path is set, will cache the results to a file.
+vw::Vector6f gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image, 
+                          std::string const& tag,
+                          std::string const& prefix, 
+                          std::string const& image_path);
 
 } // end namespace asp
 

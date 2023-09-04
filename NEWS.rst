@@ -33,6 +33,11 @@ historical_helper.py (:numref:`historical_helper`):
       executable and described how that tool can be installed.
 
 misc:
+ * Fixed a failure when processing images that have very large blocks (on the
+   order of several tens of thousands of pixels along some dimension, as shown
+   by ``gdalinfo``). Such images can still be slow to process, including by
+   GDAL, but now there will be no failure. In addition, a warning is printed,
+   suggesting that they be reformatted to have smaller blocks.
  * Adjusted the number of camera poses sampled from the polynomials determining
    the quaternions for PleiadesHR cameras. It has no effect in practice but
    results in ``jitter_solve`` assumptions being satisfied.
