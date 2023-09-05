@@ -33,6 +33,9 @@ historical_helper.py (:numref:`historical_helper`):
     * Added the ability to set a custom path to the needed ``convert``
       executable and described how that tool can be installed.
 
+sfs (:numref:`sfs`):
+    * Added the option ``--albedo-robust-threshold``.
+  
 misc:
  * Fixed a failure when processing images that have very large blocks (on the
    order of several tens of thousands of pixels along some dimension, as shown

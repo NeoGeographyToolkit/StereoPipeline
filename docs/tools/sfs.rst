@@ -118,7 +118,13 @@ Command-line options for sfs
 
 --albedo-constraint-weight <float (default: 0)>
     If floating the albedo, a larger value will try harder to keep
-    the optimized albedo close to the nominal value of 1.
+    the optimized albedo close to the nominal value of 1. See also
+    ``--albedo-robust-threshold``.
+
+--albedo-robust-threshold <float (default: 0)>
+    If floating the albedo and this threshold is positive, apply a Cauchy loss
+    with this threshold to the product of the albedo difference and the albedo
+    constraint weight.
 
 --bundle-adjust-prefix <path>
     Use the camera adjustments obtained by previously running

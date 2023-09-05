@@ -33,7 +33,7 @@
 // TODO: Remove warning from the approx camera
 // TODO: Make it possible to initialize a DEM from scratch.
 // TODO: Study more the multi-resolution approach.
-// TODO: Must specify in the SfS doc that the lunar lambertian model fails at poles
+// TODO: Must specify in the SfS doc that the Lunar-Lambertian model fails at poles
 // TODO: If this code becomes multi-threaded, need to keep in mind
 // that camera models are shared and modified, so
 // this may cause problems.
@@ -1181,6 +1181,7 @@ struct Options : public vw::GdalWriteOptions {
     lit_curvature_dist, shadow_curvature_dist, gradient_weight,
     blending_power, integrability_weight, smoothness_weight_pq, init_dem_height,
     nodata_val, initial_dem_constraint_weight, albedo_constraint_weight,
+    albedo_robust_threshold,
     camera_position_step_size, rpc_penalty_weight, rpc_max_error,
     unreliable_intensity_threshold, robust_threshold, shadow_threshold;
   vw::BBox2 crop_win;
@@ -1211,7 +1212,7 @@ struct Options : public vw::GdalWriteOptions {
             lit_curvature_dist(0.0), shadow_curvature_dist(0.0),
             gradient_weight(0.0), integrability_weight(0), smoothness_weight_pq(0),
             initial_dem_constraint_weight(0.0),
-            albedo_constraint_weight(0.0),
+            albedo_constraint_weight(0.0), albedo_robust_threshold(0.0),
             camera_position_step_size(1.0), rpc_penalty_weight(0.0),
             rpc_max_error(0.0),
             unreliable_intensity_threshold(0.0),
@@ -3649,8 +3650,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The weight given to the cost function term which consists of sums of squares of second-order derivatives. A larger value will result in a smoother solution with fewer artifacts. See also --gradient-weight.")
     ("initial-dem-constraint-weight", po::value(&opt.initial_dem_constraint_weight)->default_value(0),
      "A larger value will try harder to keep the SfS-optimized DEM closer to the initial guess DEM. A value between 0.0001 and 0.001 may work, unless your initial DEM is very unreliable.")
-    ("albedo-constraint-weight", po::value(&opt.albedo_constraint_weight)->default_value(0),
-     "If floating the albedo, a larger value will try harder to keep the optimized albedo close to the nominal value of 1.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
@@ -3690,6 +3689,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Optional values for the largest valid image value in each image (a list of real values in quotes, one per image).")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(-1.0),
      "If positive, set the threshold for the robust measured-to-simulated intensity difference (using the Cauchy loss). Any difference much larger than this will be penalized. A good value may be 5% to 25% of the average image value or the same fraction of the computed image exposure values.")
+    ("albedo-constraint-weight", po::value(&opt.albedo_constraint_weight)->default_value(0),
+     "If floating the albedo, a larger value will try harder to keep the optimized albedo close to the nominal value of 1.")
+    ("albedo-robust-threshold", po::value(&opt.albedo_robust_threshold)->default_value(0),
+     "If floating the albedo and this threshold is positive, apply a Cauchy loss with this threshold to the product of the albedo difference and the albedo constraint weight.")
     ("unreliable-intensity-threshold", po::value(&opt.unreliable_intensity_threshold)->default_value(0.0),
      "Intensities lower than this will be considered unreliable and given less weight.")
     ("skip-images", po::value(&opt.skip_images_str)->default_value(""), "Skip images with these indices (indices start from 0).")
@@ -4526,7 +4529,10 @@ void run_sfs_level(// Fixed inputs
           
           // Deviation from prescribed albedo
           if (opt.float_albedo > 0 && opt.albedo_constraint_weight > 0) {
+            
             ceres::LossFunction* loss_function_hc = NULL;
+            if (opt.albedo_robust_threshold > 0)
+              loss_function_hc = new ceres::CauchyLoss(opt.albedo_robust_threshold);
             ceres::CostFunction* cost_function_hc =
               AlbedoChangeError::Create(initial_albedo,
                                         opt.albedo_constraint_weight);
