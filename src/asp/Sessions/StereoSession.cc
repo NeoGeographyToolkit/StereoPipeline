@@ -1369,7 +1369,7 @@ vw::Vector6f gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
 
     ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
     vw::TerminalProgressCallback tp("asp","\t  stats:  ");
-    if (block_size[0] > block_size[1]) // Rows are long, so go row by row
+    if (block_size[0] >= block_size[1]) // Rows are long, so go row by row
      for_each_pixel_rowwise(subsample( edge_extend(image, ConstantEdgeExtension()),
                                stat_scale), accumulator, tp);
     else // Columns are long, so go column by column

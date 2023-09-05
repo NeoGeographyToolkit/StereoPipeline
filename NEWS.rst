@@ -23,6 +23,7 @@ stereo_gui (:numref:`stereo_gui`):
    * Can show scattered data with a colorbar and axes 
      (:numref:`scattered_points_colorbar`).
    * Renamed ``--colorize-image`` to ``--colorbar``.
+   * Auto-guess and load ``pc_align`` error files (:numref:`pc_align_error`).
 
 image_calc (:numref:`image_calc`):
     * When adding new keywords to metadata geoheader, do not erase the existing

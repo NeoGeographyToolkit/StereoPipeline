@@ -24,8 +24,13 @@ Usage::
      pc_align --max-displacement <float> [other options]    \
        <reference cloud> <source cloud> -o <output prefix>}
 
-An example of using this tool is in :numref:`pc-align-example`. Validation
-of alignment is discussed in :numref:`pc_align_validation`.
+The denser cloud must be the first one to be passed to this tool. This
+program is very sensitive to the value of ``--max-displacement``
+(:numref:`pc_align_max_displacement`).
+
+An example of using this tool is in :numref:`pc-align-example`. Evaluation of
+alignment is discussed in :numref:`pc_align_error` and
+:numref:`pc_align_validation`.
 
 See the related tool ``image_align`` (:numref:`image_align`) 
 for performing alignment of images.
@@ -44,16 +49,30 @@ simply invert the obtained transform if desired (``pc_align`` outputs
 both the direct and inverse transform, and can output the reference
 point cloud transformed to match the source and vice-versa).
 
+The user can choose how many points to pick from the reference and
+source point clouds to perform the alignment. The amount of memory and
+processing time used by ``pc_align`` is directly proportional to these
+numbers, ideally the more points the better. Pre-cropping to judiciously
+chosen regions may improve the accuracy and/or run-time.
+
+.. _pc_align_max_displacement:
+
+The max displacement option
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 In many typical applications, the source and reference point clouds are
 already roughly aligned, but the source point cloud may cover a larger
 area than the reference. The user should provide to ``pc_align`` the
 expected maximum distance (displacement) source points may move by as
-result of alignment, using the option ``--max-displacement``. This
-number will help remove source points too far from the reference point
+result of alignment, using the option ``--max-displacement``. 
+
+This number will help remove source points too far from the reference point
 cloud which may not match successfully and may degrade the accuracy. If
 in doubt, this value can be set to something large but still reasonable,
 as the tool is able to throw away a certain number of unmatched
-outliers. At the end of alignment, ``pc_align`` will display the
+outliers. 
+
+At the end of alignment, ``pc_align`` will display the
 *observed* maximum displacement, a multiple of which can be used to seed
 the tool in a subsequent run. If an initial transform is applied to the
 source cloud (:numref:`prevtrans`), the outliers are thrown
@@ -61,11 +80,6 @@ out *after* this operation. The observed maximum displacement is also
 between the source points with this transform applied and the source
 points after alignment to the reference.
 
-The user can choose how many points to pick from the reference and
-source point clouds to perform the alignment. The amount of memory and
-processing time used by ``pc_align`` is directly proportional to these
-numbers, ideally the more points the better. Pre-cropping to judiciously
-chosen regions may improve the accuracy and/or run-time.
 
 .. _align-method:
 
@@ -285,6 +299,8 @@ point around which a rigid transform is applied will only affect its
 translation component, which is relative to that point, but not the
 rotation matrix.
 
+.. _pc_align_error:
+
 Error metrics and outliers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -294,10 +310,19 @@ points (but after applying any initial transform), and also after the
 alignment computed by the tool. They are named
 ``<output prefix>-beg_errors.csv`` and
 ``<output prefix>-end_errors.csv``. An error is defined as the distance
-from a source point used in alignment to the closest reference point.
+from a source point used in alignment to the closest reference point
+(measured in meters). 
+
 The format of output CSV files is the same as of input CSV files, or as
 given by ``--csv-format``, although any columns of extraneous data in
-the input files are not saved on output.
+the input files are not saved on output. The first line in these
+files shows the names of the columns.
+
+See :numref:`plot_csv` for how to visualize these files. By default,
+this tool shows the 4th column in these files, which is the absolute
+error difference. Run, for example::
+
+    stereo_gui --colorbar run/run-end_errors.csv
 
 The program prints to screen and saves to a log file the 16th, 50th, and
 84th error percentiles as well as the means of the smallest 25%, 50%,
@@ -318,6 +343,30 @@ of the alignment transform, it keeps the 75% of the points with the
 smallest errors. As such, a way of judging the effectiveness of the tool
 is to look at the mean of the smallest 75% of the errors before and
 after alignment.
+
+.. _pc_align_validation:
+
+Evaluation of aligned clouds
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``pc_align`` program can save the source cloud after being aligned
+to the reference cloud and vice-versa, via
+``--save-transformed-source-points`` and
+``--save-inv-transformed-reference-points``. 
+
+To validate that the aligned source cloud is very close to the reference cloud,
+DEMs can be made out of them with ``point2dem`` (:numref:`point2dem`), and those
+can be overlaid as georeferenced images in ``stereo_gui`` (:numref:`stereo_gui`)
+for inspection. A GIS tool can be used as well.
+
+Alternatively, the ``geodiff`` program (:numref:`geodiff`) can be used
+to compute the (absolute) difference between aligned DEMs, which can
+be colorized with ``colormap`` (:numref:`colormap`), or colorized on-the-fly
+and displayed with a colorbar in ``stereo_gui`` (:numref:`colorize`).
+
+The ``geodiff`` tool can take the difference between a DEM and a CSV file as
+well. The obtained error differences can be visualized in ``stereo_gui``
+(:numref:`plot_csv`).
 
 Output point clouds and convergence history
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -362,12 +411,15 @@ Manual alignment
 If automatic alignment fails, for example, if the clouds are too
 different, or they differ by a scale factor, a manual alignment can be
 computed as an initial guess transform (and one can stop there if
-``pc_align`` is invoked with 0 iterations). For that, the input point
+``pc_align`` is invoked with 0 iterations). 
+
+For that, the input point
 clouds should be first converted to DEMs using ``point2dem``, unless in
 that format already. Then, ``stereo_gui`` can be called to create manual
 point correspondences (interest point matches) from the reference to the
 source DEM (hence they should be displayed in the GUI in this order,
 from left to right, and one can hillshade them to see features better).
+
 Once the match file is saved to disk, it can be passed to ``pc_align``
 via the ``--match-file`` option, which will compute an initial transform
 before continuing with alignment. This transform can also be used for

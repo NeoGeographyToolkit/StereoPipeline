@@ -1023,14 +1023,15 @@ described in the previous section. That requires using ground control
 points, that may not be easy to collect. Alternatively, the images and
 cameras can be used as they are, and the absolute position of the output
 point clouds can be corrected in post-processing. For that, ASP provides
-a tool named ``pc_align``. It aligns a 3D terrain to a much more
-accurately positioned (if potentially sparser) dataset. Such datasets
-can be made up of GPS measurements (in the case of Earth), or from laser
-altimetry instruments on satellites, such as ICESat/GLASS for Earth,
-LRO/LOLA on the Moon, and MGS/MOLA on Mars. Under the hood, ``pc_align``
-uses the Iterative Closest Point algorithm (ICP) (both the
-point-to-plane and point-to-point flavors are supported, and with
-point-to-point ICP it is also possible to solve for a scale change).
+a tool named ``pc_align`` (:numref:`pc_align`).
+
+This program aligns a 3D terrain to a much more accurately positioned (if
+potentially sparser) dataset. Such datasets can be made up of GPS measurements
+(in the case of Earth), or from laser altimetry instruments on satellites, such
+as ICESat/GLASS for Earth, LRO/LOLA on the Moon, and MGS/MOLA on Mars. Under the
+hood, ``pc_align`` uses the Iterative Closest Point algorithm (ICP) (both the
+point-to-plane and point-to-point flavors are supported, and with point-to-point
+ICP it is also possible to solve for a scale change).
 
 The ``pc_align`` tool requires another input, an a priori guess for the
 maximum displacement we expect to see as result of alignment, i.e., by
@@ -1039,9 +1040,6 @@ applied. If not known, a large (but not unreasonably so) number can be
 specified. It is used to remove most of the points in the source
 (movable) point cloud which have no chance of having a corresponding
 point in the reference (fixed) point cloud.
-
-Here is how ``pc_align`` can be called (the denser cloud is specified
-first).
 
 .. figure:: images/examples/align_compare_500px.png
    :alt:  pc_align results
@@ -1056,7 +1054,9 @@ first).
    70 m west, and 175 m vertically, goodness of fit between MOLA and the
    CTX model was increased substantially.
 
-::
+Here is an example. Recall that the denser cloud is specified first, and that
+this program is very sensitive to the value of ``--max-displacement``
+(:numref:`pc_align_max_displacement`)::
 
     pc_align --max-displacement 200 --datum MOLA   \
       --save-inv-transformed-reference-points      \
@@ -1074,23 +1074,12 @@ An alignment transform can be applied to cameras models
 (:numref:`ba_pc_align`). The complete documentation for this program
 is in :numref:`pc_align`.
 
-.. _pc_align_validation:
-
 Validation of alignment
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``pc_align`` program can save the source cloud after being aligned
-to the reference cloud and vice-versa, via
-``--save-transformed-source-points`` and
-``--save-inv-transformed-reference-points``. To validate that the
-aligned source cloud is very close to the reference cloud, DEMs can be
-made out of them with ``point2dem``, and those can be overlayed
-in ``stereo_gui`` (:numref:`stereo_gui`) for inspection.
-
-Alternatively, the ``geodiff`` program (:numref:`geodiff`) can be used
-to compute the (absolute) difference between aligned DEMs, which can
-be colorized with ``colormap`` (:numref:`colormap`). The ``geodiff``
-tool can take the difference between a DEM and a CSV file as well.
+The ``pc_align`` program saves some error report files in the output directory
+(:numref:`pc_align_error`). The produced aligned cloud can be compared to the
+cloud it was aligned to (:numref:`pc_align_validation`). 
 
 Alignment and orthoimages
 ~~~~~~~~~~~~~~~~~~~~~~~~~

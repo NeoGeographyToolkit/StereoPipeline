@@ -385,13 +385,15 @@ void read_csv_metadata(std::string              const& csv_file,
     // For the pointmap and match_offsets files the csv format is known, read it from
     // the file if not specified the user.  Same for anchor_points files written by
     // jitter_solve.
-    if (csv_file.find("pointmap") != std::string::npos ||
-        csv_file.find("match_offsets") != std::string::npos || 
-        csv_file.find("anchor_points") != std::string::npos)
+    if (csv_file.find("pointmap") != std::string::npos       || // bundle_adjust
+        csv_file.find("match_offsets") != std::string::npos  || // bundle_adjust
+        csv_file.find("anchor_points") != std::string::npos  || // jitter_solve
+        csv_file.find("beg_errors.csv") != std::string::npos || // pc_align
+        csv_file.find("end_errors.csv") != std::string::npos)   // pc_align
       asp::stereo_settings().csv_format_str = "1:lon, 2:lat, 4:height_above_datum";
     // For the diff.csv files produced by geodiff the csv format is known, read it from
     // the file if not specified the user.
-    if (csv_file.find("-diff.csv") != std::string::npos)
+    if (csv_file.find("-diff.csv") != std::string::npos) // geodiff
       asp::stereo_settings().csv_format_str = "1:lon, 2:lat, 3:height_above_datum";
   }
 
@@ -439,9 +441,11 @@ void read_csv_metadata(std::string              const& csv_file,
   // For a pointmap file, anchor points, or a -diff.csv file, read the
   // datum from the file. The --csv-datum option, if set, will
   // override this.
-  bool known_csv = (csv_file.find("pointmap") != std::string::npos ||
-                    csv_file.find("anchor_points") != std::string::npos ||
-                    csv_file.find("match_offsets") != std::string::npos ||
+  bool known_csv = (csv_file.find("pointmap") != std::string::npos       ||
+                    csv_file.find("anchor_points") != std::string::npos  ||
+                    csv_file.find("match_offsets") != std::string::npos  ||
+                    csv_file.find("beg_errors.csv") != std::string::npos || 
+                    csv_file.find("end_errors.csv") != std::string::npos ||
                     csv_file.find("-diff.csv") != std::string::npos);
   if (known_csv) {
     vw::cartography::Datum datum;
@@ -462,6 +466,7 @@ void read_csv_metadata(std::string              const& csv_file,
   if (has_georef) {
     if (!has_datum) {
       popUp("Must specify --csv-datum.");
+      vw_throw(ArgumentErr() << "Missing --csv-datum.\n");
       return;
     }
   }
