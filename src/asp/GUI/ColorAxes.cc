@@ -55,6 +55,8 @@ std::string QRectFToStr(QRectF const& box) {
   return os.str();
 }
 
+const double g_adjust_tol = 1e-3;
+
 // TODO(oalexan1): Integrate this with MainWidget::expand_box_to_keep_aspect_ratio()
 QRectF expand_box_to_aspect_ratio(QRectF const& in_box, double aspect_ratio) {
     
@@ -101,15 +103,18 @@ public:
     if (lut_map.empty() || lut_map.begin()->first != 0.0 || lut_map.rbegin()->first != 1.0)
       popUp("First colormap stop must be at 0.0 and last at 1.0.");
 
-     // To be able to deal with no-data, set the starting color to the
-     // background. We will make sure to use it later only for no-data.
-     double tol = 1e-4;
-    // Must replace the automatically initialized endpoints
+    // To be able to deal with no-data, set the starting color to the
+    // background. We will make sure to use it later only for no-data.
     setColorInterval(rgb2color(bgColor), rgb2color(lut_map.rbegin()->second));
     for (auto it = lut_map.begin(); it != lut_map.end(); it++) {
       double index = it->first;
+      // Shift the starting color a little forward to not overwrite the bg. 
+      // This is related to the logic in adjustMinVal(), and the number
+      // here must be smaller than what is there to ensure the bg color
+      // is not used for any valid values.
       if (index == 0)
-        index += tol; // shift the starting color a little forward to not overwrite the bg
+        index += 0.5 * g_adjust_tol; 
+      
       if (index == 0.0 || index == 1.0) 
         continue; // endpoints already added
       auto const& c = it->second; // c has 3 indices between 0 and 255
@@ -168,11 +173,12 @@ void findSpatialBounds(imageData const& image,
 
 // Make min_val smaller than any actual value, too to be able
 // to use it for no-data and show it as black
-void adjustMinVal(double & min_val, double max_val) {
+double adjustMinVal(double min_val, double max_val) {
   double len = max_val - min_val;
   if (len <= 0.0)
     len = 1.0;
-  min_val -= 1e-2 * len; // 1% smaller  
+  
+  return min_val - g_adjust_tol * len;
 }
 
 // Find min and max value based on a low-res image version
@@ -280,12 +286,13 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
 
     QwtMatrixRasterData::setInterval(Qt::XAxis, QwtInterval(m_min_x, m_max_x));
     QwtMatrixRasterData::setInterval(Qt::YAxis, QwtInterval(m_min_y, m_max_y));
-    QwtMatrixRasterData::setInterval(Qt::ZAxis, QwtInterval(m_min_val, m_max_val));
 
-    // Make min_val smaller than any actual value, too to be able
-    // to use it for no-data and show it as black 
-    // Do this after we set the axes intervals
-    adjustMinVal(m_min_val, m_max_val);
+    // Make the minimum value a little smaller than any actual value, too to be
+    // able to use it for no-data and show it as black. The black color won't
+    // really show even though it is the first color, because very close to it
+    // we start using actual colors. See LutColormap().
+    m_nodata_plot_val = adjustMinVal(m_min_val, m_max_val);
+    QwtMatrixRasterData::setInterval(Qt::ZAxis, QwtInterval(m_nodata_plot_val, m_max_val));
 
     return;
   }
@@ -348,27 +355,29 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
     
     bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
     if (poly_or_xyz)
-      return m_min_val; // TODO(oalexan1): Make transparent
+      return m_nodata_plot_val; // TODO(oalexan1): Make transparent
 
     // Return pixels at the appropriate level of resolution
     x = round(x/m_sub_scale) - m_beg_x;
     y = round(y/m_sub_scale) - m_beg_y;
 
     if (x < 0 || y < 0 || x > m_sub_image.cols() - 1 || y > m_sub_image.rows() - 1)
-      return m_min_val;
+      return m_nodata_plot_val;
     
     double val = m_sub_image(x, y);
     
     if (val == m_nodata_val || val != val) 
-      return m_min_val; // TODO(oalexan1): Make transparent, for now it is black
+      return m_nodata_plot_val; // TODO(oalexan1): Make transparent, for now it is black
 
-    return val;
+    // Ensure this is no smaller than m_min_val, as otherwise it will be shown
+    // as black background.
+    return std::max(m_min_val, val);
   }
 
 public:
   imageData & m_image;
   double m_min_x, m_min_y, m_max_x, m_max_y; // spatial extent
-  double m_min_val, m_max_val, m_nodata_val; // values 
+  double m_min_val, m_max_val, m_nodata_val, m_nodata_plot_val; // values 
 
 private:
   
@@ -381,18 +390,20 @@ private:
 // Draw irregular xyz data to be plotted at (x, y) location with z giving
 // the intensity. May be colorized.
 // TODO(oalexan1): Integrate with function in main widget.
-void drawScatteredData(imageData const& image, 
-                  const QwtScaleMap & xMap,
-                  const QwtScaleMap & yMap,
-                  const QRectF      & canvasRect, 
-                  QwtInterval       const& I, 
-                  QwtLinearColorMap const * cmap,
-                  double min_val, double max_val, double nodata_val,
-                  QPainter          * painter) {
+void drawScatteredData(imageData         const & image, 
+                       QwtScaleMap       const & xMap,
+                       QwtScaleMap       const & yMap,
+                       QRectF            const & canvasRect, 
+                       QwtInterval       const & I, 
+                       QwtLinearColorMap const * cmap,
+                       double min_val,  double max_val, 
+                       double nodata_val, 
+                       double nodata_plot_val,
+                       QPainter          * painter) {
   
   int r = asp::stereo_settings().plot_point_radius;
 
-  double den = max_val - min_val;
+  double den = max_val - nodata_plot_val;
   if (den <= 0.0)
     den = 1.0;
 
@@ -406,11 +417,18 @@ void drawScatteredData(imageData const& image,
   
     // Find the scaled intensity
     double val = P.z();
-    if (val < min_val || val != val || val == nodata_val) 
+    if (val != val || val == nodata_val) 
+      val = nodata_plot_val;
+    else if (val < min_val)
       val = min_val;
-    if (val > max_val)
+    else if (val > max_val)
       val = max_val;
-    double s = (val - min_val) / den;
+
+    // Note how we scale using nodata_plot_val, not min_val. 
+    // That because we want to use the black color for no-data,
+    // corresponding to s = 0, so any valid value will have s > 0,
+    // because nodata_plot_val < min_val.
+    double s = (val - nodata_plot_val) / den;
 
     // Find and draw the color 
     QColor c = cmap->rgb(I, s);
@@ -457,7 +475,8 @@ public:
     QwtLinearColorMap const * cmap = (QwtLinearColorMap*)this->colorMap();
     QwtInterval I(0.0, 1.0); // QwtLinearColorMap does not remember its interval
     drawScatteredData(m_data->m_image, xMap, yMap, canvasRect, I, cmap, 
-        m_data->m_min_val, m_data->m_max_val,  m_data->m_nodata_val,
+        m_data->m_min_val, m_data->m_max_val,  
+        m_data->m_nodata_val, m_data->m_nodata_plot_val,
         painter);
 
     return;
