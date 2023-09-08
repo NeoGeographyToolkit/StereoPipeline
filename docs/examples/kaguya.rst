@@ -17,10 +17,10 @@ Fetching the data
 
 Visit the `product search
 <https://darts.isas.jaxa.jp/planet/pdap/selene/product_search.html>`_ page, and
-enter a small search region (to ensure that the resulting images overlap).
+enter a small search region.
 
-Fetch the raw data sets, starting with the *TC1* and *TC2* prefixes. Both the
-.img and .lbl files are needed. 
+Fetch the raw data sets for a desired stereo pair, starting with the *TC1* and
+*TC2* prefixes (not the DEM or other products). Both the .img and .lbl files are needed. 
 
 ::
 
@@ -79,8 +79,8 @@ Run bundle adjustment (:numref:`bundle_adjust`) and stereo
       --bundle-adjust-prefix ba/run                                 \
       stereo/run
 
-Then, one can run ``point2dem`` as usual (:numref:`point2dem`) to get a DEM.
-Consider using the stereographic projection centered at the region of interest::
+Run ``point2dem`` (:numref:`point2dem`) to get a DEM. Consider using the
+stereographic projection centered at the region of interest::
 
     point2dem --stereographic --proj-lon 93.8 --proj-lat 3.5 \
       --tr 10 stereo/run-PC.tif
@@ -96,8 +96,8 @@ when running stereo.
 Alignment
 ~~~~~~~~~
 
-The produced DEM can be aligned with ``pc_align`` (:numref:`pc_align`) to the LOLA
-RDR product. 
+The produced DEM can be aligned with ``pc_align`` (:numref:`pc_align`) to the
+LOLA RDR product. 
 
 .. _sfs_kaguya:
 
