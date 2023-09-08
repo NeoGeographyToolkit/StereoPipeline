@@ -1,7 +1,7 @@
 .. _hillshade:
 
 hillshade
--------------
+---------
 
 The ``hillshade`` tool reads in a DEM and outputs an image of that DEM
 as though it were a three-dimensional surface, with every pixel shaded

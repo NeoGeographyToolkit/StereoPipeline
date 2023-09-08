@@ -530,6 +530,11 @@ as input to ``--initial-transform``.
 Note that this way bundle adjustment will not do any further camera
 refinements after the initial transform is applied.
 
+A stereo run can be reused after the cameras have been modified as above, with
+the option ``--prev-run-prefix``. Only triangulation will then be redone. Ensure
+the option ``--bundle-adjust-prefix ba_align/run`` is used to point to the new
+cameras. See :numref:`bathy_reuse_run` and :numref:`mapproj_reuse`.
+
 Troubleshooting
 ~~~~~~~~~~~~~~~
 

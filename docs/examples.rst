@@ -31,6 +31,7 @@ and in :numref:`sfm` (for orbital images with no rig).
    examples/cassini
    examples/csm
    examples/dawn
+   examples/kaguya
    examples/isis_minirf
    examples/pbs_slurm
    examples/aster

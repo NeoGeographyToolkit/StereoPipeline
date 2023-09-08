@@ -691,12 +691,9 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
     if (posFactor <= 0.0)
       vw::vw_throw(vw::ArgumentErr() << "Invalid image.\n");
 
-    std::cout << "pos factor " << posFactor << std::endl;
     int numOldMeas = ls_model->m_numPositions / NUM_XYZ_PARAMS;
     int numNewMeas = round(posFactor * (numOldMeas - 1.0)) + 1; // careful here
     numNewMeas = std::max(numNewMeas, 2);
-    std::cout << "num old pos meas " << numOldMeas << std::endl;
-    std::cout << "num new pos meas " << numNewMeas << std::endl;
 
     posFactor = double(numNewMeas - 1.0) / double(numOldMeas - 1.0);
     double currDtEphem = ls_model->m_dtEphem / posFactor;
@@ -736,10 +733,6 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
     int numNewMeas = round(posFactor * (numOldMeas - 1.0)) + 1; // careful here
     numNewMeas = std::max(numNewMeas, 2);
 
-    std::cout << "quat factor " << posFactor << std::endl;
-    std::cout << "num old quat meas " << numOldMeas << std::endl;
-    std::cout << "num new quat meas " << numNewMeas << std::endl;
-    
     posFactor = double(numNewMeas - 1.0) / double(numOldMeas - 1.0);
     double currDtQuat = ls_model->m_dtQuat / posFactor;
     double numLinesPerOrientation = (numLines - 1.0) * currDtQuat / elapsed_time;

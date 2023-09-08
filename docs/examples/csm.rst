@@ -48,9 +48,8 @@ more example of this sensor is shown in this documentation, in
 :numref:`dawn_isis`, which uses ISIS ``.cub`` camera models rather
 than CSM ones.
 
-This example can be downloaded from:
+This example is available for `download <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples>`_.
 
-  https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples
 
 Creating the input images
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -186,6 +185,9 @@ We will work with the dataset pair::
 
 which, for simplicity, we will rename to ``left.cub`` and ``right.cub``
 and the same for the associated camera files.
+
+See :numref:`kaguya_tc` for another linescan example for the Kaguya linescan
+sensor for the Moon.
 
 .. _create_csm_linescan:
 

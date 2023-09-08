@@ -8,46 +8,48 @@ New tools:
 jitter_solve (:numref:`jitter_solve`):
   * The roll and yaw constraints no longer assume linescan camera positions and
     orientations are one-to-one. 
+  * Adjusted the number of camera poses sampled from the polynomials
+    determining the quaternions for PleiadesHR cameras. It has no effect in
+    practice but results in ``jitter_solve`` assumptions being satisfied.
 
 bundle_adjust (:numref:`bundle_adjust`):
   * For ASTER cameras, use the RPC model to find interest points. This does
     not affect the final results but is much faster.
+
 parallel_stereo (:numref:`parallel_stereo`):
-   * For the ``asp_sgm`` and ``asp_mgm`` algorithms allow ``cost-mode`` to
-     have the value 3 or 4 only, as other values produce bad results. Also print
-     warnings when the user specifies values for ``rm-cleanup-passes``,
-     ``median-filter-size``, ``texture-smooth-size``, ``texture-smooth-scale``
-     that are different than the default values, as those were tested the most.
+  * Added Kaguya processing example (:numref:`kaguya_tc`).
+  * Fixed a failure when processing images that have very large blocks (on the
+    order of several tens of thousands of pixels along some dimension, as shown
+    by ``gdalinfo``). A warning, progress bar, and timing info is displayed.
+  * For the ``asp_sgm`` and ``asp_mgm`` algorithms allow ``cost-mode`` to
+    have the value 3 or 4 only, as other values produce bad results. Also print
+    warnings when the user specifies values for ``rm-cleanup-passes``,
+    ``median-filter-size``, ``texture-smooth-size``, ``texture-smooth-scale``
+    that are different than the default values, as those were tested the most.
 
 stereo_gui (:numref:`stereo_gui`):
-   * Can show scattered data with a colorbar and axes 
-     (:numref:`scattered_points_colorbar`).
-   * Renamed ``--colorize-image`` to ``--colorbar``.
-   * Auto-guess and load ``pc_align`` error files (:numref:`pc_align_error`).
+  * Can show scattered data with a colorbar and axes 
+    (:numref:`scattered_points_colorbar`).
+  * Renamed ``--colorize-image`` to ``--colorbar``.
+  * Auto-guess and load ``pc_align`` error files (:numref:`pc_align_error`).
 
 image_calc (:numref:`image_calc`):
-    * When adding new keywords to metadata geoheader, do not erase the existing
-      ones (if a keyword already exists, its value will be modified).
+  * When adding new keywords to metadata geoheader, do not erase the existing
+    ones (if a keyword already exists, its value will be modified).
 
 historical_helper.py (:numref:`historical_helper`):
-    * Added the ability to set a custom path to the needed ``convert``
-      executable and described how that tool can be installed.
+  * Added the ability to set a custom path to the needed ``convert``
+    executable and described how that tool can be installed.
 
 sfs (:numref:`sfs`):
-    * Added the option ``--albedo-robust-threshold``.
+  * Added an example for Kaguya TC (:numref:`sfs_kaguya`).
+  * Added the option ``--albedo-robust-threshold``.
   
 misc:
- * Fixed a failure when processing images that have very large blocks (on the
-   order of several tens of thousands of pixels along some dimension, as shown
-   by ``gdalinfo``). Such images can still be slow to process, including by
-   GDAL, but now there will be no failure. In addition, a warning is printed,
-   suggesting that they be reformatted to have smaller blocks.
- * Adjusted the number of camera poses sampled from the polynomials determining
-   the quaternions for PleiadesHR cameras. It has no effect in practice but
-   results in ``jitter_solve`` assumptions being satisfied.
- * Fixed a couple of runtime errors when using conda packages on OSX.
- * Eliminated a procedure for cleaning the name of an input path that was replacing
-   two slashes with one slash, as that was resulting in inconsistent behavior. 
+  * Fixed a couple of runtime errors when using conda packages on OSX.
+  * Eliminated a procedure for cleaning the name of an input path that was
+    replacing two slashes with one slash, as that was resulting in
+    inconsistent behavior. 
   
 RELEASE 3.3.0, August 16, 2023
 ------------------------------

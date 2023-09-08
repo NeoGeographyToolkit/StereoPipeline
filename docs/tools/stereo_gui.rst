@@ -85,17 +85,15 @@ the images.
 Other features
 ~~~~~~~~~~~~~~
 
-  - Create and show hillshaded DEMs, either via the ``--hillshade``
-    option, or by choosing from the GUI View menu the ``Hillshaded images``
-    option.
-
+  - Create and show hillshaded DEMs (:numref:`stereo_gui_hillshade`).
+   
   - Colorize images on-the-fly and show them with a
     colorbar and axes (:numref:`colorize`).
 
   - Display the output of the ASP ``colormap`` and ``hillshade`` tools
     (:numref:`colormap`, :numref:`hillshade`).
 
-  - Overlay scatterplots on top of images (:numref:`plot_csv`).
+  - Overlay scatter plots on top of images (:numref:`plot_csv`).
 
   - Overlay and edit polygons (:numref:`plot_poly`).
 
@@ -121,6 +119,26 @@ Other features
   - Threshold images (:numref:`thresh`).
 
   - Save a screenshot to disk in the BMP or XPM format.
+
+.. _stereo_gui_hillshade:
+
+Hillshading
+~~~~~~~~~~~
+
+The ``stereo_gui`` program can be used to create and display hillshaded DEMs. 
+
+For example, to create and view a hillshaded DEM, run::
+
+    stereo_gui --hillshade dem.tif
+
+Or, after the DEM is open, select from the GUI View menu the ``Hillshaded
+images`` option. 
+
+Right-click to change the azimuth and elevation angles, hence the direction and
+height of the light source. Then toggle hillshading off and then on again.
+
+Hillshaded images can also be created with the ``hillshade`` tool
+(:numref:`hillshade`) or with ``gdaldem hillshade`` (:numref:`gdal_tools`).
 
 .. _colorize:
 

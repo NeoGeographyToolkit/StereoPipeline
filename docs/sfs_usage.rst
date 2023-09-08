@@ -47,6 +47,8 @@ the value of the weights it uses.
 As can be seen below, ``sfs`` returns reasonable results on the Moon
 as far as 85 degrees and even 89.6 degrees South.
 
+See an example for Kaguya TC lunar images in :numref:`sfs_kaguya`.
+
 This tool's performance is mixed with Mars data. That is likely because
 Mars has very diverse geological properties and an atmosphere which
 scatters light. The program has experimental support for modeling haze
@@ -362,6 +364,8 @@ In the next sections, where SfS will be done with multiple images, more
 parameters which can control the quality of the result will be explored.
 
 See :numref:`sfs_outputs` for where ``sfs`` stores its outputs.
+
+See :numref:`sfs_kaguya` for an example of running SfS on Kaguya TC images.
 
 .. _sfs_inspection:
 

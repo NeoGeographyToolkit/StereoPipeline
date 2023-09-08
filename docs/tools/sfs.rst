@@ -25,7 +25,8 @@ Example
        --crop-input-images --bundle-adjust-prefix ba/run  \
         -i input_dem.tif image1.cub image2.cub -o run/run
 
-See many detailed worked-out examples in :numref:`sfs_usage`.
+See many detailed worked-out examples for LRO NAC in :numref:`sfs_usage`,
+and an example for the Kaguya Terrain Camera in :numref:`sfs_kaguya`.
 
 Inputs
 ~~~~~~

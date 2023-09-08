@@ -805,6 +805,8 @@ incorporate any prior bundle adjustment that ``jitter_solve`` was passed on
 input, so it was not specified in the above invocation, and in fact the results
 would be wrong if it was specified.  
 
+An example without mapprojected images is shown in :numref:`bathy_reuse_run`.
+
 .. _multiview:
 
 Multi-view stereo
