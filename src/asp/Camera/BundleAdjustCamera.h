@@ -749,6 +749,9 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                           std::vector<vw::Vector<float, 4>> & mapprojPoints,
                           std::vector<asp::MatchPairStats>  & mapprojOffsets,
                           std::vector<std::vector<float>>   & mapprojOffsetsPerCam);
-  
-}
+
+// Guess the session name if the camera file is .tsai or .json
+void guessSession(std::string const& camera_file, std::string & stereo_session);
+
+} // end namespace asp
 #endif // __BUNDLE_ADJUST_CAMERA_H__

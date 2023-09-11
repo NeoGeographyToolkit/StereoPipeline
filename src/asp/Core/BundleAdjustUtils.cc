@@ -678,5 +678,3 @@ std::string asp::csmStateFile(std::string const& adjustFile) {
 
   return csmFile;
 }
-
-  

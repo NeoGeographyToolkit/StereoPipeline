@@ -91,8 +91,7 @@ void saveCameraReport(Options const& opt, asp::BAParams const& param_storage,
     vw::Vector3 cam_ctr;
     vw::Matrix3x3 cam2ecef;
     switch(opt.camera_type) {
-    case BaCameraType_Pinhole:
-      {
+      case BaCameraType_Pinhole: {
         // Get the camera model from the original one with parameters in
         // param_storage applied to it (which could be original ones or optimized). 
         // Note that we do not modify the original camera.
@@ -101,17 +100,21 @@ void saveCameraReport(Options const& opt, asp::BAParams const& param_storage,
         if (in_cam == NULL)
           vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
         // Apply current intrinsics and extrinsics to the camera
-        vw::camera::PinholeModel out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
+        vw::camera::PinholeModel out_cam 
+          = transformedPinholeCamera(icam, param_storage, *in_cam);
         cam_ctr = out_cam.camera_center(vw::Vector2());
         cam2ecef = out_cam.get_rotation_matrix();
         break;
       }
-    case BaCameraType_OpticalBar:
-      vw::vw_throw(vw::ArgumentErr() << "Saving a camera report is not implemented "
-                   << "for optical bar cameras.\n");
-      break;
-    default:
-      {
+      case BaCameraType_OpticalBar:
+        vw::vw_throw(vw::ArgumentErr() << "Saving a camera report is not implemented "
+                    << "for optical bar cameras.\n");
+        break;
+      case BaCameraType_CSM:
+        vw::vw_throw(vw::ArgumentErr() << "Saving a camera report is not implemented "
+                      << "for CSM cameras.\n");
+        break;
+      default: {
         // Apply extrinsics adjustments to a pinhole camera
         // TODO(oalexan1): Make this into a function called adjustedPinholeCamera().
         // Use it where needed.
@@ -1867,7 +1870,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("approximate-pinhole-intrinsics", po::bool_switch(&opt.approximate_pinhole_intrinsics)->default_value(false),
      "If it reduces computation time, approximate the lens distortion model.")
     ("solve-intrinsics",    po::bool_switch(&opt.solve_intrinsics)->default_value(false)->implicit_value(true),
-     "Optimize intrinsic camera parameters.  Only used for pinhole cameras.")
+     "Optimize intrinsic camera parameters. Only used for pinhole, optical bar, "
+     "and CSM (frame and linescan) cameras. Assumes option --inline-adjustments.")
     ("intrinsics-to-float", po::value(&intrinsics_to_float_str)->default_value(""),
      "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. Not specifying anything will float all of them.")
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
@@ -2200,9 +2204,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "Missing input image files.\n"
                             << usage << general_options );
 
-  // TODO(oalexan1): This duplicates logic from StereoSessionFactory.cc.
-  // But need to ensure nothing breaks below.
-
   // Reusing match files implies that we skip matching
   if (opt.clean_match_files_prefix != "" || opt.match_files_prefix != "")
     opt.skip_matching = true;
@@ -2218,34 +2219,23 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.auto_overlap_params = "";
   }
   
-  // Work out the camera model type to use
   boost::to_lower(opt.stereo_session);
+
   opt.camera_type = BaCameraType_Other;
   if (inline_adjustments) {
-
-    // Try to guess the session 
-    if (opt.stereo_session == ""){
-      try {
-        // If we can open a pinhole camera file, that means
-        // we are good. We prefer nadirpinhole to pinhole
-        // session.
-        PinholeModel(opt.camera_files[0]);
-        opt.stereo_session = "nadirpinhole";
-      }catch(std::exception const& e){}
-    }
-    
+    // Work out the session and camera model type
+    asp::guessSession(opt.camera_files[0], opt.stereo_session);
     if ((opt.stereo_session == "pinhole") || 
-        (opt.stereo_session == "nadirpinhole")) {
+        (opt.stereo_session == "nadirpinhole"))
       opt.camera_type = BaCameraType_Pinhole;
-    } else {
-      if (opt.stereo_session == "opticalbar")
+    else if (opt.stereo_session == "opticalbar")
         opt.camera_type = BaCameraType_OpticalBar;
-      else
-        vw_throw( ArgumentErr() << "Cannot use inline adjustments with session: "
-                  << opt.stereo_session << "\n"
-                                << usage << general_options );
-    }
-  } // End resolving the model type
+    else if (opt.stereo_session == "csm")
+      opt.camera_type = BaCameraType_CSM;
+    else
+      vw_throw(ArgumentErr() << "Cannot use inline adjustments with session: "
+                << opt.stereo_session << "\n" << usage << general_options);
+  }
   
   if (opt.transform_cameras_using_gcp &&
       (!inline_adjustments) &&
@@ -2326,15 +2316,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   //if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
   //  vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
 
+  if (opt.solve_intrinsics && !inline_adjustments)
+    vw_throw(ArgumentErr() 
+     << "Must use option --inline-adjustments with --solve-intrinsics.\n");
+
   if ((opt.camera_type == BaCameraType_Other) && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with "
               << "pinhole and optical bar cameras.\n");
 
   if ((opt.camera_type!=BaCameraType_Pinhole) && opt.approximate_pinhole_intrinsics)
-    vw_throw( ArgumentErr() << "Cannot approximate intrinsics unless using pinhole cameras.\n");
+    vw_throw(ArgumentErr() << "Cannot approximate intrinsics unless using pinhole cameras.\n");
 
   if (opt.approximate_pinhole_intrinsics && opt.solve_intrinsics)
-    vw_throw( ArgumentErr() << "Cannot approximate intrinsics while solving for them.\n");
+    vw_throw(ArgumentErr() << "Cannot approximate intrinsics while solving for them.\n");
 
   if (opt.camera_type != BaCameraType_Other &&
       opt.camera_type != BaCameraType_Pinhole &&

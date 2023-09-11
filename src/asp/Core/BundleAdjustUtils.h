@@ -189,6 +189,6 @@ namespace asp{
   
   // Manufacture a CSM state file from an adjust file
   std::string csmStateFile(std::string const& adjustFile);
-}
+} // end namespace asp
 
 #endif // __BUNDLE_ADJUST_UTILS_H__

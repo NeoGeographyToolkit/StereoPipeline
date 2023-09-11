@@ -681,8 +681,9 @@ Command-line options for bundle_adjust
     longitude, and height.
 
 --solve-intrinsics
-    Optimize intrinsic camera parameters. Only used for pinhole
-    cameras.
+    Optimize intrinsic camera parameters. Only used for pinhole,
+    optical bar, and CSM (frame and linescan) cameras. Assumes
+    option ``--inline-adjustments``.
 
 --intrinsics-to-float <arg>
     If solving for intrinsics and desired to float only a few of

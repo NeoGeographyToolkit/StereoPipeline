@@ -28,6 +28,7 @@
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/FileIO/KML.h>
 #include <asp/Camera/CameraResectioning.h>
+#include <asp/Camera/CsmModel.h>
 
 #include <string>
 
@@ -1191,3 +1192,37 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     
   } // End loop through the match files
 }
+
+// Guess the session name if the camera file is .tsai or .json
+void asp::guessSession(std::string const& camera_file, std::string & stereo_session) {
+
+  if (stereo_session == "") {
+    try {
+      // If we can open a pinhole camera file, that means
+      // we are good. We prefer nadirpinhole to pinhole
+      // session.
+      PinholeModel(camera_file);
+      stereo_session = "nadirpinhole";
+    } catch(std::exception const& e) {}
+  }
+
+  if (stereo_session == "") {
+    try {
+      // If we can open an optical bar camera file, that means
+      // we are good.
+      OpticalBarModel(camera_file);
+      stereo_session = "opticalbar";
+    } catch(std::exception const& e){}
+  }
+
+  if (stereo_session == "") {
+    try {
+      // See of we can open a CSM model
+      CsmModel(camera_file);
+      stereo_session = "csm";
+    } catch(std::exception const& e){}
+  }
+
+  return;
+}
+

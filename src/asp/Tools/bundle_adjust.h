@@ -48,7 +48,8 @@
 /// These are the different camera modes that bundle_adjust supports.
 enum BACameraType {BaCameraType_Pinhole    = 0,
                    BaCameraType_OpticalBar = 1,
-                   BaCameraType_Other      = 2};
+                   BaCameraType_CSM        = 2,
+                   BaCameraType_Other      = 3};
 
 /// The big bag of parameters needed by bundle_adjust.cc
 /// The ones shared with jitter_solve.cc are in asp::BaBaseOptions.
