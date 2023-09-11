@@ -4,8 +4,8 @@ Kaguya Terrain Camera
 ---------------------
 
 The Kaguya Terrain Camera (TC) is a push-broom imager, with a spatial resolution
-of 10 m, acquired from a 100 km altitude above the Moon. It was part of the JAXA
-`Kaguya <https://en.wikipedia.org/wiki/SELENE>`_ orbiter.
+of 10 m. The images are acquired from a 100 km altitude above the Moon. It was
+part of the JAXA `Kaguya <https://en.wikipedia.org/wiki/SELENE>`_ orbiter.
 
 Kaguya TC has two sensors, named TC1 and TC2, forming a stereo pair. They see
 roughly the same region on the ground, with a convergence angle of about 30 degrees
@@ -151,7 +151,7 @@ Run SfS as::
       --threads 4                              \
       --save-sparingly                         \
       --crop-input-images                      \
-      --smoothness-weight 20000                \
+      --smoothness-weight 30000                \
       --initial-dem-constraint-weight 10       \
       --max-iterations 5                       \
       --shadow-thresholds "120 120"            \
@@ -163,8 +163,9 @@ Run SfS as::
 The initial and final DEM can be inspected in ``stereo_gui``. The ``geodiff``
 (:numref:`geodiff`) tool can be used to compare how much the DEM changed.
 
-The choices of parameters above are peculiar to this data set. Likely the
-smoothness weight could be decreased somewhat without introducing much noise.
+The choices of parameters above are peculiar to this data set, especially the
+smoothness weight. Making this smaller can result in artifacts, but if it is
+larger, it may blur the produced DEM too much.
 
 The initial DEM constraint was set rather high to ensure the DEM does not change
 much as result of SfS. The shadow threshold depends on the pixel values and can
@@ -175,8 +176,9 @@ can add more information, and makes it possible to reduce the value of the
 smoothness weight without introducing artifacts, which results in less detail
 being lost.
 
-See, for comparison, the choices made for LRO NAC (:numref:`sfs-lola`). That
-example also has the most detailed discussion for how to run SfS.
+See, for comparison, the parameter choices made for LRO NAC
+(:numref:`sfs-lola`). That example, and that entire chapter, also has the most
+detailed discussion for how to run SfS.
 
 .. figure:: ../images/sfs_kaguya_example.png
    :name: sfs_kaguya_example
