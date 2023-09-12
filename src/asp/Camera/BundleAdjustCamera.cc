@@ -36,6 +36,166 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
 
+// Constructor
+asp::BAParams::BAParams(int num_points, int num_cameras,
+                // Parameters below here only apply to pinhole models.
+                bool using_intrinsics,
+                int num_distortion_params,
+                IntrinsicOptions intrinsics_opts): 
+    m_num_points        (num_points),
+    m_num_cameras       (num_cameras),
+    m_params_per_point  (PARAMS_PER_POINT),
+    m_num_pose_params   (NUM_CAMERA_PARAMS),
+    m_num_shared_intrinsics    (0),
+    m_num_intrinsics_per_camera(0),
+    m_num_distortion_params(num_distortion_params),
+    m_focus_offset(0),
+    m_distortion_offset(0),
+    m_intrinsics_opts    (intrinsics_opts),
+    m_points_vec        (num_points *PARAMS_PER_POINT,  0),
+    m_cameras_vec       (num_cameras*NUM_CAMERA_PARAMS, 0),
+    m_intrinsics_vec    (0),
+    m_outlier_points_vec(num_points, false),
+    m_rand_gen(std::time(0)) {
+
+    if (!using_intrinsics)
+      return; // If we are not using intrinsics, nothing else to do.
+
+    // Calculate how many values are stored per-camera, and
+    //  what the offset is to a particular intrinsic value.
+    // - The start of the array is always an entry for each intrinsic in case
+    //   it is shared.
+    if (!intrinsics_opts.center_shared)
+      m_num_intrinsics_per_camera += NUM_CENTER_PARAMS;
+    if (intrinsics_opts.focus_shared)
+      m_focus_offset = NUM_CENTER_PARAMS;
+    else {
+      m_num_intrinsics_per_camera += NUM_FOCUS_PARAMS;
+      if (!intrinsics_opts.center_shared)
+        m_focus_offset = NUM_CENTER_PARAMS;
+    }
+    if (intrinsics_opts.distortion_shared)
+      m_distortion_offset = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS;
+    else {
+      m_num_intrinsics_per_camera += num_distortion_params;
+      if (!intrinsics_opts.center_shared)
+        m_distortion_offset += NUM_CENTER_PARAMS;
+      if (!intrinsics_opts.focus_shared)
+        m_distortion_offset += NUM_FOCUS_PARAMS;
+    }
+
+    // For simplicity, we always set this to the same size even
+    //  if none of the parameters are shared.
+    m_num_shared_intrinsics = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS
+                              + num_distortion_params;
+
+    m_intrinsics_vec.resize(m_num_shared_intrinsics +
+                            num_cameras*m_num_intrinsics_per_camera);
+  }
+
+// Copy constructor
+asp::BAParams::BAParams(asp::BAParams const& other):
+      m_num_points        (other.m_num_points),
+      m_num_cameras       (other.m_num_cameras),
+      m_params_per_point  (other.m_params_per_point),
+      m_num_pose_params   (other.m_num_pose_params),
+      m_num_shared_intrinsics    (other.m_num_shared_intrinsics),
+      m_num_intrinsics_per_camera(other.m_num_intrinsics_per_camera),
+      m_num_distortion_params(other.m_num_distortion_params),
+      m_focus_offset      (other.m_focus_offset),
+      m_distortion_offset (other.m_distortion_offset),
+      m_intrinsics_opts    (other.m_intrinsics_opts),
+      m_points_vec        (other.m_points_vec.size()        ),
+      m_cameras_vec       (other.m_cameras_vec.size()       ),
+      m_intrinsics_vec    (other.m_intrinsics_vec.size()    ),
+      m_outlier_points_vec(other.m_outlier_points_vec.size()),
+      m_rand_gen(std::time(0)) {
+    copy_points    (other);
+    copy_cameras   (other);
+    copy_intrinsics(other);
+    copy_outliers  (other);
+  }
+
+/// Apply a random offset to each camera position.
+void asp::BAParams::randomize_cameras() {
+  // These are stored as x,y,z, axis_angle.
+  // - We move the position +/- 5 meters.
+  // - Currently we don't adjust the angle.
+  boost::random::uniform_int_distribution<> xyz_dist(0, 10);
+  const size_t NUM_CAMERA_PARAMS = 6;
+  VW_ASSERT((m_cameras_vec.size() % NUM_CAMERA_PARAMS) == 0,
+            vw::LogicErr() << "Camera parameter length is not a multiple of 6!");
+  const size_t num_cameras = m_cameras_vec.size() / NUM_CAMERA_PARAMS;
+  for (size_t c=0; c<num_cameras; ++c) {
+    double* ptr = get_camera_ptr(c);
+    for (size_t i=0; i<3; i++) {
+      int o = xyz_dist(m_rand_gen) - 5;
+      ptr[i] += o;
+    }
+    //for (size_t i=3; i<PARAMS_PER_CAM; i++) {
+    //}
+  }
+}
+
+/// Randomly scale each intrinsic value.
+void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_limits) {
+  // Intrinsic values are stored as multipliers, here we 
+  //  multiply from 0.5 to 1.5, being careful about shared and constant values.
+  // - If intrinsic limits are specified, use that range instead.
+  boost::random::uniform_int_distribution<> dist(0, 100);
+  const double DENOM = 100.0;
+  const double DEFAULT_MIN   = 0.5;
+  const double DEFAULT_MAX   = 1.5;
+  const double DEFAULT_RANGE = DEFAULT_MAX - DEFAULT_MIN;
+
+  const size_t num_intrinsics = intrinsic_limits.size() / 2;
+  float percent, scale, range = 0;
+  for (size_t c=0; c<num_cameras(); ++c) { // For each camera...
+    size_t intrin_index = 0;
+    if (!m_intrinsics_opts.focus_constant && !(m_intrinsics_opts.focus_shared && (c>0))) {
+      double* ptr = get_intrinsic_focus_ptr(c);
+      for (int i=0; i<NUM_FOCUS_PARAMS; i++) {
+        percent = static_cast<double>(dist(m_rand_gen))/DENOM;
+        if (intrin_index < num_intrinsics) {
+          range = intrinsic_limits[2*intrin_index+1] - intrinsic_limits[2*intrin_index];
+          scale = percent*range + intrinsic_limits[2*intrin_index];
+        } else
+          scale = percent*DEFAULT_RANGE + DEFAULT_MIN;
+        ptr[i] *= scale;
+        ++intrin_index;
+      }
+    } // End focus case
+    intrin_index = NUM_FOCUS_PARAMS; // In case we did not go through the loop
+    if (!m_intrinsics_opts.center_constant && !(m_intrinsics_opts.center_shared && (c>0))) {
+      double* ptr = get_intrinsic_center_ptr(c);
+      for (int i=0; i<NUM_CENTER_PARAMS; i++) {
+        percent = static_cast<double>(dist(m_rand_gen))/DENOM;
+        if (intrin_index < num_intrinsics) {
+          range = intrinsic_limits[2*intrin_index+1] - intrinsic_limits[2*intrin_index];
+          scale = percent*range + intrinsic_limits[2*intrin_index];
+        } else
+          scale = percent*DEFAULT_RANGE + DEFAULT_MIN;
+        ptr[i] *= scale;
+        ++intrin_index;
+      }
+    } // End center case
+    intrin_index = NUM_FOCUS_PARAMS+NUM_CENTER_PARAMS; // In case we did not go through the loops
+    if (!m_intrinsics_opts.distortion_constant && !(m_intrinsics_opts.distortion_shared && (c>0))) {
+      double* ptr = get_intrinsic_distortion_ptr(c);
+      for (int i=0; i<m_num_distortion_params; i++) {
+        percent = static_cast<double>(dist(m_rand_gen))/DENOM;
+        if (intrin_index < num_intrinsics) {
+          range = intrinsic_limits[2*intrin_index+1] - intrinsic_limits[2*intrin_index];
+          scale = percent*range + intrinsic_limits[2*intrin_index];
+        } else
+          scale = percent*DEFAULT_RANGE + DEFAULT_MIN;
+        ptr[i] *= scale;
+        ++intrin_index;
+      }
+    } // End distortion case
+  } // End camera loop
+}
+
 void asp::BAParams::record_points_to_kml(const std::string &kml_path,
                                          const vw::cartography::Datum& datum,
                                          size_t skip, const std::string name,
@@ -927,13 +1087,14 @@ void asp::calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
 }
 
 // Save mapprojected matches offsets for each image pair having matches
-void asp::saveMapprojOffsets(std::string                       const& mapproj_offsets_stats_file,
-                             std::string                       const& mapproj_offsets_file,
-                             vw::cartography::GeoReference     const& mapproj_dem_georef,
-                             std::vector<vw::Vector<float, 4>> const& mapprojPoints,
-                             std::vector<asp::MatchPairStats>  const& mapprojOffsets,
-                             std::vector<std::vector<float>>        & mapprojOffsetsPerCam,
-                             std::vector<std::string>          const& imageFiles) {
+void asp::saveMapprojOffsets(
+     std::string                       const& mapproj_offsets_stats_file,
+     std::string                       const& mapproj_offsets_file,
+     vw::cartography::GeoReference     const& mapproj_dem_georef,
+     std::vector<vw::Vector<float, 4>> const& mapprojPoints,
+     std::vector<asp::MatchPairStats>  const& mapprojOffsets,
+     std::vector<std::vector<float>>        & mapprojOffsetsPerCam,
+     std::vector<std::string>          const& imageFiles) {
   
   vw_out() << "Writing: " << mapproj_offsets_stats_file << "\n";
   std::ofstream ofs (mapproj_offsets_stats_file.c_str());
@@ -1218,4 +1379,3 @@ void asp::guessSession(std::string const& camera_file, std::string & stereo_sess
 
   return;
 }
-

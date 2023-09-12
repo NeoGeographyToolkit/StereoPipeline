@@ -1663,13 +1663,17 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   bool ans = false;
   switch (opt.camera_type) {
     case BaCameraType_Pinhole:
-      ans = init_cams_pinhole(opt, param_storage, new_cam_models); break;
+      ans = init_cams_pinhole(opt, param_storage, 
+                              opt.initial_transform_file, opt.initial_transform,
+                              new_cam_models); break;
     case BaCameraType_OpticalBar:
-      ans = init_cams_optical_bar(opt, param_storage, new_cam_models); break;
+      ans = init_cams_optical_bar(opt, param_storage, 
+                                  opt.initial_transform_file, opt.initial_transform,new_cam_models); break;
     case BaCameraType_CSM:
-      //ans = init_cams_csm(opt, param_storage, new_cam_models); break;
+      //ans = init_cams_csm(opt, opt.initial_transform_file, opt.initial_transform,param_storage, new_cam_models); break;
     case BaCameraType_Other:
-      ans = init_cams(opt, param_storage, new_cam_models); break;
+      ans = init_cams(opt, param_storage, opt.initial_transform_file, opt.initial_transform,
+                      new_cam_models); break;
     default: 
       vw_throw(ArgumentErr() << "Unknown camera type.\n");
   };

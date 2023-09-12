@@ -448,7 +448,7 @@ struct BaDispXyzError {
                  boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
                  boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
                  bool is_pinhole, // Would like to remove these!
-                 IntrinsicOptions intrin_opt)
+                 asp::IntrinsicOptions intrin_opt)
       : m_reference_xyz(reference_xyz),
         m_interp_disp  (interp_disp  ),
         m_num_left_param_blocks (left_camera_wrapper->num_parameter_blocks ()),
@@ -512,7 +512,7 @@ struct BaDispXyzError {
   static void get_residual_pointers(asp::BAParams &param_storage,
                                     int left_cam_index, int right_cam_index,
                                     bool is_pinhole,
-                                    IntrinsicOptions const& intrin_opt,
+                                    asp::IntrinsicOptions const& intrin_opt,
                                     std::vector<double*> &residual_ptrs) {
    
     double* left_camera  = param_storage.get_camera_ptr(left_cam_index );
@@ -595,7 +595,7 @@ struct BaDispXyzError {
       Vector3 const& reference_xyz, ImageViewRef<DispPixelT> const& interp_disp,
       boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
       boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
-      bool is_pinhole, IntrinsicOptions intrin_opt = IntrinsicOptions()) {
+      bool is_pinhole, asp::IntrinsicOptions intrin_opt = asp::IntrinsicOptions()) {
 
     const int NUM_RESIDUALS = 2;
 
@@ -639,7 +639,7 @@ struct BaDispXyzError {
 
   // Would like to not have these two!
   bool m_is_pinhole;
-  IntrinsicOptions m_intrin_opt;
+  asp::IntrinsicOptions m_intrin_opt;
 };
 
 
