@@ -37,7 +37,7 @@ namespace asp {
 
   // Do not set this lower than 1e-8, as then UsgsAstroLsSensorModel will
   // return junk.
-  const double DEFAULT_CSM_DESIRED_PRECISISON = 1.0e-8;
+  const double DEFAULT_CSM_DESIRED_PRECISION = 1.0e-8;
   
   /// Class to load any cameras described by the Community Sensor Model (CSM)
   class CsmModel : public vw::camera::CameraModel {
@@ -115,6 +115,10 @@ namespace asp {
     /// Create the model from a state string. Use recreate_model = false,
     /// if desired to adjust an existing model.
     void setModelFromStateString(std::string const& model_state, bool recreate_model);
+
+    /// Get and set the distortion coefficients 
+    std::vector<double> distortion() const;
+    void set_distortion(std::vector<double> const& distortion);
 
     boost::shared_ptr<csm::RasterGM> m_gm_model;
 

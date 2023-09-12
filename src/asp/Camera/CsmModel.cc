@@ -128,7 +128,7 @@ CsmModel::CsmModel():m_semi_major_axis(0.0),
                      m_sun_position(vw::Vector3()),
                      // Do not make the precision lower than 1e-8. CSM can give
                      // junk results when it is too low.
-                     m_desired_precision(asp::DEFAULT_CSM_DESIRED_PRECISISON){}
+                     m_desired_precision(asp::DEFAULT_CSM_DESIRED_PRECISION){}
                                       
 CsmModel::CsmModel(std::string const& isd_path) {
   load_model(isd_path);
@@ -487,7 +487,7 @@ void setModelFromStateStringAux(bool recreate_model,
     
     // Handle load failure
     if (!new_gm_model)
-      vw::vw_throw(vw::ArgumentErr() << "Failed to cast linescan model to raster type.");
+      vw::vw_throw(vw::ArgumentErr() << "Failed to cast CSM model to raster type.");
     
     // This will wipe any preexisting model. Prior gm_model pointer will become invalid.
     gm_model.reset(new_gm_model); 
@@ -838,6 +838,56 @@ void CsmModel::applyTransform(vw::Matrix4x4 const& transform) {
   state = cam.getModelName() + "\n" + j.dump(2);
   bool recreate_model = true;
   setModelFromStateString(state, recreate_model);
+}
+
+// Get the distortion coefficients. Need to consider each model type separately.
+std::vector<double> CsmModel::distortion() const {
+
+  csm::RasterGM const* gm_model
+    = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
+
+  UsgsAstroFrameSensorModel const* frame_model
+    = dynamic_cast<UsgsAstroFrameSensorModel const*>(gm_model);
+  if (frame_model != NULL)
+    return frame_model->m_opticalDistCoeffs;
+
+  UsgsAstroLsSensorModel const* ls_model
+    = dynamic_cast<UsgsAstroLsSensorModel const*>(gm_model);
+    if (ls_model != NULL)
+      return ls_model->m_opticalDistCoeffs;
+
+  // Fail otherwise. There's no chance we will need this with SAR 
+  // or pushbroom models.
+  vw_throw(vw::ArgumentErr()
+         << "CSM model distortion can be handled only for linescan and frame cameras.\n");
+  return std::vector<double>();
+}
+
+// Set the distortion. Need to consider each model type separately.
+void CsmModel::set_distortion(std::vector<double> const& distortion) {
+
+  csm::RasterGM * gm_model
+    = dynamic_cast<csm::RasterGM*>(this->m_gm_model.get());
+
+  UsgsAstroFrameSensorModel * frame_model
+    = dynamic_cast<UsgsAstroFrameSensorModel*>(gm_model);
+  if (frame_model != NULL) {
+    frame_model->m_opticalDistCoeffs = distortion;
+    return;
+  }
+
+  UsgsAstroLsSensorModel * ls_model
+    = dynamic_cast<UsgsAstroLsSensorModel*>(gm_model);
+  if (ls_model != NULL) {
+    ls_model->m_opticalDistCoeffs = distortion;
+    return;
+  }
+
+  // Fail otherwise. There's no chance we will need this with SAR 
+  // or pushbroom models.
+  vw_throw(vw::ArgumentErr()
+         << "CSM model distortion can be handled only for linescan and frame cameras.\n");
+  return;
 }
 
 } // end namespace asp

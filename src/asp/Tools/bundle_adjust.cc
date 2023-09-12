@@ -49,22 +49,6 @@ using namespace vw::ba;
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 typedef CameraRelationNetwork<JFeature> CRNJ;
 
-/// Write a csm camera state file to disk.
-void write_csm_output_file(Options const& opt, int icam,
-                           std::string const& adjustFile, 
-                           asp::BAParams const& param_storage) {
-  
-  CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-  
-  AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
-                              cam_adjust.position(), cam_adjust.pose());
-  
-  vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
-  std::string csmFile          = asp::csmStateFile(adjustFile);
-  asp::CsmModel * csm_model    = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
-  csm_model->saveTransformedState(csmFile, ecef_transform);
-}
-
 // Save pinhole camera positions and orientations in a single file.
 // This is useful if there are thousands of cameras.
 // TODO(oalexan1): Add here initial and final prefix.
@@ -166,6 +150,23 @@ void saveCameraReport(Options const& opt, asp::BAParams const& param_storage,
   return;
 }
 
+/// Write a csm camera state file to disk. This uses logic from CameraModelLoader.cc,
+/// so it is not simple to move out of here.
+void write_csm_output_file(Options const& opt, int icam,
+                           std::string const& adjustFile, 
+                           asp::BAParams const& param_storage) {
+  
+  CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+  
+  AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+                              cam_adjust.position(), cam_adjust.pose());
+  
+  vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
+  std::string csmFile          = asp::csmStateFile(adjustFile);
+  asp::CsmModel * csm_model    = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
+  csm_model->saveTransformedState(csmFile, ecef_transform);
+}
+
 // Write the results to disk.
 void saveResults(Options const& opt, asp::BAParams const& param_storage) {
   int num_cameras = opt.image_files.size();
@@ -239,7 +240,7 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
         BaReprojectionError::Create(observation, pixel_sigma, wrapper);
       problem.AddResidualBlock(cost_function, loss_function, point, camera);
 
-  } else { // Pinhole and optical bar
+  } else { // Pinhole or optical bar
 
     double* center     = param_storage.get_intrinsic_center_ptr    (camera_index);
     double* focus      = param_storage.get_intrinsic_focus_ptr     (camera_index);
@@ -255,7 +256,7 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
         vw::vw_throw(vw::ArgumentErr() << "Tried to add pinhole block with non-pinhole camera.");
       wrapper.reset(new PinholeBundleModel(pinhole_model));
 
-    } else { // Optical bar
+    } else if (opt.camera_type == BaCameraType_OpticalBar) {
 
       boost::shared_ptr<vw::camera::OpticalBarModel> bar_model = 
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(camera_model);
@@ -263,6 +264,8 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
         vw::vw_throw( vw::ArgumentErr() << "Tried to add optical bar block with "
                       << "non-optical bar camera.");
       wrapper.reset(new OpticalBarBundleModel(bar_model));
+    } else {
+      vw::vw_throw( vw::ArgumentErr() << "Unknown camera type." );
     }
 
     ceres::CostFunction* cost_function =
@@ -1627,6 +1630,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   if (opt.camera_type == BaCameraType_Pinhole) {
     boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
             boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models[0]);
+    if (!pinhole_ptr) 
+      vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
+
     num_lens_distortion_params = pinhole_ptr->lens_distortion()->distortion_parameters().size();
     if (num_lens_distortion_params < 1) {
       // For the case where the camera has zero distortion parameters, use one dummy parameter
@@ -1635,10 +1641,16 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       opt.intrinisc_options.distortion_constant = true;
       opt.intrinisc_options.distortion_shared   = true;
     }
-  }
-  if (opt.camera_type == BaCameraType_OpticalBar) {
+  } else if (opt.camera_type == BaCameraType_OpticalBar) {
     num_lens_distortion_params = NUM_OPTICAL_BAR_EXTRA_PARAMS; // TODO: Share this constant!
+  } else if (opt.camera_type == BaCameraType_CSM) {
+    boost::shared_ptr<asp::CsmModel> csm_ptr = 
+            boost::dynamic_pointer_cast<asp::CsmModel>(opt.camera_models[0]);
+    if (!csm_ptr)
+      vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
+    num_lens_distortion_params = csm_ptr->distortion().size();
   }
+
   asp::BAParams param_storage(num_points, num_cameras,
                                // Optical bar and pinhole are similar
                                opt.camera_type != BaCameraType_Other, 
@@ -1654,8 +1666,12 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       ans = init_cams_pinhole(opt, param_storage, new_cam_models); break;
     case BaCameraType_OpticalBar:
       ans = init_cams_optical_bar(opt, param_storage, new_cam_models); break;
-    default:
-      ans = init_cams(opt, param_storage, new_cam_models);
+    case BaCameraType_CSM:
+      //ans = init_cams_csm(opt, param_storage, new_cam_models); break;
+    case BaCameraType_Other:
+      ans = init_cams(opt, param_storage, new_cam_models); break;
+    default: 
+      vw_throw(ArgumentErr() << "Unknown camera type.\n");
   };
 
   if (ans)

@@ -138,9 +138,8 @@ public:
                  // Parameters below here only apply to pinhole models.
                  bool using_intrinsics=false,
                  int num_distortion_params=0,
-                 IntrinsicOptions  intrin_opts=IntrinsicOptions()
-                )
-    : m_num_points        (num_points),
+                 IntrinsicOptions  intrin_opts=IntrinsicOptions()): 
+      m_num_points        (num_points),
       m_num_cameras       (num_cameras),
       m_params_per_point  (PARAMS_PER_POINT),
       m_num_pose_params   (NUM_CAMERA_PARAMS),
@@ -156,40 +155,40 @@ public:
       m_outlier_points_vec(num_points, false),
       m_rand_gen(std::time(0)) {
 
-        if (!using_intrinsics)
-          return; // If we are not using intrinsics, nothing else to do.
+      if (!using_intrinsics)
+        return; // If we are not using intrinsics, nothing else to do.
 
-        // Calculate how many values are stored per-camera, and
-        //  what the offset is to a particular intrinsic value.
-        // - The start of the array is always an entry for each intrinsic in case
-        //   it is shared.
+      // Calculate how many values are stored per-camera, and
+      //  what the offset is to a particular intrinsic value.
+      // - The start of the array is always an entry for each intrinsic in case
+      //   it is shared.
+      if (!intrin_opts.center_shared)
+        m_num_intrinsics_per_camera += NUM_CENTER_PARAMS;
+      if (intrin_opts.focus_shared)
+        m_focus_offset = NUM_CENTER_PARAMS;
+      else {
+        m_num_intrinsics_per_camera += NUM_FOCUS_PARAMS;
         if (!intrin_opts.center_shared)
-          m_num_intrinsics_per_camera += NUM_CENTER_PARAMS;
-        if (intrin_opts.focus_shared)
           m_focus_offset = NUM_CENTER_PARAMS;
-        else {
-          m_num_intrinsics_per_camera += NUM_FOCUS_PARAMS;
-          if (!intrin_opts.center_shared)
-            m_focus_offset = NUM_CENTER_PARAMS;
-        }
-        if (intrin_opts.distortion_shared)
-          m_distortion_offset = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS;
-        else {
-          m_num_intrinsics_per_camera += num_distortion_params;
-          if (!intrin_opts.center_shared)
-            m_distortion_offset += NUM_CENTER_PARAMS;
-          if (!intrin_opts.focus_shared)
-            m_distortion_offset += NUM_FOCUS_PARAMS;
-        }
-
-        // For simplicity, we always set this to the same size even
-        //  if none of the parameters are shared.
-        m_num_shared_intrinsics = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS
-                                  + num_distortion_params;
-
-        m_intrinsics_vec.resize(m_num_shared_intrinsics +
-                                num_cameras*m_num_intrinsics_per_camera);
       }
+      if (intrin_opts.distortion_shared)
+        m_distortion_offset = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS;
+      else {
+        m_num_intrinsics_per_camera += num_distortion_params;
+        if (!intrin_opts.center_shared)
+          m_distortion_offset += NUM_CENTER_PARAMS;
+        if (!intrin_opts.focus_shared)
+          m_distortion_offset += NUM_FOCUS_PARAMS;
+      }
+
+      // For simplicity, we always set this to the same size even
+      //  if none of the parameters are shared.
+      m_num_shared_intrinsics = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS
+                                + num_distortion_params;
+
+      m_intrinsics_vec.resize(m_num_shared_intrinsics +
+                              num_cameras*m_num_intrinsics_per_camera);
+    }
 
   // Copy constructor
   BAParams(BAParams const& other)
@@ -754,4 +753,5 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
 void guessSession(std::string const& camera_file, std::string & stereo_session);
 
 } // end namespace asp
+
 #endif // __BUNDLE_ADJUST_CAMERA_H__

@@ -260,7 +260,7 @@ void DGCameraModel::populateCsmModel() {
 
   // this sensor is used for Earth only
   vw::cartography::Datum datum = vw::cartography::Datum("WGS84"); 
-  m_csm_model->m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
+  m_csm_model->m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
   m_csm_model->m_semi_major_axis = datum.semi_major_axis(); // WGS84
   m_csm_model->m_semi_minor_axis = datum.semi_minor_axis(); // WGS84
     

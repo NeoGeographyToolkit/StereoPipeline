@@ -64,7 +64,7 @@ bool LsPixelReprojErr::operator()(double const * const * parameters,
     // Project in the camera with high precision. Do not use here
     // anything lower than 1e-8, as the linescan model will then
     // return junk.
-    double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
+    double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
     csm::ImageCoord imagePt = cam.groundToImage(P, desired_precision);
 
     // Convert to what ASP expects
@@ -111,7 +111,7 @@ bool FramePixelReprojErr::operator()(double const * const * parameters,
     // Project in the camera with high precision. Do not use here
     // anything lower than 1e-8, as the linescan model will then
     // return junk.
-    double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
+    double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
     csm::ImageCoord imagePt = cam.groundToImage(P, desired_precision);
 
     // Convert to what ASP expects

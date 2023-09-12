@@ -468,7 +468,8 @@ void write_optical_bar_output_file(Options const& opt, int icam,
     = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
   if (in_cam == NULL)
     vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
-  vw::camera::OpticalBarModel out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
+  vw::camera::OpticalBarModel out_cam 
+    = transformedOpticalBarCamera(icam, param_storage, *in_cam);
   
   vw::vw_out() << "Writing: " << cam_file << std::endl;
   out_cam.write(cam_file);

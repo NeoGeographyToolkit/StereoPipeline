@@ -50,7 +50,7 @@ void populateSyntheticLinescan(SatSimOptions const& opt,
     vw_throw(vw::ArgumentErr() << "Expecting as many positions as orientations.\n");
 
   // Do not use a precision below 1.0-e8 as then the linescan model will return junk.
-  model.m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISISON;
+  model.m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
   model.m_semi_major_axis = georef.datum().semi_major_axis();
   model.m_semi_minor_axis = georef.datum().semi_minor_axis();
 
