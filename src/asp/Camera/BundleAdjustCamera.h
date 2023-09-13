@@ -40,6 +40,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Camera/CsmModel.h>
 #include <asp/Core/BundleAdjustUtils.h>
 
 #include <boost/random/mersenne_twister.hpp>
@@ -379,6 +380,20 @@ public:
     m_pose_data     = cam.camera_pose();
   }
 
+  /// Populate from CSM. Since with CSM we apply adjustments to existing
+  /// cameras, these start as 0.
+  void copy_from_csm(asp::CsmModel const& cam) {
+    m_position_data = vw::Vector3(0, 0, 0);
+    // Create identity matrix 3x3
+    vw::Matrix3x3 I;
+    I.set_identity();
+    // Initialize quaternion from I
+    m_pose_data = vw::Quat(I);
+    // find the rotation matrix for this quat
+    vw::Matrix3x3 rot_mat = m_pose_data.rotation_matrix();
+    std::cout << "rotation matrix is " << rot_mat << std::endl;
+  }
+
   /// Populate from an adjustment file on disk.
   void read_from_adjust_file(std::string const& filename) {
     
@@ -419,15 +434,18 @@ private:
 
 //==================================================================================
 
-/// Packs info from a pinhole camera into the provided arrays.
+/// Packs info from various camera models into the provided arrays.
 /// - It is up to the caller to make sure the arrays are properly sized.
 void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
                             int camera_index,
                             asp::BAParams & param_storage);
-
 void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
                                 int camera_index,
                                 asp::BAParams & param_storage);
+void pack_csm_to_arrays(asp::CsmModel const& camera,
+                        int camera_index,
+                        asp::BAParams & param_storage);
+
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera.
 vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
@@ -439,6 +457,12 @@ vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
 vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
                                                         asp::BAParams const& param_storage,
                                                         vw::camera::OpticalBarModel const& in_cam);
+
+// Given an input CSM camera and param changes, apply those, returning
+// the new camera.
+boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
+                                                      asp::BAParams const& param_storage,
+                                                      asp::CsmModel const& in_cam);
 
 /// Given a transform with origin at the planet center, like output
 /// by pc_align, read the adjustments from cameras_vec, apply this
@@ -462,7 +486,10 @@ void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
                                             std::vector<vw::CamPtr>
                                             const& cam_ptrs);
 
-//=================================================================
+void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
+                                    asp::BAParams & param_storage,
+                                    std::vector<vw::CamPtr>
+                                    const& cam_ptrs);
 
 /// Load all of the reference disparities specified in the input text file
 /// and store them in the vectors.  Return the number loaded.
@@ -623,6 +650,33 @@ bool init_cams_optical_bar(asp::BaBaseOptions & opt, asp::BAParams & param_stora
                     std::string const& initial_transform_file, 
                     vw::Matrix<double> const& initial_transform,
                     std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models);
+
+// TODO: Share more code with the similar pinhole case.
+/// Specialization for CSM cameras.
+bool init_cams_csm(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
+                   std::string const& initial_transform_file, 
+                   vw::Matrix<double> const& initial_transform,
+                   std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models);
+
+/// Write a pinhole camera file to disk.
+void write_pinhole_output_file(asp::BaBaseOptions const& opt, int icam,
+                               vw::cartography::Datum const& datum,
+                               asp::BAParams const& param_storage);
+
+/// Write an optical bar camera file to disk.
+void write_optical_bar_output_file(asp::BaBaseOptions const& opt, int icam,
+                                   vw::cartography::Datum const& datum,
+                                   asp::BAParams const& param_storage);
+
+/// Write a CSM camera file to disk.
+void write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
+                           vw::cartography::Datum const& datum,
+                           asp::BAParams const& param_storage);
+
+/// Write a csm camera state file to disk. Assumes no intrinsics are optimized.
+void write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
+                                   std::string const& adjustFile, 
+                                   asp::BAParams const& param_storage);
 
 } // end namespace asp
 

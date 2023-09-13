@@ -33,6 +33,7 @@
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveUtils.h>
+#include <asp/Camera/LinescanUtils.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>

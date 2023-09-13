@@ -22,6 +22,8 @@
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Camera/LinescanDGModel.h>
+#include <asp/Camera/LinescanPleiadesModel.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Camera/PinholeModel.h>
@@ -123,5 +125,5 @@ void datum_from_cameras(std::vector<std::string> const& image_files,
 
   return;
 }
-  
+
 } // end namespace asp

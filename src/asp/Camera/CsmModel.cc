@@ -840,54 +840,193 @@ void CsmModel::applyTransform(vw::Matrix4x4 const& transform) {
   setModelFromStateString(state, recreate_model);
 }
 
-// Get the distortion coefficients. Need to consider each model type separately.
+// Must have some macros here to avoid a lot of boilerplate code
+#define CSM_FRAME_GET(PARAM, NAME, VAL)                           \
+  /* Try frame */                                                 \
+  success = false;                                                \
+  csm::RasterGM const* gm_model                                   \
+    = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get()); \
+  {                                                               \
+    UsgsAstroFrameSensorModel const* frame_model                  \
+      = dynamic_cast<UsgsAstroFrameSensorModel const*>(gm_model); \
+    if (!success && frame_model != NULL) {                        \
+      VAL = frame_model->PARAM;                                   \
+      success = true;                                             \
+    }                                                             \
+  }
+
+#define CSM_FRAME_SET(PARAM, NAME, VAL)                     \
+  success = false;                                          \
+  csm::RasterGM * gm_model                                  \
+    = dynamic_cast<csm::RasterGM*>(this->m_gm_model.get()); \
+  /* Try frame */                                           \
+  {                                                         \
+    UsgsAstroFrameSensorModel * frame_model                 \
+      = dynamic_cast<UsgsAstroFrameSensorModel*>(gm_model); \
+    if (!success && frame_model != NULL) {                  \
+      frame_model->PARAM = VAL;                             \
+      success = true;                                       \
+   }                                                        \
+  }
+
+#define CSM_LINESCAN_GET(PARAM, NAME, VAL)                        \
+  /* Try linescan */                                              \
+  success = false;                                                \
+  {                                                               \
+    UsgsAstroLsSensorModel const* ls_model                        \
+      = dynamic_cast<UsgsAstroLsSensorModel const*>(gm_model);    \
+    if (!success && ls_model != NULL) {                           \
+      VAL = ls_model->PARAM;                                      \
+      success = true;                                             \
+    }                                                             \
+  }                                                               \
+  /* Fail otherwise. There's no chance we will need this */       \
+  /* with SAR or pushbroom models */                              \
+  if (!success)                                                   \
+    vw_throw(vw::ArgumentErr()                                    \
+         << "CSM model " << NAME << " can be handled only "       \
+         << "for linescan and frame cameras.\n");
+
+#define CSM_LINESCAN_SET(PARAM, NAME, VAL)                  \
+  /* Try linescan */                                        \
+  success = false;                                          \
+  {                                                         \
+    UsgsAstroLsSensorModel * ls_model                       \
+      = dynamic_cast<UsgsAstroLsSensorModel*>(gm_model);    \
+    if (!success && ls_model != NULL) {                     \
+      ls_model->PARAM = VAL;                                \
+      success = true;                                       \
+    }                                                       \
+  }                                                         \
+  /* Fail otherwise. There's no chance we will need this */ \
+  /* with SAR or pushbroom models. */                       \
+  if (!success)                                             \
+    vw_throw(vw::ArgumentErr()                              \
+         << "CSM model " << NAME << " can be handled only " \
+         << "for linescan and frame cameras.\n");
+
+// Get distortion
 std::vector<double> CsmModel::distortion() const {
-
-  csm::RasterGM const* gm_model
-    = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
-
-  UsgsAstroFrameSensorModel const* frame_model
-    = dynamic_cast<UsgsAstroFrameSensorModel const*>(gm_model);
-  if (frame_model != NULL)
-    return frame_model->m_opticalDistCoeffs;
-
-  UsgsAstroLsSensorModel const* ls_model
-    = dynamic_cast<UsgsAstroLsSensorModel const*>(gm_model);
-    if (ls_model != NULL)
-      return ls_model->m_opticalDistCoeffs;
-
-  // Fail otherwise. There's no chance we will need this with SAR 
-  // or pushbroom models.
-  vw_throw(vw::ArgumentErr()
-         << "CSM model distortion can be handled only for linescan and frame cameras.\n");
-  return std::vector<double>();
+  std::vector<double> dist;
+  bool success = false;
+  CSM_FRAME_GET(m_opticalDistCoeffs, "distortion", dist)
+  if (success) 
+    return dist;
+  CSM_LINESCAN_GET(m_opticalDistCoeffs, "distortion", dist)
+  return dist;
 }
 
 // Set the distortion. Need to consider each model type separately.
-void CsmModel::set_distortion(std::vector<double> const& distortion) {
-
-  csm::RasterGM * gm_model
-    = dynamic_cast<csm::RasterGM*>(this->m_gm_model.get());
-
-  UsgsAstroFrameSensorModel * frame_model
-    = dynamic_cast<UsgsAstroFrameSensorModel*>(gm_model);
-  if (frame_model != NULL) {
-    frame_model->m_opticalDistCoeffs = distortion;
+void CsmModel::set_distortion(std::vector<double> const& dist) {
+  bool success = false;
+  CSM_FRAME_SET(m_opticalDistCoeffs, "distortion", dist)
+  if (success) 
     return;
-  }
-
-  UsgsAstroLsSensorModel * ls_model
-    = dynamic_cast<UsgsAstroLsSensorModel*>(gm_model);
-  if (ls_model != NULL) {
-    ls_model->m_opticalDistCoeffs = distortion;
-    return;
-  }
-
-  // Fail otherwise. There's no chance we will need this with SAR 
-  // or pushbroom models.
-  vw_throw(vw::ArgumentErr()
-         << "CSM model distortion can be handled only for linescan and frame cameras.\n");
+  CSM_LINESCAN_SET(m_opticalDistCoeffs, "distortion", dist)
   return;
+}
+
+// Get the focal length
+double CsmModel::focal_length() const {
+  double focal_length = 0.0;
+  bool success = false;
+  CSM_FRAME_GET(m_focalLength, "focal length", focal_length)
+  if (success) 
+    return focal_length;
+  CSM_LINESCAN_GET(m_focalLength, "focal length", focal_length)
+  return focal_length;
+}
+
+// Set the focal length
+void CsmModel::set_focal_length(double focal_length) {
+  bool success = false;
+  CSM_FRAME_SET(m_focalLength, "focal length", focal_length)
+  if (success) 
+    return;
+  CSM_LINESCAN_SET(m_focalLength, "focal length", focal_length)
+  return;
+}
+
+// Get the optical center as sample, line. Different logic is needed for frame
+// and linescan cameras. Will return (m_ccdCenter[1], m_ccdCenter[0]) for frame,
+// and (m_detectorSampleOrigin, m_detectorLineOrigin) for linescan.
+vw::Vector2 CsmModel::optical_center() const {
+  vw::Vector2 optical_center;
+
+  std::vector<double> ccd_center;
+  bool success = false;
+  CSM_FRAME_GET(m_ccdCenter, "optical center", ccd_center)
+  if (success) 
+    return vw::Vector2(ccd_center[1], ccd_center[0]); // note the order (sample, line)
+
+  CSM_LINESCAN_GET(m_detectorSampleOrigin, "detector sample", optical_center[0])
+  CSM_LINESCAN_GET(m_detectorLineOrigin,   "detector line",   optical_center[1])
+  
+  return optical_center;
+}
+
+// Set the optical center as sample, line. Different logic is needed for frame
+// and linescan cameras.
+void CsmModel::set_optical_center(vw::Vector2 const& optical_center) {
+  bool success = false;
+  auto ccd_center = std::vector<double>({optical_center[1], optical_center[0]});
+  CSM_FRAME_SET(m_ccdCenter, "optical center", ccd_center)
+  if (success) 
+    return;
+
+  CSM_LINESCAN_SET(m_detectorSampleOrigin, "detector sample", optical_center[0])
+  CSM_LINESCAN_SET(m_detectorLineOrigin,   "detector line",   optical_center[1])
+
+  return; 
+}
+
+// Create a deep copy of the model, so don't just copy the shared pointer.
+void CsmModel::deep_copy(boost::shared_ptr<CsmModel> & copy) const {
+  // Start with a shallow copy
+  copy.reset(new CsmModel(*this));
+
+  // Frame case
+  UsgsAstroFrameSensorModel const* frame_model 
+    = dynamic_cast<UsgsAstroFrameSensorModel const*>(m_gm_model.get());
+  if (frame_model != NULL) {
+    UsgsAstroFrameSensorModel * new_frame_model = new UsgsAstroFrameSensorModel(*frame_model);
+    copy->m_gm_model.reset(new_frame_model);
+    std::cout << "--got a new frame model\n";
+    return;
+  }
+
+  // Linescan case
+  UsgsAstroLsSensorModel const* ls_model 
+    = dynamic_cast<UsgsAstroLsSensorModel const*>(m_gm_model.get());
+  if (ls_model != NULL) {
+    UsgsAstroLsSensorModel * new_ls_model = new UsgsAstroLsSensorModel(*ls_model);
+    copy->m_gm_model.reset(new_ls_model);
+    std::cout << "--got a new linescan model\n";
+    return;
+  }
+
+  // Pushframe case
+  UsgsAstroPushFrameSensorModel const* pf_model 
+    = dynamic_cast<UsgsAstroPushFrameSensorModel const*>(m_gm_model.get());
+  if (pf_model != NULL) {
+    UsgsAstroPushFrameSensorModel * new_pf_model = new UsgsAstroPushFrameSensorModel(*pf_model);
+    copy->m_gm_model.reset(new_pf_model);
+    std::cout << "--got a new pushframe model\n";
+    return;
+  }
+
+  // SAR case
+  UsgsAstroSarSensorModel const* sar_model 
+    = dynamic_cast<UsgsAstroSarSensorModel const*>(m_gm_model.get());
+  if (sar_model != NULL) {
+    UsgsAstroSarSensorModel * new_sar_model = new UsgsAstroSarSensorModel(*sar_model);
+    copy->m_gm_model.reset(new_sar_model);
+    std::cout << "--got a new sar model\n";
+    return;
+  }
+
+  // Throw an error
+  vw_throw(ArgumentErr() << "CsmModel::deep_copy(): Unknown CSM model type.\n");
 }
 
 } // end namespace asp

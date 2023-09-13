@@ -56,7 +56,7 @@ void datum_from_cameras(std::vector<std::string> const& image_files,
                         std::string & stereo_session, // may change
                         // Outputs
                         vw::cartography::Datum & datum);
-  
+
 } // end namespace asp
 
 #endif // __STEREO_SESSION_CAMERAUTILS_H__

@@ -116,9 +116,15 @@ namespace asp {
     /// if desired to adjust an existing model.
     void setModelFromStateString(std::string const& model_state, bool recreate_model);
 
-    /// Get and set the distortion coefficients 
+    /// Get intrinsic parameters
     std::vector<double> distortion() const;
+    double focal_length() const;
+    vw::Vector2 optical_center() const; // return sample and line
+
+    // Set intrinsics
     void set_distortion(std::vector<double> const& distortion);
+    void set_focal_length(double focal_length);
+    void set_optical_center(vw::Vector2 const& optical_center); // sample and line
 
     boost::shared_ptr<csm::RasterGM> m_gm_model;
 
@@ -126,6 +132,9 @@ namespace asp {
     
     // These are read from the json camera file
     double m_semi_major_axis, m_semi_minor_axis;
+
+    // Create a deep copy of the model, so don't just copy the shared pointer.
+    void deep_copy(boost::shared_ptr<CsmModel> & copy) const;
 
   protected:
 
@@ -157,7 +166,6 @@ namespace asp {
   void toCsmPixel(vw::Vector2 const& pix, csm::ImageCoord & csm);
   void fromCsmPixel(vw::Vector2 & pix, csm::ImageCoord const& csm);
   
-}      // namespace asp
+} // end namespace asp
 
-
-#endif//__STEREO_CAMERA_CSM_MODEL_H__
+#endif //__STEREO_CAMERA_CSM_MODEL_H__

@@ -161,31 +161,4 @@ CameraModelLoader::load_csm_camera_model(std::string const& path) const {
   return vw::CamPtr(cam_ptr);
 }
 
-// Find the underlying CSM camera. Applies only to CSM, Pleiades, and DG.
-asp::CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-                            std::string const& stereo_session) {
-
-  asp::CsmModel * csm_model = NULL;
-  
-  // If we have a DG model, then the CSM model is a member of it.
-  // TODO(oalexan1): This is temporary. Need to move wholesale
-  // to CSM model in DG, as done for Pleiades. 
-  // TODO(oalexan1): Then remove the stereo_session argument.
-  if (stereo_session != "dg") {
-    csm_model = dynamic_cast<asp::CsmModel*>
-      (vw::camera::unadjusted_model(cam.get()));
-  } else {
-    DGCameraModel * dg_model = dynamic_cast<asp::DGCameraModel*>
-      (vw::camera::unadjusted_model(cam.get()));
-    if (dg_model == NULL) 
-      vw::vw_throw(vw::ArgumentErr() << "Expected a DG camera model.");
-    csm_model = dg_model->m_csm_model.get();
-  }
-
-  if (csm_model == NULL) 
-      vw::vw_throw(vw::ArgumentErr() << "Expected a CSM camera model.");
-    
-  return csm_model;
-}
-  
 } // end namespace asp

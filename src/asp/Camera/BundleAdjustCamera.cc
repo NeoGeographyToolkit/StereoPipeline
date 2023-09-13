@@ -259,7 +259,7 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
 
   // Pack the lens distortion parameters.
   vw::Vector<double> lens = camera.lens_distortion()->distortion_parameters();
-  for (size_t i=0; i<lens.size(); ++i)
+  for (size_t i=0; i<lens.size(); i++)
     distortion_ptr[i] = 1.0;
 }
 
@@ -290,6 +290,36 @@ void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
   intrinsics_ptr[2] = 1.0;
 }
 
+void pack_csm_to_arrays(asp::CsmModel const& camera,
+                        int camera_index,
+                        asp::BAParams & param_storage) {
+
+  double* pos_pose_ptr   = param_storage.get_camera_ptr              (camera_index);
+  double* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
+  double* focus_ptr      = param_storage.get_intrinsic_focus_ptr     (camera_index);
+  double* distortion_ptr = param_storage.get_intrinsic_distortion_ptr(camera_index);
+
+  // Handle position and pose. We start with 0 pose and identity rotation.
+  CameraAdjustment pos_pose_info;
+  pos_pose_info.copy_from_csm(camera);
+  pos_pose_info.pack_to_array(pos_pose_ptr);
+  // print 6 values iin pos_pose_ptr
+  for (int i = 0; i < 6; i++) {
+    std::cout << "pos_pose_ptr[" << i << "] = " << pos_pose_ptr[i] << std::endl;
+  }
+
+  // We are solving for multipliers to the intrinsic values, so they all start at 1.0.
+  // Center point and focal length
+  center_ptr[0] = 1.0;
+  center_ptr[1] = 1.0;
+  focus_ptr [0] = 1.0;
+  // Distortion
+  for (size_t i = 0; i < camera.distortion().size(); i++) {
+    distortion_ptr[i] = 1.0;
+    std::cout << "--added dist index and value = " << i << " " << distortion_ptr[i] << std::endl;
+  }
+}
+  
 /// Given a transform with origin at the planet center, like output
 /// by pc_align, read the adjustments from cameras_vec, apply this
 /// transform on top of them, and write the adjustments back to the vector.
@@ -333,6 +363,58 @@ void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
   }
 
 } // end function apply_transform_to_cameras_pinhole
+
+// This function takes advantage of the fact that when it is called the cam_ptrs have the same
+// information as is in param_storage.
+void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
+                                            asp::BAParams & param_storage,
+                                            std::vector<vw::CamPtr> const& cam_ptrs){
+
+  // Convert the transform format
+  vw::Matrix3x3 R = submatrix(M, 0, 0, 3, 3);
+  vw::Vector3   T;
+  for (int r = 0; r < 3; r++) 
+    T[r] = M(r, 3);
+  
+  double scale = pow(det(R), 1.0/3.0);
+  for (size_t r = 0; r < R.rows(); r++)
+    for (size_t c = 0; c < R.cols(); c++)
+      R(r, c) /= scale;
+
+  for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
+
+    // Apply the transform
+    boost::shared_ptr<vw::camera::OpticalBarModel> bar_ptr = 
+      boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(cam_ptrs[i]);
+    bar_ptr->apply_transform(R, T, scale);
+
+    // Write out to param_storage
+    pack_optical_bar_to_arrays(*bar_ptr, i, param_storage);    
+  }
+
+} // end function apply_transform_to_cameras_optical_bar
+
+// This function takes advantage of the fact that when it is called the cam_ptrs have the same
+//  information as is in param_storage.
+void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
+                                    asp::BAParams & param_storage,
+                                    std::vector<vw::CamPtr> const& cam_ptrs) {
+
+  std::cout << "---now in apply_transform_to_cameras_csm---\n";
+  std::cout << "--this is not cheap!!--\n";
+
+  for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
+    // Apply the transform
+    boost::shared_ptr<asp::CsmModel> csm_ptr = 
+      boost::dynamic_pointer_cast<asp::CsmModel>(cam_ptrs[i]);
+    if (csm_ptr == NULL)
+        vw_throw( ArgumentErr() << "Expecting a CSM camera.\n" );
+    csm_ptr->applyTransform(M);
+    // Write out to param_storage
+    pack_csm_to_arrays(*csm_ptr, i, param_storage);    
+  }
+
+} // end function apply_transform_to_cameras_csm
 
 /// Apply a scale-rotate-translate transform to pinhole cameras and control points
 void apply_rigid_transform(vw::Matrix3x3 const & rotation,
@@ -431,7 +513,7 @@ bool asp::init_pinhole_model_with_camera_positions
   vw_out() << "Num cameras: " << num_cameras << std::endl;
 
   int num_matches_found = 0;
-  for (int i=0; i<num_cameras; ++i)
+  for (int i=0; i<num_cameras; i++)
     if (estimated_camera_gcc[i] != Vector3(0,0,0))
       ++num_matches_found;
 
@@ -446,7 +528,7 @@ bool asp::init_pinhole_model_with_camera_positions
   vw::Matrix<double> points_in(3, num_matches_found), points_out(3, num_matches_found);
   typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
   int index = 0;
-  for (int i=0; i<num_cameras; ++i) {
+  for (int i=0; i<num_cameras; i++) {
     // Skip cameras with no matching record
     if (estimated_camera_gcc[i] == Vector3(0,0,0))
       continue;
@@ -787,18 +869,17 @@ void asp::align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz
       // For each camera, find xyz values in the input cameras
       // that map to GCP. Use the scale for that.
       for (int c = 0; c < xyz[it].size(); c++) {
-	
-	// Distance from camera center to xyz for the individually aligned cameras
-	double len = norm_2(aux_cams[it].camera_center() - xyz[it][c]);
-	len = len / world_scale;
-	Vector3 trans_xyz = sfm_cams[it].camera_center()
-	  + len * sfm_cams[it].pixel_to_vector(pix[it][c]);
-	for (int row = 0; row < in_pts.rows(); row++) {
-	  in_pts(row, col)  = trans_xyz[row];
-	  out_pts(row, col) = xyz[it][c][row];
-	}
-	
-	col++;
+        
+        // Distance from camera center to xyz for the individually aligned cameras
+        double len = norm_2(aux_cams[it].camera_center() - xyz[it][c]);
+        len = len / world_scale;
+        Vector3 trans_xyz = sfm_cams[it].camera_center()
+          + len * sfm_cams[it].pixel_to_vector(pix[it][c]);
+        for (int row = 0; row < in_pts.rows(); row++) {
+          in_pts(row, col)  = trans_xyz[row];
+          out_pts(row, col) = xyz[it][c][row];
+        }
+        col++;
       }
     }
   }
@@ -894,36 +975,6 @@ bool asp::projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
   return true;
 }
 
-// This function takes advantage of the fact that when it is called the cam_ptrs have the same
-//  information as is in param_storage!
-void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
-                                            asp::BAParams & param_storage,
-                                            std::vector<vw::CamPtr> const& cam_ptrs){
-
-  // Convert the transform format
-  vw::Matrix3x3 R = submatrix(M, 0, 0, 3, 3);
-  vw::Vector3   T;
-  for (int r = 0; r < 3; r++) 
-    T[r] = M(r, 3);
-  
-  double scale = pow(det(R), 1.0/3.0);
-  for (size_t r = 0; r < R.rows(); r++)
-    for (size_t c = 0; c < R.cols(); c++)
-      R(r, c) /= scale;
-
-  for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
-
-    // Apply the transform
-    boost::shared_ptr<vw::camera::OpticalBarModel> bar_ptr = 
-      boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(cam_ptrs[i]);
-    bar_ptr->apply_transform(R, T, scale);
-
-    // Write out to param_storage
-    pack_optical_bar_to_arrays(*bar_ptr, i, param_storage);    
-  }
-
-} // end function apply_transform_to_cameras_pinhole
-
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera. Note that all intrinsic parameters are stored as multipliers
 // in asp::BAParams.
@@ -948,7 +999,7 @@ vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
   // Update the lens distortion parameters. Note how we make a new copy of the distortion object.
   boost::shared_ptr<LensDistortion> distortion = out_cam.lens_distortion()->copy();
   vw::Vector<double> lens = distortion->distortion_parameters();
-  for (size_t i=0; i<lens.size(); ++i)
+  for (size_t i=0; i<lens.size(); i++)
     lens[i] *= distortion_ptr[i];
   distortion->set_distortion_parameters(lens);
   out_cam.set_lens_distortion(distortion.get());
@@ -1001,6 +1052,68 @@ vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
   return out_cam;
 }
 
+// Given an input CSM camera and param changes, apply those, returning
+// the new camera.
+boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
+                                                      asp::BAParams const& param_storage,
+                                                      asp::CsmModel const& in_cam) {
+  std::cout << "--now in transformedCsmCamera\n";
+  // Get the latest version of the camera parameters
+  double const* pos_pose_ptr  = param_storage.get_camera_ptr(camera_index);
+  double const* center_ptr    = param_storage.get_intrinsic_center_ptr    (camera_index);
+  double const* focus_ptr     = param_storage.get_intrinsic_focus_ptr     (camera_index);
+  double const* dist_ptr      = param_storage.get_intrinsic_distortion_ptr(camera_index);
+
+  // Read the position and pose
+  CameraAdjustment correction(pos_pose_ptr);
+  std::cout << "--use this pose!\n";
+
+  // All intrinsic parameters are stored as multipliers
+  vw::Vector2 optical_center = in_cam.optical_center();
+  double focal_length        = in_cam.focal_length();
+  optical_center[0] = center_ptr[0] * optical_center[0];
+  optical_center[1] = center_ptr[1] * optical_center[1];
+  focal_length      = focus_ptr [0] * focal_length;
+
+  std::cout << "--focus ptr is " << focus_ptr[0] << std::endl;
+  std::cout << "--focus is " << focal_length << std::endl;
+
+  // Update the lens distortion parameters in the new camera.
+  // - These values are also optimized as scale factors.
+  std::vector<double> distortion = in_cam.distortion();
+  for (size_t i = 0; i < distortion.size(); i++) {
+
+    // Ensure this approach does not fail when the input distortion is 0
+    if (distortion[i] == 0.0)
+      distortion[i] = 1e-16;
+    std::cout << "--see if we need the distortion perturbation!\n";
+
+    std::cout << "dist ptr value is " << dist_ptr[i] << std::endl;
+
+    distortion[i] = dist_ptr[i] * distortion[i];
+    std::cout << "distortion[" << i << "] = " << distortion[i] << std::endl;
+  }
+
+  // Duplicate the input camera model
+  boost::shared_ptr<asp::CsmModel> copy;
+  in_cam.deep_copy(copy);
+
+  // Update the intrinsics of the copied model
+  copy->set_optical_center(optical_center);
+  copy->set_focal_length(focal_length);
+  copy->set_distortion(distortion);
+
+  // Form the adjusted camera
+  AdjustedCameraModel adj_cam(copy, correction.position(), correction.pose());
+
+  // Apply the adjustment to the camera 
+  vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
+  copy->applyTransform(ecef_transform);
+
+  std::cout << "---test that adj cam and copy now produce same results\n";
+
+  return copy;
+}
 
 // Save convergence angle percentiles for each image pair having matches
 void asp::saveConvergenceAngles(std::string const& conv_angles_file,

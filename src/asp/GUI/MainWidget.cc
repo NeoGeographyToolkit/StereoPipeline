@@ -1769,7 +1769,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
       // Load the data if not loaded already
       for (size_t it = 0; it < m_images.size(); it++)
-        m_images[it].img;
+        m_images[it].load();
       
       // Show the profile window
       MainWidget::plotProfile(m_images, m_profileX, m_profileY);

@@ -20,21 +20,22 @@
 // TODO(oalexan1): Break this up into several files grouped by functionality.
 // Also for bundle_adjust.h. See existing BundleAdjustCamera.cc and
 // BundleAdjustUtils.cc.
-#include <vw/Camera/CameraUtilities.h>
-#include <vw/Core/CmdUtils.h>
-#include <vw/FileIO/MatrixIO.h>
-#include <asp/Core/Macros.h>
+#include <asp/Tools/bundle_adjust.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Sessions/CameraUtils.h>
+#include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Camera/LinescanUtils.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/IpMatchingAlgs.h> // Lightweight header for ip matching
-#include <asp/Tools/bundle_adjust.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Core/OutlierProcessing.h>
 #include <asp/Core/DataLoader.h>
 
+#include <vw/Camera/CameraUtilities.h>
+#include <vw/Core/CmdUtils.h>
+#include <vw/FileIO/MatrixIO.h>
 #include <vw/InterestPoint/Matcher.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
@@ -150,23 +151,6 @@ void saveCameraReport(Options const& opt, asp::BAParams const& param_storage,
   return;
 }
 
-/// Write a csm camera state file to disk. This uses logic from CameraModelLoader.cc,
-/// so it is not simple to move out of here.
-void write_csm_output_file(Options const& opt, int icam,
-                           std::string const& adjustFile, 
-                           asp::BAParams const& param_storage) {
-  
-  CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-  
-  AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
-                              cam_adjust.position(), cam_adjust.pose());
-  
-  vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
-  std::string csmFile          = asp::csmStateFile(adjustFile);
-  asp::CsmModel * csm_model    = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
-  csm_model->saveTransformedState(csmFile, ecef_transform);
-}
-
 // Write the results to disk.
 void saveResults(Options const& opt, asp::BAParams const& param_storage) {
   int num_cameras = opt.image_files.size();
@@ -175,25 +159,33 @@ void saveResults(Options const& opt, asp::BAParams const& param_storage) {
 
     switch(opt.camera_type) {
     case BaCameraType_Pinhole:
-      write_pinhole_output_file(opt, icam, param_storage);
+      write_pinhole_output_file(opt, icam, opt.datum, param_storage);
       break;
     case BaCameraType_OpticalBar:
-      write_optical_bar_output_file(opt, icam, param_storage);
+      write_optical_bar_output_file(opt, icam, opt.datum, param_storage);
+      break;
+    case BaCameraType_CSM:
+      write_csm_output_file(opt, icam, opt.datum, param_storage);
+      break;
+    case BaCameraType_Other: {
+        // TODO(oalexan1): Make this into a function and move it out.
+        std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                              opt.image_files[icam],
+                                                              opt.camera_files[icam]);
+        vw_out() << "Writing: " << adjust_file << std::endl;
+        
+        CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+        asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
+
+        // For CSM camera models export, in addition, the JSON state
+        // with the adjustment applied to it.
+        if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades" ||
+            (opt.stereo_session == "dg" && asp::stereo_settings().dg_use_csm))
+          write_csm_output_file_no_intr(opt, icam, adjust_file, param_storage);
+      }
       break;
     default:
-      std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
-                                                             opt.image_files[icam],
-                                                             opt.camera_files[icam]);
-      vw_out() << "Writing: " << adjust_file << std::endl;
-      
-      CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-      asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
-
-      // For CSM camera models export, in addition, the JSON state
-      // with the adjustment applied to it.
-      if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades" ||
-          (opt.stereo_session == "dg" && asp::stereo_settings().dg_use_csm))
-        write_csm_output_file(opt, icam, adjust_file, param_storage);
+      vw_throw(ArgumentErr() << "Unknown camera type.\n");
     }
     
   } // End loop through cameras
@@ -240,7 +232,7 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
         BaReprojectionError::Create(observation, pixel_sigma, wrapper);
       problem.AddResidualBlock(cost_function, loss_function, point, camera);
 
-  } else { // Pinhole or optical bar
+  } else { // inline Pinhole, optical bar, or CSM camera
 
     double* center     = param_storage.get_intrinsic_center_ptr    (camera_index);
     double* focus      = param_storage.get_intrinsic_focus_ptr     (camera_index);
@@ -252,20 +244,30 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
 
       boost::shared_ptr<PinholeModel> pinhole_model = 
         boost::dynamic_pointer_cast<PinholeModel>(camera_model);
-      if (pinhole_model.get() == 0)
-        vw::vw_throw(vw::ArgumentErr() << "Tried to add pinhole block with non-pinhole camera.");
+      if (pinhole_model.get() == NULL)
+        vw::vw_throw(vw::ArgumentErr() 
+                      << "Tried to add pinhole block with non-pinhole camera.");
       wrapper.reset(new PinholeBundleModel(pinhole_model));
 
     } else if (opt.camera_type == BaCameraType_OpticalBar) {
 
       boost::shared_ptr<vw::camera::OpticalBarModel> bar_model = 
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(camera_model);
-      if (bar_model.get() == 0)
-        vw::vw_throw( vw::ArgumentErr() << "Tried to add optical bar block with "
+      if (bar_model.get() == NULL)
+        vw::vw_throw(vw::ArgumentErr() << "Tried to add optical bar block with "
                       << "non-optical bar camera.");
       wrapper.reset(new OpticalBarBundleModel(bar_model));
+
+    } else if (opt.camera_type == BaCameraType_CSM) {
+      std::cout << "--add block for csm camera\n";
+      boost::shared_ptr<asp::CsmModel> csm_model = 
+        boost::dynamic_pointer_cast<asp::CsmModel>(camera_model);
+      if (csm_model.get() == NULL)
+        vw::vw_throw(vw::ArgumentErr() << "Tried to add CSM block with "
+                      << "non-CSM camera.");
+      wrapper.reset(new CsmBundleModel(csm_model));
     } else {
-      vw::vw_throw( vw::ArgumentErr() << "Unknown camera type." );
+      vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.");
     }
 
     ceres::CostFunction* cost_function =
@@ -354,18 +356,27 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(left_camera_model);
       boost::shared_ptr<PinholeModel> right_pinhole_model = 
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_camera_model);
-
       left_wrapper.reset (new PinholeBundleModel(left_pinhole_model ));
       right_wrapper.reset(new PinholeBundleModel(right_pinhole_model));
 
-    } else { // Optical bar
+    } else if (opt.camera_type == BaCameraType_OpticalBar) {
       boost::shared_ptr<vw::camera::OpticalBarModel> left_bar_model = 
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(left_camera_model);
       boost::shared_ptr<vw::camera::OpticalBarModel> right_bar_model = 
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(right_camera_model);
-
       left_wrapper.reset (new OpticalBarBundleModel(left_bar_model ));
       right_wrapper.reset(new OpticalBarBundleModel(right_bar_model));
+
+    } else if (opt.camera_type == BaCameraType_CSM) {
+      boost::shared_ptr<asp::CsmModel> left_csm_model = 
+        boost::dynamic_pointer_cast<asp::CsmModel>(left_camera_model);
+      boost::shared_ptr<asp::CsmModel> right_csm_model =
+        boost::dynamic_pointer_cast<asp::CsmModel>(right_camera_model);
+      left_wrapper.reset (new CsmBundleModel(left_csm_model));
+      right_wrapper.reset(new CsmBundleModel(right_csm_model));
+
+    } else {
+      vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.");
     }
 
     ceres::CostFunction* cost_function =
@@ -952,7 +963,6 @@ void calcOptimizedCameras(Options const& opt,
         optimized_cams.push_back(vw::CamPtr(out_cam));
       }
       break;
-      
     case BaCameraType_OpticalBar:
       {
         vw::camera::OpticalBarModel const* in_cam
@@ -961,11 +971,21 @@ void calcOptimizedCameras(Options const& opt,
           vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
         vw::camera::OpticalBarModel * out_cam = new OpticalBarModel();
         *out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
-        optimized_cams.push_back(vw::CamPtr(out_cam));
+        optimized_cams.push_back(vw::CamPtr(out_cam)); // will manage the memory
       }
       break;
-      
-    default:
+    case  BaCameraType_CSM:
+      {
+        std::cout << "calc optimized csm cameras\n";
+        asp::CsmModel const* in_cam
+          = dynamic_cast<asp::CsmModel const*>(opt.camera_models[icam].get());
+        if (in_cam == NULL)
+          vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
+        auto out_cam = transformedCsmCamera(icam, param_storage, *in_cam);
+        optimized_cams.push_back(out_cam);
+      }
+      break;
+    case BaCameraType_Other:
       {
         CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
         vw::CamPtr out_cam
@@ -973,6 +993,9 @@ void calcOptimizedCameras(Options const& opt,
                                           cam_adjust.position(), cam_adjust.pose()));
         optimized_cams.push_back(out_cam);
       }
+      break;
+    default:
+      vw_throw(ArgumentErr() << "Unknown camera type.\n");
     }
   }
 }
@@ -1217,8 +1240,8 @@ int do_ba_ceres_one_pass(Options             & opt,
 
   // Add camera constraints
   // - Error goes up as cameras move and rotate from their input positions.
-  if (opt.camera_weight > 0){
-    for (int icam = 0; icam < num_cameras; icam++){
+  if (opt.camera_weight > 0) {
+    for (int icam = 0; icam < num_cameras; icam++) {
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
       ceres::CostFunction* cost_function = CamError::Create(orig_cam_ptr, opt.camera_weight);
 
@@ -1649,12 +1672,13 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     if (!csm_ptr)
       vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
     num_lens_distortion_params = csm_ptr->distortion().size();
+    std::cout << "--num csm lens distortion params: " << num_lens_distortion_params << std::endl;
   }
 
   asp::BAParams param_storage(num_points, num_cameras,
-                               // Optical bar and pinhole are similar
+                               // Distinguish when we solve for intrinsics
                                opt.camera_type != BaCameraType_Other, 
-                               // Must be the same for each pinhole camera
+                               // Must be the same for each camera
                                num_lens_distortion_params, 
                                opt.intrinisc_options);
 
@@ -1670,7 +1694,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       ans = init_cams_optical_bar(opt, param_storage, 
                                   opt.initial_transform_file, opt.initial_transform,new_cam_models); break;
     case BaCameraType_CSM:
-      //ans = init_cams_csm(opt, opt.initial_transform_file, opt.initial_transform,param_storage, new_cam_models); break;
+      ans = init_cams_csm(opt, param_storage, 
+                          opt.initial_transform_file, opt.initial_transform,
+                          new_cam_models); break;
     case BaCameraType_Other:
       ans = init_cams(opt, param_storage, opt.initial_transform_file, opt.initial_transform,
                       new_cam_models); break;
@@ -2240,7 +2266,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
   
   boost::to_lower(opt.stereo_session);
-
+  std::cout << "session is " << opt.stereo_session << std::endl;
+  
   opt.camera_type = BaCameraType_Other;
   if (inline_adjustments) {
     // Work out the session and camera model type

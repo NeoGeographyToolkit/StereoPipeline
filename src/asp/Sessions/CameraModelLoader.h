@@ -51,11 +51,6 @@ namespace asp {
   }; // End class CameraModelLoader
 
   
-  // Find the underlying CSM camera. Applies only to CSM, Pleiades, and DG.
-  class CsmModel;
-  CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-                       std::string const& stereo_session);
-  
 } // end namespace asp
 
 #endif // __STEREO_SESSION_CAMERAMODELLOADER_H__

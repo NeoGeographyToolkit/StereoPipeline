@@ -25,7 +25,9 @@
 // all in the asp namespace. 
 
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Camera/CsmModel.h>
 #include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
+#include <asp/Camera/LinescanUtils.h>
 
 #include <string>
 
@@ -213,6 +215,170 @@ bool init_cams_optical_bar(asp::BaBaseOptions & opt, asp::BAParams & param_stora
   }
 
   return cameras_changed;
+}
+
+// TODO: Share more code with the similar pinhole case.
+/// Specialization for CSM
+bool init_cams_csm(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
+                    std::string const& initial_transform_file, 
+                    vw::Matrix<double> const& initial_transform,
+                    std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models) {
+  std::cout << "--now in init_cams_csm\n";
+  if (opt.input_prefix != "")
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Applying initial adjustments to CSM cameras "
+                 << "and --inline-adjustments is not implemented. "
+                 << "Remove this option.\n");
+
+  bool cameras_changed = false;
+
+  // Copy the camera parameters from the models to param_storage
+  const size_t num_cameras = param_storage.num_cameras();
+  for (int icam = 0; icam < num_cameras; icam++) {
+    asp::CsmModel* csm_ptr
+        = dynamic_cast<asp::CsmModel*>(opt.camera_models[icam].get());
+    pack_csm_to_arrays(*csm_ptr, icam, param_storage); 
+  } // End loop through cameras
+
+  // Apply any initial transform to the CSM cameras
+  if (initial_transform_file != "") {
+    apply_transform_to_cameras_csm(initial_transform, param_storage, opt.camera_models);
+    cameras_changed = true;
+  }
+
+  // Fill out the new camera model vector
+  new_cam_models.resize(num_cameras);
+  for (size_t icam = 0; icam < num_cameras; icam++){
+
+    asp::CsmModel* in_cam
+      = dynamic_cast<asp::CsmModel*>(opt.camera_models[icam].get());
+    if (in_cam == NULL)
+      vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
+
+    auto out_cam = transformedCsmCamera(icam, param_storage, *in_cam);
+    new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
+  }
+
+  return cameras_changed;
+}
+
+/// Write a pinhole camera file to disk.
+void write_pinhole_output_file(asp::BaBaseOptions const& opt, int icam,
+                               vw::cartography::Datum const& datum,
+                               asp::BAParams const& param_storage) {
+
+  // Get the output file path
+  std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                      opt.image_files [icam],
+                                                      opt.camera_files[icam]);
+  cam_file = boost::filesystem::path(cam_file).replace_extension("tsai").string();
+
+  // Get the camera model from the original one with parameters in
+  // param_storage applied to it (which could be original ones or optimized). 
+  // Note that we do not modify the original camera.
+  vw::camera::PinholeModel const* in_cam
+    = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
+  if (in_cam == NULL)
+    vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
+  vw::camera::PinholeModel out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
+
+  vw::vw_out() << "Writing: " << cam_file << std::endl;
+  out_cam.write(cam_file);
+  vw::vw_out() << "Writing output model: " << out_cam << std::endl;
+
+  bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
+  if (has_datum) {
+    vw::vw_out() << "Camera center for " << cam_file << ": "
+                  << datum.cartesian_to_geodetic(out_cam.camera_center())
+                  << " (longitude, latitude, height above datum(m))\n\n";
+  }
+}
+
+
+/// Write an optical bar camera file to disk.
+void write_optical_bar_output_file(asp::BaBaseOptions const& opt, int icam,
+                                   vw::cartography::Datum const& datum,
+                                   asp::BAParams const& param_storage) {
+
+  // Get the output file path
+  std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                      opt.image_files [icam],
+                                                      opt.camera_files[icam]);
+  cam_file = boost::filesystem::path(cam_file).replace_extension("tsai").string();
+
+  // Get the final camera model from the original one with optimized
+  // parameters applied to it. Note that we do not modify the original
+  // camera.
+  vw::camera::OpticalBarModel* in_cam
+    = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
+  if (in_cam == NULL)
+    vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
+  vw::camera::OpticalBarModel out_cam 
+    = transformedOpticalBarCamera(icam, param_storage, *in_cam);
+  
+  vw::vw_out() << "Writing: " << cam_file << std::endl;
+  out_cam.write(cam_file);
+  vw::vw_out() << "Writing output model: " << out_cam << std::endl;
+
+  bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
+  if (has_datum) {
+    vw::vw_out() << "Camera center for " << cam_file << ": "
+                  << datum.cartesian_to_geodetic(out_cam.camera_center())
+                  << " (longitude, latitude, height above datum(m))\n\n";
+  }
+}
+
+/// Write a CSM camera file to disk.
+void write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
+                           vw::cartography::Datum const& datum,
+                           asp::BAParams const& param_storage) {
+
+  std::cout << "---now in write_csm_output_file\n";
+  std::cout << "--does inline intrinsics work well with input adjustments or initial transform?Things look inconsistent!\n";
+
+  // Get the output file path
+  std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                      opt.image_files [icam],
+                                                      opt.camera_files[icam]);
+  cam_file = boost::filesystem::path(cam_file).replace_extension("json").string();
+
+  // Get the final camera model from the original one with optimized
+  // parameters applied to it. Note that we do not modify the original
+  // camera.
+  asp::CsmModel const* in_cam
+    = dynamic_cast<asp::CsmModel const*>(opt.camera_models[icam].get()); 
+  if (in_cam == NULL)
+    vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
+   
+   boost::shared_ptr<asp::CsmModel> out_cam
+     = transformedCsmCamera(icam, param_storage, *in_cam);
+
+   vw::vw_out() << "Writing CSM model state to: " << cam_file << std::endl;
+   out_cam->saveState(cam_file);
+
+   bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
+   if (has_datum)
+     vw::vw_out() << "Camera center for " << cam_file << ": "
+                   << datum.cartesian_to_geodetic(out_cam->camera_center(vw::Vector2()))
+                   << " (longitude, latitude, height above datum(m))\n\n";
+}
+
+/// Write a csm camera state file to disk. Assumes no intrinsics are optimized.
+void write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
+                                   std::string const& adjustFile, 
+                                   asp::BAParams const& param_storage) {
+  
+  std::cout << "--now in write_csm_output_file_no_intr" << std::endl;
+  CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+  
+  AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+                              cam_adjust.position(), cam_adjust.pose());
+  
+  vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
+  std::string csmFile          = asp::csmStateFile(adjustFile);
+  asp::CsmModel * csm_model    = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
+  vw_out() << "Writing CSM model state to: " << csmFile << std::endl;
+  csm_model->saveTransformedState(csmFile, ecef_transform);
 }
 
 } // end namespace asp

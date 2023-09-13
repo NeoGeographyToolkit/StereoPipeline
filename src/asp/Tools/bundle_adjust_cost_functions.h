@@ -27,7 +27,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
 #include <vw/Camera/OpticalBarModel.h>
-
+#include <asp/Camera/CsmModel.h>
 
 // Turn off warnings from eigen
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -170,7 +170,7 @@ public:
   PinholeBundleModel(boost::shared_ptr<vw::camera::PinholeModel> cam)
     : m_underlying_camera(cam) {}
 
-  /// The number of lens distortion parametrs.
+  /// The number of lens distortion parameters.
   int num_distortion_params() const {
     vw::Vector<double> lens_params
       = m_underlying_camera->lens_distortion()->distortion_parameters();
@@ -337,14 +337,125 @@ private:
   /// This camera is used for all of the intrinsic values.
   boost::shared_ptr<vw::camera::OpticalBarModel> m_underlying_camera;
 
-}; // End class PinholeBundleModel
+}; // End class OpticalBarBundleModel
 
+/// "Full service" CSM model which solves for all desired camera parameters.
+/// - If the current run does not want to solve for everything, those parameter
+///   blocks should be set as constant so that Ceres does not change them.
+class CsmBundleModel: public CeresBundleModelBase {
+public:
+
+  CsmBundleModel(boost::shared_ptr<asp::CsmModel> cam):
+   m_underlying_camera(cam) {}
+
+  /// The number of lens distortion parameters.
+  int num_distortion_params() const {
+    return m_underlying_camera->distortion().size();
+  }
+
+  virtual int num_intrinsic_params() const {
+    return 3 + num_distortion_params(); // Center, focus, and lens distortion.
+  }
+
+  /// Return the number of Ceres input parameter blocks.
+  /// - (camera), (point), (center), (focus), (lens distortion)
+  virtual int num_parameter_blocks() const {return 5;}
+
+  virtual std::vector<int> get_block_sizes() const {
+    std::vector<int> result = CeresBundleModelBase::get_block_sizes();
+    result.push_back(2); // Center
+    result.push_back(1); // Focus
+    result.push_back(num_distortion_params());
+    return result;
+  }
+
+  /// Read in all of the parameters and compute the residuals.
+  virtual vw::Vector2 evaluate(std::vector<double const*> const param_blocks) const {
+
+    // TODO(oalexan1): Use here transformedCsmCamera()
+    std::cout << "---use here transformedCsmCamera()---" << std::endl;
+
+    double const* raw_point  = param_blocks[0];
+    double const* raw_pose   = param_blocks[1];
+    double const* raw_center = param_blocks[2];
+    double const* raw_focus  = param_blocks[3];
+    double const* raw_dist   = param_blocks[4];
+
+    // TODO: Should these values also be scaled?
+    // Read the point location and camera information from the raw arrays.
+    Vector3          point(raw_point[0], raw_point[1], raw_point[2]);
+    CameraAdjustment correction(raw_pose);
+
+    std::cout << "point = " << point << std::endl;
+    // print 6 raw pose params
+    for (int i = 0; i < 6; i++) {
+      std::cout << "raw_pose[" << i << "] = " << raw_pose[i] << std::endl;
+    }
+
+    // We actually solve for scale factors for intrinsic values, so multiply them
+    //  by the original intrinsic values to get the updated values.
+    vw::Vector2 optical_center = m_underlying_camera->optical_center();
+    double focal_length        = m_underlying_camera->focal_length();
+    optical_center[0] = raw_center[0] * optical_center[0];
+    optical_center[1] = raw_center[1] * optical_center[1];
+    focal_length      = raw_focus [0] * focal_length;
+
+    std::cout << "optical_center = " << optical_center << std::endl;
+    std::cout << "focal_length   = " << focal_length   << std::endl;
+
+    // Update the lens distortion parameters in the new camera.
+    // - These values are also optimized as scale factors.
+    std::vector<double> distortion = m_underlying_camera->distortion();
+    for (size_t i = 0; i < distortion.size(); i++) {
+      // Ensure this approach does not fail when the input distortion is 0
+      if (distortion[i] == 0.0)
+        distortion[i] = 1e-16;
+    
+      distortion[i] = raw_dist[i] * distortion[i];
+      std::cout << "distortion[" << i << "] = " << distortion[i] << std::endl;
+    }
+
+    // Duplicate the input camera model
+    boost::shared_ptr<asp::CsmModel> copy;
+    m_underlying_camera->deep_copy(copy);
+    
+    // Update the intrinsics of the copied model
+    copy->set_optical_center(optical_center);
+    copy->set_focal_length(focal_length);
+    copy->set_distortion(distortion);
+
+    // Form the adjusted camera. Note that unlike for Pinhole and Optical
+    // bar, the parameters being optimized adjust the initial CSM camera,
+    // rather than replacing it altogether. The CSM camera can in fact
+    // be even linescan, when there would be many pose samples, in fact,
+    // so it makes sense to work this way. 
+    AdjustedCameraModel adj_cam(copy, correction.position(), correction.pose());
+
+    try {
+      // Project the point into the camera.
+      Vector2 pixel = adj_cam.point_to_pixel(point);
+      std::cout << "pixel = " << pixel << std::endl;
+      return pixel;
+    } catch(...) {
+    }
+
+    // Do not allow one bad pixel value to ruin the whole problem
+    return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
+  }
+
+private:
+
+  // TODO: Cache the constructed camera to save time when just the point changes!
+
+  // TODO: Make const
+  /// This camera is used for all of the intrinsic values.
+  boost::shared_ptr<asp::CsmModel> m_underlying_camera;
+
+}; // End class CsmBundleModel
 
 
 //=========================================================================
 // Cost functions for Ceres
-
-
 
 /// A Ceres cost function. We pass in the observation and the model.
 ///  The result is the residual, the difference in the observation 
