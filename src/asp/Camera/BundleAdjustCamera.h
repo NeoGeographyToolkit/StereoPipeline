@@ -110,10 +110,13 @@ struct IntrinsicOptions {
   bool focus_shared;
   bool distortion_constant;
   bool distortion_shared;
-
+  bool share_intrinsics_per_sensor;
+  std::vector<int> cam2sensor; // cam index to sensor index, when sharing intrinsics per sensor
+  int num_sensors; // will be nonzero only if sharing intrinsics per sensor is true
   IntrinsicOptions(): center_constant    (true), center_shared    (true),
                       focus_constant     (true), focus_shared     (true),
-                      distortion_constant(true), distortion_shared(true){}
+                      distortion_constant(true), distortion_shared(true),
+                      share_intrinsics_per_sensor(false), num_sensors(0) {}
 };
 
 /// Class to store parameters as they are being bundle adjusted.
@@ -134,9 +137,9 @@ public:
   // Constructor
   BAParams(int num_points, int num_cameras,
           // Parameters below here only apply to pinhole models.
-          bool using_intrinsics=false,
-          int num_distortion_params=0,
-          IntrinsicOptions  intrinsics_opts=IntrinsicOptions()); 
+          bool using_intrinsics = false,
+          int num_distortion_params = 0,
+          IntrinsicOptions intrinsics_opts = IntrinsicOptions()); 
 
   // Copy constructor
   BAParams(BAParams const& other);
@@ -319,25 +322,11 @@ private: // Variables
 
 private: // Functions
 
-  /// Compute the offset in m_intrinsics_vec to the requested data.
-  size_t get_center_offset(int cam_index) const {
-    if (m_intrinsics_opts.center_shared)
-      return 0;
-    else
-      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera;
-  }
-  size_t get_focus_offset(int cam_index) const {
-    if (m_intrinsics_opts.focus_shared)
-      return m_focus_offset;
-    else
-      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + m_focus_offset;
-  }
-  size_t get_distortion_offset(int cam_index) const {
-    if (m_intrinsics_opts.distortion_shared)
-      return m_distortion_offset;
-    else
-      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + m_distortion_offset;
-  }
+  /// Compute the offset index in the intrinsics
+  size_t get_center_offset(int cam_index) const;
+  size_t get_focus_offset(int cam_index) const;
+  size_t get_distortion_offset(int cam_index) const;
+
 }; // End class BAParams
 
 } // end namespace asp

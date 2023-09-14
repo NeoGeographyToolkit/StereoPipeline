@@ -65,7 +65,7 @@ struct Options: public asp::BaBaseOptions {
   bool   save_intermediate_cameras, approximate_pinhole_intrinsics,
     init_camera_using_gcp, disable_pinhole_gcp_init,
     transform_cameras_with_shared_gcp, transform_cameras_using_gcp,
-    fix_gcp_xyz, solve_intrinsics, share_intrinsics_per_sensor,
+    fix_gcp_xyz, solve_intrinsics, 
     ip_normalize_tiles, ip_debug_images, stop_after_stats, stop_after_matching,
     skip_matching, apply_initial_transform_only, save_vwip;
   BACameraType camera_type;
@@ -104,7 +104,6 @@ struct Options: public asp::BaBaseOptions {
              forced_triangulation_distance(-1), overlap_exponent(0), 
               save_intermediate_cameras(false),
              fix_gcp_xyz(false), solve_intrinsics(false), 
-             share_intrinsics_per_sensor(false), 
              camera_type(BaCameraType_Other),
              semi_major(0), semi_minor(0), position_filter_dist(-1),
              num_ba_passes(2), max_num_reference_points(-1),
@@ -182,7 +181,6 @@ struct Options: public asp::BaBaseOptions {
   // TODO(oalexan1): This logic would be more clear if this function was not a member
   void load_intrinsics_options(std::string const& intrinsics_to_float_str,
                                std::string const& intrinsics_to_share_str,
-                               bool               share_intrinsics_per_sensor,
                                bool               shared_is_specified) {
 
     // Float and share everything unless specific options are provided.
@@ -201,6 +199,11 @@ struct Options: public asp::BaBaseOptions {
 
     if (!solve_intrinsics)
       return;
+    
+    if (intrinisc_options.share_intrinsics_per_sensor && shared_is_specified) 
+      vw_out() << "When sharing intrinsics per sensor, option "
+               << "--intrinsics-to-share is ignored. The intrinsics will "
+               << "always be shared for a sensor and never across sensors.\n";
 
     intrinisc_options.focus_constant      = false; // Default: solve everything!
     intrinisc_options.center_constant     = false;
@@ -214,7 +217,7 @@ struct Options: public asp::BaBaseOptions {
 
     // If sharing intrinsics per sensor, the only supported mode is that 
     // the intrinsics are always shared per sensor and never across sensors.
-    if (shared_is_specified && !share_intrinsics_per_sensor) {
+    if (shared_is_specified && !intrinisc_options.share_intrinsics_per_sensor) {
       intrinisc_options.focus_shared      = false;
       intrinisc_options.center_shared     = false;
       intrinisc_options.distortion_shared = false;
@@ -237,7 +240,7 @@ struct Options: public asp::BaBaseOptions {
     }
 
     // No parsing is done when sharing intrinsics per sensor, per above 
-    if (!share_intrinsics_per_sensor) {
+    if (shared_is_specified && !intrinisc_options.share_intrinsics_per_sensor) {
       std::istringstream is2(intrinsics_to_share_str);
       while (is2 >> val) {
         if (val == "focal_length")

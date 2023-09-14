@@ -1646,32 +1646,44 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     return;
   }
   
-  // Create the storage arrays for the variables we will adjust.
-  int num_lens_distortion_params = 0;
-  if (opt.camera_type == BaCameraType_Pinhole) {
-    boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
-            boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models[0]);
-    if (!pinhole_ptr) 
-      vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
+  // Find the number of distortion params. 
+  int num_lens_distortion_params0 = 0, num_lens_distortion_params = 0;
+  for (size_t cam_it  = 0; cam_it < opt.camera_models.size(); cam_it++) {
+    if (opt.camera_type == BaCameraType_Pinhole) {
+      boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
+              boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models[cam_it]);
+      if (!pinhole_ptr) 
+        vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
+      num_lens_distortion_params 
+        = pinhole_ptr->lens_distortion()->distortion_parameters().size();
+    } else if (opt.camera_type == BaCameraType_OpticalBar) {
+      num_lens_distortion_params = NUM_OPTICAL_BAR_EXTRA_PARAMS; // TODO: Share this constant!
+    } else if (opt.camera_type == BaCameraType_CSM) {
+      boost::shared_ptr<asp::CsmModel> csm_ptr = 
+              boost::dynamic_pointer_cast<asp::CsmModel>(opt.camera_models[cam_it]);
+      if (!csm_ptr)
+        vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
+      num_lens_distortion_params = csm_ptr->distortion().size();
+    }
 
-    num_lens_distortion_params = pinhole_ptr->lens_distortion()->distortion_parameters().size();
-    if (num_lens_distortion_params < 1) {
-      // For the case where the camera has zero distortion parameters, use one dummy parameter
-      //  just so we don't have to change the parameter block logic later on.
+    // For the case where the camera has zero distortion parameters, use one
+    // dummy parameter just so we don't have to change the parameter block logic
+    // later on.
+    if (opt.camera_type != BaCameraType_Other && num_lens_distortion_params < 1) {
       num_lens_distortion_params = 1;
       opt.intrinisc_options.distortion_constant = true;
       opt.intrinisc_options.distortion_shared   = true;
     }
-  } else if (opt.camera_type == BaCameraType_OpticalBar) {
-    num_lens_distortion_params = NUM_OPTICAL_BAR_EXTRA_PARAMS; // TODO: Share this constant!
-  } else if (opt.camera_type == BaCameraType_CSM) {
-    boost::shared_ptr<asp::CsmModel> csm_ptr = 
-            boost::dynamic_pointer_cast<asp::CsmModel>(opt.camera_models[0]);
-    if (!csm_ptr)
-      vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
-    num_lens_distortion_params = csm_ptr->distortion().size();
+
+    // Check that all cameras have the same number of distortion params
+    if (cam_it == 0)
+      num_lens_distortion_params0 = num_lens_distortion_params;
+    if (num_lens_distortion_params != num_lens_distortion_params0)
+      vw_throw(ArgumentErr() 
+        << "Expecting all cameras to have the same number of distortion parameters.\n");
   }
-  
+
+  // Create the storage arrays for the variables we will adjust.
   asp::BAParams param_storage(num_points, num_cameras,
                                // Distinguish when we solve for intrinsics
                                opt.camera_type != BaCameraType_Other, 
@@ -2205,11 +2217,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Separate the cameras from the images
   std::vector<std::string> inputs = opt.image_files;
 
-  if (!opt.image_list.empty()) {
+  if (!opt.image_list.empty() || !opt.camera_list.empty()) {
     // Read the images and cameras and put them in 'inputs' to be parsed later
-    if (opt.camera_list.empty())
+    if (opt.image_list.empty() || opt.camera_list.empty())
       vw_throw(ArgumentErr()
-               << "The option --image-list must be invoked together with --camera-list.\n");
+               << "Must have both or neither of --image-list and --camera-list.\n");
     if (!inputs.empty())
       vw_throw(ArgumentErr() << "The option --image-list was specified, but also "
                << "images or cameras on the command line.\n");
@@ -2285,11 +2297,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // It would be too much work to fix the BaDispXyzError() cost function in that 
   // case. Would need to handle all intrinsics being shared, only shared per sensor,
   // and none being shared. Same with random passes, there also new logic is needed.
-  if (opt.share_intrinsics_per_sensor && opt.reference_terrain != "")
-    vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with --reference-terrain.\n");
-  if (opt.share_intrinsics_per_sensor && opt.num_random_passes > 0)
-    vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with --num-random-passes.\n");
-    
+  if (opt.intrinisc_options.share_intrinsics_per_sensor) {
+    if (opt.reference_terrain != "")
+      vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with "
+        << "--reference-terrain.\n");
+    if (opt.num_random_passes > 0)
+      vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with " 
+        << "--num-random-passes.\n");
+  }
+
   if (opt.transform_cameras_using_gcp &&
       (!inline_adjustments) &&
       (opt.camera_type != BaCameraType_Pinhole)) {
@@ -2552,7 +2568,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   opt.load_intrinsics_options(intrinsics_to_float_str, intrinsics_to_share_str,
-                              opt.share_intrinsics_per_sensor,
                               !vm["intrinsics-to-share"].defaulted());
 
   opt.parse_intrinsics_limits(intrinsics_limit_str);
@@ -3196,7 +3211,7 @@ int main(int argc, char* argv[]) {
       return 0;
     }
 
-    // All the work happens here! It also writes out the results.
+    // All the work happens here. It also writes out the results.
     do_ba_ceres(opt, estimated_camera_gcc);
 
     xercesc::XMLPlatformUtils::Terminate();
