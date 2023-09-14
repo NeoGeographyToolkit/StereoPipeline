@@ -206,7 +206,7 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BAParams & param_
 
   // Fill out the new camera model vector
   new_cam_models.resize(num_cameras);
-  for (size_t icam = 0; icam < num_cameras; icam++){
+  for (size_t icam = 0; icam < num_cameras; icam++) {
 
     vw::camera::OpticalBarModel* in_cam
       = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
@@ -224,9 +224,9 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BAParams & param_
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for CSM
 bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
-                    std::string const& initial_transform_file, 
-                    vw::Matrix<double> const& initial_transform,
-                    std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models) {
+                   std::string const& initial_transform_file, 
+                   vw::Matrix<double> const& initial_transform,
+                   std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models) {
   if (opt.input_prefix != "")
     vw::vw_throw(vw::ArgumentErr()
                  << "Applying initial adjustments to CSM cameras "

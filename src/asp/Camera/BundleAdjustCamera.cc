@@ -126,14 +126,12 @@ void asp::BAParams::randomize_cameras() {
   VW_ASSERT((m_cameras_vec.size() % NUM_CAMERA_PARAMS) == 0,
             vw::LogicErr() << "Camera parameter length is not a multiple of 6!");
   const size_t num_cameras = m_cameras_vec.size() / NUM_CAMERA_PARAMS;
-  for (size_t c=0; c<num_cameras; ++c) {
+  for (size_t c=0; c<num_cameras; c++) {
     double* ptr = get_camera_ptr(c);
     for (size_t i=0; i<3; i++) {
-      int o = xyz_dist(m_rand_gen) - 5;
-      ptr[i] += o;
+      int diff = xyz_dist(m_rand_gen) - 5;
+      ptr[i] += diff;
     }
-    //for (size_t i=3; i<PARAMS_PER_CAM; i++) {
-    //}
   }
 }
 
@@ -391,12 +389,10 @@ void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
 
 // This function takes advantage of the fact that when it is called the cam_ptrs have the same
 //  information as is in param_storage.
+// TODO(oalexan1): This was not tested
 void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
                                     asp::BAParams & param_storage,
                                     std::vector<vw::CamPtr> const& cam_ptrs) {
-
-  std::cout << "---now in apply_transform_to_cameras_csm---\n";
-  std::cout << "--this is not cheap!!--\n";
 
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
     // Apply the transform
