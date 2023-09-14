@@ -41,15 +41,19 @@ namespace asp {
 /// are a rotation/offset that is applied on top of the existing camera model.
 /// First read initial adjustments, if any, and apply perhaps a pc_align transform.
 /// We assume the initial transform was already read and validated.
-bool init_cams(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
+bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
     std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
     std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models) {
 
   bool cameras_changed = false;
-  
   // Initialize all of the camera adjustments to zero.
-  param_storage.clear_cameras();
+  param_storage.init_cams_as_zero();
   const size_t num_cameras = param_storage.num_cameras();
+
+  // Sanity check, must have same number of cameras
+  if (num_cameras != opt.camera_models.size())
+      vw_throw(ArgumentErr() << "Expecting " << num_cameras << " cameras, got "
+                           << opt.camera_models.size() << ".\n");
 
   // Read the adjustments from a previous run, if present
   if (opt.input_prefix != "") {
@@ -68,7 +72,7 @@ bool init_cams(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
 
   // Get an updated list of camera models
   new_cam_models.resize(num_cameras);
-  for (size_t icam = 0; icam < num_cameras; icam++){
+  for (size_t icam = 0; icam < num_cameras; icam++) {
     CameraAdjustment correction(param_storage.get_camera_ptr(icam));
     camera::CameraModel* cam = new camera::AdjustedCameraModel(opt.camera_models[icam],
                                         correction.position(), correction.pose());
@@ -77,7 +81,6 @@ bool init_cams(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
 
   // Apply any initial transform to the pinhole cameras
   if (initial_transform_file != "") {
-
     // TODO(oalexan1): This gives wrong results for now so needs to be sorted out.
     // Likely the only way to apply a scale to a linescan camera is to multiply
     // all camera centers by the scale. Using a rotation and translation center
@@ -88,12 +91,14 @@ bool init_cams(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
         vw_throw(ArgumentErr()
                  << "CSM camera models do not support applying a transform with a scale.\n");
     }
-    
+
+    // TODO(oalexan1): Does this modify param_storage?
     apply_transform_to_cameras(initial_transform, param_storage, new_cam_models);
     cameras_changed = true;
   }
-  
+
   // Fill out the new camera model vector
+  // TODO(oalexan1): Why the repeated code?
   new_cam_models.resize(num_cameras);
   for (size_t icam = 0; icam < num_cameras; icam++){
     CameraAdjustment correction(param_storage.get_camera_ptr(icam));
@@ -101,12 +106,11 @@ bool init_cams(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
                                         correction.position(), correction.pose());
     new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(cam);
   }
-
   return cameras_changed;
 }
 
 /// Specialization for pinhole cameras
-bool init_cams_pinhole(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
+bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
      std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
      std::vector<boost::shared_ptr<vw::camera::CameraModel>> & new_cam_models) {
 
@@ -172,7 +176,7 @@ bool init_cams_pinhole(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for optical bar cameras.
-bool init_cams_optical_bar(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
+bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
                     std::string const& initial_transform_file, 
                     vw::Matrix<double> const& initial_transform,
                     std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models) {
@@ -219,11 +223,10 @@ bool init_cams_optical_bar(asp::BaBaseOptions & opt, asp::BAParams & param_stora
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for CSM
-bool init_cams_csm(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
+bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
                     std::string const& initial_transform_file, 
                     vw::Matrix<double> const& initial_transform,
                     std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models) {
-  std::cout << "--now in init_cams_csm\n";
   if (opt.input_prefix != "")
     vw::vw_throw(vw::ArgumentErr()
                  << "Applying initial adjustments to CSM cameras "
@@ -333,14 +336,11 @@ void write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
                            vw::cartography::Datum const& datum,
                            asp::BAParams const& param_storage) {
 
-  std::cout << "---now in write_csm_output_file\n";
-  std::cout << "--does inline intrinsics work well with input adjustments or initial transform?Things look inconsistent!\n";
-
   // Get the output file path
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
                                                       opt.image_files [icam],
                                                       opt.camera_files[icam]);
-  cam_file = boost::filesystem::path(cam_file).replace_extension("json").string();
+  cam_file = asp::csmStateFile(cam_file);
 
   // Get the final camera model from the original one with optimized
   // parameters applied to it. Note that we do not modify the original
@@ -349,11 +349,8 @@ void write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
     = dynamic_cast<asp::CsmModel const*>(opt.camera_models[icam].get()); 
   if (in_cam == NULL)
     vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
-   
    boost::shared_ptr<asp::CsmModel> out_cam
      = transformedCsmCamera(icam, param_storage, *in_cam);
-
-   vw::vw_out() << "Writing CSM model state to: " << cam_file << std::endl;
    out_cam->saveState(cam_file);
 
    bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
@@ -368,7 +365,6 @@ void write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
                                    std::string const& adjustFile, 
                                    asp::BAParams const& param_storage) {
   
-  std::cout << "--now in write_csm_output_file_no_intr" << std::endl;
   CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
   
   AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
@@ -377,7 +373,6 @@ void write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
   std::string csmFile          = asp::csmStateFile(adjustFile);
   asp::CsmModel * csm_model    = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
-  vw_out() << "Writing CSM model state to: " << csmFile << std::endl;
   csm_model->saveTransformedState(csmFile, ecef_transform);
 }
 

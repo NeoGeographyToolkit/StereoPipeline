@@ -177,7 +177,7 @@ std::string CsmModel::get_csm_plugin_folder() {
 
 // The original idea here was to look at every library in the plugins
 // directory and load the valid plugins. For now however there is just
-// one plugin, libusgscsm, and it is stored in 'lib', among thousands
+// one plugin, usgscsm, and it is stored in 'lib', among thousands
 // of other inapplicable libraries. Hence just pick that one.  One day
 // we will have a dedicated plugins directory.
 size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
@@ -991,7 +991,6 @@ void CsmModel::deep_copy(boost::shared_ptr<CsmModel> & copy) const {
   if (frame_model != NULL) {
     UsgsAstroFrameSensorModel * new_frame_model = new UsgsAstroFrameSensorModel(*frame_model);
     copy->m_gm_model.reset(new_frame_model);
-    std::cout << "--got a new frame model\n";
     return;
   }
 
@@ -1001,7 +1000,6 @@ void CsmModel::deep_copy(boost::shared_ptr<CsmModel> & copy) const {
   if (ls_model != NULL) {
     UsgsAstroLsSensorModel * new_ls_model = new UsgsAstroLsSensorModel(*ls_model);
     copy->m_gm_model.reset(new_ls_model);
-    std::cout << "--got a new linescan model\n";
     return;
   }
 
@@ -1011,7 +1009,6 @@ void CsmModel::deep_copy(boost::shared_ptr<CsmModel> & copy) const {
   if (pf_model != NULL) {
     UsgsAstroPushFrameSensorModel * new_pf_model = new UsgsAstroPushFrameSensorModel(*pf_model);
     copy->m_gm_model.reset(new_pf_model);
-    std::cout << "--got a new pushframe model\n";
     return;
   }
 
@@ -1021,7 +1018,6 @@ void CsmModel::deep_copy(boost::shared_ptr<CsmModel> & copy) const {
   if (sar_model != NULL) {
     UsgsAstroSarSensorModel * new_sar_model = new UsgsAstroSarSensorModel(*sar_model);
     copy->m_gm_model.reset(new_sar_model);
-    std::cout << "--got a new sar model\n";
     return;
   }
 

@@ -59,7 +59,7 @@ struct Options: public asp::BaBaseOptions {
     cost_function, mapprojected_data, gcp_from_mapprojected,
     image_list, camera_list, mapprojected_data_list,
     fixed_image_list;
-  int ip_per_tile, ip_per_image, matches_per_tile, ip_edge_buffer_percent;
+  int ip_per_tile, ip_per_image, matches_per_tile;
   double forced_triangulation_distance, overlap_exponent, ip_triangulation_max_error;
   int    instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
   bool   save_intermediate_cameras, approximate_pinhole_intrinsics,
@@ -67,7 +67,7 @@ struct Options: public asp::BaBaseOptions {
     transform_cameras_with_shared_gcp, transform_cameras_using_gcp,
     fix_gcp_xyz, solve_intrinsics,
     ip_normalize_tiles, ip_debug_images, stop_after_stats, stop_after_matching,
-    skip_matching, match_first_to_last, apply_initial_transform_only, save_vwip;
+    skip_matching, apply_initial_transform_only, save_vwip;
   BACameraType camera_type;
   std::string datum_str, camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, reference_terrain, disparity_list,
@@ -77,7 +77,6 @@ struct Options: public asp::BaBaseOptions {
   std::string remove_outliers_params_str;
   std::vector<double> intrinsics_limits;
   boost::shared_ptr<vw::ba::ControlNetwork> cnet;
-  std::vector<boost::shared_ptr<vw::camera::CameraModel>> camera_models;
   vw::cartography::Datum datum;
   int    ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.

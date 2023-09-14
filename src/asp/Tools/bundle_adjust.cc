@@ -259,7 +259,6 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
       wrapper.reset(new OpticalBarBundleModel(bar_model));
 
     } else if (opt.camera_type == BaCameraType_CSM) {
-      std::cout << "--add block for csm camera\n";
       boost::shared_ptr<asp::CsmModel> csm_model = 
         boost::dynamic_pointer_cast<asp::CsmModel>(camera_model);
       if (csm_model.get() == NULL)
@@ -976,7 +975,6 @@ void calcOptimizedCameras(Options const& opt,
       break;
     case  BaCameraType_CSM:
       {
-        std::cout << "calc optimized csm cameras\n";
         asp::CsmModel const* in_cam
           = dynamic_cast<asp::CsmModel const*>(opt.camera_models[icam].get());
         if (in_cam == NULL)
@@ -1672,9 +1670,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     if (!csm_ptr)
       vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
     num_lens_distortion_params = csm_ptr->distortion().size();
-    std::cout << "--num csm lens distortion params: " << num_lens_distortion_params << std::endl;
   }
-
+  
   asp::BAParams param_storage(num_points, num_cameras,
                                // Distinguish when we solve for intrinsics
                                opt.camera_type != BaCameraType_Other, 
@@ -1698,7 +1695,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                           opt.initial_transform_file, opt.initial_transform,
                           new_cam_models); break;
     case BaCameraType_Other:
-      ans = init_cams(opt, param_storage, opt.initial_transform_file, opt.initial_transform,
+      ans = init_cams(opt, param_storage, 
+                      opt.initial_transform_file, opt.initial_transform,
                       new_cam_models); break;
     default: 
       vw_throw(ArgumentErr() << "Unknown camera type.\n");
@@ -2266,8 +2264,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
   
   boost::to_lower(opt.stereo_session);
-  std::cout << "session is " << opt.stereo_session << std::endl;
-  
+
   opt.camera_type = BaCameraType_Other;
   if (inline_adjustments) {
     // Work out the session and camera model type

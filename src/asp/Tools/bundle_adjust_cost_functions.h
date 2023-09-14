@@ -372,9 +372,9 @@ public:
   /// Read in all of the parameters and compute the residuals.
   virtual vw::Vector2 evaluate(std::vector<double const*> const param_blocks) const {
 
-    // TODO(oalexan1): Use here transformedCsmCamera()
-    std::cout << "---use here transformedCsmCamera()---" << std::endl;
-
+    // TODO(oalexan1): Use here transformedCsmCamera() to avoid code repetition. 
+    // But note that that one may set zero distortion to 1e-16 which likely here
+    // we don't need to do.
     double const* raw_point  = param_blocks[0];
     double const* raw_pose   = param_blocks[1];
     double const* raw_center = param_blocks[2];
@@ -386,12 +386,6 @@ public:
     Vector3          point(raw_point[0], raw_point[1], raw_point[2]);
     CameraAdjustment correction(raw_pose);
 
-    std::cout << "point = " << point << std::endl;
-    // print 6 raw pose params
-    for (int i = 0; i < 6; i++) {
-      std::cout << "raw_pose[" << i << "] = " << raw_pose[i] << std::endl;
-    }
-
     // We actually solve for scale factors for intrinsic values, so multiply them
     //  by the original intrinsic values to get the updated values.
     vw::Vector2 optical_center = m_underlying_camera->optical_center();
@@ -400,19 +394,11 @@ public:
     optical_center[1] = raw_center[1] * optical_center[1];
     focal_length      = raw_focus [0] * focal_length;
 
-    std::cout << "optical_center = " << optical_center << std::endl;
-    std::cout << "focal_length   = " << focal_length   << std::endl;
-
     // Update the lens distortion parameters in the new camera.
     // - These values are also optimized as scale factors.
     std::vector<double> distortion = m_underlying_camera->distortion();
     for (size_t i = 0; i < distortion.size(); i++) {
-      // Ensure this approach does not fail when the input distortion is 0
-      if (distortion[i] == 0.0)
-        distortion[i] = 1e-16;
-    
       distortion[i] = raw_dist[i] * distortion[i];
-      std::cout << "distortion[" << i << "] = " << distortion[i] << std::endl;
     }
 
     // Duplicate the input camera model
@@ -434,7 +420,6 @@ public:
     try {
       // Project the point into the camera.
       Vector2 pixel = adj_cam.point_to_pixel(point);
-      std::cout << "pixel = " << pixel << std::endl;
       return pixel;
     } catch(...) {
     }

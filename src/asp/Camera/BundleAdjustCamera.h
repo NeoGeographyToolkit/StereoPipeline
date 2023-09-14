@@ -133,16 +133,16 @@ public:
 
   // Constructor
   BAParams(int num_points, int num_cameras,
-                 // Parameters below here only apply to pinhole models.
-                 bool using_intrinsics=false,
-                 int num_distortion_params=0,
-                 IntrinsicOptions  intrinsics_opts=IntrinsicOptions()); 
+          // Parameters below here only apply to pinhole models.
+          bool using_intrinsics=false,
+          int num_distortion_params=0,
+          IntrinsicOptions  intrinsics_opts=IntrinsicOptions()); 
 
   // Copy constructor
   BAParams(BAParams const& other);
 
   // Set all camera position and pose values to zero.
-  void clear_cameras() {
+  void init_cams_as_zero() {
     for (int i=0; i < m_cameras_vec.size(); i++)
       m_cameras_vec[i] = 0.0;
   }
@@ -383,15 +383,11 @@ public:
   /// Populate from CSM. Since with CSM we apply adjustments to existing
   /// cameras, these start as 0.
   void copy_from_csm(asp::CsmModel const& cam) {
+    // Zero position and identity rotation
     m_position_data = vw::Vector3(0, 0, 0);
-    // Create identity matrix 3x3
     vw::Matrix3x3 I;
     I.set_identity();
-    // Initialize quaternion from I
     m_pose_data = vw::Quat(I);
-    // find the rotation matrix for this quat
-    vw::Matrix3x3 rot_mat = m_pose_data.rotation_matrix();
-    std::cout << "rotation matrix is " << rot_mat << std::endl;
   }
 
   /// Populate from an adjustment file on disk.
@@ -635,25 +631,25 @@ void guessSession(std::string const& camera_file, std::string & stereo_session);
 /// are a rotation/offset that is applied on top of the existing camera model.
 /// First read initial adjustments, if any, and apply perhaps a pc_align transform.
 /// We assume the initial transform was already read and validated.
-bool init_cams(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
+bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
        std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
        std::vector<boost::shared_ptr<vw::camera::CameraModel>> & new_cam_models);
 
 /// Specialization for pinhole cameras.
-bool init_cams_pinhole(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
+bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
      std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
      std::vector<boost::shared_ptr<vw::camera::CameraModel>> & new_cam_models);
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for optical bar cameras.
-bool init_cams_optical_bar(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
+bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
                     std::string const& initial_transform_file, 
                     vw::Matrix<double> const& initial_transform,
                     std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models);
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for CSM cameras.
-bool init_cams_csm(asp::BaBaseOptions & opt, asp::BAParams & param_storage,
+bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
                    std::string const& initial_transform_file, 
                    vw::Matrix<double> const& initial_transform,
                    std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models);

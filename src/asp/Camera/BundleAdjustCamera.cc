@@ -52,8 +52,8 @@ asp::BAParams::BAParams(int num_points, int num_cameras,
     m_focus_offset(0),
     m_distortion_offset(0),
     m_intrinsics_opts    (intrinsics_opts),
-    m_points_vec        (num_points *PARAMS_PER_POINT,  0),
-    m_cameras_vec       (num_cameras*NUM_CAMERA_PARAMS, 0),
+    m_points_vec        (num_points * PARAMS_PER_POINT,  0),
+    m_cameras_vec       (num_cameras * NUM_CAMERA_PARAMS, 0),
     m_intrinsics_vec    (0),
     m_outlier_points_vec(num_points, false),
     m_rand_gen(std::time(0)) {
@@ -303,10 +303,6 @@ void pack_csm_to_arrays(asp::CsmModel const& camera,
   CameraAdjustment pos_pose_info;
   pos_pose_info.copy_from_csm(camera);
   pos_pose_info.pack_to_array(pos_pose_ptr);
-  // print 6 values iin pos_pose_ptr
-  for (int i = 0; i < 6; i++) {
-    std::cout << "pos_pose_ptr[" << i << "] = " << pos_pose_ptr[i] << std::endl;
-  }
 
   // We are solving for multipliers to the intrinsic values, so they all start at 1.0.
   // Center point and focal length
@@ -316,7 +312,6 @@ void pack_csm_to_arrays(asp::CsmModel const& camera,
   // Distortion
   for (size_t i = 0; i < camera.distortion().size(); i++) {
     distortion_ptr[i] = 1.0;
-    std::cout << "--added dist index and value = " << i << " " << distortion_ptr[i] << std::endl;
   }
 }
   
@@ -1057,7 +1052,6 @@ vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
 boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
                                                       asp::BAParams const& param_storage,
                                                       asp::CsmModel const& in_cam) {
-  std::cout << "--now in transformedCsmCamera\n";
   // Get the latest version of the camera parameters
   double const* pos_pose_ptr  = param_storage.get_camera_ptr(camera_index);
   double const* center_ptr    = param_storage.get_intrinsic_center_ptr    (camera_index);
@@ -1066,7 +1060,6 @@ boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
 
   // Read the position and pose
   CameraAdjustment correction(pos_pose_ptr);
-  std::cout << "--use this pose!\n";
 
   // All intrinsic parameters are stored as multipliers
   vw::Vector2 optical_center = in_cam.optical_center();
@@ -1074,9 +1067,6 @@ boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
   optical_center[0] = center_ptr[0] * optical_center[0];
   optical_center[1] = center_ptr[1] * optical_center[1];
   focal_length      = focus_ptr [0] * focal_length;
-
-  std::cout << "--focus ptr is " << focus_ptr[0] << std::endl;
-  std::cout << "--focus is " << focal_length << std::endl;
 
   // Update the lens distortion parameters in the new camera.
   // - These values are also optimized as scale factors.
@@ -1086,12 +1076,8 @@ boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
     // Ensure this approach does not fail when the input distortion is 0
     if (distortion[i] == 0.0)
       distortion[i] = 1e-16;
-    std::cout << "--see if we need the distortion perturbation!\n";
-
-    std::cout << "dist ptr value is " << dist_ptr[i] << std::endl;
 
     distortion[i] = dist_ptr[i] * distortion[i];
-    std::cout << "distortion[" << i << "] = " << distortion[i] << std::endl;
   }
 
   // Duplicate the input camera model
@@ -1110,7 +1096,8 @@ boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
   copy->applyTransform(ecef_transform);
 
-  std::cout << "---test that adj cam and copy now produce same results\n";
+  // TODO(oalexan1): Test if adj cam and cam with applied adjustment return same
+  // results
 
   return copy;
 }
