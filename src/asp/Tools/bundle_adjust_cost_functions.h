@@ -543,7 +543,7 @@ struct BaDispXyzError {
                  ImageViewRef<DispPixelT> const& interp_disp,
                  boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
                  boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
-                 bool is_pinhole, // Would like to remove these!
+                 bool solve_intrinsics, // Would like to remove these!
                  asp::IntrinsicOptions intrin_opt)
       : m_reference_xyz(reference_xyz),
         m_interp_disp  (interp_disp  ),
@@ -551,7 +551,7 @@ struct BaDispXyzError {
         m_num_right_param_blocks(right_camera_wrapper->num_parameter_blocks()),
         m_left_camera_wrapper   (left_camera_wrapper ),
         m_right_camera_wrapper  (right_camera_wrapper),
-        m_is_pinhole(is_pinhole),
+        m_solve_intrinsics(solve_intrinsics),
         m_intrin_opt(intrin_opt)   {}
 
   // Adaptor to work with ceres::DynamicCostFunctions.
@@ -603,18 +603,18 @@ struct BaDispXyzError {
 
 
   // TODO: Should this logic live somewhere else?
-  /// Create the list of residual pointers for pinhole images.
+  /// Create the list of residual pointers when solving for intrinsics.
   /// - Extra logic is needed to avoid duplicate pointers.
   static void get_residual_pointers(asp::BAParams &param_storage,
                                     int left_cam_index, int right_cam_index,
-                                    bool is_pinhole,
+                                    bool solve_intrinsics,
                                     asp::IntrinsicOptions const& intrin_opt,
                                     std::vector<double*> &residual_ptrs) {
    
     double* left_camera  = param_storage.get_camera_ptr(left_cam_index );
     double* right_camera = param_storage.get_camera_ptr(right_cam_index);
     residual_ptrs.clear();
-    if (is_pinhole) {
+    if (solve_intrinsics) {
       double* left_center      = param_storage.get_intrinsic_center_ptr    (left_cam_index );
       double* left_focus       = param_storage.get_intrinsic_focus_ptr     (left_cam_index );
       double* left_distortion  = param_storage.get_intrinsic_distortion_ptr(left_cam_index );
@@ -654,13 +654,13 @@ struct BaDispXyzError {
       left_param_blocks[i] = parameters[index];
       ++index;
     }
-    if (!m_is_pinhole) {
+    if (!m_solve_intrinsics) {
       // Unpack everything from the right block in order.
       for (size_t i=1; i<m_num_right_param_blocks; ++i) {
         right_param_blocks[i] = parameters[index];
         ++index;
       }
-    } else { // Pinhole case, handle shared intrinsics.
+    } else { // Solve for intrinsics. Handle shared intrinsics.
       right_param_blocks[1] = parameters[index]; // Pose and position
       ++index;
       if (m_intrin_opt.center_shared)
@@ -691,7 +691,7 @@ struct BaDispXyzError {
       Vector3 const& reference_xyz, ImageViewRef<DispPixelT> const& interp_disp,
       boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
       boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
-      bool is_pinhole, asp::IntrinsicOptions intrin_opt = asp::IntrinsicOptions()) {
+      bool solve_intrinsics, asp::IntrinsicOptions intrin_opt = asp::IntrinsicOptions()) {
 
     const int NUM_RESIDUALS = 2;
 
@@ -699,7 +699,7 @@ struct BaDispXyzError {
         new ceres::DynamicNumericDiffCostFunction<BaDispXyzError>(
             new BaDispXyzError(reference_xyz, interp_disp, 
                                left_camera_wrapper, right_camera_wrapper,
-                               is_pinhole, intrin_opt));
+                               solve_intrinsics, intrin_opt));
 
     // The residual size is always the same.
     cost_function->SetNumResiduals(NUM_RESIDUALS);
@@ -711,7 +711,7 @@ struct BaDispXyzError {
       cost_function->AddParameterBlock(block_sizes[i]);
     }
     block_sizes = right_camera_wrapper->get_block_sizes();
-    if (!is_pinhole) {
+    if (!solve_intrinsics) {
       for (size_t i=1; i<block_sizes.size(); ++i) {
         cost_function->AddParameterBlock(block_sizes[i]);
       }
@@ -734,7 +734,7 @@ struct BaDispXyzError {
   boost::shared_ptr<CeresBundleModelBase> m_right_camera_wrapper;
 
   // Would like to not have these two!
-  bool m_is_pinhole;
+  bool m_solve_intrinsics;
   asp::IntrinsicOptions m_intrin_opt;
 };
 

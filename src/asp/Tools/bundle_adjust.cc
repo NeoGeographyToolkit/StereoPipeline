@@ -1900,7 +1900,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str,
     intrinsics_limit_str;
-  bool  inline_adjustments;
+  bool inline_adjustments;
   int   max_iterations_tmp;
   po::options_description general_options("");
   general_options.add_options()
@@ -1919,7 +1919,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("intrinsics-to-float", po::value(&intrinsics_to_float_str)->default_value(""),
      "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. Not specifying anything will float all of them.")
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
-     "If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. Not specifying anything, will share none of them.")
+     "If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. By default all of the intrinsics are shared, so to not share any of them pass in a blank string. If sharing intrinsics per sensor, this option is ignored altogether.")
     ("intrinsics-limits", 
      po::value(&intrinsics_limit_str)->default_value(""),
      "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in min max pairs and are applied in the order [focal length, optical center, other intrinsics] until all of the limits are used. Check the documentation to dermine how many intrinsic parameters are used for your cameras.")
@@ -2281,6 +2281,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                 << opt.stereo_session << "\n" << usage << general_options);
   }
   
+  // Sharing intrinsics per sensor is not supported with reference terrain.
+  // It would be too much work to fix the BaDispXyzError() cost function in that 
+  // case. Would need to handle all intrinsics being shared, only shared per sensor,
+  // and none being shared. Same with random passes, there also new logic is needed.
+  if (opt.share_intrinsics_per_sensor && opt.reference_terrain != "")
+    vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with --reference-terrain.\n");
+  if (opt.share_intrinsics_per_sensor && opt.num_random_passes > 0)
+    vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with --num-random-passes.\n");
+    
   if (opt.transform_cameras_using_gcp &&
       (!inline_adjustments) &&
       (opt.camera_type != BaCameraType_Pinhole)) {
@@ -2543,6 +2552,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   opt.load_intrinsics_options(intrinsics_to_float_str, intrinsics_to_share_str,
+                              opt.share_intrinsics_per_sensor,
                               !vm["intrinsics-to-share"].defaulted());
 
   opt.parse_intrinsics_limits(intrinsics_limit_str);
