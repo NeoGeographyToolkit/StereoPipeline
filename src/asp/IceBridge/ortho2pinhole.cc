@@ -931,7 +931,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("skip-image-normalization", po::bool_switch(&opt.skip_image_normalization)->default_value(false)->implicit_value(true),
      "Skip the step of normalizing the values of input images.")
     ("short-circuit",   po::bool_switch(&opt.short_circuit)->default_value(false)->implicit_value(true),
-     "No processing, just copy input intrinisc parameters to camera-estimate and write out.")
+     "No processing, just copy input intrinsic parameters to camera-estimate and write out.")
     ("show-error",   po::bool_switch(&opt.show_error)->default_value(false)->implicit_value(true),
      "Print point error.")
     ("keep-match-file",   po::bool_switch(&opt.keep_match_file)->default_value(false)->implicit_value(true),

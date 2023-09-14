@@ -174,46 +174,46 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
   const size_t num_intrinsics = intrinsic_limits.size() / 2;
   float percent, scale, range = 0;
   for (size_t c=0; c<num_cameras(); ++c) { // For each camera...
-    size_t intrin_index = 0;
+    size_t intrinsics_index = 0;
     if (!m_intrinsics_opts.focus_constant && !(m_intrinsics_opts.focus_shared && (c>0))) {
       double* ptr = get_intrinsic_focus_ptr(c);
       for (int i=0; i<NUM_FOCUS_PARAMS; i++) {
         percent = static_cast<double>(dist(m_rand_gen))/DENOM;
-        if (intrin_index < num_intrinsics) {
-          range = intrinsic_limits[2*intrin_index+1] - intrinsic_limits[2*intrin_index];
-          scale = percent*range + intrinsic_limits[2*intrin_index];
+        if (intrinsics_index < num_intrinsics) {
+          range = intrinsic_limits[2*intrinsics_index+1] - intrinsic_limits[2*intrinsics_index];
+          scale = percent*range + intrinsic_limits[2*intrinsics_index];
         } else
           scale = percent*DEFAULT_RANGE + DEFAULT_MIN;
         ptr[i] *= scale;
-        ++intrin_index;
+        ++intrinsics_index;
       }
     } // End focus case
-    intrin_index = NUM_FOCUS_PARAMS; // In case we did not go through the loop
+    intrinsics_index = NUM_FOCUS_PARAMS; // In case we did not go through the loop
     if (!m_intrinsics_opts.center_constant && !(m_intrinsics_opts.center_shared && (c>0))) {
       double* ptr = get_intrinsic_center_ptr(c);
       for (int i=0; i<NUM_CENTER_PARAMS; i++) {
         percent = static_cast<double>(dist(m_rand_gen))/DENOM;
-        if (intrin_index < num_intrinsics) {
-          range = intrinsic_limits[2*intrin_index+1] - intrinsic_limits[2*intrin_index];
-          scale = percent*range + intrinsic_limits[2*intrin_index];
+        if (intrinsics_index < num_intrinsics) {
+          range = intrinsic_limits[2*intrinsics_index+1] - intrinsic_limits[2*intrinsics_index];
+          scale = percent*range + intrinsic_limits[2*intrinsics_index];
         } else
           scale = percent*DEFAULT_RANGE + DEFAULT_MIN;
         ptr[i] *= scale;
-        ++intrin_index;
+        ++intrinsics_index;
       }
     } // End center case
-    intrin_index = NUM_FOCUS_PARAMS+NUM_CENTER_PARAMS; // In case we did not go through the loops
+    intrinsics_index = NUM_FOCUS_PARAMS+NUM_CENTER_PARAMS; // In case we did not go through the loops
     if (!m_intrinsics_opts.distortion_constant && !(m_intrinsics_opts.distortion_shared && (c>0))) {
       double* ptr = get_intrinsic_distortion_ptr(c);
       for (int i=0; i<m_num_distortion_params; i++) {
         percent = static_cast<double>(dist(m_rand_gen))/DENOM;
-        if (intrin_index < num_intrinsics) {
-          range = intrinsic_limits[2*intrin_index+1] - intrinsic_limits[2*intrin_index];
-          scale = percent*range + intrinsic_limits[2*intrin_index];
+        if (intrinsics_index < num_intrinsics) {
+          range = intrinsic_limits[2*intrinsics_index+1] - intrinsic_limits[2*intrinsics_index];
+          scale = percent*range + intrinsic_limits[2*intrinsics_index];
         } else
           scale = percent*DEFAULT_RANGE + DEFAULT_MIN;
         ptr[i] *= scale;
-        ++intrin_index;
+        ++intrinsics_index;
       }
     } // End distortion case
   } // End camera loop

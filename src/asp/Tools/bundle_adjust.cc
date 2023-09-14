@@ -280,33 +280,33 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
       vw::vw_throw( vw::ArgumentErr() << "Error: Too many intrinsic limits provided!"
         << " This model has " << wrapper->num_intrinsic_params() << " intrinsic parameters.");
     }
-    size_t intrin_index = 0;
+    size_t intrinsics_index = 0;
     if (num_limits > 0) { // Do focus first.
       problem.SetParameterLowerBound(focus, 0, opt.intrinsics_limits[0]);
       problem.SetParameterUpperBound(focus, 0, opt.intrinsics_limits[1]);
-      ++intrin_index;
+      ++intrinsics_index;
     }
-    while ((intrin_index < 3) && (intrin_index < num_limits)) { // Next is the two center params
-      problem.SetParameterLowerBound(center, intrin_index-1,
-                                     opt.intrinsics_limits[2*intrin_index    ]);
-      problem.SetParameterUpperBound(center, intrin_index-1,
-                                     opt.intrinsics_limits[2*intrin_index + 1]);
-      ++intrin_index;
+    while ((intrinsics_index < 3) && (intrinsics_index < num_limits)) { // Next is the two center params
+      problem.SetParameterLowerBound(center, intrinsics_index-1,
+                                     opt.intrinsics_limits[2*intrinsics_index    ]);
+      problem.SetParameterUpperBound(center, intrinsics_index-1,
+                                     opt.intrinsics_limits[2*intrinsics_index + 1]);
+      ++intrinsics_index;
     }
-    while (intrin_index < num_limits) { // Finish with the intrinsic params
-      problem.SetParameterLowerBound(distortion, intrin_index-3,
-                                     opt.intrinsics_limits[2*intrin_index    ]);
-      problem.SetParameterUpperBound(distortion, intrin_index-3,
-                                     opt.intrinsics_limits[2*intrin_index + 1]);
-      ++intrin_index;
+    while (intrinsics_index < num_limits) { // Finish with the intrinsic params
+      problem.SetParameterLowerBound(distortion, intrinsics_index-3,
+                                     opt.intrinsics_limits[2*intrinsics_index    ]);
+      problem.SetParameterUpperBound(distortion, intrinsics_index-3,
+                                     opt.intrinsics_limits[2*intrinsics_index + 1]);
+      ++intrinsics_index;
     }
 
     // If we don't want to solve for something, just tell Ceres not to adjust the values.
-    if (opt.intrinisc_options.center_constant)
+    if (opt.intrinsics_options.center_constant)
       problem.SetParameterBlockConstant(center);
-    if (opt.intrinisc_options.focus_constant)
+    if (opt.intrinsics_options.focus_constant)
       problem.SetParameterBlockConstant(focus);
-    if (opt.intrinisc_options.distortion_constant)
+    if (opt.intrinsics_options.distortion_constant)
       problem.SetParameterBlockConstant(distortion);
   } // End non-generic camera case.
 
@@ -334,7 +334,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
   std::vector<double*> residual_ptrs;
   BaDispXyzError::get_residual_pointers(param_storage,
                                         left_cam_index, right_cam_index,
-                                        inline_adjustments, opt.intrinisc_options,
+                                        inline_adjustments, opt.intrinsics_options,
                                         residual_ptrs);
  if (opt.camera_type == BaCameraType_Other) {
 
@@ -342,7 +342,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
     boost::shared_ptr<CeresBundleModelBase> right_wrapper(new AdjustedCameraBundleModel(right_camera_model));
     ceres::CostFunction* cost_function =
       BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper,
-                             inline_adjustments, opt.intrinisc_options);
+                             inline_adjustments, opt.intrinsics_options);
 
     problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
 
@@ -380,7 +380,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
 
     ceres::CostFunction* cost_function =
       BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper,
-                             inline_adjustments, opt.intrinisc_options);
+                             inline_adjustments, opt.intrinsics_options);
     problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
 
   }
@@ -1671,8 +1671,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     // later on.
     if (opt.camera_type != BaCameraType_Other && num_lens_distortion_params < 1) {
       num_lens_distortion_params = 1;
-      opt.intrinisc_options.distortion_constant = true;
-      opt.intrinisc_options.distortion_shared   = true;
+      opt.intrinsics_options.distortion_constant = true;
+      opt.intrinsics_options.distortion_shared   = true;
     }
 
     // Check that all cameras have the same number of distortion params
@@ -1689,7 +1689,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                                opt.camera_type != BaCameraType_Other, 
                                // Must be the same for each camera
                                num_lens_distortion_params, 
-                               opt.intrinisc_options);
+                               opt.intrinsics_options);
 
   // Fill in the camera and intrinsic parameters.
   std::vector<boost::shared_ptr<camera::CameraModel>> new_cam_models;
@@ -1927,7 +1927,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "If it reduces computation time, approximate the lens distortion model.")
     ("solve-intrinsics",    po::bool_switch(&opt.solve_intrinsics)->default_value(false)->implicit_value(true),
      "Optimize intrinsic camera parameters. Only used for pinhole, optical bar, "
-     "and CSM (frame and linescan) cameras. Assumes option --inline-adjustments.")
+     "and CSM (frame and linescan) cameras. This implies --inline-adjustments.")
     ("intrinsics-to-float", po::value(&intrinsics_to_float_str)->default_value(""),
      "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. Not specifying anything will float all of them.")
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
@@ -2233,9 +2233,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
 
   // Sanity checks
-  if ((!opt.camera_list.empty() || !opt.mapprojected_data_list.empty()) && opt.image_list.empty())
-    vw_throw(ArgumentErr() << "Found --camera-list and --mapprojected-data-list, "
-             << "but not --image-list.\n");
+  if (!opt.mapprojected_data_list.empty() &&
+      (opt.image_list.empty() || opt.camera_list.empty()))
+    vw_throw(ArgumentErr() << "Found --mapprojected-data-list, "
+             << "but not --image-list or --camera-list.\n");
   if (!opt.mapprojected_data.empty() && !opt.mapprojected_data_list.empty())
     vw_throw(ArgumentErr() << "Cannot specify both --mapprojected-data and "
              << "--mapprojected-data-list.\n");
@@ -2297,7 +2298,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // It would be too much work to fix the BaDispXyzError() cost function in that 
   // case. Would need to handle all intrinsics being shared, only shared per sensor,
   // and none being shared. Same with random passes, there also new logic is needed.
-  if (opt.intrinisc_options.share_intrinsics_per_sensor) {
+  if (opt.intrinsics_options.share_intrinsics_per_sensor) {
     if (opt.reference_terrain != "")
       vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with "
         << "--reference-terrain.\n");
@@ -2385,9 +2386,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   //if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
   //  vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
 
-  if (opt.solve_intrinsics && !inline_adjustments)
-    vw_throw(ArgumentErr() 
-     << "Must use option --inline-adjustments with --solve-intrinsics.\n");
+  if (opt.solve_intrinsics && !inline_adjustments) {
+    vw_out() << "Solving for intrinsics, so assuming --inline-adjustments.\n";
+    inline_adjustments = true;
+  }
 
   if ((opt.camera_type == BaCameraType_Other) && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with "

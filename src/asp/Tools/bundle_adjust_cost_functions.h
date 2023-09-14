@@ -544,7 +544,7 @@ struct BaDispXyzError {
                  boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
                  boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
                  bool solve_intrinsics, // Would like to remove these!
-                 asp::IntrinsicOptions intrin_opt)
+                 asp::IntrinsicOptions intrinsics_opt)
       : m_reference_xyz(reference_xyz),
         m_interp_disp  (interp_disp  ),
         m_num_left_param_blocks (left_camera_wrapper->num_parameter_blocks ()),
@@ -552,7 +552,7 @@ struct BaDispXyzError {
         m_left_camera_wrapper   (left_camera_wrapper ),
         m_right_camera_wrapper  (right_camera_wrapper),
         m_solve_intrinsics(solve_intrinsics),
-        m_intrin_opt(intrin_opt)   {}
+        m_intrinsics_opt(intrinsics_opt)   {}
 
   // Adaptor to work with ceres::DynamicCostFunctions.
   bool operator()(double const* const* parameters, double* residuals) const {
@@ -608,7 +608,7 @@ struct BaDispXyzError {
   static void get_residual_pointers(asp::BAParams &param_storage,
                                     int left_cam_index, int right_cam_index,
                                     bool solve_intrinsics,
-                                    asp::IntrinsicOptions const& intrin_opt,
+                                    asp::IntrinsicOptions const& intrinsics_opt,
                                     std::vector<double*> &residual_ptrs) {
    
     double* left_camera  = param_storage.get_camera_ptr(left_cam_index );
@@ -627,9 +627,9 @@ struct BaDispXyzError {
       residual_ptrs.push_back(left_focus     );
       residual_ptrs.push_back(left_distortion);
       residual_ptrs.push_back(right_camera   );
-      if (!intrin_opt.center_shared    ) residual_ptrs.push_back(right_center    );
-      if (!intrin_opt.focus_shared     ) residual_ptrs.push_back(right_focus     );
-      if (!intrin_opt.distortion_shared) residual_ptrs.push_back(right_distortion);
+      if (!intrinsics_opt.center_shared    ) residual_ptrs.push_back(right_center    );
+      if (!intrinsics_opt.focus_shared     ) residual_ptrs.push_back(right_focus     );
+      if (!intrinsics_opt.distortion_shared) residual_ptrs.push_back(right_distortion);
     }
     else { // This handles the generic camera case.
       residual_ptrs.push_back(left_camera );
@@ -663,19 +663,19 @@ struct BaDispXyzError {
     } else { // Solve for intrinsics. Handle shared intrinsics.
       right_param_blocks[1] = parameters[index]; // Pose and position
       ++index;
-      if (m_intrin_opt.center_shared)
+      if (m_intrinsics_opt.center_shared)
         right_param_blocks[2] = left_param_blocks[2];
       else {
         right_param_blocks[2] = parameters[index];
         ++index;
       }
-      if (m_intrin_opt.focus_shared)
+      if (m_intrinsics_opt.focus_shared)
         right_param_blocks[3] = left_param_blocks[3];
       else {
         right_param_blocks[3] = parameters[index];
         ++index;
       }
-      if (m_intrin_opt.distortion_shared)
+      if (m_intrinsics_opt.distortion_shared)
         right_param_blocks[4] = left_param_blocks[4];
       else {
         right_param_blocks[4] = parameters[index];
@@ -691,7 +691,7 @@ struct BaDispXyzError {
       Vector3 const& reference_xyz, ImageViewRef<DispPixelT> const& interp_disp,
       boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
       boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
-      bool solve_intrinsics, asp::IntrinsicOptions intrin_opt = asp::IntrinsicOptions()) {
+      bool solve_intrinsics, asp::IntrinsicOptions intrinsics_opt = asp::IntrinsicOptions()) {
 
     const int NUM_RESIDUALS = 2;
 
@@ -699,7 +699,7 @@ struct BaDispXyzError {
         new ceres::DynamicNumericDiffCostFunction<BaDispXyzError>(
             new BaDispXyzError(reference_xyz, interp_disp, 
                                left_camera_wrapper, right_camera_wrapper,
-                               solve_intrinsics, intrin_opt));
+                               solve_intrinsics, intrinsics_opt));
 
     // The residual size is always the same.
     cost_function->SetNumResiduals(NUM_RESIDUALS);
@@ -719,9 +719,9 @@ struct BaDispXyzError {
       if (block_sizes.size() != 5)
         vw_throw(LogicErr() << "Error: Pinhole camera model parameter number error!");
       cost_function->AddParameterBlock(block_sizes[1]); // The camera position/pose
-      if (!intrin_opt.center_shared    ) cost_function->AddParameterBlock(block_sizes[2]);
-      if (!intrin_opt.focus_shared     ) cost_function->AddParameterBlock(block_sizes[3]);
-      if (!intrin_opt.distortion_shared) cost_function->AddParameterBlock(block_sizes[4]);
+      if (!intrinsics_opt.center_shared    ) cost_function->AddParameterBlock(block_sizes[2]);
+      if (!intrinsics_opt.focus_shared     ) cost_function->AddParameterBlock(block_sizes[3]);
+      if (!intrinsics_opt.distortion_shared) cost_function->AddParameterBlock(block_sizes[4]);
     }
     return cost_function;
   }  // End function Create
@@ -735,7 +735,7 @@ struct BaDispXyzError {
 
   // Would like to not have these two!
   bool m_solve_intrinsics;
-  asp::IntrinsicOptions m_intrin_opt;
+  asp::IntrinsicOptions m_intrinsics_opt;
 };
 
 

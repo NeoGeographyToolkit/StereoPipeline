@@ -95,7 +95,7 @@ struct Options: public asp::BaBaseOptions {
   vw::Matrix<double> initial_transform;
   std::string   fixed_cameras_indices_str;
   std::set<int> fixed_cameras_indices;
-  asp::IntrinsicOptions intrinisc_options;
+  asp::IntrinsicOptions intrinsics_options;
   vw::Vector2i matches_per_tile_params;
 
   // Make sure all values are initialized, even though they will be
@@ -184,12 +184,12 @@ struct Options: public asp::BaBaseOptions {
                                bool               shared_is_specified) {
 
     // Float and share everything unless specific options are provided.
-    intrinisc_options.focus_constant      = true;
-    intrinisc_options.center_constant     = true;
-    intrinisc_options.distortion_constant = true;
-    intrinisc_options.focus_shared        = true;
-    intrinisc_options.center_shared       = true;
-    intrinisc_options.distortion_shared   = true;
+    intrinsics_options.focus_constant      = true;
+    intrinsics_options.center_constant     = true;
+    intrinsics_options.distortion_constant = true;
+    intrinsics_options.focus_shared        = true;
+    intrinsics_options.center_shared       = true;
+    intrinsics_options.distortion_shared   = true;
 
     if (((intrinsics_to_float_str != "") || (intrinsics_to_share_str != "")) 
         && !solve_intrinsics) {
@@ -200,27 +200,27 @@ struct Options: public asp::BaBaseOptions {
     if (!solve_intrinsics)
       return;
     
-    if (intrinisc_options.share_intrinsics_per_sensor && shared_is_specified) 
+    if (intrinsics_options.share_intrinsics_per_sensor && shared_is_specified) 
       vw_out() << "When sharing intrinsics per sensor, option "
                << "--intrinsics-to-share is ignored. The intrinsics will "
                << "always be shared for a sensor and never across sensors.\n";
 
-    intrinisc_options.focus_constant      = false; // Default: solve everything!
-    intrinisc_options.center_constant     = false;
-    intrinisc_options.distortion_constant = false;
+    intrinsics_options.focus_constant      = false; // Default: solve everything!
+    intrinsics_options.center_constant     = false;
+    intrinsics_options.distortion_constant = false;
 
     if (intrinsics_to_float_str != "") {
-      intrinisc_options.focus_constant      = true;
-      intrinisc_options.center_constant     = true;
-      intrinisc_options.distortion_constant = true;
+      intrinsics_options.focus_constant      = true;
+      intrinsics_options.center_constant     = true;
+      intrinsics_options.distortion_constant = true;
     }
 
     // If sharing intrinsics per sensor, the only supported mode is that 
     // the intrinsics are always shared per sensor and never across sensors.
-    if (shared_is_specified && !intrinisc_options.share_intrinsics_per_sensor) {
-      intrinisc_options.focus_shared      = false;
-      intrinisc_options.center_shared     = false;
-      intrinisc_options.distortion_shared = false;
+    if (shared_is_specified && !intrinsics_options.share_intrinsics_per_sensor) {
+      intrinsics_options.focus_shared      = false;
+      intrinsics_options.center_shared     = false;
+      intrinsics_options.distortion_shared = false;
     }
 
     std::istringstream is(intrinsics_to_float_str);
@@ -232,23 +232,23 @@ struct Options: public asp::BaBaseOptions {
       }
       
       if (val == "focal_length")
-        intrinisc_options.focus_constant = false;
+        intrinsics_options.focus_constant = false;
       if (val == "optical_center")
-        intrinisc_options.center_constant = false;
+        intrinsics_options.center_constant = false;
       if (val == "other_intrinsics")
-        intrinisc_options.distortion_constant = false;
+        intrinsics_options.distortion_constant = false;
     }
 
     // No parsing is done when sharing intrinsics per sensor, per above 
-    if (shared_is_specified && !intrinisc_options.share_intrinsics_per_sensor) {
+    if (shared_is_specified && !intrinsics_options.share_intrinsics_per_sensor) {
       std::istringstream is2(intrinsics_to_share_str);
       while (is2 >> val) {
         if (val == "focal_length")
-          intrinisc_options.focus_shared = true;
+          intrinsics_options.focus_shared = true;
         if (val == "optical_center")
-          intrinisc_options.center_shared = true;
+          intrinsics_options.center_shared = true;
         if (val == "other_intrinsics")
-          intrinisc_options.distortion_shared = true;
+          intrinsics_options.distortion_shared = true;
       }
     }
 
