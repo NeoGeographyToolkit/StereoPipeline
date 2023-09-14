@@ -1086,40 +1086,28 @@ cloud it was aligned to (:numref:`pc_align_validation`).
 Alignment and orthoimages
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Two related issues are discussed here. The first is that sometimes,
-after ASP has created a DEM, and the left and right images are
-mapprojected to it, they are shifted in respect to each other. That is
-due to the errors in camera positions. To rectify it, one has to run
-``bundle_adjust`` first, then rerun the stereo and mapprojection tools,
-with the adjusted cameras being passed to both via
-``--bundle-adjust-prefix``.
+After ASP has created a DEM, and the left and right images are mapprojected to
+it, they are often shifted in respect to each other. That is due to the errors
+in camera positions. To rectify this, one has to run ``bundle_adjust``
+(:numref:`bundle_adjust`) first, then rerun stereo, DEM creation, followed by 
+mapprojection onto the new DEM. For each of these, the bundle-adjusted cameras must
+be passed in via ``--bundle-adjust-prefix``.
 
-Note that this approach will create self-consistent outputs, but not
-necessarily aligned with pre-existing ground truth. That we deal with
-next.
+Note that this approach will create self-consistent outputs, but which are not
+necessarily aligned with pre-existing ground truth. That can be accomplished as
+follows.
 
-Once an ASP-generated DEM has been aligned to known ground data using
-``pc_align``, it may be desired to create orthoimages that are also
-aligned to the ground. That can be accomplished in two ways.
+First, need to align the DEM to the ground truth with ``pc_align``
+(:numref:`pc_align`). Then, invoke ``bundle_adjust`` on the two input images and
+cameras, while passing to it the transform obtained from ``pc_align`` via the
+``--initial-transform`` option. This will move the cameras to be consistent
+with the ground truth. Then one can mapproject with the updated cameras. 
+This approach is described in detail :numref:`ba_pc_align`.
 
-The ``point2dem --orthoimage`` approach be used, and one can pass to it
-the point cloud after alignment and the ``L`` image before alignment
-(all this tool does is copy pixels from the texture image, so position
-errors are not a problem).
-
-Alternatively, one can invoke the ``mapproject`` tool again. Yet, there
-is a challenge, because this tool uses the original cameras, before
-alignment, but will project onto the DEM after alignment, so the
-obtained orthoimage location on the ground will be wrong.
-
-The solution is to invoke ``bundle_adjust`` on the two input images
-and cameras, while passing to it the transform obtained from
-``pc_align`` via the ``--initial-transform`` option. This will shift
-the cameras to the right place, and then ``mapproject`` can be called
-with the adjusted cameras, using again the ``--bundle-adjust-prefix``
-option. If all that is wanted is to shift the cameras, without doing
-any actual adjustments, the tool can be invoked with the option
-``--apply-initial-transform-only``.
+If the alignment is applied not to a DEM, but to the triangulated point cloud
+produced by stereo, one can use ``point2dem`` with the ``--orthoimage`` option,
+with the point cloud after alignment and the ``L`` image before alignment.
+See :numref:`point2dem` for the description of this option and an example.
 
 .. _visualising:
 
