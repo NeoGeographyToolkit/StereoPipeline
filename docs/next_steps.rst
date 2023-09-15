@@ -1102,7 +1102,7 @@ First, need to align the DEM to the ground truth with ``pc_align``
 cameras, while passing to it the transform obtained from ``pc_align`` via the
 ``--initial-transform`` option. This will move the cameras to be consistent
 with the ground truth. Then one can mapproject with the updated cameras. 
-This approach is described in detail :numref:`ba_pc_align`.
+This approach is described in detail in :numref:`ba_pc_align`.
 
 If the alignment is applied not to a DEM, but to the triangulated point cloud
 produced by stereo, one can use ``point2dem`` with the ``--orthoimage`` option,
