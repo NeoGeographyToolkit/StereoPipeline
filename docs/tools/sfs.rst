@@ -96,7 +96,10 @@ Command-line options for sfs
     Prefix for output filenames. 
 
 -n, --max-iterations <integer (default: 10)>
-    Set the maximum number of iterations.
+    Set the maximum number of iterations. Normally 5-10 iterations is
+    enough, even when convergence is not reached, as the solution
+    usually improves quickly at first and only very fine refinements
+    happen later.
 
 --reflectance-type <integer (default: 1)>
     Reflectance types:

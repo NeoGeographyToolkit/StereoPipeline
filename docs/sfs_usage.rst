@@ -351,10 +351,15 @@ it in smaller steps.
 Here we used the Lunar-Lambertian model. The meaning of the other ``sfs``
 options can be looked up in :numref:`sfs`.
 
+Normally 5-10 iterations is enough, even when convergence is not reached, as the
+solution usually improves quickly at first and only very fine refinements
+happen later.
+
 The value of ``--initial-dem-constraint-weight`` is best set to 0 when the
 initial DEM is not very reliable, as otherwise defects from it can be inherited
 by the SfS result. Otherwise a value between 0.0001 and 0.001 may be good
-enough.
+enough. Use a higher value when the input DEM is reliable but the reflectance
+model is not.
 
 See :numref:`sfs_albedo` for modeling of albedo. Shadow thresholds may be needed
 to avoid artifacts in shadow. See :numref:`sfs_crater_bottoms` for a potential

@@ -1108,6 +1108,9 @@ If the alignment is applied not to a DEM, but to the triangulated point cloud
 produced by stereo, one can use ``point2dem`` with the ``--orthoimage`` option,
 with the point cloud after alignment and the ``L`` image before alignment.
 See :numref:`point2dem` for the description of this option and an example.
+If the alignment was done with the DEM produced from a triangulated point 
+cloud, it can be applied with ``pc_align`` to the point cloud and then
+continue as above.
 
 .. _visualising:
 
