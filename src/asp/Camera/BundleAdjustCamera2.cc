@@ -29,6 +29,8 @@
 #include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
 #include <asp/Camera/LinescanUtils.h>
 
+#include <boost/algorithm/string.hpp>
+
 #include <string>
 
 using namespace vw;
@@ -375,5 +377,74 @@ void write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
   asp::CsmModel * csm_model    = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
   csm_model->saveTransformedState(csmFile, ecef_transform);
 }
+
+// Read image and camera lists. Can have several comma-separated lists
+// in image_list and camera_list, when sharing intrinsics per sensor.
+void read_image_cam_lists(std::string const& image_list, 
+                std::string const& camera_list,
+                std::vector<std::string> & images_or_cams,
+                asp::IntrinsicOptions & intrinsics_opts) {
+
+  // wipe the output
+  images_or_cams.clear();
+  intrinsics_opts.share_intrinsics_per_sensor = false;
+  intrinsics_opts.cam2sensor.clear();
+  intrinsics_opts.num_sensors = 0;
+
+  // See if there comma-separated lists passed in the image list
+  if (image_list.find(",") == std::string::npos && 
+      camera_list.find(",") == std::string::npos) {
+    // No such thing, so just read the lists as usual    
+    asp::read_list(image_list, images_or_cams);
+    std::vector<std::string> tmp;
+    asp::read_list(camera_list, tmp);
+    for (size_t it = 0; it < tmp.size(); it++) 
+    images_or_cams.push_back(tmp[it]);
+
+    return;
+  }
+  
+  vw_out() << "Multiple image lists and camera lists were passed in. " 
+           << "Solving for intrinsics per sensor.\n";
+
+  // This is a very important bit
+  intrinsics_opts.share_intrinsics_per_sensor = true;
+
+  std::vector<std::string> image_lists, camera_lists;
+  boost::split(image_lists, image_list, boost::is_any_of(","));
+  boost::split(camera_lists, camera_list, boost::is_any_of(","));
+
+  if (image_lists.size() != camera_lists.size())
+    vw_throw(ArgumentErr() << "Expecting the same number of image and camera lists. "
+      << "They must be separated by commas on input.\n");
+
+  // Read separately the images and cameras
+  std::vector<std::string> images, cameras;
+  for (size_t sensor_it = 0; sensor_it < image_lists.size(); sensor_it++) {
+    std::vector<std::string> local_images, local_cameras;
+    asp::read_list(image_lists[sensor_it], local_images);
+    asp::read_list(camera_lists[sensor_it], local_cameras);
+    if (local_images.size() != local_cameras.size() || local_images.empty())
+      vw_throw(ArgumentErr() << "Expecting the same positive number of images and cameras "
+      << "in lists: '" << image_lists[sensor_it] << "' and '" 
+      << camera_lists[sensor_it] << "'.\n");
+
+    // Append to the global lists
+    images.insert(images.end(), local_images.begin(), local_images.end());
+    cameras.insert(cameras.end(), local_cameras.begin(), local_cameras.end());
+
+    // Create the map from camera index to sensor index
+    for (size_t cam_it = 0; cam_it < local_cameras.size(); cam_it++)
+      intrinsics_opts.cam2sensor.push_back(sensor_it);
+  }
+
+  intrinsics_opts.num_sensors = image_lists.size();
+  vw_out() << "Number of sensors: " << intrinsics_opts.num_sensors << std::endl;
+
+  // Append both images and cameras to images_or_cams
+  images_or_cams.insert(images_or_cams.end(), images.begin(), images.end());
+  images_or_cams.insert(images_or_cams.end(), cameras.begin(), cameras.end());
+  return;
+} 
 
 } // end namespace asp

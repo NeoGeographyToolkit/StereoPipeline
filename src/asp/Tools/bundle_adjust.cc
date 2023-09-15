@@ -1929,12 +1929,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Optimize intrinsic camera parameters. Only used for pinhole, optical bar, "
      "and CSM (frame and linescan) cameras. This implies --inline-adjustments.")
     ("intrinsics-to-float", po::value(&intrinsics_to_float_str)->default_value(""),
-     "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. Not specifying anything will float all of them.")
+     "If solving for intrinsics and is desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. Not specifying anything will float all of them. Also can specify 'all' or 'none'.")
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
-     "If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. By default all of the intrinsics are shared, so to not share any of them pass in a blank string. If sharing intrinsics per sensor, this option is ignored altogether.")
+     "If solving for intrinsics and is desired to share only a few of them across all cameras, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. By default all of the intrinsics are shared, so to not share any of them pass in an empty string. Also can specify 'all' or 'none'. If sharing intrinsics per sensor, this option is ignored, as then the sharing is more fine-grained.")
     ("intrinsics-limits", 
      po::value(&intrinsics_limit_str)->default_value(""),
-     "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in min max pairs and are applied in the order [focal length, optical center, other intrinsics] until all of the limits are used. Check the documentation to dermine how many intrinsic parameters are used for your cameras.")
+     "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in min max pairs and are applied in the order [focal length, optical center, other intrinsics] until all of the limits are used. Check the documentation to determine how many intrinsic parameters are used for your cameras.")
     ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
      "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the inline-adjustments option.")
     ("init-camera-using-gcp",  po::bool_switch(&opt.init_camera_using_gcp)->default_value(false)->implicit_value(true),
@@ -2215,21 +2215,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   vw_out() << "Found " << num_gcp_files << " GCP files on the command line.\n";
 
   // Separate the cameras from the images
-  std::vector<std::string> inputs = opt.image_files;
+  std::vector<std::string> images_or_cams = opt.image_files;
 
   if (!opt.image_list.empty() || !opt.camera_list.empty()) {
-    // Read the images and cameras and put them in 'inputs' to be parsed later
+    // Read the images and cameras and put them in 'images_or_cams' to be parsed later
     if (opt.image_list.empty() || opt.camera_list.empty())
       vw_throw(ArgumentErr()
                << "Must have both or neither of --image-list and --camera-list.\n");
-    if (!inputs.empty())
+    if (!images_or_cams.empty())
       vw_throw(ArgumentErr() << "The option --image-list was specified, but also "
                << "images or cameras on the command line.\n");
-    asp::read_list(opt.image_list, inputs);
-    std::vector<std::string> tmp;
-    asp::read_list(opt.camera_list, tmp);
-    for (size_t it = 0; it < tmp.size(); it++) 
-      inputs.push_back(tmp[it]);
+     
+    // Read image and camera lists. Consider he case of sharing intrinsics per sensor. 
+    read_image_cam_lists(opt.image_list, opt.camera_list, 
+      images_or_cams, opt.intrinsics_options); // outputs
   }
 
   // Sanity checks
@@ -2242,7 +2241,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              << "--mapprojected-data-list.\n");
   
   bool ensure_equal_sizes = true;
-  asp::separate_images_from_cameras(inputs,
+  asp::separate_images_from_cameras(images_or_cams,
                                     opt.image_files, opt.camera_files, // outputs
                                     ensure_equal_sizes); 
   
@@ -2275,7 +2274,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_out() << "Ignoring --auto-overlap-params since no matching takes place.\n";
     opt.auto_overlap_params = "";
   }
-  
+
+  // Sanity checks for solving for intrinsics 
+  if (opt.intrinsics_options.share_intrinsics_per_sensor && !opt.solve_intrinsics)
+    vw_throw(ArgumentErr() 
+      << "Must set --solve-intrinsics to solve for intrinsics per sensor.n");
+  if (opt.solve_intrinsics && !inline_adjustments) {
+    vw_out() << "Solving for intrinsics, so assuming --inline-adjustments.\n";
+    inline_adjustments = true;
+  }
+
   boost::to_lower(opt.stereo_session);
 
   opt.camera_type = BaCameraType_Other;
@@ -2320,12 +2328,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << usage << general_options );
 
   if (opt.overlap_list_file != "" && opt.match_first_to_last > 0)
-    vw_throw( ArgumentErr() << "Cannot specify both the overlap limit and --match-first-to-last.\n"
-              << usage << general_options );
+    vw_throw( ArgumentErr() 
+      << "Cannot specify both the overlap limit and --match-first-to-last.\n"
+      << usage << general_options );
     
   if (opt.overlap_limit < 0)
     vw_throw( ArgumentErr() << "Must allow search for matches between "
-              << "at least each image and its subsequent one.\n" << usage << general_options );
+      << "at least each image and its subsequent one.\n" << usage << general_options );
   
   // By default, try to match all of the images!
   if (opt.overlap_limit == 0)
@@ -2385,11 +2394,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // TODO: Make sure the normal model loading catches this error.
   //if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
   //  vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
-
-  if (opt.solve_intrinsics && !inline_adjustments) {
-    vw_out() << "Solving for intrinsics, so assuming --inline-adjustments.\n";
-    inline_adjustments = true;
-  }
 
   if ((opt.camera_type == BaCameraType_Other) && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with "

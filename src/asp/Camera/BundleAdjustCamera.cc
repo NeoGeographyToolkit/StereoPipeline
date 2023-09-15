@@ -65,34 +65,40 @@ asp::BAParams::BAParams(int num_points, int num_cameras,
     //  what the offset is to a particular intrinsic value.
     // - The start of the array is always an entry for each intrinsic in case
     //   it is shared.
-    if (!intrinsics_opts.center_shared)
-      m_num_intrinsics_per_camera += NUM_CENTER_PARAMS;
-    if (intrinsics_opts.focus_shared)
-      m_focus_offset = NUM_CENTER_PARAMS;
-    else {
-      m_num_intrinsics_per_camera += NUM_FOCUS_PARAMS;
+    // The logic is very different when intrinsics are shared per sensor,
+    // rather than not shared at all or all shared.
+    // TODO(oalexan1): Integrate this logic.
+    if (!intrinsics_opts.share_intrinsics_per_sensor) {
       if (!intrinsics_opts.center_shared)
+        m_num_intrinsics_per_camera += NUM_CENTER_PARAMS;
+      if (intrinsics_opts.focus_shared)
         m_focus_offset = NUM_CENTER_PARAMS;
-    }
-    if (intrinsics_opts.distortion_shared)
-      m_distortion_offset = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS;
-    else {
-      m_num_intrinsics_per_camera += num_distortion_params;
-      if (!intrinsics_opts.center_shared)
-        m_distortion_offset += NUM_CENTER_PARAMS;
-      if (!intrinsics_opts.focus_shared)
-        m_distortion_offset += NUM_FOCUS_PARAMS;
-    }
+      else {
+        m_num_intrinsics_per_camera += NUM_FOCUS_PARAMS;
+        if (!intrinsics_opts.center_shared)
+          m_focus_offset = NUM_CENTER_PARAMS;
+      }
+      if (intrinsics_opts.distortion_shared)
+        m_distortion_offset = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS;
+      else {
+        m_num_intrinsics_per_camera += num_distortion_params;
+        if (!intrinsics_opts.center_shared)
+          m_distortion_offset += NUM_CENTER_PARAMS;
+        if (!intrinsics_opts.focus_shared)
+          m_distortion_offset += NUM_FOCUS_PARAMS;
+      }
 
-    // TODO(oalexan1): When share_intrinsics_per_sensor is true,
-    // the code above and below will need to be totally overhauled.
-    
-    // For simplicity, we always set this to the same size and allocate
-    // the same storage even if none of the parameters are shared.
-    m_num_shared_intrinsics = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS
-                              + num_distortion_params;
-    m_intrinsics_vec.resize(m_num_shared_intrinsics +
-                            num_cameras*m_num_intrinsics_per_camera);
+      // For simplicity, we always set this to the same size and allocate
+      // the same storage even if none of the parameters are shared.
+      m_num_shared_intrinsics = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS
+                                + num_distortion_params;
+      m_intrinsics_vec.resize(m_num_shared_intrinsics +
+                              num_cameras*m_num_intrinsics_per_camera);
+    } else {
+      m_num_intrinsics_per_camera = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS
+                                    + num_distortion_params;
+      m_intrinsics_vec.resize(intrinsics_opts.num_sensors * m_num_intrinsics_per_camera);
+    }
   }
 
 // Copy constructor
@@ -119,26 +125,46 @@ asp::BAParams::BAParams(asp::BAParams const& other):
   }
 
 // Compute the offset in m_intrinsics_vec to the requested data
-
 size_t asp::BAParams::get_center_offset(int cam_index) const {
-  if (m_intrinsics_opts.center_shared)
-    return 0;
-  else
-    return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera;
+  if (!m_intrinsics_opts.share_intrinsics_per_sensor) {
+    // Share all or none of the intrinsics
+    if (m_intrinsics_opts.center_shared)
+      return 0;
+    else
+      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera;
+  }
+
+  // Share intrinsics per sensor
+  int sensor_id = m_intrinsics_opts.cam2sensor.at(cam_index);
+  return sensor_id * m_num_intrinsics_per_camera;
 }
 
 size_t asp::BAParams::get_focus_offset(int cam_index) const {
-  if (m_intrinsics_opts.focus_shared)
-    return m_focus_offset;
-  else
-    return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + m_focus_offset;
+  if (!m_intrinsics_opts.share_intrinsics_per_sensor) {
+    // Share all or none of the intrinsics
+    if (m_intrinsics_opts.focus_shared)
+      return m_focus_offset;
+    else
+      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + m_focus_offset;
+  } 
+
+  // Share intrinsics per sensor
+  int sensor_id = m_intrinsics_opts.cam2sensor.at(cam_index);
+  return sensor_id * m_num_intrinsics_per_camera + NUM_CENTER_PARAMS;
 }
 
 size_t asp::BAParams::get_distortion_offset(int cam_index) const {
-  if (m_intrinsics_opts.distortion_shared)
-    return m_distortion_offset;
-  else
-    return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + m_distortion_offset;
+  if (!m_intrinsics_opts.share_intrinsics_per_sensor) {
+    // Share all or none of the intrinsics
+    if (m_intrinsics_opts.distortion_shared)
+      return m_distortion_offset;
+    else
+      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + m_distortion_offset;
+  }
+
+  // Share intrinsics per sensor
+  int sensor_id = m_intrinsics_opts.cam2sensor.at(cam_index);
+  return sensor_id * m_num_intrinsics_per_camera + NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS;
 }
 
 /// Apply a random offset to each camera position.
@@ -151,9 +177,9 @@ void asp::BAParams::randomize_cameras() {
   VW_ASSERT((m_cameras_vec.size() % NUM_CAMERA_PARAMS) == 0,
             vw::LogicErr() << "Camera parameter length is not a multiple of 6!");
   const size_t num_cameras = m_cameras_vec.size() / NUM_CAMERA_PARAMS;
-  for (size_t c=0; c<num_cameras; c++) {
+  for (size_t c = 0; c < num_cameras; c++) {
     double* ptr = get_camera_ptr(c);
-    for (size_t i=0; i<3; i++) {
+    for (size_t i = 0; i < 3; i++) {
       int diff = xyz_dist(m_rand_gen) - 5;
       ptr[i] += diff;
     }

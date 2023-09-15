@@ -153,14 +153,13 @@ struct Options: public asp::BaBaseOptions {
   }
   
   /// Just parse the string of limits and make sure they are all valid pairs.
-  // TODO(oalexan1): This function should not be a member.
+  // TODO(oalexan1): This function should not be a member. Also move it out of .h.
   void parse_intrinsics_limits(std::string const& intrinsics_limits_str) {
     intrinsics_limits.clear();
     std::istringstream is(intrinsics_limits_str);
     double val;
     int    count = 0;
     while (is >> val) {
-      //std::cout << "val = " << val << std::endl;
       intrinsics_limits.push_back(val);
       if (count % 2 == 1) {
         if (intrinsics_limits[count] < intrinsics_limits[count-1])
@@ -178,10 +177,11 @@ struct Options: public asp::BaBaseOptions {
   ///  "focal_length, optical_center, distortion_params"
   /// - Need the extra boolean to handle the case where --intrinsics-to-share
   ///   is provided as "" in order to share none of them.
-  // TODO(oalexan1): This logic would be more clear if this function was not a member
-  void load_intrinsics_options(std::string const& intrinsics_to_float_str,
-                               std::string const& intrinsics_to_share_str,
-                               bool               shared_is_specified) {
+  // TODO(oalexan1): This logic would be more clear if this function was not a member.
+  // Also move it out of .h.
+  void load_intrinsics_options(std::string intrinsics_to_float_str, // make a copy
+                               std::string intrinsics_to_share_str, // make a copy
+                               bool        shared_is_specified) {
 
     // Float and share everything unless specific options are provided.
     intrinsics_options.focus_constant      = true;
@@ -200,12 +200,28 @@ struct Options: public asp::BaBaseOptions {
     if (!solve_intrinsics)
       return;
     
+    // If the user did not specify which intrinsics to float, float all of them.
+    boost::to_lower(intrinsics_to_float_str);
+    if (intrinsics_to_float_str == "" || intrinsics_to_float_str == "all")
+      intrinsics_to_float_str = "focal_length optical_center other_intrinsics";
+
+    // If the user did not specify which intrinsics to share, share all of them.
+    boost::to_lower(intrinsics_to_share_str);
+    if (!shared_is_specified) {
+      intrinsics_to_share_str = "focal_length optical_center other_intrinsics";
+    } else {
+      // Otherwise, 'all' also means share all of them
+      if (intrinsics_to_share_str == "all") 
+        intrinsics_to_share_str = "focal_length optical_center other_intrinsics";
+    }
+
     if (intrinsics_options.share_intrinsics_per_sensor && shared_is_specified) 
       vw_out() << "When sharing intrinsics per sensor, option "
                << "--intrinsics-to-share is ignored. The intrinsics will "
                << "always be shared for a sensor and never across sensors.\n";
 
-    intrinsics_options.focus_constant      = false; // Default: solve everything!
+    // By default solve for everything
+    intrinsics_options.focus_constant      = false;
     intrinsics_options.center_constant     = false;
     intrinsics_options.distortion_constant = false;
 
@@ -213,6 +229,7 @@ struct Options: public asp::BaBaseOptions {
       intrinsics_options.focus_constant      = true;
       intrinsics_options.center_constant     = true;
       intrinsics_options.distortion_constant = true;
+      // These will be individually changed further down
     }
 
     // If sharing intrinsics per sensor, the only supported mode is that 
@@ -223,13 +240,17 @@ struct Options: public asp::BaBaseOptions {
       intrinsics_options.distortion_shared = false;
     }
 
+    // This is the right place in which to turn 'none' to empty string,
+    // which now will mean float nothing.
+    if (intrinsics_to_float_str == "none") 
+      intrinsics_to_float_str = "";
+    // Parse the values  
     std::istringstream is(intrinsics_to_float_str);
     std::string val;
     while (is >> val) {
 
-      if (val != "focal_length" && val != "optical_center" && val != "other_intrinsics") {
+      if (val != "focal_length" && val != "optical_center" && val != "other_intrinsics")
         vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to float: " << val << ".\n");
-      }
       
       if (val == "focal_length")
         intrinsics_options.focus_constant = false;

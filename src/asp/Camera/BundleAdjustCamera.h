@@ -329,6 +329,13 @@ private: // Functions
 
 }; // End class BAParams
 
+// Read image and camera lists. Can have several comma-separated lists
+// in image_list and camera_list, when sharing intrinsics per sensor.
+void read_image_cam_lists(std::string const& image_list, 
+                std::string const& camera_list,
+                std::vector<std::string> & images_or_cams,
+                asp::IntrinsicOptions & intrinsics_opts); 
+
 } // end namespace asp
 
 /// Simple class to manage position/rotation information.
