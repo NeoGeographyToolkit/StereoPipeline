@@ -210,9 +210,11 @@ struct Options: public asp::BaBaseOptions {
     if (!shared_is_specified) {
       intrinsics_to_share_str = "focal_length optical_center other_intrinsics";
     } else {
-      // Otherwise, 'all' also means share all of them
+      // Otherwise, 'all' also means share all of them, 'none' means share none
       if (intrinsics_to_share_str == "all") 
         intrinsics_to_share_str = "focal_length optical_center other_intrinsics";
+      if (intrinsics_to_share_str == "none")
+        intrinsics_to_share_str = "";
     }
 
     if (intrinsics_options.share_intrinsics_per_sensor && shared_is_specified) 
@@ -248,16 +250,15 @@ struct Options: public asp::BaBaseOptions {
     std::istringstream is(intrinsics_to_float_str);
     std::string val;
     while (is >> val) {
-
-      if (val != "focal_length" && val != "optical_center" && val != "other_intrinsics")
-        vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to float: " << val << ".\n");
-      
       if (val == "focal_length")
         intrinsics_options.focus_constant = false;
-      if (val == "optical_center")
+      else if (val == "optical_center")
         intrinsics_options.center_constant = false;
-      if (val == "other_intrinsics")
+      else if (val == "other_intrinsics")
         intrinsics_options.distortion_constant = false;
+      else
+        vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to float: " 
+          << val << ".\n");
     }
 
     // No parsing is done when sharing intrinsics per sensor, per above 
@@ -266,13 +267,23 @@ struct Options: public asp::BaBaseOptions {
       while (is2 >> val) {
         if (val == "focal_length")
           intrinsics_options.focus_shared = true;
-        if (val == "optical_center")
+        else if (val == "optical_center")
           intrinsics_options.center_shared = true;
-        if (val == "other_intrinsics")
+        else if (val == "other_intrinsics")
           intrinsics_options.distortion_shared = true;
+        else
+          vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to share: " 
+            << val << ".\n");
       }
     }
 
+    // These will be useful for a while
+    vw_out() << "Sharing focal length is: " << intrinsics_options.focus_shared << std::endl;
+    vw_out() << "Sharing optical center is: " << intrinsics_options.center_shared << std::endl;
+    vw_out() << "Sharing distortion is: " << intrinsics_options.distortion_shared << std::endl;
+    vw_out() << "Floating focal length is: " << !intrinsics_options.focus_constant << std::endl;
+    vw_out() << "Floating optical center is: " << !intrinsics_options.center_constant << std::endl;
+    vw_out() << "Floating distortion is: " << !intrinsics_options.distortion_constant << std::endl;
   } // End function load_intrinsics_options
 
 }; // End class Options
