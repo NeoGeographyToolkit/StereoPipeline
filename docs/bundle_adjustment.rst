@@ -138,13 +138,23 @@ This section documents some advanced functionality, and it suggested the
 reader study it carefully and invest a certain amount of time to fully
 take advantage of these concepts.
 
-When the input cameras are of Pinhole type (:numref:`pinholemodels`),
-it is possible to optimize the intrinsic parameters, in addition to
-the extrinsics. It is also possible to take advantage of an existing
-terrain ground truth, such as a lidar file or a DEM, to correct
-imperfectly calibrated intrinsic parameters, which can result in
-greatly improved results, such as creating less distorted DEMs that
-agree much better with the ground truth.
+When the input cameras are of Pinhole type (:numref:`pinholemodels`), optical
+bar (:numref:`panoramic`), or CSM (:numref:`csm`), it is possible to optimize
+the intrinsic parameters (focal length, optical center, distortion, with a
+somewhat different list for optical bar cameras), in addition to the extrinsics. 
+
+It is also possible to take advantage of an existing terrain ground truth, such
+as a lidar file or a DEM, to correct imperfectly calibrated intrinsic
+parameters, which can result in greatly improved results, such as creating less
+distorted DEMs that agree much better with the ground truth.
+
+See :numref:`intrinsics_no_constraints` for how to optimize intrinsics with
+no constraints, :numref:`intrinsics_ground_truth` for when ground constraints
+can be used (there exist options for sparse ground points and a DEM),
+and :numref:`kaguya_tc_refine_intrinsics` for how to optimize the 
+intrinsics per sensor. 
+
+.. _intrinsics_no_constraints:
 
 A first attempt at floating the intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -241,6 +251,10 @@ a good solution, perhaps different initial values for the intrinsics
 should be tried. For example, one can try changing the sign of the
 initial distortion coefficients, or make their values much smaller.
 
+Here we assumed all intrinsics are shared. See
+:numref:`kaguya_tc_refine_intrinsics` for how to have several groups of
+intrinsics. See also the option ``--intrinsics-to-share``.
+
 Sometimes the camera weight may need to be decreased, even all the way
 to 0, if it appears that the solver is not aggressive enough, or it may
 need to be increased if perhaps it overfits. This will become less of a
@@ -267,6 +281,8 @@ viewed in ``stereo_gui``.
 This file also shows how often each feature is seen in the images, so,
 if three images are present, hopefully many features will be seen three
 times.
+
+.. _intrinsics_ground_truth:
 
 Using ground truth when floating the intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -371,6 +387,10 @@ in a smaller intersection error and a smaller error to the lidar/DEM
 ground truth (the later can be evaluated by invoking
 ``geodiff --absolute`` on the ASP-created aligned DEM and the reference
 lidar/DEM file).
+
+Here we assumed all intrinsics are shared. See 
+:numref:`kaguya_tc_refine_intrinsics` for how to have several groups of
+intrinsics. See also the option ``--intrinsics-to-share``.
 
 When the lidar file is large, in bundle adjustment one can use the flag
 ``--lon-lat-limit`` to read only a relevant portion of it. This can
@@ -510,6 +530,10 @@ floating the intrinsics, in the SkySat processing example
 linescan Lunar images with variable illumination
 (:numref:`sfs-lola`).
 
+Here we assumed all intrinsics are shared. See
+:numref:`kaguya_tc_refine_intrinsics` for how to have several groups of
+intrinsics. See also the option ``--intrinsics-to-share``.
+
 It is suggested to look at the documentation of all the options
 above and adjust them for your use case.
 
@@ -548,6 +572,291 @@ map-projected. It is suggested that the unaligned disparity and
 interest points obtained this way be examined carefully.  Particularly
 the grid size used in mapprojection should be similar to the ground
 sample distance for the raw images for best results.
+
+.. _kaguya_tc_refine_intrinsics:
+
+Refining the intrinsics per sensor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this example, given a set of sensors, with each acquiring several images,
+we will optimize the intrinsics per sensor. All images acquired with the same
+sensor will share the same intrinsics, and none will be shared across sensors.
+
+As an example, we will work with Kaguya TC linescan cameras and the CSM camera
+model (:numref:`csm`). Pinhole cameras in .tsai format (:numref:`pinholemodels`)
+and Frame cameras in CSM format (:numref:`csm_frame`) can be used as well.
+
+See :numref:`floatingintrinsics` for an introduction on how optimizing intrinsics
+works, and :numref:`kaguya_tc` for how to prepare and use Kaguya TC cameras.
+
+Things to watch for
+^^^^^^^^^^^^^^^^^^^
+
+Optimizing the intrinsics can be tricky. One has to be careful to select a
+non-small set of images that have a lot of overlap, similar illumination, and 
+an overall good baseline between enough images (:numref:`stereo_pairs`).
+
+It is suggested to do a lot of inspections along the way. If things turn out to
+work poorly, it is often hard to understand at what step the process failed.
+Most of the time the fault lies with the data not satisfying the assumptions
+being made.
+
+The process will fail if, for example, the data is not well-aligned before
+refinement of intrinsics is started, if the illumination is so different that
+interest point matches cannot be found, or if something changed about a sensor
+and the same intrinsics don't work for all images acquired with that sensor.
+
+Image selection
+^^^^^^^^^^^^^^^
+
+We chose a set of 10 Kaguya stereo pairs with a lot of overlap (20 images in
+total). The left image was acquired with the ``TC1`` sensor, and the right one
+with ``TC2``. These sensors have different intrinsics.
+
+Some Kaguya images have different widths. These should not be mixed together.
+
+Some images had very large difference in illumination (not for the same stereo
+pair). Then, finding of matching interest points can fail. Kaguya images are
+rather well-registered to start with, so the resulting small misalignment that
+could not be corrected by bundle adjustment was not a problem in solving for
+intrinsics, and ``pc_align`` (:numref:`pc_align`) was used later for individual
+alignment. This is not preferable, in general. It was tricky however to find
+many images with a lot of overlap, so this had to make do.
+
+Initial bundle adjustment
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Put the image and camera names in plain text files named ``images.txt`` and
+``cameras.txt``. These must be in one-to-one correspondence, and with one image
+or camera per line. 
+
+The order should be with TC1 images being before TC2. Later we will use the same
+order when these are subdivided by sensor.
+
+Initial bundle adjustment is done with the intrinsics fixed.
+
+::
+
+     parallel_bundle_adjust                      \
+       --nodes-list nodes.txt                    \
+       --image-list images.txt                   \
+       --camera-list cameras.txt                 \
+       --num-iterations 50                       \
+       --tri-weight 0.2                          \
+       --tri-robust-threshold 0.2                \
+       --camera-weight 0                         \
+       --auto-overlap-params 'dem.tif 15'        \
+       --remove-outliers-params '75.0 3.0 20 20' \
+       --ip-per-tile 2000                        \
+       --matches-per-tile 2000                   \
+       --max-pairwise-matches 20000              \
+       -o ba/run 
+
+The option ``--auto-overlap-params`` is used with a prior DEM (such as gridded
+and filled with ``point2dem`` at low resolution based on LOLA RDR data). This is
+needed to estimate which image pairs overlap.
+
+The option ``--remove-outliers-params`` is set so that only the worst outliers
+(with reprojection error of 20 pixels or more) are removed. That because
+imperfect intrinsics may result in accurate interest points that have a
+somewhat large reprojection error. We want to keep such features in the corners
+to help refine the distortion parameters.
+
+The option ``--ip-per-tile`` is set to a large value so that many interest
+points are generated, and then the best ones are kept. This can be way too large
+for big images. (Also consider using ``--ip-per-image``).
+
+Normally 50 iterations should be enough. Two passes will happen. After each 
+outliers will be removed.
+
+It is very strongly suggested to inspect the obtained clean match files (that
+is, without outliers) with ``stereo_gui``
+(:numref:`stereo_gui_pairwise_matches`), and reprojection errors in the final
+``pointmap.csv`` file (:numref:`ba_out_files`), using ``stereo_gui`` as well
+(:numref:`plot_csv`). Insufficient or poorly distributed clean interest point
+matches will result in a poor solution.
+
+The reprojection errors are plotted in :numref:`kaguya_intrinsics_opt_example`.
+
+Running stereo
+^^^^^^^^^^^^^^
+
+We will use the optimized CSM cameras saved in the ``ba`` directory
+(:numref:`csm_state`). For each stereo pair, run::
+
+    parallel_stereo                    \
+      --job-size-h 2500                \
+      --job-size-w 2500                \
+      --stereo-algorithm asp_mgm       \
+      --subpixel-mode 9                \
+      --nodes-list modes.txt           \
+      left.cub right.cub               \
+      ba/run-left.adjusted_state.json  \
+      ba/run-right.adjusted_state.json \
+      stereo_left_right/run
+
+Then we will create a DEM at the resolution of the input images,
+which in this case is 10 m/pixel. The local stereographic projection
+will be used.
+
+::
+
+    point2dem --tr 10    \
+      --errorimage       \
+      --stereographic    \
+      --proj-lon 93.7608 \
+      --proj-lat 3.6282  \
+      stereo_left_right/run-PC.tif
+
+Normally it is suggested to rerun stereo with mapprojected images
+(:numref:`mapproj-example`) to get higher quality results. For the current goal,
+of optimizing the intrinsics, the produced terrain is good enough. See also
+:numref:`nextsteps` for a discussion of various stereo algorithms.
+
+Inspect the produced DEMs and intersection error files (:numref:`point2dem`).
+The latter can be colorized (:numref:`colorize`). Use ``gdalinfo -stats``
+(:numref:`gdal_tools`) to see the statistics of the intersection error. In this
+case it turns out to be around 4 m, which, given the ground resolution of 10
+m/pixel, is on the high side. The intersection errors are also higher at left
+and right image edges, due to distortion. (For a frame sensor this error will
+instead be larger in the corners.)
+
+Evaluating agreement between the DEMs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Overlay the produced DEMs and check for any misalignment. This may happen 
+if there are insufficient interest points or if the unmodelled distortion 
+is large.
+
+Create a blended average DEM from the produced DEMs using the
+``dem_mosaic`` (:numref:`dem_mosaic`)::
+
+     dem_mosaic stereo*/run-DEM.tif -o mosaic_ba.tif
+
+It is useful to subtract each DEM from the mosaic using ``geodiff``
+(:numref:`geodiff`)::
+
+     geodiff mosaic_ba.tif stereo_left_right/run-DEM.tif \
+       -o stereo_left_right/run
+
+These differences can be colorized with ``stereo_gui`` using the ``--colorbar``
+option (:numref:`colorize`). The std dev of the obtained signed difference 
+can be used as a measure of discrepancy. These errors should go down after
+refining the intrinsics.
+
+Refining the intrinsics
+^^^^^^^^^^^^^^^^^^^^^^^
+
+We will use the camera files produced by ``bundle_adjust`` before, with names as
+``ba/run-*.adjusted_state.json``. These have the refined position and
+orientation. We will re-optimize those together with the distortion parameters
+(which in ``bundle_adjust`` go by the name ``other_intrinsics``). It was found
+in this case that optimizing the focal length and optical center has no
+significant effect.
+
+The images and (adjusted) cameras for individual sensors should be put in
+separate files, but in the same overall order as before, to be able reuse the
+match files. Then, the image files will be passed to the ``--image-list`` option
+with comma as separator (no spaces), and the same for the camera files. The
+bundle adjustment command becomes::
+
+  bundle_adjust --solve-intrinsics                \
+    --inline-adjustments                          \
+    --intrinsics-to-float other_intrinsics        \
+    --image-list tc1_images.txt,tc2_images.txt    \
+    --camera-list tc1_cameras.txt,tc2_cameras.txt \
+    --num-iterations 10                           \
+    --clean-match-files-prefix ba/run             \
+    --heights-from-dem mosaic_ba.tif              \
+    --heights-from-dem-weight 0.25                \
+    --heights-from-dem-robust-threshold 0.25      \
+    --remove-outliers-params '75.0 3.0 20 20'     \
+    --max-pairwise-matches 10000                  \
+    -o ba_other_intrinsics/run
+
+The values for ``--heights-from-dem-weight`` and
+``--heights-from-dem-robust-threshold`` were chosen to be smaller than what is
+used for the ``--robust-threshold``, which is 0.5. That because the DEM is not
+perfect, and we don't want to overfit to it. See :numref:`heights_from_dem` for
+more details, and :numref:`bundle_adjust` for the documentation of all options
+above.
+
+.. figure:: images/kaguya_intrinsics_opt_example.png
+   :name: kaguya_intrinsics_opt_example
+   :alt: kaguya_intrinsics_opt_example
+
+   The reprojection errors (``pointmap.csv``) before (top) and after (bottom)
+   refinement of distortion. Clean matches (no outliers) were used. It can be
+   seen that many red vertical patterns are now much attenuated (these
+   correspond to individual image edges). On the right some systematic errors
+   are seen (due to the search range in stereo chosen here being too small and
+   some ridges having been missed). Those do not affect the optimization. Using
+   mapprojected images would have helped with this. The ultimate check will be
+   the comparison with LOLA RDR (:numref:`kaguya_intrinsics_alignment_diff`).
+
+Recreation of the stereo DEMs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The new cameras can be used to redo stereo and the DEMs. It is suggested to 
+use the option ``--prev-run-prefix`` in ``parallel_stereo`` to 
+redo only the triangulation operation, which greatly speeds up processing
+(see :numref:`bathy_reuse_run` and :numref:`mapproj_reuse`).
+
+As before, it is suggested to examine the intersection error and the difference
+between each produced DEM and the corresponding combined averaged DEM. These
+errors drop by a factor of about 2 and 1.5 respectively.
+
+Comparing to an external source
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+We solved for intrinsics by constraining against the averaged DEM of the stereo
+pairs produced with initial intrinsics. This works reasonably well if the error
+due to distortion is somewhat small and the stereo pairs overlap enough that this
+error gets averaged out in the mosaic.
+
+Ideally, a known accurate DEM should be used. For example, one could create DEMs
+using LRO NAC data. Note that many such DEMs would be need to be combined,
+because LRO NAC has a much smaller footprint.
+
+We use the sparse `LOLA RDR
+<https://ode.rsl.wustl.edu/moon/lrololadatapointsearch.aspx>`_ dataset for
+final validation. This works well enough because the ground footprint of Kaguya TC is
+rather large. 
+
+Each stereo DEM, before and after intrinsics refinement, is individually aligned to 
+LOLA, and the signed difference to LOLA is found.
+
+::
+
+     pc_align --max-displacement 50                  \
+       --save-inv-transformed-reference-points       \
+       dem.tif lola.csv                              \
+       -o run_align/run
+
+     point2dem --tr 10   \
+      --errorimage       \
+      --stereographic    \
+      --proj-lon 93.7608 \
+      --proj-lat 3.6282  \
+      run_align/run-trans_reference.tif 
+
+    geodiff --csv-format 2:lon,3:lat,4:radius_km     \
+      run_align/run-trans_reference-DEM.tif lola.csv \
+      -o run_align/run
+
+The ``pc_align`` tool is quite sensitive to the value of ``--max-displacement``
+(:numref:`pc_align_max_displacement`). Here it was chosen to be somewhat larger
+than the vertical difference between the two datasets to align. That because
+KaguyaTC is already reasonably well-aligned.
+
+.. figure:: images/kaguya_intrinsics_diff.png
+   :name: kaguya_intrinsics_alignment_diff
+   :alt: kaguya_intrinsics_alignment_diff
+
+   The signed difference between aligned stereo DEMs and LOLA RDR before (top)
+   and after (bottom) refinement of distortion. (Red = -20 meters, blue = 20
+   meters.) It can be seen that the warping of the DEM due to distortion is much
+   reduced.
 
 Bundle adjustment using ISIS
 ----------------------------

@@ -99,8 +99,12 @@ that can help judge how good the solution is (:numref:`ba_out_files`).
 Large-scale usage of bundle adjustment is illustrated in the SkySat
 processing example (:numref:`skysat`), with many Pinhole cameras, and
 with a large number of linescan Lunar images with variable illumination
-(:numref:`sfs-lola`). See :numref:`bundle_adjustment` for how to solve
-for intrinsics.
+(:numref:`sfs-lola`). 
+
+See :numref:`bundle_adjustment` for how to solve
+for intrinsics. In particular, see :numref:`kaguya_tc_refine_intrinsics`
+for the case when there exist several sensors, each with its own intrinsics
+parameters.
 
 See also the related jitter-solving tool (:numref:`jitter_solve`),
 and the rig calibrator (:numref:`rig_calibrator`).
@@ -669,7 +673,7 @@ Command-line options for bundle_adjust
 
 --fixed-image-list
     A file having a list of images (separated by spaces or newlines)
-    whose cameras should be fixed during optimization.
+    whose cameras should be fixed during optimization. 
 
 --fix-gcp-xyz
     If the GCP are highly accurate, use this option to not float
@@ -682,33 +686,34 @@ Command-line options for bundle_adjust
 
 --solve-intrinsics
     Optimize intrinsic camera parameters. Only used for pinhole,
-    optical bar, and CSM (frame and linescan) cameras. Assumes
-    option ``--inline-adjustments``.
+    optical bar, and CSM (frame and linescan) cameras. This implies 
+    ``--inline-adjustments``.
 
---intrinsics-to-float <arg>
-    If solving for intrinsics and desired to float only a few of
-    them, specify here, in quotes, one or more of: focal_length,
-    optical_center, other_intrinsics. Not specifying anything, will
-    float all of them, if ``--solve-intrinsics`` is specified.
+--intrinsics-to-float <string (default: "")>
+    If solving for intrinsics and is desired to float only a few of them,
+    specify here, in quotes, one or more of: ``focal_length``,
+    ``optical_center``, ``other_intrinsics``. Not specifying anything will float
+    all of them. Also can specify ``all`` or ``none``.
 
---intrinsics-to-share <arg>
-    If solving for intrinsics and desired to share only a few of
-    them, specify here, in quotes, one or more of: focal_length,
-    optical_center, other_intrinsics. By default all of the intrinsics
-    are shared, so to not share any of them pass in a blank string.
+--intrinsics-to-share <string (default: "")>
+    If solving for intrinsics and desired to share only a few of them across all
+    cameras, specify here, in quotes, one or more of: ``focal_length``,
+    ``optical_center``, ``other_intrinsics``. By default all of the intrinsics
+    are shared, so to not share any of them pass in an empty string. Also can
+    specify as ``all`` or ``none``. If sharing intrinsics per sensor, this
+    option is ignored, as then the sharing is more fine-grained.
+    (:numref:`kaguya_tc_refine_intrinsics`).
 
 --intrinsics-limits <arg>
-    Set a string in quotes that contains min max ratio pairs for
-    intrinsic parameters. For example, "0.8 1.2" limits the parameter
-    to changing by no more than 20 percent. The first pair is for
-    focal length, the next two are for the center pixel, and the
-    remaining pairs are for other intrinsic parameters. If too many
-    pairs are passed in the program will throw an exception and
-    print the number of intrinsic parameters the cameras use. Cameras
-    adjust all of the parameters in the order they are specified
-    in the camera model unless it is specified otherwise in
-    :numref:`pinholemodels`.  Unfortunately, setting limits can
-    greatly slow down the solver.
+    Set a string in quotes that contains min max ratio pairs for intrinsic
+    parameters. For example, "0.8 1.2" limits the parameter to changing by no
+    more than 20 percent. The first pair is for focal length, the next two are
+    for the center pixel, and the remaining pairs are for other intrinsic
+    parameters. If too many pairs are passed in the program will throw an
+    exception and print the number of intrinsic parameters the cameras use.
+    Cameras adjust all of the parameters in the order they are specified in the
+    camera model unless it is specified otherwise in :numref:`pinholemodels`.
+    Setting limits can greatly slow down the solver.
 
 --num-passes <integer (default: 2)>
     How many passes of bundle adjustment to do, with given number
@@ -960,10 +965,12 @@ Command-line options for bundle_adjust
     will create those.
 
 --image-list
-    A file containing the list of images, when they are too many to
-    specify on the command line. Use space or newline as
-    separator. See also ``--camera-list`` and
-    ``--mapprojected-data-list``.
+    A file containing the list of images, when they are too many to specify on
+    the command line. Use in the file a space or newline as separator. When
+    solving for intrinsics for several sensors, pass to this option several
+    lists, with comma as separator between the file names (no space). An
+    example is in :numref:`kaguya_tc_refine_intrinsics`. See also
+    ``--camera-list`` and ``--mapprojected-data-list``.
 
 --camera-list
     A file containing the list of cameras, when they are too many to

@@ -187,3 +187,8 @@ detailed discussion for how to run SfS.
    From left to right: the stereo DEM, SfS DEM (hillshaded), and a mapprojected
    image. 
 
+Refining the camera intrinsics for Kaguya TC
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+See :numref:`kaguya_tc_refine_intrinsics`.
+
