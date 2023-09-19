@@ -10,9 +10,9 @@ source, but this is not recommended (:numref:`building_asp`).
 Precompiled binaries (Linux and macOS)
 --------------------------------------
 
-ASP builds are for Linux and OSX (with the Intel processor). 
-ASP was verified to work under Microsoft Windows using the Windows 
-Subsystem for Linux, and under the OSX M1 processor using Rosetta 2.
+ASP builds are for Linux and OSX (with the Intel processor). ASP was verified to
+work under Microsoft Windows using the Windows Subsystem for Linux, and under
+the OSX M1 processor using Rosetta 2.
 
 Choose either the latest build (recommended) or a stable release
 from:
@@ -215,7 +215,7 @@ Fetching pre-compiled ASP with conda
 
 ASP's official releases can be downloaded with ``conda``, for Linux and OSX with the Intel processor. See :numref:`precompiled_binaries` for how other platforms may be handled.
 
-The latest conda release is version 3.3.0, published on December 30, 2022. See
+The latest conda release is version 3.3.0, published on August 16, 2023. See
 :numref:`news` for what changed since then.  The newer functionality
 is available only with the daily build (:numref:`precompiled_binaries`).
 
