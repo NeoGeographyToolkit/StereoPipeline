@@ -804,10 +804,10 @@ redo only the triangulation operation, which greatly speeds up processing
 
 As before, it is suggested to examine the intersection error and the difference
 between each produced DEM and the corresponding combined averaged DEM. These
-errors drop by a factor of about 2 and 1.5 respectively.
+errors drop by a factor of about 2 and 1.5 respectively. 
 
-Comparing to an external source
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Comparing to an external ground truth
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We solved for intrinsics by constraining against the averaged DEM of the stereo
 pairs produced with initial intrinsics. This works reasonably well if the error
