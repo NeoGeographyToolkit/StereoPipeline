@@ -1,7 +1,7 @@
 .. Ames Stereo Pipeline documentation master file.
 
-Welcome to Ames Stereo Pipeline's documentation (version |version|)
-===================================================================
+Ames Stereo Pipeline's documentation (version |version|)
+========================================================
 
 .. toctree::
    :maxdepth: 2
