@@ -382,6 +382,9 @@ particular, the PDF document will be at::
 
   ./_build/latex/asp_book.pdf
 
+If the documentation builds well locally but fails to update 
+on the web, see the `build status page <https://readthedocs.org/projects/stereopipeline/builds/>`_.
+
 .. _asp_release_guide:
 
 Releasing a new version of ASP using conda

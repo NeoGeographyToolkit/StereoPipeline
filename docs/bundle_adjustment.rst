@@ -578,11 +578,11 @@ sample distance for the raw images for best results.
 Refining the intrinsics per sensor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In this example, given a set of sensors, with each acquiring several images,
+Given a set of sensors, with each acquiring several images,
 we will optimize the intrinsics per sensor. All images acquired with the same
 sensor will share the same intrinsics, and none will be shared across sensors.
 
-As an example, we will work with Kaguya TC linescan cameras and the CSM camera
+We will work with Kaguya TC linescan cameras and the CSM camera
 model (:numref:`csm`). Pinhole cameras in .tsai format (:numref:`pinholemodels`)
 and Frame cameras in CSM format (:numref:`csm_frame`) can be used as well.
 
