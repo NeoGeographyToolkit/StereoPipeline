@@ -606,6 +606,10 @@ refinement of intrinsics is started, if the illumination is so different that
 interest point matches cannot be found, or if something changed about a sensor
 and the same intrinsics don't work for all images acquired with that sensor.
 
+The ``cam_test`` tool (:numref:`cam_test`) can be used to check if the distortion
+model gets inverted correctly. The distortion model should also be expressive
+enough to model the distortion in the images.
+
 Image selection
 ^^^^^^^^^^^^^^^
 
@@ -664,10 +668,10 @@ to help refine the distortion parameters.
 
 The option ``--ip-per-tile`` is set to a large value so that many interest
 points are generated, and then the best ones are kept. This can be way too large
-for big images. (Also consider using ``--ip-per-image``).
+for big images. (Consider using instead ``--ip-per-image``.)
 
 Normally 50 iterations should be enough. Two passes will happen. After each 
-outliers will be removed.
+pass outliers will be removed.
 
 It is very strongly suggested to inspect the obtained clean match files (that
 is, without outliers) with ``stereo_gui``
@@ -689,7 +693,7 @@ We will use the optimized CSM cameras saved in the ``ba`` directory
       --job-size-w 2500                \
       --stereo-algorithm asp_mgm       \
       --subpixel-mode 9                \
-      --nodes-list modes.txt           \
+      --nodes-list nodes.txt           \
       left.cub right.cub               \
       ba/run-left.adjusted_state.json  \
       ba/run-right.adjusted_state.json \
@@ -756,8 +760,8 @@ significant effect.
 
 The images and (adjusted) cameras for individual sensors should be put in
 separate files, but in the same overall order as before, to be able reuse the
-match files. Then, the image files will be passed to the ``--image-list`` option
-with comma as separator (no spaces), and the same for the camera files. The
+match files. Then, the image lists will be passed to the ``--image-list`` option
+with comma as separator (no spaces), and the same for the camera lists. The
 bundle adjustment command becomes::
 
   bundle_adjust --solve-intrinsics                \
@@ -809,14 +813,19 @@ errors drop by a factor of about 2 and 1.5 respectively.
 Comparing to an external ground truth
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We solved for intrinsics by constraining against the averaged DEM of the stereo
-pairs produced with initial intrinsics. This works reasonably well if the error
-due to distortion is somewhat small and the stereo pairs overlap enough that this
-error gets averaged out in the mosaic.
+We solved for intrinsics by constraining against the averaged mosaicked DEM of
+the stereo pairs produced with initial intrinsics. This works reasonably well if
+the error due to distortion is somewhat small and the stereo pairs overlap
+enough that this error gets averaged out in the mosaic.
 
-Ideally, a known accurate DEM should be used. For example, one could create DEMs
-using LRO NAC data. Note that many such DEMs would be need to be combined,
-because LRO NAC has a much smaller footprint.
+Ideally, a known accurate external DEM should be used. For example, one could
+create DEMs using LRO NAC data. Note that many such DEMs would be need to be
+combined, because LRO NAC has a much smaller footprint.
+
+Should such a DEM exist, before using it instead of the averaged mosaic, the
+mosaic (or individual stereo DEMs) should be first aligned to the external DEM.
+Then, the same alignment transform should be applied to the cameras
+(:numref:`ba_pc_align`). Then the intrinsics optimization can happen as before. 
 
 We use the sparse `LOLA RDR
 <https://ode.rsl.wustl.edu/moon/lrololadatapointsearch.aspx>`_ dataset for
@@ -854,7 +863,7 @@ KaguyaTC is already reasonably well-aligned.
    :alt: kaguya_intrinsics_alignment_diff
 
    The signed difference between aligned stereo DEMs and LOLA RDR before (top)
-   and after (bottom) refinement of distortion. (Red = -20 meters, blue = 20
+   and after (bottom) refinement of distortion. (Blue = -20 meters, red = 20
    meters.) It can be seen that the warping of the DEM due to distortion is much
    reduced.
 
