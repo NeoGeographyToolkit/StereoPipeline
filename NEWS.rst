@@ -51,7 +51,7 @@ misc:
   * Fixed a couple of runtime errors when using conda packages on OSX.
   * Eliminated a procedure for cleaning the name of an input path that was
     replacing two slashes with one slash, as that was resulting in
-    inconsistent behavior. 
+    inconsistent behavior.
   
 RELEASE 3.3.0, August 16, 2023
 ------------------------------

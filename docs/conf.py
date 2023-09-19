@@ -31,7 +31,17 @@ author = 'ASP Authors'
 
 # Extract the ASP version from ../src/CMakeLists.txt
 version_text = Path("../src/CMakeLists.txt").read_text()
-version_string = re.search(r'set\(PACKAGE_VERSION "(.*)"\)', version_text).group(1)
+version_lines = version_text.splitlines()
+# Find the line that sets the version. Ignore comments.
+version_string = ""
+for line in version_lines:
+    # Match at starting of line PACKAGE_VERSION followed something in parentheses
+    m = re.match(r'^\s*set\s*\(\s*PACKAGE_VERSION\s+(.*?)\s*\)$', line)
+    if m:
+        version_string = m.group(1)
+        break
+if version_string == "":
+    raise Exception("Could not find the version in CMakeLists.txt")
 
 # The short X.Y version
 version = version_string.replace('_', '-')
