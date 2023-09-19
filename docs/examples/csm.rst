@@ -282,18 +282,19 @@ Notice how we used the same resolution for both images when
 mapprojecting. That helps making the resulting images more similar and
 reduces the processing time (:numref:`mapproj-res`).
 
-CSM Pushframe camera example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 .. _csm_wac:
 
-Lunar Reconnaissance Orbiter (LRO) WAC
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+CSM Pushframe sensor
+~~~~~~~~~~~~~~~~~~~~
+
+The USGS CSM *Pushframe* sensor models a pushframe camera.  The support for this sensor
+is not fully mature, and some artifacts can be seen in the DEMs (per below).
+ 
+What follows is an illustration of using this sensor with Lunar Reconnaissance
+Orbiter (LRO) WAC images. 
 
 This example, including the inputs, recipe, and produced terrain model
-can be downloaded from:
-
-    https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/LROWAC
+`can be downloaded <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/LROWAC>`_.
 
 Fetching the data
 ^^^^^^^^^^^^^^^^^
@@ -312,7 +313,7 @@ the Tycho crater, with download links::
     http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0002/DATA/MAP/2010035/WAC/M119923055ME.IMG
     http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0002/DATA/MAP/2010035/WAC/M119929852ME.IMG
 
-Get these with ``wget``.
+Fetch these with ``wget``.
 
 Creation of .cub files
 ^^^^^^^^^^^^^^^^^^^^^^
