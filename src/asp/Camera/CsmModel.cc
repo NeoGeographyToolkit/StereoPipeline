@@ -134,6 +134,9 @@ CsmModel::CsmModel(std::string const& isd_path) {
   load_model(isd_path);
 }
 
+// Note: This class copy constructor is shallow. To make a deep copy
+// use the deep_copy() function.
+
 CsmModel::~CsmModel() {
   // nothing to do.
 }
@@ -982,15 +985,25 @@ void CsmModel::set_optical_center(vw::Vector2 const& optical_center) {
 
 // Create a deep copy of the model, so don't just copy the shared pointer.
 void CsmModel::deep_copy(boost::shared_ptr<CsmModel> & copy) const {
+  // Initialize the output
+  copy.reset(new CsmModel);
+  // Then make a deep copy
+  this->deep_copy(*copy.get());
+}
+
+void CsmModel::deep_copy(CsmModel & copy) const {
+
   // Start with a shallow copy
-  copy.reset(new CsmModel(*this));
+  copy = *this;
+
+  // Then make a deep copy of m_gm_model
 
   // Frame case
   UsgsAstroFrameSensorModel const* frame_model 
     = dynamic_cast<UsgsAstroFrameSensorModel const*>(m_gm_model.get());
   if (frame_model != NULL) {
     UsgsAstroFrameSensorModel * new_frame_model = new UsgsAstroFrameSensorModel(*frame_model);
-    copy->m_gm_model.reset(new_frame_model);
+    copy.m_gm_model.reset(new_frame_model);
     return;
   }
 
@@ -999,7 +1012,7 @@ void CsmModel::deep_copy(boost::shared_ptr<CsmModel> & copy) const {
     = dynamic_cast<UsgsAstroLsSensorModel const*>(m_gm_model.get());
   if (ls_model != NULL) {
     UsgsAstroLsSensorModel * new_ls_model = new UsgsAstroLsSensorModel(*ls_model);
-    copy->m_gm_model.reset(new_ls_model);
+    copy.m_gm_model.reset(new_ls_model);
     return;
   }
 
@@ -1008,7 +1021,7 @@ void CsmModel::deep_copy(boost::shared_ptr<CsmModel> & copy) const {
     = dynamic_cast<UsgsAstroPushFrameSensorModel const*>(m_gm_model.get());
   if (pf_model != NULL) {
     UsgsAstroPushFrameSensorModel * new_pf_model = new UsgsAstroPushFrameSensorModel(*pf_model);
-    copy->m_gm_model.reset(new_pf_model);
+    copy.m_gm_model.reset(new_pf_model);
     return;
   }
 
@@ -1017,7 +1030,7 @@ void CsmModel::deep_copy(boost::shared_ptr<CsmModel> & copy) const {
     = dynamic_cast<UsgsAstroSarSensorModel const*>(m_gm_model.get());
   if (sar_model != NULL) {
     UsgsAstroSarSensorModel * new_sar_model = new UsgsAstroSarSensorModel(*sar_model);
-    copy->m_gm_model.reset(new_sar_model);
+    copy.m_gm_model.reset(new_sar_model);
     return;
   }
 

@@ -602,7 +602,7 @@ Most of the time the fault lies with the data not satisfying the assumptions
 being made.
 
 The process will fail if, for example, the data is not well-aligned before
-refinement of intrinsics is started, if the illumination is so different that
+the refinement of intrinsics is started, if the illumination is so different that
 interest point matches cannot be found, or if something changed about a sensor
 and the same intrinsics don't work for all images acquired with that sensor.
 
@@ -781,9 +781,10 @@ bundle adjustment command becomes::
 The values for ``--heights-from-dem-weight`` and
 ``--heights-from-dem-robust-threshold`` were chosen to be smaller than what is
 used for the ``--robust-threshold``, which is 0.5. That because the DEM is not
-perfect, and we don't want to overfit to it. See :numref:`heights_from_dem` for
-more details, and :numref:`bundle_adjust` for the documentation of all options
-above.
+perfect, and we don't want to overfit to it. The DEM-related weights can be
+increased to make the solution move more towards the DEM. See
+:numref:`heights_from_dem` for more details, and :numref:`bundle_adjust` for the
+documentation of all options above.
 
 .. figure:: images/kaguya_intrinsics_opt_example.png
    :name: kaguya_intrinsics_opt_example
@@ -864,7 +865,7 @@ KaguyaTC is already reasonably well-aligned.
 
    The signed difference between aligned stereo DEMs and LOLA RDR before (top)
    and after (bottom) refinement of distortion. (Blue = -20 meters, red = 20
-   meters.) It can be seen that the warping of the DEM due to distortion is much
+   meters.) It can be seen that the warping of the DEMs due to distortion is much
    reduced.
 
 Bundle adjustment using ISIS

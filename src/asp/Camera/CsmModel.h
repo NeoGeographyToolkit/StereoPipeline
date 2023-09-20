@@ -47,6 +47,9 @@ namespace asp {
     //------------------------------------------------------------------
     CsmModel();
     CsmModel(std::string const& isd_path); ///< Construct from ISD file
+    
+    // Note: This class copy constructor is shallow. Use deep_copy() to
+    // create a deep copy.
 
     virtual ~CsmModel();
     virtual std::string type() const { return "CSM"; }
@@ -135,6 +138,7 @@ namespace asp {
 
     // Create a deep copy of the model, so don't just copy the shared pointer.
     void deep_copy(boost::shared_ptr<CsmModel> & copy) const;
+    void deep_copy(CsmModel & copy) const;
 
   protected:
 

@@ -1664,6 +1664,10 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       if (!csm_ptr)
         vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
       num_lens_distortion_params = csm_ptr->distortion().size();
+    } else if (opt.camera_type == BaCameraType_Other) {
+      num_lens_distortion_params = 0; // distortion does not get handled
+    } else {
+      vw_throw(ArgumentErr() << "Unknown camera type.\n");
     }
 
     // For the case where the camera has zero distortion parameters, use one
@@ -1685,11 +1689,11 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 
   // Create the storage arrays for the variables we will adjust.
   asp::BAParams param_storage(num_points, num_cameras,
-                               // Distinguish when we solve for intrinsics
-                               opt.camera_type != BaCameraType_Other, 
-                               // Must be the same for each camera
-                               num_lens_distortion_params, 
-                               opt.intrinsics_options);
+                              // Distinguish when we solve for intrinsics
+                              opt.camera_type != BaCameraType_Other, 
+                              // Must be the same for each camera
+                              num_lens_distortion_params, 
+                              opt.intrinsics_options);
 
   // Fill in the camera and intrinsic parameters.
   std::vector<boost::shared_ptr<camera::CameraModel>> new_cam_models;
@@ -1959,7 +1963,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A file having a list of images (separated by spaces or newlines) whose cameras should be fixed during optimization.")
     ("fix-gcp-xyz",       po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
      "If the GCP are highly accurate, use this option to not float them during the optimization.")
-
     ("csv-format",        po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",         po::value(&opt.csv_proj4_str)->default_value(""),
      "The PROJ.4 string to use to interpret the entries in input CSV files.")
@@ -1980,7 +1983,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(1.0),
      "How much weight to give to keep the triangulated points close to the DEM if specified via "
      "--heights-from-dem. If the weight is not positive, keep the triangulated points fixed. "
-     "This value should be inversely proprortional with ground sample distance, as "
+     "This value should be inversely proportional with ground sample distance, as "
      "then it will convert the measurements from meters to pixels, which is consistent "
      "with the reprojection error term.")
     ("heights-from-dem-robust-threshold",
@@ -2397,7 +2400,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if ((opt.camera_type == BaCameraType_Other) && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with "
-              << "pinhole and optical bar cameras.\n");
+              << "pinhole, optical bar, and CSM cameras.\n");
 
   if ((opt.camera_type!=BaCameraType_Pinhole) && opt.approximate_pinhole_intrinsics)
     vw_throw(ArgumentErr() << "Cannot approximate intrinsics unless using pinhole cameras.\n");
@@ -2405,11 +2408,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.approximate_pinhole_intrinsics && opt.solve_intrinsics)
     vw_throw(ArgumentErr() << "Cannot approximate intrinsics while solving for them.\n");
 
-  if (opt.camera_type != BaCameraType_Other &&
+  if (opt.camera_type != BaCameraType_Other   &&
       opt.camera_type != BaCameraType_Pinhole &&
+      opt.camera_type != BaCameraType_CSM     &&
       opt.input_prefix != "")
     vw_throw( ArgumentErr() << "Can only use initial adjustments with camera type "
-              << "'other' or 'pinhole'. Here likely having optical bar cameras.\n");
+              << "'pinhole', 'csm', or 'other'. Here likely having optical bar cameras.\n");
 
   vw::string_replace(opt.remove_outliers_params_str, ",", " "); // replace any commas
   opt.remove_outliers_params = vw::str_to_vec<vw::Vector<double, 4>>(opt.remove_outliers_params_str);

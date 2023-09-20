@@ -205,7 +205,7 @@ public:
     return &(m_cameras_vec[cam_index*m_num_pose_params]);
   }
 
-  // ------- These functions are only needed for pinhole cameras ------
+  // These functions are only needed when solving for intrinsics
   double* get_intrinsic_center_ptr(int cam_index) {
     if (m_intrinsics_vec.empty()) return 0;
     return &(m_intrinsics_vec[get_center_offset(cam_index)]);
@@ -232,7 +232,7 @@ public:
     if (m_intrinsics_vec.empty()) return 0;
     return &(m_intrinsics_vec[get_distortion_offset(cam_index)]);
   }
-  // ------- End pinhole camera functions ------
+  // End functions needed when solving for intrinsics
   
   void set_point_outlier(int point_index, bool status) {
     m_outlier_points_vec[point_index] = status;
@@ -434,6 +434,7 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
 void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
                                 int camera_index,
                                 asp::BAParams & param_storage);
+// This does not copy the camera position and orentation
 void pack_csm_to_arrays(asp::CsmModel const& camera,
                         int camera_index,
                         asp::BAParams & param_storage);

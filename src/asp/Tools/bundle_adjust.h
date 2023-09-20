@@ -277,13 +277,23 @@ struct Options: public asp::BaBaseOptions {
       }
     }
 
+    std::string sensor_mode = "(across sensors)";
+    if (intrinsics_options.share_intrinsics_per_sensor)
+      sensor_mode = "(per sensor)"; // useful clarification
+
     // These will be useful for a while
-    vw_out() << "Sharing focal length is: " << intrinsics_options.focus_shared << std::endl;
-    vw_out() << "Sharing optical center is: " << intrinsics_options.center_shared << std::endl;
-    vw_out() << "Sharing distortion is: " << intrinsics_options.distortion_shared << std::endl;
-    vw_out() << "Floating focal length is: " << !intrinsics_options.focus_constant << std::endl;
-    vw_out() << "Floating optical center is: " << !intrinsics_options.center_constant << std::endl;
-    vw_out() << "Floating distortion is: " << !intrinsics_options.distortion_constant << std::endl;
+    vw_out() << "Sharing focal length " << sensor_mode << " is: "
+       << intrinsics_options.focus_shared << std::endl;
+    vw_out() << "Sharing optical center " << sensor_mode << " is: "
+       << intrinsics_options.center_shared << std::endl;
+    vw_out() << "Sharing distortion " << sensor_mode << " is: "
+       << intrinsics_options.distortion_shared << std::endl;
+    vw_out() << "Floating focal length is: " 
+      << !intrinsics_options.focus_constant << std::endl;
+    vw_out() << "Floating optical center is: " 
+      << !intrinsics_options.center_constant << std::endl;
+    vw_out() << "Floating distortion is: " 
+      << !intrinsics_options.distortion_constant << std::endl;
   } // End function load_intrinsics_options
 
 }; // End class Options

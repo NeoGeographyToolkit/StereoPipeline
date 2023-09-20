@@ -59,7 +59,7 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
 
   // Read the adjustments from a previous run, if present
   if (opt.input_prefix != "") {
-    for (size_t icam = 0; icam < num_cameras; icam++){
+    for (size_t icam = 0; icam < num_cameras; icam++) {
       std::string adjust_file
         = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[icam],
                                        opt.camera_files[icam]);
@@ -83,15 +83,16 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
 
   // Apply any initial transform to the pinhole cameras
   if (initial_transform_file != "") {
-    // TODO(oalexan1): This gives wrong results for now so needs to be sorted out.
-    // Likely the only way to apply a scale to a linescan camera is to multiply
-    // all camera centers by the scale. Using a rotation and translation center
-    // like for AdjustedCameraModel is not enough.
     if (opt.stereo_session == "csm") {
       double scale = pow(vw::math::det(initial_transform), 1.0/3.0);
-      if (std::abs(scale - 1.0) > 1e-6)
+      if (std::abs(scale - 1.0) > 1e-6) {
+        // TODO(oalexan1): This gives wrong results for now so needs to be sorted out.
+        // Likely the only way to apply a scale to a linescan camera is to multiply
+        // all camera centers by the scale. Using a rotation and translation center
+        // like for AdjustedCameraModel is not enough.
         vw_throw(ArgumentErr()
                  << "CSM camera models do not support applying a transform with a scale.\n");
+      }
     }
 
     // TODO(oalexan1): Does this modify param_storage?
@@ -229,24 +230,45 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
                    std::string const& initial_transform_file, 
                    vw::Matrix<double> const& initial_transform,
                    std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models) {
-  if (opt.input_prefix != "")
-    vw::vw_throw(vw::ArgumentErr()
-                 << "Applying initial adjustments to CSM cameras "
-                 << "and --inline-adjustments is not implemented. "
-                 << "Remove this option.\n");
 
   bool cameras_changed = false;
 
-  // Copy the camera parameters from the models to param_storage
+  // Apply any adjustments inline. Copy the camera parameters from the models to
+  // param_storage. Do not copy the adjustments, as they are already applied
+  // to the camera proper.
   const size_t num_cameras = param_storage.num_cameras();
   for (int icam = 0; icam < num_cameras; icam++) {
     asp::CsmModel* csm_ptr
         = dynamic_cast<asp::CsmModel*>(opt.camera_models[icam].get());
+
+    // Read the adjustments from a previous run, if present. Apply them
+    // inline to the camera model.
+    if (opt.input_prefix != "") {
+      std::string adjust_file
+        = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[icam],
+                                       opt.camera_files[icam]);
+      vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
+      CameraAdjustment adjustment;
+      adjustment.read_from_adjust_file(adjust_file);
+
+      // Strictly speaking, it is not necessary to call unadjusted_model(), as
+      // in bundle_adjust the input cameras are loaded unadjusted, unlike in stereo.
+      AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+                                  adjustment.position(), adjustment.pose());
+      vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
+      csm_ptr->applyTransform(ecef_transform);
+    
+      cameras_changed = true;
+    }
+
+    // This does not copy the camera position and orientation, only the intrinsics    
     pack_csm_to_arrays(*csm_ptr, icam, param_storage); 
   } // End loop through cameras
 
   // Apply any initial transform to the CSM cameras
   if (initial_transform_file != "") {
+    // Apply the transform to the cameras inline. This modifies opt.camera_models.
+    // The transform does not get copied to param_storage. Only intrinsics get copied.
     apply_transform_to_cameras_csm(initial_transform, param_storage, opt.camera_models);
     cameras_changed = true;
   }

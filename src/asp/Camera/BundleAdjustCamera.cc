@@ -339,6 +339,7 @@ void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
   intrinsics_ptr[2] = 1.0;
 }
 
+// This does not copy the camera position and orientation
 void pack_csm_to_arrays(asp::CsmModel const& camera,
                         int camera_index,
                         asp::BAParams & param_storage) {
@@ -348,7 +349,8 @@ void pack_csm_to_arrays(asp::CsmModel const& camera,
   double* focus_ptr      = param_storage.get_intrinsic_focus_ptr     (camera_index);
   double* distortion_ptr = param_storage.get_intrinsic_distortion_ptr(camera_index);
 
-  // Handle position and pose. We start with 0 pose and identity rotation.
+  // Handle position and pose. We start with 0 pose and identity rotation. Nothing
+  // gets copied from camera position and orientation.
   CameraAdjustment pos_pose_info;
   pos_pose_info.copy_from_csm(camera);
   pos_pose_info.pack_to_array(pos_pose_ptr);
@@ -438,13 +440,13 @@ void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
 
 } // end function apply_transform_to_cameras_optical_bar
 
-// This function takes advantage of the fact that when it is called the cam_ptrs have the same
-//  information as is in param_storage.
-// TODO(oalexan1): This was not tested
+// This function takes advantage of the fact that when it is called the cam_ptrs
+//  have the same information as is in param_storage.
+// This applies the transform to the camera inline, but does not copy
+// the camera position and orientation to the arrays.
 void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
                                     asp::BAParams & param_storage,
                                     std::vector<vw::CamPtr> const& cam_ptrs) {
-
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
     // Apply the transform
     boost::shared_ptr<asp::CsmModel> csm_ptr = 
@@ -452,7 +454,9 @@ void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
     if (csm_ptr == NULL)
         vw_throw( ArgumentErr() << "Expecting a CSM camera.\n" );
     csm_ptr->applyTransform(M);
-    // Write out to param_storage
+    // Write out to param_storage. This does not copy camera position 
+    // and orientation. The adjustment stays as 0 pose and identity rotation.
+    // That is why the transform M does not get applied twice.
     pack_csm_to_arrays(*csm_ptr, i, param_storage);    
   }
 
@@ -1120,7 +1124,12 @@ boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
   std::vector<double> distortion = in_cam.distortion();
   for (size_t i = 0; i < distortion.size(); i++) {
 
-    // Ensure this approach does not fail when the input distortion is 0
+    // Ensure this approach does not fail when the input distortion is 0.
+    // TODO(oalexan1): This is not enough, however. The user must choose
+    // to manually enter some small fake distortion, maybe on the order
+    // of 1e-8. It is hard to tell what numbers to put below. They should
+    // not be as small as 1e-16 but sometimes 1e-8 (for higher order polynomial
+    // coefficients) may be too much.
     if (distortion[i] == 0.0)
       distortion[i] = 1e-16;
 
