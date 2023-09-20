@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 #ifndef __ASP_TOOLS_BUNDLEADJUST_COST_FUNCTIONS_H__
 #define __ASP_TOOLS_BUNDLEADJUST_COST_FUNCTIONS_H__
 
@@ -28,6 +27,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <vw/Camera/OpticalBarModel.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Camera/BundleAdjustCamera.h>
 
 // Turn off warnings from eigen
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -171,25 +171,26 @@ public:
     : m_underlying_camera(cam) {}
 
   /// The number of lens distortion parameters.
-  int num_distortion_params() const {
+  int num_dist_params() const {
     vw::Vector<double> lens_params
       = m_underlying_camera->lens_distortion()->distortion_parameters();
     return lens_params.size();
   }
 
   virtual int num_intrinsic_params() const {
-    return 3 + num_distortion_params(); //Center, focus, and lens distortion.
+    // Center, focus, and lens distortion
+    return asp::NUM_CENTER_PARAMS + asp::NUM_FOCUS_PARAMS + num_dist_params(); 
   }
 
   /// Return the number of Ceres input parameter blocks.
   /// - (camera), (point), (center), (focus), (lens distortion)
-  virtual int num_parameter_blocks() const {return 5;}
+  virtual int num_parameter_blocks() const { return 5; }
 
   virtual std::vector<int> get_block_sizes() const {
     std::vector<int> result = CeresBundleModelBase::get_block_sizes();
-    result.push_back(2); // Center
-    result.push_back(1); // Focus
-    result.push_back(num_distortion_params());
+    result.push_back(asp::NUM_CENTER_PARAMS);
+    result.push_back(asp::NUM_FOCUS_PARAMS);
+    result.push_back(num_dist_params());
     return result;
   }
 
@@ -251,10 +252,6 @@ private:
 
 }; // End class PinholeBundleModel
 
-
-// TODO: Clean this up!
-const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 3;
-
 /// "Full service" optical bar model which solves for all desired camera parameters.
 /// - If the current run does not want to solve for everything, those parameter
 ///   blocks should be set as constant so that Ceres does not change them.
@@ -264,9 +261,9 @@ public:
   OpticalBarBundleModel(boost::shared_ptr<vw::camera::OpticalBarModel> cam)
     : m_underlying_camera(cam) {}
 
-
   virtual int num_intrinsic_params() const {
-    return 2 + 1 + NUM_OPTICAL_BAR_EXTRA_PARAMS;
+    // Center, focus, and extra optical bar parameters
+    return asp::NUM_CENTER_PARAMS + asp::NUM_FOCUS_PARAMS + asp::NUM_OPTICAL_BAR_EXTRA_PARAMS;
   }
 
   /// Return the number of Ceres input parameter blocks.
@@ -275,9 +272,9 @@ public:
 
   virtual std::vector<int> get_block_sizes() const {
     std::vector<int> result = CeresBundleModelBase::get_block_sizes();
-    result.push_back(2); // Center
-    result.push_back(1); // Focus
-    result.push_back(NUM_OPTICAL_BAR_EXTRA_PARAMS);
+    result.push_back(asp::NUM_CENTER_PARAMS);
+    result.push_back(asp::NUM_FOCUS_PARAMS);
+    result.push_back(asp::NUM_OPTICAL_BAR_EXTRA_PARAMS);
     return result;
   }
 
@@ -349,12 +346,13 @@ public:
    m_underlying_camera(cam) {}
 
   /// The number of lens distortion parameters.
-  int num_distortion_params() const {
+  int num_dist_params() const {
     return m_underlying_camera->distortion().size();
   }
 
   virtual int num_intrinsic_params() const {
-    return 3 + num_distortion_params(); // Center, focus, and lens distortion.
+     // Center, focus, and lens distortion
+    return asp::NUM_CENTER_PARAMS + asp::NUM_FOCUS_PARAMS + num_dist_params();
   }
 
   /// Return the number of Ceres input parameter blocks.
@@ -363,9 +361,9 @@ public:
 
   virtual std::vector<int> get_block_sizes() const {
     std::vector<int> result = CeresBundleModelBase::get_block_sizes();
-    result.push_back(2); // Center
-    result.push_back(1); // Focus
-    result.push_back(num_distortion_params());
+    result.push_back(asp::NUM_CENTER_PARAMS);
+    result.push_back(asp::NUM_FOCUS_PARAMS);
+    result.push_back(num_dist_params());
     return result;
   }
 
@@ -458,8 +456,6 @@ struct BaReprojectionError {
   // - Takes array of arrays.
   bool operator()(double const * const * parameters, double * residuals) const {
 
-    //std::cout << "For observation " << m_observation << std::endl;
-
     try {
       // Unpack the parameter blocks
       std::vector<double const*> param_blocks(m_num_param_blocks);
@@ -470,21 +466,15 @@ struct BaReprojectionError {
       // Use the camera model wrapper to handle all of the parameter blocks.
       Vector2 prediction = m_camera_wrapper->evaluate(param_blocks);
 
-      //std::cout << "Got prediction " << prediction << std::endl;
-
-      // The error is the difference between the predicted and observed position,
-      // normalized by sigma.
-      residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0]; // Input units are pixels
+      // The error is the difference between the predicted and observed pixel
+      // position, normalized by sigma.
+      residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0];
       residuals[1] = (prediction[1] - m_observation[1])/m_pixel_sigma[1];
-
-      //std::cout << "Got residuals " << residuals[0] << ", " << residuals[1] << std::endl;
 
     } catch (std::exception const& e) { // TODO: Catch only projection errors?
       // Failed to compute residuals
 
-      //std::cout << "Caught exception!" << std::endl;
-
-      Mutex::Lock lock( g_ba_mutex );
+      Mutex::Lock lock(g_ba_mutex);
       g_ba_num_errors++;
       if (g_ba_num_errors < 100) {
         vw_out(ErrorMessage) << e.what() << std::endl;

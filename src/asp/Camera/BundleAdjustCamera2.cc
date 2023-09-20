@@ -469,4 +469,37 @@ void read_image_cam_lists(std::string const& image_list,
   return;
 } 
 
+// When distortion params are shared, their number must agree
+void distortion_sanity_check(std::vector<int> const& num_dist_params,
+                             IntrinsicOptions const& intrinsics_opts) {
+
+  // If nothing is shared, there is nothing to do
+
+  // If all distortion params are shared, all sizes must agree
+  if (!intrinsics_opts.share_intrinsics_per_sensor && 
+      intrinsics_opts.distortion_shared) {
+    for (size_t it = 1; it < num_dist_params.size(); it++) {
+      if (num_dist_params[it] != num_dist_params[0])
+           vw_throw(ArgumentErr() << "When sharing distortion parameters, "
+             << "they must have the same size.\n");
+    }
+  }
+
+  // If distortion is shared per sensor
+  if (intrinsics_opts.share_intrinsics_per_sensor) {
+    std::vector<std::set<int>> dist_sizes(intrinsics_opts.num_sensors);
+    for (size_t cam_it = 0; cam_it < num_dist_params.size(); cam_it++) {
+      int sensor_it = intrinsics_opts.cam2sensor[cam_it];
+      dist_sizes[sensor_it].insert(num_dist_params[cam_it]); // all found sizes
+    }   
+    // Now check that each dist_sizes[sensor_it] has size 1
+    for (size_t sensor_it = 0; sensor_it < intrinsics_opts.num_sensors; sensor_it++) {
+      if (dist_sizes[sensor_it].size() != 1)
+        vw_throw(ArgumentErr() << "When sharing distortion parameters per sensor, "
+         << "they must have the same size for all cameras of the same sensor.\n");
+    }
+  }
+  return;
+}
+
 } // end namespace asp

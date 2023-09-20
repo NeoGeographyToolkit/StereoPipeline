@@ -232,7 +232,7 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
         BaReprojectionError::Create(observation, pixel_sigma, wrapper);
       problem.AddResidualBlock(cost_function, loss_function, point, camera);
 
-  } else { // inline Pinhole, optical bar, or CSM camera
+  } else { // Solve for intrinsics for Pinhole, optical bar, or CSM camera
 
     double* center     = param_storage.get_intrinsic_center_ptr    (camera_index);
     double* focus      = param_storage.get_intrinsic_focus_ptr     (camera_index);
@@ -714,7 +714,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   }
 
   // Keep track of number of triangulation constraint residuals but don't save those
-  index += asp::BAParams::PARAMS_PER_POINT * num_tri_residuals;
+  index += asp::PARAMS_PER_POINT * num_tri_residuals;
   
   if (index != num_residuals)
     vw_throw( LogicErr() << "Have " << num_residuals << " residuals, but iterated through "
@@ -1646,26 +1646,25 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     return;
   }
   
-  // Find the number of distortion params. 
-  int num_lens_distortion_params0 = 0, num_lens_distortion_params = 0;
+  // Collect distortion size per camera
+  std::vector<int> num_dist_params(num_cameras, 0);
   for (size_t cam_it  = 0; cam_it < opt.camera_models.size(); cam_it++) {
     if (opt.camera_type == BaCameraType_Pinhole) {
-      boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
-              boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models[cam_it]);
-      if (!pinhole_ptr) 
-        vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
-      num_lens_distortion_params 
-        = pinhole_ptr->lens_distortion()->distortion_parameters().size();
+      auto pin_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>
+                      (opt.camera_models[cam_it]);
+      if (!pin_ptr) 
+        vw_throw(ArgumentErr() << "Expecting a Pinhole camera.\n");
+      num_dist_params[cam_it] 
+        = pin_ptr->lens_distortion()->distortion_parameters().size();
     } else if (opt.camera_type == BaCameraType_OpticalBar) {
-      num_lens_distortion_params = NUM_OPTICAL_BAR_EXTRA_PARAMS; // TODO: Share this constant!
+      num_dist_params[cam_it] = asp::NUM_OPTICAL_BAR_EXTRA_PARAMS;
     } else if (opt.camera_type == BaCameraType_CSM) {
-      boost::shared_ptr<asp::CsmModel> csm_ptr = 
-              boost::dynamic_pointer_cast<asp::CsmModel>(opt.camera_models[cam_it]);
+      auto csm_ptr = boost::dynamic_pointer_cast<asp::CsmModel>(opt.camera_models[cam_it]);
       if (!csm_ptr)
         vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
-      num_lens_distortion_params = csm_ptr->distortion().size();
+      num_dist_params[cam_it] = csm_ptr->distortion().size();
     } else if (opt.camera_type == BaCameraType_Other) {
-      num_lens_distortion_params = 0; // distortion does not get handled
+      num_dist_params[cam_it] = 0; // distortion does not get handled
     } else {
       vw_throw(ArgumentErr() << "Unknown camera type.\n");
     }
@@ -1673,26 +1672,23 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     // For the case where the camera has zero distortion parameters, use one
     // dummy parameter just so we don't have to change the parameter block logic
     // later on.
-    if (opt.camera_type != BaCameraType_Other && num_lens_distortion_params < 1) {
-      num_lens_distortion_params = 1;
+    if (opt.camera_type != BaCameraType_Other && num_dist_params[cam_it] < 1) {
+      num_dist_params[cam_it] = 1;
       opt.intrinsics_options.distortion_constant = true;
       opt.intrinsics_options.distortion_shared   = true;
     }
-
-    // Check that all cameras have the same number of distortion params
-    if (cam_it == 0)
-      num_lens_distortion_params0 = num_lens_distortion_params;
-    if (num_lens_distortion_params != num_lens_distortion_params0)
-      vw_throw(ArgumentErr() 
-        << "Expecting all cameras to have the same number of distortion parameters.\n");
   }
+
+  // It is simpler to allocate the same number of distortion params per camera
+  // even if some cameras have fewer. The extra ones won't be used. 
+  int max_num_dist_params = *std::max_element(num_dist_params.begin(), num_dist_params.end());
+  distortion_sanity_check(num_dist_params, opt.intrinsics_options);
 
   // Create the storage arrays for the variables we will adjust.
   asp::BAParams param_storage(num_points, num_cameras,
                               // Distinguish when we solve for intrinsics
                               opt.camera_type != BaCameraType_Other, 
-                              // Must be the same for each camera
-                              num_lens_distortion_params, 
+                              max_num_dist_params, 
                               opt.intrinsics_options);
 
   // Fill in the camera and intrinsic parameters.
@@ -1751,7 +1747,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     
     // Must update the number of points after the control network is recomputed
     num_points = cnet.size();
-    param_storage.get_point_vector().resize(num_points*asp::BAParams::PARAMS_PER_POINT);
+    param_storage.get_point_vector().resize(num_points*asp::PARAMS_PER_POINT);
   }
 
   // Fill in the point vector with the starting values.

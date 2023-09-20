@@ -15,6 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// TODO(oalexan1): This was superceded by jitter_solve.cc and must be wiped.
 
 /// \file jitter_adjust.cc
 ///

@@ -52,6 +52,13 @@
 
 namespace asp {
 
+// Shared constants
+const int PARAMS_PER_POINT  = 3;
+const int NUM_CAMERA_PARAMS = 6; // Position and pose
+const int NUM_CENTER_PARAMS = 2; // TODO(oalexan1): Use this consistently
+const int NUM_FOCUS_PARAMS  = 1;
+const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 3; // Values stored in the distortion vector
+
 // Options shared by bundle_adjust and jitter_solve
 struct BaBaseOptions: public vw::GdalWriteOptions {
   std::string out_prefix, stereo_session, input_prefix, match_files_prefix,
@@ -100,7 +107,7 @@ struct MatchPairStats {
     }
   }
 };
-  
+
 /// Structure to fully describe how the intrinsics are being handled.
 /// - Currently only pinhole cameras support intrinsics in bundle_adjust.
 struct IntrinsicOptions {
@@ -125,20 +132,13 @@ class BAParams {
 
 public:
 
-  static const int PARAMS_PER_POINT  = 3;
-  static const int NUM_CAMERA_PARAMS = 6; // Position and pose.
-  // These two are only for pinhole cameras.
-  static const int NUM_CENTER_PARAMS = 2; // TODO: Share info with other classes!
-  static const int NUM_FOCUS_PARAMS  = 1;
-
-  
   boost::random::mt19937 m_rand_gen;
 
   // Constructor
   BAParams(int num_points, int num_cameras,
           // Parameters below here only apply to pinhole models.
           bool using_intrinsics = false,
-          int num_distortion_params = 0,
+          int max_num_dist_params = 0,
           IntrinsicOptions intrinsics_opts = IntrinsicOptions()); 
 
   // Copy constructor
@@ -307,7 +307,7 @@ private: // Variables
   
   // m_intrinsics_vec starts out with m_num_shared_intrinsics values which are
   //  shared between all cameras, followed by the per-camera intrinsics for each camera.
-  int m_num_shared_intrinsics, m_num_intrinsics_per_camera, m_num_distortion_params;
+  int m_num_shared_intrinsics, m_num_intrinsics_per_camera, m_max_num_dist_params;
   
   // These store the offset to the focus or distortion data from the start of
   //  either the shared parameters at the start of m_intrinsics_vec or from
@@ -328,6 +328,10 @@ private: // Functions
   size_t get_distortion_offset(int cam_index) const;
 
 }; // End class BAParams
+
+// When distortion params are shared, their number must agree
+void distortion_sanity_check(std::vector<int> const& num_dist_params,
+                             IntrinsicOptions const& intrinsics_opts);
 
 // Read image and camera lists. Can have several comma-separated lists
 // in image_list and camera_list, when sharing intrinsics per sensor.

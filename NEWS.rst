@@ -15,6 +15,8 @@ jitter_solve (:numref:`jitter_solve`):
 bundle_adjust (:numref:`bundle_adjust`):
   * Added the ability to refine the camera intrinsics per sensor
     (:numref:`kaguya_tc_refine_intrinsics`).
+  * When optimizing intrinsics, cameras that do not share distortion can
+    have different distortion types and sizes.   
   * For ASTER cameras, use the RPC model to find interest points. This does
     not affect the final results but is much faster.
 

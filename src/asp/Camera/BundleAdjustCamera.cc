@@ -40,7 +40,7 @@ using namespace vw::ba;
 asp::BAParams::BAParams(int num_points, int num_cameras,
                 // Parameters below here only apply to pinhole models.
                 bool using_intrinsics,
-                int num_distortion_params,
+                int max_num_dist_params,
                 IntrinsicOptions intrinsics_opts): 
     m_num_points        (num_points),
     m_num_cameras       (num_cameras),
@@ -48,7 +48,7 @@ asp::BAParams::BAParams(int num_points, int num_cameras,
     m_num_pose_params   (NUM_CAMERA_PARAMS),
     m_num_shared_intrinsics    (0),
     m_num_intrinsics_per_camera(0),
-    m_num_distortion_params(num_distortion_params),
+    m_max_num_dist_params(max_num_dist_params),
     m_focus_offset(0),
     m_distortion_offset(0),
     m_intrinsics_opts    (intrinsics_opts),
@@ -81,7 +81,7 @@ asp::BAParams::BAParams(int num_points, int num_cameras,
       if (intrinsics_opts.distortion_shared)
         m_distortion_offset = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS;
       else {
-        m_num_intrinsics_per_camera += num_distortion_params;
+        m_num_intrinsics_per_camera += max_num_dist_params;
         if (!intrinsics_opts.center_shared)
           m_distortion_offset += NUM_CENTER_PARAMS;
         if (!intrinsics_opts.focus_shared)
@@ -91,13 +91,15 @@ asp::BAParams::BAParams(int num_points, int num_cameras,
       // For simplicity, we always set this to the same size and allocate
       // the same storage even if none of the parameters are shared.
       m_num_shared_intrinsics = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS
-                                + num_distortion_params;
+                                + max_num_dist_params;
       m_intrinsics_vec.resize(m_num_shared_intrinsics +
-                              num_cameras*m_num_intrinsics_per_camera);
+                              num_cameras*m_num_intrinsics_per_camera,
+                              0); // Initialize to 0
     } else {
       m_num_intrinsics_per_camera = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS
-                                    + num_distortion_params;
-      m_intrinsics_vec.resize(intrinsics_opts.num_sensors * m_num_intrinsics_per_camera);
+                                    + max_num_dist_params;
+      m_intrinsics_vec.resize(intrinsics_opts.num_sensors * m_num_intrinsics_per_camera,
+                              0); // Initialize to 0
     }
   }
 
@@ -109,7 +111,7 @@ asp::BAParams::BAParams(asp::BAParams const& other):
       m_num_pose_params   (other.m_num_pose_params),
       m_num_shared_intrinsics    (other.m_num_shared_intrinsics),
       m_num_intrinsics_per_camera(other.m_num_intrinsics_per_camera),
-      m_num_distortion_params(other.m_num_distortion_params),
+      m_max_num_dist_params(other.m_max_num_dist_params),
       m_focus_offset      (other.m_focus_offset),
       m_distortion_offset (other.m_distortion_offset),
       m_intrinsics_opts    (other.m_intrinsics_opts),
@@ -231,7 +233,7 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
     intrinsics_index = NUM_FOCUS_PARAMS+NUM_CENTER_PARAMS; // In case we did not go through the loops
     if (!m_intrinsics_opts.distortion_constant && !(m_intrinsics_opts.distortion_shared && (c>0))) {
       double* ptr = get_intrinsic_distortion_ptr(c);
-      for (int i=0; i<m_num_distortion_params; i++) {
+      for (int i=0; i<m_max_num_dist_params; i++) {
         percent = static_cast<double>(dist(m_rand_gen))/DENOM;
         if (intrinsics_index < num_intrinsics) {
           range = intrinsic_limits[2*intrinsics_index+1] - intrinsic_limits[2*intrinsics_index];
@@ -300,13 +302,11 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
   pos_pose_info.pack_to_array(pos_pose_ptr);
 
   // We are solving for multipliers to the intrinsic values, so they all start at 1.0.
-
   // Center point and focal length
-  center_ptr[0] = 1.0; //camera.point_offset()[0];
-  center_ptr[1] = 1.0; //camera.point_offset()[1];
-  focus_ptr [0] = 1.0; //camera.focal_length()[0];
-
-  // Pack the lens distortion parameters.
+  center_ptr[0] = 1.0;
+  center_ptr[1] = 1.0;
+  focus_ptr [0] = 1.0;
+  // Lens distortion
   vw::Vector<double> lens = camera.lens_distortion()->distortion_parameters();
   for (size_t i=0; i<lens.size(); i++)
     distortion_ptr[i] = 1.0;
@@ -327,12 +327,10 @@ void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
   pos_pose_info.pack_to_array(pos_pose_ptr);
 
   // We are solving for multipliers to the intrinsic values, so they all start at 1.0.
-
   // Center point and focal length
-  center_ptr[0] = 1.0; //camera.point_offset()[0];
-  center_ptr[1] = 1.0; //camera.point_offset()[1];
-  focus_ptr [0] = 1.0; //camera.focal_length()[0];
-
+  center_ptr[0] = 1.0;
+  center_ptr[1] = 1.0;
+  focus_ptr [0] = 1.0;
   // Pack the speed, MCF, and scan time into the distortion pointer.
   intrinsics_ptr[0] = 1.0;
   intrinsics_ptr[1] = 1.0;
