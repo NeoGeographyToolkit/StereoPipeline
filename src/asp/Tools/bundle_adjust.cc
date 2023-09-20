@@ -44,112 +44,12 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 using namespace vw;
+using namespace asp;
 using namespace vw::camera;
 using namespace vw::ba;
 
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 typedef CameraRelationNetwork<JFeature> CRNJ;
-
-// Save pinhole camera positions and orientations in a single file.
-// This is useful if there are thousands of cameras.
-// TODO(oalexan1): Add here initial and final prefix.
-// TODO(oalexan1): This must work only for pinhole.
-void saveCameraReport(Options const& opt, asp::BAParams const& param_storage,
-                      vw::cartography::Datum const& datum, 
-                      std::string const& prefix) {
-
-  std::string output_path = opt.out_prefix + "-" + prefix + "-cameras.csv";
-
-  vw_out() << "Writing: " << output_path << std::endl;
-  std::ofstream fh(output_path.c_str());
-  fh.precision(17);
-  fh << "# input_cam_file, cam_ctr_x, cam_ctr_y, cam_ctr_z (ecef meters), "
-     << "cam2ned rotation rows\n";
-  
-  int num_cameras = opt.image_files.size();
-
-  // TODO(oalexan1): Create here a report file. Write camera name,
-  // camera center, ecef position, ecef quaternion, and ned roll-pitch-yaw.
-  // Use same Euler angles as in numpy. Likely eigen can do it.
-  for (int icam = 0; icam < num_cameras; icam++) {
-
-    vw::Vector3 cam_ctr;
-    vw::Matrix3x3 cam2ecef;
-    switch(opt.camera_type) {
-      case BaCameraType_Pinhole: {
-        // Get the camera model from the original one with parameters in
-        // param_storage applied to it (which could be original ones or optimized). 
-        // Note that we do not modify the original camera.
-        vw::camera::PinholeModel const* in_cam
-          = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
-        if (in_cam == NULL)
-          vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
-        // Apply current intrinsics and extrinsics to the camera
-        vw::camera::PinholeModel out_cam 
-          = transformedPinholeCamera(icam, param_storage, *in_cam);
-        cam_ctr = out_cam.camera_center(vw::Vector2());
-        cam2ecef = out_cam.get_rotation_matrix();
-        break;
-      }
-      case BaCameraType_OpticalBar:
-        vw::vw_throw(vw::ArgumentErr() << "Saving a camera report is not implemented "
-                    << "for optical bar cameras.\n");
-        break;
-      case BaCameraType_CSM:
-        vw::vw_throw(vw::ArgumentErr() << "Saving a camera report is not implemented "
-                      << "for CSM cameras.\n");
-        break;
-      default: {
-        // Apply extrinsics adjustments to a pinhole camera
-        // TODO(oalexan1): Make this into a function called adjustedPinholeCamera().
-        // Use it where needed.
-        CameraAdjustment adjustment(param_storage.get_camera_ptr(icam));
-        PinholeModel* in_cam = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
-        if (in_cam == NULL)
-          vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
-        
-        // Make a copy of the camera, and apply the adjustments to the copy. Need to go back
-        // to the original camera to get the adjustments needed to apply.
-        // TODO(oalexan1): This is a little awkward.
-        PinholeModel out_cam = *in_cam;
-        AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
-                                    adjustment.position(), adjustment.pose());
-        vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
-        out_cam.apply_transform(ecef_transform);
-        cam_ctr = out_cam.camera_center(vw::Vector2());
-        cam2ecef = out_cam.get_rotation_matrix();
-      }
-    }
-
-    fh << opt.camera_files[icam] << ", "
-       << cam_ctr[0] << ", " << cam_ctr[1] << ", " << cam_ctr[2];
-
-    // Find the matrix for converting NED to ECEF
-    vw::Vector3 loc_llh = datum.cartesian_to_geodetic(cam_ctr);
-    vw::Matrix3x3 ned2ecef = datum.lonlat_to_ned_matrix(subvector(loc_llh, 0, 2));
-
-    // How a camera moves relative to the world is given by the camera-to-world
-    // matrix. That is a little counter-intuitive.
-    vw::Matrix3x3 cam2ned = inverse(ned2ecef) * cam2ecef;
-    for (int row = 0; row < cam2ned.rows(); row++) {
-      for (int col = 0; col < cam2ned.cols(); col++) {
-        fh << ", " << cam2ned(row, col);
-      } 
-    }
-    fh << "\n";
-    // See
-    // https://stackoverflow.com/questions/27508242/roll-pitch-and-yaw-from-rotation-matrix-with-eigen-library
-    // for how to create roll-pitch-yaw. May need to first convert the
-    // camera from NED to maybe East-South-Down, which may be
-    // convenient if the camera flies North-to-South and the image
-    // rows go West to East. In Eigen, the roll-pitch-yaw then could
-    // be found as: m.eulerAngles(2,1,0)
-  }
-
-  fh.close();
-
-  return;
-}
 
 // Write the results to disk.
 void saveResults(Options const& opt, asp::BAParams const& param_storage) {
@@ -1761,7 +1661,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
   if (has_datum && (opt.stereo_session == "pinhole") || 
       (opt.stereo_session == "nadirpinhole")) 
-    saveCameraReport(opt, param_storage,  opt.datum, "initial");
+    asp::saveCameraReport(opt, param_storage,  opt.datum, "initial");
     
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   CRNJ crn;
@@ -2573,9 +2473,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
-  opt.load_intrinsics_options(intrinsics_to_float_str, intrinsics_to_share_str,
-                              !vm["intrinsics-to-share"].defaulted());
-
+  load_intrinsics_options(opt.solve_intrinsics, !vm["intrinsics-to-share"].defaulted(),
+                          intrinsics_to_float_str, intrinsics_to_share_str,
+                          opt.intrinsics_options);
   opt.parse_intrinsics_limits(intrinsics_limit_str);
 
   boost::to_lower(opt.cost_function);
@@ -3179,20 +3079,18 @@ int main(int argc, char* argv[]) {
       
       // Set up the stereo session
       SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
-                                                           opt, image1_path,  image2_path,
+                                                           opt, image1_path, image2_path,
                                                            camera1_path, camera2_path,
                                                            opt.out_prefix));
 
 
       // Find matches between image pairs. This may not always succeed.
       try{
-
         if (opt.mapprojected_data == "") 
           ba_match_ip(opt, session, image1_path, image2_path,
                       opt.camera_models[i].get(),
                       opt.camera_models[j].get(),
                       match_file);
-
         else
           matches_from_mapproj_images(i, j, opt, session, map_files, dem_georef, interp_dem,  
                                       match_file);
@@ -3205,14 +3103,14 @@ int main(int argc, char* argv[]) {
         Vector2i ip_size(right_ip_width, rsrc1->rows());
         double ip_coverage = asp::calc_ip_coverage_fraction(ip2, ip_size);
         vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
-      } catch (const std::exception& e){
+      } catch (const std::exception& e) {
         vw_out() << "Could not find interest points between images "
                   << opt.image_files[i] << " and " << opt.image_files[j] << std::endl;
         vw_out(WarningMessage) << e.what() << std::endl;
       } //End try/catch
     } // End loop through all input image pairs
 
-    if (opt.stop_after_matching){
+    if (opt.stop_after_matching) {
       vw_out() << "Quitting after matches computation.\n";
       return 0;
     }

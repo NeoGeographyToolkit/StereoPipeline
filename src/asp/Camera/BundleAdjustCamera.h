@@ -59,18 +59,28 @@ const int NUM_CENTER_PARAMS = 2; // TODO(oalexan1): Use this consistently
 const int NUM_FOCUS_PARAMS  = 1;
 const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 3; // Values stored in the distortion vector
 
+/// These are the different camera modes that bundle_adjust supports.
+enum BACameraType {BaCameraType_Pinhole    = 0,
+                   BaCameraType_OpticalBar = 1,
+                   BaCameraType_CSM        = 2,
+                   BaCameraType_Other      = 3};
+
 // Options shared by bundle_adjust and jitter_solve
 struct BaBaseOptions: public vw::GdalWriteOptions {
   std::string out_prefix, stereo_session, input_prefix, match_files_prefix,
     clean_match_files_prefix, ref_dem, heights_from_dem, mapproj_dem;
   int overlap_limit, min_matches, max_pairwise_matches, num_iterations,
     ip_edge_buffer_percent;
+  bool have_overlap_list;
+  std::set<std::pair<std::string, std::string>> overlap_list;
+  std::string overlap_list_file, auto_overlap_params;
   bool match_first_to_last, single_threaded_cameras;
   double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
   double ref_dem_weight, ref_dem_robust_threshold, heights_from_dem_weight,
     heights_from_dem_robust_threshold, camera_weight, rotation_weight, translation_weight,
     tri_weight, tri_robust_threshold;
   vw::Vector<double, 4> remove_outliers_params;
+  BACameraType camera_type;
   
   std::vector<std::string> image_files, camera_files;
   std::vector<boost::shared_ptr<vw::camera::CameraModel>> camera_models;
@@ -79,7 +89,8 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   BaBaseOptions(): min_triangulation_angle(0.0), camera_weight(-1.0),
                    rotation_weight(0.0), translation_weight(0.0), tri_weight(0.0),
                    robust_threshold(0.0), min_matches(0),
-                   num_iterations(0), overlap_limit(0) {}
+                   num_iterations(0), overlap_limit(0), have_overlap_list(false),
+                   camera_type(BaCameraType_Other) {}
 };
   
 // This must be const or else there's a crash
@@ -674,6 +685,27 @@ void write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
 void write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
                                    std::string const& adjustFile, 
                                    asp::BAParams const& param_storage);
+
+// Save pinhole camera positions and orientations in a single file.
+// Only works with Pinhole cameras.
+void saveCameraReport(asp::BaBaseOptions const& opt, asp::BAParams const& param_storage,
+                      vw::cartography::Datum const& datum, 
+                      std::string const& prefix);
+
+/// For each option, the string must include a subset of the entries:
+///  "focal_length, optical_center, distortion_params"
+/// - Need the extra boolean to handle the case where --intrinsics-to-share
+///   is provided as "" in order to share none of them.
+void load_intrinsics_options(bool        solve_intrinsics,
+                             bool        shared_is_specified,
+                             std::string intrinsics_to_float_str, // make a copy
+                             std::string intrinsics_to_share_str, // make a copy
+                             asp::IntrinsicOptions & intrinsics_options);
+
+/// Attempt to automatically create the overlap list file estimated
+///  footprints for each of the input images.
+/// - Currently this only supports cameras with Worldview style XML files.
+void auto_build_overlap_list(asp::BaBaseOptions &opt, double lonlat_buffer);
 
 } // end namespace asp
 

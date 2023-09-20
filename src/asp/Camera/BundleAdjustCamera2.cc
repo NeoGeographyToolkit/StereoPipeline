@@ -28,6 +28,7 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
 #include <asp/Camera/LinescanUtils.h>
+#include <asp/Camera/RPC_XML.h>
 
 #include <boost/algorithm/string.hpp>
 
@@ -501,5 +502,199 @@ void distortion_sanity_check(std::vector<int> const& num_dist_params,
   }
   return;
 }
+
+/// For each option, the string must include a subset of the entries:
+///  "focal_length, optical_center, distortion_params"
+/// - Need the extra boolean to handle the case where --intrinsics-to-share
+///   is provided as "" in order to share none of them.
+void load_intrinsics_options(bool        solve_intrinsics,
+                             bool        shared_is_specified,
+                             std::string intrinsics_to_float_str, // make a copy
+                             std::string intrinsics_to_share_str, // make a copy
+                             asp::IntrinsicOptions & intrinsics_options) {
+
+  // Float and share everything unless specific options are provided.
+  intrinsics_options.focus_constant      = true;
+  intrinsics_options.center_constant     = true;
+  intrinsics_options.distortion_constant = true;
+  intrinsics_options.focus_shared        = true;
+  intrinsics_options.center_shared       = true;
+  intrinsics_options.distortion_shared   = true;
+
+  if (((intrinsics_to_float_str != "") || (intrinsics_to_share_str != "")) 
+      && !solve_intrinsics) {
+    vw_throw( ArgumentErr() << "To be able to specify only certain intrinsics, "
+                            << "the option --solve-intrinsics must be on.\n" );
+  }
+
+  if (!solve_intrinsics)
+    return;
+  
+  // If the user did not specify which intrinsics to float, float all of them.
+  boost::to_lower(intrinsics_to_float_str);
+  if (intrinsics_to_float_str == "" || intrinsics_to_float_str == "all")
+    intrinsics_to_float_str = "focal_length optical_center other_intrinsics";
+
+  // If the user did not specify which intrinsics to share, share all of them.
+  boost::to_lower(intrinsics_to_share_str);
+  if (!shared_is_specified) {
+    intrinsics_to_share_str = "focal_length optical_center other_intrinsics";
+  } else {
+    // Otherwise, 'all' also means share all of them, 'none' means share none
+    if (intrinsics_to_share_str == "all") 
+      intrinsics_to_share_str = "focal_length optical_center other_intrinsics";
+    if (intrinsics_to_share_str == "none")
+      intrinsics_to_share_str = "";
+  }
+
+  if (intrinsics_options.share_intrinsics_per_sensor && shared_is_specified) 
+    vw_out() << "When sharing intrinsics per sensor, option "
+              << "--intrinsics-to-share is ignored. The intrinsics will "
+              << "always be shared for a sensor and never across sensors.\n";
+
+  // By default solve for everything
+  intrinsics_options.focus_constant      = false;
+  intrinsics_options.center_constant     = false;
+  intrinsics_options.distortion_constant = false;
+
+  if (intrinsics_to_float_str != "") {
+    intrinsics_options.focus_constant      = true;
+    intrinsics_options.center_constant     = true;
+    intrinsics_options.distortion_constant = true;
+    // These will be individually changed further down
+  }
+
+  // If sharing intrinsics per sensor, the only supported mode is that 
+  // the intrinsics are always shared per sensor and never across sensors.
+  if (shared_is_specified && !intrinsics_options.share_intrinsics_per_sensor) {
+    intrinsics_options.focus_shared      = false;
+    intrinsics_options.center_shared     = false;
+    intrinsics_options.distortion_shared = false;
+  }
+
+  // This is the right place in which to turn 'none' to empty string,
+  // which now will mean float nothing.
+  if (intrinsics_to_float_str == "none") 
+    intrinsics_to_float_str = "";
+  // Parse the values  
+  std::istringstream is(intrinsics_to_float_str);
+  std::string val;
+  while (is >> val) {
+    if (val == "focal_length")
+      intrinsics_options.focus_constant = false;
+    else if (val == "optical_center")
+      intrinsics_options.center_constant = false;
+    else if (val == "other_intrinsics")
+      intrinsics_options.distortion_constant = false;
+    else
+      vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to float: " 
+        << val << ".\n");
+  }
+
+  // No parsing is done when sharing intrinsics per sensor, per above 
+  if (shared_is_specified && !intrinsics_options.share_intrinsics_per_sensor) {
+    std::istringstream is2(intrinsics_to_share_str);
+    while (is2 >> val) {
+      if (val == "focal_length")
+        intrinsics_options.focus_shared = true;
+      else if (val == "optical_center")
+        intrinsics_options.center_shared = true;
+      else if (val == "other_intrinsics")
+        intrinsics_options.distortion_shared = true;
+      else
+        vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to share: " 
+          << val << ".\n");
+    }
+  }
+
+  std::string sensor_mode = "(across sensors)";
+  if (intrinsics_options.share_intrinsics_per_sensor)
+    sensor_mode = "(per sensor)"; // useful clarification
+
+  // These will be useful for a while
+  vw_out() << "Sharing focal length " << sensor_mode << " is: "
+      << intrinsics_options.focus_shared << std::endl;
+  vw_out() << "Sharing optical center " << sensor_mode << " is: "
+      << intrinsics_options.center_shared << std::endl;
+  vw_out() << "Sharing distortion " << sensor_mode << " is: "
+      << intrinsics_options.distortion_shared << std::endl;
+  vw_out() << "Floating focal length is: " 
+    << !intrinsics_options.focus_constant << std::endl;
+  vw_out() << "Floating optical center is: " 
+    << !intrinsics_options.center_constant << std::endl;
+  vw_out() << "Floating distortion is: " 
+    << !intrinsics_options.distortion_constant << std::endl;
+} // End function load_intrinsics_options
+
+/// Attempt to automatically create the overlap list file estimated
+///  footprints for each of the input images.
+/// - Currently this only supports cameras with Worldview style XML files.
+void auto_build_overlap_list(asp::BaBaseOptions &opt, double lonlat_buffer) {
+
+  typedef std::pair<std::string, std::string> StringPair;
+
+  const size_t num_images = opt.camera_files.size();
+  opt.overlap_list.clear();
+
+  vw_out() << "Attempting to automatically estimate image overlaps...\n";
+  int  num_overlaps = 0;
+  bool read_success = false;
+
+  // Loop through all image pairs
+  for (size_t i = 0; i < num_images - 1; i++) {
+
+    // Try to get the lonlat bounds for this image
+    std::vector<vw::Vector2> pixel_corners_i, lonlat_corners_i;
+    try {
+      read_success = asp::read_WV_XML_corners(opt.camera_files[i], pixel_corners_i,
+                                              lonlat_corners_i);
+    } catch(...) {
+      read_success = false;
+    }
+    if (!read_success) {
+      vw_throw( ArgumentErr() << "Unable to get corner estimate from file: "
+                              << opt.camera_files[i] << ".\n" );
+    }
+
+    vw::BBox2 bbox_i; // Convert to BBox
+    for (size_t p = 0; p < lonlat_corners_i.size(); p++)
+      bbox_i.grow(lonlat_corners_i[p]);
+    bbox_i.expand(lonlat_buffer); // Only expand this bounding box by the buffer.
+
+    for (size_t j = i+1; j < num_images; j++) {
+
+      std::vector<vw::Vector2> pixel_corners_j, lonlat_corners_j;
+      try {
+        read_success = asp::read_WV_XML_corners(opt.camera_files[j], pixel_corners_j,
+                                                lonlat_corners_j);
+      } catch(...) {
+        read_success = false;
+      }
+      if (!read_success) {
+        vw_throw( ArgumentErr() << "Unable to get corner estimate from file: "
+                                << opt.camera_files[j] << ".\n" );
+      }
+
+      vw::BBox2 bbox_j; // Convert to BBox
+      for (size_t p = 0;  p < lonlat_corners_j.size(); p++)
+        bbox_j.grow(lonlat_corners_j[p]);
+
+      // Record the files if the bboxes overlap
+      // - TODO: Use polygon intersection instead of bounding boxes!
+      if (bbox_i.intersects(bbox_j)) {
+        vw_out() << "Predicted overlap between images " << opt.image_files[i]
+                 << " and " << opt.image_files[j] << std::endl;
+        opt.overlap_list.insert(StringPair(opt.image_files[i], opt.image_files[j]));
+        opt.overlap_list.insert(StringPair(opt.image_files[j], opt.image_files[i]));
+        ++num_overlaps;
+      }
+    } // End inner loop through cameras
+  } // End outer loop through cameras
+
+  if (num_overlaps == 0)
+    vw_throw( ArgumentErr() << "Failed to automatically detect any overlapping images!" );
+
+  vw_out() << "Will try to match at " << num_overlaps << " detected overlaps\n.";
+} // End function auto_build_overlap_list
 
 } // end namespace asp

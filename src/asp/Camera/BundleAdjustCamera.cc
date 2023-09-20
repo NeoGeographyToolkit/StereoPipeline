@@ -1533,3 +1533,94 @@ void asp::guessSession(std::string const& camera_file, std::string & stereo_sess
 
   return;
 }
+
+// Save pinhole camera positions and orientations in a single file.
+// Only works with Pinhole cameras.
+void asp::saveCameraReport(asp::BaBaseOptions const& opt, 
+                           asp::BAParams const& param_storage,
+                           vw::cartography::Datum const& datum, 
+                           std::string const& prefix) {
+
+  std::string output_path = opt.out_prefix + "-" + prefix + "-cameras.csv";
+  vw_out() << "Writing: " << output_path << std::endl;
+  std::ofstream fh(output_path.c_str());
+  fh.precision(17);
+  fh << "# input_cam_file, cam_ctr_x, cam_ctr_y, cam_ctr_z (ecef meters), "
+     << "cam2ned rotation rows\n";
+  
+  int num_cameras = opt.image_files.size();
+
+  // TODO(oalexan1): Create here a report file. Write camera name,
+  // camera center, ecef position, ecef quaternion, and ned roll-pitch-yaw.
+  // Use same Euler angles as in numpy. Likely eigen can do it.
+  for (int icam = 0; icam < num_cameras; icam++) {
+
+    vw::Vector3 cam_ctr;
+    vw::Matrix3x3 cam2ecef;
+    switch(opt.camera_type) {
+      case BaCameraType_Pinhole: {
+        // Get the camera model from the original one with parameters in
+        // param_storage applied to it (which could be original ones or optimized). 
+        // Note that we do not modify the original camera.
+        vw::camera::PinholeModel const* in_cam
+          = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
+        if (in_cam == NULL)
+          vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
+        // Apply current intrinsics and extrinsics to the camera
+        vw::camera::PinholeModel out_cam 
+          = transformedPinholeCamera(icam, param_storage, *in_cam);
+        cam_ctr = out_cam.camera_center(vw::Vector2());
+        cam2ecef = out_cam.get_rotation_matrix();
+        break;
+      }
+      case BaCameraType_OpticalBar:
+        vw::vw_throw(vw::ArgumentErr() << "Saving a camera report is not implemented "
+                    << "for optical bar cameras.\n");
+        break;
+      case BaCameraType_CSM:
+        vw::vw_throw(vw::ArgumentErr() << "Saving a camera report is not implemented "
+                      << "for CSM cameras.\n");
+        break;
+      default: {
+        // Apply extrinsics adjustments to a pinhole camera
+        // TODO(oalexan1): Make this into a function called adjustedPinholeCamera().
+        // Use it where needed.
+        CameraAdjustment adjustment(param_storage.get_camera_ptr(icam));
+        PinholeModel* in_cam = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
+        if (in_cam == NULL)
+          vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
+        
+        // Make a copy of the camera, and apply the adjustments to the copy. Need to go back
+        // to the original camera to get the adjustments needed to apply.
+        // TODO(oalexan1): This is a little awkward.
+        PinholeModel out_cam = *in_cam;
+        AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+                                    adjustment.position(), adjustment.pose());
+        vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
+        out_cam.apply_transform(ecef_transform);
+        cam_ctr = out_cam.camera_center(vw::Vector2());
+        cam2ecef = out_cam.get_rotation_matrix();
+      }
+    }
+
+    fh << opt.camera_files[icam] << ", "
+       << cam_ctr[0] << ", " << cam_ctr[1] << ", " << cam_ctr[2];
+
+    // Find the matrix for converting NED to ECEF
+    vw::Vector3 loc_llh = datum.cartesian_to_geodetic(cam_ctr);
+    vw::Matrix3x3 ned2ecef = datum.lonlat_to_ned_matrix(subvector(loc_llh, 0, 2));
+
+    // How a camera moves relative to the world is given by the camera-to-world
+    // matrix. That is a little counter-intuitive.
+    vw::Matrix3x3 cam2ned = inverse(ned2ecef) * cam2ecef;
+    for (int row = 0; row < cam2ned.rows(); row++) {
+      for (int col = 0; col < cam2ned.cols(); col++) {
+        fh << ", " << cam2ned(row, col);
+      } 
+    }
+    fh << "\n";
+  }
+
+  fh.close();
+  return;
+}

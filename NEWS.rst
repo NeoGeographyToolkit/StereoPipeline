@@ -8,9 +8,6 @@ New tools:
 jitter_solve (:numref:`jitter_solve`):
   * The roll and yaw constraints no longer assume linescan camera positions and
     orientations are one-to-one. 
-  * Adjusted the number of camera poses sampled from the polynomials
-    determining the quaternions for PleiadesHR cameras. It has no effect in
-    practice but results in ``jitter_solve`` assumptions being satisfied.
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added the ability to refine the camera intrinsics per sensor
@@ -26,10 +23,7 @@ parallel_stereo (:numref:`parallel_stereo`):
     order of several tens of thousands of pixels along some dimension, as shown
     by ``gdalinfo``). A warning, progress bar, and timing info is displayed.
   * For the ``asp_sgm`` and ``asp_mgm`` algorithms allow ``cost-mode`` to
-    have the value 3 or 4 only, as other values produce bad results. Also print
-    warnings when the user specifies values for ``rm-cleanup-passes``,
-    ``median-filter-size``, ``texture-smooth-size``, ``texture-smooth-scale``
-    that are different than the default values, as those were tested the most.
+    have the value 3 or 4 only, as other values produce bad results. 
 
 stereo_gui (:numref:`stereo_gui`):
   * Can show scattered data with a colorbar and axes 
@@ -52,8 +46,7 @@ sfs (:numref:`sfs`):
 misc:
   * Fixed a couple of runtime errors when using conda packages on OSX.
   * Eliminated a procedure for cleaning the name of an input path that was
-    replacing two slashes with one slash, as that was resulting in
-    inconsistent behavior.
+    replacing two slashes with one slash, resulting in inconsistencies.
   
 RELEASE 3.3.0, August 16, 2023
 ------------------------------
