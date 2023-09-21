@@ -231,9 +231,10 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
       }
     } // End center case
     intrinsics_index = NUM_FOCUS_PARAMS+NUM_CENTER_PARAMS; // In case we did not go through the loops
-    if (!m_intrinsics_opts.distortion_constant && !(m_intrinsics_opts.distortion_shared && (c>0))) {
+    if (!m_intrinsics_opts.distortion_constant && 
+        !(m_intrinsics_opts.distortion_shared && (c > 0))) {
       double* ptr = get_intrinsic_distortion_ptr(c);
-      for (int i=0; i<m_max_num_dist_params; i++) {
+      for (int i = 0; i < m_max_num_dist_params; i++) {
         percent = static_cast<double>(dist(m_rand_gen))/DENOM;
         if (intrinsics_index < num_intrinsics) {
           range = intrinsic_limits[2*intrinsics_index+1] - intrinsic_limits[2*intrinsics_index];
@@ -241,7 +242,7 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
         } else
           scale = percent*DEFAULT_RANGE + DEFAULT_MIN;
         ptr[i] *= scale;
-        ++intrinsics_index;
+        intrinsics_index++;
       }
     } // End distortion case
   } // End camera loop
@@ -308,7 +309,7 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
   focus_ptr [0] = 1.0;
   // Lens distortion
   vw::Vector<double> lens = camera.lens_distortion()->distortion_parameters();
-  for (size_t i=0; i<lens.size(); i++)
+  for (size_t i = 0; i < lens.size(); i++)
     distortion_ptr[i] = 1.0;
 }
 
@@ -332,9 +333,8 @@ void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
   center_ptr[1] = 1.0;
   focus_ptr [0] = 1.0;
   // Pack the speed, MCF, and scan time into the distortion pointer.
-  intrinsics_ptr[0] = 1.0;
-  intrinsics_ptr[1] = 1.0;
-  intrinsics_ptr[2] = 1.0;
+  for (size_t i = 0; i < asp::NUM_OPTICAL_BAR_EXTRA_PARAMS; i++)
+    intrinsics_ptr[i] = 1.0;
 }
 
 // This does not copy the camera position and orientation
@@ -359,9 +359,8 @@ void pack_csm_to_arrays(asp::CsmModel const& camera,
   center_ptr[1] = 1.0;
   focus_ptr [0] = 1.0;
   // Distortion
-  for (size_t i = 0; i < camera.distortion().size(); i++) {
+  for (size_t i = 0; i < camera.distortion().size(); i++)
     distortion_ptr[i] = 1.0;
-  }
 }
   
 /// Given a transform with origin at the planet center, like output
@@ -426,7 +425,6 @@ void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
       R(r, c) /= scale;
 
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
-
     // Apply the transform
     boost::shared_ptr<vw::camera::OpticalBarModel> bar_ptr = 
       boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(cam_ptrs[i]);
@@ -1038,12 +1036,13 @@ vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
   // Update position and pose
   CameraAdjustment pos_pose_info(pos_pose_ptr);
   out_cam.set_camera_center(pos_pose_info.position());
-  out_cam.set_camera_pose  (pos_pose_info.pose    ());
+  out_cam.set_camera_pose(pos_pose_info.pose());
 
-  // Update the lens distortion parameters. Note how we make a new copy of the distortion object.
+  // Update the lens distortion parameters. Note how we make a new copy of the
+  // distortion object.
   boost::shared_ptr<LensDistortion> distortion = out_cam.lens_distortion()->copy();
   vw::Vector<double> lens = distortion->distortion_parameters();
-  for (size_t i=0; i<lens.size(); i++)
+  for (size_t i = 0; i < lens.size(); i++)
     lens[i] *= distortion_ptr[i];
   distortion->set_distortion_parameters(lens);
   out_cam.set_lens_distortion(distortion.get());
@@ -1052,9 +1051,11 @@ vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
   Vector2 old_center = out_cam.point_offset();
   Vector2 old_focus  = out_cam.focal_length();
   out_cam.set_point_offset(Vector2(center_ptr[0]*old_center[0],
-                                  center_ptr[1]*old_center[1]), false);
+                                  center_ptr[1]*old_center[1]), 
+                           false); // do not update the internals yet
   double new_focus = old_focus[0]*focus_ptr[0];
-  out_cam.set_focal_length(Vector2(new_focus,new_focus), true); // Recompute internals.
+  // At the last step, recompute the internals given the new values
+  out_cam.set_focal_length(Vector2(new_focus,new_focus), true);
   
   return out_cam;
 }
@@ -1143,7 +1144,7 @@ boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
   copy->set_focal_length(focal_length);
   copy->set_distortion(distortion);
 
-  // Form the adjusted camera
+  // Form the adjusted camera having the updated position and pose
   AdjustedCameraModel adj_cam(copy, correction.position(), correction.pose());
 
   // Apply the adjustment to the camera 

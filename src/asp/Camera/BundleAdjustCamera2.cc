@@ -472,7 +472,8 @@ void read_image_cam_lists(std::string const& image_list,
 
 // When distortion params are shared, their number must agree
 void distortion_sanity_check(std::vector<int> const& num_dist_params,
-                             IntrinsicOptions const& intrinsics_opts) {
+                             IntrinsicOptions const& intrinsics_opts,
+                             std::vector<double> const& intrinsics_limits) {
 
   // If nothing is shared, there is nothing to do
 
@@ -500,6 +501,23 @@ void distortion_sanity_check(std::vector<int> const& num_dist_params,
          << "they must have the same size for all cameras of the same sensor.\n");
     }
   }
+  
+  // Intrinsics limits only can be used for now when all distortion vectors have
+  // the same size. This could be fixed but it is a rarely used option
+  // and would require a lot of bookkeeping.
+  if (!intrinsics_limits.empty()) {
+    bool have_same_size = true;
+    for (size_t it = 1; it < num_dist_params.size(); it++) {
+      if (num_dist_params[it] != num_dist_params[0]) {
+        have_same_size = false;
+        break;
+      }
+    }
+    if (!have_same_size)
+      vw_throw(ArgumentErr() << "When using --intrinsics-limits, all cameras "
+               << "must have the same number of distortion coefficients.\n");
+  }
+  
   return;
 }
 

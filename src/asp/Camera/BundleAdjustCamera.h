@@ -55,9 +55,9 @@ namespace asp {
 // Shared constants
 const int PARAMS_PER_POINT  = 3;
 const int NUM_CAMERA_PARAMS = 6; // Position and pose
-const int NUM_CENTER_PARAMS = 2; // TODO(oalexan1): Use this consistently
+const int NUM_CENTER_PARAMS = 2; // TODO(oalexan1): Use this more widely
 const int NUM_FOCUS_PARAMS  = 1;
-const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 3; // Values stored in the distortion vector
+const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 3; // Stored in the distortion vector
 
 /// These are the different camera modes that bundle_adjust supports.
 enum BACameraType {BaCameraType_Pinhole    = 0,
@@ -81,7 +81,6 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
     tri_weight, tri_robust_threshold;
   vw::Vector<double, 4> remove_outliers_params;
   BACameraType camera_type;
-  
   std::vector<std::string> image_files, camera_files;
   std::vector<boost::shared_ptr<vw::camera::CameraModel>> camera_models;
   std::map<std::pair<int, int>, std::string> match_files;
@@ -164,19 +163,19 @@ public:
   // When using the copy functions, the sizes must match!
   /// Copy one set of values from another instance.
   void copy_points(BAParams const& other) {
-    for (size_t i=0; i<m_points_vec.size(); i++)
+    for (size_t i = 0; i < m_points_vec.size(); i++)
       m_points_vec[i] = other.m_points_vec[i];
   }
   void copy_cameras(BAParams const& other) {
-    for (size_t i=0; i<m_cameras_vec.size(); i++)
+    for (size_t i = 0; i < m_cameras_vec.size(); i++)
       m_cameras_vec[i] = other.m_cameras_vec[i];
   }
   void copy_intrinsics(BAParams const& other) {
-    for (size_t i=0; i<m_intrinsics_vec.size(); i++)
+    for (size_t i = 0; i < m_intrinsics_vec.size(); i++)
       m_intrinsics_vec[i] = other.m_intrinsics_vec[i];
   }
   void copy_outliers(BAParams const& other) {
-    for (size_t i=0; i<m_outlier_points_vec.size(); i++)
+    for (size_t i = 0; i < m_outlier_points_vec.size(); i++)
       m_outlier_points_vec[i] = other.m_outlier_points_vec[i];
   }
 
@@ -342,7 +341,8 @@ private: // Functions
 
 // When distortion params are shared, their number must agree
 void distortion_sanity_check(std::vector<int> const& num_dist_params,
-                             IntrinsicOptions const& intrinsics_opts);
+                             IntrinsicOptions const& intrinsics_opts,
+                             std::vector<double> const& intrinsics_limits);
 
 // Read image and camera lists. Can have several comma-separated lists
 // in image_list and camera_list, when sharing intrinsics per sensor.

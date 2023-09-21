@@ -55,7 +55,7 @@ typedef CameraRelationNetwork<JFeature> CRNJ;
 void saveResults(Options const& opt, asp::BAParams const& param_storage) {
   int num_cameras = opt.image_files.size();
 
-  for (int icam = 0; icam < num_cameras; icam++){
+  for (int icam = 0; icam < num_cameras; icam++) {
 
     switch(opt.camera_type) {
     case BaCameraType_Pinhole:
@@ -115,7 +115,7 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
                                      int point_index, int camera_index, 
                                      asp::BAParams & param_storage,
                                      Options const& opt,
-                                     ceres::Problem & problem){
+                                     ceres::Problem & problem) {
 
   ceres::LossFunction* loss_function;
   loss_function = get_loss_function(opt);
@@ -181,24 +181,27 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
         << " This model has " << wrapper->num_intrinsic_params() << " intrinsic parameters.");
     }
     size_t intrinsics_index = 0;
-    if (num_limits > 0) { // Do focus first.
+    // Do focus first
+    if (num_limits > 0) { 
       problem.SetParameterLowerBound(focus, 0, opt.intrinsics_limits[0]);
       problem.SetParameterUpperBound(focus, 0, opt.intrinsics_limits[1]);
-      ++intrinsics_index;
+      intrinsics_index++;
     }
-    while ((intrinsics_index < 3) && (intrinsics_index < num_limits)) { // Next is the two center params
+    // Next is the two center params
+    while ((intrinsics_index < 3) && (intrinsics_index < num_limits)) {
       problem.SetParameterLowerBound(center, intrinsics_index-1,
                                      opt.intrinsics_limits[2*intrinsics_index    ]);
       problem.SetParameterUpperBound(center, intrinsics_index-1,
                                      opt.intrinsics_limits[2*intrinsics_index + 1]);
-      ++intrinsics_index;
+      intrinsics_index++;
     }
-    while (intrinsics_index < num_limits) { // Finish with the intrinsic params
+    // Then the distortion
+    while (intrinsics_index < num_limits) { 
       problem.SetParameterLowerBound(distortion, intrinsics_index-3,
                                      opt.intrinsics_limits[2*intrinsics_index    ]);
       problem.SetParameterUpperBound(distortion, intrinsics_index-3,
                                      opt.intrinsics_limits[2*intrinsics_index + 1]);
-      ++intrinsics_index;
+      intrinsics_index++;
     }
 
     // If we don't want to solve for something, just tell Ceres not to adjust the values.
@@ -1582,7 +1585,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   // It is simpler to allocate the same number of distortion params per camera
   // even if some cameras have fewer. The extra ones won't be used. 
   int max_num_dist_params = *std::max_element(num_dist_params.begin(), num_dist_params.end());
-  distortion_sanity_check(num_dist_params, opt.intrinsics_options);
+  distortion_sanity_check(num_dist_params, opt.intrinsics_options,
+                          opt.intrinsics_limits);
 
   // Create the storage arrays for the variables we will adjust.
   asp::BAParams param_storage(num_points, num_cameras,
@@ -3085,7 +3089,7 @@ int main(int argc, char* argv[]) {
 
 
       // Find matches between image pairs. This may not always succeed.
-      try{
+      try {
         if (opt.mapprojected_data == "") 
           ba_match_ip(opt, session, image1_path, image2_path,
                       opt.camera_models[i].get(),
