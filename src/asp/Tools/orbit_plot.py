@@ -530,6 +530,7 @@ def plot_row(ax, row, orbits, origPrefix, optPrefix, orbit_labels, origTag, optT
   print(origTag + " " + camType + " roll std: " + orig_roll_std + " degrees")
   print(origTag + " " + camType + " pitch std: " + orig_pitch_std + " degrees")
   print(origTag + " " + camType + " yaw std: " + orig_yaw_std + " degrees")
+  (opt_roll_std, opt_pitch_std, opt_yaw_std) = (0, 0, 0) # initialize
   if numSets == 2:
       opt_roll_std = fmt.format(np.std(opt_roll))
       opt_pitch_std = fmt.format(np.std(opt_pitch))
@@ -562,13 +563,14 @@ def plot_row(ax, row, orbits, origPrefix, optPrefix, orbit_labels, origTag, optT
   #A[1].set_ylabel('Degrees') # don't repeat this as it takes space
   #A[2].set_ylabel('Degrees')
 
+  stds = ((orig_roll_std, opt_roll_std), (orig_pitch_std, opt_pitch_std), (orig_yaw_std, opt_yaw_std))
   for index in range(3):
       A[index].set_xlabel('Frame index')
       # Calc stddev text
       if numSets == 1:
-          txt = 'StDev:' + orig_roll_std
+          txt = 'StDev:' + stds[index][0]
       else: 
-          txt = 'StDev before/after:' + orig_roll_std + ", " + opt_roll_std
+          txt = 'StDev before/after:' + stds[index][0] + ", " + stds[index][1]
       # Add stdev values as text
       A[index].text(0.05, 0.05, txt,
           va='top', color='k', transform=A[index].transAxes, fontsize=fs)    
@@ -602,7 +604,7 @@ parser.add_argument('--dataset-label', dest = 'dataset_label', default = '',
                     'one, separate them by comma, with no spaces in between. If not set, '  + \
                     'will use the dataset name.')
 
-parser.add_argument('orbit-label', dest = 'orbit_label', default = '',
+parser.add_argument('--orbit-label', dest = 'orbit_label', default = '',
                     help='The label to use for each orbital group (will be shown as part '  + \
                     'of the title). If more than one, separate them by comma, with no '     + \
                     'spaces in between. If not set, will use the orbit id.')
@@ -636,6 +638,9 @@ parser.add_argument('--figure-size', dest = 'figure_size', default = '15,15',
 parser.add_argument('--line-width', dest = 'line_width', type=float, default = 1.5,
                     help='Line width for the plots.')
 
+parser.add_argument('--font-size', dest = 'font_size', type=float, default = 14,
+                    help='Font size for the plots.')
+
 (options, args) = parser.parse_known_args(sys.argv)
 
 # Throw an error if not all args have been parsed
@@ -655,6 +660,11 @@ if options.trim_ratio < 0:
 
 if options.line_width <= 0:
     print("The value of --line-width must be positive.")
+    parser.print_help()
+    sys.exit(1)
+
+if options.font_size <= 0:
+    print("The value of --font-size must be positive.")
     parser.print_help()
     sys.exit(1)
 
@@ -704,7 +714,7 @@ f, ax = plt.subplots(len(orbits), 3, sharex=True, sharey = False,
 plt.rcParams["legend.loc"] = 'upper right' 
 
 # Set up the font for all elements
-fs = 14
+fs = options.font_size
 plt.rcParams.update({'font.size': fs})
 plt.rc('axes', titlesize = fs)   # fontsize of the axes title
 plt.rc('axes', labelsize = fs)   # fontsize of the x and y labels

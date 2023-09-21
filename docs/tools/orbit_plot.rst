@@ -233,6 +233,9 @@ Command-line options
 --line-width <float (default: 1.5)>
     Line width for the plots.
 
+--font-size <int (default: 14)>
+    Font size for the plots.
+    
 -h, --help
     Display this help message.
 
