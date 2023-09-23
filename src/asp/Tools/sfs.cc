@@ -4746,14 +4746,14 @@ void deepenCraters() {
     vw_out() << "Dem nodata: " << dem_nodata_val << std::endl;
   }
 
-  ImageView< PixelMask<float> > dem (create_mask(DiskImageView<float>(dem_file), dem_nodata_val));
+  ImageView<PixelMask<float>> dem (create_mask(DiskImageView<float>(dem_file), dem_nodata_val));
 
   vw::cartography::GeoReference georef;
   if (!read_georeference(georef, dem_file))
     vw_throw( ArgumentErr() << "The input DEM " << dem_file << " has no georeference.\n" );
-  
+    
   // The maximum of all valid pixel values with no-data where there is no-valid data.
-  ImageView< PixelMask<float> > max_img(dem.cols(), dem.rows());
+  ImageView<PixelMask<float>> max_img(dem.cols(), dem.rows());
   for (int col = 0; col < dem.cols(); col++) {
     for (int row = 0; row < dem.rows(); row++) {
       max_img(col, row) = dem_nodata_val;
@@ -4769,7 +4769,7 @@ void deepenCraters() {
       vw_out() << "Img nodata: " << img_nodata_val << std::endl;
     }
     
-    ImageView< PixelMask<float> > img(create_mask(DiskImageView<float>(img_file), img_nodata_val));
+    ImageView<PixelMask<float>> img(create_mask(DiskImageView<float>(img_file), img_nodata_val));
     std::cout << "cols and rows are " << img.cols() << ' ' << img.rows() << std::endl;
     if (img.cols() != dem.cols() || img.rows() != dem.rows()) {
       vw_throw(ArgumentErr() << "Images and DEM must have same size.\n");
@@ -5016,11 +5016,19 @@ int main(int argc, char* argv[]) {
     // Adjust the crop win
     opt.crop_win.crop(bounding_box(dem_handles[0]));
     
-    // Read the georeference. 
+    // Read the georeference 
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
       if (!read_georeference(geos[0][dem_iter], opt.input_dems[dem_iter]))
         vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
       
+      // This is a bug fix. The georef pixel size in y must be negative
+      // for the DEM to be oriented correctly. 
+      if (geos[0][dem_iter].transform()(1, 1) > 0)
+        vw_throw( ArgumentErr() << "The input DEM has a positive pixel size in y. "
+                 << "This is unexpected. Normally it is negative since the (0, 0) "
+                 << "pixel is in the upper-left. Check your DEM pixel size with "
+                 << "gdalinfo. Cannot continue.\n" );
+       
       // Crop the DEM and georef if requested to given box.  The
       // cropped DEM (or uncropped if no cropping happens) is fully
       // loaded in memory.

@@ -899,6 +899,9 @@ Resample the DEM to 1 m/pixel using ``gdalwarp``
       -te -7050.5 -10890.5 -1919.5 -5759.5                  \
       ldem_80s_20m_scale.tif ref.tif
 
+The values passed to ``-te`` are the bounds of the area of interest. 
+See a discussion about them below.
+
 It is suggested to use a `stereographic projection
 <https://proj.org/operations/projections/stere.html>`_ centered around
 the area of interest when resampling the terrain. For example, set::
@@ -936,6 +939,9 @@ having a fractional part of 0.5. Note that the bounds passed to
 ``-te`` are in the order::
 
     xmin, ymin, xmax, ymax
+
+Ensure the min and max values are not swapped, as ``gdalwarp`` will not give a
+warning if they are, but the resulting DEM will be incorrect.
 
 The ``dem_mosaic`` program (:numref:`dem_mosaic`) can be used to
 automatically compute the bounds of a DEM or orthoimage and change
