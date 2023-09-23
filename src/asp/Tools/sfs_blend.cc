@@ -57,12 +57,22 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-GeoReference read_georef(std::string const& file){
+GeoReference read_georef(std::string const& file) {
   // Read a georef, and check for success
   GeoReference geo;
   bool is_good = read_georeference(geo, file);
   if (!is_good)
     vw_throw(ArgumentErr() << "No georeference found in " << file << ".\n");
+    
+  // This is a bug fix. The georef pixel size in y must be negative
+  // for the image to be oriented correctly. 
+  if (geo.transform()(1, 1) > 0)
+    vw_throw(ArgumentErr() << "The georeference in " << file 
+              << " has a positive pixel size in y. "
+              << "This is unexpected. Normally it is negative since the (0, 0) "
+              << "pixel is in the upper-left. Check your DEM pixel size with "
+              << "gdalinfo. Cannot continue.\n");
+
   return geo;
 }
 

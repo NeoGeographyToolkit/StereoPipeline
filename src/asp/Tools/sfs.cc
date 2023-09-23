@@ -4740,18 +4740,16 @@ void deepenCraters() {
   std::vector<std::string> image;
 
   std::string dem_file = argv[argc - 1];
-  
   float dem_nodata_val = -std::numeric_limits<float>::max();
   if (vw::read_nodata_val(dem_file, dem_nodata_val)){
     vw_out() << "Dem nodata: " << dem_nodata_val << std::endl;
   }
 
   ImageView<PixelMask<float>> dem (create_mask(DiskImageView<float>(dem_file), dem_nodata_val));
-
   vw::cartography::GeoReference georef;
   if (!read_georeference(georef, dem_file))
     vw_throw( ArgumentErr() << "The input DEM " << dem_file << " has no georeference.\n" );
-    
+
   // The maximum of all valid pixel values with no-data where there is no-valid data.
   ImageView<PixelMask<float>> max_img(dem.cols(), dem.rows());
   for (int col = 0; col < dem.cols(); col++) {
@@ -5024,10 +5022,10 @@ int main(int argc, char* argv[]) {
       // This is a bug fix. The georef pixel size in y must be negative
       // for the DEM to be oriented correctly. 
       if (geos[0][dem_iter].transform()(1, 1) > 0)
-        vw_throw( ArgumentErr() << "The input DEM has a positive pixel size in y. "
+        vw_throw(ArgumentErr() << "The input DEM has a positive pixel size in y. "
                  << "This is unexpected. Normally it is negative since the (0, 0) "
                  << "pixel is in the upper-left. Check your DEM pixel size with "
-                 << "gdalinfo. Cannot continue.\n" );
+                 << "gdalinfo. Cannot continue.\n");
        
       // Crop the DEM and georef if requested to given box.  The
       // cropped DEM (or uncropped if no cropping happens) is fully
