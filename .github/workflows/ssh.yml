@@ -7,9 +7,6 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Cache conda
-      id: cache-conda
-      uses: actions/cache@v3
     - name: Setup upterm session with ssh access
       uses: lhotari/action-upterm@v1
       with:
