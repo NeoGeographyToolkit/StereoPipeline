@@ -10,16 +10,6 @@ jobs:
     - name: Cache conda
       id: cache-conda
       uses: actions/cache@v3
-      env:
-        cache-name: cache-conda
-      with:
-        path: |
-          ~/miniconda3
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/miniconda.json') }}
-        restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
     - name: Setup upterm session with ssh access
       uses: lhotari/action-upterm@v1
       with:
