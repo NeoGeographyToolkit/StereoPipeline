@@ -18,14 +18,27 @@ dependencies:
   - bz2file=0.98=py_0
   - bzip2=1.0.8=h0d85af4_4
   - c-ares=1.19.1=h0dc2134_0
+  - c-compiler=1.5.2=hbf74d83_0
   - ca-certificates=2023.7.22=h8857fd0_0
   - cairo=1.16.0=h9e0e54b_1010
+  - cctools=973.0.1=h76f1dac_13
+  - cctools_osx-64=973.0.1=hcc6d90d_13
   - ceres-solver=1.14.0=h636452b_15
   - certifi=2023.7.22=pyhd8ed1ab_0
   - charset-normalizer=3.2.0=pyhd8ed1ab_0
+  - clang=14.0.6=h694c41f_1
+  - clang-14=14.0.6=default_hdb78580_1
+  - clang_osx-64=14.0.6=h3113cd8_6
+  - clangxx=14.0.6=default_hdb78580_1
+  - clangxx_osx-64=14.0.6=h6f97653_6
+  - cmake=3.27.4=hf40c264_4
+  - compiler-rt=14.0.6=h613da45_0
+  - compiler-rt_osx-64=14.0.6=hab78ec2_0
+  - compilers=1.5.2=h694c41f_0
   - csm=3.0.3.3=0
   - cspice=67=hb7f2c08_4
   - curl=8.2.1=h5f667d7_0
+  - cxx-compiler=1.5.2=hb8565cd_0
   - cyrus-sasl=2.1.27=hf9bab2b_7
   - eigen=3.4.0=h1c7c39f_0
   - embree=2.17.7=h694c41f_3
@@ -41,12 +54,16 @@ dependencies:
   - fontconfig=2.14.2=h5bb23bf_0
   - fonts-conda-ecosystem=1=0
   - fonts-conda-forge=1=0
+  - fortran-compiler=1.5.2=haad3a49_0
   - freetype=2.12.1=h3f81eb7_1
   - geoid=1.0_isis7=1
   - geos=3.9.1=he49afe7_2
   - geotiff=1.7.1=he29fd1c_4
   - gettext=0.21.1=h8a4c099_0
   - gflags=2.2.2=hb1e8313_1004
+  - gfortran=11.4.0=h2c809b3_1
+  - gfortran_impl_osx-64=11.4.0=h2a33dde_1
+  - gfortran_osx-64=11.4.0=h18f7dce_1
   - giflib=5.2.1=hb7f2c08_3
   - glog=0.6.0=h8ac2a54_0
   - gmp=6.2.1=h2e338ed_0
@@ -61,6 +78,7 @@ dependencies:
   - ilmbase=2.5.5=hfab91a5_0
   - inja=3.3.0=he49afe7_0
   - isis=8.0.0=np125_0
+  - isl=0.25=hb486fe8_0
   - jama=125=0
   - jasper=2.0.33=h7c6fec8_1
   - jemalloc=5.3.0=hf0c8a7f_0
@@ -69,10 +87,13 @@ dependencies:
   - krb5=1.21.1=hb884880_0
   - lame=3.100=hb7f2c08_1003
   - laszip=2.1.0_isis7=h01edc0c_1
+  - ld64=609=hc6ad406_13
+  - ld64_osx-64=609=hfd63004_13
   - lerc=4.0.0=hb486fe8_0
   - libblas=3.9.0=17_osx64_openblas
   - libcblas=3.9.0=17_osx64_openblas
   - libclang=13.0.1=root_62804_h2961583_3
+  - libclang-cpp14=14.0.6=default_hdb78580_1
   - libcurl=8.2.1=h5f667d7_0
   - libcxx=16.0.6=hd57cbcb_0
   - libdeflate=1.14=hb7f2c08_0
@@ -84,6 +105,7 @@ dependencies:
   - libffi=3.4.2=h0d85af4_5
   - libgdal=3.5_isis8=hf8dc8b4_0
   - libgfortran=5.0.0=12_3_0_h97931a8_1
+  - libgfortran-devel_osx-64=11.4.0=h01aa347_1
   - libgfortran5=12.3.0=hbd3c1fe_1
   - libglib=2.76.4=hc62aa5d_0
   - libiconv=1.17=hac89ed1_0
@@ -93,6 +115,7 @@ dependencies:
   - liblapacke=3.9.0=17_osx64_openblas
   - liblas=1.8.2_isis8=hf8dc8b4_0
   - libllvm13=13.0.1=h64f94b2_2
+  - libllvm14=14.0.6=hc8e404f_4
   - libnabo=isis7=h01edc0c_0
   - libnghttp2=1.52.0=he2ab024_0
   - libntlm=1.4=h0d85af4_1002
@@ -107,16 +130,19 @@ dependencies:
   - libtasn1=4.19.0=hb7f2c08_0
   - libtiff=4.4.0=h6268bbc_5
   - libunistring=0.9.10=h0d85af4_0
+  - libuv=1.46.0=h0c2f820_0
   - libvpx=1.11.0=he49afe7_3
   - libwebp-base=1.3.1=h0dc2134_0
   - libxcb=1.15=hb7f2c08_0
   - libxml2=2.9.14=h1faee8b_4
   - libzlib=1.2.13=h8a1eda9_5
   - llvm-openmp=16.0.6=hff08bdf_0
+  - llvm-tools=14.0.6=hc8e404f_4
   - lz4-c=1.9.3=he49afe7_1
   - macports-legacy-support=1.0.13=h0dc2134_0
   - mesalib=23.1.4=hb59017c_0
   - metis=5.1.0=he965462_1007
+  - mpc=1.3.1=h81bd1dd_0
   - mpfr=4.2.0=h4f9bd69_0
   - multiview=isis8=py39hf8dc8b4_0
   - mysql=8.0.28=h88f4db0_2
@@ -169,10 +195,12 @@ dependencies:
   - rclone=1.63.1=h1762f63_0
   - readline=8.2=h9e318b2_1
   - requests=2.31.0=pyhd8ed1ab_0
+  - rhash=1.4.4=h0dc2134_0
   - rocksdb=6.13.3=hbb73eaa_2
   - s2p-subset=isis7=h01edc0c_0
   - scipy=1.11.2=py39hded996c_0
   - setuptools=68.1.2=pyhd8ed1ab_0
+  - sigtool=0.1.3=h88f4db0_0
   - six=1.16.0=pyh6c4a22f_0
   - snappy=1.1.10=h225ccf5_0
   - spiceypy=6.0.0=pyhd8ed1ab_0
@@ -180,6 +208,7 @@ dependencies:
   - suitesparse=5.10.1=h7aff33d_1
   - superlu=5.2.2=h1f0f902_0
   - svt-av1=1.3.0=hf0c8a7f_0
+  - tapi=1100.0.11=h9ce4665_0
   - tbb=2021.10.0.custom_asp=h6b95b14_0
   - tbb-devel=2021.10.0.custom_asp=h6b95b14_0
   - tk=8.6.12=h5dbffcc_0
