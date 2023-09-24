@@ -7,6 +7,7 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
+
     - name: Setup upterm session
       uses: lhotari/action-upterm@v1
       with:
@@ -17,3 +18,18 @@ jobs:
         limit-access-to-users: oleg-alexandrov
         ## If no one connects after 5 minutes, shut down server.
         wait-timeout-minutes: 5    
+
+      - name: Cache conda
+        id: cache-conda
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-conda
+        with:
+        path: |
+          ~/miniconda3
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/miniconda.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
