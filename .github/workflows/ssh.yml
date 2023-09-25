@@ -14,7 +14,7 @@ jobs:
         cache-name: cache-conda
       with:
         path: |
-          ~/miniconda3
+          /usr/local/miniconda/envs
         key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/miniconda.json') }}
         restore-keys: |
           ${{ runner.os }}-build-${{ env.cache-name }}-
@@ -30,4 +30,3 @@ jobs:
         limit-access-to-users: oleg-alexandrov
         ## If no one connects after 5 minutes, shut down server.
         wait-timeout-minutes: 5    
-

@@ -251,7 +251,12 @@ with a provided script in the ASP repository::
 and the same for the other packages.
 
 It is very important to note that this script is not fool-proof, and the
-changes it makes should be very carefully examined.
+changes it makes should be very carefully examined. Also, the versions
+of dependencies can be different on Linux and OSX, so the script should
+be run separately for each platform.
+
+Having incompatible versions will result in failure when resolving
+the dependencies with conda.
 
 It is suggested to examine the changed ``meta.yaml``, and if in doubt,
 leave the values as they were before modified by this script. 

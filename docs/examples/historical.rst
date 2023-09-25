@@ -41,6 +41,29 @@ named for example, ``DS1105-2248DF076.txt`` for the first image, from
 which later the longitude and latitude of each image corner will be
 parsed. Then one can click on ``Download Options`` to download the data.
 
+.. _resizing_images:
+
+Resizing the images
+~~~~~~~~~~~~~~~~~~~
+
+Sometimes the input images can be so large, that either the ASP tools
+or the auxiliary ImageMagick ``convert`` program will fail, or the machine
+will run out of memory. 
+
+It is suggested to resize the images to a more manageable size, at least for 
+initial processing. This can be done with ``gdal_translate`` (:numref:`gdal_tools`).
+as follows::
+
+    gdal_translate -outsize 25% 25% -r average input.tif output.tif
+
+This will reduce the image size by a factor of 4. A factor of 2 can be tried
+instead. The ``-r average`` option will average the nearby pixels in the input
+image, which will reduce aliasing artifacts.
+
+A camera model (pinhole or optical bar) created at one resolution can be used at
+another resolution by adjusting the ``pitch`` parameter (a higher value of pitch
+means bigger pixels so lower resolution).
+
 Stitching the images
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -59,14 +82,14 @@ determined by looking at two of the sub images in ``stereo_gui``.
 With this in mind, image mosaicking for these two images will happen as
 follows::
 
-     image_mosaic DS1105-2248DF076_d.tif  DS1105-2248DF076_c.tif \
-       DS1105-2248DF076_b.tif  DS1105-2248DF076_a.tif            \
-       -o DS1105-2248DF076.tif                                   \
+     image_mosaic DS1105-2248DF076_d.tif DS1105-2248DF076_c.tif \
+       DS1105-2248DF076_b.tif  DS1105-2248DF076_a.tif           \
+       -o DS1105-2248DF076.tif                                  \
        --ot byte --overlap-width 7000 --blend-radius 2000
-     image_mosaic DS1105-2248DA082_d.tif DS1105-2248DA082_c.tif  \
-       DS1105-2248DA082_b.tif  DS1105-2248DA082_a.tif            \
-       -o DS1105-2248DA082.tif                                   \
-       --ot byte --overlap-width 7000 --blend-radius 2000        \
+     image_mosaic DS1105-2248DA082_d.tif DS1105-2248DA082_c.tif \
+       DS1105-2248DA082_b.tif  DS1105-2248DA082_a.tif           \
+       -o DS1105-2248DA082.tif                                  \
+       --ot byte --overlap-width 7000 --blend-radius 2000       \
        --rotate
 
 In order to process with the optical bar camera model these images need
@@ -99,6 +122,9 @@ simplify the file names going forwards.
        --input-path DS1105-2248DF076.tif                                  \
        --output-path for.tif 
 
+See :numref:`resizing_images` if these steps failed, as perhaps the images
+were too large.
+
 Fetching a ground truth DEM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -118,7 +144,8 @@ be merged and cropped as follows::
 Determining these bounds and the visualization of all images and DEMs
 can be done in ``stereo_gui``.
 
-The SRTM DEM may need adjustment, as discussed in :numref:`refdem`.
+The SRTM DEM must be adjusted to be relative to the WGS84 datum, as discussed in
+:numref:`conv_to_ellipsoid`.
 
 Creating camera files
 ~~~~~~~~~~~~~~~~~~~~~
@@ -176,11 +203,13 @@ DS1105-2248DF076::
 These correspond to the upper-left, upper-right, lower-right, and
 lower-left pixels in the image. We will invoke ``cam_gen`` as follows::
 
-     cam_gen --sample-file sample_kh4b_for_optical_bar.tsai --camera-type opticalbar \
+     cam_gen --sample-file sample_kh4b_for_optical_bar.tsai \
+       --camera-type opticalbar                             \
        --lon-lat-values '99.55 31.266 101.866 31.55 101.916 31.416 99.55 31.133' \
        for.tif --reference-dem dem.tif --refine-camera -o for.tsai
 
-     cam_gen --sample-file sample_kh4b_aft_optical_bar.tsai --camera-type opticalbar
+     cam_gen --sample-file sample_kh4b_aft_optical_bar.tsai \
+       --camera-type opticalbar                             \
        --lon-lat-values '99.566 31.266 101.95 31.55 101.933 31.416 99.616 31.15' \
        aft.tif --reference-dem dem.tif --refine-camera -o aft.tsai
 
@@ -419,11 +448,13 @@ declassified collection 2::
 Make note of the lat/lon corners of the images listed in Earth Explorer,
 and note which image corners correspond to which compass locations.
 
-After downloading and unpacking the images, we merge them with the
-``image_mosaic`` tool. These images have a large amount of overlap and
-we need to manually lower the blend radius so that we do not have memory
-problems when merging the images. Note that the image order is different
-for each image.
+It is suggested to resize the images to a more manageable size. This can
+avoid failures in the processing below (:numref:`resizing_images`).
+
+We will merge the images with the ``image_mosaic`` tool. These images have a
+large amount of overlap and we need to manually lower the blend radius so that
+we do not have memory problems when merging the images. Note that the image
+order is different for each image.
 
 ::
 
@@ -441,7 +472,8 @@ Explorer::
      n23_e113_1arc_v3.tif
      dem_mosaic n22_e113_1arc_v3.tif n23_e113_1arc_v3.tif -o srtm_dem.tif
 
-(The SRTM DEM may need adjustment, as discussed in :numref:`refdem`.)
+The SRTM DEM must be first adjusted to be relative to WGS84
+(:numref:`conv_to_ellipsoid`).
 
 Next we crop the input images so they only contain valid image area. We
 use, as above, the ``historical_helper.py`` tool. See :numref:`historical_helper`
@@ -518,8 +550,8 @@ each camera using the GCPs.
 At this point it is a good idea to experiment with downsampled copies of
 the input images before running processing with the full size images.
 You can generate these using ``stereo_gui``. Also make copies of the
-camera model files and scale the image center and pitch to match the
-downsample amount.
+camera model files and scale the pitch to match the
+downsample amount. 
 
 ::
 
@@ -620,20 +652,22 @@ declassified collection 3::
 Make note of the lat/lon corners of the images listed in Earth Explorer,
 and note which image corners correspond to which compass locations.
 
-After downloading and unpacking the images, we merge them with the
-``image_mosaic`` tool.
+It is suggested to resize the images to a more manageable size. This can
+avoid failures in the processing below (:numref:`resizing_images`).
+
+We merge the images with the ``image_mosaic`` tool.
 
 ::
 
-     image_mosaic D3C1216-200548F040_a.tif  D3C1216-200548F040_b.tif  D3C1216-200548F040_c.tif \
-       D3C1216-200548F040_d.tif  D3C1216-200548F040_e.tif  D3C1216-200548F040_f.tif            \
-       D3C1216-200548F040_g.tif  D3C1216-200548F040_h.tif  D3C1216-200548F040_i.tif            \
-       D3C1216-200548F040_j.tif  D3C1216-200548F040_k.tif  D3C1216-200548F040_l.tif            \
+     image_mosaic D3C1216-200548F040_a.tif D3C1216-200548F040_b.tif D3C1216-200548F040_c.tif \
+       D3C1216-200548F040_d.tif  D3C1216-200548F040_e.tif  D3C1216-200548F040_f.tif          \
+       D3C1216-200548F040_g.tif  D3C1216-200548F040_h.tif  D3C1216-200548F040_i.tif          \
+       D3C1216-200548F040_j.tif  D3C1216-200548F040_k.tif  D3C1216-200548F040_l.tif          \
        --ot byte --overlap-width 3000 -o D3C1216-200548F040.tif
-     image_mosaic D3C1216-200548A041_a.tif  D3C1216-200548A041_b.tif  D3C1216-200548A041_c.tif \
-       D3C1216-200548A041_d.tif  D3C1216-200548A041_e.tif  D3C1216-200548A041_f.tif            \
-       D3C1216-200548A041_g.tif  D3C1216-200548A041_h.tif  D3C1216-200548A041_i.tif            \
-       D3C1216-200548A041_j.tif  D3C1216-200548A041_k.tif --overlap-width 1000                 \
+     image_mosaic D3C1216-200548A041_a.tif D3C1216-200548A041_b.tif D3C1216-200548A041_c.tif \
+       D3C1216-200548A041_d.tif  D3C1216-200548A041_e.tif  D3C1216-200548A041_f.tif          \
+       D3C1216-200548A041_g.tif  D3C1216-200548A041_h.tif  D3C1216-200548A041_i.tif          \
+       D3C1216-200548A041_j.tif  D3C1216-200548A041_k.tif --overlap-width 1000               \
        --ot byte -o D3C1216-200548A041.tif  --rotate
 
 These images also need to be cropped to remove most of the area around

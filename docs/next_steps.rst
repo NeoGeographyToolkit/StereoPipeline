@@ -440,15 +440,17 @@ Alternatively, holes can be filled with ``dem_mosaic``.
 Conversion of initial guess terrain to ellipsoid heights
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-It is very important that your DEM be relative to a
-datum/ellipsoid (such as WGS84), and *not* to a geoid/areoid, such as
-EGM96.
+It is very important that your DEM be relative to a datum/ellipsoid (such as
+WGS84), and *not* to a geoid/areoid, such as EGM96. 
 
-A DEM relative to a geoid/areoid must be converted so that its heights
-are relative to an ellipsoid. The ``gdalwarp`` program in recent
-versions of GDAL and our own ``dem_geoid`` tool (:numref:`dem_geoid`)
-can be used to perform the necessary conversions, if needed. For
-example, with ``dem_geoid``, one can convert EGM96 heights to WGS84
+A DEM relative to a geoid/areoid must be converted so that its heights are
+relative to an ellipsoid. This must be done for any Copernicus and SRTM DEMs.
+For others, consult the documentation of the source of the DEM to see this
+operation is needed.
+
+The ``gdalwarp`` program in recent versions of GDAL and our own ``dem_geoid``
+tool (:numref:`dem_geoid`) can be used to perform the necessary conversions, if
+needed. For example, with ``dem_geoid``, one can convert EGM96 heights to WGS84
 with the command::
 
      dem_geoid --geoid egm96 --reverse-adjustment \
