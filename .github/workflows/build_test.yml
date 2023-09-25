@@ -26,7 +26,6 @@ jobs:
         # after starting a session with ssh.yml.
         path: |
           /usr/local/miniconda/envs
-          ~/projects/StereoPipelineTest
         key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/miniconda.json') }}
         restore-keys: |
           ${{ runner.os }}-build-${{ env.cache-name }}-
