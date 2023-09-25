@@ -203,14 +203,16 @@ DS1105-2248DF076::
 These correspond to the upper-left, upper-right, lower-right, and
 lower-left pixels in the image. We will invoke ``cam_gen`` as follows::
 
-     cam_gen --sample-file sample_kh4b_for_optical_bar.tsai \
-       --camera-type opticalbar                             \
-       --lon-lat-values '99.55 31.266 101.866 31.55 101.916 31.416 99.55 31.133' \
+     cam_gen --sample-file sample_kh4b_for_optical_bar.tsai     \
+       --camera-type opticalbar                                 \
+       --lon-lat-values                                         \
+       '99.55 31.266 101.866 31.55 101.916 31.416 99.55 31.133' \
        for.tif --reference-dem dem.tif --refine-camera -o for.tsai
 
-     cam_gen --sample-file sample_kh4b_aft_optical_bar.tsai \
-       --camera-type opticalbar                             \
-       --lon-lat-values '99.566 31.266 101.95 31.55 101.933 31.416 99.616 31.15' \
+     cam_gen --sample-file sample_kh4b_aft_optical_bar.tsai     \
+       --camera-type opticalbar                                 \
+       --lon-lat-values                                         \
+       '99.566 31.266 101.95 31.55 101.933 31.416 99.616 31.15' \
        aft.tif --reference-dem dem.tif --refine-camera -o aft.tsai
 
 It is very important to note that if, for example, the upper-left image
