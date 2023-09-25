@@ -15,6 +15,10 @@ files.
    camera locations for the Apollo 15 Metric Camera during orbit 33 of
    the Apollo command module.
 
+Example::
+
+      orbitviz image[1-4].tif camera[1-4].tsai -o orbit.kml
+
 Usage::
 
      orbitviz [options] <input images and cameras> 

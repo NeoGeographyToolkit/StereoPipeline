@@ -638,7 +638,7 @@ parser.add_argument('--figure-size', dest = 'figure_size', default = '15,15',
 parser.add_argument('--line-width', dest = 'line_width', type=float, default = 1.5,
                     help='Line width for the plots.')
 
-parser.add_argument('--font-size', dest = 'font_size', type=float, default = 14,
+parser.add_argument('--font-size', dest = 'font_size', type=int, default = 14,
                     help='Font size for the plots.')
 
 (options, args) = parser.parse_known_args(sys.argv)

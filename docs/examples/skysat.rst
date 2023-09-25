@@ -338,18 +338,16 @@ length is given as 3.6 m and the pixel pitch is
 .. math:: 3.6/6.5 \times 10^{-6} = 553846.153846.
 
 Next, a reference DEM needs to be found. Recently we recommend getting
-a Copernicus 30 m DEM (:numref:`initial_terrain`).  Ensure the DEM is
-relative to WGS84 and not EGM96, and convert if necessary; see
-:numref:`conv_to_ellipsoid`.
+a Copernicus 30 m DEM (:numref:`initial_terrain`).
+
+It is very important to note that SRTM DEMs can be relative to the WGS84
+ellipsoidal vertical datum, or relative to the EGM96 geoid. In the latter case,
+``dem_geoid`` (:numref:`dem_geoid`) needs to be used to first convert it to be
+relative to WGS84. This may apply up to 100 meters of vertical adjustment.
+See :numref:`conv_to_ellipsoid`.
 
 It is good to be a bit generous when selecting the extent of the reference DEM.
 We will rename the downloaded DEM to ``ref_dem.tif``. 
-
-It is important to note that SRTM DEMs can be relative to the WGS84
-ellipsoidal vertical datum, or relative to the EGM96 geoid. In
-the latter case, ``dem_geoid`` (:numref:`dem_geoid`) needs to be used
-to first convert it to be relative to WGS84. This may apply up to 100
-meters of vertical adjustment.
 
 Using the ``cam_gen`` tool (:numref:`cam_gen`) bundled with ASP, we
 create an initial camera model and a GCP file (:numref:`bagcp`) for
@@ -396,14 +394,13 @@ edited to reflect this. The same will apply to the other files. We will
 have then four images, ``v1.tif, v2.tif, v3.tif, v4.tif``, and
 corresponding camera and GCP files.
 
-A good sanity check is to visualize these computed cameras in ASP's
-``orbitviz`` tool. It can be invoked as::
+A good sanity check is to visualize the computed cameras.
+ASP's ``sfm_view`` tool can be used (:numref:`sfm_view`). Alternatively, 
+ASP's ``orbitviz`` program (:numref:`orbitviz`) can create KML files
+that can then be opened in Google Earth. 
 
-      orbitviz v[1-4].tif v[1-4].tsai -o orbit.kml
-
-The output KML file can then be opened in Google Earth. We very strongly
-recommend this step, since it may catch inaccurate cameras which will
-cause problems later.
+We very strongly recommend inspecting the camera positions and orientations,
+since this may catch inaccurate cameras which will cause problems later.
 
 Another important check is to mapproject these images using the cameras
 and overlay them in ``stereo_gui`` on top of the reference DEM. Here is
