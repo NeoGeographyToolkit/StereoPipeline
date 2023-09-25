@@ -6,13 +6,18 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Cache conda
       id: cache-conda
       uses: actions/cache@v3
       env:
         cache-name: cache-conda
       with:
+        ## Cache the ASP dependencies. They will be created manually in 
+        ## the next step, after logging in to the upterm session,
+        ## and the actual caching will happen when this recipe exits.
+        ## Changes to the cache cannot be saved, so it should
+        ## be wiped from the web interface if desired to recreate it.
         path: |
           /usr/local/miniconda/envs
         key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/miniconda.json') }}
@@ -20,13 +25,11 @@ jobs:
           ${{ runner.os }}-build-${{ env.cache-name }}-
           ${{ runner.os }}-build-
           ${{ runner.os }}-
-    - name: Setup upterm session with ssh access
+    - name: Set up an upterm session with ssh access
       uses: lhotari/action-upterm@v1
       with:
-        ## Testing ssh access to macos cloud machine
-        ## limits ssh access and adds the ssh public key for the user which triggered the workflow
+        ## Limit access to specified users
         limit-access-to-actor: true
-        ## limits ssh access and adds the ssh public keys of the listed GitHub users
         limit-access-to-users: oleg-alexandrov
-        ## If no one connects after 5 minutes, shut down server.
-        wait-timeout-minutes: 5    
+        ## If no one connects after 5 minutes, shut down the server
+        wait-timeout-minutes: 5

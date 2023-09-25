@@ -1,0 +1,41 @@
+name: build_test
+on:
+  workflow_dispatch:
+
+# Build and test ASP on macOS. For now triggered by hand.
+
+# on:
+#   push:
+#     branches: [ "master" ]
+#   pull_request:
+#     branches: [ "master" ]
+
+jobs:
+  build:
+
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Cache conda
+      id: cache-conda
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-conda
+      with:
+        # Use cached ASP dependencies. They will be created manually 
+        # after starting a session with ssh.yml.
+        path: |
+          /usr/local/miniconda/envs
+          ~/projects/StereoPipelineTest
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/miniconda.json') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+    - name: run_test
+      run: ./.github/workflows/build_test.sh
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with: 
+         name: StereoPipeline_${{ matrix.os }}
+         path: ~/work/StereoPipeline/StereoPipeline-OSX
