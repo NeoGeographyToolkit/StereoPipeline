@@ -128,3 +128,7 @@ fi
 # TODO(oalexan1): Consider saving the test artifacts to a different file
 mkdir -p $packageDir
 cp -rfv $testDir $packageDir
+
+# Wipe the extracted tarball so we do not upload it
+# TODO(oalexan1): Consider extracting it to a different location to start with
+rm -rfv $(dirname $binDir)
