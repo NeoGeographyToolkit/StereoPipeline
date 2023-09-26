@@ -16,7 +16,7 @@ baseDir=$HOME/work/StereoPipeline
 installDir=$baseDir/install
 envPath=/usr/local/miniconda/envs/asp_deps
 # packageDir will later be uploaded, as set in the yml file
-packageDir=$baseDir/packages 
+packageDir=$baseDir/packages
 testDir=$baseDir/StereoPipelineTest
 
 # Build visionworkbench
@@ -59,7 +59,7 @@ cd BinaryBuilder
 mkdir -p $packageDir
 mv -fv Stereo* $packageDir
 
-# Extract the tarball
+# Extract the tarball so we can test it
 cd $packageDir
 tarBall=$(ls StereoPipeline-*OSX.tar.bz2)
 if [ "$tarBall" == "" ]; then
@@ -118,3 +118,7 @@ else
     exit 1
 fi
     
+# Save the resulting test results as part of the artifacts
+# This helps with debugging later
+mkdir -p $packageDir
+cp -rfv $testDir $packageDir
