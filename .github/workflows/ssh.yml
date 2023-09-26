@@ -33,3 +33,10 @@ jobs:
         limit-access-to-users: oleg-alexandrov
         ## If no one connects after 5 minutes, shut down the server
         wait-timeout-minutes: 5
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with: 
+         ## Useful for saving any results produced in this session
+         name: ssh-test-${{ runner.os }}
+         path: ~/work/StereoPipeline/packages
+         retention-days: 2

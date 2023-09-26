@@ -17,6 +17,7 @@ installDir=$baseDir/install
 envPath=/usr/local/miniconda/envs/asp_deps
 # packageDir will later be uploaded, as set in the yml file
 packageDir=$baseDir/packages 
+testDir=$baseDir/StereoPipelineTest
 
 # Build visionworkbench
 mkdir -p $baseDir
@@ -57,3 +58,63 @@ cd BinaryBuilder
 # Prepare the package for upload
 mkdir -p $packageDir
 mv -fv Stereo* $packageDir
+
+# Extract the tarball
+cd $packageDir
+tarBall=$(ls StereoPipeline-*OSX.tar.bz2)
+if [ "$tarBall" == "" ]; then
+  echo Cannot find the packaged ASP tarball
+  exit 1
+fi
+tar xjfv $tarBall
+
+# Path to executables
+binDir=$packageDir/$tarBall
+binDir=${binDir/.tar.bz2/}
+binDir=$binDir/bin
+export PATH=$binDir:$PATH
+echo "Binaries are in $binDir"
+if [ ! -d "$binDir" ]; then
+    echo "Error: Directory: $binDir does not exist"
+    exit 1
+fi
+
+# Extract the tests
+cd $baseDir
+wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar
+tar xfv StereoPipelineTest.tar
+
+# Go to test dir
+if [ ! -d "$testDir" ]; then
+    echo "Error: Directory: $testDir does not exist"
+    exit 1
+fi
+cd $testDir
+
+# Run the tests. Failed to install pytest, despite trying hard.
+# Just run them manually.
+ans=0
+for d in ss*; do 
+    # Skip unless a directory
+    if [ ! -d "$d" ]; then continue; fi
+    cd $d
+    pwd
+    ./run.sh >/dev/null 2>&1
+    ./validate.sh
+    ans0=$?
+    echo "Test $d returned $ans0"
+    # increment to ans
+    if [ "$ans0" -ne 0 ]; then
+        ans=1
+    fi
+    cd ..
+done
+echo ans is $ans
+
+if [ "$ans" -eq 0 ]; then
+    echo "All tests passed"
+else
+    echo "Some tests failed"
+    exit 1
+fi
+    
