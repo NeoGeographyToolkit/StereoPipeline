@@ -31,10 +31,11 @@ jobs:
           ${{ runner.os }}-build-${{ env.cache-name }}-
           ${{ runner.os }}-build-
           ${{ runner.os }}-
-    - name: run_test
+    - name: build_test
       run: ./.github/workflows/build_test.sh
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with: 
-         name: StereoPipeline_${{ matrix.os }}
+         name: StereoPipeline-${{ runner.os }}
          path: ~/work/StereoPipeline/packages
+         retention-days: 2
