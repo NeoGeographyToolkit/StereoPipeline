@@ -61,7 +61,7 @@ mv -fv Stereo* $packageDir
 
 # Extract the tarball so we can test it
 cd $packageDir
-tarBall=$(ls StereoPipeline-*OSX.tar.bz2)
+tarBall=$(ls StereoPipeline-*.tar.bz2 | head -n 1)
 if [ "$tarBall" == "" ]; then
   echo Cannot find the packaged ASP tarball
   exit 1
