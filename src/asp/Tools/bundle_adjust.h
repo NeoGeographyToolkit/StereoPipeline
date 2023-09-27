@@ -19,11 +19,15 @@
 #ifndef __ASP_TOOLS_BUNDLEADJUST_H__
 #define __ASP_TOOLS_BUNDLEADJUST_H__
 
+// Can't do much about warnings in boost except to hide them
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/foreach.hpp>
+#pragma GCC diagnostic pop
 
 #include <vw/BundleAdjustment/CameraRelation.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>

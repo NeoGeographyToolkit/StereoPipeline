@@ -1334,6 +1334,10 @@ does not sacrifice coverage and has a small amount of misregistration.
 Some images with a larger registration error could be added after
 careful inspection, to increase the coverage.
 
+See also the earlier section of validation of bundle adjustment
+(:numref:`sfs_ba_validation`). That one discusses a report file
+that measures the errors in the pixel space rather than on the ground.
+
 When registration fails
 ^^^^^^^^^^^^^^^^^^^^^^^
 

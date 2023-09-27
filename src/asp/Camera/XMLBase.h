@@ -28,16 +28,18 @@
 
 #include <string>
 
+// Can't do much about warnings in boost except to hide them
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <boost/lexical_cast.hpp>
+#pragma GCC diagnostic pop
 
 #include <bitset>
-
 
 #include <xercesc/dom/DOMElement.hpp>
 #include <xercesc/dom/DOMNodeList.hpp>
 #include <xercesc/util/XMLString.hpp>
 #include <xercesc/util/Xerces_autoconf_config.hpp>
-
 
 // TODO: Rename this file to something like XML_utils
 
