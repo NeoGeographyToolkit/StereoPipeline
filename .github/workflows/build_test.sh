@@ -66,7 +66,7 @@ if [ "$tarBall" == "" ]; then
   echo Cannot find the packaged ASP tarball
   exit 1
 fi
-tar xjfv $tarBall
+tar xjfv $tarBall > /dev/null 2>&1 # this is verbose
 
 # Path to executables
 binDir=$packageDir/$tarBall
@@ -82,7 +82,7 @@ fi
 # Extract the tests
 cd $baseDir
 wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar
-tar xfv StereoPipelineTest.tar
+tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 
 # Go to test dir
 if [ ! -d "$testDir" ]; then
@@ -101,15 +101,12 @@ for d in ss*; do
     if [ ! -d "$d" ]; then continue; fi
     cd $d
     pwd
-    ./run.sh >/dev/null 2>&1
+    ./run.sh > /dev/null 2>&1
     ./validate.sh
     ans0=$?
     echo "Test $d returned $ans0"
-    echo "Test $d returned $ans0" >> $reportFile
-    # increment to ans
-    if [ "$ans0" -ne 0 ]; then
-        ans=1
-    fi
+    echo "Test $d returned $ans0" >> ../$reportFile
+    if [ "$ans0" -ne 0 ]; then ans=1; fi # keep record of failures
     cd ..
 done
 echo ans is $ans
@@ -128,9 +125,8 @@ fi
 # TODO(oalexan1): Consider saving the test artifacts to a different file
 mkdir -p $packageDir
 # TODO(oalexan1): Consider creating this as a single tar file
-cp -rfv $testDir $packageDir
+cp -rfv $testDir $packageDir > /dev/null 2>&1
 
 # Wipe the extracted tarball so we do not upload it
 # TODO(oalexan1): Consider extracting it to a different location to start with
-rm -rfv $(dirname $binDir)
-
+rm -rfv $(dirname $binDir) > /dev/null 2>&1
