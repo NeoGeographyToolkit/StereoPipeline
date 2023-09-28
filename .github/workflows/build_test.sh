@@ -79,7 +79,8 @@ if [ ! -d "$binDir" ]; then
     exit 1
 fi
 
-# Extract the tests
+# Extract the tests. This tarball has both the scripts, test data,
+# and the expected results.
 cd $baseDir
 wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar  > /dev/null 2>&1 # this is verbose
 tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
@@ -102,6 +103,9 @@ for d in ss*; do
     cd $d
     pwd
     ./run.sh > /dev/null 2>&1
+    # TODO(oalexan1): The validate.sh script can print a lot of verbose text.
+    # Add a pipe to the head function. Then use ${PIPESTATUS[0]} to find the
+    # exit code of this script.
     ./validate.sh
     ans0=$?
     echo "Test $d returned $ans0"
