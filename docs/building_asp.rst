@@ -653,7 +653,8 @@ Nightly regression
 
 The script ``auto_build/launch_master.sh`` in ``BinaryBuilder`` is used to
 build and test ASP nightly. If these succeed, the produced daily build is 
-automatically uploaded to the GitHub release page.
+automatically uploaded to the GitHub release page. The Linux build runs
+locally while the OSX build runs on GitHub via Actions.
 
 This script and also ``auto_build/utils.sh`` need to be read carefully and some
 variables adjusted.
