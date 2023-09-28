@@ -1,4 +1,4 @@
-#!/bin/bash
+    #!/bin/bash
 
 # Set up the compiler
 isMac=$(uname -s | grep Darwin)
@@ -81,7 +81,7 @@ fi
 
 # Extract the tests
 cd $baseDir
-wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar
+wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar  > /dev/null 2>&1 # this is verbose
 tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 
 # Go to test dir
