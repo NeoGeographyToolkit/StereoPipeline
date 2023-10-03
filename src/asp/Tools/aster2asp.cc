@@ -27,6 +27,8 @@
 // ASTER User Handbook Version 2
 // https://asterweb.jpl.nasa.gov/content/03_data/04_Documents/aster_user_guide_v2.pdf
 //
+// https://lpdaac.usgs.gov/documents/175/ASTER_L1_Product_Specifications.pdf
+
 // IMPROVEMENT OF DEM GENERATION FROM ASTER IMAGES USING SATELLITE
 // JITTER ESTIMATION AND OPEN SOURCE IMPLEMENTATION
 // Luc Girod, Christopher Nutha, and Andreas Kaab

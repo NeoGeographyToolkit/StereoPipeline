@@ -28,10 +28,6 @@ virtual mosaics of files created by individual processes, with the
 actual files in subdirectories; ASP and GDAL tools are able to use
 these virtual files in the same way as regular binary TIF files.
 
-The option ``--keep-only`` may be essential for large runs. It will
-condense a run by converting VRT files to TIF, and will remove a lot
-of auxiliary files.
-
 See :numref:`pbs_slurm` for how to set up this tool
 for PBS and SLURM systems.
 
@@ -231,19 +227,16 @@ Command-line options
     windows, as that would invalidate the run. See
     :numref:`bathy_reuse_run` for an example.
 
---keep-only <string (default: "")>
-    Keep only files with these suffixes in the output prefix
-    directory. Files that are internally in VRT format will be
-    converted to TIF. All subdirectories will be deleted. Will be
-    invoked after triangulation, if that step is reached.
-    Specify as a string in quotes. Example (this will keep
-    only the files needed to re-create ``PC.tif`` and this file as
-    well): ``'.exr L.tif F.tif PC.tif'``. To delete ``PC.tif``
-    after it is not needed, such as after DEM generation, reinvoke
-    this program with ``--entry-point 6`` and do not mention ``PC.tif``
-    as a file to keep, but mention ``DEM.tif``, ``IntersectionErr.tif``, 
-    etc.
-
+--keep-only <string (default: "all_combined")>
+    If set to ``all_combined``, which is the default, at the end of a
+    successful run combine the results from subdirectories into ``.tif``
+    files with the given output prefix, and delete the
+    subdirectories. If set to ``essential``, keep only ``PC.tif`` and the
+    files needed to recreate it (those ending with ``.exr``, ``-L.tif``,
+    ``-F.tif``). If set to ``unchanged``, keep the run directory as it
+    is. For fine-grained control, specify a quoted list of suffixes of
+    files to keep, such as ``".exr .match -L.tif -PC.tif"``.
+                                      
 --verbose
     Display the commands being executed.
 

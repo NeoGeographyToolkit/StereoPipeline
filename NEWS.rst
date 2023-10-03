@@ -19,6 +19,8 @@ bundle_adjust (:numref:`bundle_adjust`):
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).
+  * When a run finished successfully, combine the data from subdirectories and
+    delete these. See ``--keep-only`` for more options.
   * Fixed a failure when processing images that have very large blocks (on the
     order of several tens of thousands of pixels along some dimension, as shown
     by ``gdalinfo``). A warning, progress bar, and timing info is displayed.

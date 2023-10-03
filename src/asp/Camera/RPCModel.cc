@@ -501,6 +501,7 @@ namespace asp {
       invJ[0][1] = -J[0][1];
       invJ[1][0] = -J[1][0];
       invJ[1][1] =  J[0][0];
+      // TODO(oalexan1): What if det is close to 0?
       invJ /= det;
 
       // Newton's method for F(x) = y is

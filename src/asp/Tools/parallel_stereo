@@ -142,7 +142,9 @@ def create_subproject_dirs(settings, **kw):
     # creating symbolic links to actual files in parent run directory.
     # Don't symlink to RD.tif or PC.tif as those will be files which
     # actually need to be created in each subdirectory.
+    # Return the created subdirectories.
 
+    dirs = []
     out_prefix = settings['out_prefix'][0]
         
     # Save the list of subdirectories to disk. This is used in stereo_blend.
@@ -158,6 +160,7 @@ def create_subproject_dirs(settings, **kw):
 
     for tile in produce_tiles(settings, opt.job_size_w, opt.job_size_h):
         subproject_dir = tile_dir(out_prefix, tile)
+        dirs.append(subproject_dir)
         tile_prefix    = subproject_dir + "/" + tile.name_str()
         if opt.dryrun:
             print("mkdir -p %s" % subproject_dir)
@@ -180,6 +183,8 @@ def create_subproject_dirs(settings, **kw):
                 os.symlink(rel_src, dst_f)
 
     fout.close()
+    
+    return dirs
 
 def rename_files(settings, postfix_in, postfix_out, **kw):
     """
@@ -297,7 +302,7 @@ def build_vrt(prog, settings, georef, postfix, tile_postfix, contract_tiles=Fals
             goodFilename = filename
             break
     if goodFilename == "":
-        raise Exception('No tiles were generated')
+        raise Exception('No tiles were generated.')
 
     # Do gdalinfo on the good tile to get metadata
     args = [goodFilename]
@@ -697,32 +702,42 @@ def isVrt(filename):
     
     return False
 
-def keepOnlySpecified(keep_only, out_prefix):
+def keepOnlySpecified(keep_only, out_prefix, subdirs):
     """
     Merge all VRTs and wipe any files the user does not want to keep.
     """
-    if keep_only is None:
-        return
-
-    if '/' not in out_prefix:
-        raise Exception('Cannot use the --keep-only option as the output prefix ' + \
-                        'does not produce a subdirectory. This is on purpose, '   + \
-                        'to avoid unintended mass deletion of user files.')
-
-    keep_files = set()
-    for keep in keep_only.split():
-        for f in glob.glob(out_prefix + "*" + keep):
-            keep_files.add(f)
-
-    all_files = set()
-    for f in glob.glob(out_prefix + "*"):
-        all_files.add(f)
     
+    if keep_only == "unchanged":
+      return # keep everything unchanged
+    elif keep_only == "essential":
+      keep_only = ".exr -L.tif -F.tif -PC.tif"
+    
+    # List all the files stereo may create. We will not attempt to delete
+    # any files except these (and subdirs)
+    all_files = set()
+    for ext in ".vwip .match cropped.tif -L.tif -R.tif ask.tif .exr sub.tif -D.tif -RD.tif -B.tif -F.tif -PC.tif".split():
+        for f in glob.glob(out_prefix + "*" + ext):
+            all_files.add(f)
+
+    # List all the files with the suffixes the user wants to keep    
+    keep_files = set()
+    if keep_only == "all_combined":
+            keep_files = all_files.copy()
+    else:
+        for keep in keep_only.split():
+            for f in glob.glob(out_prefix + "*" + keep):
+                keep_files.add(f)
+
+    if len(keep_files) == 0:
+        # Sometimes the user can make a mistake here. If not sure, don't do anything.
+        print("No files to keep. This is likely a user error. Not deleting any files.")
+        return
+        
     for f in keep_files:
         print("Keeping: " + f)
         if isVrt(f):
             f_out = os.path.splitext(f)[0] + "_merged.tif"
-            print("Convert " + f + " to .tif format.")
+            print("Convert " + f + " from VRT to TIF format.")
             cmd = ['gdal_translate', '-co', 'compress=lzw', '-co', 'TILED=yes', '-co',
                    'INTERLEAVE=BAND', '-co', 'BLOCKXSIZE=256', '-co', 'BLOCKYSIZE=256',
                    '-co', 'BIGTIFF=IF_SAFER', f, f_out]
@@ -733,7 +748,8 @@ def keepOnlySpecified(keep_only, out_prefix):
             print("Renaming: " + f_out + " to " + f)
             shutil.move(f_out, f)
 
-    for f in all_files:
+    # Delete the other files and directories
+    for f in list(all_files) + subdirs:
         if f not in keep_files:
             print("Deleting: " + f)
             if os.path.isdir(f):
@@ -802,10 +818,18 @@ if __name__ == '__main__':
                    '--left-image-crop-win, etc, when running this.')
     p.add_argument('--prev-run-prefix',           dest='prev_run_prefix', default=None,
                    help='Start at the triangulation stage while reusing the data from this prefix. The new run can use different cameras, bundle adjustment prefix, or bathy planes (if applicable). Do not change crop windows, as that would invalidate the run.')
-    p.add_argument('--keep-only', dest='keep_only',
-                   help='Keep only produced files with these suffixes. Files that are internally in VRT format will be converted to TIF. All subdirectories will be deleted. Will be invoked after triangulation, if that step is reached. Specify as a string in quotes. Example (this will keep only the files needed to re-create PC.tif and this file as well): ".exr L.tif F.tif PC.tif".')
+    p.add_argument('--keep-only', dest='keep_only', default="all_combined",
+                   help='If set to "all_combined", which is the default, at the end of a ' + \
+                   'successful run combine the results from subdirectories into .tif ' + \
+                   'files with the given output prefix, and delete the ' + \
+                   'subdirectories. If set to "essential", keep only PC.tif and the ' + \
+                   'files needed to recreate it (those ending with .exr, -L.tif, -F.tif). ' + \
+                   'If set to "unchanged", keep the run directory as it ' + \
+                   'is. For fine-grained control, specify a quoted list of suffixes of ' + \
+                   'files to keep, such as ".exr .match -L.tif -PC.tif".')
     p.add_argument('--sparse-disp-options', dest='sparse_disp_options',
-                   help='Options to pass directly to sparse_disp. Use quotes around this string.')
+                   help='Options to pass directly to sparse_disp. Use quotes around ' + \
+                   'this string.')
     p.add_argument('-v', '--version',        dest='version', default=False,
                    action='store_true', help='Display the version of software.')
     p.add_argument('-s', '--stereo-file',    dest='stereo_file', default='./stereo.default',
@@ -897,7 +921,7 @@ if __name__ == '__main__':
     sep = ","
     settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
     out_prefix = settings['out_prefix'][0]
-    
+
     # See if to resume at triangulation
     if opt.tile_id is None and opt.prev_run_prefix is not None:
         print("Starting at the triangulation stage while reusing a previous run.")
@@ -1011,9 +1035,13 @@ if __name__ == '__main__':
         num_pairs = int(settings['num_stereo_pairs'][0])
         if num_pairs > 1:
 
-            # Run multivew logic.
+            # Run multiview logic.
 
-            if opt.keep_only is not None:
+            if opt.keep_only == "all_combined":
+                # Change the default to "unchanged"
+                opt.keep_only = "unchanged"
+            if opt.keep_only != "unchanged":
+                # If the user specified something else
                 raise Exception('Option --keep-only does not work with multiview stereo.')
             
             # Bugfix: avoid confusing the logic below
@@ -1126,7 +1154,9 @@ if __name__ == '__main__':
         skip_refine_step = (int(settings['subpixel_mode'][0]) > 6)
 
         # Blending (when using local_epipolar alignment, or SGM/MGM, or external algorithms)
-        if using_padded_tiles:
+        if not using_padded_tiles:
+            print("No work to do at the blending step.")
+        else:
             step = Step.blend
             if (opt.entry_point <= step):
                 if (opt.stop_point <= step):
@@ -1172,13 +1202,18 @@ if __name__ == '__main__':
         if (opt.entry_point <= step):
             if (opt.stop_point <= step):
                 sys.exit()
-
-            build_vrt('stereo_rfne', settings, georef, "-RD.tif", "-RD.tif")
+            try:
+                build_vrt('stereo_rfne', settings, georef, "-RD.tif", "-RD.tif")
+            except Exception as e:
+                # Make the error message more informative
+                raise Exception('Failed to build a VRT from */*RD.tif files. Must redo at least the refinement step. Additional error message: ' + str(e))
+                
             normal_run('stereo_fltr', args, msg='%d: Filtering' % step)
             create_subproject_dirs(settings) # symlink F.tif
 
         # Triangulation
         step = Step.tri
+        subdirs = []
         if (opt.entry_point <= step):
             if (opt.stop_point <= step):
                 sys.exit()
@@ -1210,20 +1245,20 @@ if __name__ == '__main__':
             asp_cmd_utils.wipe_option(parallel_args, '--num-matches-from-disp-triplets', 1)
             
             # symlink the files just created
-            create_subproject_dirs(settings)
+            subdirs = create_subproject_dirs(settings)
 
             # Run triangulation on multiple machines
             spawn_to_nodes(step, settings, parallel_args)
             build_vrt('stereo_tri', settings, georef, "-PC.tif", "-PC.tif") # mosaic
 
-        if (opt.entry_point >= Step.tri or opt.stop_point > Step.tri):
-            # Allow this logic to be called with --entry-step 6, which will just
-            # wipe files. For example, after point2dem is invoked, this can
-            # be used to delete PC.tif.
-            if opt.keep_only is not None:
-                keepOnlySpecified(opt.keep_only, out_prefix)
+        # If the run concluded successfully, merge and wipe
+        if (opt.stop_point > Step.tri):
+          if len(subdirs) == 0:
+            # If this was not created by now, do it now
+            subdirs = create_subproject_dirs(settings)
+          keepOnlySpecified(opt.keep_only, out_prefix, subdirs)
                 
-            # End main process case
+       # End main process case
     else:
 
         # This process was spawned by GNU Parallel with a given
