@@ -3356,7 +3356,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
   // We cannot delete match points unless all images have the same number of them.
   void MainWidget::deleteMatchPoint() {
-
+    
     if (m_end_image_id - m_beg_image_id != 1) {
       popUp("Must have just one image in each window to delete matches.");
       return;
@@ -3372,16 +3372,16 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     P = world2image(P, m_base_image_id);
     const double DISTANCE_LIMIT = 70;
     int min_index = m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
+    
     if (min_index < 0) {
       popUp("Did not find a nearby match to delete.");
       return;
     }
 
     m_editingMatches = true;
-
     bool result = false;
     try {
-      m_matchlist.deletePointAcrossImages(min_index);
+      result = m_matchlist.deletePointAcrossImages(min_index);
     } catch (std::exception const& e) {
       popUp(e.what());
       return;
@@ -3401,7 +3401,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   }
 
   // Delete the selections that contain the current point
-  void MainWidget::deleteSelection(){
+  void MainWidget::deleteSelection() {
 
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
 

@@ -891,7 +891,13 @@ the convention expected later by ``jitter_solve``::
 See :numref:`jitter_ip` for a longer explanation regarding interest point
 matches.
 
-Solve for jitter with the intrinsic ``--tri-weight`` constraint::
+Solve for jitter with the intrinsic ``--tri-weight`` constraint. Normally,
+the cameras should be bundle-adjusted and aligned to the reference DEM,
+and then below the option ``--input-adjustments-prefix`` should be used,
+but in this case the initial cameras were accurate enough, so these
+steps were skipped.
+
+:: 
 
     jitter_solve                               \
       1.tif 1.tif                              \
@@ -1168,7 +1174,7 @@ the two sets of cameras (:numref:`stereo_pairs`). See :numref:`pbs_slurm` for
 how to set up the computing nodes needed for ``--nodes-list``.
 
 Solve for jitter with roll and yaw constraints, to ensure movement only for the
-pitch angle::
+pitch angle:: 
 
     jitter_solve                                 \
         --num-iterations 10                      \
@@ -1199,6 +1205,14 @@ Here we used ``--max-pairwise-matches 3000`` as the linescan camera has many
 matches with each frame camera image, and there are many such frame camera
 images. A much larger number would be used if we had only a couple of linescan
 camera images and no frame camera images.
+
+Here the initial cameras were not bundle-adjusted and aligned
+to the reference DEM, as they were good enough. Normally one would
+use them as input to ``jitter_solve`` with the option
+``--input-adjustments-prefix``.
+
+Then, we set ``--translation-weight 10000`` to keep the camera centers
+fixed as in this case we only want to modify the camera orientations.
 
 Notice that the nadir-looking frame images are read from a list, in
 ``jitter0.0/n-images.txt``. This file is created by ``sat_sim``. All the images

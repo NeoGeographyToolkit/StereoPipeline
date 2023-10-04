@@ -710,12 +710,12 @@ def keepOnlySpecified(keep_only, out_prefix, subdirs):
     if keep_only == "unchanged":
       return # keep everything unchanged
     elif keep_only == "essential":
-      keep_only = ".exr -L.tif -F.tif -PC.tif"
+      keep_only = ".exr -L.tif -F.tif disp-diff.tif -PC.tif"
     
     # List all the files stereo may create. We will not attempt to delete
     # any files except these (and subdirs)
     all_files = set()
-    for ext in ".vwip .match cropped.tif -L.tif -R.tif ask.tif .exr sub.tif -D.tif -RD.tif -B.tif -F.tif -PC.tif".split():
+    for ext in ".vwip .match cropped.tif -L.tif -R.tif ask.tif .exr sub.tif -D.tif -RD.tif -B.tif disp-diff.tif -F.tif -PC.tif".split():
         for f in glob.glob(out_prefix + "*" + ext):
             all_files.add(f)
 
