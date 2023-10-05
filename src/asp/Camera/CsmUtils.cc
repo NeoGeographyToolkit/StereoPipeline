@@ -21,6 +21,7 @@
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/JitterSolveUtils.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 
 #include <usgscsm/Utilities.h>

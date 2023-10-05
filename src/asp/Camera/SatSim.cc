@@ -29,6 +29,7 @@
 #include <vw/Geometry/baseUtils.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Cartography/GeoTransform.h>
+#include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Camera/PinholeModel.h>
 
 using namespace vw::cartography;
@@ -67,33 +68,6 @@ double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem) {
   return height_guess;
 
 } // End function findDemHeightGuess()
-
-// A function that will read a geo-referenced image, its nodata value,
-// and the georeference, and will return a PixelMasked image, the nodata
-// value, and the georeference.
-// TODO(oalexan1): May need to move this to a more general place.
-void readGeorefImage(std::string const& image_file, 
-  float & nodata_val, vw::cartography::GeoReference & georef,
-  vw::ImageViewRef<vw::PixelMask<float>> & masked_image) {
-
-  // Initial value, in case the image has no nodata field
-  nodata_val = std::numeric_limits<float>::quiet_NaN();
-  if (!vw::read_nodata_val(image_file, nodata_val))
-        vw::vw_out() << "Warning: Could not read the nodata value for: "
-                      << image_file << "\nUsing: " << nodata_val << ".\n";
-
-    // Read the image
-    vw::vw_out() << "Reading: " << image_file << std::endl;
-    vw::DiskImageView<float> image(image_file);
-    // Create the masked image
-    masked_image = vw::create_mask(image, nodata_val);
-
-    // Read the georeference, and throw an exception if it is missing
-    bool has_georef = vw::cartography::read_georeference(georef, image_file);
-    if (!has_georef)
-      vw::vw_throw(vw::ArgumentErr() << "Missing georeference in: "
-                                     << image_file << ".\n");
-}
 
 // Compute point on trajectory and along and across track normalized vectors in
 // ECEF coordinates, given the first and last proj points and a value t giving

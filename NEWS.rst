@@ -6,6 +6,8 @@ New tools:
     camera orientations along an orbit (contributed by Shashank Bhushan).
     
 jitter_solve (:numref:`jitter_solve`):
+  * Added the option ``--weight-image``, to weigh observations based on
+    geographic location of triangulated points.
   * The roll and yaw constraints no longer assume linescan camera positions and
     orientations are one-to-one. 
 
@@ -13,7 +15,9 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Added the ability to refine the camera intrinsics per sensor
     (:numref:`kaguya_tc_refine_intrinsics`).
   * When optimizing intrinsics, cameras that do not share distortion can
-    have different distortion types and sizes.   
+    have different distortion types and sizes.
+  * Added the option ``--weight-image``, to weigh observations based on
+    geographic location of triangulated points.
   * For ASTER cameras, use the RPC model to find interest points. This does
     not affect the final results but is much faster.
 

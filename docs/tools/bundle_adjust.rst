@@ -991,6 +991,14 @@ Command-line options for bundle_adjust
 --proj-str
     To be used in conjunction with  ``--proj_win``.
 
+--weight-image <string (default: "")>
+    Given a georeferenced image with float values, for each initial triangulated
+    point find its location in the image and closest pixel value. Multiply the
+    reprojection errors in the cameras for this point by this weight value. The
+    solver will focus more on optimizing points with a higher weight. Points
+    that fall outside the image and weights that are non-positive, NaN, or equal
+    to nodata will be ignored. 
+
 --save-vwip
     Save .vwip files (intermediate files for creating .match
     files). For ``parallel_bundle_adjust`` these will be saved in

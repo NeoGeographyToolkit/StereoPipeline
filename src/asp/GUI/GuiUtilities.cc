@@ -368,7 +368,7 @@ bool read_datum_from_csv(std::string const& file, vw::cartography::Datum & datum
 }
 
 // Given one or more of --csv-format-str, --csv-proj4, and datum, extract
-// the needed metatadata.
+// the needed metadata.
 void read_csv_metadata(std::string              const& csv_file,
                        bool                            isPoly,
                        asp::CsvConv                  & csv_conv,
@@ -381,7 +381,13 @@ void read_csv_metadata(std::string              const& csv_file,
     return;
   }
   
-  if (asp::stereo_settings().csv_format_str == "") {
+  // Each file has its own csv format. Will be overriden if specified by the user
+  // via --csv-format-str.
+  std::string local_csv_format_str;
+  
+  if (asp::stereo_settings().csv_format_str != "") {
+    local_csv_format_str = asp::stereo_settings().csv_format_str;
+  } else {
     // For the pointmap and match_offsets files the csv format is known, read it from
     // the file if not specified the user.  Same for anchor_points files written by
     // jitter_solve.
@@ -390,16 +396,17 @@ void read_csv_metadata(std::string              const& csv_file,
         csv_file.find("anchor_points") != std::string::npos  || // jitter_solve
         csv_file.find("beg_errors.csv") != std::string::npos || // pc_align
         csv_file.find("end_errors.csv") != std::string::npos)   // pc_align
-      asp::stereo_settings().csv_format_str = "1:lon, 2:lat, 4:height_above_datum";
+      local_csv_format_str = "1:lon, 2:lat, 4:height_above_datum";
+      
     // For the diff.csv files produced by geodiff the csv format is known, read it from
     // the file if not specified the user.
     if (csv_file.find("-diff.csv") != std::string::npos) // geodiff
-      asp::stereo_settings().csv_format_str = "1:lon, 2:lat, 3:height_above_datum";
+      local_csv_format_str = "1:lon, 2:lat, 3:height_above_datum";
   }
 
   // For polygons, can assume that first coordinate is x and second is y
-  if (isPoly && asp::stereo_settings().csv_format_str.empty())
-    asp::stereo_settings().csv_format_str = "1:x, 2:y";
+  if (isPoly && local_csv_format_str.empty())
+    local_csv_format_str = "1:x, 2:y";
   
   if (asp::stereo_settings().csv_proj4 != "")
     vw_out() << "Using projection: " << asp::stereo_settings().csv_proj4 << "\n";
@@ -408,7 +415,7 @@ void read_csv_metadata(std::string              const& csv_file,
     int min_num_fields = 3;
     if (isPoly) 
       min_num_fields = 2; // only x and y coordinates may exist
-    csv_conv.parse_csv_format(asp::stereo_settings().csv_format_str,
+    csv_conv.parse_csv_format(local_csv_format_str,
                               asp::stereo_settings().csv_proj4,
                               min_num_fields);
   } catch (...) {
@@ -427,13 +434,12 @@ void read_csv_metadata(std::string              const& csv_file,
 
   has_pixel_vals = (fmt == asp::CsvConv::PIXEL_XYVAL);
   
-  if (asp::stereo_settings().csv_format_str == "") {
+  if (local_csv_format_str == "") {
     popUp("The option --csv-format-str must be specified.");
     exit(0); // this is fatal
     return;
   }
-  vw_out() << "Using CSV format: " << asp::stereo_settings().csv_format_str << "\n";
-
+  vw_out() << "Using CSV format: " << local_csv_format_str << "\n";
 
   // Handle the datum
   bool has_datum = false;

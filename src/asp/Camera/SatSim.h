@@ -55,13 +55,6 @@ struct SatSimOptions : vw::GdalWriteOptions {
 // very far from the datum. 
 double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem);
 
-// A function that will read a geo-referenced image, its nodata value,
-// and the georeference, and will return a PixelMasked image, the nodata
-// value, and the georeference.
-void readGeorefImage(std::string const& image_file, 
-  float & nodata_val, vw::cartography::GeoReference & georef,
-  vw::ImageViewRef<vw::PixelMask<float>> & masked_image);
-
 // A function that will take as input the endpoints and will compute the
 // satellite trajectory and along track/across track/down directions in ECEF,
 // which will give the camera to world rotation matrix.

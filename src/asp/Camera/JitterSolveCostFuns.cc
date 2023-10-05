@@ -22,6 +22,7 @@
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/SatSimBase.h>
 
+#include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 
 namespace asp {

@@ -37,6 +37,7 @@
 #include <vw/Core/CmdUtils.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/InterestPoint/Matcher.h>
+#include <vw/Cartography/GeoReferenceBaseUtils.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 
@@ -123,7 +124,7 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
   boost::shared_ptr<CameraModel> camera_model = opt.camera_models[camera_index];
 
   double* camera = param_storage.get_camera_ptr(camera_index);
-  double* point  = param_storage.get_point_ptr (point_index );
+  double* point  = param_storage.get_point_ptr(point_index);
 
   if (opt.camera_type == BaCameraType_Other) {
     // The generic camera case
@@ -906,7 +907,7 @@ void calcOptimizedCameras(Options const& opt,
 // TODO(oalexan1): Use this in jitter_solve.
 // TODO(oalexan1): This needs to be done before subsampling the matches
 void initial_filter_by_proj_win(Options             & opt,
-                                asp::BAParams      & param_storage, 
+                                asp::BAParams       & param_storage, 
                                 ControlNetwork const& cnet) {
 
   // Swap y. Sometimes it is convenient to specify these on input in reverse.
@@ -1003,7 +1004,16 @@ int do_ba_ceres_one_pass(Options             & opt,
                                         // Output
                                         dem_xyz_vec);
   }
-  
+
+  // If to use a weight image
+  bool have_weight_image = (!opt.weight_image.empty());
+  vw::ImageViewRef<vw::PixelMask<float>> weight_image;
+  float weight_image_nodata = -std::numeric_limits<float>::max();
+  vw::cartography::GeoReference weight_image_georef;
+  if (have_weight_image)
+    vw::cartography::readGeorefImage(opt.weight_image,
+      weight_image_nodata, weight_image_georef, weight_image);
+
   // Add the cost function component for difference of pixel observations
   // - Reduce error by making pixel projection consistent with observations.
   
@@ -1031,6 +1041,19 @@ int do_ba_ceres_one_pass(Options             & opt,
         continue;
       }
       
+      // Weight from image, if provided
+      vw::PixelMask<float> img_wt = 1.0;
+      if (have_weight_image) {
+        Vector3 ecef(point[0], point[1], point[2]);
+        img_wt = vw::cartography::closestPixelVal(weight_image, weight_image_georef, ecef);
+        
+        // Flag bad weights as outliers
+        if (!is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0) {
+          param_storage.set_point_outlier(ipt, true);
+          continue;
+        }
+      }
+        
       // Adjust non-GCP triangulated points based on the DEM, if
       // provided (two approaches are supported).
       bool is_gcp = (cnet[ipt].type() == ControlPoint::GroundControlPoint);
@@ -1044,17 +1067,17 @@ int do_ba_ceres_one_pass(Options             & opt,
           if (opt.heights_from_dem_weight <= 0) {
             // Fix it
             problem.SetParameterBlockConstant(point);
-          }else{
+          } else {
             // Let it float. Later a constraint will be added.
             double s = 1.0/opt.heights_from_dem_weight;
             cnet[ipt].set_sigma(Vector3(s, s, s));
           }
           
-        }else  if (opt.ref_dem != "") {
+        } else if (opt.ref_dem != "") {
           if (opt.ref_dem_weight <= 0) {
             // Fix it
             problem.SetParameterBlockConstant(point);
-          }else{
+          } else {
             // Let it float. Later a constraint will be added.
             double s = 1.0/opt.ref_dem_weight;
             cnet[ipt].set_sigma(Vector3(s, s, s));
@@ -1070,7 +1093,12 @@ int do_ba_ceres_one_pass(Options             & opt,
       // This is a bugfix
       if (pixel_sigma != pixel_sigma) // nan check
         pixel_sigma = Vector2(1, 1);
-
+      
+      if (pixel_sigma[0] <= 0.0 || pixel_sigma[1] <= 0.0) {
+        // Cannot add a cost function term with non-positive pixel sigma
+        continue;
+      }
+      
       double p = opt.overlap_exponent;
       if (p > 0 && count_map[ipt] > 2) {
         // Give more weight to points that are seen in more images.
@@ -1078,6 +1106,9 @@ int do_ba_ceres_one_pass(Options             & opt,
         double delta = pow(count_map[ipt] - 1.0, p);
         pixel_sigma /= delta;
       }
+      
+      if (have_weight_image) // apply the weight image
+        pixel_sigma /= img_wt.child();
 
       // Call function to add the appropriate Ceres residual block.
       add_reprojection_residual_block(observation, pixel_sigma, ipt, icam,
@@ -1877,15 +1908,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("reference-terrain-weight", po::value(&opt.reference_terrain_weight)->default_value(1.0),
      "How much weight to give to the cost function terms involving the reference terrain.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
-     "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, "
-     "in the triangulated xyz points replace the heights with the ones from this DEM, and "
-     "fix those points unless --heights-from-dem-weight is positive.")
+     "If the cameras have already been bundle-adjusted and aligned to a known "
+     "high-quality DEM, in the triangulated xyz points replace the heights with "
+     "the ones from this DEM, and fix those points unless --heights-from-dem-weight "
+     "is positive.")
     ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(1.0),
-     "How much weight to give to keep the triangulated points close to the DEM if specified via "
-     "--heights-from-dem. If the weight is not positive, keep the triangulated points fixed. "
-     "This value should be inversely proportional with ground sample distance, as "
-     "then it will convert the measurements from meters to pixels, which is consistent "
-     "with the reprojection error term.")
+     "How much weight to give to keep the triangulated points close to the DEM if "
+     "specified via --heights-from-dem. If the weight is not positive, keep "
+     "the triangulated points fixed. This value should be inversely proportional with "
+     "ground sample distance, as then it will convert the measurements from meters "
+     "to pixels, which is consistent with the reprojection error term.")
     ("heights-from-dem-robust-threshold",
      po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.5),
      "If positive, this is the robust threshold to use keep the triangulated points "
@@ -1904,7 +1936,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Multiply the xyz differences for the --reference-dem option by this weight.")
     ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),
      "Use this robust threshold for the weighted xyz differences with the --reference-dem option.")
-    ("datum",            po::value(&opt.datum_str)->default_value(""),
+    ("weight-image", po::value(&opt.weight_image)->default_value(""),
+     "Given a georeferenced image with float values, for each initial triangulated "
+     "point find its location in the image and closest pixel value. Multiply the "
+     "reprojection errors in the cameras for this point by this weight value. The solver "
+     "will focus more on optimizing points with a higher weight. Points that fall "
+     "outside the image and weights that are non-positive, NaN, or equal to nodata "
+     "will be ignored.")
+    ("datum", po::value(&opt.datum_str)->default_value(""),
      "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
      "Explicitly set the datum semi-major axis in meters (see above).")

@@ -23,6 +23,7 @@
 #include <asp/Camera/SyntheticLinescan.h>
 #include <asp/Camera/SatSim.h>
 
+#include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Core/Stopwatch.h>
@@ -345,14 +346,14 @@ int main(int argc, char *argv[]) {
     vw::ImageViewRef<vw::PixelMask<float>> dem;
     float dem_nodata_val = -std::numeric_limits<float>::max(); // will change
     vw::cartography::GeoReference dem_georef;
-    asp::readGeorefImage(opt.dem_file, dem_nodata_val, dem_georef, dem);
+    vw::cartography::readGeorefImage(opt.dem_file, dem_nodata_val, dem_georef, dem);
     double height_guess = asp::findDemHeightGuess(dem); // useful for ray-dem intersection
 
     // Read the ortho image
     vw::ImageViewRef<vw::PixelMask<float>> ortho;
     float ortho_nodata_val = -std::numeric_limits<float>::max(); // will change
     vw::cartography::GeoReference ortho_georef;
-    asp::readGeorefImage(opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
+    vw::cartography::readGeorefImage(opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
 
     std::vector<std::string> cam_names;
     std::vector<vw::CamPtr> cams;

@@ -46,6 +46,7 @@
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/CameraBBox.h>
+#include <vw/Cartography/GeoReferenceBaseUtils.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/UsgsAstroFrameSensorModel.h>
@@ -194,6 +195,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A weight to penalize the deviation of camera yaw orientation as measured from the "
      "along-track direction. Pass in a large value, such as 1e+5. This is best used only "
      "with linescan cameras created with sat_sim.")
+    ("weight-image", po::value(&opt.weight_image)->default_value(""),
+     "Given a georeferenced image with float values, for each initial triangulated "
+     "point find its location in the image and closest pixel value. Multiply the "
+     "reprojection errors in the cameras for this point by this weight value. The solver "
+     "will focus more on optimizing points with a higher weight. Points that fall "
+     "outside the image and weights that are non-positive, NaN, or equal to nodata "
+     "will be ignored.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1.0),
      "Remove matched IPs this percentage from the image left/right sides.")
     ("initial-camera-constraint", 
@@ -507,7 +515,8 @@ void save_residuals(std::string const& residual_prefix,
           continue;
 
         if (weight != opt.anchor_weight)
-          vw::vw_throw(vw::ArgumentErr() << "Expecting the weight to equal the anchor weight.\n");
+          vw::vw_throw(vw::ArgumentErr() 
+                       << "Expecting the weight to equal the anchor weight.\n");
         
         // Norm of pixel residual
         double norm = norm_2(Vector2(residuals[ires + 0] / weight_per_residual[ires + 0],
@@ -763,7 +772,8 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
 }
 
 // Calculate a set of anchor points uniformly distributed over the image
-// Will use opt.num_anchor_points_extra_lines.
+// Will use opt.num_anchor_points_extra_lines. We append to weight_vec and
+// other quantities that were used for reprojection errors for match points.
 void calcAnchorPoints(Options                              const  & opt,
                       ImageViewRef<PixelMask<double>>               interp_anchor_dem,
                       vw::cartography::GeoReference         const & anchor_georef,
@@ -1437,7 +1447,9 @@ void prepareCsmCameras(Options const& opt,
   }
 }
 
-// Create structures for pixels, xyz, and weights, to be used in optimization
+// Create structures for pixels, xyz, and weights, to be used in optimization.
+// Later there will be another pass to add weights for the anchor points.
+// Here more points may be flagged as outliers.
 // TODO(oalexan1): Avoid using xyz_vec_ptr. If the vector gets resized, the pointers
 // will be invalidated.
 typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CrnT;
@@ -1445,14 +1457,23 @@ typedef boost::shared_ptr<Vector3> Vec3Ptr;
 void createProblemStructure(Options                      const& opt,
                             CrnT                         const& crn,
                             vw::ba::ControlNetwork       const& cnet, 
-                            std::set<int>                const& outliers,
                             // Outputs
+                            std::set<int>                     & outliers,
                             std::vector<double>               & tri_points_vec,
                             std::vector<std::vector<Vector2>> & pixel_vec,
                             std::vector<std::vector<Vec3Ptr>> & xyz_vec,
                             std::vector<std::vector<double*>> & xyz_vec_ptr,
                             std::vector<std::vector<double>>  & weight_vec,
                             std::vector<std::vector<int>>     & isAnchor_vec) {
+
+  // If to use a weight image
+  bool have_weight_image = (!opt.weight_image.empty());
+  vw::ImageViewRef<vw::PixelMask<float>> weight_image;
+  float weight_image_nodata = -std::numeric_limits<float>::max();
+  vw::cartography::GeoReference weight_image_georef;
+  if (have_weight_image)
+    vw::cartography::readGeorefImage(opt.weight_image,
+      weight_image_nodata, weight_image_georef, weight_image);
 
   int num_cameras = opt.camera_models.size();
 
@@ -1477,8 +1498,25 @@ void createProblemStructure(Options                      const& opt,
 
       // Ideally this point projects back to the pixel observation.
       double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
-
+      
+      // Unlike in bundle adjustment, the weight of a pixel is 1.0, rather
+      // than 1.0 / pixel_sigma.
       double weight = 1.0;
+      
+      // If we have a weight image, use it to set the weight
+      if (have_weight_image) {
+        Vector3 ecef(tri_point[0], tri_point[1], tri_point[2]);
+        vw::PixelMask<float> img_wt 
+          = vw::cartography::closestPixelVal(weight_image, weight_image_georef, ecef);
+        
+        // Flag bad weights as outliers
+        if (!is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0) {
+          outliers.insert(ipt);
+          continue;
+        }
+        
+        weight = img_wt.child();
+      }
       
       pixel_vec[icam].push_back(observation);
       weight_vec[icam].push_back(weight);
@@ -1700,9 +1738,9 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::vector<std::vector<double*>> xyz_vec_ptr;
   std::vector<std::vector<double>> weight_vec;
   std::vector<std::vector<int>> isAnchor_vec;
-  createProblemStructure(opt, crn, cnet, outliers,
+  createProblemStructure(opt, crn, cnet, 
                          // Outputs
-                         tri_points_vec, pixel_vec, xyz_vec, xyz_vec_ptr,
+                         outliers, tri_points_vec, pixel_vec, xyz_vec, xyz_vec_ptr,
                          weight_vec, isAnchor_vec);
 
   // Find anchor points and append to pixel_vec, weight_vec, etc.

@@ -1508,6 +1508,14 @@ Command-line options for jitter_solve
     Use this robust threshold for the weighted xyz differences
     with the ``--reference-dem`` option. This is being tested.
 
+--weight-image <string (default: "")>
+    Given a georeferenced image with float values, for each initial triangulated
+    point find its location in the image and closest pixel value. Multiply the
+    reprojection errors in the cameras for this point by this weight value. The
+    solver will focus more on optimizing points with a higher weight. Points
+    that fall outside the image and weights that are non-positive, NaN, or equal
+    to nodata will be ignored. 
+
 --min-triangulation-angle <degrees (default: 0.1)>
     The minimum angle, in degrees, at which rays must meet at a
     triangulated point to accept this point as valid. It must
