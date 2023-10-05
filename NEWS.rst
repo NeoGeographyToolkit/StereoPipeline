@@ -53,6 +53,7 @@ misc:
   * Fixed a couple of runtime errors when using conda packages on OSX.
   * Eliminated a procedure for cleaning the name of an input path that was
     replacing two slashes with one slash, resulting in inconsistencies.
+  * Fix an error in conversion between projections for non-Earth images.  
   * The OSX build now gets created and tested via GitHub Actions.
   
 RELEASE 3.3.0, August 16, 2023
