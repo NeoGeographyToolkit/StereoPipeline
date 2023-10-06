@@ -149,7 +149,7 @@ To locate the area of spatial overlap, the images can be map-projected
 (either with ``cam2map`` with a coarse resolution) or with
 ``mapproject``, using for example the LOLA DEM as the terrain to
 project onto, or the DEM obtained from running ``parallel_stereo`` on
-those images. Then the images can be overlayed as georeferenced images
+those images. Then the images can be overlaid as georeferenced images
 in ``stereo_gui`` (:numref:`stereo_gui`). A good sanity check is to
 examine the shadows in various images. If they point in different
 directions in the images and perhaps also have different lengths, that
@@ -582,8 +582,11 @@ distance of these images.
 
 The option ``--max-pairwise-matches`` in ``bundle_adjust`` should
 reduce the number of matches to the set value, if too many were
-created originally.  The option ``--overlap-limit`` reduces the number
-of subsequent images to be matched to the current one to this value.
+created originally.  
+
+The option ``--overlap-limit`` reduces the number of subsequent images to be
+matched to the current one to this value. For a large number of images consider
+using the option ``--auto-overlap-params`` which will find which images overlap.
  
 Run stereo and create a DEM::
 
@@ -1091,6 +1094,9 @@ hence the earliest images (sorted by Sun azimuth angle) may become
 similar to the latest ones. That is the reason above we used the
 option ``--match-first-to-last``.
 
+The ``--auto-overlap-params`` option can be used to
+determine which images overlap.
+
 Note that this invocation may run for more than a day, or even
 more. And it may be necessary to get good convergence. If the process
 gets interrupted, or the user gives up on waiting, the adjustments
@@ -1104,9 +1110,6 @@ converge. We are very generous with outlier filtering in the option
 ``--remove-outliers-params``. That will ensure that in case the
 solution did not fully converge, valid matches with large
 reprojection error are not thrown out as outliers.
-
-See also the ``--auto-overlap-limit`` option, which can be used to
-determine which images overlap.
 
 .. _sfs_ba_validation:
 

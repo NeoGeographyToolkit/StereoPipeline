@@ -66,7 +66,6 @@ double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem) {
     height_guess = sum/num;
     
   return height_guess;
-
 } // End function findDemHeightGuess()
 
 // Compute point on trajectory and along and across track normalized vectors in
@@ -87,7 +86,6 @@ void calcEcefTrajPtAlongAcross(vw::Vector3 const& first_proj,
 
   // Compute the point on the trajectory, in projected coordinates
   vw::Vector3 proj_pt = first_proj * (1.0 - t) + last_proj * t;
-
   asp::calcEcefAlongAcross(dem_georef, delta, proj_along, proj_across, proj_pt,
                           // Outputs, as vectors in ECEF
                           along, across);
@@ -119,62 +117,62 @@ double demPixelErr(SatSimOptions const& opt,
                    double height_guess,
                    vw::Vector3 & xyz_guess) { // xyz_guess may change
 
-    // Calc position along the trajectory and normalized along and across vectors
-    // in ECEF
-    vw::Vector3 P, along, across;
-    calcEcefTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
-                              proj_along, proj_across, 
-                              // Outputs, perpendicular and normal vectors
-                              P, along, across);
+  // Calc position along the trajectory and normalized along and across vectors
+  // in ECEF
+  vw::Vector3 P, along, across;
+  calcEcefTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
+                            proj_along, proj_across, 
+                            // Outputs, perpendicular and normal vectors
+                            P, along, across);
 
-    // Find the z vector as perpendicular to both along and across
-    vw::Vector3 down = vw::math::cross_prod(along, across);
-    down = down / norm_2(down);
+  // Find the z vector as perpendicular to both along and across
+  vw::Vector3 down = vw::math::cross_prod(along, across);
+  down = down / norm_2(down);
 
-    // The camera to world rotation
-    vw::Matrix3x3 cam2world;
-    asp::assembleCam2WorldMatrix(along, across, down, cam2world);
-    // Apply the roll-pitch-yaw rotation
-    vw::Matrix3x3 R = asp::rollPitchYaw(roll, pitch, yaw);
-    cam2world = cam2world * R * asp::rotationXY();
+  // The camera to world rotation
+  vw::Matrix3x3 cam2world;
+  asp::assembleCam2WorldMatrix(along, across, down, cam2world);
+  // Apply the roll-pitch-yaw rotation
+  vw::Matrix3x3 R = asp::rollPitchYaw(roll, pitch, yaw);
+  cam2world = cam2world * R * asp::rotationXY();
 
-    // Ray from camera to ground going through image center
-    vw::Vector3 cam_dir = cam2world * vw::Vector3(0, 0, 1);
+  // Ray from camera to ground going through image center
+  vw::Vector3 cam_dir = cam2world * vw::Vector3(0, 0, 1);
 
-    // Find the intersection of this ray with the ground
-    bool treat_nodata_as_zero = false;
-    bool has_intersection = false;
-    double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
-    double max_rel_tol = max_abs_tol;
-    int num_max_iter = 100;
-    vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
-      (P, cam_dir, dem,
-        dem_georef, treat_nodata_as_zero,
-        has_intersection, 
-        // Below we use a prudent approach. Try to make the solver work
-        // hard. It is not clear if this is needed.
-        std::min(opt.dem_height_error_tol, 1e-8),
-        max_abs_tol, max_rel_tol, 
-        num_max_iter, xyz_guess, height_guess);
+  // Find the intersection of this ray with the ground
+  bool treat_nodata_as_zero = false;
+  bool has_intersection = false;
+  double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
+  double max_rel_tol = max_abs_tol;
+  int num_max_iter = 100;
+  vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
+    (P, cam_dir, dem,
+      dem_georef, treat_nodata_as_zero,
+      has_intersection, 
+      // Below we use a prudent approach. Try to make the solver work
+      // hard. It is not clear if this is needed.
+      std::min(opt.dem_height_error_tol, 1e-8),
+      max_abs_tol, max_rel_tol, 
+      num_max_iter, xyz_guess, height_guess);
 
-    if (!has_intersection)
-         return g_big_val;
+  if (!has_intersection)
+        return g_big_val;
 
-    // Convert to llh
-    vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
+  // Convert to llh
+  vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
 
-    // Find pixel location 
-    vw::Vector2 pixel_loc2 = dem_georef.lonlat_to_pixel
-      (subvector(llh, 0, 2));
+  // Find pixel location 
+  vw::Vector2 pixel_loc2 = dem_georef.lonlat_to_pixel
+    (subvector(llh, 0, 2));
 
-    // If the pixel is outside the DEM, return a big value
-    if (!vw::bounding_box(dem).contains(pixel_loc2))
-      return g_big_val;
+  // If the pixel is outside the DEM, return a big value
+  if (!vw::bounding_box(dem).contains(pixel_loc2))
+    return g_big_val;
 
-    // At this stage it is safe to update the guess, as we got a good result
-    xyz_guess = xyz;
+  // At this stage it is safe to update the guess, as we got a good result
+  xyz_guess = xyz;
 
-    return norm_2(pixel_loc - pixel_loc2);
+  return norm_2(pixel_loc - pixel_loc2);
 }
 
 // A model with the error given by demPixelErr(). The variable will be t,
@@ -349,7 +347,7 @@ void findBestProjCamLocation
   // Run the optimization with the just-found initial guess
   // std::cout << "Running the solver.\n";
   len = vw::math::levenberg_marquardt(model, len, observation, status, 
-      max_abs_tol, max_rel_tol, num_max_iter);
+                                      max_abs_tol, max_rel_tol, num_max_iter);
 
   // Note: The status is ignored here. We will just take whatever the solver
   // outputs, as it may not converge within tolerance. 
