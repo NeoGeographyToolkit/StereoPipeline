@@ -63,6 +63,9 @@
 // TODO: Make it work with non-ISIS cameras.
 // TODO: Clean up some of the classes, not all members are needed.
 
+// Paper suggested by Randy that does both bundle adjustment and sfs
+// at the same time: https://www.sciencedirect.com/science/article/pii/S0924271619302771
+
 /// \file sfs.cc
 
 // Turn off warnings from boost and other packages
