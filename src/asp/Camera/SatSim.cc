@@ -116,7 +116,7 @@ double demPixelErr(SatSimOptions const& opt,
                    vw::Vector2 const& pixel_loc,
                    double height_guess,
                    vw::Vector3 & xyz_guess) { // xyz_guess may change
-
+  
   // Calc position along the trajectory and normalized along and across vectors
   // in ECEF
   vw::Vector3 P, along, across;
@@ -788,7 +788,7 @@ void calcTrajectory(SatSimOptions & opt,
     if (model_jitter)
       jitter_amp = calcJitterAmplitude(opt, orig_first_proj, first_proj, last_proj, 
                                        dem_georef, t);                       
-
+    
     // If to apply a roll, pitch, yaw rotation
     if (have_roll_pitch_yaw) {
       vw::Matrix3x3 R = asp::rollPitchYaw(opt.roll  + jitter_amp[0], 
@@ -796,7 +796,7 @@ void calcTrajectory(SatSimOptions & opt,
                                           opt.yaw   + jitter_amp[2]);
       cam2world[i] = cam2world[i] * R;
     }
-
+    
     // The rotation without jitter
     vw::Matrix3x3 R0 = vw::math::identity_matrix<3>();
     if (have_roll_pitch_yaw)

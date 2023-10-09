@@ -107,7 +107,7 @@ id.
       --orbit-label pinhole
 
 Notice how above the shared orbit id is specified separately from the dataset
-names.
+names. Here we omitted the option ``--use-ref-cams``.
 
 These two datasets will be plotted on top of each other, in red and blue, respectively.
 

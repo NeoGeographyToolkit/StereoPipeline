@@ -997,7 +997,7 @@ Command-line options for bundle_adjust
     reprojection errors in the cameras for this point by this weight value. The
     solver will focus more on optimizing points with a higher weight. Points
     that fall outside the image and weights that are non-positive, NaN, or equal
-    to nodata will be ignored. 
+    to nodata will be ignored. See :numref:`limit_ip` for details.
 
 --save-vwip
     Save .vwip files (intermediate files for creating .match

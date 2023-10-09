@@ -2615,7 +2615,7 @@ void ba_match_ip(Options & opt, SessionPtr session,
   boost::shared_ptr<DiskImageResource>
     rsrc1(vw::DiskImageResourcePtr(image1_path)),
     rsrc2(vw::DiskImageResourcePtr(image2_path));
-  if ( (rsrc1->channels() > 1) || (rsrc2->channels() > 1) )
+  if ((rsrc1->channels() > 1) || (rsrc2->channels() > 1))
     vw_throw(ArgumentErr()
              << "Error: Input images can only have a single channel!\n\n");
   float nodata1, nodata2;
@@ -2701,12 +2701,11 @@ void matches_from_mapproj_images(int i, int j,
   // too. 
   std::string map_match_file = ip::match_filename(opt.out_prefix,
                                                   map_files[i], map_files[j]);
-  try{
-    
+  try {
     ba_match_ip(opt, session, map_files[i], map_files[j],
                 NULL, NULL, // cameras are set to null since images are mapprojected
                 map_match_file);
-  } catch ( const std::exception& e ){
+  } catch (const std::exception& e) {
     vw_out() << "Could not find interest points between images "
              << map_files[i] << " and " << map_files[j] << std::endl;
     vw_out(WarningMessage) << e.what() << std::endl;
@@ -2725,7 +2724,6 @@ void matches_from_mapproj_images(int i, int j,
   
   // Undo the map-projection
   for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
-    
     vw::ip::InterestPoint P1 = ip1[ip_iter];
     vw::ip::InterestPoint P2 = ip2[ip_iter];
     if (!asp::projected_ip_to_raw_ip(P1, interp_dem, opt.camera_models[i], georef1, dem_georef))

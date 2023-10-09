@@ -7,17 +7,22 @@ New tools:
     
 jitter_solve (:numref:`jitter_solve`):
   * Added the option ``--weight-image``, to weigh observations based on
-    geographic location of triangulated points.
+    geographic location of triangulated points (:numref:`limit_ip`).
+  * Can use anchor points with frame cameras.
+  * Added ``--num-anchor-points-per-tile``. This helps when different
+    images have different sizes but want to ensure the same point density.
   * The roll and yaw constraints no longer assume linescan camera positions and
     orientations are one-to-one. 
+  * Consider the case of a linescan and frame camera rig  
+    (:numref:`jitter_no_baseline`).
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added the ability to refine the camera intrinsics per sensor
     (:numref:`kaguya_tc_refine_intrinsics`).
   * When optimizing intrinsics, cameras that do not share distortion can
-    have different distortion types and sizes.
+    have different distortion types and sizes. (:numref:`limit_ip`).
   * Added the option ``--weight-image``, to weigh observations based on
-    geographic location of triangulated points.
+    geographic location of triangulated points. 
   * For ASTER cameras, use the RPC model to find interest points. This does
     not affect the final results but is much faster.
 

@@ -452,11 +452,11 @@ public:
                     const QwtScaleMap & xMap,
                     const QwtScaleMap & yMap,
                     const QRectF      & canvasRect) const {
-    // canvasRect is the region, in screen pixel units, where the image
-    // will go. If the image is narrow, it may not fill fully the
-    // canvas. If the labels on the axes take up more space when
-    // zooming, the image region will be affected. So, it is not
-    // fixed once and for all.
+    // canvasRect is the region, in screen pixel units, where the image will go.
+    // If the image is narrow, it may not fill fully the canvas. If the labels
+    // on the axes take up more space when zooming, the image region will be
+    // affected. So, canvasRect is not fixed, even if the total
+    // region allocated to the canvas and axes is fixed.
     // xMap and yMap are used to convert from world units to screen.
 
     //vw::Stopwatch sw2;
@@ -482,13 +482,14 @@ public:
     return;
   }
 
+  // This will be called by draw().
+  // The rectangle in 'area' is in world units, not in pixel units. imageSize
+  // has the dimensions, in pixels, of the canvas portion having the image.
   virtual QImage renderImage(const QwtScaleMap & xMap,
                             const QwtScaleMap  & yMap,
                             const QRectF       & area,
                             const QSize        & imageSize) const {
-    // The rectangle in 'area' is in world units, not in pixel units. imageSize
-    // has the dimensions, in pixels, of the canvas portion having the image.
-
+  
     // Based on size of the rendered image, determine the appropriate level of
     // resolution and extent to read from disk. This greatly helps with
     // reducing memory usage and latency.

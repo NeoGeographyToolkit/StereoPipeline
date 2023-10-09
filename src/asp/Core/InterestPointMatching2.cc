@@ -1092,7 +1092,7 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
   sw1.stop();
   vw_out() << "Elapsed time in ip matching: " << sw1.elapsed_seconds() << " s.\n";
 
-  // TODO(oalexan1): The code below is O(N^2).
+  // Remove ip duplicates. Complexity is O(n log n).
   vw::ip::remove_duplicates(matched_ip1, matched_ip2);
 
   if (asp::stereo_settings().matches_per_tile != 0) {

@@ -89,7 +89,7 @@ Anchor points can be used only with linescan cameras, so without
 frame cameras as inputs (:numref:`jitter_linescan_frame_cam`). 
 
 The relevant options are ``--num-anchor-points``,
-``--anchor-weight``, ``--anchor-dem``, and
+``--num-anchor-points-per-tile``, ``--anchor-weight``, ``--anchor-dem``, and
 ``--num-anchor-points-extra-lines``.  An example is given in
 :numref:`jitter_dg`.
 
@@ -1235,30 +1235,69 @@ are not needed as much as for linescan cameras.
 
 .. _jitter_no_baseline:
 
-Solving for jitter with no baseline
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Solving for jitter with a linescan and frame rig
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In this example we consider a single frame (pinhole) camera and a single linescan camera,
-both looking straight down and seeing the same view. The linescan camera has jitter
-that needs to be corrected.
+In this example we consider a rig that is made of linescan and frame camera.
+They are positioned in the same location and look in the same direction. The
+linescan sensor acquires a single very long image line at a high rate, while the
+frame camera records a rectangular image of much smaller dimensions and at a
+lower rate, with overlap. They both experience the same jitter. The "rigid"
+frame camera images are used to correct the jitter in the rig.
 
-A straightforward application of the recipe above will fail, as it is not possible
-to triangulate properly the points seen by the two cameras. The following adjustments
-are suggested:
+A straightforward application of the recipe above will fail, as it is not
+possible to triangulate properly the points seen by the two cameras. The
+following adjustments are suggested:
 
 - Use ``--forced-triangulation-distance 500000`` for both bundle adjustment and
-  jitter solving. This will result in a triangulated point even when the rays are
-  parallel or even a little divergent (during optimization this point will get
-  refined, so the above value need not be perfectly known). 
+  jitter solving (use here the camera height above the terrain). This will result
+  in triangulated points even when the rays are parallel or even a little
+  divergent (during optimization this point will get refined, so the above value
+  need not be perfectly known). 
 - Instead of ``--heights-from-dem`` use the option ``--reference-dem`` in
   ``jitter_solve``, with associated options ``--reference-dem-weight`` and
   ``--reference-dem-robust-threshold``.  See :numref:`jitter_options` for details.
 - Use ``--match-files-prefix`` instead of ``--clean-match-files-prefix`` in
   ``jitter_solve``, as maybe bundle adjustment filtered out too many good matches
   with small convergence angle.
-- Use ``--min-triangulation-angle 0.0`` in both bundle adjustment and jitter
+- Use ``--min-triangulation-angle 1e-10`` in both bundle adjustment and jitter
   solving, to ensure we don't throw away features with small convergence angle,
   as that will be almost all of them.
+
+Here's the command for solving for jitter, and the bundle adjustment command 
+that creates the interest point matches is similar.
+
+::
+
+    jitter_solve                               \
+        --forced-triangulation-distance 500000 \
+        --min-matches 1                        \
+        --min-triangulation-angle 1e-10        \
+        --num-iterations 10                    \
+        --translation-weight 10000             \
+        --rotation-weight 0.0                  \
+        --max-pairwise-matches 50000           \
+        --match-files-prefix ba/run            \
+        --roll-weight 10000                    \
+        --yaw-weight 10000                     \
+        --max-initial-reprojection-error 100   \
+        --tri-weight 0.05                      \
+        --tri-robust-threshold 0.05            \
+        --num-anchor-points-per-tile 100       \
+        --num-anchor-points-extra-lines 5000   \
+        --anchor-dem dem.tif                   \
+        --anchor-weight 0.01                   \
+        --reference-dem dem.tif                \
+        --reference-dem-weight 0.05            \
+        --reference-dem-robust-threshold 0.05  \
+        data/nadir_frame_images.txt            \
+        data/nadir_linescan.tif                \
+        data/nadir_frame_cameras.txt           \
+        data/nadir_linescan.json               \
+        -o jitter/run
+
+The weights and thresholds above can be increased somewhat if the input DEM
+is reliable and it is desired to tie the solution more to it. 
 
 .. _jitter_out_files:
 
@@ -1436,6 +1475,12 @@ Command-line options for jitter_solve
     distributed across each input image. Only applies to linescan cameras. See
     also ``--anchor-weight`` and ``--anchor-dem``.
 
+--num-anchor-points-per-tile <integer (default: 0)>
+    How many anchor points to create per 1024 x 1024 image tile. They will be
+    uniformly distributed. Useful when images of vastly different sizes (such as
+    frame and linescan) are used together. See also ``--anchor-weight`` and
+    ``--anchor-dem``.
+    
 --anchor-weight <double (default: 0.0)>
     How much weight to give to each anchor point. Anchor points are
     obtained by intersecting rays from initial cameras with the DEM
@@ -1514,7 +1559,7 @@ Command-line options for jitter_solve
     reprojection errors in the cameras for this point by this weight value. The
     solver will focus more on optimizing points with a higher weight. Points
     that fall outside the image and weights that are non-positive, NaN, or equal
-    to nodata will be ignored. 
+    to nodata will be ignored. See :numref:`limit_ip` for details. 
 
 --min-triangulation-angle <degrees (default: 0.1)>
     The minimum angle, in degrees, at which rays must meet at a

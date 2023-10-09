@@ -66,7 +66,8 @@ using namespace vw::math;
 namespace asp {
 
 struct Options: public asp::BaBaseOptions {
-  int num_lines_per_position, num_lines_per_orientation, num_anchor_points;
+  int num_lines_per_position, num_lines_per_orientation, num_anchor_points_per_image,
+    num_anchor_points_per_tile;
   double quat_norm_weight, anchor_weight, roll_weight, yaw_weight;
   std::string anchor_dem;
   int num_anchor_points_extra_lines;
@@ -165,9 +166,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Multiply the xyz differences for the --reference-dem option by this weight.")
     ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),
      "Use this robust threshold for the weighted xyz differences.")
-    ("num-anchor-points", po::value(&opt.num_anchor_points)->default_value(0),
-     "How many anchor points to create. They will be uniformly distributed "
-     "across each input image. Only applies to linescan cameras.")
+    ("num-anchor-points", po::value(&opt.num_anchor_points_per_image)->default_value(0),
+     "How many anchor points to create per image. They will be uniformly distributed.")
+    ("num-anchor-points-per-tile", po::value(&opt.num_anchor_points_per_tile)->default_value(0),
+     "How many anchor points to create per 1024 x 1024 image tile. They will "
+      "be uniformly distributed. Useful when images of vastly different sizes "
+      "(such as frame and linescan) are used together.")
     ("anchor-weight", po::value(&opt.anchor_weight)->default_value(0.0),
      "How much weight to give to each anchor point. Anchor points are "
      "obtained by intersecting rays from initial cameras with the DEM given by "
@@ -179,7 +183,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("num-anchor-points-extra-lines",
      po::value(&opt.num_anchor_points_extra_lines)->default_value(0),
      "Start placing anchor points this many lines before first image line "
-     "and after last image line.")
+     "and after last image line. Applies only to linescan cameras.")
     ("rotation-weight", po::value(&opt.rotation_weight)->default_value(0.0),
      "A higher weight will penalize more deviations from the original camera orientations.")
     ("translation-weight", po::value(&opt.translation_weight)->default_value(0.0),
@@ -332,9 +336,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw::vw_throw(ArgumentErr() << "Cannot use the roll/yaw constraint without a DEM. "
         << "Set either --heights-from-dem, --anchor-dem, or --reference-dem.\n");
 
-  if (opt.num_anchor_points < 0)
+  if (opt.num_anchor_points_per_image < 0)
     vw_throw(ArgumentErr() << "The number of anchor points must be non-negative.\n");
+  if (opt.num_anchor_points_per_tile < 0)
+    vw_throw(ArgumentErr() << "The number of anchor points per tile must be non-negative.\n");
 
+  // Cannot have anchor points both per image and per tile
+  if (opt.num_anchor_points_per_image > 0 && opt.num_anchor_points_per_tile > 0)
+    vw_throw(ArgumentErr() << "Cannot have anchor points both per image and per tile.\n");
+    
   if (opt.anchor_weight < 0)
     vw_throw(ArgumentErr() << "Anchor weight must be non-negative.\n");
 
@@ -785,32 +795,41 @@ void calcAnchorPoints(Options                              const  & opt,
                       std::vector<std::vector<double>>                     & weight_vec,
                       std::vector<std::vector<int>>                        & isAnchor_vec) {
 
-  if (opt.num_anchor_points <= 0)
+  if (opt.num_anchor_points_per_image <= 0 && opt.num_anchor_points_per_tile <= 0)
     vw::vw_throw(vw::ArgumentErr() << "Expecting a positive number of anchor points.\n");
 
-  int extra = opt.num_anchor_points_extra_lines;
-    
-  int num_cams = csm_models.size();
+  int num_cams = opt.camera_models.size();
   for (int icam = 0; icam < num_cams; icam++) {
-
-    UsgsAstroLsSensorModel * ls_model
-      = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
-    if (ls_model == NULL)
-      continue; // anchor points not implemented for Frame cameras
-
+    
     // Use int64 and double to avoid int32 overflow
-    std::int64_t numLines   = ls_model->m_nLines;
-    std::int64_t numSamples = ls_model->m_nSamples;
+    vw::Vector2 dims = vw::file_image_size(opt.image_files[icam]);
+    std::int64_t numLines   = dims[1];
+    std::int64_t numSamples = dims[0];
+    std::int64_t extra = opt.num_anchor_points_extra_lines;
+    {
+      UsgsAstroLsSensorModel * ls_model
+        = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+      if (ls_model == NULL)
+         extra = 0; // extra lines are only for linescan
+    }
+
+    // Find how much image area will be taken by each anchor point  
     double area = double(numSamples) * double(numLines + 2 * extra);
-    double bin_len = sqrt(area/double(opt.num_anchor_points));
+    double area_per_point = 0.0;
+    if (opt.num_anchor_points_per_image > 0)
+      area_per_point = area / double(opt.num_anchor_points_per_image);
+    else
+      area_per_point = 1024.0 * 1024.0 / double(opt.num_anchor_points_per_tile);
+      
+    double bin_len = sqrt(area_per_point);
     bin_len = std::max(bin_len, 1.0);
-    int lenx = ceil(double(numSamples) / bin_len); lenx = std::max(1, lenx);
-    int leny = ceil(double(numLines + 2 * extra) / bin_len); leny = std::max(1, leny);
+    std::int64_t lenx = ceil(double(numSamples) / bin_len); lenx = std::max(1L, lenx);
+    std::int64_t leny = ceil(double(numLines + 2 * extra) / bin_len); leny = std::max(1L, leny);
 
     std::int64_t numAnchorPoints = 0;
-    for (int binx = 0; binx <= lenx; binx++) {
+    for (std::int64_t binx = 0; binx <= lenx; binx++) {
       double posx = binx * bin_len;
-      for (int biny = 0; biny <= leny; biny++) {
+      for (std::int64_t biny = 0; biny <= leny; biny++) {
         double posy = biny * bin_len - extra;
         
         if (posx > numSamples - 1 || posy < -extra || posy > numLines - 1 + extra) 
@@ -1582,7 +1601,9 @@ void run_jitter_solve(int argc, char* argv[]) {
                     opt.single_threaded_cameras,  
                     opt.camera_models);
 
-  // Find the datum
+  // Find the datum.
+  // TODO(oalexan1): Integrate this into load_cameras, to avoid loading
+  // the cameras twice. Do this also in bundle_adjust.cc.
   vw::cartography::Datum datum;
   asp::datum_from_cameras(opt.image_files, opt.camera_files,  
                           opt.stereo_session,  // may change
@@ -1744,7 +1765,8 @@ void run_jitter_solve(int argc, char* argv[]) {
                          weight_vec, isAnchor_vec);
 
   // Find anchor points and append to pixel_vec, weight_vec, etc.
-  if (opt.num_anchor_points > 0 && opt.anchor_weight > 0)
+  if ((opt.num_anchor_points_per_image > 0 || opt.num_anchor_points_per_tile > 0) &&
+       opt.anchor_weight > 0)
     calcAnchorPoints(opt, interp_anchor_dem, anchor_georef, csm_models,  
                      // Append to these
                      pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);

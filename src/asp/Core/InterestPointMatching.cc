@@ -930,16 +930,15 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
 
 // Homography IP matching
 // This applies only the homography constraint. Not the best.
-bool homography_ip_matching(
-      vw::ImageViewRef<float> const& image1,
-      vw::ImageViewRef<float> const& image2,
-      int    ip_per_tile,
-      int    inlier_threshold,
-      std::string const& match_filename,
-      size_t number_of_jobs,
-      std::string const  left_file_path,
-      std::string const  right_file_path,
-      double nodata1, double nodata2) {
+bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
+                            vw::ImageViewRef<float> const& image2,
+                            int ip_per_tile,
+                            int inlier_threshold,
+                            std::string const& match_filename,
+                            size_t number_of_jobs,
+                            std::string const  left_file_path,
+                            std::string const  right_file_path,
+                            double nodata1, double nodata2) {
 
   vw_out() << "\t--> Matching interest points using homography.\n";
 
