@@ -1299,6 +1299,11 @@ that creates the interest point matches is similar.
 The weights and thresholds above can be increased somewhat if the input DEM
 is reliable and it is desired to tie the solution more to it. 
 
+When the linsescan sensor is much wider than the frame sensor, the anchor points
+should be constrained to the shared area of the produced images, to have the
+same effect on both sensors. That is accomplished with the option
+``--anchor-weight-image``.
+
 .. _jitter_out_files:
 
 Output files
@@ -1560,6 +1565,11 @@ Command-line options for jitter_solve
     solver will focus more on optimizing points with a higher weight. Points
     that fall outside the image and weights that are non-positive, NaN, or equal
     to nodata will be ignored. See :numref:`limit_ip` for details. 
+
+--anchor-weight-image <string (default: "")>
+    Weight image for anchor points. Limits where anchor points are placed and
+    their weight. Weights are additionally multiplied by ``--anchor-weight``.
+    See also ``--weight-image``.
 
 --min-triangulation-angle <degrees (default: 0.1)>
     The minimum angle, in degrees, at which rays must meet at a

@@ -68,6 +68,7 @@ namespace asp {
 struct Options: public asp::BaBaseOptions {
   int num_lines_per_position, num_lines_per_orientation, num_anchor_points_per_image,
     num_anchor_points_per_tile;
+  std::string anchor_weight_image;   
   double quat_norm_weight, anchor_weight, roll_weight, yaw_weight;
   std::string anchor_dem;
   int num_anchor_points_extra_lines;
@@ -206,6 +207,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "will focus more on optimizing points with a higher weight. Points that fall "
      "outside the image and weights that are non-positive, NaN, or equal to nodata "
      "will be ignored.")
+     ("anchor-weight-image", po::value(&opt.anchor_weight_image)->default_value(""),
+     "Weight image for anchor points. Limits where anchor points are placed and their weight. "
+     "These weights are additionally multiplied by --anchor-weight. See also --weight-image.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1.0),
      "Remove matched IPs this percentage from the image left/right sides.")
     ("initial-camera-constraint", 
@@ -798,6 +802,15 @@ void calcAnchorPoints(Options                              const  & opt,
   if (opt.num_anchor_points_per_image <= 0 && opt.num_anchor_points_per_tile <= 0)
     vw::vw_throw(vw::ArgumentErr() << "Expecting a positive number of anchor points.\n");
 
+  // If to use an anchor weight image
+  bool have_anchor_weight_image = (!opt.anchor_weight_image.empty());
+  vw::ImageViewRef<vw::PixelMask<float>> anchor_weight_image;
+  float anchor_weight_image_nodata = -std::numeric_limits<float>::max();
+  vw::cartography::GeoReference anchor_weight_image_georef;
+  if (have_anchor_weight_image)
+    vw::cartography::readGeorefImage(opt.anchor_weight_image,
+      anchor_weight_image_nodata, anchor_weight_image_georef, anchor_weight_image);
+
   int num_cams = opt.camera_models.size();
   for (int icam = 0; icam < num_cams; icam++) {
     
@@ -864,8 +877,23 @@ void calcAnchorPoints(Options                              const  & opt,
         if (norm_2(pix - pix_out) > 10 * height_error_tol)
           continue; // this is likely a bad point
 
+        // If we have a weight image, use it to multiply the weight
+        double anchor_weight_from_image = 1.0;
+        if (have_anchor_weight_image) {
+          vw::PixelMask<float> img_wt 
+            = vw::cartography::closestPixelVal(anchor_weight_image, 
+                                               anchor_weight_image_georef, 
+                                               dem_xyz);
+          
+          // Skip bad weights
+          if (!is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0) 
+            continue;
+          
+          anchor_weight_from_image = img_wt.child();
+        }
+
         pixel_vec[icam].push_back(pix);
-        weight_vec[icam].push_back(opt.anchor_weight);
+        weight_vec[icam].push_back(opt.anchor_weight * anchor_weight_from_image);
         isAnchor_vec[icam].push_back(1);
 
         // Create a shared_ptr as we need a pointer per the api to use later

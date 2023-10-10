@@ -13,6 +13,8 @@ jitter_solve (:numref:`jitter_solve`):
     images have different sizes but want to ensure the same point density.
   * The roll and yaw constraints no longer assume linescan camera positions and
     orientations are one-to-one. 
+  * Added the option ``--anchor-weight-image`` that is used to limit
+    where anchor points are placed.  
   * Consider the case of a linescan and frame camera rig  
     (:numref:`jitter_no_baseline`).
 
