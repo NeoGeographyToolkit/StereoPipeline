@@ -22,7 +22,7 @@ bundle_adjust (:numref:`bundle_adjust`):
   * When optimizing intrinsics, cameras that do not share distortion can
     have different distortion types and sizes. (:numref:`limit_ip`).
   * Added the option ``--weight-image``, to weigh observations based on
-    geographic location of triangulated points. 
+    geographic location of triangulated points. (:numref:`limit_ip`). 
   * For ASTER cameras, use the RPC model to find interest points. This does
     not affect the final results but is much faster.
 

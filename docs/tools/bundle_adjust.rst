@@ -23,7 +23,12 @@ Usage::
 Examples
 ~~~~~~~~
 
-Example for ISIS cameras (:numref:`planetary_images`)::
+ISIS cameras 
+^^^^^^^^^^^^
+
+See :numref:`moc_tutorial` for an introduction to these cameras.
+
+::
 
      bundle_adjust --camera-weight 0 --tri-weight 0.1 \
        file1.cub file2.cub file3.cub -o run_ba/run
@@ -32,15 +37,21 @@ The above choices for camera weight and triangulation weight are a recent
 implementation and suggested going forward, but not yet the defaults. These are
 helpful in preventing the cameras from drifting too far from initial locations.
 
-Example for Maxar (DigitalGlobe) Earth data (:numref:`dg_tutorial`). Ground
-control points are used (:numref:`bagcp`)::
+Maxar Earth cameras
+^^^^^^^^^^^^^^^^^^^
+
+Here we use Maxar (DigitalGlobe) Earth data (:numref:`dg_tutorial`) and ground
+control points (:numref:`bagcp`)::
 
      bundle_adjust --camera-weight 0 --tri-weight 0.1       \
        file1.tif file2.tif file1.xml file2.xml gcp_file.gcp \
        --datum WGS_1984 -o run_ba/run --num-passes 2
 
-Here, we invoked the tool with two passes, which also enables removal
+We invoked the tool with two passes, which also enables removal
 of outliers (see option ``--remove-outliers-params``, :numref:`ba_options`).
+
+RPC cameras
+^^^^^^^^^^^
 
 Examples for RPC cameras (:numref:`rpc`). With the cameras stored separately::
 
@@ -51,7 +62,10 @@ With the cameras embedded in the images::
 
     bundle_adjust -t rpc left.tif right.tif -o run_ba/run
 
-Example for generic Pinhole cameras (:numref:`pinholemodels`),
+Pinhole cameras
+^^^^^^^^^^^^^^^
+
+We use generic Pinhole cameras (:numref:`pinholemodels`),
 using optional estimated camera positions::
 
      bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai   \
@@ -63,19 +77,33 @@ Here we assumed that the cameras point towards some planet's surface and
 used the ``nadirpinhole`` session. If this assumption is not true, one
 should use the ``pinhole`` session or the ``--no-datum`` option.
 
-Example when it is desired to distribute the interest points somewhat uniformly
-(helpful when different parts of image have different properties)::
+Using uniformly distributed interest points
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    bundle_adjust image1.tif image2.tif          \
-        image1.tsai image2.tsai                  \
-        --ip-per-tile 300 --matches-per-tile 100 \
-        --max-pairwise-matches 20000             \
-        --camera-weight 0 --tri-weight 0.1       \
-        --remove-outliers-params '75 3 10 10'    \
+When different parts of the image have different properties, such as rock vs snow,
+additional work may be needed to ensure interest points are created somewhat
+uniformly. Then, one can use the option ``--matches-per-tile``::
+
+    bundle_adjust image1.tif image2.tif       \
+        image1.tsai image2.tsai               \
+        --ip-per-tile 300                     \
+        --matches-per-tile 100                \
+        --max-pairwise-matches 20000          \
+        --camera-weight 0 --tri-weight 0.1    \
+        --remove-outliers-params '75 3 10 10' \
         -o run_ba/run 
 
 For very large images, the number of interest points and matches per tile (whose
 size is 1024 pixels on the side) should decrease from the above. 
+
+Controlling where interest points are placed
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A custom image or mask can be used to define a region where interest points
+are created (:numref:`limit_ip`). 
+
+Using mapprojected images
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For images that have very large variation in elevation, it is suggested to use
 bundle adjustment with the option ``--mapprojected-data``. An example is given
@@ -101,10 +129,9 @@ processing example (:numref:`skysat`), with many Pinhole cameras, and
 with a large number of linescan Lunar images with variable illumination
 (:numref:`sfs-lola`). 
 
-See :numref:`bundle_adjustment` for how to solve
-for intrinsics. In particular, see :numref:`kaguya_tc_refine_intrinsics`
-for the case when there exist several sensors, each with its own intrinsics
-parameters.
+See :numref:`bundle_adjustment` for how to solve for intrinsics. In particular,
+see :numref:`kaguya_tc_refine_intrinsics` for the case when there exist several
+sensors, each with its own intrinsics parameters.
 
 See also the related jitter-solving tool (:numref:`jitter_solve`),
 and the rig calibrator (:numref:`rig_calibrator`).

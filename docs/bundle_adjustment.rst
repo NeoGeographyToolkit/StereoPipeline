@@ -219,7 +219,9 @@ or::
 to create dense and uniformly distributed interest points with desired
 density (the latter creates a .match file that needs to be copied to
 the name ``bundle_adjust`` expects). See :numref:`triangulation_options`
-for more details.
+for more details. See :numref:`custom_ip` for how to create sparse
+but still somewhat uniformly distributed interest points without
+making use of a stereo disparity.
 
 The first of these options also ensures that if three images are
 present, and ``parallel_stereo`` is invoked on the first and second
@@ -879,11 +881,12 @@ Uniformly distributed interest points
 To attempt to create roughly uniformly distributed sparse interest points during
 bundle adjustment, use options along the lines ``--ip-per-tile 1000
 --matches-per-tile 500 --max-pairwise-matches 10000``. Note that if the images
-are very large, this will result in a very large number of potential matches,
+are big, this will result in a very large number of potential matches,
 because a tile has the size of 1024 pixels. (See :numref:`ba_options` for the
 reference documentation for these options.)
 
-For creating dense interest point matches, see :numref:`intrinsics_no_constraints`.
+For creating dense interest point matches from stereo disparity, see the section
+on solving for intrinsics, at :numref:`intrinsics_no_constraints`.
 
 .. _limit_ip:
 
@@ -895,15 +898,16 @@ during bundle adjustment, two approaches are supported. One is the option
 ``--proj-win``, coupled with ``--proj-str``. 
 
 The other is using the ``--weight-image`` option (also supported by the jitter
-solver, :numref:`jitter_solve`). In locations where the georeferenced weight
-image is non-positive or has nodata values, triangulated points will be ignored.
+solver, :numref:`jitter_solve`). In locations where a given georeferenced weight
+image has non-positive or nodata values, triangulated points will be ignored.
 Otherwise each reprojection error will be multiplied by the weight closest
 geographically to the triangulated point.
  
-Such a weight image can be created from a regular georeferenced image as
-follows. Open it in ``stereo_gui``, and draw on top of it one or more polygons,
-each being traversed in a counterclockwise direction (:numref:`plot_poly`). Save this
-shape as ``poly.shp``, and then run::
+Such a weight image can be created from a regular georeferenced image with
+positive pixel values as follows. Open it in ``stereo_gui``, and draw on top of
+it one or more polygons, each being traversed in a counterclockwise direction,
+and with any holes oriented clockwise (:numref:`plot_poly`). Save this shape as
+``poly.shp``, and then run::
 
     cp georeferenced_image.tif aux_image.tif
     gdal_rasterize -burn -32768 poly.shp aux_image.tif
@@ -917,14 +921,14 @@ as follows::
     image_calc -c "sign(var_0)" aux_image.tif -o weight.tif
 
 Examine the obtained image in ``stereo_gui`` and click on various pixels. Pixels
-in the holes should be either non-positive or nodata, and pixels outside the
-holes should have value 1.
+inside the polygons should be either non-positive or nodata, and pixels outside
+should have the value 1.
 
 If the image does not have positive values to start with, those values
 can be first shifted up with ``image_calc``. 
 
 Various such weight images can be merged with ``dem_mosaic``
-(:numref:`dem_mosaic`).
+(:numref:`dem_mosaic`) or the values manipulated with ``image_calc``.
 
 Bundle adjustment using ISIS
 ----------------------------
