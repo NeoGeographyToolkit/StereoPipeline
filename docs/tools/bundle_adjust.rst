@@ -435,9 +435,10 @@ The produced errors are saved to the file::
     {output-prefix}-triangulation_uncertainty.txt
 
 This file will have, for each image pair having matches, the median horizontal
-and vertical components of the triangulation errors, the mean errors for these,
-their standard deviations, and number of samples used (usually the same as the
-number of inliner interest points). All errors are in meters.
+and vertical components of the triangulation uncertainties, the mean of each
+type of uncertainty, the standard deviations, and number of samples used
+(usually the same as the number of inliner interest points). All errors are in
+meters.
 
 This operation will use the cameras after bundle adjustment. Invoke with
 ``--num-iterations 0`` for the original cameras.
