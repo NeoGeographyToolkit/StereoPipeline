@@ -1086,8 +1086,9 @@ Command-line options for bundle_adjust
     each camera pair (:numref:`ba_error_propagation`).
 
 --horizontal-stddev <double (default: 0.0)>
-    If positive, propagate this horizontal ground plane stddev through
-    triangulation for all cameras. To be used with ``--propagate-errors``.
+    If positive, propagate this stddev of horizontal ground plane camera
+    uncertainty through triangulation for all cameras. To be used with
+    ``--propagate-errors``.
    
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined

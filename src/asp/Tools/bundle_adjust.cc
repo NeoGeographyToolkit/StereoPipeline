@@ -2142,8 +2142,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "pairs of match points, and produce a report having the median, mean, "
      "standard deviation, and number of samples for each camera pair.")
     ("horizontal-stddev", po::value(&opt.horizontal_stddev)->default_value(0), 
-      "If positive, propagate this horizontal ground plane stddev through "
-      "triangulation for all cameras. To be used with --propagate-errors.")
+      "If positive, propagate this stddev of horizontal ground plane camera uncertainty "
+      "through triangulation for all cameras. To be used with --propagate-errors.")
     ("save-vwip", po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
      "Save .vwip files (intermediate files for creating .match files). For parallel_bundle_adjust these will be saved in subdirectories, as they depend on the image pair. Must start with an empty output directory for this to work.")
     ("vwip-prefix",  po::value(&opt.vwip_prefix),
