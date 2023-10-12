@@ -59,6 +59,9 @@ const int NUM_CENTER_PARAMS = 2; // TODO(oalexan1): Use this more widely
 const int NUM_FOCUS_PARAMS  = 1;
 const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 3; // Stored in the distortion vector
 
+// This must be const or else there's a crash
+const std::string UNSPECIFIED_DATUM = "unspecified_datum";
+
 /// These are the different camera modes that bundle_adjust supports.
 enum BACameraType {BaCameraType_Pinhole    = 0,
                    BaCameraType_OpticalBar = 1,
@@ -73,7 +76,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
     ip_edge_buffer_percent;
   bool have_overlap_list;
   std::set<std::pair<std::string, std::string>> overlap_list;
-  std::string overlap_list_file, auto_overlap_params;
+  std::string overlap_list_file, auto_overlap_params, datum_str;
   bool match_first_to_last, single_threaded_cameras;
   double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
   double ref_dem_weight, ref_dem_robust_threshold, heights_from_dem_weight,
@@ -84,17 +87,18 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files;
   std::vector<boost::shared_ptr<vw::camera::CameraModel>> camera_models;
   std::map<std::pair<int, int>, std::string> match_files;
+  vw::cartography::Datum datum;
 
   BaBaseOptions(): min_triangulation_angle(0.0), camera_weight(-1.0),
                    rotation_weight(0.0), translation_weight(0.0), tri_weight(0.0),
                    robust_threshold(0.0), min_matches(0),
                    num_iterations(0), overlap_limit(0), have_overlap_list(false),
-                   camera_type(BaCameraType_Other) {}
+                   camera_type(BaCameraType_Other),
+                   datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM, 
+                                                "User Specified Spheroid",
+                                                "Reference Meridian", 1, 1, 0)) {}
 };
   
-// This must be const or else there's a crash
-const std::string UNSPECIFIED_DATUM = "unspecified_datum";
-
 // A structure to hold percentiles of given sorted values. This sorts the inputs.
 // The input can be float or double. We will keep the result as double.
 struct MatchPairStats {
@@ -116,6 +120,11 @@ struct MatchPairStats {
       val95 = vals[0.95*num_vals];
     }
   }
+};
+
+struct HorizVertError {
+  int left_cam_index, right_cam_index;
+  float horiz_error, vert_error;
 };
 
 /// Structure to fully describe how the intrinsics are being handled.
@@ -351,6 +360,19 @@ void read_image_cam_lists(std::string const& image_list,
                 std::vector<std::string> & images_or_cams,
                 asp::IntrinsicOptions & intrinsics_opts); 
 
+// Mapproject interest points onto a DEM and find the norm of their
+// disagreement in meters. It is assumed that dem_georef
+// was created by bilinear interpolation. The cameras must be with
+// the latest adjustments applied to them.
+void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
+                           std::vector<vw::CamPtr>            const& optimized_cams,
+                           std::vector<vw::ip::InterestPoint> const& left_ip,
+                           std::vector<vw::ip::InterestPoint> const& right_ip,
+                           vw::cartography::GeoReference      const& dem_georef,
+                           vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
+                           // Will append below
+                           std::vector<vw::Vector<float, 4>>       & mapprojPoints,
+                           std::vector<float>                      & mapprojOffsets);
 } // end namespace asp
 
 /// Simple class to manage position/rotation information.
@@ -599,18 +621,6 @@ void saveConvergenceAngles(std::string const& conv_angles_file,
                            std::vector<asp::MatchPairStats> const& convAngles,
                            std::vector<std::string> const& imageFiles);
 
-// Mapproject interest points onto a DEM and find the norm of their
-// disagreement in DEM pixel units. It is assumed that dem_georef
-// was created by bilinear interpolation.
-void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
-                            std::vector<vw::CamPtr>            const& optimized_cams,
-                            std::vector<vw::ip::InterestPoint> const& left_ip,
-                            std::vector<vw::ip::InterestPoint> const& right_ip,
-                            vw::cartography::GeoReference      const& dem_georef,
-                            vw::ImageViewRef<vw::PixelMask<double>> & interp_dem,
-                            std::vector<vw::Vector<float, 4>>       & mapprojPoints,  // append
-                            std::vector<float>                      & mapprojOffsets);
-
 // Save mapprojected matches offsets for each image pair having matches
 void saveMapprojOffsets(std::string                       const& mapproj_offsets_stats_file,
                         std::string                       const& mapproj_offsets_file,
@@ -625,16 +635,21 @@ void saveMapprojOffsets(std::string                       const& mapproj_offsets
 // if a DEM is given. These are done together as they rely on
 // reloading interest point matches, which is expensive so the matches
 // are used for both operations.
+
 void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                           asp::BaBaseOptions           const& opt,
                           std::vector<vw::CamPtr>      const& optimized_cams,
                           bool remove_outliers,
                           std::set<int>                const& outliers,
                           std::string                  const& mapproj_dem,
+                          bool propagate_errors, 
+                          vw::Vector<double>           const& horizontal_stddev_vec,
+                          // Outputs
                           std::vector<asp::MatchPairStats>  & convAngles,
                           std::vector<vw::Vector<float, 4>> & mapprojPoints,
                           std::vector<asp::MatchPairStats>  & mapprojOffsets,
-                          std::vector<std::vector<float>>   & mapprojOffsetsPerCam);
+                          std::vector<std::vector<float>>   & mapprojOffsetsPerCam,
+                          std::vector<asp::HorizVertError>  & horizVertErrors);
 
 // Guess the session name if the camera file is .tsai or .json
 void guessSession(std::string const& camera_file, std::string & stereo_session);
@@ -706,6 +721,13 @@ void load_intrinsics_options(bool        solve_intrinsics,
 ///  footprints for each of the input images.
 /// - Currently this only supports cameras with Worldview style XML files.
 void auto_build_overlap_list(asp::BaBaseOptions &opt, double lonlat_buffer);
+
+// Parse data needed for error propagation. Note that horizontal_stddevs
+// comes from the user, or is otherwise populated from cameras.
+void setup_error_propagation(std::string const& session_name,
+                             double horizontal_stddev,
+                             std::vector<vw::CamPtr> const& cameras,
+                             vw::Vector<double> & horizontal_stddev_vec);
 
 } // end namespace asp
 

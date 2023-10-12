@@ -1632,11 +1632,10 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Find the datum.
   // TODO(oalexan1): Integrate this into load_cameras, to avoid loading
   // the cameras twice. Do this also in bundle_adjust.cc.
-  vw::cartography::Datum datum;
   asp::datum_from_cameras(opt.image_files, opt.camera_files,  
                           opt.stereo_session,  // may change
                           // Outputs
-                          datum);
+                          opt.datum);
   
   // Apply the input adjustments to the cameras. Resample linescan models.
   // Get pointers to the underlying CSM cameras, as need to manipulate
@@ -1847,7 +1846,7 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Save residuals before optimization
   std::string residual_prefix = opt.out_prefix + "-initial_residuals";
-  save_residuals(residual_prefix, problem, opt, cnet, crn, have_dem, datum,
+  save_residuals(residual_prefix, problem, opt, cnet, crn, have_dem, opt.datum,
                  tri_points_vec, dem_xyz_vec, outliers, weight_per_residual,
                  // These are needed for anchor points
                  pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
@@ -1886,7 +1885,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Save residuals after optimization
   // TODO(oalexan1): Add here the anchor residuals
   residual_prefix = opt.out_prefix + "-final_residuals";
-  save_residuals(residual_prefix, problem, opt, cnet, crn, have_dem, datum,
+  save_residuals(residual_prefix, problem, opt, cnet, crn, have_dem, opt.datum,
                  tri_points_vec, dem_xyz_vec, outliers, weight_per_residual,
                  // These are needed for anchor points
                  pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);

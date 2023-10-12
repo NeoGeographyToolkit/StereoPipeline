@@ -1299,7 +1299,7 @@ that creates the interest point matches is similar.
 The weights and thresholds above can be increased somewhat if the input DEM
 is reliable and it is desired to tie the solution more to it. 
 
-When the linsescan sensor is much wider than the frame sensor, the anchor points
+When the linescan sensor is much wider than the frame sensor, the anchor points
 should be constrained to the shared area of the produced images, to have the
 same effect on both sensors. That is accomplished with the option
 ``--anchor-weight-image``.

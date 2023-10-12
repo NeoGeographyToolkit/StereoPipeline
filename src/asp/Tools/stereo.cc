@@ -18,11 +18,10 @@
 /// \file stereo.cc
 
 #include <asp/Tools/stereo.h>
-#include <asp/Camera/RPCModel.h>
 #include <asp/Core/Bathymetry.h>
 #include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/Camera/LinescanPleiadesModel.h>
 #include <asp/Core/AspStringUtils.h>
+#include <asp/Camera/CameraErrorPropagation.h>
 
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Stereo/StereoView.h>
@@ -307,79 +306,16 @@ namespace asp {
     }
     
     vw::Vector2 & v = asp::stereo_settings().horizontal_stddev; // alias, will modify
-    
-    if (v[0] < 0 || v[1] < 0) 
-      vw::vw_throw(vw::ArgumentErr() << "Cannot have negative horizontal stddev.\n");
-    
-    if (int(v[0] > 0) + int(v[1] > 0) == 1)
-      vw::vw_throw(vw::ArgumentErr() << "Cannot have one positive horizontal "
-                   << "stddev and the other one equal to zero.\n");
-
+    bool message_printed = false; // will print the message only once
     if (v[0] == 0 && v[1] == 0) {
-
       // This will not reload the cameras
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt.session->camera_models(camera_model1, camera_model2);
-
-      // Try to create horizontal stddev based on the RPC camera files
-      const asp::RPCModel *rpc1
-        = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(camera_model1.get()));
-      const asp::RPCModel *rpc2
-        = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(camera_model2.get()));
-      if (rpc1 != NULL && rpc2 != NULL) {
-        double bias1 = rpc1->m_err_bias, rand1 = rpc1->m_err_rand;
-        double bias2 = rpc2->m_err_bias, rand2 = rpc2->m_err_rand;
-        if (bias1 > 0 && rand1 > 0 && bias2 > 0 && rand2 > 0) {
-          vw_out() << "Computing horizontal stddev values from RPC camera files.\n";
-          v.x() = sqrt(bias1 * bias1 + rand1 * rand1);
-          v.y() = sqrt(bias2 * bias2 + rand2 * rand2);
-        } else {
-          vw::vw_throw(vw::ArgumentErr()
-                       << "Cannot propagate errors, as no input horizontal "
-                       << "stddev values were specified, and the RPC camera models lacks "
-                       << "the necessary ERRBIAS and ERRRAND fields that could be used "
-                       << "instead.\n");
-        }
-      }
-
-      // Try to create horizontal stddev based on the Pleiades camera files
-      const asp::PleiadesCameraModel *pleiades1
-        = dynamic_cast<const asp::PleiadesCameraModel*>
-        (vw::camera::unadjusted_model(camera_model1.get()));
-      const asp::PleiadesCameraModel *pleiades2
-        = dynamic_cast<const asp::PleiadesCameraModel*>
-        (vw::camera::unadjusted_model(camera_model2.get()));
-      if (pleiades1 != NULL && pleiades2 != NULL) {
-        double accuracy1 = pleiades1->m_accuracy_stdv;
-        double accuracy2 = pleiades2->m_accuracy_stdv;
-        if (accuracy1 > 0 && accuracy2 > 0) {
-          vw_out() << "Reading horizontal stddev values from Pleiades linescan camera files.\n";
-          v.x() = accuracy1; 
-          v.y() = accuracy2;
-        } else {
-          vw::vw_throw(vw::ArgumentErr()
-                       << "Cannot propagate errors, as no input horizontal "
-                       << "stddev values were specified, and the Pleiades camera models lacks "
-                       << "the necessary ACCURACY_STDV field that could be used "
-                       << "instead.\n");
-        }
-      }
+      v[0] = asp::horizontalStDevFromCamera(camera_model1, message_printed);
+      v[1] = asp::horizontalStDevFromCamera(camera_model2, message_printed);
     }
     
-    bool isDg = (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc");
-    if (v[0] > 0 && v[1] > 0) {
-      vw_out() << "Horizontal stddev per camera: " << v[0]  << ", " << v[1] 
-      << " (meters).\n";
-      if (isDg) 
-        vw_out() << "Will use these to find the point cloud stddev, rather than "
-                 << "satellite position and orientation covariances.\n";
-    } else {
-      if (!isDg)
-        vw::vw_throw(vw::ArgumentErr()
-                     << "Cannot propagate errors, as no input horizontal "
-                     << "stddev values were specified.\n");
-    }
-      
+    asp::horizontalStdDevCheck(v, opt.session->name());  
   }
   
   // Parse input command line arguments

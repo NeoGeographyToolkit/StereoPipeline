@@ -1467,7 +1467,9 @@ int do_ba_ceres_one_pass(Options             & opt,
   std::vector<vw::Vector<float, 4>> mapprojPoints; // all points, not just stats
   std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
   std::vector<std::vector<float>> mapprojOffsetsPerCam;
+  std::vector<asp::HorizVertError> horizVertErrors;
   vw::cartography::GeoReference mapproj_dem_georef;
+  
   if (!opt.mapproj_dem.empty()) {
     bool is_good = vw::cartography::read_georeference(mapproj_dem_georef, opt.mapproj_dem);
     if (!is_good) 
@@ -1481,7 +1483,10 @@ int do_ba_ceres_one_pass(Options             & opt,
   asp::matchFilesProcessing(cnet,
                             asp::BaBaseOptions(opt), // note the slicing
                             optimized_cams, remove_outliers, outliers, opt.mapproj_dem,
-                            convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam);
+                            opt.propagate_errors, opt.horizontal_stddev_vec, 
+                            // Outputs
+                            convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
+                            horizVertErrors);
 
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
@@ -2127,6 +2132,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "further expand to this size, resulting in the tiles overlapping. This may be "
       "needed if the homography alignment between these images is not great, as "
       "this transform is used to pair up left and right image tiles.")
+    ("propagate-errors",  po::bool_switch(&opt.propagate_errors)->default_value(false)->implicit_value(true),
+     "Propagate the errors from the input cameras to the triangulated points for all "
+     "pairs of match points, and produce a report having the mean, median, "
+     "standard deviation, and number of samples for each camera pair.")
+     ("horizontal-stddev", po::value(&opt.horizontal_stddev)->default_value(0), 
+      "If positive, propagate this horizontal ground plane stddev through "
+      "triangulation for all cameras. To be used with --propagate-errors.")
     ("save-vwip",    po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
      "Save .vwip files (intermediate files for creating .match files). For parallel_bundle_adjust these will be saved in subdirectories, as they depend on the image pair. Must start with an empty output directory for this to work.")
     ("vwip-prefix",  po::value(&opt.vwip_prefix),
@@ -2194,6 +2206,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_out() << "Detected " << opt.image_files.size() << " images and "
              << opt.camera_files.size() << " cameras.\n";
     vw_throw(ArgumentErr() << "Must have as many cameras as we have images.\n");
+  }
+  
+  // Must happen before copy_to_asp_settings() and before cameras are loaded.
+  if (opt.propagate_errors) {
+    opt.dg_use_csm = true;
   }
   
   // TODO: Check for duplicates in opt.image_files!
@@ -2490,8 +2507,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Many times the datum is mandatory
   if (opt.datum_str == "") {
     if (!opt.gcp_files.empty() || !opt.camera_position_file.empty() )
-      vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
-                << "the datum must be specified.\n");
+      vw_throw( ArgumentErr() << "When ground control points or a camera position "
+               << "file are used, the datum must be specified.\n");
     
     if (opt.elevation_limit[0] < opt.elevation_limit[1])
       vw_throw( ArgumentErr()
@@ -2603,6 +2620,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                  << "Cannot specify more than one of --transform-cameras-using-gcp, "
                  << "transform-cameras-with-shared-gcp, init-camera-using-gcp.\n");
 
+  if (opt.propagate_errors && opt.datum.name() == asp::UNSPECIFIED_DATUM) 
+    vw_throw(ArgumentErr() << "Cannot propagate errors without a datum. Set --datum.\n");
+       
   return;
 }
 
@@ -2887,7 +2907,14 @@ int main(int argc, char* argv[]) {
                       opt.single_threaded_cameras,  
                       opt.camera_models);
     
+    // Parse data needed for error propagation
+    if (opt.propagate_errors)
+      asp::setup_error_propagation(opt.stereo_session, opt.horizontal_stddev, 
+                                   opt.camera_models,
+                                   opt.horizontal_stddev_vec); // output
+    
     // Prepare for computing footprints of images
+    // TODO(oalexan1): Move this to a function
     std::string dem_file_for_overlap;
     double pct_for_overlap = -1.0;
     if (opt.auto_overlap_params != "") {

@@ -490,6 +490,10 @@ set this to 0.1, which is smaller than the ``--robust-threshold``
 value of 0.5 which is used to control the reprojection error. Some
 experimentation with this weight and threshold may be needed.
 
+If a triangulated point does not fall on a valid DEM pixel, bundle adjustment
+falls back to the ``--tri-weight`` constraint, if this constraint is used, or
+otherwise the triangulated point is not constrained at all.
+
 Here is an example, and note that, as in the earlier section,
 we assume that the cameras and the terrain are already aligned::
 

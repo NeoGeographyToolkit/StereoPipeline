@@ -29,6 +29,7 @@
 #include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/RPC_XML.h>
+#include <asp/Camera/CameraErrorPropagation.h>
 
 #include <boost/algorithm/string.hpp>
 
@@ -714,5 +715,27 @@ void auto_build_overlap_list(asp::BaBaseOptions &opt, double lonlat_buffer) {
 
   vw_out() << "Will try to match at " << num_overlaps << " detected overlaps\n.";
 } // End function auto_build_overlap_list
+
+// Parse data needed for error propagation. Note that horizontal_stddevs
+// comes from the user, or is otherwise populated from cameras.
+void setup_error_propagation(std::string const& session_name,
+                             double horizontal_stddev,
+                             std::vector<vw::CamPtr> const& cameras,
+                             vw::Vector<double> & horizontal_stddev_vec) {
+
+  // Initialize the output
+  horizontal_stddev_vec.set_size(cameras.size());
+  horizontal_stddev_vec.set_all(horizontal_stddev);
+
+  bool message_printed = false;
+  if (horizontal_stddev == 0.0) {
+    // Read from cameras
+    for (size_t icam = 0; icam < cameras.size(); icam++)
+      horizontal_stddev_vec[icam] 
+        = asp::horizontalStDevFromCamera(cameras[icam], message_printed);
+  }
+  
+  asp::horizontalStdDevCheck(horizontal_stddev_vec, session_name);
+}
 
 } // end namespace asp
