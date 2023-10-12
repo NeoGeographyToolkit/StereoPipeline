@@ -408,6 +408,43 @@ are saved to::
 
 There is one entry for each pair of images having matches.
 
+.. _ba_error_propagation:
+
+Error propagation
+^^^^^^^^^^^^^^^^^
+
+When the option ``--propagate-errors`` is used, propagate the errors
+(uncertainties) from the input cameras to the triangulated point for each pair
+of inlier interest point matches. The produced uncertainties will be separated
+into horizontal and vertical components relative to the datum. Statistical
+measures will be produced for each pair of images.
+
+The same logic as in stereo triangulation is used (:numref:`error_propagation`),
+but for the sparse set of interest point matches rather than for the dense image
+disparity. Since the produced uncertainties depend only weakly on the
+triangulated surface, computing them for a sparse set of features, and
+summarizing the statistics, as done here, is usually sufficient.
+
+Specify ``--horizontal-stddev`` (a single value for all cameras, measured in
+meters), to use this as the input camera ground horizontal uncertainty.
+Otherwise, as in the above-mentioned section, the input errors will be read from
+camera files, if available.
+
+The produced errors are saved to the file::
+
+    {output-prefix}-triangulation_uncertainty.txt
+
+This file will have, for each image pair having matches, the median horizontal
+and vertical components of the triangulation errors, the mean errors for these,
+their standard deviations, and number of samples used (usually the same as the
+number of inliner interest points). All errors are in meters.
+
+This operation will use the cameras after bundle adjustment. Invoke with
+``--num-iterations 0`` for the original cameras.
+
+It is instructive to compare these with their dense counterparts, as produced
+by ``point2dem``.
+
 .. _ba_cam_pose:
 
 Camera positions and orientations
@@ -1042,6 +1079,16 @@ Command-line options for bundle_adjust
     non-ISIS linescan cameras. This option impairs the convergence of
     bundle adjustment.
 
+--propagate-errors
+    Propagate the errors from the input cameras to the triangulated
+    points for all pairs of match points, and produce a report having
+    the median, mean, standard deviation, and number of samples for
+    each camera pair (:numref:`ba_error_propagation`).
+
+--horizontal-stddev <double (default: 0.0)>
+    If positive, propagate this horizontal ground plane stddev through
+    triangulation for all cameras. To be used with ``--propagate-errors``.
+   
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined
     in the program or in ``~/.vwrc``. Note that when using more

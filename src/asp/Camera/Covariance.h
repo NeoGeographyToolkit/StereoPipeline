@@ -54,13 +54,13 @@ namespace asp {
   // ephemeris and attitude covariances to triangulation in NED
   // coordinates. Return the square root of horizontal and vertical
   // components, so the standard deviations.
-  vw::Vector2 propagateCovariance(vw::Vector3 const& triPt,
+  vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
                                   vw::cartography::Datum const& datum,
+                                  double stddev1, double stddev2,
                                   vw::camera::CameraModel const* cam1,
                                   vw::camera::CameraModel const* cam2,
                                   vw::Vector2 const& pix1,
                                   vw::Vector2 const& pix2);
-
   
 } // end namespace asp
 

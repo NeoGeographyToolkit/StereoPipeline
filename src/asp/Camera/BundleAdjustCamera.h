@@ -122,9 +122,17 @@ struct MatchPairStats {
   }
 };
 
-struct HorizVertError {
+struct HorizVertErrorStats {
   int left_cam_index, right_cam_index;
-  float horiz_error, vert_error;
+  float horiz_error_median, vert_error_median;
+  float horiz_error_mean, vert_error_mean;
+  float horiz_error_stddev, vert_error_stddev;
+  int num_errors;
+  HorizVertErrorStats(): left_cam_index(0), right_cam_index(0), 
+                         horiz_error_median(0), vert_error_median(0),
+                         horiz_error_mean(0), vert_error_mean(0),
+                         horiz_error_stddev(0), vert_error_stddev(0),
+                         num_errors(0) {}
 };
 
 /// Structure to fully describe how the intrinsics are being handled.
@@ -621,6 +629,12 @@ void saveConvergenceAngles(std::string const& conv_angles_file,
                            std::vector<asp::MatchPairStats> const& convAngles,
                            std::vector<std::string> const& imageFiles);
 
+// Save stats of horizontal and vertical errors propagated from cameras
+// to triangulation
+void saveHorizVertErrors(std::string const& horiz_vert_errors_file,
+                         std::vector<asp::HorizVertErrorStats> const& horizVertErrors,
+                         std::vector<std::string> const& imageFiles);
+
 // Save mapprojected matches offsets for each image pair having matches
 void saveMapprojOffsets(std::string                       const& mapproj_offsets_stats_file,
                         std::string                       const& mapproj_offsets_file,
@@ -649,7 +663,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                           std::vector<vw::Vector<float, 4>> & mapprojPoints,
                           std::vector<asp::MatchPairStats>  & mapprojOffsets,
                           std::vector<std::vector<float>>   & mapprojOffsetsPerCam,
-                          std::vector<asp::HorizVertError>  & horizVertErrors);
+                          std::vector<asp::HorizVertErrorStats>  & horizVertErrors);
 
 // Guess the session name if the camera file is .tsai or .json
 void guessSession(std::string const& camera_file, std::string & stereo_session);
@@ -729,6 +743,16 @@ void setup_error_propagation(std::string const& session_name,
                              std::vector<vw::CamPtr> const& cameras,
                              vw::Vector<double> & horizontal_stddev_vec);
 
+// Find stats of propagated errors
+void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
+                          vw::camera::CameraModel const * left_cam,
+                          vw::camera::CameraModel const * right_cam,
+                          std::vector<vw::ip::InterestPoint> const& left_ip,
+                          std::vector<vw::ip::InterestPoint> const& right_ip,
+                          double stddev1, double stddev2,
+                          vw::cartography::Datum const& datum,
+                          // Output
+                          HorizVertErrorStats & stats);
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_CAMERA_H__

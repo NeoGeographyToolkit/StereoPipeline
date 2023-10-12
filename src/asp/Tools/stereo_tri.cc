@@ -146,9 +146,11 @@ public:
           // stddev in band 4, and vertical stddev in band 5 (if band
           // index starts from 0).
           result[3] = errLen;
+          auto const& v = asp::stereo_settings().horizontal_stddev; // alias
           subvector(result, 4, 2)
             = asp::propagateCovariance(subvector(result, 0, 3),
-                                       m_datum, m_camera_ptrs[0], m_camera_ptrs[1],
+                                       m_datum, v[0], v[1],
+                                       m_camera_ptrs[0], m_camera_ptrs[1],
                                        pixVec[0], pixVec[1]);
         }
         

@@ -85,7 +85,7 @@ namespace asp {
     }
   }
 
-  StereoSettings::StereoSettings(){
+  StereoSettings::StereoSettings() {
 
     // This var will turn to true once all stereo settings were parsed
     // and all the members of this class are initialized.
@@ -95,6 +95,8 @@ namespace asp {
     // to get a camera pointer, and there we don't parse stereo.default
     enable_correct_velocity_aberration    = false;
     enable_correct_atmospheric_refraction = false;
+    
+    use_least_squares = false;
     
     default_corr_timeout = 900; // in seconds
     

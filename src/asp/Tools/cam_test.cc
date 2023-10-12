@@ -186,8 +186,9 @@ void testErrorPropagation(Options const& opt,
 
   std::cout << "Left pixel:  " << pix1 << std::endl;
   std::cout << "Right pixel: " << pix2 << std::endl;
-
+  auto const& v = asp::stereo_settings().horizontal_stddev; // alias
   vw::Vector2 ans = asp::propagateCovariance(triPt, datum,
+                                             v[0], v[1],
                                              cam1_model.get(), cam2_model.get(),
                                              pix1, pix2);
   std::cout << "Horizontal and vertical stddev: " << ans << std::endl;

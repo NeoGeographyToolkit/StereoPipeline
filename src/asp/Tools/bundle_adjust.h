@@ -111,6 +111,7 @@ struct Options: public asp::BaBaseOptions {
     asp::stereo_settings().ip_uniqueness_thresh       = ip_uniqueness_thresh;
     asp::stereo_settings().num_scales                 = num_scales;
     asp::stereo_settings().nodata_value               = nodata_value;
+    
     asp::stereo_settings().enable_correct_atmospheric_refraction
       = enable_correct_atmospheric_refraction;
     asp::stereo_settings().enable_correct_velocity_aberration
@@ -121,7 +122,8 @@ struct Options: public asp::BaBaseOptions {
     asp::stereo_settings().matches_per_tile = matches_per_tile;
     asp::stereo_settings().matches_per_tile_params = matches_per_tile_params;
     asp::stereo_settings().no_datum = no_datum;
-
+    asp::stereo_settings().use_least_squares = false; // never true with ba
+    
     // Note that by default rough homography and tri filtering are disabled
     // as input cameras may be too inaccurate for that.
     asp::stereo_settings().skip_rough_homography      = !enable_rough_homography;
@@ -142,6 +144,7 @@ struct Options: public asp::BaBaseOptions {
     asp::stereo_settings().ip_debug_images            = ip_debug_images;
     asp::stereo_settings().ip_normalize_tiles         = ip_normalize_tiles;
     asp::stereo_settings().propagate_errors           = propagate_errors;
+    // The setting below is not used, but populate it for completeness
     asp::stereo_settings().horizontal_stddev          = vw::Vector2(horizontal_stddev,
                                                                   horizontal_stddev);
   }

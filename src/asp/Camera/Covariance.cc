@@ -459,9 +459,10 @@ void triangulationJacobian(vw::cartography::Datum const& datum,
   return;
 }
 
-// Propagate the covariances. Return stddev. See the .h file for more info.
+// Propagate the covariances. Return propagated stddev. See the .h file for more info.
 vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
                                 vw::cartography::Datum const& datum,
+                                double stddev1, double stddev2,
                                 vw::camera::CameraModel const* cam1,
                                 vw::camera::CameraModel const* cam2,
                                 vw::Vector2 const& pix1,
@@ -474,10 +475,10 @@ vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
 
   vw::Matrix<double> J, C;
 
-  vw::Vector2 const& stddev = asp::stereo_settings().horizontal_stddev; // alias
+  // variance is square of stddev
   vw::Vector2 variance;
-  for (int s = 0; s < 2; s++)
-    variance[s] = stddev[s] * stddev[s]; // square these to create variances  
+  variance[0] = stddev1 * stddev1;
+  variance[1] = stddev2 * stddev2;
   
   if (variance[0] > 0 && variance[1] > 0) {
     // The user set horizontal stddev

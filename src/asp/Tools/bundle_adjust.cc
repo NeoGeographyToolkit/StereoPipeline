@@ -1459,15 +1459,15 @@ int do_ba_ceres_one_pass(Options             & opt,
   std::vector<vw::CamPtr> optimized_cams;
   calcOptimizedCameras(opt, param_storage, optimized_cams);
   
-  // Calculate convergence angles. Remove the outliers flagged earlier,
-  // if remove_outliers is true. Compute offsets of mapprojected matches,
-  // if a DEM is given. These are done together as they rely on
-  // reloading interest point matches, which is expensive so the matches
-  // are used for both operations.
+  // Calculate convergence angles. Remove the outliers flagged earlier, if
+  // remove_outliers is true. Compute offsets of mapprojected matches, if a DEM
+  // is given. Propagate errors if desired. These are done together as they rely
+  // on reloading interest point matches, which is expensive so the matches are
+  // used for both operations.
   std::vector<vw::Vector<float, 4>> mapprojPoints; // all points, not just stats
   std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
   std::vector<std::vector<float>> mapprojOffsetsPerCam;
-  std::vector<asp::HorizVertError> horizVertErrors;
+  std::vector<asp::HorizVertErrorStats> horizVertErrors;
   vw::cartography::GeoReference mapproj_dem_georef;
   
   if (!opt.mapproj_dem.empty()) {
@@ -1500,6 +1500,11 @@ int do_ba_ceres_one_pass(Options             & opt,
                             mapprojOffsets, 
                             mapprojOffsetsPerCam, // will change
                             opt.image_files);
+  }
+  
+  if (opt.propagate_errors) {
+    std::string horiz_vert_errors_file = opt.out_prefix + "-triangulation_uncertainty.txt";
+    asp::saveHorizVertErrors(horiz_vert_errors_file, horizVertErrors, opt.image_files);
   }
   
   return 0;
@@ -2134,12 +2139,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "this transform is used to pair up left and right image tiles.")
     ("propagate-errors",  po::bool_switch(&opt.propagate_errors)->default_value(false)->implicit_value(true),
      "Propagate the errors from the input cameras to the triangulated points for all "
-     "pairs of match points, and produce a report having the mean, median, "
+     "pairs of match points, and produce a report having the median, mean, "
      "standard deviation, and number of samples for each camera pair.")
-     ("horizontal-stddev", po::value(&opt.horizontal_stddev)->default_value(0), 
+    ("horizontal-stddev", po::value(&opt.horizontal_stddev)->default_value(0), 
       "If positive, propagate this horizontal ground plane stddev through "
       "triangulation for all cameras. To be used with --propagate-errors.")
-    ("save-vwip",    po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
+    ("save-vwip", po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
      "Save .vwip files (intermediate files for creating .match files). For parallel_bundle_adjust these will be saved in subdirectories, as they depend on the image pair. Must start with an empty output directory for this to work.")
     ("vwip-prefix",  po::value(&opt.vwip_prefix),
      "Save .vwip files with this prefix. This is a private option used by parallel_bundle_adjust.")
@@ -2209,9 +2214,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
   
   // Must happen before copy_to_asp_settings() and before cameras are loaded.
-  if (opt.propagate_errors) {
+  if (opt.propagate_errors)
     opt.dg_use_csm = true;
-  }
   
   // TODO: Check for duplicates in opt.image_files!
 

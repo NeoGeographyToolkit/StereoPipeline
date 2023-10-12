@@ -23,12 +23,16 @@
 
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
+#include <asp/Camera/CameraResectioning.h>
+#include <asp/Camera/CsmModel.h>
+#include <asp/Camera/Covariance.h>
 
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/FileIO/KML.h>
-#include <asp/Camera/CameraResectioning.h>
-#include <asp/Camera/CsmModel.h>
+#include <vw/Stereo/StereoModel.h>
+#include <vw/Math/Statistics.h>
+#include <vw/Math/Functors.h>
 
 #include <string>
 
@@ -1316,22 +1320,23 @@ void processMatchPair(size_t left_index, size_t right_index,
                       std::vector<vw::CamPtr> const& optimized_cams,
                       vw::cartography::GeoReference const& mapproj_dem_georef,
                       vw::ImageViewRef<vw::PixelMask<double>> const& interp_mapproj_dem,
+                      vw::cartography::Datum const& datum,
                       bool save_mapproj_match_points_offsets,
                       bool propagate_errors,
                       vw::Vector<double> const& horizontal_stddev_vec,
                       // Outputs
-                      asp::MatchPairStats & convAngle,
                       // Will append to entities below
+                      std::vector<asp::MatchPairStats>  & convAngles,
                       std::vector<vw::Vector<float, 4>> & mapprojPoints,
                       std::vector<asp::MatchPairStats> & mapprojOffsets,
                       std::vector<std::vector<float>>  & mapprojOffsetsPerCam,
-                      std::vector<asp::HorizVertError> & horizVertErrors) {
+                      std::vector<asp::HorizVertErrorStats> & horizVertErrors) {
 
+  convAngles.push_back(asp::MatchPairStats()); // add an element, then populate it
   std::vector<double> sorted_angles;
-
   asp::convergence_angles(optimized_cams[left_index].get(), optimized_cams[right_index].get(),
                           left_ip, right_ip, sorted_angles);
-  convAngle.populate(left_index, right_index, sorted_angles);
+  convAngles.back().populate(left_index, right_index, sorted_angles);
 
   if (save_mapproj_match_points_offsets) {
     std::vector<float> localMapprojOffsets;
@@ -1341,6 +1346,7 @@ void processMatchPair(size_t left_index, size_t right_index,
                                 mapproj_dem_georef, interp_mapproj_dem,  
                                 mapprojPoints, // will append here
                                 localMapprojOffsets);
+    mapprojOffsets.push_back(asp::MatchPairStats()); // add an elem, then populate it
     mapprojOffsets.back().populate(left_index, right_index, localMapprojOffsets);
     for (size_t map_it = 0; map_it < localMapprojOffsets.size(); map_it++) {
       mapprojOffsetsPerCam[left_index].push_back(localMapprojOffsets[map_it]);
@@ -1348,6 +1354,20 @@ void processMatchPair(size_t left_index, size_t right_index,
     }
   }
 
+  if (propagate_errors) {
+    // Ensure her that proper values are passed for the input std devs
+    horizVertErrors.push_back(asp::HorizVertErrorStats()); // add an elem, then populate it
+    asp::propagatedErrorStats(left_index, right_index,
+                              optimized_cams[left_index].get(), 
+                              optimized_cams[right_index].get(),
+                              left_ip, right_ip, 
+                              horizontal_stddev_vec[left_index],
+                              horizontal_stddev_vec[right_index],
+                              datum, 
+                              horizVertErrors.back());      
+  }
+
+  return;
 }
 
 // Calculate convergence angles. Remove the outliers flagged earlier,
@@ -1368,7 +1388,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                                std::vector<vw::Vector<float, 4>> & mapprojPoints,
                                std::vector<asp::MatchPairStats>  & mapprojOffsets,
                                std::vector<std::vector<float>>   & mapprojOffsetsPerCam,
-                               std::vector<asp::HorizVertError>  & horizVertErrors) {
+                               std::vector<asp::HorizVertErrorStats>  & horizVertErrors) {
 
   vw_out() << "Filtering outliers and creating reports.\n";
   
@@ -1444,23 +1464,18 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     ip::read_binary_match_file(match_file, orig_left_ip, orig_right_ip);
 
     // Create a new convergence angle storage struct
-    convAngles.push_back(asp::MatchPairStats()); // add an element, will populate it soon
     asp::MatchPairStats & convAngle = convAngles.back(); // alias
-    if (save_mapproj_match_points_offsets)
-      mapprojOffsets.push_back(asp::MatchPairStats()); // add an elem
-    if (propagate_errors)
-      horizVertErrors.push_back(asp::HorizVertError()); // add an elem
     if (!remove_outliers) {
       // Do some processing with orig ip. Otherwise this will be done below
       // with the inlier ip.
       processMatchPair(left_index, right_index,
                        orig_left_ip, orig_right_ip,
                        optimized_cams,
-                       mapproj_dem_georef, interp_mapproj_dem,
+                       mapproj_dem_georef, interp_mapproj_dem, opt.datum,
                        save_mapproj_match_points_offsets,
                        propagate_errors, horizontal_stddev_vec,
-                       // Outputs
-                       convAngle, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
+                       // Will append to entities below
+                       convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
                        horizVertErrors);
       
       // Since no outliers are removed, nothing else to do
@@ -1530,11 +1545,11 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     // Process the inlier ip
     processMatchPair(left_index, right_index, left_ip, right_ip,
                      optimized_cams, mapproj_dem_georef, interp_mapproj_dem,
+                     opt.datum,
                      save_mapproj_match_points_offsets, 
                      propagate_errors, horizontal_stddev_vec,
-                     // Outputs
-                     convAngle,
-                     mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
+                     // Will append to entities below
+                     convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
                      horizVertErrors);
   } // End loop through the match files
 }
@@ -1655,3 +1670,100 @@ void asp::saveCameraReport(asp::BaBaseOptions const& opt,
   fh.close();
   return;
 }
+
+// Find stats of propagated errors
+void asp::propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
+                               vw::camera::CameraModel const * left_cam,
+                               vw::camera::CameraModel const * right_cam,
+                               std::vector<vw::ip::InterestPoint> const& left_ip,
+                               std::vector<vw::ip::InterestPoint> const& right_ip,
+                               double stddev1, double stddev2,
+                               vw::cartography::Datum const& datum,
+                               // Output
+                               asp::HorizVertErrorStats & stats) {
+
+  // Create a stereo model, to be used for triangulation
+  double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos
+                        (asp::stereo_settings().min_triangulation_angle*M_PI/180);
+  vw::stereo::StereoModel stereo_model(left_cam, right_cam, 
+                                       asp::stereo_settings().use_least_squares,
+                                       angle_tol);
+
+  // Create space for horiz and vert vectors of size num_ip
+  int num_ip = left_ip.size();
+  std::vector<double> horiz_errors, vert_errors;
+
+  // Find the triangulated point and propagate the errors
+  for (int ip_it = 0; ip_it < num_ip; ip_it++) {
+    // Compute the error in the horizontal and vertical directions
+    vw::Vector2 left_pix(left_ip[ip_it].x, left_ip[ip_it].y);
+    vw::Vector2 right_pix(right_ip[ip_it].x, right_ip[ip_it].y);
+    
+    Vector3 triVec(0, 0, 0), errorVec(0, 0, 0);
+    vw::Vector2 outStdev;
+    try {
+      triVec = stereo_model(left_pix, right_pix, errorVec);
+      outStdev = asp::propagateCovariance(triVec, datum, 
+                                          stddev1, stddev2, 
+                                          left_cam, right_cam, 
+                                          left_pix, right_pix);
+    } catch (std::exception const& e) {
+      errorVec = Vector3(0, 0, 0);
+    }
+    
+    if (errorVec == Vector3(0, 0, 0))
+      continue; // this can happen either because triangulation failed or an exception
+    
+    horiz_errors.push_back(outStdev[0]);
+    vert_errors.push_back(outStdev[1]);
+  }
+  
+  // Initialize the output
+  stats = asp::HorizVertErrorStats();
+  stats.left_cam_index  = left_cam_index;
+  stats.right_cam_index = right_cam_index;
+
+  if (!horiz_errors.empty()) {
+    stats.num_errors = horiz_errors.size();
+    stats.horiz_error_mean = vw::math::mean(horiz_errors);
+    stats.vert_error_mean = vw::math::mean(vert_errors);
+    
+    if (horiz_errors.size() > 1) {
+      // This divides by num - 1
+      stats.horiz_error_stddev 
+        = vw::math::standard_deviation(horiz_errors, stats.horiz_error_mean);
+      stats.vert_error_stddev
+        = vw::math::standard_deviation(vert_errors, stats.vert_error_mean);
+    }
+    
+    // Leave this for the last
+    stats.horiz_error_median = vw::math::destructive_median(horiz_errors);
+    stats.vert_error_median = vw::math::destructive_median(vert_errors);
+  }
+
+  return;                 
+} // End function propagatedErrorStats
+
+// Save stats of horizontal and vertical errors propagated from cameras
+// to triangulation
+void asp::saveHorizVertErrors(std::string const& horiz_vert_errors_file,
+                              std::vector<asp::HorizVertErrorStats> const& horizVertErrors,
+                              std::vector<std::string> const& imageFiles) {
+
+  vw_out() << "Writing: " << horiz_vert_errors_file << "\n";
+  std::ofstream ofs (horiz_vert_errors_file.c_str());
+  ofs.precision(8);
+  ofs << "# Horizontal and vertical propagated triangulation uncertainties (in meters) for each image pair having matches.\n";
+  ofs << "# left_image right_image horiz_error_median vert_error_median horiz_error_mean vert_error_mean horiz_error_stddev vert_error_stddev num_meas\n";
+  for (size_t conv_it = 0; conv_it < horizVertErrors.size(); conv_it++) {
+     auto const & c = horizVertErrors[conv_it]; // alias
+     ofs << imageFiles[c.left_cam_index] << ' ' << imageFiles[c.right_cam_index] << ' '
+         << c.horiz_error_median << ' ' << c.vert_error_median << ' '
+         << c.horiz_error_mean   << ' ' << c.vert_error_mean   << ' '
+         << c.horiz_error_stddev << ' ' << c.vert_error_stddev << ' '
+         << c.num_errors << "\n";
+  }
+  ofs.close();
+
+  return;
+} 
