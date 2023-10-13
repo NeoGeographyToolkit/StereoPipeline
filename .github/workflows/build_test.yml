@@ -2,7 +2,7 @@ name: build_test
 on:
   workflow_dispatch:
 
-# Build and test ASP on macOS. For now triggered by hand.
+# Build and test ASP on macOS. For now triggered via gh workflow.
 
 # on:
 #   push:

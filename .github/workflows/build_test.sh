@@ -1,4 +1,4 @@
-    #!/bin/bash
+#!/bin/bash
 
 # Set up the compiler
 isMac=$(uname -s | grep Darwin)
@@ -34,6 +34,10 @@ $envPath/bin/cmake ..                             \
   -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
 make -j10 && make install
 
+# Log of the build, for inspection in case it fails
+out_build_vw=$(pwd)/output_build_vw.txt
+make > $out_build_vw 2>&1
+
 # Build StereoPipeline
 cd $aspRepoDir
 mkdir -p build
@@ -46,6 +50,10 @@ $envPath/bin/cmake ..                             \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
 make -j10 && make install
+
+# Log of the build, for inspection in case it fails
+out_build_asp=$(pwd)/output_build_asp.txt
+make > $out_build_asp 2>&1
 
 # Now package with BinaryBuilder
 cd $baseDir
@@ -79,6 +87,8 @@ if [ ! -d "$binDir" ]; then
     exit 1
 fi
 
+# TODO(oalexan1): Run the tests as a diferent step in the .yml file.
+
 # Extract the tests. This tarball has both the scripts, test data,
 # and the expected results.
 cd $baseDir
@@ -94,7 +104,7 @@ cd $testDir
 
 # Run the tests. Failed to install pytest, despite trying hard.
 # Just run them manually.
-reportFile=report.txt
+reportFile=$(pwd)/output_test.txt
 rm -f $reportFile
 ans=0
 for d in ss*; do 
@@ -130,6 +140,9 @@ fi
 mkdir -p $packageDir
 # TODO(oalexan1): Consider creating this as a single tar file
 cp -rfv $testDir $packageDir > /dev/null 2>&1
+
+# Save these logs as part of the artifacts
+cp -rfv $out_build_vw $out_build_asp $reportFile $packageDir
 
 # Wipe the extracted tarball so we do not upload it
 # TODO(oalexan1): Consider extracting it to a different location to start with
