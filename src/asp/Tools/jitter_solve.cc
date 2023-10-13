@@ -814,11 +814,10 @@ void calcAnchorPoints(Options                              const  & opt,
   int num_cams = opt.camera_models.size();
   for (int icam = 0; icam < num_cams; icam++) {
     
-    // Use int64 and double to avoid int32 overflow
     vw::Vector2 dims = vw::file_image_size(opt.image_files[icam]);
-    std::int64_t numLines   = dims[1];
-    std::int64_t numSamples = dims[0];
-    std::int64_t extra = opt.num_anchor_points_extra_lines;
+    int numLines   = dims[1];
+    int numSamples = dims[0];
+    int extra = opt.num_anchor_points_extra_lines;
     {
       UsgsAstroLsSensorModel * ls_model
         = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
@@ -827,22 +826,23 @@ void calcAnchorPoints(Options                              const  & opt,
     }
 
     // Find how much image area will be taken by each anchor point  
+    // Convert to double early on to avoid integer overflow
     double area = double(numSamples) * double(numLines + 2 * extra);
     double area_per_point = 0.0;
     if (opt.num_anchor_points_per_image > 0)
       area_per_point = area / double(opt.num_anchor_points_per_image);
     else
       area_per_point = 1024.0 * 1024.0 / double(opt.num_anchor_points_per_tile);
-      
+
     double bin_len = sqrt(area_per_point);
     bin_len = std::max(bin_len, 1.0);
-    std::int64_t lenx = ceil(double(numSamples) / bin_len); lenx = std::max(1L, lenx);
-    std::int64_t leny = ceil(double(numLines + 2 * extra) / bin_len); leny = std::max(1L, leny);
+    int lenx = ceil(double(numSamples) / bin_len); lenx = std::max(1, lenx);
+    int leny = ceil(double(numLines + 2 * extra) / bin_len); leny = std::max(1, leny);
 
-    std::int64_t numAnchorPoints = 0;
-    for (std::int64_t binx = 0; binx <= lenx; binx++) {
+    int numAnchorPoints = 0;
+    for (int binx = 0; binx <= lenx; binx++) {
       double posx = binx * bin_len;
-      for (std::int64_t biny = 0; biny <= leny; biny++) {
+      for (int biny = 0; biny <= leny; biny++) {
         double posy = biny * bin_len - extra;
         
         if (posx > numSamples - 1 || posy < -extra || posy > numLines - 1 + extra) 
