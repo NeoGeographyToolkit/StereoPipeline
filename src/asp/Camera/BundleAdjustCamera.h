@@ -629,8 +629,7 @@ void saveConvergenceAngles(std::string const& conv_angles_file,
                            std::vector<asp::MatchPairStats> const& convAngles,
                            std::vector<std::string> const& imageFiles);
 
-// Save stats of horizontal and vertical errors propagated from cameras
-// to triangulation
+// Save propagated horizontal and vertical errors
 void saveHorizVertErrors(std::string const& horiz_vert_errors_file,
                          std::vector<asp::HorizVertErrorStats> const& horizVertErrors,
                          std::vector<std::string> const& imageFiles);

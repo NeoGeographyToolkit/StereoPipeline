@@ -15,9 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-/// \file point2dem.cc
-///
+// \file point2dem.cc
+//
 
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/OrthoRasterizer.h>
@@ -87,7 +86,7 @@ struct Options : vw::GdalWriteOptions {
   std::string csv_format_str, csv_proj4_str, filter;
   double      search_radius_factor, sigma_factor, default_grid_size_multiplier;
   bool        use_surface_sampling;
-  bool        has_las_or_csv_or_pcd;
+  bool        has_las_or_csv_or_pcd, auto_proj_center;
   Vector2i    max_output_size;
   bool        input_is_projected;
 
@@ -103,7 +102,8 @@ struct Options : vw::GdalWriteOptions {
     max_valid_triangulation_error(0),
     erode_len(0), search_radius_factor(0), sigma_factor(0),
     default_grid_size_multiplier(1.0), use_surface_sampling(false),
-    has_las_or_csv_or_pcd(false), max_output_size(9999999, 9999999), input_is_projected(false){}
+    has_las_or_csv_or_pcd(false), max_output_size(9999999, 9999999), 
+    auto_proj_center(false), input_is_projected(false) {}
 };
 
 void parse_input_clouds_textures(std::vector<std::string> const& files,
@@ -191,11 +191,11 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 
 }
 
-/// Convert any LAS or CSV files to ASP tif files. We do some binning
-/// to make the spatial data more localized, to improve performance.
-/// - We will later wipe these temporary tifs.
+// Convert any LAS or CSV files to ASP tif files. We do some binning
+// to make the spatial data more localized, to improve performance.
+// - We will later wipe these temporary tifs.
 void las_or_csv_or_pcd_to_tifs(Options& opt, cartography::Datum const& datum,
-                               std::vector<std::string> & tmp_tifs){
+                               std::vector<std::string> & tmp_tifs) {
 
   if (!opt.has_las_or_csv_or_pcd)
     return;
@@ -247,7 +247,7 @@ void las_or_csv_or_pcd_to_tifs(Options& opt, cartography::Datum const& datum,
   }
 
   // No tif files exist. Find a reasonable value for the number of rows.
-  if (num_rows == 0){
+  if (num_rows == 0) {
     std::int64_t max_num_pts = 0;
     for (int i = 0; i < num_files; i++){
       std::string file = opt.pointcloud_files[i];
@@ -310,7 +310,7 @@ void las_or_csv_or_pcd_to_tifs(Options& opt, cartography::Datum const& datum,
 }
 
 // TODO: Move this somewhere?
-/// Parses a string containing a list of numbers
+// Parses a string containing a list of numbers
 void split_number_string(const std::string &input, std::vector<double> &output) {
 
   // Get a space delimited string
@@ -365,6 +365,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("utm",        po::value(&opt.utm_zone),                      "Save using a UTM projection with the given zone.")
     ("proj-lat",   po::value(&opt.proj_lat)->default_value(0),    "The center of projection latitude (if applicable).")
     ("proj-lon",   po::value(&opt.proj_lon)->default_value(0),    "The center of projection longitude (if applicable).")
+    ("auto-proj-center", po::bool_switch(&opt.auto_proj_center)->default_value(false),
+     "Automatically compute the projection center, when the projection is stereographic, "
+     "etc. This overrides the values of --proj-lat and --proj-lon.")
     ("proj-scale", po::value(&opt.proj_scale)->default_value(1),  "The projection scale (if applicable).")
     ("false-easting", po::value(&opt.false_easting)->default_value(0),  "The projection false easting (if applicable).")
     ("false-northing", po::value(&opt.false_northing)->default_value(0),  "The projection false northing (if applicable).");
@@ -546,7 +549,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << "Invalid values were provided for outlier removal params.\n");
   }
 
-  if (opt.max_valid_triangulation_error > 0){
+  if (opt.input_is_projected && opt.auto_proj_center)
+    vw_throw(ArgumentErr() << "Cannot use both --input-is-projected and --auto-proj-center.\n");
+  
+  if (opt.max_valid_triangulation_error > 0) {
     // Since the user passed in a threshold, will use that to rm
     // outliers, instead of using the percentage.
     opt.remove_outliers_with_pct = false;
@@ -594,8 +600,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   else if (vm.count("gnomonic"))              opt.projection = GNOMONIC;
   else if (vm.count("lambert-azimuthal"))     opt.projection = LAMBERTAZIMUTHAL;
   else if (vm.count("utm"))                   opt.projection = UTM;
-  else                                        opt.projection = PLATECARREE; // Default projection
-}
+  else                                        opt.projection = PLATECARREE; // Default
+
+  // Sanity check
+  if (opt.auto_proj_center && opt.projection == PLATECARREE)
+    vw::vw_throw(ArgumentErr() << "No projection was set. Cannot use --auto-proj-center.\n");
+    
+} // end function handle_arguments()
 
 template <class ImageT>
 ImageViewRef< PixelGray<float>>
@@ -628,7 +639,7 @@ generate_fsaa_raster(ImageViewBase<ImageT> const& rasterizer, Options const& opt
   return rasterizer_fsaa;
 }
 
-namespace asp{
+namespace asp {
 
   // If the third component of a vector is NaN, mask that vector as invalid
   template<class VectorT>
@@ -691,11 +702,10 @@ namespace asp{
                                                   ErrorToNED(georef));
   }
 
-  /// Write an image to disk while handling some common options.
+  // Write an image to disk while handling some common options.
   template<class ImageT>
   void save_image(Options& opt, ImageT img, GeoReference const& georef,
                   int hole_fill_len, std::string const& imgName){
-
 
     // When hole-filling is used, we need to look hole_fill_len beyond
     // the current block.  If the block size is 256, and hole fill len
@@ -729,8 +739,7 @@ namespace asp{
       vw::cartography::write_gdal_image(output_file, img, georef, opt, tpc);
   } // End function save_image
 
-
-  /// A class for combining the three channels of errors and finding their absolute values.
+  // A class for combining the three channels of errors and finding their absolute values.
   template <class ImageT>
   class CombinedView : public ImageViewBase<CombinedView<ImageT> >
   {
@@ -772,7 +781,6 @@ namespace asp{
       return Vector3f(std::abs(error[0]), std::abs(error[1]), std::abs(error[2]));
     }
 
-    /// \cond INTERNAL
     typedef CombinedView<typename ImageT::prerasterize_type> prerasterize_type;
 
     inline prerasterize_type prerasterize(BBox2i const& bbox) const {
@@ -785,7 +793,6 @@ namespace asp{
     template <class DestT> inline void rasterize(DestT const& dest, BBox2i const& bbox) const {
       vw::rasterize(prerasterize(bbox), dest, bbox);
     }
-    /// \endcond
   };
   template <class ImageT>
   CombinedView<ImageT> combine_channels(double nodata_value,
@@ -801,15 +808,15 @@ namespace asp{
     return CombinedView<ImageT>(nodata_value, image1.impl(), image2.impl(), image3.impl());
   }
 
-  /// Round pixels in given image to multiple of given scale.
-  /// Don't round nodata values.
+  // Round pixels in given image to multiple of given scale.
+  // Don't round nodata values.
   template <class PixelT>
   struct RoundImagePixelsSkipNoData: public vw::ReturnFixedType<PixelT> {
 
     double m_scale, m_nodata;
 
-    RoundImagePixelsSkipNoData(double scale, double nodata) : m_scale(scale), m_nodata(nodata){
-    }
+    RoundImagePixelsSkipNoData(double scale, double nodata): 
+    m_scale(scale), m_nodata(nodata) {}
 
     PixelT operator() (PixelT const& pt) const {
 
@@ -1189,12 +1196,37 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
   opt.out_prefix = base_out_prefix; // Restore the original value
 }
 
+// Set the projection
+void set_projection(Options const& opt, cartography::GeoReference & output_georef) {
+  
+  // This is an error
+  if (!opt.target_srs_string.empty())
+    vw::vw_throw(ArgumentErr()
+                << "The --t_srs option must not be used when setting a projection.\n");
+
+  switch (opt.projection) {
+    case SINUSOIDAL:           output_georef.set_sinusoidal           (opt.proj_lon,                               opt.false_easting, opt.false_northing); break;
+    case MERCATOR:             output_georef.set_mercator             (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+    case TRANSVERSEMERCATOR:   output_georef.set_transverse_mercator  (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+    case ORTHOGRAPHIC:         output_georef.set_orthographic         (opt.proj_lat, opt.proj_lon,                 opt.false_easting, opt.false_northing); break;
+    case STEREOGRAPHIC:        output_georef.set_stereographic        (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+    case OSTEREOGRAPHIC:       output_georef.set_oblique_stereographic(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+    case GNOMONIC:             output_georef.set_gnomonic             (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+    case LAMBERTAZIMUTHAL:     output_georef.set_lambert_azimuthal    (opt.proj_lat, opt.proj_lon,                 opt.false_easting, opt.false_northing); break;
+    case UTM:                  output_georef.set_UTM(opt.utm_zone); break;
+    default: // Handles plate carree
+      break;
+  }
+  
+  return;
+} 
+
 int main(int argc, char *argv[]) {
   Options opt;
   try {
     handle_arguments(argc, argv, opt);
 
-    // Set up the georeferencing information.  We specify everything
+    // Set up the georeferencing information. We specify everything
     // here except for the affine transform, which is defined later once
     // we know the bounds of the orthorasterizer view.  However, we can
     // still reproject the points in the point image without the affine
@@ -1221,20 +1253,9 @@ int main(int argc, char *argv[]) {
 
       if (have_user_datum)
         output_georef.set_datum(user_datum);
-
-      switch (opt.projection) {
-      case SINUSOIDAL:           output_georef.set_sinusoidal           (opt.proj_lon,                               opt.false_easting, opt.false_northing); break;
-      case MERCATOR:             output_georef.set_mercator             (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-      case TRANSVERSEMERCATOR:   output_georef.set_transverse_mercator  (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-      case ORTHOGRAPHIC:         output_georef.set_orthographic         (opt.proj_lat, opt.proj_lon,                 opt.false_easting, opt.false_northing); break;
-      case STEREOGRAPHIC:        output_georef.set_stereographic        (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-      case OSTEREOGRAPHIC:       output_georef.set_oblique_stereographic(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-      case GNOMONIC:             output_georef.set_gnomonic             (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-      case LAMBERTAZIMUTHAL:     output_georef.set_lambert_azimuthal    (opt.proj_lat, opt.proj_lon,                 opt.false_easting, opt.false_northing); break;
-      case UTM:                  output_georef.set_UTM(opt.utm_zone); break;
-      default: // Handles plate carree
-        break;
-      }
+      
+      set_projection(opt, output_georef);
+      
     } else { // The user specified the target srs_string
 
       // Set the srs string into georef.
@@ -1245,8 +1266,8 @@ int main(int argc, char *argv[]) {
     // If the input PROJ.4 string is empty, use the output one. 
     if (!opt.csv_format_str.empty() && opt.csv_proj4_str.empty()) {
       opt.csv_proj4_str = output_georef.overall_proj4_str();
-      std::cout << "The option --csv-proj4 was not specified. Using the output projection "
-                << "when interpreting csv files.\n";
+      vw_out() << "The option --csv-proj4 was not specified. Using the output projection "
+               << "when interpreting csv files.\n";
     }
     
     // Convert any input LAS or CSV files to ASP's point cloud tif format
@@ -1299,7 +1320,13 @@ int main(int argc, char *argv[]) {
     // Forcing the georef object outside its comfort zone is not safe for all projections!
     if (output_georef.overall_proj4_str().find("+proj=aea") == std::string::npos)
       output_georef.set_lon_center(avg_lon < 100);
-
+    
+    if (opt.auto_proj_center) {
+      // Find the median lon lat and reapply this to the georef
+      asp::median_lon_lat(point_image, output_georef, opt.proj_lon, opt.proj_lat);
+      set_projection(opt, output_georef);
+    }
+    
     // Convert xyz points to projected points
     // - The cartesian_to_geodetic call converts invalid (0,0,0,0) points to NaN,
     //   which is checked for in the OrthoRasterizer class.

@@ -435,6 +435,11 @@ vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> con
 // Find the average longitude for a given point image with lon, lat, height values
 double find_avg_lon(vw::ImageViewRef<vw::Vector3> const& point_image);
 
+// Find the median longitude and latitude for a subset of the point cloud
+void median_lon_lat(vw::ImageViewRef<vw::Vector3> const& point_image,
+                    vw::cartography::GeoReference const& georef,
+                    double & lon, double & lat);
+
 std::string get_cloud_type(std::string const& file_name);
   
 // Find the number of channels in the point clouds.

@@ -213,7 +213,6 @@ namespace asp{
     if (!valid)
       vw_throw(ArgumentErr() << "Fatal error reading PCD file: " << m_pcd_file);
   }
-
   
   PcdReader::PcdReader(std::string const & pcd_file)
     : m_pcd_file(pcd_file), m_has_valid_point(false){
@@ -292,7 +291,7 @@ namespace asp{
   /// important that the writer invoking this image be single-threaded,
   /// as we read from the las file sequentially.
   template <class ImageT>
-  class LasOrCsvToTif_Class : public ImageViewBase< LasOrCsvToTif_Class<ImageT> > {
+  class LasOrCsvToTif_Class: public ImageViewBase< LasOrCsvToTif_Class<ImageT>> {
 
     typedef typename ImageT::pixel_type PixelT;
 
@@ -373,7 +372,7 @@ namespace asp{
 
   }; // End class LasOrCsvToTif_Class
 
-} // namespace asp
+} // end namespace asp
 
 //------------------------------------------------------------------------------------------
 // Class CsvConv functions
@@ -1283,20 +1282,37 @@ vw::BBox3 asp::pointcloud_bbox(vw::ImageViewRef<vw::Vector3> const& point_image,
   return result;
 }
 
-// Find the average longitude for a given point image with lon, lat, height values
-double asp::find_avg_lon(ImageViewRef<Vector3> const& point_image){
+// Find the average longitude for a given point image with lon, lat, height values.
+// The computation is done in cartesian coordinates. Then look at the produced
+// x value. That correlates with a hemisphere.
+double asp::find_avg_lon(ImageViewRef<Vector3> const& point_image) {
 
   Stopwatch sw;
   sw.start();
   int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
                                              point_image.rows()))/32.0);
-  if (subsample_amt < 1 )
+  if (subsample_amt < 1)
     subsample_amt = 1;
-  PixelAccumulator<MeanAccumulator<Vector3> > mean_accum;
-  for_each_pixel( subsample(point_image, subsample_amt),
-                  mean_accum,
-                  TerminalProgressCallback("asp","Statistics: ") );
-  Vector3 avg_location = mean_accum.value();
+  
+  ImageViewRef<Vector3> sub_image = subsample(point_image, subsample_amt);
+  
+  // Accumulate valid values
+  Vector3 avg_location(0, 0, 0);
+  double num = 0;
+  for (int32 col = 0; col < sub_image.cols(); col++) {
+    for (int32 row = 0; row < sub_image.rows(); row++) {
+      auto pix = sub_image(col, row);
+      if (pix == Vector3())
+        continue;
+      avg_location += pix;
+      num += 1.0;
+    }
+  }
+  
+  // TODO(oalexan1): What it do if we hit no valid value?
+  if (num > 0)
+    avg_location /= num;
+  
   double avg_lon = avg_location.x() >= 0 ? 0 : 180;
   sw.stop();
   vw_out(DebugMessage,"asp") << "Statistics time: " << sw.elapsed_seconds() << std::endl;
@@ -1304,6 +1320,62 @@ double asp::find_avg_lon(ImageViewRef<Vector3> const& point_image){
   return avg_lon;
 }
 
+// Find the median longitude and latitude for a subset of the point cloud
+void asp::median_lon_lat(vw::ImageViewRef<vw::Vector3> const& point_image,
+                         vw::cartography::GeoReference const& georef,
+                         double & lon, double & lat) {
+
+  vw_out() << "Estimating the median longitude and latitude for the cloud.\n";
+    
+  // Initialize the outputs
+  lon = 0.0; lat = 0.0;
+   
+  // Try to subsample with these amounts
+  std::vector<double> sub = {32.0, 16.0};
+  
+  Stopwatch sw;
+  sw.start();
+
+  // Iterate over sub
+  bool success = false;
+  for (size_t s = 0; s < sub.size(); s++) {
+    
+    int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
+                                               point_image.rows()))/sub[s]);
+    if (subsample_amt < 1)
+      subsample_amt = 1;
+    
+    ImageViewRef<Vector3> sub_image = subsample(point_image, subsample_amt);
+    
+    // Accumulate valid values
+    std::vector<double> lons, lats;
+    for (int32 col = 0; col < sub_image.cols(); col++) {
+      for (int32 row = 0; row < sub_image.rows(); row++) {
+        Vector3 ecef = sub_image(col, row);
+        if (ecef == Vector3())
+          continue;
+        Vector3 llh = georef.datum().cartesian_to_geodetic(ecef);
+        lons.push_back(llh[0]);
+        lats.push_back(llh[1]);
+      }
+    }
+    if (lons.empty() || lats.empty())
+      continue;
+  
+    lon = vw::math::destructive_median(lons);
+    lat = vw::math::destructive_median(lats);
+    success = true;
+    break;
+  }
+  
+  if (!success)
+    vw_throw(ArgumentErr() << "Could not find a valid median longitude and latitude. "
+             << "Check if your cloud is empty.\n");
+    
+  sw.stop();
+  vw_out(DebugMessage,"asp") << "Median longitude and latitude elapsed time: " 
+                             << sw.elapsed_seconds() << std::endl;
+}  
 
 /// Analyze a file name to determine the file type
 std::string asp::get_cloud_type(std::string const& file_name){

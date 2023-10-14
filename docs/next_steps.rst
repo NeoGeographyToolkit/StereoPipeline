@@ -315,17 +315,16 @@ The ``parallel_stereo`` command can also take multiple input images,
 performing multi-view stereo (:numref:`multiview`), though this
 approach is rather discouraged as better results can be obtained with
 bundle adjustment followed by pairwise stereo and merging of DEMs with
-``dem_mosaic``.
+``dem_mosaic`` (:numref:`dem_mosaic`).
 
 Running the GUI frontend
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``stereo_gui`` program is a GUI frontend to
-``parallel_stereo``. It is invoked with the same options as
-``parallel_stereo`` (except for the more specialized ones such as
-``--job-size-h``, etc.). It displays the input images, and makes it
-possible to zoom in and select smaller regions to run stereo on. The
-GUI is described in :numref:`stereo_gui`.
+The ``stereo_gui`` program (:numref:`stereo_gui`) is a GUI frontend to
+``parallel_stereo``. It is invoked with the same options as ``parallel_stereo``
+(except for the more specialized ones such as ``--job-size-h``, etc.). It
+displays the input images, and makes it possible to zoom in and select smaller
+regions to run stereo on. 
 
 .. _cmdline:
 
@@ -424,16 +423,15 @@ additional 190 meter vertical offset (such as the dataset
 ``molaMarsPlanetaryRadius0001.cub`` shipped with ISIS data), which can
 be taken care of with ``image_calc`` (:numref:`image_calc`).
 
-Alternatively, a low-resolution smooth DEM can be obtained by running
-ASP itself as described in previous sections. In such a run, subpixel
-mode may be set to parabola (``subpixel-mode 1``) for speed. To make it
-sufficiently coarse and smooth, the resolution can be set to about 40
-times coarser than either the default ``point2dem`` resolution or the
-resolution of the input images. If the resulting DEM turns out to be
-noisy or have holes, one could change in ``point2dem`` the search radius
-factor, use hole-filling, invoke more aggressive outlier removal, and
-erode pixels at the boundary (those tend to be less reliable).
-Alternatively, holes can be filled with ``dem_mosaic``.
+Alternatively, a low-resolution smooth DEM can be obtained by running ASP itself
+as described in previous sections. In such a run, subpixel mode may be set to
+parabola (``subpixel-mode 1``) for speed. To make it sufficiently coarse and
+smooth, the resolution can be set to about 40 times coarser than either the
+default ``point2dem`` (:numref:`point2dem`) resolution or the resolution of the
+input images. If the resulting DEM turns out to be noisy or have holes, one
+could change in ``point2dem`` the search radius factor, use hole-filling, invoke
+more aggressive outlier removal, and erode pixels at the boundary (those tend to
+be less reliable). Alternatively, holes can be filled with ``dem_mosaic``.
 
 .. _conv_to_ellipsoid:
 
@@ -542,13 +540,15 @@ We used ``--search-radius-factor 5`` to expand the DEM a
 bit, to counteract future erosion at image boundary in stereo due to
 the correlation kernel size. This is optional.
 
-If this terrain is close to the poles, say within 25 degrees of
-latitude, it is advised to use a stereographic projection, centered
-either at the nearest pole, or close to the center of the current DEM.
-Its center's longitude and latitude can be found with
-``gdalinfo -stats``, which can then be passed to ``point2dem`` such as::
+If this terrain is close to the poles, say within 25 degrees of latitude, it is
+advised to use a stereographic projection, centered either at the nearest pole,
+or close to the center of the current DEM. 
 
-     point2dem --stereographic --proj-lon <lon_ctr> --proj-lat <lat_ctr> ...
+The center of this projection can be auto-computed by ``point2dem`` if invoked 
+with the option ``--auto-proj-center``. Or, it can be found in advance
+with ``gdalinfo -stats``, which can then be passed to ``point2dem`` such as::
+
+     point2dem --stereographic --proj-lon <lon_ctr> --proj-lat <lat_ctr> 
 
 By calling ``gdalinfo -proj4``, the PROJ.4 string of the obtained DEM
 can be found, which can be used in mapprojection later, and with the
@@ -919,10 +919,10 @@ tune the parameters to improve the results.
    significantly different absolute ranges of disparity.
 
 Whenever ``parallel_stereo``, ``point2dem``, and other executables are run, they
-create log files in given tool's results directory, containing a copy of
-the configuration file, the command that was run, your system settings,
-and tool's console output. This will help track what was performed so
-that others in the future can recreate your work.
+create log files in given tool's results directory, containing a copy of the
+configuration file, the command that was run, your system settings, and tool's
+console output. This will help track what was performed so that others in the
+future can recreate your work.
 
 Another handy debugging tool is the ``disparitydebug`` program
 (:numref:`disparitydebug`), which allows you to generate viewable
@@ -1166,6 +1166,10 @@ Elevation Model (DEM) from the point cloud file.
 
 The resulting TIFF file is mapprojected and will contain georeference
 information stored as a GeoTIFF header.
+
+The default projection is geographic (latitude and longitude), which 
+is not great at the poles. See :numref:`point2dem` for how to change
+the projection and auto-compute its center, if desired.
 
 The tool will infer the datum and projection from the input images, if
 present. You can explicitly specify a coordinate system (e.g., mercator,

@@ -40,6 +40,10 @@ parallel_stereo (:numref:`parallel_stereo`):
   * For the ``asp_sgm`` and ``asp_mgm`` algorithms allow ``cost-mode`` to
     have the value 3 or 4 only, as other values produce bad results. 
 
+point2dem (:numref:`point2dem`):
+  * Added the option ``--auto-proj-center``, to automatically compute the 
+    projection center for stereographic and other projections. 
+
 stereo_gui (:numref:`stereo_gui`):
   * Can show scattered data with a colorbar and axes 
     (:numref:`scattered_points_colorbar`).

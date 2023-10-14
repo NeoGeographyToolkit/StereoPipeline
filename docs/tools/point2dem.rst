@@ -28,14 +28,27 @@ The obtained DEMs can be colorized or hillshaded
 Examples
 ~~~~~~~~
 
-Create a DEM only::
+When creating an DEM it is very important to pick a projection 
+that is appropriate for the region of interest. The default
+projection is geographic (longitude and latitude), which is not 
+good for regions close to the poles. In such cases, it is best
+to pick a stereographic projection.
 
-    point2dem run/run-PC.tif
+Auto-guess projection center and datum
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+    point2dem --stereographic --auto-proj-center run/run-PC.tif
 
 This creates ``run/run-DEM.tif``, which is a GeoTIFF file, with each
 32-bit floating point pixel value being the height above the datum
 (ellipsoid). The datum is saved in the geoheader and can be seen with
 ``gdalinfo`` (:numref:`gdal_tools`).
+
+In this case the stereographic projection was used, and its center was
+auto-guessed as the median longitude and latitude for the 
+points in the cloud. The grid size was also auto-guessed.
 
 ASP normally auto-guesses the datum, otherwise the option ``-r`` can
 be used. If desired to change the output no-data value (which can also
@@ -45,15 +58,20 @@ If desired to change the range of longitudes from [0, 360] to [-180,
 180], or vice-versa, post-process obtained DEM with ``image_calc``
 (:numref:`image_calc`).
 
-Create a DEM, orthoimage, and intersection error image::
+Orthoimage and error image
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
 
     point2dem run/run-PC.tif -r moon --errorimage \
         --orthoimage run/run-L.tif
 
-This produced the DEM, and also takes the left input image and
-orthographically projects it onto the DEM. The resulting
-``run/run-DRG.tif`` file will be saved as a GeoTIFF image with the
-same geoheader as the DEM.
+This produced the DEM, in the default geographic projection (longitude and
+latitude, which sometimes is problematic).
+
+Then, the left aligned image was used to create an orthoimage, by
+orthographically projecting it onto the DEM. The resulting ``run/run-DRG.tif``
+file will be saved as a GeoTIFF image with the same geoheader as the DEM.
 
 In addition, the file ``run/run-IntersectionErr.tif`` is created,
 based on the 4th band of the ``PC.tif`` file, having the gridded
@@ -66,7 +84,10 @@ Here we have explicitly specified the spheroid (``-r moon``), rather
 than have it inferred automatically. The Moon spheroid will have a
 radius of 1737.4 km.
 
-Example with setting the grid size::
+Custom grid size with geographic projection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
 
     point2dem --tr 0.0001 run/run-PC.tif
 
@@ -79,12 +100,18 @@ automatically, so not specifying ``--tr`` at all, or otherwise use a
 multiple of the automatically determined grid size
 (:numref:`post-spacing`).
 
-Example with stereographic projection (for data close to poles)::
+Polar stereographic projection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
 
      point2dem --stereographic --proj-lon 0 --proj-lat -90 \
        run/run-PC.tif
 
-Example with multiple input clouds::
+Multiple clouds
+^^^^^^^^^^^^^^^
+
+::
 
      point2dem in1.las in2.csv run/run-PC.tif -o combined \
        --dem-spacing 0.001 --nodata-value -32768
@@ -115,7 +142,7 @@ of 3,396,195 m, in the model returned with the ``-r mars`` option, that
 pixel would just be 5 m.
 
 You may want to compare the output to MOLA data. MOLA data is released
-in three ‘flavors,’ namely: Topography, Radius, and Areoid. The MOLA
+in three 'flavors', namely: Topography, Radius, and Areoid. The MOLA
 Topography data product that most people use is just the MOLA Radius
 product with the MOLA Areoid product subtracted. Additionally, it is
 important to note that all of these data products have a reference value
@@ -184,7 +211,7 @@ If you attempt to derive science results from an ASP-produced terrain
 model with the default DEM spacing, expect serious questions from
 reviewers.
 
-Using with LAS or CSV Clouds
+Using with LAS or CSV clouds
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``point2dem`` program can take as inputs point clouds in LAS and CSV
@@ -351,6 +378,11 @@ Command-line options for point2dem
 --proj-lon <float>
     The center of projection longitude (if applicable).
 
+--auto-proj-center
+    Automatically compute the projection center, when the projection is
+    stereographic, etc. This overrides the values of ``--proj-lat`` and
+    ``--proj-lon``. 
+    
 --proj-scale <float>
     The projection scale (if applicable).
 

@@ -77,12 +77,15 @@ Here we assumed that the cameras point towards some planet's surface and
 used the ``nadirpinhole`` session. If this assumption is not true, one
 should use the ``pinhole`` session or the ``--no-datum`` option.
 
-Using uniformly distributed interest points
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Use cases
+~~~~~~~~~
+
+Uniformly distributed interest points
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When different parts of the image have different properties, such as rock vs snow,
 additional work may be needed to ensure interest points are created somewhat
-uniformly. Then, one can use the option ``--matches-per-tile``::
+uniformly. For that, use the option ``--matches-per-tile``::
 
     bundle_adjust image1.tif image2.tif       \
         image1.tsai image2.tsai               \
@@ -94,7 +97,7 @@ uniformly. Then, one can use the option ``--matches-per-tile``::
         -o run_ba/run 
 
 For very large images, the number of interest points and matches per tile (whose
-size is 1024 pixels on the side) should decrease from the above. 
+size is 1024 pixels on the side) should be decreased from the above. 
 
 Controlling where interest points are placed
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -161,6 +164,9 @@ can then be passed directly to stereo::
 
      stereo file1.JPG file2.JPG run_ba/run-file1.tsai \
        run_ba/run-file2.tsai run_stereo/run
+
+When cameras are of CSM type (:numref:`csm`), self-contained optimized
+cameras will be written to disk (:numref:`csm_state`).
 
 The ``bundle_adjust`` program can read camera adjustments from a
 previous run, via ``--input-adjustments-prefix string``. It can also
