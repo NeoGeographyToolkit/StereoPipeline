@@ -106,7 +106,6 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
                                DemOptions& opt,
                                cartography::GeoReference& georef,
                                ImageViewRef<double> const& error_image,
-                               double estim_max_error,
                                std::int64_t * num_invalid_pixels);
 
 } // end namespace asp

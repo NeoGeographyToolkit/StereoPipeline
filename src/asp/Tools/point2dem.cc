@@ -380,7 +380,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     vw::vw_throw(ArgumentErr() << "No projection was set. Cannot use --auto-proj-center.\n");
     
 } // end function handle_arguments()
- 
+
 // Wrapper for do_software_rasterization that goes through all spacing values
 void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_points,
                                              DemOptions& opt,
@@ -439,7 +439,7 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
     else // Write later iterations to a different path.
       opt.out_prefix = base_out_prefix + "_" + vw::num_to_str(i);
     do_software_rasterization(rasterizer, opt, georef, error_image,
-                              estim_max_error, &num_invalid_pixels);
+                              &num_invalid_pixels);
   } // End loop through spacings
 
   opt.out_prefix = base_out_prefix; // Restore the original value
