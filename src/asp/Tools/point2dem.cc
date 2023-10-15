@@ -482,14 +482,12 @@ namespace asp {
   // A class for combining the three channels of errors and finding their absolute values.
   // TODO(oalexan1): Move this to a separate file.
   // TODO(oalexan1): Make this not be a class but rather working with 
-  // ImageViewRef<PixelGray<float>>.
-  template <class ImageT>
-  class CombinedView: public ImageViewBase<CombinedView<ImageT>> {
+  // ImageViewRef<PixelGray<float>>. This will be a big change.
+  class CombinedView: public ImageViewBase<CombinedView> {
     double m_nodata_value;
-    ImageT m_image1;
-    ImageT m_image2;
-    ImageT m_image3;
-    typedef typename ImageT::pixel_type dpixel_type;
+    ImageViewRef<PixelGray<float>> m_image1;
+    ImageViewRef<PixelGray<float>> m_image2;
+    ImageViewRef<PixelGray<float>> m_image3;
 
   public:
 
@@ -498,13 +496,13 @@ namespace asp {
     typedef ProceduralPixelAccessor<CombinedView> pixel_accessor;
 
     CombinedView(double nodata_value,
-                 ImageViewBase<ImageT> const& image1,
-                 ImageViewBase<ImageT> const& image2,
-                 ImageViewBase<ImageT> const& image3):
+                 ImageViewRef<PixelGray<float>> image1,
+                 ImageViewRef<PixelGray<float>> image2,
+                 ImageViewRef<PixelGray<float>> image3):
       m_nodata_value(nodata_value),
-      m_image1(image1.impl()),
-      m_image2(image2.impl()),
-      m_image3(image3.impl()){}
+      m_image1(image1),
+      m_image2(image2),
+      m_image3(image3){}
 
     inline int32 cols  () const { return m_image1.cols(); }
     inline int32 rows  () const { return m_image1.rows(); }
@@ -524,8 +522,7 @@ namespace asp {
       return Vector3f(std::abs(error[0]), std::abs(error[1]), std::abs(error[2]));
     }
 
-    typedef CombinedView<typename ImageT::prerasterize_type> prerasterize_type;
-
+    typedef CombinedView prerasterize_type;
     inline prerasterize_type prerasterize(BBox2i const& bbox) const {
       return prerasterize_type(m_nodata_value,
                                m_image1.prerasterize(bbox),
@@ -537,19 +534,17 @@ namespace asp {
       vw::rasterize(prerasterize(bbox), dest, bbox);
     }
   };
-  template <class ImageT>
-  CombinedView<ImageT> combine_channels(double nodata_value,
-                                        ImageViewBase<ImageT> const& image1,
-                                        ImageViewBase<ImageT> const& image2,
-                                        ImageViewBase<ImageT> const& image3){
-    VW_ASSERT(image1.impl().cols() == image2.impl().cols() &&
-              image2.impl().cols() == image3.impl().cols() &&
-              image1.impl().rows() == image2.impl().rows() &&
-              image2.impl().rows() == image3.impl().rows(),
+  CombinedView combine_channels(double nodata_value,
+                                ImageViewRef<PixelGray<float>> image1,
+                                ImageViewRef<PixelGray<float>> image2,
+                                ImageViewRef<PixelGray<float>> image3) {
+    VW_ASSERT(image1.cols() == image2.cols() &&
+              image2.cols() == image3.cols() &&
+              image1.rows() == image2.rows() &&
+              image2.rows() == image3.rows(),
               ArgumentErr() << "Expecting the error channels to have the same size.");
 
-    return CombinedView<ImageT>(nodata_value, image1.impl(), image2.impl(), 
-                                image3.impl());
+    return CombinedView(nodata_value, image1, image2, image3);
   }
 
   // Round pixels in given image to multiple of given scale.
