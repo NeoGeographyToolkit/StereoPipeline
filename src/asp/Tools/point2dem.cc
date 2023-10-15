@@ -591,7 +591,7 @@ int main(int argc, char *argv[]) {
         proj_points
           = geodetic_to_point         // GDC to XYZ
           (asp::point_image_offset    // Add user coordinate offset
-          (asp::recenter_longitude   // XYZ to GDC, then normalize longitude
+          (asp::recenter_longitude    // XYZ to GDC, then normalize longitude
             (cartesian_to_geodetic(point_image, output_georef),
             avg_lon),
             Vector3(opt.lon_offset, opt.lat_offset, opt.height_offset)
@@ -626,7 +626,8 @@ int main(int argc, char *argv[]) {
     
     // Wipe the temporary files
     for (int i = 0; i < (int)tmp_tifs.size(); i++)
-      if (fs::exists(tmp_tifs[i])) fs::remove(tmp_tifs[i]);
+      if (fs::exists(tmp_tifs[i])) 
+        fs::remove(tmp_tifs[i]);
     
   } ASP_STANDARD_CATCHES;
 
