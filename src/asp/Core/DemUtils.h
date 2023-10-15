@@ -101,6 +101,14 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 void las_or_csv_or_pcd_to_tifs(DemOptions& opt, vw::cartography::Datum const& datum,
                                std::vector<std::string> & tmp_tifs);
 
+// Rasterize a DEM
+void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
+                               DemOptions& opt,
+                               cartography::GeoReference& georef,
+                               ImageViewRef<double> const& error_image,
+                               double estim_max_error,
+                               std::int64_t * num_invalid_pixels);
+
 } // end namespace asp
 
 #endif//__ASP_CORE_DEM_UTILS_H__
