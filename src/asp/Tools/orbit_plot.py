@@ -729,5 +729,3 @@ for row in range(len(orbits)):
 
 plt.tight_layout()
 plt.show()
-
-

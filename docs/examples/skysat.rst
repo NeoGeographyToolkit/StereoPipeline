@@ -238,13 +238,12 @@ Use ``stereo_gui`` to inspect the reprojection errors in the final
    :name: skysat-stereo-example
    :alt: SkySat stereo example
 
-   The colorized bundle adjustment camera reprojection errors
-   (pointmap.csv) overlaid on top of the Copernicus 30 m DEM for Grand
-   Mesa, Colorado, before optimization (left) and after
-   (right). Maximum shade of red is reprojection error of at least 5
-   pixels. The same set of clean interest points was used in both
-   plots. It can be seen that while bundle
-   adjustment changes the cameras very little, it makes a very big
+   The colorized bundle adjustment camera reprojection errors (pointmap.csv)
+   overlaid on top of the Copernicus 30 m DEM for Grand Mesa, Colorado, before
+   optimization (left) and after (right). Plotted with ``stereo_gui``. Maximum
+   shade of red is reprojection error of at least 5 pixels. The same set of
+   clean interest points was used in both plots. It can be seen that while
+   bundle adjustment changes the cameras very little, it makes a very big
    difference in how consistent the cameras become.
 
 The camera positions and orientations (the latter in NED coordinates)

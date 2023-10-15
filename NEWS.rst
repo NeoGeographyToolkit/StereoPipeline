@@ -11,12 +11,12 @@ jitter_solve (:numref:`jitter_solve`):
   * Can use anchor points with frame cameras.
   * Added ``--num-anchor-points-per-tile``. This helps when different
     images have different sizes but want to ensure the same point density.
-  * The roll and yaw constraints no longer assume linescan camera positions and
-    orientations are one-to-one. 
   * Added the option ``--anchor-weight-image`` that is used to limit
     where anchor points are placed.  
-  * Consider the case of a linescan and frame camera rig  
+  * Can handle a linescan and frame camera rig (almost parallel rays) 
     (:numref:`jitter_no_baseline`).
+  * The roll and yaw constraints no longer assume linescan camera positions and
+    orientations are one-to-one. 
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added the ability to refine the camera intrinsics per sensor
@@ -41,8 +41,9 @@ parallel_stereo (:numref:`parallel_stereo`):
     have the value 3 or 4 only, as other values produce bad results. 
 
 point2dem (:numref:`point2dem`):
-  * Added the option ``--auto-proj-center``, to automatically compute the 
-    projection center for stereographic and other projections. 
+  * Added the option ``--auto-proj-center``, to automatically compute the
+    projection center for stereographic and other projections
+    (:numref:`point2dem_auto_proj_center`).
 
 stereo_gui (:numref:`stereo_gui`):
   * Can show scattered data with a colorbar and axes 

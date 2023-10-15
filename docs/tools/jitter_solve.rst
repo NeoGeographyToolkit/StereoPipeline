@@ -1173,8 +1173,11 @@ Here we assumed a minimum triangulation convergence angle of 15 degrees between
 the two sets of cameras (:numref:`stereo_pairs`). See :numref:`pbs_slurm` for
 how to set up the computing nodes needed for ``--nodes-list``.
 
-Solve for jitter with roll and yaw constraints, to ensure movement only for the
-pitch angle:: 
+We could have used a ground constraint above, but since we only need the
+interest points and not the camera poses, it is not necessary.
+
+Solve for jitter with a ground constraint. Use roll and yaw constraints, to
+ensure movement only for the pitch angle:: 
 
     jitter_solve                                 \
         --num-iterations 10                      \
@@ -1206,7 +1209,7 @@ matches with each frame camera image, and there are many such frame camera
 images. A much larger number would be used if we had only a couple of linescan
 camera images and no frame camera images.
 
-Here the initial cameras were not bundle-adjusted and aligned
+The initial cameras were not bundle-adjusted and aligned
 to the reference DEM, as they were good enough. Normally one would
 use them as input to ``jitter_solve`` with the option
 ``--input-adjustments-prefix``.
@@ -1239,21 +1242,30 @@ Solving for jitter with a linescan and frame rig
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In this example we consider a rig that is made of linescan and frame camera.
-They are positioned in the same location and look in the same direction. The
-linescan sensor acquires a single very long image line at a high rate, while the
-frame camera records a rectangular image of much smaller dimensions and at a
-lower rate, with overlap. They both experience the same jitter. The "rigid"
-frame camera images are used to correct the jitter in the rig.
+These sensors are positioned in the same location and look in the same
+direction. The linescan sensor acquires a single very long image line at a high
+rate, while the frame camera records a rectangular image of much smaller
+dimensions and at a lower rate. They both experience the same jitter. 
 
-A straightforward application of the recipe above will fail, as it is not
-possible to triangulate properly the points seen by the two cameras. The
-following adjustments are suggested:
+The end result is a wide and tall linescan image and many smaller frame images
+that overlap with each other and the linescan image. The "rigid" frame camera
+images are used to correct the jitter in the rig.
+
+Synthetic data for this example can be produced as in
+:numref:`jitter_linescan_frame_cam`. The ``sat_sim`` invocations for linescan
+and frame cameras are the same except using different sensor dimensions and
+sensor type.
+
+A straightforward application of the jitter-solving recipe in
+:numref:`jitter_linescan_frame_cam` will fail, as it is not possible to
+triangulate properly the points seen by the two cameras. The following
+adjustments are suggested:
 
 - Use ``--forced-triangulation-distance 500000`` for both bundle adjustment and
-  jitter solving (use here the camera height above the terrain). This will result
-  in triangulated points even when the rays are parallel or even a little
-  divergent (during optimization this point will get refined, so the above value
-  need not be perfectly known). 
+  jitter solving (use here the value of the camera height above the terrain).
+  This will result in triangulated points even when the rays are parallel or
+  even a little divergent (during optimization these points will get refined, so
+  the above value need not be perfectly known). 
 - Instead of ``--heights-from-dem`` use the option ``--reference-dem`` in
   ``jitter_solve``, with associated options ``--reference-dem-weight`` and
   ``--reference-dem-robust-threshold``.  See :numref:`jitter_options` for details.
