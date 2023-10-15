@@ -34,6 +34,8 @@ projection is geographic (longitude and latitude), which is not
 good for regions close to the poles. In such cases, it is best
 to pick a stereographic projection.
 
+.. _point2dem_auto_proj_center:
+
 Auto-guess projection center and datum
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -47,16 +49,12 @@ This creates ``run/run-DEM.tif``, which is a GeoTIFF file, with each
 ``gdalinfo`` (:numref:`gdal_tools`).
 
 In this case the stereographic projection was used, and its center was
-auto-guessed as the median longitude and latitude for the 
+auto-guessed as the median longitude and latitude of the 
 points in the cloud. The grid size was also auto-guessed.
 
 ASP normally auto-guesses the datum, otherwise the option ``-r`` can
 be used. If desired to change the output no-data value (which can also
 be inspected with ``gdalinfo``), use the options ``--nodata-value``.
-
-If desired to change the range of longitudes from [0, 360] to [-180,
-180], or vice-versa, post-process obtained DEM with ``image_calc``
-(:numref:`image_calc`).
 
 Orthoimage and error image
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -99,6 +97,10 @@ value of ``--tr`` will be in meters too, so a reasonable value may be
 automatically, so not specifying ``--tr`` at all, or otherwise use a
 multiple of the automatically determined grid size
 (:numref:`post-spacing`).
+
+If desired to change the range of longitudes from [0, 360] to [-180,
+180], or vice-versa, post-process obtained DEM with ``image_calc``
+(:numref:`image_calc`).
 
 Polar stereographic projection
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -267,14 +269,14 @@ Command-line options for point2dem
 -n, --normalized
     Also write a normalized version of the DEM (for debugging).
 
--o, --output-prefix <string>
+-o, --output-prefix <string (default: "")>
     Specify the output prefix. The output DEM will be 
     ``<output prefix>-DEM.tif``.
 
 --orthoimage
-    Write an orthoimage based on the texture files passed in as
-    inputs (after the point clouds). Filename is 
-    ``<output prefix>-DRG.tif``.
+    Write an orthoimage based on the texture files passed in as inputs (after
+    the point clouds). Must pass ``<output prefix>-L.tif`` when using this
+    option. Produces ``<output prefix>-DRG.tif``.
 
 --errorimage
     Write an additional image, whose values represent the triangulation ray
@@ -297,7 +299,7 @@ Command-line options for point2dem
 --z-offset <float (default: 0)>
     Add a vertical offset (in meters) to the DEM.
 
---rotation-order <string (default: xyz)>
+--rotation-order <string (default: "xyz")>
     Set the order of an Euler angle rotation applied to the 3D
     points prior to DEM rasterization.
 
@@ -310,7 +312,7 @@ Command-line options for point2dem
 --kappa-rotation <float (default: 0)>
     Set a rotation angle kappa.
 
---t_srs <string>
+--t_srs <string (default: "")>
     Specify the output projection (PROJ.4 string). Can also be an
     URL or in WKT format, as for GDAL.
 
@@ -336,7 +338,7 @@ Command-line options for point2dem
     - Mars (alias for D_MARS)
     - Moon (alias for D_MOON)
 
---reference-spheroid <string>
+--reference-spheroid <string (default: "")> 
     This is identical to the datum option.
 
 --semi-major-axis <float (default: 0)>
@@ -358,7 +360,7 @@ Command-line options for point2dem
     Save using an orthographic projection.
 
 --stereographic
-    Save using a stereographic projection.
+    Save using a stereographic projection. See also ``--auto-proj-center``.
 
 --oblique-stereographic
     Save using an oblique stereographic projection.
@@ -372,24 +374,24 @@ Command-line options for point2dem
 --utm <zone>
     Save using a UTM projection with the given zone.
 
---proj-lat <float>
+--proj-lat <float (default: 0)>
     The center of projection latitude (if applicable).
 
---proj-lon <float>
+--proj-lon <float (default: 0)>
     The center of projection longitude (if applicable).
 
 --auto-proj-center
     Automatically compute the projection center, when the projection is
-    stereographic, etc. This overrides the values of ``--proj-lat`` and
-    ``--proj-lon``. 
+    stereographic, etc. Use the median longitude and latitude of cloud points.
+    This overrides the values of ``--proj-lon`` and ``--proj-lat``. 
     
---proj-scale <float>
+--proj-scale <float (default: 1)>
     The projection scale (if applicable).
 
---false-northing <float>
+--false-northing <float (default: 0)>
     The projection false northing (if applicable).
 
---false-easting <float>
+--false-easting <float (default: 0)>
     The projection false easting (if applicable).
 
 -s, --tr, --dem-spacing <float (default: 0)>
@@ -400,13 +402,12 @@ Command-line options for point2dem
     (in quotes) to generate multiple output files.
 
 --search-radius-factor <float>
-    Multiply this factor by the ``--dem-spacing`` value to get the search radius.
-    The DEM height at a given grid point is obtained as a weighted
-    average of heights of all points in the cloud within search
-    radius of the grid point, with the weights given by a Gaussian.
-    If not specified, the default search radius is max(``dem-spacing``,
-    default_dem_spacing), so the default factor is about 1. See also
-    ``--gaussian-sigma-factor``.
+    Multiply this factor by the ``--dem-spacing`` value to get the search
+    radius. The DEM height at a given grid point is obtained as a weighted
+    average of heights of all points in the cloud within search radius of the
+    grid point, with the weights given by a Gaussian. If not specified, the
+    default search radius is max(``dem-spacing``, default_dem_spacing), so the
+    default factor is about 1. See also ``--gaussian-sigma-factor``.
 
 --gaussian-sigma-factor <float (default: 0)>
     The value :math:`s` to be used in the Gaussian
@@ -414,7 +415,7 @@ Command-line options for point2dem
     default is -log(0.25) = 1.3863.  A smaller value will result
     in a smoother terrain.
 
---csv-format <string>
+--csv-format <string (default: "")>
     Specify the format of input CSV files as a list of entries
     column_index:column_type (indices start from 1).  Examples:
     ``1:x 2:y 3:z`` (a Cartesian coordinate system with origin at
@@ -427,7 +428,7 @@ Command-line options for point2dem
     meters). Can also use radius_km for column_type, when it is
     again measured from planet center.
 
---csv-proj4 <string>
+--csv-proj4 <string (default: "")>
     The PROJ.4 string to use to interpret the entries in input CSV
     files, if those files contain Easting and Northing fields. If
     not specified, ``--t_srs`` will be used.
@@ -528,7 +529,7 @@ Command-line options for point2dem
     Set the system cache size, in MB.
 
 --no-bigtiff
-    Tell GDAL to not create bigtiffs.
+    Tell GDAL to not create BigTIFF files.
 
 --tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.

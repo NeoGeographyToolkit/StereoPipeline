@@ -240,9 +240,12 @@ void save_dem(DemOptions & opt,
 
   // The value stored in num_invalid_pixels will get updated as the DEM is being
   // written to disk. That because OrthoRasterizerView has a pointer to it.
-  // This must be reset before each use. This logic is confusing. 
+  // This must be reset before each use. 
+  // TODO(oalexan1): This logic is confusing. Better have two member functions that
+  // first reset and later get this number.
   *num_invalid_pixels = 0;
  
+   // We use the existing texture channel, which is the height.
    ImageViewRef<PixelGray<float>> rasterizer_fsaa
     = generate_fsaa_raster(rasterizer, opt);
 
@@ -296,6 +299,8 @@ void save_dem(DemOptions & opt,
   vw_out() << "Percentage of valid pixels: " 
             << 100.0*(1.0 - invalid_ratio) << "%\n";
  
+  // Wipe after use. This will reset the counter in OrthoRasterizerView.
+  *num_invalid_pixels = 0;
 }
 
 // Save the intersection error

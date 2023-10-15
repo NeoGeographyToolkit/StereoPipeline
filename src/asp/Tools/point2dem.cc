@@ -377,7 +377,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
   // Sanity check
   if (opt.auto_proj_center && opt.projection == PLATECARREE)
-    vw::vw_throw(ArgumentErr() << "No projection was set. Cannot use --auto-proj-center.\n");
+    vw::vw_throw(ArgumentErr() << "No projection was set (such as --stereographic). Cannot use --auto-proj-center.\n");
     
 } // end function handle_arguments()
 
