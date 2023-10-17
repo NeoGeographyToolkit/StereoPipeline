@@ -158,6 +158,11 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
       approx_bounds = m_img_ch1_double.approx_bounds();
     }
     
+    // Ensure the bounds are always distinct
+    if (approx_bounds[0] >= approx_bounds[1] && 
+        approx_bounds[1] > -std::numeric_limits<double>::max())
+      approx_bounds[0] = approx_bounds[1] - 1.0;
+      
     //sw0.stop();
     //vw_out() << "Render time sw0 (seconds): " << sw0.elapsed_seconds() << std::endl;
     

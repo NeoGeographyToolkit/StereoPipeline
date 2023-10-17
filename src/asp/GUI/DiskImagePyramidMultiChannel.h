@@ -95,9 +95,9 @@ namespace vw { namespace gui {
         max_val = std::min(max_val, approx_bounds[1]);
       }
     
-      // A safety measure
-      if (min_val >= max_val)
-        max_val = min_val + 1.0;
+      // Avoid a blank image
+      if (min_val >= max_val && max_val > -std::numeric_limits<double>::max())
+        min_val = max_val - 1.0;
     }
 
     qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
