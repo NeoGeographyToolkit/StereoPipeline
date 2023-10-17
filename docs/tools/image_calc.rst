@@ -71,6 +71,18 @@ Create a mask
 
 Positive values will become 1, and the rest will become 0. 
 
+Create an image with random values
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+    image_calc -c "rand(var_0)" -d float32 \
+        input.tif -o output.tif
+
+The produced values will be between 0 and 1. Other operations
+can be combined with this one. For example, one could
+add a random value multiplied by a constant to the input image.
+
 Add a value to the geoheader metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

@@ -63,6 +63,9 @@ sfs (:numref:`sfs`):
   * Added an example for Kaguya TC (:numref:`sfs_kaguya`).
   * Added the option ``--albedo-robust-threshold``.
   
+image_calc (:numref:`image_calc`):
+  * Added the ability to create a random image.
+     
 misc:
   * Fixed a couple of runtime errors when using conda packages on OSX.
   * Eliminated a procedure for cleaning the name of an input path that was

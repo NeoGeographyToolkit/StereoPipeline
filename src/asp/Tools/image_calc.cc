@@ -15,12 +15,14 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file image_calc.cc
 ///
 
 // Apply specified arithmetic operations to given input images and save
 // the output with desired pixel type.
+
+#include <asp/Core/Common.h>
+#include <asp/Core/Macros.h>
 
 #include <vw/Core/FundamentalTypes.h>
 #include <vw/Core/Log.h>
@@ -36,16 +38,14 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageUtils.h>
 
-#include <asp/Core/Common.h>
-#include <asp/Core/Macros.h>
-
-#include <vector>
-
 #include <boost/program_options.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/phoenix.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/math/special_functions/sign.hpp>
+
+#include <vector>
+#include <random> 
 
 namespace po = boost::program_options;
 
@@ -74,6 +74,7 @@ enum OperationType {
   OP_negate,
   OP_abs,
   OP_sign,
+  OP_rand,
   // BINARY operations
   OP_add,
   OP_subtract,
@@ -90,9 +91,9 @@ enum OperationType {
   OP_eq
 };
 
-std::string getTagName(const OperationType o) {
+std::string getTagName(const OperationType op) {
 
-  switch(o) {
+  switch(op) {
 
     case OP_pass:     return "PASS";
     case OP_number:   return "NUMBER";
@@ -100,6 +101,7 @@ std::string getTagName(const OperationType o) {
     case OP_negate:   return "NEGATE";
     case OP_abs:      return "ABS";
     case OP_sign:     return "SIGN";
+    case OP_rand:     return "RAND";
     case OP_add:      return "ADD";
     case OP_subtract: return "SUBTRACT";
     case OP_divide:   return "DIVIDE";
@@ -143,6 +145,14 @@ T manual_max(const std::vector<T> &vec) {
   return maxVal;
 }
 
+// Initialize the random number generator
+std::mt19937 mt(0);
+
+// Return a random number in the range [0, 1]
+template <typename T>
+T custom_rand_0_1(T val) {
+  return double(mt() - mt.min())/double(mt.max() - mt.min());
+}
 
 // This type represents an operation performed on one or more inputs.
 struct calc_operation {
@@ -232,6 +242,7 @@ struct calc_operation {
         case OP_negate:   return T(-1 * inputResults[0]);
         case OP_abs:      return T(std::abs(inputResults[0])); // regular abs casts to integer.
         case OP_sign:     return T(boost::math::sign(inputResults[0]));
+        case OP_rand:     return T(custom_rand_0_1(inputResults[0]));
 
         // Binary
         if (numInputs < 2)
@@ -323,16 +334,15 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
         ("lte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_lte] % ',' > ')') |
         ("gte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_gte] % ',' > ')') |
         ("eq("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_eq ] % ',' > ')') |
-
         ( ("pow(" > expression > ',' > expression > ')')
-                [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2), at_c<OP>(_val)=OP_power] ) |
+               [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2), at_c<OP>(_val)= OP_power
+                ] ) |
         ("abs(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_abs] > ')') | // Absolute value
         ("sign(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_sign] > ')') | // Sign function
+        ("rand(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_rand] > ')') | // rand function
         ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') | // Something in parenthesis
         ('-' >> factor    [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]    ) | // Negative sign
-        //('+' >> factor    [handler]      );  // Positive sign
         ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable] ) ;
-        //(b_s::ascii::string  [at_c<VAR>(_val)=_1,  at_c<OP>(_val)=OP_variable]    ) ; // A variable name
 
     /*
 
@@ -524,7 +534,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     "The operation to be performed on the input images. "
     "Input images must all be the same size and type. "
     "Currently only single channel images are supported. "
-    "Recognized operators: +, -, /, *, (), pow(), abs(), sign(), min(), max(), var_0, var_1, ..."
+    "Recognized operators: +, -, /, *, (), pow(), abs(), sign(), rand(), min(), max(), var_0, var_1, ..."
     "Use var_n to refer to the pixel of the n-th input image. "
     "Order of operations is parsed with RIGHT priority, use parenthesis "
     "to assure the order you want. "
