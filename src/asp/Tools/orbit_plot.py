@@ -610,30 +610,33 @@ parser.add_argument('--orbit-label', dest = 'orbit_label', default = '',
                     'spaces in between. If not set, will use the orbit id.')
 
 parser.add_argument('--use-ref-cams', dest = 'use_ref_cams', action='store_true',
-                    help='Read from disk reference cameras that determine the satellite '   + \
-                    'orientation. This assumes the first dataset was created with sat_sim ' + \
-                    'with the option --save-ref-cams. Otherwise do not use this option. '   + \
-                    'In that case the satellite orientation is estimated based on '         + \
-                    'camera positions.') 
+                    help='Read from disk reference cameras that determine the satellite '  + \
+                    'orientation. This assumes the first dataset was created with '        + \
+                    'sat_sim with the option --save-ref-cams. Otherwise do not use '       + \
+                    'this option. In that case the satellite orientation is estimated '    + \
+                    'based on camera positions.') 
 
 parser.add_argument('--subtract-line-fit', dest = 'subtract_line_fit', action='store_true',
                     help='If set, subtract the best line fit from the curves being plotted.')
 
 parser.add_argument('--num-cameras',  dest='num_cameras', type=int, default = -1,
-                    help='Plot only the first this many cameras from each orbital '         + \
+                    help='Plot only the first this many cameras from each orbital '        + \
                     'sequence. By default, plot all of them.')
 
 parser.add_argument('--trim-ratio',  dest='trim_ratio', type=float, default = 0.0,
-                    help='Trim ratio. Given a value between 0 and 1 (inclusive), '          + \
-                    'remove this fraction of camera poses from each sequence, with half '   + \
-                    'of this amount for poses at the beginning and half at the end of '     + \
-                    'the sequence. This is used only for linescan cameras, to not plot '    + \
-                    'camera poses beyond image lines. For cameras created with sat_sim, '   + \
+                    help='Trim ratio. Given a value between 0 and 1 (inclusive), '         + \
+                    'remove this fraction of camera poses from each sequence, with half '  + \
+                    'of this amount for poses at the beginning and half at the end of '    + \
+                    'the sequence. This is used only for linescan cameras, to not plot '   + \
+                    'camera poses beyond image lines. For cameras created with sat_sim, '  + \
                     'a value of 0.5 should be used.')
 
 parser.add_argument('--figure-size', dest = 'figure_size', default = '15,15',
-                    help='Specify the width and height of the figure having the plots, '    + \
+                    help='Specify the width and height of the figure having the plots, '   + \
                     'in inches. Use two numbers with comma as separator (no spaces).')
+
+parser.add_argument('--title', dest = 'title', default = '',
+                    help='Set this as the figure title, to be shown on top of all plots.')
 
 parser.add_argument('--line-width', dest = 'line_width', type=float, default = 1.5,
                     help='Line width for the plots.')
@@ -726,6 +729,10 @@ plt.rc('figure', titlesize = fs) # fontsize of the figure title
 # Plot each row in the figure
 for row in range(len(orbits)):
   plot_row(ax, row, orbits, origPrefix, optPrefix, orbit_labels, origTag, optTag, options)
+
+# Show a title if set
+if options.title != "":
+    f.suptitle(options.title, fontsize=fs)
 
 plt.tight_layout()
 plt.show()

@@ -230,6 +230,9 @@ Command-line options
     Specify the width and height of the figure having the plots, in inches. Use
     two numbers with comma as separator (no spaces).
 
+--title <string (default: "")>
+    Set this as the figure title, to be shown on top of all plots.
+    
 --line-width <float (default: 1.5)>
     Line width for the plots.
 
