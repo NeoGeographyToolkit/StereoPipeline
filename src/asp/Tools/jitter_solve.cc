@@ -528,10 +528,6 @@ void save_residuals(std::string const& residual_prefix,
         if ((int)isAnchor != pass) 
           continue;
 
-        if (weight != opt.anchor_weight)
-          vw::vw_throw(vw::ArgumentErr() 
-                       << "Expecting the weight to equal the anchor weight.\n");
-        
         // Norm of pixel residual
         double norm = norm_2(Vector2(residuals[ires + 0] / weight_per_residual[ires + 0],
                                      residuals[ires + 1] / weight_per_residual[ires + 1]));
@@ -573,7 +569,6 @@ void save_residuals(std::string const& residual_prefix,
 
   return;
 }
-
 
 // Calc the time of first image line, last image line, elapsed time
 // between these lines, and elapsed time per line.  This assumes a

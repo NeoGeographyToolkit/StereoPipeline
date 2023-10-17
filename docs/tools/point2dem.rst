@@ -110,6 +110,9 @@ Polar stereographic projection
      point2dem --stereographic --proj-lon 0 --proj-lat -90 \
        run/run-PC.tif
 
+Other projections are supported as well, such as sinusoidal, Mercator, etc. The
+full list is below.
+
 Multiple clouds
 ^^^^^^^^^^^^^^^
 
@@ -236,11 +239,11 @@ Unless the output projection is explicitly set when invoking
 For LAS or CSV clouds it is not possible to generate intersection error
 maps or ortho images.
 
-For CSV point clouds, the option ``--csv-format`` must be set. If such a
-cloud contains easting, northing, and height above datum, the option
-``--csv-proj4`` containing a PROJ.4 string needs to be specified to
-interpret this data (if the PROJ.4 string is set, it will be also used
-for output DEMs, unless ``--t_srs`` is specified).
+For CSV point clouds, the option ``--csv-format`` must be set. If such a cloud
+contains easting, northing, and height above datum, the option ``--csv-proj4``
+containing a PROJ.4 string needs to be specified to interpret this data (if the
+PROJ.4 string is set, it will be also used for output DEMs, unless ``--t_srs``
+is specified).
 
 Output statistics
 ~~~~~~~~~~~~~~~~~

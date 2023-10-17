@@ -83,7 +83,7 @@ void calcEcefTrajPtAlongAcross(vw::Vector3 const& first_proj,
                                vw::Vector3 & P,
                                vw::Vector3 & along,
                                vw::Vector3 & across) {
-
+  
   // Compute the point on the trajectory, in projected coordinates
   vw::Vector3 proj_pt = first_proj * (1.0 - t) + last_proj * t;
   asp::calcEcefAlongAcross(dem_georef, delta, proj_along, proj_across, proj_pt,
@@ -955,7 +955,7 @@ void genPinholeCameras(SatSimOptions       const & opt,
 
   return;
 }
-
+    
 // Bring crops in memory. It greatly helps with multi-threading speed.  
 // This function is used only for small tiles, to avoid running out of memory
 // (which did happen).

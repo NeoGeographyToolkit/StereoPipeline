@@ -23,19 +23,19 @@
 #include <vw/Image/InpaintView.h>
 
 #include <boost/filesystem.hpp>
-
 namespace fs = boost::filesystem;
 
 // Moved here some logic from DemUtils.cc to speed up compilation.
 
 using namespace vw;
+
 namespace asp {
 
 // Write an image to disk while handling some common options.
 template<class ImageT>
 void save_image(DemOptions & opt, ImageT img, vw::cartography::GeoReference const& georef,
                 int hole_fill_len, std::string const& imgName) {
-
+  
   // When hole-filling is used, we need to look hole_fill_len beyond
   // the current block.  If the block size is 256, and hole fill len
   // is big, like 512 or 1024, we end up processing a huge block
@@ -98,7 +98,7 @@ struct RoundImagePixelsSkipNoData: public vw::ReturnFixedType<PixelT> {
 
 // If the third component of a vector is NaN, mask that vector as invalid
 template<class VectorT>
-struct NaN2Mask: public ReturnFixedType< PixelMask<VectorT> > {
+struct NaN2Mask: public ReturnFixedType<PixelMask<VectorT>> {
   NaN2Mask(){}
   PixelMask<VectorT> operator() (VectorT const& vec) const {
     if (boost::math::isnan(vec.z()))
@@ -280,6 +280,7 @@ void save_dem(DemOptions & opt,
   sw2.stop();
   vw_out(DebugMessage,"asp") << "DEM render time: " << sw2.elapsed_seconds() << ".\n";
 
+  // num_invalid_pixels was updated as the DEM was written.
   double num_invalid_pixelsD = *num_invalid_pixels;
 
   // This is to compensate for the fact that for fsaa > 1 we use a
@@ -353,7 +354,7 @@ void save_intersection_error(DemOptions & opt,
 void save_stddev(DemOptions & opt,
                   vw::cartography::GeoReference const& georef,
                   asp::OrthoRasterizerView& rasterizer) {
-
+  
   int num_channels = asp::num_channels(opt.pointcloud_files);
   
   double rounding_error = 0.0;

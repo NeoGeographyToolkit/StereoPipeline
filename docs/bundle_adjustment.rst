@@ -633,8 +633,8 @@ intrinsics, and ``pc_align`` (:numref:`pc_align`) was used later for individual
 alignment. This is not preferable, in general. It was tricky however to find
 many images with a lot of overlap, so this had to make do.
 
-Initial bundle adjustment
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Initial bundle adjustment with fixed intrinsics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Put the image and camera names in plain text files named ``images.txt`` and
 ``cameras.txt``. These must be in one-to-one correspondence, and with one image
@@ -914,19 +914,21 @@ and with any holes oriented clockwise (:numref:`plot_poly`). Save this shape as
 ``poly.shp``, and then run::
 
     cp georeferenced_image.tif aux_image.tif
-    gdal_rasterize -burn -32768 poly.shp aux_image.tif
+    gdal_rasterize -i -burn -32768 poly.shp aux_image.tif
 
+This will keep the data inside the polygons and set the data outside to this value.
 The value to burn should be negative and smaller than any valid pixel value in
-the image. The ``-i`` option can reverse the area to burn. 
+the image. To keep the data outside the polygons, omit the ``-i`` option.
 
 Then, create a mask of valid values using ``image_calc`` (:numref:`image_calc`),
 as follows::
 
-    image_calc -c "sign(var_0)" aux_image.tif -o weight.tif
+    image_calc -c "max(sign(var_0), 0)" \
+     --output-nodata-value var_0        \
+     aux_image.tif -o weight.tif
 
-Examine the obtained image in ``stereo_gui`` and click on various pixels. Pixels
-inside the polygons should be either non-positive or nodata, and pixels outside
-should have the value 1.
+Examine the obtained image in ``stereo_gui`` and click on various pixels to
+inspect the values. 
 
 If the image does not have positive values to start with, those values
 can be first shifted up with ``image_calc``. 
