@@ -212,6 +212,11 @@ individually-normalize (default = false)
     utilities. This provides the best possible input to the stereo
     pipeline and yields the best stereo matching results.
 
+skip-image-normalization
+    Skip the step of normalizing the values of input images and removing
+    nodata-pixels. Create instead symbolic links to original images. This is a
+    speedup option for mapprojected input images.
+          
 nodata-value (default = none)
     Pixels with values less than or equal to this number are treated as
     no-data. This overrides the nodata values from input images.
