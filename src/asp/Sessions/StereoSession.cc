@@ -297,9 +297,11 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
                                                  image_file);
   
   if (camera_file == "") // No camera file provided, use the image file.
-    m_camera_model[image_cam_pair] = load_camera_model(image_file, image_file, pixel_offset);
+    m_camera_model[image_cam_pair]
+     = load_camera_model(image_file, image_file, pixel_offset);
   else // Camera file provided
-    m_camera_model[image_cam_pair] = load_camera_model(image_file, camera_file, pixel_offset);
+    m_camera_model[image_cam_pair] 
+    = load_camera_model(image_file, camera_file, pixel_offset);
 
   return m_camera_model[image_cam_pair];
 }
@@ -368,7 +370,8 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   
   // Generate aligned versions of the input images according to the
   // options.
-  vw_out() << "\t--> Applying alignment method: " << stereo_settings().alignment_method << "\n";
+  vw_out() << "\t--> Applying alignment method: "
+           << stereo_settings().alignment_method << "\n";
   if (stereo_settings().alignment_method == "epipolar") {
     
     epipolar_alignment(left_masked_image, right_masked_image, ext_nodata,  
@@ -689,7 +692,7 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
   return false; // don't exit early
 }
 
-void StereoSession::read_bathy_masks(float & left_bathy_nodata,  float & right_bathy_nodata, 
+void StereoSession::read_bathy_masks(float & left_bathy_nodata, float & right_bathy_nodata, 
                                      vw::ImageViewRef<vw::PixelMask<float>> & left_bathy_mask,
                                      vw::ImageViewRef<vw::PixelMask<float>> & right_bathy_mask) {
   

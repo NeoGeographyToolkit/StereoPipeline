@@ -145,9 +145,11 @@ Hillshaded images can also be created with the ``hillshade`` tool
 Displaying colorized images, with a colorbar and axes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``stereo_gui`` can have images be colorized on-the-fly
-by mapping intensities to colors of a given colormap. The results
-are be plotted with a colorbar and axes (with ticks). 
+``stereo_gui`` can have images be colorized on-the-fly by mapping intensities to
+colors of a given colormap. The results are plotted with a colorbar and axes
+(with ticks). 
+
+CSV files can be shown with a colorbar as well.
 
 An example invocation is as follows::
 

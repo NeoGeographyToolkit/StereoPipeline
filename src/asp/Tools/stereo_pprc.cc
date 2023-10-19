@@ -39,7 +39,7 @@ using namespace vw;
 using namespace asp;
 
 // Invalidate pixels < threshold
-struct MaskAboveThreshold: public ReturnFixedType< PixelMask<uint8> > {
+struct MaskAboveThreshold: public ReturnFixedType<PixelMask<uint8>> {
   double m_threshold;
   MaskAboveThreshold(double threshold): m_threshold(threshold){}
   PixelMask<uint8> operator() (PixelGray<float> const& pix) const {
@@ -51,9 +51,9 @@ struct MaskAboveThreshold: public ReturnFixedType< PixelMask<uint8> > {
 };
 template <class ImageT>
 UnaryPerPixelView<ImageT, MaskAboveThreshold>
-inline mask_above_threshold( ImageViewBase<ImageT> const& image, double threshold ) {
-  return UnaryPerPixelView<ImageT, MaskAboveThreshold>( image.impl(),
-                                                        MaskAboveThreshold(threshold) );
+inline mask_above_threshold(ImageViewBase<ImageT> const& image, double threshold) {
+  return UnaryPerPixelView<ImageT, MaskAboveThreshold>(image.impl(),
+                                                        MaskAboveThreshold(threshold));
 }
 
 struct BlobHolder {
@@ -63,16 +63,16 @@ struct BlobHolder {
   boost::shared_ptr<vw::BlobIndexThreaded> m_blobPtr;
 
   // Member function which does the hole-filling.
-  ImageViewRef< PixelMask<uint8> > mask_and_fill_holes( ImageViewRef< PixelGray<float> > const& img,
-                                                        double threshold );
+  ImageViewRef<PixelMask<uint8>> 
+  mask_and_fill_holes(ImageViewRef<PixelGray<float>> const& img, double threshold);
 };
 
 /// Create the mask of pixels above threshold. Fix any holes in it.
-ImageViewRef< PixelMask<uint8> >
-BlobHolder::mask_and_fill_holes( ImageViewRef< PixelGray<float> > const& img,
+ImageViewRef<PixelMask<uint8>>
+BlobHolder::mask_and_fill_holes( ImageViewRef<PixelGray<float>> const& img,
                                  double threshold ){
 
-  ImageViewRef< PixelMask<uint8> > thresh_mask = mask_above_threshold(img, threshold);
+  ImageViewRef<PixelMask<uint8>> thresh_mask = mask_above_threshold(img, threshold);
   int max_area = 0; // fill arbitrarily big holes
   bool use_grassfire = false; // fill with default value
   PixelMask<uint8> default_inpaint_val = uint8(255);
@@ -141,7 +141,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   // It could be made to work, but it is an obscure scenario not
   // worth testing.
   if (skip_img_norm && opt.session->do_bathymetry()) 
-    vw_throw( ArgumentErr() << "\nCannot do bathymery when skipping image normalization.\n");
+    vw_throw( ArgumentErr() 
+             << "\nCannot do bathymetry when skipping image normalization.\n");
 
   // Need to also write the transformed bathy masks to disk, those
   // will be used in stereo_tri.
@@ -150,15 +151,15 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                      left_image_file, right_image_file);
   else // Perform image normalization
     opt.session->preprocessing_hook(adjust_left_image_size,
-                                        opt.in_file1,    opt.in_file2,
-                                        left_image_file, right_image_file);
+                                    opt.in_file1,    opt.in_file2,
+                                    left_image_file, right_image_file);
 
   boost::shared_ptr<DiskImageResource>
     left_rsrc (vw::DiskImageResourcePtr(left_image_file)),
     right_rsrc(vw::DiskImageResourcePtr(right_image_file));
 
   // Load the normalized images.
-  DiskImageView<PixelGray<float>> left_image (left_rsrc ),
+  DiskImageView<PixelGray<float>> left_image (left_rsrc),
                                   right_image(right_rsrc);
 
   // If we crop the images, we must always rebuild the masks
@@ -187,8 +188,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       rebuild = true;
     }else{
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
-      DiskImageView<PixelGray<uint8> > testa(left_mask_file );
-      DiskImageView<PixelGray<uint8> > testb(right_mask_file);
+      DiskImageView<PixelGray<uint8>> testa(left_mask_file );
+      DiskImageView<PixelGray<uint8>> testb(right_mask_file);
       vw_settings().reload_config();
     }
   } catch (vw::IOErr const& e) {
@@ -208,21 +209,20 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   bool  has_nodata    = true;
   float output_nodata = -32768.0;
 
-
   if (!rebuild) {
     vw_out() << "\t--> Using cached masks.\n";
   }else{
 
-    vw_out() << "\t--> Generating image masks... \n";
+    vw_out() << "\t--> Generating image masks.\n";
 
     Stopwatch sw;
     sw.start();
 
-    ImageViewRef< PixelMask<uint8> > left_mask
+    ImageViewRef<PixelMask<uint8>> left_mask
       = copy_mask(constant_view(uint8(255),
                                 left_image.cols(), left_image.rows()),
                   asp::threaded_edge_mask(left_image,0,0,1024));
-    ImageViewRef< PixelMask<uint8> > right_mask
+    ImageViewRef<PixelMask<uint8>> right_mask
       = copy_mask(constant_view(uint8(255),
                                 right_image.cols(), right_image.rows() ),
                   asp::threaded_edge_mask(right_image,0,0,1024));
@@ -262,7 +262,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     }
     if (!std::isnan(nodata_fraction)){
       // Declare a fixed proportion of low-value pixels to be no-data.
-      math::CDFAccumulator< PixelGray<float> > left_cdf (1024, 1024),
+      math::CDFAccumulator<PixelGray<float>> left_cdf (1024, 1024),
                                                right_cdf(1024, 1024);
       for_each_pixel(left_image,  left_cdf );
       for_each_pixel(right_image, right_cdf);
@@ -274,9 +274,9 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     BlobHolder LB, RB;
     // TODO(oalexan1): Wipe this code.
     if ( !std::isnan(left_threshold) && !std::isnan(right_threshold) ){
-      ImageViewRef< PixelMask<uint8> > left_thresh_mask
+      ImageViewRef<PixelMask<uint8>> left_thresh_mask
         = LB.mask_and_fill_holes(left_image,  left_threshold);
-      ImageViewRef< PixelMask<uint8> > right_thresh_mask
+      ImageViewRef<PixelMask<uint8>> right_thresh_mask
         = RB.mask_and_fill_holes(right_image, right_threshold);
       left_mask  = intersect_mask(left_mask,  left_thresh_mask );
       right_mask = intersect_mask(right_mask, right_thresh_mask);
@@ -321,14 +321,14 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     vw_out() << "Writing masks: " << left_mask_file << ' ' << right_mask_file << ".\n";
     if (has_left_georef && has_right_georef && !opt.input_dem.empty()){
       // Left image mask transformed into right coordinates
-      ImageViewRef< PixelMask<uint8> > warped_left_mask
+      ImageViewRef<PixelMask<uint8>> warped_left_mask
         = crop(vw::cartography::geo_transform
                (left_mask, left_georef, right_georef,
                 ConstantEdgeExtension(),NearestPixelInterpolation()
                ),
                bounding_box(right_mask));
       // Right image mask transformed into left coordinates
-      ImageViewRef< PixelMask<uint8> > warped_right_mask
+      ImageViewRef<PixelMask<uint8>> warped_right_mask
         = crop(vw::cartography::geo_transform
                (right_mask, right_georef, left_georef,
                 ConstantEdgeExtension(), NearestPixelInterpolation()
@@ -387,8 +387,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       rebuild = true;
     }else{
       // This confusing try catch is to see if the subsampled images actually have content.
-      DiskImageView<PixelGray<float> > testl (lsub );
-      DiskImageView<PixelGray<float> > testr (rsub );
+      DiskImageView<PixelGray<float>> testl (lsub );
+      DiskImageView<PixelGray<float>> testr (rsub );
       DiskImageView<uint8>             testlm(lmsub);
       DiskImageView<uint8>             testrm(rmsub);
       vw_out() << "\t--> Using cached subsampled images.\n";
@@ -523,7 +523,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
     ImageViewRef<PixelMask<PixelGray<float>>> left_masked_image
       = create_mask_less_or_equal(left_image, left_no_data_value);
-    ImageViewRef< PixelMask<PixelGray<float>>> right_masked_image
+    ImageViewRef<PixelMask<PixelGray<float>>> right_masked_image
       = create_mask_less_or_equal(right_image, right_no_data_value); 
 
     Vector6f left_stats  = gather_stats(pixel_cast<PixelMask<float>>(left_masked_image), 

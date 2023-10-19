@@ -72,7 +72,8 @@ SemiGlobalMatcher::SgmSubpixelMode get_sgm_subpixel_mode() {
 }
 
 // Read the search range from D_sub, and scale it to the full image
-void read_search_range_from_D_sub(std::string const& d_sub_file, ASPGlobalOptions const& opt){
+void read_search_range_from_D_sub(std::string const& d_sub_file, 
+                                  ASPGlobalOptions const& opt){
 
   // No D_sub is generated or should be used for seed mode 0.
   if (stereo_settings().seed_mode == 0)
@@ -621,7 +622,8 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     
     // Load IP from disk if they exist, or else compute them.
     std::string match_filename;
-    load_or_compute_ip(opt.session->left_cropped_image(), opt.session->right_cropped_image(),
+    load_or_compute_ip(opt.session->left_cropped_image(), 
+                       opt.session->right_cropped_image(),
                        opt.cam_file1, opt.cam_file2, opt.out_prefix, opt.session,
                        // Output
                        match_filename);

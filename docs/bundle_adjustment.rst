@@ -278,7 +278,7 @@ If desired, these csv files can be converted to a DEM with
      --csv-format 1:lon,2:lat,4:height_above_datum
 
 then one can look at their statistics, also have them colorized, and
-viewed in ``stereo_gui``.
+viewed in ``stereo_gui`` (:numref:`plot_csv`).
 
 This file also shows how often each feature is seen in the images, so,
 if three images are present, hopefully many features will be seen three
@@ -804,6 +804,7 @@ documentation of all options above.
    some ridges having been missed). Those do not affect the optimization. Using
    mapprojected images would have helped with this. The ultimate check will be
    the comparison with LOLA RDR (:numref:`kaguya_intrinsics_alignment_diff`).
+   Plotted with ``stereo_gui`` (:numref:`plot_csv`).
 
 Recreation of the stereo DEMs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -872,7 +873,7 @@ KaguyaTC is already reasonably well-aligned.
    The signed difference between aligned stereo DEMs and LOLA RDR before (top)
    and after (bottom) refinement of distortion. (Blue = -20 meters, red = 20
    meters.) It can be seen that the warping of the DEMs due to distortion is much
-   reduced.
+   reduced. Plotted with ``stereo_gui`` (:numref:`plot_csv`).
 
 .. _custom_ip:
 
