@@ -288,24 +288,22 @@ void orbitInterpExtrap(UsgsAstroLsSensorModel const * ls_model,
 }
 
 // See documentation in CsmUtils.h
-void populateCsmLinescan(int                          num_cams_in_image,         
-                      double                                orbit_len, 
-                      double                                velocity,
-                      double                                focal_length,
-                      vw::Vector2                   const & detector_origin,
-                      vw::Vector2i                  const & image_size,
-                      vw::cartography::Datum        const & datum, 
-                      std::string                   const & sensor_id, 
-                      std::map<int, vw::Vector3>    const & positions,
-                      std::map<int, vw::Matrix3x3>  const & cam2world,
-                      // Outputs
-                      asp::CsmModel & model) {
+void populateCsmLinescan(double first_line_time, double dt_line, 
+                         double t0_ephem, double dt_ephem,
+                         double t0_quat, double dt_quat, 
+                         double focal_length,
+                         vw::Vector2                  const & detector_origin,
+                         vw::Vector2i                 const & image_size,
+                         vw::cartography::Datum       const & datum, 
+                         std::string                  const & sensor_id, 
+                         std::map<int, vw::Vector3>   const & positions,
+                         std::map<int, vw::Matrix3x3> const & cam2world,
+                         // Outputs
+                         asp::CsmModel                      & model) {
   
   // Sanity checks
   if (positions.size() != cam2world.size())
     vw_throw(vw::ArgumentErr() << "Expecting as many positions as orientations.\n");
- if (num_cams_in_image <= 0)
-    vw_throw(vw::ArgumentErr() << "Expecting positive number of cameras.\n");
     
   // Do not use a precision below 1.0-e8 as then the linescan model will return junk.
   model.m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
@@ -352,58 +350,34 @@ void populateCsmLinescan(int                          num_cams_in_image,
   ls_model->m_detectorSampleSumming  = 1.0;
   ls_model->m_startingDetectorSample = (detector_origin[0] - 0.5);
 
-  // Set the time. The first image line time is 0. The last image line time will
-  // depend on distance traveled and speed. We can have camera samples before
-  // the first and after the last image line. 
-  double beg_t = 0.0;
-  double end_t = orbit_len / velocity;
-  double dt = (end_t - beg_t) / (image_size[1] - 1.0);
+  // Set the time 
   ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
-  ls_model->m_intTimeStartTimes.push_back(beg_t);
-  ls_model->m_intTimes.push_back(dt);
+  ls_model->m_intTimeStartTimes.push_back(first_line_time);
+  ls_model->m_intTimes.push_back(dt_line); // time between lines
 
-  // Positions and velocities. Note how, as above, there are more positions than
-  // num_cams_in_image, as they extend beyond orbital segment. So care is needed
-  // below. Time is 0 when we reach the first image line, and it is end_t at the
-  // last line. Positions before that have negative time. Time at position with
-  // index i is m_t0Ephem + i*m_dtEphem, if index 0 is for the earliest postion,
-  // but that is way before the orbital segment starting point which is the
-  // first image line.
-  int beg_pos_index = positions.begin()->first; // can be negative
-  if (beg_pos_index > 0)
-    vw::vw_throw(vw::ArgumentErr() << "First position index must be non-positive.\n");
+  // Positions and velocities 
+  ls_model->m_t0Ephem = t0_ephem;
+  ls_model->m_dtEphem = dt_ephem;
   ls_model->m_numPositions = 3 * positions.size(); // concatenate all coordinates
-  ls_model->m_dtEphem = (end_t - beg_t) / (num_cams_in_image - 1.0); // care here
-  ls_model->m_t0Ephem = beg_t + beg_pos_index * ls_model->m_dtEphem; // care here
-
   ls_model->m_positions.resize(ls_model->m_numPositions);
   ls_model->m_velocities.resize(ls_model->m_numPositions);
+  int index = 0;
   for (auto pos_it = positions.begin(); pos_it != positions.end(); pos_it++) {
-    int index = pos_it->first - beg_pos_index; // so we can start at 0
     auto ctr = pos_it->second;
     for (int coord = 0; coord < 3; coord++) {
       ls_model->m_positions [3*index + coord] = ctr[coord];
       ls_model->m_velocities[3*index + coord] = 0.0; // should not be used
     }
+    index++;
   }
 
-  // Orientations. Care with defining dt as above.
-  int beg_quat_index = cam2world.begin()->first;
-  if (beg_quat_index > 0)
-    vw::vw_throw(vw::ArgumentErr() << "First orientation index must be non-positive.\n");
-  if (beg_pos_index != beg_quat_index)
-    vw::vw_throw(vw::ArgumentErr() 
-      << "First position index must equal first orientation index.\n");
-      
+  // Orientations
   ls_model->m_numQuaternions = 4 * cam2world.size();
-  ls_model->m_dtQuat = (end_t - beg_t) / (num_cams_in_image - 1.0);
-  ls_model->m_t0Quat = beg_t + beg_quat_index * ls_model->m_dtQuat;
-
+  ls_model->m_t0Quat = t0_quat;
+  ls_model->m_dtQuat = dt_quat;
   ls_model->m_quaternions.resize(ls_model->m_numQuaternions);
+  index = 0;
   for (auto quat_it = cam2world.begin(); quat_it != cam2world.end(); quat_it++) {
-    int index = quat_it->first - beg_quat_index; // so we can start at 0
-
-    // Find the quaternion at this index.
     auto c2w = quat_it->second;
     double x, y, z, w;
     asp::matrixToQuaternion(c2w, x, y, z, w);
@@ -414,6 +388,7 @@ void populateCsmLinescan(int                          num_cams_in_image,
     ls_model->m_quaternions[4*index + coord] = y; coord++;
     ls_model->m_quaternions[4*index + coord] = z; coord++;
     ls_model->m_quaternions[4*index + coord] = w; coord++;
+    index++;
   }
 
   // Re-creating the model from the state forces some operations to

@@ -71,7 +71,7 @@ void PinLinescanTest(SatSimOptions                const & opt,
   
     double line = (opt.image_size[1] - 1.0) * i / std::max((positions.size() - 1.0), 1.0);
   
-    // Need care here
+    // Need care here. ls_pix is on the line.
     vw::Vector2 pin_pix(opt.optical_center[0], opt.optical_center[1]);
     vw::Vector2 ls_pix (opt.optical_center[0], line);
 
@@ -222,9 +222,33 @@ void genLinescanCameras(double                                orbit_len,
     vw::vw_throw(vw::ArgumentErr() 
                  << "Expecting as many camera orientations as positions.\n");
 
+  if (positions.begin()->first != cam2world.begin()->first)
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Expecting the same indices for camera positions and orientations.\n");
+    
   // Initialize the outputs
   cam_names.clear();
   cams.clear();
+  
+  // Parametrize the time by orbit length
+  double first_line_time = 0.0;
+  double last_line_time = orbit_len / opt.velocity;
+  double dt_line = (last_line_time - first_line_time) / (opt.image_size[1] - 1.0);
+
+  // Positions and orientations use the same starting time and spacing. Note
+  // that opt.num_cameras is the number of cameras within the desired orbital
+  // segment of length orbit_len, and also the number of cameras for which we
+  // have image lines. We will have extra cameras beyond that segment to make it
+  // easy to interpolate the camera position and orientation at any time and
+  // also to solve for jitter. Here we adjust things so that the camera at first
+  // image line has time 0. 
+  int beg_pos_index = positions.begin()->first; // can be negative
+  if (beg_pos_index > 0)
+    vw::vw_throw(vw::ArgumentErr() << "First position index must be non-positive.\n");
+  double dt_ephem = (last_line_time - first_line_time) / (opt.num_cameras - 1.0);
+  double t0_ephem = first_line_time + beg_pos_index * dt_ephem;
+  double dt_quat = dt_ephem;
+  double t0_quat = t0_ephem;
 
   // Create the camera. Will be later owned by a smart pointer.
   asp::CsmModel * ls_cam = new asp::CsmModel;
@@ -239,13 +263,13 @@ void genLinescanCameras(double                                orbit_len,
   // the image height. Otherwise the image height produced from the camera with
   // jitter will be inconsistent with the one without jitter. This is a bugfix. 
   if (!opt.square_pixels) 
-    populateCsmLinescan(opt.num_cameras, orbit_len, opt.velocity, 
+    populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
                         opt.focal_length, detector_origin,
                         opt.image_size, dem_georef.datum(), sensor_id,
                         positions, cam2world, 
                         *ls_cam); // output 
   else
-    populateCsmLinescan(opt.num_cameras, orbit_len, opt.velocity,
+    populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
                         opt.focal_length, detector_origin,
                         opt.image_size, dem_georef.datum(), sensor_id,
                         positions, cam2world_no_jitter, 
@@ -260,12 +284,14 @@ void genLinescanCameras(double                                orbit_len,
     double ratio = pixelAspectRatio(opt, dem_georef, *ls_cam, dem, height_guess);
     // Adjust the image height to make the pixels square
     opt.image_size[1] = std::max(round(opt.image_size[1] / ratio), 2.0);
+    // Must adjust the time spacing to match the new image height
+    dt_line = (last_line_time - first_line_time) / (opt.image_size[1] - 1.0);
     vw::vw_out() << opt.image_size[1] << " pixels, to make the ground "
                  << "projection of an image pixel be roughly square.\n";
 
     // Recreate the camera with this aspect ratio. This time potentially use the 
     // camera with jitter. 
-    populateCsmLinescan(opt.num_cameras, orbit_len, opt.velocity,
+    populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
                         opt.focal_length, detector_origin,
                         opt.image_size, dem_georef.datum(), sensor_id,
                         positions, cam2world, 
@@ -278,7 +304,7 @@ void genLinescanCameras(double                                orbit_len,
 
   if (opt.save_ref_cams) {
       asp::CsmModel ref_cam;
-      populateCsmLinescan(opt.num_cameras, orbit_len, opt.velocity, 
+      populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
                           opt.focal_length, detector_origin, 
                           opt.image_size, dem_georef.datum(), sensor_id,
                           positions, ref_cam2world,

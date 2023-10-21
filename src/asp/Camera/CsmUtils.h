@@ -79,20 +79,12 @@ void orbitInterpExtrap(UsgsAstroLsSensorModel const * ls_model,
                        vw::cartography::GeoReference const& geo,
                        std::vector<double> & positions_out);
 
-// Populate the CSM model with the given camera positions and orientations. Note
-// that num_cams_in_image is the number of cameras within the desired orbital segment
-// of length orbit_len, and also the number of cameras for which we have
-// image lines. We will have extra cameras beyond that segment to make it 
-// easy to interpolate the camera position and orientation at any time and also to 
-// solve for jitter. The indices in positions and cam2world can go beyond
-// [0, num_cams_in_image). When it is in this interval, we are recording
-// image lines.
-// TODO(oalexan1): This is not generic enough. 
+// Populate the CSM model with the given camera positions and orientations.
 // TODO(oalexan1): Use this in LinescanDGModel.cc.
-void populateCsmLinescan(int                                  num_cams_in_image,         
-                         double                               orbit_len, 
-                         double                               velocity,
-                         double                               focal_length,
+void populateCsmLinescan(double first_line_time, double dt_line, 
+                         double t0_ephem, double dt_ephem,
+                         double t0_quat, double dt_quat, 
+                         double focal_length,
                          vw::Vector2                  const & detector_origin,
                          vw::Vector2i                 const & image_size,
                          vw::cartography::Datum       const & datum, 
@@ -100,7 +92,7 @@ void populateCsmLinescan(int                                  num_cams_in_image,
                          std::map<int, vw::Vector3>   const & positions,
                          std::map<int, vw::Matrix3x3> const & cam2world,
                          // Outputs
-                         asp::CsmModel & model);
+                         asp::CsmModel                      & model);
 
 } // end namespace asp
 
