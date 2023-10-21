@@ -15,23 +15,26 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 #include <asp/Camera/ASTER_XML.h>
-#include <vw/Camera/CameraSolve.h>
+#include <asp/Camera/LinescanFit.h>
 #include <asp/Camera/LinescanASTERModel.h>
+#include <asp/Camera/LinescanFit.h>
+
+#include <vw/Camera/CameraSolve.h>
+
 namespace asp {
 
 using namespace vw;
 
-ASTERCameraModel::ASTERCameraModel(std::vector< std::vector<vw::Vector2> > const& lattice_mat,
-				   std::vector< std::vector<vw::Vector3> > const& sight_mat,
-				   std::vector< std::vector<vw::Vector3> > const& world_sight_mat,
+ASTERCameraModel::ASTERCameraModel(std::vector<std::vector<vw::Vector2>> const& lattice_mat,
+				   std::vector<std::vector<vw::Vector3>>   const& sight_mat,
+				   std::vector<std::vector<vw::Vector3>>   const& world_sight_mat,
 				   std::vector<vw::Vector3>                const& sat_pos,
 				   vw::Vector2                             const& image_size,
 				   boost::shared_ptr<vw::camera::CameraModel> rpc_model):
   m_lattice_mat(lattice_mat), m_sight_mat(sight_mat),
   m_world_sight_mat(world_sight_mat),
-  m_sat_pos(sat_pos), m_image_size(image_size), m_rpc_model(rpc_model){
+  m_sat_pos(sat_pos), m_image_size(image_size), m_rpc_model(rpc_model) {
 
   if (m_lattice_mat.empty() || m_lattice_mat[0].empty()) 
     vw::vw_throw( vw::ArgumentErr() << "Empty matrix of lattice points.\n" );
@@ -62,52 +65,42 @@ ASTERCameraModel::ASTERCameraModel(std::vector< std::vector<vw::Vector2> > const
   }
   d_col = round(d_col);
 
-  if ((int)m_sat_pos.size() != num_rows) {
+  if ((int)m_sat_pos.size() != num_rows)
     vw::vw_throw( vw::ArgumentErr()
                   << "The number of rows of lattice points does not "
                   << "agree with the number of satellite positions.\n" );
-  }
 
+  if (num_rows != (int)m_world_sight_mat.size() ||
+      num_cols != (int)m_world_sight_mat[0].size())
+    vw::vw_throw( vw::ArgumentErr()
+                  << "The number of rows or columns of lattice points does not "
+                  << "agree with the number of sight vectors.\n" );  
+
+  std::cout << "min col and row is " << min_col << ' ' << min_row << std::endl;
+  std::cout << "max col and row is " << max_col << ' ' << max_row << std::endl;
+  std::cout << "d_col and d_row is " << d_col << ' ' << d_row << std::endl;
+  std::cout << "image size is " << m_image_size << std::endl;
+  
   m_interp_sat_pos
     = vw::camera::LinearPiecewisePositionInterpolation(m_sat_pos, min_row, d_row);
 
   m_interp_sight_mat
     = vw::camera::SlerpGridPointingInterpolation(m_world_sight_mat, min_row, d_row, min_col, d_col);
 
-#if 0
-  // This is useful in testing how well point_to_pixel() works for given point and pixel.
-  double spacing = 9.5655;
-  double max_err = 0;
-  for (double col = 0; col < m_image_size[0]; col+= spacing) {
-    for (double row = 0; row < m_image_size[1]; row+= spacing) {
-      Vector2 pix(col, row);
-
-      double datum_h = 6378137;
-      double h = datum_h + 1000; // 1000 m above the datum
-      Vector3 C = this->camera_center(pix);
-      Vector3 D = this->pixel_to_vector(pix);
-
-      double Delta = dot_prod(C, D)*dot_prod(C, D) - dot_prod(D, D)*(dot_prod(C, C) - h*h);
-      double t = ( -dot_prod(C, D) - sqrt(Delta) ) / dot_prod(D, D);
-      Vector3 P = this->camera_center(pix) + t * this->pixel_to_vector(pix);
-
-      std::cout << "cam ctr is in km: " << norm_2(this->camera_center(pix))/1000 << std::endl;
-      std::cout << "point height and diff in km: "  << norm_2(P)/1000  << ' '
-		<< (norm_2(P) - 6378137)/1000 << std::endl;
-
-      Vector2 pix2 = this->point_to_pixel(P);
-      double err = norm_2(pix-pix2);
-      std::cout << "Pixel error: " << pix << ' ' << pix2 << ' ' << err << std::endl;
-      max_err = std::max(err, max_err);
-    }
-  }
-  std::cout << "max err is " << max_err << std::endl;
-#endif
+  double focal_length; 
+  vw::Vector2 optical_center;
+  std::vector<vw::Matrix<double,3,3>> rotation_vec;
+  
+  // Find the rotation matrices, focal length, and optical center,
+  // that best fit a 2D matrix of sight vectors. Uses for ASTER.
+  //fitBestRotationsIntrinsics(m_world_sight_mat, m_image_size, d_col,
+  //                           focal_length, optical_center, rotation_vec);
 }
 
 // Project the point onto the camera. Sometimes, but not always, seeding with the RPC
 // model is beneficial.  
-vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point, Vector2 const& start_in) const {
+vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point, 
+                                             Vector2 const& start_in) const {
 
   // - This method will be slower but works for more complicated geometries
   vw::camera::CameraGenericLMA model( this, point );
@@ -195,7 +188,8 @@ vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point, Vector2 const
   
   // Solution with the RPC initial guess
   Vector2 start_rpc = this->m_rpc_model->point_to_pixel(point);
-  vw::Vector2 solution2 = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
+  vw::Vector2 solution2 
+  = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
     (model, start_rpc, objective, status, ABS_TOL, REL_TOL, MAX_ITERATIONS);
   
   double error1 = norm_2(model(solution1));
@@ -250,12 +244,13 @@ load_ASTER_camera_model_from_xml(std::string const& path,
   xml_reader.read_xml(path);
 
   // Feed everything into a new camera model.
-  return boost::shared_ptr<ASTERCameraModel>(new ASTERCameraModel(xml_reader.m_lattice_mat,
-								  xml_reader.m_sight_mat,
-								  xml_reader.m_world_sight_mat,
-								  xml_reader.m_sat_pos,
-								  xml_reader.m_image_size,
-								  rpc_model));
+  return boost::shared_ptr<ASTERCameraModel>
+    (new ASTERCameraModel(xml_reader.m_lattice_mat,
+                          xml_reader.m_sight_mat,
+                          xml_reader.m_world_sight_mat,
+                          xml_reader.m_sat_pos,
+                          xml_reader.m_image_size,
+                          rpc_model));
 } // End function load_ASTER_camera_model()
 
 

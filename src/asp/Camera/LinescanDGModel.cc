@@ -317,7 +317,6 @@ void DGCameraModel::populateCsmModel() {
   // only 0.5 to tlc[i].first, further down. Looks to produce similar
   // but not quite the same result, but there was no time for a lot of
   // testing doing it that way.
-  std::cout << "m_detector_origin = " << m_detector_origin << std::endl;
   m_ls_model->m_startingDetectorLine   = m_detector_origin[1];
   m_ls_model->m_detectorSampleSumming  = 1.0;
   m_ls_model->m_startingDetectorSample = (m_detector_origin[0] - 0.5);

@@ -21,18 +21,15 @@
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/Geometry.h>
 
-// temporary
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 
 namespace asp {
 
 // Find the rotation matrices, focal length, and optical center,
-// that best fit a 2D matrix of sight vectors. Uses for ASTER.
+// that best fit a 2D matrix of sight vectors. Used for ASTER.
 
-// Given a matrix of sight directions in world coordinates, fit a rotation
-// matrix from sensor to world to each row of sights. Solve for focal length and
-// optical center along the way.
+// The error between sight vectors and the camera directions 
 struct SightVecError {
 
   typedef std::vector<std::vector<vw::Vector3>> SightVecT;
@@ -40,7 +37,7 @@ struct SightVecError {
   SightVecError(SightVecT const& world_sight_mat, int row, int col, int d_col):
   m_world_sight_mat(world_sight_mat), m_row(row), m_col(col), m_d_col(d_col) {}
 
-  // Adaptor to work with ceres::DynamicCostFunctions.
+  // Error operator
   bool operator()(double const* const* parameters, double* residuals) const {
 
     const double* rotation       = parameters[0];
@@ -50,10 +47,6 @@ struct SightVecError {
     // Current sight vector
     vw::Vector3 sight = m_world_sight_mat[m_row][m_col];
     
-    // std::cout << "row and col and d_col are " << m_row << ' ' << m_col << ' ' << m_d_col << std::endl;
-    // std::cout << "focal is " << focal_length[0] << std::endl;
-    // std::cout << "optical center is " << optical_center[0] << ' ' << optical_center[1] << std::endl;
-    
     // Find axis angle and then the rotation from the sensor to the world
     vw::Vector3 axis_angle(rotation[0], rotation[1], rotation[2]);
     vw::Matrix3x3 rot = vw::math::axis_angle_to_quaternion(axis_angle).rotation_matrix();
@@ -61,6 +54,7 @@ struct SightVecError {
     // sight vec in sensor coordinates
     vw::Vector3 in(m_col * m_d_col - optical_center[0], -optical_center[1], 
                     focal_length[0]);
+
     // Normalize
     in = in/norm_2(in);
     // rotate to world coordinates
@@ -73,8 +67,6 @@ struct SightVecError {
     for (size_t p = 0; p < 3; p++)
       residuals[p] = in[p] - out[p];
 
-    // std::cout << "residual is " << residuals[0] << ' ' << residuals[1] << ' ' << residuals[2] << std::endl;
-    
     return true;
   }
 
@@ -99,7 +91,7 @@ struct SightVecError {
   // The sight matrix has samples of directions in the world coordinates 
   SightVecT const& m_world_sight_mat; // alias
   int m_row, m_col;
-  int m_d_col; // multiply m_col by this to column in the image
+  int m_d_col; // multiply col of sight mat by this to get the image column
 };
 
 // See the .h file for the documentation
