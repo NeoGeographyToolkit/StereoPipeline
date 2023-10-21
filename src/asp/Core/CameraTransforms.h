@@ -19,8 +19,9 @@
 #define __CORE_CAMERA_TRANSFORMS_H__
 #include <vw/Math/Matrix.h>
 
-// TODO(oalexan1): Rename this to EigenCameraTransforms.h. Do not
-// include Eigen headers here, as that will slow down the compilation.
+// TODO(oalexan1): Rename this to EigenCameraTransforms.h. 
+
+// Do not include Eigen headers here, as that will slow down the compilation.
 
 // A set of routines for handling camera transformations. It is best to not
 // include here any Eigen headers, as that will slow down the compilation.

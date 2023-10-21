@@ -32,9 +32,6 @@ foreach(p ${PYTHON_LIBS})
   INSTALL(FILES ${p}  DESTINATION libexec)
 endforeach()
 
-# Shorthand for a common set of libraries.
-set(SOLVER_LIBRARIES ${CERES_LIBRARIES} ${GLOG_LIBRARIES} ${GFLAGS_LIBRARIES})
-
 add_executable(aster2asp aster2asp.cc)
 target_link_libraries(aster2asp AspSessions)
 install(TARGETS aster2asp DESTINATION bin)

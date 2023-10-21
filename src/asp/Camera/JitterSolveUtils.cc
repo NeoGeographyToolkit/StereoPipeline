@@ -17,6 +17,7 @@
 
 // Low-level functions used in jitter_solve.cc.
 
+#include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/JitterSolveUtils.h>
 #include <asp/Core/Common.h>
 

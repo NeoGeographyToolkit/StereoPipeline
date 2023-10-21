@@ -19,11 +19,14 @@
 
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmUtils.h>
-#include <asp/Camera/JitterSolveUtils.h>
+#include <asp/Core/CameraTransforms.h>
+
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 
+#include <usgscsm/UsgsAstroLsSensorModel.h>
+#include <usgscsm/UsgsAstroFrameSensorModel.h>
 #include <usgscsm/Utilities.h>
 
 namespace asp {
@@ -282,6 +285,141 @@ void orbitInterpExtrap(UsgsAstroLsSensorModel const * ls_model,
                     geo, ls_model->m_t0Quat, ls_model->m_dtQuat, 
                     ls_model->m_quaternions.size()/NUM_QUAT_PARAMS,
                     positions_out); // output
+}
+
+// See documentation in CsmUtils.h
+void populateCsmLinescan(int                          num_cams_in_image,         
+                      double                                orbit_len, 
+                      double                                velocity,
+                      double                                focal_length,
+                      vw::Vector2                   const & detector_origin,
+                      vw::Vector2i                  const & image_size,
+                      vw::cartography::Datum        const & datum, 
+                      std::string                   const & sensor_id, 
+                      std::map<int, vw::Vector3>    const & positions,
+                      std::map<int, vw::Matrix3x3>  const & cam2world,
+                      // Outputs
+                      asp::CsmModel & model) {
+  
+  // Sanity checks
+  if (positions.size() != cam2world.size())
+    vw_throw(vw::ArgumentErr() << "Expecting as many positions as orientations.\n");
+ if (num_cams_in_image <= 0)
+    vw_throw(vw::ArgumentErr() << "Expecting positive number of cameras.\n");
+    
+  // Do not use a precision below 1.0-e8 as then the linescan model will return junk.
+  model.m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
+  model.m_semi_major_axis = datum.semi_major_axis();
+  model.m_semi_minor_axis = datum.semi_minor_axis();
+
+  // Create the linescan model. Memory is managed by m_gm_model.
+  model.m_gm_model.reset(new UsgsAstroLsSensorModel);
+  UsgsAstroLsSensorModel* ls_model
+    = dynamic_cast<UsgsAstroLsSensorModel*>(model.m_gm_model.get());
+  if (ls_model == NULL)
+    vw::vw_throw(vw::ArgumentErr() << "Invalid initialization of the linescan model.\n");
+
+  // This performs many initializations apart from the above
+  ls_model->reset();
+
+  // Override some initializations
+  ls_model->m_nSamples         = image_size[0]; 
+  ls_model->m_nLines           = image_size[1];
+  ls_model->m_platformFlag     = 1; // Use 1, for order 8 Lagrange interpolation
+  ls_model->m_minElevation     = -10000.0; // -10 km
+  ls_model->m_maxElevation     =  10000.0; //  10 km
+  ls_model->m_focalLength      = focal_length;
+  ls_model->m_zDirection       = 1.0;
+  ls_model->m_halfSwath        = 1.0;
+  ls_model->m_sensorIdentifier = sensor_id;
+  ls_model->m_majorAxis        = model.m_semi_major_axis;
+  ls_model->m_minorAxis        = model.m_semi_minor_axis;
+  
+  // The choices below are copied from the DigitalGlobe CSM linescan model.
+  // Better to keep same convention than dig deep inside UsAstroLsSensorModel.
+  // Also keep in mind that a CSM pixel has extra 0.5 added to it.
+  ls_model->m_iTransL[0]             = 0.0;  
+  ls_model->m_iTransL[1]             = 0.0;
+  ls_model->m_iTransL[2]             = 1.0;
+  ls_model->m_iTransS[0]             = 0.0;
+  ls_model->m_iTransS[1]             = 1.0;
+  ls_model->m_iTransS[2]             = 0.0;
+  ls_model->m_detectorLineOrigin     = 0.0;
+  ls_model->m_detectorSampleOrigin   = 0.0;
+  ls_model->m_detectorLineSumming    = 1.0;
+  // TODO(oalexan1): Must test with non-zero detector origin[1].
+  ls_model->m_startingDetectorLine   = detector_origin[1];
+  ls_model->m_detectorSampleSumming  = 1.0;
+  ls_model->m_startingDetectorSample = (detector_origin[0] - 0.5);
+
+  // Set the time. The first image line time is 0. The last image line time will
+  // depend on distance traveled and speed. We can have camera samples before
+  // the first and after the last image line. 
+  double beg_t = 0.0;
+  double end_t = orbit_len / velocity;
+  double dt = (end_t - beg_t) / (image_size[1] - 1.0);
+  ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
+  ls_model->m_intTimeStartTimes.push_back(beg_t);
+  ls_model->m_intTimes.push_back(dt);
+
+  // Positions and velocities. Note how, as above, there are more positions than
+  // num_cams_in_image, as they extend beyond orbital segment. So care is needed
+  // below. Time is 0 when we reach the first image line, and it is end_t at the
+  // last line. Positions before that have negative time. Time at position with
+  // index i is m_t0Ephem + i*m_dtEphem, if index 0 is for the earliest postion,
+  // but that is way before the orbital segment starting point which is the
+  // first image line.
+  int beg_pos_index = positions.begin()->first; // can be negative
+  if (beg_pos_index > 0)
+    vw::vw_throw(vw::ArgumentErr() << "First position index must be non-positive.\n");
+  ls_model->m_numPositions = 3 * positions.size(); // concatenate all coordinates
+  ls_model->m_dtEphem = (end_t - beg_t) / (num_cams_in_image - 1.0); // care here
+  ls_model->m_t0Ephem = beg_t + beg_pos_index * ls_model->m_dtEphem; // care here
+
+  ls_model->m_positions.resize(ls_model->m_numPositions);
+  ls_model->m_velocities.resize(ls_model->m_numPositions);
+  for (auto pos_it = positions.begin(); pos_it != positions.end(); pos_it++) {
+    int index = pos_it->first - beg_pos_index; // so we can start at 0
+    auto ctr = pos_it->second;
+    for (int coord = 0; coord < 3; coord++) {
+      ls_model->m_positions [3*index + coord] = ctr[coord];
+      ls_model->m_velocities[3*index + coord] = 0.0; // should not be used
+    }
+  }
+
+  // Orientations. Care with defining dt as above.
+  int beg_quat_index = cam2world.begin()->first;
+  if (beg_quat_index > 0)
+    vw::vw_throw(vw::ArgumentErr() << "First orientation index must be non-positive.\n");
+  if (beg_pos_index != beg_quat_index)
+    vw::vw_throw(vw::ArgumentErr() 
+      << "First position index must equal first orientation index.\n");
+      
+  ls_model->m_numQuaternions = 4 * cam2world.size();
+  ls_model->m_dtQuat = (end_t - beg_t) / (num_cams_in_image - 1.0);
+  ls_model->m_t0Quat = beg_t + beg_quat_index * ls_model->m_dtQuat;
+
+  ls_model->m_quaternions.resize(ls_model->m_numQuaternions);
+  for (auto quat_it = cam2world.begin(); quat_it != cam2world.end(); quat_it++) {
+    int index = quat_it->first - beg_quat_index; // so we can start at 0
+
+    // Find the quaternion at this index.
+    auto c2w = quat_it->second;
+    double x, y, z, w;
+    asp::matrixToQuaternion(c2w, x, y, z, w);
+
+    // Note how we store the quaternions in the order x, y, z, w, not w, x, y, z.
+    int coord = 0;
+    ls_model->m_quaternions[4*index + coord] = x; coord++;
+    ls_model->m_quaternions[4*index + coord] = y; coord++;
+    ls_model->m_quaternions[4*index + coord] = z; coord++;
+    ls_model->m_quaternions[4*index + coord] = w; coord++;
+  }
+
+  // Re-creating the model from the state forces some operations to
+  // take place which are inaccessible otherwise.
+  std::string modelState = ls_model->getModelState();
+  ls_model->replaceModelState(modelState);
 }
 
 } // end namespace asp

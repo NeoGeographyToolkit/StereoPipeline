@@ -334,6 +334,9 @@ get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
 set(ASP_PCLIO_LIB_DEPENDENCIES  pcl_common pcl_io_ply pcl_io
     AspCore ${VISIONWORKBENCH_LIBRARIES})
 
+# CERES and its dependencies
+set(SOLVER_LIBRARIES ${CERES_LIBRARIES} ${GLOG_LIBRARIES} ${GFLAGS_LIBRARIES})
+    
 # Add all of the library subdirectories
 
 add_subdirectory(Core)

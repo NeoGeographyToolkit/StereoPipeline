@@ -32,10 +32,6 @@
 
 namespace asp {
 
-const int NUM_XYZ_PARAMS  = 3;
-const int NUM_QUAT_PARAMS = 4;
-const int PIXEL_SIZE      = 2;
-
 // If several images are acquired in quick succession along the same orbit and
 // stored in the same list, record this structure by grouping them together.
 // Each element in the input vector below is either a standalone image, then it

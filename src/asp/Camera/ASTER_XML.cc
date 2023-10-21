@@ -114,10 +114,11 @@ void ASTERXML::parse_xml(xercesc::DOMElement* node) {
   xercesc::DOMElement* sight_vector_node = get_node<DOMElement>(node, "SIGHT_VECTOR");
   std::string sight_vector_txt( XMLString::transcode(sight_vector_node->getTextContent()) );
   asp::read_matrix_from_string(sight_vector_txt, m_sight_mat);
-  if (m_lattice_mat.empty() || m_sight_mat.empty()     ||
-      m_lattice_mat.size()   != m_sight_mat.size()   ||
-      m_lattice_mat[0].size() != m_sight_mat[0].size() ) {
-    vw_throw( ArgumentErr() << "Inconsistent lattice point and sight vector information.\n");
+  if (m_lattice_mat.empty() || m_sight_mat.empty()  ||
+      m_lattice_mat.size()  != m_sight_mat.size()   ||
+      m_lattice_mat[0].size() != m_sight_mat[0].size()) {
+    vw_throw(ArgumentErr() 
+             << "Inconsistent lattice point and sight vector information.\n");
   }
 
   xercesc::DOMElement* world_sight_vector_node = get_node<DOMElement>(node, "WORLD_SIGHT_VECTOR");
@@ -125,20 +126,15 @@ void ASTERXML::parse_xml(xercesc::DOMElement* node) {
   asp::read_matrix_from_string(world_sight_vector_txt, m_world_sight_mat);
   if (m_lattice_mat.empty()   || m_world_sight_mat.empty()  ||
       m_lattice_mat.size()    != m_world_sight_mat.size()   ||
-      m_lattice_mat[0].size() != m_world_sight_mat[0].size() ) {
-    vw_throw( ArgumentErr() << "Inconsistent lattice point and world sight vector information.\n");
+      m_lattice_mat[0].size() != m_world_sight_mat[0].size()) {
+    vw_throw(ArgumentErr() 
+             << "Inconsistent lattice point and world sight vector information.\n");
   }
 
-  std::vector< std::vector<vw::Vector3> > sat_pos_mat;
+  std::vector<std::vector<vw::Vector3>> sat_pos_mat;
   xercesc::DOMElement* sat_pos_node = get_node<DOMElement>(node, "SAT_POS");
   std::string sat_pos_txt( XMLString::transcode(sat_pos_node->getTextContent()) );
   asp::read_matrix_from_string(sat_pos_txt, sat_pos_mat);
-  for (size_t row = 0; row < sat_pos_mat.size(); row++) {
-    for (size_t col = 0; col < sat_pos_mat[row].size(); col++) {
-      //std::cout << sat_pos_mat[row][col] << " ";
-    }
-    //std::cout << std::endl;
-  }
   m_sat_pos = sat_pos_mat[0]; // Go from matrix with one row to a vector
 
   if (m_sat_pos.size() != m_sight_mat.size()) 
