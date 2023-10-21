@@ -76,11 +76,6 @@ ASTERCameraModel::ASTERCameraModel(std::vector<std::vector<vw::Vector2>> const& 
                   << "The number of rows or columns of lattice points does not "
                   << "agree with the number of sight vectors.\n" );  
 
-  std::cout << "min col and row is " << min_col << ' ' << min_row << std::endl;
-  std::cout << "max col and row is " << max_col << ' ' << max_row << std::endl;
-  std::cout << "d_col and d_row is " << d_col << ' ' << d_row << std::endl;
-  std::cout << "image size is " << m_image_size << std::endl;
-  
   m_interp_sat_pos
     = vw::camera::LinearPiecewisePositionInterpolation(m_sat_pos, min_row, d_row);
 
