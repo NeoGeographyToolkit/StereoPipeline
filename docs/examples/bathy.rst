@@ -105,7 +105,9 @@ This program can be invoked for each of the left and right images as follows:
     ~/miniconda3/envs/bathy/bin/python $(which bathy_threshold_calc.py) \
       --image left.tif --num-samples 1000000
 
-Here it is assumed that ASP's ``bin`` directory is in the path.
+Here it is assumed that ASP's ``bin`` directory is in the path. The ``bathy``
+conda environment should be installed as described in
+:numref:`bathy_threshold_calc`.
 
 It is suggested to experiment a bit with the number of samples, using,
 for example, double of this amount, and see the difference. Normally
