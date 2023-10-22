@@ -298,6 +298,7 @@ void populateCsmLinescan(double first_line_time, double dt_line,
                          vw::cartography::Datum     const & datum, 
                          std::string                const & sensor_id, 
                          std::vector<vw::Vector3>   const & positions,
+                         std::vector<vw::Vector3>   const & velocities,
                          std::vector<vw::Matrix3x3> const & cam2world,
                          // Outputs
                          asp::CsmModel                    & model) {
@@ -305,7 +306,9 @@ void populateCsmLinescan(double first_line_time, double dt_line,
   // Sanity checks
   if (positions.size() != cam2world.size())
     vw_throw(vw::ArgumentErr() << "Expecting as many positions as orientations.\n");
-    
+  if (velocities.size() != positions.size())
+    vw_throw(vw::ArgumentErr() << "Expecting as many velocities as positions.\n");
+      
   // Do not use a precision below 1.0-e8 as then the linescan model will return junk.
   model.m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
   model.m_semi_major_axis = datum.semi_major_axis();
@@ -364,9 +367,10 @@ void populateCsmLinescan(double first_line_time, double dt_line,
   ls_model->m_velocities.resize(ls_model->m_numPositions);
   for (size_t index = 0; index < positions.size(); index++) {
     vw::Vector3 ctr = positions[index];
+    vw::Vector3 vel = velocities[index];
     for (int coord = 0; coord < 3; coord++) {
       ls_model->m_positions [3*index + coord] = ctr[coord];
-      ls_model->m_velocities[3*index + coord] = 0.0; // should not be used
+      ls_model->m_velocities[3*index + coord] = vel[coord];
     }
   }
   

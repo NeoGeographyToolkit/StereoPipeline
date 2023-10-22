@@ -949,7 +949,7 @@ void genPinholeCameras(SatSimOptions      const & opt,
       if (opt.save_as_csm)
         csmRefCam.saveState(refCamName);
       else
-       pinRefCam.write(refCamName);
+        pinRefCam.write(refCamName);
     }
     
     return;

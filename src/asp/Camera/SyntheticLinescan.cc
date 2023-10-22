@@ -248,6 +248,9 @@ void genLinescanCameras(double orbit_len,
   double dt_quat = dt_ephem;
   double t0_quat = t0_ephem;
 
+  // We have no velocities in this context, so set them to 0
+  std::vector<vw::Vector3> velocities(positions.size(), vw::Vector3(0, 0, 0));
+  
   // Create the camera. Will be later owned by a smart pointer.
   asp::CsmModel * ls_cam = new asp::CsmModel;
   std::string sensor_id = "SyntheticLinescan";
@@ -264,13 +267,13 @@ void genLinescanCameras(double orbit_len,
     populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
                         opt.focal_length, detector_origin,
                         opt.image_size, dem_georef.datum(), sensor_id,
-                        positions, cam2world, 
+                        positions, velocities, cam2world, 
                         *ls_cam); // output 
   else
     populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
                         opt.focal_length, detector_origin,
                         opt.image_size, dem_georef.datum(), sensor_id,
-                        positions, cam2world_no_jitter, 
+                        positions, velocities, cam2world_no_jitter, 
                         *ls_cam); // output
 
   // Sanity check (very useful)
@@ -292,7 +295,7 @@ void genLinescanCameras(double orbit_len,
     populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
                         opt.focal_length, detector_origin,
                         opt.image_size, dem_georef.datum(), sensor_id,
-                        positions, cam2world, 
+                        positions, velocities, cam2world, 
                         *ls_cam); // output
     // Sanity check (very useful for testing, the new ratio must be close to 1.0)
     // ratio = pixelAspectRatio(opt, dem_georef, *ls_cam, dem, height_guess);
@@ -305,7 +308,7 @@ void genLinescanCameras(double orbit_len,
       populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
                           opt.focal_length, detector_origin, 
                           opt.image_size, dem_georef.datum(), sensor_id,
-                          positions, ref_cam2world,
+                          positions,  velocities, ref_cam2world,
                           ref_cam); // output
     std::string ref_filename = opt.out_prefix + "-ref.json";
     ref_cam.saveState(ref_filename);

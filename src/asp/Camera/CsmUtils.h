@@ -90,6 +90,7 @@ void populateCsmLinescan(double first_line_time, double dt_line,
                          vw::cartography::Datum     const & datum, 
                          std::string                const & sensor_id, 
                          std::vector<vw::Vector3>   const & positions,
+                         std::vector<vw::Vector3>   const & velocities,
                          std::vector<vw::Matrix3x3> const & cam2world,
                          // Outputs
                          asp::CsmModel                    & model);
