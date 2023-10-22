@@ -150,8 +150,8 @@ void nearestNeibInterp(const int &numTimes, const double *valueArray,
 
 // Given two values, double t1, t2, and to points, vw::Vector3 P1, P2, at those
 // values, find the value at t using linear interpolation.
-vw::Vector3 linearInterp(double t1, double t2, vw::Vector3 const& P1, vw::Vector3 const& P2, 
-                         double t) {
+vw::Vector3 linearInterp(double t1, double t2, vw::Vector3 const& P1,
+                         vw::Vector3 const& P2, double t) {
     if (t1 == t2)
       vw::vw_throw(vw::ArgumentErr() << "Expecting t1 != t2 in interpolation.\n");
 
@@ -186,7 +186,8 @@ void orbitInterpExtrap(double t0_in, double dt_in, int platformFlag,
   for (size_t i = 0; i < positions_in.size()/NUM_XYZ_PARAMS; i++) {
     double t = t0_in + i * dt_in;
     int start = i * NUM_XYZ_PARAMS;
-    vw::Vector3 pos(positions_in[start + 0], positions_in[start + 1], positions_in[start + 2]);
+    vw::Vector3 pos(positions_in[start + 0], positions_in[start + 1], 
+                    positions_in[start + 2]);
     time_to_pos[t] = pos;
   }
 
@@ -292,14 +293,14 @@ void populateCsmLinescan(double first_line_time, double dt_line,
                          double t0_ephem, double dt_ephem,
                          double t0_quat, double dt_quat, 
                          double focal_length,
-                         vw::Vector2                  const & detector_origin,
-                         vw::Vector2i                 const & image_size,
-                         vw::cartography::Datum       const & datum, 
-                         std::string                  const & sensor_id, 
-                         std::map<int, vw::Vector3>   const & positions,
-                         std::map<int, vw::Matrix3x3> const & cam2world,
+                         vw::Vector2                const & detector_origin,
+                         vw::Vector2i               const & image_size,
+                         vw::cartography::Datum     const & datum, 
+                         std::string                const & sensor_id, 
+                         std::vector<vw::Vector3>   const & positions,
+                         std::vector<vw::Matrix3x3> const & cam2world,
                          // Outputs
-                         asp::CsmModel                      & model) {
+                         asp::CsmModel                    & model) {
   
   // Sanity checks
   if (positions.size() != cam2world.size())
@@ -355,30 +356,27 @@ void populateCsmLinescan(double first_line_time, double dt_line,
   ls_model->m_intTimeStartTimes.push_back(first_line_time);
   ls_model->m_intTimes.push_back(dt_line); // time between lines
 
-  // Positions and velocities 
+  // Copy positions and velocities (velocity set to 0)
   ls_model->m_t0Ephem = t0_ephem;
   ls_model->m_dtEphem = dt_ephem;
   ls_model->m_numPositions = 3 * positions.size(); // concatenate all coordinates
   ls_model->m_positions.resize(ls_model->m_numPositions);
   ls_model->m_velocities.resize(ls_model->m_numPositions);
-  int index = 0;
-  for (auto pos_it = positions.begin(); pos_it != positions.end(); pos_it++) {
-    auto ctr = pos_it->second;
+  for (size_t index = 0; index < positions.size(); index++) {
+    vw::Vector3 ctr = positions[index];
     for (int coord = 0; coord < 3; coord++) {
       ls_model->m_positions [3*index + coord] = ctr[coord];
       ls_model->m_velocities[3*index + coord] = 0.0; // should not be used
     }
-    index++;
   }
-
-  // Orientations
+  
+  // Copy orientations
   ls_model->m_numQuaternions = 4 * cam2world.size();
   ls_model->m_t0Quat = t0_quat;
   ls_model->m_dtQuat = dt_quat;
   ls_model->m_quaternions.resize(ls_model->m_numQuaternions);
-  index = 0;
-  for (auto quat_it = cam2world.begin(); quat_it != cam2world.end(); quat_it++) {
-    auto c2w = quat_it->second;
+  for (size_t index = 0; index < cam2world.size(); index++) {
+    auto c2w = cam2world[index];
     double x, y, z, w;
     asp::matrixToQuaternion(c2w, x, y, z, w);
 
@@ -388,9 +386,8 @@ void populateCsmLinescan(double first_line_time, double dt_line,
     ls_model->m_quaternions[4*index + coord] = y; coord++;
     ls_model->m_quaternions[4*index + coord] = z; coord++;
     ls_model->m_quaternions[4*index + coord] = w; coord++;
-    index++;
   }
-
+  
   // Re-creating the model from the state forces some operations to
   // take place which are inaccessible otherwise.
   std::string modelState = ls_model->getModelState();

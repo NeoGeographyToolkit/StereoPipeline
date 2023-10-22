@@ -357,8 +357,8 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::string> cam_names;
     std::vector<vw::CamPtr> cams;
-    // smart point
     bool external_cameras = false;
+    int first_pos = 0; // used with linescan poses, which start before first image line
     if (!opt.camera_list.empty()) {
       // Read the cameras
       if (opt.sensor_type == "pinhole")
@@ -369,19 +369,21 @@ int main(int argc, char *argv[]) {
     } else {
       // Generate the cameras   
       double orbit_len = 0.0;
-      std::map<int, vw::Vector3> trajectory;
+      std::vector<vw::Vector3> positions;
       // vector of rot matrices. The matrix cam2world_no_jitter
       // is only needed with linescan cameras, but compute it for consistency 
       // in all cases.
-      std::map<int, vw::Matrix3x3> cam2world, cam2world_no_jitter, ref_cam2world;
+      std::vector<vw::Matrix3x3> cam2world, cam2world_no_jitter, ref_cam2world;
       asp::calcTrajectory(opt, dem_georef, dem, height_guess,
-        orbit_len, trajectory, cam2world, cam2world_no_jitter, ref_cam2world); // outputs
+                          // Outputs
+                          first_pos, orbit_len, positions, cam2world, 
+                          cam2world_no_jitter, ref_cam2world);
       // Generate cameras
       if (opt.sensor_type == "pinhole")
-        asp::genPinholeCameras(opt, dem_georef, trajectory, cam2world, ref_cam2world,
+        asp::genPinholeCameras(opt, dem_georef, positions, cam2world, ref_cam2world,
           cam_names, cams);
       else
-        asp::genLinescanCameras(orbit_len, dem_georef, dem, trajectory, 
+        asp::genLinescanCameras(orbit_len, dem_georef, dem, first_pos, positions, 
           cam2world, cam2world_no_jitter, ref_cam2world, height_guess,
           opt, cam_names, cams); // outputs
     }

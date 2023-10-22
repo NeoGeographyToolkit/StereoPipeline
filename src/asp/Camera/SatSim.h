@@ -56,7 +56,7 @@ struct SatSimOptions : vw::GdalWriteOptions {
 double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem);
 
 // A function that will take as input the endpoints and will compute the
-// satellite trajectory and along track/across track/down directions in ECEF,
+// satellite positions and along track/across track/down directions in ECEF,
 // which will give the camera to world rotation matrix.
 // The key observation is that the trajectory will be a straight edge in
 // projected coordinates so will be computed there first. In some usage
@@ -66,11 +66,12 @@ void calcTrajectory(SatSimOptions & opt,
                     vw::ImageViewRef<vw::PixelMask<float>> dem,
                     double height_guess,
                     // Outputs
-                    double                       & orbit_len,
-                    std::map<int, vw::Vector3>   & trajectory,
-                    std::map<int, vw::Matrix3x3> & cam2world,
-                    std::map<int, vw::Matrix3x3> & cam2world_no_jitter,
-                    std::map<int, vw::Matrix3x3> & ref_cam2world);
+                    int                        & first_pos,
+                    double                     & orbit_len,
+                    std::vector<vw::Vector3>   & positions,
+                    std::vector<vw::Matrix3x3> & cam2world,
+                    std::vector<vw::Matrix3x3> & cam2world_no_jitter,
+                    std::vector<vw::Matrix3x3> & ref_cam2world);
 
 // A function to read the cameras from a file
 void readPinholeCameras(SatSimOptions const& opt, 
@@ -79,11 +80,11 @@ void readPinholeCameras(SatSimOptions const& opt,
 
 // A function to create and save the cameras. Assume no distortion, and pixel
 // pitch = 1.
-void genPinholeCameras(SatSimOptions           const & opt, 
-                vw::cartography::GeoReference  const & dem_georef,
-                std::map<int, vw::Vector3>     const & trajectory,
-                std::map<int, vw::Matrix3x3>   const & cam2world,
-                std::map<int, vw::Matrix3x3>   const & ref_cam2world,
+void genPinholeCameras(SatSimOptions          const & opt, 
+                vw::cartography::GeoReference const & dem_georef,
+                std::vector<vw::Vector3>      const & positions,
+                std::vector<vw::Matrix3x3>    const & cam2world,
+                std::vector<vw::Matrix3x3>    const & ref_cam2world,
                 // outputs
                 std::vector<std::string> & cam_names,
                 std::vector<vw::CamPtr>  & cams);

@@ -85,14 +85,14 @@ void populateCsmLinescan(double first_line_time, double dt_line,
                          double t0_ephem, double dt_ephem,
                          double t0_quat, double dt_quat, 
                          double focal_length,
-                         vw::Vector2                  const & detector_origin,
-                         vw::Vector2i                 const & image_size,
-                         vw::cartography::Datum       const & datum, 
-                         std::string                  const & sensor_id, 
-                         std::map<int, vw::Vector3>   const & positions,
-                         std::map<int, vw::Matrix3x3> const & cam2world,
+                         vw::Vector2                const & detector_origin,
+                         vw::Vector2i               const & image_size,
+                         vw::cartography::Datum     const & datum, 
+                         std::string                const & sensor_id, 
+                         std::vector<vw::Vector3>   const & positions,
+                         std::vector<vw::Matrix3x3> const & cam2world,
                          // Outputs
-                         asp::CsmModel                      & model);
+                         asp::CsmModel                    & model);
 
 } // end namespace asp
 

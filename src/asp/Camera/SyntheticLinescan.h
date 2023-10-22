@@ -41,15 +41,16 @@ struct SatSimOptions;
 void genLinescanCameras(double orbit_len,     
                         vw::cartography::GeoReference  const & dem_georef,
                         vw::ImageViewRef<vw::PixelMask<float>> dem,
-                        std::map<int, vw::Vector3>      const & positions,
-                        std::map<int, vw::Matrix3x3>    const & cam2world,
-                        std::map<int, vw::Matrix3x3>    const & cam2world_no_jitter,
-                        std::map<int, vw::Matrix3x3>    const & ref_cam2world,
-                        double                                height_guess,
+                        int                                    first_pos,
+                        std::vector<vw::Vector3>       const & positions,
+                        std::vector<vw::Matrix3x3>     const & cam2world,
+                        std::vector<vw::Matrix3x3>     const & cam2world_no_jitter,
+                        std::vector<vw::Matrix3x3>     const & ref_cam2world,
+                        double                                 height_guess,
                         // Outputs
-                        SatSimOptions                         & opt, 
-                        std::vector<std::string>              & cam_names,
-                        std::vector<vw::CamPtr>               & cams);
+                        SatSimOptions                          & opt, 
+                        std::vector<std::string>               & cam_names,
+                        std::vector<vw::CamPtr>                & cams);
 
 // A function to read Linescan cameras from disk in CSM format. There will
 // be just one of them.

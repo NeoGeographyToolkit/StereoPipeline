@@ -203,28 +203,27 @@ double pixelAspectRatio(SatSimOptions                 const & opt,
 
 // Create and save a linescan camera with given camera positions and orientations.
 // There will be just one of them, as all poses are part of the same linescan camera.
-void genLinescanCameras(double                                orbit_len, 
-                        vw::cartography::GeoReference const & dem_georef,
-                        vw::ImageViewRef<vw::PixelMask<float>> dem,  
-                        std::map<int, vw::Vector3>    const & positions,
-                        std::map<int, vw::Matrix3x3>  const & cam2world,
-                        std::map<int, vw::Matrix3x3>  const & cam2world_no_jitter,
-                        std::map<int, vw::Matrix3x3>  const & ref_cam2world,
-                        double                                height_guess,
+void genLinescanCameras(double orbit_len,     
+                        vw::cartography::GeoReference  const & dem_georef,
+                        vw::ImageViewRef<vw::PixelMask<float>> dem,
+                        int                                    first_pos,
+                        std::vector<vw::Vector3>       const & positions,
+                        std::vector<vw::Matrix3x3>     const & cam2world,
+                        std::vector<vw::Matrix3x3>     const & cam2world_no_jitter,
+                        std::vector<vw::Matrix3x3>     const & ref_cam2world,
+                        double                                 height_guess,
                         // Outputs
-                        SatSimOptions                         & opt, 
-                        std::vector<std::string>              & cam_names,
-                        std::vector<vw::CamPtr>               & cams) {
+                        SatSimOptions                          & opt, 
+                        std::vector<std::string>               & cam_names,
+                        std::vector<vw::CamPtr>                & cams) {
 
   // Sanity checks
   if (cam2world.size() != positions.size() || 
-      cam2world_no_jitter.size() != positions.size())
+      cam2world_no_jitter.size() != positions.size() ||
+      ref_cam2world.size() != positions.size())
     vw::vw_throw(vw::ArgumentErr() 
                  << "Expecting as many camera orientations as positions.\n");
 
-  if (positions.begin()->first != cam2world.begin()->first)
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "Expecting the same indices for camera positions and orientations.\n");
     
   // Initialize the outputs
   cam_names.clear();
@@ -242,11 +241,10 @@ void genLinescanCameras(double                                orbit_len,
   // easy to interpolate the camera position and orientation at any time and
   // also to solve for jitter. Here we adjust things so that the camera at first
   // image line has time 0. 
-  int beg_pos_index = positions.begin()->first; // can be negative
-  if (beg_pos_index > 0)
+  if (first_pos > 0)
     vw::vw_throw(vw::ArgumentErr() << "First position index must be non-positive.\n");
   double dt_ephem = (last_line_time - first_line_time) / (opt.num_cameras - 1.0);
-  double t0_ephem = first_line_time + beg_pos_index * dt_ephem;
+  double t0_ephem = first_line_time + first_pos * dt_ephem;
   double dt_quat = dt_ephem;
   double t0_quat = t0_ephem;
 
@@ -347,4 +345,3 @@ void readLinescanCameras(SatSimOptions const& opt,
 }
 
 } // end namespace asp
-

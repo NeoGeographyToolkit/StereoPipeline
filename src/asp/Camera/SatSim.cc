@@ -68,7 +68,7 @@ double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem) {
   return height_guess;
 } // End function findDemHeightGuess()
 
-// Compute point on trajectory and along and across track normalized vectors in
+// Compute point on positions and along and across track normalized vectors in
 // ECEF coordinates, given the first and last proj points and a value t giving
 // the position along this line. Produced along and across vectors are
 // normalized and perpendicular to each other.
@@ -640,15 +640,16 @@ void calcTrajectory(SatSimOptions & opt,
                     vw::ImageViewRef<vw::PixelMask<float>> dem,
                     double height_guess,
                     // Outputs
-                    double                       & orbit_len,
-                    std::map<int, vw::Vector3>   & trajectory,
-                    std::map<int, vw::Matrix3x3> & cam2world,
-                    std::map<int, vw::Matrix3x3> & cam2world_no_jitter,
-                    std::map<int, vw::Matrix3x3> & ref_cam2world) {
+                    int                        & first_pos,
+                    double                     & orbit_len,
+                    std::vector<vw::Vector3>   & positions,
+                    std::vector<vw::Matrix3x3> & cam2world,
+                    std::vector<vw::Matrix3x3> & cam2world_no_jitter,
+                    std::vector<vw::Matrix3x3> & ref_cam2world) {
 
   // Initialize the outputs
   orbit_len = 0.0;
-  trajectory.clear();
+  positions.clear();
   cam2world.clear();
   cam2world_no_jitter.clear();
   ref_cam2world.clear();
@@ -695,7 +696,9 @@ void calcTrajectory(SatSimOptions & opt,
                             opt.roll, opt.pitch, opt.yaw,
                             opt.first_ground_pos, first_best_cam_loc_proj);
     sw1.stop();
-    vw::vw_out() << "Elapsed time for starting endpoint: " << sw1.elapsed_seconds() << " s.\n";
+    vw::vw_out() << "Elapsed time for starting endpoint: " 
+                 << sw1.elapsed_seconds() << " s.\n";
+                 
     // Same thing for the last camera
     vw::Stopwatch sw2;
     sw2.start();
@@ -705,7 +708,9 @@ void calcTrajectory(SatSimOptions & opt,
                             opt.roll, opt.pitch, opt.yaw,
                             opt.last_ground_pos, last_best_cam_loc_proj);
     sw2.stop();
-    vw::vw_out() << "Elapsed time for ending endpoint: " << sw2.elapsed_seconds() << " s.\n";
+    vw::vw_out() << "Elapsed time for ending endpoint: " 
+                 << sw2.elapsed_seconds() << " s.\n";
+                 
     // Overwrite the first and last camera locations in projected coordinates
     // with the best ones
     first_proj = first_best_cam_loc_proj;
@@ -738,24 +743,31 @@ void calcTrajectory(SatSimOptions & opt,
   // For linescan cameras we want to go beyond the positions and orientations
   // needed for the first and last image line, to have room for interpolation
   // and jitter. For Pinhole cameras we do not need this.
-  int first_pos = 0, last_pos = opt.num_cameras; // stop before last
+  first_pos = 0;
+  int last_pos = opt.num_cameras; // stop before last
   if (opt.sensor_type == "linescan") {
      // Double the number of cameras, half of extra ones going beyond image lines
      first_pos = -opt.num_cameras/2;
      last_pos  = 2 * opt.num_cameras + first_pos;
   }
 
+  int total = last_pos - first_pos;
+  positions.resize(total);
+  cam2world.resize(total);
+  cam2world_no_jitter.resize(total);
+  ref_cam2world.resize(total);
+
   // Print progress
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  double inc_amount = 1.0 / (last_pos - first_pos);
+  double inc_amount = 1.0 / double(total);
   tpc.report_progress(0);
 
-  for (int i = first_pos; i < last_pos; i++) {
+  for (int i = 0; i < total; i++) {
 
     // Calc position along the trajectory and normalized along and across vectors
     // in ECEF. Produced along and across vectors are normalized and perpendicular
     // to each other.
-    double t = double(i) / std::max(double(opt.num_cameras - 1.0), 1.0);
+    double t = double(i + first_pos) / std::max(double(opt.num_cameras - 1.0), 1.0);
     vw::Vector3 P, along, across;
     calcEcefTrajPtAlongAcross(first_proj, last_proj, dem_georef, t, delta,
                               proj_along, proj_across, 
@@ -772,8 +784,8 @@ void calcTrajectory(SatSimOptions & opt,
     vw::Vector3 down = vw::math::cross_prod(along, across);
     down = down / norm_2(down);
 
-    // Trajectory
-    trajectory[i] = P;
+    // Camera position in ECEF
+    positions[i] = P;
     
     // The camera to world rotation has these vectors as the columns
     asp::assembleCam2WorldMatrix(along, across, down, cam2world[i]);
@@ -856,23 +868,23 @@ bool skipCamera(int i, SatSimOptions const& opt) {
 
 // A function to create and save Pinhole cameras. Assume no distortion, and pixel
 // pitch = 1.
-void genPinholeCameras(SatSimOptions       const & opt,
-            vw::cartography::GeoReference  const & dem_georef,
-            std::map<int, vw::Vector3>     const & trajectory,
-            std::map<int, vw::Matrix3x3>   const & cam2world,
-            std::map<int, vw::Matrix3x3>   const & ref_cam2world,
+void genPinholeCameras(SatSimOptions      const & opt,
+            vw::cartography::GeoReference const & dem_georef,
+            std::vector<vw::Vector3>      const & positions,
+            std::vector<vw::Matrix3x3>    const & cam2world,
+            std::vector<vw::Matrix3x3>    const & ref_cam2world,
             // outputs
-            std::vector<std::string>             & cam_names,
-            std::vector<vw::CamPtr>              & cams) {
+            std::vector<std::string>            & cam_names,
+            std::vector<vw::CamPtr>             & cams) {
 
   // Ensure we have as many camera positions as we have camera orientations
-  if (trajectory.size() != cam2world.size() || trajectory.size() != ref_cam2world.size())
+  if (positions.size() != cam2world.size() || positions.size() != ref_cam2world.size())
     vw::vw_throw(vw::ArgumentErr()
       << "Expecting as many camera positions as camera orientations.\n");
 
-  cams.resize(trajectory.size());
-  cam_names.resize(trajectory.size());
-  for (int i = 0; i < int(trajectory.size()); i++) {
+  cams.resize(positions.size());
+  cam_names.resize(positions.size());
+  for (int i = 0; i < int(positions.size()); i++) {
 
     // Always create the cameras, but only save them if we are not skipping
     asp::CsmModel * csmPtr = NULL;
@@ -884,12 +896,12 @@ void genPinholeCameras(SatSimOptions       const & opt,
                               opt.optical_center[0], opt.optical_center[1],
                               opt.focal_length, 
                               d.semi_major_axis(), d.semi_minor_axis(),
-                              asp::mapVal(trajectory, i), 
-                              asp::mapVal(cam2world, i));
+                              positions[i], 
+                              cam2world[i]);
       cams[i] = vw::CamPtr(csmPtr); // will own this pointer
     } else {
-      pinPtr = new vw::camera::PinholeModel(asp::mapVal(trajectory, i), 
-                                           asp::mapVal(cam2world, i),
+      pinPtr = new vw::camera::PinholeModel(positions[i], 
+                                           cam2world[i],
                                            opt.focal_length, opt.focal_length,
                                            opt.optical_center[0], opt.optical_center[1]);
       cams[i] = vw::CamPtr(pinPtr); // will own this pointer
@@ -904,11 +916,11 @@ void genPinholeCameras(SatSimOptions       const & opt,
                                    opt.optical_center[0], opt.optical_center[1],
                                    opt.focal_length, 
                                    d.semi_major_axis(), d.semi_minor_axis(),
-                                   asp::mapVal(trajectory, i), 
-                                   asp::mapVal(ref_cam2world, i));
+                                   positions[i], 
+                                   ref_cam2world[i]);
       else
-        pinRefCam = vw::camera::PinholeModel(asp::mapVal(trajectory, i), 
-                                             asp::mapVal(ref_cam2world, i),
+        pinRefCam = vw::camera::PinholeModel(positions[i], 
+                                             ref_cam2world[i],
                                              opt.focal_length, opt.focal_length,
                                              opt.optical_center[0], opt.optical_center[1]);
     }
@@ -939,6 +951,8 @@ void genPinholeCameras(SatSimOptions       const & opt,
       else
        pinRefCam.write(refCamName);
     }
+    
+    return;
   }
 
   // Write the list of cameras only if we are not skipping the first camera
