@@ -293,7 +293,7 @@ void populateCsmLinescan(double first_line_time, double dt_line,
                          double t0_ephem, double dt_ephem,
                          double t0_quat, double dt_quat, 
                          double focal_length,
-                         vw::Vector2                const & detector_origin,
+                         vw::Vector2                const & optical_center,
                          vw::Vector2i               const & image_size,
                          vw::cartography::Datum     const & datum, 
                          std::string                const & sensor_id, 
@@ -349,11 +349,18 @@ void populateCsmLinescan(double first_line_time, double dt_line,
   ls_model->m_detectorLineOrigin     = 0.0;
   ls_model->m_detectorSampleOrigin   = 0.0;
   ls_model->m_detectorLineSumming    = 1.0;
-  // TODO(oalexan1): Must test with non-zero detector origin[1].
-  ls_model->m_startingDetectorLine   = detector_origin[1];
   ls_model->m_detectorSampleSumming  = 1.0;
-  ls_model->m_startingDetectorSample = (detector_origin[0] - 0.5);
-
+  // There is an inconsistency below, but this is what works 
+  ls_model->m_startingDetectorLine   = -optical_center[1];
+  ls_model->m_startingDetectorSample = -optical_center[0] - 0.5;
+  
+  // Fix for the quirky C++ negative 0. It shows up in the produced
+  // .json files and looks odd.
+  if (std::abs(ls_model->m_startingDetectorLine) == 0.0)
+    ls_model->m_startingDetectorLine = 0.0;
+  if (std::abs(ls_model->m_startingDetectorSample) == 0.0)
+    ls_model->m_startingDetectorSample = 0.0;  
+            
   // Set the time 
   ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
   ls_model->m_intTimeStartTimes.push_back(first_line_time);

@@ -18,18 +18,19 @@
 
 /// \file LinescanASTERModel.h
 ///
-/// Linescan model for ASTER. Don't bother with time, just interpolate
-/// between pointing vectors.
-///
+/// Linescan model for ASTER. Old approach: Don't bother with time, just interpolate
+/// between pointing vectors. New approach: Find best-fitting camera poses and
+/// create a CSM model.
 ///
 #ifndef __STEREO_CAMERA_LINESCAN_ASTER_MODEL_H__
 #define __STEREO_CAMERA_LINESCAN_ASTER_MODEL_H__
+
+#include <asp/Camera/CsmModel.h>
 
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/LinescanModel.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/Extrinsics.h>
-
 
 namespace asp {
   
@@ -56,7 +57,7 @@ namespace asp {
     //------------------------------------------------------------------
     // Constructors / Destructors
     //------------------------------------------------------------------
-    ASTERCameraModel(std::vector< std::vector<vw::Vector2> > const& lattice_mat,
+    ASTERCameraModel(std::vector< std::vector<vw::Vector2>> const& lattice_mat,
 		     std::vector< std::vector<vw::Vector3> > const& sight_mat,
 		     std::vector< std::vector<vw::Vector3> > const& world_sight_mat,
 		     std::vector<vw::Vector3>                const& sat_pos,
@@ -83,14 +84,16 @@ namespace asp {
     
   protected:
 
-    std::vector< std::vector<vw::Vector2> > m_lattice_mat;
-    std::vector< std::vector<vw::Vector3> > m_sight_mat;
-    std::vector< std::vector<vw::Vector3> > m_world_sight_mat;
-    std::vector<vw::Vector3>                m_sat_pos;
-    vw::Vector2                             m_image_size;
+    std::vector<std::vector<vw::Vector2>> m_lattice_mat;
+    std::vector<std::vector<vw::Vector3>> m_sight_mat;
+    std::vector<std::vector<vw::Vector3>> m_world_sight_mat;
+    std::vector<vw::Vector3>              m_sat_pos;
+    vw::Vector2                           m_image_size;
     vw::camera::LinearPiecewisePositionInterpolation m_interp_sat_pos;
     vw::camera::SlerpGridPointingInterpolation m_interp_sight_mat;
     boost::shared_ptr<vw::camera::CameraModel> m_rpc_model; // rpc approx, for initial guess
+    
+    asp::CsmModel m_csm_model;
   }; // End class ASTERCameraModel
 
 
@@ -100,6 +103,7 @@ namespace asp {
   boost::shared_ptr<ASTERCameraModel>
   load_ASTER_camera_model_from_xml(std::string const& path,
 				   boost::shared_ptr<vw::camera::CameraModel> rpc_model);
+  
 
 }      // namespace asp
 

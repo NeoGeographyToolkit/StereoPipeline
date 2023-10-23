@@ -19,6 +19,8 @@
 #include <asp/Camera/LinescanFit.h>
 #include <asp/Camera/LinescanASTERModel.h>
 #include <asp/Camera/LinescanFit.h>
+#include <asp/Camera/CsmUtils.h>
+#include <asp/Core/StereoSettings.h>
 
 #include <vw/Camera/CameraSolve.h>
 
@@ -52,29 +54,29 @@ ASTERCameraModel::ASTERCameraModel(std::vector<std::vector<vw::Vector2>> const& 
   double tol = 1e-10;
   double d_row = double(max_row - min_row)/(num_rows - 1.0);
   if (std::abs(d_row - round(d_row)) > tol) {
-    vw::vw_throw( vw::ArgumentErr()
-                  << "The spacing between lattice points must be integer.\n" );
+    vw::vw_throw(vw::ArgumentErr()
+                   << "The spacing between lattice points must be integer.\n");
   }
   d_row = round(d_row);
 
   // The spacing between columns must be integer
   double d_col = double(max_col - min_col)/(num_cols - 1.0);
   if (std::abs(d_col - round(d_col)) > tol) {
-    vw::vw_throw( vw::ArgumentErr()
-                  << "The spacing between lattice points must be integer.\n" );
+    vw::vw_throw(vw::ArgumentErr()
+                   << "The spacing between lattice points must be integer.\n");
   }
   d_col = round(d_col);
 
   if ((int)m_sat_pos.size() != num_rows)
-    vw::vw_throw( vw::ArgumentErr()
-                  << "The number of rows of lattice points does not "
-                  << "agree with the number of satellite positions.\n" );
+    vw::vw_throw(vw::ArgumentErr()
+                   << "The number of rows of lattice points does not "
+                   << "agree with the number of satellite positions.\n");
 
   if (num_rows != (int)m_world_sight_mat.size() ||
       num_cols != (int)m_world_sight_mat[0].size())
-    vw::vw_throw( vw::ArgumentErr()
-                  << "The number of rows or columns of lattice points does not "
-                  << "agree with the number of sight vectors.\n" );  
+    vw::vw_throw(vw::ArgumentErr()
+                   << "The number of rows or columns of lattice points does not "
+                   << "agree with the number of sight vectors.\n" );  
 
   m_interp_sat_pos
     = vw::camera::LinearPiecewisePositionInterpolation(m_sat_pos, min_row, d_row);
@@ -82,14 +84,73 @@ ASTERCameraModel::ASTERCameraModel(std::vector<std::vector<vw::Vector2>> const& 
   m_interp_sight_mat
     = vw::camera::SlerpGridPointingInterpolation(m_world_sight_mat, min_row, d_row, min_col, d_col);
 
-  double focal_length; 
-  vw::Vector2 optical_center;
-  std::vector<vw::Matrix<double,3,3>> rotation_vec;
-  
   // Find the rotation matrices, focal length, and optical center,
   // that best fit a 2D matrix of sight vectors. Uses for ASTER.
-  //fitBestRotationsIntrinsics(m_world_sight_mat, m_image_size, d_col,
-  //                           focal_length, optical_center, rotation_vec);
+  double focal_length = 0.0; 
+  vw::Vector2 optical_center;
+  std::vector<vw::Matrix<double,3,3>> cam2world_vec;
+  fitBestRotationsIntrinsics(m_world_sight_mat, m_image_size, d_col,
+                             focal_length, optical_center, cam2world_vec);
+  
+  // Assume it takes one unit of time to scan one image line
+  double first_line_time = 0; // time of the first scanned line
+  double last_line_time = m_image_size[1] - 1;
+  double dt_line = (last_line_time - first_line_time) / (m_image_size[1] - 1.0);
+  
+  // The image line for the first pose determines its time. The spacing
+  // between poses determines dt_ephem. Note that min_row is negative,
+  // because the first pose is measured before data starts being recorded.
+  double t0_ephem = min_row * dt_line;
+  double dt_ephem = d_row * dt_line;
+  double t0_quat = t0_ephem;
+  double dt_quat = dt_ephem;
+  
+  // We have no velocities in this context, so set them to 0
+  std::vector<vw::Vector3> velocities(m_sat_pos.size(), vw::Vector3(0, 0, 0));
+
+  vw::cartography::Datum datum("WGS84"); // ASTER is for Earth
+  std::string sensor_id = "ASTER"; 
+  // Create the CSM model always, but use it only if the user asked for it.
+  // This is convenient in cam_test when comparing CSM vs non-CSM.
+  asp::populateCsmLinescan(first_line_time, dt_line, 
+                           t0_ephem, dt_ephem, t0_quat, dt_quat,
+                           focal_length, optical_center, 
+                           m_image_size, datum, sensor_id,
+                           m_sat_pos, velocities, cam2world_vec, 
+                           m_csm_model); // output 
+
+  if (asp::stereo_settings().aster_use_csm)
+    vw_out() << "Using the CSM model with ASTER cameras.\n";
+
+  if ((asp::stereo_settings().enable_correct_velocity_aberration ||
+       asp::stereo_settings().enable_correct_atmospheric_refraction) &&
+      asp::stereo_settings().aster_use_csm)
+    vw::vw_throw(vw::ArgumentErr() << "Cannot correct velocity aberration or "
+                 << "atmospheric refraction with the CSM model.\n");
+
+#if 0
+  // Temporary Sanity check
+  for (int row = 0; row < num_rows; row++) {
+    for (int col = 0; col < num_cols; col++) {
+    
+      // Vector in sensor coordinates 
+      vw::Vector3 in(col * d_col - optical_center[0], -optical_center[1], focal_length);
+      in = in/norm_2(in);
+      // Rotate to world coordinates
+      in = cam2world_vec[row] * in;
+      
+      vw::Vector3 out = world_sight_mat[row][col];
+      out = out/norm_2(out);
+      //std::cout << "norm of diff is " << norm_2(in-out) << std::endl;
+      
+      // Create the CSM pixel
+      vw::Vector2 pix(col * d_col, row * d_row + min_row);
+      std::cout << "csm pixel is " << pix << std::endl;
+      vw::Vector3 dir = m_csm_model.pixel_to_vector(pix);
+      std::cout << "in, dir, and norm of diff are " << in << ' ' << dir << ' ' << norm_2(in-dir) << std::endl; 
+    }
+  }
+#endif
 }
 
 // Project the point onto the camera. Sometimes, but not always, seeding with the RPC
@@ -97,8 +158,11 @@ ASTERCameraModel::ASTERCameraModel(std::vector<std::vector<vw::Vector2>> const& 
 vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point, 
                                              Vector2 const& start_in) const {
 
+  if (stereo_settings().aster_use_csm)
+    return m_csm_model.point_to_pixel(point);
+
   // - This method will be slower but works for more complicated geometries
-  vw::camera::CameraGenericLMA model( this, point );
+  vw::camera::CameraGenericLMA model(this, point);
   int status;
   vw::Vector2 start = m_image_size / 2.0; // Use the center as the initial guess
 
@@ -125,49 +189,17 @@ vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point,
       int T = 100; // This way we'll sample about every 4-th pixel since dcol = 400
       int col = m_lattice_mat.front().size()/2;
       for (int r = 0; r < T; r++) {
-	double wr = double(r)/(T-1.0);
-	Vector2 pt
-	  = wr*m_lattice_mat[row+1][col]
-	  + (1-wr)*m_lattice_mat[row][col];
-	double err = norm_2(model(pt));
-	if (err < min_err) {
-	  min_err = err;
-	  start = pt;
-	}
+        double wr = double(r)/(T-1.0);
+        Vector2 pt = wr*m_lattice_mat[row+1][col] + (1-wr)*m_lattice_mat[row][col];
+        double err = norm_2(model(pt));
+        if (err < min_err) {
+          min_err = err;
+          start = pt;
+        }
       }
     }
   }
-
-#if 0
-  // This exhaustive search for an initial guess is an overkill
-  if (!has_guess) {
-    double min_err = norm_2(model(start));
-    // No good initial guess. The method will fail to converge.
-    // Iterate through the lattice to find a good initial guess.
-    for (int row = 0; row < int(m_lattice_mat.size())-1; row++) {
-      for (int col = 0; col < int(m_lattice_mat.front().size())-1; col++) {
-	int T = 100;
-	for (int r = 0; r < T; r++) {
-	  for (int c = 0; c < T; c++) {
-	    double wr = double(r)/(T-1.0);
-	    double wc = double(c)/(T-1.0);
-	    Vector2 pt
-	      = wr*wc*m_lattice_mat[row+1][col+1]
-	      + (1-wr)*wc*m_lattice_mat[row][col+1]
-	      + wr*(1-wc)*m_lattice_mat[row+1][col]
-	      + (1-wr)*(1-wc)*m_lattice_mat[row][col];
-	    double err = norm_2(model(pt));
-	    if (err < min_err) {
-	      min_err = err;
-	      start = pt;
-	    }
-	  }
-	}
-      }
-    }
-  }
-#endif
-
+                                              
   // Solver constants
   const double ABS_TOL = 1e-16;
   const double REL_TOL = 1e-16;
@@ -178,7 +210,8 @@ vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point,
   
   // Solution with user-provided initial guess
   Vector3 objective(0, 0, 0);
-  vw::Vector2 solution1 = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
+  vw::Vector2 solution1 
+    = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
     (model, start, objective, status, ABS_TOL, REL_TOL, MAX_ITERATIONS);
   
   // Solution with the RPC initial guess
@@ -190,18 +223,19 @@ vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point,
   double error1 = norm_2(model(solution1));
   double error2 = norm_2(model(solution2));
   double error  = std::min(error1, error2);
-  
+
   vw::Vector2 solution;
   if (error1 < error2) {
     solution = solution1;
-  } else if (error1 > error2) {
+  } else {
     solution = solution2;
   }
   
   // Check the error - If it is too high then the solver probably got
   // stuck at the edge of the image.
-  VW_ASSERT( (status > 0) && (error < MAX_ERROR),
-             vw::camera::PointToPixelErr() << "Unable to project point into LinescanASTER model" );
+  VW_ASSERT((status > 0) && (error < MAX_ERROR),
+            vw::camera::PointToPixelErr() 
+              << "Unable to project point into LinescanASTER model.");
   
   return solution;
 }
@@ -211,12 +245,19 @@ vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point, double starty
 }
   
 vw::Vector3 ASTERCameraModel::camera_center(vw::Vector2 const& pix) const {
+  if (stereo_settings().aster_use_csm)
+    return m_csm_model.camera_center(pix);
+  
   return m_interp_sat_pos(pix.y());
 }
     
-vw::Vector3 ASTERCameraModel::pixel_to_vector(vw::Vector2 const& pixel) const{
+vw::Vector3 ASTERCameraModel::pixel_to_vector(vw::Vector2 const& pix) const {
+  
+ if (stereo_settings().aster_use_csm)
+   return m_csm_model.pixel_to_vector(pix);
+  
   try {
-    return m_interp_sight_mat(pixel);
+    return m_interp_sight_mat(pix);
   } catch(const vw::Exception &e) {
     // Repackage any of our exceptions thrown below this point as a 
     //  pixel to ray exception that other code will be able to handle.

@@ -80,7 +80,8 @@ struct Options: public asp::BaBaseOptions {
   bool   skip_rough_homography, enable_rough_homography, disable_tri_filtering,
     enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
     force_reuse_match_files, save_cnet_as_csv,
-    enable_correct_velocity_aberration, enable_correct_atmospheric_refraction, dg_use_csm;
+    enable_correct_velocity_aberration, enable_correct_atmospheric_refraction, 
+    dg_use_csm, aster_use_csm;
   vw::Vector2 elevation_limit;   // Expected range of elevation to limit results to.
   vw::BBox2 lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
   vw::BBox2 proj_win; // Limit input triangulated points to this projwin
@@ -117,6 +118,7 @@ struct Options: public asp::BaBaseOptions {
     asp::stereo_settings().enable_correct_velocity_aberration
       = enable_correct_velocity_aberration;
     asp::stereo_settings().dg_use_csm = dg_use_csm;
+    asp::stereo_settings().aster_use_csm = aster_use_csm;
     asp::stereo_settings().ip_per_tile = ip_per_tile;
     asp::stereo_settings().ip_per_image = ip_per_image;
     asp::stereo_settings().matches_per_tile = matches_per_tile;

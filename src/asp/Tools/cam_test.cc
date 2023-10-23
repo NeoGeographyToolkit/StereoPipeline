@@ -49,7 +49,8 @@ struct Options : vw::GdalWriteOptions {
   int sample_rate; // use one out of these many pixels
   double subpixel_offset, height_above_datum;
   bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
-    print_per_pixel_results, dg_use_csm, dg_vs_csm, test_error_propagation;
+    print_per_pixel_results, dg_use_csm, dg_vs_csm, aster_use_csm, aster_vs_csm,
+    test_error_propagation;
   vw::Vector2 single_pixel;
 
   Options() {}
@@ -92,6 +93,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use the CSM model with DigitalGlobe linescan cameras (-t dg). No corrections are done for velocity aberration or atmospheric refraction.")
     ("dg-vs-csm", po::bool_switch(&opt.dg_vs_csm)->default_value(false)->implicit_value(true),
      "Compare projecting into the camera without and with using the CSM model for Digital Globe.")
+    ("aster-use-csm", po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
+     "Use the CSM model with ASTER cameras (-t aster).")
+    ("aster-vs-csm", po::bool_switch(&opt.aster_vs_csm)->default_value(false)->implicit_value(true),
+     "Compare projecting into the camera without and with using the CSM model for ASTER.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Adjust the cameras using this prefix.")
     ("test-error-propagation", po::bool_switch(&opt.test_error_propagation)->default_value(false)->implicit_value(true),
@@ -123,16 +128,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::stereo_settings().enable_correct_atmospheric_refraction
     = opt.enable_correct_atmospheric_refraction;
   asp::stereo_settings().dg_use_csm = opt.dg_use_csm;
+  asp::stereo_settings().aster_use_csm = opt.aster_use_csm;
 
   // Need this to be able to load adjusted camera models. This must be set
   // before loading the cameras.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
   if (opt.test_error_propagation) {
-    if (!asp::stereo_settings().dg_use_csm) {
-      vw_out() << "Enabling option --dg-use-csm as point cloud stddev will be computed.\n";
-      asp::stereo_settings().dg_use_csm = true;
-    }
+    vw_out() << "Using the CSM model for Digital Globe or ASTER when "
+             << "testing error propagation.\n";
+    asp::stereo_settings().dg_use_csm = true;
+    asp::stereo_settings().aster_use_csm = true;
     asp::stereo_settings().propagate_errors = true;
   }
 }
@@ -184,14 +190,14 @@ void testErrorPropagation(Options const& opt,
       break;
   }
 
-  std::cout << "Left pixel:  " << pix1 << std::endl;
-  std::cout << "Right pixel: " << pix2 << std::endl;
+  vw::vw_out() << "Left pixel:  " << pix1 << std::endl;
+  vw::vw_out() << "Right pixel: " << pix2 << std::endl;
   auto const& v = asp::stereo_settings().horizontal_stddev; // alias
   vw::Vector2 ans = asp::propagateCovariance(triPt, datum,
                                              v[0], v[1],
                                              cam1_model.get(), cam2_model.get(),
                                              pix1, pix2);
-  std::cout << "Horizontal and vertical stddev: " << ans << std::endl;
+  vw::vw_out() << "Horizontal and vertical stddev: " << ans << std::endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -289,7 +295,7 @@ int main(int argc, char *argv[]) {
     double major_axis = datum.semi_major_axis() + opt.height_above_datum;
     double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
     // Iterate over the image
-    std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff, dg_vs_csm_diff;
+    std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff, nocsm_vs_csm_diff;
     for (int col = 0; col < image_cols; col += opt.sample_rate) {
       for (int row = 0; row < image_rows; row += opt.sample_rate) {
 
@@ -320,18 +326,19 @@ int main(int argc, char *argv[]) {
         // camera.
         Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
                                                           cam1_ctr, cam1_dir);
-
         Vector2 cam2_pix = cam2_model->point_to_pixel(xyz);
         cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
 
         if (opt.print_per_pixel_results)
           vw_out() << "cam1 to cam2 pixel diff: " << image_pix - cam2_pix << std::endl;
 
-        if (opt.dg_vs_csm) {
+        if (opt.dg_vs_csm || opt.aster_vs_csm) {
           asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
+          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
           Vector2 cam2_pix2 = cam2_model->point_to_pixel(xyz);
           asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
-          dg_vs_csm_diff.push_back(norm_2(cam2_pix - cam2_pix2));
+          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
+          nocsm_vs_csm_diff.push_back(norm_2(cam2_pix - cam2_pix2));
         }
 
         // Shoot a ray from the cam2 camera, intersect it with the
@@ -345,11 +352,13 @@ int main(int argc, char *argv[]) {
         if (opt.print_per_pixel_results)
           vw_out() << "cam2 to cam1 pixel diff: " << image_pix - cam1_pix << "\n\n";
 
-        if (opt.dg_vs_csm) {
+        if (opt.dg_vs_csm || opt.aster_vs_csm) {
           asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
+          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
           Vector2 cam1_pix2 = cam1_model->point_to_pixel(xyz);
           asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
-          dg_vs_csm_diff.push_back(norm_2(cam1_pix - cam1_pix2));
+          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
+          nocsm_vs_csm_diff.push_back(norm_2(cam1_pix - cam1_pix2));
         }
 
         if (single_pix)
@@ -367,8 +376,8 @@ int main(int argc, char *argv[]) {
     print_diffs("cam1 to cam2 camera center diff (meters)", ctr_diff);
     print_diffs("cam1 to cam2 pixel diff", cam1_to_cam2_diff);
     print_diffs("cam2 to cam1 pixel diff", cam2_to_cam1_diff);
-    if (opt.dg_vs_csm)
-    print_diffs("dg vs csm pixel diff", dg_vs_csm_diff);
+    if (opt.dg_vs_csm || opt.aster_vs_csm)
+    print_diffs("no-csm vs csm pixel diff", nocsm_vs_csm_diff);
 
     double elapsed_sec = sw.elapsed_seconds();
     vw_out() << "\nElapsed time per sample: " << 1e+6 * elapsed_sec/ctr_diff.size()

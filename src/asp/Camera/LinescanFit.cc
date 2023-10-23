@@ -157,7 +157,6 @@ void fitBestRotationsIntrinsics(
     // for that, first convert to quaternion
     vw::Quat q(rotation_vec[row]);
     vw::Vector3 axis_angle = q.axis_angle();
-    //std::cout << "axis angle is " << axis_angle << std::endl;
     axis_angle_vec[row] = axis_angle;
   }
   
@@ -181,23 +180,22 @@ void fitBestRotationsIntrinsics(
   options.linear_solver_type = ceres::ITERATIVE_SCHUR;
   options.num_threads = 1; 
   options.max_num_iterations = 50; // 50 iterations is enough
-  options.minimizer_progress_to_stdout = true;
+  options.minimizer_progress_to_stdout = false;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
+
+  // Copy back from axis_angle_vec to rotation_vec
+  for (int row = 0; row < num_rows; row++)
+    rotation_vec[row] 
+    = vw::math::axis_angle_to_quaternion(axis_angle_vec[row]).rotation_matrix();
   
-  std::cout << summary.FullReport() << "\n";
-  std::cout << "Starting average reprojection error: "
+#if 0 // for debugging
+  vw::vw_out() << summary.FullReport() << "\n"; 
+  vw::vw_out() << "Starting average reprojection error: "
             << summary.initial_cost << "\n";
-  std::cout << "Final average reprojection error:    "
+  vw::vw_out() << "Final average reprojection error:    "
             << summary.final_cost << "\n";
   
-  // Print final optical center
-  std::cout << "final optical center is " << optical_center << std::endl;
-  // print final focal length
-  std::cout << "final focal length is " << focal_length << std::endl;
-
-  // TODO(oalexan1): Turn this off
-#if 1
   // Evaluate the final residuals. For debugging.  
   double total_cost = 0.0;
   ceres::Problem::EvaluateOptions eval_options;
@@ -208,7 +206,7 @@ void fitBestRotationsIntrinsics(
 
   // Save the residuals
   std::string resFile = "residual_norms.txt";
-  std::cout << "Writing residual norms to: " << resFile << std::endl;
+  vw::vw_out() << "Writing residual norms to: " << resFile << std::endl;
   std::ofstream ofs(resFile.c_str());
   for (int i = 0; i < residuals.size()/3; i++) {
     int j = 3*i;
@@ -216,30 +214,6 @@ void fitBestRotationsIntrinsics(
   }
   ofs.close();
 #endif
-
-  // Copy back from axis_angle_vec to rotation_vec
-  for (int row = 0; row < num_rows; row++)
-    rotation_vec[row] 
-    = vw::math::axis_angle_to_quaternion(axis_angle_vec[row]).rotation_matrix();
-
-  // TODO(oalexan1): Check that this has same info as the residuals
-  // saved to disk, then wipe this
-  
-  // Try to see if the sight vectors agree with the rotation matrices
-  for (int row = 0; row < num_rows; row++) {
-    for (int col = 0; col < num_cols; col++) {
-    
-      // Vector in sensor coordinates 
-      vw::Vector3 in(col * d_col - optical_center[0], -optical_center[1], focal_length);
-      in = in/norm_2(in);
-      // Rotate to world coordinates
-      in = rotation_vec[row] * in;
-      
-      vw::Vector3 out = world_sight_mat[row][col];
-      out = out/norm_2(out);
-      std::cout << "norm of diff is " << norm_2(in-out) << std::endl;
-    }
-  }  
 
   return;
 }

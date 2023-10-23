@@ -258,6 +258,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Set this before loading cameras, as jitter for DG can be modeled only with CSM
   // cameras.
   asp::stereo_settings().dg_use_csm = true;
+  asp::stereo_settings().aster_use_csm = true;
   
   std::vector<std::string> inputs = opt.image_files;
   bool ensure_equal_sizes = true;

@@ -203,7 +203,9 @@ namespace asp {
        "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
       ("dg-use-csm", po::bool_switch(&global.dg_use_csm)->default_value(false)->implicit_value(true),
        "Use the CSM model with DigitalGlobe linescan cameras (-t dg). No corrections are done for velocity aberration or atmospheric refraction.")
-
+      ("aster-use-csm", po::bool_switch(&global.aster_use_csm)->default_value(false)->implicit_value(true),
+       "Use the CSM model with ASTER cameras (-t aster).")
+      
       // For bathymetry correction
       ("left-bathy-mask", po::value(&global.left_bathy_mask),
        "Mask to use for the left image when doing bathymetry.")

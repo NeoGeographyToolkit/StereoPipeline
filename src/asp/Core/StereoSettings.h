@@ -149,7 +149,9 @@ namespace asp {
     
     int disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
 
-    bool dg_use_csm; // Use the CSM camera model with Digital Globe images.
+    // These two flags will be the default in the future and will go away
+    bool dg_use_csm; // Use the CSM camera model with Digital Globe images
+    bool aster_use_csm; // Use the CSM camera model with ASTER images
     
     // Correlation options
     

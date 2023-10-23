@@ -104,9 +104,11 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
 
   // It is assumed that EPH and ATT are sampled at the same rate and time.
   VW_ASSERT(eph.satellite_position_vec.size() == att.satellite_quat_vec.size(),
-            vw::MathErr() << "Ephemeris and attitude don't have the same number of samples.");
+            vw::MathErr() 
+              << "Ephemeris and attitude don't have the same number of samples.");
   VW_ASSERT(eph.start_time == att.start_time && eph.time_interval == att.time_interval,
-            vw::MathErr() << "Ephemeris and attitude don't seem to use the same t0 or dt.");
+            vw::MathErr() 
+              << "Ephemeris and attitude don't seem to use the same t0 or dt.");
 
   // Load up the time interpolation class. If the TLCList only has
   // one entry, then we have to manually drop in the slope and offset.
@@ -188,16 +190,16 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
       if (len_q > 0 && asp::stereo_settings().propagate_errors) 
         q = q / len_q; // Normalization is not needed without covariance logic
       q = q + dq;
-      vw::Quat qt(q[3], q[0], q[1], q[2]); // Note the swapping, the order is now w, x, y, z.
+      vw::Quat qt(q[3], q[0], q[1], q[2]); // Note the swap. The order is now w, x, y, z.
       camera_position_vec[i] = p + qt.rotate(geo.perspective_center);
       camera_quat_vec[i] = qt * sensor_to_body;
     }
 
     vw::CamPtr cam_ptr
-      (new DGCameraModel(vw::camera::PiecewiseAPositionInterpolation(camera_position_vec,
-                                                                     eph.velocity_vec, et0, edt),
-                         vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec,
-                                                                          et0, edt),
+      (new DGCameraModel(vw::camera::PiecewiseAPositionInterpolation
+                           (camera_position_vec, eph.velocity_vec, et0, edt),
+                         vw::camera::LinearPiecewisePositionInterpolation
+                           (eph.velocity_vec, et0, edt),
                          vw::camera::SLERPPoseInterpolation(camera_quat_vec, at0, adt),
                          tlc_time_interpolation, img.image_size, final_detector_origin,
                          geo.principal_distance, mean_ground_elevation,
@@ -238,8 +240,9 @@ DGCameraModel::DGCameraModel
  double                                           const  mean_ground_elevation,
  bool                                                    correct_velocity,
  bool                                                    correct_atmosphere):
-  DGCameraModelBase(position, velocity, pose, time, image_size, detector_origin, focal_length,
-                    mean_ground_elevation, correct_velocity, correct_atmosphere) {
+  DGCameraModelBase(position, velocity, pose, time, image_size, detector_origin, 
+                    focal_length, mean_ground_elevation, 
+                    correct_velocity, correct_atmosphere) {
   
   // It is convenient to have the CSM model exist even if it is not used.
   // The cam_test.cc and jitter_solve.cc tools uses this assumption.
@@ -261,11 +264,11 @@ void DGCameraModel::populateCsmModel() {
   // 2,002,252.25.
   m_csm_model.reset(new CsmModel);
 
-  // this sensor is used for Earth only
-  vw::cartography::Datum datum = vw::cartography::Datum("WGS84"); 
+  // This sensor is used for Earth only
+  vw::cartography::Datum datum("WGS84"); 
   m_csm_model->m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
-  m_csm_model->m_semi_major_axis = datum.semi_major_axis(); // WGS84
-  m_csm_model->m_semi_minor_axis = datum.semi_minor_axis(); // WGS84
+  m_csm_model->m_semi_major_axis = datum.semi_major_axis(); 
+  m_csm_model->m_semi_minor_axis = datum.semi_minor_axis();
     
   // Create a linescan model as a smart pointer, and do smart pointer
   // casting Follow the CSM API. The type of m_gm_model is
@@ -410,9 +413,8 @@ void DGCameraModel::populateCsmModel() {
 }
 
 // Re-implement base class functions
-  
+// TODO(oalexan1): This must be wiped when no longer inheriting from VW linescan  
 double DGCameraModel::get_time_at_line(double line) const {
-  
   if (stereo_settings().dg_use_csm) {
     csm::ImageCoord csm_pix;
     vw::Vector2 pix(0, line);
@@ -423,6 +425,7 @@ double DGCameraModel::get_time_at_line(double line) const {
   return m_time_func(line);
 }
 
+// TODO(oalexan1): This must be wiped when no longer inheriting from VW linescan
 vw::Vector3 DGCameraModel::get_camera_center_at_time(double time) const {
   if (stereo_settings().dg_use_csm) {
     csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
@@ -432,6 +435,7 @@ vw::Vector3 DGCameraModel::get_camera_center_at_time(double time) const {
   return m_position_func(time);
 }
 
+// TODO(oalexan1): This must be wiped when no longer inheriting from VW linescan
 vw::Vector3 DGCameraModel::get_camera_velocity_at_time(double time) const {
   if (stereo_settings().dg_use_csm) {
     csm::EcefVector ecef = m_ls_model->getSensorVelocity(time);
@@ -444,6 +448,7 @@ vw::Vector3 DGCameraModel::get_camera_velocity_at_time(double time) const {
 // Function to interpolate quaternions with the CSM model. This is used
 // for CSM model validation but not in production.
 // TODO(oalexan1): Move this to a new CsmModelUtils.cc file and call it from here.
+// TODO(oalexan1): This must be wiped when removing the ASP linescan implementation
 void DGCameraModel::getQuaternions(const double& time, double q[4]) const {
 
   if (!stereo_settings().dg_use_csm)
@@ -469,10 +474,10 @@ void DGCameraModel::interpSatellitePosCov(vw::Vector2 const& pix,
   
   if (!stereo_settings().dg_use_csm)
     vw::vw_throw(vw::ArgumentErr()
-                 << "interpSatellitePosCov: It was expected that the CSM model was used.\n");
+                 << "interpSatellitePosCov: It was expected that the CSM model "
+                 << "was used.\n");
 
   double time = get_time_at_line(pix.y());
-
   int numCov = m_satellite_pos_cov.size() / SAT_POS_COV_SIZE;
 
   int nOrder = 8;
@@ -522,13 +527,9 @@ vw::Quat DGCameraModel::get_camera_pose_at_time(double time) const {
   
 // Gives a pointing vector in the world coordinates.
 vw::Vector3 DGCameraModel::pixel_to_vector(vw::Vector2 const& pix) const {
-
-  if (stereo_settings().dg_use_csm) {
-    csm::ImageCoord csm_pix;
-    asp::toCsmPixel(pix, csm_pix);
-    csm::EcefLocus locus = m_ls_model->imageToRemoteImagingLocus(csm_pix);
-    return vw::Vector3(locus.direction.x, locus.direction.y, locus.direction.z);
-  }
+    
+ if (stereo_settings().dg_use_csm)
+   return m_csm_model->pixel_to_vector(pix);
   
   return vw::camera::LinescanModel::pixel_to_vector(pix);
 }
@@ -555,80 +556,11 @@ double DGCameraModel::errorFunc(double y, vw::Vector3 const& point) const {
   
 // Point to pixel with no initial guess
 vw::Vector2 DGCameraModel::point_to_pixel(vw::Vector3 const& point) const {
-  if (stereo_settings().dg_use_csm) {
+  if (stereo_settings().dg_use_csm)
+    return m_csm_model->point_to_pixel(point);
 
-    csm::EcefCoord ecef(point[0], point[1], point[2]);
-    
-    // Do not show warnings, it becomes too verbose
-    double achievedPrecision = -1.0;
-    csm::WarningList warnings;
-    csm::WarningList * warnings_ptr = NULL;
-    bool show_warnings = false;
-    // Do not use here a desired precision than than 1e-8, as
-    // then CSM can return junk.
-    csm::ImageCoord csm_pix
-      = m_ls_model->groundToImage(ecef,
-                                  m_csm_model->m_desired_precision,
-                                  &achievedPrecision, warnings_ptr);
-    
-    vw::Vector2 asp_pix;
-    asp::fromCsmPixel(asp_pix, csm_pix);
-    
-#if 0
-    // This logic is from UsgsAstroLsSensorModel, with fixes to make
-    // it more robust for DG cameras. Not used yet.
-    
-    // TODO(oalexan1): Use this logic
-    // with non-CSM cameras.  Should be much faster than the current
-    // approach of solving a minimization problem.  Do not set
-    // desired_precision to less than 1e-8 as then the algorithm will
-    // produce junk due to numerical precision issues with the large
-    // DG focal length.
-
-    // For non-CSM logic, need to start iterating from sensor
-    // midpoint.  asp_pix[1] = m_image_size.y()/2;
-    
-    double L0 = 0.0; // Line increment
-    double lineErr0 = errorFunc(L0 + asp_pix[1], point);
-    double L1 = 0.1;
-    double lineErr1 = errorFunc(L1 + asp_pix[1], point);
-    
-    for (int count = 0; count < 15; count++) {
-      
-      if (lineErr1 == lineErr0)
-        break; // avoid division by 0
-      
-      // Secant method update
-      // https://en.wikipedia.org/wiki/Secant_method
-      double increment = lineErr1 * (L1 - L0) / (lineErr1 - lineErr0);
-      double L2 = L1 - increment;
-      double lineErr2 = errorFunc(L2 + asp_pix[1], point);
-      
-      // Update for the next step
-      L0 = L1; lineErr0 = lineErr1;
-      L1 = L2; lineErr1 = lineErr2;
-      
-      // If the solution changes by less than this, we achieved the desired line precision
-      if (increment < m_csm_model->m_desired_precision) 
-        break;
-    }
-    
-    asp_pix[1] += L1;
-    
-    // Solve for sample location now that we know the correct line
-    double t = get_time_at_line(asp_pix[1]);
-    vw::Quat q = get_camera_pose_at_time(t);
-    vw::Vector3 pt = inverse(q).rotate(point - get_camera_center_at_time(t));
-    pt *= m_focal_length / pt.z();
-    asp_pix = vw::Vector2(pt.x() - m_detector_origin[0], asp_pix[1]);
-#endif
-
-    return asp_pix;
-  }
-  
   // Non-CSM version
   return vw::camera::LinescanModel::point_to_pixel(point);
-
 }
   
 // TODO(oalexan1): Wipe this and use the logic above, after much testing.  
@@ -648,11 +580,12 @@ vw::Vector2 DGCameraModel::point_to_pixel(vw::Vector3 const& point, double start
   const double ABS_TOL = 1e-16;
   const double REL_TOL = 1e-16;
   const int    MAX_ITERATIONS = 1e+5;
-  vw::Vector2 solution = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
-    (model, start, objective, status,
-     ABS_TOL, REL_TOL, MAX_ITERATIONS);
+  vw::Vector2 solution 
+    = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
+     (model, start, objective, status, ABS_TOL, REL_TOL, MAX_ITERATIONS);
   VW_ASSERT(status > 0,
-            vw::camera::PointToPixelErr() << "Unable to project point into LinescanDG model.");
+            vw::camera::PointToPixelErr() 
+              << "Unable to project point into LinescanDG model.");
   return solution;
 }
   
@@ -670,15 +603,8 @@ vw::Quaternion<double> DGCameraModel::camera_pose(vw::Vector2 const& pix) const 
 // Gives the camera position in world coordinates.
 vw::Vector3 DGCameraModel::camera_center(vw::Vector2 const& pix) const {
 
-  if (stereo_settings().dg_use_csm) {
-    csm::ImageCoord csm_pix;
-    asp::toCsmPixel(pix, csm_pix);
-    
-    double time = m_ls_model->getImageTime(csm_pix);
-    csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
-    
-    return vw::Vector3(ecef.x, ecef.y, ecef.z);
-  }
+  if (stereo_settings().dg_use_csm)
+    return m_csm_model->camera_center(pix);
   
   return vw::camera::LinescanModel::camera_center(pix);
 }

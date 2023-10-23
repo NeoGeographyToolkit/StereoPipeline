@@ -256,22 +256,20 @@ void genLinescanCameras(double orbit_len,
   std::string sensor_id = "SyntheticLinescan";
 
   // We assume no optical offset in y for this synthetic camera
-  vw::Vector2 detector_origin;
-  detector_origin[0] = -opt.optical_center[0]; 
-  detector_origin[1] = 0.0; 
+  vw::Vector2 local_optical_center(opt.optical_center[0], 0.0);
 
   // If creating square pixels, must use the camera without jitter to estimate
   // the image height. Otherwise the image height produced from the camera with
   // jitter will be inconsistent with the one without jitter. This is a bugfix. 
   if (!opt.square_pixels) 
     populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
-                        opt.focal_length, detector_origin,
+                        opt.focal_length, local_optical_center,
                         opt.image_size, dem_georef.datum(), sensor_id,
                         positions, velocities, cam2world, 
                         *ls_cam); // output 
   else
     populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
-                        opt.focal_length, detector_origin,
+                        opt.focal_length, local_optical_center,
                         opt.image_size, dem_georef.datum(), sensor_id,
                         positions, velocities, cam2world_no_jitter, 
                         *ls_cam); // output
@@ -293,7 +291,7 @@ void genLinescanCameras(double orbit_len,
     // Recreate the camera with this aspect ratio. This time potentially use the 
     // camera with jitter. 
     populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
-                        opt.focal_length, detector_origin,
+                        opt.focal_length, local_optical_center,
                         opt.image_size, dem_georef.datum(), sensor_id,
                         positions, velocities, cam2world, 
                         *ls_cam); // output
@@ -306,7 +304,7 @@ void genLinescanCameras(double orbit_len,
   if (opt.save_ref_cams) {
       asp::CsmModel ref_cam;
       populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
-                          opt.focal_length, detector_origin, 
+                          opt.focal_length, local_optical_center, 
                           opt.image_size, dem_georef.datum(), sensor_id,
                           positions,  velocities, ref_cam2world,
                           ref_cam); // output

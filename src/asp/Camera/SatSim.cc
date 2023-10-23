@@ -900,10 +900,9 @@ void genPinholeCameras(SatSimOptions      const & opt,
                               cam2world[i]);
       cams[i] = vw::CamPtr(csmPtr); // will own this pointer
     } else {
-      pinPtr = new vw::camera::PinholeModel(positions[i], 
-                                           cam2world[i],
-                                           opt.focal_length, opt.focal_length,
-                                           opt.optical_center[0], opt.optical_center[1]);
+      pinPtr = new vw::camera::PinholeModel(positions[i], cam2world[i],
+                                            opt.focal_length, opt.focal_length,
+                                            opt.optical_center[0], opt.optical_center[1]);
       cams[i] = vw::CamPtr(pinPtr); // will own this pointer
     }
 
@@ -919,8 +918,7 @@ void genPinholeCameras(SatSimOptions      const & opt,
                                    positions[i], 
                                    ref_cam2world[i]);
       else
-        pinRefCam = vw::camera::PinholeModel(positions[i], 
-                                             ref_cam2world[i],
+        pinRefCam = vw::camera::PinholeModel(positions[i], ref_cam2world[i],
                                              opt.focal_length, opt.focal_length,
                                              opt.optical_center[0], opt.optical_center[1]);
     }

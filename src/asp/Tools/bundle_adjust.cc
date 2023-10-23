@@ -81,7 +81,8 @@ void saveResults(Options const& opt, asp::BAParams const& param_storage) {
         // For CSM camera models export, in addition, the JSON state
         // with the adjustment applied to it.
         if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades" ||
-            (opt.stereo_session == "dg" && asp::stereo_settings().dg_use_csm))
+            (opt.stereo_session == "dg" && asp::stereo_settings().dg_use_csm) ||
+            (opt.stereo_session == "aster" && asp::stereo_settings().aster_use_csm))
           write_csm_output_file_no_intr(opt, icam, adjust_file, param_storage);
       }
       break;
@@ -2093,6 +2094,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
     ("dg-use-csm", po::bool_switch(&opt.dg_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with DigitalGlobe linescan cameras (-t dg). No corrections are done for velocity aberration or atmospheric refraction.")
+    ("aster-use-csm", po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
+     "Use the CSM model with ASTER cameras (-t aster).")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
      "Given map-projected versions of the input images and the DEM they "
      "were mapprojected onto, create interest point matches among the  "
