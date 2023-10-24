@@ -366,7 +366,7 @@ void populateCsmLinescan(double first_line_time, double dt_line,
   ls_model->m_intTimeStartTimes.push_back(first_line_time);
   ls_model->m_intTimes.push_back(dt_line); // time between lines
 
-  // Copy positions and velocities (velocity set to 0)
+  // Copy positions and velocities
   ls_model->m_t0Ephem = t0_ephem;
   ls_model->m_dtEphem = dt_ephem;
   ls_model->m_numPositions = 3 * positions.size(); // concatenate all coordinates

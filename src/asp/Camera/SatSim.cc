@@ -68,7 +68,7 @@ double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem) {
   return height_guess;
 } // End function findDemHeightGuess()
 
-// Compute point on positions and along and across track normalized vectors in
+// Compute satellite position, and along / across track normalized vectors in
 // ECEF coordinates, given the first and last proj points and a value t giving
 // the position along this line. Produced along and across vectors are
 // normalized and perpendicular to each other.
@@ -738,7 +738,6 @@ void calcTrajectory(SatSimOptions & opt,
   // Find the trajectory, as well as points in the along track and across track 
   // directions in the projected space
   vw::vw_out() << "Computing the camera poses.\n"; 
-  std::vector<vw::Vector3> along_track(opt.num_cameras), across_track(opt.num_cameras);
 
   // For linescan cameras we want to go beyond the positions and orientations
   // needed for the first and last image line, to have room for interpolation
@@ -763,7 +762,6 @@ void calcTrajectory(SatSimOptions & opt,
   tpc.report_progress(0);
 
   for (int i = 0; i < total; i++) {
-
     // Calc position along the trajectory and normalized along and across vectors
     // in ECEF. Produced along and across vectors are normalized and perpendicular
     // to each other.
@@ -881,7 +879,7 @@ void genPinholeCameras(SatSimOptions      const & opt,
   if (positions.size() != cam2world.size() || positions.size() != ref_cam2world.size())
     vw::vw_throw(vw::ArgumentErr()
       << "Expecting as many camera positions as camera orientations.\n");
-
+  
   cams.resize(positions.size());
   cam_names.resize(positions.size());
   for (int i = 0; i < int(positions.size()); i++) {
@@ -949,8 +947,6 @@ void genPinholeCameras(SatSimOptions      const & opt,
       else
         pinRefCam.write(refCamName);
     }
-    
-    return;
   }
 
   // Write the list of cameras only if we are not skipping the first camera

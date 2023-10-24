@@ -104,8 +104,6 @@ namespace asp {
   load_ASTER_camera_model_from_xml(std::string const& path,
 				   boost::shared_ptr<vw::camera::CameraModel> rpc_model);
   
-
-}      // namespace asp
-
+} // end namespace asp
 
 #endif//__STEREO_CAMERA_LINESCAN_ASTER_MODEL_H__

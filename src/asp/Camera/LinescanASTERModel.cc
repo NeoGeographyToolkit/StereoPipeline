@@ -122,6 +122,11 @@ ASTERCameraModel::ASTERCameraModel(std::vector<std::vector<vw::Vector2>> const& 
   if (asp::stereo_settings().aster_use_csm)
     vw_out() << "Using the CSM model with ASTER cameras.\n";
 
+  // This case was not considered in the CSM code.
+  if (asp::stereo_settings().aster_use_csm && min_col != 0)
+    vw::vw_throw(vw::ArgumentErr() << "Cannot use the CSM model with ASTER cameras "
+                 << "if the first column index of the lattice matrix is not 0.\n");
+  
   if ((asp::stereo_settings().enable_correct_velocity_aberration ||
        asp::stereo_settings().enable_correct_atmospheric_refraction) &&
       asp::stereo_settings().aster_use_csm)

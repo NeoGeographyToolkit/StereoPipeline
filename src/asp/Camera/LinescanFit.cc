@@ -169,7 +169,10 @@ void fitBestRotationsIntrinsics(
       
       ceres::CostFunction* cost_function
         = SightVecError::Create(world_sight_mat, row, col, d_col);
-      ceres::LossFunction* loss_function = NULL;
+      // ceres::LossFunction* loss_function = NULL;
+      // Prioritize for now the center of the image where the distortion
+      // is less.
+      ceres::LossFunction* loss_function = new ceres::CauchyLoss(1e-6);
       problem.AddResidualBlock(cost_function, loss_function, 
                                 &axis_angle_vec[row][0], &optical_center[0], &focal_length);
     }
@@ -187,7 +190,7 @@ void fitBestRotationsIntrinsics(
   // Copy back from axis_angle_vec to rotation_vec
   for (int row = 0; row < num_rows; row++)
     rotation_vec[row] 
-    = vw::math::axis_angle_to_quaternion(axis_angle_vec[row]).rotation_matrix();
+      = vw::math::axis_angle_to_quaternion(axis_angle_vec[row]).rotation_matrix();
   
 #if 0 // for debugging
   vw::vw_out() << summary.FullReport() << "\n"; 

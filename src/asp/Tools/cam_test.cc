@@ -135,10 +135,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
   if (opt.test_error_propagation) {
-    vw_out() << "Using the CSM model for Digital Globe or ASTER when "
+    vw_out() << "Using the CSM model for Digital Globe when "
              << "testing error propagation.\n";
     asp::stereo_settings().dg_use_csm = true;
-    asp::stereo_settings().aster_use_csm = true;
     asp::stereo_settings().propagate_errors = true;
   }
 }
