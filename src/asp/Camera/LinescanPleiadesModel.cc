@@ -89,8 +89,6 @@ void PleiadesCameraModel::populateCsmModel() {
   m_ls_model->m_iTransS[0]   = 0.0;
   m_ls_model->m_iTransS[1]   = 0.0; // no skew
   m_ls_model->m_iTransS[2]   = 1.0; // no scale
-  m_ls_model->m_detectorLineOrigin   = 0.0;
-  m_ls_model->m_detectorSampleOrigin = 0.0;
 
   // Quantities needed to find the ray direction in the sensor plane.
   // This needs to be consistent with usgscsm functions
@@ -102,14 +100,22 @@ void PleiadesCameraModel::populateCsmModel() {
   // Using this:
   // double detSample = (col + 0.5) * sampleSumming + startingSample;
   // double detLine = line * lineSumming + startingLine; // but it will use line = 0
-
-  m_ls_model->m_detectorLineSumming    = 1.0;
-  m_ls_model->m_startingDetectorLine   =  m_coeff_psi_y[0]; // note that m_coeff_psi_y[1] = 0
-  m_ls_model->m_detectorSampleSumming  = -m_coeff_psi_x[1];
-  m_ls_model->m_startingDetectorSample = -m_coeff_psi_x[0] - m_coeff_psi_x[1] * (m_ref_col - 0.5);
+  m_ls_model->m_detectorLineSumming   = 1.0;
+  m_ls_model->m_detectorSampleSumming = -m_coeff_psi_x[1];
+  
+  // Keep entries below at 0. Modify instead the detector line and sample
+  // origin. The effect is same as all USGSCSM code uses m_detectorLineOrigin -
+  // m_startingDetectorLine, and the same for the sample.
+  m_ls_model->m_startingDetectorLine   = 0.0;
+  m_ls_model->m_startingDetectorSample = 0.0;
+  
+  // Optical center
+  m_ls_model->m_detectorLineOrigin   = -m_coeff_psi_y[0]; // note: m_coeff_psi_y[1] = 0
+  m_ls_model->m_detectorSampleOrigin = m_coeff_psi_x[0] 
+                                        + m_coeff_psi_x[1] * (m_ref_col - 0.5);
 
   // Time
-  m_ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
+  m_ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions
   m_ls_model->m_intTimeStartTimes.push_back(m_time_func.m_t0);
   m_ls_model->m_intTimes.push_back(m_time_func.m_dt);
   int num_pos = m_position_func.m_samples.size();

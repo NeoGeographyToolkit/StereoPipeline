@@ -148,5 +148,6 @@ kernels, that is::
 instead of the defaults (``21 21`` and ``35 35``). But this comes with increased
 noise as well, and using a finer resolution results in longer run-time.
 
-We also tried to first bundle-adjust the cameras, using ASP's ``bundle_adjust`` (:numref:`bundle_adjust`). We did not notice a noticeable improvement in results.
-
+We also tried to first bundle-adjust the cameras, using ASP's ``bundle_adjust``
+(:numref:`bundle_adjust`). We did not notice a noticeable improvement in
+results.

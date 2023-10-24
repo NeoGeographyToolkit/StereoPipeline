@@ -21,10 +21,11 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/LinescanPleiadesModel.h>
+#include <asp/Camera/LinescanASTERModel.h>
 
 namespace asp {
 
-// Find the underlying CSM camera. Applies only to CSM, Pleiades, and DG.
+// Find the underlying CSM camera. Applies only to CSM, Pleiades, ASTER, and DG.
 asp::CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam,
                             std::string const& stereo_session) {
 
@@ -34,15 +35,21 @@ asp::CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam,
   // TODO(oalexan1): This is temporary. Need to move wholesale
   // to CSM model in DG, as done for Pleiades. 
   // TODO(oalexan1): Then remove the stereo_session argument.
-  if (stereo_session != "dg") {
-    csm_model = dynamic_cast<asp::CsmModel*>
-      (vw::camera::unadjusted_model(cam.get()));
-  } else {
+  if (stereo_session == "dg") {
     DGCameraModel * dg_model = dynamic_cast<asp::DGCameraModel*>
       (vw::camera::unadjusted_model(cam.get()));
     if (dg_model == NULL) 
       vw::vw_throw(vw::ArgumentErr() << "Expected a DG camera model.");
     csm_model = dg_model->m_csm_model.get();
+  } else if (stereo_session == "aster") {
+    ASTERCameraModel * aster_model = dynamic_cast<asp::ASTERCameraModel*>
+      (vw::camera::unadjusted_model(cam.get()));
+    if (aster_model == NULL) 
+       vw::vw_throw(vw::ArgumentErr() << "Expected an ASTER camera model.");
+    csm_model = &aster_model->m_csm_model;
+  } else {
+    // The Pleiades case will come here as there is direct inheritance from CSM
+    csm_model = dynamic_cast<asp::CsmModel*>(vw::camera::unadjusted_model(cam.get()));
   }
 
   if (csm_model == NULL) 

@@ -382,7 +382,8 @@ void apply_transform_to_cameras(vw::Matrix4x4 const& M, asp::BAParams &param_sto
     CameraAdjustment cam_adjust(cam_ptr);
 
     // Create the adjusted camera model
-    vw::camera::AdjustedCameraModel cam(cam_ptrs[i], cam_adjust.position(), cam_adjust.pose());
+    vw::camera::AdjustedCameraModel cam(cam_ptrs[i], cam_adjust.position(), 
+                                        cam_adjust.pose());
     // Apply the transform
     cam.apply_transform(M);
 

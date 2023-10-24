@@ -117,7 +117,7 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
 /// Specialization for pinhole cameras
 bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
      std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
-     std::vector<boost::shared_ptr<vw::camera::CameraModel>> & new_cam_models) {
+     std::vector<vw::CamPtr> & new_cam_models) {
 
   bool cameras_changed = false;
   
@@ -173,7 +173,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BAParams & param_stor
     PinholeModel* out_cam = new PinholeModel(*in_cam);
     *out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
 
-    new_cam_models[icam] = boost::shared_ptr<vw::camera::CameraModel>(out_cam);
+    new_cam_models[icam] = vw::CamPtr(out_cam);
   }
 
   return cameras_changed;
@@ -184,7 +184,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BAParams & param_stor
 bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
                     std::string const& initial_transform_file, 
                     vw::Matrix<double> const& initial_transform,
-                    std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models) {
+                    std::vector<vw::CamPtr> &new_cam_models) {
 
   if (opt.input_prefix != "")
     vw::vw_throw(vw::ArgumentErr()
@@ -231,7 +231,7 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BAParams & param_
 bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
                    std::string const& initial_transform_file, 
                    vw::Matrix<double> const& initial_transform,
-                   std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models) {
+                   std::vector<vw::CamPtr> &new_cam_models) {
 
   bool cameras_changed = false;
 

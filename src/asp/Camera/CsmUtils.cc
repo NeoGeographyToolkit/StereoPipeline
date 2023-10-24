@@ -346,21 +346,19 @@ void populateCsmLinescan(double first_line_time, double dt_line,
   ls_model->m_iTransS[0]             = 0.0;
   ls_model->m_iTransS[1]             = 1.0;
   ls_model->m_iTransS[2]             = 0.0;
-  ls_model->m_detectorLineOrigin     = 0.0;
-  ls_model->m_detectorSampleOrigin   = 0.0;
   ls_model->m_detectorLineSumming    = 1.0;
   ls_model->m_detectorSampleSumming  = 1.0;
-  // There is an inconsistency below, but this is what works 
-  ls_model->m_startingDetectorLine   = -optical_center[1];
-  ls_model->m_startingDetectorSample = -optical_center[0] - 0.5;
   
-  // Fix for the quirky C++ negative 0. It shows up in the produced
-  // .json files and looks odd.
-  if (std::abs(ls_model->m_startingDetectorLine) == 0.0)
-    ls_model->m_startingDetectorLine = 0.0;
-  if (std::abs(ls_model->m_startingDetectorSample) == 0.0)
-    ls_model->m_startingDetectorSample = 0.0;  
-            
+  // Keep these as is. Modify instead m_detectorLineOrigin and
+  // m_detectorSampleOrigin. The effect is same as all USGSCSM code uses
+  // m_detectorLineOrigin - m_startingDetectorLine, and the same for the sample.
+  ls_model->m_startingDetectorLine   = 0.0;
+  ls_model->m_startingDetectorSample = 0.0;
+  
+  // Optical center. There is an inconsistency below, but this is what works.
+  ls_model->m_detectorLineOrigin     = optical_center[1];
+  ls_model->m_detectorSampleOrigin   = optical_center[0] + 0.5;
+  
   // Set the time 
   ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions in places
   ls_model->m_intTimeStartTimes.push_back(first_line_time);

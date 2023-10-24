@@ -80,7 +80,10 @@ namespace asp {
     
     vw::Vector3 pixel_to_vector(vw::Vector2 const& pixel) const;
 
-    boost::shared_ptr<vw::camera::CameraModel> get_rpc_model() { return m_rpc_model;}
+    boost::shared_ptr<vw::camera::CameraModel> get_rpc_model() { return m_rpc_model; }
+    
+    // Need to have access to this for some operations
+    asp::CsmModel m_csm_model;
     
   protected:
 
@@ -93,7 +96,6 @@ namespace asp {
     vw::camera::SlerpGridPointingInterpolation m_interp_sight_mat;
     boost::shared_ptr<vw::camera::CameraModel> m_rpc_model; // rpc approx, for initial guess
     
-    asp::CsmModel m_csm_model;
   }; // End class ASTERCameraModel
 
 

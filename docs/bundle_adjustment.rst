@@ -797,8 +797,8 @@ documentation of all options above.
    :alt: kaguya_intrinsics_opt_example
 
    The reprojection errors (``pointmap.csv``) before (top) and after (bottom)
-   refinement of distortion. Clean matches (no outliers) were used. It can be
-   seen that many red vertical patterns are now much attenuated (these
+   refinement of distortion. Some outliers are still visible but are harmless.
+   It can be seen that many red vertical patterns are now much attenuated (these
    correspond to individual image edges). On the right some systematic errors
    are seen (due to the search range in stereo chosen here being too small and
    some ridges having been missed). Those do not affect the optimization. Using

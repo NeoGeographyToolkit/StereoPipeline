@@ -85,7 +85,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   vw::Vector<double, 4> remove_outliers_params;
   BACameraType camera_type;
   std::vector<std::string> image_files, camera_files;
-  std::vector<boost::shared_ptr<vw::camera::CameraModel>> camera_models;
+  std::vector<vw::CamPtr> camera_models;
   std::map<std::pair<int, int>, std::string> match_files;
   vw::cartography::Datum datum;
 
@@ -673,26 +673,26 @@ void guessSession(std::string const& camera_file, std::string & stereo_session);
 /// We assume the initial transform was already read and validated.
 bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
        std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
-       std::vector<boost::shared_ptr<vw::camera::CameraModel>> & new_cam_models);
+       std::vector<vw::CamPtr> & new_cam_models);
 
 /// Specialization for pinhole cameras.
 bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
      std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
-     std::vector<boost::shared_ptr<vw::camera::CameraModel>> & new_cam_models);
+     std::vector<vw::CamPtr> & new_cam_models);
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for optical bar cameras.
 bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
                     std::string const& initial_transform_file, 
                     vw::Matrix<double> const& initial_transform,
-                    std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models);
+                    std::vector<vw::CamPtr> &new_cam_models);
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for CSM cameras.
 bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
                    std::string const& initial_transform_file, 
                    vw::Matrix<double> const& initial_transform,
-                   std::vector<boost::shared_ptr<vw::camera::CameraModel>> &new_cam_models);
+                   std::vector<vw::CamPtr> &new_cam_models);
 
 /// Write a pinhole camera file to disk.
 void write_pinhole_output_file(asp::BaBaseOptions const& opt, int icam,
