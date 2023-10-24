@@ -79,20 +79,21 @@ or
         out-Band3N.tif out-Band3B.tif                \
         out-Band3N.xml out-Band3B.xml out_stereo/run
 
-See :numref:`nextsteps` for a discussion about various stereo
-algorithms and speed-vs-quality choices. Particularly,
-``--stereo-algorithm asp_mgm`` should produce more detailed results.
+See :numref:`nextsteps` for a discussion about various stereo algorithms and
+speed-vs-quality choices. Particularly, ``--stereo-algorithm asp_mgm`` should
+produce more detailed results.
 
-This is followed by DEM creation::
+This is followed by DEM creation with ``point2dem``::
 
-     point2dem -r earth --tr 0.0002777 out_stereo/run-PC.tif
+     point2dem -r earth --stereographic --auto-proj-center \
+       out_stereo/run-PC.tif
 
-The value 0.0002777 is the desired output DEM resolution,
-specified in degrees. It is approximately 31 meters/pixel, the same as
-the publicly available ASTER DEM, and about twice the 15 meters/pixel
-image resolution.
+This will create a DEM named ``run-DEM.tif`` using an auto-guessed local
+stereographic projection with auto-guessed resolution (about 15 m / pixel, the
+image ground sample distance). See the ``point2dem`` documentation in
+:numref:`point2dem` for more details about how to run this program.
 
-Visualize the DEM with::
+Visualize the DEM with ``stereo_gui`` (:numref:`stereo_gui`)::
 
     stereo_gui --hillshade out_stereo/run-DEM.tif
 
@@ -104,53 +105,48 @@ mapprojected images (per the suggestions in :numref:`mapproj-example`). Using
 flow is as follows::
 
      # Initial stereo
-     parallel_stereo -t aster --subpixel-mode 3      \
-        out-Band3N.tif out-Band3B.tif                \
-        out-Band3N.xml out-Band3B.xml out_stereo/run               
+     parallel_stereo -t aster --subpixel-mode 3            \
+        out-Band3N.tif out-Band3B.tif                      \
+        out-Band3N.xml out-Band3B.xml out_stereo/run 
 
-     # Create a coarse and smooth DEM at 300 meters/pixel
-     point2dem -r earth --tr 0.002695                \
-       out_stereo/run-PC.tif -o out_stereo/run-300m
+     # Create a low-resolution smooth DEM at 300 meters/pixel
+     point2dem -r earth --stereographic --auto-proj-center \
+       --tr 300 out_stereo/run-PC.tif -o out_stereo/run-300m
 
-     # Mapproject onto this DEM at 10 meters/pixel
-     mapproject --tr 0.0000898 out_stereo/run-300m-DEM.tif \
+     # Mapproject onto this DEM at 15 meters/pixel
+     mapproject --tr 15 out_stereo/run-300m-DEM.tif        \
        out-Band3N.tif out-Band3N.xml out-Band3N_proj.tif
-     mapproject --tr 0.0000898 out_stereo/run-300m-DEM.tif \
+     mapproject --tr 15 out_stereo/run-300m-DEM.tif        \
        out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif
      
      # Run parallel_stereo with the mapprojected images
      # and subpixel-mode 2
-     parallel_stereo -t aster --subpixel-mode 2          \
-       out-Band3N_proj.tif out-Band3B_proj.tif           \
-       out-Band3N.xml out-Band3B.xml out_stereo_proj/run \
+     parallel_stereo -t aster --subpixel-mode 2            \
+       out-Band3N_proj.tif out-Band3B_proj.tif             \
+       out-Band3N.xml out-Band3B.xml out_stereo_proj/run   \
        out_stereo/run-300m-DEM.tif
 
      # Create the final DEM
-     point2dem -r earth --tr 0.0002777 out_stereo_proj/run-PC.tif
+     point2dem -r earth --stereographic --auto-proj-center \
+      out_stereo_proj/run-PC.tif
 
 Also consider using ``--stereo-algorithm asp_mgm`` as mentioned earlier.
 
 Here we could have again used ``-t rpc`` instead of ``-t aster``. 
 
-It is very important to use the same resolution (option ``--tr``) for
-both images when mapprojecting. That helps making the resulting images
-more similar and reduces the processing time
-(:numref:`mapproj-res`). The mapprojection resolution was 0.0000898,
-which is about 10 meters/pixel.
+It is very important to use the same resolution (option ``--tr``) for both
+images when mapprojecting. That helps making the resulting images more similar
+and reduces the processing time (:numref:`mapproj-res`). 
 
-It is possible to increase the resolution of the final DEM slightly by
-instead mapprojecting at 7 meters/pixel, hence using::
-
-     --tr .00006288
-
-or smaller correlation and subpixel-refinement kernels, that is::
+It is possible to increase the resolution of the final DEM slightly, without
+switching to the ``asp_mgm`` algorithm, by instead mapprojecting at 7
+meters/pixel. Alternatively, use smaller correlation and subpixel-refinement
+kernels, that is::
 
      --corr-kernel 15 15 --subpixel-kernel 25 25
 
-instead of the defaults (21 21 and 35 35) but this comes with increased
+instead of the defaults (``21 21`` and ``35 35``). But this comes with increased
 noise as well, and using a finer resolution results in longer run-time.
 
-We also tried to first bundle-adjust the cameras, using ASP's
-``bundle_adjust``. We did not notice a noticeable improvement in
-results.
+We also tried to first bundle-adjust the cameras, using ASP's ``bundle_adjust`` (:numref:`bundle_adjust`). We did not notice a noticeable improvement in results.
 
