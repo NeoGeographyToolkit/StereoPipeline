@@ -213,7 +213,11 @@ the processing time should go down. Both ``gdalinfo`` and
 Fetching pre-compiled ASP with conda
 ------------------------------------
 
-ASP's official releases can be downloaded with ``conda``, for Linux and OSX with the Intel processor. See :numref:`precompiled_binaries` for how other platforms may be handled.
+ASP's official releases can be downloaded with ``conda``, for Linux and OSX with
+the Intel processor. 
+
+ASP conda packages do not exist for ARM64 Mac (M1/M2). See
+:numref:`precompiled_binaries` for how other platforms may be handled.
 
 The latest conda release is version 3.3.0, published on August 16, 2023. See
 :numref:`news` for what changed since then.  The newer functionality

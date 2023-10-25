@@ -304,7 +304,7 @@ void apply_radiometric_corrections(Options const& opt,
   DiskImageView<float> input_img(input_image);
 
   // Sanity check
-  if (input_img.cols() != int(corr.size()) ) 
+  if (input_img.cols() != int(corr.size())) 
     vw_throw( ArgumentErr() << "Expecting as many corrections in " << corr_table
 	      << " as image columns in " << input_image << "\n" );
   
@@ -323,9 +323,8 @@ void apply_radiometric_corrections(Options const& opt,
   vw::cartography::GeoReference georef;
   bool has_georef = read_georeference(georef, input_image);
   if (has_georef)
-    vw_throw( ArgumentErr() << "ASTER L1A images are not supposed to be georeferenced.\n" );
+    vw_throw(ArgumentErr() << "ASTER L1A images are not supposed to be georeferenced.\n");
 
-  
   vw_out() << "Writing: " << out_image << std::endl;
   vw::cartography::block_write_gdal_image(out_image,
 			      radio_correct(input_img, corr, has_nodata, nodata),
@@ -641,7 +640,7 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
   
   if (lattice_mat.empty() || sight_mat.empty()     ||
       lattice_mat.size()     != sight_mat.size()   ||
-      lattice_mat[0].size() != sight_mat[0].size() ) {
+      lattice_mat[0].size() != sight_mat[0].size()) {
     vw_throw( ArgumentErr() << "Inconsistent lattice point and sight vector information.\n");
   }
 
@@ -661,7 +660,7 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
                        sat_pos_file, sight_vec_file,  
                        longitude_file, latitude_file, lattice_file,  
                        // Outputs
-		       world_sight_mat, 
+                       world_sight_mat, 
                        llh_scale, llh_offset,  
                        pixel_scale, pixel_offset,  
                        normalized_llh,  
@@ -669,7 +668,7 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
   
   // Find the RPC coefficients
   asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
-  std::string output_prefix = ""; 
+  std::string output_prefix = "";
   asp::gen_rpc(// Inputs
                penalty_weight, output_prefix,
                normalized_llh, normalized_pixels,  
@@ -745,6 +744,14 @@ int main( int argc, char *argv[] ) {
               	<< out_back_cam  		<< std::endl;
 #endif
     
+    // Oddly, writing the xml files first, with output prefix "run", results in
+    // images later wiping the xml camera files. So write the images before the
+    // xml files.
+    apply_radiometric_corrections(opt, nadir_image, nadir_corr_table, out_nadir_image);
+    apply_radiometric_corrections(opt, back_image,  back_corr_table,  out_back_image);
+    
+    vw_out() << "Computing the camera models.\n"; 
+    
     gen_xml(opt.min_height, opt.max_height, opt.num_samples, opt.penalty_weight,
 	    nadir_image, nadir_sat_pos, nadir_sight_vec, nadir_longitude, nadir_latitude,  
 	    nadir_lattice_point, out_nadir_cam);
@@ -752,9 +759,6 @@ int main( int argc, char *argv[] ) {
     gen_xml(opt.min_height, opt.max_height, opt.num_samples, opt.penalty_weight,
 	    back_image, back_sat_pos, back_sight_vec, back_longitude, back_latitude,  
 	    back_lattice_point, out_back_cam);
-    
-    apply_radiometric_corrections(opt, nadir_image, nadir_corr_table, out_nadir_image);
-    apply_radiometric_corrections(opt, back_image,  back_corr_table,  out_back_image);
     
   } ASP_STANDARD_CATCHES;
 
