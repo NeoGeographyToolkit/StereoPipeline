@@ -18,8 +18,6 @@
 #include <asp/Camera/ASTER_XML.h>
 #include <asp/Camera/LinescanFit.h>
 #include <asp/Camera/LinescanASTERModel.h>
-#include <asp/Camera/LinescanFit.h>
-#include <asp/Camera/CsmUtils.h>
 #include <asp/Core/StereoSettings.h>
 
 #include <vw/Camera/CameraSolve.h>
@@ -28,12 +26,13 @@ namespace asp {
 
 using namespace vw;
 
-ASTERCameraModel::ASTERCameraModel(std::vector<std::vector<vw::Vector2>> const& lattice_mat,
-				   std::vector<std::vector<vw::Vector3>>   const& sight_mat,
-				   std::vector<std::vector<vw::Vector3>>   const& world_sight_mat,
-				   std::vector<vw::Vector3>                const& sat_pos,
-				   vw::Vector2                             const& image_size,
-				   boost::shared_ptr<vw::camera::CameraModel> rpc_model):
+ASTERCameraModel::ASTERCameraModel(
+           std::vector<std::vector<vw::Vector2>> const& lattice_mat,
+				   std::vector<std::vector<vw::Vector3>> const& sight_mat,
+				   std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
+				   std::vector<vw::Vector3>              const& sat_pos,
+				   vw::Vector2i                          const& image_size,
+				   boost::shared_ptr<vw::camera::CameraModel>   rpc_model):
   m_lattice_mat(lattice_mat), m_sight_mat(sight_mat),
   m_world_sight_mat(world_sight_mat),
   m_sat_pos(sat_pos), m_image_size(image_size), m_rpc_model(rpc_model) {
@@ -84,45 +83,11 @@ ASTERCameraModel::ASTERCameraModel(std::vector<std::vector<vw::Vector2>> const& 
   m_interp_sight_mat
     = vw::camera::SlerpGridPointingInterpolation(m_world_sight_mat, min_row, d_row, min_col, d_col);
 
-  // Find the rotation matrices, focal length, and optical center,
-  // that best fit a 2D matrix of sight vectors. Uses for ASTER.
-  double focal_length = 0.0; 
-  vw::Vector2 optical_center;
-  std::vector<vw::Matrix<double,3,3>> cam2world_vec;
-  fitBestRotationsIntrinsics(m_world_sight_mat, m_image_size, d_col,
-                             focal_length, optical_center, cam2world_vec);
-  
-  // Assume it takes one unit of time to scan one image line
-  double first_line_time = 0; // time of the first scanned line
-  double last_line_time = m_image_size[1] - 1;
-  double dt_line = (last_line_time - first_line_time) / (m_image_size[1] - 1.0);
-  
-  // The image line for the first pose determines its time. The spacing
-  // between poses determines dt_ephem. Note that min_row is negative,
-  // because the first pose is measured before data starts being recorded.
-  double t0_ephem = min_row * dt_line;
-  double dt_ephem = d_row * dt_line;
-  double t0_quat = t0_ephem;
-  double dt_quat = dt_ephem;
-  
-  // We have no velocities in this context, so set them to 0
-  std::vector<vw::Vector3> velocities(m_sat_pos.size(), vw::Vector3(0, 0, 0));
+  // Do not create the CSM model unless the user asked for it, as that can be slow.
+  if (!asp::stereo_settings().aster_use_csm)
+    return; 
 
-  vw::cartography::Datum datum("WGS84"); // ASTER is for Earth
-  std::string sensor_id = "ASTER"; 
-  // Create the CSM model always, but use it only if the user asked for it.
-  // This is convenient in cam_test when comparing CSM vs non-CSM.
-  asp::populateCsmLinescan(first_line_time, dt_line, 
-                           t0_ephem, dt_ephem, t0_quat, dt_quat,
-                           focal_length, optical_center, 
-                           m_image_size, datum, sensor_id,
-                           m_sat_pos, velocities, cam2world_vec, 
-                           m_csm_model); // output 
-
-  if (asp::stereo_settings().aster_use_csm)
-    vw_out() << "Using the CSM model with ASTER cameras.\n";
-
-  // This case was not considered in the CSM code.
+  // This case was not considered in the CSM code
   if (asp::stereo_settings().aster_use_csm && min_col != 0)
     vw::vw_throw(vw::ArgumentErr() << "Cannot use the CSM model with ASTER cameras "
                  << "if the first column index of the lattice matrix is not 0.\n");
@@ -133,29 +98,13 @@ ASTERCameraModel::ASTERCameraModel(std::vector<std::vector<vw::Vector2>> const& 
     vw::vw_throw(vw::ArgumentErr() << "Cannot correct velocity aberration or "
                  << "atmospheric refraction with the CSM model.\n");
 
-#if 0
-  // Temporary Sanity check
-  for (int row = 0; row < num_rows; row++) {
-    for (int col = 0; col < num_cols; col++) {
-    
-      // Vector in sensor coordinates 
-      vw::Vector3 in(col * d_col - optical_center[0], -optical_center[1], focal_length);
-      in = in/norm_2(in);
-      // Rotate to world coordinates
-      in = cam2world_vec[row] * in;
-      
-      vw::Vector3 out = world_sight_mat[row][col];
-      out = out/norm_2(out);
-      //std::cout << "norm of diff is " << norm_2(in-out) << std::endl;
-      
-      // Create the CSM pixel
-      vw::Vector2 pix(col * d_col, row * d_row + min_row);
-      std::cout << "csm pixel is " << pix << std::endl;
-      vw::Vector3 dir = m_csm_model.pixel_to_vector(pix);
-      std::cout << "in, dir, and norm of diff are " << in << ' ' << dir << ' ' << norm_2(in-dir) << std::endl; 
-    }
-  }
-#endif
+  vw::cartography::Datum datum("WGS84"); // ASTER is for Earth
+  std::string sensor_id = "ASTER"; 
+  vw_out() << "Using the CSM model with " << sensor_id << " cameras.\n";
+  
+  // Fit a CSM sensor with distortion to given tabulated sight directions
+  fitCsmModel(sensor_id, datum, m_image_size, m_sat_pos, m_world_sight_mat,
+              min_col, min_row, d_col, d_row, m_csm_model);
 }
 
 // Project the point onto the camera. Sometimes, but not always, seeding with the RPC

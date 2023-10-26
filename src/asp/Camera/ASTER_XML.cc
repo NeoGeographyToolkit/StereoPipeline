@@ -151,7 +151,7 @@ void ASTERXML::parse_xml(xercesc::DOMElement* node) {
   std::string rows_txt( XMLString::transcode(rows_node->getTextContent()) );
   int rows = atoi(rows_txt.c_str());
 
-  m_image_size = vw::Vector2(cols, rows);
+  m_image_size = vw::Vector2i(cols, rows);
 }
 
 } // end namespace asp

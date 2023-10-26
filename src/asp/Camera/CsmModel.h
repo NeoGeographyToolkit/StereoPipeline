@@ -25,6 +25,9 @@
 #define __STEREO_CAMERA_CSM_MODEL_H__
 
 #include <vw/Camera/CameraModel.h>
+
+#include <usgscsm/Distortion.h>
+
 #include <boost/shared_ptr.hpp>
 
 namespace csm {
@@ -123,12 +126,17 @@ namespace asp {
     std::vector<double> distortion() const;
     double focal_length() const;
     vw::Vector2 optical_center() const; // return sample and line
-
+    
     // Set intrinsics
+    void set_distortion_type(DistortionType dist_type);
     void set_distortion(std::vector<double> const& distortion);
     void set_focal_length(double focal_length);
     void set_optical_center(vw::Vector2 const& optical_center); // sample and line
 
+    // Set / get quaternions (only for linescan cameras)
+    void set_linescan_quaternions(std::vector<double> const& quaternions);
+    std::vector<double> linescan_quaternions() const;
+    
     boost::shared_ptr<csm::RasterGM> m_gm_model;
 
     double m_desired_precision;

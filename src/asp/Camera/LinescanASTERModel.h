@@ -61,7 +61,7 @@ namespace asp {
 		     std::vector< std::vector<vw::Vector3> > const& sight_mat,
 		     std::vector< std::vector<vw::Vector3> > const& world_sight_mat,
 		     std::vector<vw::Vector3>                const& sat_pos,
-		     vw::Vector2                             const& image_size,
+		     vw::Vector2i                            const& image_size,
 		     boost::shared_ptr<vw::camera::CameraModel>     rpc_model);
     
     virtual ~ASTERCameraModel() {}
@@ -91,7 +91,7 @@ namespace asp {
     std::vector<std::vector<vw::Vector3>> m_sight_mat;
     std::vector<std::vector<vw::Vector3>> m_world_sight_mat;
     std::vector<vw::Vector3>              m_sat_pos;
-    vw::Vector2                           m_image_size;
+    vw::Vector2i                          m_image_size;
     vw::camera::LinearPiecewisePositionInterpolation m_interp_sat_pos;
     vw::camera::SlerpGridPointingInterpolation m_interp_sight_mat;
     boost::shared_ptr<vw::camera::CameraModel> m_rpc_model; // rpc approx, for initial guess

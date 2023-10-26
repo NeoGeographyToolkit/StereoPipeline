@@ -123,6 +123,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.sample_rate <= 0)
     vw_throw(ArgumentErr() << "The sample rate must be positive.\n" << usage << general_options);
 
+  // If we have to deal with the CSM model, ensure it is loaded. Set this early.
+  if (opt.dg_vs_csm)
+    opt.dg_use_csm = true;
+  if (opt.aster_vs_csm)
+    opt.aster_use_csm = true;
+
   asp::stereo_settings().enable_correct_velocity_aberration
     = opt.enable_correct_velocity_aberration;
   asp::stereo_settings().enable_correct_atmospheric_refraction

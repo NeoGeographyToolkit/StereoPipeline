@@ -27,14 +27,19 @@
 
 namespace asp {
 
-// Find the rotation matrices, focal length, and optical center,
-// that best fit a 2D matrix of sight vectors. Uses for ASTER.
-void fitBestRotationsIntrinsics(
-   std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
-   vw::Vector2i const& image_size, int d_col,
-   // Outputs
-   double & focal_length, vw::Vector2 & optical_center,
-   std::vector<vw::Matrix<double,3,3>> & rotation_vec);
+class CsmModel;
+
+// Fit a CSM sensor with distortion to given tabulated sight directions
+void fitCsmModel(
+       std::string const& sensor_id, 
+       vw::cartography::Datum const& datum,
+       vw::Vector2i const& image_size,
+       std::vector<vw::Vector3> const& sat_pos,
+       std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
+       int min_col, int min_row,
+       int d_col, int d_row, 
+       // This model will be modified
+       asp::CsmModel & csm_model);
   
 } // end namespace asp
 

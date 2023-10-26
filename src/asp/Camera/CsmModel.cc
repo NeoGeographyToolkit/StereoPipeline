@@ -919,6 +919,27 @@ std::vector<double> CsmModel::distortion() const {
   return dist;
 }
 
+// Set distortion type
+void CsmModel::set_distortion_type(DistortionType dist_type) {
+  bool success = false;
+  CSM_FRAME_SET(m_distortionType, "distortion type", dist_type)
+  if (success) 
+    return;
+  CSM_LINESCAN_SET(m_distortionType, "distortion type", dist_type)
+  return;
+}
+  
+// Set quaternions (only for linescan cameras)
+void CsmModel::set_linescan_quaternions(std::vector<double> const& quaternions) {
+  
+  csm::RasterGM * gm_model = dynamic_cast<csm::RasterGM*>(this->m_gm_model.get());
+  
+  int num_quaternions = quaternions.size(); // total number of coefficients
+  bool success = false;
+  CSM_LINESCAN_SET(m_numQuaternions, "num quaternions", num_quaternions)
+  CSM_LINESCAN_SET(m_quaternions, "quaternions", quaternions)
+}
+
 // Set the distortion. Need to consider each model type separately.
 void CsmModel::set_distortion(std::vector<double> const& dist) {
   bool success = false;
@@ -981,6 +1002,16 @@ void CsmModel::set_optical_center(vw::Vector2 const& optical_center) {
   CSM_LINESCAN_SET(m_detectorLineOrigin,   "detector line",   optical_center[1])
 
   return; 
+}
+
+// Get quaternions (only for linescan cameras)
+std::vector<double> CsmModel::linescan_quaternions() const {
+  csm::RasterGM * gm_model = dynamic_cast<csm::RasterGM*>(this->m_gm_model.get());
+  
+  std::vector<double> quaternions;
+  bool success = false;
+  CSM_LINESCAN_GET(m_quaternions, "quaternions", quaternions)
+  return quaternions;
 }
 
 // Create a deep copy of the model, so don't just copy the shared pointer.
