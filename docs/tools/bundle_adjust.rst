@@ -1111,6 +1111,9 @@ Command-line options for bundle_adjust
     dg``). No corrections are done for velocity aberration or
     atmospheric refraction.
 
+--aster-use-csm
+    Use the CSM model with ASTER cameras (``-t aster``).
+    
 -v, --version
     Display the version of software.
 

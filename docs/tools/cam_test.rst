@@ -137,6 +137,13 @@ Command-line options for cam_test
     Compare projecting into the camera without and with using the CSM
     model for Digital Globe.
 
+--aster-use-csm
+    Use the CSM model with ASTER cameras (``-t aster``).
+    
+--aster-vs-csm
+    Compare projecting into the camera without and with using the CSM
+    model for ASTER.    
+    
 -h, --help
     Display the help message.
 

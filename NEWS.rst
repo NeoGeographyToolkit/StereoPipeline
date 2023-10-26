@@ -4,7 +4,11 @@ Changes since the last release
 New tools:
   * Added ``orbit_plot.py`` (:numref:`orbit_plot`), a tool for plotting
     camera orientations along an orbit (contributed by Shashank Bhushan).
-    
+
+New camera support:
+  * Added the ability to use the CSM camera model with ASTER images
+    (:numref:`aster_csm`).
+        
 jitter_solve (:numref:`jitter_solve`):
   * Added the option ``--weight-image``, to weigh observations based on
     geographic location of triangulated points (:numref:`limit_ip`).

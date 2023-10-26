@@ -295,6 +295,9 @@ dg-use-csm
     dg``). No corrections are done for velocity aberration or
     atmospheric refraction.
 
+aster-use-csm
+    Use the CSM model with ASTER cameras (``-t aster``).
+
 .. _corr_section:
 
 Correlation
