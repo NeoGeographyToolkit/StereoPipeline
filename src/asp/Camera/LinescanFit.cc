@@ -21,6 +21,8 @@
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/Geometry.h>
 
+#include <asp/Camera/CsmModel.h>
+
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 
@@ -217,6 +219,244 @@ void fitBestRotationsIntrinsics(
   }
   ofs.close();
 #endif
+
+  return;
+}
+
+// The error between sight vectors and a linescan CSM model that incorporates
+// distortion. Use the KAGUYALISM distortion model. The satellite positions
+// are assumed fixed.
+struct SightVecLinescanError {
+
+  typedef std::vector<std::vector<vw::Vector3>> SightVecT;
+  
+  SightVecLinescanError(SightVecT     const& world_sight_mat, 
+                        asp::CsmModel const& csm_model,
+                        int min_col,  int min_row, 
+                        int d_col,    int d_row, int num_poses):
+  m_world_sight_mat(world_sight_mat), m_csm_model(csm_model),
+  m_min_col(min_col), m_min_row(min_row), m_d_col(d_col), m_d_row(d_row), 
+  m_num_poses(num_poses) {
+    
+    // This code was not tested with m_min_col not zero
+    if (m_min_col != 0)
+      vw::vw_throw(vw::ArgumentErr()
+                    << "SightVecLinescanError: m_min_col must be zero.\n");
+  }
+
+  // Members
+  // The sight matrix has samples of directions in the world coordinates 
+  SightVecT     const& m_world_sight_mat; // alias
+  asp::CsmModel const& m_csm_model;       // alias
+  int m_min_col, m_min_row, m_d_col, m_d_row, m_num_poses;
+
+  // Error operator
+  bool operator()(double const* const* parameters, double* residuals) const {
+
+   const double* rotations      = parameters[0];
+   const double* optical_center = parameters[1];
+   const double* focal_length   = parameters[2];
+   const double* distortion     = parameters[3];
+   
+   // Make a local model copy
+   asp::CsmModel local_model;
+   m_csm_model.deep_copy(local_model);
+   
+   // Set distortion
+   local_model.set_distortion_type(KAGUYALISM);
+   std::vector<double> dist_vec(10); // KAGUYALISM has 10 parameters
+   for (int i = 0; i < 10; i++) 
+     dist_vec[i] = distortion[i];
+   local_model.set_distortion(dist_vec); 
+   
+   // Set focal length and optical center
+   local_model.set_focal_length(focal_length[0]); 
+   local_model.set_optical_center(vw::Vector2(optical_center[0], optical_center[1]));
+   
+   // Copy the rotations from axis angle format to quaternions, then set in model
+   std::vector<double> quaternions(4*m_num_poses);
+   for (int i = 0; i < m_num_poses; i++) {
+     vw::Vector3 axis_angle(rotations[3*i], rotations[3*i+1], rotations[3*i+2]);
+     vw::Quat q = vw::math::axis_angle_to_quaternion(axis_angle);
+     // CSM wants the quaternion order to be (x,y,z,w)
+     int j = 4*i;
+     quaternions[j+0] = q.x();
+     quaternions[j+1] = q.y();
+     quaternions[j+2] = q.z();
+     quaternions[j+3] = q.w();
+   }
+   local_model.set_linescan_quaternions(quaternions);
+   
+    // Find the residuals with the local model
+    int num_rows = m_world_sight_mat.size();
+    int num_cols = m_world_sight_mat[0].size();
+    int count = 0;
+    for (int row = 0; row < num_rows; row++) {
+      for (int col = 0; col < num_cols; col++) {
+        
+        vw::Vector3 dir1 = m_world_sight_mat[row][col];
+        dir1 = dir1/norm_2(dir1);
+
+        // Vector in sensor coordinates. Convert to double
+        // early on to avoid integer overflow.
+        vw::Vector2 pix(double(col) * m_d_col + double(m_min_col), 
+                        double(row) * m_d_row + double(m_min_row));
+        vw::Vector3 dir2 = local_model.pixel_to_vector(pix);
+        
+        int j = 3 * count;
+        for (int k = 0; k < 3; k++)
+          residuals[j+k] = dir1[k] - dir2[k];
+          
+        count++;
+      }
+    }
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(SightVecT const& world_sight_mat,
+                                     asp::CsmModel const& csm_model,
+                                     int min_col, int min_row, 
+                                     int d_col, int d_row, int num_poses) {
+    
+    ceres::DynamicNumericDiffCostFunction<SightVecLinescanError>* cost_function
+     = new ceres::DynamicNumericDiffCostFunction<SightVecLinescanError>
+            (new SightVecLinescanError(world_sight_mat, csm_model, 
+                                       min_col, min_row, d_col, d_row, 
+                                       num_poses));
+    
+     int num_rows = world_sight_mat.size();
+     int num_cols = world_sight_mat[0].size();
+
+     cost_function->AddParameterBlock(3 * num_poses); // rotations
+     cost_function->AddParameterBlock(2); // optical center
+     cost_function->AddParameterBlock(1); // focal length
+     cost_function->AddParameterBlock(10); // Kaguya distortion
+     cost_function->SetNumResiduals(3 * num_rows * num_cols);
+
+     return cost_function;
+  }
+
+};
+
+// See the .h file for the documentation
+void fitBestCsmRotationsIntrinsics(
+       std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
+       int min_col, int min_row,
+       int d_col, int d_row, 
+       // This model will be modified
+       asp::CsmModel & csm_model) {
+
+  // Read data from the model
+  double focal_length = csm_model.focal_length();
+  vw::Vector2 optical_center = csm_model.optical_center();
+  std::vector<double> quaternions = csm_model.linescan_quaternions();
+
+  // Create rotations from quaternions
+  int num_poses = quaternions.size()/4;
+  std::vector<double> rotations(3*num_poses);
+  for (int i = 0; i < num_poses; i++) {
+    int j = 4*i;
+    // Note how we switch from (x,y,z,w) to (w,x,y,z) order
+    vw::Quat q(quaternions[j+3], quaternions[j+0], quaternions[j+1], quaternions[j+2]);
+    vw::Vector3 axis_angle = q.axis_angle();
+    rotations[3*i+0] = axis_angle[0];
+    rotations[3*i+1] = axis_angle[1];
+    rotations[3*i+2] = axis_angle[2];
+  }
+  
+  // Initial Kaguya distortion. These initial values were shown to work well.
+  std::vector<double> distortion = {1e-7, 1e-7, 1e-8, 1e-8, 1e-9, 
+                                    1e-7, 1e-7, 1e-8, 1e-8, 1e-9};
+  
+  // Set up an optimization problem to refine the CSM model.
+  ceres::Problem problem;
+  ceres::CostFunction* cost_function
+    = SightVecLinescanError::Create(world_sight_mat, csm_model, 
+                                    min_col, min_row, d_col, d_row, 
+                                    num_poses);
+  
+  // Minimize all residuals equally
+  ceres::LossFunction* loss_function = NULL;
+  problem.AddResidualBlock(cost_function, loss_function, 
+                           &rotations[0], &optical_center[0], &focal_length,
+                           &distortion[0]);
+
+#if 0
+  {
+    // Evaluate the residuals. For debugging.  
+    double total_cost = 0.0;
+    ceres::Problem::EvaluateOptions eval_options;
+    eval_options.num_threads = 1; // Use one thread to ensure a unique solution
+    eval_options.apply_loss_function = false;  // Want raw residuals
+    std::vector<double> residuals;
+    problem.Evaluate(eval_options, &total_cost, &residuals, NULL, NULL);
+
+    // Save the residuals
+    std::string resFile = "residual_norms2.txt";
+    vw::vw_out() << "Writing residual norms to: " << resFile << std::endl;
+    std::ofstream ofs(resFile.c_str());
+    for (int i = 0; i < residuals.size()/3; i++) {
+      int j = 3*i;
+      ofs << norm_2(vw::Vector3(residuals[j], residuals[j+1], 
+                                residuals[j+2])) << std::endl;
+    }
+    ofs.close();
+  }
+#endif
+
+  // Solve the problem
+  ceres::Solver::Options options;
+  options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+  options.num_threads = 1; // Use one thread for unique solution
+  options.max_num_iterations = 50; // 50 iterations is enough
+  options.minimizer_progress_to_stdout = false;
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+
+#if 0
+  {
+    // Evaluate the residuals. For debugging.  
+    double total_cost = 0.0;
+    ceres::Problem::EvaluateOptions eval_options;
+    eval_options.num_threads = 1; // Use one thread to ensure a unique solution
+    eval_options.apply_loss_function = false;  // want raw residuals
+    std::vector<double> residuals;
+    problem.Evaluate(eval_options, &total_cost, &residuals, NULL, NULL);
+
+    // Save the residuals
+    std::string resFile = "residual_norms3.txt";
+    vw::vw_out() << "Writing residual norms to: " << resFile << std::endl;
+    std::ofstream ofs(resFile.c_str());
+    for (int i = 0; i < residuals.size()/3; i++) {
+      int j = 3*i;
+      ofs << norm_2(vw::Vector3(residuals[j], residuals[j+1], 
+                                residuals[j+2])) << std::endl;
+    }
+    ofs.close();
+  }
+#endif
+
+  // Copy back rotations vec to quaternions
+  for (int i = 0; i < num_poses; i++) {
+    int j = 4*i;
+    vw::Vector3 axis_angle(rotations[3*i+0], rotations[3*i+1], rotations[3*i+2]);
+    vw::Quat q = vw::math::axis_angle_to_quaternion(axis_angle);
+    // CSM wants the quaternion order to be (x,y,z,w)
+    quaternions[j+0] = q.x();
+    quaternions[j+1] = q.y();
+    quaternions[j+2] = q.z();
+    quaternions[j+3] = q.w();
+  }
+
+  // Update the model quaternions, focal length, optical center, and distortion
+  csm_model.set_linescan_quaternions(quaternions);
+  csm_model.set_focal_length(focal_length);
+  csm_model.set_optical_center(optical_center);
+  csm_model.set_distortion_type(KAGUYALISM);
+  csm_model.set_distortion(distortion);
 
   return;
 }
