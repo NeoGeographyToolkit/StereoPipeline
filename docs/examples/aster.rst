@@ -166,6 +166,8 @@ be used to solve for jitter in ASTER cameras (:numref:`jitter_solve`).
 
 This functionality can be turned on with the option ``--aster-use-csm`` in 
 stereo, bundle adjustment, mapprojection, and ``cam_test`` (:numref:`cam_test`).
+This option is implicitly assumed when solving for jitter as that tool only
+works with CSM cameras.
 
 The bundle adjustment program will optimize and save the produced CSM models
 (:numref:`csm_state`), if invoked with the above switch. To save the best-fit

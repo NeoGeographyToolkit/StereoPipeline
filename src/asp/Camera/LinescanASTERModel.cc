@@ -81,7 +81,8 @@ ASTERCameraModel::ASTERCameraModel(
     = vw::camera::LinearPiecewisePositionInterpolation(m_sat_pos, min_row, d_row);
 
   m_interp_sight_mat
-    = vw::camera::SlerpGridPointingInterpolation(m_world_sight_mat, min_row, d_row, min_col, d_col);
+    = vw::camera::SlerpGridPointingInterpolation(m_world_sight_mat, min_row, d_row,
+                                                 min_col, d_col);
 
   // Do not create the CSM model unless the user asked for it, as that can be slow.
   if (!asp::stereo_settings().aster_use_csm)
@@ -117,12 +118,28 @@ vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point,
 
   // - This method will be slower but works for more complicated geometries
   vw::camera::CameraGenericLMA model(this, point);
-  int status;
+  int status_rpc = -1;
+
+  // Solver constants
+  const double ABS_TOL = 1e-14;
+  const double REL_TOL = 1e-14;
+  // If we can't get to the solution in this many iterations, it is hopeless
+  const int    MAX_ITERATIONS = 1000;
+  const double MAX_ERROR = 1e-2; // This is huge error, as it is a direction
+
+  // Solution with the RPC initial guess
+  Vector3 objective(0, 0, 0);
+  Vector2 start_rpc = this->m_rpc_model->point_to_pixel(point);
+  vw::Vector2 solution_rpc 
+    = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
+      (model, start_rpc, objective, status_rpc, ABS_TOL, REL_TOL, MAX_ITERATIONS);
+  double error_rpc = norm_2(model(solution_rpc));
+
+  // Now do without rpc  
   vw::Vector2 start = m_image_size / 2.0; // Use the center as the initial guess
 
-  bool has_guess = false;
-  
   // If the user provided a column number guess.
+  bool has_guess = false;
   if (start_in[0] >= 0) {
     start[0] = start_in[0];
     has_guess = true;
@@ -154,40 +171,26 @@ vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point,
     }
   }
                                               
-  // Solver constants
-  const double ABS_TOL = 1e-16;
-  const double REL_TOL = 1e-16;
-  const int    MAX_ITERATIONS = 1e+5;
-  const double MAX_ERROR = 1e-2;
-
-  // Try two initial guesses. TODO: Study this in more detail.
-  
   // Solution with user-provided initial guess
-  Vector3 objective(0, 0, 0);
-  vw::Vector2 solution1 
+  int status_norpc = -1;
+  vw::Vector2 solution_norpc 
     = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
-    (model, start, objective, status, ABS_TOL, REL_TOL, MAX_ITERATIONS);
-  
-  // Solution with the RPC initial guess
-  Vector2 start_rpc = this->m_rpc_model->point_to_pixel(point);
-  vw::Vector2 solution2 
-  = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
-    (model, start_rpc, objective, status, ABS_TOL, REL_TOL, MAX_ITERATIONS);
-  
-  double error1 = norm_2(model(solution1));
-  double error2 = norm_2(model(solution2));
-  double error  = std::min(error1, error2);
+    (model, start, objective, status_norpc, ABS_TOL, REL_TOL, MAX_ITERATIONS);
+  double error_norpc = norm_2(model(solution_norpc));
 
   vw::Vector2 solution;
-  if (error1 < error2) {
-    solution = solution1;
+  double error = 0.0;
+  if (error_rpc < error_norpc) {
+    solution = solution_rpc;
+    error = error_rpc;
   } else {
-    solution = solution2;
+    solution = solution_norpc;
+    error = error_norpc;
   }
   
-  // Check the error - If it is too high then the solver probably got
+  // Check the error. If it is too high then the solver probably got
   // stuck at the edge of the image.
-  VW_ASSERT((status > 0) && (error < MAX_ERROR),
+  VW_ASSERT((status_rpc > 0 || status_norpc > 0) && (error < MAX_ERROR),
             vw::camera::PointToPixelErr() 
               << "Unable to project point into LinescanASTER model.");
   
@@ -206,7 +209,7 @@ vw::Vector3 ASTERCameraModel::camera_center(vw::Vector2 const& pix) const {
 }
     
 vw::Vector3 ASTERCameraModel::pixel_to_vector(vw::Vector2 const& pix) const {
-  
+ 
  if (stereo_settings().aster_use_csm)
    return m_csm_model.pixel_to_vector(pix);
   
