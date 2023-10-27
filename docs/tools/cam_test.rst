@@ -13,10 +13,21 @@ estimates the pixel discrepancy.
 It prints the average time (in milliseconds) for the operation of
 projecting from the camera to the ground and back.
 
+See :numref:`examples` for the camera types used below (ISIS, CSM, RPC,
+PeruSat-1, ASTER, etc).
+
+Example (compare a CSM camera model against itself)::
+
+  cam_test --image input.cub --cam1 input.json --cam2 input.json \
+    --session1 csm --session2 csm
+
 Example (compare a PeruSat-1 exact linescan model to its RPC
 approximation)::
 
     cam_test --image input.tif --cam1 exact_cam.xml --cam2 rpc_cam.xml
+
+Here the two individual camera types will be auto-guessed as ``perusat`` and
+``rpc``, or can be specified as above with ``--session1`` and ``--session2``.
 
 Example (compare ISIS to CSM cameras)::
 
@@ -62,6 +73,12 @@ using CSM::
     cam_test --image image.tif --cam1 image.xml --cam2 image.xml \
       --session1 dg --session2 dg --dg-use-csm --dg-vs-csm       \
       --sample-rate 100
+
+Compare the existing ASTER camera implementation to the new one
+that uses the CSM camera model::
+
+    cam_test --image image.tif --cam1 image.xml --cam2 image.xml \
+      --session1 aster --session2 aster --aster-vs-csm
 
 Usage::
 
