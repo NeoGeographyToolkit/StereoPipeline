@@ -150,6 +150,8 @@ It is suggested to also create and inspect the intersection error image
 (:numref:`point2dem`). If it is large (comparable to ground sample distance),
 the cameras should be bundle-adjusted first (:numref:`bundle_adjust`).
 
+See :numref:`aster_dem_ortho_error` for a figure. 
+
 .. _aster_csm:
 
 Using the CSM model
@@ -176,3 +178,5 @@ The bundle adjustment program (:numref:`bundle_adjust`) will optimize and save
 the produced CSM models (:numref:`csm_state`), if invoked with this switch. To
 save the best-fit CSM models with no further refinement, invoke this tool with
 zero iterations. 
+
+See :numref:`jitter_aster` for how to solve for jitter in ASTER cameras.
