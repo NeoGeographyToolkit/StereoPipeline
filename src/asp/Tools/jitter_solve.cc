@@ -98,7 +98,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Resample the input camera orientations, using this many lines per produced orientation. "
      "If not set, use the orientations from the CSM file as they are.")
     ("match-first-to-last",
-     po::value(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
+     po::bool_switch(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
      "Match first several images to last several images by extending the logic of "
      "--overlap-limit past the last image to the earliest ones.")
     ("overlap-limit",        po::value(&opt.overlap_limit)->default_value(0),

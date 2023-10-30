@@ -179,10 +179,12 @@ namespace asp {
     if (r_adj_prefix != "" && r_adj_prefix != "NONE")
       stereo_settings().bundle_adjust_prefix = r_adj_prefix;
     if (r_cam_type == "rpc")
-      m_right_map_proj_model = load_rpc_camera_model(m_right_image_file, curr_right_camera_file,
+      m_right_map_proj_model = load_rpc_camera_model(m_right_image_file, 
+                                                     curr_right_camera_file,
                                                      zero_pixel_offset);
     else // Use the native model
-      m_right_map_proj_model = load_camera_model(m_right_image_file, curr_right_camera_file,
+      m_right_map_proj_model = load_camera_model(m_right_image_file,
+                                                 curr_right_camera_file,
                                                  zero_pixel_offset);
 
     // These are useful messages
@@ -198,7 +200,7 @@ namespace asp {
               << "projection camera model inside input files!" );
 
     // Double check that we can read the DEM and that it has cartographic information.
-    VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSession: Require input DEM." );
+    VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSession: Require input DEM.");
     if (!boost::filesystem::exists(m_input_dem))
       vw_throw(ArgumentErr() << "StereoSession: DEM '" << m_input_dem << "' does not exist.");
   }
@@ -216,8 +218,8 @@ namespace asp {
     vw::cartography::Datum datum;
     if (!stereo_settings().correlator_mode) {
       has_datum = true;
-      boost::shared_ptr<vw::camera::CameraModel> cam = this->camera_model(m_left_image_file,
-                                                                          m_left_camera_file);
+      boost::shared_ptr<vw::camera::CameraModel> 
+      cam = this->camera_model(m_left_image_file, m_left_camera_file);
       // Spherical datum for non-Earth, as done usually. Used
       // consistently this way in bundle adjustment and stereo.
       bool use_sphere_for_non_earth = true; 

@@ -2016,7 +2016,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A file containing the list of mapprojected images and the DEM (see --mapprojected-data), when they are too many to specify on the command line.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
      "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
-    ("match-first-to-last", po::value(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
+    ("match-first-to-last", po::bool_switch(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
      "Match first several images to last several images by extending the logic of --overlap-limit past the last image to the earliest ones.")
     
     ("rotation-weight",      po::value(&opt.rotation_weight)->default_value(0.0),
@@ -2123,9 +2123,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Force reusing the match files even if older than the images or cameras.")
     ("skip-matching",    po::bool_switch(&opt.skip_matching)->default_value(false)->implicit_value(true),
      "Only use image matches which can be loaded from disk. This implies --force-reuse-match-files.")
-    ("save-intermediate-cameras", po::value(&opt.save_intermediate_cameras)->default_value(false)->implicit_value(true),
+    ("save-intermediate-cameras", po::bool_switch(&opt.save_intermediate_cameras)->default_value(false)->implicit_value(true),
      "Save the values for the cameras at each iteration.")
-    ("apply-initial-transform-only", po::value(&opt.apply_initial_transform_only)->default_value(false)->implicit_value(true),
+    ("apply-initial-transform-only", po::bool_switch(&opt.apply_initial_transform_only)->default_value(false)->implicit_value(true),
      "Apply to the cameras the transform given by --initial-transform. "
      "No iterations, GCP loading, image matching, or report generation "
      "take place. Using --num-iterations 0 and without this option "
@@ -2151,7 +2151,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save .vwip files (intermediate files for creating .match files). For parallel_bundle_adjust these will be saved in subdirectories, as they depend on the image pair. Must start with an empty output directory for this to work.")
     ("vwip-prefix",  po::value(&opt.vwip_prefix),
      "Save .vwip files with this prefix. This is a private option used by parallel_bundle_adjust.")
-    ("ip-debug-images",        po::value(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
+    ("ip-debug-images", po::bool_switch(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
      "Write debug images to disk when detecting and matching interest points.");
     
   general_options.add(vw::GdalWriteOptionsDescription(opt));

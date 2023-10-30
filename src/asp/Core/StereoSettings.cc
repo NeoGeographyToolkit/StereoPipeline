@@ -146,9 +146,9 @@ namespace asp {
        "When matching IP, filter out any pairs with a triangulation error higher than this.")
       ("ip-num-ransac-iterations", po::value(&global.ip_num_ransac_iterations)->default_value(100),
        "How many RANSAC iterations to do in interest point matching.")
-      ("disable-tri-ip-filter",     po::value(&global.disable_tri_filtering)->default_value(false)->implicit_value(true),
+      ("disable-tri-ip-filter",     po::bool_switch(&global.disable_tri_filtering)->default_value(false)->implicit_value(true),
        "Turn off the tri-ip filtering step.")
-      ("ip-debug-images",     po::value(&global.ip_debug_images)->default_value(false)->implicit_value(true),
+      ("ip-debug-images",     po::bool_switch(&global.ip_debug_images)->default_value(false)->implicit_value(true),
                       "Write debug images to disk when detecting and matching interest points.")
       ("num-obalog-scales",              po::value(&global.num_scales)->default_value(-1),
        "How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. More can help for images with high frequency artifacts.")

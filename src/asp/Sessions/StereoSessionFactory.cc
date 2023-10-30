@@ -286,6 +286,7 @@ namespace asp {
                         left_camera_file, right_camera_file,
                         out_prefix, input_dem);
     session_type = session->name(); // update the session name 
+    
     return session;
 } // End function create()
 

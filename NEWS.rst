@@ -16,7 +16,8 @@ jitter_solve (:numref:`jitter_solve`):
   * Added ``--num-anchor-points-per-tile``. This helps when different
     images have different sizes but want to ensure the same point density.
   * Added the option ``--anchor-weight-image`` that is used to limit
-    where anchor points are placed.  
+    where anchor points are placed.
+  * Added an example for ASTER cameras (:numref:`jitter_aster`).
   * Can handle a linescan and frame camera rig (almost parallel rays) 
     (:numref:`jitter_no_baseline`).
   * The roll and yaw constraints no longer assume linescan camera positions and
