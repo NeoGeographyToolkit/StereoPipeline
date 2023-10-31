@@ -164,19 +164,27 @@ See :numref:`aster_dem_ortho_error` for an illustration.
 Using the CSM model
 ^^^^^^^^^^^^^^^^^^^
 
-An ASTER camera model consists of a sequence of satellite position samples and
-a set of camera directions, sampled at about a dozen image rows and columns.
-Interpolation is used in-between.
+An ASTER camera model consists of a sequence of satellite position samples and a
+set of camera directions (sight vectors, in world coordinates), sampled at about
+a dozen image rows and columns. Interpolation is used in-between.
 
 ASP can, in addition, fit a CSM linescan model (:numref:`csm`) on-the-fly to the
 ASTER model. This has the advantage that instead of a set of directions on a grid,
-there is one camera orientation at each satellite position sample. This will 
+there is one camera orientation at each satellite position sample. These will 
 be used to solve for jitter in ASTER cameras (:numref:`jitter_aster`).
 
-This functionality can be turned on with the option ``--aster-use-csm`` in 
+This functionality can be turned on with the option ``--aster-use-csm`` in
 stereo, bundle adjustment, mapprojection, and ``cam_test`` (:numref:`cam_test`).
-This option is implicitly assumed when solving for jitter as
-that tool only works with CSM cameras.
+This option is implicitly assumed when solving for jitter, as that tool only
+works with CSM cameras.
+
+The CSM model is produced by optimizing the optical center, focal length, and
+camera orientations, to fit best the provided ASTER sight vectors. No ground
+information is used, or stereo pair knowledge. The satellite positions do not
+change. This model results in a triangulated surface that is different by about
+2 m vertically from the one obtained with the original cameras, but this is very
+small given the ground sample distance of 15 meters, and is not noticeable when
+taking the difference with a prior terrain model.
 
 The ``cam_test`` documentation also describes how to compare the existing ASTER
 and new CSM-based implementations. 
@@ -186,3 +194,5 @@ the produced CSM models (:numref:`csm_state`), if invoked with this switch. To
 save the best-fit CSM models with no further refinement, invoke this tool with
 zero iterations. 
 
+The CSM model may be further refined by tying together multiple datasets and
+using ground constraints (:numref:`kaguya_tc_refine_intrinsics`).
