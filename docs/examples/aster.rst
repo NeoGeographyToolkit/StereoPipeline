@@ -164,7 +164,7 @@ Interpolation is used in-between.
 ASP can, in addition, fit a CSM linescan model (:numref:`csm`) on-the-fly to the
 ASTER model. This has the advantage that instead of a set of directions on a grid,
 there is one camera orientation at each satellite position sample. This will 
-be used to solve for jitter in ASTER cameras (:numref:`jitter_solve`).
+be used to solve for jitter in ASTER cameras (:numref:`jitter_aster`).
 
 This functionality can be turned on with the option ``--aster-use-csm`` in 
 stereo, bundle adjustment, mapprojection, and ``cam_test`` (:numref:`cam_test`).
@@ -179,4 +179,3 @@ the produced CSM models (:numref:`csm_state`), if invoked with this switch. To
 save the best-fit CSM models with no further refinement, invoke this tool with
 zero iterations. 
 
-See :numref:`jitter_aster` for how to solve for jitter in ASTER cameras.
