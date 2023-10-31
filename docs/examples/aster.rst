@@ -3,16 +3,19 @@
 ASTER
 -----
 
-In this example we will describe how to process ASTER Level 1A VNIR
-images. A ready-made ASTER example having the input images and
-cameras, ASP outputs, and instructions for how to run it, can be found
-at:
+`Advanced Spaceborne Thermal Emission and Reflection Radiometer
+<https://en.wikipedia.org/wiki/Advanced_Spaceborne_Thermal_Emission_and_Reflection_Radiometer>`_ (ASTER)
+is a Japanese instrument. ASP can process ASTER Level 1A VNIR images. These are
+acquired with a stereo rig consisting of two cameras, pointing nadir and back. The
+orbit is sun-synchronous, at an elevation of 705 km. The ground sample distance is 15
+meters/pixel. 
 
-    https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases
+See a `ready-made ASTER example <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/ASTER>`_. It has the input images and
+cameras, ASP outputs, and instructions for how to run it. Also see a `workbook with illustrations <https://github.com/uw-cryo/asp-binder-demo/blob/master/example-aster_on_pangeo_binder_draft.ipynb>`_.
+    
+ASP can correct for the jitter in these cameras (:numref:`jitter_aster`).
 
-A different worked-out example with illustrations:
-
-    https://github.com/uw-cryo/asp-binder-demo/blob/master/example-aster_on_pangeo_binder_draft.ipynb
+.. _aster_fetch:
 
 Fetching the data
 ^^^^^^^^^^^^^^^^^
@@ -33,8 +36,12 @@ It is very important that, at the very last step, when finalizing the order
 options, choose GeoTIFF as the data format, rather than HDF-EOS. This way the
 images and metadata will come already extracted from the HDF file.
 
-Note that ASP cannot process ASTER Level 1B images, as those images lack camera
-information.
+ASTER L1B images are also available. These are produced by projecting L1A images
+onto the WGS84 ellipsoid at zero elevation. ASTER L1B images can be processed
+with ASP by using the mapprojection workflow (:numref:`mapproj-example`). The
+user should invoke ``parallel_stereo`` with the L1B images (already
+mapprojected), L1A cameras, output prefix, and a DEM with zero height above the
+WGS84 datum. The results are nearly the same as obtained with L1A images. 
 
 Data preparation
 ^^^^^^^^^^^^^^^^
@@ -150,7 +157,7 @@ It is suggested to also create and inspect the intersection error image
 (:numref:`point2dem`). If it is large (comparable to ground sample distance),
 the cameras should be bundle-adjusted first (:numref:`bundle_adjust`).
 
-See :numref:`aster_dem_ortho_error` for a figure. 
+See :numref:`aster_dem_ortho_error` for an illustration.
 
 .. _aster_csm:
 

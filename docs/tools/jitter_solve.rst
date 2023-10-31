@@ -974,10 +974,10 @@ of the weight for that constraint could have been used.
 ASTER cameras
 ~~~~~~~~~~~~~
 
-ASTER data is a very good testbed for studying jitter because there are millions
-of free images over a span of 20 years, with many over the same location, and
-the images are rather small, on the order of 4,000 - 5,000 pixels along each
-dimension.
+ASTER (:numref:`aster`) is a very good testbed for studying jitter because
+there are millions of free images over a span of 20 years, with many over the
+same location, and the images are rather small, on the order of 4,000 - 5,000
+pixels along each dimension.
 
 Setup
 ^^^^^
@@ -988,7 +988,7 @@ are available here. The jitter pattern, including its frequency, turned out to
 be quite different in each the stereo pair we tried, but the solver was able to
 minimize it in all cases.
 
-Fetch and prepare the the data as documented in :numref:`aster`. Here we will
+Fetch and prepare the the data as documented in :numref:`aster_fetch`. Here we will
 work with dataset ``AST_L1A_00301062002090416_20231023221708_3693``.
 
 A reference Copernicus DEM can be downloaded per :numref:`initial_terrain`. Use
