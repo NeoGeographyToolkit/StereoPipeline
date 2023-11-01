@@ -756,6 +756,12 @@ def keepOnlySpecified(keep_only, out_prefix, subdirs):
                 shutil.rmtree(f)
             else:
                 os.remove(f)
+    
+    # It looks useful to print the final cloud, as the messages above
+    # can be quite verbose.
+    pc_file = glob.glob(out_prefix + "-PC.tif")
+    if len(pc_file) > 0:
+        print("Output point cloud: " + pc_file[0])
             
 if __name__ == '__main__':
     usage = '''parallel_stereo [options] <images> [<cameras>]

@@ -181,10 +181,10 @@ works with CSM cameras.
 The CSM model is produced by optimizing the optical center, focal length, and
 camera orientations, to fit best the provided ASTER sight vectors. No ground
 information is used, or stereo pair knowledge. The satellite positions do not
-change. This model results in a triangulated surface that is different by about
-2 m vertically from the one obtained with the original cameras, but this is very
-small given the ground sample distance of 15 meters, and is not noticeable when
-taking the difference with a prior terrain model.
+change. This model results in a triangulated surface that is different by an
+average of 1 m or so vertically from the one obtained with the original cameras,
+but this is very small given the ground sample distance of 15 meters, and is not
+noticeable when taking the difference with a prior terrain model.
 
 The ``cam_test`` documentation also describes how to compare the existing ASTER
 and new CSM-based implementations. 

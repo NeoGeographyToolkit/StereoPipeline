@@ -1091,8 +1091,7 @@ Take the difference with the reference DEM after alignment::
   geodiff stereo_bm/run-align-trans_reference-DEM.tif \
     ref.tif -o stereo_bm/run
 
-The result of this is shown in :numref:`aster_jitter_dem_diff`.
-
+The result of this is shown in :numref:`aster_jitter_dem_diff`. 
 Apply the alignment transform to the cameras (:numref:`ba_pc_align`)::
 
     bundle_adjust -t csm                        \
@@ -1107,6 +1106,11 @@ Apply the alignment transform to the cameras (:numref:`ba_pc_align`)::
 It is important to use here the inverse alignment transform, as we want to map
 from the stereo DEM to the reference DEM, and the forward transform would do the
 opposite, given how ``pc_align`` was invoked.
+
+If the produced difference of DEMs shows large residuals consistent with the
+terrain, one should consider applying more blur to the reference terrain and/or
+redoing mapprojection and stereo with the now-aligned cameras, and see if this
+improves this difference.
 
 Solving for jitter
 ^^^^^^^^^^^^^^^^^^
