@@ -289,14 +289,12 @@ namespace asp {
 
  // This is important so that the user does not load RPC cameras while thinking
  // ASTER or DG models are loaded. 
- if (session_type.find("aster") == std::string::npos && 
-     session_type.find("csm") == std::string::npos && 
+ if (session_type.find("rpc") != std::string::npos && 
      asp::stereo_settings().aster_use_csm)
       vw_throw(vw::ArgumentErr() 
                << "The --aster-use-csm option must be used only with the "
                << "ASTER session (-t aster).\n");
- if (session_type.find("dg") == std::string::npos && 
-     session_type.find("csm") == std::string::npos && 
+ if (session_type.find("rpc") != std::string::npos && 
      asp::stereo_settings().dg_use_csm)
       vw_throw(vw::ArgumentErr() 
                << "The --dg-use-csm option must be used only with the " 
