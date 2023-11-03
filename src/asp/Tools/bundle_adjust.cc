@@ -2907,6 +2907,17 @@ int main(int argc, char* argv[]) {
 
     handle_arguments(argc, argv, opt);
 
+    // Prepare for computing footprints of images. Do this early as loading cameras
+    // as below can take a lot of time. So fail early.
+    // TODO(oalexan1): Move this to handle_arguments().
+    std::string dem_file_for_overlap;
+    double pct_for_overlap = -1.0;
+    if (opt.auto_overlap_params != "") {
+      std::istringstream is(opt.auto_overlap_params);
+      if (!(is >> dem_file_for_overlap >> pct_for_overlap)) 
+        vw_throw(ArgumentErr() << "Could not parse correctly option --auto-overlap-params.\n");
+    }
+
     asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
                       opt.approximate_pinhole_intrinsics,  
                       // Outputs
@@ -2920,15 +2931,6 @@ int main(int argc, char* argv[]) {
                                    opt.camera_models,
                                    opt.horizontal_stddev_vec); // output
     
-    // Prepare for computing footprints of images
-    // TODO(oalexan1): Move this to a function
-    std::string dem_file_for_overlap;
-    double pct_for_overlap = -1.0;
-    if (opt.auto_overlap_params != "") {
-      std::istringstream is(opt.auto_overlap_params);
-      if (!(is >> dem_file_for_overlap >> pct_for_overlap)) 
-        vw_throw(ArgumentErr() << "Could not parse correctly option --auto-overlap-params.\n");
-    }
 
     // For when we make matches based on mapprojected images. Read mapprojected
     // images and a DEM from either command line or a list.
@@ -3167,8 +3169,8 @@ int main(int argc, char* argv[]) {
                       opt.camera_models[j].get(),
                       match_file);
         else
-          matches_from_mapproj_images(i, j, opt, session, map_files, dem_georef, interp_dem,  
-                                      match_file);
+          matches_from_mapproj_images(i, j, opt, session, map_files, dem_georef, 
+                                      interp_dem, match_file);
 
         // Compute the coverage fraction
         std::vector<ip::InterestPoint> ip1, ip2;

@@ -1528,6 +1528,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
        << "its own grid size and also the order of operations.\n"
        << usage << general_options);
 
+  // print warning usign vw warning message
+  if (opt.fill_search_radius > 30)
+    vw_out(vw::WarningMessage) << "The fill search radius is large. "
+                               << "This may result in slow execution time.\n";
+
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -1727,7 +1732,12 @@ int main(int argc, char *argv[]) {
       + 2*std::max(vw::compute_kernel_size(opt.weights_blur_sigma),
                    vw::compute_kernel_size(opt.dem_blur_sigma))
                    + 1;
-
+                   
+    // If we just fill holes based on search radius, we do not need a large bias.
+    // Filling with large search radius is slow as it is.
+    if (opt.fill_search_radius > 0)
+      bias = opt.fill_search_radius + 10;
+    
     // The next power of 2 >= 4*bias. We want to make the blocks big,
     // to reduce overhead from this bias, but not so big that it may
     // not fit in memory.
@@ -1748,7 +1758,7 @@ int main(int argc, char *argv[]) {
     vw_out() << "Number of tiles: " << num_tiles_x << " x "
              << num_tiles_y << " = " << num_tiles << ".\n";
     
-    if (opt.tile_index >= num_tiles){
+    if (opt.tile_index >= num_tiles) {
       vw_out() << "Tile with index: " << opt.tile_index
 	             << " is out of bounds." << std::endl;
       return 0;

@@ -633,6 +633,9 @@ intrinsics, and ``pc_align`` (:numref:`pc_align`) was used later for individual
 alignment. This is not preferable, in general. It was tricky however to find
 many images with a lot of overlap, so this had to make do.
 
+A modification of the work flow for the case of images with very different
+illumination is in :numref:`kaguya_tc_refine_intrinsics_illumination`.
+
 Initial bundle adjustment with fixed intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -874,6 +877,30 @@ KaguyaTC is already reasonably well-aligned.
    and after (bottom) refinement of distortion. (Blue = -20 meters, red = 20
    meters.) It can be seen that the warping of the DEMs due to distortion is much
    reduced. Plotted with ``stereo_gui`` (:numref:`plot_csv`).
+
+.. _kaguya_tc_refine_intrinsics_illumination:
+
+Handling images with very different illumination
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If each stereo pair has consistent illumination, but the illumination is very
+different between pairs, then the above approach may not work well as tie points
+could be hard to find. It is suggested to do the initial bundle adjustment per
+each stereo pair, followed by alignment of the individual produced DEMs to a
+reference dataset.
+
+Apply the alignment transform to the pairwise bundle-adjusted cameras as well,
+and use these cameras for the refinement of intrinsics, with the ground constraint
+being the mosaic of these aligned DEMs. 
+
+It is suggested to examine how each individual aligned DEM differs from the
+reference, and the same for their mosaic. The hope is that the mosaicking will
+average out the errors in the individual DEMs.
+
+If a lot of such stereo pairs are present, for the purpose of refinement of
+intrinsics it is suggested to pick just a handful of them, corresponding to the
+area where the mosaicked DEM differs least from the reference, so where the
+distortion artifacts are most likely to have been averaged well.
 
 .. _custom_ip:
 
