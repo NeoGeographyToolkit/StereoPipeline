@@ -2169,7 +2169,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered);
+                            allow_unregistered, unregistered);
+
+  boost::to_lower(opt.stereo_session);
 
   // Separate out GCP files
   opt.gcp_files = asp::get_files_with_ext(opt.image_files, ".gcp", true);
@@ -2216,12 +2218,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Must have as many cameras as we have images.\n");
   }
   
+  // If the DG session is used and errors are to be propagated, must use CSM.
   // Must happen before copy_to_asp_settings() and before cameras are loaded.
-  if (opt.propagate_errors)
+  if (opt.propagate_errors && opt.stereo_session.find("dg") != std::string::npos)
     opt.dg_use_csm = true;
   
-  // TODO: Check for duplicates in opt.image_files!
-
   if (opt.image_files.empty())
     vw_throw( ArgumentErr() << "Missing input image files.\n"
                             << usage << general_options );
@@ -2250,7 +2251,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     inline_adjustments = true;
   }
 
-  boost::to_lower(opt.stereo_session);
 
   opt.camera_type = BaCameraType_Other;
   if (inline_adjustments) {

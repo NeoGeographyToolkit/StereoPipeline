@@ -18,6 +18,8 @@
 /// \file BundleAdjustUtils.cc
 ///
 
+#include <asp/Core/BundleAdjustUtils.h>
+
 #include <vw/Core/Log.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
@@ -26,7 +28,7 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/BundleAdjustment/CameraRelation.h>
-#include <asp/Core/BundleAdjustUtils.h>
+#include <vw/InterestPoint/Matcher.h>
 
 #include <string>
 
@@ -302,8 +304,9 @@ std::string asp::bundle_adjust_file_name(std::string const& prefix,
   return prefix + "-" + fs::path(file).stem().string() + ".adjust";
 }
 
-/// Ensure that no images, camera files, or adjustment names are duplicate.
-/// That will cause the output files to overwrite each other!
+/// Ensure that the basename (without extension) of all images, camera files, or
+/// adjustment names are different. Later these will be used for match files,
+/// and we want match files corresponding to different images to be different.
 void asp::check_for_duplicates(std::vector<std::string> const& image_files,
                                std::vector<std::string> const& camera_files,
                                std::string const& out_prefix) {
@@ -314,9 +317,11 @@ void asp::check_for_duplicates(std::vector<std::string> const& image_files,
   std::set<std::string> img_set, cam_set, adj_set;
   for (size_t i = 0; i < camera_files.size(); i++) {
 
-    std::string const & img = image_files[i];  // alias
-    std::string const & cam = camera_files[i]; // alias
-    std::string         adj = asp::bundle_adjust_file_name(out_prefix, img, cam);
+    std::string img = vw::ip::strip_path("", image_files[i]);
+    std::string cam = vw::ip::strip_path("", camera_files[i]);
+    std::string adj = vw::ip::strip_path(out_prefix, 
+                                         asp::bundle_adjust_file_name(out_prefix, 
+                                                                      img, cam));
 
     if (img_set.find(img) != img_set.end()) 
       vw_throw(vw::ArgumentErr() << "Found duplicate image: " << img << "\n");

@@ -393,8 +393,11 @@ namespace asp {
                                       cfg_options), vm);
       po::notify(vm);
     } catch (po::error const& e) {
-      vw::vw_throw(vw::ArgumentErr() << "Error parsing configuration file:\n" << e.what() << "\n");
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Error parsing configuration file:\n" << e.what() << "\n");
     }
+
+    boost::to_lower(opt.stereo_session);
 
     asp::stereo_settings().validate();
 
@@ -404,17 +407,19 @@ namespace asp {
       if (!stereo_settings().dg_use_csm) {
         vw::Vector2 const& v = asp::stereo_settings().horizontal_stddev; // alias
         if (v[0] <= 0 || v[1] <= 0) {
-          // Have to use the CSM model to propagate the errors
-          // Will print a message later, only when we know the camera is actually DG
-          stereo_settings().dg_use_csm = true;
-          print_dg_csm_cov_message = true;
+          // For DG, have to use the CSM model to propagate the errors. Will
+          // print a message later.
+          if (opt.stereo_session.find("dg") != std::string::npos) {
+            stereo_settings().dg_use_csm = true;
+            print_dg_csm_cov_message = true;
+          }
         }
       }
     }
         
     if (stereo_settings().correlator_mode) {
       stereo_settings().alignment_method = "none"; // images are assumed aligned
-      opt.stereo_session = "rpc";                  // since inputs are images this seems simpler
+      opt.stereo_session = "rpc";  // since inputs are images this seems simpler
 
       if (stereo_settings().propagate_errors)
         vw::vw_throw(vw::ArgumentErr() << "Cannot propagate errors in correlator mode.\n");

@@ -893,7 +893,7 @@ Apply the alignment transform to the pairwise bundle-adjusted cameras as well,
 and use these cameras for the refinement of intrinsics, with the ground constraint
 being the mosaic of these aligned DEMs. 
 
-It is suggested to examine how each individual aligned DEM differs from the
+It is suggested to examine how each aligned DEM differs from the
 reference, and the same for their mosaic. The hope is that the mosaicking will
 average out the errors in the individual DEMs.
 
