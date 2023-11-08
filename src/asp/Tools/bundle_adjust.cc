@@ -1411,7 +1411,6 @@ int do_ba_ceres_one_pass(Options             & opt,
   //options.ordering_type = ceres::SCHUR;
   //options.eta = 1e-3; // FLAGS_eta;
   //options->max_solver_time_in_seconds = FLAGS_max_solver_time;
-  //options->use_nonmonotonic_steps = FLAGS_nonmonotonic_steps;
   //if (FLAGS_line_search) {
   //  options->minimizer_type = ceres::LINE_SEARCH;
   //}
@@ -1423,7 +1422,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   vw_out() << summary.FullReport() << "\n";
   if (summary.termination_type == ceres::NO_CONVERGENCE){
     // Print a clarifying message, so the user does not think that the algorithm failed.
-    vw_out() << "Found a valid solution, but did not reach the actual minimum." << std::endl;
+    vw_out() << "Found a valid solution, but did not reach the actual minimum. This is expected and likely the produced solution is good enough.\n";
     convergence_reached = false;
   }
 
@@ -1438,9 +1437,10 @@ int do_ba_ceres_one_pass(Options             & opt,
                       reference_vec, cnet, crn, problem);
   
   std::string point_kml_path = opt.out_prefix + "-final_points.kml";
-  std::string url = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
-  param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip, "final_points",
-                                     url);
+  std::string url 
+    = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
+  param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip, 
+                                     "final_points", url);
   
   // Print the stats for GCP
   // TODO(oalexan1): This should go to a file
@@ -2097,7 +2097,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("aster-use-csm", po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with ASTER cameras (-t aster).")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
-     "Given map-projected versions of the input images and the DEM they "
+     "Given map-projected versions of the input images (without bundle adjustment) and the DEM they "
      "were mapprojected onto, create interest point matches among the  "
      "mapprojected images, unproject and save those matches, then  "
      "continue with bundle adjustment. Existing match files will be  "
@@ -2250,7 +2250,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_out() << "Solving for intrinsics, so assuming --inline-adjustments.\n";
     inline_adjustments = true;
   }
-
 
   opt.camera_type = BaCameraType_Other;
   if (inline_adjustments) {
@@ -2652,9 +2651,9 @@ void ba_match_ip(Options & opt, SessionPtr session,
   
   // Get masked views of the images to get statistics from
   DiskImageView<float> image1_view(rsrc1), image2_view(rsrc2);
-  ImageViewRef< PixelMask<float> > masked_image1
+  ImageViewRef<PixelMask<float>> masked_image1
     = create_mask_less_or_equal(image1_view,  nodata1);
-  ImageViewRef< PixelMask<float> > masked_image2
+  ImageViewRef<PixelMask<float>> masked_image2
     = create_mask_less_or_equal(image2_view, nodata2);
   
   // Since we computed statistics earlier, this will just be loading files.
@@ -2713,6 +2712,23 @@ void matches_from_mapproj_images(int i, int j,
   if (!is_good1 || !is_good2) {
     vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
   }
+
+  // Matches from mapprojected images assume images were mapprojected
+  // without bundle adjustment. 
+  {
+     boost::shared_ptr<vw::DiskImageResource>
+        l_rsrc(new vw::DiskImageResourceGDAL(map_files[i]));
+     boost::shared_ptr<vw::DiskImageResource>
+        r_rsrc(new vw::DiskImageResourceGDAL(map_files[j]));
+    std::string adj_key = "BUNDLE_ADJUST_PREFIX";
+    std::string l_adj_prefix, r_adj_prefix;
+    vw::cartography::read_header_string(*l_rsrc.get(), adj_key, l_adj_prefix); 
+    vw::cartography::read_header_string(*r_rsrc.get(), adj_key, r_adj_prefix);
+    if ((l_adj_prefix != "" && l_adj_prefix != "NONE") ||
+        (r_adj_prefix != "" && r_adj_prefix != "NONE"))
+      vw_throw(ArgumentErr() << "Cannot find matches from mapprojected images "
+               << "if these were created with bundle-adjusted cameras.\n");
+  }  
   
   std::string image1_path  = opt.image_files[i];
   std::string image2_path  = opt.image_files[j];
@@ -2959,8 +2975,20 @@ int main(int argc, char* argv[]) {
         
         asp::create_interp_dem(dem_file, dem_georef, interp_dem);
       }
+
     }
-    
+
+    if (!opt.mapprojected_data.empty()) {
+      // Mapprojected data assumes the cameras are not adjusted
+      if (!opt.input_prefix.empty() || !opt.initial_transform_file.empty() ||
+          opt.apply_initial_transform_only)
+        vw_throw(ArgumentErr() 
+                 << "Cannot use mapprojected data with initial adjustments or "
+                 << "initial transform. Create matches from mapprojected data first, "
+                 << "with original cameras, then later use them in with a separate "
+                 << "invocation.\n");
+    }
+  
     // Assign the images which this instance should compute statistics for.
     std::vector<size_t> image_stats_indices;
     int num_images = opt.image_files.size();

@@ -1879,7 +1879,8 @@ void run_jitter_solve(int argc, char* argv[]) {
   ceres::Solve(options, &problem, &summary);
   vw_out() << summary.FullReport() << "\n";
   if (summary.termination_type == ceres::NO_CONVERGENCE) 
-    vw_out() << "Found a valid solution, but did not reach the actual minimum. This is expected, and likely the produced solution is good enough.\n";
+    vw_out() << "Found a valid solution, but did not reach the actual minimum. "
+             << "This is expected, and likely the produced solution is good enough.\n";
 
   // With the problem solved, update camera_models based on frame_params
   // (applies only to frame cameras, if any)

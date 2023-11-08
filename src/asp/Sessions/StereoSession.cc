@@ -1154,7 +1154,7 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
     return cam; // Return the unadjusted cameras if there is no adjustment
 
   std::vector<Vector3> position_correction;
-  std::vector<Quat   > pose_correction;
+  std::vector<Quat> pose_correction;
 
   // These must start initialized. Note that we may have a pixel
   // offset passed in from outside, or a pixel offset and scale
@@ -1203,6 +1203,9 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
       vw_throw(InputErr() << "Unable to read corrections.\n");
 
     // Handle the case of piecewise adjustments for DG and other cameras
+    // TODO(oalexan1): This code must go away as is needed only for the old
+    // jitter solving approach that was superseded by jitter_solve.cc which
+    // handles adjustments internally in CSM cameras.
     if (piecewise_adjustments) {
 
       DiskImageView<float> img(image_file);
@@ -1245,11 +1248,11 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
 
   } // End case for parsing bundle adjustment file
 
-  // Create VW adjusted camera model object with the info we loaded
-  return boost::shared_ptr<camera::CameraModel>(new vw::camera::AdjustedCameraModel
-                                                (cam, position_correction[0],
+  // Create the adjusted camera model object with the info we loaded
+  return boost::shared_ptr<camera::CameraModel>
+             (new vw::camera::AdjustedCameraModel(cam, position_correction[0],
                                                  pose_correction[0], local_pixel_offset,
-						 local_scale));
+                                                 local_scale));
 }
 
 /// Function to apply a functor to each pixel of an input image.

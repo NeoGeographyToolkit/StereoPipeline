@@ -1154,7 +1154,7 @@ and then apply this alignment to the cameras.
 
 Examine the file having the stereo convergence angles for each pair of images as
 produced by bundle adjustment (:numref:`ba_conv_angle`). Pick one or more pairs
-of images with a solid convergence angle (say 15-30 degrees, or for 4-10 degrees
+of images with a solid convergence angle (say 15-30 degrees, or 4-10 degrees
 if no better luck). Ensure those pairs have a good number of matches, which is
 at least several dozens, and similar illumination.
 
