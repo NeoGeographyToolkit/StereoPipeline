@@ -1684,6 +1684,12 @@ void run_jitter_solve(int argc, char* argv[]) {
     
     match_files[std::make_pair(i, j)] = match_file;
   }
+  
+  if (match_files.empty())
+    vw_throw(ArgumentErr() 
+             << "No match files were found. Check if your match "
+             << "files exist and if they satisfy the naming convention "
+             << "<prefix>-<image1>__<image2>.match.\n");
 
   // Build control network and perform triangulation with adjusted input cameras
   ba::ControlNetwork cnet("jitter_solve");
@@ -1698,7 +1704,8 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (!success)
     vw::vw_throw(vw::ArgumentErr()
              << "Failed to build a control network. Check the bundle adjustment directory "
-             << "for clean matches. Or, consider removing all .vwip and "
+             << "for matches and if the match files satisfy the naming convention. "
+             << "Or, consider removing all .vwip and "
              << ".match files and increasing the number of interest points "
              << "using --ip-per-image or --ip-per-tile, or decreasing --min-matches, "
              << "and then re-running bundle adjustment.\n");
@@ -1872,7 +1879,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   ceres::Solve(options, &problem, &summary);
   vw_out() << summary.FullReport() << "\n";
   if (summary.termination_type == ceres::NO_CONVERGENCE) 
-    vw_out() << "Found a valid solution, but did not reach the actual minimum.\n";
+    vw_out() << "Found a valid solution, but did not reach the actual minimum. This is expected, and likely the produced solution is good enough.\n";
 
   // With the problem solved, update camera_models based on frame_params
   // (applies only to frame cameras, if any)
