@@ -34,7 +34,11 @@ bundle_adjust (:numref:`bundle_adjust`):
     geographic location of triangulated points. (:numref:`limit_ip`). 
   * For ASTER cameras, use the RPC model to find interest points. This does
     not affect the final results but is much faster.
-
+  * Enforce that option ``--mapprojected-data`` use images that were not 
+    mapprojected with bundle-adjusted cameras, and also the input
+    cameras themselves are not bundle-adjusted. It is easier to avoid
+    inconsistencies this way. 
+    
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).
   * When a run finished successfully, combine the data from subdirectories and
@@ -50,6 +54,11 @@ point2dem (:numref:`point2dem`):
     projection center for stereographic and other projections
     (:numref:`point2dem_auto_proj_center`).
 
+csm (:numref:`csm`):
+   * Added support for the radial and tangential distortion model 
+     with 3 radial distortion parameters and 2 tangential ones. Tested
+     that it agrees with the OpenCV implementation.
+      
 stereo_gui (:numref:`stereo_gui`):
   * Can show scattered data with a colorbar and axes 
     (:numref:`scattered_points_colorbar`).
