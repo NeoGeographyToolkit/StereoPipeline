@@ -997,25 +997,29 @@ A reference Copernicus DEM can be downloaded per :numref:`initial_terrain`. Use
 Initial stereo and alignment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We will call the two images in an ASTER stereo pair ``Band3N.tif`` and
-``Band3B.tif``. The corresponding cameras are ``Band3N.xml`` and ``Band3B.xml``.
-The reference Copernicus DEM relative to WGS84 is ``ref.tif``.
+We will call the two images in an ASTER stereo pair ``out-Band3N.tif`` and
+``out-Band3B.tif``. This is the convention used by ``aster2asp``
+(:numref:`aster2asp`), and instead of ``out`` any other string can be used. The
+corresponding cameras are ``out-Band3N.xml`` and ``out-Band3B.xml``. The
+reference Copernicus DEM relative to WGS84 is ``ref.tif``.
 
 Bundle adjustment::
 
-  bundle_adjust -t aster       \
-    --aster-use-csm            \
-    --camera-weight 0.0        \
-    --tri-weight 0.1           \
-    --tri-robust-threshold 0.1 \
-    --num-iterations 50        \
-    Band3N.tif Band3B.tif      \
-    Band3N.xml Band3B.xml      \
+  bundle_adjust -t aster          \
+    --aster-use-csm               \
+    --camera-weight 0.0           \
+    --tri-weight 0.1              \
+    --tri-robust-threshold 0.1    \
+    --num-iterations 50           \
+    out-Band3N.tif out-Band3B.tif \
+    out-Band3N.xml out-Band3B.xml \
     -o ba/run
 
-Bundle adjustment was done with the option ``--aster-use-csm``. This saves the
-adjusted cameras in CSM format, which is needed for the jitter solver. Then the
-produced .adjust files should not be used as they save the adjustments only.
+Not using ``-t aster`` will result in RPC cameras being used, which would lead
+to wrong results. We used the option ``--aster-use-csm``. This saves the
+adjusted cameras in CSM format (:numref:`csm_state`), which is needed for the
+jitter solver. Then the produced .adjust files should not be used as they save
+the adjustments only.
 
 Stereo was done with mapprojected images. The reference DEM was blurred a little
 as it is at the resolution of the images, and then any small misalignment
@@ -1026,11 +1030,11 @@ between the images and the DEM may result in artifacts::
 Mapprojection in local stereographic projection::
 
   proj='+proj=stere +lat_0=24.0275 +lon_0=25.8402 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'
-  mapproject -t csm                   \
-   --tr 15 --t_srs "$proj"            \
-    ref_blur.tif Band3N.tif           \
-    ba/run-Band3N.adjusted_state.json \
-    Band3N.map.tif
+  mapproject -t csm                       \
+   --tr 15 --t_srs "$proj"                \
+    ref_blur.tif out-Band3N.tif           \
+    ba/run-out-Band3N.adjusted_state.json \
+    out-Band3N.map.tif
   
 The same command is used for the other image. Both must use the same resolution
 in mapprojection (option ``--tr``). 
@@ -1043,15 +1047,15 @@ Stereo with mapprojected images (:numref:`mapproj-example`) and DEM generation
 is run. Here the ``asp_mgm`` algorithm is not used as it smears the jitter
 signal::
 
-    parallel_stereo                        \
-      --stereo-algorithm asp_bm            \
-      --subpixel-mode 1                    \
-      --max-disp-spread 100                \
-      --num-matches-from-disparity 100000  \
-      Band3N.map.tif Band3B.map.tif        \
-      ba/run-Band3N.adjusted_state.json    \
-      ba/run-Band3B.adjusted_state.json    \
-      stereo_bm/run                        \
+    parallel_stereo                         \
+      --stereo-algorithm asp_bm             \
+      --subpixel-mode 1                     \
+      --max-disp-spread 100                 \
+      --num-matches-from-disparity 100000   \
+      out-Band3N.map.tif out-Band3B.map.tif \
+      ba/run-out-Band3N.adjusted_state.json \
+      ba/run-out-Band3B.adjusted_state.json \
+      stereo_bm/run                         \
       ref_blur.tif
       
     point2dem --errorimage --t_srs "$proj" \
@@ -1098,9 +1102,9 @@ Apply the alignment transform to the cameras (:numref:`ba_pc_align`)::
       --initial-transform                       \
       stereo_bm/run-align-inverse-transform.txt \
       --apply-initial-transform-only            \
-      Band3N.map.tif Band3B.map.tif             \
-      ba/run-Band3N.adjusted_state.json         \
-      ba/run-Band3B.adjusted_state.json         \
+      out-Band3N.map.tif out-Band3B.map.tif     \
+      ba/run-out-Band3N.adjusted_state.json     \
+      ba/run-out-Band3B.adjusted_state.json     \
       -o ba_align/run
 
 It is important to use here the inverse alignment transform, as we want to map
@@ -1119,8 +1123,12 @@ Copy the dense match file to follow the naming convention
 for unprojected images::
 
     mkdir -p jitter
-    cp stereo_bm/run-disp-Band3N.map__Band3B.map.match \
-      jitter/run-Band3N__Band3B.match
+    cp stereo_bm/run-disp-out-Band3N.map__out-Band3B.map.match \
+      jitter/run-out-Band3N__out-Band3B.match
+
+The naming convention for the output match file above is
+``<prefix>-<image1>__<image2>.match``, where the image names are without the
+directory name and extension.
 
 Here it is important to use a lot of match points and a low 
 value for ``--num-lines-per-orientation`` and same for position,
@@ -1128,21 +1136,21 @@ because the jitter has rather high frequency.
 
 Solve for jitter with the aligned cameras::
 
-    jitter_solve Band3N.tif Band3B.tif            \
-      ba_align/run-run-Band3N.adjusted_state.json \
-      ba_align/run-run-Band3B.adjusted_state.json \
-      --max-pairwise-matches 1000000              \
-      --num-lines-per-position 100                \
-      --num-lines-per-orientation 100             \
-      --max-initial-reprojection-error 20         \
-      --translation-weight 1000                   \
-      --rotation-weight 0                         \
-      --num-iterations 10                         \
-      --robust-threshold 0.25                     \
-      --match-files-prefix jitter/run             \
-      --heights-from-dem ref.tif                  \
-      --heights-from-dem-weight 0.1               \
-      --heights-from-dem-robust-threshold 0.1     \
+    jitter_solve out-Band3N.tif out-Band3B.tif        \
+      ba_align/run-run-out-Band3N.adjusted_state.json \
+      ba_align/run-run-out-Band3B.adjusted_state.json \
+      --max-pairwise-matches 1000000                  \
+      --num-lines-per-position 100                    \
+      --num-lines-per-orientation 100                 \
+      --max-initial-reprojection-error 20             \
+      --translation-weight 1000                       \
+      --rotation-weight 0                             \
+      --num-iterations 10                             \
+      --robust-threshold 0.25                         \
+      --match-files-prefix jitter/run                 \
+      --heights-from-dem ref.tif                      \
+      --heights-from-dem-weight 0.1                   \
+      --heights-from-dem-robust-threshold 0.1         \
       -o jitter/run
 
 The DEM weight constraint was set to 0.1, as the image GSD is 15 meters, and
