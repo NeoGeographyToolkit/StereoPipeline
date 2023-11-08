@@ -585,7 +585,8 @@ See :numref:`mapproj-example` how how to find a DEM for mapprojection and other
 details.
 
 Note that one should not use ``--bundle-adjust-prefix`` in mapprojection in this
-context.
+context, so the mapprojected images must be without bundle adjustment, as 
+otherwise the results will be incorrect.
 
 Then bundle adjustment is invoked as follows::
 

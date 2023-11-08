@@ -580,6 +580,9 @@ The same resolution should be used for both mapprojected images
 (option ``--tr``), and it should be similar to the ground sample
 distance of these images.
 
+The option ``--mapprojected-data`` assumes that the images have
+been mapprojected without bundle adjustment.
+
 The option ``--max-pairwise-matches`` in ``bundle_adjust`` should
 reduce the number of matches to the set value, if too many were
 created originally.  
@@ -1047,8 +1050,11 @@ images must be, as mentioned earlier, ordered by Sun azimuth angle.
 It is very important to have interest point matches that tie all
 images together. To make the determination of such matches more
 successful, the images were first mapprojected at 1 m/pixel to have
-them in the same perspective. See See :numref:`mapip` for more
-details.
+them in the same perspective. 
+
+The mapprojected images must all be at the same resolution. Mapprojection should
+be without bundle-adjusted cameras (otherwise the results will be incorrect).
+See :numref:`mapip` for more details.
 
 Create three lists, each being a plain text file with one file name on
 each line, having the input images (sorted by illumination),
@@ -1146,11 +1152,11 @@ create a terrain model using stereo with some of the images and
 bundle-adjusted cameras produced so far, align that one to ``ref.tif``,
 and then apply this alignment to the cameras.
 
-Examine the file having the stereo convergence angles for each pair of
-images as produced by bundle adjustment (:numref:`ba_conv_angle`).
-Pick one or more pairs of images with a solid convergence angle
-(say 15-30 degrees) and a good number of matches, which is at least
-several dozens.
+Examine the file having the stereo convergence angles for each pair of images as
+produced by bundle adjustment (:numref:`ba_conv_angle`). Pick one or more pairs
+of images with a solid convergence angle (say 15-30 degrees, or for 4-10 degrees
+if no better luck). Ensure those pairs have a good number of matches, which is
+at least several dozens, and similar illumination.
 
 Create one or more stereo DEMs. If the site is large, the created
 terrains should cover a representative extent. They need not cover it
@@ -1251,6 +1257,7 @@ in bundle adjustment (:numref:`heights_from_dem`)::
       --image-list image_list.txt                 \
       --camera-list camera_list.txt               \
       --max-pairwise-matches 1000                 \
+      --min-matches 1                             \
       --skip-matching                             \
       --num-iterations 100                        \
       --num-passes 2                              \
@@ -1298,7 +1305,7 @@ Mapproject the input images with the latest aligned cameras::
       ref.tif image.cub image.json             \
       image.align.map.tif    
 
-These can be overlayed in ``stereo_gui`` with georeference information
+These can be overlaid in ``stereo_gui`` with georeference information
 and checked for misregistration. A maximally-lit mosaic can be created
 with the command::
 

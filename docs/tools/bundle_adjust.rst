@@ -1018,13 +1018,12 @@ Command-line options for bundle_adjust
     is used to do some camera-based filtering of interest points.
 
 --mapprojected-data <string>
-    Given map-projected versions of the input images and the DEM they
-    were mapprojected onto, create interest point matches among the
-    mapprojected images, unproject and save those matches, then
-    continue with bundle adjustment. Existing match files will be
-    reused. Specify the mapprojected images and the DEM as a string in
-    quotes, separated by spaces. The DEM must be the last file.
-    See :numref:`mapip` for an example.
+    Given map-projected versions of the input images (without bundle adjustment)
+    and the DEM they were mapprojected onto, create interest point matches among
+    the mapprojected images, unproject and save those matches, then continue
+    with bundle adjustment. Existing match files will be reused. Specify the
+    mapprojected images and the DEM as a string in quotes, separated by spaces.
+    The DEM must be the last file. See :numref:`mapip` for an example.
 
 --save-intermediate-cameras
     Save the values for the cameras at each iteration.
