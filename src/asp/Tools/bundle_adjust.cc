@@ -2985,8 +2985,8 @@ int main(int argc, char* argv[]) {
         vw_throw(ArgumentErr() 
                  << "Cannot use mapprojected data with initial adjustments or "
                  << "initial transform. Create matches from mapprojected data first, "
-                 << "with original cameras, then later use them in with a separate "
-                 << "invocation.\n");
+                 << "with original cameras, then later use them with a separate "
+                 << "invocation of this program.\n");
     }
   
     // Assign the images which this instance should compute statistics for.
