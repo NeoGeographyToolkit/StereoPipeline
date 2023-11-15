@@ -111,7 +111,7 @@ struct Options: vw::GdalWriteOptions {
   std::string reference_spheroid, datum;
   std::string pointcloud_file;
   std::string target_srs_string;
-  bool        compressed, use_tukey_outlier_removal;
+  bool        compressed, use_tukey_outlier_removal, ecef;
   Vector2     outlier_removal_params;
   double      max_valid_triangulation_error;
   double      triangulation_error_factor;
@@ -145,7 +145,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("triangulation-error-factor", po::value(&opt.triangulation_error_factor)->default_value(0.0),
      "If this factor is positive, save the point cloud triangulation error to the 2-byte LAS intensity field by storing min(round(factor*error), 65535). Resulting values that equal 65535 should be treated with caution.")
     ("num-samples-for-outlier-estimation", po::value(&opt.num_samples)->default_value(1000000),
-     "Approximate number of samples to pick from the input cloud to find the outlier cutoff based on triangulation error.");
+     "Approximate number of samples to pick from the input cloud to find the outlier cutoff based on triangulation error.")
+    ("ecef", 
+     po::bool_switch(&opt.ecef)->default_value(false)->implicit_value(true),
+     "Save the point cloud in ECEF, rather than with a projection relative to a datum.");
   
   general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
@@ -165,10 +168,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              allow_unregistered, unregistered );
 
   if (opt.pointcloud_file.empty())
-    vw_throw( ArgumentErr() << "Missing point cloud.\n"
-              << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing point cloud.\n"
+              << usage << general_options);
 
-  if ( opt.out_prefix.empty() )
+  if (opt.out_prefix.empty())
     opt.out_prefix =
       vw::prefix_from_filename( opt.pointcloud_file );
 
@@ -261,31 +264,32 @@ int main(int argc, char *argv[]) {
 
     // See if to the points relative to a georeference
     cartography::Datum datum;
-    bool have_user_datum = asp::read_user_datum(0, 0, opt.datum, datum);
     cartography::GeoReference georef;
-    bool have_input_georef = vw::cartography::read_georeference(georef, 
-                                                                opt.pointcloud_file);
-    if (have_input_georef && opt.target_srs_string.empty())
-      opt.target_srs_string = georef.overall_proj4_str();
-
+    bool have_user_datum = false, have_input_georef = false;
     bool is_geodetic = false;
-    if (have_user_datum || !opt.target_srs_string.empty()){
-
-      // Set the srs string into georef.
-      asp::set_srs_string(opt.target_srs_string,
-                          have_user_datum, datum,
-                          have_input_georef, georef);
-      std::string target_srs = georef.overall_proj4_str();
-      vw_out() << "Using projection string: '" << target_srs << "'"<< std::endl;
-      is_geodetic = true;
-      datum = georef.datum();
+    if (!opt.ecef) {
+      have_user_datum = asp::read_user_datum(0, 0, opt.datum, datum);
+      have_input_georef = vw::cartography::read_georeference(georef, opt.pointcloud_file);
+      if (have_input_georef && opt.target_srs_string.empty())
+        opt.target_srs_string = georef.overall_proj4_str();
+    
+      if (have_user_datum || !opt.target_srs_string.empty()) {
+        // Set the srs string into georef
+        asp::set_srs_string(opt.target_srs_string,
+                            have_user_datum, datum,
+                            have_input_georef, georef);
+        std::string target_srs = georef.overall_proj4_str();
+        vw_out() << "Using projection string: '" << target_srs << "'"<< std::endl;
+        is_geodetic = true;
+        datum = georef.datum();
+      }
     }
 
     // Save the las file with given georeference, if present
     ImageViewRef<Vector3> point_image = asp::read_asp_point_cloud<3>(opt.pointcloud_file);
     if (is_geodetic) {
       point_image = cartesian_to_geodetic(point_image, datum);
-      // see if to use [-180, 180] or [0, 360]
+      // See if to use [-180, 180] or [0, 360]
       double avg_lon = asp::find_avg_lon(point_image); 
       point_image = geodetic_to_point(asp::recenter_longitude(point_image, avg_lon), 
                                       georef);

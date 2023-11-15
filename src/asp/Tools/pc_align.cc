@@ -1464,7 +1464,7 @@ int main( int argc, char *argv[] ) {
     apply_transform_to_cloud(T, trans_source_point_cloud);
 
     // Calculate by how much points move as result of T
-    double max_obtained_disp = calc_max_displacment(source_point_cloud, trans_source_point_cloud);
+    double max_obtained_disp = calc_max_displacement(source_point_cloud, trans_source_point_cloud);
     Vector3 source_ctr_vec, source_ctr_llh;
     Vector3 trans_xyz, trans_ned, trans_llh;
     vw::Matrix3x3 NedToEcef;

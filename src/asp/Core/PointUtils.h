@@ -18,7 +18,7 @@
 /// \file PointUtils.h
 ///
 
-//  Note: A LAS file is a standard format for storing airborne LIDAR data.
+// Utilities for handling point cloud files (las, PC.tif, csv).
 
 #ifndef __ASP_CORE_POINT_UTILS_H__
 #define __ASP_CORE_POINT_UTILS_H__
@@ -182,11 +182,6 @@ namespace asp {
   bool is_pcd              (std::string const& file); ///< Return true if this is a PCD file
   bool is_las_or_csv_or_pcd(std::string const& file); ///< Return true if this file is LAS or CSV or PCD format
 
-
-  /// Builds a GeoReference from a LAS file
-  bool georef_from_las(std::string const& las_file,
-                       vw::cartography::GeoReference & georef);
-
   /// Builds a GeoReference from the first cloud having a georeference in the list
   bool georef_from_pc_files(std::vector<std::string> const& files,
 			    vw::cartography::GeoReference & georef);
@@ -198,8 +193,6 @@ namespace asp {
   bool read_user_datum(double semi_major, double semi_minor,
                        std::string const& reference_spheroid,
                        vw::cartography::Datum& datum );
-
-
 
   /// Parse a UTM string such as "58N"
   void parse_utm_str(std::string const& utm, int & zone, bool & north);
@@ -339,7 +332,7 @@ namespace asp {
   class BaseReader {
   public:
     std::int64_t m_num_points;
-    bool         m_has_georef; ///< ??
+    bool         m_has_georef; // if the dataset has a georeference
     vw::cartography::GeoReference m_georef;
     
     virtual bool        ReadNextPoint() = 0;

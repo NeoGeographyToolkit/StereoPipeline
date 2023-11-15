@@ -31,7 +31,7 @@ namespace po = boost::program_options;
 
 #include <limits>
 
-/// Simple class to store image info and compute the associated transfrom.
+/// Simple class to store image info and compute the associated transform.
 struct ImageData{
   std::string src_file;
   int    band;

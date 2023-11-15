@@ -35,6 +35,10 @@ namespace vw {
 #include <string>
 namespace asp {
 
+// Read the georef from the las file and return true if the georef exists
+bool georef_from_las(std::string const& las_file,
+                    vw::cartography::GeoReference & georef);
+
 // Save a point cloud and triangulation error to the LAS format
 void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,

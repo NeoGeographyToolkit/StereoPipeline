@@ -22,6 +22,7 @@
 ///
 
 // Turn off warnings about things we can't control
+// TODO(oalexan1): Wipe this! Also all mentions of las!
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <liblas/liblas.hpp>
@@ -30,8 +31,10 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/PdalUtils.h>
 #include <vw/Cartography/Chipper.h>
 #include <vw/Core/Stopwatch.h>
+
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/math/special_functions/next.hpp>
 
@@ -42,17 +45,19 @@ using namespace pdal::filters;
 
 namespace asp{
 
-  class LasReader: public BaseReader{
+  // TODO(oalexan1): Wipe this class or make it a wrapper
+  class LasReader: public BaseReader {
     liblas::Reader& m_reader;
   public:
 
-    LasReader(liblas::Reader & reader):m_reader(reader){
+    LasReader(liblas::Reader & reader): m_reader(reader) {
       liblas::Header const& header = m_reader.GetHeader();
       m_num_points = header.GetPointRecordsCount();
 
+      // TODO(oalexan1): Wipe this logic
       std::string wkt = header.GetSRS().GetWKT();
       m_has_georef = false;
-      if (wkt != ""){
+      if (wkt != "") {
         m_has_georef = true;
         m_georef.set_wkt(wkt);
       }
@@ -69,7 +74,7 @@ namespace asp{
 
   };
 
-  class CsvReader: public BaseReader{
+  class CsvReader: public BaseReader {
     std::string  m_csv_file;
     asp::CsvConv m_csv_conv;
     bool         m_is_first_line;
@@ -80,8 +85,8 @@ namespace asp{
 
     CsvReader(std::string const & csv_file,
               asp::CsvConv const& csv_conv,
-              GeoReference const& georef)
-      : m_csv_file(csv_file), m_csv_conv(csv_conv),
+              GeoReference const& georef):
+        m_csv_file(csv_file), m_csv_conv(csv_conv),
         m_is_first_line(true), m_has_valid_point(false) {
 
       // We will convert from projected space to xyz, unless points
@@ -98,7 +103,6 @@ namespace asp{
 
       VW_ASSERT(m_csv_conv.csv_format_str != "",
                 ArgumentErr() << "CsvReader: The CSV format was not specified.\n");
-
     }
 
     virtual bool ReadNextPoint() {
@@ -998,16 +1002,16 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
   liblas::ReaderFactory las_reader_factory;
   boost::shared_ptr<liblas::Reader> laslib_reader_ptr;
 
-  if (asp::is_csv(in_file)){ // CSV
+  if (asp::is_csv(in_file)) { // CSV
 
     reader_ptr = boost::shared_ptr<asp::CsvReader>
       (new asp::CsvReader(in_file, csv_conv, csv_georef));
 
-  }else if (asp::is_pcd(in_file)){ // PCD
+  } else if (asp::is_pcd(in_file)) { // PCD
 
-    reader_ptr = boost::shared_ptr<asp::PcdReader>( new asp::PcdReader(in_file) );
+    reader_ptr = boost::shared_ptr<asp::PcdReader>(new asp::PcdReader(in_file));
 
-  }else if (asp::is_las(in_file)){ // LAS
+  } else if (asp::is_las(in_file)) { // LAS
 
     ifs.open(in_file.c_str(), std::ios::in | std::ios::binary);
     laslib_reader_ptr.reset(new liblas::Reader(las_reader_factory.CreateWithStream(ifs)));
@@ -1021,7 +1025,8 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
                                                      TILE_LEN, block_size);
 
   // Must use a thread only, as we read the input file serially.
-  vw::cartography::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
+  vw::cartography::write_gdal_image(out_file, Img, *opt,
+                                    TerminalProgressCallback("asp", "\t--> "));
 
   // Restore the original tile size
   opt->raster_tile_size = original_tile_size;
@@ -1036,32 +1041,9 @@ std::int64_t asp::las_file_size(std::string const& las_file){
   return header.GetPointRecordsCount();
 }
 
-bool asp::georef_from_las(std::string const& las_file,
-                          vw::cartography::GeoReference & georef){
-
-  if (!is_las(las_file))
-    vw_throw( ArgumentErr() << "Not a LAS file: " << las_file << "\n");
-
-  // Initialize
-  georef = GeoReference();
-
-  std::ifstream ifs;
-  ifs.open(las_file.c_str(), std::ios::in | std::ios::binary);
-  liblas::ReaderFactory f;
-  liblas::Reader reader = f.CreateWithStream(ifs);
-  liblas::Header const& header = reader.GetHeader();
-
-  std::string wkt = header.GetSRS().GetWKT();
-  if (wkt == "")
-    return false;
-
-  georef.set_wkt(wkt);
-  return true;
-}
-
 /// Builds a GeoReference from the first cloud having a georeference in the list
 bool asp::georef_from_pc_files(std::vector<std::string> const& files,
-			       vw::cartography::GeoReference & georef){
+			       vw::cartography::GeoReference & georef) {
 
   // Initialize
   georef = GeoReference();
@@ -1121,7 +1103,8 @@ bool asp::read_user_datum(double semi_major, double semi_minor,
   } else {
     return false;
   }
-  vw_out() << "\t--> Re-referencing altitude values using datum: " << datum.name() << ".\n";
+  vw_out() << "\t--> Re-referencing altitude values using datum: " 
+           << datum.name() << ".\n";
   vw_out() << "\t    Axes [" << datum.semi_major_axis() << " "
            << datum.semi_minor_axis() << "] meters.\n";
   return true;

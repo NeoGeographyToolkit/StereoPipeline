@@ -47,11 +47,12 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <pointmatcher/PointMatcher.h>
+#include <asp/Core/PdalUtils.h>
 
 namespace asp {
 
 template<typename T>
-typename PointMatcher<T>::DataPoints::Labels form_labels(int dim){
+typename PointMatcher<T>::DataPoints::Labels form_labels(int dim) {
 
   typedef typename PointMatcher<T>::DataPoints::Label Label;
   typedef typename PointMatcher<T>::DataPoints::Labels Labels;
@@ -73,15 +74,12 @@ std::int64_t load_las_aux(std::string const& file_name,
                        bool calc_shift,
                        vw::Vector3 & shift,
                        vw::cartography::GeoReference const& geo,
-                       bool verbose, DoubleMatrix & data){
+                       bool verbose, DoubleMatrix & data) {
 
   data.conservativeResize(DIM+1, num_points_to_load);
 
   vw::cartography::GeoReference las_georef;
   bool has_georef = georef_from_las(file_name, las_georef);
-  if (!has_georef)
-    vw::vw_throw(vw::ArgumentErr() << "LAS: " << file_name
-                               << " does not have a georeference.\n");
 
   std::ifstream ifs;
   ifs.open(file_name.c_str(), std::ios::in | std::ios::binary);
@@ -102,7 +100,7 @@ std::int64_t load_las_aux(std::string const& file_name,
   double inc_amount = 1.0 / hundred;
   if (verbose) tpc.report_progress(0);
 
-  while (reader.ReadNextPoint()){
+  while (reader.ReadNextPoint()) {
 
     if (points_count >= num_points_to_load)
       break;
@@ -113,7 +111,7 @@ std::int64_t load_las_aux(std::string const& file_name,
 
     liblas::Point const& p = reader.GetPoint();
     vw::Vector3 xyz(p.GetX(), p.GetY(), p.GetZ());
-    if (has_georef){
+    if (has_georef) {
       vw::Vector2 ll = las_georef.point_to_lonlat(subvector(xyz, 0, 2));
       xyz = las_georef.datum().geodetic_to_cartesian(vw::Vector3(ll[0], ll[1], xyz[2]));
     }
@@ -124,9 +122,9 @@ std::int64_t load_las_aux(std::string const& file_name,
     }
 
     // Skip points outside the given box
-    if (!lonlat_box.empty()){
+    if (!lonlat_box.empty() && has_georef) {
       vw::Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);
-      if ( !lonlat_box.contains(subvector(llh, 0, 2)))
+      if (!lonlat_box.contains(subvector(llh, 0, 2)))
         continue;
     }
 
@@ -139,7 +137,8 @@ std::int64_t load_las_aux(std::string const& file_name,
     points_count++;
   }
 
-  if (verbose) tpc.report_finished();
+  if (verbose) 
+    tpc.report_finished();
 
   data.conservativeResize(Eigen::NoChange, points_count);
 
@@ -204,13 +203,14 @@ void load_cloud(std::string const& file_name,
   else if (file_type == "LAS")
     load_las(file_name, num_points_to_load, lonlat_box, calc_shift, shift,
 	     geo, verbose, data);
-  else if (file_type == "CSV"){
+  else if (file_type == "CSV") {
     bool verbose = true;
     load_csv(file_name, num_points_to_load, lonlat_box, 
                 calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                 median_longitude, verbose, data);
-  }else
+  } else {
     vw::vw_throw(vw::ArgumentErr() << "Unknown file type: " << file_name << "\n");
+  }
 
   if (data.cols() == 0) 
     vw::vw_throw(vw::ArgumentErr() << "File: " << file_name << " has 0 valid points.\n");
@@ -482,7 +482,7 @@ void calc_translation_vec(PointMatcher<RealT>::Matrix const& initT,
 // Calculate the maximum displacement from the source points (after
 // any initial transform is applied to them) to the source points
 // after alignment with the reference.
-double calc_max_displacment(DP const& source, DP const& trans_source){
+double calc_max_displacement(DP const& source, DP const& trans_source){
 
   double max_obtained_disp = 0.0;
   int numPts = source.features.cols();

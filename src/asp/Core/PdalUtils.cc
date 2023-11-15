@@ -32,6 +32,7 @@
 #include <pdal/Streamable.hpp>
 #include <pdal/Reader.hpp>
 #include <io/LasHeader.hpp>
+#include <io/LasReader.hpp>
 #include <io/LasWriter.hpp>
 #include <pdal/SpatialReference.hpp>
 
@@ -213,6 +214,25 @@ void StreamedPointCloud::done(PointTableRef table) {
 
 namespace asp {
 
+bool georef_from_las(std::string const& las_file,
+                     vw::cartography::GeoReference & georef) {
+  
+  pdal::Options read_options;
+  read_options.add("filename", las_file);
+
+  pdal::LasReader reader;
+  reader.setOptions(read_options);
+  pdal::QuickInfo qi = reader.preview();
+
+  std::string wkt = qi.m_srs.getWKT();
+  if (wkt.empty()) 
+    return false;
+  
+  georef.set_wkt(wkt);
+  
+  return true;
+}
+
 // Save a point cloud and triangulation error to the LAS format
 void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,
@@ -260,7 +280,6 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
   writer.setInput(stream_cloud);
   writer.prepare(t);
   writer.execute(t);
-  
 }
 
 } // End namespace asp
