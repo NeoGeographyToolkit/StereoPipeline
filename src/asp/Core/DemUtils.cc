@@ -17,6 +17,7 @@
 
 #include <asp/Core/DemUtils.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/PdalUtils.h>
 
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/Filter.h>
@@ -208,10 +209,14 @@ void las_or_csv_or_pcd_to_tifs(DemOptions& opt, vw::cartography::Datum const& da
     std::int64_t max_num_pts = 0;
     for (int i = 0; i < num_files; i++){
       std::string file = opt.pointcloud_files[i];
-      if (asp::is_las(file))  max_num_pts = std::max(max_num_pts, asp::las_file_size(file));
-      if (asp::is_csv(file))  max_num_pts = std::max(max_num_pts, asp::csv_file_size(file));
-      if (asp::is_pcd(file))  max_num_pts = std::max(max_num_pts, asp::pcd_file_size(file)); // Note: PCD support needs to be tested!
-      // No need to check for other cases; At least one file must be las or csv or pcd!
+      if (asp::is_las(file))
+        max_num_pts = std::max(max_num_pts, asp::las_file_size(file));
+      if (asp::is_csv(file))
+        max_num_pts = std::max(max_num_pts, asp::csv_file_size(file));
+      // Note: PCD support needs to be tested!
+      if (asp::is_pcd(file))
+        max_num_pts = std::max(max_num_pts, asp::pcd_file_size(file)); 
+      // No need to check for other cases: at least one file must be las or csv or pcd!
     }
     num_rows = std::max(std::int64_t(1), (std::int64_t)ceil(sqrt(double(max_num_pts))));
   }

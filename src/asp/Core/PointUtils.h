@@ -177,17 +177,14 @@ namespace asp {
                          vw::cartography::GeoReference const& csv_georef,
                          asp::CsvConv const& csv_conv);
 
-  bool is_las              (std::string const& file); ///< Return true if this is a LAS file
-  bool is_csv              (std::string const& file); ///< Return true if this is a CSV file
-  bool is_pcd              (std::string const& file); ///< Return true if this is a PCD file
-  bool is_las_or_csv_or_pcd(std::string const& file); ///< Return true if this file is LAS or CSV or PCD format
+  bool is_las(std::string const& file); ///< Return true if this is a LAS file
+  bool is_csv(std::string const& file); ///< Return true if this is a CSV file
+  bool is_pcd(std::string const& file); ///< Return true if this is a PCD file
+  bool is_las_or_csv_or_pcd(std::string const& file);
 
   /// Builds a GeoReference from the first cloud having a georeference in the list
   bool georef_from_pc_files(std::vector<std::string> const& files,
 			    vw::cartography::GeoReference & georef);
-
-  /// Returns the number of points stored in a LAS
-  std::int64_t las_file_size(std::string const& las_file);
 
   /// Builds a datum object out of the input arguments
   bool read_user_datum(double semi_major, double semi_minor,

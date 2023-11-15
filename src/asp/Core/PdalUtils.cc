@@ -233,6 +233,19 @@ bool georef_from_las(std::string const& las_file,
   return true;
 }
 
+// Read the number of points in the LAS file
+std::int64_t las_file_size(std::string const& las_file) {
+  
+  pdal::Options read_options;
+  read_options.add("filename", las_file);
+
+  pdal::LasReader reader;
+  reader.setOptions(read_options);
+  pdal::QuickInfo qi = reader.preview();
+
+  return qi.m_pointCount;
+}
+
 // Save a point cloud and triangulation error to the LAS format
 void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,

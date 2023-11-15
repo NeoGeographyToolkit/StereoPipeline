@@ -1032,15 +1032,6 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
   opt->raster_tile_size = original_tile_size;
 }
 
-std::int64_t asp::las_file_size(std::string const& las_file){
-  std::ifstream ifs;
-  ifs.open(las_file.c_str(), std::ios::in | std::ios::binary);
-  liblas::ReaderFactory f;
-  liblas::Reader reader = f.CreateWithStream(ifs);
-  liblas::Header const& header = reader.GetHeader();
-  return header.GetPointRecordsCount();
-}
-
 /// Builds a GeoReference from the first cloud having a georeference in the list
 bool asp::georef_from_pc_files(std::vector<std::string> const& files,
 			       vw::cartography::GeoReference & georef) {
@@ -1057,7 +1048,7 @@ bool asp::georef_from_pc_files(std::vector<std::string> const& files,
         georef = local_georef;
         return true;
       }
-    }catch(...){}
+    } catch(...) {}
 
     // Sometimes las files can have georef
     if (is_las(files[i]) && asp::georef_from_las(files[i], local_georef)){

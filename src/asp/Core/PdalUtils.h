@@ -35,6 +35,9 @@ namespace vw {
 #include <string>
 namespace asp {
 
+// Read the number of points in the LAS file
+std::int64_t las_file_size(std::string const& las_file);
+
 // Read the georef from the las file and return true if the georef exists
 bool georef_from_las(std::string const& las_file,
                     vw::cartography::GeoReference & georef);
