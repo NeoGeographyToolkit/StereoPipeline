@@ -15,28 +15,24 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// Convert an ASP point cloud to LAS 1.2 format using PDAL.
 
 /// \file point2las.cc
 ///
+
+#include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
+#include <asp/Core/PointUtils.h>
+#include <asp/Core/PdalUtils.h>
+
+#include <vw/Cartography/PointImageManipulation.h>
+#include <vw/Core/Stopwatch.h>
+#include <vw/Math/Statistics.h>
 
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <boost/program_options.hpp>
-
-// Turn off warnings about things we can't control
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <liblas/liblas.hpp>
-#pragma GCC diagnostic pop
-
-#include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
-#include <asp/Core/PointUtils.h>
-
-#include <vw/Cartography/PointImageManipulation.h>
-#include <vw/Core/Stopwatch.h>
-#include <vw/Math/Statistics.h>
 
 using namespace vw;
 namespace po = boost::program_options;
@@ -57,7 +53,7 @@ public:
       m_vals.push_back(value);
   }
   
-  int size(){
+  int size() {
     return m_vals.size();
   }
   
@@ -70,13 +66,10 @@ public:
     }
     
     std::sort(m_vals.begin(), m_vals.end());
-
     int len = m_vals.size();
-
     vw_out() << "Collected a sample of " << len << " positive triangulation errors.\n";
 
     double mean = vw::math::mean(m_vals);
-    
     vw_out() << "For this sample: "
              << "min = "     << m_vals.front()
              << ", mean = "  << mean
@@ -113,7 +106,7 @@ public:
 
 };
 
-struct Options : vw::GdalWriteOptions {
+struct Options: vw::GdalWriteOptions {
   // Input
   std::string reference_spheroid, datum;
   std::string pointcloud_file;
@@ -171,7 +164,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered );
 
-  if ( opt.pointcloud_file.empty() )
+  if (opt.pointcloud_file.empty())
     vw_throw( ArgumentErr() << "Missing point cloud.\n"
               << usage << general_options );
 
@@ -193,7 +186,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }
 
   if (opt.max_valid_triangulation_error < 0.0) 
-    vw_throw( ArgumentErr() << "The maximum valid triangulation error must be non-negative.\n");
+    vw_throw( ArgumentErr() 
+             << "The maximum valid triangulation error must be non-negative.\n");
 
   if (opt.num_samples <= 0) 
     vw_throw( ArgumentErr() << "Must pick a positive number of samples.\n");
@@ -240,7 +234,7 @@ void find_error_image_and_do_stats(Options& opt, ImageViewRef<double> & error_im
   for_each_pixel(subsample(error_image, sample_rate),
                  error_accum,
                  TerminalProgressCallback
-                 ("asp","Error estim : ") );
+                 ("asp", "Error estim: "));
 
   opt.max_valid_triangulation_error = error_accum.value(opt.outlier_removal_params,
                                                         opt.use_tukey_outlier_removal);
@@ -251,7 +245,7 @@ void find_error_image_and_do_stats(Options& opt, ImageViewRef<double> & error_im
            << opt.max_valid_triangulation_error << "." << std::endl;
 }
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
   
   // TODO(oalexan1): need to understand what is the optimal strategy
   // for traversing the input point cloud file to minimize the reading
@@ -265,17 +259,14 @@ int main( int argc, char *argv[] ) {
     if (opt.outlier_removal_params[0] < 100.0 || opt.max_valid_triangulation_error > 0.0)
       find_error_image_and_do_stats(opt, error_image);
 
-    // Save the las file in respect to a reference spheroid if provided
-    // by the user.
-    liblas::Header header;
+    // See if to the points relative to a georeference
     cartography::Datum datum;
     bool have_user_datum = asp::read_user_datum(0, 0, opt.datum, datum);
-
     cartography::GeoReference georef;
-    bool have_input_georef = vw::cartography::read_georeference(georef, opt.pointcloud_file);
-    if (have_input_georef && opt.target_srs_string.empty()) {
+    bool have_input_georef = vw::cartography::read_georeference(georef, 
+                                                                opt.pointcloud_file);
+    if (have_input_georef && opt.target_srs_string.empty())
       opt.target_srs_string = georef.overall_proj4_str();
-    }
 
     bool is_geodetic = false;
     if (have_user_datum || !opt.target_srs_string.empty()){
@@ -284,13 +275,8 @@ int main( int argc, char *argv[] ) {
       asp::set_srs_string(opt.target_srs_string,
                           have_user_datum, datum,
                           have_input_georef, georef);
-      liblas::SpatialReference ref;
       std::string target_srs = georef.overall_proj4_str();
-
-      ref.SetFromUserInput(target_srs);
       vw_out() << "Using projection string: '" << target_srs << "'"<< std::endl;
-      header.SetSRS(ref);
-
       is_geodetic = true;
       datum = georef.datum();
     }
@@ -299,8 +285,10 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<Vector3> point_image = asp::read_asp_point_cloud<3>(opt.pointcloud_file);
     if (is_geodetic) {
       point_image = cartesian_to_geodetic(point_image, datum);
-      double avg_lon = asp::find_avg_lon(point_image); // see if to use [-180, 180] or [0, 360]
-      point_image = geodetic_to_point(asp::recenter_longitude(point_image, avg_lon), georef);
+      // see if to use [-180, 180] or [0, 360]
+      double avg_lon = asp::find_avg_lon(point_image); 
+      point_image = geodetic_to_point(asp::recenter_longitude(point_image, avg_lon), 
+                                      georef);
     }
 
     BBox3 cloud_bbox = asp::pointcloud_bbox(point_image, is_geodetic);
@@ -314,89 +302,14 @@ int main( int argc, char *argv[] ) {
     double  maxInt = std::numeric_limits<int32>::max();
             maxInt *= 0.95; // Just in case stay a bit away
     Vector3 scale  = cloud_bbox.size()/(2.0*maxInt);
-    for (size_t i = 0; i < scale.size(); i++){
+    for (size_t i = 0; i < scale.size(); i++) {
       if (scale[i] <= 0.0) scale[i] = 1.0e-16; // avoid degeneracy
     }
 
-    // The line below causes trouble with compression in libLAS-1.7.0.
-    //header.SetDataFormatId(liblas::ePointFormat1);
-    header.SetScale (scale [0], scale [1], scale [2]);
-    header.SetOffset(offset[0], offset[1], offset[2]);
-
-    // Populate the min and max fields of the LAS header
-    header.SetMax(cloud_bbox.max().x(),cloud_bbox.max().y(),cloud_bbox.max().z());
-    header.SetMin(cloud_bbox.min().x(),cloud_bbox.min().y(),cloud_bbox.min().z());
-
-    std::string lasFile;
-    header.SetCompressed(opt.compressed);
-    if (opt.compressed)
-      lasFile = opt.out_prefix + ".laz";
-    else
-      lasFile = opt.out_prefix + ".las";
-
-    vw_out() << "Writing LAS file: " << lasFile + "\n";
-    std::ofstream ofs;
-    ofs.open(lasFile.c_str(), std::ios::out | std::ios::binary);
-    liblas::Writer writer(ofs, header);
-
-    TerminalProgressCallback tpc("asp", "\t--> ");
-    long long int num_total_points = 0;
-    long long int num_kept_points = 0;
-    
-    for (int row = 0; row < point_image.rows(); row++){
-      tpc.report_fractional_progress(row, point_image.rows());
-      for (int col = 0; col < point_image.cols(); col++){
-
-        Vector3 point = point_image(col, row);
-
-        // Skip no-data points
-        bool is_good = ( (!is_geodetic && point != vw::Vector3()) ||
-                         (is_geodetic  && !boost::math::isnan(point.z())) );
-        if (!is_good) continue;
-
-        num_total_points++;
-        
-        if (opt.max_valid_triangulation_error > 0.0 &&
-            error_image(col, row) > opt.max_valid_triangulation_error) 
-          continue;
-
-        num_kept_points++;
-#if 0
-        // For comparison later with las2txt.
-        std::cout.precision(16);
-        std::cout << "\npoint " << point[0] << ' ' << point[1] << ' '
-                  << point[2] << std::endl;
-#endif
-
-        liblas::Point las_point(&header);
-        las_point.SetCoordinates(point[0], point[1], point[2]);
-
-        if (opt.triangulation_error_factor > 0.0) {
-          // Scale the triangulation error, clamp it, and save it as
-          // uint16.  The LAS 1.2 format has no fields (apart from the
-          // taken already x, y, and z) with 32-bit values, so uint16
-          // is all one can do.
-          double scaled_error = opt.triangulation_error_factor * error_image(col, row);
-          scaled_error = round(scaled_error);
-          scaled_error = std::max(scaled_error, 0.0); // should not be necessary
-          scaled_error = std::min(scaled_error, double(std::numeric_limits<std::uint16_t>::max()));
-          las_point.SetIntensity(std::uint16_t(scaled_error));
-        }
-          
-        writer.WritePoint(las_point);
-      }
-    }
-    tpc.report_finished();
-
-    vw_out () << "Saved: " << num_kept_points << " points." << std::endl;
-    
-    if (opt.max_valid_triangulation_error > 0.0) {
-      long long int num_excluded = num_total_points - num_kept_points;
-      double percent = 100.0 * double(num_excluded)/num_total_points;
-      percent = round(percent * 100.0)/100.0; // don't keep too many digits
-      vw_out() << "Excluded based on triangulation error " << num_excluded << " points ("
-               << percent << "%)." << std::endl;
-    }
+    asp::write_las(is_geodetic, georef, point_image, error_image,
+                   offset, scale, opt.compressed, opt.max_valid_triangulation_error,
+                   opt.triangulation_error_factor, opt.out_prefix);
+    return 0;
     
   } ASP_STANDARD_CATCHES;
 

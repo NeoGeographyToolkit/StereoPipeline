@@ -1072,8 +1072,8 @@ bool asp::georef_from_pc_files(std::vector<std::string> const& files,
     // Sometimes ASP PC files can have georef, written there by stereo
     try {
       if (!is_las(files[i]) && read_georeference(local_georef, files[i])){
-	georef = local_georef;
-	return true;
+        georef = local_georef;
+        return true;
       }
     }catch(...){}
 

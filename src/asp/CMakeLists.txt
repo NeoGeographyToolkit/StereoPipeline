@@ -233,12 +233,14 @@ find_external_library(ALE ${ASP_DEPS_DIR} "ale" "ale" REQUIRED)
 
 #include_directories("${ASP_DEPS_DIR}/include")
 
+# PCL
 set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
                   pcl_kdtree pcl_keypoints pcl_ml pcl_octree pcl_recognition
                   pcl_registration pcl_sample_consensus pcl_search pcl_segmentation
                   pcl_stereo pcl_surface pcl_tracking)
 find_external_library(PCL ${ASP_DEPS_DIR} "pcl-1.11" "${PCL_LIB_NAMES}" REQUIRED)
 
+# OpenCV
 set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_core        opencv_shape
                      opencv_features2d  opencv_stitching
@@ -252,6 +254,17 @@ set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_photo       opencv_xphoto
                      opencv_stereo)
 find_external_library(OPENCV ${ASP_DEPS_DIR} "opencv4" "${OPENCV_LIB_NAMES}" REQUIRED)
+
+# PDAL
+set(PDAL_LIB_NAMES pdal_plugin_kernel_fauxplugin
+                   pdal_plugin_reader_hdf pdal_plugin_reader_pgpointcloud
+                   pdal_plugin_reader_tiledb pdal_plugin_writer_pgpointcloud
+                   pdal_plugin_writer_tiledb pdal_util pdalcpp)
+if (NOT APPLE)
+  # For some reason on Mac the pdal_base library does not exist
+  set(PDAL_LIB_NAMES ${PDAL_LIB_NAMES} pdal_base)
+endif()
+find_external_library(PDAL ${ASP_DEPS_DIR} "pdal" "${PDAL_LIB_NAMES}" REQUIRED)
 
 # This is an experiment, to be continued
 # Use only a small portion of VTK, and only in one stand-alone
@@ -294,7 +307,9 @@ endforeach()
 get_all_source_files( "Core"       ASP_CORE_SRC_FILES)
 get_all_source_files( "Core/tests" ASP_CORE_TEST_FILES)
 set(ASP_CORE_LIB_DEPENDENCIES ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES}
-    ${LIBLAS_LIBRARIES} ${LASZIP_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${CMAKE_DL_LIBS})
+    ${LIBLAS_LIBRARIES} ${LASZIP_LIBRARIES} # Wipe these!
+    ${PDAL_LIBRARIES} 
+    ${OpenMP_CXX_LIBRARIES} ${CMAKE_DL_LIBS})
 
 # ASP_SPICEIO
 get_all_source_files( "SpiceIO"       ASP_SPICEIO_SRC_FILES)
