@@ -319,7 +319,7 @@ filling or growing a DEM in :numref:`dem_mosaic`), or with ``point2dem`` itself
 (:numref:`point2dem`). 
 
 The ``dem_mosaic`` tool can also apply some blur to attenuate big artifacts (for
-example, use ``--dem-blur-sigma 1``). Note that ``sfs`` has a smoothing term
+example, use ``--dem-blur-sigma 2``). Note that ``sfs`` has a smoothing term
 itself which should take care of small imperfections in the input.
 
 See :numref:`sfs_initial_terrain` for how to use a third-party DEM as input to
@@ -926,8 +926,17 @@ The DEM grid size should be not too different from the *ground sample
 distance (GSD)* of the images, for optimal results. That one can be found
 with ``mapproject`` (:numref:`mapproject`).
 
+Inspect this DEM with ``stereo_gui`` (:numref:`stereo_gui`) in hillshade mode.
+Any spikes or other artifacts should be blurred, such as by running::
+
+    dem_mosaic --dem-blur-sigma 2 ref.tif -o ref_blur.tif
+    
+Any holes can also be filled with this tool by using the ``--fill-search-radius``
+option. See :numref:`dem_mosaic` for more details.
+
 See :numref:`initial_sfs_dem` for how to create an initial DEM using stereo.
-A stereo DEM can also be blended with the LOLA DEM using ``dem_mosaic``.
+A stereo DEM can also be blended with the LOLA DEM using ``dem_mosaic``
+(after alignment, :numref:`sfs_ground_align`).
 
 Terrain bounds
 ^^^^^^^^^^^^^^
@@ -1601,18 +1610,19 @@ which overrides the globally set value can be specified via
 ``--custom-shadow-threshold-list``. Sometimes this improves the
 solution in some locations while introducing artifacts in other.
 
-If the SfS DEM has localized defects, those can be fixed in a small
-region and then blended in. For example, a clip around the defect,
-perhaps of dimensions 150-200 pixels, can be cut from the input
-DEM. If that clip has noise which affects the final SfS result, it can
-be blurred with ``dem_mosaic``, using for example, ``--dem-blur-sigma
-5``. Then one can try to run SfS on just this clip, and if needed vary
-some of the SfS parameters or exclude some images. If happy enough
-with the result, this SfS clip can be blended back to the larger SfS
-DEM with ``dem_mosaic`` with the ``--priority-blending-length``
-option, whose value can be set, for example, to 50, to blend over this
-many pixels inward from the boundary of the clip to be inserted.
+If the SfS DEM has localized defects, those can be fixed in a small region and
+then blended in. For example, a clip around the defect, perhaps of dimensions
+250 pixels, can be cut from the input DEM. If that clip has noise which affects
+the final SfS result, it can be blurred with ``dem_mosaic``, using for example,
+``--dem-blur-sigma 2`` (or a larger sigma value). Then one can try to run SfS on just
+this clip, and if needed vary some of the SfS parameters or exclude some images. 
 
+If happy enough with the result, this small SfS clip can be blended back to the
+larger SfS DEM with ``dem_mosaic`` as::
+
+    dem_mosaic --priority-blending-length 50         \
+      small_sfs.tif large_sfs.tif -o merged_sfs.tif
+      
 Blending the SfS result with the initial terrain
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
