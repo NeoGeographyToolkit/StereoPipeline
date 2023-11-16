@@ -42,16 +42,16 @@ namespace pdal {
 // having it all in memory at the same time. It will be streamed to
 // disk. See the GDALReader class for how to add more fields
 // and read from disk.
-class PDAL_DLL StreamedPointCloud: public Reader, public Streamable {
+class PDAL_DLL StreamedCloud: public Reader, public Streamable {
   
 public:
   std::string getName() const;
-  StreamedPointCloud(bool has_georef, 
-                     vw::ImageViewRef<vw::Vector3> point_image,
-                     vw::ImageViewRef<double> error_image,
-                     double max_valid_triangulation_error,
-                     double triangulation_error_factor);
-  ~StreamedPointCloud();
+  StreamedCloud(bool has_georef, 
+                vw::ImageViewRef<vw::Vector3> point_image,
+                vw::ImageViewRef<double> error_image,
+                double max_valid_triangulation_error,
+                double triangulation_error_factor);
+  ~StreamedCloud();
 
 private:
   virtual void initialize();
@@ -75,15 +75,15 @@ private:
   vw::TerminalProgressCallback m_tpc;
 };
     
-std::string StreamedPointCloud::getName() const {
+std::string StreamedCloud::getName() const {
   return "Ames Stereo Pipeline point cloud";
 }
 
-StreamedPointCloud::StreamedPointCloud(bool has_georef,
-                                       vw::ImageViewRef<vw::Vector3> point_image,
-                                       vw::ImageViewRef<double> error_image,
-                                       double max_valid_triangulation_error,
-                                       double triangulation_error_factor):
+StreamedCloud::StreamedCloud(bool has_georef,
+                             vw::ImageViewRef<vw::Vector3> point_image,
+                             vw::ImageViewRef<double> error_image,
+                             double max_valid_triangulation_error,
+                             double triangulation_error_factor):
   m_has_georef(has_georef),
   m_point_image(point_image), m_error_image(error_image),
   m_max_valid_triangulation_error(max_valid_triangulation_error),
@@ -104,12 +104,12 @@ StreamedPointCloud::StreamedPointCloud(bool has_georef,
                   << "as the point cloud image.\n");
 }
 
-StreamedPointCloud::~StreamedPointCloud() {}
+StreamedCloud::~StreamedCloud() {}
 
-void StreamedPointCloud::initialize() {}
+void StreamedCloud::initialize() {}
 
 // Set the cloud dimensions.
-void StreamedPointCloud::addDimensions(PointLayoutPtr layout) {
+void StreamedCloud::addDimensions(PointLayoutPtr layout) {
   layout->registerDim(pdal::Dimension::Id::X);
   layout->registerDim(pdal::Dimension::Id::Y);
   layout->registerDim(pdal::Dimension::Id::Z);
@@ -117,23 +117,23 @@ void StreamedPointCloud::addDimensions(PointLayoutPtr layout) {
     layout->registerDim(Dimension::Id::Intensity);
 }
 
-void StreamedPointCloud::addArgs(ProgramArgs& args) {
+void StreamedCloud::addArgs(ProgramArgs& args) {
 }
 
-void StreamedPointCloud::ready(PointTableRef table) {
+void StreamedCloud::ready(PointTableRef table) {
   m_count = 0;
 }
 
 // This function is used when a point cloud is formed fully in memory.
 // Not applicable here.
-point_count_t StreamedPointCloud::read(PointViewPtr view, point_count_t numPts) {
+point_count_t StreamedCloud::read(PointViewPtr view, point_count_t numPts) {
   throw pdal_error("The read() function must not be called in streaming mode.");
   return -1;
 }
 
 // Create one point at a time. Will ask for a point till the counter
 // reaches m_size.
-bool StreamedPointCloud::processOne(PointRef& point) {
+bool StreamedCloud::processOne(PointRef& point) {
   
   // Keep on going through the input cloud until a valid point
   // is found or until we run out of points.
@@ -196,7 +196,7 @@ bool StreamedPointCloud::processOne(PointRef& point) {
   return false;
 }
 
-void StreamedPointCloud::done(PointTableRef table) {
+void StreamedCloud::done(PointTableRef table) {
   m_tpc.report_finished();
   
   vw::vw_out () << "Wrote: " << m_num_saved_points << " points." << std::endl;
@@ -329,9 +329,9 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                std::string const& out_prefix) {
 
   // Streamed cloud structure
-  pdal::StreamedPointCloud stream_cloud(has_georef, point_image, error_image,
-                                        max_valid_triangulation_error,
-                                        triangulation_error_factor);
+  pdal::StreamedCloud stream_cloud(has_georef, point_image, error_image,
+                                   max_valid_triangulation_error,
+                                   triangulation_error_factor);
 
   // buf_size is the number of points that will be
   // processed and kept in this table at the same time. 

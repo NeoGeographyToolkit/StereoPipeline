@@ -49,6 +49,148 @@
 #include <pointmatcher/PointMatcher.h>
 #include <asp/Core/PdalUtils.h>
 
+// TODO(oalexan1): PDAL-related logic better be factored out. Here it is tricky
+// as it needs PCL's (Eigen) data structure.
+#include <io/LasReader.hpp>
+#include <pdal/Writer.hpp>
+#include <pdal/Streamable.hpp>
+#include <pdal/PointView.hpp>
+#include <pdal/util/ProgramArgs.hpp>
+
+namespace pdal {
+
+// Read a LAS cloud and return a subset of it.  
+class PDAL_DLL LasLoader: public Writer, public Streamable {
+
+public:
+  LasLoader(std::string const& file_name, std::int64_t num_points_to_load,
+            vw::BBox2 const& lonlat_box,
+            vw::cartography::GeoReference const& input_georef,
+            bool verbose, bool calc_shift,
+            // Outputs
+            std::int64_t & num_total_points, vw::Vector3 & shift, 
+            asp::DoubleMatrix & data):
+  m_file_name(file_name),
+  m_num_points_to_load(num_points_to_load),
+  m_lonlat_box(lonlat_box),
+  m_input_georef(input_georef),
+  m_verbose(verbose),
+  m_calc_shift(calc_shift),
+  m_tpc(vw::TerminalProgressCallback("asp", "\t--> ")),
+  // Outputs
+  m_num_total_points(num_total_points), m_shift(shift), m_data(data) {
+    
+    m_data.conservativeResize(asp::DIM + 1, m_num_points_to_load);
+    m_has_las_georef = asp::georef_from_las(m_file_name, m_las_georef);
+    m_shift_was_calc = false;
+    m_points_count = 0;
+    
+    // We will randomly pick or not a point with probability load_ratio
+    m_num_total_points = asp::las_file_size(m_file_name);
+    m_load_ratio = (double)m_num_points_to_load/std::max(1.0, (double)m_num_total_points);
+
+    std::int64_t hundred = 100;
+    m_spacing = std::max(m_num_total_points/hundred, std::int64_t(1));
+    m_inc_amount = 1.0 / hundred;
+    if (m_verbose) 
+      m_tpc.report_progress(0);
+  }
+  
+  ~LasLoader() {}
+
+  virtual std::string getName() const { return "sample streamer"; }
+
+private:
+
+  std::string m_file_name;
+  std::int64_t m_num_points_to_load;
+  vw::BBox2 m_lonlat_box;
+  vw::cartography::GeoReference m_input_georef;
+  bool m_verbose;
+  bool m_calc_shift;
+  bool m_has_las_georef;
+  vw::cartography::GeoReference m_las_georef;
+  double m_load_ratio;
+  bool m_shift_was_calc;
+  std::int64_t m_points_count;
+  vw::TerminalProgressCallback m_tpc;
+  std::int64_t m_spacing;
+  double m_inc_amount;
+  // Aliases, to be returned to the caller
+  std::int64_t & m_num_total_points;
+  vw::Vector3 & m_shift;
+  asp::DoubleMatrix & m_data;
+  
+  virtual void addArgs(ProgramArgs& args) {}
+  virtual void initialize() {}
+
+  // This will be called for each point in the cloud.
+  virtual bool processOne(PointRef& point) {
+
+    if (m_points_count >= m_num_points_to_load)
+      return false; // done with reading points
+
+    // try next time is above the load ratio
+    double r = (double)std::rand()/(double)RAND_MAX;
+    if (r > m_load_ratio)
+      return true;
+    
+    // Current point
+    vw::Vector3 xyz(point.getFieldAs<double>(Dimension::Id::X),
+                    point.getFieldAs<double>(Dimension::Id::Y),
+                    point.getFieldAs<double>(Dimension::Id::Z));
+    
+    if (m_has_las_georef) {
+      // This is a projected point, convert to cartesian
+      vw::Vector2 ll = m_las_georef.point_to_lonlat(subvector(xyz, 0, 2));
+      xyz = m_las_georef.datum().geodetic_to_cartesian(vw::Vector3(ll[0], ll[1], xyz[2]));
+    }
+    
+    if (m_calc_shift && !m_shift_was_calc) {
+      m_shift = xyz;
+      m_shift_was_calc = true;
+    }
+    
+    // Skip points outside the given box. Here we use the input georef.
+    // It is assumed that if the box is non-empty then this georef is valid.
+    if (!m_lonlat_box.empty()) {
+      vw::Vector3 llh = m_input_georef.datum().cartesian_to_geodetic(xyz);
+      if (!m_lonlat_box.contains(subvector(llh, 0, 2)))
+        return true;
+    }
+    
+    // Save this point
+    for (int row = 0; row < asp::DIM; row++)
+      m_data(row, m_points_count) = xyz[row] - m_shift[row];
+    m_data(asp::DIM, m_points_count) = 1; // last field
+
+    if (m_verbose && m_points_count % m_spacing == 0) 
+      m_tpc.report_incremental_progress(m_inc_amount);
+
+    m_points_count++;
+    
+    return true;  
+  }
+
+  virtual void writeView(const PointViewPtr view) {
+    throw pdal_error("The writeView() function must not be called in streaming mode.");
+  }
+
+  // To be called after all the points are read.
+  virtual void done(PointTableRef table) {
+    m_data.conservativeResize(Eigen::NoChange, m_points_count);
+
+    if (m_verbose) 
+      m_tpc.report_finished();
+  }
+  
+  LasLoader& operator=(const LasLoader&) = delete;
+  LasLoader(const LasLoader&) = delete;
+  LasLoader(const LasLoader&&) = delete;
+};
+
+} // end namespace pdal
+
 namespace asp {
 
 template<typename T>
@@ -69,78 +211,39 @@ typename PointMatcher<T>::DataPoints::Labels form_labels(int dim) {
 }
 
 std::int64_t load_las_aux(std::string const& file_name,
-                       std::int64_t num_points_to_load,
-                       vw::BBox2 const& lonlat_box,
-                       bool calc_shift,
-                       vw::Vector3 & shift,
-                       vw::cartography::GeoReference const& geo,
-                       bool verbose, DoubleMatrix & data) {
+                          std::int64_t num_points_to_load,
+                          vw::BBox2 const& lonlat_box,
+                          vw::cartography::GeoReference const& geo,
+                          bool verbose,
+                          bool calc_shift,
+                          // Outputs
+                          vw::Vector3 & shift,
+                          DoubleMatrix & data) {
+  
+  // Set the input point cloud    
+  pdal::Options read_options;
+  read_options.add("filename", file_name);
+  pdal::LasReader pdal_reader;
+  pdal_reader.setOptions(read_options);
 
-  data.conservativeResize(DIM+1, num_points_to_load);
+  // buf_size is the number of points that will be
+  // processed and kept in this table at the same time. 
+  // A somewhat bigger value may result in some efficiencies.
+  int buf_size = 100;
+  pdal::FixedPointTable t(buf_size);
+  pdal_reader.prepare(t);
 
-  vw::cartography::GeoReference las_georef;
-  bool has_georef = georef_from_las(file_name, las_georef);
-
-  std::ifstream ifs;
-  ifs.open(file_name.c_str(), std::ios::in | std::ios::binary);
-  liblas::ReaderFactory f;
-  liblas::Reader reader = f.CreateWithStream(ifs);
-
-  // We will randomly pick or not a point with probability load_ratio
-  std::int64_t num_total_points = las_file_size(file_name);
-  double load_ratio
-    = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
-
-  bool shift_was_calc = false;
-  std::int64_t points_count = 0;
-
-  vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  std::int64_t hundred = 100;
-  std::int64_t spacing = std::max(num_total_points/hundred, std::int64_t(1));
-  double inc_amount = 1.0 / hundred;
-  if (verbose) tpc.report_progress(0);
-
-  while (reader.ReadNextPoint()) {
-
-    if (points_count >= num_points_to_load)
-      break;
-
-    double r = (double)std::rand()/(double)RAND_MAX;
-    if (r > load_ratio)
-      continue;
-
-    liblas::Point const& p = reader.GetPoint();
-    vw::Vector3 xyz(p.GetX(), p.GetY(), p.GetZ());
-    if (has_georef) {
-      vw::Vector2 ll = las_georef.point_to_lonlat(subvector(xyz, 0, 2));
-      xyz = las_georef.datum().geodetic_to_cartesian(vw::Vector3(ll[0], ll[1], xyz[2]));
-    }
-
-    if (calc_shift && !shift_was_calc){
-      shift = xyz;
-      shift_was_calc = true;
-    }
-
-    // Skip points outside the given box
-    if (!lonlat_box.empty() && has_georef) {
-      vw::Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);
-      if (!lonlat_box.contains(subvector(llh, 0, 2)))
-        continue;
-    }
-
-    for (int row = 0; row < DIM; row++)
-      data(row, points_count) = xyz[row] - shift[row];
-    data(DIM, points_count) = 1;
-
-    if (verbose && points_count%spacing == 0) tpc.report_incremental_progress( inc_amount );
-
-    points_count++;
-  }
-
-  if (verbose) 
-    tpc.report_finished();
-
-  data.conservativeResize(Eigen::NoChange, points_count);
+  // Read the data
+  std::int64_t num_total_points = 0;
+  pdal::LasLoader writer(file_name, num_points_to_load, lonlat_box, geo,
+                         verbose, calc_shift, 
+                         // Outputs
+                         num_total_points, shift, data);
+  pdal::Options write_options;
+  writer.setOptions(write_options);
+  writer.setInput(pdal_reader);
+  writer.prepare(t);
+  writer.execute(t);
 
   return num_total_points;
 }
@@ -153,9 +256,9 @@ void load_las(std::string const& file_name,
              vw::cartography::GeoReference const& geo,
              bool verbose, DoubleMatrix & data){
 
-  std::int64_t num_total_points = load_las_aux(file_name, num_points_to_load,
-                                          lonlat_box, calc_shift, shift,
-                                          geo, verbose, data);
+  std::int64_t num_total_points 
+    = load_las_aux(file_name, num_points_to_load, lonlat_box, geo, verbose, calc_shift,
+                   shift, data); // outputs
 
   int num_loaded_points = data.cols();
   if (!lonlat_box.empty()                    &&
@@ -167,8 +270,8 @@ void load_las(std::string const& file_name,
     num_points_to_load = std::max(4*num_points_to_load, std::int64_t(10000000));
     if (verbose)
       vw::vw_out() << "Too few points were loaded. Trying again." << std::endl;
-    load_las_aux(file_name, num_points_to_load, lonlat_box,
-		 calc_shift, shift, geo, verbose, data);
+    load_las_aux(file_name, num_points_to_load, lonlat_box, geo, verbose, calc_shift,
+                 shift, data); // outputs
   }
 
 }
