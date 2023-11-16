@@ -401,17 +401,19 @@ and use the ruler tool to measure the distance between a pair of frames
 that are as far apart as you want to match. Commands using these options
 may look like this::
 
-   icebridge_kmz_to_csv 1000123_DMS_Frame_Events.kmz camera_positions.csv
-   camera_solve out 2009_11_05_00667.JPG 2009_11_05_00668.JPG        \
-     2009_11_05_00669.JPG 2009_11_05_00670.JPG                       \
-     2009_11_05_02947.JPG 2009_11_05_02948.JPG                       \
-     2009_11_05_02949.JPG  2009_11_05_02950.JPG                      \
-     2009_11_05_01381.JPG 2009_11_05_01382.JPG                       \
-     --datum WGS84 --calib-file icebridge_model.tsai                 \
-     --bundle-adjust-params '--camera-positions camera_positions.csv \
-     --csv-format "1:file 2:lon 3:lat 4:height_above_datum"          \ 
-      --position-filter-dist 2000'
-   orbitviz out --load-camera-solve --hide-labels \
+   icebridge_kmz_to_csv 1000123_DMS_Frame_Events.kmz \
+      camera_positions.csv
+      
+   camera_solve out                                  \
+     2009_11_05_00667.JPG 2009_11_05_00668.JPG       \
+     2009_11_05_00669.JPG 2009_11_05_00670.JPG       \
+     2009_11_05_02947.JPG 2009_11_05_02948.JPG       \
+     2009_11_05_02949.JPG 2009_11_05_02950.JPG       \
+     2009_11_05_01381.JPG 2009_11_05_01382.JPG       \
+     --datum WGS84 --calib-file icebridge_model.tsai \
+     --bundle-adjust-params '--camera-positions camera_positions.csv --csv-format "1:file 2:lon 3:lat 4:height_above_datum" --position-filter-dist 2000'
+     
+   orbitviz out --load-camera-solve --hide-labels    \
      -r wgs84 -t nadirpinhole
 
 Alternatively, the ``camera_solve`` executable can be bypassed
@@ -421,7 +423,8 @@ to guess an initial position of the camera, using the ``ortho2pinhole``
 tool. Later, the obtained cameras can be bundle-adjusted. Here is how
 this tool can be used, on grayscale images::
 
-    ortho2pinhole raw_image.tif ortho_image.tif icebridge_model.tsai output_pinhole.tsai
+    ortho2pinhole raw_image.tif ortho_image.tif \
+      icebridge_model.tsai output_pinhole.tsai
 
 .. figure:: images/examples/pinhole/icebridge_camera_results.png
    :name: pinhole-icebridge-camera-results
