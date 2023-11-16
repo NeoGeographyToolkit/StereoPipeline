@@ -60,6 +60,7 @@
 #include <asp/Core/EigenUtils.h>
 
 // Turn off warnings about things we can't control
+// TODO(oalexan1): Wipe this!
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <liblas/liblas.hpp>

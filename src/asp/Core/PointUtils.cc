@@ -20,7 +20,6 @@
 
 /// \file PointUtils.cc
 ///
-
 // Turn off warnings about things we can't control
 // TODO(oalexan1): Wipe this! Also all mentions of las!
 #pragma GCC diagnostic push
@@ -48,19 +47,13 @@ namespace asp{
   // TODO(oalexan1): Wipe this class or make it a wrapper
   class LasReader: public BaseReader {
     liblas::Reader& m_reader;
+
   public:
 
-    LasReader(liblas::Reader & reader): m_reader(reader) {
-      liblas::Header const& header = m_reader.GetHeader();
-      m_num_points = header.GetPointRecordsCount();
-
-      // TODO(oalexan1): Wipe this logic
-      std::string wkt = header.GetSRS().GetWKT();
-      m_has_georef = false;
-      if (wkt != "") {
-        m_has_georef = true;
-        m_georef.set_wkt(wkt);
-      }
+    LasReader(liblas::Reader & reader, std::string const& filename): 
+      m_reader(reader) {
+      m_num_points = asp::las_file_size(filename);
+      m_has_georef = asp::georef_from_las(filename, m_georef);
     }
 
     virtual bool ReadNextPoint(){
@@ -1015,7 +1008,8 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
 
     ifs.open(in_file.c_str(), std::ios::in | std::ios::binary);
     laslib_reader_ptr.reset(new liblas::Reader(las_reader_factory.CreateWithStream(ifs)));
-    reader_ptr = boost::shared_ptr<asp::LasReader>(new asp::LasReader(*laslib_reader_ptr));
+    reader_ptr = boost::shared_ptr<asp::LasReader>
+                  (new asp::LasReader(*laslib_reader_ptr, in_file));
 
   }else
     vw_throw( ArgumentErr() << "Unknown file type: " << in_file << "\n");
