@@ -52,6 +52,8 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                double triangulation_error_factor,
                std::string const& out_prefix);
   
+void read_las();
+  
 } // End namespace asp
 
 #endif

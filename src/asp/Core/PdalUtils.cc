@@ -212,6 +212,128 @@ void StreamedPointCloud::done(PointTableRef table) {
 
 } // end namespace pdal
 
+#if 1
+
+#include <pdal/pdal_features.hpp>
+#include <pdal/FlexWriter.hpp>
+#include <pdal/Streamable.hpp>
+#include <pdal/PointView.hpp>
+#include <pdal/util/ProgramArgs.hpp>
+#include <io/HeaderVal.hpp>
+
+#include <iostream>
+
+namespace pdal
+{
+
+class PDAL_DLL StreamProcessor: public FlexWriter, public Streamable
+{
+    struct Options;
+    struct Private;
+
+public:
+    std::string getName() const;
+
+    StreamProcessor();
+    ~StreamProcessor();
+
+private:
+    std::unique_ptr<Private> d;
+
+    virtual void addArgs(ProgramArgs& args);
+    virtual void initialize();
+    virtual void prepared(PointTableRef table);
+    virtual void readyTable(PointTableRef table);
+    virtual void readyFile(const std::string& filename,
+        const SpatialReference& srs);
+    virtual bool srsOverridden() const;
+    virtual void writeView(const PointViewPtr view);
+    virtual bool processOne(PointRef& point);
+    virtual void doneFile();
+
+    StreamProcessor& operator=(const StreamProcessor&) = delete;
+    StreamProcessor(const StreamProcessor&) = delete;
+    StreamProcessor(const StreamProcessor&&) = delete;
+};
+
+std::string StreamProcessor::getName() const { return "sample streamer"; }
+
+struct StreamProcessor::Options
+{
+    StringHeaderVal<0> scaleX;
+    StringHeaderVal<0> scaleY;
+    StringHeaderVal<0> scaleZ;
+    StringHeaderVal<0> offsetX;
+    StringHeaderVal<0> offsetY;
+    StringHeaderVal<0> offsetZ;
+};
+
+struct StreamProcessor::Private
+{
+    Options opts;
+    std::string curFilename;
+};
+
+StreamProcessor::StreamProcessor() : d(new Private){}
+
+StreamProcessor::~StreamProcessor() {}
+
+void StreamProcessor::addArgs(ProgramArgs& args)
+{
+    args.add("filename", "Output filename", m_filename).setPositional();
+    args.add("scale_x", "X scale factor", d->opts.scaleX, decltype(d->opts.scaleX)(".01"));
+    args.add("scale_y", "Y scale factor", d->opts.scaleY, decltype(d->opts.scaleY)(".01"));
+    args.add("scale_z", "Z scale factor", d->opts.scaleZ, decltype(d->opts.scaleZ)(".01"));
+    args.add("offset_x", "X offset", d->opts.offsetX);
+    args.add("offset_y", "Y offset", d->opts.offsetY);
+    args.add("offset_z", "Z offset", d->opts.offsetZ);
+}
+
+void StreamProcessor::initialize()
+{
+}
+
+bool StreamProcessor::srsOverridden() const
+{
+    return false;
+}
+
+void StreamProcessor::prepared(PointTableRef table)
+{
+    PointLayoutPtr layout = table.layout();
+}
+
+void StreamProcessor::readyTable(PointTableRef table)
+{
+}
+
+void StreamProcessor::readyFile(const std::string& filename, const SpatialReference& srs)
+{
+}
+
+// This is only called in stream mode.
+bool StreamProcessor::processOne(PointRef& point)
+{
+   // Print the point coordinates. Normally this is replaced
+   // with some processing functionality, such as applying
+   // a transform to the points or filtering them.
+   std::cout << "Process point: " 
+             << point.getFieldAs<double>(Dimension::Id::X) <<  ", " 
+             << point.getFieldAs<double>(Dimension::Id::Y) << ", " 
+             << point.getFieldAs<double>(Dimension::Id::Z) << std::endl;
+    return true;  
+}
+
+void StreamProcessor::writeView(const PointViewPtr view)
+{
+    throw pdal_error("The writeView() function must not be called in streaming mode.");
+}
+
+void StreamProcessor::doneFile(){}
+
+} // namespace pdal
+#endif
+
 namespace asp {
 
 bool georef_from_las(std::string const& las_file,
@@ -244,6 +366,37 @@ std::int64_t las_file_size(std::string const& las_file) {
   pdal::QuickInfo qi = reader.preview();
 
   return qi.m_pointCount;
+}
+
+// TODO(oalexan1): call this in write_las()
+void read_las() {
+
+  pdal::Options readerOps;
+  readerOps.add("filename", "gold/run-LAS.las");
+  pdal::LasReader reader;
+  reader.setOptions(readerOps);
+
+  // buf_size is the number of points that will be
+  // processed and kept in this table at the same time. 
+  // A somewhat bigger value may result in some efficiencies.
+  int buf_size = 1;
+  pdal::FixedPointTable t(buf_size);
+  reader.prepare(t);
+
+  pdal::Options write_options;
+  write_options.add("filename", "tmp.las");
+  // write_options.add("offset_x", offset[0]);
+  // write_options.add("offset_y", offset[1]);
+  // write_options.add("offset_z", offset[2]);
+  // write_options.add("scale_x",  scale[0]);
+  // write_options.add("scale_y",  scale[1]);
+  // write_options.add("scale_z",  scale[2]);
+
+  pdal::StreamProcessor writer;
+  writer.setOptions(write_options);
+  writer.setInput(reader);
+  writer.prepare(t);
+  writer.execute(t);
 }
 
 // Save a point cloud and triangulation error to the LAS format
@@ -296,5 +449,4 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
 }
 
 } // End namespace asp
-
 
