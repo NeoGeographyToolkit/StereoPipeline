@@ -407,7 +407,8 @@ vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> con
     // To do: A more efficient approach would be to also stack one
     // image on top of each other, if some images are not too tall.
     // --> Does this code ever get images where rows != cols??
-    if (I.rows() < I.cols())
+    // TODO(oalexan1): Is this transpose really useful?
+    if (files.size() > 1 && I.rows() < I.cols())
       I = transpose(I);
 
     int start = composite_image.cols();

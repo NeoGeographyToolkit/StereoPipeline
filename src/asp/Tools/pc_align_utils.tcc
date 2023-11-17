@@ -682,7 +682,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                 << " has " << nc << " channels, which is not supported.\n" );
     }
 
-  }else if (file_type == "LAS"){
+  }else if (file_type == "LAS") {
 
     std::int64_t num_total_points = las_file_size(input_file);
     vw::cartography::GeoReference las_georef;
@@ -730,7 +730,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
     }
     tpc.report_finished();
 
-  }else if (file_type == "CSV"){
+  }else if (file_type == "CSV") {
 
     // Write a CSV file in format consistent with the input CSV file.
 
@@ -809,9 +809,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
   }
 } // end save_trans_point_cloud
 
-
-
-InterpolationReadyDem load_interpolation_ready_dem(std::string                  const& dem_path,
+InterpolationReadyDem load_interpolation_ready_dem(std::string const& dem_path,
                                                    vw::cartography::GeoReference     & georef) {
   // Load the georeference from the DEM
   bool has_georef = vw::cartography::read_georeference( georef, dem_path );

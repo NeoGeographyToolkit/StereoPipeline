@@ -257,9 +257,11 @@ void las_or_csv_or_pcd_to_tifs(DemOptions& opt, vw::cartography::Datum const& da
     // TODO: This if statement should not be needed, the function should handle it!
     // Perform the actual conversion to a tif file
     if (asp::is_las(in_file))
-      asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size, &opt, pc_georef, csv_conv);
+      asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size, 
+                             &opt, pc_georef, csv_conv);
     else // CSV
-      asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size, &opt, csv_georef, csv_conv);
+      asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size, 
+                             &opt, csv_georef, csv_conv);
 
     opt.pointcloud_files[i] = out_file; // so we can use it instead of the las file
     tmp_tifs.push_back(out_file); // so we can wipe it later

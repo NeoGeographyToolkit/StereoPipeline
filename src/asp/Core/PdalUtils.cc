@@ -98,10 +98,11 @@ StreamedCloud::StreamedCloud(bool has_georef,
   // same dimensions as the point image.
   if (m_error_image.cols() > 0 && m_error_image.rows() > 0 &&
       m_error_image.cols() != m_point_image.cols() &&
-      m_error_image.rows() != m_point_image.rows())
+      m_error_image.rows() != m_point_image.rows()) {
     vw::vw_throw(vw::ArgumentErr() 
                   << "Expecting the error image to have the same dimensions "
                   << "as the point cloud image.\n");
+    }
 }
 
 StreamedCloud::~StreamedCloud() {}
@@ -227,6 +228,7 @@ private:
   virtual void initialize();
   virtual void writeView(const PointViewPtr view);
   virtual bool processOne(PointRef& point);
+  virtual void done(PointTableRef table);
 
   StreamProcessor& operator=(const StreamProcessor&) = delete;
   StreamProcessor(const StreamProcessor&) = delete;
@@ -253,11 +255,14 @@ bool StreamProcessor::processOne(PointRef& point) {
   return true;  
 }
 
+void StreamProcessor::done(PointTableRef table) {
+}
+
 void StreamProcessor::writeView(const PointViewPtr view) {
   throw pdal_error("The writeView() function must not be called in streaming mode.");
 }
 
-} // namespace pdal
+} // end namespace pdal
 
 namespace asp {
 
