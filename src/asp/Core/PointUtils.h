@@ -35,7 +35,7 @@
 #include <asp/Core/Common.h>
 
 namespace vw{
-  namespace cartography{
+  namespace cartography {
     class Datum;
     class GeoReference;
   }
@@ -167,24 +167,10 @@ namespace asp {
 
   }; // End class CsvConv
 
-  /// Fetch a chunk of the las file of area TILE_LEN x TILE_LEN,
-  /// split it into bins of spatially close points, and write
-  /// it to disk as a tile in a vector tif image.
-  void las_or_csv_to_tif(std::string const& in_file,
-                         std::string const& out_file,
-                         int num_rows, int block_size,
-                         vw::GdalWriteOptions * opt,
-                         vw::cartography::GeoReference const& csv_georef,
-                         asp::CsvConv const& csv_conv);
-
   bool is_las(std::string const& file); ///< Return true if this is a LAS file
   bool is_csv(std::string const& file); ///< Return true if this is a CSV file
   bool is_pcd(std::string const& file); ///< Return true if this is a PCD file
   bool is_las_or_csv_or_pcd(std::string const& file);
-
-  /// Builds a GeoReference from the first cloud having a georeference in the list
-  bool georef_from_pc_files(std::vector<std::string> const& files,
-			    vw::cartography::GeoReference & georef);
 
   /// Builds a datum object out of the input arguments
   bool read_user_datum(double semi_major, double semi_minor,

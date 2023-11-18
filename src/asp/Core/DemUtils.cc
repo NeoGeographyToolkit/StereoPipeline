@@ -17,6 +17,7 @@
 
 #include <asp/Core/DemUtils.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/PointCloudProcessing.h>
 #include <asp/Core/PdalUtils.h>
 
 #include <vw/Image/AntiAliasing.h>
