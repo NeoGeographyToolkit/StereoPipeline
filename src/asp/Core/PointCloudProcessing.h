@@ -46,11 +46,12 @@ namespace asp {
   /// split it into bins of spatially close points, and write
   /// it to disk as a tile in a vector tif image.
   void las_or_csv_to_tif(std::string const& in_file,
-                         std::string const& out_file,
+                         std::string const& out_prefix,
                          int num_rows, int block_size,
                          vw::GdalWriteOptions * opt,
                          vw::cartography::GeoReference const& csv_georef,
-                         asp::CsvConv const& csv_conv);
+                         asp::CsvConv const& csv_conv,
+                         std::vector<std::string> & out_files);
 
   
 } // End namespace asp

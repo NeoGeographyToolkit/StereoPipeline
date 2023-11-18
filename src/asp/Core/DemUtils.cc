@@ -229,45 +229,44 @@ void las_or_csv_or_pcd_to_tifs(DemOptions& opt, vw::cartography::Datum const& da
   // For csv and las files, create temporary tif files. In those files
   // we'll have the points binned so that nearby points have nearby
   // indices.  This is key to fast rasterization later.
+  std::vector<std::string> all_out_files;
   for (int i = 0; i < num_files; i++){
 
-    if (!asp::is_las_or_csv_or_pcd(opt.pointcloud_files[i])) // Skip tif files
+    if (!asp::is_las_or_csv_or_pcd(opt.pointcloud_files[i])) {
+      // Skip tif files
+      all_out_files.push_back(opt.pointcloud_files[i]);
       continue;
+    }
+    
     std::string in_file = opt.pointcloud_files[i];
     std::string stem    = fs::path(in_file).stem().string();
     std::string suffix;
     if (opt.out_prefix.find(stem) != std::string::npos)
-      suffix = ".tif";
+      suffix = "";
     else
-      suffix = "-" + stem + ".tif";
-    std::string out_file = opt.out_prefix + "-tmp" + suffix;
-
-    // Handle the case when the output file may exist
-    const int NUM_TEMP_NAME_RETRIES = 1000;
-    for (int count = 0; count < NUM_TEMP_NAME_RETRIES; count++){
-      if (!fs::exists(out_file))
-        break;
-      // File exists, try a different name
-      vw_out() << "File exists: " << out_file << std::endl;
-      std::ostringstream os; os << count;
-      out_file = opt.out_prefix + "-tmp-" + os.str() + suffix;
-    }
-    if (fs::exists(out_file))
-      vw_throw(ArgumentErr() << "Too many attempts at creating a temporary file.\n");
+      suffix = "-" + stem;
+    std::string file_prefix = opt.out_prefix + "-tmp" + suffix;
 
     // TODO: This if statement should not be needed, the function should handle it!
     // Perform the actual conversion to a tif file
+    std::vector<std::string> out_files;
     if (asp::is_las(in_file))
-      asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size, 
-                             &opt, pc_georef, csv_conv);
+      asp::las_or_csv_to_tif(in_file, file_prefix, num_rows, block_size, 
+                             &opt, pc_georef, csv_conv, out_files);
     else // CSV
-      asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size, 
-                             &opt, csv_georef, csv_conv);
+      asp::las_or_csv_to_tif(in_file, file_prefix, num_rows, block_size, 
+                             &opt, csv_georef, csv_conv, out_files);
 
-    opt.pointcloud_files[i] = out_file; // so we can use it instead of the las file
-    tmp_tifs.push_back(out_file); // so we can wipe it later
+    // Append out_files to all_out_files and to tmp_tifs by inserting
+    // Note that all_out_files will have both PC.tif files and outputs
+    // of las_or_csv_to_tif, while tmp_tifs will have only the latter.
+    std::copy(out_files.begin(), out_files.end(), std::back_inserter(all_out_files));
+    std::copy(out_files.begin(), out_files.end(), std::back_inserter(tmp_tifs));
   }
 
+  // Update the list of all files
+  opt.pointcloud_files = all_out_files;
+  
   sw.stop();
   vw_out(DebugMessage,"asp") << "LAS or CSV to TIF conversion time: "
                              << sw.elapsed_seconds() << " seconds.\n";

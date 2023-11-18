@@ -48,7 +48,6 @@ using namespace pdal::filters;
 
 // Read through las points in streaming fashion. When a given amount is collected,
 // write a chip to disk. 
-// TODO(oalexan1): Move this to PdalUtils.cc
 namespace pdal {
   
 class PDAL_DLL ChipMaker: public Writer, public Streamable {
@@ -57,19 +56,24 @@ public:
 
 std::string getName() const { return "chip maker"; }
 
+  // Go through a LAS file and write to disk spatially organized tiles.
+  // Also converts along the way from projected coordinates (if applicable)
+  // to ECEF.
   // tile_len is big, but chip_size is small and a factor of tile_size
   ChipMaker(std::int64_t tile_len, std::int64_t chip_size,
             bool has_georef, vw::cartography::GeoReference const& georef,
-            vw::GdalWriteOptions * opt):
+            vw::GdalWriteOptions * opt, 
+            std::string const& out_prefix, 
+            std::vector<std::string> & out_files):
     m_tile_len(tile_len), m_chip_size(chip_size), 
     m_has_georef(has_georef), m_georef(georef), m_opt(opt),
-    m_point_count(0), m_tile_count(0) {
-      m_buf.clear(); // not strictly needed but looks nice
-      std::cout << "--now in chipmaker constructor" << std::endl;
-      std::cout << "--has georef is " << m_has_georef << std::endl;
-      std::cout << "georef is " << m_georef << std::endl;
-      std::cout << "tile len is " << m_tile_len << std::endl;
-      std::cout << "chip size is " << m_chip_size << std::endl;
+    m_out_prefix(out_prefix), m_out_files(out_files),
+    m_point_count(0), m_tile_count(0), m_buf(PointBuffer()) {
+      
+      // Sanity checks
+      if ((m_tile_len % m_chip_size != 0) || (m_tile_len <= 0) || (m_chip_size <= 0))
+        vw_throw(ArgumentErr() << "ChipMaker: The tile size must be a positive "
+                               << "multiple of the chip size.\n");
     }
 
 ~ChipMaker() {} 
@@ -81,6 +85,9 @@ private:
   bool        m_has_georef;
   vw::cartography::GeoReference m_georef;
   vw::GdalWriteOptions * m_opt;
+  std::string m_out_prefix; // output files will start with this prefix 
+  std::vector<std::string> & m_out_files; // alias, used for output
+  
   std::int64_t m_point_count; // this will get reset when a tile is full
   std::int64_t m_tile_count;
   PointBuffer m_buf;
@@ -96,17 +103,19 @@ private:
     if (m_buf.empty()) 
       return;
     
-    std::cout << "--will process buf of size " << m_buf.size() << std::endl;  
     vw::ImageView<Vector3> Img;
+
     // TODO(oalexan1): Move Chipper to vw namespace. It is not a pdal class.
     pdal::filters::Chipper(m_buf, m_chip_size, m_has_georef, m_georef,
             m_tile_len, m_tile_len, Img);
+
     // Create a file of the form tile with index m_tile_count
     std::ostringstream os;
-    os << "tile_" << m_tile_count << ".tif";
+    os << m_out_prefix << "-" << m_tile_count << ".tif";
     std::string out_file = os.str();
+    m_out_files.push_back(out_file);
     
-    vw::vw_out() << "Writing: " << out_file << std::endl;    
+    vw::vw_out() << "Writing temporary file: " << out_file << std::endl;    
     bool has_nodata = false;
     double nodata = -std::numeric_limits<double>::max();
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
@@ -126,7 +135,6 @@ private:
                    point.getFieldAs<double>(Dimension::Id::Y),
                    point.getFieldAs<double>(Dimension::Id::Z));
     m_buf.push_back(pt);
-    //std::cout << "--point is " << pt << std::endl;
     // If the buffer is full, process it
     std::int64_t max_num_pts_to_read = m_tile_len * m_tile_len;
     if (m_buf.size() >= max_num_pts_to_read)
@@ -137,9 +145,6 @@ private:
 
   // To be called after all the points are read.
   virtual void done(PointTableRef table) {
-    std::cout << "--now in done" << std::endl;
-    std::cout << "--point count is " << m_point_count << std::endl;
-    std::cout << "--buf size is " << m_buf.size() << std::endl;
     // Process the rest of the points
     processBuf();
   }
@@ -239,11 +244,11 @@ namespace asp {
       return m_has_valid_point;
     }
 
-    virtual Vector3 GetPoint(){
+    virtual Vector3 GetPoint() {
       return m_curr_point;
     }
 
-    virtual ~CsvReader(){
+    virtual ~CsvReader() {
       delete m_ifs;
       m_ifs = NULL;
     }
@@ -438,7 +443,6 @@ namespace asp {
     inline prerasterize_type prerasterize(BBox2i const& bbox) const{
 
       // Read a chunk of the las file, and store it in the current tile.
-      std::cout << "--box is " << bbox << std::endl;
 
       std::int64_t num_cols = bbox.width();
       std::int64_t num_rows = bbox.height();
@@ -449,11 +453,9 @@ namespace asp {
 
       // Read the specified number of points from the file
       std::int64_t max_num_pts_to_read = num_cols * num_rows;
-      std::cout << "--num cols and rows is " << num_cols << ' ' << num_rows << std::endl;
-      std::cout << "--max num pts to read is " << max_num_pts_to_read << std::endl;
       std::int64_t count = 0;
       PointBuffer in;
-      while (m_reader->ReadNextPoint()){
+      while (m_reader->ReadNextPoint()) {
         in.push_back(m_reader->GetPoint());
         count++;
         if (count >= max_num_pts_to_read)
@@ -488,19 +490,19 @@ namespace asp {
 // of size block_size x block_size, which is always 128, consistent
 // with what point2dem later uses.
 void las_or_csv_to_tif(std::string const& in_file,
-                            std::string const& out_file,
-                            int num_rows, int block_size,
-                            vw::GdalWriteOptions * opt,
-                            vw::cartography::GeoReference const& csv_georef,
-                            asp::CsvConv const& csv_conv) {
-  std::cout << "--block size is " << block_size << std::endl;
+                       std::string const& out_prefix,
+                       int num_rows, int block_size,
+                       vw::GdalWriteOptions * opt,
+                       vw::cartography::GeoReference const& csv_georef,
+                       asp::CsvConv const& csv_conv,
+                       std::vector<std::string> & out_files) {
 
+  // Wipe the output
+  out_files.clear();
+    
   // To do: Study performance for large files when this number changes
   const int TILE_LEN = 2048;
   Vector2i tile_size(TILE_LEN, TILE_LEN);
-
-  std::cout << "--tile len is " << TILE_LEN << std::endl;
-  vw_out() << "Writing temporary file: " << out_file << std::endl;
 
   // Temporarily change the raster tile size
   Vector2 original_tile_size = opt->raster_tile_size;
@@ -538,10 +540,10 @@ void las_or_csv_to_tif(std::string const& in_file,
   int points_per_row = (int)ceil(double(num_points)/image_rows);
   int num_col_tiles  = std::max(1, (int)ceil(double(points_per_row)/TILE_LEN));
   int image_cols = TILE_LEN * num_col_tiles;
-  std::cout << "--1number of rows and columns is " << image_rows << ' ' << image_cols << std::endl;
 
-  if (false && asp::is_las(in_file)) { // LAS
-    // TODO(oalexan1): Move this to PdalUtils.cc
+  if (asp::is_las(in_file)) { // LAS
+    // Has to be handled differently, as we read the file in streaming fashion.
+    vw::vw_out() << "Breaking up the LAS file into spatially-organized files.\n";
     // Set the input point cloud    
     pdal::Options read_options;
     read_options.add("filename", in_file);
@@ -556,24 +558,30 @@ void las_or_csv_to_tif(std::string const& in_file,
     pdal_reader.prepare(t);
     
     pdal::ChipMaker writer(TILE_LEN, block_size, reader_ptr->m_has_georef, 
-                           reader_ptr->m_georef, opt);
+                           reader_ptr->m_georef, opt, out_prefix, out_files);
     pdal::Options write_options;
     writer.setOptions(write_options);
     writer.setInput(pdal_reader);
     writer.prepare(t);
     writer.execute(t);
-  }
-      
-  ImageViewRef<Vector3> Img 
-    = asp::LasOrCsvToTif<ImageView<Vector3>>(reader_ptr.get(),
+    
+  } else { // CSV or PCD
+          
+    // Create the image
+    ImageViewRef<Vector3> Img 
+      = asp::LasOrCsvToTif<ImageView<Vector3>>(reader_ptr.get(),
                                              image_rows, image_cols, block_size);
-
-  // Must use a thread only, as we read the input file serially.
-  vw::cartography::write_gdal_image(out_file, Img, *opt,
-                                    TerminalProgressCallback("asp", "\t--> "));
-
+    // Must use a thread only, as we read the input file serially.
+    std::string out_file = out_prefix + ".tif"; 
+    vw_out() << "Writing temporary file: " << out_file << std::endl;
+    vw::cartography::write_gdal_image(out_file, Img, *opt,
+                                      TerminalProgressCallback("asp", "\t--> "));
+    out_files.push_back(out_file);
+  }
+  
   // Restore the original tile size
   opt->raster_tile_size = original_tile_size;
+  
   //exit(0);
 }
 
