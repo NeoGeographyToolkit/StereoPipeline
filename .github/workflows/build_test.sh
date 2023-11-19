@@ -70,7 +70,7 @@ make > $out_build_vw 2>&1
 
 # Temporary fix for the csm frame camera
 perl -pi -e "s#private:#public:#g" $envPath/include/usgscsm/UsgsAstroFrameSensorModel.h
-cat $envPath/include/usgscsm/UsgsAstroPushFrameSensorModel.h
+cat $envPath/include/usgscsm/UsgsAstroFrameSensorModel.h
 
 # Build StereoPipeline
 cd $aspRepoDir
