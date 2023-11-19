@@ -68,6 +68,10 @@ make -j10 && make install
 out_build_vw=$(pwd)/output_build_vw.txt
 make > $out_build_vw 2>&1
 
+# Temporary fix for the csm frame camera
+perl -pi -e "s#private:#public:#g" $envPath/include/usgscsm/UsgsAstroFrameSensorModel.h
+cat $envPath/include/usgscsm/UsgsAstroPushFrameSensorModel.h
+
 # Build StereoPipeline
 cd $aspRepoDir
 mkdir -p build
@@ -84,6 +88,7 @@ make -j10 && make install
 # Log of the build, for inspection in case it fails
 out_build_asp=$(pwd)/output_build_asp.txt
 make > $out_build_asp 2>&1
+tail -n 1000 $out_build_asp
 
 # Now package with BinaryBuilder
 cd $baseDir
@@ -149,7 +154,7 @@ for d in ss*; do
     ./validate.sh
     ans0=$?
     echo "Test $d returned $ans0"
-    echo "Test $d returned $ans0" >> ../$reportFile
+    echo "Test $d returned $ans0" >> $reportFile
     if [ "$ans0" -ne 0 ]; then ans=1; fi # keep record of failures
     cd ..
 done
