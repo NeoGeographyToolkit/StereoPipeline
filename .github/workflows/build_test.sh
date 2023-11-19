@@ -11,13 +11,39 @@ else
 fi
 
 # Set up some variables
+envName=asp_deps_3.4.0_alpha
 aspRepoDir=$(pwd) # $HOME/work/StereoPipeline/StereoPipeline
-baseDir=$HOME/work/StereoPipeline
+# Check that base dir is StereoPipeline
+if [ "$(basename $aspRepoDir)" != "StereoPipeline" ]; then
+    echo "Error: Directory: $aspRepoDir is not StereoPipeline"
+    exit 1
+fi
+
+baseDir=$(dirname $aspRepoDir) # one level up
 installDir=$baseDir/install
-envPath=/usr/local/miniconda/envs/asp_deps
+envPath=/usr/local/miniconda/envs/${envName} 
+if [ ! -d "$envPath" ]; then
+    envPath=$HOME/miniconda/envs/${envName}
+fi
+if [ ! -d "$envPath" ]; then
+    envPath=$HOME/miniconda3/envs/${envName}
+fi
+if [ ! -d "$envPath" ]; then
+    echo "Error: Directory: $envPath does not exist"
+    exit 1
+fi
+
 # packageDir will later be uploaded, as set in the yml file
 packageDir=$baseDir/packages
 testDir=$baseDir/StereoPipelineTest
+
+# Create the conda environment. When the environemnt changes, wipe its cached
+# version for this action, uncomment the line below, check this in, run this
+# workflow, then comment this out as the newly produced environment will get
+# cached.
+# Note the variable $envName. This must also be the environment name in the
+# .yaml file.
+conda env create -f conda/${envName}_osx_env.yaml
 
 # Build visionworkbench
 mkdir -p $baseDir
