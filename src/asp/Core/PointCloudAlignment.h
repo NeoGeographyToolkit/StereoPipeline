@@ -18,7 +18,7 @@
 /// \file PointCloudAlignment.h
 ///
 
-// Utilities used in clound alignment that make use of PDAL. 
+// Utilities used in cloud alignment that make use of PDAL. 
 
 #ifndef __ASP_CORE_POINT_CLOUD_ALIGNMENT_H__
 #define __ASP_CORE_POINT_CLOUD_ALIGNMENT_H__

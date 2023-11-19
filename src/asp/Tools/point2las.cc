@@ -302,6 +302,10 @@ int main(int argc, char *argv[]) {
     // the offset and scale values. Here we decide the values for
     // offset and scale to lose minimum amount of precision. We make
     // the scale almost as large as it can be without causing integer overflow.
+    // TODO(oalexan1): This can have its own issues if later
+    // this cloud is shifted a lot. Better pick more sensible
+    // scale. 1 mm should be enough. Note that sometimes
+    // the coordinates are in degrees, not in meters.
     Vector3 offset = (cloud_bbox.min() + cloud_bbox.max())/2.0;
     double  maxInt = std::numeric_limits<int32>::max();
             maxInt *= 0.95; // Just in case stay a bit away

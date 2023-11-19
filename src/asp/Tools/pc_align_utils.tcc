@@ -630,44 +630,143 @@ vw::Vector3 apply_transform(PointMatcher<RealT>::Matrix const& T, vw::Vector3 co
 // file.
 namespace pdal {
       
-class PDAL_DLL TransformFilter : public Filter, public Streamable
-{
+class PDAL_DLL TransformFilter: public Filter, public Streamable {
+
 public:
-    std::string getName() const;
-    TransformFilter(PointMatcher<asp::RealT>::Matrix const& T);
-    ~TransformFilter();
+
+  std::string getName() const {
+      return "transform_filter";
+  }
+
+  TransformFilter(std::int64_t num_total_points, 
+                  bool has_georef, 
+                  vw::cartography::GeoReference const& georef,
+                  PointMatcher<asp::RealT>::Matrix const& T): 
+        m_has_georef(has_georef), m_georef(georef), m_T(T), 
+        m_tpc(vw::TerminalProgressCallback("asp", "\t--> ")) {
+    
+    int hundred = 100;
+    m_spacing = std::max(num_total_points/hundred, std::int64_t(1));
+    m_inc_amount = 1.0 / double(hundred);
+    m_count = 0;
+  }
+
+  ~TransformFilter() {}
 
 private:
-    virtual bool processOne(PointRef& point);
-    PointMatcher<asp::RealT>::Matrix m_T;
-};
+
+  // Apply a transform to each point
+  virtual bool processOne(PointRef& point) {
     
-std::string TransformFilter::getName() const
-{
-    return "filter_streamer";
-}
-
-TransformFilter::TransformFilter(PointMatcher<asp::RealT>::Matrix const& T): m_T(T)
-{
-}
-
-TransformFilter::~TransformFilter() 
-{
-}
-
-// Apply a transform to each point
-bool TransformFilter::processOne(PointRef& point)
-{
+    // Initial point
+    vw::Vector3 P(point.getFieldAs<double>(Dimension::Id::X),
+                  point.getFieldAs<double>(Dimension::Id::Y),
+                  point.getFieldAs<double>(Dimension::Id::Z));
     
-    // Apply the scale factor
-    // double x = point.getFieldAs<double>(Dimension::Id::X) * m_factor;
-    // double y = point.getFieldAs<double>(Dimension::Id::Y) * m_factor;
-    // double z = point.getFieldAs<double>(Dimension::Id::Z) * m_factor;
-    // point.setField(Dimension::Id::X, x);
-    // point.setField(Dimension::Id::Y, y);
-    // point.setField(Dimension::Id::Z, z);
+    if (m_has_georef) {
+      // This is a projected point, convert to cartesian
+      vw::Vector2 ll = m_georef.point_to_lonlat(subvector(P, 0, 2));
+      P = m_georef.datum().geodetic_to_cartesian(vw::Vector3(ll[0], ll[1], P[2]));
+    }
+    
+    // Apply the transform
+    P = asp::apply_transform(m_T, P);
+    
+    if (m_has_georef) {
+      // Go back to projected space
+      vw::Vector3 llh = m_georef.datum().cartesian_to_geodetic(P);
+      subvector(P, 0, 2) = m_georef.lonlat_to_point(subvector(llh, 0, 2));
+      P[2] = llh[2];
+    }
+    
+    // Put the point back
+    point.setField(Dimension::Id::X, P[0]);
+    point.setField(Dimension::Id::Y, P[1]);
+    point.setField(Dimension::Id::Z, P[2]);
 
+    // Update the progress and the counter
+    if (m_count % m_spacing == 0) 
+      m_tpc.report_incremental_progress(m_inc_amount);
+    m_count++;  
+    
     return true;
+  }
+  
+  virtual void done(PointTableRef table) {
+    m_tpc.report_finished();
+  }
+    
+  bool m_has_georef;
+  vw::cartography::GeoReference m_georef;
+  PointMatcher<asp::RealT>::Matrix m_T;
+  std::int64_t m_spacing;
+  double m_inc_amount;
+  std::int64_t m_count;
+  vw::TerminalProgressCallback m_tpc;
+  
+};
+
+// Apply a given transform to a LAS file and save it.
+void apply_transform_to_las(std::string const& input_file,
+                            std::string const& output_file,
+                            PointMatcher<asp::RealT>::Matrix const& T) {
+
+  // buf_size is the number of points that will be
+  // processed and kept in this table at the same time. 
+  // A somewhat bigger value may result in some efficiencies.
+  int buf_size = 500;
+  FixedPointTable t(buf_size);
+
+  // Set the input point cloud    
+  Options read_options;
+  read_options.add("filename", input_file);
+  LasReader reader;
+  reader.setOptions(read_options);
+  reader.prepare(t); 
+    
+  // Get the scale and offset from the input cloud header
+  // Must be run after the table is prepared
+  const LasHeader & header = reader.header();
+  vw::Vector3 offset(header.offsetX(), header.offsetY(), header.offsetZ());
+  vw::Vector3 scale (header.scaleX(),  header.scaleY(),  header.scaleZ());
+  std::cout << "offset = " << offset << std::endl;
+  std::cout << "scale  = " << scale  << std::endl;
+
+  std::int64_t num_total_points = asp::las_file_size(input_file);
+  vw::cartography::GeoReference las_georef;
+  bool has_georef = asp::georef_from_las(input_file, las_georef);
+
+  // Set up the filter
+  TransformFilter transform_filter(num_total_points, has_georef, las_georef, T);
+  transform_filter.setInput(reader);
+  transform_filter.prepare(t);
+
+  // If the data is in ECEF, apply the same transform to the offset and scale as
+  // to the data. This way the internal representation of the data changes very
+  // little, and the data is still well-normalized.
+  if (!has_georef) {
+    offset = asp::apply_transform(T, offset);
+    scale = asp::apply_transform(T, scale);
+  }
+    
+  // Set up the output file
+  Options write_options;
+  write_options.add("filename", output_file);
+  
+  // Set up the scale and offset for the output
+  write_options.add("offset_x", offset[0]);
+  write_options.add("offset_y", offset[1]);
+  write_options.add("offset_z", offset[2]);
+  write_options.add("scale_x",  scale[0]);
+  write_options.add("scale_y",  scale[1]);
+  write_options.add("scale_z",  scale[2]);
+  
+  // Write the output file
+  LasWriter writer;
+  writer.setOptions(write_options);
+  writer.setInput(transform_filter);
+  writer.prepare(t);
+  writer.execute(t);
 }
 
 } // end namespace pdal
@@ -699,8 +798,8 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
     output_file = out_prefix + ".tif";
   vw::vw_out() << "Writing: " << output_file << std::endl;
 
-  if (file_type == "DEM"){
-
+  if (file_type == "DEM") {
+    // TODO(oalexan1): This must be a function.
     vw::cartography::GeoReference dem_geo;
     bool has_georef = vw::cartography::read_georeference( dem_geo, input_file );
     if (!has_georef) vw_throw(vw::ArgumentErr() << "DEM: " << input_file
@@ -714,8 +813,8 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
       if (dem_rsrc->has_nodata_read()) nodata = dem_rsrc->nodata_read();
     }
     vw::ImageViewRef<vw::Vector3> point_cloud =
-      geodetic_to_cartesian( dem_to_geodetic(create_mask(dem, nodata), dem_geo),
-                             dem_geo.datum() );
+      geodetic_to_cartesian(dem_to_geodetic(create_mask(dem, nodata), dem_geo),
+                             dem_geo.datum());
 
     // Save the georeference with the cloud, to help point2dem later
     bool has_nodata2 = false; // the cloud should not use DEM nodata
@@ -725,10 +824,11 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                                 has_nodata2, nodata,
                                 opt, vw::TerminalProgressCallback("asp", "\t--> "));
 
-  }else if (file_type == "PC"){
+  }else if (file_type == "PC") {
 
     // Need this logic because we cannot open an image
     // with n channels without knowing n beforehand.
+    // TODO(oalexan1): This must be a function.
     int nc = vw::get_num_channels(input_file);
     switch(nc){
     case 3:  save_trans_point_cloud_n<3>(opt, geo, input_file, output_file, T);  break;
@@ -741,56 +841,13 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
 
   }else if (file_type == "LAS") {
 
-    std::cout << "--save las file\n";
-    std::int64_t num_total_points = las_file_size(input_file);
-    vw::cartography::GeoReference las_georef;
-    bool has_georef = georef_from_las(input_file, las_georef);
-
-    std::ifstream ifs;
-    ifs.open(input_file.c_str(), std::ios::in | std::ios::binary);
-    liblas::ReaderFactory f;
-    liblas::Reader reader = f.CreateWithStream(ifs);
-    liblas::Header const& header = reader.GetHeader();
-
-    std::ofstream ofs;
-    ofs.open(output_file.c_str(), std::ios::out | std::ios::binary);
-    liblas::Writer writer(ofs, header);
-
-    vw::TerminalProgressCallback tpc("asp", "\t--> ");
-    int hundred = 100;
-    std::int64_t spacing = std::max(num_total_points/hundred, std::int64_t(1));
-    double inc_amount = 1.0 / hundred;
-    std::int64_t count = 0;
-    while (reader.ReadNextPoint()){
-
-      liblas::Point const& in_las_pt = reader.GetPoint();
-      vw::Vector3 P(in_las_pt.GetX(), in_las_pt.GetY(), in_las_pt.GetZ());
-      if (has_georef){
-        // Go from projected space to xyz
-        vw::Vector2 ll = las_georef.point_to_lonlat(subvector(P, 0, 2));
-        P = las_georef.datum().geodetic_to_cartesian(vw::Vector3(ll[0], ll[1], P[2]));
-      }
-      P = apply_transform(T, P);
-      if (has_georef){
-        // Go from xyz to projected space
-        vw::Vector3 llh = las_georef.datum().cartesian_to_geodetic(P);
-        subvector(P, 0, 2) = las_georef.lonlat_to_point(subvector(llh, 0, 2));
-        P[2] = llh[2];
-      }
-
-      liblas::Point out_las_pt(&header);
-      out_las_pt.SetCoordinates(P[0], P[1], P[2]);
-      writer.WritePoint(out_las_pt);
-
-      if (count%spacing == 0) tpc.report_incremental_progress( inc_amount );
-
-      count++;
-    }
-    tpc.report_finished();
-
+    std::cout << "--save las file2\n";
+    pdal::apply_transform_to_las(input_file, output_file, T);
+    
   }else if (file_type == "CSV") {
 
     // Write a CSV file in format consistent with the input CSV file.
+    // TODO(oalexan1): This must be a function.
 
     vw::BBox2   empty_box;
     bool        verbose = false;

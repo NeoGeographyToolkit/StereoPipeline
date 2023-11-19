@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// Utilities used in clound alignment that make use of PDAL. 
+// Utilities used in cloud alignment that make use of PDAL. 
 
 /// \file PointCloudAlignment.cc
 #include <asp/Core/PointCloudAlignment.h>
