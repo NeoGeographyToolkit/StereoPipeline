@@ -86,7 +86,6 @@ dependencies:
   - kakadu=1=0
   - krb5=1.21.1=hb884880_0
   - lame=3.100=hb7f2c08_1003
-  - laszip=2.1.0_isis7=h01edc0c_1
   - ld64=609=hc6ad406_13
   - ld64_osx-64=609=hfd63004_13
   - lerc=4.0.0=hb486fe8_0
@@ -113,7 +112,6 @@ dependencies:
   - libjemalloc=5.3.0=hf0c8a7f_0
   - liblapack=3.9.0=17_osx64_openblas
   - liblapacke=3.9.0=17_osx64_openblas
-  - liblas=1.8.2_isis8=hf8dc8b4_0
   - libllvm13=13.0.1=h64f94b2_2
   - libllvm14=14.0.6=hc8e404f_4
   - libnabo=isis7=h01edc0c_0

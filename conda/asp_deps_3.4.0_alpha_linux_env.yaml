@@ -99,7 +99,6 @@ dependencies:
   - keyutils=1.6.1=h166bdaf_0
   - krb5=1.20.1=hf9c8cef_0
   - lame=3.100=h166bdaf_1003
-  - laszip=2.1.0_isis7=h3fd9d12_1
   - ld_impl_linux-64=2.40=h41732ed_0
   - lerc=4.0.0=h27087fc_0
   - libarchive=3.5.2=hb890918_3
@@ -133,7 +132,6 @@ dependencies:
   - libjemalloc=5.3.0=hcb278e6_0
   - liblapack=3.9.0=17_linux64_openblas
   - liblapacke=3.9.0=17_linux64_openblas
-  - liblas=1.8.2_isis8=h3fd9d12_0
   - libllvm13=13.0.1=hf817b99_2
   - libmicrohttpd=0.9.77=h97afed2_0
   - libnabo=isis7=h3fd9d12_0
