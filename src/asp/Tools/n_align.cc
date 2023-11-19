@@ -61,7 +61,6 @@ using namespace std;
 using namespace vw::cartography;
 using namespace asp;
 
-typedef double RealT; // We will use doubles in libpointmatcher.
 typedef PointMatcher<RealT> PM;
 typedef PM::DataPoints DP;
 

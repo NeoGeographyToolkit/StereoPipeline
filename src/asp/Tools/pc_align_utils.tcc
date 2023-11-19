@@ -52,10 +52,14 @@
 // TODO(oalexan1): PDAL-related logic better be factored out. Here it is tricky
 // as it needs PCL's (Eigen) data structure.
 #include <io/LasReader.hpp>
-#include <pdal/Writer.hpp>
 #include <pdal/Streamable.hpp>
 #include <pdal/PointView.hpp>
 #include <pdal/util/ProgramArgs.hpp>
+#include <pdal/Filter.hpp>
+#include <pdal/Streamable.hpp>
+#include <io/LasWriter.hpp>
+#include <io/LasHeader.hpp>
+#include <pdal/Options.hpp>
 
 namespace pdal {
 
@@ -116,6 +120,7 @@ private:
   vw::TerminalProgressCallback m_tpc;
   std::int64_t m_spacing;
   double m_inc_amount;
+  
   // Aliases, to be returned to the caller
   std::int64_t & m_num_total_points;
   vw::Vector3 & m_shift;
@@ -537,7 +542,7 @@ PointMatcher<RealT>::Matrix apply_shift(PointMatcher<RealT>::Matrix const& T,
 // Compute the translation vector from the source points (before any initial alignment
 // applied to them), and the source points after alignment.   
 void calc_translation_vec(PointMatcher<RealT>::Matrix const& initT,
-			  DP const& source, DP const& trans_source,
+                          DP const& source, DP const& trans_source,
                           vw::Vector3 & shift, // from planet center to current origin
                           vw::cartography::Datum const& datum,
                           vw::Vector3 & source_ctr_vec,
@@ -602,9 +607,8 @@ double calc_max_displacement(DP const& source, DP const& trans_source){
   return max_obtained_disp;
 }
 
-
 /// Apply a transformation matrix to a vw::Vector3 in homogenous coordinates
-vw::Vector3 apply_transform(PointMatcher<RealT>::Matrix const& T, vw::Vector3 const& P){
+vw::Vector3 apply_transform(PointMatcher<RealT>::Matrix const& T, vw::Vector3 const& P) {
   
   Eigen::VectorXd V(4); // Copy our 3D Vector into a homogenous Eigen Vector
   V[0] = P[0];
@@ -618,6 +622,60 @@ vw::Vector3 apply_transform(PointMatcher<RealT>::Matrix const& T, vw::Vector3 co
   Q[2] = V[2];
     return Q;
 }
+} // end namespace asp
+
+// A filter to multiply each point's coordinates by a factor. Each point
+// is processed in streaming mode, without loading the entire point cloud into
+// memory. Adjust appropriately the scale and offset in the header of the output
+// file.
+namespace pdal {
+      
+class PDAL_DLL TransformFilter : public Filter, public Streamable
+{
+public:
+    std::string getName() const;
+    TransformFilter(PointMatcher<asp::RealT>::Matrix const& T);
+    ~TransformFilter();
+
+private:
+    virtual bool processOne(PointRef& point);
+    PointMatcher<asp::RealT>::Matrix m_T;
+};
+    
+std::string TransformFilter::getName() const
+{
+    return "filter_streamer";
+}
+
+TransformFilter::TransformFilter(PointMatcher<asp::RealT>::Matrix const& T): m_T(T)
+{
+}
+
+TransformFilter::~TransformFilter() 
+{
+}
+
+// Apply a transform to each point
+bool TransformFilter::processOne(PointRef& point)
+{
+    
+    // Apply the scale factor
+    // double x = point.getFieldAs<double>(Dimension::Id::X) * m_factor;
+    // double y = point.getFieldAs<double>(Dimension::Id::Y) * m_factor;
+    // double z = point.getFieldAs<double>(Dimension::Id::Z) * m_factor;
+    // point.setField(Dimension::Id::X, x);
+    // point.setField(Dimension::Id::Y, y);
+    // point.setField(Dimension::Id::Z, z);
+
+    return true;
+}
+
+} // end namespace pdal
+
+namespace asp {
+  
+// A class to apply a transform to a LAS point cloud
+// TODO(oalexan1): Find a better place for this
 
 /// Apply a given transform to the point cloud in input file,
 /// and save it.
@@ -656,8 +714,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
       if (dem_rsrc->has_nodata_read()) nodata = dem_rsrc->nodata_read();
     }
     vw::ImageViewRef<vw::Vector3> point_cloud =
-      geodetic_to_cartesian( dem_to_geodetic( create_mask(dem, nodata),
-                                              dem_geo ),
+      geodetic_to_cartesian( dem_to_geodetic(create_mask(dem, nodata), dem_geo),
                              dem_geo.datum() );
 
     // Save the georeference with the cloud, to help point2dem later
@@ -684,6 +741,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
 
   }else if (file_type == "LAS") {
 
+    std::cout << "--save las file\n";
     std::int64_t num_total_points = las_file_size(input_file);
     vw::cartography::GeoReference las_georef;
     bool has_georef = georef_from_las(input_file, las_georef);

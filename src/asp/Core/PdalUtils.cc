@@ -212,9 +212,8 @@ void StreamedCloud::done(PointTableRef table) {
 } // End function done
 
 // A class to read a point cloud from a file point by point, without
-// loading it fully in memory. The points are printed to the screen,
-// but this can be replaced with any other processing.
- 
+// loading it fully in memory. The points are printed to the screen.
+// This can be used as a template for other readers.
 class PDAL_DLL StreamProcessor: public Writer, public Streamable {
 
 public:
@@ -298,7 +297,7 @@ std::int64_t las_file_size(std::string const& las_file) {
   return qi.m_pointCount;
 }
 
-// TODO(oalexan1): call this in write_las()
+// Read the LAS file and print it to the screen
 void read_las() {
 
   // Set the input point cloud    

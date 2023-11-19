@@ -58,8 +58,8 @@ std::string getName() const { return "chip maker"; }
 
   // Go through a LAS file and write to disk spatially organized tiles.
   // Also converts along the way from projected coordinates (if applicable)
-  // to ECEF.
-  // tile_len is big, but chip_size is small and a factor of tile_size
+  // to ECEF. 
+  // tile_len is big, but chip_size is small.
   ChipMaker(std::int64_t tile_len, std::int64_t chip_size,
             bool has_georef, vw::cartography::GeoReference const& georef,
             vw::GdalWriteOptions * opt, 
@@ -68,13 +68,7 @@ std::string getName() const { return "chip maker"; }
     m_tile_len(tile_len), m_chip_size(chip_size), 
     m_has_georef(has_georef), m_georef(georef), m_opt(opt),
     m_out_prefix(out_prefix), m_out_files(out_files),
-    m_point_count(0), m_tile_count(0), m_buf(PointBuffer()) {
-      
-      // Sanity checks
-      if ((m_tile_len % m_chip_size != 0) || (m_tile_len <= 0) || (m_chip_size <= 0))
-        vw_throw(ArgumentErr() << "ChipMaker: The tile size must be a positive "
-                               << "multiple of the chip size.\n");
-    }
+    m_tile_count(0), m_buf(PointBuffer()) {}
 
 ~ChipMaker() {} 
 
@@ -82,19 +76,14 @@ private:
 
   std::int64_t m_tile_len;
   std::int64_t m_chip_size;
-  bool        m_has_georef;
+  bool m_has_georef;
   vw::cartography::GeoReference m_georef;
   vw::GdalWriteOptions * m_opt;
   std::string m_out_prefix; // output files will start with this prefix 
   std::vector<std::string> & m_out_files; // alias, used for output
-  
-  std::int64_t m_point_count; // this will get reset when a tile is full
   std::int64_t m_tile_count;
   PointBuffer m_buf;
   
-  virtual void addArgs(ProgramArgs& args) {}
-  virtual void initialize() {}
-
   // Call this when the buffer is full or when we are done reading.
   // Organize the points in small chips, with points in each chip
   // being spatially close together. Then write each chip to disk.
@@ -102,10 +91,10 @@ private:
     
     if (m_buf.empty()) 
       return;
-    
-    vw::ImageView<Vector3> Img;
 
+    // Make the chips
     // TODO(oalexan1): Move Chipper to vw namespace. It is not a pdal class.
+    vw::ImageView<Vector3> Img;
     pdal::filters::Chipper(m_buf, m_chip_size, m_has_georef, m_georef,
             m_tile_len, m_tile_len, Img);
 
@@ -149,10 +138,12 @@ private:
     processBuf();
   }
 
+  // Part of the API, not used here.
   virtual void writeView(const PointViewPtr view) {
     throw pdal_error("The writeView() function must not be called in streaming mode.");
   }
-
+  virtual void addArgs(ProgramArgs& args) {}
+  virtual void initialize() {}
   ChipMaker& operator=(const ChipMaker&) = delete;
   ChipMaker(const ChipMaker&) = delete;
   ChipMaker(const ChipMaker&&) = delete;
