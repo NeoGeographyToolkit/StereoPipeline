@@ -368,10 +368,9 @@ namespace asp {
   /// created block by block, when it needs to be written to disk. It is
   /// important that the writer invoking this image be single-threaded,
   /// as we read from the las file sequentially.
-  template <class ImageT>
-  class LasOrCsvToTif: public ImageViewBase<LasOrCsvToTif<ImageT>> {
+  class LasOrCsvToTif: public ImageViewBase<LasOrCsvToTif> {
 
-    typedef typename ImageT::pixel_type PixelT;
+    typedef vw::Vector3 PixelT;
 
     asp::BaseReader * m_reader;
     int m_rows, m_cols; // These are pixel sizes, not tile counts.
@@ -477,12 +476,16 @@ void las_or_csv_to_tif(std::string const& in_file,
   else if (asp::is_pcd(in_file)) // PCD
     reader_ptr = boost::shared_ptr<asp::PcdReader>(new asp::PcdReader(in_file));
   else if (asp::is_las(in_file)) // LAS
-   reader_ptr = boost::shared_ptr<asp::BaseReader>(NULL);
+   reader_ptr = boost::shared_ptr<asp::BaseReader>(NULL); // must not be used
   else
     vw_throw( ArgumentErr() << "Unknown file type: " << in_file << "\n");
 
   // Compute the dimensions of the image we are about to create
-  std::int64_t num_points = reader_ptr->m_num_points; 
+  std::int64_t num_points = 0;
+  if (asp::is_las(in_file)) 
+    num_points = asp::las_file_size(in_file);
+  else
+    num_points = reader_ptr->m_num_points; 
   int num_row_tiles = std::max(1, (int)ceil(double(num_rows)/TILE_LEN));
   int image_rows = TILE_LEN * num_row_tiles;
 
@@ -499,15 +502,17 @@ void las_or_csv_to_tif(std::string const& in_file,
     pdal::LasReader pdal_reader;
     pdal_reader.setOptions(read_options);
 
+    vw::cartography::GeoReference las_georef;
+    bool has_georef = asp::georef_from_las(in_file, las_georef);
+    
     // buf_size is the number of points that will be
     // processed and kept in this table at the same time. 
     // A somewhat bigger value may result in some efficiencies.
     int buf_size = 100;
     pdal::FixedPointTable t(buf_size);
     pdal_reader.prepare(t);
-    
-    pdal::ChipMaker writer(TILE_LEN, block_size, reader_ptr->m_has_georef, 
-                           reader_ptr->m_georef, opt, out_prefix, out_files);
+    pdal::ChipMaker writer(TILE_LEN, block_size, has_georef, las_georef, 
+                           opt, out_prefix, out_files);
     pdal::Options write_options;
     writer.setOptions(write_options);
     writer.setInput(pdal_reader);
@@ -517,10 +522,9 @@ void las_or_csv_to_tif(std::string const& in_file,
   } else { // CSV or PCD
           
     // Create the image
-    ImageViewRef<Vector3> Img 
-      = asp::LasOrCsvToTif<ImageView<Vector3>>(reader_ptr.get(),
-                                             image_rows, image_cols, block_size);
-    // Must use a thread only, as we read the input file serially.
+    ImageViewRef<Vector3> Img = asp::LasOrCsvToTif(reader_ptr.get(), image_rows, 
+                                                   image_cols, block_size);
+    // Must use a thread only, as we read the input file serially
     std::string out_file = out_prefix + ".tif"; 
     vw_out() << "Writing temporary file: " << out_file << std::endl;
     vw::cartography::write_gdal_image(out_file, Img, *opt,

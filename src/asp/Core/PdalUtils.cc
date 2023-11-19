@@ -297,7 +297,8 @@ std::int64_t las_file_size(std::string const& las_file) {
   return qi.m_pointCount;
 }
 
-// Read the LAS file and print it to the screen
+// Read a LAS file point-by-point, and print the points to the screen. This is
+// an example that shows how to read LAS files.
 void read_las() {
 
   // Set the input point cloud    
