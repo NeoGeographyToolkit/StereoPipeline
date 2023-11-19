@@ -309,9 +309,9 @@ namespace asp {
                             bool is_geodetic);
 
 
-  // Classes to read points from CSV and LAS files one point at a
-  // time. We basically implement an interface for CSV files
-  // mimicking the existing interface for las files in liblas.
+  // Class to read points from CSV one point at a
+  // time. Now that LAS support is via PDAL, this need
+  // not imitate the old LAS reader in libLAS.
   class BaseReader {
   public:
     std::int64_t m_num_points;

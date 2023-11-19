@@ -709,4 +709,16 @@ void write_transform(Eigen::MatrixXd const& T, std::string const& transFile){
   tf.close();
 }
   
+// Apply a rotation + translation transform to a vector3
+vw::Vector3 apply_transform_to_vec(Eigen::MatrixXd const& transform,
+                                   vw::Vector3 const& p){
+  Eigen::Vector4d P;
+  for (size_t it = 0; it < 3; it++) P[it] = p[it];
+  P[3] = 1;
+  P = transform * P;
+  vw::Vector3 q;
+  for (size_t it = 0; it < 3; it++) q[it] = P[it];
+  return q;
+}
+
 }

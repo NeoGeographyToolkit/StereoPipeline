@@ -233,7 +233,7 @@ void read_cloud(std::string const& file, std::vector<vw::Vector3> & cloud, doubl
 }
 
 // Apply a rotation + transform to a cloud
-void apply_transform_to_cloud( std::vector<vw::Vector3> & cloud, Eigen::MatrixXd const& T){
+void apply_transform_to_cloud(std::vector<vw::Vector3> & cloud, Eigen::MatrixXd const& T) {
   for (size_t pointIter = 0; pointIter < cloud.size(); pointIter++) {
     Eigen::VectorXd v(4);
     v << cloud[pointIter][0], cloud[pointIter][1], cloud[pointIter][2], 1.0;

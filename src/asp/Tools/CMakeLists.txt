@@ -120,7 +120,7 @@ target_link_libraries(point2dem AspCore)
 install(TARGETS point2dem DESTINATION bin)
 
 add_executable(point2las point2las.cc)
-target_link_libraries(point2las AspCore ${LIBLAS_LIBRARIES}) 
+target_link_libraries(point2las AspCore)
 install(TARGETS point2las DESTINATION bin)
 
 add_executable(point2mesh point2mesh.cc)

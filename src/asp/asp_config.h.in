@@ -234,9 +234,6 @@
 /* Define to 1 if the LASZIP package is available. */
 #cmakedefine ASP_HAVE_PKG_LASZIP 1
 
-/* Define to 1 if the LIBLAS package is available. */
-#cmakedefine ASP_HAVE_PKG_LIBLAS 1
-
 /* Define to 1 if the LIBNABO package is available. */
 #cmakedefine ASP_HAVE_PKG_LIBNABO 1
 

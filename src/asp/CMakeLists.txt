@@ -204,8 +204,6 @@ find_external_library(CERES ${ASP_DEPS_DIR} "ceres" "ceres" REQUIRED)
 find_external_library(LIBNABO ${ASP_DEPS_DIR} "nabo" "nabo" REQUIRED)
 find_external_library(LIBPOINTMATCHER ${ASP_DEPS_DIR} "" "pointmatcher" REQUIRED)
 find_external_library(FASTGLOBALREGISTRATION ${ASP_DEPS_DIR} "FastGlobalRegistration" "FastGlobalRegistrationLib" REQUIRED)
-find_external_library(LIBLAS ${ASP_DEPS_DIR} "" "las" REQUIRED)
-find_external_library(LASZIP ${ASP_DEPS_DIR} "laszip" "laszip" REQUIRED)
 find_external_library(GFLAGS ${ASP_DEPS_DIR} "gflags" "gflags" REQUIRED)
 find_external_library(GLOG ${ASP_DEPS_DIR} "glog" "glog" REQUIRED)
 find_external_library(ARMADILLO ${ASP_DEPS_DIR} "" "armadillo" REQUIRED)
@@ -307,9 +305,7 @@ endforeach()
 get_all_source_files( "Core"       ASP_CORE_SRC_FILES)
 get_all_source_files( "Core/tests" ASP_CORE_TEST_FILES)
 set(ASP_CORE_LIB_DEPENDENCIES ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES}
-    ${LIBLAS_LIBRARIES} ${LASZIP_LIBRARIES} # Wipe these!
-    ${PDAL_LIBRARIES} 
-    ${OpenMP_CXX_LIBRARIES} ${CMAKE_DL_LIBS})
+    ${PDAL_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${CMAKE_DL_LIBS})
 
 # ASP_SPICEIO
 get_all_source_files( "SpiceIO"       ASP_SPICEIO_SRC_FILES)

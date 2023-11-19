@@ -25,6 +25,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/OutlierProcessing.h>
+#include <asp/Core/PointCloudProcessing.h>
 
 #include <vw/Image/InpaintView.h>
 #include <vw/Core/Stopwatch.h>

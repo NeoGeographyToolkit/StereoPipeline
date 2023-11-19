@@ -8,7 +8,7 @@ New tools:
 New camera support:
   * Added the ability to use the CSM camera model with ASTER images
     (:numref:`aster_csm`).
-        
+
 jitter_solve (:numref:`jitter_solve`):
   * Added the option ``--weight-image``, to weigh observations based on
     geographic location of triangulated points (:numref:`limit_ip`).
@@ -81,6 +81,8 @@ image_calc (:numref:`image_calc`):
   * Added the ability to create a random image.
      
 misc:
+  * Using PDAL 2.4.2 instead of libLAS for LAS input/output (in ``pointlas``,
+    ``point2dem``, and ``pc_align``). libLAS is no longer developed.
   * Fixed a couple of runtime errors when using conda packages on OSX.
   * Eliminated a procedure for cleaning the name of an input path that was
     replacing two slashes with one slash, resulting in inconsistencies.

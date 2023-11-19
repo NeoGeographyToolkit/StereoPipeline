@@ -59,13 +59,6 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/EigenUtils.h>
 
-// Turn off warnings about things we can't control
-// TODO(oalexan1): Wipe this!
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <liblas/liblas.hpp>
-#pragma GCC diagnostic pop
-
 #include <limits>
 #include <cstring>
 
@@ -178,7 +171,7 @@ struct TransformPC: public vw::UnaryReturnSameType {
     if (xyz == vw::Vector3())
       return P; // invalid point
 
-    vw::Vector3 Q = apply_transform(m_T, xyz);
+    vw::Vector3 Q = apply_transform_to_vec(m_T, xyz);
     subvector(P, 0, 3) = Q;
 
     return P;

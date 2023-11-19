@@ -91,6 +91,9 @@ void read_transform(Eigen::MatrixXd & T, std::string const& transFile);
 /// Write a 4x4 rotation + translation + scale transform to disk.
 void write_transform(Eigen::MatrixXd const& T, std::string const& transFile);
 
+// Apply a rotation + translation transform to a Vector3
+vw::Vector3 apply_transform_to_vec(Eigen::MatrixXd const& T, vw::Vector3 const& p);
+
 } //end namespace asp
 
 #endif//__CORE_EIGEN_UTILS_H__

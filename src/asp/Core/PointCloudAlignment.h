@@ -23,6 +23,12 @@
 #ifndef __ASP_CORE_POINT_CLOUD_ALIGNMENT_H__
 #define __ASP_CORE_POINT_CLOUD_ALIGNMENT_H__
 
+#include <asp/Core/EigenUtils.h> // defines DoubleMatrix
+#include <pointmatcher/PointMatcher.h> // defines PointMatcher
+
+#include <vw/Math/Vector.h>
+#include <vw/Math/BBox.h>
+
 #include <string>
 #include <vector>
 
@@ -33,8 +39,23 @@ namespace vw {
     class GeoReference;
   }
 }
+
 namespace asp {
-  
+ 
+std::int64_t load_las(std::string const& file_name,
+                      std::int64_t num_points_to_load,
+                      vw::BBox2 const& lonlat_box,
+                      vw::cartography::GeoReference const& geo,
+                      bool verbose,
+                      bool calc_shift,
+                      // Outputs
+                      vw::Vector3 & shift,
+                      DoubleMatrix & data);
+
+// Apply a given transform to a LAS file and save it.
+void apply_transform_to_las(std::string const& input_file,
+                            std::string const& output_file,
+                            PointMatcher<asp::RealT>::Matrix const& T);
 
 } // End namespace asp
 

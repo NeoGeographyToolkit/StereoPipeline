@@ -35,13 +35,6 @@
 #include <io/LasWriter.hpp>
 #include <pdal/SpatialReference.hpp>
 
-// Turn off warnings about things we can't control
-// TODO(oalexan1): Wipe this! Also all mentions of las!
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <liblas/liblas.hpp>
-#pragma GCC diagnostic pop
-
 using namespace vw;
 using namespace vw::cartography;
 using namespace pdal::filters;
@@ -153,29 +146,6 @@ private:
 } // end namespace pdal
 
 namespace asp {
-
-  // TODO(oalexan1): Wipe this class or make it a wrapper
-  class LasReader: public BaseReader {
-    liblas::Reader& m_reader;
-
-  public:
-
-    LasReader(liblas::Reader & reader, std::string const& filename): 
-      m_reader(reader) {
-      m_num_points = asp::las_file_size(filename);
-      m_has_georef = asp::georef_from_las(filename, m_georef);
-    }
-
-    virtual bool ReadNextPoint(){
-      return m_reader.ReadNextPoint();
-    }
-
-    virtual Vector3 GetPoint(){
-      liblas::Point const& p = m_reader.GetPoint();
-      return Vector3(p.GetX(), p.GetY(), p.GetZ());
-    }
-
-  };
 
   class CsvReader: public BaseReader {
     std::string  m_csv_file;
@@ -500,27 +470,15 @@ void las_or_csv_to_tif(std::string const& in_file,
   opt->raster_tile_size = tile_size;
 
   boost::shared_ptr<asp::BaseReader> reader_ptr;
-  std::ifstream ifs;
-  liblas::ReaderFactory las_reader_factory;
-  boost::shared_ptr<liblas::Reader> laslib_reader_ptr;
 
-  if (asp::is_csv(in_file)) { // CSV
-
+  if (asp::is_csv(in_file)) // CSV
     reader_ptr = boost::shared_ptr<asp::CsvReader>
       (new asp::CsvReader(in_file, csv_conv, csv_georef));
-
-  } else if (asp::is_pcd(in_file)) { // PCD
-
+  else if (asp::is_pcd(in_file)) // PCD
     reader_ptr = boost::shared_ptr<asp::PcdReader>(new asp::PcdReader(in_file));
-
-  } else if (asp::is_las(in_file)) { // LAS
-
-    ifs.open(in_file.c_str(), std::ios::in | std::ios::binary);
-    laslib_reader_ptr.reset(new liblas::Reader(las_reader_factory.CreateWithStream(ifs)));
-    reader_ptr = boost::shared_ptr<asp::LasReader>
-                  (new asp::LasReader(*laslib_reader_ptr, in_file));
-
-  }else
+  else if (asp::is_las(in_file)) // LAS
+   reader_ptr = boost::shared_ptr<asp::BaseReader>(NULL);
+  else
     vw_throw( ArgumentErr() << "Unknown file type: " << in_file << "\n");
 
   // Compute the dimensions of the image we are about to create
