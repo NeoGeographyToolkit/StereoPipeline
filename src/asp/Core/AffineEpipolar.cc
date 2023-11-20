@@ -316,8 +316,15 @@ namespace asp {
       ransac(func, error_metric,
              num_ransac_iterations, inlier_threshold,
              min_num_output_inliers, reduce_min_num_output_inliers_if_no_fit);
-    
-    T = ransac(ip1, ip2);
+    try {
+      T = ransac(ip1, ip2);
+    } catch (std::exception const& e) {
+      vw_throw(ArgumentErr() << "Failed compute the epipolar rectification.\n"
+               << "Check if your left and right images are similar enough. "
+               << "Consider deleting the output directory and restarting with "
+               << "a larger --ip-per-tile value.\n"
+               << "RANSAC error: " << e.what() << "\n");
+    }
     inlier_indices = ransac.inlier_indices(T, ip1, ip2);
 
     vw_out() << "Found " << inlier_indices.size() << " / " << ip1.size() << " inliers.\n";

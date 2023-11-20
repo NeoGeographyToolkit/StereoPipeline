@@ -164,7 +164,16 @@ Vector2i homography_rectification(bool adjust_left_image_size,
             math::InterestPointErrorMetric(),
             stereo_settings().ip_num_ransac_iterations,
             inlier_th, min_inliers);
-  Matrix<double> H = ransac(right_copy, left_copy);
+  Matrix<double> H;
+  try {   
+    H = ransac(right_copy, left_copy);
+  } catch (std::exception const& e) {
+    vw_throw(ArgumentErr() << "Failed to find a homography matrix. " 
+             << "Check if your left and right images are similar enough. "
+             << "Consider deleting the output directory and restarting with "
+             << "a larger --ip-per-tile value.\n"
+             << "RANSAC error: " << e.what() << "\n");
+  }
   std::vector<size_t> indices = ransac.inlier_indices(H, right_copy, left_copy);
   check_homography_matrix(H, left_copy, right_copy, indices);
 
