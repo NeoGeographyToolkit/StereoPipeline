@@ -1601,14 +1601,14 @@ Misregistration errors between the images can result in craters or
 other features being duplicated in the SfS terrain. Then, registration
 must be redone as discussed in the earlier sections.
 
-If in some low-light locations the SfS DEM still has seams, one may
-consider invoking ``sfs`` with ``--robust-threshold 0.004``, removing
-some of the offending images, or with a larger value for
-``--shadow-threshold`` (such as 0.007 or 0.015) for those images, or a
-larger value for ``--blending-dist``. A per-image shadow threshold
-which overrides the globally set value can be specified via
-``--custom-shadow-threshold-list``. Sometimes this improves the
-solution in some locations while introducing artifacts in other.
+If in some low-light locations the SfS DEM still has seams, removing some of the
+offending images, or using larger value for ``--shadow-threshold`` (such as
+0.007 or 0.015) for those images, or a larger value for ``--blending-dist``. A
+per-image shadow threshold which overrides the globally set value can be
+specified via ``--custom-shadow-threshold-list``. Sometimes this improves the
+solution in some locations while introducing artifacts in other. One can also
+try invoking ``sfs`` with ``--robust-threshold`` (try values of 0.1 and 0.005,
+perhaps).
 
 If the SfS DEM has localized defects, those can be fixed in a small region and
 then blended in. For example, a clip around the defect, perhaps of dimensions
