@@ -213,12 +213,11 @@ can be downloaded with ``git clone`` from:
 
   https://github.com/NeoGeographyToolkit/geoid-feedstock.git
   https://github.com/NeoGeographyToolkit/htdp-feedstock.git
-  https://github.com/NeoGeographyToolkit/laszip-feedstock.git
   https://github.com/NeoGeographyToolkit/fgr-feedstock.git
   https://github.com/NeoGeographyToolkit/libnabo-feedstock.git
   https://github.com/NeoGeographyToolkit/libpointmatcher-feedstock.git
   https://github.com/NeoGeographyToolkit/gdal-feedstock.git
-  https://github.com/NeoGeographyToolkit/liblas-feedstock.git
+  https://github.com/NeoGeographyToolkit/pdal-feedstock.git
   https://github.com/NeoGeographyToolkit/s2p-feedstock.git
   https://github.com/NeoGeographyToolkit/libelas-feedstock.git
   https://github.com/NeoGeographyToolkit/multiview-feedstock
@@ -340,9 +339,9 @@ Order of building the packages
 It is suggested to build the above packages in the order listed
 earlier, as some of them depend on others.
 
-Note that ``libpointmatcher`` depends on ``libnabo``, while ``liblas`` depends
-on ``laszip`` and ``gdal``, ``visionworkbench`` depends on ``gdal``, and
-``multiview`` depends on ``tbb`` (the latter for OSX only). 
+Note that ``libpointmatcher`` depends on ``libnabo``, while ``pdal`` depends on
+``gdal``, ``visionworkbench`` depends on ``gdal``, and ``multiview`` depends on
+``tbb`` (the latter for OSX only). 
 
 The ``stereopipeline`` package depends on all of these so it should be
 built the last.

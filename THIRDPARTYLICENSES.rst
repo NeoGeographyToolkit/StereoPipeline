@@ -28,8 +28,7 @@ ISIS                     public domain  https://github.com/USGS-Astrogeology/ISI
 JAMA                     public domain  https://math.nist.gov/tnt/download.html
 JHEAD                    public domain  http://www.sentex.net/~mwandel/jhead/
 LAPACK                   BSD-3-clause   https://github.com/Reference-LAPACK/lapack/blob/master/LICENSE
-LASZIP                   LGPL-2.1       https://github.com/LASzip/LASzip/blob/master/COPYING
-LIBLAS                   BSD-3-clause   https://github.com/libLAS/libLAS/blob/master/LICENSE.txt
+PDAL                     BSD-3-clause   https://github.com/PDAL/PDAL/blob/master/LICENSE.txt
 LibGeoTIFF               combination    https://github.com/OSGeo/libgeotiff/blob/master/libgeotiff/LICENSE
 LibPNG                   custom         http://www.libpng.org/pub/png/src/libpng-LICENSE.txt
 libnabo                  BSD-3-clause   https://github.com/ethz-asl/libnabo/blob/master/README.md
