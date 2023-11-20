@@ -55,7 +55,7 @@ std::string getName() const { return "chip maker"; }
   // tile_len is big, but chip_size is small.
   ChipMaker(std::int64_t tile_len, std::int64_t chip_size,
             bool has_georef, vw::cartography::GeoReference const& georef,
-            vw::GdalWriteOptions * opt, 
+            vw::GdalWriteOptions & opt, // will change 
             std::string const& out_prefix, 
             std::vector<std::string> & out_files):
     m_tile_len(tile_len), m_chip_size(chip_size), 
@@ -71,7 +71,7 @@ private:
   std::int64_t m_chip_size;
   bool m_has_georef;
   vw::cartography::GeoReference m_georef;
-  vw::GdalWriteOptions * m_opt;
+  vw::GdalWriteOptions & m_opt;
   std::string m_out_prefix; // output files will start with this prefix 
   std::vector<std::string> & m_out_files; // alias, used for output
   std::int64_t m_tile_count;
@@ -102,7 +102,7 @@ private:
     double nodata = -std::numeric_limits<double>::max();
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
     vw::cartography::block_write_gdal_image(out_file, Img, m_has_georef, m_georef, 
-                                            has_nodata, nodata, *m_opt, tpc);
+                                            has_nodata, nodata, m_opt, tpc);
     
     // Wipe the buf when done and increment the tile count
     m_buf.clear();
@@ -171,9 +171,8 @@ namespace asp {
       m_num_points  = asp::csv_file_size(m_csv_file);
 
       m_ifs = new std::ifstream (m_csv_file.c_str());
-      if ( !*m_ifs ) {
-        vw_throw( vw::IOErr() << "Unable to open file \"" << m_csv_file << "\"" );
-      }
+      if (!*m_ifs)
+        vw_throw(vw::IOErr() << "Unable to open file: " << m_csv_file << "\n");
 
       VW_ASSERT(m_csv_conv.csv_format_str != "",
                 ArgumentErr() << "CsvReader: The CSV format was not specified.\n");
@@ -188,10 +187,12 @@ namespace asp {
       // is reached.
       while (1) {
         m_has_valid_point = static_cast<bool>(getline(*m_ifs, line, '\n'));
-        if (!m_has_valid_point) return m_has_valid_point; // reached end of file
+        if (!m_has_valid_point) 
+          return m_has_valid_point; // reached end of file
 
         vals = m_csv_conv.parse_csv_line(m_is_first_line, m_has_valid_point, line);
-        if (m_has_valid_point) break;
+        if (m_has_valid_point) 
+          break;
       }
 
       // Will return projected point and height or xyz. We really
@@ -199,8 +200,8 @@ namespace asp {
       // easier time grouping spatially points close together, as it
       // operates the first two coordinates.
       bool return_point_height = true;
-      m_curr_point = m_csv_conv.csv_to_cartesian_or_point_height
-        (vals, m_georef, return_point_height);
+      m_curr_point 
+        = m_csv_conv.csv_to_cartesian_or_point_height(vals, m_georef, return_point_height);
 
       return m_has_valid_point;
     }
@@ -216,6 +217,7 @@ namespace asp {
 
   }; // End class CsvReader
 
+  // TODO(oalexan1): Consider using PDAL for PCD files too.
   void PcdReader::read_header() {
     // Open the file as text
     std::ifstream handle;
@@ -364,83 +366,86 @@ namespace asp {
     return reader.m_num_points;
   }
   
-  /// Create a point cloud image from a las file. The image will be
-  /// created block by block, when it needs to be written to disk. It is
-  /// important that the writer invoking this image be single-threaded,
-  /// as we read from the las file sequentially.
-  class LasOrCsvToTif: public ImageViewBase<LasOrCsvToTif> {
+/// Create a Tif file from a point cloud. The file will be created block by
+/// block, when it needs to be written to disk. In each block the points will
+/// be organized into chips by location. It is important that the writer
+/// invoking this image be single-threaded, as we read from the cloud file
+/// sequentially. The LAS file is handled separately, as PDAL does not have a
+/// function for getting a point. The point cloud is in CSV or PCL format,
+/// with PCL not tested yet.
+class CloudToTif: public ImageViewBase<CloudToTif> {
 
-    typedef vw::Vector3 PixelT;
+  typedef vw::Vector3 PixelT;
 
-    asp::BaseReader * m_reader;
-    int m_rows, m_cols; // These are pixel sizes, not tile counts.
-    int m_block_size;
+  asp::BaseReader * m_reader;
+  int m_rows, m_cols; // These are pixel sizes, not tile counts.
+  int m_block_size;
 
-  public:
+public:
 
-    typedef PixelT pixel_type;
-    typedef PixelT result_type;
-    typedef ProceduralPixelAccessor<LasOrCsvToTif> pixel_accessor;
+  typedef PixelT pixel_type;
+  typedef PixelT result_type;
+  typedef ProceduralPixelAccessor<CloudToTif> pixel_accessor;
 
-    LasOrCsvToTif(asp::BaseReader * reader, int image_rows, 
-                  int image_cols, int block_size):
-      m_reader(reader), m_rows(image_rows), m_cols(image_cols),
-      m_block_size(block_size) {}
+  CloudToTif(asp::BaseReader * reader, int image_rows, 
+                int image_cols, int block_size):
+    m_reader(reader), m_rows(image_rows), m_cols(image_cols),
+    m_block_size(block_size) {}
 
-    inline int32 cols  () const { return m_cols; }
-    inline int32 rows  () const { return m_rows; }
-    inline int32 planes() const { return 1; }
+  inline int32 cols  () const { return m_cols; }
+  inline int32 rows  () const { return m_rows; }
+  inline int32 planes() const { return 1; }
 
-    inline pixel_accessor origin() const { return pixel_accessor(*this); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this); }
 
-    inline result_type operator()(size_t i, size_t j, size_t p=0) const {
-      vw_throw(NoImplErr() 
-                << "LasOrCsvToTif::operator(...) has not been implemented.\n");
-      return result_type();
+  inline result_type operator()(size_t i, size_t j, size_t p=0) const {
+    vw_throw(NoImplErr() 
+              << "CloudToTif::operator(...) has not been implemented.\n");
+    return result_type();
+  }
+
+  typedef CropView<ImageView<PixelT>> prerasterize_type;
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const{
+
+    // Read a chunk of the las file, and store it in the current tile.
+
+    std::int64_t num_cols = bbox.width();
+    std::int64_t num_rows = bbox.height();
+
+    VW_ASSERT((num_rows % m_block_size == 0) && (num_cols % m_block_size == 0),
+              ArgumentErr() << "CloudToTif: Expecting the number of rows "
+                            << "to be a multiple of the block size.\n");
+
+    // Read the specified number of points from the file
+    std::int64_t max_num_pts_to_read = num_cols * num_rows;
+    std::int64_t count = 0;
+    PointBuffer in;
+    while (m_reader->ReadNextPoint()) {
+      in.push_back(m_reader->GetPoint());
+      count++;
+      if (count >= max_num_pts_to_read)
+        break;
     }
 
-    typedef CropView<ImageView<PixelT>> prerasterize_type;
-    inline prerasterize_type prerasterize(BBox2i const& bbox) const{
+    // Take the points just read, and put them in groups by spatial
+    // location, so that later point2dem does not need to read every
+    // input point when writing a given tile, but only certain groups.
+    ImageView<Vector3> Img;
+    Chipper(in, m_block_size, m_reader->m_has_georef, m_reader->m_georef,
+            num_cols, num_rows, Img);
 
-      // Read a chunk of the las file, and store it in the current tile.
+    VW_ASSERT(num_cols == Img.cols() && num_rows == Img.rows(),
+              ArgumentErr() << "CloudToTif: Size mis-match.\n");
 
-      std::int64_t num_cols = bbox.width();
-      std::int64_t num_rows = bbox.height();
+    return crop(Img, -bbox.min().x(), -bbox.min().y(), cols(), rows());
+  }
 
-      VW_ASSERT((num_rows % m_block_size == 0) && (num_cols % m_block_size == 0),
-                ArgumentErr() << "LasOrCsvToTif: Expecting the number of rows "
-                              << "to be a multiple of the block size.\n");
+  template <class DestT>
+  inline void rasterize(DestT const& dest, BBox2i const& bbox) const {
+    vw::rasterize( prerasterize(bbox), dest, bbox );
+  }
 
-      // Read the specified number of points from the file
-      std::int64_t max_num_pts_to_read = num_cols * num_rows;
-      std::int64_t count = 0;
-      PointBuffer in;
-      while (m_reader->ReadNextPoint()) {
-        in.push_back(m_reader->GetPoint());
-        count++;
-        if (count >= max_num_pts_to_read)
-          break;
-      }
-
-      // Take the points just read, and put them in groups by spatial
-      // location, so that later point2dem does not need to read every
-      // input point when writing a given tile, but only certain groups.
-      ImageView<Vector3> Img;
-      Chipper(in, m_block_size, m_reader->m_has_georef, m_reader->m_georef,
-              num_cols, num_rows, Img);
-
-      VW_ASSERT(num_cols == Img.cols() && num_rows == Img.rows(),
-                ArgumentErr() << "LasOrCsvToTif: Size mis-match.\n");
-
-      return crop(Img, -bbox.min().x(), -bbox.min().y(), cols(), rows());
-    }
-
-    template <class DestT>
-    inline void rasterize(DestT const& dest, BBox2i const& bbox) const {
-      vw::rasterize( prerasterize(bbox), dest, bbox );
-    }
-
-  }; // End class LasOrCsvToTif
+}; // End class CloudToTif
 
 // We will fetch a chunk of the las file of area TILE_LEN x
 // TILE_LEN, split it into bins of spatially close points, and write
@@ -452,7 +457,7 @@ namespace asp {
 void las_or_csv_to_tif(std::string const& in_file,
                        std::string const& out_prefix,
                        int num_rows, int block_size,
-                       vw::GdalWriteOptions * opt,
+                       vw::GdalWriteOptions & opt, // will change
                        vw::cartography::GeoReference const& csv_georef,
                        asp::CsvConv const& csv_conv,
                        std::vector<std::string> & out_files) {
@@ -465,8 +470,8 @@ void las_or_csv_to_tif(std::string const& in_file,
   Vector2i tile_size(TILE_LEN, TILE_LEN);
 
   // Temporarily change the raster tile size
-  Vector2 original_tile_size = opt->raster_tile_size;
-  opt->raster_tile_size = tile_size;
+  Vector2 original_tile_size = opt.raster_tile_size;
+  opt.raster_tile_size = tile_size;
 
   boost::shared_ptr<asp::BaseReader> reader_ptr;
 
@@ -476,11 +481,12 @@ void las_or_csv_to_tif(std::string const& in_file,
   else if (asp::is_pcd(in_file)) // PCD
     reader_ptr = boost::shared_ptr<asp::PcdReader>(new asp::PcdReader(in_file));
   else if (asp::is_las(in_file)) // LAS
-   reader_ptr = boost::shared_ptr<asp::BaseReader>(NULL); // must not be used
+    reader_ptr = boost::shared_ptr<asp::BaseReader>(NULL); // must not be used
   else
     vw_throw( ArgumentErr() << "Unknown file type: " << in_file << "\n");
 
-  // Compute the dimensions of the image we are about to create
+  // Compute the dimensions of the image we are about to create. The LAS
+  // files use PDAL, which require separate handling.
   std::int64_t num_points = 0;
   if (asp::is_las(in_file)) 
     num_points = asp::las_file_size(in_file);
@@ -522,20 +528,20 @@ void las_or_csv_to_tif(std::string const& in_file,
   } else { // CSV or PCD
           
     // Create the image
-    ImageViewRef<Vector3> Img = asp::LasOrCsvToTif(reader_ptr.get(), image_rows, 
-                                                   image_cols, block_size);
+    ImageViewRef<Vector3> Img = asp::CloudToTif(reader_ptr.get(), image_rows, 
+                                                image_cols, block_size);
     // Must use a thread only, as we read the input file serially
     std::string out_file = out_prefix + ".tif"; 
     vw_out() << "Writing temporary file: " << out_file << std::endl;
-    vw::cartography::write_gdal_image(out_file, Img, *opt,
+    vw::cartography::write_gdal_image(out_file, Img, opt,
                                       TerminalProgressCallback("asp", "\t--> "));
     out_files.push_back(out_file);
   }
   
   // Restore the original tile size
-  opt->raster_tile_size = original_tile_size;
-  
-  //exit(0);
+  opt.raster_tile_size = original_tile_size;
+
+  return;
 }
 
 /// Builds a GeoReference from the first cloud having a georeference in the list

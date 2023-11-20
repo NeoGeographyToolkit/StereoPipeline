@@ -252,10 +252,10 @@ void las_or_csv_or_pcd_to_tifs(DemOptions& opt, vw::cartography::Datum const& da
     std::vector<std::string> out_files;
     if (asp::is_las(in_file))
       asp::las_or_csv_to_tif(in_file, file_prefix, num_rows, block_size, 
-                             &opt, pc_georef, csv_conv, out_files);
+                             opt, pc_georef, csv_conv, out_files);
     else // CSV
       asp::las_or_csv_to_tif(in_file, file_prefix, num_rows, block_size, 
-                             &opt, csv_georef, csv_conv, out_files);
+                             opt, csv_georef, csv_conv, out_files);
 
     // Append out_files to all_out_files and to tmp_tifs by inserting
     // Note that all_out_files will have both PC.tif files and outputs

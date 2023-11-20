@@ -72,7 +72,6 @@ namespace asp {
   libpointmatcher object types.
 */
 
-
 typedef double RealT; // We will use doubles in libpointmatcher.
   
 // This stuff is from the libpointmatcher library
@@ -141,7 +140,6 @@ double calc_stddev(std::vector<double> const& errs, double mean);
 PointMatcher<RealT>::Matrix apply_shift(PointMatcher<RealT>::Matrix const& T,
                                         vw::Vector3 const& shift);
 
-
 /// Calculate translation vector between the centers two point clouds
 void calc_translation_vec(DP const& source, DP const& trans_source,
                           vw::Vector3 & shift, // from planet center to current origin
@@ -178,7 +176,6 @@ struct TransformPC: public vw::UnaryReturnSameType {
   }
 };
 
-
 /// Apply a given transform to the point cloud in input file, and save it.
 /// - Note: We transform the entire point cloud, not just the resampled
 ///         version used in alignment.
@@ -210,7 +207,7 @@ void save_trans_point_cloud_n(vw::GdalWriteOptions const& opt,
   bool has_nodata = false;
   double nodata = -std::numeric_limits<float>::max(); // smallest float
 
-  vw::ImageViewRef< vw::Vector<double, n> > point_cloud = read_asp_point_cloud<n>(input_file);
+  vw::ImageViewRef<vw::Vector<double, n>> point_cloud = read_asp_point_cloud<n>(input_file);
   vw::cartography::block_write_gdal_image(output_file,
                               per_pixel_filter(point_cloud, TransformPC(T)),
                               has_georef, curr_geo,
@@ -218,26 +215,21 @@ void save_trans_point_cloud_n(vw::GdalWriteOptions const& opt,
                               opt, vw::TerminalProgressCallback("asp", "\t--> "));
 }
 
-
-//=======================================================================================
-// Stuff pulled up from point_to_dem_dist in the Tools repository.
-
-
 /// A type for interpolation from a masked DEM object.
-typedef vw::InterpolationView< vw::EdgeExtensionView< vw::ImageViewRef< vw::PixelMask<float> >,
-                                                      vw::ConstantEdgeExtension>,
-                               vw::BilinearInterpolation> InterpolationReadyDem;
+typedef vw::InterpolationView<vw::EdgeExtensionView<vw::ImageViewRef<vw::PixelMask<float>>,
+                              vw::ConstantEdgeExtension>, vw::BilinearInterpolation>
+                              InterpolationReadyDem;
 
 /// Get ready to interpolate points on a DEM existing on disk.
-InterpolationReadyDem load_interpolation_ready_dem(std::string                  const& dem_path,
-                                                   vw::cartography::GeoReference     & georef);
+InterpolationReadyDem load_interpolation_ready_dem(std::string const& dem_path,
+                                                   vw::cartography::GeoReference & georef);
 
 /// Interpolates the DEM height at the input coordinate.
 /// - Returns false if the coordinate falls outside the valid DEM area.
-bool interp_dem_height(vw::ImageViewRef< vw::PixelMask<float> > const& dem,
-                       vw::cartography::GeoReference const & georef,
-                       vw::Vector3                   const & lonlat,
-                       double                              & dem_height);
+bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float>> const& dem,
+                       vw::cartography::GeoReference          const& georef,
+                       vw::Vector3                            const& lonlat,
+                       double                                      & dem_height);
 
 }
 

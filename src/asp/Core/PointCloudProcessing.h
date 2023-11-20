@@ -41,18 +41,16 @@ namespace asp {
   bool georef_from_pc_files(std::vector<std::string> const& files,
 			    vw::cartography::GeoReference & georef);
 
-
   /// Fetch a chunk of the las file of area TILE_LEN x TILE_LEN,
   /// split it into bins of spatially close points, and write
   /// it to disk as a tile in a vector tif image.
   void las_or_csv_to_tif(std::string const& in_file,
                          std::string const& out_prefix,
                          int num_rows, int block_size,
-                         vw::GdalWriteOptions * opt,
+                         vw::GdalWriteOptions & opt, // will change
                          vw::cartography::GeoReference const& csv_georef,
                          asp::CsvConv const& csv_conv,
                          std::vector<std::string> & out_files);
-
   
 } // End namespace asp
 

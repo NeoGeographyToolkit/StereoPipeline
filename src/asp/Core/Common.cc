@@ -67,7 +67,7 @@ using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-bool asp::has_cam_extension( std::string const& input) {
+bool asp::has_cam_extension(std::string const& input) {
   std::string ext = get_extension(input);
   if ( has_pinhole_extension(input) ||
       ext == ".cub" || ext == ".xml" || ext == ".dim" ||
@@ -165,7 +165,11 @@ void readImagesCamsOrLists(std::vector<std::string> const & in,
         asp::read_list(in[i], list);
         for (size_t j = 0; j < list.size(); j++) 
             out.push_back(list[j]);
-
+            
+      } else if (boost::iends_with(in[i], ".adjust")) {
+        vw_throw( ArgumentErr() << "The file " << in[i] << " is an adjustment. "
+                  << "Use the original cameras and the option "
+                  << "--bundle-adjust-prefix.\n");
       } else {
         vw::vw_throw(vw::ArgumentErr() << "Unknown file type passed on input: "
           << in[i] << ".\n");
@@ -194,14 +198,29 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
   std::vector<std::string> inputs2;
   readImagesCamsOrLists(inputs, inputs2);
 
+  // Check that all files exist
+  for (size_t i = 0; i < inputs2.size(); i++) {
+    if (!fs::exists(inputs2[i])) {
+      vw_throw( ArgumentErr() << "Cannot find the file: " << inputs2[i] << ".\n");
+      return;
+    }
+  }
+  
   // Images and cameras may be interleaved. Separate them.
   images.clear();
   cameras.clear();
   for (size_t i = 0; i < inputs2.size(); i++) {
     if (has_image_extension(inputs2[i]))
       images.push_back(inputs2[i]);
-    else
+    else if (has_cam_extension(inputs2[i]))
       cameras.push_back(inputs2[i]);
+    else if (boost::iends_with(inputs2[i], ".adjust"))
+      vw_throw( ArgumentErr() << "The file " << inputs2[i] << " is an adjustment. "
+                << "Use the original cameras and the option "
+                << "--bundle-adjust-prefix.\n");  
+    else 
+      vw_throw( ArgumentErr() << "Unknown file type passed on input: "
+                << inputs2[i] << ".\n");
   }
 
   // Then concatenate them again, but with the images first and the cameras
@@ -265,18 +284,18 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
 }
 
 /// Parse the list of files specified as positional arguments on the command line
+// The format is:  <N image paths> [N camera model paths] <output prefix> [input DEM path]
 bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
                                     std::vector<std::string>       &image_paths,
                                     std::vector<std::string>       &camera_paths,
                                     std::string                    &prefix,
-                                    std::string                    &dem_path){
+                                    std::string                    &dem_path) {
+
   // Init outputs
   image_paths.clear();
   camera_paths.clear();
   prefix   = "";
   dem_path = "";
-
-  // The format is:  <N image paths> [N camera model paths] <output prefix> [input DEM path]
 
   // Find the input DEM, if any
   std::vector<std::string> files = filesIn; // Make a local copy to work with
@@ -292,7 +311,6 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
   }else{ // We tried to load the prefix, there is no dem.
     dem_path = "";
   }
-
   if (files.size() < 3){
     vw_throw( ArgumentErr() << "Expecting at least three inputs to stereo.\n");
     return false;
@@ -306,35 +324,18 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
     // Throw here, as we don't want this printed in stereo_gui
     vw_throw( ArgumentErr() << "Invalid output prefix: " << prefix << ".\n");
   }
-
   files.pop_back();
 
   // Now there are N images and possibly N camera paths
   bool ensure_equal_sizes = false;
   asp::separate_images_from_cameras(files, image_paths, camera_paths, ensure_equal_sizes);
 
-  // Verifications
-  
+  // The output prefix must not exist as a file.
   if (fs::exists(prefix))
       vw_out(WarningMessage)
         << "It appears that the output prefix exists as a file: "
         << prefix << ". Perhaps this was not intended.\n";
 
-  // Verify that the images and cameras exist, otherwise GDAL prints funny messages later.
-  for (int i = 0; i < (int)image_paths.size(); i++){
-    if (!fs::exists(image_paths[i])) {
-      vw_throw( ArgumentErr() << "Cannot find the image file: " << image_paths[i] << ".\n");
-      return false;
-    }
-  }
-  
-  for (int i = 0; i < (int)camera_paths.size(); i++){
-    if (!fs::exists(camera_paths[i])) {
-      vw_throw( ArgumentErr() << "Cannot find the camera file: " << camera_paths[i] << ".\n");
-      return false;
-    }
-  }
-  
   return true;
 }
 

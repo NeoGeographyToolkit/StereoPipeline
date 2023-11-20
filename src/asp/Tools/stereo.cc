@@ -126,7 +126,7 @@ namespace asp {
     for (int s = 1; s < argc; s++)
       vals[argv[s]]++;
     for (int s = 0; s < (int)files.size(); s++){
-      if (vals[files[s]] > 1){
+      if (vals[files[s]] > 1) {
         vw_throw(ArgumentErr() << "The following input argument shows up more than "
                   << "once and hence cannot be parsed correctly: "
                   << files[s] << ".\n\n" << usage);

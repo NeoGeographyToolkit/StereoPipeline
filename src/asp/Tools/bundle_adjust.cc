@@ -2171,6 +2171,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
+  // This must be done early
   boost::to_lower(opt.stereo_session);
 
   // Separate out GCP files
@@ -2178,9 +2179,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   const size_t num_gcp_files = opt.gcp_files.size();
   vw_out() << "Found " << num_gcp_files << " GCP files on the command line.\n";
 
-  // Separate the cameras from the images
+  // Handle the situation when the images and cameras are in lists
   std::vector<std::string> images_or_cams = opt.image_files;
-
   if (!opt.image_list.empty() || !opt.camera_list.empty()) {
     // Read the images and cameras and put them in 'images_or_cams' to be parsed later
     if (opt.image_list.empty() || opt.camera_list.empty())
@@ -2204,6 +2204,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Cannot specify both --mapprojected-data and "
              << "--mapprojected-data-list.\n");
   
+  // Separate the cameras from the images
   bool ensure_equal_sizes = true;
   asp::separate_images_from_cameras(images_or_cams,
                                     opt.image_files, opt.camera_files, // outputs
