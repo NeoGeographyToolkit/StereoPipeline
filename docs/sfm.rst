@@ -498,7 +498,7 @@ smoothed DEM.
      lvis-DEM.tif st_run/out-PC.tif     \
      --save-transformed-source-points   \
      --datum wgs84 --outlier-ratio 0.55 \
-       -o align_run/out
+     -o align_run/out
    
    proj="+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs" 
    point2dem --datum WGS_1984 \
