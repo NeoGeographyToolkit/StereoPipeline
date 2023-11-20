@@ -195,13 +195,19 @@ don't see any evidence of lens distortion error.
 
 ::
 
-    stereo AS15-M-0414_MED.png AS15-M-1134_MED.png \
-       out/AS15-M-0414_MED.png.final.tsai          \
-       out/AS15-M-1134_MED.png.final.tsai          \
-       -t pinhole s_local/out  --corr-timeout 300  \
-       --erode-max-size 100
+    parallel_stereo                      \
+      AS15-M-0414_MED.png                \
+      AS15-M-1134_MED.png                \
+      out/AS15-M-0414_MED.png.final.tsai \
+      out/AS15-M-1134_MED.png.final.tsai \
+      --stereo-algorithm asp_mgm         \
+      --subpixel-mode 9                  \
+      -t pinhole --corr-timeout 300      \
+      --erode-max-size 100               \
+      s_local/out
 
-Examine the intersection error statistics::
+Examine the intersection error (:numref:`triangulation_error`)
+statistics::
 
     gdalinfo -stats s_local/out-PC.tif
 
@@ -215,8 +221,14 @@ The fourth band information should look like::
        STATISTICS_MINIMUM=0
        STATISTICS_STDDEV=3.5124044818554
 
-The tool ``point2mesh`` (:numref:`point2mesh`) can be
-used to obtain a visualizable mesh from the point cloud.
+It appears that the rays intersect with a mean error of 0.3 meters, 
+which is reasonable.
+
+The tool ``point2mesh`` (:numref:`point2mesh`) can be used to obtain a
+visualizable mesh from the point cloud.
+
+See the tutorial in :numref:`tutorial` for how to change the stereo algorithm,
+create a terrain model (for orbital cameras), orthoimage, etc.
 
 .. _sfm_world_coords:
 
@@ -285,11 +297,17 @@ Running stereo
 
 ::
 
-    stereo AS15-M-0414_MED.png AS15-M-1134_MED.png     \
-      out_gcp/AS15-M-0414_MED.png.final.tsai           \
-      out_gcp/AS15-M-1134_MED.png.final.tsai           \
-      -t nadirpinhole s_global/out  --corr-timeout 300 \
-       --erode-max-size 100
+    parallel_stereo                          \
+    AS15-M-0414_MED.png AS15-M-1134_MED.png  \
+      out_gcp/AS15-M-0414_MED.png.final.tsai \
+      out_gcp/AS15-M-1134_MED.png.final.tsai \
+      -t nadirpinhole                        \
+      --corr-timeout 300                     \
+      --stereo-algorithm asp_mgm             \
+      --subpixel-mode 9                      \
+      --erode-max-size 100                   \
+      s_global/out
+      
     orbitviz -t nadirpinhole -r moon out_gcp --load-camera-solve
 
 
@@ -391,15 +409,14 @@ camera positions from the kmz files available for each IceBridge
 flight at http://asapdata.arc.nasa.gov/dms/missions.html.
 
 Another option which is useful when processing IceBridge data is the
-``--position-filter-dist`` option for ``bundle_adjust``. IceBridge data
-sets contain a large number of images and when processing many at once
-you can significantly decrease your processing time by using this option
-to limit interest-point matching to image pairs which are actually close
-enough to overlap. A good way to determine what distance to use is to
-load the camera position kmz file from their website into Google Earth
-and use the ruler tool to measure the distance between a pair of frames
-that are as far apart as you want to match. Commands using these options
-may look like this::
+``--position-filter-dist`` option for ``bundle_adjust`` (measured in meters).
+IceBridge data sets contain a large number of images and when processing many at
+once you can significantly decrease your processing time by using this option to
+limit interest-point matching to image pairs which are actually close enough to
+overlap. A good way to determine what distance to use is to load the camera
+position kmz file from their website into Google Earth and use the ruler tool to
+measure the distance between a pair of frames that are as far apart as you want
+to match. Commands using these options may look like this::
 
    icebridge_kmz_to_csv 1000123_DMS_Frame_Events.kmz \
       camera_positions.csv
@@ -411,7 +428,7 @@ may look like this::
      2009_11_05_02949.JPG 2009_11_05_02950.JPG       \
      2009_11_05_01381.JPG 2009_11_05_01382.JPG       \
      --datum WGS84 --calib-file icebridge_model.tsai \
-     --bundle-adjust-params '--camera-positions camera_positions.csv --csv-format "1:file 2:lon 3:lat 4:height_above_datum" --position-filter-dist 2000'
+     --bundle-adjust-params '--no-datum --camera-positions camera_positions.csv --csv-format "1:file 2:lon 3:lat 4:height_above_datum" --position-filter-dist 0'
      
    orbitviz out --load-camera-solve --hide-labels    \
      -r wgs84 -t nadirpinhole
@@ -460,20 +477,40 @@ smoothed DEM.
 
 ::
 
-   stereo 2009_11_05_02948.JPG  2009_11_05_02949.JPG \
-     out/2009_11_05_02948.JPG.final.tsai             \
-     out/2009_11_05_02949.JPG.final.tsai st_run/out -t nadirpinhole
-   point2dem ILVIS2_AQ2009_1105_R1408_055812.TXT --datum WGS_1984 \
-     --t_srs "+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs" \
-     --csv-format "5:lat 4:lon 6:height_above_datum"  --tr 30  \
-     --search-radius-factor 2.0 -o lvis
-   pc_align  --max-displacement 1000 lvis-DEM.tif st_run/out-PC.tif  -o align_run/out \
-     --save-transformed-source-points --datum wgs84 --outlier-ratio 0.55
-   point2dem align_run/out-trans_source.tif --datum WGS_1984 \
-     --t_srs "+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+   parallel_stereo -t nadirpinhole             \
+     --stereo-algorithm asp_mgm                \
+     --subpixel-mode 9                         \
+     2009_11_05_02948.JPG 2009_11_05_02949.JPG \
+     out/2009_11_05_02948.JPG.final.tsai       \
+     out/2009_11_05_02949.JPG.final.tsai       \
+     st_run/out
+     
+   proj="+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs" 
+   point2dem ILVIS2_AQ2009_1105_R1408_055812.TXT     \
+     --datum WGS_1984                                \
+     --t_srs "$proj"                                 \
+     --csv-format "5:lat 4:lon 6:height_above_datum" \
+      --tr 30                                        \
+     --search-radius-factor 2.0                      \
+     -o lvis
+     
+   pc_align  --max-displacement 1000    \
+      lvis-DEM.tif st_run/out-PC.tif    \
+     --save-transformed-source-points   \
+     --datum wgs84 --outlier-ratio 0.55 \
+       -o align_run/out
+   
+   proj="+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs" 
+   point2dem --datum WGS_1984 \
+     --t_srs "$proj"          \
+     align_run/out-trans_source.tif
+     
    colormap align_run_big/out-trans_source-DEM.tif --min 200 --max 1500
+   
    colormap lvis-DEM.tif --min 200 --max 1500
+   
    image2qtree lvis-DEM_CMAP.tif
+   
    image2qtree align_run_big/out-trans_source-DEM_CMAP.tif
 
 .. figure:: images/examples/pinhole/icebridge_dem_overlay.png
