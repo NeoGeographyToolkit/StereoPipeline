@@ -490,12 +490,12 @@ smoothed DEM.
      --datum WGS_1984                                \
      --t_srs "$proj"                                 \
      --csv-format "5:lat 4:lon 6:height_above_datum" \
-      --tr 30                                        \
+     --tr 30                                         \
      --search-radius-factor 2.0                      \
      -o lvis
      
    pc_align  --max-displacement 1000    \
-      lvis-DEM.tif st_run/out-PC.tif    \
+     lvis-DEM.tif st_run/out-PC.tif     \
      --save-transformed-source-points   \
      --datum wgs84 --outlier-ratio 0.55 \
        -o align_run/out
@@ -506,11 +506,8 @@ smoothed DEM.
      align_run/out-trans_source.tif
      
    colormap align_run_big/out-trans_source-DEM.tif --min 200 --max 1500
-   
    colormap lvis-DEM.tif --min 200 --max 1500
-   
    image2qtree lvis-DEM_CMAP.tif
-   
    image2qtree align_run_big/out-trans_source-DEM_CMAP.tif
 
 .. figure:: images/examples/pinhole/icebridge_dem_overlay.png
