@@ -119,7 +119,7 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
     m_isNeo = true;
   else
     vw_throw(ArgumentErr() << "Incorrect sensor name. Expected: PHR or PNEO sensor, " 
-      << "but got: " << sensor_name << ".\n");
+      << "but got: " << sensor_name << ". Only primary (non-ortho) images can be used.\n");
 
   xercesc::DOMElement* raster_data = get_node<DOMElement>(root, "Raster_Data");
   read_image_size(raster_data);

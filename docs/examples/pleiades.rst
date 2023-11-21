@@ -3,21 +3,26 @@
 Pleiades
 --------
 
-ASP supports the 1A/1B and NEO satellites from Airbus Pleiades. 
-For NEO, see :numref:`pleiades_neo` for additional notes.
+ASP supports the 1A/1B and NEO satellites from Airbus Pleiades. For NEO, see
+:numref:`pleiades_neo` for additional notes. ASP works only with primary
+(non-ortho) images.
 
-The Airbus Pleiades data have both an exact linescan camera model
-and an approximate RPC model (:numref:`rpc`). These are stored in separate files. The
-names for these start with "DIM" and "RPC", respectively, and end with
-".XML". ASP supports both kinds. The USGS CSM library (:numref:`csm`) is 
-used for linescan models.
+The Airbus Pleiades data have both an exact linescan camera model and an
+approximate RPC model (:numref:`rpc`). These are stored in separate files. The
+names for these start with "DIM" and "RPC", respectively, and end with ".XML".
+ASP supports both kinds. The USGS CSM library (:numref:`csm`) is used for
+linescan models.
 
 See :numref:`airbus_tiled` if the input images arrive in multiple
 tiles. See :numref:`jitter_pleiades` for an example of solving for
 jitter for these cameras.
 
-If desired to process a Pleiades triplet, bundle adjustment (:numref:`bundle_adjust`) 
-is very recommended before stereo. It should be run as::
+Bundle adjustment and stereo
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If desired to process a Pleiades triplet, bundle adjustment
+(:numref:`bundle_adjust`) is very recommended before stereo. It should be run
+as::
 
     bundle_adjust -t pleiades --camera-weight 0 --tri-weight 0.1 \
       <images> <cameras> -o ba/run
@@ -68,7 +73,10 @@ projection needs to be used (option ``--t_srs``) and the grid size
 should be set to the known image ground sample distance in
 meters.
 
-To compare the linescan and RPC models, run ``cam_test``
+Exact and RPC cameras
+~~~~~~~~~~~~~~~~~~~~~
+
+To compare the linescan (exact) and RPC models, run ``cam_test``
 (:numref:`cam_test`) as::
 
      cam_test --image img.tif --cam1 cam_exact.xml --cam2 cam_rpc.xml \

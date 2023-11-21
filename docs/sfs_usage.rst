@@ -18,10 +18,10 @@ The modeling approach used by this program can be found in
 Overview
 --------
 
-``sfs`` works with any cameras supported by ASP, for Earth and other
-planets. The option ``--sun-positions`` can be used to to specify the
-Sun position for each image. For ISIS and CSM cameras, if this option
-is not set, the Sun information is read from the camera files.
+The ``sfs`` program works with any cameras supported by ASP, for Earth and other
+planets. The option ``--sun-positions`` can be used to to specify the Sun
+position for each image. For ISIS and CSM cameras, if this option is not set,
+the Sun information is read from the camera files.
 
 A tool named ``parallel_sfs`` is provided (:numref:`parallel_sfs`)
 that parallelizes ``sfs`` using multiple processes (optionally on
@@ -65,8 +65,7 @@ refinements.
 Mathematical model
 ------------------
 
-The tool works by minimizing the cost function
-
+This program works by minimizing the cost function
 
 .. math::
 
@@ -1406,6 +1405,11 @@ before a joint bundle adjustment (during which the cameras from that
 quadrant can also be kept fixed). Ensure, as always, that the joint
 bundle adjustment has the images sorted by illumination.
 
+The ``image_align`` program (:numref:`image_align`) was reported to be of help in
+co-registering images. Note however that failure of registration is almost
+surely because not all images are connected together using tie points, or the
+images are consistent with each other but not with the ground.
+
 Running SfS
 ^^^^^^^^^^^
 
@@ -1518,8 +1522,8 @@ That alignment transform can then be applied to the full SfS DEM::
       --max-displacement -1 --save-transformed-source-points       \
       --max-num-reference-points 1000 --max-num-source-points 1000
 
-(The number of points being used is not important since we will just
-apply the alignment and transform the full DEM.)
+The number of points being used is not important since we will just
+apply the alignment and transform the full DEM.
 
 The aligned SfS DEM can be regenerated from the obtained transformed
 cloud as::
@@ -1652,10 +1656,10 @@ values contribute to the solution. The weight function is the
 truncated signed Euclidean distance to the lit boundary, scaled to have
 values between 0 and 1, then blurred with a Gaussian kernel with the
 above-mentioned sigma. No blending happens for shadowed regions of
-dimensions less than `--min-blend-size`, where the SfS DEM is
+dimensions less than ``--min-blend-size``, where the SfS DEM is
 kept. See :numref:`sfs_blend` for more details.
 
-(Note that if one tries to blend an SfS terrain obtained after
+Note that if one tries to blend an SfS terrain obtained after
 ``pc_align``, that won't have the same extent as the LOLA terrain,
 which will make this command fail. It is suggested that the input LOLA
 terrain be prepared with ``gdalwarp -te <corners>`` as described
