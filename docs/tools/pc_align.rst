@@ -705,7 +705,11 @@ Command-line options for pc_align
     of the fact that it is possible to interpolate into this DEM
     when finding the closest distance to it from a point in the
     source cloud (the text above has more detailed information).
-
+    
+--skip-shared-box-estimation
+    Do not estimate the shared bounding box of the two clouds. This estimation
+    can be costly for large clouds but helps with eliminating outliers.
+    
 --config-file <file.yaml>
     This is an advanced option. Read the alignment parameters from
     a configuration file, in the format expected by libpointmatcher,

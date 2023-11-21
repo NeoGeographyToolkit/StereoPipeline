@@ -15,38 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// This tool uses libpointmatcher for alignment,
+// This tool uses libpointmatcher for alignment.
 // https://github.com/ethz-asl/libpointmatcher
-// Copyright (c) 2010--2012,
-// Francois Pomerleau and Stephane Magnenat, ASL, ETHZ, Switzerland
-// You can contact the authors at <f dot pomerleau at gmail dot com> and
-// <stephane at magnenat dot net>
-// This tool also uses the Fast Global Registration software, under the MIT license
-// https://github.com/IntelVCL/FastGlobalRegistration
-
-// All rights reserved.
-
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//     * Neither the name of the <organization> nor the
-//       names of its contributors may be used to endorse or promote products
-//       derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-// DISCLAIMED. IN NO EVENT SHALL ETH-ASL BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Released under the BSD 3-Clause.
 
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
@@ -104,18 +75,12 @@ struct Options : public vw::GdalWriteOptions {
   int    num_iter,
          max_num_reference_points,
          max_num_source_points;
-  double diff_translation_err,
-         diff_rotation_err,
-         max_disp,
-         outlier_ratio,
-         semi_major_axis,
-    semi_minor_axis, initial_rotation_angle;
-  bool   compute_translation_only,
-         dont_use_dem_distances,
-         save_trans_source,
-         save_trans_ref,
-         highest_accuracy,
-         verbose;
+  double diff_translation_err, diff_rotation_err,
+         max_disp, outlier_ratio, semi_major_axis,
+         semi_minor_axis, initial_rotation_angle;
+  bool   compute_translation_only, dont_use_dem_distances,
+         save_trans_source, save_trans_ref,
+         highest_accuracy, verbose, skip_shared_box_estimation;
   std::string initial_ned_translation, hillshading_transform;
   
   // Output
@@ -183,11 +148,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "this number of RANSAC iterations and outlier factor. A smaller factor "
      "will reject more outliers.")
     ("fgr-options", po::value(&opt.fgr_options)->default_value("div_factor: 1.4 use_absolute_scale: 0 max_corr_dist: 0.025 iteration_number: 100 tuple_scale: 0.95 tuple_max_cnt: 10000"), "Options to pass to the Fast Global Registration algorithm, if used.")
-    
-    ("no-dem-distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
-                                 "For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud and hence the error metrics.")
-
-    ("config-file",              po::value(&opt.config_file)->default_value(""),
+    ("no-dem-distances", po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
+     "For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud and hence the error metrics.")
+    ("skip-shared-box-estimation", po::bool_switch(&opt.skip_shared_box_estimation)->default_value(false)->implicit_value(true),
+     "Do not estimate the shared bounding box of the two clouds. This estimation "
+     "can be costly for large clouds but helps with eliminating outliers.")
+    ("config-file", po::value(&opt.config_file)->default_value(""),
      "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.");
 
   //("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
@@ -1076,9 +1042,10 @@ void apply_transform_to_cloud(PointMatcher<RealT>::Matrix const& T, DP & point_c
 
 // Convert a north-east-down vector at a given location to a vector in reference
 // to the center of the Earth and create a translation matrix from that vector. 
-PointMatcher<RealT>::Matrix ned_to_caresian_transform(vw::cartography::Datum const& datum,
-                                                      std::string& ned_str, 
-                                                      vw::Vector3 const & location){
+PointMatcher<RealT>::Matrix 
+ned_to_cartesian_transform(vw::cartography::Datum const& datum,
+                           std::string& ned_str, 
+                           vw::Vector3 const & location){
 
   vw::string_replace(ned_str, ",", " "); // replace any commas
   vw::Vector3 ned = vw::str_to_vec<vw::Vector3>(ned_str);
@@ -1200,10 +1167,10 @@ int main( int argc, char *argv[] ) {
     if (opt.match_file != "") {
       if (opt.hillshading_transform == "") 
         opt.hillshading_transform = "similarity";
-      opt.init_transform = initial_transform_from_match_file(opt.reference, opt.source,
-                                                             opt.match_file,
-                                                             opt.hillshading_transform,
-                                                             opt.initial_transform_ransac_params);
+      opt.init_transform 
+        = initial_transform_from_match_file(opt.reference, opt.source,
+                                            opt.match_file, opt.hillshading_transform,
+                                            opt.initial_transform_ransac_params);
     }
 
     // See if to apply an initial north-east-down translation relative
@@ -1227,61 +1194,66 @@ int main( int argc, char *argv[] ) {
       // The NED translation
       if (opt.initial_ned_translation != "") 
         opt.init_transform = 
-          ned_to_caresian_transform(geo.datum(), opt.initial_ned_translation, centroid)
+          ned_to_cartesian_transform(geo.datum(), opt.initial_ned_translation, centroid)
           * opt.init_transform;
     }
 
     // We will use ref_box to bound the source points, and vice-versa.
     // Decide how many samples to pick to estimate these boxes.
-    Stopwatch sw0;
-    sw0.start();
-    int num_sample_pts = std::max(4000000,
-                                  std::max(opt.max_num_source_points,
-                                           opt.max_num_reference_points)/4);
-    num_sample_pts = std::min(9000000, num_sample_pts); // avoid being slow
-    
-    // Compute GDC bounding box of the source and reference clouds.
-    vw_out() << "Computing the intersection of the bounding boxes "
-             << "of the reference and source points using " 
-             << num_sample_pts << " sample points.\n";
     BBox2 ref_box, source_box, trans_ref_box, trans_source_box;
+    if (!opt.skip_shared_box_estimation) {
+      Stopwatch sw0;
+      sw0.start();
+      int num_sample_pts = std::max(4000000,
+                                    std::max(opt.max_num_source_points,
+                                             opt.max_num_reference_points)/4);
+      num_sample_pts = std::min(9000000, num_sample_pts); // avoid being slow
+      
+      // Compute GDC bounding box of the source and reference clouds.
+      vw_out() << "Computing the bounding boxes of the reference and source points using " 
+               << num_sample_pts << " sample points.\n";
 
-    PointMatcher<RealT>::Matrix inv_init_trans = opt.init_transform.inverse();
-    calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
-                              opt.reference, opt.max_disp, inv_init_trans,
-                              ref_box, trans_ref_box);
-    calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
-                              opt.source, opt.max_disp, opt.init_transform,
-                              source_box, trans_source_box);
+      PointMatcher<RealT>::Matrix inv_init_trans = opt.init_transform.inverse();
+      calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
+                                opt.reference, opt.max_disp, inv_init_trans,
+                                ref_box, trans_ref_box);
+      calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
+                                opt.source, opt.max_disp, opt.init_transform,
+                                source_box, trans_source_box);
+      sw0.stop();
+      vw_out() << "Computation of bounding boxes took " 
+              << sw0.elapsed_seconds() << " [s]" << endl;
 
-    // When boxes are huge, it is hard to do the optimization of intersecting
-    // them, as they may differ not by 0 or 360, but by 180. Better do nothing
-    // in that case. The solution may degrade a bit, as we may load points
-    // not in the intersection of the boxes, but at least it won't be wrong.
-    // In this case, there is a chance the boxes were computed wrong anyway.
-    if (ref_box.width() > 180.0 || source_box.width() > 180.0) {
-      vw_out() << "Warning: Your input point clouds are spread over more than half the planet. "
-               << "It is suggested that they be cropped, to get more accurate results. "
-               << "Giving up on estimating their bounding boxes and filtering outliers "
-               << "based on them.\n";
-      ref_box = BBox2();
-      source_box = BBox2();
+      // When boxes are huge, it is hard to do the optimization of intersecting
+      // them, as they may differ not by 0 or 360, but by 180. Better do nothing
+      // in that case. The solution may degrade a bit, as we may load points
+      // not in the intersection of the boxes, but at least it won't be wrong.
+      // In this case, there is a chance the boxes were computed wrong anyway.
+      if (ref_box.width() > 180.0 || source_box.width() > 180.0) {
+        vw_out() << "Warning: Your input point clouds are spread over more than half "
+                  << "the planet. It is suggested that they be cropped, to get more "
+                  << "accurate results. Giving up on estimating their bounding boxes "
+                  << "and filtering outliers based on them.\n";
+                
+        ref_box = BBox2();
+        source_box = BBox2();
+      }
     }
     
-    vw_out() << "Reference box: " << ref_box << std::endl;
-    vw_out() << "Source box:    " << source_box << std::endl;
+    // This is useful to point out issues when the reference and source
+    // boxes are shifted by 360 degrees relative to each other.
+    vw_out() << "Reference points box: " << ref_box << std::endl;
+    vw_out() << "Source points box:    " << source_box << std::endl;
     
     if (!ref_box.empty() && !source_box.empty()) {
-      adjust_and_intersect_ref_source_boxes(ref_box, trans_source_box, opt.reference, opt.source);
-      adjust_and_intersect_ref_source_boxes(trans_ref_box, source_box, opt.reference, opt.source);
+      adjust_and_intersect_ref_source_boxes(ref_box, trans_source_box, 
+                                            opt.reference, opt.source);
+      adjust_and_intersect_ref_source_boxes(trans_ref_box, source_box, 
+                                            opt.reference, opt.source);
     }
-    
     vw_out() << "Intersection reference box:  " << ref_box    << std::endl;
     vw_out() << "Intersection source    box:  " << source_box << std::endl;
     
-    sw0.stop();
-    vw_out() << "Intersection of bounding boxes took " << sw0.elapsed_seconds() << " [s]" << endl;
-
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.
 

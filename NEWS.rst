@@ -69,6 +69,9 @@ image_calc (:numref:`image_calc`):
   * When adding new keywords to metadata geoheader, do not erase the existing
     ones (if a keyword already exists, its value will be modified).
 
+pc_align (:numref:`pc_align`):
+  * Add the option ``--skip-shared-box-estimation``.
+   
 historical_helper.py (:numref:`historical_helper`):
   * Added the ability to set a custom path to the needed ``convert``
     executable and described how that tool can be installed.
