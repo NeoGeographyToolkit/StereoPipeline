@@ -439,11 +439,11 @@ void save_errors(DP const& point_cloud,
 /// - The point cloud is in GCC coordinates with point_cloud_shift subtracted from each point.
 /// - The output is put in the "errors" vector for each point.
 /// - If there is a problem computing the point error, a very large number is used as a flag.
-void calcErrorsWithDem(DP          const& point_cloud,
-                       vw::Vector3 const& point_cloud_shift,
-                       vw::cartography::GeoReference        const& georef,
-                       vw::ImageViewRef< PixelMask<float> > const& dem,
-                       std::vector<double> &errors) {
+void calcErrorsWithDem(DP                                 const& point_cloud,
+                       vw::Vector3                        const& point_cloud_shift,
+                       vw::cartography::GeoReference      const& georef,
+                       vw::ImageViewRef<PixelMask<float>> const& dem,
+                       std::vector<double>                     & errors) {
 
   // Initialize output error storage
   const std::int64_t num_pts = point_cloud.features.cols();
@@ -472,10 +472,7 @@ void calcErrorsWithDem(DP          const& point_cloud,
 }
 
 template<class F>
-void extract_rotation_translation(F       * transform, 
-				  Quat    & rotation,
-				  Vector3 & translation){
-
+void extract_rotation_translation(F * transform, Quat & rotation, Vector3 & translation) {
   
   Vector3 axis_angle;
   for (int i = 0; i < 3; i++){
@@ -1238,21 +1235,21 @@ int main( int argc, char *argv[] ) {
         ref_box = BBox2();
         source_box = BBox2();
       }
-    }
     
-    // This is useful to point out issues when the reference and source
-    // boxes are shifted by 360 degrees relative to each other.
-    vw_out() << "Reference points box: " << ref_box << std::endl;
-    vw_out() << "Source points box:    " << source_box << std::endl;
-    
-    if (!ref_box.empty() && !source_box.empty()) {
-      adjust_and_intersect_ref_source_boxes(ref_box, trans_source_box, 
-                                            opt.reference, opt.source);
-      adjust_and_intersect_ref_source_boxes(trans_ref_box, source_box, 
-                                            opt.reference, opt.source);
+      // This is useful to point out issues when the reference and source
+      // boxes are shifted by 360 degrees relative to each other.
+      vw_out() << "Reference points box: " << ref_box << std::endl;
+      vw_out() << "Source points box:    " << source_box << std::endl;
+      
+      if (!ref_box.empty() && !source_box.empty()) {
+        adjust_and_intersect_ref_source_boxes(ref_box, trans_source_box, 
+                                              opt.reference, opt.source);
+        adjust_and_intersect_ref_source_boxes(trans_ref_box, source_box, 
+                                              opt.reference, opt.source);
+      }
+      vw_out() << "Intersection reference box:  " << ref_box    << std::endl;
+      vw_out() << "Intersection source    box:  " << source_box << std::endl;
     }
-    vw_out() << "Intersection reference box:  " << ref_box    << std::endl;
-    vw_out() << "Intersection source    box:  " << source_box << std::endl;
     
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.
@@ -1446,9 +1443,10 @@ int main( int argc, char *argv[] ) {
 
     // For each point, compute the distance to the nearest reference point.
     PointMatcher<RealT>::Matrix end_errors;
-    elapsed_time = compute_registration_error(ref_point_cloud, trans_source_point_cloud, icp,
-                                              shift, dem_georef, reference_dem_ref, opt,
-					      end_errors);
+    elapsed_time 
+      = compute_registration_error(ref_point_cloud, trans_source_point_cloud, icp,
+                                   shift, dem_georef, reference_dem_ref, opt, 
+                                   end_errors);
     calc_stats("Output", end_errors);
     if (opt.verbose)
       vw_out() << "Final error computation took " << elapsed_time << " [s]" << endl;
@@ -1461,7 +1459,7 @@ int main( int argc, char *argv[] ) {
 
     // Print statistics
     vw_out() << std::setprecision(16)
-             << "Alignment transform (origin is planet center):" << endl << globalT << endl;
+             << "Alignment transform (origin is planet center):\n" << globalT << "\n";
     vw_out() << std::setprecision(8); // undo the higher precision
 
     vw_out() << "Centroid of source points (Cartesian, meters): " << source_ctr_vec << std::endl;
