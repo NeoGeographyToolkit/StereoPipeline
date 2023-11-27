@@ -120,10 +120,6 @@ Command-line options for point2las
     Approximate number of samples to pick from the input cloud to find the 
     outlier cutoff based on triangulation error.
     
---ecef
-    Save the point cloud in ECEF, rather than with a projection relative to a
-    datum.
-    
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
