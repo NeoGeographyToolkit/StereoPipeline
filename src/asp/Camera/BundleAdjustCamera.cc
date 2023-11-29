@@ -1309,7 +1309,9 @@ void asp::saveMapprojOffsets(
 
   vw_out() << "Writing: " << mapproj_offsets_file << "\n";
   ofs = std::ofstream(mapproj_offsets_file.c_str());
-  ofs.precision(8); // 8 digits of precision for errors is enough
+  // 12 digits of precision for errors is enough. 
+  // That is 9 digits after decimal period for lon and lat.
+  ofs.precision(12); 
   ofs << "# lon, lat, height_above_datum, mapproj_ip_dist_meters\n";
   ofs << "# " << mapproj_dem_georef.datum() << std::endl;
 
