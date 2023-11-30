@@ -710,18 +710,21 @@ speed-vs-quality choices when running stereo.
 
 .. _csm_msl:
 
-Using CSM cameras with MSL
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+CSM cameras for MSL
+~~~~~~~~~~~~~~~~~~~
 
-This example shows how given a set of Mars Science Laboratory (MSL) Curiosity rover ``NavCam`` or ``MastCam`` images, CSM camera models can be created. Stereo pairs are then used (tested with ``NavCam`` only) to make DEMs and orthoimages.
+This example shows how given a set of Mars Science Laboratory (MSL) Curiosity
+rover ``Nav`` or ``Mast`` camera images, CSM camera models can be created. Stereo
+pairs are then used (with either ``Nav`` or ``Mast`` data) to make DEMs and
+orthoimages.
 
-It is important to note that, as long as the rover is fixed in place, the cameras corresponding to overlapping images are self-consistent. If the rover moves, however, the rover height above the Mars datum and the produced DEM can jump vertically by 60 meters or so, in some circumstances, which appears to be due to problems in the input SPICE data (a temporary fix is in :numref:`csm_msl_create`). 
+After recent fixes in ALE (details below), the camera models are accurate enough
+that stereo pairs acquired at different rover locations and across different days 
+result in consistent DEMs.
 
-There is also 10-20 degrees of uncertainty in orientation of the created DEMs. That is likely because the transform from the rover frame to the frame having the mounted cameras was estimated empirically. This will be resolved in the future.
-
-Hence, for now this functionality can only be used to create DEMs from a handful of images.
-
-See :numref:`rig_msl` for a Structure-from-Motion solution without using CSM cameras. That one results in self-consistent meshes that, unlike the DEMs produced here, are not geolocated.
+See :numref:`rig_msl` for a Structure-from-Motion solution without using CSM
+cameras. That one results in self-consistent meshes that, unlike the DEMs
+produced here, are not geolocated.
 
 Illustration
 ^^^^^^^^^^^^
@@ -741,10 +744,15 @@ Illustration
 Fetch the images and metadata from PDS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-See :numref:`msl_image_prep`. Here we will work with .cub files rather than converting them to .png. The same Mars day will be used as there (SOL 597).
+See :numref:`msl_image_prep`. Here we will work with .cub files rather than
+converting them to .png. The same Mars day will be used as there (SOL 597). The
+datasets for SOL 603 were verified to work as well.
 
-The dataset used in this example (having .LBL, .cub, and .json files) is available
-`for download <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/MSL_CSM>`_.
+The dataset used in this example (having .LBL, .cub, and .json files) is
+available `for download
+<https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/MSL_CSM>`_.
+It is suggested to recreate the .json files in that dataset in view of the
+recent updates to ALE.
 
 Download the SPICE data
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -767,10 +775,13 @@ The ``downloadIsisData`` script is shipped with ISIS (:numref:`planetary_images`
 Set up ALE
 ^^^^^^^^^^
 
-The functionality for creating CSM camera models is available in the ALE package. For the time being, handling the MSL cameras requires fetching a forked version of ALE, as this is not merged upstream yet. Run::
+The functionality for creating CSM camera models is available in the ALE
+package. For the time being, handling the MSL cameras requires fetching a forked
+version of ALE, as this is not merged upstream yet. Run::
 
     git clone git@github.com:oleg-alexandrov/ale.git
     cd ale
+    git checkout msl2 # this branch has the needed functionality
     conda env create -n ale -f environment.yml
 
 See :numref:`conda_intro` for how to install ``conda``.
@@ -788,18 +799,12 @@ ALE expects the following variable to be set::
 
     export ALESPICEROOT=$ISISDATA
 
-Set the environmental variable::
-
-    export HEIGHT_ABOVE_DATUM=-4898.515408052597
-
-as a temporary workaround for the vertical datum issue mentioned in :numref:`csm_msl`. 
-If set, this will move the rover position vertically to be at this height above the Mars datum (whose radius is assumed to be 3,396,190 meters).
-
-A full-resolution MSL left ``NavCam`` image uses the naming convention::
+A full-resolution MSL left ``Nav`` image uses the naming convention::
 
       NLB_<string>_F<string>.cub
 
-with the right image starting instead with ``NRB``. The metadata files downloaded from PDS end with ``.LBL``.
+with the right image starting instead with ``NRB``. The metadata files
+downloaded from PDS end with ``.LBL``.
 
 Create a Python script called ``gen_csm_msl.py`` with the following code::
 
@@ -821,9 +826,10 @@ A CSM camera file can be created by running this script as::
 
     $HOME/miniconda3/envs/ale_env/bin/python gen_csm_msl.py image.LBL 
 
-This will produce the file ``image.json``. We called the Python program from the newly created conda environment.
+This will produce the file ``image.json``. We called the Python program from the
+newly created conda environment.
 
-If you get an error saying::
+One may get an error saying::
 
     The first file 
     '/usgs/cpkgs/isis3/data/msl/kernels/lsk/naif0012.tls' 
@@ -831,15 +837,22 @@ If you get an error saying::
     /path/to/isisdata/msl/kernels/mk/msl_v01.tm 
     could not be located.
   
-that is due to a bug in the ISIS data. Edit that .tls file and specify the correct location of ``msl_v01.tm`` in your ISIS data directory. Once things are working, the ``verbose`` flag can be set to ``False`` in the above script.
+That is due to a bug in the ISIS data. Edit that .tls file and specify the
+correct location of ``msl_v01.tm`` in your ISIS data directory. Once things are
+working, the ``verbose`` flag can be set to ``False`` in the above script.
 
 Running stereo
 ^^^^^^^^^^^^^^
 
-In this example the camera orientations are not refined using bundle adjustment, as the camera poses are reasonably good. If desired to do that, one could run ``bundle_adjust`` (:numref:`bundle_adjust`) as::
+In this example the camera orientations are not refined using bundle adjustment,
+as the camera poses are reasonably good. If desired to do that, one could run
+``bundle_adjust`` (:numref:`bundle_adjust`) as::
   
     bundle_adjust --no-datum --camera-weight 0 --tri-weight 0.1 \
       data/*.cub data/*.json -o ba/run
+
+Here and below we use the option ``--no-datum`` as these are ground-level cameras,
+when rays emanating from them may not reliably intersect the planet datum.
   
 For each stereo pair, run ``parallel_stereo`` (:numref:`parallel_stereo`) as::
 
@@ -857,9 +870,11 @@ This is followed by DEM and orthoimage creation (:numref:`point2dem`) with::
       --search-radius-factor 5 --orthoimage  \
       run/run-PC.tif run/run-L.tif
      
-Here, the option ``--search-radius-factor 5`` is used to fill the point cloud when moving further from the rover. A local stereographic projection was used. 
+Here, the option ``--search-radius-factor 5`` is used to fill the point cloud
+when moving further from the rover. A local stereographic projection was used. 
 
-The produced DEMs can be mosaicked together with ``dem_mosaic`` (:numref:`dem_mosaic`) as::
+The produced DEMs can be mosaicked together with ``dem_mosaic``
+(:numref:`dem_mosaic`) as::
 
     dem_mosaic */*DEM.tif -o dem_mosaic.tif
 
@@ -867,7 +882,8 @@ For the orthoimages, one can use::
 
     dem_mosaic --first */*DRG.tif -o ortho_mosaic.tif
 
-The option ``--first`` picks the first encountered image pixel at each location, rather than  blending them together which may blur the output mosaic. 
+The option ``--first`` picks the first encountered image pixel at each location,
+rather than  blending them together which may blur the output mosaic. 
 
 See an illustration in :numref:`csm_msl_figure2`, with the input images in :numref:`csm_msl_figure1`. 
 
@@ -875,14 +891,30 @@ Mapprojection
 ^^^^^^^^^^^^^
 
 The input .cub image files and the camera .json files can be used to create
-mapprojected images with the ``mapproject`` program (:numref:`mapproject`). That
-tool can have a hard time with the MSL cameras, as these are not orbital cameras
-and can point towards the horizon. It is suggested to use this tool with an
-input DEM that is shifted vertically downward by about 50 meters relative to the
-rover position for the rays from the ground to the camera to be traced
-correctly.    
+mapprojected images with the ``mapproject`` program (:numref:`mapproject`). 
+The DEM for mapprojection can be the one created earlier with ``point2dem``.
+If a third-party DEM is used, one has to make sure its elevations are consistent
+with the DEMs produced earlier.
 
-Use the option ``--t_projwin`` to avoid the produced images from extending for a very long distance towards the horizon.
+Use the option ``--t_projwin`` to prevent the produced images from extending for
+a very long distance towards the horizon.
+
+MSL Mast cameras
+^^^^^^^^^^^^^^^^
+
+The same procedure works for creating MSL Mast cameras. To run stereo, first use
+``gdal_translate -b 1`` to pull the first band from the input images. This
+workflow was tested with the streo pair ``0706ML0029980010304577C00_DRCL`` and
+``0706MR0029980000402464C00_DRCL`` for SOL 706.
+
+Low-resolution MSL Nav cam images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In addition to full-resolution Nav camera images (1024 pixels), MSL also
+acquires low-resolution Nav images (256 pixels) at separate times. These have
+the string ``_D`` as part of their name, instead of ``_F``. Such images were
+validated to work, and can produce good DEMs that can plug some gaps in
+coverage.
 
 .. _csm_state:
 

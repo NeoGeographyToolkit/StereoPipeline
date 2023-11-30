@@ -102,8 +102,8 @@ Command-line options for point2las
     as outliers.
 
 --use-tukey-outlier-removal
-    Remove outliers above Q3 + 1.5*(Q3 - Q1). Takes precedence over
-    the above approach.
+    Remove outliers above Q3 + 1.5*(Q3 - Q1) (:cite:`tukey1977exploratory`).
+    This takes precedence over ``--remove-outliers-params``.
 
 --max-valid-triangulation-error <float (default: 0)>
     Outlier removal based on threshold. Points with triangulation error larger 

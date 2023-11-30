@@ -55,9 +55,14 @@ point2dem (:numref:`point2dem`):
     (:numref:`point2dem_auto_proj_center`).
 
 csm (:numref:`csm`):
+   * Fixed several problems in generation of CSM cameras for MSL Curiosity Nav
+     and Mast cameras. Much large-scale testing was performed. Updated the
+     examples showing how to create stereo from either Nav or Mast stereo pairs
+     (:numref:`csm_msl`).
    * Added support for the radial and tangential distortion model 
      with 3 radial distortion parameters and 2 tangential ones. Tested
      that it agrees with the OpenCV implementation.
+   * Fixed a small bug in radial distortion implementation.
       
 stereo_gui (:numref:`stereo_gui`):
   * Can show scattered data with a colorbar and axes 
