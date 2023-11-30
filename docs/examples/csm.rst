@@ -904,7 +904,7 @@ MSL Mast cameras
 
 The same procedure works for creating MSL Mast cameras. To run stereo, first use
 ``gdal_translate -b 1`` to pull the first band from the input images. This
-workflow was tested with the streo pair ``0706ML0029980010304577C00_DRCL`` and
+workflow was tested with the stereo pair ``0706ML0029980010304577C00_DRCL`` and
 ``0706MR0029980000402464C00_DRCL`` for SOL 706.
 
 Low-resolution MSL Nav cam images
