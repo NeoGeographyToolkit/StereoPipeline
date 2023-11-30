@@ -160,6 +160,9 @@ for d in ss*; do
 done
 echo ans is $ans
 
+# Set the test status. This is parsed after the build is downloaded.
+echo test_status $ans >> $reportFile 
+
 if [ "$ans" -eq 0 ]; then
     echo "All tests passed"
 else
