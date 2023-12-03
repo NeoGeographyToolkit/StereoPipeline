@@ -739,7 +739,8 @@ Illustration
   :name: csm_msl_figure2
   :alt:  MSL Kimberly DEM and ortho
 
-  Produced DEM and orthoimage.
+  Produced DEM and orthoimage. See :numref:`csm_msl_multiday` for a larger
+  example.
 
 Fetch the images and metadata from PDS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -904,17 +905,17 @@ Multi-day stereo
   :alt:  MSL multiday stereo
 
   A combined DEM and orthoimage produced from 15 datasets from SOL 597 and 13
-  datasets from SOL 603. The notable misregistration in the middle (mostly
-  vertical) is not due to mismatch across days but rather because of
-  insufficient overlap between two image subsets on SOL 603. Here, blue and red
-  correspond to elevations of -5038.921 and -5034.866 meters.
+  datasets from SOL 603. The misregistration half-way down is not due to
+  mismatch across days but because of insufficient overlap between two
+  image subsets on SOL 603. Here, blue and red correspond to elevations of
+  -5038.921 and -5034.866 meters.
 
 In this example we take advantage of the fact that there is decent overlap
 between images acquired on SOL 597 and SOL 603. They both image the same hill,
 called *Kimberly*, in Gale crater, from somewhat different perspectives. Hence
 we combine these datasets to increase the coverage.
 
-Such good overlap between different days, or even between consecutive rover
+Good overlap between different days, or even between consecutive rover
 stops in the same day, is not guaranteed. Sometimes the low-resolution nav cam
 images (:numref:`low_res_msl`) can help with increasing the overlap and
 coverage. Lack of good overlap can result in registration errors, as can be seen
@@ -960,7 +961,7 @@ making use of the mapprojected images to find matches::
     -o ba/run
 
 Then ``parallel_stereo`` was run with mapprojected images, with the option
-``--bundle-adjust-prefix ba/run``, to use the bundle adjusted cameras::
+``--bundle-adjust-prefix ba/run``, to use the bundle-adjusted cameras::
 
     parallel_stereo                    \
       --stereo-algorithm asp_mgm       \
@@ -995,7 +996,7 @@ The produced DEMs were inspected, and the best ones were mosaicked together with
  
 The option ``--weights-exponent 0.5`` reduced the artifacts in blending.
 
-The orthoimages were mosaicked together with::
+The orthoimages were mosaicked with::
 
     dem_mosaic --first */*DRG.tif -o ortho_mosaic.tif
     
