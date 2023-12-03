@@ -713,14 +713,14 @@ speed-vs-quality choices when running stereo.
 CSM cameras for MSL
 ~~~~~~~~~~~~~~~~~~~
 
-This example shows how given a set of Mars Science Laboratory (MSL) Curiosity
+This example shows how, given a set of Mars Science Laboratory (MSL) Curiosity
 rover ``Nav`` or ``Mast`` camera images, CSM camera models can be created. Stereo
 pairs are then used (with either ``Nav`` or ``Mast`` data) to make DEMs and
 orthoimages.
 
 After recent fixes in ALE (details below), the camera models are accurate enough
 that stereo pairs acquired at different rover locations and across different days 
-result in consistent DEMs.
+result in consistent DEMs and orthoimages.
 
 See :numref:`rig_msl` for a Structure-from-Motion solution without using CSM
 cameras. That one results in self-consistent meshes that, unlike the DEMs
@@ -731,13 +731,13 @@ Illustration
 
 .. figure:: ../images/MSL_Kimberly_images.png
   :name: csm_msl_figure1
-  :alt:  MSL Kimberly mesh
+  :alt:  MSL Kimberly images
 
   Four out of the 10 images (5 stereo pairs) used in this example.
 
 .. figure:: ../images/MSL_Kimberly_DEM_DRG.png
   :name: csm_msl_figure2
-  :alt:  MSL Kimberly photo
+  :alt:  MSL Kimberly DEM and ortho
 
   Produced DEM and orthoimage.
 
@@ -841,8 +841,8 @@ That is due to a bug in the ISIS data. Edit that .tls file and specify the
 correct location of ``msl_v01.tm`` in your ISIS data directory. Once things are
 working, the ``verbose`` flag can be set to ``False`` in the above script.
 
-Running stereo
-^^^^^^^^^^^^^^
+Simple stereo example
+^^^^^^^^^^^^^^^^^^^^^
 
 In this example the camera orientations are not refined using bundle adjustment,
 as the camera poses are reasonably good. If desired to do that, one could run
@@ -856,12 +856,19 @@ when rays emanating from them may not reliably intersect the planet datum.
   
 For each stereo pair, run ``parallel_stereo`` (:numref:`parallel_stereo`) as::
 
-    parallel_stereo --stereo-algorithm asp_mgm \
-      --subpixel-mode 3 --no-datum             \
-      left.cub right.cub left.json right.json  \
+    parallel_stereo                 \
+      --stereo-algorithm asp_mgm    \
+      --subpixel-mode 3 --no-datum  \
+      --min-triangulation-angle 1.5 \
+      left.cub right.cub            \
+      left.json right.json          \
       run/run
 
-If bundle adjustment was used, the above command should be run with the option ``--bundle-adjust-prefix ba/run``.
+If bundle adjustment was used, the above command should be run with the option
+``--bundle-adjust-prefix ba/run``. 
+
+The option ``--min-triangulation-angle 1.5`` is highly essential. It filters out
+far-away and noisy points.
 
 This is followed by DEM and orthoimage creation (:numref:`point2dem`) with::
 
@@ -887,6 +894,117 @@ rather than  blending them together which may blur the output mosaic.
 
 See an illustration in :numref:`csm_msl_figure2`, with the input images in :numref:`csm_msl_figure1`. 
 
+.. _csm_msl_multiday:
+
+Multi-day stereo
+^^^^^^^^^^^^^^^^
+
+.. figure:: ../images/msl_multiday.png
+  :name: msl_multiday
+  :alt:  MSL multiday stereo
+
+  A combined DEM and orthoimage produced from 15 datasets from SOL 597 and 13
+  datasets from SOL 603. The notable misregistration in the middle (mostly
+  vertical) is not due to mismatch across days but rather because of
+  insufficient overlap between two image subsets on SOL 603. Here, blue and red
+  correspond to elevations of -5038.921 and -5034.866 meters.
+
+In this example we take advantage of the fact that there is decent overlap
+between images acquired on SOL 597 and SOL 603. They both image the same hill,
+called *Kimberly*, in Gale crater, from somewhat different perspectives. Hence
+we combine these datasets to increase the coverage.
+
+Such good overlap between different days, or even between consecutive rover
+stops in the same day, is not guaranteed. Sometimes the low-resolution nav cam
+images (:numref:`low_res_msl`) can help with increasing the overlap and
+coverage. Lack of good overlap can result in registration errors, as can be seen
+in :numref:`msl_multiday`.
+
+A workflow can be follows. First, individual DEMs were created and mosaicked,
+as in :numref:`csm_msl`. The quality of the produced DEM can be quite uneven,
+especially far from the camera. 
+
+Large holes in the initial DEM were filled in with the ``dem_mosaic`` option
+``--fill-search-radius`` (:numref:`dem_mosaic_grow`). 
+
+Then, it can be made coarser, for example, as::
+
+    gdalwarp -r cubic -tr 0.1 0.1 input.tif output.tif
+
+(This assumes the projection is local stereographic.)
+    
+This DEM was then blurred a few times with ``dem_mosaic`` option
+``--dem-blur-sigma 10``. This should be repeated until the DEM is smooth enough
+and shows no artifacts. The resulting DEM is called ``dem.tif``.
+
+All images were mapprojected onto this DEM using the same local stereographic
+projection, and a resolution of 0.01 m::
+
+    proj="+proj=stere +lat_0=-4.638 +lon_0=137.402 +k=1 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs"
+    mapproject --tr 0.01 --t_srs "$proj" \
+      dem.tif image.cub image.json image.map.tif
+    
+Bundle adjustment was run on the desired set of input images and cameras, while
+making use of the mapprojected images to find matches::
+
+  dem=dem.tif
+  parallel_bundle_adjust                    \
+    --image-list images.txt                 \
+    --camera-list cameras.txt               \
+    --mapprojected-data-list map_images.txt \
+    --camera-weight 0                       \
+    --heights-from-dem $dem                 \
+    --heights-from-dem-weight 0.1           \
+    --heights-from-dem-robust-threshold 0.1 \
+    --auto-overlap-params "$dem 15"         \
+    -o ba/run
+
+Then ``parallel_stereo`` was run with mapprojected images, with the option
+``--bundle-adjust-prefix ba/run``, to use the bundle adjusted cameras::
+
+    parallel_stereo                    \
+      --stereo-algorithm asp_mgm       \
+      --subpixel-mode 9                \
+      --max-disp-spread 80             \
+      --min-triangulation-angle 1.5    \
+      --bundle-adjust-prefix ba/run    \
+      left.map.tif right.map.tif       \
+      left.json right.json run_map/run \
+      $dem
+
+    point2dem --tr 0.01 --stereographic    \
+      --proj-lon 137.402 --proj-lat -4.638 \
+      --errorimage                         \
+      run_map/run-PC.tif                   \
+      --orthoimage run_map/run-L.tif
+
+Each run must use a separate output prefix, instead of ``run_map/run``.
+
+Here, the option ``--min-triangulation-angle 1.5`` was highly essential.
+It filters out far-away and noisy points. 
+
+Even with this option, the accuracy of a DEM goes down far from the cameras.
+Artifacts can arise where the same region is seen from two different locations,
+and it is far from either. In this particular example some problematic portions
+were cut out with ``gdal_rasterize`` (:numref:`gdal_rasterize_example`).
+
+The produced DEMs were inspected, and the best ones were mosaicked together with
+``dem_mosaic``, as follows::
+
+    dem_mosaic --weights-exponent 0.5 */*DEM.tif -o dem_mosaic.tif
+ 
+The option ``--weights-exponent 0.5`` reduced the artifacts in blending.
+
+The orthoimages were mosaicked together with::
+
+    dem_mosaic --first */*DRG.tif -o ortho_mosaic.tif
+    
+It is suggested to sort the input images for this call from best to worst in
+terms of quality. In particular, the images where the rover looks down rather
+towards the horizon should be earlier in the list.
+
+See the produced DEM and orthoimage in :numref:`msl_multiday`.
+
 Mapprojection
 ^^^^^^^^^^^^^
 
@@ -906,6 +1024,8 @@ The same procedure works for creating MSL Mast cameras. To run stereo, first use
 ``gdal_translate -b 1`` to pull the first band from the input images. This
 workflow was tested with the stereo pair ``0706ML0029980010304577C00_DRCL`` and
 ``0706MR0029980000402464C00_DRCL`` for SOL 706.
+
+.. _low_res_msl:
 
 Low-resolution MSL Nav cam images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -44,12 +44,12 @@ small regions with larger "background" DEMs covering a larger extent.
 Then, the pixels from the high-resolution DEMs are more desirable, yet
 at their boundary these DEMs should blend into the background.
 
-To obtain smoother blending when the input DEMs are quite different at
-the boundary, one can increase ``--weights-blur-sigma`` and
-``--weights-exponent``. The latter will result in weights growing slower
-earlier and faster later. Some experimentation may be necessary, helped
-for example by examining the weights used in blending; they can be
-written out with ``--save-dem-weight integer``.
+To obtain smoother blending when the input DEMs are quite different at the
+boundary, one can increase ``--weights-blur-sigma`` and ``--weights-exponent``.
+The latter will result in weights growing slower at each DEM boundary faster
+inwards. Some experimentation may be necessary, helped for example by examining
+the weights used in blending; they can be written out with ``--save-dem-weight
+integer``.
 
 Instead of blending, ``dem_mosaic`` can compute the image of first,
 last, minimum, maximum, mean, standard deviation, median, and count of
@@ -152,16 +152,18 @@ Fill small holes
 
     dem_mosaic --hole-fill-length 50 input.tif -o output.tif
 
+.. _dem_mosaic_grow:
+
 Grow a DEM
 ^^^^^^^^^^
 
 ::
 
     dem_mosaic                  \
-        --fill-search-radius 50 \
+        --fill-search-radius 25 \
         --fill-power 8          \
         --fill-percent 10       \
-        --fill-num-passes 2     \
+        --fill-num-passes 3     \
         input.tif -o filled.tif 
 
 Unlike the earlier example, in this mode the tool will not try to fill small
@@ -184,6 +186,9 @@ portion of the DEM growing each time.
 
 This method will also grow the DEM outwards, not just within
 a hole.
+
+This command will become very slow for large ``--fill-search-radius``. 
+It is suggested to increase ``--fill-num-passes`` instead.
 
 It is suggested to blur a little the obtained DEM, such as::
 

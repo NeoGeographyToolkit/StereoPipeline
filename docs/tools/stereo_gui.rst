@@ -285,7 +285,9 @@ column in the csv format string.
 If no georeference information exists, the CSV format can be 
 set to ``1:x,2:y`` if it is desired to have the y axis point up, and 
 ``1:pix_x,2:pix_y`` if it should point down, so that such polygons
-can be overlayed on top of images.
+can be overlaid on top of images.
+
+.. _gdal_rasterize_example:
 
 Application
 ^^^^^^^^^^^
