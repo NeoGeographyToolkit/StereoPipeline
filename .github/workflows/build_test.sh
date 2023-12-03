@@ -126,9 +126,29 @@ fi
 
 # Extract the tests. This tarball has both the scripts, test data,
 # and the expected results.
+# TODO(oalexan1): Must fetch the StreoPipelineTest repo and update
+# the scripts extracted from the tarball.
 cd $baseDir
 wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar  > /dev/null 2>&1 # this is verbose
 tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
+
+# Note: If the test results change, a new tarball must be uploaded.
+# Here's how that is done.
+if [ 1 -eq 0 ]; then
+  # Inspect all tests. Update the failed ones (each 'gold' is overwritten with 'run')
+  rm -rf StereoPipelineTest/*/run # do not upload the run data, only the gold
+  # Must make all scripts in bin and individual tests executable,
+  # as they are not executable in the tarball.
+  chmod a+x StereoPipelineTest/bin/* StereoPipelineTest/*/*sh 
+  binaries=StereoPipeline.tar
+  tar cfv $binaries StereoPipelineTest # create new tarball
+  repo=git@github.com:NeoGeographyToolkit/StereoPipelineTest.git  
+  gh=/home/oalexan1/miniconda3/envs/gh/bin/gh
+  tag=0.0.1
+  $gh release -R $repo delete $tag # wipe old tarball
+  notes="Update test results"
+  $gh release -R $repo create $tag $binaries --title $tag --notes "$notes" # upload
+fi
 
 # Go to test dir
 if [ ! -d "$testDir" ]; then
