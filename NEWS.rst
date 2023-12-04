@@ -71,6 +71,9 @@ stereo_gui (:numref:`stereo_gui`):
   * Renamed ``--colorize-image`` to ``--colorbar``.
   * Auto-guess and load ``pc_align`` error files (:numref:`pc_align_error`).
 
+colormap (:numref:`colormap`):
+  * Added the option ``--hillshade`` to create a hillshaded colormap.
+   
 image_calc (:numref:`image_calc`):
   * When adding new keywords to metadata geoheader, do not erase the existing
     ones (if a keyword already exists, its value will be modified).

@@ -1313,6 +1313,9 @@ and the shaded relief file that should be used::
 
     colormap results/output-DEM.tif -s shaded.tif -o color-shaded.tif
 
+This program can also create the hillshaded file first, and then apply it, if
+invoked with the option ``--hillshade``.
+
 See :numref:`hrad-color` showing the images obtained with these
 commands.
 

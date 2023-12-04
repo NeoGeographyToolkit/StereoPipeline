@@ -21,11 +21,20 @@ representing pixel values less than or equal to -5.
 
 To create a hillshaded (:numref:`hillshade`) colormap of a DEM, run::
 
-    hillshade  -e 25 -a 300 dem.tif -o shaded.tif
+    colormap --hillshade -e 25 -a 300 dem.tif -o color-shaded.tif
+    
+Alternatively, run::
+
+    hillshade -e 25 -a 300 dem.tif -o shaded.tif
     colormap dem.tif -s shaded.tif -o color-shaded.tif
+
+The second approach can incorporate any type of grayscale image as
+a multiplier to the colorized image.
 
 See :numref:`visualising` for a discussion of ASP's visualization
 tools, including this one.
+
+To add a colorbar and axes, use ``stereo_gui`` (:numref:`colorize`).
 
 .. figure:: ../images/colormaps.png
    :name: Colormaps
@@ -38,8 +47,6 @@ tools, including this one.
    <http://www.kennethmoreland.com/color-advice/>`_, `source2
    <https://matplotlib.org/stable/tutorials/colors/colormaps.html>`_).
 
-
-To add a colorbar and axes, use ``stereo_gui`` (:numref:`colorize`).
 
 Using your own colormap
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -77,10 +84,6 @@ Save this script as ``export_colormap.py``, and run it as::
 Command-line options for ``colormap``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
--s, --shaded-relief-file <filename>
-    Specify a shaded relief image (grayscale) to apply to the
-    colorized image.
-
 -o, --output-file <filename>
     Specify the output file.
 
@@ -107,6 +110,24 @@ Command-line options for ``colormap``
 --mars
     Set the min and max height to good values for Mars.
 
+-s, --shaded-relief-file <filename>
+    Specify a shaded relief image (grayscale) to apply to the
+    colorized image. For example, this can be a hillshaded image.
+
+--hillshade
+    Create a hillshaded image first, then incorporate it in the
+    colormap. This is equivalent to using an external file with the
+    ``--shaded-relief-file`` option.
+
+-a, --azimuth <number-in-degrees (default: 300)> 
+    Sets the direction that the light source is coming from (in
+    degrees). Zero degrees is to the right, with positive degrees
+    counter-clockwise. To be used with the ``--hillshade`` option.
+
+-e, --elevation <number-in-degrees (default: 20)>
+    Set the elevation of the light source (in degrees).
+    To be used with the ``--hillshade`` option.
+    
 --legend
     Generate an unlabeled legend, will be saved as ``legend.png``.
 

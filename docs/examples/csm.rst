@@ -904,11 +904,11 @@ Multi-day stereo
   :name: msl_multiday
   :alt:  MSL multiday stereo
 
-  A combined DEM and orthoimage produced from 15 datasets from SOL 597 and 13
-  datasets from SOL 603. The misregistration half-way down is not due to
-  mismatch across days but because of insufficient overlap between two
-  image subsets on SOL 603. Here, blue and red correspond to elevations of
-  -5038.921 and -5034.866 meters.
+  A combined DEM and orthoimage produced from 15 stereo pairs from SOL 597 and
+  13 stereo pairs from SOL 603. The misregistration half-way down is not due to
+  mismatch across days but because of insufficient overlap between two image
+  subsets on SOL 603. Here, blue and red correspond to elevations of -5038.921
+  and -5034.866 meters.
 
 In this example we take advantage of the fact that there is decent overlap
 between images acquired on SOL 597 and SOL 603. They both image the same hill,
