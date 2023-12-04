@@ -777,12 +777,14 @@ Set up ALE
 ^^^^^^^^^^
 
 The functionality for creating CSM camera models is available in the ALE
-package. For the time being, handling the MSL cameras requires fetching a forked
-version of ALE, as this is not merged upstream yet. Run::
+package. For the time being, handling the MSL cameras requires fetching the latest
+code from GitHub::
 
-    git clone git@github.com:oleg-alexandrov/ale.git
+    git clone git@github.com:DOI-USGS/ale.git
+
+Also create a supporting conda environment::
+
     cd ale
-    git checkout msl2 # this branch has the needed functionality
     conda env create -n ale -f environment.yml
 
 See :numref:`conda_intro` for how to install ``conda``.
