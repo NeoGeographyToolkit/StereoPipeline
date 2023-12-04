@@ -48,7 +48,6 @@ fi
 packageDir=$baseDir/packages
 testDir=$baseDir/StereoPipelineTest
 
-
 # Build visionworkbench
 mkdir -p $baseDir
 cd $baseDir
@@ -62,11 +61,13 @@ $envPath/bin/cmake ..                             \
   -DCMAKE_INSTALL_PREFIX=$installDir              \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
-make -j10 && make install
+echo Building VisionWorkbench
+make -j10 && make install > /dev/null 2>&1 # this is too verbose
 
 # Log of the build, for inspection in case it fails
 out_build_vw=$(pwd)/output_build_vw.txt
-make > $out_build_vw 2>&1
+make install > $out_build_vw 2>&1
+tail -n 1000 $out_build_vw
 
 # Temporary fix for the csm frame camera
 perl -pi -e "s#private:#public:#g" $envPath/include/usgscsm/UsgsAstroFrameSensorModel.h
@@ -83,14 +84,16 @@ $envPath/bin/cmake ..                             \
   -DVISIONWORKBENCH_INSTALL_DIR=$installDir       \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
-make -j10 && make install
+echo Building StereoPipeline
+make -j10 && make install > /dev/null 2>&1 # this is too verbose
 
 # Log of the build, for inspection in case it fails
 out_build_asp=$(pwd)/output_build_asp.txt
-make > $out_build_asp 2>&1
+make install > $out_build_asp 2>&1
 tail -n 1000 $out_build_asp
 
 # Now package with BinaryBuilder
+echo Packaging the build
 cd $baseDir
 git clone https://github.com/NeoGeographyToolkit/BinaryBuilder
 cd BinaryBuilder
@@ -129,7 +132,13 @@ fi
 # TODO(oalexan1): Must fetch the StreoPipelineTest repo and update
 # the scripts extracted from the tarball.
 cd $baseDir
-wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar  > /dev/null 2>&1 # this is verbose
+echo Build done. Now testing.
+wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
+# Check if we got the tarball
+if [ ! -f "StereoPipelineTest.tar" ]; then
+    echo "Error: File: StereoPipelineTest.tar does not exist"
+    exit 1
+fi
 tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 
 # Note: If the test results change, a new tarball must be uploaded.
