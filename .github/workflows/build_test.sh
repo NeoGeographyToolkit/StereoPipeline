@@ -140,7 +140,7 @@ if [ 1 -eq 0 ]; then
   # Must make all scripts in bin and individual tests executable,
   # as they are not executable in the tarball.
   chmod a+x StereoPipelineTest/bin/* StereoPipelineTest/*/*sh 
-  binaries=StereoPipeline.tar
+  binaries=StereoPipelineTest.tar
   tar cfv $binaries StereoPipelineTest # create new tarball
   repo=git@github.com:NeoGeographyToolkit/StereoPipelineTest.git  
   gh=/home/oalexan1/miniconda3/envs/gh/bin/gh
