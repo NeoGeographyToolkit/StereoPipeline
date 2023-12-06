@@ -288,10 +288,8 @@ Each of the packages above can be built, in the order specified in
     conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
       -c conda-forge gdal-feedstock
 
-Consider using the options ``--no-verify --no-test`` with this tool
-if it fails with with unrelated errors at the packaging stage, as
-it happened on OSX on occasion. This is a risky option and should
-be a measure of last resort.
+It is strongly suggested to use ``conda mambabuild`` instead of ``conda build``,
+as it is much faster. (Note: the above is not a mistake, the command is in fact ``conda mambabuild``, rather than ``mamba build``.)
 
 Upload the produced packages to the ``nasa-ames-stereo-pipeline`` channel by
 first logging in, via the command:
@@ -321,8 +319,11 @@ After a package is uploaded, it can be installed in the existing
     conda install -c nasa-ames-stereo-pipeline \
       -c usgs-astrogeology                     \
       -c conda-forge                           \
-      gdal==3.5_isis7
+      libelas=asp3.4.0_alpha
 
+It is strongly suggested to try using ``mamba install`` instead of 
+``conda install``, as it is much faster.
+ 
 To list all packages in that channel, do::
 
     conda search -c nasa-ames-stereo-pipeline --override-channels

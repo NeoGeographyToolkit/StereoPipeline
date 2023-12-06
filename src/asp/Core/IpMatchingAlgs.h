@@ -28,6 +28,7 @@
 #define __ASP_CORE_IP_MATCHING_ALGS_H__
 
 #include <vector>
+#include <set>
 #include <vw/Math/Transform.h> // defines vw::TransformPtr
 
 namespace vw {

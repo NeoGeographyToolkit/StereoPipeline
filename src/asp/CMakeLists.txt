@@ -22,10 +22,7 @@ find_package(Threads REQUIRED)
 
 # Put the search for Boost early on, to ensure that the Conda version
 # is found before we point to the BB folder.
-# TODO: Make into a function!
-# Define boost requirements
 message("Searching for Boost.")
-set(BOOST_VERSION "1.72")
 set(REQUIRED_BOOST_LIBS program_options system filesystem regex date_time thread iostreams)
 if (ASP_DEPS_DIR) # Look in that directory
   set(BOOST_ROOT       "${ASP_DEPS_DIR}")
@@ -37,10 +34,10 @@ if (ASP_DEPS_DIR) # Look in that directory
   #set(CMAKE_CXX_COMPILER_ARCHITECTURE_ID "x64")
 endif()  
 # Now search for Boost using the available information
-find_package(Boost ${BOOST_VERSION} EXACT REQUIRED COMPONENTS ${REQUIRED_BOOST_LIBS})
+find_package(Boost REQUIRED COMPONENTS ${REQUIRED_BOOST_LIBS})
 
 if(Boost_FOUND)
-    message("Successfully found Boost version ${Boost_VERSION}.")
+    message("Successfully found Boost.")
     message("Boost include dir = ${Boost_INCLUDE_DIR}")
     message("Boost library dir = ${Boost_LIBRARY_DIRS}")
     message("Boost libraries   = ${Boost_LIBRARIES}")
@@ -183,6 +180,7 @@ find_external_library(LAPACK ${ASP_DEPS_DIR} "" "lapack;blas" REQUIRED)
 set(VW_HAVE_PKG_FLAPACK 1) # This specifies that it is a Fortran derived version
 
 find_external_library(FLANN   ${ASP_DEPS_DIR} "" "flann_cpp" REQUIRED)
+find_external_library(LZ4     ${ASP_DEPS_DIR} "" "lz4"       REQUIRED)
 find_external_library(Z       ${ASP_DEPS_DIR} "" "z"         REQUIRED)
 find_external_library(PROJ4   ${ASP_DEPS_DIR} "" "proj"      REQUIRED)
 find_external_library(JPEG    ${ASP_DEPS_DIR} "" "jpeg"      REQUIRED)
@@ -229,16 +227,17 @@ find_external_library(USGSCSM ${ASP_DEPS_DIR} "usgscsm" "usgscsm" REQUIRED)
 # Link to ale. This is needed to be able to export the CSM camera state.
 find_external_library(ALE ${ASP_DEPS_DIR} "ale" "ale" REQUIRED)
 
-#include_directories("${ASP_DEPS_DIR}/include")
+# include_directories("${ASP_DEPS_DIR}/include")
 
 # PCL
+# TODO(oalexan1): Having to specify the version here always breaks.
 set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
                   pcl_kdtree pcl_keypoints pcl_ml pcl_octree pcl_recognition
                   pcl_registration pcl_sample_consensus pcl_search pcl_segmentation
                   pcl_stereo pcl_surface pcl_tracking)
-find_external_library(PCL ${ASP_DEPS_DIR} "pcl-1.11" "${PCL_LIB_NAMES}" REQUIRED)
+find_external_library(PCL ${ASP_DEPS_DIR} "pcl-1.13" "${PCL_LIB_NAMES}" REQUIRED)
 
-# OpenCV
+# OpenCV 
 set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_core        opencv_shape
                      opencv_features2d  opencv_stitching
@@ -257,11 +256,7 @@ find_external_library(OPENCV ${ASP_DEPS_DIR} "opencv4" "${OPENCV_LIB_NAMES}" REQ
 set(PDAL_LIB_NAMES pdal_plugin_kernel_fauxplugin
                    pdal_plugin_reader_hdf pdal_plugin_reader_pgpointcloud
                    pdal_plugin_reader_tiledb pdal_plugin_writer_pgpointcloud
-                   pdal_plugin_writer_tiledb pdal_util pdalcpp)
-if (NOT APPLE)
-  # For some reason on Mac the pdal_base library does not exist
-  set(PDAL_LIB_NAMES ${PDAL_LIB_NAMES} pdal_base)
-endif()
+                   pdal_plugin_writer_tiledb pdalcpp)
 find_external_library(PDAL ${ASP_DEPS_DIR} "pdal" "${PDAL_LIB_NAMES}" REQUIRED)
 
 # This is an experiment, to be continued
@@ -279,7 +274,7 @@ find_external_library(PDAL ${ASP_DEPS_DIR} "pdal" "${PDAL_LIB_NAMES}" REQUIRED)
 set(VW_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} ${OPENEXR_LIBRARIES}
     ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  ${PROJ4_LIBRARIES}
     ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${PNG_LIBRARIES}
-    ${FLANN_LIBRARIES})
+    ${FLANN_LIBRARIES} ${LZ4_LIBRARIES})
 set(ISIS_3RD_PARTY_LIBS Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES})
 
 # Libraries use paths like "asp/src/Core/Common.h" so we just need to

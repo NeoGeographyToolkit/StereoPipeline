@@ -48,6 +48,7 @@
 
 #include <map>
 #include <string>
+#include <bitset>
 
 namespace vw {
   struct GdalWriteOptions;

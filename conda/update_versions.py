@@ -46,17 +46,17 @@ lines = inHandle.readlines()
 for line in lines:
 
     # Wipe comments
-    m = re.match('^(.*?)\#', line)
+    m = re.match(r'^(.*?)\#', line)
     if m:
         line = m.group(1)
         
     # Match the package
-    m = re.match('^\s*-\s*(.*?)\s*=+\s*(.*?)(=|\s|$)', line)
+    m = re.match(r'^\s*-\s*(.*?)\s*=+\s*(.*?)(=|\s|$)', line)
     if not m:
         continue
     package = m.group(1)
     version = m.group(2)
-    if re.match('^\s*$', package):
+    if re.match(r'^\s*$', package):
         continue # ignore empty lines
     
     conda_env[package] = version
@@ -70,12 +70,12 @@ for it in range(len(lines)):
     line = lines[it]
 
     # Ignore comments
-    m = re.match('^\#', line)
+    m = re.match(r'^\#', line)
     if m:
         continue
 
     # Match the package
-    m = re.match('^(\s+-\s*)(.*?)([\s=]+)(.*?)$', line)
+    m = re.match(r'^(\s+-\s*)(.*?)([\s=]+)(.*?)$', line)
     if not m:
         continue
     

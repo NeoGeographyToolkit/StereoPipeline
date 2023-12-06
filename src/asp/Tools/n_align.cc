@@ -160,15 +160,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Must have at least two clouds to align.\n"
               << usage << general_options );
 
-  if (opt.in_prefix != "" && opt.in_transforms != "") {
+  if (opt.in_prefix != "" && opt.in_transforms != "")
     vw_throw( ArgumentErr() << "Cannot specify both the initial transforms prefix "
               << "and the list of initial transforms.\n" << usage << general_options );
-
-  }
-  
 }
 
-bool triplet_less(vw::Vector3 const& p, vw::Vector3 const& q){
+bool triplet_less(vw::Vector3 const& p, vw::Vector3 const& q) {
 
   if (p.x() < q.x()) return true;
   if (p.x() > q.x()) return false;
@@ -183,13 +180,13 @@ bool triplet_less(vw::Vector3 const& p, vw::Vector3 const& q){
 }
 
 // Define equality for pairs of integers
-bool operator==(std::pair<int, int> const& p, std::pair<int, int> const& q){
+bool operator==(std::pair<int, int> const& p, std::pair<int, int> const& q) {
   return (p.first == q.first) && (p.second == q.second);
 }
 
 // An operator used to sort pairs of integers
 struct CustomCompare {
-  bool operator()(std::pair<int, int> const& p, std::pair<int, int> const& q){
+  bool operator()(std::pair<int, int> const& p, std::pair<int, int> const& q) const {
     if (p.first < q.first) return true;
     if (p.first > q.first) return false;
     
@@ -200,7 +197,7 @@ struct CustomCompare {
   }
 };
 
-bool vector_less(Eigen::VectorXd const& p, Eigen::VectorXd const& q){
+bool vector_less(Eigen::VectorXd const& p, Eigen::VectorXd const& q) {
   for (int i = 0; i < p.size(); i++) {
     if (p[i] < q[i]) return true;
     if (p[i] > q[i]) return false;
@@ -209,7 +206,7 @@ bool vector_less(Eigen::VectorXd const& p, Eigen::VectorXd const& q){
 }
 
 // Convert a cloud from libpointmatcher's format to a vector of points
-void convert_cloud(DP const& in_cloud, std::vector<vw::Vector3> & out_cloud){
+void convert_cloud(DP const& in_cloud, std::vector<vw::Vector3> & out_cloud) {
   out_cloud.clear();
   for (int col = 0; col < in_cloud.features.cols(); col++) {
     vw::Vector3 p;
@@ -220,7 +217,7 @@ void convert_cloud(DP const& in_cloud, std::vector<vw::Vector3> & out_cloud){
 }
 
 // Read a cloud stored in a plain text file
-void read_cloud(std::string const& file, std::vector<vw::Vector3> & cloud, double shift){
+void read_cloud(std::string const& file, std::vector<vw::Vector3> & cloud, double shift) {
   cloud.clear();
   std::ifstream ifs(file.c_str());
   double x, y, z;
@@ -368,7 +365,7 @@ int main(int argc, char *argv[]){
       transVec[cloudIter] = Eigen::MatrixXd::Identity(4, 4);
     }
 
-    std::vector< std::vector<vw::Vector3>> clouds(numClouds);
+    std::vector<std::vector<vw::Vector3>> clouds(numClouds);
 
     // Load the first subsampled point cloud. Calculate the shift to apply to all clouds.
     vw::Vector3 shift;
@@ -422,7 +419,7 @@ int main(int argc, char *argv[]){
     }
     
     // Build the trees
-    std::vector< boost::shared_ptr<KDTree_double>> Trees;
+    std::vector<boost::shared_ptr<KDTree_double>> Trees;
     for (int it = 0; it < numClouds; it++) {
       boost::shared_ptr<KDTree_double>
         tree(new KDTree_double(flann::KDTreeSingleIndexParams(FIFTEEN)));
@@ -517,7 +514,7 @@ int main(int argc, char *argv[]){
             Corr2.insert(std::pair<int, int>(index_j, index_i));
           }
 
-          std::vector< std::pair<int, int>> Corr;
+          std::vector<std::pair<int, int>> Corr;
           for (PairType::iterator it = Corr1.begin(); it != Corr1.end(); it++) {
             PairType::iterator it2 = Corr2.find(*it);
             if (it2 == Corr2.end()) continue;
