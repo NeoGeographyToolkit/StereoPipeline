@@ -362,6 +362,5 @@ add_subdirectory(Gotcha)
 add_subdirectory(Python)
 add_subdirectory(Tools)
 add_subdirectory(WVCorrect)
-add_subdirectory(Hidden)
 add_subdirectory(IceBridge)
 
