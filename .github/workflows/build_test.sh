@@ -11,7 +11,8 @@ else
 fi
 
 # Set up some variables
-envName=asp_deps_3.4.0_alpha
+envName=asp_deps
+#envName=asp_deps_3.4.0_alpha
 aspRepoDir=$(pwd) # $HOME/work/StereoPipeline/StereoPipeline
 # Check that base dir is StereoPipeline
 if [ "$(basename $aspRepoDir)" != "StereoPipeline" ]; then
@@ -22,14 +23,21 @@ fi
 baseDir=$(dirname $aspRepoDir) # one level up
 installDir=$baseDir/install
 
-envPath=/usr/local/miniconda/envs/${envName} 
+envPath=/usr/local/miniconda/envs/${envName}
 if [ ! -d "$envPath" ]; then
-  # Create the conda environment. When the environemnt changes, wipe its cached
-  # version for this action, then this will recreate it.
-  # Note the variable $envName. This must also be the environment name in the
-  # .yaml file.
-  conda env create -f conda/${envName}_osx_env.yaml
+    echo "Error: Directory: $envPath does not exist"
+    exit 1
 fi
+
+# The logic below is turned off for now, as the env was
+# created and cached manually.
+#if [ ! -d "$envPath" ]; then
+#   # Create the conda environment. When the environemnt changes, wipe its cached
+#   # version for this action, then this will recreate it.
+#   # Note the variable $envName. This must also be the environment name in the
+#   # .yaml file.
+#   conda env create -f conda/${envName}_osx_env.yaml
+# fi
 
 # # For local testing
 # if [ ! -d "$envPath" ]; then
@@ -141,22 +149,28 @@ if [ ! -f "StereoPipelineTest.tar" ]; then
 fi
 tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 
-# Note: If the test results change, a new tarball must be uploaded.
-# Here's how that is done.
+# Note: If the test results change, a new tarball with latest scripts and test
+# results must be uploaded. Here's how that is done.
 if [ 1 -eq 0 ]; then
-  # Inspect all tests. Update the failed ones (each 'gold' is overwritten with 'run')
-  rm -rf StereoPipelineTest/*/run # do not upload the run data, only the gold
+  # Inspect all tests. Update the failed ones (each 'gold' is overwritten with 'run').
+  # Make the new 'run' directory the new 'gold'. Do not keep the 'run' directories.
+  for f in StereoPipelineTest/ss*/run; do 
+    g=${f/run/gold}
+    /bin/rm -rfv $g
+    /bin/mv -fv $f $g
+  done
   # Must make all scripts in bin and individual tests executable,
   # as they are not executable in the tarball.
   chmod a+x StereoPipelineTest/bin/* StereoPipelineTest/*/*sh 
+  # Create a new tarball
   binaries=StereoPipelineTest.tar
-  tar cfv $binaries StereoPipelineTest # create new tarball
+  tar cfv $binaries StereoPipelineTest 
   repo=git@github.com:NeoGeographyToolkit/StereoPipelineTest.git  
   gh=/home/oalexan1/miniconda3/envs/gh/bin/gh
   tag=0.0.1
   $gh release -R $repo delete $tag # wipe old tarball
   notes="Update test results"
-  $gh release -R $repo create $tag $binaries --title $tag --notes "$notes" # upload
+  $gh release -R $repo create $tag $binaries --title $tag --notes "$notes" # upload new
 fi
 
 # Go to test dir
