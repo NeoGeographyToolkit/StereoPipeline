@@ -209,10 +209,8 @@ echo test_status $ans >> $reportFile
 if [ "$ans" -eq 0 ]; then
     echo "All tests passed"
 else
-    # TOODO(oalexan1): Make this a failure. For now just
-    # save the results.
+    # Do not quit, as we want to save the test results
     echo "Some tests failed"
-    # exit 1
 fi
     
 # Save the resulting test results as part of the artifacts
