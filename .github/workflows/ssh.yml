@@ -7,14 +7,14 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v3
-    # - name: Download artifacts from previous run
-    #   uses: actions/download-artifact@v3
-    #   with: 
-    #      ## Download the artifacts from the previous run. The name must be the
-    #      ## same as at the end where the artifacts are uploaded. The path will
-    #      ## be the same one as in the upload step, that is:
-    #      ## ~/work/StereoPipeline/packages
-    #      name: ssh-test-${{ runner.os }}
+    - name: Download artifacts from previous run
+      uses: actions/download-artifact@v3
+      with: 
+         ## Download the artifacts from the previous run. The name must be the
+         ## same as at the end where the artifacts are uploaded. The path will
+         ## be the same one as in the upload step, that is:
+         ## ~/work/StereoPipeline/packages
+         name: ssh-test-${{ runner.os }}
     - name: Cache conda
       id: cache-conda
       uses: actions/cache@v3
