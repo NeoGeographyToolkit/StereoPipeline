@@ -184,6 +184,10 @@ the recipe at:
 
 See :numref:`packages_to_build` for how to fetch and build this.
   
+Install the version of PDAL that is compatible with current ISIS::
+
+    conda install -c conda-forge pdal==2.6.0
+
 Save the current environment as follows::
 
     conda env export > isis8.0.0.yaml
@@ -216,21 +220,11 @@ can be downloaded with ``git clone`` from:
   https://github.com/NeoGeographyToolkit/fgr-feedstock.git
   https://github.com/NeoGeographyToolkit/libnabo-feedstock.git
   https://github.com/NeoGeographyToolkit/libpointmatcher-feedstock.git
-  https://github.com/NeoGeographyToolkit/gdal-feedstock.git
-  https://github.com/NeoGeographyToolkit/pdal-feedstock.git
   https://github.com/NeoGeographyToolkit/s2p-feedstock.git
   https://github.com/NeoGeographyToolkit/libelas-feedstock.git
   https://github.com/NeoGeographyToolkit/multiview-feedstock
   https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
   https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
-
-On OSX, also fetch and build:
-
-  https://github.com/NeoGeographyToolkit/tbb-feedstock.git
-
-This is needed as a workaround for the ``tbb`` conda package
-on OSX conflicting with the ``embree`` package which is rather old
-but is needed by ``ISIS``. 
 
 Also, per the earlier note, consider rebuilding ``usgscsm`` if
 there there are updates in its GitHub repository which are not yet

@@ -69,16 +69,14 @@ for details.
 Documentation
 =============
 
-The documentation is provided in PDF format, linked to above, and in
-HTML format at https://stereopipeline.readthedocs.io.
+The documentation, in HTML format, is at https://stereopipeline.readthedocs.io.
 
-The documentation includes a gentle introduction to using the Stereo
-Pipeline, an entry for each tool, and example processing workflows for
-many supported sensors.
+The documentation includes a gentle introduction to using the Stereo Pipeline,
+an entry for each tool, and example processing workflows for many supported
+sensors.
 
-The PDF documentation is bundled with the binary distributions (named
-``asp_book.pdf``), and the ReStructured Text source files are
-distributed in the `docs/` subdirectory.
+The ReStructured Text source files for the documentation are distributed in the
+`docs/` subdirectory.
 
 Support and user community
 ==========================
@@ -87,10 +85,10 @@ All bugs, feature requests, user questions, and general discussion
 can be posted on the `ASP support forum
 <https://groups.google.com/forum/#!forum/ames-stereo-pipeline-support>`_.
 
-We also encourage the posting of Issues on the `GitHub repo
+We also encourage the posting of issues on the `GitHub repo
 <https://github.com/NeoGeographyToolkit/StereoPipeline>`_ (most
 such items posted on the forum will typically be converted to an
-Issue there for the developers to work on), as well as pull requests.
+issue there for the developers to work on), as well as pull requests.
 
 Credits
 =======

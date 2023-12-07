@@ -89,7 +89,7 @@ namespace asp {
     }else{
       // Throw an error. It will be caught, but it will get printed
       // only if no other approaches turn out to work later on.
-      vw_throw(ArgumentErr() << "Not an image " << filename);
+      vw_throw(ArgumentErr() << "Not an image file: " << filename);
     }
     
   }
