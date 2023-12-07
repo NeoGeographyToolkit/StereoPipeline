@@ -68,14 +68,14 @@ if hasattr(datetime, 'strptime'):
 else:
     # python 2.4
     def parse_time(date_str, fmt):
-        m = re.match('^(.*?)T(.*?)\.(\d+)Z', date_str)
+        m = re.match(r'^(.*?)T(.*?)\.(\d+)Z', date_str)
         if m:
             date_str  = m.group(1) + " " + m.group(2)
             microsec  = format_microsec(m.group(3))
         else:
             raise Exception('InputError', "Could not match string: " + date_str)
 
-        m = re.match('^(.*?)T(.*?)\.(.*?)Z', fmt)
+        m = re.match(r'^(.*?)T(.*?)\.(.*?)Z', fmt)
         if m:
             fmt = m.group(1) + " " + m.group(2)
         else:
@@ -737,7 +737,7 @@ def main():
             merged_vals = {}
             num_vals = {}
             for key in xml_keys:
-                m = re.match('^.*?MEAN', key, re.IGNORECASE)
+                m = re.match(r'^.*?MEAN', key, re.IGNORECASE)
                 if m:
                     merged_vals[key] = 0
                     num_vals[key] = 0
@@ -832,9 +832,9 @@ def main():
 
                 for key in xml_keys:
                     if xml_vals[key] is None: continue
-                    m_mean = re.match('^.*?MEAN', key, re.IGNORECASE)
-                    m_max  = re.match('^.*?MAX',  key, re.IGNORECASE)
-                    m_min  = re.match('^.*?MIN',  key, re.IGNORECASE)
+                    m_mean = re.match(r'^.*?MEAN', key, re.IGNORECASE)
+                    m_max  = re.match(r'^.*?MAX',  key, re.IGNORECASE)
+                    m_min  = re.match(r'^.*?MIN',  key, re.IGNORECASE)
                     if m_mean:
                         # Mean of all means
                         merged_vals[key] += xml_vals[key]
@@ -854,7 +854,7 @@ def main():
 
             # Complete the process of computing the averages
             for key in xml_keys:
-                m_mean = re.match('^.*?MEAN', key, re.IGNORECASE)
+                m_mean = re.match(r'^.*?MEAN', key, re.IGNORECASE)
                 if m_mean and num_vals[key] != 0 and merged_vals[key] is not None:
                     merged_vals[key] /= num_vals[key]
 
@@ -982,7 +982,7 @@ def main():
         # Adjust the GSD if images are reduced in resolution
         if options.reduce_percent != 100:
             for key in merged_vals:
-                m = re.match('^.*?GSD', key)
+                m = re.match(r'^.*?GSD', key)
                 if m and merged_vals[key] is not None:
                     merged_vals[key] *= 100.0/float(options.reduce_percent)
 

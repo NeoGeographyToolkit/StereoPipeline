@@ -67,8 +67,8 @@ def get_num_nodes(nodes_list):
     try:
         fh = open(nodes_list, "r")
         for line in fh:
-            if re.match('^\s*$', line): continue # skip empty lines
-            matches = re.match('^\s*([^\s]*)', line)
+            if re.match(r'^\s*$', line): continue # skip empty lines
+            matches = re.match(r'^\s*([^\s]*)', line)
             if matches:
                 nodes[matches.group(1)] = 1
 

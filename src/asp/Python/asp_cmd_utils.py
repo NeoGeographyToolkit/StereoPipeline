@@ -42,7 +42,7 @@ def isCmdOption(arg):
     False otherwise (if it is an argument)"""
 
     # An option must start with '-' and not consist of all numbers
-    if ( arg.startswith('-') and not re.match('^-[0-9.]+$', arg) ):
+    if ( arg.startswith('-') and not re.match(r'^-[0-9.]+$', arg) ):
         return True
     else:
         return False

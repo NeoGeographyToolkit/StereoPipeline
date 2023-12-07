@@ -354,7 +354,7 @@ def get_ccd(path):
 
     # Out of 'ESP_023957_1755/ESP_023957_1755_RED5_1.IMG', pull '_RED5_1',
     # and extract the number 5.
-    match = re.match("^.*?RED(\d)", filename )
+    match = re.match(r"^.*?RED(\d)", filename )
     if not match:
         raise Exception('Could not extract the CCD number from: ' + filename)
     ccd = int(match.group(1))

@@ -175,7 +175,7 @@ def parse_gdal_metadata(filename, meta_label):
 
         if len(gdal_settings[v]) > 0 and parseBlock:
             # In the desired block
-            m = re.match("^\s*(.*?)\s*=\s*(.*?)\s*$", gdal_settings[v])
+            m = re.match(r"^\s*(.*?)\s*=\s*(.*?)\s*$", gdal_settings[v])
             if not m:
                 continue
             meta_dict[m.group(1)] = m.group(2)
@@ -190,7 +190,7 @@ def format_metadata(meta_label, meta_dict):
 
     # From meta_label = "RPC Metadata" extract "RPC".
     vrt_domain = ""
-    m = re.match("^([\w]+)\s+Metadata", meta_label)
+    m = re.match(r"^([\w]+)\s+Metadata", meta_label)
     if m:
         vrt_domain = m.group(1)
 

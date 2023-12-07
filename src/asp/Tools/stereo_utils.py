@@ -89,14 +89,14 @@ class Step:
 escapeStr='esc_rand_str'
 def escape_vals(vals):
     for index, val in enumerate(vals):
-        p = re.match("^-[\.\d]", val)
+        p = re.match(r"^-[\.\d]", val)
         if p:
             vals[index] = escapeStr + val
     return vals
 
 def unescape_vals(vals):
     for index, val in enumerate(vals):
-        p = re.match("^" + escapeStr + "(-.*?)$", val)
+        p = re.match(r"^" + escapeStr + "(-.*?)$", val)
         if p:
             vals[index] = p.group(1)
     return vals
@@ -288,7 +288,7 @@ def parse_corr_seed_mode(filename):
     
     for line in fh:
         line = re.sub('\#.*?$', '', line) # wipe comments
-        matches = re.match('^\s*corr-seed-mode\s+(\d+)', line)
+        matches = re.match(r'^\s*corr-seed-mode\s+(\d+)', line)
         if matches:
             mode = int(matches.group(1))
     fh.close()
@@ -316,7 +316,7 @@ def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
     # Run all steps but tri
     for s in sorted(settings.keys()):
 
-        m = re.match('multiview_command', s)
+        m = re.match(r'multiview_command', s)
         if not m: continue
 
         local_args    = settings[s][:] # the current two-image stereo command

@@ -20,6 +20,13 @@ if [ "$(basename $aspRepoDir)" != "StereoPipeline" ]; then
     exit 1
 fi
 
+# Install GNU parallel
+echo Installing GNU parallel
+conda init bash
+source ~/.bash_profile
+conda activate $envName
+conda install -c conda-forge -y parallel
+
 baseDir=$(dirname $aspRepoDir) # one level up
 installDir=$baseDir/install
 
@@ -30,7 +37,7 @@ if [ ! -d "$envPath" ]; then
 fi
 
 # The logic below is turned off for now, as the env was
-# created and cached manually.
+# created and cached manually by logging into the cloud machine.
 #if [ ! -d "$envPath" ]; then
 #   # Create the conda environment. When the environemnt changes, wipe its cached
 #   # version for this action, then this will recreate it.
@@ -75,7 +82,7 @@ make -j10 install > /dev/null 2>&1 # this is too verbose
 # Log of the build, for inspection in case it fails
 out_build_vw=$(pwd)/output_build_vw.txt
 make install > $out_build_vw 2>&1
-tail -n 1000 $out_build_vw
+tail -n 500 $out_build_vw
 
 # Temporary fix for the csm frame camera
 perl -pi -e "s#private:#public:#g" $envPath/include/usgscsm/UsgsAstroFrameSensorModel.h
@@ -98,7 +105,7 @@ make -j10 install > /dev/null 2>&1 # this is too verbose
 # Log of the build, for inspection in case it fails
 out_build_asp=$(pwd)/output_build_asp.txt
 make install > $out_build_asp 2>&1
-tail -n 1000 $out_build_asp
+tail -n 500 $out_build_asp
 
 # Now package with BinaryBuilder
 echo Packaging the build
@@ -190,12 +197,10 @@ for d in ss*; do
     if [ ! -d "$d" ]; then continue; fi
     cd $d
     pwd
-    ./run.sh > /dev/null 2>&1
-    # TODO(oalexan1): The validate.sh script can print a lot of verbose text.
-    # Add a pipe to the head function. Then use ${PIPESTATUS[0]} to find the
-    # exit code of this script.
-    ./validate.sh
+    ./run.sh > output.txt 2>&1
+    ./validate.sh >> output.txt 2>&1
     ans0=$?
+    tail -n 20 output.txt # this can be verbose
     echo "Test $d returned $ans0"
     echo "Test $d returned $ans0" >> $reportFile
     if [ "$ans0" -ne 0 ]; then ans=1; fi # keep record of failures
@@ -212,13 +217,13 @@ else
     # Do not quit, as we want to save the test results
     echo "Some tests failed"
 fi
+
+# Create the artifacts dir that will be saved
+mkdir -p $packageDir
     
 # Save the resulting test results as part of the artifacts
 # This helps with debugging later
-# TODO(oalexan1): Consider saving the test artifacts to a different file
-mkdir -p $packageDir
-# TODO(oalexan1): Consider creating this as a single tar file
-cp -rfv $testDir $packageDir > /dev/null 2>&1
+(cd $testDir/..; tar czf $packageDir/$(basename $testDir).tar.gz $(basename $testDir))
 
 # Save these logs as part of the artifacts
 cp -rfv $out_build_vw $out_build_asp $reportFile $packageDir

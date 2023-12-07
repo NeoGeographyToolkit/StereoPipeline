@@ -63,11 +63,11 @@ def get_prog_version(prog):
 
     # This is a fix for sometimes GNU Parallel printing a warning at the beginning
     for line in out.split("\n"):
-        m = re.match("^.*?warning", line, re.IGNORECASE)
+        m = re.match(r"^.*?warning", line, re.IGNORECASE)
         if m: continue
         # This covers a version with no dots and a version like 3.0.1-alpha.
         # This is a fragile code.
-        m = re.match("^.*? (\d[^\s]+)", line)
+        m = re.match(r"^.*? (\d[^\s]+)", line)
         if not m:
            raise Exception("Could not find " + prog + " version")
         return m.group(1)
@@ -152,8 +152,8 @@ def getNumNodesInList(nodesListPath):
     try:
         fileHandle = open(nodesListPath, "r")
         for line in fileHandle:
-            if re.match('^\s*$', line): continue # skip empty lines
-            matches = re.match('^\s*([^\s]*)', line)
+            if re.match(r'^\s*$', line): continue # skip empty lines
+            matches = re.match(r'^\s*([^\s]*)', line)
             if matches:
                 nodes[matches.group(1)] = 1
 
@@ -305,7 +305,7 @@ def run_and_parse_output(cmd, args, sep, verbose, return_full_lines = False, **k
     for line in stdout.split('\n'):
 
         # Print warning messages to stdout
-        if re.match("^Warning", line): print(line)
+        if re.match(r"^Warning", line): print(line)
 
         if return_full_lines:
             data[count] = line # return the entire line

@@ -215,13 +215,13 @@ def create_symlinks_for_multiview(settings, opt):
 
     tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
     for s in sorted(settings.keys()):
-        m = re.match('multiview_command', s)
+        m = re.match(r'multiview_command', s)
         if not m:
             continue
         local_settings=run_and_parse_output("stereo_parse", settings[s][1:],
                                              sep, opt.verbose)
         local_prefix = local_settings['out_prefix'][0]
-        m = re.match('^(.*?)-pair(\d+)\/', local_prefix)
+        m = re.match(r'^(.*?)-pair(\d+)\/', local_prefix)
         if not m:
             continue
         base_prefix = m.group(1)
@@ -238,7 +238,7 @@ def create_symlinks_for_multiview(settings, opt):
                 m = re.match(skip_symlink_expr, f)
                 if m:
                     continue # won't sym link certain patterns
-                m = re.match('^' + src_pref + '(.*?)$', f)
+                m = re.match(r'^' + src_pref + '(.*?)$', f)
                 if not m:
                     continue
                 suff    = m.group(1)
@@ -313,7 +313,7 @@ def build_vrt(prog, settings, georef, postfix, tile_postfix, contract_tiles=Fals
     data_type = "Float32"
     for s in gdal_settings:
         val = " ".join(gdal_settings[s])
-        m = re.match('^.*? Type (\w+)', val)
+        m = re.match(r'^.*? Type (\w+)', val)
         if m:
             data_type = m.group(1)
             break
@@ -323,8 +323,8 @@ def build_vrt(prog, settings, georef, postfix, tile_postfix, contract_tiles=Fals
     BlockYSize = 0
     for s in gdal_settings:
         val = " ".join(gdal_settings[s])
-        if re.match("^\s*Band\s+\d", s):
-            m = re.match('^\s*(\d+)x(\d+)', val)
+        if re.match(r"^\s*Band\s+\d", s):
+            m = re.match(r'^\s*(\d+)x(\d+)', val)
             if m:
                 BlockXSize = m.group(1)
                 BlockYSize = m.group(2)
@@ -341,7 +341,7 @@ def build_vrt(prog, settings, georef, postfix, tile_postfix, contract_tiles=Fals
     # Find how many bands are in the file
     num_bands = 0
     for s in gdal_settings:
-        m = re.match('^.*?Band\s+(\d+)', s)
+        m = re.match(r'^.*?Band\s+(\d+)', s)
         if m:
             b = int(m.group(1))
             if num_bands < b:
@@ -420,8 +420,8 @@ def get_num_nodes(nodes_list):
     try:
         fh = open(nodes_list, "r")
         for line in fh:
-            if re.match('^\s*$', line): continue # skip empty lines
-            matches = re.match('^\s*([^\s]*)', line)
+            if re.match(r'^\s*$', line): continue # skip empty lines
+            matches = re.match(r'^\s*([^\s]*)', line)
             if matches:
                 nodes[matches.group(1)] = 1
 

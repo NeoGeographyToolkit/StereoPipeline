@@ -295,14 +295,14 @@ def generate_flagfile(options):
             lines = output_string.splitlines()
             for count in range(len(lines)):
                 line = lines[count]
-                m = re.match("(^.*?=)(.*?$)", line)
+                m = re.match(r"(^.*?=)(.*?$)", line)
                 if not m:
                     continue
                 name = m.group(1)
                 old_val = m.group(2)
                 
                 for repl in options.theia_overrides.split():
-                    m = re.match("(^.*?=)(.*?$)", repl)
+                    m = re.match(r"(^.*?=)(.*?$)", repl)
                     curr_name = m.group(1)
                     new_val = m.group(2)
 
@@ -433,7 +433,7 @@ def update_tsai_file(input_camera_path, new_pose_path, output_camera_path):
     f_in  = open(input_camera_path,  'r')
     for line in f_in:
         for k in keys: # Look for target values
-            matches = re.match('^pitch = (.*?)$', line)
+            matches = re.match(r'^pitch = (.*?)$', line)
             if matches:
                 pitch = float(matches.group(1))
     f_in.close()
@@ -449,7 +449,7 @@ def update_tsai_file(input_camera_path, new_pose_path, output_camera_path):
 
                 # See if to scale by the pitch
                 if k in scaled_keys:
-                    matches = re.match('^.*? = (.*?)$', thisLine)
+                    matches = re.match(r'^.*? = (.*?)$', thisLine)
                     if matches:
                         val = float(matches.group(1))
                         thisLine = k + ' = ' + str(val*pitch) + "\n"
