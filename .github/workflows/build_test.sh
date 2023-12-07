@@ -70,7 +70,7 @@ $envPath/bin/cmake ..                             \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
 echo Building VisionWorkbench
-make -j10 && make install > /dev/null 2>&1 # this is too verbose
+make -j10 install > /dev/null 2>&1 # this is too verbose
 
 # Log of the build, for inspection in case it fails
 out_build_vw=$(pwd)/output_build_vw.txt
@@ -93,7 +93,7 @@ $envPath/bin/cmake ..                             \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
 echo Building StereoPipeline
-make -j10 && make install > /dev/null 2>&1 # this is too verbose
+make -j10 install > /dev/null 2>&1 # this is too verbose
 
 # Log of the build, for inspection in case it fails
 out_build_asp=$(pwd)/output_build_asp.txt

@@ -27,11 +27,10 @@ jobs:
           ${{ runner.os }}-
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v3
+      timeout-minutes: 60
       with:
         limit-access-to-actor: true
         ##limit-access-to-users: oleg-alexandrov
-        ## If no one connects after 5 minutes, shut down the server
-        ##wait-timeout-minutes: 5
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with: 
