@@ -86,7 +86,6 @@ tail -n 500 $out_build_vw
 
 # Temporary fix for the csm frame camera
 perl -pi -e "s#private:#public:#g" $envPath/include/usgscsm/UsgsAstroFrameSensorModel.h
-cat $envPath/include/usgscsm/UsgsAstroFrameSensorModel.h
 
 # Build StereoPipeline
 cd $aspRepoDir
