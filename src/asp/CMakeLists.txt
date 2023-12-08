@@ -196,12 +196,7 @@ find_external_library(SPICE ${ASP_DEPS_DIR} "cspice" "cspice" REQUIRED)
 find_external_library(GEOID ${ASP_DEPS_DIR} "" "egm2008" REQUIRED)
 find_external_library(XERCESC ${ASP_DEPS_DIR} "" "xerces-c" REQUIRED)
 find_external_library(PROTOBUF ${ASP_DEPS_DIR} "" "protobuf" REQUIRED)
-# TODO(oalexan1): Must use embree3 on Linux as well
-if (APPLE)
-  find_external_library(EMBREE ${ASP_DEPS_DIR} "" "embree3" REQUIRED)
-else()
-  find_external_library(EMBREE ${ASP_DEPS_DIR} "" "embree" REQUIRED)
-endif()
+find_external_library(EMBREE ${ASP_DEPS_DIR} "" "embree3" REQUIRED)
 
 find_external_library(EIGEN ${ASP_DEPS_DIR} "eigen3" "" REQUIRED)
 find_external_library(CERES ${ASP_DEPS_DIR} "ceres" "ceres" REQUIRED)

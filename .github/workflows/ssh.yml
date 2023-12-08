@@ -27,7 +27,7 @@ jobs:
           ${{ runner.os }}-
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v3
-      timeout-minutes: 60
+      timeout-minutes: 600
       with:
         limit-access-to-actor: true
         ##limit-access-to-users: oleg-alexandrov
