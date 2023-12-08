@@ -513,7 +513,7 @@ Python management system at
 
 to install these dependencies. This can be done as follows::
 
-    conda create --name sparse_disp -c conda-forge python=3.9 gdal
+    conda create --name sparse_disp -c conda-forge python=3.9 gdal=3.6.1
     conda activate sparse_disp
     conda install -c conda-forge scipy pyfftw
 

@@ -41,7 +41,7 @@ if 'ASP_LIBRARY_PATH' in os.environ:
 
 # We will not symlink PC.tif and RD.tif which will be vrts,
 # and neither the log files
-skip_symlink_expr = '^.*?-(PC\.tif|RD\.tif|log.*?\.txt)$'
+skip_symlink_expr = r'^.*?-(PC\.tif|RD\.tif|log.*?\.txt)$'
 
 def check_system_memory(opt, args, settings):
     '''Issue a warning when doing correlation if our selected options
