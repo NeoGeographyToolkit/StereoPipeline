@@ -710,7 +710,7 @@ class fft_matcher(object):
 def make_pt_2_neighbors(tri):
     """ make a dictionary of the neighbors of each point in triangulation tri """
     pt_dict=dict()
-    for vlist in tri.vertices:
+    for vlist in tri.simplices:
         for i in vlist:
             if not i in pt_dict:
                 pt_dict[i]=list()

@@ -513,7 +513,7 @@ Python management system at
 
 to install these dependencies. This can be done as follows::
 
-    conda create --name sparse_disp -c conda-forge python=3.9 gdal=3.6.1
+    conda create --name sparse_disp -c conda-forge python=3.12 gdal=3.8
     conda activate sparse_disp
     conda install -c conda-forge scipy pyfftw
 
@@ -521,7 +521,7 @@ Assuming that you used the default installation path for ``conda``,
 which is ``$HOME/miniconda3``, before running the ``parallel_stereo`` command, as shown
 above, one needs to set::
 
-    export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.9/site-packages
+    export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.12/site-packages
 
 It is very important that the same version of Python be used here as
 the one shipped with ASP. Note that if GDAL is fetched from a
