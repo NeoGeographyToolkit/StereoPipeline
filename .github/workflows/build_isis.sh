@@ -16,7 +16,7 @@ echo Wiping old env
 /bin/rm -rf /usr/local/miniconda/envs/asp_deps
 
 /bin/rm -f isis_environment.yml
-wget https://raw.githubusercontent.com/NeoGeographyToolkit/StereoPipeline/master/.github/workflows/isis_environment.yml
+wget https://raw.githubusercontent.com/NeoGeographyToolkit/StereoPipeline/master/.github/isis_environment.yml
 echo Creating a new asp_deps env
 conda env create -n asp_deps -f isis_environment.yml 
 

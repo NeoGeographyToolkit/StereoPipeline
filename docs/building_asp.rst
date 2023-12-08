@@ -57,9 +57,9 @@ should be installed in the environment, if not present already.
 
     conda install -c conda-forge compilers
 
-Ensure that ``cmake>=3.15.5`` and ``pbzip2`` are installed::
+Ensure that ``parallel``, ``cmake>=3.15.5`` and ``pbzip2`` are installed::
 
-    conda install -c conda-forge "cmake>=3.15.5" pbzip2
+    conda install -c conda-forge "cmake>=3.15.5" pbzip2 parallel
 
 For Linux only, install the ``chrpath`` tool. 
 
@@ -503,7 +503,7 @@ Create a conda environment that has the dependencies for building ASP, as
 described in :numref:`build_from_source`. Assume it is called ``asp_deps``.
 
 Install the C, C++, and Fortran compilers, ``cmake>=3.15.5``, ``pbzip2``,
-and for Linux also the ``chrpath`` tool, as outlined on that page.
+``parallel``, and for Linux also the ``chrpath`` tool, as outlined on that page.
 
 Go to the directory ``BinaryBuilder``, and run::
 
