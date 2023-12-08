@@ -51,7 +51,7 @@ dependencies:
   - nn
   - opencv>=4.5.2, <5
   - openssl>=3.1.2,<4.0a0
-  - pcl=1.13.1=h86d90ae_2
+  - pcl=1.13
   - plio
   - protobuf
   - python=3.12

@@ -32,7 +32,8 @@ jobs:
           ${{ runner.os }}-build-
           ${{ runner.os }}-
     - name: build_test
-      run: ./.github/workflows/build_test.sh
+      ##run: ./.github/workflows/build_test.sh
+      run: ./.github/workflows/build_isis.sh
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with: 
