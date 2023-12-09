@@ -22,42 +22,20 @@
 // You can contact the authors at <f dot pomerleau at gmail dot com> and
 // <stephane at magnenat dot net>
 
-// All rights reserved.
-
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//     * Neither the name of the <organization> nor the
-//       names of its contributors may be used to endorse or promote products
-//       derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-// DISCLAIMED. IN NO EVENT SHALL ETH-ASL BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 #ifndef __PC_ALIGN_UTILS_H__
 #define __PC_ALIGN_UTILS_H__
+
+#include <asp/Core/Common.h>
+#include <asp/Core/Macros.h>
+#include <asp/Core/PointUtils.h>
+#include <asp/Core/EigenUtils.h>
 
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/FileIO/DiskImageUtils.h>
-#include <asp/Core/Common.h>
-#include <asp/Core/Macros.h>
-#include <asp/Core/PointUtils.h>
-#include <asp/Core/EigenUtils.h>
+#include <vw/Math/Quaternion.h>
 
 #include <limits>
 #include <cstring>
@@ -78,13 +56,27 @@ typedef double RealT; // We will use doubles in libpointmatcher.
 typedef PointMatcher<RealT> PM;
 typedef PM::DataPoints DP;
 
-std::string UNSPECIFIED_DATUM = "unspecified_datum";
+const std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
 //======================================================================
 
 /// Generate libpointmatcher compatible labels.
 template<typename T>
-typename PointMatcher<T>::DataPoints::Labels form_labels(int dim);
+typename PointMatcher<T>::DataPoints::Labels form_labels(int dim) {
+
+  typedef typename PointMatcher<T>::DataPoints::Label Label;
+  typedef typename PointMatcher<T>::DataPoints::Labels Labels;
+
+  Labels labels;
+  for (int i=0; i < dim; i++){
+    std::string text;
+    text += char('x' + i);
+    labels.push_back(Label(text, 1));
+  }
+  labels.push_back(Label("pad", 1));
+
+  return labels;
+}
 
 // Load xyz points from disk into a matrix with 4 columns. Last column is just ones.
 void load_cloud(std::string const& file_name,
@@ -132,7 +124,8 @@ double calc_mean(std::vector<double> const& errs, int len);
 double calc_stddev(std::vector<double> const& errs, double mean);
 
 /// Calculate translation vector between the centers two point clouds
-void calc_translation_vec(DP const& source, DP const& trans_source,
+void calc_translation_vec(PointMatcher<RealT>::Matrix const& initT,
+                          DP const& source, DP const& trans_source,
                           vw::Vector3 & shift, // from planet center to current origin
                           vw::cartography::Datum const& datum,
                           vw::Vector3 & source_ctr_vec,
@@ -215,9 +208,44 @@ typedef vw::InterpolationView<vw::EdgeExtensionView<vw::ImageViewRef<vw::PixelMa
 InterpolationReadyDem load_interpolation_ready_dem(std::string const& dem_path,
                                                    vw::cartography::GeoReference & georef);
 
+// Extract rotation and translation from a vector of 6 elements
+void extract_rotation_translation(const double * transform, vw::Quat & rotation, 
+                                  vw::Vector3 & translation);
+
+
+vw::Vector3 get_cloud_gcc_coord(DP const& point_cloud, 
+                                vw::Vector3 const& shift, int index);
+
+/// Interpolates the DEM height at the input coordinate.
+/// - Returns false if the coordinate falls outside the valid DEM area.
+bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float>> const& dem,
+                       vw::cartography::GeoReference          const& georef,
+                       vw::Vector3                            const& lonlat,
+                       double                                      & dem_height);
+
+/// Consider a 4x4 matrix T which implements a rotation + translation
+/// y = A*x + b. Consider a point s in space close to the points
+/// x. We want to make that the new origin, so the points x get
+/// closer to origin. In the coordinates (x2 = x - s, y2 = y - s) the
+/// transform becomes y2 + s = A*(x2 + s) + b, or
+/// y2 = A*x2 + b + A*s - s. Encode the obtained transform into another 4x4 matrix T2.
+PointMatcher<RealT>::Matrix apply_shift(PointMatcher<RealT>::Matrix const& T,
+                                        vw::Vector3 const& shift);
+
+// Sometime the box we computed with cartesian_to_geodetic is offset
+// from the box computed with pixel_to_lonlat by 360 degrees.
+// Fix that.
+void adjust_lonlat_bbox(std::string const& file_name, vw::BBox2 & box);
+
+/// Try to read the georef/datum info, need it to read CSV files.
+void read_georef(std::vector<std::string> const& clouds,
+                 std::string const& datum_str,
+                 std::string const& csv_proj4_str, 
+                 double semi_major_axis,
+                 double semi_minor_axis,
+                 std::string & csv_format_str,
+                 asp::CsvConv& csv_conv, vw::cartography::GeoReference& geo);
 
 }
-
-#include <asp/Tools/pc_align_utils.tcc>
 
 #endif // #define __PC_ALIGN_UTILS_H__

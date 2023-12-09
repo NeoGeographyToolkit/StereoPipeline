@@ -15,61 +15,22 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// This tool uses libpointmatcher for alignment,
+// This tool uses libpointmatcher for alignment. BSD license.
 // https://github.com/ethz-asl/libpointmatcher
 // Copyright (c) 2010--2012,
 // Francois Pomerleau and Stephane Magnenat, ASL, ETHZ, Switzerland
 // You can contact the authors at <f dot pomerleau at gmail dot com> and
 // <stephane at magnenat dot net>
 
-// All rights reserved.
-
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//     * Neither the name of the <organization> nor the
-//       names of its contributors may be used to endorse or promote products
-//       derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-// DISCLAIMED. IN NO EVENT SHALL ETH-ASL BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#include <asp/Tools/pc_align_utils.h>
 
 #include <pointmatcher/PointMatcher.h>
 #include <asp/Core/PointCloudAlignment.h>
 #include <asp/Core/PdalUtils.h>
 
-// TODO(oalexan1): This logic must be moved to a .cc file.
-
 namespace asp {
 
-template<typename T>
-typename PointMatcher<T>::DataPoints::Labels form_labels(int dim) {
-
-  typedef typename PointMatcher<T>::DataPoints::Label Label;
-  typedef typename PointMatcher<T>::DataPoints::Labels Labels;
-
-  Labels labels;
-  for (int i=0; i < dim; i++){
-    std::string text;
-    text += char('x' + i);
-    labels.push_back(Label(text, 1));
-  }
-  labels.push_back(Label("pad", 1));
-
-  return labels;
-}
+using namespace vw;
 
 void load_las_multi_attempt(std::string const& file_name,
                             std::int64_t num_points_to_load,
@@ -534,7 +495,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
 } // end save_trans_point_cloud
 
 InterpolationReadyDem load_interpolation_ready_dem(std::string const& dem_path,
-                                                   vw::cartography::GeoReference     & georef) {
+                                                   vw::cartography::GeoReference & georef) {
   // Load the georeference from the DEM
   bool has_georef = vw::cartography::read_georeference( georef, dem_path );
   if (!has_georef)
@@ -562,7 +523,7 @@ void read_georef(std::vector<std::string> const& clouds,
                  double semi_major_axis,
                  double semi_minor_axis,
                  std::string & csv_format_str,
-                 asp::CsvConv& csv_conv, vw::cartography::GeoReference& geo){
+                 asp::CsvConv& csv_conv, vw::cartography::GeoReference& geo) {
 
   // Use an initialized datum for the georef, so later we can check
   // if we manage to populate it.
@@ -678,4 +639,81 @@ void read_georef(std::vector<std::string> const& clouds,
   return;
 }
 
+void extract_rotation_translation(const double * transform, vw::Quat & rotation, 
+                                  vw::Vector3 & translation) {
+  
+  vw::Vector3 axis_angle;
+  for (int i = 0; i < 3; i++){
+    translation[i] = transform[i];
+    axis_angle[i]  = transform[i+3];
+  }
+  rotation = vw::math::axis_angle_to_quaternion(axis_angle);
 }
+
+/// Extracts the full GCC coordinate of a single point from a LibPointMatcher point cloud.
+/// - The shift converts from the normalized coordinate to the actual GCC coordinate.
+/// - No bounds checking is performed on the point index.
+Vector3 get_cloud_gcc_coord(DP const& point_cloud, vw::Vector3 const& shift, int index) {
+  Vector3 gcc_coord;
+  for (int row = 0; row < DIM; ++row)
+     gcc_coord[row] = point_cloud.features(row, index) + shift[row];
+  return gcc_coord;
+}
+
+bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float> > const& dem,
+                       vw::cartography::GeoReference const & georef,
+                       vw::Vector3                   const & lonlat,
+                       double                              & dem_height) {
+  // Convert the lon/lat location into a pixel in the DEM.
+  vw::Vector2 pix;
+  try {
+    pix = georef.lonlat_to_pixel(subvector(lonlat, 0, 2));
+  }catch(...){
+    return false;
+  }
+  
+  double c = pix[0], r = pix[1];
+
+  // Quit if the pixel falls outside the DEM.
+  if (c < 0 || c >= dem.cols()-1 || // TODO: This ought to be an image class function
+      r < 0 || r >= dem.rows()-1 )
+    return false;
+
+  // Interpolate the DEM height at the pixel location
+  vw::PixelMask<float> v = dem(c, r);
+  if (!is_valid(v))
+    return false;
+
+  dem_height = v.child();
+  return true;
+}
+
+// Consider a 4x4 matrix T which implements a rotation + translation
+// y = A*x + b. Consider a point s in space close to the points
+// x. We want to make that the new origin, so the points x get
+// closer to origin. In the coordinates (x2 = x - s, y2 = y - s) the
+// transform becomes y2 + s = A*(x2 + s) + b, or
+// y2 = A*x2 + b + A*s - s. Encode the obtained transform into another
+// 4x4 matrix T2.
+PointMatcher<RealT>::Matrix apply_shift(PointMatcher<RealT>::Matrix const& T,
+                                        vw::Vector3 const& shift){
+
+  VW_ASSERT(T.cols() == 4 && T.rows() == 4,
+            vw::ArgumentErr() << "Expected square matrix of size 4.");
+
+  Eigen::MatrixXd A = T.block(0, 0, 3, 3);
+  Eigen::MatrixXd b = T.block(0, 3, 3, 1);
+
+  Eigen::MatrixXd s = b;
+  for (int i = 0; i < 3; i++) s(i, 0) = shift[i];
+
+  Eigen::MatrixXd b2 = b + A*s - s;
+  PointMatcher<RealT>::Matrix T2 = T;
+  T2.block(0, 3, 3, 1) = b2;
+
+  return T2;
+}
+
+
+} // end namespace asp
+

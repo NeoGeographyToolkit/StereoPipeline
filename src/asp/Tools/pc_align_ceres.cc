@@ -18,6 +18,7 @@
 // Implement least square alignment using the Ceres solver.
 
 #include <asp/Tools/pc_align_ceres.h>
+#include <asp/Tools/pc_align_utils.h>
 #include <asp/Core/EigenUtils.h>
 
 #include <ceres/ceres.h>
@@ -152,71 +153,6 @@ least_squares_alignment(DP const& source_point_cloud, // Should not be modified
   T = apply_shift(T, point_cloud_shift);
 
   return T;
-}
-
-/// Extracts the full GCC coordinate of a single point from a LibPointMatcher point cloud.
-/// - The shift converts from the normalized coordinate to the actual GCC coordinate.
-/// - No bounds checking is performed on the point index.
-Vector3 get_cloud_gcc_coord(DP const& point_cloud, vw::Vector3 const& shift, int index) {
-  Vector3 gcc_coord;
-  for (int row = 0; row < DIM; ++row)
-     gcc_coord[row] = point_cloud.features(row, index) + shift[row];
-  return gcc_coord;
-}
-
-bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float> > const& dem,
-                       vw::cartography::GeoReference const & georef,
-                       vw::Vector3                   const & lonlat,
-                       double                              & dem_height) {
-  // Convert the lon/lat location into a pixel in the DEM.
-  vw::Vector2 pix;
-  try {
-    pix = georef.lonlat_to_pixel(subvector(lonlat, 0, 2));
-  }catch(...){
-    return false;
-  }
-  
-  double c = pix[0], r = pix[1];
-
-  // Quit if the pixel falls outside the DEM.
-  if (c < 0 || c >= dem.cols()-1 || // TODO: This ought to be an image class function
-      r < 0 || r >= dem.rows()-1 )
-    return false;
-
-  // Interpolate the DEM height at the pixel location
-  vw::PixelMask<float> v = dem(c, r);
-  if (!is_valid(v))
-    return false;
-
-  dem_height = v.child();
-  return true;
-}
-
-PointMatcher<RealT>::Matrix apply_shift(PointMatcher<RealT>::Matrix const& T,
-                                        vw::Vector3 const& shift){
-
-  // Consider a 4x4 matrix T which implements a rotation + translation
-  // y = A*x + b. Consider a point s in space close to the points
-  // x. We want to make that the new origin, so the points x get
-  // closer to origin. In the coordinates (x2 = x - s, y2 = y - s) the
-  // transform becomes y2 + s = A*(x2 + s) + b, or
-  // y2 = A*x2 + b + A*s - s. Encode the obtained transform into another
-  // 4x4 matrix T2.
-
-  VW_ASSERT(T.cols() == 4 && T.rows() == 4,
-            vw::ArgumentErr() << "Expected square matrix of size 4.");
-
-  Eigen::MatrixXd A = T.block(0, 0, 3, 3);
-  Eigen::MatrixXd b = T.block(0, 3, 3, 1);
-
-  Eigen::MatrixXd s = b;
-  for (int i = 0; i < 3; i++) s(i, 0) = shift[i];
-
-  Eigen::MatrixXd b2 = b + A*s - s;
-  PointMatcher<RealT>::Matrix T2 = T;
-  T2.block(0, 3, 3, 1) = b2;
-
-  return T2;
 }
     
 } // end namespace asp

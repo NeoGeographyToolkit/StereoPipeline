@@ -19,12 +19,6 @@
 // https://github.com/ethz-asl/libpointmatcher
 // Released under the BSD 3-Clause.
 
-// Can't do much about external warnings except hide them
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <FastGlobalRegistration/app.h>
-#pragma GCC diagnostic pop
-
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/EulerAngles.h>
 #include <vw/FileIO/DiskImageView.h>
@@ -39,6 +33,7 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Tools/pc_align_utils.h>
 #include <asp/Tools/pc_align_ceres.h>
+#include <asp/Tools/pc_align_fgr.h>
 
 #include <limits>
 #include <cstring>
@@ -460,115 +455,6 @@ void calcErrorsWithDem(DP                                 const& point_cloud,
 
 }
 
-// Convert a point clould to the format expected by FGR
-void export_to_fgr(DP const & data, fgr::Points& pts, fgr::Feature & feat){
-
-  pts.clear();
-  feat.clear();
-  for (int c = 0; c < data.features.cols(); c++){
-
-    Eigen::Vector3f pts_v;
-    for (int r = 0; r < 3; r++) pts_v[r] = data.features(r, c);
-
-    pts.push_back(pts_v);
-
-    // fgr expects features in addition to points. This works well enough,
-    // but need to get to the bottom of whether they are necessary.
-    feat.push_back(pts_v); 
-  }
-  
-}
-
-// Parse a string like:
-// div_factor: 1.4 use_absolute_scale: 0 max_corr_dist: 0.025 iteration_number: 100 tuple_scale: 0.95 tuple_max_cnt: 10000
-void parse_fgr_options(std::string const & options,
-                       double            & div_factor,
-                       bool              & use_absolute_scale,
-                       double            & max_corr_dist,
-                       int               & iteration_number,
-                       float             & tuple_scale,
-                       int               & tuple_max_cnt){
-
-  // Initialize the outputs
-  div_factor         = -1;
-  use_absolute_scale = false;
-  max_corr_dist      = -1;
-  iteration_number   = -1;
-  tuple_scale        = -1;
-  tuple_max_cnt      = -1;
-
-  std::istringstream is(options);
-  std::string name, val;
-  while( is >> name >> val){
-    if (name.find("div_factor") != std::string::npos)
-      div_factor = atof(val.c_str());
-    if (name.find("use_absolute_scale") != std::string::npos)
-      use_absolute_scale = atof(val.c_str());
-    if (name.find("max_corr_dist") != std::string::npos)
-      max_corr_dist = atof(val.c_str());
-    if (name.find("iteration_number") != std::string::npos)
-      iteration_number = atof(val.c_str());
-    if (name.find("tuple_scale") != std::string::npos)
-      tuple_scale = atof(val.c_str());
-    if (name.find("tuple_max_cnt") != std::string::npos)
-      tuple_max_cnt = atof(val.c_str());
-  }
-  
-  // Sanity check
-  if (div_factor <= 0 || max_corr_dist < 0 || iteration_number < 0 || tuple_scale <= 0 ||
-      tuple_max_cnt <= 0) {
-    vw_throw( ArgumentErr() << "Could not parse correctly --fgr-options.");
-  }
-}
-  
-/// Compute alignment using FGR
-PointMatcher<RealT>::Matrix
-fgr_alignment(DP const & source_point_cloud, DP const & ref_point_cloud, Options const& opt) {
-
-  // Parse the options and initialize the FGR object
-  double  div_factor; 
-  bool    use_absolute_scale;
-  double  max_corr_dist;
-  int     iteration_number;
-  float   tuple_scale;
-  int     tuple_max_cnt;
-  parse_fgr_options(opt.fgr_options,  
-                    div_factor, use_absolute_scale, max_corr_dist, iteration_number,  
-                    tuple_scale, tuple_max_cnt);
-  fgr::CApp app(div_factor, use_absolute_scale, max_corr_dist, iteration_number,  
-                tuple_scale, tuple_max_cnt);
-
-  // Intermediate data
-  fgr::Points pts;
-  fgr::Feature feat;
-
-  // Pass the reference cloud to FGR
-  export_to_fgr(ref_point_cloud, pts, feat);
-  app.LoadFeature(pts, feat);
-
-  // Pass the source cloud to FGR
-  export_to_fgr(source_point_cloud, pts, feat);
-  app.LoadFeature(pts, feat);
-
-  // Perform alignment
-  app.NormalizePoints();
-  app.AdvancedMatching();
-  app.OptimizePairwise(true);
-  Eigen::Matrix4f S = app.GetOutputTrans();
-
-  // Export the transform
-  PointMatcher<RealT>::Matrix T = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
-  if (T.cols() != S.cols() || T.rows() != S.rows()) 
-    vw_throw( LogicErr() << "Error: size mis-match in FGR.\n");
-  for (int row = 0; row < T.rows(); row++) {
-    for (int col = 0; col < T.cols(); col++) {
-      T(row, col) = S(row, col);
-    }
-  }
-
-  return T;
-}
-  
 /// Filters out all points from point_cloud with an error entry higher than cutoff
 void filterPointsByError(DP & point_cloud, PointMatcher<RealT>::Matrix &errors, double cutoff) {
 
@@ -1251,7 +1137,7 @@ int main( int argc, char *argv[] ) {
     PointMatcher<RealT>::Matrix T = Id;
     if (opt.num_iter > 0){
       if (opt.alignment_method == "fgr") {
-        T = fgr_alignment(source_point_cloud, ref_point_cloud, opt);
+        T = fgr_alignment(source_point_cloud, ref_point_cloud, opt.fgr_options);
       } else if (opt.alignment_method == "point-to-plane" ||
                  opt.alignment_method == "point-to-point" ||
                  opt.alignment_method == "similarity-point-to-point" ||

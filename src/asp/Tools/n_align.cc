@@ -34,8 +34,8 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/EigenUtils.h>
 #include <asp/Tools/pc_align_utils.h>
-#include <asp/Tools/pc_align_ceres.h>
 
+#include <vw/Cartography/GeoReference.h>
 #include <vw/Core/Stopwatch.h>
 
 // Turn off warnings about things we can't control
@@ -353,10 +353,10 @@ int main(int argc, char *argv[]){
     asp::log_to_file(argc, argv, "", opt.out_prefix);
     
     // Try to read the georeference/datum info
-    GeoReference geo;
-    read_georef(opt.cloud_files, opt.datum, opt.csv_proj4_str,  
-                opt.semi_major_axis, opt.semi_minor_axis,  
-                opt.csv_format_str,  csv_conv, geo);
+    vw::cartography::GeoReference geo;
+    asp::read_georef(opt.cloud_files, opt.datum, opt.csv_proj4_str,  
+                     opt.semi_major_axis, opt.semi_minor_axis,  
+                     opt.csv_format_str,  csv_conv, geo);
 
     int numClouds = opt.cloud_files.size();
 
