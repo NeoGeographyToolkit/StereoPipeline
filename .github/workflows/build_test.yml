@@ -12,7 +12,6 @@ on:
 
 jobs:
   build:
-
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v3
@@ -23,7 +22,8 @@ jobs:
         cache-name: cache-conda
       with:
         # Use cached ASP dependencies. They will be created manually 
-        # after starting a session with ssh.yml.
+        # after starting a session with ssh.yml. The cache must be wiped
+        # from the web interface if desired to recreate it.
         path: |
           /usr/local/miniconda/envs
         key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/miniconda.json') }}
@@ -32,8 +32,9 @@ jobs:
           ${{ runner.os }}-build-
           ${{ runner.os }}-
     - name: build_test
-      ##run: ./.github/workflows/build_test.sh
-      run: ./.github/workflows/build_isis.sh
+      run: ./.github/workflows/build_test.sh
+      ## The script below builds ISIS and other ASP dependencies.
+      ##run: ./.github/workflows/build_isis.sh
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with: 

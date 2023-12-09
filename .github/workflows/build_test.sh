@@ -27,6 +27,9 @@ source ~/.bash_profile
 conda activate $envName
 conda install -c conda-forge -y parallel
 
+# These ineed installing for now
+conda install -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge geoid=1.0_isis7 htdp=1.0_isis7 -y
+
 baseDir=$(dirname $aspRepoDir) # one level up
 installDir=$baseDir/install
 
@@ -53,11 +56,10 @@ fi
 # if [ ! -d "$envPath" ]; then
 #     envPath=$HOME/miniconda3/envs/${envName}
 # fi
-
-if [ ! -d "$envPath" ]; then
-    echo "Error: Directory: $envPath does not exist"
-    exit 1
-fi
+# if [ ! -d "$envPath" ]; then
+#     echo "Error: Directory: $envPath does not exist"
+#     exit 1
+# fi
 
 # packageDir will later be uploaded, as set in the yml file
 packageDir=$baseDir/packages

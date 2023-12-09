@@ -98,7 +98,6 @@ if (UNIX AND NOT APPLE)
   endif()
 endif()
 
-
 # Find dependencies
 
 set(REQUIRED     True )
@@ -350,8 +349,6 @@ add_subdirectory(Core)
 add_subdirectory(SpiceIO)
 if(ASP_HAVE_PKG_ISISIO)
     add_subdirectory(IsisIO)
-    # PCL is imported via ISIS as ISIS depends on it
-    add_subdirectory(PclIO)
 endif()
 add_subdirectory(Camera)
 
@@ -365,3 +362,4 @@ add_subdirectory(Tools)
 add_subdirectory(WVCorrect)
 add_subdirectory(IceBridge)
 
+add_subdirectory(PclIO)
