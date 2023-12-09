@@ -131,15 +131,6 @@ double calc_mean(std::vector<double> const& errs, int len);
 /// Compute the standard deviation of an std::vector out to a length
 double calc_stddev(std::vector<double> const& errs, double mean);
 
-/// Consider a 4x4 matrix T which implements a rotation + translation
-/// y = A*x + b. Consider a point s in space close to the points
-/// x. We want to make that the new origin, so the points x get
-/// closer to origin. In the coordinates (x2 = x - s, y2 = y - s) the
-/// transform becomes y2 + s = A*(x2 + s) + b, or
-/// y2 = A*x2 + b + A*s - s. Encode the obtained transform into another 4x4 matrix T2.
-PointMatcher<RealT>::Matrix apply_shift(PointMatcher<RealT>::Matrix const& T,
-                                        vw::Vector3 const& shift);
-
 /// Calculate translation vector between the centers two point clouds
 void calc_translation_vec(DP const& source, DP const& trans_source,
                           vw::Vector3 & shift, // from planet center to current origin
@@ -224,12 +215,6 @@ typedef vw::InterpolationView<vw::EdgeExtensionView<vw::ImageViewRef<vw::PixelMa
 InterpolationReadyDem load_interpolation_ready_dem(std::string const& dem_path,
                                                    vw::cartography::GeoReference & georef);
 
-/// Interpolates the DEM height at the input coordinate.
-/// - Returns false if the coordinate falls outside the valid DEM area.
-bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float>> const& dem,
-                       vw::cartography::GeoReference          const& georef,
-                       vw::Vector3                            const& lonlat,
-                       double                                      & dem_height);
 
 }
 

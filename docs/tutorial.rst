@@ -515,7 +515,7 @@ to install these dependencies. This can be done as follows::
 
     conda create --name sparse_disp -c conda-forge python=3.12 gdal=3.8
     conda activate sparse_disp
-    conda install -c conda-forge scipy pyfftw
+    conda install -c conda-forge scipy
 
 Assuming that you used the default installation path for ``conda``,
 which is ``$HOME/miniconda3``, before running the ``parallel_stereo`` command, as shown

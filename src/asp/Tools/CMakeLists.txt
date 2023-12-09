@@ -96,17 +96,30 @@ add_executable(pc_merge pc_merge.cc)
 target_link_libraries(pc_merge AspSessions)
 install(TARGETS pc_merge DESTINATION bin)
 
+# This is compiled separately from pc_align.cc because it needs
+# C++17, while pc_align.cc needs C++14. This is temporary,
+# until FLANN can be updated to use C++17.
+add_library(pc_align_ceres SHARED pc_align_ceres.cc)
+set_target_properties(pc_align_ceres PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries(pc_align_ceres 
+  ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES}
+  AspSessions ${SOLVER_LIBRARIES})
+install(TARGETS pc_align_ceres DESTINATION lib)
+
+# TODO(oalexan1): Switch to C++17 when FLANN is updated.
 add_executable(pc_align pc_align.cc pc_align_utils.h pc_align_utils.tcc)
-target_link_libraries(pc_align AspSessions ${SOLVER_LIBRARIES} 
+target_compile_options(pc_align PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>)
+target_link_libraries(pc_align 
   ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} 
-  AspSessions)
+  pc_align_ceres ${SOLVER_LIBRARIES} AspSessions)
 install(TARGETS pc_align DESTINATION bin)
 
+# TODO(oalexan1): Switch to C++17 when FLANN is updated.
 add_executable(n_align n_align.cc pc_align_utils.h pc_align_utils.tcc)
 target_compile_options(n_align PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>)
 target_link_libraries(n_align AspSessions ${SOLVER_LIBRARIES} 
   ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES} 
-  ${FASTGLOBALREGISTRATION_LIBRARIES} AspSessions)
+  ${FASTGLOBALREGISTRATION_LIBRARIES} pc_align_ceres AspSessions)
 install(TARGETS n_align DESTINATION bin)
 
 add_executable(pansharp pansharp.cc)
