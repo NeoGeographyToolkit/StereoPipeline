@@ -50,9 +50,6 @@ using namespace std;
 using namespace vw::cartography;
 using namespace asp;
 
-typedef double RealT; // We will use doubles in libpointmatcher.
-typedef PointMatcher<RealT> PM;
-typedef PM::DataPoints DP;
 using namespace PointMatcherSupport;
 
 const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the largest double

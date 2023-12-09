@@ -106,7 +106,9 @@ target_link_libraries(pc_align_fgr
   AspSessions ${FASTGLOBALREGISTRATION_LIBRARIES})
 install(TARGETS pc_align_fgr DESTINATION lib)
 
-# This must surely be complied with C++17
+# This must surely be complied with C++17. Has to be compiled separately, as
+# when compiling together with pc_align it is hard to guarantee that C++17 is
+# used.
 add_library(pc_align_ceres SHARED pc_align_ceres.cc pc_align_utils.h pc_align_utils.cc)
 set_target_properties(pc_align_ceres PROPERTIES LINKER_LANGUAGE CXX)
 target_compile_options(pc_align_ceres PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++17>)
