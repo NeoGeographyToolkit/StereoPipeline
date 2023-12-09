@@ -20,14 +20,14 @@ if [ "$(basename $aspRepoDir)" != "StereoPipeline" ]; then
     exit 1
 fi
 
-# Install GNU parallel
+# Install GNU parallel and pbzip2
 echo Installing GNU parallel
 conda init bash
 source ~/.bash_profile
 conda activate $envName
-conda install -c conda-forge -y parallel
+conda install -c conda-forge -y parallel pbzip2
 
-# These ineed installing for now
+# These need installing for now
 conda install -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge geoid=1.0_isis7 htdp=1.0_isis7 -y
 
 baseDir=$(dirname $aspRepoDir) # one level up
