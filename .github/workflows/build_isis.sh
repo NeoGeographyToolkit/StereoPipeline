@@ -24,9 +24,9 @@ echo Creating a new asp_deps env
 conda env create -n asp_deps -f isis_environment.yml 
 conda activate asp_deps
 
-# Install GNU parallel
+# Install some needed tools
 cd
-conda install -c conda-forge parallel -y
+conda install -c conda-forge -y parallel pbzip2
 
 # Install the needed packages
 cd
@@ -327,6 +327,17 @@ $PREFIX/bin/cmake ..                         \
   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp
 echo Building StereoPipeline
 make -j10 install > /dev/null 2>&1 # this is too verbose
+
+# Package with BinaryBuilder
+echo Packaging the build
+cd
+conda activate asp_deps
+export PREFIX=/usr/local/miniconda/envs/asp_deps
+git clone https://github.com/NeoGeographyToolkit/BinaryBuilder
+cd BinaryBuilder
+./make-dist.py $PREFIX   \
+  --asp-deps-dir $PREFIX \
+  --python-env $(dirname $PREFIX)/python_isis8
 
 # Archive the conda env in the packages dir. This dir
 # is set in the .yml file. It will be saved as 

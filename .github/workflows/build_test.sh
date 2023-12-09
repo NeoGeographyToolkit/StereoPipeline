@@ -20,8 +20,10 @@ if [ "$(basename $aspRepoDir)" != "StereoPipeline" ]; then
     exit 1
 fi
 
-# Install GNU parallel and pbzip2
-echo Installing GNU parallel
+# Install some tools
+# TODO(oalexan1): Must have a short environment.yml file
+# having all the dependencies ASP needs.
+echo Installing some tools
 conda init bash
 source ~/.bash_profile
 conda activate $envName
@@ -108,7 +110,7 @@ out_build_asp=$(pwd)/output_build_asp.txt
 make install > $out_build_asp 2>&1
 tail -n 500 $out_build_asp
 
-# Now package with BinaryBuilder
+# Package with BinaryBuilder
 echo Packaging the build
 cd $baseDir
 git clone https://github.com/NeoGeographyToolkit/BinaryBuilder
