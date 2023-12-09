@@ -103,6 +103,7 @@ target_link_libraries(pc_align AspSessions ${SOLVER_LIBRARIES}
 install(TARGETS pc_align DESTINATION bin)
 
 add_executable(n_align n_align.cc pc_align_utils.h pc_align_utils.tcc)
+target_compile_options(n_align PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>)
 target_link_libraries(n_align AspSessions ${SOLVER_LIBRARIES} 
   ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES} 
   ${FASTGLOBALREGISTRATION_LIBRARIES} AspSessions)
