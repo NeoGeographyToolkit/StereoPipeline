@@ -92,36 +92,50 @@ and its effect on decreasing the stereo triangulation error.
 
    Illustration of the triangulation error (intersection error) map
    (:numref:`triangulation_error`) for a pair of images before (left) and after
-   (right) using Stereo Pipeline's ``bundle_adjust``. Red and black
-   colors suggest higher error.
+   (right) using Stereo Pipeline's ``bundle_adjust``. Red and black colors
+   suggest higher error. It can be seen that the triangulation error is much
+   reduced, so the resulting cameras are more self-consistent.
 
-Running ``parallel_stereo`` without using bundle-adjusted camera models::
+Start by running ``parallel_stereo`` without using bundle-adjusted camera
+models::
 
     parallel_stereo AS15-M-1134.cub AS15-M-1135.cub run_noadjust/run
 
-Performing bundle adjustment::
+Create a DEM and triangulation error image as in :numref:`point2dem`.
 
-    bundle_adjust AS15-M-1134.cub AS15-M-1135.cub -o run_ba/run
+Run bundle adjustment::
 
-Here only camera orientations are refined. How to optimize the
-intrinsics (if applicable) is discussed further down
+    bundle_adjust --camera-weight 0              \
+     --tri-weight 0.1 --tri-robust-threshold 0.1 \
+     AS15-M-1134.cub AS15-M-1135.cub -o run_ba/run
+
+Here only camera positions and orientations are refined. How to optimize the
+camera intrinsics (if applicable) is discussed further down
 (:numref:`floatingintrinsics`).
 
-Running ``parallel_stereo`` while using the bundle-adjusted camera models::
+Run ``parallel_stereo`` while using the bundle-adjusted camera models::
 
     parallel_stereo AS15-M-1134.cub AS15-M-1135.cub run_adjust/run \
       --bundle-adjust-prefix run_ba/run
 
-A comparison of the two ways of doing stereo is shown in
+This should be followed, as before, by creation of an DEM and a
+triangulation error image.
+
+A comparison of the results given these two ways of doing stereo is shown in
 :numref:`asp-ba-example`.
 
-Bundle adjustment aims to make the cameras more self-consistent but
-offers no guarantees about their absolute positions (unless GCP are
-used), in fact, the cameras can move away a lot sometimes. The options
-``--rotation-weight``, ``--translation-weight``, and
-``--camera-weight`` can be used to constrain how much the cameras can
-move during bundle adjustment. Note that large values for these may
-impact the ability to make the cameras self-consistent.
+Bundle adjustment aims to make the cameras more self-consistent but offers no
+guarantees about their absolute positions (unless GCP are used), in fact, the
+cameras can move away a lot sometimes. The options ``--tri-weight``,   
+``--rotation-weight``, ``--translation-weight``, and ``--camera-weight`` can be
+used to constrain how much the cameras can move during bundle adjustment. Note
+that large values for these may impact the ability to make the cameras
+self-consistent.
+
+This program can constrain the triangulated points, and hence the cameras,
+relative to a DEM. This option only works when the cameras are already
+rather well-aligned to this DEM and only fine-level adjustments are needed.
+That is discussed in :numref:`heights_from_dem`.
 
 ASP also offers the tool ``parallel_bundle_adjust`` which can create
 match files using multiple processes spread over multiple machines
@@ -964,11 +978,13 @@ can be first shifted up with ``image_calc``.
 Various such weight images can be merged with ``dem_mosaic``
 (:numref:`dem_mosaic`) or the values manipulated with ``image_calc``.
 
+.. _jigsaw:
+
 Bundle adjustment using ISIS
 ----------------------------
 
 In what follows we describe how to do bundle adjustment using ISIS's
-tool-chain. It also serves to describe bundle adjustment in more detail,
+toolchain. It also serves to describe bundle adjustment in more detail,
 which is applicable to other bundle adjustment tools as well, including
 Stereo Pipeline's own tool.
 
@@ -1000,22 +1016,26 @@ measurement is looking at the same feature.
    A feature observation in bundle adjustment, from
    :cite:`moore09`
 
-Bundle Adjustment in ISIS is performed with the ``jigsaw`` executable.
+Bundle adjustment in ISIS is performed with the ``jigsaw`` executable.
 It generally follows the method described
 in :cite:`triggs00` and determines the best camera
 parameters that minimize the projection error given by
-:math:`{\bf \epsilon} =
-\sum_k\sum_j(I_k-I(C_j, X_k))^2` where :math:`I_k` are the tie points on
-the image plane, :math:`C_j` are the camera parameters, and :math:`X_k`
-are the 3D positions associated with features :math:`I_k`.
-:math:`I(C_j, X_k)` is an image formation model (i.e. forward
-projection) for a given camera and 3D point. To recap, it projects the
-3D point, :math:`X_k`, into the camera with parameters :math:`C_j`. This
-produces a predicted image location for the 3D point that is compared
-against the observed location, :math:`I_k`. It then reduces this error
-with the Levenberg-Marquardt algorithm (LMA). Speed is improved by using
-sparse methods as described in :cite:`hartley04`,
-:cite:`konolige:sparsesparse`, and :cite:`cholmod`.
+
+.. math::
+
+     {\bf \epsilon} = \sum_k\sum_j(I_k-I(C_j, X_k))^2
+
+where :math:`I_k` are the tie points on the image plane, :math:`C_j` are the
+camera parameters, and :math:`X_k` are the 3D positions associated with features
+:math:`I_k`. :math:`I(C_j, X_k)` is an image formation model (i.e. forward
+projection) for a given camera and 3D point. To recap, it projects the 3D point,
+:math:`X_k`, into the camera with parameters :math:`C_j`. 
+
+This produces a predicted image location for the 3D point that is compared
+against the observed location, :math:`I_k`. It then reduces this error with the
+Levenberg-Marquardt algorithm (LMA). Speed is improved by using sparse methods
+as described in :cite:`hartley04`, :cite:`konolige:sparsesparse`, and
+:cite:`cholmod`.
 
 Even though the arithmetic for bundle adjustment sounds clever, there
 are faults with the base implementation. Imagine a case where all
@@ -1031,25 +1051,32 @@ have correct scale and translation.
 
 ISIS attempts to fix this problem by adding two additional cost
 functions to bundle adjustment. First of which is
-:math:`{\bf \epsilon} =
-\sum_j(C_j^{initial}-C_j)^2`. This constrains camera parameters to stay
-relatively close to their initial values. Second, a small handful of 3D
-ground control points can be chosen by hand and added to the error
-metric as :math:`{\bf \epsilon} = \sum_k(X_k^{gcp}-X_k)^2` to constrain
-these points to known locations in the planetary coordinate frame. A
-physical example of a ground control point could be the location of a
-lander that has a well known location. GCPs could also be hand-picked
-points against a highly regarded and prior existing map such as the
-THEMIS Global Mosaic or the LRO-WAC Global Mosaic.
 
-Like other iterative optimization methods, there are several conditions
-that will cause bundle adjustment to terminate. When updates to
-parameters become insignificantly small or when the error,
-:math:`{\bf \epsilon}`, becomes insignificantly small, then the
-algorithm has converged and the result is most likely as good as it will
-get. However, the algorithm will also terminate when the number of
-iterations becomes too large in which case bundle adjustment may or may
-not have finished refining the parameters of the cameras.
+.. math::
+
+     {\bf \epsilon} = \sum_j(C_j^{initial}-C_j)^2. 
+
+This constrains camera parameters to stay relatively close to their initial
+values. Second, a small handful of 3D ground control points can be chosen by
+hand and added to the error metric as
+
+.. math::
+
+     {\bf \epsilon} = \sum_k(X_k^{gcp}-X_k)^2 
+     
+to constrain these points to known locations in the planetary coordinate frame.
+A physical example of a ground control point could be the location of a lander
+that has a well known location. GCPs could also be hand-picked points against a
+highly regarded and prior existing map such as the THEMIS Global Mosaic or the
+LRO-WAC Global Mosaic.
+
+Like other iterative optimization methods, there are several conditions that
+will cause bundle adjustment to terminate. When updates to parameters become
+insignificantly small or when the error, :math:`{\bf \epsilon}`, becomes
+insignificantly small, then the algorithm has converged and the result is most
+likely as good as it will get. However, the algorithm will also terminate when
+the number of iterations becomes too large in which case bundle adjustment may
+or may not have finished refining the parameters of the cameras.
 
 .. _ba_example:
 
@@ -1062,30 +1089,38 @@ This tutorial for ISIS's bundle adjustment tools is taken from
 nor the authors of Stereo Pipeline. They were created by USGS and their
 documentation is available at :cite:`isis:documentation`.
 
-What follows is an example of bundle adjustment using two MOC images of
-Hrad Vallis. We use images E02/01461 and M01/00115, the same as used in
-:numref:`moc_tutorial`. These images are
-available from NASA's PDS (the ISIS ``mocproc`` program will operate on
-either the IMQ or IMG format files, we use the ``.imq`` below in the
-example). For reference, the following ISIS commands are how to convert
-the MOC images to ISIS cubes.
+What follows is an example of bundle adjustment using two MOC images of Hrad
+Vallis. We use images E02/01461 and M01/00115, the same as used in
+:numref:`moc_tutorial`. These images are available from NASA's PDS (the ISIS
+``mocproc`` program will operate on either the IMQ or IMG format files, we use
+the ``.imq`` below in the example). 
+
+Ensure that ISIS and its supporting data is installed, per :numref:`isis_start`,
+and that ``ISISROOT`` and ``ISIS3DATA`` are set. The string ``ISIS>`` is not 
+part of the shell commands below, it is just suggestive of the fact that we operate
+in an ISIS environment.
+
+Fetch the MOC images anc convert them to ISIS cubes.
 
 ::
 
-     ISIS> mocproc from=e0201461.imq to=e0201461.cub mapping=no
-     ISIS> mocproc from=m0100115.imq to=m0100115.cub mapping=no
+     ISIS> mocproc from=E0201461.imq to=E0201461.cub mapping=no
+     ISIS> mocproc from=M0100115.imq to=M0100115.cub mapping=no
 
-Note that the resulting images are not map-projected. Bundle adjustment
-requires the ability to project arbitrary 3D points into the camera
-frame. The process of map-projecting an image dissociates the camera
-model from the image. Map-projecting can be perceived as the generation
-of a new infinitely large camera sensor that may be parallel to the
-surface, a conic shape, or something more complex. That makes it
-extremely hard to project a random point into the camera's original
-model. The math would follow the transformation from projection into the
-camera frame, then projected back down to surface that ISIS uses, then
-finally up into the infinitely large sensor. ``Jigsaw`` does not support
-this and thus does not operate on map-projected images.
+Note that the resulting images are not map-projected. That because bundle
+adjustment requires the ability to project arbitrary 3D points into the camera
+frame. The process of map-projecting an image dissociates the camera model from
+the image. Map-projecting can be perceived as the generation of a new infinitely
+large camera sensor that may be parallel to the surface, a conic shape, or
+something more complex. That makes it extremely hard to project a random point
+into the camera's original model. The math would follow the transformation from
+projection into the camera frame, then projected back down to surface that ISIS
+uses, then finally up into the infinitely large sensor. ``Jigsaw`` does not
+support this and thus does not operate on map-projected images. 
+
+ASP's ``bundle_adjust`` program, however, can create and match features
+on mapprojected images, and then project those into the original images
+(:numref:`mapip`).
 
 Before we can dive into creating our tie-point measurements we must
 finish prepping these images. The following commands will add a vector
@@ -1095,9 +1130,9 @@ files.
 
 ::
 
-     ISIS> footprintinit from=e0201461.cub
-     ISIS> footprintinit from=m0100115.cub
-     ISIS> echo *cub |  xargs -n1 echo > cube.lis
+     ISIS> footprintinit from=E0201461.cub
+     ISIS> footprintinit from=M0100115.cub
+     ISIS> ls *.cub > cube.lis
      ISIS> findimageoverlaps from=cube.lis overlaplist=overlap.lis
 
 At this point, we are ready to start generating our measurements. This
@@ -1126,26 +1161,43 @@ an overlap region. The last two are the spacing in meters between
 control points. Those values were specifically chosen for this pair so
 that about 30 measurements would be produced from ``autoseed``. Having
 more control points just makes for more work later on in this process.
-Run ``autoseed`` with the following instruction.
+Run ``autoseed`` as follows.
 
+::
+
+     ISIS> autoseed fromlist=cube.lis overlaplist=overlap.lis      \
+               onet=control.net deffile=autoseed.def networkid=moc \
+               pointid=vallis???? description=hrad_vallis
+
+Note the option ``pointid=vallis????``. It must be used verbatim. This command
+will create ids that will look like ``vallis0001``, ``valis0002``, potentially
+up to ``vallis9999``. The number of question marks will control hom many
+measurements are created. See `autoseed
+<https://isis.astrogeology.usgs.gov/Application/presentation/PrinterFriendly/autoseed/autoseed.html>`_'s
+manual page for more details.
+
+Inspect this control network with 
+`qnet <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/qnet/qnet.html>`_. Type "qnet" in a terminal, with
+no options. A couple of windows will pop up. From the *File* menu of the
+``qnet`` window, click on *Open control network and cube list*. Open the
+file ``cube.lis``. From the same dialog, open ``control.net``. 
+
+Click on ``vallis0001`` in the Control Network Navigator window, then click on
+``view cubes``. This will show the illustration below. 
+ 
 .. figure:: images/qnet/Qnet_AfterAutoseed_400px.png
-   :name: after_autoseed]
+   :name: after_autoseed
    :alt: Autoseed visualization
 
    A visualization of the features laid out by ``autoseed`` in ``qnet``.
    Note that the marks do not cover the same features between images.
    This is due to the poor initial SPICE data for MOC images.
 
-::
-
-     ISIS> autoseed fromlist=cube.lis overlaplist=overlap.lis    \
-               onet=control.net deffile=autoseed.def networkid=moc \
-               pointid=???? description=hrad_vallis
-
-The next step is to perform auto registration of these features between
-the two images using ``pointreg``. This program also requires a settings
-file that describes how to do the automatic search. Copy the text box
-below into a *autoRegTemplate.def* file.
+The next step is to perform auto registration of these features between the two
+images using `pointreg
+<https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/pointreg/pointreg.html>`_.
+This program also requires a settings file that describes how to do the
+automatic search. Copy the text box below into a *autoRegTemplate.def* file.
 
 ::
 
@@ -1184,15 +1236,14 @@ to match automatically. Here are the arguments to use in this example of
      ISIS> pointreg fromlist=cube.lis cnet=control.net             \
                 onet=control_pointreg.net deffile=autoRegTemplate.def
 
-The third step is to manually edit the control and verify the
-measurements in ``qnet``. Type ``qnet`` in the terminal and then open
-*cube.lis* and lastly *control_pointreg.net*. From the Control Network
-Navigator window, click on the first point listed as *0001*. That opens
-a third window called the Qnet Tool. That window will allow you to play
-a flip animation that shows alignment of the feature between the two
-images. Correcting a measurement is performed by left clicking in the
-right image, then clicking *Save Measure*, and finally finishing by
-clicking *Save Point*.
+The third step is to manually edit the control and verify the measurements in
+``qnet``. Type ``qnet`` in the terminal and then open *cube.lis*, followed by
+*control_pointreg.net*. From the Control Network Navigator window, click, as
+before, on the first point, *vallis0001*. That opens a third window called the
+Qnet Tool. That window will allow you to play a flip animation that shows
+alignment of the feature between the two images. Correcting a measurement is
+performed by left clicking in the right image, then clicking *Save Measure*, and
+finally finishing by clicking *Save Point*.
 
 In this tutorial, measurement *0025* ended up being incorrect. Your
 number may vary if you used different settings than the above or if MOC
@@ -1221,7 +1272,7 @@ a line-scan camera. The *radius=yes* means that the radius of the 3D
 features can be solved for. Using no will force the points to use height
 values from another source, usually LOLA or MOLA.
 
-The above command will spew out a bunch of diagnostic information from
+The above command will print out diagnostic information from
 every iteration of the optimization algorithm. The most important
 feature to look at is the *sigma0* value. It represents the mean of
 pixel errors in the control network. In our run, the initial error was
@@ -1230,11 +1281,23 @@ pixel errors in the control network. In our run, the initial error was
 Producing a DEM using the newly created camera corrections is the same
 as covered in the Tutorial. When using ``jigsaw``, it modifies
 a copy of the spice data that is stored internally to the cube file.
-Thus when we want to create a DEM using the correct camera geometry, no
-extra information needs to be given to ``parallel_stereo`` since it is already
-contained in the file. In the event a mistake has been made,
-``spiceinit`` will overwrite the spice data inside a cube file and
-provide the original uncorrected camera pointing. Hence, the stereo
-command does not change::
+
+Thus, when we want to create a DEM using the correct camera geometry, no extra
+information needs to be given to ``parallel_stereo`` since it is already
+contained in the file. 
+
+In the event a mistake has been made, ``spiceinit`` will overwrite the spice
+data inside a cube file and provide the original uncorrected camera pointing.
+It can be invoked on each cub file as::
+
+     ISIS> spiceinit from=image.cub
+     
+Hence, the same ``stereo`` command is used, whether the cubes have been modified
+or not::
 
      ISIS> parallel_stereo E0201461.cub M0100115.cub bundled/bundled
+     
+See :numref:`nextsteps` for how how to improve the quality of stereo
+correlation results (at the expense of speed), how to create a DEM,
+etc.
+

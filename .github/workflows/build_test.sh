@@ -169,6 +169,11 @@ tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 if [ 1 -eq 0 ]; then
   # Inspect all tests. Update the failed ones (each 'gold' is overwritten with 'run').
   # Make the new 'run' directory the new 'gold'. Do not keep the 'run' directories.
+  # Go to the directory having StereoPipelineTest as a subdirectory
+  if [ ! -d "StereoPipelineTest" ]; then
+    echo "Error: Directory: StereoPipelineTest does not exist"
+    exit 1
+  fi
   for f in StereoPipelineTest/ss*/run; do 
     g=${f/run/gold}
     /bin/rm -rfv $g

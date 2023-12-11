@@ -9,7 +9,12 @@ New camera support:
   * Added the ability to use the CSM camera model with ASTER images
     (:numref:`aster_csm`).
 
+New external library support:
+  * Migrated to PDAL 2.6.0 from libLAS for LAS input/output (in ``pointlas``,
+    ``point2dem``, and ``pc_align``), as libLAS is no longer developed.
+
 jitter_solve (:numref:`jitter_solve`):
+  * Added an example for ASTER cameras (:numref:`jitter_aster`).
   * Added the option ``--weight-image``, to weigh observations based on
     geographic location of triangulated points (:numref:`limit_ip`).
   * Can use anchor points with frame cameras.
@@ -17,7 +22,6 @@ jitter_solve (:numref:`jitter_solve`):
     images have different sizes but want to ensure the same point density.
   * Added the option ``--anchor-weight-image`` that is used to limit
     where anchor points are placed.
-  * Added an example for ASTER cameras (:numref:`jitter_aster`).
   * Can handle a linescan and frame camera rig (almost parallel rays) 
     (:numref:`jitter_no_baseline`).
   * The roll and yaw constraints no longer assume linescan camera positions and
@@ -91,10 +95,13 @@ sfs (:numref:`sfs`):
   
 image_calc (:numref:`image_calc`):
   * Added the ability to create a random image.
+
+isis
+  * Expanded the ``jigsaw`` documentation (:numref:`jigsaw`). This is the 
+    ISIS bundle adjustment tool. 
      
 misc:
-  * Using PDAL 2.4.2 instead of libLAS for LAS input/output (in ``pointlas``,
-    ``point2dem``, and ``pc_align``). libLAS is no longer developed.
+  * Upgraded to GDAL 3.8.0, PROJ 9.3.0, Boost 1.82.0.
   * Fixed a couple of runtime errors when using conda packages on OSX.
   * Eliminated a procedure for cleaning the name of an input path that was
     replacing two slashes with one slash, resulting in inconsistencies.
