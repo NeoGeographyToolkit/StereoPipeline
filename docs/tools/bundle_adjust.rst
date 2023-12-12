@@ -31,7 +31,8 @@ See :numref:`moc_tutorial` for an introduction to these cameras.
 
 ::
 
-     bundle_adjust --camera-weight 0 --tri-weight 0.1 \
+     bundle_adjust --camera-weight 0               \
+       --tri-weight 0.1 --tri-robust-threshold 0.1 \
        file1.cub file2.cub file3.cub -o run_ba/run
 
 The above choices for camera weight and triangulation weight are a recent

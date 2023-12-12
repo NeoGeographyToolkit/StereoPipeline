@@ -353,7 +353,7 @@ void compute_mean_residuals_at_xyz(CRNJ & crn,
   
   size_t residual_index = 0;
   // Double loop through cameras and crn entries will give us the correct order
-  for ( size_t icam = 0; icam < param_storage.num_cameras(); icam++ ) {
+  for (size_t icam = 0; icam < param_storage.num_cameras(); icam++) {
     typedef CameraNode<JFeature>::const_iterator crn_iter;
     for (crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++){
 
@@ -403,9 +403,9 @@ void write_residual_map(std::string const& output_prefix,
   std::string output_path = output_prefix + ".csv";
 
   if (opt.datum.name() == asp::UNSPECIFIED_DATUM) {
-    vw_out(WarningMessage) << "No datum specified, can't write file: " << output_path << ". "
-                           << "With Earth satellite images add the option '-t nadirpinhole' "
-                           << "to use the WGS84 datum, or else specify '--datum <planet name>'.\n";
+    vw_out(WarningMessage) 
+      << "No datum specified, cannot write file: " << output_path << ". "
+      << "Specify: '--datum <planet name>'.\n";
     return;
   }
   if (mean_residuals.size() != param_storage.num_points())
@@ -527,7 +527,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
       double residual_norm = std::sqrt(ex * ex + ey * ey);
       mean_residual += residual_norm;
       residual_norms.push_back(residual_norm);
-      residual_file_raw_pixels << ex << ", " << ey << std::endl; // Write ex, ey on raw file
+      residual_file_raw_pixels << ex << ", " << ey << std::endl;
     }
     // Write line for the summary file
     mean_residual /= static_cast<double>(num_this_cam_residuals);
@@ -1368,9 +1368,9 @@ int do_ba_ceres_one_pass(Options             & opt,
                         cam_residual_counts, num_gcp_or_dem_residuals, num_tri_residuals,
                         reference_vec, cnet, crn, problem);
     
+    std::string url = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png";
     param_storage.record_points_to_kml(point_kml_path, opt.datum, 
-                         kmlPointSkip, "initial_points",
-                        "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png");
+                         kmlPointSkip, "initial_points", url);
   }
 
   // Solve the problem
@@ -1437,8 +1437,8 @@ int do_ba_ceres_one_pass(Options             & opt,
                       reference_vec, cnet, crn, problem);
   
   std::string point_kml_path = opt.out_prefix + "-final_points.kml";
-  std::string url 
-    = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
+  std::string url
+   = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
   param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip, 
                                      "final_points", url);
   
@@ -1539,7 +1539,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                << "   and if they have enough overlap.\n"   
                << "Will continue if ground control points are present.\n";
     }
-    vw_out() << "Loading GCP files...\n";
+    vw_out() << "Loading GCP files.\n";
     num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
   }
   
@@ -1626,7 +1626,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 
   // It is simpler to allocate the same number of distortion params per camera
   // even if some cameras have fewer. The extra ones won't be used. 
-  int max_num_dist_params = *std::max_element(num_dist_params.begin(), num_dist_params.end());
+  int max_num_dist_params = 
+    *std::max_element(num_dist_params.begin(), num_dist_params.end());
   distortion_sanity_check(num_dist_params, opt.intrinsics_options,
                           opt.intrinsics_limits);
 
@@ -1662,38 +1663,20 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 
   if (ans)
     cameras_changed = true;
-  
   // Certain input options change the cameras inside init_cams and we
   // need to update the point coordinates for the new cameras. It is
   // ok to leave the original vector of camera models unchanged.
-  
-  // TODO(oalexan1): Building the control network twice looks like a
-  // hack. Try to understand why the cameras can't be updated first,
-  // then building the control network just once.
+
+  // When the cameras changed, must re-triangulate the points.
+  // This is much cheaper than rebuilding the control network.  
   if (!opt.apply_initial_transform_only && cameras_changed) {
-    vw_out() <<"Updating the control network." << std::endl;
-    cnet = ControlNetwork("Updated network"); // Wipe it all first
-    /*bool success = */
-    // Building the control network below may fail if there are only GCP,
-    // but we will continue nevertheless.
-    bool triangulate_control_points = true;
-    vw::ba::build_control_network(triangulate_control_points,
-                                  cnet, new_cam_models,
-                                  opt.image_files,
-                                  opt.match_files,
-                                  opt.min_matches,
-                                  opt.min_triangulation_angle*(M_PI/180.0),
-                                  opt.forced_triangulation_distance,
-                                  opt.max_pairwise_matches);
-    
-    // Restore the rest of the cnet object
-    num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
-    
+    vw_out() <<"Re-triangulating the control points as the cameras changed.\n";
+    // Do not triangulate the GCP or the height-from-dem points
+    vw::ba::triangulate_control_network(cnet, new_cam_models,
+                                        opt.min_triangulation_angle*(M_PI/180.0),
+                                        opt.forced_triangulation_distance);
+        
     check_gcp_dists(new_cam_models, opt.cnet, opt.forced_triangulation_distance);
-    
-    // Must update the number of points after the control network is recomputed
-    num_points = cnet.size();
-    param_storage.get_point_vector().resize(num_points*asp::PARAMS_PER_POINT);
   }
 
   // Fill in the point vector with the starting values.
@@ -1782,7 +1765,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
         std::string new_path = rand_files[i];
         boost::replace_all(new_path, opt.out_prefix, orig_out_prefix);
         boost::filesystem::copy_file(rand_files[i], new_path,
-                                     boost::filesystem::copy_option::overwrite_if_exists);
+                                     fs::copy_options::overwrite_existing);
       }
     }
 
@@ -2842,7 +2825,7 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 
   std::string gcp_file;
   for (int i = 0; i < num_images; i++) {
-    gcp_file += boost::filesystem::basename(opt.image_files[i]);
+    gcp_file += boost::filesystem::path(opt.image_files[i]).stem().string();
     if (i < num_images - 1) gcp_file += "__"; 
   }
   gcp_file = opt.out_prefix + "-" + gcp_file + ".gcp";

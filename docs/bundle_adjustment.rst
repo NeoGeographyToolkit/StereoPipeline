@@ -101,6 +101,9 @@ models::
 
     parallel_stereo AS15-M-1134.cub AS15-M-1135.cub run_noadjust/run
 
+See :numref:`nextsteps` for how how to improve the quality of stereo
+correlation results (at the expense of speed).
+
 Create a DEM and triangulation error image as in :numref:`point2dem`.
 
 Run bundle adjustment::
@@ -118,8 +121,8 @@ Run ``parallel_stereo`` while using the bundle-adjusted camera models::
     parallel_stereo AS15-M-1134.cub AS15-M-1135.cub run_adjust/run \
       --bundle-adjust-prefix run_ba/run
 
-This should be followed, as before, by creation of an DEM and a
-triangulation error image.
+This should be followed, as before, by creation of a DEM and a triangulation
+error image.
 
 A comparison of the results given these two ways of doing stereo is shown in
 :numref:`asp-ba-example`.
@@ -1236,14 +1239,14 @@ to match automatically. Here are the arguments to use in this example of
      ISIS> pointreg fromlist=cube.lis cnet=control.net             \
                 onet=control_pointreg.net deffile=autoRegTemplate.def
 
-The third step is to manually edit the control and verify the measurements in
-``qnet``. Type ``qnet`` in the terminal and then open *cube.lis*, followed by
-*control_pointreg.net*. From the Control Network Navigator window, click, as
-before, on the first point, *vallis0001*. That opens a third window called the
-Qnet Tool. That window will allow you to play a flip animation that shows
-alignment of the feature between the two images. Correcting a measurement is
-performed by left clicking in the right image, then clicking *Save Measure*, and
-finally finishing by clicking *Save Point*.
+The third step is to verify the measurements in ``qnet``, and, if necessary,
+apply manual corrections. Type ``qnet`` in the terminal and then open
+*cube.lis*, followed by *control_pointreg.net*. From the Control Network
+Navigator window, click, as before, on the first point, *vallis0001*. That opens
+a third window called the Qnet Tool. That window will allow you to play a flip
+animation that shows alignment of the feature between the two images. Correcting
+a measurement is performed by left clicking in the right image, then clicking
+*Save Measure*, and finally finishing by clicking *Save Point*.
 
 In this tutorial, measurement *0025* ended up being incorrect. Your
 number may vary if you used different settings than the above or if MOC
@@ -1284,18 +1287,21 @@ a copy of the spice data that is stored internally to the cube file.
 
 Thus, when we want to create a DEM using the correct camera geometry, no extra
 information needs to be given to ``parallel_stereo`` since it is already
-contained in the file. 
+contained in the camera files. 
 
 In the event a mistake has been made, ``spiceinit`` will overwrite the spice
 data inside a cube file and provide the original uncorrected camera pointing.
 It can be invoked on each cub file as::
 
      ISIS> spiceinit from=image.cub
-     
-Hence, the same ``stereo`` command is used, whether the cubes have been modified
-or not::
 
-     ISIS> parallel_stereo E0201461.cub M0100115.cub bundled/bundled
+In either case, then one can run stereo::
+
+     ISIS> parallel_stereo              \
+             --stereo-algorithm asp_mgm \
+             --subpixel-mode 9          \
+             E0201461.cub M0100115.cub  \
+             stereo/run
      
 See :numref:`nextsteps` for how how to improve the quality of stereo
 correlation results (at the expense of speed), how to create a DEM,
