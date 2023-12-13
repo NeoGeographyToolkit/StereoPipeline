@@ -31,6 +31,8 @@
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/CameraErrorPropagation.h>
 
+#include <vw/Camera/PinholeModel.h>
+#include <vw/Camera/OpticalBarModel.h>
 #include <boost/algorithm/string.hpp>
 
 #include <string>

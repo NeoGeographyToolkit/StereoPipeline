@@ -214,6 +214,10 @@ if(ASP_HAVE_PKG_ISIS)
   list(GET MY_LIST 0 ASP_ISIS_VERSION)
   set(ASP_HAVE_PKG_ISISIO 1)
   message(STATUS "Found ISIS version: ${ASP_ISIS_VERSION}")
+    
+  # Some ISIS headers include Qt headers in a way that requires the include below
+  include_directories("${ASP_DEPS_DIR}/include/qt")
+  include_directories("${ASP_DEPS_DIR}/include/qt/QtCore")
 endif()
 
 find_external_library(CSM ${ASP_DEPS_DIR} "csm" "csmapi" REQUIRED)
@@ -226,8 +230,6 @@ find_external_library(USGSCSM ${ASP_DEPS_DIR} "usgscsm" "usgscsm" REQUIRED)
 
 # Link to ale. This is needed to be able to export the CSM camera state.
 find_external_library(ALE ${ASP_DEPS_DIR} "ale" "ale" REQUIRED)
-
-# include_directories("${ASP_DEPS_DIR}/include")
 
 # PCL
 # TODO(oalexan1): Having to specify the version here always breaks.

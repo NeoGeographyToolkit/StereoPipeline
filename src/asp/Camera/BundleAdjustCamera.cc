@@ -26,13 +26,21 @@
 #include <asp/Camera/CameraResectioning.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/Covariance.h>
+#include <asp/Core/StereoSettings.h>
 
+#include <vw/BundleAdjustment/CameraRelation.h>
+#include <vw/BundleAdjustment/ControlNetwork.h>
+#include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/FileIO/KML.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Math/Statistics.h>
+#include <vw/Math/Geometry.h>
 #include <vw/Math/Functors.h>
+#include <vw/Camera/CameraUtilities.h>
+
+#include <boost/random/uniform_int_distribution.hpp>
 
 #include <string>
 
@@ -129,6 +137,31 @@ asp::BAParams::BAParams(asp::BAParams const& other):
     copy_intrinsics(other);
     copy_outliers  (other);
   }
+
+// Set all camera position and pose values to zero.
+void asp::BAParams::init_cams_as_zero() {
+  for (int i=0; i < m_cameras_vec.size(); i++)
+    m_cameras_vec[i] = 0.0;
+}
+
+// When using the copy functions, the sizes must match!
+/// Copy one set of values from another instance.
+void asp::BAParams::copy_points(asp::BAParams const& other) {
+  for (size_t i = 0; i < m_points_vec.size(); i++)
+    m_points_vec[i] = other.m_points_vec[i];
+}
+void asp::BAParams::copy_cameras(asp::BAParams const& other) {
+  for (size_t i = 0; i < m_cameras_vec.size(); i++)
+    m_cameras_vec[i] = other.m_cameras_vec[i];
+}
+void asp::BAParams::copy_intrinsics(asp::BAParams const& other) {
+  for (size_t i = 0; i < m_intrinsics_vec.size(); i++)
+    m_intrinsics_vec[i] = other.m_intrinsics_vec[i];
+}
+void asp::BAParams::copy_outliers(asp::BAParams const& other) {
+  for (size_t i = 0; i < m_outlier_points_vec.size(); i++)
+    m_outlier_points_vec[i] = other.m_outlier_points_vec[i];
+}
 
 // Compute the offset in m_intrinsics_vec to the requested data
 size_t asp::BAParams::get_center_offset(int cam_index) const {
@@ -252,6 +285,33 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
   } // End camera loop
 }
 
+/// Print stats for optimized ground control points.
+void asp::BAParams::print_gcp_stats(vw::ba::ControlNetwork const& cnet,
+                                    vw::cartography::Datum const& d) const {
+  vw::vw_out() << "Ground control point results:\n";
+  vw::vw_out() << "input_gcp optimized_gcp diff\n";
+  for (int ipt = 0; ipt < num_points(); ipt++){
+    if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint)
+      continue;
+    if (get_point_outlier(ipt))
+      continue; // skip outliers
+
+    vw::Vector3 input_gcp = cnet[ipt].position();
+    vw::Vector3 opt_gcp   = get_point(ipt);
+
+    vw::vw_out() << "xyz: " << input_gcp << ' ' << opt_gcp << ' '
+                  << input_gcp - opt_gcp << std::endl;
+
+    // Now convert to llh
+    input_gcp = d.cartesian_to_geodetic(input_gcp);
+    opt_gcp   = d.cartesian_to_geodetic(opt_gcp  );
+
+    vw::vw_out() << "llh: " << input_gcp << ' ' << opt_gcp << ' '
+                  << input_gcp - opt_gcp << std::endl;
+  }
+}
+
+
 void asp::BAParams::record_points_to_kml(const std::string &kml_path,
                                          const vw::cartography::Datum& datum,
                                          size_t skip, const std::string name,
@@ -292,6 +352,87 @@ void asp::BAParams::record_points_to_kml(const std::string &kml_path,
     kml.close_kml();
 }
 
+/// Simple class to manage position/rotation information.
+/// - This is the data type stored in pc_align output files,
+///   bundle adjustment files, and the position of pinhole cameras.
+
+// Constructors
+CameraAdjustment::CameraAdjustment() {}
+CameraAdjustment::CameraAdjustment(double const* array) {
+  this->read_from_array(array); 
+}
+
+// Data access
+vw::Vector3 CameraAdjustment::position() const { return m_position_data; }
+vw::Quat    CameraAdjustment::pose    () const { return m_pose_data;     }
+
+/// Populate from a six element array.
+void CameraAdjustment::read_from_array(double const* array) {
+  m_position_data = vw::Vector3(array[0], array[1], array[2]);
+  m_pose_data     = vw::math::axis_angle_to_quaternion(vw::Vector3(array[3], array[4], array[5]));
+}
+
+/// Populate from an AdjustedCameraModel
+void CameraAdjustment::copy_from_adjusted_camera
+  (vw::camera::AdjustedCameraModel const& cam) {
+  m_position_data = cam.translation();
+  m_pose_data     = cam.rotation();
+}
+
+/// Populate from a PinholeModel
+void CameraAdjustment::copy_from_pinhole(vw::camera::PinholeModel const& cam) {
+  m_position_data = cam.camera_center();
+  m_pose_data     = cam.camera_pose();
+}
+
+/// Populate from OpticalBarModel
+void CameraAdjustment::copy_from_optical_bar(vw::camera::OpticalBarModel const& cam) {
+  m_position_data = cam.camera_center();
+  m_pose_data     = cam.camera_pose();
+}
+
+/// Populate from CSM. Since with CSM we apply adjustments to existing
+/// cameras, these start as 0.
+void CameraAdjustment::copy_from_csm(asp::CsmModel const& cam) {
+  // Zero position and identity rotation
+  m_position_data = vw::Vector3(0, 0, 0);
+  vw::Matrix3x3 I;
+  I.set_identity();
+  m_pose_data = vw::Quat(I);
+}
+
+/// Populate from an adjustment file on disk.
+void CameraAdjustment::read_from_adjust_file(std::string const& filename) {
+  
+  // Vectors, but we only use the first position.
+  std::vector<vw::Vector3> position_correction;
+  std::vector<vw::Quat>    pose_correction;
+
+  // Not used, just for the api
+  bool piecewise_adjustments = false;
+  vw::Vector2 adjustment_bounds;
+  vw::Vector2 pixel_offset = vw::Vector2();
+  double scale = 1.0;
+  std::string session;
+  
+  vw::vw_out() << "Reading adjusted camera model: " << filename << std::endl;
+  asp::read_adjustments(filename, piecewise_adjustments,
+                        adjustment_bounds, position_correction, pose_correction,
+                        pixel_offset, scale, session);
+  m_position_data = position_correction[0];
+  m_pose_data     = pose_correction    [0];
+}
+
+/// Pack the data to a six element array.
+void CameraAdjustment::pack_to_array(double* array) const {
+  vw::Vector3 pose_vec = m_pose_data.axis_angle();
+  const int VEC_SIZE = 3;
+  for (size_t i = 0; i < VEC_SIZE; i++) {
+    array[i           ] = m_position_data[i];
+    array[i + VEC_SIZE] = pose_vec[i];
+  }
+}
+  
 void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
                             int camera_index,
                             asp::BAParams & param_storage) {
@@ -393,8 +534,8 @@ void apply_transform_to_cameras(vw::Matrix4x4 const& M, asp::BAParams &param_sto
   }
 } // end function apply_transform_to_cameras
 
-// This function takes advantage of the fact that when it is called the cam_ptrs have the same
-//  information as is in param_storage!
+// This function takes advantage of the fact that when it is called the cam_ptrs
+//  have the same information as is in param_storage!
 void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
                                         asp::BAParams & param_storage,
                                         std::vector<vw::CamPtr>
@@ -539,6 +680,30 @@ void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
     vw_out() << "WARNING: GCPs are over 100 km from the other points. Are your lat/lon GCP coordinates swapped?\n";
 }
 
+/// Load all of the reference disparities specified in the input text file
+/// and store them in the vectors.  Return the number loaded.
+int load_reference_disparities(std::string const& disp_list_filename,
+                               std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> &disp_vec,
+                               std::vector< vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &interp_disp) {
+  // TODO: Disparities can be large, but if small it is better to
+  // read them in memory.
+  std::istringstream is(disp_list_filename);
+  std::string disp_file;
+  while (is >> disp_file) {
+    if (disp_file != "none") {
+      vw::vw_out() << "Reading: " << disp_file << std::endl;
+      disp_vec.push_back(copy(vw::DiskImageView<vw::PixelMask<vw::Vector2f>>(disp_file)));
+    }else{
+      // Read in an empty disparity
+      disp_vec.push_back(vw::ImageView<vw::PixelMask<vw::Vector2f>>());
+    }
+    interp_disp.push_back(interpolate(disp_vec.back(),
+                                      vw::BilinearInterpolation(), 
+                                      vw::ConstantEdgeExtension()));
+  }
+  return static_cast<int>(disp_vec.size());
+}
+
 //============================================================================
 
 // Initialize the position and orientation of each pinhole camera model using
@@ -568,7 +733,7 @@ bool asp::init_pinhole_model_with_camera_positions
 
   const int MIN_NUM_MATCHES = 3;
   if (num_matches_found < MIN_NUM_MATCHES)
-    vw_throw( ArgumentErr() << "At least " << MIN_NUM_MATCHES 
+    vw_throw(ArgumentErr() << "At least " << MIN_NUM_MATCHES 
               << " camera position matches are required to initialize sensor models!\n" );
 
   // Populate matrices containing the current and known camera positions.

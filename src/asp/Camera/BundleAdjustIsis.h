@@ -22,9 +22,20 @@
 #ifndef __BUNDLE_ADJUST_ISIS_H__
 #define __BUNDLE_ADJUST_ISIS_H__
 
+#include <isis/ControlNet.h>
+#include <isis/SerialNumberList.h>
+
+#include <boost/shared_ptr.hpp>
+
 #include <string>
 
 namespace asp {
+  
+  struct IsisCnetData {
+    Isis::ControlNetQsp m_controlNet;
+    boost::shared_ptr<Isis::SerialNumberList> m_serialNumberList;
+  };
+  
   void bundle_adjust_isis();
 } // end namespace asp
 

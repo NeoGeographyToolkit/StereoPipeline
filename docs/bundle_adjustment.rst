@@ -1194,7 +1194,7 @@ Click on ``vallis0001`` in the Control Network Navigator window, then click on
 
    A visualization of the features laid out by ``autoseed`` in ``qnet``.
    Note that the marks do not cover the same features between images.
-   This is due to the poor initial SPICE data for MOC images.
+   This is due to the poor initial SPICE (camera pose) data for MOC images.
 
 The next step is to perform auto registration of these features between the two
 images using `pointreg
@@ -1227,7 +1227,7 @@ The search chip defines the search range for which ``pointreg`` will
 look for matching images. The pattern chip is simply the kernel size of
 the matching template. The search range is specific for this image pair.
 The control network result after ``autoseed`` had a large vertical
-offset in the ball park of 500 pixels. The large misalignment dictated the
+offset on the order of 500 pixels. The large misalignment dictated the
 need for the large search in the lines direction. Use ``qnet`` to get an
 idea for what the pixel shifts look like in your stereo pair to help you
 decide on a search range. In this example, only one measurement failed
@@ -1248,11 +1248,11 @@ animation that shows alignment of the feature between the two images. Correcting
 a measurement is performed by left clicking in the right image, then clicking
 *Save Measure*, and finally finishing by clicking *Save Point*.
 
-In this tutorial, measurement *0025* ended up being incorrect. Your
-number may vary if you used different settings than the above or if MOC
-spice data has improved since this writing. When finished, go back to
-the main Qnet window. Save the final control network as
-*control_qnet.net* by clicking on *File*, and then *Save As*.
+In this tutorial, measurement *0025* ended up being incorrect. Your number may
+vary if you used different settings than the above or if MOC SPICE (camera pose)
+data has improved since this writing. When finished, go back to the main Qnet
+window. Save the final control network as *control_qnet.net* by clicking on
+*File*, and then *Save As*.
 
 .. figure:: images/qnet/Qnet_AfterQnetManual_400px.png
    :name: after_manual
@@ -1262,18 +1262,21 @@ the main Qnet window. Save the final control network as
    Note that the marks now appear in the same location between images.
 
 Once the control network is finished, it is finally time to start bundle
-adjustment. Here's what the call to ``jigsaw`` looks like::
+adjustment. Here's how ``jigsaw`` is called::
 
      ISIS> jigsaw fromlist=cube.lis update=yes twist=no radius=yes \
-                cnet=control_qnet.net onet=control_ba.net
+             cnet=control_qnet.net onet=control_ba.net
 
-The update option defines that we would like to update the camera
-pointing, if our bundle adjustment converges. The *twist=no* says to not
-solve for the camera rotation about the camera bore. That property is
-usually very well known as it is critical for integrating an image with
-a line-scan camera. The *radius=yes* means that the radius of the 3D
-features can be solved for. Using no will force the points to use height
-values from another source, usually LOLA or MOLA.
+The update option defines that we would like to update the camera pointing, if
+our bundle adjustment converges. The *twist=no* says to not solve for the camera
+rotation about the camera bore. That property is usually very well known as it
+is critical for integrating an image with a line-scan camera. The *radius=yes*
+means that the radius of the 3D features can be solved for. Using *radius=no*
+will force the points to use height values from another source, usually LOLA or
+MOLA.
+
+More information on these and other options is in the `jigsaw documentation
+<https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/jigsaw/jigsaw.html>`_.
 
 The above command will print out diagnostic information from
 every iteration of the optimization algorithm. The most important
@@ -1283,13 +1286,13 @@ pixel errors in the control network. In our run, the initial error was
 
 Producing a DEM using the newly created camera corrections is the same
 as covered in the Tutorial. When using ``jigsaw``, it modifies
-a copy of the spice data that is stored internally to the cube file.
+a copy of the SPICE data that is stored internally to the cube file.
 
 Thus, when we want to create a DEM using the correct camera geometry, no extra
 information needs to be given to ``parallel_stereo`` since it is already
 contained in the camera files. 
 
-In the event a mistake has been made, ``spiceinit`` will overwrite the spice
+In the event a mistake has been made, ``spiceinit`` will overwrite the SPICE
 data inside a cube file and provide the original uncorrected camera pointing.
 It can be invoked on each cub file as::
 
