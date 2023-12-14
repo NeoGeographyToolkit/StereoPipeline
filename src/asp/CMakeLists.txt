@@ -144,7 +144,7 @@ set(REQUIRED_QT_COMPONENTS  Core                Concurrent
                             Sql                 Svg
                             Test                Widgets
                             Xml                 XmlPatterns)
-find_package(Qt5 5.9.6 COMPONENTS ${REQUIRED_QT_COMPONENTS} REQUIRED)
+find_package(Qt5 COMPONENTS ${REQUIRED_QT_COMPONENTS} REQUIRED)
 
 if(Qt5_FOUND)
     # We need this to be able to include headers produced by uic in our
@@ -317,7 +317,7 @@ set(ASP_ISISIO_LIB_DEPENDENCIES  AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES
 # ASP_CAMERA
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
-set(ASP_CAMERA_LIB_DEPENDENCIES AspCore ${XERCESC_LIBRARIES}
+set(ASP_CAMERA_LIB_DEPENDENCIES AspCore AspSpiceIO AspIsisIO ${XERCESC_LIBRARIES}
     ${CSM_LIBRARIES} ${USGSCSM_LIBRARIES} ${ALE_LIBRARIES})
 
 # ASP_SESSIONS
