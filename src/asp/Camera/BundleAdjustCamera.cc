@@ -1563,6 +1563,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                                bool propagate_errors, 
                                vw::Vector<double>           const& horizontal_stddev_vec,
                                // Outputs
+                               std::map<std::pair<int, int>, std::string> & match_files,
                                std::vector<asp::MatchPairStats>  & convAngles,
                                std::vector<vw::Vector<float, 4>> & mapprojPoints,
                                std::vector<asp::MatchPairStats>  & mapprojOffsets,
@@ -1588,12 +1589,13 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   mapprojOffsetsPerCam.resize(num_cameras);
 
   // Iterate over the control network, and, for each inlier pair of matches,
-  // remember what pair it is from. Needed only if there is outlier filtering.
-  // TODO(oalexan1): This uses a lot of memory. Need to keep just indices, somehow, not
-  // quadruplets of floats.
+  // remember what pair it is from. Needed only if there is outlier filtering
+  // or matches were read from an isis cnet.
+  // TODO(oalexan1): This uses a lot of memory. Need to keep just indices,
+  // somehow, not quadruplets of floats.
   typedef std::tuple<float, float, float, float> Quadruplet;
   std::map<std::pair<int, int>, std::set<Quadruplet>> inlier_pairs;
-  if (remove_outliers) {
+  if (remove_outliers || !opt.isis_cnet.empty()) {
     int ipt = -1;
     for (ControlNetwork::const_iterator iter = cnet.begin(); iter != cnet.end(); iter++) {
       // Control point index
@@ -1619,28 +1621,54 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     }
   }
   
+  // If we read the matches from an ISIS cnet, there are no match files.
+  // Create them. 
+  if (opt.isis_cnet != "") {
+    // iterate over inlier pairs
+    match_files.clear();
+    for (auto const& inlier_pair : inlier_pairs) {
+      int left_index  = inlier_pair.first.first;
+      int right_index = inlier_pair.first.second;
+      std::string match_file 
+        = vw::ip::match_filename(opt.out_prefix,
+                                 opt.image_files[left_index],
+                                 opt.image_files[right_index]);
+      match_files[std::make_pair(left_index, right_index)] = match_file;
+    }
+  }
+  
   // Work on individual image pairs
-  for (auto match_it = opt.match_files.begin(); match_it != opt.match_files.end(); match_it++) {
-
-    std::pair<int, int> cam_pair   = match_it->first;
-    std::string         match_file = match_it->second;
+  for (const auto& match_it: match_files) {
+   
+    std::pair<int, int> cam_pair   = match_it.first;
+    std::string         match_file = match_it.second;
     size_t left_index  = cam_pair.first;
     size_t right_index = cam_pair.second;
     if (left_index >= right_index) 
       vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Left image index "
                    << "must be less than right image index.\n");
     
-    // Just skip over match files that don't exist.
-    if (!boost::filesystem::exists(match_file)) {
-      vw_out() << "Skipping non-existent match file: " << match_file << std::endl;
-      continue;
-    }
-
-    // Read the original IP, to ensure later we write to disk only
-    // the subset of the IP from the control network which
-    // are part of these original ones. 
     std::vector<ip::InterestPoint> orig_left_ip, orig_right_ip;
-    ip::read_binary_match_file(match_file, orig_left_ip, orig_right_ip);
+    if (opt.isis_cnet != "") {
+      // Must create the matches from the cnet.
+      auto & inlier_pair = inlier_pairs[std::make_pair(left_index, right_index)]; // alias
+      // Iterate over this set of quadruplets, and build matches
+      for (auto const& q : inlier_pair) {
+        double s = 1.0; // scale
+        orig_left_ip.push_back(vw::ip::InterestPoint(std::get<0>(q), std::get<1>(q), s));
+        orig_right_ip.push_back(vw::ip::InterestPoint(std::get<2>(q), std::get<3>(q), s));
+      }
+    } else {
+      // Read existing matches. Skip over match files that don't exist.
+      if (!boost::filesystem::exists(match_file)) {
+        vw_out() << "Skipping non-existent match file: " << match_file << std::endl;
+        continue;
+      }
+      // Read the original IP, to ensure later we write to disk only
+      // the subset of the IP from the control network which
+      // are part of these original ones. 
+      vw::ip::read_binary_match_file(match_file, orig_left_ip, orig_right_ip);
+    }
 
     // Create a new convergence angle storage struct
     asp::MatchPairStats & convAngle = convAngles.back(); // alias
@@ -1672,9 +1700,11 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
         continue;
 
       // We do not copy descriptors, those take storage
-      left_ip.push_back(ip::InterestPoint(orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y,
+      left_ip.push_back(ip::InterestPoint(orig_left_ip[ip_iter].x, 
+                                          orig_left_ip[ip_iter].y,
                                           orig_left_ip[ip_iter].scale));
-      right_ip.push_back(ip::InterestPoint(orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y,
+      right_ip.push_back(ip::InterestPoint(orig_right_ip[ip_iter].x, 
+                                           orig_right_ip[ip_iter].y,
                                            orig_right_ip[ip_iter].scale));
     }
     
@@ -1692,7 +1722,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                                   quiet, left_ip, right_ip);
     }
     
-    if (num_cameras == 2){
+    if (num_cameras == 2) {
       // Compute the coverage fraction
       Vector2i right_image_size = file_image_size(opt.image_files[1]);
       int right_ip_width = right_image_size[0]*
@@ -1703,10 +1733,23 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       vw_out() << "IP coverage fraction after cleaning = " << ip_coverage << "\n";
     }
 
+    // Process the inlier ip
+    processMatchPair(left_index, right_index, left_ip, right_ip,
+                     optimized_cams, mapproj_dem_georef, interp_mapproj_dem,
+                     opt.datum,
+                     save_mapproj_match_points_offsets, 
+                     propagate_errors, horizontal_stddev_vec,
+                     // Will append to entities below
+                     convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
+                     horizVertErrors);
+
+    if (opt.output_cnet_type != "match-files")
+      continue; // Do not write match files
+
     // Make a clean copy of the file
     std::string clean_match_file = ip::clean_match_filename(match_file);
     if (opt.clean_match_files_prefix != "") {
-      // Avoid saving clean-clean.match.
+      // Ensure "clean" does not show up twice
       clean_match_file = match_file;
       // Write the clean match file in the current dir, not where it was read from
       clean_match_file.replace(0, opt.clean_match_files_prefix.size(), opt.out_prefix);
@@ -1717,19 +1760,9 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     }
     
     vw_out() << "Saving " << left_ip.size() << " filtered interest points.\n";
-
     vw_out() << "Writing: " << clean_match_file << std::endl;
     ip::write_binary_match_file(clean_match_file, left_ip, right_ip);
 
-    // Process the inlier ip
-    processMatchPair(left_index, right_index, left_ip, right_ip,
-                     optimized_cams, mapproj_dem_georef, interp_mapproj_dem,
-                     opt.datum,
-                     save_mapproj_match_points_offsets, 
-                     propagate_errors, horizontal_stddev_vec,
-                     // Will append to entities below
-                     convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
-                     horizVertErrors);
   } // End loop through the match files
 }
 

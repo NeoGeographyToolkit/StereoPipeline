@@ -1487,7 +1487,9 @@ int do_ba_ceres_one_pass(Options             & opt,
                             optimized_cams, remove_outliers, outliers, opt.mapproj_dem,
                             opt.propagate_errors, opt.horizontal_stddev_vec, 
                             // Outputs
-                            convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
+                            opt.match_files,
+                            convAngles, mapprojPoints, 
+                            mapprojOffsets, mapprojOffsetsPerCam,
                             horizVertErrors);
 
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
@@ -1722,12 +1724,19 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     do_ba_ceres_one_pass(opt, crn, first_pass,
                          param_storage, orig_parameters,
                          convergence_reached, final_cost);
-    
     int num_points_remaining = num_points - param_storage.get_num_outliers();
     if (num_points_remaining < opt.min_matches && num_gcp == 0) {
       // Do not throw if there exist gcp, as maybe that's all there is, and there
-      // can be just a few of them.
-      vw_throw(ArgumentErr() << "Error: Too few points remain after filtering!\n");
+      // can be just a few of them. Also, do not throw if we are using an ISIS cnet,
+      // unless we have less than 10 points, as that one can make too few points.
+      std::ostringstream ostr;
+      ostr << "Too few points remain after filtering. Number of remaining "
+           << "points is " << num_points_remaining 
+           << ", but value of --min-matches is " << opt.min_matches << ".\n";
+      if (opt.isis_cnet != "" && num_points_remaining > 10)
+        vw_out(vw::WarningMessage) << ostr.str();
+      else
+        vw_throw(ArgumentErr() << "Error: " << ostr.str());
     }
   } // End loop through passes
 
@@ -2235,6 +2244,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Reusing match files implies that we skip matching
   if (opt.clean_match_files_prefix != "" || opt.match_files_prefix != "")
     opt.skip_matching = true;
+
+  // If opt.output_cnet_type is not set, set it to match-files or isis-cnet.
+  if (opt.output_cnet_type == "") {
+    if (opt.isis_cnet != "")
+      opt.output_cnet_type = "isis-cnet";
+    else
+      opt.output_cnet_type = "match-files"; 
+  } 
+  // Sanity check in case the user set this option manually.
+  if (opt.output_cnet_type != "match-files" && opt.output_cnet_type != "isis-cnet")
+    vw_throw(ArgumentErr() << "Unknown value for --output-cnet-type: "
+                           << opt.output_cnet_type << ".\n");
   
   //  When skipping matching, we are already forced to reuse match
   //  files based on the logic in the code, but here enforce it
@@ -2286,7 +2307,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
 
   bool external_matches = (!opt.clean_match_files_prefix.empty() ||
-                             !opt.match_files_prefix.empty());
+                           !opt.match_files_prefix.empty());
   if (external_matches && opt.isis_cnet != "")
     vw_throw(ArgumentErr() << "Cannot use both an ISIS cnet file and "
              << "match files.\n");

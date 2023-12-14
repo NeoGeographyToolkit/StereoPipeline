@@ -562,6 +562,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                           bool propagate_errors, 
                           vw::Vector<double>           const& horizontal_stddev_vec,
                           // Outputs
+                          std::map<std::pair<int, int>, std::string> & match_files,
                           std::vector<asp::MatchPairStats>  & convAngles,
                           std::vector<vw::Vector<float, 4>> & mapprojPoints,
                           std::vector<asp::MatchPairStats>  & mapprojOffsets,
