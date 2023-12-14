@@ -741,7 +741,7 @@ erode-max-size (*integer*) (default = 0)
 
 gotcha-disparity-refinement
     Turn on the experimental Gotcha disparity refinement
-    (:numref:`casp_go`). It refines and overwrites F.tif. See the
+    (:numref:`casp_go`). It refines and overwrites ``F.tif``. See the
     option ``casp-go-param-file`` for customizing its behavior.
 
 casp-go-param-file (*string*) (default = ""):

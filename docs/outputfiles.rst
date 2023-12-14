@@ -146,7 +146,8 @@ File created during filtering
 \*-F.tif - filtered disparity map
     The filtered, sub-pixel disparity map with outliers removed (and
     holes filled with the inpainting algorithm if ``FILL_HOLES`` is
-    on). This is the final version of the disparity map.
+    on). This is the final version of the disparity map. It is 
+    in the OpenEXR format as the other disparities.
 
 \*-GoodPixelMap.tif - map of good pixels. 
     An image showing which pixels were matched by the stereo

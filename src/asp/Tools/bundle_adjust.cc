@@ -2976,8 +2976,7 @@ void computeStats(Options const& opt, std::vector<std::string> const& map_files,
 
 void findPairwiseMatches(Options & opt, // will change
                          std::vector<std::string> const& map_files,
-                         vw::cartography::GeoReference const& dem_georef,
-                         ImageViewRef<PixelMask<double>> & interp_dem,
+                         std::string const& dem_file_for_mapproj,
                          std::vector<Vector3> const& estimated_camera_gcc,
                          bool need_no_matches) {
   
@@ -3036,6 +3035,11 @@ void findPairwiseMatches(Options & opt, // will change
       vw_out() << "Computing the list of existing match files.\n";
       asp::listExistingMatchFiles(prefix, existing_files);
     }
+    
+    vw::cartography::GeoReference dem_georef;
+    ImageViewRef<PixelMask<double>> interp_dem;
+    if (dem_file_for_mapproj != "")
+        asp::create_interp_dem(dem_file_for_mapproj, dem_georef, interp_dem);
     
     // Process the selected pairs
     // TODO(oalexan1): This block must be a function.
@@ -3143,7 +3147,8 @@ int main(int argc, char* argv[]) {
     if (opt.auto_overlap_params != "") {
       std::istringstream is(opt.auto_overlap_params);
       if (!(is >> dem_file_for_overlap >> pct_for_overlap)) 
-        vw_throw(ArgumentErr() << "Could not parse correctly option --auto-overlap-params.\n");
+        vw_throw(ArgumentErr() 
+                 << "Could not parse correctly option --auto-overlap-params.\n");
     }
 
     asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
@@ -3163,8 +3168,7 @@ int main(int argc, char* argv[]) {
     // For when we make matches based on mapprojected images. Read mapprojected
     // images and a DEM from either command line or a list.
     std::vector<std::string> map_files;
-    vw::cartography::GeoReference dem_georef;
-    ImageViewRef<PixelMask<double>> interp_dem;
+    std::string dem_file_for_mapproj;
     bool need_no_matches = (opt.apply_initial_transform_only || !opt.isis_cnet.empty());
     if (!need_no_matches) {
       
@@ -3183,9 +3187,8 @@ int main(int argc, char* argv[]) {
           vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
                    << "cameras, and also a DEM.\n");
         // Pull out the dem from the list and create the interp_dem
-        std::string dem_file = map_files.back();
+        dem_file_for_mapproj = map_files.back();
         map_files.erase(map_files.end() - 1);
-        asp::create_interp_dem(dem_file, dem_georef, interp_dem);
       }
     }
 
@@ -3222,23 +3225,23 @@ int main(int argc, char* argv[]) {
                                            opt.overlap_list);
     }
 
-    // Create GCP from mapprojection
-    if (opt.gcp_from_mapprojected != "") {
-      if (!need_no_matches)
-        create_gcp_from_mapprojected_images(opt);
-      return 0;
-    }
-
     // Load estimated camera positions if they were provided.
     std::vector<Vector3> estimated_camera_gcc;
     load_estimated_camera_positions(opt, estimated_camera_gcc);
 
     // Find or list matches
-    findPairwiseMatches(opt, map_files, dem_georef, interp_dem, estimated_camera_gcc,
-                        need_no_matches);
+    findPairwiseMatches(opt, map_files, dem_file_for_mapproj,
+                        estimated_camera_gcc, need_no_matches);
     
     if (opt.stop_after_matching) {
       vw_out() << "Quitting after matches computation.\n";
+      return 0;
+    }
+
+    // Create GCP from mapprojection
+    if (opt.gcp_from_mapprojected != "") {
+      if (!need_no_matches)
+        create_gcp_from_mapprojected_images(opt);
       return 0;
     }
 
