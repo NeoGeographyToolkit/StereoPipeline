@@ -28,15 +28,37 @@
 #include <boost/shared_ptr.hpp>
 
 #include <string>
+#include <map>
+
+namespace vw {
+  namespace ba {
+    class ControlNetwork;
+  }
+}
 
 namespace asp {
+
+// Use this struct to collect all the data needed to handle an ISIS cnet.
+struct IsisCnetData {
+  Isis::ControlNetQsp isisCnet;
+  boost::shared_ptr<Isis::SerialNumberList> isisImgData;
+  std::map<int, int> isisToAspControlPointId;
   
-  struct IsisCnetData {
-    Isis::ControlNetQsp m_controlNet;
-    boost::shared_ptr<Isis::SerialNumberList> m_serialNumberList;
-  };
-  
-  void bundle_adjust_isis();
+  IsisCnetData() {
+    isisCnet = Isis::ControlNetQsp(NULL);
+    isisImgData = boost::shared_ptr<Isis::SerialNumberList>(NULL);
+    isisToAspControlPointId.clear();
+  }
+};
+
+// Load an ISIS cnet file and copy it to an ASP control network.
+// The ISIS cnet will be used when saving the updated cnet.  
+void loadIsisCnet(std::string const& isisCnetFile, 
+                  std::string const& outputPrefix, 
+                  std::vector<std::string> const& image_files,
+                  // Outputs
+                  vw::ba::ControlNetwork& cnet,
+                  IsisCnetData & icnet);
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_ISIS_H__
