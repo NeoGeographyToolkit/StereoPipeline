@@ -32,6 +32,7 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/Core/OutlierProcessing.h>
 #include <asp/Core/DataLoader.h>
+#include <asp/Camera/BundleAdjustIsis.h>
 
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>
@@ -1493,7 +1494,8 @@ int do_ba_ceres_one_pass(Options             & opt,
   asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
 
   if (!opt.mapproj_dem.empty()) {
-    std::string mapproj_offsets_stats_file = opt.out_prefix + "-mapproj_match_offset_stats.txt";
+    std::string mapproj_offsets_stats_file 
+      = opt.out_prefix + "-mapproj_match_offset_stats.txt";
     std::string mapproj_offsets_file = opt.out_prefix + "-mapproj_match_offsets.txt";
     asp::saveMapprojOffsets(mapproj_offsets_stats_file, mapproj_offsets_file,
                             mapproj_dem_georef,
@@ -1512,32 +1514,39 @@ int do_ba_ceres_one_pass(Options             & opt,
 } // End function do_ba_ceres_one_pass
 
 /// Use Ceres to do bundle adjustment.
-void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc){
+void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc) {
 
   // Try to set up the control network, ie the list of point coordinates.
   // - This triangulates from the camera models to determine the initial
   //   world coordinate estimate for each matched IP.
   opt.cnet.reset(new ControlNetwork("BundleAdjust"));
   int num_gcp = 0;
-  ControlNetwork & cnet = *(opt.cnet.get()); // alias
+  ControlNetwork & cnet = *(opt.cnet.get()); // alias to ASP cnet
+  asp::IsisCnetData icnet; // isis cnet (if loaded)
   if (!opt.apply_initial_transform_only) {
-    bool triangulate_control_points = true;
-    bool success = vw::ba::build_control_network(triangulate_control_points,
-                                                 cnet, opt.camera_models,
-                                                 opt.image_files,
-                                                 opt.match_files,
-                                                 opt.min_matches,
-                                                 opt.min_triangulation_angle*(M_PI/180.0),
-                                                 opt.forced_triangulation_distance,
-                                                 opt.max_pairwise_matches);
-    if (!success) {
-      vw_out() << "Failed to build a control network.\n"
-               << " - Consider removing all .vwip and .match files and \n"
-               << "   increasing the number of interest points per tile using\n "
-               << "   --ip-per-tile, or decreasing --min-matches.\n"
-               << " - Check if your images are similar enough in illumination,\n"
-               << "   and if they have enough overlap.\n"   
-               << "Will continue if ground control points are present.\n";
+    // TODO(oalexan1): This whole block must be a function
+    if (opt.isis_cnet != "") {
+      asp::loadIsisCnet(opt.isis_cnet, opt.out_prefix, opt.image_files,
+                        cnet, icnet); // outputs
+    }else {
+      bool triangulate_control_points = true;
+      bool success = vw::ba::build_control_network(triangulate_control_points,
+                                                   cnet, opt.camera_models,
+                                                   opt.image_files,
+                                                   opt.match_files,
+                                                   opt.min_matches,
+                                                   opt.min_triangulation_angle*(M_PI/180.0),
+                                                   opt.forced_triangulation_distance,
+                                                   opt.max_pairwise_matches);
+      if (!success) {
+        vw_out() << "Failed to build a control network.\n"
+                 << " - Consider removing all .vwip and .match files and \n"
+                 << "   increasing the number of interest points per tile using\n "
+                 << "   --ip-per-tile, or decreasing --min-matches.\n"
+                 << " - Check if your images are similar enough in illumination,\n"
+                << "   and if they have enough overlap.\n"   
+                << "Will continue if ground control points are present.\n";
+      }
     }
     vw_out() << "Loading GCP files.\n";
     num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
@@ -1592,6 +1601,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   }
   
   // Collect distortion size per camera
+  // TODO(oalexan1): Make this into a function
   std::vector<int> num_dist_params(num_cameras, 0);
   for (size_t cam_it  = 0; cam_it < opt.camera_models.size(); cam_it++) {
     if (opt.camera_type == BaCameraType_Pinhole) {
@@ -1717,7 +1727,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     if (num_points_remaining < opt.min_matches && num_gcp == 0) {
       // Do not throw if there exist gcp, as maybe that's all there is, and there
       // can be just a few of them.
-      vw_throw(ArgumentErr() << "Error: Too few points remain after filtering!.\n");
+      vw_throw(ArgumentErr() << "Error: Too few points remain after filtering!\n");
     }
   } // End loop through passes
 
@@ -1726,6 +1736,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 
   // This flow is only kicked in if opt.num_random_passes is positive, which
   // is not the default.
+  // TODO(oalexan1): Make this into a function.
   std::string orig_out_prefix = opt.out_prefix;
   for (int pass = 0; pass < opt.num_random_passes; pass++) {
 
@@ -2019,6 +2030,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      po::value(&opt.tri_robust_threshold)->default_value(0.1),
      "Use this robust threshold to attenuate large differences "
      "between initial and optimized triangulation points, after multiplying them by --tri-weight.")
+    ("isis-cnet", po::value(&opt.isis_cnet)->default_value(""),
+     "Read a control network having interest point matches from this binary file in "
+     "the ISIS jigsaw format. This can be used with any cameras supported by ASP "
+     "(jigsaw itself can only read this file if the input images are in .cub format). "
+     "See also --output-cnet-type.")
+    ("output-cnet-type", po::value(&opt.output_cnet_type)->default_value(""),
+     "The format in which to save the control network of interest point matches. "
+     "Options: match-files (match files in ASP's format), isis-cnet (ISIS jigsaw "
+     "format). If not set, match files will be saved, unless --isis-cnet is "
+     "specified, when this option will be set to isis-cnet.")
     ("overlap-exponent",     po::value(&opt.overlap_exponent)->default_value(0.0),
      "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
     ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
@@ -2263,6 +2284,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with " 
         << "--num-random-passes.\n");
   }
+
+  bool external_matches = (!opt.clean_match_files_prefix.empty() ||
+                             !opt.match_files_prefix.empty());
+  if (external_matches && opt.isis_cnet != "")
+    vw_throw(ArgumentErr() << "Cannot use both an ISIS cnet file and "
+             << "match files.\n");
 
   if (opt.transform_cameras_using_gcp &&
       (!inline_adjustments) &&
@@ -2514,8 +2541,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (!vm["max-iterations"].defaulted())
     opt.num_iterations = max_iterations_tmp;
   
-  if ( opt.out_prefix.empty() )
-    vw_throw( ArgumentErr() << "Missing output prefix.\n" << usage << general_options  );
+  if (opt.out_prefix.empty())
+    vw::vw_throw(vw::ArgumentErr() << "Missing output prefix.\n");
 
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
@@ -2535,7 +2562,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << "without --initial-transform.\n");
   
   if (opt.initial_transform_file != "") {
-    vw_out() << "Reading the alignment transform from: " << opt.initial_transform_file << "\n";
+    vw_out() << "Reading the alignment transform from: " 
+             << opt.initial_transform_file << "\n";
     vw::read_matrix_as_txt(opt.initial_transform_file, opt.initial_transform);
     if (opt.initial_transform.cols() != 4 || opt.initial_transform.rows() != 4)
       vw_throw(ArgumentErr() << "Could not read the initial transform.\n");
@@ -2775,6 +2803,9 @@ void matches_from_mapproj_images(int i, int j,
 /// tying each camera image match to its desired location on the DEM.
 void create_gcp_from_mapprojected_images(Options const& opt){
 
+  if (opt.instance_index != 0) 
+    return; // only do this for first instance
+
   // Read the map-projected images and the dem
   std::istringstream is(opt.gcp_from_mapprojected);
   std::vector<std::string> image_files;
@@ -2897,180 +2928,74 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 
 }
 
-// End map projection functions
+// Compute statistics for the designated images (or mapprojected
+// images), and perhaps the footprints.
+void computeStats(Options const& opt, std::vector<std::string> const& map_files,
+                  std::string const& dem_file_for_overlap) {
 
-int main(int argc, char* argv[]) {
+  int num_images = opt.image_files.size();
 
-  Options opt;
-  try {
-    xercesc::XMLPlatformUtils::Initialize();
+  // Assign the images which this instance should compute statistics for.
+  std::vector<size_t> image_stats_indices;
+  for (size_t i = opt.instance_index; i < num_images; i += opt.instance_count)
+    image_stats_indices.push_back(i);
 
-    handle_arguments(argc, argv, opt);
+  for (size_t i = 0; i < image_stats_indices.size(); i++) {
 
-    // Prepare for computing footprints of images. Do this early as loading cameras
-    // as below can take a lot of time. So fail early.
-    // TODO(oalexan1): Move this to handle_arguments().
-    std::string dem_file_for_overlap;
-    double pct_for_overlap = -1.0;
-    if (opt.auto_overlap_params != "") {
-      std::istringstream is(opt.auto_overlap_params);
-      if (!(is >> dem_file_for_overlap >> pct_for_overlap)) 
-        vw_throw(ArgumentErr() << "Could not parse correctly option --auto-overlap-params.\n");
-    }
+    size_t index = image_stats_indices[i];
 
-    asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
-                      opt.approximate_pinhole_intrinsics,  
-                      // Outputs
-                      opt.stereo_session,  // may change
-                      opt.single_threaded_cameras,  
-                      opt.camera_models);
+    // The stats need to be computed for the mapprojected image, if provided
+    std::string image_path;
+    if (map_files.empty()) 
+      image_path = opt.image_files[index];
+    else
+      image_path = map_files[index];
     
-    // Parse data needed for error propagation
-    if (opt.propagate_errors)
-      asp::setup_error_propagation(opt.stereo_session, opt.horizontal_stddev, 
-                                   opt.camera_models,
-                                   opt.horizontal_stddev_vec); // output
-    
+    // Call a bunch of stuff to get the nodata value
+    boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
+    float nodata, dummy;
+    asp::get_nodata_values(rsrc, rsrc, nodata, dummy);
 
-    // For when we make matches based on mapprojected images. Read mapprojected
-    // images and a DEM from either command line or a list.
-    std::vector<std::string> map_files;
-    vw::cartography::GeoReference dem_georef;
-    ImageViewRef<PixelMask<double>> interp_dem;
-    if (!opt.apply_initial_transform_only) {
-      
-      if (!opt.mapprojected_data_list.empty()) {
-        asp::read_list(opt.mapprojected_data_list, map_files);
-        opt.mapprojected_data = "non-empty"; // put a token value, to make it non-empty
-      } else if (opt.mapprojected_data != "") {
-        std::istringstream is(opt.mapprojected_data);
-        std::string file;
-        while (is >> file)
-          map_files.push_back(file); 
-      }
+    // Set up the image view
+    DiskImageView<float> image_view(rsrc);
+    ImageViewRef< PixelMask<float> > masked_image
+      = create_mask_less_or_equal(image_view,  nodata);
 
-      if (!opt.mapprojected_data.empty()) {
-        if (opt.camera_models.size() + 1 != map_files.size()) 
-          vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
-                   << "cameras, and also a DEM.\n");
-        
-        std::string dem_file = map_files.back();
-        map_files.erase(map_files.end() - 1);
-        
-        asp::create_interp_dem(dem_file, dem_georef, interp_dem);
-      }
+    // Use caching function call to compute the image statistics.
+    asp::gather_stats(masked_image, image_path, opt.out_prefix, image_path);
 
-    }
+    // Compute and cache the camera footprint bbox
+    if (opt.auto_overlap_params != "")
+      asp::camera_bbox_with_cache(dem_file_for_overlap,
+                                  opt.image_files[index], // use the original image
+                                  opt.camera_models[index],  
+                                  opt.out_prefix);
+  }
+  return;
+}
 
-    if (!opt.mapprojected_data.empty()) {
-      // Mapprojected data assumes the cameras are not adjusted
-      if (!opt.input_prefix.empty() || !opt.initial_transform_file.empty() ||
-          opt.apply_initial_transform_only)
-        vw_throw(ArgumentErr() 
-                 << "Cannot use mapprojected data with initial adjustments or "
-                 << "initial transform. Create matches from mapprojected data first, "
-                 << "with original cameras, then later use them with a separate "
-                 << "invocation of this program.\n");
-    }
+void findPairwiseMatches(Options & opt, // will change
+                         std::vector<std::string> const& map_files,
+                         vw::cartography::GeoReference const& dem_georef,
+                         ImageViewRef<PixelMask<double>> & interp_dem,
+                         std::vector<Vector3> const& estimated_camera_gcc,
+                         bool need_no_matches) {
   
-    // Assign the images which this instance should compute statistics for.
-    std::vector<size_t> image_stats_indices;
     int num_images = opt.image_files.size();
-
-    for (size_t i = opt.instance_index; i < num_images; i += opt.instance_count)
-      image_stats_indices.push_back(i);
-
-    // Compute statistics for the designated images (or mapprojected
-    // images), and perhaps the footprints
-    // TODO(oalexan1): Make this into a function
-    for (size_t i = 0; i < image_stats_indices.size(); i++) {
-
-      if (opt.apply_initial_transform_only)
-        continue; // no stats need to happen
-
-      if (opt.skip_matching || opt.clean_match_files_prefix != "" ||
-          opt.match_files_prefix != "")
-        continue;
-      
-      size_t index = image_stats_indices[i];
-
-      // The stats need to be computed for the mapprojected image, if provided
-      std::string image_path;
-      if (map_files.empty()) 
-        image_path = opt.image_files[index];
-      else
-        image_path = map_files[index];
-      
-      // Call a bunch of stuff to get the nodata value
-      boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
-      float nodata, dummy;
-      asp::get_nodata_values(rsrc, rsrc, nodata, dummy);
-
-      // Set up the image view
-      DiskImageView<float> image_view(rsrc);
-      ImageViewRef< PixelMask<float> > masked_image
-        = create_mask_less_or_equal(image_view,  nodata);
-
-      // Use caching function call to compute the image statistics.
-      asp::gather_stats(masked_image, image_path, opt.out_prefix, image_path);
-
-      // Compute and cache the camera footprint bbox
-      if (opt.auto_overlap_params != "")
-        asp::camera_bbox_with_cache(dem_file_for_overlap,
-                                    opt.image_files[index], // use the original image
-                                    opt.camera_models[index],  
-                                    opt.out_prefix);
-    }
-    
-    // Done computing image statistics.
-
-    if (opt.stop_after_stats) {
-      vw_out() << "Quitting after statistics computation.\n";
-      xercesc::XMLPlatformUtils::Terminate();
-
-      return 0;
-    }
-
-    // Calculate which images overlap
-    if (opt.auto_overlap_params != "") {
-      opt.have_overlap_list = true;
-      asp::build_overlap_list_based_on_dem(opt.out_prefix,  
-                                           dem_file_for_overlap, pct_for_overlap,
-                                           opt.image_files, opt.camera_models,
-                                           // output
-                                           opt.overlap_list);
-    }
-
-    // Create the match points. Iterate through each pair of input images.
-
-    // Load estimated camera positions if they were provided.
-    std::vector<Vector3> estimated_camera_gcc;
-    load_estimated_camera_positions(opt, estimated_camera_gcc);
     const bool got_est_cam_positions =
       (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
 
-    // Find interest points between all of the image pairs.
-    
     // Make a list of all the image pairs to find matches for
     std::vector<std::pair<int,int> > all_pairs;
-    if (!opt.apply_initial_transform_only)
+    if (!need_no_matches)
       asp::determine_image_pairs(// Inputs
                                  opt.overlap_limit, opt.match_first_to_last,  
-                                 opt.image_files, 
-                                 got_est_cam_positions, opt.position_filter_dist,
-                                 estimated_camera_gcc,
-                                 opt.have_overlap_list,
-                                 opt.overlap_list,
+                                 opt.image_files, got_est_cam_positions, 
+                                 opt.position_filter_dist, estimated_camera_gcc, 
+                                 opt.have_overlap_list, opt.overlap_list,
                                  // Output
                                  all_pairs);
 
-    // Create GCP from mapprojection
-    if (opt.gcp_from_mapprojected != "" && !opt.apply_initial_transform_only) {
-      create_gcp_from_mapprojected_images(opt);
-      return 0;
-    }
-
-    // TODO: Make this a function
     // Assign the matches which this instance should compute.
     // This is for when called from parallel_bundle_adjust.
     size_t per_instance = all_pairs.size() / opt.instance_count; // Round down
@@ -3113,9 +3038,10 @@ int main(int argc, char* argv[]) {
     }
     
     // Process the selected pairs
+    // TODO(oalexan1): This block must be a function.
     for (size_t k = 0; k < this_instance_pairs.size(); k++) {
 
-      if (opt.apply_initial_transform_only)
+      if (need_no_matches)
         continue;
       
       const int i = this_instance_pairs[k].first;
@@ -3199,6 +3125,118 @@ int main(int argc, char* argv[]) {
       } //End try/catch
     } // End loop through all input image pairs
 
+}
+
+int main(int argc, char* argv[]) {
+
+  Options opt;
+  try {
+    xercesc::XMLPlatformUtils::Initialize();
+
+    handle_arguments(argc, argv, opt);
+
+    // Prepare for computing footprints of images. Do this early as loading cameras
+    // as below can take a lot of time. So fail early.
+    // TODO(oalexan1): Move this to handle_arguments().
+    std::string dem_file_for_overlap;
+    double pct_for_overlap = -1.0;
+    if (opt.auto_overlap_params != "") {
+      std::istringstream is(opt.auto_overlap_params);
+      if (!(is >> dem_file_for_overlap >> pct_for_overlap)) 
+        vw_throw(ArgumentErr() << "Could not parse correctly option --auto-overlap-params.\n");
+    }
+
+    asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
+                      opt.approximate_pinhole_intrinsics,  
+                      // Outputs
+                      opt.stereo_session,  // may change
+                      opt.single_threaded_cameras,  
+                      opt.camera_models);
+    
+    // Parse data needed for error propagation
+    if (opt.propagate_errors)
+      asp::setup_error_propagation(opt.stereo_session, opt.horizontal_stddev, 
+                                   opt.camera_models,
+                                   opt.horizontal_stddev_vec); // output
+    
+
+    // For when we make matches based on mapprojected images. Read mapprojected
+    // images and a DEM from either command line or a list.
+    std::vector<std::string> map_files;
+    vw::cartography::GeoReference dem_georef;
+    ImageViewRef<PixelMask<double>> interp_dem;
+    bool need_no_matches = (opt.apply_initial_transform_only || !opt.isis_cnet.empty());
+    if (!need_no_matches) {
+      
+      if (!opt.mapprojected_data_list.empty()) {
+        asp::read_list(opt.mapprojected_data_list, map_files);
+        opt.mapprojected_data = "non-empty"; // put a token value, to make it non-empty
+      } else if (opt.mapprojected_data != "") {
+        std::istringstream is(opt.mapprojected_data);
+        std::string file;
+        while (is >> file)
+          map_files.push_back(file); 
+      }
+
+      if (!opt.mapprojected_data.empty()) {
+        if (opt.camera_models.size() + 1 != map_files.size()) 
+          vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
+                   << "cameras, and also a DEM.\n");
+        // Pull out the dem from the list and create the interp_dem
+        std::string dem_file = map_files.back();
+        map_files.erase(map_files.end() - 1);
+        asp::create_interp_dem(dem_file, dem_georef, interp_dem);
+      }
+    }
+
+    if (!opt.mapprojected_data.empty()) {
+      if (!opt.input_prefix.empty() || !opt.initial_transform_file.empty() ||
+          need_no_matches)
+        vw_throw(ArgumentErr() 
+                 << "Cannot use mapprojected data with initial adjustments, "
+                 << "an initial transform, or ISIS cnet input.\n");
+    }
+  
+    int num_images = opt.image_files.size();
+  
+    // Compute stats in the batch of images given by opt.instance_index, etc.
+    bool skip_stats = (need_no_matches || opt.skip_matching || 
+                       opt.clean_match_files_prefix != ""   ||
+                       opt.match_files_prefix != "");
+    if (!skip_stats)
+      computeStats(opt, map_files, dem_file_for_overlap);
+
+    if (opt.stop_after_stats) {
+      vw_out() << "Quitting after statistics computation.\n";
+      xercesc::XMLPlatformUtils::Terminate();
+      return 0;
+    }
+
+    // Calculate which images overlap
+    if (opt.auto_overlap_params != "") {
+      opt.have_overlap_list = true;
+      asp::build_overlap_list_based_on_dem(opt.out_prefix,  
+                                           dem_file_for_overlap, pct_for_overlap,
+                                           opt.image_files, opt.camera_models,
+                                           // output
+                                           opt.overlap_list);
+    }
+
+    // Create GCP from mapprojection
+    if (opt.gcp_from_mapprojected != "") {
+      if (!need_no_matches)
+        create_gcp_from_mapprojected_images(opt);
+      return 0;
+    }
+
+    // Load estimated camera positions if they were provided.
+    std::vector<Vector3> estimated_camera_gcc;
+    load_estimated_camera_positions(opt, estimated_camera_gcc);
+
+    // Find or list matches
+    findPairwiseMatches(opt, map_files, dem_georef, interp_dem, estimated_camera_gcc,
+                        need_no_matches);
+    
     if (opt.stop_after_matching) {
       vw_out() << "Quitting after matches computation.\n";
       return 0;
