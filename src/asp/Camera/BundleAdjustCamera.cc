@@ -290,7 +290,7 @@ void asp::BAParams::print_gcp_stats(vw::ba::ControlNetwork const& cnet,
                                     vw::cartography::Datum const& d) const {
   vw::vw_out() << "Ground control point results:\n";
   vw::vw_out() << "input_gcp optimized_gcp diff\n";
-  for (int ipt = 0; ipt < num_points(); ipt++){
+  for (int ipt = 0; ipt < num_points(); ipt++) {
     if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint)
       continue;
     if (get_point_outlier(ipt))
@@ -304,7 +304,7 @@ void asp::BAParams::print_gcp_stats(vw::ba::ControlNetwork const& cnet,
 
     // Now convert to llh
     input_gcp = d.cartesian_to_geodetic(input_gcp);
-    opt_gcp   = d.cartesian_to_geodetic(opt_gcp  );
+    opt_gcp   = d.cartesian_to_geodetic(opt_gcp);
 
     vw::vw_out() << "llh: " << input_gcp << ' ' << opt_gcp << ' '
                   << input_gcp - opt_gcp << std::endl;
@@ -797,21 +797,18 @@ void asp::transform_cameras_with_indiv_image_gcp
   pix.resize(num_cams);
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
 
-  int ipt = - 1;
-  for (auto iter = cnet.begin(); iter != cnet.end(); iter++) {
-    ipt++;
+  for (int ipt = 0; ipt < cnet.size(); ipt++) {
     
     // Keep only gcp
-    if (cnet[ipt].type() != ControlPoint::GroundControlPoint) {
+    if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
       continue;
-    }
-        
-    for (auto measure = (*iter).begin(); measure != (*iter).end(); measure++) {
+            
+    for (auto measure = cnet[ipt].begin(); measure != cnet[ipt].end(); measure++) {
       int cam_it = measure->image_id();
-      if (cam_it < 0 || cam_it >= num_cams) 
-	vw_throw(ArgumentErr() << "Error: cnet index out of range.\n");
+      if (cam_it < 0 || cam_it >= num_cams)
+        vw_throw(ArgumentErr() << "Error: cnet index out of range.\n");
 
-      Vector2 pixel( measure->position()[0],  measure->position()[1]);
+      Vector2 pixel(measure->position()[0],  measure->position()[1]);
       pix[cam_it].push_back(pixel);
       xyz[cam_it].push_back(cnet[ipt].position());
     }
@@ -834,15 +831,16 @@ void asp::transform_cameras_with_indiv_image_gcp
 /// a least squares error transform to match the provided control points file.
 /// This function overwrites the camera parameters in-place. It works
 /// if at least three GCP are seen in no less than two images.
-void asp::transform_cameras_with_shared_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
-                                            std::vector<vw::CamPtr> & camera_models) {
+void asp::transform_cameras_with_shared_gcp(
+            boost::shared_ptr<ControlNetwork> const& cnet_ptr,
+            std::vector<vw::CamPtr> & camera_models) {
   
   vw_out() << "Applying transform to cameras given several GCP shared among the images.\n";
 
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
   
   // Verify that all cameras are pinhole
-  for (size_t icam = 0; icam < camera_models.size(); icam++){
+  for (size_t icam = 0; icam < camera_models.size(); icam++) {
     vw::camera::PinholeModel * pincam
       = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
     VW_ASSERT(pincam != NULL,
@@ -850,7 +848,7 @@ void asp::transform_cameras_with_shared_gcp(boost::shared_ptr<ControlNetwork> co
   }
   
   // Put the good ground control points in a vector.
-  int num_cnet_points = static_cast<int>(cnet.size());
+  int num_cnet_points = cnet.size();
   std::vector<vw::Vector3> in_xyz, out_xyz; 
   int num_gcp      = 0;
   int num_good_gcp = 0;
@@ -1597,10 +1595,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   typedef std::tuple<float, float, float, float> Quadruplet;
   std::map<std::pair<int, int>, std::set<Quadruplet>> match_map;
   if (remove_outliers || !opt.isis_cnet.empty()) {
-    int ipt = -1;
-    for (ControlNetwork::const_iterator iter = cnet.begin(); iter != cnet.end(); iter++) {
-      // Control point index
-      ipt++; 
+  for (int ipt = 0; ipt < cnet.size(); ipt++) {
       // Skip outliers
       if (outliers.find(ipt) != outliers.end())
         continue;
@@ -1608,8 +1603,8 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
         continue;
       
-      for (auto m1 = (*iter).begin(); m1 != (*iter).end(); m1++) {
-        for (auto m2 = (*iter).begin(); m2 != (*iter).end(); m2++) {
+      for (auto m1 = cnet[ipt].begin(); m1 != cnet[ipt].end(); m1++) {
+        for (auto m2 = cnet[ipt].begin(); m2 != cnet[ipt].end(); m2++) {
           int left_index = m1->image_id();
           int right_index = m2->image_id();
           if (left_index >= right_index) 

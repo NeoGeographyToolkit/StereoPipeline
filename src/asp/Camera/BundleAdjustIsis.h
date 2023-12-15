@@ -34,6 +34,9 @@ namespace vw {
   namespace ba {
     class ControlNetwork;
   }
+  namespace cartography {
+    class Datum;
+  }
 }
 
 namespace asp {
@@ -53,8 +56,8 @@ struct IsisCnetData {
   }
 };
 
-// Load an ISIS cnet file and copy it to an ASP control network.
-// The ISIS cnet will be used when saving the updated cnet.  
+// Load an ISIS cnet file and copy it to an ASP control network. The ISIS cnet
+// will be used when saving the updated cnet.  
 void loadIsisCnet(std::string const& isisCnetFile, 
                   std::string const& outputPrefix, 
                   std::vector<std::string> const& image_files,
@@ -62,11 +65,18 @@ void loadIsisCnet(std::string const& isisCnetFile,
                   vw::ba::ControlNetwork& cnet,
                   IsisCnetData & isisCnetData);
 
-// Update an ISIS cnet with the latest info on triangulated points
-// and outliers, and write it to disk at <outputPrefix>.net.
+// Update an ISIS cnet with the latest info on triangulated points and outliers,
+// and write it to disk at <outputPrefix>.net.
 void saveUpdatedIsisCnet(std::string const& outputPrefix, 
                   asp::BAParams const& param_storage,
                   IsisCnetData & isisCnetData);
+
+// Create and save an ISIS cnet from a given control network and latest param
+// values.
+void saveIsisCnet(std::string const& outputPrefix, 
+                  vw::ba::ControlNetwork const& cnet,
+                  vw::cartography::Datum const& datum,
+                  asp::BAParams const& param_storage);
 
 } // end namespace asp
 

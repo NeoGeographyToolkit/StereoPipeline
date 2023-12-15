@@ -1753,13 +1753,18 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     }
   } // End loop through passes
   
+  // TODO(oalexan1): Make this into a function. It should just return 
+  // param_storage rather than best_param_ptr which should be kept internal.
+  // It is also not clear if using a pointers rather than copying has
+  // any advantage there. The data amount is small compared to all the work
+  // that is needed to process it at each iteration. 
+#if 1 
   // Record the parameters of the best result.
   double best_cost = final_cost;
   boost::shared_ptr<asp::BAParams> best_params_ptr(new asp::BAParams(param_storage));
 
   // This flow is only kicked in if opt.num_random_passes is positive, which
   // is not the default.
-  // TODO(oalexan1): Make this into a function.
   std::string orig_out_prefix = opt.out_prefix;
   for (int pass = 0; pass < opt.num_random_passes; pass++) {
 
@@ -1809,6 +1814,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     vw::exec_cmd(cmd.c_str());
   }
   opt.out_prefix = orig_out_prefix; // So the cameras are written to the expected paths.
+#endif
 
   // Write the results to disk.
   saveResults(opt, *best_params_ptr);
@@ -1817,10 +1823,12 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       (opt.stereo_session == "nadirpinhole")) 
     saveCameraReport(opt, *best_params_ptr, opt.datum, "final");
   
-  // Save the ISIS cnet if applicable
+  // Update the ISIS cnet or create a new one, if applicable
   // Note that *best_params_ptr has the latest triangulated points and outlier info
   if (opt.isis_cnet != "" && opt.output_cnet_type == "isis-cnet")
     asp::saveUpdatedIsisCnet(opt.out_prefix, *best_params_ptr, isisCnetData);
+  else if (opt.output_cnet_type == "isis-cnet")
+    asp::saveIsisCnet(opt.out_prefix, cnet, opt.datum, *best_params_ptr);
   
 } // end do_ba_ceres
 

@@ -34,6 +34,12 @@
 #include <isis/Longitude.h>
 #include <isis/Distance.h>
 #include <isis/BundleImage.h>
+#include <isis/Pvl.h>
+#include <isis/Target.h>
+#include <isis/CameraFactory.h>
+#include <isis/Camera.h>
+#include <isis/Cube.h>
+#include <isis/FileName.h>
 
 #include <boost/shared_ptr.hpp>
 
@@ -109,7 +115,7 @@ void loadIsisCnet(std::string const& isisCnetFile,
     // be out of sync with the ISIS cnet. Later, the ASP cnet may also
     // have GCP, so new points. To keep track of all that, later
     // we will have a map from ISIS to ASP control point ids.
-    if (point->IsIgnored()) 
+    if (point->IsIgnored() || point->IsRejected())
       continue;
 
     // Triangulated point  
@@ -211,7 +217,6 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
     
     // ECEF coordinates of the triangulated point
     const double * asp_point = param_storage.get_point_ptr(aspControlPointId);
-    vw::Vector3 ecef(asp_point[0], asp_point[1], asp_point[2]);
     
     // Copy this over to ISIS
     Isis::SurfacePoint P = point->GetAdjustedSurfacePoint();
@@ -229,164 +234,142 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
   // convert to QString
   QString qCnetFile = QString::fromStdString(cnetFile);
   isisCnet->Write(qCnetFile);
-  
 }
-# if 0
-{
-  // Report any ISIS-related surface points as lat/lon/radius, which is
-  // the jigsaw default.
-  Isis::SurfacePoint::CoordinateType coord_type = Isis::SurfacePoint::Latitudinal;
 
-  // Create a new ISIS cnet
-  Isis::ControlNet newIsisCnet;
-  newIsisCnet.SetUserName(isisCnet->GetUserName());
-  newIsisCnet.SetCreatedDate(isisCnet->GetCreatedDate());
-  newIsisCnet.SetModifiedDate(isisCnet->GetModifiedDate());
-  newIsisCnet.SetDescription(isisCnet->GetDescription());
-  newIsisCnet.SetLastModifiedBy(isisCnet->GetLastModifiedBy());
-  newIsisCnet.SetComment(isisCnet->GetComment());
-  newIsisCnet.SetTarget(isisCnet->GetTarget());
-  newIsisCnet.SetSource(isisCnet->GetSource());
-  newIsisCnet.SetInstrument(isisCnet->GetInstrument());
-  newIsisCnet.SetProductId(isisCnet->GetProductId());
-  newIsisCnet.SetProductType(isisCnet->GetProductType());
-  newIsisCnet.SetMission(isisCnet->GetMission());
-  newIsisCnet.SetUtcStartTime(isisCnet->GetUtcStartTime());
-  newIsisCnet.SetUtcStopTime(isisCnet->GetUtcStopTime());
-  newIsisCnet.SetStartTime(isisCnet->GetStartTime());
-  newIsisCnet.SetStopTime(isisCnet->GetStopTime());
-  newIsisCnet.SetSpatialQuality(isisCnet->GetSpatialQuality());
-  newIsisCnet.SetImageId(isisCnet->GetImageId());
-  newIsisCnet.SetProductId(isisCnet->GetProductId());
-  newIsisCnet.SetProductType(isisCnet->GetProduct
-}
-#endif
+// Set the Isis cnet target based on the image name. If that fails,
+// as for Earth, set it to the datum name.
+void setIsisCnetTarget(std::string const& image_name, 
+                       vw::cartography::Datum const& datum,
+                       Isis::ControlNet & icnet) {
 
-// TODO(oalexan1): When creating an ISIS cnet from scratch,
-// must populate apriori sigma, apriori surface point, etc.
-  
-void bundle_adjust_isis() {
-  std::string cubeList = "cube.lis"; 
-  std::string cnetFile = "control_ba2.net";
-  std::cout << "now in bundle_adjust_isis" << std::endl;
-  std::cout << "--will read cnet file: " << cnetFile << std::endl;
-  //SurfacePoint::Latitudinal;
-  
-  // Report any ISIS-related surface points as lat/lon/radius, which is
-  // the jigsaw default.
-  QString qCnetFile = QString::fromStdString(cnetFile);
-  Isis::SurfacePoint::CoordinateType coord_type = Isis::SurfacePoint::Latitudinal;
-  Isis::Progress progress;
-  Isis::ControlNetQsp m_controlNet 
-    = Isis::ControlNetQsp(new Isis::ControlNet(qCnetFile, &progress, coord_type));
-
-  // Create m_serialNumberList as a shared pointer so it can be safely 
-  // deallocated when it goes out of scope.
-  QString qCubeList = QString::fromStdString(cubeList);
-  boost::shared_ptr<Isis::SerialNumberList> 
-    m_serialNumberList(new Isis::SerialNumberList(qCubeList));
-  
-  int numImages = m_serialNumberList.get()->size();
-  std::cout << "numImages = " << numImages << std::endl;
-  
-  for (int i = 0; i < numImages; i++) {
-    Isis::Camera *camera = m_controlNet->Camera(i);
-    QString observationNumber = m_serialNumberList.get()->observationNumber(i);
-    QString instrumentId = m_serialNumberList.get()->spacecraftInstrumentId(i);
-    QString serialNumber = m_serialNumberList.get()->serialNumber(i);
-    QString fileName = m_serialNumberList.get()->fileName(i);
-    
-    std::cout << "\nindex is " << i << std::endl;
-    std::cout << "observationNumber = " << observationNumber.toStdString() << std::endl;
-    std::cout << "instrumentId = " << instrumentId.toStdString() << std::endl;
-    std::cout << "serialNumber = " << serialNumber.toStdString() << std::endl;
-    std::cout << "fileName = " << fileName.toStdString() << std::endl;
-    
-    // create a new BundleImage and add to new (or existing if observation mode is on)
-    // BundleObservation
-    Isis::BundleImageQsp image 
-      = Isis::BundleImageQsp(new Isis::BundleImage(camera, serialNumber, fileName));
-    
-    if (!image) 
-      vw::vw_throw(vw::ArgumentErr() 
-                    << "Failed to load image: " << fileName.toStdString() << "\n");
-    
-  }
-    
-  int numControlPoints = m_controlNet->GetNumPoints();
-  std::cout << "numControlPoints = " << numControlPoints << std::endl;
-  for (int i = 0; i < numControlPoints; i++) {
-    Isis::ControlPoint *point = m_controlNet->GetPoint(i);
-    if (point->IsIgnored()) {
-      continue;
+  try {
+    Isis::Pvl cubeLab(QString::fromStdString(image_name));
+    Isis::Pvl maplab;
+    maplab.addGroup(Isis::PvlGroup("Mapping"));
+    Isis::PvlGroup &mapGroup = maplab.findGroup("Mapping");
+    mapGroup = Isis::Target::radiiGroup(cubeLab, mapGroup);
+    icnet.SetTarget(maplab);
+  } catch (...) {
+    try {
+      // Set the target to the datum name
+      icnet.SetTarget(QString::fromStdString(datum.name()));
+    } catch (...) {
+      // If really no luck, just use Mars and hope for the best
+      icnet.SetTarget(QString::fromStdString("Mars"));
     }
-
-    if (point->IsIgnored()) {
-      std::cout << "point " << i << " is ignored" << std::endl;
-      continue;
-    }
-    std::cout << "point " << i << " is not ignored" << std::endl;
-    
-    
-    Isis::SurfacePoint P = point->GetAdjustedSurfacePoint();
-    
-    // Note: Weight and sigma only makes sense for constrained points.
-    // This can throw exceptions.
-      double sigma0 = point->GetAprioriSurfacePoint().
-      GetSigmaDistance(coord_type, Isis::SurfacePoint::One).meters();
-    double weight0 = point->GetAprioriSurfacePoint().
-      GetWeight(coord_type, Isis::SurfacePoint::One);
-    std::cout << "--sigma0, weight0 = " << sigma0 << " " << weight0 << std::endl;
-    double sigma1 = point->GetAdjustedSurfacePoint().
-      GetSigmaDistance(coord_type, Isis::SurfacePoint::Two).meters();
-    double weight1 = point->GetAdjustedSurfacePoint().
-      GetWeight(coord_type, Isis::SurfacePoint::Two);
-    std::cout << "--sigma1, weight1 = " << sigma1 << " " << weight1 << std::endl;
-    
-    double sigma2 = point->GetAdjustedSurfacePoint().
-      GetSigmaDistance(coord_type, Isis::SurfacePoint::Three).meters();
-    double weight2 = point->GetAdjustedSurfacePoint().
-      GetWeight(coord_type, Isis::SurfacePoint::Three);
-    std::cout << "--sigma2, weight2 = " << sigma2 << " " << weight2 << std::endl;
-          
-    double lat = P.GetLatitude().degrees();
-    double lon = P.GetLongitude().degrees();
-    double radius = P.GetLocalRadius().meters();
-    std::cout << "lon, lat, radius_m = " << lon << " " << lat << " " << radius << std::endl;
-    if (point->GetType() == Isis::ControlPoint::Constrained) {
-      std::cout << "--constrained point" << std::endl;
-    } else if (point->GetType() == Isis::ControlPoint::Free) {
-      std::cout << "--free point" << std::endl;
-    } else if (point->GetType() == Isis::ControlPoint::Fixed) {
-      std::cout << "--fixed point, no weights" << std::endl;
-    } else {
-      std::cout << "--unknown point type" << std::endl;
-    }
-      
-    int numMeasures = point->GetNumMeasures();
-    std::cout << "numMeasures = " << numMeasures << std::endl;
-    for (int j = 0; j < numMeasures; j++) {
-      Isis::ControlMeasure *controlMeasure = point->GetMeasure(j);
-      // Get serial number as std::string
-      // This serial number is same as for the image it came from
-      QString qCubeSerialNumber = controlMeasure->GetCubeSerialNumber();
-      std::string cubeSerialNumber = qCubeSerialNumber.toStdString();
-      std::cout << "cubeSerialNumber = " << cubeSerialNumber << std::endl;
-      
-      // These have 0.5 added to them
-      double line = controlMeasure->GetLine();
-      double sample = controlMeasure->GetSample();
-      std::cout << "line, sample = " << line << " " << sample << std::endl;
-      double diameter = controlMeasure->GetDiameter();
-      // Note: The diameter can be non-positive, which likely means it is not set.
-      std::cout << "diameter = " << diameter << std::endl;
-      
-      // TODO(oalexan1): There is also apriori line and sample. When 
-      // populating back the control network, we should set those.
-
-    }
-    
   }
 }
 
+// Create and save ISIS cnet from a given control network and latest param
+// values.
+void saveIsisCnet(std::string const& outputPrefix, 
+                  vw::ba::ControlNetwork const& cnet,
+                  vw::cartography::Datum const& datum,
+                  asp::BAParams const& param_storage) {
+
+  // Sanity check
+  if (param_storage.num_points() != cnet.size())
+    vw::vw_throw(vw::ArgumentErr() 
+             << "saveIsisCnet: number of points in param_storage and cnet do not match.\n");
+
+  // Create a list of cub files. Need this to find the serial numbers
+  std::vector<std::string> image_files = cnet.get_image_list();
+  std::string cubeList = outputPrefix + "-list.txt";
+  vw::vw_out() << "Writing image list: " << cubeList << std::endl;
+  asp::write_list(cubeList, image_files); 
+  
+  // Find the serial numbers and cameras. This may fail for non-ISIS images.
+  // Then use the image names and null cameras.
+  std::vector<std::string> serialNumbers;
+  std::vector<boost::shared_ptr<Isis::Camera>> cameras;
+  try {
+    Isis::SerialNumberList serial_list(QString::fromStdString(cubeList));
+    for (size_t i = 0; i < image_files.size(); i++) {
+      QString fileName = serial_list.fileName(i);
+      QString serialNumber = serial_list.serialNumber(i);
+      serialNumbers.push_back(serialNumber.toStdString());
+      Isis::Cube cube(Isis::FileName(fileName), "r");
+      Isis::Camera *cam = Isis::CameraFactory::Create(cube);
+      cameras.push_back(boost::shared_ptr<Isis::Camera>(cam));
+    }
+  } catch (...) {
+    serialNumbers = image_files;
+    for (size_t i = 0; i < image_files.size(); i++)
+      cameras.push_back(boost::shared_ptr<Isis::Camera>(NULL));
+  }
+
+  // Initialize the isis cnet
+  Isis::ControlNet icnet;
+
+  setIsisCnetTarget(image_files[0], datum, icnet);
+  icnet.SetNetworkId(QString::fromStdString("bundle_adjust"));
+  icnet.SetUserName(QString::fromStdString("bundle_adjust"));
+  icnet.SetDescription(QString::fromStdString("bundle_adjust"));
+
+  // Iterate over the ASP control points
+  for (int ipt = 0; ipt < cnet.size(); ipt++) {
+   
+    // Skip outliers
+    if (param_storage.get_point_outlier(ipt))
+      continue;
+    
+    Isis::ControlPoint *point = new Isis::ControlPoint();
+    point->SetRejected(false);
+    point->SetIgnored(false);
+    
+    // For now, no constrained points are supported
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint) 
+      point->SetType(Isis::ControlPoint::Fixed);
+    else
+      point->SetType(Isis::ControlPoint::Free);
+    
+    std::ostringstream os;
+    os << "point_" << ipt;
+    point->SetId(QString::fromStdString(os.str()));
+    
+    Isis::SurfacePoint P;
+    const double * asp_point = param_storage.get_point_ptr(ipt); // ecef, meters
+    Isis::Distance s(1.0, Isis::Distance::Meters); // sigma, meters
+    P.SetRectangular(Isis::Displacement(asp_point[0], Isis::Displacement::Meters),
+                     Isis::Displacement(asp_point[1], Isis::Displacement::Meters),
+                     Isis::Displacement(asp_point[2], Isis::Displacement::Meters),
+                     s, s, s);
+    point->SetAdjustedSurfacePoint(P);
+
+    // Add the measures
+    for (auto m_iter = cnet[ipt].begin(); m_iter != cnet[ipt].end(); m_iter++) {
+      int cid = m_iter->image_id();
+      
+      // Must add 0.5 to the ASP measure to get the ISIS measure
+      double col = m_iter->position()[0] - ISIS_CNET_TO_ASP_OFFSET;
+      double row = m_iter->position()[1] - ISIS_CNET_TO_ASP_OFFSET;
+      
+      Isis::ControlMeasure *measurement = new Isis::ControlMeasure();
+      measurement->SetCoordinate(col, row, Isis::ControlMeasure::RegisteredSubPixel);
+      measurement->SetType(Isis::ControlMeasure::RegisteredSubPixel);
+      measurement->SetAprioriSample(col);
+      measurement->SetAprioriLine(row);
+      measurement->SetIgnored(false);
+      measurement->SetRejected(false);
+      measurement->SetSampleSigma(1.0);
+      measurement->SetLineSigma(1.0);
+      measurement->SetResidual(0.0, 0.0);
+      measurement->SetCubeSerialNumber(QString::fromStdString(serialNumbers[cid]));
+      measurement->SetCamera(cameras[cid].get());
+
+      point->Add(measurement);
+    }
+    
+    icnet.AddPoint(point);
+  }
+  
+  vw::vw_out() << "Control network number of points: " << icnet.GetNumPoints() << "\n";
+  vw::vw_out() << "Target: " << icnet.GetTarget().toStdString() << std::endl;
+
+  std::string cnetFile = outputPrefix + ".net";
+  vw::vw_out() << "Writing ISIS control network: " << cnetFile << "\n"; 
+  icnet.Write(QString::fromStdString(cnetFile));
+
+  return;
+}
 } // end namespace asp
