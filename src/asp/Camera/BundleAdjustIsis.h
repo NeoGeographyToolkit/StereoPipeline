@@ -38,6 +38,8 @@ namespace vw {
 
 namespace asp {
 
+struct BAParams;
+
 // Use this struct to collect all the data needed to handle an ISIS cnet.
 struct IsisCnetData {
   Isis::ControlNetQsp isisCnet;
@@ -58,7 +60,14 @@ void loadIsisCnet(std::string const& isisCnetFile,
                   std::vector<std::string> const& image_files,
                   // Outputs
                   vw::ba::ControlNetwork& cnet,
-                  IsisCnetData & icnet);
+                  IsisCnetData & isisCnetData);
+
+// Update an ISIS cnet with the latest info on triangulated points
+// and outliers, and write it to disk at <outputPrefix>.net.
+void saveUpdatedIsisCnet(std::string const& outputPrefix, 
+                  asp::BAParams const& param_storage,
+                  IsisCnetData & isisCnetData);
+
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_ISIS_H__

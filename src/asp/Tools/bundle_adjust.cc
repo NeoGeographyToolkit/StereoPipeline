@@ -339,6 +339,7 @@ void compute_residuals(bool apply_loss_function,
 }
 
 /// Compute residual map by averaging all the reprojection error at a given point
+// TODO(oalexan1): Move this to a separate file.
 void compute_mean_residuals_at_xyz(CRNJ & crn,
                                   std::vector<double> const& residuals,
                                   asp::BAParams const& param_storage,
@@ -940,6 +941,17 @@ void initial_filter_by_proj_win(Options             & opt,
   }
 }
 
+// Update the set of outliers based on param_storage
+void updateOutliers(vw::ba::ControlNetwork const& cnet, 
+                      asp::BAParams const& param_storage,
+                      std::set<int> & outliers) {
+  outliers.clear(); 
+  for (int i = 0; i < param_storage.num_points(); i++)
+    if (param_storage.get_point_outlier(i))
+      outliers.insert(i); 
+}
+
+// One pass of bundle adjustment
 int do_ba_ceres_one_pass(Options             & opt,
                          CRNJ                & crn,
                          bool                  first_pass,
@@ -1478,10 +1490,11 @@ int do_ba_ceres_one_pass(Options             & opt,
       vw::vw_throw(vw::ArgumentErr() << "Could not read a georeference from: "
                    << opt.mapproj_dem << ".\n");
   }
-  outliers.clear(); 
-  for (int i = 0; i < param_storage.num_points(); i++)
-    if (param_storage.get_point_outlier(i))
-      outliers.insert(i); // update this based on param_storage
+  
+  // Must refresh the set of outliers
+  updateOutliers(cnet, param_storage, outliers);
+  
+  // Write clean matches and many types of stats
   asp::matchFilesProcessing(cnet,
                             asp::BaBaseOptions(opt), // note the slicing
                             optimized_cams, remove_outliers, outliers, opt.mapproj_dem,
@@ -1524,12 +1537,12 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   opt.cnet.reset(new ControlNetwork("BundleAdjust"));
   int num_gcp = 0;
   ControlNetwork & cnet = *(opt.cnet.get()); // alias to ASP cnet
-  asp::IsisCnetData icnet; // isis cnet (if loaded)
+  asp::IsisCnetData isisCnetData; // isis cnet (if loaded)
   if (!opt.apply_initial_transform_only) {
     // TODO(oalexan1): This whole block must be a function
     if (opt.isis_cnet != "") {
       asp::loadIsisCnet(opt.isis_cnet, opt.out_prefix, opt.image_files,
-                        cnet, icnet); // outputs
+                        cnet, isisCnetData); // outputs
     }else {
       bool triangulate_control_points = true;
       bool success = vw::ba::build_control_network(triangulate_control_points,
@@ -1739,7 +1752,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
         vw_throw(ArgumentErr() << "Error: " << ostr.str());
     }
   } // End loop through passes
-
+  
+  // Record the parameters of the best result.
   double best_cost = final_cost;
   boost::shared_ptr<asp::BAParams> best_params_ptr(new asp::BAParams(param_storage));
 
@@ -1802,6 +1816,11 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   if (has_datum && (opt.stereo_session == "pinhole") || 
       (opt.stereo_session == "nadirpinhole")) 
     saveCameraReport(opt, *best_params_ptr, opt.datum, "final");
+  
+  // Save the ISIS cnet if applicable
+  // Note that *best_params_ptr has the latest triangulated points and outlier info
+  if (opt.isis_cnet != "" && opt.output_cnet_type == "isis-cnet")
+    asp::saveUpdatedIsisCnet(opt.out_prefix, *best_params_ptr, isisCnetData);
   
 } // end do_ba_ceres
 

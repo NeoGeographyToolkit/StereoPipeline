@@ -20,6 +20,7 @@
 // Utilities for handling ISIS's jigsaw control network format.
 
 #include <asp/Camera/BundleAdjustIsis.h>
+#include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Core/Common.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
@@ -54,16 +55,16 @@ void loadIsisCnet(std::string const& isisCnetFile,
                   std::vector<std::string> const& image_files,
                   // Outputs
                   vw::ba::ControlNetwork & cnet,
-                  IsisCnetData & icnet) {
+                  IsisCnetData & isisCnetData) {
 
   // Reset the outputs
   cnet = vw::ba::ControlNetwork("ASP_control_network");
-  icnet = IsisCnetData();
+  isisCnetData = IsisCnetData();
   
   // Aliases
-  Isis::ControlNetQsp & isisCnet = icnet.isisCnet;
-  boost::shared_ptr<Isis::SerialNumberList> & isisImgData = icnet.isisImgData;
-  std::map<int, int> & isisToAspControlPointId = icnet.isisToAspControlPointId;
+  Isis::ControlNetQsp & isisCnet = isisCnetData.isisCnet;
+  boost::shared_ptr<Isis::SerialNumberList> & isisImgData = isisCnetData.isisImgData;
+  std::map<int, int> & isisToAspControlPointId = isisCnetData.isisToAspControlPointId;
 
   // Report any ISIS-related surface points as lat/lon/radius, which is
   // the jigsaw default.
@@ -99,12 +100,17 @@ void loadIsisCnet(std::string const& isisCnetFile,
      
   // Add the control points
   int numControlPoints = isisCnet->GetNumPoints();
+  int aspControlPointId = 0;
   for (int i = 0; i < numControlPoints; i++) {
 
     Isis::ControlPoint *point = isisCnet->GetPoint(i);
-    if (point->IsIgnored()) {
+    
+    // Do not add outliers to the ASP cnet. This makes the ASP cnet
+    // be out of sync with the ISIS cnet. Later, the ASP cnet may also
+    // have GCP, so new points. To keep track of all that, later
+    // we will have a map from ISIS to ASP control point ids.
+    if (point->IsIgnored()) 
       continue;
-    }
 
     // Triangulated point  
     Isis::SurfacePoint P = point->GetAdjustedSurfacePoint();
@@ -124,8 +130,6 @@ void loadIsisCnet(std::string const& isisCnetFile,
     cpoint.set_position(ecef);
     
     int numMeasures = point->GetNumMeasures();
-    int aspControlPointId = 0;
-
     for (int j = 0; j < numMeasures; j++) {
 
       Isis::ControlMeasure *controlMeasure = point->GetMeasure(j);
@@ -168,6 +172,95 @@ void loadIsisCnet(std::string const& isisCnetFile,
 
   return;    
 }
+
+// Update an ISIS cnet with the latest info on triangulated points
+// and outliers, and write it to disk at <outputPrefix>.net.
+void saveUpdatedIsisCnet(std::string const& outputPrefix, 
+                         asp::BAParams const& param_storage,
+                         IsisCnetData & isisCnetData) {
+
+  // Aliases
+  Isis::ControlNetQsp const& isisCnet = isisCnetData.isisCnet;
+  boost::shared_ptr<Isis::SerialNumberList> const& isisImgData = isisCnetData.isisImgData;
+  std::map<int, int> const& isisToAspControlPointId = isisCnetData.isisToAspControlPointId;
+  
+  // Iterate over the ISIS control points
+  int numControlPoints = isisCnet->GetNumPoints();
+  for (int i = 0; i < numControlPoints; i++) {
+
+    Isis::ControlPoint *point = isisCnet->GetPoint(i);
+    if (point->IsIgnored() || point->IsRejected()) {
+      continue;
+    }
+    
+    auto it = isisToAspControlPointId.find(i);
+    if (it == isisToAspControlPointId.end())
+      vw_throw(vw::ArgumentErr() 
+               << "Could not find ASP control point for ISIS control point: "
+               << i << ".\n");
+    int aspControlPointId = it->second;
+
+    if (param_storage.get_point_outlier(aspControlPointId)) {
+      // Must flag as outlier in ISIS. It appears that 'ignored'
+      // and 'rejected' are different things, but in the ISIS code
+      // both are passed over when some calculations are done.
+      point->SetRejected(true);
+      point->SetIgnored(true);
+      continue;
+    }
+    
+    // ECEF coordinates of the triangulated point
+    const double * asp_point = param_storage.get_point_ptr(aspControlPointId);
+    vw::Vector3 ecef(asp_point[0], asp_point[1], asp_point[2]);
+    
+    // Copy this over to ISIS
+    Isis::SurfacePoint P = point->GetAdjustedSurfacePoint();
+    P.SetRectangular(Isis::Displacement(asp_point[0], Isis::Displacement::Meters),
+                     Isis::Displacement(asp_point[1], Isis::Displacement::Meters),
+                     Isis::Displacement(asp_point[2], Isis::Displacement::Meters),
+                     P.GetXSigma(), P.GetYSigma(), P.GetZSigma());
+    
+    // Set the updated point position
+    point->SetAdjustedSurfacePoint(P);
+  }
+  
+  std::string cnetFile = outputPrefix + ".net";
+  vw::vw_out() << "Writing ISIS control network: " << cnetFile << "\n"; 
+  // convert to QString
+  QString qCnetFile = QString::fromStdString(cnetFile);
+  isisCnet->Write(qCnetFile);
+  
+}
+# if 0
+{
+  // Report any ISIS-related surface points as lat/lon/radius, which is
+  // the jigsaw default.
+  Isis::SurfacePoint::CoordinateType coord_type = Isis::SurfacePoint::Latitudinal;
+
+  // Create a new ISIS cnet
+  Isis::ControlNet newIsisCnet;
+  newIsisCnet.SetUserName(isisCnet->GetUserName());
+  newIsisCnet.SetCreatedDate(isisCnet->GetCreatedDate());
+  newIsisCnet.SetModifiedDate(isisCnet->GetModifiedDate());
+  newIsisCnet.SetDescription(isisCnet->GetDescription());
+  newIsisCnet.SetLastModifiedBy(isisCnet->GetLastModifiedBy());
+  newIsisCnet.SetComment(isisCnet->GetComment());
+  newIsisCnet.SetTarget(isisCnet->GetTarget());
+  newIsisCnet.SetSource(isisCnet->GetSource());
+  newIsisCnet.SetInstrument(isisCnet->GetInstrument());
+  newIsisCnet.SetProductId(isisCnet->GetProductId());
+  newIsisCnet.SetProductType(isisCnet->GetProductType());
+  newIsisCnet.SetMission(isisCnet->GetMission());
+  newIsisCnet.SetUtcStartTime(isisCnet->GetUtcStartTime());
+  newIsisCnet.SetUtcStopTime(isisCnet->GetUtcStopTime());
+  newIsisCnet.SetStartTime(isisCnet->GetStartTime());
+  newIsisCnet.SetStopTime(isisCnet->GetStopTime());
+  newIsisCnet.SetSpatialQuality(isisCnet->GetSpatialQuality());
+  newIsisCnet.SetImageId(isisCnet->GetImageId());
+  newIsisCnet.SetProductId(isisCnet->GetProductId());
+  newIsisCnet.SetProductType(isisCnet->GetProduct
+}
+#endif
 
 // TODO(oalexan1): When creating an ISIS cnet from scratch,
 // must populate apriori sigma, apriori surface point, etc.

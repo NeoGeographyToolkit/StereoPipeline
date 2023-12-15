@@ -1593,8 +1593,9 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   // or matches were read from an isis cnet.
   // TODO(oalexan1): This uses a lot of memory. Need to keep just indices,
   // somehow, not quadruplets of floats.
+  // TODO(oalexan1): Make this into a function.
   typedef std::tuple<float, float, float, float> Quadruplet;
-  std::map<std::pair<int, int>, std::set<Quadruplet>> inlier_pairs;
+  std::map<std::pair<int, int>, std::set<Quadruplet>> match_map;
   if (remove_outliers || !opt.isis_cnet.empty()) {
     int ipt = -1;
     for (ControlNetwork::const_iterator iter = cnet.begin(); iter != cnet.end(); iter++) {
@@ -1613,7 +1614,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
           int right_index = m2->image_id();
           if (left_index >= right_index) 
             continue;
-          inlier_pairs[std::make_pair(left_index, right_index)].insert
+          match_map[std::make_pair(left_index, right_index)].insert
             (Quadruplet(m1->position()[0], m1->position()[1],
                         m2->position()[0], m2->position()[1]));
         }
@@ -1624,11 +1625,11 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   // If we read the matches from an ISIS cnet, there are no match files.
   // Create them. 
   if (opt.isis_cnet != "") {
-    // iterate over inlier pairs
+    // iterate over match pairs
     match_files.clear();
-    for (auto const& inlier_pair : inlier_pairs) {
-      int left_index  = inlier_pair.first.first;
-      int right_index = inlier_pair.first.second;
+    for (auto const& match_pair: match_map) {
+      int left_index  = match_pair.first.first;
+      int right_index = match_pair.first.second;
       std::string match_file 
         = vw::ip::match_filename(opt.out_prefix,
                                  opt.image_files[left_index],
@@ -1651,9 +1652,9 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     std::vector<ip::InterestPoint> orig_left_ip, orig_right_ip;
     if (opt.isis_cnet != "") {
       // Must create the matches from the cnet.
-      auto & inlier_pair = inlier_pairs[std::make_pair(left_index, right_index)]; // alias
+      auto & match_pair = match_map[std::make_pair(left_index, right_index)]; // alias
       // Iterate over this set of quadruplets, and build matches
-      for (auto const& q : inlier_pair) {
+      for (auto const& q: match_pair) {
         double s = 1.0; // scale
         orig_left_ip.push_back(vw::ip::InterestPoint(std::get<0>(q), std::get<1>(q), s));
         orig_right_ip.push_back(vw::ip::InterestPoint(std::get<2>(q), std::get<3>(q), s));
@@ -1695,8 +1696,8 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     for (size_t ip_iter = 0; ip_iter < orig_left_ip.size(); ip_iter++) {
       Quadruplet q(orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y,
                    orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y);
-      auto & inlier_pair = inlier_pairs[std::make_pair(left_index, right_index)]; // alias
-      if (inlier_pair.find(q) == inlier_pair.end()) 
+      auto & match_pair = match_map[std::make_pair(left_index, right_index)]; // alias
+      if (match_pair.find(q) == match_pair.end()) 
         continue;
 
       // We do not copy descriptors, those take storage
