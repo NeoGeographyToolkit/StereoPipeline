@@ -23,7 +23,6 @@
 #define __BUNDLE_ADJUST_ISIS_H__
 
 #include <isis/ControlNet.h>
-#include <isis/SerialNumberList.h>
 
 #include <boost/shared_ptr.hpp>
 
@@ -46,12 +45,10 @@ struct BAParams;
 // Use this struct to collect all the data needed to handle an ISIS cnet.
 struct IsisCnetData {
   Isis::ControlNetQsp isisCnet;
-  boost::shared_ptr<Isis::SerialNumberList> isisImgData;
   std::map<int, int> isisToAspControlPointId;
   
   IsisCnetData() {
     isisCnet = Isis::ControlNetQsp(NULL);
-    isisImgData = boost::shared_ptr<Isis::SerialNumberList>(NULL);
     isisToAspControlPointId.clear();
   }
 };

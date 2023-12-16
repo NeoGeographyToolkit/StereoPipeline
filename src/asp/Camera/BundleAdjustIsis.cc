@@ -68,8 +68,7 @@ void loadIsisCnet(std::string const& isisCnetFile,
   isisCnetData = IsisCnetData();
   
   // Aliases
-  Isis::ControlNetQsp & isisCnet = isisCnetData.isisCnet;
-  boost::shared_ptr<Isis::SerialNumberList> & isisImgData = isisCnetData.isisImgData;
+  Isis::ControlNetQsp & icnet = isisCnetData.isisCnet;
   std::map<int, int> & isisToAspControlPointId = isisCnetData.isisToAspControlPointId;
 
   // Report any ISIS-related surface points as lat/lon/radius, which is
@@ -80,23 +79,28 @@ void loadIsisCnet(std::string const& isisCnetFile,
   vw::vw_out() << "Reading ISIS control network: " << isisCnetFile << "\n";
   QString qCnetFile = QString::fromStdString(isisCnetFile);
   Isis::Progress progress;
-  isisCnet = Isis::ControlNetQsp(new Isis::ControlNet(qCnetFile, &progress, coord_type));
+  icnet = Isis::ControlNetQsp(new Isis::ControlNet(qCnetFile, &progress, coord_type));
   
-  // Create a list of cub files. Need this to find the serial numbers
-  std::string cubeList = outputPrefix + "-list.txt";
-  vw::vw_out() << "Writing image list: " << cubeList << std::endl;
-  asp::write_list(cubeList, image_files); 
-  
-  // Read the info about images, and add them to the cnet
-  QString qCubeList = QString::fromStdString(cubeList);
-  isisImgData.reset(new Isis::SerialNumberList(qCubeList));
+  // Read the info about images, and add them to the cnet. This will fail for
+  // non-ISIS images. Then just populate from the list.
   std::map<std::string, int> serialNumberToImageIndex;
-  int numImages = isisImgData.get()->size();
-  for (int i = 0; i < numImages; i++) {
-    QString fileName = isisImgData.get()->fileName(i);
-    QString serialNumber = isisImgData.get()->serialNumber(i);
-    serialNumberToImageIndex[serialNumber.toStdString()] = i;
-    cnet.add_image_name(fileName.toStdString());
+  try {
+    // Create a list of cub files. Need this to find the serial numbers
+    std::string cubeList = outputPrefix + "-list.txt";
+    vw::vw_out() << "Writing image list: " << cubeList << std::endl;
+    asp::write_list(cubeList, image_files); 
+    Isis::SerialNumberList serial_list(QString::fromStdString(cubeList));
+    for (size_t i = 0; i < image_files.size(); i++) {
+      QString fileName = serial_list.fileName(i);
+      QString serialNumber = serial_list.serialNumber(i);
+      serialNumberToImageIndex[serialNumber.toStdString()] = i;
+      cnet.add_image_name(fileName.toStdString());
+    }
+  } catch (...) {
+    for (size_t i = 0; i < image_files.size(); i++) {
+      serialNumberToImageIndex[image_files[i]] = i;
+      cnet.add_image_name(image_files[i]);
+    }
   }
    
   // Ensure we have as many serial numbers as images
@@ -105,11 +109,11 @@ void loadIsisCnet(std::string const& isisCnetFile,
              << "Check your input data.\n");
      
   // Add the control points
-  int numControlPoints = isisCnet->GetNumPoints();
+  int numControlPoints = icnet->GetNumPoints();
   int aspControlPointId = 0;
   for (int i = 0; i < numControlPoints; i++) {
 
-    Isis::ControlPoint *point = isisCnet->GetPoint(i);
+    Isis::ControlPoint *point = icnet->GetPoint(i);
     
     // Do not add outliers to the ASP cnet. This makes the ASP cnet
     // be out of sync with the ISIS cnet. Later, the ASP cnet may also
@@ -186,15 +190,14 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
                          IsisCnetData & isisCnetData) {
 
   // Aliases
-  Isis::ControlNetQsp const& isisCnet = isisCnetData.isisCnet;
-  boost::shared_ptr<Isis::SerialNumberList> const& isisImgData = isisCnetData.isisImgData;
+  Isis::ControlNetQsp const& icnet = isisCnetData.isisCnet;
   std::map<int, int> const& isisToAspControlPointId = isisCnetData.isisToAspControlPointId;
-  
+
   // Iterate over the ISIS control points
-  int numControlPoints = isisCnet->GetNumPoints();
+  int numControlPoints = icnet->GetNumPoints();
   for (int i = 0; i < numControlPoints; i++) {
 
-    Isis::ControlPoint *point = isisCnet->GetPoint(i);
+    Isis::ControlPoint *point = icnet->GetPoint(i);
     if (point->IsIgnored() || point->IsRejected()) {
       continue;
     }
@@ -233,7 +236,7 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
   vw::vw_out() << "Writing ISIS control network: " << cnetFile << "\n"; 
   // convert to QString
   QString qCnetFile = QString::fromStdString(cnetFile);
-  isisCnet->Write(qCnetFile);
+  icnet->Write(qCnetFile);
 }
 
 // Set the Isis cnet target based on the image name. If that fails,
@@ -260,8 +263,8 @@ void setIsisCnetTarget(std::string const& image_name,
   }
 }
 
-// Create and save ISIS cnet from a given control network and latest param
-// values.
+// Create from scratch and and save an ISIS cnet from a given control network
+// and latest param values.
 void saveIsisCnet(std::string const& outputPrefix, 
                   vw::ba::ControlNetwork const& cnet,
                   vw::cartography::Datum const& datum,
@@ -274,15 +277,15 @@ void saveIsisCnet(std::string const& outputPrefix,
 
   // Create a list of cub files. Need this to find the serial numbers
   std::vector<std::string> image_files = cnet.get_image_list();
-  std::string cubeList = outputPrefix + "-list.txt";
-  vw::vw_out() << "Writing image list: " << cubeList << std::endl;
-  asp::write_list(cubeList, image_files); 
   
   // Find the serial numbers and cameras. This may fail for non-ISIS images.
   // Then use the image names and null cameras.
   std::vector<std::string> serialNumbers;
   std::vector<boost::shared_ptr<Isis::Camera>> cameras;
   try {
+    std::string cubeList = outputPrefix + "-list.txt";
+    vw::vw_out() << "Writing image list: " << cubeList << std::endl;
+    asp::write_list(cubeList, image_files); 
     Isis::SerialNumberList serial_list(QString::fromStdString(cubeList));
     for (size_t i = 0; i < image_files.size(); i++) {
       QString fileName = serial_list.fileName(i);

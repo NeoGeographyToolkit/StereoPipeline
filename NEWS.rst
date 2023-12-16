@@ -32,6 +32,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     (:numref:`kaguya_tc_refine_intrinsics`).
   * When optimizing intrinsics, cameras that do not share distortion can
     have different distortion types and sizes. (:numref:`limit_ip`).
+  * Support reading and writing the ISIS ``jigsaw`` binary control network
+    format (:numref:`control_network`).
   * Added the option ``--propagate-errors`` to propagate the uncertainties from
     input cameras to triangulated points (:numref:`ba_error_propagation`).  
   * Added the option ``--weight-image``, to weigh observations based on

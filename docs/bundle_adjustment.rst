@@ -991,6 +991,10 @@ toolchain. It also serves to describe bundle adjustment in more detail,
 which is applicable to other bundle adjustment tools as well, including
 Stereo Pipeline's own tool.
 
+ASP's ``bundle_adjust`` program can read and write the ISIS control network
+format, hence the ASP and ISIS tools can be compared or used together
+(:numref:`control_network`).
+
 In bundle adjustment, the position and orientation of each camera
 station are determined jointly with the 3D position of a set of image
 tie-points points chosen in the overlapping regions between images. Tie
@@ -1275,9 +1279,6 @@ means that the radius of the 3D features can be solved for. Using *radius=no*
 will force the points to use height values from another source, usually LOLA or
 MOLA.
 
-More information on these and other options is in the `jigsaw documentation
-<https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/jigsaw/jigsaw.html>`_.
-
 The above command will print out diagnostic information from
 every iteration of the optimization algorithm. The most important
 feature to look at is the *sigma0* value. It represents the mean of
@@ -1291,6 +1292,11 @@ a copy of the SPICE data that is stored internally to the cube file.
 Thus, when we want to create a DEM using the correct camera geometry, no extra
 information needs to be given to ``parallel_stereo`` since it is already
 contained in the camera files. 
+
+More information is in the `jigsaw documentation
+<https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/jigsaw/jigsaw.html>`_.
+See :numref:`control_network` for how to use the resulting control network in
+``bundle_adjust``.
 
 In the event a mistake has been made, ``spiceinit`` will overwrite the SPICE
 data inside a cube file and provide the original uncorrected camera pointing.

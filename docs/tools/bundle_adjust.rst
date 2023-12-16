@@ -170,19 +170,21 @@ can then be passed directly to stereo::
 When cameras are of CSM type (:numref:`csm`), self-contained optimized
 cameras will be written to disk (:numref:`csm_state`).
 
-The ``bundle_adjust`` program can read camera adjustments from a
-previous run, via ``--input-adjustments-prefix string``. It can also
-apply to the input cameras a transform as output by ``pc_align``, via
-``--initial-transform string``. This is useful if a DEM produced by
-ASP was aligned to a ground truth, and it is desired to apply the same
-alignment to the cameras that were used to create that DEM. The
-initial transform can have a rotation, translation, and scale, and it
-is applied after the input adjustments are read, if those are
-present. An example is shown in (:numref:`ba_pc_align`).
+Camera adjustments and applying a transform
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The match files created by ``bundle_adjust`` can be used later by
-other ``bundle_adjust`` or ``parallel_stereo`` invocations, with the
-options ``--match-files-prefix`` and ``--clean-match-files-prefix``.
+The ``bundle_adjust`` program can read camera adjustments from a previous run,
+via ``--input-adjustments-prefix string``. Their format is described in
+:numref:`adjust_files`. 
+
+It can also apply to the input cameras a transform as output by ``pc_align``,
+via ``--initial-transform string``. This is useful if a DEM produced by ASP was
+aligned to a ground truth, and it is desired to apply the same alignment to the
+cameras that were used to create that DEM. 
+
+The initial transform can have a rotation, translation, and scale, and it is
+applied after the input adjustments are read, if those are present. An example
+is shown in (:numref:`ba_pc_align`). 
 
 .. _how_ba_works:
 
@@ -337,6 +339,42 @@ self-consistent camera set, see :numref:`sfm_world_coords`.
 Output files
 ~~~~~~~~~~~~
 
+.. _control_network:
+
+Control network
+^^^^^^^^^^^^^^^
+
+By default, ``bundle_adjust`` will create interest point matches between pairs
+of images (see also ``--auto-overlap-params``). These matches are assembled into
+a *control network*, in which a triangulated point is associated with features in
+two or more images. The match files are saved with the specified output prefix
+and a ``.match`` extension. 
+
+The naming convention for the match files is::
+
+    <output prefix>-<image1>__<image2>.match
+  
+where the image names are without the directory name and extension.
+
+These files can be used later by other ``bundle_adjust`` or ``parallel_stereo``
+invocations, with the options ``--match-files-prefix`` and
+``--clean-match-files-prefix``.
+
+This program can read and write the ISIS binary control network format,
+if invoked with the option ``--isis-cnet filename.net``. This allows handling a
+very large number of images. 
+
+If invoked this way, ``bundle_adjust`` will write an updated version of this
+file, with the name ``<output prefix>.net``. The only change will be that the
+coordinates of triangulated points will be updated, and some points may be
+marked as outliers (by setting the ``ignored`` and ``rejected`` flags). 
+
+To have different formats for the input and output control network,
+use the option ``--output-cnet-type``, with values ``match-files``
+and ``isis-cnet``.  
+
+See also ASP's ``jigsaw`` tutorial (:numref:`jigsaw`).
+ 
 Camera projection errors and triangulated points
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -567,8 +605,7 @@ Command-line options for bundle_adjust
 --datum <string>
     Set the datum. This will override the datum from the input
     images and also ``--t_srs``, ``--semi-major-axis``, and
-    ``--semi-minor-axis``.
-    Options:
+    ``--semi-minor-axis``. Options:
 
     - WGS_1984
     - D_MOON (1,737,400 meters)
@@ -701,35 +738,27 @@ Command-line options for bundle_adjust
     needed if the homography alignment between these images is not great, as
     this transform is used to pair up left and right image tiles.
 
---epipolar-threshold <double (default: -1)>
-    Maximum distance from the epipolar line to search for IP matches.
-    If this option isn't given, it will default to an automatic determination.
-
---ip-inlier-factor <double (default: 1.0/15)>
-    A higher factor will result in more interest points, but perhaps
-    also more outliers.
-
---ip-uniqueness-threshold <double (default: 0.8)>
-    A higher threshold will result in more interest points, but
-    perhaps less unique ones.
-
---nodata-value <double(=NaN)>
-    Pixels with values less than or equal to this number are treated
-    as no-data. This overrides the no-data values from input images.
-
---individually-normalize
-    Individually normalize the input images instead of using common
-    values.
-
 --inline-adjustments
     If this is set, and the input cameras are of the pinhole or
     panoramic type, apply the adjustments directly to the cameras,
     rather than saving them separately as .adjust files.
 
---input-adjustments-prefix <string>
+--input-adjustments-prefix <string (default: "")>
     Prefix to read initial adjustments from, written by a previous
     invocation of this program.
 
+--isis-cnet <string (default: "")>
+    Read a control network having interest point matches from this binary file
+    in the ISIS control network format. This can be used with any images and
+    cameras supported by ASP. See also ``--output-cnet-type``.
+
+--output-cnet-type <string (default: "")>
+    The format in which to save the control network of interest point matches.
+    Options: ``match-files`` (match files in ASP's format), ``isis-cnet`` (ISIS
+    jigsaw format). If not set, match files will be saved, unless ``--isis-cnet
+    filename.net`` is specified, when this option value will be set to
+    ``isis-cnet``.
+    
 --initial-transform <string>
     Before optimizing the cameras, apply to them the 4 |times| 4 rotation
     + translation transform from this file. The transform is in
@@ -1071,12 +1100,6 @@ Command-line options for bundle_adjust
     that fall outside the image and weights that are non-positive, NaN, or equal
     to nodata will be ignored. See :numref:`limit_ip` for details.
 
---save-vwip
-    Save .vwip files (intermediate files for creating .match
-    files). For ``parallel_bundle_adjust`` these will be saved in
-    subdirectories, as they depend on the image pair.
-    Must start with an empty output directory for this to work.
-
 --enable-correct-velocity-aberration
     Turn on velocity aberration correction for Optical Bar and
     non-ISIS linescan cameras (:numref:`sensor_corrections`).
@@ -1098,6 +1121,32 @@ Command-line options for bundle_adjust
     uncertainty through triangulation for all cameras. To be used with
     ``--propagate-errors``.
    
+--epipolar-threshold <double (default: -1)>
+    Maximum distance from the epipolar line to search for IP matches.
+    If this option isn't given, it will default to an automatic determination.
+
+--ip-inlier-factor <double (default: 1.0/15)>
+    A higher factor will result in more interest points, but perhaps
+    also more outliers.
+
+--ip-uniqueness-threshold <double (default: 0.8)>
+    A higher threshold will result in more interest points, but
+    perhaps less unique ones.
+
+--nodata-value <double(=NaN)>
+    Pixels with values less than or equal to this number are treated
+    as no-data. This overrides the no-data values from input images.
+
+--individually-normalize
+    Individually normalize the input images instead of using common
+    values.
+
+--save-vwip
+    Save .vwip files (intermediate files for creating .match
+    files). For ``parallel_bundle_adjust`` these will be saved in
+    subdirectories, as they depend on the image pair.
+    Must start with an empty output directory for this to work.
+
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined
     in the program or in ``~/.vwrc``. Note that when using more
