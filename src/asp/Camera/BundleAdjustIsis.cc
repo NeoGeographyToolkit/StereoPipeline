@@ -64,18 +64,18 @@ void readSerialNumbers(std::string const& outputPrefix,
   serialNumbers.clear();
 
   try {
-    // Create a list of cub files. Need this to find the serial numbers
-    std::string cubeList = outputPrefix + "-list.txt";
-    vw::vw_out() << "Writing image list: " << cubeList << std::endl;
-    asp::write_list(cubeList, image_files); 
-    Isis::SerialNumberList serial_list(QString::fromStdString(cubeList));
+    Isis::SerialNumberList serial_list;
     for (size_t i = 0; i < image_files.size(); i++) {
-      QString fileName = serial_list.fileName(i);
+      QString fileName = QString::fromStdString(image_files[i]);
+      serial_list.add(fileName);
+    }
+    for (size_t i = 0; i < image_files.size(); i++) {
       QString serialNumber = serial_list.serialNumber(i);
       serialNumbers.push_back(serialNumber.toStdString());
     }
   } catch (...) {
     // The above will fail for non-ISIS images. 
+    serialNumbers.clear();
     for (size_t i = 0; i < image_files.size(); i++) {
       serialNumbers.push_back(image_files[i]);
     }
