@@ -364,12 +364,12 @@ This program can read and write the ISIS binary control network format,
 if invoked with the option ``--isis-cnet filename.net``. This allows handling a
 very large number of images. 
 
-If invoked this way, ``bundle_adjust`` will write an updated version of this
-file, with the name ``<output prefix>.net``. The only change will be that the
-coordinates of triangulated points will be updated, and some points may be
-marked as outliers (by setting the ``ignored`` and ``rejected`` flags). 
+In this case, ``bundle_adjust`` will also write a version of this file, with the
+name ``<output prefix>.net``. The only change will be that the coordinates of
+the triangulated points will be updated, and some points may be marked as outliers
+(by setting the ``ignored`` and ``rejected`` flags). 
 
-To have different formats for the input and output control network,
+To have different formats for the input and output control networks,
 use the option ``--output-cnet-type``, with values ``match-files``
 and ``isis-cnet``.  
 
