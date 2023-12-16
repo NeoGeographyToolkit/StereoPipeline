@@ -2071,11 +2071,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "in the ISIS jigsaw format. This can be used with any images and cameras "
      "supported by ASP. See also --output-cnet-type.")
     ("output-cnet-type", po::value(&opt.output_cnet_type)->default_value(""),
-     ("The format in which to save the control network of interest point matches. "
+      "The format in which to save the control network of interest point matches. "
       "Options: 'match-files' (match files in ASP's format), 'isis-cnet' (ISIS "
       "jigsaw format). If not set, match files will be saved, unless "
-      "'--isis-cnet filename.net' is specified, when this option value will be set to "
-      "'isis-cnet'.")
+      "'--isis-cnet filename.net' is specified, when this option value will be "
+      "set to 'isis-cnet'.")
     ("overlap-exponent",     po::value(&opt.overlap_exponent)->default_value(0.0),
      "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
     ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
