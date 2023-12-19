@@ -1541,9 +1541,10 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   if (!opt.apply_initial_transform_only) {
     // TODO(oalexan1): This whole block must be a function
     if (opt.isis_cnet != "") {
-      asp::loadIsisCnet(opt.isis_cnet, opt.out_prefix, opt.image_files,
+      vw::vw_out() << "Reading ISIS control network: " << opt.isis_cnet << "\n";
+      asp::loadIsisCnet(opt.isis_cnet, opt.image_files,
                         cnet, isisCnetData); // outputs
-    }else {
+    } else {
       bool triangulate_control_points = true;
       bool success = vw::ba::build_control_network(triangulate_control_points,
                                                    cnet, opt.camera_models,

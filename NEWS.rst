@@ -75,6 +75,7 @@ stereo_gui (:numref:`stereo_gui`):
   * Can show scattered data with a colorbar and axes 
     (:numref:`scattered_points_colorbar`).
   * Renamed ``--colorize-image`` to ``--colorbar``.
+  * Can view ISIS control network files (:numref:`stereo_gui_isis_cnet`).
   * Auto-guess and load ``pc_align`` error files (:numref:`pc_align_error`).
   * When loading an .nvm file with features that are not shifted relative
     to the optical center, must specify ``--no-shift``. This avoids confusion

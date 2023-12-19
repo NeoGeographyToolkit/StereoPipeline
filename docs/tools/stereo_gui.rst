@@ -109,7 +109,9 @@ Other features
     (:numref:`stereo_gui_view_ip`).
 
   - Load .nvm files having an SfM solution (:numref:`stereo_gui_nvm`).
-  
+   
+  - View ISIS ``jigsaw`` control network files (:numref:`stereo_gui_isis_cnet`).
+
   - View GCP and .vwip files (:numref:`stereo_gui_vwip_gcp`).
 
   - Create GCP with georeferenced images and a DEM (:numref:`creatinggcp`).
@@ -452,6 +454,24 @@ usual, to avoid creating small files.  See
    Pairs of images can be chosen on the left, and matches will be shown.
    The images were created with the MSL Curiosity rover (:numref:`rig_msl`).
 
+.. _stereo_gui_isis_cnet:
+
+View ISIS control network files
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ISIS jigsaw (:numref:`jigsaw`) binary control network format can be
+visualized as::
+
+  stereo_gui <image files> --isis-cnet <cnet file>
+
+This file is expected to end with ``.net``. The images must be the same as in the
+control network, and in the same order, or else the results will be incorrect.
+This file format does not keep track of the image names.
+
+ASP's ``bundle_adjust`` can also create and update such files
+(:numref:`control_network`). Then, non-ISIS images can be used as well, and this
+tool can load the resulting control network. 
+
 .. _stereo_gui_vwip_gcp:
 
 View GCP and .vwip files
@@ -731,6 +751,10 @@ accept all other ``parallel_stereo`` options as well.
     Assume that the image features in the input nvm file were saved without
     being shifted to be relative to the optical center of the camera.
     
+--isis-cnet <string (default="")>
+    Load a control network having interest point matches from this binary file
+    in the ISIS jigsaw format. See also ``--nvm``.
+        
 --gcp-file
     Display the GCP pixel coordinates for this GCP file (implies
     ``--view-matches``).  Also save here GCP if created from the

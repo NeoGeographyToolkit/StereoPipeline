@@ -190,7 +190,7 @@ namespace asp {
        "Set the datum. Used chiefly with RPC cameras. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
       ("match-files-prefix",  po::value(&global.match_files_prefix)->default_value(""),
        "Use the match file from this prefix. Normally contains match files "
-       "created with bundle_adjust`` or parallel_stereo.")
+       "created with bundle_adjust or parallel_stereo.")
       ("clean-match-files-prefix",  po::value(&global.clean_match_files_prefix)->default_value(""),
        "Use as input match file the *-clean.match file from this prefix (this had the outliers filtered out).")
       ("left-image-clip", po::value(&global.left_image_clip)->default_value(""),
@@ -488,13 +488,16 @@ namespace asp {
       ("pairwise-matches",   po::bool_switch(&global.pairwise_matches)->default_value(false)->implicit_value(true), "Show images side-by-side. If just two of them are selected, load their corresponding match file, determined by the output prefix. Also accessible from the menu.")
       ("pairwise-clean-matches",   po::bool_switch(&global.pairwise_clean_matches)->default_value(false)->implicit_value(true), "Same as --pairwise-matches, but use *-clean.match files.")
       ("nvm", po::value(&global.nvm)->default_value(""),
-       "Load this .nvm file having interest point matches. See also ``--nvm-no-shift``. "
+       "Load this .nvm file having interest point matches. See also --nvm-no-shift. "
        "The rig_calibrator program can create such files. This option implies "
        "--pairwise-matches, --preview, and a larger value of " 
        "--lowest-resolution-subimage-num-pixels.")
       ("nvm-no-shift", po::bool_switch(&global.nvm_no_shift)->default_value(false)->implicit_value(true),
        "Assume that the image features in the input nvm file were saved without "
        "being shifted to be relative to the optical center of the camera.")
+      ("isis-cnet", po::value(&global.isis_cnet)->default_value(""),
+       "Load a control network having interest point matches from this binary file "
+       "in the ISIS jigsaw format. See also --nvm.")
       ("zoom-proj-win", po::value(&global.zoom_proj_win)->default_value(BBox2(0,0,0,0), ""),
        "Zoom to this proj win on startup. It is assumed that the images are georeferenced. Also accessible from the View menu.")
       ("csv-format",     po::value(&global.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())

@@ -56,9 +56,8 @@ const double ISIS_CNET_TO_ASP_OFFSET = -0.5;
 
 // Read the serial numbers of the images. For non-cub files,
 // these will be the image names. 
-void readSerialNumbers(std::string const& outputPrefix, 
-                        std::vector<std::string> const& image_files,
-                        std::vector<std::string> & serialNumbers) {
+void readSerialNumbers(std::vector<std::string> const& image_files,
+                       std::vector<std::string> & serialNumbers) {
 
   // Wipe the output
   serialNumbers.clear();
@@ -76,16 +75,14 @@ void readSerialNumbers(std::string const& outputPrefix,
   } catch (...) {
     // The above will fail for non-ISIS images. 
     serialNumbers.clear();
-    for (size_t i = 0; i < image_files.size(); i++) {
+    for (size_t i = 0; i < image_files.size(); i++)
       serialNumbers.push_back(image_files[i]);
-    }
   }
 }
 
 // Load an ISIS cnet file and copy it to an ASP control network.
 // The ISIS cnet will be used when saving the updated cnet.  
 void loadIsisCnet(std::string const& isisCnetFile,
-                  std::string const& outputPrefix, 
                   std::vector<std::string> const& image_files,
                   // Outputs
                   vw::ba::ControlNetwork & cnet,
@@ -104,14 +101,13 @@ void loadIsisCnet(std::string const& isisCnetFile,
   Isis::SurfacePoint::CoordinateType coord_type = Isis::SurfacePoint::Latitudinal;
 
   // Read the ISIS control network
-  vw::vw_out() << "Reading ISIS control network: " << isisCnetFile << "\n";
   QString qCnetFile = QString::fromStdString(isisCnetFile);
   Isis::Progress progress;
   icnet = Isis::ControlNetQsp(new Isis::ControlNet(qCnetFile, &progress, coord_type));
   
   // Create the map from image serial number to image index
   std::vector<std::string> serialNumbers;
-  readSerialNumbers(outputPrefix, image_files, serialNumbers);
+  readSerialNumbers(image_files, serialNumbers);
   std::map<std::string, int> serialNumberToImageIndex;
   for (size_t i = 0; i < image_files.size(); i++) {
     serialNumberToImageIndex[serialNumbers[i]] = i;
@@ -295,7 +291,7 @@ void saveIsisCnet(std::string const& outputPrefix,
   
   // Find the serial numbers
   std::vector<std::string> serialNumbers;
-  readSerialNumbers(outputPrefix, image_files, serialNumbers);
+  readSerialNumbers(image_files, serialNumbers);
 
   // Read the cameras This may fail for non-ISIS images. Then use null cameras.
   std::vector<boost::shared_ptr<Isis::Camera>> cameras;

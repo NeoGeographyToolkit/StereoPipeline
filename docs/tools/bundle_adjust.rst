@@ -358,7 +358,8 @@ where the image names are without the directory name and extension.
 
 These files can be used later by other ``bundle_adjust`` or ``parallel_stereo``
 invocations, with the options ``--match-files-prefix`` and
-``--clean-match-files-prefix``.
+``--clean-match-files-prefix``. Such files can be inspected with ``stereo_gui``
+(:numref:`stereo_gui_pairwise_matches`).
 
 This program can read and write the ISIS binary control network format, if
 invoked with the option ``--isis-cnet filename.net``. This allows handling a
@@ -371,6 +372,9 @@ may be marked as outliers (by setting the ``ignored`` and ``rejected`` flags).
 
 To have different formats for the input and output control networks,
 use the option ``--output-cnet-type``.  
+
+The ``stereo_gui`` program (:numref:`stereo_gui_isis_cnet`) can visualize
+such a control network file. 
 
 See also ASP's ``jigsaw`` tutorial (:numref:`jigsaw`).
  

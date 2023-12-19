@@ -29,6 +29,7 @@
 #include <asp/Core/GCP.h>
 #include <asp/Core/Nvm.h>
 #include <asp/Core/IpMatchingAlgs.h>
+#include <asp/Camera/BundleAdjustIsis.h>
 
 #include <vw/config.h>
 #include <vw/Core/CmdUtils.h>
@@ -267,10 +268,13 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   // When loading an NVM file, will assume we want to inspect pairwise
   // matches. Also set the images from the NVM file.  It is assumed
   // that the interest points to be loaded are not shifted relative to
-  // the optical center.
+  // the optical center. Analogous logic happens for ISIS cnet files.
+  if (!asp::stereo_settings().nvm.empty() && !asp::stereo_settings().isis_cnet.empty()) {
+    popUp("Cannot load both an ISIS cnet and an NVM file.");
+    exit(1);
+  }
   if (!asp::stereo_settings().nvm.empty()) {
     asp::stereo_settings().pairwise_matches = true;
-    
     vw_out() << "Reading NVM file: " << asp::stereo_settings().nvm << "\n";
     try {
        asp::readNvmAsCnet(asp::stereo_settings().nvm, asp::stereo_settings().nvm_no_shift,
@@ -282,6 +286,20 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     if (!local_images.empty())
       popUp("Will ignore the images passed in and will use the nvm file only.");
     local_images = m_cnet.get_image_list(); // overwrite local_images
+  }
+  if (!asp::stereo_settings().isis_cnet.empty()) {
+    asp::stereo_settings().pairwise_matches = true;
+    vw::vw_out() << "Reading ISIS control network: " 
+                 << asp::stereo_settings().isis_cnet << "\n";
+    
+    try {
+      asp::IsisCnetData isisCnetData; // Part of the API, unused here
+      asp::loadIsisCnet(asp::stereo_settings().isis_cnet, local_images,
+                        m_cnet, isisCnetData); // outputs
+    } catch (const std::exception& e) {
+      popUp(e.what());
+      exit(1);
+    }
   }
   
   // Collect only the valid images
@@ -311,7 +329,9 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   // Set the default lowest resolution subimage size. Use a shorthand below.
   // Must happen before images are loaded.
   int & lowres_size = asp::stereo_settings().lowest_resolution_subimage_num_pixels;
-  bool delay = !asp::stereo_settings().nvm.empty() || asp::stereo_settings().preview;
+  bool delay = !asp::stereo_settings().nvm.empty() ||
+               !asp::stereo_settings().isis_cnet.empty() ||
+               asp::stereo_settings().preview;
   if (lowres_size <= 0) {
     if (delay) {
       lowres_size = 10000 * 10000; // to avoid creating many small subimages
@@ -463,10 +483,12 @@ void MainWindow::createLayout() {
   bool do_colorize = false;
   for (size_t i = 0; i < m_images.size(); i++) 
     do_colorize = do_colorize || m_images[i].colorbar;
-  bool delay = !asp::stereo_settings().nvm.empty() || asp::stereo_settings().preview;
+  bool delay = !asp::stereo_settings().nvm.empty()       ||
+               !asp::stereo_settings().isis_cnet.empty() ||
+                asp::stereo_settings().preview;
   if (delay && do_colorize) {
     popUp("Cannot colorize images when using the preview mode or when "
-          "loading an NVM file.");
+          "loading an NVM or ISIS cnet file.");
     // This is hard to get right
     do_colorize = false;
   }
@@ -1403,7 +1425,9 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     return;
   }
 
-  if (m_output_prefix == "" && stereo_settings().nvm.empty()) {
+  if (m_output_prefix == "" && 
+      stereo_settings().nvm.empty() && 
+      stereo_settings().isis_cnet.empty()) {
     popUp("Cannot show pairwise (clean) matches, as the output prefix was not set.");
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
@@ -1441,9 +1465,10 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   if (asp::stereo_settings().pairwise_matches) {
     
     pairwiseMatches = &m_pairwiseMatches;
-    if (!asp::stereo_settings().nvm.empty()) {
-      // Load from nvm
-      match_file = asp::stereo_settings().nvm; 
+    if (!asp::stereo_settings().nvm.empty() ||
+        !asp::stereo_settings().isis_cnet.empty()) {
+      // Load from nvm or isis cnet
+      match_file = "placeholder.match";
       pairwiseMatches->match_files[index_pair] = match_file; // flag it as loaded
 
       // Where we want these loaded 
