@@ -13,18 +13,17 @@ jobs:
       env:
         cache-name: cache-conda
       with:
-        ## Cache the ASP dependencies. They will be created manually in the next
-        ## step, after logging with ssh, and the actual caching will happen when
-        ## this recipe exits. Changes to the cache cannot be saved, so it should
-        ## be wiped from the web interface before starting this workflow, if
-        ## desired to recreate it.
-        path: |
-          /usr/local/miniconda/envs
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/miniconda.json') }}
-        restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
+        # No caching of dependencies, as the cache does not change when it is
+        # modified, and it can expire. See build_test.sh how to fetch an
+        # offline tarball with dependencies, and how to update that one if need
+        # be.
+        # path: |
+        #   /usr/local/miniconda/envs
+        # key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/miniconda.json') }}
+        # restore-keys: |
+        #   ${{ runner.os }}-build-${{ env.cache-name }}-
+        #   ${{ runner.os }}-build-
+        #   ${{ runner.os }}-
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v3
       timeout-minutes: 600
@@ -34,8 +33,8 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with: 
-         ## Useful for saving any results produced in this session
-         ## We will download this artifact
+         # Useful for saving any results produced in this session. Can be later
+         # downloaded.
          name: ssh-test-${{ runner.os }}
          path: ~/work/StereoPipeline/packages
          retention-days: 2

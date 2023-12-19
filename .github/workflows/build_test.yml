@@ -21,20 +21,20 @@ jobs:
       env:
         cache-name: cache-conda
       with:
-        # Use cached ASP dependencies. They will be created manually 
-        # after starting a session with ssh.yml. The cache must be wiped
-        # from the web interface if desired to recreate it.
-        path: |
-          /usr/local/miniconda/envs
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/miniconda.json') }}
-        restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
+        # No caching of dependencies, as the cache does not change when it is
+        # modified, and it can expire. See build_test.sh how to fetch an
+        # offline tarball with dependencies, and how to update that one if need
+        # be.
+        # path: |
+        #   /usr/local/miniconda/envs
+        # key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/miniconda.json') }}
+        # restore-keys: |
+        #   ${{ runner.os }}-build-${{ env.cache-name }}-
+        #   ${{ runner.os }}-build-
+        #   ${{ runner.os }}-
     - name: build_test
+      # run: ./.github/workflows/build_isis.sh # Build ISIS and other ASP dependencies
       run: ./.github/workflows/build_test.sh
-      ## The script below builds ISIS and other ASP dependencies.
-      ##run: ./.github/workflows/build_isis.sh
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with: 

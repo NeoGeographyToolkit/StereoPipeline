@@ -10,6 +10,58 @@ else
   cxx_comp=x86_64-conda_cos6-linux-gnu-g++
 fi
 
+# Fetch the ASP depenedencies
+wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env5/asp_deps_osx.tar.gz
+tar xzf asp_deps_osx.tar.gz -C / > /dev/null 2>&1 # this is verbose
+
+# How to update the dependencies. Read very carefully and update as needed.
+if [ 1 -eq 0 ]; then
+  # Log in with ssh.yml, and create the needed dependencies, per the ASP manual,
+  # section on building ASP. Then archive them as follows:
+  mkdir -p ~/work/StereoPipeline/packages
+  /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz /usr/local/miniconda/envs/asp_deps /usr/local/miniconda/envs/python_isis8
+  
+  # When ssh.yml exits, it will cache ~/work/StereoPipeline/packages
+  # This can be fetched on a local machine, then the desired tarball
+  # can be pushed to the cloud updating the above wget link.
+  # That goes as follows:
+  gh=/home/oalexan1/miniconda3/envs/gh/bin/gh
+  repo=git@github.com:NeoGeographyToolkit/StereoPipeline.git
+
+  # Query the ssh.yml. Must check that that the top-most run is successful
+  $gh run list -R $repo --workflow=ssh.yml
+  
+  ans=$($gh run list -R $repo --workflow=ssh.yml | grep -v STATUS | head -n 1)
+  completed=$(echo $ans | awk '{print $1}')
+  success=$(echo $ans | awk '{print $2}')
+  id=$(echo $ans | awk '{print $7}')
+  echo Completed is $completed
+  echo Success is $success
+  echo Id is $id
+  if [ "$success" != "success" ]; then
+    echo "Error: The ssh.yml workflow did not succeed"
+  else 
+    echo Fetching the build with id $id from the cloud 
+    echo $gh run download -R $repo $id
+    $gh run download -R $repo $id
+
+    # Must be careful with the line below. This comes from ssh.yml
+    binaries=ssh-test-macOS/asp_deps.tar.gz
+    if [ ! -f "$binaries" ]; then
+      echo "Error: File: $binaries does not exist"
+      exit 1
+    fi 
+    
+    repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
+    tag=mac_conda_env5 # Must be the same tag as in the wget link above
+    # Wipe old version
+    $gh release -R $repo delete $tag 
+    notes="Mac conda env5"
+    # Add the binaries
+    /usr/bin/time $gh release -R $repo create $tag $binaries --title $tag --notes "$notes"
+  fi
+fi
+  
 # Set up some variables
 envName=asp_deps
 #envName=asp_deps_3.4.0_alpha
