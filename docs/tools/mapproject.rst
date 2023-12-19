@@ -3,9 +3,9 @@
 mapproject
 ----------
 
-The tool ``mapproject`` is used to orthorectify (map-project) a camera
-image onto a DEM or datum. (ASP is able to use map-projected images to
-run stereo, see :numref:`mapproj-example`.)
+The tool ``mapproject`` is used to orthorectify (map-project) a camera image
+onto a DEM or datum. ASP is able to use map-projected images to run stereo, see
+:numref:`mapproj-example`.
 
 The ``mapproject`` program can be run using multiple processes and can
 be distributed over multiple machines. This is particularly useful for
@@ -29,6 +29,9 @@ string obtained either from the DEM to project onto, or, if specified,
 from the ``--t_srs`` option. If the grid size is not set, it will be
 estimated as the mean *ground sampling distance (GSD)*.  See the
 ``--tr`` option for how this affects the extent of the output image.
+
+If the resulting mapprojected images are used for stereo, it is very strongly
+suggested to use the same grid size for all images (:numref:`mapproj-res`).
 
 Examples
 ~~~~~~~~

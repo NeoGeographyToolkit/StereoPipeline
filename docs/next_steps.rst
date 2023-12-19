@@ -471,6 +471,10 @@ so this tool can be invoked with no specification of the resolution
 for the left image, then then ``gdalinfo`` can be used to find
 the obtained pixel size, and that value can be used with the right image.
 
+Invoking ``mapproject`` with the ``--query-projection`` option will print the
+estimated ground sample distance (output pixel size) without doing the
+mapprojection.
+
 If these two images have rather different auto-determined resolutions,
 it is suggested that the smaller ground sample distance be used for both,
 or otherwise something in the middle. 
