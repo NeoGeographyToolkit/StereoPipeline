@@ -11,8 +11,8 @@ else
 fi
 
 # Fetch the ASP depenedencies
-wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env5/asp_deps_osx.tar.gz
-tar xzf asp_deps_osx.tar.gz -C / > /dev/null 2>&1 # this is verbose
+wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env5/asp_deps.tar.gz
+tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
 # How to update the dependencies. Read very carefully and update as needed.
 if [ 1 -eq 0 ]; then

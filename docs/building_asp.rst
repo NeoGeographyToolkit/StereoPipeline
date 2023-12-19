@@ -528,7 +528,7 @@ the entire ``asp_deps`` environment, we create a separate environment
 having only Python, numpy, with versions as expected by current ISIS.
 Run, for example::
 
-    conda create -n python_isis8 python=x.y.x numpy=a.b.c
+    conda create -c conda-forge -n python_isis8 python=x.y.x numpy=a.b.c
 
 Note that different versions of these may be needed for Linux and OSX.
 The ``conda list`` command within the ``asp_deps`` environment 
