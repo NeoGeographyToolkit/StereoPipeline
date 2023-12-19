@@ -255,10 +255,11 @@ it may be necessary to optimize the intrinsics. We do so by using the
 cameras with the optimized extrinsics found earlier. This is just an
 early such attempt, better approaches will be suggested below::
 
-     bundle_adjust -t nadirpinhole --inline-adjustments               \
-       --solve-intrinsics --camera-weight 1                           \
-       --max-pairwise-matches 20000                                   \
-       left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai  \
+     bundle_adjust -t nadirpinhole --inline-adjustments \
+       --solve-intrinsics --camera-weight 1             \
+       --max-pairwise-matches 20000                     \
+       left.tif right.tif                               \
+       run_ba/run-left.tsai run_ba/run-right.tsai       \
        -o run_ba_intr/run
 
 It is important to note that only the non-zero intrinsics will be
@@ -269,6 +270,12 @@ suggestive of its final estimated scale. If the algorithm fails to give
 a good solution, perhaps different initial values for the intrinsics
 should be tried. For example, one can try changing the sign of the
 initial distortion coefficients, or make their values much smaller.
+
+It is good to use a lens distortion model such as the one ASP calls
+*Tsai* (:numref:`pinholemodels`), as then the distortion operation
+is a simple formula, which is fast and convenient in bundle adjustment,
+when projecting into the camera is the key operation. Using models
+like *Photometrix* and *Brown-Conrady* is not advised.
 
 Here we assumed all intrinsics are shared. See
 :numref:`kaguya_tc_refine_intrinsics` for how to have several groups of
@@ -379,6 +386,9 @@ lidar/DEM file. Note that we use the cameras obtained after alignment::
 Here we set the camera weight all the way to 0, since it is hoped that
 having a reference terrain is a sufficient constraint to prevent
 over-fitting.
+
+See the note earlier in the text about what a good lens distortion
+model is.
 
 This tool will write some residual files of the form::
 
@@ -567,19 +577,22 @@ which can help judge how well the optimization worked.
 RPC lens distortion
 ^^^^^^^^^^^^^^^^^^^
 
-If it is realized that the optimized intrinsics still do not make
-the ASP-generated DEMs agree very well with the ground truth, and
-some residual and systematic error can be seen either by comparing
-these two or in intersection error files, it may be convenient to
-convert the current camera models to ones with the distortion given
-by rational function coefficients (RPC) of a desired degree
-(:numref:`pinholemodels`). An RPC model can have a lot more
-coefficients to optimize, hence a better fit can be found. However,
-it is suggested to use low-degree polynomials as those are easy to
-fit, and go to higher degree only for refinement if needed.
+If it is realized that the optimized intrinsics still do not make the
+ASP-generated DEMs agree very well with the ground truth, and some residual and
+systematic error can be seen either by comparing these two or in intersection
+error files, it may be convenient to convert the current camera models to ones
+with the distortion given by rational function coefficients (RPC) of a desired
+degree (:numref:`pinholemodels`). An RPC model can have a lot more coefficients
+to optimize, hence a better fit can be found. 
 
-An example showing how to convert a camera model to RPC is given in
-:numref:`convert_pinhole_model`.
+It is suggested to use low-degree polynomials as those are easy to fit, and go
+to higher degree only for refinement if needed.
+
+One should, however, first try the simpler *Tsai* and *Adjustable Tsai* lens
+distortion models (:numref:`pinholemodels`). 
+
+The tool ``convert_pinhole_model`` (:numref:`convert_pinhole_model`) can be used
+to convert a camera model with one distortion type to another one. 
 
 Working with map-projected images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

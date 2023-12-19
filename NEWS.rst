@@ -76,6 +76,9 @@ stereo_gui (:numref:`stereo_gui`):
     (:numref:`scattered_points_colorbar`).
   * Renamed ``--colorize-image`` to ``--colorbar``.
   * Auto-guess and load ``pc_align`` error files (:numref:`pc_align_error`).
+  * When loading an .nvm file with features that are not shifted relative
+    to the optical center, must specify ``--no-shift``. This avoids confusion
+    as to whether a shift is present or not (:numref:`stereo_gui_nvm`).
 
 colormap (:numref:`colormap`):
   * Added the option ``--hillshade`` to create a hillshaded colormap.

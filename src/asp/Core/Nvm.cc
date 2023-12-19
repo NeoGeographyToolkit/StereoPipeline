@@ -19,6 +19,7 @@
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
 #include <vw/FileIO/FileUtils.h>
+#include <vw/BundleAdjustment/ControlNetwork.h>
 
 #include <fstream>
 #include <iostream>
@@ -26,8 +27,11 @@
 namespace asp {
 
 // A wrapper to carry fewer things around
-void ReadNVM(std::string const& input_filename, nvmData & nvm) {
+void ReadNVM(std::string const& input_filename, 
+             bool nvm_no_shift,
+             nvmData & nvm) {
   ReadNVM(input_filename,
+          nvm_no_shift,
           &nvm.cid_to_keypoint_map,
           &nvm.cid_to_filename,
           &nvm.pid_to_cid_fid,
@@ -40,24 +44,41 @@ void ReadNVM(std::string const& input_filename, nvmData & nvm) {
 // If a filename having extension _offset.txt instead of .nvm exists, read
 // from it the optical center offsets and apply them.
 void ReadNVM(std::string const& input_filename,
+             bool nvm_no_shift,
              std::vector<Eigen::Matrix2Xd> * cid_to_keypoint_map,
              std::vector<std::string> * cid_to_filename,
              std::vector<std::map<int, int>> * pid_to_cid_fid,
              std::vector<Eigen::Vector3d> * pid_to_xyz,
              std::vector<Eigen::Affine3d> * cid_to_cam_t_global) {
 
+  // Read the offsets (optical centers) to apply to the interest points,
+  // if applicable.
   int file_len = input_filename.size(); // cast to int to make subtraction safe
-  std::string offset_path = input_filename.substr(0, std::max(file_len - 4, 0)) + "_offsets.txt";
+  std::string offset_path 
+    = input_filename.substr(0, std::max(file_len - 4, 0)) + "_offsets.txt";
   std::ifstream offset_fh(offset_path.c_str());
-  std::map<std::string, Eigen::Vector2d> offsets;
+  
   bool have_offsets = false;
-  if (offset_fh.good()) {
-    std::cout << "Read and apply optical offsets from: " << offset_path << std::endl;
+  std::map<std::string, Eigen::Vector2d> offsets;
+  if (nvm_no_shift) {
+    have_offsets = false;
+    if (offset_fh.good()) 
+      vw::vw_out() << "When reading " << input_filename << ", "
+                   << "ignoring the optical center offsets from: " << offset_path
+                   << std::endl;
+  } else {
+    if (!offset_fh.good())
+      vw::vw_throw(vw::ArgumentErr() << "Cannot find optical offsets file: "
+                   << offset_path << ". Consider reading the nvm file with "
+                   << "the no-shift option or specify the offsets.\n");
+      
+    vw::vw_out() << "Read and apply optical offsets from: " << offset_path << std::endl;
+    
     std::string name;
     double x, y;
-    while (offset_fh >> name >> x >> y) {
+    while (offset_fh >> name >> x >> y)
       offsets[name] = Eigen::Vector2d(x, y);
-    }
+    
     have_offsets = true;
   }
   
@@ -123,6 +144,7 @@ void ReadNVM(std::string const& input_filename,
     for (ptrdiff_t m = 0; m < number_of_measures; m++) {
       f >> cid >> fid >> pt[0] >> pt[1];
 
+      // Apply the optical center offset if it exists
       if (have_offsets) {
         auto map_it = offsets.find(cid_to_filename->at(cid));
         if (map_it == offsets.end()) {
@@ -135,9 +157,9 @@ void ReadNVM(std::string const& input_filename,
       
       pid_to_cid_fid->at(pid)[cid] = fid;
 
-      if (cid_to_keypoint_map->at(cid).cols() <= fid) {
+      if (cid_to_keypoint_map->at(cid).cols() <= fid)
         cid_to_keypoint_map->at(cid).conservativeResize(Eigen::NoChange_t(), fid + 1);
-      }
+      
       cid_to_keypoint_map->at(cid).col(fid) = pt;
     }
 
@@ -148,6 +170,7 @@ void ReadNVM(std::string const& input_filename,
 
 // Write an nvm file. Note that a single focal length is assumed and no distortion.
 // Those are ignored, and only camera poses, matches, and keypoints are used.
+// Features are written as is, without shifting them relative to the optical center.
 void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
               std::vector<std::string> const& cid_to_filename,
               std::vector<double> const& focal_lengths,
@@ -214,6 +237,44 @@ void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
   // Close the file
   f.flush();
   f.close();
+}
+
+// Read an NVM file into the VisionWorkbench control network format. The flag
+// nvm_no_shift, if true, means that the interest points are not shifted
+// relative to the optical center, so can be read as is.
+void readNvmAsCnet(std::string const& input_filename, 
+                   bool nvm_no_shift,
+                   vw::ba::ControlNetwork & cnet) {
+
+  // Wipe the output
+  cnet = vw::ba::ControlNetwork("ASP_control_network");
+  
+  // Read the NVM file
+  nvmData nvm;
+  ReadNVM(input_filename, nvm_no_shift, nvm);
+
+  // Add the images
+  for (size_t cid = 0; cid < nvm.cid_to_filename.size(); cid++)
+    cnet.add_image_name(nvm.cid_to_filename[cid]);
+
+  // Add the points
+  for (size_t pid = 0; pid < nvm.pid_to_cid_fid.size(); pid++) {
+    vw::ba::ControlPoint cp;
+    Eigen::Vector3d const& P = nvm.pid_to_xyz[pid];
+    cp.set_position(vw::Vector3(P[0], P[1], P[2]));
+    cp.set_type(vw::ba::ControlPoint::TiePoint); // this is the default
+
+    for (const auto& cid_fid: nvm.pid_to_cid_fid[pid]) {
+      int cid = cid_fid.first;
+      int fid = cid_fid.second;
+      double x = nvm.cid_to_keypoint_map[cid].col(fid)[0];
+      double y = nvm.cid_to_keypoint_map[cid].col(fid)[1];
+      double sigma = 1.0;
+      cp.add_measure(vw::ba::ControlMeasure(x, y, sigma, sigma, cid));
+    }
+   
+    cnet.add_control_point(cp);
+  }
 }
 
 } // end namespace asp

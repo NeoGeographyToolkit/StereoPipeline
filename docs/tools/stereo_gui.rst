@@ -418,23 +418,24 @@ View NVM files
 ^^^^^^^^^^^^^^
 
 This tool can also visualize pairwise interest point matches loaded
-from an .nvm file created by a Structure-from-Motion tool, such as
+from a plain-text .nvm file created by a Structure-from-Motion tool, such as
 ``theia_sfm`` (:numref:`theia_sfm`) and ``rig_calibrator``
 (:numref:`rig_calibrator`).
 
-This file normally shifts all saved features relative to the camera
-optical center. For ``stereo_gui`` to read such a file, each .nvm file
-must have an associated ``_offsets.txt`` file having the optical
-center per image. The above-mentioned programs write such an offset
-file. This file is auto-loaded along with the .nvm file if detected.
+This file normally has all features shifted relative to the camera optical
+center. Then an associated ``_offsets.txt`` file must exist having the optical
+center per image. The above-mentioned programs write such an offset file. This
+file is auto-loaded along with the .nvm file.
 
 An .nvm file having features that are not shifted can be loaded as
 well. Such files are created by ``rig_calibrator`` with the
 ``--save_nvm_no_shift`` option (:numref:`rig_calibrator`). 
+In this case, call ``stereo_gui`` with the additional option
+``--nvm-no-shift``.
 
 Example::
 
-    stereo_gui --nvm nvm_noshift.nvm
+    stereo_gui --nvm-no-shift --nvm nvm_no_shift.nvm
 
 (The ``--nvm`` option can also be omitted, and only the file itself
 can be specified.)
@@ -721,12 +722,15 @@ accept all other ``parallel_stereo`` options as well.
     Same as ``--pairwise-matches``, but use ``*-clean.match`` files.
 
 --nvm <string (default="")>
-    Load this .nvm file having interest point matches. It is assumed
-    it was saved with no shift of the interest points relative to the
-    optical center. The ``rig_calibrator`` program
-    (:numref:`rig_calibrator`) can create such files. This option
-    implies ``--pairwise-matches``.
+    Load this .nvm file having interest point matches. See also
+    ``--nvm-no-shift``. The ``rig_calibrator`` program
+    (:numref:`rig_calibrator`) can create such files. This option implies
+    ``--pairwise-matches``.
 
+--nvm-no-shift
+    Assume that the image features in the input nvm file were saved without
+    being shifted to be relative to the optical center of the camera.
+    
 --gcp-file
     Display the GCP pixel coordinates for this GCP file (implies
     ``--view-matches``).  Also save here GCP if created from the

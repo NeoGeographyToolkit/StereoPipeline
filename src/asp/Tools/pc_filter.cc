@@ -259,7 +259,7 @@ int main(int argc, char *argv[]) {
     if (num_channels != 4) 
       vw_throw(ArgumentErr() << "The input point cloud must have 4 channels.");
 
-    std::string ext = fs::extension(opt.output_cloud);
+    std::string ext = fs::path(opt.output_cloud).extension().string();
     boost::algorithm::to_lower(ext);
     if (ext != ".tif" && ext != ".pcd" && ext != ".ply") 
       vw_throw(ArgumentErr() << "The output point cloud extension must be .tif, .pcd, or .ply.");

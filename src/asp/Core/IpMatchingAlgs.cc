@@ -19,6 +19,7 @@
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/Camera/CameraModel.h>
+#include <vw/BundleAdjustment/ControlNetwork.h>
 #include <boost/filesystem.hpp>
 using namespace vw;
 namespace fs = boost::filesystem;
@@ -224,5 +225,44 @@ void listExistingMatchFiles(std::string const& prefix,
       existing_files.insert(filename);
   }
 }
+
+// Given a pair of indicies, return all the matches between them.
+void matchesForPair(vw::ba::ControlNetwork const& cnet,
+                    int left_cid, int right_cid,
+                    std::vector<vw::ip::InterestPoint> & left_ip,
+                    std::vector<vw::ip::InterestPoint> & right_ip) {
+
+  // Wipe the outputs
+  left_ip.clear();
+  right_ip.clear();
   
+  // Iterate over all control points in cnet
+  for (int ipt = 0; ipt < cnet.size(); ipt++) {
+    
+    // Iterate over all measures for the current control point 
+    bool has_left = false, has_right = false;
+    vw::ip::InterestPoint lip, rip;
+    for (auto m = cnet[ipt].begin(); m != cnet[ipt].end(); m++) {
+      int cid = m->image_id();
+      
+      if (cid == left_cid) {
+        has_left = true;
+        lip.x = m->position()[0];
+        lip.y = m->position()[1];
+      } else if (cid == right_cid) {
+        has_right = true;
+        rip.x = m->position()[0];
+        rip.y = m->position()[1];
+      }
+    }
+    
+    if (has_left && has_right) {
+      left_ip.push_back(lip);
+      right_ip.push_back(rip);
+    }
+  }
+  
+  return;
+}
+ 
 } // end namespace asp

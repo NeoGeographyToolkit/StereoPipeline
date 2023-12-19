@@ -24,13 +24,11 @@
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/Core/Nvm.h>
 #include <asp/GUI/chooseFilesDlg.h>
 #include <asp/GUI/ColorAxes.h>
 #include <asp/Core/GCP.h>
-
-using namespace asp;
-using namespace vw::gui;
+#include <asp/Core/Nvm.h>
+#include <asp/Core/IpMatchingAlgs.h>
 
 #include <vw/config.h>
 #include <vw/Core/CmdUtils.h>
@@ -40,10 +38,15 @@ using namespace vw::gui;
 #include <vw/Image/Statistics.h>
 #include <vw/Image/PixelMask.h>
 #include <vw/InterestPoint/InterestData.h>
-#include <vw/InterestPoint/Matcher.h> // Needed for vw::ip::match_filename
+#include <vw/InterestPoint/Matcher.h>
+
 #include <boost/filesystem/path.hpp>
 
 #include <sstream>
+
+using namespace asp;
+using namespace vw::gui;
+
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -244,7 +247,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   m_allowMultipleSelections(false), m_matches_exist(false),
   m_argc(argc), m_argv(argv),
   m_show_two_images_when_side_by_side_with_dialog(true), 
-  m_cursor_count(0), m_nvm(NULL) {
+  m_cursor_count(0), m_cnet("ASP_control_network") {
 
   m_display_mode = asp::stereo_settings().hillshade ? HILLSHADED_VIEW : REGULAR_VIEW;
 
@@ -267,12 +270,18 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   // the optical center.
   if (!asp::stereo_settings().nvm.empty()) {
     asp::stereo_settings().pairwise_matches = true;
-    m_nvm = boost::shared_ptr<asp::nvmData>(new asp::nvmData());
-    vw_out() << "Reading nvm file: " << asp::stereo_settings().nvm << "\n";
-    asp::ReadNVM(asp::stereo_settings().nvm, *m_nvm.get());
+    
+    vw_out() << "Reading NVM file: " << asp::stereo_settings().nvm << "\n";
+    try {
+       asp::readNvmAsCnet(asp::stereo_settings().nvm, asp::stereo_settings().nvm_no_shift,
+                          m_cnet);
+    } catch (const std::exception& e) {
+      popUp(e.what());
+      exit(1);
+    }
     if (!local_images.empty())
       popUp("Will ignore the images passed in and will use the nvm file only.");
-    local_images = m_nvm->cid_to_filename; // overwrite local_images
+    local_images = m_cnet.get_image_list(); // overwrite local_images
   }
   
   // Collect only the valid images
@@ -280,7 +289,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   for (size_t i = 0; i < local_images.size(); i++) {
     bool is_image = true;
     try {
-      DiskImageView<double> img(local_images[i]);
+      vw::DiskImageView<double> img(local_images[i]);
     }catch(...){
       is_image = false;
     }
@@ -343,7 +352,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   if (stereo_settings().no_georef) {
     m_use_georef = false; 
     // Further control of georef is from the gui menu
-    stereo_settings().no_georef = false; 
+    asp::stereo_settings().no_georef = false; 
   }
 
   // Ensure the inputs are reasonable
@@ -456,7 +465,8 @@ void MainWindow::createLayout() {
     do_colorize = do_colorize || m_images[i].colorbar;
   bool delay = !asp::stereo_settings().nvm.empty() || asp::stereo_settings().preview;
   if (delay && do_colorize) {
-    popUp("Cannot colorize images when using the preview mode or when loading an NVM file.");
+    popUp("Cannot colorize images when using the preview mode or when "
+          "loading an NVM file.");
     // This is hard to get right
     do_colorize = false;
   }
@@ -1428,49 +1438,20 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   // if pairwiseMatches->match_files[index_pair] is initialized.
   // Read either matches from first to second image, or vice versa.
   // First consider the case of loading from nvm.
-  // TODO(oalexan1): Move this code out, perhaps to MatchList.cc.
-  // Also there defined the pairwiseMatches struct.
   if (asp::stereo_settings().pairwise_matches) {
     
     pairwiseMatches = &m_pairwiseMatches;
-
     if (!asp::stereo_settings().nvm.empty()) {
       // Load from nvm
-      match_file = asp::stereo_settings().nvm;
+      match_file = asp::stereo_settings().nvm; 
       pairwiseMatches->match_files[index_pair] = match_file; // flag it as loaded
 
-      // Handles to where we want these loaded. Note that these are aliases.
-      std::vector<vw::ip::InterestPoint> & left_ip = pairwiseMatches->matches[index_pair].first;
-      std::vector<vw::ip::InterestPoint> & right_ip = pairwiseMatches->matches[index_pair].second;
+      // Where we want these loaded 
+      auto & left_ip = pairwiseMatches->matches[index_pair].first;   // alias
+      auto & right_ip = pairwiseMatches->matches[index_pair].second; // alias
 
-      if (left_ip.empty() && right_ip.empty()) {
-        // Load the matches for the given pair; will happen just once
-        vw::ip::InterestPoint lip, rip;
-        for (size_t pid = 0; pid < m_nvm->pid_to_cid_fid.size(); pid++) {
-
-          // TODO(oalexan1): Make this a function in Nvm.cc called:
-          // matches_for_pair(left_cid, right_cid, left_ip, right_ip)
-          bool has_left = false, has_right = false;
-          for (auto cid_fid = m_nvm->pid_to_cid_fid[pid].begin();
-               cid_fid != m_nvm->pid_to_cid_fid[pid].end(); cid_fid++) {
-            int cid = cid_fid->first;
-            int fid = cid_fid->second;
-            if (cid == left_index) {
-              has_left = true;
-              lip.x = m_nvm->cid_to_keypoint_map[cid].col(fid)[0];
-              lip.y = m_nvm->cid_to_keypoint_map[cid].col(fid)[1];
-            } else if (cid == right_index) {
-              has_right = true;
-              rip.x = m_nvm->cid_to_keypoint_map[cid].col(fid)[0];
-              rip.y = m_nvm->cid_to_keypoint_map[cid].col(fid)[1];
-            }
-          }
-          if (has_left && has_right) {
-            left_ip.push_back(lip);
-            right_ip.push_back(rip);
-          }
-        }
-      }
+      if (left_ip.empty() && right_ip.empty())
+        asp::matchesForPair(m_cnet, left_index, right_index, left_ip, right_ip);
       
     } else if (pairwiseMatches->match_files.find(index_pair) ==
                pairwiseMatches->match_files.end()) {
@@ -1481,7 +1462,8 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   } else {
     // Load pairwise clean matches
     pairwiseMatches = &m_pairwiseCleanMatches;
-    if (pairwiseMatches->match_files.find(index_pair) == pairwiseMatches->match_files.end()) {
+    if (pairwiseMatches->match_files.find(index_pair) == 
+        pairwiseMatches->match_files.end()) {
       match_file = vw::ip::clean_match_filename(m_output_prefix, m_images[left_index].name,
                                                 m_images[right_index].name);
     }
@@ -1492,9 +1474,9 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   pairwiseMatches->ip_to_show.clear();
   pairwiseMatches->ip_to_show.resize(m_images.size());
   
-  // Handles to where we want these loaded. Note that these are aliases.
-  std::vector<vw::ip::InterestPoint> & left_ip = pairwiseMatches->matches[index_pair].first;
-  std::vector<vw::ip::InterestPoint> & right_ip = pairwiseMatches->matches[index_pair].second;
+  // Where we want these loaded
+  auto & left_ip = pairwiseMatches->matches[index_pair].first; // alias
+  auto & right_ip = pairwiseMatches->matches[index_pair].second; // alias
   
   // If the file was not loaded before, load it. Note that matches from an nvm file
   // are loaded by now.

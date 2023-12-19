@@ -54,7 +54,7 @@ using namespace vw::cartography;
 namespace vw { namespace gui {
 
   // --------------------------------------------------------------
-  //               MainWidget Public Methods
+  //               MainWidget public methods
   // --------------------------------------------------------------
 
   // Convert a position in the world coordinate system to a pixel

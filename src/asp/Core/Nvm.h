@@ -28,6 +28,12 @@
 #include <vector>
 #include <string>
 
+namespace vw {
+  namespace ba {
+    class ControlNetwork;
+  }
+}
+
 namespace asp {
 
 struct nvmData {
@@ -39,19 +45,24 @@ struct nvmData {
 };
 
 // A wrapper to carry fewer things around
-void ReadNVM(std::string const& input_filename, nvmData & nvm);
+void ReadNVM(std::string const& input_filename, 
+             bool nvm_no_shift, nvmData & nvm);
   
 // Reads the NVM control network format. The interest points may or may not
 // be shifted relative to optical center. The user is responsible for knowing that.
 // If a filename having extension _offset.txt instead of .nvm exists, read
 // from it the optical center offsets and apply them.
 void ReadNVM(std::string const& input_filename,
+             bool nvm_no_shift,
              std::vector<Eigen::Matrix2Xd> * cid_to_keypoint_map,
              std::vector<std::string> * cid_to_filename,
              std::vector<std::map<int, int>> * pid_to_cid_fid,
              std::vector<Eigen::Vector3d> * pid_to_xyz,
              std::vector<Eigen::Affine3d> * cid_to_cam_t_global);
 
+// Write an nvm file. Note that a single focal length is assumed and no distortion.
+// Those are ignored, and only camera poses, matches, and keypoints are used.
+// Features are written as is, without shifting them relative to the optical center.
 void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
               std::vector<std::string> const& cid_to_filename,
               std::vector<double> const& focal_lengths,
@@ -59,6 +70,13 @@ void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
               std::vector<Eigen::Vector3d> const& pid_to_xyz,
               std::vector<Eigen::Affine3d> const& cid_to_cam_t_global,
               std::string const& output_filename);
+
+// Read an NVM file into the VisionWorkbench control network format. The flag
+// nvm_no_shift, if true, means that the interest points are not shifted
+// relative to the optical center, so can be read as is.
+void readNvmAsCnet(std::string const& input_filename, 
+                   bool nvm_no_shift,
+                   vw::ba::ControlNetwork & cnet);
   
 } // end namespace asp
 

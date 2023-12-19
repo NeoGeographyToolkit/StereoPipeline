@@ -488,7 +488,13 @@ namespace asp {
       ("pairwise-matches",   po::bool_switch(&global.pairwise_matches)->default_value(false)->implicit_value(true), "Show images side-by-side. If just two of them are selected, load their corresponding match file, determined by the output prefix. Also accessible from the menu.")
       ("pairwise-clean-matches",   po::bool_switch(&global.pairwise_clean_matches)->default_value(false)->implicit_value(true), "Same as --pairwise-matches, but use *-clean.match files.")
       ("nvm", po::value(&global.nvm)->default_value(""),
-       "Load this .nvm file having interest point matches. It is assumed it was saved with no shift of the interest points relative to the optical center. The rig_calibrator program can create such files. This option implies --pairwise-matches, --preview, and a larger value of --lowest-resolution-subimage-num-pixels.")
+       "Load this .nvm file having interest point matches. See also ``--nvm-no-shift``. "
+       "The rig_calibrator program can create such files. This option implies "
+       "--pairwise-matches, --preview, and a larger value of " 
+       "--lowest-resolution-subimage-num-pixels.")
+      ("nvm-no-shift", po::bool_switch(&global.nvm_no_shift)->default_value(false)->implicit_value(true),
+       "Assume that the image features in the input nvm file were saved without "
+       "being shifted to be relative to the optical center of the camera.")
       ("zoom-proj-win", po::value(&global.zoom_proj_win)->default_value(BBox2(0,0,0,0), ""),
        "Zoom to this proj win on startup. It is assumed that the images are georeferenced. Also accessible from the View menu.")
       ("csv-format",     po::value(&global.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())

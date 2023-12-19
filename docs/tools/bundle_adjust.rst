@@ -344,11 +344,11 @@ Output files
 Control network
 ^^^^^^^^^^^^^^^
 
-By default, ``bundle_adjust`` will create interest point matches between pairs
-of images (see also ``--auto-overlap-params``). These matches are assembled into
-a *control network*, in which a triangulated point is associated with features in
-two or more images. The match files are saved with the specified output prefix
-and a ``.match`` extension. 
+By default, ``bundle_adjust`` will create interest point matches between all
+pairs of images (see also ``--auto-overlap-params``). These matches are
+assembled into a *control network*, in which a triangulated point is associated
+with features in two or more images. The match files are saved with the
+specified output prefix and a ``.match`` extension. 
 
 The naming convention for the match files is::
 
@@ -360,18 +360,17 @@ These files can be used later by other ``bundle_adjust`` or ``parallel_stereo``
 invocations, with the options ``--match-files-prefix`` and
 ``--clean-match-files-prefix``.
 
-This program can read and write the ISIS binary control network format,
-if invoked with the option ``--isis-cnet filename.net``. This allows handling a
+This program can read and write the ISIS binary control network format, if
+invoked with the option ``--isis-cnet filename.net``. This allows handling a
 very large number of images. 
 
 In this case, ``bundle_adjust`` will also write a version of this file, with the
-name ``<output prefix>.net``. The only change will be that the coordinates of
-the triangulated points will be updated, and some points may be marked as outliers
-(by setting the ``ignored`` and ``rejected`` flags). 
+name ``<output prefix>.net`` (instead of match files). The only change will be
+that the coordinates of the triangulated points will be updated, and some points
+may be marked as outliers (by setting the ``ignored`` and ``rejected`` flags). 
 
 To have different formats for the input and output control networks,
-use the option ``--output-cnet-type``, with values ``match-files``
-and ``isis-cnet``.  
+use the option ``--output-cnet-type``.  
 
 See also ASP's ``jigsaw`` tutorial (:numref:`jigsaw`).
  

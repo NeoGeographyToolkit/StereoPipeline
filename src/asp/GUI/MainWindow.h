@@ -15,34 +15,31 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file MainWindow.h
 ///
 ///
 #ifndef __STEREO_GUI_MAINWINDOW_H__
 #define __STEREO_GUI_MAINWINDOW_H__
 
-#include <QMainWindow>
-#include <string>
-#include <vector>
-
-// Boost
-#include <boost/program_options.hpp>
-
-#include <vw/Math/Vector.h>
-#include <vw/InterestPoint/InterestData.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/MatchList.h>
 #include <asp/GUI/GuiUtilities.h>
+
+#include <vw/Math/Vector.h>
+#include <vw/InterestPoint/InterestData.h>
+#include <vw/BundleAdjustment/ControlNetwork.h>
+
+#include <QMainWindow>
+
+#include <string>
+#include <vector>
+
 
 // Forward declarations
 class QAction;
 class QLabel;
 class QTabWidget;
 class QSplitter;
-namespace asp {
-  struct nvmData;
-}
 
 namespace vw { namespace gui {
 
@@ -211,9 +208,9 @@ namespace vw { namespace gui {
     asp::MatchList    m_matchlist;
     pairwiseMatchList m_pairwiseMatches;
     pairwiseMatchList m_pairwiseCleanMatches;
-    boost::shared_ptr<asp::nvmData> m_nvm;
+    vw::ba::ControlNetwork m_cnet;
     
-    int       m_editMatchPointVecIndex; ///< Point being edited
+    int m_editMatchPointVecIndex; ///< Point being edited
 
     int m_cursor_count;
 

@@ -35,6 +35,9 @@ namespace vw {
   namespace ip {
     class InterestPoint;
   }
+  namespace ba {
+    class ControlNetwork;
+  }
 
   namespace camera {
     class CameraModel;
@@ -92,6 +95,12 @@ void convergence_angles(vw::camera::CameraModel const * left_cam,
 // Find all match files stored on disk having this prefix
 void listExistingMatchFiles(std::string const& prefix,
                             std::set<std::string> & existing_files);
+
+// Given a pair of indicies, return all the matches between them.
+void matchesForPair(vw::ba::ControlNetwork const& cnet,
+                    int left_cid, int right_cid,
+                    std::vector<vw::ip::InterestPoint> & left_ip,
+                    std::vector<vw::ip::InterestPoint> & right_ip);
   
 } // End namespace asp
 
