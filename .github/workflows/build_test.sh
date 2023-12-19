@@ -107,7 +107,8 @@ make -j10 install > /dev/null 2>&1 # this is too verbose
 ans=$?
 if [ "$ans" -ne 0 ]; then
     echo "Error: StereoPipeline build failed"
-    exit 1
+    # Do not exit so we can save the build log
+    #exit 1
 fi
 
 # Log of the build, for inspection in case it fails
@@ -133,7 +134,8 @@ cd $packageDir
 tarBall=$(ls StereoPipeline-*.tar.bz2 | head -n 1)
 if [ "$tarBall" == "" ]; then
   echo Cannot find the packaged ASP tarball
-  exit 1
+  # Do not exit so we can save the build log
+  #exit 1
 fi
 tar xjfv $tarBall > /dev/null 2>&1 # this is verbose
 
