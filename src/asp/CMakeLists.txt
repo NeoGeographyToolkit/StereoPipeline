@@ -329,7 +329,7 @@ set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspSpiceIO AspIsisIO AspCamera)
 # ASP_GUI
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
-set(ASP_GUI_LIB_DEPENDENCIES AspCore Qt5::Core Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
+set(ASP_GUI_LIB_DEPENDENCIES AspCore AspCamera Qt5::Core Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
 
 # ASP_GOTCHA
 get_all_source_files( "Gotcha"       ASP_GOTCHA_SRC_FILES)
