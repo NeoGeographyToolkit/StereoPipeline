@@ -43,6 +43,7 @@ if [ 1 -eq 0 ]; then
   else 
     echo Fetching the build with id $id from the cloud 
     echo $gh run download -R $repo $id
+    /bin/rm -rf ssh-test-macOS # Must wipe this first, or else the download can fail
     $gh run download -R $repo $id
 
     # Must be careful with the line below. This comes from ssh.yml
