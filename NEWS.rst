@@ -105,6 +105,8 @@ image_calc (:numref:`image_calc`):
   * Added the ability to create a random image.
 
 isis
+  * Made the operation of projecting into a linescan camera 2.2-2.6 times
+    faster by using the secant method to find the best sensor line.
   * Expanded the ``jigsaw`` documentation (:numref:`jigsaw`). This is the 
     ISIS bundle adjustment tool. 
      

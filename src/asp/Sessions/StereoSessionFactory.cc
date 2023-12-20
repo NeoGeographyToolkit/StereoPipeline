@@ -279,7 +279,8 @@ namespace asp {
     else if (actual_session_type == "csmmaprpc")
       session = StereoSessionCsmMapRpc::construct();
     if (session == 0)
-      vw_throw(vw::NoImplErr() << "Unsupported stereo session type: " << actual_session_type);
+      vw_throw(vw::NoImplErr() << "Unsupported stereo session type: "
+               << actual_session_type);
 
     session->initialize(options,         // Initialize the new object
                         left_image_file,  right_image_file,

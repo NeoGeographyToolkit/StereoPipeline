@@ -337,6 +337,7 @@ int main(int argc, char *argv[]) {
         if (opt.print_per_pixel_results)
           vw_out() << "cam1 to cam2 pixel diff: " << image_pix - cam2_pix << std::endl;
 
+        // Turn CSM on and off and see the effect on the pixel
         if (opt.dg_vs_csm || opt.aster_vs_csm) {
           asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
           asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
@@ -382,7 +383,7 @@ int main(int argc, char *argv[]) {
     print_diffs("cam1 to cam2 pixel diff", cam1_to_cam2_diff);
     print_diffs("cam2 to cam1 pixel diff", cam2_to_cam1_diff);
     if (opt.dg_vs_csm || opt.aster_vs_csm)
-    print_diffs("no-csm vs csm pixel diff", nocsm_vs_csm_diff);
+    print_diffs("No-csm vs csm pixel diff", nocsm_vs_csm_diff);
 
     double elapsed_sec = sw.elapsed_seconds();
     vw_out() << "\nElapsed time per sample: " << 1e+6 * elapsed_sec/ctr_diff.size()

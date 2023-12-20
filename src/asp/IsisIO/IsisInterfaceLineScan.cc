@@ -15,10 +15,11 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+#include <asp/IsisIO/IsisInterfaceLineScan.h>
+
 #include <vw/Math/LevenbergMarquardt.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/CameraModel.h>
-#include <asp/IsisIO/IsisInterfaceLineScan.h>
 
 // Isis headers
 #include <Camera.h>
@@ -88,7 +89,6 @@ public:
   inline result_type operator()(domain_type const& x) const;
 };
 
-
 // LMA for projecting point to linescan camera
 EphemerisLMA::result_type
 EphemerisLMA::operator()(EphemerisLMA::domain_type const& x) const {
@@ -97,10 +97,10 @@ EphemerisLMA::operator()(EphemerisLMA::domain_type const& x) const {
   m_camera->setTime(Isis::iTime(x[0]));
 
   // Calculating the look direction in camera frame
-  Vector3 instru;
-  m_camera->instrumentPosition(&instru[0]);
-  instru *= 1000;  // Spice gives in km
-  Vector3 lookB = normalize(m_point - instru);
+  Vector3 instr_pos;
+  m_camera->instrumentPosition(&instr_pos[0]);
+  instr_pos *= 1000;  // Spice gives in km
+  Vector3 lookB = normalize(m_point - instr_pos);
   std::vector<double> lookB_copy(3);
   std::copy(lookB.begin(), lookB.end(), lookB_copy.begin());
   std::vector<double> lookJ = m_camera->bodyRotation()->J2000Vector(lookB_copy);
@@ -116,15 +116,66 @@ EphemerisLMA::operator()(EphemerisLMA::domain_type const& x) const {
   result_type result(1);
   // Not exactly sure about lineoffset .. but ISIS does it
   result[0] = m_focalmap->DetectorLineOffset() - m_focalmap->DetectorLine();
-
   return result;
 }
+
+// The secant method for solving the equation model(t) = 0 with given
+// absolute tolerance. Do not use a smaller tol than 1e-8, as this can
+// result in numerical instability for some high focal length and a junk
+// solution. This method does implement some safeguards against divergence. 
+// It is assumed that the model function takes as input and returns the output
+// as a Vector<double> of size 1.
+// Thoroughly validated with MOC, CTX, LRO NAC. Old LMA approach is commented
+// out.
+// TODO(oalexan1): Move this to a more general place and test with Earth cameras.
+namespace asp {
+template<class ModelT>
+double secant_method(ModelT const& model, double start, double tol) {
+      
+  Vector<double> t0(1), t1(1);
+  double dt = 0.1;
+  t0[0] = start;
+  t1[0] = start + dt;
+  Vector<double> f0 = model(t0);
+  Vector<double> f1 = model(t1);
+
+  // Do at most 10 iterations. This method usually converges in 5 iterations
+  // or less. If it does not converge, it is probably because there is a problem.
+  for (int i = 0; i < 10; i++) {
+    
+    // If the function is close to 0, or function values are too small,
+    // stop iterating, as bad things will happen.
+    if (std::abs(f1[0]) < tol || std::abs(f1[0] - f0[0]) < tol)
+      break;
+
+    // If the function is close to 0, but stops getting closer to it, that is
+    // a sign of divergence, most likely due to numerical precision issues.
+    // Stop iterating. Note how we use here a larger value than tol.
+    if (std::abs(f0[0]) < std::abs(f1[0]) && std::abs(f0[0]) < 100 * tol) {
+      f1 = f0;
+      t1 = t0;
+      break;
+    }
+    
+    Vector<double> t2(1);
+    t2[0] = t1[0] - f1[0]*(t1[0]-t0[0])/(f1[0]-f0[0]);
+    t0 = t1;
+    t1 = t2;
+    f0 = f1;
+    f1 = model(t1);
+  }
+
+  return t1[0];
+}
+} // end namespace asp
 
 Vector2
 IsisInterfaceLineScan::point_to_pixel(Vector3 const& point) const {
 
-#if 1
-   // First seed LMA with an ephemeris time in the middle of the image
+  // First seed LMA with an ephemeris time in the middle of the image
+  // TODO(oalexan1): Can create an affine function that fits a 
+  // ground location to best-guess ephemeris time. This is how
+  // it is done for CSM. This may save a few iterations.
   double middle = lines() / 2;
   m_detectmap->SetParent(1, m_alphacube.AlphaLine(middle));
   double start_e = m_camera->time().Et();
@@ -134,14 +185,18 @@ IsisInterfaceLineScan::point_to_pixel(Vector3 const& point) const {
   int status;
   Vector<double> objective(1), start(1);
   start[0] = start_e;
-  Vector<double> solution_e = math::levenberg_marquardt(model,
-                                                        start,
-                                                        objective,
-                                                        status);
+  objective[0] = 0;
 
-  // Make sure we found ideal time
-  VW_ASSERT(status > 0, vw::camera::PointToPixelErr()
-            << " Unable to project point into ISIS linescan camera ");
+  // Use the secant method to find the ideal time  
+  Vector<double> solution_e(1);
+  double tol = 1e-8; // Do not use a smaller tol to avoid numerical instability
+  solution_e[0] = asp::secant_method(model, start[0], tol);
+
+  // Old approach, based on LMA. About 2.2-2.6 times slower than secant method.
+  // solution_e = math::levenberg_marquardt(model, start, objective, status);
+  // // Make sure we found ideal time
+  // VW_ASSERT(status > 0, vw::camera::PointToPixelErr()
+  //           << " Unable to project point into ISIS linescan camera ");
 
   // Converting now to pixel
   m_camera->setTime(Isis::iTime(solution_e[0]));
@@ -173,20 +228,6 @@ IsisInterfaceLineScan::point_to_pixel(Vector3 const& point) const {
 
   pixel -= Vector2(1,1);
   return pixel;
-
-#else
-  // TODO(oalexan1): This code looks buggy. Need to set the height above ground too.
-  Vector3 llh = m_datum.cartesian_to_geodetic(point);
-  if (llh[0] < 0)
-    llh[0] += 360.0;
-  
-  if (!m_camera->SetGround(Isis::Latitude (llh[1], Isis::Angle::Degrees),
-                           Isis::Longitude(llh[0], Isis::Angle::Degrees)))
-    vw_throw(camera::PixelToRayErr() << "Failed in SetGround().");
-  
-  return Vector2(m_camera->Sample() - 1.0, m_camera->Line() - 1.0);
-#endif
-  
 }
 
 Vector3
