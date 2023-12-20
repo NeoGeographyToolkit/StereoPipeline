@@ -17,13 +17,15 @@ jitter_solve (:numref:`jitter_solve`):
   * Added an example for ASTER cameras (:numref:`jitter_aster`).
   * Added the option ``--weight-image``, to weigh observations based on
     geographic location of triangulated points (:numref:`limit_ip`).
+  * Can handle a linescan and frame camera rig (almost parallel rays) 
+    (:numref:`jitter_no_baseline`).
+  * Support reading the ISIS ``jigsaw`` binary control network
+    format (:numref:`jitter_ip`).
   * Can use anchor points with frame cameras.
   * Added ``--num-anchor-points-per-tile``. This helps when different
     images have different sizes but want to ensure the same point density.
   * Added the option ``--anchor-weight-image`` that is used to limit
     where anchor points are placed.
-  * Can handle a linescan and frame camera rig (almost parallel rays) 
-    (:numref:`jitter_no_baseline`).
   * The roll and yaw constraints no longer assume linescan camera positions and
     orientations are one-to-one. 
 

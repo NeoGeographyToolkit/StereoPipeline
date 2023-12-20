@@ -180,7 +180,7 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
     // Apply the residual limits
     size_t num_limits = opt.intrinsics_limits.size() / 2;
     if ((num_limits > 0) && (num_limits > wrapper->num_intrinsic_params())) {
-      vw::vw_throw( vw::ArgumentErr() << "Error: Too many intrinsic limits provided!"
+      vw::vw_throw(vw::ArgumentErr() << "Error: Too many intrinsic limits provided!"
         << " This model has " << wrapper->num_intrinsic_params() << " intrinsic parameters.");
     }
     size_t intrinsics_index = 0;
@@ -334,8 +334,8 @@ void compute_residuals(bool apply_loss_function,
   num_expected_residuals += reference_vec.size() * PIXEL_SIZE;
   
   if (num_expected_residuals != num_residuals)
-    vw_throw( LogicErr() << "Expected " << num_expected_residuals
-                         << " residuals but instead got " << num_residuals);
+    vw_throw(LogicErr() << "Expected " << num_expected_residuals
+                        << " residuals but instead got " << num_residuals);
 }
 
 /// Compute residual map by averaging all the reprojection error at a given point
@@ -411,10 +411,10 @@ void write_residual_map(std::string const& output_prefix,
     return;
   }
   if (mean_residuals.size() != param_storage.num_points())
-    vw_throw( LogicErr() << "Point count mismatch in write_residual_map().\n");
+    vw_throw(LogicErr() << "Point count mismatch in write_residual_map().\n");
 
   if (cnet.size() != param_storage.num_points()) 
-    vw_throw( LogicErr()
+    vw_throw(LogicErr()
               << "The number of stored points "
               << "does not agree with number of points in cnet.\n");
   
@@ -2660,25 +2660,31 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.reference_terrain != "") {
     std::string file_type = asp::get_cloud_type(opt.reference_terrain);
     if (file_type == "CSV" && opt.csv_format_str == "") 
-      vw_throw( ArgumentErr() << "When using a csv reference terrain, "
-                              << "must specify the csv-format.\n");
+      vw_throw(ArgumentErr()
+               << "When using a csv reference terrain, "
+               << "must specify the csv-format.\n");
     if (opt.datum_str == "")
-      vw_throw( ArgumentErr() << "When using a reference terrain, must specify the datum.\n");
+      vw_throw(ArgumentErr() 
+               << "When using a reference terrain, must specify the datum.\n");
     if (opt.disparity_list == "") 
-      vw_throw( ArgumentErr() << "When using a reference terrain, must specify a list "
-                              << "of disparities.\n");
+      vw_throw(ArgumentErr() 
+               << "When using a reference terrain, must specify a list "
+               << "of disparities.\n");
     if (opt.max_disp_error <= 0) 
-      vw_throw( ArgumentErr() << "Must specify --max-disp-error in pixels as a positive value.\n");
+      vw_throw(ArgumentErr() 
+               << "Must specify --max-disp-error in pixels as a positive value.\n");
     if (opt.reference_terrain_weight < 0) 
       vw_throw( ArgumentErr() << "The value of --reference-terrain-weight must be non-negative.\n");
   }
 
   if (opt.match_files_prefix != "" && opt.clean_match_files_prefix != "") 
-    vw_throw( ArgumentErr()
-              << "Cannot specify both --match-files-prefix and --clean-match-files-prefix.\n");
+    vw_throw(ArgumentErr()
+              << "Cannot specify both --match-files-prefix and " 
+              << "--clean-match-files-prefix.\n");
 
   if (int(opt.proj_win != BBox2(0, 0, 0, 0)) + int(!opt.proj_str.empty()) == 1)
-    vw_throw(ArgumentErr() << "Must specify both or neither of --proj-win and --proj-str.\n");
+    vw_throw(ArgumentErr() 
+             << "Must specify both or neither of --proj-win and --proj-str.\n");
 
   if (int(opt.transform_cameras_using_gcp) +
       int(opt.transform_cameras_with_shared_gcp) +

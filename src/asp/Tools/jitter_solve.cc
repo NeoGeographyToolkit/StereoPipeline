@@ -31,6 +31,7 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Camera/BundleAdjustIsis.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveUtils.h>
 #include <asp/Camera/LinescanUtils.h>
@@ -108,6 +109,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use the match files from this prefix instead of the current output prefix.")
     ("clean-match-files-prefix",  po::value(&opt.clean_match_files_prefix)->default_value(""),
      "Use as input match files the *-clean.match files from this prefix.")
+    ("isis-cnet", po::value(&opt.isis_cnet)->default_value(""),
+     "Read a control network having interest point matches from this binary file "
+     "in the ISIS jigsaw format. This can be used with any images and cameras "
+     "supported by ASP.")
     ("min-matches", po::value(&opt.min_matches)->default_value(30),
      "Set the minimum  number of matches between images that will be considered.")
     ("max-pairwise-matches", po::value(&opt.max_pairwise_matches)->default_value(10000),
@@ -291,9 +296,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.overlap_limit == 0)
     opt.overlap_limit = opt.image_files.size();
   
-  if (int(opt.match_files_prefix.empty()) + int(opt.clean_match_files_prefix.empty()) != 1) 
+  if (int(!opt.match_files_prefix.empty()) + int(!opt.clean_match_files_prefix.empty())
+      + int(!opt.isis_cnet.empty()) != 1) 
     vw_throw(ArgumentErr() << "Must specify precisely one of: --match-files-prefix, "
-             << "--clean-match-files-prefix.\n");
+             << "--clean-match-files-prefix, --isis-cnet.\n");
 
   if (opt.max_init_reproj_error <= 0.0)
     vw_throw(ArgumentErr() << "Must have a positive --max-initial-reprojection-error.\n");
@@ -1685,31 +1691,38 @@ void run_jitter_solve(int argc, char* argv[]) {
     match_files[std::make_pair(i, j)] = match_file;
   }
   
-  if (match_files.empty())
+  if (match_files.empty() && opt.isis_cnet.empty())
     vw_throw(ArgumentErr() 
-             << "No match files were found. Check if your match "
+             << "No match files or ISIS cnet found. Check if your match "
              << "files exist and if they satisfy the naming convention "
              << "<prefix>-<image1>__<image2>.match.\n");
 
   // Build control network and perform triangulation with adjusted input cameras
   ba::ControlNetwork cnet("jitter_solve");
-  bool triangulate_control_points = true;
-  bool success = vw::ba::build_control_network(triangulate_control_points,
-                                               cnet, // output
-                                               opt.camera_models, opt.image_files,
-                                               match_files, opt.min_matches,
-                                               opt.min_triangulation_angle*(M_PI/180.0),
-                                               opt.forced_triangulation_distance,
-                                               opt.max_pairwise_matches);
-  if (!success)
-    vw::vw_throw(vw::ArgumentErr()
-             << "Failed to build a control network. Check the bundle adjustment directory "
-             << "for matches and if the match files satisfy the naming convention. "
-             << "Or, consider removing all .vwip and "
-             << ".match files and increasing the number of interest points "
-             << "using --ip-per-image or --ip-per-tile, or decreasing --min-matches, "
-             << "and then re-running bundle adjustment.\n");
-
+  if (opt.isis_cnet != "") {
+    asp::IsisCnetData isisCnetData; // isis cnet (if loaded)
+    vw::vw_out() << "Reading ISIS control network: " << opt.isis_cnet << "\n";
+    asp::loadIsisCnet(opt.isis_cnet, opt.image_files,
+                      cnet, isisCnetData); // outputs
+  } else {
+    bool triangulate_control_points = true;
+    bool success = vw::ba::build_control_network(triangulate_control_points,
+                                                cnet, // output
+                                                opt.camera_models, opt.image_files,
+                                                match_files, opt.min_matches,
+                                                opt.min_triangulation_angle*(M_PI/180.0),
+                                                opt.forced_triangulation_distance,
+                                                opt.max_pairwise_matches);
+    if (!success)
+      vw::vw_throw(vw::ArgumentErr()
+              << "Failed to build a control network. Check the bundle adjustment directory "
+              << "for matches and if the match files satisfy the naming convention. "
+              << "Or, consider removing all .vwip and "
+              << ".match files and increasing the number of interest points "
+              << "using --ip-per-image or --ip-per-tile, or decreasing --min-matches, "
+              << "and then re-running bundle adjustment.\n");
+  }
+  
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   vw::ba::CameraRelationNetwork<vw::ba::JFeature> crn;
   crn.from_cnet(cnet);

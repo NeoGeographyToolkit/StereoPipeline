@@ -168,6 +168,12 @@ The dense interest point matches need to be copied from each output stereo direc
 to a location and with a naming convention such that they can be used
 by ``jitter_solve``. That is illustrated in :numref:`jitter_dg`.
 
+This program can read interest point matches in the ISIS control network format,
+using the option ``--isis-cnet``. See :numref:`ba_out_files` in the the
+``bundle_adjust``  manual for more details about control networks and this
+format. Unlike that program, ``jitter_solve`` does not save an updated control
+network, as this tool changes the triangulated points only in very minor ways.
+
 .. _jitter_ctx:
 
 Example 1: CTX images on Mars
@@ -1696,11 +1702,16 @@ Command-line options for jitter_solve
 --match-files-prefix <string (default: "")>
     Use the match files from this prefix. Matches are typically dense
     ones produced by stereo or sparse ones produced by bundle
-    adjustment.
+    adjustment. See also ``--isis-cnet``.
 
 --clean-match-files-prefix <string (default: "")>
     Use as input match files the \*-clean.match files from this
     prefix.
+
+--isis-cnet <string (default: "")>
+    Read a control network having interest point matches from this binary file
+    in the ISIS control network format. This can be used with any images and
+    cameras supported by ASP.
 
 --max-initial-reprojection-error <integer (default: 10)> 
     Filter as outliers triangulated points project using initial cameras with 
