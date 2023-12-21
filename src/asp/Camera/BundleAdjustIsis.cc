@@ -98,6 +98,8 @@ void loadIsisCnet(std::string const& isisCnetFile,
 
   // Report any ISIS-related surface points as lat/lon/radius, which is
   // the jigsaw default.
+  // This should not matter as when points are later queried we explicitly
+  // ask for ECEF coordinates (rectangular).
   Isis::SurfacePoint::CoordinateType coord_type = Isis::SurfacePoint::Latitudinal;
 
   // Read the ISIS control network
@@ -105,6 +107,10 @@ void loadIsisCnet(std::string const& isisCnetFile,
   Isis::Progress progress;
   icnet = Isis::ControlNetQsp(new Isis::ControlNet(qCnetFile, &progress, coord_type));
   
+  // We will not reset the points rejected by jigsaw. Keep them rejected.
+  // We won't even bother to read them into ASP. Such a points are tiny
+  // minority, unlikely to have any effect. 
+    
   // Create the map from image serial number to image index
   std::vector<std::string> serialNumbers;
   readSerialNumbers(image_files, serialNumbers);
@@ -122,6 +128,7 @@ void loadIsisCnet(std::string const& isisCnetFile,
   // Add the control points
   int numControlPoints = icnet->GetNumPoints();
   int aspControlPointId = 0;
+  int numSemiFree = 0, numConstrained = 0, numFixed = 0;
   for (int i = 0; i < numControlPoints; i++) {
 
     Isis::ControlPoint *point = icnet->GetPoint(i);
@@ -133,22 +140,62 @@ void loadIsisCnet(std::string const& isisCnetFile,
     if (point->IsIgnored() || point->IsRejected())
       continue;
 
-    // Triangulated point  
+    // Triangulated point and apriori point
     Isis::SurfacePoint P = point->GetAdjustedSurfacePoint();
-
-    // Treat, for now, constrained points as free points. Only flag
-    // fixed points as GCPs.
-    vw::ba::ControlPoint cpoint(vw::ba::ControlPoint::TiePoint); // free
-    if (point->GetType() == Isis::ControlPoint::Constrained) {
-    } else if (point->GetType() == Isis::ControlPoint::Free) {
-    } else if (point->GetType() == Isis::ControlPoint::Fixed) {
-      cpoint.set_type(vw::ba::ControlPoint::GroundControlPoint); // gcp
-    }
+    Isis::SurfacePoint A = point->GetAprioriSurfacePoint();
     
-    // Set point position. 
-    // TODO(oalexan1): Must set the point sigma. For now it is 1.0.
-    vw::Vector3 ecef(P.GetX().meters(), P.GetY().meters(), P.GetZ().meters());
-    cpoint.set_position(ecef);
+    // Set the cnet tri point to the prior point. The surface point
+    // will be triangulated by bundle_adjust.
+    // By default, a point is free, and its sigma is nominal and will not be
+    // used. Will adjust below for constrained and fixed points.
+    // TODO(oalexan1): It is not clear if the prior point always exists
+    // Check with the jigsaw code.
+    vw::ba::ControlPoint cpoint(vw::ba::ControlPoint::TiePoint); // free
+    vw::Vector3 a(A.GetX().meters(), A.GetY().meters(), A.GetZ().meters());
+    cpoint.set_position(a);
+
+    // Set sigma. This will be used only for constrained points. 
+    // For free points sometimes these are positive, but sometimes not.
+    double xs = A.GetXSigma().meters();
+    double ys = A.GetYSigma().meters();
+    double zs = A.GetZSigma().meters();
+    cpoint.set_sigma(vw::Vector3(xs, ys, zs));
+
+    // std::cout << "priori xs ys zs = " << xs << ' ' << ys << ' ' << zs << std::endl;
+    // // Do same for the adjusted surface point
+    // double px = P.GetXSigma().meters();
+    // double py = P.GetYSigma().meters();
+    // double pz = P.GetZSigma().meters();
+    // std::cout << "adjusted px py pz = " << px << ' ' << py << ' ' << pz << std::endl;
+
+    // The actual surface point will not be used    
+    // vw::Vector3 p(P.GetX().meters(), P.GetY().meters(), P.GetZ().meters());
+
+    if (point->GetType() == Isis::ControlPoint::Constrained) {
+      
+      // Treat partially constrained points as unconstrained.
+      int numConstr = int(point->IsCoord1Constrained()) +
+                      int(point->IsCoord2Constrained()) +
+                      int(point->IsCoord3Constrained());
+      if (numConstr < 3) {
+        numSemiFree++;
+      } else {
+        // Fully constrained point
+        numConstrained++;
+        if (xs <= 0 || ys <= 0 || zs <= 0) 
+          vw_throw(vw::ArgumentErr() << "loadIsisCnet: ISIS constrained point with index "
+                    << i << " has a non-positive sigma.\n");
+        // Set as gcp, but with given sigma, rather than tiny sigma.
+        cpoint.set_type(vw::ba::ControlPoint::GroundControlPoint); // gcp
+      }
+    } else if (point->GetType() == Isis::ControlPoint::Free) {
+       // Nothing to do here. The point and sigma is already set. 
+    } else if (point->GetType() == Isis::ControlPoint::Fixed) {
+      numFixed++;
+      cpoint.set_type(vw::ba::ControlPoint::GroundControlPoint); // gcp
+      double s = asp::FIXED_GCP_SIGMA; // Later will keep fixed
+      cpoint.set_sigma(vw::Vector3(s, s, s));
+    }
     
     int numMeasures = point->GetNumMeasures();
     for (int j = 0; j < numMeasures; j++) {
@@ -191,6 +238,16 @@ void loadIsisCnet(std::string const& isisCnetFile,
     }
   }    
 
+  if (numSemiFree > 0)
+    vw::vw_out(vw::WarningMessage) 
+      << "loadIsisCnet: Treating " << numSemiFree
+      << " partially constrained points as unconstrained.\n"; 
+  if (numConstrained > 0)
+    vw::vw_out() << "loadIsisCnet: Found " << numConstrained
+                 << " constrained points. Treated as GCP with given sigma.\n";
+  if (numFixed > 0)
+    vw::vw_out() << "loadIsisCnet: Found " << numFixed
+                 << " fixed points. Treated as fixed GCP.\n";
   return;    
 }
 
@@ -324,6 +381,12 @@ void saveIsisCnet(std::string const& outputPrefix,
     point->SetRejected(false);
     point->SetIgnored(false);
     
+    // Must handle constrained point!
+    // TODO(oalexan1): Must add gcp!
+    // TODO(oalexan1): Must set the a priori point!
+    // must set sigma for surface point and for apriori point
+    // Must set sigma for measures!
+    // if cnet is modified, must make sure crn is updated!
     // For now, no constrained points are supported
     if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint) 
       point->SetType(Isis::ControlPoint::Fixed);
@@ -350,7 +413,7 @@ void saveIsisCnet(std::string const& outputPrefix,
       // Must add 0.5 to the ASP measure to get the ISIS measure
       double col = m_iter->position()[0] - ISIS_CNET_TO_ASP_OFFSET;
       double row = m_iter->position()[1] - ISIS_CNET_TO_ASP_OFFSET;
-      
+      // Set the measure sigma?
       Isis::ControlMeasure *measurement = new Isis::ControlMeasure();
       measurement->SetCoordinate(col, row, Isis::ControlMeasure::RegisteredSubPixel);
       measurement->SetType(Isis::ControlMeasure::RegisteredSubPixel);
