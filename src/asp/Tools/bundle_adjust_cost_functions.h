@@ -736,12 +736,19 @@ struct BaDispXyzError {
 /// xyz_sigma. Used only for ground control points or with --tri-weight.
 struct XYZError {
   XYZError(Vector3 const& observation, Vector3 const& xyz_sigma):
-    m_observation(observation), m_xyz_sigma(xyz_sigma){}
+    m_observation(observation), m_xyz_sigma(xyz_sigma) {
+      bool is_good = (xyz_sigma[0] > 0 && xyz_sigma[1] > 0 && xyz_sigma[2] > 0);
+      if (!is_good) {
+        // This will also cover NaNs
+        vw_throw(ArgumentErr() << "XYZError: Invalid xyz_sigma: "
+                 << xyz_sigma << ". All values must be positive.\n");
+      }
+    }
 
   template <typename T>
   bool operator()(const T* point, T* residuals) const {
     for (size_t p = 0; p < m_observation.size(); p++)
-      residuals[p] = (point[p] - m_observation[p])/m_xyz_sigma[p]; // Input units are meters
+      residuals[p] = (point[p] - m_observation[p])/m_xyz_sigma[p]; // Units are meters
 
     return true;
   }

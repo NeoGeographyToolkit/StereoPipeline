@@ -420,13 +420,19 @@ void read_image_cam_lists(std::string const& image_list,
   // See if there comma-separated lists passed in the image list
   if (image_list.find(",") == std::string::npos && 
       camera_list.find(",") == std::string::npos) {
-    // No such thing, so just read the lists as usual    
+    // Single list, so just read the lists as usual, and return
     asp::read_list(image_list, images_or_cams);
-    std::vector<std::string> tmp;
-    asp::read_list(camera_list, tmp);
-    for (size_t it = 0; it < tmp.size(); it++) 
-    images_or_cams.push_back(tmp[it]);
-
+    if (camera_list.empty()) {
+      // This is usual for ISIS cameras.
+      vw_out() << "An image list was provided but not a camera list.\n";
+    } else {
+      std::vector<std::string> cams;
+      asp::read_list(camera_list, cams);
+      if (images_or_cams.size() != cams.size())
+        vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
+      for (size_t it = 0; it < cams.size(); it++) 
+      images_or_cams.push_back(cams[it]);
+    }
     return;
   }
   

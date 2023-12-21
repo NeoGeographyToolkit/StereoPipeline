@@ -51,6 +51,9 @@ struct BAParams;
 // Use this struct to collect all the data needed to handle an ISIS cnet.
 struct IsisCnetData {
   Isis::ControlNetQsp isisCnet;
+  std::set<int> isisOutliers; // rejected or ignored points are flagged as outliers
+  // TODO(oalexan1): Will no longer need isisToAspControlPointId, as they will
+  // be one-to-one. 
   std::map<int, int> isisToAspControlPointId;
   
   IsisCnetData() {

@@ -260,7 +260,7 @@ public:
   /// Return the number of points flagged as outliers.
   int get_num_outliers() const {
     int count = 0;
-    for (size_t i=0; i<m_num_points; i++) {
+    for (size_t i = 0; i < m_num_points; i++) {
       if (m_outlier_points_vec[i])
         ++count;
     }
@@ -271,7 +271,7 @@ public:
   vw::Vector3 get_point(int point_index)  const{
     double const* ptr = get_point_ptr(point_index);
     vw::Vector3 pt;
-    for (int i=0; i<3; i++)
+    for (int i = 0; i < 3; i++)
       pt[i] = ptr[i];
     return pt;
   }
@@ -279,12 +279,13 @@ public:
   /// Update the values for a point
   void set_point(int point_index, vw::Vector3 const& pt) {
     double* ptr = get_point_ptr(point_index);
-    for (int i=0; i<3; i++)
+    for (int i = 0; i < 3; i++)
       ptr[i] = pt[i];
   }
 
   /// Print stats for optimized ground control points.
-  void print_gcp_stats(vw::ba::ControlNetwork const& cnet,
+  void print_gcp_stats(std::string const& out_prefx, 
+                       vw::ba::ControlNetwork const& cnet,
                        vw::cartography::Datum const& d) const;
 
   /// Create a KML file containing the positions of the given points.

@@ -286,31 +286,47 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
 }
 
 /// Print stats for optimized ground control points.
-void asp::BAParams::print_gcp_stats(vw::ba::ControlNetwork const& cnet,
+void asp::BAParams::print_gcp_stats(std::string const& out_prefix,
+                                    vw::ba::ControlNetwork const& cnet,
                                     vw::cartography::Datum const& d) const {
-  vw::vw_out() << "Ground control point results:\n";
-  vw::vw_out() << "input_gcp optimized_gcp diff\n";
+
+  std::string gcp_report = out_prefix + "-gcp-report.txt";
+  vw::vw_out() << "Writing: " << gcp_report << std::endl;
+  
+  std::ofstream gfs(gcp_report.c_str());
+  gfs.precision(17); 
+
+  gfs << "# Ground control point report\n";
+  // TODO(oalexan1): Print this to report file! Compare with existing report!
+  gfs << "# input_gcp optimized_gcp diff\n";
+  
+  int gcp_count = 0;
   for (int ipt = 0; ipt < num_points(); ipt++) {
+  
     if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint)
       continue;
+  
     if (get_point_outlier(ipt))
       continue; // skip outliers
 
     vw::Vector3 input_gcp = cnet[ipt].position();
     vw::Vector3 opt_gcp   = get_point(ipt);
-
-    vw::vw_out() << "xyz: " << input_gcp << ' ' << opt_gcp << ' '
-                  << input_gcp - opt_gcp << std::endl;
+  
+    gfs << "GCP count: " << gcp_count << std::endl;
+    gfs << "ECEF: " << input_gcp << ' ' << opt_gcp << ' '
+        << input_gcp - opt_gcp << std::endl;
 
     // Now convert to llh
     input_gcp = d.cartesian_to_geodetic(input_gcp);
     opt_gcp   = d.cartesian_to_geodetic(opt_gcp);
 
-    vw::vw_out() << "llh: " << input_gcp << ' ' << opt_gcp << ' '
-                  << input_gcp - opt_gcp << std::endl;
+    gfs << "Lon-lat-height: " << input_gcp << ' ' << opt_gcp << ' '
+       << input_gcp - opt_gcp << std::endl;
+    vw_out() << "\n";                  
+    gcp_count++;
   }
+  gfs.close();
 }
-
 
 void asp::BAParams::record_points_to_kml(const std::string &kml_path,
                                          const vw::cartography::Datum& datum,
@@ -1654,6 +1670,13 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
         orig_left_ip.push_back(vw::ip::InterestPoint(std::get<0>(q), std::get<1>(q), s));
         orig_right_ip.push_back(vw::ip::InterestPoint(std::get<2>(q), std::get<3>(q), s));
       }
+      
+      // Write the matches formed from the cnet to disk
+      if (opt.output_cnet_type == "match-files") {
+        vw::vw_out() << "Writing: " << match_file << std::endl;
+        vw::ip::write_binary_match_file(match_file, orig_left_ip, orig_right_ip);
+      }
+      
     } else {
       // Read existing matches. Skip over match files that don't exist.
       if (!boost::filesystem::exists(match_file)) {
@@ -1680,11 +1703,9 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                        // Will append to entities below
                        convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
                        horizVertErrors);
-      
       // Since no outliers are removed, nothing else to do
       continue;
     }
-
     // Keep only inliers and non-gcp. GCP are used in optimization but are not
     // part of the originally found interest point matches.
     std::vector<vw::ip::InterestPoint> left_ip, right_ip;
@@ -1757,7 +1778,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     
     vw_out() << "Saving " << left_ip.size() << " filtered interest points.\n";
     vw_out() << "Writing: " << clean_match_file << std::endl;
-    ip::write_binary_match_file(clean_match_file, left_ip, right_ip);
+    vw::ip::write_binary_match_file(clean_match_file, left_ip, right_ip);
 
   } // End loop through the match files
 }

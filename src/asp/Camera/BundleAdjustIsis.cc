@@ -128,11 +128,20 @@ void loadIsisCnet(std::string const& isisCnetFile,
   // Add the control points
   int numControlPoints = icnet->GetNumPoints();
   int aspControlPointId = 0;
-  int numSemiFree = 0, numConstrained = 0, numFixed = 0;
+  int numSemiFree = 0, numConstrained = 0, numFixed = 0, numRejected = 0, numIgnored = 0;
   for (int i = 0; i < numControlPoints; i++) {
 
     Isis::ControlPoint *point = icnet->GetPoint(i);
     
+    if (point->IsIgnored()) {
+      numIgnored++;
+      //std::cout << "loadIsisCnet: ISIS point " << i << " is ignored.\n";
+    }
+    if (point->IsRejected()) {
+      numRejected++;
+      //std::cout << "loadIsisCnet: ISIS point " << i << " is rejected.\n";
+    }
+      
     // Do not add outliers to the ASP cnet. This makes the ASP cnet
     // be out of sync with the ISIS cnet. Later, the ASP cnet may also
     // have GCP, so new points. To keep track of all that, later
@@ -248,6 +257,15 @@ void loadIsisCnet(std::string const& isisCnetFile,
   if (numFixed > 0)
     vw::vw_out() << "loadIsisCnet: Found " << numFixed
                  << " fixed points. Treated as fixed GCP.\n";
+  if (numRejected > 0)
+    vw::vw_out() << "loadIsisCnet: Found " << numRejected
+                 << " rejected points. Will be treated as outliers.\n";
+  if (numIgnored > 0)
+    vw::vw_out() << "loadIsisCnet: Found " << numIgnored
+                 << " ignored points. Will be treated as outliers.\n";
+                 
+  vw::vw_out() << "Loaded " << cnet.size() << " control points.\n";
+  
   return;    
 }
 

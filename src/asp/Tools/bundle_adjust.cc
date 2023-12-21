@@ -1081,6 +1081,9 @@ int do_ba_ceres_one_pass(Options             & opt,
           if (opt.heights_from_dem_weight <= 0) {
             // Fix it
             problem.SetParameterBlockConstant(point);
+            double s = asp::FIXED_GCP_SIGMA;
+            // TODO(oalexan1): This must be tested.
+            cnet[ipt].set_sigma(Vector3(s, s, s));
           } else {
             // Let it float. Later a constraint will be added.
             double s = 1.0/opt.heights_from_dem_weight;
@@ -1090,6 +1093,9 @@ int do_ba_ceres_one_pass(Options             & opt,
         } else if (opt.ref_dem != "") {
           if (opt.ref_dem_weight <= 0) {
             // Fix it
+            double s = asp::FIXED_GCP_SIGMA;
+            cnet[ipt].set_sigma(Vector3(s, s, s));
+            // TODO(oalexan1): This must be tested.
             problem.SetParameterBlockConstant(point);
           } else {
             // Let it float. Later a constraint will be added.
@@ -1179,9 +1185,15 @@ int do_ba_ceres_one_pass(Options             & opt,
     problem.AddResidualBlock(cost_function, loss_function, point);
 
     num_gcp_or_dem_residuals++;
-
-    if (opt.fix_gcp_xyz) 
+    
+    // Points whose sigma is FIXED_GCP_SIGMA (a tiny positive value are set to fixed)
+    // TODO(oalexan1): This must be tested.
+    double s = asp::FIXED_GCP_SIGMA;
+    if (opt.fix_gcp_xyz || xyz_sigma == vw::Vector3(s, s, s)) {
+      // TODO(oalexan1): Must set in the cnet too
       problem.SetParameterBlockConstant(point);
+    }
+      
   } // End loop through GCP's
 
   // Add camera constraints
@@ -1372,7 +1384,6 @@ int do_ba_ceres_one_pass(Options             & opt,
       cnet.write_in_gcp_format(cnet_file, opt.datum);
     }
     
-    
     std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     vw_out() << "Writing initial condition files." << std::endl;
@@ -1455,10 +1466,9 @@ int do_ba_ceres_one_pass(Options             & opt,
   param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip, 
                                      "final_points", url);
   
-  // Print the stats for GCP
-  // TODO(oalexan1): This should go to a file
+  // Write the GCP stats to a file
   if (num_gcp > 0) 
-    param_storage.print_gcp_stats(cnet, opt.datum);
+    param_storage.print_gcp_stats(opt.out_prefix, cnet, opt.datum);
 
   // Outlier filtering
   bool remove_outliers = (opt.num_ba_passes > 1);
@@ -1564,8 +1574,11 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                 << "Will continue if ground control points are present.\n";
       }
     }
-    vw_out() << "Loading GCP files.\n";
+  }
+
+  if (!opt.gcp_files.empty()) {
     num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
+    vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
   }
   
   // If we change the cameras, we must rebuild the control network
@@ -2040,9 +2053,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("image-list", po::value(&opt.image_list)->default_value(""),
      "A file containing the list of images, when they are too many to specify on the command line. Use space or newline as separator. See also --camera-list and --mapprojected-data-list.")
     ("camera-list", po::value(&opt.camera_list)->default_value(""),
-     "A file containing the list of cameras, when they are too many to specify on the command "
-     "line. If the images have embedded camera information, such as for ISIS, this file must "
-     "be empty but must be specified if --image-list is specified.")
+     "A file containing the list of cameras, when they are too many to specify on "
+     "the command. If the images have embedded camera information, such as for ISIS, "
+     "this file may be omitted.")
     ("mapprojected-data-list", po::value(&opt.mapprojected_data_list)->default_value(""),
      "A file containing the list of mapprojected images and the DEM (see --mapprojected-data), when they are too many to specify on the command line.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
@@ -2222,11 +2235,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Handle the situation when the images and cameras are in lists
   std::vector<std::string> images_or_cams = opt.image_files;
-  if (!opt.image_list.empty() || !opt.camera_list.empty()) {
+  if (!opt.image_list.empty()) {
     // Read the images and cameras and put them in 'images_or_cams' to be parsed later
-    if (opt.image_list.empty() || opt.camera_list.empty())
-      vw_throw(ArgumentErr()
-               << "Must have both or neither of --image-list and --camera-list.\n");
     if (!images_or_cams.empty())
       vw_throw(ArgumentErr() << "The option --image-list was specified, but also "
                << "images or cameras on the command line.\n");
@@ -2237,10 +2247,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
 
   // Sanity checks
-  if (!opt.mapprojected_data_list.empty() &&
-      (opt.image_list.empty() || opt.camera_list.empty()))
+  if (!opt.mapprojected_data_list.empty() && opt.image_list.empty())
     vw_throw(ArgumentErr() << "Found --mapprojected-data-list, "
-             << "but not --image-list or --camera-list.\n");
+             << "but not --image-list.\n");
   if (!opt.mapprojected_data.empty() && !opt.mapprojected_data_list.empty())
     vw_throw(ArgumentErr() << "Cannot specify both --mapprojected-data and "
              << "--mapprojected-data-list.\n");
@@ -2266,8 +2275,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.dg_use_csm = true;
   
   if (opt.image_files.empty())
-    vw_throw( ArgumentErr() << "Missing input image files.\n"
-                            << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing input image files.\n");
 
   // Reusing match files implies that we skip matching
   if (opt.clean_match_files_prefix != "" || opt.match_files_prefix != "")
