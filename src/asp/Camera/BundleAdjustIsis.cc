@@ -284,7 +284,7 @@ void loadIsisCnet(std::string const& isisCnetFile,
       << " partially constrained points as unconstrained.\n"; 
   if (numConstrained > 0)
     vw::vw_out() << "loadIsisCnet: Found " << numConstrained
-                 << " constrained points. Use as as GCP with given sigma.\n";
+                 << " constrained points. Use as GCP with given sigma.\n";
   if (numFixed > 0)
     vw::vw_out() << "loadIsisCnet: Found " << numFixed
                  << " fixed points. Use as fixed GCP.\n";
@@ -513,8 +513,6 @@ void saveIsisCnet(std::string const& outputPrefix,
                   vw::ba::ControlNetwork const& cnet,
                   asp::BAParams const& param_storage) {
   
-  // TODO(oalexan1): Must test with external GCP (fixed and constrained)
-                    
   // Sanity check
   if (param_storage.num_points() != cnet.size())
     vw::vw_throw(vw::ArgumentErr() 

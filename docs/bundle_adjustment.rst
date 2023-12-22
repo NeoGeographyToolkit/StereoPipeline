@@ -1362,13 +1362,21 @@ be flagged as ignored and rejected on output.
 Partially constrained points will be treated as free points during the
 optimization, but the actual flags will be preserved on saving.
 
-If ``bundle_adjust`` is invoked with GCP files, the GCP will be appended to the
-ISIS control network as well and then saved to the same file. These points will
-be treated as constrained (with provided sigmas and a priori values), unless the
-sigmas are set to the precise value of 1e-10, or when the flag ``--fix-gcp-xyz``
-is used, in which case they will be treated as fixed both during optimization
-and when saving to the ISIS control network file. (For a small value of sigma,
-GCP are practically fixed in either case.)
+Control measure sigmas are read and written back. If not set in the input file,
+they will be assigned the value 1.0 by ``bundle_adjust``, and it is this value
+that will be saved. 
+
+Pixel measurements will have 0.5 subtracted on input, and then added back on
+output. 
+
+If ``bundle_adjust`` is invoked with GCP files specified separately in ASP's GCP
+format, the GCP will be appended to the ISIS control network and then saved
+together with it. These points will be treated as constrained (with provided
+sigmas and a priori surface values), unless the sigmas are set to the precise
+value of 1e-10, or when the flag ``--fix-gcp-xyz`` is used, in which case they
+will be treated as fixed both during optimization and when saving to the ISIS
+control network file. (For a small value of sigma, GCP are practically fixed in
+either case.)
 
 Using the ``bundle_adjust`` options ``--initial-transform`` and
 ``--input-adjustments-prefix`` will force the recomputation of a priori points

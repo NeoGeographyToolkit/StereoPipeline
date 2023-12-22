@@ -994,7 +994,7 @@ Command-line options for bundle_adjust
 --save-cnet-as-csv
     Save the initial control network containing all interest points
     in the format used by ground control points, so it can be
-    inspected.
+    inspected. The triangulated points are before optimization.
 
 --camera-positions <filename>
     CSV file containing estimated positions of each camera. Only

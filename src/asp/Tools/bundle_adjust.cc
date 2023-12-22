@@ -1082,7 +1082,7 @@ int do_ba_ceres_one_pass(Options             & opt,
             // Fix it
             problem.SetParameterBlockConstant(point);
             double s = asp::FIXED_GCP_SIGMA;
-            // TODO(oalexan1): This must be tested.
+            // Set the sigma so that we know it is fixed
             cnet[ipt].set_sigma(Vector3(s, s, s));
           } else {
             // Let it float. Later a constraint will be added.
@@ -1095,7 +1095,7 @@ int do_ba_ceres_one_pass(Options             & opt,
             // Fix it
             double s = asp::FIXED_GCP_SIGMA;
             cnet[ipt].set_sigma(Vector3(s, s, s));
-            // TODO(oalexan1): This must be tested.
+            // Set the sigma so that we know it is fixed
             problem.SetParameterBlockConstant(point);
           } else {
             // Let it float. Later a constraint will be added.
@@ -1187,7 +1187,6 @@ int do_ba_ceres_one_pass(Options             & opt,
     num_gcp_or_dem_residuals++;
     
     // Points whose sigma is FIXED_GCP_SIGMA (a tiny positive value are set to fixed)
-    // TODO(oalexan1): This must be tested.
     double s = asp::FIXED_GCP_SIGMA;
     if (cnet[ipt].type() == ControlPoint::GroundControlPoint && 
         (opt.fix_gcp_xyz || xyz_sigma == vw::Vector3(s, s, s))) {
@@ -2170,7 +2169,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "
       "than this. See also --matches-per-tile-params.")
     ("save-cnet-as-csv", po::bool_switch(&opt.save_cnet_as_csv)->default_value(false)->implicit_value(true),
-     "Save the control network containing all interest points in the format used by ground control points, so it can be inspected.")
+     "Save the control network containing all interest points in the format used by ground control points, so it can be inspected. The triangulated points are before optimization.")
     ("gcp-from-mapprojected-images", po::value(&opt.gcp_from_mapprojected)->default_value(""),
      "Given map-projected versions of the input images, the DEM the were mapprojected onto, and interest point matches among all of these created in stereo_gui, create GCP for the input images to align them better to the DEM. This is experimental and not documented.")
     ("instance-count",      po::value(&opt.instance_count)->default_value(1),
