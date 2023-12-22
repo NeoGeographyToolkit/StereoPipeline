@@ -52,18 +52,16 @@ struct BAParams;
 struct IsisCnetData {
   Isis::ControlNetQsp isisCnet;
   std::set<int> isisOutliers; // rejected or ignored points are flagged as outliers
-  // TODO(oalexan1): Will no longer need isisToAspControlPointId, as they will
-  // be one-to-one. 
-  std::map<int, int> isisToAspControlPointId;
   
   IsisCnetData() {
     isisCnet = Isis::ControlNetQsp(NULL);
-    isisToAspControlPointId.clear();
+    isisOutliers.clear();
   }
 };
 
 // Load an ISIS cnet file and copy it to an ASP control network. The ISIS cnet
-// will be used when saving the updated cnet.  
+// will be used when saving the updated cnet. Keep these cnets one-to-one,
+// though later the ASP cnet may also have GCP.
 void loadIsisCnet(std::string const& isisCnetFile, 
                   std::vector<std::string> const& image_files,
                   // Outputs
@@ -73,14 +71,15 @@ void loadIsisCnet(std::string const& isisCnetFile,
 // Update an ISIS cnet with the latest info on triangulated points and outliers,
 // and write it to disk at <outputPrefix>.net.
 void saveUpdatedIsisCnet(std::string const& outputPrefix,
+                         vw::ba::ControlNetwork const& cnet,
                          asp::BAParams const& param_storage,
                          IsisCnetData & isisCnetData);
 
 // Create and save an ISIS cnet from a given control network and latest param
 // values.
 void saveIsisCnet(std::string const& outputPrefix, 
-                  vw::ba::ControlNetwork const& cnet,
                   vw::cartography::Datum const& datum,
+                  vw::ba::ControlNetwork const& cnet,
                   asp::BAParams const& param_storage);
 
 } // end namespace asp

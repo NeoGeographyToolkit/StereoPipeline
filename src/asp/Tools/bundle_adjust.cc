@@ -53,8 +53,8 @@ using namespace vw::ba;
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 typedef CameraRelationNetwork<JFeature> CRNJ;
 
-// Write the results to disk.
-void saveResults(Options const& opt, asp::BAParams const& param_storage) {
+// Write updated camera models to disk
+void saveUpdatedCameras(Options const& opt, asp::BAParams const& param_storage) {
   int num_cameras = opt.image_files.size();
 
   for (int icam = 0; icam < num_cameras; icam++) {
@@ -104,7 +104,7 @@ public:
     m_opt(opt), m_param_storage(param_storage){}
 
   virtual ceres::CallbackReturnType operator() (const ceres::IterationSummary& summary) {
-    saveResults(m_opt, m_param_storage);
+    saveUpdatedCameras(m_opt, m_param_storage);
     return ceres::SOLVER_CONTINUE;
   }
   
@@ -1174,11 +1174,11 @@ int do_ba_ceres_one_pass(Options             & opt,
         opt.heights_from_dem_weight > 0 &&
         opt.heights_from_dem_robust_threshold > 0) {
       loss_function = get_loss_function(opt, opt.heights_from_dem_robust_threshold);
-    }else if (opt.ref_dem != "" &&
+    } else if (opt.ref_dem != "" &&
         opt.ref_dem_weight > 0  &&
         opt.ref_dem_robust_threshold > 0) {
       loss_function = get_loss_function(opt, opt.ref_dem_robust_threshold);
-    }else{
+    } else {
       loss_function = new ceres::TrivialLoss();
     }
     double * point  = param_storage.get_point_ptr(ipt);
@@ -1189,8 +1189,9 @@ int do_ba_ceres_one_pass(Options             & opt,
     // Points whose sigma is FIXED_GCP_SIGMA (a tiny positive value are set to fixed)
     // TODO(oalexan1): This must be tested.
     double s = asp::FIXED_GCP_SIGMA;
-    if (opt.fix_gcp_xyz || xyz_sigma == vw::Vector3(s, s, s)) {
-      // TODO(oalexan1): Must set in the cnet too
+    if (cnet[ipt].type() == ControlPoint::GroundControlPoint && 
+        (opt.fix_gcp_xyz || xyz_sigma == vw::Vector3(s, s, s))) {
+      cnet[ipt].set_sigma(Vector3(s, s, s)); // will be saved in the ISIS cnet
       problem.SetParameterBlockConstant(point);
     }
       
@@ -1700,16 +1701,16 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       vw_throw(ArgumentErr() << "Unknown camera type.\n");
   };
 
-  if (ans)
-    cameras_changed = true;
   // Certain input options change the cameras inside init_cams and we
   // need to update the point coordinates for the new cameras. It is
   // ok to leave the original vector of camera models unchanged.
+  if (ans)
+    cameras_changed = true;
 
   // When the cameras changed, must re-triangulate the points.
   // This is much cheaper than rebuilding the control network.  
   if (!opt.apply_initial_transform_only && cameras_changed) {
-    vw_out() <<"Re-triangulating the control points as the cameras changed.\n";
+    vw_out() << "Re-triangulating the control points as the cameras changed.\n";
     // Do not triangulate the GCP or the height-from-dem points
     vw::ba::triangulate_control_network(cnet, new_cam_models,
                                         opt.min_triangulation_angle*(M_PI/180.0),
@@ -1722,6 +1723,13 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   for (int ipt = 0; ipt < num_points; ipt++)
     param_storage.set_point(ipt, cnet[ipt].position());
 
+  // Flag any outliers read from an isis cnet
+  for (auto const& ipt: isisCnetData.isisOutliers) {
+    if (ipt < 0 || ipt >= num_points)
+      vw_throw(ArgumentErr() << "Invalid point index.\n");
+    param_storage.set_point_outlier(ipt, true);
+  }
+  
   // The camera positions and orientations before we float them
   // - This includes modifications from any initial transforms that were specified.
   asp::BAParams orig_parameters(param_storage);
@@ -1830,19 +1838,19 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   opt.out_prefix = orig_out_prefix; // So the cameras are written to the expected paths.
 #endif
 
-  // Write the results to disk.
-  saveResults(opt, *best_params_ptr);
+  saveUpdatedCameras(opt, *best_params_ptr);
 
-  if (has_datum && (opt.stereo_session == "pinhole") || 
-      (opt.stereo_session == "nadirpinhole")) 
+  if (!opt.apply_initial_transform_only && has_datum && 
+      (opt.stereo_session == "pinhole") || (opt.stereo_session == "nadirpinhole")) 
     saveCameraReport(opt, *best_params_ptr, opt.datum, "final");
   
   // Update the ISIS cnet or create a new one, if applicable
   // Note that *best_params_ptr has the latest triangulated points and outlier info
-  if (opt.isis_cnet != "" && opt.output_cnet_type == "isis-cnet")
-    asp::saveUpdatedIsisCnet(opt.out_prefix, *best_params_ptr, isisCnetData);
-  else if (opt.output_cnet_type == "isis-cnet")
-    asp::saveIsisCnet(opt.out_prefix, cnet, opt.datum, *best_params_ptr);
+  if (!opt.apply_initial_transform_only && 
+      opt.isis_cnet != "" && opt.output_cnet_type == "isis-cnet")
+    asp::saveUpdatedIsisCnet(opt.out_prefix, cnet, *best_params_ptr, isisCnetData);
+  else if (!opt.apply_initial_transform_only && opt.output_cnet_type == "isis-cnet")
+    asp::saveIsisCnet(opt.out_prefix, opt.datum, cnet, *best_params_ptr);
   
 } // end do_ba_ceres
 

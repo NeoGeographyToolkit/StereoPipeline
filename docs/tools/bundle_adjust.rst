@@ -280,6 +280,9 @@ as shown earlier, with one or more images and cameras, and the
 obtained adjustments can be used with ``stereo`` or ``mapproject``
 as described above.
 
+See :numref:`ba_out_files` for the output files, including for
+more details about GCP.
+
 Effect on optimization
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -288,12 +291,11 @@ added to the cost function:
 
 .. math::
 
-    \frac{(x-x_0)^2}{std_x^2} + \frac{(y-y_0)^2}{std_y^2} + \frac{(z-z_0)^2}{std_z^2}
+    \frac{(x-x_0)^2}{sigma_x^2} + \frac{(y-y_0)^2}{sigma_y^2} + \frac{(z-z_0)^2}{sigma_z^2}
 
-Here, :math:`(x_0, y_0, z_0)` is the input GCP, :math:`(x, y, z)` is
-its version being optimized, and the standard deviations are from
-above. No robustified bound is applied to these error terms (see
-below). 
+Here, :math:`(x_0, y_0, z_0)` is the input GCP, :math:`(x, y, z)` is its version
+being optimized, and the sigma values are the standard deviations are from
+above. No robust cost function is applied to these error terms (see below). 
 
 Note that the cost function normally contains sums of squares of
 pixel differences (:numref:`how_ba_works`), 
@@ -315,9 +317,9 @@ option descriptions (:numref:`ba_options`).
 
 The GCP pixel residuals (divided by the pixel standard deviations)
 will be saved as the last lines of the report files ending in
-``pointmap.csv`` (see :numref:`ba_out_files` for more
-details). Differences between initial and optimized GCP will be
-printed on screen.
+``pointmap.csv``. Differences between initial and optimized GCP will be
+printed in a report file as well. See :numref:`ba_out_files` for more
+details.
 
 To not optimize the GCP, use the option ``--fix-gcp-xyz``.
 
@@ -334,15 +336,13 @@ orientation, and hence a complete pinhole camera. See
 If desired to use GCP to apply a transform to a given
 self-consistent camera set, see :numref:`sfm_world_coords`.
 
-.. _ba_out_files:
-
-Output files
-~~~~~~~~~~~~
-
 .. _control_network:
 
 Control network
-^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~
+
+Match files
+^^^^^^^^^^^
 
 By default, ``bundle_adjust`` will create interest point matches between all
 pairs of images (see also ``--auto-overlap-params``). These matches are
@@ -361,23 +361,40 @@ invocations, with the options ``--match-files-prefix`` and
 ``--clean-match-files-prefix``. Such files can be inspected with ``stereo_gui``
 (:numref:`stereo_gui_pairwise_matches`).
 
-This program can read and write the ISIS binary control network format, if
-invoked with the option ``--isis-cnet filename.net``. This allows handling a
-very large number of images. 
 
-In this case, ``bundle_adjust`` will also write a version of this file, with the
-name ``<output prefix>.net`` (instead of match files). The only change will be
-that the coordinates of the triangulated points will be updated, and some points
-may be marked as outliers (by setting the ``ignored`` and ``rejected`` flags). 
+.. _ba_cnet:
 
-To have different formats for the input and output control networks,
-use the option ``--output-cnet-type``.  
+ISIS control network
+^^^^^^^^^^^^^^^^^^^^
+
+This program can read and write the ISIS binary control network format,
+if invoked with the option ``--isis-cnet filename.net``. This format makes it 
+possible to handle a very large number of control points. 
+
+In this case, ``bundle_adjust`` will also write an updated version of this file,
+with the name ``<output prefix>.net`` (instead of match files). 
+
+If GCP are provided via a .gcp file (:numref:`bagcp`), these will be added to
+the optimization and to the output ISIS control network file.
+
+To have different formats for the input and output control networks, use the
+option ``--output-cnet-type``. If exporting match files from an ISIS control
+network, constrained and fixed points won't be saved, as ASP uses GCP files to
+save that. Saved match files will have the rest of the matches, and clean match
+files will have only the inliers. Any sigma values and surface points from the
+control network will not be saved. 
 
 The ``stereo_gui`` program (:numref:`stereo_gui_isis_cnet`) can visualize
 such a control network file. 
 
-See also ASP's ``jigsaw`` tutorial (:numref:`jigsaw`).
- 
+See :numref:`ba_cnet_details` for more technical details. See also ASP's
+``jigsaw`` tutorial (:numref:`jigsaw`).
+
+.. _ba_out_files:
+
+Output files
+~~~~~~~~~~~~
+
 Camera projection errors and triangulated points
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -407,7 +424,7 @@ Here is a sample file::
 The field ``num_observations`` counts in how many images each
 triangulated point is seen.
 
-Such files can be plotted and overlayed with ``stereo_gui``
+Such files can be plotted and overlaid with ``stereo_gui``
 (:numref:`plot_csv`) to see at which triangulated points the
 reprojection errors are large and their geographic locations.
 
@@ -443,6 +460,10 @@ pixels each camera, and their count, are written to
 As a finer-grained metric, initial and final ``raw_pixels.txt`` files
 will be written, having the row and column residuals (reprojection
 errors) for each pixel in each camera.
+
+If GCP are present, the file ``{output-prefix}-gcp_report.txt`` will be saved to
+disk, having the initial and optimized GCP coordinates, and their difference,
+both in ECEF and longitude-latitude-height above datum. 
 
 .. _ba_conv_angle:
 
@@ -1079,8 +1100,7 @@ Command-line options for bundle_adjust
 --camera-list
     A file containing the list of cameras, when they are too many to
     specify on the command line. If the images have embedded camera
-    information, such as for ISIS, this file must be empty but must
-    be specified if ``--image-list`` is specified.
+    information, such as for ISIS, this file may be omitted.
 
 --mapprojected-data-list
     A file containing the list of mapprojected images and the DEM (see

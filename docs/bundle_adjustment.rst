@@ -1329,3 +1329,53 @@ See :numref:`nextsteps` for how how to improve the quality of stereo
 correlation results (at the expense of speed), how to create a DEM,
 etc.
 
+.. _ba_cnet_details:
+
+Using the ISIS cnet format in ASP
+---------------------------------
+
+ASP's ``bundle_adjust`` program can read and write control networks in the ISIS
+format (and they are read by ``jitter_solve`` as well). A basic overview of how
+this works is in :numref:`ba_cnet`. This section provides more details.
+
+A priori surface points will be read and written back. Adjusted surface points
+will be computed in ``bundle_adjust`` using triangulation, optimized, then
+written back. 
+
+For constrained surface points, the constraint will be relative to the a priori
+surface points. These will be used with sigmas from adjusted surface points, as
+the a priori sigmas are on occasion negative, and likely the adjusted sigmas are
+more up-to-date. 
+
+Constrained surface points are treated as GCP in ``bundle_adjust``
+(:numref:`bagcp`), so smaller sigmas result in more weight given to the
+discrepancy betwen surface points being optimized and a priori surface points.
+
+Fixed surface points will be set to the a priori values and kept fixed during
+the optimization. 
+
+Any input points that are flagged as ignored or rejected will be treated as
+outliers and will not be used in the optimization. They will be saved the same
+way. Additional points may be tagged as outliers during optimization. These will
+be flagged as ignored and rejected on output.
+
+Partially constrained points will be treated as free points during the
+optimization, but the actual flags will be preserved on saving.
+
+If ``bundle_adjust`` is invoked with GCP files, the GCP will be appended to the
+ISIS control network as well and then saved to the same file. These points will
+be treated as constrained (with provided sigmas and a priori values), unless the
+sigmas are set to the precise value of 1e-10, or when the flag ``--fix-gcp-xyz``
+is used, in which case they will be treated as fixed both during optimization
+and when saving to the ISIS control network file. (For a small value of sigma,
+GCP are practically fixed in either case.)
+
+Using the ``bundle_adjust`` options ``--initial-transform`` and
+``--input-adjustments-prefix`` will force the recomputation of a priori points
+(using triangulation), as these options can drastically change the cameras. 
+
+A priori points will change if ``--heights-from-dem`` is used, by projecting
+them vertically onto the DEM, and their sigmas will be set to the inverse of
+what is provided via the ``--heights-from-dem-weight`` option (the latter is in
+units of meter). Analogous behavior happens with ``--reference-dem`` 
+and ``--reference-terrain``.
