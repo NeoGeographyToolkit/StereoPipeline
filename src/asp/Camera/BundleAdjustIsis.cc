@@ -177,14 +177,12 @@ void loadIsisCnet(std::string const& isisCnetFile,
       // We do not skip any points, to preserve the one-to-one correspondence.
       // Add to isisOutliers
       isisOutliers.insert(i);
-      //std::cout << "loadIsisCnet: ISIS point " << i << " is ignored.\n";
     }
     if (point->IsRejected()) {
       numRejected++;
       // We do not skip any points, to preserve the one-to-one correspondence.
       // Add to isisOutliers
       isisOutliers.insert(i);
-      //std::cout << "loadIsisCnet: ISIS point " << i << " is rejected.\n";
     }
       
     // Triangulated point and apriori point
@@ -368,14 +366,16 @@ void addIsisControlPoint(Isis::ControlNet & icnet,
                     Isis::Distance(sigma[2], Isis::Distance::Meters));
   point->SetAdjustedSurfacePoint(P);
 
-  // Add the measures
+  // Add the measures, and their sigmas
   for (auto m_iter = cnet[ipt].begin(); m_iter != cnet[ipt].end(); m_iter++) {
+    
     int cid = m_iter->image_id();
+    vw::Vector2 sigma = m_iter->sigma();
     
     // Must add 0.5 to the ASP measure to get the ISIS measure
     double col = m_iter->position()[0] - ISIS_CNET_TO_ASP_OFFSET;
     double row = m_iter->position()[1] - ISIS_CNET_TO_ASP_OFFSET;
-    // Set the measure sigma?
+
     Isis::ControlMeasure *measurement = new Isis::ControlMeasure();
     measurement->SetCoordinate(col, row, Isis::ControlMeasure::RegisteredSubPixel);
     measurement->SetType(Isis::ControlMeasure::RegisteredSubPixel);
@@ -383,8 +383,8 @@ void addIsisControlPoint(Isis::ControlNet & icnet,
     measurement->SetAprioriLine(row);
     measurement->SetIgnored(false);
     measurement->SetRejected(false);
-    measurement->SetSampleSigma(1.0);
-    measurement->SetLineSigma(1.0);
+    measurement->SetSampleSigma(sigma[0]);
+    measurement->SetLineSigma(sigma[1]);
     measurement->SetResidual(0.0, 0.0);
     measurement->SetCubeSerialNumber(QString::fromStdString(serialNumbers[cid]));
     measurement->SetCamera(cameras[cid].get());
@@ -464,6 +464,23 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
                      Isis::Distance(sigma[1], Isis::Distance::Meters),
                      Isis::Distance(sigma[2], Isis::Distance::Meters));
     point->SetAdjustedSurfacePoint(P);
+    
+    // Update the sigmas for measures from the ASP cnet
+    int numMeasures = point->GetNumMeasures();
+    int aspNumMeasures = cnet[i].size();
+    if (numMeasures != aspNumMeasures)
+      vw_throw(vw::ArgumentErr() 
+               << "saveUpdatedIsisCnet: Book-keeping failure in number of measures.\n");
+      
+    int meas_id = 0;   
+    for (auto m_iter = cnet[i].begin(); m_iter != cnet[i].end(); m_iter++) {
+      vw::Vector2 sigma = m_iter->sigma();
+      Isis::ControlMeasure *measurement = point->GetMeasure(meas_id);
+      measurement->SetSampleSigma(sigma[0]);
+      measurement->SetLineSigma(sigma[1]);
+
+      meas_id++;
+    }
   }
   
   // Save any GCP that were later added to the ASP cnet. This creates new
@@ -496,7 +513,6 @@ void saveIsisCnet(std::string const& outputPrefix,
                   vw::ba::ControlNetwork const& cnet,
                   asp::BAParams const& param_storage) {
   
-  // TODO(oalexan1): Must set sigmas for measures
   // TODO(oalexan1): Must test with external GCP (fixed and constrained)
                     
   // Sanity check

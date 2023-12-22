@@ -431,7 +431,7 @@ void read_image_cam_lists(std::string const& image_list,
       if (images_or_cams.size() != cams.size())
         vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
       for (size_t it = 0; it < cams.size(); it++) 
-      images_or_cams.push_back(cams[it]);
+        images_or_cams.push_back(cams[it]);
     }
     return;
   }
