@@ -1387,3 +1387,10 @@ them vertically onto the DEM, and their sigmas will be set to the inverse of
 what is provided via the ``--heights-from-dem-weight`` option (the latter is in
 units of meter). Analogous behavior happens with ``--reference-dem`` 
 and ``--reference-terrain``.
+
+If exporting match files from an ISIS control network (option
+``--output-cnet-type match-files``), constrained and fixed points won't be
+saved, as ASP uses GCP files for that. Saved match files will have the rest of
+the matches, and clean match files will have only the inliers. Any sigma values
+and surface points from the control network will not be saved. 
+

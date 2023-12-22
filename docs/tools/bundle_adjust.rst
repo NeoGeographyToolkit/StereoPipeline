@@ -248,20 +248,22 @@ control point per line. Each line must have the following fields:
 -  height above datum (in meters), with the datum itself specified
    separately, via ``--datum``
 
--  :math:`x, y, z` standard deviations (three positive floating point
-   numbers, smaller values suggest more reliable measurements)
+-  :math:`x, y, z` standard deviations (*sigma* values, three positive floating
+   point numbers, smaller values suggest more reliable measurements, measured in
+   meters)
 
 On the same line, for each image in which the ground control point is
 visible there should be:
 
 -  image file name
 
--  column index in image (float)
+-  column index in image (float, starting from 0)
 
--  row index in image (float)
+-  row index in image (float, starting from 0)
 
--  column and row standard deviations (two positive floating point
-   numbers, smaller values suggest more reliable measurements)
+-  column and row standard deviations (also called *sigma* values, two positive
+   floating point numbers, smaller values suggest more reliable measurements, in
+   units of pixel)
 
 The fields can be separated by spaces or commas. Here is a sample
 representation of a ground control point measurement::
@@ -275,10 +277,13 @@ Hence, if the latitude and longitude are known accurately, while the
 height less so, the third standard deviation can be set to something
 larger.
 
-Such a ``.gcp`` file then can be passed to ``bundle_adjust`` 
-as shown earlier, with one or more images and cameras, and the 
-obtained adjustments can be used with ``stereo`` or ``mapproject``
-as described above.
+Such a ``.gcp`` file then can be passed to ``bundle_adjust`` as shown earlier,
+with one or more images and cameras, and the obtained adjustments can be used
+with ``stereo`` or ``mapproject`` as described above. 
+
+The option ``--save-cnet-as-csv`` can be used to save the entire control network
+in the GCP csv format, before any optimization. This can be useful for comparing
+with any manually created GCP.
 
 See :numref:`ba_out_files` for the output files, including for
 more details about GCP.
@@ -291,10 +296,10 @@ added to the cost function:
 
 .. math::
 
-    \frac{(x-x_0)^2}{sigma_x^2} + \frac{(y-y_0)^2}{sigma_y^2} + \frac{(z-z_0)^2}{sigma_z^2}
+    \frac{(x-x_0)^2}{\sigma_x^2} + \frac{(y-y_0)^2}{\sigma_y^2} + \frac{(z-z_0)^2}{\sigma_z^2}
 
 Here, :math:`(x_0, y_0, z_0)` is the input GCP, :math:`(x, y, z)` is its version
-being optimized, and the sigma values are the standard deviations are from
+being optimized, and the sigma values are the standard deviations from
 above. No robust cost function is applied to these error terms (see below). 
 
 Note that the cost function normally contains sums of squares of
@@ -304,16 +309,15 @@ numerators and denominators are assumed to be in meters. Care should
 be taken that these terms not be allowed to dominate the cost function
 at the expense of other terms.
 
-The sums of squares of differences between projections into the
-cameras of the GCP and the pixel values specified in the GCP file will
-be added to the bundle adjustment cost function, with each difference
-being divided by the corresponding pixel standard deviation. To
-prevent these from dominating the problem, each such error has a
-robust cost function applied to it, just as done for the regular
-reprojection errors without GCP. See the `Google Ceres
-<http://ceres-solver.org/nnls_modeling.html>`_ documentation on robust
-cost functions. See also ``--cost-function`` and ``--robust-threshold``
-option descriptions (:numref:`ba_options`).
+The sums of squares of differences between projections into the cameras of the
+GCP and the pixel values specified in the GCP file will be added to the bundle
+adjustment cost function, with each difference being divided by the
+corresponding pixel standard deviation (sigma). To prevent these from dominating
+the problem, each such error has a robust cost function applied to it, just as
+done for the regular reprojection errors without GCP. See the `Google Ceres
+<http://ceres-solver.org/nnls_modeling.html>`_ documentation on robust cost
+functions. See also ``--cost-function`` and ``--robust-threshold`` option
+descriptions (:numref:`ba_options`).
 
 The GCP pixel residuals (divided by the pixel standard deviations)
 will be saved as the last lines of the report files ending in
@@ -356,10 +360,10 @@ The naming convention for the match files is::
   
 where the image names are without the directory name and extension.
 
-These files can be used later by other ``bundle_adjust`` or ``parallel_stereo``
-invocations, with the options ``--match-files-prefix`` and
-``--clean-match-files-prefix``. Such files can be inspected with ``stereo_gui``
-(:numref:`stereo_gui_pairwise_matches`).
+These files can be used later by other ``bundle_adjust`` invocations, also by
+``parallel_stereo`` and ``jitter_solve``, with the options
+``--match-files-prefix`` and ``--clean-match-files-prefix``. Such files can be
+inspected with ``stereo_gui`` (:numref:`stereo_gui_pairwise_matches`).
 
 
 .. _ba_cnet:
@@ -378,11 +382,7 @@ If GCP are provided via a .gcp file (:numref:`bagcp`), these will be added to
 the optimization and to the output ISIS control network file.
 
 To have different formats for the input and output control networks, use the
-option ``--output-cnet-type``. If exporting match files from an ISIS control
-network, constrained and fixed points won't be saved, as ASP uses GCP files to
-save that. Saved match files will have the rest of the matches, and clean match
-files will have only the inliers. Any sigma values and surface points from the
-control network will not be saved. 
+option ``--output-cnet-type``. 
 
 The ``stereo_gui`` program (:numref:`stereo_gui_isis_cnet`) can visualize
 such a control network file. 
