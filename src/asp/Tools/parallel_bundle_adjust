@@ -194,6 +194,9 @@ def spawn_to_nodes(step, argsIn):
     if opt.nodes_list is not None:
         cmd += ['--sshloginfile', opt.nodes_list]
 
+    if opt.parallel_options is not None:
+        cmd += opt.parallel_options.split(' ')
+
     # Add the options which we want GNU parallel to not mess
     # with. Put them into a single string. Before that, put in quotes
     # any quantities having spaces, to avoid issues later.
@@ -350,6 +353,8 @@ if __name__ == '__main__':
                    help = "Bundle adjustment stop point (stop *before* this stage). " + \
                    "Options: statistics = 0, matching = 1, optimization = 2, all = 3.",
                    type=int)
+    p.add_argument('--parallel-options', dest='parallel_options', default='--sshdelay 0.2',
+                   help='Options to pass directly to GNU Parallel.')
     p.add_argument('-v', '--version',        dest='version', default=False,
                  action='store_true', help='Display the version of software.')
     p.add_argument('--verbose', dest='verbose', default=False, action='store_true',

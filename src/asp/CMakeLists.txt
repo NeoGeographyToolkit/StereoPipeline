@@ -58,7 +58,7 @@ option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # Make sure installed files can find installed libraries
-SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${CMAKE_INSTALL_PREFIX}/lib ${ASP_DEPS_DIR}/lib)
+SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib" ${CMAKE_INSTALL_RPATH} ${ASP_DEPS_DIR}/lib)
 
 # Fixed options
 set(Boost_USE_STATIC_LIBS   OFF)
@@ -218,6 +218,7 @@ if(ASP_HAVE_PKG_ISIS)
   # Some ISIS headers include Qt headers in a way that requires the include below
   include_directories("${ASP_DEPS_DIR}/include/qt")
   include_directories("${ASP_DEPS_DIR}/include/qt/QtCore")
+  include_directories("${ASP_DEPS_DIR}/include/qt/QtXml")
 endif()
 
 find_external_library(CSM ${ASP_DEPS_DIR} "csm" "csmapi" REQUIRED)

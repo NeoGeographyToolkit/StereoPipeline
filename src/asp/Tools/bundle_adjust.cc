@@ -1850,7 +1850,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     asp::saveUpdatedIsisCnet(opt.out_prefix, cnet, *best_params_ptr, isisCnetData);
   else if (!opt.apply_initial_transform_only && opt.output_cnet_type == "isis-cnet")
     asp::saveIsisCnet(opt.out_prefix, opt.datum, cnet, *best_params_ptr);
-  
+
 } // end do_ba_ceres
 
 /// Looks in the input camera position file to generate a GCC position for
@@ -2061,7 +2061,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A file containing the list of images, when they are too many to specify on the command line. Use space or newline as separator. See also --camera-list and --mapprojected-data-list.")
     ("camera-list", po::value(&opt.camera_list)->default_value(""),
      "A file containing the list of cameras, when they are too many to specify on "
-     "the command. If the images have embedded camera information, such as for ISIS, "
+     "the command line. If the images have embedded camera information, such as for ISIS, "
      "this file may be omitted.")
     ("mapprojected-data-list", po::value(&opt.mapprojected_data_list)->default_value(""),
      "A file containing the list of mapprojected images and the DEM (see --mapprojected-data), when they are too many to specify on the command line.")

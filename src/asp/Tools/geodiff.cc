@@ -99,9 +99,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Requires <dem1> and <dem2> in order to proceed.\n\n"
              << usage << general_options);
 
-  if (opt.output_prefix.empty()) {
-    opt.output_prefix = fs::basename(opt.dem1_file) + "__" + fs::basename(opt.dem2_file);
-  }
+  if (opt.output_prefix.empty())
+    opt.output_prefix = fs::path(opt.dem1_file).stem().string()
+      + "__" + fs::path(opt.dem2_file).stem().string();
 
   vw::create_out_dir(opt.output_prefix);
 }

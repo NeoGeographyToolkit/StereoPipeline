@@ -46,6 +46,9 @@ Command-line options for ``parallel_sfs``:
     (:numref:`sfs`), as ISIS is single-threaded. Not all parts of the
     computation benefit from parallelization.
 
+--parallel-options <string (default: "--sshdelay 0.2")>
+    Options to pass directly to GNU Parallel.
+
 --resume
     Resume a partially done run. Only process the tiles for which the
     desired per-tile output files are missing or invalid (as checked

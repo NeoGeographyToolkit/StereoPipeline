@@ -229,8 +229,12 @@ def main(argsIn):
     parser.add_argument("--num-processes",  dest="numProcesses2", type=int, default=None,
                         help="Same as --processes. Used for backwards compatibility.")
 
-    parser.add_argument('--nodes-list',  dest='nodesListPath', default=None,
+    parser.add_argument('--nodes-list', dest='nodesListPath', default=None,
                                         help='A file containing the list of computing nodes, one per line. If not provided, run on the local machine.')
+
+    parser.add_argument('--parallel-options', dest='parallel_options', 
+                        default='--sshdelay 0.2',
+                        help='Options to pass directly to GNU Parallel.')
 
     parser.add_argument('--threads',  dest='threads', default=8, type=int,
                         help='How many threads each process should use. This will be changed ' + \
@@ -414,6 +418,9 @@ def main(argsIn):
     parallelArgs = ['--colsep', "\\t", '--will-cite', '--env', 'ASP_DEPS_DIR',
                     '--env', 'PATH', '--env', 'LD_LIBRARY_PATH',
                     '--env', 'ASP_LIBRARY_PATH']
+
+    if options.parallel_options is not None:
+        parallelArgs += options.parallel_options.split(' ')
 
     # Get the number of available nodes and CPUs per node
     numNodes = asp_system_utils.getNumNodesInList(options.nodesListPath)

@@ -200,6 +200,9 @@ Command-line options
     Display the computed projection information and estimated ground
     sample distance (pixel size on the ground), and quit.
 
+--parallel-options <string (default: "--sshdelay 0.2")>
+    Options to pass directly to GNU Parallel.
+
 --no-geoheader-info
     Do not write information in the geoheader. Otherwise mapproject will
     write the camera model type, the bundle adjustment prefix used,

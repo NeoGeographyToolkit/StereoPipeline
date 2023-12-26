@@ -53,9 +53,7 @@
 struct Options: public asp::BaBaseOptions {
   std::vector<std::string>  gcp_files;
   std::string cnet_file, vwip_prefix,
-    cost_function, mapprojected_data, gcp_from_mapprojected,
-    image_list, camera_list, mapprojected_data_list,
-    fixed_image_list;
+    cost_function, mapprojected_data, gcp_from_mapprojected;
   int ip_per_tile, ip_per_image, matches_per_tile;
   double forced_triangulation_distance, overlap_exponent, ip_triangulation_max_error;
   int    instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;

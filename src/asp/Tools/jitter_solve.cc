@@ -129,6 +129,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
      "Set the threshold for the Cauchy robust cost function. Increasing this makes "
      "the solver focus harder on the larger errors.")
+    ("image-list", po::value(&opt.image_list)->default_value(""),
+     "A file containing the list of images, when they are too many to specify on the command line. Use space or newline as separator. See also --camera-list.")
+    ("camera-list", po::value(&opt.camera_list)->default_value(""),
+     "A file containing the list of cameras, when they are too many to specify on "
+     "the command line.")
     ("parameter-tolerance",  po::value(&opt.parameter_tolerance)->default_value(1e-12),
      "Stop when the relative error in the variables being optimized is less than this.")
     ("num-iterations",       po::value(&opt.num_iterations)->default_value(500),
@@ -265,16 +270,28 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::stereo_settings().dg_use_csm = true;
   asp::stereo_settings().aster_use_csm = true;
   
-  std::vector<std::string> inputs = opt.image_files;
+  std::vector<std::string> images_or_cams = opt.image_files;
+  if (!opt.image_list.empty()) {
+    // Read the images and cameras and put them in 'images_or_cams' to be parsed later
+    if (!images_or_cams.empty())
+      vw_throw(ArgumentErr() << "The option --image-list was specified, but also "
+               << "images or cameras on the command line.\n");
+    asp::IntrinsicOptions intr_opts;
+    read_image_cam_lists(opt.image_list, opt.camera_list, 
+      images_or_cams, intr_opts); // outputs
+    if (intr_opts.num_sensors != 0 || !intr_opts.cam2sensor.empty()) 
+      vw::vw_throw(vw::ArgumentErr() << "Cannot handle intrinsics with jitter_solve.\n");
+  }
+  
   bool ensure_equal_sizes = true;
-  asp::separate_images_from_cameras(inputs,
+  asp::separate_images_from_cameras(images_or_cams,
                                     opt.image_files, opt.camera_files, // outputs
                                     ensure_equal_sizes); 
 
   // This is needed when several images are acquired in quick succession
   // and we want to impose roll and yaw constraints given their orbital 
   // trajectory.
-  asp::readGroupStructure(inputs, opt.orbital_groups);
+  asp::readGroupStructure(images_or_cams, opt.orbital_groups);
 
   // Throw if there are duplicate camera file names.
   asp::check_for_duplicates(opt.image_files, opt.camera_files, opt.out_prefix);
@@ -947,12 +964,9 @@ void addLsReprojectionErr(Options          const & opt,
   // Keep in bounds
   begQuatIndex = std::max(0, begQuatIndex);
   endQuatIndex = std::min(endQuatIndex, numQuat);
-  if (begQuatIndex >= endQuatIndex) {
-    // Must not happen 
+  if (begQuatIndex >= endQuatIndex)
     vw::vw_throw(vw::ArgumentErr() << "Book-keeping error for quaternions for pixel: " 
-      << observation << ". Check your image dimensions and compare "
-      << "with the camera file.\n"); 
-  }
+      << observation << ". Likely image order is different than camera order.\n"); 
 
   // Same for positions
   int numPosPerObs = 8;
@@ -969,10 +983,9 @@ void addLsReprojectionErr(Options          const & opt,
   // Keep in bounds
   begPosIndex = std::max(0, begPosIndex);
   endPosIndex = std::min(endPosIndex, numPos);
-  if (begPosIndex >= endPosIndex) // Must not happen 
+  if (begPosIndex >= endPosIndex)
     vw_throw(ArgumentErr() << "Book-keeping error for positions for pixel: " 
-      << observation << ". Check your image dimensions and compare "
-      << "with the camera file.\n");
+      << observation << ". Likely image order is different than camera order.\n"); 
 
   ceres::CostFunction* pixel_cost_function =
     LsPixelReprojErr::Create(observation, weight, ls_model,

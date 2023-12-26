@@ -247,9 +247,8 @@ Command-line options
 --ssh <filename>
     Specify the path to an alternate version of the ssh tool to use.
 
---parallel-options <string (default: "")>
-    Options to pass directly to GNU Parallel. Example:
-    "``--sshdelay 1 --controlmaster``".
+--parallel-options <string (default: "--sshdelay 0.2")>
+    Options to pass directly to GNU Parallel.
 
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.

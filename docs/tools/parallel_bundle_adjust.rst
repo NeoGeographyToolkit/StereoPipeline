@@ -49,6 +49,9 @@ Command-line options for ``parallel_bundle_adjust``:
     Options: statistics = 0, matching = 1, optimization = 2, 
     all = 3.
 
+--parallel-options <string (default: "--sshdelay 0.2")>
+    Options to pass directly to GNU Parallel.
+
 --verbose
     Display the commands being executed.
 

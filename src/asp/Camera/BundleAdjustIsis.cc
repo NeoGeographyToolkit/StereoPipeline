@@ -40,11 +40,18 @@
 #include <isis/Camera.h>
 #include <isis/Cube.h>
 #include <isis/FileName.h>
+#include <isis/Process.h>
+#include <isis/CubeAttribute.h>
+#include <isis/Table.h>
+#include <isis/iTime.h>
 
 #include <boost/shared_ptr.hpp>
 
 #include <string>
 #include <iostream>
+
+// TODO(oalexan1): Must check that number of images agrees with number
+// of cid in cnet.
 
 // Note: The output cnet file must contain the updated control network with the
 // final coordinates of the control points and residuals for each measurement.
@@ -548,5 +555,56 @@ void saveIsisCnet(std::string const& outputPrefix,
   icnet.Write(QString::fromStdString(cnetFile));
 
   return;
+}
+
+void saveCube() {
+  char * fh = getenv("CUBE");
+  if (fh == NULL) {
+    std::cout << "No cube to save" << std::endl;
+    return;
+  }
+  std::string cubeFile = fh;
+  std::cout << "Saving cube: " << cubeFile << std::endl;
+  using namespace Isis;
+  // convert to qstring
+  QString qCubeFile = QString::fromStdString(cubeFile);
+
+  PvlGroup gp("JigsawResults");
+  std::cout << "--now in ba update" << std::endl;
+
+  Process p;
+  CubeAttributeInput inAtt;
+
+  Cube *c = p.SetInputCube(qCubeFile, inAtt, ReadWrite);
+  //check for existing polygon, if exists delete it
+  if (c->label()->hasObject("Polygon")) {
+    c->label()->deleteObject("Polygon");
+  }
+
+  // check for CameraStatistics Table, if exists, delete
+  for (int iobj = 0; iobj < c->label()->objects(); iobj++) {
+    PvlObject obj = c->label()->object(iobj);
+    if (obj.name() != "Table") continue;
+    if (obj["Name"][0] != QString("CameraStatistics")) continue;
+    c->label()->deleteObject(iobj);
+    break;
+  }
+
+  //  Update the image parameters
+  QString jigComment = "Jigged = " + Isis::iTime::CurrentLocalTime();
+  Isis::Camera *cam = Isis::CameraFactory::Create(*c);          
+  Table cmatrix = cam->instrumentRotation()->Cache("InstrumentPointing");
+  cmatrix.Label().addComment(jigComment);
+  Table spvector = cam->instrumentPosition()->Cache("InstrumentPosition");
+
+  spvector.Label().addComment(jigComment);
+  c->write(cmatrix);
+  c->write(spvector);
+
+  p.WriteHistory(*c);
+
+  gp += PvlKeyword("Status", "Camera pointing updated");
+
+
 }
 } // end namespace asp

@@ -75,7 +75,9 @@ enum BACameraType {BaCameraType_Pinhole    = 0,
 struct BaBaseOptions: public vw::GdalWriteOptions {
   std::string out_prefix, stereo_session, input_prefix, match_files_prefix,
     clean_match_files_prefix, ref_dem, heights_from_dem, mapproj_dem, weight_image,
-    isis_cnet, nvm, nvm_no_shift, output_cnet_type;
+    isis_cnet, nvm, nvm_no_shift, output_cnet_type,
+    image_list, camera_list, mapprojected_data_list,
+    fixed_image_list;
   int overlap_limit, min_matches, max_pairwise_matches, num_iterations,
     ip_edge_buffer_percent;
   bool have_overlap_list;

@@ -842,8 +842,8 @@ if __name__ == '__main__':
                    help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
                    help='Display the commands being executed.')
-    p.add_argument('--parallel-options', dest='parallel_options', default=None,
-                   help='Options to pass directly to GNU Parallel. Default: "". Example: "--sshdelay 1 --controlmaster".')
+    p.add_argument('--parallel-options', dest='parallel_options', default='--sshdelay 0.2',
+                   help='Options to pass directly to GNU Parallel.')
     # Internal variables below.
     # The id of the tile to process, 0 <= tile_id < num_tiles.
     p.add_argument('--tile-id', dest='tile_id', default=None, type=int,
@@ -1012,16 +1012,17 @@ if __name__ == '__main__':
     # while 'args' is what we pass to plain stereo.
     parallel_args = sys.argv # shallow copy
     
-    # These can be stray options if pasting the stereo command
-    # from a log file where these particular operations
-    # happened, and they will result in the overall stereo
-    # command misbehaving. They are needed only at a certain stage.
-    asp_cmd_utils.wipe_option(args, '--compute-low-res-disparity-only', 0)
-    asp_cmd_utils.wipe_option(args, '--compute-point-cloud-center-only', 0)
-    asp_cmd_utils.wipe_option(args, '--compute-piecewise-adjustments-only', 0)
-    asp_cmd_utils.wipe_option(parallel_args, '--compute-low-res-disparity-only', 0)
-    asp_cmd_utils.wipe_option(parallel_args, '--compute-point-cloud-center-only', 0)
-    asp_cmd_utils.wipe_option(parallel_args, '--compute-piecewise-adjustments-only', 0)
+    # Individual tools may use these options, but then they confuse parallel_stereo.
+    # They are usually encountered in log files.
+    if '--compute-point-cloud-center-only' in parallel_args:
+      raise Exception('Option --compute-point-cloud-center-only is not ' + \
+                      'supported. Use stereo_tri instead.')
+    if '--compute-low-res-disparity-only' in parallel_args:
+        raise Exception('Option --compute-low-res-disparity-only is not ' + \
+                        'supported. Use stereo_corr instead.')
+    if '--compute-piecewise-adjustments-only' in parallel_args:
+        raise Exception('Option --compute-piecewise-adjustments-only is not ' + \
+                        'supported. Use stereo_tri instead.')
 
     # TODO(oalexan1): The giant block below needs to be broken up into
     # several functions named parent_run(), child_run(), and

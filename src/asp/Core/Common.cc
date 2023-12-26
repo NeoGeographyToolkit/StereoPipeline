@@ -391,7 +391,7 @@ void asp::run_cmd_app_to_file(std::string cmd, std::string file){
 std::string asp::extract_prog_name(std::string const& prog_str){
 
   // Get program name without path and leading 'lt-'.
-  std::string prog_name = fs::basename(fs::path(prog_str));
+  std::string prog_name = fs::path(prog_str).stem().string();
   std::string pref = "lt-";
   size_t lp = pref.size();
   if (prog_name.size() >= lp && prog_name.substr(0, lp) == pref)

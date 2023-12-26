@@ -259,14 +259,18 @@ def main(argsIn):
                         help='The list of computing nodes, one per line. ' + \
                         'If not provided, run on the local machine.')
     
+    parser.add_argument('--parallel-options', dest='parallel_options', 
+                        default='--sshdelay 0.2',
+                        help='Options to pass directly to GNU Parallel.')
+    
     parser.add_argument('--tile-size',  dest='tileSize', default=None, type=int,
-                        help = 'Size of square tiles to break up processing up into. '          + \
-                        'Each tile is run by an individual process. '                           + \
-                        'The default is 1024 pixels for ISIS cameras, '                         + \
-                        'as then each process is single-threaded, and 5120 for other '          + \
-                        'cameras, as such a process is multi-threaded, and disk I/O becomes '   + \
-                        'a bigger consideration.')
-
+                        help = 'Size of square tiles to break up processing up '   + \
+                        'into. Each tile is run by an individual process. The '    + \
+                        'default is 1024 pixels for ISIS cameras, as then each '   + \
+                        'process is single-threaded, and 5120 for other cameras, ' + \
+                        'as such a process is multi-threaded, and disk I/O '       + \
+                        'becomes a bigger consideration.')
+    
     # Directory where the job is running
     parser.add_argument('--work-dir',  dest='workDir', default=None,
                                         help='Working directory to assemble the tiles in')
@@ -433,6 +437,9 @@ def main(argsIn):
     # Indicate to GNU Parallel that there are multiple tab-seperated
     # variables in the text file we just wrote
     parallelArgs = ['--colsep', "\\t"]
+
+    if options.parallel_options is not None:
+        parallelArgs += options.parallel_options.split(' ')
 
     # Get the number of available nodes and CPUs per node
     numNodes = asp_system_utils.getNumNodesInList(options.nodesListPath)
