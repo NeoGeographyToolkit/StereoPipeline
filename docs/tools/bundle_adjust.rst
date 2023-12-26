@@ -345,6 +345,8 @@ self-consistent camera set, see :numref:`sfm_world_coords`.
 Control network
 ~~~~~~~~~~~~~~~
 
+.. _ba_match_files:
+
 Match files
 ^^^^^^^^^^^
 
@@ -358,7 +360,8 @@ The naming convention for the match files is::
 
     <output prefix>-<image1>__<image2>.match
   
-where the image names are without the directory name and extension.
+where the image names are without the directory name and extension. Excessively
+long image names will be truncated.
 
 These files can be used later by other ``bundle_adjust`` invocations, also by
 ``parallel_stereo`` and ``jitter_solve``, with the options

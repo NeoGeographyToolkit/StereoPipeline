@@ -15,6 +15,7 @@ New external library support:
 
 jitter_solve (:numref:`jitter_solve`):
   * Added an example for ASTER cameras (:numref:`jitter_aster`).
+  * Added an example with 27 CTX images (:numref:`jitter_multiple_images`).  
   * Added the option ``--weight-image``, to weigh observations based on
     geographic location of triangulated points (:numref:`limit_ip`).
   * Can handle a linescan and frame camera rig (almost parallel rays) 
@@ -112,6 +113,9 @@ isis
      
 misc:
   * Upgraded to GDAL 3.8.0, PROJ 9.3.0, Boost 1.82.0.
+  * Made all tools that spawn processes in parallel use the option
+    ``--parallel-options``, with default ``--sshdelay 1``, to avoid
+    failure on certain architectures.  
   * Fixed a couple of runtime errors when using conda packages on OSX.
   * Eliminated a procedure for cleaning the name of an input path that was
     replacing two slashes with one slash, resulting in inconsistencies.

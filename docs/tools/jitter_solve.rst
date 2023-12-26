@@ -400,8 +400,8 @@ used::
       --errorimage stereo_jitter/run-PC.tif
 
 To validate the results, first the triangulation (ray intersection) error
-(:numref:`point2dem`) was plotted, before and after solving for
-jitter. These were colorized as::
+(:numref:`point2dem`) was plotted, before and after solving for jitter. These
+were colorized as::
 
     colormap --min 0 --max 10 stereo/run-IntersectionErr.tif
     colormap --min 0 --max 10 stereo_jitter/run-IntersectionErr.tif
