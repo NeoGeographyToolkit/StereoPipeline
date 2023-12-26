@@ -501,10 +501,10 @@ Consider increasing the values of ``--heights-from-dem-weight`` and
    :name: jitter_ctx_dem_drg
 
    DEM and orthoimage produced by mosaicking the results for the 27 stereo
-   pairs. Some seams in the DEMs are seen. Those could be because of
-   insufficiently accurate modeling of lens distortion, perhaps.  
-   For the orthoimages, the first encountered pixel was used at a given
-   location.
+   pairs. Some seams in the DEMs are seen. Perhaps in addition to dense matches
+   for specific stereo pairs, one should also add all sparse matches from bundle
+   adjustment. For the orthoimages, the first encountered pixel was used at a
+   given location.
 
 .. figure:: ../images/jitter_ctx_error_image.png
    :name: jitter_ctx_error_image
