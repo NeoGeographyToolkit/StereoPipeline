@@ -196,6 +196,8 @@ See :numref:`ctx_example` for how to prepare the image files and
 All produced images and cameras were stored in a directory named
 ``img``.
 
+.. _jitter_solve_ctx_dem:
+
 Reference datasets
 ^^^^^^^^^^^^^^^^^^
 
@@ -232,9 +234,20 @@ and the MOLA csv file as::
     geodiff --absolute --csv-format 1:lon,2:lat,5:radius_m \
       mola.csv ref_dem.tif
 
-This will give a median difference of 3 meters, which is about right,
-given the uncertainties in these datasets.
+This will give a median difference of 3 meters, which is about right, given the
+uncertainties in these datasets.
 
+A DEM can can also be created from MOLA data as::
+
+    point2dem -r mars --tr 500            \
+      --stereographic --auto-proj-center  \
+      --csv-format 1:lon,2:lat,5:radius_m \
+      --search-radius-factor 10           \
+      mola.csv
+
+This DEM can be blurred with ``dem_mosaic``, with the option ``--dem-blur-sigma
+5``.
+ 
 Uncorrected DEM creation
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -242,11 +255,11 @@ Bundle adjustment is run first::
 
     bundle_adjust                               \
       --ip-per-image 20000                      \
-      --max-pairwise-matches 1000000            \
+      --max-pairwise-matches 100000             \
       --tri-weight 0.05                         \
       --tri-robust-threshold 0.1                \
       --camera-weight 0                         \
-      --remove-outliers-params '75.0 3.0 20 20' \
+      --remove-outliers-params '75.0 3.0 10 10' \
       img/J03_045820_1915_XN_11N210W.cal.cub    \
       img/K05_055472_1916_XN_11N210W.cal.cub    \
       img/J03_045820_1915_XN_11N210W.cal.json   \
@@ -255,7 +268,7 @@ Bundle adjustment is run first::
 
 The triangulation weight was used to help the cameras from drifting.
 Outlier removal was allowed to be more generous (hence the values of
-20 pixels above) as perhaps due to jitter some triangulated points
+10 pixels above) as perhaps due to jitter some triangulated points
 obtained from interest point matches may not project perfectly in the
 cameras.
 
@@ -264,41 +277,47 @@ we will do the same when solving for jitter below. That is because
 jitter-solving is a finer-grained operation than bundle adjustment,
 and a lot of interest point matches are needed. 
 
+It is very important to inspect the ``final_residuals_stats.txt`` report file to
+ensure each image has had enough features and has small enough reprojection
+errors (:numref:`ba_out_files`).
+
 Stereo is run next. The ``local_epipolar`` alignment
 (:numref:`running-stereo`) here did a flawless job, unlike
 ``affineepipolar`` alignment which resulted in some blunders.
 ::
 
-    parallel_stereo                           \
-      --bundle-adjust-prefix ba/run           \
-      --stereo-algorithm asp_mgm              \
-      --num-matches-from-disparity 40000      \
-      --alignment-method local_epipolar       \
-      img/J03_045820_1915_XN_11N210W.cal.cub  \
-      img/K05_055472_1916_XN_11N210W.cal.cub  \
-      img/J03_045820_1915_XN_11N210W.cal.json \
-      img/K05_055472_1916_XN_11N210W.cal.json \
+    parallel_stereo                              \
+      --bundle-adjust-prefix ba/run              \
+      --stereo-algorithm asp_mgm                 \
+      --num-matches-from-disparity 40000         \
+      --alignment-method local_epipolar          \
+      img/J03_045820_1915_XN_11N210W.cal.cub     \
+      img/K05_055472_1916_XN_11N210W.cal.cub     \
+      img/J03_045820_1915_XN_11N210W.cal.json    \
+      img/K05_055472_1916_XN_11N210W.cal.json    \
       stereo/run
-    point2dem --errorimage stereo/run-PC.tif
+    point2dem --stereographic --auto-proj-center \
+      --errorimage stereo/run-PC.tif
 
 Note how above we chose to create dense interest point matches from
 disparity. They will be used to solve for jitter. We used the option
 ``--num-matches-from-disparity``. See :numref:`jitter_ip` for
 more details.
 
-See :numref:`nextsteps` for a discussion about various
-speed-vs-quality choices for stereo. Close to the poles a polar
-stereographic projection may be preferred in ``point2dem``
-(:numref:`point2dem`).
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices
+for stereo. Consider using mapprojected images (:numref:`mapproj-example`).
+
+We chose to use here a local stereographic projection (:numref:`point2dem`). 
 
 This DEM was aligned to MOLA and recreated, as::
 
-    pc_align --max-displacement 400           \
-      --csv-format 1:lon,2:lat,5:radius_m     \
-      stereo/run-DEM.tif mola.csv             \
-      --save-inv-transformed-reference-points \
+    pc_align --max-displacement 400              \
+      --csv-format 1:lon,2:lat,5:radius_m        \
+      stereo/run-DEM.tif mola.csv                \
+      --save-inv-transformed-reference-points    \
       -o stereo/run-align
-    point2dem stereo/run-align-trans_reference.tif
+    point2dem --stereographic --auto-proj-center \
+      stereo/run-align-trans_reference.tif
 
 The value in ``--max-displacement`` may need tuning
 (:numref:`pc_align`).
@@ -377,7 +396,8 @@ used::
       jitter/run-J03_045820_1915_XN_11N210W.cal.adjusted_state.json \
       jitter/run-K05_055472_1916_XN_11N210W.cal.adjusted_state.json \
       stereo_jitter/run
-      point2dem --errorimage stereo_jitter/run-PC.tif
+    point2dem --stereographic --auto-proj-center                    \
+      --errorimage stereo_jitter/run-PC.tif
 
 To validate the results, first the triangulation (ray intersection) error
 (:numref:`point2dem`) was plotted, before and after solving for
@@ -451,31 +471,58 @@ this is due to the reference DEM being very coarse, per plots (e) and
 
 .. _jitter_multiple_images:
 
-Using multiple images
-^^^^^^^^^^^^^^^^^^^^^
+Using multiple CTX images
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-At a future time an analysis can be done where more images
-for that area are used. The following overlap with the above pair
-quite well::
+Solving for jitter was done for a set of 27 CTX images with much overlap.
+The extent was roughly between -157.8 and -155.5 degrees of longitude, and from
+-0.25 to 3.79 degrees of latitude. 
 
-    B19_016902_1913_XN_11N210W
-    F04_037367_1929_XN_12N211W
-    N14_067737_1928_XI_12N210W
-    P06_003347_1894_XI_09N210W
+Bundle adjustment was run as before. The ``convergence_angles.txt`` report file
+(:numref:`ba_conv_angle`) was used to find stereo pairs. Only pairs with a
+median convergence angle of at least 5 degrees were used, and which had at least
+several dozen shared interest points. This resulted in 42 stereo pairs.
 
-Bundle adjustment can be run on all of them, and pairwise DEMs can be
-created from the pairs with a convergence angle between 10 and 30 degrees
-(``bundle_adjust`` saves the list of convergence angles). 
+The resulting stereo DEMs can be mosaicked with ``dem_mosaic``
+(:numref:`dem_mosaic`). Alignment to MOLA can be done as before, and the the
+alignment transform must be applied to the cameras.
 
-Then, the obtained DEMs could be merged with ``dem_mosaic``, which
-will hopefully result in a solid high-resolution reference DEM due to
-jitter canceling out.  Then, jitter could be solved either
-simultaneously for all these, or in pairs, and the logic in the 
-earlier example could be repeated, but with a higher quality reference
-DEM.
+Then, jitter was solved for, as earlier. The dense pairwise matches were used.
+They were copied from individual stereo directories to a single directory.
+It is important to use the proper naming convention (:numref:`ba_match_files`).
 
-See :numref:`jitter_ip` for how to create interest point matches when
-taking into account that multiple images are used.
+The DEM used as a constraint can be either the existing gridded MOLA product, or
+it can be created from MOLA with ``point2dem`` (:numref:`jitter_solve_ctx_dem`).
+Consider increasing the values of ``--heights-from-dem-weight`` and
+``--heights-from-dem-robust-threshold`` to tighten the constraint. Values up to
+0.3 for both were tried and they worked well.
+
+.. figure:: ../images/jitter_ctx_dem_drg.png
+   :name: jitter_ctx_dem_drg
+
+   DEM and orthoimage produced by mosaicking the results for the 27 stereo
+   pairs. Some seams in the DEMs are seen. Those could be because of
+   insufficiently accurate modeling of lens distortion, perhaps.  
+   For the orthoimages, the first encountered pixel was used at a given
+   location.
+
+.. figure:: ../images/jitter_ctx_error_image.png
+   :name: jitter_ctx_error_image
+
+   Mosaicked triangulation error image (:numref:`triangulation_error`), before
+   (left) and after (right) solving for jitter. The range of values is between 0
+   and 15 meters. It can be seen that the triangulation error greatly decreases.
+
+
+.. figure:: ../images/jitter_ctx_mola_diff.png
+   :name: jitter_ctx_mola_diff
+
+   Signed difference of the mosaicked DEM and MOLA before (left) and after
+   (right) solving for jitter. It can be seen that the jitter artifacts are
+   greatly attenuated. Some systematic error is seen in the vertical direction,
+   roughly in the middle of the image. It is in the area where the MOLA data is
+   sparsest, and maybe that results in the ground constraint not working as
+   well.
 
 .. _jitter_dg:
 
@@ -516,7 +563,7 @@ the cameras::
       --tri-weight 0.1                          \
       --tri-robust-threshold 0.1                \
       --camera-weight 0                         \
-      --remove-outliers-params '75.0 3.0 20 20' \
+      --remove-outliers-params '75.0 3.0 10 10' \
       1.tif 2.tif                               \
       1.xml 2.xml                               \
       -o ba/run
@@ -887,8 +934,8 @@ satellite track. Note that earlier we used
 300 dense interest point matches for these roughly square input
 images. These numbers usually need to be chosen with some care.
 
-Copy the dense interest point matches found in stereo, using 
-the convention expected later by ``jitter_solve``:: 
+Copy the dense interest point matches found in stereo, using the convention
+(:numref:`ba_match_files`) expected later by ``jitter_solve``:: 
 
     mkdir -p matches
     /bin/cp -fv stereo_map_12/run-disp-1.map__2.map.match \
@@ -1388,7 +1435,7 @@ Run bundle adjustment to get interest point matches::
         --rotation-weight 0                          \
         --auto-overlap-params "dem.tif 15"           \
         --min-matches 5                              \
-        --remove-outliers-params '75.0 3.0 20 20'    \
+        --remove-outliers-params '75.0 3.0 10 10'    \
         --min-triangulation-angle 5.0                \
         --ip-per-tile 500                            \
         --max-pairwise-matches 6000                  \
@@ -1815,6 +1862,15 @@ Command-line options for jitter_solve
     Weight image for anchor points. Limits where anchor points are placed and
     their weight. Weights are additionally multiplied by ``--anchor-weight``.
     See also ``--weight-image``.
+
+--image-list
+    A file containing the list of images, when they are too many to specify on
+    the command line. Use in the file a space or newline as separator.See also
+    ``--camera-list``.
+
+--camera-list
+    A file containing the list of cameras, when they are too many to
+    specify on the command line.
 
 --min-triangulation-angle <degrees (default: 0.1)>
     The minimum angle, in degrees, at which rays must meet at a
