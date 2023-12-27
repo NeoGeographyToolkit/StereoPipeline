@@ -365,6 +365,38 @@ void CsmModel::read_ellipsoid_from_isd(std::string const& isd_path) {
                  << m_semi_major_axis << ' ' << m_semi_minor_axis);
 }
 
+/// Read and cache the sun position. This is an expensive operation.
+/// TODO(oalexan1): See if one can avoid creating and parsing a string file.
+/// Maybe by now the Sun position is a public member in each model type.
+/// This will work for USGSCSM models, but maybe not for others. It is assumed
+/// here that the sun does not move noticeably in the sky during the brief time
+/// the picture is taken. 
+/// TODO(oalexan1): This returns a single Sun position per camera. It appears
+/// that linescan cameras can return a line-dependent Sun position. It is 
+/// not clear if that has any value, given how quickly an image is taken.
+void readCsmSunPosition(boost::shared_ptr<csm::RasterGM> const& gm_model,
+                        vw::Vector3 & sun_position) {
+
+  if (gm_model.get() == NULL)
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "CsmModel::readCsmSunPosition() failed because " 
+                 << "the model is not initialized.\n");
+    
+  std::string modelState = gm_model->getModelState();
+  nlohmann::json j = stateAsJson(modelState);
+  if (j.find("m_sunPosition") == j.end())
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "The Sun position was not found in the CSM model state.\n");
+    
+  std::vector<double> sun_pos = j["m_sunPosition"].get<std::vector<double>>();
+  if (sun_pos.size() < 3)
+    vw::vw_throw(vw::ArgumentErr() 
+                  << "The Sun position must be a vector of size >= 3.\n");
+
+  for (size_t it = 0; it < 3; it++) 
+    sun_position[it] = sun_pos[it];
+}
+ 
 /// Load the camera model from an ISD file or model state.
 void CsmModel::load_model(std::string const& isd_path) {
 
@@ -384,23 +416,6 @@ void CsmModel::load_model(std::string const& isd_path) {
     CsmModel::load_model_from_isd(isd_path);
   else
     CsmModel::loadModelFromStateFile(isd_path);
-
-  // Read the sun position. Will work for USGSCSM models, but maybe
-  // not for others. It is assumed here that the sun does not move
-  // noticeably in the sky during the brief time the picture is taken.
-  // TODO(oalexan1): Study how important is to compute sun position
-  // at every single time. Likely given that a camera shot takes a
-  // 1-3 seconds, the Sun can't move that much. 
-  std::string modelState = m_gm_model->getModelState();
-  nlohmann::json j = stateAsJson(modelState);
-  if (j.find("m_sunPosition") != j.end()) {
-    std::vector<double> sun_pos = j["m_sunPosition"].get<std::vector<double>>();
-    if (sun_pos.size() < 3)
-      vw::vw_throw(vw::ArgumentErr() << "The Sun position must be a vector of size >= 3.\n");
-    for (size_t it = 0; it < 3; it++) 
-      m_sun_position[it] = sun_pos[it];
-  }
-  
 }
   
 void CsmModel::load_model_from_isd(std::string const& isd_path) {
@@ -412,7 +427,7 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   csm::Isd support_data(isd_path);
 
   CsmModel::read_ellipsoid_from_isd(isd_path);
-
+ 
   // Check each available CSM plugin until we find one that can handle the ISD.
   std::string model_name, model_family;
   const csm::Plugin* csm_plugin = find_plugin_for_isd(support_data, model_name,
@@ -425,7 +440,6 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
     vw::vw_throw(vw::ArgumentErr() << "Unable to construct a camera model for the ISD file "
                         << isd_path << " using any of the loaded CSM plugins!");
   }
-
   vw_out() << "Using plugin: " << csm_plugin->getPluginName() 
            << " with model name " << model_name << std::endl;
 
@@ -455,6 +469,9 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
     vw::vw_throw(vw::ArgumentErr() << "Failed to cast CSM sensor model to raster type!");
   
   m_gm_model.reset(gm_model); // The smart pointer will handle memory management
+  
+  // This must happen after gm model is set
+  readCsmSunPosition(m_gm_model, m_sun_position);
 }
 
 /// Load the camera model from a model state written to disk.
@@ -476,6 +493,8 @@ void CsmModel::loadModelFromStateFile(std::string const& state_file) {
   CsmModel::setModelFromStateString(model_state, recreate_model);
 }
 
+// This should not be used directly. The function setModelFromStateString() 
+// below also reads the semi-axes and the Sun position.
 template<class ModelT>
 void setModelFromStateStringAux(bool recreate_model,
                                 std::string const& model_state,
@@ -512,7 +531,8 @@ void setModelFromStateStringAux(bool recreate_model,
 /// A model state is obtained from an ISD model by pre-processing
 /// and combining its data in a form ready to be used.
 /// Use recreate_model = false if desired to just update an existing model.
-void CsmModel::setModelFromStateString(std::string const& model_state, bool recreate_model) {
+void CsmModel::setModelFromStateString(std::string const& model_state, 
+                                       bool recreate_model) {
   
   // TODO(oalexan1): Use the usgscsm function
   // constructModelFromState() after that package pushes a new version
@@ -555,6 +575,9 @@ void CsmModel::setModelFromStateString(std::string const& model_state, bool recr
   if (m_semi_major_axis <= 0.0 || m_semi_minor_axis <= 0.0) 
     vw::vw_throw(vw::ArgumentErr() << "Could not read positive semi-major "
                  << "and semi-minor axies from state string.");
+    
+  // This must happen after gm model is set
+  readCsmSunPosition(m_gm_model, m_sun_position);
 }
   
 void CsmModel::throw_if_not_init() const {
@@ -1067,6 +1090,14 @@ void CsmModel::deep_copy(CsmModel & copy) const {
 
   // Throw an error
   vw_throw(ArgumentErr() << "CsmModel::deep_copy(): Unknown CSM model type.\n");
+}
+
+vw::Vector3 CsmModel::sun_position() const {
+  if (m_sun_position == vw::Vector3())
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "CsmModel::sun_position() returns the Sun position as being "
+                 << "at the planet center. This is a programmer error.\n");
+  return m_sun_position;
 }
 
 } // end namespace asp

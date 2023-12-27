@@ -561,8 +561,9 @@ vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraMode
 // TODO(oalexan1):  Can we share more code with the DG implementation?
 
 boost::shared_ptr<vw::camera::CameraModel>
-StereoSessionIsis::load_camera_model
-      (std::string const& image_file, std::string const& camera_file, Vector2 pixel_offset) const{
+StereoSessionIsis::load_camera_model(std::string const& image_file, 
+                                     std::string const& camera_file, 
+                                     Vector2 pixel_offset) const {
 
   return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),
                             image_file, camera_file, pixel_offset);

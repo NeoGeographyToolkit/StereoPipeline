@@ -1838,7 +1838,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 #endif
 
   saveUpdatedCameras(opt, *best_params_ptr);
-
+  
   if (!opt.apply_initial_transform_only && has_datum && 
       (opt.stereo_session == "pinhole") || (opt.stereo_session == "nadirpinhole")) 
     saveCameraReport(opt, *best_params_ptr, opt.datum, "final");
@@ -2320,10 +2320,25 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     inline_adjustments = true;
   }
 
+  // Work out the camera model type. This must happen before early.
+  // Cameras are not loaded yet. 
+  // TODO(oalexan1): Maybe we need to load cameras by now?
   opt.camera_type = BaCameraType_Other;
-  if (inline_adjustments) {
-    // Work out the session and camera model type
-    asp::guessSession(opt.camera_files[0], opt.stereo_session);
+  if (inline_adjustments) { 
+    if (opt.stereo_session.empty()) {
+      // Guess the session
+      // TODO(oalexan1): Too many calls to StereoSessionFactory::create happen.
+      // Also in load_cameras().
+      SessionPtr session(asp::StereoSessionFactory::create
+                         (opt.stereo_session, // may change
+                          opt, opt.image_files[0], opt.image_files[0],
+                          opt.camera_files[0], opt.camera_files[0],
+                          opt.out_prefix));
+      // TODO(oalexan1): Think about the preference below more
+      if (opt.stereo_session == "pinhole")
+        opt.stereo_session = "nadirpinhole"; // prefer nadirpinhole
+    }
+
     if ((opt.stereo_session == "pinhole") || 
         (opt.stereo_session == "nadirpinhole"))
       opt.camera_type = BaCameraType_Pinhole;

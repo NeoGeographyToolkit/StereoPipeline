@@ -44,7 +44,7 @@
 #include <isis/CubeAttribute.h>
 #include <isis/Table.h>
 #include <isis/iTime.h>
-
+#include <isis/Blob.h>
 #include <boost/shared_ptr.hpp>
 
 #include <string>
@@ -557,54 +557,204 @@ void saveIsisCnet(std::string const& outputPrefix,
   return;
 }
 
-void saveCube() {
-  char * fh = getenv("CUBE");
-  if (fh == NULL) {
-    std::cout << "No cube to save" << std::endl;
-    return;
-  }
-  std::string cubeFile = fh;
-  std::cout << "Saving cube: " << cubeFile << std::endl;
-  using namespace Isis;
-  // convert to qstring
-  QString qCubeFile = QString::fromStdString(cubeFile);
+  
+// void saveCube() {
+//   std::cout << "--must delete spice kernels" << std::endl;
+//   std::cout << "this must be a function" << std::endl;
+  
+//   char * fh = getenv("CUBE");
+//   if (fh == NULL) {
+//     std::cout << "No cube to save" << std::endl;
+//     return;
+//   }
+//   std::string cubeFile = fh;
+//   std::cout << "Saving cube: " << cubeFile << std::endl;
+//   using namespace Isis;
+//   // convert to qstring
+//   QString qCubeFile = QString::fromStdString(cubeFile);
 
-  PvlGroup gp("JigsawResults");
-  std::cout << "--now in ba update" << std::endl;
+//   PvlGroup gp("JigsawResults");
+//   std::cout << "--now in ba update" << std::endl;
 
-  Process p;
-  CubeAttributeInput inAtt;
+//   Process p;
+//   CubeAttributeInput inAtt;
 
-  Cube *c = p.SetInputCube(qCubeFile, inAtt, ReadWrite);
-  //check for existing polygon, if exists delete it
-  if (c->label()->hasObject("Polygon")) {
-    c->label()->deleteObject("Polygon");
-  }
+//   Cube *cube = p.SetInputCube(qCubeFile, inAtt, ReadWrite);
+  
+//   std::cout << "--get old blob" << std::endl;
+//   // Wipe old blob
+//   if (cube->hasBlob("CSMState", "String")) {
+//     // Red blob
+//     Blob csmStateBlob("CSMState", "String");
+//     // Read the BLOB from the cube to propagate things like the model
+//     // and plugin name
+//     cube->read(csmStateBlob);
 
-  // check for CameraStatistics Table, if exists, delete
-  for (int iobj = 0; iobj < c->label()->objects(); iobj++) {
-    PvlObject obj = c->label()->object(iobj);
-    if (obj.name() != "Table") continue;
-    if (obj["Name"][0] != QString("CameraStatistics")) continue;
-    c->label()->deleteObject(iobj);
-    break;
-  }
+//     // Get the pointer to the blob and copy to a string
+//     std::string modelState = csmStateBlob.getBuffer(); 
+//     std::cout << "--model state is " << modelState << std::endl;
+    
+//     // Delete blob
+//     //cube->deleteBlob("CSMState", "String");
+//   }
+//   exit(0);
+  
+  
+//   // Create our CSM State blob as a string and add the CSM string to the Blob.
+//   Blob csmStateBlob("CSMState", "String");
+  
+//   // TODO(oalexan1): Fix here!
+//   std::cout << "--fix here" << std::endl;
+//   std::string modelState = "";
+  
+//   QString jigComment = "Jigged = " + Isis::iTime::CurrentLocalTime();
 
-  //  Update the image parameters
-  QString jigComment = "Jigged = " + Isis::iTime::CurrentLocalTime();
-  Isis::Camera *cam = Isis::CameraFactory::Create(*c);          
-  Table cmatrix = cam->instrumentRotation()->Cache("InstrumentPointing");
-  cmatrix.Label().addComment(jigComment);
-  Table spvector = cam->instrumentPosition()->Cache("InstrumentPosition");
+//   //Detected CSM plugin: UsgsAstroPluginCSM
+//   //Number of models for this plugin: 5
+//   std::cout << "--must test here" << std::endl;
+//   //QString modelName = QString::fromStdString(model->getModelName());
+//   QString modelName = QString::fromStdString("USGS_ASTRO_LINE_SCANNER_SENSOR_MODEL");
+//   QString pluginName = QString::fromStdString("UsgsAstroPluginCSM");
+  
+//   //QString currentModelName = QString::fromStdString
+//   // ("USGS_ASTRO_LINE_SCANNER_SENSOR_MODEL");
 
-  spvector.Label().addComment(jigComment);
-  c->write(cmatrix);
-  c->write(spvector);
+//   csmStateBlob.setData(modelState.c_str(), modelState.size());
+//   PvlObject &blobLabel = csmStateBlob.Label();
+//   blobLabel += PvlKeyword("ModelName", modelName);
+//   blobLabel += PvlKeyword("PluginName", pluginName);
+//   blobLabel.addComment(jigComment);
+//   cube->write(csmStateBlob);
+  
+    
 
-  p.WriteHistory(*c);
+// #if 0
+//     // Populate the CsmInfo group with useful information
+//     cube->deleteGroup("CsmInfo");
+//     PvlGroup infoGroup("CsmInfo");
+//     infoGroup += PvlKeyword("CSMPlatformID",
+//                             QString::fromStdString(model->getPlatformIdentifier()));
+//     infoGroup += PvlKeyword("CSMInstrumentId",
+//                             QString::fromStdString(model->getSensorIdentifier()));
+//     infoGroup += PvlKeyword("ReferenceTime",
+//                             QString::fromStdString(model->getReferenceDateAndTime()));
+//     csm::GeometricModel *modelWithParams = dynamic_cast<csm::GeometricModel*>(model);
 
-  gp += PvlKeyword("Status", "Camera pointing updated");
+//     if (modelWithParams) {
+//       PvlKeyword paramNames("ModelParameterNames");
+//       PvlKeyword paramUnits("ModelParameterUnits");
+//       PvlKeyword paramTypes("ModelParameterTypes");
+//       for (const csm::GeometricModel::Parameter &param : modelWithParams->getParameters()) {
+//         paramNames += QString::fromStdString(param.name);
+//         paramUnits += QString::fromStdString(param.units);
+//         switch (param.type) {
+//           case csm::param::NONE:
+//             paramTypes += "NONE";
+//             break;
 
+//           case csm::param::FICTITIOUS:
+//             paramTypes += "FICTITIOUS";
+//             break;
 
-}
+//           case csm::param::REAL:
+//             paramTypes += "REAL";
+//             break;
+
+//           case csm::param::FIXED:
+//             paramTypes += "FIXED";
+//             break;
+
+//           default:
+//             paramTypes += "UNKNOWN";
+//             break;
+//         }
+//       }
+
+//       infoGroup += paramNames;
+//       infoGroup += paramUnits;
+//       infoGroup += paramTypes;
+//     }
+//     cube->putGroup(infoGroup);
+// #endif
+
+// #if 0
+//             Process p;
+//             CubeAttributeInput inAtt;
+//             Cube *c = p.SetInputCube(bundleAdjustment->fileName(i), inAtt, ReadWrite);
+//             //check for existing polygon, if exists delete it
+//             if (c->label()->hasObject("Polygon")) {
+//               c->label()->deleteObject("Polygon");
+//             }
+
+//             // check for CameraStatistics Table, if exists, delete
+//             for (int iobj = 0; iobj < c->label()->objects(); iobj++) {
+//               PvlObject obj = c->label()->object(iobj);
+//               if (obj.name() != "Table") continue;
+//               if (obj["Name"][0] != QString("CameraStatistics")) continue;
+//               c->label()->deleteObject(iobj);
+//               break;
+//             }
+
+//             //  Update the image parameters
+//             QString jigComment = "Jigged = " + Isis::iTime::CurrentLocalTime();
+//             if (c->hasBlob("CSMState", "String")) {
+//               Blob csmStateBlob("CSMState", "String");
+//               // Read the BLOB from the cube to propagate things like the model
+//               // and plugin name
+//               c->read(csmStateBlob);
+//               std::string modelState = bundleAdjustment->modelState(i).toStdString();
+//               csmStateBlob.setData(modelState.c_str(), modelState.size());
+//               csmStateBlob.Label().addComment(jigComment);
+//               c->write(csmStateBlob);
+//             }
+//             else {
+//               std::cout << "--will write spvector and cmatrix" << std::endl;
+//               Table cmatrix = bundleAdjustment->cMatrix(i);
+//               cmatrix.Label().addComment(jigComment);
+//               Table spvector = bundleAdjustment->spVector(i);
+//               spvector.Label().addComment(jigComment);
+//               c->write(cmatrix);
+//               c->write(spvector);
+//             }
+//             p.WriteHistory(*c);
+//           }
+//           gp += PvlKeyword("Status", "Camera pointing updated");
+//         }
+//       }
+// #endif
+
+//   exit(0);
+  
+//   #if 0
+//   //check for existing polygon, if exists delete it
+//   if (c->label()->hasObject("Polygon")) {
+//     c->label()->deleteObject("Polygon");
+//   }
+
+//   // check for CameraStatistics Table, if exists, delete
+//   for (int iobj = 0; iobj < c->label()->objects(); iobj++) {
+//     PvlObject obj = c->label()->object(iobj);
+//     if (obj.name() != "Table") continue;
+//     if (obj["Name"][0] != QString("CameraStatistics")) continue;
+//     c->label()->deleteObject(iobj);
+//     break;
+//   }
+
+//   //  Update the image parameters
+//   QString jigComment = "Jigged = " + Isis::iTime::CurrentLocalTime();
+//   Isis::Camera *cam = Isis::CameraFactory::Create(*c);          
+//   Table cmatrix = cam->instrumentRotation()->Cache("InstrumentPointing");
+//   cmatrix.Label().addComment(jigComment);
+//   Table spvector = cam->instrumentPosition()->Cache("InstrumentPosition");
+
+//   spvector.Label().addComment(jigComment);
+//   c->write(cmatrix);
+//   c->write(spvector);
+
+//   p.WriteHistory(*c);
+
+//   gp += PvlKeyword("Status", "Camera pointing updated");
+// #endif
+
+// }
 } // end namespace asp

@@ -1783,32 +1783,6 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   } // End loop through the match files
 }
 
-// Guess the session name if the camera file is .tsai or .json
-void asp::guessSession(std::string const& camera_file, std::string & stereo_session) {
-  if (stereo_session == "") {
-    try {
-      PinholeModel cam(camera_file);
-      stereo_session = "nadirpinhole"; // prefer nadirpinhole to pinhole
-    } catch(std::exception const& e) {}
-  }
-
-  if (stereo_session == "") {
-    try {
-      OpticalBarModel cam(camera_file);
-      stereo_session = "opticalbar";
-    } catch(std::exception const& e){}
-  }
-
-  if (stereo_session == "") {
-    try {
-      CsmModel cam(camera_file);
-      stereo_session = "csm";
-    } catch(std::exception const& e){}
-  }
-
-  return;
-}
-
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
 void asp::saveCameraReport(asp::BaBaseOptions const& opt, 

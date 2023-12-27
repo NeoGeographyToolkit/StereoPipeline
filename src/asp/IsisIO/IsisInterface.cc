@@ -29,20 +29,23 @@
 #include <iomanip>
 #include <ostream>
 
-#include <Cube.h>
-#include <Distance.h>
-#include <Pvl.h>
-#include <Camera.h>
-#include <Target.h>
-#include <FileName.h>
-#include <CameraFactory.h>
-#include <SerialNumber.h>
-#include <iTime.h>
+#include <isis/Cube.h>
+#include <isis/Distance.h>
+#include <isis/Pvl.h>
+#include <isis/Camera.h>
+#include <isis/Target.h>
+#include <isis/FileName.h>
+#include <isis/CameraFactory.h>
+#include <isis/SerialNumber.h>
+#include <isis/iTime.h>
+#include <isis/Blob.h>
+#include <isis/Process.h>
+#include <isis/CubeAttribute.h>
 
 using namespace vw;
-using namespace asp;
-using namespace asp::isis;
 
+namespace asp {namespace isis { 
+                               
 IsisInterface::IsisInterface(std::string const& file) {
   // Opening labels and camera
   Isis::FileName ifilename(QString::fromStdString(file));
@@ -98,9 +101,9 @@ IsisInterface* IsisInterface::open(std::string const& filename) {
     break;
   default:
     // LRO WAC comes here
-    vw_throw(NoImplErr() << "Don't support Isis camera type "
-             << camera->GetCameraType() << " at this moment. "
-             << "Consider using CSM cameras with these images.");
+    vw_throw(NoImplErr() << "Unusual input file: " << filename
+             << ". Seems to have Isis camera type " << camera->GetCameraType() 
+             << ". Check your data. Maybe it will work with CSM.");
   }
 
   return result;
@@ -158,7 +161,7 @@ vw::cartography::Datum IsisInterface::get_datum(bool use_sphere_for_non_earth) c
   return datum;
 }
 
-std::ostream& asp::isis::operator<<(std::ostream& os, IsisInterface* i) {
+std::ostream& operator<<(std::ostream& os, IsisInterface* i) {
   os << "IsisInterface" << i->type()
        << "(Serial=" << i->serial_number()
        << std::setprecision(9)
@@ -170,7 +173,7 @@ std::ostream& asp::isis::operator<<(std::ostream& os, IsisInterface* i) {
 }
 
 // Check if ISISROOT and ISISDATA was set
-bool asp::isis::IsisEnv() {
+bool IsisEnv() {
   char * isisroot_ptr = getenv("ISISROOT");
   char * isisdata_ptr = getenv("ISISDATA");
 
@@ -181,3 +184,164 @@ bool asp::isis::IsisEnv() {
     return false;
   return true;
 }
+
+// TODO(oalexan1): This must be integrated with ISIS
+void deleteSpiceKeywords(Isis::Cube *cube) {
+  
+  Isis::PvlGroup &kernelsGroup = cube->group("Kernels");
+
+  // Get rid of keywords from spiceinit
+  if (kernelsGroup.hasKeyword("LeapSecond")) {
+    kernelsGroup.deleteKeyword("LeapSecond");
+  }
+  if (kernelsGroup.hasKeyword("TargetAttitudeShape")) {
+    kernelsGroup.deleteKeyword("TargetAttitudeShape");
+  }
+  if (kernelsGroup.hasKeyword("TargetPosition")) {
+    kernelsGroup.deleteKeyword("TargetPosition");
+  }
+  if (kernelsGroup.hasKeyword("InstrumentPointing")) {
+    kernelsGroup.deleteKeyword("InstrumentPointing");
+  }
+  if (kernelsGroup.hasKeyword("InstrumentPointingQuality")) {
+    kernelsGroup.deleteKeyword("InstrumentPointingQuality");
+  }
+  if (kernelsGroup.hasKeyword("Instrument")) {
+    kernelsGroup.deleteKeyword("Instrument");
+  }
+  if (kernelsGroup.hasKeyword("SpacecraftClock")) {
+    kernelsGroup.deleteKeyword("SpacecraftClock");
+  }
+  if (kernelsGroup.hasKeyword("InstrumentPositionQuality")) {
+    kernelsGroup.deleteKeyword("InstrumentPositionQuality");
+  }
+  if (kernelsGroup.hasKeyword("InstrumentPosition")) {
+    kernelsGroup.deleteKeyword("InstrumentPosition");
+  }
+  if (kernelsGroup.hasKeyword("InstrumentAddendum")) {
+    kernelsGroup.deleteKeyword("InstrumentAddendum");
+  }
+  if (kernelsGroup.hasKeyword("EXTRA")) {
+    kernelsGroup.deleteKeyword("EXTRA");
+  }
+  if (kernelsGroup.hasKeyword("Source")) {
+    kernelsGroup.deleteKeyword("Source");
+  }
+  if (kernelsGroup.hasKeyword("SpacecraftPointing")) {
+    kernelsGroup.deleteKeyword("SpacecraftPointing");
+  }
+  if (kernelsGroup.hasKeyword("SpacecraftPosition")) {
+    kernelsGroup.deleteKeyword("SpacecraftPosition");
+  }
+  if (kernelsGroup.hasKeyword("CameraVersion")) {
+    kernelsGroup.deleteKeyword("CameraVersion");
+  }
+  if (kernelsGroup.hasKeyword("ElevationModel")) {
+    kernelsGroup.deleteKeyword("ElevationModel");
+  }
+  if (kernelsGroup.hasKeyword("Frame")) {
+    kernelsGroup.deleteKeyword("Frame");
+  }
+  if (kernelsGroup.hasKeyword("StartPadding")) {
+    kernelsGroup.deleteKeyword("StartPadding");
+  }
+  if (kernelsGroup.hasKeyword("EndPadding")) {
+    kernelsGroup.deleteKeyword("EndPadding");
+  }
+  if (kernelsGroup.hasKeyword("RayTraceEngine")) {
+    kernelsGroup.deleteKeyword("RayTraceEngine");
+  }
+  if (kernelsGroup.hasKeyword("OnError")) {
+    kernelsGroup.deleteKeyword("OnError");
+  }
+  if (kernelsGroup.hasKeyword("Tolerance")) {
+    kernelsGroup.deleteKeyword("Tolerance");
+  }
+
+  if (cube->label()->hasObject("NaifKeywords")) {
+    cube->label()->deleteObject("NaifKeywords");
+  }
+}
+
+// Peek inside a cube file to see if it has a CSM blob. This needs ISIS
+// logic, rather than any CSM-specific info.  
+bool IsisCubeHasCsmBlob(std::string const& CubeFile) {
+  
+  QString qCubeFile = QString::fromStdString(CubeFile);
+  Isis::Process p;
+  Isis::CubeAttributeInput inAtt;
+  Isis::Cube *cube = p.SetInputCube(qCubeFile, inAtt, Isis::ReadWrite);
+  
+  // Hopefully the memory of cube is freed when p goes out of scope.  
+  return cube->hasBlob("CSMState", "String");
+}
+
+// Read the CSM state (a string) from a cube file. Throw an exception
+// if missing.
+std::string csmStateFromIsisCube(std::string const& CubeFile) {
+    
+  QString qCubeFile = QString::fromStdString(CubeFile);
+  Isis::Process p;
+  Isis::CubeAttributeInput inAtt;
+  Isis::Cube *cube = p.SetInputCube(qCubeFile, inAtt, Isis::ReadWrite);
+  
+  if (!cube->hasBlob("CSMState", "String"))
+    vw::vw_throw( vw::ArgumentErr() << "Cannot find the CSM state in the ISIS cube file "
+                  << CubeFile << ".\n");
+
+  Isis::Blob csmStateBlob("CSMState", "String");
+  cube->read(csmStateBlob);
+
+  // Get the buffer and copy to a string
+  return std::string(csmStateBlob.getBuffer()); 
+}
+
+// Save a CSM state to an ISIS Cube file. Wipe any spice info.
+// This may throw if the file cannot be saved.
+void saveCsmStateToIsisCube(std::string const& CubeFile, std::string const& csmState) {
+ 
+ if (csmState.empty())
+   vw::vw_throw( vw::ArgumentErr() << "Cannot save empty CSM state to ISIS cube file "
+                 << CubeFile << ".\n");
+
+  QString qCubeFile = QString::fromStdString(CubeFile);
+  Isis::Process p;
+  Isis::CubeAttributeInput inAtt;
+  Isis::Cube *cube = p.SetInputCube(qCubeFile, inAtt, Isis::ReadWrite);
+  
+  // Delete any spice keywords
+  deleteSpiceKeywords(cube);
+
+  // Must continue here  
+#if 0
+  // Create our CSM State blob as a string and add the CSM string to the Blob.
+  Blob csmStateBlob("CSMState", "String");
+  
+  // TODO(oalexan1): Fix here!
+  std::cout << "--fix here" << std::endl;
+  std::string modelState = "";
+  
+  QString jigComment = "Jigged = " + Isis::iTime::CurrentLocalTime();
+
+  //Detected CSM plugin: UsgsAstroPluginCSM
+  //Number of models for this plugin: 5
+  std::cout << "--must test here" << std::endl;
+  //QString modelName = QString::fromStdString(model->getModelName());
+  QString modelName = QString::fromStdString("USGS_ASTRO_LINE_SCANNER_SENSOR_MODEL");
+  QString pluginName = QString::fromStdString("UsgsAstroPluginCSM");
+  
+  //QString currentModelName = QString::fromStdString
+  // ("USGS_ASTRO_LINE_SCANNER_SENSOR_MODEL");
+
+  csmStateBlob.setData(modelState.c_str(), modelState.size());
+  PvlObject &blobLabel = csmStateBlob.Label();
+  blobLabel += PvlKeyword("ModelName", modelName);
+  blobLabel += PvlKeyword("PluginName", pluginName);
+  blobLabel.addComment(jigComment);
+  cube->write(csmStateBlob);
+  
+#endif  
+}
+
+}} // end namespace asp::isis
+

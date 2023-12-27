@@ -28,6 +28,7 @@
 #include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Sessions/StereoSessionASTER.h>
 
+#include <asp/IsisIO/IsisInterface.h>
 #include <vw/FileIO/DiskImageResourceRaw.h>
 #include <vw/Camera/CameraUtilities.h>
 #include <asp/Camera/SPOT_XML.h>
@@ -57,8 +58,8 @@ namespace asp {
     bool quiet = true;
     boost::to_lower(actual_session_type);
     if (actual_session_type.empty()) {
-      if (asp::has_pinhole_extension(left_camera_file ) || // TODO: Fix this dangerous code!
-          asp::has_pinhole_extension(right_camera_file)   ) {
+      if (asp::has_pinhole_extension(left_camera_file) ||
+          asp::has_pinhole_extension(right_camera_file)) {
         // There can be several types of .tsai files
         std::string error_pinhole, error_opticalbar;
         try {
@@ -80,19 +81,26 @@ namespace asp {
                      << error_opticalbar);
           }
         }
-      } else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".json") ||
-          boost::iends_with(boost::to_lower_copy(right_camera_file), ".json") ) {
+      } else if (boost::iends_with(boost::to_lower_copy(left_camera_file), ".json") ||
+                 boost::iends_with(boost::to_lower_copy(right_camera_file), ".json")) {
         actual_session_type = "csm";
-      }else if (boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
-		boost::iends_with(boost::to_lower_copy(right_image_file ), ".cub") ||
-		boost::iends_with(boost::to_lower_copy(left_camera_file ), ".cub") ||
-		boost::iends_with(boost::to_lower_copy(right_camera_file), ".cub") ) {
+      } else if (boost::iends_with(boost::to_lower_copy(left_image_file), ".cub") &&
+                 asp::isis::IsisCubeHasCsmBlob(left_image_file)) {
+        // This is a cub file that has a CSM model inside of of it
+        if (!asp::isis::IsisCubeHasCsmBlob(right_image_file))
+          vw::vw_throw(vw::ArgumentErr() << "Found a CSM model in " << left_image_file
+                   << " but not in " << right_image_file << ".\n");
+        actual_session_type = "csm";
+      } else if (boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
+                 boost::iends_with(boost::to_lower_copy(right_image_file ), ".cub") ||
+                 boost::iends_with(boost::to_lower_copy(left_camera_file ), ".cub") ||
+                 boost::iends_with(boost::to_lower_copy(right_camera_file), ".cub")) {
         actual_session_type = "isis";
       } else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".dim") ||
-                 boost::iends_with(boost::to_lower_copy(right_camera_file), ".dim") ) {
+                 boost::iends_with(boost::to_lower_copy(right_camera_file), ".dim")) {
         actual_session_type = "spot5";
-      }else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".xml") ||
-		boost::iends_with(boost::to_lower_copy(right_camera_file), ".xml") ) {
+      } else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".xml") ||
+                 boost::iends_with(boost::to_lower_copy(right_camera_file), ".xml")) {
 
         // Here we have several options for .xml files. Note that a
         // Digital Globe xml file has both linescan and RPC

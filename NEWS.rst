@@ -64,12 +64,14 @@ point2dem (:numref:`point2dem`):
     (:numref:`point2dem_auto_proj_center`).
 
 csm (:numref:`csm`):
+   * Can read and write CSM model state embedded in ISIS .cub files   
+     (:numref:`embedded_csm`).
    * Fixed several problems in generation of CSM cameras for MSL Curiosity Nav
      and Mast images. Much large-scale testing was performed. Updated the
      example showing how to create stereo from either Nav or Mast stereo pairs
      (:numref:`csm_msl`).
-   * A multi-Martian-day example for MSL added (:numref:`csm_msl_multiday`).  
-   * Added support for the radial and tangential distortion model 
+   * A multi-Martian-day example for MSL added (:numref:`csm_msl_multiday`).
+   * Added support for the radial and tangential distortion model
      with 3 radial distortion parameters and 2 tangential ones. Tested
      that it agrees with the OpenCV implementation.
    * Fixed a small bug in radial distortion implementation.

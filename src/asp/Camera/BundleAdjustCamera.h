@@ -572,9 +572,6 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                           std::vector<std::vector<float>>   & mapprojOffsetsPerCam,
                           std::vector<asp::HorizVertErrorStats>  & horizVertErrors);
 
-// Guess the session name if the camera file is .tsai or .json
-void guessSession(std::string const& camera_file, std::string & stereo_session);
-
 /// This is for the BundleAdjustmentModel class where the camera parameters
 /// are a rotation/offset that is applied on top of the existing camera model.
 /// First read initial adjustments, if any, and apply perhaps a pc_align transform.

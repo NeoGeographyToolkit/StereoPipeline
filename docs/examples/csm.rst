@@ -10,9 +10,10 @@ a well-defined application program interface (API) for multiple
 types of sensors and has been widely adopted by Earth remote sensing
 software systems :cite:`hare2017community,2019EA000713`.
 
-ASP supports and ships the USGS implementation of CSM for planetary images
-(https://github.com/USGS-Astrogeology/usgscsm), which provides
-Linescan, Frame, Pushframe, and Synthetic Aperture Radar (SAR) implementations.
+ASP supports and ships the `USGS implementation
+<https://github.com/USGS-Astrogeology/usgscsm>`_ of CSM for planetary images,
+which provides Linescan, Frame, Pushframe, and Synthetic Aperture Radar (SAR)
+implementations.
 
 CSM is handled via dynamically loaded plugins. Hence, if a user has a
 new sensor model, ASP should, in principle, be able to use it as soon
@@ -26,8 +27,10 @@ Each stereo pair to be processed by ASP should be made up of two
 images (for example ``.cub`` or ``.tif`` files) and two plain
 text camera files with ``.json`` extension. The CSM information is
 contained in the ``.json`` files and it determines which plugin to
-load to use with those cameras.  More details are available at the
-USGS CSM repository mentioned earlier.
+load to use with those cameras. 
+
+CSM model state data can also be embedded in ISIS .cub files
+(:numref:`embedded_csm`).
 
 .. _csm_frame:
 
@@ -1041,8 +1044,19 @@ coverage.
 
 .. _csm_state:
 
-Exporting CSM model state
-~~~~~~~~~~~~~~~~~~~~~~~~~
+CSM model state
+~~~~~~~~~~~~~~~
+
+CSM cameras are stored in JSON files, in one of the following two formats:
+
+* ISD: It has the transforms from sensor coordinates to J2000, and from
+  J2000 to ECEF. 
+* Model state: Then the above-mentioned transforms are combined,
+  and other information is condensed or removed. 
+   
+The model state files have all the data needed to project ground points into the
+camera and vice-versa, so they are sufficient for any use in ASP. The model state can
+also be embedded in ISIS cubes (:numref:`embedded_csm`).
 
 ASP's bundle adjustment program (:numref:`bundle_adjust`) normally writes plain
 text ``.adjust`` files which encode how the position and orientation of the
@@ -1055,16 +1069,6 @@ the optimization adjustments applied to them (use zero iterations in
 This functionality is implemented for all USGS CSM sensors, so, for ``frame``,
 ``linescan``, ``pushframe``, and ``SAR`` models.
 
-It is important to note that the ``model state`` of a CSM camera
-and the CSM camera itself, while both stored on disk as JSON files,
-are not the same thing. The CSM camera file (also called the ``CSM
-ISD`` file) has the transforms from sensor coordinates to J2000 and from
-J2000 to ECEF. These are then combined together to form the model
-state, which has the transforms from the sensor to ECEF. The model
-state is used to project ground points into the camera and vice-versa,
-so it is sufficient for the purposes of bundle adjustment, stereo,
-and mapprojection.
-
 ASP's ``parallel_stereo`` and bundle adjustment programs can, in addition to CSM
 ISD camera model files, also load such model state files, either as previously
 written by ASP or from an external source (it will auto-detect the type from the
@@ -1074,30 +1078,9 @@ data exchange, while being less complex than the ISD format.
 If ASP's ``parallel_stereo`` program is used to create a point cloud from
 images and CSM cameras, and then that point cloud has a transform
 applied to it, such as with ``pc_align``, the same transform can be
-applied to the model states for the two cameras, which are then saved
-to disk as earlier.  That is accomplished by invoking bundle
-adjustment with the input images and cameras as follows::
-
-    bundle_adjust left.cub right.cub left.json right.json \
-      --initial-transform transform.txt                   \
-      --apply-initial-transform-only -o ba/run
+applied to the model states for the two cameras using ``bundle_adjust``
+(:numref:`ba_pc_align`).
  
-This will save the state files ``ba/run-left.adjusted_state.json`` and
-``ba/run-right.adjusted_state.json``. If it is desired to simply
-export the model state of the initial cameras without any alignment,
-then the transform passed in can be the identity matrix of size 4.
-
-In case first bundle adjustment was used, then ``parallel_stereo`` was run with
-bundle adjusted cameras, then ``pc_align`` was invoked on the
-resulting point cloud, obtaining an alignment transform, and is
-desired to create model state files having both the effect of bundle
-adjustment and subsequent alignment, one can invoke bundle adjustment
-just as above, with an initial transform and zero iterations, but use
-not the original ``left.json`` and ``right.json`` camera files, but
-the model state files after the initial bundle adjustment which encode
-that adjustment. (See also :numref:`ba_pc_align` for how to combine
-bundle adjustment with the alignment transform.) 
-
 To evaluate how well the obtained CSM camera approximates the ISIS
 camera model, run the program ``cam_test`` shipped with ASP
 (:numref:`cam_test`) as follows::
@@ -1108,3 +1091,36 @@ camera model, run the program ``cam_test`` shipped with ASP
 The pixel errors are expected to be at most on the order of 0.2
 pixels.
 
+.. _embedded_csm:
+
+CSM state embedded in ISIS cubes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ASP usually expects CSM cameras to be specified in JSON files. It also accepts
+CSM camera model state data (:numref:`csm_state`) embedded in ISIS cubes, if all
+the following (reasonable) assumptions are satisfied: 
+
+ * JSON files are not passed in.
+ * The ISIS cubes contain CSM model state data (in the ``CSMState`` group).
+ * The ``--session-type`` (or ``--t``) option value is not set to ``isis`` (or
+   ``isismapisis``). So, its value should be either ``csm`` (or ``csmmapcsm``),
+   or left blank.
+ 
+Hence, if no CSM data is provided, either in the ISIS cubes or separately
+in JSON files, or ``--session-type`` is set to ``isis`` (or ``isismapisis``),
+ASP will use the ISIS camera models.
+
+If ``bundle_adjust`` is run with CSM cameras, either embedded in ISIS cubes or
+specified separately, and the flag ``--update-isis-cubes-with-csm-state`` is
+set, then the optimized model states will be saved back to the ISIS cubes, while
+the SPICE information from the cubes will be deleted. Separate model state files
+in JSON format will be saved as well.
+ 
+See also the `csminit
+<https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/csminit/csminit.html>`_
+and `spiceinit
+<https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/spiceinit/spiceinit.html>`_
+documentation.
+ 
+  
+  

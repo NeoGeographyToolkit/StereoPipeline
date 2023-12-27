@@ -356,9 +356,9 @@ Then, jitter was solved for, using the aligned cameras::
       --heights-from-dem ref_dem.tif           \
       --heights-from-dem-weight 0.05           \
       --heights-from-dem-robust-threshold 0.05 \
-      --num-iterations 50                      \
+      --num-iterations 20                      \
       --anchor-weight 0                        \
-      --tri-weight 0                           \
+      --tri-weight 0.1                         \
     -o jitter/run
 
 It was found that using about 1000 lines per pose (position and
@@ -493,9 +493,10 @@ It is important to use the proper naming convention (:numref:`ba_match_files`).
 
 The DEM used as a constraint can be either the existing gridded MOLA product, or
 it can be created from MOLA with ``point2dem`` (:numref:`jitter_solve_ctx_dem`).
-Consider increasing the values of ``--heights-from-dem-weight`` and
-``--heights-from-dem-robust-threshold`` to tighten the constraint. Values up to
-0.3 for both were tried and they worked well.
+Here the second option was used. Consider increasing the values of
+``--heights-from-dem-weight`` and ``--heights-from-dem-robust-threshold`` to
+tighten the constraint. Values up to 0.3 for both were tried and they worked
+well.
 
 .. figure:: ../images/jitter_ctx_dem_drg.png
    :name: jitter_ctx_dem_drg
@@ -512,7 +513,7 @@ Consider increasing the values of ``--heights-from-dem-weight`` and
    Mosaicked triangulation error image (:numref:`triangulation_error`), before
    (left) and after (right) solving for jitter. The range of values is between 0
    and 15 meters. It can be seen that the triangulation error greatly decreases.
-
+   This was produced with ``dem_mosaic --max``.
 
 .. figure:: ../images/jitter_ctx_mola_diff.png
    :name: jitter_ctx_mola_diff

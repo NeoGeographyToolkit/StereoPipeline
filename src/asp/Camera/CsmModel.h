@@ -108,9 +108,8 @@ namespace asp {
         vw::Vector3 C, // camera center
         vw::Matrix3x3 R); // camera to world rotation matrix
 
-    vw::Vector3 sun_position() const {
-      return m_sun_position;
-    }
+    // Sun position in ECEF
+    vw::Vector3 sun_position() const;
 
     // For bundle adjustment need a higher precision as CERES needs to do accurate
     // numerical differences.

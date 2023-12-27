@@ -19,16 +19,6 @@
 /// \file CameraModelLoader.cc
 ///
 
-#include <vw/Camera/Extrinsics.h>
-#include <vw/Camera/CameraUtilities.h>
-#include <vw/Core/Exception.h>
-#include <vw/Core/Log.h>
-#include <vw/FileIO/FileUtils.h>
-#include <vw/Math/EulerAngles.h>
-#include <vw/Math/Matrix.h>
-#include <vw/Camera/OpticalBarModel.h>
-#include <vw/Core/Stopwatch.h>
-
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/IsisIO/Equation.h>
@@ -42,6 +32,16 @@
 #include <asp/Sessions/CameraModelLoader.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
+
+#include <vw/Camera/Extrinsics.h>
+#include <vw/Camera/CameraUtilities.h>
+#include <vw/Core/Exception.h>
+#include <vw/Core/Log.h>
+#include <vw/FileIO/FileUtils.h>
+#include <vw/Math/EulerAngles.h>
+#include <vw/Math/Matrix.h>
+#include <vw/Camera/OpticalBarModel.h>
+#include <vw/Core/Stopwatch.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -133,16 +133,11 @@ CameraModelLoader::load_ASTER_camera_model(std::string const& path) const {
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_isis_camera_model(std::string const& path) const {
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  
-  std::string ext = vw::get_extension(path);
-  if (asp::CsmModel::file_has_isd_extension(path)) // Community Sensor Model
-    return vw::CamPtr(new asp::CsmModel(path));
-  else // Should be a .cub extension.
-    return vw::CamPtr(new vw::camera::IsisCameraModel(path));
+  return vw::CamPtr(new vw::camera::IsisCameraModel(path));
 #endif
   // If ISIS was not enabled in the build, just throw an exception.
-  vw::vw_throw( vw::NoImplErr()
-                << "\nCannot load ISIS files because ISIS was not enabled in the build!.\n");
+  vw::vw_throw(vw::NoImplErr()
+               << "Cannot load ISIS files because ISIS was not enabled in the build.\n");
 
 } // End function load_isis_camera_model()
 
@@ -155,9 +150,18 @@ CameraModelLoader::load_optical_bar_camera_model(std::string const& path) const 
 // Load a CSM camera file
 boost::shared_ptr<vw::camera::CameraModel> 
 CameraModelLoader::load_csm_camera_model(std::string const& path) const {
-  // Use the class method, then pack in a base class pointer.
+  
   boost::shared_ptr<asp::CsmModel> cam_ptr(new asp::CsmModel());
-  cam_ptr->load_model(path);
+  if (asp::CsmModel::file_has_isd_extension(path)) {
+    // Load a .json file
+    cam_ptr->load_model(path);
+    return vw::CamPtr(cam_ptr);
+  }
+  
+  // The CSM model is embedded in the cub file
+  std::string modelState = asp::isis::csmStateFromIsisCube(path);
+  bool recreateModel = true; 
+  cam_ptr->setModelFromStateString(modelState, recreateModel);
   return vw::CamPtr(cam_ptr);
 }
 

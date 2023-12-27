@@ -99,6 +99,18 @@ namespace isis {
   std::ostream& operator<<( std::ostream& os, IsisInterface* i );
 
   bool IsisEnv();
+
+  // Peek inside a Cube file to see if it has a CSM blob. This needs ISIS
+  // logic, rather than any CSM-specific info.  
+  bool IsisCubeHasCsmBlob(std::string const& CubeFile);
+  
+  // Read the CSM state (a string) from a cube file. Throw an exception
+  // if missing.
+  std::string csmStateFromIsisCube(std::string const& CubeFile);
+  
+  // Save a CSM state to an ISIS Cube file. Wipe any spice info. This may
+  // throw if the file cannot be saved.
+  void saveCsmStateToIsisCube(std::string const& CubeFile, std::string const& csmState);
 }}
 
-#endif//__ASP_ISIS_INTERFACE_H__
+#endif //__ASP_ISIS_INTERFACE_H__
