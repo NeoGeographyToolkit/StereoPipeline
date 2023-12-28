@@ -1601,6 +1601,9 @@ The optimized CSM model state files (:numref:`csm_state`), which
 reduce the jitter and also incorporate the initial adjustments as
 well, are saved in the directory for the specified output prefix.
 
+The optimized state files can also be appended to the .cub files
+(:numref:`embedded_csm`).
+
 This program saves, just like ``bundle_adjust``
 (:numref:`ba_out_files`), two .csv error files, before and after
 optimization. Each has the triangulated world position for every
@@ -1873,6 +1876,12 @@ Command-line options for jitter_solve
     A file containing the list of cameras, when they are too many to
     specify on the command line.
 
+--update-isis-cubes-with-csm-state
+    Save the model state of optimized CSM cameras as part of the .cub
+    files. Any prior version and any SPICE data will be deleted.
+    Mapprojected images obtained with prior version of the cameras
+    must no longer be used in stereo.
+        
 --min-triangulation-angle <degrees (default: 0.1)>
     The minimum angle, in degrees, at which rays must meet at a
     triangulated point to accept this point as valid. It must

@@ -1110,17 +1110,22 @@ Hence, if no CSM data is provided, either in the ISIS cubes or separately
 in JSON files, or ``--session-type`` is set to ``isis`` (or ``isismapisis``),
 ASP will use the ISIS camera models.
 
-If ``bundle_adjust`` is run with CSM cameras, either embedded in ISIS cubes or
-specified separately, and the flag ``--update-isis-cubes-with-csm-state`` is
+The above applies to all ASP tools that read CSM cameras (``parallel_stereo``,
+``bundle_adjust``, ``jitter_solve``, ``mapproject``, ``cam_test``).
+
+If ``bundle_adjust`` (:numref:`bundle_adjust`) or ``jitter_solve``
+(:numref:`jitter_solve`) is run with CSM cameras, either embedded in ISIS cubes
+or specified separately, and the flag ``--update-isis-cubes-with-csm-state`` is
 set, then the optimized model states will be saved back to the ISIS cubes, while
 the SPICE information from the cubes will be deleted. Separate model state files
 in JSON format will be saved as well.
- 
+
+Note that if images are mapprojected with certain camera files, and then those
+camera files are updated in-place, this will result in wrong results if stereo
+is run with the mapprojected images and updated cameras.
+  
 See also the `csminit
 <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/csminit/csminit.html>`_
 and `spiceinit
 <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/spiceinit/spiceinit.html>`_
 documentation.
- 
-  
-  

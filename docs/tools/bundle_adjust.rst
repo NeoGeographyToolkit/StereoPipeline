@@ -167,8 +167,9 @@ can then be passed directly to stereo::
      stereo file1.JPG file2.JPG run_ba/run-file1.tsai \
        run_ba/run-file2.tsai run_stereo/run
 
-When cameras are of CSM type (:numref:`csm`), self-contained optimized
-cameras will be written to disk (:numref:`csm_state`).
+When cameras are of CSM type (:numref:`csm`), self-contained optimized cameras
+will be written to disk (:numref:`csm_state`). These can also be appended to the
+.cub files (:numref:`embedded_csm`).
 
 Camera adjustments and applying a transform
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

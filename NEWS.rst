@@ -22,6 +22,8 @@ jitter_solve (:numref:`jitter_solve`):
     (:numref:`jitter_no_baseline`).
   * Support reading the ISIS ``jigsaw`` binary control network
     format (:numref:`jitter_ip`).
+  * Can read and write CSM model state embedded in ISIS .cub files   
+    (:numref:`embedded_csm`).
   * Can use anchor points with frame cameras.
   * Added ``--num-anchor-points-per-tile``. This helps when different
     images have different sizes but want to ensure the same point density.
@@ -33,16 +35,18 @@ jitter_solve (:numref:`jitter_solve`):
 bundle_adjust (:numref:`bundle_adjust`):
   * Added the ability to refine the camera intrinsics per sensor
     (:numref:`kaguya_tc_refine_intrinsics`).
-  * When optimizing intrinsics, cameras that do not share distortion can
-    have different distortion types and sizes. (:numref:`limit_ip`).
   * Support reading and writing the ISIS ``jigsaw`` binary control network
     format (:numref:`control_network`).
+  * Can read and write CSM model state embedded in ISIS .cub files   
+    (:numref:`embedded_csm`).
   * Added the option ``--propagate-errors`` to propagate the uncertainties from
     input cameras to triangulated points (:numref:`ba_error_propagation`).  
   * Added the option ``--weight-image``, to weigh observations based on
     geographic location of triangulated points. (:numref:`limit_ip`). 
   * For ASTER cameras, use the RPC model to find interest points. This does
     not affect the final results but is much faster.
+  * When optimizing intrinsics, cameras that do not share distortion can
+    have different distortion types and sizes. (:numref:`limit_ip`).
   * Enforce that option ``--mapprojected-data`` use images that were not 
     mapprojected with bundle-adjusted cameras, and also the input
     cameras themselves are not bundle-adjusted. It is easier to avoid
@@ -64,8 +68,6 @@ point2dem (:numref:`point2dem`):
     (:numref:`point2dem_auto_proj_center`).
 
 csm (:numref:`csm`):
-   * Can read and write CSM model state embedded in ISIS .cub files   
-     (:numref:`embedded_csm`).
    * Fixed several problems in generation of CSM cameras for MSL Curiosity Nav
      and Mast images. Much large-scale testing was performed. Updated the
      example showing how to create stereo from either Nav or Mast stereo pairs
