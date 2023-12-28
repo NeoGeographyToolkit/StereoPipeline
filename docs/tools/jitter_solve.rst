@@ -491,6 +491,9 @@ Then, jitter was solved for, as earlier. The dense pairwise matches were used.
 They were copied from individual stereo directories to a single directory.
 It is important to use the proper naming convention (:numref:`ba_match_files`).
 
+One could augment the dense matches with all *clean* sparse matches from bundle
+adjustment, if renamed to the proper convention. This was not done here.
+
 The DEM used as a constraint can be either the existing gridded MOLA product, or
 it can be created from MOLA with ``point2dem`` (:numref:`jitter_solve_ctx_dem`).
 Here the second option was used. Consider increasing the values of
@@ -502,10 +505,9 @@ well.
    :name: jitter_ctx_dem_drg
 
    DEM and orthoimage produced by mosaicking the results for the 27 stereo
-   pairs. Some seams in the DEMs are seen. Perhaps in addition to dense matches
-   for specific stereo pairs, one should also add all sparse matches from bundle
-   adjustment. For the orthoimages, the first encountered pixel was used at a
-   given location.
+   pairs. Some seams in the DEMs are seen. Perhaps it is due to insufficently
+   good distortion modeling. For the orthoimages, the first encountered pixel
+   was used at a given location.
 
 .. figure:: ../images/jitter_ctx_error_image.png
    :name: jitter_ctx_error_image
@@ -523,7 +525,7 @@ well.
    greatly attenuated. Some systematic error is seen in the vertical direction,
    roughly in the middle of the image. It is in the area where the MOLA data is
    sparsest, and maybe that results in the ground constraint not working as
-   well.
+   well. Or could be related to the seams issue noted earlier.
 
 .. _jitter_dg:
 
