@@ -1078,7 +1078,7 @@ data exchange, while being less complex than the ISD format.
 If ASP's ``parallel_stereo`` program is used to create a point cloud from
 images and CSM cameras, and then that point cloud has a transform
 applied to it, such as with ``pc_align``, the same transform can be
-applied to the model states for the two cameras using ``bundle_adjust``
+applied to the model states for the cameras using ``bundle_adjust``
 (:numref:`ba_pc_align`).
  
 To evaluate how well the obtained CSM camera approximates the ISIS
@@ -1098,7 +1098,7 @@ CSM state embedded in ISIS cubes
 
 ASP usually expects CSM cameras to be specified in JSON files. It also accepts
 CSM camera model state data (:numref:`csm_state`) embedded in ISIS cubes, if all
-the following (reasonable) assumptions are satisfied: 
+of the following (reasonable) assumptions are satisfied: 
 
  * JSON files are not passed in.
  * The ISIS cubes contain CSM model state data (in the ``CSMState`` group).
@@ -1117,8 +1117,9 @@ If ``bundle_adjust`` (:numref:`bundle_adjust`) or ``jitter_solve``
 (:numref:`jitter_solve`) is run with CSM cameras, either embedded in ISIS cubes
 or specified separately, and the flag ``--update-isis-cubes-with-csm-state`` is
 set, then the optimized model states will be saved back to the ISIS cubes, while
-the SPICE information from the cubes will be deleted. Separate model state files
-in JSON format will be saved as well.
+the SPICE and other obsolete information from the cubes will be deleted
+(``spiceinit`` can be used to restore the cubes). Separate model state files in
+the JSON format will be saved as well, as done without this option.
 
 Note that if images are mapprojected with certain camera files, and then those
 camera files are updated in-place, this will result in wrong results if stereo

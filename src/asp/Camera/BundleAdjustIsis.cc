@@ -40,11 +40,7 @@
 #include <isis/Camera.h>
 #include <isis/Cube.h>
 #include <isis/FileName.h>
-#include <isis/Process.h>
-#include <isis/CubeAttribute.h>
-#include <isis/Table.h>
-#include <isis/iTime.h>
-#include <isis/Blob.h>
+
 #include <boost/shared_ptr.hpp>
 
 #include <string>

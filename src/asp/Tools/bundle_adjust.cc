@@ -1908,6 +1908,7 @@ int load_estimated_camera_positions(Options &opt,
 }
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
+  
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str,
     intrinsics_limit_str;
@@ -2276,24 +2277,32 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::separate_images_from_cameras(images_or_cams,
                                     opt.image_files, opt.camera_files, // outputs
                                     ensure_equal_sizes); 
-  
+
+  // Sanity checks
   asp::check_for_duplicates(opt.image_files, opt.camera_files, opt.out_prefix);
-  
-  // Sanity check
   if (opt.image_files.size() != (int)opt.camera_files.size()){
     vw_out() << "Detected " << opt.image_files.size() << " images and "
              << opt.camera_files.size() << " cameras.\n";
     vw_throw(ArgumentErr() << "Must have as many cameras as we have images.\n");
   }
+  if (opt.image_files.empty())
+    vw_throw(ArgumentErr() << "Missing input image files.\n");
   
   // If the DG session is used and errors are to be propagated, must use CSM.
   // Must happen before copy_to_asp_settings() and before cameras are loaded.
   if (opt.propagate_errors && opt.stereo_session.find("dg") != std::string::npos)
     opt.dg_use_csm = true;
   
-  if (opt.image_files.empty())
-    vw_throw(ArgumentErr() << "Missing input image files.\n");
-
+  // Guess the session if not provided. Do this as soon as we have
+  // the cameras figured out.
+  if (opt.stereo_session.empty()) {
+    SessionPtr session(asp::StereoSessionFactory::create
+                        (opt.stereo_session, // may change
+                        opt, opt.image_files[0], opt.image_files[0],
+                        opt.camera_files[0], opt.camera_files[0],
+                        opt.out_prefix));
+  }
+  
   // Reusing match files implies that we skip matching
   if (opt.clean_match_files_prefix != "" || opt.match_files_prefix != "")
     opt.skip_matching = true;
@@ -2335,20 +2344,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // TODO(oalexan1): Maybe we need to load cameras by now?
   opt.camera_type = BaCameraType_Other;
   if (inline_adjustments) { 
-    if (opt.stereo_session.empty()) {
-      // Guess the session
-      // TODO(oalexan1): Too many calls to StereoSessionFactory::create happen.
-      // Also in load_cameras().
-      SessionPtr session(asp::StereoSessionFactory::create
-                         (opt.stereo_session, // may change
-                          opt, opt.image_files[0], opt.image_files[0],
-                          opt.camera_files[0], opt.camera_files[0],
-                          opt.out_prefix));
-      // TODO(oalexan1): Think about the preference below more
-      if (opt.stereo_session == "pinhole")
-        opt.stereo_session = "nadirpinhole"; // prefer nadirpinhole
-    }
-
     if ((opt.stereo_session == "pinhole") || 
         (opt.stereo_session == "nadirpinhole"))
       opt.camera_type = BaCameraType_Pinhole;
@@ -2389,8 +2384,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
   
   if (opt.overlap_list_file != "" && opt.overlap_limit > 0)
-    vw_throw( ArgumentErr() << "Cannot specify both the overlap limit and the overlap list.\n"
-              << usage << general_options );
+    vw_throw(ArgumentErr() 
+              << "Cannot specify both the overlap limit and the overlap list.\n"
+              << usage << general_options);
 
   if (opt.overlap_list_file != "" && opt.match_first_to_last > 0)
     vw_throw( ArgumentErr() 
@@ -2408,8 +2404,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (int(opt.overlap_list_file != "") + int(!vm["auto-overlap-buffer"].defaulted()) +
       int(opt.auto_overlap_params != "") > 1)
     vw_throw( ArgumentErr() << "Cannot specify more than one of --overlap-list, "
-              << "--auto-overlap-params, and --auto-overlap-buffer.\n"
-              << usage << general_options);
+              << "--auto-overlap-params, and --auto-overlap-buffer.\n");
 
   opt.have_overlap_list = false;
   if (opt.overlap_list_file != "") {
@@ -2432,20 +2427,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // The third alternative, --auto-overlap-params will be handled when we have cameras
   
   if (opt.camera_weight < 0.0)
-    vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n" << usage
-                            << general_options );
+    vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n");
 
   if ( opt.rotation_weight < 0.0 )
-    vw_throw( ArgumentErr() << "The rotation weight must be non-negative.\n" << usage
-                            << general_options );
+    vw_throw( ArgumentErr() << "The rotation weight must be non-negative.\n");
 
   if ( opt.translation_weight < 0.0 )
-    vw_throw( ArgumentErr() << "The translation weight must be non-negative.\n" << usage
-                            << general_options );
+    vw_throw( ArgumentErr() << "The translation weight must be non-negative.\n");
 
   if (opt.tri_weight < 0.0)
-    vw_throw( ArgumentErr() << "The triangulation weight must be non-negative.\n" << usage
-              << general_options );
+    vw_throw( ArgumentErr() << "The triangulation weight must be non-negative.\n");
   
   if (opt.tri_weight > 0 && opt.camera_weight > 0) 
     vw_throw( ArgumentErr() << "When --tri-weight is positive, set to zero "
@@ -2735,7 +2726,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.propagate_errors && opt.datum.name() == asp::UNSPECIFIED_DATUM) 
     vw_throw(ArgumentErr() << "Cannot propagate errors without a datum. Set --datum.\n");
-       
+  
+  if (opt.update_isis_cubes_with_csm_state) {
+    // This must happen after the session was auto-detected.
+    bool have_csm = (opt.stereo_session == "csm");
+    bool have_cub_input = boost::iends_with(boost::to_lower_copy(opt.image_files[0]), 
+                                            ".cub");
+    if (!have_csm || !have_cub_input)
+      vw::vw_throw(vw::ArgumentErr() << "Cannot update ISIS cubes with CSM state "
+               << "unless using the CSM session with ISIS .cub images.\n");
+  }
+      
   return;
 }
 

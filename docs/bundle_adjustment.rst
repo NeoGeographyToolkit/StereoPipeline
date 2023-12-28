@@ -168,8 +168,8 @@ distorted DEMs that agree much better with the ground truth.
 See :numref:`intrinsics_no_constraints` for how to optimize intrinsics with
 no constraints, :numref:`intrinsics_ground_truth` for when ground constraints
 can be used (there exist options for sparse ground points and a DEM),
-and :numref:`kaguya_tc_refine_intrinsics` for how to optimize the 
-intrinsics per sensor. 
+and :numref:`kaguya_tc_refine_intrinsics` for how to have several groups of
+intrinsics.
 
 .. _intrinsics_no_constraints:
 
@@ -614,9 +614,9 @@ sample distance for the raw images for best results.
 Refining the intrinsics per sensor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Given a set of sensors, with each acquiring several images,
-we will optimize the intrinsics per sensor. All images acquired with the same
-sensor will share the same intrinsics, and none will be shared across sensors.
+Given a set of sensors, with each acquiring several images, we will optimize the
+intrinsics per sensor. All images acquired with the same sensor will share the
+same intrinsics, and none will be shared across sensors.
 
 We will work with Kaguya TC linescan cameras and the CSM camera
 model (:numref:`csm`). Pinhole cameras in .tsai format (:numref:`pinholemodels`)

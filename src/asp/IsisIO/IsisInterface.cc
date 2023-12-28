@@ -188,7 +188,7 @@ bool IsisEnv() {
 }
 
 // TODO(oalexan1): This must be integrated with ISIS
-void deleteSpiceKeywords(Isis::Cube *cube) {
+void deleteKeywords(Isis::Cube *cube) {
   
   Isis::PvlGroup &kernelsGroup = cube->group("Kernels");
 
@@ -263,6 +263,31 @@ void deleteSpiceKeywords(Isis::Cube *cube) {
   if (cube->label()->hasObject("NaifKeywords")) {
     cube->label()->deleteObject("NaifKeywords");
   }
+  
+  // Delete any existing polygon (per jigsaw)
+  if (cube->label()->hasObject("Polygon")) {
+    cube->label()->deleteObject("Polygon");
+  }
+
+  // Delete any CameraStatistics table (per jigsaw)
+  for (int iobj = 0; iobj < cube->label()->objects(); iobj++) {
+    Isis::PvlObject obj = cube->label()->object(iobj);
+    if (obj.name() != "Table") continue;
+    if (obj["Name"][0] != QString("CameraStatistics")) continue;
+    cube->label()->deleteObject(iobj);
+    break;
+  }
+
+  // Remove tables from spiceinit before writing to the cube (per csminit)
+  cube->deleteBlob("InstrumentPointing", "Table");
+  cube->deleteBlob("InstrumentPosition", "Table");
+  cube->deleteBlob("BodyRotation", "Table");
+  cube->deleteBlob("SunPosition", "Table");
+  cube->deleteBlob("CameraStatistics", "Table");
+  cube->deleteBlob("Footprint", "Polygon");
+  
+  // Wipe any existing blob (per csminit)
+  cube->deleteBlob("CSMState", "String");
 }
 
 // Peek inside a cube file to see if it has a CSM blob. This needs ISIS
@@ -288,8 +313,8 @@ std::string csmStateFromIsisCube(std::string const& cubeFile) {
   Isis::Cube *cube = p.SetInputCube(qCubeFile, inAtt, Isis::ReadWrite);
   
   if (!cube->hasBlob("CSMState", "String"))
-    vw::vw_throw( vw::ArgumentErr() << "Cannot find the CSM state in the ISIS cube file "
-                  << cubeFile << ".\n");
+    vw::vw_throw( vw::ArgumentErr() << "Cannot find the CSM state in: "
+                  << cubeFile << "\n");
 
   Isis::Blob csmStateBlob("CSMState", "String");
   cube->read(csmStateBlob);
@@ -314,25 +339,26 @@ void saveCsmStateToIsisCube(std::string const& cubeFile,
   Isis::CubeAttributeInput inAtt;
   Isis::Cube *cube = p.SetInputCube(qCubeFile, inAtt, Isis::ReadWrite);
   
-  // Delete any spice keywords
-  deleteSpiceKeywords(cube);
+  // Delete any spice and other obsolete keywords (per csminit)
+  deleteKeywords(cube);
 
   // Create our CSM State blob as a string and add the CSM string to the Blob.
   Isis::Blob csmStateBlob("CSMState", "String");
-
-  QString jigComment = "Jigged = " + Isis::iTime::CurrentLocalTime();
-
-  QString qModelName = QString::fromStdString(modelName);
-  QString qPluginName = QString::fromStdString(pluginName);
-  
   csmStateBlob.setData(modelState.c_str(), modelState.size());
 
+  QString jigComment = "Jigged = " + Isis::iTime::CurrentLocalTime();
+  QString qModelName = QString::fromStdString(modelName);
+  QString qPluginName = QString::fromStdString(pluginName);
   Isis::PvlObject &blobLabel = csmStateBlob.Label();
   blobLabel += Isis::PvlKeyword("ModelName", qModelName);
   blobLabel += Isis::PvlKeyword("PluginName", qPluginName);
   blobLabel.addComment(jigComment);
-  
+
+  // Write the cube  
   cube->write(csmStateBlob);
+  // Some file corruption went away when the lines below were added.
+  Isis::CameraFactory::Create(*cube);
+  p.WriteHistory(*cube);
 }
 
 }} // end namespace asp::isis
