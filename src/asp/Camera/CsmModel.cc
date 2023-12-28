@@ -128,7 +128,7 @@ CsmModel::CsmModel():m_semi_major_axis(0.0),
                      m_sun_position(vw::Vector3()),
                      // Do not make the precision lower than 1e-8. CSM can give
                      // junk results when it is too low.
-                     m_desired_precision(asp::DEFAULT_CSM_DESIRED_PRECISION){}
+                     m_desired_precision(asp::DEFAULT_CSM_DESIRED_PRECISION) {}
                                       
 CsmModel::CsmModel(std::string const& isd_path) {
   load_model(isd_path);
@@ -147,7 +147,6 @@ bool CsmModel::file_has_isd_extension(std::string const& path) {
 }
 
 std::string CsmModel::get_csm_plugin_folder() {
-
   // Look up the CSM_PLUGIN_PATH environmental variable.
   // It is set in the "libexec/libexec-funcs.sh" deploy file.
   // If the plugin is not found in CSM_PLUGIN_PATH, look at ISISROOT.
@@ -184,7 +183,6 @@ std::string CsmModel::get_csm_plugin_folder() {
 // of other inapplicable libraries. Hence just pick that one.  One day
 // we will have a dedicated plugins directory.
 size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
-
   plugins.clear();
 
   const std::string folder = get_csm_plugin_folder();
@@ -225,7 +223,6 @@ size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
 }
 
 void CsmModel::print_available_models() {
-
   csm::PluginList available_plugins = csm::Plugin::getList();
   // vw_out() << "Detected " << available_plugins.size() << " available CSM plugin(s).\n";
 
@@ -282,7 +279,6 @@ const csm::Plugin* find_plugin_for_isd(csm::Isd const& support_data,
   model_family = "";
   return 0;
 } // End function find_plugin_for_isd
-
 
 void CsmModel::initialize_plugins() {
 
@@ -399,7 +395,6 @@ void readCsmSunPosition(boost::shared_ptr<csm::RasterGM> const& gm_model,
  
 /// Load the camera model from an ISD file or model state.
 void CsmModel::load_model(std::string const& isd_path) {
-
   std::string line;
   {
     // Peek inside the file to see if it is an isd or a model state.
@@ -417,9 +412,13 @@ void CsmModel::load_model(std::string const& isd_path) {
   else
     CsmModel::loadModelFromStateFile(isd_path);
 }
-  
-void CsmModel::load_model_from_isd(std::string const& isd_path) {
 
+/// Load the model from ISD. Read the ellipsoid, sun position, and
+/// m_plugin_name. 
+//
+// See setModelFromStateString() for a different construction method. These must
+// be kept in sync.
+void CsmModel::load_model_from_isd(std::string const& isd_path) {
   // This only happens the first time it is called.
   initialize_plugins();
 
@@ -437,11 +436,16 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   //  messages for each plugin that fails.
   if (csm_plugin == 0) {
     find_plugin_for_isd(support_data, model_name, model_family, true);
-    vw::vw_throw(vw::ArgumentErr() << "Unable to construct a camera model for the ISD file "
-                        << isd_path << " using any of the loaded CSM plugins!");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Unable to construct a camera model for the ISD file "
+                 << isd_path << " using any of the loaded CSM plugins!");
   }
-  vw_out() << "Using plugin: " << csm_plugin->getPluginName() 
-           << " with model name " << model_name << std::endl;
+  
+  // Remember the plugin name. It will be needed to add a model state to a cub file.
+  m_plugin_name = csm_plugin->getPluginName();
+  
+  vw::vw_out() << "Using plugin: " << this->plugin_name() 
+               << " with model name " << model_name << std::endl;
 
   // Now try to construct the camera model
   csm::WarningList warnings;
@@ -527,10 +531,15 @@ void setModelFromStateStringAux(bool recreate_model,
   return;
 }
   
-/// Load the camera model from a model state written to disk.
-/// A model state is obtained from an ISD model by pre-processing
-/// and combining its data in a form ready to be used.
-/// Use recreate_model = false if desired to just update an existing model.
+/// Load the camera model from a model state written to disk. A model state is
+/// obtained from an ISD model by pre-processing and combining its data in a
+/// form ready to be used. Use recreate_model = false if desired to just update
+/// an existing model.
+///
+/// Read the ellipsoid, sun position, and m_plugin_name. 
+///
+/// See also load_model_from_isd() for a different construction method. These
+/// must be kept in sync.
 void CsmModel::setModelFromStateString(std::string const& model_state, 
                                        bool recreate_model) {
   
@@ -565,6 +574,17 @@ void CsmModel::setModelFromStateString(std::string const& model_state,
     vw::vw_throw(vw::ArgumentErr() << "Could not create CSM model from state string.\n");
   }
 
+  // Get the plugin name
+  csm::PluginList plugins = csm::Plugin::getList();
+  if (plugins.size() != 1)
+    vw::vw_throw(vw::ArgumentErr() << "Expected to find one CSM plugin, found: "
+                 << plugins.size() << ". Some logic may need revisiting.\n");
+    
+  for (auto iter = plugins.begin(); iter != plugins.end(); iter++) {
+    const csm::Plugin* csm_plugin = (*iter);
+    m_plugin_name = csm_plugin->getPluginName();
+  }
+  
   // Set the semi-axes from json (cannot pull it from the usgs models
   // as these figure as private in some of them).
   auto j = stateAsJson(model_state);
@@ -798,6 +818,17 @@ void CsmModel::applyTransform(vw::Matrix4x4 const& transform) {
 
   bool recreate_model = false; // don't want to destroy the model
   setModelFromStateString(modelState, recreate_model);
+}
+ 
+std::string CsmModel::plugin_name() const {
+  if (m_plugin_name.empty())
+    vw_throw(ArgumentErr() << "CsmModel: Plugin name has not been set yet.");
+  return m_plugin_name;
+}
+
+std::string CsmModel::model_name() const {
+  throw_if_not_init();
+  return m_gm_model->getModelName();
 }
   
  // Create a CSM frame camera model. Assumes that focal length and optical

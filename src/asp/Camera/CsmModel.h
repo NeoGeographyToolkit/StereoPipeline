@@ -146,7 +146,10 @@ namespace asp {
     // Create a deep copy of the model, so don't just copy the shared pointer.
     void deep_copy(boost::shared_ptr<CsmModel> & copy) const;
     void deep_copy(CsmModel & copy) const;
-
+    
+    std::string plugin_name() const;
+    std::string model_name () const;
+    
   protected:
 
     // Read the ellipsoid (datum) axes from the isd json file
@@ -169,7 +172,9 @@ namespace asp {
     void throw_if_not_init() const;
 
     vw::Vector3 m_sun_position;
-
+    
+    std::string m_plugin_name;
+    
   }; // End class CsmModel
 
   // Auxiliary non-member functions to convert a pixel from ASP
