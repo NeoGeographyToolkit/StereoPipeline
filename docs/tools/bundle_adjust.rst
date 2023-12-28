@@ -976,6 +976,12 @@ Command-line options for bundle_adjust
     The PROJ.4 string to use to interpret the entries in input CSV
     files, if those files contain Easting and Northing fields.
 
+--update-isis-cubes-with-csm-state
+    Save the model state of optimized CSM cameras as part of the .cub
+    files. Any prior version and any SPICE data will be deleted.
+    Mapprojected images obtained with prior version of the cameras
+    must no longer be used in stereo.
+        
 --min-triangulation-angle <degrees (default: 0.1)>
     A triangulated point will be accepted as valid only if at
     least two of the rays which converge at it have a triangulation
@@ -1077,7 +1083,7 @@ Command-line options for bundle_adjust
 
 --mapprojected-data <string>
     Given map-projected versions of the input images (without bundle adjustment)
-    and the DEM they were mapprojected onto, create interest point matches among
+    and the DEM they were mapprojected onto, create interest point matches between
     the mapprojected images, unproject and save those matches, then continue
     with bundle adjustment. Existing match files will be reused. Specify the
     mapprojected images and the DEM as a string in quotes, separated by spaces.

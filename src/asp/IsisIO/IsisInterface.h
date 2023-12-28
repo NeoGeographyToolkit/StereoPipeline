@@ -102,15 +102,18 @@ namespace isis {
 
   // Peek inside a Cube file to see if it has a CSM blob. This needs ISIS
   // logic, rather than any CSM-specific info.  
-  bool IsisCubeHasCsmBlob(std::string const& CubeFile);
+  bool IsisCubeHasCsmBlob(std::string const& cubeFile);
   
   // Read the CSM state (a string) from a cube file. Throw an exception
   // if missing.
-  std::string csmStateFromIsisCube(std::string const& CubeFile);
+  std::string csmStateFromIsisCube(std::string const& cubeFile);
   
   // Save a CSM state to an ISIS Cube file. Wipe any spice info. This may
   // throw if the file cannot be saved.
-  void saveCsmStateToIsisCube(std::string const& CubeFile, std::string const& csmState);
+  void saveCsmStateToIsisCube(std::string const& cubeFile,
+                              std::string const& pluginName,
+                              std::string const& modelName,
+                              std::string const& modelState);
 }}
 
 #endif //__ASP_ISIS_INTERFACE_H__

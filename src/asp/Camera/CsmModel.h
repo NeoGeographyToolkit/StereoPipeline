@@ -149,6 +149,7 @@ namespace asp {
     
     std::string plugin_name() const;
     std::string model_name () const;
+    std::string model_state() const; 
     
   protected:
 

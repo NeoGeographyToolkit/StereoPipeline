@@ -67,6 +67,7 @@ void saveUpdatedCameras(Options const& opt, asp::BAParams const& param_storage) 
       write_optical_bar_output_file(opt, icam, opt.datum, param_storage);
       break;
     case BaCameraType_CSM:
+      // When solving for intrinsics and using CSM
       write_csm_output_file(opt, icam, opt.datum, param_storage);
       break;
     case BaCameraType_Other: {
@@ -81,6 +82,7 @@ void saveUpdatedCameras(Options const& opt, asp::BAParams const& param_storage) 
 
         // For CSM camera models export, in addition, the JSON state
         // with the adjustment applied to it.
+        // When not solving for intrinsics and using CSM
         if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades" ||
             (opt.stereo_session == "dg" && asp::stereo_settings().dg_use_csm) ||
             (opt.stereo_session == "aster" && asp::stereo_settings().aster_use_csm))
@@ -2113,10 +2115,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("elevation-limit",        po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
      "Remove as outliers interest points (that are not GCP) for which the elevation of the triangulated position (after cameras are optimized) is outside of this range. Specify as two values: min max.")
     // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
-    ("lon-lat-limit",          po::value(&opt.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
+    ("lon-lat-limit", po::value(&opt.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
      "Remove as outliers interest points (that are not GCP) for which the longitude and latitude of the triangulated position (after cameras are optimized) are outside of this range. Specify as: min_lon min_lat max_lon max_lat.")
     ("match-files-prefix",  po::value(&opt.match_files_prefix)->default_value(""),
      "Use the match files from this prefix instead of the current output prefix. This implies --skip-matching.")
+    ("update-isis-cubes-with-csm-state", 
+     po::bool_switch(&opt.update_isis_cubes_with_csm_state)->default_value(false)->implicit_value(true),
+     "Save the model state of optimized CSM cameras as part of the .cub files. Any prior "
+     "version and any SPICE data will be deleted. Mapprojected images obtained with prior "
+     "version of the cameras must no longer be used in stereo.")
     ("clean-match-files-prefix",  po::value(&opt.clean_match_files_prefix)->default_value(""),
      "Use as input match files the *-clean.match files from this prefix. This implies --skip-matching.")
     ("enable-rough-homography",
@@ -2144,11 +2151,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A triangulated point will be accepted as valid only if at "
      "least two of the rays which converge at it have a triangulation "
      "angle of at least this (measured in degrees).")
-    ("forced-triangulation-distance",      po::value(&opt.forced_triangulation_distance)->default_value(-1),
-     "When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.")
+    ("forced-triangulation-distance", po::value(&opt.forced_triangulation_distance)->default_value(-1),
+     "When triangulation fails, for example, when input cameras are inaccurate, "
+     "artificially create a triangulation point this far ahead of the camera, "
+     "in units of meter.")
     ("use-lon-lat-height-gcp-error",
      po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
-     "When having GCP, interpret the three standard deviations in the GCP file as applying not to x, y, and z, but rather to latitude, longitude, and height.")
+     "When having GCP, interpret the three standard deviations in the GCP file as "
+     "applying not to x, y, and z, but rather to latitude, longitude, and height.")
     ("enable-correct-velocity-aberration", po::bool_switch(&opt.enable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
      "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
     ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
@@ -2158,12 +2168,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("aster-use-csm", po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with ASTER cameras (-t aster).")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
-     "Given map-projected versions of the input images (without bundle adjustment) and the DEM they "
-     "were mapprojected onto, create interest point matches among the  "
-     "mapprojected images, unproject and save those matches, then  "
-     "continue with bundle adjustment. Existing match files will be  "
-     "reused. Specify the mapprojected images and the DEM as a string in  "
-     "quotes, separated by spaces. An example is in the documentation.")
+     "Given map-projected versions of the input images (without bundle adjustment) "
+     "and the DEM they were mapprojected onto, create interest point matches between "
+     "the mapprojected images, unproject and save those matches, then continue "
+     "with bundle adjustment. Existing match files will be reused. Specify the "
+     "mapprojected images and the DEM as a string in quotes, separated by spaces. "
+     "The DEM must be the last file.")
     ("matches-per-tile",  po::value(&opt.matches_per_tile)->default_value(0),
      "How many interest point matches to compute in each image tile (of size "
       "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "
@@ -2314,7 +2324,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Sanity checks for solving for intrinsics 
   if (opt.intrinsics_options.share_intrinsics_per_sensor && !opt.solve_intrinsics)
     vw_throw(ArgumentErr() 
-      << "Must set --solve-intrinsics to solve for intrinsics per sensor.n");
+      << "Must set --solve-intrinsics to solve for intrinsics per sensor.\n");
   if (opt.solve_intrinsics && !inline_adjustments) {
     vw_out() << "Solving for intrinsics, so assuming --inline-adjustments.\n";
     inline_adjustments = true;

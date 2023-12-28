@@ -47,8 +47,8 @@ void asp::read_adjustments(std::string const& filename,
                            vw::Vector2 & adjustment_bounds,
                            std::vector<vw::Vector3> & position_correction,
                            std::vector<Quat> & pose_correction,
-			   Vector2 & pixel_offset,
-			   double & scale,
+                           Vector2 & pixel_offset,
+                           double & scale,
                            std::string & session) {
 
   // Initialize the outputs
@@ -145,7 +145,7 @@ void asp::write_adjustments(std::string const& filename,
   ostr.close();
 }
 
-void asp::compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel>> const& camera_models,
+void asp::compute_stereo_residuals(std::vector<vw::CamPtr> const& camera_models,
                                    ControlNetwork const& cnet) {
 
   // Compute pre-adjustment residuals and convert to bundles
@@ -176,8 +176,7 @@ void asp::compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel>> c
 // See the .h file for documentation
 vw::BBox2 asp::camera_bbox_with_cache(std::string const& dem_file,
                                       std::string const& image_file,
-                                      boost::shared_ptr<vw::camera::CameraModel> const&
-                                      camera_model,
+                                      vw::CamPtr  const& camera_model,
                                       std::string const& out_prefix) {
   
   namespace fs = boost::filesystem;
@@ -238,9 +237,10 @@ vw::BBox2 asp::camera_bbox_with_cache(std::string const& dem_file,
 
 // See the .h file for the documentation.
 void asp::build_overlap_list_based_on_dem
-/*        */ (std::string const& out_prefix, std::string const& dem_file, double pct_for_overlap,
+/*        */ (std::string const& out_prefix, std::string const& dem_file, 
+              double pct_for_overlap,
               std::vector<std::string> const& image_files,
-              std::vector<boost::shared_ptr<vw::camera::CameraModel>> const& camera_models,
+              std::vector<vw::CamPtr>  const& camera_models,
               std::set<std::pair<std::string, std::string>> & overlap_list) {
 
   // Wipe the output
@@ -537,8 +537,7 @@ void asp::update_point_height_from_dem(vw::ba::ControlNetwork const& cnet,
 void asp::calc_avg_intersection_with_dem(vw::ba::ControlNetwork const& cnet,
                                          vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
                                          std::set<int> const& outliers,
-                                         std::vector<boost::shared_ptr<vw::camera::CameraModel>>
-                                         const& camera_models,
+                                         std::vector<vw::CamPtr> const& camera_models,
                                          vw::cartography::GeoReference const& dem_georef,
                                          vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
                                          // Output
@@ -611,8 +610,7 @@ void asp::calc_avg_intersection_with_dem(vw::ba::ControlNetwork const& cnet,
 // the input cameras are pretty accurate.
 void asp::flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
                                 vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
-                                std::vector<boost::shared_ptr<vw::camera::CameraModel>>
-                                const& camera_models,
+                                std::vector<vw::CamPtr> const& camera_models,
                                 double max_init_reproj_error,
                                 // Output
                                 std::set<int> & outliers) {

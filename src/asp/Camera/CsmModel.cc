@@ -830,6 +830,11 @@ std::string CsmModel::model_name() const {
   throw_if_not_init();
   return m_gm_model->getModelName();
 }
+
+std::string CsmModel::model_state() const {
+  throw_if_not_init();
+  return m_gm_model->getModelState();
+}
   
  // Create a CSM frame camera model. Assumes that focal length and optical
  // center are in pixels, the pixel pitch is 1, and no distortion.

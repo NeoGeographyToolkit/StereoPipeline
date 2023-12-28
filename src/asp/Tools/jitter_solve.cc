@@ -42,6 +42,7 @@
 #include <asp/Core/IpMatchingAlgs.h> // Lightweight header for matching algorithms
 #include <asp/Core/SatSimBase.h>
 #include <asp/Core/CameraTransforms.h>
+#include <asp/IsisIO/IsisInterface.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
@@ -222,18 +223,27 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "These weights are additionally multiplied by --anchor-weight. See also --weight-image.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1.0),
      "Remove matched IPs this percentage from the image left/right sides.")
+    ("forced-triangulation-distance", 
+     po::value(&opt.forced_triangulation_distance)->default_value(-1),
+     "When triangulation fails, for example, when input cameras are inaccurate, "
+     "artificially create a triangulation point this far ahead of the camera, in units "
+     "of meter.")
+    ("update-isis-cubes-with-csm-state", 
+     po::bool_switch(&opt.update_isis_cubes_with_csm_state)->default_value(false)->implicit_value(true),
+     "Save the model state of optimized CSM cameras as part of the .cub files. Any prior "
+     "version and any SPICE data will be deleted. Mapprojected images obtained with prior "
+     "version of the cameras must no longer be used in stereo.")
     ("initial-camera-constraint", 
-    po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
+     po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
      "When constraining roll and yaw, measure these not in the satellite along-track/ "
      "across-track/down coordinate system, but relative to the initial camera poses. This "
-     "is experimental. Internally, the roll weight will then be applied to the camera pitch "
-     "angle (rotation around the camera y axis), because the camera coordinate system is "
-     "rotated by 90 degrees in the sensor plane relative to the satellite coordinate system. "
-     "The goal is the same, to penalize deviations that are not aligned with satellite pitch.")
-    ("forced-triangulation-distance",      po::value(&opt.forced_triangulation_distance)->default_value(-1),
-     "When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.")     
+     "is experimental. Internally, the roll weight will then be applied to the camera "
+     "pitch angle (rotation around the camera y axis), because the camera coordinate "
+     "system is rotated by 90 degrees in the sensor plane relative to the satellite "
+     "coordinate system. The goal is the same, to penalize deviations that are not "
+     "aligned with satellite pitch.")
     ;
-  
+
     general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   // TODO(oalexan1): This old option may need to be wiped given the newer
@@ -1931,6 +1941,16 @@ void run_jitter_solve(int argc, char* argv[]) {
     std::string csmFile = asp::csmStateFile(adjustFile);
     asp::CsmModel * csm_cam = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
     csm_cam->saveState(csmFile);
+
+    if (opt.update_isis_cubes_with_csm_state) {
+      // Save the CSM state to the image file. Wipe any spice info.
+      std::string image_name = opt.image_files[icam]; 
+      std::string plugin_name = csm_cam->plugin_name();
+      std::string model_name  = csm_cam->model_name();
+      std::string model_state = csm_cam->model_state();
+      vw::vw_out() << "Adding updated CSM state to image file: " << image_name << std::endl;
+      asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
+    }
   }
   
   return;

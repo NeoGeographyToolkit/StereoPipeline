@@ -1290,8 +1290,8 @@ vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
   return out_cam;
 }
 
-// Given an input CSM camera and param changes, apply those, returning
-// the new camera.
+// Given an input CSM camera, intrinsic and extrinsic param changes, apply
+// those, returning the new camera.
 boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
                                                       asp::BAParams const& param_storage,
                                                       asp::CsmModel const& in_cam) {

@@ -15,19 +15,12 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-#include <vw/Core/Exception.h>
-#include <vw/Math/Vector.h>
 #include <asp/IsisIO/IsisInterface.h>
 #include <asp/IsisIO/IsisInterfaceMapFrame.h>
 #include <asp/IsisIO/IsisInterfaceFrame.h>
 #include <asp/IsisIO/IsisInterfaceMapLineScan.h>
 #include <asp/IsisIO/IsisInterfaceLineScan.h>
 #include <asp/IsisIO/IsisInterfaceSAR.h>
-#include <boost/filesystem.hpp>
-
-#include <iomanip>
-#include <ostream>
 
 #include <isis/Cube.h>
 #include <isis/Distance.h>
@@ -41,6 +34,15 @@
 #include <isis/Blob.h>
 #include <isis/Process.h>
 #include <isis/CubeAttribute.h>
+
+#include <vw/Core/Exception.h>
+#include <vw/Math/Vector.h>
+#include <vw/Core/Log.h>
+
+#include <boost/filesystem.hpp>
+
+#include <iomanip>
+#include <ostream>
 
 using namespace vw;
 
@@ -265,9 +267,9 @@ void deleteSpiceKeywords(Isis::Cube *cube) {
 
 // Peek inside a cube file to see if it has a CSM blob. This needs ISIS
 // logic, rather than any CSM-specific info.  
-bool IsisCubeHasCsmBlob(std::string const& CubeFile) {
+bool IsisCubeHasCsmBlob(std::string const& cubeFile) {
   
-  QString qCubeFile = QString::fromStdString(CubeFile);
+  QString qCubeFile = QString::fromStdString(cubeFile);
   Isis::Process p;
   Isis::CubeAttributeInput inAtt;
   Isis::Cube *cube = p.SetInputCube(qCubeFile, inAtt, Isis::ReadWrite);
@@ -278,16 +280,16 @@ bool IsisCubeHasCsmBlob(std::string const& CubeFile) {
 
 // Read the CSM state (a string) from a cube file. Throw an exception
 // if missing.
-std::string csmStateFromIsisCube(std::string const& CubeFile) {
+std::string csmStateFromIsisCube(std::string const& cubeFile) {
     
-  QString qCubeFile = QString::fromStdString(CubeFile);
+  QString qCubeFile = QString::fromStdString(cubeFile);
   Isis::Process p;
   Isis::CubeAttributeInput inAtt;
   Isis::Cube *cube = p.SetInputCube(qCubeFile, inAtt, Isis::ReadWrite);
   
   if (!cube->hasBlob("CSMState", "String"))
     vw::vw_throw( vw::ArgumentErr() << "Cannot find the CSM state in the ISIS cube file "
-                  << CubeFile << ".\n");
+                  << cubeFile << ".\n");
 
   Isis::Blob csmStateBlob("CSMState", "String");
   cube->read(csmStateBlob);
@@ -298,13 +300,16 @@ std::string csmStateFromIsisCube(std::string const& CubeFile) {
 
 // Save a CSM state to an ISIS Cube file. Wipe any spice info.
 // This may throw if the file cannot be saved.
-void saveCsmStateToIsisCube(std::string const& CubeFile, std::string const& csmState) {
+void saveCsmStateToIsisCube(std::string const& cubeFile, 
+                            std::string const& pluginName, 
+                            std::string const& modelName,
+                            std::string const& modelState) {
  
- if (csmState.empty())
+ if (modelState.empty())
    vw::vw_throw( vw::ArgumentErr() << "Cannot save empty CSM state to ISIS cube file "
-                 << CubeFile << ".\n");
+                 << cubeFile << ".\n");
 
-  QString qCubeFile = QString::fromStdString(CubeFile);
+  QString qCubeFile = QString::fromStdString(cubeFile);
   Isis::Process p;
   Isis::CubeAttributeInput inAtt;
   Isis::Cube *cube = p.SetInputCube(qCubeFile, inAtt, Isis::ReadWrite);
@@ -312,35 +317,22 @@ void saveCsmStateToIsisCube(std::string const& CubeFile, std::string const& csmS
   // Delete any spice keywords
   deleteSpiceKeywords(cube);
 
-  // Must continue here  
-#if 0
   // Create our CSM State blob as a string and add the CSM string to the Blob.
-  Blob csmStateBlob("CSMState", "String");
-  
-  // TODO(oalexan1): Fix here!
-  std::cout << "--fix here" << std::endl;
-  std::string modelState = "";
-  
+  Isis::Blob csmStateBlob("CSMState", "String");
+
   QString jigComment = "Jigged = " + Isis::iTime::CurrentLocalTime();
 
-  //Detected CSM plugin: UsgsAstroPluginCSM
-  //Number of models for this plugin: 5
-  std::cout << "--must test here" << std::endl;
-  //QString modelName = QString::fromStdString(model->getModelName());
-  QString modelName = QString::fromStdString("USGS_ASTRO_LINE_SCANNER_SENSOR_MODEL");
-  QString pluginName = QString::fromStdString("UsgsAstroPluginCSM");
+  QString qModelName = QString::fromStdString(modelName);
+  QString qPluginName = QString::fromStdString(pluginName);
   
-  //QString currentModelName = QString::fromStdString
-  // ("USGS_ASTRO_LINE_SCANNER_SENSOR_MODEL");
-
   csmStateBlob.setData(modelState.c_str(), modelState.size());
-  PvlObject &blobLabel = csmStateBlob.Label();
-  blobLabel += PvlKeyword("ModelName", modelName);
-  blobLabel += PvlKeyword("PluginName", pluginName);
+
+  Isis::PvlObject &blobLabel = csmStateBlob.Label();
+  blobLabel += Isis::PvlKeyword("ModelName", qModelName);
+  blobLabel += Isis::PvlKeyword("PluginName", qPluginName);
   blobLabel.addComment(jigComment);
-  cube->write(csmStateBlob);
   
-#endif  
+  cube->write(csmStateBlob);
 }
 
 }} // end namespace asp::isis

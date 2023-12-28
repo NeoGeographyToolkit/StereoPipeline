@@ -82,8 +82,6 @@ void saveIsisCnet(std::string const& outputPrefix,
                   vw::ba::ControlNetwork const& cnet,
                   asp::BAParams const& param_storage);
 
-void saveCube();
-
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_ISIS_H__

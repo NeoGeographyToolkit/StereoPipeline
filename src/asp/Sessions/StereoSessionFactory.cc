@@ -15,9 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file StereoSessionFactory.cc
-///
 
 // This include must exist for linking purposes
 #include <asp/Sessions/StereoSessionFactory.h>
@@ -48,7 +46,7 @@ namespace asp {
                                               const bool allow_map_promote) {
     
     // Known user session types are:
-    // DG, RPC, ISIS, Pinhole, NadirPinhole, OpticalBar
+    // DG, RPC, ISIS, Pinhole, NadirPinhole, OpticalBar, etc.
     //
     // Hidden sessions are:
     // DGMapRPC, Blank (Guessing)

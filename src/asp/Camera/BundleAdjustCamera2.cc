@@ -30,6 +30,7 @@
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/CameraErrorPropagation.h>
+#include <asp/IsisIO/IsisInterface.h>
 
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/OpticalBarModel.h>
@@ -359,7 +360,7 @@ void write_optical_bar_output_file(asp::BaBaseOptions const& opt, int icam,
   }
 }
 
-/// Write a CSM camera file to disk.
+/// Write a CSM camera file to disk. Assumes that the intriniscs are optimized.
 void write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
                            vw::cartography::Datum const& datum,
                            asp::BAParams const& param_storage) {
@@ -377,15 +378,27 @@ void write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
     = dynamic_cast<asp::CsmModel const*>(opt.camera_models[icam].get()); 
   if (in_cam == NULL)
     vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
-   boost::shared_ptr<asp::CsmModel> out_cam
-     = transformedCsmCamera(icam, param_storage, *in_cam);
-   out_cam->saveState(cam_file);
+  boost::shared_ptr<asp::CsmModel> out_cam
+    = transformedCsmCamera(icam, param_storage, *in_cam);
+     
+  bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
+  if (has_datum)
+    vw::vw_out() << "Camera center for " << cam_file << ": "
+                 << datum.cartesian_to_geodetic(out_cam->camera_center(vw::Vector2()))
+                 << " (longitude, latitude, height above datum(m))\n";
 
-   bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
-   if (has_datum)
-     vw::vw_out() << "Camera center for " << cam_file << ": "
-                   << datum.cartesian_to_geodetic(out_cam->camera_center(vw::Vector2()))
-                   << " (longitude, latitude, height above datum(m))\n\n";
+  // Save the updated state     
+  out_cam->saveState(cam_file);
+
+  if (opt.update_isis_cubes_with_csm_state) {
+    // Save the CSM state to the image file. Wipe any spice info.
+    std::string image_name = opt.image_files[icam]; 
+    std::string plugin_name = out_cam->plugin_name();
+    std::string model_name  = out_cam->model_name();
+    std::string model_state = out_cam->model_state();
+    vw::vw_out() << "Adding updated CSM state to image file: " << image_name << std::endl;
+    asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
+  }
 }
 
 /// Write a csm camera state file to disk. Assumes no intrinsics are optimized.
@@ -394,14 +407,29 @@ void write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
                                    asp::BAParams const& param_storage) {
   
   CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-  
   AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
                               cam_adjust.position(), cam_adjust.pose());
   
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
   std::string csmFile          = asp::csmStateFile(adjustFile);
-  asp::CsmModel * csm_model    = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
-  csm_model->saveTransformedState(csmFile, ecef_transform);
+  asp::CsmModel * csm_model    = asp::csm_model(opt.camera_models[icam], 
+                                                opt.stereo_session);
+
+  // Save a transformed copy of the camera model
+  boost::shared_ptr<asp::CsmModel> out_cam;
+  csm_model->deep_copy(out_cam);
+  out_cam ->applyTransform(ecef_transform);
+  out_cam->saveState(csmFile);
+
+  if (opt.update_isis_cubes_with_csm_state) {
+    // Save the CSM state to the image file. Wipe any spice info.
+    std::string image_name = opt.image_files[icam]; 
+    std::string plugin_name = out_cam->plugin_name();
+    std::string model_name  = out_cam->model_name();
+    std::string model_state = out_cam->model_state();
+    vw::vw_out() << "Adding updated CSM state to image file: " << image_name << std::endl;
+    asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
+  }
 }
 
 // Read image and camera lists. Can have several comma-separated lists
