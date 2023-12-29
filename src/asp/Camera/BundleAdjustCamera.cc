@@ -68,7 +68,7 @@ asp::BAParams::BAParams(int num_points, int num_cameras,
     m_cameras_vec       (num_cameras * NUM_CAMERA_PARAMS, 0),
     m_intrinsics_vec    (0),
     m_outlier_points_vec(num_points, false),
-    m_rand_gen(std::time(0)) {
+    m_rand_gen(boost::random::mt19937()) {
 
     if (!using_intrinsics)
       return; // If we are not using intrinsics, nothing else to do.
@@ -131,7 +131,7 @@ asp::BAParams::BAParams(asp::BAParams const& other):
       m_cameras_vec       (other.m_cameras_vec.size()       ),
       m_intrinsics_vec    (other.m_intrinsics_vec.size()    ),
       m_outlier_points_vec(other.m_outlier_points_vec.size()),
-      m_rand_gen(std::time(0)) {
+      m_rand_gen(boost::random::mt19937()) {
     copy_points    (other);
     copy_cameras   (other);
     copy_intrinsics(other);

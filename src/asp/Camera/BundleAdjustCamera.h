@@ -166,6 +166,8 @@ class BAParams {
 
 public:
 
+  // A random generator. We will always start with same seed, to get
+  // reproducible results.
   boost::random::mt19937 m_rand_gen;
 
   // Constructor

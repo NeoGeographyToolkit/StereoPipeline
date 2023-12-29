@@ -310,7 +310,7 @@ void compute_residuals(bool apply_loss_function,
                        ceres::Problem & problem,
                        // Output
                        std::vector<double> & residuals) {
-  // TODO: Associate residuals with cameras!
+  // TODO(oalexan1): Associate residuals with cameras!
   // Generate some additional diagnostic info
   double cost = 0.0;
   ceres::Problem::EvaluateOptions eval_options;
@@ -342,7 +342,7 @@ void compute_residuals(bool apply_loss_function,
 
 /// Compute residual map by averaging all the reprojection error at a given point
 // TODO(oalexan1): Move this to a separate file.
-void compute_mean_residuals_at_xyz(CRNJ & crn,
+void compute_mean_residuals_at_xyz(CRNJ const& crn,
                                   std::vector<double> const& residuals,
                                   asp::BAParams const& param_storage,
                                   // outputs
@@ -358,8 +358,7 @@ void compute_mean_residuals_at_xyz(CRNJ & crn,
   size_t residual_index = 0;
   // Double loop through cameras and crn entries will give us the correct order
   for (size_t icam = 0; icam < param_storage.num_cameras(); icam++) {
-    typedef CameraNode<JFeature>::const_iterator crn_iter;
-    for (crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++){
+    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
 
       // The index of the 3D point
       int ipt = (**fiter).m_point_id;
@@ -466,7 +465,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
                          size_t num_gcp_or_dem_residuals,
                          size_t num_tri_residuals,
                          std::vector<vw::Vector3> const& reference_vec,
-                         ControlNetwork const& cnet, CRNJ & crn, 
+                         ControlNetwork const& cnet, CRNJ const& crn, 
                          ceres::Problem &problem) {
   
   std::vector<double> residuals;
@@ -633,7 +632,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   std::string map_prefix = residual_prefix + "_pointmap";
   std::vector<double> mean_residuals;
   std::vector<int> num_point_observations;
-  compute_mean_residuals_at_xyz(crn,  residuals,  param_storage,
+  compute_mean_residuals_at_xyz(crn, residuals, param_storage,
                                 mean_residuals, num_point_observations);
 
   write_residual_map(map_prefix, mean_residuals, num_point_observations,
@@ -650,7 +649,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 
 /// Add to the outliers based on the large residuals
 int add_to_outliers(ControlNetwork & cnet,
-                    CRNJ & crn,
+                    CRNJ const& crn,
                     asp::BAParams & param_storage,
                     Options const& opt,
                     std::vector<size_t> const& cam_residual_counts,
@@ -677,7 +676,7 @@ int add_to_outliers(ControlNetwork & cnet,
   // Compute the mean residual at each xyz, and how many times that residual is seen
   std::vector<double> mean_residuals;
   std::vector<int   > num_point_observations;
-  compute_mean_residuals_at_xyz(crn,  residuals,  param_storage,
+  compute_mean_residuals_at_xyz(crn, residuals, param_storage,
                                 // outputs
                                 mean_residuals, num_point_observations);
 
@@ -688,8 +687,7 @@ int add_to_outliers(ControlNetwork & cnet,
   std::vector<double> actual_residuals;
   std::set<int> was_added;
   for ( size_t icam = 0; icam < num_cameras; icam++ ) {
-    typedef CameraNode<JFeature>::const_iterator crn_iter;
-    for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
+    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
 
       // The index of the 3D point
       int ipt = (**fiter).m_point_id;
@@ -736,7 +734,7 @@ int add_to_outliers(ControlNetwork & cnet,
   int num_outliers_by_reprojection = 0, total = 0;
   for ( size_t icam = 0; icam < num_cameras; icam++ ) {
     typedef CameraNode<JFeature>::const_iterator crn_iter;
-    for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
+    for (crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
 
       // The index of the 3D point
       int ipt = (**fiter).m_point_id;
@@ -955,7 +953,7 @@ void updateOutliers(vw::ba::ControlNetwork const& cnet,
 
 // One pass of bundle adjustment
 int do_ba_ceres_one_pass(Options             & opt,
-                         CRNJ                & crn,
+                         CRNJ           const& crn,
                          bool                  first_pass,
                          asp::BAParams       & param_storage, 
                          asp::BAParams const & orig_parameters,
@@ -1038,7 +1036,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   typedef CameraNode<JFeature>::iterator crn_iter;
   for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
     cam_residual_counts[icam] = 0;
-    for (crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) { // IP loop
+    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) { // IP loop
 
       // The index of the 3D point this IP is for.
       int ipt = (**fiter).m_point_id;
@@ -1540,6 +1538,69 @@ int do_ba_ceres_one_pass(Options             & opt,
   return 0;
 } // End function do_ba_ceres_one_pass
 
+// Run several more passes with random initial parameter offsets. This flow is
+// only kicked in if opt.num_random_passes is positive, which is not the
+void runRandomPasses(Options & opt, asp::BAParams & param_storage,
+                     double & final_cost, CRNJ const& crn,
+                     asp::BAParams const& orig_parameters) {
+
+  // Record the parameters of the best result so far
+  double best_cost = final_cost;
+  boost::shared_ptr<asp::BAParams> best_params_ptr(new asp::BAParams(param_storage));
+
+  // Back up the output prefix
+  std::string orig_out_prefix = opt.out_prefix;
+  
+  for (int pass = 0; pass < opt.num_random_passes; pass++) {
+
+    vw_out() << "\n--> Running bundle adjust pass " << pass 
+             << " with random initial parameter offsets.\n";
+
+    // Randomly distort the original inputs.
+    param_storage.randomize_cameras();
+    if (opt.solve_intrinsics)
+      param_storage.randomize_intrinsics(opt.intrinsics_limits);
+
+    // Write output files to a temporary prefix
+    opt.out_prefix = orig_out_prefix + "_rand";
+
+    // Do another pass of bundle adjustment.
+    bool first_pass = true; // this needs more thinking
+    bool convergence_reached = true;
+    do_ba_ceres_one_pass(opt, crn, first_pass,
+                         param_storage, orig_parameters,
+                         convergence_reached, final_cost);
+    
+    // Record the parameters of the best result.
+    if (final_cost < best_cost) {
+      vw_out() << "  --> Found a better solution!\n\n";
+      best_cost = final_cost;
+      best_params_ptr.reset(new asp::BAParams(param_storage));
+
+      // Get a list of all the files that were generated in the random step.
+      std::vector<std::string> rand_files;
+      get_files_with_prefix(opt.out_prefix, rand_files);
+
+      // Replace the existing output files with them.
+      for (size_t i = 0; i < rand_files.size(); i++) {
+        std::string new_path = rand_files[i];
+        boost::replace_all(new_path, opt.out_prefix, orig_out_prefix);
+        boost::filesystem::copy_file(rand_files[i], new_path,
+                                     fs::copy_options::overwrite_existing);
+      }
+    }
+
+    // Clear out the extra files that were generated
+    std::string cmd("rm -f " + opt.out_prefix + "*");
+    vw_out() << "Deleting temporary files: " << cmd << std::endl;
+    vw::exec_cmd(cmd.c_str());
+  }
+  opt.out_prefix = orig_out_prefix; // So the cameras are written to the expected paths.
+  
+  // Copy back to the original parameters
+  param_storage = *best_params_ptr;
+}
+
 /// Use Ceres to do bundle adjustment.
 void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc) {
 
@@ -1716,7 +1777,6 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     vw::ba::triangulate_control_network(cnet, new_cam_models,
                                         opt.min_triangulation_angle*(M_PI/180.0),
                                         opt.forced_triangulation_distance);
-        
     check_gcp_dists(new_cam_models, opt.cnet, opt.forced_triangulation_distance);
   }
 
@@ -1776,82 +1836,25 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     }
   } // End loop through passes
   
-  // TODO(oalexan1): Make this into a function. It should just return 
-  // param_storage rather than best_param_ptr which should be kept internal.
-  // It is also not clear if using a pointers rather than copying has
-  // any advantage there. The data amount is small compared to all the work
-  // that is needed to process it at each iteration. 
-#if 1 
-  // Record the parameters of the best result.
-  double best_cost = final_cost;
-  boost::shared_ptr<asp::BAParams> best_params_ptr(new asp::BAParams(param_storage));
-
-  // This flow is only kicked in if opt.num_random_passes is positive, which
-  // is not the default.
-  std::string orig_out_prefix = opt.out_prefix;
-  for (int pass = 0; pass < opt.num_random_passes; pass++) {
-
-    if (opt.apply_initial_transform_only)
-      continue;
-    
-    vw_out() << "\n--> Running bundle adjust pass " << pass 
-             << " with random initial parameter offsets.\n";
-
-    // Randomly distort the original inputs.
-    param_storage.randomize_cameras();
-    if (opt.solve_intrinsics)
-      param_storage.randomize_intrinsics(opt.intrinsics_limits); // This handles sharing, etc.
-
-    // Write output files to a temporary prefix
-    opt.out_prefix = orig_out_prefix + "_rand";
-
-    // Do another pass of bundle adjustment.
-    bool first_pass = true; // this needs more thinking
-    bool convergence_reached = true;
-    do_ba_ceres_one_pass(opt, crn, first_pass,
-                         param_storage, orig_parameters,
-                         convergence_reached, final_cost);
-    
-    // Record the parameters of the best result.
-    if (final_cost < best_cost) {
-      vw_out() << "  --> Found a better solution!\n\n";
-      best_cost = final_cost;
-      best_params_ptr.reset(new asp::BAParams(param_storage));
-
-      // Get a list of all the files that were generated in the random step.
-      std::vector<std::string> rand_files;
-      get_files_with_prefix(opt.out_prefix, rand_files);
-
-      // Replace the existing output files with them.
-      for (size_t i=0; i<rand_files.size(); i++) {
-        std::string new_path = rand_files[i];
-        boost::replace_all(new_path, opt.out_prefix, orig_out_prefix);
-        boost::filesystem::copy_file(rand_files[i], new_path,
-                                     fs::copy_options::overwrite_existing);
-      }
-    }
-
-    // Clear out the extra files that were generated
-    std::string cmd("rm -f " + opt.out_prefix + "*");
-    vw_out() << "Deleting temporary files: " << cmd << std::endl;
-    vw::exec_cmd(cmd.c_str());
-  }
-  opt.out_prefix = orig_out_prefix; // So the cameras are written to the expected paths.
-#endif
-
-  saveUpdatedCameras(opt, *best_params_ptr);
+  // Running random passes is not the default
+  if (!opt.apply_initial_transform_only && opt.num_random_passes > 0)
+    runRandomPasses(opt, param_storage, final_cost, crn, orig_parameters);
+  
+  // Always save the updated cameras, even if we are not doing any optimization
+  saveUpdatedCameras(opt, param_storage);
   
   if (!opt.apply_initial_transform_only && has_datum && 
       (opt.stereo_session == "pinhole") || (opt.stereo_session == "nadirpinhole")) 
-    saveCameraReport(opt, *best_params_ptr, opt.datum, "final");
+    saveCameraReport(opt, param_storage, opt.datum, "final");
   
-  // Update the ISIS cnet or create a new one, if applicable
-  // Note that *best_params_ptr has the latest triangulated points and outlier info
+  // Update the ISIS cnet or create a new one, if applicable. Note that
+  // param_storage has the latest triangulated points and outlier info, while
+  // the cnet has the initially triangulated points.
   if (!opt.apply_initial_transform_only && 
       opt.isis_cnet != "" && opt.output_cnet_type == "isis-cnet")
-    asp::saveUpdatedIsisCnet(opt.out_prefix, cnet, *best_params_ptr, isisCnetData);
+    asp::saveUpdatedIsisCnet(opt.out_prefix, cnet, param_storage, isisCnetData);
   else if (!opt.apply_initial_transform_only && opt.output_cnet_type == "isis-cnet")
-    asp::saveIsisCnet(opt.out_prefix, opt.datum, cnet, *best_params_ptr);
+    asp::saveIsisCnet(opt.out_prefix, opt.datum, cnet, param_storage);
 
 } // end do_ba_ceres
 
