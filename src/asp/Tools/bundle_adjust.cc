@@ -1567,14 +1567,15 @@ void runRandomPasses(Options & opt, asp::BAParams & param_storage,
     // Do another pass of bundle adjustment.
     bool first_pass = true; // this needs more thinking
     bool convergence_reached = true;
+    double curr_cost = 0.0; // will be set
     do_ba_ceres_one_pass(opt, crn, first_pass,
                          param_storage, orig_parameters,
-                         convergence_reached, final_cost);
+                         convergence_reached, curr_cost);
     
     // Record the parameters of the best result.
-    if (final_cost < best_cost) {
-      vw_out() << "  --> Found a better solution!\n\n";
-      best_cost = final_cost;
+    if (curr_cost < best_cost) {
+      vw_out() << "  --> Found a better solution using random passes.\n";
+      best_cost = curr_cost;
       best_params_ptr.reset(new asp::BAParams(param_storage));
 
       // Get a list of all the files that were generated in the random step.
@@ -1599,6 +1600,9 @@ void runRandomPasses(Options & opt, asp::BAParams & param_storage,
   
   // Copy back to the original parameters
   param_storage = *best_params_ptr;
+  
+  // Copy back the best cost
+  final_cost = best_cost;
 }
 
 /// Use Ceres to do bundle adjustment.
