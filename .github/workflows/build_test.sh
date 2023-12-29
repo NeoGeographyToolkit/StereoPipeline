@@ -222,6 +222,9 @@ tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 # Note: If the test results change, a new tarball with latest scripts and test
 # results must be uploaded. Here's how that is done.
 if [ 1 -eq 0 ]; then
+  # Fetch the latest artifact of this run. It will have the current test results,
+  # since later in this script we have a step that saves the test results.
+  # Fetching of the artifact can be done with gh, as in an example above.
   # Inspect all tests. Update the failed ones (each 'gold' is overwritten with 'run').
   # Make the new 'run' directory the new 'gold'. Do not keep the 'run' directories.
   # Go to the directory having StereoPipelineTest as a subdirectory

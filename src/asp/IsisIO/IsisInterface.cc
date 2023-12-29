@@ -303,8 +303,8 @@ bool IsisCubeHasCsmBlob(std::string const& cubeFile) {
   return cube->hasBlob("CSMState", "String");
 }
 
-// Read the CSM state (a string) from a cube file. Throw an exception
-// if missing.
+// Read the CSM state (a string) from a cube file. Throw an exception if
+// missing. Careful not to copy junk from the blob.
 std::string csmStateFromIsisCube(std::string const& cubeFile) {
     
   QString qCubeFile = QString::fromStdString(cubeFile);
@@ -319,8 +319,12 @@ std::string csmStateFromIsisCube(std::string const& cubeFile) {
   Isis::Blob csmStateBlob("CSMState", "String");
   cube->read(csmStateBlob);
 
-  // Get the buffer and copy to a string
-  return std::string(csmStateBlob.getBuffer()); 
+  // Copy precisely the number of characters in the blob. This prevents copying junk,
+  // which can result in a parse error later.
+  int len = csmStateBlob.Size();
+  std::string buf(len, ' ');
+  memcpy(&buf[0], csmStateBlob.getBuffer(), len);
+  return buf;
 }
 
 // Save a CSM state to an ISIS Cube file. Wipe any spice info.
@@ -342,10 +346,11 @@ void saveCsmStateToIsisCube(std::string const& cubeFile,
   // Delete any spice and other obsolete keywords (per csminit)
   deleteKeywords(cube);
 
-  // Create our CSM State blob as a string and add the CSM string to the Blob.
+  // Add the CSM state to to a blob
   Isis::Blob csmStateBlob("CSMState", "String");
   csmStateBlob.setData(modelState.c_str(), modelState.size());
 
+  // Save the state and other info to the cube
   QString jigComment = "Jigged = " + Isis::iTime::CurrentLocalTime();
   QString qModelName = QString::fromStdString(modelName);
   QString qPluginName = QString::fromStdString(pluginName);
@@ -356,7 +361,6 @@ void saveCsmStateToIsisCube(std::string const& cubeFile,
 
   // Write the cube  
   cube->write(csmStateBlob);
-  // Some file corruption went away when the lines below were added.
   Isis::CameraFactory::Create(*cube);
   p.WriteHistory(*cube);
 }
