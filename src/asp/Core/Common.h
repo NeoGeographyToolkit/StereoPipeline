@@ -58,6 +58,9 @@ namespace asp {
 
   class ASPGlobalOptions; // forward declaration
   
+  /// Returns true if the filename ends in .isd or .json.
+  bool has_isd_extension(std::string const& path);
+
   /// Returns true if the file has an extension which can contain a camera model
   bool has_cam_extension( std::string const& input );
 

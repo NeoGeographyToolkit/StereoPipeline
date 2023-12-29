@@ -67,16 +67,22 @@ using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+bool asp::has_isd_extension(std::string const& path) {
+  std::string ext = vw::get_extension(path);
+  return ((ext == ".json") || (ext == ".isd"));
+}
+
 bool asp::has_cam_extension(std::string const& input) {
   std::string ext = get_extension(input);
-  if ( has_pinhole_extension(input) ||
+  if (has_pinhole_extension(input) ||
+      has_isd_extension(input)     ||
       ext == ".cub" || ext == ".xml" || ext == ".dim" ||
-      ext == ".rpb" || ext == ".json" || ext == ".isd"  )
+      ext == ".rpb")
     return true;
   return false;
 }
 
-bool asp::has_pinhole_extension( std::string const& input ) {
+bool asp::has_pinhole_extension(std::string const& input) {
   std::string ext = get_extension(input);
   if ( ext == ".cahvor"  || ext == ".cahv"    ||
        ext == ".pin"     || ext == ".pinhole" ||
@@ -86,7 +92,7 @@ bool asp::has_pinhole_extension( std::string const& input ) {
   return false;
 }
 
-bool asp::has_image_extension( std::string const& input ) {
+bool asp::has_image_extension(std::string const& input) {
   std::string ext = get_extension(input);
   if ( ext == ".tif"  || ext == ".tiff" || ext == ".ntf" ||
        ext == ".png"  || ext == ".jpeg" ||
@@ -97,7 +103,7 @@ bool asp::has_image_extension( std::string const& input ) {
   return false;
 }
 
-bool asp::has_tif_or_ntf_extension(std::string const& input){
+bool asp::has_tif_or_ntf_extension(std::string const& input) {
   std::string ext = get_extension(input);
   if ( ext == ".tif"  || ext == ".ntf")
     return true;

@@ -79,8 +79,8 @@ namespace asp {
                      << error_opticalbar);
           }
         }
-      } else if (boost::iends_with(boost::to_lower_copy(left_camera_file), ".json") ||
-                 boost::iends_with(boost::to_lower_copy(right_camera_file), ".json")) {
+      } else if (asp::has_isd_extension(left_camera_file) ||
+                 asp::has_isd_extension(right_camera_file)) {
         actual_session_type = "csm";
       } else if (boost::iends_with(boost::to_lower_copy(left_image_file), ".cub") &&
                  asp::isis::IsisCubeHasCsmBlob(left_image_file)) {

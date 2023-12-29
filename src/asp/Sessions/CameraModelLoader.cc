@@ -152,7 +152,7 @@ boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_csm_camera_model(std::string const& path) const {
   
   boost::shared_ptr<asp::CsmModel> cam_ptr(new asp::CsmModel());
-  if (asp::CsmModel::file_has_isd_extension(path)) {
+  if (asp::has_isd_extension(path)) {
     // Load a .json file
     cam_ptr->load_model(path);
     return vw::CamPtr(cam_ptr);

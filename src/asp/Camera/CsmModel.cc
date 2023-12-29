@@ -141,11 +141,6 @@ CsmModel::~CsmModel() {
   // nothing to do.
 }
 
-bool CsmModel::file_has_isd_extension(std::string const& path) {
-  std::string ext = vw::get_extension(path);
-  return ((ext == ".json") || (ext == ".isd"));
-}
-
 std::string CsmModel::get_csm_plugin_folder() {
   // Look up the CSM_PLUGIN_PATH environmental variable.
   // It is set in the "libexec/libexec-funcs.sh" deploy file.
