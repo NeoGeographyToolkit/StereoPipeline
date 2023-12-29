@@ -190,5 +190,5 @@ detailed discussion for how to run SfS.
 Refining the camera intrinsics for Kaguya TC
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-See :numref:`kaguya_tc_refine_intrinsics`.
+See :numref:`kaguya_ba`.
 

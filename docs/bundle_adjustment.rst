@@ -168,7 +168,7 @@ distorted DEMs that agree much better with the ground truth.
 See :numref:`intrinsics_no_constraints` for how to optimize intrinsics with
 no constraints, :numref:`intrinsics_ground_truth` for when ground constraints
 can be used (there exist options for sparse ground points and a DEM),
-and :numref:`kaguya_tc_refine_intrinsics` for how to have several groups of
+and :numref:`kaguya_ba` for how to have several groups of
 intrinsics.
 
 .. _intrinsics_no_constraints:
@@ -278,7 +278,7 @@ when projecting into the camera is the key operation. Using models
 like *Photometrix* and *Brown-Conrady* is not advised.
 
 Here we assumed all intrinsics are shared. See
-:numref:`kaguya_tc_refine_intrinsics` for how to have several groups of
+:numref:`kaguya_ba` for how to have several groups of
 intrinsics. See also the option ``--intrinsics-to-share``.
 
 Sometimes the camera weight may need to be decreased, even all the way
@@ -418,7 +418,7 @@ ground truth (the later can be evaluated by invoking
 lidar/DEM file).
 
 Here we assumed all intrinsics are shared. See 
-:numref:`kaguya_tc_refine_intrinsics` for how to have several groups of
+:numref:`kaguya_ba` for how to have several groups of
 intrinsics. See also the option ``--intrinsics-to-share``.
 
 When the lidar file is large, in bundle adjustment one can use the flag
@@ -564,7 +564,7 @@ linescan Lunar images with variable illumination
 (:numref:`sfs-lola`).
 
 Here we assumed all intrinsics are shared. See
-:numref:`kaguya_tc_refine_intrinsics` for how to have several groups of
+:numref:`kaguya_ba` for how to have several groups of
 intrinsics. See also the option ``--intrinsics-to-share``.
 
 It is suggested to look at the documentation of all the options
@@ -609,7 +609,7 @@ interest points obtained this way be examined carefully.  Particularly
 the grid size used in mapprojection should be similar to the ground
 sample distance for the raw images for best results.
 
-.. _kaguya_tc_refine_intrinsics:
+.. _kaguya_ba:
 
 Refining the intrinsics per sensor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -664,7 +664,7 @@ alignment. This is not preferable, in general. It was tricky however to find
 many images with a lot of overlap, so this had to make do.
 
 A modification of the work flow for the case of images with very different
-illumination is in :numref:`kaguya_tc_refine_intrinsics_illumination`.
+illumination is in :numref:`kaguya_ba_illumination`.
 
 Initial bundle adjustment with fixed intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -908,7 +908,7 @@ KaguyaTC is already reasonably well-aligned.
    meters.) It can be seen that the warping of the DEMs due to distortion is much
    reduced. Plotted with ``stereo_gui`` (:numref:`plot_csv`).
 
-.. _kaguya_tc_refine_intrinsics_illumination:
+.. _kaguya_ba_illumination:
 
 Handling images with very different illumination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

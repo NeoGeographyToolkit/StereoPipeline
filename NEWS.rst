@@ -34,8 +34,7 @@ jitter_solve (:numref:`jitter_solve`):
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added the ability to refine the camera intrinsics for several groups of
-    cameras, with each group sharing intrinsics.
-    (:numref:`kaguya_tc_refine_intrinsics`).
+    cameras, with each group sharing intrinsics (:numref:`kaguya_ba`).
   * Support reading and writing the ISIS ``jigsaw`` binary control network
     format (:numref:`control_network`).
   * Can read and write CSM model state embedded in ISIS .cub files   

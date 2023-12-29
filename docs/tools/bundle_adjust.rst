@@ -135,7 +135,7 @@ with a large number of linescan Lunar images with variable illumination
 (:numref:`sfs-lola`). 
 
 See :numref:`bundle_adjustment` for how to solve for intrinsics. In particular,
-see :numref:`kaguya_tc_refine_intrinsics` for the case when there exist several
+see :numref:`kaguya_ba` for the case when there exist several
 sensors, each with its own intrinsics parameters.
 
 See also the related jitter-solving tool (:numref:`jitter_solve`),
@@ -832,7 +832,7 @@ Command-line options for bundle_adjust
     are shared, so to not share any of them pass in an empty string. Also can
     specify as ``all`` or ``none``. If sharing intrinsics per sensor, this
     option is ignored, as then the sharing is more fine-grained.
-    (:numref:`kaguya_tc_refine_intrinsics`).
+    (:numref:`kaguya_ba`).
 
 --intrinsics-limits <arg>
     Set a string in quotes that contains min max ratio pairs for intrinsic
@@ -1104,7 +1104,7 @@ Command-line options for bundle_adjust
     the command line. Use in the file a space or newline as separator. When
     solving for intrinsics for several sensors, pass to this option several
     lists, with comma as separator between the file names (no space). An
-    example is in :numref:`kaguya_tc_refine_intrinsics`. See also
+    example is in :numref:`kaguya_ba`. See also
     ``--camera-list`` and ``--mapprojected-data-list``.
 
 --camera-list

@@ -195,4 +195,4 @@ save the best-fit CSM models with no further refinement, invoke this tool with
 zero iterations. 
 
 The CSM model may be further refined by tying together multiple datasets and
-using ground constraints (:numref:`kaguya_tc_refine_intrinsics`).
+using ground constraints (:numref:`kaguya_ba`).
