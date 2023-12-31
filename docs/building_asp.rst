@@ -13,6 +13,10 @@ in :numref:`installation`.
 Building ASP without conda
 --------------------------
 
+Note that latest ASP cannot be compiled with the dependencies listed below,
+since it started to depend on versions of some packages not available in conda
+for the time being. ASP 3.3.0 can still be compiled though, as described below.
+
 This entails downloading all the ASP dependencies with conda first as
 pre-compiled binaries, then pulling the VisionWorkbench and Stereo
 Pipeline source code from GitHub, and building locally. This is
@@ -89,8 +93,8 @@ Build VisionWorkbench and Stereo Pipeline::
     $envPath/bin/git clone                            \
         git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
-    # Uncomment below if desired to build a specific version
-    # git checkout 3.3.0
+    # Build a specific version
+    git checkout 3.3.0
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                             \
@@ -106,8 +110,8 @@ Build VisionWorkbench and Stereo Pipeline::
     $envPath/bin/git clone                            \
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
-    # Uncomment below if desired to build a specific version
-    # git checkout 3.3.0
+    # Build a specific version
+    git checkout 3.3.0
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                             \

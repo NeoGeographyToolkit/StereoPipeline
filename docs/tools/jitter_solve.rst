@@ -474,25 +474,28 @@ this is due to the reference DEM being very coarse, per plots (e) and
 Using multiple CTX images
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Solving for jitter was done for a set of 27 CTX images with much overlap.
+Jitter was solved jointly for a set of 27 CTX images with much overlap.
 The extent was roughly between -157.8 and -155.5 degrees of longitude, and from
--0.25 to 3.79 degrees of latitude. 
+-0.3 to 3.8 degrees of latitude. 
 
-Bundle adjustment was run as before. The ``convergence_angles.txt`` report file
-(:numref:`ba_conv_angle`) was used to find stereo pairs. Only pairs with a
-median convergence angle of at least 5 degrees were used, and which had at least
-several dozen shared interest points. This resulted in 42 stereo pairs.
+Bundle adjustment for the entire set was run as before. The
+``convergence_angles.txt`` report file (:numref:`ba_conv_angle`) was used to
+find stereo pairs. Only stereo pairs with a median convergence angle of at least
+5 degrees were processed, and which had at least several dozen shared interest
+points. This produced in 42 stereo pairs.
 
 The resulting stereo DEMs can be mosaicked with ``dem_mosaic``
 (:numref:`dem_mosaic`). Alignment to MOLA can be done as before, and the the
 alignment transform must be applied to the cameras.
 
-Then, jitter was solved for, as earlier. The dense pairwise matches were used.
-They were copied from individual stereo directories to a single directory.
-It is important to use the proper naming convention (:numref:`ba_match_files`).
+Then, jitter was solved for, as earlier, but for the entire set at once. The
+dense pairwise matches were used. They were copied from individual stereo
+directories to a single directory. It is important to use the proper naming
+convention (:numref:`ba_match_files`).
 
 One could augment the dense matches with all *clean* sparse matches from bundle
-adjustment, if renamed to the proper convention. This was not done here.
+adjustment, if renamed to the proper convention. This can be helpful to ensure
+all images are tied together.
 
 The DEM used as a constraint can be either the existing gridded MOLA product, or
 it can be created from MOLA with ``point2dem`` (:numref:`jitter_solve_ctx_dem`).
@@ -501,11 +504,14 @@ Here the second option was used. Consider increasing the values of
 tighten the constraint. Values up to 0.3 for both were tried and they worked
 well.
 
+Consider setting ``--translation-weight`` to a positive value, such as 10.0, if
+confident that the jitter is mostly in the orientation and not in the position.
+
 .. figure:: ../images/jitter_ctx_dem_drg.png
    :name: jitter_ctx_dem_drg
 
    DEM and orthoimage produced by mosaicking the results for the 27 stereo
-   pairs. Some seams in the DEMs are seen. Perhaps it is due to insufficently
+   pairs. Some seams in the DEMs are seen. Perhaps it is due to insufficiently
    good distortion modeling. For the orthoimages, the first encountered pixel
    was used at a given location.
 
