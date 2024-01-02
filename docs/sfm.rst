@@ -433,24 +433,27 @@ to match. Commands using these options may look like this::
    orbitviz out --load-camera-solve --hide-labels    \
      -r wgs84 -t nadirpinhole
 
-Alternatively, the ``camera_solve`` executable can be bypassed
-altogether. If a given image has already an orthoimage associated with
-it (check the IceBridge portal page), that provides enough information
-to guess an initial position of the camera, using the ``ortho2pinhole``
-tool. Later, the obtained cameras can be bundle-adjusted. Here is how
-this tool can be used, on grayscale images::
+Alternatively, the ``camera_solve`` executable can be bypassed altogether. If a
+given image has already an orthoimage associated with it (check the IceBridge
+portal page), that provides enough information to guess an initial position of
+the camera, using the ``ortho2pinhole`` (:numref:`ortho2pinhole`) tool. Later,
+the obtained cameras can be bundle-adjusted. Here is how this tool can be used,
+on grayscale images::
 
     ortho2pinhole raw_image.tif ortho_image.tif \
       icebridge_model.tsai output_pinhole.tsai
 
+This needs additional options, as discussed in the tool's manual.
+  
 .. figure:: images/examples/pinhole/icebridge_camera_results.png
    :name: pinhole-icebridge-camera-results
 
-   Left: Measuring the distance between estimated frame locations using Google Earth
-   and an IceBridge kmz file.  The kmz file is from the IceBridge website with no modifications.
-   Using a position filter distance of 2000 meters will mostly limit image IP matching
-   in this case to each image's immediate "neighbors".  Right: Display of ``camera_solve``
-   results for ten IceBridge images using ``orbitviz``.
+   Left: Measuring the distance between estimated frame locations using Google
+   Earth and an IceBridge kmz file. The kmz file is from the IceBridge website
+   with no modifications. A well-chosen position filter distance will mostly
+   limit image IP matching in this case to each image's immediate "neighbors".
+   Right: Display of ``camera_solve`` results for ten IceBridge images using
+   ``orbitviz``.
 
 
 Some IceBridge flights contain data from the Land, Vegetation, and Ice

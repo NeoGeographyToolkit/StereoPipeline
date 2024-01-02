@@ -23,7 +23,7 @@ to use solve for (as opposed to the checkerboard images).
 
 In order to use this tool you must provide multiple images of the same
 checkerboard pattern acquired with the camera you wish to calibrate.
-When calling the tool you must specify the number of internal square
+When calling the tool you must specify the number of *inner* square
 corners contained in your checkerboard pattern (width and height can be
 swapped) so that OpenCV knows what to look for. You must also specify an
 image wildcard path such as ``"checkers/image_.jpg"``. You may need to
@@ -34,7 +34,10 @@ be unitless.
 
 Usage::
 
-     > camera_calibrate [options] <output folder> <Board Height> <Board Width> <Image Wildcard> ...
+     camera_calibrate [options] <output folder> \
+        <num inner vertical corners>            \
+        <num inner horizontal corners>          \
+        <image wildcard>
 
 Command-line options for camera_calibrate:
 
