@@ -497,7 +497,7 @@ def main(argsIn):
                                       argumentFilePath, parallelArgs,
                                       options.nodesListPath, True)#not options.suppressOutput)
 
-    # Find the tiles that were genreated
+    # Find the tiles that were generated
     tiles = []
     for tile in tileList:
         outTile = os.path.join(tempFolder, tile[4])

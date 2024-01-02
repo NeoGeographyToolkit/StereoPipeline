@@ -533,21 +533,30 @@ def spawn_to_nodes(step, settings, args):
         cmd += ['--ssh', opt.ssh]
     if opt.parallel_options is not None:
         cmd += opt.parallel_options.split(' ')
-    # Add the options which we want GNU parallel to not mess up
-    # with. Put them into a single string. Before that, put in quotes
-    # any quantities having spaces, to avoid issues later.
-    # Don't quote quantities already quoted.
+        
+    # Assemble the options which we want GNU parallel to not mess up
+    # with. 
     args_copy = args[:] # deep copy
+    args_copy += ["--work-dir", opt.work_dir]
+    if opt.isisroot  is not None: 
+        args_copy += ["--isisroot",  opt.isisroot]
+    if opt.isisdata is not None: 
+        args_copy += ["--isisdata", opt.isisdata]
+    
+    # Quote entities that have spaces in them. Don't quote quantities
+    # already quoted.
     for index, arg in enumerate(args_copy):
-        if re.search(" ", arg) and arg[0] != '\'':
+        if re.search(r"[ \t]", arg) and arg[0] != '\'':
             args_copy[index] = '\'' + arg + '\''
+            
     python_path = sys.executable # children must use same Python as parent
     start = step; stop = start + 1
-    args_str = python_path + " " + \
-               " ".join(args_copy) + " --entry-point " + str(start) + \
-               " --stop-point " + str(stop) + " --work-dir "  + opt.work_dir
-    if opt.isisroot  is not None: args_str += " --isisroot "  + opt.isisroot
-    if opt.isisdata is not None: args_str += " --isisdata " + opt.isisdata
+    
+    # Put options in a single string.
+    args_str = python_path + " "              + \
+               " ".join(args_copy)            + \
+               " --entry-point " + str(start) + \
+               " --stop-point " + str(stop) 
     args_str += " --tile-id {}"
     cmd += [args_str]
 

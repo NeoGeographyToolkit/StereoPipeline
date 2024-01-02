@@ -33,7 +33,7 @@ Fetch the raw data sets for a desired stereo pair, starting with the *TC1* and
 Preparing the data
 ~~~~~~~~~~~~~~~~~~
 
-Unzip the .img.gz files.
+Unzip the .img.gz files with ``gunzip``.
 
 Ensure that ISIS is installed, and that ISISROOT and ISISDATA are set, per
 :numref:`planetary_images`. The Kaguya kernels can then be downloaded with the
