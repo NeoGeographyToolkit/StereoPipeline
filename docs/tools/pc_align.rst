@@ -415,12 +415,11 @@ different, or they differ by a scale factor, a manual alignment can be
 computed as an initial guess transform (and one can stop there if
 ``pc_align`` is invoked with 0 iterations). 
 
-For that, the input point
-clouds should be first converted to DEMs using ``point2dem``, unless in
-that format already. Then, ``stereo_gui`` can be called to create manual
-point correspondences (interest point matches) from the reference to the
-source DEM (hence they should be displayed in the GUI in this order,
-from left to right, and one can hillshade them to see features better).
+For that, the input point clouds should be first converted to DEMs using
+``point2dem``, unless in that format already. Then, ``stereo_gui`` can be called
+to create manual point correspondences (interest point matches) from the
+reference to the source DEM (hence they should be displayed in the GUI in this
+order, from left to right, and one can hillshade them to see features better).
 
 Once the match file is saved to disk, it can be passed to ``pc_align``
 via the ``--match-file`` option, which will compute an initial transform
