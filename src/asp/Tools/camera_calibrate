@@ -34,6 +34,7 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
 import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
+import asp_string_utils
 
 asp_system_utils.verify_python_version_is_supported()
 
@@ -44,10 +45,14 @@ def make_image_list(options):
     '''Generate an OpenCV compatible image list'''
 
     # Call in this manner so that the image wildcard does not get expanded  
-    cmd = ['opencv_imagelist_creator ' 
-            +  os.path.abspath(options.xml_list_path) +' '+ os.path.abspath(options.image_wildcard)]
-    #print cmd
-    proc   = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    cmd = ['opencv_imagelist_creator', 
+            options.xml_list_path,
+            options.image_wildcard]
+
+    # Escape any spaces in the arguments.
+    cmd = asp_string_utils.argListToString(cmd)
+    
+    proc  = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     output = proc.communicate()
     
     if not os.path.exists(options.xml_list_path):
@@ -55,21 +60,20 @@ def make_image_list(options):
         print(output[0])
         raise Exception('Failed to generate xml image list file!')
 
-
 def calibrate_camera(options):
     '''Perform camera calibration using the input images'''
 
-    output_abs_path = os.path.abspath(options.ocv_params_path)
     cmd = ['opencv_calibrate', '-pt', 'chessboard', 
-           '-o', output_abs_path,
-           '-p', os.path.abspath(options.xml_list_path), 
+           '-o', options.ocv_params_path,
+           '-p', options.xml_list_path, 
            '-w', str(options.board_size[0]), '-h', str(options.board_size[1])]
             
     if options.box_size_cm:
         box_size_meters = options.box_size_cm/100.0
         cmd += ['-s', str(box_size_meters)]
     asp_system_utils.executeCommand(cmd, suppressOutput=options.suppress_output, 
-                                 outputPath=output_abs_path, redo=options.overwrite)
+                                    outputPath=options.ocv_params_path,
+                                    redo=options.overwrite)
 
     if not os.path.exists(options.ocv_params_path):
         raise Exception('Failed to calibrate the camera!')
