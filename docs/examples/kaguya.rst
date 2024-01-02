@@ -121,8 +121,8 @@ any holes::
 (adjust the projection center for your location).
 
 Inspect the produced DEM ``stereo/run-DEM.tif`` in ``stereo_gui`` in hillshading
-mode. Any additional holes can be filled with ``dem_mosaic`` (:numref:`dem_mosaic`),
-with options along the lines of ``--fill-search-radius 100 --fill-percent 1``.
+mode. Any additional holes can be filled with ``dem_mosaic``
+(:numref:`dem_mosaic_grow`).
 
 It is also suggested to blur it a little, to make it smoother::
 
@@ -151,7 +151,7 @@ Run SfS as::
       --threads 4                              \
       --save-sparingly                         \
       --crop-input-images                      \
-      --smoothness-weight 30000                \
+      --smoothness-weight 40000                \
       --initial-dem-constraint-weight 10       \
       --max-iterations 5                       \
       --shadow-thresholds "120 120"            \
@@ -160,25 +160,32 @@ Run SfS as::
       --processes 10                           \
       -o sfs/run
 
+If there are artifacts in the produced DEM, increase the smoothness weight.
+But if it is too large, it may blur the produced DEM too much.
+
 The initial and final DEM can be inspected in ``stereo_gui``. The ``geodiff``
 (:numref:`geodiff`) tool can be used to compare how much the DEM changed.
-
-The choices of parameters above are peculiar to this data set, especially the
-smoothness weight. Making this smaller can result in artifacts, but if it is
-larger, it may blur the produced DEM too much.
 
 The initial DEM constraint was set rather high to ensure the DEM does not change
 much as result of SfS. The shadow threshold depends on the pixel values and can
 be very different for other images.
 
 It could have been beneficial to have images with different illumination. This
-can add more information, and makes it possible to reduce the value of the
-smoothness weight without introducing artifacts, which results in less detail
-being lost.
+can add more detail and reduce the artifacts. For such data, bundle adjustment
+and pairwise stereo need to be run first, and the produced DEMs and cameras must
+be aligned to a common reference, such as LOLA (:numref:`ba_pc_align`). Then the
+aligned DEMs are inspected and merged with ``dem_mosaic``, a clip is selected,
+holes are filled, noise is blurred, and SfS is run.
+
+A good test case consists of the two pairs::
+
+    TC{1,2}W2B0_01_02921S050E1100
+    TC{1,2}W2B0_01_05936S048E1097
 
 See, for comparison, the parameter choices made for LRO NAC
 (:numref:`sfs-lola`). That example, and that entire chapter, also has the most
-detailed discussion for how to run SfS.
+detailed discussion for how to run SfS, including the essential role of
+alignment.
 
 .. figure:: ../images/sfs_kaguya_example.png
    :name: sfs_kaguya_example

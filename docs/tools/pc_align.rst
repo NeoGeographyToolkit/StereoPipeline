@@ -377,8 +377,10 @@ also be saved to disk if desired. If an input point cloud is in CSV,
 ASP point cloud format, or LAS format, the output transformed cloud
 will be in the same format. If the input is a DEM, the output will be
 an ASP point cloud, since a gridded point cloud may not stay so after
-a 3D transform. The ``point2dem`` program can be used to re-grid the
-obtained point cloud back to a DEM.
+a 3D transform. 
+
+The ``point2dem`` program can be used to re-grid the obtained point cloud back
+to a DEM.
 
 As an example, assume that ``pc_align`` is run as::
 
