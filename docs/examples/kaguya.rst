@@ -131,10 +131,11 @@ It is also suggested to blur it a little, to make it smoother::
 
 Then crop a region with ``gdal_translate`` that has no missing data. 
 
-Mapproject (:numref:`mapproject`) the left and right images with the
-corresponding ``.json`` camera files, while using the adjustments in ``ba/run``.
-Overlay the resulting georeferenced images in ``stereo_gui``. This is a very
-important sanity check to ensure that the cameras are registered correctly. 
+Mapproject (:numref:`mapproject`) onto this DEM the left and right images with
+the corresponding ``.json`` camera files, while using the adjustments in
+``ba/run``. Overlay the resulting georeferenced images in ``stereo_gui``. This
+is a very important sanity check to ensure that the cameras are registered
+correctly. 
 
 Run SfS as::
 
@@ -170,18 +171,6 @@ The initial DEM constraint was set rather high to ensure the DEM does not change
 much as result of SfS. The shadow threshold depends on the pixel values and can
 be very different for other images.
 
-It could have been beneficial to have images with different illumination. This
-can add more detail and reduce the artifacts. For such data, bundle adjustment
-and pairwise stereo need to be run first, and the produced DEMs and cameras must
-be aligned to a common reference, such as LOLA (:numref:`ba_pc_align`). Then the
-aligned DEMs are inspected and merged with ``dem_mosaic``, a clip is selected,
-holes are filled, noise is blurred, and SfS is run.
-
-A good test case consists of the two pairs::
-
-    TC{1,2}W2B0_01_02921S050E1100
-    TC{1,2}W2B0_01_05936S048E1097
-
 See, for comparison, the parameter choices made for LRO NAC
 (:numref:`sfs-lola`). That example, and that entire chapter, also has the most
 detailed discussion for how to run SfS, including the essential role of
@@ -192,7 +181,39 @@ alignment.
    :alt: SfS with Kaguya TC images
 
    From left to right: the stereo DEM, SfS DEM (hillshaded), and a mapprojected
-   image. 
+   image. Some numerical noise is still seen, which can be removed by increasing
+   the smoothing weight. See below for another example.
+
+Using multiple images with diverse illumination results in more detail and fewer
+artifacts. For such data, bundle adjustment and pairwise stereo need to be run
+first, and the produced DEMs and cameras must be aligned to a common reference,
+such as LOLA (:numref:`ba_pc_align`). Then the aligned DEMs are inspected and
+merged with ``dem_mosaic``, a clip is selected, holes are filled, noise is
+blurred, and SfS is run. The process is explained in detail in
+:numref:`sfs-lola`.
+
+Here is an example of running SfS with the datasets::
+
+    TC{1,2}W2B0_01_02921S050E1100
+    TC{1,2}W2B0_01_05936S048E1097
+
+All four images were used, though likely the first of each pair would have 
+been sufficient, given that images in each pair have the same illumination.
+
+.. figure:: ../images/sfs_kaguya_dems.png
+   :name: sfs_kaguya_dems
+   :alt: SfS with Kaguya TC images with different illumination
+
+   SfS with Kaguya images with different illumination. From left to right: first
+   pair stereo DEM, second pair stereo DEM, and the SfS DEM (all hillshaded). It
+   can be seen that SfS adds more detail and removes numerical noise.
+
+.. figure:: ../images/sfs_kaguya_ortho.png
+   :name: sfs_kaguya_ortho
+   :alt: SfS Kaguya TC ortho images
+   
+   The images used for SfS (one from each pair). The Sun is in the East and West, 
+   respectively. 
 
 Refining the camera intrinsics for Kaguya TC
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
