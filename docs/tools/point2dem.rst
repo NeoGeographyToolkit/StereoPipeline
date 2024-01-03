@@ -288,32 +288,8 @@ Command-line options for point2dem
     ground). Filename is ``<output prefix>-IntersectionErr.tif``. If stereo
     triangulation was done with the option ``--compute-error-vector``, this
     intersection error will instead have 3 bands, corresponding to the
-    coordinates of that vector (:numref:`triangulation_options`).
-
--t, --output-filetype <string (default: tif)>
-    Specify the output file type.
-
---x-offset <float (default: 0)>
-    Add a longitude offset (in degrees) to the DEM.
-
---y-offset <float (default: 0)>
-    Add a latitude offset (in degrees) to the DEM.
-
---z-offset <float (default: 0)>
-    Add a vertical offset (in meters) to the DEM.
-
---rotation-order <string (default: "xyz")>
-    Set the order of an Euler angle rotation applied to the 3D
-    points prior to DEM rasterization.
-
---phi-rotation <float (default: 0)>
-    Set a rotation angle phi.
-
---omega-rotation <float (default: 0)>
-    Set a rotation angle omega.
-
---kappa-rotation <float (default: 0)>
-    Set a rotation angle kappa.
+    North-East-Down coordinates of that vector (:numref:`triangulation_options`),
+    unless the option ``--scalar-error`` is set.
 
 --t_srs <string (default: "")>
     Specify the output projection (PROJ.4 string). Can also be an
@@ -388,15 +364,6 @@ Command-line options for point2dem
     stereographic, etc. Use the median longitude and latitude of cloud points.
     This overrides the values of ``--proj-lon`` and ``--proj-lat``. 
     
---proj-scale <float (default: 1)>
-    The projection scale (if applicable).
-
---false-northing <float (default: 0)>
-    The projection false northing (if applicable).
-
---false-easting <float (default: 0)>
-    The projection false easting (if applicable).
-
 -s, --tr, --dem-spacing <float (default: 0)>
     Set output DEM resolution (in target georeferenced units per
     pixel). These units may be in degrees or meters, depending on your
@@ -436,59 +403,6 @@ Command-line options for point2dem
     files, if those files contain Easting and Northing fields. If
     not specified, ``--t_srs`` will be used.
 
---input-is-projected
-    Treat the input coordinates as already in the projected coordinate
-    system, avoiding the need to convert the points from ECEF.
-
---rounding-error <float (default: 1/2^{10}=0.0009765625)>
-    How much to round the output DEM and errors, in meters (more
-    rounding means less precision but potentially smaller size on
-    disk). The inverse of a power of 2 is suggested.
-
---dem-hole-fill-len <integer (default: 0)>
-    Maximum dimensions of a hole in the output DEM to fill in, in pixels.
-
---orthoimage-hole-fill-len <integer (default: 0)>
-    Maximum dimensions of a hole in the output orthoimage to fill
-    in, in pixels. See also ``--orthoimage-hole-fill-extra-len``.
-
---orthoimage-hole-fill-extra-len <integer (default: 0)>
-    This value, in pixels, will make orthoimage hole filling more
-    aggressive by first extrapolating the point cloud. A small value
-    is suggested to avoid artifacts. Hole-filling also works better
-    when less strict with outlier removal, such as in
-    ``--remove-outliers-params``, etc.
-
---remove-outliers-params <pct factor (default: 75.0 3.0)>
-    Outlier removal based on percentage. Points with triangulation
-    error larger than pct-th percentile times factor and points
-    too far from the cluster of most points will be removed
-    as outliers.
-
---use-tukey-outlier-removal
-    Remove outliers above Q3 + 1.5*(Q3 - Q1). Takes precedence over
-    ``--remove-outliers-params``.
-
---max-valid-triangulation-error <float (default: 0)>
-    Outlier removal based on threshold. If positive, points with
-    triangulation error larger than this will be removed from the
-    cloud. Measured in meters. This option takes precedence over
-    ``--remove-outliers-params`` and ``--use-tukey-outlier-removal``.
-
---max-output-size <columns rows>
-    Creating of the DEM will be aborted if it is calculated to
-    exceed this size in pixels.
-
---median-filter-params <window_size (integer) threshold (float)>
-    If the point cloud height at the current point differs by more
-    than the given threshold from the median of heights in the
-    window of given size centered at the point, remove it as an
-    outlier. Use for example 11 and 40.0.
-
---erode-length <integer (default: 0)>
-    Erode input point clouds by this many pixels at boundary (after
-    outliers are removed, but before filling in holes).
-
 --filter <string (default: "weighted_average")>
     The filter to apply to the heights of the cloud points within
     a given circular neighborhood when gridding (its radius is
@@ -515,6 +429,98 @@ Command-line options for point2dem
     if this cloud was created with the ``parallel_stereo`` option
     ``--propagate-errors`` (:numref:`error_propagation`). The same
     gridding algorithm is used as for creating the DEM.
+
+--remove-outliers-params <pct factor (default: 75.0 3.0)>
+    Outlier removal based on percentage. Points with triangulation
+    error larger than pct-th percentile times factor and points
+    too far from the cluster of most points will be removed
+    as outliers.
+
+--use-tukey-outlier-removal
+    Remove outliers above Q3 + 1.5*(Q3 - Q1). Takes precedence over
+    ``--remove-outliers-params``.
+
+--max-valid-triangulation-error <float (default: 0)>
+    Outlier removal based on threshold. If positive, points with
+    triangulation error larger than this will be removed from the
+    cloud. Measured in meters. This option takes precedence over
+    ``--remove-outliers-params`` and ``--use-tukey-outlier-removal``.
+
+--scalar-error
+    If the point cloud has a vector triangulation error, ensure that the
+    intersection error produced by this program is the rasterized norm of
+    that vector. See also ``--error-image``.
+     
+-t, --output-filetype <string (default: tif)>
+    Specify the output file type.
+
+--x-offset <float (default: 0)>
+    Add a longitude offset (in degrees) to the DEM.
+
+--y-offset <float (default: 0)>
+    Add a latitude offset (in degrees) to the DEM.
+
+--z-offset <float (default: 0)>
+    Add a vertical offset (in meters) to the DEM.
+
+--rotation-order <string (default: "xyz")>
+    Set the order of an Euler angle rotation applied to the 3D
+    points prior to DEM rasterization.
+
+--phi-rotation <float (default: 0)>
+    Set a rotation angle phi.
+
+--omega-rotation <float (default: 0)>
+    Set a rotation angle omega.
+
+--kappa-rotation <float (default: 0)>
+    Set a rotation angle kappa.
+
+--proj-scale <float (default: 1)>
+    The projection scale (if applicable).
+
+--false-northing <float (default: 0)>
+    The projection false northing (if applicable).
+
+--false-easting <float (default: 0)>
+    The projection false easting (if applicable).
+
+--input-is-projected
+    Treat the input coordinates as already in the projected coordinate
+    system, avoiding the need to convert the points from ECEF.
+
+--rounding-error <float (default: 1/2^{10}=0.0009765625)>
+    How much to round the output DEM and errors, in meters (more
+    rounding means less precision but potentially smaller size on
+    disk). The inverse of a power of 2 is suggested.
+
+--dem-hole-fill-len <integer (default: 0)>
+    Maximum dimensions of a hole in the output DEM to fill in, in pixels.
+
+--orthoimage-hole-fill-len <integer (default: 0)>
+    Maximum dimensions of a hole in the output orthoimage to fill
+    in, in pixels. See also ``--orthoimage-hole-fill-extra-len``.
+
+--orthoimage-hole-fill-extra-len <integer (default: 0)>
+    This value, in pixels, will make orthoimage hole filling more
+    aggressive by first extrapolating the point cloud. A small value
+    is suggested to avoid artifacts. Hole-filling also works better
+    when less strict with outlier removal, such as in
+    ``--remove-outliers-params``, etc.
+
+--max-output-size <columns rows>
+    Creating of the DEM will be aborted if it is calculated to
+    exceed this size in pixels.
+
+--median-filter-params <window_size (integer) threshold (float)>
+    If the point cloud height at the current point differs by more
+    than the given threshold from the median of heights in the
+    window of given size centered at the point, remove it as an
+    outlier. Use for example 11 and 40.0.
+
+--erode-length <integer (default: 0)>
+    Erode input point clouds by this many pixels at boundary (after
+    outliers are removed, but before filling in holes).
 
 --use-surface-sampling
     Use the older algorithm, interpret the point cloud as a surface

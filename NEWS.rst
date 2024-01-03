@@ -67,6 +67,8 @@ point2dem (:numref:`point2dem`):
   * Added the option ``--auto-proj-center``, to automatically compute the
     projection center for stereographic and other projections
     (:numref:`point2dem_auto_proj_center`).
+  * Added the option ``--scalar-error`` to find the norm of the triangulated
+    error vector (if applicable).
 
 csm (:numref:`csm`):
    * Fixed several problems in generation of CSM cameras for MSL Curiosity Nav

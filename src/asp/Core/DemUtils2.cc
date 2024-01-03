@@ -157,6 +157,28 @@ inline error_to_NED(ImageViewBase<ImageT> const& image,
   return UnaryPerPixelView<ImageT, ErrorToNED>(image.impl(), ErrorToNED(georef));
 }
 
+// Take a given point xyz and the error at that point. Compute the error norm. 
+// Return no-data if the point is invalid.
+struct ErrorNorm: public ReturnFixedType<float> {
+  ErrorNorm(double nodata_value): m_nodata_value(nodata_value) {}
+  double m_nodata_value;
+  float operator() (Vector6 const& pt) const {
+
+    Vector3 xyz = subvector(pt, 0, 3);
+    if (xyz == Vector3() ||  xyz != xyz) 
+      return m_nodata_value;
+
+    Vector3 err = subvector(pt, 3, 3);
+    return vw::math::norm_2(err);
+  }
+};
+template <class ImageT>
+UnaryPerPixelView<ImageT, ErrorNorm>
+inline error_norm(ImageViewBase<ImageT> const& image, 
+                  double nodata_value) {
+  return UnaryPerPixelView<ImageT, ErrorNorm>(image.impl(), ErrorNorm(nodata_value));
+}
+
 template <class ImageT>
 vw::UnaryPerPixelView<ImageT, RoundImagePixelsSkipNoData<typename ImageT::pixel_type>>
 inline round_image_pixels_skip_nodata(vw::ImageViewBase<ImageT> const& image,
@@ -313,8 +335,8 @@ void save_intersection_error(DemOptions & opt,
 
   int hole_fill_len = 0;
   int num_channels = asp::num_channels(opt.pointcloud_files);
-
-  if (num_channels == 4 || (num_channels == 6 && has_stddev)) {
+  
+  if (num_channels == 4 || (num_channels == 6 && has_stddev) || opt.scalar_error) {
     // The error is a scalar (4 channels or 6 channels but last two are stddev)
     ImageViewRef<double> error_channel = asp::point_cloud_error_image(opt.pointcloud_files);
     rasterizer.set_texture(error_channel);
@@ -336,9 +358,9 @@ void save_intersection_error(DemOptions & opt,
       rasterized[ch_index] =
         block_cache(rasterizer_fsaa, tile_size, opt.num_threads);
     }
-    save_image(opt, asp::round_image_pixels_skip_nodata
-                            (asp::combine_abs_channels(opt.nodata_value, rasterized[0], 
-                                                    rasterized[1], rasterized[2]),
+    auto err_vec = asp::combine_abs_channels(opt.nodata_value, rasterized[0], 
+                                            rasterized[1], rasterized[2]);
+    save_image(opt, asp::round_image_pixels_skip_nodata(err_vec,
                               opt.rounding_error, opt.nodata_value),
                 georef, hole_fill_len, "IntersectionErr");
   } else {
@@ -478,10 +500,9 @@ void save_ortho(DemOptions & opt,
 void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
                                DemOptions& opt,
                                vw::cartography::GeoReference& georef,
-                               ImageViewRef<double> const& error_image,
                                std::int64_t * num_invalid_pixels) {
 
-  vw_out() << "\t-- Starting DEM rasterization --\n";
+  vw_out() << "\tStarting DEM rasterization\n";
   vw_out() << "\t--> DEM spacing: " <<     rasterizer.spacing() << " pt/px\n";
   vw_out() << "\t             or: " << 1.0/rasterizer.spacing() << " px/pt\n";
 
@@ -556,7 +577,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     int hole_fill_len = 0;
     DiskImageView<PixelGray<float>> dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
     asp::save_image(opt, apply_mask(channel_cast<uint8>
-                                    (normalize(create_mask(dem_image,opt.nodata_value),
+                                    (normalize(create_mask(dem_image, opt.nodata_value),
                                                rasterizer.bounding_box().min().z(),
                                                rasterizer.bounding_box().max().z(),
                                                0, 255))),

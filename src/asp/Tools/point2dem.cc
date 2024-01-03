@@ -153,7 +153,11 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     "ground). Filename is <output prefix>-IntersectionErr.tif. If stereo "
     "triangulation was done with the option --compute-error-vector, this "
     "intersection error will instead have 3 bands, corresponding to the "
-    "coordinates of that vector.")
+    "coordinates of that vector, unless the option --scalar-error is set.")
+    ("scalar-error", po::bool_switch(&opt.scalar_error)->default_value(false),
+     "If the point cloud has a vector triangulation error, ensure that "
+     "the intersection error produced by this program is the rasterized "
+     "norm of that vector. See also --error-image.")
     ("dem-hole-fill-len", po::value(&opt.dem_hole_fill_len)->default_value(0),
      "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
     ("orthoimage-hole-fill-len",      po::value(&opt.ortho_hole_fill_len)->default_value(0),
@@ -439,7 +443,7 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
       opt.out_prefix = base_out_prefix;
     else // Write later iterations to a different path.
       opt.out_prefix = base_out_prefix + "_" + vw::num_to_str(i);
-    do_software_rasterization(rasterizer, opt, georef, error_image,
+    do_software_rasterization(rasterizer, opt, georef, 
                               &num_invalid_pixels);
   } // End loop through spacings
 
@@ -613,8 +617,10 @@ int main(int argc, char *argv[]) {
     BBox3 estim_proj_box;
     if (error_image.rows() > 0 && error_image.cols() > 0) {
 
-      if (error_image.cols() != point_image.cols() || error_image.rows() != point_image.rows()) 
-        vw_throw(ArgumentErr() << "The error image and point image must have the same size.");
+      if (error_image.cols() != point_image.cols() || 
+          error_image.rows() != point_image.rows()) 
+        vw_throw(ArgumentErr() 
+                 << "The error image and point image must have the same size.");
 
       estim_max_error = asp::estim_max_tri_error_and_proj_box(proj_points, error_image,
                                                          opt.remove_outliers_params,

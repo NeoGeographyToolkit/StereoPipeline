@@ -63,7 +63,8 @@ struct DemOptions: vw::GdalWriteOptions {
   double      lon_offset, lat_offset, height_offset;
   size_t      utm_zone;
   ProjectionType projection;
-  bool        has_alpha, do_normalize, do_ortho, do_error, propagate_errors, no_dem;
+  bool        has_alpha, do_normalize, do_ortho, do_error, propagate_errors, no_dem,
+              scalar_error;
   double      rounding_error;
   std::string target_srs_string;
   vw::BBox2   target_projwin;
@@ -105,7 +106,6 @@ void las_or_csv_or_pcd_to_tifs(DemOptions& opt, vw::cartography::Datum const& da
 void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
                                DemOptions& opt,
                                cartography::GeoReference& georef,
-                               ImageViewRef<double> const& error_image,
                                std::int64_t * num_invalid_pixels);
 
 } // end namespace asp
