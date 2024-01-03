@@ -926,6 +926,9 @@ images (:numref:`low_res_msl`) can help with increasing the overlap and
 coverage. Lack of good overlap can result in registration errors, as can be seen
 in :numref:`msl_multiday`.
 
+For a larger and better-behaved dataset it is suggested to consider the images
+from SOL 3551 to 3560. Some effort may be needed to select a good subset.
+
 A workflow can be follows. First, individual DEMs were created and mosaicked,
 as in :numref:`csm_msl`. The quality of the produced DEM can be quite uneven,
 especially far from the camera. 
@@ -949,7 +952,7 @@ projection, and a resolution of 0.01 m::
     proj="+proj=stere +lat_0=-4.638 +lon_0=137.402 +k=1 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs"
     mapproject --tr 0.01 --t_srs "$proj" \
       dem.tif image.cub image.json image.map.tif
-    
+
 Bundle adjustment was run on the desired set of input images and cameras, while
 making use of the mapprojected images to find matches::
 
@@ -964,6 +967,9 @@ making use of the mapprojected images to find matches::
     --heights-from-dem-robust-threshold 0.1 \
     --auto-overlap-params "$dem 15"         \
     -o ba/run
+
+In retrospect, this mapprojection step may be not necessary, and one could
+run bundle adjustment with original images.
 
 Then ``parallel_stereo`` was run with mapprojected images, with the option
 ``--bundle-adjust-prefix ba/run``, to use the bundle-adjusted cameras::
