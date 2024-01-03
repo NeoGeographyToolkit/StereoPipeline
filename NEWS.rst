@@ -61,6 +61,7 @@ parallel_stereo (:numref:`parallel_stereo`):
     by ``gdalinfo``). A warning, progress bar, and timing info is displayed.
   * For the ``asp_sgm`` and ``asp_mgm`` algorithms allow ``cost-mode`` to
     have the value 3 or 4 only, as other values produce bad results. 
+  * Fix a failure when the working directory has a space in its name.
 
 point2dem (:numref:`point2dem`):
   * Added the option ``--auto-proj-center``, to automatically compute the

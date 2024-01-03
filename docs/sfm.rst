@@ -443,8 +443,10 @@ on grayscale images::
     ortho2pinhole raw_image.tif ortho_image.tif \
       icebridge_model.tsai output_pinhole.tsai
 
-This needs additional options, as discussed in the tool's manual.
-  
+This needs the camera height above the datum. If not specified, it will be read
+from the orthoimage metadata, if set there. See this tool's manual for more
+information.
+
 .. figure:: images/examples/pinhole/icebridge_camera_results.png
    :name: pinhole-icebridge-camera-results
 

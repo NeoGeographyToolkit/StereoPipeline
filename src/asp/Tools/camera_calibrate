@@ -209,7 +209,7 @@ def main(argsIn):
                                                dest="suppress_output",  help="Suppress output of sub-calls.")
         parser.add_option("--duplicate-files", action="store_true", default=False,
                                                dest="duplicate_param_files",  
-                                               help="Makes duplicate copies of the output camera files so they are ready to use.")
+                                               help="Makes duplicate copies of the VisionWorkbench parameter file for each input camera.")
         parser.add_option("--overwrite",       action="store_true", default=False,
                                                dest="overwrite",  
                                                help="Overwrite any partial computation results on disk.")

@@ -4,8 +4,9 @@ camera_calibrate
 ----------------
 
 The ``camera_calibrate`` tool can generate camera models suitable for use by
-``camera_solve`` and other ASP tools. This tool only solves for intrinsic camera
-parameters; to obtain the camera pose you should use the ``camera_solve`` tool. 
+``camera_solve`` (:numref:`camera_solve`), and other ASP tools. This program
+only solves for intrinsic camera parameters. To obtain the camera pose you
+should use ``camera_solve``. 
 
 This tool is a wrapper around the OpenCV (http://opencv.org/) checkerboard
 calibration tool which takes care of converting the output into readily usable
@@ -14,7 +15,7 @@ formats.
 When you run the tool, three camera model files will be created in the output
 folder: ``solve_cam_params.txt``, ``vw_cam_params.tsai``, and
 ``ocv_cam_params.yml``. The first file can be used as a camera calibration file
-for the ``camera_solve`` tool. The second file is a pinhole camera format that
+for ``camera_solve``. The second file is a pinhole camera format that
 is recognized by ASP but remember that the extrinsic parameters were not solved
 for so ASP is limited in what it can do with the camera file. The last file
 contains the camera information as formatted by the OpenCV calibration tool. 
@@ -29,10 +30,14 @@ calling the tool you must specify the number of *inner* square corners contained
 in your checkerboard pattern (width and height can be swapped) so that OpenCV
 knows what to look for. 
 
-You must also specify an image wildcard path such as ``"checkers/image_.jpg"``.
-You may need to enclose this parameter in quotes so that your command line does
-not expand the wildcard before it is passed to the tool. If you do not provide
-the ``–box-size`` parameter the output calibration numbers will be unitless.
+You must also specify an image wildcard path such as ``"checkers/image*.jpg"``.
+This must be in quotes so that the wildcard is not expanded before it is passed
+to the tool. If you do not provide the ``--box-size`` parameter, the output
+calibration numbers will be unitless.
+
+ASP also ships the ``rig_calibrator`` program (:numref:`rig_calibrator`),
+which calibrates the intrinsic and extrinsics of a rig of cameras, without
+using a calibration target.
 
 Example::
 
@@ -64,4 +69,4 @@ Command-line options for camera_calibrate:
     The size of the checkerboard squares in centimeters.
 
 --duplicate-files
-    Make a copy of the vw param file for each input camera.
+    Make a copy of the VisionWorkbench parameter file for each input camera.

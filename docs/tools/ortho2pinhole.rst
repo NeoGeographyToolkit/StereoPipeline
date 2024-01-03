@@ -41,7 +41,7 @@ Command-line options for ``ortho2pinhle``:
       The approximate height above the datum, in meters, at which the camera
       should be. If not specified, it will be read from the orthoimage metadata.
       
---orthoimage-height <adouble (default: 0)>
+--orthoimage-height <double (default: 0)>
       The approximate height above the datum, in meters, at which the orthoimage
       is positioned. We assume flat ground. See also ``--reference-dem``.
       
