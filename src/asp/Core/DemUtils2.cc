@@ -157,28 +157,6 @@ inline error_to_NED(ImageViewBase<ImageT> const& image,
   return UnaryPerPixelView<ImageT, ErrorToNED>(image.impl(), ErrorToNED(georef));
 }
 
-// Take a given point xyz and the error at that point. Compute the error norm. 
-// Return no-data if the point is invalid.
-struct ErrorNorm: public ReturnFixedType<float> {
-  ErrorNorm(double nodata_value): m_nodata_value(nodata_value) {}
-  double m_nodata_value;
-  float operator() (Vector6 const& pt) const {
-
-    Vector3 xyz = subvector(pt, 0, 3);
-    if (xyz == Vector3() ||  xyz != xyz) 
-      return m_nodata_value;
-
-    Vector3 err = subvector(pt, 3, 3);
-    return vw::math::norm_2(err);
-  }
-};
-template <class ImageT>
-UnaryPerPixelView<ImageT, ErrorNorm>
-inline error_norm(ImageViewBase<ImageT> const& image, 
-                  double nodata_value) {
-  return UnaryPerPixelView<ImageT, ErrorNorm>(image.impl(), ErrorNorm(nodata_value));
-}
-
 template <class ImageT>
 vw::UnaryPerPixelView<ImageT, RoundImagePixelsSkipNoData<typename ImageT::pixel_type>>
 inline round_image_pixels_skip_nodata(vw::ImageViewBase<ImageT> const& image,
@@ -337,7 +315,8 @@ void save_intersection_error(DemOptions & opt,
   int num_channels = asp::num_channels(opt.pointcloud_files);
   
   if (num_channels == 4 || (num_channels == 6 && has_stddev) || opt.scalar_error) {
-    // The error is a scalar (4 channels or 6 channels but last two are stddev)
+    // The error is a scalar (4 channels or 6 channels but last two are stddev),
+    // or we want to find the norm of the error.
     ImageViewRef<double> error_channel = asp::point_cloud_error_image(opt.pointcloud_files);
     rasterizer.set_texture(error_channel);
     ImageViewRef<PixelGray<float>> rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
@@ -563,8 +542,8 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
   if (opt.propagate_errors && !has_stddev) {
     // Do not throw an error. Go on and save at least the intersection
     // error and orthoimage.
-    vw_out() << "Cannot grid the horizontal and vertical stddev as the point cloud file is "
-             << "not in the expected format.\n";
+    vw_out() << "Cannot grid the horizontal and vertical stddev as the point "
+             << "cloud file is not in the expected format.\n";
     opt.propagate_errors = false;
   }
   
