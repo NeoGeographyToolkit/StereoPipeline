@@ -106,7 +106,8 @@ historical_helper.py (:numref:`historical_helper`):
     executable and described how that tool can be installed.
 
 sfs (:numref:`sfs`):
-  * Added an example for Kaguya TC (:numref:`sfs_kaguya`).
+  * Added two examples for Kaguya TC, for single and multiple illumination
+    conditions (:numref:`sfs_kaguya`).
   * Added the option ``--albedo-robust-threshold``.
   
 image_calc (:numref:`image_calc`):

@@ -400,12 +400,12 @@ too high, and this may create ghosting artifacts if used for
 mapprojection. The initial DEM can be smoothed first, for example,
 with the command::
 
-   dem_mosaic --dem-blur-sigma 2 dem.tif -o dem_sigma2.tif
+   dem_mosaic --dem-blur-sigma 5 dem.tif -o dem_blur.tif
 
 The amount of blur may depend on the input DEM resolution, image
 ground sample distance, and how misregistered the initial DEM is
-relative to the images. One can experiment on a clip with values 1 and
-2 for sigma, for example.
+relative to the images. One can experiment on a clip with values 2 and
+5 for sigma, for example.
 
 There exist pre-made terrain models for other planets as well, for
 example the Moon LRO LOLA global DEM and the Mars MGS MOLA
@@ -597,6 +597,9 @@ DEM, such as 4 meters/pixel, since we won't see detail at the level of 1
 meter in this DEM, as the stereo process is lossy. This is explained in
 more detail in :numref:`post-spacing`.
 
+See :numref:`running-stereo` for more details about the various 
+speed-vs-accuracy tradeoffs.
+
 In :numref:`mapproj-example-fig` we show the effect of using
 mapprojected images on accuracy of the final DEM.
 
@@ -657,6 +660,19 @@ the one used in :numref:`rawdg`.
 Commands
 ^^^^^^^^
 
+It is very important to specify the argument ``-t rpc`` to
+``mapproject``, as otherwise the exact DG model will be used, which is
+slower and not what ``parallel_stereo`` expects later.
+
+The same appropriately chosen resolution setting (option ``--tr``)
+must be used for both images to avoid long run-times and artifacts
+(:numref:`mapproj-res`).
+
+The ``ref_dem.tif`` dataset should be at a coarser resolution, 
+such as 40 times coarser than the input images, as discussed earlier,
+to ensure no misregistration artifacts transfer over to the mapprojected
+images.
+
 ::
 
     mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
@@ -678,13 +694,8 @@ Commands
       12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML          \
       dg/dg ref_dem.tif
 
-It is very important to specify the argument ``-t rpc`` to
-``mapproject``, as otherwise the exact DG model will be used, which is
-slower and not what ``parallel_stereo`` expects later.
-
-The same appropriately chosen resolution setting (option ``--tr``)
-must be used for both images to avoid long run-times and artifacts
-(:numref:`mapproj-res`).
+See :numref:`running-stereo` for more details about the various 
+speed-vs-accuracy tradeoffs.
 
 If the ``--t_srs`` option is not specified, it will be read from the
 low-resolution input DEM.
