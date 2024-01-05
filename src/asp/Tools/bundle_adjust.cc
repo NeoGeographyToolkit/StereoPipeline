@@ -2743,6 +2743,25 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw::vw_throw(vw::ArgumentErr() << "Cannot update ISIS cubes with CSM state "
                << "unless using the CSM session with ISIS .cub images.\n");
   }
+
+  // Prepare for computing footprints of images. Do this before loading all
+  // cameras, which can take time. So fail early if things are not working.
+  opt.pct_for_overlap = -1.0;
+  if (opt.auto_overlap_params != "") {
+    std::istringstream is(opt.auto_overlap_params);
+    if (!(is >> opt.dem_file_for_overlap >> opt.pct_for_overlap)) 
+      vw_throw(ArgumentErr() 
+                << "Could not parse correctly option --auto-overlap-params.\n");
+      try {
+        DiskImageView<float> dem(opt.dem_file_for_overlap);
+      } catch (const Exception& e) {
+        vw_throw(ArgumentErr() 
+                  << "Could not load DEM: " << opt.dem_file_for_overlap << "\n");
+      }
+      if (opt.pct_for_overlap < 0)
+        vw_throw(ArgumentErr() 
+                  << "Invalid value for --auto-overlap-params.\n");
+  }
       
   return;
 }
@@ -3242,18 +3261,6 @@ int main(int argc, char* argv[]) {
 
     handle_arguments(argc, argv, opt);
 
-    // Prepare for computing footprints of images. Do this early as loading cameras
-    // as below can take a lot of time. So fail early.
-    // TODO(oalexan1): Move this to handle_arguments().
-    std::string dem_file_for_overlap;
-    double pct_for_overlap = -1.0;
-    if (opt.auto_overlap_params != "") {
-      std::istringstream is(opt.auto_overlap_params);
-      if (!(is >> dem_file_for_overlap >> pct_for_overlap)) 
-        vw_throw(ArgumentErr() 
-                 << "Could not parse correctly option --auto-overlap-params.\n");
-    }
-
     asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
                       opt.approximate_pinhole_intrinsics,  
                       // Outputs
@@ -3310,7 +3317,7 @@ int main(int argc, char* argv[]) {
                        opt.clean_match_files_prefix != ""   ||
                        opt.match_files_prefix != "");
     if (!skip_stats)
-      computeStats(opt, map_files, dem_file_for_overlap);
+      computeStats(opt, map_files, opt.dem_file_for_overlap);
 
     if (opt.stop_after_stats) {
       vw_out() << "Quitting after statistics computation.\n";
@@ -3322,7 +3329,7 @@ int main(int argc, char* argv[]) {
     if (opt.auto_overlap_params != "") {
       opt.have_overlap_list = true;
       asp::build_overlap_list_based_on_dem(opt.out_prefix,  
-                                           dem_file_for_overlap, pct_for_overlap,
+                                           opt.dem_file_for_overlap, opt.pct_for_overlap,
                                            opt.image_files, opt.camera_models,
                                            // output
                                            opt.overlap_list);
