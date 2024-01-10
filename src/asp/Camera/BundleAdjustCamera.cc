@@ -322,7 +322,7 @@ void asp::BAParams::print_gcp_stats(std::string const& out_prefix,
 
     gfs << "Lon-lat-height: " << input_gcp << ' ' << opt_gcp << ' '
        << input_gcp - opt_gcp << std::endl;
-    vw_out() << "\n";                  
+    gfs << "\n";
     gcp_count++;
   }
   gfs.close();

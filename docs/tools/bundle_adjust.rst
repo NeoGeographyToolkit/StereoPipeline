@@ -399,8 +399,8 @@ See :numref:`ba_cnet_details` for more technical details. See also ASP's
 Output files
 ~~~~~~~~~~~~
 
-Camera projection errors and triangulated points
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Errors per triangulated point
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the ``--datum`` option is specified or auto-guessed based on images
 and cameras, ``bundle_adjust`` will write the triangulated world
@@ -457,13 +457,19 @@ obtained by the intersection of three rays, with some
 of those rays having an angle of at least this while some a much
 smaller angle.)
 
-The initial and final mean and median of residual error norms for the
-pixels each camera, and their count, are written to
-``residuals_stats.txt`` files in the output directory.
+Errors per camera and per pixel
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As a finer-grained metric, initial and final ``raw_pixels.txt`` files
-will be written, having the row and column residuals (reprojection
-errors) for each pixel in each camera.
+The initial and final mean and median of residual error norms for the pixels
+each camera, and their count, are written to ``residuals_stats.txt`` files in
+the output directory.
+
+As a finer-grained metric, initial and final ``raw_pixels.txt`` files will be
+written, having the row and column residuals (reprojection errors) for each
+pixel in each camera.
+
+GCP report
+^^^^^^^^^^
 
 If GCP are present, the file ``{output-prefix}-gcp_report.txt`` will be saved to
 disk, having the initial and optimized GCP coordinates, and their difference,
