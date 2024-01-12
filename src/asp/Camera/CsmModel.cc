@@ -663,9 +663,7 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
   Vector3 dir0 = ecefCoordToVector(groundPt) - ecefCoordToVector(ctr);
   dir0 = dir0 / norm_2(dir0);
   
-  return dir0;
-
-#if 0
+#if 1
   // Do not use this since the imageToRemoteImagingLocus() in CSM is
   // buggy as of now and it is not guaranteed long-term to agree with
   // imageToGround().
@@ -678,8 +676,13 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
                                                                 &achievedPrecision);
   Vector3 dir = ecefVectorToVector(locus.direction);
   
+  //std::cout << "dir is " << dir << std::endl;
   return dir;
 #endif
+  
+  // TODO(oalexan1): Test here more and wipe this code
+  //std::cout << "--dir0 and diff are " << dir0 << ' ' << dir0 - dir << std::endl;
+  //return dir0;
 }
 
 Vector3 CsmModel::camera_center(Vector2 const& pix) const {
