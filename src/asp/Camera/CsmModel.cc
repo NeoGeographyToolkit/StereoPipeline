@@ -868,12 +868,9 @@ std::string CsmModel::model_state() const {
   j["m_minElevation"] = -10000.0; // -10 km
   j["m_maxElevation"] = 10000.0;  // 10 km
 
-  // Use negative signs below and for focal length due to idiosyncrasies of the
-  // USGS frame sensor model. These are related to pitch, and we assume
-  // pitch = 1.0.
-  j["m_iTransL"] = std::vector<double>({0.0, 0.0, -1.0});
-  j["m_iTransS"] = std::vector<double>({0.0, -1.0, 0.0});
-  j["m_focalLength"] = -focal_length; 
+  j["m_iTransL"] = std::vector<double>({0.0, 0.0, 1.0});
+  j["m_iTransS"] = std::vector<double>({0.0, 1.0, 0.0});
+  j["m_focalLength"] = focal_length; 
   
   j["m_ccdCenter"] = std::vector<double>({cy, cx}); // note the order (row, col)
   j["m_pixelPitch"] = 1.0; // pixel pitch is set to 1.0
@@ -887,8 +884,8 @@ std::string CsmModel::model_state() const {
     
   // The quantities below don't seem to matter
   j["m_focalLengthEpsilon"] = 1.0; 
-  j["m_transX"] = std::vector<double>({0.0, 0.0, -1.0});
-  j["m_transY"] = std::vector<double>({0.0, -1.0, 0.0});
+  j["m_transX"] = std::vector<double>({0.0, 0.0, 1.0});
+  j["m_transY"] = std::vector<double>({0.0, 1.0, 0.0});
 
   // Set the translation and quaternion. The quaternion is stored as x, y, z, w.
   j["m_currentParameterValue"] = std::vector<double>({C[0], C[1], C[2], 
