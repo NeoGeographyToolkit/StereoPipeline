@@ -126,8 +126,9 @@ def get_num_instances(args):
     # Handle --image-list
     if count == 0:
         if '--image-list' not in args:
-            raise Exception("No input images found, and neither was --image-list specified. " + \
-                            "Supported image extensions: " + " ".join(IMAGE_EXTENSIONS))
+            raise Exception("No input images found, and neither was " + \
+                            "--image-list specified. Supported image extensions: " + \
+                            " ".join(IMAGE_EXTENSIONS))
 
     # Parse --image-list
     if '--image-list' in args:
@@ -135,15 +136,27 @@ def get_num_instances(args):
         for v in range(len(args)):
             if args[v] == '--image-list' and v + 1 < len(args):
                 image_list = args[v + 1]
-                with open(image_list, "r") as fh:
-                    lines = fh.readlines()
-                    lines = (" ".join(lines)).split()
+                
+                # If image_list has commas, that means it is a list of lists.
+                # Then split by comma and collect in an array.
+                if ',' in image_list:
+                    image_lists = image_list.split(',')
+                else:
+                    image_lists = [image_list]
                     
-                    for line in lines:
-                        line = line.strip()
-                        if len(line) == 0:
-                            continue
-                        count = count + 1
+                for image_list in image_lists:    
+                    # Check if image_list exists
+                    if not os.path.isfile(image_list):
+                        raise Exception("Could not find image list: " + image_list)
+                    with open(image_list, "r") as fh:
+                        lines = fh.readlines()
+                        lines = (" ".join(lines)).split()
+                        
+                        for line in lines:
+                            line = line.strip()
+                            if len(line) == 0:
+                                continue
+                            count = count + 1
 
     return count
 

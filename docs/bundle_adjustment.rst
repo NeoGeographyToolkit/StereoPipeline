@@ -812,7 +812,8 @@ well-distributed interest points.
 
 Normally, the sparse interest points produced with bundle adjustment so far can
 be used. For most precise work, dense and uniformly distributed interest points
-can be necessary. This is discussed (in a different context) in  :numref:`intrinsics_no_constraints`. 
+can be necessary. This is discussed (in a different context) in
+:numref:`intrinsics_no_constraints`. 
 
 For example, if the input dataset consists of 6 overlapping stereo pairs, stereo
 can be run between each left image and every other right image, producing 36
