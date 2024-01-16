@@ -220,34 +220,9 @@ We also suggest inspecting the interest points
 
 and then viewing the interest points from the menu.
 
-If the interest points are not well-distributed, this may result in
-large ray intersection errors where they are missing. If so, they can
-be re-created by deleting the existing ones and then modifying
-``--ip-detect-method`` and ``--ip-per-tile``.  Or, one can take
-advantage of the just-completed stereo run and invoke ``stereo_tri``
-with of the two additional options::
-
-     --num-matches-from-disp-triplets 10000
-
-or::
-  
-    --num-matches-from-disparity 10000
-
-to create dense and uniformly distributed interest points with desired
-density (the latter creates a .match file that needs to be copied to
-the name ``bundle_adjust`` expects). See :numref:`triangulation_options`
-for more details. See :numref:`custom_ip` for how to create sparse
-but still somewhat uniformly distributed interest points without
-making use of a stereo disparity.
-
-The first of these options also ensures that if three images are
-present, and ``parallel_stereo`` is invoked on the first and second
-image, and then on the second and the third, followed by interest
-point generation, many interest points will be triplets, that is, the
-same feature will often will be identified in all three images, which
-can be a very good constraint on bundle adjustment later. (To not
-generate the triangulated point cloud after this, add the option
-``--compute-point-cloud-center-only``.)
+If the interest points are not well-distributed, this may result in large ray
+intersection errors where they are missing. Then, one should delete the existing
+run directory and create a better set, as discussed in :numref:`custom_ip`.
 
 If the interest points are good and the mean intersection error is
 acceptable, but this error shows an odd nonlinear pattern, that means
@@ -285,10 +260,6 @@ Sometimes the camera weight may need to be decreased, even all the way
 to 0, if it appears that the solver is not aggressive enough, or it may
 need to be increased if perhaps it overfits. This will become less of a
 concern if there is some ground truth, as discussed later.
-
-The option ``--max-pairwise-matches 20000`` was used to ensure that
-enough interest point matches are kept out of the many that were
-created.
 
 Next, one can run ``parallel_stereo`` as before, with the new cameras,
 and see if the obtained solution is more acceptable, that is, if the
@@ -812,8 +783,7 @@ well-distributed interest points.
 
 Normally, the sparse interest points produced with bundle adjustment so far can
 be used. For most precise work, dense and uniformly distributed interest points
-can be necessary. This is discussed (in a different context) in
-:numref:`intrinsics_no_constraints`. 
+can be necessary. This is discussed in :numref:`custom_ip`.
 
 For example, if the input dataset consists of 6 overlapping stereo pairs, stereo
 can be run between each left image and every other right image, producing 36
@@ -986,8 +956,31 @@ are big, this will result in a very large number of potential matches,
 because a tile has the size of 1024 pixels. (See :numref:`ba_options` for the
 reference documentation for these options.)
 
-For creating dense interest point matches from stereo disparity, see the section
-on solving for intrinsics, at :numref:`intrinsics_no_constraints`.
+If this is not sufficient, dense and uniformly distributed interest points can
+be created during stereo. If having many images, that will mean many combinations
+of stereo pairs. 
+
+For each stereo invocation, add options along the lines of::
+
+     --num-matches-from-disp-triplets 10000
+
+or::
+  
+    --num-matches-from-disparity 10000
+
+The first of these options also ensures that if three images are
+present, and ``parallel_stereo`` is invoked on the first and second
+image, and then on the second and the third, followed by interest
+point generation, many interest points will be triplets, that is, the
+same feature will often will be identified in all three images, which
+can be a very good constraint on bundle adjustment later. (To not
+generate the triangulated point cloud after this, add the option
+``--compute-point-cloud-center-only``.)
+See :numref:`triangulation_options` for more details. 
+
+Later invoke ``bundle_adjust`` with an option along the lines of
+``--max-pairwise-matches 10000`` (or larger) to ensure that on reading the
+interest points the full set is kept. 
 
 .. _limit_ip:
 
