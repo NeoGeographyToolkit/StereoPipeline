@@ -366,9 +366,11 @@ long image names will be truncated.
 
 These files can be used later by other ``bundle_adjust`` invocations, also by
 ``parallel_stereo`` and ``jitter_solve``, with the options
-``--match-files-prefix`` and ``--clean-match-files-prefix``. Such files can be
-inspected with ``stereo_gui`` (:numref:`stereo_gui_pairwise_matches`).
+``--match-files-prefix`` and ``--clean-match-files-prefix``
+(the latter files should end with ``-clean.match``).
 
+Any such files can be inspected with ``stereo_gui``
+(:numref:`stereo_gui_pairwise_matches`).
 
 .. _ba_cnet:
 

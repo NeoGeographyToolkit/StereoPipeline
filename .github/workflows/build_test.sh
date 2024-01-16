@@ -237,8 +237,7 @@ if [ 1 -eq 0 ]; then
     /bin/rm -rfv $g
     /bin/mv -fv $f $g
   done
-  # Must make all scripts in bin and individual tests executable,
-  # as they are not executable in the tarball.
+  # Must make all scripts in bin and individual tests executable
   chmod a+x StereoPipelineTest/bin/* StereoPipelineTest/*/*sh 
   # Create a new tarball
   binaries=StereoPipelineTest.tar

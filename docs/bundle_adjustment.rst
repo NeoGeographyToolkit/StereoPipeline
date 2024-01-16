@@ -286,6 +286,10 @@ to 0, if it appears that the solver is not aggressive enough, or it may
 need to be increased if perhaps it overfits. This will become less of a
 concern if there is some ground truth, as discussed later.
 
+The option ``--max-pairwise-matches 20000`` was used to ensure that
+enough interest point matches are kept out of the many that were
+created.
+
 Next, one can run ``parallel_stereo`` as before, with the new cameras,
 and see if the obtained solution is more acceptable, that is, if the
 intersection error is smaller. It is good to note that a preliminary
@@ -374,7 +378,7 @@ lidar/DEM file. Note that we use the cameras obtained after alignment::
        --solve-intrinsics --camera-weight 0                     \
        --max-disp-error 50                                      \
        --max-num-reference-points 1000000                       \
-       --max-pairwise-matches 10000                             \
+       --max-pairwise-matches 20000                             \
        --parameter-tolerance 1e-12                              \
        --reference-terrain lidar.csv                            \
        --reference-terrain-weight 5                             \
@@ -526,7 +530,6 @@ we assume that the cameras and the terrain are already aligned::
 
      bundle_adjust -t nadirpinhole               \
        --inline-adjustments                      \
-       --max-pairwise-matches 10000              \
        --solve-intrinsics --camera-weight 0      \
        --max-pairwise-matches 20000              \
        --heights-from-dem dem.tif                \
@@ -624,6 +627,8 @@ and Frame cameras in CSM format (:numref:`csm_frame`) can be used as well.
 
 See :numref:`floatingintrinsics` for an introduction on how optimizing intrinsics
 works, and :numref:`kaguya_tc` for how to prepare and use Kaguya TC cameras.
+
+.. _kaguya_watch:
 
 Things to watch for
 ^^^^^^^^^^^^^^^^^^^
@@ -776,6 +781,18 @@ Create a blended average DEM from the produced DEMs using the
 
      dem_mosaic stereo*/run-DEM.tif -o mosaic_ba.tif
 
+Alternatively, such a DEM can be created from LOLA RDR data, if dense enough, 
+as::
+
+  point2dem                               \
+    --csv-format 2:lon,3:lat,4:radius_km  \
+    --search-radius-factor 10             \
+    --tr <grid size> --t_srs <projection> \
+    lola.csv
+
+It is likely better, however, to ensure there is a lot of overlap between the
+input images and use the stereo DEM mosaic rather than LOLA.
+ 
 It is useful to subtract each DEM from the mosaic using ``geodiff``
 (:numref:`geodiff`)::
 
@@ -786,6 +803,25 @@ These differences can be colorized with ``stereo_gui`` using the ``--colorbar``
 option (:numref:`colorize`). The std dev of the obtained signed difference 
 can be used as a measure of discrepancy. These errors should go down after
 refining the intrinsics.
+
+Uniformly distributed interest points
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For the next step, refining the intrinsics, it is important to have
+well-distributed interest points. 
+
+Normally, the sparse interest points produced with bundle adjustment so far can
+be used. For most precise work, dense and uniformly distributed interest points
+can be necessary. This is discussed (in a different context) in  :numref:`intrinsics_no_constraints`. 
+
+For example, if the input dataset consists of 6 overlapping stereo pairs, stereo
+can be run between each left image and every other right image, producing 36
+sets of dense interest points. These should be renamed according to the naming
+convention (:numref:`ba_match_files`).
+
+One can also take the sparse interest points, and augment them with dense
+interest points from stereo only for a select set of pairs. All these must
+then use the same naming convention.
 
 Refining the intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -811,19 +847,21 @@ bundle adjustment command becomes::
     --num-iterations 10                           \
     --clean-match-files-prefix ba/run             \
     --heights-from-dem mosaic_ba.tif              \
-    --heights-from-dem-weight 0.25                \
-    --heights-from-dem-robust-threshold 0.25      \
+    --heights-from-dem-weight 0.1                 \
+    --heights-from-dem-robust-threshold 0.1       \
     --remove-outliers-params '75.0 3.0 20 20'     \
-    --max-pairwise-matches 10000                  \
+    --max-pairwise-matches 20000                  \
     -o ba_other_intrinsics/run
 
 The values for ``--heights-from-dem-weight`` and
 ``--heights-from-dem-robust-threshold`` were chosen to be smaller than what is
 used for the ``--robust-threshold``, which is 0.5. That because the DEM is not
-perfect, and we don't want to overfit to it. The DEM-related weights can be
-increased to make the solution move more towards the DEM. See
-:numref:`heights_from_dem` for more details, and :numref:`bundle_adjust` for the
-documentation of all options above.
+perfect, and we don't want to overfit to it. 
+
+This solver is sensitive to the heights-from-dem weight and robust threshold
+used above. These should be decreased if the DEM is not reliable, and increased
+otherwise. See :numref:`heights_from_dem` for more details, and
+:numref:`bundle_adjust` for the documentation of all options above.
 
 .. figure:: images/kaguya_intrinsics_opt_example.png
    :name: kaguya_intrinsics_opt_example

@@ -445,29 +445,26 @@ projection.
 Applying the pc_align transform to cameras
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If ``pc_align`` is used to align a DEM obtained with ASP to a
-preexisting reference DEM, the obtained alignment transform can be
-applied to the cameras used to create the ASP DEM, so the cameras then
-become aligned with the pre-existing DEM. That is accomplished by
-running bundle adjustment with the options ``--initial-transform``
-and ``--apply-initial-transform-only``.
+If ``pc_align`` is used to align a DEM obtained with ASP to a preexisting
+reference DEM or other cloud, the obtained alignment transform can be applied to
+the cameras used to create the ASP DEM, so the cameras then become aligned with
+the reference. That is accomplished by running bundle adjustment with the
+options ``--initial-transform`` and ``--apply-initial-transform-only``.
 
 Please note that the way this transform is applied depends on the 
-order of DEMs in ``pc_align`` and on whether the cameras have
+order of clouds in ``pc_align`` and on whether the cameras have
 been bundle-adjusted or not. Precise commands are given below.
 
-First, assume, for example, that the reference DEM is ``ref.tif``, and
+First, assume, for example, that the reference is ``ref.tif``, and
 the ASP DEM is created *without* bundle adjustment, as::
 
     parallel_stereo left.tif right.tif left.xml right.xml output/run
     point2dem output/run-PC.tif
 
-(See further down for when the cameras have been bundle-adjusted.)
-
 It is very important to distinguish the cases when the obtained DEM is
 the first or second argument of ``pc_align``.
 
-If the ASP DEM ``output/run-DEM.tif`` is aligned to the reference DEM
+If the ASP DEM ``output/run-DEM.tif`` is aligned to the reference
 as::
 
     pc_align --max-displacement 1000 ref.tif output/run-DEM.tif \
@@ -486,26 +483,27 @@ transform::
 
 (see :numref:`adjust_files` for discussion of .adjust files). 
 
-If ``pc_align`` was invoked with the two DEMs in reverse order, the
+If ``pc_align`` was invoked with the two clouds in reverse order, the
 transform to use is::
 
     align/run-inverse-transform.txt
 
-The idea here is that ``run-transform.txt`` goes from the second DEM
+The idea here is that ``run-transform.txt`` goes from the second cloud
 passed to ``pc_align`` to the first, hence, ``bundle_adjust`` invoked
-with this transform would move cameras from second DEM's coordinate
+with this transform would move cameras from second cloud's coordinate
 system's to first. And vice-versa, if ``run-inverse-transform.txt`` is
-used, cameras from first DEM's coordinate system would be moved to
+used, cameras from first clouds's coordinate system would be moved to
 second's.
 
-After applying a transform this way, cameras which are now aligned
-with the reference DEM can be used to mapproject onto it, hopefully
-with no registration error as::
+After applying a transform this way, the cameras that are now aligned
+with the reference can be used to mapproject onto it, hopefully
+with no registration error, as::
 
     mapproject ref.tif left.tif left_map.tif \
       --bundle-adjust-prefix ba_align/run
 
-and in the same way for the right image.
+and in the same way for the right image. Overlaying the produced
+images is a very useful sanity check.
     
 If, the initial stereo was done with cameras that already
 were bundle-adjusted, with output prefix ``initial_ba/run``,
@@ -524,12 +522,11 @@ then run the slightly modified command::
       --input-adjustments-prefix initial_ba/run         \
       --apply-initial-transform-only -o ba_align/run
 
-Otherwise, if the stereo DEM is the first argument to ``pc_align``,
-use instead ``align/run-inverse-transform.txt``
-as input to ``--initial-transform``.
+Otherwise, if the stereo DEM is the first argument to ``pc_align``, use instead
+``align/run-inverse-transform.txt`` as input to ``--initial-transform``.
 
-Note that this way bundle adjustment will not do any further camera
-refinements after the initial transform is applied.
+Note that this way bundle adjustment will not do any further camera refinements
+after the initial transform is applied.
 
 A stereo run can be reused after the cameras have been modified as above, with
 the option ``--prev-run-prefix``. Only triangulation will then be redone. Ensure

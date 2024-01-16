@@ -16,26 +16,29 @@ projecting from the camera to the ground and back.
 See :numref:`examples` for the camera types used below (ISIS, CSM, RPC,
 PeruSat-1, ASTER, etc).
 
-Example (compare a CSM camera model against itself)::
+Examples
+~~~~~~~~
+
+Compare a CSM camera model against itself::
 
   cam_test --image input.cub --cam1 input.json --cam2 input.json \
     --session1 csm --session2 csm
 
-Example (compare a PeruSat-1 exact linescan model to its RPC
-approximation)::
+Compare a PeruSat-1 exact linescan model to its RPC
+approximation::
 
     cam_test --image input.tif --cam1 exact_cam.xml --cam2 rpc_cam.xml
 
 Here the two individual camera types will be auto-guessed as ``perusat`` and
 ``rpc``, or can be specified as above with ``--session1`` and ``--session2``.
 
-Example (compare ISIS to CSM cameras)::
+Compare ISIS to CSM cameras::
 
     cam_test --image input.cub --cam1 input.cub --cam2 input.json \
       --sample-rate 5000
 
-Example (compare the exact and RPC model stored in the same Digital
-Globe file)::
+Compare the exact and RPC model stored in the same Digital
+Globe file::
 
     cam_test --image input.tif --cam1 input.xml --cam2 input.xml \
       --session1 dg --session2 rpc --sample-rate 1000
@@ -47,7 +50,7 @@ would be the same but the cameras would differ::
     cam_test --image input.tif --cam1 in.tsai --cam2 out.tsai \
       --session1 pinhole --session2 pinhole
 
-In the following example we evaluate a CSM camera against itself, with
+Here we evaluate a CSM camera against itself, with
 no .cub image file. The image dimensions are contained in the camera
 file. This verifies that the ground-to-image and image-to-ground
 functions are inverse of each other, up to a certain tolerance.
@@ -80,13 +83,16 @@ that uses the CSM camera model::
     cam_test --image image.tif --cam1 image.xml --cam2 image.xml \
       --session1 aster --session2 aster --aster-vs-csm
 
-Usage::
+Usage
+~~~~~
+
+::
 
     cam_test --image <image file> --cam1 <camera 1 file> \
       --cam2 <camera 2 file> [other options]
 
-Command-line options for cam_test
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
 --image <string>
     Image file.
@@ -163,4 +169,3 @@ Command-line options for cam_test
     
 -h, --help
     Display the help message.
-
