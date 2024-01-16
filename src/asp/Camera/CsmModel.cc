@@ -646,14 +646,25 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
   throw_if_not_init();
 
   csm::ImageCoord imagePt = vectorToImageCoord(pix + ASP_TO_CSM_SHIFT);
+  double achievedPrecision = -1.0; // will be modified in the function
+  csm::EcefLocus locus = m_gm_model->imageToRemoteImagingLocus(imagePt,
+                                                                m_desired_precision,
+                                                                &achievedPrecision);
+  Vector3 dir = ecefVectorToVector(locus.direction);
+  return dir;
 
+#if 0  
+  // This alternative approach gives the same results as above, except
+  // for the SAR model, which has curved rays, and for MSL, whose 
+  // location is below the zero datum. 
+  
+  // This code is kept in case it is necessary to revisit the SAR model.
   // Camera center
   csm::EcefCoord  ctr = m_gm_model->getSensorPosition(imagePt);
 
   // Ground point. Note how we use the 0 height above datum.
   // The precise height value matters only for the SAR model, when the rays
   // are curved, which violates a fundamental assumption in ASP.
-  double achievedPrecision = -1.0; // will be modified in the function
   double groundHeight      = 0.0;
   csm::EcefCoord groundPt
     = m_gm_model->imageToGround(imagePt, groundHeight, m_desired_precision,
@@ -662,27 +673,9 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
   // Normalized direction
   Vector3 dir0 = ecefCoordToVector(groundPt) - ecefCoordToVector(ctr);
   dir0 = dir0 / norm_2(dir0);
-  
-#if 1
-  // Do not use this since the imageToRemoteImagingLocus() in CSM is
-  // buggy as of now and it is not guaranteed long-term to agree with
-  // imageToGround().
-  
-  // This function generates the vector from the camera at the camera origin,
-  // there is a different call that gets the vector near the ground.
-  // This does not give the right result due to a bug in UsgsAstroSarSensorModel
-  csm::EcefLocus locus = m_gm_model->imageToRemoteImagingLocus(imagePt,
-                                                                m_desired_precision,
-                                                                &achievedPrecision);
-  Vector3 dir = ecefVectorToVector(locus.direction);
-  
-  //std::cout << "dir is " << dir << std::endl;
-  return dir;
+  return dir0;
 #endif
-  
-  // TODO(oalexan1): Test here more and wipe this code
-  //std::cout << "--dir0 and diff are " << dir0 << ' ' << dir0 - dir << std::endl;
-  //return dir0;
+
 }
 
 Vector3 CsmModel::camera_center(Vector2 const& pix) const {
