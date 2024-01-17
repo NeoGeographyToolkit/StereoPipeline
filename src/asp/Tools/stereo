@@ -139,7 +139,6 @@ if __name__ == '__main__':
         # command misbehaving. They are needed only at a certain stage.
         asp_cmd_utils.wipe_option(args, '--compute-low-res-disparity-only', 0)
         asp_cmd_utils.wipe_option(args, '--compute-point-cloud-center-only', 0)
-        asp_cmd_utils.wipe_option(args, '--compute-piecewise-adjustments-only', 0)
 
         # Invoke itself for multiview if appropriate
         num_pairs = int(settings['num_stereo_pairs'][0])

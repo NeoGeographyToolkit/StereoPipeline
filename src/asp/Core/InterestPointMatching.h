@@ -240,8 +240,8 @@ void detect_ip(vw::ip::InterestPointList& ip,
     return;
   }
   
-  vw::Stopwatch sw;
-  sw.start();
+  vw::Stopwatch sw1;
+  sw1.start();
 
   // Automatically determine how many ip we need. Can be overridden below
   // either by --ip-per-image or --ip-per-tile (the latter takes priority).
@@ -322,10 +322,10 @@ void detect_ip(vw::ip::InterestPointList& ip,
       ip = detect_interest_points(create_mask_less_or_equal(image.impl(),nodata), detector, points_per_tile);
   } // End OpenCV case
 
-  sw.stop();
+  sw1.stop();
   vw::vw_out(vw::DebugMessage,"asp") << "Detect interest points elapsed time: "
-			     << sw.elapsed_seconds() << " s." << std::endl;
-
+                                     << sw1.elapsed_seconds() << " s." << std::endl;
+           
   if (!boost::math::isnan(nodata)) {
     vw::vw_out() << "\t    Removing IP near nodata with radius "
              << stereo_settings().ip_nodata_radius << std::endl;
@@ -335,16 +335,17 @@ void detect_ip(vw::ip::InterestPointList& ip,
   // For the two OpenCV options we already built the descriptors, so
   // only do this for the integral method.
   if (detect_method == DETECT_IP_METHOD_INTEGRAL) {
-    sw.start();
+    vw::Stopwatch sw2;
+    sw2.start();
     vw::vw_out() << "\t    Building descriptors" << std::endl;
     vw::ip::SGradDescriptorGenerator descriptor;
     if (!has_nodata)
       describe_interest_points(image.impl(), descriptor, ip);
     else
       describe_interest_points(apply_mask(create_mask_less_or_equal(image.impl(),nodata)), descriptor, ip);
-
+    sw2.stop();
     vw::vw_out(vw::DebugMessage,"asp") << "Building descriptors elapsed time: "
-                               << sw.elapsed_seconds() << " s." << std::endl;
+                                       << sw2.elapsed_seconds() << " s." << std::endl;
   }
 
   vw::vw_out() << "\t    Found interest points: " << ip.size() << std::endl;

@@ -423,11 +423,6 @@ namespace asp {
        "Take the computed disparity, and compute the disparity between unaligned images.")
       ("num-matches-from-disparity", po::value(&global.num_matches_from_disparity)->default_value(0), "Create a match file with this many points uniformly sampled from the stereo disparity. The matches are between original images (that is, before any alignment or map-projection). See also num-matches-from-disp-triplets.")
       ("num-matches-from-disp-triplets", po::value(&global.num_matches_from_disp_triplets)->default_value(0), "Create a match file with this many points uniformly sampled from the stereo disparity, while making sure that if there are more than two images, a set of ground features are represented by matches in at least three of them. The matches are between original images (that is, before any alignment or map-projection). The file name is <output prefix>-disp-<left image>__<right image>.match.")
-      ("image-lines-per-piecewise-adjustment", po::value(&global.image_lines_per_piecewise_adjustment)->default_value(0), "A positive value, e.g., 1000, will turn on using piecewise camera adjustments to help reduce jitter effects. Use one adjustment per this many image lines.")
-      ("piecewise-adjustment-percentiles",     po::value(&global.piecewise_adjustment_percentiles)->default_value(Vector2(5, 95), "5 95"), "A narrower range will place the piecewise adjustments for jitter correction closer together and further from the first and last lines in the image.")
-      ("piecewise-adjustment-interp-type", po::value(&global.piecewise_adjustment_interp_type)->default_value(1), "How to interpolate between adjustments. [1 Linear, 2 Using Gaussian weights]")
-      ("num-matches-for-piecewise-adjustment", po::value(&global.num_matches_for_piecewise_adjustment)->default_value(90000), "How many matches among images to create based on the disparity for the purpose of solving for jitter using piecewise adjustment.")
-      ("piecewise-adjustment-camera-weight", po::value(&global.piecewise_adjustment_camera_weight)->default_value(1.0), "The weight to use for the sum of squares of adjustments component of the cost function. Increasing this value will constrain the adjustments to be smaller.")
       ("point-cloud-rounding-error",
        po::value(&global.point_cloud_rounding_error)->default_value(0.0),
        "How much to round the output point cloud values, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. Default: 1/2^10 for Earth and proportionally less for smaller bodies, unless error propagation happens, when it is set by default to 1e-8 meters, to avoid introducing step artifacts in these errors.")
@@ -440,12 +435,9 @@ namespace asp {
        "Skip the computation of the point cloud center. This option is invoked from parallel_stereo.")
       ("compute-error-vector",              po::bool_switch(&global.compute_error_vector)->default_value(false)->implicit_value(true),
                                             "Compute the triangulation error vector, not just its length.")
-      ("compute-piecewise-adjustments-only", po::bool_switch(&global.compute_piecewise_adjustments_only)->default_value(false)->implicit_value(true),
-       "Compute the piecewise adjustments as part of jitter correction, and then stop.")
-      ("skip-computing-piecewise-adjustments", po::bool_switch(&global.skip_computing_piecewise_adjustments)->default_value(false)->implicit_value(true),
-       "Skip computing the piecewise adjustments for jitter, they should have been done by now.")
-      ("use-least-squares",                 po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
-       "Use rigorous least squares triangulation process. This is slow for ISIS processes.")      
+      // TODO(oalexan1): Wipe the least squares triangulation approach. Not used.
+      ("use-least-squares",  po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
+       "Use rigorous least squares triangulation. This is slow for ISIS processes.")      
       ;
   }
 

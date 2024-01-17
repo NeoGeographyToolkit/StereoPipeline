@@ -256,16 +256,8 @@ namespace asp {
 
     // Pull this many matches from the stereo disparity
     int num_matches_from_disparity, num_matches_from_disp_triplets;
-    
-    // piecewise adjustments
-    int image_lines_per_piecewise_adjustment;
-    vw::Vector2 piecewise_adjustment_percentiles;
-    int    piecewise_adjustment_interp_type;
-    int    num_matches_for_piecewise_adjustment;
-    double piecewise_adjustment_camera_weight;
-    bool   skip_computing_piecewise_adjustments;
-    bool   compute_piecewise_adjustments_only;
 
+    // Error propagation options    
     bool propagate_errors;
     vw::Vector2 horizontal_stddev;
     double position_covariance_factor, orientation_covariance_factor;

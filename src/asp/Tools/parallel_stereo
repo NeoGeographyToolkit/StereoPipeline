@@ -1029,9 +1029,6 @@ if __name__ == '__main__':
     if '--compute-low-res-disparity-only' in parallel_args:
         raise Exception('Option --compute-low-res-disparity-only is not ' + \
                         'supported. Use stereo_corr instead.')
-    if '--compute-piecewise-adjustments-only' in parallel_args:
-        raise Exception('Option --compute-piecewise-adjustments-only is not ' + \
-                        'supported. Use stereo_tri instead.')
 
     # TODO(oalexan1): The giant block below needs to be broken up into
     # several functions named parent_run(), child_run(), and
@@ -1234,15 +1231,6 @@ if __name__ == '__main__':
             if int(settings['correlator_mode'][0]) != 0:
                 print("Skipping triangulation with --correlator-mode.")
                 sys.exit()
-
-            # First compute jitter correction (optional). Done just once per run.
-            if '--image-lines-per-piecewise-adjustment' in args:
-                tmp_args = args[:] # deep copy
-                tmp_args.extend(['--compute-piecewise-adjustments-only'])
-                normal_run('stereo_tri',  tmp_args, msg='%d: Triangulation' % step)
-                # And don't do it again
-                args.extend(['--skip-computing-piecewise-adjustments'])
-                parallel_args.extend(['--skip-computing-piecewise-adjustments'])
 
             # Then compute the cloud center. Done once per run.
             tmp_args = args[:] # deep copy

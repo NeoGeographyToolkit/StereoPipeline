@@ -951,10 +951,11 @@ Uniformly distributed interest points
 
 To attempt to create roughly uniformly distributed sparse interest points during
 bundle adjustment, use options along the lines ``--ip-per-tile 1000
---matches-per-tile 500 --max-pairwise-matches 10000``. Note that if the images
-are big, this will result in a very large number of potential matches,
-because a tile has the size of 1024 pixels. (See :numref:`ba_options` for the
-reference documentation for these options.)
+--matches-per-tile 500 --max-pairwise-matches 10000``. 
+
+Note that if the images are big, this will result in a very large number of
+potential matches, because a tile has the size of 1024 pixels. (See
+:numref:`ba_options` for the reference documentation for these options.)
 
 If this is not sufficient, dense and uniformly distributed interest points can
 be created during stereo. If having many images, that will mean many combinations

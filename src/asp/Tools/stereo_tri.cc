@@ -31,7 +31,6 @@
 #include <asp/Core/DisparityProcessing.h>
 #include <asp/Core/Bathymetry.h>
 #include <asp/Tools/stereo.h>
-#include <asp/Tools/jitter_adjust.h>
 #include <asp/Tools/ccd_adjust.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Camera/Covariance.h>
@@ -544,14 +543,14 @@ void write_point(std::string const& file, Vector3 const& point){
 // This is some logic unrelated to triangulation, but there seems to be no
 // good place to put it. Unalign the disparity, and/or create match points
 // from disparity, and/or solve for jitter.
-void disp_or_matches_or_jitter_work(std::string const& output_prefix,
-                                    std::vector<ASPGlobalOptions> const& opt_vec,
-                                    std::vector<vw::TransformPtr> const& transforms,
-                                    std::vector<DispImageType> const& disparity_maps,
-                                    std::vector<std::string> const& image_files,
-                                    std::vector<std::string> const& camera_files,
-                                    // Cameras can change
-                                    std::vector<boost::shared_ptr<camera::CameraModel>> & cameras) {
+void disp_or_matches_work(std::string const& output_prefix,
+                          std::vector<ASPGlobalOptions> const& opt_vec,
+                          std::vector<vw::TransformPtr> const& transforms,
+                          std::vector<DispImageType> const& disparity_maps,
+                          std::vector<std::string> const& image_files,
+                          std::vector<std::string> const& camera_files,
+                          // Cameras can change
+                          std::vector<boost::shared_ptr<camera::CameraModel>> & cameras) {
   // Sanity check for some of the operations below
   VW_ASSERT(disparity_maps.size() == 1 && transforms.size() == 2,
             vw::ArgumentErr() << "Expecting two images and one disparity.\n");
@@ -595,42 +594,6 @@ void disp_or_matches_or_jitter_work(std::string const& output_prefix,
                               gen_triplets, is_map_projected);
   }
       
-  // Piecewise adjustments for jitter
-  if (stereo_settings().image_lines_per_piecewise_adjustment > 0 &&
-      !stereo_settings().skip_computing_piecewise_adjustments) {
-        
-    // TODO: This must be proportional to how many adjustments have!
-    double max_num_matches = stereo_settings().num_matches_for_piecewise_adjustment;
-        
-    bool gen_triplets = false;
-    compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
-                              max_num_matches, gen_triplets, is_map_projected);
-      
-    int num_threads = opt.num_threads;
-    if (!opt.session->supports_multi_threading()) 
-      num_threads = 1;
-        
-    asp::jitter_adjust(image_files, camera_files, cameras,
-                       output_prefix, opt.session->name(),
-                       match_file,  num_threads);
-    //asp::ccd_adjust(image_files, camera_files, cameras, output_prefix,
-    //                match_file,  num_threads);
-  }
-      
-  // Reload the cameras, loading the piecewise corrections for jitter.
-  if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
-        
-    stereo_settings().bundle_adjust_prefix = output_prefix; // trigger loading adj cams
-    cameras.clear();
-    for (int p = 0; p < (int)opt_vec.size(); p++){
-      boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
-      opt_vec[p].session->camera_models(camera_model1, camera_model2);
-      if (p == 0) // The first image is the "left" image for all pairs.
-        cameras.push_back(camera_model1);
-      cameras.push_back(camera_model2);
-    }
-  }
-
   return;
 }
 
@@ -700,21 +663,15 @@ void stereo_triangulation(std::string const& output_prefix,
       disparity_maps.push_back
         (opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
 
-    bool do_disp_or_matches_or_jitter_work
+    bool do_disp_or_matches_work
       = (stereo_settings().unalign_disparity                        ||
          stereo_settings().num_matches_from_disparity > 0           ||
-         stereo_settings().num_matches_from_disp_triplets > 0       ||
-         stereo_settings().image_lines_per_piecewise_adjustment > 0 ||
-         stereo_settings().compute_piecewise_adjustments_only);
-    if (do_disp_or_matches_or_jitter_work) {
-      disp_or_matches_or_jitter_work(output_prefix, opt_vec, transforms,  
-                                     disparity_maps, image_files, camera_files,  
-                                     // Cameras can change
-                                     cameras);
-      if (stereo_settings().compute_piecewise_adjustments_only) {
-        vw_out() << "Computed the piecewise adjustments. Will stop here." << std::endl;
-        return;
-      }
+         stereo_settings().num_matches_from_disp_triplets > 0);
+    if (do_disp_or_matches_work) {
+      disp_or_matches_work(output_prefix, opt_vec, transforms,  
+                           disparity_maps, image_files, camera_files,  
+                           // Cameras can change
+                           cameras);
     }
 
     if (is_map_projected)

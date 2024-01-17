@@ -57,22 +57,13 @@ namespace vw {
   class PixelMask;
 }
 
-namespace asp{
+namespace asp {
   /// Read both kinds of adjustments
   void read_adjustments(std::string const& filename,
-                        bool        & piecewise_adjustments,
-                        vw::Vector2 & adjustment_bounds,
-                        std::vector<vw::Vector3> & position_correction,
-                        std::vector<vw::Quat>    & pose_correction,
-			vw::Vector2 & pixel_offset, double & scale,
-			std::string & session);
-
-  /// Write piecewise adjustments
-  void write_adjustments(std::string const & filename,
-                         vw::Vector2 const & adjustment_bounds,
-                         std::vector<vw::Vector3> const& position_correction,
-                         std::vector<vw::Quat>    const& pose_correction,
-                         std::string              const& session);
+                        vw::Vector3      & position_correction,
+                        vw::Quat         & pose_correction,
+                        vw::Vector2      & pixel_offset, 
+                        double           & scale);
 
   /// Write global adjustments
   // TODO(oalexan1): This should be unified with analogous logic in VW

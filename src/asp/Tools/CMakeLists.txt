@@ -200,7 +200,7 @@ add_executable(stereo_rfne stereo_rfne.cc stereo.h stereo.cc)
 target_link_libraries(stereo_rfne AspSessions)
 install(TARGETS stereo_rfne DESTINATION bin)
 
-add_executable(stereo_tri stereo_tri.cc stereo.h stereo.cc jitter_adjust.cc jitter_adjust.h) 
+add_executable(stereo_tri stereo_tri.cc stereo.h stereo.cc) 
 target_link_libraries(stereo_tri AspSessions ${SOLVER_LIBRARIES})
 install(TARGETS stereo_tri DESTINATION bin)
 

@@ -420,23 +420,13 @@ void CameraAdjustment::copy_from_csm(asp::CsmModel const& cam) {
 /// Populate from an adjustment file on disk.
 void CameraAdjustment::read_from_adjust_file(std::string const& filename) {
   
-  // Vectors, but we only use the first position.
-  std::vector<vw::Vector3> position_correction;
-  std::vector<vw::Quat>    pose_correction;
-
   // Not used, just for the api
-  bool piecewise_adjustments = false;
-  vw::Vector2 adjustment_bounds;
   vw::Vector2 pixel_offset = vw::Vector2();
   double scale = 1.0;
-  std::string session;
   
   vw::vw_out() << "Reading adjusted camera model: " << filename << std::endl;
-  asp::read_adjustments(filename, piecewise_adjustments,
-                        adjustment_bounds, position_correction, pose_correction,
-                        pixel_offset, scale, session);
-  m_position_data = position_correction[0];
-  m_pose_data     = pose_correction    [0];
+  asp::read_adjustments(filename, m_position_data, m_pose_data,
+                        pixel_offset, scale);
 }
 
 /// Pack the data to a six element array.

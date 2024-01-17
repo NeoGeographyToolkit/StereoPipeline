@@ -341,12 +341,10 @@ namespace asp {
     // given line. This is analogous to LinescanLMA logic.
     double errorFunc(double y, vw::Vector3 const& point) const;
 
-    // Digital Globe implementation using CSM. Eventually this will
-    // replace LinescanDGModel, and the class
-    // PiecewiseAdjustedLinescanModel will go away as well.  Note that the
-    // CSM-based logic does not support velocity aberration and
-    // atmospheric refraction correction. That needs to be rectified
-    // before removing the older approach.
+    // Digital Globe implementation using CSM. Eventually this will replace
+    // LinescanDGModel. Note that the CSM-based logic does not support velocity
+    // aberration and atmospheric refraction correction. That needs to be
+    // rectified before removing the older approach.
     void populateCsmModel();
 
   };

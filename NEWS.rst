@@ -97,6 +97,7 @@ colormap (:numref:`colormap`):
 image_calc (:numref:`image_calc`):
   * When adding new keywords to metadata geoheader, do not erase the existing
     ones (if a keyword already exists, its value will be modified).
+  * Added the ability to create a random image.
 
 pc_align (:numref:`pc_align`):
   * Add the option ``--skip-shared-box-estimation``.
@@ -109,12 +110,9 @@ sfs (:numref:`sfs`):
   * Added two examples for Kaguya TC, for single and multiple illumination
     conditions (:numref:`sfs_kaguya`).
   * Added the option ``--albedo-robust-threshold``.
-  
-image_calc (:numref:`image_calc`):
-  * Added the ability to create a random image.
 
-isis
-  * Made the operation of projecting into a linescan camera 2.2-2.6 times
+isis (:numref:`moc_tutorial`):
+  * Made the operation of projecting into an ISIS linescan camera 2.2-2.6 times
     faster by using the secant method to find the best sensor line.
   * Expanded the ``jigsaw`` documentation (:numref:`jigsaw`). This is the 
     ISIS bundle adjustment tool. 
@@ -129,6 +127,8 @@ misc:
     replacing two slashes with one slash, resulting in inconsistencies.
   * Fix an error in conversion between projections for non-Earth images.  
   * The OSX build now gets created and tested via GitHub Actions.
+  * Very old jitter adjustment logic was removed. The ``jitter_solve``
+    tool must be used instead.
   
 RELEASE 3.3.0, August 16, 2023
 ------------------------------

@@ -966,23 +966,6 @@ namespace asp {
                  << "only with stereo algorithms asp_bm, asp_sgm, asp_mgm, and asp_final_mgm.\n");
     }
 
-    // If later we perform piecewise adjustments, the cameras loaded
-    // so far must not be adjusted. And we also can't just perform
-    // stereo on cropped images, as we need the full disparity.
-    if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
-      // This check must come first as it implies adjusted cameras
-      if ((stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-          (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0)))
-        vw_throw(ArgumentErr() << "Since we perform piecewise adjustments we "
-                 << "need the full disparities, so --left-image-crop-win and  "
-                 << "--right-image-crop-win cannot be used.\n");
-      
-      if (stereo_settings().piecewise_adjustment_interp_type != 1 &&
-          stereo_settings().piecewise_adjustment_interp_type != 2)
-        vw_throw(ArgumentErr() << "Interpolation type for piecewise "
-                 << "adjustment can be only 1 or 2.\n");
-    }
-
     // Camera checks
     if (!stereo_settings().correlator_mode) {
       try {
@@ -1040,7 +1023,7 @@ namespace asp {
         // Don't throw an error here. There are legitimate reasons as to
         // why the first checks may fail. For example, the top left pixel
         // might not be valid on a map projected image. But notify the
-        // user anyway. Make an exception for the piecewise adjustment checks.
+        // user anyway.
         vw_out(DebugMessage,"asp") << e.what() << std::endl;
       }
     }

@@ -39,105 +39,42 @@ using namespace vw::ba;
 
 namespace fs = boost::filesystem;
 
-std::string g_piecewise_adj_str = "PIECEWISE_ADJUSTMENTS";
-std::string g_session_str = "SESSION";
-
 void asp::read_adjustments(std::string const& filename,
-                           bool & piecewise_adjustments,
-                           vw::Vector2 & adjustment_bounds,
-                           std::vector<vw::Vector3> & position_correction,
-                           std::vector<Quat> & pose_correction,
-                           Vector2 & pixel_offset,
-                           double & scale,
-                           std::string & session) {
+                           vw::Vector3      & position_correction,
+                           Quat             & pose_correction,
+                           Vector2          & pixel_offset,
+                           double           & scale) {
 
   // Initialize the outputs
-  piecewise_adjustments = false;
-  adjustment_bounds = Vector2();
-  position_correction.clear();
-  pose_correction.clear();
   pixel_offset = Vector2();
   scale = 1.0;
-  session = "dg"; // default session, for historical reasons
   
   Vector3 pos;
   Vector4 q_buf;
   std::ifstream istr(filename.c_str());
 
-  // Peek to see if the file contains piecewise adjustments
-  std::string line;
-  if (!std::getline(istr, line))
-    vw_throw( ArgumentErr() << "Could not read adjustment file: " << filename << "\n" );
-  if (line == g_piecewise_adj_str) {
-    piecewise_adjustments = true;
+  // Read the adjustments
+  if (!(istr >> pos[0] >> pos[1] >> pos[2] 
+             >> q_buf[0] >> q_buf[1] >> q_buf[2] >> q_buf[3])) 
+    vw::vw_throw(vw::ArgumentErr() << "Failed to read adjustments from: " 
+                 << filename << ".\n");
 
-    // Read the session
-    std::string a, b;
-    if (istr >> a >> b) {
-      if (a == g_session_str) {
-        session = b;
-      }
-    }
-    
-    if (! (istr >> adjustment_bounds[0] >> adjustment_bounds[1]))
-      vw_throw( ArgumentErr() << "Could not read adjustment bounds from: " << filename << "\n");
-  }else{
-    // No piecewise adjustments. Rewind to beginning.
-    piecewise_adjustments = false;
-    istr.clear();
-    istr.seekg(0, std::ios::beg);
+  // The adjustments may have an offset and a scale
+  double a, b, c;
+  if (istr >> a >> b >> c){
+    pixel_offset = Vector2(a, b);
+    scale = c;
   }
-
-  // Read the actual adjustments
-  while (1){
-    if (! (istr >> pos[0] >> pos[1] >> pos[2]) ) break;
-    if (! (istr >> q_buf[0] >> q_buf[1] >> q_buf[2] >> q_buf[3]) ) break;
-    
-    // The adjustments that are not piecewise may have an offset and a scale
-    if (!piecewise_adjustments) {
-      double a, b, c;
-      if (istr >> a >> b >> c){
-	pixel_offset = Vector2(a, b);
-	scale = c;
-      }
-    }
-    
-    position_correction.push_back(pos);
-    pose_correction.push_back(Quat(q_buf));
-  }
-}
-
-// Write piecewise adjustments
-void asp::write_adjustments(std::string const& filename,
-                            vw::Vector2 const& adjustment_bounds,
-                            std::vector<vw::Vector3> const& position_correction,
-                            std::vector<vw::Quat> const& pose_correction,
-                            std::string const& session) {
-
-  std::ofstream ostr(filename.c_str());
-  ostr.precision(18);
-
-  ostr << g_piecewise_adj_str << std::endl;
-  ostr << g_session_str << " " << boost::to_lower_copy(session) << std::endl;
-  ostr << adjustment_bounds[0] << ' ' << adjustment_bounds[1] << std::endl;
-
-  for (size_t adj = 0; adj < position_correction.size(); adj++) {
-    ostr << position_correction[adj][0] << " "
-         << position_correction[adj][1] << " "
-         << position_correction[adj][2] << "\n";
-    ostr << pose_correction[adj].w() << " "
-         << pose_correction[adj].x() << " "
-         << pose_correction[adj].y() << " "
-         << pose_correction[adj].z() << " " << "\n";
-  }
-  ostr.close();
+  
+  position_correction = pos;
+  pose_correction = Quat(q_buf);
 }
 
 void asp::write_adjustments(std::string const& filename,
                        Vector3 const& position_correction,
                        Quat const& pose_correction) {
   std::ofstream ostr(filename.c_str());
-  ostr.precision(18);
+  ostr.precision(17);
   ostr << position_correction[0] << " " << position_correction[1] << " "
        << position_correction[2] << "\n";
   ostr << pose_correction.w() << " " << pose_correction.x() << " "

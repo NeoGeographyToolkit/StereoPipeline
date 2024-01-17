@@ -38,6 +38,7 @@
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/Core/Stopwatch.h>
 #include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
 
 #include <map>
 #include <utility>
@@ -47,6 +48,7 @@
 
 using namespace vw;
 using namespace vw::cartography;
+namespace fs = boost::filesystem;
 
 namespace asp {
 
@@ -1097,7 +1099,7 @@ StereoSession::load_rpc_camera_model(std::string const& image_file,
 
   // For Cartosat, GDAL chokes. The user must move {image}_RPC_ORG.TXT
   // to {image}_RPC.TXT
-  std::string truncated =  boost::filesystem::path(image_file).replace_extension("").string();
+  std::string truncated = fs::path(image_file).replace_extension("").string();
   std::string org_file = truncated + "_RPC_ORG.TXT";
   std::string rpc_file = truncated + "_RPC.TXT";
   std::string msg = "";
@@ -1145,7 +1147,7 @@ boost::shared_ptr<vw::camera::CameraModel>
 StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
                                   std::string const& image_file,
                                   std::string const& camera_file,
-                                  vw::Vector2 const& pixel_offset){
+                                  vw::Vector2 const& pixel_offset) {
 
   // Any tool using adjusted camera models must pre-populate the
   // prefix at which to find them.
@@ -1153,8 +1155,8 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
   if (ba_pref == "" && pixel_offset == vw::Vector2())
     return cam; // Return the unadjusted cameras if there is no adjustment
 
-  std::vector<Vector3> position_correction;
-  std::vector<Quat> pose_correction;
+  Vector3 position_correction;
+  Quat pose_correction;
 
   // These must start initialized. Note that we may have a pixel
   // offset passed in from outside, or a pixel offset and scale
@@ -1165,8 +1167,8 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
 
   // Ensure these vectors are populated even when there are no corrections to read,
   // as we may still have pixel offset.
-  position_correction.push_back(Vector3());
-  pose_correction.push_back(Quat(math::identity_matrix<3>()));
+  position_correction = Vector3();
+  pose_correction = Quat(math::identity_matrix<3>());
 
   if (ba_pref != "") { // If a bundle adjustment file was specified
 
@@ -1177,13 +1179,8 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
       vw_throw(InputErr() << "Missing adjusted camera model: " << adjust_file << ".\n");
 
     vw_out() << "Using adjusted camera model: " << adjust_file << std::endl;
-    bool piecewise_adjustments;
-    Vector2 adjustment_bounds;
-    std::string session;
-    asp::read_adjustments(adjust_file, piecewise_adjustments,
-                          adjustment_bounds, position_correction, pose_correction,
-			  local_pixel_offset, local_scale, // these will change
-			  session);
+    asp::read_adjustments(adjust_file, position_correction, pose_correction,
+			  local_pixel_offset, local_scale); // these will change
 
     if (local_pixel_offset != Vector2() || local_scale != 1.0) {
       // We read a custom scale and pixel offset passed by the user. But then
@@ -1198,60 +1195,13 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
       // So use the pixel_offset passed in by the caller. Scale will stay at 1.0.
       local_pixel_offset = pixel_offset;
     }
-    
-    if (position_correction.empty() || pose_correction.empty())
-      vw_throw(InputErr() << "Unable to read corrections.\n");
-
-    // Handle the case of piecewise adjustments for DG and other cameras
-    // TODO(oalexan1): This code must go away as is needed only for the old
-    // jitter solving approach that was superseded by jitter_solve.cc which
-    // handles adjustments internally in CSM cameras.
-    if (piecewise_adjustments) {
-
-      DiskImageView<float> img(image_file);
-      Vector2i image_size(img.cols(), img.rows());
-
-      if ( session == "dg" || session == "dgmaprpc") {
-
-        // Create the adjusted DG model
-        boost::shared_ptr<camera::CameraModel> adj_dg_cam
-          (new AdjustedLinescanDGModel(cam,
-                                       stereo_settings().piecewise_adjustment_interp_type,
-                                       adjustment_bounds, position_correction,
-                                       pose_correction, image_size));
-
-        // Apply the pixel offset and pose corrections. So this a second adjustment
-        // on top of the first.
-        boost::shared_ptr<camera::CameraModel> adj_dg_cam2
-          (new vw::camera::AdjustedCameraModel(adj_dg_cam, Vector3(),
-                                               Quat(math::identity_matrix<3>()), pixel_offset));
-
-        return adj_dg_cam2;
-      }else{
-         // Create the generic adjusted model
-         boost::shared_ptr<camera::CameraModel> adj_generic_cam
-           (new PiecewiseAdjustedLinescanModel(cam,
-                                               stereo_settings().piecewise_adjustment_interp_type,
-                                               adjustment_bounds, position_correction,
-                                               pose_correction, image_size));
-
-         // Apply the pixel offset and pose corrections. So this a second adjustment
-         // on top of the first.
-         boost::shared_ptr<camera::CameraModel> adj_generic_cam2
-           (new vw::camera::AdjustedCameraModel(adj_generic_cam, Vector3(),
-                                                Quat(math::identity_matrix<3>()), pixel_offset));
-
-         return adj_generic_cam2;
-      }
-
-    } // End case for piecewise DG adjustment
 
   } // End case for parsing bundle adjustment file
 
   // Create the adjusted camera model object with the info we loaded
   return boost::shared_ptr<camera::CameraModel>
-             (new vw::camera::AdjustedCameraModel(cam, position_correction[0],
-                                                 pose_correction[0], local_pixel_offset,
+             (new vw::camera::AdjustedCameraModel(cam, position_correction,
+                                                 pose_correction, local_pixel_offset,
                                                  local_scale));
 }
 
@@ -1260,7 +1210,7 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
 template <class ViewT, class FuncT>
 void for_each_pixel_rowwise(const vw::ImageViewBase<ViewT> &view_, FuncT &func, 
   vw::TerminalProgressCallback const& progress) {
-  using namespace vw;
+
   const ViewT& view = view_.impl();
   typedef typename ViewT::pixel_accessor pixel_accessor;
   pixel_accessor plane_acc = view.origin();
@@ -1287,7 +1237,7 @@ void for_each_pixel_rowwise(const vw::ImageViewBase<ViewT> &view_, FuncT &func,
 template <class ViewT, class FuncT>
 void for_each_pixel_columnwise(const vw::ImageViewBase<ViewT> &view_, FuncT &func, 
   vw::TerminalProgressCallback const& progress) {
-  using namespace vw;
+
   const ViewT& view = view_.impl();
   typedef typename ViewT::pixel_accessor pixel_accessor;
   pixel_accessor plane_acc = view.origin();
@@ -1322,19 +1272,16 @@ vw::Vector6f gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
                           std::string const& prefix, 
                           std::string const& image_path) {
 
-  using namespace vw;
-  namespace fs = boost::filesystem;
-  Vector6f result;
-
   vw_out(InfoMessage) << "Computing statistics for " + tag << std::endl;
 
+  Vector6f result;
   const bool use_cache = ((prefix != "") && (image_path != ""));
   std::string cache_path = "";
   if (use_cache) {
     if (image_path.find(prefix) == 0) {
       // If the image is, for example, run/run-L.tif,
       // then cache_path = run/run-L-stats.tif.
-      cache_path =  fs::change_extension(image_path, "").string() + "-stats.tif";
+      cache_path =  fs::path(image_path).replace_extension("").string() + "-stats.tif";
     }else {
       // If the image is left_image.tif, 
       // then cache_path = run/run-left_image.tif

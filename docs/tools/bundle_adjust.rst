@@ -82,8 +82,8 @@ should use the ``pinhole`` session or the ``--no-datum`` option.
 Use cases
 ~~~~~~~~~
 
-Uniformly distributed interest points
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Well-distributed interest points
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When different parts of the image have different properties, such as rock vs snow,
 additional work may be needed to ensure interest points are created somewhat
@@ -100,6 +100,9 @@ uniformly. For that, use the option ``--matches-per-tile``::
 
 For very large images, the number of interest points and matches per tile (whose
 size is 1024 pixels on the side) should be decreased from the above. 
+
+This and production of interest points from stereo are further discussed in
+:numref:`custom_ip`.
 
 Controlling where interest points are placed
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
