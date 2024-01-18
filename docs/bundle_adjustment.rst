@@ -799,10 +799,9 @@ Refining the intrinsics
 
 We will use the camera files produced by ``bundle_adjust`` before, with names as
 ``ba/run-*.adjusted_state.json``. These have the refined position and
-orientation. We will re-optimize those together with the distortion parameters
-(which in ``bundle_adjust`` go by the name ``other_intrinsics``). It was found
-in this case that optimizing the focal length and optical center has no
-significant effect.
+orientation. We will re-optimize those together with the intrinsics parameters,
+including distortion (which in ``bundle_adjust`` goes by the name
+``other_intrinsics``).
 
 The images and (adjusted) cameras for individual sensors should be put in
 separate files, but in the same overall order as before, to be able reuse the
@@ -810,18 +809,19 @@ match files. Then, the image lists will be passed to the ``--image-list`` option
 with comma as separator (no spaces), and the same for the camera lists. The
 bundle adjustment command becomes::
 
-  bundle_adjust --solve-intrinsics                \
-    --inline-adjustments                          \
-    --intrinsics-to-float other_intrinsics        \
-    --image-list tc1_images.txt,tc2_images.txt    \
-    --camera-list tc1_cameras.txt,tc2_cameras.txt \
-    --num-iterations 10                           \
-    --clean-match-files-prefix ba/run             \
-    --heights-from-dem mosaic_ba.tif              \
-    --heights-from-dem-weight 0.1                 \
-    --heights-from-dem-robust-threshold 0.1       \
-    --remove-outliers-params '75.0 3.0 20 20'     \
-    --max-pairwise-matches 20000                  \
+  bundle_adjust --solve-intrinsics                 \
+    --inline-adjustments                           \
+    --intrinsics-to-float                          \
+    "optical_center focal_length other_intrinsics" \
+    --image-list tc1_images.txt,tc2_images.txt     \
+    --camera-list tc1_cameras.txt,tc2_cameras.txt  \
+    --num-iterations 10                            \
+    --clean-match-files-prefix ba/run              \
+    --heights-from-dem mosaic_ba.tif               \
+    --heights-from-dem-weight 0.1                  \
+    --heights-from-dem-robust-threshold 0.1        \
+    --remove-outliers-params '75.0 3.0 20 20'      \
+    --max-pairwise-matches 20000                   \
     -o ba_other_intrinsics/run
 
 The values for ``--heights-from-dem-weight`` and
@@ -833,6 +833,9 @@ This solver is sensitive to the heights-from-dem weight and robust threshold
 used above. These should be decreased if the DEM is not reliable, and increased
 otherwise. See :numref:`heights_from_dem` for more details, and
 :numref:`bundle_adjust` for the documentation of all options above.
+
+If large errors are still left at the image periphery, one may increase
+``--robust-threshold`` to 2-5 or so, to focus more on those.
 
 .. figure:: images/kaguya_intrinsics_opt_example.png
    :name: kaguya_intrinsics_opt_example
