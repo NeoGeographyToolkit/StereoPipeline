@@ -336,6 +336,9 @@ void DGCameraModel::populateCsmModel() {
   m_ls_model->m_intTimeStartTimes.clear();
   m_ls_model->m_intTimes.clear();
   for (size_t i = 0; i < tlc.size(); i++) {
+    // The 1.0 below is what is needed to make CSM agree with the older ASP linescan
+    // implementation. Part of it is a 0.5 pixel offset in the line. 
+    // TODO(oalexan1): This needs more thinking.
     m_ls_model->m_intTimeLines.push_back(tlc[i].first + 1.0); // line
     m_ls_model->m_intTimeStartTimes.push_back(tlc[i].second + time_offset); // time
     // Slope

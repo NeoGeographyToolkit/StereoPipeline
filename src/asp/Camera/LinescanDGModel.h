@@ -48,11 +48,8 @@ namespace asp {
   // from Digital Globe model, but you can rotate pose beforehand.
 
   // Specialization of the generic LinescanModel for Digital Globe
-  // satellites. Class AdjustedLinescanDGModel inherits from this.
+  // satellites.
 
-  // Note: Correcting for atmospheric refraction and velocity
-  // aberration greatly increases the run-time of ground-to-image logic.
-  
   template <class PositionFuncT, class VelocityFuncT, class PoseFuncT>
   class LinescanDGModel : public vw::camera::LinescanModel {
   public:

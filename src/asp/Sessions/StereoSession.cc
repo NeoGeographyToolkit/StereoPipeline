@@ -20,7 +20,6 @@
 
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Core/BundleAdjustUtils.h>
-#include <asp/Camera/AdjustedLinescanDGModel.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Core/AspStringUtils.h>
 
