@@ -344,6 +344,9 @@ namespace asp {
     // rectified before removing the older approach.
     void populateCsmModel();
 
+    // Update poses for velocity aberration and/or atmospheric refraction.
+    void orbitalCorrections();
+    
     // Get the line number at a given time. This assumes a linear relationship
     // between them (rather than piecewise linear).
     double get_line_at_time(double time) const;

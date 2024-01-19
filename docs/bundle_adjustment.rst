@@ -931,9 +931,9 @@ could be hard to find. It is suggested to do the initial bundle adjustment per
 each stereo pair, followed by alignment of the individual produced DEMs to a
 reference dataset.
 
-Apply the alignment transform to the pairwise bundle-adjusted cameras as well,
-and use these cameras for the refinement of intrinsics, with the ground constraint
-being the mosaic of these aligned DEMs. 
+Apply the alignment transform to the pairwise bundle-adjusted cameras as well
+(:numref:`ba_pc_align`), and use these cameras for the refinement of intrinsics,
+with the ground constraint being the mosaic of these aligned DEMs. 
 
 It is suggested to examine how each aligned DEM differs from the
 reference, and the same for their mosaic. The hope is that the mosaicking will

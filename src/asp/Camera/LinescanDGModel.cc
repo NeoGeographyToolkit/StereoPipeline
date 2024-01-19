@@ -22,6 +22,8 @@
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/Covariance.h>
 
+#include <vw/Camera/OrbitalCorrections.h>
+
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/Utilities.h>
 
@@ -244,11 +246,6 @@ DGCameraModel::DGCameraModel
   populateCsmModel();
 }
   
-// Set default values for these constants which can be overridden later on.
-// TODO(oalexan1): Move this to a shared location. Also for OpticalBarModel.
-const double DEFAULT_EARTH_RADIUS      = 6371000.0;  // In meters.
-const double DEFAULT_SURFACE_ELEVATION = 0.0;
-  
 // This is a lengthy function that does many initializations  
 // TODO(oalexan1): Replace this with a call to populateCsmLinescan()
 // from CsmUtils.cc, but that will need some refactoring first to handle
@@ -414,63 +411,81 @@ void DGCameraModel::populateCsmModel() {
   std::string modelState = m_ls_model->getModelState();
   m_ls_model->replaceModelState(modelState);
 
-  // TODO(oalexan1): Make this into a function
-  if (asp::stereo_settings().enable_correct_velocity_aberration && 
-      stereo_settings().dg_use_csm) {
-     // Will adjust the CSM model to correct for velocity aberration.
-     // This can only happen after the model is fully initialized,
-     // as need to create rays from the camera center to the ground.
-
-    // Collect the updated quaternions in a separate vector, to not interfere
-    // with using the current ones during the correction process.
-    std::vector<double> updated_quats(m_ls_model->m_quaternions.size());
-    
-    auto & qv = m_ls_model->m_quaternions; // shorthand
-    for (int pos_it = 0; pos_it < m_ls_model->m_numQuaternions / 4; pos_it++) {
-      double t = m_ls_model->m_t0Quat + pos_it * m_ls_model->m_dtQuat;
-      
-      vw::Vector3 ctr = this->get_camera_center_at_time(t);
-      vw::Vector3 vel = this->get_camera_velocity_at_time(t);
-      
-      // Get back to VW quaternion format
-      vw::Quat q(qv[4*pos_it + 3], qv[4*pos_it + 0], qv[4*pos_it + 1], qv[4*pos_it + 2]);
-      
-      // Find the line at the given time based on a linear fit
-      double line = this->get_line_at_time(t);
-      
-      // Find the direction at the center of the line
-      vw::Vector2 pix(m_ls_model->m_nSamples/2.0, line);
-      vw::Vector3 dir = this->pixel_to_vector(pix);
-      
-      // Find the rotation needed to apply the correction. The updated direction
-      // will not be used.
-      vw::Quaternion<double> corr_rot;
-      dir = vw::camera::apply_velocity_aberration_correction(ctr, vel, 
-                                              DEFAULT_EARTH_RADIUS, dir, 
-                                              corr_rot); // output
-      
-      // Apply the correction to the quaternion
-      q = corr_rot * q;
-
-      // Create the updated quaternions. ASP stores the quaternions as (w, x, y,
-      // z). CSM wants them as x, y, z, w.
-      int coord = 0;
-      updated_quats[4*pos_it + coord] = q.x(); coord++;
-      updated_quats[4*pos_it + coord] = q.y(); coord++;
-      updated_quats[4*pos_it + coord] = q.z(); coord++;
-      updated_quats[4*pos_it + coord] = q.w(); coord++;
-    }
-
-    // Replace with the updated quaternions
-    m_ls_model->m_quaternions = updated_quats;
-    
-    // Re-creating the model from the state forces some operations to
-    // take place which are inaccessible otherwise.
-    std::string modelState = m_ls_model->getModelState();
-    m_ls_model->replaceModelState(modelState);
-  }
+  // Adjust the CSM model to correct for velocity aberration.
+  // This can only happen after the model is fully initialized,
+  // as need to create rays from the camera center to the ground.
+  // In no-csm mode this happens inside of LinescanModel.cc.
+  if ((asp::stereo_settings().enable_correct_velocity_aberration ||
+      asp::stereo_settings().enable_correct_atmospheric_refraction) && 
+      stereo_settings().dg_use_csm)
+    orbitalCorrections();
   
   return;
+}
+
+// Adjust the CSM model to correct for velocity aberration and/or
+// atmospheric refraction.
+// This can only happen after the model is fully initialized,
+// as need to create rays from the camera center to the ground.
+// In no-csm mode this happens inside of LinescanModel.cc.
+void DGCameraModel::orbitalCorrections() {
+      
+  // Collect the updated quaternions in a separate vector, to not interfere
+  // with using the current ones during the correction process.
+  std::vector<double> updated_quats(m_ls_model->m_quaternions.size());
+  
+  auto & qv = m_ls_model->m_quaternions; // shorthand
+  for (int pos_it = 0; pos_it < m_ls_model->m_numQuaternions / 4; pos_it++) {
+    double t = m_ls_model->m_t0Quat + pos_it * m_ls_model->m_dtQuat;
+    
+    vw::Vector3 cam_ctr = this->get_camera_center_at_time(t);
+    vw::Vector3 vel = this->get_camera_velocity_at_time(t);
+    
+    // Get back to VW quaternion format
+    vw::Quat q(qv[4*pos_it + 3], qv[4*pos_it + 0], qv[4*pos_it + 1], qv[4*pos_it + 2]);
+    
+    // Find the line at the given time based on a linear fit
+    double line = this->get_line_at_time(t);
+    
+    // Find the cam_direction at the center of the line
+    vw::Vector2 pix(m_ls_model->m_nSamples/2.0, line);
+    vw::Vector3 cam_dir = this->pixel_to_vector(pix);
+    
+    if (asp::stereo_settings().enable_correct_atmospheric_refraction) {
+      // Find and apply the correction
+      vw::Quaternion<double> corr_rot;
+      cam_dir = vw::camera::apply_atmospheric_refraction_correction(cam_ctr, 
+                              DEFAULT_EARTH_RADIUS, 
+                              DEFAULT_SURFACE_ELEVATION,
+                              cam_dir, 
+                              corr_rot); // output
+      q = corr_rot * q;
+    }
+    
+    if (asp::stereo_settings().enable_correct_velocity_aberration) {
+      // Find and apply the correction
+      vw::Quaternion<double> corr_rot;
+      cam_dir = vw::camera::apply_velocity_aberration_correction(cam_ctr, vel, 
+                              DEFAULT_EARTH_RADIUS, cam_dir, 
+                              corr_rot); // output
+      q = corr_rot * q;
+    }
+
+    // Create the updated quaternions. ASP stores the quaternions as (w, x, y,
+    // z). CSM wants them as x, y, z, w.
+    updated_quats[4*pos_it + 0] = q.x();
+    updated_quats[4*pos_it + 1] = q.y();
+    updated_quats[4*pos_it + 2] = q.z();
+    updated_quats[4*pos_it + 3] = q.w();
+  }
+
+  // Replace with the updated quaternions
+  m_ls_model->m_quaternions = updated_quats;
+  
+  // Re-creating the model from the state forces some operations to
+  // take place which are inaccessible otherwise.
+  std::string modelState = m_ls_model->getModelState();
+  m_ls_model->replaceModelState(modelState);
 }
 
 // Re-implement base class functions
