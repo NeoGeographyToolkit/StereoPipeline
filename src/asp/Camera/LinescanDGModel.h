@@ -344,6 +344,9 @@ namespace asp {
     // rectified before removing the older approach.
     void populateCsmModel();
 
+    // Get the line number at a given time. This assumes a linear relationship
+    // between them (rather than piecewise linear).
+    double get_line_at_time(double time) const;
   };
 
   /// Load a DG camera model from an XML file. This function does not
