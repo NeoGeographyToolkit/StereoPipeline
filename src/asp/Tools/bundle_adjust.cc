@@ -721,8 +721,8 @@ int add_to_outliers(ControlNetwork & cnet,
   
   // If this is too aggressive, the user can tame it. It is
   // unreasonable to throw out pixel residuals as small as 1 or 2
-  // pixels.  We will not use the b, because the residuals start at 0.
-  // - "max_pix" sets the minimum error that can be thrown out.
+  // pixels. We will not use the b, because the residuals start at 0.
+  // "max_pix2" sets the minimum error that can be thrown out.
   e = std::min(std::max(e, max_pix1), max_pix2);
 
   vw_out() << "Removing as outliers points with mean reprojection error > " << e << ".\n";
