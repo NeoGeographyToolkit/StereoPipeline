@@ -47,7 +47,6 @@ namespace asp {
 
     // setting settings dg use csm to true
     asp::stereo_settings().dg_use_csm = true;
-    std::cout << "dg_use_csm is set to true" << std::endl;
 
     // Known user session types are:
     // DG, RPC, ISIS, Pinhole, NadirPinhole, OpticalBar, etc.
