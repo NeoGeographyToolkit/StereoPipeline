@@ -415,10 +415,10 @@ void DGCameraModel::populateCsmModel() {
   // This can only happen after the model is fully initialized,
   // as need to create rays from the camera center to the ground.
   // In no-csm mode this happens inside of LinescanModel.cc.
-  if ((asp::stereo_settings().enable_correct_velocity_aberration ||
-      asp::stereo_settings().enable_correct_atmospheric_refraction) && 
-      stereo_settings().dg_use_csm)
-    orbitalCorrections();
+  // if ((asp::stereo_settings().enable_correct_velocity_aberration ||
+  //     asp::stereo_settings().enable_correct_atmospheric_refraction) && 
+  //     stereo_settings().dg_use_csm)
+  orbitalCorrections();
   
   return;
 }
@@ -429,7 +429,6 @@ void DGCameraModel::populateCsmModel() {
 // as need to create rays from the camera center to the ground.
 // In no-csm mode this happens inside of LinescanModel.cc.
 void DGCameraModel::orbitalCorrections() {
-      
   // Collect the updated quaternions in a separate vector, to not interfere
   // with using the current ones during the correction process.
   std::vector<double> updated_quats(m_ls_model->m_quaternions.size());
@@ -451,25 +450,25 @@ void DGCameraModel::orbitalCorrections() {
     vw::Vector2 pix(m_ls_model->m_nSamples/2.0, line);
     vw::Vector3 cam_dir = this->pixel_to_vector(pix);
     
-    if (asp::stereo_settings().enable_correct_atmospheric_refraction) {
-      // Find and apply the correction
-      vw::Quaternion<double> corr_rot;
-      cam_dir = vw::camera::apply_atmospheric_refraction_correction(cam_ctr, 
-                              DEFAULT_EARTH_RADIUS, 
-                              DEFAULT_SURFACE_ELEVATION,
-                              cam_dir, 
-                              corr_rot); // output
-      q = corr_rot * q;
-    }
-    
-    if (asp::stereo_settings().enable_correct_velocity_aberration) {
-      // Find and apply the correction
-      vw::Quaternion<double> corr_rot;
-      cam_dir = vw::camera::apply_velocity_aberration_correction(cam_ctr, vel, 
-                              DEFAULT_EARTH_RADIUS, cam_dir, 
-                              corr_rot); // output
-      q = corr_rot * q;
-    }
+    //if (asp::stereo_settings().enable_correct_atmospheric_refraction) {
+    // Find and apply the correction
+    vw::Quaternion<double> corr_rot;
+    cam_dir = vw::camera::apply_atmospheric_refraction_correction(cam_ctr, 
+                            DEFAULT_EARTH_RADIUS, 
+                            DEFAULT_SURFACE_ELEVATION,
+                            cam_dir, 
+                            corr_rot); // output
+    q = corr_rot * q;
+    // }
+      
+    // if (asp::stereo_settings().enable_correct_velocity_aberration) {
+    // Find and apply the correction
+    //vw::Quaternion<double> corr_rot;
+    cam_dir = vw::camera::apply_velocity_aberration_correction(cam_ctr, vel, 
+                            DEFAULT_EARTH_RADIUS, cam_dir, 
+                            corr_rot); // output
+    q = corr_rot * q;
+    // }
 
     // Create the updated quaternions. ASP stores the quaternions as (w, x, y,
     // z). CSM wants them as x, y, z, w.
@@ -601,6 +600,8 @@ void DGCameraModel::interpSatelliteQuatCov(vw::Vector2 const& pix,
   if (numCov < 6 && nOrder == 8)
     nOrderQuat = 4;
 
+  // The covariances are not guaranteed to be smooth, so use nearest neighbor.
+  // Interpolation may even create matrices with negative eigenvalues.
   //lagrangeInterp(numCov, &m_satellite_quat_cov[0], m_satellite_quat_t0, m_satellite_quat_dt,
   //               time, SAT_QUAT_COV_SIZE, nOrderQuat, q_cov);
   asp::nearestNeibInterp(numCov, &m_satellite_quat_cov[0], 
