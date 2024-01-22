@@ -50,14 +50,16 @@ namespace asp {
     
   public:
     
-    DGCameraModel(vw::camera::PiecewiseAPositionInterpolation      const& position,
-                  vw::camera::LinearPiecewisePositionInterpolation const& velocity,
-                  vw::camera::SLERPPoseInterpolation               const& pose,
-                  vw::camera::TLCTimeInterpolation                 const& time,
-                  vw::Vector2i                                     const& image_size, 
-                  vw::Vector2                                      const& detector_origin,
-                  double                                           const  focal_length,
-                  double                                           const  mean_ground_elevation);
+    DGCameraModel
+      (vw::camera::PiecewiseAPositionInterpolation      const& position,
+       vw::camera::LinearPiecewisePositionInterpolation const& velocity,
+       vw::camera::SLERPPoseInterpolation               const& pose,
+       vw::camera::TLCTimeInterpolation                 const& time,
+       vw::Vector2i                                     const& image_size, 
+       vw::Vector2                                      const& detector_origin,
+       double                                           const  focal_length,
+       double                                           const  mean_ground_elevation,
+       double                                           const  local_earth_radius);
 
     virtual ~DGCameraModel() {}
     virtual std::string type() const { return "LinescanDG"; }
@@ -133,7 +135,10 @@ namespace asp {
     double       m_focal_length;  ///< The focal length, also stored in pixels.
 
     /// Image size in pixels
-    vw::Vector2i m_image_size;      
+    vw::Vector2i m_image_size;
+    
+    // Mean ground elevation and local Earth radius. 
+    double m_mean_ground_elevation, m_local_earth_radius;
   };
 
   /// Load a DG camera model from an XML file. This function does not

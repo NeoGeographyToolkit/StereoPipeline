@@ -555,5 +555,3 @@ linescan rotation samples as part of the CSM model upon loading.
 
 Bundle adjustment (:numref:`bundle_adjust`) and alignment (:numref:`pc_align`)
 are still recommended even given these corrections.
-
-

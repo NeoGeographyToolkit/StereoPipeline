@@ -284,31 +284,18 @@ def find_combined_box(A, B):
 
     return get_corners(A, B, max_indices)
 
-
+# The lon-lat box for the combined camera is the union of the
+# lon-lat boxes for all the cameras. Also record the min and max
+# height values.
 def adjust_camera_corners(BAND, all_ll_corners, ref_htbox):
 
-    # The lon-lat box for the combined camera is the union of the
-    # lon-lat boxes for all the cameras.
-
-#    # Wipe unneeded tags. For that, first store the tags, then wipe them.
-#    wipe_tags = set(["ULHAE", "URHAE","LRHAE","LLHAE"]);
-    tags = []
-    for i in range(len(BAND)):
-        tag = BAND[i].tag
-        tags.append(tag)
-#    for tag in tags:
-#        if tag in wipe_tags:
-#            BAND.remove( BAND.find (tag) )
-
-    if len(all_ll_corners) == 0: return # no data
+    if len(all_ll_corners) == 0: 
+        return # no data
 
     # Each camera is a rectangle. Find the rough bounding box of all rectangles.
     out_corners = []
     for corner_vec in all_ll_corners:
         out_corners = find_combined_box(out_corners, corner_vec)
-
-    # Each point has a height term -> Just set it to the mean of the input height bounds
-    out_height = (ref_htbox.minx+ref_htbox.maxx)/2.0
 
     BAND.find("ULLON").text = str(out_corners[0][0])
     BAND.find("ULLAT").text = str(out_corners[0][1])
@@ -322,11 +309,13 @@ def adjust_camera_corners(BAND, all_ll_corners, ref_htbox):
     BAND.find("LLLON").text = str(out_corners[3][0])
     BAND.find("LLLAT").text = str(out_corners[3][1])
 
-    try: # Set these fields if they exist
-        BAND.find("ULHAE").text = str(out_height)
-        BAND.find("URHAE").text = str(out_height)
-        BAND.find("LRHAE").text = str(out_height)
-        BAND.find("LLHAE").text = str(out_height)
+    try: 
+        # Distribute the min and max height values 
+        BAND.find("ULHAE").text = str(ref_htbox.minx)
+        BAND.find("URHAE").text = str(ref_htbox.maxx)
+        BAND.find("LRHAE").text = str(ref_htbox.minx)
+        BAND.find("LLHAE").text = str(ref_htbox.maxx)
+        
     except:
         pass
 

@@ -77,13 +77,23 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
     vw::vw_throw(vw::ArgumentErr() << "For WorldView images, only Stereo1B and Basic1B products are supported.\n");
   } 
 
-  // Get an estimate of the surface elevation from the corners specified in the file.
-  // - Not every file has this information, in which case we will just use zero.
-  double mean_ground_elevation = 0.0;
+  // Get an estimate of the surface elevation from the corners specified in the
+  // file. Not every file has this information, in which case we will just use
+  // zero. Also estimate the local search radius. We assume the WGS84 ellipsoid.
+  // These will be used to apply velocity aberration and atmospheric refraction
+  // corrections.
+  double local_earth_radius = vw::DEFAULT_EARTH_RADIUS;
+  double mean_ground_elevation = vw::DEFAULT_SURFACE_ELEVATION;
   vw::BBox3 bbox = rpc.get_lon_lat_height_box();
-  if (!bbox.empty())
+  if (!bbox.empty()) {
     mean_ground_elevation = (bbox.min()[2] + bbox.max()[2]) / 2.0;
-  
+    double lon = (bbox.min()[0] + bbox.max()[0])/2.0;
+    double lat = (bbox.min()[1] + bbox.max()[1])/2.0;
+    vw::cartography::Datum datum("WGS84"); 
+    vw::Vector3 xyz = datum.geodetic_to_cartesian(vw::Vector3(lon, lat, 0));
+    local_earth_radius = norm_2(xyz);
+  }
+
   // Convert measurements in millimeters to pixels.
   geo.principal_distance /= geo.detector_pixel_pitch;
   geo.detector_origin    /= geo.detector_pixel_pitch;
@@ -192,7 +202,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
                            (eph.velocity_vec, et0, edt),
                          vw::camera::SLERPPoseInterpolation(camera_quat_vec, at0, adt),
                          tlc_time_interpolation, img.image_size, final_detector_origin,
-                         geo.principal_distance, mean_ground_elevation));
+                         geo.principal_distance, mean_ground_elevation, local_earth_radius));
 
     if (cam_it == 0) 
       nominal_cam = cam_ptr;
@@ -218,23 +228,22 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
 
 // Constructor
 DGCameraModel::DGCameraModel
-(vw::camera::PiecewiseAPositionInterpolation      const& position,
- vw::camera::LinearPiecewisePositionInterpolation const& velocity,
- vw::camera::SLERPPoseInterpolation               const& pose,
- vw::camera::TLCTimeInterpolation                 const& time,
- vw::Vector2i                                     const& image_size, 
- vw::Vector2                                      const& detector_origin,
- double                                           const  focal_length,
- double                                           const  mean_ground_elevation):
+  (vw::camera::PiecewiseAPositionInterpolation      const& position,
+   vw::camera::LinearPiecewisePositionInterpolation const& velocity,
+   vw::camera::SLERPPoseInterpolation               const& pose,
+   vw::camera::TLCTimeInterpolation                 const& time,
+   vw::Vector2i                                     const& image_size, 
+   vw::Vector2                                      const& detector_origin,
+   double                                           const  focal_length,
+   double                                           const  mean_ground_elevation,
+   double                                           const  local_earth_radius):
  m_position_func(position), m_velocity_func(velocity),
-      m_pose_func(pose), m_time_func(time), m_image_size(image_size),
-      m_detector_origin(detector_origin),
-      m_focal_length(focal_length) {
-        
-  // It is convenient to have the CSM model exist even if it is not used.
-  // The cam_test.cc and jitter_solve.cc tools uses this assumption.
-  // Soon the other implementation will go away and this will be the default.
-  populateCsmModel();
+ m_pose_func(pose), m_time_func(time), m_image_size(image_size),
+ m_detector_origin(detector_origin),
+ m_focal_length(focal_length), m_mean_ground_elevation(mean_ground_elevation),
+ m_local_earth_radius(local_earth_radius) {
+   // Populate the underlying CSM model
+   populateCsmModel();
 }
   
 // This is a lengthy function that does many initializations  
@@ -437,19 +446,17 @@ void DGCameraModel::orbitalCorrections() {
     vw::Vector2 pix(m_ls_model->m_nSamples/2.0, line);
     vw::Vector3 cam_dir = this->pixel_to_vector(pix);
     
-    // Find and apply the correction
+    // Find and apply the atmospheric refraction correction
     vw::Quaternion<double> corr_rot;
-    cam_dir = vw::camera::apply_atmospheric_refraction_correction(cam_ctr, 
-                            DEFAULT_EARTH_RADIUS, 
-                            DEFAULT_SURFACE_ELEVATION,
-                            cam_dir, 
-                            corr_rot); // output
+    cam_dir = vw::camera::apply_atmospheric_refraction_correction
+                    (cam_ctr, m_local_earth_radius, m_mean_ground_elevation, cam_dir, 
+                     corr_rot); // output
     q = corr_rot * q;
-      
-    // Find and apply the correction
-    cam_dir = vw::camera::apply_velocity_aberration_correction(cam_ctr, vel, 
-                            DEFAULT_EARTH_RADIUS, cam_dir, 
-                            corr_rot); // output
+
+    // Find and apply the velocity aberration correction
+    cam_dir = vw::camera::apply_velocity_aberration_correction
+                    (cam_ctr, vel, m_local_earth_radius, cam_dir, 
+                     corr_rot); // output
     q = corr_rot * q;
 
     // Create the updated quaternions. ASP stores the quaternions as (w, x, y,
