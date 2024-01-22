@@ -79,7 +79,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
 
   // Get an estimate of the surface elevation from the corners specified in the
   // file. Not every file has this information, in which case we will just use
-  // zero. Also estimate the local search radius. We assume the WGS84 ellipsoid.
+  // zero. Also estimate the local Earth radius. We assume the WGS84 ellipsoid.
   // These will be used to apply velocity aberration and atmospheric refraction
   // corrections.
   double local_earth_radius = vw::DEFAULT_EARTH_RADIUS;
