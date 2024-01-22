@@ -212,10 +212,10 @@ Tutorial: Processing Earth DigitalGlobe/Maxar images
 ====================================================
 
 In this chapter we will focus on how to process Earth images, or more
-specifically DigitalGlobe/Maxar data. This example is different from
-the one in the previous chapter in that at no point will we be using
-ISIS utilities. This is because ISIS only supports NASA instruments,
-while most Earth images comes from commercial providers.
+specifically DigitalGlobe/Maxar WorldView and QuickBird images. This example is
+different from the one in the previous chapter in that at no point will we be
+using ISIS utilities. This is because ISIS only supports NASA instruments, while
+most Earth images comes from commercial providers.
 
 In addition to DigitalGlobe/Maxar's satellites, ASP supports any Earth
 images that uses the RPC camera model format. How to process such data
@@ -287,20 +287,20 @@ It has a lot of files and many of them contain redundant information
 just displayed in different formats. We are interested only in the TIF
 or NTF images and the similarly named XML files.
 
-Some Worldview folders will contain multiple image files. This is
-because DigitalGlobe/Maxar breaks down a single observation into multiple
-files for what we assume are size reasons. These files have a pattern
-string of "_R[N]C1-", where N increments for every subframe of the full
-observation. The tool named ``dg_mosaic`` can be used to mosaic (and
-optionally reduce the resolution of) such a set of sub-observations into
-a single image file and create an appropriate camera file::
+Some WorldView folders will contain multiple image files. This is because
+DigitalGlobe/Maxar breaks down a single observation into multiple files for what
+we assume are size reasons. These files have a pattern string of "_R[N]C1-",
+where N increments for every subframe of the full observation. The tool named
+``dg_mosaic`` (:numref:`dg_mosaic`) can be used to mosaic (and optionally reduce
+the resolution of) such a set of sub-observations into a single image file and
+create an appropriate camera file::
 
     dg_mosaic 12FEB16101327*TIF --output-prefix 12FEB16101327
 
 and analogously for the second set. See :numref:`dg_mosaic` for more
 details. The ``parallel_stereo`` program can use either the original or the
 mosaicked images. This sample data only contains two image files
-so we do not need to use the ``dg_mosaic`` tool.
+so we do not need to use ``dg_mosaic``.
 
 Since we are ingesting these images raw, it is strongly recommended that
 you use affine epipolar alignment to reduce the search range. The
@@ -435,14 +435,17 @@ example of using it is in :numref:`ccd-artifact-example`.
    and with (right) CCD boundary artifact corrections applied using
    ``wv_correct``.
 
+Jitter
+------
+
 Another source of artifacts in linescan cameras, such as from
-DigitalGlobe, is jitter.  ASP can solve for it using a jitter solver
+DigitalGlobe, is jitter. ASP can solve for it using a jitter solver
 (:numref:`jitter_solve`).
 
 .. _sparse-disp:
 
-Dealing with terrain lacking large-scale features
--------------------------------------------------
+Images lacking large-scale features
+-----------------------------------
 
 Stereo Pipeline's approach to performing correlation is a two-step
 pyramid algorithm, in which low-resolution versions of the input images
@@ -517,8 +520,8 @@ to install these dependencies. This can be done as follows::
     conda activate sparse_disp
     conda install -c conda-forge scipy
 
-Assuming that you used the default installation path for ``conda``,
-which is ``$HOME/miniconda3``, before running the ``parallel_stereo`` command, as shown
+Assuming that you used the default installation path for ``conda``, which is
+``$HOME/miniconda3``, before running the ``parallel_stereo`` command, as shown
 above, one needs to set::
 
     export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.12/site-packages
@@ -528,8 +531,8 @@ the one shipped with ASP. Note that if GDAL is fetched from a
 different repository than conda-forge, one may run into issues with
 dependencies not being correct, and then it will fail at runtime.
 
-Processing multi-spectral images
---------------------------------
+Multi-spectral images
+---------------------
 
 In addition to panchromatic (grayscale) images, the DigitalGlobe/Maxar
 satellites also produce lower-resolution multi-spectral (multi-band)
@@ -540,3 +543,20 @@ singled out by invoking ``dg_mosaic`` (:numref:`rawdg`) with
 the ``--band <num>`` option. We have evaluated ASP with DigitalGlobe/Maxar's
 multi-spectral images, but support for it is still experimental. We
 recommend using the panchromatic images whenever possible.
+
+.. _dg_csm:
+
+Implementation details
+----------------------
+
+WorldView linescan cameras use the CSM model (:numref:`csm`).
+Bundle adjustment (:numref:`bundle_adjust`) and solving for jitter
+(:numref:`jitter_solve`) produce optimized camera models in CSM's model state
+format (:numref:`csm_state`). These can be used just as the original
+cameras, but with the option ``-t csm``. Alternatively, the ``bundle_adjust``
+.adjust files can be used with the original cameras. 
+
+Atmospheric refraction and velocity aberration are corrected for. These make the
+linescan models be very close to the associated RPC models. These corrections
+are incorporated by slightly modifying the linescan rotation samples as part of
+the CSM model upon loading. 

@@ -27,9 +27,6 @@
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/Utilities.h>
 
-// TODO(oalexan1): Convert this to populating a CSM model. Remove all legacy
-// code also remove the old linescan jitter code that inherits from this.
-
 using namespace vw;
 
 namespace asp {
@@ -79,9 +76,6 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
       image_descriptor != "stereo1b" && image_descriptor != "basic1b") {
     vw::vw_throw(vw::ArgumentErr() << "For WorldView images, only Stereo1B and Basic1B products are supported.\n");
   } 
-
-  if (stereo_settings().dg_use_csm) 
-    vw_out() << "Using the CSM model with DigitalGlobe cameras.\n";
 
   // Get an estimate of the surface elevation from the corners specified in the file.
   // - Not every file has this information, in which case we will just use zero.
@@ -198,9 +192,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
                            (eph.velocity_vec, et0, edt),
                          vw::camera::SLERPPoseInterpolation(camera_quat_vec, at0, adt),
                          tlc_time_interpolation, img.image_size, final_detector_origin,
-                         geo.principal_distance, mean_ground_elevation,
-                         stereo_settings().enable_correct_velocity_aberration,
-                         stereo_settings().enable_correct_atmospheric_refraction));
+                         geo.principal_distance, mean_ground_elevation));
 
     if (cam_it == 0) 
       nominal_cam = cam_ptr;
@@ -233,13 +225,12 @@ DGCameraModel::DGCameraModel
  vw::Vector2i                                     const& image_size, 
  vw::Vector2                                      const& detector_origin,
  double                                           const  focal_length,
- double                                           const  mean_ground_elevation,
- bool                                                    correct_velocity,
- bool                                                    correct_atmosphere):
-  DGCameraModelBase(position, velocity, pose, time, image_size, detector_origin, 
-                    focal_length, mean_ground_elevation, 
-                    correct_velocity, correct_atmosphere) {
-  
+ double                                           const  mean_ground_elevation):
+ m_position_func(position), m_velocity_func(velocity),
+      m_pose_func(pose), m_time_func(time), m_image_size(image_size),
+      m_detector_origin(detector_origin),
+      m_focal_length(focal_length) {
+        
   // It is convenient to have the CSM model exist even if it is not used.
   // The cam_test.cc and jitter_solve.cc tools uses this assumption.
   // Soon the other implementation will go away and this will be the default.
@@ -414,10 +405,6 @@ void DGCameraModel::populateCsmModel() {
   // Adjust the CSM model to correct for velocity aberration.
   // This can only happen after the model is fully initialized,
   // as need to create rays from the camera center to the ground.
-  // In no-csm mode this happens inside of LinescanModel.cc.
-  // if ((asp::stereo_settings().enable_correct_velocity_aberration ||
-  //     asp::stereo_settings().enable_correct_atmospheric_refraction) && 
-  //     stereo_settings().dg_use_csm)
   orbitalCorrections();
   
   return;
@@ -450,7 +437,6 @@ void DGCameraModel::orbitalCorrections() {
     vw::Vector2 pix(m_ls_model->m_nSamples/2.0, line);
     vw::Vector3 cam_dir = this->pixel_to_vector(pix);
     
-    //if (asp::stereo_settings().enable_correct_atmospheric_refraction) {
     // Find and apply the correction
     vw::Quaternion<double> corr_rot;
     cam_dir = vw::camera::apply_atmospheric_refraction_correction(cam_ctr, 
@@ -459,16 +445,12 @@ void DGCameraModel::orbitalCorrections() {
                             cam_dir, 
                             corr_rot); // output
     q = corr_rot * q;
-    // }
       
-    // if (asp::stereo_settings().enable_correct_velocity_aberration) {
     // Find and apply the correction
-    //vw::Quaternion<double> corr_rot;
     cam_dir = vw::camera::apply_velocity_aberration_correction(cam_ctr, vel, 
                             DEFAULT_EARTH_RADIUS, cam_dir, 
                             corr_rot); // output
     q = corr_rot * q;
-    // }
 
     // Create the updated quaternions. ASP stores the quaternions as (w, x, y,
     // z). CSM wants them as x, y, z, w.
@@ -490,14 +472,10 @@ void DGCameraModel::orbitalCorrections() {
 // Re-implement base class functions
 // TODO(oalexan1): This must be wiped when no longer inheriting from VW linescan  
 double DGCameraModel::get_time_at_line(double line) const {
-  if (stereo_settings().dg_use_csm) {
-    csm::ImageCoord csm_pix;
-    vw::Vector2 pix(0, line);
-    asp::toCsmPixel(pix, csm_pix);
-    return m_ls_model->getImageTime(csm_pix);
-  }
-  
-  return m_time_func(line);
+  csm::ImageCoord csm_pix;
+  vw::Vector2 pix(0, line);
+  asp::toCsmPixel(pix, csm_pix);
+  return m_ls_model->getImageTime(csm_pix);
 }
 
 // Get the line number at a given time. This assumes a linear relationship
@@ -519,22 +497,14 @@ double DGCameraModel::get_line_at_time(double time) const {
 
 // TODO(oalexan1): This must be wiped when no longer inheriting from VW linescan
 vw::Vector3 DGCameraModel::get_camera_center_at_time(double time) const {
-  if (stereo_settings().dg_use_csm) {
-    csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
-    return vw::Vector3(ecef.x, ecef.y, ecef.z);
-  }
-  
-  return m_position_func(time);
+  csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
+  return vw::Vector3(ecef.x, ecef.y, ecef.z);
 }
 
 // TODO(oalexan1): This must be wiped when no longer inheriting from VW linescan
 vw::Vector3 DGCameraModel::get_camera_velocity_at_time(double time) const {
-  if (stereo_settings().dg_use_csm) {
-    csm::EcefVector ecef = m_ls_model->getSensorVelocity(time);
-    return vw::Vector3(ecef.x, ecef.y, ecef.z);
-  }
-  
-  return m_velocity_func(time);
+  csm::EcefVector ecef = m_ls_model->getSensorVelocity(time);
+  return vw::Vector3(ecef.x, ecef.y, ecef.z);
 }
 
 // Function to interpolate quaternions with the CSM model. This is used
@@ -543,10 +513,6 @@ vw::Vector3 DGCameraModel::get_camera_velocity_at_time(double time) const {
 // TODO(oalexan1): This must be wiped when removing the ASP linescan implementation
 void DGCameraModel::getQuaternions(const double& time, double q[4]) const {
 
-  if (!stereo_settings().dg_use_csm)
-    vw::vw_throw(vw::ArgumentErr()
-                 << "getQuaternions: It was expected that the CSM model was used.\n");
-    
   int nOrder = 8;
   if (m_ls_model->m_platformFlag == 0)
     nOrder = 4;
@@ -564,11 +530,6 @@ void DGCameraModel::getQuaternions(const double& time, double q[4]) const {
 void DGCameraModel::interpSatellitePosCov(vw::Vector2 const& pix,
                                           double p_cov[SAT_POS_COV_SIZE]) const {
   
-  if (!stereo_settings().dg_use_csm)
-    vw::vw_throw(vw::ArgumentErr()
-                 << "interpSatellitePosCov: It was expected that the CSM model "
-                 << "was used.\n");
-
   double time = get_time_at_line(pix.y());
   int numCov = m_satellite_pos_cov.size() / SAT_POS_COV_SIZE;
 
@@ -585,10 +546,6 @@ void DGCameraModel::interpSatellitePosCov(vw::Vector2 const& pix,
 // Interpolate the satellite quaternion covariance at given pixel
 void DGCameraModel::interpSatelliteQuatCov(vw::Vector2 const& pix,
                                            double q_cov[SAT_QUAT_COV_SIZE]) const {
-
-  if (!stereo_settings().dg_use_csm)
-    vw::vw_throw(vw::ArgumentErr()
-                 << "interpSatelliteQuatCov: It was expected that the CSM model was used.\n");
 
   double time = get_time_at_line(pix.y());
   int numCov = m_satellite_quat_cov.size() / SAT_QUAT_COV_SIZE;
@@ -610,97 +567,30 @@ void DGCameraModel::interpSatelliteQuatCov(vw::Vector2 const& pix,
 }
 
 vw::Quat DGCameraModel::get_camera_pose_at_time(double time) const {
-  if (stereo_settings().dg_use_csm) {
-    double q[4];
-    getQuaternions(time, q);
-    return vw::Quat(q[3], q[0], q[1], q[2]); // go from (x, y, z, w) to (w, x, y, z)
-  }
-  
-  return m_pose_func(time);
+  double q[4];
+  getQuaternions(time, q);
+  return vw::Quat(q[3], q[0], q[1], q[2]); // go from (x, y, z, w) to (w, x, y, z)
 }
   
 // Gives a pointing vector in the world coordinates.
 vw::Vector3 DGCameraModel::pixel_to_vector(vw::Vector2 const& pix) const {
-    
- if (stereo_settings().dg_use_csm)
-   return m_csm_model->pixel_to_vector(pix);
-  
-  return vw::camera::LinescanModel::pixel_to_vector(pix);
+  return m_csm_model->pixel_to_vector(pix);
 }
 
-// As pixel_to_vector, but in the local camera frame.
-vw::Vector3 DGCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
-  if (stereo_settings().dg_use_csm)
-    vw::vw_throw(vw::ArgumentErr()
-                 << "get_local_pixel_vector(): Cannot be called in CSM mode.\n");
-  
-  vw::Vector3 local_vec(pix[0] + m_detector_origin[0], m_detector_origin[1], m_focal_length);
-  return normalize(local_vec);
-}
-
-// See the .h file for the documentation.
-double DGCameraModel::errorFunc(double y, vw::Vector3 const& point) const {
-
-  double t = get_time_at_line(y);
-  vw::Quat q = get_camera_pose_at_time(t);
-  vw::Vector3 pt = inverse(q).rotate(point - get_camera_center_at_time(t));
-
-  return pt.y() / pt.z() - m_detector_origin[1] / m_focal_length;
-}
-  
-// Point to pixel with no initial guess
+// Ground-to-image
 vw::Vector2 DGCameraModel::point_to_pixel(vw::Vector3 const& point) const {
-  if (stereo_settings().dg_use_csm)
-    return m_csm_model->point_to_pixel(point);
-
-  // Non-CSM version
-  return vw::camera::LinescanModel::point_to_pixel(point);
-}
-  
-// TODO(oalexan1): Wipe this and use the logic above, after much testing.  
-vw::Vector2 DGCameraModel::point_to_pixel(vw::Vector3 const& point, double starty) const {
-
-  if (stereo_settings().dg_use_csm)
-    vw::vw_throw(vw::ArgumentErr()
-                 << "point_to_pixel(point, starty): Cannot be called in CSM mode.\n");
-    
-  // Use the uncorrected function to get a fast but good starting seed.
-  vw::camera::CameraGenericLMA model(this, point);
-  int status = -1;
-  vw::Vector2 start = point_to_pixel_uncorrected(point, starty);
-  
-  // Run the solver
-  vw::Vector3 objective(0, 0, 0);
-  const double ABS_TOL = 1e-16;
-  const double REL_TOL = 1e-16;
-  const int    MAX_ITERATIONS = 1e+5;
-  vw::Vector2 solution 
-    = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
-     (model, start, objective, status, ABS_TOL, REL_TOL, MAX_ITERATIONS);
-  VW_ASSERT(status > 0,
-            vw::camera::PointToPixelErr() 
-              << "Unable to project point into LinescanDG model.");
-  return solution;
+   return m_csm_model->point_to_pixel(point);
 }
   
 // Camera pose
 vw::Quaternion<double> DGCameraModel::camera_pose(vw::Vector2 const& pix) const {
-
-  if (stereo_settings().dg_use_csm) {
-    vw_throw(vw::NoImplErr() << "camera_pose() is not implemented with CSM.");
-    return vw::Quaternion<double>();
-  }
-  
-  return vw::camera::LinescanModel::camera_pose(pix);
+  vw_throw(vw::NoImplErr() << "camera_pose() is not implemented with CSM.");
+  return vw::Quaternion<double>();
 }
 
 // Gives the camera position in world coordinates.
 vw::Vector3 DGCameraModel::camera_center(vw::Vector2 const& pix) const {
-
-  if (stereo_settings().dg_use_csm)
-    return m_csm_model->camera_center(pix);
-  
-  return vw::camera::LinescanModel::camera_center(pix);
+  return m_csm_model->camera_center(pix);
 }
     
 } // end namespace asp

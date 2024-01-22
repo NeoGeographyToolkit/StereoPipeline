@@ -13,6 +13,17 @@ New external library support:
   * Migrated to PDAL 2.6.0 from libLAS for LAS input/output (in ``pointlas``,
     ``point2dem``, and ``pc_align``), as libLAS is no longer developed.
 
+WorldView (DigitalGlobe) cameras (:numref:`dg_tutorial`):
+  * The WorldView linescan model got moved to a CSM implementation. The
+    transitional option ``--dg-use-csm`` was removed. The new implementation is
+    about 5x faster for ground-to-image projections.
+  * Re-enabled correcting velocity aberration and atmospheric refraction.  
+    These corrections are now implemented in the CSM camera model, and, unlike
+    before, play nicely with bundle adjustment (:numref:`dg_csm`).
+  * The options for enabling / disabling these corrections got removed.
+  * Non-DG cameras do not use these corrections, as a case for that has not been
+    made.
+
 jitter_solve (:numref:`jitter_solve`):
   * Added an example for ASTER cameras (:numref:`jitter_aster`).
   * Added an example with 27 CTX images (:numref:`jitter_multiple_images`).  
