@@ -45,9 +45,6 @@ namespace asp {
                                               std::string const& input_dem,
                                               const bool allow_map_promote) {
 
-    // setting settings dg use csm to true
-    asp::stereo_settings().dg_use_csm = true;
-
     // Known user session types are:
     // DG, RPC, ISIS, Pinhole, NadirPinhole, OpticalBar, etc.
     //
@@ -304,11 +301,6 @@ namespace asp {
       vw_throw(vw::ArgumentErr() 
                << "The --aster-use-csm option must be used only with the "
                << "ASTER session (-t aster).\n");
-//  if (session_type.find("rpc") != std::string::npos && 
-//      asp::stereo_settings().dg_use_csm)
-//       vw_throw(vw::ArgumentErr() 
-//                << "The --dg-use-csm option must be used only with the " 
-//                << "DG session (-t dg).\n");
     
     return session;
 } // End function create()

@@ -64,19 +64,6 @@ functions are inverse of each other, up to a certain tolerance.
 In the following two examples we evaluate using CSM for the DigitalGlobe
 linescan camera implementation.
 
-Use CSM for DigitalGlobe cameras for both image-to-ground and
-ground-to-image calculations::
-
-    cam_test --image image.tif --cam1 image.xml --cam2 image.xml \
-      --session1 dg --session2 dg --dg-use-csm --sample-rate 100
-
-Additionally, compare projecting into the camera without and with
-using CSM::
-
-    cam_test --image image.tif --cam1 image.xml --cam2 image.xml \
-      --session1 dg --session2 dg --dg-use-csm --dg-vs-csm       \
-      --sample-rate 100
-
 Compare the existing ASTER camera implementation to the new one
 that uses the CSM camera model::
 
@@ -135,30 +122,11 @@ Command-line options
     (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth 
     (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).
 
---enable-correct-velocity-aberration
-    Turn on velocity aberration correction for Optical Bar and
-    non-ISIS linescan cameras (:numref:`sensor_corrections`).
-    This option impairs the convergence of bundle adjustment.
-
---enable-correct-atmospheric-refraction
-    Turn on atmospheric refraction correction for Optical Bar and
-    non-ISIS linescan cameras. This option impairs the convergence of
-    bundle adjustment.
-
 --bundle-adjust-prefix  <string (default = "")>
     Adjust the cameras using this prefix.
 
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
-
---dg-use-csm
-    Use the CSM model with DigitalGlobe linescan cameras (``-t
-    dg``). No corrections are done for velocity aberration or
-    atmospheric refraction.
-
---dg-vs-csm
-    Compare projecting into the camera without and with using the CSM
-    model for Digital Globe.
 
 --aster-use-csm
     Use the CSM model with ASTER cameras (``-t aster``).

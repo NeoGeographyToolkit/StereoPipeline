@@ -322,14 +322,6 @@ details, see :numref:`nextsteps`.
 How to create a DEM and visualize the results of stereo is described in
 :numref:`visualising`.
 
-Consider using above the options
-``--enable-correct-velocity-aberration`` and
-``--enable-correct-atmospheric-refraction`` to improve the positioning
-of the produced DEMs, unless using bundle adjustment
-(:numref:`stereodefault`).  In either case, ``pc_align``
-(:numref:`pc_align`) can be used to align the produced DEM to a
-desired reference terrain.
-
 .. figure:: images/examples/dg/wv_tutorial.png
    :name: fig:dg-nomap-example
 
@@ -556,7 +548,12 @@ format (:numref:`csm_state`). These can be used just as the original
 cameras, but with the option ``-t csm``. Alternatively, the ``bundle_adjust``
 .adjust files can be used with the original cameras. 
 
-Atmospheric refraction and velocity aberration are corrected for. These make the
-linescan models be very close to the associated RPC models. These corrections
-are incorporated by slightly modifying the linescan rotation samples as part of
-the CSM model upon loading. 
+Atmospheric refraction and velocity aberration (:cite:`nugent1966velocity`) are
+corrected for. These make the linescan models be very close to the associated
+RPC models. These corrections are incorporated by slightly modifying the
+linescan rotation samples as part of the CSM model upon loading. 
+
+Bundle adjustment (:numref:`bundle_adjust`) and alignment (:numref:`pc_align`)
+are still recommended even given these corrections.
+
+

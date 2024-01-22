@@ -275,9 +275,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
-  // Set this before loading cameras, as jitter for DG can be modeled only with CSM
+  // Set this before loading cameras, as jitter can be modeled only with CSM
   // cameras.
-  asp::stereo_settings().dg_use_csm = true;
   asp::stereo_settings().aster_use_csm = true;
   
   std::vector<std::string> images_or_cams = opt.image_files;

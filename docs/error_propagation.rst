@@ -44,8 +44,7 @@ If this option is not set, the following strategies are used:
    the inputs are the satellite position and orientation covariances,
    read from the ``EPHEMLIST`` and ``ATTLIST`` fields. These are
    propagated from the satellites to the ground and then through
-   triangulation. This use case implies ``--dg-use-csm``
-   (:numref:`stereodefault`).
+   triangulation. 
 
 For datasets with a known CE90 measure, or in general a
 :math:`CE_X` measure, where :math:`X` is between 0% and 100%,

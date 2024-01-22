@@ -20,7 +20,8 @@ WorldView (DigitalGlobe) cameras (:numref:`dg_tutorial`):
   * Re-enabled correcting velocity aberration and atmospheric refraction.  
     These corrections are now implemented in the CSM camera model, and, unlike
     before, play nicely with bundle adjustment (:numref:`dg_csm`).
-  * The options for enabling / disabling these corrections got removed.
+  * The options ``--enable-correct-velocity-aberration`` and
+    ``--enable-correct-atmospheric-refraction`` got removed.
   * Non-DG cameras do not use these corrections, as a case for that has not been
     made.
 

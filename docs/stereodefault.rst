@@ -247,21 +247,6 @@ skip-rough-homography
     Skip the step of performing datum-based rough homography if it
     fails.
 
-enable-correct-velocity-aberration
-    Enable velocity aberration correction for Optical Bar and
-    non-ISIS linescan cameras (:numref:`sensor_corrections`).
-    This option impairs the convergence of bundle adjustment.
-    It is suggested to use it though with Digital Globe images
-    to improve the positioning, if not using bundle adjustment,
-    whose convergence is impaired by this option.
-
-enable-correct-atmospheric-refraction
-    Enable atmospheric refraction correction for Optical Bar and
-    non-ISIS linescan cameras. This option impairs the convergence of
-    bundle adjustment. It is suggested to use it though with Digital
-    Globe images to improve the positioning, if not using bundle
-    adjustment, whose convergence is impaired by this option.
-
 left-image-crop-win xoff yoff xsize ysize
     Do stereo in a sub-region of the left image [default: use the
     entire image].
@@ -289,11 +274,6 @@ threads (*integer*) (default = 0)
 
 cache-size-mb (*integer*) (default = 1024)
     Set the system cache size, in MB, for each process.
-
-dg-use-csm
-    Use the CSM model with DigitalGlobe linescan cameras (``-t
-    dg``). No corrections are done for velocity aberration or
-    atmospheric refraction.
 
 aster-use-csm
     Use the CSM model with ASTER cameras (``-t aster``).
@@ -844,8 +824,7 @@ Error propagation (used in triangulation)
 
 propagate-errors
     Propagate the errors from the input cameras to the triangulated
-    point cloud. See :numref:`error_propagation`. This option implies
-    ``--dg-use-csm`` for Maxar (DigitalGlobe) linescan cameras. 
+    point cloud. See :numref:`error_propagation`.
 
 horizontal-stddev <*double double* (default = 0.0 0.0)>
     If positive, propagate these left and right camera horizontal

@@ -92,12 +92,6 @@ ASTERCameraModel::ASTERCameraModel(
   if (asp::stereo_settings().aster_use_csm && min_col != 0)
     vw::vw_throw(vw::ArgumentErr() << "Cannot use the CSM model with ASTER cameras "
                  << "if the first column index of the lattice matrix is not 0.\n");
-  
-  if ((asp::stereo_settings().enable_correct_velocity_aberration ||
-       asp::stereo_settings().enable_correct_atmospheric_refraction) &&
-      asp::stereo_settings().aster_use_csm)
-    vw::vw_throw(vw::ArgumentErr() << "Cannot correct velocity aberration or "
-                 << "atmospheric refraction with the CSM model.\n");
 
   vw::cartography::Datum datum("WGS84"); // ASTER is for Earth
   std::string sensor_id = "ASTER"; 

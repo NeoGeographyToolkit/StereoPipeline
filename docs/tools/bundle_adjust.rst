@@ -1144,16 +1144,6 @@ Command-line options for bundle_adjust
     that fall outside the image and weights that are non-positive, NaN, or equal
     to nodata will be ignored. See :numref:`limit_ip` for details.
 
---enable-correct-velocity-aberration
-    Turn on velocity aberration correction for Optical Bar and
-    non-ISIS linescan cameras (:numref:`sensor_corrections`).
-    This option impairs the convergence of bundle adjustment.
-
---enable-correct-atmospheric-refraction
-    Turn on atmospheric refraction correction for Optical Bar and
-    non-ISIS linescan cameras. This option impairs the convergence of
-    bundle adjustment.
-
 --propagate-errors
     Propagate the errors from the input cameras to the triangulated
     points for all pairs of match points, and produce a report having
@@ -1199,11 +1189,6 @@ Command-line options for bundle_adjust
 
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB, for each process.
-
---dg-use-csm
-    Use the CSM model with DigitalGlobe linescan cameras (``-t
-    dg``). No corrections are done for velocity aberration or
-    atmospheric refraction.
 
 --aster-use-csm
     Use the CSM model with ASTER cameras (``-t aster``).

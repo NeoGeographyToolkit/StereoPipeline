@@ -224,8 +224,6 @@ TEST( StereoSessionRPC, CheckRpcCrop ) {
   // Load the camera model as DG and RPC
   boost::shared_ptr<vw::camera::CameraModel> rpcModel = load_rpc_camera_model("dg_example1.xml");
 
-  stereo_settings().enable_correct_velocity_aberration    = false;
-  stereo_settings().enable_correct_atmospheric_refraction = false;
   boost::shared_ptr<vw::camera::CameraModel> dgModel  = load_dg_camera_model_from_xml("dg_example1.xml");
 
   // Verify that the RPC and DG models are similar

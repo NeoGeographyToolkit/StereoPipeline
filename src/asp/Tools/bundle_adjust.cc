@@ -84,7 +84,7 @@ void saveUpdatedCameras(Options const& opt, asp::BAParams const& param_storage) 
         // with the adjustment applied to it.
         // When not solving for intrinsics and using CSM
         if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades" ||
-            (opt.stereo_session == "dg" && asp::stereo_settings().dg_use_csm) ||
+            opt.stereo_session == "dg"  ||
             (opt.stereo_session == "aster" && asp::stereo_settings().aster_use_csm))
           write_csm_output_file_no_intr(opt, icam, adjust_file, param_storage);
       }
@@ -2167,12 +2167,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
      "When having GCP, interpret the three standard deviations in the GCP file as "
      "applying not to x, y, and z, but rather to latitude, longitude, and height.")
-    ("enable-correct-velocity-aberration", po::bool_switch(&opt.enable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
-     "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
-    ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
-     "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
-    ("dg-use-csm", po::bool_switch(&opt.dg_use_csm)->default_value(false)->implicit_value(true),
-     "Use the CSM model with DigitalGlobe linescan cameras (-t dg). No corrections are done for velocity aberration or atmospheric refraction.")
     ("aster-use-csm", po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with ASTER cameras (-t aster).")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
@@ -2294,11 +2288,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
   if (opt.image_files.empty())
     vw_throw(ArgumentErr() << "Missing input image files.\n");
-  
-  // If the DG session is used and errors are to be propagated, must use CSM.
-  // Must happen before copy_to_asp_settings() and before cameras are loaded.
-  if (opt.propagate_errors && opt.stereo_session.find("dg") != std::string::npos)
-    opt.dg_use_csm = true;
   
   // Guess the session if not provided. Do this as soon as we have
   // the cameras figured out.

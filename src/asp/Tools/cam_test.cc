@@ -48,8 +48,7 @@ struct Options : vw::GdalWriteOptions {
   std::string image_file, cam1_file, cam2_file, session1, session2, bundle_adjust_prefix, datum;
   int sample_rate; // use one out of these many pixels
   double subpixel_offset, height_above_datum;
-  bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction,
-    print_per_pixel_results, dg_use_csm, dg_vs_csm, aster_use_csm, aster_vs_csm,
+  bool print_per_pixel_results, aster_use_csm, aster_vs_csm,
     test_error_propagation;
   vw::Vector2 single_pixel;
 
@@ -85,14 +84,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "the datum information. Options: WGS_1984, D_MOON (1,737,400 meters), "
      "D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, "
      "and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-    ("enable-correct-velocity-aberration", po::bool_switch(&opt.enable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
-     "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
-    ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
-     "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
-    ("dg-use-csm", po::bool_switch(&opt.dg_use_csm)->default_value(false)->implicit_value(true),
-     "Use the CSM model with DigitalGlobe linescan cameras (-t dg). No corrections are done for velocity aberration or atmospheric refraction.")
-    ("dg-vs-csm", po::bool_switch(&opt.dg_vs_csm)->default_value(false)->implicit_value(true),
-     "Compare projecting into the camera without and with using the CSM model for Digital Globe.")
     ("aster-use-csm", po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with ASTER cameras (-t aster).")
     ("aster-vs-csm", po::bool_switch(&opt.aster_vs_csm)->default_value(false)->implicit_value(true),
@@ -124,28 +115,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "The sample rate must be positive.\n" << usage << general_options);
 
   // If we have to deal with the CSM model, ensure it is loaded. Set this early.
-  if (opt.dg_vs_csm)
-    opt.dg_use_csm = true;
   if (opt.aster_vs_csm)
     opt.aster_use_csm = true;
-
-  asp::stereo_settings().enable_correct_velocity_aberration
-    = opt.enable_correct_velocity_aberration;
-  asp::stereo_settings().enable_correct_atmospheric_refraction
-    = opt.enable_correct_atmospheric_refraction;
-  asp::stereo_settings().dg_use_csm = opt.dg_use_csm;
   asp::stereo_settings().aster_use_csm = opt.aster_use_csm;
 
   // Need this to be able to load adjusted camera models. This must be set
   // before loading the cameras.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
-  if (opt.test_error_propagation) {
-    vw_out() << "Using the CSM model for Digital Globe when "
-             << "testing error propagation.\n";
-    asp::stereo_settings().dg_use_csm = true;
+  if (opt.test_error_propagation)
     asp::stereo_settings().propagate_errors = true;
-  }
 }
 
 // Sort the diffs and print some stats
@@ -338,11 +317,9 @@ int main(int argc, char *argv[]) {
           vw_out() << "cam1 to cam2 pixel diff: " << image_pix - cam2_pix << std::endl;
 
         // Turn CSM on and off and see the effect on the pixel
-        if (opt.dg_vs_csm || opt.aster_vs_csm) {
-          asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
+        if (opt.aster_vs_csm) {
           asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
           Vector2 cam2_pix2 = cam2_model->point_to_pixel(xyz);
-          asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
           asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
           nocsm_vs_csm_diff.push_back(norm_2(cam2_pix - cam2_pix2));
         }
@@ -358,11 +335,9 @@ int main(int argc, char *argv[]) {
         if (opt.print_per_pixel_results)
           vw_out() << "cam2 to cam1 pixel diff: " << image_pix - cam1_pix << "\n\n";
 
-        if (opt.dg_vs_csm || opt.aster_vs_csm) {
-          asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
+        if (opt.aster_vs_csm) {
           asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
           Vector2 cam1_pix2 = cam1_model->point_to_pixel(xyz);
-          asp::stereo_settings().dg_use_csm = !asp::stereo_settings().dg_use_csm;
           asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
           nocsm_vs_csm_diff.push_back(norm_2(cam1_pix - cam1_pix2));
         }
@@ -382,7 +357,7 @@ int main(int argc, char *argv[]) {
     print_diffs("cam1 to cam2 camera center diff (meters)", ctr_diff);
     print_diffs("cam1 to cam2 pixel diff", cam1_to_cam2_diff);
     print_diffs("cam2 to cam1 pixel diff", cam2_to_cam1_diff);
-    if (opt.dg_vs_csm || opt.aster_vs_csm)
+    if (opt.aster_vs_csm)
     print_diffs("No-csm vs csm pixel diff", nocsm_vs_csm_diff);
 
     double elapsed_sec = sw.elapsed_seconds();

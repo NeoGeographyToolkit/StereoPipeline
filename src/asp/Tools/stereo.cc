@@ -396,27 +396,12 @@ namespace asp {
       vw::vw_throw(vw::ArgumentErr() 
                    << "Error parsing configuration file:\n" << e.what() << "\n");
     }
-
+  
+    // This must happen early
     boost::to_lower(opt.stereo_session);
 
     asp::stereo_settings().validate();
 
-    // Do this early, before any cameras are loaded
-    bool print_dg_csm_cov_message = false;
-    if (stereo_settings().propagate_errors) {
-      if (!stereo_settings().dg_use_csm) {
-        vw::Vector2 const& v = asp::stereo_settings().horizontal_stddev; // alias
-        if (v[0] <= 0 || v[1] <= 0) {
-          // For DG, have to use the CSM model to propagate the errors. Will
-          // print a message later.
-          if (opt.stereo_session.find("dg") != std::string::npos) {
-            stereo_settings().dg_use_csm = true;
-            print_dg_csm_cov_message = true;
-          }
-        }
-      }
-    }
-        
     if (stereo_settings().correlator_mode) {
       stereo_settings().alignment_method = "none"; // images are assumed aligned
       opt.stereo_session = "rpc";  // since inputs are images this seems simpler
@@ -733,12 +718,6 @@ namespace asp {
     boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
     opt.session->camera_models(camera_model1, camera_model2);
     
-    // The printing of this message was delayed till we knew the session
-    if (print_dg_csm_cov_message &&
-        (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc"))
-      vw_out() << "Enabling option --dg-use-csm as error propagation will take place. "
-               << "No velocity aberration or atmospheric correction happens.\n";
-
     // Run a set of checks to make sure the settings are compatible.
     user_safety_checks(opt);
 

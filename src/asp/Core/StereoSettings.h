@@ -144,13 +144,9 @@ namespace asp {
     vw::Vector2 outlier_removal_params;
     vw::Vector2i matches_per_tile_params;
     
-    bool enable_correct_velocity_aberration;
-    bool enable_correct_atmospheric_refraction;
-    
     int disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
 
-    // These two flags will be the default in the future and will go away
-    bool dg_use_csm; // Use the CSM camera model with Digital Globe images
+    // This option will be the default in the future and then it will go away
     bool aster_use_csm; // Use the CSM camera model with ASTER images
     
     // Correlation options

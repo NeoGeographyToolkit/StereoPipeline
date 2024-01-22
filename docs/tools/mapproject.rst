@@ -186,16 +186,6 @@ Command-line options
     for other cameras, as such a process is multi-threaded, and disk
     I/O becomes a bigger consideration.
 
---enable-correct-velocity-aberration
-    Turn on velocity aberration correction for Optical Bar and
-    non-ISIS linescan cameras (:numref:`sensor_corrections`).
-    This option impairs the convergence of bundle adjustment.
-
---enable-correct-atmospheric-refraction
-    Turn on atmospheric refraction correction for Optical Bar and
-    non-ISIS linescan cameras. This option impairs the convergence of
-    bundle adjustment.
-
 --query-projection
     Display the computed projection information and estimated ground
     sample distance (pixel size on the ground), and quit.
@@ -218,11 +208,6 @@ Command-line options
 
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB, for each process.
-
---dg-use-csm
-    Use the CSM model with DigitalGlobe linescan cameras (``-t
-    dg``). No corrections are done for velocity aberration or
-    atmospheric refraction.
 
 --aster-use-csm
     Use the CSM model with ASTER cameras (``-t aster``).

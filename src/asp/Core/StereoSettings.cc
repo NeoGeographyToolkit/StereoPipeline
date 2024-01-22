@@ -91,11 +91,6 @@ namespace asp {
     // and all the members of this class are initialized.
     initialized_stereo_settings = false;
 
-    // Must initialize this variable as it is used in mapproject
-    // to get a camera pointer, and there we don't parse stereo.default
-    enable_correct_velocity_aberration    = false;
-    enable_correct_atmospheric_refraction = false;
-    
     use_least_squares = false;
     
     default_corr_timeout = 900; // in seconds
@@ -197,12 +192,6 @@ namespace asp {
        "If --left-image-crop-win is used, replaced the left image cropped to that window with this clip.")
       ("right-image-clip", po::value(&global.right_image_clip)->default_value(""),
        "If --right-image-crop-win is used, replaced the right image cropped to that window with this clip.")
-      ("enable-correct-velocity-aberration", po::bool_switch(&global.enable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
-       "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
-      ("enable-correct-atmospheric-refraction", po::bool_switch(&global.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
-       "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
-      ("dg-use-csm", po::bool_switch(&global.dg_use_csm)->default_value(false)->implicit_value(true),
-       "Use the CSM model with DigitalGlobe linescan cameras (-t dg). No corrections are done for velocity aberration or atmospheric refraction.")
       ("aster-use-csm", po::bool_switch(&global.aster_use_csm)->default_value(false)->implicit_value(true),
        "Use the CSM model with ASTER cameras (-t aster).")
       
@@ -410,8 +399,7 @@ namespace asp {
       ("bundle-adjust-prefix", po::value(&global.bundle_adjust_prefix),
        "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
       ("propagate-errors",  po::bool_switch(&global.propagate_errors)->default_value(false)->implicit_value(true),
-       "Propagate the errors from the input cameras to the triangulated point cloud. "
-       "This option implies --dg-use-csm for Maxar (DigitalGlobe) linescan cameras.")
+       "Propagate the errors from the input cameras to the triangulated point cloud.")
       ("horizontal-stddev", po::value(&global.horizontal_stddev)->default_value(Vector2(0, 0), "0 0"), "If positive, propagate these left and right camera horizontal ground plane stddev through triangulation. To be used with --propagate-errors.")
       
       ("position-covariance-factor", po::value(&global.position_covariance_factor)->default_value(1.0),

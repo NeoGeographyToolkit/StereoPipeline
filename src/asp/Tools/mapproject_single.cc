@@ -47,10 +47,8 @@ struct Options : vw::GdalWriteOptions {
   // Input
   std::string dem_file, image_file, camera_file, output_file, stereo_session,
     bundle_adjust_prefix;
-  bool isQuery, noGeoHeaderInfo, nearest_neighbor, parseOptions, 
-       dg_use_csm, aster_use_csm;
-  bool multithreaded_model; // This is set based on the session type.
-  bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction;
+  bool isQuery, noGeoHeaderInfo, nearest_neighbor, parseOptions, aster_use_csm;
+  bool multithreaded_model; // This is set based on the session type
   
   // Keep a copy of the model here to not have to pass it around separately
   boost::shared_ptr<vw::camera::CameraModel> camera_model;
@@ -97,12 +95,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("no-geoheader-info", po::bool_switch(&opt.noGeoHeaderInfo)->default_value(false),
      "Do not write metadata information in the geoheader. See the doc for more info.")
-    ("enable-correct-velocity-aberration", po::bool_switch(&opt.enable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
-     "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
-    ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
-     "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
-    ("dg-use-csm", po::bool_switch(&opt.dg_use_csm)->default_value(false)->implicit_value(true),
-     "Use the CSM model with DigitalGlobe linescan cameras (-t dg). No corrections are done for velocity aberration or atmospheric refraction.")
     ("aster-use-csm", po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with ASTER cameras (-t aster).")
     ("parse-options", po::bool_switch(&opt.parseOptions)->default_value(false),
@@ -157,13 +149,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
-
-  asp::stereo_settings().enable_correct_velocity_aberration
-    = opt.enable_correct_velocity_aberration;
-  asp::stereo_settings().enable_correct_atmospheric_refraction
-    = opt.enable_correct_atmospheric_refraction;
-  
-  asp::stereo_settings().dg_use_csm = opt.dg_use_csm;
   asp::stereo_settings().aster_use_csm = opt.aster_use_csm;
   
   if (fs::path(opt.dem_file).extension() != "") {

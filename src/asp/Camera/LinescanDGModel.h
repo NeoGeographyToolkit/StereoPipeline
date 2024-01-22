@@ -132,7 +132,7 @@ namespace asp {
     vw::Vector2  m_detector_origin; 
     double       m_focal_length;  ///< The focal length, also stored in pixels.
 
-    /// Image size in pixels: [num lines, num samples]
+    /// Image size in pixels
     vw::Vector2i m_image_size;      
   };
 
