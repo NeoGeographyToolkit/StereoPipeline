@@ -9,11 +9,12 @@ or to manipulate ``parallel_stereo``'s outputs, both in the context of
 planetary ISIS data and for Earth images. This includes how to
 customize ``parallel_stereo``'s settings (:numref:`running-stereo`),
 use ``point2dem`` to create 3D terrain models (:numref:`visualising`),
-visualize the results (:numref:`genhillshade`), 
-bundle adjustment (:numref:`next_steps_ba`), align the obtained
-point clouds to another data source (:numref:`pc-align-example`),
-perform 3D terrain adjustments in respect to a geoid
-(:numref:`geoid_adj`), converted to LAS (:numref:`gen_las`), etc.
+visualize the results (:numref:`genhillshade`).
+
+Other topics include bundle adjustment (:numref:`next_steps_ba`), align the
+obtained point clouds to another data source (:numref:`pc-align-example`),
+perform 3D terrain adjustments in respect to a geoid (:numref:`geoid_adj`),
+converted to LAS (:numref:`gen_las`), etc.
 
 It is suggested to read the tutorial (:numref:`tutorial`) before
 this chapter.

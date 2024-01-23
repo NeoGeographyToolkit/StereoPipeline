@@ -227,19 +227,11 @@ ASTER data (:numref:`aster`), as its images are free and much smaller
 than DigitalGlobe's. A ready-made example having all inputs, outputs,
 and commands, is provided there.
 
-DigitalGlobe provides images from QuickBird and the three WorldView
-satellites. These are the hardest images to process with Ames Stereo
-Pipeline because they are exceedingly large, much larger than HiRISE
-images (the GUI interface can be used to run stereo on just a portion
-of the images). There is also a wide range of terrain challenges and
-atmospheric effects that can confuse ASP. Trees are particularly
-difficult for us since their texture is nearly nadir and perpendicular
-to our line of sight. It is important to know that the driving force
-behind our support for DigitalGlobe/Maxar images is to create models of ice
-and bare rock. Those are the type of images that we have tested with and
-have focused on. If we can make models of wooded or urban areas, that is
-a bonus, but we can't provide any advice for how to perform or improve
-the results if you choose to use ASP in that way.
+DigitalGlobe provides images from QuickBird and the three WorldView satellites.
+These are the hardest images to process with Ames Stereo Pipeline because they
+are exceedingly large, much larger than HiRISE images. The GUI
+(:numref:`stereo_gui`) can be used to run stereo on just a portion of the
+images.
 
 The camera information for DigitalGlobe/Maxar images is contained in an XML
 file for each image. In addition to the exact linear camera model, the
@@ -249,14 +241,7 @@ on RPC camera models we refer as before to :numref:`rpc`.
 
 Our implementation of the Digital Globe linear camera model accounts
 for the sensor geometry, velocity aberration and atmospheric
-refraction (:numref:`sensor_corrections`).  These corrections will shift
-point locations by over a meter for some images. However this is still
-smaller error than the error from measurement of the spacecraft's
-position and orientation.  The latter can be corrected using bundle
-adjustment, ideally used with ground control points
-(:numref:`bundle_adjust`).  Alternatively, the ``pc_align`` tool
-discussed in :numref:`pc-align-example` can be used to align the
-terrain obtained from ASP to an accurate set of ground measurements.
+refraction (:numref:`dg_csm`).
 
 In the next two sections we will show how to process unmodified and
 map-projected variants of WorldView images. The images we are using

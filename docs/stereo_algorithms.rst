@@ -720,7 +720,7 @@ Adding new algorithms to ASP
 ASP makes it possible for anybody to add their own algorithm to be
 used for stereo correlation without having to recompile ASP itself.
 
-Any such algorithm must a be in program to be invoked as::
+Any such algorithm must be a program to be invoked as::
 
     myprog <options> left_image.tif right_image.tif \
       output_disparity.tif
