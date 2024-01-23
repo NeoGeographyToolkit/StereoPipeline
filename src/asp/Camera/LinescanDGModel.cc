@@ -211,8 +211,11 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
   }
 
   DGCameraModel * cam = (DGCameraModel*)nominal_cam.get();
+  
   // Store the starting time and spacing for the satellite, in case later some resampling
   // happens to the cameras when those would use a different spacing.
+  // TODO(oalexan1): This code needs to be deleted, as there is no longer any 
+  // resampling of the cameras.
   cam->m_satellite_pos_t0 = et0;
   cam->m_satellite_pos_dt = edt;
   cam->m_satellite_quat_t0 = at0;
@@ -351,44 +354,22 @@ void DGCameraModel::populateCsmModel() {
     }
   }
 
-  // Compute positions and velocities. DigitalGlobe uses linear
-  // interpolation based on tabulated positions and velocities to find
-  // any given position, via the class
-  // PiecewiseAPositionInterpolation. But UsgsAstroLsSensorModel
-  // expects Lagrange interpolation of positions only, and makes no
-  // use of velocities for that. For backward compatibility, provide
-  // UsgsAstroLsSensorModel with more position samples by a given
-  // factor, with each sample obtained with
-  // PiecewiseAPositionInterpolation, so it makes use of both
-  // positions and velocities.
-  // TODO(oalexan1): Are positions sampled finely enough?
-  int factor = 1;
-  double old_t0 = m_position_func.get_t0();
-  double old_dt = m_position_func.get_dt();
-  double old_tend = m_position_func.get_tend();
-  int num_old_pos = round((old_tend - old_t0)/old_dt) + 1;
-  int num_new_pos = factor * (num_old_pos - 1) + 1; // care here, to not go out of bounds
-  m_ls_model->m_numPositions = 3 * num_new_pos; // concatenate all coordinates
-  m_ls_model->m_t0Ephem = old_t0; // same starting position
-  m_ls_model->m_dtEphem = old_dt / factor; // finer sampling
+  // Pass to CSM the positions and velocities. CSM uses Lagrange interpolation.
+  m_ls_model->m_numPositions = 3 * m_position_func.m_position_samples.size();
+  m_ls_model->m_t0Ephem = m_position_func.m_t0; // position t0
+  m_ls_model->m_dtEphem = m_position_func.m_dt; // position dt
   m_ls_model->m_positions.resize(m_ls_model->m_numPositions);
   m_ls_model->m_velocities.resize(m_ls_model->m_numPositions);
-  for (int pos_it = 0; pos_it < num_new_pos; pos_it++) {
-    // The largest value of t will be no more than old_tend, within numerical precision
-    double t = m_ls_model->m_t0Ephem + pos_it * m_ls_model->m_dtEphem;
-    vw::Vector3 P = m_position_func(t);
-    vw::Vector3 V = m_velocity_func(t);
+  for (size_t pos_it = 0; pos_it < m_position_func.m_position_samples.size(); pos_it++) {
+    vw::Vector3 P = m_position_func.m_position_samples[pos_it];
+    vw::Vector3 V = m_velocity_func.m_position_samples[pos_it];
     for (int coord = 0; coord < 3; coord++) {
       m_ls_model->m_positions [3*pos_it + coord] = P[coord];
       m_ls_model->m_velocities[3*pos_it + coord] = V[coord];
     }
   }
 
-  // Quaternions
-  // TODO(oalexan1): Are the quaternions sampled finely enough?
-  // Since DG has a lot of them, we assume there's no need for more.
-  // ASP's old approach used linear quaternion interpolation,
-  // but CSM uses Lagrange interpolation.
+  // Quaternions. CSM uses Lagrange interpolation.
   int num_quat = m_pose_func.m_pose_samples.size();
   m_ls_model->m_numQuaternions = 4 * num_quat; // concatenate all coordinates
   m_ls_model->m_t0Quat = m_pose_func.m_t0; // quaternion t0
