@@ -2860,6 +2860,9 @@ void matches_from_mapproj_images(int i, int j,
     return;
   }
 
+  // TODO(oalexan1):  What is mapprojection was done with a different camera
+  // model? Such as RPC vs DG? Also must check the DEM and adjust prefix! Same
+  // as when undoing mapprojection during stereo.
   if (opt.skip_matching)
     return;
 

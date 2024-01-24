@@ -102,9 +102,9 @@ namespace asp {
   }
   
   boost::shared_ptr<vw::camera::CameraModel>  StereoSessionASTER::load_camera_model
-    (std::string const& image_file, std::string const& camera_file, Vector2 pixel_offset) const{
-
+    (std::string const& image_file, std::string const& camera_file, 
+     std::string const& ba_prefix, vw::Vector2 pixel_offset) const {
     return load_adjusted_model(m_camera_loader.load_ASTER_camera_model(camera_file),
-                              image_file, camera_file, pixel_offset);
+                              image_file, camera_file, ba_prefix, pixel_offset);
   }
 } // End namespace asp

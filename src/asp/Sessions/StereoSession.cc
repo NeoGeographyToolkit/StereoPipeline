@@ -71,19 +71,19 @@ namespace asp {
     init_disk_transform();
   }
 
+  // TODO(oalexan1): The logic below must be a function, to be applied to left and
+  // to right data, and also to be used in bundle_adjust to find the right camera
+  // when undoing mapprojection.
+
   // Init the transform that is used to undo the mapprojection. The header
   // file of the mapprojected images contain a lot of info that we load
-  // along the way.
+  // along the way, including the bundle adjust prefix that was used
+  // to create these images, which may be different than the one
+  // used later for triangulation.
   void StereoSession::init_disk_transform() {
 
     if (!isMapProjected()) // Nothing to do for non map-projected types.
       return;
-
-    // Back up the bundle-adjust prefix that should be used only with the
-    // original camera model, not with the model used in mapprojection
-    // (e.g., the original camera model could have been DG, but in
-    // map-projection we could have used RPC).
-    std::string ba_pref_bk = stereo_settings().bundle_adjust_prefix;
 
     // Load the name of the camera model, session, and DEM used in mapprojection
     // based on the record in that image. Load the bundle adjust prefix from the
@@ -113,6 +113,10 @@ namespace asp {
       vw::cartography::read_header_string(*r_rsrc.get(), cam_file_key, r_cam_file);
       vw::cartography::read_header_string(*r_rsrc.get(), dem_file_key, r_dem_file);
     }
+    if (l_adj_prefix == "NONE")
+      l_adj_prefix = "";
+    if (r_adj_prefix == "NONE")
+      r_adj_prefix = "";
 
     // Sanity checks, throw an error
     if (l_adj_prefix != r_adj_prefix)
@@ -158,47 +162,37 @@ namespace asp {
     // When loading camera models from the image files, we either use the sensor model for
     // the current session type or else the RPC model which is often used as an approximation.
     const Vector2 zero_pixel_offset(0,0);
-    stereo_settings().bundle_adjust_prefix = "";
-    if (l_adj_prefix != "" && l_adj_prefix != "NONE")
-      stereo_settings().bundle_adjust_prefix = l_adj_prefix;
 
     if (l_cam_type == "rpc") {
       // This message is useful, because sometimes there is confusion as to whether
       // the RPC model or original model is used in mapprojection.
       vw_out() << "Loading RPC cameras used in mapprojection.\n";
-      m_left_map_proj_model = load_rpc_camera_model(m_left_image_file,  curr_left_camera_file,
-                                                    zero_pixel_offset);
+      m_left_map_proj_model = load_rpc_camera_model(m_left_image_file, curr_left_camera_file,
+                                                    l_adj_prefix, zero_pixel_offset);
     } else { // Use the native model
       vw_out() << "Loading " << l_cam_type << " cameras used in mapprojection.\n";
-      m_left_map_proj_model = load_camera_model(m_left_image_file,  curr_left_camera_file,
-                                                zero_pixel_offset);
+      m_left_map_proj_model = load_camera_model(m_left_image_file, curr_left_camera_file,
+                                                l_adj_prefix, zero_pixel_offset);
     }
     vw_out() << "Mapprojected images bundle adjustment prefix: \"" 
               << stereo_settings().bundle_adjust_prefix << "\"\n";
     
-    stereo_settings().bundle_adjust_prefix = "";
-    if (r_adj_prefix != "" && r_adj_prefix != "NONE")
-      stereo_settings().bundle_adjust_prefix = r_adj_prefix;
     if (r_cam_type == "rpc")
       m_right_map_proj_model = load_rpc_camera_model(m_right_image_file, 
                                                      curr_right_camera_file,
-                                                     zero_pixel_offset);
+                                                     r_adj_prefix, zero_pixel_offset);
     else // Use the native model
       m_right_map_proj_model = load_camera_model(m_right_image_file,
                                                  curr_right_camera_file,
-                                                 zero_pixel_offset);
+                                                 r_adj_prefix, zero_pixel_offset);
 
     // These are useful messages
     vw_out() << "Left camera file used in mapprojection: " << curr_left_camera_file << "\n";
     vw_out() << "Right camera file used in mapprojection: " << curr_right_camera_file << "\n";
 
-    // Go back to the original bundle-adjust prefix now that we have
-    // loaded the models used in map-projection.
-    stereo_settings().bundle_adjust_prefix = ba_pref_bk;
-
     VW_ASSERT( m_left_map_proj_model.get() && m_right_map_proj_model.get(),
               ArgumentErr() << "StereoSession: Unable to locate map "
-              << "projection camera model inside input files!" );
+              << "projection camera model inside input files!");
 
     // Double check that we can read the DEM and that it has cartographic information.
     VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSession: Require input DEM.");
@@ -267,6 +261,9 @@ boost::shared_ptr<vw::camera::CameraModel>
 StereoSession::camera_model(std::string const& image_file, std::string const& camera_file,
                             bool quiet) {
 
+  // TODO(oalexan1): ba_prefix better be passed from outside                            
+  std::string ba_prefix = asp::stereo_settings().bundle_adjust_prefix;  
+  
   if (stereo_settings().correlator_mode) {
     // No cameras exist, so make some dummy cameras. Recall that we
     // set the session to rpc in this mode so that it is assumed that
@@ -301,10 +298,10 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
   
   if (camera_file == "") // No camera file provided, use the image file.
     m_camera_model[image_cam_pair]
-     = load_camera_model(image_file, image_file, pixel_offset);
+     = load_camera_model(image_file, image_file, ba_prefix, pixel_offset);
   else // Camera file provided
     m_camera_model[image_cam_pair] 
-    = load_camera_model(image_file, camera_file, pixel_offset);
+    = load_camera_model(image_file, camera_file, ba_prefix, pixel_offset);
 
   return m_camera_model[image_cam_pair];
 }
@@ -1070,27 +1067,26 @@ StereoSession::tx_right_map_trans() const {
   return getTransformFromMapProject(m_input_dem, right_map_proj_image, m_right_map_proj_model);
 }
 
-
 // Load an RPC model. Any adjustment in stereo_settings().bundle_adjust_prefix
 // will be applied.
 boost::shared_ptr<vw::camera::CameraModel> 
 StereoSession::load_rpc_camera_model(std::string const& image_file, 
                                      std::string const& camera_file,
+                                     std::string const& ba_prefix,
                                      Vector2 pixel_offset) const {
 
   std::string err1, err2;
   try {
-    if (camera_file != ""){
+    if (camera_file != "")
       return load_adjusted_model(m_camera_loader.load_rpc_camera_model(camera_file),
-                                image_file, camera_file, pixel_offset);
-    }
+                                 image_file, camera_file, ba_prefix, pixel_offset);
   }
   catch(std::exception const& e1) {
     err1 = e1.what();
   }
   try {
     return load_adjusted_model(m_camera_loader.load_rpc_camera_model(image_file),
-                              image_file, camera_file, pixel_offset);
+                               image_file, camera_file, ba_prefix, pixel_offset);
   }
   catch(std::exception const& e2) {
     err2 = e2.what();
@@ -1112,7 +1108,6 @@ StereoSession::load_rpc_camera_model(std::string const& image_file,
           << " or " << camera_file << ".\n"
 	   << err1 << "\n" << err2 << "\n" << msg);
 } // End function load_rpc_camera_model
-
 
 vw::Vector2 StereoSession::camera_pixel_offset(std::string const& input_dem,
                                                std::string const& left_image_file,
@@ -1146,12 +1141,12 @@ boost::shared_ptr<vw::camera::CameraModel>
 StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
                                   std::string const& image_file,
                                   std::string const& camera_file,
+                                  std::string const& ba_prefix, 
                                   vw::Vector2 const& pixel_offset) {
 
   // Any tool using adjusted camera models must pre-populate the
   // prefix at which to find them.
-  std::string ba_pref = stereo_settings().bundle_adjust_prefix;
-  if (ba_pref == "" && pixel_offset == vw::Vector2())
+  if (ba_prefix == "" && pixel_offset == vw::Vector2())
     return cam; // Return the unadjusted cameras if there is no adjustment
 
   Vector3 position_correction;
@@ -1169,10 +1164,10 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
   position_correction = Vector3();
   pose_correction = Quat(math::identity_matrix<3>());
 
-  if (ba_pref != "") { // If a bundle adjustment file was specified
+  if (ba_prefix != "") { // If a bundle adjustment file was specified
 
     // Get full BA file path
-    std::string adjust_file = asp::bundle_adjust_file_name(ba_pref, image_file, camera_file);
+    std::string adjust_file = asp::bundle_adjust_file_name(ba_prefix, image_file, camera_file);
 
     if (!boost::filesystem::exists(adjust_file))
       vw_throw(InputErr() << "Missing adjusted camera model: " << adjust_file << ".\n");

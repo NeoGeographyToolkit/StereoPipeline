@@ -563,10 +563,10 @@ vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraMode
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionIsis::load_camera_model(std::string const& image_file, 
                                      std::string const& camera_file, 
+                                     std::string const& ba_prefix, 
                                      Vector2 pixel_offset) const {
-
   return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),
-                            image_file, camera_file, pixel_offset);
+                            image_file, camera_file, ba_prefix, pixel_offset);
 }
 
 // Reverse any pre-alignment that was done to the disparity.

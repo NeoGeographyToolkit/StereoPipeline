@@ -524,17 +524,14 @@ This error *is not* the true accuracy of the DEM. It is only another
 indirect measure of quality. A DEM with high triangulation error, as
 compared to the ground sample distance, is always bad and should have
 its images bundle-adjusted. A DEM with low triangulation error is at
-least self-consistent but could still be bad, or at least
-misaligned. A map of the triangulation error should only be
-interpreted as a relative measurement. Where small areas are found
-with high triangulation error came from correlation mistakes and large
-areas of error came from camera model inadequacies.
+least self-consistent, but could still be bad, or at least
+misaligned.
 
-If, after bundle adjustment the triangulation error is still high at
+If, after bundle adjustment, the triangulation error is still high at
 the image corners and the inputs are Pinhole cameras, one may have to
 refine the intrinsics, including the distortion model.
 :numref:`bundle_adjustment` discusses bundle adjustment, including
-handling intrinsics.
+optimizing the intrinsics.
 
 To improve the location of a triangulated point cloud or created DEM
 relative to a known ground truth, use alignment (:numref:`pc_align`).

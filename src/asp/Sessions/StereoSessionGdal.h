@@ -62,9 +62,10 @@ namespace asp {
     virtual boost::shared_ptr<vw::camera::CameraModel>
     load_camera_model(std::string const& image_file, 
                       std::string const& camera_file,
+                      std::string const& ba_prefix, 
                       vw::Vector2 pixel_offset) const {
       return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file),
-                                 image_file, camera_file, pixel_offset);
+                                 image_file, camera_file, ba_prefix, pixel_offset);
     }
   };
 
@@ -87,9 +88,10 @@ namespace asp {
     virtual boost::shared_ptr<vw::camera::CameraModel>
     load_camera_model(std::string const& image_file, 
                       std::string const& camera_file,
+                      std::string const& ba_prefix, 
                       vw::Vector2 pixel_offset) const {
       return load_adjusted_model(m_camera_loader.load_optical_bar_camera_model(camera_file),
-                                 image_file, camera_file, pixel_offset);
+                                 image_file, camera_file, ba_prefix, pixel_offset);
     }
   };
 
@@ -120,9 +122,10 @@ namespace asp {
     virtual boost::shared_ptr<vw::camera::CameraModel>
     load_camera_model(std::string const& image_file, 
                       std::string const& camera_file,
+                      std::string const& ba_prefix,
                       vw::Vector2 pixel_offset) const {
       return load_adjusted_model(m_camera_loader.load_csm_camera_model(camera_file),
-                                 image_file, camera_file, pixel_offset);
+                                 image_file, camera_file, ba_prefix, pixel_offset);
     }
   };
   
@@ -143,10 +146,10 @@ namespace asp {
     virtual boost::shared_ptr<vw::camera::CameraModel>
     load_camera_model(std::string const& image_file,
                       std::string const& camera_file,
+                      std::string const& ba_prefix,
                       vw::Vector2 pixel_offset) const{
-      
       return load_adjusted_model(m_camera_loader.load_spot5_camera_model(camera_file),
-                                 image_file, camera_file, pixel_offset);
+                                 image_file, camera_file, ba_prefix, pixel_offset);
     }
   };
   
@@ -167,10 +170,10 @@ namespace asp {
     virtual boost::shared_ptr<vw::camera::CameraModel>
     load_camera_model(std::string const& image_file,
                       std::string const& camera_file,
+                      std::string const& ba_prefix,
                       vw::Vector2 pixel_offset) const{
-      
       return load_adjusted_model(m_camera_loader.load_perusat_camera_model(camera_file),
-                                 image_file, camera_file, pixel_offset);
+                                 image_file, camera_file, ba_prefix, pixel_offset);
     }
   };
 
@@ -191,10 +194,10 @@ namespace asp {
     virtual boost::shared_ptr<vw::camera::CameraModel>
     load_camera_model(std::string const& image_file,
                       std::string const& camera_file,
+                      std::string const& ba_prefix,
                       vw::Vector2 pixel_offset) const{
-      
       return load_adjusted_model(m_camera_loader.load_pleiades_camera_model(camera_file),
-                                 image_file, camera_file, pixel_offset);
+                                 image_file, camera_file, ba_prefix, pixel_offset);
     }
   };
   

@@ -59,7 +59,8 @@ namespace asp {
     /// - This only matters in the epipolar alignment case, where the normal camera model
     ///   functions return the aligned camera models.
     void get_unaligned_camera_models(boost::shared_ptr<vw::camera::CameraModel> &left_cam,
-                                     boost::shared_ptr<vw::camera::CameraModel> &right_cam) const;
+                                     boost::shared_ptr<vw::camera::CameraModel> &right_cam,
+                                     std::string ba_prefix) const;
 
 
     /// Pinhole camera model loading function which handles the case of epipolar alignment.
@@ -67,6 +68,7 @@ namespace asp {
     load_adj_pinhole_model(std::string const& image_file,      std::string const& camera_file,
                            std::string const& left_image_file,  std::string const& right_image_file,
                            std::string const& left_camera_file, std::string const& right_camera_file,
+                           std::string const& ba_prefix, 
                            std::string const& input_dem);
 
     /// Transforms from the aligned image coordinates back to coordinates in the camera models.
@@ -85,6 +87,7 @@ namespace asp {
    virtual boost::shared_ptr<vw::camera::CameraModel>
    load_camera_model(std::string const& image_file, 
                      std::string const& camera_file,
+                     std::string const& ba_prefix, 
                      vw::Vector2 pixel_offset) const;
 
    // Apply epipolar alignment to images, if the camera models are pinhole

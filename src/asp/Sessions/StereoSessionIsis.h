@@ -71,6 +71,7 @@ namespace asp {
     virtual boost::shared_ptr<vw::camera::CameraModel>
     load_camera_model(std::string const& image_file, 
                       std::string const& camera_file,
+                      std::string const& ba_prefix, 
                       vw::Vector2 pixel_offset) const;
   };
 

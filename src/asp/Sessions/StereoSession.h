@@ -125,6 +125,7 @@ namespace asp {
     load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
                         std::string const& image_file,
                         std::string const& camera_file,
+                        std::string const& ba_pref,
                         vw::Vector2 const& pixel_offset);
 
     /// Returns the target datum to use for a given camera model.
@@ -246,6 +247,7 @@ namespace asp {
     virtual boost::shared_ptr<vw::camera::CameraModel>
     load_camera_model(std::string const& image_file, 
                       std::string const& camera_file,
+                      std::string const& ba_prefix, 
                       vw::Vector2 pixel_offset) const = 0;
     
     /// Load an RPC camera model with a pixel offset
@@ -254,6 +256,7 @@ namespace asp {
     boost::shared_ptr<vw::camera::CameraModel>
     load_rpc_camera_model(std::string const& image_file, 
                           std::string const& camera_file,
+                          std::string const& ba_prefix,
                           vw::Vector2 pixel_offset) const;
     
     void read_bathy_masks(float & left_bathy_nodata, 

@@ -44,11 +44,13 @@ namespace asp {
 
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionPinhole::load_camera_model
-  (std::string const& image_file, std::string const& camera_file, Vector2 pixel_offset) const{
+  (std::string const& image_file, std::string const& camera_file, 
+   std::string const& ba_prefix, Vector2 pixel_offset) const {
 
   return load_adj_pinhole_model(image_file, camera_file,
                                 m_left_image_file,  m_right_image_file,
                                 m_left_camera_file, m_right_camera_file,
+                                ba_prefix,
                                 m_input_dem);
 }
 
@@ -107,7 +109,8 @@ epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
 
 void StereoSessionPinhole::get_unaligned_camera_models(
                                  boost::shared_ptr<vw::camera::CameraModel> &left_cam,
-                                 boost::shared_ptr<vw::camera::CameraModel> &right_cam) const{
+                                 boost::shared_ptr<vw::camera::CameraModel> &right_cam,
+                                 std::string ba_prefix) const{
 
   // Retrieve the pixel offset (if any) to cropped images
   vw::Vector2 left_pixel_offset  = camera_pixel_offset(m_input_dem, m_left_image_file,
@@ -116,10 +119,11 @@ void StereoSessionPinhole::get_unaligned_camera_models(
                                                        m_right_image_file, m_right_image_file);
 
   // Load the camera models adjusted for cropping
+  
   left_cam  = load_adjusted_model(vw::camera::load_pinhole_camera_model(m_left_camera_file),
-                                  m_left_image_file, m_left_camera_file, left_pixel_offset);
+                                  m_left_image_file, m_left_camera_file, ba_prefix, left_pixel_offset);
   right_cam = load_adjusted_model(vw::camera::load_pinhole_camera_model(m_right_camera_file),
-                                  m_right_image_file, m_right_camera_file, right_pixel_offset);
+                                  m_right_image_file, m_right_camera_file, ba_prefix, right_pixel_offset);
 }
 
 
@@ -130,6 +134,7 @@ StereoSessionPinhole::load_adj_pinhole_model(std::string const& image_file,
                                              std::string const& right_image_file,
                                              std::string const& left_camera_file,
                                              std::string const& right_camera_file,
+                                             std::string const& ba_prefix,
                                              std::string const& input_dem){
 
   // Unfortunately the pinhole case is more complicated since the left
@@ -144,7 +149,7 @@ StereoSessionPinhole::load_adj_pinhole_model(std::string const& image_file,
   if ( stereo_settings().alignment_method != "epipolar" ) {
     // Not epipolar, just load the camera model.
     return load_adjusted_model(vw::camera::load_pinhole_camera_model(camera_file),
-                               image_file, camera_file, pixel_offset);
+                               image_file, camera_file, ba_prefix, pixel_offset);
   }
   // Otherwise handle the epipolar case
 
@@ -179,10 +184,14 @@ StereoSessionPinhole::load_adj_pinhole_model(std::string const& image_file,
                                    BBox2i(Vector2i(0,0), right_size),
                                    epi_size1, epi_size2);
 
+    // Left camera
     if (is_left_camera)
-      return load_adjusted_model(epipolar_left_pin, image_file, camera_file, pixel_offset);
+      return load_adjusted_model(epipolar_left_pin, image_file, camera_file, 
+                                 ba_prefix, pixel_offset);
+
     // Right camera
-    return load_adjusted_model(epipolar_right_pin, image_file, camera_file, pixel_offset);
+    return load_adjusted_model(epipolar_right_pin, image_file, camera_file, 
+                               ba_prefix, pixel_offset);
        
   } else { // Not PinholeModel, use CAHV epipolar code.
 
@@ -198,10 +207,14 @@ StereoSessionPinhole::load_adj_pinhole_model(std::string const& image_file,
     epipolar(*(left_cahv.get()),  *(right_cahv.get()),
              *epipolar_left_cahv, *epipolar_right_cahv);
 
+    // Left camera
     if (is_left_camera)
-      return load_adjusted_model(epipolar_left_cahv, image_file, camera_file, pixel_offset);
+      return load_adjusted_model(epipolar_left_cahv, image_file, camera_file, 
+                                 ba_prefix, pixel_offset);
+
     // Right camera
-    return load_adjusted_model(epipolar_right_cahv, image_file, camera_file, pixel_offset);
+    return load_adjusted_model(epipolar_right_cahv, image_file, camera_file, 
+                               ba_prefix, pixel_offset);
   }
 }
 
@@ -258,7 +271,10 @@ void StereoSessionPinhole::load_camera_models(
 
 // Return the left transform used in alignment
 StereoSessionPinhole::tx_type StereoSessionPinhole::tx_left() const {
-
+  
+  // TODO(oalexan1): Find a relevant test case then wipe the commented-out logic
+  // below.
+  
   // A very annoying feature of epipolar alignment is that the cameras
   // returned in this mode already have alignment applied to them.
   // Then, the alignment need not happen in here, so we always return
@@ -321,7 +337,8 @@ void StereoSessionPinhole::pinhole_cam_trans(tx_type & left_trans,
   this->camera_models(left_aligned_model, right_aligned_model);
   
   boost::shared_ptr<camera::CameraModel> left_input_model, right_input_model;
-  this->get_unaligned_camera_models(left_input_model, right_input_model);
+  std::string ba_prefix = asp::stereo_settings().bundle_adjust_prefix;
+  this->get_unaligned_camera_models(left_input_model, right_input_model, ba_prefix);
 
   // Check the type, CAHV* type models are not supported!
   typedef vw::camera::PinholeModel PinModel;
