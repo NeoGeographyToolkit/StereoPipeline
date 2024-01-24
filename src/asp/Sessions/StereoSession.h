@@ -201,7 +201,10 @@ namespace asp {
      // Read cameras used in mapprojection
      void read_mapproj_cams(std::string const& left_image_file,
                             std::string const& right_image_file,
+                            std::string const& left_camera_file,
+                            std::string const& right_camera_file, 
                             std::string const& input_dem,
+                            std::string const& session_name, 
                             vw::CamPtr & left_map_proj_cam, 
                             vw::CamPtr & right_map_proj_cam);
 

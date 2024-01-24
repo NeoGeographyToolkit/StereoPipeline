@@ -2877,8 +2877,10 @@ void matches_from_mapproj_images(int i, int j,
   
   // Undo the map-projection
   vw::CamPtr left_map_proj_cam, right_map_proj_cam;
-  session->read_mapproj_cams(map_files[i], map_files[j], mapproj_dem,
-                              left_map_proj_cam, right_map_proj_cam);
+  session->read_mapproj_cams(map_files[i], map_files[j], 
+                             opt.camera_files[i], opt.camera_files[j],
+                             mapproj_dem, session->name(),
+                             left_map_proj_cam, right_map_proj_cam);
   
   for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
     vw::ip::InterestPoint P1 = ip1[ip_iter];

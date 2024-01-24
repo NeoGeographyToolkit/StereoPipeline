@@ -69,7 +69,9 @@ namespace asp {
     
     // Read the cameras used in mapprojection 
     if (isMapProjected())
-     read_mapproj_cams(m_left_image_file, m_right_image_file, m_input_dem, 
+     read_mapproj_cams(m_left_image_file, m_right_image_file, 
+                       m_left_camera_file, m_right_camera_file,
+                       m_input_dem, this->name(),
                        m_left_map_proj_model, m_right_map_proj_model);
   }
 
@@ -78,9 +80,14 @@ namespace asp {
   // when undoing mapprojection.
 
   // Read keywords that describe how the images were map-projected.
-  void read_mapproj_headers(std::string const& map_file, std::string & adj_prefix,
+  void read_mapproj_headers(std::string const& map_file,
+                            std::string const& input_cam_file,
+                            std::string const& input_dem,
+                            std::string const& session_name,
+                            // Outputs
+                            std::string & adj_prefix,
                             std::string & image_file, std::string & cam_type,
-                            std::string & cam_file, std::string & dem_file) {
+                            std::string & cam_file, std::string & dem_file) { 
 
     boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(map_file));
     std::string adj_key = "BUNDLE_ADJUST_PREFIX", 
@@ -92,19 +99,50 @@ namespace asp {
     vw::cartography::read_header_string(*rsrc.get(), cam_type_key, cam_type);
     vw::cartography::read_header_string(*rsrc.get(), cam_file_key, cam_file);
     vw::cartography::read_header_string(*rsrc.get(), dem_file_key, dem_file);
-    
-    // Throw an error if some fields cannot be found. The camera name can be
-    // empty as it may be embedded in the image file.
+ 
+    // Sanity checks
+
+    if (cam_type == "") {
+      vw::vw_out(WarningMessage) << "Missing field value for: " << cam_type_key
+                                 << " in " << map_file << ".\n";
+      // If cam_type is empty, and session name is XmapY, use cam type Y.
+      std::string tri_cam_type, mapproj_cam_type; 
+      asp::parseCamTypes(session_name, tri_cam_type, mapproj_cam_type);
+      vw::vw_out(WarningMessage)
+           << "Assuming mapprojection was done with camera type: "
+           << mapproj_cam_type << ".\n";
+      cam_type = mapproj_cam_type;
+    }
     if (cam_type == "")
       vw_throw(ArgumentErr() << "Missing field value for: " << cam_type_key 
                << " in " << map_file << ".\n");
-    if (image_file == "")
-      vw_throw(ArgumentErr() << "Missing field value for: " << img_file_key 
-               << " in " << map_file << ".\n");
-     if (dem_file == "")
-      vw_throw(ArgumentErr() << "Missing field value for: " << dem_file_key 
-               << " in " << map_file << ".\n");
-      
+
+    if (image_file == "") {
+      vw::vw_out(WarningMessage) << "Missing field value for: " << img_file_key 
+                                 << " in " << map_file << ".\n";
+      image_file = map_file; // should be enough to load the camera 
+      vw::vw_out(WarningMessage) << "Using: " << image_file << " instead.\n";
+    }
+    if (cam_file == "") {
+      vw::vw_out(WarningMessage) << "Missing field value for: " << cam_file_key 
+                                 << " in " << map_file << ".\n";
+      cam_file = input_cam_file; // should be enough to load the camera
+      vw::vw_out(WarningMessage) << "Using: " << cam_file << " instead.\n";
+    }
+    if (dem_file == "") {
+      vw::vw_out(WarningMessage) << "Missing field value for: " << dem_file_key 
+                                 << " in " << map_file << ".\n";
+      dem_file = input_dem; // should be enough to load the DEM
+      vw::vw_out(WarningMessage) << "Using: " << dem_file << " instead.\n";
+    }
+    
+    // The DEM the user provided better be the one used for map projection.
+    if (input_dem != dem_file)
+      vw::vw_out(WarningMessage) << "The DEM used for map projection is different "
+        << "from the one provided on the command line.\n"
+        << "Mapprojection DEM: " << dem_file << "\n"
+        << "Command line DEM: " << input_dem << "\n";
+    
     if (adj_prefix == "NONE")
       adj_prefix = "";
   }
@@ -115,7 +153,10 @@ namespace asp {
   // which may be different than the one used later for triangulation.
   void StereoSession::read_mapproj_cams(std::string const& left_image_file,
                                         std::string const& right_image_file,
+                                        std::string const& left_camera_file,
+                                        std::string const& right_camera_file,  
                                         std::string const& input_dem, 
+                                        std::string const& session_name, 
                                         vw::CamPtr & left_map_proj_cam, 
                                         vw::CamPtr & right_map_proj_cam) {
 
@@ -125,19 +166,11 @@ namespace asp {
     // mapprojection. 
     std::string l_adj_prefix, r_adj_prefix, l_image_file, r_image_file,
     l_cam_type, r_cam_type, l_cam_file, r_cam_file, l_dem_file, r_dem_file;
-    read_mapproj_headers(left_image_file, l_adj_prefix, l_image_file, l_cam_type,
-                         l_cam_file, l_dem_file);
-    read_mapproj_headers(right_image_file, r_adj_prefix, r_image_file, r_cam_type,
-                         r_cam_file, r_dem_file);
+    read_mapproj_headers(left_image_file, left_camera_file, input_dem, session_name,
+                         l_adj_prefix, l_image_file, l_cam_type, l_cam_file, l_dem_file);
+    read_mapproj_headers(right_image_file, right_camera_file, input_dem, session_name,
+                         r_adj_prefix, r_image_file, r_cam_type, r_cam_file, r_dem_file);
   
-    // The DEM the user provided better be the one used for map projection.
-    if (input_dem != l_dem_file || input_dem != r_dem_file)
-      vw_throw(ArgumentErr() << "The DEM used for map projection is different "
-        << "from the one provided on the command line.\n"
-        << "Left image DEM:   " << l_dem_file << "\n"
-        << "Right image DEM:  " << r_dem_file << "\n"
-        << "Command line DEM: " << input_dem << "\n");
-
     // When loading camera models from the image files, we either use the sensor model for
     // the current session type or else the RPC model which is often used as an approximation.
     const Vector2 zero_pixel_offset(0,0);
@@ -163,8 +196,7 @@ namespace asp {
 
     //vw_out() << "Mapprojected images bundle adjustment prefixes: " 
     //          << l_adj_prefix << ' ' << r_adj_prefix << std::endl;
-              
-    // These are useful messages
+    // These are useful but verbose messages
     //vw_out() << "Left camera file used in mapprojection: " << l_cam_file << "\n";
     //vw_out() << "Right camera file used in mapprojection: " << r_cam_file << "\n";
 
