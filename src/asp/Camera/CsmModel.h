@@ -30,6 +30,12 @@
 
 #include <boost/shared_ptr.hpp>
 
+namespace vw {
+  namespace camera {
+    class PinholeModel;
+  }
+}
+
 namespace csm {
   // Forward declarations
   class RasterGM; 
@@ -97,13 +103,24 @@ namespace asp {
     void applyTransform(vw::Matrix4x4 const& transform);
     
     // Create a CSM frame camera model. Assumes that focal length and optical
-    // center are in pixels, the pixel pitch is 1, and no distortion.
+    // center are in pixels, the pixel pitch is 1.
     void createFrameModel(int cols, int rows,  // in pixels
         double cx, double cy, // col and row optical center, in pixels
         double focal_length,  // in pixels
         double semi_major_axis, double semi_minor_axis, // in meters
-        vw::Vector3 C, // camera center
-        vw::Matrix3x3 R); // camera to world rotation matrix
+        vw::Vector3 const& C, // camera center
+        vw::Matrix3x3 const& R, // camera to world rotation matrix
+        std::string const& distortionType = "", // empty or "radtan"
+        std::vector<double> const& distortion = std::vector<double>());
+
+    // Create a CSM frame camera model from pinhole camera model.
+    // The distortion model must be set separately, as ASP pinhole
+    // and CSM use different distortion models.
+    void createFrameModel(vw::camera::PinholeModel const& pin_model,
+                          int cols, int rows,  // in pixels
+                          double semi_major_axis, double semi_minor_axis, // in meters
+                          std::string const& distortionType = "", 
+                          std::vector<double> const& distortion = std::vector<double>());
 
     // Sun position in ECEF
     vw::Vector3 sun_position() const;

@@ -6,13 +6,11 @@ Declassified satellite images: KH-4B
 ASP has support for the declassified high-resolution CORONA KH-4B images. 
 This support is very experimental, and the user is advised to use caution.
 
-These images can be processed using either optical bar (panoramic) camera
-models or as pinhole camera models with RPC distortion. Most of the
-steps are similar to the example in :numref:`skysat-example`.
-The optical bar camera model is based on
-:cite:`schenk2003rigorous` and
-:cite:`sohn2004mathematical`, whose format is described in
-:numref:`panoramic`.
+These images can be processed using either optical bar (panoramic) camera models
+or as pinhole camera models with RPC distortion. Most of the steps are similar
+to the example in :numref:`skysat-example`. The optical bar camera model is
+based on :cite:`schenk2003rigorous` and :cite:`sohn2004mathematical`, whose
+format is described in :numref:`panoramic`.
 
 Fetching the data
 ~~~~~~~~~~~~~~~~~
@@ -101,11 +99,10 @@ artifacts in the film. Do your best to select the image corners such
 that obvious artifacts are kept out and all reasonable image sections
 are kept in. 
 
-ASP provides a simple Python tool called
-``historical_helper.py`` to rotate the image so that the top edge is
-horizontal while also cropping the boundaries. This tool requires
-installing the ImageMagick software. See :numref:`historical_helper`
-for more details.
+ASP provides a simple Python tool called ``historical_helper.py`` to rotate the
+image so that the top edge is horizontal while also cropping the boundaries.
+This tool requires installing the ImageMagick software. See
+:numref:`historical_helper` for more details.
 
 Pass in the corner coordinates as shown below in the order top-left, top-right,
 bot-right, bot-left (column then row). This is also a good opportunity to
@@ -150,10 +147,10 @@ The SRTM DEM must be adjusted to be relative to the WGS84 datum, as discussed in
 Creating camera files
 ~~~~~~~~~~~~~~~~~~~~~
 
-ASP provides the tool named ``cam_gen`` that, based on a camera's
-intrinsics and the positions of the image corners on Earth's surface
-will create initial camera models that will be the starting point for
-aligning the cameras.
+ASP provides the tool named ``cam_gen`` (:numref:`cam_gen`) that, based on a
+camera's intrinsics and the positions of the image corners on Earth's surface
+will create initial camera models that will be the starting point for aligning
+the cameras.
 
 To create optical bar camera models, an example camera model file is
 needed. This needs to contain all of the expected values for the camera,
@@ -500,8 +497,8 @@ to convert the optical center to units of meters, which means
 multiplying the pixel coordinates by the pitch to get units of meters.
 
 Using the image corner coordinates which we recorded earlier, use the
-``cam_gen`` tool to generate camera models for each image, being careful
-of the order of coordinates.
+``cam_gen`` tool (:numref:`cam_gen`) to generate camera models for each image,
+being careful of the order of coordinates.
 
 ::
 

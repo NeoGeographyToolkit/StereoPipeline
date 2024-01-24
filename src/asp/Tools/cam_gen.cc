@@ -18,6 +18,16 @@
 // Create a pinhole or optical bar camera model based on intrinsics, image corner
 // coordinates, and, optionally, a DEM of the area.
 
+#include <asp/Core/Common.h>
+#include <asp/Core/Macros.h>
+#include <asp/Core/FileUtils.h>
+#include <asp/Core/PointUtils.h>
+#include <asp/Core/EigenUtils.h>
+#include <asp/Camera/CameraResectioning.h>
+#include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Camera/CsmModel.h>
+
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Camera/PinholeModel.h>
@@ -29,17 +39,6 @@
 #include <vw/Math/Geometry.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Camera/OpticalBarModel.h>
-#include <asp/Core/Common.h>
-#include <asp/Core/Macros.h>
-#include <asp/Core/FileUtils.h>
-#include <asp/Core/PointUtils.h>
-#include <asp/Core/EigenUtils.h>
-#include <asp/Camera/CameraResectioning.h>
-#include <asp/Sessions/StereoSession.h>
-#include <asp/Sessions/StereoSessionFactory.h>
-
-#include <limits>
-#include <cstring>
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -48,6 +47,9 @@
 
 // For parsing .json files
 #include <nlohmann/json.hpp>
+
+#include <limits>
+#include <cstring>
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
@@ -127,16 +129,16 @@ public:
 
 /// Find the best camera that fits the current GCP
 void fit_camera_to_xyz_ht(bool parse_ecef,
-			  Vector3 const& parsed_camera_center, // may not be known
+                          Vector3 const& parsed_camera_center, // may not be known
                           Vector3 const& input_camera_center, // may not be known
-			  std::string const& camera_type,
-			  bool refine_camera, 
-			  std::vector<Vector3> const& xyz_vec,
-			  std::vector<double> const& pixel_values,
-			  double cam_height, double cam_weight, double cam_ctr_weight,
-			  vw::cartography::Datum const& datum,
-			  bool verbose,
-			  boost::shared_ptr<CameraModel> & out_cam){
+                          std::string const& camera_type,
+                          bool refine_camera, 
+                          std::vector<Vector3> const& xyz_vec,
+                          std::vector<double> const& pixel_values,
+                          double cam_height, double cam_weight, double cam_ctr_weight,
+                          vw::cartography::Datum const& datum,
+                          bool verbose,
+                          boost::shared_ptr<CameraModel> & out_cam){
 
   // Create fake points in space at given distance from this camera's
   // center and corresponding actual points on the ground.  Use 500
@@ -265,12 +267,12 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
       vw_out() << "The error between the projection of each ground "
 	       << "corner point into the refined camera and its pixel value:\n";
       for (size_t corner_it = 0; corner_it < num_pts; corner_it++) {
-	vw_out () << "Corner and error: ("
-		  << pixel_values[2*corner_it] << ' ' << pixel_values[2*corner_it+1]
-		  << ") " <<  norm_2(out_cam.get()->point_to_pixel(xyz_vec[corner_it]) -
-				     Vector2( pixel_values[2*corner_it],
-					      pixel_values[2*corner_it+1]))
-		  << std::endl;
+	      vw_out () << "Corner and error: ("
+		              << pixel_values[2*corner_it] << ' ' << pixel_values[2*corner_it+1]
+		              << ") " 
+                  <<  norm_2(out_cam.get()->point_to_pixel(xyz_vec[corner_it]) -
+                             Vector2(pixel_values[2*corner_it], pixel_values[2*corner_it+1]))
+                  << std::endl;
       }
     }
     
@@ -315,7 +317,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("");
   general_options.add_options()
-    ("output-camera-file,o", po::value(&opt.camera_file), "Specify the output camera file with a .tsai extension.")
+    ("output-camera-file,o", po::value(&opt.camera_file), "Specify the output camera file with a .tsai or .json extension.")
     ("camera-type", po::value(&opt.camera_type)->default_value("pinhole"), "Specify the camera type. Options are: pinhole (default) and opticalbar.")
     ("lon-lat-values", po::value(&opt.lon_lat_values_str)->default_value(""),
     "A (quoted) string listing numbers, separated by commas or spaces, "
@@ -402,9 +404,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << usage << general_options );
 
   std::string ext = get_extension(opt.camera_file);
-  if (ext != ".tsai") 
-    vw_throw( ArgumentErr() << "The output camera file must end with .tsai.\n"
-              << usage << general_options );
+  if (ext != ".tsai" && ext != ".json") 
+    vw_throw(ArgumentErr() << "The output camera file must end with .tsai or .json.\n");
+
+  if (opt.camera_type == "opticalbar" && ext != ".tsai")
+    vw_throw(ArgumentErr() << "An output optical bar camera must be in .tsai format.\n");
 
   opt.input_pinhole = boost::algorithm::ends_with(opt.input_camera, "_pinhole.json");
   
@@ -424,7 +428,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.cam_weight > 0 && opt.cam_ctr_weight > 0)
     vw::vw_throw(vw::ArgumentErr() << "Cannot enforce the camera center constraint and camera height constraint at the same time.\n");
-
+  
+  // TODO(oalexan1): Break up this big loop
   if (!opt.input_pinhole && opt.frame_index != "") {
     // Parse the frame index to extract opt.lon_lat_values_str.
     // Look for a line having this image, and search for "POLYGON" followed by spaces and "((".
@@ -454,66 +459,66 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
         if (end_pos == std::string::npos)
           vw_throw( ArgumentErr() << "Cannot find " << end << " in line: " << line << ".\n");
         opt.lon_lat_values_str = line.substr(beg_pos, end_pos - beg_pos);
-        vw_out() << "Parsed the lon-lat corner values: " << opt.lon_lat_values_str
-		 << std::endl;
+        vw_out() << "Parsed the lon-lat corner values: " 
+                 << opt.lon_lat_values_str << std::endl;
 
-	if (opt.parse_eci && opt.parse_ecef)
-	  vw_throw( ArgumentErr() << "Cannot parse both ECI end ECEF at the same time.\n");
-	
-	// Also parse the camera height constraint, unless manually specified
-	if (opt.cam_weight > 0 || opt.parse_eci || opt.parse_ecef) {
-	  std::vector<std::string> vals;
-	  parse_values<std::string>(line, vals);
-	  
-	  if (vals.size() < 12) 
-	    vw_throw( ArgumentErr() << "Could not parse 12 values from: " << line << ".\n");
+        if (opt.parse_eci && opt.parse_ecef)
+          vw_throw( ArgumentErr() << "Cannot parse both ECI end ECEF at the same time.\n");
 
-	  // Extract the ECI or ECEF coordinates of camera
-	  // center. Keep them as string until we can convert to
-	  // height above datum.
-	  
-	  if (opt.parse_eci) {
-	    std::string x = vals[5];
-	    std::string y = vals[6];
-	    std::string z = vals[7];
-	    opt.parsed_cam_ctr_str = x + " " + y + " " + z;
-	    vw_out() << "Parsed the ECI camera center in km: "
-		     << opt.parsed_cam_ctr_str <<".\n";
-	    
-	    std::string q0 = vals[8];
-	    std::string q1 = vals[9];
-	    std::string q2 = vals[10];
-	    std::string q3 = vals[11];
-	    opt.parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
-	    vw_out() << "Parsed the ECI quaternion: "
-		     << opt.parsed_cam_quat_str <<".\n";
-	  }
-	  
-	  if (opt.parse_ecef) {
-	    if (vals.size() < 19) 
-	      vw_throw( ArgumentErr() << "Could not parse 19 values from: " << line << ".\n");
-	    
-	    std::string x = vals[12];
-	    std::string y = vals[13];
-	    std::string z = vals[14];
-	    opt.parsed_cam_ctr_str = x + " " + y + " " + z;
-	    vw_out() << "Parsed the ECEF camera center in km: "
-		     << opt.parsed_cam_ctr_str <<".\n";
-	    
-	    std::string q0 = vals[15];
-	    std::string q1 = vals[16];
-	    std::string q2 = vals[17];
-	    std::string q3 = vals[18];
-	    opt.parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
-	    vw_out() << "Parsed the ECEF quaternion: "
-		     << opt.parsed_cam_quat_str <<".\n";
-	  }
-	  
-	}
-	
+        // Also parse the camera height constraint, unless manually specified
+        if (opt.cam_weight > 0 || opt.parse_eci || opt.parse_ecef) {
+          std::vector<std::string> vals;
+          parse_values<std::string>(line, vals);
+          
+          if (vals.size() < 12) 
+            vw_throw( ArgumentErr() << "Could not parse 12 values from: " << line << ".\n");
+
+          // Extract the ECI or ECEF coordinates of camera
+          // center. Keep them as string until we can convert to
+          // height above datum.
+          
+          if (opt.parse_eci) {
+            std::string x = vals[5];
+            std::string y = vals[6];
+            std::string z = vals[7];
+            opt.parsed_cam_ctr_str = x + " " + y + " " + z;
+            vw_out() << "Parsed the ECI camera center in km: "
+                << opt.parsed_cam_ctr_str <<".\n";
+            
+            std::string q0 = vals[8];
+            std::string q1 = vals[9];
+            std::string q2 = vals[10];
+            std::string q3 = vals[11];
+            opt.parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
+            vw_out() << "Parsed the ECI quaternion: "
+                << opt.parsed_cam_quat_str <<".\n";
+          }
+          
+          if (opt.parse_ecef) {
+            if (vals.size() < 19) 
+              vw_throw( ArgumentErr() << "Could not parse 19 values from: " << line << ".\n");
+            
+            std::string x = vals[12];
+            std::string y = vals[13];
+            std::string z = vals[14];
+            opt.parsed_cam_ctr_str = x + " " + y + " " + z;
+            vw_out() << "Parsed the ECEF camera center in km: "
+                << opt.parsed_cam_ctr_str <<".\n";
+            
+            std::string q0 = vals[15];
+            std::string q1 = vals[16];
+            std::string q2 = vals[17];
+            std::string q3 = vals[18];
+            opt.parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
+            vw_out() << "Parsed the ECEF quaternion: "
+                << opt.parsed_cam_quat_str <<".\n";
+          }
+        } // End parsing camera height constraint
+        
         break;
-      }
-    }
+      } // end of if we found the image name in the line
+    } // end of loop through lines in frame index file
+    
     if (opt.lon_lat_values_str == "")
       vw_throw( ArgumentErr() << "Could not parse the entry for " << image_base
                 << " in file: " << opt.frame_index << ".\n");
@@ -539,10 +544,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     if (opt.input_camera != "") {
       double b = 0.25, e = 0.75;
       double arr[] = {b*wid, b*hgt, e*wid, b*hgt, e*wid, e*hgt, b*wid, e*hgt};
-      for (size_t it  = 0; it < sizeof(arr)/sizeof(double); it++) 
-	opt.pixel_values.push_back(arr[it]);
+      for (size_t it  = 0; it < sizeof(arr)/sizeof(double); it++)
+        opt.pixel_values.push_back(arr[it]);
     }
-    
   }
     
   // Parse the lon-lat values
@@ -608,279 +612,12 @@ void manufacture_cam(Options const& opt, int wid, int hgt,
   }
 }
 
-// TODO: Wipe this logic and use RayDEMIntersectionLMA from VW.
-// That one is also terrible code which needs to be replaced with a
-// proper root-finding algorithm
-// and use it. And this code should be moved to VW.
-// https://github.com/NeoGeographyToolkit/StereoPipeline/issues/267
-namespace vw {
-  namespace cartography {
-
-  // Define an LMA model to solve for a DEM intersecting a ray. The
-  // variable of optimization is position on the ray. The cost
-  // function is difference between datum height and DEM height at
-  // current point on the ray.
-  template <class DEMImageT>
-  class RayDEMIntersectionLMA2 : public math::LeastSquaresModelBase<RayDEMIntersectionLMA2<DEMImageT>> {
-
-    // TODO: Why does this use EdgeExtension if Helper() restricts access to the bounds?
-    InterpolationView<EdgeExtensionView<DEMImageT, ConstantEdgeExtension>,
-                      BilinearInterpolation> m_dem;
-    GeoReference const& m_georef; // alias
-    Vector3      m_camera_ctr;
-    Vector3      m_camera_vec;
-    bool         m_treat_nodata_as_zero;
-
-    /// Provide safe interaction with DEMs that are scalar
-    /// - If m_dem(x,y) is in bounds, return the interpolated value.
-    /// - Otherwise return 0 or big_val()
-    template <class PixelT>
-    typename boost::enable_if< IsScalar<PixelT>, double >::type
-    inline Helper( double x, double y ) const {
-      if ( (0 <= x) && (x <= m_dem.cols() - 1) && // for interpolation
-           (0 <= y) && (y <= m_dem.rows() - 1)) {
-        PixelT val = m_dem(x, y);
-        if (is_valid(val)) return val;
-      }
-      if (m_treat_nodata_as_zero) return 0;
-      return big_val();
-    }
-
-    /// Provide safe interaction with DEMs that are compound
-    template <class PixelT>
-    typename boost::enable_if< IsCompound<PixelT>, double>::type
-    inline Helper( double x, double y ) const {
-      if ( (0 <= x) && (x <= m_dem.cols() - 1) && // for interpolation
-           (0 <= y) && (y <= m_dem.rows() - 1) ){
-        PixelT val = m_dem(x, y);
-        if (is_valid(val)) return val[0];
-      }
-      if (m_treat_nodata_as_zero) return 0;
-      return big_val();
-    }
-
-  public:
-    typedef Vector<double, 1> result_type;
-    typedef Vector<double, 1> domain_type;
-    typedef Matrix<double>    jacobian_type; ///< Jacobian form. Auto.
-
-    /// Return a very large error to penalize locations that fall off the edge of the DEM.
-    inline double big_val() const {
-      // Don't make this too big as in the LMA algorithm it may get squared and may cause overflow.
-      return 1.0e+50;
-    }
-
-    /// Constructor
-    RayDEMIntersectionLMA2(ImageViewBase<DEMImageT> const& dem_image,
-                           GeoReference const& georef,
-                           Vector3 const& camera_ctr,
-                           Vector3 const& camera_vec,
-                           bool treat_nodata_as_zero):
-      m_dem(interpolate(dem_image)), m_georef(georef),
-      m_camera_ctr(camera_ctr), m_camera_vec(camera_vec),
-      m_treat_nodata_as_zero(treat_nodata_as_zero) {}
-
-    /// Evaluator. See description above.
-    inline result_type operator()( domain_type const& len ) const {
-      // The proposed intersection point
-      Vector3 xyz = m_camera_ctr + len[0]*m_camera_vec;
-
-      // Convert to geodetic coordinates, then to DEM pixel coordinates
-      Vector3 llh = m_georef.datum().cartesian_to_geodetic( xyz );
-      Vector2 pix = m_georef.lonlat_to_pixel( Vector2( llh.x(), llh.y() ) );
-      
-      // Return a measure of the elevation difference between the DEM and the guess
-      // at its current location.
-      result_type result;
-      result[0] = Helper<typename DEMImageT::pixel_type >(pix.x(),pix.y()) - llh[2];
-      return result;
-    }
-  };
-
-    
-  // Intersect the ray going from the given camera pixel with a DEM.
-  // The return value is a Cartesian point. If the ray goes through a
-  // hole in the DEM where there is no data, we return no-intersection
-  // or intersection with the datum, depending on whether the variable
-  // treat_nodata_as_zero is false or true.
-  template <class DEMImageT>
-  Vector3 camera_pixel_to_dem_xyz2(Vector3 const& camera_ctr, Vector3 const& camera_vec,
-                                  ImageViewBase<DEMImageT> const& dem_image,
-                                  GeoReference const& georef,
-                                  bool treat_nodata_as_zero,
-                                  bool & has_intersection,
-                                  double height_error_tol = 1e-1,  // error in DEM height
-                                  double max_abs_tol      = 1e-14, // abs cost fun change b/w iters
-                                  double max_rel_tol      = 1e-14,
-                                  int num_max_iter        = 100,
-                                  Vector3 xyz_guess       = Vector3()){
-
-    // This is a very fragile function and things can easily go wrong. 
-    try {
-      has_intersection = false;
-      RayDEMIntersectionLMA2<DEMImageT> model(dem_image, georef, camera_ctr,
-                                             camera_vec, treat_nodata_as_zero);
-
-      Vector3 xyz;
-      if ( xyz_guess == Vector3() ){ // If no guess provided
-        // Intersect the ray with the datum, this is a good initial guess.
-        xyz = datum_intersection(georef.datum(), camera_ctr, camera_vec);
-
-        if ( xyz == Vector3() ) { // If we failed to intersect the datum, give up!
-          has_intersection = false;
-          return Vector3();
-        }
-      }else{ // User provided guess
-        xyz = xyz_guess;
-      }
-
-      // Length along the ray from camera center to datum intersection point
-      Vector<double, 1> base_len, len;
-      double smallest_error_pos = std::numeric_limits<double>::max();
-      double best_len_pos = std::numeric_limits<double>::max();
-      double smallest_error_neg = std::numeric_limits<double>::max();
-      double best_len_neg = std::numeric_limits<double>::max();
-      bool success_pos = false, success_neg = false;
-      
-      // If the ray intersects the datum at a point which does not
-      // correspond to a valid location in the DEM, wiggle that point
-      // along the ray until hopefully it does. Store the value that
-      // is closest to where that ray will intersect the DEM. Once
-      // that value is located, it is helpful to repeat this logic one
-      // more time, this time around the best guess found so far.
-      // Hence two outer passes. The value xyz is updated at each
-      // pass. The idea here is that the closer one gets to the true
-      // solution, the likelier the LM solver will converge.
-      for (int outer_pass = 0; outer_pass <= 0; outer_pass++){
-	
-	base_len[0] = norm_2(xyz - camera_ctr);
-      
-	const double radius     = norm_2(xyz); // Radius from XYZ coordinate center
-	const int    ITER_LIMIT = 10; // There are two solver attempts per iteration
-	const double small      = radius*0.02/( 1 << (ITER_LIMIT-1) ); // Wiggle
-	for (int i = 0; i <= ITER_LIMIT; i++){
-	  // Gradually expand delta until on final iteration it is == radius*0.02
-	  double delta = 0;
-	  if (i > 0)
-	    delta = small*( 1 << (i-1) );
-
-	  for (int k = -1; k <= 1; k += 2){ // For k==-1, k==1
-	    len[0] = base_len[0] + k*delta; // Ray guess length +/- 2% planetary radius
-	    // Use our model to compute the height diff at this length
-
-	    Vector<double, 1> height_diff = model(len);
-	  
-	    if ( std::abs(height_diff[0]) < (model.big_val()/10.0) ){
-	      has_intersection = true;
-	    }else{
-	      continue;
-	    }
-	    //if (i == 0) break; // When k*delta==0, no reason to do both + and -!
-
-	    if (height_diff[0] < 0 && std::abs(height_diff[0]) < smallest_error_neg){
-	      
-	      smallest_error_neg = std::abs(height_diff[0]);
-	      best_len_neg = len[0];
-	      xyz = camera_ctr + best_len_neg*camera_vec; // broken!!!
-	      success_neg = true;
-	    }else{
-	    }
-
-	    if (height_diff[0] >=0 && std::abs(height_diff[0]) < smallest_error_pos){
-	      
-	      smallest_error_pos = std::abs(height_diff[0]);
-	      best_len_pos = len[0];
-	      success_pos = true;
-	      xyz = camera_ctr + best_len_pos*camera_vec; // broken!!!
-	    }else{
-	    }
-
-	    
-	  } // End k loop
-	  if (has_intersection) {
-	    // break;
-	  }
-	} // End i loop
-      
-	// Failed to compute an intersection in the hard coded iteration limit!
-	if ( !has_intersection ) {
-	  return Vector3();
-	}
-      }
-
-      // Refining the intersection using Levenberg-Marquardt
-      // - This will actually use the L-M solver to play around with the len
-      //   value to minimize the height difference from the DEM.
-      int status = 0;
-      Vector<double, 1> observation;
-      observation[0] = 0;
-      Vector<double, 1> dem_height_neg;
-      dem_height_neg[0] = std::numeric_limits<double>::max();
-      Vector<double, 1> final_len_neg;
-      if (success_neg) {
-	len[0] = best_len_neg;
-	final_len_neg = math::levenberg_marquardt(model, len, observation, status,
-                                      max_abs_tol, max_rel_tol,
-						  num_max_iter);
-	dem_height_neg = model(final_len_neg);
-	
-	if (status < 0) 
-	  success_neg = false;
-      }
-      
-
-      status = 0;
-      observation[0] = 0;
-      len[0] = best_len_pos;
-      Vector<double, 1> final_len_pos;
-      Vector<double, 1> dem_height_pos;
-      dem_height_pos[0] = std::numeric_limits<double>::max();
-      if (success_pos) {
-	final_len_pos = math::levenberg_marquardt(model, len, observation, status,
-				    max_abs_tol, max_rel_tol,
-				    num_max_iter
-				    );
-	dem_height_pos = model(final_len_pos);
-	if (status < 0) 
-	  success_pos = false;
-      }
-
-      Vector<double, 1> dem_height;
-      if (success_pos && std::abs(dem_height_pos[0]) <= std::abs(dem_height_neg[0])) {
-	dem_height = dem_height_pos;
-	len = final_len_pos;
-      }else if (success_neg && std::abs(dem_height_neg[0]) <= std::abs(dem_height_pos[0])){
-	dem_height = dem_height_neg;
-	len = final_len_neg;
-      }
-      
-      vw_out() << "Height error: " << dem_height << std::endl;
-      
-      if (!success_pos && !success_neg) 
-	status = -1;
-      
-      if ( (status < 0) || (std::abs(dem_height[0]) > height_error_tol) ){
-        has_intersection = false;
-        return Vector3();
-      }
-
-      has_intersection = true;
-      xyz = camera_ctr + len[0]*camera_vec;
-      return xyz;
-    }catch(...){
-      has_intersection = false;
-    }
-    return Vector3();
-  }
-
-}
-}
-
 // Trace rays from pixel corners to DEM to see where they intersect the DEM
 void extract_lon_lat_cam_ctr_from_camera(Options & opt,
                                          ImageViewRef<PixelMask<float>> const& interp_dem,
-				 GeoReference const& geo,
-                                 std::vector<double> & cam_heights, vw::Vector3 & cam_ctr) {
+                                         GeoReference const& geo,
+                                         std::vector<double> & cam_heights,
+                                         vw::Vector3 & cam_ctr) {
 
   cam_heights.clear();
   cam_ctr = Vector3(0, 0, 0);
@@ -927,12 +664,13 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
     int num_max_iter        = 1000;
     Vector3 xyz_guess       = Vector3();
 
-    Vector3 xyz = camera_pixel_to_dem_xyz2(camera_ctr, camera_vec,  
+    Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz(camera_ctr, camera_vec,  
                                            interp_dem, geo, treat_nodata_as_zero,
-					   has_intersection, height_error_tol,
-					   max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+                                           has_intersection, height_error_tol,
+                                           max_abs_tol, max_rel_tol, num_max_iter, 
+                                           xyz_guess);
     
-    if (xyz == Vector3() || !has_intersection){
+    if (xyz == Vector3() || !has_intersection) {
       vw_out() << "Could not intersect the DEM with a ray coming "
 	       << "from the camera at pixel: " << pix << ". Skipping it.\n";
       continue;
@@ -1084,7 +822,7 @@ void form_pinhole_camera(Options & opt, vw::cartography::Datum & datum,
 
   Vector3 input_cam_ctr(0, 0, 0); // estimated camera center from input camera
   std::vector<double> cam_heights;
-  if (opt.input_camera != ""){
+  if (opt.input_camera != "") {
     // Extract lon and lat from tracing rays from the camera to the ground.
     // This can modify opt.pixel_values. Also calc the camera center.
     extract_lon_lat_cam_ctr_from_camera(opt, create_mask(dem, nodata_value), geo, cam_heights,
@@ -1265,10 +1003,22 @@ int main(int argc, char * argv[]){
     vw::Vector3 llh = datum.cartesian_to_geodetic(out_cam->camera_center(Vector2()));
     vw_out() << "Output camera center lon, lat, and height above datum: " << llh << std::endl;
     vw_out() << "Writing: " << opt.camera_file << std::endl;
-    if (opt.camera_type == "opticalbar")
+    if (opt.camera_type == "opticalbar") {
       ((vw::camera::OpticalBarModel*)out_cam.get())->write(opt.camera_file);
-    else 
-      ((vw::camera::PinholeModel*)out_cam.get())->write(opt.camera_file);
+    } else {
+      std::string ext = get_extension(opt.camera_file);
+      vw::camera::PinholeModel* pin = (vw::camera::PinholeModel*)out_cam.get();
+      if (ext == ".tsai") {
+        pin->write(opt.camera_file);
+      } else {
+        DiskImageView<float> img(opt.image_file);
+        int width = img.cols(), height = img.rows();
+        asp::CsmModel csm;
+        csm.createFrameModel(*pin, width, height, datum.semi_major_axis(),
+                             datum.semi_minor_axis());
+        csm.saveState(opt.camera_file);
+      }
+    }
     
   } ASP_STANDARD_CATCHES;
   

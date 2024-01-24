@@ -126,6 +126,9 @@ isis (:numref:`moc_tutorial`):
     faster by using the secant method to find the best sensor line.
   * Expanded the ``jigsaw`` documentation (:numref:`jigsaw`). This is the 
     ISIS bundle adjustment tool. 
+
+cam_gen (:numref:`cam_gen`):
+   * Can create frame cameras in CSM format.
      
 misc:
   * Upgraded to GDAL 3.8.0, PROJ 9.3.0, Boost 1.82.0.

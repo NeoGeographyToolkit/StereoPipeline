@@ -6,18 +6,17 @@ cam_test
 This tool compares two camera models for the same image, or a camera
 model against itself. It finds the camera center and ray direction at a
 set of sampled pixels for both cameras and checks how they
-differ. Then, it projects pixels to the ground using the first camera
+differ. Then, it projects pixels to the datum using the first camera
 and back-projects the resulting ECEF points into the second camera, and
 estimates the pixel discrepancy.
 
 It prints the average time (in milliseconds) for the operation of
 projecting from the camera to the ground and back.
 
-See :numref:`examples` for the camera types used below (ISIS, CSM, RPC,
-PeruSat-1, ASTER, etc).
-
 Examples
 ~~~~~~~~
+
+See :numref:`examples` for information on the camera types used below.
 
 Compare a CSM camera model against itself::
 
@@ -60,9 +59,6 @@ functions are inverse of each other, up to a certain tolerance.
     cam_test --image input.json --cam1 input.json --cam2 input.json \
       --session1 csm --session2 csm --sample-rate 100               \
       --subpixel-offset 0.3
-
-In the following two examples we evaluate using CSM for the DigitalGlobe
-linescan camera implementation.
 
 Compare the existing ASTER camera implementation to the new one
 that uses the CSM camera model::

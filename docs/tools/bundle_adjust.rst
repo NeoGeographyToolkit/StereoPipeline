@@ -623,8 +623,8 @@ adjustment has the zero translation and identity rotation (quaternion
 
 .. _ba_options:
 
-Command-line options for bundle_adjust
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
 -h, --help
     Display the help message.

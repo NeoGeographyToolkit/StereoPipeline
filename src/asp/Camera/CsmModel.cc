@@ -20,6 +20,8 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/CsmModel.h>
 
+#include <vw/Camera/PinholeModel.h>
+
 #include <boost/dll.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/filesystem.hpp>
@@ -837,8 +839,10 @@ std::string CsmModel::model_state() const {
         double cx, double cy, // col and row optical center, in pixels
         double focal_length,  // in pixels
         double semi_major_axis, double semi_minor_axis, // in meters
-        vw::Vector3 C, // camera center
-        vw::Matrix3x3 R) { // camera to world rotation matrix
+        vw::Vector3 const& C, // camera center
+        vw::Matrix3x3 const& R, // camera to world rotation matrix
+        std::string const& distortionType, // empty or "radtan"
+        std::vector<double> const& distortion) {
 
   // Make a copy of R as an Eigen matrix, and convert to quaternion
   Eigen::Matrix3d R_copy;
@@ -869,7 +873,24 @@ std::string CsmModel::model_state() const {
   j["m_pixelPitch"] = 1.0; // pixel pitch is set to 1.0
   j["m_nLines"] = rows;
   j["m_nSamples"] = cols;
-  j["m_distortionType"] = 0;
+  
+  if (distortionType.empty()) {
+    j["m_distortionType"] = DistortionType::RADIAL;
+    // 20 zero coeffs are set in the constructor
+  } else if (distortionType == "radtan") {
+  
+    if (distortion.size() != 5)
+      vw::vw_throw(ArgumentErr() 
+                   << "Distortion coefficients for the radtan distortion "
+                   << "model must be of size 5, in the order k1, k2, p1, p2, k3. "
+                   << "Got the size: " << distortion.size() << "\n");
+      
+    j["m_distortionType"] = DistortionType::RADTAN;
+    j["m_opticalDistCoeffs"] = distortion;
+    
+  } else {
+    vw_throw(ArgumentErr() << "Unknown distortion type: " << distortionType << ".\n");
+  }
 
   // Need to apply this offset to make CSM agree with ASP's Pinhole
   j["m_startingDetectorLine"] = -0.5;
@@ -888,6 +909,27 @@ std::string CsmModel::model_state() const {
   state = cam.getModelName() + "\n" + j.dump(2);
   bool recreate_model = true;
   setModelFromStateString(state, recreate_model);
+}
+
+// Create a CSM frame camera model from pinhole camera model.
+void CsmModel::createFrameModel(vw::camera::PinholeModel const& pin_model,
+                                int cols, int rows,  // in pixels
+                                double semi_major_axis, double semi_minor_axis, // in meters
+                                std::string const& distortionType, 
+                                std::vector<double> const& distortion) {
+
+  double pitch = pin_model.pixel_pitch();
+  vw::Vector2 focal_length = pin_model.focal_length() / pitch;
+  vw::Vector2 opt_ctr = pin_model.point_offset() / pitch;
+  
+  // Find the average focal length
+  double f = (focal_length[0] + focal_length[1])/2.0;
+   
+  this->createFrameModel(cols, rows, opt_ctr[0], opt_ctr[1], f, 
+                         semi_major_axis, semi_minor_axis,
+                         pin_model.camera_center(), 
+                         pin_model.get_rotation_matrix(),
+                         distortionType, distortion);
 }
 
 // Must have some macros here to avoid a lot of boilerplate code
