@@ -1165,15 +1165,6 @@ bool asp::projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
                                  vw::cartography::GeoReference const& georef,
                                  vw::cartography::GeoReference const& dem_georef) {
 
-  // We assume unadjusted cameras and mapprojected images with no adjustment.
-  // Otherwise it is tricky to keep these in sync.
-  vw::camera::AdjustedCameraModel *acam
-    = dynamic_cast<vw::camera::AdjustedCameraModel*>(camera_model.get());
-  if (acam != NULL)
-    vw::vw_throw(ArgumentErr() 
-             << "Expecting unadjusted cameras when undoing mapprojection "
-             << "of interest points.\n" );
-  
   // Get IP coordinate in the DEM
   Vector2 pix(P.x, P.y);
   Vector2 ll      = georef.pixel_to_lonlat(pix);

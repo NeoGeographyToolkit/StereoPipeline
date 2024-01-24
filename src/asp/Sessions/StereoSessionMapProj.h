@@ -202,7 +202,7 @@ namespace asp {
   /// Specialization of the StereoSessionGDAL class to use RPC
   /// map-projected inputs with the CSM sensor model. The 
   /// loading of the camera model used to undo the mapprojection
-  /// happens in init_disk_transform().
+  /// happens in read_mapproj_cams().
   class StereoSessionCsmMapRpc : public StereoSessionMapProj{
   public:
     StereoSessionCsmMapRpc() {}

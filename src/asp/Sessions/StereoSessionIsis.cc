@@ -547,7 +547,7 @@ void StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
 /// During alignment, we'd like to use the most accurate
 /// non-spherical datum, hence radii[2]. However, for the purpose
 /// of creating a DEM on non-Earth planets people usually just use
-/// a spherrical datum, which we'll do as well.  Maybe at some
+/// a spherical datum, which we'll do as well.  Maybe at some
 /// point this needs to change.
 vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraModel* cam,
                                                     bool use_sphere_for_non_earth) const {
@@ -565,7 +565,13 @@ StereoSessionIsis::load_camera_model(std::string const& image_file,
                                      std::string const& camera_file, 
                                      std::string const& ba_prefix, 
                                      Vector2 pixel_offset) const {
-  return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),
+
+  // If the camera file is empty, then we assume the image file has the camera.
+  std::string l_cam = camera_file;
+  if (l_cam.empty()) 
+    l_cam = image_file;
+
+  return load_adjusted_model(m_camera_loader.load_isis_camera_model(l_cam),
                             image_file, camera_file, ba_prefix, pixel_offset);
 }
 

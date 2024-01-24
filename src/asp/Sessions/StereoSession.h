@@ -198,6 +198,13 @@ namespace asp {
     // in stereo_tri
     void align_bathy_masks(vw::GdalWriteOptions const& options);
     
+     // Read cameras used in mapprojection
+     void read_mapproj_cams(std::string const& left_image_file,
+                            std::string const& right_image_file,
+                            std::string const& input_dem,
+                            vw::CamPtr & left_map_proj_cam, 
+                            vw::CamPtr & right_map_proj_cam);
+
   protected: // Variables
 
     vw::GdalWriteOptions m_options;
@@ -211,11 +218,6 @@ namespace asp {
     /// Storage for the camera models used to map project the input images.
     /// - Not used in non map-projected sessions.
     boost::shared_ptr<vw::camera::CameraModel> m_left_map_proj_model, m_right_map_proj_model;
-
-  private:
-
-    /// Handles init required for map projected session types.
-    void init_disk_transform();
 
   protected:
 

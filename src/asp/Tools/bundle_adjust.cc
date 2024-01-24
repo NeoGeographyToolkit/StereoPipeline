@@ -2170,7 +2170,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("aster-use-csm", po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with ASTER cameras (-t aster).")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
-     "Given map-projected versions of the input images (without bundle adjustment) "
+     "Given map-projected versions of the input images "
      "and the DEM they were mapprojected onto, create interest point matches between "
      "the mapprojected images, unproject and save those matches, then continue "
      "with bundle adjustment. Existing match files will be reused. Specify the "
@@ -2824,6 +2824,7 @@ void ba_match_ip(Options & opt, SessionPtr session,
 void matches_from_mapproj_images(int i, int j,
                                  Options& opt, SessionPtr session,
                                  std::vector<std::string> const& map_files,
+                                 std::string mapproj_dem, 
                                  vw::cartography::GeoReference const& dem_georef,
                                  ImageViewRef<PixelMask<double>> & interp_dem,
                                  std::string const& match_filename){
@@ -2836,23 +2837,6 @@ void matches_from_mapproj_images(int i, int j,
     vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
   }
 
-  // Matches from mapprojected images assume images were mapprojected
-  // without bundle adjustment. 
-  {
-     boost::shared_ptr<vw::DiskImageResource>
-        l_rsrc(new vw::DiskImageResourceGDAL(map_files[i]));
-     boost::shared_ptr<vw::DiskImageResource>
-        r_rsrc(new vw::DiskImageResourceGDAL(map_files[j]));
-    std::string adj_key = "BUNDLE_ADJUST_PREFIX";
-    std::string l_adj_prefix, r_adj_prefix;
-    vw::cartography::read_header_string(*l_rsrc.get(), adj_key, l_adj_prefix); 
-    vw::cartography::read_header_string(*r_rsrc.get(), adj_key, r_adj_prefix);
-    if ((l_adj_prefix != "" && l_adj_prefix != "NONE") ||
-        (r_adj_prefix != "" && r_adj_prefix != "NONE"))
-      vw_throw(ArgumentErr() << "Cannot find matches from mapprojected images "
-               << "if these were created with bundle-adjusted cameras.\n");
-  }  
-  
   std::string image1_path  = opt.image_files[i];
   std::string image2_path  = opt.image_files[j];
   if (boost::filesystem::exists(match_filename)) {
@@ -2892,12 +2876,18 @@ void matches_from_mapproj_images(int i, int j,
   ip::read_binary_match_file(map_match_file, ip1, ip2);
   
   // Undo the map-projection
+  vw::CamPtr left_map_proj_cam, right_map_proj_cam;
+  session->read_mapproj_cams(map_files[i], map_files[j], mapproj_dem,
+                              left_map_proj_cam, right_map_proj_cam);
+  
   for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
     vw::ip::InterestPoint P1 = ip1[ip_iter];
     vw::ip::InterestPoint P2 = ip2[ip_iter];
-    if (!asp::projected_ip_to_raw_ip(P1, interp_dem, opt.camera_models[i], georef1, dem_georef))
+    if (!asp::projected_ip_to_raw_ip(P1, interp_dem, left_map_proj_cam, 
+                                     georef1, dem_georef))
       continue;
-    if (!asp::projected_ip_to_raw_ip(P2, interp_dem, opt.camera_models[j], georef2, dem_georef))
+    if (!asp::projected_ip_to_raw_ip(P2, interp_dem, right_map_proj_cam,
+                                      georef2, dem_georef))
       continue;
     
     ip1_cam.push_back(P1);
@@ -3090,7 +3080,7 @@ void computeStats(Options const& opt, std::vector<std::string> const& map_files,
 
 void findPairwiseMatches(Options & opt, // will change
                          std::vector<std::string> const& map_files,
-                         std::string const& dem_file_for_mapproj,
+                         std::string const& mapproj_dem,
                          std::vector<Vector3> const& estimated_camera_gcc,
                          bool need_no_matches) {
   
@@ -3152,8 +3142,8 @@ void findPairwiseMatches(Options & opt, // will change
     
     vw::cartography::GeoReference dem_georef;
     ImageViewRef<PixelMask<double>> interp_dem;
-    if (dem_file_for_mapproj != "")
-        asp::create_interp_dem(dem_file_for_mapproj, dem_georef, interp_dem);
+    if (mapproj_dem != "")
+        asp::create_interp_dem(mapproj_dem, dem_georef, interp_dem);
     
     // Process the selected pairs
     // TODO(oalexan1): This block must be a function.
@@ -3225,8 +3215,8 @@ void findPairwiseMatches(Options & opt, // will change
                       opt.camera_models[j].get(),
                       match_file);
         else
-          matches_from_mapproj_images(i, j, opt, session, map_files, dem_georef, 
-                                      interp_dem, match_file);
+          matches_from_mapproj_images(i, j, opt, session, map_files, mapproj_dem,
+                                      dem_georef, interp_dem, match_file);
 
         // Compute the coverage fraction
         std::vector<ip::InterestPoint> ip1, ip2;
@@ -3266,14 +3256,13 @@ int main(int argc, char* argv[]) {
                                    opt.camera_models,
                                    opt.horizontal_stddev_vec); // output
     
-
+    // TODO(oalexan1): This must be a function called setup_mapprojected_data()
     // For when we make matches based on mapprojected images. Read mapprojected
     // images and a DEM from either command line or a list.
     std::vector<std::string> map_files;
-    std::string dem_file_for_mapproj;
+    std::string mapproj_dem;
     bool need_no_matches = (opt.apply_initial_transform_only || !opt.isis_cnet.empty());
     if (!need_no_matches) {
-      
       if (!opt.mapprojected_data_list.empty()) {
         asp::read_list(opt.mapprojected_data_list, map_files);
         opt.mapprojected_data = "non-empty"; // put a token value, to make it non-empty
@@ -3283,17 +3272,15 @@ int main(int argc, char* argv[]) {
         while (is >> file)
           map_files.push_back(file); 
       }
-
       if (!opt.mapprojected_data.empty()) {
         if (opt.camera_models.size() + 1 != map_files.size()) 
           vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
                    << "cameras, and also a DEM.\n");
         // Pull out the dem from the list and create the interp_dem
-        dem_file_for_mapproj = map_files.back();
+        mapproj_dem = map_files.back();
         map_files.erase(map_files.end() - 1);
       }
     }
-
     if (!opt.mapprojected_data.empty()) {
       if (!opt.input_prefix.empty() || !opt.initial_transform_file.empty() ||
           need_no_matches)
@@ -3332,7 +3319,7 @@ int main(int argc, char* argv[]) {
     load_estimated_camera_positions(opt, estimated_camera_gcc);
 
     // Find or list matches
-    findPairwiseMatches(opt, map_files, dem_file_for_mapproj,
+    findPairwiseMatches(opt, map_files, mapproj_dem,
                         estimated_camera_gcc, need_no_matches);
     
     if (opt.stop_after_matching) {

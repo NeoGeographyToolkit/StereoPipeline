@@ -67,23 +67,57 @@ namespace asp {
     m_out_prefix        = out_prefix;
     m_input_dem         = input_dem;
     
-    // Do any other initialization steps needed
-    init_disk_transform();
+    // Read the cameras used in mapprojection 
+    if (isMapProjected())
+     read_mapproj_cams(m_left_image_file, m_right_image_file, m_input_dem, 
+                       m_left_map_proj_model, m_right_map_proj_model);
   }
 
   // TODO(oalexan1): The logic below must be a function, to be applied to left and
   // to right data, and also to be used in bundle_adjust to find the right camera
   // when undoing mapprojection.
 
-  // Init the transform that is used to undo the mapprojection. The header
-  // file of the mapprojected images contain a lot of info that we load
-  // along the way, including the bundle adjust prefix that was used
-  // to create these images, which may be different than the one
-  // used later for triangulation.
-  void StereoSession::init_disk_transform() {
+  // Read keywords that describe how the images were map-projected.
+  void read_mapproj_headers(std::string const& map_file, std::string & adj_prefix,
+                            std::string & image_file, std::string & cam_type,
+                            std::string & cam_file, std::string & dem_file) {
 
-    if (!isMapProjected()) // Nothing to do for non map-projected types.
-      return;
+    boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(map_file));
+    std::string adj_key = "BUNDLE_ADJUST_PREFIX", 
+     img_file_key = "INPUT_IMAGE_FILE", cam_type_key = "CAMERA_MODEL_TYPE",
+       cam_file_key = "CAMERA_FILE", dem_file_key = "DEM_FILE"; 
+  
+    vw::cartography::read_header_string(*rsrc.get(), adj_key,      adj_prefix);
+    vw::cartography::read_header_string(*rsrc.get(), img_file_key, image_file);
+    vw::cartography::read_header_string(*rsrc.get(), cam_type_key, cam_type);
+    vw::cartography::read_header_string(*rsrc.get(), cam_file_key, cam_file);
+    vw::cartography::read_header_string(*rsrc.get(), dem_file_key, dem_file);
+    
+    // Throw an error if some fields cannot be found. The camera name can be
+    // empty as it may be embedded in the image file.
+    if (cam_type == "")
+      vw_throw(ArgumentErr() << "Missing field value for: " << cam_type_key 
+               << " in " << map_file << ".\n");
+    if (image_file == "")
+      vw_throw(ArgumentErr() << "Missing field value for: " << img_file_key 
+               << " in " << map_file << ".\n");
+     if (dem_file == "")
+      vw_throw(ArgumentErr() << "Missing field value for: " << dem_file_key 
+               << " in " << map_file << ".\n");
+      
+    if (adj_prefix == "NONE")
+      adj_prefix = "";
+  }
+   
+  // Read the cameras used to undo the mapprojection. The header file of the
+  // mapprojected images contain a lot of info that we load along the way,
+  // including the bundle adjust prefix that was used to create these images,
+  // which may be different than the one used later for triangulation.
+  void StereoSession::read_mapproj_cams(std::string const& left_image_file,
+                                        std::string const& right_image_file,
+                                        std::string const& input_dem, 
+                                        vw::CamPtr & left_map_proj_cam, 
+                                        vw::CamPtr & right_map_proj_cam) {
 
     // Load the name of the camera model, session, and DEM used in mapprojection
     // based on the record in that image. Load the bundle adjust prefix from the
@@ -91,113 +125,57 @@ namespace asp {
     // mapprojection. 
     std::string l_adj_prefix, r_adj_prefix, l_image_file, r_image_file,
     l_cam_type, r_cam_type, l_cam_file, r_cam_file, l_dem_file, r_dem_file;
-
-    {
-      std::string adj_key = "BUNDLE_ADJUST_PREFIX", 
-      img_file_key = "INPUT_IMAGE_FILE", cam_type_key = "CAMERA_MODEL_TYPE",
-        cam_file_key = "CAMERA_FILE", dem_file_key = "DEM_FILE"; 
-      // We only read our own map projections which are written in GDAL format
-      boost::shared_ptr<vw::DiskImageResource>
-        l_rsrc(new vw::DiskImageResourceGDAL(m_left_image_file));
-      boost::shared_ptr<vw::DiskImageResource>
-        r_rsrc(new vw::DiskImageResourceGDAL(m_right_image_file));
-      vw::cartography::read_header_string(*l_rsrc.get(), adj_key,      l_adj_prefix);
-      vw::cartography::read_header_string(*l_rsrc.get(), img_file_key, l_image_file);
-      vw::cartography::read_header_string(*l_rsrc.get(), cam_type_key, l_cam_type);
-      vw::cartography::read_header_string(*l_rsrc.get(), cam_file_key, l_cam_file);
-      vw::cartography::read_header_string(*l_rsrc.get(), dem_file_key, l_dem_file);
-
-      vw::cartography::read_header_string(*r_rsrc.get(), adj_key,      r_adj_prefix);
-      vw::cartography::read_header_string(*r_rsrc.get(), img_file_key, r_image_file);
-      vw::cartography::read_header_string(*r_rsrc.get(), cam_type_key, r_cam_type);
-      vw::cartography::read_header_string(*r_rsrc.get(), cam_file_key, r_cam_file);
-      vw::cartography::read_header_string(*r_rsrc.get(), dem_file_key, r_dem_file);
-    }
-    if (l_adj_prefix == "NONE")
-      l_adj_prefix = "";
-    if (r_adj_prefix == "NONE")
-      r_adj_prefix = "";
-
-    // Sanity checks, throw an error
-    if (l_adj_prefix != r_adj_prefix)
-      vw_throw(ArgumentErr()  << "The left and right mapprojected image bundle adjust "
-        << "prefixes do not match. Got: \" " << l_adj_prefix << "\" and \"" 
-        << r_adj_prefix << "\".\n");
-    if (l_cam_type != r_cam_type)
-      vw_throw(ArgumentErr() << "The left and right mapprojected image camera types "
-        << "do not match. Got: \" " << l_cam_type << "\" and \"" 
-        << r_cam_type << "\".\n");
-
-    // If l_cam_type is empty, and session name is XmapY, use cam type Y.
-    if (l_cam_type == "") {
-      std::string tri_cam_type, mapproj_cam_type; 
-      asp::parseCamTypes(this->name(), tri_cam_type, mapproj_cam_type);
-      vw::vw_out(WarningMessage)
-           << "The camera type was not specified in the mapprojected "
-           << "images header. Assuming mapprojection was done with camera type: "
-           << mapproj_cam_type << ".\n";
-      l_cam_type = mapproj_cam_type;
-      r_cam_type = mapproj_cam_type;
-    }
-
-    // We will use the camera file from the mapprojected image to undo the
-    // mapprojection, not the one specified by the user, which is used in
-    // triangulation. We check for l_image_file and r_image_file,
-    // because the camera files can be empty, like for .cub and rpc.
-    std::string curr_left_camera_file = m_left_camera_file;
-    std::string curr_right_camera_file = m_right_camera_file;
-    if (l_image_file != "" && r_image_file != "") {
-      curr_left_camera_file  = l_cam_file;
-      curr_right_camera_file = r_cam_file;
-
-      // The DEM the user provided better be the one used for map projection.
-      if (m_input_dem != l_dem_file || m_input_dem != r_dem_file)
-        vw_throw(ArgumentErr() << "The DEM used for map projection is different "
-          << "from the one provided on the command line.\n"
-          << "Left image DEM:   " << l_dem_file << "\n"
-          << "Right image DEM:  " << r_dem_file << "\n"
-          << "Command line DEM: " << m_input_dem << "\n");
-    }
+    read_mapproj_headers(left_image_file, l_adj_prefix, l_image_file, l_cam_type,
+                         l_cam_file, l_dem_file);
+    read_mapproj_headers(right_image_file, r_adj_prefix, r_image_file, r_cam_type,
+                         r_cam_file, r_dem_file);
+  
+    // The DEM the user provided better be the one used for map projection.
+    if (input_dem != l_dem_file || input_dem != r_dem_file)
+      vw_throw(ArgumentErr() << "The DEM used for map projection is different "
+        << "from the one provided on the command line.\n"
+        << "Left image DEM:   " << l_dem_file << "\n"
+        << "Right image DEM:  " << r_dem_file << "\n"
+        << "Command line DEM: " << input_dem << "\n");
 
     // When loading camera models from the image files, we either use the sensor model for
     // the current session type or else the RPC model which is often used as an approximation.
     const Vector2 zero_pixel_offset(0,0);
-
     if (l_cam_type == "rpc") {
       // This message is useful, because sometimes there is confusion as to whether
       // the RPC model or original model is used in mapprojection.
-      vw_out() << "Loading RPC cameras used in mapprojection.\n";
-      m_left_map_proj_model = load_rpc_camera_model(m_left_image_file, curr_left_camera_file,
-                                                    l_adj_prefix, zero_pixel_offset);
-    } else { // Use the native model
-      vw_out() << "Loading " << l_cam_type << " cameras used in mapprojection.\n";
-      m_left_map_proj_model = load_camera_model(m_left_image_file, curr_left_camera_file,
+      vw_out() << "Loading RPC camera used in mapprojection.\n";
+      left_map_proj_cam = load_rpc_camera_model(l_image_file, l_cam_file,
                                                 l_adj_prefix, zero_pixel_offset);
+    } else { // Use the native model
+      vw_out() << "Loading " << l_cam_type << " camera used in mapprojection.\n";
+      left_map_proj_cam = load_camera_model(l_image_file, l_cam_file,
+                                            l_adj_prefix, zero_pixel_offset);
     }
-    vw_out() << "Mapprojected images bundle adjustment prefix: \"" 
-              << stereo_settings().bundle_adjust_prefix << "\"\n";
     
-    if (r_cam_type == "rpc")
-      m_right_map_proj_model = load_rpc_camera_model(m_right_image_file, 
-                                                     curr_right_camera_file,
-                                                     r_adj_prefix, zero_pixel_offset);
-    else // Use the native model
-      m_right_map_proj_model = load_camera_model(m_right_image_file,
-                                                 curr_right_camera_file,
+    if (r_cam_type == "rpc") {
+      right_map_proj_cam = load_rpc_camera_model(r_image_file, r_cam_file,
                                                  r_adj_prefix, zero_pixel_offset);
+    } else { // Use the native model
+      right_map_proj_cam = load_camera_model(r_image_file, r_cam_file,
+                                             r_adj_prefix, zero_pixel_offset);
+    }
 
+    //vw_out() << "Mapprojected images bundle adjustment prefixes: " 
+    //          << l_adj_prefix << ' ' << r_adj_prefix << std::endl;
+              
     // These are useful messages
-    vw_out() << "Left camera file used in mapprojection: " << curr_left_camera_file << "\n";
-    vw_out() << "Right camera file used in mapprojection: " << curr_right_camera_file << "\n";
+    //vw_out() << "Left camera file used in mapprojection: " << l_cam_file << "\n";
+    //vw_out() << "Right camera file used in mapprojection: " << r_cam_file << "\n";
 
-    VW_ASSERT( m_left_map_proj_model.get() && m_right_map_proj_model.get(),
+    VW_ASSERT(left_map_proj_cam.get() && right_map_proj_cam.get(),
               ArgumentErr() << "StereoSession: Unable to locate map "
               << "projection camera model inside input files!");
 
     // Double check that we can read the DEM and that it has cartographic information.
-    VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSession: Require input DEM.");
-    if (!boost::filesystem::exists(m_input_dem))
-      vw_throw(ArgumentErr() << "StereoSession: DEM '" << m_input_dem << "' does not exist.");
+    VW_ASSERT(!input_dem.empty(), InputErr() << "StereoSession: Require input DEM.");
+    if (!boost::filesystem::exists(input_dem))
+      vw_throw(ArgumentErr() << "StereoSession: DEM '" << input_dem << "' does not exist.");
   }
 
   // Peek inside the images and camera models and return the datum and projection,
@@ -1067,7 +1045,7 @@ StereoSession::tx_right_map_trans() const {
   return getTransformFromMapProject(m_input_dem, right_map_proj_image, m_right_map_proj_model);
 }
 
-// Load an RPC model. Any adjustment in stereo_settings().bundle_adjust_prefix
+// Load an RPC model. Any adjustment in ba_prefix and pixel_offset
 // will be applied.
 boost::shared_ptr<vw::camera::CameraModel> 
 StereoSession::load_rpc_camera_model(std::string const& image_file, 

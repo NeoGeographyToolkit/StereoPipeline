@@ -606,10 +606,6 @@ be a compromise between the ground sample distance values for these images.
 See :numref:`mapproj-example` how how to find a DEM for mapprojection and other
 details.
 
-Note that one should not use ``--bundle-adjust-prefix`` in mapprojection in this
-context, so the mapprojected images must be without bundle adjustment, as 
-otherwise the results will be incorrect.
-
 Then bundle adjustment is invoked as follows::
 
     bundle_adjust A.tif B.tif C.tif A.tsai B.tsai C.tsai          \
@@ -619,6 +615,12 @@ Then bundle adjustment is invoked as follows::
 This will not recreate any existing match files either for
 mapprojected images or for unprojected ones. If that is
 desired, existing match files need to be deleted first.
+
+Each mapprojected image stores in its metadata the name of the original
+image, the camera model, the bundle-adjust prefix, if any, and the DEM it
+was mapprojected onto. Hence, the above command will succeed even if invoked
+with different cameras than the ones used for mapprojection, as long as the 
+original cameras are still present and did not change. 
 
 If the mapprojected images are still too different for interest point
 matching among them to succeed, one can try to bring in more images that

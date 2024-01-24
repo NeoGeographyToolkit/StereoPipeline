@@ -59,10 +59,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     not affect the final results but is much faster.
   * When optimizing intrinsics, cameras that do not share distortion can
     have different distortion types and sizes. (:numref:`limit_ip`).
-  * Enforce that option ``--mapprojected-data`` use images that were not 
-    mapprojected with bundle-adjusted cameras, and also the input
-    cameras themselves are not bundle-adjusted. It is easier to avoid
-    inconsistencies this way. 
+  * Each image passed to ``--mapprojected-data`` reads from its geoheader
+    the camera and adjustment prefix for undoing the mapprojection.
     
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).
