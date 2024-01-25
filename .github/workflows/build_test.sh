@@ -11,7 +11,7 @@ else
 fi
 
 # Fetch the ASP depenedencies
-wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env5/asp_deps.tar.gz
+wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env6/asp_deps.tar.gz
 tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
 # How to update the dependencies. Read very carefully and update as needed.
@@ -54,10 +54,10 @@ if [ 1 -eq 0 ]; then
     fi 
     
     repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
-    tag=mac_conda_env5 # Must be the same tag as in the wget link above
+    tag=mac_conda_env6 # Must be the same tag as in the wget link above
     # Wipe old version
     $gh release -R $repo delete $tag 
-    notes="Mac conda env5"
+    notes="Mac conda env6"
     # Add the binaries
     /usr/bin/time $gh release -R $repo create $tag $binaries --title $tag --notes "$notes"
   fi

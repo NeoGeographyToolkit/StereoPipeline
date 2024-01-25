@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Must wipe any cache before running this script, to ensure 
-# the conda env at the end of this gets cached
+# This is a scratch pad of commands used to build ASP dependencies for OSX
+# in the cloud, while connecting with ssh.yml. It will go away once
+# conda packages are released for the needed version of these.
 
 cd
 echo Now in $(pwd)
@@ -40,17 +41,50 @@ source /Users/runner/.bash_profile
 echo listing envs
 conda env list
 cd
-wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env4/asp_deps_osx.tar.gz
+wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env6/asp_deps_osx.tar.gz
 cd /usr/local/miniconda
 /usr/bin/time tar xzf $HOME/asp_deps_osx.tar.gz
 cd
 
+# Build ale
+cd
+#git clone git@github.com:DOI-USGS/ale.git --recursive
+git clone https://github.com/DOI-USGS/ale.git --recursive
+cd ale
+git reset --hard 775ff21
+conda activate asp_deps
+# Set up the compiler
+isMac=$(uname -s | grep Darwin)
+if [ "$isMac" != "" ]; then
+  cc_comp=clang
+  cxx_comp=clang++
+else
+  cc_comp=x86_64-conda_cos6-linux-gnu-gcc
+  cxx_comp=x86_64-conda_cos6-linux-gnu-g++
+fi
+export PREFIX=/usr/local/miniconda/envs/asp_deps
+mkdir -p build && cd build
+cmake .. -DALE_USE_EXTERNAL_EIGEN=ON -DALE_USE_EXTERNAL_JSON=ON -DUSGSCSM_EXTERNAL_DEPS=ON -DCMAKE_VERBOSE_MAKEFILE=TRUE -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp -DUSGSCSM_BUILD_DOCS=OFF -DALE_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${PREFIX} -DALE_BUILD_TESTS=OFF -DUSGSCSM_BUILD_TESTS=OFF -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_EIGEN=ON -DALE_BUILD_TESTS=OFF
+make -j 20 install
+
+# Continue with building usgscsm with the same env as above
+cd 
+#git clone git@github.com:USGS-Astrogeology/usgscsm.git --recursive
+git clone https://github.com/DOI-USGS/usgscsm.git --recursive
+cd usgscsm
+git reset --hard 0f065ca
+mkdir -p build && cd build
+cmake .. -DALE_USE_EXTERNAL_EIGEN=ON -DALE_USE_EXTERNAL_JSON=ON -DUSGSCSM_EXTERNAL_DEPS=ON -DCMAKE_VERBOSE_MAKEFILE=TRUE -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp -DUSGSCSM_BUILD_DOCS=OFF -DALE_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${PREFIX} -DALE_BUILD_TESTS=OFF -DUSGSCSM_BUILD_TESTS=OFF -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_EIGEN=ON -DALE_BUILD_TESTS=OFF
+make -j 20 install
+
+# Build ISIS3
 cd
 echo Will build ISIS3
 conda activate asp_deps
-git clone https://github.com/DOI-USGS/ISIS3.git     
+#git clone https://github.com/DOI-USGS/ISIS3.git     
+git clone https://github.com/oleg-alexandrov/ISIS3.git
 cd ISIS3
-
+git checkout 1b129bd84
 mkdir build
 cd build
 export ISISROOT=$PWD
@@ -58,7 +92,6 @@ export PREFIX=/usr/local/miniconda/envs/asp_deps
 cmake -GNinja -DJP2KFLAG=OFF -Dpybindings=OFF \
  -DbuildTests=OFF -DCMAKE_BUILD_TYPE=Release  \
  -DCMAKE_INSTALL_PREFIX=$PREFIX ../isis
-
 export NINJAJOBS=2
 /usr/bin/time ninja install -j 2
 
