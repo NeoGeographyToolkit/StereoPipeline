@@ -111,7 +111,7 @@ agreement between a .tsai and .json version of the same camera.
 
 .. _cam_gen_linescan:
 
-CSM Linescan cameras
+CSM linescan cameras
 ^^^^^^^^^^^^^^^^^^^^
 
 This program can take as input a Maxar (DigitalGlobe) WorldView linescan camera
