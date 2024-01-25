@@ -372,9 +372,9 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
 		    double nodata1, double nodata2) {
 
   // Detect interest points in the two images
-  vw::vw_out() << "\t    Looking for IP in left image...\n";
+  vw::vw_out() << "\t    Looking for IP in left image.\n";
   detect_ip(ip1, image1.impl(), ip_per_tile, left_file_path, nodata1);
-  vw::vw_out() << "\t    Looking for IP in right image...\n";
+  vw::vw_out() << "\t    Looking for IP in right image.\n";
   detect_ip(ip2, image2.impl(), ip_per_tile, right_file_path, nodata2);
   
   if (stereo_settings().ip_debug_images) {
