@@ -154,7 +154,7 @@ Command-line options
       (:numref:`skysat`, :numref:`sfmicebridge`)
     - pinhole      -- ground-level cameras, not assuming a datum (:numref:`mer-example`)
     - isis         -- with planetary images stored in .cub files (:numref:`moc_tutorial`)
-    - dg           -- with Digital Globe exact linescan cameras (:numref:`dg_tutorial`)
+    - dg           -- with Digital Globe exact linescan cameras, which are implemented as CSM (:numref:`dg_csm`)
     - rpc          -- with any RPC cameras (:numref:`rpc`)
     - spot5        -- SPOT 5 exact linescan camera (:numref:`spot5`)
     - aster        -- exact ASTER camera model (:numref:`aster`)
