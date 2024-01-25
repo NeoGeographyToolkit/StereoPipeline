@@ -143,6 +143,8 @@ rough_homography_fit(camera::CameraModel* cam1,
   return H;
 }
 
+// TODO(oalexan1): Integrate filter_ip_homog() and homography_rectification().  
+// Ensure the same parameters are used in both.
 Vector2i homography_rectification(bool adjust_left_image_size,
                                   Vector2i const& left_size,
                                   Vector2i const& right_size,
@@ -150,20 +152,23 @@ Vector2i homography_rectification(bool adjust_left_image_size,
                                   std::vector<ip::InterestPoint> const& right_ip,
                                   vw::Matrix<double>& left_matrix,
                                   vw::Matrix<double>& right_matrix) {
+
   // Reformat the interest points for RANSAC
   std::vector<Vector3>  right_copy = iplist_to_vectorlist(right_ip),
     left_copy  = iplist_to_vectorlist(left_ip);
 
-  double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
+  double thresh_factor = stereo_settings().ip_inlier_factor; // 0.2 by default
     
   // Use RANSAC to determine a good homography transform between the images
-  int min_inliers = left_copy.size()*2/3;
-  double inlier_th = norm_2(Vector2(left_size.x(),left_size.y())) * (1.5*thresh_factor);
+  int min_inliers = left_copy.size()/2;
+  double inlier_th = round(thresh_factor*150.0); // by default this is 30.
+  
+  bool reduce_num_if_no_fit = true;
   math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric>
     ransac(math::HomographyFittingFunctor(),
             math::InterestPointErrorMetric(),
             stereo_settings().ip_num_ransac_iterations,
-            inlier_th, min_inliers);
+            inlier_th, min_inliers, reduce_num_if_no_fit);
   Matrix<double> H;
   try {   
     H = ransac(right_copy, left_copy);
@@ -176,14 +181,14 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   }
   std::vector<size_t> indices = ransac.inlier_indices(H, right_copy, left_copy);
   check_homography_matrix(H, left_copy, right_copy, indices);
-
+  
   // Set right to a homography that has been refined just to our inliers.
   // May be adjusted with a translation below.
   // TODO(oalexan1): It is not clear if adjusting a homography transform's
   // translation coefficients is the right way of applying a translation to it,
   // because it has a denominator too.
   left_matrix  = math::identity_matrix<3>();
-  right_matrix = math::HomographyFittingFunctor()(right_copy, left_copy, H);
+  right_matrix = H; 
 
   // Work out the ideal render size
   BBox2i output_bbox, right_bbox;
@@ -211,7 +216,7 @@ Vector2i homography_rectification(bool adjust_left_image_size,
     temp /= temp.z();
     right_bbox.grow(subvector(temp,0,2));
 
-    output_bbox.crop(right_bbox );
+    output_bbox.crop(right_bbox);
 
     //  Move the ideal render size to be aligned up with origin
     left_matrix (0,2) -= output_bbox.min().x();
@@ -669,7 +674,9 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
   ip1.resize(count);
   ip2.resize(count);
 }
-  
+ 
+// TODO(oalexan1): Integrate filter_ip_homog() and homography_rectification().  
+// Ensure the same parameters are used in both.
 size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
                        std::vector<ip::InterestPoint> const& ip2_in,
                        std::vector<ip::InterestPoint>      & ip1_out,
@@ -688,11 +695,12 @@ size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
     typedef math::RandomSampleConsensus<math::HomographyFittingFunctor,
       math::InterestPointErrorMetric> RansacT;
     const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
+    bool reduce_num_if_no_fit = true;
     RansacT ransac(math::HomographyFittingFunctor(),
                    math::InterestPointErrorMetric(),
                    stereo_settings().ip_num_ransac_iterations,
                    inlier_threshold,
-                   MIN_NUM_OUTPUT_INLIERS, true);
+                   MIN_NUM_OUTPUT_INLIERS, reduce_num_if_no_fit);
     Matrix<double> H(ransac(ransac_ip2,ransac_ip1)); // 2 then 1 is used here for legacy reasons
     //vw_out() << "\t--> Homography: " << H << "\n";
     indices = ransac.inlier_indices(H,ransac_ip2,ransac_ip1);

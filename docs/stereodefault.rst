@@ -56,7 +56,7 @@ epipolar-threshold <double (default: unspecified)>
     range estimate, try setting this value to a small number, perhaps
     in the low double digits.
 
-ip-inlier-factor <double (default: 1.0/15)>
+ip-inlier-factor <double (default: 0.2)>
     A higher factor will result in more interest points, but perhaps
     also more outliers. It is important to note that this parameter
     overlaps somewhat in scope and effect with ``--epipolar-threshold``

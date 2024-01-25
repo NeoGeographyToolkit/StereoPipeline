@@ -131,7 +131,7 @@ namespace asp {
        "Remove IP within this percentage from the outer edges of an image pair (integer percent).")
       ("normalize-ip-tiles", po::bool_switch(&global.ip_normalize_tiles)->default_value(false)->implicit_value(true),
        "Individually normalize tiles used for IP detection.")
-      ("ip-inlier-factor",          po::value(&global.ip_inlier_factor)->default_value(1.0/15.0),
+      ("ip-inlier-factor",          po::value(&global.ip_inlier_factor)->default_value(0.2),
        " A higher factor will result in more interest points, but perhaps also more outliers.")
       ("ip-uniqueness-threshold",          po::value(&global.ip_uniqueness_thresh)->default_value(0.8),
        "Min percentage distance between closest and second closest IP descriptors, a larger value allows more IP matches.")

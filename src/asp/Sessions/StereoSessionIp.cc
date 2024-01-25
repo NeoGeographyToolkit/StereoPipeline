@@ -247,7 +247,8 @@ bool StereoSession::ip_matching(std::string const& input_file1,
   } else { // Not nadir facing
     // Run a simpler purely image-based matching function
     double ip_inlier_factor = stereo_settings().ip_inlier_factor;
-    int    inlier_threshold = round(ip_inlier_factor*150.0); // by default this is 10.
+    // Inlier factor is 0.2 by default.
+    int    inlier_threshold = round(ip_inlier_factor*150.0); // by default this is 30.
 
     // HACK: If the otherwise unused epipolar threshold is set, use it as
     //       the inlier threshold.

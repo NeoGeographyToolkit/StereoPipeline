@@ -1159,7 +1159,7 @@ Command-line options
     Maximum distance from the epipolar line to search for IP matches.
     If this option isn't given, it will default to an automatic determination.
 
---ip-inlier-factor <double (default: 1.0/15)>
+--ip-inlier-factor <double (default: 0.2)>
     A higher factor will result in more interest points, but perhaps
     also more outliers.
 
