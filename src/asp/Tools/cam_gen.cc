@@ -27,6 +27,8 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Camera/LinescanUtils.h>
+#include <asp/Camera/CsmUtils.h>
 
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/StringUtils.h>
@@ -171,7 +173,7 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
   if (camera_type == "opticalbar") {
     ((vw::camera::OpticalBarModel*)out_cam.get())->apply_transform(rotation,
 								   translation, scale);
-  } else {
+  } else if (camera_type == "pinhole") {
 
     if (input_camera_center != Vector3(0, 0, 0)) {
       ((PinholeModel*)out_cam.get())->apply_transform(rotation, translation, scale);
@@ -244,14 +246,16 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
       
     if (camera_type == "opticalbar") {
       CameraSolveLMA_Ht<vw::camera::OpticalBarModel>
-	lma_model(xyz_vec, *((vw::camera::OpticalBarModel*)out_cam.get()),
-		  cam_height, cam_weight, cam_ctr_weight, datum);
+        lma_model(xyz_vec, *((vw::camera::OpticalBarModel*)out_cam.get()),
+		    cam_height, cam_weight, cam_ctr_weight, datum);
       camera_to_vector(*((vw::camera::OpticalBarModel*)out_cam.get()), seed);
       final_params = math::levenberg_marquardt(lma_model, seed, out_vec,
 					       status, abs_tolerance, rel_tolerance,
 					       max_iterations);
       vector_to_camera(*((vw::camera::OpticalBarModel*)out_cam.get()), final_params);
-    } else {
+    
+    } else if (camera_type == "pinhole") {
+
       CameraSolveLMA_Ht<PinholeModel> lma_model(xyz_vec, *((PinholeModel*)out_cam.get()),
                                                 cam_height, cam_weight, cam_ctr_weight, datum);
       camera_to_vector(*((PinholeModel*)out_cam.get()), seed);
@@ -318,7 +322,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("output-camera-file,o", po::value(&opt.camera_file), "Specify the output camera file with a .tsai or .json extension.")
-    ("camera-type", po::value(&opt.camera_type)->default_value("pinhole"), "Specify the camera type. Options are: pinhole (default) and opticalbar.")
+    ("camera-type", po::value(&opt.camera_type)->default_value("pinhole"), "Specify the camera type. Options are: pinhole (default), opticalbar, and linescan.")
     ("lon-lat-values", po::value(&opt.lon_lat_values_str)->default_value(""),
     "A (quoted) string listing numbers, separated by commas or spaces, "
     "having the longitude and latitude (alternating and in this "
@@ -387,47 +391,59 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             allow_unregistered, unregistered);
 
   if (opt.image_file.empty())
-    vw_throw( ArgumentErr() << "Missing the input image.\n"
-              << usage << general_options );
-
+    vw_throw(ArgumentErr() << "Missing the input image.\n");
+              
   if (opt.camera_file.empty())
-    vw_throw( ArgumentErr() << "Missing the output camera file name.\n"
-              << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing the output camera file name.\n");
 
   boost::to_lower(opt.camera_type);
+
+  // Need this to be able to load adjusted camera models. That will happen
+  // in the stereo session.
+  asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
   
-  if (opt.camera_type != "pinhole" && opt.camera_type != "opticalbar")
-    vw_throw( ArgumentErr() << "Only pinhole and opticalbar cameras are supported.\n");
+  if (opt.camera_type != "pinhole" && opt.camera_type != "opticalbar" && 
+      opt.camera_type != "linescan")
+    vw_throw(ArgumentErr() << "Only pinhole, opticalbar, and linescan "
+               << "cameras are supported.\n");
   
   if ((opt.camera_type == "opticalbar") && (opt.sample_file == ""))
-    vw_throw( ArgumentErr() << "opticalbar type must use a sample camera file.\n"
-              << usage << general_options );
+    vw_throw(ArgumentErr() << "opticalbar type must use a sample camera file.\n");
 
   std::string ext = get_extension(opt.camera_file);
   if (ext != ".tsai" && ext != ".json") 
     vw_throw(ArgumentErr() << "The output camera file must end with .tsai or .json.\n");
 
+  if (opt.camera_type == "linescan" && ext != ".json")
+    vw_throw(ArgumentErr() << "An output linescan camera must end with .json.\n");
+  
   if (opt.camera_type == "opticalbar" && ext != ".tsai")
     vw_throw(ArgumentErr() << "An output optical bar camera must be in .tsai format.\n");
 
+  // Create the output directory
+  vw::create_out_dir(opt.camera_file);
+
+  // The rest of the logic does not apply to linescan cameras
+  if (opt.camera_type == "linescan")
+    return;
+    
   opt.input_pinhole = boost::algorithm::ends_with(opt.input_camera, "_pinhole.json");
   
   // If we cannot read the data from a DEM, must specify a lot of things.
   if (!opt.input_pinhole && opt.reference_dem.empty() && opt.datum_str.empty())
-    vw_throw( ArgumentErr() << "Must provide either a reference DEM or a datum.\n"
-              << usage << general_options );
+    vw_throw(ArgumentErr() << "Must provide either a reference DEM or a datum.\n");
 
   if (opt.gcp_std <= 0) 
-    vw_throw( ArgumentErr() << "The GCP standard deviation must be positive.\n"
-              << usage << general_options );
+    vw_throw(ArgumentErr() << "The GCP standard deviation must be positive.\n");
 
   if (!opt.input_pinhole && opt.frame_index != "" && opt.lon_lat_values_str != "") 
-    vw_throw( ArgumentErr() << "Cannot specify both the frame index file "
-	      << "and the lon-lat corners.\n"
-              << usage << general_options );
+    vw_throw(ArgumentErr() << "Cannot specify both the frame index file "
+	      << "and the lon-lat corners.\n");
 
   if (opt.cam_weight > 0 && opt.cam_ctr_weight > 0)
-    vw::vw_throw(vw::ArgumentErr() << "Cannot enforce the camera center constraint and camera height constraint at the same time.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Cannot enforce the camera center constraint and camera "
+                 << "height constraint at the same time.\n");
   
   // TODO(oalexan1): Break up this big loop
   if (!opt.input_pinhole && opt.frame_index != "") {
@@ -445,25 +461,25 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
         // Find POLYGON first.
         int beg_pos = line.find(beg1);
         if (beg_pos == std::string::npos)
-          vw_throw( ArgumentErr() << "Cannot find " << beg1 << " in line: " << line << ".\n");
+          vw_throw(ArgumentErr() << "Cannot find " << beg1 << " in line: " << line << ".\n");
         beg_pos += beg1.size();
 
         // Move forward skipping any spaces until finding "(("
         beg_pos = line.find(beg2, beg_pos);
         if (beg_pos == std::string::npos)
-          vw_throw( ArgumentErr() << "Cannot find " << beg2 << " in line: " << line << ".\n");
+          vw_throw(ArgumentErr() << "Cannot find " << beg2 << " in line: " << line << ".\n");
         beg_pos += beg2.size();
 
         // Find "))"
         int end_pos = line.find(end, beg_pos);
         if (end_pos == std::string::npos)
-          vw_throw( ArgumentErr() << "Cannot find " << end << " in line: " << line << ".\n");
+          vw_throw(ArgumentErr() << "Cannot find " << end << " in line: " << line << ".\n");
         opt.lon_lat_values_str = line.substr(beg_pos, end_pos - beg_pos);
         vw_out() << "Parsed the lon-lat corner values: " 
                  << opt.lon_lat_values_str << std::endl;
 
         if (opt.parse_eci && opt.parse_ecef)
-          vw_throw( ArgumentErr() << "Cannot parse both ECI end ECEF at the same time.\n");
+          vw_throw(ArgumentErr() << "Cannot parse both ECI end ECEF at the same time.\n");
 
         // Also parse the camera height constraint, unless manually specified
         if (opt.cam_weight > 0 || opt.parse_eci || opt.parse_ecef) {
@@ -471,7 +487,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
           parse_values<std::string>(line, vals);
           
           if (vals.size() < 12) 
-            vw_throw( ArgumentErr() << "Could not parse 12 values from: " << line << ".\n");
+            vw_throw(ArgumentErr() << "Could not parse 12 values from: " << line << ".\n");
 
           // Extract the ECI or ECEF coordinates of camera
           // center. Keep them as string until we can convert to
@@ -496,7 +512,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
           
           if (opt.parse_ecef) {
             if (vals.size() < 19) 
-              vw_throw( ArgumentErr() << "Could not parse 19 values from: " << line << ".\n");
+              vw_throw(ArgumentErr() << "Could not parse 19 values from: " << line << ".\n");
             
             std::string x = vals[12];
             std::string y = vals[13];
@@ -520,7 +536,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     } // end of loop through lines in frame index file
     
     if (opt.lon_lat_values_str == "")
-      vw_throw( ArgumentErr() << "Could not parse the entry for " << image_base
+      vw_throw(ArgumentErr() << "Could not parse the entry for " << image_base
                 << " in file: " << opt.frame_index << ".\n");
   }
     
@@ -532,7 +548,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     DiskImageView<float> img(opt.image_file);
     int wid = img.cols(), hgt = img.rows();
     if (wid <= 0 || hgt <= 0) 
-      vw_throw( ArgumentErr() << "Could not read an image with positive dimensions from: "
+      vw_throw(ArgumentErr() << "Could not read an image with positive dimensions from: "
 		<< opt.image_file << ".\n");
     
     // populate the corners
@@ -566,15 +582,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (!opt.input_pinhole &&
       opt.sample_file == "" &&
       (opt.focal_length <= 0 || opt.pixel_pitch <= 0))
-    vw_throw( ArgumentErr() << "Must provide positive focal length"
+    vw_throw(ArgumentErr() << "Must provide positive focal length"
               << "and pixel pitch values OR a sample file.\n");
 
   if ((opt.parse_eci || opt.parse_ecef) && opt.camera_type == "opticalbar") 
-    vw_throw( ArgumentErr() << "Cannot parse ECI/ECEF data for an optical bar camera.\n");
+    vw_throw(ArgumentErr() << "Cannot parse ECI/ECEF data for an optical bar camera.\n");
   
-  // Create the output directory
-  vw::create_out_dir(opt.camera_file);
-
 } // End function handle_arguments
 
 // Form a camera based on info the user provided
@@ -589,7 +602,7 @@ void manufacture_cam(Options const& opt, int wid, int hgt,
     opticalbar_cam->set_image_size(Vector2i(wid, hgt));
     opticalbar_cam->set_optical_center(Vector2(wid/2.0, hgt/2.0));
     out_cam = opticalbar_cam;
-  } else {
+  } else if (opt.camera_type == "pinhole") {
     boost::shared_ptr<PinholeModel> pinhole_cam;
     if (opt.sample_file != "") {
       // Use the initial guess from file
@@ -621,11 +634,8 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
 
   cam_heights.clear();
   cam_ctr = Vector3(0, 0, 0);
-  
-  // Need this to be able to load adjusted camera models. That will happen
-  // in the stereo session.
-  asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
-  
+
+  // Load the camera. By now --bundle-adjust-prefix should be set.  
   std::string out_prefix;
   typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
   SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
@@ -688,7 +698,7 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
   }
 
   if (good_pixel_values.size() < 6) {
-    vw_throw( ArgumentErr() << "Successful intersection happened for less than "
+    vw_throw(ArgumentErr() << "Successful intersection happened for less than "
 	      << "3 pixels. Will not be able to create a camera. Consider checking "
 	      << "your inputs, or passing different pixels in --pixel-values. DEM: "
 	      << opt.reference_dem << ".\n");
@@ -747,9 +757,9 @@ vw::Matrix<double> json_mat(json const& j, int rows, int cols) {
   return M;
 }
 
-// Create a pinhole camera using user-specified options.
-void form_pinhole_camera(Options & opt, vw::cartography::Datum & datum,
-                         boost::shared_ptr<CameraModel> & out_cam) {
+// Create a camera using user-specified options.
+void form_camera(Options & opt, vw::cartography::Datum & datum,
+                 boost::shared_ptr<CameraModel> & out_cam) {
 
   GeoReference geo;
   ImageView<float> dem;
@@ -759,14 +769,14 @@ void form_pinhole_camera(Options & opt, vw::cartography::Datum & datum,
     dem = DiskImageView<float>(opt.reference_dem);
     bool ans = read_georeference(geo, opt.reference_dem);
     if (!ans) 
-      vw_throw( ArgumentErr() << "Could not read the georeference from dem: "
+      vw_throw(ArgumentErr() << "Could not read the georeference from dem: "
                 << opt.reference_dem << ".\n");
 
     datum = geo.datum(); // Read this in for completeness
     has_dem = true;
     vw::read_nodata_val(opt.reference_dem, nodata_value);
     vw_out() << "Using nodata value: " << nodata_value << std::endl;
-  }else{
+  } else {
     datum = vw::cartography::Datum(opt.datum_str); 
     vw_out() << "No reference DEM provided. Will use a height of "
              << opt.height_above_datum << " above the datum:\n" 
@@ -785,7 +795,7 @@ void form_pinhole_camera(Options & opt, vw::cartography::Datum & datum,
     std::vector<double> vals;
     parse_values<double>(opt.parsed_cam_ctr_str, vals);
     if (vals.size() != 3) 
-      vw_throw( ArgumentErr() << "Could not parse 3 values from: "
+      vw_throw(ArgumentErr() << "Could not parse 3 values from: "
                 << opt.parsed_cam_ctr_str << ".\n");
 
     parsed_cam_ctr = Vector3(vals[0], vals[1], vals[2]);
@@ -805,7 +815,7 @@ void form_pinhole_camera(Options & opt, vw::cartography::Datum & datum,
     std::vector<double> vals;
     parse_values<double>(opt.parsed_cam_quat_str, vals);
     if (vals.size() != 4) 
-      vw_throw( ArgumentErr() << "Could not parse 4 values from: "
+      vw_throw(ArgumentErr() << "Could not parse 4 values from: "
                 << opt.parsed_cam_quat_str << ".\n");
 
     parsed_cam_quat = vw::Quat(vals[0], vals[1], vals[2], vals[3]);
@@ -835,10 +845,10 @@ void form_pinhole_camera(Options & opt, vw::cartography::Datum & datum,
     input_cam_ctr = parsed_cam_ctr;
     
   if (opt.lon_lat_values.size() < 3) 
-    vw_throw( ArgumentErr() << "Expecting at least three longitude-latitude pairs.\n");
+    vw_throw(ArgumentErr() << "Expecting at least three longitude-latitude pairs.\n");
 
   if (opt.lon_lat_values.size() != opt.pixel_values.size()){
-    vw_throw( ArgumentErr()
+    vw_throw(ArgumentErr()
               << "The number of lon-lat pairs must equal the number of pixel pairs.\n");
   }
 
@@ -861,7 +871,7 @@ void form_pinhole_camera(Options & opt, vw::cartography::Datum & datum,
     llh[1] = opt.lon_lat_values[2*corner_it+1];
 
     if (llh[1] < -90 || llh[1] > 90) 
-      vw_throw( ArgumentErr() << "Detected a latitude out of bounds. "
+      vw_throw(ArgumentErr() << "Detected a latitude out of bounds. "
                 << "Perhaps the longitude and latitude are reversed?\n");
 
     double height = opt.height_above_datum; 
@@ -913,7 +923,7 @@ void form_pinhole_camera(Options & opt, vw::cartography::Datum & datum,
   DiskImageView<float> img(opt.image_file);
   int wid = img.cols(), hgt = img.rows();
   if (wid <= 0 || hgt <= 0) 
-    vw_throw( ArgumentErr() << "Could not read an image with positive dimensions from: "
+    vw_throw(ArgumentErr() << "Could not read an image with positive dimensions from: "
               << opt.image_file << ".\n");
   manufacture_cam(opt, wid, hgt, out_cam);
 
@@ -978,12 +988,58 @@ void read_pinhole_from_json(Options const& opt, vw::cartography::Datum & datum,
   pin.set_camera_pose(submatrix(cam2world, 0, 0, 3, 3));
 }
 
-int main(int argc, char * argv[]){
+void save_linescan(Options & opt) {
+  
+  // Set this before loading an ASTER camera, as otherwise the camera will not
+  // be of linescan type.
+  asp::stereo_settings().aster_use_csm = true;
+
+  // Load the cameras. By now bundle-adjust-prefix should be set in stereo settings.
+  std::string out_prefix;
+  typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+  SessionPtr session(asp::StereoSessionFactory::create
+                     (opt.stereo_session, // may change
+                      opt,
+                      opt.image_file, opt.image_file,
+                      opt.input_camera, opt.input_camera,
+                      out_prefix));
+
+  if (opt.stereo_session != "dg")
+    vw_throw(ArgumentErr() << "Only reading Digital Globe linescan cameras is supported.\n");
+    
+  boost::shared_ptr<CameraModel> camera_model = session->camera_model(opt.image_file,
+								      opt.input_camera);
+  
+  // Get a pointer to the underlying CSM model. It is owned by camera_model.
+  asp::CsmModel * csm_cam = asp::csm_model(camera_model, opt.stereo_session);
+  
+  // This is a bit of a convoluted way of applying the adjustment from the base
+  // camera model to the CSM model. To be revisited once all ASP linescan cameras
+  // are CSM rather than having CSM as a member.
+  if (asp::stereo_settings().bundle_adjust_prefix != "") 
+     asp::applyAdjustmentToCsmCamera(opt.image_file,
+                                     opt.input_camera,
+                                     asp::stereo_settings().bundle_adjust_prefix,
+                                     camera_model,
+                                     csm_cam);
+
+  vw_out() << "Writing: " << opt.camera_file << std::endl;
+  csm_cam->saveState(opt.camera_file);
+}
+
+int main(int argc, char * argv[]) {
   
   Options opt;
   try {
     
     handle_arguments(argc, argv, opt);
+
+    if (opt.camera_type == "linescan") {
+      // The linescan workflow is very different than the rest of the code,
+      // as only camera conversion is done.
+      save_linescan(opt);
+      return 0;
+    }
     
     boost::shared_ptr<CameraModel> out_cam;
     vw::cartography::Datum datum;
@@ -992,8 +1048,8 @@ int main(int argc, char * argv[]){
     vw_out().precision(17);
     
     if (!opt.input_pinhole) {
-      // Create a pinhole camera using user-specified options.
-      form_pinhole_camera(opt, datum, out_cam);
+      // Create a camera using user-specified options.
+      form_camera(opt, datum, out_cam);
     } else {
       // Read a pinhole camera from Planet's json file format (*_pinhole.json). Then
       // the WGS84 datum is assumed. Ignore all other input options.
@@ -1005,7 +1061,7 @@ int main(int argc, char * argv[]){
     vw_out() << "Writing: " << opt.camera_file << std::endl;
     if (opt.camera_type == "opticalbar") {
       ((vw::camera::OpticalBarModel*)out_cam.get())->write(opt.camera_file);
-    } else {
+    } else if (opt.camera_type == "pinhole") {
       std::string ext = get_extension(opt.camera_file);
       vw::camera::PinholeModel* pin = (vw::camera::PinholeModel*)out_cam.get();
       if (ext == ".tsai") {

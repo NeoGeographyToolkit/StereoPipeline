@@ -1474,19 +1474,13 @@ void prepareCsmCameras(Options const& opt,
     // Sanity check
     if (csm_cam == NULL)
       vw::vw_throw(vw::ArgumentErr() << "Expecting CSM cameras.\n");
-
-    if (!opt.input_prefix.empty()) {
-      std::string adjust_file
-        = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[icam],
-                                      opt.camera_files[icam]);
-      vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
-      // This modifies camera_models
-      vw::camera::AdjustedCameraModel
-        adj_cam(vw::camera::unadjusted_model(camera_models[icam]));
-      adj_cam.read(adjust_file);
-      vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
-      csm_cam->applyTransform(ecef_transform);
-    }
+      
+    if (!opt.input_prefix.empty())
+      asp::applyAdjustmentToCsmCamera(opt.image_files[icam],
+                                      opt.camera_files[icam],
+                                      opt.input_prefix,
+                                      camera_models[icam],
+                                      csm_cam);
 
     // Get the underlying linescan model or frame model
     UsgsAstroLsSensorModel * ls_model

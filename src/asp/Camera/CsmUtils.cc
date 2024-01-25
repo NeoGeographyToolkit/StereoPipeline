@@ -20,7 +20,7 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Core/CameraTransforms.h>
-
+#include <asp/Core/BundleAdjustUtils.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
@@ -401,6 +401,26 @@ void populateCsmLinescan(double first_line_time, double dt_line,
   // take place which are inaccessible otherwise.
   std::string modelState = ls_model->getModelState();
   ls_model->replaceModelState(modelState);
+}
+
+// Apply the given adjustment to the given CSM camera.
+// The camera is passed twice, once as a CSM model, and once as a
+// CamPtr, as the latter may have the CSM model as a member or 
+// as a base class, depending on the implementation.
+// TODO(oalexan1): This needs to be made uniform.
+void applyAdjustmentToCsmCamera(std::string const& image_file,
+                                std::string const& camera_file,
+                                std::string const& adjust_prefix,
+                                vw::CamPtr  const& cam,
+                                asp::CsmModel    * csm_cam) {
+
+  std::string adjust_file = asp::bundle_adjust_file_name(adjust_prefix, image_file, 
+                                                         camera_file);
+  vw::vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
+  vw::camera::AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(cam));
+  adj_cam.read(adjust_file);
+  vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
+  csm_cam->applyTransform(ecef_transform);
 }
 
 } // end namespace asp

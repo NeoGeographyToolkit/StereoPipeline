@@ -22,8 +22,8 @@
 #ifndef __ASP_CAMERA_CSM_UTILS_H__
 #define __ASP_CAMERA_CSM_UTILS_H__
 
+#include <vw/Camera/CameraModel.h>
 #include <vw/Math/Matrix.h>
-
 
 #include <string>
 #include <iostream>
@@ -94,6 +94,17 @@ void populateCsmLinescan(double first_line_time, double dt_line,
                          std::vector<vw::Matrix3x3> const & cam2world,
                          // Outputs
                          asp::CsmModel                    & model);
+ 
+  // Apply the given adjustment to the given CSM camera.
+  // The camera is passed twice, once as a CSM model, and once as a
+  // CamPtr, as the latter may have the CSM model as a member or 
+  // as a base class, depending on the implementation.
+  // TODO(oalexan1): This needs to be made uniform.
+ void applyAdjustmentToCsmCamera(std::string const& image_file,
+                                 std::string const& camera_file,
+                                 std::string const& adjust_prefix,
+                                 vw::CamPtr  const& cam,
+                                 asp::CsmModel    * csm_cam); 
 
 } // end namespace asp
 

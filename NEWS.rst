@@ -129,6 +129,7 @@ isis (:numref:`moc_tutorial`):
 
 cam_gen (:numref:`cam_gen`):
    * Can create frame cameras in CSM format.
+   * Can export a WorldView linescan camera to CSM format.
      
 misc:
   * Upgraded to GDAL 3.8.0, PROJ 9.3.0, Boost 1.82.0.

@@ -34,6 +34,8 @@ Usage::
 Examples
 ~~~~~~~~
 
+.. _cam_gen_pinhole:
+
 Pinhole cameras
 ^^^^^^^^^^^^^^^
 
@@ -55,16 +57,6 @@ the pixel pitch, to make them in meters as well.
 Some other pixels can be used instead of corners, if using the
 ``--pixel-values`` option.
 
-CSM frame cameras
-^^^^^^^^^^^^^^^^^
-
-A Pinhole camera can be saved in the CSM (:numref:`csm`) Frame camera format by
-ensuring the output camera file has a .json extension rather than .tsai. Zero
-distortion is assumed.
-
-The ``cam_test`` program (:numref:`cam_test`) can be used to verify 
-the agreement between a .tsai and .json version of the same camera.
-
 Optical bar cameras
 ^^^^^^^^^^^^^^^^^^^
 
@@ -74,16 +66,15 @@ discussed in :numref:`kh9`.
 
 .. _cam_gen_prior:
 
-Fit prior camera
-^^^^^^^^^^^^^^^^
+Fit a prior camera
+^^^^^^^^^^^^^^^^^^
 
-This tool can also create a Pinhole camera approximating any camera
-supported by ASP, such as from ISIS cubes, RPC cameras, etc., as long as
-the intrinsics are known, as above. For that, it will shoot rays from
-the image corners (and also some inner points) using the provided camera
-that will intersect a reference DEM determining the footprint on the
-ground, and then the best-fit pinhole model will be created based on
-that. 
+This tool can also create a Pinhole camera approximating any camera supported by
+ASP, such as from ISIS cubes, RPC cameras, etc., as long as the intrinsics are
+known, as above. For that, it will shoot rays from the image corners (and also
+some inner points) using the provided camera that will intersect the provided
+DEM, determining the footprint on the ground. This will be used to find the
+best-fit pinhole model. 
 
 In this case the corner longitude-latitude coordinates need not be specified.
 
@@ -107,6 +98,42 @@ input. For example: ``--datum D_MARS``.
 The ``--height-above-datum`` option will not be used if the input DEM covers the
 image ground footprint.
 
+CSM frame cameras
+^^^^^^^^^^^^^^^^^
+
+A Pinhole camera can be saved in the CSM (:numref:`csm`) Frame camera format by
+ensuring the output camera file has a .json extension rather than .tsai. Zero
+distortion is assumed. All examples from above still apply, after
+changing the output extension.
+
+The ``cam_test`` program (:numref:`cam_test`) can be used to verify the
+agreement between a .tsai and .json version of the same camera.
+
+.. _cam_gen_linescan:
+
+CSM Linescan cameras
+^^^^^^^^^^^^^^^^^^^^
+
+This program can take as input a Maxar (DigitalGlobe) WorldView linescan camera
+(:numref:`dg_tutorial`), and convert it to CSM (:numref:`csm`) linescan format. 
+An example is as follows::
+
+    cam_gen --camera-type linescan       \
+      input.tif --input-camera input.xml \
+      -o output.json
+
+The option ``--bundle-adjust-prefix`` can be used to apply an adjustment to the
+camera on loading.
+
+The ``cam_test`` program (:numref:`cam_test`) can verify the
+agreement between the input and output cameras. Do not specify the
+``--bundle-adjust-prefix`` option for such experiments, as the original camera
+does not have the adjustment applied to it, the produced one does, and
+``cam_test`` will apply such an adjustment to both.
+
+If desired to create linescan cameras to given specifications, use instead
+``sat_sim`` (:numref:`sat_sim`).
+          
 Further refinement
 ~~~~~~~~~~~~~~~~~~
 
@@ -149,7 +176,8 @@ Command-line options
     Specify the output camera file with a .tsai or .json extension.
 
 --camera-type <string (default: "pinhole")>
-    Specify the camera type. Options: ``pinhole`` and ``opticalbar``.
+    Specify the camera type. Options: ``pinhole``,  ``opticalbar``,
+    ``linescan``. For linescan usage see :numref:`cam_gen_linescan`.
 
 --lon-lat-values <string (default: "")>
     A (quoted) string listing numbers, separated by commas or spaces,
