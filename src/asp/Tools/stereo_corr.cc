@@ -72,8 +72,9 @@ SemiGlobalMatcher::SgmSubpixelMode get_sgm_subpixel_mode() {
 }
 
 // Read the search range from D_sub, and scale it to the full image
-void read_search_range_from_D_sub(std::string const& d_sub_file, 
-                                  ASPGlobalOptions const& opt){
+void read_search_range_from_D_sub(std::string const& d_sub_file,
+                                  ASPGlobalOptions const& opt,
+                                  bool verbose) {
 
   // No D_sub is generated or should be used for seed mode 0.
   if (stereo_settings().seed_mode == 0)
@@ -87,9 +88,25 @@ void read_search_range_from_D_sub(std::string const& d_sub_file,
   BBox2 search_range = stereo::get_disparity_range(sub_disp);
   search_range.min() = floor(elem_prod(search_range.min(), upsample_scale));
   search_range.max() = ceil (elem_prod(search_range.max(), upsample_scale));
+  
+  // If the width or height of the box is 0, expand it a bit, otherwise
+  // VisionWorkbench will think it is empty and print it with no width or height.
+  if (search_range.min().x() == search_range.max().x()) {
+    search_range.min().x() -= 0.5;
+    search_range.max().x() += 0.5;
+  }
+  if (search_range.min().y() == search_range.max().y()) {
+    search_range.min().y() -= 0.5;
+    search_range.max().y() += 0.5;
+  } 
+  
   stereo_settings().search_range = search_range;
-
-  vw_out() << "\t--> Full-res search range based on D_sub: " << search_range << "\n";
+  
+  // This ensures the search range is not printed in the D_sub log but not in the 
+  // full res correlation log, where it will be printed again anyway right before
+  // correlation starts.
+  if (verbose)
+    vw_out() << "\t--> Full-res search range based on D_sub: " << search_range << "\n";
 }
 
 /// Produces the low-resolution disparity file D_sub
@@ -250,7 +267,8 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
   // Read this to print some text while still in low-res disparity
   // computation mode.  Next time we call this it will be per
   // individual tile so it will go to different log files.
-  read_search_range_from_D_sub(d_sub_file, opt);
+  bool verbose = true;
+  read_search_range_from_D_sub(d_sub_file, opt, verbose);
 
 } // End produce_lowres_disparity
 
@@ -347,10 +365,12 @@ void load_or_compute_ip(std::string const & left_unalgined_image,
   bool success = false;
   
   // TODO: Depending on alignment method, we can tailor the IP filtering strategy.
-  double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
+  double thresh_factor = stereo_settings().ip_inlier_factor; // 0.2 by default
   
   // This range is extra large to handle elevation differences.
-  const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default
+  // TODO(oalexan1): Must move ip matching to StereoSession and
+  // use a single homography function and a single choice of parameters.
+  const int inlier_threshold = 50*(20.0*thresh_factor);  // 200 by default
   size_t number_of_jobs = 1;
   success = asp::homography_ip_matching(left_image, right_image,
                                         stereo_settings().ip_per_tile,
@@ -887,7 +907,8 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   std::string d_sub_file  = opt.out_prefix + "-D_sub.tif";
   std::string spread_file = opt.out_prefix + "-D_sub_spread.tif";
 
-  read_search_range_from_D_sub(d_sub_file, opt);
+  bool verbose = false; // We already printed the message above
+  read_search_range_from_D_sub(d_sub_file, opt, verbose);
 
   // If the user specified a search range limit, apply it here.
   if ((stereo_settings().corr_search_limit.min() != Vector2i()) || 
