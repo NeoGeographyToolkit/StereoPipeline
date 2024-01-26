@@ -169,6 +169,7 @@ void write_match_image(std::string const& out_file_name,
   /// shared corner of left and right.
   vw::Vector2i
   homography_rectification(bool adjust_left_image_size,
+                           bool tight_inlier_threshold,
           vw::Vector2i const& left_size,
           vw::Vector2i const& right_size,
           std::vector<vw::ip::InterestPoint> const& left_ip,

@@ -56,13 +56,14 @@ epipolar-threshold <double (default: unspecified)>
     range estimate, try setting this value to a small number, perhaps
     in the low double digits.
 
-ip-inlier-factor <double (default: 0.2)>
-    A higher factor will result in more interest points, but perhaps
-    also more outliers. It is important to note that this parameter
-    overlaps somewhat in scope and effect with ``--epipolar-threshold``
-    and sometimes not both are active. It is suggested to experiment
-    with both, as well as with ``--ip-uniqueness-threshold`` below, which
-    has a different justification but also somewhat similar effects.
+ip-inlier-factor <double (default: 1.0/15)>
+    A higher factor will result in more interest points, but perhaps also more
+    outliers and a bigger search range. It is important to note that this
+    parameter overlaps somewhat in scope and effect with
+    ``--epipolar-threshold`` and sometimes not both are active. It is suggested
+    to experiment with both, as well as with ``--ip-uniqueness-threshold``
+    below, which has a different justification but also somewhat similar
+    effects.
 
 ip-uniqueness-threshold <double (default: 0.8)>
     A higher threshold will result in more interest points, but perhaps

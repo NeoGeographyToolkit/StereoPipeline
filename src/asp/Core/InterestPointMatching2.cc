@@ -1000,14 +1000,15 @@ bool ip_matching_with_datum(
   // Use the interest points that we found to compute an aligning homography
   // transform for the two images. This is always needed when finding matches
   // per tile or with rough homography.
-  bool adjust_left_image_size = false;
+  bool adjust_left_image_size = false, tight_inlier_threshold = false;
   Matrix<double> matrix1 = vw::math::identity_matrix<3>();
   Matrix<double> matrix2 = vw::math::identity_matrix<3>();
   if (use_rough_homography || asp::stereo_settings().matches_per_tile > 0) {
     vw_out() << "\t    Computing homography transform.\n";
     vw::Stopwatch sw3;
     sw3.start();
-    homography_rectification(adjust_left_image_size,
+    bool tight_inlier_threshold = (asp::stereo_settings().matches_per_tile > 0);
+    homography_rectification(adjust_left_image_size, tight_inlier_threshold,
 			   image1.get_size(), image2.get_size(),
 			   matched_ip1, matched_ip2, matrix1, matrix2);
     sw3.stop();
@@ -1101,10 +1102,11 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
     // homography transform for the two images.
     vw_out() << "\t    Computing homography transform.\n";
     bool adjust_left_image_size = false;
+    bool tight_inlier_threshold = true; // this is necessary for large images
     Matrix<double> matrix1, matrix2;
     vw::Stopwatch sw2;
     sw2.start();
-    homography_rectification(adjust_left_image_size,
+    homography_rectification(adjust_left_image_size, tight_inlier_threshold,
           image1.get_size(), image2.get_size(),
           matched_ip1, matched_ip2, matrix1, matrix2);
     sw2.stop();
@@ -1134,7 +1136,7 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
       << sw3.elapsed_seconds() << " s.\n";
   }
 
-  vw_out() << "\n\t    Matched points: " << matched_ip1.size() << std::endl;
+  vw_out() << "\t    Matched points: " << matched_ip1.size() << std::endl;
 
   if (stereo_settings().ip_debug_images) {
     vw_out() << "\t    Writing IP initial match debug image.\n";

@@ -247,11 +247,15 @@ bool StereoSession::ip_matching(std::string const& input_file1,
   } else { // Not nadir facing
     // Run a simpler purely image-based matching function
     double ip_inlier_factor = stereo_settings().ip_inlier_factor;
-    // Inlier factor is 0.2 by default.
-    int    inlier_threshold = round(ip_inlier_factor*150.0); // by default this is 30.
+    // Inlier factor is 1.0/15 by default in stereo, and 0.2 in bundle_adjust.
+    // The later is more tolerant of outliers.
+    // TODO(oalexan1): A threshold proportional to image diagonal, like in other
+    // places, make more sense.
+    int inlier_threshold = round(ip_inlier_factor*150.0);
 
     // HACK: If the otherwise unused epipolar threshold is set, use it as
-    //       the inlier threshold.
+    // the inlier threshold.
+    // TODO(oalexan1): This may need to be removed.
     if (stereo_settings().epipolar_threshold > 0)
       inlier_threshold = stereo_settings().epipolar_threshold;
 
@@ -356,7 +360,8 @@ void StereoSession::determine_image_alignment(// Inputs
   
   // Compute the appropriate alignment matrix based on the input points
   if (stereo_settings().alignment_method == "homography") {
-    left_size = homography_rectification(adjust_left_image_size,
+    bool tight_inlier_threshold = false;
+    left_size = homography_rectification(adjust_left_image_size, tight_inlier_threshold,
                                          left_size, right_size, left_ip, right_ip,
                                          align_left_matrix, align_right_matrix);
     vw_out() << "\t--> Aligning right image to left using matrices:\n"

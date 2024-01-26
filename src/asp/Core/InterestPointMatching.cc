@@ -103,9 +103,9 @@ rough_homography_fit(camera::CameraModel* cam1,
 
         Vector2 l = cam1->point_to_pixel( intersection );
 
-        if ( box1.contains( l ) ) {
-          left_points.push_back( Vector3(l[0],l[1],1) );
-          right_points.push_back( Vector3(r[0],r[1],1) );
+        if (box1.contains(l)) {
+          left_points.push_back(Vector3(l[0],l[1],1));
+          right_points.push_back(Vector3(r[0],r[1],1));
         }
       }
       catch (...) {}
@@ -119,18 +119,29 @@ rough_homography_fit(camera::CameraModel* cam1,
   if (left_points.empty() || right_points.empty())
     vw_throw( ArgumentErr() << "InterestPointMatching: rough_homography_fit failed to generate points! Examine your images, or consider using the options --skip-rough-homography and --no-datum.\n" );
 
-  double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
-  typedef math::HomographyFittingFunctor hfit_func;
-  int min_num_inliers = left_points.size()/2;
+  // This number is 1/15 by default in stereo, and 0.2 in bundle_adjust. The
+  // latter is more tolerant of outliers, but for stereo this can result in a
+  // huge search range for disparity, which is not good.
+  double thresh_factor = stereo_settings().ip_inlier_factor; 
+  double inlier_th = norm_2(Vector2(box1.width(),box1.height())) * (1.5*thresh_factor);
+
+  int min_inliers = left_points.size()/2;
+  bool reduce_num_if_no_fit = true;
+
+  vw_out() << "\t    Rough homography inlier threshold: " << inlier_th << "\n";
+  vw_out() << "\t    RANSAC iterations:                 "
+           << stereo_settings().ip_num_ransac_iterations << "\n";
+
+  // Use RANSAC to determine a good homography transform between the images
   vw_out() << "Estimating rough homography using RANSAC with " 
     << asp::stereo_settings().ip_num_ransac_iterations << " iterations.\n";
+  typedef math::HomographyFittingFunctor hfit_func;
   Stopwatch sw;
   sw.start();
-  double inlier_thresh = norm_2(Vector2(box1.width(),box1.height())) * (1.5*thresh_factor);
   math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
     ransac(hfit_func(), math::InterestPointErrorMetric(),
            asp::stereo_settings().ip_num_ransac_iterations,
-           inlier_thresh, min_num_inliers);
+           inlier_th, min_inliers, reduce_num_if_no_fit);
 
   Matrix<double> H = ransac(right_points, left_points);
   std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
@@ -146,6 +157,7 @@ rough_homography_fit(camera::CameraModel* cam1,
 // TODO(oalexan1): Integrate filter_ip_homog() and homography_rectification().  
 // Ensure the same parameters are used in both.
 Vector2i homography_rectification(bool adjust_left_image_size,
+                                  bool tight_inlier_threshold,
                                   Vector2i const& left_size,
                                   Vector2i const& right_size,
                                   std::vector<ip::InterestPoint> const& left_ip,
@@ -157,13 +169,27 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   std::vector<Vector3>  right_copy = iplist_to_vectorlist(right_ip),
     left_copy  = iplist_to_vectorlist(left_ip);
 
-  double thresh_factor = stereo_settings().ip_inlier_factor; // 0.2 by default
-    
-  // Use RANSAC to determine a good homography transform between the images
-  int min_inliers = left_copy.size()/2;
-  double inlier_th = round(thresh_factor*150.0); // by default this is 30.
+  // This number is 1/15 by default in stereo, and 0.2 in bundle_adjust. The
+  // latter is more tolerant of outliers, but for stereo this can result in a
+  // huge search range for disparity, which is not good.
+  double thresh_factor = stereo_settings().ip_inlier_factor; 
+  double inlier_th = norm_2(Vector2(left_size.x(),left_size.y())) * (1.5*thresh_factor);
   
+  // When determining matches per tile, a loose threshold can result in inaccurate
+  // determination of the homography. We'd rather have it accurate here and throw
+  // away some good matches than the other way around. Later these matches will 
+  // be replaced with matches per tile once the homography transform is found.
+  if (tight_inlier_threshold)
+    inlier_th = std::min(0.05*norm_2(Vector2(left_size.x(),left_size.y())), 1000.0);
+    
+  int min_inliers = left_copy.size()/2;
   bool reduce_num_if_no_fit = true;
+  
+  vw_out() << "\t    Homography rectification inlier threshold: " << inlier_th << "\n";
+  vw_out() << "\t    RANSAC iterations:                         "
+           << stereo_settings().ip_num_ransac_iterations << "\n";
+  
+  // Use RANSAC to determine a good homography transform between the images
   math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric>
     ransac(math::HomographyFittingFunctor(),
             math::InterestPointErrorMetric(),
@@ -180,6 +206,9 @@ Vector2i homography_rectification(bool adjust_left_image_size,
              << "RANSAC error: " << e.what() << "\n");
   }
   std::vector<size_t> indices = ransac.inlier_indices(H, right_copy, left_copy);
+  vw::vw_out() << "Homography matrix:\n" << H << "\n";
+  vw_out() << "Number of inliers: " << indices.size() << ".\n";
+
   check_homography_matrix(H, left_copy, right_copy, indices);
   
   // Set right to a homography that has been refined just to our inliers.
@@ -188,7 +217,7 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   // translation coefficients is the right way of applying a translation to it,
   // because it has a denominator too.
   left_matrix  = math::identity_matrix<3>();
-  right_matrix = H; 
+  right_matrix = H;
 
   // Work out the ideal render size
   BBox2i output_bbox, right_bbox;
@@ -684,30 +713,36 @@ size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
                        int inlier_threshold) {
 
   std::vector<size_t> indices;
+  Matrix<double> H;
+  Stopwatch sw;
+  sw.start();
   try {
     
     std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(ip1_in),
       ransac_ip2 = iplist_to_vectorlist(ip2_in);
 
-    vw_out() << "\t    Inlier threshold:                     " << inlier_threshold << "\n";
-    vw_out() << "\t    RANSAC iterations:                    "
+    vw_out() << "\t    Homography ip filter inlier threshold: " << inlier_threshold << "\n";
+    vw_out() << "\t    RANSAC iterations:                     "
              << stereo_settings().ip_num_ransac_iterations << "\n";
     typedef math::RandomSampleConsensus<math::HomographyFittingFunctor,
       math::InterestPointErrorMetric> RansacT;
-    const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
+    int min_inliers = ransac_ip1.size()/2;
     bool reduce_num_if_no_fit = true;
     RansacT ransac(math::HomographyFittingFunctor(),
                    math::InterestPointErrorMetric(),
                    stereo_settings().ip_num_ransac_iterations,
                    inlier_threshold,
-                   MIN_NUM_OUTPUT_INLIERS, reduce_num_if_no_fit);
-    Matrix<double> H(ransac(ransac_ip2,ransac_ip1)); // 2 then 1 is used here for legacy reasons
-    //vw_out() << "\t--> Homography: " << H << "\n";
-    indices = ransac.inlier_indices(H,ransac_ip2,ransac_ip1);
+                   min_inliers, reduce_num_if_no_fit);
+    H = ransac(ransac_ip2, ransac_ip1); // 2 then 1 is used here for legacy reasons
+    indices = ransac.inlier_indices(H, ransac_ip2, ransac_ip1);
+    vw::vw_out() << "Homography matrix:\n" << H << "\n";
+    vw_out() << "Number of inliers: " << indices.size() << ".\n";
   } catch (const math::RANSACErr& e ) {
     vw_out() << "RANSAC failed: " << e.what() << "\n";
     return false;
   }
+  sw.stop();
+  vw_out() << "RANSAC time: " << sw.elapsed_seconds() << " seconds.\n";
 
   // Assemble the remaining interest points
   const size_t num_left = indices.size();
@@ -722,7 +757,6 @@ size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
 
   return num_left;
 }
-
 
 // Filter IP using a given DEM and max height difference.  Assume that
 // the interest points have alignment applied to them (either via a

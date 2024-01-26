@@ -365,12 +365,12 @@ void load_or_compute_ip(std::string const & left_unalgined_image,
   bool success = false;
   
   // TODO: Depending on alignment method, we can tailor the IP filtering strategy.
-  double thresh_factor = stereo_settings().ip_inlier_factor; // 0.2 by default
+  double thresh_factor = stereo_settings().ip_inlier_factor; // 1.0/15 by default
   
   // This range is extra large to handle elevation differences.
   // TODO(oalexan1): Must move ip matching to StereoSession and
   // use a single homography function and a single choice of parameters.
-  const int inlier_threshold = 50*(20.0*thresh_factor);  // 200 by default
+  const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default
   size_t number_of_jobs = 1;
   success = asp::homography_ip_matching(left_image, right_image,
                                         stereo_settings().ip_per_tile,
