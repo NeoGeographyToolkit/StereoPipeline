@@ -19,6 +19,7 @@
 ///
 
 #include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Core/AspStringUtils.h>
@@ -139,14 +140,58 @@ namespace asp {
     // The DEM the user provided better be the one used for map projection.
     if (input_dem != dem_file)
       vw::vw_out(WarningMessage) << "The DEM used for map projection is different "
-        << "from the one provided on the command line.\n"
+        << "from the one provided currently.\n"
         << "Mapprojection DEM: " << dem_file << "\n"
-        << "Command line DEM: " << input_dem << "\n";
+        << "Current DEM: " << input_dem << "\n";
     
     if (adj_prefix == "NONE")
       adj_prefix = "";
   }
    
+  // When loading camera models from the image files, we either use the sensor
+  // model for the current session type or else the RPC model which is often
+  // used as an approximation. If that fails, create a new session from scratch
+  // and load the camera model with that.
+  void StereoSession::read_mappproj_cam(std::string const& image_file, 
+                                        std::string const& cam_file,
+                                        std::string const& adj_prefix, 
+                                        std::string const& cam_type,
+                                        vw::CamPtr & map_proj_cam) {
+
+    const Vector2 zero_pixel_offset(0,0);
+    
+    try {
+      if (cam_type == "rpc") {
+        map_proj_cam = load_rpc_camera_model(image_file, cam_file,
+                                             adj_prefix, zero_pixel_offset);
+      } else { // Use the native model
+        map_proj_cam = load_camera_model(image_file, cam_file,
+                                         adj_prefix, zero_pixel_offset);
+      }
+    } catch (std::exception const& e) {
+      std::string msg = e.what();
+      vw_out() << "Creating a new session to load the mapprojected camera model.\n";  
+      std::string session_type = cam_type;
+      std::string out_prefix; 
+      try {
+        typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
+        SessionPtr session(asp::StereoSessionFactory::create
+                            (session_type, // may change
+                             m_options, image_file, image_file, cam_file, cam_file,
+                             out_prefix));
+        map_proj_cam = session->load_camera_model(image_file, cam_file,
+                                                  adj_prefix, zero_pixel_offset);
+      } catch (std::exception const& e) {
+        vw_throw(ArgumentErr() << "Failed to load the camera model from " << cam_file
+                << " for image " << image_file << ".\n"
+                << "First error message:" << msg << "\n"
+                << "Second error message:" << e.what() << "\n");
+      }
+    }
+    
+    return;
+  }
+  
   // Read the cameras used to undo the mapprojection. The header file of the
   // mapprojected images contain a lot of info that we load along the way,
   // including the bundle adjust prefix that was used to create these images,
@@ -171,35 +216,15 @@ namespace asp {
     read_mapproj_headers(right_image_file, right_camera_file, input_dem, session_name,
                          r_adj_prefix, r_image_file, r_cam_type, r_cam_file, r_dem_file);
   
-    // When loading camera models from the image files, we either use the sensor model for
-    // the current session type or else the RPC model which is often used as an approximation.
-    const Vector2 zero_pixel_offset(0,0);
-    if (l_cam_type == "rpc") {
-      // This message is useful, because sometimes there is confusion as to whether
-      // the RPC model or original model is used in mapprojection.
-      vw_out() << "Loading RPC camera used in mapprojection.\n";
-      left_map_proj_cam = load_rpc_camera_model(l_image_file, l_cam_file,
-                                                l_adj_prefix, zero_pixel_offset);
-    } else { // Use the native model
-      vw_out() << "Loading " << l_cam_type << " camera used in mapprojection.\n";
-      left_map_proj_cam = load_camera_model(l_image_file, l_cam_file,
-                                            l_adj_prefix, zero_pixel_offset);
-    }
+    vw_out() << "Mapprojected images bundle adjustment prefixes: " 
+              << l_adj_prefix << ' ' << r_adj_prefix << std::endl;
+    vw_out() << "Cameras used in mapprojection: " << l_cam_file << ' ' << r_cam_file << std::endl; 
+    vw_out() << "Camera types used in mapprojection: " << l_cam_type << ' ' << r_cam_type << std::endl;
+
+    // Load either the current session camera type, or rpc, or form a new session.
+    read_mappproj_cam(l_image_file, l_cam_file, l_adj_prefix, l_cam_type, left_map_proj_cam);
+    read_mappproj_cam(r_image_file, r_cam_file, r_adj_prefix, r_cam_type, right_map_proj_cam);
     
-    if (r_cam_type == "rpc") {
-      right_map_proj_cam = load_rpc_camera_model(r_image_file, r_cam_file,
-                                                 r_adj_prefix, zero_pixel_offset);
-    } else { // Use the native model
-      right_map_proj_cam = load_camera_model(r_image_file, r_cam_file,
-                                             r_adj_prefix, zero_pixel_offset);
-    }
-
-    //vw_out() << "Mapprojected images bundle adjustment prefixes: " 
-    //          << l_adj_prefix << ' ' << r_adj_prefix << std::endl;
-    // These are useful but verbose messages
-    //vw_out() << "Left camera file used in mapprojection: " << l_cam_file << "\n";
-    //vw_out() << "Right camera file used in mapprojection: " << r_cam_file << "\n";
-
     VW_ASSERT(left_map_proj_cam.get() && right_map_proj_cam.get(),
               ArgumentErr() << "StereoSession: Unable to locate map "
               << "projection camera model inside input files!");

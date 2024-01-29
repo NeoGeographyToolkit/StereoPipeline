@@ -821,39 +821,8 @@ namespace asp {
                              << "as the images are map-projected." << std::endl;
     }
 
-    if (dem_provided) {
-
-      // Given session XmapY make sure that the mapprojected images were
-      // done with camera Y. Normally X equals Y, with the exceptions
-      // of dgmaprpc, spot5maprpc, and astermaprpc.
-      std::string cam_tag = "CAMERA_MODEL_TYPE";
-      std::string l_cam_type = vw::cartography::read_header_string(opt.in_file1, cam_tag);
-      std::string r_cam_type = vw::cartography::read_header_string(opt.in_file2, cam_tag);
-
-      // Extract the 'rpc' from 'rpcmaprpc' and 'dgmaprc', and 'pinhole' from 'pinholemappinhole'
-      std::string tri_cam_type, mapproj_cam_type; 
-      asp::parseCamTypes(opt.session->name(), tri_cam_type, mapproj_cam_type);
-
-      // Sanity check. note that l_cam_type and r_cam_type can be empty
-      if ((l_cam_type != "" && l_cam_type != mapproj_cam_type) ||
-          (r_cam_type != "" && r_cam_type != mapproj_cam_type)   ){
-        vw_throw(ArgumentErr() << "For session type "
-                 << opt.session->name()
-                 << ", the images should have been map-projected with "
-                 << "the option -t \"" << mapproj_cam_type << "\". Instead, got: \""
-                 << l_cam_type << "\" and \"" << r_cam_type << "\".\n");
-      }
-
-      // Can't use match files prefix with mapproj images
-      if (!stereo_settings().match_files_prefix.empty() ||
-          !stereo_settings().clean_match_files_prefix.empty()) 
-        vw_throw(ArgumentErr() << "Options: --match-files-prefix and "
-                 << "--clean-match-files-prefix do not work with mapprojected images.\n");
-      
-    } // End if dem_provided
-
     if (stereo_settings().corr_kernel[0]%2 == 0 ||
-        stereo_settings().corr_kernel[1]%2 == 0   ){
+        stereo_settings().corr_kernel[1]%2 == 0) {
       vw_throw(ArgumentErr() << "The entries of corr-kernel must be odd numbers.\n");
     }
 
