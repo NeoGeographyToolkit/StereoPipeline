@@ -842,7 +842,7 @@ Command-line options
     ``optical_center``, ``other_intrinsics``. By default all of the intrinsics
     are shared, so to not share any of them pass in an empty string. Also can
     specify as ``all`` or ``none``. If sharing intrinsics per sensor, this
-    option is ignored, as then the sharing is more fine-grained.
+    option is ignored, as then the sharing is more fine-grained
     (:numref:`kaguya_ba`).
 
 --intrinsics-limits <arg>

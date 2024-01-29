@@ -712,6 +712,7 @@ size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
                        std::vector<ip::InterestPoint>      & ip2_out,
                        int inlier_threshold) {
 
+  vw::vw_out() << "Filtering interest point matches using homography.\n";
   std::vector<size_t> indices;
   Matrix<double> H;
   Stopwatch sw;
@@ -737,7 +738,7 @@ size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
     indices = ransac.inlier_indices(H, ransac_ip2, ransac_ip1);
     vw::vw_out() << "Homography matrix:\n" << H << "\n";
     vw_out() << "Number of inliers: " << indices.size() << ".\n";
-  } catch (const math::RANSACErr& e ) {
+  } catch (const math::RANSACErr& e) {
     vw_out() << "RANSAC failed: " << e.what() << "\n";
     return false;
   }
@@ -749,7 +750,7 @@ size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
   std::vector<ip::InterestPoint> final_ip1, final_ip2;
   ip1_out.resize(num_left);
   ip2_out.resize(num_left);
-  for (size_t i=0; i<num_left; ++i) {
+  for (size_t i = 0; i < num_left; i++) {
     size_t index = indices[i];
     ip1_out[i] = ip1_in[index];
     ip2_out[i] = ip2_in[index];

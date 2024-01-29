@@ -54,13 +54,16 @@ be the center of the image, then the optical center passed to this tool
 should be half of the image width and height, with both multiplied by
 the pixel pitch, to make them in meters as well.
 
+This procedure is not as accurate as approximating an existing camera
+(:numref:`cam_gen_prior`).
+  
 Some other pixels can be used instead of corners, if using the
 ``--pixel-values`` option.
 
 Optical bar cameras
 ^^^^^^^^^^^^^^^^^^^
 
-For optical bar cameras the camera parameters must be passed in using the
+For optical bar cameras, the camera parameters must be passed in using the
 ``--sample-file`` option instead of specifying them all manually. This is 
 discussed in :numref:`kh9`.
 
@@ -92,19 +95,24 @@ Here we passed the image as the input camera, since for ISIS cubes (and
 also for some RPC cameras) the camera information is not stored in a
 separate camera file.
 
+Zero distortion will be assumed. 
+
 Ensure the correct datum is passed for your planet, if a DEM is not used on
 input. For example: ``--datum D_MARS``. 
 
 The ``--height-above-datum`` option will not be used if the input DEM covers the
 image ground footprint.
 
+.. _cam_gen_frame:
+
 CSM frame cameras
 ^^^^^^^^^^^^^^^^^
 
-A Pinhole camera can be saved in the CSM (:numref:`csm`) Frame camera format by
-ensuring the output camera file has a .json extension rather than .tsai. Zero
-distortion is assumed. All examples from above still apply, after
-changing the output extension.
+A produced approxiamte Pinhole camera (created from any input sensor type, per
+:numref:`cam_gen_prior`), can be saved in the CSM Frame camera model state
+format (:numref:`csm_state`) by ensuring the output camera file has a .json
+extension rather than .tsai. Zero distortion is assumed. All examples from above
+still apply, after changing the output extension.
 
 The ``cam_test`` program (:numref:`cam_test`) can be used to verify the
 agreement between a .tsai and .json version of the same camera.
@@ -114,8 +122,13 @@ agreement between a .tsai and .json version of the same camera.
 CSM linescan cameras
 ^^^^^^^^^^^^^^^^^^^^
 
-This program can take as input a Maxar (DigitalGlobe) WorldView linescan camera
-(:numref:`dg_tutorial`), and convert it to CSM (:numref:`csm`) linescan format. 
+This program can take as input a linescan camera, such as WorldView
+(:numref:`dg_tutorial`), Pleiades (:numref:`pleiades`), ASTER (:numref:`aster`),
+and CSM (:numref:`csm`), and convert it to the CSM linescan model state format
+(:numref:`csm_state`). This allows one to use ASP with a combination of
+linescan cameras from different vendors and also with Frame cameras
+(:numref:`cam_gen_frame`).
+
 An example is as follows::
 
     cam_gen --camera-type linescan       \
@@ -125,11 +138,11 @@ An example is as follows::
 The option ``--bundle-adjust-prefix`` can be used to apply an adjustment to the
 camera on loading.
 
-The ``cam_test`` program (:numref:`cam_test`) can verify the
-agreement between the input and output cameras. Do not specify the
-``--bundle-adjust-prefix`` option for such experiments, as the original camera
-does not have the adjustment applied to it, the produced one does, and
-``cam_test`` will apply such an adjustment to both.
+The ``cam_test`` program (:numref:`cam_test`) can verify the agreement between
+the input and output cameras. Do not specify the ``--bundle-adjust-prefix``
+option for such experiments, as the original camera does not have the adjustment
+applied to it, the produced one does, and ``cam_test`` will apply such an
+adjustment to both.
 
 If desired to create linescan cameras to given specifications, use instead
 ``sat_sim`` (:numref:`sat_sim`).
@@ -159,6 +172,8 @@ camera to verify if it projects where expected::
 The output ``img_map.tif`` can be overlaid onto the hillshaded DEM in
 ``stereo_gui``.
 
+Use ``cam_test`` program (:numref:`cam_test`) for sanity checks.
+
 The ``sfm_view`` program (:numref:`sfm_view`) can be used to visualize the
 cameras in orbit.
 
@@ -176,7 +191,7 @@ Command-line options
     Specify the output camera file with a .tsai or .json extension.
 
 --camera-type <string (default: "pinhole")>
-    Specify the camera type. Options: ``pinhole``,  ``opticalbar``,
+    Specify the output camera type. Options: ``pinhole``,  ``opticalbar``,
     ``linescan``. For linescan usage see :numref:`cam_gen_linescan`.
 
 --lon-lat-values <string (default: "")>

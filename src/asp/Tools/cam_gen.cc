@@ -1004,9 +1004,6 @@ void save_linescan(Options & opt) {
                       opt.input_camera, opt.input_camera,
                       out_prefix));
 
-  if (opt.stereo_session != "dg")
-    vw_throw(ArgumentErr() << "Only reading Digital Globe linescan cameras is supported.\n");
-    
   boost::shared_ptr<CameraModel> camera_model = session->camera_model(opt.image_file,
 								      opt.input_camera);
   

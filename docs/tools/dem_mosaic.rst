@@ -138,6 +138,9 @@ Apply a blur
 
     dem_mosaic --dem-blur-sigma 1 input.tif -o output.tif
 
+This option will also extend the DEM somewhat and fill some holes, especially
+with a larger sigma.
+
 Erosion
 ^^^^^^^
 

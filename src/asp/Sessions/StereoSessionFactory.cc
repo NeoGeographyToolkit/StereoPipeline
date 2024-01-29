@@ -140,6 +140,17 @@ namespace asp {
           } catch (...) {}
         }
         
+        if (actual_session_type.empty()) {
+          // Try the ASTER exact linescan model
+          try {
+            StereoSessionASTER session;
+            boost::shared_ptr<vw::camera::CameraModel>
+              left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
+              right_model = session.camera_model(right_image_file, right_camera_file, quiet);
+            actual_session_type = "aster";
+          } catch (...) {}
+        }
+        
       } // end considering the xml extension case
 
       // Try RPC, which can either have xml cameras or no cameras at all (if embedded
@@ -209,7 +220,7 @@ namespace asp {
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pleiadesmappleiades.\n";
       }
       
-      // Quetly switch from nadirpinhole to pinhole for mapprojected images
+      // Quietly switch from nadirpinhole to pinhole for mapprojected images
       if (!input_dem.empty() && actual_session_type == "nadirpinhole") {
         // User says nadirpinhole but also gives a DEM.
         actual_session_type = "pinholemappinhole";

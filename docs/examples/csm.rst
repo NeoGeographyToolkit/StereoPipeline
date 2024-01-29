@@ -1075,13 +1075,20 @@ the optimization adjustments applied to them (use zero iterations in
 This functionality is implemented for all USGS CSM sensors, so, for ``frame``,
 ``linescan``, ``pushframe``, and ``SAR`` models.
 
+The ``cam_gen`` program can convert several linescan camera model types to CSM
+model state (:numref:`cam_gen_linescan`). It can also approximate some Pinhole,
+RPC, or other cameras with CSM frame cameras in model state format
+(:numref:`cam_gen_frame`). The `usgscsm_cam_test
+<https://github.com/DOI-USGS/usgscsm/blob/main/docs/source/tools/usgscsm_cam_test.rst>`_
+program can convert any CSM camera to model state.
+
 ASP's ``parallel_stereo`` and bundle adjustment programs can, in addition to CSM
 ISD camera model files, also load such model state files, either as previously
 written by ASP or from an external source (it will auto-detect the type from the
 format of the JSON files). Hence, the model state is a convenient format for
 data exchange, while being less complex than the ISD format.
 
-If ASP's ``parallel_stereo`` program is used to create a point cloud from
+If ``parallel_stereo`` is used to create a point cloud from
 images and CSM cameras, and then that point cloud has a transform
 applied to it, such as with ``pc_align``, the same transform can be
 applied to the model states for the cameras using ``bundle_adjust``

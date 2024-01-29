@@ -28,7 +28,6 @@
 #include <asp/Camera/LinescanASTERModel.h>
 #include <asp/Sessions/StereoSessionASTER.h>
 
-
 #include <iostream>
 #include <string>
 #include <vector>

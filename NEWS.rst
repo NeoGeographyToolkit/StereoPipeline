@@ -128,14 +128,16 @@ isis (:numref:`moc_tutorial`):
     ISIS bundle adjustment tool. 
 
 cam_gen (:numref:`cam_gen`):
-   * Can create frame cameras in CSM format.
-   * Can export a WorldView linescan camera to CSM format.
+   * Can create frame cameras in CSM format (:numref:`cam_gen_frame`).
+   * Can export linescan cameras to CSM format (:numref:`cam_gen_linescan`).
      
 misc:
   * Upgraded to GDAL 3.8.0, PROJ 9.3.0, Boost 1.82.0.
   * Made all tools that spawn processes in parallel use the option
     ``--parallel-options``, with default ``--sshdelay 0.2``, to avoid
-    failure on certain architectures. 
+    failure on certain architectures.
+  * For ASTER (:numref:`aster`), the model loaded by default is now linescan
+    rather than RPC.
   * Fixed a bug in outlier filtering when the interest points are very noisy.   
   * Fixed a couple of runtime errors when using conda packages on OSX.
   * Eliminated a procedure for cleaning the name of an input path that was

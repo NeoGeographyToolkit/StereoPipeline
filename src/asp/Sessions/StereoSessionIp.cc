@@ -244,7 +244,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                      epipolar_threshold, ip_uniqueness_thresh,
                                      left_ip_file, right_ip_file,
                                      nodata1, nodata2);
-  } else { // Not nadir facing
+  } else { // No datum
     // Run a simpler purely image-based matching function
     double ip_inlier_factor = stereo_settings().ip_inlier_factor;
     // Inlier factor is 1.0/15 by default in stereo, and 0.2 in bundle_adjust.
