@@ -16,8 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-import sys, argparse, subprocess, re, os, math, time, tempfile, glob,\
-       shutil, math
+import sys, argparse, subprocess, re, os, math, time, glob, shutil, math
 import os.path as P
 
 # Set up the path to Python modules about to load
@@ -509,12 +508,13 @@ def spawn_to_nodes(step, settings, args):
 
     tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
 
-    # Each tile has an id, which is its index in the list of tiles.
-    # There can be a huge amount of tiles, and for that reason we
-    # store their ids in a file, rather than putting them on the
-    # command line.
-    tmpFile = tempfile.NamedTemporaryFile(delete=True, dir='.')
-    f = open(tmpFile.name, 'w')
+    # Each tile has an index in the list of tiles. There can be a huge amount of
+    # tiles, and for that reason we store their indices in a file, rather than
+    # putting them on the command line. Keep this file in the run directory.
+    out_prefix = settings['out_prefix'][0]
+    tiles_index = out_prefix + "-tiles-index.txt"
+    mkdir_p(os.path.dirname(tiles_index))
+    f = open(tiles_index, 'w')
     for i in range(len(tiles)):
         f.write("%d\n" % i)
     f.close()
@@ -523,7 +523,7 @@ def spawn_to_nodes(step, settings, args):
     # TODO(oalexan1): Run 'parallel' using the runInGnuParallel() function call,
     # when the ASP_LIBRARY_PATH trick can be fully encapsulated in the
     # asp_system_utils.py code rather than being needed for each tool.
-    cmd = ['parallel', '--will-cite', '--env', 'ASP_DEPS_DIR', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'PYTHONHOME', '-u', '-P', str(procs), '-a', tmpFile.name]
+    cmd = ['parallel', '--will-cite', '--env', 'ASP_DEPS_DIR', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'PYTHONHOME', '-u', '-P', str(procs), '-a', tiles_index]
     if which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')
 
@@ -914,15 +914,6 @@ if __name__ == '__main__':
         # 2. Set the ISIS settings if any
         if 'ISISROOT' in os.environ: opt.isisroot = os.environ['ISISROOT']
         if 'ISISDATA' in os.environ: opt.isisdata = os.environ['ISISDATA']
-        # 3. Fix for Pleiades, copy the nodes_list to current directory
-        if opt.nodes_list is not None:
-            if not os.path.isfile(opt.nodes_list):
-                die('\nERROR: No such nodes-list file: ' + opt.nodes_list, code=2)
-            tmpFile = tempfile.NamedTemporaryFile(delete=True, dir='.')
-            shutil.copy2(opt.nodes_list, tmpFile.name)
-            opt.nodes_list = tmpFile.name
-            asp_cmd_utils.wipe_option(sys.argv, '--nodes-list', 1)
-            sys.argv.extend(['--nodes-list', tmpFile.name])
     else:
         # After the script spawns itself to nodes, it starts in the
         # home dir. Make it go to the right place.
@@ -937,6 +928,21 @@ if __name__ == '__main__':
     settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
     out_prefix = settings['out_prefix'][0]
 
+    # In the master process, need to create the list of nodes. Must happen
+    # after we are in the work dir and have out_prefix. This ensures
+    # the list is not in a temp dir of one of the nodes.
+    if opt.tile_id is None and opt.nodes_list is not None:
+        if not os.path.isfile(opt.nodes_list):
+            die('\nERROR: No such nodes-list file: ' + opt.nodes_list, code=2)
+        local_nodes_list = out_prefix + "-nodes-list.txt"
+        mkdir_p(os.path.dirname(local_nodes_list))
+        if opt.nodes_list != local_nodes_list:
+            shutil.copy2(opt.nodes_list, local_nodes_list)
+            opt.nodes_list = local_nodes_list
+        asp_cmd_utils.wipe_option(sys.argv, '--nodes-list', 1)
+        sys.argv.extend(['--nodes-list', opt.nodes_list])
+        print("Nodes list: " + opt.nodes_list)
+      
     # See if to resume at triangulation
     if opt.tile_id is None and opt.prev_run_prefix is not None:
         print("Starting at the triangulation stage while reusing a previous run.")
@@ -955,7 +961,7 @@ if __name__ == '__main__':
     # Padded tiles are needed if later we do blending 
     using_padded_tiles = use_padded_tiles(settings)
 
-    # By default use 8 threads for SGM/MGM. Then use proporitionately fewer
+    # By default use 8 threads for SGM/MGM. Then use proportionately fewer
     # processes to not run out of RAM. Otherwise see the function
     # get_best_procs_threads().
     # TODO(oalexan1): This logic needs to be all in one place.

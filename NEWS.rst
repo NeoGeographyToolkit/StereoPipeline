@@ -146,6 +146,9 @@ misc:
   * The OSX build now gets created and tested via GitHub Actions.
   * Very old jitter adjustment logic was removed. The ``jitter_solve``
     tool must be used instead.
+  * Do not keep auxiliary files with temporary names in the work directory for
+    ``parallel_stereo`` and ``parallel_bundle_adjust``. Use run's output
+    directory and proper names.  
   
 RELEASE 3.3.0, August 16, 2023
 ------------------------------

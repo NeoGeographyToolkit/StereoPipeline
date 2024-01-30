@@ -21,8 +21,7 @@
 # find them in the subdirectory for each subtask even though they
 # exist in the final location.
 
-import sys, argparse, subprocess, re, os, math, time, tempfile, glob,\
-       shutil, math, copy
+import sys, argparse, subprocess, re, os, math, time, glob, shutil, math, copy
 import os.path as P
 
 # The path to the ASP python files
@@ -47,13 +46,12 @@ if 'ASP_LIBRARY_PATH' in os.environ:
 
 def get_output_prefix(args):
     '''Parse the output prefix from the argument list'''
-    temp = get_option(args, '-o', 1)
-    if not temp:
-        temp = get_option(args, '--output-prefix', 1)
-    if len(temp) < 2:
-        raise Exception('Failed to parse the output prefix!')
-    return temp[1]
-
+    prefix = get_option(args, '-o', 1)
+    if not prefix:
+        prefix = get_option(args, '--output-prefix', 1)
+    if len(prefix) < 2:
+        raise Exception('Failed to parse the output prefix.')
+    return prefix[1]
 
 def get_num_nodes(nodes_list):
 
@@ -166,7 +164,7 @@ def get_subfolder_prefix(output_folder, instance_index):
 # Launch GNU Parallel for all tiles, it will take care of distributing
 # the jobs across the nodes and load balancing. The way we accomplish
 # this is by calling this same script but with --instance_index <num>.
-def spawn_to_nodes(step, argsIn):
+def spawn_to_nodes(step, output_prefix, argsIn):
 
     args = copy.copy(argsIn)
 
@@ -187,11 +185,10 @@ def spawn_to_nodes(step, argsIn):
     args.extend(['--instance-count', str(num_instances)])
 
     # For convenience store the instance index list in a file that
-    #  will be passed to GNU parallel.
-    # TODO(oalexan1): This temp file may be deleted by accident.
-    # Do something better.
-    tmpFile = tempfile.NamedTemporaryFile(delete=True, dir='.')
-    f = open(tmpFile.name, 'w')
+    # will be passed to GNU parallel. Keep this in the run directory.
+    asp_system_utils.mkdir_p(os.path.dirname(output_prefix))
+    instance_list = output_prefix + '-instance-list.txt'
+    f = open(instance_list, 'w')
     for i in range(num_instances):
         f.write("%d\n" % i)
     f.close()
@@ -200,7 +197,7 @@ def spawn_to_nodes(step, argsIn):
     # TODO(oalexan1): Run 'parallel' using the runInGnuParallel() function call,
     # when the ASP_LIBRARY_PATH trick can be fully encapsulated in the
     # asp_system_utils.py code rather than being needed for each tool.
-    cmd = ['parallel', '--will-cite', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'ASP_DEPS_DIR', '-u', '--max-procs', str(procs), '-a', tmpFile.name]
+    cmd = ['parallel', '--will-cite', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'ASP_DEPS_DIR', '-u', '--max-procs', str(procs), '-a', instance_list]
     if which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')
 
@@ -399,6 +396,7 @@ if __name__ == '__main__':
     global opt
     (opt, args) = p.parse_known_args()
     args = clean_args(args)
+    output_prefix = get_output_prefix(args)
 
     if opt.version:
         asp_system_utils.print_version_and_exit()
@@ -421,15 +419,19 @@ if __name__ == '__main__':
         # 2. Set the ISIS settings if any
         if 'ISISROOT'  in os.environ: opt.isisroot  = os.environ['ISISROOT']
         if 'ISISDATA' in os.environ: opt.isisdata = os.environ['ISISDATA']
-        # 3. Fix for Pleiades, copy the nodes_list to current directory
+        # 3. Fix for Pleiades, copy the nodes_list to the run directory
+        # to ensure it can be seen on any node.
         if opt.nodes_list is not None:
             if not os.path.isfile(opt.nodes_list):
                 die('\nERROR: No such nodes-list file: ' + opt.nodes_list, code=2)
-            tmpFile = tempfile.NamedTemporaryFile(delete=True, dir='.')
-            shutil.copy2(opt.nodes_list, tmpFile.name)
-            opt.nodes_list = tmpFile.name
+            local_nodes_list = output_prefix + "-nodes-list.txt"
+            if opt.nodes_list != local_nodes_list:
+                shutil.copy2(opt.nodes_list, local_nodes_list)
+                opt.nodes_list = local_nodes_list
             asp_cmd_utils.wipe_option(sys.argv, '--nodes-list', 1)
-            sys.argv.extend(['--nodes-list', tmpFile.name])
+            sys.argv.extend(['--nodes-list', opt.nodes_list])
+            print("Nodes list: " + opt.nodes_list)
+            
     else:
         # After the script spawns itself to nodes, it starts in the
         # home dir. Make it go to the right place.
@@ -457,7 +459,6 @@ if __name__ == '__main__':
         asp_cmd_utils.wipe_option(self_args, '--entry-point', 1)
         asp_cmd_utils.wipe_option(self_args, '--stop-point',  1)
 
-        output_prefix = get_output_prefix(args)
         output_folder = os.path.dirname(output_prefix)
 
         # Create the main output folder
@@ -471,7 +472,7 @@ if __name__ == '__main__':
                 sys.exit()
 
             # Spawn statistics processes to nodes.
-            spawn_to_nodes(step, self_args)
+            spawn_to_nodes(step, output_prefix, self_args)
 
         # Matching.
         step = ParallelBaStep.matching
@@ -480,7 +481,7 @@ if __name__ == '__main__':
                 sys.exit()
 
             # Spawn statistics processes to subdir for nodes.
-            spawn_to_nodes(step, self_args)
+            spawn_to_nodes(step, output_prefix, self_args)
 
         # Optimization
         step = ParallelBaStep.optimization
