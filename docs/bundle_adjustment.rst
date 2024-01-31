@@ -351,6 +351,7 @@ lidar/DEM file. Note that we use the cameras obtained after alignment::
        --max-num-reference-points 1000000                       \
        --max-pairwise-matches 20000                             \
        --parameter-tolerance 1e-12                              \
+       --robust-threshold 2                                     \
        --reference-terrain lidar.csv                            \
        --reference-terrain-weight 5                             \
        --disparity-list run_stereo/run-unaligned-D.tif          \
@@ -361,6 +362,10 @@ lidar/DEM file. Note that we use the cameras obtained after alignment::
 Here we set the camera weight all the way to 0, since it is hoped that
 having a reference terrain is a sufficient constraint to prevent
 over-fitting.
+
+We used ``--robust-threshold 2`` to make the solver work harder
+where the errors are larger. This may be increased somewhat if the
+distortion is still not solved well in corners.
 
 See the note earlier in the text about what a good lens distortion
 model is.
@@ -425,6 +430,7 @@ follows (the example here is for 4 images)::
        run_align_34/run-img3.tsai run_align34/run-img4.tsai     \
        --reference-terrain lidar.csv                            \
        --disparity-list "$disp1 $disp2 $disp3"                  \
+       --robust-threshold 2                                     \
        --max-disp-error 50 --max-num-reference-points 1000000   \
        --overlap-limit 1 --parameter-tolerance 1e-12            \
        --reference-terrain-weight 5                             \   

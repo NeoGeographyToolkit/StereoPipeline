@@ -108,7 +108,7 @@ image ground footprint.
 CSM frame cameras
 ^^^^^^^^^^^^^^^^^
 
-A produced approxiamte Pinhole camera (created from any input sensor type, per
+A produced approximate Pinhole camera (created from any input sensor type, per
 :numref:`cam_gen_prior`), can be saved in the CSM Frame camera model state
 format (:numref:`csm_state`) by ensuring the output camera file has a .json
 extension rather than .tsai. Zero distortion is assumed. All examples from above

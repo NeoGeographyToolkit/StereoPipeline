@@ -73,7 +73,7 @@ ip-triangulation-max-error <double (default: unspecified)>
     When matching IP, filter out any pairs with a triangulation error
     higher than this.
 
-ip-num-ransac-iterations <int (default: 100)>
+ip-num-ransac-iterations <int (default: 1000)>
     How many RANSAC iterations to do in interest point matching.
 
 ip-nodata-radius <integer (default: 4)>

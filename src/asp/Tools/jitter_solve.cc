@@ -1766,11 +1766,13 @@ void run_jitter_solve(int argc, char* argv[]) {
   vw::cartography::GeoReference dem_georef, anchor_georef;
   ImageViewRef<PixelMask<double>> interp_dem, interp_anchor_dem;
   if (opt.heights_from_dem != "") {
+    vw::vw_out() << "Reading the DEM for the --heights-from-dem constraint.\n";
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
     asp::update_point_height_from_dem(cnet, outliers, dem_georef, interp_dem,  
                                       // Output
                                       dem_xyz_vec);
   } else if (opt.ref_dem != "") {
+    vw::vw_out() << "Reading the DEM for the --reference-dem constraint.\n";
     asp::create_interp_dem(opt.ref_dem, dem_georef, interp_dem);
     asp::calc_avg_intersection_with_dem(cnet, crn, outliers, opt.camera_models,
                                         dem_georef, interp_dem,
@@ -1778,8 +1780,10 @@ void run_jitter_solve(int argc, char* argv[]) {
                                         dem_xyz_vec);
   }
   
-  if (opt.anchor_dem != "")
+  if (opt.anchor_dem != "") {
+    vw::vw_out() << "Reading the DEM for the --anchor-dem constraint.\n";
     asp::create_interp_dem(opt.anchor_dem, anchor_georef, interp_anchor_dem);
+  }
 
   // Handle the roll/yaw constraint DEM. We already checked that one of thse cases should work
   vw::cartography::GeoReference roll_yaw_georef;

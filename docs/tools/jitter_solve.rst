@@ -691,25 +691,28 @@ matches.
 
 Solve for jitter::
 
-    jitter_solve                           \
-      1.tif 2.tif                          \
-      1.xml 2.xml                          \
-      --input-adjustments-prefix align/run \
-      --match-files-prefix dense/run       \
-      --num-iterations 10                  \
-      --max-pairwise-matches 1000000       \
-      --max-initial-reprojection-error 10  \
-      --robust-threshold 0.2               \
-      --tri-weight 0.1                     \
-      --tri-robust-threshold 0.1           \
-      --translation-weight 0               \
-      --rotation-weight 0                  \
-      --num-lines-per-position    50       \
-      --num-lines-per-orientation 50       \
-      --num-anchor-points 40000            \
-      --num-anchor-points-extra-lines 500  \
-      --anchor-dem ref.tif                 \
-      --anchor-weight 1.0                  \
+    jitter_solve                              \
+      1.tif 2.tif                             \
+      1.xml 2.xml                             \
+      --input-adjustments-prefix align/run    \
+      --match-files-prefix dense/run          \
+      --num-iterations 10                     \
+      --max-pairwise-matches 1000000          \
+      --max-initial-reprojection-error 10     \
+      --robust-threshold 0.2                  \
+      --tri-weight 0.1                        \
+      --tri-robust-threshold 0.1              \
+      --translation-weight 0                  \
+      --rotation-weight 0                     \
+      --num-lines-per-position    200         \
+      --num-lines-per-orientation 200         \
+      --heights-from-dem ref.tif              \
+      --heights-from-dem-weight 0.1           \
+      --heights-from-dem-robust-threshold 0.1 \
+      --num-anchor-points 20000               \
+      --num-anchor-points-extra-lines 500     \
+      --anchor-dem ref.tif                    \
+      --anchor-weight 1.0                     \
     -o jitter/run
 
 The robust threshold was set to 0.2 because the jitter signal is rather
@@ -1328,11 +1331,16 @@ Mixing linescan and frame cameras
 
 This solver allows solving for jitter using a combination of linescan and frame
 (pinhole) cameras, if both of these are stored in the CSM format (:numref:`csm`). 
+How to convert existing cameras to this format is described in :numref:`cam_gen_frame`
+and :numref:`cam_gen_linescan`.
 
 For now, this functionality was validated only with synthetic cameras created
 with ``sat_sim`` (:numref:`sat_sim`). In this case, roll and yaw constraints for
 the orientations of cameras being optimized are supported, for both linescan and
 frame cameras.
+
+When using real data, it is important to ensure they are acquired at close-enough
+times, with similar illumination and ground conditions (such as snow thickness).
 
 Here is a detailed recipe.
 

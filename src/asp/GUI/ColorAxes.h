@@ -41,10 +41,9 @@ class ColorAxes: public QwtPlot, public WidgetBase {
   Q_OBJECT
   
 public:
-  ColorAxes(QWidget * parent, 
-  int beg_image_id, int end_image_id, int base_image_id,
-  bool use_georef,
-  std::vector<imageData> & images);  // will be modifed
+  ColorAxes(QWidget * parent, int beg_image_id, int end_image_id, int base_image_id,
+            bool use_georef,
+            std::vector<imageData> & images);  // will be modifed
 
   virtual void mousePressEvent(QMouseEvent *e);
 

@@ -139,7 +139,7 @@ namespace asp {
        "Remove IP near nodata with this radius, in pixels.")
       ("ip-triangulation-max-error", po::value(&global.ip_triangulation_max_error)->default_value(-1),
        "When matching IP, filter out any pairs with a triangulation error higher than this.")
-      ("ip-num-ransac-iterations", po::value(&global.ip_num_ransac_iterations)->default_value(100),
+      ("ip-num-ransac-iterations", po::value(&global.ip_num_ransac_iterations)->default_value(1000),
        "How many RANSAC iterations to do in interest point matching.")
       ("disable-tri-ip-filter",     po::bool_switch(&global.disable_tri_filtering)->default_value(false)->implicit_value(true),
        "Turn off the tri-ip filtering step.")

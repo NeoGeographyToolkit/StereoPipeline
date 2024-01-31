@@ -914,6 +914,9 @@ def main():
         sep = ","
         if not options.skip_rpc_gen:
             # Find the best-fitting RPC coefficients.
+            # TODO(oalexan1): Using temporary files can be error-prone
+            # as users may delete those by mistake. Better use a filename
+            # derived from the input file name.
             temp_xml_file = tempfile.NamedTemporaryFile(suffix = ".xml",
                                                         dir = out_dir)
             write_tree(tree, temp_xml_file.name)

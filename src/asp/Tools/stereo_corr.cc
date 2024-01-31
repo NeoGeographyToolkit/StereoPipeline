@@ -459,6 +459,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   opt.session->camera_models(left_camera_model, right_camera_model);
 
   // Filter out IPs which fall outside the specified elevation range
+  // TODO(oalexan1): This must go to stereo_pprc.
   if (!stereo_settings().correlator_mode && opt.session->have_datum()) {
     bool use_sphere_for_non_earth = true;
     cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
@@ -808,7 +809,7 @@ public:
         vw_throw(ArgumentErr() << "stereo_corr: D_sub and D_sub_spread must have equal sizes.\n");
       }
 
-      if (has_sub_disp_spread){
+      if (has_sub_disp_spread) {
         // Expand the disparity range by m_sub_disp_spread.
         SpreadImageType spread_in_box = crop(m_sub_disp_spread, seed_bbox);
 

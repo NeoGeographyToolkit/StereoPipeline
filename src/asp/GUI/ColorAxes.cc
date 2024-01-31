@@ -506,8 +506,9 @@ public:
 
 ColorAxes::ColorAxes(QWidget *parent, 
   int beg_image_id, int end_image_id, int base_image_id, bool use_georef,
-  std::vector<imageData> & images):
-    QwtPlot(parent), WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images) {
+  std::vector<imageData> & images): 
+    QwtPlot(parent), 
+    WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images) {
 
   int num_images = m_images.size();
 
@@ -597,6 +598,9 @@ ColorAxes::ColorAxes(QWidget *parent,
 }
 
 void ColorAxes::mousePressEvent(QMouseEvent *e) {
+  // Print the image name when clicking on the image widget
+  vw::vw_out() << "Image: " << m_images[m_beg_image_id].name << std::endl;
+  
   QwtPlot::mousePressEvent(e);
 }
   

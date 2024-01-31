@@ -146,6 +146,8 @@ misc:
   * The OSX build now gets created and tested via GitHub Actions.
   * Very old jitter adjustment logic was removed. The ``jitter_solve``
     tool must be used instead.
+  * For stereo, increased ``--ip-num-ransac-iterations`` from 100 to 1000,
+    as for ``bundle_adjust``.  This can make a difference for noisy data.
   * Do not keep auxiliary files with temporary names in the work directory for
     ``parallel_stereo`` and ``parallel_bundle_adjust``. Use run's output
     directory and proper names.  
