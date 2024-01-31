@@ -378,7 +378,7 @@ struct SightVecLinescanError {
 };
 
 // See the .h file for the documentation
-void refineCsmFit(
+void refineCsmLinescanFit(
        std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
        int min_col, int min_row,
        int d_col, int d_row, 
@@ -394,7 +394,7 @@ void refineCsmFit(
   int num_poses = quaternions.size()/4;
   if (num_poses == 0)
     vw::vw_throw(vw::ArgumentErr()
-                 << "refineCsmFit: No poses found.\n");
+                 << "refineCsmLinescanFit: No poses found.\n");
 
   // Create rotations from quaternions
   std::vector<double> rotations;
@@ -444,8 +444,9 @@ void refineCsmFit(
   return;
 }
 
-// Fit a CSM sensor with distortion to given tabulated sight directions
-void fitCsmModel(
+// Fit a CSM sensor with distortion to given tabulated sight directions.
+// Thi is specific to ASTER.
+void fitAsterLinescanCsmModel(
        std::string const& sensor_id, 
        vw::cartography::Datum const& datum,
        vw::Vector2i const& image_size,
@@ -491,7 +492,7 @@ void fitCsmModel(
                            csm_model); // output 
 
   // Refine the CSM model by also floating the distortion 
-  asp::refineCsmFit(world_sight_mat, min_col, min_row, d_col, d_row, csm_model);
+  asp::refineCsmLinescanFit(world_sight_mat, min_col, min_row, d_col, d_row, csm_model);
 
   return;
 }

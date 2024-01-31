@@ -29,8 +29,9 @@ namespace asp {
 
 class CsmModel;
 
-// Fit a CSM sensor with distortion to given tabulated sight directions
-void fitCsmModel(
+// Fit a CSM sensor with distortion to given tabulated sight directions.
+// This is specific to ASTER.
+void fitAsterLinescanCsmModel(
        std::string const& sensor_id, 
        vw::cartography::Datum const& datum,
        vw::Vector2i const& image_size,

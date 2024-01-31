@@ -709,7 +709,7 @@ Solve for jitter::
       --heights-from-dem ref.tif              \
       --heights-from-dem-weight 0.1           \
       --heights-from-dem-robust-threshold 0.1 \
-      --num-anchor-points 20000               \
+      --num-anchor-points 10000               \
       --num-anchor-points-extra-lines 500     \
       --anchor-dem ref.tif                    \
       --anchor-weight 1.0                     \

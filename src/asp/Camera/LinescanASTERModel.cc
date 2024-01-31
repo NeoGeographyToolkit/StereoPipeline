@@ -98,7 +98,7 @@ ASTERCameraModel::ASTERCameraModel(
   vw_out() << "Using the CSM model with " << sensor_id << " cameras.\n";
   
   // Fit a CSM sensor with distortion to given tabulated sight directions
-  fitCsmModel(sensor_id, datum, m_image_size, m_sat_pos, m_world_sight_mat,
+  fitAsterLinescanCsmModel(sensor_id, datum, m_image_size, m_sat_pos, m_world_sight_mat,
               min_col, min_row, d_col, d_row, m_csm_model);
 }
 

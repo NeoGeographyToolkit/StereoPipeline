@@ -285,7 +285,7 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
 
 // Parse numbers or strings from a list where they are separated by commas or spaces.
 template<class T>
-void parse_values(std::string list, std::vector<T> & values){
+void parse_values(std::string list, std::vector<T> & values) {
 
   values.clear();
 
@@ -307,11 +307,12 @@ void parse_values(std::string list, std::vector<T> & values){
 struct Options : public vw::GdalWriteOptions {
   std::string image_file, camera_file, lon_lat_values_str, pixel_values_str, datum_str,
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
-    stereo_session, bundle_adjust_prefix, parsed_cam_ctr_str, parsed_cam_quat_str;
+    stereo_session, bundle_adjust_prefix, parsed_cam_ctr_str, parsed_cam_quat_str,
+    distortion_str;
   double focal_length, pixel_pitch, gcp_std, height_above_datum,
     cam_height, cam_weight, cam_ctr_weight;
   Vector2 optical_center;
-  std::vector<double> lon_lat_values, pixel_values;
+  std::vector<double> lon_lat_values, pixel_values, distortion;
   bool refine_camera, parse_eci, parse_ecef, input_pinhole; 
   Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0), input_pinhole(false) {}
 };
@@ -345,6 +346,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The camera optical center. If not specified for pinhole cameras, it will be set to image center (half of image dimensions) times the pixel pitch. The optical bar camera always uses the image center.")
     ("pixel-pitch", po::value(&opt.pixel_pitch)->default_value(0),
      "The pixel pitch.")
+    ("distortion", po::value(&opt.distortion_str)->default_value(""),
+     "The OpenCV radial-tangential lens distortion coefficients, in quotes, in the order k1, k2, p1, p2, k3. Only applicable when creating CSM cameras. The default is zero distortion.")
     ("refine-camera", po::bool_switch(&opt.refine_camera)->default_value(false),
      "After a rough initial camera is obtained, refine it using least squares.")
     ("frame-index", po::value(&opt.frame_index)->default_value(""),
@@ -588,6 +591,23 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if ((opt.parse_eci || opt.parse_ecef) && opt.camera_type == "opticalbar") 
     vw_throw(ArgumentErr() << "Cannot parse ECI/ECEF data for an optical bar camera.\n");
   
+  // Parse the lens distortion
+  parse_values<double>(opt.distortion_str, opt.distortion);
+  if (opt.distortion.size() != 0 && opt.distortion.size() != 5)
+    vw_throw(ArgumentErr() << "Expecting 0 or 5 distortion coefficients, got: "
+              << opt.distortion.size() << ".\n");
+  
+  // Sanity checks for lens distortion  
+  if (opt.camera_type == "pinhole" && ext != ".json") {
+    if (opt.distortion.size() != 0)
+      vw_throw(ArgumentErr() 
+               << "Distortion coefficients are only supported for CSM cameras.\n"); 
+  }
+      
+  // Ensure that radtan distortion is always used
+  if (opt.distortion.size() == 0)
+    opt.distortion.resize(5, 0.0);
+      
 } // End function handle_arguments
 
 // Form a camera based on info the user provided
@@ -1063,13 +1083,16 @@ int main(int argc, char * argv[]) {
       vw::camera::PinholeModel* pin = (vw::camera::PinholeModel*)out_cam.get();
       if (ext == ".tsai") {
         pin->write(opt.camera_file);
-      } else {
+      } else if (ext == ".json") {
         DiskImageView<float> img(opt.image_file);
         int width = img.cols(), height = img.rows();
         asp::CsmModel csm;
-        csm.createFrameModel(*pin, width, height, datum.semi_major_axis(),
-                             datum.semi_minor_axis());
+        csm.createFrameModel(*pin, width, height, 
+                             datum.semi_major_axis(), datum.semi_minor_axis(), 
+                             "radtan", opt.distortion);
         csm.saveState(opt.camera_file);
+      } else {
+        vw_throw(ArgumentErr() << "Unknown output camera file extension: " << ext << ".\n");
       }
     }
     
