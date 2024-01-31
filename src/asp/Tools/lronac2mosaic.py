@@ -174,7 +174,7 @@ def lronacecho( cub_files, threads, delete=False ):
           os.remove( cub )
     return lronacecho_cubs
 
-# Call spiceinit and spicefit on each input file, return list of output files.
+# Call spiceinit and spicefit on each input file
 def spice(cub_files, threads):
     for cub in cub_files:
         cmd = 'spiceinit web=false from='+ cub
