@@ -130,7 +130,12 @@ isis (:numref:`moc_tutorial`):
 cam_gen (:numref:`cam_gen`):
    * Can create frame cameras in CSM format (:numref:`cam_gen_frame`).
    * Can export linescan cameras to CSM format (:numref:`cam_gen_linescan`).
-     
+
+lronac2mosaic.py (:numref:`lronac2mosaic`):
+  * Run ``spiceinit`` before calling ``lronaccal``, and re-enable all
+    options for the latter command, which were disabled due to a bug
+    in ISIS that was fixed in version 7.2.
+   
 misc:
   * Upgraded to GDAL 3.8.0, PROJ 9.3.0, Boost 1.82.0.
   * Made all tools that spawn processes in parallel use the option

@@ -141,7 +141,7 @@ def lronaccal( cub_files, threads, delete=False ):
         if( os.path.exists(to_cub) ):
             print(to_cub + ' exists, skipping lronaccal.')
         else:
-            cmd = 'lronaccal from=' + cub + ' to=' + to_cub + ' dark=false nonlinearity=false masked=false radiometric=false'
+            cmd = 'lronaccal from=' + cub + ' to=' + to_cub
             add_job(cmd, threads)
         lronaccal_cubs.append( to_cub )
     wait_on_all_jobs()
@@ -174,8 +174,8 @@ def lronacecho( cub_files, threads, delete=False ):
           os.remove( cub )
     return lronacecho_cubs
 
-
-def spice( cub_files, threads):
+# Call spiceinit and spicefit on each input file, return list of output files.
+def spice(cub_files, threads):
     for cub in cub_files:
         cmd = 'spiceinit web=false from='+ cub
         add_job(cmd, threads)
@@ -446,6 +446,11 @@ def main():
             print("lronac2isis") # Per-file operation, returns list of new files
             lronac2isised = lronac2isis( args, options.threads, options.outputFolder )
 
+            # Attach spice info to cubes (adds to existing files). This
+            # must happen before calibration.
+            print("spice")
+            spice( lronac2isised, options.threads )
+
             print("lronaccal")   # Per-file operation, returns list of new files
             lronaccaled = lronaccal( lronac2isised, options.threads, options.delete )
 
@@ -455,9 +460,6 @@ def main():
             if (options.cropAmount > 0): # Crop the input files as soon as ISIS calls allow it
                 lronacechod = cropInputs(lronacechod, options.outputFolder, options.cropAmount,
                                          options.threads, options.delete)
-
-            print("spice")       # Attach spice info to cubes (adds to existing files)
-            spice( lronacechod, options.threads )
 
 
         if options.stop_no_proj: # Stop early if requested
