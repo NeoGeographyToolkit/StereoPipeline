@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 #include <asp/Core/Common.h>
-#include <asp/Camera/LinescanFit.h>
+#include <asp/Camera/CsmModelFit.h>
 #include <asp/Camera/CsmUtils.h>
 
 #include <vw/Math/Quaternion.h>
@@ -495,6 +495,14 @@ void fitAsterLinescanCsmModel(
   asp::refineCsmLinescanFit(world_sight_mat, min_col, min_row, d_col, d_row, csm_model);
 
   return;
+}
+
+// Refine a CSM frame camera model using a a set of directions at given pixels
+void refineCsmFrameFit(
+       std::vector<vw::Vector2> const& pixels,
+       std::vector<vw::Vector3> const& directions,
+       // This model will be modified
+       asp::CsmModel & csm_model) {
 }
 
 } // end namespace asp

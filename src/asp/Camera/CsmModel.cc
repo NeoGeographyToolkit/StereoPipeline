@@ -1017,6 +1017,68 @@ void CsmModel::set_distortion_type(DistortionType dist_type) {
   CSM_LINESCAN_SET(m_distortionType, "distortion type", dist_type)
   return;
 }
+
+// Set camera position in ECEF (only for frame cameras)
+void CsmModel::set_frame_position(double x, double y, double z) {
+  
+  UsgsAstroFrameSensorModel * frame_model
+      = dynamic_cast<UsgsAstroFrameSensorModel*>(m_gm_model.get());
+  if (frame_model == NULL)
+    vw_throw(ArgumentErr() << "CsmModel: Cannot set camera position for non-frame camera.\n");
+  
+  frame_model->m_currentParameterValue[0] = x;
+  frame_model->m_currentParameterValue[1] = y;
+  frame_model->m_currentParameterValue[2] = z;
+    
+  return;
+}
+
+// Get the camera position in ECEF (only for frame cameras)
+void CsmModel::frame_position(double & x, double & y, double & z) const {
+  
+  UsgsAstroFrameSensorModel const* frame_model
+      = dynamic_cast<UsgsAstroFrameSensorModel const*>(m_gm_model.get());
+  if (frame_model == NULL)
+    vw_throw(ArgumentErr() << "CsmModel: Cannot get camera position for non-frame camera.\n");
+  
+  x = frame_model->m_currentParameterValue[0];
+  y = frame_model->m_currentParameterValue[1];
+  z = frame_model->m_currentParameterValue[2];
+    
+  return;
+}
+  
+// Set the camera quaternion (only for frame cameras)
+void CsmModel::set_frame_quaternion(double qx, double qy, double qz, double qw) {
+
+  UsgsAstroFrameSensorModel * frame_model
+      = dynamic_cast<UsgsAstroFrameSensorModel*>(m_gm_model.get());
+  if (frame_model == NULL)
+    vw_throw(ArgumentErr() << "CsmModel: Cannot set camera quaternion for non-frame camera.\n");
+  
+  frame_model->m_currentParameterValue[3] = qx;
+  frame_model->m_currentParameterValue[4] = qy;
+  frame_model->m_currentParameterValue[5] = qz;
+  frame_model->m_currentParameterValue[6] = qw;
+  
+  return;
+}
+
+// Get the camera quaternion (only for frame cameras)
+void CsmModel::frame_quaternion(double & qx, double & qy, double & qz, double & qw) const {
+  
+  UsgsAstroFrameSensorModel const* frame_model
+      = dynamic_cast<UsgsAstroFrameSensorModel const*>(m_gm_model.get());
+  if (frame_model == NULL)
+    vw_throw(ArgumentErr() << "CsmModel: Cannot get camera quaternion for non-frame camera.\n");
+  
+  qx = frame_model->m_currentParameterValue[3];
+  qy = frame_model->m_currentParameterValue[4];
+  qz = frame_model->m_currentParameterValue[5];
+  qw = frame_model->m_currentParameterValue[6];
+  
+  return;
+}
   
 // Set quaternions (only for linescan cameras)
 void CsmModel::set_linescan_quaternions(std::vector<double> const& quaternions) {

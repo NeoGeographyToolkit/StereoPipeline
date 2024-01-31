@@ -146,6 +146,14 @@ namespace asp {
     void set_focal_length(double focal_length);
     void set_optical_center(vw::Vector2 const& optical_center); // sample and line
 
+    // Set / get the position (camera center) in ECEF. Only for frame cameras.
+    void set_frame_position(double x, double y, double z);
+    void frame_position(double & x, double & y, double & z) const;
+
+    // Set / get the rotation matrix from camera to world. Only for frame cameras.
+    void set_frame_quaternion(double qx, double qy, double qz, double qw);
+    void frame_quaternion(double & qx, double & qy, double & qz, double & qw) const;
+        
     // Set / get quaternions (only for linescan cameras)
     void set_linescan_quaternions(std::vector<double> const& quaternions);
     std::vector<double> linescan_quaternions() const;

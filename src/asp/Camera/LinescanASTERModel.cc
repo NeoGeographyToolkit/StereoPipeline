@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 #include <asp/Camera/ASTER_XML.h>
-#include <asp/Camera/LinescanFit.h>
+#include <asp/Camera/CsmModelFit.h>
 #include <asp/Camera/LinescanASTERModel.h>
 #include <asp/Core/StereoSettings.h>
 

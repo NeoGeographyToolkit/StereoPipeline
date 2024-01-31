@@ -15,12 +15,12 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file LinescanFit.h
+/// \file CsmModelFit.h
 
 // Find linescan rotations given matrix of sight vectors
 
-#ifndef __ASP_CAMERA_LINESCAN_FIT_H__
-#define __ASP_CAMERA_LINESCAN_FIT_H__
+#ifndef __ASP_CAMERA_CSM_MODEL_FIT_H__
+#define __ASP_CAMERA_CSM_MODEL_FIT_H__
 
 #include <vw/Math/Matrix.h>
 #include <vw/Math/Vector.h>
@@ -42,6 +42,13 @@ void fitAsterLinescanCsmModel(
        // This model will be modified
        asp::CsmModel & csm_model);
   
+// Refine a CSM frame camera model using a a set of directions at given pixels
+void refineCsmFrameFit(
+       std::vector<vw::Vector2> const& pixels,
+       std::vector<vw::Vector3> const& directions,
+       // This model will be modified
+       asp::CsmModel & csm_model);
+  
 } // end namespace asp
 
-#endif//__ASP_CAMERA_LINESCAN_FIT_H__
+#endif // __ASP_CAMERA_CSM_MODEL_FIT_H__
