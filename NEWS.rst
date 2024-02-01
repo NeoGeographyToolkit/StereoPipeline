@@ -135,6 +135,8 @@ lronac2mosaic.py (:numref:`lronac2mosaic`):
   * Run ``spiceinit`` before calling ``lronaccal``, and re-enable all
     options for the latter command, which were disabled due to a bug
     in ISIS that was fixed in version 7.2.
+  * Invoke ``spiceinit`` with ``spksmithed=true``. 
+  * Add the option ``--spiceinit-options``.
    
 misc:
   * Upgraded to GDAL 3.8.0, PROJ 9.3.0, Boost 1.82.0.

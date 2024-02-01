@@ -27,7 +27,7 @@ from stereo_utils import get_asp_version
 import asp_system_utils
 asp_system_utils.verify_python_version_is_supported()
 
-job_pool = [];
+job_pool = []
 
 # Global output folder variable
 outputFolder = ""
@@ -40,7 +40,8 @@ following ISIS 3 operations:
  * Converts to ISIS format (lronac2isis)
  * Attaches SPICE information (spiceinit and spicefit)
  * Performs radiometric calibration (lronaccal)
- * lronacecho?
+ * Runs lronacecho
+ * Applies an optional crop
  * Removes camera distortions from the CCD images (noproj)
  * Performs jitter analysis (lrojitreg)
  * Mosaics individual CCDs into one unified image file (handmos)
@@ -72,7 +73,7 @@ def build_cube_pairs(cubePaths):
 
     for cube in cubePaths:
         print(cube)
-        m = re.search('\D*(\d+)(.).*',os.path.basename(cube))
+        m = re.search(r'\D*(\d+)(.).*',os.path.basename(cube))
         number     = m.group(1)
         sideLetter = m.group(2)
 
@@ -146,7 +147,7 @@ def lronaccal( cub_files, threads, delete=False ):
         lronaccal_cubs.append( to_cub )
     wait_on_all_jobs()
 
-    if( delete ): # Delete all input .cub files and log files
+    if (delete): # Delete all input .cub files and log files
         for cub in cub_files:
           os.remove( cub )
         lronaccal_log_files = glob.glob( os.path.commonprefix(cub_files) + '*.lronaccal.log' )
@@ -175,9 +176,9 @@ def lronacecho( cub_files, threads, delete=False ):
     return lronacecho_cubs
 
 # Call spiceinit and spicefit on each input file
-def spice(cub_files, threads):
+def spice(cub_files, spiceinit_options, threads):
     for cub in cub_files:
-        cmd = 'spiceinit web=false from='+ cub
+        cmd = 'spiceinit ' + spiceinit_options + ' from= '+ cub
         add_job(cmd, threads)
     wait_on_all_jobs()
     for cub in cub_files:
@@ -409,10 +410,14 @@ def main():
                               help="Output folder (default to input folder).",type="string")
             parser.add_option("--stop-at-no-proj", dest="stop_no_proj", action="store_true",
                               help="Process the IMG files only to have SPICE attached.")
-            parser.add_option("--resume-at-no-proj", dest="resume_no_proj", action="store_true",
-                              help="Pick back up after spiceinit has happened. This was noproj uses your new camera information")
+            parser.add_option("--resume-at-no-proj", dest="resume_no_proj", 
+                              action="store_true",
+                              help="Start after spiceinit, lronaccal, lronacecho, and the optional crop. This allows for custom preparation of the inputs.")
+            parser.add_option("--spiceinit-options", dest="spiceinit_options",
+                              help="Options to pass to spiceinit. Use quotes.", type="string",
+                                default="web=false spksmithed=true")
             parser.add_option("-c", "--crop", dest="cropAmount",
-                              help="Process only the first N lines of the image.",type="int")
+                              help="Process only this many first lines of the image.",type="int")
             parser.add_option("-t", "--threads", dest="threads",
                               help="Number of threads to use.",type="int")
             parser.add_option("-k", "--keep", action="store_false",
@@ -439,7 +444,7 @@ def main():
         if not os.path.exists(options.outputFolder) and len(options.outputFolder) > 1:
             os.makedirs(options.outputFolder)
 
-        print("Beginning processing.....")
+        print("Start processing.")
 
         if not options.resume_no_proj: # If not skipping to later point
 
@@ -448,11 +453,11 @@ def main():
 
             # Attach spice info to cubes (adds to existing files). This
             # must happen before calibration.
-            print("spice")
-            spice( lronac2isised, options.threads )
+            print("spiceinit")
+            spice(lronac2isised, options.spiceinit_options, options.threads)
 
             print("lronaccal")   # Per-file operation, returns list of new files
-            lronaccaled = lronaccal( lronac2isised, options.threads, options.delete )
+            lronaccaled = lronaccal(lronac2isised, options.threads, options.delete)
 
             print("lronacecho")  # Per-file operation, returns list of new files
             lronacechod = lronacecho( lronaccaled, options.threads, options.delete )
