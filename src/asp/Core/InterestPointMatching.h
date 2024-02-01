@@ -30,6 +30,7 @@
 #include <vw/Math/RANSAC.h>
 #include <vw/Math/Geometry.h>
 #include <vw/FileIO/FileUtils.h>
+#include <vw/Core/Stopwatch.h>
 
 #include <asp/Core/StereoSettings.h>
 #include <boost/foreach.hpp>
@@ -220,6 +221,9 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
 ///
 /// This is not meant to be used directly. Use ip_matching() or
 /// homography_ip_matching().
+// TODO(oalexan1): Cast this to ImageViewRef<float> and move to the .cc.
+// Verify if this affects performance and results. It should not.
+// Example: vw::ImageViewRef<float> im = vw::pixel_cast<float>(image);
 template <class Image1T>
 void detect_ip(vw::ip::InterestPointList& ip,
 	       vw::ImageViewBase<Image1T> const& image,
@@ -371,6 +375,8 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
 		    std::string const left_file_path,
 		    std::string const right_file_path,
 		    double nodata1, double nodata2) {
+  vw::Stopwatch sw1;
+  sw1.start();
 
   // Detect interest points in the two images
   vw::vw_out() << "\t    Looking for IP in left image.\n";
@@ -386,6 +392,9 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
   
   side_ip_filtering(ip1, ip2, bounding_box(image1), bounding_box(image2));
   
+  sw1.stop();
+  vw::vw_out() << "Elapsed time in ip detection: " << sw1.elapsed_seconds() << " s.\n";
+
   return ((ip1.size() > 0) && (ip2.size() > 0));
 }
 
@@ -420,13 +429,8 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 
   // Detect interest points in the two images
   vw::ip::InterestPointList ip1, ip2;
-  vw::Stopwatch sw;
-  sw.start();
   detect_ip_pair(ip1, ip2, image1, image2, ip_per_tile,
                  left_file_path, right_file_path, nodata1, nodata2);
-  sw.stop();
-  vw::vw_out() << "Elapsed time in ip detection: "
-               << sw.elapsed_seconds() << " s." << std::endl;
 
   // Cast to float to make this compile
   vw::ImageViewRef<float> im1 = vw::pixel_cast<float>(image1);

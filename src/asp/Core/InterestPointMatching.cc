@@ -16,6 +16,8 @@
 // __END_LICENSE__
 
 #include <asp/Core/InterestPointMatching.h>
+
+#include <vw/InterestPoint/InterestPointUtils.h>
 #include <vw/Math/GaussianClustering.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/Cartography/CameraBBox.h>
@@ -80,28 +82,28 @@ rough_homography_fit(camera::CameraModel* cam1,
         Vector2 l( double(box1.width()  - 1) * i / (num-1.0),
                    double(box1.height() - 1) * j / (num-1.0) );
 
-        Vector3 intersection = cartography::datum_intersection( datum, cam1, l );
+        Vector3 intersection = cartography::datum_intersection(datum, cam1, l);
         if ( intersection == Vector3() )
           continue;
 
-        Vector2 r = cam2->point_to_pixel( intersection );
+        Vector2 r = cam2->point_to_pixel(intersection);
 
         if ( box2.contains( r ) ){
-          left_points.push_back(  Vector3(l[0],l[1],1) );
-          right_points.push_back( Vector3(r[0],r[1],1) );
+          left_points.push_back(  Vector3(l[0],l[1],1));
+          right_points.push_back( Vector3(r[0],r[1],1));
         }
       }
       catch (...) {}
 
       try {
         Vector2 r(double(box2.width()  - 1) * i / (num-1.0),
-                  double(box2.height() - 1) * j / (num-1.0) );
+                  double(box2.height() - 1) * j / (num-1.0));
 
-        Vector3 intersection = cartography::datum_intersection( datum, cam2, r );
+        Vector3 intersection = cartography::datum_intersection(datum, cam2, r);
         if ( intersection == Vector3() )
           continue;
 
-        Vector2 l = cam1->point_to_pixel( intersection );
+        Vector2 l = cam1->point_to_pixel(intersection);
 
         if (box1.contains(l)) {
           left_points.push_back(Vector3(l[0],l[1],1));
@@ -113,6 +115,10 @@ rough_homography_fit(camera::CameraModel* cam1,
     }
   }
   tpc.report_finished();
+  
+  // At most 5000 points should be enough for rough homography as it is a simple transform.
+  vw::ip::pick_pair_subset(left_points, right_points, 5000); 
+
   vw_out() << "Projected " << left_points.size()
            << " rays for rough homography.\n";
     
@@ -127,21 +133,22 @@ rough_homography_fit(camera::CameraModel* cam1,
 
   int min_inliers = left_points.size()/2;
   bool reduce_num_if_no_fit = true;
-
+  
+  // Using 1000 iterations is excessive here given that the these produced
+  // interest points are not too noisy. This also takes a long time.
+  int num_iter = stereo_settings().ip_num_ransac_iterations/10 + 50; // about 150
+   
   vw_out() << "\t    Rough homography inlier threshold: " << inlier_th << "\n";
-  vw_out() << "\t    RANSAC iterations:                 "
-           << stereo_settings().ip_num_ransac_iterations << "\n";
 
   // Use RANSAC to determine a good homography transform between the images
   vw_out() << "Estimating rough homography using RANSAC with " 
-    << asp::stereo_settings().ip_num_ransac_iterations << " iterations.\n";
+    << num_iter << " iterations.\n";
   typedef math::HomographyFittingFunctor hfit_func;
   Stopwatch sw;
   sw.start();
   math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
     ransac(hfit_func(), math::InterestPointErrorMetric(),
-           asp::stereo_settings().ip_num_ransac_iterations,
-           inlier_th, min_inliers, reduce_num_if_no_fit);
+           num_iter, inlier_th, min_inliers, reduce_num_if_no_fit);
 
   Matrix<double> H = ransac(right_points, left_points);
   std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
@@ -172,6 +179,11 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   // This number is 1/15 by default in stereo, and 0.2 in bundle_adjust. The
   // latter is more tolerant of outliers, but for stereo this can result in a
   // huge search range for disparity, which is not good.
+  
+  // TODO(oalexan1): This number can be too large for large images. Maybe need
+  // to use the square root of the diagonal of the image size. Also, in some
+  // related places a constant factor is used, like 30. Need to make that
+  // uniform.
   double thresh_factor = stereo_settings().ip_inlier_factor; 
   double inlier_th = norm_2(Vector2(left_size.x(),left_size.y())) * (1.5*thresh_factor);
   
@@ -208,6 +220,11 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   std::vector<size_t> indices = ransac.inlier_indices(H, right_copy, left_copy);
   vw::vw_out() << "Homography matrix:\n" << H << "\n";
   vw_out() << "Number of inliers: " << indices.size() << ".\n";
+  
+  // TODO(oalexan1): A percentile-based filter may help here, after finding
+  // the inliers. It should be based on estimating H * right - left.
+  // That because the inlier threshold is kind of arbitrary.
+  // If outliers are found, need to recompute H based on inliers, which is quick.
 
   check_homography_matrix(H, left_copy, right_copy, indices);
   
