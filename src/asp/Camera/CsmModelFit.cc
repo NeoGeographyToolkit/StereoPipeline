@@ -419,13 +419,18 @@ void refineCsmLinescanFit(
                            &distortion[0]);
 
   // linescanFitSaveResiduals(problem, "residuals2_before.txt"); // for debugging
-
-  // Solve the problem
+   
+  // Set up the solver options 
   ceres::Solver::Options options;
   options.linear_solver_type = ceres::ITERATIVE_SCHUR;
   options.num_threads = 1; // Use one thread for unique solution
   options.max_num_iterations = 50; // 50 iterations is enough
+  options.gradient_tolerance  = 1e-16;
+  options.function_tolerance  = 1e-16;
+  options.parameter_tolerance = 1e-12; // should be enough
   options.minimizer_progress_to_stdout = false;
+
+  // Solve the problem
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
 
@@ -489,7 +494,7 @@ void fitAsterLinescanCsmModel(
                            focal_length, optical_center, 
                            image_size, datum, sensor_id,
                            sat_pos, velocities, cam2world_vec, 
-                           csm_model); // output 
+                           csm_model); // output
 
   // Refine the CSM model by also floating the distortion 
   asp::refineCsmLinescanFit(world_sight_mat, min_col, min_row, d_col, d_row, csm_model);
@@ -497,12 +502,282 @@ void fitAsterLinescanCsmModel(
   return;
 }
 
-// Refine a CSM frame camera model using a a set of directions at given pixels
-void refineCsmFrameFit(
-       std::vector<vw::Vector2> const& pixels,
-       std::vector<vw::Vector3> const& directions,
-       // This model will be modified
-       asp::CsmModel & csm_model) {
+// Create pixel samples. Make sure to sample the pixel at (width - 1, height - 1).
+void createPixelSamples(int width, int height, int num_pixel_samples,
+                        std::vector<vw::Vector2> & pix_samples) {
+  
+  // Sanity checks
+  if (num_pixel_samples <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "The number of pixel samples must be positive.\n");
+  if (width <= 1 || height <= 1)
+    vw::vw_throw(vw::ArgumentErr() << "The image dimensions must be at least 2 pixels.\n");
+  
+  // Wipe the output
+  pix_samples.clear();
+
+  // Find how many samples we need for width and height
+  double area = double(width) * double(height);  // avoid int32 overflow
+  double len = sqrt(area / double(num_pixel_samples));
+  int num_x = std::max(round((width - 1.0) / len) + 1, 2.0);
+  int num_y = std::max(round((height - 1.0) / len) + 1, 2.0);
+  
+  // Take creat care to include the last pixel, which is (width - 1, height -
+  // 1).
+  double x_step = (width - 1.0) / double(num_x - 1);
+  double y_step = (height - 1.0) / double(num_y - 1);
+  
+  // iterate with num_x samples with spacing x_step, and the same for y
+  for (int ix = 0; ix < num_x; ix++) {
+    for (int iy = 0; iy < num_y; iy++) {
+      double x = ix * x_step;
+      double y = iy * y_step;
+      x = std::min(x, double(width - 1));
+      y = std::min(y, double(height - 1));
+      vw::Vector2 pix(x, y);
+      pix_samples.push_back(pix);
+    }
+  }
+  
+  return;
+}
+
+void parseRefineIntrinsicsStr(std::string const& refine_intrinsics,
+                              bool & fix_focal_length, 
+                              bool & fix_optical_center, 
+                              bool & fix_other_intrinsics) {
+  
+  // Initialize all to true
+  fix_focal_length = true;
+  fix_optical_center = true;
+  fix_other_intrinsics = true;
+  
+  // Make a local copy of the string and convert it to lower case
+  std::string local_refine_intrinsics = refine_intrinsics;
+  boost::to_lower(local_refine_intrinsics);
+  
+  // Ensure that this was set to something, rather than "", which may be ambiguous.
+  if (local_refine_intrinsics == "") 
+    vw::vw_throw(vw::ArgumentErr() << "Error: refine intrinsics string is empty.\n");
+    
+  // Replace none with "".
+  if (local_refine_intrinsics == "none") 
+    local_refine_intrinsics = "";
+   
+  // Replace "all" with all
+  if (local_refine_intrinsics == "all") 
+   local_refine_intrinsics = "focal_length, optical_center, other_intrinsics";   
+     
+  // Replace commas with spaces
+  boost::replace_all(local_refine_intrinsics, ",", " ");
+  
+  std::istringstream is(local_refine_intrinsics);
+  std::string val;
+  while (is >> val) {
+    if (val == "focal_length")
+      fix_focal_length = false;
+    else if (val == "optical_center")
+      fix_optical_center = false;
+    else if (val == "other_intrinsics")
+      fix_other_intrinsics = false;
+    else
+      vw::vw_throw(vw::ArgumentErr() << "Error: Found unknown intrinsic to float: " 
+        << val << ".\n");
+  }
+  
+  vw::vw_out() << "Refine focal length: " << !fix_focal_length << std::endl;
+  vw::vw_out() << "Refine optical center: " << !fix_optical_center << std::endl;
+  vw::vw_out() << "Refine other intrinsics: " << !fix_other_intrinsics << std::endl;
+}
+
+// The error between projections of ground points in camera and known pixels.
+// Optimize the intrinsics, including distortion. The satellite positions and
+// orientations are optimized as well.
+struct FrameCamReprojErr {
+
+  FrameCamReprojErr(std::vector<vw::Vector2> const& pixels,
+                   std::vector<vw::Vector3> const& xyz,
+                   int num_distortion_params,
+                   asp::CsmModel const& csm_model):
+  m_pixels(pixels), m_xyz(xyz), 
+  m_num_dist_params(num_distortion_params), m_csm_model(csm_model) {
+    
+    // There must be as many pixels as xyz
+    if (m_pixels.size() != m_xyz.size())
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Error: The number of pixels and ground points must be same.\n");
+  }
+
+  // Members
+  std::vector<vw::Vector2> const& m_pixels; // alias
+  std::vector<vw::Vector3> const& m_xyz; // alias
+  int m_num_dist_params;
+  asp::CsmModel const& m_csm_model;       // alias
+
+  // Error operator
+  bool operator()(double const* const* parameters, double* residuals) const {
+
+   const double* positions      = parameters[0];
+   const double* rotations      = parameters[1];
+   const double* optical_center = parameters[2];
+   const double* focal_length   = parameters[3];
+   const double* distortion     = parameters[4];
+   
+   // Make a local model copy
+   asp::CsmModel local_model;
+   m_csm_model.deep_copy(local_model);
+   
+   // Set the position
+   local_model.set_frame_position(positions[0], positions[1], positions[2]);
+       
+   // Copy the rotations from axis angle format to quaternions, then set in model
+   int num_poses = 1;
+   std::vector<double> q(4*num_poses);
+   axisAngleToCsmQuatVec(num_poses, rotations, q);
+   local_model.set_frame_quaternion(q[0], q[1], q[2], q[3]);
+  
+   // Set optical center and focal length
+   local_model.set_optical_center(vw::Vector2(optical_center[0], optical_center[1]));
+   local_model.set_focal_length(focal_length[0]); 
+
+   // Set distortion
+   std::vector<double> dist_vec(m_num_dist_params);
+   for (int i = 0; i < m_num_dist_params; i++)
+     dist_vec[i] = distortion[i];
+   local_model.set_distortion(dist_vec); 
+
+    // Find the residuals with the local model
+    int num_samples = m_pixels.size();
+    for (int count = 0; count < num_samples; count++) {
+        
+      vw::Vector2 pix1 = m_pixels[count];
+      vw::Vector2 pix2 = local_model.point_to_pixel(m_xyz[count]);
+      
+      int j = 2 * count;
+      for (int k = 0; k < 2; k++)
+        residuals[j+k] = pix1[k] - pix2[k];
+    }
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(std::vector<vw::Vector2> const& pixels,
+                                     std::vector<vw::Vector3> const& xyz,
+                                     int num_distortion_params,
+                                     asp::CsmModel const& csm_model) {
+
+    ceres::DynamicNumericDiffCostFunction<FrameCamReprojErr>* cost_function
+     = new ceres::DynamicNumericDiffCostFunction<FrameCamReprojErr>
+            (new FrameCamReprojErr(pixels, xyz, num_distortion_params, csm_model));
+
+     cost_function->AddParameterBlock(3); // position
+     cost_function->AddParameterBlock(3); // rotation (axis angle)
+     cost_function->AddParameterBlock(2); // optical center
+     cost_function->AddParameterBlock(1); // focal length
+     cost_function->AddParameterBlock(num_distortion_params); // distortion
+     cost_function->SetNumResiduals(2 * pixels.size()); // 2 residuals per pixel
+
+     return cost_function;
+  }
+
+};
+
+// Refine a CSM frame camera model using a a set of xyz at given pixels
+void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
+                       std::vector<vw::Vector3> const& xyz,
+                       std::string const& refine_intrinsics,
+                       std::string const& error_map,
+                       // This model will be modified
+                       asp::CsmModel & csm_model) {
+
+  // See which intrinsics to fix
+  bool fix_focal_length = true, fix_optical_center = true, fix_other_intrinsics = true;
+  parseRefineIntrinsicsStr(refine_intrinsics, 
+                           fix_focal_length, fix_optical_center, fix_other_intrinsics);
+
+  // Read data from the model
+  double x, y, z;
+  csm_model.frame_position(x, y, z);
+  double qx, qy, qz, qw;
+  csm_model.frame_quaternion(qx, qy, qz, qw);
+  double focal_length = csm_model.focal_length();
+  vw::Vector2 optical_center = csm_model.optical_center();
+  std::vector<double> distortion = csm_model.distortion();
+  
+#if 0 // This does not work and may not be needed
+  // Find the longest distance from optical center to each pixel
+  if (!fix_other_intrinsics) {
+    double r = 0;
+    for (size_t i = 0; i < pixels.size(); i++) 
+      r = std::max(r, norm_2(pixels[i] - optical_center));
+    if (r == 0)
+      vw::vw_throw(vw::ArgumentErr() << "Error: Not enough samples.\n");
+  
+    // Give CERES a hint to not perturb the high order distortion terms too much
+    // TODO(oalexan1): This should depend on image dimensions.
+    // k2 gets multiplied by r^5, k3 gets multiplied by r^7. 
+    if (distortion[1] == 0)
+      distortion[1] = 1e-7 / pow(r, 5); // k2
+    if (distortion[4] == 0)
+      distortion[4] = 1e-7 / pow(r, 7);  // k3
+  }
+#endif
+      
+  // The position vector
+  std::vector<double> position = {x, y, z};
+      
+  // Create rotations from quaternions
+  std::vector<double> rotation;
+  int num_poses = 1;
+  std::vector<double> q = {qx, qy, qz, qw};
+  csmQuatVecToAxisAngle(num_poses, &q[0], rotation);
+
+  // Set up an optimization problem to refine the CSM model.
+  ceres::Problem problem;
+  ceres::CostFunction* cost_function
+    = FrameCamReprojErr::Create(pixels, xyz, distortion.size(), csm_model);
+  
+  // Minimize all residuals equally
+  ceres::LossFunction* loss_function = NULL;
+  problem.AddResidualBlock(cost_function, loss_function, 
+                           &position[0], &rotation[0], &optical_center[0], &focal_length,
+                           &distortion[0]);
+
+  // FrameFitSaveResiduals(problem, "residuals2_before.txt"); // for debugging
+   
+  // Set up the solver options 
+  ceres::Solver::Options options;
+  options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+  options.num_threads = 1; // Use one thread for unique solution
+  options.max_num_iterations = 50; // 50 iterations is enough
+  
+  options.gradient_tolerance  = 1e-16;
+  options.function_tolerance  = 1e-16;
+  options.parameter_tolerance = 1e-12; // should be enough
+  options.minimizer_progress_to_stdout = true;
+
+  if (fix_focal_length)
+    problem.SetParameterBlockConstant(&focal_length);
+  if (fix_optical_center)
+    problem.SetParameterBlockConstant(&optical_center[0]);
+  if (fix_other_intrinsics)
+    problem.SetParameterBlockConstant(&distortion[0]);
+   
+  // Solve the problem  
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+  vw::vw_out() << summary.FullReport() << "\n";
+
+  // Copy back
+  csm_model.set_frame_position(position[0], position[1], position[2]);
+  axisAngleToCsmQuatVec(num_poses, &rotation[0], q);
+  csm_model.set_frame_quaternion(q[0], q[1], q[2], q[3]);
+  csm_model.set_focal_length(focal_length);
+  csm_model.set_optical_center(optical_center);
+  csm_model.set_distortion(distortion);
+
+  return;
 }
 
 } // end namespace asp

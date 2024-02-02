@@ -42,10 +42,16 @@ void fitAsterLinescanCsmModel(
        // This model will be modified
        asp::CsmModel & csm_model);
   
+// Create pixel samples. Make sure to sample the pixel at (width - 1, height - 1).
+void createPixelSamples(int width, int height, int num_pixel_samples,
+                        std::vector<vw::Vector2> & pix_samples);
+ 
 // Refine a CSM frame camera model using a a set of directions at given pixels
 void refineCsmFrameFit(
        std::vector<vw::Vector2> const& pixels,
        std::vector<vw::Vector3> const& directions,
+       std::string const& refine_intrinsics,
+       std::string const& error_map,  
        // This model will be modified
        asp::CsmModel & csm_model);
   

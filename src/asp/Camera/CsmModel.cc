@@ -924,7 +924,7 @@ void CsmModel::createFrameModel(vw::camera::PinholeModel const& pin_model,
   
   // Find the average focal length
   double f = (focal_length[0] + focal_length[1])/2.0;
-   
+  
   this->createFrameModel(cols, rows, opt_ctr[0], opt_ctr[1], f, 
                          semi_major_axis, semi_minor_axis,
                          pin_model.camera_center(), 

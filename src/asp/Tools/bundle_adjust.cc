@@ -1444,7 +1444,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   ceres::Solve(options, &problem, &summary);
   final_cost = summary.final_cost;
   vw_out() << summary.FullReport() << "\n";
-  if (summary.termination_type == ceres::NO_CONVERGENCE){
+  if (summary.termination_type == ceres::NO_CONVERGENCE) {
     // Print a clarifying message, so the user does not think that the algorithm failed.
     vw_out() << "Found a valid solution, but did not reach the actual minimum. This is expected and likely the produced solution is good enough.\n";
     convergence_reached = false;

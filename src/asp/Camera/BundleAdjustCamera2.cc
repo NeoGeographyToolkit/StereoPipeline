@@ -631,6 +631,12 @@ void load_intrinsics_options(bool        solve_intrinsics,
   // which now will mean float nothing.
   if (intrinsics_to_float_str == "none") 
     intrinsics_to_float_str = "";
+    
+  // Replace any commas with spaces. It can be convenient to use commas
+  // as separators when passing in the options from the command line.
+  boost::replace_all(intrinsics_to_float_str,  ",", " ");
+  boost::replace_all(intrinsics_to_share_str, ",", " ");
+  
   // Parse the values  
   std::istringstream is(intrinsics_to_float_str);
   std::string val;
