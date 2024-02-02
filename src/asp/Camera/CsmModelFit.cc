@@ -683,13 +683,11 @@ struct FrameCamReprojErr {
 
 };
 
-// Refine a CSM frame camera model using a a set of xyz at given pixels
+// Refine a CSM frame camera model using a a set of ground points projecting at given pixels
 void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
                        std::vector<vw::Vector3> const& xyz,
                        std::string const& refine_intrinsics,
-                       std::string const& error_map,
-                       // This model will be modified
-                       asp::CsmModel & csm_model) {
+                       asp::CsmModel & csm_model) { // output
 
   // See which intrinsics to fix
   bool fix_focal_length = true, fix_optical_center = true, fix_other_intrinsics = true;

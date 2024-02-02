@@ -310,11 +310,10 @@ struct Options : public vw::GdalWriteOptions {
     cam_height, cam_weight, cam_ctr_weight;
   Vector2 optical_center;
   std::vector<double> lon_lat_values, pixel_values, distortion;
-  bool refine_camera, parse_eci, parse_ecef, input_pinhole, refine_intrinsics_save_error_map; 
+  bool refine_camera, parse_eci, parse_ecef, input_pinhole; 
   int num_pixel_samples;
   Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0), input_pinhole(false),
-  parse_eci(false), parse_ecef(false), refine_intrinsics_save_error_map(false),
-  num_pixel_samples(0)
+  parse_eci(false), parse_ecef(false), num_pixel_samples(0)
   {}
 };
 
@@ -380,9 +379,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust "
      "when providing an input camera.")
-     ("refine-intrinsics-save-error-map", 
-      po::bool_switch(&opt.refine_intrinsics_save_error_map)->default_value(false)->implicit_value(true),
-     "When refining the intrinsics (and camera pose) save the norm of the difference between input camera rays and best-fit camera rays at each pixel sample as a .tif image.")
   ;
   
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -820,17 +816,14 @@ void refineIntrinsics(Options const& opt, vw::cartography::GeoReference const& g
   std::vector<vw::Vector2> all_pix_samples;
   asp::createPixelSamples(width, height, opt.num_pixel_samples, all_pix_samples);  
   
-  // Populate the corresponding rays
+  // Populate the corresponding ground points
   std::vector<vw::Vector2> pix_samples;
   std::vector<vw::Vector3> xyz_samples;
   for (size_t i = 0; i < all_pix_samples.size(); i++) {
 
-    vw::Vector2 pix = all_pix_samples[i];    
-    double h = opt.height_above_datum;
-    vw::Vector3 xyz = datum_intersection(geo.datum().semi_major_axis() + h,
-                                         geo.datum().semi_minor_axis() + h,
-                                         input_camera_ptr->camera_center(pix),
-                                         input_camera_ptr->pixel_to_vector(pix));
+    vw::Vector2 pix = all_pix_samples[i];
+    vw::Vector3 xyz;
+    dem_or_datum_intersect(opt, geo, interp_dem, input_camera_ptr, pix, xyz);
     if (xyz == Vector3()) 
       continue;
       
@@ -842,16 +835,7 @@ void refineIntrinsics(Options const& opt, vw::cartography::GeoReference const& g
   if (pix_samples.empty()) 
     vw_throw(ArgumentErr() << "Could not find any valid pixel samples.\n");
 
-  // Refine a CSM frame camera model using a a set of directions at given pixels
-  std::string error_map = "";
-  if (opt.refine_intrinsics_save_error_map) {
-    // Replace the extension with _error_map.tif using boost::path::replace_extension
-    error_map = boost::filesystem::path(opt.camera_file).
-                  replace_extension("_error_map.tif").string();
-
-    std::cout << "Will save the error map to: " << error_map << std::endl;
-  }
-  asp::refineCsmFrameFit(pix_samples, xyz_samples, opt.refine_intrinsics, error_map, csm);
+  asp::refineCsmFrameFit(pix_samples, xyz_samples, opt.refine_intrinsics, csm);
 }
 
 // Read a matrix in json format. This will throw an error if the json object

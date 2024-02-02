@@ -17,8 +17,6 @@
 
 /// \file CsmModelFit.h
 
-// Find linescan rotations given matrix of sight vectors
-
 #ifndef __ASP_CAMERA_CSM_MODEL_FIT_H__
 #define __ASP_CAMERA_CSM_MODEL_FIT_H__
 
@@ -46,14 +44,11 @@ void fitAsterLinescanCsmModel(
 void createPixelSamples(int width, int height, int num_pixel_samples,
                         std::vector<vw::Vector2> & pix_samples);
  
-// Refine a CSM frame camera model using a a set of directions at given pixels
-void refineCsmFrameFit(
-       std::vector<vw::Vector2> const& pixels,
-       std::vector<vw::Vector3> const& directions,
-       std::string const& refine_intrinsics,
-       std::string const& error_map,  
-       // This model will be modified
-       asp::CsmModel & csm_model);
+// Refine a CSM frame camera model using a a set of ground points projecting at given pixels
+void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
+                       std::vector<vw::Vector3> const& directions,
+                       std::string const& refine_intrinsics,
+                       asp::CsmModel & csm_model); // output
   
 } // end namespace asp
 
