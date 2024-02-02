@@ -312,11 +312,9 @@ struct Options : public vw::GdalWriteOptions {
   std::vector<double> lon_lat_values, pixel_values, distortion;
   bool refine_camera, parse_eci, parse_ecef, input_pinhole, refine_intrinsics_save_error_map; 
   int num_pixel_samples;
-  vw::CamPtr input_camera_ptr;
-  vw::cartography::GeoReference geo;
   Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0), input_pinhole(false),
   parse_eci(false), parse_ecef(false), refine_intrinsics_save_error_map(false),
-  num_pixel_samples(0), input_camera_ptr(nullptr)
+  num_pixel_samples(0)
   {}
 };
 
@@ -618,7 +616,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                << "Refining intrinsics is only supported for CSM cameras.\n");
   }
   
-  
   // It is ambiguous what is meant by an empty refine_intrinsics string.
   if (opt.refine_intrinsics.empty())
    vw::vw_throw(vw::ArgumentErr() << "The --refine-intrinsics option cannot be empty.\n");
@@ -637,7 +634,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 // Form a camera based on info the user provided
 void manufacture_cam(Options const& opt, int wid, int hgt,
-		     boost::shared_ptr<CameraModel> & out_cam){
+		     boost::shared_ptr<CameraModel> & out_cam) {
 
   if (opt.camera_type == "opticalbar") {
     boost::shared_ptr<vw::camera::OpticalBarModel> opticalbar_cam;
@@ -670,18 +667,55 @@ void manufacture_cam(Options const& opt, int wid, int hgt,
   }
 }
 
+// Intersect a ray with the DEM or the datum. Return the zero vector on failure.
+void dem_or_datum_intersect(Options const& opt, vw::cartography::GeoReference const& geo,
+                            ImageViewRef<PixelMask<float>> const& interp_dem,
+                            vw::CamPtr input_camera_ptr,
+                            vw::Vector2 const& pix, 
+                            vw::Vector3 & xyz) { // output
+
+  if (input_camera_ptr.get() == NULL)
+    vw_throw(ArgumentErr() << "Input camera was not provided.\n");
+     
+  Vector3 camera_ctr = input_camera_ptr->camera_center(pix);
+  Vector3 camera_vec = input_camera_ptr->pixel_to_vector(pix);
+
+  bool treat_nodata_as_zero = false;
+  bool has_intersection = false;
+  double height_error_tol = 0.01; // error in DEM height, in meters
+  double max_abs_tol = 1e-20; // this will not be reached due to height_error_tol
+  double max_rel_tol = 1e-20;
+  int num_max_iter   = 100;
+  Vector3 xyz_guess  = Vector3();
+
+  xyz = vw::cartography::camera_pixel_to_dem_xyz(camera_ctr, camera_vec,  
+                                                 interp_dem, geo, treat_nodata_as_zero,
+                                                 has_intersection, height_error_tol,
+                                                 max_abs_tol, max_rel_tol, num_max_iter, 
+                                                 xyz_guess);
+  
+  // If we could not intersect the DEM, use the datum to estimate the height
+  if (xyz == Vector3() || !has_intersection) 
+    xyz = datum_intersection(geo.datum().semi_major_axis() + opt.height_above_datum,
+                             geo.datum().semi_minor_axis() + opt.height_above_datum,
+                             camera_ctr, camera_vec);
+}
+
 // Trace rays from pixel corners to DEM to see where they intersect the DEM.
-// Save a pointer to the camera as we may need it later.
+// Save a pointer to the camera, georef, and interp_dem, as we may need these later.
 void extract_lon_lat_cam_ctr_from_camera(Options & opt,
                                          ImageViewRef<PixelMask<float>> const& interp_dem,
                                          GeoReference const& geo,
+                                         // Outputs
+                                         vw::CamPtr & input_camera_ptr,
                                          std::vector<double> & cam_heights,
                                          vw::Vector3 & cam_ctr) {
 
   cam_heights.clear();
   cam_ctr = Vector3(0, 0, 0);
 
-  // Load the camera. By now --bundle-adjust-prefix should be set.  
+  // Load the camera. By now --bundle-adjust-prefix should be set. 
+  // We will need it outside of this function. 
   std::string out_prefix;
   typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
   SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
@@ -689,8 +723,7 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
 						       opt.image_file, opt.image_file,
 						       opt.input_camera, opt.input_camera,
 						       out_prefix));
-
-  opt.input_camera_ptr = session->camera_model(opt.image_file, opt.input_camera);
+  input_camera_ptr = session->camera_model(opt.image_file, opt.input_camera);
 
   // Store here pixel values for the rays emanating from the pixels at
   // which we could intersect with the DEM.
@@ -703,42 +736,20 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
   // Estimate camera center
   std::vector<vw::Vector3> ctrs, dirs;
   
-  for (int it = 0; it < num_points; it++){
+  for (int it = 0; it < num_points; it++) {
 
     Vector2 pix(opt.pixel_values[2*it], opt.pixel_values[2*it+1]);
-
-    Vector3 camera_ctr = opt.input_camera_ptr->camera_center(pix);
-    Vector3 camera_vec = opt.input_camera_ptr->pixel_to_vector(pix);
-
-    bool treat_nodata_as_zero = false;
-    bool has_intersection = false;
-    double height_error_tol = 1.0; // error in DEM height
-    
-    double max_abs_tol = 1e-20;
-    double max_rel_tol      = 1e-20;
-    int num_max_iter        = 1000;
-    Vector3 xyz_guess       = Vector3();
-
-    Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz(camera_ctr, camera_vec,  
-                                           interp_dem, geo, treat_nodata_as_zero,
-                                           has_intersection, height_error_tol,
-                                           max_abs_tol, max_rel_tol, num_max_iter, 
-                                           xyz_guess);
-    
-    // If we could not intersect the DEM, use the datum to estimate the height
-    if (xyz == Vector3() || !has_intersection) 
-      xyz = datum_intersection(geo.datum().semi_major_axis() + opt.height_above_datum,
-                                 geo.datum().semi_minor_axis() + opt.height_above_datum,
-                                 camera_ctr, camera_vec);
-      
+    vw::Vector3 xyz;                                                
+    dem_or_datum_intersect(opt, geo, interp_dem, input_camera_ptr, pix, xyz);
+     
     if (xyz == Vector3()) {
       vw_out() << "Could not intersect the ground with a ray coming "
 	             << "from the camera at pixel: " << pix << ". Skipping it.\n";
       continue;
     }
     
-    ctrs.push_back(camera_ctr);
-    dirs.push_back(camera_vec);
+    ctrs.push_back(input_camera_ptr->camera_center(pix));
+    dirs.push_back(input_camera_ptr->pixel_to_vector(pix));
     
     Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);
     opt.lon_lat_values.push_back(llh[0]);
@@ -795,16 +806,15 @@ vw::Matrix<double> vec2matrix(int rows, int cols, std::vector<double> const& val
 }
 
 // Refine the camera intrinsics and pose. Only applicable to CSM frame cameras.
-void refine_intrinsics(Options const& opt, int width, int height, asp::CsmModel & csm) {
+void refineIntrinsics(Options const& opt, vw::cartography::GeoReference const& geo,
+                      ImageViewRef<PixelMask<float>> & interp_dem,
+                      vw::CamPtr const& input_camera_ptr, 
+                      int width, int height, asp::CsmModel & csm) {
   
-  std::cout << "---fix here\n";
-  std::cout << "--may need to use a dem!\n";
-  if (opt.datum_str.empty())
-    vw_throw(ArgumentErr() << "Must provide a datum to refine the camera.\n");
-    
-  std::cout << "--now in refine intrinsics\n";
   // Sanity checks
-  if (opt.input_camera_ptr.get() == NULL)
+  if (opt.reference_dem.empty() && opt.datum_str.empty())
+    vw_throw(ArgumentErr() << "Must provide a DEM or a datum to refine the camera.\n");
+  if (input_camera_ptr.get() == NULL)
     vw_throw(ArgumentErr() << "Must provide an input camera to refine its intrinsics.\n");
   
   std::vector<vw::Vector2> all_pix_samples;
@@ -817,10 +827,10 @@ void refine_intrinsics(Options const& opt, int width, int height, asp::CsmModel 
 
     vw::Vector2 pix = all_pix_samples[i];    
     double h = opt.height_above_datum;
-    vw::Vector3 xyz = datum_intersection(opt.geo.datum().semi_major_axis() + h,
-                                 opt.geo.datum().semi_minor_axis() + h,
-                                 opt.input_camera_ptr->camera_center(pix),
-                                 opt.input_camera_ptr->pixel_to_vector(pix));
+    vw::Vector3 xyz = datum_intersection(geo.datum().semi_major_axis() + h,
+                                         geo.datum().semi_minor_axis() + h,
+                                         input_camera_ptr->camera_center(pix),
+                                         input_camera_ptr->pixel_to_vector(pix));
     if (xyz == Vector3()) 
       continue;
       
@@ -860,7 +870,9 @@ vw::Matrix<double> json_mat(json const& j, int rows, int cols) {
 
 // Create a camera using user-specified options. Keep record
 // of the georeference and the datum.
-void form_camera(Options & opt, vw::cartography::Datum & datum,
+void form_camera(Options & opt, vw::cartography::GeoReference & geo,
+                 ImageViewRef<PixelMask<float>> & interp_dem,
+                 vw::CamPtr & input_camera_ptr,
                  boost::shared_ptr<CameraModel> & out_cam) {
 
   ImageView<float> dem;
@@ -868,26 +880,23 @@ void form_camera(Options & opt, vw::cartography::Datum & datum,
   bool has_dem = false;
   if (opt.reference_dem != "") {
     dem = DiskImageView<float>(opt.reference_dem);
-    bool ans = read_georeference(opt.geo, opt.reference_dem);
+    bool ans = read_georeference(geo, opt.reference_dem);
     if (!ans) 
       vw_throw(ArgumentErr() << "Could not read the georeference from dem: "
                 << opt.reference_dem << ".\n");
-
-    datum = opt.geo.datum(); // Read this in for completeness
     has_dem = true;
     vw::read_nodata_val(opt.reference_dem, nodata_value);
     vw_out() << "Using nodata value: " << nodata_value << std::endl;
   } else {
-    datum = vw::cartography::Datum(opt.datum_str); 
-    opt.geo.set_datum(datum); // Keep track of the datum
+    // Keep track of the datum
+    geo.set_datum(vw::cartography::Datum(opt.datum_str)); 
     vw_out() << "No reference DEM provided. Will use a height of "
              << opt.height_above_datum << " above the datum:\n" 
-             << datum << std::endl;
+             << geo.datum() << std::endl;
   }
 
   // Prepare the DEM for interpolation
-  ImageViewRef<PixelMask<float>> interp_dem
-    = interpolate(create_mask(dem, nodata_value),
+  interp_dem = interpolate(create_mask(dem, nodata_value),
                   BilinearInterpolation(), ZeroEdgeExtension());
 
   // If we have camera center in ECI or ECEF coordinates in km, convert
@@ -904,7 +913,7 @@ void form_camera(Options & opt, vw::cartography::Datum & datum,
     parsed_cam_ctr *= 1000.0;  // convert to meters
     vw_out() << "Parsed camera center (meters): " << parsed_cam_ctr << "\n";
 
-    Vector3 llh = datum.cartesian_to_geodetic(parsed_cam_ctr);
+    Vector3 llh = geo.datum().cartesian_to_geodetic(parsed_cam_ctr);
       
     // If parsed_cam_ctr is in ECI coordinates, the lon and lat won't be accurate
     // but the height will be.
@@ -938,8 +947,9 @@ void form_camera(Options & opt, vw::cartography::Datum & datum,
     // Extract lon and lat from tracing rays from the camera to the ground.
     // This can modify opt.pixel_values. Also calc the camera center.
     extract_lon_lat_cam_ctr_from_camera(opt, create_mask(dem, nodata_value), 
-                                        opt.geo, cam_heights,
-                                        input_cam_ctr);
+                                        geo, 
+                                        // Outputs
+                                        input_camera_ptr, cam_heights, input_cam_ctr);
   }
 
   // Overwrite the estimated center with what is parsed from vendor's data,
@@ -950,7 +960,7 @@ void form_camera(Options & opt, vw::cartography::Datum & datum,
   if (opt.lon_lat_values.size() < 3) 
     vw_throw(ArgumentErr() << "Expecting at least three longitude-latitude pairs.\n");
 
-  if (opt.lon_lat_values.size() != opt.pixel_values.size()){
+  if (opt.lon_lat_values.size() != opt.pixel_values.size()) {
     vw_throw(ArgumentErr()
               << "The number of lon-lat pairs must equal the number of pixel pairs.\n");
   }
@@ -983,7 +993,7 @@ void form_camera(Options & opt, vw::cartography::Datum & datum,
     } else {
       if (has_dem) {
         bool success = false;
-        pix = opt.geo.lonlat_to_pixel(subvector(llh, 0, 2));
+        pix = geo.lonlat_to_pixel(subvector(llh, 0, 2));
         int len =  BilinearInterpolation::pixel_buffer;
         if (pix[0] >= 0 && pix[0] <= interp_dem.cols() - 1 - len &&
             pix[1] >= 0 && pix[1] <= interp_dem.rows() - 1 - len) {
@@ -1000,7 +1010,7 @@ void form_camera(Options & opt, vw::cartography::Datum & datum,
     }
       
     llh[2] = height;
-    xyz = datum.geodetic_to_cartesian(llh);
+    xyz = geo.datum().geodetic_to_cartesian(llh);
     xyz_vec.push_back(xyz);
 
     if (write_gcp)
@@ -1030,7 +1040,7 @@ void form_camera(Options & opt, vw::cartography::Datum & datum,
   fit_camera_to_xyz_ht(opt.parse_ecef, parsed_cam_ctr, input_cam_ctr,
                        opt.camera_type, opt.refine_camera,  
                        xyz_vec, opt.pixel_values, 
-                       opt.cam_height, opt.cam_weight, opt.cam_ctr_weight, datum,
+                       opt.cam_height, opt.cam_weight, opt.cam_ctr_weight, geo.datum(),
                        verbose, out_cam);
     
   return;
@@ -1038,11 +1048,13 @@ void form_camera(Options & opt, vw::cartography::Datum & datum,
 
 // Read a pinhole camera from Planet's json file format (*_pinhole.json). Then
 // the WGS84 datum is assumed.
-void read_pinhole_from_json(Options & opt, vw::cartography::Datum & datum,
+void read_pinhole_from_json(Options & opt, vw::cartography::GeoReference & geo,
                             boost::shared_ptr<CameraModel> & out_cam) {
 
+  // Set the datum
+  vw::cartography::Datum datum;
   datum.set_well_known_datum("WGS84");
-  opt.geo.set_datum(datum); // export the datum
+  geo.set_datum(datum);
   
   std::ifstream f(opt.input_camera);
   json j = json::parse(f);
@@ -1137,19 +1149,26 @@ int main(int argc, char * argv[]) {
       return 0;
     }
     
-    boost::shared_ptr<CameraModel> out_cam;
-    vw::cartography::Datum datum;
 
     // Some of the numbers we print need high precision
     vw_out().precision(17);
-    
+  
+    // Interpolated dem. May not always exist.
+    ImageViewRef<PixelMask<float>> interp_dem;
+    // Georeference. At least the datum will exist.
+    vw::cartography::GeoReference geo;
+    // Input camera
+    vw::CamPtr input_camera_ptr(NULL);
+    // Output camera
+    boost::shared_ptr<CameraModel> out_cam;
+
     if (!opt.input_pinhole) {
-      // Create a camera using user-specified options.
-      form_camera(opt, datum, out_cam);
+      // Create a camera using user-specified options. Read geo and interp_dem.
+      form_camera(opt, geo, interp_dem, input_camera_ptr, out_cam);
     } else {
       // Read a pinhole camera from Planet's json file format (*_pinhole.json). Then
-      // the WGS84 datum is assumed. Ignore all other input options.
-      read_pinhole_from_json(opt, datum, out_cam);
+      // the WGS84 datum is assumed. Ignore all other input options. Read geo datum.
+      read_pinhole_from_json(opt, geo, out_cam);
     }
     
     if (opt.camera_type == "opticalbar") {
@@ -1164,10 +1183,11 @@ int main(int argc, char * argv[]) {
         int width = img.cols(), height = img.rows();
         asp::CsmModel csm;
         csm.createFrameModel(*pin, width, height, 
-                             datum.semi_major_axis(), datum.semi_minor_axis(), 
+                             geo.datum().semi_major_axis(), geo.datum().semi_minor_axis(), 
                              "radtan", opt.distortion);
         if (opt.refine_intrinsics != "none") 
-          refine_intrinsics(opt, width, height, csm);
+          refineIntrinsics(opt, geo, interp_dem, input_camera_ptr, width, height, csm);
+          
         csm.saveState(opt.camera_file);
       } else {
         vw_throw(ArgumentErr() << "Unknown output camera file extension: " << ext << ".\n");
@@ -1175,7 +1195,7 @@ int main(int argc, char * argv[]) {
     }
     
     // Print these after any refinements and then saving the camera
-    vw::Vector3 llh = datum.cartesian_to_geodetic(out_cam->camera_center(Vector2()));
+    vw::Vector3 llh = geo.datum().cartesian_to_geodetic(out_cam->camera_center(Vector2()));
     vw_out() << "Output camera center lon, lat, and height above datum: " << llh << std::endl;
     vw_out() << "Writing: " << opt.camera_file << std::endl;
     
