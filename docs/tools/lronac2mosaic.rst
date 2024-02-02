@@ -44,7 +44,7 @@ Command-line options for lronac2mosaic.py:
     Options to pass to spiceinit. Specify in quotes.
     
 -c, --crop <integer>
-    Process only this many first lines of the image.
+    Process only this many first lines of the images.
     
 -t, --threads
     Specify the number of threads to use.

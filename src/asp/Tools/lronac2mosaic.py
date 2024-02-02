@@ -178,7 +178,7 @@ def lronacecho( cub_files, threads, delete=False ):
 # Call spiceinit and spicefit on each input file
 def spice(cub_files, spiceinit_options, threads):
     for cub in cub_files:
-        cmd = 'spiceinit ' + spiceinit_options + ' from= '+ cub
+        cmd = 'spiceinit ' + spiceinit_options + ' from=' + cub
         add_job(cmd, threads)
     wait_on_all_jobs()
     for cub in cub_files:
@@ -417,7 +417,7 @@ def main():
                               help="Options to pass to spiceinit. Use quotes.", type="string",
                                 default="web=false spksmithed=true")
             parser.add_option("-c", "--crop", dest="cropAmount",
-                              help="Process only this many first lines of the image.",type="int")
+                              help="Process only this many first lines of the images.",type="int")
             parser.add_option("-t", "--threads", dest="threads",
                               help="Number of threads to use.",type="int")
             parser.add_option("-k", "--keep", action="store_false",
