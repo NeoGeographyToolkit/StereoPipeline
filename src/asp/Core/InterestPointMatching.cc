@@ -65,6 +65,9 @@ rough_homography_fit(camera::CameraModel* cam1,
                      BBox2i const& box1, BBox2i const& box2,
                      cartography::Datum const& datum) {
     
+  vw::Stopwatch sw;
+  sw.start();
+    
   // Bounce several points off the datum and fit an affine.
   std::vector<Vector3> left_points, right_points;
   int num = 100;
@@ -144,8 +147,6 @@ rough_homography_fit(camera::CameraModel* cam1,
   vw_out() << "Estimating rough homography using RANSAC with " 
     << num_iter << " iterations.\n";
   typedef math::HomographyFittingFunctor hfit_func;
-  Stopwatch sw;
-  sw.start();
   math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
     ransac(hfit_func(), math::InterestPointErrorMetric(),
            num_iter, inlier_th, min_inliers, reduce_num_if_no_fit);
@@ -153,10 +154,10 @@ rough_homography_fit(camera::CameraModel* cam1,
   Matrix<double> H = ransac(right_points, left_points);
   std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
   check_homography_matrix(H, left_points, right_points, indices);
-
   vw_out() << "Number of inliers: " << indices.size() << ".\n";
+
   sw.stop();
-  vw_out() << "RANSAC time: " << sw.elapsed_seconds() << " seconds.\n";
+  vw_out() << "Rough homography fit elapsed time: " << sw.elapsed_seconds() << " s.\n";
 
   return H;
 }
@@ -1057,11 +1058,7 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
 
   try {
     // Homography is defined in the original camera coordinates
-    vw::Stopwatch sw;
-    sw.start();
     rough_homography = rough_homography_fit(cam1, cam2, box1, box2, datum);
-    sw.stop();
-    vw_out() << "Rough homography fit elapsed time: " << sw.elapsed_seconds() << " s.\n";
   } catch(...) {
     vw_out() << "Rough homography fit failed, trying with identity transform. " << std::endl;
     rough_homography.set_identity(3);

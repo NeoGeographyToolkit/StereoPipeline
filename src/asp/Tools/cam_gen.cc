@@ -199,10 +199,9 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
   
   // Print out some errors
   if (verbose) {
-    vw_out() << "The error between the projection of each ground "
-	     << "corner point into the coarse camera and its pixel value:\n";
+    vw_out() << "Errors of pixel projection in the coarse camera:\n";
     for (size_t corner_it = 0; corner_it < num_pts; corner_it++) {
-      vw_out () << "Corner and error: ("
+      vw_out () << "Pixel and error: ("
 		<< pixel_values[2*corner_it] << ' ' << pixel_values[2*corner_it+1]
 		<< ") " <<  norm_2(out_cam.get()->point_to_pixel(xyz_vec[corner_it]) -
 				 Vector2( pixel_values[2*corner_it],
@@ -265,10 +264,9 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
       vw_out() << "The Levenberg-Marquardt solver failed. Results may be inaccurate.\n";
 
     if (verbose) {
-      vw_out() << "The error between the projection of each ground "
-	       << "corner point into the refined camera and its pixel value:\n";
+      vw_out() << "Errors of pixel projection in the camera with refined pose:\n";
       for (size_t corner_it = 0; corner_it < num_pts; corner_it++) {
-	      vw_out () << "Corner and error: ("
+	      vw_out () << "Pixel and error: ("
 		              << pixel_values[2*corner_it] << ' ' << pixel_values[2*corner_it+1]
 		              << ") " 
                   <<  norm_2(out_cam.get()->point_to_pixel(xyz_vec[corner_it]) -
@@ -347,11 +345,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("pixel-pitch", po::value(&opt.pixel_pitch)->default_value(0),
      "The pixel pitch.")
     ("distortion", po::value(&opt.distortion_str)->default_value(""),
-     "The OpenCV radial-tangential lens distortion coefficients, in quotes, in the order k1, k2, p1, p2, k3. Only applicable when creating CSM cameras. The default is zero distortion.")
+     "The OpenCV radial-tangential lens distortion coefficients, as 5 numbers, in quotes, in the order k1, k2, p1, p2, k3. Only applicable when creating CSM cameras. The default is zero distortion.")
     ("refine-camera", po::bool_switch(&opt.refine_camera)->default_value(false)->implicit_value(true),
      "After a rough initial camera is obtained, refine its pose using least squares.")
-    ("refine-intrinsics", po::value(&opt.refine_intrinsics)->default_value("none"),
-     "Refine the camera intrinsics together with the camera pose. Specify, in quotes, one or more of: focal_length, optical_center, other_intrinsics.  Also can set as 'all' or 'none'. Applicable only with option --input-camera and when creating a CSM frame camera model.")
+    ("refine-intrinsics", po::value(&opt.refine_intrinsics)->default_value(""),
+     "Refine the camera intrinsics together with the camera pose. Specify, in quotes, or as comma as separator, one or more of: focal_length, optical_center, other_intrinsics (distortion). Also can set as 'all' or 'none'. In the latter mode only the camera pose is optimized. Applicable only with option --input-camera and when creating a CSM frame camera model.")
     ("num-pixel-samples", po::value(&opt.num_pixel_samples)->default_value(10000),
      "Number of uniformly distributed pixel samples to use with option --refine-intrinsics.")
     ("frame-index", po::value(&opt.frame_index)->default_value(""),
@@ -436,7 +434,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     return;
     
   opt.input_pinhole = boost::algorithm::ends_with(opt.input_camera, "_pinhole.json");
+  if (opt.input_pinhole && opt.datum_str.empty()) {
+    opt.datum_str = "WGS84";
+    vw::vw_out() << "Setting the datum to: " << opt.datum_str << std::endl;
+  }
   
+  if (opt.input_pinhole && (opt.refine_camera || opt.refine_intrinsics != ""))
+    vw_throw(ArgumentErr() << "Cannot refine the pose or intrinsics for a pinhole camera "
+             "read from a Planet JSON file. Consider running this tool to first convert "
+             "it to ASP's format, and later refine that using another invocation. "
+             "Note that camera refinement will not preserve the camera center.\n");
+      
   // If we cannot read the data from a DEM, must specify a lot of things.
   if (!opt.input_pinhole && opt.reference_dem.empty() && opt.datum_str.empty())
     vw_throw(ArgumentErr() << "Must provide either a reference DEM or a datum.\n");
@@ -607,16 +615,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     if (opt.distortion.size() != 0)
       vw_throw(ArgumentErr() 
                << "Distortion coefficients are only supported for CSM cameras.\n"); 
-    if (opt.refine_intrinsics != "none")
+    if (opt.refine_intrinsics != "")
       vw_throw(ArgumentErr() 
                << "Refining intrinsics is only supported for CSM cameras.\n");
   }
   
-  // It is ambiguous what is meant by an empty refine_intrinsics string.
-  if (opt.refine_intrinsics.empty())
-   vw::vw_throw(vw::ArgumentErr() << "The --refine-intrinsics option cannot be empty.\n");
-  
-  if (opt.refine_intrinsics != "none" && opt.input_camera == "")
+  if (opt.refine_intrinsics != "" && opt.input_camera == "")
     vw_throw(ArgumentErr() << "Must provide an input camera to refine its intrinsics.\n");
     
   if (opt.num_pixel_samples <= 0)
@@ -879,7 +883,7 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
              << geo.datum() << std::endl;
   }
 
-  // Prepare the DEM for interpolation
+  // Prepare the DEM for interpolation. It may be empty if not provided.
   interp_dem = interpolate(create_mask(dem, nodata_value),
                   BilinearInterpolation(), ZeroEdgeExtension());
 
@@ -1036,9 +1040,7 @@ void read_pinhole_from_json(Options & opt, vw::cartography::GeoReference & geo,
                             boost::shared_ptr<CameraModel> & out_cam) {
 
   // Set the datum
-  vw::cartography::Datum datum;
-  datum.set_well_known_datum("WGS84");
-  geo.set_datum(datum);
+  geo.set_datum(vw::cartography::Datum(opt.datum_str));
   
   std::ifstream f(opt.input_camera);
   json j = json::parse(f);
@@ -1169,7 +1171,7 @@ int main(int argc, char * argv[]) {
         csm.createFrameModel(*pin, width, height, 
                              geo.datum().semi_major_axis(), geo.datum().semi_minor_axis(), 
                              "radtan", opt.distortion);
-        if (opt.refine_intrinsics != "none") 
+        if (opt.refine_intrinsics != "")
           refineIntrinsics(opt, geo, interp_dem, input_camera_ptr, width, height, csm);
           
         csm.saveState(opt.camera_file);

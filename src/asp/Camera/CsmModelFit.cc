@@ -616,8 +616,8 @@ struct FrameCamReprojErr {
   // Error operator
   bool operator()(double const* const* parameters, double* residuals) const {
 
-   const double* positions      = parameters[0];
-   const double* rotations      = parameters[1];
+   const double* position      = parameters[0];
+   const double* rotation      = parameters[1];
    const double* optical_center = parameters[2];
    const double* focal_length   = parameters[3];
    const double* distortion     = parameters[4];
@@ -627,12 +627,12 @@ struct FrameCamReprojErr {
    m_csm_model.deep_copy(local_model);
    
    // Set the position
-   local_model.set_frame_position(positions[0], positions[1], positions[2]);
+   local_model.set_frame_position(position[0], position[1], position[2]);
        
-   // Copy the rotations from axis angle format to quaternions, then set in model
+   // Copy the rotation from axis angle format to quaternions, then set in model
    int num_poses = 1;
    std::vector<double> q(4*num_poses);
-   axisAngleToCsmQuatVec(num_poses, rotations, q);
+   axisAngleToCsmQuatVec(num_poses, rotation, q);
    local_model.set_frame_quaternion(q[0], q[1], q[2], q[3]);
   
    // Set optical center and focal length
@@ -683,11 +683,36 @@ struct FrameCamReprojErr {
 
 };
 
+// See how well the optimized model fits the ground points
+void computeCamStats(std::vector<vw::Vector2> const& pixels,
+                       std::vector<vw::Vector3> const& xyz,
+                       asp::CsmModel const& csm_model) {
+
+  // Iterate over xyz and project into the camera
+  std::vector<double> errors;
+  for (size_t i = 0; i < xyz.size(); i++) {
+    vw::Vector2 pix = csm_model.point_to_pixel(xyz[i]);
+    errors.push_back(norm_2(pix - pixels[i]));
+  }
+
+  // Sort the errors
+  std::sort(errors.begin(), errors.end());
+  
+  vw::vw_out() << "Errors of pixel projection in the camera with refined intrinsics:\n";
+  vw::vw_out() << "Min:    " << errors[0] << "\n";
+  vw::vw_out() << "Median: " << vw::math::destructive_median(errors) << "\n";
+  vw::vw_out() << "Max:    " << errors.back() << "\n";
+  vw::vw_out() << "Num samples: " << errors.size() << "\n";
+
+}
+                                                   
 // Refine a CSM frame camera model using a a set of ground points projecting at given pixels
 void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
                        std::vector<vw::Vector3> const& xyz,
                        std::string const& refine_intrinsics,
                        asp::CsmModel & csm_model) { // output
+
+  vw::vw_out() << "Refining camera intrinsics and pose.\n";
 
   // See which intrinsics to fix
   bool fix_focal_length = true, fix_optical_center = true, fix_other_intrinsics = true;
@@ -725,7 +750,7 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
   // The position vector
   std::vector<double> position = {x, y, z};
       
-  // Create rotations from quaternions
+  // Create rotation from quaternions
   std::vector<double> rotation;
   int num_poses = 1;
   std::vector<double> q = {qx, qy, qz, qw};
@@ -742,8 +767,6 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
                            &position[0], &rotation[0], &optical_center[0], &focal_length,
                            &distortion[0]);
 
-  // FrameFitSaveResiduals(problem, "residuals2_before.txt"); // for debugging
-   
   // Set up the solver options 
   ceres::Solver::Options options;
   options.linear_solver_type = ceres::ITERATIVE_SCHUR;
@@ -753,7 +776,7 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
   options.gradient_tolerance  = 1e-16;
   options.function_tolerance  = 1e-16;
   options.parameter_tolerance = 1e-12; // should be enough
-  options.minimizer_progress_to_stdout = true;
+  options.minimizer_progress_to_stdout = false; // true for debugging
 
   if (fix_focal_length)
     problem.SetParameterBlockConstant(&focal_length);
@@ -765,7 +788,7 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
   // Solve the problem  
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  vw::vw_out() << summary.FullReport() << "\n";
+  //vw::vw_out() << summary.FullReport() << "\n";
 
   // Copy back
   csm_model.set_frame_position(position[0], position[1], position[2]);
@@ -775,6 +798,7 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
   csm_model.set_optical_center(optical_center);
   csm_model.set_distortion(distortion);
 
+  computeCamStats(pixels, xyz, csm_model);
   return;
 }
 

@@ -79,7 +79,7 @@ some inner points) using the provided camera that will intersect the provided
 DEM, determining the footprint on the ground. This will be used to find the
 best-fit pinhole model. 
 
-In this case the corner longitude-latitude coordinates need not be specified.
+In this case, the corner longitude-latitude coordinates need not be specified.
 
 Here is an example for ISIS cameras::
 
@@ -95,7 +95,8 @@ Here we passed the image as the input camera, since for ISIS cubes (and
 also for some RPC cameras) the camera information is not stored in a
 separate camera file.
 
-Zero distortion will be assumed. 
+This does not model distortion. For that, one has to produce CSM cameras
+(:numref:`cam_gen_frame`).
 
 Ensure the correct datum is passed for your planet, if a DEM is not used on
 input. For example: ``--datum D_MARS``. 
@@ -108,14 +109,41 @@ image ground footprint.
 CSM frame cameras
 ^^^^^^^^^^^^^^^^^
 
-A produced approximate Pinhole camera (created from any input sensor type, per
-:numref:`cam_gen_prior`), can be saved in the CSM Frame camera model state
-format (:numref:`csm_state`) by ensuring the output camera file has a .json
-extension rather than .tsai. Zero distortion is assumed. All examples from above
-still apply, after changing the output extension.
+This program can create a CSM Frame camera (:numref:`csm`) that approximates any
+camera supported by ASP. 
 
+In this mode, distortion is modeled as well. An additional solver pass can be
+invoked, which can refine the intrinsics, that is, the focal length, optical
+center, and the distortion coefficients, in addition to the camera pose. The
+OpenCV radial-tangential lens distortion model is used (see option
+``--distortion`` in :numref:`cam_gen_options` for more details).
+
+Example::
+
+  cam_gen input.tif                                   \
+    --input-camera input.xml                          \
+    --reference-dem dem.tif                           \
+    --focal-length 30000                              \
+    --optical-center 3000 2000                        \
+    --pixel-pitch 1                                   \
+    --refine-camera                                   \
+    --refine-intrinsics focal_length,other_intrinsics \
+    --distortion '1e-6 1e-7 0 0 0'                    \
+    -o output.json                                    \
+
+It is suggested to not optimize the optical center, as that correlates with the
+camera pose and can lead to an implausible solution.
+
+If invoked with ``--refine-intrinsics none``, the provided intrinsics will be
+passed in to the CSM model, but then only the camera pose will be refined. This
+is different than just using ``--refine-camera`` alone, which does not support
+distortion.
+
+If the camera model is contained within the image, pass the image to
+``--input-camera``.
+ 
 The ``cam_test`` program (:numref:`cam_test`) can be used to verify the
-agreement between a .tsai and .json version of the same camera.
+agreement between the input and output cameras.
 
 .. _cam_gen_linescan:
 
@@ -184,6 +212,8 @@ One can invoke ``orbitviz`` (:numref:`orbitviz`)::
 to create a KML file that can then be opened in Google Earth. It will display
 the cameras above the planet. 
 
+.. _cam_gen_options:
+
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -251,10 +281,24 @@ Command-line options
 --pixel-pitch <float (default: 0.0)>
     The camera pixel pitch.
 
+--distortion <string (default: "")>
+    The OpenCV radial-tangential lens distortion coefficients, as 5 numbers, in
+    quotes, in the order k1, k2, p1, p2, k3. Only applicable when creating CSM
+    cameras (:numref:`cam_gen_frame`). The default is zero distortion.
+        
 --refine-camera
-    After a rough initial camera is obtained, refine it using least
-    squares.
+    After a rough initial camera is obtained, refine it using least squares.
+    This does not support distortion. For CSM Frame cameras, a more powerful
+    solver is available, see option ``--refine-intrinsics``.
 
+--refine-intrinsics <string (default: "")>
+    Refine the camera intrinsics together with the camera pose. Specify, in
+    quotes or with comma as separator, one or more of: ``focal_length``,
+    ``optical_center``, ``other_intrinsics`` (the latter is the distortion).
+    Also can set as ``all`` or ``none``. In the latter mode only the camera pose
+    is optimized. Applicable only with option ``--input-camera`` and when
+    creating a CSM frame camera model (:numref:`cam_gen_frame`). 
+        
 --frame-index <string (default: "")>
     A file used to look up the longitude and latitude of image
     corners based on the image name, in the format provided by the

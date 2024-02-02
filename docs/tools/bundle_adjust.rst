@@ -72,6 +72,8 @@ using optional estimated camera positions::
 
      bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai   \
         -o run_ba/run -t nadirpinhole --inline-adjustments     \
+        --camera-weight 0                                      \
+        --tri-weight 0.1 --tri-robust-threshold 0.1            \
         --datum WGS_1984 --camera-positions nav_data.csv       \
         --csv-format "1:file 6:lat 7:lon 9:height_above_datum"
 
