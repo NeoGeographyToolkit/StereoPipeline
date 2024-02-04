@@ -746,7 +746,7 @@ namespace asp {
 #endif
   }
 
-  void user_safety_checks(ASPGlobalOptions const& opt){
+  void user_safety_checks(ASPGlobalOptions const& opt) {
 
     // Error checking
 
@@ -791,18 +791,25 @@ namespace asp {
       vw_throw(ArgumentErr() << "The left and right images must use the same projection.\n");
     }
 
-    //TODO: Clean up these conditional using some kind of enum system
-
-    // If the images are map-projected, and the cameras are specified
-    // separately from the images, we need an input DEM, as we use the
-    // ASP flow with map-projected images.
-    if (has_georef1 && has_georef2 && !dem_provided &&
-        (opt.cam_file1 != opt.in_file1) && (opt.cam_file2 != opt.in_file2) &&
-        !opt.cam_file1.empty() && !opt.cam_file2.empty() ) {
-        
-      vw_out() << "Georef 1: " << georef1 << std::endl;
-      vw_out() << "Georef 2: " << georef1 << std::endl;
+    // If the images are map-projected, we need an input DEM, as we use the ASP
+    // flow with map-projected images.
+    if (has_georef1 && has_georef2 && !dem_provided) {
       
+      // If we can identify the DEM these were map-projected from, that's a fatal 
+      // error.  
+      std::string l_dem_file, r_dem_file; 
+      std::string dem_file_key = "DEM_FILE"; 
+      boost::shared_ptr<vw::DiskImageResource> 
+        l_rsrc(new vw::DiskImageResourceGDAL(opt.in_file1));
+      vw::cartography::read_header_string(*l_rsrc.get(), dem_file_key, l_dem_file);
+      boost::shared_ptr<vw::DiskImageResource> 
+        r_rsrc(new vw::DiskImageResourceGDAL(opt.in_file2));
+      vw::cartography::read_header_string(*r_rsrc.get(), dem_file_key, r_dem_file);
+      if (l_dem_file != "" || r_dem_file != "") 
+        vw_throw(ArgumentErr() << "The input images appear to be map-projected, "
+                 << "but no DEM was provided. Please provide a DEM.\n");
+
+      // Otherwise, just print a warning. Maybe the user got these from somewhere else.
       vw_out(WarningMessage) << "It appears that the input images are "
                              << "map-projected. In that case a DEM needs to be "
                              << "provided for stereo to give correct results.\n";
