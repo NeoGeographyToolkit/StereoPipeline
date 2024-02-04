@@ -142,7 +142,6 @@ def create_subproject_dirs(settings, **kw):
     # Don't symlink to RD.tif or PC.tif as those will be files which
     # actually need to be created in each subdirectory.
     # Return the created subdirectories.
-
     dirs = []
     out_prefix = settings['out_prefix'][0]
         
@@ -160,7 +159,7 @@ def create_subproject_dirs(settings, **kw):
     for tile in produce_tiles(settings, opt.job_size_w, opt.job_size_h):
         subproject_dir = tile_dir(out_prefix, tile)
         dirs.append(subproject_dir)
-        tile_prefix    = subproject_dir + "/" + tile.name_str()
+        tile_prefix = subproject_dir + "/" + tile.name_str()
         if opt.dryrun:
             print("mkdir -p %s" % subproject_dir)
             print("Soft linking via %s %s" % (tile_prefix, out_prefix))
@@ -943,21 +942,6 @@ if __name__ == '__main__':
         sys.argv.extend(['--nodes-list', opt.nodes_list])
         print("Nodes list: " + opt.nodes_list)
       
-    # See if to resume at triangulation
-    if opt.tile_id is None and opt.prev_run_prefix is not None:
-        print("Starting at the triangulation stage while reusing a previous run.")
-        opt.entry_point = Step.tri
-        if opt.stop_point <= Step.tri:
-            raise Exception('Cannot resume at triangulatoin if --stop-point ' + \
-                            'is set to stop before that.')
-        sym_link_prev_run(opt.prev_run_prefix, out_prefix)
-
-        # Now that we have data, update the settings value
-        settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
-    
-        # Create the directory tree for this run
-        create_subproject_dirs(settings)
-
     # Padded tiles are needed if later we do blending 
     using_padded_tiles = use_padded_tiles(settings)
 
@@ -1023,6 +1007,22 @@ if __name__ == '__main__':
            ' x ' + str(opt.job_size_h) + ' pixels.')
     print('Using a collar (padding) for each tile of ' + settings['collar_size'][0] + ' pixels.')
     
+    # See if to resume at triangulation. This logic must happen after we figured
+    # if we need padded tiles, otherwise the bookkeeping will be wrong.
+    if opt.tile_id is None and opt.prev_run_prefix is not None:
+        print("Starting at the triangulation stage while reusing a previous run.")
+        opt.entry_point = Step.tri
+        if opt.stop_point <= Step.tri:
+            raise Exception('Cannot resume at triangulatoin if --stop-point ' + \
+                            'is set to stop before that.')
+        sym_link_prev_run(opt.prev_run_prefix, out_prefix)
+
+        # Now that we have data, update the settings value
+        settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
+
+        # Create the directory tree for this run
+        subdirs = create_subproject_dirs(settings)
+
     # parallel_args is what we will pass to spawned copies of parallel_stereo,
     # while 'args' is what we pass to plain stereo.
     parallel_args = sys.argv # shallow copy
@@ -1228,12 +1228,15 @@ if __name__ == '__main__':
             create_subproject_dirs(settings) # symlink F.tif
 
         # Triangulation
+        # TODO(oalexan1): For stereo we do not need to pad the tiles, which should
+        # be a nice speed up. But then must ensure both the padded and unpadded
+        # tiles are wiped after the run is done.
         step = Step.tri
         subdirs = []
         if (opt.entry_point <= step):
             if (opt.stop_point <= step):
                 sys.exit()
-                
+
             if int(settings['correlator_mode'][0]) != 0:
                 print("Skipping triangulation with --correlator-mode.")
                 sys.exit()
