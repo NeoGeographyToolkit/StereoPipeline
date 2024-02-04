@@ -439,11 +439,11 @@ void read_image_cam_lists(std::string const& image_list,
                 std::vector<std::string> & images_or_cams,
                 asp::IntrinsicOptions & intrinsics_opts) {
 
-  // wipe the output
+  // Wipe the output
   images_or_cams.clear();
   intrinsics_opts.share_intrinsics_per_sensor = false;
   intrinsics_opts.cam2sensor.clear();
-  intrinsics_opts.num_sensors = 0;
+  intrinsics_opts.num_sensors = 0; // must be initialized to zero
 
   // See if there comma-separated lists passed in the image list
   if (image_list.find(",") == std::string::npos && 
@@ -558,6 +558,221 @@ void distortion_sanity_check(std::vector<int> const& num_dist_params,
   return;
 }
 
+// A little function to replace separators with space. Note that the backslash
+// is a separator, in case, it used as a continuation line.
+void replace_separators_with_space(std::string & str) {
+  std::string sep = "\\:;, \t\r\n";
+  for (size_t it = 0; it < sep.size(); it++) 
+    std::replace(str.begin(), str.end(), sep[it], ' ');
+}
+
+// Split a string into a vector of strings with space as separator
+std::vector<std::string> split_str_with_space(std::string const& str) {
+  std::istringstream is(str);
+  std::vector<std::string> ret;
+  std::string val;
+  while (is >> val) 
+    ret.push_back(val);
+  return ret;
+}
+
+// Function that tells if a string is a non-negative integer
+bool is_str_non_neg_integer(std::string const& str) {
+  if (str.empty()) return false;
+  for (size_t it = 0; it < str.size(); it++) {
+    if (!isdigit(str[it])) return false;
+  }
+  return true;
+}
+
+// Parse format:
+// "1:focal_length,optical_center 2:focal_length,other_intrinsics 3:none"  
+// Applies when optimizing intrinsics per sensor.
+// The numbers are sensor indices, starting with 1.
+void fine_grained_parse(bool share_intrinsics_per_sensor,
+                        int num_sensors,
+                        std::vector<std::string> const& options, 
+                        // Outputs
+                        std::vector<bool> & float_center, 
+                        std::vector<bool> & float_focus,
+                        std::vector<bool> & float_distortion) {
+
+  // Sanity checks
+  if (!share_intrinsics_per_sensor) 
+    vw_throw(ArgumentErr() << "fine_grained_parse() is only for when intrinsics are "
+             << "optimized per sensor.\n");
+  if (num_sensors <= 0)
+    vw_throw(ArgumentErr() << "Expecting a positive number of sensors.\n");
+  if (options.empty())
+    vw_throw(ArgumentErr() << "Expecting at least one option.\n");
+ 
+  // Wipe the outputs
+  float_center.clear();
+  float_focus.clear();
+  float_distortion.clear();
+  
+  // It is convenient to initialize all to false. 0th element must always exist.
+  for (int i = 0; i < std::max(num_sensors, 1); i++) {
+    float_center.push_back(false);
+    float_focus.push_back(false);
+    float_distortion.push_back(false);
+  }
+  
+  // First entity must be an integer. That is sensor id, starting from 1.
+  if (!is_str_non_neg_integer(options[0]))
+    vw_throw(ArgumentErr() << "Expecting an integer as the first option.\n");
+  
+  int sensor_id = atoi(options[0].c_str()) - 1; // subtract 1 to make it zero-based
+ 
+  // check for duplicate ids
+  std::set<int> seen_ids;
+  // Iterate over options
+  for (size_t it = 0; it < options.size(); it++) {
+    
+    // If it is an integer, update the sensor id, and continue.
+    // Subtract 1 to make it zero-based.
+    if (is_str_non_neg_integer(options[it])) {
+      sensor_id = atoi(options[it].c_str()) - 1; 
+      
+      // Sensor id must be in bounds
+      if (sensor_id < 0 || sensor_id >= num_sensors)
+        vw_throw(ArgumentErr() << "Sensor id " << options[it] << " is out of bounds.\n");
+      
+      // If seen, that's a problem
+      if (seen_ids.find(sensor_id) != seen_ids.end())
+        vw_throw(ArgumentErr() << "Sensor id " << options[it] << " is repeated.\n");
+      // Record as seen
+      seen_ids.insert(sensor_id);
+            
+      continue;
+    }
+   
+    // Handle the optical center
+    if (options[it] == "optical_center") {
+      float_center[sensor_id] = true;
+      continue;
+    }
+
+    // Handle the focal length
+    if (options[it] == "focal_length") {
+      float_focus[sensor_id] = true;
+      continue;
+    }
+
+    // Handle the distortion (other_intrinsics)
+    if (options[it] == "other_intrinsics" || options[it] == "distortion") {
+      float_distortion[sensor_id] = true;
+      continue;
+    }
+    
+    // For all, populate all fields
+    if (options[it] == "all") {
+      float_center[sensor_id]     = true;
+      float_focus[sensor_id]      = true;
+      float_distortion[sensor_id] = true;
+      continue;
+    }
+    
+    // For none, just skip
+    if (options[it] == "none") {
+      continue;
+    }
+    
+    vw_throw(ArgumentErr() << "Found unknown option when parsing which "
+              << "sensor intrinsics to float: " << options[it] << ".\n");
+  } 
+}                        
+
+// Parse format:
+// "focal_length optical_center other_intrinsics"
+// Applies to all sensors and when not optimizing intrinsics per sensor.
+void coarse_grained_parse(int num_sensors,
+                          std::vector<std::string> const& options, 
+                          // Outputs
+                          std::vector<bool> & float_center, 
+                          std::vector<bool> & float_focus,
+                          std::vector<bool> & float_distortion) {
+
+  // Wipe the outputs
+  float_center.clear();
+  float_focus.clear();
+  float_distortion.clear();
+
+  if (num_sensors < 0)
+    vw_throw(ArgumentErr() << "Cameras were not parsed correctly.\n");
+ 
+   // It is convenient to initialize all to false. 0th element must always exist.
+  for (int i = 0; i < std::max(num_sensors, 1); i++) {
+    float_center.push_back(false);
+    float_focus.push_back(false);
+    float_distortion.push_back(false);
+  }
+
+  // For now, populate only for sensor with id 0
+  int sensor_id = 0;
+  
+  // Iterate over options
+  for (size_t it = 0; it < options.size(); it++) {
+    
+     // Must not have an integer here
+     if (is_str_non_neg_integer(options[0]))
+        vw_throw(ArgumentErr() << "When parsing intrinsics to float, expecting a "
+                 << "string, not an integer. Check your inputs.\n");
+
+    // Handle the optical center
+    if (options[it] == "optical_center") {
+      float_center[sensor_id] = true;
+      continue;
+    }
+    
+    // Handle the focal length
+    if (options[it] == "focal_length") {
+      float_focus[sensor_id] = true;
+      continue;
+    }
+
+    // Handle the distortion (other_intrinsics)
+    if (options[it] == "other_intrinsics" || options[it] == "distortion") {
+      float_distortion[sensor_id] = true;
+      continue;
+    }
+    
+    // For all, populate all fields
+    if (options[it] == "all") {
+      float_center[sensor_id]     = true;
+      float_focus[sensor_id]      = true;
+      float_distortion[sensor_id] = true;
+      continue;
+    }
+    
+    // For none, just skip
+    if (options[it] == "none") {
+      continue;
+    }
+    
+    // We should not arrive here
+    vw_throw(ArgumentErr() << "Found unknown option when parsing which "
+              << "sensor intrinsics to float: " << options[it] << ".\n");
+  } 
+  
+  // Distribute for all sensors.
+  // This will happen only if we share intrinsics per sensor.
+  for (int sensor_id = 0; sensor_id < num_sensors; sensor_id++) {
+     float_center[sensor_id]     = float_center[0];
+     float_focus[sensor_id]      = float_focus[0];
+     float_distortion[sensor_id] = float_distortion[0];  
+  }
+  
+  return;
+}
+
+void print_intr_vec(std::vector<bool> const& intrinsics, std::string const& name) {
+  vw_out() << name << ": ";
+  for (size_t it = 0; it < intrinsics.size(); it++)
+    vw_out() << intrinsics[it] << " ";
+  vw_out() << std::endl;
+}
+                         
 /// For each option, the string must include a subset of the entries:
 ///  "focal_length, optical_center, distortion_params"
 /// - Need the extra boolean to handle the case where --intrinsics-to-share
@@ -568,10 +783,13 @@ void load_intrinsics_options(bool        solve_intrinsics,
                              std::string intrinsics_to_share_str, // make a copy
                              asp::IntrinsicOptions & intrinsics_options) {
 
-  // Float and share everything unless specific options are provided.
-  intrinsics_options.focus_constant      = true;
-  intrinsics_options.center_constant     = true;
-  intrinsics_options.distortion_constant = true;
+  // Float everything unless told otherwise
+  // TODO(oalexan1): This must go away
+  intrinsics_options.focus_constant      = false;
+  intrinsics_options.center_constant     = false;
+  intrinsics_options.distortion_constant = false;
+
+  // Share everything unless told otherwise
   intrinsics_options.focus_shared        = true;
   intrinsics_options.center_shared       = true;
   intrinsics_options.distortion_shared   = true;
@@ -607,11 +825,6 @@ void load_intrinsics_options(bool        solve_intrinsics,
               << "--intrinsics-to-share is ignored. The intrinsics will "
               << "always be shared for a sensor and never across sensors.\n";
 
-  // By default solve for everything
-  intrinsics_options.focus_constant      = false;
-  intrinsics_options.center_constant     = false;
-  intrinsics_options.distortion_constant = false;
-
   if (intrinsics_to_float_str != "") {
     intrinsics_options.focus_constant      = true;
     intrinsics_options.center_constant     = true;
@@ -632,12 +845,51 @@ void load_intrinsics_options(bool        solve_intrinsics,
   if (intrinsics_to_float_str == "none") 
     intrinsics_to_float_str = "";
     
-  // Replace any commas with spaces. It can be convenient to use commas
-  // as separators when passing in the options from the command line.
-  boost::replace_all(intrinsics_to_float_str,  ",", " ");
-  boost::replace_all(intrinsics_to_share_str, ",", " ");
+  // Replace any separators (:;, \t\r\n) with spaces. It can be convenient to
+  // use commas and colons as separators when passing in the options from the command line.
+  asp::replace_separators_with_space(intrinsics_to_float_str);
+  asp::replace_separators_with_space(intrinsics_to_share_str);
   
-  // Parse the values  
+  // Parse float options. Supported formats:
+  // "1:focal_length,optical_center 2:focal_length,other_intrinsics 3:none"  
+  // "focal_length optical_center other_intrinsics"
+  // In the first case, the numbers are sensor indices, starting with 1.
+  std::vector<std::string> float_options = asp::split_str_with_space(intrinsics_to_float_str);
+  if (!float_options.empty() && asp::is_str_non_neg_integer(float_options[0])) {
+    asp::fine_grained_parse(intrinsics_options.share_intrinsics_per_sensor,
+                            intrinsics_options.num_sensors,
+                            float_options, 
+                            intrinsics_options.float_center, 
+                            intrinsics_options.float_focus,
+                            intrinsics_options.float_distortion);
+  } else {
+    asp::coarse_grained_parse(intrinsics_options.num_sensors,
+                              float_options, 
+                              intrinsics_options.float_center, 
+                              intrinsics_options.float_focus,
+                              intrinsics_options.float_distortion);
+  }
+  
+  // Useful reporting
+  std::string center_name = "Optical center";
+  std::string focus_name  = "Focal length";
+  std::string dist_name   = "Other intrinsics (distortion)";  
+  if (intrinsics_options.share_intrinsics_per_sensor) {
+    vw_out() << "Intrinsics are shared per sensor.\n";
+    vw_out() << "Number of sensors: " << intrinsics_options.num_sensors << "\n";
+    vw_out() << "For each sensor: 1 = floated, 0 = not floated.\n";
+    print_intr_vec(intrinsics_options.float_center, center_name);
+    print_intr_vec(intrinsics_options.float_focus, focus_name);
+    print_intr_vec(intrinsics_options.float_distortion, dist_name);
+  } else {
+    vw_out() << "Intrinsics are shared across sensors.\n";
+    vw_out() << "For all sensors: 1 = floated, 0 = not floated.\n";
+    vw_out() << center_name << ": " << intrinsics_options.float_center[0] <<"\n";
+    vw_out() << focus_name  << ": " << intrinsics_options.float_focus[0] << "\n";
+    vw_out() << dist_name   << ": " << intrinsics_options.float_distortion[0] << "\n";
+  }
+    
+  // TODO(oalexan1): Wipe this 
   std::istringstream is(intrinsics_to_float_str);
   std::string val;
   while (is >> val) {
@@ -645,7 +897,7 @@ void load_intrinsics_options(bool        solve_intrinsics,
       intrinsics_options.focus_constant = false;
     else if (val == "optical_center")
       intrinsics_options.center_constant = false;
-    else if (val == "other_intrinsics")
+    else if (val == "other_intrinsics" || val == "distortion")
       intrinsics_options.distortion_constant = false;
     else
       vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to float: " 
@@ -660,7 +912,7 @@ void load_intrinsics_options(bool        solve_intrinsics,
         intrinsics_options.focus_shared = true;
       else if (val == "optical_center")
         intrinsics_options.center_shared = true;
-      else if (val == "other_intrinsics")
+      else if (val == "other_intrinsics" || val == "distortion")
         intrinsics_options.distortion_shared = true;
       else
         vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to share: " 
@@ -668,23 +920,15 @@ void load_intrinsics_options(bool        solve_intrinsics,
     }
   }
 
-  std::string sensor_mode = "(across sensors)";
+  std::string sensor_mode = " (across sensors): ";
   if (intrinsics_options.share_intrinsics_per_sensor)
-    sensor_mode = "(per sensor)"; // useful clarification
+    sensor_mode = " (per sensor): "; // useful clarification
 
-  // These will be useful for a while
-  vw_out() << "Sharing focal length " << sensor_mode << " is: "
-      << intrinsics_options.focus_shared << std::endl;
-  vw_out() << "Sharing optical center " << sensor_mode << " is: "
-      << intrinsics_options.center_shared << std::endl;
-  vw_out() << "Sharing distortion " << sensor_mode << " is: "
-      << intrinsics_options.distortion_shared << std::endl;
-  vw_out() << "Floating focal length is: " 
-    << !intrinsics_options.focus_constant << std::endl;
-  vw_out() << "Floating optical center is: " 
-    << !intrinsics_options.center_constant << std::endl;
-  vw_out() << "Floating distortion is: " 
-    << !intrinsics_options.distortion_constant << std::endl;
+  // Useful info
+  vw_out() << "Sharing:\n";
+  vw_out() << center_name << sensor_mode << intrinsics_options.center_shared << "\n";
+  vw_out() << focus_name << sensor_mode  << intrinsics_options.focus_shared << "\n";
+  vw_out() << dist_name << sensor_mode   << intrinsics_options.distortion_shared << "\n";
 } // End function load_intrinsics_options
 
 /// Attempt to automatically create the overlap list file estimated

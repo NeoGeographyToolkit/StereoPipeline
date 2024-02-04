@@ -577,7 +577,7 @@ void parseRefineIntrinsicsStr(std::string const& refine_intrinsics,
       fix_focal_length = false;
     else if (val == "optical_center")
       fix_optical_center = false;
-    else if (val == "other_intrinsics")
+    else if (val == "other_intrinsics" || val == "distortion")
       fix_other_intrinsics = false;
     else
       vw::vw_throw(vw::ArgumentErr() << "Error: Found unknown intrinsic to float: " 
@@ -698,9 +698,14 @@ void computeCamStats(std::vector<vw::Vector2> const& pixels,
   // Sort the errors
   std::sort(errors.begin(), errors.end());
   
+  double mean = vw::math::mean(errors);
+  double stdev = vw::math::standard_deviation(errors, mean);
+  
   vw::vw_out() << "Errors of pixel projection in the camera with refined intrinsics:\n";
   vw::vw_out() << "Min:    " << errors[0] << "\n";
   vw::vw_out() << "Median: " << vw::math::destructive_median(errors) << "\n";
+  vw::vw_out() << "Mean:   " << mean << "\n";
+  vw::vw_out() << "StDev:  " << stdev << "\n";
   vw::vw_out() << "Max:    " << errors.back() << "\n";
   vw::vw_out() << "Num samples: " << errors.size() << "\n";
 

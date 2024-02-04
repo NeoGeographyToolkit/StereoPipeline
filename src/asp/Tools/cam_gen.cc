@@ -599,7 +599,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.sample_file == "" &&
       (opt.focal_length <= 0 || opt.pixel_pitch <= 0))
     vw_throw(ArgumentErr() << "Must provide positive focal length "
-              << "and pixel pitch values OR a sample file.\n");
+              << "and pixel pitch values, or a sample file to read these from.\n");
 
   if ((opt.parse_eci || opt.parse_ecef) && opt.camera_type == "opticalbar") 
     vw_throw(ArgumentErr() << "Cannot parse ECI/ECEF data for an optical bar camera.\n");

@@ -1936,9 +1936,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Optimize intrinsic camera parameters. Only used for pinhole, optical bar, "
      "and CSM (frame and linescan) cameras. This implies --inline-adjustments.")
     ("intrinsics-to-float", po::value(&intrinsics_to_float_str)->default_value(""),
-     "If solving for intrinsics and is desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. Not specifying anything will float all of them. Also can specify 'all' or 'none'.")
+     "If solving for intrinsics and is desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics (distortion). Not specifying anything will float all of them. Also can specify 'all' or 'none'. See the documentation for when intrinsics are optimized per sensor.")
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
-     "If solving for intrinsics and is desired to share only a few of them across all cameras, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics. By default all of the intrinsics are shared, so to not share any of them pass in an empty string. Also can specify 'all' or 'none'. If sharing intrinsics per sensor, this option is ignored, as then the sharing is more fine-grained.")
+     "If solving for intrinsics and is desired to share only a few of them across all cameras, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics (distortion). By default all of the intrinsics are shared, so to not share any of them pass in an empty string. Also can specify 'all' or 'none'. If sharing intrinsics per sensor, this option is ignored, as then the sharing is more fine-grained.")
     ("intrinsics-limits", 
      po::value(&intrinsics_limit_str)->default_value(""),
      "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in min max pairs and are applied in the order [focal length, optical center, other intrinsics] until all of the limits are used. Check the documentation to determine how many intrinsic parameters are used for your cameras.")
@@ -2284,7 +2284,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.image_files.size() != (int)opt.camera_files.size()){
     vw_out() << "Detected " << opt.image_files.size() << " images and "
              << opt.camera_files.size() << " cameras.\n";
-    vw_throw(ArgumentErr() << "Must have as many cameras as we have images.\n");
+    vw_throw(ArgumentErr() << "Must have as many cameras as images.\n");
   }
   if (opt.image_files.empty())
     vw_throw(ArgumentErr() << "Missing input image files.\n");

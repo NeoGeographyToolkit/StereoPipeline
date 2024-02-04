@@ -124,12 +124,17 @@ namespace asp {
       image_file = map_file; // should be enough to load the camera 
       vw::vw_out(WarningMessage) << "Using: " << image_file << " instead.\n";
     }
+    
     if (cam_file == "") {
-      vw::vw_out(WarningMessage) << "Missing field value for: " << cam_file_key 
-                                 << " in " << map_file << ".\n";
-      cam_file = input_cam_file; // should be enough to load the camera
-      vw::vw_out(WarningMessage) << "Using: " << cam_file << " instead.\n";
+      if (cam_type == "rpc")
+        cam_file = image_file; // For RPC, the image can have the camera model
+      else 
+        cam_file = input_cam_file;
     }
+    if (cam_file == "")
+        vw::vw_out(WarningMessage) << "Missing field value for: " << cam_file_key 
+                                   << " in " << map_file << ".\n";
+                                 
     if (dem_file == "") {
       vw::vw_out(WarningMessage) << "Missing field value for: " << dem_file_key 
                                  << " in " << map_file << ".\n";
@@ -138,11 +143,15 @@ namespace asp {
     }
     
     // The DEM the user provided better be the one used for map projection.
+    // Throw an error as this may result in subtle differences.
     if (input_dem != dem_file)
-      vw::vw_out(WarningMessage) << "The DEM used for map projection is different "
-        << "from the one provided currently.\n"
-        << "Mapprojection DEM: " << dem_file << "\n"
-        << "Current DEM: " << input_dem << "\n";
+      vw::vw_throw(ArgumentErr() 
+                   << "The DEM used for map projection is different "
+                   << "from the one provided currently.\n"
+                   << "Mapprojection DEM: " << dem_file << "\n"
+                   << "Current DEM: " << input_dem << "\n"
+                   << "Use image_calc to change the DEM name in the "
+                   << "geoheader of mapprojected images.\n");
     
     if (adj_prefix == "NONE")
       adj_prefix = "";

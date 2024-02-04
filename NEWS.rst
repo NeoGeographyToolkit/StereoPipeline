@@ -128,8 +128,8 @@ isis (:numref:`moc_tutorial`):
     ISIS bundle adjustment tool. 
 
 cam_gen (:numref:`cam_gen`):
-   * Can create frame cameras in CSM format. In this mode, can find best-fit
-     intrinsics, including distortion (:numref:`cam_gen_frame`).
+   * Can fit a CSM frame camera to a given input camera, including distortion
+     (:numref:`cam_gen_frame`).
    * Can export linescan cameras to CSM format (:numref:`cam_gen_linescan`).
 
 lronac2mosaic.py (:numref:`lronac2mosaic`):
