@@ -76,6 +76,9 @@ external DEM in bundle adjustment.  Note that these can only locally
 refine camera parameters, an initial alignment with ``pc_align`` is
 still necessary.
 
+Optimizing of camera intrinsics parameters, such as optical center,
+focal length, and distortion is also possible, as seen below.
+
 .. _baasp:
 
 Bundle adjustment using ASP
@@ -157,19 +160,20 @@ take advantage of these concepts.
 
 When the input cameras are of Pinhole type (:numref:`pinholemodels`), optical
 bar (:numref:`panoramic`), or CSM (:numref:`csm`), it is possible to optimize
-the intrinsic parameters (focal length, optical center, distortion, with a
-somewhat different list for optical bar cameras), in addition to the extrinsics. 
+(float, refine) the intrinsic parameters (focal length, optical center,
+distortion, with a somewhat different list for optical bar cameras), in addition
+to the extrinsics. 
 
 It is also possible to take advantage of an existing terrain ground truth, such
 as a lidar file or a DEM, to correct imperfectly calibrated intrinsic
 parameters, which can result in greatly improved results, such as creating less
 distorted DEMs that agree much better with the ground truth.
 
-See :numref:`intrinsics_no_constraints` for how to optimize intrinsics with
-no constraints, :numref:`intrinsics_ground_truth` for when ground constraints
-can be used (there exist options for sparse ground points and a DEM),
-and :numref:`kaguya_ba` for how to have several groups of
-intrinsics.
+See :numref:`intrinsics_no_constraints` for how to optimize intrinsics with no
+constraints, :numref:`intrinsics_ground_truth` for when ground constraints can
+be used (there exist options for sparse ground points and a DEM), and
+:numref:`kaguya_ba` for how to have several groups of intrinsics. Mixing
+linescan and frame cameras is discussed in :numref:`ba_frame_linescan`.
 
 .. _intrinsics_no_constraints:
 
@@ -317,11 +321,103 @@ cameras in ``bundle_adjust`` one should use ``transform.txt`` instead of
 See :numref:`ba_pc_align` for how to handle the case when input
 adjustments exist.
 
-There are two ways of incorporating a ground constraint in bundle
-adjustment. The first one assumes that the ground truth is a DEM,
-and is very easy to use with a large number of images. See
-:numref:`heights_from_dem` for more details. The second approach
-is in the upcoming section.
+There are two ways of incorporating a ground constraint in bundle adjustment.
+The first one assumes that the ground truth is a DEM, and is very easy to use
+with a large number of images (:numref:`heights_from_dem`). A second approach
+can be used when the ground truth is sparse (and with a DEM as well). This is a
+bit more involved (:numref:`reference_terrain`).
+
+.. _heights_from_dem:
+
+Using the heights from a reference DEM
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In some situations the DEM obtained with ASP is, after alignment,
+quite similar to the reference DEM, but the heights may be off. This
+can happen, for example, if the focal length is not accurately
+known. It is then possible after triangulating the interest point
+matches in bundle adjustment to replace their heights above datum with
+values obtained from the reference DEM, which are presumably more
+accurate. The triangulated points being optimized can then be
+constrained to not vary too much from these initial positions.
+
+The option for this is ``--heights-from-dem dem.tif``. An additional
+control is given, in the form of the option
+``--heights-from-dem-weight``. The larger its value is, the more
+constrained those points will be. This multiplies the difference
+between the triangulated points being optimized and their initial
+value on the DEM.
+
+This weight value should be inversely proportional with ground sample
+distance, as then it will convert the measurements from meters to
+pixels, which is consistent with the reprojection error term (error of
+projecting pixels into the camera). A less reliable DEM should result
+in a smaller weight being used.
+
+Then, the option ``--heights-from-dem-robust-threshold`` ensures that
+the weighted differences defined earlier when comparing to the DEM
+plateau at a certain level and do not dominate the problem.  Below we
+set this to 0.1, which is smaller than the ``--robust-threshold``
+value of 0.5 which is used to control the reprojection error. Some
+experimentation with this weight and threshold may be needed.
+
+If a triangulated point does not fall on a valid DEM pixel, bundle adjustment
+falls back to the ``--tri-weight`` constraint, if this constraint is used, or
+otherwise the triangulated point is not constrained at all.
+
+Here is an example, and note that, as in the earlier section,
+we assume that the cameras and the terrain are already aligned::
+
+     bundle_adjust -t nadirpinhole               \
+       --inline-adjustments                      \
+       --solve-intrinsics --camera-weight 0      \
+       --max-pairwise-matches 20000              \
+       --heights-from-dem dem.tif                \
+       --heights-from-dem-weight 0.1             \
+       --heights-from-dem-robust-threshold 0.1   \
+       --parameter-tolerance 1e-12               \
+       --remove-outliers-params "75.0 3.0 20 25" \
+       left.tif right.tif                        \
+       run_align/run-run-left.tsai               \
+       run_align/run-run-right.tsai              \
+       -o run_ba_hts_from_dem/run
+
+Here we were rather generous with the parameters for removing
+outliers, as the input DEM may not be that accurate, and then if tying
+too much to it some valid matches be be flagged as outliers otherwise,
+perhaps.
+
+It is suggested to use dense interest points as above (and adjust
+``--max-pairwise-matches`` to not throw some of them out). We set
+``--camera-weight 0``, as hopefully the DEM constraint is enough to
+constrain the cameras.
+
+It is important to note that here we assume that a simple height
+correction is enough. Hence this option is an approximation, and perhaps
+it should be used iteratively, and a subsequent pass of bundle
+adjustment should be done without it, or one should consider using a
+smaller weight above. This option can however be more effective than
+using ``--reference-terrain`` when there is a large uncertainty in
+camera intrinsics.
+
+See two other large-scale examples of using this option, without
+floating the intrinsics, in the SkySat processing example
+(:numref:`skysat`), using Pinhole cameras, and with 
+linescan Lunar images with variable illumination
+(:numref:`sfs-lola`).
+
+Here we assumed all intrinsics are shared. See
+:numref:`kaguya_ba` for how to have several groups of
+intrinsics. See also the option ``--intrinsics-to-share``.
+
+It is suggested to look at the documentation of all the options
+above and adjust them for your use case.
+
+See :numref:`bundle_adjust` for the documentation of all options
+above, and :numref:`ba_out_files` for the output reports being saved,
+which can help judge how well the optimization worked.
+
+.. _reference_terrain:
 
 Sparse ground truth and using the disparity
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -464,96 +560,6 @@ to the reference terrain.
 Also note the earlier comment about sharing and floating the intrinsics
 individually.
 
-.. _heights_from_dem:
-
-Using the heights from a reference DEM
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-In some situations the DEM obtained with ASP is, after alignment,
-quite similar to the reference DEM, but the heights may be off. This
-can happen, for example, if the focal length is not accurately
-known. It is then possible after triangulating the interest point
-matches in bundle adjustment to replace their heights above datum with
-values obtained from the reference DEM, which are presumably more
-accurate. The triangulated points being optimized can then be
-constrained to not vary too much from these initial positions.
-
-The option for this is ``--heights-from-dem dem.tif``. An additional
-control is given, in the form of the option
-``--heights-from-dem-weight``. The larger its value is, the more
-constrained those points will be. This multiplies the difference
-between the triangulated points being optimized and their initial
-value on the DEM.
-
-This weight value should be inversely proportional with ground sample
-distance, as then it will convert the measurements from meters to
-pixels, which is consistent with the reprojection error term (error of
-projecting pixels into the camera). A less reliable DEM should result
-in a smaller weight being used.
-
-Then, the option ``--heights-from-dem-robust-threshold`` ensures that
-the weighted differences defined earlier when comparing to the DEM
-plateau at a certain level and do not dominate the problem.  Below we
-set this to 0.1, which is smaller than the ``--robust-threshold``
-value of 0.5 which is used to control the reprojection error. Some
-experimentation with this weight and threshold may be needed.
-
-If a triangulated point does not fall on a valid DEM pixel, bundle adjustment
-falls back to the ``--tri-weight`` constraint, if this constraint is used, or
-otherwise the triangulated point is not constrained at all.
-
-Here is an example, and note that, as in the earlier section,
-we assume that the cameras and the terrain are already aligned::
-
-     bundle_adjust -t nadirpinhole               \
-       --inline-adjustments                      \
-       --solve-intrinsics --camera-weight 0      \
-       --max-pairwise-matches 20000              \
-       --heights-from-dem dem.tif                \
-       --heights-from-dem-weight 0.1             \
-       --heights-from-dem-robust-threshold 0.1   \
-       --parameter-tolerance 1e-12               \
-       --remove-outliers-params "75.0 3.0 20 25" \
-       left.tif right.tif                        \
-       run_align/run-run-left.tsai               \
-       run_align/run-run-right.tsai              \
-       -o run_ba_hts_from_dem/run
-
-Here we were rather generous with the parameters for removing
-outliers, as the input DEM may not be that accurate, and then if tying
-too much to it some valid matches be be flagged as outliers otherwise,
-perhaps.
-
-It is suggested to use dense interest points as above (and adjust
-``--max-pairwise-matches`` to not throw some of them out). We set
-``--camera-weight 0``, as hopefully the DEM constraint is enough to
-constrain the cameras.
-
-It is important to note that here we assume that a simple height
-correction is enough. Hence this option is an approximation, and perhaps
-it should be used iteratively, and a subsequent pass of bundle
-adjustment should be done without it, or one should consider using a
-smaller weight above. This option can however be more effective than
-using ``--reference-terrain`` when there is a large uncertainty in
-camera intrinsics.
-
-See two other large-scale examples of using this option, without
-floating the intrinsics, in the SkySat processing example
-(:numref:`skysat`), using Pinhole cameras, and with 
-linescan Lunar images with variable illumination
-(:numref:`sfs-lola`).
-
-Here we assumed all intrinsics are shared. See
-:numref:`kaguya_ba` for how to have several groups of
-intrinsics. See also the option ``--intrinsics-to-share``.
-
-It is suggested to look at the documentation of all the options
-above and adjust them for your use case.
-
-See :numref:`bundle_adjust` for the documentation of all options
-above, and :numref:`ba_out_files` for the output reports being saved,
-which can help judge how well the optimization worked.
-
 RPC lens distortion
 ^^^^^^^^^^^^^^^^^^^
 
@@ -569,10 +575,13 @@ It is suggested to use low-degree polynomials as those are easy to fit, and go
 to higher degree only for refinement if needed.
 
 One should, however, first try the simpler *Tsai* and *Adjustable Tsai* lens
-distortion models (:numref:`pinholemodels`). 
+distortion models (:numref:`pinholemodels`), or the OpenCV radial-tangential
+distortion model for CSM (:numref:`csm_frame_def`) before resorting to RPC.
 
 The tool ``convert_pinhole_model`` (:numref:`convert_pinhole_model`) can be used
-to convert a camera model with one distortion type to another one. 
+to convert a camera model with one distortion type to another one with Pinhole
+cameras. The ``cam_gen`` program can be used to convert a camera model to CSM
+(:numref:`cam_gen_frame`).
 
 Working with map-projected images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -598,9 +607,9 @@ Given a set of sensors, with each acquiring several images, we will optimize the
 intrinsics per sensor. All images acquired with the same sensor will share the
 same intrinsics, and none will be shared across sensors.
 
-We will work with Kaguya TC linescan cameras and the CSM camera
-model (:numref:`csm`). Pinhole cameras in .tsai format (:numref:`pinholemodels`)
-and Frame cameras in CSM format (:numref:`csm_frame`) can be used as well.
+We will work with Kaguya TC linescan cameras and the CSM camera model
+(:numref:`csm`). Pinhole cameras in .tsai format (:numref:`pinholemodels`) and
+Frame cameras in CSM format (:numref:`csm_frame_def`) can be used as well.
 
 See :numref:`floatingintrinsics` for an introduction on how optimizing intrinsics
 works, and :numref:`kaguya_tc` for how to prepare and use Kaguya TC cameras.
@@ -949,6 +958,68 @@ If a lot of such stereo pairs are present, for the purpose of refinement of
 intrinsics it is suggested to pick just a handful of them, corresponding to the
 area where the mosaicked DEM differs least from the reference, so where the
 distortion artifacts are most likely to have been averaged well.
+
+.. _ba_frame_linescan:
+
+Mixing frame and linescan cameras
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+So far we discussed refining the intrinsics for pinhole (frame cameras), such as
+in :numref:`heights_from_dem`, and for linescan cameras, such as in
+:numref:`kaguya_ba`.
+
+Here we will consider the situation when we have both. It is assumed that the images
+acquired with these sensors are close in time and have similar illumination. 
+
+It will be illustrated how the presumably more accurate linescan sensor images
+can be used to refine the intrinsics of the frame sensor.
+
+Preparing the inputs
+^^^^^^^^^^^^^^^^^^^^
+
+The frame cameras can be in the black-box RPC format (:numref:`rpc`) or any
+other format supported by ASP. Then, they can be converted to CSM format using
+``cam_gen`` (:numref:`cam_gen_frame`). This will find the best-fit intrinsics,
+including for lens distortion. 
+
+It is important to know at least the focal length of the frame cameras somewhat
+accurately. This can be inferred based on satellite elevation and ground
+footprint.
+
+Once the first frame camera is converted to CSM, the rest of them at are
+supposed to be for the same sensor model can borrow the just-solved distortion
+parameters, as described at the link above.
+
+The linescan cameras can be converted to CSM format using ``cam_gen`` as well (:numref:`cam_gen_linescan`). This does not find a best-fit model, but rather 
+reads the linescan sensor poses and intrinsics from the input file.  
+ 
+
+Refinement of the frame camera intrinsics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+As for :numref:`kaguya_ba`, we need to create several text files, with each
+file having the names of the images whose intrinsics are shared, and the
+same for the cameras.
+
+If not sure that the linescan cameras have the same intrinsics, they can
+be kept in different files. We will keep those intrinsics fixed in either ase.
+
+The files are created as follows. For the cameras::
+
+    ls ba/run-left_frame.adjusted_state.json \
+      ba/run-right_frame.adjusted_state.json > frame_cameras.txt
+    ls ba/run-linescan1.adjusted_state.json \
+      linescan1_cameras.txt > linescan1_cameras.txt
+    ls ba/run-linescan2.adjusted_state.json \
+      linescan2_cameras.txt > linescan2_cameras.txt
+
+and similarly the images. Hence, we have 3 groups of sensors. We will 
+float the intrinsics for the frame cameras, and keep the linescan ones fixed.
+This is accomplished with the option::
+
+  --intrinsics-to-float '1:focal_length,other_intrinsics 2:none 3:none'
+
+To be continued.
 
 .. _custom_ip:
 

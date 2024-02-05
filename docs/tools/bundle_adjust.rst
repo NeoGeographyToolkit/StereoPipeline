@@ -67,19 +67,19 @@ With the cameras embedded in the images::
 Pinhole cameras
 ^^^^^^^^^^^^^^^
 
-We use generic Pinhole cameras (:numref:`pinholemodels`),
-using optional estimated camera positions::
+We use generic Pinhole cameras (:numref:`pinholemodels`)::
 
-     bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai   \
-        -o run_ba/run -t nadirpinhole --inline-adjustments     \
-        --camera-weight 0                                      \
-        --tri-weight 0.1 --tri-robust-threshold 0.1            \
-        --datum WGS_1984 --camera-positions nav_data.csv       \
-        --csv-format "1:file 6:lat 7:lon 9:height_above_datum"
+     bundle_adjust file1.JPG file2.JPG              \
+        file1.tsai file2.tsai                       \
+        -t nadirpinhole --inline-adjustments        \
+        --camera-weight 0                           \
+        --tri-weight 0.1 --tri-robust-threshold 0.1 \
+        --datum WGS_1984                            \
+        -o run_ba/run
 
-Here we assumed that the cameras point towards some planet's surface and
-used the ``nadirpinhole`` session. If this assumption is not true, one
-should use the ``pinhole`` session or the ``--no-datum`` option.
+Here we assumed that the cameras point towards planet's surface and used the
+``nadirpinhole`` session. If this assumption is not true, one should use the
+``pinhole`` session or the ``--no-datum`` option.
 
 Use cases
 ~~~~~~~~~
@@ -835,17 +835,18 @@ Command-line options
 --intrinsics-to-float <string (default: "")>
     If solving for intrinsics and is desired to float only a few of them,
     specify here, in quotes, one or more of: ``focal_length``,
-    ``optical_center``, ``other_intrinsics``. Not specifying anything will float
-    all of them. Also can specify ``all`` or ``none``.
+    ``optical_center``, ``other_intrinsics`` (same as ``distiortion``). Not
+    specifying anything will float all of them. Also can specify ``all`` or
+    ``none``.
 
 --intrinsics-to-share <string (default: "")>
     If solving for intrinsics and desired to share only a few of them across all
     cameras, specify here, in quotes, one or more of: ``focal_length``,
-    ``optical_center``, ``other_intrinsics``. By default all of the intrinsics
-    are shared, so to not share any of them pass in an empty string. Also can
-    specify as ``all`` or ``none``. If sharing intrinsics per sensor, this
-    option is ignored, as then the sharing is more fine-grained
-    (:numref:`kaguya_ba`).
+    ``optical_center``, ``other_intrinsics`` (same as ``distiortion``). By
+    default all of the intrinsics are shared, so to not share any of them pass
+    in an empty string. Also can specify as ``all`` or ``none``. If sharing
+    intrinsics per sensor, this option is ignored, as then the sharing is more
+    fine-grained (:numref:`kaguya_ba`).
 
 --intrinsics-limits <arg>
     Set a string in quotes that contains min max ratio pairs for intrinsic

@@ -114,10 +114,8 @@ camera supported by ASP.
 
 In this mode, distortion is modeled as well. An additional solver pass can be
 invoked, which can refine the intrinsics, that is, the focal length, optical
-center, and the distortion coefficients, in addition to the camera pose. The
-OpenCV radial-tangential lens distortion model is used by default, and a
-polynomial distortion model of degree 3 can be used as well (see option
-``--distortion`` in :numref:`cam_gen_options` for more details).
+center, and the distortion coefficients, in addition to the camera pose. See the
+``--distortion`` option in :numref:`cam_gen_options` for the distortion model.
 
 Good initial guesses, especially for the focal length and optical center, are
 still expected.
@@ -132,11 +130,11 @@ Example::
     --pixel-pitch 1                             \
     --refine-camera                             \
     --refine-intrinsics focal_length,distortion \
-    --distortion '1e-6 1e-7 0 0 0'              \
     -o output.json                              \
 
 It is suggested to not optimize the optical center, as that correlates with the
-camera pose and can lead to an implausible solution.
+camera pose and can lead to an implausible solution. The ``--distortion`` option
+need not be set, as the program will try to figure that out.
 
 If invoked with ``--refine-intrinsics none``, the provided intrinsics will be
 passed to the CSM model, but then only the camera pose will be refined. This
@@ -149,8 +147,8 @@ If the camera model is contained within the image, pass the image to
 The produced camera intrinsics can be jointly refined with other frame or
 linescan cameras using ``bundle_adjust`` (:numref:`ba_frame_linescan`).
  
-The ``cam_test`` program (:numref:`cam_test`) can be used to verify the
-agreement between the input and output cameras.
+The ``cam_test`` program (:numref:`cam_test`) can evaluate the agreement between
+the input and output cameras.
 
 .. _cam_gen_linescan:
 
@@ -289,18 +287,19 @@ Command-line options
     The camera pixel pitch.
 
 --distortion <string (default: "")>
-    Distortion model parameters. By default, the OpenCV `radial-tangential lens
+    Distortion model parameters. It is best to leave this blank and have the
+    program determine them. By default, the OpenCV `radial-tangential lens
     distortion
-    <https://docs.opencv.org/3.4/dc/dbb/tutorial_py_calibration.html>`_ model is used.
-    Then, for this option must set 5 numbers, in quotes, in the order k1, k2, p1,
-    p2, k3. Also supported is the transverse model, which needs 10 values. These
-    are the coefficients of a polynomial of degree 3 in x and y. Only applicable
-    when creating CSM Frame cameras. The default is zero distortion. See also
-    ``--distortion-type``.
+    <https://docs.opencv.org/3.4/dc/dbb/tutorial_py_calibration.html>`_ model is
+    used. Then, can specify 5 numbers, in quotes, in the order k1,
+    k2, p1, p2, k3. Also supported is the transverse model, which needs 20
+    values. These are the coefficients of a pair of polynomials of degree 3 in x
+    and y. Only applicable when creating CSM Frame cameras. The default is zero
+    distortion. See also ``--distortion-type``.
 
 --distortion-type <string (default: "radtan")>
-    Set the distortion type. Options: radtan, transverse. Only applicable when
-    creating CSM Frame cameras (:numref:`cam_gen_frame`).
+    Set the distortion type. Options: ``radtan``, ``transverse``. Only
+    applicable when creating CSM Frame cameras (:numref:`cam_gen_frame`).
 
 --refine-camera
     After a rough initial camera is obtained, refine it using least squares.

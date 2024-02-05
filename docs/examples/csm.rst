@@ -44,6 +44,9 @@ pushframe cameras, which keep on acquiring image lines as they fly
 center and orientation is present. This model serves the same function
 as ASP's own Pinhole camera model (:numref:`pinholemodels`).
 
+:numref:`csm_frame_def` discusses the CSM Frame sensor in some detail,
+including the distortion model.
+
 In this example we will consider images acquired with the Dawn
 Framing Camera instrument, which took pictures of the Ceres and Vesta
 asteroids. This particular example will be for Vesta. Note that one

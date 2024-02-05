@@ -49,6 +49,9 @@ bundle_adjust (:numref:`bundle_adjust`):
     cameras, with each group sharing intrinsics (:numref:`kaguya_ba`).
   * Support reading and writing the ISIS ``jigsaw`` binary control network
     format (:numref:`control_network`).
+  * Can mix frame and linescan cameras, while controlling for each 
+  * group of cameras which intrinsics should be optimized
+    (:numref:`ba_frame_linescan`).
   * Can read and write CSM model state embedded in ISIS .cub files   
     (:numref:`embedded_csm`).
   * Added the option ``--propagate-errors`` to propagate the uncertainties from

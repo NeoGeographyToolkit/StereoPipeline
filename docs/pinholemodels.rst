@@ -1,10 +1,14 @@
 Frame camera models
 ===================
 
-Ames Stereo Pipeline supports a generic Pinhole camera model with
-several lens distortion models which cover common calibration methods,
-and also the somewhat more complicated panoramic (*optical bar*) camera
-model.
+Ames Stereo Pipeline supports a generic Pinhole camera model with several lens
+distortion models which cover common calibration methods
+(:numref:`pinholemodels`), the somewhat more complicated panoramic (*optical
+bar*) camera model (:numref:`panoramic`), and the CSM Frame model, that has
+several lens distortion implementations (:numref:`csm_frame_def`).
+
+Bundle adjustment (:numref:`bundle_adjustment`) can be used to refine the
+intrinsic and extrinsic camera parameters, including the lens distortion model.
 
 .. _pinholemodels:
 
@@ -396,3 +400,26 @@ the benefit of detailed historical documents it may require
 experimentation to find the good initial values for these cameras. When
 using ``bundle_adjust``, the intrinsic parameters that are solved for
 are ``speed``, ``motion_compensation_factor``, and ``scan_time``.
+
+.. _csm_frame_def:
+
+CSM frame camera
+----------------
+
+ASP supports the CSM (:numref:`csm`) frame camera model. This behaves about the
+same as the Pinhole model (:numref:`pinholemodels`), but it has different lens
+distortion models. Those include the `OpenCV radial-tangential distortion model
+<https://docs.opencv.org/3.4/dc/dbb/tutorial_py_calibration.html>`_
+(it has 5 parameters, in the order k1, k2, p1, p2, k3), 
+*transverse* distortion, which is a full polynomial of degree 3 in both x and y
+(20 coefficients), and various other `specialized models
+<https://github.com/DOI-USGS/usgscsm/blob/main/include/usgscsm/Distortion.h>`_.
+
+ASP's ``cam_gen`` program (:numref:`cam_gen_frame`) can find the best-fit CSM
+frame camera model with the OpenCV radial-tangential distortion and with the
+transverse (3rd degree polynomial) distortion model. Then bundle adjustment can
+be used to refine the intrinsic and extrinsic camera parameters
+(:numref:`ba_frame_linescan`).
+
+The ``sat_sim`` program (:numref:`sat_sim`) can create CSM frame cameras simulating
+a satellite in orbit.
