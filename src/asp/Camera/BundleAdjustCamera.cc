@@ -268,7 +268,7 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
   const size_t num_intrinsics = intrinsic_limits.size() / 2;
   float percent, scale, range = 0;
   // Iterate over cameras
-  for (size_t c=0; c<num_cameras(); c++) {
+  for (size_t c = 0; c < num_cameras(); c++) {
     size_t intrinsics_index = 0;
     if (m_intrinsics_opts.float_focal_length(c) &&
         !(m_intrinsics_opts.focus_shared && (c>0))) {
@@ -288,7 +288,7 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
     if (m_intrinsics_opts.float_optical_center(c) && 
         !(m_intrinsics_opts.center_shared && (c>0))) {
       double* ptr = get_intrinsic_center_ptr(c);
-      for (int i=0; i<NUM_CENTER_PARAMS; i++) {
+      for (int i = 0; i < NUM_CENTER_PARAMS; i++) {
         percent = static_cast<double>(dist(m_rand_gen))/DENOM;
         if (intrinsics_index < num_intrinsics) {
           range = intrinsic_limits[2*intrinsics_index+1] - intrinsic_limits[2*intrinsics_index];

@@ -990,19 +990,20 @@ Once the first frame camera is converted to CSM, the rest of them at are
 supposed to be for the same sensor model can borrow the just-solved distortion
 parameters, as described at the link above.
 
-The linescan cameras can be converted to CSM format using ``cam_gen`` as well (:numref:`cam_gen_linescan`). This does not find a best-fit model, but rather 
+The linescan cameras can be converted to CSM format using ``cam_gen`` as well
+(:numref:`cam_gen_linescan`). This does not find a best-fit model, but rather
 reads the linescan sensor poses and intrinsics from the input file.  
  
 
 Refinement of the frame camera intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As for :numref:`kaguya_ba`, we need to create several text files, with each
-file having the names of the images whose intrinsics are shared, and the
-same for the cameras.
+As for :numref:`kaguya_ba`, we need to create several text files, with each file
+having the names of the images whose intrinsics are shared, and the same for the
+cameras.
 
-If not sure that the linescan cameras have the same intrinsics, they can
-be kept in different files. We will keep those intrinsics fixed in either ase.
+If not sure that the linescan cameras have the same intrinsics, they can be kept
+in different files. We will keep those intrinsics fixed in either ase.
 
 The files are created as follows. For the cameras::
 
@@ -1013,9 +1014,9 @@ The files are created as follows. For the cameras::
     ls ba/run-linescan2.adjusted_state.json \
       linescan2_cameras.txt > linescan2_cameras.txt
 
-and similarly the images. Hence, we have 3 groups of sensors. We will 
-float the intrinsics for the frame cameras, and keep the linescan ones fixed.
-This is accomplished with the option::
+and similarly the images. Hence, we have 3 groups of sensors. We will float the
+intrinsics for the frame cameras, and keep the linescan ones fixed. This is
+accomplished with the option::
 
   --intrinsics-to-float '1:focal_length,other_intrinsics 2:none 3:none'
 

@@ -793,7 +793,7 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
   // Solve the problem  
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  // vw::vw_out() << summary.FullReport() << "\n";
+  //vw::vw_out() << summary.FullReport() << "\n";
 
   // Copy back
   csm_model.set_frame_position(position[0], position[1], position[2]);

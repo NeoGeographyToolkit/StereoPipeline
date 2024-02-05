@@ -631,12 +631,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     if (opt.distortion_type == "radtan") {
       opt.distortion.resize(5, 0.0);
     } else if (opt.distortion_type == "transverse") {
-      // This distortion model is a polynomial of degree 3 in x and y.
+      // This distortion model is a pair of polynomials of degree 3 in x and y.
       opt.distortion.resize(20, 0.0); 
-      opt.distortion[0] = -opt.optical_center[0];
-      opt.distortion[1] = 1; // Set the x term coeff to 1.0
-      opt.distortion[10] = -opt.optical_center[1];
-      opt.distortion[11] = 1; // Set the y term coeff to 1.0
+      // Great care is needed below
+      // Free term for first polynomial
+      opt.distortion[0] = 0;
+      opt.distortion[1] = 1; // Set the x term coeff of first poly to 1.0
+      // Free term for second polynomial
+      opt.distortion[10] = 0;
+      opt.distortion[12] = 1; // Set the y term coeff of second poly to 1.0
     } else {
       vw_throw(ArgumentErr() << "Unknown distortion type: " << opt.distortion_type << ".\n");
     }
