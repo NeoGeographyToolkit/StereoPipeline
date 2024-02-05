@@ -303,7 +303,7 @@ struct Options : public vw::GdalWriteOptions {
   std::string image_file, camera_file, lon_lat_values_str, pixel_values_str, datum_str,
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
     stereo_session, bundle_adjust_prefix, parsed_cam_ctr_str, parsed_cam_quat_str,
-    distortion_str, refine_intrinsics;
+    distortion_str, distortion_type, refine_intrinsics;
   double focal_length, pixel_pitch, gcp_std, height_above_datum,
     cam_height, cam_weight, cam_ctr_weight;
   Vector2 optical_center;
@@ -345,11 +345,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("pixel-pitch", po::value(&opt.pixel_pitch)->default_value(0),
      "The pixel pitch.")
     ("distortion", po::value(&opt.distortion_str)->default_value(""),
-     "The OpenCV radial-tangential lens distortion coefficients, as 5 numbers, in quotes, in the order k1, k2, p1, p2, k3. Only applicable when creating CSM cameras. The default is zero distortion.")
+     "Distortion model parameters. It is best to leave this blank and have the program "
+     "determine them. By default, the OpenCV radial-tangential lens distortion "
+     "model is used. Then, can specify 5 numbers, in quotes, in the order "
+     "k1, k2, p1, p2, k3. Also supported is the transverse model, which needs "
+     "20 values. These are the coefficients of a pair of polynomials of degree 3 "
+     "in x and y. Only applicable when creating CSM cameras. The default is zero "
+     "distortion. See also --distortion-type.")
+    ("distortion-type", po::value(&opt.distortion_type)->default_value("radtan"),
+      "Set the distortion type. Options: radtan (default) and transverse. Only applicable "
+      "when creating CSM Frame cameras.")
     ("refine-camera", po::bool_switch(&opt.refine_camera)->default_value(false)->implicit_value(true),
      "After a rough initial camera is obtained, refine its pose using least squares.")
     ("refine-intrinsics", po::value(&opt.refine_intrinsics)->default_value(""),
-     "Refine the camera intrinsics together with the camera pose. Specify, in quotes, or as comma as separator, one or more of: focal_length, optical_center, other_intrinsics (distortion). Also can set as 'all' or 'none'. In the latter mode only the camera pose is optimized. Applicable only with option --input-camera and when creating a CSM frame camera model.")
+     "Refine the camera intrinsics together with the camera pose. Specify, in quotes, or as comma as separator, one or more of: focal_length, optical_center, other_intrinsics (distortion). Also can set as 'all' or 'none'. In the latter mode only the camera pose is optimized. Applicable only with option --input-camera and when creating a CSM Frame camera model.")
     ("num-pixel-samples", po::value(&opt.num_pixel_samples)->default_value(10000),
      "Number of uniformly distributed pixel samples to use with option --refine-intrinsics.")
     ("frame-index", po::value(&opt.frame_index)->default_value(""),
@@ -606,18 +615,40 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   // Parse the lens distortion
   parse_values<double>(opt.distortion_str, opt.distortion);
-  if (opt.distortion.size() != 0 && opt.distortion.size() != 5)
-    vw_throw(ArgumentErr() << "Expecting 0 or 5 distortion coefficients, got: "
-              << opt.distortion.size() << ".\n");
   
   // Sanity checks for lens distortion  
-  if (opt.camera_type == "pinhole" && ext != ".json") {
+  if (opt.camera_type != "pinhole" || ext != ".json") {
     if (opt.distortion.size() != 0)
       vw_throw(ArgumentErr() 
-               << "Distortion coefficients are only supported for CSM cameras.\n"); 
+               << "Distortion coefficients are only supported for CSM Frame cameras.\n"); 
     if (opt.refine_intrinsics != "")
       vw_throw(ArgumentErr() 
-               << "Refining intrinsics is only supported for CSM cameras.\n");
+               << "Refining intrinsics is only supported for CSM Frame cameras.\n");
+  }
+  
+  // Populate the distortion parameters, if not set
+  if (opt.distortion.size() == 0 && opt.camera_type == "pinhole" && ext == ".json") {
+    if (opt.distortion_type == "radtan") {
+      opt.distortion.resize(5, 0.0);
+    } else if (opt.distortion_type == "transverse") {
+      // This distortion model is a polynomial of degree 3 in x and y.
+      opt.distortion.resize(20, 0.0); 
+      opt.distortion[0] = -opt.optical_center[0];
+      opt.distortion[1] = 1; // Set the x term coeff to 1.0
+      opt.distortion[10] = -opt.optical_center[1];
+      opt.distortion[11] = 1; // Set the y term coeff to 1.0
+    } else {
+      vw_throw(ArgumentErr() << "Unknown distortion type: " << opt.distortion_type << ".\n");
+    }
+  }
+
+  if (opt.distortion.size() != 0) {
+    if (opt.distortion_type == "radtan" && opt.distortion.size() != 5)
+      vw_throw(ArgumentErr() << "Expecting 5 distortion coefficients for radtan "
+               << "distortion, got: " << opt.distortion.size() << ".\n");
+    if (opt.distortion_type == "transverse" && opt.distortion.size() != 20)
+      vw_throw(ArgumentErr() << "Expecting 20 distortion coefficients for transverse "
+               << "distortion, got: " << opt.distortion.size() << ".\n"); 
   }
   
   if (opt.refine_intrinsics != "" && opt.input_camera == "")
@@ -625,10 +656,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     
   if (opt.num_pixel_samples <= 0)
     vw_throw(ArgumentErr() << "The number of pixel samples must be positive.\n");
-    
-  // Ensure that radtan distortion is always used
-  if (opt.distortion.size() == 0)
-    opt.distortion.resize(5, 0.0);
 
 } // End function handle_arguments
 
@@ -805,7 +832,7 @@ vw::Matrix<double> vec2matrix(int rows, int cols, std::vector<double> const& val
   return M;
 }
 
-// Refine the camera intrinsics and pose. Only applicable to CSM frame cameras.
+// Refine the camera intrinsics and pose. Only applicable to CSM Frame cameras.
 void refineIntrinsics(Options const& opt, vw::cartography::GeoReference const& geo,
                       ImageViewRef<PixelMask<float>> & interp_dem,
                       vw::CamPtr const& input_camera_ptr, 
@@ -1134,7 +1161,6 @@ int main(int argc, char * argv[]) {
       save_linescan(opt);
       return 0;
     }
-    
 
     // Some of the numbers we print need high precision
     vw_out().precision(17);
@@ -1170,7 +1196,7 @@ int main(int argc, char * argv[]) {
         asp::CsmModel csm;
         csm.createFrameModel(*pin, width, height, 
                              geo.datum().semi_major_axis(), geo.datum().semi_minor_axis(), 
-                             "radtan", opt.distortion);
+                             opt.distortion_type, opt.distortion);
         if (opt.refine_intrinsics != "")
           refineIntrinsics(opt, geo, interp_dem, input_camera_ptr, width, height, csm);
           

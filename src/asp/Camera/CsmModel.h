@@ -110,7 +110,7 @@ namespace asp {
         double semi_major_axis, double semi_minor_axis, // in meters
         vw::Vector3 const& C, // camera center
         vw::Matrix3x3 const& R, // camera to world rotation matrix
-        std::string const& distortionType = "", // empty or "radtan"
+        std::string const& distortionType = "", // empty, "radtan", or "transverse"
         std::vector<double> const& distortion = std::vector<double>());
 
     // Create a CSM frame camera model from pinhole camera model.

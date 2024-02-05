@@ -873,21 +873,28 @@ std::string CsmModel::model_state() const {
   j["m_pixelPitch"] = 1.0; // pixel pitch is set to 1.0
   j["m_nLines"] = rows;
   j["m_nSamples"] = cols;
-  
+
+  // Set the distortion.  
   if (distortionType.empty()) {
     j["m_distortionType"] = DistortionType::RADIAL;
     // 20 zero coeffs are set in the constructor
   } else if (distortionType == "radtan") {
-  
     if (distortion.size() != 5)
       vw::vw_throw(ArgumentErr() 
                    << "Distortion coefficients for the radtan distortion "
                    << "model must be of size 5, in the order k1, k2, p1, p2, k3. "
                    << "Got the size: " << distortion.size() << "\n");
-      
     j["m_distortionType"] = DistortionType::RADTAN;
     j["m_opticalDistCoeffs"] = distortion;
-    
+  } else if (distortionType == "transverse") {
+    j["m_distortionType"] = DistortionType::TRANSVERSE;
+    if (distortion.size() != 20)
+      vw::vw_throw(ArgumentErr() 
+                   << "Distortion coefficients for the transverse distortion "
+                   << "model must be of size 20. Thse are the coefficients of a "
+                   << "polynomial of degree 3 in x and y. "
+                   << "Got the size: " << distortion.size() << "\n");
+    j["m_opticalDistCoeffs"] = distortion;
   } else {
     vw_throw(ArgumentErr() << "Unknown distortion type: " << distortionType << ".\n");
   }

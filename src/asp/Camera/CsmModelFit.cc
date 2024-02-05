@@ -584,9 +584,9 @@ void parseRefineIntrinsicsStr(std::string const& refine_intrinsics,
         << val << ".\n");
   }
   
-  vw::vw_out() << "Refine focal length: " << !fix_focal_length << std::endl;
-  vw::vw_out() << "Refine optical center: " << !fix_optical_center << std::endl;
-  vw::vw_out() << "Refine other intrinsics: " << !fix_other_intrinsics << std::endl;
+  vw::vw_out() << "Refine focal length: " << !fix_focal_length << "\n";
+  vw::vw_out() << "Refine optical center: " << !fix_optical_center << "\n";
+  vw::vw_out() << "Refine other intrinsics (distortion): " << !fix_other_intrinsics << "\n";
 }
 
 // The error between projections of ground points in camera and known pixels.
@@ -793,7 +793,7 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
   // Solve the problem  
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  //vw::vw_out() << summary.FullReport() << "\n";
+  // vw::vw_out() << summary.FullReport() << "\n";
 
   // Copy back
   csm_model.set_frame_position(position[0], position[1], position[2]);
