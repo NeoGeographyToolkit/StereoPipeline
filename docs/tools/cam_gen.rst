@@ -106,7 +106,7 @@ image ground footprint.
 
 .. _cam_gen_frame:
 
-CSM frame cameras
+CSM Frame cameras
 ^^^^^^^^^^^^^^^^^
 
 This program can create a CSM Frame camera (:numref:`csm`) that approximates any
@@ -115,32 +115,39 @@ camera supported by ASP.
 In this mode, distortion is modeled as well. An additional solver pass can be
 invoked, which can refine the intrinsics, that is, the focal length, optical
 center, and the distortion coefficients, in addition to the camera pose. The
-OpenCV radial-tangential lens distortion model is used (see option
+OpenCV radial-tangential lens distortion model is used by default, and a
+polynomial distortion model of degree 3 can be used as well (see option
 ``--distortion`` in :numref:`cam_gen_options` for more details).
+
+Good initial guesses, especially for the focal length and optical center, are
+still expected.
 
 Example::
 
-  cam_gen input.tif                                   \
-    --input-camera input.xml                          \
-    --reference-dem dem.tif                           \
-    --focal-length 30000                              \
-    --optical-center 3000 2000                        \
-    --pixel-pitch 1                                   \
-    --refine-camera                                   \
-    --refine-intrinsics focal_length,other_intrinsics \
-    --distortion '1e-6 1e-7 0 0 0'                    \
-    -o output.json                                    \
+  cam_gen input.tif                             \
+    --input-camera input.xml                    \
+    --reference-dem dem.tif                     \
+    --focal-length 30000                        \
+    --optical-center 3000 2000                  \
+    --pixel-pitch 1                             \
+    --refine-camera                             \
+    --refine-intrinsics focal_length,distortion \
+    --distortion '1e-6 1e-7 0 0 0'              \
+    -o output.json                              \
 
 It is suggested to not optimize the optical center, as that correlates with the
 camera pose and can lead to an implausible solution.
 
 If invoked with ``--refine-intrinsics none``, the provided intrinsics will be
-passed in to the CSM model, but then only the camera pose will be refined. This
+passed to the CSM model, but then only the camera pose will be refined. This
 is different than just using ``--refine-camera`` alone, which does not support
 distortion.
 
 If the camera model is contained within the image, pass the image to
 ``--input-camera``.
+
+The produced camera intrinsics can be jointly refined with other frame or
+linescan cameras using ``bundle_adjust`` (:numref:`ba_frame_linescan`).
  
 The ``cam_test`` program (:numref:`cam_test`) can be used to verify the
 agreement between the input and output cameras.
@@ -155,7 +162,7 @@ This program can take as input a linescan camera, such as WorldView
 and CSM (:numref:`csm`), and convert it to the CSM linescan model state format
 (:numref:`csm_state`). This allows one to use ASP with a combination of
 linescan cameras from different vendors and also with Frame cameras
-(:numref:`cam_gen_frame`).
+(:numref:`ba_frame_linescan`).
 
 An example is as follows::
 
@@ -282,10 +289,19 @@ Command-line options
     The camera pixel pitch.
 
 --distortion <string (default: "")>
-    The OpenCV radial-tangential lens distortion coefficients, as 5 numbers, in
-    quotes, in the order k1, k2, p1, p2, k3. Only applicable when creating CSM
-    cameras (:numref:`cam_gen_frame`). The default is zero distortion.
-        
+    Distortion model parameters. By default, the OpenCV `radial-tangential lens
+    distortion
+    <https://docs.opencv.org/3.4/dc/dbb/tutorial_py_calibration.html>`_ model is used.
+    Then, for this option must set 5 numbers, in quotes, in the order k1, k2, p1,
+    p2, k3. Also supported is the transverse model, which needs 10 values. These
+    are the coefficients of a polynomial of degree 3 in x and y. Only applicable
+    when creating CSM Frame cameras. The default is zero distortion. See also
+    ``--distortion-type``.
+
+--distortion-type <string (default: "radtan")>
+    Set the distortion type. Options: radtan, transverse. Only applicable when
+    creating CSM Frame cameras (:numref:`cam_gen_frame`).
+
 --refine-camera
     After a rough initial camera is obtained, refine it using least squares.
     This does not support distortion. For CSM Frame cameras, a more powerful
@@ -294,10 +310,10 @@ Command-line options
 --refine-intrinsics <string (default: "")>
     Refine the camera intrinsics together with the camera pose. Specify, in
     quotes or with comma as separator, one or more of: ``focal_length``,
-    ``optical_center``, ``other_intrinsics`` (the latter is the distortion).
+    ``optical_center``, ``other_intrinsics`` (same as ``distiortion``).
     Also can set as ``all`` or ``none``. In the latter mode only the camera pose
     is optimized. Applicable only with option ``--input-camera`` and when
-    creating a CSM frame camera model (:numref:`cam_gen_frame`). 
+    creating a CSM Frame camera model (:numref:`cam_gen_frame`). 
         
 --frame-index <string (default: "")>
     A file used to look up the longitude and latitude of image
