@@ -48,6 +48,43 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
 
+// Control per each group of cameras or for all cameras which intrinsics
+// should be floated.
+bool asp::IntrinsicOptions::float_optical_center(int cam_index) const {
+  // When sharing intrinsics, each sensor's float behavior is independent
+  int sensor_id = 0;
+  if (share_intrinsics_per_sensor) 
+    sensor_id = cam2sensor.at(cam_index);
+  
+  if (float_center[sensor_id] != (!center_constant))
+    vw_throw(vw::ArgumentErr() << "BAParams: Inconsistent float_optical_center.\n");
+  return !center_constant;
+}
+
+bool asp::IntrinsicOptions::float_focal_length(int cam_index) const {
+  // When sharing intrinsics, each sensor's float behavior is independent
+  int sensor_id = 0;
+  if (share_intrinsics_per_sensor) 
+    sensor_id = cam2sensor.at(cam_index);
+  
+  if (float_focus[sensor_id] != (!focus_constant))
+    vw_throw(vw::ArgumentErr() << "BAParams: Inconsistent float_focal_length.\n");
+  std::cout << "are equal " << (float_focus[sensor_id]) << " " << (!focus_constant) << std::endl;
+    
+  return !focus_constant;
+}
+
+bool asp::IntrinsicOptions::float_distortion_params(int cam_index) const {
+  // When sharing intrinsics, each sensor's float behavior is independent
+  int sensor_id = 0;
+  if (share_intrinsics_per_sensor) 
+    sensor_id = cam2sensor.at(cam_index);
+  
+  if (float_distortion[sensor_id] != (!distortion_constant))
+    vw_throw(vw::ArgumentErr() << "BAParams: Inconsistent float_distortion.\n");
+  return !distortion_constant;
+}
+                      
 // Constructor
 asp::BAParams::BAParams(int num_points, int num_cameras,
                 // Parameters below here only apply to pinhole models.

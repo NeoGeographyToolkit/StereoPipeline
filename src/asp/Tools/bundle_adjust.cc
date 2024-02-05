@@ -210,12 +210,24 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
     }
 
     // If we don't want to solve for something, just tell Ceres not to adjust the values.
-    if (opt.intrinsics_options.center_constant)
+    if (!opt.intrinsics_options.float_optical_center(camera_index)) {
+      std::cout << "Center constant3\n";
       problem.SetParameterBlockConstant(center);
-    if (opt.intrinsics_options.focus_constant)
+    } else {
+      std::cout << "Center not constant3\n";
+    }
+    if (!opt.intrinsics_options.float_focal_length(camera_index)) {
+      std::cout << "Focus constant3\n";
       problem.SetParameterBlockConstant(focus);
-    if (opt.intrinsics_options.distortion_constant)
+    } else {
+      std::cout << "Focus not constant2\n";
+    }
+    if (!opt.intrinsics_options.float_distortion_params(camera_index)) {
+      std::cout << "Distortion constant3\n";
       problem.SetParameterBlockConstant(distortion);
+    } else {
+      std::cout << "Distortion not constant2\n";
+    }
   } // End non-generic camera case.
 
   // Fix this camera if requested
