@@ -51,38 +51,30 @@ using namespace vw::ba;
 // Control per each group of cameras or for all cameras which intrinsics
 // should be floated.
 bool asp::IntrinsicOptions::float_optical_center(int cam_index) const {
-  // When sharing intrinsics, each sensor's float behavior is independent
+  // When sharing intrinsics per sensor, each sensor's float behavior is independent
   int sensor_id = 0;
   if (share_intrinsics_per_sensor) 
     sensor_id = cam2sensor.at(cam_index);
   
-  if (float_center[sensor_id] != (!center_constant))
-    vw_throw(vw::ArgumentErr() << "BAParams: Inconsistent float_optical_center.\n");
-  return !center_constant;
+  return float_center[sensor_id];
 }
 
 bool asp::IntrinsicOptions::float_focal_length(int cam_index) const {
-  // When sharing intrinsics, each sensor's float behavior is independent
+  // When sharing intrinsics per sensor, each sensor's float behavior is independent
   int sensor_id = 0;
   if (share_intrinsics_per_sensor) 
     sensor_id = cam2sensor.at(cam_index);
   
-  if (float_focus[sensor_id] != (!focus_constant))
-    vw_throw(vw::ArgumentErr() << "BAParams: Inconsistent float_focal_length.\n");
-  std::cout << "are equal " << (float_focus[sensor_id]) << " " << (!focus_constant) << std::endl;
-    
-  return !focus_constant;
+  return float_focus[sensor_id];
 }
 
 bool asp::IntrinsicOptions::float_distortion_params(int cam_index) const {
-  // When sharing intrinsics, each sensor's float behavior is independent
+  // When sharing intrinsics per sensor, each sensor's float behavior is independent
   int sensor_id = 0;
   if (share_intrinsics_per_sensor) 
     sensor_id = cam2sensor.at(cam_index);
-  
-  if (float_distortion[sensor_id] != (!distortion_constant))
-    vw_throw(vw::ArgumentErr() << "BAParams: Inconsistent float_distortion.\n");
-  return !distortion_constant;
+
+  return float_distortion[sensor_id];
 }
                       
 // Constructor
@@ -275,9 +267,11 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
 
   const size_t num_intrinsics = intrinsic_limits.size() / 2;
   float percent, scale, range = 0;
-  for (size_t c=0; c<num_cameras(); ++c) { // For each camera...
+  // Iterate over cameras
+  for (size_t c=0; c<num_cameras(); c++) {
     size_t intrinsics_index = 0;
-    if (!m_intrinsics_opts.focus_constant && !(m_intrinsics_opts.focus_shared && (c>0))) {
+    if (m_intrinsics_opts.float_focal_length(c) &&
+        !(m_intrinsics_opts.focus_shared && (c>0))) {
       double* ptr = get_intrinsic_focus_ptr(c);
       for (int i=0; i<NUM_FOCUS_PARAMS; i++) {
         percent = static_cast<double>(dist(m_rand_gen))/DENOM;
@@ -291,7 +285,8 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
       }
     } // End focus case
     intrinsics_index = NUM_FOCUS_PARAMS; // In case we did not go through the loop
-    if (!m_intrinsics_opts.center_constant && !(m_intrinsics_opts.center_shared && (c>0))) {
+    if (m_intrinsics_opts.float_optical_center(c) && 
+        !(m_intrinsics_opts.center_shared && (c>0))) {
       double* ptr = get_intrinsic_center_ptr(c);
       for (int i=0; i<NUM_CENTER_PARAMS; i++) {
         percent = static_cast<double>(dist(m_rand_gen))/DENOM;
@@ -305,7 +300,7 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
       }
     } // End center case
     intrinsics_index = NUM_FOCUS_PARAMS+NUM_CENTER_PARAMS; // In case we did not go through the loops
-    if (!m_intrinsics_opts.distortion_constant && 
+    if (m_intrinsics_opts.float_distortion_params(c) && 
         !(m_intrinsics_opts.distortion_shared && (c > 0))) {
       double* ptr = get_intrinsic_distortion_ptr(c);
       for (int i = 0; i < m_max_num_dist_params; i++) {
@@ -777,7 +772,8 @@ bool asp::init_pinhole_model_with_camera_positions
   const int MIN_NUM_MATCHES = 3;
   if (num_matches_found < MIN_NUM_MATCHES)
     vw_throw(ArgumentErr() << "At least " << MIN_NUM_MATCHES 
-              << " camera position matches are required to initialize sensor models!\n" );
+              << " camera position matches are required to initialize cameras "
+              << "based on camera positions only.\n" );
 
   // Populate matrices containing the current and known camera positions.
   vw::Matrix<double> points_in(3, num_matches_found), points_out(3, num_matches_found);

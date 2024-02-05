@@ -783,12 +783,6 @@ void load_intrinsics_options(bool        solve_intrinsics,
                              std::string intrinsics_to_share_str, // make a copy
                              asp::IntrinsicOptions & intrinsics_options) {
 
-  // Float everything unless told otherwise
-  // TODO(oalexan1): This must go away
-  intrinsics_options.focus_constant      = false;
-  intrinsics_options.center_constant     = false;
-  intrinsics_options.distortion_constant = false;
-
   // Share everything unless told otherwise
   intrinsics_options.focus_shared        = true;
   intrinsics_options.center_shared       = true;
@@ -807,6 +801,10 @@ void load_intrinsics_options(bool        solve_intrinsics,
   boost::to_lower(intrinsics_to_float_str);
   if (intrinsics_to_float_str == "" || intrinsics_to_float_str == "all")
     intrinsics_to_float_str = "focal_length optical_center other_intrinsics";
+  // This is the right place in which to turn 'none' to empty string,
+  // which now will mean float nothing.
+  if (intrinsics_to_float_str == "none") 
+    intrinsics_to_float_str = "";
 
   // If the user did not specify which intrinsics to share, share all of them.
   boost::to_lower(intrinsics_to_share_str);
@@ -825,13 +823,6 @@ void load_intrinsics_options(bool        solve_intrinsics,
               << "--intrinsics-to-share is ignored. The intrinsics will "
               << "always be shared for a sensor and never across sensors.\n";
 
-  if (intrinsics_to_float_str != "") {
-    intrinsics_options.focus_constant      = true;
-    intrinsics_options.center_constant     = true;
-    intrinsics_options.distortion_constant = true;
-    // These will be individually changed further down
-  }
-
   // If sharing intrinsics per sensor, the only supported mode is that 
   // the intrinsics are always shared per sensor and never across sensors.
   if (shared_is_specified && !intrinsics_options.share_intrinsics_per_sensor) {
@@ -840,11 +831,6 @@ void load_intrinsics_options(bool        solve_intrinsics,
     intrinsics_options.distortion_shared = false;
   }
 
-  // This is the right place in which to turn 'none' to empty string,
-  // which now will mean float nothing.
-  if (intrinsics_to_float_str == "none") 
-    intrinsics_to_float_str = "";
-    
   // Replace any separators (:;, \t\r\n) with spaces. It can be convenient to
   // use commas and colons as separators when passing in the options from the command line.
   asp::replace_separators_with_space(intrinsics_to_float_str);
@@ -875,39 +861,25 @@ void load_intrinsics_options(bool        solve_intrinsics,
   std::string focus_name  = "Focal length";
   std::string dist_name   = "Other intrinsics (distortion)";  
   if (intrinsics_options.share_intrinsics_per_sensor) {
-    vw_out() << "Intrinsics are shared per sensor.\n";
+    vw_out() << "Intrinsics are shared for all cameras with given sensor.\n";
     vw_out() << "Number of sensors: " << intrinsics_options.num_sensors << "\n";
-    vw_out() << "For each sensor: 1 = floated, 0 = not floated.\n";
+    vw_out() << "For each sensor (1 = floated, 0 = not floated):\n";
     print_intr_vec(intrinsics_options.float_center, center_name);
     print_intr_vec(intrinsics_options.float_focus, focus_name);
     print_intr_vec(intrinsics_options.float_distortion, dist_name);
   } else {
-    vw_out() << "Intrinsics are shared across sensors.\n";
-    vw_out() << "For all sensors: 1 = floated, 0 = not floated.\n";
+    vw_out() << "Intrinsics are shared for all or no cameras.\n";
+    vw_out() << "(1 = floated, 0 = not floated)\n";
     vw_out() << center_name << ": " << intrinsics_options.float_center[0] <<"\n";
     vw_out() << focus_name  << ": " << intrinsics_options.float_focus[0] << "\n";
     vw_out() << dist_name   << ": " << intrinsics_options.float_distortion[0] << "\n";
   }
-    
-  // TODO(oalexan1): Wipe this 
-  std::istringstream is(intrinsics_to_float_str);
-  std::string val;
-  while (is >> val) {
-    if (val == "focal_length")
-      intrinsics_options.focus_constant = false;
-    else if (val == "optical_center")
-      intrinsics_options.center_constant = false;
-    else if (val == "other_intrinsics" || val == "distortion")
-      intrinsics_options.distortion_constant = false;
-    else
-      vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to float: " 
-        << val << ".\n");
-  }
 
   // No parsing is done when sharing intrinsics per sensor, per above 
+  std::string val; 
   if (shared_is_specified && !intrinsics_options.share_intrinsics_per_sensor) {
-    std::istringstream is2(intrinsics_to_share_str);
-    while (is2 >> val) {
+    std::istringstream is(intrinsics_to_share_str);
+    while (is >> val) {
       if (val == "focal_length")
         intrinsics_options.focus_shared = true;
       else if (val == "optical_center")
@@ -925,7 +897,7 @@ void load_intrinsics_options(bool        solve_intrinsics,
     sensor_mode = " (per sensor): "; // useful clarification
 
   // Useful info
-  vw_out() << "Sharing:\n";
+  vw_out() << "Sharing (1 = shared, 0 = not shared):\n";
   vw_out() << center_name << sensor_mode << intrinsics_options.center_shared << "\n";
   vw_out() << focus_name << sensor_mode  << intrinsics_options.focus_shared << "\n";
   vw_out() << dist_name << sensor_mode   << intrinsics_options.distortion_shared << "\n";

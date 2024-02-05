@@ -210,24 +210,12 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
     }
 
     // If we don't want to solve for something, just tell Ceres not to adjust the values.
-    if (!opt.intrinsics_options.float_optical_center(camera_index)) {
-      std::cout << "Center constant3\n";
+    if (!opt.intrinsics_options.float_optical_center(camera_index))
       problem.SetParameterBlockConstant(center);
-    } else {
-      std::cout << "Center not constant3\n";
-    }
-    if (!opt.intrinsics_options.float_focal_length(camera_index)) {
-      std::cout << "Focus constant3\n";
+    if (!opt.intrinsics_options.float_focal_length(camera_index))
       problem.SetParameterBlockConstant(focus);
-    } else {
-      std::cout << "Focus not constant2\n";
-    }
-    if (!opt.intrinsics_options.float_distortion_params(camera_index)) {
-      std::cout << "Distortion constant3\n";
+    if (!opt.intrinsics_options.float_distortion_params(camera_index))
       problem.SetParameterBlockConstant(distortion);
-    } else {
-      std::cout << "Distortion not constant2\n";
-    }
   } // End non-generic camera case.
 
   // Fix this camera if requested
@@ -1737,8 +1725,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     // later on.
     if (opt.camera_type != BaCameraType_Other && num_dist_params[cam_it] < 1) {
       num_dist_params[cam_it] = 1;
-      opt.intrinsics_options.distortion_constant = true;
-      opt.intrinsics_options.distortion_shared   = true;
+      std::fill(opt.intrinsics_options.float_distortion.begin(),
+                opt.intrinsics_options.float_distortion.end(), false);
+      opt.intrinsics_options.distortion_shared = true;
     }
   }
 
