@@ -44,15 +44,51 @@ using namespace vw::ba;
 
 namespace asp {
 
-/// This is for the BundleAdjustmentModel class where the camera parameters
-/// are a rotation/offset that is applied on top of the existing camera model.
-/// First read initial adjustments, if any, and apply perhaps a pc_align transform.
-/// We assume the initial transform was already read and validated.
+// Read previous adjustments and store them in params. The params must be well-formed
+// by now, but any prior adjustment in them will be overwritten.
+void put_adjustments_in_params(std::string const& input_prefix,
+                               std::vector<std::string> const& image_files,
+                               std::vector<std::string> const& camera_files,
+                               // Output
+                               asp::BAParams & param_storage) {
+
+  const size_t num_cameras = param_storage.num_cameras();
+  
+  for (size_t icam = 0; icam < num_cameras; icam++) {
+    std::string adjust_file
+      = asp::bundle_adjust_file_name(input_prefix, image_files[icam], camera_files[icam]);
+  
+    vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
+    double * cam_ptr = param_storage.get_camera_ptr(icam);
+    CameraAdjustment adjustment;
+    adjustment.read_from_adjust_file(adjust_file);
+    adjustment.pack_to_array(cam_ptr);
+  }
+}
+
+// Take input cameras and corrections in param_storage, and create new cameras
+// incorporating the corrections. 
+void create_corrected_cameras(std::vector<vw::CamPtr> const& input_cameras,
+                              asp::BAParams const& param_storage,
+                              std::vector<vw::CamPtr> & out_cameras) {
+  const size_t num_cameras = param_storage.num_cameras();
+  out_cameras.resize(num_cameras);
+
+  for (size_t icam = 0; icam < num_cameras; icam++) {
+    CameraAdjustment correction(param_storage.get_camera_ptr(icam));
+    out_cameras[icam] = vw::CamPtr(new camera::AdjustedCameraModel(input_cameras[icam],
+                                   correction.position(), correction.pose()));
+  }                              
+}
+
+/// Create the param storage. Collect in it any input adjustments and initial transform.
+/// Return a copy of the cameras having these adjustments applied to them.
 bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
     std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
     std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models) {
 
   bool cameras_changed = false;
+  
   // Initialize all of the camera adjustments to zero.
   param_storage.init_cams_as_zero();
   const size_t num_cameras = param_storage.num_cameras();
@@ -62,31 +98,14 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
       vw_throw(ArgumentErr() << "Expecting " << num_cameras << " cameras, got "
                            << opt.camera_models.size() << ".\n");
 
-  // Read the adjustments from a previous run, if present. Apply them to params.
+  // Read the adjustments from a previous run, if present. Put them in params.
   if (opt.input_prefix != "") {
-    for (size_t icam = 0; icam < num_cameras; icam++) {
-      std::string adjust_file
-        = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[icam],
-                                       opt.camera_files[icam]);
-      vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
-      double * cam_ptr = param_storage.get_camera_ptr(icam);
-      CameraAdjustment adjustment;
-      adjustment.read_from_adjust_file(adjust_file);
-      adjustment.pack_to_array(cam_ptr);
-    }
+    put_adjustments_in_params(opt.input_prefix, opt.image_files, opt.camera_files, 
+                              param_storage); // output
     cameras_changed = true;
   }
 
-  // Make a copy of the cameras with given corrections
-  new_cam_models.resize(num_cameras);
-  for (size_t icam = 0; icam < num_cameras; icam++) {
-    CameraAdjustment correction(param_storage.get_camera_ptr(icam));
-    camera::CameraModel* cam = new camera::AdjustedCameraModel(opt.camera_models[icam],
-                                        correction.position(), correction.pose());
-    new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(cam);
-  }
-
-  // Apply any initial transform to the pinhole cameras
+  // Apply any initial transform to params
   if (initial_transform_file != "") {
     if (opt.stereo_session == "csm") {
       double scale = pow(vw::math::det(initial_transform), 1.0/3.0);
@@ -105,18 +124,12 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
     // do not change.
     apply_transform_to_params(initial_transform, param_storage, opt.camera_models);
     cameras_changed = true;
-
-    // Make a copy of the cameras with given corrections in param_storage. Note
-    // that param_storage by now either has no corrections, or input adjustment
-    // corrections, or input transform corrections, or both.
-    new_cam_models.resize(num_cameras);
-    for (size_t icam = 0; icam < num_cameras; icam++){
-      CameraAdjustment correction(param_storage.get_camera_ptr(icam));
-      camera::CameraModel* cam = new camera::AdjustedCameraModel(opt.camera_models[icam],
-                                          correction.position(), correction.pose());
-      new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(cam);
-    }
   }
+  
+  // Make a copy of the cameras with given corrections in param_storage. Note
+  // that param_storage by now either has no corrections, or input adjustment
+  // corrections, or input transform corrections, or both.
+  create_corrected_cameras(opt.camera_models, param_storage, new_cam_models);
   
   return cameras_changed;
 }
