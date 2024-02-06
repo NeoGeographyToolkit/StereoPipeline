@@ -126,9 +126,8 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
     cameras_changed = true;
   }
   
-  // Make a copy of the cameras with given corrections in param_storage. Note
-  // that param_storage by now either has no corrections, or input adjustment
-  // corrections, or input transform corrections, or both.
+  // Make a copy of the cameras with given corrections in param_storage, incorporating
+  // any adjustments and initial transform.
   create_corrected_cameras(opt.camera_models, param_storage, new_cam_models);
   
   return cameras_changed;
@@ -805,6 +804,13 @@ void load_intrinsics_options(bool        solve_intrinsics,
   intrinsics_options.center_shared       = true;
   intrinsics_options.distortion_shared   = true;
 
+  // We need these to be initialized even when not solving intrinsics,
+  // as intrinsics are always added to the cost function when 
+  // --inline-adjustments is used.
+  intrinsics_options.float_center.resize(1, false);
+  intrinsics_options.float_focus.resize(1, false);
+  intrinsics_options.float_distortion.resize(1, false);
+  
   if (((intrinsics_to_float_str != "") || (intrinsics_to_share_str != "")) 
       && !solve_intrinsics) {
     vw_throw( ArgumentErr() << "To be able to specify only certain intrinsics, "
