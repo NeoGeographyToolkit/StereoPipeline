@@ -173,7 +173,7 @@ See :numref:`intrinsics_no_constraints` for how to optimize intrinsics with no
 constraints, :numref:`intrinsics_ground_truth` for when ground constraints can
 be used (there exist options for sparse ground points and a DEM), and
 :numref:`kaguya_ba` for how to have several groups of intrinsics. Mixing
-linescan and frame cameras is discussed in :numref:`ba_frame_linescan`.
+frame and linescan cameras is discussed in :numref:`ba_frame_linescan`.
 
 .. _intrinsics_no_constraints:
 
@@ -657,6 +657,8 @@ many images with a lot of overlap, so this had to make do.
 A modification of the work flow for the case of images with very different
 illumination is in :numref:`kaguya_ba_illumination`.
 
+.. _kaguya_ba_initial_ba:
+
 Initial bundle adjustment with fixed intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -698,7 +700,8 @@ to help refine the distortion parameters.
 
 The option ``--ip-per-tile`` is set to a large value so that many interest
 points are generated, and then the best ones are kept. This can be way too large
-for big images. (Consider using instead ``--ip-per-image``.)
+for big images. (Consider using instead ``--ip-per-image``.) The option
+``--matches-per-tile`` tries to ensure matches are uniformly distributed.
 
 Normally 50 iterations should be enough. Two passes will happen. After each 
 pass outliers will be removed.
@@ -964,7 +967,7 @@ distortion artifacts are most likely to have been averaged well.
 Mixing frame and linescan cameras
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-So far we discussed refining the intrinsics for pinhole (frame cameras), such as
+So far we discussed refining the intrinsics for pinhole (frame) cameras, such as
 in :numref:`heights_from_dem`, and for linescan cameras, such as in
 :numref:`kaguya_ba`.
 
@@ -993,34 +996,113 @@ parameters, as described at the link above.
 The linescan cameras can be converted to CSM format using ``cam_gen`` as well
 (:numref:`cam_gen_linescan`). This does not find a best-fit model, but rather
 reads the linescan sensor poses and intrinsics from the input file.  
- 
+
+We will assume we have two frame camera images sharing intrinsics, named
+``frame1.tif`` and ``frame2.tif``, and two linescan camera images, for which 
+will not enforce that intrinsics are shared. They can even be from different
+vendors. Those will be named ``linescan1.tif`` and ``linescan2.tif``.
+The camera names will have the same convention, but ending in ``.json``.
+
+Initial bundle adjustment
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The same approach as in :numref:`kaguya_ba_initial_ba` can be used.
+A DEM may be helpful to help figure out which image pairs overlap, but is not 
+strictly necessary. 
+
+Ensure consistent order of the images and cameras, both here and in the next
+steps. This will guarantee that all generated match files will be used. The
+order here will be ``frame1``, ``frame2``, ``linescan1``, ``linescan2``.
+
+It is very strongly suggested to examine the stereo convergence angles 
+(:numref:`ba_conv_angle`). The angles between each frame pair and each linescan
+pair better be at least 15 degrees, to ensure a robust solution.
+
+Also examine the pairwise matches in ``stereo_gui``
+(:numref:`stereo_gui_pairwise_matches`), the final residuals per camera
+(:numref:`ba_errors_per_camera`), and per triangulated point
+(:numref:`ba_err_per_point`). The latter can be visualized in ``stereo_gui``
+(:numref:`plot_csv`). The goal is to ensure well-distributed features,
+and that the errors are pushed down uniformly.
+
+Dense interest points produced from stereo may be necessary
+(:numref:`custom_ip`).
+
+Evaluation of terrain models
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+As in :numref:`kaguya_ba`, it is suggested to create several stereo DEMs after
+the initial bundle adjustment. For example, make one DEM for the frame camera
+pair, and a second for the linescan one. Use mapprojected images, the
+``asp_mgm`` algorithm (:numref:`nextsteps`), and a local stereographic
+projection for the produced DEMs.
+
+One should examine the triangulation error for each DEM
+(:numref:`triangulation_error`), and the difference between them with
+``geodiff`` (:numref:`geodiff`). Strong systematic errors for the frame camera
+data will then motivate the next steps.
 
 Refinement of the frame camera intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As for :numref:`kaguya_ba`, we need to create several text files, with each file
+We will follow closely the recipe in :numref:`kaguya_ba`. It is suggested to use
+for the refinement step the linescan DEM as a constraint (option
+``--heights-from-dem``). If a different DEM is employed, the produced bundle-adjusted
+cameras and DEMs should be aligned to it first (:numref:`ba_pc_align`).
+
+As for :numref:`kaguya_ba`, we need to create several text files, with each
 having the names of the images whose intrinsics are shared, and the same for the
 cameras.
 
 If not sure that the linescan cameras have the same intrinsics, they can be kept
 in different files. We will keep those intrinsics fixed in either ase.
 
-The files are created as follows. For the cameras::
+Assume the previous bundle adjustment was done with the output prefix
+``ba/run``. The files for the next step are created as follows. For the
+cameras::
 
-    ls ba/run-left_frame.adjusted_state.json \
-      ba/run-right_frame.adjusted_state.json > frame_cameras.txt
-    ls ba/run-linescan1.adjusted_state.json \
-      linescan1_cameras.txt > linescan1_cameras.txt
-    ls ba/run-linescan2.adjusted_state.json \
-      linescan2_cameras.txt > linescan2_cameras.txt
+    ls ba/run-frame1.adjusted_state.json \
+       ba/run-frame2.adjusted_state.json > frame_cameras.txt
+    ls ba/run-linescan1.adjusted_state.json > linescan1_cameras.txt
+    ls ba/run-linescan2.adjusted_state.json > linescan2_cameras.txt
+ 
+and similarly the images. Hence, we have 3 groups of sensors. These
+files will be passed to ``bundle_adjust`` as follows::
 
-and similarly the images. Hence, we have 3 groups of sensors. We will float the
-intrinsics for the frame cameras, and keep the linescan ones fixed. This is
-accomplished with the option::
+  --image-list frame_images.txt,linescan1_images.txt,linescan2_images.txt      \
+  --camera-list frame_cameras.txt,linescan1_cameras.txt,linescan2_cameras.txt
+ 
+Use comma as separator, and no spaces.
 
-  --intrinsics-to-float '1:focal_length,other_intrinsics 2:none 3:none'
+We will float the intrinsics for the frame cameras, and keep the linescan intrinsics
+(but not poses) fixed. This is accomplished with the option::
 
-To be continued.
+  --intrinsics-to-float '1:focal_length,optical_center,other_intrinsics 2:none 3:none'
+
+Optimizing the optical center may not be necessary, as this intrinsic parameter
+may correlate with the position of the cameras, and these are not easy to
+separate. Optimizing this may produce an implausible optical center.
+
+Post-refinement evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+New DEMs and intersection error maps can be created. The previous stereo runs
+can be reused with the option ``--prev-run-prefix`` in ``parallel_stereo`` (:numref:`mapproj_reuse`).
+
+.. figure:: images/frame_linescan_dem_diff.png
+   :name: frame_linescan_dem_diff
+   :alt: frame_linescan_dem_diff
+
+   The signed difference between the frame and linescan DEMs before intrinsics
+   refinement (left) and after (right).
+
+.. figure:: images/frame_linescan_intersection_error.png
+   :name: frame_linescan_intersection_error
+   :alt: frame_linescan_intersection_error
+
+   The triangulation error for the frame cameras before refinement of intrinsics
+   (left) and after (right). It can be seen in both figures that systematic
+   differences are greatly reduced.
 
 .. _custom_ip:
 

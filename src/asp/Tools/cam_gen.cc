@@ -201,12 +201,11 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
   if (verbose) {
     vw_out() << "Errors of pixel projection in the coarse camera:\n";
     for (size_t corner_it = 0; corner_it < num_pts; corner_it++) {
+      vw::Vector2 pix1 = out_cam.get()->point_to_pixel(xyz_vec[corner_it]);
+      vw::Vector2 pix2 = Vector2( pixel_values[2*corner_it], pixel_values[2*corner_it+1]);
       vw_out () << "Pixel and error: ("
-		<< pixel_values[2*corner_it] << ' ' << pixel_values[2*corner_it+1]
-		<< ") " <<  norm_2(out_cam.get()->point_to_pixel(xyz_vec[corner_it]) -
-				 Vector2( pixel_values[2*corner_it],
-					  pixel_values[2*corner_it+1]))
-		<< std::endl;
+                << pixel_values[2*corner_it] << ' ' << pixel_values[2*corner_it+1]
+                << ") " << norm_2(pix1 - pix2) << std::endl;
     }
   }
 
@@ -266,12 +265,11 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
     if (verbose) {
       vw_out() << "Errors of pixel projection in the camera with refined pose:\n";
       for (size_t corner_it = 0; corner_it < num_pts; corner_it++) {
+        vw::Vector2 pix1 = out_cam.get()->point_to_pixel(xyz_vec[corner_it]);
+        vw::Vector2 pix2 = Vector2(pixel_values[2*corner_it], pixel_values[2*corner_it+1]);
 	      vw_out () << "Pixel and error: ("
 		              << pixel_values[2*corner_it] << ' ' << pixel_values[2*corner_it+1]
-		              << ") " 
-                  <<  norm_2(out_cam.get()->point_to_pixel(xyz_vec[corner_it]) -
-                             Vector2(pixel_values[2*corner_it], pixel_values[2*corner_it+1]))
-                  << std::endl;
+		              << ") " <<  norm_2(pix1 - pix2) << std::endl;
       }
     }
     
@@ -574,10 +572,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     int wid = img.cols(), hgt = img.rows();
     if (wid <= 0 || hgt <= 0) 
       vw_throw(ArgumentErr() << "Could not read an image with positive dimensions from: "
-		<< opt.image_file << ".\n");
+                             << opt.image_file << ".\n");
     
     // populate the corners
-    double arr[] = {0.0, 0.0, (double)wid, 0.0, (double)wid, (double)hgt, 0.0, (double)hgt};
+    double arr[] = {0.0, 0.0, wid-1.0, 0.0, wid-1.0, hgt-1.0, 0.0, hgt-1.0};
     for (size_t it  = 0; it < sizeof(arr)/sizeof(double); it++) 
       opt.pixel_values.push_back(arr[it]);
 
@@ -706,7 +704,7 @@ void dem_or_datum_intersect(Options const& opt, vw::cartography::GeoReference co
 
   if (input_camera_ptr.get() == NULL)
     vw_throw(ArgumentErr() << "Input camera was not provided.\n");
-     
+  
   Vector3 camera_ctr = input_camera_ptr->camera_center(pix);
   Vector3 camera_vec = input_camera_ptr->pixel_to_vector(pix);
 
@@ -777,7 +775,6 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
 	             << "from the camera at pixel: " << pix << ". Skipping it.\n";
       continue;
     }
-    
     ctrs.push_back(input_camera_ptr->camera_center(pix));
     dirs.push_back(input_camera_ptr->pixel_to_vector(pix));
     

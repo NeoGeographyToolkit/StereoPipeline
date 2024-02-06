@@ -406,6 +406,8 @@ See :numref:`ba_cnet_details` for more technical details. See also ASP's
 Output files
 ~~~~~~~~~~~~
 
+.. _ba_err_per_point:
+
 Errors per triangulated point
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -463,6 +465,8 @@ other higher value, to filter out unreliably triangulated points.
 obtained by the intersection of three rays, with some
 of those rays having an angle of at least this while some a much
 smaller angle.)
+
+.. _ba_errors_per_camera:
 
 Errors per camera and per pixel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
