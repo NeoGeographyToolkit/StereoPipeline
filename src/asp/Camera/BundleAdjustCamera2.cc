@@ -804,9 +804,10 @@ void load_intrinsics_options(bool        solve_intrinsics,
   intrinsics_options.center_shared       = true;
   intrinsics_options.distortion_shared   = true;
 
-  // We need these to be initialized even when not solving intrinsics,
-  // as intrinsics are always added to the cost function when 
-  // --inline-adjustments is used.
+  // We need these to be initialized even when not solving for intrinsics, as
+  // the intrinsics are always added to the cost function when
+  // --inline-adjustments is used. In that case they are just expected to be
+  // kept fixed.
   intrinsics_options.float_center.resize(1, false);
   intrinsics_options.float_focus.resize(1, false);
   intrinsics_options.float_distortion.resize(1, false);

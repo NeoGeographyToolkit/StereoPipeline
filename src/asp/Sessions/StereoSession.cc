@@ -103,6 +103,7 @@ namespace asp {
  
     // Sanity checks
 
+    bool has_geoheader_cam_type = true;
     if (cam_type == "") {
       vw::vw_out(WarningMessage) << "Missing field value for: " << cam_type_key
                                  << " in " << map_file << ".\n";
@@ -113,23 +114,35 @@ namespace asp {
            << "Assuming mapprojection was done with camera type: "
            << mapproj_cam_type << ".\n";
       cam_type = mapproj_cam_type;
+      has_geoheader_cam_type = false;
     }
     if (cam_type == "")
       vw_throw(ArgumentErr() << "Missing field value for: " << cam_type_key 
                << " in " << map_file << ".\n");
 
+    bool has_geoheader_image = true;
     if (image_file == "") {
       vw::vw_out(WarningMessage) << "Missing field value for: " << img_file_key 
                                  << " in " << map_file << ".\n";
       image_file = map_file; // should be enough to load the camera 
+      has_geoheader_image = false;
       vw::vw_out(WarningMessage) << "Using: " << image_file << " instead.\n";
     }
     
+    // This is very hard to get right
     if (cam_file == "") {
-      if (cam_type == "rpc")
-        cam_file = image_file; // For RPC, the image can have the camera model
-      else 
+       vw::vw_out(WarningMessage) << "Missing field value for: " << cam_file_key 
+                                  << " in " << map_file << ".\n";
+      if (has_geoheader_cam_type && has_geoheader_image) {
+        // The mapprojection info was saved, but the camera file was empty.
+        // Then, the image file before mapprojection should have the camera.
+        cam_file = image_file;
+      } else {
+        // The mapprojection info was not saved. Use the user-supplied
+        // camera.
         cam_file = input_cam_file;
+      }
+      vw::vw_out(WarningMessage) << "Using: " << cam_file << " instead.\n";  
     }
     if (cam_file == "")
         vw::vw_out(WarningMessage) << "Missing field value for: " << cam_file_key 
@@ -143,16 +156,20 @@ namespace asp {
     }
     
     // The DEM the user provided better be the one used for map projection.
-    // Throw an error as this may result in subtle differences.
-    if (input_dem != dem_file)
-      vw::vw_throw(ArgumentErr() 
-                   << "The DEM used for map projection is different "
-                   << "from the one provided currently.\n"
-                   << "Mapprojection DEM: " << dem_file << "\n"
-                   << "Current DEM: " << input_dem << "\n"
-                   << "Use image_calc to change the DEM name in the "
-                   << "geoheader of mapprojected images.\n");
+    // Give a warning, as this may result in subtle differences.
+    if (input_dem != dem_file) {
+      vw::vw_out(WarningMessage)
+        << "The DEM used for map projection is different "
+        << "from the one provided currently.\n"
+        << "Mapprojection DEM: " << dem_file << "\n"
+        << "Current DEM: " << input_dem << "\n"
+        << "Use 'image_calc -c var_0 --mo DEM_FILE=myDem.tif in.tif -o out.tif -d float32' "
+        << "to change the DEM name in the "
+        << "geoheader of mapprojected images. Using the current DEM.\n";
+       dem_file = input_dem;
+    }
     
+    // If this is set to none, it means no bundle-adjust prefix was used
     if (adj_prefix == "NONE")
       adj_prefix = "";
   }
@@ -227,8 +244,8 @@ namespace asp {
   
     vw_out() << "Mapprojected images bundle adjustment prefixes: " 
               << l_adj_prefix << ' ' << r_adj_prefix << std::endl;
-    vw_out() << "Cameras used in mapprojection: " << l_cam_file << ' ' << r_cam_file << std::endl; 
-    vw_out() << "Camera types used in mapprojection: " << l_cam_type << ' ' << r_cam_type << std::endl;
+    vw_out() << "Mapprojection cameras: " << l_cam_file << ' ' << r_cam_file << "\n";
+    vw_out() << "Mapprojection cam types: " << l_cam_type << ' ' << r_cam_type << "\n";
 
     // Load either the current session camera type, or rpc, or form a new session.
     read_mappproj_cam(l_image_file, l_cam_file, l_adj_prefix, l_cam_type, left_map_proj_cam);

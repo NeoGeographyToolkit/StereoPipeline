@@ -238,7 +238,7 @@ if [ 1 -eq 0 ]; then
     /bin/mv -fv $f $g
   done
   # Must make all scripts in bin and individual tests executable
-  chmod a+x StereoPipelineTest/bin/* StereoPipelineTest/*/*sh 
+  chmod a+x StereoPipelineTest/bin/* StereoPipelineTest/*/*sh
   # Create a new tarball
   binaries=StereoPipelineTest.tar
   tar cfv $binaries StereoPipelineTest 

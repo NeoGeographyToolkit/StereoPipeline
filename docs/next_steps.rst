@@ -391,9 +391,9 @@ Copernicus 30 m DEM from:
 or the NASA SRTM DEM (available on the same web site as above),
 GMTED2010, USGS's NED data, or NGA's DTED data.
 
-The Copernicus 30 m DEM heights are relative to the EGM96 geoid. Any such 
-DEM must be converted to WGS84 ellipsoid heights, for any processing
-to be accurate (:numref:`conv_to_ellipsoid`).
+The Copernicus 30 m DEM heights are relative to the EGM96 geoid. Any such DEM
+must be converted using ``dem_geoid`` to WGS84 ellipsoid heights, for any
+processing to be accurate (:numref:`conv_to_ellipsoid`).
 
 If your cameras have a lower resolution, such as SPOT 5, which may
 be on the order of 5-7 m/pixel, the resolution of the DEM above may be

@@ -535,14 +535,18 @@ There exist situations when one has one or more images for which the
 camera files are either inaccurate or, for Pinhole camera models, just
 the intrinsics may be known. Given a DEM of the area of interest, and
 optionally a georeferenced image, it is possible to create GCP files
-(:numref:`bagcp`) that can later be used with ``bundle_adjust`` to
-either improve the alignment of these cameras to the DEM, or create
-new Pinhole cameras from scratch (the latter is shown in
-:numref:`imagecorners`).
+(:numref:`bagcp`).
 
-One starts by opening the desired images, the georeferenced
-image, the DEM, and the GCP file to be created in the GUI, as
-follows::
+GCP can later be used with ``bundle_adjust`` to either improve the alignment of
+these cameras to the DEM, or create new Pinhole cameras from scratch (the latter
+is shown in :numref:`imagecorners`).
+
+A DEM can be obtained using the instructions in :numref:`initial_terrain`.
+Use, if applicable, ``dem_geoid`` to convert the DEM to be relative
+to an ellipsoid.
+
+Open the desired images, the georeferenced image, the DEM, and the GCP file to
+be created in the GUI, as follows::
 
     stereo_gui img1.tif img2.tif img3.tif georeferenced.tif \
       --dem-file dem.tif --gcp-file output.gcp
@@ -577,6 +581,8 @@ file containing the selected points.
 
 If above the reference DEM and GCP file were not set, the tool
 will prompt for their names.
+
+See earlier in this section for how GCP can be used.
 
 .. _mapip:
 
