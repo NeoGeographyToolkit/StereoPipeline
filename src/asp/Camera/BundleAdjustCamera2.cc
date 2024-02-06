@@ -62,7 +62,7 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
       vw_throw(ArgumentErr() << "Expecting " << num_cameras << " cameras, got "
                            << opt.camera_models.size() << ".\n");
 
-  // Read the adjustments from a previous run, if present
+  // Read the adjustments from a previous run, if present. Apply them to params.
   if (opt.input_prefix != "") {
     for (size_t icam = 0; icam < num_cameras; icam++) {
       std::string adjust_file
@@ -77,7 +77,7 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
     cameras_changed = true;
   }
 
-  // Get an updated list of camera models
+  // Make a copy of the cameras with given corrections
   new_cam_models.resize(num_cameras);
   for (size_t icam = 0; icam < num_cameras; icam++) {
     CameraAdjustment correction(param_storage.get_camera_ptr(icam));
@@ -100,20 +100,24 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
       }
     }
 
-    // TODO(oalexan1): Does this modify param_storage?
-    apply_transform_to_cameras(initial_transform, param_storage, new_cam_models);
+    // Update param_storage with the alignment. This may be on top of any initial adjustment.
+    // from the previous code, already contained in param_storage. Cameras
+    // do not change.
+    apply_transform_to_params(initial_transform, param_storage, opt.camera_models);
     cameras_changed = true;
-  }
 
-  // Fill out the new camera model vector
-  // TODO(oalexan1): Why the repeated code?
-  new_cam_models.resize(num_cameras);
-  for (size_t icam = 0; icam < num_cameras; icam++){
-    CameraAdjustment correction(param_storage.get_camera_ptr(icam));
-    camera::CameraModel* cam = new camera::AdjustedCameraModel(opt.camera_models[icam],
-                                        correction.position(), correction.pose());
-    new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(cam);
+    // Make a copy of the cameras with given corrections in param_storage. Note
+    // that param_storage by now either has no corrections, or input adjustment
+    // corrections, or input transform corrections, or both.
+    new_cam_models.resize(num_cameras);
+    for (size_t icam = 0; icam < num_cameras; icam++){
+      CameraAdjustment correction(param_storage.get_camera_ptr(icam));
+      camera::CameraModel* cam = new camera::AdjustedCameraModel(opt.camera_models[icam],
+                                          correction.position(), correction.pose());
+      new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(cam);
+    }
   }
+  
   return cameras_changed;
 }
 
@@ -835,7 +839,7 @@ void load_intrinsics_options(bool        solve_intrinsics,
   // use commas and colons as separators when passing in the options from the command line.
   asp::replace_separators_with_space(intrinsics_to_float_str);
   asp::replace_separators_with_space(intrinsics_to_share_str);
-  
+
   // Parse float options. Supported formats:
   // "1:focal_length,optical_center 2:focal_length,other_intrinsics 3:none"  
   // "focal_length optical_center other_intrinsics"
@@ -855,7 +859,6 @@ void load_intrinsics_options(bool        solve_intrinsics,
                               intrinsics_options.float_focus,
                               intrinsics_options.float_distortion);
   }
-  
   // Useful reporting
   std::string center_name = "Optical center";
   std::string focus_name  = "Focal length";

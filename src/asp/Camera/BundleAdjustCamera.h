@@ -439,11 +439,11 @@ boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
                                                       asp::BAParams const& param_storage,
                                                       asp::CsmModel const& in_cam);
 
-/// Given a transform with origin at the planet center, like output
-/// by pc_align, read the adjustments from cameras_vec, apply this
-/// transform on top of them, and write the adjustments back to the vector.
-/// - Works for pinhole and non-pinhole case.
-void apply_transform_to_cameras(vw::Matrix4x4 const& M, asp::BAParams &param_storage,
+/// Given a transform with origin at the planet center, like output by pc_align,
+/// read the adjustments from param storage, apply this transform on top of
+/// them, and write the adjustments back to the param storage. Cameras
+/// do not change.
+void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BAParams &param_storage,
                                 std::vector<vw::CamPtr>
                                 const& cam_ptrs);
 

@@ -64,6 +64,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     have different distortion types and sizes. (:numref:`limit_ip`).
   * Each image passed to ``--mapprojected-data`` reads from its geoheader
     the camera and adjustment prefix for undoing the mapprojection.
+  * Fixed a bug when both ``--initial-transform`` and
+    ``--input-adjustments-prefix`` are used.
     
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).

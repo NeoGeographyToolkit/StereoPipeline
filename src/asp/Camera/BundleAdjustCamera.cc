@@ -546,13 +546,12 @@ void pack_csm_to_arrays(asp::CsmModel const& camera,
     distortion_ptr[i] = 1.0;
 }
   
-/// Given a transform with origin at the planet center, like output
-/// by pc_align, read the adjustments from cameras_vec, apply this
-/// transform on top of them, and write the adjustments back to the vector.
-/// - Works for pinhole and non-pinhole case.
-void apply_transform_to_cameras(vw::Matrix4x4 const& M, asp::BAParams &param_storage,
-                                std::vector<vw::CamPtr>
-                                const& cam_ptrs) {
+/// Given a transform with origin at the planet center, like output by pc_align,
+/// read the adjustments from param storage, apply this transform on top of
+/// them, and write the adjustments back to the param storage. Cameras
+/// do not change.
+void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BAParams &param_storage,
+                                std::vector<vw::CamPtr> const& cam_ptrs) {
 
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
 
