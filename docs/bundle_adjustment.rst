@@ -980,28 +980,30 @@ can be used to refine the intrinsics of the frame sensor.
 Preparing the inputs
 ^^^^^^^^^^^^^^^^^^^^
 
-The frame cameras can be in the black-box RPC format (:numref:`rpc`) or any
-other format supported by ASP. Then, they can be converted to CSM format using
-``cam_gen`` (:numref:`cam_gen_frame`). This will find the best-fit intrinsics,
-including for lens distortion. 
+The frame cameras can be in the black-box RPC format (:numref:`rpc`), or any
+other format supported by ASP. The cameras can be converted to the CSM format
+using ``cam_gen`` (:numref:`cam_gen_frame`). This will find the best-fit
+intrinsics, including the lens distortion. 
 
 It is important to know at least the focal length of the frame cameras somewhat
 accurately. This can be inferred based on satellite elevation and ground
 footprint.
 
-Once the first frame camera is converted to CSM, the rest of them at are
-supposed to be for the same sensor model can borrow the just-solved distortion
-parameters, as described at the link above.
+Once the first frame camera is converted to CSM, the rest of them that are
+supposed to be for the same sensor model can borrow the just-solved intrinsic
+parameters using the option ``--sample-file prev_file.json`` (the ``cam_gen``
+manual has the full invocation).
 
 The linescan cameras can be converted to CSM format using ``cam_gen`` as well
 (:numref:`cam_gen_linescan`). This does not find a best-fit model, but rather
 reads the linescan sensor poses and intrinsics from the input file.  
 
 We will assume we have two frame camera images sharing intrinsics, named
-``frame1.tif`` and ``frame2.tif``, and two linescan camera images, for which 
-will not enforce that intrinsics are shared. They can even be from different
-vendors. Those will be named ``linescan1.tif`` and ``linescan2.tif``.
-The camera names will have the same convention, but ending in ``.json``.
+``frame1.tif`` and ``frame2.tif``, and two linescan camera images, for which
+will not enforce that the intrinsics are shared. They can even be from different
+vendors. The linescan intrinsics will be kept fixed. Assume these files are
+named ``linescan1.tif`` and ``linescan2.tif``. The camera names will have the
+same convention, but ending in ``.json``.
 
 Initial bundle adjustment
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1072,12 +1074,13 @@ files will be passed to ``bundle_adjust`` as follows::
   --image-list frame_images.txt,linescan1_images.txt,linescan2_images.txt      \
   --camera-list frame_cameras.txt,linescan1_cameras.txt,linescan2_cameras.txt
  
-Use comma as separator, and no spaces.
+Use a comma as separator, and no spaces.
 
 We will float the intrinsics for the frame cameras, and keep the linescan intrinsics
 (but not poses) fixed. This is accomplished with the option::
 
-  --intrinsics-to-float '1:focal_length,optical_center,other_intrinsics 2:none 3:none'
+  --intrinsics-to-float '1:focal_length,optical_center,other_intrinsics 
+                         2:none 3:none'
 
 Optimizing the optical center may not be necessary, as this intrinsic parameter
 may correlate with the position of the cameras, and these are not easy to

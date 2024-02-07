@@ -132,6 +132,9 @@ Example::
     --refine-intrinsics focal_length,distortion \
     -o output.json                              \
 
+The pixel pitch must always be 1, so the focal length and optical center must be
+in units of pixel.
+
 It is suggested to not optimize the optical center, as that correlates with the
 camera pose and can lead to an implausible solution. The ``--distortion`` option
 need not be set, as the program will try to figure that out.
@@ -143,6 +146,18 @@ distortion.
 
 If the camera model is contained within the image, pass the image to
 ``--input-camera``.
+
+To transfer the intrinsics produced by the invocation above to another camera
+acquired with the same sensor, run::
+
+  cam_gen input2.tif            \
+    --input-camera input2.xml   \
+    --reference-dem dem.tif     \
+    --pixel-pitch 1             \
+    --refine-camera             \
+    --refine-intrinsics none    \
+    --sample-file output.json   \
+    -o output2.json             \
 
 The produced camera intrinsics can be jointly refined with other frame or
 linescan cameras using ``bundle_adjust`` (:numref:`ba_frame_linescan`).
@@ -269,10 +284,8 @@ Command-line options
     unless read from the DEM.
 
 --sample-file <string (default: "")>
-    Instead of manually specifying all of the camera parameters,
-    specify a sample camera model file on disk to read them from
-    (see :numref:`kh9`, :numref:`file_format`, and
-    :numref:`panoramic`).
+    Read the camera intrinsics from this file. Required for optical bar cameras.
+    See :numref:`kh9`, :numref:`file_format`, and :numref:`panoramic`.
 
 --focal-length <float (default: 0.0)>
     The camera focal length.

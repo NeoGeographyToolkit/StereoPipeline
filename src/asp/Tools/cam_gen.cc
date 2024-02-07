@@ -306,9 +306,9 @@ struct Options : public vw::GdalWriteOptions {
     cam_height, cam_weight, cam_ctr_weight;
   Vector2 optical_center;
   std::vector<double> lon_lat_values, pixel_values, distortion;
-  bool refine_camera, parse_eci, parse_ecef, input_pinhole; 
+  bool refine_camera, parse_eci, parse_ecef, planet_pinhole; 
   int num_pixel_samples;
-  Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0), input_pinhole(false),
+  Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0), planet_pinhole(false),
   parse_eci(false), parse_ecef(false), num_pixel_samples(0)
   {}
 };
@@ -335,7 +335,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("height-above-datum", po::value(&opt.height_above_datum)->default_value(0),
      "Assume this height above datum in meters for the image corners unless read from the DEM.")
     ("sample-file", po::value(&opt.sample_file)->default_value(""), 
-     "Read in the camera parameters from the example camera file.  Required for opticalbar type.")
+     "Read the camera intrinsics from this file. Required for opticalbar bar cameras.")
     ("focal-length", po::value(&opt.focal_length)->default_value(0),
      "The camera focal length.")
     ("optical-center", po::value(&opt.optical_center)->default_value(Vector2(nan, nan),"NaN NaN"),
@@ -439,27 +439,32 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // The rest of the logic does not apply to linescan cameras
   if (opt.camera_type == "linescan")
     return;
-    
-  opt.input_pinhole = boost::algorithm::ends_with(opt.input_camera, "_pinhole.json");
-  if (opt.input_pinhole && opt.datum_str.empty()) {
+  
+  // Planet's custom format  
+  opt.planet_pinhole = boost::algorithm::ends_with(opt.input_camera, "_pinhole.json");
+  if (opt.planet_pinhole && opt.datum_str.empty()) {
     opt.datum_str = "WGS84";
     vw::vw_out() << "Setting the datum to: " << opt.datum_str << std::endl;
   }
   
-  if (opt.input_pinhole && (opt.refine_camera || opt.refine_intrinsics != ""))
+  if (opt.planet_pinhole && (opt.refine_camera || opt.refine_intrinsics != ""))
     vw_throw(ArgumentErr() << "Cannot refine the pose or intrinsics for a pinhole camera "
              "read from a Planet JSON file. Consider running this tool to first convert "
              "it to ASP's format, and later refine that using another invocation. "
              "Note that camera refinement will not preserve the camera center.\n");
-      
+  
+  if (opt.camera_type == "pinhole" && ext == ".json" && !opt.planet_pinhole && 
+      opt.pixel_pitch != 1)
+    vw_throw(ArgumentErr() << "Can create a CSM frame camera only if the pixel pitch is 1.\n");
+    
   // If we cannot read the data from a DEM, must specify a lot of things.
-  if (!opt.input_pinhole && opt.reference_dem.empty() && opt.datum_str.empty())
+  if (!opt.planet_pinhole && opt.reference_dem.empty() && opt.datum_str.empty())
     vw_throw(ArgumentErr() << "Must provide either a reference DEM or a datum.\n");
 
   if (opt.gcp_std <= 0) 
     vw_throw(ArgumentErr() << "The GCP standard deviation must be positive.\n");
 
-  if (!opt.input_pinhole && opt.frame_index != "" && opt.lon_lat_values_str != "") 
+  if (!opt.planet_pinhole && opt.frame_index != "" && opt.lon_lat_values_str != "") 
     vw_throw(ArgumentErr() << "Cannot specify both the frame index file "
 	      << "and the lon-lat corners.\n");
 
@@ -469,7 +474,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                  << "height constraint at the same time.\n");
   
   // TODO(oalexan1): Break up this big loop
-  if (!opt.input_pinhole && opt.frame_index != "") {
+  if (!opt.planet_pinhole && opt.frame_index != "") {
     // Parse the frame index to extract opt.lon_lat_values_str.
     // Look for a line having this image, and search for "POLYGON" followed by spaces and "((".
     boost::filesystem::path p(opt.image_file); 
@@ -567,7 +572,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   parse_values<double>(opt.pixel_values_str, opt.pixel_values);
 
   // If none were provided, use the image corners
-  if (!opt.input_pinhole && opt.pixel_values.empty()) {
+  if (!opt.planet_pinhole && opt.pixel_values.empty()) {
     DiskImageView<float> img(opt.image_file);
     int wid = img.cols(), hgt = img.rows();
     if (wid <= 0 || hgt <= 0) 
@@ -589,7 +594,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
     
   // Parse the lon-lat values
-  if (!opt.input_pinhole && opt.input_camera == "") {
+  if (!opt.planet_pinhole && opt.input_camera == "") {
     parse_values<double>(opt.lon_lat_values_str, opt.lon_lat_values);
     // Bug fix for some frame_index files repeating the first point at the end
     int len = opt.lon_lat_values.size();
@@ -602,11 +607,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
   
   // Note that optical center can be negative (for some SkySat products).
-  if (!opt.input_pinhole &&
+  if (!opt.planet_pinhole &&
       opt.sample_file == "" &&
       (opt.focal_length <= 0 || opt.pixel_pitch <= 0))
     vw_throw(ArgumentErr() << "Must provide positive focal length "
               << "and pixel pitch values, or a sample file to read these from.\n");
+
+  if (opt.sample_file != "" && 
+      (!vm["focal-length"].defaulted() || !vm["optical-center"].defaulted() ||
+        !vm["distortion"].defaulted()))
+    vw::vw_throw(vw::ArgumentErr() << "Cannot specify both a sample file and "
+              << "focal length, optical center, or distortion.\n");
 
   if ((opt.parse_eci || opt.parse_ecef) && opt.camera_type == "opticalbar") 
     vw_throw(ArgumentErr() << "Cannot parse ECI/ECEF data for an optical bar camera.\n");
@@ -660,8 +671,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 } // End function handle_arguments
 
+// Concatenate vector elements to a string, with a space separator
+std::string vec2str(std::vector<double> const& vec) {
+  std::ostringstream os;
+  for (size_t it = 0; it < vec.size(); it++) {
+    os << vec[it];
+    if (it < vec.size() - 1) os << " ";
+  }
+  return os.str();
+}
+ 
 // Form a camera based on info the user provided
-void manufacture_cam(Options const& opt, int wid, int hgt,
+void manufacture_cam(Options & opt, int wid, int hgt,
 		     boost::shared_ptr<CameraModel> & out_cam) {
 
   if (opt.camera_type == "opticalbar") {
@@ -672,9 +693,27 @@ void manufacture_cam(Options const& opt, int wid, int hgt,
     opticalbar_cam->set_image_size(Vector2i(wid, hgt));
     opticalbar_cam->set_optical_center(Vector2(wid/2.0, hgt/2.0));
     out_cam = opticalbar_cam;
-  } else if (opt.camera_type == "pinhole") {
+  } else if (opt.camera_type == "pinhole") { // csm frame comes here too
+
+    std::string ext = get_extension(opt.sample_file);
+    if (opt.sample_file != "" && ext == ".json") {
+      // Read the intrinsics from the csm file. The distortion will be set later.
+      asp::CsmModel csm(opt.sample_file);
+      opt.focal_length = csm.focal_length();
+      opt.optical_center = csm.optical_center(); 
+      opt.distortion = csm.distortion();
+      if (opt.distortion.size() == 5)
+        opt.distortion_type = "radtan";
+      else if (opt.distortion.size() == 20)
+        opt.distortion_type = "transverse";
+      else
+        vw_throw(ArgumentErr() 
+                 << "Unsupported distortion model in: " << opt.sample_file << ".\n");
+    }
+  
     boost::shared_ptr<PinholeModel> pinhole_cam;
-    if (opt.sample_file != "") {
+    if (opt.sample_file != "" && ext != ".json") {
+      std::string ext = get_extension(opt.sample_file);
       // Use the initial guess from file
       pinhole_cam.reset(new PinholeModel(opt.sample_file));
     } else {
@@ -1174,7 +1213,7 @@ int main(int argc, char * argv[]) {
     // Output camera
     boost::shared_ptr<CameraModel> out_cam;
 
-    if (!opt.input_pinhole) {
+    if (!opt.planet_pinhole) {
       // Create a camera using user-specified options. Read geo and interp_dem.
       form_camera(opt, geo, interp_dem, input_camera_ptr, out_cam);
     } else {
