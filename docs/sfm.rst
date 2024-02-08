@@ -586,17 +586,11 @@ and rotation matrix::
    C = 0 0 0
    R = 1 0 0 0 1 0 0 0 1
    pitch = 0.0064
-   Photometrix
-   xp = 0.004
-   yp = -0.191
-   k1 = 1.31024e-04
-   k2 = -2.05354e-07
-   k3 = -5.28558e-011
-   p1 = 7.2359e-006
-   p2 = 2.2656e-006
-   b1 = 0.0
-   b2 = 0.0
+   NULL
 
+Here we used a simple Pinhole model with no distortion
+(:numref:`pinholemodels`).
+  
 Next, one creates a ground control points (GCP) file (:numref:`bagcp`),
 named, for example, ``gcp.gcp``, containing the pixel positions and
 longitude and latitude of the corners or other known pixels (the
@@ -626,24 +620,29 @@ One runs bundle adjustment with this data::
       --inline-adjustments        \
       --init-camera-using-gcp     \
       --camera-weight 0           \
-      --max-iterations 0          \
-      --robust-threshold 10       \
+      --max-iterations 100        \
+      --robust-threshold 100      \
       -o ba/run
 
 which will write the desired correctly oriented camera file as
-``ba/run-cam.tsai``. Using a positive number of iterations will refine
-the camera. This should be run for each individual camera.
+``ba/run-cam.tsai``. This should be run for each individual camera.
 
 The datum field should be adjusted depending on the planet.
 
-It is important to look at the residual file::
+It is very important to inspect the file::
 
-     run/run-final_residuals_pointmap.csv
+  ba/run-final_residuals_pointmap.csv
 
-after this. The third column in this file is the optimized heights above
-the datum, while the fourth column has the reprojection errors from the
-corners on the ground into the camera.
+and look at the 4th column. Those will be the pixel residuals (reprojection
+error into cameras). They should be maybe a dozen pixels each, otherwise there
+is a mistake. 
+  
+Then, validate the result by running ``mapproject`` onto a desired DEM, as::
 
+  mapproject dem.tif img.tif ba/run-cam.tsai img.map.tif
+
+and overlay the result on top of the DEM.
+  
 If bundle adjustment is invoked with a positive number of iterations,
 and with a small value for the robust threshold, it tends to optimize
 only some of the corners and ignore the others, resulting in a large

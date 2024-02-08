@@ -971,8 +971,10 @@ So far we discussed refining the intrinsics for pinhole (frame) cameras, such as
 in :numref:`heights_from_dem`, and for linescan cameras, such as in
 :numref:`kaguya_ba`.
 
-Here we will consider the situation when we have both. It is assumed that the images
-acquired with these sensors are close in time and have similar illumination. 
+Here we will consider the situation when we have both. It is assumed that the
+images acquired with these sensors are close in time and have similar
+illumination. There should be a solid amount of image overlap, especially in the
+corners of the images whose distortion should be optimized. 
 
 It will be illustrated how the presumably more accurate linescan sensor images
 can be used to refine the intrinsics of the frame sensor.

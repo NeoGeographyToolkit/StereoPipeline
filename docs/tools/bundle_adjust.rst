@@ -841,7 +841,8 @@ Command-line options
     specify here, in quotes, one or more of: ``focal_length``,
     ``optical_center``, ``other_intrinsics`` (same as ``distiortion``). Not
     specifying anything will float all of them. Also can specify ``all`` or
-    ``none``.
+    ``none``. See :numref:`ba_frame_linescan` for controlling these per
+    each group of cameras sharing a sensor.
 
 --intrinsics-to-share <string (default: "")>
     If solving for intrinsics and desired to share only a few of them across all
