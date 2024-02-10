@@ -36,7 +36,6 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
-#include <boost/filesystem/path_traits.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 #include <boost/dll.hpp>
@@ -690,7 +689,7 @@ asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
 void asp::set_srs_string(std::string srs_string, bool have_user_datum,
                          vw::cartography::Datum const& user_datum,
                          bool have_input_georef,
-                         vw::cartography::GeoReference & georef){
+                         vw::cartography::GeoReference & georef) {
 
 // Should we even build ASP if this is disabled?
 #if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
@@ -712,17 +711,19 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   if (have_user_datum)
     srs_string += " " + user_datum.proj4_str();
 
+  // TODO(oalexan1): Must wipe all this and call directly georef.set_wkt.
+  // TODO(oalexan1): Deal with datum name!
   vw::cartography::GeoReference input_georef = georef;
-  
   OGRSpatialReference gdal_spatial_ref;
-  if (gdal_spatial_ref.SetFromUserInput( srs_string.c_str() ))
-    vw_throw( ArgumentErr() << "Failed to parse: \"" << srs_string << "\"." );
+  if (gdal_spatial_ref.SetFromUserInput(srs_string.c_str()) != OGRERR_NONE)
+    vw::vw_throw(vw::ArgumentErr() << "Failed to parse: \"" << srs_string << "\"." );
   char *wkt_str_tmp = NULL;
-  gdal_spatial_ref.exportToWkt( &wkt_str_tmp );
+  gdal_spatial_ref.exportToWkt(&wkt_str_tmp);
   srs_string = wkt_str_tmp;
   CPLFree(wkt_str_tmp);
   georef.set_wkt(srs_string);
 
+#if 0  
   // Re-apply the user's datum. The important values were already
   // there (major/minor axis), we're just re-applying to make sure
   // the name of the datum is there in case it was not resolved so far.
@@ -747,6 +748,7 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
     if (boost::to_lower_copy(georef.get_projcs_name()).find("unnamed") != std::string::npos) 
       georef.set_projcs_name(input_georef.get_projcs_name());
   }
+#endif
 
 #else
   vw_throw( NoImplErr() << "Target SRS option is not available without GDAL support. Please rebuild VW and ASP with GDAL." );
