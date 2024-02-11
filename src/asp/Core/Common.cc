@@ -286,6 +286,7 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
       cameras.push_back("");
   }
   
+  return;
 }
 
 /// Parse the list of files specified as positional arguments on the command line
@@ -295,7 +296,6 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
                                     std::vector<std::string>       &camera_paths,
                                     std::string                    &prefix,
                                     std::string                    &dem_path) {
-
   // Init outputs
   image_paths.clear();
   camera_paths.clear();
@@ -308,15 +308,16 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
   bool has_georef = false;
   try{ // Just try to load the last file path as a dem
     cartography::GeoReference georef;
-    has_georef = read_georeference( georef, files.back() );
-  }catch(...){}
-  if (has_georef){ // I guess it worked!
+    has_georef = read_georeference(georef, files.back());
+  } catch(...) {}
+  
+  if (has_georef) { // I guess it worked
     dem_path = files.back();
     files.pop_back();
   }else{ // We tried to load the prefix, there is no dem.
     dem_path = "";
   }
-  if (files.size() < 3){
+  if (files.size() < 3) {
     vw_throw( ArgumentErr() << "Expecting at least three inputs to stereo.\n");
     return false;
   }
@@ -691,9 +692,6 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
                          bool have_input_georef,
                          vw::cartography::GeoReference & georef) {
 
-// Should we even build ASP if this is disabled?
-#if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
-
   // When an EPSG code is provided, store the name so that
   //  it shows up when the GeoReference object is written
   //  out to disk.
@@ -749,11 +747,6 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
       georef.set_projcs_name(input_georef.get_projcs_name());
   }
 #endif
-
-#else
-  vw_throw( NoImplErr() << "Target SRS option is not available without GDAL support. Please rebuild VW and ASP with GDAL." );
-#endif
-
 }
 
 // Write a vector of strings from a file, one per line.
