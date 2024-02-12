@@ -645,11 +645,14 @@ bool asp::is_las_or_csv_or_pcd(std::string const& file){
 
 bool asp::read_user_datum(double semi_major, double semi_minor,
                           std::string const& reference_spheroid,
-                          cartography::Datum& datum ) {
+                          cartography::Datum& datum) {
   // Select a cartographic datum. There are several hard coded datums
   // that can be used here, or the user can specify their own.
   if ( reference_spheroid != "" ) {
     datum.set_well_known_datum(reference_spheroid);
+  } else if (semi_major == 6378137 &&
+             std::abs(semi_minor - 6356752.3142451793) < 1e-6) {
+    datum.set_well_known_datum("WGS84");
   } else if (semi_major > 0 && semi_minor > 0) {
     datum = cartography::Datum("User Specified Datum",
                                "User Specified Spheroid",
