@@ -14,7 +14,7 @@ set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
                  time_trials          camera_calibrate
                  camera_solve         parallel_sfs
                  mapproject           parallel_bundle_adjust
-                 historical_helper.py datum_convert
+                 historical_helper.py 
                  bathy_threshold_calc.py 
                  scale_bathy_mask.py
                  crs2crs2grid.py 
@@ -63,10 +63,6 @@ install(TARGETS coverage_fraction DESTINATION bin)
 add_executable(disparitydebug disparitydebug.cc)
 target_link_libraries(disparitydebug AspCore AspSessions)
 install(TARGETS disparitydebug DESTINATION bin)
-
-add_executable(datum_convert_cpp datum_convert_cpp.cc)
-target_link_libraries(datum_convert_cpp AspCore AspSessions)
-install(TARGETS datum_convert_cpp DESTINATION libexec)
 
 add_executable(geodiff geodiff.cc)
 target_link_libraries(geodiff AspCore AspSessions)

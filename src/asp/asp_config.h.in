@@ -120,9 +120,6 @@
 /* Define to 1 if the CURL package is available. */
 #cmakedefine ASP_HAVE_PKG_CURL 1
 
-/* Define to 1 if the DATUM_CONVERT app is available. */
-//#cmakedefine ASP_HAVE_PKG_DATUM_CONVERT
-
 /* Define to 1 if the DEMPROFILE app is available. */
 //#cmakedefine ASP_HAVE_PKG_DEMPROFILE
 
