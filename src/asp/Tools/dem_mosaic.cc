@@ -301,18 +301,6 @@ GeoReference read_georef(std::string const& file){
   return geo;
 }
 
-std::string processed_proj4(std::string const& srs){
-  // Apparently functionally identical proj4 strings can differ in
-  // subtle ways, such as an extra space, etc. For that reason, must
-  // parse and process any srs string before comparing it with another string.
-  GeoReference georef;
-  bool  have_user_datum = false, have_input_georef = false;
-  Datum user_datum;
-  asp::set_srs_string(srs, have_user_datum, user_datum,
-                      have_input_georef, georef);
-  return georef.overall_proj4_str();
-}
-
 struct Options: vw::GdalWriteOptions {
   std::string dem_list_file, out_prefix, target_srs_string,
     output_type, tile_list_str, this_dem_as_reference;
@@ -734,11 +722,11 @@ public:
           double y = in_pix[1] - in_box.min().y();
           DoubleGrayA pval;
 
-          int i0 = round(x),  // Round to nearest integer location
-              j0 = round(y);
+          // Round to nearest integer location
+          int i0 = round(x), j0 = round(y);
           if ((fabs(x-i0) < g_tol) && (fabs(y-j0) < g_tol) &&
               ((i0 >= 0) && (i0 <= dem.cols()-1) &&
-               (j0 >= 0) && (j0 <= dem.rows()-1))){
+               (j0 >= 0) && (j0 <= dem.rows()-1))) {
 
             // A lot of care is needed here. We are at an integer
             // pixel, save for numerical error. Just borrow pixel's
@@ -1204,11 +1192,11 @@ void load_dem_bounding_boxes(Options       const& opt,
     // Compute bounding box of this DEM. The simple case is when all DEMs have
     // the same projection, and it is not longlat, as then we need to worry about
     // a 360 degree shift.
-    if ((!has_lonat) && mosaic_georef.overall_proj4_str() == georef.overall_proj4_str()){
+    if ((!has_lonat) && mosaic_georef.get_wkt() == georef.get_wkt()) {
       BBox2 proj_box = georef.bounding_box(img);
       mosaic_bbox.grow(proj_box);
       dem_proj_bboxes.push_back(proj_box);
-    }else{
+    } else {
       // Compute the bounding box of the current image in projected
       // coordinates of the mosaic. There is always a worry that the
       // lonlat of the mosaic so far and of the current DEM will be
@@ -1224,7 +1212,7 @@ void load_dem_bounding_boxes(Options       const& opt,
         // the first DEM lonlat box and the mosaic lonlat box
         // may be offset by 360 degrees?
         mosaic_pixel_box = imgbox;
-      }else{
+      } else {
         mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
       }
       
@@ -1574,7 +1562,7 @@ int main(int argc, char *argv[]) {
     // without casting to float. If it is float, cast to float.
     
     // Read nodata from first DEM, unless the user chooses to specify it.
-    if (!opt.has_out_nodata){
+    if (!opt.has_out_nodata) {
       DiskImageResourceGDAL in_rsrc(opt.dem_files[0]);
       // Since the DEMs have float pixels, we must read the no-data as
       // float as well. (this is a bug fix). Yet we store it in a
@@ -1595,8 +1583,6 @@ int main(int argc, char *argv[]) {
 
     // Form the mosaic georef. The georef of the first DEM is used as
     // initial guess unless user wants to change the resolution and projection.
-    if (opt.target_srs_string != "")
-      opt.target_srs_string = processed_proj4(opt.target_srs_string);
 
     // By default the output georef is equal to the first input georef
     GeoReference mosaic_georef = read_georef(opt.dem_files[0]);
@@ -1617,36 +1603,22 @@ int main(int argc, char *argv[]) {
     }
   
     double spacing = opt.tr;
-    if (opt.target_srs_string != ""                                              &&
-      opt.target_srs_string != processed_proj4(mosaic_georef.overall_proj4_str()) &&
-      spacing <= 0){
+    if (opt.target_srs_string != "" && spacing <= 0){
         vw_throw(ArgumentErr()
            << "Changing the projection was requested. The output DEM "
            << "resolution must be specified via the --tr option.\n");
     }
 
-    if (opt.target_srs_string != ""){
+    if (opt.target_srs_string != "") {
       // Set the srs string into georef.
       bool have_user_datum = false, have_input_georef = false;
       Datum user_datum;
-      asp::set_srs_string(opt.target_srs_string,
-			  have_user_datum, user_datum,
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum,
                           have_input_georef, mosaic_georef);
     }
 
-    // Steal the datum and its name from the input, if the output
-    // datum name is unknown.
-    if (mosaic_georef.datum().name() == "unknown"){
-      GeoReference georef = read_georef(opt.dem_files[0]);
-      if (mosaic_georef.datum().semi_major_axis() == georef.datum().semi_major_axis() &&
-    	  mosaic_georef.datum().semi_minor_axis() == georef.datum().semi_minor_axis()){
-          vw_out() << "Using the datum: " << georef.datum() << std::endl;
-          mosaic_georef.set_datum(georef.datum());
-      }
-    }
-
     // Use desired spacing if user-specified
-    if (spacing > 0.0){
+    if (spacing > 0.0) {
       // Get lonlat bounding box of the first DEM.
       DiskImageView<RealT> dem0(opt.dem_files[0]);
       BBox2 llbox0 = mosaic_georef.pixel_to_lonlat_bbox(bounding_box(dem0));
@@ -1662,13 +1634,16 @@ int main(int argc, char *argv[]) {
       // maps to the lonlat box corner. This is still not fully
       // reliable, but better than nothing. We will adjust
       // mosaic_georef later on.
-      vw::Vector2 ul = mosaic_georef.lonlat_to_pixel(Vector2(llbox0.min().x(), llbox0.max().y()));
+      vw::Vector2 ul = mosaic_georef.lonlat_to_pixel(Vector2(llbox0.min().x(), 
+                                                             llbox0.max().y()));
       mosaic_georef = crop(mosaic_georef, ul.x(), ul.y());
+
 
     }else {
       // Update spacing variable from the current transform
       spacing = mosaic_georef.transform()(0, 0);
     }
+    
     
     // if the user specified the tile size in georeferenced units.
     if (opt.geo_tile_size > 0){
@@ -1874,7 +1849,7 @@ int main(int argc, char *argv[]) {
     // If there are 17 tiles, let them be tile-00, ..., tile-16.
     int num_digits = 1;
     int tens = 10;
-    while (num_tiles - 1 >= tens){
+    while (num_tiles - 1 >= tens) {
       num_digits++;
       tens *= 10;
     }
@@ -1912,7 +1887,9 @@ int main(int argc, char *argv[]) {
                tile_box);
       GeoReference crop_georef = crop(mosaic_georef, tile_box.min().x(),
 				      tile_box.min().y());
-
+      // Update the lon-lat box given that we know the final georef and image size
+      crop_georef.ll_box_from_pix_box(BBox2i(0, 0, cols, rows));
+      
       // Raster the tile to disk. Optionally cast to int (may be
       // useful for mosaicking ortho images).
       vw_out() << "Writing: " << dem_tile << std::endl;

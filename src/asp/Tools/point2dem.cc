@@ -468,7 +468,7 @@ void set_projection(DemOptions const& opt, cartography::GeoReference & output_ge
     case GNOMONIC:             output_georef.set_gnomonic             (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
     case LAMBERTAZIMUTHAL:     output_georef.set_lambert_azimuthal    (opt.proj_lat, opt.proj_lon,                 opt.false_easting, opt.false_northing); break;
     case UTM:                  output_georef.set_UTM(opt.utm_zone); break;
-    default: // Handles plate carree
+    default: // lonlat projection
       break;
   }
   
@@ -561,6 +561,9 @@ int main(int argc, char *argv[]) {
         opt.max_valid_triangulation_error = 0.0;
       }
     }
+    
+    // TODO(oalexan1): Do we need anywhere here the lon-lat window?
+    // E.g.: georef.ll_box_from_pix_box(image_bbox);
     
     // Determine if we should be using a longitude range between
     // [-180, 180] or [0,360]. We determine this by looking at the

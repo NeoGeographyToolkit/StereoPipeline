@@ -709,6 +709,7 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   if (have_user_datum)
     srs_string += " " + user_datum.proj4_str();
 
+  // TODO(oalexan1): Rename set_wkt to set_srs.
   // TODO(oalexan1): Must wipe all this and call directly georef.set_wkt.
   // TODO(oalexan1): Deal with datum name!
   vw::cartography::GeoReference input_georef = georef;
@@ -721,6 +722,8 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   CPLFree(wkt_str_tmp);
   georef.set_wkt(srs_string);
 
+// TODO(oalexan1): Wipe the code below once the regressions show that 
+// it is no longer needed.
 #if 0  
   // Re-apply the user's datum. The important values were already
   // there (major/minor axis), we're just re-applying to make sure

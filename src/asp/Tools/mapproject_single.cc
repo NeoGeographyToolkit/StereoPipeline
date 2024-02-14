@@ -446,24 +446,25 @@ void calc_target_geom(// Inputs
   T(0,0) =  current_resolution;  // Set col/X conversion to meters per pixel
   T(1,1) = -current_resolution;  // Set row/Y conversion to meters per pixel with a vertical flip (increasing row = down in Y)
   T(1,2) = cam_box.max().y();       // The maximum projected Y coordinate is the starting offset
-  if ( target_georef.pixel_interpretation() ==
-       GeoReference::PixelAsArea ) { // Meaning point [0][0] equals location (0.5, 0.5)
+  if (target_georef.pixel_interpretation() == GeoReference::PixelAsArea) { 
+    // Meaning point [0][0] equals location (0.5, 0.5)
     T(0,2) -= 0.5 * current_resolution; // Apply a small shift to the offsets
     T(1,2) += 0.5 * current_resolution;
   }
   target_georef.set_transform(T); // Overwrite the existing transform in target_georef
 
   // Compute output image size in pixels using bounding box in output projected space
-  BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );
+  BBox2i target_image_size = target_georef.point_to_pixel_bbox(cam_box);
 
   // Last adjustment, to ensure 0 0 is always in the box corner
-  target_georef = crop(target_georef, target_image_size.min().x(), target_image_size.min().y());
+  // TODO(oalexan1): Does cropping require updating the georef ll box?
+  target_georef = crop(target_georef, target_image_size.min().x(), 
+                       target_image_size.min().y());
 
   return;
 }
 
-
-/// Map project the image with a nodata value.  Used for single channel images.
+/// Mapproject the image with a nodata value.  Used for single channel images.
 template <class ImagePixelT, class Map2CamTransT>
 void project_image_nodata(Options & opt,
                           GeoReference const& croppedGeoRef,
@@ -809,10 +810,8 @@ int main(int argc, char* argv[]) {
     vw_out() << std::setprecision(17) << "Projected space bounding box: " << cam_box << std::endl;
 
     // Compute output image size in pixels using bounding box in output projected space
-    BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );
+    BBox2i target_image_size = target_georef.point_to_pixel_bbox(cam_box);
 
-    vw_out() << std::setprecision(17) << "Image box: " << target_image_size << std::endl;
-    
     // Very important note: this box may be in the middle of the
     // image.  However, the virtual image we create with
     // transform_nodata() below is assumed to start at (0, 0), and in
@@ -834,15 +833,18 @@ int main(int argc, char* argv[]) {
       // Update output georeference to match the reduced image size
       croppedGeoRef = vw::cartography::crop(target_georef, croppedImageBB);
     }
-    //vw_out() << "croppedImageBB = " << croppedImageBB << std::endl;
-    //vw_out() << "\nCROPPED georeference:\n"        << croppedGeoRef << std::endl;
 
     // Important: Don't modify the line below, we count on it in mapproject.in.
     vw_out() << "Output image size:\n";
     vw_out() << std::setprecision(17) << "(width: " << virtual_image_width
              << " height: " << virtual_image_height << ")" << std::endl;
 
-    if (opt.isQuery){ // Quit before we do any image work
+    // Form the lon-lat bounding box of the output image. This helps with
+    // geotransform operations and should be done any time a georef is modified.
+    BBox2 image_bbox(0, 0, virtual_image_width, virtual_image_height);
+    croppedGeoRef.ll_box_from_pix_box(image_bbox);
+
+    if (opt.isQuery) { // Quit before we do any image work
       vw_out() << "Query finished, exiting mapproject tool.\n";
       return 0;
     }
