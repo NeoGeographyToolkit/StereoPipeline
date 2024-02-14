@@ -85,7 +85,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   po::options_description projection_options("Projection options");
   projection_options.add_options()
     ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), 
-     "Specify the output projection (PROJ.4 string). Can also be an URL or in WKT format, as for GDAL.")
+     "Specify the output projection as a GDAL projection sting (WKT, GeoJSON, or PROJ.4). If not provided, may be read from the point cloud, if available.")
     ("t_projwin",     po::value(&opt.target_projwin),
      "The output DEM will have corners with these georeferenced coordinates. The actual spatial extent (ground footprint) is obtained by expanding this box by half the grid size.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),
@@ -408,7 +408,6 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
   // Need to pass in by pointer because we can't get back the number from
   //  the original rasterizer object otherwise for some reason.
   std::int64_t num_invalid_pixels = 0;
-  
   asp::OrthoRasterizerView
     rasterizer(proj_points.impl(), select_channel(proj_points.impl(),2),
                opt.search_radius_factor, opt.sigma_factor, opt.use_surface_sampling,
@@ -423,7 +422,7 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
 
   sw1.stop();
   vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
-
+  
   // Perform other rasterizer configuration
   rasterizer.set_use_alpha(opt.has_alpha);
   rasterizer.set_use_minz_as_default(false);
@@ -504,15 +503,11 @@ int main(int argc, char *argv[]) {
     // rather than lon, lat. Otherwise, we honor the user's requested
     // projection and convert the points if necessary.
     if (opt.target_srs_string.empty()) {
-
       if (have_user_datum)
         output_georef.set_datum(user_datum);
-      
       set_projection(opt, output_georef);
-      
-    } else { // The user specified the target srs_string
-
-      // Set the srs string into georef.
+    } else {
+      // Set the user-specified the target srs_string into georef
       asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum,
                           have_input_georef, output_georef);
     }
@@ -566,20 +561,19 @@ int main(int argc, char *argv[]) {
     // E.g.: georef.ll_box_from_pix_box(image_bbox);
     
     // Determine if we should be using a longitude range between
-    // [-180, 180] or [0,360]. We determine this by looking at the
-    // average location of the points. If the average location has a
-    // negative x value (think in ECEF coordinates) then we should
-    // be using [0,360].
-    double avg_lon = asp::find_avg_lon(point_image);
-
+    // [-180, 180] or [0,360]. The former is used, unless the latter
+    // results in a tighter range of longitudes, such as when crossing
+    // the international date line.
+    vw::BBox2 lonlat_box = asp::estim_lonlat_box(point_image, output_georef.datum());
+    output_georef.set_image_ll_box(lonlat_box);
+    
     // TODO: Do we need the recenter code now that we have this?
     // TODO: Modify other code so we don't have to handle this one special case!
     // Forcing the georef object outside its comfort zone is not safe for all projections!
-    if (output_georef.overall_proj4_str().find("+proj=aea") == std::string::npos)
-      output_georef.set_lon_center(avg_lon < 100);
-    
+
     if (opt.auto_proj_center) {
-      // Find the median lon lat and reapply this to the georef
+      // Find the median lon lat and reapply this to the georef. Must be done
+      // after estimating the lonlat box.
       asp::median_lon_lat(point_image, output_georef, opt.proj_lon, opt.proj_lat);
       set_projection(opt, output_georef);
     }
@@ -593,22 +587,19 @@ int main(int argc, char *argv[]) {
       vw_out() << "\t--> Assuming the input cloud is already projected.\n";
       proj_points = point_image;
     } else {
+      // TODO(oalexan1): Wipe the --x-offset, etc, not used.
       if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {
         vw_out() << "\t--> Applying offset: " << opt.lon_offset
                 << " " << opt.lat_offset << " " << opt.height_offset << "\n";
         proj_points
           = geodetic_to_point         // GDC to XYZ
           (asp::point_image_offset    // Add user coordinate offset
-          (asp::recenter_longitude    // XYZ to GDC, then normalize longitude
             (cartesian_to_geodetic(point_image, output_georef),
-            avg_lon),
             Vector3(opt.lon_offset, opt.lat_offset, opt.height_offset)
           ),
           output_georef);
       } else {
-        proj_points = geodetic_to_point(asp::recenter_longitude
-                                        (cartesian_to_geodetic(point_image, output_georef),
-                                        avg_lon),
+        proj_points = geodetic_to_point(cartesian_to_geodetic(point_image, output_georef),
                                         output_georef);
       }
     }
@@ -624,7 +615,6 @@ int main(int argc, char *argv[]) {
           error_image.rows() != point_image.rows()) 
         vw_throw(ArgumentErr() 
                  << "The error image and point image must have the same size.");
-
       estim_max_error = asp::estim_max_tri_error_and_proj_box(proj_points, error_image,
                                                          opt.remove_outliers_params,
                                                          estim_proj_box);

@@ -130,11 +130,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Compress using laszip.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("datum", po::value(&opt.datum),
-          "Create a geo-referenced LAS file in respect to this datum. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+     "Create a geo-referenced LAS file in respect to this datum. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),
      "This is identical to the datum option.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
-     "Specify a custom projection (PROJ.4 string).")
+     "Specify the output projection as a GDAL projection sting (WKT, GeoJSON, or PROJ.4). If not provided, may be read from the point cloud, if available.")
     ("remove-outliers-params", po::value(&opt.outlier_removal_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
      "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("use-tukey-outlier-removal", po::bool_switch(&opt.use_tukey_outlier_removal)->default_value(false)->implicit_value(true),
@@ -286,12 +286,12 @@ int main(int argc, char *argv[]) {
 
     // Save the las file with given georeference, if present
     ImageViewRef<Vector3> point_image = asp::read_asp_point_cloud<3>(opt.pointcloud_file);
+    // See if to use [-180, 180] or [0, 360]
+    vw::BBox2 lonlat_box = asp::estim_lonlat_box(point_image, georef.datum());
+    georef.set_image_ll_box(lonlat_box);
     if (is_geodetic) {
       point_image = cartesian_to_geodetic(point_image, datum);
-      // See if to use [-180, 180] or [0, 360]
-      double avg_lon = asp::find_avg_lon(point_image); 
-      point_image = geodetic_to_point(asp::recenter_longitude(point_image, avg_lon), 
-                                      georef);
+      point_image = geodetic_to_point(point_image, georef);
     }
 
     BBox3 cloud_bbox = asp::pointcloud_bbox(point_image, is_geodetic);

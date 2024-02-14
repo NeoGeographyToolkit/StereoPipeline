@@ -390,6 +390,7 @@ namespace asp{
     return max_val * cutoff_index / double(hist_size);
   }
   
+  // TODO(oalexan1): Wipe the surface sampling option.
   OrthoRasterizerView::OrthoRasterizerView
   (ImageViewRef<Vector3> point_image, ImageViewRef<double> texture,
    double search_radius_factor, double sigma_factor, bool use_surface_sampling, int pc_tile_size,
@@ -457,6 +458,10 @@ namespace asp{
     // greatly increase the memory usage and run-time for very large
     // images (because they are very many). As such, make the chunks
     // bigger for bigger images.
+    // Creating each task also has overhead from copying the 
+    // georeferences.
+    // TODO(oalexan1): Check how big these are. Maybe
+    // they should be as many tasks as there are threads or 2x that.
     double s = 10000.0;
     int sub_block_size
       = int(double(point_image.cols())*double(point_image.rows())/(s*s));

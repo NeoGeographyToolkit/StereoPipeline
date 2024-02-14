@@ -447,8 +447,8 @@ public:
 
 }; // End class CloudToTif
 
-// We will fetch a chunk of the las file of area TILE_LEN x
-// TILE_LEN, split it into bins of spatially close points, and write
+// We will fetch a chunk of the las file of area ASP_POINT_CLOUD_TILE_LEN x
+// ASP_POINT_CLOUD_TILE_LEN, split it into bins of spatially close points, and write
 // it to disk as a tile in a vector tif image. The bigger the tile
 // size, the more likely the binning will be more efficient. But big
 // tiles use a lot of memory. Each tile will be partitioned in chips
@@ -466,8 +466,7 @@ void las_or_csv_to_tif(std::string const& in_file,
   out_files.clear();
     
   // To do: Study performance for large files when this number changes
-  const int TILE_LEN = 2048;
-  Vector2i tile_size(TILE_LEN, TILE_LEN);
+  Vector2i tile_size(ASP_POINT_CLOUD_TILE_LEN, ASP_POINT_CLOUD_TILE_LEN);
 
   // Temporarily change the raster tile size
   Vector2 original_tile_size = opt.raster_tile_size;
@@ -492,12 +491,12 @@ void las_or_csv_to_tif(std::string const& in_file,
     num_points = asp::las_file_size(in_file);
   else
     num_points = reader_ptr->m_num_points; 
-  int num_row_tiles = std::max(1, (int)ceil(double(num_rows)/TILE_LEN));
-  int image_rows = TILE_LEN * num_row_tiles;
+  int num_row_tiles = std::max(1, (int)ceil(double(num_rows)/ASP_POINT_CLOUD_TILE_LEN));
+  int image_rows = ASP_POINT_CLOUD_TILE_LEN * num_row_tiles;
 
   int points_per_row = (int)ceil(double(num_points)/image_rows);
-  int num_col_tiles  = std::max(1, (int)ceil(double(points_per_row)/TILE_LEN));
-  int image_cols = TILE_LEN * num_col_tiles;
+  int num_col_tiles  = std::max(1, (int)ceil(double(points_per_row)/ASP_POINT_CLOUD_TILE_LEN));
+  int image_cols = ASP_POINT_CLOUD_TILE_LEN * num_col_tiles;
 
   if (asp::is_las(in_file)) { // LAS
     // Has to be handled differently, as we read the file in streaming fashion.
@@ -517,7 +516,7 @@ void las_or_csv_to_tif(std::string const& in_file,
     int buf_size = 100;
     pdal::FixedPointTable t(buf_size);
     pdal_reader.prepare(t);
-    pdal::ChipMaker writer(TILE_LEN, block_size, has_georef, las_georef, 
+    pdal::ChipMaker writer(ASP_POINT_CLOUD_TILE_LEN, block_size, has_georef, las_georef, 
                            opt, out_prefix, out_files);
     pdal::Options write_options;
     writer.setOptions(write_options);

@@ -41,7 +41,7 @@ namespace asp {
   bool georef_from_pc_files(std::vector<std::string> const& files,
 			    vw::cartography::GeoReference & georef);
 
-  /// Fetch a chunk of the las file of area TILE_LEN x TILE_LEN,
+  /// Fetch a chunk of the las file of area ASP_POINT_CLOUD_TILE_LEN x ASP_POINT_CLOUD_TILE_LEN ,
   /// split it into bins of spatially close points, and write
   /// it to disk as a tile in a vector tif image.
   void las_or_csv_to_tif(std::string const& in_file,

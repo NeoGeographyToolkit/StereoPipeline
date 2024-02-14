@@ -822,42 +822,82 @@ vw::BBox3 asp::pointcloud_bbox(vw::ImageViewRef<vw::Vector3> const& point_image,
   return result;
 }
 
-// Find the average longitude for a given point image with lon, lat, height values.
-// The computation is done in cartesian coordinates. Then look at the produced
-// x value. That correlates with a hemisphere.
-double asp::find_avg_lon(ImageViewRef<Vector3> const& point_image) {
+// Determine if we should be using a longitude range between
+// [-180, 180] or [0,360]. The former is used, unless the latter
+// results in a tighter range of longitudes, such as when crossing
+// the international date line.
+vw::BBox2 asp::estim_lonlat_box(vw::ImageViewRef<vw::Vector3> const& point_image, 
+                                vw::cartography::Datum const& datum) {
 
   Stopwatch sw;
   sw.start();
-  int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
-                                             point_image.rows()))/32.0);
-  if (subsample_amt < 1)
-    subsample_amt = 1;
   
-  ImageViewRef<Vector3> sub_image = subsample(point_image, subsample_amt);
-  
-  // Accumulate valid values
-  Vector3 avg_location(0, 0, 0);
-  double num = 0;
-  for (int32 col = 0; col < sub_image.cols(); col++) {
-    for (int32 row = 0; row < sub_image.rows(); row++) {
-      auto pix = sub_image(col, row);
-      if (pix == Vector3())
-        continue;
-      avg_location += pix;
-      num += 1.0;
+  // Do two attempts. Need this heuristic, because for small clouds, especially
+  // created from CSV files, this can fail.
+  vw::BBox2 ll_box, shifted_ll_box;
+  for (int attempt = 0; attempt < 2; attempt++) {
+     
+    int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(), point_image.rows()))/32.0);
+      
+    if (attempt == 1) {
+      // For CSV, which can be small
+      if (point_image.cols() <= ASP_POINT_CLOUD_TILE_LEN &&
+          point_image.rows() <= ASP_POINT_CLOUD_TILE_LEN) {
+        subsample_amt = 1;
+      } else if (point_image.cols() <= 10 * ASP_POINT_CLOUD_TILE_LEN &&
+          point_image.rows() <= 10 * ASP_POINT_CLOUD_TILE_LEN) {
+         // Still a rather small cloud
+        subsample_amt = int32(norm_2(Vector2(point_image.cols(),
+                                              point_image.rows()))/8.0);
+      } else {
+        // Very big clouds 
+        subsample_amt = int32(norm_2(Vector2(point_image.cols(),
+                                              point_image.rows()))/16.0);
+      }
     }
+
+    if (subsample_amt < 1)
+      subsample_amt = 1;
+    
+    ImageViewRef<Vector3> sub_image = subsample(point_image, subsample_amt);
+
+    for (int32 col = 0; col < sub_image.cols(); col++) {
+      for (int32 row = 0; row < sub_image.rows(); row++) {
+        auto pix = sub_image(col, row);
+        if (pix == Vector3())
+          continue;
+          
+        // Longitude range is [-180, 180]  
+        vw::Vector3 llh = datum.cartesian_to_geodetic(pix);
+        ll_box.grow(Vector2(llh[0], llh[1]));
+        
+        // Create the shifted box
+        llh[0] += 360;
+        if (llh[0] > 360)
+          llh[0] -= 360;
+        shifted_ll_box.grow(Vector2(llh[0], llh[1]));
+      }
+    }
+    
+    // Stop at the first attempt if we have a non-empty box
+    if (!ll_box.empty())
+      break;
   }
   
-  // TODO(oalexan1): What it do if we hit no valid value?
-  if (num > 0)
-    avg_location /= num;
+  if (ll_box.empty()) {
+    // Empty box. The use the [-180, 180] range.
+    ll_box = vw::BBox2(-0.1, -0.1, 0.2, 0.2);
+    return ll_box;
+  }
   
-  double avg_lon = avg_location.x() >= 0 ? 0 : 180;
+  // See which has narrower range. Account for numerical error.
+  if (ll_box.width() > shifted_ll_box.width() + 1e-10)
+    ll_box = shifted_ll_box;
+    
   sw.stop();
   vw_out(DebugMessage,"asp") << "Statistics time: " << sw.elapsed_seconds() << std::endl;
 
-  return avg_lon;
+  return ll_box;
 }
 
 // Find the median longitude and latitude for a subset of the point cloud

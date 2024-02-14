@@ -41,6 +41,7 @@ namespace vw{
   }
 }
 
+const int ASP_POINT_CLOUD_TILE_LEN = 2048;
 const int ASP_MAX_SUBBLOCK_SIZE = 128;
 
 namespace asp {
@@ -409,8 +410,12 @@ vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> con
   return composite_image;
 }
 
-// Find the average longitude for a given point image with lon, lat, height values
-double find_avg_lon(vw::ImageViewRef<vw::Vector3> const& point_image);
+// Determine if we should be using a longitude range betweegn
+// [-180, 180] or [0,360]. The former is used, unless the latter
+// results in a tighter range of longitudes, such as when crossing
+// the international date line.
+vw::BBox2 estim_lonlat_box(vw::ImageViewRef<vw::Vector3> const& point_image, 
+                           vw::cartography::Datum const& datum);
 
 // Find the median longitude and latitude for a subset of the point cloud
 void median_lon_lat(vw::ImageViewRef<vw::Vector3> const& point_image,
