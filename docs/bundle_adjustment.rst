@@ -172,8 +172,9 @@ distorted DEMs that agree much better with the ground truth.
 See :numref:`intrinsics_no_constraints` for how to optimize intrinsics with no
 constraints, :numref:`intrinsics_ground_truth` for when ground constraints can
 be used (there exist options for sparse ground points and a DEM), and
-:numref:`kaguya_ba` for how to have several groups of intrinsics. Mixing
-frame and linescan cameras is discussed in :numref:`ba_frame_linescan`.
+:numref:`kaguya_ba` for how to have several groups of intrinsics. 
+
+Mixing frame and linescan cameras is discussed in :numref:`ba_frame_linescan`.
 
 .. _intrinsics_no_constraints:
 
@@ -965,7 +966,7 @@ distortion artifacts are most likely to have been averaged well.
 .. _ba_frame_linescan:
 
 Mixing frame and linescan cameras
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 So far we discussed refining the intrinsics for pinhole (frame) cameras, such as
 in :numref:`heights_from_dem`, and for linescan cameras, such as in

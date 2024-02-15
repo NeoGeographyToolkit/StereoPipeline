@@ -540,3 +540,8 @@ linescan rotation samples as part of the CSM model upon loading.
 
 Bundle adjustment (:numref:`bundle_adjust`) and alignment (:numref:`pc_align`)
 are still recommended even given these corrections.
+
+WorldView images and cameras can be combined with those from other linescan
+instruments, such as Pleiades (:numref:`pleiades`), and also with frame camera
+models (:numref:`pinholemodels`), for the purposes of refining the cameras and
+creating terrain models (:numref:`ba_frame_linescan`).

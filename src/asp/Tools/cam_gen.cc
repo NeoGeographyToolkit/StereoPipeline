@@ -453,11 +453,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              "it to ASP's format, and later refine that using another invocation. "
              "Note that camera refinement will not preserve the camera center.\n");
   
+  if ((opt.cam_weight > 0 || opt.cam_ctr_weight > 0) && opt.refine_intrinsics != "")
+   vw_throw(ArgumentErr() << "The option for refining the intrinsics cannot, "
+            "for the time being, constrain either the camera height or camera center.\n");
+   
   if (opt.camera_type == "pinhole" && ext == ".json" && !opt.planet_pinhole && 
       opt.pixel_pitch != 1)
     vw_throw(ArgumentErr() << "Can create a CSM frame camera only if the pixel pitch is 1.\n");
     
-  // If we cannot read the data from a DEM, must specify a lot of things.
+  // If we cannot read the data from a DEM, must know the datum
   if (!opt.planet_pinhole && opt.reference_dem.empty() && opt.datum_str.empty())
     vw_throw(ArgumentErr() << "Must provide either a reference DEM or a datum.\n");
 
@@ -671,16 +675,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 } // End function handle_arguments
 
-// Concatenate vector elements to a string, with a space separator
-std::string vec2str(std::vector<double> const& vec) {
-  std::ostringstream os;
-  for (size_t it = 0; it < vec.size(); it++) {
-    os << vec[it];
-    if (it < vec.size() - 1) os << " ";
-  }
-  return os.str();
-}
- 
 // Form a camera based on info the user provided
 void manufacture_cam(Options & opt, int wid, int hgt,
 		     boost::shared_ptr<CameraModel> & out_cam) {
@@ -713,7 +707,6 @@ void manufacture_cam(Options & opt, int wid, int hgt,
   
     boost::shared_ptr<PinholeModel> pinhole_cam;
     if (opt.sample_file != "" && ext != ".json") {
-      std::string ext = get_extension(opt.sample_file);
       // Use the initial guess from file
       pinhole_cam.reset(new PinholeModel(opt.sample_file));
     } else {

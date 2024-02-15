@@ -134,7 +134,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),
      "This is identical to the datum option.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
-     "Specify the output projection as a GDAL projection sting (WKT, GeoJSON, or PROJ.4). If not provided, may be read from the point cloud, if available.")
+     "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ.4). If not provided, will be read from the point cloud, if available.")
     ("remove-outliers-params", po::value(&opt.outlier_removal_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
      "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("use-tukey-outlier-removal", po::bool_switch(&opt.use_tukey_outlier_removal)->default_value(false)->implicit_value(true),

@@ -247,8 +247,8 @@ Command-line options
     the first DEM to be mosaicked.
 
 --t_srs <string>
-    Specify the output projection (PROJ.4 string). Default: use the
-    one from the first DEM to be mosaicked.
+    Specify the output projection as a GDAL projection string (WKT, GeoJSON, or
+    PROJ.4). If not provided, use the one from the first DEM to be mosaicked.
 
 --t_projwin <double double double double>
     Limit the mosaic to this region, with the corners given in

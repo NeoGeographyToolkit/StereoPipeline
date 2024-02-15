@@ -160,7 +160,7 @@ namespace vw { namespace gui {
   }
 
   // The reverse of world2image()
-  Vector2 MainWidget::image2world(Vector2 const& P, int imageIndex) const{
+  Vector2 MainWidget::image2world(Vector2 const& P, int imageIndex) const {
 
     bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
 
@@ -173,7 +173,6 @@ namespace vw { namespace gui {
     
     if (!m_use_georef)
       return P;
-
     return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point(P));
   }
 
@@ -272,8 +271,8 @@ namespace vw { namespace gui {
     m_thresh_calc_mode = false;
 
     MainWidget::maybeGenHillshade();
-
-    // Set data per image. 
+    
+    // Set data per image 
     for (int i = 0; i < num_images; i++) {
 
       m_filesOrder[i] = i; // start by keeping the order of files being read
@@ -302,7 +301,7 @@ namespace vw { namespace gui {
       if (m_use_georef) {
         m_world2image_geotransforms[i]
           = vw::cartography::GeoTransform(m_images[m_base_image_id].georef, 
-                                         m_images[i].georef);
+                                          m_images[i].georef);
         m_image2world_geotransforms[i]
           = vw::cartography::GeoTransform(m_images[i].georef, 
                                           m_images[m_base_image_id].georef);

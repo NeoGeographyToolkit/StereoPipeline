@@ -215,10 +215,14 @@ bool StereoSession::ip_matching(std::string const& input_file1,
         vw_out() << "Adjusting the datum to compensate, for the purpose of alignment.\n";
         vw_out() << "The new datum height will be at " << mid_ht
                  << " meters relative to the previous one.\n";
-        //vw_out() << "Old datum: " << datum << std::endl;
-        datum.set_semi_major_axis(datum.semi_major_axis() + mid_ht);
-        datum.set_semi_minor_axis(datum.semi_minor_axis() + mid_ht);
-        //vw_out() << "New datum: " << datum << std::endl;
+        vw_out() << "Old datum: " << datum << std::endl;
+        datum = vw::cartography::Datum(datum.name(),
+                                       datum.spheroid_name(),
+                                       datum.meridian_name(),
+                                       datum.semi_major_axis() + mid_ht,
+                                       datum.semi_minor_axis() + mid_ht,
+                                       datum.meridian_offset());
+        vw_out() << "New datum: " << datum << std::endl;
       }
     } // End RPC case
 

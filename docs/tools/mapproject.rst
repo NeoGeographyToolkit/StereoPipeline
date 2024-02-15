@@ -112,9 +112,9 @@ Command-line options
 --nodata-value <float(default: -32768)>
     No-data value to use unless specified in the input image.
 
---t_srs <proj4 string>
-    Specify the output projection (PROJ.4 string). If not provided,
-    use the one from the DEM.
+--t_srs <string (default: "")>
+    Specify the output projection as a GDAL projection string (WKT, GeoJSON, or
+    PROJ.4). If not provided, use the one from the DEM.
 
 --tr <float>
     Set the output file resolution (ground sample distance) in target

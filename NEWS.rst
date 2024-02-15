@@ -82,9 +82,20 @@ point2dem (:numref:`point2dem`):
   * Added the option ``--auto-proj-center``, to automatically compute the
     projection center for stereographic and other projections
     (:numref:`point2dem_auto_proj_center`).
+  * When the lon-lat projection is used, the output DEM longitude range
+    is always in [-180, 180], unless using [0, 360] results in a smaller range
+    (such as when crossing the 180 degree meridian).
   * Added the option ``--scalar-error`` to find the norm of the triangulated
     error vector (if applicable).
 
+gdal
+   * Full support for WKT and GeoJSON for the projection string (option
+     ``--t_srs``) in ``point2dem``, ``point2las``, ``mapproject``,
+     ``dem_mosaic``, ``cam2rpc``. Can still use PROJ.4 strings. 
+   * Georeferenced images with different datums cannot be used together. Use
+     ``gdalwarp`` to convert them to a common datum.
+   * Upgraded to GDAL 3.8.0 and PROJ 9.3.0.
+   
 csm (:numref:`csm`):
    * Fixed several problems in generation of CSM cameras for MSL Curiosity Nav
      and Mast images. Much large-scale testing was performed. Updated the
@@ -145,7 +156,7 @@ lronac2mosaic.py (:numref:`lronac2mosaic`):
   * Add the option ``--spiceinit-options``.
    
 misc:
-  * Upgraded to GDAL 3.8.0, PROJ 9.3.0, Boost 1.82.0.
+  * Upgraded to Boost 1.82.0.
   * Made all tools that spawn processes in parallel use the option
     ``--parallel-options``, with default ``--sshdelay 0.2``, to avoid
     failure on certain architectures.

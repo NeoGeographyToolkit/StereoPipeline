@@ -199,7 +199,7 @@ namespace asp {
     void align_bathy_masks(vw::GdalWriteOptions const& options);
     
      // Read a camera used in mapprojection
-     void read_mappproj_cam(std::string const& image_file, std::string const& cam_file,
+     void read_mapproj_cam(std::string const& image_file, std::string const& cam_file,
                            std::string const& adj_prefix, std::string const& cam_type,
                            vw::CamPtr & map_proj_cam);
 

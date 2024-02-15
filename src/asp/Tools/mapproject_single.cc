@@ -66,7 +66,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("nodata-value",     po::value(&opt.nodata_value)->default_value(-32768),
      "No-data value to use unless specified in the input image.")
     ("t_srs",            po::value(&opt.target_srs_string)->default_value(""),
-     "Specify the output projection as a GDAL projection sting (WKT, GeoJSON, or PROJ.4). If not provided, use the one from the DEM.")
+     "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ.4). If not provided, use the one from the DEM.")
     ("tr",              po::value(&opt.tr)->default_value(NaN),
      "Set the output file resolution (ground sample distance) in target "
      "georeferenced units per pixel. This may be in degrees or meters, "

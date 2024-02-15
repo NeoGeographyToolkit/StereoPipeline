@@ -153,15 +153,30 @@ ColorAxes* ca(QWidget * wid) {
 }
 
 bool MainWindow::sanityChecks(int num_images) {
-
+  
   if (num_images <= 0) {
     popUp("No valid images to display.");
     return false;
   }
 
-  if (stereo_settings().match_file != "" &&
-      stereo_settings().gcp_file   != "" &&
-      !stereo_settings().vwip_files.empty()) {
+  if (stereo_settings().dem_file == "" && stereo_settings().gcp_file != "" && 
+      !fs::exists(stereo_settings().gcp_file)) {
+    popUp("The GCP file does not exist. If desired to create it, please specify --dem-file.");
+    return false;
+  }
+                     
+  // This is for the workflow of creating GCP from a DEM and images
+  bool gcp_exists = !stereo_settings().gcp_file.empty() && 
+                    fs::exists(stereo_settings().gcp_file);
+  if (gcp_exists && stereo_settings().dem_file != "") {
+    popUp("A DEM file and GCP file were specified. Then, the GCP file passed in must not exist, since it is supposed to be created based on the DEM.");
+    return false;
+  }
+  
+  if (int(!stereo_settings().match_file.empty()) +
+      int(!stereo_settings().vwip_files.empty()) +
+      int(gcp_exists) > 1) {
+    // We make an exception for the non-existing GCP file, per the above
     popUp("Cannot load at the same time more than one of: matches, GCP, or .vwip files.");
     return false;
   }
@@ -1227,7 +1242,7 @@ void MainWindow::toggleViewMatches() {
 }
 
 // Show or hide matches depending on the value of m_viewMatches. We
-// assume first ip in first image mananages first ip in all other
+// assume first ip in first image manages first ip in all other
 // images. We allow ip without matches in other images, that can be
 // useful, but not before saving, when their numbers must agree for
 // all images.
@@ -1270,44 +1285,41 @@ void MainWindow::viewMatches() {
     m_matches_exist = true;
     
     const size_t num_images = m_image_files.size();
+    bool gcp_exists = !stereo_settings().gcp_file.empty() && 
+                      fs::exists(stereo_settings().gcp_file);
 
-    if (stereo_settings().gcp_file != "") {
-
-      // Try to read matches from gcp. The interface also allow specifying
-      // a non-existent file, which will be created on saving.
-      if (fs::exists(stereo_settings().gcp_file)) {
-
-        if (stereo_settings().dem_file != "") {
-          popUp("A DEM file was specified. Then, the GCP file passed in must not exist, since it is supposed to be created based on the DEM.");
-          return;
-        }
-        
-        try {
-          m_matchlist.loadPointsFromGCPs(stereo_settings().gcp_file, m_image_files);
-        } catch (std::exception const& e) {
-          popUp(e.what());
-          return;
-        }
+    if (gcp_exists) {
+      
+      // Load GCP. If the GCP file was specified but does not exist, we will
+      // try to load the matches instead, which later will be used to make the
+      // gcp.
+      try {
+        m_matchlist.loadPointsFromGCPs(stereo_settings().gcp_file, m_image_files);
+      } catch (std::exception const& e) {
+        popUp(e.what());
+        return;
       }
 
     } else if (!stereo_settings().vwip_files.empty()) {
       // Try to read matches from vwip files
       m_matchlist.loadPointsFromVwip(stereo_settings().vwip_files, m_image_files);
     } else {
+        
       // If no match file was specified by now, ask the user for the output prefix.
       if (stereo_settings().match_file == "") {
         if (!supplyOutputPrefixIfNeeded(this, m_output_prefix))
           return;
       }
-
-      std::string trial_match="";
+      
+      // Load matches
+      std::string trial_match = "";
       int leftIndex=0;
       std::vector<std::string> matchFiles (num_images-1);
       std::vector<size_t>      leftIndices(num_images-1);
       std::vector<vw::ip::InterestPoint> left, right; // Just temp variables
       for (size_t i = 1; i < num_images; i++) {
 
-        // Handle user provided match file for two images.
+        // Handle user-provided match file for two images
         if ((stereo_settings().match_file != "") && (num_images == 2)){
           matchFiles [0] = stereo_settings().match_file;
           leftIndices[0] = 0;
@@ -1948,7 +1960,7 @@ void MainWindow::setZoomAllToSameRegion() {
     for (size_t i = 0; i < m_widgets.size(); i++) {
       if (mw(m_widgets[i])) {
         vw::BBox2 region = mw(m_widgets[i])->worldBox();
-	world_box.grow(region);
+        world_box.grow(region);
       }
     }
     

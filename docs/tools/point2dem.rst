@@ -241,9 +241,9 @@ maps or ortho images.
 
 For CSV point clouds, the option ``--csv-format`` must be set. If such a cloud
 contains easting, northing, and height above datum, the option ``--csv-proj4``
-containing a PROJ.4 string needs to be specified to interpret this data (if the
+containing a PROJ.4 string needs to be specified to interpret this data. If the
 PROJ.4 string is set, it will be also used for output DEMs, unless ``--t_srs``
-is specified).
+is specified.
 
 Output statistics
 ~~~~~~~~~~~~~~~~~
@@ -292,8 +292,8 @@ Command-line options for point2dem
     unless the option ``--scalar-error`` is set.
 
 --t_srs <string (default: "")>
-    Specify the output projection (PROJ.4 string). Can also be an
-    URL or in WKT format, as for GDAL.
+    Specify the output projection as a GDAL projection string (WKT, GeoJSON, or
+    PROJ.4). If not provided, will be read from the point cloud, if available.
 
 --t_projwin <xmin ymin xmax ymax>
     The output DEM will have corners with these georeferenced

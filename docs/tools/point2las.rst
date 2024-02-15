@@ -87,8 +87,9 @@ Command-line options for point2las
 --reference-spheroid <string>
     This is identical to the datum option.
 
---t_srs <proj string>
-    Specify the output projection (PROJ.4 string).
+--t_srs <string (default: "")>
+    Specify the output projection as a GDAL projection string (WKT, GeoJSON, or
+    PROJ.4). If not provided, will be read from the point cloud, if available.
 
 --compressed
     Compress using laszip.

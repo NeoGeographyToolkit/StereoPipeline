@@ -178,7 +178,7 @@ namespace asp {
   // model for the current session type or else the RPC model which is often
   // used as an approximation. If that fails, create a new session from scratch
   // and load the camera model with that.
-  void StereoSession::read_mappproj_cam(std::string const& image_file, 
+  void StereoSession::read_mapproj_cam(std::string const& image_file, 
                                         std::string const& cam_file,
                                         std::string const& adj_prefix, 
                                         std::string const& cam_type,
@@ -248,8 +248,8 @@ namespace asp {
     vw_out() << "Mapprojection cam types: " << l_cam_type << ' ' << r_cam_type << "\n";
 
     // Load either the current session camera type, or rpc, or form a new session.
-    read_mappproj_cam(l_image_file, l_cam_file, l_adj_prefix, l_cam_type, left_map_proj_cam);
-    read_mappproj_cam(r_image_file, r_cam_file, r_adj_prefix, r_cam_type, right_map_proj_cam);
+    read_mapproj_cam(l_image_file, l_cam_file, l_adj_prefix, l_cam_type, left_map_proj_cam);
+    read_mapproj_cam(r_image_file, r_cam_file, r_adj_prefix, r_cam_type, right_map_proj_cam);
     
     VW_ASSERT(left_map_proj_cam.get() && right_map_proj_cam.get(),
               ArgumentErr() << "StereoSession: Unable to locate map "

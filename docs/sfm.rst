@@ -589,7 +589,9 @@ and rotation matrix::
    NULL
 
 Here we used a simple Pinhole model with no distortion
-(:numref:`pinholemodels`).
+(:numref:`pinholemodels`). The entries ``fu``, ``fv``, ``cu``, ``cv``, amd
+``pitch`` must be in the same units (millimeters or pixels). When the units
+are pixels, the pixel pitch must be set to 1.
   
 Next, one creates a ground control points (GCP) file (:numref:`bagcp`),
 named, for example, ``gcp.gcp``, containing the pixel positions and

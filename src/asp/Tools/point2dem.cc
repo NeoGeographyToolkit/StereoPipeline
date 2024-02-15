@@ -85,7 +85,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   po::options_description projection_options("Projection options");
   projection_options.add_options()
     ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), 
-     "Specify the output projection as a GDAL projection sting (WKT, GeoJSON, or PROJ.4). If not provided, may be read from the point cloud, if available.")
+     "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ.4). If not provided, will be read from the point cloud, if available.")
     ("t_projwin",     po::value(&opt.target_projwin),
      "The output DEM will have corners with these georeferenced coordinates. The actual spatial extent (ground footprint) is obtained by expanding this box by half the grid size.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),

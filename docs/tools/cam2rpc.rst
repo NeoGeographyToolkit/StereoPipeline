@@ -70,9 +70,9 @@ Command-line options for cam2rpc:
 --semi-minor-axis <double>
     Explicitly set the datum semi-minor axis in meters.
 
---t_srs <proj4 string>
-    Specify a projection (PROJ.4 string) instead of the datum.  Can
-    also be an URL or in WKT format, as for GDAL.
+--t_srs <string>
+    Specify a GDAL projection string instead of the datum (in WKT, GeoJSON, or
+    PROJ.4 format).
 
 --dem-file <filename>
     Instead of using a datum and a longitude-latitude-height box,
