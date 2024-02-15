@@ -125,6 +125,9 @@ Command-line options for point2las
     Save the point cloud in ECEF, rather than with a projection relative to a
     datum.
     
+--no-input-georef
+    Do not attempt to read the georeference from the input point cloud.
+    
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.

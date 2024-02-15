@@ -514,7 +514,7 @@ int main(int argc, char *argv[]) {
 
     // If the input PROJ.4 string is empty, use the output one. 
     if (!opt.csv_format_str.empty() && opt.csv_proj4_str.empty()) {
-      opt.csv_proj4_str = output_georef.overall_proj4_str();
+      opt.csv_proj4_str = output_georef.get_wkt();
       vw_out() << "The option --csv-proj4 was not specified. Using the output projection "
                << "when interpreting csv files.\n";
     }

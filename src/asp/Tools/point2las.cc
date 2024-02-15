@@ -111,7 +111,7 @@ struct Options: vw::GdalWriteOptions {
   std::string reference_spheroid, datum;
   std::string pointcloud_file;
   std::string target_srs_string;
-  bool        compressed, use_tukey_outlier_removal, ecef;
+  bool        compressed, use_tukey_outlier_removal, ecef, no_input_georef;
   Vector2     outlier_removal_params;
   double      max_valid_triangulation_error;
   double      triangulation_error_factor;
@@ -129,9 +129,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("compressed,c", po::bool_switch(&opt.compressed)->default_value(false)->implicit_value(true),
      "Compress using laszip.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
-    ("datum", po::value(&opt.datum),
+    ("datum", po::value(&opt.datum)->default_value(""),
      "Create a geo-referenced LAS file in respect to this datum. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-    ("reference-spheroid,r", po::value(&opt.reference_spheroid),
+    ("reference-spheroid,r", po::value(&opt.reference_spheroid)->default_value(""),
      "This is identical to the datum option.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
      "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ.4). If not provided, will be read from the point cloud, if available.")
@@ -147,13 +147,17 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Approximate number of samples to pick from the input cloud to find the outlier cutoff based on triangulation error.")
     ("ecef", 
      po::bool_switch(&opt.ecef)->default_value(false)->implicit_value(true),
-     "Save the point cloud in ECEF, rather than with a projection relative to a datum.");
+     "Save the point cloud in ECEF, rather than with a projection relative to a datum.")
+    ("no-input-georef",
+      po::bool_switch(&opt.no_input_georef)->default_value(false)->implicit_value(true),
+      "Do not attempt to read the georeference from the input point cloud.")
+    ("help,h", "Display this help message");
   
   general_options.add( vw::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
-    ("input-file", po::value(&opt.pointcloud_file), "Input Point Cloud");
+    ("input-file", po::value(&opt.pointcloud_file), "Input point cloud");
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-file", 1);
@@ -162,9 +166,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+                             allow_unregistered, unregistered);
 
   if (opt.pointcloud_file.empty())
     vw_throw(ArgumentErr() << "Missing point cloud.\n"
@@ -172,9 +176,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if (opt.out_prefix.empty())
     opt.out_prefix =
-      vw::prefix_from_filename( opt.pointcloud_file );
+      vw::prefix_from_filename(opt.pointcloud_file);
 
-  // reference_spheroid and datum are aliases.
+  // reference_spheroid and datum are aliases
   boost::to_lower(opt.reference_spheroid);
   boost::to_lower(opt.datum);
   if (opt.datum != "" && opt.reference_spheroid != "")
@@ -268,17 +272,16 @@ int main(int argc, char *argv[]) {
     bool is_geodetic = false;
     if (!opt.ecef) {
       have_user_datum = asp::read_user_datum(0, 0, opt.datum, datum);
-      have_input_georef = vw::cartography::read_georeference(georef, opt.pointcloud_file);
+      if (!opt.no_input_georef)
+        have_input_georef = vw::cartography::read_georeference(georef, opt.pointcloud_file);
       if (have_input_georef && opt.target_srs_string.empty())
-        opt.target_srs_string = georef.overall_proj4_str();
+        opt.target_srs_string = georef.get_wkt();
     
       if (have_user_datum || !opt.target_srs_string.empty()) {
         // Set the srs string into georef
         asp::set_srs_string(opt.target_srs_string,
                             have_user_datum, datum,
                             have_input_georef, georef);
-        std::string target_srs = georef.overall_proj4_str();
-        vw_out() << "Using projection string: '" << target_srs << "'"<< std::endl;
         is_geodetic = true;
         datum = georef.datum();
       }
@@ -312,7 +315,6 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < scale.size(); i++) {
       if (scale[i] <= 0.0) scale[i] = 1.0e-16; // avoid degeneracy
     }
-
     asp::write_las(is_geodetic, georef, point_image, error_image,
                    offset, scale, opt.compressed, opt.max_valid_triangulation_error,
                    opt.triangulation_error_factor, opt.out_prefix);

@@ -708,7 +708,7 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
 
   if (have_user_datum)
     srs_string += " " + user_datum.proj4_str();
-
+  
   // TODO(oalexan1): Rename set_wkt to set_srs.
   // TODO(oalexan1): Must wipe all this and call directly georef.set_wkt.
   // TODO(oalexan1): Deal with datum name!
@@ -721,35 +721,6 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   srs_string = wkt_str_tmp;
   CPLFree(wkt_str_tmp);
   georef.set_wkt(srs_string);
-
-// TODO(oalexan1): Wipe the code below once the regressions show that 
-// it is no longer needed.
-#if 0  
-  // Re-apply the user's datum. The important values were already
-  // there (major/minor axis), we're just re-applying to make sure
-  // the name of the datum is there in case it was not resolved so far.
-  if (have_user_datum &&
-       boost::to_lower_copy(georef.datum().name()).find("unknown") != std::string::npos &&
-       georef.datum().semi_major_axis() == user_datum.semi_major_axis() &&
-       georef.datum().semi_minor_axis() == user_datum.semi_minor_axis() ) {
-    georef.set_datum(user_datum);
-  }
-
-  // If still don't have a name for the datum, but have an input
-  // georef, copy the name, spheroid name, and projcs name from
-  // there. Better than saying "unknown". We do not change the axes
-  // though.
-  if (have_input_georef &&
-      boost::to_lower_copy(georef.datum().name()).find("unknown") != std::string::npos) {
-    vw::cartography::Datum datum = georef.datum();
-    datum.name() = input_georef.datum().name();
-    datum.spheroid_name() = input_georef.datum().name();
-    georef.set_datum(datum);
-
-    if (boost::to_lower_copy(georef.get_projcs_name()).find("unnamed") != std::string::npos) 
-      georef.set_projcs_name(input_georef.get_projcs_name());
-  }
-#endif
 }
 
 // Write a vector of strings from a file, one per line.

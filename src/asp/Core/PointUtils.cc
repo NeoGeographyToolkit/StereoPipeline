@@ -838,21 +838,18 @@ vw::BBox2 asp::estim_lonlat_box(vw::ImageViewRef<vw::Vector3> const& point_image
   for (int attempt = 0; attempt < 2; attempt++) {
      
     int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(), point_image.rows()))/32.0);
-      
     if (attempt == 1) {
       // For CSV, which can be small
       if (point_image.cols() <= ASP_POINT_CLOUD_TILE_LEN &&
           point_image.rows() <= ASP_POINT_CLOUD_TILE_LEN) {
         subsample_amt = 1;
       } else if (point_image.cols() <= 10 * ASP_POINT_CLOUD_TILE_LEN &&
-          point_image.rows() <= 10 * ASP_POINT_CLOUD_TILE_LEN) {
+                 point_image.rows() <= 10 * ASP_POINT_CLOUD_TILE_LEN) {
          // Still a rather small cloud
-        subsample_amt = int32(norm_2(Vector2(point_image.cols(),
-                                              point_image.rows()))/8.0);
+        subsample_amt = int32(norm_2(Vector2(point_image.cols(), point_image.rows()))/8.0);
       } else {
         // Very big clouds 
-        subsample_amt = int32(norm_2(Vector2(point_image.cols(),
-                                              point_image.rows()))/16.0);
+        subsample_amt = int32(norm_2(Vector2(point_image.cols(), point_image.rows()))/16.0);
       }
     }
 
@@ -873,7 +870,7 @@ vw::BBox2 asp::estim_lonlat_box(vw::ImageViewRef<vw::Vector3> const& point_image
         
         // Create the shifted box
         llh[0] += 360;
-        if (llh[0] > 360)
+        if (llh[0] >= 360)
           llh[0] -= 360;
         shifted_ll_box.grow(Vector2(llh[0], llh[1]));
       }

@@ -363,7 +363,7 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
   write_options.add("scale_y",  scale[1]);
   write_options.add("scale_z",  scale[2]);
   if (has_georef)     
-    write_options.add("a_srs", georef.overall_proj4_str());
+    write_options.add("a_srs", georef.get_wkt());
 
   pdal::LasWriter writer;
   writer.setOptions(write_options);
