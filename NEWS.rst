@@ -166,6 +166,8 @@ misc:
   * Fixed a couple of runtime errors when using conda packages on OSX.
   * Eliminated a procedure for cleaning the name of an input path that was
     replacing two slashes with one slash, resulting in inconsistencies.
+  * Robustly handle 360 degree longitude offsets without classifying
+    georeferenced images into [-180, 180] or [0, 360] types.  
   * Fix an error in conversion between projections for non-Earth images.  
   * The OSX build now gets created and tested via GitHub Actions.
   * Very old jitter adjustment logic was removed. The ``jitter_solve``
