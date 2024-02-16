@@ -786,10 +786,8 @@ namespace asp {
     }
 
     // If the images are map-projected, they need to use the same projection.
-    if (dem_provided &&
-        georef1.overall_proj4_str() != georef2.overall_proj4_str()){
+    if (dem_provided && georef1.get_wkt() != georef2.get_wkt())
       vw_throw(ArgumentErr() << "The left and right images must use the same projection.\n");
-    }
 
     // If the images are map-projected, we need an input DEM, as we use the ASP
     // flow with map-projected images.

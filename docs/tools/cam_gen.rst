@@ -130,7 +130,7 @@ Example::
     --pixel-pitch 1                             \
     --refine-camera                             \
     --refine-intrinsics focal_length,distortion \
-    -o output.json                              \
+    -o output.json
 
 The pixel pitch must always be 1, so the focal length and optical center must be
 in units of pixel.
@@ -157,7 +157,7 @@ acquired with the same sensor, run::
     --refine-camera             \
     --refine-intrinsics none    \
     --sample-file output.json   \
-    -o output2.json             \
+    -o output2.json
 
 The produced camera intrinsics can be jointly refined with other frame or
 linescan cameras using ``bundle_adjust`` (:numref:`ba_frame_linescan`).

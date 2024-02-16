@@ -244,10 +244,8 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   if (!has_georef) 
     vw_throw(ArgumentErr() << "geodiff cannot load a georeference from: " << dem_file << ".\n");
 
-  if (opt.csv_proj4_str == "") {
-    // Copy from the DEM
-    opt.csv_proj4_str = dem_georef.overall_proj4_str();
-  }
+  if (opt.csv_proj4_str == "")
+    opt.csv_proj4_str = dem_georef.get_wkt(); // Copy from the DEM
   
   // Configure a CSV converter object according to the input parameters
   asp::CsvConv csv_conv;

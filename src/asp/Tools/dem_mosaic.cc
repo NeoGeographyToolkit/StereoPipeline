@@ -1696,8 +1696,7 @@ int main(int argc, char *argv[]) {
     int rows = (int)round(end_pix[1]);
 
     // Form the mosaic and write it to disk
-    vw_out()<< "The size of the mosaic is " << cols << " x " << rows << " pixels.\n";
-    vw_out()<< "The output georeference is\n" << mosaic_georef << std::endl;
+    vw_out()<< "Mosaic size: " << cols << " x " << rows << " pixels.\n";
 
     // This bias is very important. This is how much we should read from
     // the images beyond the current boundary to avoid tiling artifacts.

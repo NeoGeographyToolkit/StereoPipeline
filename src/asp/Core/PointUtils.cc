@@ -68,11 +68,15 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
                                     std::string const& csv_proj4_str,
                                     int min_num_fields) {
 
-  // Make sure that these custom terms do not appear in the proj4 string.
-  if ((csv_proj4_str.find("D_MOON") != std::string::npos) ||
-      (csv_proj4_str.find("D_MARS") != std::string::npos)) {
-    vw_throw(ArgumentErr() << "D_MOON and D_MARS are not official proj4 names."
-                           << "Specify the datum elsewhere or define radii manually.\n");
+  // This guards against the case where the user specifies a proj4 string
+  // only having the string D_MARS, with no spheroid or axes.
+  std::string csv_proj4_str_lc = boost::to_lower_copy(csv_proj4_str); // lowercase
+  if ((csv_proj4_str_lc.find("d_moon") != std::string::npos ||
+       csv_proj4_str_lc.find("d_mars") != std::string::npos) &&
+      csv_proj4_str_lc.find("spheroid") == std::string::npos) {
+    vw_throw(ArgumentErr() << "D_MOON and D_MARS are not official PROJ4 names. "
+                           << "Specify the datum elsewhere or define radii manually. "
+                           << "The PROJ4 string is: " << csv_proj4_str << ".\n");
   }
 
   *this = asp::CsvConv(); // Reset this object to the default state
