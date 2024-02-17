@@ -426,6 +426,7 @@ if __name__ == '__main__':
                 die('\nERROR: No such nodes-list file: ' + opt.nodes_list, code=2)
             local_nodes_list = output_prefix + "-nodes-list.txt"
             if opt.nodes_list != local_nodes_list:
+                asp_system_utils.mkdir_p(os.path.dirname(output_prefix))
                 shutil.copy2(opt.nodes_list, local_nodes_list)
                 opt.nodes_list = local_nodes_list
             asp_cmd_utils.wipe_option(sys.argv, '--nodes-list', 1)
