@@ -1271,8 +1271,6 @@ void MainWindow::viewMatches() {
   if (MainWindow::editingMatches())
     m_matches_exist = true;
 
-  bool matchfiles_found = true;
-  
   // TODO(oalexan1): Improve match loading when done this way, it is
   // rather ad hoc.  Maybe just switch to pairwise matches each time
   // there's more than two images.
@@ -1312,54 +1310,11 @@ void MainWindow::viewMatches() {
       }
       
       // Load matches
-      std::string trial_match = "";
-      int leftIndex=0;
-      std::vector<std::string> matchFiles (num_images-1);
-      std::vector<size_t>      leftIndices(num_images-1);
-      std::vector<vw::ip::InterestPoint> left, right; // Just temp variables
-      for (size_t i = 1; i < num_images; i++) {
-
-        // Handle user-provided match file for two images
-        if ((stereo_settings().match_file != "") && (num_images == 2)){
-          matchFiles [0] = stereo_settings().match_file;
-          leftIndices[0] = 0;
-          break;
-        }
-
-        // Look for the match file in the default location, and if it
-        // does not appear prompt the user or a path.
-
-        //vw_out() << "Looking for match file for image index " << i << std::endl;
-
-        // Look in default location 1, match from previous file to this file.
-        try {
-          trial_match = vw::ip::match_filename(m_output_prefix, m_image_files[i-1],
-					       m_image_files[i]);
-          leftIndex = i-1;
-          //vw_out() << "     - Trying location " << trial_match << std::endl;
-          ip::read_binary_match_file(trial_match, left, right);
-
-        }catch(...){
-          // Look in default location 2, match from first file to this file.
-          try {
-            trial_match = vw::ip::match_filename(m_output_prefix, m_image_files[0],
-						 m_image_files[i]);
-            leftIndex   = 0;
-            //vw_out() << "     - Trying location " << trial_match << std::endl;
-            ip::read_binary_match_file(trial_match, left, right);
-
-          }catch(...){
-            // Default locations failed, Start with a blank match file.
-            trial_match = vw::ip::match_filename(m_output_prefix, m_image_files[i-1],
-                                                 m_image_files[i]);
-            matchfiles_found = false;
-            leftIndex = i-1;
-          }
-        }
-        
-        matchFiles [i-1] = trial_match;
-        leftIndices[i-1] = leftIndex;
-      } // End loop looking for match files
+      std::vector<std::string> matchFiles;
+      std::vector<size_t> leftIndices;
+      bool matchfiles_found = false;
+      asp::populateMatchFiles(m_image_files, m_output_prefix, stereo_settings().match_file,
+                              matchFiles, leftIndices, matchfiles_found);      
       if (matchfiles_found) 
         m_matchlist.loadPointsFromMatchFiles(matchFiles, leftIndices);
     }

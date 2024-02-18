@@ -262,8 +262,68 @@ void MatchList::setIpValid(size_t image) {
     m_valid_matches[image][i] = true;
 }
 
+// Populate the match files and leftIndices vectors
+void populateMatchFiles(std::vector<std::string> const& image_files,
+                        std::string const& output_prefix,
+                        std::string const& first_match_file,
+                        // Outputs
+                        std::vector<std::string> & matchFiles,
+                        std::vector<size_t> & leftIndices,
+                        bool & matchfiles_found) {
+
+  int num_images = image_files.size();
+
+  // Populate the outputs
+  matchFiles.resize(num_images-1);
+  leftIndices.resize(num_images-1);
+  matchfiles_found = true; // if we fail, will be set to false
+  
+  std::string trial_match = "";
+  int leftIndex = 0;
+  std::vector<vw::ip::InterestPoint> left, right; // local variables
+  for (size_t i = 1; i < image_files.size(); i++) {
+
+    // Handle user-provided match file for two images
+    if ((first_match_file != "") && (image_files.size() == 2)) {
+      matchFiles [0] = first_match_file;
+      leftIndices[0] = 0;
+      break;
+    }
+
+    // Look for the match file in the default location, and if it
+    // does not appear prompt the user or a path.
+
+    // Look in default location 1, match from previous file to this file.
+    try {
+      trial_match = vw::ip::match_filename(output_prefix, image_files[i-1],
+             image_files[i]);
+      leftIndex = i - 1;
+      vw::ip::read_binary_match_file(trial_match, left, right);
+
+    } catch(...) {
+      // Look in default location 2, match from first file to this file.
+      try {
+        trial_match = vw::ip::match_filename(output_prefix, image_files[0],
+               image_files[i]);
+        leftIndex = 0;
+        vw::ip::read_binary_match_file(trial_match, left, right);
+
+      } catch(...) {
+        // Default locations failed, Start with a blank match file.
+        trial_match = vw::ip::match_filename(output_prefix, image_files[i-1],
+                                             image_files[i]);
+        matchfiles_found = false;
+        leftIndex = i-1;
+      }
+    }
+    
+    matchFiles [i-1] = trial_match;
+    leftIndices[i-1] = leftIndex;
+  } // End loop looking for match files
+} 
+
 bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFiles,
-                                         std::vector<size_t     > const& leftIndices) {
+                                         std::vector<size_t> const& leftIndices) {
 
   // Count IP as in the same location if x and y are at least this close.
   const float ALLOWED_POS_DIFF = 0.5;

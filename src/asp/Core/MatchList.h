@@ -38,9 +38,19 @@ namespace asp {
   /// Helper class to keep track of all the matching interest points
   /// - Each image must have the same number of interest points
   ///   but in some situations some of the points can be flagged as invalid.
+  
+  // Populate the match files and leftIndices vectors
+void populateMatchFiles(std::vector<std::string> const& image_files,
+                        std::string const& output_prefix,
+                        std::string const& first_match_file,
+                        // Outputs
+                        std::vector<std::string> & matchFiles,
+                        std::vector<size_t> & leftIndices,
+                        bool & matchfiles_found);
+  
   class MatchList {
   public:
-    /// Clear all exsting points and set up for a new image count.
+    /// Clear all exiting points and set up for a new image count.
     void resize(size_t num_images);
 
     /// Add a single point to the list.
