@@ -157,7 +157,6 @@ void find_matches(std::string const& image_file1, std::string const& image_file2
   
   vw_out() << "Matching interest points between: " << image_file1 << " and "
            << image_file2 << "\n";
-  
 
   // Now find and match interest points. Use ip per image rather than ip per
   // tile as it is more intuitive that way

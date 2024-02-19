@@ -161,15 +161,16 @@ bool MatchList::deletePointAcrossImages(size_t point) {
 bool MatchList::allPointsValid() const {
   if (m_valid_matches.size() != m_matches.size())
     vw_throw(LogicErr() << "Valid matches out of sync with matches!\n");
+  
   for (size_t i = 0; i < m_matches.size(); i++) {
     if (m_matches[0].size() != m_matches[i].size())
       return false;
     for (size_t j = 0; j < m_valid_matches[i].size(); j++) {
       if (!m_valid_matches[i][j])
-      if (!m_valid_matches[i][j])
         return false;
     }
-  } // End loop through images.
+  }
+  
   return true;
 }
 
@@ -180,9 +181,10 @@ bool MatchList::loadPointsFromGCPs(std::string const gcpPath,
   if (getNumPoints() > 0) // Can't double-load points!
     return false;
 
-  const size_t num_images = imageNames.size();
-  resize(0); // wipe first
-  resize(num_images);
+  // Reset and resize
+  *this = MatchList();
+  int num_images = imageNames.size();
+  this->resize(num_images);
 
   ControlNetwork cnet("gcp");
   cnet.get_image_list() = imageNames;
@@ -218,7 +220,7 @@ bool MatchList::loadPointsFromGCPs(std::string const gcpPath,
   // If any of the sizes do not match, reset everything!
   for (size_t icam = 0; icam < crn.size(); icam++) {
     if (m_matches[0].size() != m_matches[icam].size()) {
-      resize(0); // wipe first
+      *this = MatchList(); // reset
       resize(num_images); // use the correct size
       vw::vw_throw(ArgumentErr()
                << "Each GCP must be represented as a pixel in each image.\n");
@@ -236,9 +238,10 @@ bool MatchList::loadPointsFromVwip(std::vector<std::string> const& vwipFiles,
   if (getNumPoints() > 0) // Can't double-load points!
     return false;
 
-  const size_t num_images = imageNames.size();
-  resize(0); // wipe first
-  resize(num_images);
+  // Reset and resize
+  *this = MatchList(); 
+  size_t num_images = imageNames.size();
+  this->resize(num_images);
 
   // Load in all of the points
   for (size_t i = 0; i < num_images; ++i) {
@@ -330,9 +333,9 @@ void MatchList::populateFromIpPair(std::vector<vw::ip::InterestPoint> const& ip1
   if (ip1.size() != ip2.size())
     vw_throw(ArgumentErr() << "The two interest point vectors must have the same size.\n");
 
-  *this = MatchList(); // reset
-  int num_images = 2;    
-  resize(num_images);
+  // Reset and resize
+  *this = MatchList();
+  resize(2);
 
   m_matches[0] = ip1;
   m_matches[1] = ip2;

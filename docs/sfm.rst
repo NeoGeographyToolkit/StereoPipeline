@@ -578,9 +578,10 @@ features seen in the camera image, GCP can be created with point-and-click in
 as shown in :numref:`initial_terrain`. If the geolocations of image corners are 
 known, use instead ``cam_gen`` (:numref:`cam_gen`).
 
-Next, create a Pinhole camera (:numref:`pinholemodels`) file, say called
-``init.tsai``, with only the intrinsics (focal length and optical center), and
-using trivial values for the camera center and rotation matrix::
+We use the GCP to find the camera pose. For that, first create a Pinhole camera
+(:numref:`pinholemodels`) file, say called ``init.tsai``, with only the
+intrinsics (focal length and optical center), and using trivial values for the
+camera center and rotation matrix::
 
    VERSION_3
    fu = 28.429
@@ -595,9 +596,9 @@ using trivial values for the camera center and rotation matrix::
    pitch = 0.0064
    NULL
 
-The entries ``fu``, ``fv``, ``cu``, ``cv``, amd
-``pitch`` must be in the same units (millimeters or pixels). When the units are
-pixels, the pixel pitch must be set to 1. 
+The entries ``fu``, ``fv``, ``cu``, ``cv``, amd ``pitch`` must be in the same
+units (millimeters or pixels). When the units are pixels, the pixel pitch must
+be set to 1. 
 
 The optical center can be half the image dimensions, and the focal length can be
 determined using the observation that the ratio of focal length to image width
@@ -629,8 +630,8 @@ It is very important to inspect the file::
   ba/run-final_residuals_pointmap.csv
 
 and look at the 4th column. Those will be the pixel residuals (reprojection
-error into cameras). They should be maybe a dozen pixels each, otherwise there
-is a mistake. 
+error into cameras). They should be under a few pixels each, otherwise there is
+a mistake. 
   
 If bundle adjustment is invoked with a positive number of iterations,
 and with a small value for the robust threshold, it tends to optimize
