@@ -232,6 +232,10 @@ add_executable(cam_gen cam_gen.cc)
 target_link_libraries(cam_gen AspSessions)
 install(TARGETS cam_gen DESTINATION bin)
 
+add_executable(gcp_gen gcp_gen.cc) 
+target_link_libraries(gcp_gen AspSessions)
+install(TARGETS gcp_gen DESTINATION bin)
+
 add_executable(bathy_plane_calc bathy_plane_calc.cc) 
 target_link_libraries(bathy_plane_calc AspSessions)
 install(TARGETS bathy_plane_calc DESTINATION bin)

@@ -164,7 +164,8 @@ bool MatchList::allPointsValid() const {
   for (size_t i = 0; i < m_matches.size(); i++) {
     if (m_matches[0].size() != m_matches[i].size())
       return false;
-    for (size_t j=0; j<m_valid_matches[i].size(); ++j) {
+    for (size_t j = 0; j < m_valid_matches[i].size(); j++) {
+      if (!m_valid_matches[i][j])
       if (!m_valid_matches[i][j])
         return false;
     }
@@ -257,6 +258,7 @@ void MatchList::setIpValid(size_t image) {
   if (image >= getNumImages())
     return;
   const size_t num_ip = m_matches[image].size();
+  
   m_valid_matches[image].resize(num_ip);
   for (size_t i=0; i<num_ip; ++i)
     m_valid_matches[image][i] = true;
@@ -322,12 +324,28 @@ void populateMatchFiles(std::vector<std::string> const& image_files,
   } // End loop looking for match files
 } 
 
+// Populate from two vectors of interest point matches
+void MatchList::populateFromIpPair(std::vector<vw::ip::InterestPoint> const& ip1,
+                                   std::vector<vw::ip::InterestPoint> const& ip2) {
+  if (ip1.size() != ip2.size())
+    vw_throw(ArgumentErr() << "The two interest point vectors must have the same size.\n");
+
+  *this = MatchList(); // reset
+  int num_images = 2;    
+  resize(num_images);
+
+  m_matches[0] = ip1;
+  m_matches[1] = ip2;
+  setIpValid(0);
+  setIpValid(1);
+}
+
 bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFiles,
                                          std::vector<size_t> const& leftIndices) {
 
   // Count IP as in the same location if x and y are at least this close.
   const float ALLOWED_POS_DIFF = 0.5;
-
+  
   // Can't double-load points!
   if ((getNumPoints() > 0) || (matchFiles.empty()))
     return false;
@@ -345,11 +363,11 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
   for (size_t i = 1; i < num_images; i++) {
     std::string match_file = matchFiles [i-1];
     size_t      j         = leftIndices[i-1];
-
+    
     // Initialize all matches as invalid
     m_matches      [i].resize(num_ip);
     m_valid_matches[i].resize(num_ip);
-    for (size_t v=0; v<num_ip; ++v) {
+    for (size_t v = 0; v < num_ip; v++) {
       m_matches      [i][v].x = v*10;  // TODO: Better way to spread these IP?
       m_matches      [i][v].y = v*10;
       m_valid_matches[i][v] = false;
@@ -363,7 +381,6 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
       vw_out() << "IP load failed, leaving default invalid IP\n";
       continue;
     }
-
     if (i == 1) { // The first case is easy
       m_matches[0] = left;
       m_matches[1] = right;

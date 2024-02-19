@@ -40,13 +40,13 @@ namespace asp {
   ///   but in some situations some of the points can be flagged as invalid.
   
   // Populate the match files and leftIndices vectors
-void populateMatchFiles(std::vector<std::string> const& image_files,
-                        std::string const& output_prefix,
-                        std::string const& first_match_file,
-                        // Outputs
-                        std::vector<std::string> & matchFiles,
-                        std::vector<size_t> & leftIndices,
-                        bool & matchfiles_found);
+  void populateMatchFiles(std::vector<std::string> const& image_files,
+                          std::string const& output_prefix,
+                          std::string const& first_match_file,
+                          // Outputs
+                          std::vector<std::string> & matchFiles,
+                          std::vector<size_t> & leftIndices,
+                          bool & matchfiles_found);
   
   class MatchList {
   public:
@@ -111,6 +111,10 @@ void populateMatchFiles(std::vector<std::string> const& image_files,
     /// Try to load the interest points from vwip files.
     bool loadPointsFromVwip(std::vector<std::string> const& vwipFiles,
                             std::vector<std::string> const& imageNames);
+    
+    // Populate from two vectors of interest point matches
+    void populateFromIpPair(std::vector<vw::ip::InterestPoint> const& ip1,
+                            std::vector<vw::ip::InterestPoint> const& ip2);
     
     /// Write all points out using a given prefix.
     bool savePointsToDisk(std::string const& prefix,

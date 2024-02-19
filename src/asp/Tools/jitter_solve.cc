@@ -43,6 +43,7 @@
 #include <asp/Core/SatSimBase.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/IsisIO/IsisInterface.h>
+#include <asp/Core/ImageUtils.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>

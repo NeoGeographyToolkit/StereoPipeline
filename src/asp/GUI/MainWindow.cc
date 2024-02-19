@@ -1526,7 +1526,7 @@ void MainWindow::saveMatches(){
 void MainWindow::writeGroundControlPoints() {
 
   if (!m_matchlist.allPointsValid()) {
-    popUp("Cannot save matches, at least one point is missing or not valid.");
+    popUp("Cannot save GCP, at least one point is missing or not valid.");
     return;
   }
   
@@ -1577,7 +1577,6 @@ void MainWindow::writeGroundControlPoints() {
     asp::writeGCP(m_image_files,  
                   stereo_settings().gcp_file,  
                   stereo_settings().dem_file,
-                  m_output_prefix,
                   m_matchlist);
   } catch (std::exception const& e) {
     popUp(e.what());

@@ -19,6 +19,7 @@
 ///
 
 #include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Core/ImageUtils.h>
 
 #include <vw/Core/Log.h>
 #include <vw/Camera/CameraModel.h>
@@ -353,31 +354,6 @@ void asp::determine_image_pairs(// Inputs
   // The pairs without repetition
   for (auto it = local_set.begin(); it != local_set.end(); it++)
     all_pairs.push_back(*it);
-}
-
-/// Load a DEM from disk to use for interpolation.
-void asp::create_interp_dem(std::string const& dem_file,
-                       vw::cartography::GeoReference & dem_georef,
-                       ImageViewRef<PixelMask<double>> & interp_dem){
-  
-  vw_out() << "Loading DEM: " << dem_file << std::endl;
-
-  // Read the no-data
-  double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
-  if (vw::read_nodata_val(dem_file, nodata_val))
-    vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
-
-  // Create the interpolated DEM
-  ImageViewRef<PixelMask<double>> dem
-    = create_mask(DiskImageView<double>(dem_file), nodata_val);
-  interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
-
-  // Read the georef
-  bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
-  if (!is_good) {
-    vw_throw(ArgumentErr() << "Error: Cannot read a georeference from DEM: "
-             << dem_file << ".\n");
-  }
 }
 
 // Given an xyz point in ECEF coordinates, update its height above datum

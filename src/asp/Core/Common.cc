@@ -701,11 +701,17 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   // Set srs_string into given georef. Note that this may leave the
   // georef's affine transform inconsistent.
 
-  // TODO: The line below is fishy. A better choice would be
-  // srs_string = georef.overall_proj4_str() but this needs testing.
+  // TODO: The line below needs more thought
   if (srs_string == "")
     srs_string = "+proj=longlat";
 
+  // TODO(oalexan1): Use below datum.get_wkt().
+  // But then cannot concatenate the wkt. Need to have a way
+  // of reconciling the two wkt. May need to first call 
+  // set_datum, and then set_wkt. The latter will 
+  // try to reconcile the wkt with the prior datum.
+  // But this needs testing, especially in cases when 
+  // srs_string lacks the datum info.
   if (have_user_datum)
     srs_string += " " + user_datum.proj4_str();
   

@@ -28,6 +28,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/ImageUtils.h>
 
 using namespace vw;
 namespace po = boost::program_options;
@@ -45,28 +46,6 @@ struct Options: vw::GdalWriteOptions {
              ip_per_image(0), num_ransac_iterations(0.0), inlier_threshold(0){}
 };
 
-
-/// Load an input image, respecting the user parameters.
-void load_image(std::string const& image_file,
-                ImageViewRef<double> & image, double & nodata,
-                bool & has_georef, vw::cartography::GeoReference & georef) {
-  
-  has_georef = false; // ensure this is initialized
-
-  image = vw::load_image_as_double(image_file);
-
-  // Read nodata-value from disk.
-  DiskImageResourceGDAL in_rsrc(image_file);
-  bool has_nodata = in_rsrc.has_nodata_read();
-  if (has_nodata) {
-    nodata = in_rsrc.nodata_read();
-    vw_out() << "Read no-data value for image " << image_file << ": " << nodata << ".\n";
-  } else {
-    nodata = vw::get_default_nodata(in_rsrc.channel_type());
-  }
-  
-  has_georef = vw::cartography::read_georeference(georef, image_file);
-}
 
 /// Get a list of matched IP, looking in certain image regions.
 void find_matches(std::string const& image_file1, std::string const& image_file2,
@@ -543,8 +522,8 @@ int main(int argc, char *argv[]) {
     double              nodata1, nodata2;
     bool has_georef1 = false, has_georef2 = false;
     vw::cartography::GeoReference georef1, georef2;
-    load_image(image_file1, image1, nodata1, has_georef1, georef1);
-    load_image(image_file2, image2, nodata2, has_georef2, georef2);
+    asp::load_image(image_file1, image1, nodata1, has_georef1, georef1);
+    asp::load_image(image_file2, image2, nodata2, has_georef2, georef2);
 
     Matrix<double> tf, ecef_transform;
     if (opt.input_transform.empty()) {

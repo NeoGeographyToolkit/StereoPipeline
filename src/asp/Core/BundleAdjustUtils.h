@@ -126,11 +126,6 @@ namespace asp {
                              // Output
                              std::vector<std::pair<int,int>> & all_pairs);
 
-  /// Load a DEM from disk to use for interpolation.
-  void create_interp_dem(std::string const& dem_file,
-                         vw::cartography::GeoReference & dem_georef,
-                         vw::ImageViewRef<vw::PixelMask<double>> & interp_dem);
-
   // Given an xyz point in ECEF coordinates, update its height above datum
   // by interpolating into a DEM. The user must check the return status.
   bool update_point_height_from_dem(vw::cartography::GeoReference const& dem_georef,

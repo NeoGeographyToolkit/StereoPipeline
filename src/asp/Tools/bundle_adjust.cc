@@ -33,6 +33,7 @@
 #include <asp/Core/OutlierProcessing.h>
 #include <asp/Core/DataLoader.h>
 #include <asp/Camera/BundleAdjustIsis.h>
+#include <asp/Core/ImageUtils.h>
 
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>

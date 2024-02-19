@@ -27,6 +27,7 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/Covariance.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/ImageUtils.h>
 
 #include <vw/BundleAdjustment/CameraRelation.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
