@@ -9,11 +9,13 @@ not come with any attached pose metadata. This can be useful with
 aerial, hand-held, and historical images for which such information
 may be incomplete or inaccurate.
 
-An overview of the tool and examples are provided in this chapter.
+An overview of ``camera_solve`` and examples are provided in this chapter.
 Reference information for this tool can be found in :numref:`camera_solve`.
 
-This tool can be optionally bypassed if, for example, the longitude and
-latitude of the corners of all images are known (:numref:`imagecorners`).
+This program can be optionally bypassed if, for example, 
+a similar orthoimage and a DEM are available (:numref:`camera_solve_gcp`),
+or if the longitude and latitude of the corners of all images are known
+(:numref:`cam_gen`).
 
 ASP offers another tool to build reconstructions, named ``theia_sfm``
 (:numref:`theia_sfm`). That one more geared to work with a rig
@@ -38,23 +40,21 @@ user must provide intrinsic camera information. You can use the
 camera calibration software to solve for intrinsic parameters if
 you have access to the camera in question. The camera calibration
 information must be contained in a .tsai pinhole camera model file
-and must passed in using the ``--calib-file`` option. You can find
-descriptions of our supported pinhole camera models in
-:numref:`pinholemodels`.
+and must passed in using the ``--calib-file`` option. 
 
-If no intrinsic camera information is known, it can be guessed by doing
-some experimentation. This is discussed in :numref:`findintrinsics`.
+:numref:`camera_solve_gcp` has an example of a pinhole camera model file and
+discusses some heuristics for how to guess the intrinsics. A description of our
+supported pinhole camera models in :numref:`pinholemodels`.
 
 In order to transform the camera models from local to world coordinates,
 one of three pieces of information may be used. These sources are listed
 below and described in more detail in the examples that follow:
 
--  A set of ground control points of the same type used by ``pc_align``.
-   The easiest way to generate these points is to use the ground control
-   point writer tool available in the ``stereo_gui`` tool.
-
--  A set of estimated camera positions (perhaps from a GPS unit) stored
-   in a csv file.
+-  A set of ground control points. This is discussed in :numref:`camera_solve_gcp`
+   (that workflow can be used to bypass SfM altogether).
+ 
+-  A set of estimated camera positions (perhaps from a GPS unit) stored in a csv
+   file.
 
 -  A DEM which a local point cloud can be registered to using
    ``pc_align``. This method can be more accurate if estimated camera
@@ -242,9 +242,9 @@ identified in the frame images. This will allow an accurate positioning
 of the cameras provided that the GCPs and the camera model parameters
 are accurate. 
 
-To create GCPs see the instructions for the ``stereo_gui``
-tool in :numref:`bagcp`. Here we used that approach together with
-a DEM generated from LRONAC images.
+To create GCPs, see :numref:`camera_solve_gcp`. Here we used the ``stereo_gui``
+approach (:numref:`creatinggcp`) together with a DEM generated from LRONAC
+images.
 
 For GCP to be usable, they can be one of two kinds. The preferred
 option is to have at least three GCP, with each seen in at least two
@@ -555,25 +555,32 @@ other DEM file.
 :numref:`nextsteps` will discuss the ``parallel_stereo`` program
 in more detail and the other tools in ASP.
 
-.. _imagecorners:
+.. _camera_solve_gcp:
 
 Solving for pinhole cameras using GCP
 -------------------------------------
 
-If for a given image the intrinsics of the camera are known, and also
-the longitude and latitude (and optionally the heights above the datum)
-of its corners (or of some other pixels in the image), one can bypass
-the ``camera_solve`` tool and use ``bundle_adjust`` to get an
-initial camera position and orientation. 
+A quick alternative to SfM with ``camera_solve`` is to create correctly oriented
+cameras using ground control points (GCP, :numref:`bagcp`), an initial camera
+having intrinsics only, and bundle adjustment. Here we outline this process.
 
-This simple approach is often beneficial when, for example, one has
-historical images with rough geo-location information. Once an initial
-camera is created for each image, the cameras can then be
-bundle-adjusted jointly to refine them.
+Given the camera image, a similar-enough orthoimage, and a DEM, the ``gcp_gen``
+program (:numref:`gcp_gen`) can create a GCP file for it::
 
-To achieve this, one creates a camera file, say called ``init.tsai``,
-with only the intrinsics, and using trivial values for the camera center
-and rotation matrix::
+    gcp_gen --camera-image img.tif  \
+      --ortho-image ortho_image.tif \
+      --dem dem.tif                 \
+      -o gcp.gcp
+
+If only a DEM is known, but in which one could visually discern roughly the same
+features seen in the camera image, GCP can be created with point-and-click in
+``stereo_gui`` (:numref:`creatinggcp`). Such an input DEM can be found
+as shown in :numref:`initial_terrain`. If the geolocations of image corners are 
+known, use instead ``cam_gen`` (:numref:`cam_gen`).
+
+Next, create a Pinhole camera (:numref:`pinholemodels`) file, say called
+``init.tsai``, with only the intrinsics (focal length and optical center), and
+using trivial values for the camera center and rotation matrix::
 
    VERSION_3
    fu = 28.429
@@ -588,36 +595,22 @@ and rotation matrix::
    pitch = 0.0064
    NULL
 
-Here we used a simple Pinhole model with no distortion
-(:numref:`pinholemodels`). The entries ``fu``, ``fv``, ``cu``, ``cv``, amd
-``pitch`` must be in the same units (millimeters or pixels). When the units
-are pixels, the pixel pitch must be set to 1.
+The entries ``fu``, ``fv``, ``cu``, ``cv``, amd
+``pitch`` must be in the same units (millimeters or pixels). When the units are
+pixels, the pixel pitch must be set to 1. 
+
+The optical center can be half the image dimensions, and the focal length can be
+determined using the observation that the ratio of focal length to image width
+in pixels is the same as the ratio of camera elevation to ground footprint width
+in meters.
+
+Here we assumed no distortion. Distortion can be refined later, if needed
+(:numref:`floatingintrinsics`). 
   
-Next, one creates a ground control points (GCP) file (:numref:`bagcp`),
-named, for example, ``gcp.gcp``, containing the pixel positions and
-longitude and latitude of the corners or other known pixels (the
-heights above datum can be set to zero if not known). Here is a
-sample file, where the image is named ``img.tif`` (below the latitude
-is written before the longitude).
-
-::
-
-   # id   lat     lon   height  sigmas  image   corners    sigmas
-      1  37.62  -122.38   0     1 1 1  img.tif 0     0     1 1 
-      2  37.62  -122.35   0     1 1 1  img.tif 2560  0     1 1 
-      3  37.61  -122.35   0     1 1 1  img.tif 2560 1080   1 1 
-      4  37.61  -122.39   0     1 1 1  img.tif 0    1080   1 1 
-
-Such a file can be created with ``stereo_gui``
-(:numref:`creatinggcp`).  Ideally it should have more digits of
-precision for longitude and latitude, and it is preferable to have
-decent height values, especially for rather oblique-looking cameras,
-steep terrain, or small camera footprint.
-
-One runs bundle adjustment with this data::
+For each camera image, run bundle adjustment with this data::
 
     bundle_adjust -t nadirpinhole \
-      img.tif cam.tsai gcp.gcp    \
+      img.tif init.tsai gcp.gcp   \
       --datum WGS84               \
       --inline-adjustments        \
       --init-camera-using-gcp     \
@@ -639,12 +632,6 @@ and look at the 4th column. Those will be the pixel residuals (reprojection
 error into cameras). They should be maybe a dozen pixels each, otherwise there
 is a mistake. 
   
-Then, validate the result by running ``mapproject`` onto a desired DEM, as::
-
-  mapproject dem.tif img.tif ba/run-cam.tsai img.map.tif
-
-and overlay the result on top of the DEM.
-  
 If bundle adjustment is invoked with a positive number of iterations,
 and with a small value for the robust threshold, it tends to optimize
 only some of the corners and ignore the others, resulting in a large
@@ -656,41 +643,23 @@ One can use the bundle adjustment option ``--fix-gcp-xyz`` to not
 move the GCP during optimization, hence forcing the cameras to move more
 to conform to them.
 
+Validate the produced camera with ``mapproject``::
+
+  mapproject dem.tif img.tif ba/run-cam.tsai img.map.tif
+
+and overlay the result on top of the DEM.
+  
 ASP provides a tool named ``cam_gen`` which can also create a pinhole
 camera as above, and, in addition, is able to extract the heights of the
 corners from a DEM (:numref:`cam_gen`).
 
 .. _findintrinsics:
 
-Solving for intrinsic camera parameters
----------------------------------------
+Refining the camera poses and intrinsics
+----------------------------------------
 
-If nothing is known about the intrinsic camera parameters, it may be
-possible to guess them with some experimentation. One can assume that
-the distortion is non-existent, and that the optical center is at the
-image center, which makes it possible to compute *cu* and
-*cv*. The pitch can be set to some small number, say
-:math:`10^{-3}` or :math:`10^{-4}.` The focal length can be initialized
-to equal *cu* or a multiple of it. Then ``camera_solve`` can be
-invoked, followed by ``parallel_stereo``, ``point2mesh``, and
-``point2dem --errorimage``. If, at least towards the center of the
-image, things are not exploding, we are on a good track.
+The poses of the produced camera models can be jointly optimized with
+``bundle_adjust`` (:numref:`bundle_adjust`).
 
-Later, the camera parameters, especially the focal length, can be
-modified manually, and instead of using ``camera_solve`` again, just
-``bundle_adjust`` can be called using the camera models found earlier,
-with the options to float some of the intrinsics, that is using
-``--solve-intrinsics`` and ``--intrinsics-to-float``.
-
-If the overall results look good, but the intersection error after
-invoking ``point2dem`` around the image corners looks large, it is time
-to use some distortion model and float it, again using
-``bundle_adjust``. Sometimes if invoking this tool over many iterations
-the optical center and focal length may drift, and hence it may be
-helpful to have them fixed while solving for distortion.
-
-If a pre-existing DEM is available, the tool ``geodiff`` can be used to
-compare it with what ASP is creating.
-
-Such a pre-existing DEM can be used as a constraint when solving for
-intrinsics, as described in :numref:`floatingintrinsics`.
+Optionally, the intrinsics can be refined as well. Detailed recipes are in
+:numref:`floatingintrinsics`. 

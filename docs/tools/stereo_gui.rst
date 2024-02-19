@@ -539,7 +539,7 @@ may be known. Given a DEM of the area of interest, and optionally an orthoimage
 
 GCP can later be used with ``bundle_adjust`` to either improve the alignment of
 these cameras to the DEM, or create new Pinhole cameras from scratch (the latter
-is shown in :numref:`imagecorners`).
+is shown in :numref:`camera_solve_gcp`).
 
 A DEM can be obtained using the instructions in :numref:`initial_terrain`.
 Use, if applicable, ``dem_geoid`` to convert the DEM to be relative
@@ -556,28 +556,26 @@ created. If no ortho image exists, one can use the given DEM
 instead (and it can be hillshaded after loading to easier identify
 features).
 
-The orthoimage is only used to find the positions on the
-ground, which in turn are used to find the heights for the GCPs from
-the DEM. The interest points in the reference image are not
-saved to the GCP file.
+The ground locations are found from the orthoimage and their elevations from the
+DEM. The interest points in the reference image are not saved to the GCP file.
 
-Next, a feature is identified and manually added as a matching
-interest point (match point) in all open images, from left to
-right. For that, use the right right-click menu, and select ``Add
-match point``. This process is repeated a few times. If the match
-point is not added in all images before starting with a new one, that
-will result in an error.  These newly created match points can also be
-moved around by right-clicking to turn on this mode, and then dragging
-them with the mouse (this can be slow).
+A feature is identified and manually added as a matching interest point (match
+point) in all open images, from left to right. For that, use the right
+right-click menu, and select ``Add match point``. This process is repeated a few
+times. If the match point is not added in all images before starting with a new
+one, that will result in an error.  The match points can be moved around by
+right-clicking to turn on this mode, and then dragging them with the mouse.
 
-When done creating interest points, use the "IP
-matches"->"Write GCP file" menu item to generate a ground control point
+When done creating interest points, use the ``IP
+matches -> Write GCP file`` menu item to generate a ground control point
 file containing the selected points. 
 
 If above the reference DEM and GCP file were not set, the tool
 will prompt for their names.
 
-If the input images and the orthoimage are very similar visually, one can also
+GCP can be visualized in ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
+
+If the input images and the orthoimage are very similar visually, one can 
 try to automatically detect and load interest point matches as follows::
 
     ipfind img.tif ortho.tif
@@ -588,7 +586,9 @@ try to automatically detect and load interest point matches as follows::
 Then, the interest points can be inspected and edited as needed, and the GCP
 file can be saved as above. See the documentation of ``ipfind``
 (:numref:`ipfind`) and ``ipmatch`` (:numref:`ipmatch`), for how to increase the
-number of matches, etc. 
+number of matches, etc.
+
+Lastly, a non-GUI automatic approach exists as well (:numref:`gcp_gen`).
 
 See earlier in this section for how GCP can be used.
 

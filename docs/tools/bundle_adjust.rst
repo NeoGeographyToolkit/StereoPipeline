@@ -238,9 +238,9 @@ Ground control points
 File format
 ^^^^^^^^^^^
 
-A number of plain-text files containing ground control points (GCP)
-can be passed as inputs to ``bundle_adjust``. These can either be
-created by hand, or using ``stereo_gui`` (:numref:`creatinggcp`).
+A number of plain-text files containing ground control points (GCP) can be
+passed as inputs to ``bundle_adjust``. These can be created with
+``gcp_gen`` (:numref:`gcp_gen`) or ``stereo_gui`` (:numref:`creatinggcp`).
 
 A GCP file must end with a ``.gcp`` extension, and contain one ground
 control point per line. Each line must have the following fields:
@@ -341,7 +341,7 @@ the longitude and latitude (and optionally the heights above the
 datum) of its corners (or of some other pixels in the image), the
 ``bundle_adjust`` tool can create an initial camera position and
 orientation, and hence a complete pinhole camera. See
-:numref:`imagecorners` for more details.
+:numref:`camera_solve_gcp` for more details.
 
 If desired to use GCP to apply a transform to a given
 self-consistent camera set, see :numref:`sfm_world_coords`.
@@ -1035,7 +1035,7 @@ Command-line options
 --init-camera-using-gcp
     Given an image, a pinhole camera lacking correct position and
     orientation, and a GCP file, find the pinhole camera with given
-    intrinsics most consistent with the GCP (:numref:`imagecorners`).
+    intrinsics most consistent with the GCP (:numref:`camera_solve_gcp`).
 
 --transform-cameras-with-shared-gcp
     Given at least 3 GCP, with each seen in at least 2 images,

@@ -3,7 +3,7 @@
 cam_gen
 -------
 
-This tool can create Pinhole (:numref:`pinholemodels`), Optical Bar
+This program can create Pinhole (:numref:`pinholemodels`), Optical Bar
 (:numref:`panoramic`), and CSM (:numref:`csm`) camera models, given camera's
 optical center, focal length, pixel pitch, the longitude-latitude coordinates of
 the camera image corners (or some other pixels) as measured on a DEM. It can
@@ -207,7 +207,7 @@ The camera obtained using this tool (whether with or without the
 
 It is suggested that this is avoided by default. One has to be a bit careful
 when doing this optimization to ensure some corners are not optimized at the
-expense of others. This is discussed in :numref:`imagecorners`.
+expense of others. This is discussed in :numref:`camera_solve_gcp`.
 
 Validation
 ~~~~~~~~~~
@@ -322,7 +322,7 @@ Command-line options
 --refine-intrinsics <string (default: "")>
     Refine the camera intrinsics together with the camera pose. Specify, in
     quotes or with comma as separator, one or more of: ``focal_length``,
-    ``optical_center``, ``other_intrinsics`` (same as ``distiortion``).
+    ``optical_center``, ``other_intrinsics`` (same as ``distortion``).
     Also can set as ``all`` or ``none``. In the latter mode only the camera pose
     is optimized. Applicable only with option ``--input-camera`` and when
     creating a CSM Frame camera model (:numref:`cam_gen_frame`). 

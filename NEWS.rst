@@ -4,6 +4,8 @@ Changes since the last release
 New tools:
   * Added ``orbit_plot.py`` (:numref:`orbit_plot`), a tool for plotting
     camera orientations along an orbit (contributed by Shashank Bhushan).
+  * Added ``gcp_gen`` (:numref:`gcp_gen`), a program for generating
+    ground control points (GCPs). Helps create camera models from scratch.  
 
 New camera support:
   * Added the ability to use the CSM camera model with ASTER images
@@ -490,7 +492,7 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Pinhole cameras are no longer automatically reinitialized or
     transformed based on GCP, but only refined given GCP. So, option
     ``--disable-pinhole-gcp-init`` is the default. Use one of the
-    options ``--init-camera-using-gcp`` (:numref:`imagecorners`),
+    options ``--init-camera-using-gcp`` (:numref:`camera_solve_gcp`),
     ``--transform-cameras-with-shared-gcp``, 
     ``--transform-cameras-using-gcp`` (:numref:`sfm_world_coords`) for
     manipulating cameras using GCP.
