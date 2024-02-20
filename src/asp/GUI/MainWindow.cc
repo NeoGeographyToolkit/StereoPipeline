@@ -224,7 +224,8 @@ bool MainWindow::sanityChecks(int num_images) {
   if (num_images <= 1 &&
       (asp::stereo_settings().view_matches ||
        asp::stereo_settings().pairwise_matches ||
-       asp::stereo_settings().pairwise_clean_matches)) {
+       asp::stereo_settings().pairwise_clean_matches)
+      && stereo_settings().gcp_file.empty()) {
     popUp("Cannot view matches if there is at most one image.");
     return false;
   }

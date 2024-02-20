@@ -177,7 +177,6 @@ bool MatchList::allPointsValid() const {
 bool MatchList::loadPointsFromGCPs(std::string const gcpPath,
                                    std::vector<std::string> const& imageNames) {
   using namespace vw::ba;
-
   if (getNumPoints() > 0) // Can't double-load points!
     return false;
 
@@ -190,9 +189,11 @@ bool MatchList::loadPointsFromGCPs(std::string const gcpPath,
   cnet.get_image_list() = imageNames;
   std::vector<std::string> gcp_files;
   gcp_files.push_back(gcpPath);
-  vw::cartography::Datum datum; // the actual datum does not matter here
+  // The actual datum does not matter here as the GCP will not be edited or processed
+  bool skip_datum_check = true;
+  vw::cartography::Datum datum; 
   try {
-    add_ground_control_points(cnet, gcp_files, datum);
+    add_ground_control_points(cnet, gcp_files, datum, skip_datum_check);
   } catch (...) {
     // Do not complain if the GCP file does not exist. Maybe we want to create it.
     return true;

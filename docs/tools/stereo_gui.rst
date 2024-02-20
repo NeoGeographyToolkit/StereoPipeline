@@ -483,6 +483,9 @@ them with this interface, creating such points is described later in
 
     stereo_gui image1.tif ... imageN.tif --gcp-file mygcp.gcp
 
+This works even for a single image. If ``--gcp-file`` is not specified
+but the GCP file is provided, this file will still be loaded.
+
 The ``stereo_gui`` program can also display ``.vwip`` files. Those are
 interest points created by ``ipfind``, ``bundle_adjust``, or
 ``parallel_stereo``, before they are matched across images. One should
