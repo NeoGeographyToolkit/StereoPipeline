@@ -710,7 +710,8 @@ void manufacture_cam(Options & opt, int wid, int hgt,
       // Use the initial guess from file
       pinhole_cam.reset(new PinholeModel(opt.sample_file));
     } else {
-      // Use the intrinsics from the command line. Use trivial rotation and translation.
+      // Use the intrinsics from the command line or read from the CSM sample
+      // file. Use trivial rotation and translation.
       Vector3 ctr(0, 0, 0);
       Matrix<double, 3, 3> rotation;
       rotation.set_identity();
@@ -718,10 +719,10 @@ void manufacture_cam(Options & opt, int wid, int hgt,
       Vector2 opt_ctr = opt.optical_center;
       if (std::isnan(opt_ctr[0]) || std::isnan(opt_ctr[1]))
         opt_ctr = Vector2(opt.pixel_pitch * wid/2.0, opt.pixel_pitch * hgt/2.0);
-
+      
+      vw::camera::LensDistortion const* distortion = NULL; // no distortion info yet
       pinhole_cam.reset(new PinholeModel(ctr, rotation, opt.focal_length, opt.focal_length,
-					 opt_ctr[0], opt_ctr[1],
-					 NULL, opt.pixel_pitch));
+                                         opt_ctr[0], opt_ctr[1], distortion, opt.pixel_pitch));
     }
     out_cam = pinhole_cam;
   }

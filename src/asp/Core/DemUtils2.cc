@@ -144,8 +144,8 @@ struct ErrorToNED: public ReturnFixedType<Vector3> {
     if (xyz == Vector3()) return Vector3();
 
     Vector3   err     = subvector(pt, 3, 3);
-    Vector3   geo     = m_georef.datum().cartesian_to_geodetic(xyz);
-    Matrix3x3 M       = m_georef.datum().lonlat_to_ned_matrix(subvector(geo, 0, 2));
+    Vector3   llh     = m_georef.datum().cartesian_to_geodetic(xyz);
+    Matrix3x3 M       = m_georef.datum().lonlat_to_ned_matrix(llh);
     Vector3   ned_err = inverse(M)*err;
     return ned_err;
   }

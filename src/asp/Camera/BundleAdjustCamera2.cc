@@ -31,6 +31,7 @@
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/CameraErrorPropagation.h>
 #include <asp/IsisIO/IsisInterface.h>
+#include <asp/Core/StereoSettings.h>
 
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/OpticalBarModel.h>
@@ -1017,6 +1018,51 @@ void setup_error_propagation(std::string const& session_name,
   }
   
   asp::horizontalStdDevCheck(horizontal_stddev_vec, session_name);
+}
+
+// Write updated camera models to disk
+void saveUpdatedCameras(asp::BaBaseOptions const& opt, asp::BAParams const& param_storage) {
+  
+  int num_cameras = opt.image_files.size();
+  for (int icam = 0; icam < num_cameras; icam++) {
+
+    switch(opt.camera_type) {
+    case BaCameraType_Pinhole:
+      write_pinhole_output_file(opt, icam, opt.datum, param_storage);
+      break;
+    case BaCameraType_OpticalBar:
+      write_optical_bar_output_file(opt, icam, opt.datum, param_storage);
+      break;
+    case BaCameraType_CSM:
+      // When solving for intrinsics and using CSM
+      write_csm_output_file(opt, icam, opt.datum, param_storage);
+      break;
+    case BaCameraType_Other: {
+        // TODO(oalexan1): Make this into a function and move it out.
+        std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                              opt.image_files[icam],
+                                                              opt.camera_files[icam]);
+        vw::vw_out() << "Writing: " << adjust_file << std::endl;
+        
+        CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+        asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
+
+        // For CSM camera models export, in addition, the JSON state
+        // with the adjustment applied to it.
+        // When not solving for intrinsics and using CSM
+        if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades" ||
+            opt.stereo_session == "dg"  ||
+            (opt.stereo_session == "aster" && asp::stereo_settings().aster_use_csm))
+          write_csm_output_file_no_intr(opt, icam, adjust_file, param_storage);
+      }
+      break;
+    default:
+      vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.\n");
+    }
+    
+  } // End loop through cameras
+
+  return;
 }
 
 } // end namespace asp

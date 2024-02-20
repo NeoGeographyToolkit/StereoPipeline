@@ -1871,7 +1871,7 @@ void asp::saveCameraReport(asp::BaBaseOptions const& opt,
 
     // Find the matrix for converting NED to ECEF
     vw::Vector3 loc_llh = datum.cartesian_to_geodetic(cam_ctr);
-    vw::Matrix3x3 ned2ecef = datum.lonlat_to_ned_matrix(subvector(loc_llh, 0, 2));
+    vw::Matrix3x3 ned2ecef = datum.lonlat_to_ned_matrix(loc_llh);
 
     // How a camera moves relative to the world is given by the camera-to-world
     // matrix. That is a little counter-intuitive.

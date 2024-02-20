@@ -322,7 +322,7 @@ void calc_translation_vec(PointMatcher<RealT>::Matrix const& initT,
   trans_llh = trans_source_ctr_llh - source_ctr_llh;
 
   // The matrix to go from the NED coordinate system to the ECEF coordinate system
-  NedToEcef = datum.lonlat_to_ned_matrix(subvector(source_ctr_llh, 0, 2));
+  NedToEcef = datum.lonlat_to_ned_matrix(source_ctr_llh);
   
   trans_ned = inverse(NedToEcef)*trans_xyz;
 }

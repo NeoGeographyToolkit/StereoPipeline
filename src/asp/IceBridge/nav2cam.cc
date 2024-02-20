@@ -207,8 +207,7 @@ void parse_camera_pose(std::string const& line, Vector3 & xyz, Quat & look, Quat
 
   // Generate the NED frame at this location.
   // - This is relative to the GCC coordinate frame.
-  //std::cout << "--xyz is " << xyz << std::endl;
-  ned = Quat(datum_wgs84.lonlat_to_ned_matrix(Vector2(lon, lat)));
+  ned = Quat(datum_wgs84.lonlat_to_ned_matrix(Vector3(lon, lat, alt)));
 
   //std::cout << "ned matrix " << Quat(ned) << std::endl;
 
@@ -719,7 +718,7 @@ int main(int argc, char* argv[]) {
                                       xDir[2], yDir[2], zDir[2]);
       
         // TODO: ENU or NED?
-        //Matrix3x3 ned_matrix = datum_wgs84.lonlat_to_ned_matrix(Vector2(llh_interp[0], llh_interp[1]));
+        //Matrix3x3 ned_matrix = datum_wgs84.lonlat_to_ned_matrix(llh_interp);
         //Matrix3x3 enu_matrix(ned_matrix(0,1), ned_matrix(0,0), -ned_matrix(0,2),
         //                     ned_matrix(1,1), ned_matrix(1,0), -ned_matrix(1,2),
         //                     ned_matrix(2,1), ned_matrix(2,0), -ned_matrix(2,2));
@@ -871,7 +870,7 @@ int main(int argc, char* argv[]) {
     // First value for these variables.
     lon0 = lon;
     }
-    //ned = Quat(datum_wgs84.lonlat_to_ned_matrix(Vector2(lon0, lat)));
+    //ned = Quat(datum_wgs84.lonlat_to_ned_matrix(Vector3(lon0, lat, alt)));
 
     Quat rotation_matrix_gcc = inverse(ned)*inverse(look);
       

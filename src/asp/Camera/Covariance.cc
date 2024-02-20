@@ -188,7 +188,7 @@ void scaledDGTriangulationJacobian(vw::cartography::Datum const& datum,
 
   // The matrix to go from the NED coordinate system to ECEF
   vw::Vector3 llh = datum.cartesian_to_geodetic(tri_nominal);
-  vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(subvector(llh, 0, 2));
+  vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
   vw::Matrix3x3 EcefToNed = inverse(NedToEcef);
 
   // There are 14 input variables: 3 positions and 4 quaternions for
@@ -395,7 +395,7 @@ void triangulationJacobian(vw::cartography::Datum const& datum,
   // The matrix to go from the NED coordinate system to ECEF at the
   // nominal triangulation point
   vw::Vector3 llh = datum.cartesian_to_geodetic(tri_nominal);
-  vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(subvector(llh, 0, 2));
+  vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
   vw::Matrix3x3 EcefToNed = inverse(NedToEcef);
 
   // Camera centers and directions in ECEF

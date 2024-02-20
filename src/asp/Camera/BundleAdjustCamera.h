@@ -668,6 +668,12 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
                           vw::cartography::Datum const& datum,
                           // Output
                           HorizVertErrorStats & stats);
+
+
+// Write updated camera models to disk
+void saveUpdatedCameras(asp::BaBaseOptions const& opt, 
+                        asp::BAParams const& param_storage);
+
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_CAMERA_H__

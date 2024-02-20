@@ -54,50 +54,6 @@ using namespace vw::ba;
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 typedef CameraRelationNetwork<JFeature> CRNJ;
 
-// Write updated camera models to disk
-void saveUpdatedCameras(Options const& opt, asp::BAParams const& param_storage) {
-  int num_cameras = opt.image_files.size();
-
-  for (int icam = 0; icam < num_cameras; icam++) {
-
-    switch(opt.camera_type) {
-    case BaCameraType_Pinhole:
-      write_pinhole_output_file(opt, icam, opt.datum, param_storage);
-      break;
-    case BaCameraType_OpticalBar:
-      write_optical_bar_output_file(opt, icam, opt.datum, param_storage);
-      break;
-    case BaCameraType_CSM:
-      // When solving for intrinsics and using CSM
-      write_csm_output_file(opt, icam, opt.datum, param_storage);
-      break;
-    case BaCameraType_Other: {
-        // TODO(oalexan1): Make this into a function and move it out.
-        std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
-                                                              opt.image_files[icam],
-                                                              opt.camera_files[icam]);
-        vw_out() << "Writing: " << adjust_file << std::endl;
-        
-        CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-        asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
-
-        // For CSM camera models export, in addition, the JSON state
-        // with the adjustment applied to it.
-        // When not solving for intrinsics and using CSM
-        if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades" ||
-            opt.stereo_session == "dg"  ||
-            (opt.stereo_session == "aster" && asp::stereo_settings().aster_use_csm))
-          write_csm_output_file_no_intr(opt, icam, adjust_file, param_storage);
-      }
-      break;
-    default:
-      vw_throw(ArgumentErr() << "Unknown camera type.\n");
-    }
-    
-  } // End loop through cameras
-  
-}
-
 // A callback to invoke at each iteration if desiring to save the cameras
 // at that time.
 class BaCallback: public ceres::IterationCallback {
@@ -132,7 +88,8 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
   double* point  = param_storage.get_point_ptr(point_index);
 
   if (opt.camera_type == BaCameraType_Other) {
-    // The generic camera case
+    // The generic camera case. This includes pinhole and CSM too, when
+    // the adjustments are external and intrinsics are not solved for.
     boost::shared_ptr<CeresBundleModelBase> wrapper(new AdjustedCameraBundleModel(camera_model));
       ceres::CostFunction* cost_function =
         BaReprojectionError::Create(observation, pixel_sigma, wrapper);
@@ -1030,7 +987,7 @@ int do_ba_ceres_one_pass(Options             & opt,
       weight_image_nodata, weight_image_georef, weight_image);
 
   // Add the cost function component for difference of pixel observations
-  // - Reduce error by making pixel projection consistent with observations.
+  // Reduce error by making pixel projection consistent with observations.
   
   // Add the various cost functions the solver will optimize over.
   std::vector<size_t> cam_residual_counts(num_cameras);
@@ -1168,7 +1125,7 @@ int do_ba_ceres_one_pass(Options             & opt,
 
     // Don't use the same loss function as for pixels since that one
     // discounts outliers and the GCP's should never be discounted.
-    // The user an override this for the advanced --heights_from_dem
+    // The user an override this for the advanced --heights-from-dem
     // and --reference-dem options.
     ceres::LossFunction* loss_function = NULL;
     if (opt.heights_from_dem != ""      &&
@@ -1808,7 +1765,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     check_gcp_dists(new_cam_models, opt.cnet, opt.forced_triangulation_distance);
   }
 
-  // Fill in the point vector with the starting values.
+  // Fill in the point vector with the starting values
   for (int ipt = 0; ipt < num_points; ipt++)
     param_storage.set_point(ipt, cnet[ipt].position());
 

@@ -2333,7 +2333,7 @@ void sun_angles(Options const& opt,
   //double angle2 = (180.0/M_PI) * acos (prod);
 
   // Find the sun direction in the North-East-Down coordinate system
-  vw::Matrix3x3 M = georef.datum().lonlat_to_ned_matrix(ll);
+  vw::Matrix3x3 M = georef.datum().lonlat_to_ned_matrix(llh);
   Vector3 sun_dir_ned = inverse(M)*sun_dir;
   
   if (sun_dir_ned[0] == 0 && sun_dir_ned[1] == 0)

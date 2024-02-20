@@ -783,7 +783,7 @@ ned_to_cartesian_transform(vw::cartography::Datum const& datum,
   vw::Vector3 ned = vw::str_to_vec<vw::Vector3>(ned_str);
 
   vw::Vector3 loc_llh = datum.cartesian_to_geodetic(location);
-  vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(subvector(loc_llh, 0, 2));
+  vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(loc_llh);
   vw::Vector3 xyz_shift = NedToEcef * ned;
   
   PointMatcher<RealT>::Matrix T = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
