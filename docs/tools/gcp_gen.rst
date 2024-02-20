@@ -4,10 +4,9 @@ gcp_gen
 -------
 
 This program creates ground control points (GCP, :numref:`bagcp`) given a camera
-image, orthoimage, DEM, and camera intrinsics. The GCP can then be used to
-initialize or constrain a camera model for the camera image. This is a very quick
-and convenient way of creating cameras that avoids full Structure-from-Motion
-(:numref:`sfm`).
+image, orthoimage, and DEM. The GCP can then be used to initialize or constrain
+a camera model for the camera image. This is a very quick and convenient way of
+creating cameras that avoids full Structure-from-Motion (:numref:`sfm`).
 
 The approach is to find interest point matches between the camera image and
 orthoimage, infer the geolocation of those points from the orthoimage, and their
