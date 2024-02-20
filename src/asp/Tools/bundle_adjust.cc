@@ -1606,6 +1606,27 @@ void runRandomPasses(Options & opt, asp::BAParams & param_storage,
   final_cost = best_cost;
 }
 
+// Sanity check. This does not prevent the user from setting the wrong datum,
+// but it can catch unreasonable height values for GCP.
+void checkGcpRadius(vw::cartography::Datum const& datum, ControlNetwork const& cnet) {
+  
+  int num_points = cnet.size();
+  for (int ipt = 0; ipt < num_points; ipt++) {
+    if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
+      continue;
+      
+    vw::Vector3 observation = cnet[ipt].position();
+    double thresh = 2e+5; // 200 km
+    if (std::abs(norm_2(observation) - datum.semi_major_axis()) > thresh || 
+        std::abs(norm_2(observation) - datum.semi_minor_axis()) > thresh)
+      vw_throw(ArgumentErr() << "Radius of a ground control point in ECEF differs "
+              << "from the datum radii by more than " << thresh << " meters.\n"
+              << "Check your GCPs and datum.\n");
+  }
+  
+  return;  
+}
+
 /// Use Ceres to do bundle adjustment.
 void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc) {
 
@@ -1646,6 +1667,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 
   if (!opt.gcp_files.empty()) {
     num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
+    checkGcpRadius(opt.datum, cnet);
     vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
   }
   
@@ -2591,8 +2613,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Otherwise try to set the datum based on cameras.  It will return
   // WGS84 if all else fails.
   // TODO(oalexan1): That may not be desirable with ground-level cameras.
-  if (opt.datum_str == "") {
-    asp::datum_from_cameras(opt.image_files, opt.camera_files,  
+  bool found_datum = (opt.datum_str != "");
+  if (!found_datum) {
+    found_datum = asp::datum_from_cameras(opt.image_files, opt.camera_files,  
                             opt.stereo_session,  // may change
                             // Outputs
                             opt.datum);
@@ -2600,14 +2623,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
   
   // Many times the datum is mandatory
-  if (opt.datum_str == "") {
-    if (!opt.gcp_files.empty() || !opt.camera_position_file.empty() )
+  if (!found_datum) {
+    if (!opt.gcp_files.empty() || !opt.camera_position_file.empty())
       vw_throw( ArgumentErr() << "When ground control points or a camera position "
-               << "file are used, the datum must be specified.\n");
+               << "file are used, option --datum must be specified.\n");
     
     if (opt.elevation_limit[0] < opt.elevation_limit[1])
       vw_throw( ArgumentErr()
-                << "When filtering by elevation limit, the datum must be specified.\n");
+                << "When filtering by elevation limit, option --datum must be specified.\n");
   }
 
   vw_out() << "Will use the datum:\n" << opt.datum << std::endl;

@@ -86,8 +86,8 @@ void load_cameras(std::vector<std::string> const& image_files,
   return;
 }
 
-// Find the datum based on cameras. For stereo session pinhole will return WGS84.
-void datum_from_cameras(std::vector<std::string> const& image_files,
+// Find the datum based on cameras. Return true on success.
+bool datum_from_cameras(std::vector<std::string> const& image_files,
                         std::vector<std::string> const& camera_files,
                         std::string & stereo_session, // may change
                         // Outputs
@@ -97,6 +97,7 @@ void datum_from_cameras(std::vector<std::string> const& image_files,
   std::string out_prefix = "run";
 
   // Look for a non-pinole camera, as a pinhole camera does not have a datum
+  bool success = false;
   for (size_t i = 0; i < image_files.size(); i++) {
 
     // This is for the case when there is a mix of pinhole and non-pinhole
@@ -110,17 +111,20 @@ void datum_from_cameras(std::vector<std::string> const& image_files,
                                                          image_files [i], image_files [i],
                                                          camera_files[i], camera_files[i],
                                                          out_prefix)); 
-    if (stereo_session == "pinhole")
+    
+    // Pinhole and nadirpinhole cameras do not have a datum
+    if (stereo_session == "pinhole" || stereo_session == "nadirpinhole")
       continue;
 
     bool use_sphere_for_non_earth = true;
     datum = session->get_datum(session->camera_model(image_files [i],
                                                      camera_files[i]).get(),
                                use_sphere_for_non_earth);
-    break; // found the datum
+    success = true;
+    return success; // found the datum
   }
 
-  return;
+  return success;
 }
 
 } // end namespace asp

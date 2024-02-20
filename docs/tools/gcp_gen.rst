@@ -13,6 +13,15 @@ The approach is to find interest point matches between the camera image and
 orthoimage, infer the geolocation of those points from the orthoimage, and their
 elevation from the DEM.
 
+This program can fail if the camera image and orthoimage are not similar
+enough, do not have a similar-enough footprint on the ground, or if the ortho
+image is a mirror-flipped version of the camera image. 
+
+Use the option ``--output-prefix`` to save the interest point matches for
+inspection with ``stereo_gui`` (:numref:`stereo_gui_view_ip`). Consider
+increasing the number of interest points to detect per image and adjusting the
+inlier threshold if the matches are not good enough.
+
 The context and next steps after using this program are discussed in
 :numref:`camera_solve_gcp`.
 
@@ -25,7 +34,7 @@ Example
       --ortho-image ortho_image.tif         \
       --dem dem.tif                         \
       -o gcp.gcp
-      
+
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 

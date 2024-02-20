@@ -49,12 +49,26 @@ void writeGCP(std::vector<std::string> const& image_files,
   vw::ImageViewRef<vw::PixelMask<double>> interp_dem;
   vw::cartography::GeoReference dem_georef;
   asp::create_interp_dem(dem_file, dem_georef, interp_dem);
+  BBox2 dem_bbox = bounding_box(interp_dem);
 
-  BBox2 image_bb = bounding_box(interp_dem);
-
+  // A basic sanity check. The orthoimage and DEM datums should be similar.
+  double tol = 1.0; // 1 m
+  auto const& img_d = image_georef.datum();
+  auto const& dem_d = dem_georef.datum();
+  // Throw if the datums are too different
+  if (img_d.semi_major_axis() - dem_d.semi_major_axis() > tol ||
+      img_d.semi_minor_axis() - dem_d.semi_minor_axis() > tol)
+    vw::vw_throw(ArgumentErr() << "The orthoimage and DEM datums differ by more than "
+             << tol << " meters. This is not supported.\n");
+    
   vw_out() << "Writing: " << gcp_file << "\n";
   std::ofstream output_handle(gcp_file.c_str());
   output_handle << std::setprecision(17);
+
+  // It is important to keep track of the datum
+  // because the elevations are relative to it
+  output_handle << "# WKT: " << dem_georef.datum().get_wkt() << std::endl;
+  
   size_t num_pts_skipped = 0, num_pts_used = 0;
 
   const size_t num_ips = matchlist.getNumPoints();
@@ -68,7 +82,7 @@ void writeGCP(std::vector<std::string> const& image_files,
     
     // We make a separate bounding box check because the ValueEdgeExtension
     //  functionality may not work properly!
-    if ( (!image_bb.contains(dem_pixel)) || (!is_valid(height)) ) {
+    if ( (!dem_bbox.contains(dem_pixel)) || (!is_valid(height)) ) {
       vw_out() << "Warning: Skipped IP # " << p
                << " because it does not fall on the DEM.\n";
       ++num_pts_skipped;

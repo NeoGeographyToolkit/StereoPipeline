@@ -700,7 +700,7 @@ void MainWindow::createMenus() {
   connect(m_run_parallel_stereo_action, SIGNAL(triggered()), this, SLOT(run_parallel_stereo()));
   m_run_parallel_stereo_action->setShortcut(tr("R"));
 
-  // Run stereo (this tool is depreprecated)
+  // Run stereo
   m_run_stereo_action = new QAction(tr("Run stereo"), this);
   m_run_stereo_action->setStatusTip(tr("Run stereo on selected clips"));
   connect(m_run_stereo_action, SIGNAL(triggered()), this, SLOT(run_stereo()));

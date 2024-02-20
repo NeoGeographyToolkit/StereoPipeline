@@ -549,7 +549,8 @@ Open the desired images, the orthoimage, the DEM, and the GCP file to
 be created in the GUI, as follows::
 
     stereo_gui img1.tif img2.tif img3.tif ortho.tif \
-      --dem-file dem.tif --gcp-file output.gcp
+      --dem-file dem.tif --gcp-file output.gcp      \
+      run/run
 
 The orthoimage must be after the images for which GCP will be
 created. If no ortho image exists, one can use the given DEM

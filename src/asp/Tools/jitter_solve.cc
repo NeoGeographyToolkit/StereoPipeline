@@ -1651,11 +1651,13 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Find the datum.
   // TODO(oalexan1): Integrate this into load_cameras, to avoid loading
   // the cameras twice. Do this also in bundle_adjust.cc.
-  asp::datum_from_cameras(opt.image_files, opt.camera_files,  
-                          opt.stereo_session,  // may change
-                          // Outputs
-                          opt.datum);
-  
+  bool found_datum = asp::datum_from_cameras(opt.image_files, opt.camera_files,  
+                                             opt.stereo_session,  // may change
+                                             // Outputs
+                                             opt.datum);
+  if (!found_datum)
+    vw_throw(ArgumentErr() << "No datum was found in the input cameras.\n");
+    
   // Apply the input adjustments to the cameras. Resample linescan models.
   // Get pointers to the underlying CSM cameras, as need to manipulate
   // those directly.

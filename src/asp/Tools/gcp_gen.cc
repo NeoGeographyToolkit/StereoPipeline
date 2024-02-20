@@ -131,6 +131,7 @@ void do_ransac(Options const& opt,
     vw_throw(ArgumentErr() << e.what() << "\n"
              << "RANSAC failed.\n");
   }
+  vw::vw_out() << "Homography transform: " << tf << std::endl;
   
   // Keeping only inliers. Overwrite them in place.
   for (size_t i = 0; i < indices.size(); i++) {

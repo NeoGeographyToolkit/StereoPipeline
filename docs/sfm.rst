@@ -567,9 +567,9 @@ having intrinsics only, and bundle adjustment. Here we outline this process.
 Given the camera image, a similar-enough orthoimage, and a DEM, the ``gcp_gen``
 program (:numref:`gcp_gen`) can create a GCP file for it::
 
-    gcp_gen --camera-image img.tif  \
-      --ortho-image ortho_image.tif \
-      --dem dem.tif                 \
+    gcp_gen --camera-image img.tif \
+      --ortho-image ortho.tif      \
+      --dem dem.tif                \
       -o gcp.gcp
 
 If only a DEM is known, but in which one could visually discern roughly the same
@@ -615,15 +615,17 @@ For each camera image, run bundle adjustment with this data::
       --datum WGS84               \
       --inline-adjustments        \
       --init-camera-using-gcp     \
+      --threads 1                 \
       --camera-weight 0           \
       --max-iterations 100        \
-      --robust-threshold 100      \
+      --robust-threshold 2        \
       -o ba/run
 
-which will write the desired correctly oriented camera file as
-``ba/run-cam.tsai``. This should be run for each individual camera.
+This will write the desired correctly oriented camera file as
+``ba/run-init.tsai``. The process can be repeated for each camera with an
+individual output prefix.
 
-The datum field should be adjusted depending on the planet.
+The datum field must be adjusted depending on the planet.
 
 It is very important to inspect the file::
 
@@ -633,12 +635,11 @@ and look at the 4th column. Those will be the pixel residuals (reprojection
 error into cameras). They should be under a few pixels each, otherwise there is
 a mistake. 
   
-If bundle adjustment is invoked with a positive number of iterations,
-and with a small value for the robust threshold, it tends to optimize
-only some of the corners and ignore the others, resulting in a large
-reprojection error, which is not desirable. If however, this threshold
-is too large, it may try to optimize the camera too aggressively,
-resulting in a poorly placed camera.
+If bundle adjustment is invoked with a positive number of iterations, and with a
+small value for the robust threshold, it tends to optimize only some of the
+corners and ignore the others, resulting in a large reprojection error, which is
+not desirable. If however, this threshold is too large, it may try to optimize
+GCP that may be outliers, resulting in a poorly placed camera.
 
 One can use the bundle adjustment option ``--fix-gcp-xyz`` to not
 move the GCP during optimization, hence forcing the cameras to move more
@@ -646,7 +647,7 @@ to conform to them.
 
 Validate the produced camera with ``mapproject``::
 
-  mapproject dem.tif img.tif ba/run-cam.tsai img.map.tif
+  mapproject dem.tif img.tif ba/run-init.tsai img.map.tif
 
 and overlay the result on top of the DEM.
   
