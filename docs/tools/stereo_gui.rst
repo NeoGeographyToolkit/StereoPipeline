@@ -38,7 +38,7 @@ DEM.
 
 .. figure:: ../images/stereo_gui.jpg
    :name: asp_gui_fig
-   :alt: stereo_gui.
+   :alt: stereo_gui
 
    An illustration of ``stereo_gui``. Stereo processing will happen on
    the regions selected by red rectangles.
@@ -533,13 +533,13 @@ Creating GCP with with orthoimage and DEM
 
 There exist situations when one has one or more images for which the camera
 files are either inaccurate or, for Pinhole camera models, just the intrinsics
-may be known. Given a DEM of the area of interest, and optionally an orthoimage
-(mapprojected image, georeferenced image), it is possible to create GCP files
-(:numref:`bagcp`).
+may be known. 
 
-GCP can later be used with ``bundle_adjust`` to either improve the alignment of
-these cameras to the DEM, or create new Pinhole cameras from scratch (the latter
-is shown in :numref:`camera_solve_gcp`).
+Given a DEM of the area of interest, and optionally an orthoimage (mapprojected
+image, georeferenced image), these an be used to create GCP files
+(:numref:`bagcp`). GCP can be provided to ``bundle_adjust`` to either improve
+the registration of these cameras to the ground or create new Pinhole cameras from
+scratch (the latter is shown in :numref:`camera_solve_gcp`).
 
 A DEM can be obtained using the instructions in :numref:`initial_terrain`.
 Use, if applicable, ``dem_geoid`` to convert the DEM to be relative
@@ -553,12 +553,12 @@ be created in the GUI, as follows::
       run/run
 
 The orthoimage must be after the images for which GCP will be
-created. If no ortho image exists, one can use the given DEM
+created. If no orthoimage exists, one can use the given DEM
 instead (and it can be hillshaded after loading to easier identify
 features).
 
 The ground locations are found from the orthoimage and their elevations from the
-DEM. The interest points in the reference image are not saved to the GCP file.
+DEM. The interest points in the orthoimage are not saved to the GCP file.
 
 A feature is identified and manually added as a matching interest point (match
 point) in all open images, from left to right. For that, use the right
@@ -567,11 +567,11 @@ times. If the match point is not added in all images before starting with a new
 one, that will result in an error.  The match points can be moved around by
 right-clicking to turn on this mode, and then dragging them with the mouse.
 
-When done creating interest points, use the ``IP
-matches -> Write GCP file`` menu item to generate a ground control point
-file containing the selected points. 
+When done creating interest points, use the ``IP matches -> Write GCP file``
+menu item to save the GCP file. The matches can be saved from the same menu, and
+can be loaded and edited later (editing cannot be done for GCP).
 
-If above the reference DEM and GCP file were not set, the tool
+If above the reference DEM and GCP file were not set, the GUI
 will prompt for their names.
 
 GCP can be visualized in ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).

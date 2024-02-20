@@ -39,7 +39,7 @@ namespace po = boost::program_options;
 namespace asp {
   
 struct Options: vw::GdalWriteOptions {
-  std::string camera_image, ortho_image, dem, output_gcp, output_prefix;
+  std::string camera_image, ortho_image, dem, output_gcp, output_prefix, match_file;
   double inlier_threshold;
   int ip_per_image, num_ransac_iterations;
   Options(): ip_per_image(0), num_ransac_iterations(0.0), inlier_threshold(0){}
@@ -70,6 +70,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "inliers. The default is 10% of the image diagonal.")
     ("output-prefix", po::value(&opt.output_prefix)->default_value(""),
      "If set, save the interest point matches using this prefix (for inspection).")
+    ("match-file", po::value(&opt.match_file)->default_value(""),
+     "If set, use this match file instead of creating one.")
   ;
     
   po::options_description positional("");
@@ -144,20 +146,32 @@ void do_ransac(Options const& opt,
   vw_out() << "Found " << ip1.size() << " inlier matches using RANSAC.\n";
 }
 
-/// Get a list of matched IP, looking in certain image regions.
-void find_matches(std::string const& image_file1, std::string const& image_file2,
-                  ImageViewRef<double> image1, ImageViewRef<double> image2,
+/// Get a list of matched IP between two images
+void find_matches(Options & opt,
+                  std::string const& camera_image_name, std::string const& ortho_image_name,
+                  ImageViewRef<double> camera_image, ImageViewRef<double> ortho_image,
                   double nodata1, double nodata2,
-                  std::vector<ip::InterestPoint> &matched_ip1,
-                  std::vector<ip::InterestPoint> &matched_ip2,
-                  Options const& opt) {
+                  std::vector<vw::ip::InterestPoint> & matched_ip1,
+                  std::vector<vw::ip::InterestPoint> & matched_ip2) {
   
   // Clear the outputs
   matched_ip1.clear();
   matched_ip2.clear();
   
-  vw_out() << "Matching interest points between: " << image_file1 << " and "
-           << image_file2 << "\n";
+  // If the inlier factor is not set, use 10% of the image diagonal.
+  if (opt.inlier_threshold <= 0.0) {
+    BBox2i bbox = bounding_box(camera_image);
+    opt.inlier_threshold = norm_2(Vector2(bbox.width(), bbox.height())) / 10.0;
+    vw::vw_out() << "Setting inlier threshold to: " << opt.inlier_threshold << " pixels.\n";
+  } else {
+    vw::vw_out() << "Using specified inlier threshold: " << opt.inlier_threshold 
+                << " pixels.\n";
+  }
+  vw::vw_out() << "Searching for " << opt.ip_per_image 
+                << " interest points in each image.\n";
+  
+  vw_out() << "Matching interest points between: " << camera_image_name << " and "
+           << ortho_image_name << "\n";
 
   // Now find and match interest points. Use ip per image rather than ip per
   // tile as it is more intuitive that way
@@ -166,8 +180,8 @@ void find_matches(std::string const& image_file1, std::string const& image_file2
   size_t number_of_jobs = 1;
   std::string match_file = ""; // so we do not yet write to disk
   asp::detect_match_ip(matched_ip1, matched_ip2,
-                       vw::pixel_cast<float>(image1), // cast to float so it compiles
-                       vw::pixel_cast<float>(image2),
+                       vw::pixel_cast<float>(camera_image), // cast to float so it compiles
+                       vw::pixel_cast<float>(ortho_image),
                        ip_per_tile, number_of_jobs,
                        "", "", // Do not read ip from disk
                        nodata1, nodata2, match_file);
@@ -177,7 +191,7 @@ void find_matches(std::string const& image_file1, std::string const& image_file2
 
   if (opt.output_prefix != "") {
     // Write a match file for debugging
-    match_file = ip::match_filename(opt.output_prefix, image_file1, image_file2);
+    match_file = ip::match_filename(opt.output_prefix, camera_image_name, ortho_image_name);
     vw_out() << "Writing inlier matches to: " << match_file << std::endl;
     ip::write_binary_match_file(match_file, matched_ip1, matched_ip2);
   }
@@ -209,21 +223,14 @@ void gcp_gen(Options & opt) {
   if (!has_georef_dem)
     vw_throw(ArgumentErr() << "The DEM must have a georeference.\n");
     
-  // If the inlier factor is not set, use 10% of the image diagonal.
-  if (opt.inlier_threshold <= 0.0) {
-    BBox2i bbox = bounding_box(camera_image);
-    opt.inlier_threshold = norm_2(Vector2(bbox.width(), bbox.height())) / 10.0;
-    vw::vw_out() << "Setting inlier threshold to: " << opt.inlier_threshold << " pixels.\n";
+  std::vector<vw::ip::InterestPoint> ip1, ip2;
+  if (opt.match_file == "") {
+    find_matches(opt, opt.camera_image, opt.ortho_image, camera_image, ortho_image,
+                 camera_nodata, ortho_nodata, ip1, ip2);
   } else {
-    vw::vw_out() << "Using specified inlier threshold: " << opt.inlier_threshold 
-                 << " pixels.\n";
+    vw::vw_out() << "Reading matches from: " << opt.match_file << "\n";
+    vw::ip::read_binary_match_file(opt.match_file, ip1, ip2);
   }
-  
-  std::vector<ip::InterestPoint> ip1, ip2;
-  vw::vw_out() << "Searching for " << opt.ip_per_image << " interest points in each image.\n";
-  find_matches(opt.camera_image, opt.ortho_image, camera_image, ortho_image,
-               camera_nodata, ortho_nodata, 
-               ip1, ip2, opt);
   
   // Populate from two vectors of matched interest points
   asp::MatchList matchList;

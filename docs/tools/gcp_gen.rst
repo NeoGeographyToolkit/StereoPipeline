@@ -12,9 +12,9 @@ The approach is to find interest point matches between the camera image and
 orthoimage, infer the geolocation of those points from the orthoimage, and their
 elevation from the DEM.
 
-This program can fail if the camera image and orthoimage are not similar
-enough, do not have a similar-enough footprint on the ground, or if the ortho
-image is a mirror-flipped version of the camera image. 
+This program can fail if the camera image and orthoimage are not similar enough,
+or if the orthoimage is a mirror-flipped version of the camera image. Manual
+selection of interest points can then be invoked (:numref:`creatinggcp`).
 
 Use the option ``--output-prefix`` to save the interest point matches for
 inspection with ``stereo_gui`` (:numref:`stereo_gui_view_ip`). Consider
@@ -63,7 +63,10 @@ Command-line options
 
 --output-prefix <string (default: "")>
     If set, save the interest point matches using this prefix (for inspection).
-          
+
+--match-file <string (default: "")>
+    If set, use this match file instead of creating one.          
+
 -v, --version
     Display the version of software.
 

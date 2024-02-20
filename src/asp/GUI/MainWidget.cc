@@ -382,9 +382,6 @@ namespace vw { namespace gui {
 
     m_mergePolys = m_ContextMenu->addAction("Merge polygons");
     
-    m_saveVectorLayerAsShapeFile = m_ContextMenu->addAction("Save vector layer as shape file");
-    m_saveVectorLayerAsTextFile = m_ContextMenu->addAction("Save vector layer as text file");
-      
     // Other options
     m_addMatchPoint      = m_ContextMenu->addAction("Add match point");
     m_deleteMatchPoint   = m_ContextMenu->addAction("Delete match point");
@@ -393,6 +390,9 @@ namespace vw { namespace gui {
     m_moveMatchPoint->setChecked(false);
     m_toggleHillshadeImageRightClick  = m_ContextMenu->addAction("Toggle hillshaded display");
     m_setHillshadeParams = m_ContextMenu->addAction("View/set hillshade azimuth and elevation");
+    m_saveVectorLayerAsShapeFile = m_ContextMenu->addAction("Save vector layer as shape file");
+    m_saveVectorLayerAsTextFile = m_ContextMenu->addAction("Save vector layer as text file");
+      
     m_saveScreenshot     = m_ContextMenu->addAction("Save screenshot");
     m_setThreshold       = m_ContextMenu->addAction("View/set threshold");
     m_allowMultipleSelections_action
