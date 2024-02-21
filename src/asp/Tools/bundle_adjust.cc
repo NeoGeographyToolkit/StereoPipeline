@@ -187,7 +187,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
                                   int left_cam_index, int right_cam_index,
                                   asp::BAParams & param_storage,
                                   Options const& opt,
-                                  ceres::Problem & problem){
+                                  ceres::Problem & problem) {
 
   ceres::LossFunction* loss_function = get_loss_function(opt);
 
@@ -207,12 +207,13 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
     boost::shared_ptr<CeresBundleModelBase> left_wrapper (new AdjustedCameraBundleModel(left_camera_model ));
     boost::shared_ptr<CeresBundleModelBase> right_wrapper(new AdjustedCameraBundleModel(right_camera_model));
     ceres::CostFunction* cost_function =
-      BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper,
-                             inline_adjustments, opt.intrinsics_options);
+      BaDispXyzError::Create(opt.max_disp_error, opt.reference_terrain_weight,
+        reference_xyz, interp_disp, left_wrapper, right_wrapper,
+        inline_adjustments, opt.intrinsics_options);
 
     problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
 
-  } else { // Pinhole or optical bar
+  } else { // Inline adjustments
 
     boost::shared_ptr<CeresBundleModelBase> left_wrapper, right_wrapper;
 
@@ -245,7 +246,8 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
     }
 
     ceres::CostFunction* cost_function =
-      BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper,
+      BaDispXyzError::Create(opt.max_disp_error, opt.reference_terrain_weight,
+                             reference_xyz, interp_disp, left_wrapper, right_wrapper,
                              inline_adjustments, opt.intrinsics_options);
     problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
 
@@ -618,8 +620,8 @@ int add_to_outliers(ControlNetwork & cnet,
 
   vw_out() << "Removing pixel outliers in preparation for another solver attempt.\n";
 
-  const size_t num_points  = param_storage.num_points();
-  const size_t num_cameras = param_storage.num_cameras();
+  size_t num_points  = param_storage.num_points();
+  size_t num_cameras = param_storage.num_cameras();
   
   // Compute the reprojection error. Hence we should not add the contribution
   // of the loss function.
@@ -909,6 +911,121 @@ void updateOutliers(vw::ba::ControlNetwork const& cnet,
       outliers.insert(i); 
 }
 
+// Add a cost function meant to tie up to known disparity form left to right
+// image and known ground truth reference terrain (option --reference-terrain).
+// This was only tested for pinhole cameras. Disparity must be created with
+// stereo with the option --unalign-disparity. If there are n images, there must
+// be n-1 disparities, from each image to the next.
+// TODO(oalexan1): move to a separate file called BundleAdjustCostFunctions.cc
+// Also with most of bundle_adjust_cost_functions.h.
+void addReferenceTerrainCostFunction(
+         Options             & opt,
+         asp::BAParams       & param_storage, 
+         ceres::Problem      & problem,
+         std::vector<vw::Vector3> & reference_vec,
+         std::vector<ImageViewRef<DispPixelT>> & interp_disp) {
+
+  size_t num_cameras = param_storage.num_cameras();
+
+  // Set up a GeoReference object using the datum, it may get modified later
+  vw::cartography::GeoReference geo;
+  geo.set_datum(opt.datum); // We checked for a datum earlier
+
+  // Load the reference data
+  std::vector<vw::Vector3> input_reference_vec;
+  std::vector<ImageView<DispPixelT>> disp_vec;
+  asp::load_csv_or_dem(opt.csv_format_str, opt.csv_proj4_str, opt.reference_terrain,  
+                        opt.max_num_reference_points,  
+                        geo,       // may change
+                        input_reference_vec); // output
+
+  if (load_reference_disparities(opt.disparity_list, disp_vec, interp_disp) != num_cameras-1)
+    vw_throw(ArgumentErr() << "Expecting one less disparity than there are cameras.\n");
+  
+  std::vector<vw::BBox2i> image_boxes;
+  for (int icam = 0; icam < num_cameras; icam++){
+    DiskImageView<float> img(opt.image_files[icam]);
+    BBox2i bbox = vw::bounding_box(img);
+    image_boxes.push_back(bbox);
+  }
+
+  vw_out() << "Setting up the error to the reference terrain.\n";
+  TerminalProgressCallback tpc("", "\t--> ");
+  tpc.report_progress(0);
+  double inc_amount = 1.0/double(input_reference_vec.size());
+
+  reference_vec.clear();
+  for (size_t data_col = 0; data_col < input_reference_vec.size(); data_col++) {
+
+    vw::Vector3 reference_xyz = input_reference_vec[data_col];
+
+    // Filter by lonlat box if provided, this is very much recommended
+    // to quickly discard most points in the huge reference terrain.
+    // Let's hope there is no 360 degree offset when computing
+    // the longitude. 
+    if ( asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
+      vw::Vector3 llh = geo.datum().cartesian_to_geodetic(reference_xyz);
+      vw::Vector2 ll  = subvector(llh, 0, 2);
+      if (!asp::stereo_settings().lon_lat_limit.contains(ll)) {
+        continue;
+      }
+    }
+
+    Vector2 left_pred, right_pred;
+
+    // Iterate over the cameras, add a residual for each point and each camera pair.
+    for (int icam = 0; icam < num_cameras - 1; icam++) {
+
+      boost::shared_ptr<CameraModel> left_camera  = opt.camera_models[icam  ];
+      boost::shared_ptr<CameraModel> right_camera = opt.camera_models[icam+1];
+
+      try {
+        left_pred  = left_camera->point_to_pixel (reference_xyz);
+        right_pred = right_camera->point_to_pixel(reference_xyz);
+      } catch (const camera::PointToPixelErr& e) {
+        continue; // Skip point if there is a projection issue.
+      }
+
+      if ( (left_pred != left_pred) || (right_pred != right_pred) )
+        continue; // nan check
+
+      if (!interp_disp[icam].pixel_in_bounds(left_pred))
+        continue; // Interp check
+
+      DispPixelT dispPix = interp_disp[icam](left_pred[0], left_pred[1]);
+      if (!is_valid(dispPix))
+        continue;
+
+      // Check if the current point projects in the cameras
+      if ( !image_boxes[icam  ].contains(left_pred ) || 
+            !image_boxes[icam+1].contains(right_pred)   ) {
+        continue;
+      }
+
+      Vector2 right_pix = left_pred + dispPix.child();
+      if (!image_boxes[icam+1].contains(right_pix)) 
+        continue; // Check offset location too
+
+      if (right_pix != right_pix || norm_2(right_pix - right_pred) > opt.max_disp_error) {
+        // Ignore pixels which are too far from where they should be before optimization
+        continue;
+      }
+
+      // Only the used reference points are stored here
+      reference_vec.push_back(reference_xyz);
+
+      // Call function to select the appropriate Ceres residual block to add.
+      add_disparity_residual_block(reference_xyz, interp_disp[icam],
+                                    icam, icam+1, // left icam and right icam
+                                    param_storage, opt, problem);
+    }
+    tpc.report_incremental_progress(inc_amount);
+  }
+  
+  tpc.report_finished();
+  vw_out() << "Found " << reference_vec.size() << " reference points in range.\n";
+}
+
 // One pass of bundle adjustment
 int do_ba_ceres_one_pass(Options             & opt,
                          CRNJ           const& crn,
@@ -1172,7 +1289,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   }
 
   // Finer level control of only rotation and translation.
-  // - Error goes up as cameras move and rotate from their input positions.
+  // Error goes up as cameras move and rotate from their input positions.
   // TODO(oalexan1): This will prevent convergence in some cases as there is no attenuation
   if (opt.rotation_weight > 0 || opt.translation_weight > 0){
     for (int icam = 0; icam < num_cameras; icam++){
@@ -1185,120 +1302,12 @@ int do_ba_ceres_one_pass(Options             & opt,
     }
   }
 
-  // TODO(oalexan1): Make this into a function in a separate file,
-  // as it depends on Eigen which makes compilation even slower than
-  // what it already is.
   // Add a cost function meant to tie up to known disparity
-  // form left to right image and known ground truth reference terrain.
-  // This was only tested for local pinhole cameras.
-  // Disparity must be created with stereo -e 3 with the
-  // option --unalign-disparity. If there are n images,
-  // there must be n-1 disparities, from each image to the next.
-  // The doc has more info in the bundle_adjust chapter.
-  std::vector<ImageView<DispPixelT>> disp_vec;
-  std::vector<ImageViewRef<DispPixelT>> interp_disp; 
+  // (option --reference-terrain).
   std::vector<vw::Vector3> reference_vec;
-  if (opt.reference_terrain != "") {
-    // TODO: Pass these properly
-    g_max_disp_error           = opt.max_disp_error;
-    g_reference_terrain_weight = opt.reference_terrain_weight;
-    
-    // Set up a GeoReference object using the datum, it may get modified later
-    vw::cartography::GeoReference geo;
-    geo.set_datum(opt.datum); // We checked for a datum earlier
-
-    // Load the reference data
-    std::vector<vw::Vector3> input_reference_vec;
-    asp::load_csv_or_dem(opt.csv_format_str, opt.csv_proj4_str, opt.reference_terrain,  
-                         opt.max_num_reference_points,  
-                         geo,       // may change
-                         input_reference_vec); // output
-
-    if (load_reference_disparities(opt.disparity_list, disp_vec, interp_disp) != num_cameras-1)
-      vw_throw(ArgumentErr() << "Expecting one less disparity than there are cameras.\n");
-    
-    std::vector<vw::BBox2i> image_boxes;
-    for (int icam = 0; icam < num_cameras; icam++){
-      DiskImageView<float> img(opt.image_files[icam]);
-      BBox2i bbox = vw::bounding_box(img);
-      image_boxes.push_back(bbox);
-    }
-
-    vw_out() << "Setting up the error to the reference terrain.\n";
-    TerminalProgressCallback tpc("", "\t--> ");
-    tpc.report_progress(0);
-    double inc_amount = 1.0/double(input_reference_vec.size());
-
-    reference_vec.clear();
-    for (size_t data_col = 0; data_col < input_reference_vec.size(); data_col++) {
-
-      vw::Vector3 reference_xyz = input_reference_vec[data_col];
-
-      // Filter by lonlat box if provided, this is very much recommended
-      // to quickly discard most points in the huge reference terrain.
-      // Let's hope there is no 360 degree offset when computing
-      // the longitude. 
-      if ( asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
-        vw::Vector3 llh = geo.datum().cartesian_to_geodetic(reference_xyz);
-        vw::Vector2 ll  = subvector(llh, 0, 2);
-        if (!asp::stereo_settings().lon_lat_limit.contains(ll)) {
-          continue;
-        }
-      }
-
-      Vector2 left_pred, right_pred;
-
-      // Iterate over the cameras, add a residual for each point and each camera pair.
-      for (int icam = 0; icam < num_cameras - 1; icam++) {
-
-        boost::shared_ptr<CameraModel> left_camera  = opt.camera_models[icam  ];
-        boost::shared_ptr<CameraModel> right_camera = opt.camera_models[icam+1];
-
-        try {
-          left_pred  = left_camera->point_to_pixel (reference_xyz);
-          right_pred = right_camera->point_to_pixel(reference_xyz);
-        } catch (const camera::PointToPixelErr& e) {
-          continue; // Skip point if there is a projection issue.
-        }
-
-        if ( (left_pred != left_pred) || (right_pred != right_pred) )
-          continue; // nan check
-
-        if (!interp_disp[icam].pixel_in_bounds(left_pred))
-          continue; // Interp check
-
-        DispPixelT dispPix = interp_disp[icam](left_pred[0], left_pred[1]);
-        if (!is_valid(dispPix))
-          continue;
-
-        // Check if the current point projects in the cameras
-        if ( !image_boxes[icam  ].contains(left_pred ) || 
-             !image_boxes[icam+1].contains(right_pred)   ) {
-          continue;
-        }
-
-        Vector2 right_pix = left_pred + dispPix.child();
-        if (!image_boxes[icam+1].contains(right_pix)) 
-          continue; // Check offset location too
-
-        if (right_pix != right_pix || norm_2(right_pix - right_pred) > opt.max_disp_error) {
-          // Ignore pixels which are too far from where they should be before optimization
-          continue;
-        }
-
-        reference_vec.push_back(reference_xyz); // only the used reference points are stored here
-
-        // Call function to select the appropriate Ceres residual block to add.
-        add_disparity_residual_block(reference_xyz, interp_disp[icam],
-                                     icam, icam+1, // left icam and right icam
-                                     param_storage, opt, problem);
-      }
-      tpc.report_incremental_progress(inc_amount);
-    }
-    
-    tpc.report_finished();
-    vw_out() << "Found " << reference_vec.size() << " reference points in range.\n";
-  } // End of reference terrain block
+  std::vector<ImageViewRef<DispPixelT>> interp_disp; // must be kept in scope
+  if (opt.reference_terrain != "") 
+    addReferenceTerrainCostFunction(opt, param_storage, problem, reference_vec, interp_disp);
 
   int num_tri_residuals = 0;
   if (opt.tri_weight > 0) {
@@ -1333,7 +1342,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     kmlPointSkip = num_points / MIN_KML_POINTS;
   if (kmlPointSkip < 1)
     kmlPointSkip = 1;
-    
+
   if (first_pass) {
     // Save the cnet 
     if (opt.save_cnet_as_csv) {
@@ -1342,14 +1351,14 @@ int do_ba_ceres_one_pass(Options             & opt,
       cnet.write_in_gcp_format(cnet_file, opt.datum);
     }
     
-    std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
-    std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     vw_out() << "Writing initial condition files." << std::endl;
     bool apply_loss_function = false;
+    std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, 
                         cam_residual_counts, num_gcp_or_dem_residuals, num_tri_residuals,
                         reference_vec, cnet, crn, problem);
-    
+
+    std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
     std::string url = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png";
     param_storage.record_points_to_kml(point_kml_path, opt.datum, 
                          kmlPointSkip, "initial_points", url);
@@ -1360,7 +1369,6 @@ int do_ba_ceres_one_pass(Options             & opt,
   options.gradient_tolerance  = 1e-16;
   options.function_tolerance  = 1e-16;
   options.parameter_tolerance = opt.parameter_tolerance; // default is 1e-8
-
   options.max_num_iterations                = opt.num_iterations;
   options.max_num_consecutive_invalid_steps = std::max(5, opt.num_iterations/5); // try hard
   options.minimizer_progress_to_stdout      = true;
@@ -1777,7 +1785,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   }
   
   // The camera positions and orientations before we float them
-  // - This includes modifications from any initial transforms that were specified.
+  // This includes modifications from any initial transforms that were specified.
   asp::BAParams orig_parameters(param_storage);
 
   bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
@@ -3068,154 +3076,154 @@ void findPairwiseMatches(Options & opt, // will change
                          std::vector<Vector3> const& estimated_camera_gcc,
                          bool need_no_matches) {
   
-    int num_images = opt.image_files.size();
-    const bool got_est_cam_positions =
-      (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
+  int num_images = opt.image_files.size();
+  const bool got_est_cam_positions =
+    (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
 
-    // Make a list of all the image pairs to find matches for
-    std::vector<std::pair<int,int> > all_pairs;
-    if (!need_no_matches)
-      asp::determine_image_pairs(// Inputs
-                                 opt.overlap_limit, opt.match_first_to_last,  
-                                 opt.image_files, got_est_cam_positions, 
-                                 opt.position_filter_dist, estimated_camera_gcc, 
-                                 opt.have_overlap_list, opt.overlap_list,
-                                 // Output
-                                 all_pairs);
+  // Make a list of all the image pairs to find matches for
+  std::vector<std::pair<int,int> > all_pairs;
+  if (!need_no_matches)
+    asp::determine_image_pairs(// Inputs
+                                opt.overlap_limit, opt.match_first_to_last,  
+                                opt.image_files, got_est_cam_positions, 
+                                opt.position_filter_dist, estimated_camera_gcc, 
+                                opt.have_overlap_list, opt.overlap_list,
+                                // Output
+                                all_pairs);
 
-    // Assign the matches which this instance should compute.
-    // This is for when called from parallel_bundle_adjust.
-    size_t per_instance = all_pairs.size() / opt.instance_count; // Round down
-    size_t remainder    = all_pairs.size() % opt.instance_count;
-    size_t start_index  = 0, this_count = 0;
-    for (size_t i = 0; i <= opt.instance_index; i++) {
-      this_count = per_instance;
-      if (i < remainder)
-        ++this_count;
-      start_index += this_count;
-    }
-    start_index -= this_count;
+  // Assign the matches which this instance should compute.
+  // This is for when called from parallel_bundle_adjust.
+  size_t per_instance = all_pairs.size() / opt.instance_count; // Round down
+  size_t remainder    = all_pairs.size() % opt.instance_count;
+  size_t start_index  = 0, this_count = 0;
+  for (size_t i = 0; i <= opt.instance_index; i++) {
+    this_count = per_instance;
+    if (i < remainder)
+      ++this_count;
+    start_index += this_count;
+  }
+  start_index -= this_count;
 
-    // TODO(oalexan1): The above logic is confusing. It is some
-    // kind of partitioning. At least when parallel_bundle_adjust
-    // is not invoked, for now check that things are as expected,
-    // so all the matches are used.
-    if (opt.instance_count == 1) {
-      if (start_index != 0 || this_count != all_pairs.size()) 
-        vw::vw_throw(vw::ArgumentErr() << "Book-keeping failure in bundle_adjust.\n");
+  // TODO(oalexan1): The above logic is confusing. It is some
+  // kind of partitioning. At least when parallel_bundle_adjust
+  // is not invoked, for now check that things are as expected,
+  // so all the matches are used.
+  if (opt.instance_count == 1) {
+    if (start_index != 0 || this_count != all_pairs.size()) 
+      vw::vw_throw(vw::ArgumentErr() << "Book-keeping failure in bundle_adjust.\n");
+  }
+  
+  std::vector<std::pair<int,int>> this_instance_pairs;
+  for (size_t i=0; i<this_count; i++)
+    this_instance_pairs.push_back(all_pairs[i+start_index]);
+
+  // When using match-files-prefix or 
+  // clean_match_files_prefix, form the list of match files, rather
+  // than searching for them exhaustively on disk, which can get
+  // very slow.
+  bool external_matches = (!opt.clean_match_files_prefix.empty() ||
+                            !opt.match_files_prefix.empty());
+  std::set<std::string> existing_files;
+  if (external_matches) {
+    std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
+                                                opt.match_files_prefix,  
+                                                opt.out_prefix);
+    vw_out() << "Computing the list of existing match files.\n";
+    asp::listExistingMatchFiles(prefix, existing_files);
+  }
+  
+  vw::cartography::GeoReference dem_georef;
+  ImageViewRef<PixelMask<double>> interp_dem;
+  if (mapproj_dem != "")
+      asp::create_interp_dem(mapproj_dem, dem_georef, interp_dem);
+  
+  // Process the selected pairs
+  // TODO(oalexan1): This block must be a function.
+  for (size_t k = 0; k < this_instance_pairs.size(); k++) {
+
+    if (need_no_matches)
+      continue;
+    
+    const int i = this_instance_pairs[k].first;
+    const int j = this_instance_pairs[k].second;
+
+    std::string const& image1_path  = opt.image_files[i];  // alias
+    std::string const& image2_path  = opt.image_files[j];  // alias
+    std::string const& camera1_path = opt.camera_files[i]; // alias
+    std::string const& camera2_path = opt.camera_files[j]; // alias
+    
+    // See if perhaps to load match files from a different source
+    std::string match_file 
+      = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
+                            opt.out_prefix, image1_path, image2_path);
+
+    // The external match file does not exist, don't try to load it
+    if (external_matches && existing_files.find(match_file) == existing_files.end())
+      continue;
+    
+    opt.match_files[std::make_pair(i, j)] = match_file;
+
+    // If we skip matching (which is the case, among other situations, when
+    // using external matches), there's no point in checking if the match
+    // files are recent.
+    bool inputs_changed = false;
+    if (!opt.skip_matching) {
+      inputs_changed = (!asp::is_latest_timestamp(match_file,
+                                                  image1_path,  image2_path,
+                                                  camera1_path, camera2_path));
+
+      // We make an exception and not rebuild if explicitly asked
+      if (asp::stereo_settings().force_reuse_match_files &&
+          boost::filesystem::exists(match_file))
+        inputs_changed = false;
     }
     
-    std::vector<std::pair<int,int>> this_instance_pairs;
-    for (size_t i=0; i<this_count; i++)
-      this_instance_pairs.push_back(all_pairs[i+start_index]);
-
-    // When using match-files-prefix or 
-    // clean_match_files_prefix, form the list of match files, rather
-    // than searching for them exhaustively on disk, which can get
-    // very slow.
-    bool external_matches = (!opt.clean_match_files_prefix.empty() ||
-                             !opt.match_files_prefix.empty());
-    std::set<std::string> existing_files;
-    if (external_matches) {
-      std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
-                                                  opt.match_files_prefix,  
-                                                  opt.out_prefix);
-      vw_out() << "Computing the list of existing match files.\n";
-      asp::listExistingMatchFiles(prefix, existing_files);
+    if (!inputs_changed) {
+      vw_out() << "\t--> Using cached match file: " << match_file << "\n";
+      continue;
     }
+
+    // Read no-data
+    boost::shared_ptr<DiskImageResource>
+      rsrc1(vw::DiskImageResourcePtr(image1_path)),
+      rsrc2(vw::DiskImageResourcePtr(image2_path));
+    if ((rsrc1->channels() > 1) || (rsrc2->channels() > 1))
+      vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
+    float nodata1, nodata2;
+    asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
     
-    vw::cartography::GeoReference dem_georef;
-    ImageViewRef<PixelMask<double>> interp_dem;
-    if (mapproj_dem != "")
-        asp::create_interp_dem(mapproj_dem, dem_georef, interp_dem);
-    
-    // Process the selected pairs
-    // TODO(oalexan1): This block must be a function.
-    for (size_t k = 0; k < this_instance_pairs.size(); k++) {
-
-      if (need_no_matches)
-        continue;
-      
-      const int i = this_instance_pairs[k].first;
-      const int j = this_instance_pairs[k].second;
-
-      std::string const& image1_path  = opt.image_files[i];  // alias
-      std::string const& image2_path  = opt.image_files[j];  // alias
-      std::string const& camera1_path = opt.camera_files[i]; // alias
-      std::string const& camera2_path = opt.camera_files[j]; // alias
-      
-      // See if perhaps to load match files from a different source
-      std::string match_file 
-        = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
-                              opt.out_prefix, image1_path, image2_path);
-
-      // The external match file does not exist, don't try to load it
-      if (external_matches && existing_files.find(match_file) == existing_files.end())
-        continue;
-     
-      opt.match_files[std::make_pair(i, j)] = match_file;
-
-      // If we skip matching (which is the case, among other situations, when
-      // using external matches), there's no point in checking if the match
-      // files are recent.
-      bool inputs_changed = false;
-      if (!opt.skip_matching) {
-        inputs_changed = (!asp::is_latest_timestamp(match_file,
-                                                    image1_path,  image2_path,
-                                                    camera1_path, camera2_path));
-
-        // We make an exception and not rebuild if explicitly asked
-        if (asp::stereo_settings().force_reuse_match_files &&
-            boost::filesystem::exists(match_file))
-          inputs_changed = false;
-      }
-      
-      if (!inputs_changed) {
-        vw_out() << "\t--> Using cached match file: " << match_file << "\n";
-        continue;
-      }
-
-      // Read no-data
-      boost::shared_ptr<DiskImageResource>
-        rsrc1(vw::DiskImageResourcePtr(image1_path)),
-        rsrc2(vw::DiskImageResourcePtr(image2_path));
-      if ((rsrc1->channels() > 1) || (rsrc2->channels() > 1))
-        vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
-      float nodata1, nodata2;
-      asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
-      
-      // Set up the stereo session
-      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
-                                                           opt, image1_path, image2_path,
-                                                           camera1_path, camera2_path,
-                                                           opt.out_prefix));
+    // Set up the stereo session
+    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
+                                                          opt, image1_path, image2_path,
+                                                          camera1_path, camera2_path,
+                                                          opt.out_prefix));
 
 
-      // Find matches between image pairs. This may not always succeed.
-      try {
-        if (opt.mapprojected_data == "") 
-          ba_match_ip(opt, session, image1_path, image2_path,
-                      opt.camera_models[i].get(),
-                      opt.camera_models[j].get(),
-                      match_file);
-        else
-          matches_from_mapproj_images(i, j, opt, session, map_files, mapproj_dem,
-                                      dem_georef, interp_dem, match_file);
+    // Find matches between image pairs. This may not always succeed.
+    try {
+      if (opt.mapprojected_data == "") 
+        ba_match_ip(opt, session, image1_path, image2_path,
+                    opt.camera_models[i].get(),
+                    opt.camera_models[j].get(),
+                    match_file);
+      else
+        matches_from_mapproj_images(i, j, opt, session, map_files, mapproj_dem,
+                                    dem_georef, interp_dem, match_file);
 
-        // Compute the coverage fraction
-        std::vector<ip::InterestPoint> ip1, ip2;
-        ip::read_binary_match_file(match_file, ip1, ip2);
-        int right_ip_width = rsrc1->cols() *
-                              static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
-        Vector2i ip_size(right_ip_width, rsrc1->rows());
-        double ip_coverage = asp::calc_ip_coverage_fraction(ip2, ip_size);
-        vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
-      } catch (const std::exception& e) {
-        vw_out() << "Could not find interest points between images "
-                  << opt.image_files[i] << " and " << opt.image_files[j] << std::endl;
-        vw_out(WarningMessage) << e.what() << std::endl;
-      } //End try/catch
-    } // End loop through all input image pairs
+      // Compute the coverage fraction
+      std::vector<ip::InterestPoint> ip1, ip2;
+      ip::read_binary_match_file(match_file, ip1, ip2);
+      int right_ip_width = rsrc1->cols() *
+                            static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
+      Vector2i ip_size(right_ip_width, rsrc1->rows());
+      double ip_coverage = asp::calc_ip_coverage_fraction(ip2, ip_size);
+      vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
+    } catch (const std::exception& e) {
+      vw_out() << "Could not find interest points between images "
+                << opt.image_files[i] << " and " << opt.image_files[j] << std::endl;
+      vw_out(WarningMessage) << e.what() << std::endl;
+    } //End try/catch
+  } // End loop through all input image pairs
 
 }
 

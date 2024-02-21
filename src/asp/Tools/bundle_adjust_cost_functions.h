@@ -21,6 +21,7 @@
 /**
   Ceres cost functions used by bundle_adjust.
 */
+// TODO(oalexan1): Move most of this logic to the .cc file.
 
 #include <vw/Camera/CameraUtilities.h>
 #include <asp/Core/Macros.h>
@@ -62,9 +63,6 @@ typedef PixelMask<Vector<float, 2>> DispPixelT;
 /// Used to accumulate the number of reprojection errors in bundle adjustment.
 int g_ba_num_errors = 0;
 Mutex g_ba_mutex;
-
-// TODO: Pass these properly.
-double g_max_disp_error = -1.0, g_reference_terrain_weight = 1.0;
 
 double g_big_pixel_value = 1000.0;  // don't make this too big
 
@@ -529,20 +527,24 @@ private:
 /// pixel and the pixel obtained by projecting the xyz point
 /// straight into the right image.
 struct BaDispXyzError {
-  BaDispXyzError(Vector3 const& reference_xyz,
+  BaDispXyzError(double max_disp_error,
+                 double reference_terrain_weight,
+                 Vector3 const& reference_xyz,
                  ImageViewRef<DispPixelT> const& interp_disp,
                  boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
                  boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
                  bool solve_intrinsics, // Would like to remove these!
-                 asp::IntrinsicOptions intrinsics_opt)
-      : m_reference_xyz(reference_xyz),
-        m_interp_disp  (interp_disp  ),
-        m_num_left_param_blocks (left_camera_wrapper->num_parameter_blocks ()),
-        m_num_right_param_blocks(right_camera_wrapper->num_parameter_blocks()),
-        m_left_camera_wrapper   (left_camera_wrapper ),
-        m_right_camera_wrapper  (right_camera_wrapper),
-        m_solve_intrinsics(solve_intrinsics),
-        m_intrinsics_opt(intrinsics_opt)   {}
+                 asp::IntrinsicOptions intrinsics_opt):
+  m_max_disp_error(max_disp_error),
+  m_reference_terrain_weight(reference_terrain_weight),
+  m_reference_xyz(reference_xyz),
+  m_interp_disp (interp_disp),
+  m_num_left_param_blocks (left_camera_wrapper->num_parameter_blocks ()),
+  m_num_right_param_blocks(right_camera_wrapper->num_parameter_blocks()),
+  m_left_camera_wrapper(left_camera_wrapper ),
+  m_right_camera_wrapper(right_camera_wrapper),
+  m_solve_intrinsics(solve_intrinsics),
+  m_intrinsics_opt(intrinsics_opt) {}
 
   // Adaptor to work with ceres::DynamicCostFunctions.
   bool operator()(double const* const* parameters, double* residuals) const {
@@ -569,7 +571,7 @@ struct BaDispXyzError {
           residuals[0] = right_prediction_from_disp[0] - right_prediction[0];
           residuals[1] = right_prediction_from_disp[1] - right_prediction[1];
           for (size_t it = 0; it < 2; it++) 
-            residuals[it] *= g_reference_terrain_weight;
+            residuals[it] *= m_reference_terrain_weight;
         }
       }
 
@@ -578,14 +580,14 @@ struct BaDispXyzError {
       if (!good_ans) {
         // Failed to find the residuals
         for (size_t it = 0; it < 2; it++) 
-          residuals[it] = g_max_disp_error * g_reference_terrain_weight;
+          residuals[it] = m_max_disp_error * m_reference_terrain_weight;
         return true;
       }
 
     } catch (const camera::PointToPixelErr& e) {
       // Failed to project into the camera
       for (size_t it = 0; it < 2; it++) 
-        residuals[it] = g_max_disp_error * g_reference_terrain_weight;
+        residuals[it] = m_max_disp_error * m_reference_terrain_weight;
       return true;
     }
     return true;
@@ -678,6 +680,7 @@ struct BaDispXyzError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(
+      double max_disp_error, double reference_terrain_weight,
       Vector3 const& reference_xyz, ImageViewRef<DispPixelT> const& interp_disp,
       boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
       boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
@@ -687,7 +690,8 @@ struct BaDispXyzError {
 
     ceres::DynamicNumericDiffCostFunction<BaDispXyzError>* cost_function =
         new ceres::DynamicNumericDiffCostFunction<BaDispXyzError>(
-            new BaDispXyzError(reference_xyz, interp_disp, 
+            new BaDispXyzError(max_disp_error, reference_terrain_weight,
+                               reference_xyz, interp_disp, 
                                left_camera_wrapper, right_camera_wrapper,
                                solve_intrinsics, intrinsics_opt));
 
@@ -716,6 +720,7 @@ struct BaDispXyzError {
     return cost_function;
   }  // End function Create
 
+  double m_max_disp_error, m_reference_terrain_weight;
   Vector3 m_reference_xyz;
   ImageViewRef<DispPixelT> const& m_interp_disp;
   size_t m_num_left_param_blocks, m_num_right_param_blocks;
