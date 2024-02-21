@@ -41,10 +41,6 @@ namespace vw {
 
 namespace asp {
 
-const int NUM_XYZ_PARAMS  = 3;
-const int NUM_QUAT_PARAMS = 4;
-const int PIXEL_SIZE      = 2;
-
 class CsmModel;
 
 // Normalize quaternions in UsgsAstroLsSensorModel.

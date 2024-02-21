@@ -28,6 +28,8 @@
 #include <asp/Camera/JitterSolveUtils.h>
 #include <asp/Camera/CsmUtils.h>
 
+#include <asp/Core/BundleAdjustUtils.h>
+
 #include <vw/Cartography/GeoReference.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>

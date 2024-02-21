@@ -86,14 +86,13 @@ void load_cameras(std::vector<std::string> const& image_files,
   return;
 }
 
-// Find the datum based on cameras. Return true on success.
+// Find the datum based on cameras. Return true on success. Otherwise don't set it.
 bool datum_from_cameras(std::vector<std::string> const& image_files,
                         std::vector<std::string> const& camera_files,
                         std::string & stereo_session, // may change
                         // Outputs
                         vw::cartography::Datum & datum) {
   
-  datum.set_well_known_datum("WGS84"); // if no luck
   std::string out_prefix = "run";
 
   // Look for a non-pinole camera, as a pinhole camera does not have a datum

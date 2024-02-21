@@ -24,11 +24,12 @@
 // TODO(oalexan1): Move most of this logic to the .cc file.
 
 #include <vw/Camera/CameraUtilities.h>
-#include <asp/Core/Macros.h>
-#include <asp/Core/StereoSettings.h>
 #include <vw/Camera/OpticalBarModel.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/Macros.h>
+#include <asp/Core/BundleAdjustUtils.h>
 
 // Turn off warnings from eigen
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -55,8 +56,6 @@
 
 using namespace vw;
 using namespace vw::camera;
-
-const size_t PIXEL_SIZE = 2;
 
 typedef PixelMask<Vector<float, 2>> DispPixelT;
 
@@ -768,6 +767,69 @@ struct XYZError {
 
   Vector3 m_observation;
   Vector3 m_xyz_sigma;
+};
+
+/// This cost function imposes a rather hard constraint on camera center
+/// horizontal and vertical motion. It does so by knowing how many reprojection
+/// errors exist for this camera and making this cost function big enough to
+/// overcome then when the motion is going out of bounds. The residual here is
+/// raised to 4th power and will be squared when added to the cost function.
+/// Two residuals are computed, for horizontal and vertical motion.
+struct CamUncertaintyError {
+  CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
+                      vw::Vector2 const& uncertainty, int num_pixel_obs,
+                      vw::cartography::Datum const& datum):
+    m_orig_ctr(orig_ctr), m_uncertainty(uncertainty), m_num_pixel_obs(num_pixel_obs) {
+      
+    // The first three parameters are the camera center adjustments.
+    m_orig_adj = Vector3(orig_adj[0], orig_adj[1], orig_adj[2]);
+
+    std::cout << "--orig ctr is " << orig_ctr << std::endl;
+    std::cout << "--orig adj is " << m_orig_adj << std::endl;
+    std::cout << "--uncertainty is " << uncertainty << std::endl;
+    std::cout << "--num_pixel_obs is " << num_pixel_obs << std::endl;
+    std::cout << "--datum is " << datum << std::endl;
+    
+    // The uncertainty must be positive
+    if (m_uncertainty[0] <= 0 || m_uncertainty[1] <= 0)
+      vw_throw(ArgumentErr() << "CamUncertaintyError: Invalid uncertainty: "
+               << uncertainty << ". All values must be positive.\n");    
+    
+    vw::Vector3 llh = datum.cartesian_to_geodetic(orig_ctr);
+    std::cout << "--llh is " << llh << std::endl;
+    vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
+    m_EcefToNed = vw::math::inverse(NedToEcef);
+    std::cout << "--EcefToNed is " << m_EcefToNed << std::endl;
+    
+  }
+    
+  template <typename T>
+  bool operator()(const T* point, T* residuals) const {
+    for (size_t p = 0; p < 3; p++)
+      residuals[p] = T(0);
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(vw::Vector3 const& orig_ctr, double const* orig_adj,
+                      vw::Vector2 const& uncertainty, int num_pixel_obs,
+                      vw::cartography::Datum const& datum) {
+    // 2 residuals and 3 translation variables. Must add the rotation variables, however,
+    // for CERES not to complain. So, get 6.
+    return (new ceres::AutoDiffCostFunction<CamUncertaintyError, 2, 6>
+            (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, num_pixel_obs, datum)));
+  }
+
+  // orig_ctr is the original camera center, orig_cam_ptr is the original
+  // adjustment (resulting in the original center). The uncertainty is
+  // in meters.
+  vw::Vector3 m_orig_ctr;
+  vw::Vector3 m_orig_adj;
+  vw::Vector2 m_uncertainty;
+  int m_num_pixel_obs;
+  vw::Matrix3x3 m_EcefToNed;
 };
 
 /// A ceres cost function. The residual is the difference between the

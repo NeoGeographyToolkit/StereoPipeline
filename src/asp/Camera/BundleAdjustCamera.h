@@ -74,21 +74,22 @@ enum BACameraType {BaCameraType_Pinhole    = 0,
 // Options shared by bundle_adjust and jitter_solve
 struct BaBaseOptions: public vw::GdalWriteOptions {
   std::string out_prefix, stereo_session, input_prefix, match_files_prefix,
-    clean_match_files_prefix, ref_dem, heights_from_dem, mapproj_dem, weight_image,
+    clean_match_files_prefix, ref_dem, heights_from_dem, reference_terrain, mapproj_dem, weight_image,
     isis_cnet, nvm, nvm_no_shift, output_cnet_type,
     image_list, camera_list, mapprojected_data_list,
     fixed_image_list;
   int overlap_limit, min_matches, max_pairwise_matches, num_iterations,
-    ip_edge_buffer_percent;
+    ip_edge_buffer_percent, max_num_reference_points;
   bool have_overlap_list;
   std::set<std::pair<std::string, std::string>> overlap_list;
   std::string overlap_list_file, auto_overlap_params, datum_str;
   bool match_first_to_last, single_threaded_cameras, 
     update_isis_cubes_with_csm_state;
   double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
-  double ref_dem_weight, ref_dem_robust_threshold, heights_from_dem_weight,
+  double ref_dem_weight, ref_dem_robust_threshold, heights_from_dem_weight, reference_terrain_weight, 
     heights_from_dem_robust_threshold, camera_weight, rotation_weight, translation_weight,
     tri_weight, tri_robust_threshold;
+  vw::Vector2 camera_uncertainty;    
   vw::Vector<double, 4> remove_outliers_params;
   BACameraType camera_type;
   std::vector<std::string> image_files, camera_files;
@@ -100,7 +101,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
                    rotation_weight(0.0), translation_weight(0.0), tri_weight(0.0),
                    robust_threshold(0.0), min_matches(0),
                    num_iterations(0), overlap_limit(0), have_overlap_list(false),
-                   camera_type(BaCameraType_Other),
+                   camera_type(BaCameraType_Other), max_num_reference_points(-1),
                    datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM, 
                                                 "User Specified Spheroid",
                                                 "Reference Meridian", 1, 1, 0)) {}

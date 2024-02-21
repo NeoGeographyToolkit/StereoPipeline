@@ -24,16 +24,17 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Sessions/CameraUtils.h>
+#include <asp/Camera/LinescanUtils.h>
+#include <asp/Camera/CsmModel.h>
+#include <asp/Camera/BundleAdjustResiduals.h>
+#include <asp/Camera/BundleAdjustIsis.h>
+#include <asp/Core/PointUtils.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/Camera/LinescanUtils.h>
-#include <asp/Core/PointUtils.h>
 #include <asp/Core/IpMatchingAlgs.h> // Lightweight header for ip matching
-#include <asp/Camera/CsmModel.h>
+#include <asp/Core/ImageUtils.h>
 #include <asp/Core/OutlierProcessing.h>
 #include <asp/Core/DataLoader.h>
-#include <asp/Camera/BundleAdjustIsis.h>
-#include <asp/Core/ImageUtils.h>
 
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>
@@ -256,354 +257,6 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
 } // End function add_disparity_residual_block
 
 
-//----------------------------------------------------------------
-// Residuals functions
-
-/// Compute the residuals
-void compute_residuals(bool apply_loss_function,
-                       Options const& opt,
-                       asp::BAParams const& param_storage,
-                       std::vector<size_t> const& cam_residual_counts,
-                       size_t num_gcp_or_dem_residuals,
-                       size_t num_tri_residuals,
-                       std::vector<vw::Vector3> const& reference_vec,
-                       ceres::Problem & problem,
-                       // Output
-                       std::vector<double> & residuals) {
-  // TODO(oalexan1): Associate residuals with cameras!
-  // Generate some additional diagnostic info
-  double cost = 0.0;
-  ceres::Problem::EvaluateOptions eval_options;
-  eval_options.apply_loss_function = apply_loss_function;
-  if (opt.single_threaded_cameras)
-    eval_options.num_threads = 1; // ISIS must be single threaded!
-  else
-    eval_options.num_threads = opt.num_threads;
-
-  problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
-  const size_t num_residuals = residuals.size();
-  
-  // Verify our book-keeping is correct
-  size_t num_expected_residuals
-    = (num_gcp_or_dem_residuals + num_tri_residuals) * param_storage.params_per_point();
-  size_t total_num_cam_params   = param_storage.num_cameras()*param_storage.params_per_camera();
-  for (size_t i=0; i<param_storage.num_cameras(); i++)
-    num_expected_residuals += cam_residual_counts[i]*PIXEL_SIZE;
-  if (opt.camera_weight > 0)
-    num_expected_residuals += total_num_cam_params;
-  if (opt.rotation_weight > 0 || opt.translation_weight > 0)
-    num_expected_residuals += total_num_cam_params;
-  num_expected_residuals += reference_vec.size() * PIXEL_SIZE;
-  
-  if (num_expected_residuals != num_residuals)
-    vw_throw(LogicErr() << "Expected " << num_expected_residuals
-                        << " residuals but instead got " << num_residuals);
-}
-
-/// Compute residual map by averaging all the reprojection error at a given point
-// TODO(oalexan1): Move this to a separate file.
-void compute_mean_residuals_at_xyz(CRNJ const& crn,
-                                  std::vector<double> const& residuals,
-                                  asp::BAParams const& param_storage,
-                                  // outputs
-                                  std::vector<double> & mean_residuals,
-                                  std::vector<int>  & num_point_observations) {
-
-  mean_residuals.resize(param_storage.num_points());
-  num_point_observations.resize(param_storage.num_points());
-  
-  // Observation residuals are stored at the beginning of the residual vector in the 
-  //  same order they were originally added to Ceres.
-  
-  size_t residual_index = 0;
-  // Double loop through cameras and crn entries will give us the correct order
-  for (size_t icam = 0; icam < param_storage.num_cameras(); icam++) {
-    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
-
-      // The index of the 3D point
-      int ipt = (**fiter).m_point_id;
-
-      if (param_storage.get_point_outlier(ipt))
-        continue; // skip outliers
-
-      // Get the residual error for this observation
-      double errorX         = residuals[residual_index  ];
-      double errorY         = residuals[residual_index+1];
-      // TODO(oalexan1): Use norm_2 below rather than average. This may
-      // change the regressions.
-      double residual_error = (fabs(errorX) + fabs(errorY)) / 2;
-      residual_index += PIXEL_SIZE;
-
-      // Update information for this point
-      num_point_observations[ipt] += 1;
-      mean_residuals        [ipt] += residual_error;
-    }
-  } // End double loop through all the observations
-
-  // Do the averaging
-  for (size_t i = 0; i < param_storage.num_points(); i++) {
-    if (param_storage.get_point_outlier(i)) {
-      // Skip outliers. But initialize to something.
-      mean_residuals        [i] = std::numeric_limits<double>::quiet_NaN();
-      num_point_observations[i] = std::numeric_limits<int>::quiet_NaN();
-      continue;
-    }
-    mean_residuals[i] /= static_cast<double>(num_point_observations[i]);
-  }
-  
-} // End function compute_mean_residuals_at_xyz
-
-/// Write out a .csv file recording the residual error at each location on the ground
-void write_residual_map(std::string const& output_prefix,
-                        // Mean residual of each point
-                        std::vector<double> const& mean_residuals,
-                        // Num non-outlier pixels per point
-                        std::vector<int> const& num_point_observations, 
-                        asp::BAParams const& param_storage,
-                        ControlNetwork const& cnet,
-                        Options const& opt) {
-
-  std::string output_path = output_prefix + ".csv";
-
-  if (opt.datum.name() == asp::UNSPECIFIED_DATUM) {
-    vw_out(WarningMessage) 
-      << "No datum specified, cannot write file: " << output_path << ". "
-      << "Specify: '--datum <planet name>'.\n";
-    return;
-  }
-  if (mean_residuals.size() != param_storage.num_points())
-    vw_throw(LogicErr() << "Point count mismatch in write_residual_map().\n");
-
-  if (cnet.size() != param_storage.num_points()) 
-    vw_throw(LogicErr()
-              << "The number of stored points "
-              << "does not agree with number of points in cnet.\n");
-  
-  // Open the output file and write the header
-  vw_out() << "Writing: " << output_path << std::endl;
-  std::ofstream file;
-  file.open(output_path.c_str());
-  file.precision(17);
-  file << "# lon, lat, height_above_datum, mean_residual, num_observations\n";
-
-  // stereo_gui counts on being able to parse the datum from this file, so
-  // do not modify the line below.
-  file << "# " << opt.datum << std::endl;
-  
-  // Now write all the points to the file
-  for (size_t i = 0; i < param_storage.num_points(); i++) {
-
-    if (param_storage.get_point_outlier(i))
-      continue; // skip outliers
-    
-      // The final GCC coordinate of this point
-      const double * point = param_storage.get_point_ptr(i);
-      Vector3 xyz(point[0], point[1], point[2]);
-
-      Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
-
-      std::string comment = "";
-      if (cnet[i].type() == ControlPoint::GroundControlPoint)
-        comment = " # GCP";
-      else if (cnet[i].type() == ControlPoint::PointFromDem)
-        comment = " # from DEM";
-      
-      file << llh[0] <<", "<< llh[1] <<", "<< llh[2] <<", "<< mean_residuals[i] <<", "
-           << num_point_observations[i] << comment << std::endl;
-  }
-  file.close();
-
-} // End function write_residual_map
-
-
-/// Write log files describing all residual errors. The order of data stored
-/// in residuals must mirror perfectly the way residuals were created. 
-void write_residual_logs(std::string const& residual_prefix, bool apply_loss_function,
-                         Options const& opt,
-                         asp::BAParams const& param_storage,
-                         std::vector<size_t> const& cam_residual_counts,
-                         size_t num_gcp_or_dem_residuals,
-                         size_t num_tri_residuals,
-                         std::vector<vw::Vector3> const& reference_vec,
-                         ControlNetwork const& cnet, CRNJ const& crn, 
-                         ceres::Problem &problem) {
-  
-  std::vector<double> residuals;
-  compute_residuals(apply_loss_function, opt, param_storage,
-                    cam_residual_counts, num_gcp_or_dem_residuals, num_tri_residuals,
-                    reference_vec, problem,
-                    // Output
-                    residuals);
-    
-  const size_t num_residuals = residuals.size();
-
-  const std::string residual_path               = residual_prefix + "_stats.txt";
-  const std::string residual_raw_pixels_path    = residual_prefix + "_raw_pixels.txt";
-  const std::string residual_raw_gcp_path       = residual_prefix + "_raw_gcp.txt";
-  const std::string residual_raw_cams_path      = residual_prefix + "_raw_cameras.txt";
-  const std::string residual_reference_xyz_path = residual_prefix + "_reference_terrain.txt";
-
-  // Write a report on residual errors
-  std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp,
-    residual_file_raw_cams, residual_file_reference_xyz;
-  vw_out() << "Writing: " << residual_path << std::endl;
-  vw_out() << "Writing: " << residual_raw_pixels_path << std::endl;
-  vw_out() << "Writing: " << residual_raw_gcp_path << std::endl;
-  vw_out() << "Writing: " << residual_raw_cams_path << std::endl;
-  
-  residual_file.open(residual_path.c_str());
-  residual_file.precision(17);
-  residual_file_raw_pixels.open(residual_raw_pixels_path.c_str());
-  residual_file_raw_pixels.precision(17);
-  residual_file_raw_cams.open(residual_raw_cams_path.c_str());
-  residual_file_raw_cams.precision(17);
-
-  if (reference_vec.size() > 0) {
-    //vw_out() << "Writing: " << residual_reference_xyz_path << std::endl;
-    residual_file_reference_xyz.open(residual_reference_xyz_path.c_str());
-    residual_file_reference_xyz.precision(17);
-  }
-  
-  size_t index = 0;
-  // For each camera, average together all the point observation residuals
-  residual_file << "Mean and median pixel reprojection error and point count for cameras:\n";
-  for (size_t c = 0; c < param_storage.num_cameras(); c++) {
-    size_t num_this_cam_residuals = cam_residual_counts[c];
-    
-    // Write header for the raw file
-    std::string name = opt.camera_files[c];
-    if (name == "")
-      name = opt.image_files[c];
-    
-    residual_file_raw_pixels << name << ", " << num_this_cam_residuals << std::endl;
-
-    // All residuals are for inliers, as we do not even add a residual
-    // for an outlier
-    
-    double mean_residual = 0; // Take average of all pixel coord errors
-    std::vector<double> residual_norms;
-    for (size_t i = 0; i < num_this_cam_residuals; i++) {
-      double ex = residuals[index];
-      ++index;
-      double ey = residuals[index];
-      ++index;
-      double residual_norm = std::sqrt(ex * ex + ey * ey);
-      mean_residual += residual_norm;
-      residual_norms.push_back(residual_norm);
-      residual_file_raw_pixels << ex << ", " << ey << std::endl;
-    }
-    // Write line for the summary file
-    mean_residual /= static_cast<double>(num_this_cam_residuals);
-    double median_residual = std::numeric_limits<double>::quiet_NaN();
-    if (residual_norms.size() > 0) {
-      std::sort(residual_norms.begin(), residual_norms.end());
-      median_residual = residual_norms[residual_norms.size()/2];
-    }
-    
-    residual_file << name                   << ", "
-                  << mean_residual          << ", "
-                  << median_residual        << ", "
-                  << num_this_cam_residuals << std::endl;
-  }
-  
-  residual_file_raw_pixels.close();
-  
-  // List the GCP residuals
-  if (num_gcp_or_dem_residuals > 0) {
-    residual_file_raw_gcp.open(residual_raw_gcp_path.c_str());
-    residual_file_raw_gcp.precision(17);
-    residual_file << "GCP or DEM residual errors:\n";
-    for (size_t i = 0; i < num_gcp_or_dem_residuals; i++) {
-      double mean_residual = 0; // Take average of XYZ error for each point
-      residual_file_raw_gcp << i;
-      for (size_t j = 0; j < param_storage.params_per_point(); j++) {
-        mean_residual += fabs(residuals[index]);
-        residual_file_raw_gcp << ", " << residuals[index]; // Write all values in this file
-        ++index;
-      }
-      mean_residual /= static_cast<double>(param_storage.params_per_point());
-      residual_file << i << ", " << mean_residual << std::endl;
-      residual_file_raw_gcp << std::endl;
-    }
-    residual_file_raw_gcp.close();
-  }
-  
-  // List the camera weight residuals
-  int num_passes = int(opt.camera_weight > 0) +
-    int(opt.rotation_weight > 0 || opt.translation_weight > 0);
-  for (int pass = 0; pass < num_passes; pass++) {
-    residual_file << "Camera weight position and orientation residual errors:\n";
-    const size_t part_size = param_storage.params_per_camera()/2;
-    for (size_t c=0; c<param_storage.num_cameras(); ++c) {
-      residual_file_raw_cams << opt.camera_files[c];
-      // Separately compute the mean position and rotation error
-      double mean_residual_pos = 0, mean_residual_rot = 0;
-      for (size_t j = 0; j < part_size; j++) {
-        mean_residual_pos += fabs(residuals[index]);
-        residual_file_raw_cams << ", " << residuals[index]; // Write all values in this file
-        ++index;
-      }
-      for (size_t j = 0; j < part_size; j++) {
-        mean_residual_rot += fabs(residuals[index]);
-        residual_file_raw_cams << ", " << residuals[index]; // Write all values in this file
-        ++index;
-      }
-      mean_residual_pos /= static_cast<double>(part_size);
-      mean_residual_rot /= static_cast<double>(part_size);
-    
-      residual_file << opt.camera_files[c] << ", " << mean_residual_pos << ", "
-                    << mean_residual_rot << std::endl;
-      residual_file_raw_cams << std::endl;
-    }
-  }
-  residual_file_raw_cams.close();
-  residual_file.close();
-
-  // List residuals for matching input terrain (lidar)
-  if (reference_vec.size() > 0) {
-    residual_file << "reference terrain residual errors:\n";
-    residual_file_reference_xyz << "# lon, lat, height_above_datum, pixel_error_norm\n";
-    for (size_t i = 0; i < reference_vec.size(); i++) {
-
-      Vector3 llh = opt.datum.cartesian_to_geodetic(reference_vec[i]);
-      double err = norm_2(Vector2(residuals[index], residuals[index + 1]));
-
-      // Divide back the residual by the multiplier weight
-      if (opt.reference_terrain_weight > 0) 
-        err /= opt.reference_terrain_weight;
-      
-      index += PIXEL_SIZE;
-      residual_file_reference_xyz << llh[0] << ", " << llh[1] << ", " << llh[2] << ", "
-                                  << err << "\n";
-      residual_file << i << ", " << err << "\n";
-      
-    }
-    residual_file_reference_xyz.close();
-  }
-
-  // Keep track of number of triangulation constraint residuals but don't save those
-  index += asp::PARAMS_PER_POINT * num_tri_residuals;
-  
-  if (index != num_residuals)
-    vw_throw( LogicErr() << "Have " << num_residuals << " residuals, but iterated through "
-              << index);
-
-  // Generate the location based file
-  std::string map_prefix = residual_prefix + "_pointmap";
-  std::vector<double> mean_residuals;
-  std::vector<int> num_point_observations;
-  compute_mean_residuals_at_xyz(crn, residuals, param_storage,
-                                mean_residuals, num_point_observations);
-
-  write_residual_map(map_prefix, mean_residuals, num_point_observations,
-                     param_storage, cnet, opt);
-
-} // End function write_residual_logs
-
-
-// End residual functions
-// ----------------------------------------------------------------
-
 // ----------------------------------------------------------------
 // Start outlier functions
 
@@ -614,6 +267,7 @@ int add_to_outliers(ControlNetwork & cnet,
                     Options const& opt,
                     std::vector<size_t> const& cam_residual_counts,
                     size_t num_gcp_or_dem_residuals,
+                    size_t num_uncertainty_residuals,
                     size_t num_tri_residuals,
                     std::vector<vw::Vector3> const& reference_vec, 
                     ceres::Problem &problem) {
@@ -627,9 +281,10 @@ int add_to_outliers(ControlNetwork & cnet,
   // of the loss function.
   bool apply_loss_function = false;
   std::vector<double> residuals;
-  compute_residuals(apply_loss_function,  
+  asp::compute_residuals(apply_loss_function,  
                     opt, param_storage,  cam_residual_counts,  
-                    num_gcp_or_dem_residuals, num_tri_residuals, reference_vec, problem,
+                    num_gcp_or_dem_residuals, num_uncertainty_residuals,
+                    num_tri_residuals, reference_vec, problem,
                     // output
                     residuals);
 
@@ -1046,10 +701,14 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Reduce error by making pixel projection consistent with observations.
   
   // Add the various cost functions the solver will optimize over.
-  std::vector<size_t> cam_residual_counts(num_cameras);
+  // First is pixel reprojection error. Note: cam_residual_counts and num_pixels_per_cam
+  // serve different purposes. 
+  std::vector<size_t> cam_residual_counts(num_cameras, 0);
+  std::vector<size_t> num_pixels_per_cam(num_cameras, 0);
   typedef CameraNode<JFeature>::iterator crn_iter;
   for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
     cam_residual_counts[icam] = 0;
+    num_pixels_per_cam[icam] = 0;
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) { // IP loop
 
       // The index of the 3D point this IP is for.
@@ -1148,13 +807,14 @@ int do_ba_ceres_one_pass(Options             & opt,
       add_reprojection_residual_block(observation, pixel_sigma, ipt, icam,
                                       param_storage, opt, problem);
       cam_residual_counts[icam] += 1; // Track the number of residual blocks for each camera
+      num_pixels_per_cam[icam] += 1;  // Track the number of pixels for each camera
       
     } // end iterating over points
   } // end iterating over cameras
 
   // Add ground control points or points based on a DEM constraint
   // Error goes up as GCP's move from their input positions.
-  int num_gcp = 0, num_gcp_or_dem_residuals = 0;
+  int num_gcp = 0, num_gcp_or_dem_residuals = 0, num_uncertainty_residuals = 0;
   for (int ipt = 0; ipt < num_points; ipt++) {
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint &&
         cnet[ipt].type() != ControlPoint::PointFromDem)
@@ -1241,6 +901,25 @@ int do_ba_ceres_one_pass(Options             & opt,
     }
   }
 
+  // Camera uncertainty. This is a rather hard constraint.
+  std::vector<vw::CamPtr> orig_cams;
+  asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
+  if (opt.camera_uncertainty[0] > 0) {
+    // print the cam_residual_counts per camera 
+    for (int icam = 0; icam < num_cameras; icam++) {
+      vw_out() << "Camera " << icam << " has " << cam_residual_counts[icam] << " residuals.\n";
+      vw::Vector3 orig_ctr = orig_cams[icam]->camera_center(vw::Vector2());
+      double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
+      double * cam_ptr  = param_storage.get_camera_ptr(icam);
+      ceres::CostFunction* cost_function 
+        = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, opt.camera_uncertainty, 
+                                      num_pixels_per_cam[icam], opt.datum);
+      ceres::LossFunction* loss_function = new ceres::TrivialLoss();
+      problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
+      num_uncertainty_residuals++;
+    }
+  }
+
   // Add a cost function meant to tie up to known disparity
   // (option --reference-terrain).
   std::vector<vw::Vector3> reference_vec;
@@ -1294,7 +973,8 @@ int do_ba_ceres_one_pass(Options             & opt,
     bool apply_loss_function = false;
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, 
-                        cam_residual_counts, num_gcp_or_dem_residuals, num_tri_residuals,
+                        cam_residual_counts, num_gcp_or_dem_residuals, 
+                        num_uncertainty_residuals, num_tri_residuals,
                         reference_vec, cnet, crn, problem);
 
     std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
@@ -1361,8 +1041,8 @@ int do_ba_ceres_one_pass(Options             & opt,
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
   bool apply_loss_function = false;
   write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage,
-                      cam_residual_counts,
-                      num_gcp_or_dem_residuals, num_tri_residuals,
+                      cam_residual_counts, num_gcp_or_dem_residuals, 
+                      num_uncertainty_residuals, num_tri_residuals,
                       reference_vec, cnet, crn, problem);
   
   std::string point_kml_path = opt.out_prefix + "-final_points.kml";
@@ -1381,7 +1061,7 @@ int do_ba_ceres_one_pass(Options             & opt,
       add_to_outliers(cnet, crn,
                       param_storage,   // in-out
                       opt, cam_residual_counts, num_gcp_or_dem_residuals,
-                      num_tri_residuals, reference_vec, problem);
+                      num_uncertainty_residuals, num_tri_residuals, reference_vec, problem);
 
   // Find the cameras with the latest adjustments. Note that we do not modify
   // opt.camera_models, but make copies as needed.
@@ -1439,8 +1119,6 @@ int do_ba_ceres_one_pass(Options             & opt,
   }
   
   // Compute the change in camera centers. For that, we need the original cameras.
-  std::vector<vw::CamPtr> orig_cams;
-  asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
   std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";
   if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
     asp::saveCameraOffsets(opt.datum, opt.image_files, orig_cams, optimized_cams, 
@@ -2051,10 +1729,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "How many passes of bundle adjustment to do, with given number of iterations in each pass. For more than one pass, outliers will be removed between passes using --remove-outliers-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed (*-clean.match) will be written to disk.")
     ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
      "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
+    ("camera-uncertainty",  
+     po::value(&opt.camera_uncertainty)->default_value(vw::Vector2(0, 0)),
+     "The horizontal and vertical camera center uncertainty, in meters. These will constrain the movement of cameras, potentially at the expense of accuracy. The default is no constraint. Check the produced camera_offsets.txt and residuals_stats.txt files to see the resulting camera changes and pixel reprojection errors.")
     ("remove-outliers-params", 
      po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
      "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points (that are not GCP) with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Also remove outliers based on distribution of interest point matches and triangulated points. Default: '75.0 3.0 2.0 3.0'.")
-    ("elevation-limit",        po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
+    ("elevation-limit", po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
      "Remove as outliers interest points (that are not GCP) for which the elevation of the triangulated position (after cameras are optimized) is outside of this range. Specify as two values: min max.")
     // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
     ("lon-lat-limit", po::value(&opt.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
@@ -2531,7 +2212,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             opt.datum);
     opt.datum_str = opt.datum.name();
   }
-  
+
   // Many times the datum is mandatory
   if (!found_datum) {
     if (!opt.gcp_files.empty() || !opt.camera_position_file.empty())
@@ -2686,7 +2367,34 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
         vw_throw(ArgumentErr() 
                   << "Invalid value for --auto-overlap-params.\n");
   }
-      
+   
+  // Camera uncertainty checks. It cannot be negative.
+  if (opt.camera_uncertainty[0] < 0 || opt.camera_uncertainty[1] < 0)
+    vw::vw_throw(vw::ArgumentErr() << "The camera uncertainty must be non-negative.\n");
+  // Both must be positive or 0
+  if ((opt.camera_uncertainty[0] == 0 && opt.camera_uncertainty[1] > 0) ||
+      (opt.camera_uncertainty[0] > 0 && opt.camera_uncertainty[1] == 0))
+    vw::vw_throw(vw::ArgumentErr() << "Both components of the camera uncertainty must be "
+             << "positive or both zero.\n");
+  if (opt.camera_uncertainty[0] > 0) {
+    if (opt.translation_weight > 0)
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "When using --camera-uncertainty, --translation-weight "
+                   << "must be 0.\n");
+    if (opt.camera_weight > 0) {
+      vw::vw_out() << "Setting --camera-weight to 0 as --camera-uncertainty is positive.\n";
+      opt.camera_weight = 0;
+    }  
+    
+    if (opt.datum.name() == asp::UNSPECIFIED_DATUM) 
+      vw::vw_throw(vw::ArgumentErr() 
+              << "Cannot use camera uncertainties without a datum. Set --datum.\n");
+  }
+  
+  if (opt.use_llh_error && opt.datum.name() == asp::UNSPECIFIED_DATUM) 
+    vw::vw_throw(vw::ArgumentErr() 
+              << "Cannot use --use-llh-error without a datum. Set --datum.\n");
+  
   return;
 }
 

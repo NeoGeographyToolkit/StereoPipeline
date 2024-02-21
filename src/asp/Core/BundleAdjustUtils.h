@@ -58,6 +58,12 @@ namespace vw {
 }
 
 namespace asp {
+  
+const int NUM_XYZ_PARAMS  = 3;
+const int NUM_QUAT_PARAMS = 4;
+const int PIXEL_SIZE      = 2;
+
+  
   /// Read both kinds of adjustments
   void read_adjustments(std::string const& filename,
                         vw::Vector3      & position_correction,
@@ -90,7 +96,7 @@ namespace asp {
   // percentage should be used when there is more uncertainty in input
   // camera poses. Specify as: 'dem.tif 15'.
   void build_overlap_list_based_on_dem
-  /*        */ (std::string const& out_prefix,
+               (std::string const& out_prefix,
                 std::string const& dem_file,
                 double pct_for_overlap,
                 std::vector<std::string> const& image_files,

@@ -21,6 +21,7 @@
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/SatSimBase.h>
+#include <asp/Core/BundleAdjustUtils.h>
 
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
