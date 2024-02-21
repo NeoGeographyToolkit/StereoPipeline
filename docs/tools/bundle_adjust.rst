@@ -81,8 +81,72 @@ Here we assumed that the cameras point towards planet's surface and used the
 ``nadirpinhole`` session. If this assumption is not true, one should use the
 ``pinhole`` session or the ``--no-datum`` option.
 
+The value of ``--datum`` should reflect the planetary body being imaged.
+If not set, some functionality will not be available. It will be auto-guessed,
+except for Pinhole cameras, unless some DEM is provided on input.
+
+Constraints
+~~~~~~~~~~~
+
+Ground constraints
+^^^^^^^^^^^^^^^^^^
+
+The option ``--tri-weight`` can constrain how much the triangulated points
+move. This is a soft constraint and given less priority than reducing the pixel
+reprojection errors in the cameras. An example is in :numref:`skysat_stereo`.
+
+The option ``--heights-from-dem`` sets a soft constraint relative to a
+well-aligned DEM (:numref:`heights_from_dem`).
+
+GCP can be used as well (:numref:`bagcp`).
+
+None of these are on by default.
+
+.. _ba_cam_constraints:
+
+Camera constraints
+^^^^^^^^^^^^^^^^^^
+
+The option ``--camera-uncertainty`` sets hard constraints on how much the camera
+positions can move horizontally and vertically, in meters. This may affect the
+optimization and should be used with care. It is suggested to examine the camera
+change report (:numref:`ba_camera_offsets`) and pixel reprojection report
+(:numref:`ba_errors_per_camera`) to see the effects.
+
+Soft constraints are given by the options ``--translation-weight`` and
+``--rotation-weight``, ``--camera-weight``. 
+
+The default is ``--camera-weight 1`` with the rest not being on. This is subject
+to change.
+
 Use cases
 ~~~~~~~~~
+
+Large-scale bundle adjustment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Bundle adjustment has been tested extensively and used successfully
+with thousands of frame (pinhole) cameras and with close to 1000
+linescan cameras. 
+
+Large-scale usage of bundle adjustment is illustrated in the SkySat
+processing example (:numref:`skysat`), with many Pinhole cameras, and
+with a large number of linescan Lunar images with variable illumination
+(:numref:`sfs-lola`). 
+
+Attention to choices of parameters and solid validation is needed in
+such cases. The tool creates report files with various metrics
+that can help judge how good the solution is (:numref:`ba_out_files`).
+
+See also the related jitter-solving tool (:numref:`jitter_solve`),
+and the rig calibrator (:numref:`rig_calibrator`).
+
+Solving for intrinsics
+^^^^^^^^^^^^^^^^^^^^^^
+
+See :numref:`bundle_adjustment` for how to solve for intrinsics. In particular,
+see :numref:`kaguya_ba` for the case when there exist several
+sensors, each with its own intrinsics parameters.
 
 Well-distributed interest points
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -118,33 +182,6 @@ Using mapprojected images
 For images that have very large variation in elevation, it is suggested to use
 bundle adjustment with the option ``--mapprojected-data``. An example is given
 in :numref:`mapip`.
-
-Large-scale bundle adjustment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Bundle adjustment has been tested extensively and used successfully
-with thousands of frame (pinhole) cameras and with close to 1000
-linescan cameras. 
-
-This tool provides options for constraints relative to a known ground,
-can constrain the camera positions and orientations, and can apply an
-alignment transform to the cameras (:numref:`ba_pc_align`).
-
-Attention to choices of parameters and solid validation is needed in
-such cases. The tool creates report files with various metrics
-that can help judge how good the solution is (:numref:`ba_out_files`).
-
-Large-scale usage of bundle adjustment is illustrated in the SkySat
-processing example (:numref:`skysat`), with many Pinhole cameras, and
-with a large number of linescan Lunar images with variable illumination
-(:numref:`sfs-lola`). 
-
-See :numref:`bundle_adjustment` for how to solve for intrinsics. In particular,
-see :numref:`kaguya_ba` for the case when there exist several
-sensors, each with its own intrinsics parameters.
-
-See also the related jitter-solving tool (:numref:`jitter_solve`),
-and the rig calibrator (:numref:`rig_calibrator`).
 
 Use of the results
 ~~~~~~~~~~~~~~~~~~
@@ -422,7 +459,7 @@ meters. This is after applying any initial adjustments or transform to the
 cameras (:numref:`ba_pc_align`).
 
 This file is useful for understanding how far cameras may move and can help with
-adding camera constraints.
+adding camera constraints using the option ``--camera-uncertainty`` (:numref:`ba_cam_constraints`).
 
 For linescan cameras, the camera centers will be for the upper-left image pixel.
 
@@ -433,9 +470,11 @@ Reprojection errors per camera and per pixel
 
 The initial and final mean and median pixel reprojection error (distance from
 each interest point and camera projection of the triangulated point) for each
-camera, and their count, are written to ``residuals_stats.txt`` files in the
-output directory.
+camera, and their count, are written to::
 
+  {output-prefix}-initial_residuals_stats.txt
+  {output-prefix}-final_residuals_stats.txt
+ 
 It is very important to ensure all cameras have a small reprojection error,
 ideally under 1 pixel, as otherwise this means that the cameras are not
 well-registered to each other, or that systematic effects exist, such as
@@ -461,11 +500,6 @@ are named
 ::
 
      {output-prefix}-initial_residuals_pointmap.csv
-
-and
-
-::
-
      {output-prefix}-final_residuals_pointmap.csv
 
 Here is a sample file::
@@ -1168,7 +1202,7 @@ Command-line options
     should be generous if the input cameras have significant errors.
 
 --proj-str
-    To be used in conjunction with  ``--proj_win``.
+    To be used in conjunction with  ``--proj-win``.
 
 --weight-image <string (default: "")>
     Given a georeferenced image with float values, for each initial triangulated
@@ -1178,6 +1212,11 @@ Command-line options
     that fall outside the image and weights that are non-positive, NaN, or equal
     to nodata will be ignored. See :numref:`limit_ip` for details.
 
+--camera-uncertainty <float float (default: 0 0)>
+    The horizontal and vertical camera position uncertainty, in meters. These will
+    strongly constrain the movement of cameras, potentially at the expense of accuracy
+    (:numref:`ba_cam_constraints`). The default is no constraint. 
+        
 --propagate-errors
     Propagate the errors from the input cameras to the triangulated
     points for all pairs of match points, and produce a report having

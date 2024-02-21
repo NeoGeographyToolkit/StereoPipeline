@@ -104,8 +104,6 @@ public:
   
 }; // End class CeresBundleModelBase
 
-
-
 /// Simple wrapper for the vw::camera::AdjustedCameraModel class with a 
 /// preconfigured underlying camera.  Only uses translation and rotation.
 /// - Just vary the six camera adjustment parameters which are all in 
@@ -780,33 +778,48 @@ struct CamUncertaintyError {
                       vw::Vector2 const& uncertainty, int num_pixel_obs,
                       vw::cartography::Datum const& datum):
     m_orig_ctr(orig_ctr), m_uncertainty(uncertainty), m_num_pixel_obs(num_pixel_obs) {
+     
+    // Ensure at least one term
+    m_num_pixel_obs = std::max(m_num_pixel_obs, 1);
       
     // The first three parameters are the camera center adjustments.
     m_orig_adj = Vector3(orig_adj[0], orig_adj[1], orig_adj[2]);
 
-    std::cout << "--orig ctr is " << orig_ctr << std::endl;
-    std::cout << "--orig adj is " << m_orig_adj << std::endl;
-    std::cout << "--uncertainty is " << uncertainty << std::endl;
-    std::cout << "--num_pixel_obs is " << num_pixel_obs << std::endl;
-    std::cout << "--datum is " << datum << std::endl;
-    
     // The uncertainty must be positive
     if (m_uncertainty[0] <= 0 || m_uncertainty[1] <= 0)
       vw_throw(ArgumentErr() << "CamUncertaintyError: Invalid uncertainty: "
                << uncertainty << ". All values must be positive.\n");    
     
+    // The NED coordinate system, for separating horizontal and vertical components
     vw::Vector3 llh = datum.cartesian_to_geodetic(orig_ctr);
-    std::cout << "--llh is " << llh << std::endl;
     vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
     m_EcefToNed = vw::math::inverse(NedToEcef);
-    std::cout << "--EcefToNed is " << m_EcefToNed << std::endl;
-    
   }
     
   template <typename T>
-  bool operator()(const T* point, T* residuals) const {
+  bool operator()(const T* cam_adj, T* residuals) const {
+    
+    // The difference between the original and current camera center
+    vw::Vector3 diff;
     for (size_t p = 0; p < 3; p++)
-      residuals[p] = T(0);
+      diff[p] = cam_adj[p] - m_orig_adj[p];
+    
+    // Convert the difference to NED
+    vw::Vector3 NedDir = m_EcefToNed * diff;
+    
+    // Split into horizontal and vertical components
+    vw::Vector2 horiz = subvector(NedDir, 0, 2);
+    double      vert  = NedDir[2];
+    
+    // Normalize by uncertainty
+    horiz /= m_uncertainty[0];
+    vert  /= m_uncertainty[1];
+    
+    // Raise to 2nd power. Then multiply by square root of number of pixel observations.
+    // This will be squared when added to the cost function. The end result
+    // will be as many terms as the number of pixel observations for this camera.
+    residuals[0] = sqrt(m_num_pixel_obs) * dot_prod(horiz, horiz);
+    residuals[1] = sqrt(m_num_pixel_obs) * vert * vert;
 
     return true;
   }
@@ -818,7 +831,7 @@ struct CamUncertaintyError {
                       vw::cartography::Datum const& datum) {
     // 2 residuals and 3 translation variables. Must add the rotation variables, however,
     // for CERES not to complain. So, get 6.
-    return (new ceres::AutoDiffCostFunction<CamUncertaintyError, 2, 6>
+    return (new ceres::NumericDiffCostFunction<CamUncertaintyError, ceres::CENTRAL, 2, 6>
             (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, num_pixel_obs, datum)));
   }
 

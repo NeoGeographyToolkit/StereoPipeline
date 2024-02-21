@@ -1723,7 +1723,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
     ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
       "How many interest points to detect in each 1024^2 image tile (default: automatic determination). This is before matching. Not all interest points will have a match. See also --matches-per-tile.")
-    ("ip-per-image",              po::value(&opt.ip_per_image)->default_value(0),
+    ("ip-per-image", po::value(&opt.ip_per_image)->default_value(0),
      "How many interest points to detect in each image (default: automatic determination). It is overridden by --ip-per-tile if provided.")
     ("num-passes",           po::value(&opt.num_ba_passes)->default_value(2),
      "How many passes of bundle adjustment to do, with given number of iterations in each pass. For more than one pass, outliers will be removed between passes using --remove-outliers-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed (*-clean.match) will be written to disk.")
@@ -1731,7 +1731,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
     ("camera-uncertainty",  
      po::value(&opt.camera_uncertainty)->default_value(vw::Vector2(0, 0)),
-     "The horizontal and vertical camera center uncertainty, in meters. These will constrain the movement of cameras, potentially at the expense of accuracy. The default is no constraint. Check the produced camera_offsets.txt and residuals_stats.txt files to see the resulting camera changes and pixel reprojection errors.")
+     "The horizontal and vertical camera position uncertainty, in meters. These will "
+     "strongly constrain the movement of cameras, potentially at the expense of accuracy. "
+     "The default is no constraint.")
     ("remove-outliers-params", 
      po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
      "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points (that are not GCP) with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Also remove outliers based on distribution of interest point matches and triangulated points. Default: '75.0 3.0 2.0 3.0'.")
@@ -1821,7 +1823,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("proj-win", po::value(&opt.proj_win)->default_value(BBox2(0,0,0,0), "auto"),
      "Flag as outliers input triangulated points not in this proj win (box in projected units as provided by --proj_str). This should be generous if the input cameras have significant errors.")
     ("proj-str",   po::value(&opt.proj_str)->default_value(""),
-     "To be used in conjunction with --proj_win.")
+     "To be used in conjunction with --proj-win.")
     ("matches-per-tile-params",  po::value(&opt.matches_per_tile_params)->default_value(Vector2(1024, 1280), "1024 1280"),
      "To be used with --matches-per-tile. The first value is the image tile "
       "size for both images. A larger second value allows each right tile to "
