@@ -669,10 +669,22 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
                           // Output
                           HorizVertErrorStats & stats);
 
+// Find the cameras with the latest adjustments. Note that we do not modify
+// opt.camera_models, but make copies as needed.
+void calcOptimizedCameras(asp::BaBaseOptions const& opt,
+                          asp::BAParams const& param_storage,
+                          std::vector<vw::CamPtr> & optimized_cams);
 
 // Write updated camera models to disk
 void saveUpdatedCameras(asp::BaBaseOptions const& opt, 
                         asp::BAParams const& param_storage);
+
+// Compute the horizontal and vertical change in camera centers
+void saveCameraOffsets(vw::cartography::Datum   const& datum,
+                       std::vector<std::string> const& image_files,
+                       std::vector<vw::CamPtr>  const& orig_cams,
+                       std::vector<vw::CamPtr>  const& opt_cams,
+                       std::string              const& camera_offset_file);
 
 } // end namespace asp
 

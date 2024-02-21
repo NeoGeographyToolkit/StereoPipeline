@@ -1020,6 +1020,67 @@ void setup_error_propagation(std::string const& session_name,
   asp::horizontalStdDevCheck(horizontal_stddev_vec, session_name);
 }
 
+// Find the cameras with the latest adjustments. Note that we do not modify
+// opt.camera_models, but make copies as needed.
+void calcOptimizedCameras(asp::BaBaseOptions const& opt,
+                          asp::BAParams const& param_storage,
+                          std::vector<vw::CamPtr> & optimized_cams) {
+
+  optimized_cams.clear();
+  
+  int num_cameras = opt.image_files.size();
+  for (int icam = 0; icam < num_cameras; icam++) {
+    
+    // TODO(oalexan1): The logic below may need to be a function and should be called
+    // in a couple other places.
+    switch (opt.camera_type) {
+    case BaCameraType_Pinhole:
+      {
+        vw::camera::PinholeModel const* in_cam
+          = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
+        if (in_cam == NULL)
+          vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
+        vw::camera::PinholeModel * out_cam = new PinholeModel();
+        *out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
+        optimized_cams.push_back(vw::CamPtr(out_cam));
+      }
+      break;
+    case BaCameraType_OpticalBar:
+      {
+        vw::camera::OpticalBarModel const* in_cam
+          = dynamic_cast<vw::camera::OpticalBarModel const*>(opt.camera_models[icam].get());
+        if (in_cam == NULL)
+          vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
+        vw::camera::OpticalBarModel * out_cam = new OpticalBarModel();
+        *out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
+        optimized_cams.push_back(vw::CamPtr(out_cam)); // will manage the memory
+      }
+      break;
+    case  BaCameraType_CSM:
+      {
+        asp::CsmModel const* in_cam
+          = dynamic_cast<asp::CsmModel const*>(opt.camera_models[icam].get());
+        if (in_cam == NULL)
+          vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
+        auto out_cam = transformedCsmCamera(icam, param_storage, *in_cam);
+        optimized_cams.push_back(out_cam);
+      }
+      break;
+    case BaCameraType_Other:
+      {
+        CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+        vw::CamPtr out_cam
+          (new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
+                                          cam_adjust.position(), cam_adjust.pose()));
+        optimized_cams.push_back(out_cam);
+      }
+      break;
+    default:
+      vw_throw(ArgumentErr() << "Unknown camera type.\n");
+    }
+  }
+}
+
 // Write updated camera models to disk
 void saveUpdatedCameras(asp::BaBaseOptions const& opt, asp::BAParams const& param_storage) {
   

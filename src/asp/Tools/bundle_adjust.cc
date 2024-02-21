@@ -466,7 +466,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   
   size_t index = 0;
   // For each camera, average together all the point observation residuals
-  residual_file << "Mean and median norm of residual error and point count for cameras:\n";
+  residual_file << "Mean and median pixel reprojection error and point count for cameras:\n";
   for (size_t c = 0; c < param_storage.num_cameras(); c++) {
     size_t num_this_cam_residuals = cam_residual_counts[c];
     
@@ -802,67 +802,6 @@ int add_to_outliers(ControlNetwork & cnet,
   int num_remaining_points = num_points - param_storage.get_num_outliers();
 
   return num_outliers_by_reprojection + num_outliers_by_elev_or_lonlat;
-}
-
-// Find the cameras with the latest adjustments. Note that we do not modify
-// opt.camera_models, but make copies as needed.
-void calcOptimizedCameras(Options const& opt,
-                          asp::BAParams const& param_storage,
-                          std::vector<vw::CamPtr> & optimized_cams) {
-
-  optimized_cams.clear();
-  
-  int num_cameras = opt.image_files.size();
-  for (int icam = 0; icam < num_cameras; icam++) {
-    
-    // TODO(oalexan1): The logic below may need to be a function and should be called
-    // in a couple other places.
-    switch (opt.camera_type) {
-    case BaCameraType_Pinhole:
-      {
-        vw::camera::PinholeModel const* in_cam
-          = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
-        if (in_cam == NULL)
-          vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
-        vw::camera::PinholeModel * out_cam = new PinholeModel();
-        *out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
-        optimized_cams.push_back(vw::CamPtr(out_cam));
-      }
-      break;
-    case BaCameraType_OpticalBar:
-      {
-        vw::camera::OpticalBarModel const* in_cam
-          = dynamic_cast<vw::camera::OpticalBarModel const*>(opt.camera_models[icam].get());
-        if (in_cam == NULL)
-          vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
-        vw::camera::OpticalBarModel * out_cam = new OpticalBarModel();
-        *out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
-        optimized_cams.push_back(vw::CamPtr(out_cam)); // will manage the memory
-      }
-      break;
-    case  BaCameraType_CSM:
-      {
-        asp::CsmModel const* in_cam
-          = dynamic_cast<asp::CsmModel const*>(opt.camera_models[icam].get());
-        if (in_cam == NULL)
-          vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
-        auto out_cam = transformedCsmCamera(icam, param_storage, *in_cam);
-        optimized_cams.push_back(out_cam);
-      }
-      break;
-    case BaCameraType_Other:
-      {
-        CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-        vw::CamPtr out_cam
-          (new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
-                                          cam_adjust.position(), cam_adjust.pose()));
-        optimized_cams.push_back(out_cam);
-      }
-      break;
-    default:
-      vw_throw(ArgumentErr() << "Unknown camera type.\n");
-    }
-  }
 }
 
 // End outlier functions
@@ -1447,7 +1386,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Find the cameras with the latest adjustments. Note that we do not modify
   // opt.camera_models, but make copies as needed.
   std::vector<vw::CamPtr> optimized_cams;
-  calcOptimizedCameras(opt, param_storage, optimized_cams);
+  asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
   
   // Calculate convergence angles. Remove the outliers flagged earlier, if
   // remove_outliers is true. Compute offsets of mapprojected matches, if a DEM
@@ -1459,7 +1398,6 @@ int do_ba_ceres_one_pass(Options             & opt,
   std::vector<std::vector<float>> mapprojOffsetsPerCam;
   std::vector<asp::HorizVertErrorStats> horizVertErrors;
   vw::cartography::GeoReference mapproj_dem_georef;
-  
   if (!opt.mapproj_dem.empty()) {
     bool is_good = vw::cartography::read_georeference(mapproj_dem_georef, opt.mapproj_dem);
     if (!is_good) 
@@ -1483,7 +1421,6 @@ int do_ba_ceres_one_pass(Options             & opt,
 
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
-
   if (!opt.mapproj_dem.empty()) {
     std::string mapproj_offsets_stats_file 
       = opt.out_prefix + "-mapproj_match_offset_stats.txt";
@@ -1500,6 +1437,14 @@ int do_ba_ceres_one_pass(Options             & opt,
     std::string horiz_vert_errors_file = opt.out_prefix + "-triangulation_uncertainty.txt";
     asp::saveHorizVertErrors(horiz_vert_errors_file, horizVertErrors, opt.image_files);
   }
+  
+  // Compute the change in camera centers. For that, we need the original cameras.
+  std::vector<vw::CamPtr> orig_cams;
+  asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
+  std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";
+  if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
+    asp::saveCameraOffsets(opt.datum, opt.image_files, orig_cams, optimized_cams, 
+                           cam_offsets_file); 
   
   return 0;
 } // End function do_ba_ceres_one_pass

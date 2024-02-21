@@ -1984,3 +1984,37 @@ void asp::saveHorizVertErrors(std::string const& horiz_vert_errors_file,
 
   return;
 } 
+
+// Compute the horizontal and vertical change in camera centers
+void asp::saveCameraOffsets(vw::cartography::Datum   const& datum,
+                            std::vector<std::string> const& image_files,
+                            std::vector<vw::CamPtr>  const& orig_cams,
+                            std::vector<vw::CamPtr>  const& opt_cams,
+                            std::string              const& camera_offset_file) {
+
+  vw::vw_out() << "Writing: " << camera_offset_file << std::endl;
+  std::ofstream ofs(camera_offset_file.c_str());
+  ofs.precision(8);
+  ofs << "# Per-image absolute horizontal and vertical change in camera center (meters)\n";
+  
+  // Loop through the cameras and find the change in their centers
+  for (size_t icam = 0; icam < orig_cams.size(); icam++) {
+    vw::Vector3 orig_ctr = orig_cams[icam]->camera_center(vw::Vector2());
+    vw::Vector3 opt_ctr  = opt_cams [icam]->camera_center(vw::Vector2());
+    
+    vw::Vector3 llh = datum.cartesian_to_geodetic(orig_ctr);
+    vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
+    vw::Matrix3x3 EcefToNed = vw::math::inverse(NedToEcef);
+    vw::Vector3 NedDir = EcefToNed * (opt_ctr - orig_ctr);
+    
+    // Find horizontal and vertical change
+    double horiz_change = norm_2(subvector(NedDir, 0, 2));
+    double vert_change  = std::abs(NedDir[2]);
+    
+    ofs << image_files[icam] << " " << horiz_change << " " << vert_change << std::endl;
+  }
+  ofs.close();
+
+  return;
+}
+

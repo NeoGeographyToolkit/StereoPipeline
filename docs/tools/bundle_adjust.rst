@@ -406,10 +406,49 @@ See :numref:`ba_cnet_details` for more technical details. See also ASP's
 Output files
 ~~~~~~~~~~~~
 
+.. _ba_camera_offsets:
+
+Camera change report
+^^^^^^^^^^^^^^^^^^^^
+
+If the ``--datum`` option is specified or auto-guessed based on images
+and cameras, the file::
+
+    {output-prefix}-camera_offsets.txt
+
+will be written. It will have, for each camera, the horizontal and vertical
+component of the difference in camera center before and after optimization, in
+meters. This is after applying any initial adjustments or transform to the
+cameras (:numref:`ba_pc_align`).
+
+This file is useful for understanding how far cameras may move and can help with
+adding camera constraints.
+
+For linescan cameras, the camera centers will be for the upper-left image pixel.
+
+.. _ba_errors_per_camera:
+
+Reprojection errors per camera and per pixel
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The initial and final mean and median pixel reprojection error (distance from
+each interest point and camera projection of the triangulated point) for each
+camera, and their count, are written to ``residuals_stats.txt`` files in the
+output directory.
+
+It is very important to ensure all cameras have a small reprojection error,
+ideally under 1 pixel, as otherwise this means that the cameras are not
+well-registered to each other, or that systematic effects exist, such as
+uncorrected lens distortion.
+
+As a finer-grained metric, initial and final ``raw_pixels.txt`` files will be
+written, having the row and column residuals (reprojection errors) for each
+pixel in each camera.
+
 .. _ba_err_per_point:
 
-Errors per triangulated point
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Reprojection errors per triangulated point
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the ``--datum`` option is specified or auto-guessed based on images
 and cameras, ``bundle_adjust`` will write the triangulated world
@@ -465,19 +504,6 @@ other higher value, to filter out unreliably triangulated points.
 obtained by the intersection of three rays, with some
 of those rays having an angle of at least this while some a much
 smaller angle.)
-
-.. _ba_errors_per_camera:
-
-Errors per camera and per pixel
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The initial and final mean and median of residual error norms for the pixels
-each camera, and their count, are written to ``residuals_stats.txt`` files in
-the output directory.
-
-As a finer-grained metric, initial and final ``raw_pixels.txt`` files will be
-written, having the row and column residuals (reprojection errors) for each
-pixel in each camera.
 
 GCP report
 ^^^^^^^^^^
