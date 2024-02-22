@@ -904,15 +904,14 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Camera uncertainty. This is a rather hard constraint.
   std::vector<vw::CamPtr> orig_cams;
   asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
-  if (opt.camera_uncertainty[0] > 0) {
+  if (opt.camera_position_uncertainty[0] > 0) {
     // print the cam_residual_counts per camera 
     for (int icam = 0; icam < num_cameras; icam++) {
-      vw_out() << "Camera " << icam << " has " << cam_residual_counts[icam] << " residuals.\n";
       vw::Vector3 orig_ctr = orig_cams[icam]->camera_center(vw::Vector2());
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
       double * cam_ptr  = param_storage.get_camera_ptr(icam);
       ceres::CostFunction* cost_function 
-        = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, opt.camera_uncertainty, 
+        = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, opt.camera_position_uncertainty, 
                                       num_pixels_per_cam[icam], opt.datum);
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
       problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
@@ -1729,8 +1728,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "How many passes of bundle adjustment to do, with given number of iterations in each pass. For more than one pass, outliers will be removed between passes using --remove-outliers-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed (*-clean.match) will be written to disk.")
     ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
      "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
-    ("camera-uncertainty",  
-     po::value(&opt.camera_uncertainty)->default_value(vw::Vector2(0, 0)),
+    ("camera-position-uncertainty",  
+     po::value(&opt.camera_position_uncertainty)->default_value(vw::Vector2(0, 0)),
      "The horizontal and vertical camera position uncertainty, in meters. These will "
      "strongly constrain the movement of cameras, potentially at the expense of accuracy. "
      "The default is no constraint.")
@@ -2371,20 +2370,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
    
   // Camera uncertainty checks. It cannot be negative.
-  if (opt.camera_uncertainty[0] < 0 || opt.camera_uncertainty[1] < 0)
+  if (opt.camera_position_uncertainty[0] < 0 || opt.camera_position_uncertainty[1] < 0)
     vw::vw_throw(vw::ArgumentErr() << "The camera uncertainty must be non-negative.\n");
   // Both must be positive or 0
-  if ((opt.camera_uncertainty[0] == 0 && opt.camera_uncertainty[1] > 0) ||
-      (opt.camera_uncertainty[0] > 0 && opt.camera_uncertainty[1] == 0))
+  if ((opt.camera_position_uncertainty[0] == 0 && opt.camera_position_uncertainty[1] > 0) ||
+      (opt.camera_position_uncertainty[0] > 0 && opt.camera_position_uncertainty[1] == 0))
     vw::vw_throw(vw::ArgumentErr() << "Both components of the camera uncertainty must be "
              << "positive or both zero.\n");
-  if (opt.camera_uncertainty[0] > 0) {
+  if (opt.camera_position_uncertainty[0] > 0) {
     if (opt.translation_weight > 0)
       vw::vw_throw(vw::ArgumentErr() 
-                   << "When using --camera-uncertainty, --translation-weight "
+                   << "When using --camera-position-uncertainty, --translation-weight "
                    << "must be 0.\n");
     if (opt.camera_weight > 0) {
-      vw::vw_out() << "Setting --camera-weight to 0 as --camera-uncertainty is positive.\n";
+      vw::vw_out() << "Setting --camera-weight to 0 as --camera-position-uncertainty is positive.\n";
       opt.camera_weight = 0;
     }  
     

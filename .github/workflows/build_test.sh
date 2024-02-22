@@ -227,6 +227,8 @@ if [ 1 -eq 0 ]; then
   # Fetching of the artifact can be done with gh, as in an example above.
   # Inspect all tests. Update the failed ones (each 'gold' is overwritten with 'run').
   # Make the new 'run' directory the new 'gold'. Do not keep the 'run' directories.
+  # Push this updated tarball to the cloud. 
+  
   # Go to the directory having StereoPipelineTest as a subdirectory
   f=StereoPipelineTest.tar.gz
   # Check if it exists

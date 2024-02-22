@@ -56,8 +56,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     format (:numref:`control_network`).
   * Can read and write CSM model state embedded in ISIS .cub files   
     (:numref:`embedded_csm`).
-  * Added the option ``--camera-uncertainty`` to set horizontal and vertical
-    uncertainty for each camera (:numref:`ba_cam_constraints`). 
+  * Added the option ``--camera-position-uncertainty`` to set horizontal and
+    vertical uncertainty for each camera (:numref:`ba_cam_constraints`). 
   * Added a report file having the change in camera positions
     (:numref:`ba_camera_offsets`).
   * Added the option ``--propagate-errors`` to propagate the uncertainties from

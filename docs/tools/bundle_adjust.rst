@@ -85,6 +85,38 @@ The value of ``--datum`` should reflect the planetary body being imaged.
 If not set, some functionality will not be available. It will be auto-guessed,
 except for Pinhole cameras, unless some DEM is provided on input.
 
+Validation
+~~~~~~~~~~
+
+The first report file to check after a run concludes is 
+``{output-prefix}-final_residuals_stats.txt`` (:numref:`ba_errors_per_camera`).
+It will have the mean and median pixel reprojection error for each camera, and
+their count. 
+
+The errors should be under 1 pixel, ideally under 0.5 pixels. The count must
+be at least a dozen, and ideally more. Otherwise bundle adjustment did
+not work well. 
+
+A fine-grained metric is the *triangulation error*, computed densely across
+the images with stereo (:numref:`triangulation_error`). A systematic pattern
+in this error may suggest the need to refine the camera intrinsics (:numref:`floatingintrinsics`).
+
+Other report files are described in :numref:`ba_out_files`.
+
+Handling failures
+~~~~~~~~~~~~~~~~~
+
+To make the program work harder at reducing the pixel reprojection errors, the
+``--robust-threshold`` can be increased, perhaps to 2.0. Also increase the
+number of iterations.
+
+This program will fail if the illumination changes too much between images (see
+also :numref:`sfs_azimuth`).
+
+Various approaches of creation of interest point matches are handled below (the
+original ones should be deleted first). Use ``stereo_gui``
+(:numref:`stereo_gui_pairwise_matches`) to inspect the matches.
+
 Constraints
 ~~~~~~~~~~~
 
@@ -107,8 +139,9 @@ None of these are on by default.
 Camera constraints
 ^^^^^^^^^^^^^^^^^^
 
-The option ``--camera-uncertainty`` sets hard constraints on how much the camera
-positions can move horizontally and vertically, in meters. This may affect the
+The option ``--camera-position-uncertainty`` sets hard constraints on how much
+the camera positions can move horizontally and vertically, in meters, in the
+local North-East-Down coordinate system of each camera. This may affect the
 optimization and should be used with care. It is suggested to examine the camera
 change report (:numref:`ba_camera_offsets`) and pixel reprojection report
 (:numref:`ba_errors_per_camera`) to see the effects.
@@ -459,7 +492,7 @@ meters. This is after applying any initial adjustments or transform to the
 cameras (:numref:`ba_pc_align`).
 
 This file is useful for understanding how far cameras may move and can help with
-adding camera constraints using the option ``--camera-uncertainty`` (:numref:`ba_cam_constraints`).
+adding camera constraints using the option ``--camera-position-uncertainty`` (:numref:`ba_cam_constraints`).
 
 For linescan cameras, the camera centers will be for the upper-left image pixel.
 
@@ -479,6 +512,8 @@ It is very important to ensure all cameras have a small reprojection error,
 ideally under 1 pixel, as otherwise this means that the cameras are not
 well-registered to each other, or that systematic effects exist, such as
 uncorrected lens distortion.
+
+See also :numref:`ba_mapproj_dem` for an analogous report at the ground level.
 
 As a finer-grained metric, initial and final ``raw_pixels.txt`` files will be
 written, having the row and column residuals (reprojection errors) for each
@@ -628,7 +663,23 @@ If the option ``--mapproj-dem`` (with a DEM file as a value) is
 specified, each pair of interest point matches (after bundle
 adjustment and outlier removal) will be projected onto this DEM, and
 the midpoint location and distance between these points will be
-found. This data will be saved to::
+found. 
+
+The file::
+
+    {output-prefix}-mapproj_match_offset_stats.txt
+
+will have the percentiles (25%, 50%, 75%, 85%, 95%) of these distances for
+each image against the rest, and for each pair of images, in units of
+meter.
+
+Ideally these distances should all be well under 1 GSD if the mapprojected
+images agree perfectly. This makes it easy to see which camera images are
+misregistered.
+
+This option assumes that the DEM is well-aligned with the cameras.
+
+The full report will be saved to::
 
 
     {output-prefix}-mapproj_match_offsets.txt
@@ -637,25 +688,10 @@ having the longitude, latitude, and height above datum of the
 midpoint, and the above-mentioned distance between these projections
 (in meters).
 
-Ideally these distances should all be zero if the mapprojected images
-agree perfectly. This makes it easy to see which camera images are
-misregistered.
-
 This file is very analogous to the ``pointmap.csv`` file, except that
 these errors are measured on the ground in meters, and not in the cameras
 in pixels. This file can be displayed and colorized in ``stereo_gui``
 as a scatterplot (:numref:`plot_csv`).
-
-In addition, more condensed statistics will be saved as well. The file::
-
-    {output-prefix}-mapproj_match_offset_stats.txt
-
-will be written. It will have the percentiles (25%, 50%, 75%, 85%,
-95%) of these disagreements for each image against the rest, and for each
-pair of images, also in units of meter.
-
-This stats file is very useful at estimating the quality of registration
-with the optimized cameras between the images and to the ground.
 
 .. _adjust_files:
 
@@ -1212,9 +1248,10 @@ Command-line options
     that fall outside the image and weights that are non-positive, NaN, or equal
     to nodata will be ignored. See :numref:`limit_ip` for details.
 
---camera-uncertainty <float float (default: 0 0)>
-    The horizontal and vertical camera position uncertainty, in meters. These will
-    strongly constrain the movement of cameras, potentially at the expense of accuracy
+--camera-position-uncertainty <float float (default: 0 0)>
+    The horizontal and vertical camera position uncertainty, in meters, in the
+    local North-East-Down coordinate system of each camera. These will strongly
+    constrain the movement of cameras, potentially at the expense of accuracy
     (:numref:`ba_cam_constraints`). The default is no constraint. 
         
 --propagate-errors
