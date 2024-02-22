@@ -1797,6 +1797,79 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   } // End loop through the match files
 }
 
+// Find stats of propagated errors
+void asp::propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
+                               vw::camera::CameraModel const * left_cam,
+                               vw::camera::CameraModel const * right_cam,
+                               std::vector<vw::ip::InterestPoint> const& left_ip,
+                               std::vector<vw::ip::InterestPoint> const& right_ip,
+                               double stddev1, double stddev2,
+                               vw::cartography::Datum const& datum,
+                               // Output
+                               asp::HorizVertErrorStats & stats) {
+
+  // Create a stereo model, to be used for triangulation
+  double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos
+                        (asp::stereo_settings().min_triangulation_angle*M_PI/180);
+  vw::stereo::StereoModel stereo_model(left_cam, right_cam, 
+                                       asp::stereo_settings().use_least_squares,
+                                       angle_tol);
+
+  // Create space for horiz and vert vectors of size num_ip
+  int num_ip = left_ip.size();
+  std::vector<double> horiz_errors, vert_errors;
+
+  // Find the triangulated point and propagate the errors
+  for (int ip_it = 0; ip_it < num_ip; ip_it++) {
+    // Compute the error in the horizontal and vertical directions
+    vw::Vector2 left_pix(left_ip[ip_it].x, left_ip[ip_it].y);
+    vw::Vector2 right_pix(right_ip[ip_it].x, right_ip[ip_it].y);
+    
+    Vector3 triVec(0, 0, 0), errorVec(0, 0, 0);
+    vw::Vector2 outStdev;
+    try {
+      triVec = stereo_model(left_pix, right_pix, errorVec);
+      outStdev = asp::propagateCovariance(triVec, datum, 
+                                          stddev1, stddev2, 
+                                          left_cam, right_cam, 
+                                          left_pix, right_pix);
+    } catch (std::exception const& e) {
+      errorVec = Vector3(0, 0, 0);
+    }
+    
+    if (errorVec == Vector3(0, 0, 0))
+      continue; // this can happen either because triangulation failed or an exception
+    
+    horiz_errors.push_back(outStdev[0]);
+    vert_errors.push_back(outStdev[1]);
+  }
+  
+  // Initialize the output
+  stats = asp::HorizVertErrorStats();
+  stats.left_cam_index  = left_cam_index;
+  stats.right_cam_index = right_cam_index;
+
+  if (!horiz_errors.empty()) {
+    stats.num_errors = horiz_errors.size();
+    stats.horiz_error_mean = vw::math::mean(horiz_errors);
+    stats.vert_error_mean = vw::math::mean(vert_errors);
+    
+    if (horiz_errors.size() > 1) {
+      // This divides by num - 1
+      stats.horiz_error_stddev 
+        = vw::math::standard_deviation(horiz_errors, stats.horiz_error_mean);
+      stats.vert_error_stddev
+        = vw::math::standard_deviation(vert_errors, stats.vert_error_mean);
+    }
+    
+    // Leave this for the last
+    stats.horiz_error_median = vw::math::destructive_median(horiz_errors);
+    stats.vert_error_median = vw::math::destructive_median(vert_errors);
+  }
+
+  return;                 
+} // End function propagatedErrorStats
+
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
 void asp::saveCameraReport(asp::BaBaseOptions const& opt, 
@@ -1888,79 +1961,6 @@ void asp::saveCameraReport(asp::BaBaseOptions const& opt,
   return;
 }
 
-// Find stats of propagated errors
-void asp::propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
-                               vw::camera::CameraModel const * left_cam,
-                               vw::camera::CameraModel const * right_cam,
-                               std::vector<vw::ip::InterestPoint> const& left_ip,
-                               std::vector<vw::ip::InterestPoint> const& right_ip,
-                               double stddev1, double stddev2,
-                               vw::cartography::Datum const& datum,
-                               // Output
-                               asp::HorizVertErrorStats & stats) {
-
-  // Create a stereo model, to be used for triangulation
-  double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos
-                        (asp::stereo_settings().min_triangulation_angle*M_PI/180);
-  vw::stereo::StereoModel stereo_model(left_cam, right_cam, 
-                                       asp::stereo_settings().use_least_squares,
-                                       angle_tol);
-
-  // Create space for horiz and vert vectors of size num_ip
-  int num_ip = left_ip.size();
-  std::vector<double> horiz_errors, vert_errors;
-
-  // Find the triangulated point and propagate the errors
-  for (int ip_it = 0; ip_it < num_ip; ip_it++) {
-    // Compute the error in the horizontal and vertical directions
-    vw::Vector2 left_pix(left_ip[ip_it].x, left_ip[ip_it].y);
-    vw::Vector2 right_pix(right_ip[ip_it].x, right_ip[ip_it].y);
-    
-    Vector3 triVec(0, 0, 0), errorVec(0, 0, 0);
-    vw::Vector2 outStdev;
-    try {
-      triVec = stereo_model(left_pix, right_pix, errorVec);
-      outStdev = asp::propagateCovariance(triVec, datum, 
-                                          stddev1, stddev2, 
-                                          left_cam, right_cam, 
-                                          left_pix, right_pix);
-    } catch (std::exception const& e) {
-      errorVec = Vector3(0, 0, 0);
-    }
-    
-    if (errorVec == Vector3(0, 0, 0))
-      continue; // this can happen either because triangulation failed or an exception
-    
-    horiz_errors.push_back(outStdev[0]);
-    vert_errors.push_back(outStdev[1]);
-  }
-  
-  // Initialize the output
-  stats = asp::HorizVertErrorStats();
-  stats.left_cam_index  = left_cam_index;
-  stats.right_cam_index = right_cam_index;
-
-  if (!horiz_errors.empty()) {
-    stats.num_errors = horiz_errors.size();
-    stats.horiz_error_mean = vw::math::mean(horiz_errors);
-    stats.vert_error_mean = vw::math::mean(vert_errors);
-    
-    if (horiz_errors.size() > 1) {
-      // This divides by num - 1
-      stats.horiz_error_stddev 
-        = vw::math::standard_deviation(horiz_errors, stats.horiz_error_mean);
-      stats.vert_error_stddev
-        = vw::math::standard_deviation(vert_errors, stats.vert_error_mean);
-    }
-    
-    // Leave this for the last
-    stats.horiz_error_median = vw::math::destructive_median(horiz_errors);
-    stats.vert_error_median = vw::math::destructive_median(vert_errors);
-  }
-
-  return;                 
-} // End function propagatedErrorStats
-
 // Save stats of horizontal and vertical errors propagated from cameras
 // to triangulation
 void asp::saveHorizVertErrors(std::string const& horiz_vert_errors_file,
@@ -1984,37 +1984,4 @@ void asp::saveHorizVertErrors(std::string const& horiz_vert_errors_file,
 
   return;
 } 
-
-// Compute the horizontal and vertical change in camera centers
-void asp::saveCameraOffsets(vw::cartography::Datum   const& datum,
-                            std::vector<std::string> const& image_files,
-                            std::vector<vw::CamPtr>  const& orig_cams,
-                            std::vector<vw::CamPtr>  const& opt_cams,
-                            std::string              const& camera_offset_file) {
-
-  vw::vw_out() << "Writing: " << camera_offset_file << std::endl;
-  std::ofstream ofs(camera_offset_file.c_str());
-  ofs.precision(8);
-  ofs << "# Per-image absolute horizontal and vertical change in camera center (meters)\n";
-  
-  // Loop through the cameras and find the change in their centers
-  for (size_t icam = 0; icam < orig_cams.size(); icam++) {
-    vw::Vector3 orig_ctr = orig_cams[icam]->camera_center(vw::Vector2());
-    vw::Vector3 opt_ctr  = opt_cams [icam]->camera_center(vw::Vector2());
-    
-    vw::Vector3 llh = datum.cartesian_to_geodetic(orig_ctr);
-    vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
-    vw::Matrix3x3 EcefToNed = vw::math::inverse(NedToEcef);
-    vw::Vector3 NedDir = EcefToNed * (opt_ctr - orig_ctr);
-    
-    // Find horizontal and vertical change
-    double horiz_change = norm_2(subvector(NedDir, 0, 2));
-    double vert_change  = std::abs(NedDir[2]);
-    
-    ofs << image_files[icam] << " " << horiz_change << " " << vert_change << std::endl;
-  }
-  ofs.close();
-
-  return;
-}
 

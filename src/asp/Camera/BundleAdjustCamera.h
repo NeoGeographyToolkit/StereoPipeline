@@ -680,13 +680,6 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
 void saveUpdatedCameras(asp::BaBaseOptions const& opt, 
                         asp::BAParams const& param_storage);
 
-// Compute the horizontal and vertical change in camera centers
-void saveCameraOffsets(vw::cartography::Datum   const& datum,
-                       std::vector<std::string> const& image_files,
-                       std::vector<vw::CamPtr>  const& orig_cams,
-                       std::vector<vw::CamPtr>  const& opt_cams,
-                       std::string              const& camera_offset_file);
-
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_CAMERA_H__

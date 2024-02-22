@@ -1122,6 +1122,9 @@ int do_ba_ceres_one_pass(Options             & opt,
   if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
     asp::saveCameraOffsets(opt.datum, opt.image_files, orig_cams, optimized_cams, 
                            cam_offsets_file); 
+    
+  std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";     
+  asp::saveTriOffsetsPerCamera(opt.image_files, param_storage, cnet, crn, tri_offsets_file);
   
   return 0;
 } // End function do_ba_ceres_one_pass
@@ -1246,8 +1249,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                  << "   increasing the number of interest points per tile using\n "
                  << "   --ip-per-tile, or decreasing --min-matches.\n"
                  << " - Check if your images are similar enough in illumination,\n"
-                << "   and if they have enough overlap.\n"   
-                << "Will continue if ground control points are present.\n";
+                 << "   and if they have enough overlap.\n"   
+                 << "Will continue if ground control points are present.\n";
       }
     }
   }

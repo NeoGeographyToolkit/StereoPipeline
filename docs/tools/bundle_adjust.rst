@@ -81,14 +81,14 @@ Here we assumed that the cameras point towards planet's surface and used the
 ``nadirpinhole`` session. If this assumption is not true, one should use the
 ``pinhole`` session or the ``--no-datum`` option.
 
-The value of ``--datum`` should reflect the planetary body being imaged.
-If not set, some functionality will not be available. It will be auto-guessed,
-except for Pinhole cameras, unless some DEM is provided on input.
+The value of ``--datum`` should reflect the planetary body being imaged. If not
+set, some functionality will not be available. It will be auto-guessed, except
+for Pinhole cameras, unless some DEM is provided on input.
 
 Validation
 ~~~~~~~~~~
 
-The first report file to check after a run concludes is 
+The first report file to check after a run concludes is
 ``{output-prefix}-final_residuals_stats.txt`` (:numref:`ba_errors_per_camera`).
 It will have the mean and median pixel reprojection error for each camera, and
 their count. 
@@ -97,9 +97,10 @@ The errors should be under 1 pixel, ideally under 0.5 pixels. The count must
 be at least a dozen, and ideally more. Otherwise bundle adjustment did
 not work well. 
 
-A fine-grained metric is the *triangulation error*, computed densely across
-the images with stereo (:numref:`triangulation_error`). A systematic pattern
-in this error may suggest the need to refine the camera intrinsics (:numref:`floatingintrinsics`).
+A fine-grained metric is the *triangulation error*, computed densely across the
+images with stereo (:numref:`triangulation_error`). A systematic pattern in this
+error may suggest the need to refine the camera intrinsics
+(:numref:`floatingintrinsics`).
 
 Other report files are described in :numref:`ba_out_files`.
 
@@ -158,9 +159,8 @@ Use cases
 Large-scale bundle adjustment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Bundle adjustment has been tested extensively and used successfully
-with thousands of frame (pinhole) cameras and with close to 1000
-linescan cameras. 
+Bundle adjustment has been tested extensively and used successfully with
+thousands of frame (pinhole) cameras and with close to 1000 linescan cameras. 
 
 Large-scale usage of bundle adjustment is illustrated in the SkySat
 processing example (:numref:`skysat`), with many Pinhole cameras, and
@@ -171,7 +171,7 @@ Attention to choices of parameters and solid validation is needed in
 such cases. The tool creates report files with various metrics
 that can help judge how good the solution is (:numref:`ba_out_files`).
 
-See also the related jitter-solving tool (:numref:`jitter_solve`),
+See also the related jitter-solving program (:numref:`jitter_solve`),
 and the rig calibrator (:numref:`rig_calibrator`).
 
 Solving for intrinsics
@@ -213,13 +213,13 @@ Using mapprojected images
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For images that have very large variation in elevation, it is suggested to use
-bundle adjustment with the option ``--mapprojected-data``. An example is given
-in :numref:`mapip`.
+bundle adjustment with the option ``--mapprojected-data`` for creating interest
+point matches. An example is given in :numref:`mapip`.
 
 Use of the results
 ~~~~~~~~~~~~~~~~~~
 
-This tool will write the adjustments to the cameras as ``*.adjust``
+This program will write the adjustments to the cameras as ``*.adjust``
 files starting with the specified output prefix
 (:numref:`adjust_files`). In order for ``stereo`` to use the adjusted
 cameras, it should be passed this output prefix via the option
@@ -476,30 +476,10 @@ See :numref:`ba_cnet_details` for more technical details. See also ASP's
 Output files
 ~~~~~~~~~~~~
 
-.. _ba_camera_offsets:
-
-Camera change report
-^^^^^^^^^^^^^^^^^^^^
-
-If the ``--datum`` option is specified or auto-guessed based on images
-and cameras, the file::
-
-    {output-prefix}-camera_offsets.txt
-
-will be written. It will have, for each camera, the horizontal and vertical
-component of the difference in camera center before and after optimization, in
-meters. This is after applying any initial adjustments or transform to the
-cameras (:numref:`ba_pc_align`).
-
-This file is useful for understanding how far cameras may move and can help with
-adding camera constraints using the option ``--camera-position-uncertainty`` (:numref:`ba_cam_constraints`).
-
-For linescan cameras, the camera centers will be for the upper-left image pixel.
-
 .. _ba_errors_per_camera:
 
-Reprojection errors per camera and per pixel
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Reprojection errors per camera
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The initial and final mean and median pixel reprojection error (distance from
 each interest point and camera projection of the triangulated point) for each
@@ -513,24 +493,70 @@ ideally under 1 pixel, as otherwise this means that the cameras are not
 well-registered to each other, or that systematic effects exist, such as
 uncorrected lens distortion.
 
-See also :numref:`ba_mapproj_dem` for an analogous report at the ground level.
+See :numref:`ba_mapproj_dem` for an analogous report at the ground level
+and :numref:`ba_err_per_point` for finer-grained reporting.
 
-As a finer-grained metric, initial and final ``raw_pixels.txt`` files will be
-written, having the row and column residuals (reprojection errors) for each
-pixel in each camera.
+.. _ba_camera_offsets:
+
+Camera position changes
+^^^^^^^^^^^^^^^^^^^^^^^
+
+If the ``--datum`` option is specified or auto-guessed based on images
+and cameras, the file::
+
+    {output-prefix}-camera_offsets.txt
+
+will be written. It will have, for each camera, the horizontal and vertical
+component of the difference in camera center before and after optimization, in
+meters. This is after applying any initial adjustments or transform to the
+cameras (:numref:`ba_pc_align`). The local North-East-Down coordinate system of
+each camera determines the horizontal and vertical components.
+
+This file is useful for understanding how far cameras may move and can help with
+adding camera constraints using the option ``--camera-position-uncertainty`` (:numref:`ba_cam_constraints`).
+
+For linescan cameras, the camera centers will be for the upper-left image pixel.
+
+.. _ba_tri_offsets:
+
+Changes in triangulated points
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The distances between each initial triangulated point (after applying any
+initial adjustments, alignment transform, and/or DEM constraint) and final
+triangulated point (after optimization) are computed (in ECEF, in meters). The
+mean, median, and count of these distances, per camera, are saved to::
+
+    {output-prefix}-triangulation_offsets.txt
+
+This is helpful in understanding how much the triangulated points move. An
+unreasonable amount of movement may suggest imposing stronger constraints on the
+triangulated points and camera positions.
+
+.. _ba_conv_angle:
+
+Convergence angles
+^^^^^^^^^^^^^^^^^^
+
+The convergence angle percentiles for rays emanating from matching 
+interest points and intersecting on the ground (:numref:`stereo_pairs`)
+are saved to::
+
+    {output-prefix}-convergence_angles.txt
+
+There is one entry for each pair of images having matches.
 
 .. _ba_err_per_point:
 
 Reprojection errors per triangulated point
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the ``--datum`` option is specified or auto-guessed based on images
-and cameras, ``bundle_adjust`` will write the triangulated world
-position for every feature being matched in two or more images, and
-the mean absolute residuals (that is, reprojection errors,
-:numref:`bundle_adjustment`) for each position, before the first and
-after the last optimization pass, in geodetic coordinates. The files
-are named
+If the ``--datum`` option is specified or auto-guessed based on images and
+cameras, ``bundle_adjust`` will write the triangulated world position for every
+feature being matched in two or more images, and the mean absolute residuals
+(that is, reprojection errors, :numref:`bundle_adjustment`) for each position,
+before the first and after the last optimization pass, in geodetic coordinates.
+The files are named
 
 ::
 
@@ -574,25 +600,16 @@ obtained by the intersection of three rays, with some
 of those rays having an angle of at least this while some a much
 smaller angle.)
 
+As a finer-grained metric, initial and final ``raw_pixels.txt`` files will be
+written, having the row and column residuals (reprojection errors) for each
+pixel in each camera.
+
 GCP report
 ^^^^^^^^^^
 
 If GCP are present, the file ``{output-prefix}-gcp_report.txt`` will be saved to
 disk, having the initial and optimized GCP coordinates, and their difference,
 both in ECEF and longitude-latitude-height above datum. 
-
-.. _ba_conv_angle:
-
-Convergence angles
-^^^^^^^^^^^^^^^^^^
-
-The convergence angle percentiles for rays emanating from matching 
-interest points and intersecting on the ground (:numref:`stereo_pairs`)
-are saved to::
-
-    {output-prefix}-convergence_angles.txt
-
-There is one entry for each pair of images having matches.
 
 .. _ba_error_propagation:
 

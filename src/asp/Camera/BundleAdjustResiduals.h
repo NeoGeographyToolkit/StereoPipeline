@@ -76,6 +76,21 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
                          vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn, 
                          ceres::Problem &problem);
 
+
+// Find the offsets between initial and final triangulated points
+void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
+                             asp::BAParams const& param_storage,
+                             vw::ba::ControlNetwork const& cnet,
+                             vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
+                             std::string const& tri_offsets_file);
+
+// Compute the horizontal and vertical change in camera positions
+void saveCameraOffsets(vw::cartography::Datum   const& datum,
+                       std::vector<std::string> const& image_files,
+                       std::vector<vw::CamPtr>  const& orig_cams,
+                       std::vector<vw::CamPtr>  const& opt_cams,
+                       std::string              const& camera_offset_file);
+
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_RESIDUALS_H__
