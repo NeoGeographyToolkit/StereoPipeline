@@ -61,6 +61,9 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Added report files having the change in camera positions
     (:numref:`ba_camera_offsets`) and triangulated points
     (:numref:`ba_tri_offsets`).
+  * The option ``--tri-weight`` is by default 0.1, and adjusted for GSD,
+    and the option ``--camera-weight`` is by default 0.0. These work better
+    than before at preventing the cameras from moving when optimizing them.
   * Added the option ``--propagate-errors`` to propagate the uncertainties from
     input cameras to triangulated points (:numref:`ba_error_propagation`).  
   * Added the option ``--weight-image``, to weigh observations based on

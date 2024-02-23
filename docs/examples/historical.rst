@@ -254,11 +254,6 @@ You can now run bundle adjustment on the downsampled images::
        --datum WGS84                           \
        -o ba_small/run
 
-The value of ``--tri-weight`` should be inversely proportional to
-ground-sample distance, so low-resolution (coarser) images should use
-a lower-value, as then multiplying by this weight will more accurately
-bring differences in units of meters to units of pixels.
-
 Validation of cameras
 ~~~~~~~~~~~~~~~~~~~~~
 

@@ -164,14 +164,12 @@ there are very many pairs of images to match.
 See :numref:`pbs_slurm` for more details on running ASP tools on multiple
 machines.
 
-We used the the ``--tri-weight`` option (:numref:`bundle_adjust`) to
-prevent the cameras from moving too much, with a value of 0.1 (a lower
-weight value will constrain less, and the weight should be inversely
-proportional to the ground sample distance in meters). The value of
-``--tri-robust-threshold`` (0.1) is intentionally set to be less than
-the one used for ``--robust-threshold`` (0.5) to ensure pixel
-reprojection errors are always given a higher priority than
-triangulation errors. 
+We used the the ``--tri-weight`` option (:numref:`bundle_adjust`) to prevent the
+cameras from moving too much, with a value of 0.1 (a lower weight value will
+constrain less. The value of ``--tri-robust-threshold`` (0.1) is intentionally
+set to be less than the one used for ``--robust-threshold`` (0.5) to ensure
+pixel reprojection errors are always given a higher priority than triangulation
+errors. 
 
 The value of ``--translation-weight`` is rather high, as the camera
 centers are known reasonably well. This will prevent the camera
