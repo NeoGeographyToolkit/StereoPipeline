@@ -53,7 +53,6 @@ using namespace vw::camera;
 using namespace vw::ba;
 
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
-typedef CameraRelationNetwork<JFeature> CRNJ;
 
 // A callback to invoke at each iteration if desiring to save the cameras
 // at that time.
@@ -262,7 +261,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
 
 /// Add to the outliers based on the large residuals
 int add_to_outliers(ControlNetwork & cnet,
-                    CRNJ const& crn,
+                    asp::CRNJ const& crn,
                     asp::BAParams & param_storage,
                     Options const& opt,
                     std::vector<size_t> const& cam_residual_counts,
@@ -622,7 +621,7 @@ void addReferenceTerrainCostFunction(
 
 // One pass of bundle adjustment
 int do_ba_ceres_one_pass(Options             & opt,
-                         CRNJ           const& crn,
+                         asp::CRNJ           const& crn,
                          bool                  first_pass,
                          asp::BAParams       & param_storage, 
                          asp::BAParams const & orig_parameters,
@@ -632,8 +631,8 @@ int do_ba_ceres_one_pass(Options             & opt,
   ceres::Problem problem;
 
   ControlNetwork & cnet = *opt.cnet;
-  const int num_cameras = param_storage.num_cameras();
-  const int num_points  = param_storage.num_points();
+  int num_cameras = param_storage.num_cameras();
+  int num_points  = param_storage.num_points();
 
   if ((int)crn.size() != num_cameras) 
     vw_throw(ArgumentErr() << "Book-keeping error, the size of CameraRelationNetwork "
@@ -705,7 +704,6 @@ int do_ba_ceres_one_pass(Options             & opt,
   // serve different purposes. 
   std::vector<size_t> cam_residual_counts(num_cameras, 0);
   std::vector<size_t> num_pixels_per_cam(num_cameras, 0);
-  typedef CameraNode<JFeature>::iterator crn_iter;
   for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
     cam_residual_counts[icam] = 0;
     num_pixels_per_cam[icam] = 0;
@@ -929,6 +927,8 @@ int do_ba_ceres_one_pass(Options             & opt,
   int num_tri_residuals = 0;
   if (opt.tri_weight > 0) {
     // Add triangulation weight to make each triangulated point not move too far
+    std::vector<double> gsds;
+    asp::estimateGsdPerTriPoint(opt.image_files, orig_cams, crn, param_storage, gsds);
     for (int ipt = 0; ipt < num_points; ipt++) {
       if (cnet[ipt].type() == ControlPoint::GroundControlPoint ||
           cnet[ipt].type() == ControlPoint::PointFromDem)
@@ -937,11 +937,16 @@ int do_ba_ceres_one_pass(Options             & opt,
       if (param_storage.get_point_outlier(ipt))
         continue; // skip outliers
       
+      // Use as constraint the triangulated point optimized at the previous
+      // iteration. That is on purpose, to ensure that the triangulated point is
+      // more accurate than it was at the start of the optimization. For the
+      // first iteration, that will be what is read from the cnet. Note how the
+      // weight is normalized by the GSD, to make it in pixel coordinates, as
+      // the rest of the residuals.
       double * point = param_storage.get_point_ptr(ipt);
-
-      // Use as constraint the initially triangulated point
       Vector3 observation(point[0], point[1], point[2]);
-      double s = 1.0/opt.tri_weight;
+      double gsd = gsds[ipt];
+      double s = gsd/opt.tri_weight;
       Vector3 xyz_sigma(s, s, s);
 
       ceres::CostFunction* cost_function = XYZError::Create(observation, xyz_sigma);
@@ -1124,7 +1129,8 @@ int do_ba_ceres_one_pass(Options             & opt,
                            cam_offsets_file); 
     
   std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";     
-  asp::saveTriOffsetsPerCamera(opt.image_files, param_storage, cnet, crn, tri_offsets_file);
+  asp::saveTriOffsetsPerCamera(opt.image_files, orig_parameters, param_storage, crn,
+                               tri_offsets_file);
   
   return 0;
 } // End function do_ba_ceres_one_pass
@@ -1132,7 +1138,7 @@ int do_ba_ceres_one_pass(Options             & opt,
 // Run several more passes with random initial parameter offsets. This flow is
 // only kicked in if opt.num_random_passes is positive, which is not the
 void runRandomPasses(Options & opt, asp::BAParams & param_storage,
-                     double & final_cost, CRNJ const& crn,
+                     double & final_cost, asp::CRNJ const& crn,
                      asp::BAParams const& orig_parameters) {
 
   // Record the parameters of the best result so far
@@ -1301,7 +1307,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   }
   
   int num_points = cnet.size();
-  const int num_cameras = opt.image_files.size();
+  int num_cameras = opt.image_files.size();
 
   // This is important to prevent a crash later
   if (num_points == 0 && !opt.apply_initial_transform_only) {
@@ -1419,7 +1425,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     asp::saveCameraReport(opt, param_storage,  opt.datum, "initial");
     
   // TODO(oalexan1): Is it possible to avoid using CRNs?
-  CRNJ crn;
+  asp::CRNJ crn;
   crn.from_cnet(cnet);
 
   if (opt.num_ba_passes <= 0)
@@ -1519,10 +1525,12 @@ int load_estimated_camera_positions(Options &opt,
       }
     }
     if (iter == no_match) {
-      vw_out() << "WARNING: Camera file " << file_name << " not found in camera position file.\n";
+      vw_out(WarningMessage) << "Camera file " << file_name 
+         << " not found in camera position file.\n";
       estimated_camera_gcc[i] = Vector3(0,0,0);
-    }else
-      ++num_matches_found;
+    }else {
+      num_matches_found++;
+    }
   } // End loop to find position record for each camera
 
   return num_matches_found;  
@@ -1693,24 +1701,29 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("match-first-to-last", po::bool_switch(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
      "Match first several images to last several images by extending the logic of --overlap-limit past the last image to the earliest ones.")
-    
     ("rotation-weight",      po::value(&opt.rotation_weight)->default_value(0.0),
      "A higher weight will penalize more rotation deviations from the original configuration.")
     ("translation-weight",   po::value(&opt.translation_weight)->default_value(0.0),
      "A higher weight will penalize more translation deviations from the original configuration.")
-    ("camera-weight",        po::value(&opt.camera_weight)->default_value(1.0),
-     "The weight to give to the constraint that the camera positions/orientations stay close to the original values. A higher weight means that the values will change less. The options --rotation-weight and --translation-weight can be used for finer-grained control.")
-    ("tri-weight", po::value(&opt.tri_weight)->default_value(0.0),
-     "The weight to give to the constraint that optimized triangulated "
-     "points stay close to original triangulated points. A positive value will help "
-     "ensure the cameras do not move too far, but a large value may prevent convergence. "
-     "It is suggested to use here 0.1 to 0.5 divided by image gsd. Use it together with "
-     "--tri-robust-threshold. Does not apply to GCP or points constrained by a DEM. "
-     "Set --camera-weight to 0 when using this.")
-    ("tri-robust-threshold",
-     po::value(&opt.tri_robust_threshold)->default_value(0.1),
-     "Use this robust threshold to attenuate large differences "
-     "between initial and optimized triangulation points, after multiplying them by --tri-weight.")
+    ("camera-weight", po::value(&opt.camera_weight)->default_value(0.0),
+     "The weight to give to the constraint that the camera positions/orientations "
+     "stay close to the original values. A higher weight means that the values will "
+     "change less. This option is deprecated. Use instead --translation-weight "
+     "and --tri-weight.")
+    ("tri-weight", po::value(&opt.tri_weight)->default_value(0.1),
+     "The weight to give to the constraint that optimized triangulated points stay "
+      "close to original triangulated points. A positive value will help ensure the "
+      "cameras do not move too far, but a large value may prevent convergence. It is "
+      "suggested to use here 0.1 to 0.5. This will be divided by ground sample distance "
+      "(GSD) to convert this constraint to pixel units, since the reprojection errors "
+      "are in pixels. See also --tri-robust-threshold. Does not apply to GCP or points "
+      "constrained by a DEM.")
+    ("tri-robust-threshold", po::value(&opt.tri_robust_threshold)->default_value(0.1),
+     "Use this robust threshold to attenuate large differences between initial and "
+     "optimized triangulation points, after multiplying them by --tri-weight and "
+     "dividing by GSD. This is less than --robust-threshold, as the primary goal "
+     "is to reduce pixel reprojection errors, even if that results in big differences "
+      "in the triangulated points.")
     ("isis-cnet", po::value(&opt.isis_cnet)->default_value(""),
      "Read a control network having interest point matches from this binary file "
      "in the ISIS jigsaw format. This can be used with any images and cameras "
@@ -2044,18 +2057,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.camera_weight < 0.0)
     vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n");
 
-  if ( opt.rotation_weight < 0.0 )
+  if (opt.rotation_weight < 0.0)
     vw_throw( ArgumentErr() << "The rotation weight must be non-negative.\n");
 
-  if ( opt.translation_weight < 0.0 )
+  if (opt.translation_weight < 0.0)
     vw_throw( ArgumentErr() << "The translation weight must be non-negative.\n");
 
   if (opt.tri_weight < 0.0)
     vw_throw( ArgumentErr() << "The triangulation weight must be non-negative.\n");
-  
-  if (opt.tri_weight > 0 && opt.camera_weight > 0) 
-    vw_throw( ArgumentErr() << "When --tri-weight is positive, set to zero "
-              << "--camera-weight. Can use --rotation-weight and --translation-weight.\n");
   
   // NOTE(oalexan1): The reason min_triangulation_angle cannot be 0 is deep inside
   // StereoModel.cc. Better keep it this way than make too many changes there.

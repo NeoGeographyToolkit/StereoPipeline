@@ -345,7 +345,7 @@ line.
 
      ISIS> parallel_stereo E0201461.map.cub M0100115.map.cub \
                -s stereo.map --corr-search -70 -4 40 4       \
-               --subpixel-mode 0 results/output
+               --subpixel-mode 3 results/output
 
 Stereo on multiple machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -577,16 +577,16 @@ computation using ``--t_projwin`` to again make the process faster.
 
 Next, we do stereo with these mapprojected images::
 
-     parallel_stereo --job-size-w 1024 --job-size-h 1024 \
-       --subpixel-mode 3                                 \
-       left_proj.tif right_proj.tif left.cub right.cub   \
+     parallel_stereo --stereo-algorithm asp_mgm        \
+       --subpixel-mode 9                               \
+       left_proj.tif right_proj.tif left.cub right.cub \
        run_map/run run_nomap/run-DEM.tif
 
-Notice that even though we use mapprojected images, we still specified
-the original images as the third and fourth arguments. That because we
-need the camera information from those files. The fifth argument is the
-output prefix, while the sixth is the low-resolution DEM we used for
-mapprojection. We have used here ``--subpixel-mode 3`` as this will be
+Notice that even though we use mapprojected images, we still specified the
+original images as the third and fourth arguments. That because we need the
+camera information from those files. The fifth argument is the output prefix,
+while the sixth is the low-resolution DEM we used for mapprojection. We have
+used here ``--subpixel-mode 9`` with the ``asp_mgm`` algorithm as this will be
 the final point cloud and we want the increased accuracy.
 
 Lastly, we create a DEM at 1 meter resolution::
@@ -758,12 +758,14 @@ stored separately is along the lines of::
 or::
 
     parallel_stereo -t pinhole --stereo-algorithm asp_mgm  \
+      --subpixel-mode 9                                    \
       left.map.tif right.map.tif left.tsai right.tsai      \
       run/run ref_dem.tif
 
 and when the cameras are embedded in the images, it is::
 
     parallel_stereo -t rpc --stereo-algorithm asp_mgm \
+      --subpixel-mode 9                               \
       left.map.tif right.map.tif run/run ref_dem.tif
 
 If your cameras have been corrected with bundle adjustment

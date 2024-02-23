@@ -133,7 +133,7 @@ well-aligned DEM (:numref:`heights_from_dem`).
 
 GCP can be used as well (:numref:`bagcp`).
 
-None of these are on by default.
+The default is ``--tri-weight 0.1``.
 
 .. _ba_cam_constraints:
 
@@ -147,11 +147,9 @@ optimization and should be used with care. It is suggested to examine the camera
 change report (:numref:`ba_camera_offsets`) and pixel reprojection report
 (:numref:`ba_errors_per_camera`) to see the effects.
 
-Soft constraints are given by the options ``--translation-weight`` and
-``--rotation-weight``, ``--camera-weight``. 
-
-The default is ``--camera-weight 1`` with the rest not being on. This is subject
-to change.
+Soft camera position constraints are given by the option ``--translation-weight``. 
+It is suggested to use this in conjunction with ``--tri-weight``, which 
+controls the movement of the triangulated points.
 
 Use cases
 ~~~~~~~~~
@@ -522,10 +520,10 @@ For linescan cameras, the camera centers will be for the upper-left image pixel.
 Changes in triangulated points
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The distances between each initial triangulated point (after applying any
-initial adjustments, alignment transform, and/or DEM constraint) and final
-triangulated point (after optimization) are computed (in ECEF, in meters). The
-mean, median, and count of these distances, per camera, are saved to::
+The distance between each initial triangulated point (after applying any
+initial adjustments or alignment transform, but before any DEM constraint) and
+final triangulated point (after optimization) are computed (in ECEF, in meters).
+The mean, median, and count of these distances, per camera, are saved to::
 
     {output-prefix}-triangulation_offsets.txt
 
@@ -832,21 +830,21 @@ Command-line options
     the logic of ``--overlap-limit`` past the last image to the earliest
     ones.
 
---tri-weight <double (default: 0.0)>
-    The weight to give to the constraint that optimized triangulated
-    points stay close to original triangulated points. A positive
-    value will help ensure the cameras do not move too far, but a
-    large value may prevent convergence. It is suggested to use 
-    here 0.1 to 0.5 divided by image gsd. Does not apply to GCP or
-    points constrained by a DEM via ``--heights-from-dem``. This adds
-    a robust cost function with the threshold given by
-    ``--tri-robust-threshold``. Set ``--camera-weight`` to 0 when
-    using this.
-
+--tri-weight <double (default: 0.1)>
+    The weight to give to the constraint that optimized triangulated points stay
+    close to original triangulated points. A positive value will help ensure the
+    cameras do not move too far, but a large value may prevent convergence. It
+    is suggested to use here 0.1 to 0.5. This will be divided by ground sample
+    distance (GSD) to convert this constraint to pixel units, since the
+    reprojection errors are in pixels. See also ``--tri-robust-threshold``. Does
+    not apply to GCP or points constrained by a DEM.
+    
 --tri-robust-threshold <double (default: 0.1)>
-    Use this robust threshold to attenuate large
-    differences between initial and optimized triangulation points,
-    after multiplying them by ``--tri-weight``.
+    Use this robust threshold to attenuate large differences between initial and
+    optimized triangulation points, after multiplying them by ``--tri-weight``
+    and dividing by GSD. This is less than ``--robust-threshold``, as the primary
+    goal is to reduce pixel reprojection errors, even if that results in big
+    differences in the triangulated points.
 
 --rotation-weight <double (default: 0.0)>
     A higher weight will penalize more camera rotation deviations from the
@@ -862,12 +860,11 @@ Command-line options
     camera positions, multiplied by this weight, and then squared. No
     robust threshold is used to attenuate this term.
 
---camera-weight <double(=1.0)>
-    The weight to give to the constraint that the camera
-    positions/orientations stay close to the original values. A higher
-    weight means that the values will change less. The options
-    ``--rotation-weight`` and ``--translation-weight`` can be used for
-    finer-grained control.
+--camera-weight <double (default: 0.0)>
+    The weight to give to the constraint that the camera positions/orientations
+    stay close to the original values. A higher weight means that the values will
+    change less. This option is deprecated. Use instead ``--translation-weight``
+    and ``--tri-weight``.
         
 --ip-per-tile <integer (default: unspecified)>
     How many interest points to detect in each :math:`1024^2` image

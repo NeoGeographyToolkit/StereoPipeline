@@ -381,8 +381,8 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 
 // Find the offsets between initial and final triangulated points
 void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
+                             asp::BAParams const& orig_params,
                              asp::BAParams const& param_storage,
-                             vw::ba::ControlNetwork const& cnet,
                              vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
                              std::string const& tri_offsets_file) {
 
@@ -407,8 +407,12 @@ void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
         
       if (param_storage.get_point_outlier(ipt))
         continue; // skip outliers
-        
-      Vector3 initial_xyz = cnet[ipt].position();
+      
+      // Initial ECEF triangulated point
+      double const* orig_point = orig_params.get_point_ptr(ipt);
+      vw::Vector3 initial_xyz(orig_point[0], orig_point[1], orig_point[2]);
+      
+      // Optimized ECEF triangulated point
       double const* point = param_storage.get_point_ptr(ipt);
       vw::Vector3 final_xyz(point[0], point[1], point[2]);
      

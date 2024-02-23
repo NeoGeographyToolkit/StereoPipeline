@@ -35,6 +35,8 @@
 
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/OpticalBarModel.h>
+#include <vw/Camera/CameraImage.h>
+
 #include <boost/algorithm/string.hpp>
 
 #include <string>
@@ -1124,6 +1126,72 @@ void saveUpdatedCameras(asp::BaBaseOptions const& opt, asp::BAParams const& para
   } // End loop through cameras
 
   return;
+}
+
+// // Find the average for the gsd for all pixels whose rays intersect at the given
+// triangulated point.
+void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
+                            std::vector<vw::CamPtr>  const& cameras,
+                            asp::CRNJ                const& crn,
+                            asp::BAParams            const& param_storage, 
+                            // Output
+                            std::vector<double>     & gsds) {
+
+  // Sanity checks
+  if (crn.size() != images.size())
+    vw_throw(ArgumentErr() << "Expecting the same number of images and crn points.\n");
+  if (crn.size() != cameras.size())
+    vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
+  if (crn.size() != param_storage.num_cameras())
+    vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
+
+  // Image bboxes
+  std::vector<vw::BBox2> bboxes;
+  for (size_t i = 0; i < images.size(); i++) {
+    vw::DiskImageView<float> img(images[i]);
+    bboxes.push_back(bounding_box(img));
+  }
+        
+  int num_cameras = param_storage.num_cameras();
+  int num_points  = param_storage.num_points();
+  
+  // Initialize all gsd to 0
+  gsds.resize(num_points, 0.0);
+  std::vector<int> count(num_points, 0);
+  
+  for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
+    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) { // IP loop
+
+      // The index of the 3D point this IP is for.
+      int ipt = (**fiter).m_point_id;
+      
+      VW_ASSERT(int(icam) < num_cameras,
+                ArgumentErr() << "Out of bounds in the number of cameras.");
+      VW_ASSERT(int(ipt)  < num_points,
+                ArgumentErr() << "Out of bounds in the number of points.");
+      
+      if (param_storage.get_point_outlier(ipt))
+        continue; // skip outliers
+
+      vw::Vector2 pix = (**fiter).m_location;
+      
+      double const* point = param_storage.get_point_ptr(ipt);
+      Vector3 xyz(point[0], point[1], point[2]);
+
+      // Estimate the GSD at the given pixel given an estimate of the ground point
+      double gsd = vw::camera::estimatedGSD(cameras[icam].get(), bboxes[icam], 
+                                            pix, xyz);
+      gsds[ipt] += gsd;
+      count[ipt]++;
+    }
+  }
+  
+  // Find the average gsd
+  for (int ipt = 0; ipt < num_points; ipt++) {
+    if (count[ipt] > 0)
+      gsds[ipt] /= count[ipt];
+  }
+  
 }
 
 } // end namespace asp

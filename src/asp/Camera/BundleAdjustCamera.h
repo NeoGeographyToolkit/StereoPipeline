@@ -37,6 +37,7 @@
 #include <vw/Cartography/Datum.h>
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/FileIO/DiskImageView.h>
+#include <vw/BundleAdjustment/CameraRelation.h>
 
 #include <boost/random/mersenne_twister.hpp>
 
@@ -61,6 +62,8 @@ const int NUM_CAMERA_PARAMS = 6; // Position and pose
 const int NUM_CENTER_PARAMS = 2; // TODO(oalexan1): Use this more widely
 const int NUM_FOCUS_PARAMS  = 1;
 const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 3; // Stored in the distortion vector
+
+typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRNJ;
 
 // This must be const or else there's a crash
 const std::string UNSPECIFIED_DATUM = "unspecified_datum";
@@ -679,6 +682,14 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
 // Write updated camera models to disk
 void saveUpdatedCameras(asp::BaBaseOptions const& opt, 
                         asp::BAParams const& param_storage);
+
+// Estimate the GSD at each triangulated point
+void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
+                            std::vector<vw::CamPtr>  const& cameras,
+                            asp::CRNJ                const& crn,
+                            asp::BAParams            const& param_storage, 
+                            // Output
+                            std::vector<double>     & gsds);
 
 } // end namespace asp
 

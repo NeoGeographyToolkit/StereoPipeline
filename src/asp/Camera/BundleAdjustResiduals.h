@@ -79,8 +79,8 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 
 // Find the offsets between initial and final triangulated points
 void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
+                             asp::BAParams const& orig_params,
                              asp::BAParams const& param_storage,
-                             vw::ba::ControlNetwork const& cnet,
                              vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
                              std::string const& tri_offsets_file);
 
