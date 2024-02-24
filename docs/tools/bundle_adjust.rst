@@ -90,7 +90,7 @@ Validation
 
 The first report file to check after a run concludes is::
 
-    {output-prefix}-final_residuals_stats.txt``
+    {output-prefix}-final_residuals_stats.txt
 
 (:numref:`ba_errors_per_camera`). It will have the mean and median pixel
 reprojection error for each camera, and their count. 
@@ -116,8 +116,8 @@ number of iterations.
 This program will fail if the illumination changes too much between images (see
 also :numref:`sfs_azimuth`).
 
-Various approaches of creation of interest point matches are handled below (the
-original ones should be deleted first). Use ``stereo_gui``
+Various approaches of creation of interest point matches are presented below
+(the existing ones should be deleted first). Use ``stereo_gui``
 (:numref:`stereo_gui_pairwise_matches`) to inspect the matches.
 
 Constraints
@@ -136,15 +136,15 @@ reprojection errors in the cameras. Its default value is 0.1. An example is in
 The measured distances between the initial and final triangulated points are
 saved to a file (:numref:`ba_tri_offsets`) and should be inspected.
 
-With this constraint, the distances between initially triangulated points and
-triangulated being optimized points are computed, are then divided by the ground sample
-distance (GSD), to make them into pixel units, like the reprojection errors,
-then multiplied by ``--tri-weight``. Then, the robust threshold given by
-``--tri-robust-threshold`` is applied, with a value of 0.1, to attenuate the big
-residuals. This threshold is smaller than the pixel reprojection error threshold
-(``--robust-threshold``), whose default value is 0.5, to ensure that this
-constraint does not prevent the optimization from minimizing the pixel
-reprojection errors.
+This constraint is implemented as follows. The distances between initially
+triangulated points and those being optimized points are computed, then divided
+by the ground sample distance (GSD) (to make them into pixel units, like the
+reprojection errors). These are multiplied by ``--tri-weight``. Then, the robust
+threshold given by ``--tri-robust-threshold`` is applied, with a value of 0.1,
+to attenuate the big residuals. This threshold is smaller than the pixel
+reprojection error threshold (``--robust-threshold``), whose default value is
+0.5, to ensure that this constraint does not prevent the optimization from
+minimizing the pixel reprojection errors.
 
 The option ``--heights-from-dem`` sets a soft constraint relative to a
 well-aligned DEM (:numref:`heights_from_dem`).
