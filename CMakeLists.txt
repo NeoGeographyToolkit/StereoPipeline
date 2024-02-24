@@ -46,7 +46,10 @@ install(FILES "README.rst" DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(FILES "stereo.default.example" DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(FILES "THIRDPARTYLICENSES.rst" DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(DIRECTORY "examples" DESTINATION ${CMAKE_INSTALL_PREFIX})
-install(DIRECTORY "docs" DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+# Install only the .rst files as images take too much space
+install(DIRECTORY "docs" DESTINATION ${CMAKE_INSTALL_PREFIX}
+    FILES_MATCHING PATTERN "*.rst")
 
 # Install the plugins directory and the files in it
 install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins/stereo)
