@@ -88,10 +88,12 @@ for Pinhole cameras, unless some DEM is provided on input.
 Validation
 ~~~~~~~~~~
 
-The first report file to check after a run concludes is
-``{output-prefix}-final_residuals_stats.txt`` (:numref:`ba_errors_per_camera`).
-It will have the mean and median pixel reprojection error for each camera, and
-their count. 
+The first report file to check after a run concludes is::
+
+    {output-prefix}-final_residuals_stats.txt``
+
+(:numref:`ba_errors_per_camera`). It will have the mean and median pixel
+reprojection error for each camera, and their count. 
 
 The errors should be under 1 pixel, ideally under 0.5 pixels. The count must
 be at least a dozen, and ideally more. Otherwise bundle adjustment did
@@ -121,19 +123,33 @@ original ones should be deleted first). Use ``stereo_gui``
 Constraints
 ~~~~~~~~~~~
 
+.. _ba_ground_constraints:
+
 Ground constraints
 ^^^^^^^^^^^^^^^^^^
 
-The option ``--tri-weight`` can constrain how much the triangulated points
-move. This is a soft constraint and given less priority than reducing the pixel
-reprojection errors in the cameras. An example is in :numref:`skysat_stereo`.
+The option ``--tri-weight`` constrains how much the triangulated points move.
+This is a soft constraint and given less priority than reducing the pixel
+reprojection errors in the cameras. Its default value is 0.1. An example is in
+:numref:`skysat_stereo`.
+
+The measured distances between the initial and final triangulated points are
+saved to a file (:numref:`ba_tri_offsets`) and should be inspected.
+
+With this constraint, the distances between initially triangulated points and
+triangulated being optimized points are computed, are then divided by the ground sample
+distance (GSD), to make them into pixel units, like the reprojection errors,
+then multiplied by ``--tri-weight``. Then, the robust threshold given by
+``--tri-robust-threshold`` is applied, with a value of 0.1, to attenuate the big
+residuals. This threshold is smaller than the pixel reprojection error threshold
+(``--robust-threshold``), whose default value is 0.5, to ensure that this
+constraint does not prevent the optimization from minimizing the pixel
+reprojection errors.
 
 The option ``--heights-from-dem`` sets a soft constraint relative to a
 well-aligned DEM (:numref:`heights_from_dem`).
 
 GCP can be used as well (:numref:`bagcp`).
-
-The default is ``--tri-weight 0.1``.
 
 .. _ba_cam_constraints:
 
@@ -529,7 +545,7 @@ The mean, median, and count of these distances, per camera, are saved to::
 
 This is helpful in understanding how much the triangulated points move. An
 unreasonable amount of movement may suggest imposing stronger constraints on the
-triangulated points and camera positions.
+triangulated points (:numref:`ba_ground_constraints`).
 
 .. _ba_conv_angle:
 

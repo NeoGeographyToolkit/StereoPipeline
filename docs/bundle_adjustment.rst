@@ -181,25 +181,30 @@ Mixing frame and linescan cameras is discussed in :numref:`ba_frame_linescan`.
 A first attempt at floating the intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We recommend that first bundle adjustment is run with the intrinsics
-fixed, to get the extrinsics mostly correct, as optimizing for both of
-them at the same time may result in a non-convex problem which may
-lead to a suboptimal local minimum. Then, we will jointly optimize
-(float) the intrinsics and extrinsics.
+This section is only an introduction of how to float the intrinsics. Detailed
+examples are further down. It is very strongly suggested to ensure that a good
+number of images exists, they have a lot of overlap, that the cameras have been
+already bundle-adjusted with intrinsics fixed and aligned to a DEM
+(:numref:`ba_pc_align`). Such a DEM should be used as a constraint. 
 
 Note that when solving for intrinsics, ``bundle_adjust`` will by default
-optimize all intrinsic parameters and will share them across all cameras
-(which must be the same type). You can control this behavior with the
-``--intrinsics-to-float`` and ``--intrinsics-to-share`` parameters.
+optimize all intrinsic parameters and will share them across all cameras. This
+behavior can be controlled with the ``--intrinsics-to-float`` and
+``--intrinsics-to-share`` parameters, or in a finer-grained way, as shown in
+:numref:`kaguya_ba`.
 
-Hence, the first invocation of camera optimization should be like::
+The first invocation of camera optimization should be with intrinsics fixed::
 
      bundle_adjust -t nadirpinhole --inline-adjustments      \
        left.tif right.tif left.tsai right.tsai -o run_ba/run
 
+Here two images have been used for illustration purposes, but a larger number
+should be used in practice.
+
 It is suggested that one run ``parallel_stereo`` with the obtained cameras::
 
      parallel_stereo -t nadirpinhole --alignment-method epipolar      \
+        --stereo-algorithm asp_mgm --subpixel-mode 9                  \
         left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai \
         run_stereo/run
 
@@ -213,10 +218,9 @@ Then examine and plot the intersection error::
      colormap run_stereo/run-IntersectionErr.tif
      stereo_gui run_stereo/run-IntersectionErr_CMAP.tif
 
-If desired, fancier stereo correlation algorithms can be used, such as
-MGM, as detailed in :numref:`running-stereo`. For ``colormap``
-(:numref:`colormap`), ``--min`` and ``--max`` bounds can be specified
-if the automatic range is too large.
+See :numref:`running-stereo` for other stereo algorithms. For ``colormap``
+(:numref:`colormap`), ``--min`` and ``--max`` bounds can be specified if the
+automatic range is too large.
 
 We also suggest inspecting the interest points
 (:numref:`stereo_gui_view_ip`)::
@@ -236,11 +240,14 @@ cameras with the optimized extrinsics found earlier. This is just an
 early such attempt, better approaches will be suggested below::
 
      bundle_adjust -t nadirpinhole --inline-adjustments \
-       --solve-intrinsics --camera-weight 1             \
+       --solve-intrinsics --camera-weight 0             \
        --max-pairwise-matches 20000                     \
        left.tif right.tif                               \
        run_ba/run-left.tsai run_ba/run-right.tsai       \
        -o run_ba_intr/run
+
+See :numref:`heights_from_dem` for how to use a DEM as a constraint.
+That is very recommended.
 
 It is important to note that only the non-zero intrinsics will be
 optimized, and the step size used in optimizing a certain intrinsic
