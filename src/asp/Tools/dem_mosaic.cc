@@ -1219,15 +1219,6 @@ void load_dem_bounding_boxes(Options       const& opt,
       GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
       proj_box = geotrans.pixel_to_point_bbox(imgbox);
 
-      // Notify the user if one of the input DEMS is going to wrap around the 
-      // left and right sides of their output image.
-      if ((dem_iter > 0) && geotrans.check_bbox_wraparound()) {
-        vw_out() << "WARNING: Longitude wraparound detected from input DEM "
-                 << opt.dem_files[dem_iter] << " to the output georeference. "
-                 << "This can result in an output DEM *much* larger than expected. "
-                 << "Consider changing your output georeference options or your inputs.\n";
-      }
-
       mosaic_bbox.grow(proj_box);
       dem_proj_bboxes.push_back(proj_box);
     } // End second case

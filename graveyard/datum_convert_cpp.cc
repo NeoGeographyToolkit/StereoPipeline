@@ -400,15 +400,6 @@ void do_work(Options const& opt) {
   else
     vw_out() << "Output pixel box:\n" << output_pixel_box << std::endl;
 
-  // Special handling for known datums!
-  if ((dem_georef.overall_proj4_str().find("@conus") != std::string::npos) ||
-      (output_working_georef.overall_proj4_str().find("@conus") != std::string::npos)) {
-    // This grid is used for NAD27 and must be in the +/-180 range.
-    dem_georef.safe_set_lon_center(true);
-    output_georef.safe_set_lon_center(true);
-    output_working_georef.safe_set_lon_center(true);
-  }
-
   vw_out() << "Input georef:\n" << dem_georef << std::endl;
   vw_out() << "Output georef:\n" << output_georef << std::endl;
 
