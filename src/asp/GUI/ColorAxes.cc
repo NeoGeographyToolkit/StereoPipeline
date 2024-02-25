@@ -182,6 +182,7 @@ double adjustMinVal(double min_val, double max_val) {
 }
 
 // Find min and max value based on a low-res image version
+// TODO(oalexan1): Approximate bounds alone will do. Remove this function.  
 void calcLowResMinMax(imageData const& image, double nodata_val,
                       double& min_val, double& max_val) {
   
@@ -212,17 +213,11 @@ void calcLowResMinMax(imageData const& image, double nodata_val,
     min_val = nodata_val;
     max_val = nodata_val;
   }
-  
-  Vector2 approx_bounds = image.img.m_img_ch1_double.approx_bounds();
-  // The approx_bounds are computed on the lowest resolution level
-  // of the pyramid and are likely exaggerated, but were computed
-  // with outlier removal.  Use them to adjust the existing bounds
-  // which may have outliers.
+
   // TODO(oalexan1): Integrate this with formQimage logic.
-  if (approx_bounds[0] < approx_bounds[1]) {
-    min_val = std::max(min_val, approx_bounds[0]);
-    max_val = std::min(max_val, approx_bounds[1]);
-  }
+  Vector2 approx_bounds = image.img.m_img_ch1_double.approx_bounds();
+  min_val = std::max(min_val, approx_bounds[0]);
+  max_val = std::min(max_val, approx_bounds[1]);
   
   return;
 }

@@ -45,6 +45,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/Mosaic/DiskImagePyramid.h>
 #include <vw/Core/RunOnce.h>
+#include <vw/Core/Stopwatch.h>
 
 #include <string>
 #include <vector>
@@ -74,31 +75,8 @@ namespace vw { namespace gui {
              vw::Vector2 const& approx_bounds,
              ImageView<PixelT> const& clip, QImage & qimg){
 
-    double min_val = std::numeric_limits<double>::max();
-    double max_val = -std::numeric_limits<double>::max();
-    if (scale_pixels) {
-      // No multi-threading here since we modify shared values
-      for (int col = 0; col < clip.cols(); col++){
-        for (int row = 0; row < clip.rows(); row++){
-          if (clip(col, row) == nodata_val) continue;
-          if (clip(col, row) < min_val) min_val = clip(col, row);
-          if (clip(col, row) > max_val) max_val = clip(col, row);
-        }
-      }
-    
-      // The approx_bounds are computed on the lowest resolution level
-      // of the pyramid and are likely exaggerated, but were computed
-      // with outlier removal.  Use them to adjust the existing bounds
-      // which may have outliers.
-      if (approx_bounds[0] < approx_bounds[1]) {
-        min_val = std::max(min_val, approx_bounds[0]);
-        max_val = std::min(max_val, approx_bounds[1]);
-      }
-    
-      // Avoid a blank image
-      if (min_val >= max_val && max_val > -std::numeric_limits<double>::max())
-        min_val = max_val - 1.0;
-    }
+    double min_val = approx_bounds[0];
+    double max_val = approx_bounds[1];
 
     qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
 #pragma omp parallel for
@@ -211,10 +189,10 @@ namespace vw { namespace gui {
 
     /// Return the element at this location (at the lowest level) cast to double.
     /// - Only works for single channel pyramids!
-    double get_value_as_double( int32 x, int32 y) const;
+    double get_value_as_double(int32 x, int32 y) const;
 
     // Return value as string
-    std::string get_value_as_str( int32 x, int32 y) const;
+    std::string get_value_as_str(int32 x, int32 y) const;
   };
   
 }} // namespace vw::gui

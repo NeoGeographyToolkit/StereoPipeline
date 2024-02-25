@@ -120,22 +120,19 @@ namespace vw { namespace gui {
     bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
 
     if (poly_or_xyz) {
-      
-      // There is no pixel concept in that case
-      
+      // Poly or points. There is no pixel concept in that case.
       if (!m_use_georef)
         return flip_in_y(P);
-      
       return m_world2image_geotransforms[imageIndex].point_to_point(flip_in_y(P));
     }
     
+    // Image
     if (!m_use_georef)
       return P;
-    
     return m_world2image_geotransforms[imageIndex].point_to_pixel(flip_in_y(P));
   }
 
-  BBox2 MainWidget::world2image(BBox2 const& R, int imageIndex) const{
+  BBox2 MainWidget::world2image(BBox2 const& R, int imageIndex) const {
 
     bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
 
@@ -145,17 +142,15 @@ namespace vw { namespace gui {
       return R;
 
     if (poly_or_xyz) {
-      // There is no pixel concept in that case
-
+      // Poly or points. There is no pixel concept in that case.
       if (!m_use_georef)
         return flip_in_y(R);
-
       return m_world2image_geotransforms[imageIndex].point_to_point_bbox(flip_in_y(R));
     }
     
+    // Image
     if (!m_use_georef)
       return R;
-    
     return m_world2image_geotransforms[imageIndex].point_to_pixel_bbox(flip_in_y(R));
   }
 
@@ -1013,6 +1008,11 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
 
     if (m_current_view.empty()) return;
     
+    // See where it fits on the screen
+    BBox2i full_screen_box;
+    full_screen_box.grow(floor(world2screen(m_current_view.min())));
+    full_screen_box.grow(ceil(world2screen(m_current_view.max())));
+
     //Stopwatch sw1;
     //sw1.start();
 
@@ -1054,8 +1054,8 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
       // Go from world coordinates to pixels in the second image.
       BBox2 image_box = MainWidget::world2image(curr_world_box, i);
 
-      // Grow a bit to integer, as otherwise we get strange results
-      // if zooming too close.
+      // Grow a bit to integer, as otherwise strange things happen
+      // when zooming in too close
       image_box.min() = floor(image_box.min());
       image_box.max() = ceil(image_box.max());
 
@@ -1143,10 +1143,11 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
         //Stopwatch sw6;
         //sw6.start();
         // TODO(oalexan1): Make the logic below a function
-#pragma omp parallel for // this makes a big difference on Linux
         // TODO(oalexan1): This may not be thread-safe. Better do it in tiles,
         // with each tile having its own georef.
+        // TODO(oalexan1): Must render only the pixels that changed
 
+#pragma omp parallel for // this makes a big difference on Linux
         for (int x = screen_box.min().x(); x < screen_box.max().x(); x++){
           for (int y = screen_box.min().y(); y < screen_box.max().y(); y++){
 
@@ -1173,7 +1174,6 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
             int px = p.x() - region_out.min().x();
             int py = p.y() - region_out.min().y();
             if (px < 0 || py < 0 || px >= qimg.width() || py >= qimg.height() ){
-              vw_out() << "Book-keeping failure!";
               vw_throw(ArgumentErr() << "Book-keeping failure.\n");
             }
             qimg2.setPixel(x-screen_box.min().x(), // Fill the temp QImage object
