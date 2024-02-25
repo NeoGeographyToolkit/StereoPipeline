@@ -144,6 +144,9 @@ namespace vw { namespace gui {
 
     // The actual loading happens here
     void load();
+    
+    // Save the polygons to a plain text file
+    void writePoly(std::string const& polyFile);
 
     bool m_isPoly, m_isCsv;  
 

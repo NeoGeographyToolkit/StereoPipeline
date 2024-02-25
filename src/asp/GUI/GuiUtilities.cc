@@ -370,6 +370,7 @@ bool read_datum_from_csv(std::string const& file, vw::cartography::Datum & datum
 // Given one or more of --csv-format-str, --csv-proj4, and datum, extract
 // the needed metadata.
 void read_csv_metadata(std::string              const& csv_file,
+                       std::string              const& csv_format, 
                        bool                            isPoly,
                        asp::CsvConv                  & csv_conv,
                        bool                          & has_pixel_vals,
@@ -385,8 +386,8 @@ void read_csv_metadata(std::string              const& csv_file,
   // via --csv-format-str.
   std::string local_csv_format_str;
   
-  if (asp::stereo_settings().csv_format_str != "") {
-    local_csv_format_str = asp::stereo_settings().csv_format_str;
+  if (csv_format != "") {
+    local_csv_format_str = csv_format;
   } else {
     // For the pointmap and match_offsets files the csv format is known, read it from
     // the file if not specified the user.  Same for anchor_points files written by
@@ -478,7 +479,7 @@ void read_csv_metadata(std::string              const& csv_file,
   }
 
   if (has_datum)
-    std::cout << "Using datum: " << georef.datum() << std::endl;
+    vw::vw_out() << "Using datum: " << georef.datum() << std::endl;
   
   return;
 }
@@ -577,6 +578,71 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
     load();
 }
 
+// A few small local functions
+namespace {
+  
+// Given a line of the form:
+// # key value1 value2 and so on
+// Read the key in one string, and the values in another string.
+void readEntryVal(std::string line, std::string & key, std::string & val) {
+  
+  // Initialize the outputs
+  key = "";
+  val = "";
+  
+  // Skip empty lines or those not starting with a pound sign
+  if (line.empty() || line[0] != '#') 
+    return;
+  
+  // Eliminate the pound sign
+  line = line.substr(1, line.size()-1);
+  
+  std::istringstream is(line);
+  is >> key;
+  val = "";
+  std::string token;
+  while (is >> token) {
+    val += token + " ";
+  }
+  boost::algorithm::trim(val);
+}  
+
+// Open a file and extract the values for: WKT:, csv-format:, style:
+void parseCsvHeader(std::string const& file, std::string & wkt, 
+                    std::string & csv_format, std::string & style) {
+  
+  wkt = "";
+  csv_format = "";
+  style = "";
+  
+  std::ifstream fh(file.c_str());
+  
+  // Read line by line. Stop when a line no longer starts with a pound sign.
+  std::string line;
+  while (getline(fh, line, '\n')) {
+    
+    // skip empty lines
+    if (line.empty()) 
+      continue;
+    
+    // Stop if the pound sign is not the first character
+    if (line[0] != '#') 
+      break;
+      
+    std::string key, val;
+    readEntryVal(line, key, val);
+    
+    if (key == "WKT:") 
+      wkt = val;
+    if (key == "csv-format:") 
+      csv_format = val;
+    if (key == "style:") 
+      style = val;
+  }
+}
+  
+} // end local namespace
+
 // Load the image is not loaded so far
 void imageData::load() {
 
@@ -625,15 +691,35 @@ void imageData::load() {
     
   } else if (vw::gui::hasCsv(name)) {
 
+    // Open a file and extract the values for: WKT:, csv-format:, style:
+    std::string local_wkt, local_csv_format, local_style;
+    parseCsvHeader(name, local_wkt, local_csv_format, local_style);
+    
+    // The style from the file overrides the style from the command line
+    if (local_style != "") 
+      style = local_style;
+    
     bool isPoly = (style == "poly" || style == "fpoly" || style == "line");
-
-    // Read CSV
-    int numCols = asp::fileNumCols(name);
+    asp::CsvConv csv_conv;
     bool has_pixel_vals = false; // may change later
     has_georef = true; // this may change later
-    asp::CsvConv csv_conv;
-    read_csv_metadata(name, isPoly, csv_conv, has_pixel_vals, has_georef, georef);
 
+    // Read poly or csv
+    if (isPoly && local_style != "") {
+      // The polygon file has all the data
+      int numCols = 2; // only x and y coordinates may exist
+      csv_conv.parse_csv_format(local_csv_format, local_wkt, numCols);
+      has_georef = (local_wkt != "");
+      if (has_georef)
+        georef.set_wkt(local_wkt);
+      has_pixel_vals = (csv_conv.get_format() == asp::CsvConv::PIXEL_XYVAL); 
+    } else {
+      // Use options specified on the command line
+      int numCols = asp::fileNumCols(name);
+      read_csv_metadata(name, asp::stereo_settings().csv_format_str,
+                        isPoly, csv_conv, has_pixel_vals, has_georef, georef);
+    }
+    
     std::vector<int> contiguous_blocks;
     std::vector<std::string> colors;
     colors.push_back(default_poly_color); // to provide a default color for the reader
@@ -689,6 +775,42 @@ void imageData::load() {
       image_bbox = BBox2(0, 0, colorized_img.cols(), colorized_img.rows());
     }
   }
+}
+
+// Save the polygons to a plain text file. This must be in sync
+// with the logic for reading it. 
+void imageData::writePoly(std::string const& polyFile) { 
+
+  // Put all the polygons into a single poly structure    
+  vw::geometry::dPoly poly;
+  for (size_t polyIter = 0; polyIter < this->polyVec.size(); polyIter++)
+    poly.appendPolygons(this->polyVec[polyIter]);
+
+  bool has_geo = this->has_georef;
+  vw::cartography::GeoReference const& geo = this->georef;
+
+  vw_out() << "Writing: " << polyFile << std::endl;
+
+  std::ofstream out(polyFile.c_str());
+  if (!out.is_open())
+    vw::vw_throw(vw::IOErr() << "Could not open: " << polyFile << "\n");
+
+  // Save to the file all properties that are needed on reading it back
+  if (has_geo) {
+    out << "# WKT: " << geo.get_wkt() << std::endl;
+    if (geo.is_projected())
+      out << "# csv-format: 1:easting,2:northing\n";
+    else
+      out << "# csv-format: 1:lon,2:lat\n";
+  } else {
+    out << "# WKT:\n"; // no georef
+    out << "# csv-format: 1:x,2:y\n";
+  }
+  out << "# style: poly\n";
+    
+  std::string defaultColor = "green"; // only to be used if individual colors are missing
+  bool emptyLineAsSeparator = true; // Don't want to use a "NEXT" statement as separator
+  poly.writePoly(out, defaultColor, emptyLineAsSeparator);
 }
 
 // The two functions below are very slow if used per pixel, so we cache their

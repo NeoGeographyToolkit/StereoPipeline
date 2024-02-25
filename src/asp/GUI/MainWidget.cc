@@ -41,10 +41,6 @@
 #include <QtGui>
 #include <QtWidgets>
 
-// TODO(oalexan1): In Qt version > 5.14 switch from event->pos() to event->position() 
-// using #if statement, so compilation still works for Qt 5.12.
-#include <QtGlobal> // has QT_VERSION_CHECK. 
-
 #include <string>
 #include <vector>
 
@@ -2355,8 +2351,9 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     write_shapefile(shapefile, has_geo, geo, m_images[m_polyLayerIndex].polyVec);
   }
   
-  // Save the currently created vector layer
-  void MainWidget::saveVectorLayerAsTextFile(){
+  // Save the currently created vector layer. Its index is m_polyLayerIndex.
+  // Other layers are not saved. They may have their own georeferences.
+  void MainWidget::saveVectorLayerAsTextFile() {
     
     if (m_polyLayerIndex < m_beg_image_id || m_polyLayerIndex >= m_end_image_id){
       popUp("Images are inconsistent. Cannot save vector layer.");
@@ -2368,28 +2365,15 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     QString qtextFile = QFileDialog::getSaveFileName(this,
                                                     tr("Save text file"), textFile.c_str(),
                                                     tr("(*.txt)"));
-
     textFile = qtextFile.toStdString();
     if (textFile == "") 
       return;
 
-    bool has_geo = m_images[m_polyLayerIndex].has_georef;
-    vw::cartography::GeoReference const& geo = m_images[m_polyLayerIndex].georef;
-
-    // Save only polygons in the given layer. Polygons in other layers
-    // can have individual georeferences.
-    vw_out() << "Writing: " << textFile << std::endl;
-    vw::geometry::dPoly poly; // Put all the polygons into a single poly structure
-    for (size_t polyIter = 0; polyIter < m_images[m_polyLayerIndex].polyVec.size(); polyIter++)
-      poly.appendPolygons(m_images[m_polyLayerIndex].polyVec[polyIter]);
-    
-    std::string defaultColor = "green"; // only to be used if individual colors are missing
-    bool emptyLineAsSeparator = true; // Don't want to use a "NEXT" statement as separator
-    poly.writePoly(textFile, defaultColor, emptyLineAsSeparator);
+    m_images[m_polyLayerIndex].writePoly(textFile);
   }
   
   // Contour the current image
-  bool MainWidget::contourImage(){
+  bool MainWidget::contourImage() {
     
     int non_poly_image = -1;
     int num_non_poly_images = 0;
@@ -2669,7 +2653,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   
   void MainWidget::mousePressEvent(QMouseEvent *event) {
 
-    // for rubberband
+    // For rubberband
     m_mousePrsX  = event->pos().x();
     m_mousePrsY  = event->pos().y();
     m_rubberBand = m_emptyRubberBand;
@@ -3174,11 +3158,11 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   }
 
   void MainWidget::wheelEvent(QWheelEvent *event) {
-    int num_degrees = event->delta();
+    int num_degrees = event->angleDelta().y() / 8;
     double num_ticks = double(num_degrees) / 360;
 
     // 2.0 chosen arbitrarily here as a reasonable scale factor giving good
-    // sensitivity of the mousewheel. Shift zooms 50 times slower.
+    // sensitivity of the mouse wheel. Shift zooms 50 times slower.
     double scale_factor = 2;
     if (event->modifiers() & Qt::ShiftModifier)
       scale_factor *= 50;
@@ -3192,7 +3176,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
     zoom(scale);
 
-    m_curr_pixel_pos = QPointF2Vec(event->pos());
+    m_curr_pixel_pos = QPointF2Vec(event->position());
     updateCurrentMousePosition();
   }
 
