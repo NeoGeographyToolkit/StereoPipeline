@@ -1538,18 +1538,17 @@ See :numref:`nextsteps` for how how to improve the quality of stereo
 correlation results (at the expense of speed), how to create a DEM,
 etc.
 
-.. _ba_cnet_details:
+.. _jigsaw_cnet_details:
 
 Using the ISIS cnet format in ASP
 ---------------------------------
 
 ASP's ``bundle_adjust`` program can read and write control networks in the ISIS
 format (and they are read by ``jitter_solve`` as well). A basic overview of how
-this works is in :numref:`ba_cnet`. This section provides more details.
+this works is in :numref:`jigsaw_cnet`. This section provides more details.
 
-A priori surface points will be read and written back. Adjusted surface points
-will be computed in ``bundle_adjust`` using triangulation, optimized, then
-written back. 
+A priori surface points will be read and written back (more details below).
+Adjusted surface points will be read, optimized, then written back. 
 
 For constrained surface points, the constraint will be relative to the a priori
 surface points. These will be used with sigmas from adjusted surface points, as
@@ -1571,9 +1570,9 @@ be flagged as ignored and rejected on output.
 Partially constrained points will be treated as free points during the
 optimization, but the actual flags will be preserved on saving.
 
-Control measure sigmas are read and written back. If not set in the input file,
-they will be assigned the value 1.0 by ``bundle_adjust``, and it is this value
-that will be saved. 
+Control measure sigmas are read and written back. They will be used in the
+optimization. If not set in the input file, they will be assigned the value 1.0
+by ``bundle_adjust``, and it is this value that will be saved. 
 
 Pixel measurements will have 0.5 subtracted on input, and then added back on
 output. 

@@ -109,9 +109,9 @@ Other report files are described in :numref:`ba_out_files`.
 Handling failures
 ~~~~~~~~~~~~~~~~~
 
-To make the program work harder at reducing the pixel reprojection errors, the
-``--robust-threshold`` can be increased, perhaps to 2.0. Also increase the
-number of iterations.
+To make the program work harder at reducing big pixel reprojection errors, the
+``--robust-threshold`` can be increased, perhaps to 2.0. This may result in the 
+smallest reprojection errors increasing. 
 
 This program will fail if the illumination changes too much between images (see
 also :numref:`sfs_azimuth`).
@@ -461,7 +461,7 @@ These files can be used later by other ``bundle_adjust`` invocations, also by
 Any such files can be inspected with ``stereo_gui``
 (:numref:`stereo_gui_pairwise_matches`).
 
-.. _ba_cnet:
+.. _jigsaw_cnet:
 
 ISIS control network
 ^^^^^^^^^^^^^^^^^^^^
@@ -482,7 +482,7 @@ option ``--output-cnet-type``.
 The ``stereo_gui`` program (:numref:`stereo_gui_isis_cnet`) can visualize
 such a control network file. 
 
-See :numref:`ba_cnet_details` for more technical details. See also ASP's
+See :numref:`jigsaw_cnet_details` for more technical details. See also ASP's
 ``jigsaw`` tutorial (:numref:`jigsaw`).
 
 .. _ba_out_files:
