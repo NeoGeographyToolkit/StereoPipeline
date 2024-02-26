@@ -53,7 +53,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     group of cameras which intrinsics should be optimized
     (:numref:`ba_frame_linescan`).
   * Support reading and writing the ISIS ``jigsaw`` binary control network
-    format (:numref:`control_network`).
+    format (:numref:`jigsaw_cnet`).
   * Can read and write CSM model state embedded in ISIS .cub files   
     (:numref:`embedded_csm`).
   * Added the option ``--camera-position-uncertainty`` to set horizontal and

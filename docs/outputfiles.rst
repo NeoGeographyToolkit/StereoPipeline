@@ -201,13 +201,18 @@ Other files created at all stages
 Format of polygon files
 -----------------------
 
-The ``stereo_gui`` program can read and write polygons stored in plain
-text with a ``.txt`` or ``.csv`` extension. The x and y coordinates
-are stored as columns side-by side. Individual polygons
-are separated by an empty line. A color for the polygons is specified
-as a line of the form: ``color = red``. The given color applies
-to all polygons on subsequent lines until overridden by another
+The ``stereo_gui`` program can read and write polygons stored in plain text with
+a ``.txt`` or ``.csv`` extension. The x and y coordinates are stored as columns
+side-by side. Individual polygons are separated by an empty line. A color for
+the polygons is specified as a line of the form: ``color = red``. The given
+color applies to all polygons on subsequent lines until overridden by another
 such statement. An example use is in :numref:`plot_poly`.
+
+When such polygons are saved, a header will be added to the file, as lines
+starting with the pound sign, containing the WKT string for the georeference,
+the value of ``--csv-format`` to interpret the vertices, and the style (usually
+set to ``poly``). This allows for overlaying polygons with different
+georeferences in ``stereo_gui``.
 
 
 Inspection and properties of the output files

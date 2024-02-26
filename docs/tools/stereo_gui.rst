@@ -260,13 +260,13 @@ closed and a new one can be drawn. A single point can be drawn by
 clicking twice in the same location. To draw a segment, click on its
 starting point, ending point, and then its starting point again.
 
-The resulting shapes can be saved from the right-click menu. The
-shapefile specification prohibits having a mix of points, segments,
-and polygons in the same file, so all drawn shapes must be of the
-same kind.
+The resulting shapes can be saved from the right-click menu as shapefiles or in
+plain text. The shapefile specification prohibits having a mix of points,
+segments, and polygons in the same file, so all drawn shapes must be of the same
+kind.
 
 When reading polygons and georeferenced images from disk, choose "View
-as Georeferenced Images" to plot the polygons on top of the images.
+as georeferenced images" to plot the polygons on top of the images.
 
 Plain text polygon files
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -287,6 +287,12 @@ If no georeference information exists, the CSV format can be
 set to ``1:x,2:y`` if it is desired to have the y axis point up, and 
 ``1:pix_x,2:pix_y`` if it should point down, so that such polygons
 can be overlaid on top of images.
+
+When polygons are saved to a file in plain text, including when a shape file is
+saved that way, the file will record the polygon properties, so can be loaded
+back without mentioning the style, CSV format, datum, and colors.
+The properties from the file override the ones set on the command line,
+to ensure that files with different properties can be loaded together.
 
 .. _gdal_rasterize_example:
 
@@ -380,6 +386,8 @@ image pair if the output prefix was specified. For that, run::
 
 then select a couple of images to view using the checkboxes on the
 left, and their match file will be displayed automatically. 
+
+This mode is available also from the *View* menu.
 
 See an illustration in :numref:`asp_gui_nvm`.
 
@@ -572,7 +580,9 @@ right-clicking to turn on this mode, and then dragging them with the mouse.
 
 When done creating interest points, use the ``IP matches -> Write GCP file``
 menu item to save the GCP file. The matches can be saved from the same menu, and
-can be loaded and edited later (editing cannot be done for GCP).
+can be loaded, viewed, and edited later by repeating the above command and then
+selecting viewing the interest point matches from the menu. Editing cannot be
+done for GCP.
 
 If above the reference DEM and GCP file were not set, the GUI
 will prompt for their names.
