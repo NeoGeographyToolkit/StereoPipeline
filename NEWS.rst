@@ -38,6 +38,8 @@ jitter_solve (:numref:`jitter_solve`):
     format (:numref:`jitter_ip`).
   * Can read and write CSM model state embedded in ISIS .cub files   
     (:numref:`embedded_csm`).
+  * Added report files having the change in triangulated points
+    (:numref:`jitter_tri_offsets`).
   * Can use anchor points with frame cameras.
   * Added ``--num-anchor-points-per-tile``. This helps when different
     images have different sizes but want to ensure the same point density.

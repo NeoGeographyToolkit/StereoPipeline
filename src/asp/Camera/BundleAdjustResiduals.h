@@ -45,7 +45,7 @@ void compute_residuals(bool apply_loss_function,
                        std::vector<double> & residuals);
 
 /// Compute residual map by averaging all the reprojection error at a given point
-void compute_mean_residuals_at_xyz(vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
+void compute_mean_residuals_at_xyz(asp::CRNJ const& crn,
                                   std::vector<double> const& residuals,
                                   asp::BAParams const& param_storage,
                                   // outputs
@@ -73,16 +73,30 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
                          size_t num_tri_residuals,
                          std::vector<vw::Vector3> const& reference_vec,
                          vw::ba::ControlNetwork const& cnet, 
-                         vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn, 
+                         asp::CRNJ const& crn, 
                          ceres::Problem &problem);
 
-
-// Find the offsets between initial and final triangulated points
+// Find and save the offsets between initial and final triangulated points
 void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
                              asp::BAParams const& orig_params,
                              asp::BAParams const& param_storage,
-                             vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
+                             asp::CRNJ const& crn,
                              std::string const& tri_offsets_file);
+
+// Analogous version to the above, but keep the original and current triangulated points
+// in std<vector>, for use in jitter_solve.
+void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
+                             std::set<int>            const& outliers,
+                             std::vector<double> const& orig_tri_points_vec,
+                             std::vector<double> const& tri_points_vec, 
+                             asp::CRNJ const& crn,
+                             std::string const& tri_offsets_file);
+
+// Write the offsets between initial and final triangulated points
+void writeTriOffsetsPerCamera(int num_cams,
+                              std::vector<std::string> const& image_files,
+                              std::vector<std::vector<double>> & tri_offsets,
+                              std::string const& tri_offsets_file);
 
 // Compute the horizontal and vertical change in camera positions
 void saveCameraOffsets(vw::cartography::Datum   const& datum,
@@ -90,6 +104,45 @@ void saveCameraOffsets(vw::cartography::Datum   const& datum,
                        std::vector<vw::CamPtr>  const& orig_cams,
                        std::vector<vw::CamPtr>  const& opt_cams,
                        std::string              const& camera_offset_file);
+
+// This is used in jitter_solve
+void save_residuals(std::string const& residual_prefix,
+                    ceres::Problem & problem, asp::BaBaseOptions const& opt,
+                    vw::ba::ControlNetwork const& cnet,
+                    asp::CRNJ const& crn,
+                    bool have_dem, vw::cartography::Datum const& datum,
+                    std::vector<double> const& tri_points_vec,
+                    std::vector<vw::Vector3> const& dem_xyz_vec,
+                    std::set<int> const& outliers,
+                    std::vector<double> const& weight_per_residual,
+                    // These are needed for anchor points
+                    std::vector<std::vector<vw::Vector2>>                const& pixel_vec,
+                    std::vector<std::vector<boost::shared_ptr<vw::Vector3>>> const& xyz_vec,
+                    std::vector<std::vector<double*>>                    const& xyz_vec_ptr,
+                    std::vector<std::vector<double>>                     const& weight_vec,
+                    std::vector<std::vector<int>>                        const& isAnchor_vec);
+
+// This is used in jitter_solve
+void compute_residuals(asp::BaBaseOptions const& opt,
+                       ceres::Problem & problem,
+                       // Output
+                       std::vector<double> & residuals);
+
+// This is used in jitter_solve 
+void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
+                                   std::string            const& residual_prefix,
+                                   vw::cartography::Datum const& datum,
+                                   std::set<int>          const& outliers,
+                                   std::vector<double>    const& tri_points_vec,
+                                   std::vector<double>    const& mean_pixel_residual_norm,
+                                   std::vector<int>       const& pixel_residual_count);
+
+// This is used in jitter_solve
+void write_anchor_residuals(std::string              const& residual_prefix,
+                            vw::cartography::Datum   const& datum,
+                            std::vector<vw::Vector3> const& anchor_xyz,
+                            std::vector<double>      const& anchor_residual_norm);
+
 
 } // end namespace asp
 

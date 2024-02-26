@@ -35,6 +35,7 @@
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveUtils.h>
 #include <asp/Camera/LinescanUtils.h>
+#include <asp/Camera/BundleAdjustResiduals.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
@@ -42,8 +43,8 @@
 #include <asp/Core/IpMatchingAlgs.h> // Lightweight header for matching algorithms
 #include <asp/Core/SatSimBase.h>
 #include <asp/Core/CameraTransforms.h>
-#include <asp/IsisIO/IsisInterface.h>
 #include <asp/Core/ImageUtils.h>
+#include <asp/IsisIO/IsisInterface.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
@@ -392,215 +393,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
   
-  return;
-}
-
-void compute_residuals(Options const& opt,
-                       ceres::Problem & problem,
-                       // Output
-                       std::vector<double> & residuals) {
-
-  double cost = 0.0;
-  ceres::Problem::EvaluateOptions eval_options;
-  eval_options.apply_loss_function = false;
-  if (opt.single_threaded_cameras)
-    eval_options.num_threads = 1; // ISIS must be single threaded!
-  else
-    eval_options.num_threads = opt.num_threads;
-  
-  problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
-}
-
-void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
-                                   std::string            const& residual_prefix,
-                                   vw::cartography::Datum const& datum,
-                                   std::set<int>          const& outliers,
-                                   std::vector<double>    const& tri_points_vec,
-                                   std::vector<double>    const& mean_pixel_residual_norm,
-                                   std::vector<int>       const& pixel_residual_count) {
-    
-  std::string map_prefix = residual_prefix + "_pointmap";
-  std::string output_path = map_prefix + ".csv";
-
-  int num_tri_points = tri_points_vec.size() / NUM_XYZ_PARAMS;
-  
-  // Open the output file and write the header. TODO(oalexan1): See
-  // if it is possible to integrate this with the analogous
-  // bundle_adjust function.
-  vw_out() << "Writing: " << output_path << std::endl;
-
-  std::ofstream file;
-  file.open(output_path.c_str());
-  file.precision(17);
-  file << "# lon, lat, height_above_datum, mean_residual, num_observations\n";
-  file << "# " << datum << std::endl;
-
-  // Write all the points to the file
-  for (int ipt = 0; ipt < num_tri_points; ipt++) {
-
-    if (outliers.find(ipt) != outliers.end() || pixel_residual_count[ipt] <= 0)
-      continue; // Skip outliers
-    
-    // The final GCC coordinate of this point
-    const double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
-    Vector3 xyz(tri_point[0], tri_point[1], tri_point[2]);
-    Vector3 llh = datum.cartesian_to_geodetic(xyz);
-    
-    std::string comment = "";
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
-      comment = " # GCP";
-    file << llh[0] << ", " << llh[1] <<", " << llh[2] << ", "
-         << mean_pixel_residual_norm[ipt] << ", "
-         << pixel_residual_count[ipt] << comment << std::endl;
-  }
-  file.close();
-}
-
-void write_anchor_residuals(std::string            const& residual_prefix,
-                            vw::cartography::Datum const& datum,
-                            std::vector<Vector3>   const& anchor_xyz,
-                            std::vector<double>    const& anchor_residual_norm) {
-  
-  std::string map_prefix = residual_prefix + "_anchor_points";
-  std::string output_path = map_prefix + ".csv";
-  vw_out() << "Writing: " << output_path << std::endl;
-  std::ofstream file;
-  file.open(output_path.c_str());
-  file.precision(17);
-  file << "# lon, lat, height_above_datum, anchor_residual_pixel_norm\n";
-  file << "# " << datum << std::endl;
-
-  for (size_t anchor_it = 0; anchor_it < anchor_xyz.size(); anchor_it++) {
-    Vector3 llh = datum.cartesian_to_geodetic(anchor_xyz[anchor_it]);
-    file << llh[0] <<", "<< llh[1] << ", " << llh[2] << ", "
-         << anchor_residual_norm[anchor_it] << std::endl;
-  }
-  
-  file.close();
-}
-                           
-// TODO(oalexan1): Add here residuals for xyz discrepancy to DEM, if applicable
-void save_residuals(std::string const& residual_prefix,
-                    ceres::Problem & problem, Options const& opt,
-                    vw::ba::ControlNetwork const& cnet,
-                    vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
-                    bool have_dem, vw::cartography::Datum const& datum,
-                    std::vector<double> const& tri_points_vec,
-                    std::vector<Vector3> const& dem_xyz_vec,
-                    std::set<int> const& outliers,
-                    std::vector<double> const& weight_per_residual,
-                    // These are needed for anchor points
-                    std::vector<std::vector<Vector2>>                    const& pixel_vec,
-                    std::vector<std::vector<boost::shared_ptr<Vector3>>> const& xyz_vec,
-                    std::vector<std::vector<double*>>                    const& xyz_vec_ptr,
-                    std::vector<std::vector<double>>                     const& weight_vec,
-                    std::vector<std::vector<int>>                        const& isAnchor_vec) {
-  
-  // Compute the residuals before optimization
-  std::vector<double> residuals;
-  compute_residuals(opt, problem, residuals);
-  if (residuals.size() != weight_per_residual.size()) 
-    vw_throw(ArgumentErr() << "There must be as many residuals as weights for them.\n");
-
-  //  Find the mean of all residuals corresponding to the same xyz point
-  int num_tri_points = cnet.size();
-  std::vector<double> mean_pixel_residual_norm(num_tri_points, 0.0);
-  std::vector<int>    pixel_residual_count(num_tri_points, 0);
-  std::vector<double> xyz_residual_norm; // This is unfinished logic
-  if (have_dem)
-    xyz_residual_norm.resize(num_tri_points, -1.0); // so we can ignore bad ones
-  
-  int ires = 0;
-  for (int icam = 0; icam < (int)crn.size(); icam++) {
-    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
-      
-      // The index of the 3D point
-      int ipt = (**fiter).m_point_id;
-      
-      if (outliers.find(ipt) != outliers.end())
-        continue; // Skip outliers
-
-      // Norm of pixel residual
-      double norm = norm_2(Vector2(residuals[ires + 0] / weight_per_residual[ires + 0],
-                                   residuals[ires + 1] / weight_per_residual[ires + 1]));
-
-      mean_pixel_residual_norm[ipt] += norm;
-      pixel_residual_count[ipt]++;
-      
-      ires += PIXEL_SIZE; // Update for the next iteration
-    }
-  }
-
-  // Average all pixel residuals for a given xyz
-  for (int ipt = 0; ipt < num_tri_points; ipt++) {
-    if (outliers.find(ipt) != outliers.end() || pixel_residual_count[ipt] <= 0)
-      continue; // Skip outliers
-    mean_pixel_residual_norm[ipt] /= pixel_residual_count[ipt];
-  }
-
-  // Save the residuals
-  write_per_xyz_pixel_residuals(cnet, residual_prefix, datum, outliers,  
-                                tri_points_vec, mean_pixel_residual_norm,  
-                                pixel_residual_count);
-
-  // Add residuals for anchor points. That is pass 1 from
-  // addReprojectionErrors(). We imitate here the same logic for that
-  // pass. We continue to increment the ires counter from above.
-  std::vector<Vector3> anchor_xyz;
-  std::vector<double> anchor_residual_norm;
-  for (int pass = 1; pass < 2; pass++) {
-    for (int icam = 0; icam < (int)crn.size(); icam++) {
-      for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
-
-        Vector2 observation =  pixel_vec[icam][ipix];
-        double * tri_point = xyz_vec_ptr[icam][ipix];
-        double weight = weight_vec[icam][ipix];
-        bool isAnchor = isAnchor_vec[icam][ipix];
-
-        // Pass 0 is without anchor points, while pass 1 uses them.
-        // Here we only do pass 1.
-        if ((int)isAnchor != pass) 
-          continue;
-
-        // Norm of pixel residual
-        double norm = norm_2(Vector2(residuals[ires + 0] / weight_per_residual[ires + 0],
-                                     residuals[ires + 1] / weight_per_residual[ires + 1]));
-        norm /= weight; // Undo the weight, to recover the pixel norm
-        
-        ires += PIXEL_SIZE; // Update for the next iteration
-
-        Vector3 xyz(tri_point[0], tri_point[1], tri_point[2]);
-        anchor_xyz.push_back(xyz);
-        anchor_residual_norm.push_back(norm);
-      }
-    }
-  }
-  write_anchor_residuals(residual_prefix, datum, anchor_xyz, anchor_residual_norm);
-  
-  // TODO(oalexan1): Add here per-camera median residuals.
-  // TODO(oalexan1): Save the xyz residual norms as well.
-  if (have_dem) {
-    for (int ipt = 0; ipt < num_tri_points; ipt++) {
-
-      Vector3 observation = dem_xyz_vec.at(ipt);
-      if (outliers.find(ipt) != outliers.end() || observation == Vector3(0, 0, 0)) 
-        continue; // outlier
-
-      // This is a Vector3 residual 
-      double norm = norm_2(Vector3(residuals[ires + 0] / weight_per_residual[ires + 0],
-                                   residuals[ires + 1] / weight_per_residual[ires + 1],
-                                   residuals[ires + 2] / weight_per_residual[ires + 2]));
-      xyz_residual_norm[ipt] = norm;
-      
-      ires += NUM_XYZ_PARAMS; // Update for the next iteration
-    }
-  }
-
-  // Ensure we did not process more residuals than what we have.
-  // (Here we may not necessarily process all residuals.)
-  if (ires > (int)residuals.size())
-    vw_throw(ArgumentErr() << "More residuals found than expected.\n");
-
   return;
 }
 
@@ -1044,7 +836,7 @@ void addFrameReprojectionErr(Options             const & opt,
 
 void addReprojectionErrors
 (Options                                              const & opt,
- vw::ba::CameraRelationNetwork<vw::ba::JFeature>      const & crn,
+ asp::CRNJ                                            const & crn,
  std::vector<std::vector<Vector2>>                    const & pixel_vec,
  std::vector<std::vector<boost::shared_ptr<Vector3>>> const & xyz_vec,
  std::vector<std::vector<double*>>                    const & xyz_vec_ptr,
@@ -1192,15 +984,15 @@ void addTriConstraint
 }
 
 void addQuatNormRotationTranslationConstraints(
-    Options                                         const & opt,
-    std::set<int>                                   const & outliers,
-    vw::ba::CameraRelationNetwork<vw::ba::JFeature> const & crn,
-    std::vector<asp::CsmModel*>                     const & csm_models,
+    Options                      const & opt,
+    std::set<int>                const & outliers,
+    asp::CRNJ                    const & crn,
+    std::vector<asp::CsmModel*>  const & csm_models,
     // Outputs
-    std::vector<double>                                   & frame_params,
-    std::vector<double>                                   & tri_points_vec,
-    std::vector<double>                                   & weight_per_residual, // append
-    ceres::Problem                                        & problem) {
+    std::vector<double>                & frame_params,
+    std::vector<double>                & tri_points_vec,
+    std::vector<double>                & weight_per_residual, // append
+    ceres::Problem                     & problem) {
   
   // Constrain the rotations
   // TODO(oalexan1): Make this a standalone function
@@ -1350,14 +1142,14 @@ void addQuatNormRotationTranslationConstraints(
 // camera model. For frame cameras, use the trajectory of all cameras in the same orbital
 // group as the current camera.
 void addRollYawConstraint
-   (Options                                         const& opt,
-    vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
-    std::vector<asp::CsmModel*>                     const& csm_models,
-    vw::cartography::GeoReference                   const& georef,
+   (Options                         const& opt,
+    asp::CRNJ                       const& crn,
+    std::vector<asp::CsmModel*>     const& csm_models,
+    vw::cartography::GeoReference   const& georef,
     // Outputs (append to residual)
-    std::vector<double>                                  & frame_params,
-    std::vector<double>                                  & weight_per_residual,
-    ceres::Problem                                       & problem) {
+    std::vector<double>                  & frame_params,
+    std::vector<double>                  & weight_per_residual,
+    ceres::Problem                       & problem) {
   
   if (opt.roll_weight <= 0.0 && opt.yaw_weight <= 0.0)
      vw::vw_throw(vw::ArgumentErr() 
@@ -1518,10 +1310,9 @@ void prepareCsmCameras(Options const& opt,
 // Here more points may be flagged as outliers.
 // TODO(oalexan1): Avoid using xyz_vec_ptr. If the vector gets resized, the pointers
 // will be invalidated.
-typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CrnT;
 typedef boost::shared_ptr<Vector3> Vec3Ptr;
 void createProblemStructure(Options                      const& opt,
-                            CrnT                         const& crn,
+                            asp::CRNJ                    const& crn,
                             vw::ba::ControlNetwork       const& cnet, 
                             // Outputs
                             std::set<int>                     & outliers,
@@ -1602,12 +1393,14 @@ void formTriVec(std::vector<Vector3> const& dem_xyz_vec,
                 bool have_dem,
                 // Outputs
                 ba::ControlNetwork  & cnet,
+                std::vector<double> & orig_tri_points_vec,
                 std::vector<double> & tri_points_vec) {
 
   int num_tri_points = cnet.size();
   if (num_tri_points == 0)
     vw::vw_throw(ArgumentErr() << "No triangulated ground points were found.\n"); 
 
+  orig_tri_points_vec.resize(num_tri_points*NUM_XYZ_PARAMS, 0.0);
   tri_points_vec.resize(num_tri_points*NUM_XYZ_PARAMS, 0.0);
 
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
@@ -1618,6 +1411,11 @@ void formTriVec(std::vector<Vector3> const& dem_xyz_vec,
     // optimization, depending on the strength of the weight which
     // tries to keep it back in place.
     Vector3 tri_point = cnet[ipt].position();
+    
+    // The original triangulated point, before the override or optimization
+    for (int q = 0; q < NUM_XYZ_PARAMS; q++)
+      orig_tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
+    
     if (have_dem && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) {
       tri_point = dem_xyz_vec.at(ipt);
 
@@ -1632,6 +1430,33 @@ void formTriVec(std::vector<Vector3> const& dem_xyz_vec,
       tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
   }
   return;
+}
+
+void saveOptimizedCameraModels(std::string const& out_prefix,
+                               std::string const& stereo_session, 
+                               std::vector<std::string> const& image_files,
+                               std::vector<std::string> const& camera_files,
+                               std::vector<vw::CamPtr>  const& camera_models,
+                               bool update_isis_cubes_with_csm_state) {
+
+  for (size_t icam = 0; icam < camera_models.size(); icam++) {
+    std::string adjustFile = asp::bundle_adjust_file_name(out_prefix,
+                                                          image_files[icam],
+                                                          camera_files[icam]);
+    std::string csmFile = asp::csmStateFile(adjustFile);
+    asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], stereo_session);
+    csm_cam->saveState(csmFile);
+
+    if (update_isis_cubes_with_csm_state) {
+      // Save the CSM state to the image file. Wipe any spice info.
+      std::string image_name = image_files[icam]; 
+      std::string plugin_name = csm_cam->plugin_name();
+      std::string model_name  = csm_cam->model_name();
+      std::string model_state = csm_cam->model_state();
+      vw::vw_out() << "Adding updated CSM state to image file: " << image_name << std::endl;
+      asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
+    }
+  }
 }
 
 void run_jitter_solve(int argc, char* argv[]) {
@@ -1743,7 +1568,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   }
   
   // TODO(oalexan1): Is it possible to avoid using CRNs?
-  vw::ba::CameraRelationNetwork<vw::ba::JFeature> crn;
+  asp::CRNJ crn;
   crn.from_cnet(cnet);
   
   if ((int)crn.size() != opt.camera_models.size()) 
@@ -1815,9 +1640,9 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Put the triangulated points in a vector. Update the cnet from the DEM,
   // if we have one.
-  std::vector<double> tri_points_vec;
+  std::vector<double> orig_tri_points_vec, tri_points_vec;
   formTriVec(dem_xyz_vec, have_dem, 
-    cnet, tri_points_vec); // outputs
+    cnet, orig_tri_points_vec, tri_points_vec); // outputs
   
   // Create structures for pixels, xyz, and weights, to be used in optimization
   std::vector<std::vector<Vector2>> pixel_vec;
@@ -1930,28 +1755,14 @@ void run_jitter_solve(int argc, char* argv[]) {
                  // These are needed for anchor points
                  pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
 
-  // TODO(oalexan1): Make this a function
-  // Save the optimized model states. Note that we optimized directly the camera
-  // model states, so there's no need to update them from some optimization
-  // workspace.
-  for (size_t icam = 0; icam < opt.camera_models.size(); icam++) {
-    std::string adjustFile = asp::bundle_adjust_file_name(opt.out_prefix,
-                                                          opt.image_files[icam],
-                                                          opt.camera_files[icam]);
-    std::string csmFile = asp::csmStateFile(adjustFile);
-    asp::CsmModel * csm_cam = asp::csm_model(opt.camera_models[icam], opt.stereo_session);
-    csm_cam->saveState(csmFile);
-
-    if (opt.update_isis_cubes_with_csm_state) {
-      // Save the CSM state to the image file. Wipe any spice info.
-      std::string image_name = opt.image_files[icam]; 
-      std::string plugin_name = csm_cam->plugin_name();
-      std::string model_name  = csm_cam->model_name();
-      std::string model_state = csm_cam->model_state();
-      vw::vw_out() << "Adding updated CSM state to image file: " << image_name << std::endl;
-      asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
-    }
-  }
+  saveOptimizedCameraModels(opt.out_prefix, opt.stereo_session,
+                            opt.image_files, opt.camera_files,
+                            opt.camera_models, opt.update_isis_cubes_with_csm_state);
+  
+  std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";     
+  asp::saveTriOffsetsPerCamera(opt.image_files, outliers,
+                               orig_tri_points_vec, tri_points_vec,
+                               crn, tri_offsets_file);
   
   return;
 }

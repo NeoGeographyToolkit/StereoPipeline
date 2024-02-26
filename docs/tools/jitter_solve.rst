@@ -1613,6 +1613,9 @@ same effect on both sensors. That is accomplished with the option
 Output files
 ~~~~~~~~~~~~
 
+Optimized cameras
+^^^^^^^^^^^^^^^^^
+
 The optimized CSM model state files (:numref:`csm_state`), which
 reduce the jitter and also incorporate the initial adjustments as
 well, are saved in the directory for the specified output prefix.
@@ -1620,8 +1623,27 @@ well, are saved in the directory for the specified output prefix.
 The optimized state files can also be appended to the .cub files
 (:numref:`embedded_csm`).
 
+.. _jitter_tri_offsets:
+
+Changes in triangulated points
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The distance between each initial triangulated point (after applying any initial
+adjustments, but before any DEM constraint) and final triangulated point (after
+optimization) are computed (in ECEF, in meters). The mean, median, and count of
+these distances, per camera, are saved to::
+
+    {output-prefix}-triangulation_offsets.txt
+
+This is helpful in understanding how much the triangulated points move. An
+unreasonable amount of movement may suggest imposing stronger constraints on the
+triangulated points (option ``--tri-weight``).
+
+Reprojection errors per triangulated point
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 This program saves, just like ``bundle_adjust``
-(:numref:`ba_out_files`), two .csv error files, before and after
+(:numref:`ba_err_per_point`), two .csv error files, before and after
 optimization. Each has the triangulated world position for every
 feature being matched in two or more images, the mean absolute
 residual error (pixel reprojection error in the cameras,
@@ -1639,10 +1661,13 @@ Such CSV files can be colorized and overlaid with ``stereo_gui``
 (:numref:`plot_csv`) to see at which pixels the residual error is
 large.
 
-These files are very correlated to the dense results produced with stereo
-(the DEM and intersection error, respectively, before and after
-solving for jitter), but the csv files can be examined before stereo
-runs, which can take many hours.
+These files are very correlated to the dense results produced with stereo (the
+DEM and intersection error, respectively, before and after solving for jitter),
+but the csv files can be examined without creating stereo runs, which can take
+many hours.
+
+Anchor points
+^^^^^^^^^^^^^
 
 If anchor points are used, the coordinates of each anchor point and
 the norm of the pixel residual at those points are saved as well, to::
