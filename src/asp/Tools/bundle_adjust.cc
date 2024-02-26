@@ -72,6 +72,47 @@ private:
   asp::BAParams const& m_param_storage;
 };
 
+void Options::copy_to_asp_settings() const {
+  asp::stereo_settings().ip_matching_method         = ip_detect_method;
+  asp::stereo_settings().epipolar_threshold         = epipolar_threshold;
+  asp::stereo_settings().ip_inlier_factor           = ip_inlier_factor;
+  asp::stereo_settings().ip_uniqueness_thresh       = ip_uniqueness_thresh;
+  asp::stereo_settings().num_scales                 = num_scales;
+  asp::stereo_settings().nodata_value               = nodata_value;
+
+  asp::stereo_settings().aster_use_csm = aster_use_csm;
+  asp::stereo_settings().ip_per_tile = ip_per_tile;
+  asp::stereo_settings().ip_per_image = ip_per_image;
+  asp::stereo_settings().matches_per_tile = matches_per_tile;
+  asp::stereo_settings().matches_per_tile_params = matches_per_tile_params;
+  asp::stereo_settings().no_datum = no_datum;
+  asp::stereo_settings().use_least_squares = false; // never true with ba
+
+  // Note that by default rough homography and tri filtering are disabled
+  // as input cameras may be too inaccurate for that.
+  asp::stereo_settings().skip_rough_homography      = !enable_rough_homography;
+  asp::stereo_settings().disable_tri_filtering      = !enable_tri_filtering;
+
+  // Do not pass this as it will results in filtering by elevation and lonlat
+  // with unoptimized cameras. We will do that filtering with optimized
+  // cameras later.
+  //asp::stereo_settings().elevation_limit            = elevation_limit;
+  //asp::stereo_settings().lon_lat_limit              = lon_lat_limit;
+
+  asp::stereo_settings().individually_normalize     = individually_normalize;
+  asp::stereo_settings().force_reuse_match_files    = force_reuse_match_files;
+  asp::stereo_settings().min_triangulation_angle    = min_triangulation_angle;
+  asp::stereo_settings().ip_triangulation_max_error = ip_triangulation_max_error;
+  asp::stereo_settings().ip_num_ransac_iterations   = ip_num_ransac_iterations;
+  asp::stereo_settings().ip_edge_buffer_percent     = ip_edge_buffer_percent;
+  asp::stereo_settings().ip_debug_images            = ip_debug_images;
+  asp::stereo_settings().ip_normalize_tiles         = ip_normalize_tiles;
+  asp::stereo_settings().propagate_errors           = propagate_errors;
+  // The setting below is not used, but populate it for completeness
+  asp::stereo_settings().horizontal_stddev          = vw::Vector2(horizontal_stddev,
+                                                                  horizontal_stddev);
+}
+
 /// Add error source for projecting a 3D point into the camera.
 void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& pixel_sigma,
                                      int point_index, int camera_index, 
@@ -80,7 +121,7 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
                                      ceres::Problem & problem) {
 
   ceres::LossFunction* loss_function;
-  loss_function = get_loss_function(opt);
+  loss_function = get_loss_function(opt.cost_function, opt.robust_threshold);
 
   boost::shared_ptr<CameraModel> camera_model = opt.camera_models[camera_index];
 
@@ -189,7 +230,8 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
                                   Options const& opt,
                                   ceres::Problem & problem) {
 
-  ceres::LossFunction* loss_function = get_loss_function(opt);
+  ceres::LossFunction* loss_function 
+   = get_loss_function(opt.cost_function, opt.robust_threshold);
 
   boost::shared_ptr<CameraModel> left_camera_model  = opt.camera_models[left_cam_index ];
   boost::shared_ptr<CameraModel> right_camera_model = opt.camera_models[right_cam_index];
@@ -845,11 +887,12 @@ int do_ba_ceres_one_pass(Options             & opt,
     if (opt.heights_from_dem != ""      &&
         opt.heights_from_dem_weight > 0 &&
         opt.heights_from_dem_robust_threshold > 0) {
-      loss_function = get_loss_function(opt, opt.heights_from_dem_robust_threshold);
+      loss_function 
+      = get_loss_function(opt.cost_function, opt.heights_from_dem_robust_threshold);
     } else if (opt.ref_dem != "" &&
         opt.ref_dem_weight > 0  &&
         opt.ref_dem_robust_threshold > 0) {
-      loss_function = get_loss_function(opt, opt.ref_dem_robust_threshold);
+      loss_function = get_loss_function(opt.cost_function, opt.ref_dem_robust_threshold);
     } else {
       loss_function = new ceres::TrivialLoss();
     }
@@ -950,7 +993,8 @@ int do_ba_ceres_one_pass(Options             & opt,
       Vector3 xyz_sigma(s, s, s);
 
       ceres::CostFunction* cost_function = XYZError::Create(observation, xyz_sigma);
-      ceres::LossFunction* loss_function = get_loss_function(opt, opt.tri_robust_threshold);
+      ceres::LossFunction* loss_function 
+        = get_loss_function(opt.cost_function, opt.tri_robust_threshold);
       problem.AddResidualBlock(cost_function, loss_function, point);
 
       num_tri_residuals++;
@@ -2258,7 +2302,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   load_intrinsics_options(opt.solve_intrinsics, !vm["intrinsics-to-share"].defaulted(),
                           intrinsics_to_float_str, intrinsics_to_share_str,
                           opt.intrinsics_options);
-  opt.parse_intrinsics_limits(intrinsics_limit_str);
+  asp::parse_intrinsics_limits(intrinsics_limit_str, opt.intrinsics_limits);
 
   boost::to_lower(opt.cost_function);
 

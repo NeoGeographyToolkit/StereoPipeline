@@ -978,6 +978,25 @@ private:
   double m_rotation_weight, m_translation_weight;
 };
 
+/// From the input options select the correct Ceres loss function.
+ceres::LossFunction* get_loss_function(std::string const& cost_function, double th) {
+
+  ceres::LossFunction* loss_function = NULL;
+  if (cost_function == "l2")
+    loss_function = NULL;
+  else if (cost_function == "trivial")
+    loss_function = new ceres::TrivialLoss();
+  else if (cost_function == "huber")
+    loss_function = new ceres::HuberLoss(th);
+  else if (cost_function == "cauchy")
+    loss_function = new ceres::CauchyLoss(th);
+  else if (cost_function == "l1")
+    loss_function = new ceres::SoftLOneLoss(th);
+  else{
+    vw::vw_throw(vw::ArgumentErr() << "Unknown cost function: " << cost_function << ".\n");
+  }
+  return loss_function;
+}
 
 #endif // __ASP_TOOLS_BUNDLEADJUST_COST_FUNCTIONS_H__
 

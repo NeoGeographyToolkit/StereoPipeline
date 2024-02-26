@@ -929,6 +929,29 @@ void load_intrinsics_options(bool        solve_intrinsics,
   vw_out() << dist_name << sensor_mode   << intrinsics_options.distortion_shared << "\n";
 } // End function load_intrinsics_options
 
+/// Parse the string of limits and make sure they are all valid pairs.
+void parse_intrinsics_limits(std::string const& intrinsics_limits_str,
+                             std::vector<double> & intrinsics_limits) {
+
+  intrinsics_limits.clear();
+  std::istringstream is(intrinsics_limits_str);
+  double val;
+  int    count = 0;
+  while (is >> val) {
+    intrinsics_limits.push_back(val);
+    if (count % 2 == 1) {
+      if (intrinsics_limits[count] < intrinsics_limits[count-1])
+        vw_throw(vw::ArgumentErr()
+                  << "Error: Intrinsic limit pairs must be min before max.\n");
+    }
+    count++;
+  }
+
+  if (count % 2 != 0)
+    vw::vw_throw(vw::ArgumentErr()
+              << "Error: Intrinsic limits must always be provided in min max pairs.\n");
+}
+
 /// Attempt to automatically create the overlap list file estimated
 ///  footprints for each of the input images.
 /// - Currently this only supports cameras with Worldview style XML files.
@@ -1192,6 +1215,7 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
       gsds[ipt] /= count[ipt];
   }
   
+  return;  
 }
 
 } // end namespace asp

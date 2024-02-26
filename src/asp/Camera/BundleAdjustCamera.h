@@ -691,6 +691,10 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
                             // Output
                             std::vector<double>     & gsds);
 
+  /// Parse the string of limits and make sure they are all valid pairs.
+  void parse_intrinsics_limits(std::string const& intrinsics_limits_str,
+                               std::vector<double> & intrinsics_limits);
+
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_CAMERA_H__
