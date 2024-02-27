@@ -141,15 +141,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Stop when the relative error in the variables being optimized is less than this.")
     ("num-iterations",       po::value(&opt.num_iterations)->default_value(500),
      "Set the maximum number of iterations.")
-    ("tri-weight", po::value(&opt.tri_weight)->default_value(0.0),
-     "The weight to give to the constraint that optimized triangulated "
-     "points stay close to original triangulated points. A positive "
-     "value will help ensure the cameras do not move too far, but a "
-     "large value may prevent convergence. Does not apply to GCP or "
-     "points constrained by a DEM. This adds a robust cost function  "
-     "with the threshold given by --tri-robust-threshold. "
-     "The suggested value is 0.1 to 0.5 divided by the image ground "
-     "sample distance.")
+    ("tri-weight", po::value(&opt.tri_weight)->default_value(0.1),
+     "The weight to give to the constraint that optimized triangulated points stay "
+      "close to original triangulated points. A positive value will help ensure the "
+      "cameras do not move too far, but a large value may prevent convergence. It is "
+      "suggested to use here 0.1 to 0.5. This will be divided by ground sample distance "
+      "(GSD) to convert this constraint to pixel units, since the reprojection errors "
+      "are in pixels. See also --tri-robust-threshold. Does not apply to GCP or points "
+      "constrained by a DEM.")
     ("tri-robust-threshold",
      po::value(&opt.tri_robust_threshold)->default_value(0.1),
      "Use this robust threshold to attenuate large differences "
@@ -950,15 +949,20 @@ void addDemConstraint
 
 // Add the constraint to keep triangulated points close to initial values
 // This does not need a DEM or alignment
-void addTriConstraint
-(Options                                              const& opt,
- std::set<int>                                        const& outliers,
- vw::ba::ControlNetwork                               const& cnet,
- // Outputs
- std::vector<double>                                       & tri_points_vec,
- std::vector<double>                                       & weight_per_residual, // append
- ceres::Problem                                            & problem) {
+void addTriConstraint(Options                const& opt,
+                      std::set<int>          const& outliers,
+                      vw::ba::ControlNetwork const& cnet,
+                      asp::CRNJ              const& crn,
+                      // Outputs
+                      std::vector<double>    & tri_points_vec,
+                      std::vector<double>    & weight_per_residual, // append
+                      ceres::Problem         & problem) {
 
+  // Estimate the GSD for each triangulated point
+  std::vector<double> gsds;
+  asp::estimateGsdPerTriPoint(opt.image_files, opt.camera_models, crn, 
+                              outliers, tri_points_vec, gsds);
+  
   int num_tri_points = cnet.size();
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
     if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint ||
@@ -969,11 +973,16 @@ void addTriConstraint
       continue; // skip outliers
       
     double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
-      
+    
+    // The weight must be inversely proportional to the GSD, to ensure
+    // this is in pixel units
+    double gsd = gsds[ipt];
+    double weight = opt.tri_weight / gsd;
+  
     // Use as constraint the initially triangulated point
     vw::Vector3 observation(tri_point[0], tri_point[1], tri_point[2]);
 
-    ceres::CostFunction* cost_function = weightedXyzError::Create(observation, opt.tri_weight);
+    ceres::CostFunction* cost_function = weightedXyzError::Create(observation, weight);
     ceres::LossFunction* loss_function = new ceres::CauchyLoss(opt.tri_robust_threshold);
     problem.AddResidualBlock(cost_function, loss_function, tri_point);
     
@@ -1689,7 +1698,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   // apply to tri points already constrained by the DEM (so it will
   // work only where the DEM is missing).
   if (opt.tri_weight > 0) 
-    addTriConstraint(opt, outliers, cnet,  
+    addTriConstraint(opt, outliers, cnet, crn,
                      // Outputs
                      tri_points_vec,  
                      weight_per_residual,  // append

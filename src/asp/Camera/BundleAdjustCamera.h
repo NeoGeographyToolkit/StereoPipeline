@@ -683,7 +683,8 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
 void saveUpdatedCameras(asp::BaBaseOptions const& opt, 
                         asp::BAParams const& param_storage);
 
-// Estimate the GSD at each triangulated point
+// Find the average for the gsd for all pixels whose rays intersect at the given
+// triangulated point. This is used in jitter solving.
 void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
                             std::vector<vw::CamPtr>  const& cameras,
                             asp::CRNJ                const& crn,
@@ -691,9 +692,18 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
                             // Output
                             std::vector<double>     & gsds);
 
-  /// Parse the string of limits and make sure they are all valid pairs.
-  void parse_intrinsics_limits(std::string const& intrinsics_limits_str,
-                               std::vector<double> & intrinsics_limits);
+// This is a version of the above used in jitter solving.
+void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
+                            std::vector<vw::CamPtr>  const& cameras,
+                            asp::CRNJ                const& crn,
+                            std::set<int>            const& outliers,
+                            std::vector<double>      const& tri_points_vec, 
+                            // Output
+                            std::vector<double>     & gsds);
+
+// Parse the string of limits and make sure they are all valid pairs.
+void parse_intrinsics_limits(std::string const& intrinsics_limits_str,
+                             std::vector<double> & intrinsics_limits);
 
 } // end namespace asp
 

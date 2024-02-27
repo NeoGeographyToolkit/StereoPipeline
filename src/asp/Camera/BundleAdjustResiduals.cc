@@ -431,8 +431,12 @@ void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
                              std::set<int>            const& outliers,
                              std::vector<double>      const& orig_tri_points_vec,
                              std::vector<double>      const& tri_points_vec, 
-                             asp::CRNJ const& crn,
+                             asp::CRNJ                const& crn,
                              std::string const& tri_offsets_file) {
+
+  if (orig_tri_points_vec.size() != tri_points_vec.size())
+    vw_throw(ArgumentErr() << "Expecting the same number of original and current 3D "
+                           << "points.\n");
 
   // Number of cameras and points
   int num_cams = image_files.size();

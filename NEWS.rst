@@ -38,6 +38,8 @@ jitter_solve (:numref:`jitter_solve`):
     format (:numref:`jitter_ip`).
   * Can read and write CSM model state embedded in ISIS .cub files   
     (:numref:`embedded_csm`).
+  * The ``--tri-weight`` constraint is now the default, with a positive value of
+    0.1. This is adjusted for GSD (:numref:`jitter_tri_constraint`). 
   * Added report files having the change in triangulated points
     (:numref:`jitter_tri_offsets`).
   * Can use anchor points with frame cameras.

@@ -34,15 +34,34 @@ uses several kinds of constraints. They are described below, and an
 example of comparing different ground constraints them is given in
 :numref:`jitter_pleiades`.
 
+.. _jitter_tri_constraint:
+
 Intrinsic constraint
 ^^^^^^^^^^^^^^^^^^^^
 
-Triangulated ground points obtained from interest point matches are
-kept, during optimization, close to their initial values.  This works
-well when the images have very good overlap. To use it, set a positive
-value to ``--tri-weight``. An example is given in
-:numref:`jitter_dg`. See :numref:`jitter_options` for reference
-documentation.
+Triangulated ground points obtained from interest point matches are kept, during
+optimization, close to their initial values. This works well when the images
+have very good overlap. 
+
+This is controlled by the option ``--tri-weight`` whose default value is 0.1.
+This is normalized by the image GSD.
+
+A report file having the change in triangulated points is written to disk
+(:numref:`jitter_tri_offsets`). It can help evaluate the effect of this
+constraint.
+
+Triangulated points that are constrained via a DEM (option
+``--heights-from-dem``, :numref:`jitter_dem_constraint`), that is, those that
+project vertically onto a valid portion of this DEM, are not affected by the
+triangulation constraint.
+
+The implementation is just as for bundle adjustment
+(:numref:`ba_ground_constraints`). 
+
+An example is given in :numref:`jitter_dg`. See :numref:`jitter_options` for the
+full description of this option.
+
+.. _jitter_dem_constraint:
 
 Extrinsic constraint
 ^^^^^^^^^^^^^^^^^^^^
@@ -59,9 +78,8 @@ Only one of these two constraints can be used at a time. If both are
 specified, the intrinsic constraint will be used where the
 triangulated points are not above the provided DEM.
 
-The intrinsic constraint is preferred. If desired to use the DEM
-constraint, specify a low weight and robust threshold (such as
-0.05) and increase these only if desired to tighten the constraint.
+The DEM constraint is preferred, if a decent DEM that is well-aligned
+with the cameras is available.
 
 Anchor points
 ^^^^^^^^^^^^^
@@ -256,7 +274,7 @@ Bundle adjustment is run first::
     bundle_adjust                               \
       --ip-per-image 20000                      \
       --max-pairwise-matches 100000             \
-      --tri-weight 0.05                         \
+      --tri-weight 0.1                          \
       --tri-robust-threshold 0.1                \
       --camera-weight 0                         \
       --remove-outliers-params '75.0 3.0 10 10' \
@@ -857,10 +875,8 @@ camera orientations which cause the jitter.
 
 The conclusion is that if the two kinds of ground constraints are
 weak, and the reference DEM is decent, the results are rather similar.
-Likely the intrinsic ``--tri-weight`` constraint is preferred, unless
-desired to pull the solution towards the reference DEM.  Some user
-judgment is needed in choosing the type of constraint and its weight,
-depending on the circumstances.
+The DEM constraint is preferred if a good reference DEM is available,
+and the cameras are aligned to it.
 
 Creation of terrain model
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1481,8 +1497,8 @@ ensure movement only for the pitch angle::
         --roll-weight 10000                      \
         --yaw-weight 10000                       \
         --max-initial-reprojection-error 100     \
-        --tri-weight 0.05                        \
-        --tri-robust-threshold 0.05              \
+        --tri-weight 0.1                         \
+        --tri-robust-threshold 0.1               \
         --num-anchor-points 10000                \
         --num-anchor-points-extra-lines 5000     \
         --anchor-dem dem.tif                     \
@@ -1585,8 +1601,8 @@ that creates the interest point matches is similar.
         --roll-weight 10000                    \
         --yaw-weight 10000                     \
         --max-initial-reprojection-error 100   \
-        --tri-weight 0.05                      \
-        --tri-robust-threshold 0.05            \
+        --tri-weight 0.1                       \
+        --tri-robust-threshold 0.1             \
         --num-anchor-points-per-tile 100       \
         --num-anchor-points-extra-lines 5000   \
         --anchor-dem dem.tif                   \
@@ -1753,20 +1769,20 @@ Command-line options for jitter_solve
     produced orientation. If not set, use the orientations from the
     CSM file as they are.
 
---tri-weight <double (default: 0.0)>
-    The weight to give to the constraint that optimized triangulated
-    points stay close to original triangulated points. A positive
-    value will help ensure the cameras do not move too far, but a
-    large value may prevent convergence. Does not apply to GCP or
-    points constrained by a DEM via ``--heights-from-dem``. This adds
-    a robust cost function with the threshold given by
-    ``--tri-robust-threshold``. The suggested value is 0.1 to 0.5
-    divided by the image ground sample distance.
+--tri-weight <double (default: 0.1)>
+    The weight to give to the constraint that optimized triangulated points stay
+    close to original triangulated points, for anchor points. A positive value will
+    help ensure the cameras do not move too far, but a large value may prevent
+    convergence. It is suggested to use here 0.1 to 0.5. This will be divided by
+    ground sample distance (GSD) to convert this constraint to pixel units, since
+    the reprojection errors are in pixels. See also ``--tri-robust-threshold``. Does
+    not apply to GCP or points constrained by a DEM.
 
 --tri-robust-threshold <double (default: 0.1)>
-    Use this robust threshold to attenuate large
-    differences between initial and optimized triangulation points,
-    after multiplying them by ``--tri-weight``.
+    Use this robust threshold to attenuate large differences between initial and
+    optimized triangulation points, after multiplying them by ``--tri-weight``.
+    It is suggested to not modify this option, and adjust instead
+    ``--tri-weight``.
 
 --heights-from-dem <string>
     If the cameras have already been bundle-adjusted and aligned

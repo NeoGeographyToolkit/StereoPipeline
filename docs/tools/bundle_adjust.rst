@@ -146,8 +146,10 @@ reprojection error threshold (``--robust-threshold``), whose default value is
 0.5, to ensure that this constraint does not prevent the optimization from
 minimizing the pixel reprojection errors.
 
-The option ``--heights-from-dem`` sets a soft constraint relative to a
-well-aligned DEM (:numref:`heights_from_dem`).
+Triangulated points that are constrained via a DEM (option
+``--heights-from-dem``, :numref:`heights_from_dem`), that is, those that project
+vertically onto a valid portion of this DEM, are not affected by the
+triangulation constraint.
 
 GCP can be used as well (:numref:`bagcp`).
 
@@ -858,9 +860,10 @@ Command-line options
 --tri-robust-threshold <double (default: 0.1)>
     Use this robust threshold to attenuate large differences between initial and
     optimized triangulation points, after multiplying them by ``--tri-weight``
-    and dividing by GSD. This is less than ``--robust-threshold``, as the primary
-    goal is to reduce pixel reprojection errors, even if that results in big
-    differences in the triangulated points.
+    and dividing by GSD. This is less than ``--robust-threshold``, as the
+    primary goal is to reduce pixel reprojection errors, even if that results in
+    big differences in the triangulated points. It is suggested to not modify
+    this option, and adjust instead ``--tri-weight``.
 
 --rotation-weight <double (default: 0.0)>
     A higher weight will penalize more camera rotation deviations from the
