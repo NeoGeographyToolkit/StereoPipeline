@@ -42,6 +42,10 @@ jitter_solve (:numref:`jitter_solve`):
     0.1. This is adjusted for GSD (:numref:`jitter_tri_constraint`). 
   * Added report files having the change in triangulated points
     (:numref:`jitter_tri_offsets`).
+  * Replaced the option ``--heights-from-dem-weight`` with
+    ``--heights-from-dem-uncertainty``, in meters. This is more physically
+    meaningful (as a rule of thumb, use the inverse of what was previous the
+    weight value).
   * Can use anchor points with frame cameras.
   * Added ``--num-anchor-points-per-tile``. This helps when different
     images have different sizes but want to ensure the same point density.
@@ -68,6 +72,10 @@ bundle_adjust (:numref:`bundle_adjust`):
   * The option ``--tri-weight`` is by default 0.1, and adjusted for GSD,
     and the option ``--camera-weight`` is by default 0.0. These work better
     than before at preventing the cameras from moving when optimizing them.
+  * Replaced the option ``--heights-from-dem-weight`` with
+    ``--heights-from-dem-uncertainty``, in meters. This is more physically
+    meaningful (as a rule of thumb, use the inverse of what was previous the
+    weight value).
   * Added the option ``--propagate-errors`` to propagate the uncertainties from
     input cameras to triangulated points (:numref:`ba_error_propagation`).  
   * Added the option ``--weight-image``, to weigh observations based on

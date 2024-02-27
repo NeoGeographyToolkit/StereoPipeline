@@ -44,7 +44,8 @@ optimization, close to their initial values. This works well when the images
 have very good overlap. 
 
 This is controlled by the option ``--tri-weight`` whose default value is 0.1.
-This is normalized by the image GSD.
+This is divided by the image GSD when computing the cost function, to make the
+distances on the ground in units of pixel.
 
 A report file having the change in triangulated points is written to disk
 (:numref:`jitter_tri_offsets`). It can help evaluate the effect of this
@@ -66,20 +67,23 @@ full description of this option.
 Extrinsic constraint
 ^^^^^^^^^^^^^^^^^^^^
 
-This ties the triangulated ground points obtained from interest point
-matches to an external DEM, which may be at a lower resolution than
-the images. It is expected that this external DEM is *well-aligned*
-with the input cameras. This option is named ``--heights-from-dem``,
-and it is controlled via ``--heights-from-dem-weight`` and
-``--heights-from-dem-robust-threshold``. How to perform alignment and
-use these options is shown in :numref:`jitter_ctx`.
+This ties the triangulated ground points obtained from interest point matches to
+an external DEM, which may be at a lower resolution than the images. It is
+expected that this external DEM is *well-aligned* with the input cameras (see
+:numref:`ba_pc_align` for how do the alignment). 
 
-Only one of these two constraints can be used at a time. If both are
-specified, the intrinsic constraint will be used where the
-triangulated points are not above the provided DEM.
+This option is named ``--heights-from-dem``, and it is controlled via
+``--heights-from-dem-uncertainty`` and ``--heights-from-dem-robust-threshold``.
+The use these options is shown in :numref:`jitter_ctx`.
 
-The DEM constraint is preferred, if a decent DEM that is well-aligned
-with the cameras is available.
+The intrinsic constraint will be used where the triangulated points do not
+project vertically onto the DEM given by this option. 
+
+The DEM constraint is preferred, if a decent DEM that is well-aligned with the
+cameras is available.
+
+The implementation is the same as for bundle adjustment
+(:numref:`heights_from_dem`).
 
 Anchor points
 ^^^^^^^^^^^^^
@@ -372,8 +376,8 @@ Then, jitter was solved for, using the aligned cameras::
       --translation-weight 0                   \
       --rotation-weight 0                      \
       --heights-from-dem ref_dem.tif           \
-      --heights-from-dem-weight 0.05           \
-      --heights-from-dem-robust-threshold 0.05 \
+      --heights-from-dem-uncertainty 20.0      \
+      --heights-from-dem-robust-threshold 0.1  \
       --num-iterations 20                      \
       --anchor-weight 0                        \
       --tri-weight 0.1                         \
@@ -517,10 +521,9 @@ all images are tied together.
 
 The DEM used as a constraint can be either the existing gridded MOLA product, or
 it can be created from MOLA with ``point2dem`` (:numref:`jitter_solve_ctx_dem`).
-Here the second option was used. Consider increasing the values of
-``--heights-from-dem-weight`` and ``--heights-from-dem-robust-threshold`` to
-tighten the constraint. Values up to 0.3 for both were tried and they worked
-well.
+Here the second option was used. Consider adjusting the value of
+``--heights-from-dem-uncertainty``. Tightening the DEM constraint is
+usually not problematic, if the alignment to the DEM is good.
 
 Consider setting ``--translation-weight`` to a positive value, such as 10.0, if
 confident that the jitter is mostly in the orientation and not in the position.
@@ -725,7 +728,7 @@ Solve for jitter::
       --num-lines-per-position    200         \
       --num-lines-per-orientation 200         \
       --heights-from-dem ref.tif              \
-      --heights-from-dem-weight 0.1           \
+      --heights-from-dem-uncertainty 10.0     \
       --heights-from-dem-robust-threshold 0.1 \
       --num-anchor-points 10000               \
       --num-anchor-points-extra-lines 500     \
@@ -1009,14 +1012,10 @@ orientations to do most of the work. The rotation weight is set to
 pixel reprojection error constraints. See also
 :numref:`jitter_camera`.
 
-Next, we invoke the solver with the same initial data, but with a
-constraint tying to the reference DEM, with the option
-``--heights-from-dem ref-adj.tif``. Since the difference between the
-created stereo DEM and the reference DEM is on the order of 5-10
-meters, we will use ``--heights-from-dem-weight 0.05`` and
-``--heights-from-dem-robust-threshold 0.05``. The reference DEM weight
-times its uncertainty better be less 1.0, to make it comparable to
-pixel reprojection error or less.
+Next, we invoke the solver with the same initial data, but with a constraint
+tying to the reference DEM, with the option ``--heights-from-dem ref-adj.tif``.
+Since the difference between the created stereo DEM and the reference DEM is on
+the order of 5-10 meters, we will use ``--heights-from-dem-uncertainty 10.0``.
 
 The pixel reprojection error ``--robust-threshold`` value is 0.5,
 which is larger than the DEM constraint robust threshold used here, at
@@ -1227,22 +1226,18 @@ Solve for jitter with the aligned cameras::
       --translation-weight 1000                       \
       --rotation-weight 0                             \
       --num-iterations 10                             \
-      --robust-threshold 0.25                         \
+      --robust-threshold 0.5                          \
       --match-files-prefix jitter/run                 \
       --heights-from-dem ref.tif                      \
-      --heights-from-dem-weight 0.1                   \
+      --heights-from-dem-uncertainty 10.0             \
       --heights-from-dem-robust-threshold 0.1         \
       -o jitter/run
 
-The DEM weight constraint was set to 0.1, as the image GSD is 15 meters, and
-this value multiplied by 0.1 becomes comparable to a pixel, which is the unit of
-the pixel reprojection error in the camera. For an unreliable DEM this should be
-less. 
+The DEM uncertainty constraint was set to 10.0, as the image GSD is 15 meters.
+For an unreliable DEM this should be more. 
 
-We used ``--robust-threshold 0.25`` as the reprojection error due to jitter is a
-fraction of a pixel (as seen in :numref:`aster_jitter_pointmap`). The DEM robust
-threshold was set to be less than ``--robust-threshold``, to prioritize pixel
-reprojection errors.
+The DEM robust threshold was set to be less than ``--robust-threshold``, to
+prioritize pixel reprojection errors.
 
 The camera positions were constrained with a high value of
 ``--translation-weight``, as it is assumed that the jitter is in the camera
@@ -1504,8 +1499,8 @@ ensure movement only for the pitch angle::
         --anchor-dem dem.tif                     \
         --anchor-weight 0.05                     \
         --heights-from-dem dem.tif               \
-        --heights-from-dem-weight 0.05           \
-        --heights-from-dem-robust-threshold 0.05 \
+        --heights-from-dem-uncertainty 20.0      \
+        --heights-from-dem-robust-threshold 0.1  \
         jitter0.0/f.tif                          \
         jitter0.0/n-images.txt                   \
         jitter2.0/f.json                         \
@@ -1779,33 +1774,29 @@ Command-line options for jitter_solve
     not apply to GCP or points constrained by a DEM.
 
 --tri-robust-threshold <double (default: 0.1)>
-    Use this robust threshold to attenuate large differences between initial and
-    optimized triangulation points, after multiplying them by ``--tri-weight``.
-    It is suggested to not modify this option, and adjust instead
-    ``--tri-weight``.
+    The robust threshold to attenuate large differences between initial and
+    optimized triangulation points, after multiplying them by ``--tri-weight``
+    and dividing by GSD. This is less than ``--robust-threshold``, as the
+    primary goal is to reduce pixel reprojection errors, even if that results in
+    big differences in the triangulated points. It is suggested to not modify
+    this value, and adjust instead ``--tri-weight``.
 
---heights-from-dem <string>
-    If the cameras have already been bundle-adjusted and aligned
-    to a known DEM, in the triangulated points obtained from 
-    interest point matches replace their heights above datum with the
-    ones from this DEM before optimizing them, and then constrain them via
-    ``--heights-from-dem-weight`` and
-    ``--heights-from-dem-robust-threshold``. See :numref:`heights_from_dem`.
+--heights-from-dem <string (default: "")>
+    Assuming the cameras have already been bundle-adjusted and aligned to a
+    known DEM, in the triangulated points replace the heights with the ones from
+    this DEM, and constrain those close to the DEM based on
+    ``--heights-from-dem-uncertainty``. See :numref:`jitter_dem_constraint`.
 
---heights-from-dem-weight <double (default: 0.5)>
-    How much weight to give to keep the triangulated points close
-    to the DEM if specified via ``--heights-from-dem``. This value
-    should be about 0.1 to 0.5 divided by the image ground sample
-    distance, as then it will convert the measurements from meters to
-    pixels, which is consistent with the pixel reprojection error term.
+--heights-from-dem-uncertainty <double (default: 10.0)>
+    The DEM uncertainty, in meters. A smaller value constrains more the
+    triangulated points to the DEM specified via ``--heights-from-dem``.
 
---heights-from-dem-robust-threshold <double (default: 0.5)> 
-    The robust threshold to use keep the triangulated points close to
-    the DEM if specified via ``--heights-from-dem``. This is applied
-    after the point differences are multiplied by
-    ``--heights-from-dem-weight``. It should help with attenuating
-    large height difference outliers. It is suggested to make this 
-    equal to ``--heights-from-dem-weight``.
+--heights-from-dem-robust-threshold <double (default: 0.1)> 
+    The robust threshold to use keep the triangulated points close to the DEM if
+    specified via ``--heights-from-dem``. This is applied after the point
+    differences are divided by ``--heights-from-dem-uncertainty``. It will
+    attenuate large height difference outliers. It is suggested to not modify
+    this value, and adjust instead ``--heights-from-dem-uncertainty``.
 
 --match-files-prefix <string (default: "")>
     Use the match files from this prefix. Matches are typically dense

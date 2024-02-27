@@ -790,19 +790,9 @@ int do_ba_ceres_one_pass(Options             & opt,
         cnet[ipt].set_type(ControlPoint::PointFromDem); // so we can track it later
         cnet[ipt].set_position(Vector3(point[0], point[1], point[2])); // update in the cnet too
         
-        if (opt.heights_from_dem != "") {
-          if (opt.heights_from_dem_weight <= 0) {
-            // Fix it
-            problem.SetParameterBlockConstant(point);
-            double s = asp::FIXED_GCP_SIGMA;
-            // Set the sigma so that we know it is fixed
-            cnet[ipt].set_sigma(Vector3(s, s, s));
-          } else {
-            // Let it float. Later a constraint will be added.
-            double s = 1.0/opt.heights_from_dem_weight;
-            cnet[ipt].set_sigma(Vector3(s, s, s));
-          }
-          
+      if (opt.heights_from_dem != "") {
+          double s = opt.heights_from_dem_uncertainty;
+          cnet[ipt].set_sigma(Vector3(s, s, s));
         } else if (opt.ref_dem != "") {
           if (opt.ref_dem_weight <= 0) {
             // Fix it
@@ -885,7 +875,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     // and --reference-dem options.
     ceres::LossFunction* loss_function = NULL;
     if (opt.heights_from_dem != ""      &&
-        opt.heights_from_dem_weight > 0 &&
+        opt.heights_from_dem_uncertainty > 0 &&
         opt.heights_from_dem_robust_threshold > 0) {
       loss_function 
       = get_loss_function(opt.cost_function, opt.heights_from_dem_robust_threshold);
@@ -1639,35 +1629,33 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the stereo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras.")
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000),
      "Maximum number of (randomly picked) points from the reference terrain to use.")
-    ("disparity-list",           po::value(&opt.disparity_list)->default_value(""),
+    ("disparity-list", po::value(&opt.disparity_list)->default_value(""),
      "The unaligned disparity files to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two images, second is for the second and third images, etc. If an image pair has no disparity file, use 'none'.")
-    ("max-disp-error",           po::value(&opt.max_disp_error)->default_value(-1),
+    ("max-disp-error", po::value(&opt.max_disp_error)->default_value(-1),
      "When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.")
     ("reference-terrain-weight", po::value(&opt.reference_terrain_weight)->default_value(1.0),
      "How much weight to give to the cost function terms involving the reference terrain.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
-     "If the cameras have already been bundle-adjusted and aligned to a known "
-     "high-quality DEM, in the triangulated xyz points replace the heights with "
-     "the ones from this DEM, and fix those points unless --heights-from-dem-weight "
-     "is positive.")
-    ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(1.0),
-     "How much weight to give to keep the triangulated points close to the DEM if "
-     "specified via --heights-from-dem. If the weight is not positive, keep "
-     "the triangulated points fixed. This value should be inversely proportional with "
-     "ground sample distance, as then it will convert the measurements from meters "
-     "to pixels, which is consistent with the reprojection error term.")
+     "Assuming the cameras have already been bundle-adjusted and aligned to a "
+      "known DEM, in the triangulated points replace the heights with the ones from "
+      "this DEM, and constrain those close to the DEM based on "
+      "--heights-from-dem-uncertainty.")
+    ("heights-from-dem-uncertainty", 
+     po::value(&opt.heights_from_dem_uncertainty)->default_value(10.0),
+     "The DEM uncertainty, in meters. A smaller value constrain more the triangulated "
+     "points to the DEM specified via --heights-from-dem.")
     ("heights-from-dem-robust-threshold",
-     po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.5),
-     "If positive, this is the robust threshold to use keep the triangulated points "
-     "close to the DEM if specified via --heights-from-dem. This is applied after the "
-     "point differences are multiplied by --heights-from-dem-weight. It should help with "
-     "attenuating large height difference outliers.")
+     po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.1),
+     "The robust threshold to use keep the triangulated points close to the DEM if "
+      "specified via --heights-from-dem. This is applied after the point differences "
+      "are divided by --heights-from-dem-uncertainty. It will attenuate large height "
+      "difference outliers. It is suggested to not modify this value, and adjust instead "
+      "--heights-from-dem-uncertainty.")
     ("mapproj-dem", po::value(&opt.mapproj_dem)->default_value(""),
-     "If specified, mapproject every pair of matched interest points onto this DEM and compute "
-     "their distance, then percentiles of such distances for each image pair and "
-     "for each image vs the rest. "
-     "This is done after bundle adjustment and outlier removal. "
-     "Measured in meters.")
+     "If specified, mapproject every pair of matched interest points onto this DEM "
+     "and compute their distance, then percentiles of such distances for each image "
+     "pair and for each image vs the rest. This is done after bundle adjustment "
+     "and outlier removal. Measured in meters.")
     ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
      "If specified, intersect rays from matching pixels with this DEM, find the average, and constrain during optimization that rays keep on intersecting close to this point. This works even when the rays are almost parallel, but then consider using the option --forced-triangulation-distance. See also --reference-dem-weight and --reference-dem-robust-threshold.")
     ("reference-dem-weight", po::value(&opt.ref_dem_weight)->default_value(1.0),
@@ -1763,11 +1751,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "are in pixels. See also --tri-robust-threshold. Does not apply to GCP or points "
       "constrained by a DEM.")
     ("tri-robust-threshold", po::value(&opt.tri_robust_threshold)->default_value(0.1),
-     "Use this robust threshold to attenuate large differences between initial and "
+     "The robust threshold to attenuate large differences between initial and "
      "optimized triangulation points, after multiplying them by --tri-weight and "
      "dividing by GSD. This is less than --robust-threshold, as the primary goal "
      "is to reduce pixel reprojection errors, even if that results in big differences "
-      "in the triangulated points.")
+      "in the triangulated points. It is suggested to not modify this value, "
+      "and adjust instead --tri-weight.")
     ("isis-cnet", po::value(&opt.isis_cnet)->default_value(""),
      "Read a control network having interest point matches from this binary file "
      "in the ISIS jigsaw format. This can be used with any images and cameras "
@@ -2025,7 +2014,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.camera_type = BaCameraType_CSM;
     else
       vw_throw(ArgumentErr() << "Cannot use inline adjustments with session: "
-                << opt.stereo_session << "\n" << usage << general_options);
+                << opt.stereo_session << ".\n");
   }
   
   // Sharing intrinsics per sensor is not supported with reference terrain.
@@ -2051,23 +2040,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       (!inline_adjustments) &&
       (opt.camera_type != BaCameraType_Pinhole)) {
     vw_throw( ArgumentErr() << "Transforming cameras using GCP works only for pinhole "
-              << "cameras and with the --inline-adjustments flag.\n"
-              << usage << general_options );
+              << "cameras and with the --inline-adjustments flag.\n");
   }
   
   if (opt.overlap_list_file != "" && opt.overlap_limit > 0)
     vw_throw(ArgumentErr() 
-              << "Cannot specify both the overlap limit and the overlap list.\n"
-              << usage << general_options);
+              << "Cannot specify both the overlap limit and the overlap list.\n");
 
   if (opt.overlap_list_file != "" && opt.match_first_to_last > 0)
     vw_throw( ArgumentErr() 
-      << "Cannot specify both the overlap limit and --match-first-to-last.\n"
-      << usage << general_options );
+      << "Cannot specify both the overlap limit and --match-first-to-last.\n");
     
   if (opt.overlap_limit < 0)
     vw_throw( ArgumentErr() << "Must allow search for matches between "
-      << "at least each image and its subsequent one.\n" << usage << general_options );
+      << "at least each image and its subsequent one.\n");
   
   // By default, try to match all of the images!
   if (opt.overlap_limit == 0)
@@ -2082,8 +2068,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.overlap_list_file != "") {
    opt.have_overlap_list = true;
     if (!fs::exists(opt.overlap_list_file))
-      vw_throw( ArgumentErr() << "The overlap list does not exist.\n" << usage
-                << general_options );
+      vw_throw( ArgumentErr() << "The overlap list does not exist.\n");
     opt.overlap_list.clear();
     std::string image1, image2;
     std::ifstream ifs(opt.overlap_list_file.c_str());
@@ -2179,7 +2164,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw::cartography::GeoReference georef;
       bool is_good = vw::cartography::read_georeference(georef, opt.reference_terrain);
       if (!is_good)
-        vw_throw( ArgumentErr() << "The reference terrain DEM does not have a georeference.\n");
+        vw_throw(ArgumentErr() << "The reference terrain DEM does not have a georeference.\n");
       if (opt.datum_str == ""){
         opt.datum = georef.datum();
         opt.datum_str = opt.datum.name();
@@ -2202,17 +2187,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Cannot specify more than one of: --heights-from-dem "
              << "and --reference-dem.\n");
 
-  if (opt.heights_from_dem_weight < 0.0) 
-    vw_throw(ArgumentErr() << "The value of --heights-from-dem-weight must be non-negative.\n");
+  if (opt.heights_from_dem_uncertainty <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be "
+              << "positive.\n");
   
-  if (opt.heights_from_dem_robust_threshold < 0.0) 
-    vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be non-negative.\n");
-
+  if (opt.heights_from_dem_robust_threshold <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be "
+              << "positive.\n");
+    
   if (opt.ref_dem_weight <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --reference-dem-weight must be positive.\n");
   
   if (opt.ref_dem_robust_threshold <= 0.0) 
-    vw_throw(ArgumentErr() << "The value of --reference-dem-robust-threshold must be positive.\n");
+    vw_throw(ArgumentErr() << "The value of --reference-dem-robust-threshold must "
+             << "be positive.\n");
 
   bool have_dem = (!opt.heights_from_dem.empty() || !opt.ref_dem.empty());
   

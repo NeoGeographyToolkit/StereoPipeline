@@ -340,38 +340,29 @@ bit more involved (:numref:`reference_terrain`).
 Using the heights from a reference DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In some situations the DEM obtained with ASP is, after alignment,
-quite similar to the reference DEM, but the heights may be off. This
-can happen, for example, if the focal length is not accurately
-known. It is then possible after triangulating the interest point
-matches in bundle adjustment to replace their heights above datum with
-values obtained from the reference DEM, which are presumably more
-accurate. The triangulated points being optimized can then be
-constrained to not vary too much from these initial positions.
+In some situations the DEM obtained with ASP is, after alignment, quite similar
+to the reference DEM, but the heights may be off. This can happen, for example,
+if the focal length or lens distortion are not accurately known. It is then
+possible after triangulating the interest point matches in bundle adjustment to
+replace their heights above datum with values obtained from the reference DEM,
+which are presumably more accurate. The triangulated points being optimized can
+then be constrained to not vary too much from this DEM.
 
-The option for this is ``--heights-from-dem dem.tif``. An additional
-control is given, in the form of the option
-``--heights-from-dem-weight``. The larger its value is, the more
-constrained those points will be. This multiplies the difference
-between the triangulated points being optimized and their initial
-value on the DEM.
+The option for this is ``--heights-from-dem dem.tif``. An additional control is
+given, in the form of the option ``--heights-from-dem-uncertainty``, measured in
+meters. The smaller its value is, the more constrained those points will be.
+This divides the difference between the triangulated points being optimized and
+their initial value on the DEM when added to the cost function. 
 
-This weight value should be inversely proportional with ground sample
-distance, as then it will convert the measurements from meters to
-pixels, which is consistent with the reprojection error term (error of
-projecting pixels into the camera). A less reliable DEM should result
-in a smaller weight being used.
+The option ``--heights-from-dem-robust-threshold`` ensures that the weighted
+differences defined earlier when comparing to the DEM plateau at a certain level
+and do not dominate the problem. The default value is 0.1, which is smaller than
+the ``--robust-threshold`` value of 0.5, which is used to control the pixel
+reprojection error, as that is given a higher priority. It is suggested to not
+modify this threshold, and adjust instead ``--heights-from-dem-uncertainty``.
 
-Then, the option ``--heights-from-dem-robust-threshold`` ensures that
-the weighted differences defined earlier when comparing to the DEM
-plateau at a certain level and do not dominate the problem.  Below we
-set this to 0.1, which is smaller than the ``--robust-threshold``
-value of 0.5 which is used to control the reprojection error. Some
-experimentation with this weight and threshold may be needed.
-
-If a triangulated point does not fall on a valid DEM pixel, bundle adjustment
-falls back to the ``--tri-weight`` constraint, if this constraint is used, or
-otherwise the triangulated point is not constrained at all.
+If a triangulated point does not project vertically onto a valid DEM pixel,
+bundle adjustment falls back to the ``--tri-weight`` constraint.
 
 Here is an example, and note that, as in the earlier section,
 we assume that the cameras and the terrain are already aligned::
@@ -381,7 +372,7 @@ we assume that the cameras and the terrain are already aligned::
        --solve-intrinsics --camera-weight 0      \
        --max-pairwise-matches 20000              \
        --heights-from-dem dem.tif                \
-       --heights-from-dem-weight 0.1             \
+       --heights-from-dem-uncertainty 10.0       \
        --heights-from-dem-robust-threshold 0.1   \
        --parameter-tolerance 1e-12               \
        --remove-outliers-params "75.0 3.0 20 25" \
@@ -622,6 +613,9 @@ Frame cameras in CSM format (:numref:`csm_frame_def`) can be used as well.
 See :numref:`floatingintrinsics` for an introduction on how optimizing intrinsics
 works, and :numref:`kaguya_tc` for how to prepare and use Kaguya TC cameras.
 
+See :numref:`ba_frame_linescan` for fine-level control per group and for how 
+to mix frame and linescan cameras.
+
 .. _kaguya_watch:
 
 Things to watch for
@@ -844,24 +838,17 @@ bundle adjustment command becomes::
     --num-iterations 10                            \
     --clean-match-files-prefix ba/run              \
     --heights-from-dem mosaic_ba.tif               \
-    --heights-from-dem-weight 0.1                  \
+    --heights-from-dem-uncertainty 10.0            \
     --heights-from-dem-robust-threshold 0.1        \
     --remove-outliers-params '75.0 3.0 20 20'      \
     --max-pairwise-matches 20000                   \
     -o ba_other_intrinsics/run
 
-The values for ``--heights-from-dem-weight`` and
-``--heights-from-dem-robust-threshold`` were chosen to be smaller than what is
-used for the ``--robust-threshold``, which is 0.5. That because the DEM is not
-perfect, and we don't want to overfit to it. 
-
-This solver is sensitive to the heights-from-dem weight and robust threshold
-used above. These should be decreased if the DEM is not reliable, and increased
-otherwise. See :numref:`heights_from_dem` for more details, and
+See :numref:`heights_from_dem` for the option ``--heights-from-dem``, and 
 :numref:`bundle_adjust` for the documentation of all options above.
 
-If large errors are still left at the image periphery, one may increase
-``--robust-threshold`` to 2-5 or so, to focus more on those.
+If large errors are still left at the image periphery, increase
+``--robust-threshold`` to 2 or so, to focus more on those.
 
 .. figure:: images/kaguya_intrinsics_opt_example.png
    :name: kaguya_intrinsics_opt_example
@@ -1592,9 +1579,9 @@ Using the ``bundle_adjust`` options ``--initial-transform`` and
 
 A priori points will change if ``--heights-from-dem`` is used, by projecting
 them vertically onto the DEM, and their sigmas will be set to the inverse of
-what is provided via the ``--heights-from-dem-weight`` option (the latter is in
-units of meter). Analogous behavior happens with ``--reference-dem`` 
-and ``--reference-terrain``.
+what is provided via the ``--heights-from-dem-uncertainty`` option (the latter
+is in units of meter). Analogous behavior happens with ``--reference-dem`` and
+``--reference-terrain``.
 
 If exporting match files from an ISIS control network (option
 ``--output-cnet-type match-files``), constrained and fixed points won't be

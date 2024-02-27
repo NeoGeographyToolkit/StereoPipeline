@@ -1273,7 +1273,7 @@ in bundle adjustment (:numref:`heights_from_dem`)::
       --input-adjustments-prefix ba_align/run     \
       --save-intermediate-cameras                 \
       --heights-from-dem ref.tif                  \
-      --heights-from-dem-weight 0.1               \
+      --heights-from-dem-uncertainty 10.0         \
       --heights-from-dem-robust-threshold 0.1     \
       --mapproj-dem ref.tif                       \
       --remove-outliers-params "75.0 3.0 100 100" \
@@ -1295,11 +1295,11 @@ misregistered images (see below).
 The switch ``--save-intermediate cameras`` is helpful, as before, if
 desired to stop if things take too long.
 
-The value used for ``--heights-from-dem-weight`` may need some
-experimentation. Making it too high may result in a tight coupling to
-the reference DEM at the expense of self-consistency between the
-cameras. Yet making it too low may not constrain sufficiently the
-cameras to the ground.
+The value used for ``--heights-from-dem-uncertainty`` may need some
+experimentation. A good range is likely 2 - 10 meters. Making it very small may
+result in a tight coupling to the reference DEM at the expense of
+self-consistency between the cameras. Yet making it too high may not constrain
+sufficiently the cameras to the ground. See also :numref:`heights_from_dem`.
 
 .. _sfs_registration_validation:
 

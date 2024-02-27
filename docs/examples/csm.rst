@@ -966,7 +966,7 @@ making use of the mapprojected images to find matches::
     --mapprojected-data-list map_images.txt \
     --camera-weight 0                       \
     --heights-from-dem $dem                 \
-    --heights-from-dem-weight 0.1           \
+    --heights-from-dem-uncertainty 10.0     \
     --heights-from-dem-robust-threshold 0.1 \
     --auto-overlap-params "$dem 15"         \
     -o ba/run

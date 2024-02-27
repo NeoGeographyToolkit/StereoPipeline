@@ -151,28 +151,28 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "constrained by a DEM.")
     ("tri-robust-threshold",
      po::value(&opt.tri_robust_threshold)->default_value(0.1),
-     "Use this robust threshold to attenuate large differences "
-     "between initial and optimized triangulation points, after multiplying "
-     "them by --tri-weight.")
+     "The robust threshold to attenuate large differences between initial and "
+     "optimized triangulation points, after multiplying them by --tri-weight and "
+     "dividing by GSD. This is less than --robust-threshold, as the primary goal "
+     "is to reduce pixel reprojection errors, even if that results in big differences "
+      "in the triangulated points. It is suggested to not modify this value, "
+      "and adjust instead --tri-weight.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
-     "If the cameras have already been bundle-adjusted and aligned "
-     "to a known DEM, in the triangulated points obtained from "
-     "interest point matches replace the heights with the ones from this "
-     "DEM before optimizing them while tying the points to this DEM via "
-     "--heights-from-dem-weight and --heights-from-dem-robust-threshold.")
-    ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(0.5),
-     "How much weight to give to keep the triangulated points close "
-     "to the DEM if specified via --heights-from-dem. This value "
-     "should be about 0.1 to 0.5 divided by the image ground sample "
-     "distance, as then it will convert the measurements from meters to "
-     "pixels, which is consistent with the pixel reprojection error term.")
+     "Assuming the cameras have already been bundle-adjusted and aligned to a "
+      "known DEM, in the triangulated points replace the heights with the ones from "
+      "this DEM, and constrain those close to the DEM based on "
+      "--heights-from-dem-uncertainty.")
+    ("heights-from-dem-uncertainty", 
+     po::value(&opt.heights_from_dem_uncertainty)->default_value(10.0),
+     "The DEM uncertainty, in meters. A smaller value constrain more the triangulated "
+     "points to the DEM specified via --heights-from-dem.")
     ("heights-from-dem-robust-threshold",
-     po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.5),
-     "The robust threshold to use keep the triangulated points "
-     "close to the DEM if specified via --heights-from-dem. This is applied after the "
-     "point differences are multiplied by --heights-from-dem-weight. It should help with "
-     "attenuating large height difference outliers. It is suggested to make this equal to "
-     "--heights-from-dem-weight.")
+     po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.1),
+     "The robust threshold to use keep the triangulated points close to the DEM if "
+      "specified via --heights-from-dem. This is applied after the point differences "
+      "are divided by --heights-from-dem-uncertainty. It will attenuate large height "
+      "difference outliers. It is suggested to not modify this value, and adjust instead "
+      "--heights-from-dem-uncertainty.")
     ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
      "If specified, intersect rays from matching pixels with this DEM, find the average, and constrain during optimization that rays keep on intersecting close to this point. This works even when the rays are almost parallel, but then consider using the option --forced-triangulation-distance. See also --reference-dem-weight and --reference-dem-robust-threshold.")
     ("reference-dem-weight", po::value(&opt.ref_dem_weight)->default_value(1.0),
@@ -344,8 +344,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.tri_robust_threshold <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --tri-robust-threshold must be positive.\n");
   
-  if (opt.heights_from_dem_weight <= 0.0) 
-    vw_throw(ArgumentErr() << "The value of --heights-from-dem-weight must be positive.\n");
+  if (opt.heights_from_dem_uncertainty <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be positive.\n");
   
   if (opt.heights_from_dem_robust_threshold <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be positive.\n");
@@ -909,7 +909,7 @@ void addDemConstraint
   double xyz_weight = -1.0, xyz_threshold = -1.0;
     
   if (!opt.heights_from_dem.empty()) {
-    xyz_weight = opt.heights_from_dem_weight;
+    xyz_weight = 1.0/opt.heights_from_dem_uncertainty;
     xyz_threshold = opt.heights_from_dem_robust_threshold;
   } else if (!opt.ref_dem.empty()) {
     xyz_weight = opt.ref_dem_weight;

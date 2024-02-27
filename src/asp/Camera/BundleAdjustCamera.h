@@ -89,7 +89,8 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   bool match_first_to_last, single_threaded_cameras, 
     update_isis_cubes_with_csm_state;
   double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
-  double ref_dem_weight, ref_dem_robust_threshold, heights_from_dem_weight, reference_terrain_weight, 
+  double ref_dem_weight, ref_dem_robust_threshold,
+  heights_from_dem_uncertainty, reference_terrain_weight, 
     heights_from_dem_robust_threshold, camera_weight, rotation_weight, translation_weight,
     tri_weight, tri_robust_threshold;
   vw::Vector2 camera_position_uncertainty;    

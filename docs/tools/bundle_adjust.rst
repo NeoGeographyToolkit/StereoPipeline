@@ -306,15 +306,18 @@ parallel. Such rays make the problem less well-behaved. The option
 one optimization pass is used. See :numref:`ba_options` for more
 options. See :numref:`bundle_adjustment` for a longer explanation.
 
-The variables of optimization are the camera positions and
-orientations, and the triangulated points on the ground. The
-intrinsics can be optimized as well, either as a single set for all
-cameras or individually (:numref:`floatingintrinsics`).
-Triangulated points can be constrained
-via ``--tri-weight`` or ``--heights-from-dem``. 
+The variables of optimization are the camera positions and orientations, and the
+triangulated points on the ground. The intrinsics can be optimized as well,
+either as a single set for all cameras or individually
+(:numref:`floatingintrinsics`), or per group of cameras (:numref:`kaguya_ba`).
 
-Ground control points can be used to incorporate measurements as part
-of the constraints.
+Triangulated points can be constrained via ``--tri-weight``
+(:numref:`ba_ground_constraints`) or ``--heights-from-dem``
+(:numref:`heights_from_dem`). The camera positions can be constrained as well
+(:numref:`ba_cam_constraints`).
+
+Ground control points can be employed to incorporate measurements as part of the
+constraints (:numref:`bagcp`).
 
 .. _bagcp:
 
@@ -858,12 +861,12 @@ Command-line options
     not apply to GCP or points constrained by a DEM.
     
 --tri-robust-threshold <double (default: 0.1)>
-    Use this robust threshold to attenuate large differences between initial and
+    The robust threshold to attenuate large differences between initial and
     optimized triangulation points, after multiplying them by ``--tri-weight``
     and dividing by GSD. This is less than ``--robust-threshold``, as the
     primary goal is to reduce pixel reprojection errors, even if that results in
     big differences in the triangulated points. It is suggested to not modify
-    this option, and adjust instead ``--tri-weight``.
+    this value, and adjust instead ``--tri-weight``.
 
 --rotation-weight <double (default: 0.0)>
     A higher weight will penalize more camera rotation deviations from the
@@ -1059,32 +1062,22 @@ Command-line options
     How much weight to give to the cost function terms involving
     the reference terrain.
 
---heights-from-dem <string>
-    If the cameras have already been bundle-adjusted and aligned
-    to a known high-quality DEM, in the triangulated xyz points
-    replace the heights with the ones from this DEM, and fix those
-    points unless ``--heights-from-dem-weight`` is positive. 
-    In that case multiply the differences between the triangulated
-    points and their corresponding DEM points by this weight
-    in bundle adjustment. It is strongly suggested to pick positive
-    and small values of ``--heights-from-dem-weight`` and
-    ``--heights-from-dem-robust-threshold`` with this option.
-    See :numref:`heights_from_dem`.
+--heights-from-dem <string (default: "")>
+    Assuming the cameras have already been bundle-adjusted and aligned to a
+    known DEM, in the triangulated points replace the heights with the ones from
+    this DEM, and constrain those close to the DEM based on
+    ``--heights-from-dem-uncertainty``. See :numref:`heights_from_dem`.
 
---heights-from-dem-weight <double (default: 1.0)>
-    How much weight to give to keep the triangulated points close
-    to the DEM if specified via ``--heights-from-dem``. If the weight
-    is not positive, keep the triangulated points fixed. This value
-    should be inversely proportional with ground sample distance, as
-    then it will convert the measurements from meters to pixels, which
-    is consistent with the reprojection error term.
+--heights-from-dem-uncertainty <double (default: 10.0)>
+    The DEM uncertainty, in meters. A smaller value constrains more the
+    triangulated points to the DEM specified via ``--heights-from-dem``.
 
---heights-from-dem-robust-threshold <double (default: 0.5)> 
-    If positive, this is the robust threshold to use keep the
-    triangulated points close to the DEM if specified via
-    ``--heights-from-dem``. This is applied after the point differences
-    are multiplied by ``--heights-from-dem-weight``. It should
-    help with attenuating large height difference outliers.
+--heights-from-dem-robust-threshold <double (default: 0.1)> 
+    The robust threshold to use keep the triangulated points close to the DEM if
+    specified via ``--heights-from-dem``. This is applied after the point
+    differences are divided by ``--heights-from-dem-uncertainty``. It will
+    attenuate large height difference outliers. It is suggested to not modify
+    this value, and adjust instead ``--heights-from-dem-uncertainty``.
 
 --mapproj-dem <string (default: "")>
     If specified, mapproject every pair of matched interest points

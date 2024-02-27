@@ -183,12 +183,13 @@ can be used to constrain the cameras, instead of the triangulation
 constraint. So, the above options can be replaced, for example, with::
 
     --heights-from-dem dem.tif              \
-    --heights-from-dem-weight 0.1           \
+    --heights-from-dem-uncertainty 10.0     \
     --heights-from-dem-robust-threshold 0.1 \
 
 The DEM must be relative to the WGS84 ellipsoid, rather than to a geoid,
 and the weight and threshold above should be lower if the DEM has higher
 uncertainty when it comes to its heights or alignment to the cameras. 
+See also :numref:`heights_from_dem`.
 
 The option ``--auto-overlap-params`` automatically determines which
 image pairs overlap. We used ``--max-pairwise-matches 200`` as
