@@ -834,10 +834,8 @@ int do_ba_ceres_one_pass(Options             & opt,
 
     if (param_storage.get_point_outlier(ipt))
       continue; // skip outliers
-    
     if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
       num_gcp++;
-
     Vector3 observation = cnet[ipt].position();
     Vector3 xyz_sigma   = cnet[ipt].sigma();
 
@@ -957,6 +955,8 @@ int do_ba_ceres_one_pass(Options             & opt,
       double * point = param_storage.get_point_ptr(ipt);
       Vector3 observation(point[0], point[1], point[2]);
       double gsd = gsds[ipt];
+      if (gsd <= 0)
+        continue; // GSD calculation failed. Do not use a constraint.
       double s = gsd/opt.tri_weight;
       Vector3 xyz_sigma(s, s, s);
 

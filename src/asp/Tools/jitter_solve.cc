@@ -957,6 +957,8 @@ void addTriConstraint(Options                const& opt,
     // The weight must be inversely proportional to the GSD, to ensure
     // this is in pixel units
     double gsd = gsds[ipt];
+    if (gsd <= 0) 
+      continue; // GSD calculation failed. Do not use a constraint.
     double weight = opt.tri_weight / gsd;
   
     // Use as constraint the initially triangulated point

@@ -1153,6 +1153,8 @@ void saveUpdatedCameras(asp::BaBaseOptions const& opt, asp::BAParams const& para
 
 // // Find the average for the gsd for all pixels whose rays intersect at the given
 // triangulated point.
+// TODO(oalexan1): Export points out of param_storage and crn, then use the 
+// other function further down instead.
 void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
                             std::vector<vw::CamPtr>  const& cameras,
                             asp::CRNJ                const& crn,
@@ -1202,8 +1204,12 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
       Vector3 xyz(point[0], point[1], point[2]);
 
       // Estimate the GSD at the given pixel given an estimate of the ground point
-      double gsd = vw::camera::estimatedGSD(cameras[icam].get(), bboxes[icam], 
-                                            pix, xyz);
+      double gsd = 0.0;
+      try {
+        gsd = vw::camera::estimatedGSD(cameras[icam].get(), bboxes[icam], pix, xyz);
+      } catch (...) {
+        continue;
+      }
       gsds[ipt] += gsd;
       count[ipt]++;
     }
@@ -1268,8 +1274,14 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
       Vector3 xyz(point[0], point[1], point[2]);
 
       // Estimate the GSD at the given pixel given an estimate of the ground point
-      double gsd = vw::camera::estimatedGSD(cameras[icam].get(), bboxes[icam], 
-                                            pix, xyz);
+      // Estimate the GSD at the given pixel given an estimate of the ground point
+      double gsd = 0.0;
+      try {
+        gsd = vw::camera::estimatedGSD(cameras[icam].get(), bboxes[icam], pix, xyz);
+      } catch (...) {
+        continue;
+      }
+
       gsds[ipt] += gsd;
       count[ipt]++;
     }
