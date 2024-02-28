@@ -7,12 +7,15 @@ source, but this is not recommended (:numref:`building_asp`).
 
 .. _precompiled_binaries:
 
-Precompiled binaries (Linux and macOS)
---------------------------------------
+Precompiled binaries
+--------------------
 
-ASP builds are for Linux and OSX (with the Intel processor). ASP was verified to
-work under Microsoft Windows using the Windows Subsystem for Linux, and under
-the OSX M1 processor using Rosetta 2.
+Linux and macOS
+~~~~~~~~~~~~~~~
+ 
+ASP builds are produced for Linux and OSX (with the Intel processor). ASP was
+verified to work on the OSX M1 processor using Rosetta 2. For Windows, see
+below.
 
 Choose either the latest build (recommended) or a stable release
 from:
@@ -27,17 +30,29 @@ the archive, and run the executables in the ``bin`` subdirectory as::
 
 The result of the last command should be a help message.
 
-See the NEWS file (:numref:`news`) for the most recent additions.
-
 The stable releases are also available via conda
 (:numref:`conda_intro`).
 
-To permanently add the ASP executable subdirectory to your PATH, you
-can add the following line to your shell configuration (e.g.,
+ASP can be installed with Docker (`instructions
+<https://github.com/uw-cryo/asp-binder>`_).
+
+The latest additions are documented in :numref:`news`.
+
+To permanently add the ASP executable subdirectory to your PATH,
+add the following line to the shell configuration (e.g.,
 ``~/.bashrc``), replacing ``/path/to/StereoPipeline/bin`` with the
 location on your filesystem::
 
     export PATH=${PATH}:/path/to/StereoPipeline/bin
+
+Windows
+~~~~~~~
+
+ASP does not offer Windows binaries. However, the Linux build can be run on
+Windows using the `Windows Subsystem for Linux
+<https://learn.microsoft.com/en-us/windows/wsl/install>`_ (WSL). Once a recent
+Linux distribution is installed and verified to work, the installation steps are
+the same as for Linux.
 
 .. _planetary_images:
 
