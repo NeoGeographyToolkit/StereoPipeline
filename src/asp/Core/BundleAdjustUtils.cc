@@ -40,7 +40,11 @@ using namespace vw::ba;
 
 namespace fs = boost::filesystem;
 
-void asp::read_adjustments(std::string const& filename,
+namespace asp {
+
+// Read adjustments
+// TODO(oalexan1): Integrate with the VW function for that
+void read_adjustments(std::string const& filename,
                            vw::Vector3      & position_correction,
                            Quat             & pose_correction,
                            Vector2          & pixel_offset,
@@ -71,7 +75,7 @@ void asp::read_adjustments(std::string const& filename,
   pose_correction = Quat(q_buf);
 }
 
-void asp::write_adjustments(std::string const& filename,
+void write_adjustments(std::string const& filename,
                        Vector3 const& position_correction,
                        Quat const& pose_correction) {
   std::ofstream ostr(filename.c_str());
@@ -83,7 +87,7 @@ void asp::write_adjustments(std::string const& filename,
   ostr.close();
 }
 
-void asp::compute_stereo_residuals(std::vector<vw::CamPtr> const& camera_models,
+void compute_stereo_residuals(std::vector<vw::CamPtr> const& camera_models,
                                    ControlNetwork const& cnet) {
 
   // Compute pre-adjustment residuals and convert to bundles
@@ -112,7 +116,7 @@ void asp::compute_stereo_residuals(std::vector<vw::CamPtr> const& camera_models,
 }
 
 // See the .h file for documentation
-vw::BBox2 asp::camera_bbox_with_cache(std::string const& dem_file,
+vw::BBox2 camera_bbox_with_cache(std::string const& dem_file,
                                       std::string const& image_file,
                                       vw::CamPtr  const& camera_model,
                                       std::string const& out_prefix) {
@@ -174,12 +178,13 @@ vw::BBox2 asp::camera_bbox_with_cache(std::string const& dem_file,
 }
 
 // See the .h file for the documentation.
-void asp::build_overlap_list_based_on_dem
-/*        */ (std::string const& out_prefix, std::string const& dem_file, 
-              double pct_for_overlap,
-              std::vector<std::string> const& image_files,
-              std::vector<vw::CamPtr>  const& camera_models,
-              std::set<std::pair<std::string, std::string>> & overlap_list) {
+void build_overlap_list_based_on_dem(std::string const& out_prefix, 
+                                     std::string const& dem_file, 
+                                     double pct_for_overlap,
+                                     std::vector<std::string> const& image_files,
+                                     std::vector<vw::CamPtr>  const& camera_models,
+                                     std::set<std::pair<std::string, std::string>> &
+                                     overlap_list) {
 
   // Wipe the output
   overlap_list.clear();
@@ -229,7 +234,7 @@ void asp::build_overlap_list_based_on_dem
 }
 
 // Convert dir1/image1.cub or dir1/image1.xml to out-prefix-image1.adjust
-std::string asp::bundle_adjust_file_name(std::string const& prefix,
+std::string bundle_adjust_file_name(std::string const& prefix,
                                          std::string const& input_img,
                                          std::string const& input_cam){
 
@@ -245,7 +250,7 @@ std::string asp::bundle_adjust_file_name(std::string const& prefix,
 /// Ensure that the basename (without extension) of all images, camera files, or
 /// adjustment names are different. Later these will be used for match files,
 /// and we want match files corresponding to different images to be different.
-void asp::check_for_duplicates(std::vector<std::string> const& image_files,
+void check_for_duplicates(std::vector<std::string> const& image_files,
                                std::vector<std::string> const& camera_files,
                                std::string const& out_prefix) {
 
@@ -257,9 +262,8 @@ void asp::check_for_duplicates(std::vector<std::string> const& image_files,
 
     std::string img = vw::ip::strip_path("", image_files[i]);
     std::string cam = vw::ip::strip_path("", camera_files[i]);
-    std::string adj = vw::ip::strip_path(out_prefix, 
-                                         asp::bundle_adjust_file_name(out_prefix, 
-                                                                      img, cam));
+    std::string ba_name = asp::bundle_adjust_file_name(out_prefix, img, cam);
+    std::string adj = vw::ip::strip_path(out_prefix, ba_name);
 
     if (img_set.find(img) != img_set.end()) 
       vw_throw(vw::ArgumentErr() << "Found duplicate image: " << img << "\n");
@@ -278,7 +282,7 @@ void asp::check_for_duplicates(std::vector<std::string> const& image_files,
 }
 
 // Make a list of all of the image pairs to find matches for
-void asp::determine_image_pairs(// Inputs
+void determine_image_pairs(// Inputs
                                 int overlap_limit,
                                 bool match_first_to_last,
                                 std::vector<std::string> const& image_files,
@@ -358,10 +362,10 @@ void asp::determine_image_pairs(// Inputs
 
 // Given an xyz point in ECEF coordinates, update its height above datum
 // by interpolating into a DEM. The user must check the return status.
-bool asp::update_point_height_from_dem(vw::cartography::GeoReference const& dem_georef,
-                                       vw::ImageViewRef<PixelMask<double>> const& interp_dem,
-                                       // Output
-                                       vw::Vector3 & xyz) {
+bool update_point_height_from_dem(vw::cartography::GeoReference const& dem_georef,
+                                  vw::ImageViewRef<PixelMask<double>> const& interp_dem,
+                                  // Output
+                                  vw::Vector3 & xyz) {
 
   // Points at planet center are outliers
   if (xyz == Vector3(0, 0, 0))
@@ -370,92 +374,43 @@ bool asp::update_point_height_from_dem(vw::cartography::GeoReference const& dem_
   Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
   Vector2 ll  = subvector(llh, 0, 2);
   Vector2 pix = dem_georef.lonlat_to_pixel(ll);
-  if (!interp_dem.pixel_in_bounds(pix))
+  if (!interp_dem.pixel_in_bounds(pix)) {
+    xyz = Vector3(0, 0, 0);
     return false;
+  }
 
   PixelMask<double> height = interp_dem(pix[0], pix[1]);
-  if (!is_valid(height))
+  if (!is_valid(height)) {
+    xyz = Vector3(0, 0, 0);
     return false;
+  }
   
   llh[2] = height.child();
 
   // NaN check
-  if (llh[2] != llh[2]) 
+  if (llh[2] != llh[2])  {
+    xyz = Vector3(0, 0, 0);
     return false;
-
+  }
+  
   // Overwrite the input
   xyz = dem_georef.datum().geodetic_to_cartesian(llh);
 
   return true;
 }
 
-/// Try to update the elevation of a GCC coordinate from a DEM, overwriting
-// the array 'point'.
-/// - Returns false if the point falls outside the DEM or in a hole.
-bool asp::update_point_height_from_dem(double* point,
-                                       vw::cartography::GeoReference const& dem_georef,
-                                       vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem) {
+// Shoot rays from all matching interest point. Intersect those with a DEM. Find
+// their average. Project it vertically onto the DEM. Invalid or uncomputable
+// xyz are set to the zero vector.
+void update_point_from_dem(vw::ba::ControlNetwork const& cnet,
+                           asp::CRNJ const& crn,
+                           std::set<int> const& outliers,
+                           std::vector<vw::CamPtr> const& camera_models,
+                           vw::cartography::GeoReference const& dem_georef,
+                           vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
+                           // Output
+                           std::vector<vw::Vector3> & dem_xyz_vec) {
 
-  Vector3 xyz(point[0], point[1], point[2]);
-
-  if (!update_point_height_from_dem(dem_georef, interp_dem,
-                                    // Output
-                                    xyz))
-    return false;
-
-  // Overwrite the input
-  for (size_t it = 0; it < xyz.size(); it++) 
-    point[it] = xyz[it];
-  
-  return true;
-}
-
-// Given a set of xyz points and a DEM to interpolate into,
-// create a vector of xyz points which are updated to be at the height given
-// by the DEM. This assumes that interp_dem is created outside of this
-// function with bilinear interpolation, via asp::create_interp_dem().
-// Invalid or uncomputable xyz are set to the zero vector.
-void asp::update_point_height_from_dem(vw::ba::ControlNetwork const& cnet,
-                                       std::set<int> const& outliers,
-                                       vw::cartography::GeoReference const& dem_georef,
-                                       vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                                       // Output
-                                       std::vector<vw::Vector3> & dem_xyz_vec) {
-
-  // Initialize the output
-  int num_tri_points = cnet.size();
-  dem_xyz_vec = std::vector<vw::Vector3>(num_tri_points, vw::Vector3(0, 0, 0));
-  
-  for (int ipt = 0; ipt < num_tri_points; ipt++) {
-    
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
-      continue; // GCP keep their own thing
-    
-    if (outliers.find(ipt) != outliers.end())
-      continue; // Skip outliers
-    
-    Vector3 observation = cnet[ipt].position(); // will get overwritten
-    if (asp::update_point_height_from_dem(dem_georef, interp_dem,  
-                                          // Output
-                                          observation))
-      dem_xyz_vec[ipt] = observation;
-  }
-
-  return;
-}
-
-// Shoot rays from all matching interest point. Intersect those with a
-// DEM. Find their average.  Invalid or uncomputable xyz are set to
-// the zero vector.
-void asp::calc_avg_intersection_with_dem(vw::ba::ControlNetwork const& cnet,
-                                         vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
-                                         std::set<int> const& outliers,
-                                         std::vector<vw::CamPtr> const& camera_models,
-                                         vw::cartography::GeoReference const& dem_georef,
-                                         vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                                         // Output
-                                         std::vector<vw::Vector3> & dem_xyz_vec) {
-  
   int num_tri_points = cnet.size();
 
   dem_xyz_vec = std::vector<vw::Vector3>(num_tri_points, vw::Vector3(0, 0, 0));
@@ -516,17 +471,37 @@ void asp::calc_avg_intersection_with_dem(vw::ba::ControlNetwork const& cnet,
       dem_xyz_vec[xyz_it] = Vector3();
   }
 
+  // Project vertically onto the DEM
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+    
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+      continue; // GCP keep their own thing
+    
+    if (outliers.find(ipt) != outliers.end())
+      continue; // Skip outliers
+    
+    if (dem_xyz_vec[ipt] == Vector3())
+      continue; // Skip invalid points
+      
+    Vector3 observation = dem_xyz_vec[ipt];
+    if (update_point_height_from_dem(dem_georef, interp_dem,  
+                                     observation)) {
+      dem_xyz_vec[ipt] = observation;
+    }
+    
+  }
+
   return;
 }
 
 // Flag outliers by reprojection error with input cameras. This assumes that
 // the input cameras are pretty accurate.
-void asp::flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
-                                vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
-                                std::vector<vw::CamPtr> const& camera_models,
-                                double max_init_reproj_error,
-                                // Output
-                                std::set<int> & outliers) {
+void flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
+                           asp::CRNJ const& crn,
+                           std::vector<vw::CamPtr> const& camera_models,
+                           double max_init_reproj_error,
+                           // Output
+                           std::set<int> & outliers) {
   // Wipe the output
   outliers.clear();
 
@@ -580,7 +555,7 @@ void asp::flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
 }
 
 // Manufacture a CSM state file from an adjust file
-std::string asp::csmStateFile(std::string const& adjustFile) {
+std::string csmStateFile(std::string const& adjustFile) {
 
   std::string csmFile = adjustFile;
   
@@ -594,3 +569,5 @@ std::string asp::csmStateFile(std::string const& adjustFile) {
 
   return csmFile;
 }
+
+} // end namespace asp

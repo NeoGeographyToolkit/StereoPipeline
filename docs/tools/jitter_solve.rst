@@ -53,8 +53,8 @@ constraint.
 
 Triangulated points that are constrained via a DEM (option
 ``--heights-from-dem``, :numref:`jitter_dem_constraint`), that is, those that
-project vertically onto a valid portion of this DEM, are not affected by the
-triangulation constraint.
+are near a valid portion of this DEM, are not affected by the triangulation
+constraint.
 
 The implementation is just as for bundle adjustment
 (:numref:`ba_ground_constraints`). 
@@ -76,8 +76,8 @@ This option is named ``--heights-from-dem``, and it is controlled via
 ``--heights-from-dem-uncertainty`` and ``--heights-from-dem-robust-threshold``.
 The use these options is shown in :numref:`jitter_ctx`.
 
-The intrinsic constraint will be used where the triangulated points do not
-project vertically onto the DEM given by this option. 
+The previously mentioned intrinsic constraint will be employed where the
+triangulated points are not close to to the DEM given by this option. 
 
 The DEM constraint is preferred, if a decent DEM that is well-aligned with the
 cameras is available.
@@ -1544,15 +1544,13 @@ are not needed as much as for linescan cameras.
 Solving for jitter with a linescan and frame rig
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In this example we consider a rig that is made of linescan and frame camera.
-These sensors are positioned in the same location and look in the same
-direction. The linescan sensor acquires a single very long image line at a high
-rate, while the frame camera records a rectangular image of much smaller
-dimensions and at a lower rate. They both experience the same jitter. 
+In this example we consider a rig that is made of one linescan and one frame
+camera. These sensors are positioned in the same location and look in the same
+direction. The linescan sensor acquires a single image with many lines, while
+the frame camera records many rectangular images of much smaller dimensions.
+They both experience the same jitter. 
 
-The end result is a wide and tall linescan image and many smaller frame images
-that overlap with each other and the linescan image. The "rigid" frame camera
-images are used to correct the jitter in the rig.
+The "rigid" frame camera images are used to correct the jitter.
 
 Synthetic data for this example can be produced as in
 :numref:`jitter_linescan_frame_cam`. The ``sat_sim`` invocations for linescan
@@ -1561,63 +1559,70 @@ sensor type.
 
 A straightforward application of the jitter-solving recipe in
 :numref:`jitter_linescan_frame_cam` will fail, as it is not possible to
-triangulate properly the points seen by the two cameras. The following
-adjustments are suggested:
+triangulate properly the points seen by the two cameras, since the rays are
+almost parallel or slightly diverging. The following adjustments are
+suggested:
 
 - Use ``--forced-triangulation-distance 500000`` for both bundle adjustment and
-  jitter solving (use here the value of the camera height above the terrain).
-  This will result in triangulated points even when the rays are parallel or
-  even a little divergent (during optimization these points will get refined, so
-  the above value need not be perfectly known). 
-- Instead of ``--heights-from-dem`` use the option ``--reference-dem`` in
-  ``jitter_solve``, with associated options ``--reference-dem-weight`` and
-  ``--reference-dem-robust-threshold``.  See :numref:`jitter_options` for details.
-- Use ``--match-files-prefix`` instead of ``--clean-match-files-prefix`` in
-  ``jitter_solve``, as maybe bundle adjustment filtered out too many good matches
-  with small convergence angle.
+  jitter solving (the precise value here is not very important if the
+  ``--heights-from-dem`` constraint is used). This will result in triangulated
+  points even when the rays are parallel or divergent. 
 - Use ``--min-triangulation-angle 1e-10`` in both bundle adjustment and jitter
   solving, to ensure we don't throw away features with small convergence angle,
   as that will be almost all of them.
+- Be generous with outlier filtering when there is a lot of jitter. Use,
+  for example, ``--remove-outliers-params '75.0 3.0 10 10'`` in ``bundle_adjust``
+  and ``--max-initial-reprojection-error 10`` in ``jitter_solve``.
+- The option ``--heights-from-dem`` should be used. It got improved in the
+  latest build and does well for such degenerate rays
+  (:numref:`heights_from_dem`). 
+- Use ``--match-files-prefix`` instead of ``--clean-match-files-prefix`` in
+  ``jitter_solve``, as maybe bundle adjustment filtered out too many good matches
+  with a small convergence angle.
 
 Here's the command for solving for jitter, and the bundle adjustment command 
 that creates the interest point matches is similar.
 
 ::
 
-    jitter_solve                               \
-        --forced-triangulation-distance 500000 \
-        --min-matches 1                        \
-        --min-triangulation-angle 1e-10        \
-        --num-iterations 10                    \
-        --translation-weight 10000             \
-        --rotation-weight 0.0                  \
-        --max-pairwise-matches 50000           \
-        --match-files-prefix ba/run            \
-        --roll-weight 10000                    \
-        --yaw-weight 10000                     \
-        --max-initial-reprojection-error 100   \
-        --tri-weight 0.1                       \
-        --tri-robust-threshold 0.1             \
-        --num-anchor-points-per-tile 100       \
-        --num-anchor-points-extra-lines 5000   \
-        --anchor-dem dem.tif                   \
-        --anchor-weight 0.01                   \
-        --reference-dem dem.tif                \
-        --reference-dem-weight 0.05            \
-        --reference-dem-robust-threshold 0.05  \
-        data/nadir_frame_images.txt            \
-        data/nadir_linescan.tif                \
-        data/nadir_frame_cameras.txt           \
-        data/nadir_linescan.json               \
+    jitter_solve                                \
+        --forced-triangulation-distance 500000  \
+        --min-matches 1                         \
+        --min-triangulation-angle 1e-10         \
+        --num-iterations 10                     \
+        --translation-weight 10000              \
+        --rotation-weight 0.0                   \
+        --max-pairwise-matches 50000            \
+        --match-files-prefix ba/run             \
+        --roll-weight 10000                     \
+        --yaw-weight 10000                      \
+        --max-initial-reprojection-error 100    \
+        --tri-weight 0.1                        \
+        --tri-robust-threshold 0.1              \
+        --num-anchor-points-per-tile 100        \
+        --num-anchor-points-extra-lines 5000    \
+        --anchor-dem dem.tif                    \
+        --anchor-weight 0.01                    \
+        --heights-from-dem dem.tif              \
+        --heights-from-dem-uncertainty 1.0      \
+        --heights-from-dem-robust-threshold 0.1 \
+        data/nadir_frame_images.txt             \
+        data/nadir_linescan.tif                 \
+        data/nadir_frame_cameras.txt            \
+        data/nadir_linescan.json                \
         -o jitter/run
 
-The weights and thresholds above can be increased somewhat if the input DEM
+The value of ``--heights-from-dem-uncertainty`` can be decreased if the input DEM
 is reliable and it is desired to tie the solution more to it. 
 
 When the linescan sensor is much wider than the frame sensor, the anchor points
 should be constrained to the shared area of the produced images, to have the
 same effect on both sensors. That is accomplished with the option
 ``--anchor-weight-image``.
+
+It is important to examine the produced triangulated points and reprojection
+errors (:numref:`ba_err_per_point`) to ensure the points are well-distributed
+and that the errors are small and uniform.
 
 .. _jitter_out_files:
 
@@ -1783,9 +1788,8 @@ Command-line options for jitter_solve
 
 --heights-from-dem <string (default: "")>
     Assuming the cameras have already been bundle-adjusted and aligned to a
-    known DEM, in the triangulated points replace the heights with the ones from
-    this DEM, and constrain those close to the DEM based on
-    ``--heights-from-dem-uncertainty``. See :numref:`jitter_dem_constraint`.
+    known DEM, constrain the triangulated points to be close to the DEM. See
+    also ``--heights-from-dem-uncertainty`` :numref:`jitter_dem_constraint`.
 
 --heights-from-dem-uncertainty <double (default: 10.0)>
     The DEM uncertainty, in meters. A smaller value constrains more the
@@ -1886,21 +1890,6 @@ Command-line options for jitter_solve
     the camera coordinate system is rotated by 90 degrees in the sensor plane
     relative to the satellite coordinate system. The goal is the same, to
     penalize deviations that are not aligned with satellite pitch.
-
---reference-dem <string>
-    If specified, intersect rays from matching pixels with this DEM, find the
-    average, and constrain during optimization that rays keep on intersecting
-    close to this point. This works even when the rays are almost parallel, but
-    then consider using the option ``--forced-triangulation-distance``. See also
-    ``--reference-dem-weight`` and ``--reference-dem-robust-threshold``.
-
---reference-dem-weight <double (default: 1.0)>
-    Multiply the xyz differences for the ``--reference-dem`` option by
-    this weight. This is being tested.
-
---reference-dem-robust-threshold <double (default: 0.5)> 
-    Use this robust threshold for the weighted xyz differences
-    with the ``--reference-dem`` option. This is being tested.
 
 --weight-image <string (default: "")>
     Given a georeferenced image with float values, for each initial triangulated

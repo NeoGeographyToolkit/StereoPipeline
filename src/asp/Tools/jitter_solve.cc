@@ -159,9 +159,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "and adjust instead --tri-weight.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
      "Assuming the cameras have already been bundle-adjusted and aligned to a "
-      "known DEM, in the triangulated points replace the heights with the ones from "
-      "this DEM, and constrain those close to the DEM based on "
-      "--heights-from-dem-uncertainty.")
+     "known DEM, constrain the triangulated points to be close to this DEM. See also "
+     "--heights-from-dem-uncertainty.")
     ("heights-from-dem-uncertainty", 
      po::value(&opt.heights_from_dem_uncertainty)->default_value(10.0),
      "The DEM uncertainty, in meters. A smaller value constrain more the triangulated "
@@ -173,12 +172,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "are divided by --heights-from-dem-uncertainty. It will attenuate large height "
       "difference outliers. It is suggested to not modify this value, and adjust instead "
       "--heights-from-dem-uncertainty.")
-    ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
-     "If specified, intersect rays from matching pixels with this DEM, find the average, and constrain during optimization that rays keep on intersecting close to this point. This works even when the rays are almost parallel, but then consider using the option --forced-triangulation-distance. See also --reference-dem-weight and --reference-dem-robust-threshold.")
-    ("reference-dem-weight", po::value(&opt.ref_dem_weight)->default_value(1.0),
-     "Multiply the xyz differences for the --reference-dem option by this weight.")
-    ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),
-     "Use this robust threshold for the weighted xyz differences.")
     ("num-anchor-points", po::value(&opt.num_anchor_points_per_image)->default_value(0),
      "How many anchor points to create per image. They will be uniformly distributed.")
     ("num-anchor-points-per-tile", po::value(&opt.num_anchor_points_per_tile)->default_value(0),
@@ -331,10 +324,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.max_init_reproj_error <= 0.0)
     vw_throw(ArgumentErr() << "Must have a positive --max-initial-reprojection-error.\n");
 
-  if (!opt.heights_from_dem.empty() && !opt.ref_dem.empty()) 
-    vw_throw(ArgumentErr() << "Cannot specify more than one of: --heights-from-dem "
-             << "and --reference-dem.\n");
-
   if (opt.tri_weight < 0.0) 
     vw_throw(ArgumentErr() << "The value of --tri-weight must be non-negative.\n");
 
@@ -350,12 +339,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.heights_from_dem_robust_threshold <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be positive.\n");
 
-  if (opt.ref_dem_weight <= 0.0) 
-    vw_throw(ArgumentErr() << "The value of --reference-dem-weight must be positive.\n");
-  
-  if (opt.ref_dem_robust_threshold <= 0.0) 
-    vw_throw(ArgumentErr() << "The value of --reference-dem-robust-threshold must be positive.\n");
-
   if (opt.rotation_weight < 0 || opt.translation_weight < 0)
     vw_throw(ArgumentErr() << "Rotation and translation weights must be non-negative.\n");
     
@@ -370,9 +353,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Handle the roll/yaw constraint DEM
   if ((opt.roll_weight > 0 || opt.yaw_weight > 0) &&
-     opt.heights_from_dem == "" && opt.ref_dem == "" && opt.anchor_dem == "")
+     opt.heights_from_dem == "" && opt.anchor_dem == "")
       vw::vw_throw(ArgumentErr() << "Cannot use the roll/yaw constraint without a DEM. "
-        << "Set either --heights-from-dem, --anchor-dem, or --reference-dem.\n");
+        << "Set either --heights-from-dem or --anchor-dem.\n");
 
   if (opt.num_anchor_points_per_image < 0)
     vw_throw(ArgumentErr() << "The number of anchor points must be non-negative.\n");
@@ -911,9 +894,6 @@ void addDemConstraint
   if (!opt.heights_from_dem.empty()) {
     xyz_weight = 1.0/opt.heights_from_dem_uncertainty;
     xyz_threshold = opt.heights_from_dem_robust_threshold;
-  } else if (!opt.ref_dem.empty()) {
-    xyz_weight = opt.ref_dem_weight;
-    xyz_threshold = opt.ref_dem_robust_threshold;
   } else {
     vw::vw_throw(vw::ArgumentErr() << "No input DEM was provided.\n");
   }
@@ -1593,7 +1573,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   vw_out() << "Removed " << outliers.size() 
     << " outliers based on initial reprojection error.\n";
   
-  bool have_dem = (!opt.heights_from_dem.empty() || !opt.ref_dem.empty());
+  bool have_dem = (!opt.heights_from_dem.empty());
 
   // Create anchor xyz with the help of a DEM in two ways.
   // TODO(oalexan1): Study how to best pass the DEM to avoid the code
@@ -1605,16 +1585,10 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (opt.heights_from_dem != "") {
     vw::vw_out() << "Reading the DEM for the --heights-from-dem constraint.\n";
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
-    asp::update_point_height_from_dem(cnet, outliers, dem_georef, interp_dem,  
-                                      // Output
-                                      dem_xyz_vec);
-  } else if (opt.ref_dem != "") {
-    vw::vw_out() << "Reading the DEM for the --reference-dem constraint.\n";
-    asp::create_interp_dem(opt.ref_dem, dem_georef, interp_dem);
-    asp::calc_avg_intersection_with_dem(cnet, crn, outliers, opt.camera_models,
-                                        dem_georef, interp_dem,
-                                        // Output
-                                        dem_xyz_vec);
+    asp::update_point_from_dem(cnet, crn, outliers, opt.camera_models,
+                               dem_georef, interp_dem,  
+                               // Output
+                               dem_xyz_vec);
   }
   
   if (opt.anchor_dem != "") {
@@ -1625,9 +1599,9 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Handle the roll/yaw constraint DEM. We already checked that one of thse cases should work
   vw::cartography::GeoReference roll_yaw_georef;
   if (opt.roll_weight > 0 || opt.yaw_weight > 0) {
-    if (opt.heights_from_dem != "" || opt.ref_dem != "") {
+    if (opt.heights_from_dem != "") {
       roll_yaw_georef = dem_georef;
-      vw::vw_out() << "Using the DEM from --heights-from-dem or --reference-dem "
+      vw::vw_out() << "Using the DEM from --heights-from-dem "
                    << "for the roll/yaw constraint.\n";
     } else if (opt.anchor_dem != "") {
       roll_yaw_georef = anchor_georef;

@@ -147,9 +147,9 @@ reprojection error threshold (``--robust-threshold``), whose default value is
 minimizing the pixel reprojection errors.
 
 Triangulated points that are constrained via a DEM (option
-``--heights-from-dem``, :numref:`heights_from_dem`), that is, those that project
-vertically onto a valid portion of this DEM, are not affected by the
-triangulation constraint.
+``--heights-from-dem``, :numref:`heights_from_dem`), that is, those that are
+close to a valid portion of this DEM, are not affected by the triangulation
+constraint.
 
 GCP can be used as well (:numref:`bagcp`).
 
@@ -1064,9 +1064,8 @@ Command-line options
 
 --heights-from-dem <string (default: "")>
     Assuming the cameras have already been bundle-adjusted and aligned to a
-    known DEM, in the triangulated points replace the heights with the ones from
-    this DEM, and constrain those close to the DEM based on
-    ``--heights-from-dem-uncertainty``. See :numref:`heights_from_dem`.
+    known DEM, constrain the triangulated points to be close to the DEM. See
+    also ``--heights-from-dem-uncertainty`` and :numref:`heights_from_dem`.
 
 --heights-from-dem-uncertainty <double (default: 10.0)>
     The DEM uncertainty, in meters. A smaller value constrains more the
@@ -1085,21 +1084,6 @@ Command-line options
     distances for each image pair and for each image vs the
     rest. This is done after bundle adjustment and outlier removal.
     Measured in meters. See :numref:`ba_mapproj_dem` for more details.
-
---reference-dem <string>
-    If specified, intersect rays from matching pixels with this DEM, find the
-    average, and constrain during optimization that rays keep on intersecting
-    close to this point. This works even when the rays are almost parallel, but
-    then then consider using the option ``--forced-triangulation-distance``. See
-    also ``--reference-dem-weight`` and ``--reference-dem-robust-threshold``.
-
---reference-dem-weight <double (default: 1.0)>
-    Multiply the xyz differences for the ``--reference-dem`` option by
-    this weight. This is being tested.
-
---reference-dem-robust-threshold <double (default: 0.5)> 
-    Use this robust threshold for the weighted xyz differences
-    with the ``--reference-dem`` option. This is being tested.
 
 --csv-format <string>
     Specify the format of input CSV files as a list of entries

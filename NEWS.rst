@@ -46,6 +46,9 @@ jitter_solve (:numref:`jitter_solve`):
     ``--heights-from-dem-uncertainty``, in meters. This is more physically
     meaningful (as a rule of thumb, use the inverse of what was previous the
     weight value).
+  * Integrated the logic behind ``--reference-dem`` into ``--heights-from-dem``,
+    with an approach that combines the strength of both. Removed
+    ``--reference-dem``.
   * Can use anchor points with frame cameras.
   * Added ``--num-anchor-points-per-tile``. This helps when different
     images have different sizes but want to ensure the same point density.
@@ -76,6 +79,9 @@ bundle_adjust (:numref:`bundle_adjust`):
     ``--heights-from-dem-uncertainty``, in meters. This is more physically
     meaningful (as a rule of thumb, use the inverse of what was previous the
     weight value).
+  * Integrated the logic behind ``--reference-dem`` into ``--heights-from-dem``,
+    with an approach that combines the strength of both. Removed 
+    ``--reference-dem``.
   * Added the option ``--propagate-errors`` to propagate the uncertainties from
     input cameras to triangulated points (:numref:`ba_error_propagation`).  
   * Added the option ``--weight-image``, to weigh observations based on

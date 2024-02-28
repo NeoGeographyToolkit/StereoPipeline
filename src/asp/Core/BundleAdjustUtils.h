@@ -24,6 +24,8 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/BBox.h>
+#include <vw/Camera/CameraModel.h>
+#include <vw/BundleAdjustment/CameraRelation.h>
 
 #include <string>
 #include <vector>
@@ -34,18 +36,6 @@
 // Forward declarations
 namespace vw {
 
-  namespace camera {
-    class CameraModel;
-  }
-  
-  namespace ba {
-    class ControlNetwork;
-    class JFeature;
-
-    template<typename T>
-    class CameraRelationNetwork;
-  }
-  
   namespace cartography {
     class GeoReference;
   }
@@ -63,6 +53,7 @@ const int NUM_XYZ_PARAMS  = 3;
 const int NUM_QUAT_PARAMS = 4;
 const int PIXEL_SIZE      = 2;
 
+typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRNJ;
   
   /// Read both kinds of adjustments
   void read_adjustments(std::string const& filename,
@@ -132,47 +123,22 @@ const int PIXEL_SIZE      = 2;
                              // Output
                              std::vector<std::pair<int,int>> & all_pairs);
 
-  // Given an xyz point in ECEF coordinates, update its height above datum
-  // by interpolating into a DEM. The user must check the return status.
-  bool update_point_height_from_dem(vw::cartography::GeoReference const& dem_georef,
-                                    vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                                    // Output
-                                    vw::Vector3 & xyz);
+  // Shoot rays from all matching interest point. Intersect those with a DEM. Find
+  // their average. Project it vertically onto the DEM. Invalid or uncomputable
+  // xyz are set to the zero vector.
+  void update_point_from_dem(vw::ba::ControlNetwork const& cnet,
+                             asp::CRNJ const& crn,
+                             std::set<int> const& outliers,
+                             std::vector<vw::CamPtr> const& camera_models,
+                             vw::cartography::GeoReference const& dem_georef,
+                             vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
+                             // Output
+                             std::vector<vw::Vector3> & dem_xyz_vec);
   
-  /// Try to update the elevation of a GCC coordinate from a DEM.
-  /// - Returns false if the point falls outside the DEM or in a hole.
-  bool update_point_height_from_dem(double* point, vw::cartography::GeoReference const& dem_georef,
-                                    vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem);
-  
-  // Given a set of xyz points and a DEM to interpolate into,
-  // create a vector of xyz points which are updated to be at the height given
-  // by the DEM. This assumes that interp_dem is created outside of this
-  // function with bilinear interpolation, via asp::create_interp_dem().
-  // Invalid or uncomputable xyz are set to the zero vector.
-  void update_point_height_from_dem(vw::ba::ControlNetwork const& cnet,
-                                    std::set<int> const& outliers,
-                                    vw::cartography::GeoReference const& dem_georef,
-                                    vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                                    // Output
-                                    std::vector<vw::Vector3> & dem_xyz_vec);
-  
-  // Shoot rays from all matching interest point. Intersect those with a DEM.
-  // Find their average.
-  void calc_avg_intersection_with_dem(vw::ba::ControlNetwork const& cnet,
-                                      vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
-                                      std::set<int> const& outliers,
-                                      std::vector<boost::shared_ptr<vw::camera::CameraModel>> const&
-                                      camera_models,
-                                      vw::cartography::GeoReference const& dem_georef,
-                                      vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                                      // Output
-                                      std::vector<vw::Vector3> & dem_xyz_vec);
-  
-
   // Flag outliers by reprojection error with input cameras. This assumes that
   // the input cameras are pretty accurate.
   void flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
-                             vw::ba::CameraRelationNetwork<vw::ba::JFeature> const& crn,
+                             asp::CRNJ const& crn,
                              std::vector<boost::shared_ptr<vw::camera::CameraModel>>
                              const& camera_models,
                              double max_init_reproj_error,

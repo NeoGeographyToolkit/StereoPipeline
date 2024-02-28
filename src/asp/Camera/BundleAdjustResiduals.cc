@@ -218,24 +218,17 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 
   const std::string residual_path               = residual_prefix + "_stats.txt";
   const std::string residual_raw_pixels_path    = residual_prefix + "_raw_pixels.txt";
-  const std::string residual_raw_gcp_path       = residual_prefix + "_raw_gcp.txt";
-  const std::string residual_raw_cams_path      = residual_prefix + "_raw_cameras.txt";
   const std::string residual_reference_xyz_path = residual_prefix + "_reference_terrain.txt";
 
   // Write a report on residual errors
-  std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp,
-    residual_file_raw_cams, residual_file_reference_xyz;
+  std::ofstream residual_file, residual_file_raw_pixels, residual_file_reference_xyz;
   vw_out() << "Writing: " << residual_path << std::endl;
   vw_out() << "Writing: " << residual_raw_pixels_path << std::endl;
-  vw_out() << "Writing: " << residual_raw_gcp_path << std::endl;
-  vw_out() << "Writing: " << residual_raw_cams_path << std::endl;
   
   residual_file.open(residual_path.c_str());
   residual_file.precision(17);
   residual_file_raw_pixels.open(residual_raw_pixels_path.c_str());
   residual_file_raw_pixels.precision(17);
-  residual_file_raw_cams.open(residual_raw_cams_path.c_str());
-  residual_file_raw_cams.precision(17);
 
   if (reference_vec.size() > 0) {
     //vw_out() << "Writing: " << residual_reference_xyz_path << std::endl;
@@ -284,57 +277,40 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   }
   
   residual_file_raw_pixels.close();
+  residual_file.close();
   
-  // List the GCP residuals
+  // Go through the GCP residuals
   if (num_gcp_or_dem_residuals > 0) {
-    residual_file_raw_gcp.open(residual_raw_gcp_path.c_str());
-    residual_file_raw_gcp.precision(17);
-    residual_file << "GCP or DEM residual errors:\n";
     for (size_t i = 0; i < num_gcp_or_dem_residuals; i++) {
       double mean_residual = 0; // Take average of XYZ error for each point
-      residual_file_raw_gcp << i;
       for (size_t j = 0; j < param_storage.params_per_point(); j++) {
         mean_residual += fabs(residuals[index]);
-        residual_file_raw_gcp << ", " << residuals[index]; // Write all values in this file
         index++;
       }
       mean_residual /= static_cast<double>(param_storage.params_per_point());
-      residual_file << i << ", " << mean_residual << std::endl;
-      residual_file_raw_gcp << std::endl;
     }
-    residual_file_raw_gcp.close();
   }
   
   // List the camera weight residuals
   int num_passes = int(opt.camera_weight > 0) +
     int(opt.rotation_weight > 0 || opt.translation_weight > 0);
   for (int pass = 0; pass < num_passes; pass++) {
-    residual_file << "Camera weight position and orientation residual errors:\n";
     const size_t part_size = param_storage.params_per_camera()/2;
     for (size_t c=0; c<param_storage.num_cameras(); c++) {
-      residual_file_raw_cams << opt.camera_files[c];
       // Separately compute the mean position and rotation error
       double mean_residual_pos = 0, mean_residual_rot = 0;
       for (size_t j = 0; j < part_size; j++) {
         mean_residual_pos += fabs(residuals[index]);
-        residual_file_raw_cams << ", " << residuals[index]; // Write all values in this file
         index++;
       }
       for (size_t j = 0; j < part_size; j++) {
         mean_residual_rot += fabs(residuals[index]);
-        residual_file_raw_cams << ", " << residuals[index]; // Write all values in this file
         index++;
       }
       mean_residual_pos /= static_cast<double>(part_size);
       mean_residual_rot /= static_cast<double>(part_size);
-    
-      residual_file << opt.camera_files[c] << ", " << mean_residual_pos << ", "
-                    << mean_residual_rot << std::endl;
-      residual_file_raw_cams << std::endl;
     }
   }
-  residual_file_raw_cams.close();
-  residual_file.close();
 
   // Keep track of number of camera uncertainty residuals but don't save those
   index += PIXEL_SIZE * num_uncertainty_residuals;

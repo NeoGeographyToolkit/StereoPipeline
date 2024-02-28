@@ -699,7 +699,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Note: If an intrinsic starts as 0, it will then stay as 0. This is documented.
   // Can be both useful and confusing.
 
-  bool have_dem = (!opt.heights_from_dem.empty() || !opt.ref_dem.empty());
+  bool have_dem = (!opt.heights_from_dem.empty());
   
   // Create anchor xyz with the help of a DEM in two ways.
   // TODO(oalexan1): Study how to best pass the DEM to avoid the code
@@ -717,16 +717,10 @@ int do_ba_ceres_one_pass(Options             & opt,
   }
   if (opt.heights_from_dem != "") {
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
-    asp::update_point_height_from_dem(cnet, outliers, dem_georef, interp_dem,  
-                                      // Output
-                                      dem_xyz_vec);
-  }
-  if (opt.ref_dem != "") {
-    asp::create_interp_dem(opt.ref_dem, dem_georef, interp_dem);
-    asp::calc_avg_intersection_with_dem(cnet, crn, outliers, opt.camera_models,
-                                        dem_georef, interp_dem,
-                                        // Output
-                                        dem_xyz_vec);
+    asp::update_point_from_dem(cnet, crn, outliers, opt.camera_models,
+                               dem_georef, interp_dem, 
+                               // Output
+                               dem_xyz_vec);
   }
 
   // If to use a weight image
@@ -790,24 +784,12 @@ int do_ba_ceres_one_pass(Options             & opt,
         cnet[ipt].set_type(ControlPoint::PointFromDem); // so we can track it later
         cnet[ipt].set_position(Vector3(point[0], point[1], point[2])); // update in the cnet too
         
-      if (opt.heights_from_dem != "") {
+        if (opt.heights_from_dem != "") {
           double s = opt.heights_from_dem_uncertainty;
           cnet[ipt].set_sigma(Vector3(s, s, s));
-        } else if (opt.ref_dem != "") {
-          if (opt.ref_dem_weight <= 0) {
-            // Fix it
-            double s = asp::FIXED_GCP_SIGMA;
-            cnet[ipt].set_sigma(Vector3(s, s, s));
-            // Set the sigma so that we know it is fixed
-            problem.SetParameterBlockConstant(point);
-          } else {
-            // Let it float. Later a constraint will be added.
-            double s = 1.0/opt.ref_dem_weight;
-            cnet[ipt].set_sigma(Vector3(s, s, s));
-          }
         }
       }
-
+      
       // The observed value for the projection of point with index ipt into
       // the camera with index icam.
       Vector2 observation = (**fiter).m_location;
@@ -872,17 +854,13 @@ int do_ba_ceres_one_pass(Options             & opt,
     // Don't use the same loss function as for pixels since that one
     // discounts outliers and the GCP's should never be discounted.
     // The user an override this for the advanced --heights-from-dem
-    // and --reference-dem options.
+    // option.
     ceres::LossFunction* loss_function = NULL;
     if (opt.heights_from_dem != ""      &&
         opt.heights_from_dem_uncertainty > 0 &&
         opt.heights_from_dem_robust_threshold > 0) {
       loss_function 
       = get_loss_function(opt.cost_function, opt.heights_from_dem_robust_threshold);
-    } else if (opt.ref_dem != "" &&
-        opt.ref_dem_weight > 0  &&
-        opt.ref_dem_robust_threshold > 0) {
-      loss_function = get_loss_function(opt.cost_function, opt.ref_dem_robust_threshold);
     } else {
       loss_function = new ceres::TrivialLoss();
     }
@@ -1637,9 +1615,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "How much weight to give to the cost function terms involving the reference terrain.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
      "Assuming the cameras have already been bundle-adjusted and aligned to a "
-      "known DEM, in the triangulated points replace the heights with the ones from "
-      "this DEM, and constrain those close to the DEM based on "
-      "--heights-from-dem-uncertainty.")
+     "known DEM, constrain the triangulated points to be close to this DEM. See also "
+     "--heights-from-dem-uncertainty.")
     ("heights-from-dem-uncertainty", 
      po::value(&opt.heights_from_dem_uncertainty)->default_value(10.0),
      "The DEM uncertainty, in meters. A smaller value constrain more the triangulated "
@@ -1656,12 +1633,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "and compute their distance, then percentiles of such distances for each image "
      "pair and for each image vs the rest. This is done after bundle adjustment "
      "and outlier removal. Measured in meters.")
-    ("reference-dem",  po::value(&opt.ref_dem)->default_value(""),
-     "If specified, intersect rays from matching pixels with this DEM, find the average, and constrain during optimization that rays keep on intersecting close to this point. This works even when the rays are almost parallel, but then consider using the option --forced-triangulation-distance. See also --reference-dem-weight and --reference-dem-robust-threshold.")
-    ("reference-dem-weight", po::value(&opt.ref_dem_weight)->default_value(1.0),
-     "Multiply the xyz differences for the --reference-dem option by this weight.")
-    ("reference-dem-robust-threshold", po::value(&opt.ref_dem_robust_threshold)->default_value(0.5),
-     "Use this robust threshold for the weighted xyz differences with the --reference-dem option.")
     ("weight-image", po::value(&opt.weight_image)->default_value(""),
      "Given a georeferenced image with float values, for each initial triangulated "
      "point find its location in the image and closest pixel value. Multiply the "
@@ -2179,14 +2150,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.tri_robust_threshold <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --tri-robust-threshold must be positive.\n");
 
-  if ((!opt.heights_from_dem.empty() || !opt.ref_dem.empty()) && opt.fix_gcp_xyz)
+  if ((!opt.heights_from_dem.empty()) && opt.fix_gcp_xyz)
     vw_throw(ArgumentErr()
              << "The option --fix-gcp-xyz is not compatible with a DEM constraint.\n");
   
-  if (!opt.heights_from_dem.empty() && !opt.ref_dem.empty()) 
-    vw_throw(ArgumentErr() << "Cannot specify more than one of: --heights-from-dem "
-             << "and --reference-dem.\n");
-
   if (opt.heights_from_dem_uncertainty <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be "
               << "positive.\n");
@@ -2195,21 +2162,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be "
               << "positive.\n");
     
-  if (opt.ref_dem_weight <= 0.0) 
-    vw_throw(ArgumentErr() << "The value of --reference-dem-weight must be positive.\n");
-  
-  if (opt.ref_dem_robust_threshold <= 0.0) 
-    vw_throw(ArgumentErr() << "The value of --reference-dem-robust-threshold must "
-             << "be positive.\n");
-
-  bool have_dem = (!opt.heights_from_dem.empty() || !opt.ref_dem.empty());
+  bool have_dem = (!opt.heights_from_dem.empty());
   
   // Try to infer the datum from the heights-from-dem
   std::string dem_file;
   if (opt.heights_from_dem != "") 
     dem_file = opt.heights_from_dem;
-  else if (opt.ref_dem != "")
-    dem_file = opt.ref_dem;
   if (dem_file != "") {
     std::string file_type = asp::get_cloud_type(dem_file);
     if (file_type == "DEM") {

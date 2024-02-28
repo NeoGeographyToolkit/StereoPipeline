@@ -37,7 +37,6 @@
 #include <vw/Cartography/Datum.h>
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/FileIO/DiskImageView.h>
-#include <vw/BundleAdjustment/CameraRelation.h>
 
 #include <boost/random/mersenne_twister.hpp>
 
@@ -63,7 +62,6 @@ const int NUM_CENTER_PARAMS = 2; // TODO(oalexan1): Use this more widely
 const int NUM_FOCUS_PARAMS  = 1;
 const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 3; // Stored in the distortion vector
 
-typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRNJ;
 
 // This must be const or else there's a crash
 const std::string UNSPECIFIED_DATUM = "unspecified_datum";
@@ -77,7 +75,7 @@ enum BACameraType {BaCameraType_Pinhole    = 0,
 // Options shared by bundle_adjust and jitter_solve
 struct BaBaseOptions: public vw::GdalWriteOptions {
   std::string out_prefix, stereo_session, input_prefix, match_files_prefix,
-    clean_match_files_prefix, ref_dem, heights_from_dem, reference_terrain, mapproj_dem, weight_image,
+    clean_match_files_prefix, heights_from_dem, reference_terrain, mapproj_dem, weight_image,
     isis_cnet, nvm, nvm_no_shift, output_cnet_type,
     image_list, camera_list, mapprojected_data_list,
     fixed_image_list;
@@ -89,8 +87,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   bool match_first_to_last, single_threaded_cameras, 
     update_isis_cubes_with_csm_state;
   double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
-  double ref_dem_weight, ref_dem_robust_threshold,
-  heights_from_dem_uncertainty, reference_terrain_weight, 
+  double heights_from_dem_uncertainty, reference_terrain_weight, 
     heights_from_dem_robust_threshold, camera_weight, rotation_weight, translation_weight,
     tri_weight, tri_robust_threshold;
   vw::Vector2 camera_position_uncertainty;    

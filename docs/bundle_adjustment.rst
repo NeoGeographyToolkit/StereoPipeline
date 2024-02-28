@@ -341,28 +341,26 @@ Using the heights from a reference DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In some situations the DEM obtained with ASP is, after alignment, quite similar
-to the reference DEM, but the heights may be off. This can happen, for example,
-if the focal length or lens distortion are not accurately known. It is then
-possible after triangulating the interest point matches in bundle adjustment to
-replace their heights above datum with values obtained from the reference DEM,
-which are presumably more accurate. The triangulated points being optimized can
-then be constrained to not vary too much from this DEM.
+to a reference DEM, but the heights may be off. This can happen, for example,
+if the focal length or lens distortion are not accurately known. 
 
-The option for this is ``--heights-from-dem dem.tif``. An additional control is
-given, in the form of the option ``--heights-from-dem-uncertainty``, measured in
-meters. The smaller its value is, the more constrained those points will be.
-This divides the difference between the triangulated points being optimized and
-their initial value on the DEM when added to the cost function. 
+In this case it is possible to borrow more accurate information from the
+reference DEM (see details below). The option for this is
+``--heights-from-dem``. An additional control is given, in the form of the
+option ``--heights-from-dem-uncertainty``, measured in meters. The smaller its
+value is, the stronger the DEM constraint. This value divides the difference
+between the triangulated points being optimized and their initial value on the
+DEM when added to the cost function (:numref:`how_ba_works`). 
 
-The option ``--heights-from-dem-robust-threshold`` ensures that the weighted
-differences defined earlier when comparing to the DEM plateau at a certain level
-and do not dominate the problem. The default value is 0.1, which is smaller than
-the ``--robust-threshold`` value of 0.5, which is used to control the pixel
-reprojection error, as that is given a higher priority. It is suggested to not
-modify this threshold, and adjust instead ``--heights-from-dem-uncertainty``.
+The option ``--heights-from-dem-robust-threshold`` ensures that these weighted
+differences plateau at a certain level and do not dominate the problem. The
+default value is 0.1, which is smaller than the ``--robust-threshold`` value of
+0.5, which is used to control the pixel reprojection error, as that is given a
+higher priority. It is suggested to not modify this threshold, and adjust
+instead ``--heights-from-dem-uncertainty``.
 
-If a triangulated point does not project vertically onto a valid DEM pixel,
-bundle adjustment falls back to the ``--tri-weight`` constraint.
+If a triangulated point is not close to the reference DEM, bundle adjustment
+falls back to the ``--tri-weight`` constraint.
 
 Here is an example, and note that, as in the earlier section,
 we assume that the cameras and the terrain are already aligned::
@@ -391,13 +389,19 @@ It is suggested to use dense interest points as above (and adjust
 ``--camera-weight 0``, as hopefully the DEM constraint is enough to
 constrain the cameras.
 
-It is important to note that here we assume that a simple height
-correction is enough. Hence this option is an approximation, and perhaps
-it should be used iteratively, and a subsequent pass of bundle
-adjustment should be done without it, or one should consider using a
-smaller weight above. This option can however be more effective than
-using ``--reference-terrain`` when there is a large uncertainty in
-camera intrinsics.
+The implementation of ``--heights-from-dem`` is as follows. Rays from matching
+interest points are intersected with this DEM, and the average of the produced
+points is projected vertically onto the DEM. This is declared to be the
+intersection point of the rays, and the the triangulated points being optimized
+can then be constrained to not vary too much from this location on the DEM.
+
+It is important to note that this heuristic may not be accurate if the rays have
+a large intersection error. But, since bundle adjustment usually has two passes,
+at the second pass the improved cameras are used to recompute the point on the
+DEM with better accuracy. 
+
+This option can be more effective than using ``--reference-terrain`` when there
+is a large uncertainty in camera intrinsics.
 
 See two other large-scale examples of using this option, without
 floating the intrinsics, in the SkySat processing example
@@ -847,8 +851,9 @@ bundle adjustment command becomes::
 See :numref:`heights_from_dem` for the option ``--heights-from-dem``, and 
 :numref:`bundle_adjust` for the documentation of all options above.
 
-If large errors are still left at the image periphery, increase
-``--robust-threshold`` to 2 or so, to focus more on those.
+If large errors are still left at the image periphery, decrease
+``--heights-from-dem-uncertainty``. Also consider adding more images 
+overlapping with the current ones.
 
 .. figure:: images/kaguya_intrinsics_opt_example.png
    :name: kaguya_intrinsics_opt_example
@@ -1577,11 +1582,10 @@ Using the ``bundle_adjust`` options ``--initial-transform`` and
 ``--input-adjustments-prefix`` will force the recomputation of a priori points
 (using triangulation), as these options can drastically change the cameras. 
 
-A priori points will change if ``--heights-from-dem`` is used, by projecting
-them vertically onto the DEM, and their sigmas will be set to the inverse of
-what is provided via the ``--heights-from-dem-uncertainty`` option (the latter
-is in units of meter). Analogous behavior happens with ``--reference-dem`` and
-``--reference-terrain``.
+A priori points will change if ``--heights-from-dem`` is used
+(:numref:`heights_from_dem`). The sigmas will be set to what is provided via the
+``--heights-from-dem-uncertainty`` option (the latter is in units of meter).
+Something analogous happens with ``--reference-terrain``.
 
 If exporting match files from an ISIS control network (option
 ``--output-cnet-type match-files``), constrained and fixed points won't be
