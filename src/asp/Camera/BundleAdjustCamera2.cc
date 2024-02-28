@@ -1274,7 +1274,6 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
       Vector3 xyz(point[0], point[1], point[2]);
 
       // Estimate the GSD at the given pixel given an estimate of the ground point
-      // Estimate the GSD at the given pixel given an estimate of the ground point
       double gsd = 0.0;
       try {
         gsd = vw::camera::estimatedGSD(cameras[icam].get(), bboxes[icam], pix, xyz);

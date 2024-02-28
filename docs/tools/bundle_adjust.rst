@@ -959,9 +959,9 @@ Command-line options
     them during the optimization.
 
 --use-lon-lat-height-gcp-error
-    When having GCP, interpret the three standard deviations in the
-    GCP file as applying not to x, y, and z, but rather to latitude,
-    longitude, and height.
+    When having GCP (or a DEM constraint), constrain the triangulated points in the
+    longitude, latitude, and height space, instead of ECEF. The standard deviations
+    in the GCP file (or DEM uncertainty) are applied accordingly.
 
 --solve-intrinsics
     Optimize intrinsic camera parameters. Only used for pinhole,

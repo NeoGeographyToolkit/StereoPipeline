@@ -776,19 +776,22 @@ int do_ba_ceres_one_pass(Options             & opt,
       }
         
       // Adjust non-GCP triangulated points based on the DEM, if
-      // provided (two approaches are supported).
+      // provided.
       bool is_gcp = (cnet[ipt].type() == ControlPoint::GroundControlPoint);
       if (have_dem && !is_gcp && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) {
+        // Update the tri point in param_storage based on the DEM.
         for (int p = 0; p < 3; p++) 
-          point[p] = dem_xyz_vec.at(ipt)[p]; // update the tri point based on the DEM
-        cnet[ipt].set_type(ControlPoint::PointFromDem); // so we can track it later
-        cnet[ipt].set_position(Vector3(point[0], point[1], point[2])); // update in the cnet too
-        
-        if (opt.heights_from_dem != "") {
-          double s = opt.heights_from_dem_uncertainty;
-          cnet[ipt].set_sigma(Vector3(s, s, s));
-        }
+          point[p] = dem_xyz_vec.at(ipt)[p]; 
+        // Set the point type, so we can track it later
+        cnet[ipt].set_type(ControlPoint::PointFromDem); 
+        // Update the cnet as well. This will be used later.
+        cnet[ipt].set_position(Vector3(point[0], point[1], point[2])); 
+       
+        // Set the uncertainty to the uncertainty of the DEM 
+        double s = opt.heights_from_dem_uncertainty;
+        cnet[ipt].set_sigma(Vector3(s, s, s));
       }
+
       
       // The observed value for the projection of point with index ipt into
       // the camera with index icam.
@@ -1801,8 +1804,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "in units of meter.")
     ("use-lon-lat-height-gcp-error",
      po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
-     "When having GCP, interpret the three standard deviations in the GCP file as "
-     "applying not to x, y, and z, but rather to latitude, longitude, and height.")
+     "When having GCP (or a DEM constraint), constrain the triangulated points in the "
+     "longitude, latitude, and height space, instead of ECEF. The standard deviations "
+     "in the GCP file (or DEM uncertainty) are applied accordingly.")
     ("aster-use-csm", po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with ASTER cameras (-t aster).")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
