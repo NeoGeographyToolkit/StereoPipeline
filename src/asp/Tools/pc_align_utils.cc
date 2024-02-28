@@ -532,23 +532,23 @@ void read_georef(std::vector<std::string> const& clouds,
               "Reference Meridian", 1, 1, 0);
     geo.set_datum(datum);
   }
-
-  bool is_good = false;
-
+  
   // First, get the datum from the DEM if available.
+  bool is_good = false;
   std::string dem_file = "";
   for (size_t it = 0; it < clouds.size(); it++) {
-    if ( asp::get_cloud_type(clouds[it]) == "DEM" )
+    if (asp::get_cloud_type(clouds[it]) == "DEM") {
       dem_file = clouds[it];
-    break;
+      break;
+    }
   }
-  if (dem_file != ""){
+  
+  if (dem_file != "") {
     vw::cartography::GeoReference local_geo;
     bool have_georef = vw::cartography::read_georeference(local_geo, dem_file);
     if (!have_georef)
       vw::vw_throw(vw::ArgumentErr() << "DEM: " << dem_file << " does not have a georeference.\n");
     geo = local_geo;
-    vw::vw_out() << "Detected datum from " << dem_file << ":\n" << geo.datum() << std::endl;
     is_good = true;
   }
 
@@ -556,7 +556,9 @@ void read_georef(std::vector<std::string> const& clouds,
   // Either one, or both or neither of the pc files may have a georef.
   std::string pc_file = "";
   for (size_t it = 0; it < clouds.size(); it++) {
-    if ( asp::get_cloud_type(clouds[it]) == "PC" ){
+    if (is_good)
+      break;
+    if (asp::get_cloud_type(clouds[it]) == "PC") {
       vw::cartography::GeoReference local_geo;
       if (vw::cartography::read_georeference(local_geo, clouds[it])){
         pc_file = clouds[it];
@@ -572,9 +574,11 @@ void read_georef(std::vector<std::string> const& clouds,
   // Either one, or both or neither of the las files may have a georef.
   std::string las_file = "";
   for (size_t it = 0; it < clouds.size(); it++) {
-    if ( asp::get_cloud_type(clouds[it]) == "LAS" ){
+    if (is_good)
+      break;
+    if (asp::get_cloud_type(clouds[it]) == "LAS") {
       vw::cartography::GeoReference local_geo;
-      if (asp::georef_from_las(clouds[it], local_geo)){
+      if (asp::georef_from_las(clouds[it], local_geo)) {
         las_file = clouds[it];
         geo = local_geo;
         vw::vw_out() << "Detected datum from " << las_file << ":\n" << geo.datum() << std::endl;
@@ -585,14 +589,13 @@ void read_georef(std::vector<std::string> const& clouds,
   
   // We should have read in the datum from an input file, but check to see if
   //  we should override it with input parameters.
-
-  if (datum_str != ""){
+  if (datum_str != "") {
     // If the user set the datum, use it.
     vw::cartography::Datum datum;
     datum.set_well_known_datum(datum_str);
     geo.set_datum(datum);
     is_good = true;
-  }else if (semi_major_axis > 0 && semi_minor_axis > 0){
+  } else if (semi_major_axis > 0 && semi_minor_axis > 0) {
     // Otherwise, if the user set the semi-axes, use that.
     vw::cartography::Datum datum("User Specified Datum", "User Specified Spheroid",
                                  "Reference Meridian",
@@ -634,7 +637,7 @@ void read_georef(std::vector<std::string> const& clouds,
   }
 
   if (!is_good)
-    vw::vw_throw( vw::InputErr() << "Datum is required and could not be set.\n");
+    vw::vw_throw(vw::InputErr() << "The datum is required and could not be set.\n");
 
   return;
 }
