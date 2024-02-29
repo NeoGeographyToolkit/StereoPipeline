@@ -97,6 +97,7 @@ bool datum_from_cameras(std::vector<std::string> const& image_files,
 
   // Look for a non-pinole camera, as a pinhole camera does not have a datum
   bool success = false;
+  double cam_center_radius = 0.0;
   for (size_t i = 0; i < image_files.size(); i++) {
 
     // This is for the case when there is a mix of pinhole and non-pinhole
@@ -111,17 +112,44 @@ bool datum_from_cameras(std::vector<std::string> const& image_files,
                                                          camera_files[i], camera_files[i],
                                                          out_prefix)); 
     
+    auto cam = session->camera_model(image_files[i], camera_files[i]);
+    cam_center_radius = norm_2(cam->camera_center(vw::Vector2()));
+    
     // Pinhole and nadirpinhole cameras do not have a datum
     if (stereo_session == "pinhole" || stereo_session == "nadirpinhole")
       continue;
 
     bool use_sphere_for_non_earth = true;
-    datum = session->get_datum(session->camera_model(image_files [i],
-                                                     camera_files[i]).get(),
-                               use_sphere_for_non_earth);
+    datum = session->get_datum(cam.get(), use_sphere_for_non_earth);
     success = true;
     return success; // found the datum
   }
+
+  // Guess the based on camera position. Usually one arrives here for pinhole
+  // cameras.
+
+  // Datums for Earth, Mars, and Moon
+  vw::cartography::Datum earth("WGS84");
+  vw::cartography::Datum mars("D_MARS");
+  vw::cartography::Datum moon("D_MOON");
+  
+  double km = 1000.0;
+  if (cam_center_radius > earth.semi_major_axis() - 100*km && 
+      cam_center_radius < earth.semi_major_axis() + 5000*km) {
+    datum = earth;
+    success = true;
+  } else if (cam_center_radius > mars.semi_major_axis() - 100*km && 
+             cam_center_radius < mars.semi_major_axis() + 1500*km) {
+    datum = mars;
+    success = true;
+  } else if (cam_center_radius > moon.semi_major_axis() - 100*km && 
+             cam_center_radius < moon.semi_major_axis() + 1000*km) {
+    datum = moon;
+    success = true;
+  }
+  
+  if (success)
+    vw_out() << "Guessed the datum from camera positions.\n";
 
   return success;
 }
