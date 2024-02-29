@@ -1792,8 +1792,8 @@ Command-line options for jitter_solve
     also ``--heights-from-dem-uncertainty`` :numref:`jitter_dem_constraint`.
 
 --heights-from-dem-uncertainty <double (default: 10.0)>
-    The DEM uncertainty, in meters. A smaller value constrains more the
-    triangulated points to the DEM specified via ``--heights-from-dem``.
+    The DEM uncertainty (1 sigma, in meters). A smaller value constrains more
+    the triangulated points to the DEM specified via ``--heights-from-dem``.
 
 --heights-from-dem-robust-threshold <double (default: 0.1)> 
     The robust threshold to use keep the triangulated points close to the DEM if

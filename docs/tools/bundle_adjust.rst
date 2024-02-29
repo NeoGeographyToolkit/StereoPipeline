@@ -147,13 +147,13 @@ the pixel reprojection errors per camera (:numref:`ba_errors_per_camera`).
 
 This constraint is implemented as follows. The distances between initially
 triangulated points and those being optimized points are computed, then divided
-by the ground sample distance (GSD) (to make them into pixel units, like the
-reprojection errors). These are multiplied by ``--tri-weight``. Then, the robust
-threshold given by ``--tri-robust-threshold`` is applied, with a value of 0.1,
-to attenuate the big residuals. This threshold is smaller than the pixel
-reprojection error threshold (``--robust-threshold``), whose default value is
-0.5, to ensure that this constraint does not prevent the optimization from
-minimizing the pixel reprojection errors.
+by the local averaged ground sample distance (GSD) (to make them into pixel
+units, like the reprojection errors). These are multiplied by ``--tri-weight``.
+Then, the robust threshold given by ``--tri-robust-threshold`` is applied, with
+a value of 0.1, to attenuate the big residuals. This threshold is smaller than
+the pixel reprojection error threshold (``--robust-threshold``), whose default
+value is 0.5, to ensure that this constraint does not prevent the optimization
+from minimizing the pixel reprojection errors.
 
 Triangulated points that are constrained via a DEM (option
 ``--heights-from-dem``, :numref:`heights_from_dem`), that is, those that are
@@ -172,8 +172,9 @@ much the camera positions can move. This is a soft constraint and is given
 less priority than reducing the pixel reprojection errors.
 
 This value is a multiplier. Internally the constraint is adapts to the ground
-sample distance and number of interest points. The implementation is very
-analogous to the triangulation constraint (:numref:`ba_ground_constraints`).
+sample distance, number of interest points, and per-pixel uncertainty (1 sigma).
+The implementation is very analogous to the triangulation constraint
+(:numref:`ba_ground_constraints`).
 
 It is suggested to examine the camera change report
 (:numref:`ba_camera_offsets`) and pixel reprojection report
@@ -1065,31 +1066,6 @@ Command-line options
     cameras are optimized) are outside of this range.  Specify as
     four values.
 
---reference-terrain <filename>
-    An externally provided trustworthy 3D terrain, either as a DEM
-    or as a lidar file, very close (after alignment) to the stereo
-    result from the given images and cameras that can be used as a
-    reference, instead of GCP, to optimize the intrinsics of the
-    cameras.
-
---max-num-reference-points <integer (default: 100000000)>
-    Maximum number of (randomly picked) points from the reference
-    terrain to use.
-
---disparity-list <'filename12 filename23 ...'>
-    The unaligned disparity files to use when optimizing the
-    intrinsics based on a reference terrain. Specify them as a list
-    in quotes separated by spaces.  First file is for the first two
-    images, second is for the second and third images, etc. If an
-    image pair has no disparity file, use 'none'.
-
---max-disp-error <double (default: -1)>
-    When using a reference terrain as an external control, ignore
-    as outliers xyz points which projected in the left image and
-    transported by disparity to the right image differ by the
-    projection of xyz in the right image by more than this value
-    in pixels.
-
 --reference-terrain-weight <double (default: 1)>
     How much weight to give to the cost function terms involving
     the reference terrain.
@@ -1100,7 +1076,7 @@ Command-line options
     also ``--heights-from-dem-uncertainty`` and :numref:`heights_from_dem`.
 
 --heights-from-dem-uncertainty <double (default: 10.0)>
-    The DEM uncertainty, in meters. A smaller value constrains more the
+    The DEM uncertainty (1 sigma, in meters). A smaller value constrains more the
     triangulated points to the DEM specified via ``--heights-from-dem``.
 
 --heights-from-dem-robust-threshold <double (default: 0.1)> 
@@ -1326,6 +1302,31 @@ Command-line options
 --individually-normalize
     Individually normalize the input images instead of using common
     values.
+
+--reference-terrain <filename>
+    An externally provided trustworthy 3D terrain, either as a DEM
+    or as a lidar file, very close (after alignment) to the stereo
+    result from the given images and cameras that can be used as a
+    reference, instead of GCP, to optimize the intrinsics of the
+    cameras.
+
+--max-num-reference-points <integer (default: 100000000)>
+    Maximum number of (randomly picked) points from the reference
+    terrain to use.
+
+--disparity-list <'filename12 filename23 ...'>
+    The unaligned disparity files to use when optimizing the
+    intrinsics based on a reference terrain. Specify them as a list
+    in quotes separated by spaces.  First file is for the first two
+    images, second is for the second and third images, etc. If an
+    image pair has no disparity file, use 'none'.
+
+--max-disp-error <double (default: -1)>
+    When using a reference terrain as an external control, ignore
+    as outliers xyz points which projected in the left image and
+    transported by disparity to the right image differ by the
+    projection of xyz in the right image by more than this value
+    in pixels.
 
 --save-vwip
     Save .vwip files (intermediate files for creating .match

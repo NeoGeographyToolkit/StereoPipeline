@@ -347,7 +347,7 @@ if the focal length or lens distortion are not accurately known.
 In this case it is possible to borrow more accurate information from the
 reference DEM (see details below). The option for this is
 ``--heights-from-dem``. An additional control is given, in the form of the
-option ``--heights-from-dem-uncertainty``, measured in meters. The smaller its
+option ``--heights-from-dem-uncertainty`` (1 sigma, in meters). The smaller its
 value is, the stronger the DEM constraint. This value divides the difference
 between the triangulated points being optimized and their initial value on the
 DEM when added to the cost function (:numref:`how_ba_works`). 
@@ -1584,8 +1584,7 @@ Using the ``bundle_adjust`` options ``--initial-transform`` and
 
 A priori points will change if ``--heights-from-dem`` is used
 (:numref:`heights_from_dem`). The sigmas will be set to what is provided via the
-``--heights-from-dem-uncertainty`` option (the latter is in units of meter).
-Something analogous happens with ``--reference-terrain``.
+``--heights-from-dem-uncertainty`` option.
 
 If exporting match files from an ISIS control network (option
 ``--output-cnet-type match-files``), constrained and fixed points won't be

@@ -43,9 +43,9 @@ jitter_solve (:numref:`jitter_solve`):
   * Added report files having the change in triangulated points
     (:numref:`jitter_tri_offsets`).
   * Replaced the option ``--heights-from-dem-weight`` with
-    ``--heights-from-dem-uncertainty``, in meters. This is more physically
-    meaningful (as a rule of thumb, use the inverse of what was previous the
-    weight value).
+    ``--heights-from-dem-uncertainty`` (1 sigma, in meters). This is more
+    physically meaningful (as a rule of thumb, use the inverse of what was
+    previous the weight value).
   * Integrated the logic behind ``--reference-dem`` into ``--heights-from-dem``,
     with an approach that combines the strength of both. Removed
     ``--reference-dem``.
@@ -55,7 +55,7 @@ jitter_solve (:numref:`jitter_solve`):
   * Added the option ``--anchor-weight-image`` that is used to limit
     where anchor points are placed.
   * The roll and yaw constraints no longer assume linescan camera positions and
-    orientations are one-to-one. 
+    orientations are one-to-one.
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added the ability to refine the camera intrinsics for several groups of
@@ -80,7 +80,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     GSD. The option ``--camera-weight`` is by default 0.0. This  work better
     than before at preventing the cameras from moving when optimizing them.
   * Replaced the option ``--heights-from-dem-weight`` with
-    ``--heights-from-dem-uncertainty``, in meters. This is more physically
+    ``--heights-from-dem-uncertainty`` (1 sigma, in meters). This is more physically
     meaningful (as a rule of thumb, use the inverse of what was previous the
     weight value).
   * Integrated the logic behind ``--reference-dem`` into ``--heights-from-dem``,

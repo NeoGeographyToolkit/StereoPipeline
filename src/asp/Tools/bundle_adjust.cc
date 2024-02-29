@@ -1230,6 +1230,8 @@ int do_ba_ceres_one_pass(Options             & opt,
   if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
     asp::saveCameraOffsets(opt.datum, opt.image_files, orig_cams, optimized_cams, 
                            cam_offsets_file); 
+  else
+    vw::vw_out() << "Cannot compute camera offsets as the datum is unspecified.\n";
     
   std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";     
   asp::saveTriOffsetsPerCamera(opt.image_files, orig_parameters, param_storage, crn,
@@ -1710,8 +1712,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "--heights-from-dem-uncertainty.")
     ("heights-from-dem-uncertainty", 
      po::value(&opt.heights_from_dem_uncertainty)->default_value(10.0),
-     "The DEM uncertainty, in meters. A smaller value constrain more the triangulated "
-     "points to the DEM specified via --heights-from-dem.")
+     "The DEM uncertainty (1 sigma, in meters). A smaller value constrain more the "
+     "triangulated points to the DEM specified via --heights-from-dem.")
     ("heights-from-dem-robust-threshold",
      po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.1),
      "The robust threshold to use keep the triangulated points close to the DEM if "
@@ -2319,9 +2321,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     guessed_datum = true;
   }
 
-  // Otherwise try to set the datum based on cameras.  It will return
-  // WGS84 if all else fails.
-  // TODO(oalexan1): That may not be desirable with ground-level cameras.
+  // Otherwise try to set the datum based on cameras. It will not work for Pinhole.
   bool found_datum = (opt.datum_str != "");
   if (!found_datum) {
     found_datum = asp::datum_from_cameras(opt.image_files, opt.camera_files,  
@@ -2342,7 +2342,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                 << "When filtering by elevation limit, option --datum must be specified.\n");
   }
 
-  vw_out() << "Will use the datum:\n" << opt.datum << std::endl;
+  vw_out() << "Datum:\n" << opt.datum << std::endl;
 
   // This is a little clumsy, but need to see whether the user set --max-iterations
   // or --num-iterations. They are aliases to each other.
