@@ -466,8 +466,9 @@ if __name__ == '__main__':
         if (not os.path.exists(output_folder)) and (output_folder != ""):
             os.makedirs(output_folder)
 
-        if '--isis-cnet' in args:
-           print("An ISIS cnet was provided. Skipping statistics and matching.")
+        if '--isis-cnet' in args or '--match-files-prefix' in args or \
+          '--clean-match-files-prefix' in args or '--skip-matching' in args:
+           print("Skipping statistics and matching based on input options.")
            if opt.entry_point < ParallelBaStep.optimization:
               opt.entry_point = ParallelBaStep.optimization
             
