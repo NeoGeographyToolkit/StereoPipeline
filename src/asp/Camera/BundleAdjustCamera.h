@@ -705,6 +705,9 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
 void parse_intrinsics_limits(std::string const& intrinsics_limits_str,
                              std::vector<double> & intrinsics_limits);
 
+void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
+                       std::vector<vw::Vector3>      & cam_positions);
+
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_CAMERA_H__

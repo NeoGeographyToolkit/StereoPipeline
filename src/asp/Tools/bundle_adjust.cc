@@ -988,13 +988,17 @@ int do_ba_ceres_one_pass(Options             & opt,
   }
 
   // Camera uncertainty. This is a rather hard constraint.
+  // TODO(oalexan1): Likely orig_cams have the info as opt.camera_models. But need
+  // to test this.
   std::vector<vw::CamPtr> orig_cams;
   asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
+  std::vector<vw::Vector3> orig_cam_positions;
+  asp::calcCameraCenters(orig_cams, orig_cam_positions);
   int num_uncertainty_residuals = 0;
   if (opt.camera_position_uncertainty[0] > 0) {
     for (int icam = 0; icam < num_cameras; icam++) {
       // orig_ctr has the actual camera center, but orig_cam_ptr may have an adjustment
-      vw::Vector3 orig_ctr = orig_cams[icam]->camera_center(vw::Vector2());
+      vw::Vector3 orig_ctr = orig_cam_positions[icam];
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
       double * cam_ptr  = param_storage.get_camera_ptr(icam);
       ceres::CostFunction* cost_function 
@@ -1173,7 +1177,9 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Find the cameras with the latest adjustments. Note that we do not modify
   // opt.camera_models, but make copies as needed.
   std::vector<vw::CamPtr> optimized_cams;
+  std::vector<vw::Vector3> opt_cam_positions;
   asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
+  asp::calcCameraCenters(optimized_cams, opt_cam_positions);
   
   // Calculate convergence angles. Remove the outliers flagged earlier, if
   // remove_outliers is true. Compute offsets of mapprojected matches, if a DEM
@@ -1228,7 +1234,8 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Compute the change in camera centers. For that, we need the original cameras.
   std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";
   if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
-    asp::saveCameraOffsets(opt.datum, opt.image_files, orig_cams, optimized_cams, 
+    asp::saveCameraOffsets(opt.datum, opt.image_files, 
+                           orig_cam_positions, opt_cam_positions,
                            cam_offsets_file); 
   else
     vw::vw_out() << "Cannot compute camera offsets as the datum is unspecified.\n";

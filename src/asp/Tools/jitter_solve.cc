@@ -1476,9 +1476,13 @@ void run_jitter_solve(int argc, char* argv[]) {
     
   // Apply the input adjustments to the cameras. Resample linescan models.
   // Get pointers to the underlying CSM cameras, as need to manipulate
-  // those directly.
+  // those directly. These will result in changes to the input cameras.
   std::vector<asp::CsmModel*> csm_models;
   prepareCsmCameras(opt, opt.camera_models, csm_models);
+  
+  // This the right place to record the original camera positions.
+  std::vector<vw::Vector3> orig_cam_positions;
+  asp::calcCameraCenters(opt.camera_models, orig_cam_positions);
   
   // Make a list of all the image pairs to find matches for. Some quantities
   // below are not needed but are part of the API.
@@ -1732,6 +1736,11 @@ void run_jitter_solve(int argc, char* argv[]) {
   // (applies only to frame cameras, if any)
   updateFrameCameras(csm_models, frame_params);  
 
+  // By now the cameras have been updated in-place. Compute the optimized
+  // camera centers.
+  std::vector<vw::Vector3> opt_cam_positions;
+  asp::calcCameraCenters(opt.camera_models, opt_cam_positions);
+
   // Save residuals after optimization
   // TODO(oalexan1): Add here the anchor residuals
   residual_prefix = opt.out_prefix + "-final_residuals";
@@ -1744,6 +1753,13 @@ void run_jitter_solve(int argc, char* argv[]) {
                             opt.image_files, opt.camera_files,
                             opt.camera_models, opt.update_isis_cubes_with_csm_state);
   
+  // Compute the change in camera centers.
+  std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";
+  if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
+    asp::saveCameraOffsets(opt.datum, opt.image_files, 
+                           orig_cam_positions, opt_cam_positions,
+                           cam_offsets_file); 
+
   std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";     
   asp::saveTriOffsetsPerCamera(opt.image_files, outliers,
                                orig_tri_points_vec, tri_points_vec,

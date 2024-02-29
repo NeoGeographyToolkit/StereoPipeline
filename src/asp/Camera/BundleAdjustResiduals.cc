@@ -488,8 +488,8 @@ void writeTriOffsetsPerCamera(int num_cams,
 // Compute the horizontal and vertical change in camera positions
 void saveCameraOffsets(vw::cartography::Datum   const& datum,
                        std::vector<std::string> const& image_files,
-                       std::vector<vw::CamPtr>  const& orig_cams,
-                       std::vector<vw::CamPtr>  const& opt_cams,
+                       std::vector<vw::Vector3> const& orig_cam_positions,
+                       std::vector<vw::Vector3> const& opt_cam_positions,
                        std::string              const& camera_offset_file) {
 
   vw::vw_out() << "Writing: " << camera_offset_file << std::endl;
@@ -498,9 +498,9 @@ void saveCameraOffsets(vw::cartography::Datum   const& datum,
   ofs << "# Per-image absolute horizontal and vertical change in camera center (meters)\n";
   
   // Loop through the cameras and find the change in their centers
-  for (size_t icam = 0; icam < orig_cams.size(); icam++) {
-    vw::Vector3 orig_ctr = orig_cams[icam]->camera_center(vw::Vector2());
-    vw::Vector3 opt_ctr  = opt_cams [icam]->camera_center(vw::Vector2());
+  for (size_t icam = 0; icam < orig_cam_positions.size(); icam++) {
+    vw::Vector3 orig_ctr = orig_cam_positions[icam];
+    vw::Vector3 opt_ctr  = opt_cam_positions [icam];
     
     vw::Vector3 llh = datum.cartesian_to_geodetic(orig_ctr);
     vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);

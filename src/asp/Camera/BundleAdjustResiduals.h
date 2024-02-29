@@ -103,8 +103,8 @@ void writeTriOffsetsPerCamera(int num_cams,
 // Compute the horizontal and vertical change in camera positions
 void saveCameraOffsets(vw::cartography::Datum   const& datum,
                        std::vector<std::string> const& image_files,
-                       std::vector<vw::CamPtr>  const& orig_cams,
-                       std::vector<vw::CamPtr>  const& opt_cams,
+                       std::vector<vw::Vector3>  const& orig_cam_positions,
+                       std::vector<vw::Vector3>  const& opt_cam_positions,
                        std::string              const& camera_offset_file);
 
 // This is used in jitter_solve

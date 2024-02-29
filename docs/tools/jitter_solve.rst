@@ -130,6 +130,11 @@ value.  These options are described in :numref:`jitter_options`. See
 an example of using the translation weight in
 :numref:`jitter_pleiades`.
 
+This program writes, just like ``bundle_adjust``, a report file
+that records the changes in camera position
+(:numref:`ba_camera_offsets`). It is suggested to 
+examine it and adjust the camera constraints, if appropriate.
+
 Resampling the poses
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -1638,6 +1643,15 @@ well, are saved in the directory for the specified output prefix.
 
 The optimized state files can also be appended to the .cub files
 (:numref:`embedded_csm`).
+
+.. _jitter_cam_offsets:
+
+Changes in camera positions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This program writes, just like ``bundle_adjust``, a report file that records the
+changes in camera position (:numref:`ba_camera_offsets`). This can help with
+adjusting camera constraints (:numref:`jitter_camera`).
 
 .. _jitter_tri_offsets:
 

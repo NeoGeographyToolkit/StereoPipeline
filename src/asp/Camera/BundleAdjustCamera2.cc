@@ -1295,4 +1295,14 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
   return;  
 }
 
+void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
+                       std::vector<vw::Vector3>      & cam_positions) {
+
+  cam_positions.resize(cams.size());
+  for (size_t icam = 0; icam < cams.size(); icam++) {
+    vw::Vector3 ctr = cams[icam]->camera_center(vw::Vector2());
+    cam_positions[icam] = ctr;
+  }
+}
+
 } // end namespace asp
