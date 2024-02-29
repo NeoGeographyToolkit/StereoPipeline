@@ -466,19 +466,24 @@ if __name__ == '__main__':
         if (not os.path.exists(output_folder)) and (output_folder != ""):
             os.makedirs(output_folder)
 
-        # Statistics.
+        if '--isis-cnet' in args:
+           print("An ISIS cnet was provided. Skipping statistics and matching.")
+           if opt.entry_point < ParallelBaStep.optimization:
+              opt.entry_point = ParallelBaStep.optimization
+            
+        # Statistics
         step = ParallelBaStep.statistics
-        if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ):
+        if (opt.entry_point <= step):
+            if (opt.stop_point <= step):
                 sys.exit()
 
             # Spawn statistics processes to nodes.
             spawn_to_nodes(step, output_prefix, self_args)
 
-        # Matching.
+        # Matching
         step = ParallelBaStep.matching
-        if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ):
+        if ( opt.entry_point <= step):
+            if (opt.stop_point <= step):
                 sys.exit()
 
             # Spawn statistics processes to subdir for nodes.
@@ -486,7 +491,7 @@ if __name__ == '__main__':
 
         # Optimization
         step = ParallelBaStep.optimization
-        if ( opt.entry_point <= step ):
+        if (opt.entry_point <= step):
             if ( opt.stop_point <= step ):
                 sys.exit()
             args.extend(['--skip-matching'])
