@@ -88,7 +88,9 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
     update_isis_cubes_with_csm_state;
   double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
   double heights_from_dem_uncertainty, reference_terrain_weight, 
-    heights_from_dem_robust_threshold, camera_weight, rotation_weight, translation_weight,
+    heights_from_dem_robust_threshold, camera_weight, rotation_weight, 
+    translation_weight, camera_position_weight, // TODO(oalexan1): Wipe translation_weight
+    camera_position_robust_threshold,
     tri_weight, tri_robust_threshold;
   vw::Vector2 camera_position_uncertainty;    
   vw::Vector<double, 4> remove_outliers_params;

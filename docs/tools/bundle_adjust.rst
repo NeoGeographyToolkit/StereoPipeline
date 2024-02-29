@@ -109,10 +109,6 @@ Other report files are described in :numref:`ba_out_files`.
 Handling failures
 ~~~~~~~~~~~~~~~~~
 
-To make the program work harder at reducing big pixel reprojection errors, the
-``--robust-threshold`` can be increased, perhaps to 2.0. This may result in the 
-smallest reprojection errors increasing. 
-
 This program will fail if the illumination changes too much between images (see
 also :numref:`sfs_azimuth`).
 
@@ -120,8 +116,20 @@ Various approaches of creation of interest point matches are presented below
 (the existing ones should be deleted first). Use ``stereo_gui``
 (:numref:`stereo_gui_pairwise_matches`) to inspect the matches.
 
+To make the program work harder at reducing big pixel reprojection errors, the
+``--robust-threshold`` can be increased, perhaps to 2.0. This may result in the 
+smallest reprojection errors increasing. 
+
 Constraints
 ~~~~~~~~~~~
+
+The primary goal of bundle adjustment is to minimize the pixel reprojection
+errors, so that the cameras are consistent with each other and with triangulated
+points. 
+
+To ensure the cameras and triangulated points do not drift, camera and ground
+constraints are set by default. They are meant to be rather soft, to not
+prevent the reduction in reprojection errors.
 
 .. _ba_ground_constraints:
 
@@ -134,7 +142,8 @@ reprojection errors in the cameras. Its default value is 0.1. An example is in
 :numref:`skysat_stereo`.
 
 The measured distances between the initial and final triangulated points are
-saved to a file (:numref:`ba_tri_offsets`) and should be inspected.
+saved to a file (:numref:`ba_tri_offsets`) and should be inspected. Also check
+the pixel reprojection errors per camera (:numref:`ba_errors_per_camera`).
 
 This constraint is implemented as follows. The distances between initially
 triangulated points and those being optimized points are computed, then divided
@@ -158,16 +167,23 @@ GCP can be used as well (:numref:`bagcp`).
 Camera constraints
 ^^^^^^^^^^^^^^^^^^
 
-The option ``--camera-position-uncertainty`` sets hard constraints on how much
-the camera positions can move horizontally and vertically, in meters, in the
-local North-East-Down coordinate system of each camera. This may affect the
-optimization and should be used with care. It is suggested to examine the camera
-change report (:numref:`ba_camera_offsets`) and pixel reprojection report
+The option ``--camera-position-weight``, with a  default of 0.1, constrains how
+much the camera positions can move. This is a soft constraint and is given
+less priority than reducing the pixel reprojection errors.
+
+This value is a multiplier. Internally the constraint is adapts to the ground
+sample distance and number of interest points. The implementation is very
+analogous to the triangulation constraint (:numref:`ba_ground_constraints`).
+
+It is suggested to examine the camera change report
+(:numref:`ba_camera_offsets`) and pixel reprojection report
 (:numref:`ba_errors_per_camera`) to see the effects.
 
-Soft camera position constraints are given by the option ``--translation-weight``. 
-It is suggested to use this in conjunction with ``--tri-weight``, which 
-controls the movement of the triangulated points.
+If the camera position uncertainties are  known, the option
+``--camera-position-uncertainty`` can be used instead. This sets hard
+constraints on how much the camera positions can move horizontally and
+vertically, in meters, in the local North-East-Down coordinate system of each
+camera. This may affect the optimization and should be used with care. 
 
 Use cases
 ~~~~~~~~~
@@ -532,7 +548,7 @@ cameras (:numref:`ba_pc_align`). The local North-East-Down coordinate system of
 each camera determines the horizontal and vertical components.
 
 This file is useful for understanding how far cameras may move and can help with
-adding camera constraints using the option ``--camera-position-uncertainty`` (:numref:`ba_cam_constraints`).
+adding camera constraints (:numref:`ba_cam_constraints`).
 
 For linescan cameras, the camera centers will be for the upper-left image pixel.
 
@@ -868,6 +884,22 @@ Command-line options
     big differences in the triangulated points. It is suggested to not modify
     this value, and adjust instead ``--tri-weight``.
 
+--camera-position-weight <double (default: 0.1)>
+    A soft constraint to keep the camera positions close to the original values.
+    It is meant to prevent a wholesale shift of the cameras, without impeding
+    the reduction in reprojection errors. It adjusts to the ground sample
+    distance and the number of interest points in the images. The computed
+    discrepancy is attenuated with ``--camera-position-robust-threshold``. See
+    ``--camera-uncertainty`` for a hard constraint.
+ 
+--camera-position-robust-threshold <double (default: 0.1)>
+    The robust threshold to attenuate large discrepancies between initial and
+    optimized camera positions with the option ``--camera-position-weight``.
+    This is less than ``--robust-threshold``, as the primary goal is to reduce
+    pixel reprojection errors, even if that results in big differences in the
+    camera positions. It is suggested to not modify this value, and adjust
+    instead ``--camera-position-weight``.
+       
 --rotation-weight <double (default: 0.0)>
     A higher weight will penalize more camera rotation deviations from the
     original configuration.  This adds to the cost function
@@ -885,7 +917,7 @@ Command-line options
 --camera-weight <double (default: 0.0)>
     The weight to give to the constraint that the camera positions/orientations
     stay close to the original values. A higher weight means that the values will
-    change less. This option is deprecated. Use instead ``--translation-weight``
+    change less. This option is deprecated. Use instead ``--camera-position-weight``
     and ``--tri-weight``.
         
 --ip-per-tile <integer (default: unspecified)>

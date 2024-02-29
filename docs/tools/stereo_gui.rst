@@ -97,12 +97,6 @@ Other features
 
   - Overlay and edit polygons (:numref:`plot_poly`).
 
-  - Load only one image at a time, for speed, with the ``--preview``
-    option. Can cycle through them with the 'n' and 'p' key. In this
-    mode, the lowest-resolution subimage size is larger than usual to
-    avoid creating small images when building an image pyramid. See
-    ``--lowest-resolution-subimage-num-pixels``.
-
   - Find pixel values and region bounds (:numref:`image_bounds`).
 
   - Show, add, and edit interest point matches displayed on top of images
@@ -119,6 +113,8 @@ Other features
   - Create interest point matches using mapprojected images (:numref:`mapip`).
 
   - Threshold images (:numref:`thresh`).
+   
+  - Cycle through images, showing one at a time (:numref:`gui_cycle`).
 
   - Save a screenshot to disk in the BMP or XPM format.
 
@@ -708,6 +704,19 @@ Related to this, if the viewer is invoked with ``--nodata-value
 <double>``, it will display pixels with values less than or equal to
 this as transparent, and will set the image threshold to that no-data
 value.
+
+.. _gui_cycle:
+
+Cycle through images
+~~~~~~~~~~~~~~~~~~~~
+
+To load only one image at a time, for speed, specify all images on the command
+line, together with the ``--preview`` option. Then, can cycle through them with
+the 'n' and 'p' keys.
+
+In this mode, the lowest-resolution subimage size is larger than usual to avoid
+creating small images when building an image pyramid. See
+``--lowest-resolution-subimage-num-pixels``.
 
 .. _gui_options:
 

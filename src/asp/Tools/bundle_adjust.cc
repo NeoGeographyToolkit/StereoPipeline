@@ -41,6 +41,7 @@
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
+#include <vw/Camera/CameraImage.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 
@@ -310,6 +311,7 @@ int add_to_outliers(ControlNetwork & cnet,
                     size_t num_gcp_or_dem_residuals,
                     size_t num_uncertainty_residuals,
                     size_t num_tri_residuals,
+                    size_t num_cam_pos_residuals,
                     std::vector<vw::Vector3> const& reference_vec, 
                     ceres::Problem &problem) {
 
@@ -325,7 +327,8 @@ int add_to_outliers(ControlNetwork & cnet,
   asp::compute_residuals(apply_loss_function,  
                     opt, param_storage,  cam_residual_counts,  
                     num_gcp_or_dem_residuals, num_uncertainty_residuals,
-                    num_tri_residuals, reference_vec, problem,
+                    num_tri_residuals, num_cam_pos_residuals,
+                    reference_vec, problem,
                     // output
                     residuals);
 
@@ -661,6 +664,71 @@ void addReferenceTerrainCostFunction(
   vw_out() << "Found " << reference_vec.size() << " reference points in range.\n";
 }
 
+// Add a soft constraint to keep the cameras near the original position. Add one
+// constraint per reprojection error.
+void addCamPosCostFun(Options                               const& opt,
+                      asp::BAParams                         const& orig_parameters,
+                      std::vector<std::vector<vw::Vector2>> const& pixels_per_cam,
+                      std::vector<std::vector<vw::Vector3>> const& tri_points_per_cam,
+                      std::vector<std::vector<double>>      const& pixel_sigmas,
+                      std::vector<vw::CamPtr>               const& orig_cams,
+                      // Outputs
+                      asp::BAParams                              & param_storage,
+                      ceres::Problem                             & problem,
+                      int                                        & num_cam_pos_residuals) {
+
+  num_cam_pos_residuals = 0;
+  
+  // Image bboxes
+  std::vector<vw::BBox2> bboxes;
+  for (size_t i = 0; i < opt.image_files.size(); i++) {
+    vw::DiskImageView<float> img(opt.image_files[i]);
+    bboxes.push_back(bounding_box(img));
+  }
+
+  int num_cameras = param_storage.num_cameras();
+
+  for (int icam = 0; icam < num_cameras; icam++) {
+    
+    // Adjustments to initial and current cameras
+    double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
+    double * cam_ptr  = param_storage.get_camera_ptr(icam);
+    
+    for (size_t ipix = 0; ipix < pixel_sigmas[icam].size(); ipix++) {
+      
+      vw::Vector2 pixel_obs = pixels_per_cam[icam][ipix];
+      vw::Vector3 xyz_obs = tri_points_per_cam[icam][ipix];
+      double pixel_sigma = pixel_sigmas[icam][ipix];
+      if (pixel_sigmas[icam][ipix] <= 0.0 || std::isnan(pixel_sigmas[icam][ipix])) 
+        continue; 
+      
+      double gsd = 0.0;
+      try {
+        gsd = vw::camera::estimatedGSD(orig_cams[icam].get(), bboxes[icam], 
+                                        pixel_obs, xyz_obs);
+      } catch (...) {
+        continue;
+      }
+      if (gsd <= 0) 
+        continue; 
+      
+      // Care with computing the weight
+      double position_wt = opt.camera_position_weight / (gsd * pixel_sigma);
+      double rotation_wt = 0.0;
+      
+      // Use the RotTransError cost function to measure the difference,
+      // but with proper weights
+      ceres::CostFunction* cost_function
+        = RotTransError::Create(orig_cam_ptr, rotation_wt, position_wt);
+      ceres::LossFunction* loss_function 
+        = get_loss_function(opt.cost_function, opt.camera_position_robust_threshold);
+      problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
+      
+      num_cam_pos_residuals++;
+    }
+  }
+}
+
 // One pass of bundle adjustment
 int do_ba_ceres_one_pass(Options             & opt,
                          asp::CRNJ           const& crn,
@@ -694,17 +762,15 @@ int do_ba_ceres_one_pass(Options             & opt,
       count_map[i] = cnet[i].size(); // Get number of observations of this point.
   }
 
-  // We will optimize multipliers of the intrinsics. This way
-  // each intrinsic changes by a scale specific to it.
-  // Note: If an intrinsic starts as 0, it will then stay as 0. This is documented.
-  // Can be both useful and confusing.
-
-  bool have_dem = (!opt.heights_from_dem.empty());
+  // We will optimize multipliers of the intrinsics. This way each intrinsic
+  // changes by a scale specific to it. Note: If an intrinsic starts as 0, it
+  // will then stay as 0. This is documented. Can be both useful and confusing.
   
-  // Create anchor xyz with the help of a DEM in two ways.
+  // DEM constraint. 
   // TODO(oalexan1): Study how to best pass the DEM to avoid the code
   // below not being slow. It is not clear if the DEM tiles are cached
   // when passing around an ImageViewRef.
+  bool have_dem = (!opt.heights_from_dem.empty());
   std::vector<Vector3> dem_xyz_vec;
   vw::cartography::GeoReference dem_georef;
   ImageViewRef<PixelMask<double>> interp_dem;
@@ -738,8 +804,12 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Add the various cost functions the solver will optimize over.
   // First is pixel reprojection error. Note: cam_residual_counts and num_pixels_per_cam
   // serve different purposes. 
+  // TODO(oalexan1): Put this in a separate function.
   std::vector<size_t> cam_residual_counts(num_cameras, 0);
   std::vector<size_t> num_pixels_per_cam(num_cameras, 0);
+  std::vector<std::vector<vw::Vector2>> pixels_per_cam(num_cameras);
+  std::vector<std::vector<vw::Vector3>> tri_points_per_cam(num_cameras);
+  std::vector<std::vector<double>> pixel_sigmas(num_cameras);
   for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
     cam_residual_counts[icam] = 0;
     num_pixels_per_cam[icam] = 0;
@@ -791,7 +861,6 @@ int do_ba_ceres_one_pass(Options             & opt,
         double s = opt.heights_from_dem_uncertainty;
         cnet[ipt].set_sigma(Vector3(s, s, s));
       }
-
       
       // The observed value for the projection of point with index ipt into
       // the camera with index icam.
@@ -817,6 +886,13 @@ int do_ba_ceres_one_pass(Options             & opt,
       
       if (have_weight_image) // apply the weight image
         pixel_sigma /= img_wt.child();
+        
+      // Need this for --camera-position-weight 
+      if (opt.camera_position_weight > 0) {
+        pixels_per_cam[icam].push_back(observation);
+        tri_points_per_cam[icam].push_back(cnet[ipt].position());
+        pixel_sigmas[icam].push_back(norm_2(pixel_sigma));
+      }
 
       // Call function to add the appropriate Ceres residual block.
       add_reprojection_residual_block(observation, pixel_sigma, ipt, icam,
@@ -829,7 +905,7 @@ int do_ba_ceres_one_pass(Options             & opt,
 
   // Add ground control points or points based on a DEM constraint
   // Error goes up as GCP's move from their input positions.
-  int num_gcp = 0, num_gcp_or_dem_residuals = 0, num_uncertainty_residuals = 0;
+  int num_gcp = 0, num_gcp_or_dem_residuals = 0;
   for (int ipt = 0; ipt < num_points; ipt++) {
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint &&
         cnet[ipt].type() != ControlPoint::PointFromDem)
@@ -857,7 +933,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     // The user an override this for the advanced --heights-from-dem
     // option.
     ceres::LossFunction* loss_function = NULL;
-    if (opt.heights_from_dem != ""      &&
+    if (opt.heights_from_dem != ""           &&
         opt.heights_from_dem_uncertainty > 0 &&
         opt.heights_from_dem_robust_threshold > 0) {
       loss_function 
@@ -900,8 +976,8 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Finer level control of only rotation and translation.
   // Error goes up as cameras move and rotate from their input positions.
   // TODO(oalexan1): This will prevent convergence in some cases as there is no attenuation
-  if (opt.rotation_weight > 0 || opt.translation_weight > 0){
-    for (int icam = 0; icam < num_cameras; icam++){
+  if (opt.rotation_weight > 0 || opt.translation_weight > 0) {
+    for (int icam = 0; icam < num_cameras; icam++) {
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
       ceres::CostFunction* cost_function
         = RotTransError::Create(orig_cam_ptr, opt.rotation_weight, opt.translation_weight);
@@ -914,9 +990,10 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Camera uncertainty. This is a rather hard constraint.
   std::vector<vw::CamPtr> orig_cams;
   asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
+  int num_uncertainty_residuals = 0;
   if (opt.camera_position_uncertainty[0] > 0) {
-    // print the cam_residual_counts per camera 
     for (int icam = 0; icam < num_cameras; icam++) {
+      // orig_ctr has the actual camera center, but orig_cam_ptr may have an adjustment
       vw::Vector3 orig_ctr = orig_cams[icam]->camera_center(vw::Vector2());
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
       double * cam_ptr  = param_storage.get_camera_ptr(icam);
@@ -929,6 +1006,13 @@ int do_ba_ceres_one_pass(Options             & opt,
     }
   }
 
+  // Add a soft constraint to keep the cameras near the original position. Add one
+  // constraint per reprojection error.
+  int num_cam_pos_residuals = 0;
+  if (opt.camera_position_weight > 0)
+    addCamPosCostFun(opt, orig_parameters, pixels_per_cam, tri_points_per_cam, pixel_sigmas,
+                     orig_cams, param_storage, problem, num_cam_pos_residuals);
+  
   // Add a cost function meant to tie up to known disparity
   // (option --reference-terrain).
   std::vector<vw::Vector3> reference_vec;
@@ -936,6 +1020,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   if (opt.reference_terrain != "") 
     addReferenceTerrainCostFunction(opt, param_storage, problem, reference_vec, interp_disp);
 
+  // TODO(oalexan1): Put this in a separate function
   int num_tri_residuals = 0;
   if (opt.tri_weight > 0) {
     // Add triangulation weight to make each triangulated point not move too far
@@ -971,7 +1056,7 @@ int do_ba_ceres_one_pass(Options             & opt,
       num_tri_residuals++;
     } // End loop through xyz
   } // end adding a triangulation constraint
-  
+
   const size_t MIN_KML_POINTS = 50;
   size_t kmlPointSkip = 30;
   // Figure out a good KML point skip amount
@@ -994,6 +1079,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, 
                         cam_residual_counts, num_gcp_or_dem_residuals, 
                         num_uncertainty_residuals, num_tri_residuals,
+                        num_cam_pos_residuals, 
                         reference_vec, cnet, crn, problem);
 
     std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
@@ -1062,6 +1148,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage,
                       cam_residual_counts, num_gcp_or_dem_residuals, 
                       num_uncertainty_residuals, num_tri_residuals,
+                      num_cam_pos_residuals,
                       reference_vec, cnet, crn, problem);
   
   std::string point_kml_path = opt.out_prefix + "-final_points.kml";
@@ -1080,7 +1167,8 @@ int do_ba_ceres_one_pass(Options             & opt,
       add_to_outliers(cnet, crn,
                       param_storage,   // in-out
                       opt, cam_residual_counts, num_gcp_or_dem_residuals,
-                      num_uncertainty_residuals, num_tri_residuals, reference_vec, problem);
+                      num_uncertainty_residuals, num_tri_residuals,
+                      num_cam_pos_residuals, reference_vec, problem);
 
   // Find the cameras with the latest adjustments. Note that we do not modify
   // opt.camera_models, but make copies as needed.
@@ -1709,12 +1797,28 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Match first several images to last several images by extending the logic of --overlap-limit past the last image to the earliest ones.")
     ("rotation-weight",      po::value(&opt.rotation_weight)->default_value(0.0),
      "A higher weight will penalize more rotation deviations from the original configuration.")
+    // TODO(oalexan1): Wipe translation-weight
     ("translation-weight",   po::value(&opt.translation_weight)->default_value(0.0),
      "A higher weight will penalize more translation deviations from the original configuration.")
+    ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.1),
+     "A soft constraint to keep the camera positions close to the original values. "
+     "It is meant to prevent a wholesale shift of the cameras, without impeding "
+     "the reduction in reprojection errors. It adjusts to the ground sample distance "
+     "and the number of interest points in the images. The computed "
+     "discrepancy is attenuated with --camera-position-robust-threshold "
+     "See --camera-uncertainty for a hard constraint.")
+    ("camera-position-robust-threshold", 
+     po::value(&opt.camera_position_robust_threshold)->default_value(0.1),
+     "The robust threshold to attenuate large discrepancies between initial and "
+     "optimized camera positions with the option --camera-position-weight. "
+     "This is less than --robust-threshold, as the primary goal "
+     "is to reduce pixel reprojection errors, even if that results in big differences "
+     "in the camera positions. It is suggested to not modify this value, "
+     "and adjust instead --camera-position-weight.")
     ("camera-weight", po::value(&opt.camera_weight)->default_value(0.0),
      "The weight to give to the constraint that the camera positions/orientations "
      "stay close to the original values. A higher weight means that the values will "
-     "change less. This option is deprecated. Use instead --translation-weight "
+     "change less. This option is deprecated. Use instead --camera-position-weight "
      "and --tri-weight.")
     ("tri-weight", po::value(&opt.tri_weight)->default_value(0.1),
      "The weight to give to the constraint that optimized triangulated points stay "
@@ -2067,6 +2171,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.translation_weight < 0.0)
     vw_throw( ArgumentErr() << "The translation weight must be non-negative.\n");
 
+  if (opt.camera_position_weight < 0.0)
+    vw_throw( ArgumentErr() << "The camera position weight must be non-negative.\n");
+    
   if (opt.tri_weight < 0.0)
     vw_throw( ArgumentErr() << "The triangulation weight must be non-negative.\n");
   
@@ -2153,7 +2260,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.tri_robust_threshold <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --tri-robust-threshold must be positive.\n");
-
+  
+  if (opt.camera_position_robust_threshold <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --camera-position-robust-threshold "
+              << "must be positive.\n");
+    
   if ((!opt.heights_from_dem.empty()) && opt.fix_gcp_xyz)
     vw_throw(ArgumentErr()
              << "The option --fix-gcp-xyz is not compatible with a DEM constraint.\n");
@@ -2383,19 +2494,45 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       (opt.camera_position_uncertainty[0] > 0 && opt.camera_position_uncertainty[1] == 0))
     vw::vw_throw(vw::ArgumentErr() << "Both components of the camera uncertainty must be "
              << "positive or both zero.\n");
+    
   if (opt.camera_position_uncertainty[0] > 0) {
-    if (opt.translation_weight > 0)
-      vw::vw_throw(vw::ArgumentErr() 
-                   << "When using --camera-position-uncertainty, --translation-weight "
-                   << "must be 0.\n");
+    
+    if (opt.translation_weight > 0) {
+      vw::vw_out() << "Setting --translation-weight to 0 as --camera-position-uncertainty "
+                   << "is positive.\n";
+      opt.translation_weight = 0;
+    }
+    
+    // Same for camera position weight
+    if (opt.camera_position_weight > 0) {
+      vw::vw_out() << "Setting --camera-position-weight to 0 as --camera-position-uncertainty "
+                   << "is positive.\n";
+      opt.camera_position_weight = 0;
+    }
+    
     if (opt.camera_weight > 0) {
-      vw::vw_out() << "Setting --camera-weight to 0 as --camera-position-uncertainty is positive.\n";
+      vw::vw_out() << "Setting --camera-weight to 0 as --camera-position-uncertainty "
+                    << "is positive.\n";
       opt.camera_weight = 0;
     }  
     
     if (opt.datum.name() == asp::UNSPECIFIED_DATUM) 
       vw::vw_throw(vw::ArgumentErr() 
               << "Cannot use camera uncertainties without a datum. Set --datum.\n");
+  }
+
+  // Set camera weight and translation weight to 0 if camera position weight is positive
+  if (opt.camera_position_weight > 0) {
+    if (opt.camera_weight > 0) {
+      vw::vw_out() << "Setting --camera-weight to 0 as --camera-position-weight "
+                    << "is positive.\n";
+      opt.camera_weight = 0;
+    }
+    if (opt.translation_weight > 0) {
+      vw::vw_out() << "Setting --translation-weight to 0 as --camera-position-weight "
+                    << "is positive.\n";
+      opt.translation_weight = 0;
+    }
   }
   
   if (opt.use_llh_error && opt.datum.name() == asp::UNSPECIFIED_DATUM) 

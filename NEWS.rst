@@ -67,13 +67,17 @@ bundle_adjust (:numref:`bundle_adjust`):
     format (:numref:`jigsaw_cnet`).
   * Can read and write CSM model state embedded in ISIS .cub files   
     (:numref:`embedded_csm`).
-  * Added the option ``--camera-position-uncertainty`` to set horizontal and
+  * Added the option ``--camera-position-weight``, with a default value of 0.1.
+    This is an internally adjustable constraint to keep the cameras from moving
+    too much without preventing the reduction in reprojection error
+    (:numref:`ba_cam_constraints`).
+  * Added the option ``--camera-position-uncertainty`` to set the horizontal and
     vertical uncertainty for each camera (:numref:`ba_cam_constraints`). 
   * Added report files having the change in camera positions
     (:numref:`ba_camera_offsets`) and triangulated points
     (:numref:`ba_tri_offsets`).
-  * The option ``--tri-weight`` is by default 0.1, and adjusted for GSD,
-    and the option ``--camera-weight`` is by default 0.0. These work better
+  * The option ``--tri-weight`` is now set by default to 0.1, and adjusted for
+    GSD. The option ``--camera-weight`` is by default 0.0. This  work better
     than before at preventing the cameras from moving when optimizing them.
   * Replaced the option ``--heights-from-dem-weight`` with
     ``--heights-from-dem-uncertainty``, in meters. This is more physically

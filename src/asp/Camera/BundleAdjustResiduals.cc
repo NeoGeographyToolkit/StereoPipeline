@@ -42,6 +42,7 @@ void compute_residuals(bool apply_loss_function,
                        size_t num_gcp_or_dem_residuals,
                        size_t num_uncertainty_residuals,
                        size_t num_tri_residuals,
+                       size_t num_cam_position_residuals,
                        std::vector<vw::Vector3> const& reference_vec,
                        ceres::Problem & problem,
                        // Output
@@ -64,8 +65,10 @@ void compute_residuals(bool apply_loss_function,
   // Verify our book-keeping is correct
   size_t num_expected_residuals
     = (num_gcp_or_dem_residuals + num_tri_residuals) * param_storage.params_per_point();
-  size_t total_num_cam_params   = param_storage.num_cameras()*param_storage.params_per_camera();
-  for (size_t i=0; i<param_storage.num_cameras(); i++)
+
+  size_t total_num_cam_params = param_storage.num_cameras()*param_storage.params_per_camera();
+
+  for (size_t i = 0; i < param_storage.num_cameras(); i++)
     num_expected_residuals += cam_residual_counts[i]*PIXEL_SIZE;
   if (opt.camera_weight > 0)
     num_expected_residuals += total_num_cam_params;
@@ -73,6 +76,7 @@ void compute_residuals(bool apply_loss_function,
     num_expected_residuals += total_num_cam_params;
   num_expected_residuals += num_uncertainty_residuals * PIXEL_SIZE;
   num_expected_residuals += reference_vec.size() * PIXEL_SIZE;
+  num_expected_residuals += num_cam_position_residuals * param_storage.params_per_camera();
   
   if (num_expected_residuals != num_residuals)
     vw_throw(LogicErr() << "Expected " << num_expected_residuals
@@ -200,6 +204,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
                          size_t num_gcp_or_dem_residuals,
                          size_t num_uncertainty_residuals,
                          size_t num_tri_residuals,
+                         size_t num_cam_position_residuals,
                          std::vector<vw::Vector3> const& reference_vec,
                          vw::ba::ControlNetwork const& cnet, 
                          asp::CRNJ const& crn, 
@@ -209,7 +214,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   asp::compute_residuals(apply_loss_function, opt, param_storage,
                     cam_residual_counts, num_gcp_or_dem_residuals, 
                     num_uncertainty_residuals,
-                    num_tri_residuals,
+                    num_tri_residuals, num_cam_position_residuals,
                     reference_vec, problem,
                     // Output
                     residuals);
@@ -339,6 +344,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 
   // Keep track of number of triangulation constraint residuals but don't save those
   index += asp::PARAMS_PER_POINT * num_tri_residuals;
+  index +=  param_storage.params_per_camera() * num_cam_position_residuals;
   
   if (index != num_residuals)
     vw_throw( LogicErr() << "Have " << num_residuals << " residuals, but iterated through "

@@ -1377,9 +1377,9 @@ overview earlier in :numref:`sfs-lola`:
    yes, bundle adjustment and/or alignment failed and needs to be redone.
  - Throw out images with a high error in report files
    (:numref:`sfs_registration_validation`, :numref:`sfs_ba_validation`).
- - Crop all mapprojected images to a small site, and overlay them while
-   sorted by illumination (solar azimuth angle). See for which images 
-   the registration failure occurs.
+ - Crop all mapprojected images produced with bundle-adjusted cameras to a small
+   site, and overlay them while sorted by illumination (solar azimuth angle).
+   See for which images the registration failure occurs.
  - Inspect the match files for unprojected images (.match and
    -clean.match) in ``stereo_gui`` (:numref:`stereo_gui`). Perhaps
    there were not enough matches or too many of them were thrown
