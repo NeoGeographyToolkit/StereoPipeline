@@ -71,19 +71,26 @@ bool asp::has_isd_extension(std::string const& path) {
   return ((ext == ".json") || (ext == ".isd"));
 }
 
+// If it ends with _rpc.txt or _RPC.TXT
+bool asp::has_rpc_txt_extension(std::string const& input) {
+  if (boost::iends_with(input, "_rpc.txt")) 
+    return true;
+  return false;
+}
+
 bool asp::has_cam_extension(std::string const& input) {
   std::string ext = get_extension(input);
   if (has_pinhole_extension(input) ||
       has_isd_extension(input)     ||
       ext == ".cub" || ext == ".xml" || ext == ".dim" ||
-      ext == ".rpb")
+      ext == ".rpb" || asp::has_rpc_txt_extension(input))
     return true;
   return false;
 }
 
 bool asp::has_pinhole_extension(std::string const& input) {
   std::string ext = get_extension(input);
-  if ( ext == ".cahvor"  || ext == ".cahv"    ||
+  if (ext == ".cahvor"  || ext == ".cahv"    ||
        ext == ".pin"     || ext == ".pinhole" ||
        ext == ".tsai"    || ext == ".cmod"    ||
        ext == ".cahvore")
@@ -93,47 +100,48 @@ bool asp::has_pinhole_extension(std::string const& input) {
 
 bool asp::has_image_extension(std::string const& input) {
   std::string ext = get_extension(input);
-  if ( ext == ".tif"  || ext == ".tiff" || ext == ".ntf" ||
+  if (ext == ".tif"  || ext == ".tiff" || ext == ".ntf" ||
        ext == ".png"  || ext == ".jpeg" ||
        ext == ".jpg"  || ext == ".jp2"  ||
        ext == ".img"  || ext == ".cub"  ||
-       ext == ".bip"  || ext == ".bil"  ||ext == ".bsq" )
+       ext == ".bip"  || ext == ".bil"  ||ext == ".bsq")
     return true;
   return false;
 }
 
 bool asp::has_tif_or_ntf_extension(std::string const& input) {
   std::string ext = get_extension(input);
-  if ( ext == ".tif"  || ext == ".ntf")
+  if (ext == ".tif"  || ext == ".ntf")
     return true;
   return false;
 }
 
-bool asp::has_shp_extension( std::string const& input ) {
+bool asp::has_shp_extension(std::string const& input) {
   std::string ext = get_extension(input);
-  if ( ext == ".shp")
+  if (ext == ".shp")
     return true;
   return false;
 }
 
-bool asp::all_files_have_extension(std::vector<std::string> const& files, std::string const& ext){
+bool asp::all_files_have_extension(std::vector<std::string> const& files, 
+                                   std::string const& ext) {
   for (size_t i = 0; i < files.size(); i++){
-    if ( ! boost::iends_with(boost::to_lower_copy(files[i]), ext) )
+    if (! boost::iends_with(boost::to_lower_copy(files[i]), ext))
       return false;
   }
   return true;
 }
 
-
 std::vector<std::string>
-asp::get_files_with_ext( std::vector<std::string>& files, std::string const& ext, bool prune_input_list ) {
+asp::get_files_with_ext(std::vector<std::string>& files, std::string const& ext, 
+                        bool prune_input_list) {
   std::vector<std::string> match_files;
   std::vector<std::string>::iterator it = files.begin();
-  while ( it != files.end() ) {
-    if ( boost::iends_with(boost::to_lower_copy(*it), ext) ){ // Match
-      match_files.push_back( *it );
+  while (it != files.end()) {
+    if (boost::iends_with(boost::to_lower_copy(*it), ext)){ // Match
+      match_files.push_back(*it);
       if (prune_input_list) // Clear match from the input list
-        it = files.erase( it );
+        it = files.erase(it);
       else
         ++it;
     } else // No Match
@@ -172,7 +180,7 @@ void readImagesCamsOrLists(std::vector<std::string> const & in,
             out.push_back(list[j]);
             
       } else if (boost::iends_with(in[i], ".adjust")) {
-        vw_throw( ArgumentErr() << "The file " << in[i] << " is an adjustment. "
+        vw_throw(ArgumentErr() << "The file " << in[i] << " is an adjustment. "
                   << "Use the original cameras and the option "
                   << "--bundle-adjust-prefix.\n");
       } else {
@@ -206,7 +214,7 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
   // Check that all files exist
   for (size_t i = 0; i < inputs2.size(); i++) {
     if (!fs::exists(inputs2[i])) {
-      vw_throw( ArgumentErr() << "Cannot find the file: " << inputs2[i] << ".\n");
+      vw_throw(ArgumentErr() << "Cannot find the file: " << inputs2[i] << ".\n");
       return;
     }
   }
@@ -220,11 +228,11 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
     else if (has_cam_extension(inputs2[i]))
       cameras.push_back(inputs2[i]);
     else if (boost::iends_with(inputs2[i], ".adjust"))
-      vw_throw( ArgumentErr() << "The file " << inputs2[i] << " is an adjustment. "
+      vw_throw(ArgumentErr() << "The file " << inputs2[i] << " is an adjustment. "
                 << "Use the original cameras and the option "
                 << "--bundle-adjust-prefix.\n");  
     else 
-      vw_throw( ArgumentErr() << "Unknown file type passed on input: "
+      vw_throw(ArgumentErr() << "Unknown file type passed on input: "
                 << inputs2[i] << ".\n");
   }
 
@@ -249,14 +257,14 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
   
   // Let the first half of the data be images, and the second half be cameras.
   // Unless we have only .cub files, when all the data are images.
-  if ( (has_cub && !has_nocub) || (!has_cam) ) {
+  if ((has_cub && !has_nocub) || (!has_cam)) {
     // Only cubes, or only non-cameras, cases 1 and 3 above
     for (size_t i=0; i < inputs2.size(); ++i) 
       images.push_back(inputs2[i]);
   } else {
     // Images and cameras (cameras could be cubes)
     if (inputs2.size() % 2 != 0)
-      vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n");
+      vw_throw(ArgumentErr() << "Expecting as many images as cameras.\n");
     
     int half = inputs2.size()/2;
     for (int i = 0;    i < half;   i++) images.push_back(inputs2[i]);
@@ -266,19 +274,19 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
   // Verification for images
   for (size_t i = 0; i < images.size(); i++) {
     if (!has_image_extension(images[i])) {
-      vw_throw( ArgumentErr() << "Expecting an image, got: " << images[i] << ".\n");
+      vw_throw(ArgumentErr() << "Expecting an image, got: " << images[i] << ".\n");
     }
   }
 
   // Verification for cameras
   for (size_t i = 0; i < cameras.size(); i++) {
     if (!has_cam_extension(cameras[i])) {
-      vw_throw( ArgumentErr() << "Expecting a camera, got: " << cameras[i] << ".\n");
+      vw_throw(ArgumentErr() << "Expecting a camera, got: " << cameras[i] << ".\n");
     }
   }
 
   if (images.size() != cameras.size() && !cameras.empty()) {
-    vw_throw( ArgumentErr() << "Expecting the number of images and cameras to agree.\n");
+    vw_throw(ArgumentErr() << "Expecting the number of images and cameras to agree.\n");
   }
 
   if (ensure_equal_sizes) {
@@ -318,7 +326,7 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
     dem_path = "";
   }
   if (files.size() < 3) {
-    vw_throw( ArgumentErr() << "Expecting at least three inputs to stereo.\n");
+    vw_throw(ArgumentErr() << "Expecting at least three inputs to stereo.\n");
     return false;
   }
   
@@ -326,9 +334,9 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
   prefix = files.back(); // Dem, if present, was already popped off the back.
 
   // An output prefix cannot be an image or a camera
-  if (asp::has_image_extension(prefix) || asp::has_cam_extension(prefix) || prefix == "" ) {
+  if (asp::has_image_extension(prefix) || asp::has_cam_extension(prefix) || prefix == "") {
     // Throw here, as we don't want this printed in stereo_gui
-    vw_throw( ArgumentErr() << "Invalid output prefix: " << prefix << ".\n");
+    vw_throw(ArgumentErr() << "Invalid output prefix: " << prefix << ".\n");
   }
   files.pop_back();
 
@@ -355,8 +363,8 @@ void asp::parse_append_metadata(std::string const& metadata,
   while (is >> meta){
     boost::replace_all(meta, "=", " ");  // replace equal with space
     std::istringstream is2(meta);
-    if (!(is2 >> var >> val) ) 
-      vw_throw( ArgumentErr() << "Could not parse: " << meta << "\n" );
+    if (!(is2 >> var >> val)) 
+      vw_throw(ArgumentErr() << "Could not parse: " << meta << "\n");
     keywords[var] = val;
   }
 }
@@ -379,7 +387,7 @@ double asp::get_rounding_error(vw::Vector3 const& shift, double rounding_error){
   VW_ASSERT(len > 0,  vw::ArgumentErr()
             << "Expecting positive length in get_rounding_error().");
   rounding_error = 1.5e-10*len;
-    rounding_error = pow(2.0, round(log(rounding_error)/log(2.0)) );
+    rounding_error = pow(2.0, round(log(rounding_error)/log(2.0)));
     return rounding_error;
 }
 
@@ -414,7 +422,7 @@ void asp::log_to_file(int argc, char *argv[],
   // info to that file as well.
 
   if (out_prefix == "")
-    vw::vw_throw( vw::ArgumentErr() << "Output prefix was not set.\n");
+    vw::vw_throw(vw::ArgumentErr() << "Output prefix was not set.\n");
 
   // Create the output directory if not present
   vw::create_out_dir(out_prefix);
@@ -492,7 +500,7 @@ void asp::log_to_file(int argc, char *argv[],
   
   // Copy all the info going to the console to log_file as well,
   // except the progress bar.
-  boost::shared_ptr<vw::LogInstance> current_log( new vw::LogInstance(log_file) );
+  boost::shared_ptr<vw::LogInstance> current_log(new vw::LogInstance(log_file));
   current_log->rule_set() = vw_log().console_log().rule_set();
   current_log->rule_set().add_rule(0, "*.progress");
   vw_log().add(current_log);
@@ -640,7 +648,7 @@ asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
       unregistered = collect_unrecognized(parsed.options, po::include_positional);
       po::store(parsed, vm);
     } else {
-      po::store(po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).style( po::command_line_style::unix_style ).run(), vm);
+      po::store(po::command_line_parser(argc, argv).options(all_options).positional(positional_desc).style(po::command_line_style::unix_style).run(), vm);
     }
 
     po::notify(vm);
@@ -651,16 +659,16 @@ asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
 
   // We really don't want to use BIGTIFF unless we have to. It's
   // hard to find viewers for bigtiff.
-  if ( vm.count("no-bigtiff") ) {
+  if (vm.count("no-bigtiff")) {
     opt.gdal_options["BIGTIFF"] = "NO";
   } else {
     opt.gdal_options["BIGTIFF"] = "IF_SAFER";
   }
 
-  if ( vm.count("help") )
+  if (vm.count("help"))
     vw::vw_throw(vw::ArgumentErr() << usage_comment << public_options);
 
-  if ( vm.count("version") ) {
+  if (vm.count("version")) {
     std::ostringstream ostr;
     ostr << ASP_PACKAGE_STRING  << "\n";
 #if defined(ASP_COMMIT_ID)
@@ -678,7 +686,7 @@ asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
 #endif
     ostr << "  Boost C++ Libraries " << ASP_BOOST_VERSION << "\n";
     ostr << "  GDAL " << GDAL_RELEASE_NAME << " | " << GDAL_RELEASE_DATE << "\n";
-    vw::vw_throw( vw::ArgumentErr() << ostr.str() );
+    vw::vw_throw(vw::ArgumentErr() << ostr.str());
   }
 
   opt.setVwSettingsFromOpt();
@@ -721,7 +729,7 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   vw::cartography::GeoReference input_georef = georef;
   OGRSpatialReference gdal_spatial_ref;
   if (gdal_spatial_ref.SetFromUserInput(srs_string.c_str()) != OGRERR_NONE)
-    vw::vw_throw(vw::ArgumentErr() << "Failed to parse: \"" << srs_string << "\"." );
+    vw::vw_throw(vw::ArgumentErr() << "Failed to parse: \"" << srs_string << "\".");
   char *wkt_str_tmp = NULL;
   gdal_spatial_ref.exportToWkt(&wkt_str_tmp);
   srs_string = wkt_str_tmp;
@@ -812,16 +820,16 @@ void asp::BitChecker::check_argument(vw::uint8 arg) {
   m_checksum.set(arg);
 }
 
-asp::BitChecker::BitChecker( vw::uint8 num_arguments )  : m_checksum(0) {
-  VW_ASSERT( num_arguments != 0,
+asp::BitChecker::BitChecker(vw::uint8 num_arguments)  : m_checksum(0) {
+  VW_ASSERT(num_arguments != 0,
              ArgumentErr() << "There must be at least one thing you read.\n");
-  VW_ASSERT( num_arguments <= 32,
-             ArgumentErr() << "You can only have up to 32 checks.\n" );
+  VW_ASSERT(num_arguments <= 32,
+             ArgumentErr() << "You can only have up to 32 checks.\n");
 
   // Turn on the first num_arguments bits in m_good
   m_good.reset();
   m_checksum.reset();
-  for ( uint8 i=0; i<num_arguments; ++i )
+  for (uint8 i=0; i<num_arguments; ++i)
     m_good.set(i);
 }
 
@@ -838,13 +846,13 @@ namespace program_options {
   
   // 2 values
   typed_2_value<vw::Vector2i>*
-  value( vw::Vector2i* v ) {
+  value(vw::Vector2i* v) {
     typed_2_value<vw::Vector2i>* r =
       new typed_2_value<vw::Vector2i>(v);
     return r;
   }
   typed_2_value<vw::Vector2>*
-  value( vw::Vector2* v ) {
+  value(vw::Vector2* v) {
     typed_2_value<vw::Vector2>* r =
       new typed_2_value<vw::Vector2>(v);
     return r;
@@ -852,13 +860,13 @@ namespace program_options {
 
   // 3 values
   typed_3_value<vw::Vector3i>*
-  value( vw::Vector3i* v ) {
+  value(vw::Vector3i* v) {
     typed_3_value<vw::Vector3i>* r =
       new typed_3_value<vw::Vector3i>(v);
     return r;
   }
   typed_3_value<vw::Vector3>*
-  value( vw::Vector3* v ) {
+  value(vw::Vector3* v) {
     typed_3_value<vw::Vector3>* r =
       new typed_3_value<vw::Vector3>(v);
     return r;
@@ -866,13 +874,13 @@ namespace program_options {
 
   // 4 values
   typed_4_value<vw::BBox2i>*
-  value( vw::BBox2i* v ) {
+  value(vw::BBox2i* v) {
     typed_4_value<vw::BBox2i>* r =
       new typed_4_value<vw::BBox2i>(v);
     return r;
   }
   typed_4_value<vw::BBox2>*
-  value( vw::BBox2* v ) {
+  value(vw::BBox2* v) {
     typed_4_value<vw::BBox2>* r =
       new typed_4_value<vw::BBox2>(v);
     return r;
@@ -880,7 +888,7 @@ namespace program_options {
 
   // 6 values
   typed_6_value<vw::BBox3>*
-  value( vw::BBox3* v ) {
+  value(vw::BBox3* v) {
     typed_6_value<vw::BBox3>* r =
       new typed_6_value<vw::BBox3>(v);
     return r;
@@ -890,9 +898,9 @@ namespace program_options {
 
   // Validator for Vector2i
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::Vector2i*, long ) {
+                 vw::Vector2i*, long) {
     validators::check_first_occurrence(v);
 
     // Concatenate and then split again, so that the user can mix
@@ -901,23 +909,23 @@ namespace program_options {
     std::vector<std::string> cvalues;
     boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
 
-    if ( cvalues.size() != 2 )
+    if (cvalues.size() != 2)
       boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
 
     try {
-      Vector2i output( boost::lexical_cast<int32>( cvalues[0] ),
-                       boost::lexical_cast<int32>( cvalues[1] ) );
+      Vector2i output(boost::lexical_cast<int32>(cvalues[0]),
+                       boost::lexical_cast<int32>(cvalues[1]));
       v = output;
-    } catch (boost::bad_lexical_cast const& e ) {
+    } catch (boost::bad_lexical_cast const& e) {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));
     }
   }
 
   // Validator for Vector2
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::Vector2*, long ) {
+                 vw::Vector2*, long) {
     validators::check_first_occurrence(v);
 
     // Concatenate and then split again, so that the user can mix
@@ -926,23 +934,23 @@ namespace program_options {
     std::vector<std::string> cvalues;
     boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
 
-    if ( cvalues.size() != 2 )
+    if (cvalues.size() != 2)
       boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
 
     try {
-      Vector2 output( boost::lexical_cast<double>( cvalues[0] ),
-                      boost::lexical_cast<double>( cvalues[1] ) );
+      Vector2 output(boost::lexical_cast<double>(cvalues[0]),
+                      boost::lexical_cast<double>(cvalues[1]));
       v = output;
-    } catch (boost::bad_lexical_cast const& e ) {
+    } catch (boost::bad_lexical_cast const& e) {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));
     }
   }
 
   // Validator for Vector3i
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::Vector3i*, long ) {
+                 vw::Vector3i*, long) {
     validators::check_first_occurrence(v);
 
     // Concatenate and then split again, so that the user can mix
@@ -951,7 +959,7 @@ namespace program_options {
     std::vector<std::string> cvalues;
     boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
 
-    if ( cvalues.size() != 3 )
+    if (cvalues.size() != 3)
       boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
 
     try {
@@ -959,7 +967,7 @@ namespace program_options {
                       boost::lexical_cast<int32>(cvalues[1]),
                       boost::lexical_cast<int32>(cvalues[2]));
       v = output;
-    } catch (boost::bad_lexical_cast const& e ) {
+    } catch (boost::bad_lexical_cast const& e) {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));
     }
   }
@@ -986,16 +994,16 @@ namespace program_options {
                      boost::lexical_cast<double>(cvalues[2]));
 
       v = output;
-    } catch (boost::bad_lexical_cast const& e ) {
+    } catch (boost::bad_lexical_cast const& e) {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));
     }
   }
 
   // Validator for BBox2i
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::BBox2i*, long ) {
+                 vw::BBox2i*, long) {
     validators::check_first_occurrence(v);
 
     // Concatenate and then split again, so that the user can mix
@@ -1004,25 +1012,25 @@ namespace program_options {
     std::vector<std::string> cvalues;
     boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
 
-    if ( cvalues.size() != 4 )
+    if (cvalues.size() != 4)
       boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
 
     try {
-      BBox2i output(Vector2i( boost::lexical_cast<int32>( cvalues[0] ),
-                              boost::lexical_cast<int32>( cvalues[1] ) ),
-                    Vector2i( boost::lexical_cast<int32>( cvalues[2] ),
-                              boost::lexical_cast<int32>( cvalues[3] ) ) );
+      BBox2i output(Vector2i(boost::lexical_cast<int32>(cvalues[0]),
+                              boost::lexical_cast<int32>(cvalues[1])),
+                    Vector2i(boost::lexical_cast<int32>(cvalues[2]),
+                              boost::lexical_cast<int32>(cvalues[3])));
       v = output;
-    } catch (boost::bad_lexical_cast const& e ) {
+    } catch (boost::bad_lexical_cast const& e) {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));
     }
   }
 
   // Validator for BBox2
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::BBox2*, long ) {
+                 vw::BBox2*, long) {
     validators::check_first_occurrence(v);
 
     // Concatenate and then split again, so that the user can mix
@@ -1031,25 +1039,25 @@ namespace program_options {
     std::vector<std::string> cvalues;
     boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
 
-    if ( cvalues.size() != 4 )
+    if (cvalues.size() != 4)
       boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
 
     try {
-      BBox2 output(Vector2( boost::lexical_cast<double>( cvalues[0] ),
-                            boost::lexical_cast<double>( cvalues[1] ) ),
-                   Vector2( boost::lexical_cast<double>( cvalues[2] ),
-                            boost::lexical_cast<double>( cvalues[3] ) ) );
+      BBox2 output(Vector2(boost::lexical_cast<double>(cvalues[0]),
+                            boost::lexical_cast<double>(cvalues[1])),
+                   Vector2(boost::lexical_cast<double>(cvalues[2]),
+                            boost::lexical_cast<double>(cvalues[3])));
       v = output;
-    } catch (boost::bad_lexical_cast const& e ) {
+    } catch (boost::bad_lexical_cast const& e) {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));
     }
   }
 
   // Validator for BBox3
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::BBox3*, long ) {
+                 vw::BBox3*, long) {
     validators::check_first_occurrence(v);
 
     // Concatenate and then split again, so that the user can mix
@@ -1058,20 +1066,20 @@ namespace program_options {
     std::vector<std::string> cvalues;
     boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
 
-    if ( cvalues.size() != 6 )
+    if (cvalues.size() != 6)
       boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
 
     try {
-      BBox3 output(Vector3( boost::lexical_cast<double>( cvalues[0] ),
-                            boost::lexical_cast<double>( cvalues[1] ),
-                            boost::lexical_cast<double>( cvalues[2] )
-                            ),
-                   Vector3( boost::lexical_cast<double>( cvalues[3] ),
-                            boost::lexical_cast<double>( cvalues[4] ),
-                            boost::lexical_cast<double>( cvalues[5] )
-                            ) );
+      BBox3 output(Vector3(boost::lexical_cast<double>(cvalues[0]),
+                            boost::lexical_cast<double>(cvalues[1]),
+                            boost::lexical_cast<double>(cvalues[2])
+),
+                   Vector3(boost::lexical_cast<double>(cvalues[3]),
+                            boost::lexical_cast<double>(cvalues[4]),
+                            boost::lexical_cast<double>(cvalues[5])
+));
       v = output;
-    } catch (boost::bad_lexical_cast const& e ) {
+    } catch (boost::bad_lexical_cast const& e) {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));
     }
   }

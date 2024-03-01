@@ -62,19 +62,22 @@ namespace asp {
   bool has_isd_extension(std::string const& path);
 
   /// Returns true if the file has an extension which can contain a camera model
-  bool has_cam_extension( std::string const& input );
+  bool has_cam_extension(std::string const& input);
 
   /// Returns true if the file has an extension which can contain a pinhole camera model
-  bool has_pinhole_extension( std::string const& input );
+  bool has_pinhole_extension(std::string const& input);
 
   /// Returns true if the file has an extension which can contain an image
-  bool has_image_extension( std::string const& input );
+  bool has_image_extension(std::string const& input);
 
   /// Returns true if the file has an extension which is tif or ntf
-  bool has_tif_or_ntf_extension( std::string const& input );
+  bool has_tif_or_ntf_extension(std::string const& input);
+  
+  /// If it ends with _rpc.txt or _RPC.TXT
+  bool has_rpc_txt_extension(std::string const& input);
 
   /// Returns true for a shapefile
-  bool has_shp_extension( std::string const& input );
+  bool has_shp_extension(std::string const& input);
 
   /// Returns true if all of the input files have the given extension.
   bool all_files_have_extension(std::vector<std::string> const& files, std::string const& ext);
@@ -82,8 +85,8 @@ namespace asp {
   /// Makes a vector containing all files in the input vector with an extension.
   /// - If prune_input_list is set, matching files are removed from the input list.
   std::vector<std::string>
-  get_files_with_ext( std::vector<std::string>& files, std::string const& ext, 
-                      bool prune_input_list );
+  get_files_with_ext(std::vector<std::string>& files, std::string const& ext, 
+                      bool prune_input_list);
 
   /// Given a list of images/cameras and/or lists of such things, put the images
   /// and the cameras in separate vectors.
@@ -180,10 +183,10 @@ namespace asp {
   };
   template <class ImageT>
   vw::UnaryPerPixelView<ImageT, SubtractShift<typename ImageT::pixel_type> >
-  inline subtract_shift( vw::ImageViewBase<ImageT> const& image,
-                         vw::Vector3 const& shift ) {
+  inline subtract_shift(vw::ImageViewBase<ImageT> const& image,
+                         vw::Vector3 const& shift) {
     return vw::UnaryPerPixelView<ImageT, SubtractShift<typename ImageT::pixel_type> >
-      ( image.impl(), SubtractShift<typename ImageT::pixel_type>(shift) );
+      (image.impl(), SubtractShift<typename ImageT::pixel_type>(shift));
   }
 
   /// Round pixels in given image to multiple of given rounding_error.
@@ -191,7 +194,7 @@ namespace asp {
   struct RoundImagePixels: public vw::ReturnFixedType<VecT> {
     double m_rounding_error;
     RoundImagePixels(double rounding_error):m_rounding_error(rounding_error){
-      VW_ASSERT( m_rounding_error > 0.0,
+      VW_ASSERT(m_rounding_error > 0.0,
                  vw::ArgumentErr() << "Rounding error must be positive.");
     }
     VecT operator() (VecT const& pt) const {
@@ -200,10 +203,10 @@ namespace asp {
   };
   template <class ImageT>
   vw::UnaryPerPixelView<ImageT, RoundImagePixels<typename ImageT::pixel_type> >
-  inline round_image_pixels( vw::ImageViewBase<ImageT> const& image,
-                         double rounding_error ) {
+  inline round_image_pixels(vw::ImageViewBase<ImageT> const& image,
+                         double rounding_error) {
     return vw::UnaryPerPixelView<ImageT, RoundImagePixels<typename ImageT::pixel_type> >
-      ( image.impl(), RoundImagePixels<typename ImageT::pixel_type>(rounding_error) );
+      (image.impl(), RoundImagePixels<typename ImageT::pixel_type>(rounding_error));
   }
 
 
@@ -234,7 +237,7 @@ namespace asp {
                                      vw::ProgressCallback const& progress_callback
                                      = vw::ProgressCallback::dummy_instance(),
                                      std::map<std::string, std::string> const& keywords =
-                                     std::map<std::string, std::string>() );
+                                     std::map<std::string, std::string>());
 
 
   /// Single-threaded write image while subtracting a given value from
@@ -251,7 +254,7 @@ namespace asp {
                                vw::ProgressCallback const& progress_callback
                                = vw::ProgressCallback::dummy_instance(),
                                std::map<std::string, std::string> const& keywords =
-                               std::map<std::string, std::string>() );
+                               std::map<std::string, std::string>());
 
 
   /// Often times, we'd like to save an image to disk by using big
@@ -277,11 +280,11 @@ namespace asp {
 
   protected:
     /// Used to check off that one of the arguments has been read.
-    void check_argument( vw::uint8 arg );
+    void check_argument(vw::uint8 arg);
 
   public:
     /// Pass in the number of expected arguments, max 32
-    BitChecker( vw::uint8 num_arguments );
+    BitChecker(vw::uint8 num_arguments);
 
     bool is_good() const; ///< Return true if all arguments have been checked.
   }; // End class BitChecker
@@ -342,47 +345,47 @@ namespace program_options {
     unsigned max_tokens() const { return 6; }
   };
 
-  typed_2_value<vw::Vector2i>* value( vw::Vector2i* v );
-  typed_2_value<vw::Vector2>*  value( vw::Vector2* v );
-  typed_3_value<vw::Vector3i>* value( vw::Vector3i* v );
-  typed_3_value<vw::Vector3>*  value( vw::Vector3* v );
-  typed_4_value<vw::BBox2i>*   value( vw::BBox2i* v );
-  typed_4_value<vw::BBox2>*    value( vw::BBox2* v );
-  typed_6_value<vw::BBox3>*    value( vw::BBox3* v );
+  typed_2_value<vw::Vector2i>* value(vw::Vector2i* v);
+  typed_2_value<vw::Vector2>*  value(vw::Vector2* v);
+  typed_3_value<vw::Vector3i>* value(vw::Vector3i* v);
+  typed_3_value<vw::Vector3>*  value(vw::Vector3* v);
+  typed_4_value<vw::BBox2i>*   value(vw::BBox2i* v);
+  typed_4_value<vw::BBox2>*    value(vw::BBox2* v);
+  typed_6_value<vw::BBox3>*    value(vw::BBox3* v);
 
   // Custom validators which describe how text is turned into a value
   // 2 params
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::Vector2i*, long );
+                 vw::Vector2i*, long);
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::Vector2*, long );
+                 vw::Vector2*, long);
   // 3 params
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::Vector3i*, long );
+                 vw::Vector3i*, long);
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::Vector3*, long );
+                 vw::Vector3*, long);
   // 4 params
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::BBox2i*, long );
+                 vw::BBox2i*, long);
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::BBox2*, long );
+                 vw::BBox2*, long);
   // 6 params
   template <>
-  void validate( boost::any& v,
+  void validate(boost::any& v,
                  const std::vector<std::string>& values,
-                 vw::BBox3*, long );
+                 vw::BBox3*, long);
 
 } // end namespace program_options
 } // end namespace boost

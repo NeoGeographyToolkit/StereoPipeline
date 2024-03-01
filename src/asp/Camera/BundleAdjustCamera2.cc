@@ -464,7 +464,7 @@ void read_image_cam_lists(std::string const& image_list,
   intrinsics_opts.cam2sensor.clear();
   intrinsics_opts.num_sensors = 0; // must be initialized to zero
 
-  // See if there comma-separated lists passed in the image list
+  // See if comma-separated lists are passed in the image list
   if (image_list.find(",") == std::string::npos && 
       camera_list.find(",") == std::string::npos) {
     // Single list, so just read the lists as usual, and return
