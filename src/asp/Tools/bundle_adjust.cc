@@ -687,6 +687,7 @@ void addCamPosCostFun(Options                               const& opt,
   }
 
   int num_cameras = param_storage.num_cameras();
+  double rotation_wt = 0.0;
 
   for (int icam = 0; icam < num_cameras; icam++) {
     
@@ -694,6 +695,8 @@ void addCamPosCostFun(Options                               const& opt,
     double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
     double * cam_ptr  = param_storage.get_camera_ptr(icam);
     
+    double sum = 0.0;
+    int count = 0;
     for (size_t ipix = 0; ipix < pixel_sigmas[icam].size(); ipix++) {
       
       vw::Vector2 pixel_obs = pixels_per_cam[icam][ipix];
@@ -714,18 +717,40 @@ void addCamPosCostFun(Options                               const& opt,
       
       // Care with computing the weight
       double position_wt = opt.camera_position_weight / (gsd * pixel_sigma);
-      double rotation_wt = 0.0;
+      sum += position_wt;
+      count++;
       
-      // Use the RotTransError cost function to measure the difference,
-      // but with proper weights
-      ceres::CostFunction* cost_function
-        = RotTransError::Create(orig_cam_ptr, rotation_wt, position_wt);
-      ceres::LossFunction* loss_function 
-        = get_loss_function(opt.cost_function, opt.camera_position_robust_threshold);
-      problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
-      
-      num_cam_pos_residuals++;
+      // // Use the RotTransError cost function to measure the difference,
+      // // but with proper weights
+      // ceres::CostFunction* cost_function
+      //   = RotTransError::Create(orig_cam_ptr, rotation_wt, position_wt);
+      // ceres::LossFunction* loss_function 
+      //   = get_loss_function(opt.cost_function, opt.camera_position_robust_threshold);
+      // problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
+      // num_cam_pos_residuals++;
     }
+    std::cout << "replace mean with median!\n";
+    std::cout << "--sum is " << sum << " count is " << count << std::endl;
+    // Skip for zero count
+    if (count == 0) 
+      continue;
+       
+    double avg_wt = sum / count;
+    std::cout << "--avg wt is " << avg_wt << std::endl;
+    
+    // Based on the CERES loss function formula, adding N loss functions each 
+    // with weight w and robust threshold t is equivalent to adding one loss 
+    // function with weight sqrt(N)*w and robust threshold sqrt(N)*t.
+    double combined_wt  = sqrt(count * 1.0) * avg_wt;
+    double combined_th = sqrt(count * 1.0) * opt.camera_position_robust_threshold;
+    std::cout << "combined_wt is " << combined_wt << "\n";
+    std::cout << "combined_th is " << combined_th << "\n";
+    ceres::CostFunction* cost_function
+        = RotTransError::Create(orig_cam_ptr, rotation_wt, combined_wt);
+    ceres::LossFunction* loss_function 
+       = get_loss_function(opt.cost_function, combined_th);
+    problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
+    num_cam_pos_residuals++;
   }
 }
 
@@ -782,6 +807,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     }
   }
   if (opt.heights_from_dem != "") {
+    vw::vw_out() << "Constraining against DEM: " << opt.heights_from_dem << "\n";
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
     asp::update_point_from_dem(cnet, crn, outliers, opt.camera_models,
                                dem_georef, interp_dem, 
