@@ -664,8 +664,8 @@ void addReferenceTerrainCostFunction(
   vw_out() << "Found " << reference_vec.size() << " reference points in range.\n";
 }
 
-// Add a soft constraint to keep the cameras near the original position. Add one
-// constraint per reprojection error.
+// Add a soft constraint to keep the cameras near the original position. 
+// Add a combined constraint for all reprojection errors in given camera.
 void addCamPosCostFun(Options                               const& opt,
                       asp::BAParams                         const& orig_parameters,
                       std::vector<std::vector<vw::Vector2>> const& pixels_per_cam,
@@ -697,6 +697,7 @@ void addCamPosCostFun(Options                               const& opt,
     
     double sum = 0.0;
     int count = 0;
+    std::vector<double> pos_wts;
     for (size_t ipix = 0; ipix < pixel_sigmas[icam].size(); ipix++) {
       
       vw::Vector2 pixel_obs = pixels_per_cam[icam][ipix];
@@ -708,7 +709,7 @@ void addCamPosCostFun(Options                               const& opt,
       double gsd = 0.0;
       try {
         gsd = vw::camera::estimatedGSD(orig_cams[icam].get(), bboxes[icam], 
-                                        pixel_obs, xyz_obs);
+                                       pixel_obs, xyz_obs);
       } catch (...) {
         continue;
       }
@@ -717,31 +718,31 @@ void addCamPosCostFun(Options                               const& opt,
       
       // Care with computing the weight
       double position_wt = opt.camera_position_weight / (gsd * pixel_sigma);
+      //std::cout << "pixel sigma is " << pixel_sigma << "\n";
+      //std::cout << "gsd is " << gsd << "\n";
+      //std::cout << "position_wt is " << position_wt << "\n";
       sum += position_wt;
       count++;
-      
-      // // Use the RotTransError cost function to measure the difference,
-      // // but with proper weights
-      // ceres::CostFunction* cost_function
-      //   = RotTransError::Create(orig_cam_ptr, rotation_wt, position_wt);
-      // ceres::LossFunction* loss_function 
-      //   = get_loss_function(opt.cost_function, opt.camera_position_robust_threshold);
-      // problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
-      // num_cam_pos_residuals++;
+      pos_wts.push_back(position_wt);
     }
     std::cout << "replace mean with median!\n";
     std::cout << "--sum is " << sum << " count is " << count << std::endl;
     // Skip for zero count
     if (count == 0) 
       continue;
-       
-    double avg_wt = sum / count;
-    std::cout << "--avg wt is " << avg_wt << std::endl;
+    
+    // The median weight seems to be more robust than the mean weight.
+    // That in case some pixel_sigma is oddly large for any reason.   
+    double median_wt = vw::math::destructive_median(pos_wts);
+    double mean_wt = sum / count;
+    std::cout << "--mean weight is " << sum / count << std::endl;
+    std::cout << "--median wt is " << median_wt << std::endl;
     
     // Based on the CERES loss function formula, adding N loss functions each 
     // with weight w and robust threshold t is equivalent to adding one loss 
     // function with weight sqrt(N)*w and robust threshold sqrt(N)*t.
-    double combined_wt  = sqrt(count * 1.0) * avg_wt;
+    //double combined_wt  = sqrt(count * 1.0) * median_wt;
+    double combined_wt  = sqrt(count * 1.0) * mean_wt;
     double combined_th = sqrt(count * 1.0) * opt.camera_position_robust_threshold;
     std::cout << "combined_wt is " << combined_wt << "\n";
     std::cout << "combined_th is " << combined_th << "\n";

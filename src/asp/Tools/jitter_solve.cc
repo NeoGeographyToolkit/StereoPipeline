@@ -51,7 +51,7 @@
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
-
+#include <vw/Camera/CameraImage.h>
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/UsgsAstroFrameSensorModel.h>
 #include <usgscsm/Utilities.h>
@@ -192,6 +192,21 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "and after last image line. Applies only to linescan cameras.")
     ("rotation-weight", po::value(&opt.rotation_weight)->default_value(0.0),
      "A higher weight will penalize more deviations from the original camera orientations.")
+    ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.1),
+     "A soft constraint to keep the camera positions close to the original values. "
+     "It is meant to prevent a wholesale shift of the cameras, without impeding "
+     "the reduction in reprojection errors. It adjusts to the ground sample distance "
+     "and the number of interest points in the images. The computed "
+     "discrepancy is attenuated with --camera-position-robust-threshold "
+     "See --camera-uncertainty for a hard constraint.")
+    ("camera-position-robust-threshold", 
+     po::value(&opt.camera_position_robust_threshold)->default_value(0.1),
+     "The robust threshold to attenuate large discrepancies between initial and "
+     "optimized camera positions with the option --camera-position-weight. "
+     "This is less than --robust-threshold, as the primary goal "
+     "is to reduce pixel reprojection errors, even if that results in big differences "
+     "in the camera positions. It is suggested to not modify this value, "
+     "and adjust instead --camera-position-weight.")
     ("translation-weight", po::value(&opt.translation_weight)->default_value(0.0),
      "A higher weight will penalize more deviations from "
      "the original camera positions.")
@@ -341,7 +356,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.rotation_weight < 0 || opt.translation_weight < 0)
     vw_throw(ArgumentErr() << "Rotation and translation weights must be non-negative.\n");
+  
+  if (opt.camera_position_weight < 0) 
+    vw_throw(ArgumentErr() << "The value of --camera-position-weight must be n"
+                           << "non-negative.\n");
     
+  if (opt.camera_position_robust_threshold <= 0.0)
+    vw_throw(ArgumentErr() << "The value of --camera-position-robust-threshold "
+                            << "must be positive.\n");
+      
   if (opt.quat_norm_weight <= 0)
     vw_throw(ArgumentErr() << "Quaternion norm weight must be positive.\n");
 
@@ -816,7 +839,9 @@ void addFrameReprojectionErr(Options             const & opt,
   return;   
 }
 
-void addReprojectionErrors
+// Add reprojection errors. Collect data that will be used to add camera
+// constraints that scale with the number of reprojection errors and GSD.
+void addReprojCamErrs
 (Options                                              const & opt,
  asp::CRNJ                                            const & crn,
  std::vector<std::vector<Vector2>>                    const & pixel_vec,
@@ -828,20 +853,32 @@ void addReprojectionErrors
  // Outputs
  std::vector<double>                                        & frame_params,
  std::vector<double>                                        & weight_per_residual, // append
+ std::vector<std::vector<double>>                           & weight_per_cam,
+ std::vector<std::vector<double>>                           & count_per_cam,
  ceres::Problem                                             & problem) {
 
   // Do here two passes, first for non-anchor points and then for anchor ones.
   // This way it is easier to do the bookkeeping when saving the residuals.
   // Note: The same motions as here are repeated in save_residuals().
+  weight_per_cam.resize(2);
+  count_per_cam.resize(2);
   for (int pass = 0; pass < 2; pass++) {
+    
+     weight_per_cam[pass].resize((int)crn.size(), 0.0);
+     count_per_cam[pass].resize((int)crn.size(), 0.0);
+
     for (int icam = 0; icam < (int)crn.size(); icam++) {
+
+      vw::DiskImageView<float> img(opt.image_files[icam]);
+      vw::BBox2 image_box = bounding_box(img);
+      std::vector<double> this_cam_weights;
 
       for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
 
-        Vector2 observation = pixel_vec[icam][ipix];
-        double * tri_point  = xyz_vec_ptr[icam][ipix];
-        double weight       = weight_vec[icam][ipix];
-        bool isAnchor       = isAnchor_vec[icam][ipix];
+        Vector2 pix_obs    = pixel_vec[icam][ipix];
+        double * tri_point = xyz_vec_ptr[icam][ipix];
+        double pix_wt      = weight_vec[icam][ipix];
+        bool isAnchor      = isAnchor_vec[icam][ipix];
 
         // Pass 0 is without anchor points, while pass 1 uses them
         if ((int)isAnchor != pass) 
@@ -855,25 +892,55 @@ void addReprojectionErrors
   
         // Note how for the frame model we pass the frame_params for the current camera.
         if (ls_model != NULL)
-          addLsReprojectionErr(opt, ls_model, observation, tri_point, weight, problem);
+          addLsReprojectionErr(opt, ls_model, pix_obs, tri_point, pix_wt, problem);
         else if (frame_model != NULL)
-          addFrameReprojectionErr(opt, frame_model, observation, 
+          addFrameReprojectionErr(opt, frame_model, pix_obs, 
               &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)],
-              tri_point, weight, problem);                   
+              tri_point, pix_wt, problem);                   
         else
           vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
 
         // Two residuals were added. Save the corresponding weights.
         for (int c = 0; c < PIXEL_SIZE; c++)
-          weight_per_residual.push_back(weight);
+          weight_per_residual.push_back(pix_wt);
 
         // Anchor points are fixed by definition. They try to prevent
         // the cameras from moving too much from original poses.
         if (isAnchor) 
           problem.SetParameterBlockConstant(tri_point);
+        
+        // Find the weight to use with the camera constraint
+        vw::Vector3 xyz_obs(tri_point[0], tri_point[1], tri_point[2]);
+        double gsd = 0.0;
+        try {
+          gsd = vw::camera::estimatedGSD(opt.camera_models[icam].get(), image_box, 
+                                         pix_obs, xyz_obs);
+        } catch (...) {
+          continue;
+        }
+        if (gsd <= 0) 
+          continue; 
+
+        // The camera weight depends on the input multiplier, pixel weight, and gsd
+        double position_wt = opt.camera_position_weight * pix_wt / gsd;
+        this_cam_weights.push_back(position_wt);
+      } // end iteration through pixels
+      
+      // Find the median weight and count. Here the mean works just as well,
+      // given that we don't use prior sigmas, but the median is consistent
+      // with bundle adjustment.
+      count_per_cam[pass][icam] = this_cam_weights.size();
+      if (count_per_cam[pass][icam] > 0) {
+        //weight_per_cam[pass][icam] = vw::math::destructive_median(this_cam_weights);
+        weight_per_cam[pass][icam] = vw::math::mean(this_cam_weights);
+        std::cout << "mean weight is " << weight_per_cam[pass][icam] << std::endl;
       }
-    }
-  }
+      else
+        weight_per_cam[pass][icam] = 0.0;
+    } // end iteration through cameras
+  } // end iteration through passes
+  
+  return;
 }
 
 // Add the constraint based on DEM
@@ -974,11 +1041,92 @@ void addTriConstraint(Options                const& opt,
   } // End loop through xyz
 }
 
+// Add camera constraints that are proportional to the number of reprojection errors.
+// This requires going through some of the same motions as in addReprojCamErrs().
+void addCamPositionConstraint(Options                      const & opt,
+                              std::set<int>                const & outliers,
+                              asp::CRNJ                    const & crn,
+                              std::vector<asp::CsmModel*>  const & csm_models,
+                              std::vector<std::vector<double>> const& weight_per_cam,
+                              std::vector<std::vector<double>> const& count_per_cam,
+                              // Outputs
+                              std::vector<double>                & frame_params,
+                              std::vector<double>                & tri_points_vec,
+                              // Append to weight_per_residual
+                              std::vector<double>                & weight_per_residual, 
+                              ceres::Problem                     & problem) {
+
+  // First pass is for interest point matches, and second pass is for anchor points
+  for (int pass = 0; pass < 2; pass++) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+      
+      double median_wt = weight_per_cam[pass][icam];
+      double count = count_per_cam[pass][icam];
+      if (count <= 0) 
+        continue; // no reprojection errors for this camera
+      
+      // We know the median weight to use, and how many residuals were added.
+      // Based on the CERES loss function formula, adding N loss functions each 
+      // with weight w and robust threshold t is equivalent to adding one loss 
+      // function with weight sqrt(N)*w and robust threshold sqrt(N)*t.
+      // For linescan cameras, then need to subdivide this for individual
+      // positions for that camera.
+      double combined_wt  = sqrt(count * 1.0) * median_wt;
+      double combined_th = sqrt(count * 1.0) * opt.camera_position_robust_threshold;
+      UsgsAstroLsSensorModel * ls_model
+        = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+      UsgsAstroFrameSensorModel * frame_model
+        = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+        
+      if (ls_model != NULL) {
+        // There are multiple position parameters per camera. They divide among
+        // them the job of minimizing the reprojection error. So need to divide
+        // the weight among them.
+
+        // Divide the weight among the positions
+        int numPos = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+        double wt = combined_wt / sqrt(numPos * 1.0);
+        double th = combined_th / sqrt(numPos * 1.0);
+        for (int ip = 0; ip < numPos; ip++) {
+          ceres::CostFunction* cost_function
+            = weightedTranslationError::Create(&ls_model->m_positions[ip * NUM_XYZ_PARAMS],
+                                               wt);
+          ceres::LossFunction* loss_function = new ceres::CauchyLoss(th);
+          problem.AddResidualBlock(cost_function, loss_function,
+                                  &ls_model->m_positions[ip * NUM_XYZ_PARAMS]);
+          
+          for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+            weight_per_residual.push_back(wt);
+        }
+        
+      } else if (frame_model != NULL) {
+      
+        // Same logic as for bundle_adjust
+        // There is only one position per camera
+        double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+        // we will copy from curr_params the initial position
+        ceres::CostFunction* cost_function
+          = weightedTranslationError::Create(&curr_params[0], combined_wt);
+        ceres::LossFunction* loss_function = new ceres::CauchyLoss(combined_th);
+        problem.AddResidualBlock(cost_function, loss_function,
+                                &curr_params[0]); // translation starts here
+        
+        for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+          weight_per_residual.push_back(combined_wt);
+            
+      } else {
+         vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+      }
+    }
+  }
+}
+
 void addQuatNormRotationTranslationConstraints(
     Options                      const & opt,
     std::set<int>                const & outliers,
     asp::CRNJ                    const & crn,
     std::vector<asp::CsmModel*>  const & csm_models,
+
     // Outputs
     std::vector<double>                & frame_params,
     std::vector<double>                & tri_points_vec,
@@ -1635,6 +1783,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   // Create structures for pixels, xyz, and weights, to be used in optimization
   std::vector<std::vector<Vector2>> pixel_vec;
+  // TODO(oalexan1): Wipe xyz_vec_ptr and use only xyz_vec.
   std::vector<std::vector<boost::shared_ptr<Vector3>>> xyz_vec;
   std::vector<std::vector<double*>> xyz_vec_ptr;
   std::vector<std::vector<double>> weight_vec;
@@ -1657,11 +1806,18 @@ void run_jitter_solve(int argc, char* argv[]) {
   // The problem to solve
   ceres::Problem problem;
   
-  // Add reprojection errors
-  addReprojectionErrors(opt, crn, pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec,
-                        isAnchor_vec, csm_models,
-                        // Outputs
-                        frame_params, weight_per_residual, problem);
+  // In order to add a proportional camera constraint, we need to know the
+  // median weight per camera and their count. These are different for anchor
+  // and non-anchor points.  
+  std::vector<std::vector<double>> weight_per_cam(2);
+  std::vector<std::vector<double>> count_per_cam(2);
+  
+  // Add reprojection errors. Get back weights_per_cam, count_per_cam.
+  addReprojCamErrs(opt, crn, pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec,
+                   isAnchor_vec, csm_models,
+                   // Outputs
+                   frame_params, weight_per_residual, 
+                   weight_per_cam, count_per_cam, problem);
  
   // Add the DEM constraint. We check earlier that only one
   // of the two options below can be set at a time.
@@ -1684,6 +1840,11 @@ void run_jitter_solve(int argc, char* argv[]) {
                      weight_per_residual,  // append
                      problem);
 
+  if (opt.camera_position_weight > 0) 
+    addCamPositionConstraint(opt, outliers, crn, csm_models, weight_per_cam, count_per_cam,
+                             // Outputs
+                             frame_params, tri_points_vec, weight_per_residual, problem);
+    
   // Add constraints to keep quat norm close to 1, and make rotations and translations
   // not change too much
   addQuatNormRotationTranslationConstraints(opt, outliers, crn, csm_models,  
