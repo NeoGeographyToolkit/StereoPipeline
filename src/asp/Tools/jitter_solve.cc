@@ -926,15 +926,10 @@ void addReprojCamErrs
         this_cam_weights.push_back(position_wt);
       } // end iteration through pixels
       
-      // Find the median weight and count. Here the mean works just as well,
-      // given that we don't use prior sigmas, but the median is consistent
-      // with bundle adjustment.
+      // Find the median weight and count. The median is more robust to outliers.
       count_per_cam[pass][icam] = this_cam_weights.size();
-      if (count_per_cam[pass][icam] > 0) {
-        //weight_per_cam[pass][icam] = vw::math::destructive_median(this_cam_weights);
-        weight_per_cam[pass][icam] = vw::math::mean(this_cam_weights);
-        std::cout << "mean weight is " << weight_per_cam[pass][icam] << std::endl;
-      }
+      if (count_per_cam[pass][icam] > 0)
+        weight_per_cam[pass][icam] = vw::math::destructive_median(this_cam_weights);
       else
         weight_per_cam[pass][icam] = 0.0;
     } // end iteration through cameras

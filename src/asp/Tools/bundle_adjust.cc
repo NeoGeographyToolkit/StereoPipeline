@@ -725,27 +725,21 @@ void addCamPosCostFun(Options                               const& opt,
       count++;
       pos_wts.push_back(position_wt);
     }
-    std::cout << "replace mean with median!\n";
-    std::cout << "--sum is " << sum << " count is " << count << std::endl;
+
     // Skip for zero count
     if (count == 0) 
       continue;
     
-    // The median weight seems to be more robust than the mean weight.
-    // That in case some pixel_sigma is oddly large for any reason.   
+    // The median weight was shown to be more robust to outliers 
+    // than the mean weight.
     double median_wt = vw::math::destructive_median(pos_wts);
-    double mean_wt = sum / count;
-    std::cout << "--mean weight is " << sum / count << std::endl;
-    std::cout << "--median wt is " << median_wt << std::endl;
     
     // Based on the CERES loss function formula, adding N loss functions each 
     // with weight w and robust threshold t is equivalent to adding one loss 
     // function with weight sqrt(N)*w and robust threshold sqrt(N)*t.
     //double combined_wt  = sqrt(count * 1.0) * median_wt;
-    double combined_wt  = sqrt(count * 1.0) * mean_wt;
+    double combined_wt  = sqrt(count * 1.0) * median_wt;
     double combined_th = sqrt(count * 1.0) * opt.camera_position_robust_threshold;
-    std::cout << "combined_wt is " << combined_wt << "\n";
-    std::cout << "combined_th is " << combined_th << "\n";
     ceres::CostFunction* cost_function
         = RotTransError::Create(orig_cam_ptr, rotation_wt, combined_wt);
     ceres::LossFunction* loss_function 
