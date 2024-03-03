@@ -620,7 +620,7 @@ void calcAnchorPoints(Options                              const  & opt,
                       std::vector<asp::CsmModel*>           const & csm_models,
                       // Append to these, they already have entries
                       std::vector<std::vector<Vector2>>                    & pixel_vec,
-                      std::vector<std::vector<boost::shared_ptr<Vector3>>> & xyz_vec,
+                      std::vector<std::vector<boost::shared_ptr<Vector3>>> & anchor_xyz_vec,
                       std::vector<std::vector<double*>>                    & xyz_vec_ptr,
                       std::vector<std::vector<double>>                     & weight_vec,
                       std::vector<std::vector<int>>                        & isAnchor_vec) {
@@ -723,8 +723,8 @@ void calcAnchorPoints(Options                              const  & opt,
         isAnchor_vec[icam].push_back(1);
 
         // Create a shared_ptr as we need a pointer per the api to use later
-        xyz_vec[icam].push_back(boost::shared_ptr<Vector3>(new Vector3()));
-        Vector3 & xyz = *xyz_vec[icam].back().get(); // alias to the element we just made
+        anchor_xyz_vec[icam].push_back(boost::shared_ptr<Vector3>(new Vector3()));
+        Vector3 & xyz = *anchor_xyz_vec[icam].back().get(); // alias to the element we just made
         xyz = dem_xyz; // copy the value, but the pointer does not change
         xyz_vec_ptr[icam].push_back(&xyz[0]); // keep the pointer to the first element
         numAnchorPoints++;
@@ -845,7 +845,7 @@ void addReprojCamErrs
 (Options                                              const & opt,
  asp::CRNJ                                            const & crn,
  std::vector<std::vector<Vector2>>                    const & pixel_vec,
- std::vector<std::vector<boost::shared_ptr<Vector3>>> const & xyz_vec,
+ std::vector<std::vector<boost::shared_ptr<Vector3>>> const & anchor_xyz_vec,
  std::vector<std::vector<double*>>                    const & xyz_vec_ptr,
  std::vector<std::vector<double>>                     const & weight_vec,
  std::vector<std::vector<int>>                        const & isAnchor_vec,
@@ -1451,7 +1451,7 @@ void createProblemStructure(Options                      const& opt,
                             std::set<int>                     & outliers,
                             std::vector<double>               & tri_points_vec,
                             std::vector<std::vector<Vector2>> & pixel_vec,
-                            std::vector<std::vector<Vec3Ptr>> & xyz_vec,
+                            std::vector<std::vector<Vec3Ptr>> & anchor_xyz_vec,
                             std::vector<std::vector<double*>> & xyz_vec_ptr,
                             std::vector<std::vector<double>>  & weight_vec,
                             std::vector<std::vector<int>>     & isAnchor_vec) {
@@ -1468,7 +1468,7 @@ void createProblemStructure(Options                      const& opt,
   int num_cameras = opt.camera_models.size();
 
   pixel_vec.resize(num_cameras);
-  xyz_vec.resize(num_cameras);
+  anchor_xyz_vec.resize(num_cameras);
   xyz_vec_ptr.resize(num_cameras);
   weight_vec.resize(num_cameras);
   isAnchor_vec.resize(num_cameras);
@@ -1778,13 +1778,13 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Create structures for pixels, xyz, and weights, to be used in optimization
   std::vector<std::vector<Vector2>> pixel_vec;
   // TODO(oalexan1): Wipe xyz_vec_ptr and use only xyz_vec.
-  std::vector<std::vector<boost::shared_ptr<Vector3>>> xyz_vec;
+  std::vector<std::vector<boost::shared_ptr<Vector3>>> anchor_xyz_vec;
   std::vector<std::vector<double*>> xyz_vec_ptr;
   std::vector<std::vector<double>> weight_vec;
   std::vector<std::vector<int>> isAnchor_vec;
   createProblemStructure(opt, crn, cnet, 
                          // Outputs
-                         outliers, tri_points_vec, pixel_vec, xyz_vec, xyz_vec_ptr,
+                         outliers, tri_points_vec, pixel_vec, anchor_xyz_vec, xyz_vec_ptr,
                          weight_vec, isAnchor_vec);
 
   // Find anchor points and append to pixel_vec, weight_vec, etc.
@@ -1792,7 +1792,7 @@ void run_jitter_solve(int argc, char* argv[]) {
        opt.anchor_weight > 0)
     calcAnchorPoints(opt, interp_anchor_dem, anchor_georef, csm_models,  
                      // Append to these
-                     pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
+                     pixel_vec, anchor_xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
 
   // Need this in order to undo the multiplication by weight before saving the residuals
   std::vector<double> weight_per_residual;
@@ -1807,7 +1807,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::vector<std::vector<double>> count_per_cam(2);
   
   // Add reprojection errors. Get back weights_per_cam, count_per_cam.
-  addReprojCamErrs(opt, crn, pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec,
+  addReprojCamErrs(opt, crn, pixel_vec, anchor_xyz_vec, xyz_vec_ptr, weight_vec,
                    isAnchor_vec, csm_models,
                    // Outputs
                    frame_params, weight_per_residual, 
