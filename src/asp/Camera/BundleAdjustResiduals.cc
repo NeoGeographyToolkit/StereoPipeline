@@ -536,7 +536,7 @@ void compute_residuals(asp::BaBaseOptions const& opt,
 }
 
 // TODO(oalexan1): Add here residuals for xyz discrepancy to DEM, if applicable
-void save_residuals(std::string const& residual_prefix,
+void saveJitterResiduals(std::string const& residual_prefix,
                     ceres::Problem & problem, asp::BaBaseOptions const& opt,
                     vw::ba::ControlNetwork const& cnet,
                     asp::CRNJ const& crn,
@@ -546,8 +546,7 @@ void save_residuals(std::string const& residual_prefix,
                     std::set<int> const& outliers,
                     std::vector<double> const& weight_per_residual,
                     // These are needed for anchor points
-                    std::vector<std::vector<vw::Vector2>>                    const& pixel_vec,
-                    std::vector<std::vector<boost::shared_ptr<vw::Vector3>>> const& xyz_vec,
+                    std::vector<std::vector<vw::Vector2>>                const& pixel_vec,
                     std::vector<std::vector<double*>>                    const& xyz_vec_ptr,
                     std::vector<std::vector<double>>                     const& weight_vec,
                     std::vector<std::vector<int>>                        const& isAnchor_vec) {

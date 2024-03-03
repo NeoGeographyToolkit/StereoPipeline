@@ -718,9 +718,6 @@ void addCamPosCostFun(Options                               const& opt,
       
       // Care with computing the weight
       double position_wt = opt.camera_position_weight / (gsd * pixel_sigma);
-      //std::cout << "pixel sigma is " << pixel_sigma << "\n";
-      //std::cout << "gsd is " << gsd << "\n";
-      //std::cout << "position_wt is " << position_wt << "\n";
       sum += position_wt;
       count++;
       pos_wts.push_back(position_wt);

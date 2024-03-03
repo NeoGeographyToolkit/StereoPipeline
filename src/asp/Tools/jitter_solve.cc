@@ -859,7 +859,7 @@ void addReprojCamErrs
 
   // Do here two passes, first for non-anchor points and then for anchor ones.
   // This way it is easier to do the bookkeeping when saving the residuals.
-  // Note: The same motions as here are repeated in save_residuals().
+  // Note: The same motions as here are repeated in saveJitterResiduals().
   weight_per_cam.resize(2);
   count_per_cam.resize(2);
   for (int pass = 0; pass < 2; pass++) {
@@ -939,17 +939,16 @@ void addReprojCamErrs
 }
 
 // Add the constraint based on DEM
-void addDemConstraint
-(Options                                              const& opt,
- std::vector<std::vector<boost::shared_ptr<Vector3>>> const& xyz_vec,
- std::vector<std::vector<double*>>                    const& xyz_vec_ptr,
- std::vector<vw::Vector3>                             const& dem_xyz_vec,
- std::set<int>                                        const& outliers,
- vw::ba::ControlNetwork                               const& cnet,
- // Outputs
- std::vector<double>                                       & tri_points_vec,
- std::vector<double>                                       & weight_per_residual, // append
- ceres::Problem                                            & problem) {
+void addDemConstraint(Options                  const& opt,
+                      std::vector<vw::Vector3> const& dem_xyz_vec,
+                      std::set<int>            const& outliers,
+                      vw::ba::ControlNetwork   const& cnet,
+                      // Outputs
+                      std::vector<double>           & tri_points_vec,
+                      std::vector<double>           & weight_per_residual, // append
+                      ceres::Problem                & problem) {
+  
+  std::cout << "--now here2!- in addDemConstraint\n";
   
   double xyz_weight = -1.0, xyz_threshold = -1.0;
     
@@ -1773,7 +1772,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Put the triangulated points in a vector. Update the cnet from the DEM,
   // if we have one.
   std::vector<double> orig_tri_points_vec, tri_points_vec;
-  formTriVec(dem_xyz_vec, have_dem, 
+  formTriVec(dem_xyz_vec, have_dem,
     cnet, orig_tri_points_vec, tri_points_vec); // outputs
   
   // Create structures for pixels, xyz, and weights, to be used in optimization
@@ -1817,7 +1816,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Add the DEM constraint. We check earlier that only one
   // of the two options below can be set at a time.
   if (have_dem)
-    addDemConstraint(opt, xyz_vec, xyz_vec_ptr, dem_xyz_vec, outliers, cnet,  
+    addDemConstraint(opt, dem_xyz_vec, outliers, cnet,  
                      // Outputs
                      tri_points_vec, 
                      weight_per_residual,  // append
@@ -1855,10 +1854,10 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Save residuals before optimization
   std::string residual_prefix = opt.out_prefix + "-initial_residuals";
-  save_residuals(residual_prefix, problem, opt, cnet, crn, have_dem, opt.datum,
+  saveJitterResiduals(residual_prefix, problem, opt, cnet, crn, have_dem, opt.datum,
                  tri_points_vec, dem_xyz_vec, outliers, weight_per_residual,
                  // These are needed for anchor points
-                 pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
+                 pixel_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
   
   // Set up the problem
   ceres::Solver::Options options;
@@ -1900,10 +1899,10 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Save residuals after optimization
   // TODO(oalexan1): Add here the anchor residuals
   residual_prefix = opt.out_prefix + "-final_residuals";
-  save_residuals(residual_prefix, problem, opt, cnet, crn, have_dem, opt.datum,
+  saveJitterResiduals(residual_prefix, problem, opt, cnet, crn, have_dem, opt.datum,
                  tri_points_vec, dem_xyz_vec, outliers, weight_per_residual,
                  // These are needed for anchor points
-                 pixel_vec, xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
+                 pixel_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
 
   saveOptimizedCameraModels(opt.out_prefix, opt.stereo_session,
                             opt.image_files, opt.camera_files,
