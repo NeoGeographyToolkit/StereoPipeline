@@ -921,7 +921,7 @@ void addReprojCamErrs
         if (gsd <= 0) 
           continue; 
 
-        // The camera weight depends on the input multiplier, pixel weight, and gsd
+        // The camera position weight depends on the input multiplier, pixel weight, and gsd
         double position_wt = opt.camera_position_weight * pix_wt / gsd;
         this_cam_weights.push_back(position_wt);
       } // end iteration through pixels
@@ -1120,10 +1120,8 @@ void addQuatNormRotationTranslationConstraints(
     std::set<int>                const & outliers,
     asp::CRNJ                    const & crn,
     std::vector<asp::CsmModel*>  const & csm_models,
-
     // Outputs
     std::vector<double>                & frame_params,
-    std::vector<double>                & tri_points_vec,
     std::vector<double>                & weight_per_residual, // append
     ceres::Problem                     & problem) {
   
@@ -1844,7 +1842,6 @@ void run_jitter_solve(int argc, char* argv[]) {
   addQuatNormRotationTranslationConstraints(opt, outliers, crn, csm_models,  
                                             // Outputs
                                             frame_params,
-                                            tri_points_vec,  
                                             weight_per_residual,  // append
                                             problem);
 
@@ -1854,9 +1851,8 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Save residuals before optimization
   std::string residual_prefix = opt.out_prefix + "-initial_residuals";
-  saveJitterResiduals(residual_prefix, problem, opt, cnet, crn, have_dem, opt.datum,
-                 tri_points_vec, dem_xyz_vec, outliers, weight_per_residual,
-                 // These are needed for anchor points
+  saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
+                 tri_points_vec, outliers, weight_per_residual,
                  pixel_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
   
   // Set up the problem
@@ -1897,11 +1893,9 @@ void run_jitter_solve(int argc, char* argv[]) {
   asp::calcCameraCenters(opt.camera_models, opt_cam_positions);
 
   // Save residuals after optimization
-  // TODO(oalexan1): Add here the anchor residuals
   residual_prefix = opt.out_prefix + "-final_residuals";
-  saveJitterResiduals(residual_prefix, problem, opt, cnet, crn, have_dem, opt.datum,
-                 tri_points_vec, dem_xyz_vec, outliers, weight_per_residual,
-                 // These are needed for anchor points
+  saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
+                 tri_points_vec, outliers, weight_per_residual,
                  pixel_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
 
   saveOptimizedCameraModels(opt.out_prefix, opt.stereo_session,

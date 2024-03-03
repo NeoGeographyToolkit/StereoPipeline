@@ -535,21 +535,19 @@ void compute_residuals(asp::BaBaseOptions const& opt,
   problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
 }
 
-// TODO(oalexan1): Add here residuals for xyz discrepancy to DEM, if applicable
-void saveJitterResiduals(std::string const& residual_prefix,
-                    ceres::Problem & problem, asp::BaBaseOptions const& opt,
-                    vw::ba::ControlNetwork const& cnet,
-                    asp::CRNJ const& crn,
-                    bool have_dem, vw::cartography::Datum const& datum,
-                    std::vector<double> const& tri_points_vec,
-                    std::vector<vw::Vector3> const& dem_xyz_vec,
-                    std::set<int> const& outliers,
-                    std::vector<double> const& weight_per_residual,
-                    // These are needed for anchor points
-                    std::vector<std::vector<vw::Vector2>>                const& pixel_vec,
-                    std::vector<std::vector<double*>>                    const& xyz_vec_ptr,
-                    std::vector<std::vector<double>>                     const& weight_vec,
-                    std::vector<std::vector<int>>                        const& isAnchor_vec) {
+void saveJitterResiduals(ceres::Problem                             & problem, 
+                         std::string                           const& residual_prefix,
+                         asp::BaBaseOptions                    const& opt,
+                         vw::ba::ControlNetwork                const& cnet,
+                         asp::CRNJ                             const& crn,
+                         vw::cartography::Datum                const& datum,
+                         std::vector<double>                   const& tri_points_vec,
+                         std::set<int>                         const& outliers,
+                         std::vector<double>                   const& weight_per_residual,
+                         std::vector<std::vector<vw::Vector2>> const& pixel_vec,
+                         std::vector<std::vector<double*>>     const& xyz_vec_ptr,
+                         std::vector<std::vector<double>>      const& weight_vec,
+                         std::vector<std::vector<int>>         const& isAnchor_vec) {
   
   // Compute the residuals before optimization
   std::vector<double> residuals;
@@ -562,8 +560,6 @@ void saveJitterResiduals(std::string const& residual_prefix,
   std::vector<double> mean_pixel_residual_norm(num_tri_points, 0.0);
   std::vector<int>    pixel_residual_count(num_tri_points, 0);
   std::vector<double> xyz_residual_norm; // This is unfinished logic
-  if (have_dem)
-    xyz_residual_norm.resize(num_tri_points, -1.0); // so we can ignore bad ones
   
   int ires = 0;
   for (int icam = 0; icam < (int)crn.size(); icam++) {
@@ -632,27 +628,8 @@ void saveJitterResiduals(std::string const& residual_prefix,
   }
   write_anchor_residuals(residual_prefix, datum, anchor_xyz, anchor_residual_norm);
   
-  // TODO(oalexan1): Add here per-camera median residuals.
-  // TODO(oalexan1): Save the xyz residual norms as well.
-  if (have_dem) {
-    for (int ipt = 0; ipt < num_tri_points; ipt++) {
-
-      Vector3 observation = dem_xyz_vec.at(ipt);
-      if (outliers.find(ipt) != outliers.end() || observation == Vector3(0, 0, 0)) 
-        continue; // outlier
-
-      // This is a Vector3 residual 
-      double norm = norm_2(Vector3(residuals[ires + 0] / weight_per_residual[ires + 0],
-                                   residuals[ires + 1] / weight_per_residual[ires + 1],
-                                   residuals[ires + 2] / weight_per_residual[ires + 2]));
-      xyz_residual_norm[ipt] = norm;
-      
-      ires += NUM_XYZ_PARAMS; // Update for the next iteration
-    }
-  }
-
   // Ensure we did not process more residuals than what we have.
-  // (Here we may not necessarily process all residuals.)
+  // Likely there are more residuals than what we handled now.
   if (ires > (int)residuals.size())
     vw_throw(ArgumentErr() << "More residuals found than expected.\n");
 
