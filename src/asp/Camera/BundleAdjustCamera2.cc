@@ -1225,7 +1225,8 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
 }
 
 // Find the average for the gsd for all pixels whose rays intersect at the given
-// triangulated point. This is used in jitter solving.
+// triangulated point. This is used in jitter solving. Note that tri_points_vec
+// may have anchor points at the end, but we don't get to those.
 void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
                             std::vector<vw::CamPtr>  const& cameras,
                             asp::CRNJ                const& crn,

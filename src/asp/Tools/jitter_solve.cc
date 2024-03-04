@@ -614,16 +614,17 @@ void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
 // Calculate a set of anchor points uniformly distributed over the image
 // Will use opt.num_anchor_points_extra_lines. We append to weight_vec and
 // other quantities that were used for reprojection errors for match points.
-void calcAnchorPoints(Options                              const  & opt,
-                      ImageViewRef<PixelMask<double>>               interp_anchor_dem,
-                      vw::cartography::GeoReference         const & anchor_georef,
-                      std::vector<asp::CsmModel*>           const & csm_models,
+void calcAnchorPoints(Options                         const & opt,
+                      ImageViewRef<PixelMask<double>>         interp_anchor_dem,
+                      vw::cartography::GeoReference   const & anchor_georef,
+                      std::vector<asp::CsmModel*>     const & csm_models,
                       // Append to these, they already have entries
-                      std::vector<std::vector<Vector2>>                    & pixel_vec,
-                      std::vector<std::vector<boost::shared_ptr<Vector3>>> & anchor_xyz_vec,
-                      std::vector<std::vector<double*>>                    & xyz_vec_ptr,
-                      std::vector<std::vector<double>>                     & weight_vec,
-                      std::vector<std::vector<int>>                        & isAnchor_vec) {
+                      std::vector<std::vector<Vector2>>     & pixel_vec,
+                      std::vector<std::vector<double>>      & weight_vec,
+                      std::vector<std::vector<int>>         & isAnchor_vec,
+                      std::vector<std::vector<int>>         & pix2xyz_index,
+                      std::vector<double>                   & orig_tri_points_vec,
+                      std::vector<double>                   & tri_points_vec) {
 
   if (opt.num_anchor_points_per_image <= 0 && opt.num_anchor_points_per_tile <= 0)
     vw::vw_throw(vw::ArgumentErr() << "Expecting a positive number of anchor points.\n");
@@ -690,7 +691,7 @@ void calcAnchorPoints(Options                              const  & opt,
            interp_anchor_dem, anchor_georef, treat_nodata_as_zero, has_intersection,
            height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
 
-        if (!has_intersection) 
+        if (!has_intersection || dem_xyz == Vector3())
           continue;
 
         Vector2 pix_out;
@@ -721,12 +722,16 @@ void calcAnchorPoints(Options                              const  & opt,
         pixel_vec[icam].push_back(pix);
         weight_vec[icam].push_back(opt.anchor_weight * anchor_weight_from_image);
         isAnchor_vec[icam].push_back(1);
+        
+        // The current number of points in tri_points_vec is the index of the next point
+        pix2xyz_index[icam].push_back(tri_points_vec.size() / 3);
 
-        // Create a shared_ptr as we need a pointer per the api to use later
-        anchor_xyz_vec[icam].push_back(boost::shared_ptr<Vector3>(new Vector3()));
-        Vector3 & xyz = *anchor_xyz_vec[icam].back().get(); // alias to the element we just made
-        xyz = dem_xyz; // copy the value, but the pointer does not change
-        xyz_vec_ptr[icam].push_back(&xyz[0]); // keep the pointer to the first element
+        // Append every coordinate of dem_xyz to tri_points_vec
+        for (int it = 0; it < 3; it++) {
+          orig_tri_points_vec.push_back(dem_xyz[it]);
+          tri_points_vec.push_back(dem_xyz[it]);
+        }
+          
         numAnchorPoints++;
       }   
     }
@@ -841,21 +846,20 @@ void addFrameReprojectionErr(Options             const & opt,
 
 // Add reprojection errors. Collect data that will be used to add camera
 // constraints that scale with the number of reprojection errors and GSD.
-void addReprojCamErrs
-(Options                                              const & opt,
- asp::CRNJ                                            const & crn,
- std::vector<std::vector<Vector2>>                    const & pixel_vec,
- std::vector<std::vector<boost::shared_ptr<Vector3>>> const & anchor_xyz_vec,
- std::vector<std::vector<double*>>                    const & xyz_vec_ptr,
- std::vector<std::vector<double>>                     const & weight_vec,
- std::vector<std::vector<int>>                        const & isAnchor_vec,
- std::vector<asp::CsmModel*>                          const & csm_models,
- // Outputs
- std::vector<double>                                        & frame_params,
- std::vector<double>                                        & weight_per_residual, // append
- std::vector<std::vector<double>>                           & weight_per_cam,
- std::vector<std::vector<double>>                           & count_per_cam,
- ceres::Problem                                             & problem) {
+void addReprojCamErrs(Options                           const & opt,
+                      asp::CRNJ                         const & crn,
+                      std::vector<std::vector<Vector2>> const & pixel_vec,
+                      std::vector<std::vector<double>>  const & weight_vec,
+                      std::vector<std::vector<int>>     const & isAnchor_vec,
+                      std::vector<std::vector<int>>     const & pix2xyz_index,
+                      std::vector<asp::CsmModel*>       const & csm_models,
+                      // Outputs
+                      std::vector<double>                     & tri_points_vec,
+                      std::vector<double>                     & frame_params,
+                      std::vector<double>                     & weight_per_residual,
+                      std::vector<std::vector<double>>        & weight_per_cam,
+                      std::vector<std::vector<double>>        & count_per_cam,
+                      ceres::Problem                          & problem) {
 
   // Do here two passes, first for non-anchor points and then for anchor ones.
   // This way it is easier to do the bookkeeping when saving the residuals.
@@ -876,7 +880,7 @@ void addReprojCamErrs
       for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
 
         Vector2 pix_obs    = pixel_vec[icam][ipix];
-        double * tri_point = xyz_vec_ptr[icam][ipix];
+        double * tri_point = &tri_points_vec[3 * pix2xyz_index[icam][ipix]];
         double pix_wt      = weight_vec[icam][ipix];
         bool isAnchor      = isAnchor_vec[icam][ipix];
 
@@ -934,7 +938,7 @@ void addReprojCamErrs
         weight_per_cam[pass][icam] = 0.0;
     } // end iteration through cameras
   } // end iteration through passes
-  
+
   return;
 }
 
@@ -947,8 +951,6 @@ void addDemConstraint(Options                  const& opt,
                       std::vector<double>           & tri_points_vec,
                       std::vector<double>           & weight_per_residual, // append
                       ceres::Problem                & problem) {
-  
-  std::cout << "--now here2!- in addDemConstraint\n";
   
   double xyz_weight = -1.0, xyz_threshold = -1.0;
     
@@ -966,6 +968,12 @@ void addDemConstraint(Options                  const& opt,
     vw_throw(ArgumentErr() << "Detected invalid robust threshold or weights.\n");
 
   int num_tri_points = cnet.size();
+  
+  // The tri_points_vec must have at least as many points as cnet. It can have anchor points
+  // as well.
+  if ((int)tri_points_vec.size() < num_tri_points * NUM_XYZ_PARAMS)
+    vw_throw(ArgumentErr() << "Too few triangulated points.\n");
+  
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
       
     if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
@@ -1045,8 +1053,6 @@ void addCamPositionConstraint(Options                      const & opt,
                               std::vector<std::vector<double>> const& count_per_cam,
                               // Outputs
                               std::vector<double>                & frame_params,
-                              std::vector<double>                & tri_points_vec,
-                              // Append to weight_per_residual
                               std::vector<double>                & weight_per_residual, 
                               ceres::Problem                     & problem) {
 
@@ -1439,20 +1445,16 @@ void prepareCsmCameras(Options const& opt,
 // Create structures for pixels, xyz, and weights, to be used in optimization.
 // Later there will be another pass to add weights for the anchor points.
 // Here more points may be flagged as outliers.
-// TODO(oalexan1): Avoid using xyz_vec_ptr. If the vector gets resized, the pointers
-// will be invalidated.
-typedef boost::shared_ptr<Vector3> Vec3Ptr;
 void createProblemStructure(Options                      const& opt,
                             asp::CRNJ                    const& crn,
                             vw::ba::ControlNetwork       const& cnet, 
+                            std::vector<double>          const& tri_points_vec,
                             // Outputs
                             std::set<int>                     & outliers,
-                            std::vector<double>               & tri_points_vec,
                             std::vector<std::vector<Vector2>> & pixel_vec,
-                            std::vector<std::vector<Vec3Ptr>> & anchor_xyz_vec,
-                            std::vector<std::vector<double*>> & xyz_vec_ptr,
                             std::vector<std::vector<double>>  & weight_vec,
-                            std::vector<std::vector<int>>     & isAnchor_vec) {
+                            std::vector<std::vector<int>>     & isAnchor_vec,
+                            std::vector<std::vector<int>>     & pix2xyz_index) {
 
   // If to use a weight image
   bool have_weight_image = (!opt.weight_image.empty());
@@ -1465,11 +1467,16 @@ void createProblemStructure(Options                      const& opt,
 
   int num_cameras = opt.camera_models.size();
 
+  // Wipe
+  pixel_vec.resize(0);
+  weight_vec.resize(0);
+  isAnchor_vec.resize(0);
+  pix2xyz_index.resize(0);
+  // Resize
   pixel_vec.resize(num_cameras);
-  anchor_xyz_vec.resize(num_cameras);
-  xyz_vec_ptr.resize(num_cameras);
   weight_vec.resize(num_cameras);
   isAnchor_vec.resize(num_cameras);
+  pix2xyz_index.resize(num_cameras);
 
   for (int icam = 0; icam < (int)crn.size(); icam++) {
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
@@ -1484,15 +1491,14 @@ void createProblemStructure(Options                      const& opt,
       // the camera with index icam.
       Vector2 observation = (**fiter).m_location;
 
-      // Ideally this point projects back to the pixel observation.
-      double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
-      
       // Unlike in bundle adjustment, the weight of a pixel is 1.0, rather
       // than 1.0 / pixel_sigma.
       double weight = 1.0;
       
       // If we have a weight image, use it to set the weight
       if (have_weight_image) {
+        // TODO(oalexan1): Must test with weight image!
+        const double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
         Vector3 ecef(tri_point[0], tri_point[1], tri_point[2]);
         vw::PixelMask<float> img_wt 
           = vw::cartography::closestPixelVal(weight_image, weight_image_georef, ecef);
@@ -1509,9 +1515,7 @@ void createProblemStructure(Options                      const& opt,
       pixel_vec[icam].push_back(observation);
       weight_vec[icam].push_back(weight);
       isAnchor_vec[icam].push_back(0);
-      // It is bad logic to store pointers as below. What if tri_points_vec
-      // later gets resized?
-      xyz_vec_ptr[icam].push_back(tri_point); 
+      pix2xyz_index[icam].push_back(ipt);
     }
   }
 
@@ -1768,29 +1772,31 @@ void run_jitter_solve(int argc, char* argv[]) {
   initFrameCameraParams(csm_models, frame_params);
 
   // Put the triangulated points in a vector. Update the cnet from the DEM,
-  // if we have one.
+  // if we have one. Later will add here the anchor points.
   std::vector<double> orig_tri_points_vec, tri_points_vec;
   formTriVec(dem_xyz_vec, have_dem,
     cnet, orig_tri_points_vec, tri_points_vec); // outputs
   
   // Create structures for pixels, xyz, and weights, to be used in optimization
   std::vector<std::vector<Vector2>> pixel_vec;
-  // TODO(oalexan1): Wipe xyz_vec_ptr and use only xyz_vec.
-  std::vector<std::vector<boost::shared_ptr<Vector3>>> anchor_xyz_vec;
-  std::vector<std::vector<double*>> xyz_vec_ptr;
   std::vector<std::vector<double>> weight_vec;
   std::vector<std::vector<int>> isAnchor_vec;
-  createProblemStructure(opt, crn, cnet, 
+  std::vector<std::vector<int>> pix2xyz_index;
+  createProblemStructure(opt, crn, cnet, tri_points_vec,
                          // Outputs
-                         outliers, tri_points_vec, pixel_vec, anchor_xyz_vec, xyz_vec_ptr,
-                         weight_vec, isAnchor_vec);
+                         outliers, pixel_vec, 
+                         weight_vec, isAnchor_vec, pix2xyz_index);
 
-  // Find anchor points and append to pixel_vec, weight_vec, etc.
+  // Find anchor points and append to pixel_vec, weight_vec, xyz_vec, etc.
   if ((opt.num_anchor_points_per_image > 0 || opt.num_anchor_points_per_tile > 0) &&
        opt.anchor_weight > 0)
     calcAnchorPoints(opt, interp_anchor_dem, anchor_georef, csm_models,  
                      // Append to these
-                     pixel_vec, anchor_xyz_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
+                     pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
+                     orig_tri_points_vec, tri_points_vec);
+    
+    // The above structures must not be resized anymore, as we will get pointers
+    // to individual blocks within them.
 
   // Need this in order to undo the multiplication by weight before saving the residuals
   std::vector<double> weight_per_residual;
@@ -1805,10 +1811,10 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::vector<std::vector<double>> count_per_cam(2);
   
   // Add reprojection errors. Get back weights_per_cam, count_per_cam.
-  addReprojCamErrs(opt, crn, pixel_vec, anchor_xyz_vec, xyz_vec_ptr, weight_vec,
-                   isAnchor_vec, csm_models,
+  addReprojCamErrs(opt, crn, pixel_vec, weight_vec,
+                   isAnchor_vec, pix2xyz_index, csm_models,
                    // Outputs
-                   frame_params, weight_per_residual, 
+                   tri_points_vec, frame_params, weight_per_residual, 
                    weight_per_cam, count_per_cam, problem);
  
   // Add the DEM constraint. We check earlier that only one
@@ -1835,7 +1841,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (opt.camera_position_weight > 0) 
     addCamPositionConstraint(opt, outliers, crn, csm_models, weight_per_cam, count_per_cam,
                              // Outputs
-                             frame_params, tri_points_vec, weight_per_residual, problem);
+                             frame_params, weight_per_residual, problem);
     
   // Add constraints to keep quat norm close to 1, and make rotations and translations
   // not change too much
@@ -1853,7 +1859,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::string residual_prefix = opt.out_prefix + "-initial_residuals";
   saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                  tri_points_vec, outliers, weight_per_residual,
-                 pixel_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
+                 pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index);
   
   // Set up the problem
   ceres::Solver::Options options;
@@ -1896,7 +1902,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   residual_prefix = opt.out_prefix + "-final_residuals";
   saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                  tri_points_vec, outliers, weight_per_residual,
-                 pixel_vec, xyz_vec_ptr, weight_vec, isAnchor_vec);
+                 pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index);
 
   saveOptimizedCameraModels(opt.out_prefix, opt.stereo_session,
                             opt.image_files, opt.camera_files,
@@ -1913,7 +1919,6 @@ void run_jitter_solve(int argc, char* argv[]) {
   asp::saveTriOffsetsPerCamera(opt.image_files, outliers,
                                orig_tri_points_vec, tri_points_vec,
                                crn, tri_offsets_file);
-  
   return;
 }
 

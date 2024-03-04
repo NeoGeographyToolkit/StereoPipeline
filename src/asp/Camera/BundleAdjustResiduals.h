@@ -118,9 +118,9 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          std::set<int>                         const& outliers,
                          std::vector<double>                   const& weight_per_residual,
                          std::vector<std::vector<vw::Vector2>> const& pixel_vec,
-                         std::vector<std::vector<double*>>     const& xyz_vec_ptr,
                          std::vector<std::vector<double>>      const& weight_vec,
-                         std::vector<std::vector<int>>         const& isAnchor_vec);
+                         std::vector<std::vector<int>>         const& isAnchor_vec,
+                         std::vector<std::vector<int>>         const& pix2xyz_index);
 
 // This is used in jitter_solve
 void compute_residuals(asp::BaBaseOptions const& opt,

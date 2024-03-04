@@ -363,6 +363,9 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 } // End function write_residual_logs
 
 // Find the offsets between initial and final triangulated points
+// TODO(oalexan1): Copy the data from param storage, then
+// use the 2nd function called saveTriOffsetsPerCamera instead
+// to reduce code duplication.
 void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
                              asp::BAParams const& orig_params,
                              asp::BAParams const& param_storage,
@@ -408,7 +411,8 @@ void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
 }
 
 // Analogous version to the above, but keep the original and current triangulated points
-// in std<vector>, for use in jitter_solve.
+// in std<vector>, for use in jitter_solve. Note that tri_points_vec may have
+// anchor points later on, but we don't get to them.
 void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
                              std::set<int>            const& outliers,
                              std::vector<double>      const& orig_tri_points_vec,
@@ -545,9 +549,9 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          std::set<int>                         const& outliers,
                          std::vector<double>                   const& weight_per_residual,
                          std::vector<std::vector<vw::Vector2>> const& pixel_vec,
-                         std::vector<std::vector<double*>>     const& xyz_vec_ptr,
                          std::vector<std::vector<double>>      const& weight_vec,
-                         std::vector<std::vector<int>>         const& isAnchor_vec) {
+                         std::vector<std::vector<int>>         const& isAnchor_vec,
+                         std::vector<std::vector<int>>         const& pix2xyz_index) {
   
   // Compute the residuals before optimization
   std::vector<double> residuals;
@@ -604,7 +608,6 @@ void saveJitterResiduals(ceres::Problem                             & problem,
       for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
 
         Vector2 observation =  pixel_vec[icam][ipix];
-        double * tri_point = xyz_vec_ptr[icam][ipix];
         double weight = weight_vec[icam][ipix];
         bool isAnchor = isAnchor_vec[icam][ipix];
 
@@ -620,6 +623,7 @@ void saveJitterResiduals(ceres::Problem                             & problem,
         
         ires += PIXEL_SIZE; // Update for the next iteration
 
+        double const* tri_point = &tri_points_vec[3 * pix2xyz_index[icam][ipix]];
         Vector3 xyz(tri_point[0], tri_point[1], tri_point[2]);
         anchor_xyz.push_back(xyz);
         anchor_residual_norm.push_back(norm);
@@ -636,7 +640,8 @@ void saveJitterResiduals(ceres::Problem                             & problem,
   return;
 }
 
-// This is used in jitter_solve
+// This is used in jitter_solve. There can be more tri points than in cnet,
+// because we add anchor points. Those do not get processed here.
 void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
                                    std::string            const& residual_prefix,
                                    vw::cartography::Datum const& datum,
@@ -648,7 +653,7 @@ void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
   std::string map_prefix = residual_prefix + "_pointmap";
   std::string output_path = map_prefix + ".csv";
 
-  int num_tri_points = tri_points_vec.size() / NUM_XYZ_PARAMS;
+  int num_tri_points = cnet.size();
   
   // Open the output file and write the header. TODO(oalexan1): See
   // if it is possible to integrate this with the analogous
