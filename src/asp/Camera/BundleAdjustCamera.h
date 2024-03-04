@@ -89,8 +89,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
   double heights_from_dem_uncertainty, reference_terrain_weight, 
     heights_from_dem_robust_threshold, camera_weight, rotation_weight, 
-    translation_weight, camera_position_weight, // TODO(oalexan1): Wipe translation_weight
-    camera_position_robust_threshold,
+    camera_position_weight, camera_position_robust_threshold,
     tri_weight, tri_robust_threshold;
   vw::Vector2 camera_position_uncertainty;    
   vw::Vector<double, 4> remove_outliers_params;
@@ -100,8 +99,9 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   std::map<std::pair<int, int>, std::string> match_files;
   vw::cartography::Datum datum;
 
-  BaBaseOptions(): min_triangulation_angle(0.0), camera_weight(-1.0),
-                   rotation_weight(0.0), translation_weight(0.0), tri_weight(0.0),
+  BaBaseOptions(): min_triangulation_angle(0.0), camera_position_weight(0.0),
+                    camera_position_robust_threshold(0.0), camera_weight(-1.0),
+                   rotation_weight(0.0), tri_weight(0.0),
                    robust_threshold(0.0), min_matches(0),
                    num_iterations(0), overlap_limit(0), have_overlap_list(false),
                    camera_type(BaCameraType_Other), max_num_reference_points(-1),

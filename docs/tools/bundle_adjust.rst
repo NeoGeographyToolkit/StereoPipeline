@@ -141,19 +141,22 @@ This is a soft constraint and given less priority than reducing the pixel
 reprojection errors in the cameras. Its default value is 0.1. An example is in
 :numref:`skysat_stereo`.
 
+This constraint adapts appropriately to the number of interest points and the
+local average ground sample distance.
+
 The measured distances between the initial and final triangulated points are
 saved to a file (:numref:`ba_tri_offsets`) and should be inspected. Also check
 the pixel reprojection errors per camera (:numref:`ba_errors_per_camera`).
 
-This constraint is implemented as follows. The distances between initially
-triangulated points and those being optimized points are computed, then divided
-by the local averaged ground sample distance (GSD) (to make them into pixel
-units, like the reprojection errors). These are multiplied by ``--tri-weight``.
-Then, the robust threshold given by ``--tri-robust-threshold`` is applied, with
-a value of 0.1, to attenuate the big residuals. This threshold is smaller than
-the pixel reprojection error threshold (``--robust-threshold``), whose default
-value is 0.5, to ensure that this constraint does not prevent the optimization
-from minimizing the pixel reprojection errors.
+The implementation is follows. The distances between initially triangulated
+points and those being optimized points are computed, then divided by the local
+averaged ground sample distance (GSD) (to make them into pixel units, like the
+reprojection errors). These are multiplied by ``--tri-weight``. Then, the robust
+threshold given by ``--tri-robust-threshold`` is applied, with a value of 0.1,
+to attenuate the big residuals. This threshold is smaller than the pixel
+reprojection error threshold (``--robust-threshold``), whose default value is
+0.5, to ensure that this constraint does not prevent the optimization from
+minimizing the pixel reprojection errors.
 
 Triangulated points that are constrained via a DEM (option
 ``--heights-from-dem``, :numref:`heights_from_dem`), that is, those that are
@@ -168,18 +171,25 @@ Camera constraints
 ^^^^^^^^^^^^^^^^^^
 
 The option ``--camera-position-weight``, with a  default of 0.1, constrains how
-much the camera positions can move. This is a soft constraint and is given
-less priority than reducing the pixel reprojection errors.
+much the camera positions can move. This is a soft constraint and is given less
+priority than reducing the pixel reprojection errors.
 
-This value is a multiplier. Internally the constraint is adapts to the ground
-sample distance, number of interest points, and per-pixel uncertainty (1 sigma).
-The implementation is very analogous to the triangulation constraint
-(:numref:`ba_ground_constraints`).
+This value is a multiplier, representing the ratio of strength of the camera
+position constraint versus the pixel reprojection error constraint. Internally
+the constraint adapts to the mean local ground sample distance, number of
+interest points, and per-pixel uncertainty (1 sigma). The implementation is very
+analogous to the triangulation constraint (:numref:`ba_ground_constraints`).
 
 It is suggested to examine the camera change report
 (:numref:`ba_camera_offsets`) and pixel reprojection report
-(:numref:`ba_errors_per_camera`) to see the effects.
+(:numref:`ba_errors_per_camera`) to see the effects. Normally the default
+should do well.
 
+An additional modifier to this constraint is the option
+``--camera-position-robust-threshold``. This is a robust threshold, with a
+default of 0.1, that will attenuate big differences in camera position. Its
+documentation has more details. 
+ 
 If the camera position uncertainties are  known, the option
 ``--camera-position-uncertainty`` can be used instead. This sets hard
 constraints on how much the camera positions can move horizontally and
@@ -907,13 +917,6 @@ Command-line options
     the per-coordinate differences between initial and optimized
     normalized camera quaternions, multiplied by this weight, and then
     squared. No robust threshold is used to attenuate this term.
-
---translation-weight <double (default: 0.0)>
-    A higher weight will penalize more camera center deviations from
-    the original configuration. This adds to the cost function
-    the per-coordinate differences between initial and optimized
-    camera positions, multiplied by this weight, and then squared. No
-    robust threshold is used to attenuate this term.
 
 --camera-weight <double (default: 0.0)>
     The weight to give to the constraint that the camera positions/orientations

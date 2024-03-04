@@ -207,9 +207,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "is to reduce pixel reprojection errors, even if that results in big differences "
      "in the camera positions. It is suggested to not modify this value, "
      "and adjust instead --camera-position-weight.")
-    ("translation-weight", po::value(&opt.translation_weight)->default_value(0.0),
-     "A higher weight will penalize more deviations from "
-     "the original camera positions.")
     ("quat-norm-weight", po::value(&opt.quat_norm_weight)->default_value(1.0),
      "How much weight to give to the constraint that the norm of each quaternion must be 1.")
     ("roll-weight", po::value(&opt.roll_weight)->default_value(0.0),
@@ -354,8 +351,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.heights_from_dem_robust_threshold <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be positive.\n");
 
-  if (opt.rotation_weight < 0 || opt.translation_weight < 0)
-    vw_throw(ArgumentErr() << "Rotation and translation weights must be non-negative.\n");
+  if (opt.rotation_weight < 0)
+    vw_throw(ArgumentErr() << "Rotation weight must be non-negative.\n");
   
   if (opt.camera_position_weight < 0) 
     vw_throw(ArgumentErr() << "The value of --camera-position-weight must be n"
@@ -1121,7 +1118,7 @@ void addCamPositionConstraint(Options                      const & opt,
   }
 }
 
-void addQuatNormRotationTranslationConstraints(
+void addQuatNormRotationConstraints(
     Options                      const & opt,
     std::set<int>                const & outliers,
     asp::CRNJ                    const & crn,
@@ -1178,56 +1175,6 @@ void addQuatNormRotationTranslationConstraints(
       }
 
     } // end loop through cameras
-  }
-
-  // Constrain the translations
-  // TODO(oalexan1): Make this a standalone function
-  if (opt.translation_weight > 0.0) {
-    for (int icam = 0; icam < (int)crn.size(); icam++) {
-
-      UsgsAstroLsSensorModel * ls_model
-        = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
-      UsgsAstroFrameSensorModel * frame_model
-        = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
-
-      if (ls_model != NULL) {
-
-        int numPos = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
-        for (int ip = 0; ip < numPos; ip++) {
-          ceres::CostFunction* translation_cost_function
-            = weightedTranslationError::Create(&ls_model->m_positions[ip * NUM_XYZ_PARAMS],
-                                            opt.translation_weight);
-          // We use no loss function, as the positions have no outliers
-          ceres::LossFunction* translation_loss_function = NULL;
-          problem.AddResidualBlock(translation_cost_function, translation_loss_function,
-                                  &ls_model->m_positions[ip * NUM_XYZ_PARAMS]);
-          
-          for (int c = 0; c < NUM_XYZ_PARAMS; c++)
-            weight_per_residual.push_back(opt.translation_weight);
-        }
-
-      } else if (frame_model != NULL) {
-
-        // There is only one position per camera
-        double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
-        // we will copy from curr_params the initial position
-        ceres::CostFunction* translation_cost_function
-          = weightedTranslationError::Create(&curr_params[0], // translation starts here
-                                             opt.translation_weight);
-
-        // We use no loss function, as the positions have no outliers
-        ceres::LossFunction* translation_loss_function = NULL;
-        problem.AddResidualBlock(translation_cost_function, translation_loss_function,
-                                &curr_params[0]); // translation starts here
-        
-        for (int c = 0; c < NUM_XYZ_PARAMS; c++)
-          weight_per_residual.push_back(opt.translation_weight);
-
-      } else {
-         vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
-      }
-
-    }
   }
 
   // Try to make the norm of quaternions be close to 1
@@ -1497,7 +1444,6 @@ void createProblemStructure(Options                      const& opt,
       
       // If we have a weight image, use it to set the weight
       if (have_weight_image) {
-        // TODO(oalexan1): Must test with weight image!
         const double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
         Vector3 ecef(tri_point[0], tri_point[1], tri_point[2]);
         vw::PixelMask<float> img_wt 
@@ -1838,18 +1784,19 @@ void run_jitter_solve(int argc, char* argv[]) {
                      weight_per_residual,  // append
                      problem);
 
+  // Add the constraint to keep the camera positions close to initial values
   if (opt.camera_position_weight > 0) 
     addCamPositionConstraint(opt, outliers, crn, csm_models, weight_per_cam, count_per_cam,
                              // Outputs
                              frame_params, weight_per_residual, problem);
     
-  // Add constraints to keep quat norm close to 1, and make rotations and translations
+  // Add constraints to keep quat norm close to 1, and make rotations 
   // not change too much
-  addQuatNormRotationTranslationConstraints(opt, outliers, crn, csm_models,  
-                                            // Outputs
-                                            frame_params,
-                                            weight_per_residual,  // append
-                                            problem);
+  addQuatNormRotationConstraints(opt, outliers, crn, csm_models,  
+                                 // Outputs
+                                 frame_params,
+                                 weight_per_residual,  // append
+                                 problem);
 
   if (opt.roll_weight > 0 || opt.yaw_weight > 0)
     addRollYawConstraint(opt, crn, csm_models, roll_yaw_georef,

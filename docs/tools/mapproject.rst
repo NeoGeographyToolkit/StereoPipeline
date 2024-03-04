@@ -41,8 +41,8 @@ size in degrees::
 
      mapproject --tr 0.0001 DEM.tif image.tif camera.tsai output.tif
 
-Map-project a .cub file (it has both image and camera
-information) for the Moon. Use a custom stereographic projection::
+Map-project a .cub file (it has both image and camera information) for the Moon.
+Use a custom stereographic projection::
 
     proj="+proj=stere +lat_0=-85.3643 +lon_0=31.2387 +R=1737400 +units=m +no_defs"
 
@@ -55,6 +55,8 @@ Map-project an image file with associated .xml camera file. Use bundle-adjusted 
 
      mapproject -t rpc --bundle-adjust-prefix ba/run \
        DEM.tif image.tif image.xml output.tif
+
+See :numref:`rpc` for other ways of specifying the camera model.
 
 Mapproject using the CSM camera model (:numref:`csm`)::
 
@@ -76,7 +78,6 @@ but much slower.
 If desired to change the range of longitudes from [0, 360] to [-180,
 180], or vice-versa, post-process obtained mapprojected image with
 ``image_calc`` (:numref:`image_calc`).
-
 
 .. _mapproj_metadata:
 

@@ -991,14 +991,16 @@ int do_ba_ceres_one_pass(Options             & opt,
     } // End loop through cameras.
   }
 
-  // Finer level control of only rotation and translation.
+  // Finer level control of only rotation. See also --camera-position-weight.
   // Error goes up as cameras move and rotate from their input positions.
-  // TODO(oalexan1): This will prevent convergence in some cases as there is no attenuation
-  if (opt.rotation_weight > 0 || opt.translation_weight > 0) {
+  // Note: A strong constraint here can prevent convergence as the is no loss function.
+  // Camera position and tri constraints are suggested instead.
+  if (opt.rotation_weight > 0) {
     for (int icam = 0; icam < num_cameras; icam++) {
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
+      double translation_weight = 0.0; // no translation constraint here
       ceres::CostFunction* cost_function
-        = RotTransError::Create(orig_cam_ptr, opt.rotation_weight, opt.translation_weight);
+        = RotTransError::Create(orig_cam_ptr, opt.rotation_weight, translation_weight);
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
       double * camera  = param_storage.get_camera_ptr(icam);
       problem.AddResidualBlock(cost_function, loss_function, camera);
@@ -1822,11 +1824,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("match-first-to-last", po::bool_switch(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
      "Match first several images to last several images by extending the logic of --overlap-limit past the last image to the earliest ones.")
-    ("rotation-weight",      po::value(&opt.rotation_weight)->default_value(0.0),
-     "A higher weight will penalize more rotation deviations from the original configuration.")
-    // TODO(oalexan1): Wipe translation-weight
-    ("translation-weight",   po::value(&opt.translation_weight)->default_value(0.0),
-     "A higher weight will penalize more translation deviations from the original configuration.")
     ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.1),
      "A soft constraint to keep the camera positions close to the original values. "
      "It is meant to prevent a wholesale shift of the cameras, without impeding "
@@ -1842,6 +1839,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "is to reduce pixel reprojection errors, even if that results in big differences "
      "in the camera positions. It is suggested to not modify this value, "
      "and adjust instead --camera-position-weight.")
+    ("rotation-weight",      po::value(&opt.rotation_weight)->default_value(0.0),
+     "A higher weight will penalize more rotation deviations from the original configuration.")
     ("camera-weight", po::value(&opt.camera_weight)->default_value(0.0),
      "The weight to give to the constraint that the camera positions/orientations "
      "stay close to the original values. A higher weight means that the values will "
@@ -2195,9 +2194,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.rotation_weight < 0.0)
     vw_throw( ArgumentErr() << "The rotation weight must be non-negative.\n");
 
-  if (opt.translation_weight < 0.0)
-    vw_throw( ArgumentErr() << "The translation weight must be non-negative.\n");
-
   if (opt.camera_position_weight < 0.0)
     vw_throw( ArgumentErr() << "The camera position weight must be non-negative.\n");
     
@@ -2522,12 +2518,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     
   if (opt.camera_position_uncertainty[0] > 0) {
     
-    if (opt.translation_weight > 0) {
-      vw::vw_out() << "Setting --translation-weight to 0 as --camera-position-uncertainty "
-                   << "is positive.\n";
-      opt.translation_weight = 0;
-    }
-    
     // Same for camera position weight
     if (opt.camera_position_weight > 0) {
       vw::vw_out() << "Setting --camera-position-weight to 0 as --camera-position-uncertainty "
@@ -2546,17 +2536,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << "Cannot use camera uncertainties without a datum. Set --datum.\n");
   }
 
-  // Set camera weight and translation weight to 0 if camera position weight is positive
+  // Set camera weight and to 0 if camera position weight is positive
   if (opt.camera_position_weight > 0) {
     if (opt.camera_weight > 0) {
       vw::vw_out() << "Setting --camera-weight to 0 as --camera-position-weight "
                     << "is positive.\n";
       opt.camera_weight = 0;
-    }
-    if (opt.translation_weight > 0) {
-      vw::vw_out() << "Setting --translation-weight to 0 as --camera-position-weight "
-                    << "is positive.\n";
-      opt.translation_weight = 0;
     }
   }
   

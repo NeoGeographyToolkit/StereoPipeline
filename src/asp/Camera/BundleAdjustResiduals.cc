@@ -72,7 +72,7 @@ void compute_residuals(bool apply_loss_function,
     num_expected_residuals += cam_residual_counts[i]*PIXEL_SIZE;
   if (opt.camera_weight > 0)
     num_expected_residuals += total_num_cam_params;
-  if (opt.rotation_weight > 0 || opt.translation_weight > 0)
+  if (opt.rotation_weight > 0)
     num_expected_residuals += total_num_cam_params;
   num_expected_residuals += num_uncertainty_residuals * PIXEL_SIZE;
   num_expected_residuals += reference_vec.size() * PIXEL_SIZE;
@@ -298,10 +298,10 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   
   // List the camera weight residuals
   int num_passes = int(opt.camera_weight > 0) +
-    int(opt.rotation_weight > 0 || opt.translation_weight > 0);
+    int(opt.rotation_weight > 0);
   for (int pass = 0; pass < num_passes; pass++) {
     const size_t part_size = param_storage.params_per_camera()/2;
-    for (size_t c=0; c<param_storage.num_cameras(); c++) {
+    for (size_t c = 0; c < param_storage.num_cameras(); c++) {
       // Separately compute the mean position and rotation error
       double mean_residual_pos = 0, mean_residual_rot = 0;
       for (size_t j = 0; j < part_size; j++) {

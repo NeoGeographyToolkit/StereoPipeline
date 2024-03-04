@@ -96,22 +96,21 @@ to process it are as follows:
 
  - Get ASP per the installation page (:numref:`installation`).
  
- - Fetch and extract the example dataset as::
+ - Fetch the `LRO NAC example <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/download/LRONAC/LRONAC_example.tar>`_ with ``wget``, and extract it as::
   
-    wget https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/download/LRONAC/LRONAC_example.tar
     tar xfv LRONAC_example.tar
-    cd LRONAC_example
 
 - Start ``stereo_gui`` (:numref:`stereo_gui`) with a selection of
   clips::
 
-   stereo_gui M181058717LE_crop.cub M181073012LE_crop.cub \
-     M181058717LE.json M181073012LE.json                  \
-     --alignment-method local_epipolar                    \
-     --left-image-crop-win 2259 1196 900 973              \
-     --right-image-crop-win 2432 1423 1173 1218           \
-     --stereo-algorithm asp_mgm --subpixel-mode 9         \
-     run/run
+    cd LRONAC_example
+    stereo_gui M181058717LE_crop.cub M181073012LE_crop.cub \
+      M181058717LE.json M181073012LE.json                  \
+      --alignment-method local_epipolar                    \
+      --left-image-crop-win 2259 1196 900 973              \
+      --right-image-crop-win 2432 1423 1173 1218           \
+      --stereo-algorithm asp_mgm --subpixel-mode 9         \
+      run/run
 
 The crop windows from above will show up as red rectangles.
 

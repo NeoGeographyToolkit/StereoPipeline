@@ -64,21 +64,30 @@ Commands
 GoeEye's datasets have the RPC coefficients stored as part of the
 images. The stereo command is then::
 
-    parallel_stereo -t rpc --stereo-algorithm asp_mgm     \
-      po_312012_pan_0000000.tif po_312012_pan_0010000.tif \
+    parallel_stereo -t rpc       \
+      --stereo-algorithm asp_mgm \
+      --subpixel-mode 9          \
+      left.tif right.tif         \
       results/run
 
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+For some cameras the RPC coefficients are stored in separate files ending in
+.RPB or \_RPC.TXT (or in lower-case). These will be loaded automatically and
+should not be specified in the stereo command. 
 
-For Cartosat data sometimes one should overwrite the \*RPC.TXT files
+For Cartosat data sometimes one should overwrite the \_RPC.TXT files
 that are present with the ones that end in RPC_ORG.TXT in order for
 stereo to work.
 
 If the RPC cameras are stored separately in XML files, the stereo 
 command is::
 
-    parallel_stereo -t rpc --stereo-algorithm asp_mgm \
-      left.tif right.tif left.xml right.xml results/run
+    parallel_stereo -t rpc                  \
+      --stereo-algorithm asp_mgm            \
+      --subpixel-mode 9                     \
+      left.tif right.tif left.xml right.xml \
+      results/run
+
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 For terrains having steep slopes, we recommend that images be
 mapprojected onto an existing DEM before running stereo. This is

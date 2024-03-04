@@ -1539,8 +1539,9 @@ ASP's ``bundle_adjust`` program can read and write control networks in the ISIS
 format (and they are read by ``jitter_solve`` as well). A basic overview of how
 this works is in :numref:`jigsaw_cnet`. This section provides more details.
 
-A priori surface points will be read and written back (more details below).
-Adjusted surface points will be read, optimized, then written back. 
+A priori surface points will be read and written back (they may change only in
+special cases, see below). Adjusted surface points will be read, optimized, then
+written back. 
 
 For constrained surface points, the constraint will be relative to the a priori
 surface points. These will be used with sigmas from adjusted surface points, as

@@ -3,15 +3,12 @@
 geodiff
 -------
 
-The ``geodiff`` program takes as input two DEMs (or a DEM and a CSV
-file, with the latter in the same format as used for ``pc_align`` and
-``point2dem``), and subtracts the second from the first. The grid used
-is the one from the first DEM, so the second one is interpolated into it
-using bilinear interpolation (when one file is a CSV, the grid from the
-other one, the DEM, is used). The tool can also take the absolute
-difference of the two DEMs.
+The ``geodiff`` program takes as input two DEMs, or a DEM and a CSV file, and
+subtracts the second from the first. The grid is from the first DEM, so the
+second one is interpolated into it using bilinear interpolation. When one file
+is a CSV, the grid from the DEM is used, regardless of the order of inputs. 
 
-It is important to note that the tool is very sensitive to the order of
+It is important to note that ``geodiff`` is very sensitive to the order of
 the two DEMs, due to the fact that the grid comes from the first one.
 Ideally the grid of the first DEM would be denser than the one of the
 second.
@@ -20,22 +17,41 @@ Usage::
 
     geodiff [options] <dem1> <dem2> [ -o output_file_prefix ]
 
-Example with two DEMs (when computing an absolute difference)::
+Examples
+~~~~~~~~
+
+Take the absolute difference of two DEMs::
 
     geodiff --absolute dem1.tif dem2.tif -o run
  
 This will create ``run-diff.tif``.
 
-The ``colormap`` program (:numref:`colormap`) can be used to
-colorize the difference image.
+The ``stereo_gui`` program (:numref:`colorize`) can colorize on-the-fly and
+display the difference image. The ``colormap`` program (:numref:`colormap`) can
+write a colorized image.
 
-Example with a DEM and a CSV file::
+Take the difference of a DEM and a CSV file::
 
     geodiff dem1.tif file.csv                         \
       --csv-format '1:lon 2:lat 3:height_above_datum' \
       -o run
 
-Command-line options for ``geodiff``:
+The produced ``run-diff.csv`` file can be visualized and colorized with
+``stereo_gui`` (:numref:`plot_csv`), as::
+
+  stereo_gui --colorbar run-diff.csv
+
+This program can also overlay the difference on top of the DEM.
+
+See also
+~~~~~~~~
+
+The ``image_calc`` program (:numref:`image_calc`) can perform many operations on
+images, as long as they are the same size (use ``gdalwarp``,
+:numref:`gdal_tools`, to convert images to the same extent and georeference).
+
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
 -o, --output-prefix <filename>
     Specify the output prefix.
