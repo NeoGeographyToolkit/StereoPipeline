@@ -190,9 +190,9 @@ An additional modifier to this constraint is the option
 default of 0.1, that will attenuate big differences in camera position. Its
 documentation has more details. 
  
-If the camera position uncertainties are  known, the option
+If the position uncertainties per camera are known, the option
 ``--camera-position-uncertainty`` can be used instead. This sets hard
-constraints on how much the camera positions can move horizontally and
+constraints on how much each camera position can move horizontally and
 vertically, in meters, in the local North-East-Down coordinate system of each
 camera. This may affect the optimization and should be used with care. 
 
@@ -901,7 +901,7 @@ Command-line options
     the reduction in reprojection errors. It adjusts to the ground sample
     distance and the number of interest points in the images. The computed
     discrepancy is attenuated with ``--camera-position-robust-threshold``. See
-    ``--camera-uncertainty`` for a hard constraint.
+    ``--camera-position-uncertainty`` for a hard constraint.
  
 --camera-position-robust-threshold <double (default: 0.1)>
     The robust threshold to attenuate large discrepancies between initial and
@@ -1269,12 +1269,14 @@ Command-line options
     that fall outside the image and weights that are non-positive, NaN, or equal
     to nodata will be ignored. See :numref:`limit_ip` for details.
 
---camera-position-uncertainty <float float (default: 0 0)>
-    The horizontal and vertical camera position uncertainty, in meters, in the
-    local North-East-Down coordinate system of each camera. These will strongly
-    constrain the movement of cameras, potentially at the expense of accuracy
-    (:numref:`ba_cam_constraints`). The default is no constraint. 
-        
+--camera-position-uncertainty <string (default: "")>
+    A list having on each line the image name and the horizontal and vertical
+    camera position uncertainty (1 sigma, in meters). This strongly constrains
+    the movement of cameras to within the given values, potentially at the
+    expense of accuracy. The default is to use instead
+    ``--camera-position-weight``, which is a soft constraint. See
+    :numref:`ba_cam_constraints` for details. 
+
 --propagate-errors
     Propagate the errors from the input cameras to the triangulated
     points for all pairs of match points, and produce a report having

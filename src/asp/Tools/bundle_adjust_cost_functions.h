@@ -815,11 +815,11 @@ struct CamUncertaintyError {
     horiz /= m_uncertainty[0];
     vert  /= m_uncertainty[1];
     
-    // Raise to 2nd power. Then multiply by square root of number of pixel observations.
+    // Raise to 8nd power. Then multiply by square root of number of pixel observations.
     // This will be squared when added to the cost function. The end result
     // will be as many terms as the number of pixel observations for this camera.
-    residuals[0] = sqrt(m_num_pixel_obs) * dot_prod(horiz, horiz);
-    residuals[1] = sqrt(m_num_pixel_obs) * vert * vert;
+    residuals[0] = sqrt(m_num_pixel_obs) * pow(dot_prod(horiz, horiz), 4.0);
+    residuals[1] = sqrt(m_num_pixel_obs) * pow(vert * vert, 4.0);
 
     return true;
   }

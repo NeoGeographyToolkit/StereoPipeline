@@ -80,7 +80,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     automatically controlled by default by the camera position weight.
   * Added the option ``--camera-position-uncertainty`` to set hard constraints
     on the horizontal and vertical uncertainty for each camera
-    (:numref:`ba_cam_constraints`). 
+    (:numref:`ba_cam_constraints`).
   * Added report files having the change in camera positions
     (:numref:`ba_camera_offsets`) and triangulated points
     (:numref:`ba_tri_offsets`).

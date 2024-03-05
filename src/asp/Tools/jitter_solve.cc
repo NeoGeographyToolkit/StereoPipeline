@@ -197,8 +197,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "It is meant to prevent a wholesale shift of the cameras, without impeding "
      "the reduction in reprojection errors. It adjusts to the ground sample distance "
      "and the number of interest points in the images. The computed "
-     "discrepancy is attenuated with --camera-position-robust-threshold "
-     "See --camera-uncertainty for a hard constraint.")
+     "discrepancy is attenuated with --camera-position-robust-threshold.")
     ("camera-position-robust-threshold", 
      po::value(&opt.camera_position_robust_threshold)->default_value(0.1),
      "The robust threshold to attenuate large discrepancies between initial and "

@@ -687,7 +687,6 @@ void addCamPosCostFun(Options                               const& opt,
   }
 
   int num_cameras = param_storage.num_cameras();
-  double rotation_wt = 0.0;
 
   for (int icam = 0; icam < num_cameras; icam++) {
     
@@ -734,9 +733,9 @@ void addCamPosCostFun(Options                               const& opt,
     // Based on the CERES loss function formula, adding N loss functions each 
     // with weight w and robust threshold t is equivalent to adding one loss 
     // function with weight sqrt(N)*w and robust threshold sqrt(N)*t.
-    //double combined_wt  = sqrt(count * 1.0) * median_wt;
     double combined_wt  = sqrt(count * 1.0) * median_wt;
     double combined_th = sqrt(count * 1.0) * opt.camera_position_robust_threshold;
+    double rotation_wt = 0.0; // This will be handled separately
     ceres::CostFunction* cost_function
         = RotTransError::Create(orig_cam_ptr, rotation_wt, combined_wt);
     ceres::LossFunction* loss_function 
@@ -998,7 +997,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   if (opt.rotation_weight > 0) {
     for (int icam = 0; icam < num_cameras; icam++) {
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
-      double translation_weight = 0.0; // no translation constraint here
+      double translation_weight = 0.0; // This is handled separately
       ceres::CostFunction* cost_function
         = RotTransError::Create(orig_cam_ptr, opt.rotation_weight, translation_weight);
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
@@ -1015,14 +1014,15 @@ int do_ba_ceres_one_pass(Options             & opt,
   std::vector<vw::Vector3> orig_cam_positions;
   asp::calcCameraCenters(orig_cams, orig_cam_positions);
   int num_uncertainty_residuals = 0;
-  if (opt.camera_position_uncertainty[0] > 0) {
+  if (opt.camera_position_uncertainty.size() > 0) {
     for (int icam = 0; icam < num_cameras; icam++) {
       // orig_ctr has the actual camera center, but orig_cam_ptr may have an adjustment
       vw::Vector3 orig_ctr = orig_cam_positions[icam];
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
       double * cam_ptr  = param_storage.get_camera_ptr(icam);
       ceres::CostFunction* cost_function 
-        = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, opt.camera_position_uncertainty, 
+        = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, 
+                                      opt.camera_position_uncertainty[icam],
                                       num_pixels_per_cam[icam], opt.datum);
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
       problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
@@ -1829,8 +1829,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "It is meant to prevent a wholesale shift of the cameras, without impeding "
      "the reduction in reprojection errors. It adjusts to the ground sample distance "
      "and the number of interest points in the images. The computed "
-     "discrepancy is attenuated with --camera-position-robust-threshold "
-     "See --camera-uncertainty for a hard constraint.")
+     "discrepancy is attenuated with --camera-position-robust-threshold. "
+     "See --camera-position-uncertainty for a hard constraint.")
     ("camera-position-robust-threshold", 
      po::value(&opt.camera_position_robust_threshold)->default_value(0.1),
      "The robust threshold to attenuate large discrepancies between initial and "
@@ -1882,10 +1882,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
      "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
     ("camera-position-uncertainty",  
-     po::value(&opt.camera_position_uncertainty)->default_value(vw::Vector2(0, 0)),
-     "The horizontal and vertical camera position uncertainty, in meters. These will "
-     "strongly constrain the movement of cameras, potentially at the expense of accuracy. "
-     "The default is no constraint.")
+     po::value(&opt.camera_position_uncertainty_str)->default_value(""),
+     "A list having on each line the image name and the horizontal and vertical camera "
+     "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
+     "cameras to within the given values, potentially at the expense of accuracy. The "
+     "default is to use instead --camera-position-weight, which is a soft constraint.")
     ("remove-outliers-params", 
      po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
      "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points (that are not GCP) with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Also remove outliers based on distribution of interest point matches and triangulated points. Default: '75.0 3.0 2.0 3.0'.")
@@ -2506,19 +2507,43 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
         vw_throw(ArgumentErr() 
                   << "Invalid value for --auto-overlap-params.\n");
   }
-   
-  // Camera uncertainty checks. It cannot be negative.
-  if (opt.camera_position_uncertainty[0] < 0 || opt.camera_position_uncertainty[1] < 0)
-    vw::vw_throw(vw::ArgumentErr() << "The camera uncertainty must be non-negative.\n");
-  // Both must be positive or 0
-  if ((opt.camera_position_uncertainty[0] == 0 && opt.camera_position_uncertainty[1] > 0) ||
-      (opt.camera_position_uncertainty[0] > 0 && opt.camera_position_uncertainty[1] == 0))
-    vw::vw_throw(vw::ArgumentErr() << "Both components of the camera uncertainty must be "
-             << "positive or both zero.\n");
+  
+  // If opt.camera_position_uncertainty is non-empty, read this file. It 
+  // has the image name and the uncertainty in the camera position.
+  bool have_camera_position_uncertainty = !opt.camera_position_uncertainty_str.empty();
+  if (have_camera_position_uncertainty) {
     
-  if (opt.camera_position_uncertainty[0] > 0) {
+    // Create map from image name to index
+    std::map<std::string, int> image_name_to_index;
+    for (int i = 0; i < (int)opt.image_files.size(); i++) 
+      image_name_to_index[opt.image_files[i]] = i;
     
-    // Same for camera position weight
+    // Resize opt.camera_position_uncertainty to the number of images
+    opt.camera_position_uncertainty.resize(opt.image_files.size(), vw::Vector2(0, 0));
+    
+    // Read the uncertainties per image
+    std::string image_name;
+    double horiz = 0, vert = 0; 
+    std::ifstream ifs(opt.camera_position_uncertainty_str.c_str());
+    while (ifs >> image_name >> horiz >> vert) {
+      auto it = image_name_to_index.find(image_name);
+      if (it == image_name_to_index.end())
+        vw_throw(ArgumentErr() << "Image " << image_name 
+                 << " as read from " << opt.camera_position_uncertainty_str
+                 << " is not among the input images.\n");
+      int index = it->second;
+      opt.camera_position_uncertainty[index] = Vector2(horiz, vert);
+    }
+    
+    // Ensure each horizontal and vertical uncertainty is positive
+    for (int i = 0; i < (int)opt.image_files.size(); i++) {
+      if (opt.camera_position_uncertainty[i][0] <= 0 || 
+          opt.camera_position_uncertainty[i][1] <= 0)
+       vw::vw_throw(vw::ArgumentErr() 
+                    << "The camera uncertainty for each image must be set and be positive.\n");
+    }  
+  
+    // When there is camera position uncertainty, the other camera weights must be 0.    
     if (opt.camera_position_weight > 0) {
       vw::vw_out() << "Setting --camera-position-weight to 0 as --camera-position-uncertainty "
                    << "is positive.\n";
@@ -2536,7 +2561,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << "Cannot use camera uncertainties without a datum. Set --datum.\n");
   }
 
-  // Set camera weight and to 0 if camera position weight is positive
+  // Set camera weight to 0 if camera position weight is positive
   if (opt.camera_position_weight > 0) {
     if (opt.camera_weight > 0) {
       vw::vw_out() << "Setting --camera-weight to 0 as --camera-position-weight "
