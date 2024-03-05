@@ -130,9 +130,6 @@ public:
     Vector3          point(raw_point[0], raw_point[1], raw_point[2]);
     CameraAdjustment correction(raw_pose);
 
-    //std::cout << "point2pixel with correction position = " << correction.position()
-    //              << ", pose = " << correction.pose() << std::endl;
-
     vw::camera::AdjustedCameraModel cam(m_underlying_camera,
 					correction.position(),
 					correction.pose());
@@ -308,8 +305,6 @@ public:
                                      correction.position(),
                                      correction.pose().axis_angle(),
                                      speed,  mcf);
-
-    //std::cout << "Created camera: " << cam << std::endl;
 
     // Project the point into the camera.
     try {
@@ -776,8 +771,10 @@ struct XYZError {
 struct CamUncertaintyError {
   CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
                       vw::Vector2 const& uncertainty, int num_pixel_obs,
-                      vw::cartography::Datum const& datum):
-    m_orig_ctr(orig_ctr), m_uncertainty(uncertainty), m_num_pixel_obs(num_pixel_obs) {
+                      vw::cartography::Datum const& datum,
+                      double camera_position_uncertainty_power):
+    m_orig_ctr(orig_ctr), m_uncertainty(uncertainty), m_num_pixel_obs(num_pixel_obs),
+    m_camera_position_uncertainty_power(camera_position_uncertainty_power) {
      
     // Ensure at least one term
     m_num_pixel_obs = std::max(m_num_pixel_obs, 1);
@@ -815,11 +812,11 @@ struct CamUncertaintyError {
     horiz /= m_uncertainty[0];
     vert  /= m_uncertainty[1];
     
-    // Raise to 8nd power. Then multiply by square root of number of pixel observations.
-    // This will be squared when added to the cost function. The end result
-    // will be as many terms as the number of pixel observations for this camera.
-    residuals[0] = sqrt(m_num_pixel_obs) * pow(dot_prod(horiz, horiz), 4.0);
-    residuals[1] = sqrt(m_num_pixel_obs) * pow(vert * vert, 4.0);
+    // In the final sum of squares, each term will end up being differences
+    // raised to m_camera_position_uncertainty_power power.
+    double p = m_camera_position_uncertainty_power / 4.0;
+    residuals[0] = sqrt(m_num_pixel_obs) * pow(dot_prod(horiz, horiz), p);
+    residuals[1] = sqrt(m_num_pixel_obs) * pow(vert * vert, p);
 
     return true;
   }
@@ -828,11 +825,15 @@ struct CamUncertaintyError {
   // the client code.
   static ceres::CostFunction* Create(vw::Vector3 const& orig_ctr, double const* orig_adj,
                       vw::Vector2 const& uncertainty, int num_pixel_obs,
-                      vw::cartography::Datum const& datum) {
+                      vw::cartography::Datum const& datum, 
+                      double camera_position_uncertainty_power) {
     // 2 residuals and 3 translation variables. Must add the rotation variables, however,
     // for CERES not to complain. So, get 6.
-    return (new ceres::NumericDiffCostFunction<CamUncertaintyError, ceres::CENTRAL, 2, 6>
-            (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, num_pixel_obs, datum)));
+    // ceres::RIDDERS works better than ceres::CENTRAL for this cost function,
+    // especially when the uncertainty is 0.1 m or less.
+    return (new ceres::NumericDiffCostFunction<CamUncertaintyError, ceres::RIDDERS, 2, 6>
+            (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, num_pixel_obs, 
+                                     datum, camera_position_uncertainty_power)));
   }
 
   // orig_ctr is the original camera center, orig_cam_ptr is the original
@@ -843,6 +844,7 @@ struct CamUncertaintyError {
   vw::Vector2 m_uncertainty;
   int m_num_pixel_obs;
   vw::Matrix3x3 m_EcefToNed;
+  double m_camera_position_uncertainty_power;
 };
 
 /// A ceres cost function. The residual is the difference between the

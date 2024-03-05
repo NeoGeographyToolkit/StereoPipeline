@@ -1023,7 +1023,8 @@ int do_ba_ceres_one_pass(Options             & opt,
       ceres::CostFunction* cost_function 
         = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, 
                                       opt.camera_position_uncertainty[icam],
-                                      num_pixels_per_cam[icam], opt.datum);
+                                      num_pixels_per_cam[icam], opt.datum,
+                                      opt.camera_position_uncertainty_power);
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
       problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
       num_uncertainty_residuals++;
@@ -1887,6 +1888,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
      "cameras to within the given values, potentially at the expense of accuracy. The "
      "default is to use instead --camera-position-weight, which is a soft constraint.")
+    ("camera-position-uncertainty-power",  
+     po::value(&opt.camera_position_uncertainty_power)->default_value(16.0),
+     "A higher value makes the cost function rise more steeply when "
+     "--camera-position-uncertainty is close to being violated. This is an advanced "
+      "option. The default should be good enough.")
     ("remove-outliers-params", 
      po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
      "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points (that are not GCP) with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Also remove outliers based on distribution of interest point matches and triangulated points. Default: '75.0 3.0 2.0 3.0'.")
@@ -2522,6 +2528,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.camera_position_uncertainty.resize(opt.image_files.size(), vw::Vector2(0, 0));
     
     // Read the uncertainties per image
+    bool have_small_uncertainty = false;
     std::string image_name;
     double horiz = 0, vert = 0; 
     std::ifstream ifs(opt.camera_position_uncertainty_str.c_str());
@@ -2533,6 +2540,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                  << " is not among the input images.\n");
       int index = it->second;
       opt.camera_position_uncertainty[index] = Vector2(horiz, vert);
+      
+      if (horiz < 0.2 || vert < 0.2)
+        have_small_uncertainty = true;
+    }
+    
+    if (have_small_uncertainty) {
+      // This is an observed problem. Small uncertainty makes it hard for the solver.
+      opt.parameter_tolerance = std::min(opt.parameter_tolerance, 1e-10);
+      vw::vw_out(vw::WarningMessage) 
+        << "The specified camera uncertainties are under 0.2. The solver may "
+        << "take a long time converging. Reduce the number of iterations if needed. "
+        << "Also consider setting --parameter-tolerance 1e-12.\n";
     }
     
     // Ensure each horizontal and vertical uncertainty is positive

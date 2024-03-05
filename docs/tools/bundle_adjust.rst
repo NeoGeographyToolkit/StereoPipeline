@@ -194,7 +194,12 @@ If the position uncertainties per camera are known, the option
 ``--camera-position-uncertainty`` can be used instead. This sets hard
 constraints on how much each camera position can move horizontally and
 vertically, in meters, in the local North-East-Down coordinate system of each
-camera. This may affect the optimization and should be used with care. 
+camera. 
+
+When using hard constraints in bundle adjustment, caution should be exercised as
+they can impact the optimization process. It is not recommended to set
+uncertainties below 0.2 meters, as this may result in slow convergence or even
+failure to converge.
 
 Use cases
 ~~~~~~~~~
