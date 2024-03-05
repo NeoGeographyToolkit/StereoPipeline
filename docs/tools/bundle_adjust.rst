@@ -1282,6 +1282,11 @@ Command-line options
     ``--camera-position-weight``, which is a soft constraint. See
     :numref:`ba_cam_constraints` for details. 
 
+--camera-position-uncertainty-power <double (default: 16.0)>
+    A higher value makes the cost function rise more steeply when
+    ``--camera-position-uncertainty`` is close to being violated. This is an
+    advanced option. The default should be good enough.
+    
 --propagate-errors
     Propagate the errors from the input cameras to the triangulated
     points for all pairs of match points, and produce a report having
