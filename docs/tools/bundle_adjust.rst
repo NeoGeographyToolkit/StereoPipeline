@@ -1251,7 +1251,8 @@ Command-line options
 --camera-list
     A file containing the list of cameras, when they are too many to
     specify on the command line. If the images have embedded camera
-    information, such as for ISIS, this file may be omitted.
+    information, such as for ISIS, this file may be omitted, or
+    specify the image names instead of camera names.
 
 --mapprojected-data-list
     A file containing the list of mapprojected images and the DEM (see

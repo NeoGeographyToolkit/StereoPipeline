@@ -1818,7 +1818,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("camera-list", po::value(&opt.camera_list)->default_value(""),
      "A file containing the list of cameras, when they are too many to specify on "
      "the command line. If the images have embedded camera information, such as for ISIS, "
-     "this file may be omitted.")
+     "this file may be omitted, or specify the image names instead of camera names.")
     ("mapprojected-data-list", po::value(&opt.mapprojected_data_list)->default_value(""),
      "A file containing the list of mapprojected images and the DEM (see --mapprojected-data), when they are too many to specify on the command line.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
@@ -2030,16 +2030,23 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   vw_out() << "Found " << num_gcp_files << " GCP files on the command line.\n";
 
   // Handle the situation when the images and cameras are in lists
-  std::vector<std::string> images_or_cams = opt.image_files;
   if (!opt.image_list.empty()) {
     // Read the images and cameras and put them in 'images_or_cams' to be parsed later
-    if (!images_or_cams.empty())
+    if (!opt.image_files.empty())
       vw_throw(ArgumentErr() << "The option --image-list was specified, but also "
                << "images or cameras on the command line.\n");
      
     // Read image and camera lists. Consider he case of sharing intrinsics per sensor. 
     read_image_cam_lists(opt.image_list, opt.camera_list, 
-      images_or_cams, opt.intrinsics_options); // outputs
+                         opt.image_files, opt.camera_files, 
+                         opt.intrinsics_options); // outputs
+  } else {
+    // The images and cameras are passed on the command line
+    std::vector<std::string> images_or_cams = opt.image_files;
+    bool ensure_equal_sizes = true;
+    asp::separate_images_from_cameras(images_or_cams,
+                                    opt.image_files, opt.camera_files, // outputs
+                                    ensure_equal_sizes); 
   }
 
   // Sanity checks
@@ -2050,15 +2057,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Cannot specify both --mapprojected-data and "
              << "--mapprojected-data-list.\n");
   
-  // Separate the cameras from the images
-  bool ensure_equal_sizes = true;
-  asp::separate_images_from_cameras(images_or_cams,
-                                    opt.image_files, opt.camera_files, // outputs
-                                    ensure_equal_sizes); 
-
   // Sanity checks
   asp::check_for_duplicates(opt.image_files, opt.camera_files, opt.out_prefix);
-  if (opt.image_files.size() != (int)opt.camera_files.size()){
+  if (opt.image_files.size() != (int)opt.camera_files.size()) {
     vw_out() << "Detected " << opt.image_files.size() << " images and "
              << opt.camera_files.size() << " cameras.\n";
     vw_throw(ArgumentErr() << "Must have as many cameras as images.\n");

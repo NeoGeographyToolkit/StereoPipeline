@@ -455,34 +455,43 @@ void write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
 // in image_list and camera_list, when sharing intrinsics per sensor.
 void read_image_cam_lists(std::string const& image_list, 
                 std::string const& camera_list,
-                std::vector<std::string> & images_or_cams,
+                std::vector<std::string> & images,
+                std::vector<std::string> & cameras,
                 asp::IntrinsicOptions & intrinsics_opts) {
 
   // Wipe the output
-  images_or_cams.clear();
+  images.clear();
+  cameras.clear();
   intrinsics_opts.share_intrinsics_per_sensor = false;
   intrinsics_opts.cam2sensor.clear();
   intrinsics_opts.num_sensors = 0; // must be initialized to zero
 
-  // See if comma-separated lists are passed in the image list
+  // See if we have a single list or multiple lists
   if (image_list.find(",") == std::string::npos && 
       camera_list.find(",") == std::string::npos) {
     // Single list, so just read the lists as usual, and return
-    asp::read_list(image_list, images_or_cams);
+    asp::read_list(image_list, images);
     if (camera_list.empty()) {
       // This is usual for ISIS cameras.
       vw_out() << "An image list was provided but not a camera list.\n";
     } else {
-      std::vector<std::string> cams;
-      asp::read_list(camera_list, cams);
-      if (images_or_cams.size() != cams.size())
-        vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
-      for (size_t it = 0; it < cams.size(); it++) 
-        images_or_cams.push_back(cams[it]);
+      asp::read_list(camera_list, cameras);
     }
+    
+    // If there are no cameras, use the images instead. Hopefully they have
+    // embedded camera models.
+    if (cameras.empty())
+      cameras = images;
+    
+    // There must be as many images as cameras
+    if (images.size() != cameras.size())
+      vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
+      
     return;
   }
   
+  // This when we have multiple image lists and camera lists, for when
+  // we solve for intrinsics per sensor.
   vw_out() << "Multiple image lists and camera lists were passed in. " 
            << "Solving for intrinsics per sensor.\n";
 
@@ -498,7 +507,6 @@ void read_image_cam_lists(std::string const& image_list,
       << "They must be separated by commas on input.\n");
 
   // Read separately the images and cameras
-  std::vector<std::string> images, cameras;
   for (size_t sensor_it = 0; sensor_it < image_lists.size(); sensor_it++) {
     std::vector<std::string> local_images, local_cameras;
     asp::read_list(image_lists[sensor_it], local_images);
@@ -520,9 +528,10 @@ void read_image_cam_lists(std::string const& image_list,
   intrinsics_opts.num_sensors = image_lists.size();
   vw_out() << "Number of sensors: " << intrinsics_opts.num_sensors << std::endl;
 
-  // Append both images and cameras to images_or_cams
-  images_or_cams.insert(images_or_cams.end(), images.begin(), images.end());
-  images_or_cams.insert(images_or_cams.end(), cameras.begin(), cameras.end());
+  // Must have the same number of cameras as images
+  if (images.size() != cameras.size())
+    vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
+    
   return;
 } 
 

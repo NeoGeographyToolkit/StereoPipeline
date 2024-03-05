@@ -1895,12 +1895,14 @@ Command-line options for jitter_solve
 
 --image-list
     A file containing the list of images, when they are too many to specify on
-    the command line. Use in the file a space or newline as separator.See also
+    the command line. Use in the file a space or newline as separator. See also
     ``--camera-list``.
 
 --camera-list
     A file containing the list of cameras, when they are too many to
-    specify on the command line.
+    specify on the command line. If the images have embedded camera
+    information, such as for ISIS, this file may be omitted, or
+    specify the image names instead of camera names.
 
 --update-isis-cubes-with-csm-state
     Save the model state of optimized CSM cameras as part of the .cub

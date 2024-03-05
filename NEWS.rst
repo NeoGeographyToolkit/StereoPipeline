@@ -106,6 +106,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     the camera and adjustment prefix for undoing the mapprojection.
   * Fixed a bug when both ``--initial-transform`` and
     ``--input-adjustments-prefix`` are used.
+  * Can use the image names in ``--camera-list`` when images contain the camera
+    models. 
     
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).

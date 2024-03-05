@@ -124,9 +124,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Apply the inverse of the obtained transform to the reference points so they match the source points and save them.")
 
     ("initial-ned-translation", po::value(&opt.initial_ned_translation)->default_value(""),
-                                 "Initialize the alignment transform based on a translation with this vector in the North-East-Down coordinate system around the centroid of the reference points. Specify it in quotes, separated by spaces or commas.")
+     "Initialize the alignment transform based on a translation with this vector in the North-East-Down coordinate system around the centroid of the reference points. Specify it in quotes, separated by spaces or commas.")
     ("initial-rotation-angle", po::value(&opt.initial_rotation_angle)->default_value(0),
-                                 "Initialize the alignment transform as the rotation with this angle (in degrees) around the axis going from the planet center to the centroid of the point cloud. If --initial-ned-translation is also specified, the translation gets applied after the rotation.")
+     "Initialize the alignment transform as the rotation with this angle (in degrees) around the axis going from the planet center to the centroid of the point cloud. If --initial-ned-translation is also specified, the translation gets applied after the rotation.")
 
     ("initial-transform-from-hillshading", po::value(&opt.hillshading_transform)->default_value(""), "If both input clouds are DEMs, find interest point matches among their hillshaded versions, and use them to compute an initial transform to apply to the source cloud before proceeding with alignment. Specify here the type of transform, as one of: 'similarity' (rotation + translation + scale), 'rigid' (rotation + translation) or 'translation'. See the options further down for tuning this.")
     ("hillshade-options", po::value(&opt.hillshade_options)->default_value("--azimuth 300 --elevation 20 --align-to-georef"), "Options to pass to the hillshade program when computing the transform from hillshading.")

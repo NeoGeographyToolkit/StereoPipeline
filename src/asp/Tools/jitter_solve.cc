@@ -136,7 +136,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A file containing the list of images, when they are too many to specify on the command line. Use space or newline as separator. See also --camera-list.")
     ("camera-list", po::value(&opt.camera_list)->default_value(""),
      "A file containing the list of cameras, when they are too many to specify on "
-     "the command line.")
+     "the command line. If the images have embedded camera information, such as for ISIS, "
+     "this file may be omitted, or specify the image names instead of camera names.")
     ("parameter-tolerance",  po::value(&opt.parameter_tolerance)->default_value(1e-12),
      "Stop when the relative error in the variables being optimized is less than this.")
     ("num-iterations",       po::value(&opt.num_iterations)->default_value(500),
@@ -284,29 +285,29 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // cameras.
   asp::stereo_settings().aster_use_csm = true;
   
-  std::vector<std::string> images_or_cams = opt.image_files;
   if (!opt.image_list.empty()) {
     // Read the images and cameras and put them in 'images_or_cams' to be parsed later
-    if (!images_or_cams.empty())
+    if (!opt.image_files.empty())
       vw_throw(ArgumentErr() << "The option --image-list was specified, but also "
                << "images or cameras on the command line.\n");
     asp::IntrinsicOptions intr_opts;
     read_image_cam_lists(opt.image_list, opt.camera_list, 
-      images_or_cams, intr_opts); // outputs
+      opt.image_files, opt.camera_files, intr_opts); // outputs
     if (intr_opts.num_sensors != 0 || !intr_opts.cam2sensor.empty()) 
       vw::vw_throw(vw::ArgumentErr() << "Cannot handle intrinsics with jitter_solve.\n");
+  } else {
+    std::vector<std::string> images_or_cams = opt.image_files;
+    bool ensure_equal_sizes = true;
+    asp::separate_images_from_cameras(images_or_cams,
+                                      opt.image_files, opt.camera_files, // outputs
+                                      ensure_equal_sizes); 
+
+    // This is needed when several images are acquired in quick succession
+    // and we want to impose roll and yaw constraints given their orbital 
+    // trajectory.
+    asp::readGroupStructure(images_or_cams, opt.orbital_groups);
   }
   
-  bool ensure_equal_sizes = true;
-  asp::separate_images_from_cameras(images_or_cams,
-                                    opt.image_files, opt.camera_files, // outputs
-                                    ensure_equal_sizes); 
-
-  // This is needed when several images are acquired in quick succession
-  // and we want to impose roll and yaw constraints given their orbital 
-  // trajectory.
-  asp::readGroupStructure(images_or_cams, opt.orbital_groups);
-
   // Throw if there are duplicate camera file names.
   asp::check_for_duplicates(opt.image_files, opt.camera_files, opt.out_prefix);
   

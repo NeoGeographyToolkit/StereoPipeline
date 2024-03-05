@@ -350,7 +350,8 @@ void distortion_sanity_check(std::vector<int> const& num_dist_params,
 // in image_list and camera_list, when sharing intrinsics per sensor.
 void read_image_cam_lists(std::string const& image_list, 
                 std::string const& camera_list,
-                std::vector<std::string> & images_or_cams,
+                std::vector<std::string> & images,
+                std::vector<std::string> & cameras,
                 asp::IntrinsicOptions & intrinsics_opts); 
 
 // Mapproject interest points onto a DEM and find the norm of their
