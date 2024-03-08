@@ -1710,11 +1710,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("transform-cameras-using-gcp",  po::bool_switch(&opt.transform_cameras_using_gcp)->default_value(false)->implicit_value(true),
      "Given a set of GCP, with at least two images having at least three GCP each (but with each GCP not shared among the images), transform the cameras to ground coordinates. This is not as robust as --transform-cameras-with-shared-gcp.")
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
-     "Do not try to initialize the positions of pinhole cameras based on input GCPs. This ignored as is now the default. See also: --init-camera-using-gcp.")
+     "Do not try to initialize the positions of pinhole cameras based on input GCPs. This "
+     "ignored as is now the default. See also: --init-camera-using-gcp.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
      "Prefix to read initial adjustments from, written by a previous invocation of this program.")
-    ("initial-transform",   po::value(&opt.initial_transform_file)->default_value(""),
-     "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as written by pc_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step. If --input-adjustments-prefix is specified, the transform gets applied after the adjustments are read.")
+    ("initial-transform",  po::value(&opt.initial_transform_file)->default_value(""),
+     "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform "
+     "from this file. The transform is in respect to the planet center, such as written by "
+     "pc_align's source-to-reference or reference-to-source alignment transform. Set the "
+     "number of iterations to 0 to stop at this step. If --input-adjustments-prefix is "
+     "specified, the transform gets applied after the adjustments are read.")
     ("fixed-camera-indices",    po::value(&opt.fixed_cameras_indices_str)->default_value(""),
      "A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.")
     ("fixed-image-list",    po::value(&opt.fixed_image_list)->default_value(""),

@@ -382,7 +382,6 @@ Then, jitter was solved for, using the aligned cameras::
       --max-initial-reprojection-error 20      \
       --heights-from-dem ref_dem.tif           \
       --heights-from-dem-uncertainty 20.0      \
-      --heights-from-dem-robust-threshold 0.1  \
       --num-iterations 20                      \
       --anchor-weight 0                        \
       --tri-weight 0.1                         \
@@ -721,24 +720,19 @@ Solve for jitter::
       --num-iterations 10                     \
       --max-pairwise-matches 1000000          \
       --max-initial-reprojection-error 10     \
-      --robust-threshold 0.2                  \
       --tri-weight 0.1                        \
       --tri-robust-threshold 0.1              \
       --num-lines-per-position    200         \
       --num-lines-per-orientation 200         \
       --heights-from-dem ref.tif              \
-      --heights-from-dem-uncertainty 10.0     \
-      --heights-from-dem-robust-threshold 0.1 \
+      --heights-from-dem-uncertainty 10       \
       --num-anchor-points 10000               \
       --num-anchor-points-extra-lines 500     \
       --anchor-dem ref.tif                    \
       --anchor-weight 1.0                     \
     -o jitter/run
 
-The robust threshold was set to 0.2 because the jitter signal is rather weak.
-This allows the optimization to focus on this signal and not on the larger
-errors due to the steep terrain. See :numref:`jitter_camera` regarding camera
-constraints.
+See :numref:`jitter_camera` regarding camera constraints.
 
 .. _fig_dg_jitter_pointmap_anchor_points:
 
@@ -981,7 +975,6 @@ cameras were accurate enough, so these steps were skipped.
       --num-iterations 10                      \
       --max-pairwise-matches 1000000           \
       --max-initial-reprojection-error 20      \
-      --robust-threshold 0.5                   \
       --tri-weight 0.1                         \
       --tri-robust-threshold 0.1               \
       --num-lines-per-position    500          \
@@ -997,14 +990,8 @@ See :numref:`jitter_camera` for a discussion of camera constraints.
 Next, we invoke the solver with the same initial data, but with a constraint
 tying to the reference DEM, with the option ``--heights-from-dem ref-adj.tif``.
 Since the difference between the created stereo DEM and the reference DEM is on
-the order of 5-10 meters, we will use ``--heights-from-dem-uncertainty 10.0``.
-
-The pixel reprojection error ``--robust-threshold`` value is 0.5,
-which is larger than the DEM constraint robust threshold used here, at
-0.05. So, pixel reprojection errors will be given higher priority than
-errors to ground. Therefore, we want the solution to be first of all
-self-consistent, and only then consistency with the ground will be
-attempted.
+the order of 5-10 meters, we will use ``--heights-from-dem-uncertainty 10``
+(this could be decreased somewhat). 
 
 .. figure:: ../images/pleiades_err.png
    :name: pleiades_err
@@ -1206,18 +1193,13 @@ Solve for jitter with the aligned cameras::
       --num-lines-per-orientation 100                 \
       --max-initial-reprojection-error 20             \
       --num-iterations 10                             \
-      --robust-threshold 0.5                          \
       --match-files-prefix jitter/run                 \
       --heights-from-dem ref.tif                      \
-      --heights-from-dem-uncertainty 10.0             \
-      --heights-from-dem-robust-threshold 0.1         \
+      --heights-from-dem-uncertainty 10               \
       -o jitter/run
 
-The DEM uncertainty constraint was set to 10.0, as the image GSD is 15 meters.
-For an unreliable DEM this should be more. 
-
-The DEM robust threshold was set to be less than ``--robust-threshold``, to
-prioritize pixel reprojection errors.
+The DEM uncertainty constraint was set to 10, as the image GSD is 15 meters.
+This can be reduced to 5 meters, likely.
 
 See :numref:`jitter_camera` for a discussion of camera constraints.
 
@@ -1474,13 +1456,14 @@ ensure movement only for the pitch angle::
         --anchor-dem dem.tif                     \
         --anchor-weight 0.05                     \
         --heights-from-dem dem.tif               \
-        --heights-from-dem-uncertainty 20.0      \
-        --heights-from-dem-robust-threshold 0.1  \
+        --heights-from-dem-uncertainty 10        \
         jitter0.0/f.tif                          \
         jitter0.0/n-images.txt                   \
         jitter2.0/f.json                         \
         jitter0.0/n-cameras.txt                  \
         -o jitter_solve/run
+
+The value of ``--heights-from-dem-uncertainty`` should be chosen with care.
 
 Here we used ``--max-pairwise-matches 3000`` as the linescan camera has many
 matches with each frame camera image, and there are many such frame camera
@@ -1576,8 +1559,7 @@ that creates the interest point matches is similar.
         --anchor-dem dem.tif                    \
         --anchor-weight 0.01                    \
         --heights-from-dem dem.tif              \
-        --heights-from-dem-uncertainty 1.0      \
-        --heights-from-dem-robust-threshold 0.1 \
+        --heights-from-dem-uncertainty 10       \
         data/nadir_frame_images.txt             \
         data/nadir_linescan.tif                 \
         data/nadir_frame_cameras.txt            \

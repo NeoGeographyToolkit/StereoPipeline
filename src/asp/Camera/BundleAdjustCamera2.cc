@@ -627,8 +627,9 @@ void fine_grained_parse(bool share_intrinsics_per_sensor,
 
   // Sanity checks
   if (!share_intrinsics_per_sensor) 
-    vw_throw(ArgumentErr() << "fine_grained_parse() is only for when intrinsics are "
-             << "optimized per sensor.\n");
+    vw_throw(ArgumentErr() << "Intrinsics are not being optimized per sensor. Remove any "
+             << "fields of the form 1:, etc., from the options for floating intrinsics.\n");
+    
   if (num_sensors <= 0)
     vw_throw(ArgumentErr() << "Expecting a positive number of sensors.\n");
   if (options.empty())

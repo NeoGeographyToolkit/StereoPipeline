@@ -791,7 +791,8 @@ namespace asp {
 
     // If the images are map-projected, we need an input DEM, as we use the ASP
     // flow with map-projected images.
-    if (has_georef1 && has_georef2 && !dem_provided) {
+    bool corr_only = stereo_settings().correlator_mode;
+    if (has_georef1 && has_georef2 && !dem_provided && !corr_only) {
       
       // If we can identify the DEM these were map-projected from, that's a fatal 
       // error.  
@@ -814,7 +815,7 @@ namespace asp {
     }
 
     // Check that if the user provided a dem that we are using a map projection method
-    if (dem_provided && !opt.session->uses_map_projected_inputs()) {
+    if (dem_provided && !opt.session->uses_map_projected_inputs() && !corr_only) {
       vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: "
                              << opt.session->name() << ".\n");
     }

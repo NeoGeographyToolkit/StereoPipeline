@@ -132,7 +132,7 @@ namespace asp{
 
 // Given an input string as:
 //
-// stereo_gui --style line --color red --colormap inferno file1.txt --color green file2.txt
+// stereo_gui --style line --color red --colormap-style inferno file1.txt --color green file2.txt
 //
 // extract each style, color, and colormap. Any of these apply for any following
 // files, till modified by another such option. The default style and color
