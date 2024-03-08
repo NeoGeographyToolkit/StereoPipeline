@@ -407,8 +407,9 @@ larger.
 Such a ``.gcp`` file then can be passed to ``bundle_adjust`` as shown in
 :numref:`ba_examples`, with one or more images and cameras, to refine the
 cameras. GCP can also be used to initialize the cameras
-(:numref:`camera_solve_gcp`). The produced refined cameras can be passed to
-``stereo`` or ``mapproject`` as described above. 
+(:numref:`camera_solve_gcp`). Also see option
+``--transform-cameras-with-shared-gcp``. The produced refined cameras can be
+passed to ``stereo`` or ``mapproject`` as described above. 
 
 The option ``--save-cnet-as-csv`` can be invoked to save the entire control
 network in the GCP format, before any optimization. This can be useful for

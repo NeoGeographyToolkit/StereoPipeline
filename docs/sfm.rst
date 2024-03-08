@@ -655,6 +655,9 @@ ASP provides a tool named ``cam_gen`` which can also create a pinhole
 camera as above, and, in addition, is able to extract the heights of the
 corners from a DEM (:numref:`cam_gen`).
 
+See also the ``bundle_adjust`` option ``--transform-cameras-with-shared-gcp``.
+This applies a wholesale transform to a self-consistent collection of cameras.
+
 .. _findintrinsics:
 
 Refining the camera poses and intrinsics
