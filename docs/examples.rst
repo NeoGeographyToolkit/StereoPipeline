@@ -5,17 +5,11 @@
 Stereo processing examples
 ==========================
 
-This chapter showcases a variety of results that are possible when
-processing different data sets with the Stereo Pipeline. It is also a
-shortened guide that shows the commands used to process specific mission
-data. There is no definitive method yet for making elevation models as
-each stereo pair is unique. We hope that the following sections serve as
-a cookbook for strategies that will get you started in processing your
-own data. We recommend that you second check your results against
-another source.
+This chapter showcases examples of processing data sets acquired with specific
+instruments. For a general introduction, see the tutorial (:numref:`tutorial`).
 
-Structure-from-Motion examples are in :numref:`rig_examples` (using a rig and robot images)
-and in :numref:`sfm` (for orbital images with no rig).
+Structure-from-Motion examples are in :numref:`rig_examples` (using a rig and
+robot images) and in :numref:`sfm` (for orbital images with no rig).
 
 .. toctree::
 

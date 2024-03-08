@@ -8,7 +8,11 @@ Science Laboratory (MSL) rover `Curiosity
 <https://en.wikipedia.org/wiki/Curiosity_(rover)>`_. See :numref:`rig_examples` for
 other examples.
 
-This approach uses only the images to create a self-consistent solution, without placing it in the right location on the Mars surface. Section :numref:`csm_msl` discusses using the known camera poses for MSL.
+This approach uses only the images to create a self-consistent solution, without
+placing it in the right location on the Mars surface. Registration to the ground
+can later be done as in :numref:`msl_registration`.
+
+Section :numref:`csm_msl` discusses using the known camera poses for MSL.
 
 .. _rig_msl_figure:
 
@@ -258,21 +262,32 @@ This created::
 
 See the produced mesh in :numref:`rig_msl_figure`.
 
+.. _msl_registration:
+
+Registration of MSL camera to the ground
+-----------------------------------------
+
+The rig calibrator can transform the network of cameras to known coordinates
+using control points (:numref:`rig_calibrator_example`). This can be followed by
+mesh creation.
+   
+In addition, the ``rig_calibrator`` option ``--save_pinhole_cameras`` can export
+the camera poses to Pinhole format (:numref:`pinholemodels`). The resulting
+cameras can be ingested by ASP's bundle adjustment program
+(:numref:`bundle_adjust`). 
+
+This program can transform the camera system wholesale (option
+``--transform-cameras-with-shared-gcp``) or just refine the cameras, if given
+GCP. The latter can be produced with a manual (:numref:`creatinggcp`) or
+automatic (:numref:`gcp_gen`) approach.
+
+With the cameras correctly registered and self-consistent, dense stereo point
+clouds and DEM can be created (:numref:`nextsteps`), that can be aligned to a prior
+dataset with ``pc_align`` (:numref:`pc_align`).
+
 Notes
 -----
 
- - No ground registration was done, so neither the scale nor the pose of the
-   produced mesh is accurate. The mesh is, however, self-consistent.
-   Registration can be done as in :numref:`rig_calibrator_example`.
- - The ``rig_calibrator`` option ``--save_pinhole_cameras`` can export the
-   camera poses to Pinhole format (:numref:`pinholemodels`). If this is done
-   after registration to the planet surface, the resulting cameras can be
-   ingested by the usual ASP tool set, including bundle adjustment
-   (:numref:`bundle_adjust`), stereo and DEM creation (:numref:`nextsteps`),
-   etc.
- - Refinement of registration to the ground of Pinhole cameras can be done based
-   on automatic (:numref:`gcp_gen`) or manual (:numref:`creatinggcp`) creation
-   of GCP.
  - The voxel size for binning and meshing the point cloud was chosen
    manually. An automated approach for choosing a representative voxel
    size is to be implemented.

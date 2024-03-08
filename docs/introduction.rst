@@ -1,15 +1,26 @@
 Introduction
 ============
 
-The NASA Ames Stereo Pipeline (ASP) is a suite of free and open
-source automated geodesy and stereogrammetry tools designed for
-processing stereo images captured from satellites (around Earth and
-other planets), robotic rovers, aerial cameras, and historical
-images, with and without accurate camera pose information. It
-produces cartographic products, including digital terrain models
-(DTMs), ortho-projected images, 3D models, and bundle-adjusted
-networks of cameras. ASP's data products are suitable for science
-analysis, mission planning, and public outreach.
+The NASA Ames Stereo Pipeline (ASP) is a suite of free and open source automated
+geodesy and stereogrammetry tools designed for processing images captured from
+satellites, around Earth and other planets (:numref:`examples`), robotic rovers
+(:numref:`rig_msl`, :numref:`csm_msl`), aerial cameras and low-cost satellites
+(:numref:`skysat`), historical images (:numref:`kh4`), with and without accurate
+camera pose information.
+
+It has functionality for structure-from-motion (:numref:`sfm`),
+shape-from-shading (:numref:`sfs_usage`), bundle adjustment
+(:numref:`bundle_adjust`), rig calibration (:numref:`rig_calibrator`), refining
+camera intrinsics (:numref:`floatingintrinsics`), and a versatile GUI shell
+(:numref:`stereo_gui`). 
+
+ASP produces cartographic products, including digital terrain models (DTMs) and
+ortho-projected images (:numref:`builddem`), 3D models (:numref:`point2mesh`),
+textured meshes (:numref:`sfm_iss`), and bundle-adjusted networks of cameras
+(:numref:`control_network`).
+
+ASP's data products are suitable for science analysis, mission planning, and
+public outreach.
 
 .. figure:: images/introduction/p19view2_400px.png
    :alt: 3D model of Mars
