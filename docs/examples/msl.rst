@@ -38,24 +38,19 @@ field of view is 45 degrees.
 Challenges
 ----------
 
-The navcam images are used to plan the path of the rover. They are not
-acquired specifically for mapping.
+The navcam images are used to plan the path of the rover. They are not acquired
+specifically for mapping. While there is good overlap and perspective difference
+between images that are taken at the same time with the stereo rig, these
+assumptions may not hold for images produced at different times. Moreover, after
+the rover changes position, there is usually a large perspective difference and
+little overlap with earlier images.
 
-While there is good overlap and perspective difference between images
-that are taken at the same time with the stereo rig, these
-assumptions may not hold for images produced at different times.
-Moreover, after the rover changes position, there is usually a large
-perspective difference and little overlap with earlier images.
-
-A very useful reference on processing MSL images is
-:cite:`caravaca20203d`. It uses the commercial Agisoft Photoscan
-software.
-
-To help with matching the images, this paper uses the global position and
-orientation of each image and projects these onto the ground. Such
-data is not fully present in the .LBL files in PDS, as those contain
-only local coordinates, and would necessitate queering the SPICE
-database.  It also incorporates lower-resolution "TRAV" images to tie
+A very useful reference on processing MSL images is :cite:`caravaca20203d`. It
+uses the commercial Agisoft Photoscan software. To help with matching the
+images, that paper uses the global position and orientation of each image and
+projects these onto the ground. Such data is not fully present in the .LBL files
+in PDS, as those contain only local coordinates, and would necessitate queering
+the SPICE database.  It also incorporates lower-resolution "TRAV" images to tie
 the data together.
 
 In the current example only a small set of data from a single day is
@@ -266,9 +261,18 @@ See the produced mesh in :numref:`rig_msl_figure`.
 Notes
 -----
 
- - No ground registration was done, so neither the scale nor the
-   pose of the produced mesh is accurate. The mesh is, however,
-   self-consistent.
+ - No ground registration was done, so neither the scale nor the pose of the
+   produced mesh is accurate. The mesh is, however, self-consistent.
+   Registration can be done as in :numref:`rig_calibrator_example`.
+ - The ``rig_calibrator`` option ``--save_pinhole_cameras`` can export the
+   camera poses to Pinhole format (:numref:`pinholemodels`). If this is done
+   after registration to the planet surface, the resulting cameras can be
+   ingested by the usual ASP tool set, including bundle adjustment
+   (:numref:`bundle_adjust`), stereo and DEM creation (:numref:`nextsteps`),
+   etc.
+ - Refinement of registration to the ground of Pinhole cameras can be done based
+   on automatic (:numref:`gcp_gen`) or manual (:numref:`creatinggcp`) creation
+   of GCP.
  - The voxel size for binning and meshing the point cloud was chosen
    manually. An automated approach for choosing a representative voxel
    size is to be implemented.

@@ -404,13 +404,15 @@ Hence, if the latitude and longitude are known accurately, while the
 height less so, the third standard deviation can be set to something
 larger.
 
-Such a ``.gcp`` file then can be passed to ``bundle_adjust`` as shown earlier,
-with one or more images and cameras, and the obtained adjustments can be used
-with ``stereo`` or ``mapproject`` as described above. 
+Such a ``.gcp`` file then can be passed to ``bundle_adjust`` as shown in
+:numref:`ba_examples`, with one or more images and cameras, to refine the
+cameras. GCP can also be used to initialize the cameras
+(:numref:`camera_solve_gcp`). The produced refined cameras can be passed to
+``stereo`` or ``mapproject`` as described above. 
 
-The option ``--save-cnet-as-csv`` can be used to save the entire control network
-in the GCP csv format, before any optimization. This can be useful for comparing
-with any manually created GCP.
+The option ``--save-cnet-as-csv`` can be invoked to save the entire control
+network in the GCP format, before any optimization. This can be useful for
+comparing with any manually created GCP.
 
 See :numref:`ba_out_files` for the output files, including for
 more details about GCP.
