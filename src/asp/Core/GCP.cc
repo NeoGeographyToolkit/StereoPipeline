@@ -36,10 +36,14 @@ void writeGCP(std::vector<std::string> const& image_files,
   
   using namespace vw;
   
+  // Must have at lest two images to write a GCP file
+  if (image_files.size() < 2)
+    vw_throw(ArgumentErr() << "At least two images are needed to write a GCP file.\n");
+  
   // Load a georeference to use for the GCPs from the last image
   vw::cartography::GeoReference image_georef;
-  const size_t GEOREF_INDEX = image_files.size() - 1;
-  const std::string image_georef_file = image_files[GEOREF_INDEX];
+  const size_t georef_index = image_files.size() - 1;
+  const std::string image_georef_file = image_files[georef_index];
   bool has_georef = vw::cartography::read_georeference(image_georef, image_georef_file);
   if (!has_georef)
     vw::vw_throw(vw::ArgumentErr() << "Could not load a valid georeference to use for "
@@ -75,17 +79,16 @@ void writeGCP(std::vector<std::string> const& image_files,
   for (size_t p = 0; p < num_ips; p++) { // Loop through IPs
     
     // Compute the GDC coordinate of the point
-    ip::InterestPoint ip = matchlist.getPoint(GEOREF_INDEX, p);
+    ip::InterestPoint ip = matchlist.getPoint(georef_index, p);
     Vector2 lonlat    = image_georef.pixel_to_lonlat(Vector2(ip.x, ip.y));
     Vector2 dem_pixel = dem_georef.lonlat_to_pixel(lonlat);
     PixelMask<float> height = interp_dem(dem_pixel[0], dem_pixel[1])[0];
     
-    // We make a separate bounding box check because the ValueEdgeExtension
-    //  functionality may not work properly!
-    if ( (!dem_bbox.contains(dem_pixel)) || (!is_valid(height)) ) {
+    // Bounding box check.
+    if ((!dem_bbox.contains(dem_pixel)) || (!is_valid(height))) {
       vw_out() << "Warning: Skipped IP # " << p
                << " because it does not fall on the DEM.\n";
-      ++num_pts_skipped;
+      num_pts_skipped++;
       continue; // Skip locations which do not fall on the DEM
     }
     
@@ -119,7 +122,7 @@ void writeGCP(std::vector<std::string> const& image_files,
       output_handle << ", " << 1 << ", " << 1; // Sigma values
     } // End loop through IP sets
     output_handle << std::endl; // Finish the line
-    ++num_pts_used;
+    num_pts_used++;
   } // End loop through IPs
   
   output_handle.close();

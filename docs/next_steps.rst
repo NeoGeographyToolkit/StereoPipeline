@@ -1162,10 +1162,10 @@ including with CSV files (:numref:`geodiff`), and aligned
 Building a 3D mesh model
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``point2mesh`` command (:numref:`point2mesh`) can be used to
-create a 3D textured mesh in the plain text ``.obj`` format that can be
-opened in a mesh viewer such as MeshLab. The ``point2mesh`` program
-takes the point cloud file and the left normalized image as inputs::
+The ``point2mesh`` command (:numref:`point2mesh`) can create a 3D textured mesh
+in the plain text ``.obj`` format that can be opened in a mesh viewer such as
+MeshLab. The ``point2mesh`` program takes the point cloud file and the left
+normalized image as inputs::
 
      point2mesh results/output-PC.tif results/output-L.tif
 

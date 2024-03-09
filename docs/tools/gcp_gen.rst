@@ -3,14 +3,15 @@
 gcp_gen
 -------
 
-This program creates ground control points (GCP, :numref:`bagcp`) given a camera
-image, orthoimage, and DEM. The GCP can then be used to initialize or constrain
-a camera model for the camera image. This is a very quick and convenient way of
-creating cameras that avoids full Structure-from-Motion (:numref:`sfm`).
+This program creates ground control points (GCP, :numref:`bagcp`) given a raw
+camera image, orthoimage, and DEM. The GCP can then be used to initialize or
+constrain a camera model for the camera image. This is a very quick and
+convenient way of creating cameras that avoids full Structure-from-Motion
+(:numref:`sfm`).
 
-The approach is to find interest point matches between the camera image and
-orthoimage, infer the geolocation of those points from the orthoimage, and their
-elevation from the DEM.
+The approach is to find interest point matches between the camera image (which
+does not have a georeference) and orthoimage (which does), infer the geolocation
+of those points from the orthoimage, and their elevation from the DEM.
 
 This program can fail if the camera image and orthoimage are not similar enough,
 or if the orthoimage is a mirror-flipped version of the camera image. Manual
@@ -34,6 +35,26 @@ Example
       --dem dem.tif                         \
       -o gcp.gcp
 
+If given several images, the program should be invoked individually
+for each image, thus creating several GCP files. 
+
+Validation
+~~~~~~~~~~
+
+The images and GCP files can be passed together to ``bundle_adjust`` to 
+refine the camera models (:numref:`ba_use_gcp`), or individually if
+to initialize each camera model (:numref:`camera_solve_gcp`).
+
+Then, ``mapproject`` (:numref:`mapproject`) can be invoked with the camera
+image, updated camera (or the original camera with the option
+``--bundle-adjust-prefix``), and the DEM. The resulting orthoimage can be
+overlaid on top of the original orthoimage in ``stereo_gui``
+(:numref:`stereo_gui`) to visually inspect the agreement.
+
+Alternatively, the residuals for each GCP can be inspected in the
+``pointmap.csv`` files produced by ``bundle_adjust``
+(:numref:`ba_err_per_point`).
+ 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 

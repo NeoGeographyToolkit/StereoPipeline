@@ -345,7 +345,7 @@ int add_to_outliers(ControlNetwork & cnet,
   // follow the same logic as when residuals were formed. And also ignore GCP.
   std::vector<double> actual_residuals;
   std::set<int> was_added;
-  for ( size_t icam = 0; icam < num_cameras; icam++ ) {
+  for (size_t icam = 0; icam < num_cameras; icam++) {
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
 
       // The index of the 3D point
@@ -2486,7 +2486,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       int(opt.init_camera_using_gcp) > 1)
     vw::vw_throw(vw::ArgumentErr()
                  << "Cannot specify more than one of --transform-cameras-using-gcp, "
-                 << "transform-cameras-with-shared-gcp, init-camera-using-gcp.\n");
+                 << "--transform-cameras-with-shared-gcp, --init-camera-using-gcp.\n");
 
   if (opt.propagate_errors && opt.datum.name() == asp::UNSPECIFIED_DATUM) 
     vw_throw(ArgumentErr() << "Cannot propagate errors without a datum. Set --datum.\n");

@@ -39,8 +39,8 @@ The above choices for camera weight and triangulation weight are a recent
 implementation and suggested going forward, but not yet the defaults. These are
 helpful in preventing the cameras from drifting too far from initial locations.
 
-Maxar Earth cameras
-^^^^^^^^^^^^^^^^^^^
+Maxar Earth cameras and GCP
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Here we use Maxar (DigitalGlobe) Earth data (:numref:`dg_tutorial`) and ground
 control points (:numref:`bagcp`)::
@@ -49,11 +49,13 @@ control points (:numref:`bagcp`)::
        file1.tif file2.tif file1.xml file2.xml gcp_file.gcp \
        --datum WGS_1984 -o run_ba/run --num-passes 2
 
+There can be more than one GCP file.
+
 We invoked the tool with two passes, which also enables removal
 of outliers (see option ``--remove-outliers-params``, :numref:`ba_options`).
 
-RPC cameras
-^^^^^^^^^^^
+RPC cameras and image lists
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Examples for RPC cameras (:numref:`rpc`). With the cameras stored separately::
 
@@ -63,6 +65,10 @@ Examples for RPC cameras (:numref:`rpc`). With the cameras stored separately::
 With the cameras embedded in the images::
 
     bundle_adjust -t rpc left.tif right.tif -o run_ba/run
+
+The images can be also passed in via ``--image-list`` and cameras with 
+``--camera-list``. When the cameras are embedded in the images, the
+``--camera-list`` option accepts the image files instead.
 
 Pinhole cameras
 ^^^^^^^^^^^^^^^
@@ -356,6 +362,10 @@ constraints (:numref:`bagcp`).
 Ground control points
 ~~~~~~~~~~~~~~~~~~~~~
 
+Ground control points consist of known points on the ground, together with 
+their pixel locations in one or more images. Their use is to refine, 
+initialize, or transform to desired coordinates the camera poses.
+
 File format
 ^^^^^^^^^^^
 
@@ -397,23 +407,30 @@ representation of a ground control point measurement::
 
    5 23.7 160.1 427.1 1.0 1.0 1.0 image1.tif 124.5 19.7 1.0 1.0 image2.tif 254.3 73.9 1.0 1.0
 
-When the ``--use-lon-lat-height-gcp-error`` flag is used, the three
+.. _ba_use_gcp:
+
+Uses of GCP
+^^^^^^^^^^^
+
+A ``.gcp`` file can be passed to ``bundle_adjust`` as shown in
+:numref:`ba_examples`, with one or more images and cameras, to refine the
+camera poses. 
+
+GCP can be employed to initialize the cameras (:numref:`camera_solve_gcp`), or
+to transform them as a group, with the ``bundle_adjust`` options
+``--transform-cameras-with-shared-gcp`` and ``--transform-cameras-using-gcp``. 
+For use with SfM, see :numref:`sfm_world_coords`.
+
+The option ``--save-cnet-as-csv`` can be invoked to save the entire control
+network in the GCP format, before any optimization. This can be useful for
+comparing with any manually created GCP.
+
+When the ``--use-lon-lat-height-gcp-error`` flag is set, the three
 standard deviations are interpreted as applying not to :math:`x, y, z`
 but to latitude, longitude, and height above datum (in this order).
 Hence, if the latitude and longitude are known accurately, while the
 height less so, the third standard deviation can be set to something
 larger.
-
-Such a ``.gcp`` file then can be passed to ``bundle_adjust`` as shown in
-:numref:`ba_examples`, with one or more images and cameras, to refine the
-cameras. GCP can also be used to initialize the cameras
-(:numref:`camera_solve_gcp`). Also see option
-``--transform-cameras-with-shared-gcp``. The produced refined cameras can be
-passed to ``stereo`` or ``mapproject`` as described above. 
-
-The option ``--save-cnet-as-csv`` can be invoked to save the entire control
-network in the GCP format, before any optimization. This can be useful for
-comparing with any manually created GCP.
 
 See :numref:`ba_out_files` for the output files, including for
 more details about GCP.
@@ -456,19 +473,6 @@ printed in a report file as well. See :numref:`ba_out_files` for more
 details.
 
 To not optimize the GCP, use the option ``--fix-gcp-xyz``.
-
-Creating or transforming pinhole cameras using GCP
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-If for a given image the intrinsics of the camera are known, and also
-the longitude and latitude (and optionally the heights above the
-datum) of its corners (or of some other pixels in the image), the
-``bundle_adjust`` tool can create an initial camera position and
-orientation, and hence a complete pinhole camera. See
-:numref:`camera_solve_gcp` for more details.
-
-If desired to use GCP to apply a transform to a given
-self-consistent camera set, see :numref:`sfm_world_coords`.
 
 .. _control_network:
 
@@ -748,7 +752,9 @@ Ideally these distances should all be well under 1 GSD if the mapprojected
 images agree perfectly. This makes it easy to see which camera images are
 misregistered.
 
-This option assumes that the DEM is well-aligned with the cameras.
+This is an advanced metric that is only helpful if the images and DEM are known
+to be very well-aligned, while the DEM is very accurate. Consider inspecting
+first the files mentioned earlier in :numref:`ba_out_files`.
 
 The full report will be saved to::
 
@@ -1146,9 +1152,10 @@ Command-line options
     How many RANSAC iterations to do in interest point matching.
 
 --save-cnet-as-csv
-    Save the initial control network containing all interest points
-    in the format used by ground control points, so it can be
-    inspected. The triangulated points are before optimization.
+    Save the initial control network containing all interest points in the
+    format used by ground control points, so it can be inspected
+    (:numref:`stereo_gui_vwip_gcp`). The triangulated points are before
+    optimization.
 
 --camera-positions <filename>
     CSV file containing estimated positions of each camera. Only
