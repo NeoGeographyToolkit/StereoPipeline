@@ -434,7 +434,7 @@ def main(argsIn):
             argumentFile.write(str(tile[0]) + '\t' + str(tile[1]) + '\t'
                                + str(tile[2]) + '\t' + str(tile[3]) + '\n')
 
-    # Indicate to GNU Parallel that there are multiple tab-seperated
+    # Indicate to GNU Parallel that there are multiple tab-separated
     # variables in the text file we just wrote
     parallelArgs = ['--colsep', "\\t"]
 
