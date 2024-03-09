@@ -412,8 +412,8 @@ representation of a ground control point measurement::
 Uses of GCP
 ^^^^^^^^^^^
 
-A ``.gcp`` file can be passed to ``bundle_adjust`` as shown in
-:numref:`ba_examples`, with one or more images and cameras, to refine the
+One or more ``.gcp`` files can be passed to ``bundle_adjust`` as shown in
+:numref:`ba_examples`, together with one or more images and cameras, to refine the
 camera poses. 
 
 GCP can be employed to initialize the cameras (:numref:`camera_solve_gcp`), or

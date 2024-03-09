@@ -41,9 +41,8 @@ for each image, thus creating several GCP files.
 Validation
 ~~~~~~~~~~
 
-The images and GCP files can be passed together to ``bundle_adjust`` to 
-refine the camera models (:numref:`ba_use_gcp`), or individually if
-to initialize each camera model (:numref:`camera_solve_gcp`).
+The images and GCP files can be passed together to ``bundle_adjust`` to refine,
+transform, or initialize the camera models (:numref:`ba_use_gcp`).
 
 Then, ``mapproject`` (:numref:`mapproject`) can be invoked with the camera
 image, updated camera (or the original camera with the option
