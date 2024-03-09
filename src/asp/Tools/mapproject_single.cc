@@ -933,65 +933,10 @@ int main(int argc, char* argv[]) {
     if (pinhole_ptr)
       pinhole_ptr->set_do_point_to_pixel_check(false);
 
-    // Prepare output directory
-    vw::create_out_dir(opt.output_file);
+    // Project the image depending on image format.
+    project_image(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
+                  virtual_image_width, virtual_image_height, croppedImageBB);
     
-    // Determine the pixel type of the input image
-    boost::shared_ptr<DiskImageResource> image_rsrc = vw::DiskImageResourcePtr(opt.image_file);
-    ImageFormat image_fmt = image_rsrc->format();
-    const int num_input_channels = num_channels(image_fmt.pixel_format);
-
-    // Redirect to the correctly typed function to perform the actual map projection.
-    // - Must correspond to the type of the input image.
-    if (image_fmt.pixel_format == VW_PIXEL_RGB) {
-
-      // We can't just use float for everything or the output will be cast
-      //  into the -1 to 1 range which is probably not desired.
-      // - Always use an alpha channel with RGB images.
-      switch(image_fmt.channel_type) {
-      case VW_CHANNEL_UINT8:
-        project_image_alpha_pick_transform<PixelRGBA<uint8>>(opt, dem_georef, target_georef,
-                                                             croppedGeoRef, image_size, 
-                                                             Vector2i(virtual_image_width,
-                                                                      virtual_image_height),
-                                                             croppedImageBB, opt.camera_model);
-        break;
-      case VW_CHANNEL_INT16:
-        project_image_alpha_pick_transform<PixelRGBA<int16>>(opt, dem_georef, target_georef,
-                                                             croppedGeoRef, image_size, 
-                                                             Vector2i(virtual_image_width,
-                                                                      virtual_image_height),
-                                                             croppedImageBB, opt.camera_model);
-        break;
-      case VW_CHANNEL_UINT16:
-        project_image_alpha_pick_transform<PixelRGBA<uint16>>(opt, dem_georef, target_georef,
-                                                              croppedGeoRef, image_size, 
-                                                              Vector2i(virtual_image_width,
-                                                                       virtual_image_height),
-                                                              croppedImageBB, opt.camera_model);
-        break;
-      default:
-        project_image_alpha_pick_transform<PixelRGBA<float32>>(opt, dem_georef, target_georef,
-                                                               croppedGeoRef, image_size, 
-                                                               Vector2i(virtual_image_width,
-                                                                        virtual_image_height),
-                                                               croppedImageBB, opt.camera_model);
-        break;
-      };
-      
-    } else {
-      // If the input image is not RGB, only single channel images are supported.
-      if (num_input_channels != 1 || image_fmt.planes != 1)
-        //vw_throw( ArgumentErr() << "Input images must be single channel or RGB!\n" );
-        vw_out() << "Detected multi-band image. Only the first band will be used. The pixels will be interpreted as float.\n";
-      // This will cast to float but will not rescale the pixel values.
-      project_image_nodata_pick_transform<float>(opt, dem_georef, target_georef, croppedGeoRef,
-                                                 image_size, 
-                           Vector2i(virtual_image_width, virtual_image_height),
-                           croppedImageBB, opt.camera_model);
-    } 
-    // Done map projecting!
-
   } ASP_STANDARD_CATCHES;
 
   return 0;
