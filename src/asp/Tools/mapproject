@@ -508,7 +508,8 @@ def main(argsIn):
     if len(tiles) == 0:
         print("Removing: " + tempFolder)
         asp_file_utils.removeFolderIfExists(tempFolder)
-        raise Exception("No mapprojected tif tiles were generated")
+        raise Exception("No mapprojected tif tiles were generated. Examine the " + \
+                        "output above for more information.")
 
     # Build a gdal VRT file which is composed of all the processed tiles
     vrtPath = os.path.join(tempFolder, 'mosaic.vrt')

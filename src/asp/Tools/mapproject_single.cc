@@ -22,6 +22,8 @@
 /// TODO: This creates an RGBA output for an RGB input.
 /// It should create an RBG output for RGB input,
 /// and same for RGBA.
+// TODO(oalexan1): This is very slow t compile. Consider
+// moving some functions to separate .cc files.
 
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Cartography/PointImageManipulation.h>
@@ -483,7 +485,7 @@ void project_image_nodata(Options & opt,
       opt.nodata_value = img_rsrc->nodata_read();
 
     bool            has_img_nodata = true;
-    ImageMaskPixelT nodata_mask    = ImageMaskPixelT(); // invalid value for a PixelMask
+    ImageMaskPixelT nodata_mask = ImageMaskPixelT(); // invalid value for a PixelMask
 
     // TODO: This is a lot of code duplication, is there a better way?
     if (opt.nearest_neighbor) {
@@ -663,6 +665,73 @@ void project_image_alpha_pick_transform(Options & opt,
   }
 }
 
+// Project the image depending on image format.
+void project_image(Options & opt, GeoReference const& dem_georef,
+                   GeoReference const& target_georef, GeoReference const& croppedGeoRef,
+                   Vector2i const& image_size, 
+                   int virtual_image_width, int virtual_image_height,
+                   BBox2i const& croppedImageBB) {
+
+  // Prepare output directory
+  vw::create_out_dir(opt.output_file);
+  
+  // Determine the pixel type of the input image
+  boost::shared_ptr<DiskImageResource> image_rsrc = vw::DiskImageResourcePtr(opt.image_file);
+  ImageFormat image_fmt = image_rsrc->format();
+  const int num_input_channels = num_channels(image_fmt.pixel_format);
+
+  // Redirect to the correctly typed function to perform the actual map projection.
+  // - Must correspond to the type of the input image.
+  if (image_fmt.pixel_format == VW_PIXEL_RGB) {
+
+    // We can't just use float for everything or the output will be cast
+    //  into the -1 to 1 range which is probably not desired.
+    // - Always use an alpha channel with RGB images.
+    switch(image_fmt.channel_type) {
+    case VW_CHANNEL_UINT8:
+      project_image_alpha_pick_transform<PixelRGBA<uint8>>(opt, dem_georef, target_georef,
+                                                            croppedGeoRef, image_size, 
+                                                            Vector2i(virtual_image_width,
+                                                                    virtual_image_height),
+                                                            croppedImageBB, opt.camera_model);
+      break;
+    case VW_CHANNEL_INT16:
+      project_image_alpha_pick_transform<PixelRGBA<int16>>(opt, dem_georef, target_georef,
+                                                            croppedGeoRef, image_size, 
+                                                            Vector2i(virtual_image_width,
+                                                                    virtual_image_height),
+                                                            croppedImageBB, opt.camera_model);
+      break;
+    case VW_CHANNEL_UINT16:
+      project_image_alpha_pick_transform<PixelRGBA<uint16>>(opt, dem_georef, target_georef,
+                                                            croppedGeoRef, image_size, 
+                                                            Vector2i(virtual_image_width,
+                                                                      virtual_image_height),
+                                                            croppedImageBB, opt.camera_model);
+      break;
+    default:
+      project_image_alpha_pick_transform<PixelRGBA<float32>>(opt, dem_georef, target_georef,
+                                                              croppedGeoRef, image_size, 
+                                                              Vector2i(virtual_image_width,
+                                                                      virtual_image_height),
+                                                              croppedImageBB, opt.camera_model);
+      break;
+    };
+    
+  } else {
+    // If the input image is not RGB, only single channel images are supported.
+    if (num_input_channels != 1 || image_fmt.planes != 1)
+      //vw_throw( ArgumentErr() << "Input images must be single channel or RGB!\n" );
+      vw_out() << "Detected multi-band image. Only the first band will be used. The pixels will be interpreted as float.\n";
+    // This will cast to float but will not rescale the pixel values.
+    project_image_nodata_pick_transform<float>(opt, dem_georef, target_georef, croppedGeoRef,
+                                                image_size, 
+                          Vector2i(virtual_image_width, virtual_image_height),
+                          croppedImageBB, opt.camera_model);
+  } 
+  // Done map projecting
+}
+
 int main(int argc, char* argv[]) {
 
   Options opt;
@@ -826,18 +895,25 @@ int main(int argc, char* argv[]) {
     // Shrink output image BB if an output image BB was passed in
     GeoReference croppedGeoRef  = target_georef;
     BBox2i       croppedImageBB = target_image_size;
-    if ( opt.target_pixelwin != BBox2() ) {
-      // Replace with passed in bounding box
+    if (opt.target_pixelwin != BBox2()) {
+      // Replace with passed-in bounding box
       croppedImageBB = opt.target_pixelwin;
 
       // Update output georeference to match the reduced image size
       croppedGeoRef = vw::cartography::crop(target_georef, croppedImageBB);
     }
 
-    // Important: Don't modify the line below, we count on it in mapproject.in.
+    // Important: Don't modify the line below, we count on it in the Python
+    // mapproject program.
     vw_out() << "Output image size:\n";
     vw_out() << std::setprecision(17) << "(width: " << virtual_image_width
              << " height: " << virtual_image_height << ")" << std::endl;
+
+    // Print an explanation for a potential problem.    
+    if (virtual_image_width <= 0 || virtual_image_height <= 0)
+      vw_throw( ArgumentErr() << "Computed output image size is not positive. "
+                << "This can happen if the projection is in meters while the "
+                << "grid size is either in degrees or too large for the given input.\n" );
 
     // Form the lon-lat bounding box of the output image. This helps with
     // geotransform operations and should be done any time a georef is modified.
@@ -857,13 +933,13 @@ int main(int argc, char* argv[]) {
     if (pinhole_ptr)
       pinhole_ptr->set_do_point_to_pixel_check(false);
 
+    // Prepare output directory
+    vw::create_out_dir(opt.output_file);
+    
     // Determine the pixel type of the input image
     boost::shared_ptr<DiskImageResource> image_rsrc = vw::DiskImageResourcePtr(opt.image_file);
     ImageFormat image_fmt = image_rsrc->format();
     const int num_input_channels = num_channels(image_fmt.pixel_format);
-
-    // Prepare output directory
-    vw::create_out_dir(opt.output_file);
 
     // Redirect to the correctly typed function to perform the actual map projection.
     // - Must correspond to the type of the input image.
@@ -920,7 +996,3 @@ int main(int argc, char* argv[]) {
 
   return 0;
 }
-
-
-
-
