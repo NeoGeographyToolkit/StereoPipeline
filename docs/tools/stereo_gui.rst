@@ -264,12 +264,20 @@ kind.
 When reading polygons and georeferenced images from disk, choose "View
 as georeferenced images" to plot the polygons on top of the images.
 
-Plain text polygon files
+Plain-text polygon files
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-If read from text files, polygons can have individual colors. The 
-polygon format is described in :numref:`poly_files`. Such a file
-can be loaded as::
+The ``stereo_gui`` program can overlay plain-text polygon files on top of
+images, such as::
+
+    stereo_gui --use-georef --single-window poly1.txt poly2.txt image.tif
+
+if each of these has georeference (and csv format) information. That is the
+case when the polygons were created in the GUI and saved to disk. 
+This polygon format is described in :numref:`poly_files`.
+
+To display polygons from any text file, additional options should be specified,
+such as::
 
   stereo_gui --style poly --csv-format 1:lon,2:lat \
     --csv-datum D_MOON poly.csv
@@ -284,11 +292,9 @@ set to ``1:x,2:y`` if it is desired to have the y axis point up, and
 ``1:pix_x,2:pix_y`` if it should point down, so that such polygons
 can be overlaid on top of images.
 
-When polygons are saved to a file in plain text, including when a shape file is
-saved that way, the file will record the polygon properties, so can be loaded
-back without mentioning the style, CSV format, datum, and colors.
-The properties from the file override the ones set on the command line,
-to ensure that files with different properties can be loaded together.
+Any polygon properties set in the files will override the ones specified on the
+command line, to ensure that files with different properties can be loaded
+together.
 
 .. _gdal_rasterize_example:
 

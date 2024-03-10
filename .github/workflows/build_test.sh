@@ -221,6 +221,7 @@ tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 
 # Note: If the test results change, a new tarball with latest scripts and test
 # results must be uploaded. Here's how that is done.
+# TODO(oalexan1): This must be a tool, and documented in StereoPipelineTest.
 if [ 1 -eq 0 ]; then
   # Fetch the latest artifact of this run. It will have the current test results,
   # since later in this script we have a step that saves the test results.

@@ -610,9 +610,9 @@ Reprojection errors per triangulated point
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the ``--datum`` option is specified or auto-guessed based on images and
-cameras, ``bundle_adjust`` will write the triangulated world position for every
-feature being matched in two or more images, and the mean absolute residuals
-(that is, reprojection errors, :numref:`bundle_adjustment`) for each position,
+cameras, ``bundle_adjust`` will write the triangulated ground position for every
+feature being matched in two or more images, and the mean residual norm
+(that is, reprojection error, :numref:`bundle_adjustment`) for each position,
 before the first and after the last optimization pass, in geodetic coordinates.
 The files are named
 
@@ -641,8 +641,8 @@ The command::
     geodiff --absolute --csv-format '1:lon 2:lat 3:height_above_datum' \
       {output-prefix}-final_residuals_pointmap.csv dem.tif
 
-(:numref:`geodiff`) can be used to evaluate how well the residuals
-agree with a given DEM.  That can be especially useful if bundle
+(:numref:`geodiff`) can be called to evaluate how well the residuals
+agree with a given DEM. That can be especially useful if bundle
 adjustment was invoked with the ``--heights-from-dem`` option.
 
 One can also invoke ``point2dem`` with the above ``--csv-format``
@@ -651,16 +651,12 @@ error residuals).
 
 The final triangulated positions can be used for alignment with
 ``pc_align`` (:numref:`pc_align`). Then, use
-``--min-triangulation-angle 15.0`` with bundle adjustment or some
-other higher value, to filter out unreliably triangulated points.
+``--min-triangulation-angle 10.0`` with bundle adjustment or some
+other higher value, to filter out unreliable triangulated points.
 (This still allows, for example, to have a triangulated point
 obtained by the intersection of three rays, with some
 of those rays having an angle of at least this while some a much
 smaller angle.)
-
-As a finer-grained metric, initial and final ``raw_pixels.txt`` files will be
-written, having the row and column residuals (reprojection errors) for each
-pixel in each camera.
 
 GCP report
 ^^^^^^^^^^
@@ -674,7 +670,7 @@ both in ECEF and longitude-latitude-height above datum.
 Error propagation
 ^^^^^^^^^^^^^^^^^
 
-When the option ``--propagate-errors`` is used, propagate the errors
+When the option ``--propagate-errors`` is specified, propagate the errors
 (uncertainties) from the input cameras to the triangulated point for each pair
 of inlier interest point matches. The produced uncertainties will be separated
 into horizontal and vertical components relative to the datum. Statistical

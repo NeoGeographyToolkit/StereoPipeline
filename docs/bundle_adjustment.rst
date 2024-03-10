@@ -44,15 +44,14 @@ overlapping images, or on thousands. It is also a dangerous tool.
 Careful consideration is required to insure and verify that the solution
 does represent reality.
 
-Bundle adjustment can also take advantage of GCPs, which are 3D
-locations of features that are known a priori (often by measuring them
-by hand in another existing DEM). GCPs can improve the internal
-consistency of your DEM or align your DEM to an existing data product.
-Finally, even though bundle adjustment calculates the locations of the
-3D objects it views, only the final properties of the cameras are
-recorded for use by the Ames Stereo Pipeline. Those properties can be
-loaded into the ``parallel_stereo`` program which uses its own method for
-triangulating 3D feature locations.
+Bundle adjustment can also take advantage of GCPs (:numref:`bagcp`), which are
+3D locations of features that are known a priori (often by measuring them by
+hand in another existing DEM). GCPs can improve the internal consistency of your
+DEM or align your DEM to an existing data product. Finally, even though bundle
+adjustment calculates the locations of the 3D objects it views, only the final
+properties of the cameras are recorded for use by the Ames Stereo Pipeline.
+Those properties can be loaded into the ``parallel_stereo`` program which uses
+its own method for triangulating 3D feature locations.
 
 When using the Stereo Pipeline, bundle adjustment is an optional step
 between the capture of images and the creation of DEMs. The bundle
@@ -488,7 +487,7 @@ too large for this approach to reduce them effectively.
 
 We strongly recommend that for this process one should not rely on
 bundle adjustment to create interest points, but to use the dense and
-uniformly distributed ones created with stereo, as suggested earlier.
+uniformly distributed ones created with stereo (:numref:`dense_ip`).
 
 The hope is that after these directions are followed, this will result
 in a smaller intersection error and a smaller error to the lidar/DEM
@@ -589,17 +588,16 @@ cameras. The ``cam_gen`` program can be used to convert a camera model to CSM
 Working with map-projected images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If ``parallel_stereo`` was run with map-projected images, one can
-still extract dense interest point matches and the unaligned disparity
-from such a run, and these can be applied with the original
-unprojected images for the purpose of bundle adjustment (after being
-renamed appropriately).  This may be convenient since while bundle
-adjustment must always happen with the original images,
-``parallel_stereo`` could be faster and more accurate when images are
-map-projected. It is suggested that the unaligned disparity and
-interest points obtained this way be examined carefully.  Particularly
-the grid size used in mapprojection should be similar to the ground
-sample distance for the raw images for best results.
+If ``parallel_stereo`` was run with map-projected images, one can still extract
+dense interest point matches and the unaligned disparity from such a run, and
+these can be applied with the original unprojected images for the purpose of
+bundle adjustment (after being renamed appropriately, :numref:`ba_match_files`).
+This may be convenient since while bundle adjustment must always happen with the
+original images, ``parallel_stereo`` could be faster and more accurate when
+images are map-projected. It is suggested that the unaligned disparity and
+interest points obtained this way be examined carefully.  Particularly the grid
+size used in mapprojection should be similar to the ground sample distance for
+the raw images for best results.
 
 .. _kaguya_ba:
 
@@ -707,7 +705,8 @@ to help refine the distortion parameters.
 The option ``--ip-per-tile`` is set to a large value so that many interest
 points are generated, and then the best ones are kept. This can be way too large
 for big images. (Consider using instead ``--ip-per-image``.) The option
-``--matches-per-tile`` tries to ensure matches are uniformly distributed.
+``--matches-per-tile`` tries to ensure matches are uniformly distributed
+(:numref:`custom_ip`).
 
 Normally 50 iterations should be enough. Two passes will happen. After each 
 pass outliers will be removed.
@@ -807,12 +806,15 @@ well-distributed interest points.
 
 Normally, the sparse interest points produced with bundle adjustment so far can
 be used. For most precise work, dense and uniformly distributed interest points
-can be necessary. This is discussed in :numref:`custom_ip`.
+can be necessary. This is discussed in :numref:`dense_ip`.
 
 For example, if the input dataset consists of 6 overlapping stereo pairs, stereo
 can be run between each left image and every other right image, producing 36
-sets of dense interest points. These should be renamed according to the naming
-convention (:numref:`ba_match_files`).
+sets of dense interest points. 
+
+The interest point file names must be changed to respect the *naming convention*
+(:numref:`ba_match_files`), reflecting the names of the raw images, then passed
+to ``bundle_adjust`` via the ``--match-files`` option.
 
 One can also take the sparse interest points, and augment them with dense
 interest points from stereo only for a select set of pairs. All these must
@@ -861,6 +863,9 @@ overlapping with the current ones.
 
    The reprojection errors (``pointmap.csv``) before (top) and after (bottom)
    refinement of distortion. Some outliers are still visible but are harmless.
+   Dense and uniformly distributed interest points (:numref:`dense_ip`) are
+   strongly suggested, but not used here. 
+   
    It can be seen that many red vertical patterns are now much attenuated (these
    correspond to individual image edges). On the right some systematic errors
    are seen (due to the search range in stereo chosen here being too small and
@@ -1030,7 +1035,7 @@ Also examine the pairwise matches in ``stereo_gui``
 and that the errors are pushed down uniformly.
 
 Dense interest points produced from stereo may be necessary
-(:numref:`custom_ip`).
+(:numref:`dense_ip`).
 
 Evaluation of terrain models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1112,12 +1117,14 @@ can be reused with the option ``--prev-run-prefix`` in ``parallel_stereo`` (:num
 .. _custom_ip:
 
 Custom approaches to interest points
-------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Uniformly distributed interest points
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _sparse_ip:
 
-To attempt to create roughly uniformly distributed sparse interest points during
+Sparse and roughly uniformly distributed interest points
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To attempt to create roughly uniformly distributed *sparse* interest points during
 bundle adjustment, use options along the lines ``--ip-per-tile 1000
 --matches-per-tile 500 --max-pairwise-matches 10000``. 
 
@@ -1125,9 +1132,13 @@ Note that if the images are big, this will result in a very large number of
 potential matches, because a tile has the size of 1024 pixels. (See
 :numref:`ba_options` for the reference documentation for these options.)
 
-If this is not sufficient, dense and uniformly distributed interest points can
-be created during stereo. If having many images, that will mean many combinations
-of stereo pairs. 
+.. _dense_ip:
+
+Dense and uniformly distributed interest points
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Dense and uniformly distributed interest points can be created during stereo. If
+having many images, that will mean many combinations of stereo pairs. 
 
 For each stereo invocation, add options along the lines of::
 
@@ -1137,17 +1148,15 @@ or::
   
     --num-matches-from-disparity 10000
 
-The first of these options also ensures that if three images are
-present, and ``parallel_stereo`` is invoked on the first and second
-image, and then on the second and the third, followed by interest
-point generation, many interest points will be triplets, that is, the
-same feature will often will be identified in all three images, which
-can be a very good constraint on bundle adjustment later. (To not
-generate the triangulated point cloud after this, add the option
-``--compute-point-cloud-center-only``.)
-See :numref:`triangulation_options` for more details. 
+Only the second approach is supported with mapprojected images. See
+:numref:`triangulation_options` for more details. 
 
-Later invoke ``bundle_adjust`` with an option along the lines of
+The produced interest points must be renamed to the *standard convention* and
+reflect the names of the raw images, not the mapprojected ones
+(:numref:`ba_match_files`), then passed to ``bundle_adjust`` via the
+``--match-files`` option.
+
+Invoke ``bundle_adjust`` with an option along the lines of
 ``--max-pairwise-matches 10000`` (or larger) to ensure that on reading the
 interest points the full set is kept. 
 
