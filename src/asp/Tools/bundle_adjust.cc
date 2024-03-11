@@ -375,7 +375,7 @@ int add_to_outliers(ControlNetwork & cnet,
 
   double b, e; 
   vw::math::find_outlier_brackets(actual_residuals, pct, factor, b, e);
-  vw_out() << "Outlier statistics: b = " << b << ", e = " << e << ".\n";
+  vw_out() << "Percentile-based outlier bounds: b = " << b << ", e = " << e << ".\n";
   
   // If this is too aggressive, the user can tame it. It is
   // unreasonable to throw out pixel residuals as small as 1 or 2
