@@ -1698,8 +1698,13 @@ can be estimated as::
    parallel_sfs --estimate-height-errors -i sfs_dem.tif \
     -o sfs_error/run <other options as above>
 
-See the :numref:`sfs` describing how the estimation is
-implemented. 
+See the :numref:`sfs` describing how the estimation is implemented. This
+uncertainty may be somewhat optimistic (:cite:`jindal2024measuring_v2`).
+
+A useful exercise may be to run SfS with two sets of images, each with 
+diverse-enough illumination conditions, and compare the produced
+terrain models, and see how that compares with the estimated
+uncertainty map.
 
 .. _sfsinsights:
 

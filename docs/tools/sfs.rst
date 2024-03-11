@@ -173,15 +173,15 @@ Command-line options for sfs
     same fraction of the computed image exposure values.
 
 --estimate-height-errors
-    Estimate the SfS DEM height uncertainty (in meters) by finding the
-    height perturbation at each grid point which will make at least
-    one of the simulated images at that point change by more than
-    twice the discrepancy between the unperturbed simulated image and
-    the measured image. The SfS DEM must be provided via the -i option.
-    The number of iterations, blending parameters (``--blending-dist``,
-    etc.), and smoothness weight are ignored. Results are not
-    computed at image pixels in shadow. This produces <output
-    prefix>-height-error.tif. No SfS DEM is computed.
+    Estimate the SfS DEM height uncertainty (in meters) by finding the height
+    perturbation at each grid point which will make at least one of the
+    simulated images at that point change by more than twice the discrepancy
+    between the unperturbed simulated image and the measured image. The SfS DEM
+    must be provided via the -i option. The number of iterations, blending
+    parameters (``--blending-dist``, etc.), and smoothness weight are ignored.
+    Results are not computed at image pixels in shadow. This produces <output
+    ``prefix>-height-error.tif``. No SfS DEM is computed. This uncertainty may
+    be somewhat optimistic (:cite:`jindal2024measuring_v2`).
 
 --height-error-params <double integer (default: 5.0 1000)>
     Specify the largest height deviation to examine (in meters), and
