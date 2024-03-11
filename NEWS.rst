@@ -108,7 +108,9 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Fixed a bug when both ``--initial-transform`` and
     ``--input-adjustments-prefix`` are used.
   * Can use the image names in ``--camera-list`` when images contain the camera
-    models. 
+    models.
+  * The pixel reprojection errors are adjusted correctly for pixel sigma in
+    the report files (:numref:`ba_errors_per_camera`, :numref:`ba_err_per_point`).
     
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).

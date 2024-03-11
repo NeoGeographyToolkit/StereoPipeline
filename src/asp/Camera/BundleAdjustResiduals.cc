@@ -34,11 +34,13 @@ using namespace vw::ba;
 
 namespace  asp {
 
-/// Compute the bundle_adjust residuals
-void compute_residuals(bool apply_loss_function,
-                       asp::BaBaseOptions const& opt,
+// Compute the bundle_adjust residuals. Multiply the pixel residuals
+// by their sigmas, to get back the pixel reprojection errors.
+void compute_residuals(asp::BaBaseOptions const& opt,
+                       asp::CRNJ const& crn,
                        asp::BAParams const& param_storage,
                        std::vector<size_t> const& cam_residual_counts,
+                       std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
                        size_t num_gcp_or_dem_residuals,
                        size_t num_uncertainty_residuals,
                        size_t num_tri_residuals,
@@ -48,11 +50,9 @@ void compute_residuals(bool apply_loss_function,
                        // Output
                        std::vector<double> & residuals) {
 
-  // TODO(oalexan1): Associate residuals with cameras!
-  // Generate some additional diagnostic info
-
   double cost = 0.0;
   ceres::Problem::EvaluateOptions eval_options;
+  bool apply_loss_function = false; // must compute the actual residuals
   eval_options.apply_loss_function = apply_loss_function;
   if (opt.single_threaded_cameras)
     eval_options.num_threads = 1; // ISIS must be single threaded!
@@ -81,6 +81,32 @@ void compute_residuals(bool apply_loss_function,
   if (num_expected_residuals != num_residuals)
     vw_throw(LogicErr() << "Expected " << num_expected_residuals
                         << " residuals but instead got " << num_residuals);
+    
+  // Undo the division by pixel_sigma when computing the residuals, to get
+  // the pixel reprojection errors.
+  size_t residual_index = 0;
+  for (size_t icam = 0; icam < param_storage.num_cameras(); icam++) {
+    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
+
+      // The index of the 3D point
+      int ipt = (**fiter).m_point_id;
+
+      if (param_storage.get_point_outlier(ipt))
+        continue; // skip outliers
+        
+      // Look up the sigma for this point
+      auto sigma_it = pixel_sigmas[icam].find(ipt);
+      // Must have a sigma for each residual added
+      if (sigma_it == pixel_sigmas[icam].end())
+        vw_throw(LogicErr() << "Could not find sigma for point " 
+                 << ipt << " in camera " << icam);
+      vw::Vector2 sigma = sigma_it->second;
+      residuals[residual_index+0] *= sigma[0];
+      residuals[residual_index+1] *= sigma[1];
+      residual_index += PIXEL_SIZE;
+    }
+  }
+    
 }
 
 /// Compute residual map by averaging all the reprojection error at a given point
@@ -197,10 +223,11 @@ void write_residual_map(std::string const& output_prefix,
 
 /// Write log files describing all residual errors. The order of data stored
 /// in residuals must mirror perfectly the way residuals were created. 
-void write_residual_logs(std::string const& residual_prefix, bool apply_loss_function,
+void write_residual_logs(std::string const& residual_prefix, 
                          asp::BaBaseOptions const& opt,
                          asp::BAParams const& param_storage,
                          std::vector<size_t> const& cam_residual_counts,
+                         std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
                          size_t num_gcp_or_dem_residuals,
                          size_t num_uncertainty_residuals,
                          size_t num_tri_residuals,
@@ -211,8 +238,9 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
                          ceres::Problem &problem) {
 
   std::vector<double> residuals;
-  asp::compute_residuals(apply_loss_function, opt, param_storage,
-                    cam_residual_counts, num_gcp_or_dem_residuals, 
+  asp::compute_residuals(opt, crn, param_storage,
+                    cam_residual_counts, pixel_sigmas,
+                    num_gcp_or_dem_residuals, 
                     num_uncertainty_residuals,
                     num_tri_residuals, num_cam_position_residuals,
                     reference_vec, problem,

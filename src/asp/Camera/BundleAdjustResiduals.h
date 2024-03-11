@@ -32,10 +32,11 @@
 namespace asp {
 
 // Compute the bundle_adjust residuals
-void compute_residuals(bool apply_loss_function,
-                       asp::BaBaseOptions const& opt,
+void compute_residuals(asp::BaBaseOptions const& opt,
+                       asp::CRNJ const& crn,
                        asp::BAParams const& param_storage,
                        std::vector<size_t> const& cam_residual_counts,
+                       std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
                        size_t num_gcp_or_dem_residuals,
                        size_t num_uncertainty_residuals,
                        size_t num_tri_residuals,
@@ -65,10 +66,11 @@ void write_residual_map(std::string const& output_prefix,
 
 /// Write log files describing all residual errors. The order of data stored
 /// in residuals must mirror perfectly the way residuals were created. 
-void write_residual_logs(std::string const& residual_prefix, bool apply_loss_function,
+void write_residual_logs(std::string const& residual_prefix,
                          asp::BaBaseOptions const& opt,
                          asp::BAParams const& param_storage,
                          std::vector<size_t> const& cam_residual_counts,
+                         std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
                          size_t num_gcp_or_dem_residuals,
                          size_t num_uncertainty_residuals,
                          size_t num_tri_residuals,

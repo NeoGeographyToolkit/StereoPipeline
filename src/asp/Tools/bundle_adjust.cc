@@ -308,6 +308,7 @@ int add_to_outliers(ControlNetwork & cnet,
                     asp::BAParams & param_storage,
                     Options const& opt,
                     std::vector<size_t> const& cam_residual_counts,
+                    std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
                     size_t num_gcp_or_dem_residuals,
                     size_t num_uncertainty_residuals,
                     size_t num_tri_residuals,
@@ -320,12 +321,10 @@ int add_to_outliers(ControlNetwork & cnet,
   size_t num_points  = param_storage.num_points();
   size_t num_cameras = param_storage.num_cameras();
   
-  // Compute the reprojection error. Hence we should not add the contribution
-  // of the loss function.
-  bool apply_loss_function = false;
+  // Compute the reprojection error. Adjust for residuals being divided by pixel sigma.
+  // Do not use the attenuated residuals due to the loss function.
   std::vector<double> residuals;
-  asp::compute_residuals(apply_loss_function,  
-                    opt, param_storage,  cam_residual_counts,  
+  asp::compute_residuals(opt, crn, param_storage,  cam_residual_counts, pixel_sigmas, 
                     num_gcp_or_dem_residuals, num_uncertainty_residuals,
                     num_tri_residuals, num_cam_pos_residuals,
                     reference_vec, problem,
@@ -334,7 +333,7 @@ int add_to_outliers(ControlNetwork & cnet,
 
   // Compute the mean residual at each xyz, and how many times that residual is seen
   std::vector<double> mean_residuals;
-  std::vector<int   > num_point_observations;
+  std::vector<int> num_point_observations;
   compute_mean_residuals_at_xyz(crn, residuals, param_storage,
                                 // outputs
                                 mean_residuals, num_point_observations);
@@ -666,12 +665,12 @@ void addReferenceTerrainCostFunction(
 
 // Add a soft constraint to keep the cameras near the original position. 
 // Add a combined constraint for all reprojection errors in given camera.
-void addCamPosCostFun(Options                               const& opt,
-                      asp::BAParams                         const& orig_parameters,
-                      std::vector<std::vector<vw::Vector2>> const& pixels_per_cam,
-                      std::vector<std::vector<vw::Vector3>> const& tri_points_per_cam,
-                      std::vector<std::vector<double>>      const& pixel_sigmas,
-                      std::vector<vw::CamPtr>               const& orig_cams,
+void addCamPosCostFun(Options                                 const& opt,
+                      asp::BAParams                           const& orig_parameters,
+                      std::vector<std::vector<vw::Vector2>>   const& pixels_per_cam,
+                      std::vector<std::vector<vw::Vector3>>   const& tri_points_per_cam,
+                      std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
+                      std::vector<vw::CamPtr>                 const& orig_cams,
                       // Outputs
                       asp::BAParams                              & param_storage,
                       ceres::Problem                             & problem,
@@ -687,9 +686,12 @@ void addCamPosCostFun(Options                               const& opt,
   }
 
   int num_cameras = param_storage.num_cameras();
-
   for (int icam = 0; icam < num_cameras; icam++) {
     
+    // There must be as many pixels_per_cam as pixel_sigmas per cam
+    if (pixels_per_cam[icam].size() != pixel_sigmas[icam].size()) 
+      vw_throw(ArgumentErr() << "Expecting as many pixels as pixel sigmas per camera.\n");
+      
     // Adjustments to initial and current cameras
     double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
     double * cam_ptr  = param_storage.get_camera_ptr(icam);
@@ -697,12 +699,14 @@ void addCamPosCostFun(Options                               const& opt,
     double sum = 0.0;
     int count = 0;
     std::vector<double> pos_wts;
-    for (size_t ipix = 0; ipix < pixel_sigmas[icam].size(); ipix++) {
+    auto pix_sigma_it = pixel_sigmas[icam].begin();
+    for (size_t ipix = 0; ipix < pixels_per_cam[icam].size(); ipix++) {
       
       vw::Vector2 pixel_obs = pixels_per_cam[icam][ipix];
       vw::Vector3 xyz_obs = tri_points_per_cam[icam][ipix];
-      double pixel_sigma = pixel_sigmas[icam][ipix];
-      if (pixel_sigmas[icam][ipix] <= 0.0 || std::isnan(pixel_sigmas[icam][ipix])) 
+      double pixel_sigma = norm_2(pix_sigma_it->second);
+      pix_sigma_it++; // Update for next iteration
+      if (pixel_sigma <= 0.0 || std::isnan(pixel_sigma)) 
         continue; 
       
       double gsd = 0.0;
@@ -826,7 +830,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   std::vector<size_t> num_pixels_per_cam(num_cameras, 0);
   std::vector<std::vector<vw::Vector2>> pixels_per_cam(num_cameras);
   std::vector<std::vector<vw::Vector3>> tri_points_per_cam(num_cameras);
-  std::vector<std::vector<double>> pixel_sigmas(num_cameras);
+  std::vector<std::map<int, vw::Vector2>> pixel_sigmas(num_cameras);
   for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
     cam_residual_counts[icam] = 0;
     num_pixels_per_cam[icam] = 0;
@@ -890,6 +894,7 @@ int do_ba_ceres_one_pass(Options             & opt,
       
       if (pixel_sigma[0] <= 0.0 || pixel_sigma[1] <= 0.0) {
         // Cannot add a cost function term with non-positive pixel sigma
+        param_storage.set_point_outlier(ipt, true);
         continue;
       }
       
@@ -901,15 +906,17 @@ int do_ba_ceres_one_pass(Options             & opt,
         pixel_sigma /= delta;
       }
       
-      if (have_weight_image) // apply the weight image
+      // Apply the weight image
+      if (have_weight_image)
         pixel_sigma /= img_wt.child();
         
       // Need this for --camera-position-weight 
       if (opt.camera_position_weight > 0) {
         pixels_per_cam[icam].push_back(observation);
         tri_points_per_cam[icam].push_back(cnet[ipt].position());
-        pixel_sigmas[icam].push_back(norm_2(pixel_sigma));
       }
+      // For computing pixel reprojection errors
+      pixel_sigmas[icam][ipt] = pixel_sigma;
 
       // Call function to add the appropriate Ceres residual block.
       add_reprojection_residual_block(observation, pixel_sigma, ipt, icam,
@@ -1099,10 +1106,10 @@ int do_ba_ceres_one_pass(Options             & opt,
     }
     
     vw_out() << "Writing initial condition files." << std::endl;
-    bool apply_loss_function = false;
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
-    write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage, 
-                        cam_residual_counts, num_gcp_or_dem_residuals, 
+    write_residual_logs(residual_prefix, opt, param_storage, 
+                        cam_residual_counts, pixel_sigmas,
+                        num_gcp_or_dem_residuals, 
                         num_uncertainty_residuals, num_tri_residuals,
                         num_cam_pos_residuals, 
                         reference_vec, cnet, crn, problem);
@@ -1169,9 +1176,9 @@ int do_ba_ceres_one_pass(Options             & opt,
   // since we may stop the passes prematurely if no more outliers are present.
   vw_out() << "Writing final condition log files." << std::endl;
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
-  bool apply_loss_function = false;
-  write_residual_logs(residual_prefix, apply_loss_function, opt, param_storage,
-                      cam_residual_counts, num_gcp_or_dem_residuals, 
+  write_residual_logs(residual_prefix, opt, param_storage,
+                      cam_residual_counts, pixel_sigmas,
+                      num_gcp_or_dem_residuals, 
                       num_uncertainty_residuals, num_tri_residuals,
                       num_cam_pos_residuals,
                       reference_vec, cnet, crn, problem);
@@ -1191,7 +1198,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   if (remove_outliers)
       add_to_outliers(cnet, crn,
                       param_storage,   // in-out
-                      opt, cam_residual_counts, num_gcp_or_dem_residuals,
+                      opt, cam_residual_counts, pixel_sigmas, num_gcp_or_dem_residuals,
                       num_uncertainty_residuals, num_tri_residuals,
                       num_cam_pos_residuals, reference_vec, problem);
 

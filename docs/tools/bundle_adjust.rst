@@ -466,10 +466,9 @@ done for the regular reprojection errors without GCP. See the `Google Ceres
 functions. See also ``--cost-function`` and ``--robust-threshold`` option
 descriptions (:numref:`ba_options`).
 
-The GCP pixel residuals (divided by the pixel standard deviations)
-will be saved as the last lines of the report files ending in
-``pointmap.csv``. Differences between initial and optimized GCP will be
-printed in a report file as well. See :numref:`ba_out_files` for more
+The GCP pixel reprojection errors will be saved as the last lines of the report
+files ending in ``pointmap.csv``. Differences between initial and optimized GCP
+will be printed in a report file as well. See :numref:`ba_out_files` for more
 details.
 
 To not optimize the GCP, use the option ``--fix-gcp-xyz``.
@@ -611,8 +610,7 @@ Reprojection errors per triangulated point
 
 If the ``--datum`` option is specified or auto-guessed based on images and
 cameras, ``bundle_adjust`` will write the triangulated ground position for every
-feature being matched in two or more images, and the mean residual norm
-(that is, reprojection error, :numref:`bundle_adjustment`) for each position,
+feature being matched in two or more images, and the mean pixel reprojection error :numref:`bundle_adjustment`) for each position,
 before the first and after the last optimization pass, in geodetic coordinates.
 The files are named
 
@@ -633,8 +631,11 @@ Such files can be plotted and overlaid with ``stereo_gui``
 (:numref:`plot_csv`) to see at which triangulated points the
 reprojection errors are large and their geographic locations.
 
-Residuals corresponding to GCP will be printed at the end
-of these files and flagged with the string ``# GCP``. 
+Pixel reprojection errors corresponding to GCP will be printed at the end of
+these files and flagged with the string ``# GCP``. 
+
+During the optimization the pixel differences are divided by pixel sigma.
+This is undone when the pixel reprojection errors are later computed.
 
 The command::
 
