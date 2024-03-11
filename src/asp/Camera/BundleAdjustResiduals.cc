@@ -236,22 +236,20 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   residual_file_raw_pixels.precision(17);
 
   if (reference_vec.size() > 0) {
-    //vw_out() << "Writing: " << residual_reference_xyz_path << std::endl;
+    vw_out() << "Writing: " << residual_reference_xyz_path << std::endl;
     residual_file_reference_xyz.open(residual_reference_xyz_path.c_str());
     residual_file_reference_xyz.precision(17);
   }
   
   size_t index = 0;
   // For each camera, average together all the point observation residuals
-  residual_file << "Mean and median pixel reprojection error and point count for cameras:\n";
+  residual_file << "# Pixel reprojection error per camera\n";
+  residual_file << "# Image, mean, median, count\n";
   for (size_t c = 0; c < param_storage.num_cameras(); c++) {
     size_t num_this_cam_residuals = cam_residual_counts[c];
     
     // Write header for the raw file
-    std::string name = opt.camera_files[c];
-    if (name == "")
-      name = opt.image_files[c];
-    
+    std::string name = opt.image_files[c];
     residual_file_raw_pixels << name << ", " << num_this_cam_residuals << std::endl;
 
     // All residuals are for inliers, as we do not even add a residual
@@ -566,7 +564,9 @@ void saveJitterResiduals(ceres::Problem                             & problem,
   std::vector<double> xyz_residual_norm; // This is unfinished logic
   
   int ires = 0;
-  for (int icam = 0; icam < (int)crn.size(); icam++) {
+  int num_cams = crn.size();
+  std::vector<std::vector<double>> residuals_per_cam(num_cams);
+  for (int icam = 0; icam < crn.size(); icam++) {
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
       
       // The index of the 3D point
@@ -582,6 +582,9 @@ void saveJitterResiduals(ceres::Problem                             & problem,
       mean_pixel_residual_norm[ipt] += norm;
       pixel_residual_count[ipt]++;
       
+      // Record the residual for the camera
+      residuals_per_cam[icam].push_back(norm);
+      
       ires += PIXEL_SIZE; // Update for the next iteration
     }
   }
@@ -592,8 +595,32 @@ void saveJitterResiduals(ceres::Problem                             & problem,
       continue; // Skip outliers
     mean_pixel_residual_norm[ipt] /= pixel_residual_count[ipt];
   }
+  
+  // Find the mean and median residual for each camera. This a very important
+  // metric.
+  std::string residual_path = residual_prefix + "_stats.txt";
+  vw::vw_out() << "Writing: " << residual_path << std::endl;
+  std::ofstream residual_file(residual_path.c_str());
+  residual_file.precision(17);
+  residual_file << "# Pixel reprojection error per camera\n";
+  residual_file << "# Image, mean, median, count\n";
+  for (int icam = 0; icam < num_cams; icam++) {
+    std::string name = opt.image_files[icam];
+    double nan = std::numeric_limits<double>::quiet_NaN();
+    double mean = nan, median = nan, count = nan;
+    if (!residuals_per_cam[icam].empty()) {
+      mean   = vw::math::mean(residuals_per_cam[icam]);
+      median = vw::math::destructive_median(residuals_per_cam[icam]);
+      count  = residuals_per_cam[icam].size();
+    }
+    residual_file << name   << ", "
+                  << mean   << ", "
+                  << median << ", "
+                  << count  << "\n";
+  }
+  residual_file.close();
 
-  // Save the residuals
+  // Save the residuals per xyz point
   write_per_xyz_pixel_residuals(cnet, residual_prefix, datum, outliers,  
                                 tri_points_vec, mean_pixel_residual_norm,  
                                 pixel_residual_count);

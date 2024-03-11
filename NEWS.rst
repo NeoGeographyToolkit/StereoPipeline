@@ -45,8 +45,9 @@ jitter_solve (:numref:`jitter_solve`):
   * The ``--tri-weight`` constraint is now the default, with a positive value of
     0.1. This is adjusted for GSD (:numref:`jitter_tri_constraint`). 
   * Added report files having the change in camera positions
-    (:numref:`jitter_cam_offsets`) and triangulated points
-    (:numref:`jitter_tri_offsets`).
+    (:numref:`jitter_cam_offsets`), triangulated points
+    (:numref:`jitter_tri_offsets`), and stats of pixel reprojection errors per
+    camera (:numref:`jitter_errors_per_camera`).
   * Replaced the option ``--heights-from-dem-weight`` with
     ``--heights-from-dem-uncertainty`` (1 sigma, in meters). This is more
     physically meaningful (as a rule of thumb, use the inverse of what was

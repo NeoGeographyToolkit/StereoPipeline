@@ -48,7 +48,9 @@ distances on the ground in units of pixel.
 
 A report file having the change in triangulated points is written to disk
 (:numref:`jitter_cam_offsets`). It can help evaluate the effect of this
-constraint.
+constraint. Also check the pixel reprojection errors per camera
+(:numref:`jitter_errors_per_camera`) and per triangulated point
+(:numref:`jitter_err_per_point`), before and after solving for jitter.
 
 Triangulated points that are constrained via a DEM (option
 ``--heights-from-dem``, :numref:`jitter_dem_constraint`), that is, those that
@@ -1593,6 +1595,23 @@ well, are saved in the directory for the specified output prefix.
 The optimized state files can also be appended to the .cub files
 (:numref:`embedded_csm`).
 
+.. _jitter_errors_per_camera:
+
+Reprojection errors per camera
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The initial and final mean and median pixel reprojection error (distance from
+each interest point and camera projection of the triangulated point) for each
+camera, and their count, are written to::
+
+  {output-prefix}-initial_residuals_stats.txt
+  {output-prefix}-final_residuals_stats.txt
+ 
+It is very important to ensure all cameras have a small reprojection error,
+ideally under 1 pixel, as otherwise this means that the cameras are not
+well-registered to each other, or that systematic effects exist, such as
+uncorrected lens distortion.
+
 .. _jitter_cam_offsets:
 
 Changes in camera positions
@@ -1617,6 +1636,8 @@ these distances, per camera, are saved to::
 This is helpful in understanding how much the triangulated points move. An
 unreasonable amount of movement may suggest imposing stronger constraints on the
 triangulated points (option ``--tri-weight``).
+
+.. _jitter_err_per_point:
 
 Reprojection errors per triangulated point
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

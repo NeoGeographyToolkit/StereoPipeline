@@ -99,7 +99,7 @@ The first report file to check after a run concludes is::
     {output-prefix}-final_residuals_stats.txt
 
 (:numref:`ba_errors_per_camera`). It will have the mean and median pixel
-reprojection error for each camera, and their count. 
+reprojection error for each camera, and their count.
 
 The errors should be under 1 pixel, ideally under 0.5 pixels. The count must
 be at least a dozen, and ideally more. Otherwise bundle adjustment did
