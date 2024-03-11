@@ -1059,7 +1059,7 @@ Command-line options
     results for the optimization pass with the lowest error are
     kept.
 
---remove-outliers-params <'pct factor err1 err2' (default: '75.0 3.0 2.0 3.0')>
+--remove-outliers-params <'pct factor err1 err2' (default: '75.0 3.0 5.0 8.0')>
     Outlier removal based on percentage, when more than one bundle
     adjustment pass is used.  Triangulated points (that are not
     GCP) with reprojection error in pixels larger than: 

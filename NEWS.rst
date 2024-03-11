@@ -111,6 +111,9 @@ bundle_adjust (:numref:`bundle_adjust`):
     models.
   * The pixel reprojection errors are adjusted correctly for pixel sigma in
     the report files (:numref:`ba_errors_per_camera`, :numref:`ba_err_per_point`).
+  * The default outlier removal parameters are more generous, to avoid removing
+    valid interest point matches when the input images have distortion (option
+    ``--remove-outliers-params``). 
     
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).
