@@ -188,8 +188,8 @@ analogous to the triangulation constraint (:numref:`ba_ground_constraints`).
 
 It is suggested to examine the camera change report
 (:numref:`ba_camera_offsets`) and pixel reprojection report
-(:numref:`ba_errors_per_camera`) to see the effects. Normally the default
-should do well.
+(:numref:`ba_errors_per_camera`) to see the effects. Normally the default should
+do well.
 
 An additional modifier to this constraint is the option
 ``--camera-position-robust-threshold``. This is a robust threshold, with a
@@ -610,9 +610,9 @@ Reprojection errors per triangulated point
 
 If the ``--datum`` option is specified or auto-guessed based on images and
 cameras, ``bundle_adjust`` will write the triangulated ground position for every
-feature being matched in two or more images, and the mean pixel reprojection error :numref:`bundle_adjustment`) for each position,
-before the first and after the last optimization pass, in geodetic coordinates.
-The files are named
+feature being matched in two or more images, and the mean pixel reprojection
+error :numref:`bundle_adjustment`) for each position, before the first and after
+the last optimization pass, in geodetic coordinates. The files are named
 
 ::
 

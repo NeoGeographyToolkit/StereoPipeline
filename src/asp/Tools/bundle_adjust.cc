@@ -705,7 +705,9 @@ void addCamPosCostFun(Options                                 const& opt,
       vw::Vector2 pixel_obs = pixels_per_cam[icam][ipix];
       vw::Vector3 xyz_obs = tri_points_per_cam[icam][ipix];
       double pixel_sigma = norm_2(pix_sigma_it->second);
-      pix_sigma_it++; // Update for next iteration
+      if (pix_sigma_it == pixel_sigmas[icam].end()) 
+        vw::vw_throw(vw::ArgumentErr() << "Out of bounds for pixel sigmas.\n");
+      pix_sigma_it++; // Update for the next iteration
       if (pixel_sigma <= 0.0 || std::isnan(pixel_sigma)) 
         continue; 
       
