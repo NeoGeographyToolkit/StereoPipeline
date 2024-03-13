@@ -68,13 +68,14 @@ void write_match_image(std::string const& out_file_name,
                              double nodata2 = std::numeric_limits<double>::quiet_NaN());
   
   // Do IP matching, return, the best translation+scale fitting functor.
-  vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> const& image1,
-                vw::ImageView<vw::PixelGray<float>> const& image2,
-                int ip_per_tile,
-                std::string const left_file_path ="",
-                std::string const right_file_path="",
-                double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                double nodata2 = std::numeric_limits<double>::quiet_NaN());
+  vw::Matrix<double>
+    translation_ip_matching(vw::ImageView<vw::PixelGray<float>> const& image1,
+                            vw::ImageView<vw::PixelGray<float>> const& image2,
+                            int ip_per_tile,
+                            std::string const left_file_path ="",
+                            std::string const right_file_path="",
+                            double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                            double nodata2 = std::numeric_limits<double>::quiet_NaN());
 
   //-------------------------------------------------------------------------------------------
   // These are IP filtering functions.
@@ -188,16 +189,19 @@ void write_match_image(std::string const& out_file_name,
 
   // Homography IP matching
   // This applies only the homography constraint. Not the best.
-  bool homography_ip_matching(
-        vw::ImageViewRef<float> const& image1,
-        vw::ImageViewRef<float> const& image2,
-        int ip_per_tile,
-        int inlier_threshold,
-        std::string const& match_filename,
-        size_t number_of_jobs,
-        std::string const  left_file_path,
-        std::string const  right_file_path,
-        double nodata1, double nodata2);
+  // Can optionally restrict the matching to given image bounding boxes,
+  // which can result in big efficiency gains.
+  bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
+                              vw::ImageViewRef<float> const& image2,
+                              int ip_per_tile,
+                              int inlier_threshold,
+                              std::string const& match_filename,
+                              size_t number_of_jobs,
+                              std::string const  left_file_path,
+                              std::string const  right_file_path,
+                              double nodata1, double nodata2,
+                              vw::BBox2i const& bbox1 = vw::BBox2i(),
+                              vw::BBox2i const& bbox2 = vw::BBox2i());
 
 // Match the ip and save the match file. No epipolar constraint
 // is used in this mode.

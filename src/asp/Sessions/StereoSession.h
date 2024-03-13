@@ -107,8 +107,9 @@ namespace asp {
                      vw::camera::CameraModel* cam2,
                      std::string const& match_filename,
                      std::string const left_ip_file = "",
-                     std::string const right_ip_file = "");
-
+                     std::string const right_ip_file = "",
+                     vw::BBox2i const& bbox1 = vw::BBox2i(),
+                     vw::BBox2i const& bbox2 = vw::BBox2i());
 
     // If both left-image-crop-win and right-image-crop win are specified,
     // we crop the images to these boxes, and hence the need to keep

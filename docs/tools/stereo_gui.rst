@@ -679,6 +679,10 @@ to the original images.
 
 See :numref:`sfs3` for an illustration of this process.
 
+It is suggested to use ``--mapprojected-data`` with ``--auto-overlap-params.`` 
+Then, the interest point matching will be restricted to the region of overlap
+(expanded by the percentage in the latter option).
+    
 .. figure:: ../images/sfs3.jpg
    :name: sfs3
    :alt: interest points picked manually

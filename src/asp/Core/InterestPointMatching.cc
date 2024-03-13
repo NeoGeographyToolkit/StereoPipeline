@@ -418,33 +418,34 @@ bool tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
     }
     error_idx++;
   }
-  VW_ASSERT( prior_valid_size == error_idx,
-             vw::MathErr() << "tri_ip_filtering: Programmer error. Indices don't seem to be aligned." );
+  VW_ASSERT(prior_valid_size == error_idx,
+            vw::MathErr() << "tri_ip_filtering: Programmer error. Indices don't "
+            << "seem to be aligned.");
 
   vw_out() << "\t      Removed " << outlier_count << " points in triangulation filtering.\n";
   return (!valid_indices.empty());
 }
 
-bool stddev_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
-                          std::vector<vw::ip::InterestPoint> const& ip2,
-                          std::list<size_t>& valid_indices ) {
+bool stddev_ip_filtering(std::vector<vw::ip::InterestPoint> const& ip1,
+                         std::vector<vw::ip::InterestPoint> const& ip2,
+                         std::list<size_t>& valid_indices ) {
   const int NUM_STD_FILTER = 4;
   // 4 stddev filtering. Deletes any disparity measurement that is 4
   // stddev away from the measurements of it's local neighbors. We
   // kill off worse offender one at a time until everyone is compliant.
-  bool deleted_something;
+  bool deleted_something = false;
   size_t num_deleted = 0;
   do {
     deleted_something = false;
-    Matrix<float> locations1( valid_indices.size(), 2 );
+    Matrix<float> locations1(valid_indices.size(), 2);
     size_t count = 0;
-    std::vector<size_t > reverse_lookup  ( valid_indices.size() );
-    std::vector<Vector2> disparity_vector( valid_indices.size() );
-    BOOST_FOREACH( size_t index, valid_indices ) {
-      locations1( count, 0 ) = ip1[index].x;
-      locations1( count, 1 ) = ip1[index].y;
-      reverse_lookup  [ count ] = index;
-      disparity_vector[ count ] = Vector2(ip2[index].x,ip2[index].y) -
+    std::vector<size_t > reverse_lookup  (valid_indices.size());
+    std::vector<Vector2> disparity_vector(valid_indices.size());
+    BOOST_FOREACH(size_t index, valid_indices) {
+      locations1(count, 0) = ip1[index].x;
+      locations1(count, 1) = ip1[index].y;
+      reverse_lookup  [count] = index;
+      disparity_vector[count] = Vector2(ip2[index].x,ip2[index].y) -
         Vector2(ip1[index].x,ip1[index].y);
       count++;
     }
@@ -453,11 +454,11 @@ bool stddev_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
 
     std::pair<double,size_t> worse_index;
     worse_index.first = 0;
-    for ( size_t i = 0; i < valid_indices.size(); i++ ) {
-      Vector<int   > indices;
+    for (size_t i = 0; i < valid_indices.size(); i++) {
+      Vector<int> indices;
       Vector<double> distance;
       const int NUM_INDICES_TO_GET = 11;
-      tree1.knn_search(select_row( locations1, i ),
+      tree1.knn_search(select_row(locations1, i),
                        indices, distance, NUM_INDICES_TO_GET);
 
       // Bugfix: If there are too few inputs, in rare occasions
@@ -1000,6 +1001,8 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
 
 // Homography IP matching
 // This applies only the homography constraint. Not the best.
+// Can optionally restrict the matching to given image bounding boxes,
+// which can result in big efficiency gains.
 bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
                             vw::ImageViewRef<float> const& image2,
                             int ip_per_tile,
@@ -1008,25 +1011,53 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
                             size_t number_of_jobs,
                             std::string const  left_file_path,
                             std::string const  right_file_path,
-                            double nodata1, double nodata2) {
+                            double nodata1, double nodata2,
+                            vw::BBox2i const& bbox1,
+                            vw::BBox2i const& bbox2) {
 
   vw_out() << "\t--> Matching interest points using homography.\n";
 
+  // See if to restrict cropping to smaller regions
+  vw::ImageViewRef<float> local_image1 = image1;
+  vw::ImageViewRef<float> local_image2 = image2;
+  vw::BBox2i local_bbox1 = bbox1;
+  vw::BBox2i local_bbox2 = bbox2;
+  bool crop = (!bbox1.empty() && !bbox2.empty());
+  if (crop) {
+    local_bbox1.crop(bounding_box(image1));
+    local_bbox2.crop(bounding_box(image2));
+    local_image1 = vw::crop(image1, local_bbox1);
+    local_image2 = vw::crop(image2, local_bbox2);
+  }
+  
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   detect_match_ip(matched_ip1, matched_ip2,
-		  image1, image2,
+		  local_image1, local_image2,
 		  ip_per_tile, number_of_jobs,
 		  left_file_path, right_file_path,
 		  nodata1, nodata2);
   if (matched_ip1.size() == 0 || matched_ip2.size() == 0)
     return false;
     
+  // If we cropped, must shift the interest points back to the original image coordinates
+  if (crop) {
+    for (size_t i = 0; i < matched_ip1.size(); i++) {
+      matched_ip1[i].x += local_bbox1.min().x();
+      matched_ip1[i].y += local_bbox1.min().y();
+    }
+    for (size_t i = 0; i < matched_ip2.size(); i++) {
+      matched_ip2[i].x += local_bbox2.min().x();
+      matched_ip2[i].y += local_bbox2.min().y();
+    }
+  }
+
+  // Filter the interest points using a homography constraint
   std::vector<ip::InterestPoint> final_ip1, final_ip2;
   size_t num_left = filter_ip_homog(matched_ip1, matched_ip2, final_ip1, final_ip2,
                                     inlier_threshold);
   if (num_left == 0)
     return false;
-
+  
   if (stereo_settings().ip_debug_images) {
     vw_out() << "\t    Writing post-homography IP match debug image.\n";
     write_match_image("InterestPointMatching__ip_matching_debug2.tif",

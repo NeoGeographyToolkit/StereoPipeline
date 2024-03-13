@@ -871,11 +871,12 @@ Command-line options
     are then computed only among the images in each pair.
 
 --auto-overlap-params <string (default: "")>
-    Determine which camera images overlap by finding the lon-lat
-    bounding boxes of their footprints given the specified DEM, expanding
-    them by a given percentage, and see if those intersect. A higher
-    percentage should be used when there is more uncertainty about the
-    input camera poses. Example: 'dem.tif 15'.
+    Determine which camera images overlap by finding the bounding boxes of their
+    ground footprints given the specified DEM, expanding them by a given
+    percentage, and see if those intersect. A higher percentage should be used
+    when there is more uncertainty about the input camera poses. Example:
+    'dem.tif 15'. Using this with ``--mapprojected-data`` will restrict the
+    matching only on the overlap regions (expanded by this percentage).
 
 --auto-overlap-buffer <double (default: not set)>
     Try to automatically determine which images overlap. Used only if
@@ -1236,8 +1237,9 @@ Command-line options
     images, unproject and save those matches, then continue with bundle
     adjustment. Existing match files will be reused. Specify the mapprojected
     images and the DEM as a string in quotes, separated by spaces. The DEM must
-    be the last file. See :numref:`mapip` for an example.
-
+    be the last file. See :numref:`mapip` for an example. It is suggested to use
+    this with ``--auto-overlap-params.``
+   
 --save-intermediate-cameras
     Save the values for the cameras at each iteration.
 
@@ -1251,9 +1253,9 @@ Command-line options
     A file containing the list of images, when they are too many to specify on
     the command line. Use in the file a space or newline as separator. When
     solving for intrinsics for several sensors, pass to this option several
-    lists, with comma as separator between the file names (no space). An
-    example is in :numref:`kaguya_ba`. See also
-    ``--camera-list`` and ``--mapprojected-data-list``.
+    lists, with comma as separator between the file names (no space). An example
+    is in :numref:`kaguya_ba`. See also ``--camera-list`` and
+    ``--mapprojected-data-list``.
 
 --camera-list
     A file containing the list of cameras, when they are too many to

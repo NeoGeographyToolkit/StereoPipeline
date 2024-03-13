@@ -1172,8 +1172,9 @@ during bundle adjustment, two approaches are supported. One is the option
 The other is using the ``--weight-image`` option (also supported by the jitter
 solver, :numref:`jitter_solve`). In locations where a given georeferenced weight
 image has non-positive or nodata values, triangulated points will be ignored.
-Otherwise each reprojection error will be multiplied by the weight closest
-geographically to the triangulated point.
+Otherwise each pixel reprojection error will be multiplied by the weight closest
+geographically to the triangulated point. The effect is to work harder on the
+areas where the weight is higher. 
  
 Such a weight image can be created from a regular georeferenced image with
 positive pixel values as follows. Open it in ``stereo_gui``, and draw on top of

@@ -81,6 +81,9 @@ typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRNJ;
                                    camera_model,
                                    std::string const& out_prefix);
   
+  // Expand a box by a given percentage (typically pct is between 0 and 100)
+  void expand_box_by_pct(vw::BBox2 & box, double pct);
+
   // Determine which camera images overlap by finding the lon-lat
   // bounding boxes of their footprints given the specified DEM, expand
   // them by a given percentage, and see if those intersect. A higher
@@ -91,7 +94,7 @@ typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRNJ;
                 std::string const& dem_file,
                 double pct_for_overlap,
                 std::vector<std::string> const& image_files,
-                std::vector<boost::shared_ptr<vw::camera::CameraModel>> const& camera_models,
+                std::vector<vw::CamPtr> const& camera_models,
                 std::set<std::pair<std::string, std::string>> & overlap_list);
 
   /// Create the adjusted camera file name from the original camera filename,

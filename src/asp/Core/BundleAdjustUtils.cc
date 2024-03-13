@@ -117,9 +117,9 @@ void compute_stereo_residuals(std::vector<vw::CamPtr> const& camera_models,
 
 // See the .h file for documentation
 vw::BBox2 camera_bbox_with_cache(std::string const& dem_file,
-                                      std::string const& image_file,
-                                      vw::CamPtr  const& camera_model,
-                                      std::string const& out_prefix) {
+                                 std::string const& image_file,
+                                 vw::CamPtr  const& camera_model,
+                                 std::string const& out_prefix) {
   
   namespace fs = boost::filesystem;
 
@@ -177,6 +177,21 @@ vw::BBox2 camera_bbox_with_cache(std::string const& dem_file,
   return box;
 }
 
+// Expand a box by a given percentage (typically pct is between 0 and 100)
+void expand_box_by_pct(vw::BBox2 & box, double pct) {
+  
+  // Check the pct is non-negative
+  if (pct < 0.0) 
+    vw_throw(ArgumentErr() << "Invalid percentage when expanding a box: " 
+              << pct << ".\n");
+    
+  double factor = pct / 100.0;
+  double half_extra_x = 0.5 * box.width()  * factor;
+  double half_extra_y = 0.5 * box.height() * factor;
+  box.min() -= Vector2(half_extra_x, half_extra_y);
+  box.max() += Vector2(half_extra_x, half_extra_y);
+}
+
 // See the .h file for the documentation.
 void build_overlap_list_based_on_dem(std::string const& out_prefix, 
                                      std::string const& dem_file, 
@@ -202,17 +217,7 @@ void build_overlap_list_based_on_dem(std::string const& out_prefix,
                                             out_prefix);
 
     // Expand the box by the given factor
-    double factor = pct_for_overlap / 100.0;
-
-    // The expansion factor can be negative, but not if it results in an empty box
-    if (factor <= -1.0) 
-      vw_throw(ArgumentErr() << "Invalid percentage when computing the footprint of camera image: "
-               << pct_for_overlap  << ".\n");
-      
-    double half_extra_x = 0.5 * boxes[it].width()  * factor;
-    double half_extra_y = 0.5 * boxes[it].height() * factor;
-    boxes[it].min() -= Vector2(half_extra_x, half_extra_y);
-    boxes[it].max() += Vector2(half_extra_x, half_extra_y);
+    expand_box_by_pct(boxes[it], pct_for_overlap);
   }
 
   // See which boxes overlap. While this is an O(N^2) computation,

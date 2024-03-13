@@ -62,7 +62,9 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                 vw::camera::CameraModel* cam2,
                                 std::string const& match_filename,
                                 std::string const  left_ip_file,
-                                std::string const  right_ip_file) {
+                                std::string const  right_ip_file,
+                                vw::BBox2i const& bbox1,
+                                vw::BBox2i const& bbox2) {
 
   vw_out() << "\t--> Matching interest points in StereoSession.\n";
 
@@ -269,7 +271,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                     inlier_threshold,
                                     match_filename, number_of_jobs,
                                     left_ip_file, right_ip_file,
-                                    nodata1, nodata2);
+                                    nodata1, nodata2, bbox1, bbox2);
   }
 
   } catch (std::exception const& e) {

@@ -114,6 +114,10 @@ bundle_adjust (:numref:`bundle_adjust`):
   * The default outlier removal parameters are more generous, to avoid removing
     valid interest point matches when the input images have distortion (option
     ``--remove-outliers-params``). 
+  * The combination of options ``--mapprojected-data`` and
+    ``--auto-overlap-params`` will restrict the interest point matching to the
+    region of overlap (expanded by the percentage in the latter option). This
+    can result in great efficiency gains for large images.
     
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).

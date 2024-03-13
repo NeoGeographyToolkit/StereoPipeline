@@ -42,6 +42,7 @@
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Camera/CameraImage.h>
+#include <vw/Cartography/GeoTransform.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 
@@ -1817,10 +1818,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("overlap-list",         po::value(&opt.overlap_list_file)->default_value(""),
      "A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
     ("auto-overlap-params",  po::value(&opt.auto_overlap_params)->default_value(""),
-     "Determine which camera images overlap by finding the lon-lat bounding boxes "
-     "of their footprints given the specified DEM, expanding them by a given percentage, "
+     "Determine which camera images overlap by finding the bounding boxes of their "
+     "ground footprints given the specified DEM, expanding them by a given percentage, "
      "and see if those intersect. A higher percentage should be used when there is more "
-     "uncertainty about the input camera poses. Example: 'dem.tif 15'.")
+     "uncertainty about the input camera poses. Example: 'dem.tif 15'. "
+     "Using this with --mapprojected-data will restrict the "
+     "matching only on the overlap regions (expanded by this percentage).")
     ("auto-overlap-buffer",  po::value(&opt.auto_overlap_buffer)->default_value(-1.0),
      "Try to automatically determine which images overlap. Used only if "
      "this option is explicitly set. Only supports Worldview style XML "
@@ -1966,7 +1969,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "the mapprojected images, unproject and save those matches, then continue "
      "with bundle adjustment. Existing match files will be reused. Specify the "
      "mapprojected images and the DEM as a string in quotes, separated by spaces. "
-     "The DEM must be the last file.")
+     "The DEM must be the last file. It is suggested to use this with "
+     "--auto-overlap-params.")
     ("matches-per-tile",  po::value(&opt.matches_per_tile)->default_value(0),
      "How many interest point matches to compute in each image tile (of size "
       "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "
@@ -2252,11 +2256,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   opt.remove_outliers_params = vw::str_to_vec<vw::Vector<double, 4>>(opt.remove_outliers_params_str);
   
   // Ensure good order
-  if ( opt.lon_lat_limit != BBox2(0,0,0,0) ) {
-    if ( opt.lon_lat_limit.min().y() > opt.lon_lat_limit.max().y() ) 
-      std::swap( opt.lon_lat_limit.min().y(), opt.lon_lat_limit.max().y() );
-    if ( opt.lon_lat_limit.min().x() > opt.lon_lat_limit.max().x() ) 
-      std::swap( opt.lon_lat_limit.min().x(), opt.lon_lat_limit.max().x() );
+  if (opt.lon_lat_limit != BBox2(0,0,0,0)) {
+    if (opt.lon_lat_limit.min().y() > opt.lon_lat_limit.max().y()) 
+      std::swap( opt.lon_lat_limit.min().y(), opt.lon_lat_limit.max().y());
+    if (opt.lon_lat_limit.min().x() > opt.lon_lat_limit.max().x() ) 
+      std::swap(opt.lon_lat_limit.min().x(), opt.lon_lat_limit.max().x());
   }
   
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
@@ -2657,13 +2661,40 @@ void ba_match_ip(Options & opt, SessionPtr session,
     vw::create_out_dir(opt.vwip_prefix);
   }
   
+  // For mapprojected images and given the overlap params, 
+  // can restrict the matching to a smaller region.
+  vw::BBox2 bbox1, bbox2;
+  if (opt.pct_for_overlap >= 0) {
+    vw::cartography::GeoReference georef1, georef2;
+    bool has_georef1 = vw::cartography::read_georeference(georef1, image1_path);
+    bool has_georef2 = vw::cartography::read_georeference(georef2, image2_path);
+    if (has_georef1 && has_georef2) {
+      bbox1 = vw::bounding_box(masked_image1);
+      bbox2 = vw::bounding_box(masked_image2);
+      // Expand the boxes by pct
+      expand_box_by_pct(bbox1, opt.pct_for_overlap);
+      expand_box_by_pct(bbox2, opt.pct_for_overlap);
+      // Transform each box to the other image's pixel coordinates
+      vw::cartography::GeoTransform trans(georef1, georef2);
+      vw::BBox2 trans_bbox1 = trans.forward_bbox(bbox1);
+      vw::BBox2 trans_bbox2 = trans.reverse_bbox(bbox2);
+      // The first box will be the 2nd transformed box, then cropped
+      // to bounding box of first image
+      bbox1 = trans_bbox2;
+      bbox1.crop(bounding_box(masked_image1));
+      // Same logic for the second box.
+      bbox2 = trans_bbox1;
+      bbox2.crop(bounding_box(masked_image2));
+    }
+  }
+
   // The match files (.match) are cached unless the images or camera
   // are newer than them.
   session->ip_matching(image1_path, image2_path,
                        Vector2(masked_image1.cols(), masked_image1.rows()),
                        image1_stats, image2_stats, 
                        nodata1, nodata2, cam1, cam2, match_filename, 
-                       ip_file1, ip_file2);
+                       ip_file1, ip_file2, bbox1, bbox2);
 }
 
 //==================================================================================
@@ -2683,7 +2714,7 @@ void matches_from_mapproj_images(int i, int j,
                                  std::string mapproj_dem, 
                                  vw::cartography::GeoReference const& dem_georef,
                                  ImageViewRef<PixelMask<double>> & interp_dem,
-                                 std::string const& match_filename){
+                                 std::string const& match_filename) {
   
   vw::cartography::GeoReference georef1, georef2;
   vw_out() << "Reading georef from " << map_files[i] << ' ' << map_files[j] << std::endl;
@@ -2700,7 +2731,7 @@ void matches_from_mapproj_images(int i, int j,
     return;
   }
 
-  // TODO(oalexan1):  What is mapprojection was done with a different camera
+  // TODO(oalexan1):  What if mapprojection was done with a different camera
   // model? Such as RPC vs DG? Also must check the DEM and adjust prefix! Same
   // as when undoing mapprojection during stereo.
   if (opt.skip_matching)
@@ -2947,7 +2978,7 @@ void findPairwiseMatches(Options & opt, // will change
     (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
 
   // Make a list of all the image pairs to find matches for
-  std::vector<std::pair<int,int> > all_pairs;
+  std::vector<std::pair<int,int>> all_pairs;
   if (!need_no_matches)
     asp::determine_image_pairs(// Inputs
                                 opt.overlap_limit, opt.match_first_to_last,  
