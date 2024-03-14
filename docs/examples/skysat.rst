@@ -63,10 +63,12 @@ Pinhole cameras, which have a ``_pinhole.json`` suffix.
         --input-camera ${pref}_pinhole.json    \
         -o ${pref}.tsai
 
-This approach is preferred.
+This approach is preferred. Specify a .json extension if desired
+to mix and match various sensor types (:numref:`ba_frame_linescan`).
 
-Here, no camera refinement happens and no GCP are created.
-Note that this was tested only with the L1A SkySat product.
+With SkySat, it is suggested not to refine the vendor-provided cameras at this
+stage, but do a straightforward conversion only. Note that this was tested only
+with the L1A SkySat product.
 
 Alternatively, if the ``pinhole.json`` files are not available, 
 a Pinhole camera can be derived from each of their RPC
