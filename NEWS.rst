@@ -118,6 +118,9 @@ bundle_adjust (:numref:`bundle_adjust`):
     ``--auto-overlap-params`` will restrict the interest point matching to the
     region of overlap (expanded by the percentage in the latter option). This
     can result in great efficiency gains for large images.
+  * Bugfix: points for which initial triangulation failed are flagged as
+    outliers right away. See ``--forced-triangulation-distance`` for
+    fine-grained control.
     
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).

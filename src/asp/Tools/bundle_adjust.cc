@@ -1545,6 +1545,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                                         opt.min_triangulation_angle*(M_PI/180.0),
                                         opt.forced_triangulation_distance);
     check_gcp_dists(new_cam_models, opt.cnet, opt.forced_triangulation_distance);
+    if (num_points != cnet.size()) // Must not happen
+      vw_throw(ArgumentErr() << "The number of points changed after re-triangulation.\n");
   }
 
   // Fill in the point vector with the starting values
@@ -1556,6 +1558,12 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     if (ipt < 0 || ipt >= num_points)
       vw_throw(ArgumentErr() << "Invalid point index.\n");
     param_storage.set_point_outlier(ipt, true);
+  }
+  
+  // Flag outliers in the cnet
+  for (int ipt = 0; ipt < num_points; ipt++) {
+    if (cnet[ipt].ignore())
+      param_storage.set_point_outlier(ipt, true);
   }
   
   // The camera positions and orientations before we float them
@@ -1955,7 +1963,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("forced-triangulation-distance", po::value(&opt.forced_triangulation_distance)->default_value(-1),
      "When triangulation fails, for example, when input cameras are inaccurate, "
      "artificially create a triangulation point this far ahead of the camera, "
-     "in units of meter.")
+     "in units of meter. Can also set a small --min-triangulation-angle in this case.")
     ("use-lon-lat-height-gcp-error",
      po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
      "When having GCP (or a DEM constraint), constrain the triangulated points in the "
@@ -2277,10 +2285,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // example, Cartosat-1 has that info in the Tif file.
   bool guessed_datum = false;
   if (opt.datum_str == "") {
+    // TODO(oalexan1): What if a different planet is specified in the images?
     vw::cartography::GeoReference georef;
     for (size_t it = 0; it < opt.image_files.size(); it++) {
       bool is_good = vw::cartography::read_georeference(georef, opt.image_files[it]);
-      if (is_good){
+      if (is_good) {
         opt.datum = georef.datum();
         opt.datum_str = opt.datum.name();
         guessed_datum = true;
@@ -2292,6 +2301,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.reference_terrain != "") {
     std::string file_type = asp::get_cloud_type(opt.reference_terrain);
     if (file_type == "DEM") {
+    // TODO(oalexan1): What if a different planet is specified in the images?
       vw::cartography::GeoReference georef;
       bool is_good = vw::cartography::read_georeference(georef, opt.reference_terrain);
       if (!is_good)
@@ -2341,7 +2351,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
         vw_throw( ArgumentErr() << "The DEM " << dem_file
                   << " does not have a georeference.\n");
 
-      if (opt.datum_str == "" ) {
+      if (opt.datum_str == "") {
+        // TODO(oalexan1): What if a different planet is specified in the images?
         opt.datum = georef.datum();
         opt.datum_str = opt.datum.name();
         guessed_datum = true;
@@ -2358,7 +2369,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.datum_str = "";
       guessed_datum = false;
     }
-  }else if (opt.semi_major > 0 && opt.semi_minor > 0){
+  } else if (opt.semi_major > 0 && opt.semi_minor > 0){
     // Otherwise, if the user set the semi-axes, use that.
     opt.datum = cartography::Datum("User Specified Datum",
                                    "User Specified Spheroid",
@@ -2366,6 +2377,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                                    opt.semi_major, opt.semi_minor, 0.0);
     opt.datum_str = opt.datum.name();
     guessed_datum = true;
+    // TODO(oalexan1): What if a different planet is specified in the images?
   }
 
   // Otherwise try to set the datum based on cameras. It will not work for Pinhole.
@@ -2376,6 +2388,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             // Outputs
                             opt.datum);
     opt.datum_str = opt.datum.name();
+    // TODO(oalexan1): What if a different planet is specified in the images?
   }
 
   // Many times the datum is mandatory

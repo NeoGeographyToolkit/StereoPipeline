@@ -533,6 +533,12 @@ void flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
       Vector2 observation = (**fiter).m_location;
 
       Vector3 const& tri_point = cnet[ipt].position(); // alias
+      
+      // Flag outliers produced when building or triangulating the control network
+      if (cnet[ipt].ignore()) {
+        outliers.insert(ipt);
+        continue;
+      }
 
       if (tri_point == Vector3(0, 0, 0)) {
         // Points at planet center are outliers

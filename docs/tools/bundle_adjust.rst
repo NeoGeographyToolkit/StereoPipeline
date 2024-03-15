@@ -73,7 +73,7 @@ The images can be also passed in via ``--image-list`` and cameras with
 Pinhole cameras
 ^^^^^^^^^^^^^^^
 
-We use generic Pinhole cameras (:numref:`pinholemodels`)::
+::
 
      bundle_adjust file1.JPG file2.JPG              \
         file1.tsai file2.tsai                       \
@@ -83,13 +83,42 @@ We use generic Pinhole cameras (:numref:`pinholemodels`)::
         --datum WGS_1984                            \
         -o run_ba/run
 
+See :numref:`pinholemodels` for the pinhole camera model format.
+
 Here we assumed that the cameras point towards planet's surface and used the
 ``nadirpinhole`` session. If this assumption is not true, one should use the
 ``pinhole`` session or the ``--no-datum`` option.
 
 The value of ``--datum`` should reflect the planetary body being imaged. If not
-set, some functionality will not be available. It will be auto-guessed, except
-for Pinhole cameras, unless some DEM is provided on input.
+set, some functionality will not be available. It will be auto-guessed, either
+based on camera files, input DEM, or camera center (the latter only for Earth,
+Mars, Moon).
+
+CSM cameras
+^^^^^^^^^^^
+
+::
+
+     bundle_adjust file1.cub file2.cub              \
+        file1.json file2.json                       \
+        -t csm                                      \
+        --camera-weight 0                           \
+        --tri-weight 0.1 --tri-robust-threshold 0.1 \
+        -o run_ba/run
+
+CSM cameras (:numref:`csm`) can be stored in .json files or in .cub files. After
+bundle adjustment, updated .json camera files will be written to disk, in
+addition to .adjust files. See :numref:`csm_state` and :numref:`embedded_csm`.
+
+The datum will be read from the camera files.
+
+Other cameras
+^^^^^^^^^^^^^
+
+Bundle adjustment supports many other camera models. See :numref:`examples`
+for the various sensor types.
+
+.. _ba_validation:
 
 Validation
 ~~~~~~~~~~
@@ -206,6 +235,9 @@ When using hard constraints in bundle adjustment, caution should be exercised as
 they can impact the optimization process. It is not recommended to set
 uncertainties below 0.2 meters, as this may result in slow convergence or even
 failure to converge.
+
+It is suggested to not use the option ``--rotation-weight``, as camera position
+and ground position constraints are usually sufficient.
 
 Use cases
 ~~~~~~~~~
@@ -1141,10 +1173,11 @@ Command-line options
     error higher than this.
 
 --forced-triangulation-distance <meters>
-    When triangulation fails, for example, when input cameras are
-    inaccurate, artificially create a triangulation point this far
-    ahead of the camera, in units of meters. Some of these may 
-    later be filtered as outliers.
+    When triangulation fails, for example, when input cameras are inaccurate or
+    the triangulation angle is too small, artificially create a triangulation
+    point this far ahead of the camera, in units of meters. Some of these may
+    later be filtered as outliers. Can also set a very small value for
+    ``--min-triangulation-angle`` in this case.
 
 --ip-num-ransac-iterations <iterations (default: 1000)>
     How many RANSAC iterations to do in interest point matching.

@@ -174,18 +174,21 @@ void loadIsisCnet(std::string const& isisCnetFile,
   for (int i = 0; i < numControlPoints; i++) {
 
     Isis::ControlPoint *point = icnet->GetPoint(i);
+    bool ignore = false;
     
     if (point->IsIgnored()) {
       numIgnored++;
       // We do not skip any points, to preserve the one-to-one correspondence.
       // Add to isisOutliers
       isisOutliers.insert(i);
+      ignore = true;
     }
     if (point->IsRejected()) {
       numRejected++;
       // We do not skip any points, to preserve the one-to-one correspondence.
       // Add to isisOutliers
       isisOutliers.insert(i);
+      ignore = true;
     }
       
     // Triangulated point and apriori point
@@ -199,6 +202,7 @@ void loadIsisCnet(std::string const& isisCnetFile,
     vw::ba::ControlPoint cpoint(vw::ba::ControlPoint::TiePoint); // free
     vw::Vector3 a(A.GetX().meters(), A.GetY().meters(), A.GetZ().meters());
     cpoint.set_position(a);
+    cpoint.set_ignore(ignore);
 
      // Set sigma. This will be used only for constrained points. 
      // Use the sigmas from the adjusted surface points, as they are 
@@ -275,9 +279,11 @@ void loadIsisCnet(std::string const& isisCnetFile,
 
     // We do not skip any points, to preserve the one-to-one correspondence.
     // But points with no measures are flagged as outliers.    
-    if (cpoint.size() == 0)
+    if (cpoint.size() == 0) {
       isisOutliers.insert(i);
-
+      cpoint.set_ignore(true);
+    }
+    
     cnet.add_control_point(cpoint);
   }    
 
