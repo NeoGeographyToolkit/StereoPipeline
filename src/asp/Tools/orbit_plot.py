@@ -330,6 +330,17 @@ def poly_fit(X, Y):
     fit = np.poly1d(np.polyfit(X, Y, 1))
     return fit(X)
 
+# Read a list. Return only the files that match the given pattern and have the given extension.
+def read_list(list_file, pattern, extensions):
+    files = []
+    with open(list_file, 'r') as f:
+        for line in f:
+            line = line.strip()
+            for ext in extensions:
+              if pattern in line and line.endswith(ext):
+                files.append(line)
+    return files
+    
 def multi_glob(prefix, extensions):
     """
     Return a list of files matching the given prefix and extensions.
@@ -429,7 +440,21 @@ def read_angles(orig_cams, opt_cams, ref_cams):
   return (orig_rotation_angles, opt_rotation_angles)
 
 # Load and plot each row in the figure given by 'ax'
-def plot_row(ax, row, orbits, origPrefix, optPrefix, orbit_labels, origTag, optTag, options):
+def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, options):
+
+  # We assume we have one or two datasets that we want to plot on top of each other.
+  numSets = len(datasets)
+  if numSets < 1:
+    print("Must specify at least one dataset.")
+    sys.exit(1)
+
+  origPrefix = datasets[0]
+  origTag = dataset_labels[0]
+  optPrefix = ""
+  optTag = ""
+  if numSets == 2:
+      optPrefix  = datasets[1]
+      optTag  = dataset_labels[1]
 
   camType = orbits[row]
   camLabel = orbit_labels[row]
@@ -443,6 +468,10 @@ def plot_row(ax, row, orbits, origPrefix, optPrefix, orbit_labels, origTag, optT
   ref_cams = []
   print_ref_cam_warning = False
   if numSets == 2:
+    if hasList:
+      opt_cams = read_list(optPrefix, camType, extensions)
+      ref_cams = []
+    else:
       all_opt_cams = sorted(multi_glob(optPrefix + camType, extensions))
       ref_cams     = sorted(multi_glob(optPrefix + camType + '-ref', extensions))
       opt_cams     = exclude_ref_cams(all_opt_cams, ref_cams)
@@ -451,9 +480,14 @@ def plot_row(ax, row, orbits, origPrefix, optPrefix, orbit_labels, origTag, optT
 
   # Same for orig cams. Overwrite the earlier ref cams, if present,
   # as we will use the orig ref cams
-  all_orig_cams = sorted(multi_glob(origPrefix + camType, extensions))
-  ref_cams      = sorted(multi_glob(origPrefix + camType + '-ref', extensions))
-  orig_cams     = exclude_ref_cams(all_orig_cams, ref_cams)
+  if hasList:
+    orig_cams = read_list(origPrefix, camType, extensions)
+    ref_cams = []
+  else: 
+    all_orig_cams = sorted(multi_glob(origPrefix + camType, extensions))
+    ref_cams      = sorted(multi_glob(origPrefix + camType + '-ref', extensions))
+    orig_cams     = exclude_ref_cams(all_orig_cams, ref_cams)
+  
   if (not options.use_ref_cams) and len(ref_cams) > 0:
       print_ref_cam_warning = True
 
@@ -510,6 +544,7 @@ def plot_row(ax, row, orbits, origPrefix, optPrefix, orbit_labels, origTag, optT
 
   residualTag = ''
   if options.subtract_line_fit:
+      # Same line fit will be subtracted from all datasets
       residualTag = ' residual'
       fit_roll = poly_fit(np.array(range(len(orig_roll))), orig_roll)
       fit_pitch = poly_fit(np.array(range(len(orig_pitch))), orig_pitch)
@@ -589,25 +624,31 @@ parser = argparse.ArgumentParser(usage=usage,
                                  formatter_class=argparse.RawTextHelpFormatter)
 
 parser.add_argument('--dataset', dest = 'dataset', default = '',
-                    help='The dataset to plot. If more than one, separate them '            + \
-                    'by comma, with no spaces in between. The dataset is the prefix '       + \
-                    'of the cameras, such as  "cameras/" or "opt/run-". It is to be '       + \
-                    'followed by the orbit id, such as, "nadir" or "aft". If more than '    + \
+                    help='The dataset to plot. If more than one, separate them '          + \
+                    'by comma, with no spaces in between. The dataset is the prefix '     + \
+                    'of the cameras, such as  "cameras/" or "opt/run-". It is to be '     + \
+                    'followed by the orbit id, such as, "nadir" or "aft". If more than '  + \
                     'one dataset, they will be plotted on top of each other.')
 
 parser.add_argument('--orbit-id', dest = 'orbit_id', default = '',
-                    help='The id (a string) that determines an orbital group of cameras. '  + \
+                    help='The id (a string) that determines an orbital group of cameras. '+ \
                     'If more than one, separate them by comma, with no spaces in between.') 
 
 parser.add_argument('--dataset-label', dest = 'dataset_label', default = '',
-                    help='The label to use for each dataset in the legend. If more than '   + \
-                    'one, separate them by comma, with no spaces in between. If not set, '  + \
-                    'will use the dataset name.')
+                    help='The label to use for each dataset in the legend. If more than ' + \
+                    'one, separate them by comma, with no spaces in between. If not '     + \
+                    'set, will use the dataset name.')
+
+parser.add_argument('--list', dest = 'list', default = '',
+                    help='Instead of specifying --dataset, load the cameras listed ' +
+                    'in this file (one per line). Only the names matching --orbit-id ' +
+                    'will be read. If more than one list, separate them by comma, with ' +
+                    'no spaces in between.')
 
 parser.add_argument('--orbit-label', dest = 'orbit_label', default = '',
-                    help='The label to use for each orbital group (will be shown as part '  + \
-                    'of the title). If more than one, separate them by comma, with no '     + \
-                    'spaces in between. If not set, will use the orbit id.')
+                    help='The label to use for each orbital group (will be shown as '
+                    'part of the title). If more than one, separate them by comma, with ' +
+                    'no spaces in between. If not set, will use the orbit id.')
 
 parser.add_argument('--use-ref-cams', dest = 'use_ref_cams', action='store_true',
                     help='Read from disk reference cameras that determine the satellite '  + \
@@ -617,7 +658,10 @@ parser.add_argument('--use-ref-cams', dest = 'use_ref_cams', action='store_true'
                     'based on camera positions.') 
 
 parser.add_argument('--subtract-line-fit', dest = 'subtract_line_fit', action='store_true',
-                    help='If set, subtract the best line fit from the curves being plotted.')
+                    help='If set, subtract the best line fit from the curves being ' + \
+                    'plotted. If more than one dataset is being plotted, the same line ' + \
+                    'fit will be subtracted from all of them. This is useful to see the ' + \
+                    'residuals after fitting a line to the data.')
 
 parser.add_argument('--num-cameras',  dest='num_cameras', type=int, default = -1,
                     help='Plot only the first this many cameras from each orbital '        + \
@@ -651,8 +695,29 @@ if len(args) > 1:
     print("Not all arguments were parsed. Unprocessed values:", args[1:])
     sys.exit(1)
 
-if options.orbit_id == "" or options.dataset == "":
-    print("Must set the --orbit-id and --dataset options.")
+if options.dataset == "" and options.list == "": 
+    print("Must set --dataset or --list.")
+    parser.print_help()
+    sys.exit(1)
+
+if options.dataset != "" and options.list != "": 
+    print("Cannot set both --dataset and --list.")
+    parser.print_help()
+    sys.exit(1)
+
+hasList = False
+if options.dataset == "":
+    # If the dataset label is not set, use the list
+    hasList = True
+    options.dataset = options.list
+
+if hasList and options.use_ref_cams:
+    print("Cannot use reference cameras when reading from a list.")
+    parser.print_help()
+    sys.exit(1)
+
+if options.orbit_id == "":
+    print("Must set --orbit-id.")
     parser.print_help()
     sys.exit(1)
 
@@ -677,7 +742,7 @@ dataset_labels = options.dataset_label.split(',')
 if len(dataset_labels) == 0 or (len(dataset_labels) == 1 and dataset_labels[0] == ""):
     dataset_labels = datasets[:]
 if len(dataset_labels) != len(datasets):
-    print("Number of datasets and dataset_labels must agree. Got ", datasets, " and ", dataset_labels)
+    print("Number of datasets/lists and dataset_labels must agree. Got ", datasets, " and ", dataset_labels)
     sys.exit(1)
 
 # Parse the orbits and their labels. Split by comma.
@@ -698,17 +763,9 @@ figure_size = [float(x) for x in figure_size]
 
 # We assume we have one or two datasets that we want to plot on top of each other.
 numSets = len(datasets)
-if numSets < 1 or numSets > 2:
-    print("Can only plot one or two datasets, but their number is ", numSets)
+if numSets < 1:
+    print("Must specify at least one dataset.")
     sys.exit(1)
-
-origPrefix = datasets[0]
-origTag = dataset_labels[0]
-optPrefix = ""
-optTag = ""
-if numSets == 2:
-    optPrefix  = datasets[1]
-    optTag  = dataset_labels[1]
 
 f, ax = plt.subplots(len(orbits), 3, sharex=True, sharey = False, 
                      figsize = (figure_size[0], figure_size[1]))
@@ -728,7 +785,7 @@ plt.rc('figure', titlesize = fs) # fontsize of the figure title
 
 # Plot each row in the figure
 for row in range(len(orbits)):
-  plot_row(ax, row, orbits, origPrefix, optPrefix, orbit_labels, origTag, optTag, options)
+  plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, options)
 
 # Show a title if set
 if options.title != "":

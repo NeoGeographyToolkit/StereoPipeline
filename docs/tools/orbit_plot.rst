@@ -65,12 +65,11 @@ installed (:numref:`orbit_plot_dependencies`).
 
 Plot a single set of cameras along a given orbit::
 
-    ~/miniconda3/envs/orbit_plot/bin/python         \
-      $(which orbit_plot.py)                        \
-      --use-ref-cams                                \
-      --dataset  dataset1/                          \
-      --dataset-label dataset1                      \
-      --orbit-id pinhole-fwd
+    ~/miniconda3/envs/orbit_plot/bin/python \
+      $(which orbit_plot.py)                \
+      --dataset dataset1/                   \
+      --dataset-label dataset1              \
+      --orbit-id pinhole-fwd                \
       --orbit-label pinhole 
 
 We assume that the cameras are in the directory ``dataset1/``, and their names
@@ -84,13 +83,31 @@ Hence, only the cameras satisfying this convention will be read.
 
 See an illustration in :numref:`orbit_plot_fig`.
 
+For finer-grained control, the desired cameras can be put in a list. For
+example::
+
+  ls dataset1/pinhole*.tsai > pinhole_list.txt
+    ~/miniconda3/envs/orbit_plot/bin/python \
+      $(which orbit_plot.py)                \
+      --list pinhole_list.txt               \
+      --dataset-label dataset1              \
+      --orbit-id pinhole-fwd                \
+      --orbit-label pinhole 
+
+Then, only the images in the list that match the value of ``--orbit-id`` will be
+read.
+
+If these are synthetic cameras created with ``sat_sim`` (:numref:`sat_sim`),
+consider adding the option ``--use-ref-cams`` (this option does not work with
+``--list``).
+
 Plot two datasets
 ^^^^^^^^^^^^^^^^^
 
 We consider two camera datasets, with the camera names starting with::
 
     dataset1/pinhole-fwd
-    dataset2/run-pinhole-fwd  
+    dataset2/run-pinhole-fwd 
 
 The naming convention used above is suggestive of the first dataset being a set
 of input cameras, while the second being created from the first using
@@ -99,15 +116,25 @@ id.
 
 ::
 
-    ~/miniconda3/envs/orbit_plot/bin/python         \
-      $(which orbit_plot.py)                        \
-      --dataset dataset1/,dataset2/run-             \
-      --orbit-id pinhole-fwd                        \
-      --dataset-label data1,data2                   \
+    ~/miniconda3/envs/orbit_plot/bin/python \
+      $(which orbit_plot.py)                \
+      --dataset dataset1/,dataset2/run-     \
+      --orbit-id pinhole-fwd                \
+      --dataset-label data1,data2           \
       --orbit-label pinhole
 
 Notice how above the shared orbit id is specified separately from the dataset
 names. Here we omitted the option ``--use-ref-cams``.
+
+It may be convenient on occasion to read from lists instead, while respecting
+the pattern in in ``--orbit-id``::
+
+    ~/miniconda3/envs/orbit_plot/bin/python \
+      $(which orbit_plot.py)                \
+      --list list1.txt,list2.txt            \
+      --orbit-id pinhole-fwd                \
+      --dataset-label data1,data2           \
+      --orbit-label pinhole
 
 These two datasets will be plotted on top of each other, in red and blue, respectively.
 
@@ -131,10 +158,10 @@ samples, and that these numbers of samples are equal (unless the option
 
 The only change in the command above is that the orbit id now has the additional value ``linescan-nadir``, so the plot command becomes::
 
-    ~/miniconda3/envs/orbit_plot/bin/python         \
-      $(which orbit_plot.py)                        \
-      --dataset dataset1/,dataset2/run-             \
-      --orbit-id pinhole-fwd,linescan-nadir         \
+    ~/miniconda3/envs/orbit_plot/bin/python \
+      $(which orbit_plot.py)                \
+      --dataset dataset1/,dataset2/run-     \
+      --orbit-id pinhole-fwd,linescan-nadir \
       --dataset-label data1,data2
 
 The cameras before optimization will be in directory ``dataset1/``, with the
@@ -192,6 +219,11 @@ Command-line options
     "nadir" or "aft". If more than one dataset, they will be plotted on top of
     each other.
 
+--list <string (default: "")>
+    Instead of specifying ``--dataset``, load the cameras listed in this file
+    (one per line). Only the names matching ``--orbit-id`` will be read. If more
+    than one list, separate them by comma, with no spaces in between.
+
 --orbit-id <string (default: "")>
     The id (a string) that determines an orbital group of cameras. If more than
     one, separate them by comma, with no spaces in between.
@@ -217,7 +249,10 @@ Command-line options
     satellite orientation is estimated based on camera positions.
 
 --subtract-line-fit
-    If set, subtract the best line fit from the curves being plotted.
+    If set, subtract the best line fit from the curves being plotted. If more
+    than one dataset is being plotted, the same line fit will be subtracted from
+    all of them. This is useful to see the residuals after fitting a line to the
+    data.
 
 --trim-ratio <float (default: 0.0)>
     Trim ratio. Given a value between 0 and 1 (inclusive), remove this fraction
