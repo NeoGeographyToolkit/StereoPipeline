@@ -185,6 +185,11 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
     // Process the entire D_sub in memory as it is small enough
     int collar_size = 0; // Since there won't be tiles as the all the processing is done at once
+    vw::vw_out() << "Computing the low-resolution disparity.\n";
+    // Use here a stop watch, as this takes forever.
+    vw::Stopwatch sw;
+    sw.start();
+    // TODO(oalexan1): Why this uses only one thread in practice?
     ImageView<PixelMask<Vector2f>> d_sub =
       vw::stereo::pyramid_correlate
       (// Compute image correlation using the PyramidCorrelationView class
@@ -225,6 +230,9 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
       (// Write to disk
        d_sub_file, d_sub, opt,
        TerminalProgressCallback("asp", "\t--> Low-resolution disparity:"));
+    // Check elapsed time
+    sw.stop();
+    vw_out() << "Low-resolution disparity computation took " << sw.elapsed_seconds() << " s.\n";
     
     // Restore the user xcorr_threshold
     stereo_settings().xcorr_threshold = orig_xcorr_threshold;

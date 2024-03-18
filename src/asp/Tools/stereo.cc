@@ -619,6 +619,8 @@ namespace asp {
       // ASP's block matching are intrinsically capable of.  if the
       // user however explicitly specifies, for example,
       // --subpixel-mode 3, that one will be used later on.
+      // TODO(oalexan1): Consider setting the default --subpixel-mode to 9
+      // with non-BM algorithms, as it results in nicer results.
 
       // These are also useful with external algorithms, as the results are then
       // smoother.
@@ -668,14 +670,19 @@ namespace asp {
                                << ".\n";
     }
 
-    // Settings specifically for asp_sgm, asp_mgm, asp_final_mgm
-    if (using_sgm) {
+    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM ||
+                        stereo_settings().alignment_method == "local_epipolar");
 
-      if (vm["corr-kernel"].defaulted())
-        stereo_settings().corr_kernel = Vector2i(SGM_DEFAULT_KERNELSIZE, SGM_DEFAULT_KERNELSIZE);
+    // Settings for asp_mgm / asp_sgm. For external algorithms, the low-res
+    // disparity in stereo_corr will be created with asp_mgm, so override
+    // user's choice in that case.
+    if (stereo_alg > vw::stereo::VW_CORRELATION_BM) {
 
-      if (vm["cost-mode"].defaulted())
+      if (vm["cost-mode"].defaulted() || stereo_alg >= vw::stereo::VW_CORRELATION_OTHER)
         stereo_settings().cost_mode = SGM_DEFAULT_COST_MODE;
+      if (vm["corr-kernel"].defaulted() || stereo_alg >= vw::stereo::VW_CORRELATION_OTHER)
+        stereo_settings().corr_kernel 
+          = Vector2i(SGM_DEFAULT_KERNELSIZE, SGM_DEFAULT_KERNELSIZE);
 
       // This is a fix for the user setting cost-mode in stereo.default, when
       // it is not defaulted. Do not allow cost mode to be different than
@@ -683,15 +690,12 @@ namespace asp {
       if (stereo_settings().cost_mode != 3 && stereo_settings().cost_mode != 4)
         vw_throw(ArgumentErr() << "When using the asp_sgm or asp_mgm "
                 << "stereo algorithm, cost-mode must be 3 or 4.\n");
-
       // Also do not allow corr-kernel to be outside of [3, 9]
       if (stereo_settings().corr_kernel[0] < 3 || stereo_settings().corr_kernel[0] > 9) 
         vw_throw(ArgumentErr() << "For the asp_sgm / asp_mgm algorithm, "
           << "the corr kernel size must be between 3 and 9 (inclusive).\n");
     }
 
-    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM ||
-                        stereo_settings().alignment_method == "local_epipolar");
     if (!using_tiles) {
       // No need for a collar when we are not using tiles.
       stereo_settings().sgm_collar_size = 0;
@@ -917,7 +921,8 @@ namespace asp {
 
       if (stereo_alg >= vw::stereo::VW_CORRELATION_OTHER) 
         vw_throw(ArgumentErr() << "Can use --save-left-right-disparity-difference "
-                 << "only with stereo algorithms asp_bm, asp_sgm, asp_mgm, and asp_final_mgm.\n");
+                 << "only with stereo algorithms asp_bm, asp_sgm, asp_mgm, and "
+                 << "asp_final_mgm.\n");
     }
 
     // Camera checks
@@ -948,10 +953,10 @@ namespace asp {
         VW_OUT(DebugMessage,"asp") << "Camera 2 location: " << cam2_ctr << "\n"
                                    << "   in estimated Lon Lat Rad: "
                                    << cartography::xyz_to_lon_lat_radius_estimate(cam2_ctr) << "\n";
-        VW_OUT(DebugMessage,"asp") << "Camera 1 Pointing Dir: " << cam1_vec << "\n"
+        VW_OUT(DebugMessage,"asp") << "Camera 1 pointing dir: " << cam1_vec << "\n"
                                    << "      dot against pos: " << dot_prod(cam1_vec, cam1_ctr)
                                    << "\n";
-        VW_OUT(DebugMessage,"asp") << "Camera 2 Pointing Dir: " << cam2_vec << "\n"
+        VW_OUT(DebugMessage,"asp") << "Camera 2 pointing dir: " << cam2_vec << "\n"
                                    << "      dot against pos: " << dot_prod(cam2_vec, cam2_ctr)
                                    << "\n";
         vw_out() << "Distance between camera centers in meters: "
