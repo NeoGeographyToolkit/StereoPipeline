@@ -189,7 +189,6 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     // Use here a stop watch, as this takes forever.
     vw::Stopwatch sw;
     sw.start();
-    // TODO(oalexan1): Why this uses only one thread in practice?
     ImageView<PixelMask<Vector2f>> d_sub =
       vw::stereo::pyramid_correlate
       (// Compute image correlation using the PyramidCorrelationView class
