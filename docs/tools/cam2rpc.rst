@@ -9,6 +9,9 @@ a given datum, or for a terrain covered by a given DEM. If
 ``--save-tif-image`` is specified, the image portion corresponding to
 the RPC model will be saved in the TIF format.
 
+The produced RPC camera can be restricted to a given ground or pixel region.
+In either case it will be consistent with the image portion that is saved.
+
 The obtained RPC models and images can be used with ``stereo`` (when the
 latter is invoked with ``--session-type rpc`` and the correct datum is
 specified via ``--datum``). These can also be passed to the third-party
