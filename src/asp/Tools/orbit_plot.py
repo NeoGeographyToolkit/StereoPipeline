@@ -27,7 +27,9 @@ import matplotlib.pyplot as plt
 from pyproj import Proj, transform, Transformer
 from scipy.spatial.transform import Rotation as R
 
-def produce_m(lon,lat,m_meridian_offset=0):
+# TODO(oalexan1): Fix this to be aware of the fact that the Earth is not a sphere.
+# See the relevant WV code.
+def produce_m(lon, lat, m_meridian_offset=0):
     """
     Produce M matrix which facilitates conversion from Lon-lat (NED) to ECEF coordinates
     From https://github.com/visionworkbench/visionworkbench/blob/master/src/vw/Cartography/Datum.cc#L249
@@ -439,6 +441,48 @@ def read_angles(orig_cams, opt_cams, ref_cams):
 
   return (orig_rotation_angles, opt_rotation_angles)
 
+# Logic for when we have N datasets to plot, not just one and two.
+# TODO(oalexan1): This function must replace the above. This was not tested.
+# Then rewrite the rest of the code to use an array of arrays instead of two arrays.
+# def read_angles(camSet, ref_cams): 
+
+#     if len(ref_cams) > 0:
+#         # Check length of each array in 'camSet' against reference
+#         ref_cams_length = len(ref_cams)  # Store the reference length once
+#         for cam in camSet:
+#             if len(cam) != ref_cams_length:
+#                 print(f"Number of reference cameras input cameras do not match.")
+#                 sys.exit(1)
+
+#     # If we do not have ref cameras that determine the satellite orientation,
+#     # estimate them from the camera positions
+#     refRotationsSet = []
+#     for cam in camSet:
+#         # First the case of length 0 for ref_cams
+#         if len(ref_cams) == 0:
+#             refRotationsSet.append(estim_satellite_orientation(cam))
+#         else:
+#             refRotationsSet.append(ref_cams) 
+    
+#     # Read the positions and rotations   
+#     positions = []
+#     rotations = []
+#     for cam in camSet:
+#         cam_positions, cam_rotations = read_positions_rotations(cam)
+#         positions.append(cam_positions)
+#         rotations.append(cam_rotations)
+#     (ref_positions, ref_rotations) = read_positions_rotations(ref_cams)
+    
+#     rotation_angles = []  # Store angles for all camera arrays
+#     for j in range(len(rotations)):  # Outer loop over cameras sets
+#         camera_angles = []  # Store angles for a single camera set
+#         for i in range(len(rotations[j])):  # Inner loop over rotations within a set
+#             angles = roll_pitch_yaw(rotations[j][i], refRotationsSet[j][i])
+#             camera_angles.append(angles)
+#         rotation_angles.append(camera_angles)
+        
+#     return rotation_angles 
+    
 # Load and plot each row in the figure given by 'ax'
 def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, options):
 
@@ -583,11 +627,13 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, o
   # Plot residuals
   lw = options.line_width
   A[0].plot(np.arange(len(orig_roll)), orig_roll, label=origTag, color = 'r', linewidth = lw)
-  A[1].plot(np.arange(len(orig_pitch)), orig_pitch, label=origTag, color = 'r', linewidth = lw)
+  A[1].plot(np.arange(len(orig_pitch)), orig_pitch, label=origTag, color = 'r', 
+            linewidth = lw)
   A[2].plot(np.arange(len(orig_yaw)), orig_yaw, label=origTag, color = 'r', linewidth = lw)
   if numSets == 2:
       A[0].plot(np.arange(len(opt_roll)), opt_roll, label=optTag, color = 'b', linewidth = lw)
-      A[1].plot(np.arange(len(opt_pitch)), opt_pitch, label=optTag, color = 'b', linewidth = lw)
+      A[1].plot(np.arange(len(opt_pitch)), opt_pitch, label=optTag, color = 'b', 
+                linewidth = lw)
       A[2].plot(np.arange(len(opt_yaw)), opt_yaw, label=optTag, color = 'b', linewidth = lw)
 
   A[0].set_title(camLabel + ' roll'  + residualTag)
@@ -624,59 +670,60 @@ parser = argparse.ArgumentParser(usage=usage,
                                  formatter_class=argparse.RawTextHelpFormatter)
 
 parser.add_argument('--dataset', dest = 'dataset', default = '',
-                    help='The dataset to plot. If more than one, separate them '          + \
-                    'by comma, with no spaces in between. The dataset is the prefix '     + \
-                    'of the cameras, such as  "cameras/" or "opt/run-". It is to be '     + \
-                    'followed by the orbit id, such as, "nadir" or "aft". If more than '  + \
+                    help='The dataset to plot. If more than one, separate them '         + 
+                    'by comma, with no spaces in between. The dataset is the prefix '    + 
+                    'of the cameras, such as  "cameras/" or "opt/run-". It is to be '    + 
+                    'followed by the orbit id, such as, "nadir" or "aft". If more than ' + 
                     'one dataset, they will be plotted on top of each other.')
 
 parser.add_argument('--orbit-id', dest = 'orbit_id', default = '',
-                    help='The id (a string) that determines an orbital group of cameras. '+ \
-                    'If more than one, separate them by comma, with no spaces in between.') 
+                    help='The id (a string) that determines an orbital group of ' + 
+                    'cameras. If more than one, separate them by comma, with no ' + 
+                    'spaces in between.') 
 
 parser.add_argument('--dataset-label', dest = 'dataset_label', default = '',
-                    help='The label to use for each dataset in the legend. If more than ' + \
-                    'one, separate them by comma, with no spaces in between. If not '     + \
+                    help='The label to use for each dataset in the legend. If more than ' + 
+                    'one, separate them by comma, with no spaces in between. If not '     + 
                     'set, will use the dataset name.')
 
 parser.add_argument('--list', dest = 'list', default = '',
-                    help='Instead of specifying --dataset, load the cameras listed ' +
-                    'in this file (one per line). Only the names matching --orbit-id ' +
-                    'will be read. If more than one list, separate them by comma, with ' +
+                    help='Instead of specifying --dataset, load the cameras listed '     + 
+                    'in this file (one per line). Only the names matching --orbit-id '   + 
+                    'will be read. If more than one list, separate them by comma, with ' + 
                     'no spaces in between.')
 
 parser.add_argument('--orbit-label', dest = 'orbit_label', default = '',
                     help='The label to use for each orbital group (will be shown as '
-                    'part of the title). If more than one, separate them by comma, with ' +
+                    'part of the title). If more than one, separate them by comma, with ' + 
                     'no spaces in between. If not set, will use the orbit id.')
 
 parser.add_argument('--use-ref-cams', dest = 'use_ref_cams', action='store_true',
-                    help='Read from disk reference cameras that determine the satellite '  + \
-                    'orientation. This assumes the first dataset was created with '        + \
-                    'sat_sim with the option --save-ref-cams. Otherwise do not use '       + \
-                    'this option. In that case the satellite orientation is estimated '    + \
+                    help='Read from disk reference cameras that determine the satellite ' + 
+                    'orientation. This assumes the first dataset was created with '       + 
+                    'sat_sim with the option --save-ref-cams. Otherwise do not use '      + 
+                    'this option. In that case the satellite orientation is estimated '   + 
                     'based on camera positions.') 
 
 parser.add_argument('--subtract-line-fit', dest = 'subtract_line_fit', action='store_true',
-                    help='If set, subtract the best line fit from the curves being ' + \
-                    'plotted. If more than one dataset is being plotted, the same line ' + \
-                    'fit will be subtracted from all of them. This is useful to see the ' + \
+                    help='If set, subtract the best line fit from the curves being '      + 
+                    'plotted. If more than one dataset is being plotted, the same line '  + 
+                    'fit will be subtracted from all of them. This is useful to see the ' + 
                     'residuals after fitting a line to the data.')
 
 parser.add_argument('--num-cameras',  dest='num_cameras', type=int, default = -1,
-                    help='Plot only the first this many cameras from each orbital '        + \
+                    help='Plot only the first this many cameras from each orbital ' + 
                     'sequence. By default, plot all of them.')
 
 parser.add_argument('--trim-ratio',  dest='trim_ratio', type=float, default = 0.0,
-                    help='Trim ratio. Given a value between 0 and 1 (inclusive), '         + \
-                    'remove this fraction of camera poses from each sequence, with half '  + \
-                    'of this amount for poses at the beginning and half at the end of '    + \
-                    'the sequence. This is used only for linescan cameras, to not plot '   + \
-                    'camera poses beyond image lines. For cameras created with sat_sim, '  + \
+                    help='Trim ratio. Given a value between 0 and 1 (inclusive), '        + 
+                    'remove this fraction of camera poses from each sequence, with half ' + 
+                    'of this amount for poses at the beginning and half at the end of '   + 
+                    'the sequence. This is used only for linescan cameras, to not plot '  + 
+                    'camera poses beyond image lines. For cameras created with sat_sim, ' + 
                     'a value of 0.5 should be used.')
 
 parser.add_argument('--figure-size', dest = 'figure_size', default = '15,15',
-                    help='Specify the width and height of the figure having the plots, '   + \
+                    help='Specify the width and height of the figure having the plots, ' + 
                     'in inches. Use two numbers with comma as separator (no spaces).')
 
 parser.add_argument('--title', dest = 'title', default = '',
