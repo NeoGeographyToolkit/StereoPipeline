@@ -23,6 +23,9 @@ large regions. Hence, they can be used piecewise, and the obtained
 terrain models from ASP can be then mosaicked together using
 ``dem_mosaic``.
 
+Examples
+~~~~~~~~
+
 Example for ISIS cub cameras for Mars::
 
     cam2rpc input.cub output.xml --session-type isis    \
@@ -32,7 +35,7 @@ Example for ISIS cub cameras for Mars::
       --num-samples 40 --penalty-weight 0.03 --gsd 1
 
 Example for pinhole cameras, where instead of sampling a lon-lat-height
-box, values from a DEM are used.
+box, values from a DEM are used, and the image is cropped.
 
 ::
 
@@ -42,13 +45,36 @@ box, values from a DEM are used.
 Here we have constrained the RPC camera model and output image to not go
 beyond a given bounding box.
 
-Usage:
+Validation
+~~~~~~~~~~
+
+It is suggested to mapproject the produced image and camera onto a DEM using
+``mapproject`` (:numref:`mapproject`) and compare with the result from the
+original image and camera.
+
+In addition, if the produced image file contains the original upper-left image
+corner, the ``cam_test`` program (:numref:`cam_test`) can be invoked to compare
+the original and new RPC camera, for example as follows::
+
+    cam_test --image output.tif --cam1 input.tsai --cam2 output.xml
+
+This should result in similar values for the camera directions and pixel differences,
+but not for the camera centers, because the RPC model does not have a well-defined
+camera center. 
+
+Large pixel differences are a sign that the image was not cropped to the region
+containing the original upper-left corner (option ``--no-crop`` may help then,
+in addition to specifying larger lon-lat bounds or a bigger DEM to fit to).
+
+Usage
+~~~~~
 
 ::
 
      cam2rpc [options] <camera-image> <camera-model> <output-rpc>
 
-Command-line options for cam2rpc:
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
 --datum <string>
     Set the datum. This will override the datum from the input

@@ -390,13 +390,14 @@ int main( int argc, char *argv[] ) {
     }
 
     // We need this line for other tools
+    vw_out() << "Computing the pixel crop box for the image (corner and dimensions).\n";
     vw_out() << "crop_box "
              << crop_box.min().x() << ' ' << crop_box.min().y() << ' '
              << crop_box.max().x() << ' ' << crop_box.max().y() << std::endl;
 
     if (opt.save_tif) {
 
-      ImageViewRef< PixelMask<float> > output_img = input_img;
+      ImageViewRef<PixelMask<float>> output_img = input_img;
       if (!opt.no_crop) 
         output_img = crop(input_img, crop_box);
 
@@ -424,7 +425,7 @@ int main( int argc, char *argv[] ) {
     Vector2 pixel_offset = (pixel_box.max() + pixel_box.min())/2.0; // center point
 
     vw_out() << "Lon-lat-height box for the RPC approx: " << llh_box   << std::endl;
-    vw_out() << "Camera pixel box for the RPC approx:   " << pixel_box << std::endl;
+    vw_out() << "Camera pixel box for the RPC approx (after crop): " << pixel_box << std::endl;
 
     Vector<double> normalized_llh;
     Vector<double> normalized_pixels;
