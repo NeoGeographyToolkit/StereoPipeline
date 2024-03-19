@@ -52,6 +52,9 @@ Example
       --camera-weight 100.0'                                    \
       <other options>
 
+The produced Theia reconstruction can be visualized with ``view_reconstruction``
+(:numref:`view_reconstruction`).
+
 Usage
 ^^^^^
 

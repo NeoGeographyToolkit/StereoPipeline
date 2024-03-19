@@ -1676,7 +1676,7 @@ int main(int argc, char* argv[]) {
                  << stereo_settings().slogW << " sigma blur.\n";
         break;
       default:
-        vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
+        vw_out() << "\t--> Using No pre-processing filter." << std::endl;
       }
     }
 

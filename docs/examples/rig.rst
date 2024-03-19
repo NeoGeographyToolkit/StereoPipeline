@@ -32,9 +32,15 @@ The first step is solving for the camera poses, for which we use
                 rig_input/sci_cam/*.tif'            \
       --out_dir rig_theia
 
+This tool will use the Theia flags file from ``share/theia_flags.txt``
+in the software distribution, which can be copied to a new name,
+edited, and passed to this program via ``--theia_fags``.
+
 The created cameras can be visualized as::
 
     view_reconstruction --reconstruction rig_theia/reconstruction-0
+
+See an illustration in :numref:`view_reconstruction`.
 
 The solved camera poses are exported to ``rig_theia/cameras.nvm``. The images
 and interest point matches can be visualized in a pairwise manner using
@@ -42,9 +48,12 @@ and interest point matches can be visualized in a pairwise manner using
 
     stereo_gui rig_theia/cameras.nvm
 
-This tool will use the Theia flags file from ``share/theia_flags.txt``
-in the software distribution, which can be copied to a new name,
-edited, and passed to this program via ``--theia_fags``.
+Do not load the file ``rig_theia/reconstruction.nvm`` in ``stereo_gui``,
+as this one has the image paths without the directory prefix, and
+``stereo_gui`` will not be able to find the images.
+
+The images in the nvm file will be in random order. This will be
+rectified in the next step, when we run ``rig_calibrator``.
 
 Next, we run ``rig_calibrator``::
 
@@ -65,13 +74,12 @@ Next, we run ``rig_calibrator``::
         --export_to_voxblox                               \
         --out_dir rig_out
 
-The previously found camera poses are read in. They are registered to
-world coordinates. For that, the four corners of a square with known
-dimensions visible in a couple of images were picked at control points
-in ``Hugin`` (https://hugin.sourceforge.io/) and saved to
-``control_points.pto``, and the corresponding measurements of their
-coordinates were saved in ``xyz.txt``. See
-:numref:`rig_calibrator_registration` for more details.
+The previously found camera poses are read in. They are registered to world
+coordinates (this is optional). For that, the four corners of a square with
+known dimensions visible in a couple of images were picked at control points in
+``Hugin`` (https://hugin.sourceforge.io/) and saved to ``control_points.pto``,
+and the corresponding measurements of their coordinates were saved in
+``xyz.txt``. See :numref:`rig_calibrator_registration` for more details.
 
 The ``nav_cam`` camera is chosen to be the reference sensor in the rig
 configuration. Its poses are allowed to float, that is, to be
@@ -100,11 +108,20 @@ in ``distorted_crop_size`` in the rig configuration are smaller than
 actual image dimensions to reduce the worst effects of peripheral
 distortion.
 
-One could pass in ``--num_overlaps 3`` to get more interest point 
+One could pass in ``--num_overlaps 10`` to get more interest point 
 matches than what Theia finds, but this is usually not necessary.
 This number better be kept small, especially if the features
 are poor, as it may result in many outliers among images that
 do not match well.
+
+The value of ``--bracket_len`` should be a little larger than the differences
+(in seconds) between the image times for which it is desired to do pose
+interpolation in time. 
+
+The options ``--save_pinhole_cameras`` and ``--save_matches`` 
+can be employed to save the pinhole cameras and the interest point matches
+in formats understood by ``bundle_adjust`` (:numref:`bundle_adjust`) and
+``stereo_gui`` (:numref:`stereo_gui_nvm`), respectively.
 
 See :numref:`rig_calibrator_command_line` for the full list of options.
 

@@ -49,7 +49,7 @@ but that is very slow. Do not use ``--subpixel-mode 1`` with
 ``asp_mgm``/``asp_sgm`` as that produces artifacts. See
 :numref:`subpixel` for more background on some subpixel modes.
 
-For steep terrains it is suggested to mapproject the images
+For steep terrains it is strongly suggested to mapproject the images
 (:numref:`mapproj-example`).
 
 ASP also implements local alignment, when the input images are split

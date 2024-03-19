@@ -3,7 +3,8 @@
 sfm_view
 --------
 
-The ``sfm_view`` program displays the positions and orientations of a set of orbital Pinhole camera models (:numref:`pinholemodels`) relative to the ground. 
+The ``sfm_view`` program displays the positions and orientations of a set of
+orbital Pinhole camera models (:numref:`pinholemodels`) relative to the ground. 
 
 This program is a modified version of `umve
 <https://github.com/simonfuhrmann/mve>`_, by Simon Fuhrmann. It is still in
@@ -42,6 +43,13 @@ See also
 
 The ``orbit_plot.py`` tool (:numref:`orbit_plot`) can visualize the roll,
 pitch, and yaw angles of a set of pinhole and linescan cameras.
+
+The ``view_reconstruction`` program (:numref:`view_reconstruction`) can display
+a 3D point cloud and the cameras that were used to create it, if the reconstruction
+was created with ``theia_sfm`` (:numref:`theia_sfm`).
+
+Camera poses can be converted to KML with ``orbitviz`` (:numref:`orbitviz`),
+to be shown in Google Earth.
 
 Command-line options
 ^^^^^^^^^^^^^^^^^^^^

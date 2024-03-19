@@ -17,6 +17,9 @@ corresponding to sensor name, but it is not assumed that the image
 files (without directory name) represent a timestamp. So, an image
 name can be of the form: ``dir/sensor/string.png``.
 
+The ``view_reconstruction`` program (:numref:`view_reconstruction`) can display
+the produced reconstruction.
+
 Usage
 ~~~~~
 

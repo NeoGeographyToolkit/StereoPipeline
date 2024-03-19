@@ -234,7 +234,9 @@ misc:
     as for ``bundle_adjust``.  This can make a difference for noisy data.
   * Do not keep auxiliary files with temporary names in the work directory for
     ``parallel_stereo`` and ``parallel_bundle_adjust``. Use run's output
-    directory and proper names.  
+    directory and proper names.
+  * Documented the program ``view_reconstruction``
+    (:numref:`view_reconstruction`), with a figure.  
   
 RELEASE 3.3.0, August 16, 2023
 ------------------------------

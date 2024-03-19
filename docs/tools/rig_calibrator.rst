@@ -86,19 +86,24 @@ etc.
 
 Each image file must be stored according to the convention::
 
-    <image dir>/<sensor name>/<timestamp>.<extension>
+    <image dir>/<sensor name>/<timestamp><tag>.<extension>
 
 For example, two images acquired at time 1004.6 can be named::
 
-    my_images/ref_cam/10004.6.jpg
-    my_images/alt_cam/10004.6.jpg
+    my_images/ref_cam/10004.6.ref_cam.jpg
+    my_images/alt_cam/10004.6.alt_cam.jpg
+
+The tag after the timestamp is suggested to ensure all image names without
+directory path are unique, in case these are passed later to ``bundle_adjust``
+(:numref:`bundle_adjust`). The tag better not have any numerical characters, as
+that may confuse ``rig_calibrator``.
 
 The images are expected to be 8 bit, with .jpg, .png, or .tif extension.
 
 If some sensors also have depth data, the same convention is followed,
 with the file extension being .pc. Example::
 
-    my_images/alt_cam/10004.6.pc
+    my_images/alt_cam/10004.6.alt_cam.pc
 
 All such depth cloud files will be loaded automatically alongside
 images if present. See :numref:`point_cloud_format` for the file
@@ -129,7 +134,7 @@ names of the form ``dir/sensor/digits.jpg``::
     ext=".jpg"
     ((timestamp=100000))
     for image in $(ls old_images/*${ext}); do 
-        /bin/cp -fv $image new_images/my_cam/${timestamp}${ext}
+        /bin/cp -fv $image new_images/my_cam/${timestamp}.my_cam${ext}
         ((timestamp++))
     done
 
