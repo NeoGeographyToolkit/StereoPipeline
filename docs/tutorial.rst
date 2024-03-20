@@ -14,13 +14,17 @@ There are a number of ways to fine-tune parameters and analyze the results, but
 ultimately this software suite takes images and builds models in a mostly
 automatic way. 
 
-To create a point cloud file, not necessarily of best quality, for now, 
+To create a point cloud file, *not necessarily of best quality*, for now, 
 one simply passes two image files to
 the ``parallel_stereo`` (:numref:`parallel_stereo`) command::
 
     parallel_stereo --stereo-algorithm asp_bm \
       left_image.cub right_image.cub results/run
 
+Then normally one would create a DEM (:numref:`point2dem`)::
+  
+      point2dem results/run-PC.tif
+      
 Here it is assumed that the ``PATH`` and ``ISISDATA`` environmental
 variables have been set, as shown in :numref:`installation`. 
 
@@ -188,11 +192,12 @@ See :numref:`examples` for many solved examples, including how to preprocess the
 data with tools specific for each mission.
 
 Once the ``.cub`` files are obtained, it is possible to run
-``parallel_stereo`` right away::
+``parallel_stereo`` right away, and create a DEM::
 
      ISIS> parallel_stereo E0201461.cub M0100115.cub    \
              --alignment-method affineepipolar          \
              -s stereo.default.example results/output
+     ISIS> point2dem results/output-PC.tif
 
 In this case, the first thing ``parallel_stereo`` does is to
 internally align (or rectify) the images, which helps with finding
@@ -201,6 +206,9 @@ alignment methods are described in :numref:`settingoptionsinstereodefault`.
 
 If your data has steep slopes, mapprojection can improve the results.
 See :numref:`mapproj-example` and :numref:`mapproj_with_cam2map`. 
+
+When creating a DEM, it is suggested to use a local projection
+(:numref:`point2dem`), especially towards poles.
 
 See :numref:`nextsteps` for a more in-depth discussion of stereo
 algorithms.
