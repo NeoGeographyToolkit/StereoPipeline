@@ -1167,7 +1167,12 @@ in the plain text ``.obj`` format that can be opened in a mesh viewer such as
 MeshLab. The ``point2mesh`` program takes the point cloud file and the left
 normalized image as inputs::
 
-     point2mesh results/output-PC.tif results/output-L.tif
+     point2mesh --center results/output-PC.tif results/output-L.tif
+
+The option ``--center`` shifts the points towards the origin, as otherwise the
+mesh may have rendering artifacts because of the large values of the vertices.
+Each mesh will have its own shift, however, so this option will result in meshes
+that are not aligned with each other. 
 
 An example visualization is shown in :numref:`p19-osg`.
 
@@ -1175,7 +1180,7 @@ If you already have a DEM and an ortho image (:numref:`builddem`),
 they can be used to build a mesh as well, in the same way as done
 above::
 
-     point2mesh results/output-DEM.tif results/output-DRG.tif
+     point2mesh --center results/output-DEM.tif results/output-DRG.tif
 
 .. _builddem:
 
@@ -1187,14 +1192,15 @@ Elevation Model (DEM) from the point cloud file.
 
 ::
 
-     point2dem results/output-PC.tif
+     point2dem --stereographic --auto-proj-center results/output-PC.tif
+     
 
 The resulting TIFF file is mapprojected and will contain georeference
 information stored as a GeoTIFF header.
 
-The default projection is geographic (latitude and longitude), which 
-is not great at the poles. See :numref:`point2dem` for how to change
-the projection and auto-compute its center, if desired.
+The default projection is geographic (latitude and longitude), which is not
+great at the poles. Hence above we used a local stereographic projection. See
+:numref:`point2dem` for how to use other projections.
 
 The tool will infer the datum and projection from the input images, if
 present. You can explicitly specify a coordinate system (e.g., mercator,
@@ -1239,16 +1245,15 @@ projections, and custom PROJ.4 strings can applied with the target
 spatial reference set flag, ``--t_srs``. If the target spatial reference
 flag is applied with any of the reference spheroid options, the
 reference spheroid option will overwrite the datum defined in the target
-spatial reference set. The following examples produce the same output.
-However, the last two results will also show correctly the name of the
-datum in the geoheader, not just the values of its axes.
+spatial reference set. 
+
+The following two examples produce the same output. However, the last one will
+also show correctly the name of the datum in the geoheader, not just the values
+of its axes.
 
 ::
 
     point2dem --t_srs "+proj=longlat +a=3396190 +b=3376200"          \
-       results/output-PC.tif
-
-    point2dem --t_srs http://spatialreference.org/ref/iau2000/49900/ \
        results/output-PC.tif
 
     point2dem --t_srs                                                \

@@ -110,9 +110,23 @@ Polar stereographic projection
      point2dem --stereographic --proj-lon 0 --proj-lat -90 \
        run/run-PC.tif
 
-Other projections are supported as well, such as sinusoidal, Mercator, etc. The
-full list is below.
+UTM projection
+^^^^^^^^^^^^^^
 
+::
+
+    point2dem --utm 13 run/run-PC.tif
+
+Or::
+
+    proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
+    point2dem --t_srs "$proj" run/run-PC.tif
+
+The zone for the UTM projection depends on the region of interest.
+
+See the options ``--sinusoidal``, ``--mercator``, etc., in :numref:`point2dem_options`
+for how to set other projections.
+    
 Multiple clouds
 ^^^^^^^^^^^^^^^
 
@@ -256,6 +270,8 @@ then multiplied by 100. Note that if the DEM footprint is rotated in
 the image frame, there will be blank regions at image corners, so
 normally this percentage can be between 50 and 100 (or so) even when
 stereo correlation was fully successful.
+
+.. _point2dem_options:
 
 Command-line options for point2dem
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
