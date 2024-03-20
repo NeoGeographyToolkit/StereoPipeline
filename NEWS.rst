@@ -203,6 +203,11 @@ cam_gen (:numref:`cam_gen`):
      (:numref:`cam_gen_frame`).
    * Can export linescan cameras to CSM format (:numref:`cam_gen_linescan`).
 
+rig_calibrator (:numref:`rig_calibrator`):
+   * Added functionality and documentation for how to export the interest point
+     matches and cameras for use with ``bundle_adjust``
+     (:numref:`rc_bundle_adjust`).
+     
 lronac2mosaic.py (:numref:`lronac2mosaic`):
   * Run ``spiceinit`` before calling ``lronaccal``, and re-enable all
     options for the latter command, which were disabled due to a bug

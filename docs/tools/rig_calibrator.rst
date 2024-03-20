@@ -15,7 +15,8 @@ project.
 The ``rig_calibrator`` program was extensively tested with actual
 hardware and can model many real-world issues encountered with a
 rig. Its output can be used to create a fused surface mesh with
-seamless texture from each of its sensors.
+seamless texture from each of its sensors, and, for ground data,
+also terrain models and orthoimages.
 
 The intrinsics of the sensors and each camera pose can also be
 optimized without the rig assumption. Then the sensors can acquire data
@@ -23,8 +24,8 @@ at unrelated times (e.g., years apart). In that case the transforms
 among the sensors on the rig are not modeled, but any group of images
 acquired with the same sensor still share intrinsics. 
 
-The `Theia <https://github.com/sweeneychris/TheiaSfM>`_ package is used
-to find the initial camera poses.
+The `Theia <https://github.com/sweeneychris/TheiaSfM>`_ package is invoked (and
+shipped with ASP) to find the initial camera poses.
  
 See :numref:`rig_calibrator_example` for a solved example,
 :numref:`sfm_iss` for a larger example covering a full ISS module, and
@@ -37,7 +38,7 @@ See :numref:`rig_calibrator_example` for a solved example,
    Textures obtained with the ``nav_cam`` and ``sci_cam`` rig cameras,
    (left and right) projected onto the mesh obtained with the
    ``haz_cam`` depth+image camera. The textures are nearly seamless
-   and agree very well when overlayed, which shows that the rig
+   and agree very well when overlaid, which shows that the rig
    calibration was successful. Note that the ``sci_cam`` pictures (on
    the right) have some lightning variation due to the fact that
    auto-exposure was used. The images show a portion of the Granite
@@ -95,7 +96,7 @@ For example, two images acquired at time 1004.6 can be named::
 
 The tag after the timestamp is suggested to ensure all image names without
 directory path are unique, in case these are passed later to ``bundle_adjust``
-(:numref:`bundle_adjust`). The tag better not have any numerical characters, as
+(:numref:`rc_bundle_adjust`). The tag better not have any numerical characters, as
 that may confuse ``rig_calibrator``.
 
 The images are expected to be 8 bit, with .jpg, .png, or .tif extension.
@@ -253,7 +254,7 @@ optical center. This file can be passed in to a new invocation
 
 The optical centers per image are written separately, to::
 
-  <output dir>/cameras_offsets.nvm
+  <output dir>/cameras_offsets.txt
 
 This is because these are not part of the .nvm file format.
 
@@ -306,9 +307,14 @@ are saved to::
 
   <output dir>/convergence_angles.txt
 
-The options ``--export_to_voxblox`` and ``--save_pinhole_cameras``
-save files that can be used with ``voxblox_mesh`` (:numref:`voxblox_mesh`)
-and other ASP tools, respectively.
+The option ``--export_to_voxblox`` saves files that can be used with ``voxblox_mesh`` (:numref:`voxblox_mesh`).
+
+The list of images is saved (one per line) to::
+
+  <output dir>/image_list.txt
+  
+How to export the data for use in bundle adjustment is discussed in
+:numref:`rc_bundle_adjust`.
 
 A solved example
 ^^^^^^^^^^^^^^^^
@@ -518,6 +524,42 @@ to ensure there exists one depth point for each corresponding image pixel.
 Note that the ``float32`` datatype has limited precision, but is adequate,
 unless the measurements are ground data taken from a planet's orbit.
 
+.. _rc_bundle_adjust:
+
+Exporting data for use in bundle adjustment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If ``rig_calibrator`` is called with the option ``--save_matches``, it will save
+the inlier interest point matches in the ASP ``bundle_adjust`` format with the
+proper naming convention (:numref:`ba_match_files`).
+
+These can then be inspected in ``stereo_gui``
+(:numref:`stereo_gui_pairwise_matches`) as::
+
+  stereo_gui $(cat rig_out/image_list.txt) \
+    rig_out/matches/run --pairwise-matches
+
+Here and below we assume that the output directory is ``rig_out``.
+
+The optimized cameras can be saved in the ASP pinhole format
+(:numref:`pinholemodels`) by calling ``rig_calibrator`` with the option
+``--save_pinhole_cameras``. The list of saved cameras will be in the file::
+
+  rig_out/camera_list.txt
+
+If both the matches and cameras are saved, ``bundle_adjust`` can be
+invoked as::
+
+  bundle_adjust                              \
+    --image-list rig_out/image_list.txt      \
+    --camera-list rig_out/camera_list.txt    \
+    --match-files-prefix rig_out/matches/run \
+    -o ba/run
+
+In order for exporting data this way to work, all input image names (without
+directory path) must be unique, as the ASP bundle adjustment counts on that. See
+the input naming conventions in :numref:`rig_calibrator_data_conv`.
+
 Source code
 ^^^^^^^^^^^
 
@@ -622,7 +664,7 @@ Command-line options for rig_calibrator
 ``--num_match_threads`` How many threads to use in feature detection/matching.
   A large number can use a lot of memory. Type: int32. Default: 8.
 ``--out_dir`` Save in this directory the camera intrinsics and extrinsics. See
-  also ``--save-matches``, ``--verbose``. Type: string. Default: "".
+  also ``--save_matches``, ``--verbose``. Type: string. Default: "".
 ``--out_texture_dir`` If non-empty and if an input mesh was provided, project
   the camera images using the optimized poses onto the mesh and write the
   obtained .obj files in the given directory. Type: string. Default: "".
@@ -670,14 +712,14 @@ Command-line options for rig_calibrator
   allows this file to be self-contained and for the matches to be 
   drawn with ``stereo_gui``.
 ``--save_matches`` Save the interest point matches (all matches and
-  inlier matches after filtering). ``stereo_gui`` can be used
-  to visualize these (:numref:`stereo_gui_view_ip`). Type: bool. Default: false.
+  inlier matches after filtering). ``stereo_gui`` can be used to visualize these
+  (:numref:`rc_bundle_adjust`). Type: bool. Default: false.
 ``--export_to_voxblox`` Save the depth clouds and optimized transforms needed
   to create a mesh with ``voxblox`` (if depth clouds exist). Type: bool. Default: false.
 ``--save_transformed_depth_clouds`` Save the depth clouds with the
   camera transform applied to them to make them be in world coordinates.
 ``--save_pinhole_cameras``
-  Save the optimized cameras in ASP's Pinhole format (:numref:`pinholemodels`). 
+  Save the optimized cameras in ASP's Pinhole format (:numref:`rc_bundle_adjust`). 
   The distortion model does not get saved. Type: bool. Default: false.
 ``--timestamp_offsets_max_change`` If floating the timestamp offsets, do not
   let them change by more than this (measured in seconds). Existing image
