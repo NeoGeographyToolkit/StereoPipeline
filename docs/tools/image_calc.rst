@@ -83,6 +83,8 @@ The produced values will be between 0 and 1. Other operations
 can be combined with this one. For example, one could
 add a random value multiplied by a constant to the input image.
 
+.. _image_calc_metadata:
+
 Add a value to the geoheader metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

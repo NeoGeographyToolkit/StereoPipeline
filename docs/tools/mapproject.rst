@@ -101,6 +101,9 @@ quaternion rotation from the .adjust file will be saved to the fields
 having mapprojection be reproducible if the separately stored ``.adjust`` files
 are not available.
 
+These fields are editable with ``image_calc`` (:numref:`image_calc_metadata`),
+but this is not recommended except for very experimental work.
+
 Usage
 ~~~~~
 
