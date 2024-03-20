@@ -10,8 +10,11 @@ multiple machines, and then merge the results into a single output
 DEM. It has the same options as ``sfs``, and a few additional ones, as
 outlined below.
 
-Examples for how to invoke it are in the :ref:`SfS usage <sfs_usage>`
-chapter.
+An example for how to invoke this program is in :numref:`parallel_sfs_usage`.
+See :numref:`sfs_usage` for the larger context.
+
+If having many computing nodes, the option ``--nodes-list`` must be set, to
+ensure all nodes are used. 
 
 Usage::
 
