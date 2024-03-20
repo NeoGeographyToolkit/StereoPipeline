@@ -23,7 +23,7 @@ the ``parallel_stereo`` (:numref:`parallel_stereo`) command::
 
 Then normally one would create a DEM (:numref:`point2dem`)::
   
-      point2dem results/run-PC.tif
+      point2dem --stereographic --auto-proj-center results/run-PC.tif
       
 Here it is assumed that the ``PATH`` and ``ISISDATA`` environmental
 variables have been set, as shown in :numref:`installation`. 
@@ -64,7 +64,7 @@ commands (the ``results/run-PC.tif`` and ``results/run-L.tif`` files
 are created by the ``parallel_stereo`` program above)::
 
      point2mesh results/run-PC.tif results/run-L.tif
-     point2dem results/run-PC.tif
+     point2dem --stereographic --auto-proj-center results/run-PC.tif
 
 Here a custom projection may need to be used closer to poles
 (:numref:`point2dem`).
@@ -121,7 +121,8 @@ The crop windows from above will show up as red rectangles.
 Choose from the menu ``Run -> Run parallel_stereo``. When finished,
 quit the GUI and run from the command line::
 
-    point2dem --errorimage run/run-PC.tif --orthoimage run/run-L.tif
+    point2dem --stereographic --auto-proj-center \
+      --errorimage run/run-PC.tif --orthoimage run/run-L.tif
 
 Open the computed DEM and orthoimage as::
 
@@ -194,10 +195,10 @@ data with tools specific for each mission.
 Once the ``.cub`` files are obtained, it is possible to run
 ``parallel_stereo`` right away, and create a DEM::
 
-     ISIS> parallel_stereo E0201461.cub M0100115.cub              \
-             --alignment-method affineepipolar                    \
+     ISIS> parallel_stereo E0201461.cub M0100115.cub    \
+             --alignment-method affineepipolar          \
              -s stereo.default.example results/output
-     ISIS> point2dem point2dem --stereographic --auto-proj-center \
+     ISIS> point2dem --stereographic --auto-proj-center \
              results/output-PC.tif
 
 In this case, the first thing ``parallel_stereo`` does is to

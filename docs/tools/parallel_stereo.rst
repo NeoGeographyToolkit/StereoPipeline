@@ -11,7 +11,7 @@ and :ref:`point2dem` respectively.
 
 This program can distribute the stereo processing over multiple
 computing nodes if invoked with the ``--nodes-list`` option. It uses
-GNU Parallel to manage the jobs, a tool which is shipped with the
+GNU Parallel to manage the jobs, a program that is shipped with the
 Stereo Pipeline. It expects that all nodes can connect to each other
 using ssh without password and that they share the same storage space.
 
@@ -22,11 +22,13 @@ Usage::
 See :numref:`tutorial` for more details. Many examples of this
 program are in :numref:`examples`.
 
-This tool will create a set of output files (:numref:`outputfiles`).
-Internally some of them will be GDAL VRT files, that is, plain text
-virtual mosaics of files created by individual processes, with the
-actual files in subdirectories; ASP and GDAL tools are able to use
-these virtual files in the same way as regular binary TIF files.
+This tool will create a set of output files (:numref:`outputfiles`). Internally
+some of them will be GDAL VRT files, that is, plain text virtual mosaics of
+files created by individual processes, with the actual files in subdirectories;
+ASP and GDAL tools are able to use these virtual files in the same way as
+regular binary TIF files. The files in subdirectories are combined into a single
+file at the end of the run, and the subdirectories are deleted (option
+``--keep-only``).
 
 See :numref:`pbs_slurm` for how to set up this tool
 for PBS and SLURM systems.
@@ -51,11 +53,10 @@ and ``--threads-singleprocess`` options
 Make sure that ``--nodes-list`` is set, otherwise only the head node
 will be used.
 
-Note that the SGM and MGM algorithms can be quite
-memory-intensive. For these, by default, the number of threads is set
-to 8, and the number of processes is the number of cores divided by
-the number of threads, on each node. Otherwise, the default is to use
-as many processes as there are cores.
+Note that the SGM and MGM algorithms can be quite memory-intensive. For these,
+by default, the number of threads is set to 8, and the number of processes is
+the number of cores divided by the number of threads, on each node. Otherwise,
+the default is to use as many processes as there are cores.
 
 .. _entrypoints:
 
