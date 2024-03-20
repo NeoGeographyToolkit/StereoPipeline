@@ -7,15 +7,16 @@ The tool ``mapproject`` is used to orthorectify (map-project) a camera image
 onto a DEM or datum. ASP is able to use map-projected images to run stereo, see
 :numref:`mapproj-example`.
 
-The ``mapproject`` program can be run using multiple processes and can
-be distributed over multiple machines. This is particularly useful for
-ISIS cameras, as in that case any single process must use only one
-thread due to the limitations of ISIS. The tool splits the image up
-into tiles, distributes the tiles to sub-processes, and then merges
-the tiles into the requested output image. If the input image is small
-but takes a while to process, smaller tiles can be used to
-start more simultaneous processes (use the parameters ``--tile-size``
-and ``--processes``).
+The ``mapproject`` program can be run using multiple processes and can be
+distributed over multiple machines (options ``--nodes-list`` and
+``--processes``). 
+
+This is particularly useful for ISIS cameras, as in that case any single process
+must use only one thread due to the limitations of ISIS. The tool splits the
+image up into tiles, distributes the tiles to sub-processes, and then merges the
+tiles into the requested output image. If the input image is small but takes a
+while to process, smaller tiles can be used to start more simultaneous processes
+(use the parameters ``--tile-size`` and ``--processes``).
 
 It is important to note that processing more tiles at a time may
 actually slow things down, if all processes write to the same disk and

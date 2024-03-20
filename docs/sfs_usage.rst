@@ -1410,15 +1410,19 @@ co-registering images. Note however that failure of registration is almost
 surely because not all images are connected together using tie points, or the
 images are consistent with each other but not with the ground.
 
-Running SfS
-^^^^^^^^^^^
+.. _parallel_sfs_usage:
 
-Next, SfS follows::
+Running SfS in parallel
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Next, SfS follows, using ``parallel_sfs`` (:numref:`parallel_sfs`)::
 
     parallel_sfs -i ref.tif                   \
+      --nodes-list nodes_list.txt             \
+      --processes 10                          \
+      --threads 4                             \
       --image-list image_list.txt             \
       --camera-list camera_list.txt           \
-      --nodes-list nodes_list.txt             \
       --shadow-threshold 0.005                \
       --bundle-adjust-prefix ba_align_ref/run \
       --use-approx-camera-models              \
@@ -1426,7 +1430,6 @@ Next, SfS follows::
       --blending-dist 10                      \
       --min-blend-size 50                     \
       --allow-borderline-data                 \
-      --threads 4                             \
       --smoothness-weight 0.08                \
       --initial-dem-constraint-weight 0.001   \
       --reflectance-type 1                    \
@@ -1434,7 +1437,6 @@ Next, SfS follows::
       --save-sparingly                        \
       --tile-size 200                         \
       --padding 50                            \
-      --processes 10                          \
       -o sfs/run
 
 For this step not all images need to be used, just a representative

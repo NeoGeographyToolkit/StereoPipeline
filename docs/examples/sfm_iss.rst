@@ -622,6 +622,7 @@ Sample rig configuration
 
 This is a rig configuration file having two rigs, with the 
 reference sensor for each given by ``ref_sensor_name``.  
+The reference documentation is in :numref:`rig_config`.
 
 ::
 
