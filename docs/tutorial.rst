@@ -194,10 +194,11 @@ data with tools specific for each mission.
 Once the ``.cub`` files are obtained, it is possible to run
 ``parallel_stereo`` right away, and create a DEM::
 
-     ISIS> parallel_stereo E0201461.cub M0100115.cub    \
-             --alignment-method affineepipolar          \
+     ISIS> parallel_stereo E0201461.cub M0100115.cub              \
+             --alignment-method affineepipolar                    \
              -s stereo.default.example results/output
-     ISIS> point2dem results/output-PC.tif
+     ISIS> point2dem point2dem --stereographic --auto-proj-center \
+             results/output-PC.tif
 
 In this case, the first thing ``parallel_stereo`` does is to
 internally align (or rectify) the images, which helps with finding
@@ -317,7 +318,8 @@ How to create a DEM and visualize the results of stereo is described in
 .. figure:: images/examples/dg/wv_tutorial.png
    :name: fig:dg-nomap-example
 
-   Example WorldView image section and colorized height map.
+   Example WorldView image section and colorized DEM (height map). A local
+   projection is needed to keep the aspect ratio (:numref:`point2dem`).
 
 It is important to note that we could have performed stereo using the
 approximate RPC model instead of the exact linear camera model (both
