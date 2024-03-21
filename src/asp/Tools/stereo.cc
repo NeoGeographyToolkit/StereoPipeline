@@ -607,10 +607,6 @@ namespace asp {
     vw::stereo::CorrelationAlgorithm stereo_alg
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
     
-    // This is for asp_sgm, asp_mgm, asp_final_mgm    
-    bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM && 
-        stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
-
     if (stereo_alg > vw::stereo::VW_CORRELATION_BM) {
       // If these parameters were not specified by the user, override
       // the normal default values.  Note that by setting
@@ -846,17 +842,12 @@ namespace asp {
     vw::stereo::CorrelationAlgorithm stereo_alg
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
 
-    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM ||
-                        stereo_settings().alignment_method == "local_epipolar");
-
-    bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM && 
-        stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
-
-    if (!using_sgm) {
-      if (stereo_settings().cost_mode == 3)
-        vw_throw(ArgumentErr() << "Cannot use the census transform without SGM!\n" );
-      if (stereo_settings().cost_mode == 4)
-        vw_throw(ArgumentErr() << "Cannot use the ternary census transform without SGM!\n" );
+    // For external algorithms we will still use the MGM algorithm for low-res
+    // disparity, so cost most of 3 and 4 are fine unless for regular block matching. 
+    if (stereo_alg == vw::stereo::VW_CORRELATION_BM) {
+      if (stereo_settings().cost_mode == 3 || stereo_settings().cost_mode == 4)
+        vw_throw(ArgumentErr() << "Cannot use the census transform with "
+                  << "the ASP_BM block matching algorithm.\n");
     }
     
     if (stereo_settings().cost_mode > 4)
