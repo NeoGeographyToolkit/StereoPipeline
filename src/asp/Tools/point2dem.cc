@@ -418,7 +418,7 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
                opt.median_filter_params, opt.erode_len, opt.has_las_or_csv_or_pcd,
                opt.filter, opt.default_grid_size_multiplier,
                &num_invalid_pixels, &count_mutex,
-               TerminalProgressCallback("asp","QuadTree: "));
+               TerminalProgressCallback("asp", "Point cloud extent estimation: "));
 
   sw1.stop();
   vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
@@ -623,7 +623,6 @@ int main(int argc, char *argv[]) {
     // Create the DEM
     do_software_rasterization_multi_spacing(proj_points, opt, output_georef, error_image,
                                             estim_max_error, estim_proj_box);
-    
     // Wipe the temporary files
     for (int i = 0; i < (int)tmp_tifs.size(); i++)
       if (fs::exists(tmp_tifs[i])) 

@@ -98,8 +98,8 @@ namespace asp{
     // values which are altitude.
     struct GrowBBoxAccumulator {
       BBox3 bbox;
-      void operator()( Vector3 const& v ) {
-        if ( !boost::math::isnan(v.z()) )
+      void operator()(Vector3 const& v) {
+        if (!boost::math::isnan(v.z()))
           bbox.grow(v);
       }
     };
@@ -135,7 +135,7 @@ namespace asp{
                          Mutex& mutex, const ProgressCallback& progress, float inc_amt ) :
       m_view(view.impl()), m_sub_block_size(sub_block_size),
       m_image_bbox(image_bbox),
-      m_global_bbox(global_bbox), m_point_image_boundaries( boundaries ),
+      m_global_bbox(global_bbox), m_point_image_boundaries(boundaries),
       m_error_image(error_image), m_estim_max_error(estim_max_error),
       m_estim_proj_box(estim_proj_box),
       m_errors_hist(errors_hist), m_max_valid_triangulation_error(max_valid_triangulation_error),
@@ -157,7 +157,7 @@ namespace asp{
       std::vector<double> local_hist(m_errors_hist.size(), 0);
       bool nonempty_estim_proj_box = (!m_estim_proj_box.empty());
       
-      for ( size_t i = 0; i < blocks.size(); i++ ) {
+      for (size_t i = 0; i < blocks.size(); i++) {
         BBox3 pts_bdbox;
         ImageView<Vector3> local_image2 = crop(local_image, blocks[i] - m_image_bbox.min());
 
@@ -177,7 +177,8 @@ namespace asp{
               continue;
             
             // Skip outliers, points not in the estimated bounding box
-            if (nonempty_estim_proj_box && !m_estim_proj_box.contains(local_image2(col, row))) {
+            if (nonempty_estim_proj_box && 
+                !m_estim_proj_box.contains(local_image2(col, row))) {
               continue;
             }
             
@@ -192,51 +193,48 @@ namespace asp{
           }
         }
         
-        if ( pts_bdbox.min().x() <= pts_bdbox.max().x() &&
-             pts_bdbox.min().y() <= pts_bdbox.max().y() ) {
-          // pts_bdbox has at least one point. A box of just one
-          // point is considered empty by VW. For that reason,
-          // grow this box to make it definitely non-empty.
-          // Note: for local_union, which will end up contributing
-          // to the global bounding box, we don't use the float_next
-          // gimmick, as we need the precise box.
-          local_union.grow(pts_bdbox);
+        // pts_bdbox has at least one point. A box of just one
+        // point is considered empty by VW. For that reason,
+        // grow this box to make it definitely non-empty.
+        if (pts_bdbox.min().x() <= pts_bdbox.max().x() &&
+            pts_bdbox.min().y() <= pts_bdbox.max().y()) {
           // Check for inf, that causes problems
-          if (!std::isinf(pts_bdbox.max()[0]) && !std::isinf(pts_bdbox.max()[1])) {
+          if (!std::isinf(pts_bdbox.max()[0]) && !std::isinf(pts_bdbox.max()[1]) &&
+              !std::isinf(pts_bdbox.max()[2])) {
             pts_bdbox.max()[0] = boost::math::float_next(pts_bdbox.max()[0]);
             pts_bdbox.max()[1] = boost::math::float_next(pts_bdbox.max()[1]);
+            pts_bdbox.max()[2] = boost::math::float_next(pts_bdbox.max()[2]);
           }
-          solutions.push_back( std::make_pair( pts_bdbox, blocks[i] ) );
+          local_union.grow(pts_bdbox);
+          solutions.push_back( std::make_pair(pts_bdbox, blocks[i]));
         }
 
-        if (remove_outliers_with_pct){
+        if (remove_outliers_with_pct) {
           ErrorHistAccumulator error_accum(local_hist, m_estim_max_error);
           for_each_pixel(crop(local_error, blocks[i] - m_image_bbox.min()),
                          error_accum);
         }
-
       }
 
       // Append to the global list of boxes and expand the point cloud
       // bounding box.
-      if ( local_union != BBox3() ) {
-        Mutex::Lock lock( m_mutex );
+      if (local_union != BBox3()) {
+        Mutex::Lock lock(m_mutex);
         for ( std::list<BBoxPair>::const_iterator it = solutions.begin();
               it != solutions.end(); it++ ) {
-          m_point_image_boundaries.push_back( *it );
+          m_point_image_boundaries.push_back(*it);
         }
 
-        m_global_bbox.grow( local_union );
+        m_global_bbox.grow(local_union);
 
         if (remove_outliers_with_pct)
           for (int i = 0; i < (int)m_errors_hist.size(); i++)
             m_errors_hist[i] += local_hist[i];
 
-        m_progress.report_incremental_progress( m_inc_amt );
+        m_progress.report_incremental_progress(m_inc_amt);
       }
     }
   }; // End function operator()
-
 
   void remove_outliers(ImageView<Vector3> & image, ImageViewRef<double> const& errors,
                        double error_cutoff, BBox2i const& box){
@@ -252,9 +250,9 @@ namespace asp{
               image.rows() == error_copy.rows(),
               ArgumentErr() << "Size mis-match in remove_outliers().");
 
-    for (int col = 0; col < image.cols(); col++){
-      for (int row = 0; row < image.rows(); row++){
-        if ( error_copy(col, row) > error_cutoff ){
+    for (int col = 0; col < image.cols(); col++) {
+      for (int row = 0; row < image.rows(); row++) {
+        if ( error_copy(col, row) > error_cutoff) {
           image(col, row).z() = nan;
         }
       }
@@ -359,7 +357,6 @@ namespace asp{
     if ((erode_len % 2) == 0)
       image = copy(buffer);
   }
-
 
   // Given a histogram as a vector of counts, based on binning values
   // in the interval [0, max_val] with n bins, find a given percentile
@@ -474,11 +471,11 @@ namespace asp{
     // Find the bounding box of each subblock, stored in
     // m_point_image_boundaries, together with other info by
     // searching through the image.
-    FifoWorkQueue queue( vw_settings().default_num_threads() );
+    FifoWorkQueue queue(vw_settings().default_num_threads());
     typedef SubBlockBoundaryTask task_type;
     Mutex mutex;
     float inc_amt = 1.0 / float(blocks.size());
-    for ( size_t i = 0; i < blocks.size(); i++ ) {
+    for (size_t i = 0; i < blocks.size(); i++) {
       boost::shared_ptr<task_type>
         task(new task_type(m_point_image, sub_block_size, blocks[i],
                            m_bbox, m_point_image_boundaries,
@@ -489,8 +486,8 @@ namespace asp{
     }
     queue.join_all();
     progress.report_finished();
-
-    if ( m_bbox.empty() )
+    
+    if (m_bbox.empty())
       vw_throw( ArgumentErr() << "OrthoRasterize: Input point cloud is empty!\n" );
 
     // Override with user's projwin, if specified
@@ -565,15 +562,15 @@ namespace asp{
       }
       std::sort(vx.begin(), vx.end());
       std::sort(vy.begin(), vy.end());
-      if (len > 0){
+      
+      if (len > 0) {
         // Get the median
-        // TODO: This is not robust. For lro nac, vertical resolution
+        // TODO(oalexan1): This is not robust. For lro nac, vertical resolution
         // and horizontal resolution differ by a factor of 4, e.g.,
         // 0.5 m and 2 m. The median can be one of the two, which is
         // wrong.  This code should be an average of the values in the
         // [25%, 75%] range.
-        // TODO: Integrate with the logic for mapproject.
-        // TODO: The default spacing should be 4x times this.
+        // TODO(oalexan1): Integrate with the logic for mapproject.
         // https://github.com/NeoGeographyToolkit/StereoPipeline/issues/173
         m_default_spacing_x = vx[(int)(0.5*len)];
         m_default_spacing_y = vy[(int)(0.5*len)];
@@ -582,7 +579,6 @@ namespace asp{
 
     return;
   } // End OrthoRasterizerView Constructor
-
 
   // This is kind of like part 2 of the constructor
   // - This function finalizes the spacing and generates a spacing-snapped BBox.

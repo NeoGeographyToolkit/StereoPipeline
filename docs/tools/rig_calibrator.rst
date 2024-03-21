@@ -558,7 +558,7 @@ invoked as::
 
 In order for exporting data this way to work, all input image names (without
 directory path) must be unique, as the ASP bundle adjustment counts on that. See
-the input naming conventions in :numref:`rig_calibrator_data_conv`.
+the input naming convention in :numref:`rig_calibrator_data_conv`.
 
 Source code
 ^^^^^^^^^^^

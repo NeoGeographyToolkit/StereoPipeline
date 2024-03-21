@@ -413,7 +413,7 @@ public:
     std::int64_t num_rows = bbox.height();
 
     VW_ASSERT((num_rows % m_block_size == 0) && (num_cols % m_block_size == 0),
-              ArgumentErr() << "CloudToTif: Expecting the number of rows "
+              ArgumentErr() << "CloudToTif: Expecting the number of rows and columns "
                             << "to be a multiple of the block size.\n");
 
     // Read the specified number of points from the file
@@ -442,7 +442,7 @@ public:
 
   template <class DestT>
   inline void rasterize(DestT const& dest, BBox2i const& bbox) const {
-    vw::rasterize( prerasterize(bbox), dest, bbox );
+    vw::rasterize(prerasterize(bbox), dest, bbox);
   }
 
 }; // End class CloudToTif
@@ -491,11 +491,13 @@ void las_or_csv_to_tif(std::string const& in_file,
     num_points = asp::las_file_size(in_file);
   else
     num_points = reader_ptr->m_num_points; 
+  
   int num_row_tiles = std::max(1, (int)ceil(double(num_rows)/ASP_POINT_CLOUD_TILE_LEN));
   int image_rows = ASP_POINT_CLOUD_TILE_LEN * num_row_tiles;
 
   int points_per_row = (int)ceil(double(num_points)/image_rows);
-  int num_col_tiles  = std::max(1, (int)ceil(double(points_per_row)/ASP_POINT_CLOUD_TILE_LEN));
+  int num_col_tiles  = (int)ceil(double(points_per_row)/ASP_POINT_CLOUD_TILE_LEN);
+  num_col_tiles      = std::max(1, num_col_tiles);
   int image_cols = ASP_POINT_CLOUD_TILE_LEN * num_col_tiles;
 
   if (asp::is_las(in_file)) { // LAS
@@ -525,6 +527,18 @@ void las_or_csv_to_tif(std::string const& in_file,
     writer.execute(t);
     
   } else { // CSV or PCD
+
+    // For small CSV files, an image of dimensions ASP_POINT_CLOUD_TILE_LEN is
+    // way too large and gridding is slow rather than instant. We will make the
+    // size smaller while respecting all assumptions.
+    if (num_points < ASP_POINT_CLOUD_TILE_LEN * ASP_POINT_CLOUD_TILE_LEN) {
+      // Ensure multiple of block size
+      int len = ceil(sqrt(num_points * 1.0) / block_size) * block_size; 
+      len = std::max(len, 1);
+      len = std::min(len, ASP_POINT_CLOUD_TILE_LEN);
+      image_rows = len;
+      image_cols = len;
+    }
           
     // Create the image
     ImageViewRef<Vector3> Img = asp::CloudToTif(reader_ptr.get(), image_rows, 

@@ -377,7 +377,7 @@ vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& 
 /// Read given files and form an image composite.
 template<class PixelT>
 vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> const & files,
-                                                    int spacing){
+                                                    int spacing) {
 
   VW_ASSERT(files.size() >= 1, vw::ArgumentErr() << "Expecting at least one file.\n");
 
