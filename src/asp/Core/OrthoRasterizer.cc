@@ -193,20 +193,20 @@ namespace asp{
           }
         }
         
-        // pts_bdbox has at least one point. A box of just one
-        // point is considered empty by VW. For that reason,
-        // grow this box to make it definitely non-empty.
         if (pts_bdbox.min().x() <= pts_bdbox.max().x() &&
             pts_bdbox.min().y() <= pts_bdbox.max().y()) {
-          // Check for inf, that causes problems
-          if (!std::isinf(pts_bdbox.max()[0]) && !std::isinf(pts_bdbox.max()[1]) &&
-              !std::isinf(pts_bdbox.max()[2])) {
-            pts_bdbox.max()[0] = boost::math::float_next(pts_bdbox.max()[0]);
-            pts_bdbox.max()[1] = boost::math::float_next(pts_bdbox.max()[1]);
-            pts_bdbox.max()[2] = boost::math::float_next(pts_bdbox.max()[2]);
+
+          // If the length is 0 along some dimension, grow it by a small amount
+          // as otherwise this data point will not be included in the bounding box.
+          for (int i = 0; i < 3; i++) {
+            if (std::isinf(pts_bdbox.min()[i]) || std::isinf(pts_bdbox.max()[i])) 
+              continue;
+            if (pts_bdbox.min()[i] == pts_bdbox.max()[i])
+              pts_bdbox.max()[i] = boost::math::float_next(pts_bdbox.max()[i]);
           }
+          
           local_union.grow(pts_bdbox);
-          solutions.push_back( std::make_pair(pts_bdbox, blocks[i]));
+          solutions.push_back(std::make_pair(pts_bdbox, blocks[i]));
         }
 
         if (remove_outliers_with_pct) {

@@ -843,7 +843,7 @@ namespace asp {
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
 
     // For external algorithms we will still use the MGM algorithm for low-res
-    // disparity, so cost most of 3 and 4 are fine unless for regular block matching. 
+    // disparity, so cost mode of 3 and 4 is fine unless for regular block matching. 
     if (stereo_alg == vw::stereo::VW_CORRELATION_BM) {
       if (stereo_settings().cost_mode == 3 || stereo_settings().cost_mode == 4)
         vw_throw(ArgumentErr() << "Cannot use the census transform with "
