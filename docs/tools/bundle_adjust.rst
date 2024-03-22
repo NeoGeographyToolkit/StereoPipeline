@@ -55,6 +55,10 @@ control points (:numref:`bagcp`)::
       gcp1.gcp gcp2.gcp gcp3.gcp \
       -o run_ba/run 
 
+Using the proper value for ``--datum`` is very important, otherwise the
+longitude-latitude-height values in the GCP files will not be interpreted
+correctly.
+
 There can be more than one GCP file. 
 
 The residuals for the GCP will be printed at the end of the
