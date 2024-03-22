@@ -345,12 +345,14 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   // Set the default lowest resolution subimage size. Use a shorthand below.
   // Must happen before images are loaded.
   int & lowres_size = asp::stereo_settings().lowest_resolution_subimage_num_pixels;
-  bool delay = !asp::stereo_settings().nvm.empty() ||
-               !asp::stereo_settings().isis_cnet.empty() ||
-               asp::stereo_settings().preview;
+  bool delay = asp::stereo_settings().preview;
+  // !asp::stereo_settings().nvm.empty() ||
+  // !asp::stereo_settings().isis_cnet.empty() ||
+               
   if (lowres_size <= 0) {
     if (delay) {
-      lowres_size = 10000 * 10000; // to avoid creating many small subimages
+      // to avoid creating many small subimages. But then the displaying is slow.
+      lowres_size = 10000 * 10000; 
     } else {
       lowres_size = 1000 * 1000;
     }

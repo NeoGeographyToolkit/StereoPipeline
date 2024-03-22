@@ -366,7 +366,7 @@ void asp::BAParams::record_points_to_kml(const std::string &kml_path,
                                          size_t skip, const std::string name,
                                          const std::string icon) {
   if (datum.name() == asp::UNSPECIFIED_DATUM) {
-    vw::vw_out(vw::WarningMessage) << "No datum specified, can't write file: "
+    vw::vw_out(vw::WarningMessage) << "No datum specified. Cannot write file: "
                                    << kml_path << std::endl;
     return;
   }

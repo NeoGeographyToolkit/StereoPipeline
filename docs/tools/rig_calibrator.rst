@@ -99,7 +99,7 @@ directory path are unique, in case these are passed later to ``bundle_adjust``
 (:numref:`rc_bundle_adjust`). The tag better not have any numerical characters, as
 that may confuse ``rig_calibrator``.
 
-The images are expected to be 8 bit, with .jpg, .png, or .tif extension.
+The images are expected to be 8 or 16 bit, with .jpg, .png, or .tif extension.
 
 If some sensors also have depth data, the same convention is followed,
 with the file extension being .pc. Example::

@@ -131,6 +131,8 @@ and extends for half a grid vertically and horizontally.
 if ``dem_mosaic`` is invoked on such datasets, it will respect the
 input grid even without ``--tap`` being explicitly set.)
 
+.. _dem_mosaic_blur:
+
 Apply a blur
 ^^^^^^^^^^^^
 
@@ -147,6 +149,8 @@ Erosion
 Erode 3 pixels at the boundary::
 
      dem_mosaic --erode-length 3 input.tif -o output.tif
+
+.. _dem_mosaic_fill:
 
 Fill small holes
 ^^^^^^^^^^^^^^^^
@@ -169,13 +173,13 @@ Grow a DEM
         --fill-num-passes 3     \
         input.tif -o filled.tif 
 
-Unlike the earlier example, in this mode the tool will not try to fill small
-holes of a given diameter that are fully surrounded by valid data. Instead, for
-any pixel that is invalid (lacks data), ``dem_mosaic`` will search for valid
-pixels within the specified search radius. If the percentage of valid to total
-number of found pixels is no less than the specified value, the invalid
-pixel will be filled with the weighted average of the valid pixel values, with the
-weight given as:
+Unlike the fill example in :numref:`dem_mosaic_fill`, in this mode the tool will
+not try to fill small holes of a given diameter that are fully surrounded by
+valid data. Instead, for any pixel that is invalid (lacks data), ``dem_mosaic``
+will search for valid pixels within the specified search radius. If the
+percentage of valid to total number of found pixels is no less than the
+specified value, the invalid pixel will be filled with the weighted average of
+the valid pixel values, with the weight given as:
 
 .. math::    
   

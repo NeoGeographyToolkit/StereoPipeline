@@ -313,13 +313,13 @@ quality. The ``mapproject`` program (:numref:`mapproject`), when
 invoked with no input grid size, computes the grid size as the image
 GSD, and that value can then be used when creating the input SfS DEM.
 
-If this DEM has holes, those can be filled in ``dem_mosaic`` (see examples of
-filling or growing a DEM in :numref:`dem_mosaic`), or with ``point2dem`` itself
-(:numref:`point2dem`). 
+If this DEM has holes, those can be filled in ``dem_mosaic``
+(:numref:`dem_mosaic_grow`). 
 
-The ``dem_mosaic`` tool can also apply some blur to attenuate big artifacts (for
-example, use ``--dem-blur-sigma 2``). Note that ``sfs`` has a smoothing term
-itself which should take care of small imperfections in the input.
+The ``dem_mosaic`` program can also apply some blur to attenuate big artifacts
+(:numref:`dem_mosaic_blur`). Use, for example, ``--dem-blur-sigma 2``. Note that
+``sfs`` has a smoothing term itself which should take care of small
+imperfections in the input.
 
 See :numref:`sfs_initial_terrain` for how to use a third-party DEM as input to
 SfS. Then, alignment of the cameras to that DEM is needed. This is a multi-step
@@ -930,8 +930,9 @@ Any spikes or other artifacts should be blurred, such as by running::
 
     dem_mosaic --dem-blur-sigma 2 ref.tif -o ref_blur.tif
     
-Any holes can also be filled with this tool by using the ``--fill-search-radius``
-option. See :numref:`dem_mosaic` for more details.
+Any holes can also be filled ``dem_mosaic`` (:numref:`dem_mosaic_grow`,
+:numref:`dem_mosaic_fill`). A subsequent blur with a sigma of 2 pixels is
+suggested (:numref:`dem_mosaic_blur`).
 
 See :numref:`initial_sfs_dem` for how to create an initial DEM using stereo.
 A stereo DEM can also be blended with the LOLA DEM using ``dem_mosaic``
