@@ -65,28 +65,15 @@ documented.
 
 * **Null** = A placeholder model that applies no distortion.
 
-* **Tsai** = A common distortion model :cite:`tsai1987` similar to
-  the one used by OpenCV and Theia. This model uses the following
-  parameters:
+* **Tsai** = A common distortion model :cite:`tsai1987`. In the most
+  recent builds (after ASP 3.3.0) this was made to agree precisely with the 
+  `OpenCV radial-tangential lens distortion model <https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html>`_.
+  This model uses the following parameters:
   
-  *K1, K2* = Radial distortion parameters.
+  *K1, K2, K3* = Radial distortion parameters. The last one is optional.
   
   *P1, P2* = Tangential distortion parameters.
   
-  The following equations describe the distortion, starting with the
-  undistorted pixel :math:`(Px, Py)`.
-
-  .. math::
-
-    (x, y) = \left(\frac{Px - cu}{fu}, \frac{Py-cv}{fv}\right)
-
-    r^{2} = x^{2} + y^{2}
-
-    x_{dist} = Px + x\left(K_{1}r^{2} + K_{2}r^{4} + 2P_{1}y + P_{2}\left(\frac{r^{2}}{x} + 2x\right)\right)
-
-    y_{dist} = Py + y\left(K_{1}r^{2} + K_{2}r^{4} + 2P_{2}x + P_{1}\left(\frac{r^{2}}{y} + 2y\right)\right)
-
-
 * **Adjustable Tsai** = A variant of the Tsai model where any number of
   *K* terms and a skew term (alpha) can be used. Can apply the AgiSoft
   Lens calibration parameters.

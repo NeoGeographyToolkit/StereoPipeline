@@ -544,7 +544,10 @@ Here and below we assume that the output directory is ``rig_out``.
 
 The optimized cameras can be saved in the ASP pinhole format
 (:numref:`pinholemodels`) by calling ``rig_calibrator`` with the option
-``--save_pinhole_cameras``. The list of saved cameras will be in the file::
+``--save_pinhole_cameras``. The OpenCV ``radtan`` (radial-tangential)
+distortion model will be saved, but not the fisheye model.
+
+The list of saved cameras will be in the file::
 
   rig_out/camera_list.txt
 
@@ -721,7 +724,8 @@ Command-line options for rig_calibrator
   camera transform applied to them to make them be in world coordinates.
 ``--save_pinhole_cameras``
   Save the optimized cameras in ASP's Pinhole format (:numref:`rc_bundle_adjust`). 
-  The distortion model does not get saved. Type: bool. Default: false.
+  The distortion model gets saved if it is of ``radtan`` type (OpenCV
+  radial-tangential distortion model). Type: bool. Default: false.
 ``--timestamp_offsets_max_change`` If floating the timestamp offsets, do not
   let them change by more than this (measured in seconds). Existing image
   bracketing acts as an additional constraint. Type: double. Default: 1.

@@ -118,6 +118,9 @@ bundle_adjust (:numref:`bundle_adjust`):
     ``--auto-overlap-params`` will restrict the interest point matching to the
     region of overlap (expanded by the percentage in the latter option). This
     can result in great efficiency gains for large images.
+  * Made the Tsai lens distortion agree precisely with OpenCV's implementation
+    (:numref:`pinholemodels`). There was a small numerical problem and the K3
+    coefficient was not part of the distortion model.
   * Bugfix: points for which initial triangulation failed are flagged as
     outliers right away. See ``--forced-triangulation-distance`` for
     fine-grained control.
@@ -208,6 +211,8 @@ rig_calibrator (:numref:`rig_calibrator`):
    * Added functionality and documentation for how to export the interest point
      matches and cameras for use with ``bundle_adjust``
      (:numref:`rc_bundle_adjust`).
+   * Can export the OpenCV radial-tangential lens distortion to camera files for
+     use with ``bundle_adjust`` (option ``--save-pinhole-cameras``).
      
 lronac2mosaic.py (:numref:`lronac2mosaic`):
   * Run ``spiceinit`` before calling ``lronaccal``, and re-enable all
