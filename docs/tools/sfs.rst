@@ -3,12 +3,27 @@
 sfs
 ---
 
-The ``sfs`` tool can improve a DEM using shape-from-shading
-(:cite:`alexandrov2018multiview`). The tool ``parallel_sfs``
+The ``sfs`` tool can add more detail to a DEM using shape-from-shading
+(:cite:`alexandrov2018multiview`). The ``parallel_sfs`` program
 (:numref:`parallel_sfs`) extends ``sfs`` to run using multiple
 processes on multiple machines.
 
-Usage::
+Illustration
+~~~~~~~~~~~~
+
+.. figure:: ../images/SfS_Comet_67P.png
+   :name: SfS_Comet_67P
+   :alt: SfS_Comet_67P.png
+
+   Refining the surface of Comet 67P with shape-from-shading
+   (:cite:`jindal2024measuring_v2`). Left: produced terrain. Right: input image.
+   Other examples are in :numref:`sfs_usage` (for LRO NAC images), and in
+   :numref:`sfs_kaguya` (for Kaguya Terrain Camera images).
+
+Usage
+~~~~~
+
+::
 
      sfs -i <input DEM> -n <max iterations> -o <output prefix> \
        [other options] <images> <cameras>

@@ -877,7 +877,10 @@ If bundle adjustment was used, the above command should be run with the option
 ``--bundle-adjust-prefix ba/run``. 
 
 The option ``--min-triangulation-angle 1.5`` is highly essential. It filters out
-far-away and noisy points.
+far-away and noisy points. Increasing this will remove more points.  For
+terrains with a lot of shadows (such as for the Moon), also consider using the
+option ``--no-data-value`` to filter out pixels with low intensity
+(:numref:`stereodefault`).                      
 
 This is followed by DEM and orthoimage creation (:numref:`point2dem`) with::
 

@@ -45,11 +45,21 @@ Maxar Earth cameras and GCP
 Here we use Maxar (DigitalGlobe) Earth data (:numref:`dg_tutorial`) and ground
 control points (:numref:`bagcp`)::
 
-     bundle_adjust --camera-weight 0 --tri-weight 0.1       \
-       file1.tif file2.tif file1.xml file2.xml gcp_file.gcp \
-       --datum WGS_1984 -o run_ba/run --num-passes 2
+    bundle_adjust                \
+      --camera-weight 0          \
+      --tri-weight 0.1           \
+      --num-passes 2             \
+      --datum WGS_1984           \
+      file1.tif file2.tif        \
+      file1.xml file2.xml        \
+      gcp1.gcp gcp2.gcp gcp3.gcp \
+      -o run_ba/run 
 
-There can be more than one GCP file.
+There can be more than one GCP file. 
+
+The residuals for the GCP will be printed at the end of the
+``{output-prefix}-final_residuals_pointmap.csv`` file,
+and flagged with the string ``# GCP`` (:numref:`ba_err_per_point`).
 
 We invoked the tool with two passes, which also enables removal
 of outliers (see option ``--remove-outliers-params``, :numref:`ba_options`).
@@ -448,7 +458,7 @@ One or more ``.gcp`` files can be passed to ``bundle_adjust`` as shown in
 :numref:`ba_examples`, together with one or more images and cameras, to refine the
 camera poses. 
 
-GCP can be employed to initialize the cameras (:numref:`camera_solve_gcp`), or
+GCP can also be employed to initialize the cameras (:numref:`camera_solve_gcp`), or
 to transform them as a group, with the ``bundle_adjust`` options
 ``--transform-cameras-with-shared-gcp`` and ``--transform-cameras-using-gcp``. 
 For use with SfM, see :numref:`sfm_world_coords`.
@@ -465,7 +475,7 @@ height less so, the third standard deviation can be set to something
 larger.
 
 See :numref:`ba_out_files` for the output files, including for
-more details about GCP.
+more details about reports for GCP files.
 
 Effect on optimization
 ^^^^^^^^^^^^^^^^^^^^^^

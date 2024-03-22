@@ -550,9 +550,9 @@ may be known.
 
 Given a DEM of the area of interest, and optionally an orthoimage (mapprojected
 image, georeferenced image), these an be used to create GCP files
-(:numref:`bagcp`). GCP can be provided to ``bundle_adjust`` to either improve
-the registration of these cameras to the ground or create new Pinhole cameras from
-scratch (the latter is shown in :numref:`camera_solve_gcp`).
+(:numref:`bagcp`). GCP can be provided to ``bundle_adjust`` to refine the camera
+poses, transform the cameras to given coordinates, or to create new
+cameras (:numref:`ba_use_gcp`).
 
 A DEM can be obtained using the instructions in :numref:`initial_terrain`.
 Use, if applicable, ``dem_geoid`` to convert the DEM to be relative
@@ -581,13 +581,15 @@ one, that will result in an error.  The match points can be moved around by
 right-clicking to turn on this mode, and then dragging them with the mouse.
 
 When done creating interest points, use the ``IP matches -> Write GCP file``
-menu item to save the GCP file. The matches can be saved from the same menu, and
-can be loaded, viewed, and edited later by repeating the above command and then
-selecting viewing the interest point matches from the menu. Editing cannot be
-done for GCP.
+menu item to save the GCP file. It is suggested to save the interest point
+matches from the same menu, as later those can be edited and reused to create
+GCP, while GCP cannot be edited.
 
 If above the reference DEM and GCP file were not set, the GUI
 will prompt for their names.
+
+If having many images, this process can be repeated for several small sets,
+creating several GCP files that can then be passed together to ``bundle_adjust``.
 
 GCP can be visualized in ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
 

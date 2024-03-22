@@ -530,8 +530,9 @@ Exporting data for use in bundle adjustment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If ``rig_calibrator`` is called with the option ``--save_matches``, it will save
-the inlier interest point matches in the ASP ``bundle_adjust`` format with the
-proper naming convention (:numref:`ba_match_files`).
+the inlier interest point matches in the ASP ``bundle_adjust``
+(:numref:`bundle_adjust`) format with the proper naming convention
+(:numref:`ba_match_files`).
 
 These can then be inspected in ``stereo_gui``
 (:numref:`stereo_gui_pairwise_matches`) as::
