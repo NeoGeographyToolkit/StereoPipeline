@@ -124,6 +124,7 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Bugfix: points for which initial triangulation failed are flagged as
     outliers right away. See ``--forced-triangulation-distance`` for
     fine-grained control.
+  * Replace the Tsai lens undistortion implementation, for a 10x speedup.  
     
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).
