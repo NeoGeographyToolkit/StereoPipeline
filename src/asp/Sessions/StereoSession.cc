@@ -156,18 +156,15 @@ namespace asp {
     }
     
     // The DEM the user provided better be the one used for map projection.
-    // Give a warning, as this may result in subtle differences.
-    if (input_dem != dem_file) {
-      vw::vw_out(WarningMessage)
-        << "The DEM used for map projection is different "
-        << "from the one provided currently.\n"
-        << "Mapprojection DEM: " << dem_file << "\n"
-        << "Current DEM: " << input_dem << "\n"
-        << "Use 'image_calc -c var_0 --mo DEM_FILE=myDem.tif in.tif -o out.tif -d float32' "
-        << "to change the DEM name in the "
-        << "geoheader of mapprojected images. Using the current DEM.\n";
-       dem_file = input_dem;
-    }
+    // Give an error, as the results can be very different with the wrong DEM.
+    if (input_dem != dem_file)
+      vw::vw_throw(ArgumentErr() << "The DEM used for map projection is different "
+                   << "from the one provided currently.\n"
+                   << "Mapprojection DEM: " << dem_file << "\n"
+                   << "Current DEM: " << input_dem << "\n"
+                   << "Use 'image_calc -c var_0 --mo DEM_FILE=myDem.tif in.tif -o out.tif -d float32' "
+                   << "to change the DEM name in the geoheader of mapprojected images, "
+                   << "but only if sure that the DEMs are equivalent.\n");
     
     // If this is set to none, it means no bundle-adjust prefix was used
     if (adj_prefix == "NONE")

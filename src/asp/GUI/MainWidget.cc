@@ -1117,7 +1117,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
         //sw4.stop();
         //vw_out() << "Render time 4 (seconds): " << sw4.elapsed_seconds() << std::endl;
         
-      }else{
+      } else {
         // Overlay georeferenced images
         //Stopwatch sw5;
         //sw5.start();
@@ -1144,8 +1144,8 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
         // TODO(oalexan1): Must render only the pixels that changed
 
 #pragma omp parallel for // this makes a big difference on Linux
-        for (int x = screen_box.min().x(); x < screen_box.max().x(); x++){
-          for (int y = screen_box.min().y(); y < screen_box.max().y(); y++){
+        for (int x = screen_box.min().x(); x < screen_box.max().x(); x++) {
+          for (int y = screen_box.min().y(); y < screen_box.max().y(); y++) {
 
             // Convert from a pixel as seen on screen to the world coordinate system.
             Vector2 world_pt = screen2world(Vector2(x, y));
@@ -1154,23 +1154,25 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
             Vector2 p;
             try {
               p = MainWidget::world2image(world_pt, i);
-              bool is_in = (p[0] >= 0 && p[0] <= m_images[i].img.cols() - 1 &&
-                            p[1] >= 0 && p[1] <= m_images[i].img.rows() - 1);
-              if (!is_in) continue; // out of range
+              //bool is_in = (p[0] >= 0 && p[0] <= m_images[i].img.cols() - 1 &&
+              //              p[1] >= 0 && p[1] <= m_images[i].img.rows() - 1);
+              //if (!is_in) continue; // out of range
             }catch ( const std::exception & e ) {
               continue;
             }
 
             // Convert to scaled image pixels and snap to integer value
-            // TODO(oalexan1): This may introduce subpixel artifacts.
-            p = round(p/scale_out);
+            // TODO(oalexan1): There is a bug. Try plotting a 3x3 image with a
+            // georef. It will truncate half of the boundary pixels.
+            p = floor(p/scale_out);
 
-            if (!region_out.contains(p)) continue; // out of range again
+            // if (!region_out.contains(p)) continue; // out of range again
 
             int px = p.x() - region_out.min().x();
             int py = p.y() - region_out.min().y();
-            if (px < 0 || py < 0 || px >= qimg.width() || py >= qimg.height() ){
-              vw_throw(ArgumentErr() << "Book-keeping failure.\n");
+            if (px < 0 || py < 0 || px >= qimg.width() || py >= qimg.height()) {
+              continue;
+              //vw_throw(ArgumentErr() << "Book-keeping failure.\n");
             }
             qimg2.setPixel(x-screen_box.min().x(), // Fill the temp QImage object
                            y-screen_box.min().y(),
