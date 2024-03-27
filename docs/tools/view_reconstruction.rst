@@ -8,6 +8,9 @@ This viewer is part of the Theia SfM suite of tools that ASP ships
 ``sfm_view`` (:numref:`sfm_view`) for a program that can show orbital cameras
 (with no 3D points).
 
+Zoom in and out with the mouse wheel. Pan with the left mouse button. Rotate
+with the right mouse button. 
+
 Example::
 
     view_reconstruction --reconstruction theia/reconstruction-0 

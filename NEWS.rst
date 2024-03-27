@@ -121,10 +121,10 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Made the Tsai lens distortion agree precisely with OpenCV's implementation
     (:numref:`pinholemodels`). There was a small numerical problem and the K3
     coefficient was not part of the distortion model.
+  * Replace the Tsai lens undistortion implementation, for a 10x speedup.  
   * Bugfix: points for which initial triangulation failed are flagged as
     outliers right away. See ``--forced-triangulation-distance`` for
     fine-grained control.
-  * Replace the Tsai lens undistortion implementation, for a 10x speedup.  
     
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).

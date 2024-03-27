@@ -498,8 +498,8 @@ this is due to the reference DEM being very coarse, per plots (e) and
 
 .. _jitter_multiple_images:
 
-Using multiple CTX images
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Multiple CTX images
+^^^^^^^^^^^^^^^^^^^
 
 Jitter was solved jointly for a set of 27 CTX images with much overlap.
 The extent was roughly between -157.8 and -155.5 degrees of longitude, and from
@@ -512,8 +512,8 @@ find stereo pairs. Only stereo pairs with a median convergence angle of at least
 points. This produced in 42 stereo pairs.
 
 The resulting stereo DEMs can be mosaicked with ``dem_mosaic``
-(:numref:`dem_mosaic`). Alignment to MOLA can be done as before, and the the
-alignment transform must be applied to the cameras.
+(:numref:`dem_mosaic`). Alignment to MOLA can be done as before, and the 
+alignment transform must be applied to the cameras (:numref:`ba_pc_align`).
 
 Then, jitter was solved for, as earlier, but for the entire set at once. The
 dense pairwise matches were used. They were copied from individual stereo

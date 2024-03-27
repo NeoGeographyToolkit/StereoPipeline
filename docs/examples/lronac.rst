@@ -71,7 +71,7 @@ correction. Here are the steps, illustrated on one image::
     lronaccal   from = ${f}.cub     to = ${f}.cal.cub
     lronacecho  from = ${f}.cal.cub to = ${f}.cal.echo.cub
 
-Note that for these commands to succeed ISIS and its supporting data
+Note that for these commands to succeed, ISIS and its supporting data
 must be downloaded, per :numref:`planetary_images`.
 
 Stitching the LE and RE observations

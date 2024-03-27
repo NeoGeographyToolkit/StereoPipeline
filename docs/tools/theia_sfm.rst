@@ -28,6 +28,21 @@ Usage
     theia_sfm --rig_config <rig config> [images]  \
       [--theia_flags <flag file>] --out_dir <out dir>
 
+.. _theia_sfm_config:
+
+Configuration
+~~~~~~~~~~~~~
+
+This program  will use the Theia flags file from ``share/theia_flags.txt`` in
+the software distribution, which can be copied to a new name, edited, and passed
+to ``theia_sfm`` via ``--theia_fags``.
+
+As an example, for tricky configurations, setting::
+
+  --feature_density=DENSE
+
+in the flags file can create a lot more interest points matches.
+
 Examples
 ~~~~~~~~
 
@@ -54,12 +69,18 @@ on the command line::
 
 Visualization
 ~~~~~~~~~~~~~
+
 The created camera poses can be visualized as::
 
     view_reconstruction --reconstruction out_dir/reconstruction-0
 
+See this program's manual in :numref:`view_reconstruction`.
+
 The .nvm file can be visualized with ``stereo_gui``
-(:numref:`stereo_gui_nvm`).
+(:numref:`stereo_gui_nvm`). This will show the images in the random
+order produced by Theia. The ``rig_calibrator`` program
+(:numref:`rig_calibrator`), which can be used as the next step,
+will order these lexicographically.
 
 Manipulating SfM solutions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

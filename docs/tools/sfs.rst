@@ -62,25 +62,25 @@ The ``sfs`` outputs are saved at the location given by the output prefix (option
 ``-o``).  If that is set to ``run/run`` as in the example above, the
 outputs are:
 
- - run/run-DEM-final.tif - The refined SfS DEM.
+ - ``run/run-DEM-final.tif`` - The refined SfS DEM.
 
- - run/run-comp-albedo-final.tif - The computed albedo. All its values are 1 unless
+ - ``run/run-comp-albedo-final.tif`` - The computed albedo. All its values are 1 unless
    the option ``--float-albedo`` is used. 
 
- - run/run-exposures.txt - computed exposures for the images. These can be passed
+ - ``run/run-exposures.txt`` - computed exposures for the images. These can be passed
    back to ``sfs`` via ``--image-exposures-prefix``.
 
- - run/run-<image>-final-meas-intensity.tif - For each input image, this
+ - ``run/run-<image>-final-meas-intensity.tif`` - For each input image, this
    has the actual (measured) image values at each refined DEM grid point. 
 
- - run/run-<image>-final-comp-intensity.tif - For each input image,
+ - ``run/run-<image>-final-comp-intensity.tif`` - For each input image,
    this has the simulated image values at each refined DEM grid point using
    the reflectance model and the Sun position for the
    current image. If the modeling is perfect, the measured input image
    will precisely agree with the simulated (modeled) image. In reality
    these are close but different.
 
- - run/run-<image>-final-meas-albedo.tif - This stores the measured
+ - ``run/run-<image>-final-meas-albedo.tif`` - This stores the measured
    input image divided by the exposure times computed reflectance. Hence
    this is more of an input quantity rather than the result of computing
    the albedo. That one is mentioned above.

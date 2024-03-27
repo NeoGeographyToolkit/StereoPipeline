@@ -25,7 +25,7 @@ among the sensors on the rig are not modeled, but any group of images
 acquired with the same sensor still share intrinsics. 
 
 The `Theia <https://github.com/sweeneychris/TheiaSfM>`_ package is invoked (and
-shipped with ASP) to find the initial camera poses.
+shipped with ASP) to find the initial camera poses (:numref:`theia_sfm`).
  
 See :numref:`rig_calibrator_example` for a solved example,
 :numref:`sfm_iss` for a larger example covering a full ISS module, and
@@ -212,9 +212,16 @@ valid.  Normally it should be the whole image. The
 ``undistorted_image_size`` has a somewhat generous overestimate of the image
 dimensions after undistortion.
 
-Educated guess can be provided for the quantities that are not known.
-This tool can be used to optimize the focal length, optical center,
-and distortion coefficients. The undistorted image size also need not
+The ``radtan`` model is the `OpenCV radial-tangential distortion model
+<https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html>`_. The distortion
+coefficients for this model must be in the order ``k1``, ``k2``, ``p1``, ``p2``,
+``k3``. The last coefficient need not be set; then it is assumed to be 0.
+ 
+Educated guess can be provided for the quantities that are not known. This tool
+can be used to optimize the focal length, optical center, and distortion
+coefficients (the latter requires may interest point matches). 
+
+The undistorted image size also need not
 be known accurately. A tighter ``distorted_crop_size`` can help for
 images with strong distortion if the distortion model is not
 expressive enough to fit it precisely.
@@ -482,12 +489,18 @@ If it performs poorly, it may be because:
   domain of each image by making ``distorted_crop_size`` smaller in the
   rig configuration, or switch to a different distortion model, or allow
   distortion to be optimized by this tool.
+  
+- The best-fit distortion model can be inaccurate unless there are many interest
+  point matches, especially in the image periphery. See
+  :numref:`theia_sfm_config` for how to get more matches. The produced matches
+  should be visualized in ``stereo_gui`` (:numref:`stereo_gui_nvm`).  
 
-- Some image pairs have insufficient matches, which may result in poor
-  initial camera poses. This tool has good robustness to that when the
-  rig constraint is used (so without ``--no_rig``) as then the
-  transforms between rig sensors are found by using the median of
-  transforms derived from individual image pairs.
+- Some image pairs have insufficient matches, which may result in poor initial
+  camera poses. This can be addressed as for distortion, in the paragraph above.
+  This tool has good robustness to that when the rig constraint is used (so
+  without ``--no_rig``) as then the transforms between rig sensors are found by
+  using the median of transforms derived from individual image pairs, and the 
+  same rig transform applies for all acquisitions.
 
 - Some weights passed in (e.g., ``--tri_weight``,
   ``--mesh_tri_weight``) may be too high and prevent convergence.

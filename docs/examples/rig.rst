@@ -53,7 +53,7 @@ as this one has the image paths without the directory prefix, and
 ``stereo_gui`` will not be able to find the images.
 
 The images in the nvm file will be in random order. This will be
-rectified in the next step, when we run ``rig_calibrator``.
+rectified by ``rig_calibrator``.
 
 Next, we run ``rig_calibrator``::
 

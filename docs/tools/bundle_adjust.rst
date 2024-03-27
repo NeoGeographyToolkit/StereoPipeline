@@ -891,7 +891,7 @@ Command-line options
     except for xml cameras. See :numref:`parallel_stereo_options` for
     options.
 
---min-matches <integer (default: 30)>
+--min-matches <integer (default: 5)>
     Set the minimum number of matches between images that will be considered.
 
 --max-pairwise-matches <integer (default: 10000)>

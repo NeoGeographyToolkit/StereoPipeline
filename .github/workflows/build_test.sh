@@ -16,8 +16,11 @@ tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
 # How to update the dependencies. Read very carefully and update as needed.
 if [ 1 -eq 0 ]; then
+
   # Log in with ssh.yml, and create the needed dependencies, per the ASP manual,
-  # section on building ASP. Then archive them as follows:
+  # section on building ASP. Or fetch existing ones as above.
+  # Update the dependencies as needed. Then archive them as follows:
+  
   mkdir -p ~/work/StereoPipeline/packages
   /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz /usr/local/miniconda/envs/asp_deps /usr/local/miniconda/envs/python_isis8
   
@@ -230,7 +233,7 @@ if [ 1 -eq 0 ]; then
   # Make the new 'run' directory the new 'gold'. Do not keep the 'run' directories.
   # Push this updated tarball to the cloud. 
   
-  # Go to the directory having StereoPipelineTest as a subdirectory
+  # Go to the directory having the StereoPipelineTest.tar.gz (after fetching the artifact)
   f=StereoPipelineTest.tar.gz
   # Check if it exists
   if [ ! -f "$f" ]; then

@@ -903,10 +903,6 @@ if __name__ == '__main__':
     if opt.threads_single is None:
         opt.threads_single = get_num_cpus()
 
-    # Validate option keep-only
-    if opt.keep_only not in ["all_combined", "essential", "unchanged"]:
-        raise Exception('Invalid value for --keep-only: ' + opt.keep_only)
-        
     # If corr-seed-mode was not specified, read it from the file
     if opt.seed_mode is None:
         opt.seed_mode = parse_corr_seed_mode(opt.stereo_file)
