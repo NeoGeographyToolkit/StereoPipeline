@@ -344,10 +344,14 @@ subsequent invocation, if needed to fine-tune things.
 Determination of scale and registration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To transform the system of cameras to world coordinates, it is
-necessary to know the Euclidean coordinates of at least three control
-points in the scene, and then to pick the pixel of coordinates of each
-of these points in at least two images.
+The cameras produced so far are in an arbitrary coordinate system. This section
+describes how to register them to known Cartesian coordinates. For registering
+rover cameras to a DEM, see :numref:`msl_registration`.
+
+To transform the system of cameras to world coordinates, it is necessary to know
+the Cartesian coordinates of at least three control points in the scene, and
+then to pick the pixel of coordinates of each of these points in at least two
+images.
 
 All images used in registration must be for the same sensor. To find
 the pixel coordinates, open, for example, a subset of the 

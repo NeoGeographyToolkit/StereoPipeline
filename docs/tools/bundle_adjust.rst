@@ -39,6 +39,8 @@ The above choices for camera weight and triangulation weight are a recent
 implementation and suggested going forward, but not yet the defaults. These are
 helpful in preventing the cameras from drifting too far from initial locations.
 
+.. _maxar_gcp:
+
 Maxar Earth cameras and GCP
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -408,16 +410,15 @@ constraints (:numref:`bagcp`).
 Ground control points
 ~~~~~~~~~~~~~~~~~~~~~
 
-Ground control points consist of known points on the ground, together with 
-their pixel locations in one or more images. Their use is to refine, 
-initialize, or transform to desired coordinates the camera poses.
+Ground control points consist of known points on the ground, together with their
+pixel locations in one or more images. Their use is to refine, initialize, or
+transform to desired coordinates the camera poses (:numref:`ba_use_gcp`).
+
+GCP can be created with ``gcp_gen`` (:numref:`gcp_gen`) or ``stereo_gui``
+(:numref:`creatinggcp`). 
 
 File format
 ^^^^^^^^^^^
-
-A number of plain-text files containing ground control points (GCP) can be
-passed as inputs to ``bundle_adjust``. These can be created with
-``gcp_gen`` (:numref:`gcp_gen`) or ``stereo_gui`` (:numref:`creatinggcp`).
 
 A GCP file must end with a ``.gcp`` extension, and contain one ground
 control point per line. Each line must have the following fields:

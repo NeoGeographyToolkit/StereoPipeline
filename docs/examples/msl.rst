@@ -8,9 +8,8 @@ Science Laboratory (MSL) rover `Curiosity
 <https://en.wikipedia.org/wiki/Curiosity_(rover)>`_. See :numref:`rig_examples` for
 other examples.
 
-This approach uses only the images to create a self-consistent solution, without
-placing it in the right location on the Mars surface. Registration to the ground
-can later be done as in :numref:`msl_registration`.
+This approach uses the images to create a self-consistent solution, which can
+be registered to the ground (:numref:`msl_registration`).
 
 Section :numref:`csm_msl` discusses using the known camera poses for MSL.
 
@@ -264,26 +263,84 @@ See the produced mesh in :numref:`rig_msl_figure`.
 
 .. _msl_registration:
 
-Registration of MSL camera to the ground
------------------------------------------
+Ground registration
+-------------------
 
-The rig calibrator can transform the network of cameras to known coordinates
-using control points (:numref:`rig_calibrator_example`). This can be followed by
-mesh creation.
-   
-In addition, the ``rig_calibrator`` option ``--save_pinhole_cameras`` can export
-the camera poses to Pinhole format (:numref:`pinholemodels`). The resulting
-cameras can be ingested by ASP's bundle adjustment program
-(:numref:`bundle_adjust`). 
+To have several locations seen in the images be at desired Cartesian
+coordinates, ``rig_calibrator`` can be invoked with control points
+(:numref:`rig_calibrator_example`). Then a mesh can be produced.
 
-This program can transform the camera system wholesale (option
-``--transform-cameras-with-shared-gcp``) or just refine the cameras, if given
-GCP. The latter can be produced with a manual (:numref:`creatinggcp`) or
-automatic (:numref:`gcp_gen`) approach.
+To create DEMs, it is preferable to register the cameras to the ground. 
+That goes as follows.
+
+The ``rig_calibrator`` option ``--save_pinhole_cameras`` can export
+the camera poses to Pinhole format (:numref:`pinholemodels`),
+The option ``--save_matches`` likewise exports the interest point
+matches. 
+
+These datasets can be ingested by ASP's bundle adjustment program
+(:numref:`bundle_adjust`). It can transform the cameras to ground coordinates
+using ground control points (GCP, :numref:`bagcp`), with the option
+``--transform-cameras-with-shared-gcp``.
+
+Here is an example invocation::
+
+    bundle_adjust                            \
+    --image-list rig_out/image_list.txt      \
+    --camera-list rig_out/camera_list.txt    \
+    --match-files-prefix rig_out/matches/run \
+    --num-iterations 100                     \
+    --inline-adjustments                     \
+    --datum D_MARS                           \
+    --transform-cameras-with-shared-gcp      \
+    gcp1.gcp gcp2.gcp gcp3.gcp               \
+    -o ba/run
+
+The ``--datum`` option is very important, and it should be set depending
+on the planetary body.
+
+If the number of iterations is set to 0, no refinement of the cameras happens
+after the initial transformation. 
 
 With the cameras correctly registered and self-consistent, dense stereo point
 clouds and DEM can be created (:numref:`nextsteps`), that can be aligned to a prior
 dataset with ``pc_align`` (:numref:`pc_align`).
+
+GCP files can be created manually by point-and-click in ``stereo_gui``
+(:numref:`creatinggcp`) or automatically (:numref:`gcp_gen`), if a DEM and/or
+orthoimage are available.
+
+If no DEM is available, it is possible to tie several features in the images
+to made-up ground points. For example, consider a ground box with given 
+width and height, in meters, such as 10 x 4 meters. Create a CSV file
+named ``ground.csv`` of the form::
+
+    # x (meters) y(meters) height (meters) 
+    0 0 0 
+    10 0 0 
+    10 4 0
+    0 4 0 
+
+This can be made into a DEM with ``point2dem`` (:numref:`point2dem`)::
+
+  proj="+proj=stere +lat_0=0 +lat_ts=0 +lon_0=0 +k=1 +x_0=0 +y_0=0 +a=3396190 +b=3396190 +units=m +no_defs"
+  format="1:northing,2:easting,3:height_above_datum"
+  point2dem                    \
+    --datum D_MARS             \
+    --csv-format "$format"     \
+    --csv-proj4  "$proj"       \
+    --t_srs "$proj"            \
+    --tr 0.1                   \
+    --search-radius-factor 0.5 \
+    ground.csv
+
+Ensure the correct planet radii and datum are used. 
+
+Then, following the procedure :numref:`creatinggcp`, features can be picked in
+the images and tied to some of the corners of this box, creating GCP files,
+which are then used as earlier.
+
+Multiple subsets of the images can be used, with each producing a GCP file.
 
 Notes
 -----
@@ -291,6 +348,6 @@ Notes
  - The voxel size for binning and meshing the point cloud was chosen
    manually. An automated approach for choosing a representative voxel
    size is to be implemented.
- - The ``multi_stereo`` tool does not use the interest points found
+ - The ``multi_stereo`` program does not use the interest points found
    during SfM map construction. That would likely result in a good
    speedup. It also does not run the stereo pairs in parallel.
