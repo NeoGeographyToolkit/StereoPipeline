@@ -79,7 +79,7 @@ namespace asp{
   }
 
   // Task to parallelize the generation of bounding boxes for each block.
-  class SubBlockBoundaryTask : public Task, private boost::noncopyable {
+  class SubBlockBoundaryTask: public Task, private boost::noncopyable {
     ImageViewRef<Vector3> m_view;
     int    m_sub_block_size;
     BBox2i m_image_bbox;

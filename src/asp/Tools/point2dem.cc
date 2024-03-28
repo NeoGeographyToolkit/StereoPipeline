@@ -200,7 +200,11 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false),
      "Skip writing a DEM.")
     ("input-is-projected", po::bool_switch(&opt.input_is_projected)->default_value(false), 
-     "Input data is already in projected coordinates.");
+     "Input data is already in projected coordinates, or is a point cloud in Cartesian "
+     "coordinates that is small in extent. Need not be spatially organized. "
+     "If both a top and bottom surface exists, one of them must be cropped out. "
+     "Point (0, 0, 0) is considered invalid. Must specify a projection to interpret "
+     "the data and the output grid size.");
 
   general_options.add(manipulation_options);
   general_options.add(projection_options);
@@ -269,7 +273,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   }
 
   if (opt.has_las_or_csv_or_pcd && !spacing_provided){
-    vw_throw(ArgumentErr() << "When inputs are LAS or CSV files, the "
+    vw_throw(ArgumentErr() << "When inputs are not PC.tif files, the "
                             << "output DEM resolution must be set.\n");
   }
 
@@ -328,7 +332,8 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   }
 
   if (opt.input_is_projected && opt.auto_proj_center)
-    vw_throw(ArgumentErr() << "Cannot use both --input-is-projected and --auto-proj-center.\n");
+    vw_throw(ArgumentErr() << "Cannot use both --input-is-projected and "
+             << "--auto-proj-center.\n");
   
   if (opt.max_valid_triangulation_error > 0) {
     // Since the user passed in a threshold, will use that to rm
@@ -421,7 +426,8 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
                TerminalProgressCallback("asp", "Point cloud extent estimation: "));
 
   sw1.stop();
-  vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
+  vw_out(DebugMessage,"asp") << "Extent estimation time: " 
+    << sw1.elapsed_seconds() << " s.\n";
   
   // Perform other rasterizer configuration
   rasterizer.set_use_alpha(opt.has_alpha);
@@ -519,12 +525,14 @@ int main(int argc, char *argv[]) {
                << "when interpreting csv files.\n";
     }
     
-    // Convert any input LAS or CSV files to ASP's point cloud tif format
+    // Convert any input LAS, CSV, PCD, or unorganized projected TIF files to
+    // ASP's point cloud tif format
     // - The output and input datum will match unless the input data files
     //   themselves specify a different datum.
-    // - Should all be XYZ format when finished
+    // - Should all be XYZ format when finished, unless option 
+    //  --input-is-projected is set.
     std::vector<std::string> tmp_tifs;
-    las_or_csv_or_pcd_to_tifs(opt, output_georef.datum(), tmp_tifs);
+    chip_convert_to_tif(opt, output_georef.datum(), tmp_tifs);
 
     // Generate a merged xyz point cloud consisting of all inputs
     // - By now, each input exists in xyz tif format.

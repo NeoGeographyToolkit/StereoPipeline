@@ -143,6 +143,19 @@ If it is desired to use the ``--orthoimage`` option with multiple
 clouds, the clouds need to be specified first, followed by the
 ``L.tif`` images.
 
+Ground-level or projected data
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If a dataset is in a tif file with three bands, representing projected data or
+Cartesian values in a local coordinate system, it can be gridded as::
+
+    point2dem --input-is-projected \
+      --t_srs <proj string>        \
+      --tr 0.1                     \
+      data.tif
+
+See ``--input-is-projected`` for more details.
+
 More examples are shown in :numref:`builddem`.
 
 .. _molacmp:
@@ -502,9 +515,12 @@ Command-line options for point2dem
     The projection false easting (if applicable).
 
 --input-is-projected
-    Treat the input coordinates as already in the projected coordinate
-    system, avoiding the need to convert the points from ECEF.
-
+   Input data is already in projected coordinates, or is a point cloud in
+   Cartesian coordinates that is small in extent. Need not be spatially
+   organized. If both a top and bottom surface exists, one of them must be
+   cropped out. Point (0, 0, 0) is considered invalid. Must specify a projection
+   to interpret the data amd the output grid size.
+    
 --rounding-error <float (default: 1/2^{10}=0.0009765625)>
     How much to round the output DEM and errors, in meters (more
     rounding means less precision but potentially smaller size on

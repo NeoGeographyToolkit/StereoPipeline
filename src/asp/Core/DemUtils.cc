@@ -122,10 +122,11 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
   opt.has_las_or_csv_or_pcd = false;
   for (int i = 0; i < (int)files.size(); i++)
     opt.has_las_or_csv_or_pcd = (opt.has_las_or_csv_or_pcd || 
+                                 opt.input_is_projected ||
                                  asp::is_las_or_csv_or_pcd(files[i]));
   if (opt.has_las_or_csv_or_pcd && opt.do_ortho)
     vw_throw(ArgumentErr() 
-             << "Cannot create orthoimages if point clouds are LAS or CSV.\n");
+             << "Cannot create orthoimages unless the inputs are PC.tif files..\n");
 
   if (opt.do_ortho){
 
@@ -150,11 +151,11 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
   return;
 }
 
-// Convert any LAS or CSV files to ASP tif files. We do some binning
+// Convert any LAS, CSV, PCD, or unorganized TIF files to ASP tif files. We do some binning
 // to make the spatial data more localized, to improve performance.
 // - We will later wipe these temporary tifs.
-void las_or_csv_or_pcd_to_tifs(DemOptions& opt, vw::cartography::Datum const& datum,
-                               std::vector<std::string> & tmp_tifs) {
+void chip_convert_to_tif(DemOptions& opt, vw::cartography::Datum const& datum,
+                         std::vector<std::string> & tmp_tifs) {
 
   if (!opt.has_las_or_csv_or_pcd)
     return;
@@ -230,15 +231,16 @@ void las_or_csv_or_pcd_to_tifs(DemOptions& opt, vw::cartography::Datum const& da
   // we'll have the points binned so that nearby points have nearby
   // indices.  This is key to fast rasterization later.
   std::vector<std::string> all_out_files;
-  for (int i = 0; i < num_files; i++){
+  for (int i = 0; i < num_files; i++) {
 
-    if (!asp::is_las_or_csv_or_pcd(opt.pointcloud_files[i])) {
-      // Skip tif files
+    if (!asp::is_las_or_csv_or_pcd(opt.pointcloud_files[i]) && !opt.input_is_projected) {
+      // Skip organized tif files
       all_out_files.push_back(opt.pointcloud_files[i]);
       continue;
     }
     
     std::string in_file = opt.pointcloud_files[i];
+    std::cout << "Processing file: " << in_file << std::endl;
     std::string stem    = fs::path(in_file).stem().string();
     std::string suffix;
     if (opt.out_prefix.find(stem) != std::string::npos)
@@ -253,7 +255,7 @@ void las_or_csv_or_pcd_to_tifs(DemOptions& opt, vw::cartography::Datum const& da
     if (asp::is_las(in_file))
       asp::las_or_csv_to_tif(in_file, file_prefix, num_rows, block_size, 
                              opt, pc_georef, csv_conv, out_files);
-    else // CSV
+    else // CSV, PCD, unordered projected TIF
       asp::las_or_csv_to_tif(in_file, file_prefix, num_rows, block_size, 
                              opt, csv_georef, csv_conv, out_files);
 
@@ -271,6 +273,6 @@ void las_or_csv_or_pcd_to_tifs(DemOptions& opt, vw::cartography::Datum const& da
   vw_out(DebugMessage,"asp") << "LAS or CSV to TIF conversion time: "
                              << sw.elapsed_seconds() << " seconds.\n";
 
-} // End function las_or_csv_or_pcd_to_tifs
+} // End function chip_convert_to_tif
 
 } // end namespace asp

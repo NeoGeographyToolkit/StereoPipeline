@@ -146,6 +146,9 @@ point2dem (:numref:`point2dem`):
     (such as when crossing the 180 degree meridian).
   * Added the option ``--scalar-error`` to find the norm of the triangulated
     error vector (if applicable).
+  * Can read a ground-level point cloud stored as a tif file with 3 bands,
+    representing the x, y, and z coordinates of the points, with z being
+    vertical (option ``--input-is-projected``).
   * Bugfix for when all heights are equal. A valid DEM is produced.  
 
 gdal

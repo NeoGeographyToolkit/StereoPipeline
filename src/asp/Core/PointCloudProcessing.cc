@@ -217,6 +217,107 @@ namespace asp {
 
   }; // End class CsvReader
 
+  // Read unordered points from a Tif image. They will be organized into chips.
+  class TifReader: public BaseReader {
+    ImageViewRef<Vector3> m_img;
+    bool m_has_valid_point;
+    vw::Vector3 m_curr_point;
+    std::vector<BBox2i> m_blocks;
+    ImageView<Vector3> m_block_img;
+    // Use int64_t to avoid overflow
+    std::int64_t m_block_count;
+    std::int64_t m_block_len;
+    std::int64_t m_point_count_in_block;
+    std::int64_t m_total_point_count;
+
+  public:
+
+    TifReader(std::string const & tif_file): 
+      m_has_valid_point(false), m_block_count(0), m_point_count_in_block(0), m_block_len(0),
+      m_total_point_count(0) {
+        
+      // Must ensure there are at least 3 channels in the image
+      {
+        DiskImageResourceGDAL rsrc(tif_file);
+        int num_channels = rsrc.channels();
+        if (num_channels < 3)
+          vw_throw(ArgumentErr() << "TifReader: Expecting at least 3 channels "
+                   << "in the image.\n");
+      }
+      
+      // Read the first 3 channels       
+      std::vector<std::string> tif_files;
+      tif_files.push_back(tif_file);
+      m_img = asp::form_point_cloud_composite<Vector3>(tif_files, ASP_MAX_SUBBLOCK_SIZE);
+      
+      // Compute the number of points in the image. To avoid integer overflow,
+      // cast first to int64_t.  
+      m_num_points = std::int64_t(m_img.cols()) * std::int64_t(m_img.rows());
+      
+      // Reading points one by one is very inefficient. We will read them in blocks.
+      int block_size = 1024;
+      m_blocks = subdivide_bbox(vw::bounding_box(m_img), block_size, block_size);
+    }
+
+    virtual bool ReadNextPoint() {
+      
+      if (m_total_point_count >= m_num_points) {
+        // No more points to read
+        m_curr_point = Vector3();
+        m_has_valid_point = false;
+        return m_has_valid_point;
+      }
+      
+      if (m_block_img.cols() == 0 || m_point_count_in_block >= m_block_len) {
+        
+        // Sanity checks
+        if (m_block_count >= (int64_t)m_blocks.size())
+          vw_throw(ArgumentErr() << "TifReader: Unexpected end of file.\n");
+        
+        // Read the next block
+        BBox2i block = m_blocks[m_block_count];
+        
+        // The block must be contained within the bounding box and be non-empty
+        if (block.empty() || !vw::bounding_box(m_img).contains(block))
+          vw_throw(ArgumentErr() << "TifReader: Invalid block.\n");
+        
+        m_block_img = crop(m_img, block);
+        m_block_len = std::int64_t(block.width()) * std::int64_t(block.height());
+        m_point_count_in_block = 0;
+        m_block_count++;
+      }
+      
+      // Find the row and column of the current point
+      int col = m_point_count_in_block % m_block_img.cols();
+      int row = m_point_count_in_block / m_block_img.cols();
+      
+      // Get the element
+      m_curr_point = m_block_img(col, row);
+      
+      // Set the zero point to nan. Usually a scanner uses this value
+      // if it cannot get a valid reading.
+      if (m_curr_point == Vector3()) {
+        double nan = std::numeric_limits<double>::quiet_NaN();
+        m_curr_point = Vector3(nan, nan, nan);
+      }
+      
+      // Increment the counters
+      m_point_count_in_block++;
+      m_total_point_count++;
+      
+      m_has_valid_point = true;
+      return m_has_valid_point;
+    }
+
+    virtual Vector3 GetPoint() {
+      return m_curr_point;
+    }
+
+    virtual ~TifReader() {
+    }
+
+  }; // End class TifReader
+
   // TODO(oalexan1): Consider using PDAL for PCD files too.
   void PcdReader::read_header() {
     // Open the file as text
@@ -295,7 +396,7 @@ namespace asp {
   }
   
   PcdReader::PcdReader(std::string const & pcd_file)
-    : m_pcd_file(pcd_file), m_has_valid_point(false){
+    : m_pcd_file(pcd_file), m_has_valid_point(false) {
 
     // For now PCD files are required to be in XYZ GCC format.
     m_has_georef = false;
@@ -405,7 +506,7 @@ public:
   }
 
   typedef CropView<ImageView<PixelT>> prerasterize_type;
-  inline prerasterize_type prerasterize(BBox2i const& bbox) const{
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
     // Read a chunk of the las file, and store it in the current tile.
 
@@ -474,13 +575,17 @@ void las_or_csv_to_tif(std::string const& in_file,
 
   boost::shared_ptr<asp::BaseReader> reader_ptr;
 
+  // LAS files are handled outside of this function as the PCL interface
+  // is very different.
   if (asp::is_csv(in_file)) // CSV
     reader_ptr = boost::shared_ptr<asp::CsvReader>
       (new asp::CsvReader(in_file, csv_conv, csv_georef));
   else if (asp::is_pcd(in_file)) // PCD
     reader_ptr = boost::shared_ptr<asp::PcdReader>(new asp::PcdReader(in_file));
-  else if (asp::is_las(in_file)) // LAS
-    reader_ptr = boost::shared_ptr<asp::BaseReader>(NULL); // must not be used
+  else if (asp::is_tif(in_file))
+    reader_ptr = boost::shared_ptr<asp::TifReader>(new asp::TifReader(in_file));
+  else if (asp::is_las(in_file))
+     reader_ptr = boost::shared_ptr<asp::BaseReader>(); // set, but not used
   else
     vw_throw( ArgumentErr() << "Unknown file type: " << in_file << "\n");
 
@@ -540,12 +645,14 @@ void las_or_csv_to_tif(std::string const& in_file,
       image_cols = len;
     }
           
-    // Create the image
+    // Create the image. This will also separate it into chips, with each
+    // chip having points that are spatially close together.
     ImageViewRef<Vector3> Img = asp::CloudToTif(reader_ptr.get(), image_rows, 
                                                 image_cols, block_size);
     // Must use a thread only, as we read the input file serially
     std::string out_file = out_prefix + ".tif"; 
-    vw_out() << "Writing temporary file: " << out_file << std::endl;
+    vw_out() << "Writing spatially ordered data: " 
+             << out_file << std::endl;
     vw::cartography::write_gdal_image(out_file, Img, opt,
                                       TerminalProgressCallback("asp", "\t--> "));
     out_files.push_back(out_file);

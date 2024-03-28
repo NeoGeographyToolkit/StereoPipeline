@@ -99,7 +99,7 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 // Convert any LAS or CSV files to ASP tif files. We do some binning
 // to make the spatial data more localized, to improve performance.
 // - We will later wipe these temporary tifs.
-void las_or_csv_or_pcd_to_tifs(DemOptions& opt, vw::cartography::Datum const& datum,
+void chip_convert_to_tif(DemOptions& opt, vw::cartography::Datum const& datum,
                                std::vector<std::string> & tmp_tifs);
 
 // Rasterize a DEM

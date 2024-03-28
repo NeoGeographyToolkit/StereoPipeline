@@ -168,6 +168,7 @@ namespace asp {
 
   }; // End class CsvConv
 
+  bool is_tif(std::string const& file); ///< Return true if this is a TIF file
   bool is_las(std::string const& file); ///< Return true if this is a LAS file
   bool is_csv(std::string const& file); ///< Return true if this is a CSV file
   bool is_pcd(std::string const& file); ///< Return true if this is a PCD file
@@ -286,7 +287,7 @@ namespace asp {
   }
 
 
-  /// Imageview operation that applies a transform matrix to every point in the image.
+  /// ImageView operation that applies a transform matrix to every point in the image.
   class PointTransFunc : public vw::ReturnFixedType<vw::Vector3> {
     vw::Matrix3x3 m_trans;
   public:

@@ -628,6 +628,11 @@ Vector3 asp::CsvConv::cartesian_to_csv(Vector3 const& xyz,
 
 // End class CsvConv functions
 
+bool asp::is_tif(std::string const& file){
+  std::string lfile = boost::to_lower_copy(file);
+  return (boost::iends_with(lfile, ".tif")  || boost::iends_with(lfile, ".ntf"));
+}
+
 bool asp::is_las(std::string const& file){
   std::string lfile = boost::to_lower_copy(file);
   return (boost::iends_with(lfile, ".las")  || boost::iends_with(lfile, ".laz"));
