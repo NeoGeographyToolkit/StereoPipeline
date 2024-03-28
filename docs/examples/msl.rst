@@ -268,7 +268,7 @@ Ground registration
 
 To have several locations seen in the images be at desired Cartesian
 coordinates, ``rig_calibrator`` can be invoked with control points
-(:numref:`rig_calibrator_example`). Then a mesh can be produced.
+(:numref:`rig_calibrator_registration`). Then a mesh can be produced.
 
 To create DEMs, it is preferable to register the cameras to the ground. 
 That goes as follows.
@@ -341,6 +341,7 @@ the images and tied to some of the corners of this box, creating GCP files,
 which are then used as earlier.
 
 Multiple subsets of the images can be used, with each producing a GCP file.
+All can then be passed together to ``bundle_adjust``.
 
 Notes
 -----

@@ -212,11 +212,9 @@ cam_gen (:numref:`cam_gen`):
    * Can export linescan cameras to CSM format (:numref:`cam_gen_linescan`).
 
 rig_calibrator (:numref:`rig_calibrator`):
-   * Added functionality and documentation for how to export the interest point
-     matches and cameras for use with ``bundle_adjust``
+   * Can export the interest point matches, cameras, and the OpenCV lens
+     distortion model for use with ``bundle_adjust``
      (:numref:`rc_bundle_adjust`).
-   * Can export the OpenCV radial-tangential lens distortion to camera files for
-     use with ``bundle_adjust`` (option ``--save-pinhole-cameras``).
      
 lronac2mosaic.py (:numref:`lronac2mosaic`):
   * Run ``spiceinit`` before calling ``lronaccal``, and re-enable all

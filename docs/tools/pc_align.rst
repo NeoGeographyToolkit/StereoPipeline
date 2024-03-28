@@ -421,10 +421,12 @@ to create manual point correspondences (interest point matches) from the
 reference to the source DEM (hence they should be displayed in the GUI in this
 order, from left to right, and one can hillshade them to see features better).
 
-Once the match file is saved to disk, it can be passed to ``pc_align``
-via the ``--match-file`` option, which will compute an initial transform
-before continuing with alignment. This transform can also be used for
-non-DEM clouds once it is found using DEMs obtained from those clouds.
+Once the match file is saved to disk, it can be passed to ``pc_align`` via the
+``--match-file`` option, which will compute an initial transform (whose type is
+set with ``--initial-transform-from-hillshading``), before continuing with
+alignment. This transform can also be used for non-DEM clouds once it is found
+using DEMs obtained from those clouds. Note that both a rigid and similarity
+transform is supported, both for the initial transform and for the alignment.
 
 .. _regrid:
 
@@ -654,7 +656,8 @@ Command-line options for pc_align
     alignment.  Specify here the type of transform, as one of:
     'similarity' (rotation + translation + scale), 'rigid' (rotation
     + translation) or 'translation'. See the options further down 
-    for tuning this.
+    for tuning this. The alignment algorithm can refine the scale
+    if set to ``similarity-point-to-plane``, etc.
 
 --hillshade-options
     Options to pass to the ``hillshade`` program when computing the

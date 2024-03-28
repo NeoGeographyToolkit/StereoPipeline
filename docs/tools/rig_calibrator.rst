@@ -323,10 +323,12 @@ The list of images is saved (one per line) to::
 How to export the data for use in bundle adjustment is discussed in
 :numref:`rc_bundle_adjust`.
 
-A solved example
-^^^^^^^^^^^^^^^^
+Examples
+^^^^^^^^
 
-See a step-by-step-example in :numref:`rig_calibrator_example`.
+See a step-by-step-example in :numref:`rig_calibrator_example`. See
+:numref:`sfm_iss` for a larger example covering a full ISS module, and
+:numref:`rig_msl` for an example using MSL Curiosity rover images.
 
 Notes
 ^^^^^
@@ -561,8 +563,8 @@ Here and below we assume that the output directory is ``rig_out``.
 
 The optimized cameras can be saved in the ASP pinhole format
 (:numref:`pinholemodels`) by calling ``rig_calibrator`` with the option
-``--save_pinhole_cameras``. The OpenCV ``radtan`` (radial-tangential)
-distortion model will be saved, but not the fisheye model.
+``--save_pinhole_cameras``. The OpenCV ``radtan`` (radial-tangential) distortion
+model will be saved, but not the fisheye model.
 
 The list of saved cameras will be in the file::
 
