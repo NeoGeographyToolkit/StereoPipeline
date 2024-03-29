@@ -583,6 +583,9 @@ In order for exporting data this way to work, all input image names (without
 directory path) must be unique, as the ASP bundle adjustment counts on that. See
 the input naming convention in :numref:`rig_calibrator_data_conv`.
 
+How to register the produced cameras to the ground is discussed in
+:numref:`msl_registration`.
+
 Source code
 ^^^^^^^^^^^
 

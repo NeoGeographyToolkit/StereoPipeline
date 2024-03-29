@@ -193,9 +193,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "and after last image line. Applies only to linescan cameras.")
     ("rotation-weight", po::value(&opt.rotation_weight)->default_value(0.0),
      "A higher weight will penalize more deviations from the original camera orientations.")
-    ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.1),
+    ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.0),
      "A soft constraint to keep the camera positions close to the original values. "
-     "It is meant to prevent a wholesale shift of the cameras, without impeding "
+     "It is meant to prevent a wholesale shift of the cameras. It can impede "
      "the reduction in reprojection errors. It adjusts to the ground sample distance "
      "and the number of interest points in the images. The computed "
      "discrepancy is attenuated with --camera-position-robust-threshold.")

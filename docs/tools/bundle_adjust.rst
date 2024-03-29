@@ -221,9 +221,11 @@ GCP can be used as well (:numref:`bagcp`).
 Camera constraints
 ^^^^^^^^^^^^^^^^^^
 
-The option ``--camera-position-weight``, with a  default of 0.1, constrains how
-much the camera positions can move. This is a soft constraint and is given less
-priority than reducing the pixel reprojection errors.
+The option ``--camera-position-weight``, with a  default of 0.0 (so it is off by
+default), constrains how much the camera positions can move. This is a soft
+constraint and is given less priority than reducing the pixel reprojection
+errors. It can still impede the optimization process, so it is suggested to
+use it with caution.
 
 This value is a multiplier, representing the ratio of strength of the camera
 position constraint versus the pixel reprojection error constraint. Internally
@@ -233,8 +235,7 @@ analogous to the triangulation constraint (:numref:`ba_ground_constraints`).
 
 It is suggested to examine the camera change report
 (:numref:`ba_camera_offsets`) and pixel reprojection report
-(:numref:`ba_errors_per_camera`) to see the effects. Normally the default should
-do well.
+(:numref:`ba_errors_per_camera`) to see the effect of this constraint. 
 
 An additional modifier to this constraint is the option
 ``--camera-position-robust-threshold``. This is a robust threshold, with a
@@ -954,9 +955,9 @@ Command-line options
     big differences in the triangulated points. It is suggested to not modify
     this value, and adjust instead ``--tri-weight``.
 
---camera-position-weight <double (default: 0.1)>
+--camera-position-weight <double (default: 0.0)>
     A soft constraint to keep the camera positions close to the original values.
-    It is meant to prevent a wholesale shift of the cameras, without impeding
+    It is meant to prevent a wholesale shift of the cameras. It can impede 
     the reduction in reprojection errors. It adjusts to the ground sample
     distance and the number of interest points in the images. The computed
     discrepancy is attenuated with ``--camera-position-robust-threshold``. See

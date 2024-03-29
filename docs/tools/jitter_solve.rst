@@ -123,11 +123,11 @@ acquires the image. If that is the case, the camera positions are likely
 accurate, and can be constrained to not move much, while the orientations can
 move more. 
 
-The default behavior is to have a soft camera position constraint, that should
-keep the camera positions reasonably in-place, without preventing the correction
-of jitter. This is controlled by the option ``--camera-position-weight``,
-whose default value is 0.1. This option scales appropriately with the number
-of interest points, the local averaged GSD, anchor points, and their weight.
+The default behavior is to have no camera position constraint. This is
+controlled by the option ``--camera-position-weight``, whose default value is
+0.0. This option scales appropriately with the number of interest points, the
+local averaged GSD, anchor points, and their weight. This can impede the
+optimization, so should be used with care.
 
 More details can be found in the ``bundle_adjust`` documentation, as the same
 logic is used for both tools (:numref:`ba_cam_constraints`).
@@ -1838,9 +1838,9 @@ Command-line options for jitter_solve
     that the quaternion norm does not deviate much from 1, so,
     this should be kept positive.
 
---camera-position-weight <double (default: 0.1)>
+--camera-position-weight <double (default: 0.0)>
     A soft constraint to keep the camera positions close to the original values.
-    It is meant to prevent a wholesale shift of the cameras, without impeding
+    It is meant to prevent a wholesale shift of the cameras. It can impede 
     the reduction in reprojection errors. It adjusts to the ground sample
     distance and the number of interest points in the images. The computed
     discrepancy is attenuated with ``--camera-position-robust-threshold``.

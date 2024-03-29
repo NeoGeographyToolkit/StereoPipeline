@@ -39,9 +39,9 @@ jitter_solve (:numref:`jitter_solve`):
   * Can read and write CSM model state embedded in ISIS .cub files   
     (:numref:`embedded_csm`).
   * Replaced the option ``--translation-weight`` with
-    ``--camera-position-weight``, which is on by default. The new option adapts
-    appropriately to the number of interest points and the ground sample
-    distance (:numref:`jitter_camera`).
+    ``--camera-position-weight``, which is off by default, as it may affect the
+    convergence. The new option adapts appropriately to the number of interest
+    points and the ground sample distance (:numref:`jitter_camera`).
   * The ``--tri-weight`` constraint is now the default, with a positive value of
     0.1. This is adjusted for GSD (:numref:`jitter_tri_constraint`). 
   * Added report files having the change in camera positions
@@ -73,9 +73,9 @@ bundle_adjust (:numref:`bundle_adjust`):
     format (:numref:`jigsaw_cnet`).
   * Can read and write CSM model state embedded in ISIS .cub files   
     (:numref:`embedded_csm`).
-  * Added the option ``--camera-position-weight``, with a default value of 0.1.
+  * Added the option ``--camera-position-weight``, with a default value of 0.0.
     This is an internally adjustable constraint to keep the cameras from moving
-    too much without preventing the reduction in reprojection error
+    too much. It may prevent the reduction in reprojection error
     (:numref:`ba_cam_constraints`).
   * Remove the option ``--translation-weight``. The translation is now
     automatically controlled by default by the camera position weight.
@@ -215,6 +215,8 @@ rig_calibrator (:numref:`rig_calibrator`):
    * Can export the interest point matches, cameras, and the OpenCV lens
      distortion model for use with ``bundle_adjust``
      (:numref:`rc_bundle_adjust`).
+   * Added documentation for how to register the produced cameras to the ground
+     for a planet (:numref:`msl_registration`).
      
 lronac2mosaic.py (:numref:`lronac2mosaic`):
   * Run ``spiceinit`` before calling ``lronaccal``, and re-enable all

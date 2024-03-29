@@ -270,8 +270,9 @@ To have several locations seen in the images be at desired Cartesian
 coordinates, ``rig_calibrator`` can be invoked with control points
 (:numref:`rig_calibrator_registration`). Then a mesh can be produced.
 
-To create DEMs, it is preferable to register the cameras to the ground. 
-That goes as follows.
+To create DEMs, for example for rover cameras, it is preferable to register the
+cameras to the ground. This is discussed below, considering the cases when
+a prior DEM is available and when it is not.
 
 The ``rig_calibrator`` option ``--save_pinhole_cameras`` can export
 the camera poses to Pinhole format (:numref:`pinholemodels`),
@@ -307,13 +308,13 @@ clouds and DEM can be created (:numref:`nextsteps`), that can be aligned to a pr
 dataset with ``pc_align`` (:numref:`pc_align`).
 
 GCP files can be created manually by point-and-click in ``stereo_gui``
-(:numref:`creatinggcp`) or automatically (:numref:`gcp_gen`), if a DEM and/or
-orthoimage are available.
+(:numref:`creatinggcp`) or automatically (:numref:`gcp_gen`), if a prior DEM
+and/or orthoimage are available.
 
-If no DEM is available, it is possible to tie several features in the images
-to made-up ground points. For example, consider a ground box with given 
-width and height, in meters, such as 10 x 4 meters. Create a CSV file
-named ``ground.csv`` of the form::
+If no prior DEM is available, it is possible to tie several features in the
+images to made-up ground points. For example, consider a ground box with given
+width and height, in meters, such as 10 x 4 meters. Create a CSV file named
+``ground.csv`` of the form::
 
     # x (meters) y(meters) height (meters) 
     0 0 0 
