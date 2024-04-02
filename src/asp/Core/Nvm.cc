@@ -91,7 +91,7 @@ void ReadNVM(std::string const& input_filename,
              std::vector<std::string>               & cid_to_filename,
              std::vector<std::map<int, int>>        & pid_to_cid_fid,
              std::vector<Eigen::Vector3d>           & pid_to_xyz,
-             std::vector<Eigen::Affine3d>           & cid_to_cam_t_global,
+             std::vector<Eigen::Affine3d>           & world_to_cam,
              std::vector<double>                    & focal_lengths,
              std::map<std::string, Eigen::Vector2d> & offsets) {
 
@@ -139,7 +139,7 @@ void ReadNVM(std::string const& input_filename,
   // Resize all our structures to support the number of cameras we now expect
   cid_to_keypoint_map.resize(number_of_cid);
   cid_to_filename.resize(number_of_cid);
-  cid_to_cam_t_global.resize(number_of_cid);
+  world_to_cam.resize(number_of_cid);
   focal_lengths.resize(number_of_cid);
   for (ptrdiff_t cid = 0; cid < number_of_cid; cid++) {
     // Clear keypoints from map. We'll read these in shortly
@@ -158,8 +158,8 @@ void ReadNVM(std::string const& input_filename,
 
     // Solve for t, which is part of the affine transform
     Eigen::Matrix3d r = q.matrix();
-    cid_to_cam_t_global.at(cid).linear() = r;
-    cid_to_cam_t_global.at(cid).translation() = -r * c;
+    world_to_cam.at(cid).linear() = r;
+    world_to_cam.at(cid).translation() = -r * c;
   }
 
   // Read the number of points
@@ -224,7 +224,7 @@ void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
               std::vector<double> const& focal_lengths,
               std::vector<std::map<int, int>> const& pid_to_cid_fid,
               std::vector<Eigen::Vector3d> const& pid_to_xyz,
-              std::vector<Eigen::Affine3d> const& cid_to_cam_t_global,
+              std::vector<Eigen::Affine3d> const& world_to_cam,
               std::map<std::string, Eigen::Vector2d> const& optical_centers,
               std::string const& output_filename) {
 
@@ -242,7 +242,7 @@ void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
   if (pid_to_cid_fid.size() != pid_to_xyz.size())
     vw::vw_throw(vw::ArgumentErr() 
                  << "Unequal number of pid_to_cid_fid and xyz measurements.");
-  if (cid_to_filename.size() != cid_to_cam_t_global.size())
+  if (cid_to_filename.size() != world_to_cam.size())
     vw::vw_throw(vw::ArgumentErr() << "Unequal number of filename and camera transforms.");
   
   // Write camera information
@@ -250,12 +250,12 @@ void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
   for (size_t cid = 0; cid < cid_to_filename.size(); cid++) {
 
     // World-to-camera rotation quaternion
-    Eigen::Quaterniond q(cid_to_cam_t_global[cid].rotation());
+    Eigen::Quaterniond q(world_to_cam[cid].rotation());
 
     // Camera center in world coordinates
-    Eigen::Vector3d t(cid_to_cam_t_global[cid].translation());
+    Eigen::Vector3d t(world_to_cam[cid].translation());
     Eigen::Vector3d camera_center =
-      - cid_to_cam_t_global[cid].rotation().inverse() * t;
+      - world_to_cam[cid].rotation().inverse() * t;
 
     f << cid_to_filename[cid] << " " << focal_lengths[cid]
       << " " << q.w() << " " << q.x() << " " << q.y() << " " << q.z() << " "
@@ -316,7 +316,7 @@ void ReadNVM(std::string const& input_filename,
           nvm.cid_to_filename,
           nvm.pid_to_cid_fid,
           nvm.pid_to_xyz,
-          nvm.cid_to_cam_t_global,
+          nvm.world_to_cam,
           nvm.focal_lengths,
           nvm.optical_centers);
 }
@@ -328,27 +328,21 @@ void WriteNVM(nvmData const& nvm, std::string const& output_filename) {
           nvm.focal_lengths,
           nvm.pid_to_cid_fid,
           nvm.pid_to_xyz,
-          nvm.cid_to_cam_t_global,
+          nvm.world_to_cam,
           nvm.optical_centers,
           output_filename);
 }
-  
-// Read an NVM file into the VisionWorkbench control network format. The flag
-// nvm_no_shift, if true, means that the interest points are not shifted
-// relative to the optical center, so can be read as is.
-void readNvmAsCnet(std::string const& input_filename, 
-                   bool nvm_no_shift,
-                   vw::ba::ControlNetwork & cnet) {
+
+// Convert nvm to cnet
+void nvmToCnet(nvmData const& nvm, 
+               // Outputs
+               vw::ba::ControlNetwork                 & cnet,
+               std::map<std::string, Eigen::Vector2d> & offsets,
+               std::vector<Eigen::Affine3d>           & world_to_cam) {
 
   // Wipe the output
   cnet = vw::ba::ControlNetwork("ASP_control_network");
-  
-  // Read the NVM file
-  nvmData nvm;
-  ReadNVM(input_filename, nvm_no_shift, nvm);
 
-  // TODO(oalexan1): Make this into a function called nvmToCnet().
-  
   // Add the images
   for (size_t cid = 0; cid < nvm.cid_to_filename.size(); cid++)
     cnet.add_image_name(nvm.cid_to_filename[cid]);
@@ -371,6 +365,9 @@ void readNvmAsCnet(std::string const& input_filename,
    
     cnet.add_control_point(cp);
   }
+  
+  offsets = nvm.optical_centers;
+  world_to_cam = nvm.world_to_cam;
 }
 
 // Create an nvm from a cnet. There is no shift in the interest points.
@@ -386,24 +383,22 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
 
   nvm.cid_to_filename = cnet.get_image_list();
   nvm.focal_lengths.resize(nvm.cid_to_filename.size(), 1.0); // dummy focal length
-  nvm.cid_to_cam_t_global = world_to_cam;
+  nvm.world_to_cam = world_to_cam;
   nvm.optical_centers = offsets;
 
   // Copy the triangulated points
   int num_points = cnet.size();
   nvm.pid_to_xyz.resize(num_points);
   for (int pid = 0; pid < num_points; pid++) {
-    vw::ba::ControlPoint const& cp = cnet[pid];
-    nvm.pid_to_xyz[pid] = Eigen::Vector3d(cp.position()[0], 
-                                          cp.position()[1], 
-                                          cp.position()[2]);
+    vw::Vector3 P = cnet[pid].position();
+    nvm.pid_to_xyz[pid] = Eigen::Vector3d(P[0], P[1], P[2]);
   }
 
   // Iterate through the control points and get the feature matches
   // Put all interest points per image in a map, so later we can
   // give them an id.
   int num_images = nvm.cid_to_filename.size();
-  typedef std::pair<double, double> Pair;
+  typedef std::pair<double, double> Pair; // 2D point with comparison operator
   std::vector<std::map<Pair, int>> keypoint_map(num_images);
   nvm.pid_to_cid_fid.resize(num_points);
   for (int pid = 0; pid < num_points; pid++) {
@@ -447,6 +442,25 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
     }
   }  
 
+  return;
+}
+
+// Read an NVM file into the VisionWorkbench control network format. The flag
+// nvm_no_shift, if true, means that the interest points are not shifted
+// relative to the optical center, so can be read as is.
+void readNvmAsCnet(std::string const& input_filename, 
+                   bool nvm_no_shift,
+                   vw::ba::ControlNetwork & cnet) {
+
+  // Read the NVM file
+  nvmData nvm;
+  ReadNVM(input_filename, nvm_no_shift, nvm);
+
+  // Convert to a control network
+  std::map<std::string, Eigen::Vector2d> offsets;
+  std::vector<Eigen::Affine3d>           world_to_cam;
+
+  nvmToCnet(nvm, cnet, offsets, world_to_cam);
 }
 
 } // end namespace asp

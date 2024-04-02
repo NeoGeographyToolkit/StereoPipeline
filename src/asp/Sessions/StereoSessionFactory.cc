@@ -43,7 +43,8 @@ namespace asp {
                                               std::string const& right_camera_file,
                                               std::string const& out_prefix,
                                               std::string const& input_dem,
-                                              const bool allow_map_promote) {
+                                              bool allow_map_promote, 
+                                              bool total_quiet) {
 
     // Known user session types are:
     // DG, RPC, ISIS, Pinhole, NadirPinhole, OpticalBar, etc.
@@ -246,7 +247,9 @@ namespace asp {
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
               << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster perusat pleiades opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm csmmaprpc pleiadesmappleiades].\n");
-    vw::vw_out() << "Using session: " << actual_session_type << "\n";
+    
+    if (!total_quiet)
+      vw::vw_out() << "Using session: " << actual_session_type << "\n";
 
     // Compare the current session name to all recognized types
     // - Only one of these will ever get triggered

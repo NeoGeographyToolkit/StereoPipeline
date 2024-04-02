@@ -28,8 +28,6 @@
 #include <vector>
 #include <string>
 
-// TODO(oalexan1): Rename cid_to_cam_t_global to world_to_cam.
-// Hoping this is not camera to world, but world to camera.
 namespace vw {
   namespace ba {
     class ControlNetwork;
@@ -43,7 +41,7 @@ struct nvmData {
   std::vector<std::string>         cid_to_filename;
   std::vector<std::map<int, int>>  pid_to_cid_fid;
   std::vector<Eigen::Vector3d>     pid_to_xyz;
-  std::vector<Eigen::Affine3d>     cid_to_cam_t_global;
+  std::vector<Eigen::Affine3d>     world_to_cam;
   std::vector<double>              focal_lengths;
   // Optical center per image, kept in a separate file, maybe in different order.
   // Interest points in the nvm file are shifted relative to this.
@@ -72,7 +70,6 @@ void readNvmAsCnet(std::string const& input_filename,
                    bool nvm_no_shift,
                    vw::ba::ControlNetwork & cnet);
 
-// Add the cnet2nvm function
 // Create an nvm from a cnet. There is no shift in the interest points.
 // That is applied only on loading and saving.
 void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
@@ -80,6 +77,13 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
                std::vector<Eigen::Affine3d>           const& world_to_cam,
                // Output
                nvmData & nvm);
+  
+// Convert nvm to cnet
+void nvmToCnet(nvmData const& nvm, 
+               // Outputs
+               vw::ba::ControlNetwork                 & cnet,
+               std::map<std::string, Eigen::Vector2d> & offsets,
+               std::vector<Eigen::Affine3d>           & world_to_cam);
   
 } // end namespace asp
 

@@ -39,7 +39,8 @@ class StereoSessionFactory {
                                  std::string const& right_camera_file = "",
                                  std::string const& out_prefix        = "",
                                  std::string const& input_dem         = "",
-                                 const bool allow_map_promote=true); // If true, allow isis to become isismapisis based on dem availability
+                                 bool allow_map_promote=true, // If true, allow isis to become isismapisis based on dem availability
+                                 bool total_quiet = false);
 
   private:
     StereoSessionFactory() {} // Prevent construction of static-only class
