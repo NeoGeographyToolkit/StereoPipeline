@@ -89,7 +89,7 @@ namespace asp {
                        bool verbose,
                        std::string & output_prefix,
                        std::vector<ASPGlobalOptions> & opt_vec,
-                       bool exit_early){
+                       bool exit_early) {
 
     // If a stereo program is invoked as:
 
@@ -120,6 +120,12 @@ namespace asp {
     if (files.size() < 3)
       vw_throw(ArgumentErr() << "Missing all of the correct input files.\n\n" << usage);
 
+    // Add note on the alignment method. If done in handle_arguments, it will be
+    // printed twice.
+    if (stereo_settings().correlator_mode) 
+      vw_out() << "Running in correlator mode. The alignment method is: "
+               << stereo_settings().alignment_method << ".\n";
+    
     // If a file shows up more than once as input, that will confuse
     // the logic at the next step, so forbid that.
     std::map<std::string, int> vals;
@@ -403,7 +409,11 @@ namespace asp {
     asp::stereo_settings().validate();
 
     if (stereo_settings().correlator_mode) {
-      stereo_settings().alignment_method = "none"; // images are assumed aligned
+      
+      // Images are assumed aligned, unless alignment is explicitly requested.
+      if (vm["alignment-method"].defaulted())
+        stereo_settings().alignment_method = "none"; 
+      
       opt.stereo_session = "rpc";  // since inputs are images this seems simpler
 
       if (stereo_settings().propagate_errors)

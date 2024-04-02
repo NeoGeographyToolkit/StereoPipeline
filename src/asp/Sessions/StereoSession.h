@@ -321,6 +321,8 @@ vw::Vector6f gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
                           std::string const& prefix, 
                           std::string const& image_path);
 
+  typedef boost::shared_ptr<StereoSession> SessionPtr;
+
 } // end namespace asp
 
 #endif // __STEREO_SESSION_H__

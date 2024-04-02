@@ -202,8 +202,7 @@ void generate_point_pairs(RPC_gen_Options opt,
     // TODO: Replace with direct call?
     // Load the DG camera model. The API is kind of ugly.
     std::string session_name = "DG";
-    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session(asp::StereoSessionFactory::create
+        asp::SessionPtr session(asp::StereoSessionFactory::create
                        (session_name, opt, "", "", opt.camera_model, opt.camera_model, ""));
     boost::shared_ptr<camera::CameraModel> cam_dg(session->camera_model("", opt.camera_model));
 

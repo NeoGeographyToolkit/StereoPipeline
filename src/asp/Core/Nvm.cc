@@ -26,40 +26,84 @@
 
 namespace asp {
 
-// A wrapper to carry fewer things around
-void ReadNVM(std::string const& input_filename, 
-             bool nvm_no_shift,
-             nvmData & nvm) {
-  ReadNVM(input_filename,
-          nvm_no_shift,
-          &nvm.cid_to_keypoint_map,
-          &nvm.cid_to_filename,
-          &nvm.pid_to_cid_fid,
-          &nvm.pid_to_xyz,
-          &nvm.cid_to_cam_t_global);
-}
+// A function to read nvm offsets (optical center per image). On each line there
+// must be the image name, then the optical center column, then row. Read into
+// an std::map, with the key being the image name, and the value being vector2
+// of the optical center. Interest point matches are shifted relative to this.
+void readNvmOffsets(std::string const& offset_path,
+                    std::map<std::string, Eigen::Vector2d> & offsets) {
+
+  // Wipe the output
+  offsets.clear();
   
+  std::ifstream offset_fh(offset_path.c_str());
+  if (!offset_fh.good())
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find optical offsets file: "
+                 << offset_path << ".\n");
+  
+  vw::vw_out() << "Reading optical centers: " << offset_path << std::endl;
+  
+  std::string name;
+  double x, y;
+  while (offset_fh >> name >> x >> y) {
+    // Check for repeated entries
+    if (offsets.find(name) != offsets.end())
+      vw::vw_throw(vw::ArgumentErr() << "Repeated optical center entry for image: "
+                   << name << ".\n");
+    offsets[name] = Eigen::Vector2d(x, y);
+  }
+}
+
+// Write the optical center offsets to a file. The format is the image name,
+// then the optical center column, then row. 
+void writeNvmOffsets(std::string const& offset_path,
+                     std::map<std::string, Eigen::Vector2d> const& offsets) {
+
+  std::ofstream offset_fh(offset_path.c_str());
+  offset_fh.precision(17); // double precision
+  
+  if (!offset_fh.good())
+    vw::vw_throw(vw::ArgumentErr() << "Cannot write optical offsets file: "
+                 << offset_path << ".\n");
+  
+  vw::vw_out() << "Writing optical centers: " << offset_path << std::endl;
+  for (auto it = offsets.begin(); it != offsets.end(); it++)
+    offset_fh << it->first << ' ' << it->second[0] << ' ' << it->second[1] << std::endl;
+}
+
+// A function to create the offsets filename from the nvm filename
+std::string offsetsFilename(std::string const& nvm_filename) {
+  int file_len = nvm_filename.size(); // cast to int to make subtraction safe
+  // The length must be at least 5, as it must end with .nvm
+  if (file_len < 5) 
+    vw::vw_throw(vw::ArgumentErr() << "Invalid nvm filename: " << nvm_filename << ".\n");
+  return nvm_filename.substr(0, std::max(file_len - 4, 0)) + "_offsets.txt";
+}
+
 // Reads the NVM control network format. The interest points may or may not
 // be shifted relative to optical center. The user is responsible for knowing that.
 // If a filename having extension _offset.txt instead of .nvm exists, read
-// from it the optical center offsets and apply them.
+// from it the optical center offsets and apply them. So, the interest points
+// that are read in have the offset applied.
 void ReadNVM(std::string const& input_filename,
              bool nvm_no_shift,
-             std::vector<Eigen::Matrix2Xd> * cid_to_keypoint_map,
-             std::vector<std::string> * cid_to_filename,
-             std::vector<std::map<int, int>> * pid_to_cid_fid,
-             std::vector<Eigen::Vector3d> * pid_to_xyz,
-             std::vector<Eigen::Affine3d> * cid_to_cam_t_global) {
+             std::vector<Eigen::Matrix2Xd>          & cid_to_keypoint_map,
+             std::vector<std::string>               & cid_to_filename,
+             std::vector<std::map<int, int>>        & pid_to_cid_fid,
+             std::vector<Eigen::Vector3d>           & pid_to_xyz,
+             std::vector<Eigen::Affine3d>           & cid_to_cam_t_global,
+             std::vector<double>                    & focal_lengths,
+             std::map<std::string, Eigen::Vector2d> & offsets) {
 
   // Read the offsets (optical centers) to apply to the interest points,
   // if applicable.
-  int file_len = input_filename.size(); // cast to int to make subtraction safe
-  std::string offset_path 
-    = input_filename.substr(0, std::max(file_len - 4, 0)) + "_offsets.txt";
+  std::string offset_path = offsetsFilename(input_filename);
+  vw::vw_out() << "Reading: " << input_filename << std::endl;
   std::ifstream offset_fh(offset_path.c_str());
   
   bool have_offsets = false;
-  std::map<std::string, Eigen::Vector2d> offsets;
+  offsets.clear();
+  
   if (nvm_no_shift) {
     have_offsets = false;
     if (offset_fh.good()) 
@@ -71,14 +115,8 @@ void ReadNVM(std::string const& input_filename,
       vw::vw_throw(vw::ArgumentErr() << "Cannot find optical offsets file: "
                    << offset_path << ". Consider reading the nvm file with "
                    << "the no-shift option or specify the offsets.\n");
-      
-    vw::vw_out() << "Read and apply optical offsets from: " << offset_path << std::endl;
     
-    std::string name;
-    double x, y;
-    while (offset_fh >> name >> x >> y)
-      offsets[name] = Eigen::Vector2d(x, y);
-    
+    readNvmOffsets(offset_path, offsets);  
     have_offsets = true;
   }
   
@@ -99,26 +137,29 @@ void ReadNVM(std::string const& input_filename,
   }
 
   // Resize all our structures to support the number of cameras we now expect
-  cid_to_keypoint_map->resize(number_of_cid);
-  cid_to_filename->resize(number_of_cid);
-  cid_to_cam_t_global->resize(number_of_cid);
+  cid_to_keypoint_map.resize(number_of_cid);
+  cid_to_filename.resize(number_of_cid);
+  cid_to_cam_t_global.resize(number_of_cid);
+  focal_lengths.resize(number_of_cid);
   for (ptrdiff_t cid = 0; cid < number_of_cid; cid++) {
     // Clear keypoints from map. We'll read these in shortly
-    cid_to_keypoint_map->at(cid).resize(Eigen::NoChange_t(), 2);
+    cid_to_keypoint_map.at(cid).resize(Eigen::NoChange_t(), 2);
 
     // Read the line that contains camera information
+    std::string image_name; 
     double focal, dist1, dist2;
     Eigen::Quaterniond q;
     Eigen::Vector3d c;
-    f >> token >> focal;
+    f >> image_name >> focal;
     f >> q.w() >> q.x() >> q.y() >> q.z();
     f >> c[0] >> c[1] >> c[2] >> dist1 >> dist2;
-    cid_to_filename->at(cid) = token;
+    cid_to_filename.at(cid) = image_name;
+    focal_lengths.at(cid) = focal;
 
     // Solve for t, which is part of the affine transform
     Eigen::Matrix3d r = q.matrix();
-    cid_to_cam_t_global->at(cid).linear() = r;
-    cid_to_cam_t_global->at(cid).translation() = -r * c;
+    cid_to_cam_t_global.at(cid).linear() = r;
+    cid_to_cam_t_global.at(cid).translation() = -r * c;
   }
 
   // Read the number of points
@@ -128,55 +169,63 @@ void ReadNVM(std::string const& input_filename,
     vw::vw_throw(vw::ArgumentErr() << "The NVM file has no triangulated points.");
 
   // Read the point
-  pid_to_cid_fid->resize(number_of_pid);
-  pid_to_xyz->resize(number_of_pid);
+  pid_to_cid_fid.resize(number_of_pid);
+  pid_to_xyz.resize(number_of_pid);
   Eigen::Vector3d xyz;
   Eigen::Vector3i color;
   Eigen::Vector2d pt;
   ptrdiff_t cid, fid;
   for (ptrdiff_t pid = 0; pid < number_of_pid; pid++) {
-    pid_to_cid_fid->at(pid).clear();
+    pid_to_cid_fid.at(pid).clear();
 
     ptrdiff_t number_of_measures;
     f >> xyz[0] >> xyz[1] >> xyz[2] >>
       color[0] >> color[1] >> color[2] >> number_of_measures;
-    pid_to_xyz->at(pid) = xyz;
+    pid_to_xyz.at(pid) = xyz;
     for (ptrdiff_t m = 0; m < number_of_measures; m++) {
       f >> cid >> fid >> pt[0] >> pt[1];
 
       // Apply the optical center offset if it exists
       if (have_offsets) {
-        auto map_it = offsets.find(cid_to_filename->at(cid));
+        auto map_it = offsets.find(cid_to_filename.at(cid));
         if (map_it == offsets.end()) {
           vw::vw_throw(vw::ArgumentErr() << "Cannot find optical offset for image "
-                       << cid_to_filename->at(cid) << "\n");
+                       << cid_to_filename.at(cid) << "\n");
         }
         pt[0] += (map_it->second)[0];
         pt[1] += (map_it->second)[1];
       }
       
-      pid_to_cid_fid->at(pid)[cid] = fid;
+      pid_to_cid_fid.at(pid)[cid] = fid;
 
-      if (cid_to_keypoint_map->at(cid).cols() <= fid)
-        cid_to_keypoint_map->at(cid).conservativeResize(Eigen::NoChange_t(), fid + 1);
+      if (cid_to_keypoint_map.at(cid).cols() <= fid)
+        cid_to_keypoint_map.at(cid).conservativeResize(Eigen::NoChange_t(), fid + 1);
       
-      cid_to_keypoint_map->at(cid).col(fid) = pt;
+      cid_to_keypoint_map.at(cid).col(fid) = pt;
     }
 
     if (!f.good())
       vw::vw_throw(vw::ArgumentErr() << "Unable to correctly read PID: " << pid);
   }
+
+ // If no offsets, use zero offsets
+ if (nvm_no_shift) {
+    for (ptrdiff_t cid = 0; cid < number_of_cid; cid++)
+      offsets[cid_to_filename.at(cid)] = Eigen::Vector2d(0, 0);
+  }  
 }
 
 // Write an nvm file. Note that a single focal length is assumed and no distortion.
 // Those are ignored, and only camera poses, matches, and keypoints are used.
-// Features are written as is, without shifting them relative to the optical center.
+// It is assumed that the interest points are shifted relative to the optical center.
+// Write the optical center separately.
 void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
               std::vector<std::string> const& cid_to_filename,
               std::vector<double> const& focal_lengths,
               std::vector<std::map<int, int>> const& pid_to_cid_fid,
               std::vector<Eigen::Vector3d> const& pid_to_xyz,
               std::vector<Eigen::Affine3d> const& cid_to_cam_t_global,
+              std::map<std::string, Eigen::Vector2d> const& optical_centers,
               std::string const& output_filename) {
 
   // Ensure that the output directory having this file exists
@@ -191,7 +240,8 @@ void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
   if (cid_to_filename.size() != cid_to_keypoint_map.size())
     vw::vw_throw(vw::ArgumentErr() << "Unequal number of filenames and keypoints.");
   if (pid_to_cid_fid.size() != pid_to_xyz.size())
-    vw::vw_throw(vw::ArgumentErr() << "Unequal number of pid_to_cid_fid and xyz measurements.");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Unequal number of pid_to_cid_fid and xyz measurements.");
   if (cid_to_filename.size() != cid_to_cam_t_global.size())
     vw::vw_throw(vw::ArgumentErr() << "Unequal number of filename and camera transforms.");
   
@@ -227,9 +277,22 @@ void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
     
     for (std::map<int, int>::const_iterator it = pid_to_cid_fid[pid].begin();
          it != pid_to_cid_fid[pid].end(); it++) {
-      f << " " << it->first << " " << it->second << " "
-        << cid_to_keypoint_map[it->first].col(it->second)[0] << " "
-        << cid_to_keypoint_map[it->first].col(it->second)[1];
+    
+      auto cid = it->first;
+      auto fid = it->second;
+    
+      // Find the offset for this image
+      auto map_it = optical_centers.find(cid_to_filename[cid]);
+      if (map_it == optical_centers.end()) {
+        vw::vw_throw(vw::ArgumentErr() << "Cannot find optical offset for image "
+                     << cid_to_filename[cid] << "\n");
+      }
+      Eigen::Vector2d offset = map_it->second;
+      
+      // Write with the offset subtracted
+      f << " " << cid << " " << fid << " "
+        << cid_to_keypoint_map[it->first].col(it->second)[0] - offset[0] << " "
+        << cid_to_keypoint_map[it->first].col(it->second)[1] - offset[1];
     }
     f << std::endl;
   }
@@ -237,8 +300,39 @@ void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
   // Close the file
   f.flush();
   f.close();
+  
+  // Write the optical center offsets
+  std::string offset_path = offsetsFilename(output_filename);
+  writeNvmOffsets(offset_path, optical_centers);
 }
 
+// A wrapper to carry fewer things around
+void ReadNVM(std::string const& input_filename, 
+             bool nvm_no_shift,
+             nvmData & nvm) {
+  ReadNVM(input_filename,
+          nvm_no_shift,
+          nvm.cid_to_keypoint_map,
+          nvm.cid_to_filename,
+          nvm.pid_to_cid_fid,
+          nvm.pid_to_xyz,
+          nvm.cid_to_cam_t_global,
+          nvm.focal_lengths,
+          nvm.optical_centers);
+}
+
+// A wrapper for writing an nvm file
+void WriteNVM(nvmData const& nvm, std::string const& output_filename) {
+  WriteNVM(nvm.cid_to_keypoint_map,
+          nvm.cid_to_filename,
+          nvm.focal_lengths,
+          nvm.pid_to_cid_fid,
+          nvm.pid_to_xyz,
+          nvm.cid_to_cam_t_global,
+          nvm.optical_centers,
+          output_filename);
+}
+  
 // Read an NVM file into the VisionWorkbench control network format. The flag
 // nvm_no_shift, if true, means that the interest points are not shifted
 // relative to the optical center, so can be read as is.
@@ -253,6 +347,8 @@ void readNvmAsCnet(std::string const& input_filename,
   nvmData nvm;
   ReadNVM(input_filename, nvm_no_shift, nvm);
 
+  // TODO(oalexan1): Make this into a function called nvmToCnet().
+  
   // Add the images
   for (size_t cid = 0; cid < nvm.cid_to_filename.size(); cid++)
     cnet.add_image_name(nvm.cid_to_filename[cid]);
@@ -275,6 +371,82 @@ void readNvmAsCnet(std::string const& input_filename,
    
     cnet.add_control_point(cp);
   }
+}
+
+// Create an nvm from a cnet. There is no shift in the interest points.
+// That is applied only on loading and saving.
+void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
+               std::map<std::string, Eigen::Vector2d> const& offsets,
+               std::vector<Eigen::Affine3d>           const& world_to_cam,
+               // Output
+               nvmData & nvm) {
+
+  // Wipe the output 
+  nvm = nvmData();
+
+  nvm.cid_to_filename = cnet.get_image_list();
+  nvm.focal_lengths.resize(nvm.cid_to_filename.size(), 1.0); // dummy focal length
+  nvm.cid_to_cam_t_global = world_to_cam;
+  nvm.optical_centers = offsets;
+
+  // Copy the triangulated points
+  int num_points = cnet.size();
+  nvm.pid_to_xyz.resize(num_points);
+  for (int pid = 0; pid < num_points; pid++) {
+    vw::ba::ControlPoint const& cp = cnet[pid];
+    nvm.pid_to_xyz[pid] = Eigen::Vector3d(cp.position()[0], 
+                                          cp.position()[1], 
+                                          cp.position()[2]);
+  }
+
+  // Iterate through the control points and get the feature matches
+  // Put all interest points per image in a map, so later we can
+  // give them an id.
+  int num_images = nvm.cid_to_filename.size();
+  typedef std::pair<double, double> Pair;
+  std::vector<std::map<Pair, int>> keypoint_map(num_images);
+  nvm.pid_to_cid_fid.resize(num_points);
+  for (int pid = 0; pid < num_points; pid++) {
+    vw::ba::ControlPoint const& cp = cnet[pid];
+    // Iterate through the measures
+    for (int m = 0; m < cp.size(); m++) {
+      vw::ba::ControlMeasure const& cm = cp[m];
+      int cid = cm.image_id();
+      vw::Vector2 pix = cm.position();
+      
+      // Add to the keypoint map
+      Pair key = std::make_pair(pix[0], pix[1]);
+      // If the key is not in the map, add it with an id that is the current size of the map
+      if (keypoint_map[cid].find(key) == keypoint_map[cid].end()) {
+        int count = keypoint_map[cid].size();
+        keypoint_map[cid][key] = count;
+      }
+    }
+  }
+
+  // Now fill in the keypoint map
+  nvm.cid_to_keypoint_map.resize(nvm.cid_to_filename.size());
+  for (int cid = 0; cid < num_images; cid++)
+    nvm.cid_to_keypoint_map[cid].resize(2, keypoint_map[cid].size());
+    
+  for (int pid = 0; pid < num_points; pid++) {
+    vw::ba::ControlPoint const& cp = cnet[pid];
+    // Iterate through the measures
+    for (int m = 0; m < cp.size(); m++) {
+      vw::ba::ControlMeasure const& cm = cp[m];
+      int cid = cm.image_id();
+      vw::Vector2 pix = cm.position();
+      Pair key = std::make_pair(pix[0], pix[1]);
+      // The key is guaranteed to be in the map
+      auto it = keypoint_map[cid].find(key);
+      if (it == keypoint_map[cid].end())
+         vw::vw_throw(vw::ArgumentErr() << "cnetToNvm: Unexpected key not found.\n");
+      int fid = it->second;  
+      nvm.pid_to_cid_fid[pid][cid] = fid;
+      nvm.cid_to_keypoint_map[cid].col(fid) = Eigen::Vector2d(pix[0], pix[1]);
+    }
+  }  
+
 }
 
 } // end namespace asp

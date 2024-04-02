@@ -336,8 +336,7 @@ int main(int argc, char* argv[]) {
     // are the same, because we want to take advantage of the stereo
     // pipeline's ability to generate camera models for various
     // missions.  Hence, we create two identical camera models, but only one is used.
-    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session(asp::StereoSessionFactory::create
+        asp::SessionPtr session(asp::StereoSessionFactory::create
                        (opt.stereo_session, // in-out
                         opt,
                         opt.image_file, opt.image_file, // The same file is passed in twice

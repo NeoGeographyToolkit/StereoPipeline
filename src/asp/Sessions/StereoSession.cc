@@ -197,8 +197,7 @@ namespace asp {
       std::string session_type = cam_type;
       std::string out_prefix; 
       try {
-        typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
-        SessionPtr session(asp::StereoSessionFactory::create
+        asp::SessionPtr session(asp::StereoSessionFactory::create
                             (session_type, // may change
                              m_options, image_file, image_file, cam_file, cam_file,
                              out_prefix));
@@ -486,7 +485,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
     vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
     vw::Vector<float32> left_stats2  = left_stats;  // cast
     vw::Vector<float32> right_stats2 = right_stats; // cast
-    write_vector(left_stats_file,  left_stats2 );
+    write_vector(left_stats_file,  left_stats2);
     write_vector(right_stats_file, right_stats2);
   }
   
@@ -526,7 +525,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                                            bounding_box(Limg)), output_nodata),
                            has_right_georef, right_georef,
                            has_nodata, output_nodata, options,
-                           TerminalProgressCallback("asp","\t  R:  ") );
+                           TerminalProgressCallback("asp","\t  R:  "));
   }
   sw4.stop();
   vw_out() << "Time to write right image: " << sw4.elapsed_seconds() << std::endl;
@@ -544,7 +543,7 @@ void StereoSession::pre_filtering_hook(std::string const& input_file,
 
 ImageViewRef<PixelMask<Vector2f> >
 StereoSession::pre_pointcloud_hook(std::string const& input_file) {
-  return DiskImageView<PixelMask<Vector2f> >( input_file );
+  return DiskImageView<PixelMask<Vector2f> >(input_file);
 }
 
 // A little function whose goal is to avoid repeating same logic in a handful of places
@@ -553,7 +552,7 @@ void crop_bathy_mask(vw::GdalWriteOptions const& options,
                      BBox2i const& crop_win, std::string const& cropped_mask_file) {
   
   if (input_mask_file == "") 
-    vw_throw( ArgumentErr() << "Required bathy mask file was not specified.");
+    vw_throw(ArgumentErr() << "Required bathy mask file was not specified.");
 
   // Sanity check, input image and mask must have same size
   DiskImageView<float> input_image(input_image_file);
@@ -600,7 +599,7 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
   // these calls will create DiskImageResourceIsis objects.
   {
     boost::shared_ptr<DiskImageResource>
-      left_rsrc (DiskImageResourcePtr(left_input_file )),
+      left_rsrc (DiskImageResourcePtr(left_input_file)),
       right_rsrc(DiskImageResourcePtr(right_input_file));
     asp::get_nodata_values(left_rsrc,         right_rsrc,
                            left_nodata_value, right_nodata_value);
@@ -617,7 +616,7 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
   // Read the georef if available in the input images
   has_left_georef  = read_georeference(left_georef,  left_input_file);
   has_right_georef = read_georeference(right_georef, right_input_file);
-  if ( stereo_settings().alignment_method != "none") {
+  if (stereo_settings().alignment_method != "none") {
     // If any alignment at all happens, the georef will be messed up.
     has_left_georef = false;
     has_right_georef = false;
@@ -655,7 +654,7 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
   if (!rebuild && !crop_left && !crop_right) {
     try {
       vw_log().console_log().rule_set().add_rule(-1, "fileio");
-      DiskImageView<PixelGray<float32> > out_left (left_output_file );
+      DiskImageView<PixelGray<float32> > out_left (left_output_file);
       DiskImageView<PixelGray<float32> > out_right(right_output_file);
 
       if (do_bathy) {
@@ -691,8 +690,8 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
       // It can be handy when investigating CCD artifacts correction.
       left_cropped_image = DiskImageView<float>(stereo_settings().left_image_clip);
       if (left_cropped_image.cols() != left_win.width() ||
-          left_cropped_image.rows() != left_win.height() ) {
-        vw_throw( ArgumentErr() << "The image specified via --left-image-clip has different "
+          left_cropped_image.rows() != left_win.height()) {
+        vw_throw(ArgumentErr() << "The image specified via --left-image-clip has different "
                   << "dimensions than set via --left-image-crop-win.");
       }
     }
@@ -722,8 +721,8 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
       // It can be handy when investigating CCD artifacts correction.
       right_cropped_image = DiskImageView<float>(stereo_settings().right_image_clip);
       if (right_cropped_image.cols() != right_win.width() ||
-          right_cropped_image.rows() != right_win.height() ) {
-        vw_throw( ArgumentErr() << "The image specified via --right-image-clip has different "
+          right_cropped_image.rows() != right_win.height()) {
+        vw_throw(ArgumentErr() << "The image specified via --right-image-clip has different "
                   << "dimensions than set via --right-image-crop-win.");
       }
     }
@@ -741,7 +740,7 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
   // Re-read the georef, since it may have changed above.
   has_left_georef  = read_georeference(left_georef,  left_cropped_file);
   has_right_georef = read_georeference(right_georef, right_cropped_file);
-  if ( stereo_settings().alignment_method != "none") {
+  if (stereo_settings().alignment_method != "none") {
     // If any alignment at all happens, the georef will be messed up.
     has_left_georef  = false;
     has_right_georef = false;
@@ -777,9 +776,9 @@ void StereoSession::read_bathy_masks(float & left_bathy_nodata, float & right_ba
   if (left_bathy_mask.cols() != left_image.cols()   || 
       left_bathy_mask.rows() != left_image.rows()   || 
       right_bathy_mask.cols() != right_image.cols() || 
-      right_bathy_mask.rows() != right_image.rows() ) {
-    vw_throw( ArgumentErr() << "The dimensions of bathymetry masks don't agree "
-              << "with the image sizes (after crop win, if applicable)." );
+      right_bathy_mask.rows() != right_image.rows()) {
+    vw_throw(ArgumentErr() << "The dimensions of bathymetry masks don't agree "
+              << "with the image sizes (after crop win, if applicable).");
   }
   
 }
@@ -969,7 +968,7 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
                            has_right_georef, right_georef,
                            has_bathy_nodata, right_bathy_nodata,
                            options,
-                           TerminalProgressCallback("asp","\t  R bathy mask:  ") );
+                           TerminalProgressCallback("asp","\t  R bathy mask:  "));
   }
 }
   
@@ -1002,8 +1001,8 @@ void StereoSession::epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> le
   
 std::string StereoSession::left_cropped_bathy_mask() const {
   if (!do_bathymetry()) 
-    vw_throw( ArgumentErr() << "The left cropped bathy mask is requested when "
-              << "bathymetry mode is not on." );
+    vw_throw(ArgumentErr() << "The left cropped bathy mask is requested when "
+              << "bathymetry mode is not on.");
 
   bool crop_left = (stereo_settings().left_image_crop_win != BBox2i(0, 0, 0, 0));
   if (!crop_left) 
@@ -1014,8 +1013,8 @@ std::string StereoSession::left_cropped_bathy_mask() const {
   
 std::string StereoSession::right_cropped_bathy_mask() const {
   if (!do_bathymetry()) 
-    vw_throw( ArgumentErr() << "The right cropped bathy mask is requested when "
-              << "bathymetry mode is not on." );
+    vw_throw(ArgumentErr() << "The right cropped bathy mask is requested when "
+              << "bathymetry mode is not on.");
 
   bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
   if (!crop_right) 
@@ -1036,7 +1035,7 @@ void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop,
                                           vw::BBox2i &right_image_crop) const {
 
   // Set the ROIs to the entire image if the input crop windows are not set.
-  Vector2i left_size  = file_image_size(m_left_image_file );
+  Vector2i left_size  = file_image_size(m_left_image_file);
   Vector2i right_size = file_image_size(m_right_image_file);
 
   if (stereo_settings().left_image_crop_win != BBox2i(0, 0, 0, 0))
@@ -1065,10 +1064,10 @@ getTransformFromMapProject(const std::string &input_dem_path,
   // Read in data necessary for the Map2CamTrans object
   cartography::GeoReference dem_georef, image_georef;
   if (!read_georeference(dem_georef, input_dem_path))
-    vw_throw( ArgumentErr() << "The DEM \"" << input_dem_path
+    vw_throw(ArgumentErr() << "The DEM \"" << input_dem_path
               << "\" lacks georeferencing information.");
   if (!read_georeference(image_georef, img_file_path))
-    vw_throw( ArgumentErr() << "The image \"" << img_file_path
+    vw_throw(ArgumentErr() << "The image \"" << img_file_path
               << "\" lacks georeferencing information.");
 
   bool call_from_mapproject = false;
@@ -1082,29 +1081,29 @@ getTransformFromMapProject(const std::string &input_dem_path,
 typename StereoSession::tx_type
 StereoSession::tx_left_homography() const {
   Matrix<double> tx = math::identity_matrix<3>();
-  if ( stereo_settings().alignment_method == "homography" ||
+  if (stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ||
-       stereo_settings().alignment_method == "local_epipolar" ) {
-    read_matrix( tx, m_out_prefix + "-align-L.exr" );
+       stereo_settings().alignment_method == "local_epipolar") {
+    read_matrix(tx, m_out_prefix + "-align-L.exr");
   }
-  return tx_type( new vw::HomographyTransform(tx) );
+  return tx_type(new vw::HomographyTransform(tx));
 }
 
 typename StereoSession::tx_type
 StereoSession::tx_right_homography() const {
   Matrix<double> tx = math::identity_matrix<3>();
-  if ( stereo_settings().alignment_method == "homography" ||
+  if (stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ||
-       stereo_settings().alignment_method == "local_epipolar" ) {
-    read_matrix( tx, m_out_prefix + "-align-R.exr" );
+       stereo_settings().alignment_method == "local_epipolar") {
+    read_matrix(tx, m_out_prefix + "-align-R.exr");
   }
-  return tx_type( new vw::HomographyTransform(tx) );
+  return tx_type(new vw::HomographyTransform(tx));
 }
 
 typename StereoSession::tx_type
 StereoSession::tx_identity() const {
   Matrix<double> tx = math::identity_matrix<3>();
-  return tx_type( new vw::HomographyTransform(tx) );
+  return tx_type(new vw::HomographyTransform(tx));
 }
 
 
@@ -1112,7 +1111,7 @@ typename StereoSession::tx_type
 StereoSession::tx_left_map_trans() const {
   std::string left_map_proj_image = this->left_cropped_image();
   if (!m_left_map_proj_model)
-    vw_throw( ArgumentErr() << "Map projection model not loaded for image "
+    vw_throw(ArgumentErr() << "Map projection model not loaded for image "
               << left_map_proj_image);
   return getTransformFromMapProject(m_input_dem, left_map_proj_image, m_left_map_proj_model);
 }
@@ -1120,7 +1119,7 @@ typename StereoSession::tx_type
 StereoSession::tx_right_map_trans() const {
   std::string right_map_proj_image = this->right_cropped_image();
   if (!m_right_map_proj_model)
-    vw_throw( ArgumentErr() << "Map projection model not loaded for image "
+    vw_throw(ArgumentErr() << "Map projection model not loaded for image "
               << right_map_proj_image);
   return getTransformFromMapProject(m_input_dem, right_map_proj_image, m_right_map_proj_model);
 }
@@ -1180,7 +1179,7 @@ vw::Vector2 StereoSession::camera_pixel_offset(std::string const& input_dem,
   bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
   bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
   vw::Vector2 left_pixel_offset, right_pixel_offset;
-  if (crop_left ) left_pixel_offset  = stereo_settings().left_image_crop_win.min();
+  if (crop_left) left_pixel_offset  = stereo_settings().left_image_crop_win.min();
   if (crop_right) right_pixel_offset = stereo_settings().right_image_crop_win.min();
   
   if (curr_image_file == left_image_file)
@@ -1377,10 +1376,10 @@ vw::Vector6f gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
     ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
     vw::TerminalProgressCallback tp("asp","\t  stats:  ");
     if (block_size[0] >= block_size[1]) // Rows are long, so go row by row
-     for_each_pixel_rowwise(subsample( edge_extend(image, ConstantEdgeExtension()),
+     for_each_pixel_rowwise(subsample(edge_extend(image, ConstantEdgeExtension()),
                                stat_scale), accumulator, tp);
     else // Columns are long, so go column by column
-     for_each_pixel_columnwise(subsample( edge_extend(image, ConstantEdgeExtension()),
+     for_each_pixel_columnwise(subsample(edge_extend(image, ConstantEdgeExtension()),
                                   stat_scale), accumulator, tp);
 
     result[0] = accumulator.quantile(0); // Min

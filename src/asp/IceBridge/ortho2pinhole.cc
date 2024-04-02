@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file ortho2pinhole.cc
 ///
 
@@ -59,15 +58,11 @@
 #undef LOCAL_GCC_VERSION
 #endif
 
-
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 using namespace vw;
 using namespace vw::camera;
-
-typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-
 
 struct Options : public vw::GdalWriteOptions {
   std::string raw_image, ortho_image, input_cam, output_cam, reference_dem, camera_estimate;
@@ -407,7 +402,7 @@ void load_camera_and_find_ip(Options const& opt,
   std::string out_prefix = "tmp-prefix";
   std::string stereo_session = "pinhole";
   float nodata1, nodata2;
-  SessionPtr session(asp::StereoSessionFactory::create(stereo_session, opt,
+  asp::SessionPtr session(asp::StereoSessionFactory::create(stereo_session, opt,
                                                        opt.raw_image, opt.ortho_image,
                                                        opt.input_cam, opt.input_cam,
                                                        out_prefix));
@@ -421,7 +416,7 @@ void load_camera_and_find_ip(Options const& opt,
     return;
   }
   
-  try{
+  try {
     // IP matching may not succeed for all pairs
     
     // Get masked views of the images to get statistics from
@@ -527,8 +522,6 @@ void get_estimated_camera_position(Options const& opt,
 
 } // End load_estimated_camera
 
-
-
 /// Use IPs from the ortho image and DEM to optimize the camera with a Lev-Mar solver.
 /// - Returns norm_error of the chosen solution.
 double refine_camera_with_dem_pts(Options const& opt,
@@ -580,7 +573,8 @@ double refine_camera_with_dem_pts(Options const& opt,
     vw_out() << "Running LM solver attempt " << attempt_count << " with starting elevation: " << new_height << std::endl;
   
     // Refine our initial estimate of the camera position using an LM solver with the camera model.
-    int status = solve_for_cam_adjust(boost::shared_ptr<PinholeModel>(pcam, boost::null_deleter()),
+    int status = solve_for_cam_adjust(boost::shared_ptr<PinholeModel>
+                                      (pcam, boost::null_deleter()),
                                       raw_pixels2, ortho_dem_xyz,
                                       translation, rotation, norm_error);
 

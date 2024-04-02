@@ -243,8 +243,7 @@ int main(int argc, char* argv[]) {
     std::string first_camera = first_image;
     if (!camera_files.empty()) 
       first_camera = camera_files[0];
-    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session
+        asp::SessionPtr session
       (asp::StereoSessionFactory::create(opt.stereo_session, // may change inside
                                          opt,
                                          first_image, first_image,
@@ -291,7 +290,7 @@ int main(int argc, char* argv[]) {
 
       // This is so clumsy, a new stereo session needs to be loaded for each
       // input camera.
-      SessionPtr session
+      asp::SessionPtr session
         (asp::StereoSessionFactory::create(opt.stereo_session, // may change inside
                                            opt,
                                            image_files[i],  image_files[i],

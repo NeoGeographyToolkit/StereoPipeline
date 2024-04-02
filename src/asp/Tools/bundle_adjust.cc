@@ -54,7 +54,6 @@ using namespace asp;
 using namespace vw::camera;
 using namespace vw::ba;
 
-typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 
 // A callback to invoke at each iteration if desiring to save the cameras
 // at that time.
@@ -2096,7 +2095,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Guess the session if not provided. Do this as soon as we have
   // the cameras figured out.
   if (opt.stereo_session.empty()) {
-    SessionPtr session(asp::StereoSessionFactory::create
+    asp::SessionPtr session(asp::StereoSessionFactory::create
                         (opt.stereo_session, // may change
                         opt, opt.image_files[0], opt.image_files[0],
                         opt.camera_files[0], opt.camera_files[0],
@@ -2629,7 +2628,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 }
 
 // A wrapper around ip matching. Can also work with NULL cameras.
-void ba_match_ip(Options & opt, SessionPtr session, 
+void ba_match_ip(Options & opt, asp::SessionPtr session, 
                  std::string const& image1_path,  std::string const& image2_path,
                  vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
                  std::string const& match_filename) {
@@ -2722,7 +2721,7 @@ void ba_match_ip(Options & opt, SessionPtr session,
 /// can use. Both matches between mapprojected images and between
 /// original images are saved to files.
 void matches_from_mapproj_images(int i, int j,
-                                 Options& opt, SessionPtr session,
+                                 Options& opt, asp::SessionPtr session,
                                  std::vector<std::string> const& map_files,
                                  std::string mapproj_dem, 
                                  vw::cartography::GeoReference const& dem_georef,
@@ -3103,7 +3102,7 @@ void findPairwiseMatches(Options & opt, // will change
     asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
     
     // Set up the stereo session
-    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
+    asp::SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
                                                           opt, image1_path, image2_path,
                                                           camera1_path, camera2_path,
                                                           opt.out_prefix));

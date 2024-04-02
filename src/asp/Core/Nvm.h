@@ -28,6 +28,8 @@
 #include <vector>
 #include <string>
 
+// TODO(oalexan1): Rename cid_to_cam_t_global to world_to_cam.
+// Hoping this is not camera to world, but world to camera.
 namespace vw {
   namespace ba {
     class ControlNetwork;
@@ -42,34 +44,26 @@ struct nvmData {
   std::vector<std::map<int, int>>  pid_to_cid_fid;
   std::vector<Eigen::Vector3d>     pid_to_xyz;
   std::vector<Eigen::Affine3d>     cid_to_cam_t_global;
+  std::vector<double>              focal_lengths;
+  // Optical center per image, kept in a separate file, maybe in different order.
+  // Interest points in the nvm file are shifted relative to this.
+  // Set these to 0 if there is no shift relative to the optical center.
+  std::map<std::string, Eigen::Vector2d> optical_centers;
 };
 
-// A wrapper to carry fewer things around
-void ReadNVM(std::string const& input_filename, 
-             bool nvm_no_shift, nvmData & nvm);
-  
-// Reads the NVM control network format. The interest points may or may not
-// be shifted relative to optical center. The user is responsible for knowing that.
-// If a filename having extension _offset.txt instead of .nvm exists, read
-// from it the optical center offsets and apply them.
-void ReadNVM(std::string const& input_filename,
-             bool nvm_no_shift,
-             std::vector<Eigen::Matrix2Xd> * cid_to_keypoint_map,
-             std::vector<std::string> * cid_to_filename,
-             std::vector<std::map<int, int>> * pid_to_cid_fid,
-             std::vector<Eigen::Vector3d> * pid_to_xyz,
-             std::vector<Eigen::Affine3d> * cid_to_cam_t_global);
 
-// Write an nvm file. Note that a single focal length is assumed and no distortion.
-// Those are ignored, and only camera poses, matches, and keypoints are used.
-// Features are written as is, without shifting them relative to the optical center.
-void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
-              std::vector<std::string> const& cid_to_filename,
-              std::vector<double> const& focal_lengths,
-              std::vector<std::map<int, int>> const& pid_to_cid_fid,
-              std::vector<Eigen::Vector3d> const& pid_to_xyz,
-              std::vector<Eigen::Affine3d> const& cid_to_cam_t_global,
-              std::string const& output_filename);
+// A function to read nvm offsets. On each line there must be the image name,
+// then the optical center column, then row. Read into an std::map, with the
+// key being the image name, and the value being vector2 of the optical center.
+void readNvmOffsets(std::string const& offset_path,
+                     std::map<std::string, Eigen::Vector2d> & offsets);
+
+// Read an NVM file. Any offset is applied upon reading.
+void ReadNVM(std::string const& input_filename, bool nvm_no_shift, nvmData & nvm);
+
+// Write an NVM file. Subtract from the interest points the given offset.
+// The offsets are saved in a separate file.
+void WriteNVM(nvmData const& nvm, std::string const& output_filename);
 
 // Read an NVM file into the VisionWorkbench control network format. The flag
 // nvm_no_shift, if true, means that the interest points are not shifted
@@ -77,6 +71,15 @@ void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
 void readNvmAsCnet(std::string const& input_filename, 
                    bool nvm_no_shift,
                    vw::ba::ControlNetwork & cnet);
+
+// Add the cnet2nvm function
+// Create an nvm from a cnet. There is no shift in the interest points.
+// That is applied only on loading and saving.
+void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
+               std::map<std::string, Eigen::Vector2d> const& offsets,
+               std::vector<Eigen::Affine3d>           const& world_to_cam,
+               // Output
+               nvmData & nvm);
   
 } // end namespace asp
 

@@ -765,7 +765,7 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
     }
     tpc.report_finished();
 
-  } else{
+  } else {
 
     // First create ip with left_ip being at integer multiple of bin size.
     // Then do the same for right_ip. This way there is a symmetry
@@ -780,7 +780,7 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
     typedef typename DispImageType::pixel_type DispPixelT;
     DispPixelT invalid_disp; invalid_disp.invalidate();
     vw::ValueEdgeExtension<DispPixelT> invalid_ext(invalid_disp);
-    auto interp_disp = interpolate(disp, BilinearInterpolation(), invalid_ext);
+    auto interp_disp = interpolate(disp, vw::BilinearInterpolation(), invalid_ext);
 
     // Need these to not insert an ip twice, as then bundle_adjust
     // will wipe both copies

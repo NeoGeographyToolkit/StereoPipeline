@@ -5091,8 +5091,7 @@ int main(int argc, char* argv[]) {
         if (opt.skip_images[dem_iter].find(image_iter)
             != opt.skip_images[dem_iter].end()) continue;
     
-        typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-        SessionPtr session(asp::StereoSessionFactory::create
+                asp::SessionPtr session(asp::StereoSessionFactory::create
                            (opt.stereo_session, // in-out
                             opt,
                             opt.input_images[image_iter],

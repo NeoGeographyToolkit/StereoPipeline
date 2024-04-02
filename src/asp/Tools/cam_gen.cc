@@ -778,8 +778,7 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
   // Load the camera. By now --bundle-adjust-prefix should be set. 
   // We will need it outside of this function. 
   std::string out_prefix;
-  typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-  SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
+    asp::SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
 						       opt,
 						       opt.image_file, opt.image_file,
 						       opt.input_camera, opt.input_camera,
@@ -1153,8 +1152,7 @@ void save_linescan(Options & opt) {
 
   // Load the cameras. By now bundle-adjust-prefix should be set in stereo settings.
   std::string out_prefix;
-  typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-  SessionPtr session(asp::StereoSessionFactory::create
+    asp::SessionPtr session(asp::StereoSessionFactory::create
                      (opt.stereo_session, // may change
                       opt,
                       opt.image_file, opt.image_file,

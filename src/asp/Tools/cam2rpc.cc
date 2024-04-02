@@ -194,8 +194,7 @@ int main( int argc, char *argv[] ) {
 
     handle_arguments(argc, argv, opt);
 
-    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session(asp::StereoSessionFactory::create
+        asp::SessionPtr session(asp::StereoSessionFactory::create
                        (opt.stereo_session, // may change inside
                         opt,
                         opt.image_file, opt.image_file,

@@ -983,7 +983,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
 }
 
-typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 
 int main( int argc, char *argv[] ) {
 
@@ -999,7 +998,7 @@ int main( int argc, char *argv[] ) {
     boost::shared_ptr<CameraModel> camera_model;
     if (use_mask) {
       std::string out_prefix;
-      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
+      asp::SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
                                                            opt,
                                                            opt.mask, opt.mask,
                                                            opt.camera, opt.camera,

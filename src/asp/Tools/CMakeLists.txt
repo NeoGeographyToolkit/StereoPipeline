@@ -260,6 +260,10 @@ add_executable(corr_eval corr_eval.cc)
 target_link_libraries(corr_eval AspCore AspSessions)
 install(TARGETS corr_eval DESTINATION bin)
 
+add_executable(disp2ip disp2ip.cc)
+target_link_libraries(disp2ip AspCore AspSessions)
+install(TARGETS disp2ip DESTINATION bin)
+
 add_executable(pc_filter pc_filter.cc)
 target_link_libraries(pc_filter AspPclIO AspSessions)
 install(TARGETS pc_filter DESTINATION bin)

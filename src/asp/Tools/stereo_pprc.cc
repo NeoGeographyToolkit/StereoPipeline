@@ -129,6 +129,16 @@ void create_sym_links(std::string const& left_input_file,
   }
 } // End function create_sym_links
 
+// Check that the images in file1 and file2 have same size, and throw
+// an exception if they don't.
+void check_image_sizes(std::string const& file1, std::string const& file2) {
+  DiskImageView<float> left_image (file1), right_image(file2);
+  if (left_image.cols() != right_image.cols() ||
+      left_image.rows() != right_image.rows())
+    vw_throw( ArgumentErr() << "Expecting images: " << file1 << " and " << file2
+              << " to have the same dimensions. Delete this run and start all over.\n");
+}
+
 /// The main preprocessing function
 void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
@@ -211,6 +221,13 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
   if (!rebuild) {
     vw_out() << "\t--> Using cached masks.\n";
+    
+    // This is to safeguard against the case when masks produced with alignment
+    // or crop from a previous run are used with no alignment or no crop. 
+    if (stereo_settings().alignment_method == "none") {
+      check_image_sizes(opt.in_file1, left_mask_file);
+      check_image_sizes(opt.in_file2, right_mask_file);
+    }
   }else{
 
     vw_out() << "\t--> Generating image masks.\n";

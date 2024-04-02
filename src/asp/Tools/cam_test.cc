@@ -42,7 +42,6 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 struct Options : vw::GdalWriteOptions {
   std::string image_file, cam1_file, cam2_file, session1, session2, bundle_adjust_prefix, datum;
@@ -193,7 +192,7 @@ int main(int argc, char *argv[]) {
     // Load cam1
     std::string out_prefix;
     std::string default_session1 = opt.session1; // save it before it changes
-    SessionPtr cam1_session(asp::StereoSessionFactory::create
+    asp::SessionPtr cam1_session(asp::StereoSessionFactory::create
                                (opt.session1, // may change
                                 opt,
                                 opt.image_file, opt.image_file,
@@ -204,7 +203,7 @@ int main(int argc, char *argv[]) {
 
     // Load cam2
     std::string default_session2 = opt.session2; // save it before it changes
-    SessionPtr cam2_session(asp::StereoSessionFactory::create
+    asp::SessionPtr cam2_session(asp::StereoSessionFactory::create
                            (opt.session2, // may change
                             opt,
                             opt.image_file, opt.image_file,
