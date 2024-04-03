@@ -94,7 +94,7 @@ void completeCnetFromDisparities(vw::ba::ControlNetwork               & cnet,
 }
   
 struct DispToIpOptions: vw::GdalWriteOptions {
-  std::string left_raw_image_list, left_log_image_list, right_log_image_list,
+  std::string left_raw_image_list, left_filtered_image_list, right_filtered_image_list,
   optical_center_list,
   stereo_prefix_list, input_nvm, output_nvm;
 };
@@ -105,21 +105,21 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
   general_options.add_options()
   ("left-raw-image-list", po::value(&opt.left_raw_image_list)->default_value(""),
    "List of raw left images, one per line.")
-  ("left-log-image-list", po::value(&opt.left_log_image_list)->default_value(""),
-   "List of left images after applying the LoG (Laplacian of Gaussian) filter, one per line.")
-  ("right-log-image-list", po::value(&opt.right_log_image_list)->default_value(""),
-    "List of right images after applying the LoG filter, one per line.")
+  ("left-filtered-image-list", po::value(&opt.left_filtered_image_list)->default_value(""),
+   "List of left images after applying a filter, one per line.")
+  ("right-filtered-image-list", po::value(&opt.right_filtered_image_list)->default_value(""),
+    "List of right images after applying a filter, one per line.")
   ("stereo-prefix-list", po::value(&opt.stereo_prefix_list)->default_value(""),
    "List of stereo prefixes, one per line. Each prefix is for a stereo run "
-   "with a left log and right log image, with affine epipolar alignment. "
+   "with a left filtered and right filtered image, with affine epipolar alignment. "
    "Stereo could have been run with --correlator-mode, so without cameras.")
   ("optical-center-list", po::value(&opt.optical_center_list)->default_value(""),
-    "List of optical centers for all log images. On each line must have the image name, "
+    "List of optical centers for all filtered images. On each line must have the image name, "
     "optical center column, then row. The order of images is not important.")
   ("input-nvm", po::value(&opt.input_nvm)->default_value(""),
     "Input NVM file, having interest point matches between the left raw images.")
   ("output-nvm", po::value(&opt.output_nvm)->default_value(""),
-    "Output NVM file, having interest point matches between all LoG-filtered images, "
+    "Output NVM file, having interest point matches between all filtered images, "
     "produced with the help of disparity maps.");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -136,8 +136,8 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
                              allow_unregistered, unregistered);
   
   // All inputs must be non-empty
-  if (opt.left_raw_image_list.empty() || opt.left_log_image_list.empty() ||
-      opt.right_log_image_list.empty() || opt.stereo_prefix_list.empty() ||
+  if (opt.left_raw_image_list.empty() || opt.left_filtered_image_list.empty() ||
+      opt.right_filtered_image_list.empty() || opt.stereo_prefix_list.empty() ||
       opt.optical_center_list.empty() ||
       opt.input_nvm.empty() || opt.output_nvm.empty())
     vw::vw_throw(vw::ArgumentErr() << "Must specify all input files.\n");
@@ -146,26 +146,26 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
   vw::create_out_dir(opt.output_nvm);
 
   // Read the lists 
-  std::vector<std::string> left_raw_image_files, left_log_image_files, right_log_image_files, stereo_prefixes;
+  std::vector<std::string> left_raw_image_files, left_filtered_image_files, right_filtered_image_files, stereo_prefixes;
   asp::read_list(opt.left_raw_image_list, left_raw_image_files);
-  asp::read_list(opt.left_log_image_list, left_log_image_files);
-  asp::read_list(opt.right_log_image_list, right_log_image_files);
+  asp::read_list(opt.left_filtered_image_list, left_filtered_image_files);
+  asp::read_list(opt.right_filtered_image_list, right_filtered_image_files);
   asp::read_list(opt.stereo_prefix_list, stereo_prefixes);
   
   // All lists must have the same size
-  if (left_raw_image_files.size() != left_log_image_files.size() ||
-      left_raw_image_files.size() != right_log_image_files.size() ||
+  if (left_raw_image_files.size() != left_filtered_image_files.size() ||
+      left_raw_image_files.size() != right_filtered_image_files.size() ||
       left_raw_image_files.size() != stereo_prefixes.size())
     vw::vw_throw(vw::ArgumentErr() << "All input lists must have the same size.\n");    
 
-  // Read the optical center offsets for the log images
+  // Read the optical center offsets for the filtered images
   std::map<std::string, Eigen::Vector2d>  offsets;
   asp::readNvmOffsets(opt.optical_center_list, offsets); 
 
-  // Number of offsets must equal the number of log images
-  if (offsets.size() != left_log_image_files.size() + right_log_image_files.size())
+  // Number of offsets must equal the number of filtered images
+  if (offsets.size() != left_filtered_image_files.size() + right_filtered_image_files.size())
     vw::vw_throw(vw::ArgumentErr() << "Number of optical center offsets must equal "
-                 << "the number of log images.\n");
+                 << "the number of filtered images.\n");
 
   // Read the nvm and create the cnet
   bool nvm_no_shift = false; // have an offsets file
@@ -196,8 +196,8 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
     asp::SessionPtr 
       session(asp::StereoSessionFactory::create(session_name, // may change
                                                 opt, 
-                                                left_log_image_files[i], 
-                                                right_log_image_files[i],
+                                                left_filtered_image_files[i], 
+                                                right_filtered_image_files[i],
                                                 "", "", // No cameras
                                                 stereo_prefix, input_dem,
                                                 allow_map_promote, quiet));
@@ -241,7 +241,7 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
     cnet_to_raw_index[i] = raw_index;
   }
 
-  // Replace in the cnet the left images with the left log images
+  // Replace in the cnet the left images with the left filtered images
   for (size_t i = 0; i < cnet_list.size(); i++) {
     // find corresponding raw image index
     auto it = cnet_to_raw_index.find(i);
@@ -249,18 +249,18 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
       vw::vw_throw(vw::ArgumentErr() << "Could not find image " << cnet_list[i]
                     << " in the raw image list.\n");
     int raw_index = it->second;
-    cnet_list[i] = left_log_image_files[raw_index];
+    cnet_list[i] = left_filtered_image_files[raw_index];
   }
   
-  // Number of right log images (same as number of left log images)
-  int num_right_images = right_log_image_files.size();
+  // Number of right filtered images (same as number of left filtered images)
+  int num_right_images = right_filtered_image_files.size();
 
-  // Add the right log images to the cnet. This will also update
+  // Add the right filtered images to the cnet. This will also update
   // cnet_list, as it is an alias.
   for (int i = 0; i < num_right_images; i++)
-    cnet.add_image_name(right_log_image_files[i]);
+    cnet.add_image_name(right_filtered_image_files[i]);
 
-  // Make fake camera poses for the right log images. Those won't be accurate,
+  // Make fake camera poses for the right filtered images. Those won't be accurate,
   // but have to create something. They will not be used.
   for (int i = 0; i < num_right_images; i++)
     world_to_cam.push_back(world_to_cam[i]);
