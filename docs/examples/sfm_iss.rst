@@ -329,7 +329,7 @@ Insert these in the small map, and optimize all poses together as::
       --depth_to_image_transforms_to_float "$float" \
       --float_scale                                 \
       --intrinsics_to_float ""                      \
-      --num_iterations 20                           \
+      --num_iterations 100                          \
       --export_to_voxblox                           \
       --num_overlaps 5                              \
       --min_triangulation_angle 0.5
@@ -477,7 +477,7 @@ already solved for fixed. This goes as follows::
       --camera_poses_to_float "$float"              \
       --depth_to_image_transforms_to_float "$float" \
       --intrinsics_to_float ""                      \
-      --num_iterations 20                           \
+      --num_iterations 100                          \
       --export_to_voxblox                           \
       --num_overlaps 5                              \
       --min_triangulation_angle 0.5

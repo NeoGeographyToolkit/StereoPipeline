@@ -166,7 +166,7 @@ and refine the intrinsics::
       --nvm theia_rig/cameras.nvm         \
       --camera_poses_to_float "lnav rnav" \
       --intrinsics_to_float "$float"      \
-      --num_iterations 30                 \
+      --num_iterations 100                \
       --calibrator_num_passes 2           \
       --num_overlaps 5                    \
       --robust_threshold 3                \
@@ -290,7 +290,7 @@ Here is an example invocation::
     --image-list rig_out/image_list.txt      \
     --camera-list rig_out/camera_list.txt    \
     --match-files-prefix rig_out/matches/run \
-    --num-iterations 0                       \
+    --num-iterations 100                       \
     --inline-adjustments                     \
     --datum D_MARS                           \
     --transform-cameras-with-shared-gcp      \
@@ -298,11 +298,15 @@ Here is an example invocation::
     -o ba/run
 
 The ``--datum`` option is very important, and it should be set depending
-on the planetary body.
+on the planetary body. 
 
-We set the number of iterations to 0. Then no refinement of the cameras happens
-after the initial transformation. For such refinement it is important to have
-many interest point matches between the images.
+We set the number of iterations to 100. The goal is to refine the cameras
+after the initial transformation while using the GCP. For such
+refinement it is important to have many interest point matches between the
+images.
+
+See :numref:`ba_err_per_point` for a report file that measures reprojection errors,
+including for GCP.
 
 With the cameras correctly registered and self-consistent, dense stereo point
 clouds and DEM can be created (:numref:`nextsteps`), that can be aligned to a prior

@@ -62,7 +62,7 @@ Next, we run ``rig_calibrator``::
         --depth_to_image_transforms_to_float "haz_cam"    \
         --float_scale                                     \
         --bracket_len 1.0                                 \
-        --num_iterations 50                               \
+        --num_iterations 100                              \
         --calibrator_num_passes 2                         \
         --registration                                    \
         --hugin_file control_points.pto                   \

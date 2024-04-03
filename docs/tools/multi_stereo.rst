@@ -70,7 +70,7 @@ known 3D positions in the images, per
       --nvm theia_out/cameras.nvm                 \
       --camera_poses_to_float "nav_cam"           \
       --intrinsics_to_float ""                    \
-      --num_iterations 30                         \
+      --num_iterations 100                        \
       --calibrator_num_passes 2                   \
       --num_overlaps 10                           \
       --registration                              \

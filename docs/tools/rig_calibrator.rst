@@ -684,7 +684,7 @@ Command-line options for rig_calibrator
   camera of any sensor type may vary on its own and not being tied to other
   sensor types. See also ``--camera_poses_to_float``. Type: bool. Default: false.
 ``--num_iterations`` How many solver iterations to perform in calibration.)
-  Type: int32. Default: 20.
+  Type: int32. Default: 100.
 ``--num_threads`` How many threads to use. Type: int32.
   Default: Number of cores on a machine.
 ``--num_match_threads`` How many threads to use in feature detection/matching.

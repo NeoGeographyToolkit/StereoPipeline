@@ -115,9 +115,18 @@ Use of results
 The ``rig_calibrator`` program (:numref:`rig_calibrator`), when called with the
 produced interest point matches, must use the option
 ``--use_initial_rig_transforms``, and the rig configuration in ``--rig_config``
-must have valid transforms between the sensors. That is because ``disp2ip`` is
-unable to produce the correct poses for the camera images it adds, and those are
-populated with a nominal value.
+must have valid transforms between the sensors (field
+``ref_to_sensor_transform``). That is because ``disp2ip`` is unable to produce
+the correct poses for the camera images it adds, and those are populated with a
+nominal value.
+
+The value of this transform is best determined with the ``rig_calibrator`` program
+itself, by running it with the left and right raw images, that here are not
+available. The following observed value worked well for a stereo rig::
+
+    ref_to_sensor_transform: 1 0 0 0 1 0 0 0 1 -0.14 0 0
+
+This will be refined when ``rig_calibrator`` is run.
  
 The input and produced interest point matches can be inspected with ``stereo_gui`` 
 (:numref:`stereo_gui_nvm`).  
