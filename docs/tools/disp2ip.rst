@@ -3,57 +3,94 @@
 disp2ip
 -------
 
-This program has some rather specialized functionality. 
+This program has some rather specialized functionality. It is meant to solve the
+following problem. Consider a rover on a planetary body, with a stereo pair of
+cameras. To save on bandwidth, only the left raw image and filtered versions of
+both left and right images are transmitted to Earth. The filter is usually the
+sign of the Laplacian of Gaussian (sLoG), or the Laplacian of Gaussian (LoG).
 
-Given a set of images forming stereo pairs, with potentially a filter
-(:numref:`disp2ip_filter`) applied to these images, given also the disparities
-between the filtered images in each pair, and interest point matches between the
-left images before this filter, it will augment each interest point based on the
-appropriate disparity. Hence, instead of matches just between the left images,
-there will also be matches between left and right images, and between right
-images.
+Filtered images are enough for stereo, but not for interest point matching
+between images acquired at different times (rather than simultaneously). This
+makes it problematic to find the relative poses of the cameras, which is needed
+for ``rig_calibrator`` (:numref:`rig_calibrator`) or bundle adjustment
+(:numref:`bundle_adjust`).
 
-Such produced matches are important for ``rig_calibrator`` to run reliably (:numref:`disp2ip_rig`).
+The solution to find interest point matches only between the left raw images,
+then to use the disparities between the left and right filtered images to find
+versions of these interest points in the right images, producing a set of
+matches between all filtered images. This is the purpose of this program.
 
-Input and output interest point matches are stored in NVM files.
+Procedure
+~~~~~~~~~
 
-Preparation and running this program
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Stereo between filtered images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-It is assumed that the stereo runs were created with ``affineepipolar``
-alignment and that cameras may not be available. This program uses the 
-disparities ``F.tif`` (:numref:`outputfiles`) as input.
+It is assumed by this program that the stereo runs were created with
+``affineepipolar`` alignment and that cameras may not be available. This program
+uses the disparities ``F.tif`` (:numref:`outputfiles`) as input.
 
 Hence, ``parallel_stereo`` (:numref:`parallel_stereo`) should be invoked, for 
 stereo pair with index ``i``, along the lines of::
 
-  parallel_stereo                                  \
-    --correlator-mode                              \
-    --alignment-method affineepipolar              \
-    left_filtered_${i}.tif right_filtered_${i}.tif \
+  parallel_stereo                      \
+    --correlator-mode                  \
+    --prefilter-mode 0                 \
+    --stereo-algorithm asp_bm          \
+    --sgm-collar-size 0                \
+    --alignment-method affineepipolar  \
+    fltr/left/left_filtered_${i}.png   \
+    fltr/right/right_filtered_${i}.png \
     stereo_${i}/run
 
-If the images have a filter applied to them, ensure that options
-``--prefilter-mode 0``, ``--stereo-algorithm asp_bm``, ``--sgm-collar-size 0``
-are passed in (:numref:`stereodefault`).
+The option ``--prefilter-mode 0`` is very important, if the images
+are already filtered, otherwise a second filter would be applied on top.
+See :numref:`stereodefault` for more details.
 
-It may be hard to find features in LoG-filtered images
-(:numref:`disp2ip_filter`), so consider using very large values of
-``--ip-per-tile`` and ``--matches-per-tile``, such as 50000 or more (this must
-be decreased for large images).
+It may be hard to find features in LoG-filtered images so consider using very
+large values of ``--ip-per-tile`` and ``--matches-per-tile``, such as 50000 or
+more (this must be decreased for large images).
+
+SfM between the left raw images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Structure-from-Motion (SfM) finds the interest point matches between the left
+raw images and the relative poses of the cameras::
+
+  theia_sfm --rig_config rig_config.txt \
+    --theia_flags theia_flags.txt       \
+    --images 'raw/left/left_raw*.png'   \
+    --out_dir theia_left
+
+This will produce the NVM file named ``theia_left/cameras.nvm``.
+
+See :numref:`rig_calibrator_example` for more details.
+
+Running this program
+^^^^^^^^^^^^^^^^^^^^
 
 Several lists should be prepared, and these must be in one-to-one correspondence::
 
-  ls left_filtered*.png  > left_filtered.txt
-  ls right_filtered*.png > right_filtered.txt
-  ls left_raw*.png       > left_raw.txt
+  ls fltr/left/left_filtered*.png   > left_filtered.txt
+  ls fltr/right/right_filtered*.png > right_filtered.txt
+  ls raw/left/left_raw*.png         >  left_raw.txt
 
   ls stereo_*/run-F.tif | perl -p -e 's/-F\.tif//' > stereo.txt
 
 Also ensure that the optical centers for all images are available in a file, as
-expected by the option ``--optical-center-list``. 
+expected by the option ``--optical-center-list``. For example, this may work,
+with the right values::
 
-Then, this program is invoked as::
+    # Left images
+    for f in $(cat left_filtered.txt); do 
+      echo $f 1064 1025 
+    done > optical_centers.txt
+    # Append the right images
+    for f in $(cat right_filtered.txt); do 
+      echo $f 1055 1032 
+    done >> optical_centers.txt
+
+Then, run::
 
     disp2ip                                          \
       --left-raw-image-list left_raw.txt             \
@@ -61,29 +98,26 @@ Then, this program is invoked as::
       --right-filtered-image-list right_filtered.txt \
       --stereo-prefix-list stereo.txt                \
       --optical-center-list optical_centers.txt      \
-      --input-nvm left.nvm                           \
+      --input-nvm theia_left/cameras.nvm             \
       --output-nvm combined.nvm
  
 The interest points in the input NVM file are assumed to be shifted relative to
-the optical center of those images, with the file ``left_offsets.txt`` (given
-the earlier notation) having those optical centers. The program will shift the
-produced interest points relative to the optical centers as well, creating
-``combined_offsets.txt``.
+the optical center of those images, with the file
+``theia_left/camera_offsets.txt`` (given the earlier notation) having those
+optical centers. The program will shift the produced interest points relative to
+the optical centers as well, creating ``combined_offsets.txt``.
 
 .. _disp2ip_rig:
 
 Use of results
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
  
-The NVM files follow the convention for ``rig_calibrator``
-(:numref:`rig_calibrator_outputs`), and the output of this program is passed to
-that tool. 
-
-The ``rig_calibrator`` program, when called with the produced interest point
-matches, must use the option ``--use_initial_rig_transforms``, and the rig
-configuration in ``--rig_config`` must have valid transforms between the
-sensors. That is because ``disp2ip`` is unable to produce the correct poses for
-the camera images it adds, and those are populated with a nominal value.
+The ``rig_calibrator`` program (:numref:`rig_calibrator`), when called with the
+produced interest point matches, must use the option
+``--use_initial_rig_transforms``, and the rig configuration in ``--rig_config``
+must have valid transforms between the sensors. That is because ``disp2ip`` is
+unable to produce the correct poses for the camera images it adds, and those are
+populated with a nominal value.
  
 The input and produced interest point matches can be inspected with ``stereo_gui`` 
 (:numref:`stereo_gui_nvm`).  
