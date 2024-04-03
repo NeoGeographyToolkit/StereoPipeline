@@ -340,7 +340,7 @@ will be picked up automatically.
 The value of ``--min_triangulation_angle`` filters out rays with a
 very small angle of convergence. That usually makes the geometry more
 stable, but if the surface is far from the sensor, and there is not
-enough perspetive difference between images, it may eliminate too many
+enough perspective difference between images, it may eliminate too many
 features. The ``--max_reprojection_error`` option may eliminate
 features as well.
 

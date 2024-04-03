@@ -48,10 +48,6 @@ and interest point matches can be visualized in a pairwise manner using
 
     stereo_gui rig_theia/cameras.nvm
 
-Do not load the file ``rig_theia/reconstruction.nvm`` in ``stereo_gui``,
-as this one has the image paths without the directory prefix, and
-``stereo_gui`` will not be able to find the images.
-
 The images in the nvm file will be in random order. This will be
 rectified by ``rig_calibrator``.
 

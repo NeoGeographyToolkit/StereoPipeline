@@ -290,7 +290,7 @@ Here is an example invocation::
     --image-list rig_out/image_list.txt      \
     --camera-list rig_out/camera_list.txt    \
     --match-files-prefix rig_out/matches/run \
-    --num-iterations 100                     \
+    --num-iterations 0                       \
     --inline-adjustments                     \
     --datum D_MARS                           \
     --transform-cameras-with-shared-gcp      \
@@ -300,8 +300,9 @@ Here is an example invocation::
 The ``--datum`` option is very important, and it should be set depending
 on the planetary body.
 
-If the number of iterations is set to 0, no refinement of the cameras happens
-after the initial transformation. 
+We set the number of iterations to 0. Then no refinement of the cameras happens
+after the initial transformation. For such refinement it is important to have
+many interest point matches between the images.
 
 With the cameras correctly registered and self-consistent, dense stereo point
 clouds and DEM can be created (:numref:`nextsteps`), that can be aligned to a prior

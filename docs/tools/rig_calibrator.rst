@@ -751,12 +751,11 @@ Command-line options for rig_calibrator
 ``--timestamp_offsets_max_change`` If floating the timestamp offsets, do not
   let them change by more than this (measured in seconds). Existing image
   bracketing acts as an additional constraint. Type: double. Default: 1.
-``--use_initial_rig_transforms`` Use the transforms among the sensors
-  of the rig specified via ``--rig_config``. That regardless if we
-  continue with using a rig (``--no_rig`` is not set) or not.
-  If this option is not set, and a rig is desired, derive the rig
-  transforms from the poses of individual cameras. Type: bool. 
-  Default: false.
+``--use_initial_rig_transforms`` Use the transforms between the sensors
+  (``ref_to_sensor_transform``) of the rig specified via ``--rig_config`` to
+  initialize all non-reference camera poses based on the reference camera poses
+  and the rig transforms. If this option is not set, derive the rig transforms
+  from the poses of individual cameras. Type: bool. Default: false.
 ``--fixed_image_list`` A file having a list of images (separated by
   spaces or newlines) whose camera poses should be fixed during
   optimization. These can be only reference sensor images when the rig

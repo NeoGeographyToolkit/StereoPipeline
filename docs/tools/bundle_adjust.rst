@@ -178,9 +178,9 @@ The primary goal of bundle adjustment is to minimize the pixel reprojection
 errors, so that the cameras are consistent with each other and with triangulated
 points. 
 
-To ensure the cameras and triangulated points do not drift, camera and ground
-constraints are set by default. They are meant to be rather soft, to not
-prevent the reduction in reprojection errors.
+To ensure the cameras and triangulated points do not drift, ground constraints
+are set by default. They are meant to be rather soft, to not prevent the
+reduction in reprojection errors.
 
 .. _ba_ground_constraints:
 
