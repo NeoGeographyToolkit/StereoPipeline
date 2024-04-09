@@ -55,8 +55,17 @@ Run stereo::
     ISIS> parallel_stereo P02_001981_1823.map.cub P03_002258_1817.map.cub \
             results/out
 
-See :numref:`nextsteps` about the next steps, including a discussion
-about various speed-vs-quality choices in stereo.
+Then, one runs ``point2dem`` (:numref:`point2dem`) on the output to generate a
+DEM. Care is needed to use a local projection.
+
+Higher quality results can be obtained by using the ``aspm_mgm`` algorithm and
+mapprojection. See :numref:`nextsteps` about the next steps, including a
+discussion about various speed-vs-quality choices in stereo.
+
+CTX cameras can benefit from bundle adjustment (:numref:`bundle_adjustment`). It
+is is also strongly suggested to use CSM camera models for improved performance
+(:numref:`csm`). The recipe for linescan cameras (as for CTX) is in
+:numref:`create_csm_linescan`.
 
 Automated Processing of HiRISE and CTX
 --------------------------------------

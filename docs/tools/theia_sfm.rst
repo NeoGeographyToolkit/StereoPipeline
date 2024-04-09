@@ -28,10 +28,21 @@ Usage
     theia_sfm --rig_config <rig config> [images]  \
       [--theia_flags <flag file>] --out_dir <out dir>
 
-.. _theia_sfm_config:
-
 Configuration
 ~~~~~~~~~~~~~
+
+The configuration file is the same as for ``rig_calibrator``
+(:numref:`rig_config`). This program does not use the transforms 
+between sensors, but only the intrinsics.
+
+See `Theia's supported camera model types <http://theia-sfm.org/cameras.html>`_.
+In the rig configuration those are named ``no_distortion``, ``radtan``,
+``fisheye`` and ``fov``.
+
+ .. _theia_sfm_config:
+
+Flags file
+~~~~~~~~~~
 
 This program  will use the Theia flags file from ``share/theia_flags.txt`` in
 the software distribution, which can be copied to a new name, edited, and passed

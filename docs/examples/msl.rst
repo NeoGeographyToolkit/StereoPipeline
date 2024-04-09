@@ -266,13 +266,10 @@ See the produced mesh in :numref:`rig_msl_figure`.
 Ground registration
 -------------------
 
-To have several locations seen in the images be at desired Cartesian
-coordinates, ``rig_calibrator`` can be invoked with control points
-(:numref:`rig_calibrator_registration`). Then a mesh can be produced.
-
-To create DEMs, for example for rover cameras, it is preferable to register the
-cameras to the ground. This is discussed below, considering the cases when
-a prior DEM is available and when it is not.
+To create DEMs, for example for rover cameras, the cameras should be registered
+to the ground. We will discuss how to do that both when a prior DEM is available
+and when not. For registration to a local Cartesian coordinate system, see
+instead :numref:`rig_calibrator_registration`.
 
 The ``rig_calibrator`` option ``--save_pinhole_cameras`` can export
 the camera poses to Pinhole format (:numref:`pinholemodels`),
@@ -290,7 +287,7 @@ Here is an example invocation::
     --image-list rig_out/image_list.txt      \
     --camera-list rig_out/camera_list.txt    \
     --match-files-prefix rig_out/matches/run \
-    --num-iterations 100                       \
+    --num-iterations 0                       \
     --inline-adjustments                     \
     --datum D_MARS                           \
     --transform-cameras-with-shared-gcp      \
@@ -300,10 +297,13 @@ Here is an example invocation::
 The ``--datum`` option is very important, and it should be set depending
 on the planetary body. 
 
-We set the number of iterations to 100. The goal is to refine the cameras
-after the initial transformation while using the GCP. For such
-refinement it is important to have many interest point matches between the
-images.
+Using zero iterations will only apply the registration transform, and 
+will preserve the rig structure.
+
+With a positive number of iterations, the cameras will be further refined
+in bundle adjustment, while using the GCP. For such refinement it is important
+to have many interest point matches between the images. This will not respect
+the rig structure.
 
 See :numref:`ba_err_per_point` for a report file that measures reprojection errors,
 including for GCP.

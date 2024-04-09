@@ -162,8 +162,8 @@ plain text file, with the following syntax::
   sensor_name: <string>
   focal_length: <double> # units of pixel
   optical_center: <double double> # units of pixel
-  distortion_coeffs: <n doubles> # n = 0: no distortion, 1: fisheye, 4/5: radtan
-  distortion_type: <string> # 'no_distortion', 'fisheye', or 'radtan'
+  distortion_coeffs: <n doubles>
+  distortion_type: <string>
   image_size: <int, int>
   distorted_crop_size: <int int> 
   undistorted_image_size: <int int> 
@@ -190,7 +190,13 @@ Example (only one of the *N* sensors is shown)::
 If there is more than one rig, the same logic is repeated.
 See a full example with two rigs in :numref:`sfm_iss_sample_rig_config`.
 
-Here, ``ref_to_sensor_transform`` has the rotation (9 doubles, stored
+The lens distortion model can be one of ``no_distortion`` (zero distortion
+parameters), ``fov`` (1 distortion parameter), ``fisheye`` (4 distortion
+parameters), or ``radtan`` (radial-tangential, 4 or 5 distortion parameters).
+The ``fisheye`` and ``radtan`` distortion models are the same as in OpenCV.
+See :numref:`pinholemodels` for more details.
+
+The ``ref_to_sensor_transform`` field has the rotation (9 doubles, stored
 row after row) and translation (3 doubles) transform from the
 reference sensor to the sensor with given name, while
 ``depth_to_image_transform`` is the transform from the depth to image
@@ -212,14 +218,10 @@ valid.  Normally it should be the whole image. The
 ``undistorted_image_size`` has a somewhat generous overestimate of the image
 dimensions after undistortion.
 
-The ``radtan`` model is the `OpenCV radial-tangential distortion model
-<https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html>`_. The distortion
-coefficients for this model must be in the order ``k1``, ``k2``, ``p1``, ``p2``,
-``k3``. The last coefficient need not be set; then it is assumed to be 0.
- 
 Educated guess can be provided for the quantities that are not known. This tool
 can be used to optimize the focal length, optical center, and distortion
-coefficients (the latter requires may interest point matches). 
+coefficients (the latter requires many interest point matches, espcially around
+image corners). 
 
 The undistorted image size also need not
 be known accurately. A tighter ``distorted_crop_size`` can help for
@@ -615,6 +617,7 @@ Command-line options for rig_calibrator
   assumed the rig moves slowly and uniformly during this time. A large
   value here will make the calibrator compute a poor solution but a small
   value may prevent enough images being bracketed. Type: double. Default: 0.6.
+  The timestamp (in seconds) is part of the image name.
 ``--calibrator_num_passes`` How many passes of optimization to do. Outliers
   will be removed after every pass. Each pass will start with the
   previously optimized solution as an initial guess. Mesh intersections (if

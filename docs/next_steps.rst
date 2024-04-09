@@ -391,9 +391,10 @@ Copernicus 30 m DEM from:
 or the NASA SRTM DEM (available on the same web site as above),
 GMTED2010, USGS's NED data, or NGA's DTED data.
 
-The Copernicus 30 m DEM heights are relative to the EGM96 geoid. Any such DEM
-must be converted using ``dem_geoid`` to WGS84 ellipsoid heights, for any
-processing to be accurate (:numref:`conv_to_ellipsoid`).
+The Copernicus 30 m DEM heights are relative to the EGM96 geoid. 
+
+*Any such DEM must be converted using* ``dem_geoid`` *to WGS84 ellipsoid heights,
+for any processing to be accurate.* See (:numref:`conv_to_ellipsoid`).
 
 If your cameras have a lower resolution, such as SPOT 5, which may
 be on the order of 5-7 m/pixel, the resolution of the DEM above may be
@@ -440,7 +441,9 @@ Conversion of initial guess terrain to ellipsoid heights
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 It is very important that your DEM be relative to a datum/ellipsoid (such as
-WGS84), and *not* to a geoid/areoid, such as EGM96. 
+WGS84), and *not* to a geoid/areoid, such as EGM96 for Earth. Otherwise there
+will be a systematic offset of several tens of meters between the images and the
+DEM, which can result in artifacts in mapprojection and stereo.
 
 A DEM relative to a geoid/areoid must be converted so that its heights are
 relative to an ellipsoid. This must be done for any Copernicus and SRTM DEMs.
@@ -491,19 +494,19 @@ Example for ISIS images
    :name: mapproj-example-fig
    :alt: DEMs from camera geometry images and from mapprojected images.
 
-   A DEM obtained using plain stereo (left) and stereo with
-   mapprojected images (right). Their quality will be comparable for
-   relatively flat terrain and the second will be much better for rugged
-   terrain. The right image has some artifacts, but those are limited to
-   areas close to the boundary. Things can be further improved with
-   the ``asp_mgm`` algorithm (:numref:`running-stereo`).
+   A DEM obtained using plain stereo (left) and stereo with mapprojected images
+   (right). Their quality will be comparable for relatively flat terrain and the
+   second will be much better for rugged terrain. The right image has some
+   artifacts at the boundary, which could have been avoided by running without
+   clipping the input images or by cropping the input DEM. We used the ``asp_mgm``
+   algorithm (:numref:`running-stereo`).
 
-This example illustrates how to run stereo with mapprojected images
-for ISIS data. For an alternative approach using ``cam2map``, see
+This example illustrates how to run stereo with mapprojected images for ISIS
+data. For an alternative approach using ``cam2map``, see
 :numref:`mapproj_with_cam2map`.
 
-We start with LRO NAC Lunar images M1121224102LE
-and M1121209902LE from ASU's LRO NAC web site (https://wms.lroc.asu.edu/lroc/search), fetching them as::
+We start with LRO NAC Lunar images M1121224102LE and M1121209902LE from ASU's
+LRO NAC web site (https://wms.lroc.asu.edu/lroc/search), fetching them as::
 
     wget http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0015/DATA/ESM/2013111/NAC/M1121224102LE.IMG
     wget http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0015/DATA/ESM/2013111/NAC/M1121209902LE.IMG
@@ -537,14 +540,6 @@ use a grid size of 0.0013 degrees (we use degrees since the default
 
      point2dem --search-radius-factor 5 --tr 0.0013 run_nomap/run-PC.tif 
 
-As mentioned earlier, some experimentation with the parameters used by
-``point2dem`` may be necessary for this low-resolution DEM to be
-smooth enough and with no holes.
-
-We used ``--search-radius-factor 5`` to expand the DEM a
-bit, to counteract future erosion at image boundary in stereo due to
-the correlation kernel size. This is optional.
-
 If this terrain is close to the poles, say within 25 degrees of latitude, it is
 advised to use a stereographic projection, centered either at the nearest pole,
 or close to the center of the current DEM. 
@@ -555,48 +550,55 @@ with ``gdalinfo -stats``, which can then be passed to ``point2dem`` such as::
 
      point2dem --stereographic --proj-lon <lon_ctr> --proj-lat <lat_ctr> 
 
+Some experimentation with the parameters used by ``point2dem`` may be necessary
+for this low-resolution DEM to be smooth enough and with no holes.
+
+We used ``--search-radius-factor 5`` to expand the DEM a
+bit, to counteract future erosion at image boundary in stereo due to
+the correlation kernel size. This is optional. The input DEM can be grown
+and blurred with ``dem_mosaic`` (:numref:`dem_mosaic_grow`).
+
 By calling ``gdalinfo -proj4``, the PROJ.4 string of the obtained DEM
 can be found, which can be used in mapprojection later, and with the
 resolution switched to meters from degrees (see :numref:`dg-mapproj`
 for more details).
 
-Next, we mapproject the images onto this DEM, using the original
-resolution of :math:`3.3 \times 10^{-5}` degrees, using
-the ``mapproject`` program (:numref:`mapproject`):: 
+Next, we mapproject the left image onto this DEM with the the ``mapproject`` program
+(:numref:`mapproject`):: 
 
-     mapproject --tr 0.000033 run_nomap/run-DEM.tif           \
-       left.cub left_proj.tif                                 \
-       --t_projwin 3.6175120 25.5669989 3.6653695 25.4952127
-     mapproject --tr 0.000033 run_nomap/run-DEM.tif           \
-       right.cub right_proj.tif                               \
-       --t_projwin 3.6175120 25.5669989 3.6653695 25.4952127
+     mapproject run_nomap/run-DEM.tif           \
+       left.cub left_proj.tif
 
-Notice that we used the same resolution for both images
-(:numref:`mapproj-res`), and that we restricted the area of
-computation using ``--t_projwin`` to again make the process faster.
+The resolution of mapprojection is automatically determined, and can be later
+inspected with ``gdalinfo`` (:numref:`gdal_tools`). It is very important to use
+the same resolution for mapprojecting the right image (:numref:`mapproj-res`)::
+
+     mapproject --tr 0.000038694000978 run_nomap/run-DEM.tif \
+       right.cub right_proj.tif
 
 Next, we do stereo with these mapprojected images::
 
      parallel_stereo --stereo-algorithm asp_mgm        \
        --subpixel-mode 9                               \
+       --sgm-collar-size 256                           \
        left_proj.tif right_proj.tif left.cub right.cub \
        run_map/run run_nomap/run-DEM.tif
 
-Notice that even though we use mapprojected images, we still specified the
-original images as the third and fourth arguments. That because we need the
-camera information from those files. The fifth argument is the output prefix,
-while the sixth is the low-resolution DEM we used for mapprojection. We have
-used here ``--subpixel-mode 9`` with the ``asp_mgm`` algorithm as this will be
-the final point cloud and we want the increased accuracy.
+Even though we use mapprojected images, we still specified the original images
+as the third and fourth arguments. That because we need the camera information
+from those files. The fifth argument is the output prefix, while the sixth is
+the low-resolution DEM we used for mapprojection. We have used here
+``--subpixel-mode 9`` with the ``asp_mgm`` algorithm as this will be the final
+point cloud and we want the increased accuracy.
 
 Lastly, we create a DEM at 1 meter resolution::
 
-     point2dem --nodata-value -32768 --tr 0.000033 run_map/run-PC.tif
+     point2dem --nodata-value -32768 run_map/run-PC.tif
 
-We could have used a coarser resolution for the final
-DEM, such as 4 meters/pixel, since we won't see detail at the level of 1
-meter in this DEM, as the stereo process is lossy. This is explained in
-more detail in :numref:`post-spacing`.
+We could have used a coarser resolution for the final DEM, such as 4
+meters/pixel, since we won't see detail at the level of 1 meter in this DEM, as
+the stereo process is lossy. This is explained in more detail in
+:numref:`post-spacing`.
 
 See :numref:`running-stereo` for more details about the various 
 speed-vs-accuracy tradeoffs.
@@ -669,10 +671,11 @@ The same appropriately chosen resolution setting (option ``--tr``)
 must be used for both images to avoid long run-times and artifacts
 (:numref:`mapproj-res`).
 
-The ``ref_dem.tif`` dataset should be at a coarser resolution, 
-such as 40 times coarser than the input images, as discussed earlier,
-to ensure no misregistration artifacts transfer over to the mapprojected
-images.
+The ``ref_dem.tif`` dataset should be at a coarser resolution, such as 40 times
+coarser than the input images, as discussed earlier, to ensure no
+misregistration artifacts transfer over to the mapprojected images. Ensure the
+input DEM is relative to an ellipsoid and not a geoid
+(:numref:`conv_to_ellipsoid`). Fill and blur the input DEM if needed (:numref:`dem_mosaic_grow`, :numref:`dem_mosaic_blur`).
 
 ::
 
@@ -720,7 +723,7 @@ during stereo triangulation, and hence using the ``RPC`` model is good
 enough, while being much faster than the exact ``DG`` model.
 
 When ``parallel_stereo`` runs with mapprojected images above,
-it will run as if invoked with the``-t dgmaprpc`` stereo session, 
+it will run as if invoked with the ``-t dgmaprpc`` stereo session, 
 signaling that the images were mapprojected with ``RPC`` cameras
 but the triangulation happens with the exact ``DG`` cameras.
 

@@ -122,6 +122,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     (:numref:`pinholemodels`). There was a small numerical problem and the K3
     coefficient was not part of the distortion model.
   * Replaced the Tsai lens undistortion implementation, for a 10x speedup.  
+  * Added the OpenCV fisheye lens distortion model and also the FOV model
+    (:numref:`pinholemodels`). These are for wide-angle lenses. 
   * Bugfix: points for which initial triangulation failed are flagged as
     outliers right away. See ``--forced-triangulation-distance`` for
     fine-grained control.

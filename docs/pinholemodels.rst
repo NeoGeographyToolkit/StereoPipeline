@@ -61,41 +61,60 @@ reference.)
 Note that the values below change drastically depending on whether the
 model creator chooses pixel units, or if measuring in millimeters or
 meters. In either case, all lengths must be consistent and the units
-documented.
+documented by the model creator.
 
-* **Null** = A placeholder model that applies no distortion.
+Here are the lens distortion models supported by ASP. Samples for each
+model are shown in :numref:`file_format`.
 
-* **Tsai** = A common distortion model :cite:`tsai1987`. In the most
-  recent builds (after ASP 3.3.0) this was made to agree precisely with the 
-  `OpenCV radial-tangential lens distortion model <https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html>`_.
-  This model uses the following parameters:
-  
-  *K1, K2, K3* = Radial distortion parameters. The last one is optional.
-  
-  *P1, P2* = Tangential distortion parameters.
-  
-* **Adjustable Tsai** = A variant of the Tsai model where any number of
-  *K* terms and a skew term (alpha) can be used. Can apply the AgiSoft
-  Lens calibration parameters.
+Null
+~~~~
 
-* **Brown-Conrady** = An older model based on a centering angle
-  :cite:`brown1966,brown1971`.
+A placeholder model that applies no distortion.
 
-  This model uses the following parameters:
-  
-  *K1, K2, K3* = Radial distortion parameters.
-  
-  *P1, P2* = Tangential distortion parameters.
-  
-  *xp, yp* = Principal point offset.
-  
-  *phi* = Tangential distortion angle in radians.
+Tsai
+~~~~
 
-  The following equations describe the distortion, note that this
-  model uses non-normalized pixel units, so they can be in millimeters
-  or meters:
+A common distortion model :cite:`tsai1987`. In the most recent builds (after ASP
+3.3.0) this was made to agree precisely with the `OpenCV radial-tangential lens
+distortion model <https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html>`_.
+This model uses the following parameters:
+  
+*K1, K2, K3* = Radial distortion parameters. The last one is optional.
+  
+*P1, P2* = Tangential distortion parameters.
 
-  .. math::
+The lens distortion operation is computed via an explicit formula, and for undistortion
+a nonlinear solver is used based on Newton's method.
+
+This is the preferred model, unless the lens has a wide field of view, when
+the Fisheye model should be used (described further below).
+
+Adjustable Tsai
+~~~~~~~~~~~~~~~
+  
+A variant of the Tsai model where any number of *K* terms and a skew term
+(alpha) can be used. Can apply the AgiSoft Lens calibration parameters.
+
+Brown-Conrady
+~~~~~~~~~~~~~
+
+An older model based on a centering angle :cite:`brown1966,brown1971`.
+
+This model uses the following parameters:
+  
+*K1, K2, K3* = Radial distortion parameters.
+  
+*P1, P2* = Tangential distortion parameters.
+  
+*xp, yp* = Principal point offset.
+  
+*phi* = Tangential distortion angle in radians.
+
+The following equations describe the distortion. Note that this model uses
+non-normalized pixel units, so they can be in millimeters or meters:
+
+.. math::
+
     x = x_{dist} - xp
 
     y = y_{dist} - yp
@@ -108,22 +127,29 @@ documented.
 
     y_{undist} = y + y\frac{dr}{r} + (P_{1}r^{2} +P_{2}r^{4})\cos(phi)
 
+The formulas start with distorted pixels and undistort them. This is not
+preferable with ASP, as then the distortion operation requires a solver,
+which makes bundle adjustment and mapprojection very slow. Use instead
+the Tsai model. 
 
-* **Photometrix** = A model matching the conventions used by the Australis
-  software from Photometrix.
-  
-  *K1, K2, K3* = Radial distortion parameters.
-  
-  *P1, P2* = Tangential distortion parameters.
-  
-  *xp, yp* = Principal point offset.
-  
-  *B1, B2* = Unused parameters.
-  
-  The following equations describe the distortion, note that this
-  model uses non-normalized pixel units, so they are in mm.
+Photometrix
+~~~~~~~~~~~
 
-  .. math::
+A model matching the conventions used by the Australis
+software from Photometrix.
+  
+*K1, K2, K3* = Radial distortion parameters.
+  
+*P1, P2* = Tangential distortion parameters.
+  
+*xp, yp* = Principal point offset.
+  
+*B1, B2* = Unused parameters.
+
+The following equations describe the undistortion. Note that this
+model uses non-normalized pixel units, so they are in mm.
+
+.. math::
 
     x = x_{dist} - xp
 
@@ -137,21 +163,100 @@ documented.
 
     y_{undist} = y + y\frac{dr}{r} + P_{2}(r^{2} +2y^{2}) + 2P_{1}xy
 
+These formulas also start with distorted pixels and undistort them, just as
+the Brown-Conrady model. This is not preferred. Use instead the Tsai model.
 
-* **RPC** = A rational polynomial coefficient model.
+Fisheye
+~~~~~~~
 
-In this model, one goes from distorted coordinates :math:`(x, y)` to
-undistorted coordinates via the formula
+A four-parameter model for wide field-of-view lenses, with the `same
+implementation as OpenCV
+<https://docs.opencv.org/4.x/db/d58/group__calib3d__fisheye.html>`_ and
+``rig_calibrator`` (:numref:`rig_calibrator`).
+  
+The parameters are named ``k1, k2, k3, k4``. 
+  
+To apply the lens distortion with this model, the undistorted pixels are first
+shifted relative to the optical center, divided by the focal length, producing
+pixel (*x, y*), and then the following equations are applied:
+  
+  .. math::
+  
+    r = \sqrt{x^2 + y^2}
+    
+    \theta = \arctan(r)
+    
+    \theta_d = \theta (1 + k_1 \theta^2 + k_2 \theta^4 + k_3 \theta^6 + k_4 \theta^8)
+    
+    s = \frac{\theta_d}{r}
+    
+    x_{dist} = s \cdot x
+    
+    y_{dist} = s \cdot y
+  
+These values are then multiplied by the focal length, and the optical center is
+added back in.
+
+The undistortion operation goes in the opposite direction. It requires inverting
+a nonlinear function, which is done with Newton's method.
+
+Care is needed around the origin to avoid division of small numbers.
+
+FOV
+~~~
+
+A field-of-view model with a single parameter, for wide-angle lenses.
+
+This is in agreement with ``rig_calibrator`` (:numref:`rig_calibrator`).
+
+The implementation is as follows. Let ``k1`` by the distortion parameter. Given
+an undistorted pixel, shift it relative to the optical center, divide by the
+focal length, producing pixel (*x, y*). Then, the following equations are
+applied:
+
+  .. math::
+  
+    p_1 = 1 / k_1
+    
+    p_2 = 2 \tan(k_1 / 2)
+
+    r_u = \sqrt{x^2 + y^2}
+    
+    r_d = p_1 \arctan(r_u p_2)
+    
+    s = r_d / r_u
+
+    x_{dist} = s \cdot x
+    
+    y_{dist} = s \cdot y
+
+These values are then multiplied by the focal length, and the optical center is
+added back in.
+
+The undistortion operation goes in the opposite direction, and an explicit formula
+exists for that. 
+
+Care is needed around the origin to avoid division of small numbers.
+
+RPC
+~~~
+    
+A rational polynomial coefficient model.
+
+In this model, one goes from undistorted coordinates :math:`(x, y)` to distorted
+coordinates via the formula
 
 .. math::
 
-    x_{undist} = \frac{P_1(x, y)}{Q_1(x, y)}
+    x_{dist} = \frac{P_1(x, y)}{Q_1(x, y)}
 
-    y_{undist} = \frac{P_2(x, y)}{Q_2(x, y)}
+    y_{dist} = \frac{P_2(x, y)}{Q_2(x, y)}
 
 The functions in the numerator and denominator are polynomials in
 :math:`x` and :math:`y` with certain coefficients. The degree of
 polynomials can be any positive integer.
+
+The inputs and outputs are shifted relative to the optical center.
 
 RPC distortion models can be generated as approximations to other
 pre-existing models with the tool ``convert_pinhole_model``
@@ -160,8 +265,6 @@ pre-existing models with the tool ``convert_pinhole_model``
 This tool also creates RPC to speed up the reverse operation, of going
 from undistorted to distorted pixels, and those polynomial coefficients
 are also saved as part of the model.
-
---------------
 
 .. _file_format:
 
@@ -223,8 +326,10 @@ The first half of the file is the same for all Pinhole models:
 The second half of the file describes the lens distortion model
 being used. The name of the distortion model appears first, followed
 by a list of the parameters for that model. The number of parameters
-may be different for each distortion type. Samples of each format
-are shown below:
+may be different for each distortion type. 
+
+Partial samples of each format are shown below. *The part up to and including
+the line having the pitch is the same for all models and not shown in the examples.*
 
 * **Null**
   ::
@@ -239,6 +344,10 @@ are shown below:
       k2 = -2.05354e-07
       p1 = 0.5
       p2 = 0.4
+      k3 = 1e-3
+
+The ``k3`` parameter is optional in the Tsai model. It is stored last,
+as done in OpenCV.
 
 * **Adjustable Tsai**
   ::
@@ -275,6 +384,15 @@ are shown below:
       b1 = 0.0
       b2 = 0.0
 
+* **Fisheye**
+  ::
+
+      FISHEYE
+      k1 = -0.036031089735101024
+      k2 = 0.038013929764216248
+      k3 = -0.058893197165394658
+      k4 = 0.02915171342570104
+      
 * **RPC**
   ::
 
@@ -290,16 +408,18 @@ are shown below:
       undistortion_num_y = 0 0 1
       undistortion_den_y = 1 0 0
 
-  This sample RPC lens distortion model represents the case of no
-  distortion, when the degree of the polynomials is 1, and both the
-  distortion and undistortion formula leave the pixels unchanged, that
-  is, the distortion transform is
+This sample RPC lens distortion model represents the case of no distortion, when
+the degree of the polynomials is 1, and both the distortion and undistortion
+formula leave the pixels unchanged, that is, the distortion transform is
 
   .. math:: (x, y) \to (x, y) = \left(\frac{ 0 + 1\cdot x + 0\cdot y}{1 + 0\cdot x + 0\cdot y}, \frac{0 + 0\cdot x + 1\cdot y)}{1 + 0\cdot x + 0\cdot y}\right).
 
-  In general, if the degree of the polynomials is :math:`n`, there are
-  :math:`2(n+1)(n+2)` coefficients. The zero-th degree coefficients in
-  the denominator are always set to 1.
+In general, if the degree of the polynomials is :math:`n`, there are
+:math:`2(n+1)(n+2)` coefficients. The zero-th degree coefficients in
+the denominator are always set to 1.
+
+Notes
+~~~~~
 
 For several years Ames Stereo Pipeline generated Pinhole files in the
 binary ``.pinhole`` format. That format is no longer supported.

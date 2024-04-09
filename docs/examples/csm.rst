@@ -177,6 +177,8 @@ speed-vs-quality choices when running stereo.
    example. Likely using mapprojection (:numref:`mapproj-example`)
    may have reduced the number and size of the holes in the DEM.
 
+.. _csm_linescan:
+
 The USGS CSM linescan sensor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
