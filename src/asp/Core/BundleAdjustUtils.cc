@@ -240,8 +240,8 @@ void build_overlap_list_based_on_dem(std::string const& out_prefix,
 
 // Convert dir1/image1.cub or dir1/image1.xml to out-prefix-image1.adjust
 std::string bundle_adjust_file_name(std::string const& prefix,
-                                         std::string const& input_img,
-                                         std::string const& input_cam){
+                                    std::string const& input_img,
+                                    std::string const& input_cam) {
 
   // Create the adjusted camera file name from the original camera filename,
   // unless it is empty, and then use the image file name.
@@ -249,7 +249,18 @@ std::string bundle_adjust_file_name(std::string const& prefix,
   if (file == "")
     file = input_img;
 
-  return prefix + "-" + fs::path(file).stem().string() + ".adjust";
+  // Find the basename using boost
+  file = fs::path(file).filename().string();
+
+  // Find the last dot in the file name. If not found, set it to the length of
+  // the string.
+  size_t dot = file.rfind(".");
+  if (dot == std::string::npos)
+    dot = file.size();
+  // Find the substring until the dot
+  file = file.substr(0, dot);
+  
+  return prefix + "-" + file + ".adjust";
 }
 
 /// Ensure that the basename (without extension) of all images, camera files, or
@@ -264,11 +275,11 @@ void check_for_duplicates(std::vector<std::string> const& image_files,
   
   std::set<std::string> img_set, cam_set, adj_set;
   for (size_t i = 0; i < camera_files.size(); i++) {
-
     std::string img = vw::ip::strip_path("", image_files[i]);
     std::string cam = vw::ip::strip_path("", camera_files[i]);
-    std::string ba_name = asp::bundle_adjust_file_name(out_prefix, img, cam);
-    std::string adj = vw::ip::strip_path(out_prefix, ba_name);
+    std::string ba_name = asp::bundle_adjust_file_name(out_prefix, 
+                                                       image_files[i], camera_files[i]);
+    std::string adj_base = vw::ip::strip_path(out_prefix, ba_name);
 
     if (img_set.find(img) != img_set.end()) 
       vw_throw(vw::ArgumentErr() << "Found duplicate image: " << img << "\n");
@@ -276,12 +287,13 @@ void check_for_duplicates(std::vector<std::string> const& image_files,
     if (cam != "" && cam_set.find(cam) != cam_set.end()) 
       vw_throw(vw::ArgumentErr() << "Found duplicate camera: " << cam << "\n");
 
-    if (adj_set.find(adj) != adj_set.end()) 
-      vw_throw(vw::ArgumentErr() << "Found duplicate adjustment name: " << adj << "\n");
+    if (adj_set.find(adj_base) != adj_set.end()) 
+      vw_throw(vw::ArgumentErr() << "Found duplicate adjustment name: " << adj_base << "\n");
 
     img_set.insert(img);
-    if (cam != "") cam_set.insert(cam);
-    adj_set.insert(adj);
+    if (cam != "") 
+      cam_set.insert(cam); // camera file can be empty
+    adj_set.insert(adj_base);
     
   }
 }
