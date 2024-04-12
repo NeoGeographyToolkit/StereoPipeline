@@ -113,6 +113,7 @@ typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRNJ;
   void determine_image_pairs(// Inputs
                              int overlap_limit,
                              bool match_first_to_last,
+                             bool external_matches,
                              std::vector<std::string> const& image_files,
                              // if having optional preexisting camera positions
                              bool got_est_cam_positions,

@@ -62,6 +62,8 @@ jitter_solve (:numref:`jitter_solve`):
     where anchor points are placed.
   * The roll and yaw constraints no longer assume linescan camera positions and
     orientations are one-to-one.
+  * Order of images in each interest point match file need not be the same
+    as for input images.  
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added the ability to refine the camera intrinsics for several groups of
@@ -127,7 +129,9 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Bugfix: points for which initial triangulation failed are flagged as
     outliers right away. See ``--forced-triangulation-distance`` for
     fine-grained control.
-    
+  * Order of images in each previously created interest point match file need
+    not be the same as for input images.  
+  
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).
   * When a run finished successfully, combine the data from subdirectories and

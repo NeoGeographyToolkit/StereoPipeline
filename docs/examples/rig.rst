@@ -36,6 +36,10 @@ This tool will use the Theia flags file from ``share/theia_flags.txt``
 in the software distribution, which can be copied to a new name,
 edited, and passed to this program via ``--theia_fags``.
 
+For this example, it is suggested to edit that flags file and set 
+``--feature_density=DENSE``, as the default number of features found
+by Theia may be too low for the images in this dataset.
+
 The created cameras can be visualized as::
 
     view_reconstruction --reconstruction rig_theia/reconstruction-0

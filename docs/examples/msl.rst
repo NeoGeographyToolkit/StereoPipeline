@@ -169,15 +169,12 @@ and refine the intrinsics::
       --num_iterations 100                \
       --calibrator_num_passes 2           \
       --num_overlaps 5                    \
-      --robust_threshold 3                \
       --out_dir rig_out
 
-Here, ``--robust_threshold`` was increased from the default value of
-0.5 to focus more on larger errors. To optimize the distortion,
-one can adjust the rig configuration by setting initial distortion
-values and type::
+To optimize the distortion, one can adjust the rig configuration by setting
+initial distortion values and type::
 
-    distortion_coeffs: 1e-10 1e-10 1e-10 1e-10 1e-10
+    distortion_coeffs: 1e-8 1e-8 1e-8 1e-8 1e-8
     distortion_type: radtan
 
 and then defining the list of parameters to optimize as::
@@ -290,6 +287,7 @@ Here is an example invocation::
     --num-iterations 0                       \
     --inline-adjustments                     \
     --datum D_MARS                           \
+    --remove-outliers-params "75 3 50 50"    \
     --transform-cameras-with-shared-gcp      \
     gcp1.gcp gcp2.gcp gcp3.gcp               \
     -o ba/run
@@ -305,12 +303,16 @@ in bundle adjustment, while using the GCP. For such refinement it is important
 to have many interest point matches between the images. This will not respect
 the rig structure.
 
+We used high values in ``--remove-outliers-params`` to avoid removing valid
+features in the images if there is unmodeled distortion.
+
 See :numref:`ba_err_per_point` for a report file that measures reprojection errors,
-including for GCP.
+including for GCP. It is very important to examine those. They should be less
+than a few dozen pixels, and ideally less.
 
 With the cameras correctly registered and self-consistent, dense stereo point
-clouds and DEM can be created (:numref:`nextsteps`), that can be aligned to a prior
-dataset with ``pc_align`` (:numref:`pc_align`).
+clouds and DEMs can be created (:numref:`nextsteps`), that can be mosaicked
+(:numref:`dem_mosaic`) and aligned to a prior dataset (:numref:`pc_align`).
 
 GCP files can be created manually by point-and-click in ``stereo_gui``
 (:numref:`creatinggcp`) or automatically (:numref:`gcp_gen`), if a prior DEM

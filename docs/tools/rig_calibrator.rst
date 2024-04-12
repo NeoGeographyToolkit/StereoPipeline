@@ -187,7 +187,13 @@ Example (only one of the *N* sensors is shown)::
   depth_to_image_transform: 1 0 0 0 1 0 0 0 1 0 0 0
   ref_to_sensor_timestamp_offset: 0
 
-If there is more than one rig, the same logic is repeated.
+If there is more than one sensor on the rig, need to create a new value for
+``sensor_name``, and add a block as above for each sensor (without a new
+``ref_sensor_name``).
+
+If there is more than one rig, there should be a new line having 
+``ref_sensor_name``, and then continue as above.
+
 See a full example with two rigs in :numref:`sfm_iss_sample_rig_config`.
 
 The lens distortion model can be one of ``no_distortion`` (zero distortion
@@ -226,7 +232,9 @@ image corners).
 The undistorted image size also need not
 be known accurately. A tighter ``distorted_crop_size`` can help for
 images with strong distortion if the distortion model is not
-expressive enough to fit it precisely.
+expressive enough to fit it precisely. But this then also eliminates
+interest point matches in the corners of the image, which is not
+good when solving for lens distortion.
 
 A file in the same format will be written in the output directory,
 with the name::

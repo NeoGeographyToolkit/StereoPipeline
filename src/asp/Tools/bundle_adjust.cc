@@ -54,6 +54,8 @@ using namespace asp;
 using namespace vw::camera;
 using namespace vw::ba;
 
+// TODO(oalexan1): Must allow reading nvm files with shifted pixels.
+// Add option --no-poses-from-nvm.
 
 // A callback to invoke at each iteration if desiring to save the cameras
 // at that time.
@@ -1926,14 +1928,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("lon-lat-limit", po::value(&opt.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
      "Remove as outliers interest points (that are not GCP) for which the longitude and latitude of the triangulated position (after cameras are optimized) are outside of this range. Specify as: min_lon min_lat max_lon max_lat.")
     ("match-files-prefix",  po::value(&opt.match_files_prefix)->default_value(""),
-     "Use the match files from this prefix instead of the current output prefix. This implies --skip-matching.")
+     "Use the match files from this prefix instead of the current output prefix. This "
+     "implies --skip-matching. The order of images in each interest point match file "
+     "need not be the same as for input images.")
+    ("clean-match-files-prefix",  po::value(&opt.clean_match_files_prefix)->default_value(""),
+     "Use as input match files the *-clean.match files from this prefix. This implies "
+     "--skip-matching. The order of images in each interest point match file "
+     "need not be the same as for input images.")
     ("update-isis-cubes-with-csm-state", 
      po::bool_switch(&opt.update_isis_cubes_with_csm_state)->default_value(false)->implicit_value(true),
      "Save the model state of optimized CSM cameras as part of the .cub files. Any prior "
      "version and any SPICE data will be deleted. Mapprojected images obtained with prior "
      "version of the cameras must no longer be used in stereo.")
-    ("clean-match-files-prefix",  po::value(&opt.clean_match_files_prefix)->default_value(""),
-     "Use as input match files the *-clean.match files from this prefix. This implies --skip-matching.")
     ("enable-rough-homography",
      po::bool_switch(&opt.enable_rough_homography)->default_value(false)->implicit_value(true),
      "Enable the step of performing datum-based rough homography for interest point matching. This is best used with reasonably reliable input cameras and a wide footprint on the ground.")
@@ -1995,7 +2001,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("stop-after-matching",    po::bool_switch(&opt.stop_after_matching)->default_value(false)->implicit_value(true),
      "Quit after writing all match files.")
     ("force-reuse-match-files", po::bool_switch(&opt.force_reuse_match_files)->default_value(false)->implicit_value(true),
-     "Force reusing the match files even if older than the images or cameras.")
+     "Force reusing the match files even if older than the images or cameras. "
+     "Then the order of images in each interest point match file need not be the same "
+     "as for input images.")
     ("skip-matching",    po::bool_switch(&opt.skip_matching)->default_value(false)->implicit_value(true),
      "Only use image matches which can be loaded from disk. This implies --force-reuse-match-files.")
     ("save-intermediate-cameras", po::bool_switch(&opt.save_intermediate_cameras)->default_value(false)->implicit_value(true),
@@ -2989,16 +2997,24 @@ void findPairwiseMatches(Options & opt, // will change
   const bool got_est_cam_positions =
     (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
 
-  // Make a list of all the image pairs to find matches for
+  // When prior matches are used, accept them in any order
+  bool external_matches = (!opt.clean_match_files_prefix.empty() ||
+                           !opt.match_files_prefix.empty() ||
+                           opt.force_reuse_match_files ||
+                           opt.skip_matching);
+  
+  // Make a list of all the image pairs to find matches for. When using external
+  // matches, try to read read both image1__image2 and image2__image1 matches.
   std::vector<std::pair<int,int>> all_pairs;
   if (!need_no_matches)
     asp::determine_image_pairs(// Inputs
-                                opt.overlap_limit, opt.match_first_to_last,  
-                                opt.image_files, got_est_cam_positions, 
-                                opt.position_filter_dist, estimated_camera_gcc, 
-                                opt.have_overlap_list, opt.overlap_list,
-                                // Output
-                                all_pairs);
+                               opt.overlap_limit, opt.match_first_to_last,  
+                               external_matches,
+                               opt.image_files, got_est_cam_positions, 
+                               opt.position_filter_dist, estimated_camera_gcc, 
+                               opt.have_overlap_list, opt.overlap_list,
+                               // Output
+                               all_pairs);
 
   // Assign the matches which this instance should compute.
   // This is for when called from parallel_bundle_adjust.
@@ -3030,8 +3046,6 @@ void findPairwiseMatches(Options & opt, // will change
   // clean_match_files_prefix, form the list of match files, rather
   // than searching for them exhaustively on disk, which can get
   // very slow.
-  bool external_matches = (!opt.clean_match_files_prefix.empty() ||
-                            !opt.match_files_prefix.empty());
   std::set<std::string> existing_files;
   if (external_matches) {
     std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,

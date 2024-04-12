@@ -34,6 +34,7 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Camera/Covariance.h>
+#include <asp/Sessions/CameraUtils.h>
 
 #include <vw/Core/Stopwatch.h>
 
@@ -213,22 +214,29 @@ int main(int argc, char *argv[]) {
       = cam2_session->camera_model(opt.image_file, opt.cam2_file);
 
     vw::cartography::Datum datum;
-    if (opt.datum == "") {
+    if (opt.datum != "") {
+      // Use the datum specified by the user
+      datum.set_well_known_datum(opt.datum);
+    } else {
       // Auto-guess the datum, this is the default
-      bool use_sphere_for_non_earth = true;
-      datum = cam1_session->get_datum(cam1_model.get(), use_sphere_for_non_earth);
-
-      // Sanity check
-      vw::cartography::Datum datum2 = cam2_session->get_datum(cam2_model.get(), 
-                                                              use_sphere_for_non_earth);
+      std::vector<std::string> image_files, camera_files;
+      image_files.push_back(opt.image_file);
+      camera_files.push_back(opt.cam1_file);
+      bool found_datum = asp::datum_from_cameras(image_files, camera_files,  
+                                                 opt.session1, // may change
+                                                 datum); // output
+      
+      // Sanity check: both cameras should have the same datum
+      camera_files[0] = opt.cam2_file;
+      vw::cartography::Datum datum2;
+      found_datum = asp::datum_from_cameras(image_files, camera_files,  
+                                            opt.session2, // may change
+                                            datum2); // output
       if (datum.semi_major_axis() != datum2.semi_major_axis() ||
           datum.semi_minor_axis() != datum2.semi_minor_axis())
             vw::vw_out(vw::WarningMessage) << "The two cameras have different datums:\n" 
                                            << datum << "\n" << datum2 << "\n"
                                            << "Consider using the --datum option.\n";
-    } else {
-      // Use the datum specified by the user
-      datum.set_well_known_datum(opt.datum);
     }
     vw_out() << "Using datum: " << datum << std::endl;
 
@@ -283,7 +291,6 @@ int main(int argc, char *argv[]) {
       for (int row = 0; row < image_rows; row += opt.sample_rate) {
 
         Vector2 image_pix(col + opt.subpixel_offset, row + opt.subpixel_offset);
-
         if (single_pix)
           image_pix = opt.single_pixel;
 

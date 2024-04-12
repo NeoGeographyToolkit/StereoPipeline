@@ -49,14 +49,14 @@ but that is very slow. Do not use ``--subpixel-mode 1`` with
 ``asp_mgm``/``asp_sgm`` as that produces artifacts. See
 :numref:`subpixel` for more background on some subpixel modes.
 
-For steep terrains it is strongly suggested to mapproject the images
+For steep terrains *it is strongly suggested to mapproject the images*
 (:numref:`mapproj-example`).
 
-ASP also implements local alignment, when the input images are split
+ASP also implements *local alignment*, when the input images are split
 into tiles (with overlap) and locally aligned. This makes it possible
 to use third-party algorithms in addition to the ones ASP implements. 
 
-With ASP's own MGM algorithm this method can be run as::
+With ASP's own MGM algorithm, local alignment can be invoked as::
 
    parallel_stereo --alignment-method local_epipolar \
      --stereo-algorithm asp_mgm                      \
@@ -74,11 +74,11 @@ implementation can be called as::
      --corr-tile-size 512 --sgm-collar-size 256      \ 
      <other options>
 
-Above we used tiles of size 512 pixels with an extra padding of 256
-pixels on each side, for a total size of 1024 pixels, to avoid using
-too much memory. The defaults in ``parallel_stereo`` are double these
-values, which work well with ASP's MGM which is more conservative with
-its use of memory but can be too much for some other implementations.
+Above we used tiles of size 512 pixels with an extra padding of 256 pixels on
+each side, for a total size of 1024 pixels. Smaller tiles are easier to
+align, and also use less memory. The defaults in ``parallel_stereo`` are double
+these values, which work well with ASP's MGM which is more conservative with its
+use of memory but can be too much for some other implementations.
 
 It is suggested to not specify here ``--subpixel-mode``, in which case
 it will use each algorithm's own subpixel implementation. Using
@@ -396,19 +396,6 @@ The Copernicus 30 m DEM heights are relative to the EGM96 geoid.
 *Any such DEM must be converted using* ``dem_geoid`` *to WGS84 ellipsoid heights,
 for any processing to be accurate.* See (:numref:`conv_to_ellipsoid`).
 
-If your cameras have a lower resolution, such as SPOT 5, which may
-be on the order of 5-7 m/pixel, the resolution of the DEM above may be
-too high, and this may create ghosting artifacts if used for
-mapprojection. The initial DEM can be smoothed first, for example,
-with the command::
-
-   dem_mosaic --dem-blur-sigma 5 dem.tif -o dem_blur.tif
-
-The amount of blur may depend on the input DEM resolution, image
-ground sample distance, and how misregistered the initial DEM is
-relative to the images. One can experiment on a clip with values 2 and
-5 for sigma, for example.
-
 There exist pre-made terrain models for other planets as well, for
 example the Moon LRO LOLA global DEM and the Mars MGS MOLA
 DEM. Additionally, for Mars, consider downloading HRSC DEMs from:
@@ -426,14 +413,14 @@ additional 190 meter vertical offset (such as the dataset
 be taken care of with ``image_calc`` (:numref:`image_calc`).
 
 Alternatively, a low-resolution smooth DEM can be obtained by running ASP itself
-as described in previous sections. In such a run, subpixel mode may be set to
-parabola (``subpixel-mode 1``) for speed. To make it sufficiently coarse and
-smooth, the resolution can be set to about 40 times coarser than either the
-default ``point2dem`` (:numref:`point2dem`) resolution or the resolution of the
-input images. If the resulting DEM turns out to be noisy or have holes, one
-could change in ``point2dem`` the search radius factor, use hole-filling, invoke
-more aggressive outlier removal, and erode pixels at the boundary (those tend to
-be less reliable). Alternatively, holes can be filled with ``dem_mosaic``.
+(:numref:`isis_map_proj`). In such a run, subpixel mode may be set to parabola
+(``subpixel-mode 1``) for speed. To make it sufficiently coarse and smooth, the
+resolution can be set to about 40 times coarser than either the default
+``point2dem`` (:numref:`point2dem`) resolution or the resolution of the input
+images. If the resulting DEM turns out to be noisy or have holes, one could
+change in ``point2dem`` the search radius factor, use hole-filling, invoke more
+aggressive outlier removal, and erode pixels at the boundary (those tend to be
+less reliable). Alternatively, holes can be filled with ``dem_mosaic``.
 
 .. _conv_to_ellipsoid:
 
@@ -459,6 +446,21 @@ with the command::
        dem.tif -o dem
 
 This will create ``dem-adj.tif``.
+
+Smoothing the input DEM
+^^^^^^^^^^^^^^^^^^^^^^^
+
+If the input DEM has too much detail, and those features do not agree with the images
+mapprojected on it, this can result in artifacts in the final DEM.
+
+It is suggested to blur the input DEM before using it, for example,
+with the command::
+
+   dem_mosaic --dem-blur-sigma 5 dem.tif -o dem_blur.tif
+
+The amount of blur may depend on the input DEM resolution, image ground sample
+distance, and how misregistered the initial DEM is relative to the images. One
+can experiment on a clip with values of 5 and 10 for sigma, for example.
 
 .. _mapproj-res:
 
@@ -486,6 +488,8 @@ or otherwise something in the middle.
 Using a ground sample distance which is too different than what is
 appropriate can result in aliasing in mapprojected images and
 artifacts in stereo.
+
+.. _isis_map_proj:
 
 Example for ISIS images
 ^^^^^^^^^^^^^^^^^^^^^^^

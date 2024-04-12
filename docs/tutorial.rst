@@ -536,7 +536,10 @@ recommend using the panchromatic images whenever possible.
 Implementation details
 ----------------------
 
-WorldView linescan cameras use the CSM model (:numref:`csm`).
+WorldView linescan cameras use the CSM model (:numref:`csm`) internally. The
+session name must still be ``-t dg``, ``-t dgmaprpc``, etc., rather than ``-t
+csm``, ``-t csmmapcsm``, etc.
+
 Bundle adjustment (:numref:`bundle_adjust`) and solving for jitter
 (:numref:`jitter_solve`) produce optimized camera models in CSM's model state
 format (:numref:`csm_state`). These can be used just as the original

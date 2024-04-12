@@ -1457,6 +1457,9 @@ it can be done offline, using the flag ``--compute-exposures-only`` in
 this tool. Then the computed exposures can be passed to the command
 above via the ``--image-exposures-prefix`` option.
 
+The option ``--allow-borderline-data`` improves the level of detail
+close to permanently shadowed areas. See :numref:`sfs_borderline`.
+
 It was found empirically that a shadow threshold of 0.005 was good
 enough.  It is also possible to specify individual shadow thresholds
 if desired, via ``--custom-shadow-threshold-list``. This may be useful
@@ -1464,16 +1467,13 @@ for images having diffuse shadows cast from elevated areas that are
 far-off. For those, the threshold may need to be raised to as much as
 0.01.
 
+Use a larger ``--blending-dist`` if the produced terrain has visible artifacts
+around shadow regions which do not go away after increasing the shadow
+thresholds. To get more seamless results around small shadowed craters reduce
+the value of ``--min-blend-size``. 
+
 The option ``--use-approx-camera-models`` is not necessary with CSM
 cameras.
-
-The option ``--allow-borderline-data`` improves the level of detail
-close to permanently shadowed areas. See :numref:`sfs_borderline`.
-
-To get more seamless results around small shadowed craters reduce the
-value of ``--min-blend-size``. If you have many such
-craters very close to each other, this may result in some erosion,
-however. Also consider experimenting with ``--blending-dist``.
 
 One should experiment with floating the albedo (option
 ``--float-albedo``) if noticeable albedo variations are seen in the
@@ -1616,6 +1616,9 @@ specified via ``--custom-shadow-threshold-list``. Sometimes this improves the
 solution in some locations while introducing artifacts in other. One can also
 try invoking ``sfs`` with ``--robust-threshold`` (try values of 0.1 and 0.005,
 perhaps).
+
+Use a larger ``--blending-dist`` if the produced terrain has a visible
+artifact which does not go away after increasing shadow thresholds.
 
 If the SfS DEM has localized defects, those can be fixed in a small region and
 then blended in. For example, a clip around the defect, perhaps of dimensions

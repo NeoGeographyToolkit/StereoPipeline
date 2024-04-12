@@ -109,9 +109,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Limit the number of subsequent images to search for matches to the current image "
      "to this value. By default match all images.")
     ("match-files-prefix",  po::value(&opt.match_files_prefix)->default_value(""),
-     "Use the match files from this prefix instead of the current output prefix.")
+     "Use the match files from this prefix. The order of images in each interest point "
+     "match file need not be the same as for input images.")
     ("clean-match-files-prefix",  po::value(&opt.clean_match_files_prefix)->default_value(""),
-     "Use as input match files the *-clean.match files from this prefix.")
+     "Use as input match files the *-clean.match files from this prefix. The order of "
+     "images in each interest point match file need not be the same as for input images.")
     ("isis-cnet", po::value(&opt.isis_cnet)->default_value(""),
      "Read a control network having interest point matches from this binary file "
      "in the ISIS jigsaw format. This can be used with any images and cameras "
@@ -1576,6 +1578,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   // Make a list of all the image pairs to find matches for. Some quantities
   // below are not needed but are part of the API.
+  bool external_matches = true;
   bool got_est_cam_positions = false;
   double position_filter_dist = -1.0;
   std::vector<vw::Vector3> estimated_camera_gcc;
@@ -1584,6 +1587,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::vector<std::pair<int,int>> all_pairs;
   asp::determine_image_pairs(// Inputs
                              opt.overlap_limit, opt.match_first_to_last,  
+                             external_matches,
                              opt.image_files, 
                              got_est_cam_positions, position_filter_dist,
                              estimated_camera_gcc, have_overlap_list, overlap_list,
@@ -1608,7 +1612,7 @@ void run_jitter_solve(int argc, char* argv[]) {
     std::string const& camera1_path = opt.camera_files[i]; // alias
     std::string const& camera2_path = opt.camera_files[j]; // alias
 
-      // Load match files from a different source
+    // Load match files from a different source
     std::string match_file 
       = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
                             opt.out_prefix, image1_path, image2_path);

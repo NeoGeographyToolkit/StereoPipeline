@@ -16,7 +16,7 @@ Pinhole models
 --------------
 
 Overview
---------
+~~~~~~~~
 
 The generic Pinhole model uses the following parameters:
 
@@ -63,16 +63,19 @@ model creator chooses pixel units, or if measuring in millimeters or
 meters. In either case, all lengths must be consistent and the units
 documented by the model creator.
 
+Lens distortion models
+~~~~~~~~~~~~~~~~~~~~~~
+
 Here are the lens distortion models supported by ASP. Samples for each
 model are shown in :numref:`file_format`.
 
 Null
-~~~~
+^^^^
 
 A placeholder model that applies no distortion.
 
 Tsai
-~~~~
+^^^^
 
 A common distortion model :cite:`tsai1987`. In the most recent builds (after ASP
 3.3.0) this was made to agree precisely with the `OpenCV radial-tangential lens
@@ -90,13 +93,13 @@ This is the preferred model, unless the lens has a wide field of view, when
 the Fisheye model should be used (described further below).
 
 Adjustable Tsai
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
   
 A variant of the Tsai model where any number of *K* terms and a skew term
 (alpha) can be used. Can apply the AgiSoft Lens calibration parameters.
 
 Brown-Conrady
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 An older model based on a centering angle :cite:`brown1966,brown1971`.
 
@@ -133,7 +136,7 @@ which makes bundle adjustment and mapprojection very slow. Use instead
 the Tsai model. 
 
 Photometrix
-~~~~~~~~~~~
+^^^^^^^^^^^
 
 A model matching the conventions used by the Australis
 software from Photometrix.
@@ -167,7 +170,7 @@ These formulas also start with distorted pixels and undistort them, just as
 the Brown-Conrady model. This is not preferred. Use instead the Tsai model.
 
 Fisheye
-~~~~~~~
+^^^^^^^
 
 A four-parameter model for wide field-of-view lenses, with the `same
 implementation as OpenCV
@@ -203,7 +206,7 @@ a nonlinear function, which is done with Newton's method.
 Care is needed around the origin to avoid division of small numbers.
 
 FOV
-~~~
+^^^
 
 A field-of-view model with a single parameter, for wide-angle lenses.
 
@@ -239,7 +242,7 @@ exists for that.
 Care is needed around the origin to avoid division of small numbers.
 
 RPC
-~~~
+^^^
     
 A rational polynomial coefficient model.
 

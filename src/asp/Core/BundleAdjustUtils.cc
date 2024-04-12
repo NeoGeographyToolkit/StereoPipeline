@@ -298,23 +298,25 @@ void check_for_duplicates(std::vector<std::string> const& image_files,
   }
 }
 
-// Make a list of all of the image pairs to find matches for
+// Make a list of all of the image pairs to find matches for. When prior matches
+// are used, they can be in any order.
 void determine_image_pairs(// Inputs
-                                int overlap_limit,
-                                bool match_first_to_last,
-                                std::vector<std::string> const& image_files,
-                                // if having optional preexisting camera positions
-                                bool got_est_cam_positions,
-                                // Optional filter distance, set to -1 if not used
-                                double position_filter_dist,
-                                // Estimated camera positions, set to empty if missing
-                                std::vector<vw::Vector3> const& estimated_camera_gcc,
-                                // Optional preexisting list
-                                bool have_overlap_list,
-                                std::set<std::pair<std::string, std::string>> const&
-                                overlap_list,
-                                // Output
-                                std::vector<std::pair<int,int>> & all_pairs) {
+                           int overlap_limit,
+                           bool match_first_to_last,
+                           bool external_matches,
+                           std::vector<std::string> const& image_files,
+                           // if having optional preexisting camera positions
+                           bool got_est_cam_positions,
+                           // Optional filter distance, set to -1 if not used
+                           double position_filter_dist,
+                           // Estimated camera positions, set to empty if missing
+                           std::vector<vw::Vector3> const& estimated_camera_gcc,
+                           // Optional preexisting list
+                           bool have_overlap_list,
+                           std::set<std::pair<std::string, std::string>> const&
+                           overlap_list,
+                           // Output
+                           std::vector<std::pair<int,int>> & all_pairs) {
 
   // Wipe the output
   all_pairs.clear();
@@ -372,6 +374,13 @@ void determine_image_pairs(// Inputs
     }
   }
 
+  if (external_matches) {
+    // Accept matches in reverse order
+    auto local_set_in = local_set;
+    for (auto it = local_set_in.begin(); it != local_set_in.end(); it++)
+      local_set.insert(std::make_pair(it->second, it->first));
+  }
+  
   // The pairs without repetition
   for (auto it = local_set.begin(); it != local_set.end(); it++)
     all_pairs.push_back(*it);

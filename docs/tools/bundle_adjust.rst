@@ -1242,20 +1242,23 @@ Command-line options
     those two cameras.
 
 --force-reuse-match-files
-    Force reusing the match files even if older than the images or
-    cameras.
+    Force reusing the match files even if older than the images or cameras. Then
+    the order of images in each interest point match file need not be the same
+    as for input images.  
 
 --skip-matching
     Only use image matches which can be loaded from disk. This implies
-    ``--force-reuse-match-files``.
+    ``--force-reuse-match-files``. 
 
 --match-files-prefix <string (default: "")>
-    Use the match files from this prefix instead of the current
-    output prefix. This implies ``--skip-matching``.
+    Use the match files from this prefix instead of the current output prefix.
+    This implies ``--skip-matching``. The order of images in each interest
+    point match file need not be the same as for input images.  
 
 --clean-match-files-prefix <string (default: "")>
     Use as input match files the \*-clean.match files from this prefix.
-    This implies ``--skip-matching``.
+    This implies ``--skip-matching``. The order of images in each interest
+    point match file need not be the same as for input images.
 
 --enable-rough-homography
     Enable the step of performing datum-based rough homography for

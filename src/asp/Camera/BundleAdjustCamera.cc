@@ -1637,7 +1637,8 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
         for (auto m2 = cnet[ipt].begin(); m2 != cnet[ipt].end(); m2++) {
           int left_index = m1->image_id();
           int right_index = m2->image_id();
-          if (left_index >= right_index) 
+          // Can have left_index > right_index
+          if (left_index == right_index) 
             continue;
           match_map[std::make_pair(left_index, right_index)].insert
             (Quadruplet(m1->position()[0], m1->position()[1],
@@ -1655,6 +1656,10 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     for (auto const& match_pair: match_map) {
       int left_index  = match_pair.first.first;
       int right_index = match_pair.first.second;
+      // When creating match files from scratch, let the first index
+      // be less than the second.
+      if (left_index > right_index) 
+        continue;
       std::string match_file 
         = vw::ip::match_filename(opt.out_prefix,
                                  opt.image_files[left_index],
@@ -1670,10 +1675,10 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     std::string         match_file = match_it.second;
     size_t left_index  = cam_pair.first;
     size_t right_index = cam_pair.second;
-    if (left_index >= right_index) 
-      vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Left image index "
-                   << "must be less than right image index.\n");
-    
+    if (left_index == right_index) 
+      vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Cannot have interest point "
+                   << "matches between an image and itself.\n");
+                   
     std::vector<ip::InterestPoint> orig_left_ip, orig_right_ip;
     if (opt.isis_cnet != "") {
       // Must create the matches from the cnet.

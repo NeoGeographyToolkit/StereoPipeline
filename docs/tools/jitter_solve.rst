@@ -1787,13 +1787,15 @@ Command-line options for jitter_solve
     this value, and adjust instead ``--heights-from-dem-uncertainty``.
 
 --match-files-prefix <string (default: "")>
-    Use the match files from this prefix. Matches are typically dense
-    ones produced by stereo or sparse ones produced by bundle
-    adjustment. See also ``--isis-cnet``.
+    Use the match files from this prefix. Matches are typically dense ones
+    produced by stereo or sparse ones produced by bundle adjustment. The order
+    of images in each interest point match file need not be the same as for
+    input images. See also ``--isis-cnet``.
 
 --clean-match-files-prefix <string (default: "")>
-    Use as input match files the \*-clean.match files from this
-    prefix.
+    Use as input match files the \*-clean.match files from this prefix. The
+    order of images in each interest point match file need not be the same as
+    for input images.  
 
 --isis-cnet <string (default: "")>
     Read a control network having interest point matches from this binary file
