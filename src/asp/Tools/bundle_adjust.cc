@@ -56,8 +56,6 @@ using namespace asp;
 using namespace vw::camera;
 using namespace vw::ba;
 
-// TODO(oalexan1): Add option --no-poses-from-nvm.
-
 // A callback to invoke at each iteration if desiring to save the cameras
 // at that time.
 class BaCallback: public ceres::IterationCallback {
@@ -1349,6 +1347,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       // Assume the features are stored shifted relative to optical center
       bool nvm_no_shift = false;
       asp::readNvmAsCnet(opt.nvm, nvm_no_shift, cnet, world_to_cam, optical_offsets);
+      // For pinhole cameras also read the poses from nvm unless told not to
+      if (!opt.no_poses_from_nvm)
+        asp::updateCameraPoses(opt.stereo_session, world_to_cam, opt.camera_models);
     } else {
       // Read matches into a control network
       bool triangulate_control_points = true;
@@ -1700,7 +1701,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Do not try to initialize the positions of pinhole cameras based on input GCPs. This "
      "ignored as is now the default. See also: --init-camera-using-gcp.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
-     "Prefix to read initial adjustments from, written by a previous invocation of this program.")
+     "Prefix to read initial adjustments from, written by a previous invocation of "
+     "this program.")
     ("initial-transform",  po::value(&opt.initial_transform_file)->default_value(""),
      "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform "
      "from this file. The transform is in respect to the planet center, such as written by "
@@ -1869,6 +1871,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "Options: 'match-files' (match files in ASP's format), 'isis-cnet' (ISIS "
       "jigsaw format), 'nvm' (plain text VisualSfM nvm format). If not set, the same "
       "format as the input is used.")
+    ("no-poses-from-nvm", 
+      po::bool_switch(&opt.no_poses_from_nvm)->default_value(false)->implicit_value(true),
+     "Do not read the camera poses from the NVM file. Applicable only with the option "
+     "--nvm and Pinhole camera models.")
     ("overlap-exponent",  po::value(&opt.overlap_exponent)->default_value(0.0),
      "If a feature is seen in n >= 2 images, give it a weight proportional with "
      "(n-1)^exponent.")

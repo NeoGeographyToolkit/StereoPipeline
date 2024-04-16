@@ -113,6 +113,7 @@ void calcCameraPoses(std::vector<vw::CamPtr>      const& cams,
       world_to_cam[i] = Eigen::Affine3d::Identity();
       continue;
     }
+    
     // Apply the adjustment to the pinhole camera    
     vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
     // Make a copy of the pinhole camera
@@ -153,6 +154,71 @@ void saveNvm(asp::BaBaseOptions                const& opt,
   asp::cnetToNvm(cnet, optical_offsets, world_to_cam, nvm, tri_vec, outliers);
   asp::writeNvm(nvm, nvm_file);
 }
+
+// Given pinhole cameras and camera-to-world transforms, update the camera poses
+// in the pinhole cameras.
+void updateCameraPoses(std::string                  const& session, 
+                       std::vector<Eigen::Affine3d> const& world_to_cam,
+                       std::vector<vw::CamPtr>           & cams) {
+
+  // Can do only for pinhole and nadirpinhole sessions
+  if (session != "pinhole" && session != "nadirpinhole") {
+    vw::vw_out() << "Ignoring the camera poses in the NVM file for non-pinhole cameras.\n";
+    return;
+  }
+  
+  // Must have as many cameras as transforms
+  if (cams.size() != world_to_cam.size())
+    vw::vw_throw(vw::ArgumentErr() << "Expecting as many cameras as transforms.\n");
+    
+  // Iterate over the cameras
+  for (size_t i = 0; i < cams.size(); i++) {
+    
+    // Find the camera-to-world transform as a 4x4 matrix. Must invert the world-to-camera.
+    Eigen::Matrix4d E = world_to_cam[i].matrix().inverse();
+    
+    // Find the rotation as the upper-left 3x3 matrix as Matrix3x3
+    vw::Matrix3x3 R;
+    for (int r = 0; r < 3; r++)
+      for (int c = 0; c < 3; c++)
+        R(r, c) = E(r, c);
+    
+    // Find the translation as the right-most column as Vector3
+    vw::Vector3 T;
+    for (int r = 0; r < 3; r++)
+      T(r) = E(r, 3);
+      
+    vw::camera::PinholeModel * pin
+       = dynamic_cast<vw::camera::PinholeModel*>(cams[i].get());
+    if (pin != NULL) {
+      pin->set_camera_pose(R);
+      pin->set_camera_center(T);
+      continue;
+    }
+    
+    // Try adjusted pinhole camera
+    vw::camera::AdjustedCameraModel * adj_cam = 
+      dynamic_cast<vw::camera::AdjustedCameraModel*>(cams[i].get());
+      
+    // If null, we are doing something wrong
+    if (adj_cam == NULL) 
+      vw::vw_throw(vw::ArgumentErr() << "Expecting a pinhole camera.\n");
+      
+    // We expect the adjustment to be the identity, as this function is called
+    // before any adjustment is applied.
+    vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
+    if (ecef_transform != vw::math::identity_matrix(4))
+      vw::vw_throw(vw::ArgumentErr() << "Expecting the adjustment to be the identity.\n");
+      
+    // Get the unadjusted pinhole camera
+    pin = dynamic_cast<vw::camera::PinholeModel*>(adj_cam->unadjusted_model().get());
+    if (pin == NULL)
+      vw::vw_throw(vw::ArgumentErr() << "Expecting a pinhole camera.\n");
+     
+    pin->set_camera_pose(R);
+    pin->set_camera_center(T);
+  }
+}  
 
 } // end namespace asp
 

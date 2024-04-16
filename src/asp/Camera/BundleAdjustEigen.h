@@ -60,6 +60,12 @@ void saveNvm(asp::BaBaseOptions                     const& opt,
                   std::vector<Eigen::Affine3d>           & world_to_cam,
                   std::map<std::string, Eigen::Vector2d> & optical_offsets);
 
+// Given pinhole cameras and camera-to-world transforms, update the camera poses
+// in the pinhole cameras.
+void updateCameraPoses(std::string                  const& session, 
+                       std::vector<Eigen::Affine3d> const& world_to_cam,
+                       std::vector<vw::CamPtr>           & cams);
+  
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_EIGEN_H__
