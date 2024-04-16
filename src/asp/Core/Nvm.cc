@@ -85,7 +85,7 @@ std::string offsetsFilename(std::string const& nvm_filename) {
 // If a filename having extension _offset.txt instead of .nvm exists, read
 // from it the optical center offsets and apply them. So, the interest points
 // that are read in have the offset applied.
-void ReadNVM(std::string const& input_filename,
+void readNvm(std::string const& input_filename,
              bool nvm_no_shift,
              std::vector<Eigen::Matrix2Xd>          & cid_to_keypoint_map,
              std::vector<std::string>               & cid_to_filename,
@@ -219,7 +219,7 @@ void ReadNVM(std::string const& input_filename,
 // Those are ignored, and only camera poses, matches, and keypoints are used.
 // It is assumed that the interest points are shifted relative to the optical center.
 // Write the optical center separately.
-void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
+void writeNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
               std::vector<std::string> const& cid_to_filename,
               std::vector<double> const& focal_lengths,
               std::vector<std::map<int, int>> const& pid_to_cid_fid,
@@ -307,10 +307,10 @@ void WriteNVM(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
 }
 
 // A wrapper to carry fewer things around
-void ReadNVM(std::string const& input_filename, 
+void readNvm(std::string const& input_filename, 
              bool nvm_no_shift,
              nvmData & nvm) {
-  ReadNVM(input_filename,
+  readNvm(input_filename,
           nvm_no_shift,
           nvm.cid_to_keypoint_map,
           nvm.cid_to_filename,
@@ -322,8 +322,8 @@ void ReadNVM(std::string const& input_filename,
 }
 
 // A wrapper for writing an nvm file
-void WriteNVM(nvmData const& nvm, std::string const& output_filename) {
-  WriteNVM(nvm.cid_to_keypoint_map,
+void writeNvm(nvmData const& nvm, std::string const& output_filename) {
+  writeNvm(nvm.cid_to_keypoint_map,
           nvm.cid_to_filename,
           nvm.focal_lengths,
           nvm.pid_to_cid_fid,
@@ -370,14 +370,29 @@ void nvmToCnet(nvmData const& nvm,
   world_to_cam = nvm.world_to_cam;
 }
 
-// Create an nvm from a cnet. There is no shift in the interest points.
-// That is applied only on loading and saving.
+// Create an nvm from a cnet. There is no shift in the interest points. That is
+// applied only on loading and saving. Optionally, updated triangulated points
+// and outlier flags can be passed in.
 void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
                std::map<std::string, Eigen::Vector2d> const& offsets,
                std::vector<Eigen::Affine3d>           const& world_to_cam,
                // Output
-               nvmData & nvm) {
-
+               nvmData & nvm,
+               // Optional updated triangulated points and outlier flags
+               std::vector<Eigen::Vector3d> const& tri_vec,
+               std::set<int> const& outliers) {
+               
+  // Sanity check
+  if (offsets.size() != world_to_cam.size())
+    vw::vw_throw(vw::ArgumentErr() << "cnetToNvm: Mismatch in offsets and world_to_cam.\n");
+  if (cnet.get_image_list().size() != world_to_cam.size())
+    vw::vw_throw(vw::ArgumentErr() << "cnetToNvm: Mismatch in cnet and world_to_cam.\n");  
+  
+  // If tri_vec is not empty, must have the same size as the cnet
+  int num_points = cnet.size();
+  if (!tri_vec.empty() && (int)tri_vec.size() != num_points)
+    vw::vw_throw(vw::ArgumentErr() << "cnetToNvm: Mismatch in tri_vec and cnet.\n");
+    
   // Wipe the output 
   nvm = nvmData();
 
@@ -386,12 +401,30 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
   nvm.world_to_cam = world_to_cam;
   nvm.optical_centers = offsets;
 
+  // Allocate storage only for the inliers 
+  int num_inliers = num_points - outliers.size();
+  nvm.pid_to_xyz.resize(num_inliers);
+  nvm.pid_to_cid_fid.resize(num_inliers);
+  
   // Copy the triangulated points
-  int num_points = cnet.size();
-  nvm.pid_to_xyz.resize(num_points);
+  int inlier_count = 0;
   for (int pid = 0; pid < num_points; pid++) {
-    vw::Vector3 P = cnet[pid].position();
-    nvm.pid_to_xyz[pid] = Eigen::Vector3d(P[0], P[1], P[2]);
+    
+    // Skip outliers
+    if (outliers.find(pid) != outliers.end())
+      continue;
+      
+    if (tri_vec.empty()) {
+      vw::Vector3 P = cnet[pid].position();
+      nvm.pid_to_xyz[inlier_count] = Eigen::Vector3d(P[0], P[1], P[2]);
+    } else {
+      nvm.pid_to_xyz[inlier_count] = tri_vec[pid];
+    }
+    inlier_count++;
+    
+    // Sanity check
+    if (inlier_count > num_points)
+      vw::vw_throw(vw::ArgumentErr() << "cnetToNvm: Book-keeping failure inlier count.\n");
   }
 
   // Iterate through the control points and get the feature matches
@@ -400,8 +433,12 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
   int num_images = nvm.cid_to_filename.size();
   typedef std::pair<double, double> Pair; // 2D point with comparison operator
   std::vector<std::map<Pair, int>> keypoint_map(num_images);
-  nvm.pid_to_cid_fid.resize(num_points);
   for (int pid = 0; pid < num_points; pid++) {
+    
+    // Skip outliers
+    if (outliers.find(pid) != outliers.end())
+      continue;
+      
     vw::ba::ControlPoint const& cp = cnet[pid];
     // Iterate through the measures
     for (int m = 0; m < cp.size(); m++) {
@@ -412,10 +449,8 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
       // Add to the keypoint map
       Pair key = std::make_pair(pix[0], pix[1]);
       // If the key is not in the map, add it with an id that is the current size of the map
-      if (keypoint_map[cid].find(key) == keypoint_map[cid].end()) {
-        int count = keypoint_map[cid].size();
-        keypoint_map[cid][key] = count;
-      }
+      if (keypoint_map[cid].find(key) == keypoint_map[cid].end())
+        keypoint_map[cid][key] = keypoint_map[cid].size();
     }
   }
 
@@ -423,9 +458,15 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
   nvm.cid_to_keypoint_map.resize(nvm.cid_to_filename.size());
   for (int cid = 0; cid < num_images; cid++)
     nvm.cid_to_keypoint_map[cid].resize(2, keypoint_map[cid].size());
-    
+  
+  inlier_count = 0;   
   for (int pid = 0; pid < num_points; pid++) {
     vw::ba::ControlPoint const& cp = cnet[pid];
+    
+    // Skip outliers
+    if (outliers.find(pid) != outliers.end())
+      continue;
+
     // Iterate through the measures
     for (int m = 0; m < cp.size(); m++) {
       vw::ba::ControlMeasure const& cm = cp[m];
@@ -437,9 +478,10 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
       if (it == keypoint_map[cid].end())
          vw::vw_throw(vw::ArgumentErr() << "cnetToNvm: Unexpected key not found.\n");
       int fid = it->second;  
-      nvm.pid_to_cid_fid[pid][cid] = fid;
+      nvm.pid_to_cid_fid[inlier_count][cid] = fid;
       nvm.cid_to_keypoint_map[cid].col(fid) = Eigen::Vector2d(pix[0], pix[1]);
     }
+    inlier_count++;
   }  
 
   return;
@@ -450,17 +492,32 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
 // relative to the optical center, so can be read as is.
 void readNvmAsCnet(std::string const& input_filename, 
                    bool nvm_no_shift,
-                   vw::ba::ControlNetwork & cnet) {
+                   vw::ba::ControlNetwork & cnet,
+                   std::vector<Eigen::Affine3d> & world_to_cam,
+                   std::map<std::string, Eigen::Vector2d> & optical_offsets) {
 
   // Read the NVM file
   nvmData nvm;
-  ReadNVM(input_filename, nvm_no_shift, nvm);
+  asp::readNvm(input_filename, nvm_no_shift, nvm);
 
   // Convert to a control network
-  std::map<std::string, Eigen::Vector2d> offsets;
-  std::vector<Eigen::Affine3d>           world_to_cam;
+  asp::nvmToCnet(nvm, cnet, optical_offsets, world_to_cam);
+}
 
-  nvmToCnet(nvm, cnet, offsets, world_to_cam);
+// Write a cnet to an NVM file. On writing, the feature matches from the cnet will be
+// shifted relative to the optical center. The optical center offsets are saved
+// to a separate file.
+void writeCnetAsNvm(vw::ba::ControlNetwork const& cnet,
+                    std::map<std::string, Eigen::Vector2d> const& optical_offsets,
+                    std::vector<Eigen::Affine3d> const& world_to_cam,
+                    std::string const& output_filename) {
+
+  // Convert to an nvm
+  nvmData nvm;
+  asp::cnetToNvm(cnet, optical_offsets, world_to_cam, nvm);
+
+  // Write the nvm
+  asp::writeNvm(nvm, output_filename);
 }
 
 } // end namespace asp

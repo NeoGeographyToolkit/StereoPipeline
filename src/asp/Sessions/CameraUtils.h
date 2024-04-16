@@ -39,6 +39,9 @@ namespace vw {
 
 namespace asp {
 
+class StereoSession;
+typedef boost::shared_ptr<StereoSession> SessionPtr;
+
 // Load cameras from given image and camera files
 void load_cameras(std::vector<std::string> const& image_files,
                   std::vector<std::string> const& camera_files,
@@ -51,9 +54,10 @@ void load_cameras(std::vector<std::string> const& image_files,
                   std::vector<boost::shared_ptr<vw::camera::CameraModel>> & camera_models);
   
 // Find the datum based on cameras. Return true on success.
-bool datum_from_cameras(std::vector<std::string> const& image_files,
-                        std::vector<std::string> const& camera_files,
+bool datum_from_camera(std::string const& image_file, 
+                        std::string const& camera_file,
                         std::string & stereo_session, // may change
+                        asp::SessionPtr & session, // may be null on input
                         // Outputs
                         vw::cartography::Datum & datum);
 

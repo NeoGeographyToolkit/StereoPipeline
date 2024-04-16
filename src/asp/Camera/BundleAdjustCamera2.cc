@@ -795,13 +795,31 @@ void coarse_grained_parse(int num_sensors,
   return;
 }
 
-void print_intr_vec(std::vector<bool> const& intrinsics, std::string const& name) {
-  vw_out() << name << ": ";
-  for (size_t it = 0; it < intrinsics.size(); it++)
-    vw_out() << intrinsics[it] << " ";
-  vw_out() << std::endl;
+void print_float(bool do_float) {
+  if (do_float) 
+    vw_out() << "floated\n";
+  else
+    vw_out() << "fixed\n";
 }
-                         
+
+void print_float_vec(std::vector<bool> const& intrinsics, std::string const& name) {
+  vw_out() << name << ": ";
+  for (size_t it = 0; it < intrinsics.size(); it++) {
+    if (intrinsics[it])
+      vw_out() << "floated ";
+    else
+      vw_out() << "fixed ";
+  }
+  vw_out() << "\n";
+}
+
+void print_shared(bool shared) {
+  if (shared) 
+    vw_out() << "shared\n";
+  else
+    vw_out() << "not shared\n";
+}
+         
 /// For each option, the string must include a subset of the entries:
 ///  "focal_length, optical_center, distortion_params"
 /// - Need the extra boolean to handle the case where --intrinsics-to-share
@@ -812,10 +830,10 @@ void load_intrinsics_options(bool        solve_intrinsics,
                              std::string intrinsics_to_share_str, // make a copy
                              asp::IntrinsicOptions & intrinsics_options) {
 
-  // Share everything unless told otherwise
-  intrinsics_options.focus_shared        = true;
-  intrinsics_options.center_shared       = true;
-  intrinsics_options.distortion_shared   = true;
+  // Share everything unless told otherwise or not solving for intrinsics
+  intrinsics_options.focus_shared        = solve_intrinsics;
+  intrinsics_options.center_shared       = solve_intrinsics;
+  intrinsics_options.distortion_shared   = solve_intrinsics;
 
   // We need these to be initialized even when not solving for intrinsics, as
   // the intrinsics are always added to the cost function when
@@ -825,10 +843,11 @@ void load_intrinsics_options(bool        solve_intrinsics,
   intrinsics_options.float_focus.resize(1, false);
   intrinsics_options.float_distortion.resize(1, false);
   
-  if (((intrinsics_to_float_str != "") || (intrinsics_to_share_str != "")) 
+  if (((intrinsics_to_float_str != "" && intrinsics_to_float_str != "none") ||
+      (intrinsics_to_share_str != "" && intrinsics_to_share_str != "none"))
       && !solve_intrinsics) {
-    vw_throw( ArgumentErr() << "To be able to specify only certain intrinsics, "
-                            << "the option --solve-intrinsics must be on.\n" );
+    vw::vw_throw(vw::ArgumentErr() << "To be able set intrinsics to float or share, "
+             << "the option --solve-intrinsics must be on.\n");
   }
 
   if (!solve_intrinsics)
@@ -892,6 +911,7 @@ void load_intrinsics_options(bool        solve_intrinsics,
                               intrinsics_options.float_focus,
                               intrinsics_options.float_distortion);
   }
+  
   // Useful reporting
   std::string center_name = "Optical center";
   std::string focus_name  = "Focal length";
@@ -899,16 +919,15 @@ void load_intrinsics_options(bool        solve_intrinsics,
   if (intrinsics_options.share_intrinsics_per_sensor) {
     vw_out() << "Intrinsics are shared for all cameras with given sensor.\n";
     vw_out() << "Number of sensors: " << intrinsics_options.num_sensors << "\n";
-    vw_out() << "For each sensor (1 = floated, 0 = not floated):\n";
-    print_intr_vec(intrinsics_options.float_center, center_name);
-    print_intr_vec(intrinsics_options.float_focus, focus_name);
-    print_intr_vec(intrinsics_options.float_distortion, dist_name);
+    vw_out() << "For each sensor:\n";
+    print_float_vec(intrinsics_options.float_center, center_name);
+    print_float_vec(intrinsics_options.float_focus, focus_name);
+    print_float_vec(intrinsics_options.float_distortion, dist_name);
   } else {
     vw_out() << "Intrinsics are shared for all or no cameras.\n";
-    vw_out() << "(1 = floated, 0 = not floated)\n";
-    vw_out() << center_name << ": " << intrinsics_options.float_center[0] <<"\n";
-    vw_out() << focus_name  << ": " << intrinsics_options.float_focus[0] << "\n";
-    vw_out() << dist_name   << ": " << intrinsics_options.float_distortion[0] << "\n";
+    vw_out() << center_name << ": "; print_float(intrinsics_options.float_center[0]);
+    vw_out() << focus_name  << ": "; print_float(intrinsics_options.float_focus[0]);
+    vw_out() << dist_name   << ": "; print_float(intrinsics_options.float_distortion[0]);
   }
 
   // No parsing is done when sharing intrinsics per sensor, per above 
@@ -928,15 +947,14 @@ void load_intrinsics_options(bool        solve_intrinsics,
     }
   }
 
+  // Useful info
   std::string sensor_mode = " (across sensors): ";
   if (intrinsics_options.share_intrinsics_per_sensor)
     sensor_mode = " (per sensor): "; // useful clarification
-
-  // Useful info
-  vw_out() << "Sharing (1 = shared, 0 = not shared):\n";
-  vw_out() << center_name << sensor_mode << intrinsics_options.center_shared << "\n";
-  vw_out() << focus_name << sensor_mode  << intrinsics_options.focus_shared << "\n";
-  vw_out() << dist_name << sensor_mode   << intrinsics_options.distortion_shared << "\n";
+  vw_out() << center_name << sensor_mode; print_shared(intrinsics_options.center_shared);
+  vw_out() << focus_name << sensor_mode;  print_shared(intrinsics_options.focus_shared);
+  vw_out() << dist_name << sensor_mode;   print_shared(intrinsics_options.distortion_shared);
+  
 } // End function load_intrinsics_options
 
 /// Parse the string of limits and make sure they are all valid pairs.
@@ -1313,6 +1331,51 @@ void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
   for (size_t icam = 0; icam < cams.size(); icam++) {
     vw::Vector3 ctr = cams[icam]->camera_center(vw::Vector2());
     cam_positions[icam] = ctr;
+  }
+}
+
+// Update the set of outliers based on param_storage
+void updateOutliers(vw::ba::ControlNetwork const& cnet, 
+                      asp::BAParams const& param_storage,
+                      std::set<int> & outliers) {
+  outliers.clear(); 
+  for (int i = 0; i < param_storage.num_points(); i++)
+    if (param_storage.get_point_outlier(i))
+      outliers.insert(i); 
+}
+
+// Filter matches by projection window.
+// TODO(oalexan1): Use this in jitter_solve.
+// TODO(oalexan1): This needs to be done before subsampling the matches
+void initial_filter_by_proj_win(asp::BaBaseOptions          & opt,
+                                asp::BAParams               & param_storage, 
+                                vw::ba::ControlNetwork const& cnet) {
+
+  // Swap y. Sometimes it is convenient to specify these on input in reverse.
+  if (opt.proj_win.min().y() > opt.proj_win.max().y())
+    std::swap(opt.proj_win.min().y(), opt.proj_win.max().y());
+
+  // Set the projection. The function set_proj4_projection_str() does not set the
+  // datum radii, which is confusing. Use asp::set_srs_string().
+  vw::cartography::GeoReference georef;
+  bool have_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
+  bool have_input_georef = false;
+  asp::set_srs_string(opt.proj_str, have_datum, opt.datum,
+                      have_input_georef, georef);
+
+  int num_points  = param_storage.num_points();
+  for (int i = 0; i < num_points; i++) {
+      
+    if (param_storage.get_point_outlier(i))
+      continue;
+      
+    double* point = param_storage.get_point_ptr(i);
+    Vector3 xyz(point[0], point[1], point[2]);
+    Vector3 llh = georef.datum().cartesian_to_geodetic(xyz);
+    Vector2 proj_pt = georef.lonlat_to_point(subvector(llh, 0, 2));
+
+    if (!opt.proj_win.contains(proj_pt))
+      param_storage.set_point_outlier(i, true);
   }
 }
 

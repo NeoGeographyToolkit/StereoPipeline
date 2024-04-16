@@ -1624,7 +1624,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   // TODO(oalexan1): Make this into a function.
   typedef std::tuple<float, float, float, float> Quadruplet;
   std::map<std::pair<int, int>, std::set<Quadruplet>> match_map;
-  if (remove_outliers || !opt.isis_cnet.empty()) {
+  if (remove_outliers || !opt.isis_cnet.empty() || !opt.nvm.empty()) {
   for (int ipt = 0; ipt < cnet.size(); ipt++) {
       // Skip outliers
       if (outliers.find(ipt) != outliers.end())
@@ -1648,9 +1648,9 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     }
   }
   
-  // If we read the matches from an ISIS cnet, there are no match files.
+  // If we read the matches from an ISIS cnet or nvm, there are no match files.
   // Create them. 
-  if (opt.isis_cnet != "") {
+  if (opt.isis_cnet != "" || opt.nvm != "") {
     // iterate over match pairs
     match_files.clear();
     for (auto const& match_pair: match_map) {
@@ -1680,7 +1680,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                    << "matches between an image and itself.\n");
                    
     std::vector<ip::InterestPoint> orig_left_ip, orig_right_ip;
-    if (opt.isis_cnet != "") {
+    if (opt.isis_cnet != "" || opt.nvm != "") {
       // Must create the matches from the cnet.
       auto & match_pair = match_map[std::make_pair(left_index, right_index)]; // alias
       // Iterate over this set of quadruplets, and build matches
@@ -1989,4 +1989,3 @@ void asp::saveHorizVertErrors(std::string const& horiz_vert_errors_file,
 
   return;
 } 
-

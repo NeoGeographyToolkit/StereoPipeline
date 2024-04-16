@@ -15,8 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file Nvm.h
+/// Handle NVM files, which are used to store SfM results.
 
 #ifndef __ASP_CORE_NVM_H__
 #define __ASP_CORE_NVM_H__
@@ -27,7 +27,7 @@
 #include <map>
 #include <vector>
 #include <string>
-
+#include <set>
 namespace vw {
   namespace ba {
     class ControlNetwork;
@@ -49,34 +49,39 @@ struct nvmData {
   std::map<std::string, Eigen::Vector2d> optical_centers;
 };
 
-
 // A function to read nvm offsets. On each line there must be the image name,
 // then the optical center column, then row. Read into an std::map, with the
 // key being the image name, and the value being vector2 of the optical center.
 void readNvmOffsets(std::string const& offset_path,
-                     std::map<std::string, Eigen::Vector2d> & offsets);
+                    std::map<std::string, Eigen::Vector2d> & offsets);
 
 // Read an NVM file. Any offset is applied upon reading.
-void ReadNVM(std::string const& input_filename, bool nvm_no_shift, nvmData & nvm);
+void readNvm(std::string const& input_filename, bool nvm_no_shift, nvmData & nvm);
 
 // Write an NVM file. Subtract from the interest points the given offset.
 // The offsets are saved in a separate file.
-void WriteNVM(nvmData const& nvm, std::string const& output_filename);
+void writeNvm(nvmData const& nvm, std::string const& output_filename);
 
 // Read an NVM file into the VisionWorkbench control network format. The flag
 // nvm_no_shift, if true, means that the interest points are not shifted
 // relative to the optical center, so can be read as is.
 void readNvmAsCnet(std::string const& input_filename, 
                    bool nvm_no_shift,
-                   vw::ba::ControlNetwork & cnet);
+                   vw::ba::ControlNetwork & cnet,
+                   std::vector<Eigen::Affine3d> & world_to_cam,
+                   std::map<std::string, Eigen::Vector2d> & offsets);
 
-// Create an nvm from a cnet. There is no shift in the interest points.
-// That is applied only on loading and saving.
+// Create an nvm from a cnet. There is no shift in the interest points. That is
+// applied only on loading and saving. Optionally, updated triangulated points
+// and outlier flags can be passed in.
 void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
                std::map<std::string, Eigen::Vector2d> const& offsets,
                std::vector<Eigen::Affine3d>           const& world_to_cam,
                // Output
-               nvmData & nvm);
+               nvmData & nvm,
+               // Optional updated triangulated points and outlier flags
+               std::vector<Eigen::Vector3d> const& tri_vec = std::vector<Eigen::Vector3d>(),
+               std::set<int> const& outliers = std::set<int>());
   
 // Convert nvm to cnet
 void nvmToCnet(nvmData const& nvm, 
@@ -84,6 +89,14 @@ void nvmToCnet(nvmData const& nvm,
                vw::ba::ControlNetwork                 & cnet,
                std::map<std::string, Eigen::Vector2d> & offsets,
                std::vector<Eigen::Affine3d>           & world_to_cam);
+
+// Write a cnet to an NVM file. On writing, the feature matches from the cnet will be
+// shifted relative to the optical center. The optical center offsets are saved
+// to a separate file.
+void writeCnetAsNvm(vw::ba::ControlNetwork const& cnet,
+                    std::map<std::string, Eigen::Vector2d> const& optical_offsets,
+                    std::vector<Eigen::Affine3d> const& world_to_cam,
+                    std::string const& output_filename);
   
 } // end namespace asp
 

@@ -280,7 +280,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
-  // Turn on logging to file
+  // Turn on logging to file (after the output directory is created)
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   // Set this before loading cameras, as jitter can be modeled only with CSM
@@ -393,9 +393,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.anchor_weight > 0 && opt.anchor_dem.empty()) 
     vw::vw_throw(vw::ArgumentErr() << "If --anchor-weight is positive, set --anchor-dem.\n");
-  
-  // Turn on logging to file
-  asp::log_to_file(argc, argv, "", opt.out_prefix);
   
   return;
 }
@@ -1559,10 +1556,10 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Find the datum.
   // TODO(oalexan1): Integrate this into load_cameras, to avoid loading
   // the cameras twice. Do this also in bundle_adjust.cc.
-  bool found_datum = asp::datum_from_cameras(opt.image_files, opt.camera_files,  
-                                             opt.stereo_session,  // may change
+  asp::SessionPtr session(NULL);
+  bool found_datum = asp::datum_from_camera(opt.image_files[0], opt.camera_files[0],
                                              // Outputs
-                                             opt.datum);
+                                             opt.stereo_session, session, opt.datum);
   if (!found_datum)
     vw_throw(ArgumentErr() << "No datum was found in the input cameras.\n");
     

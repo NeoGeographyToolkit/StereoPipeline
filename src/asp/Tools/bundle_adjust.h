@@ -64,7 +64,7 @@ struct Options: public asp::BaBaseOptions {
     skip_matching, apply_initial_transform_only, save_vwip, propagate_errors;
   std::string camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, disparity_list,
-    proj_str, dem_file_for_overlap;
+    dem_file_for_overlap;
   double semi_major, semi_minor, position_filter_dist;
   int    num_ba_passes;
   std::string remove_outliers_params_str;
@@ -79,7 +79,6 @@ struct Options: public asp::BaBaseOptions {
     force_reuse_match_files, save_cnet_as_csv, aster_use_csm;
   vw::Vector2 elevation_limit;   // Expected range of elevation to limit results to.
   vw::BBox2 lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
-  vw::BBox2 proj_win; // Limit input triangulated points to this projwin
   vw::Matrix<double> initial_transform;
   std::string   fixed_cameras_indices_str;
   std::set<int> fixed_cameras_indices;

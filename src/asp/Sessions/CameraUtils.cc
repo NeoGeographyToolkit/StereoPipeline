@@ -43,16 +43,20 @@ void load_camera(std::string const& image_file,
                  // Outputs
                  std::string & stereo_session,
                  vw::CamPtr  & camera_model,
-                 int         & single_threaded_camera) {
+                 bool        & single_threaded_camera) {
 
   // TODO(oalexan1): Replace this with a simpler camera model loader class.
   // But note that this call also refines the stereo session name.
+  std::string input_dem = ""; // No DEM
+  bool allow_map_promote = false;
+  // TODO(oalexan1): The quiet flag should likely be false just once.
+  bool quiet = false; 
   asp::SessionPtr session
     (asp::StereoSessionFactory::create(stereo_session, opt,
                                         image_file, image_file,
                                         camera_file, camera_file,
-                                        out_prefix));
-  
+                                        out_prefix, input_dem,
+                                        allow_map_promote, quiet));
   camera_model = session->camera_model(image_file, camera_file);
   
   // This is necessary to avoid a crash with ISIS cameras which is single-threaded
@@ -80,43 +84,40 @@ void load_cameras(std::vector<std::string> const& image_files,
                   bool & single_threaded_camera,
                   std::vector<boost::shared_ptr<vw::camera::CameraModel>> & camera_models) {
 
-  // Initialize the outputs
-  camera_models.clear();
-  single_threaded_camera = false; // may change
-  
+  // Sanity check
   if (image_files.size() != camera_files.size()) 
     vw_throw(ArgumentErr() << "Expecting as many images as cameras.\n");  
 
-  // TODO(oalexan1): Must load one camera first. Then, if it is not single-threaded,
-  // load the rest in parallel. This can greatly speed up loading of many cameras.
-  // After the first camera is loaded, must populate the vector single_threaded_cameras_vec
-  // before continuing with the rest of the cameras.
-  
-  // Must initialize a vector of outputs, as we plan to load the cameras in parallel,
-  // and do not want to have thread-safety issues. Use a vector of ints, not bool,
-  // as compiling fails with a vector of bools.
-  std::vector<int> single_threaded_cameras_vec(image_files.size(), 
-                                               int(single_threaded_camera));
-  std::vector<std::string> stereo_sessions(image_files.size(), stereo_session);
+  // Initialize the outputs
   camera_models.resize(image_files.size());
+  single_threaded_camera = false; // may change
   
+  // TODO(oalexan1): Must load one camera first. Then, if the result is that it
+  // is not single-threaded, load the rest in parallel. This can greatly speed
+  // up loading of many cameras.
   for (size_t i = 0; i < image_files.size(); i++) {
+    // Use local variables to for thread-safety
+    bool local_single_threaded_camera = false;
+    std::string local_stereo_session = stereo_session; 
     load_camera(image_files[i], camera_files[i], out_prefix, opt,
                 approximate_pinhole_intrinsics,
-                stereo_sessions[i], camera_models[i], single_threaded_cameras_vec[i]);
+                local_stereo_session, camera_models[i], local_single_threaded_camera);
 
     // Update these based on the camera just loaded
-    single_threaded_camera = single_threaded_camera || single_threaded_cameras_vec[i];
-    stereo_session = stereo_sessions[i];
+    // TODO(oalexan1): Must use here a lock when using multiple threads.
+    single_threaded_camera = local_single_threaded_camera;
+    stereo_session = local_stereo_session;
   }
   
   return;
 }
 
 // Find the datum based on cameras. Return true on success. Otherwise don't set it.
-bool datum_from_cameras(std::vector<std::string> const& image_files,
-                        std::vector<std::string> const& camera_files,
+// TODO(oalexan1): Pass to this only the first camera and image file.
+bool datum_from_camera(std::string const& image_file,
+                        std::string const& camera_file, 
                         std::string & stereo_session, // may change
+                        asp::SessionPtr & session, // may be null on input
                         // Outputs
                         vw::cartography::Datum & datum) {
   
@@ -125,37 +126,29 @@ bool datum_from_cameras(std::vector<std::string> const& image_files,
   // Look for a non-pinole camera, as a pinhole camera does not have a datum
   bool success = false;
   double cam_center_radius = 0.0;
-  for (size_t i = 0; i < image_files.size(); i++) {
-
-    // This is for the case when there is a mix of pinhole and non-pinhole
-    // cameras. In that case, the pinhole cameras will be ignored. Must
-    // reset the session to be able to load the non-pinhole cameras.
-    if (stereo_session == "pinhole")
-      stereo_session = "";
-
+  if (session.get() == NULL) {
+    // If a session was not passed in, create it here.
     std::string input_dem = ""; // No DEM
     bool allow_map_promote = false, quiet = true;
-    asp::SessionPtr 
-      session(asp::StereoSessionFactory::create(stereo_session, // may change
+    session.reset(asp::StereoSessionFactory::create(stereo_session, // may change
                                                 vw::GdalWriteOptions(),
-                                                image_files [i], image_files [i],
-                                                camera_files[i], camera_files[i],
+                                                image_file, image_file,
+                                                camera_file, camera_file,
                                                 out_prefix, input_dem,
                                                 allow_map_promote, quiet));
+  }
     
-    auto cam = session->camera_model(image_files[i], camera_files[i]);
-    cam_center_radius = norm_2(cam->camera_center(vw::Vector2()));
+  auto cam = session->camera_model(image_file, camera_file);
+  cam_center_radius = norm_2(cam->camera_center(vw::Vector2()));
     
-    // Pinhole and nadirpinhole cameras do not have a datum
-    if (stereo_session == "pinhole" || stereo_session == "nadirpinhole")
-      continue;
-
+  // Pinhole and nadirpinhole cameras do not have a datum
+  if (stereo_session != "pinhole" && stereo_session != "nadirpinhole") {
     bool use_sphere_for_non_earth = true;
     datum = session->get_datum(cam.get(), use_sphere_for_non_earth);
     success = true;
     return success; // found the datum
   }
-
+  
   // Guess the based on camera position. Usually one arrives here for pinhole
   // cameras.
 

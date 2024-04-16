@@ -170,7 +170,7 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
   // Read the nvm and create the cnet
   bool nvm_no_shift = false; // have an offsets file
   asp::nvmData nvm;
-  asp::ReadNVM(opt.input_nvm, nvm_no_shift, nvm);
+  asp::readNvm(opt.input_nvm, nvm_no_shift, nvm);
   vw::ba::ControlNetwork cnet("raw");
   std::vector<Eigen::Affine3d> world_to_cam;
   std::map<std::string, Eigen::Vector2d> raw_offsets;
@@ -273,7 +273,7 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
   asp::cnetToNvm(cnet, offsets, world_to_cam, nvm);
     
   // Write the nvm to disk
-  asp::WriteNVM(nvm, opt.output_nvm);
+  asp::writeNvm(nvm, opt.output_nvm);
 }
 
 } // end namespace asp

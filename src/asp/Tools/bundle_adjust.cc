@@ -29,12 +29,14 @@
 #include <asp/Camera/BundleAdjustResiduals.h>
 #include <asp/Camera/BundleAdjustIsis.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/Nvm.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/IpMatchingAlgs.h> // Lightweight header for ip matching
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/OutlierProcessing.h>
 #include <asp/Core/DataLoader.h>
+#include <asp/Camera/BundleAdjustEigen.h>
 
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>
@@ -54,8 +56,7 @@ using namespace asp;
 using namespace vw::camera;
 using namespace vw::ba;
 
-// TODO(oalexan1): Must allow reading nvm files with shifted pixels.
-// Add option --no-poses-from-nvm.
+// TODO(oalexan1): Add option --no-poses-from-nvm.
 
 // A callback to invoke at each iteration if desiring to save the cameras
 // at that time.
@@ -416,7 +417,7 @@ int add_to_outliers(ControlNetwork & cnet,
     }
   } // End double loop through all the observations
   vw_out() << "Removed " << num_outliers_by_reprojection << " outliers out of "
-           << total << " by reprojection error. Ratio: "
+           << total << " interest points by reprojection error. Ratio: "
            << double(num_outliers_by_reprojection) / double(total) <<".\n";
   
   // Remove outliers by elevation limit
@@ -505,50 +506,6 @@ int add_to_outliers(ControlNetwork & cnet,
 }
 
 // End outlier functions
-// ----------------------------------------------------------------
-// TODO(oalexan1): Use this in jitter_solve.
-// TODO(oalexan1): This needs to be done before subsampling the matches
-void initial_filter_by_proj_win(Options             & opt,
-                                asp::BAParams       & param_storage, 
-                                ControlNetwork const& cnet) {
-
-  // Swap y. Sometimes it is convenient to specify these on input in reverse.
-  if (opt.proj_win.min().y() > opt.proj_win.max().y())
-    std::swap(opt.proj_win.min().y(), opt.proj_win.max().y());
-
-  // Set the projection. The function set_proj4_projection_str() does not set the
-  // datum radii, which is confusing. Use asp::set_srs_string().
-  vw::cartography::GeoReference georef;
-  bool have_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
-  bool have_input_georef = false;
-  asp::set_srs_string(opt.proj_str, have_datum, opt.datum,
-                      have_input_georef, georef);
-
-  int num_points  = param_storage.num_points();
-  for (int i = 0; i < num_points; i++) {
-      
-    if (param_storage.get_point_outlier(i))
-      continue;
-      
-    double* point = param_storage.get_point_ptr(i);
-    Vector3 xyz(point[0], point[1], point[2]);
-    Vector3 llh = georef.datum().cartesian_to_geodetic(xyz);
-    Vector2 proj_pt = georef.lonlat_to_point(subvector(llh, 0, 2));
-
-    if (!opt.proj_win.contains(proj_pt))
-      param_storage.set_point_outlier(i, true);
-  }
-}
-
-// Update the set of outliers based on param_storage
-void updateOutliers(vw::ba::ControlNetwork const& cnet, 
-                      asp::BAParams const& param_storage,
-                      std::set<int> & outliers) {
-  outliers.clear(); 
-  for (int i = 0; i < param_storage.num_points(); i++)
-    if (param_storage.get_point_outlier(i))
-      outliers.insert(i); 
-}
 
 // Add a cost function meant to tie up to known disparity form left to right
 // image and known ground truth reference terrain (option --reference-terrain).
@@ -636,8 +593,8 @@ void addReferenceTerrainCostFunction(
         continue;
 
       // Check if the current point projects in the cameras
-      if ( !image_boxes[icam  ].contains(left_pred ) || 
-            !image_boxes[icam+1].contains(right_pred)   ) {
+      if (!image_boxes[icam  ].contains(left_pred ) || 
+          !image_boxes[icam+1].contains(right_pred)) {
         continue;
       }
 
@@ -1213,11 +1170,15 @@ int do_ba_ceres_one_pass(Options             & opt,
   asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
   asp::calcCameraCenters(optimized_cams, opt_cam_positions);
   
+  // Must refresh the set of outliers
+  updateOutliers(cnet, param_storage, outliers);
+  
   // Calculate convergence angles. Remove the outliers flagged earlier, if
   // remove_outliers is true. Compute offsets of mapprojected matches, if a DEM
   // is given. Propagate errors if desired. These are done together as they rely
   // on reloading interest point matches, which is expensive so the matches are
   // used for both operations.
+  // TODO(oalexan1): Should this be done after the last pass?
   std::vector<vw::Vector<float, 4>> mapprojPoints; // all points, not just stats
   std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
   std::vector<std::vector<float>> mapprojOffsetsPerCam;
@@ -1230,10 +1191,8 @@ int do_ba_ceres_one_pass(Options             & opt,
                    << opt.mapproj_dem << ".\n");
   }
   
-  // Must refresh the set of outliers
-  updateOutliers(cnet, param_storage, outliers);
-  
   // Write clean matches and many types of stats
+  // TODO(oalexan1): Should this be done after the last pass?
   asp::matchFilesProcessing(cnet,
                             asp::BaBaseOptions(opt), // note the slicing
                             optimized_cams, remove_outliers, outliers, opt.mapproj_dem,
@@ -1244,6 +1203,7 @@ int do_ba_ceres_one_pass(Options             & opt,
                             mapprojOffsets, mapprojOffsetsPerCam,
                             horizVertErrors);
 
+  // TODO(oalexan1): Should this be done after the last pass?
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
   if (!opt.mapproj_dem.empty()) {
@@ -1377,13 +1337,20 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   int num_gcp = 0;
   ControlNetwork & cnet = *(opt.cnet.get()); // alias to ASP cnet
   asp::IsisCnetData isisCnetData; // isis cnet (if loaded)
+  std::vector<Eigen::Affine3d> world_to_cam; // for nvm (if applicable)
+  std::map<std::string, Eigen::Vector2d> optical_offsets; // for nvm
   if (!opt.apply_initial_transform_only) {
     // TODO(oalexan1): This whole block must be a function
     if (opt.isis_cnet != "") {
       vw::vw_out() << "Reading ISIS control network: " << opt.isis_cnet << "\n";
       asp::loadIsisCnet(opt.isis_cnet, opt.image_files,
                         cnet, isisCnetData); // outputs
+    } else if (opt.nvm != "") {
+      // Assume the features are stored shifted relative to optical center
+      bool nvm_no_shift = false;
+      asp::readNvmAsCnet(opt.nvm, nvm_no_shift, cnet, world_to_cam, optical_offsets);
     } else {
+      // Read matches into a control network
       bool triangulate_control_points = true;
       bool success = vw::ba::build_control_network(triangulate_control_points,
                                                    cnet, opt.camera_models,
@@ -1486,12 +1453,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     // For the case where the camera has zero distortion parameters, use one
     // dummy parameter just so we don't have to change the parameter block logic
     // later on.
-    if (opt.camera_type != BaCameraType_Other && num_dist_params[cam_it] < 1) {
+    // TODO(oalexan1): Test with a mix of cameras with and without distortion.
+    if (opt.camera_type != BaCameraType_Other && num_dist_params[cam_it] < 1)
       num_dist_params[cam_it] = 1;
-      std::fill(opt.intrinsics_options.float_distortion.begin(),
-                opt.intrinsics_options.float_distortion.end(), false);
-      opt.intrinsics_options.distortion_shared = true;
-    }
   }
 
   // It is simpler to allocate the same number of distortion params per camera
@@ -1623,14 +1587,18 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       (opt.stereo_session == "pinhole") || (opt.stereo_session == "nadirpinhole")) 
     saveCameraReport(opt, param_storage, opt.datum, "final");
   
-  // Update the ISIS cnet or create a new one, if applicable. Note that
-  // param_storage has the latest triangulated points and outlier info, while
-  // the cnet has the initially triangulated points.
-  if (!opt.apply_initial_transform_only && 
-      opt.isis_cnet != "" && opt.output_cnet_type == "isis-cnet")
-    asp::saveUpdatedIsisCnet(opt.out_prefix, cnet, param_storage, isisCnetData);
-  else if (!opt.apply_initial_transform_only && opt.output_cnet_type == "isis-cnet")
-    asp::saveIsisCnet(opt.out_prefix, opt.datum, cnet, param_storage);
+  // Save the updated cnet to ISIS or nvm format. Note that param_storage has
+  // the latest triangulated points and outlier info, while the cnet has the
+  // initially triangulated points and the interest point matches.
+  if (!opt.apply_initial_transform_only) { 
+    if (opt.isis_cnet != "" && opt.output_cnet_type == "isis-cnet")
+      asp::saveUpdatedIsisCnet(opt.out_prefix, cnet, param_storage, isisCnetData);
+    else if (opt.output_cnet_type == "isis-cnet")
+      asp::saveIsisCnet(opt.out_prefix, opt.datum, cnet, param_storage);
+    else if (opt.output_cnet_type == "nvm") {
+      asp::saveNvm(opt, cnet, param_storage, world_to_cam, optical_offsets);
+    }
+  }
 
 } // end do_ba_ceres
 
@@ -1892,15 +1860,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Read a control network having interest point matches from this binary file "
      "in the ISIS jigsaw format. This can be used with any images and cameras "
      "supported by ASP. See also --output-cnet-type.")
+    ("nvm", po::value(&opt.nvm)->default_value(""),
+     "Read a control network having interest point matches from this file in the NVM "
+     "format. This can be used with any images and cameras supported by ASP. See also "
+     "--output-cnet-type.")
     ("output-cnet-type", po::value(&opt.output_cnet_type)->default_value(""),
       "The format in which to save the control network of interest point matches. "
       "Options: 'match-files' (match files in ASP's format), 'isis-cnet' (ISIS "
-      "jigsaw format). If not set, match files will be saved, unless "
-      "'--isis-cnet filename.net' is specified, when this option value will be "
-      "set to 'isis-cnet'.")
-    ("overlap-exponent",     po::value(&opt.overlap_exponent)->default_value(0.0),
-     "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
-    ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
+      "jigsaw format), 'nvm' (plain text VisualSfM nvm format). If not set, the same "
+      "format as the input is used.")
+    ("overlap-exponent",  po::value(&opt.overlap_exponent)->default_value(0.0),
+     "If a feature is seen in n >= 2 images, give it a weight proportional with "
+     "(n-1)^exponent.")
+    ("ip-per-tile", po::value(&opt.ip_per_tile)->default_value(0),
       "How many interest points to detect in each 1024^2 image tile (default: automatic determination). This is before matching. Not all interest points will have a match. See also --matches-per-tile.")
     ("ip-per-image", po::value(&opt.ip_per_image)->default_value(0),
      "How many interest points to detect in each image (default: automatic determination). It is overridden by --ip-per-tile if provided.")
@@ -2102,8 +2074,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   // Guess the session if not provided. Do this as soon as we have
   // the cameras figured out.
+  asp::SessionPtr session(NULL);
   if (opt.stereo_session.empty()) {
-    asp::SessionPtr session(asp::StereoSessionFactory::create
+    session.reset(asp::StereoSessionFactory::create
                         (opt.stereo_session, // may change
                         opt, opt.image_files[0], opt.image_files[0],
                         opt.camera_files[0], opt.camera_files[0],
@@ -2114,15 +2087,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.clean_match_files_prefix != "" || opt.match_files_prefix != "")
     opt.skip_matching = true;
 
-  // If opt.output_cnet_type is not set, set it to match-files or isis-cnet.
+  // If opt.output_cnet_type is not set, set it to the same format as the input
   if (opt.output_cnet_type == "") {
     if (opt.isis_cnet != "")
       opt.output_cnet_type = "isis-cnet";
+    else if (opt.nvm != "")
+      opt.output_cnet_type = "nvm";
     else
       opt.output_cnet_type = "match-files"; 
   } 
   // Sanity check in case the user set this option manually.
-  if (opt.output_cnet_type != "match-files" && opt.output_cnet_type != "isis-cnet")
+  if (opt.output_cnet_type != "match-files" && opt.output_cnet_type != "isis-cnet" && 
+      opt.output_cnet_type != "nvm")
     vw_throw(ArgumentErr() << "Unknown value for --output-cnet-type: "
                            << opt.output_cnet_type << ".\n");
   
@@ -2178,8 +2154,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   bool external_matches = (!opt.clean_match_files_prefix.empty() ||
                            !opt.match_files_prefix.empty());
-  if (external_matches && opt.isis_cnet != "")
-    vw_throw(ArgumentErr() << "Cannot use both an ISIS cnet file and "
+  if (external_matches && (opt.isis_cnet != "" || opt.nvm != ""))
+    vw_throw(ArgumentErr() << "Cannot use more than one of: ISIS cnet, nvm file, "
              << "match files.\n");
 
   if (opt.transform_cameras_using_gcp &&
@@ -2385,13 +2361,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.datum_str = opt.datum.name();
     guessed_datum = true;
     // TODO(oalexan1): What if a different planet is specified in the images?
+    // Must have a sanity check here.
   }
 
   // Otherwise try to set the datum based on cameras. It will not work for Pinhole.
   bool found_datum = (opt.datum_str != "");
   if (!found_datum) {
-    found_datum = asp::datum_from_cameras(opt.image_files, opt.camera_files,  
-                            opt.stereo_session,  // may change
+    found_datum = asp::datum_from_camera(opt.image_files[0], opt.camera_files[0],
+                            opt.stereo_session,  session, // may change
                             // Outputs
                             opt.datum);
     opt.datum_str = opt.datum.name();
@@ -2403,13 +2380,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     if (!opt.gcp_files.empty() || !opt.camera_position_file.empty())
       vw_throw( ArgumentErr() << "When ground control points or a camera position "
                << "file are used, option --datum must be specified.\n");
-    
     if (opt.elevation_limit[0] < opt.elevation_limit[1])
       vw_throw( ArgumentErr()
                 << "When filtering by elevation limit, option --datum must be specified.\n");
   }
 
-  vw_out() << "Datum:\n" << opt.datum << std::endl;
+  if (found_datum)
+    vw_out() << "Datum:\n" << opt.datum << std::endl;
+  else
+    vw_out() << "No datum specified or detected.\n";
 
   // This is a little clumsy, but need to see whether the user set --max-iterations
   // or --num-iterations. They are aliases to each other.
@@ -3042,10 +3021,9 @@ void findPairwiseMatches(Options & opt, // will change
   for (size_t i=0; i<this_count; i++)
     this_instance_pairs.push_back(all_pairs[i+start_index]);
 
-  // When using match-files-prefix or 
-  // clean_match_files_prefix, form the list of match files, rather
-  // than searching for them exhaustively on disk, which can get
-  // very slow.
+  // When using match-files-prefix or clean_match_files_prefix, form the list of
+  // match files, rather than searching for them exhaustively on disk, which can
+  // get very slow.
   std::set<std::string> existing_files;
   if (external_matches) {
     std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
@@ -3176,7 +3154,8 @@ int main(int argc, char* argv[]) {
     // images and a DEM from either command line or a list.
     std::vector<std::string> map_files;
     std::string mapproj_dem;
-    bool need_no_matches = (opt.apply_initial_transform_only || !opt.isis_cnet.empty());
+    bool need_no_matches = (opt.apply_initial_transform_only || 
+                            !opt.isis_cnet.empty() || opt.nvm != "");
     if (!need_no_matches) {
       if (!opt.mapprojected_data_list.empty()) {
         asp::read_list(opt.mapprojected_data_list, map_files);

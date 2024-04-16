@@ -278,8 +278,10 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   std::string window_title = "Stereo GUI";
   this->setWindowTitle(window_title.c_str());
 
-  // The images being read in.
+  // The images and other data
   std::vector<std::string> local_images = images;
+  std::vector<Eigen::Affine3d> world_to_cam;
+  std::map<std::string, Eigen::Vector2d> optical_offsets;
 
   // When loading an NVM file, will assume we want to inspect pairwise
   // matches. Also set the images from the NVM file.  It is assumed
@@ -294,7 +296,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     vw_out() << "Reading NVM file: " << asp::stereo_settings().nvm << "\n";
     try {
        asp::readNvmAsCnet(asp::stereo_settings().nvm, asp::stereo_settings().nvm_no_shift,
-                          m_cnet);
+                          m_cnet, world_to_cam, optical_offsets);
     } catch (const std::exception& e) {
       popUp(e.what());
       exit(1);

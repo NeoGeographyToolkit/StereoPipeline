@@ -219,18 +219,14 @@ int main(int argc, char *argv[]) {
       datum.set_well_known_datum(opt.datum);
     } else {
       // Auto-guess the datum, this is the default
-      std::vector<std::string> image_files, camera_files;
-      image_files.push_back(opt.image_file);
-      camera_files.push_back(opt.cam1_file);
-      bool found_datum = asp::datum_from_cameras(image_files, camera_files,  
-                                                 opt.session1, // may change
+      bool found_datum = asp::datum_from_camera(opt.image_file, opt.cam1_file,
+                                                 opt.session1, cam1_session, // may change
                                                  datum); // output
       
       // Sanity check: both cameras should have the same datum
-      camera_files[0] = opt.cam2_file;
       vw::cartography::Datum datum2;
-      found_datum = asp::datum_from_cameras(image_files, camera_files,  
-                                            opt.session2, // may change
+      found_datum = asp::datum_from_camera(opt.image_file, opt.cam2_file,
+                                            opt.session2, cam2_session, // may change
                                             datum2); // output
       if (datum.semi_major_axis() != datum2.semi_major_axis() ||
           datum.semi_minor_axis() != datum2.semi_minor_axis())

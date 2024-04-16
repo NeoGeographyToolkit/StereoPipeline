@@ -83,7 +83,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
     ip_edge_buffer_percent, max_num_reference_points;
   bool have_overlap_list;
   std::set<std::pair<std::string, std::string>> overlap_list;
-  std::string overlap_list_file, auto_overlap_params, datum_str;
+  std::string overlap_list_file, auto_overlap_params, datum_str, proj_str;
   bool match_first_to_last, single_threaded_cameras, 
     update_isis_cubes_with_csm_state;
   double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
@@ -98,9 +98,10 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   std::vector<vw::CamPtr> camera_models;
   std::map<std::pair<int, int>, std::string> match_files;
   vw::cartography::Datum datum;
+  vw::BBox2 proj_win; // Limit input triangulated points to this projwin
 
   BaBaseOptions(): min_triangulation_angle(0.0), camera_position_weight(0.0),
-                    camera_position_robust_threshold(0.0), camera_weight(-1.0),
+                   camera_position_robust_threshold(0.0), camera_weight(-1.0),
                    rotation_weight(0.0), tri_weight(0.0),
                    robust_threshold(0.0), min_matches(0),
                    num_iterations(0), overlap_limit(0), have_overlap_list(false),
@@ -708,6 +709,18 @@ void parse_intrinsics_limits(std::string const& intrinsics_limits_str,
 
 void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
                        std::vector<vw::Vector3>      & cam_positions);
+
+// Update the set of outliers based on param_storage
+void updateOutliers(vw::ba::ControlNetwork const& cnet, 
+                      asp::BAParams const& param_storage,
+                      std::set<int> & outliers);
+
+// Filter matches by projection window.
+// TODO(oalexan1): Use this in jitter_solve.
+// TODO(oalexan1): This needs to be done before subsampling the matches
+void initial_filter_by_proj_win(asp::BaBaseOptions          & opt,
+                                asp::BAParams               & param_storage, 
+                                vw::ba::ControlNetwork const& cnet);
 
 } // end namespace asp
 
