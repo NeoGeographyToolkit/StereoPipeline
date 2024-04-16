@@ -555,8 +555,28 @@ unless the measurements are ground data taken from a planet's orbit.
 
 .. _rc_bundle_adjust:
 
-Exporting data for use in bundle adjustment
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Interfacing with bundle_adjust
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The optimized cameras produced with ``rig_calibrator`` can be saved in the ASP
+Pinhole format (:numref:`pinholemodels`) with the option
+``--save_pinhole_cameras``.
+
+The list of saved cameras will be in the file::
+
+  rig_out/camera_list.txt
+
+while the list of input images will be in::
+
+  rig_out/image_list.txt
+
+Here and below we assume that the output directory is ``rig_out``.
+
+These datasets, together with the output NVM file having the control
+network, can be read with ``bundle_adjust`` as described in :numref:`ba_nvm`.
+
+That program will then produce an updated NVM file that can be passed
+back to this tool.
 
 If ``rig_calibrator`` is called with the option ``--save_matches``, it will save
 the inlier interest point matches in the ASP ``bundle_adjust``
@@ -568,26 +588,19 @@ These can then be inspected in ``stereo_gui``
 
   stereo_gui $(cat rig_out/image_list.txt) \
     rig_out/matches/run --pairwise-matches
-
-Here and below we assume that the output directory is ``rig_out``.
-
-The optimized cameras can be saved in the ASP pinhole format
-(:numref:`pinholemodels`) by calling ``rig_calibrator`` with the option
-``--save_pinhole_cameras``. The OpenCV ``radtan`` (radial-tangential) distortion
-model will be saved, but not the fisheye model.
-
-The list of saved cameras will be in the file::
-
-  rig_out/camera_list.txt
-
+  
 If both the matches and cameras are saved, ``bundle_adjust`` can be
 invoked as::
 
   bundle_adjust                              \
     --image-list rig_out/image_list.txt      \
     --camera-list rig_out/camera_list.txt    \
+    --inline-adjustments                     \
     --match-files-prefix rig_out/matches/run \
     -o ba/run
+
+For a large number of images it is preferable to use the NVM file instead of the
+match files as input to ``bundle_adjust``, as described earlier.
 
 In order for exporting data this way to work, all input image names (without
 directory path) must be unique, as the ASP bundle adjustment counts on that. See

@@ -1597,7 +1597,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     else if (opt.output_cnet_type == "isis-cnet")
       asp::saveIsisCnet(opt.out_prefix, opt.datum, cnet, param_storage);
     else if (opt.output_cnet_type == "nvm") {
-      asp::saveNvm(opt, cnet, param_storage, world_to_cam, optical_offsets);
+      asp::saveNvm(opt, opt.no_poses_from_nvm, cnet, param_storage, 
+                   world_to_cam, optical_offsets);
     }
   }
 
@@ -1606,7 +1607,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 /// Looks in the input camera position file to generate a GCC position for
 /// each input camera.
 /// - If no match is found, the coordinate is (0,0,0)
-int load_estimated_camera_positions(Options &opt,
+int load_estimated_camera_positions(Options &opt, 
                                     std::vector<Vector3> & estimated_camera_gcc) {
   estimated_camera_gcc.clear();
   if (opt.camera_position_file == "")
@@ -1861,20 +1862,21 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("isis-cnet", po::value(&opt.isis_cnet)->default_value(""),
      "Read a control network having interest point matches from this binary file "
      "in the ISIS jigsaw format. This can be used with any images and cameras "
-     "supported by ASP. See also --output-cnet-type.")
+     "supported by ASP. For Pinhole cameras, the (optimized) camera poses will be "
+     "read/written to NVM as well.  See also --output-cnet-type.")
     ("nvm", po::value(&opt.nvm)->default_value(""),
      "Read a control network having interest point matches from this file in the NVM "
      "format. This can be used with any images and cameras supported by ASP. See also "
-     "--output-cnet-type.")
+     "--output-cnet-type and --no-poses-from-nvm.")
     ("output-cnet-type", po::value(&opt.output_cnet_type)->default_value(""),
       "The format in which to save the control network of interest point matches. "
       "Options: 'match-files' (match files in ASP's format), 'isis-cnet' (ISIS "
-      "jigsaw format), 'nvm' (plain text VisualSfM nvm format). If not set, the same "
-      "format as the input is used.")
+      "jigsaw format), 'nvm' (plain text VisualSfM NVM format). If not set, the same "
+      "format as for the input is used.")
     ("no-poses-from-nvm", 
       po::bool_switch(&opt.no_poses_from_nvm)->default_value(false)->implicit_value(true),
-     "Do not read the camera poses from the NVM file. Applicable only with the option "
-     "--nvm and Pinhole camera models.")
+     "Do not read the camera poses from the NVM file or write them to such a file. "
+     "Applicable only with the option --nvm and Pinhole camera models.")
     ("overlap-exponent",  po::value(&opt.overlap_exponent)->default_value(0.0),
      "If a feature is seen in n >= 2 images, give it a weight proportional with "
      "(n-1)^exponent.")

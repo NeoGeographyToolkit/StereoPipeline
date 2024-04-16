@@ -75,6 +75,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     format (:numref:`jigsaw_cnet`).
   * Can read and write CSM model state embedded in ISIS .cub files   
     (:numref:`embedded_csm`).
+  * Support reading and writing the NVM format for control networks
+    (:numref:`ba_nvm`).
   * Added the option ``--camera-position-weight``, with a default value of 0.0.
     This is an internally adjustable constraint to keep the cameras from moving
     too much. It may prevent the reduction in reprojection error

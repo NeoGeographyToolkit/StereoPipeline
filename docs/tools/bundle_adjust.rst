@@ -576,6 +576,39 @@ such a control network file.
 See :numref:`jigsaw_cnet_details` for more technical details. See also ASP's
 ``jigsaw`` tutorial (:numref:`jigsaw`).
 
+.. _ba_nvm:
+
+NVM format
+^^^^^^^^^^
+
+The ``bundle_adjust`` program can read and write the VisualSfM NVM format for a
+control network. This helps in interfacing with ``rig_calibrator``
+(:numref:`rc_bundle_adjust`) and ``theia_sfm`` (:numref:`theia_sfm`). Usage::
+
+    bundle_adjust --nvm input.nvm \
+      --image-list images.txt     \
+      --camera-list cameras.txt   \
+      --inline-adjustments        \
+      -o ba/run
+
+This will write the file ``ba/run.nvm`` having the inlier interest point matches.
+
+If the cameras are of Pinhole type (:numref:`pinholemodels`), the camera poses
+will be read from the NVM file as well, and the optimized poses will be saved to
+such a file, unless invoked with ``--no-poses-from-nvm``. The input
+cameras must still be provided as above, however, so that the intrinsics can be
+read. With the option ``--inline-adjustments``, the updated Pinhole camera files
+will be written separately as well.
+
+The NVM file assumes that the interest points are shifted relative to the optical
+center of each camera. The optical centers are kept in a separate file ending with
+``_offsets.txt``.
+
+The NVM format can be used with any cameras supported by ASP. To export to this
+format, use ``--output-cnet-type nvm``. For non-pinhole cameras, the optimized
+camera poses will not be saved to the NVM file, and the optical center will be
+the half the image dimensions.
+
 .. _ba_out_files:
 
 Output files
@@ -1025,12 +1058,22 @@ Command-line options
     in the ISIS control network format. This can be used with any images and
     cameras supported by ASP. See also ``--output-cnet-type``.
 
+--nvm <string (default: "")>
+    Read a control network having interest point matches from this file in the
+    NVM format. This can be used with any images and cameras supported by ASP.
+    For Pinhole cameras, the (optimized) camera poses will be read/written to
+    NVM as well. See also ``--output-cnet-type``, ``--no-poses-from-nvm``, and
+    :numref:`ba_nvm`.
+    
 --output-cnet-type <string (default: "")>
     The format in which to save the control network of interest point matches.
     Options: ``match-files`` (match files in ASP's format), ``isis-cnet`` (ISIS
-    jigsaw format). If not set, match files will be saved, unless ``--isis-cnet
-    filename.net`` is specified, when this option value will be set to
-    ``isis-cnet``.
+    jigsaw format), ``nvm`` (plain text VisualSfM NVM format). If not set, the same
+    format as for the input is used.
+
+--no-poses-from-nvm
+    Do not read the camera poses from the NVM file or write them to such a file.
+    Applicable only with the option ``--nvm`` and Pinhole camera models.
     
 --initial-transform <string>
     Before optimizing the cameras, apply to them the 4 |times| 4 rotation

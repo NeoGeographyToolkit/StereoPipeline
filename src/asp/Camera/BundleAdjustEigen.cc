@@ -91,7 +91,8 @@ Eigen::Affine3d calcWorldToCam(vw::camera::PinholeModel const& pin) {
 // For pinhole cameras, fetch them directly from the camera models. For adjusted
 // pinhole cameras, must combine the adjustments with the pose. For others,
 // return the identity matrix.
-void calcCameraPoses(std::vector<vw::CamPtr>      const& cams,
+void calcCameraPoses(bool                                no_poses_from_nvm,
+                     std::vector<vw::CamPtr>      const& cams,
                      std::vector<Eigen::Affine3d>      & world_to_cam) {
   world_to_cam.resize(cams.size());
   
@@ -108,8 +109,8 @@ void calcCameraPoses(std::vector<vw::CamPtr>      const& cams,
       dynamic_cast<vw::camera::AdjustedCameraModel*>(cams[i].get());
     vw::camera::PinholeModel const* pin 
       = dynamic_cast<vw::camera::PinholeModel const*>(adj_cam->unadjusted_model().get());
-    if (pin == NULL) {
-      // Use the identity matrix for non-pinhole cameras
+    if (pin == NULL || no_poses_from_nvm) {
+      // Use the identity matrix for non-pinhole cameras or when told to do so
       world_to_cam[i] = Eigen::Affine3d::Identity();
       continue;
     }
@@ -128,6 +129,7 @@ void calcCameraPoses(std::vector<vw::CamPtr>      const& cams,
 // triangulated points, and optical offsets. This is needed for saving 
 // an NVM file.
 void saveNvm(asp::BaBaseOptions                const& opt, 
+             bool                                     no_poses_from_nvm,
              vw::ba::ControlNetwork            const& cnet,
              asp::BAParams                     const& param_storage,
              std::vector<Eigen::Affine3d>           & world_to_cam,
@@ -142,7 +144,7 @@ void saveNvm(asp::BaBaseOptions                const& opt,
   // Find latest poses (return the identity for non-pinhole cameras)
   std::vector<vw::CamPtr> optimized_cams;
   asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
-  calcCameraPoses(optimized_cams, world_to_cam);
+  calcCameraPoses(no_poses_from_nvm, optimized_cams, world_to_cam);
 
   // Find the optical centers if not loaded from nvm
   if (optical_offsets.empty())

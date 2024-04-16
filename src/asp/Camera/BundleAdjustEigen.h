@@ -45,20 +45,14 @@ void calcOpticalOffsets(std::vector<std::string>          const& image_files,
 // Given a pinhole camera model, find the world-to-camera transform
 Eigen::Affine3d calcWorldToCam(vw::camera::PinholeModel const& pin);
 
-// Based on the current camera models, calculate the world-to-camera transforms.
-// For pinhole cameras, fetch them directly from the camera models. For adjusted
-// pinhole cameras, must combine the adjustments with the pose. For others,
-// return the identity matrix.
-void calcCameraPoses(std::vector<vw::CamPtr>      const& cams,
-                     std::vector<Eigen::Affine3d>      & world_to_cam);
-
 // Once bundle adjustment is done, export the outlier list, camera poses,
 // triangulated points, and optical offsets, and write the cnet to an nvm file.
-void saveNvm(asp::BaBaseOptions                     const& opt, 
-                  vw::ba::ControlNetwork            const& cnet,
-                  asp::BAParams                     const& param_storage,
-                  std::vector<Eigen::Affine3d>           & world_to_cam,
-                  std::map<std::string, Eigen::Vector2d> & optical_offsets);
+void saveNvm(asp::BaBaseOptions                const& opt,
+             bool                                     no_poses_from_nvm,   
+             vw::ba::ControlNetwork            const& cnet,
+             asp::BAParams                     const& param_storage,
+             std::vector<Eigen::Affine3d>           & world_to_cam,
+             std::map<std::string, Eigen::Vector2d> & optical_offsets);
 
 // Given pinhole cameras and camera-to-world transforms, update the camera poses
 // in the pinhole cameras.
