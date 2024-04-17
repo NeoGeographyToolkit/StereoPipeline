@@ -25,22 +25,31 @@ of that in :numref:`rig_examples`.
 Camera solving overview
 -----------------------
 
-The ``camera_solve`` tool is implemented as a Python wrapper around two
-other tools. The first of these is the the Theia software library, which
-is used to generate initial camera position estimates in a local
-coordinate space. You can learn more about Theia at
-http://www.theia-sfm.org/index.html. The second tool is ASP's own
-``bundle_adjust`` tool. The second step improves the solution to account
-for lens distortion and transforms the solution from local to global
-coordinates by making use of additional input data.
+The ``camera_solve`` tool is implemented as a Python wrapper around two other
+tools that we ship. The first of these is `TheiaSfM
+<http://www.theia-sfm.org/index.html>`_. It generates initial camera position
+estimates in a local coordinate space. The second one is ``bundle_adjust``
+(:numref:`bundle_adjust`).  This program improves the solution to account for
+lens distortion and transforms the solution from local to global coordinates by
+making use of additional input data.
 
-The tool only solves for the extrinsic camera parameters and the
-user must provide intrinsic camera information. You can use the
-``camera_calibrate`` tool (see :numref:`camera_calibrate`) or other
-camera calibration software to solve for intrinsic parameters if
-you have access to the camera in question. The camera calibration
-information must be contained in a .tsai pinhole camera model file
-and must passed in using the ``--calib-file`` option. 
+The ``camera_solve`` program only solves for the extrinsic camera parameters
+(camera position and orientation) and the user must provide intrinsic camera
+information, such as focal length, optical center, and distortion parameters.
+
+The ``camera_calibrate`` tool (see :numref:`camera_calibrate`) can solve for
+intrinsic parameters if you have access to the camera in question. 
+
+The ``rig_calibrator`` (:numref:`rig_calibrator`) program can calibrate a rig
+with one more cameras based on data acquired in situ, without a calibration
+target. It can handle a mix of optical images and depth clouds.
+
+The ``bundle_adjust`` program can also solve for the intrinsics, without using a
+rig or a calibration target. It can optionally constrain the solution against
+well-aligned prior terrain (:numref:`floatingintrinsics`).
+
+The camera calibration information must be contained in a .tsai pinhole camera
+model file and must passed in using the ``--calib-file`` option. 
 
 :numref:`camera_solve_gcp` has an example of a pinhole camera model file and
 discusses some heuristics for how to guess the intrinsics. A description of our
@@ -56,10 +65,10 @@ below and described in more detail in the examples that follow:
 -  A set of estimated camera positions (perhaps from a GPS unit) stored in a csv
    file.
 
--  A DEM which a local point cloud can be registered to using
-   ``pc_align``. This method can be more accurate if estimated camera
-   positions are also used. The user must perform alignment to a DEM,
-   that step is not handled by ``camera_solve``.
+-  A DEM which a local point cloud can be registered to using ``pc_align``
+   (:numref:`pc_align`). This method can be more accurate if estimated camera
+   positions are also used. The user must perform alignment to a DEM, that step
+   is not handled by ``camera_solve``.
 
 Power users can tweak the individual steps that ``camera_solve`` goes
 through to optimize their results. This primarily involves setting up a
