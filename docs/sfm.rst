@@ -163,10 +163,9 @@ If we do not see any obvious problems we can go ahead and run the
 
 The reconstruction can be visualized as::
 
-    view_reconstruction --reconstruction out/theia_reconstruction.dat
+    view_reconstruction --reconstruction out/theia_reconstruction-0
 
-One may need to zoom out to see all cameras. See this tool's manual in
-the `Theia documentation <https://github.com/oleg-alexandrov/TheiaSfM/blob/rig_calibrator/docs/source/applications.rst#view-reconstruction>`_. 
+One may need to zoom out to see all cameras. See an illustration in :numref:`view_reconstruction`.
 
 If this tool shows a black window, it is likely an issue with the
 libGL shipped by ASP. Then install it separately with conda, as::

@@ -19,5 +19,6 @@ Example::
    :name: view_reconstruction_fig
    :alt:  view_reconstruction_tag
    
-   Illustration of ``view_reconstruction``.
+   Illustration of ``view_reconstruction``. The camera poses are shown as
+   red pyramids. The triangulated points are in gray.
 
