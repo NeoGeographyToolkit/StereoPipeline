@@ -1,7 +1,7 @@
 .. _rig_msl:
 
 MSL navcam example
-^^^^^^^^^^^^^^^^^^
+------------------
 
 This is an example of using the ASP tools to process images taken by the Mars
 Science Laboratory (MSL) rover `Curiosity
@@ -16,7 +16,7 @@ Section :numref:`csm_msl` discusses using the known camera poses for MSL.
 .. _rig_msl_figure:
 
 Illustration
-------------
+~~~~~~~~~~~~
 
 .. figure:: ../images/msl_kimberly_mesh.png
    :name: rig_msl_figure1
@@ -30,7 +30,7 @@ Illustration
    and several representative images from this set (bottom).
 
 Sensor information
-------------------
+~~~~~~~~~~~~~~~~~~
 
 Curiosity has two navcam sensors (left and right) mounted on a stereo
 rig. Each records images at a resolution of 1024 x 1024 pixels. The
@@ -39,7 +39,7 @@ field of view is 45 degrees.
 .. _msl_challenges:
 
 Challenges
-----------
+~~~~~~~~~~
 
 The navcam images are used to plan the path of the rover. They are not acquired
 specifically for mapping. While there is good overlap and perspective difference
@@ -62,7 +62,7 @@ used.
 .. _msl_image_prep:
 
 Data preparation
-----------------
+~~~~~~~~~~~~~~~~
 
 The images are fetched from PDS. For example, to get the data for day
 (SOL) 597 on Mars, use the command::
@@ -99,7 +99,7 @@ commands are along the lines of::
       to = SOL00597/lnav/left_image.png
 
 Image selection
----------------
+~~~~~~~~~~~~~~~
 
 A subset of 22 images was selected for SOL 597 (half for each of the
 left and right navcam sensors). Images were chosen based on visual
@@ -110,7 +110,7 @@ This dataset is available for
 `download <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/MSL>`_.
 
 Setting up the initial rig
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Given the earlier sensor information, the focal length can be found 
 using the formula:
@@ -143,7 +143,7 @@ with an additional identical block for the ``rnav`` sensor (without
 ``ref_sensor_name``).
 
 SfM map creation
-----------------
+~~~~~~~~~~~~~~~~
 
 Given the data and rig configuration, the image names in .png format
 were put in a list, with one entry per line.  The ``theia_sfm``
@@ -189,7 +189,7 @@ The produced pairwise matches in ``rig_out/cameras.nvm`` can be
 inspected with ``stereo_gui`` (:numref:`stereo_gui_nvm`).
 
 Mesh creation
--------------
+~~~~~~~~~~~~~
 
 Here, a point cloud is created from every stereo pair consisting of a left
 sensor image and corresponding right image, and those are fused into
@@ -261,19 +261,21 @@ See the produced mesh in :numref:`rig_msl_figure`.
 .. _msl_registration:
 
 Ground registration
--------------------
+~~~~~~~~~~~~~~~~~~~
 
 To create DEMs, for example for rover cameras, the cameras should be registered
 to the ground. We will discuss how to do that both when a prior DEM is available
 and when not. For registration to a local Cartesian coordinate system, see
 instead :numref:`rig_calibrator_registration`.
 
-The ``rig_calibrator`` option ``--save_pinhole_cameras`` can export
-the camera poses to Pinhole format (:numref:`pinholemodels`),
-The option ``--save_matches`` likewise exports the interest point
-matches. 
+Invocation of bundle adjustment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-These datasets can be ingested by ASP's bundle adjustment program
+The ``rig_calibrator`` option ``--save_pinhole_cameras`` can export the camera
+poses to Pinhole format (:numref:`pinholemodels`). It will also save the list of
+input images (:numref:`rc_bundle_adjust`).
+
+These can be ingested by ASP's bundle adjustment program
 (:numref:`bundle_adjust`). It can transform the cameras to ground coordinates
 using ground control points (GCP, :numref:`bagcp`), with the option
 ``--transform-cameras-with-shared-gcp``.
@@ -283,7 +285,7 @@ Here is an example invocation::
     bundle_adjust                            \
     --image-list rig_out/image_list.txt      \
     --camera-list rig_out/camera_list.txt    \
-    --match-files-prefix rig_out/matches/run \
+    --nvm rig_out/cameras.nvm                \
     --num-iterations 0                       \
     --inline-adjustments                     \
     --datum D_MARS                           \
@@ -296,11 +298,11 @@ The ``--datum`` option is very important, and it should be set depending
 on the planetary body. 
 
 Using zero iterations will only apply the registration transform, and 
-will preserve the rig structure.
+*will preserve* the rig structure, up to a scale factor.
 
 With a positive number of iterations, the cameras will be further refined
 in bundle adjustment, while using the GCP. For such refinement it is important
-to have many interest point matches between the images. This will not respect
+to have many interest point matches between the images. This will *not preserve*
 the rig structure.
 
 We used high values in ``--remove-outliers-params`` to avoid removing valid
@@ -313,6 +315,34 @@ than a few dozen pixels, and ideally less.
 With the cameras correctly registered and self-consistent, dense stereo point
 clouds and DEMs can be created (:numref:`nextsteps`), that can be mosaicked
 (:numref:`dem_mosaic`) and aligned to a prior dataset (:numref:`pc_align`).
+
+For difficult areas with few interest points matches, the images (with cameras
+now in planetary coordinates) can be mapprojected, and the resulting images can
+be used to find many more interest points (:numref:`mapip`). 
+                           
+Use of registered data with rig_calibrator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``bundle_adjust`` program will produce the file ``ba/run.nvm`` having
+the registered camera positions and the control network. This can be passed
+back to ``rig_calibrator``, if needed, together with the latest optimized rig,
+which is at ``rig_out/rig_config.txt``. The command is::
+
+    rig_calibrator                        \
+      --rig_config rig_out/rig_config.txt \
+      --nvm ba/run.nvm                    \
+      --camera_poses_to_float "lnav rnav" \
+      --intrinsics_to_float "$float"      \
+      --num_iterations 100                \
+      --calibrator_num_passes 2           \
+      --num_overlaps 0                    \
+      --out_dir rig_out_reg
+
+Here we set ``--num_overlaps 0`` as we do not want to try to create interest
+point matches again.
+
+GCP and custom DEM creation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 GCP files can be created manually by point-and-click in ``stereo_gui``
 (:numref:`creatinggcp`) or automatically (:numref:`gcp_gen`), if a prior DEM
@@ -352,7 +382,7 @@ Multiple subsets of the images can be used, with each producing a GCP file.
 All can then be passed together to ``bundle_adjust``.
 
 Notes
------
+~~~~~
 
  - The voxel size for binning and meshing the point cloud was chosen
    manually. An automated approach for choosing a representative voxel

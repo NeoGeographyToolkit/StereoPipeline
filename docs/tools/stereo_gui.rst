@@ -635,6 +635,7 @@ mapproject the images onto this DEM (:numref:`mapproject`), obtaining the images
 
 The same resolution (option ``--tr``) should be used for all images, which should
 be a compromise between the ground sample distance values for these images.
+
 See :numref:`mapproj-example` how how to find a DEM for mapprojection and other
 details.
 
@@ -647,6 +648,9 @@ Then bundle adjustment is invoked as follows::
 This will not recreate any existing match files either for
 mapprojected images or for unprojected ones. If that is
 desired, existing match files need to be deleted first.
+
+Add this command ``--ip-per-tile 250 --matches-per-tile 250`` if needed to 
+increase the number of interest point matches.
 
 Each mapprojected image stores in its metadata the name of the original
 image, the camera model, the bundle-adjust prefix, if any, and the DEM it
