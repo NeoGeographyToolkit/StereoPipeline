@@ -796,7 +796,8 @@ craters are still too shallow, but that is a known issue with weak
 illumination, and something to to be addressed at a future time.
 
 The value of ``--blending-dist`` should be set to 10 or so. A smaller
-value may result in seams.
+value may result in seams. Increasing this will allow the seams to be
+attenuated, but may result in more erosion.
 
 The tool ``sfs_blend`` tool (:numref:`sfs_blend`) can be used to tune
 the areas in complete shadow after doing SfS.
@@ -1470,7 +1471,7 @@ far-off. For those, the threshold may need to be raised to as much as
 Use a larger ``--blending-dist`` if the produced terrain has visible artifacts
 around shadow regions which do not go away after increasing the shadow
 thresholds. To get more seamless results around small shadowed craters reduce
-the value of ``--min-blend-size``. 
+the value of ``--min-blend-size``. This can result in more erosion.
 
 The option ``--use-approx-camera-models`` is not necessary with CSM
 cameras.
@@ -1617,8 +1618,15 @@ solution in some locations while introducing artifacts in other. One can also
 try invoking ``sfs`` with ``--robust-threshold`` (try values of 0.1 and 0.005,
 perhaps).
 
-Use a larger ``--blending-dist`` if the produced terrain has a visible
-artifact which does not go away after increasing shadow thresholds.
+Use a larger ``--blending-dist`` and smaller ``--min-blend-size`` if the
+produced terrain has a visible artifact which does not go away after increasing
+shadow thresholds. This can result in more erosion, however.
+
+Artifacts around permanently shadowed areas can be fixed with ``sfs_blend``
+(:numref:`sfs_blend`).
+
+See :numref:`sfs_borderline` for how to increase the coverage in areas 
+with very low illumination.
 
 If the SfS DEM has localized defects, those can be fixed in a small region and
 then blended in. For example, a clip around the defect, perhaps of dimensions

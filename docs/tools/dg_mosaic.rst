@@ -19,8 +19,9 @@ models, their RPC approximations (:numref:`rpc`).
 model can be used to mapproject the mosaicked images with the goal of
 computing stereo from them (:numref:`mapproj-example`).
 
-``dg_mosaic`` can also reduce the image resolution while creating the
-mosaics (with the camera files modified accordingly).
+``dg_mosaic`` can also reduce the image resolution while creating the mosaics
+(with the camera files modified accordingly). This may result in aliasing
+artifacts in produced terrain models, but can be useful for quick previews.
 
 Some older (2009 or earlier) Digital Globe images may exhibit seams upon
 mosaicking due to inconsistent image and camera information. The

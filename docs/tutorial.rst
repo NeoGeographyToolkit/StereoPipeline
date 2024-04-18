@@ -215,6 +215,11 @@ When creating a DEM, it is suggested to use a local projection
 See :numref:`nextsteps` for a more in-depth discussion of stereo
 algorithms.
 
+.. figure:: images/p19-colorized-shaded_500px.png
+
+   The produced colorized DEM, the shaded relief image, and the
+   colorized hillshade. See :numref:`builddem` for more details.
+
 .. _dg_tutorial:
 
 Tutorial: Processing Earth DigitalGlobe/Maxar images
@@ -285,9 +290,9 @@ Some WorldView folders will contain multiple image files. This is because
 DigitalGlobe/Maxar breaks down a single observation into multiple files for what
 we assume are size reasons. These files have a pattern string of "_R[N]C1-",
 where N increments for every subframe of the full observation. The tool named
-``dg_mosaic`` (:numref:`dg_mosaic`) can be used to mosaic (and optionally reduce
-the resolution of) such a set of sub-observations into a single image file and
-create an appropriate camera file::
+``dg_mosaic`` (:numref:`dg_mosaic`) can be used to mosaic such a set of
+sub-observations into a single image file and create an appropriate camera
+file::
 
     dg_mosaic 12FEB16101327*TIF --output-prefix 12FEB16101327
 
@@ -297,16 +302,14 @@ mosaicked images. This sample data only contains two image files
 so we do not need to use ``dg_mosaic``.
 
 Since we are ingesting these images raw, it is strongly recommended that
-you use affine epipolar alignment to reduce the search range. The
-``parallel_stereo`` command and a rendering of the results are shown below.
-
-::
+you use affine epipolar alignment to reduce the search range. Commands::
 
     parallel_stereo -t dg --stereo-algorithm asp_mgm      \
       --subpixel-mode 9 --alignment-method affineepipolar \
       12FEB16101327.r50.tif 12FEB16101426.r50.tif         \
       12FEB16101327.r50.xml 12FEB16101426.r50.xml         \
       run/run
+    point2dem --stereographic --auto-proj-center run-PC.tif
 
 As discussed in :numref:`tutorial`, one can experiment with various
 tradeoffs of quality versus run time by using various stereo
@@ -317,10 +320,11 @@ How to create a DEM and visualize the results of stereo is described in
 :numref:`visualising`.
 
 .. figure:: images/examples/dg/wv_tutorial.png
-   :name: fig:dg-nomap-example
+   :name: fig:dg-example
 
-   Example WorldView image section and colorized DEM (height map). A local
-   projection is needed to keep the aspect ratio (:numref:`point2dem`).
+   A colorized and hillshaded terrain model for Grand Mesa, Colorado, produced
+   with WorldView images, while employing mapprojection
+   (:numref:`mapproj-example`).
 
 It is important to note that we could have performed stereo using the
 approximate RPC model instead of the exact linear camera model (both

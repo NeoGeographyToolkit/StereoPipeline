@@ -98,10 +98,13 @@ Adjustable Tsai
 A variant of the Tsai model where any number of *K* terms and a skew term
 (alpha) can be used. Can apply the AgiSoft Lens calibration parameters.
 
+.. _brown_conrady:
+
 Brown-Conrady
 ^^^^^^^^^^^^^
 
-An older model based on a centering angle :cite:`brown1966,brown1971`.
+This is an older model based on a centering angle :cite:`brown1966,brown1971`.
+Example usage is in :numref:`sfmgeneric`.
 
 This model uses the following parameters:
   
@@ -130,10 +133,14 @@ non-normalized pixel units, so they can be in millimeters or meters:
 
     y_{undist} = y + y\frac{dr}{r} + (P_{1}r^{2} +P_{2}r^{4})\cos(phi)
 
-The formulas start with distorted pixels and undistort them. This is not
-preferable with ASP, as then the distortion operation requires a solver,
-which makes bundle adjustment and mapprojection very slow. Use instead
-the Tsai model. 
+The formulas start with distorted pixels that are then undistorted. This is not
+preferable with ASP, as then the distortion operation requires a solver, which
+makes bundle adjustment and mapprojection very slow. Use instead the Tsai model. 
+
+A Brown-Conrady model can be converted to a Tsai model with
+``convert_pinhole_model`` (:numref:`convert_pinhole_model`). The produced model
+can be refined with bundle adjustment (:numref:`floatingintrinsics`), if having
+several images and many interest point matches.
 
 Photometrix
 ^^^^^^^^^^^

@@ -143,7 +143,8 @@ These two datasets will be plotted on top of each other, in red and blue, respec
    :alt:  orbit_plot_fig
    
    Roll, pitch, and yaw angle (in degrees) for two orbital sequences, 
-   shown in red and blue.
+   shown in red and blue.  The option ``--subtract-line-fit`` can be used
+   to see finer-level differences between the two sequences.
 
 Plot two orbital groups, including linescan cameras
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

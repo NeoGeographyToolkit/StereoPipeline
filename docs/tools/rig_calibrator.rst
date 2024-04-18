@@ -117,12 +117,13 @@ If the rig constraint is used (omitting ``--no_rig``), and the
 sensors acquire the images at independent times, it is strongly
 suggested that the timestamp be a number of the form
 ``<digits>.<digits>``, representing the precise image acquisition
-time. 
+time, in seconds.
 
-Without the rig constraint, or if all the sensors on the rig take
-pictures simultaneously, the only assumption is that images have the
-same timestamp only if taken at the same time, with the precise
-timestamp value not used (see also ``--num_overlaps``).
+Without the rig constraint, or if all the sensors on the rig take pictures
+simultaneously, the only assumption is that images have the same timestamp only
+if taken at the same time, with the precise timestamp value not used 
+(but one must set ``--bracket_len`` to a small value). See also 
+``--num_overlaps``.
 
 Any characters in the timestamp string that are not digits or the
 decimal period will be removed and the rest will be converted to a

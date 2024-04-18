@@ -541,8 +541,8 @@ to edit the matches one pair at a time.
 
 .. _creatinggcp:
 
-Creating GCP with with orthoimage and DEM
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Creating GCP with with an orthoimage and a DEM
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 There exist situations when one has one or more images for which the camera
 files are either inaccurate or, for Pinhole camera models, just the intrinsics

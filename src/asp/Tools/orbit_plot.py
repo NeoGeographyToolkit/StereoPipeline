@@ -576,6 +576,14 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, o
           opt_rotation_angles = opt_rotation_angles[b:e]
       print("Plotting the most central %d out of %d poses for linescan cameras." % \
           (len(orig_rotation_angles), totalNum))  
+  
+  if numSets == 2:
+    # Must check that we get same length as for orig rotations
+    # Print here the length of opt_rotation_angles
+    if len(opt_rotation_angles) != len(orig_rotation_angles):
+      print("The sizes of the two input datasets do not agree. " + \
+            "Got: ", len(opt_rotation_angles), " and ", len(orig_rotation_angles))
+      sys.exit(1)
 
   # The order is roll, pitch, yaw, as returned by
   # R.from_matrix().as_euler('XYZ',degrees=True)
