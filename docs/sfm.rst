@@ -46,7 +46,7 @@ target. It can handle a mix of optical images and depth clouds.
 
 The ``bundle_adjust`` program can also solve for the intrinsics, without using a
 rig or a calibration target. It can optionally constrain the solution against
-well-aligned prior terrain (:numref:`floatingintrinsics`).
+a well-aligned prior terrain (:numref:`floatingintrinsics`).
 
 The camera calibration information must be contained in a .tsai pinhole camera
 model file and must passed in using the ``--calib-file`` option. 
@@ -107,11 +107,15 @@ This means that the effective pixel size has increased from five microns
 The next step is to fill out the rest of the pinhole camera model
 information we need. Using the data sheets available at
 http://apollo.sese.asu.edu/SUPPORT_DATA/AS15_SIMBAY_SUMMARY.pdf we can
-find the lens distortion parameters for metric camera. Looking at the
-ASP lens distortion models in :numref:`pinholemodels`, we see that the description
-matches ASP's Brown-Conrady model. Using the example in the appendix we
-can fill out the rest of the sensor model file (metric_model.tsai) so it
-looks as follows::
+find the lens distortion parameters for metric camera. 
+
+Looking at the ASP lens distortion models in :numref:`pinholemodels`, we see
+that the description matches ASP's Brown-Conrady model. This model is, not
+recommended in general, as the distortion operation is slow (see a discussion in
+:numref:`brown_conrady`), but here we have to conform to what is expected.
+
+Using the example in the appendix we can fill out the rest of the sensor model
+file (metric_model.tsai) so it looks as follows::
 
    VERSION_3
    fu = 76.080
@@ -488,7 +492,7 @@ features to make alignment more accurate but ``pc_align`` still failed
 to produce a good fit until the lidar point cloud was converted into a
 smoothed DEM.
 
-::
+Run ``parallel_stereo`` (:numref:`parallel_stereo`) on the DMS images::
 
    parallel_stereo -t nadirpinhole             \
      --stereo-algorithm asp_mgm                \
@@ -497,41 +501,45 @@ smoothed DEM.
      out/2009_11_05_02948.JPG.final.tsai       \
      out/2009_11_05_02949.JPG.final.tsai       \
      st_run/out
+
+Create a DEM and orthoimage from the stereo results with ``point2dem``
+(:numref:`point2dem`)::
+
+   point2dem --stereographic --proj-lon 0 --proj-lat -90 \
+     st_run/out-PC.tif --orthoimage st_run/out-L.tif
+
+Colorize and hillshade the DEM::
      
-   proj="+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs" 
+   colormap --hillshade st_run/out-DEM.tif
+   
+Create a DEM from the LVIS data::
+
    point2dem ILVIS2_AQ2009_1105_R1408_055812.TXT     \
      --datum WGS_1984                                \
-     --t_srs "$proj"                                 \
+     --stereographic --proj-lon 0 --proj-lat -90     \
      --csv-format "5:lat 4:lon 6:height_above_datum" \
      --tr 30                                         \
      --search-radius-factor 2.0                      \
      -o lvis
-     
-   pc_align  --max-displacement 1000    \
-     lvis-DEM.tif st_run/out-PC.tif     \
-     --save-transformed-source-points   \
-     --datum wgs84 --outlier-ratio 0.55 \
+
+Align the produced stereo point cloud to the LVIS data using ``pc_align``
+(:numref:`pc_align`)::
+        
+   pc_align --max-displacement 1000                         \
+     st_run/out-DEM.tif ILVIS2_AQ2009_1105_R1408_055812.TXT \
+     --csv-format "5:lat 4:lon 6:height_above_datum"        \
+     --save-inv-transformed-reference-points                \
+     --datum wgs84 --outlier-ratio 0.55                     \
      -o align_run/out
-   
-   proj="+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs" 
-   point2dem --datum WGS_1984 \
-     --t_srs "$proj"          \
-     align_run/out-trans_source.tif
-     
-   colormap align_run_big/out-trans_source-DEM.tif --min 200 --max 1500
-   colormap lvis-DEM.tif --min 200 --max 1500
-   image2qtree lvis-DEM_CMAP.tif
-   image2qtree align_run_big/out-trans_source-DEM_CMAP.tif
+  
+A DEM can be produced from the aligned point cloud, that
+can then be overlaid on top of the LVIS DEM.
 
-.. figure:: images/examples/pinhole/icebridge_dem_overlay.png
-   :name: pinhole-icebridge-orbitviz
-   :alt: LVIS lidar DEM overlaid on ASP created DEM
+.. figure:: images/examples/pinhole/icebridge_dem.png
+   :name: pinhole-icebridge
+   :alt: A DEM and orthoimage produced with IceBridge data
 
-   LVIS lidar DEM overlaid on the ASP created DEM, both colormapped to
-   the same elevation range. The ASP DEM could be improved but the
-   registration is accurate. Notice how narrow the LVIS lidar coverage
-   is compared to the field of view of the camera. You may want to
-   experiment using the SGM algorithm to improve the coverage.
+   A DEM and orthoimage produced with IceBridge data
 
 Other IceBridge flights contain data from the Airborne Topographic
 Mapper (ATM) lidar sensor. Data from this sensor comes packed in one of
