@@ -290,7 +290,7 @@ def generate_flagfile(options):
 # Increase this number to get more verbose logging.
 --v=3
 '''
-        # See if to overwride some of the above
+        # See if to overwrite some of the above
         if options.theia_overrides != "":
             lines = output_string.splitlines()
             for count in range(len(lines)):
@@ -338,7 +338,8 @@ def build_reconstruction(options):
     if (not os.path.exists(options.theia_output_path)) or options.overwrite:
         abs_flag_path = os.path.abspath(flagfile_path)
         cmd = ['build_reconstruction', '--flagfile', abs_flag_path]
-        asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+        verbose = False
+        asp_system_utils.generic_run(cmd, verbose)
 
         # Theia appends a tag to the requested output file, just rename the file.
         theia_temp_output_path = options.theia_output_path + '-0'
@@ -521,8 +522,9 @@ def run_bundle_adjust(options):
         # Split on spaces but keep quoted parts together.
         # Always run this step as otherwise there was no point to calling the tool.
 
-    # Run ASP's bundle_adjust tool    
-    cmd = ['bundle_adjust'] + options.input_images + options.theia_camera_models
+    # Run ASP's bundle_adjust tool. The --no-datum option is very important
+    # as we start with the cameras in some arbitrary coordinate system.    
+    cmd = ['bundle_adjust', '--no-datum'] + options.input_images + options.theia_camera_models
     if options.gcp_path:
       cmd += [options.gcp_path]
       if '--transform-cameras-using-gcp' not in ba_params and \
@@ -531,7 +533,8 @@ def run_bundle_adjust(options):
           ba_params += ['--transform-cameras-with-shared-gcp']
     cmd += ['-o', output_prefix]
     cmd += ba_params
-    asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+    verbose = False
+    asp_system_utils.generic_run(cmd, verbose)
 
     # The previous call should create a .tsai file for every input image in the output folder
     ba_camera_models = get_paths_with_extension(options.input_images, options.output_folder,

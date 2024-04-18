@@ -88,15 +88,15 @@ generic frame camera we use images from the Apollo 15 Metric camera. The
 calibration information for this camera is available online and we have
 accurate digital terrain models we can use to verify our results.
 
-First download a pair of images::
+First, download with ``wget`` the two images at::
 
-   wget http://apollo.sese.asu.edu/data/metric/AS15/png/AS15-M-0414_MED.png
-   wget http://apollo.sese.asu.edu/data/metric/AS15/png/AS15-M-1134_MED.png
+  http://apollo.sese.asu.edu/data/metric/AS15/png/AS15-M-0114_MED.png
+  http://apollo.sese.asu.edu/data/metric/AS15/png/AS15-M-0115_MED.png
 
 .. figure:: images/examples/pinhole/AS15-M-combined.png
    :name: pinhole-a15-input-images
 
-   The two Apollo 15 images (AS15-M-0414 and AS15-M-1134).
+   The two Apollo 15 images
 
 In order to make the example run faster we use downsampled versions of
 the original images. The images at those links have already been
@@ -104,10 +104,9 @@ downsampled by a factor of :math:`4 \sqrt{2}` from the original images.
 This means that the effective pixel size has increased from five microns
 (0.005 millimeters) to 0.028284 millimeters.
 
-The next step is to fill out the rest of the pinhole camera model
-information we need. Using the data sheets available at
-http://apollo.sese.asu.edu/SUPPORT_DATA/AS15_SIMBAY_SUMMARY.pdf we can
-find the lens distortion parameters for metric camera. 
+The next step is to fill out the rest of the pinhole camera model information we
+need, based on the `Apollo 15 photographic equipment and mission summary report
+<http://apollo.sese.asu.edu/SUPPORT_DATA/AS15_SIMBAY_SUMMARY.pdf>`_. 
 
 Looking at the ASP lens distortion models in :numref:`pinholemodels`, we see
 that the description matches ASP's Brown-Conrady model. This model is, not
@@ -148,7 +147,7 @@ up nicely with the center of the image. Before we try to solve for the
 camera positions we can run a simple tool to check the quality of our
 camera model file::
 
-   undistort_image AS15-M-0414_MED.png metric_model.tsai \
+   undistort_image AS15-M-0114_MED.png metric_model.tsai \
      -o corrected_414.tif
 
 It is difficult to tell if the distortion model is correct by using this
@@ -171,7 +170,7 @@ Creation of cameras in an arbitrary coordinate system
 If we do not see any obvious problems we can go ahead and run the
 ``camera_solve`` tool::
 
-   camera_solve out/ AS15-M-0414_MED.png AS15-M-1134_MED.png \
+   camera_solve out/ AS15-M-0114_MED.png AS15-M-0115_MED.png \
      --datum D_MOON --calib-file metric_model.tsai
 
 The reconstruction can be visualized as::
@@ -208,10 +207,10 @@ don't see any evidence of lens distortion error.
 ::
 
     parallel_stereo                      \
-      AS15-M-0414_MED.png                \
-      AS15-M-1134_MED.png                \
-      out/AS15-M-0414_MED.png.final.tsai \
-      out/AS15-M-1134_MED.png.final.tsai \
+      AS15-M-0114_MED.png                \
+      AS15-M-0115_MED.png                \
+      out/AS15-M-0114_MED.png.final.tsai \
+      out/AS15-M-0115_MED.png.final.tsai \
       --stereo-algorithm asp_mgm         \
       --subpixel-mode 9                  \
       -t pinhole --corr-timeout 300      \
@@ -255,8 +254,9 @@ of the cameras provided that the GCPs and the camera model parameters
 are accurate. 
 
 To create GCPs, see :numref:`camera_solve_gcp`. Here we used the ``stereo_gui``
-approach (:numref:`creatinggcp`) together with a DEM generated from LRONAC
-images.
+approach (:numref:`creatinggcp`) together with a DEM generated from LRO NAC
+images. An arbitrary DEM for the desired planet can make do for the purpose of
+transforming the cameras to plausible orbital coordinates.
 
 For GCP to be usable, they can be one of two kinds. The preferred
 option is to have at least three GCP, with each seen in at least two
@@ -282,13 +282,13 @@ This may not be as robust as the earlier approach.
 Solving for cameras when using GCP::
 
     camera_solve out_gcp/                           \
-      AS15-M-0414_MED.png AS15-M-1134_MED.png       \
+      AS15-M-0114_MED.png AS15-M-0115_MED.png       \
       --datum D_MOON --calib-file metric_model.tsai \
       --gcp-file ground_control_points.gcp
 
-Check the final ``*pointmap.csv`` file (:numref:`ba_out_files`). If the
-residuals are no more than a handful pixels, and ideally less than a
-pixel, the GCP were used successfully. 
+Check the final ``*pointmap.csv`` file (:numref:`ba_out_files`), and examine the
+lines ending in ``# GCP``. If the residuals are no more than a handful pixels,
+and ideally less than a pixel, the GCP were used successfully. 
 
 Increase the value of ``--robust-threshold`` in ``bundle_adjust``
 (via ``--bundle-adjust-params`` in ``camera_solve``)
@@ -296,47 +296,51 @@ if desired to bring down the big residuals in that file at the expense
 of increasing the smaller ones. Consider also deleting GCP corresponding
 to large residuals, as those may be inaccurate.
 
-We end up with results that can be compared with the a DEM created from
-LRONAC images. The stereo results on the Apollo 15 images leave
-something to be desired but the DEM they produced has been moved to the
-correct location. You can easily visualize the output camera positions
-using the ``orbitviz`` tool with the ``--load-camera-solve`` option as
-shown below. Green lines between camera positions mean that a sufficient
-number of matching interest points were found between those two images.
-
 Running stereo
 ^^^^^^^^^^^^^^
 
 ::
 
-    parallel_stereo                          \
-    AS15-M-0414_MED.png AS15-M-1134_MED.png  \
-      out_gcp/AS15-M-0414_MED.png.final.tsai \
-      out_gcp/AS15-M-1134_MED.png.final.tsai \
-      -t nadirpinhole                        \
-      --corr-timeout 300                     \
-      --stereo-algorithm asp_mgm             \
-      --subpixel-mode 9                      \
-      --erode-max-size 100                   \
+    parallel_stereo                                     \
+      AS15-M-0114_MED.png                               \
+      AS15-M-0115_MED.png                               \
+      out_gcp/AS15-M-0114_MED.png.final.tsai            \
+      out_gcp/AS15-M-0115_MED.png.final.tsai            \
+      -t pinhole                                        \
+      --skip-rough-homography                           \
+      --stereo-algorithm asp_mgm                        \
+      --subpixel-mode 9                                 \
+      --sgm-collar-size 256                             \
       s_global/out
-      
-    orbitviz -t nadirpinhole -r moon out_gcp --load-camera-solve
 
+Create a terrain model and orthoimage::
+
+     point2dem -r moon                    \
+       --stereographic --auto-proj-center \
+       s_global/out-PC.tif                \
+       --orthoimage s_global/out-L.tif    \
+       --errorimage
+
+See :numref:`point2dem` for more information on the options used here.
+The error image, in particular, can be useful to see if the intrinsics
+are good. Big errors in the corners of the images may indicate that
+the intrinsics need refinement (:numref:`floatingintrinsics`).
+
+Run ``orbitviz`` to visualize the camera positions::
+
+    orbitviz -t nadirpinhole -r moon out_gcp --load-camera-solve
 
 .. figure:: images/examples/pinhole/a15_fig.png
    :name: pinhole-a15-result-image
 
-   Left: Solved-for camera positions plotted using orbitviz.  Right:
-   A narrow LRONAC DEM overlaid on the resulting DEM, both colormapped
-   to the same elevation range.
+   Produced DEM (left) and orthoimage (right).
 
-ASP also supports the method of initializing the ``camera_solve`` tool
-with estimated camera positions. This method will not move the cameras
-to exactly the right location but it should get them fairly close and at
-the correct scale, hopefully close enough to be used as-is or to be
-refined using ``pc_align`` or some other method. To use this method,
-pass additional bundle adjust parameters to ``camera_solve`` similar to
-the following line::
+ASP also supports the method of initializing the ``camera_solve`` tool with
+estimated camera positions. This method will not move the cameras to exactly the
+right location but it should get them fairly close and at the correct scale,
+hopefully close enough to be used as-is or to be refined using ``pc_align``
+(:numref:`pc_align`). To use this method, pass additional bundle adjust
+parameters to ``camera_solve`` similar to the following line::
 
    --bundle-adjust-params '--camera-positions nav.csv         \
     --csv-format "1:file 12:lat 13:lon 14:height_above_datum" \ 
@@ -357,19 +361,20 @@ in more detail and the other tools in ASP.
 Example: IceBridge DMS Camera
 -----------------------------
 
-The DMS (Digital Mapping System) Camera is a frame camera flown on as
-part of the NASA IceBridge program to collect images of
-polar and Antarctic terrain (http://nsidc.org/icebridge/portal/) that
-we can use to produce digital terrain.
+The DMS (Digital Mapping System) Camera is a frame camera flown on as part of
+the `NASA IceBridge program <http://nsidc.org/icebridge/portal/>`_, whose goal
+was to collect images of polar terrain.
 
-To process this data the steps are very similar to the steps described
-above for the Apollo Metric camera but there are some aspects which
-are particular to IceBridge. You can download DMS images from
-ftp://n5eil01u.ecs.nsidc.org/SAN2/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/. A
-list of the available data types can be found at
-https://nsidc.org/data/icebridge/instr_data_summary.html. This
-example uses data from the November 5, 2009 flight over Antarctica.
-The following camera model (icebridge_model.tsai) was used (see
+The approach is, with a few exceptions, very similar to the one for the Apollo
+Metric camera. 
+
+The DMS images are available for download at the `IceBridge ftp site
+<ftp://n5eil01u.ecs.nsidc.org/SAN2/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/>`_. A list
+of the available data types can be found at the `mission data summary
+<https://nsidc.org/data/icebridge/instr_data_summary.html>`_ page.
+
+This example uses data from the November 5, 2009 flight over Antarctica. The
+following camera model (icebridge_model.tsai) was used (see
 :numref:`pinholemodels` on Pinhole camera models)::
 
    VERSION_3
@@ -495,6 +500,8 @@ smoothed DEM.
 Run ``parallel_stereo`` (:numref:`parallel_stereo`) on the DMS images::
 
    parallel_stereo -t nadirpinhole             \
+     --sgm-collar-size 256                     \
+     --skip-rough-homography                   \
      --stereo-algorithm asp_mgm                \
      --subpixel-mode 9                         \
      2009_11_05_02948.JPG 2009_11_05_02949.JPG \
@@ -505,7 +512,8 @@ Run ``parallel_stereo`` (:numref:`parallel_stereo`) on the DMS images::
 Create a DEM and orthoimage from the stereo results with ``point2dem``
 (:numref:`point2dem`)::
 
-   point2dem --stereographic --proj-lon 0 --proj-lat -90 \
+   point2dem --datum WGS_1984                    \
+     --stereographic --proj-lon 0 --proj-lat -90 \
      st_run/out-PC.tif --orthoimage st_run/out-L.tif
 
 Colorize and hillshade the DEM::
@@ -539,7 +547,10 @@ can then be overlaid on top of the LVIS DEM.
    :name: pinhole-icebridge
    :alt: A DEM and orthoimage produced with IceBridge data
 
-   A DEM and orthoimage produced with IceBridge data
+   A DEM and orthoimage produced with IceBridge data. The wavy artifacts in the
+   bottom-right should go away if running a second-pass stereo with mapprojected
+   images (:numref:`mapproj-example`), with a blurred version of this DEM
+   as an initial guess.
 
 Other IceBridge flights contain data from the Airborne Topographic
 Mapper (ATM) lidar sensor. Data from this sensor comes packed in one of
