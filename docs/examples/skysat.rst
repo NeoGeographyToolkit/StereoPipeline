@@ -176,7 +176,8 @@ errors are always given a higher priority than triangulation errors.
 The ``--camera-position-weight`` value was set to a large number to keep the
 camera positions fixed  during bundle adjustment. This is important as 
 it is assumed that the camera positions are already accurate and it is desired
-to only refine the camera orientations.
+to only refine the camera orientations. Such a constraint can prevent bundle
+adjustment from converging to a solution, so should be used with great care.
 
 The ``--rotation-weight`` value was set to 0, so the camera orientations can
 change with no restrictions. See :numref:`ba_cam_constraints` for a discussion
