@@ -152,7 +152,7 @@ than ``bundle_adjust``, as there are very many pairs of images to match.
     --tri-weight 0.1                          \
     --tri-robust-threshold 0.1                \
     --rotation-weight 0                       \
-    --camera-weight 0                         \
+    --camera-position-weight 1000             \
     --auto-overlap-params "ref.tif 15"        \
     --min-matches 5                           \
     --remove-outliers-params '75.0 3.0 20 20' \
@@ -172,6 +172,11 @@ cameras from moving too much (a lower weight value will constrain less). The
 value of ``--tri-robust-threshold`` (0.1) is intentionally set to be less than
 the one used for ``--robust-threshold`` (0.5) to ensure pixel reprojection
 errors are always given a higher priority than triangulation errors. 
+
+The ``--camera-position-weight`` value was set to a large number to keep the
+camera positions fixed  during bundle adjustment. This is important as 
+it is assumed that the camera positions are already accurate and it is desired
+to only refine the camera orientations.
 
 The ``--rotation-weight`` value was set to 0, so the camera orientations can
 change with no restrictions. See :numref:`ba_cam_constraints` for a discussion
