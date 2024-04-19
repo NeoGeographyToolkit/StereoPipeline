@@ -339,6 +339,7 @@ def build_reconstruction(options):
         abs_flag_path = os.path.abspath(flagfile_path)
         cmd = ['build_reconstruction', '--flagfile', abs_flag_path]
         verbose = False
+        print (' '.join(cmd))
         asp_system_utils.generic_run(cmd, verbose)
 
         # Theia appends a tag to the requested output file, just rename the file.
@@ -534,6 +535,7 @@ def run_bundle_adjust(options):
     cmd += ['-o', output_prefix]
     cmd += ba_params
     verbose = False
+    print (' '.join(cmd))
     asp_system_utils.generic_run(cmd, verbose)
 
     # The previous call should create a .tsai file for every input image in the output folder
