@@ -175,71 +175,9 @@ If we do not see any obvious problems we can go ahead and run the
 
 The reconstruction can be visualized as::
 
-    view_reconstruction --reconstruction out/theia_reconstruction-0
+    view_reconstruction --reconstruction out/theia_reconstruction.dat
 
 One may need to zoom out to see all cameras. See an illustration in :numref:`view_reconstruction`.
-
-If this tool shows a black window, it is likely an issue with the
-libGL shipped by ASP. Then install it separately with conda, as::
-
-    conda create -n multiview -c nasa-ames-stereo-pipeline   \
-      -c usgs-astrogeology -c conda-forge multiview=asp3.2.0 
-
-and run it using the path::
-
-    $HOME/miniconda3/envs/multiview/bin/view_reconstruction 
-
-When ``camera_solve`` concludes, we should get some camera models in
-the output folder and see a printout of the final bundle adjustment
-error among the program output information::
-
-   Cost:
-   Initial                          1.450385e+01
-   Final                            7.461198e+00
-   Change                           7.042649e+00
-
-We can't generate a DEM with these local camera models but we can run
-stereo anyways and look at the intersection error in the fourth band of
-the ``PC.tif`` file. While there are many speckles in this example where
-stereo correlation failed the mean intersection error is low and we
-don't see any evidence of lens distortion error.
-
-::
-
-    parallel_stereo                      \
-      AS15-M-0114_MED.png                \
-      AS15-M-0115_MED.png                \
-      out/AS15-M-0114_MED.png.final.tsai \
-      out/AS15-M-0115_MED.png.final.tsai \
-      --stereo-algorithm asp_mgm         \
-      --subpixel-mode 9                  \
-      -t pinhole --corr-timeout 300      \
-      --erode-max-size 100               \
-      s_local/out
-
-Examine the intersection error (:numref:`triangulation_error`)
-statistics::
-
-    gdalinfo -stats s_local/out-PC.tif
-
-The fourth band information should look like::
-
-   Band 4 Block=256x256 Type=Float32, ColorInterp=Undefined
-     Minimum=0.000, Maximum=56.845, Mean=0.340, StdDev=3.512
-     Metadata:
-       STATISTICS_MAXIMUM=56.844654083252
-       STATISTICS_MEAN=0.33962282293374
-       STATISTICS_MINIMUM=0
-       STATISTICS_STDDEV=3.5124044818554
-
-It appears that the rays intersect with a mean error of 0.3 meters, 
-which is reasonable.
-
-The tool ``point2mesh`` (:numref:`point2mesh`) can be used to obtain a
-visualizable mesh from the point cloud.
-
-See the tutorial in :numref:`tutorial` for how to change the stereo algorithm,
-create a terrain model (for orbital cameras), orthoimage, etc.
 
 .. _sfm_world_coords:
 
@@ -253,10 +191,10 @@ identified in the frame images. This will allow an accurate positioning
 of the cameras provided that the GCPs and the camera model parameters
 are accurate. 
 
-To create GCPs, see :numref:`camera_solve_gcp`. Here we used the ``stereo_gui``
-approach (:numref:`creatinggcp`) together with a DEM generated from LRO NAC
-images. An arbitrary DEM for the desired planet can make do for the purpose of
-transforming the cameras to plausible orbital coordinates.
+We use ``stereo_gui`` to create GCP (:numref:`creatinggcp`). The input DEM is
+generated from LRO NAC images. An arbitrary DEM for the desired planet can make
+do for the purpose of transforming the cameras to plausible orbital coordinates.
+(See :numref:`camera_solve_gcp` for more on GCP.) 
 
 For GCP to be usable, they can be one of two kinds. The preferred
 option is to have at least three GCP, with each seen in at least two
@@ -286,8 +224,11 @@ Solving for cameras when using GCP::
       --datum D_MOON --calib-file metric_model.tsai \
       --gcp-file ground_control_points.gcp
 
-Check the final ``*pointmap.csv`` file (:numref:`ba_out_files`), and examine the
-lines ending in ``# GCP``. If the residuals are no more than a handful pixels,
+Examine the lines ending in ``# GCP`` in the file::
+
+    out_gcp/asp_ba_out-final_residuals_pointmap.csv
+    
+(:numref:`ba_err_per_point`). If the residuals are no more than a handful pixels,
 and ideally less than a pixel, the GCP were used successfully. 
 
 Increase the value of ``--robust-threshold`` in ``bundle_adjust``
@@ -301,16 +242,16 @@ Running stereo
 
 ::
 
-    parallel_stereo                                     \
-      AS15-M-0114_MED.png                               \
-      AS15-M-0115_MED.png                               \
-      out_gcp/AS15-M-0114_MED.png.final.tsai            \
-      out_gcp/AS15-M-0115_MED.png.final.tsai            \
-      -t pinhole                                        \
-      --skip-rough-homography                           \
-      --stereo-algorithm asp_mgm                        \
-      --subpixel-mode 9                                 \
-      --sgm-collar-size 256                             \
+    parallel_stereo                          \
+      AS15-M-0114_MED.png                    \
+      AS15-M-0115_MED.png                    \
+      out_gcp/AS15-M-0114_MED.png.final.tsai \
+      out_gcp/AS15-M-0115_MED.png.final.tsai \
+      -t pinhole                             \
+      --skip-rough-homography                \
+      --stereo-algorithm asp_mgm             \
+      --subpixel-mode 9                      \
+      --sgm-collar-size 256                  \
       s_global/out
 
 Create a terrain model and orthoimage::
@@ -333,25 +274,7 @@ Run ``orbitviz`` to visualize the camera positions::
 .. figure:: images/examples/pinhole/a15_fig.png
    :name: pinhole-a15-result-image
 
-   Produced DEM (left) and orthoimage (right).
-
-ASP also supports the method of initializing the ``camera_solve`` tool with
-estimated camera positions. This method will not move the cameras to exactly the
-right location but it should get them fairly close and at the correct scale,
-hopefully close enough to be used as-is or to be refined using ``pc_align``
-(:numref:`pc_align`). To use this method, pass additional bundle adjust
-parameters to ``camera_solve`` similar to the following line::
-
-   --bundle-adjust-params '--camera-positions nav.csv         \
-    --csv-format "1:file 12:lat 13:lon 14:height_above_datum" \ 
-    --camera-weight 0.2'
-
-The nav data file you use must have a column (the "file" column)
-containing a string that can be matched to the input image files passed
-to ``camera_solve``. The tool looks for strings that are fully contained
-inside one of the image file names, so for example the field value
-``2009_10_20_0778`` would be matched with the input file
-``2009_10_20_0778.JPG``.
+   Produced hillshaded DEM (left) and orthoimage (right).
 
 :numref:`nextsteps` will discuss the ``parallel_stereo`` program
 in more detail and the other tools in ASP.
@@ -412,8 +335,8 @@ input images. Some conversion command examples are shown below::
      --C_band=3 --outfile=gray.tif --calc="A*0.2989+B*0.5870+C*0.1140"
    gdal_translate -b 1 rgb.jpg gray.jpg
 
-In the third command we used ``gdal_translate`` to pick a single band
-rather than combining the three.
+In the third command we used ``gdal_translate`` to pick a single band rather
+than combining the three. This tool is shipped with ASP (:numref:`gdal_tools`).
 
 Obtaining ground control points for icy locations on Earth can be
 particularly difficult because they are not well surveyed or because
@@ -504,6 +427,7 @@ Run ``parallel_stereo`` (:numref:`parallel_stereo`) on the DMS images::
      --skip-rough-homography                   \
      --stereo-algorithm asp_mgm                \
      --subpixel-mode 9                         \
+     --sgm-collar-size 256                     \
      2009_11_05_02948.JPG 2009_11_05_02949.JPG \
      out/2009_11_05_02948.JPG.final.tsai       \
      out/2009_11_05_02949.JPG.final.tsai       \
