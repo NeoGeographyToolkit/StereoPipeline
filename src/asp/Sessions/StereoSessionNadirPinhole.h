@@ -34,6 +34,9 @@ namespace asp {
   public:
     virtual ~StereoSessionNadirPinhole() {}
 
+    // Unlike the pinhole session, this one normally has a datum
+    virtual bool have_datum() const;
+    
     virtual std::string name() const;
     static StereoSession* construct();
   };

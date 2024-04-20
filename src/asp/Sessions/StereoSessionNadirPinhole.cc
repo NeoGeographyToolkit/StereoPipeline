@@ -56,4 +56,9 @@ StereoSession* StereoSessionNadirPinhole::construct() {
   return new StereoSessionNadirPinhole; 
 }
 
+// Must override the StereoSessionPinhole function
+bool StereoSessionNadirPinhole::have_datum() const {
+  return StereoSession::have_datum();
+}
+
 } // End namespace asp
