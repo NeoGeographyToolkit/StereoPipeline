@@ -980,28 +980,6 @@ if __name__ == '__main__':
     # For values having commas which we don't want disturbed
     sep2 = '--non-comma-separator--'
     
-    # has_job_size_h = ('--job-size-h' in sys.argv[1:])
-    # has_job_size_w = ('--job-size-w' in sys.argv[1:])
-    # # Either both or none of these must be set
-    # if has_job_size_h != has_job_size_w:
-    #     raise Exception('Must set both or none of --job-size-h and --job-size-w.')
-    # has_sgm_collar_size = ('--sgm-collar-size' in sys.argv[1:])
-    # # if --job-size-h is not set, set it depending on the algorithm
-    # # Three cases: WV_CORRELATION_BM, alg >= VW_CORRELATION_OTHER, or the reset
-    # if not has_job_size_h:
-    #     if alg == VW_CORRELATION_BM:
-    #         opt.job_size_w = 2048
-    #         opt.job_size_h = 2048
-    #     elif alg >= VW_CORRELATION_OTHER:
-    #         opt.job_size_w = 1024
-    #         opt.job_size_h = 1024
-    #     else:
-    #         opt.job_size_w = 2048
-    #         opt.job_size_h = 2048
-            
-    #     args.extend(['--job-size-w', str(opt.job_size_w)])
-    #     args.extend(['--job-size-h', str(opt.job_size_h)])
-            
     georef=run_and_parse_output("stereo_parse", args, sep2, opt.verbose)
     georef["WKT"] = "".join(georef["WKT"])
     georef["GeoTransform"] = "".join(georef["GeoTransform"])
