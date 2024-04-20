@@ -71,9 +71,9 @@ namespace asp {
     virtual bool uses_map_projected_inputs() const {return isMapProjected();}
     virtual bool requires_input_dem       () const {return isMapProjected();}
     virtual bool supports_image_alignment () const {return !isMapProjected(); }
-    virtual bool have_datum               () const {
-      return !asp::stereo_settings().no_datum && !stereo_settings().correlator_mode;
-    }
+    
+    bool have_datum () const { return m_have_datum; }
+
     virtual bool supports_multi_threading () const {
       return true;
     }
@@ -129,11 +129,10 @@ namespace asp {
                         std::string const& ba_pref,
                         vw::Vector2 const& pixel_offset);
 
-    /// Returns the target datum to use for a given camera model.
+    // Returns the target datum to use for a given camera model.
+    // Can be overridden by derived classes.
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
-                                             bool use_sphere_for_non_earth) const {
-      return vw::cartography::Datum(asp::stereo_settings().datum);
-    }
+                                             bool use_sphere_for_non_earth) const;
 
     // Peek inside the images and camera models and return the datum and projection,
     // or at least the datum, packaged in a georef.
@@ -228,6 +227,9 @@ namespace asp {
     /// - Not used in non map-projected sessions.
     boost::shared_ptr<vw::camera::CameraModel> m_left_map_proj_model, m_right_map_proj_model;
 
+    bool m_datum_was_checked, m_have_datum;
+    vw::cartography::Datum m_datum;
+    
   protected:
 
     // Factor out here all functionality shared among the preprocessing hooks

@@ -67,13 +67,16 @@ namespace asp {
     m_right_camera_file = right_camera_file;
     m_out_prefix        = out_prefix;
     m_input_dem         = input_dem;
+    m_datum_was_checked = false;
+    m_have_datum        = false;
+    std::cout << "==datum was set is " << m_datum_was_checked << std::endl;
     
     // Read the cameras used in mapprojection 
     if (isMapProjected())
-     read_mapproj_cams(m_left_image_file, m_right_image_file, 
-                       m_left_camera_file, m_right_camera_file,
-                       m_input_dem, this->name(),
-                       m_left_map_proj_model, m_right_map_proj_model);
+      read_mapproj_cams(m_left_image_file, m_right_image_file, 
+                        m_left_camera_file, m_right_camera_file,
+                        m_input_dem, this->name(),
+                        m_left_map_proj_model, m_right_map_proj_model);
   }
 
   // TODO(oalexan1): The logic below must be a function, to be applied to left and
@@ -257,6 +260,25 @@ namespace asp {
       vw_throw(ArgumentErr() << "StereoSession: DEM '" << input_dem << "' does not exist.");
   }
 
+
+  // Returns the target datum to use for a given camera model.
+  // Can be overridden by derived classes.
+  vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* cam,
+                                                  bool use_sphere_for_non_earth) const {
+  
+    // By this stage we should have decided if we have a datum
+    if (!m_datum_was_checked) // throw
+      vw::vw_throw(vw::ArgumentErr() << "The datum was not set.\n" );
+
+    std::cout << "------base get_datum--" << std::endl;
+    // std::cout << "will return " << asp::stereo_settings().datum << std::endl;
+    // std::cout << "---fix here now!!---" << std::endl;
+    // if (asp::stereo_settings().datum != "")
+    //   return vw::cartography::Datum(asp::stereo_settings().datum);
+    std::cout << "--get datum will return " << m_datum << std::endl;  
+    return m_datum;
+  }
+
   // Peek inside the images and camera models and return the datum and projection,
   // or at least the datum, packaged in a georef.
   vw::cartography::GeoReference StereoSession::get_georef() {
@@ -314,6 +336,36 @@ namespace asp {
     cam2 = camera_model(m_right_image_file, m_right_camera_file);
   }
 
+// Guess the based on camera position. Usually one arrives here for pinhole
+// cameras.
+bool guess_datum_from_camera_position(double cam_center_radius,
+                                      vw::cartography::Datum & datum) {
+
+  bool success = false;
+  
+  // Datums for Earth, Mars, and Moon
+  vw::cartography::Datum earth("WGS84");
+  vw::cartography::Datum mars("D_MARS");
+  vw::cartography::Datum moon("D_MOON");
+  
+  double km = 1000.0;
+  if (cam_center_radius > earth.semi_major_axis() - 100*km && 
+      cam_center_radius < earth.semi_major_axis() + 5000*km) {
+    datum = earth;
+    success = true;
+  } else if (cam_center_radius > mars.semi_major_axis() - 100*km && 
+             cam_center_radius < mars.semi_major_axis() + 1500*km) {
+    datum = mars;
+    success = true;
+  } else if (cam_center_radius > moon.semi_major_axis() - 100*km && 
+             cam_center_radius < moon.semi_major_axis() + 1000*km) {
+    datum = moon;
+    success = true;
+  }
+
+  return success;
+}
+
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSession::camera_model(std::string const& image_file, std::string const& camera_file,
                             bool quiet) {
@@ -359,6 +411,40 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
   else // Camera file provided
     m_camera_model[image_cam_pair] 
     = load_camera_model(image_file, camera_file, ba_prefix, pixel_offset);
+
+  // TODO(oalexan1): Must put the have_datum functionality right below
+  // and eliminate th derived have_datum functions!!!
+  
+  // Set the datum based on the camera, after the camera is loaded. 
+  if (!m_datum_was_checked) {
+    // We have the camera, so we can set the datum now.
+
+    std::cout << "--name is " << this->name() << std::endl;
+    if (asp::stereo_settings().no_datum || 
+        stereo_settings().correlator_mode || 
+        this->name() == "pinhole") {
+        // The pinhole session is used with rovers and other non-satellite cameras,
+        // so there is no datum.
+      m_have_datum = false;
+    } else if (asp::stereo_settings().datum != "") {
+      m_datum = vw::cartography::Datum(asp::stereo_settings().datum);
+      m_have_datum = true;
+    } else if (this->name() == "nadirpinhole") {
+      double cam_center_radius 
+        = norm_2(m_camera_model[image_cam_pair]->camera_center(vw::Vector2()));
+      std::cout << "---radius is " << cam_center_radius << std::endl;
+      // We can still return that we don't have a datum even if m_have_datum
+      // is true. See the function have_datum() for more details.
+      m_have_datum = guess_datum_from_camera_position(cam_center_radius, m_datum);
+      std::cout << "--m have datum is " << m_have_datum << std::endl;
+      std::cout << " datum is " << m_datum << std::endl;
+    }
+
+    m_datum_was_checked = true;
+  }
+  std::cout << "---ahve datum is " << m_have_datum << std::endl;
+  std::cout << "datum is " << m_datum << std::endl;
+  std::cout << "zzz4 will return datum str " << asp::stereo_settings().datum << std::endl;
 
   return m_camera_model[image_cam_pair];
 }

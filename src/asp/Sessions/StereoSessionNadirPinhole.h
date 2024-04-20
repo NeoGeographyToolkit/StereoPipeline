@@ -34,14 +34,8 @@ namespace asp {
   public:
     virtual ~StereoSessionNadirPinhole() {}
 
-    virtual std::string name() const { return "nadirpinhole"; }
-
-    static StereoSession* construct() { return new StereoSessionNadirPinhole; }
-
-    virtual bool have_datum() const {
-      return !asp::stereo_settings().no_datum && !stereo_settings().correlator_mode;
-    }
-    
+    virtual std::string name() const;
+    static StereoSession* construct();
   };
 }
 

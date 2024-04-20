@@ -22,6 +22,7 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Camera/CameraErrorPropagation.h>
+#include <asp/Sessions/CameraUtils.h>
 
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Stereo/StereoView.h>
@@ -405,8 +406,11 @@ namespace asp {
   
     // This must happen early
     boost::to_lower(opt.stereo_session);
+    std::cout << "---1 is datum defaulted in vm? " << vm["datum"].defaulted() << std::endl;
+    
 
     asp::stereo_settings().validate();
+    std::cout << "==is alignemnt method defaulted? " << vm["alignment-method"].defaulted() << std::endl;
 
     if (stereo_settings().correlator_mode) {
       
@@ -718,6 +722,14 @@ namespace asp {
     
     // The StereoSession call automatically determines the type of
     // object to create from the input parameters.
+    std::cout << "--will do stereo session creation\n";
+    std::cout << "is datum defaulted in vm? " << vm["datum"].defaulted() << std::endl;
+    std::cout << "stereo settings datum is " << stereo_settings().datum << std::endl;
+      // // Auto-guess the datum, this is the default
+      // bool found_datum = asp::datum_from_camera(opt.image_file, opt.cam1_file,
+      //                                            opt.session1, cam1_session, // may change
+      //                                            datum); // output
+    
     opt.session.reset(asp::StereoSessionFactory::create(opt.stereo_session, // can change
                                                         opt,
                                                         opt.in_file1,   opt.in_file2,

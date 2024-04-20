@@ -48,4 +48,12 @@ using namespace asp;
 
 namespace asp {
 
+std::string StereoSessionNadirPinhole::name() const {
+  return "nadirpinhole"; 
+}
+
+StereoSession* StereoSessionNadirPinhole::construct() { 
+  return new StereoSessionNadirPinhole; 
+}
+
 } // End namespace asp

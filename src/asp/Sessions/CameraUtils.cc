@@ -115,11 +115,11 @@ void load_cameras(std::vector<std::string> const& image_files,
 // Find the datum based on cameras. Return true on success. Otherwise don't set it.
 // TODO(oalexan1): Pass to this only the first camera and image file.
 bool datum_from_camera(std::string const& image_file,
-                        std::string const& camera_file, 
-                        std::string & stereo_session, // may change
-                        asp::SessionPtr & session, // may be null on input
-                        // Outputs
-                        vw::cartography::Datum & datum) {
+                       std::string const& camera_file, 
+                       std::string & stereo_session, // may change
+                       asp::SessionPtr & session, // may be null on input
+                       // Outputs
+                       vw::cartography::Datum & datum) {
   
   std::string out_prefix = "run";
 
@@ -138,40 +138,11 @@ bool datum_from_camera(std::string const& image_file,
                                                 allow_map_promote, quiet));
   }
     
+  bool use_sphere_for_non_earth = true;
   auto cam = session->camera_model(image_file, camera_file);
-  cam_center_radius = norm_2(cam->camera_center(vw::Vector2()));
-    
-  // Pinhole and nadirpinhole cameras do not have a datum
-  if (stereo_session != "pinhole" && stereo_session != "nadirpinhole") {
-    bool use_sphere_for_non_earth = true;
-    datum = session->get_datum(cam.get(), use_sphere_for_non_earth);
-    success = true;
-    return success; // found the datum
-  }
-  
-  // Guess the based on camera position. Usually one arrives here for pinhole
-  // cameras.
+  datum = session->get_datum(cam.get(), use_sphere_for_non_earth);
+  success = session->have_datum(); 
 
-  // Datums for Earth, Mars, and Moon
-  vw::cartography::Datum earth("WGS84");
-  vw::cartography::Datum mars("D_MARS");
-  vw::cartography::Datum moon("D_MOON");
-  
-  double km = 1000.0;
-  if (cam_center_radius > earth.semi_major_axis() - 100*km && 
-      cam_center_radius < earth.semi_major_axis() + 5000*km) {
-    datum = earth;
-    success = true;
-  } else if (cam_center_radius > mars.semi_major_axis() - 100*km && 
-             cam_center_radius < mars.semi_major_axis() + 1500*km) {
-    datum = mars;
-    success = true;
-  } else if (cam_center_radius > moon.semi_major_axis() - 100*km && 
-             cam_center_radius < moon.semi_major_axis() + 1000*km) {
-    datum = moon;
-    success = true;
-  }
-  
   if (success)
     vw_out() << "Guessed the datum from camera position.\n";
 

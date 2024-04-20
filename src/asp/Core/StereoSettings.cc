@@ -181,8 +181,11 @@ namespace asp {
         "this transform is used to pair up left and right image tiles.")
       ("disparity-range-expansion-percent", po::value(&global.disparity_range_expansion_percent)->default_value(20),
        "Expand the disparity range estimated from interest points by this percentage before computing the stereo correlation with local epipolar alignment.")
-      ("datum",                    po::value(&global.datum)->default_value("WGS_1984"),
-       "Set the datum. Used chiefly with RPC cameras. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+      ("datum", po::value(&global.datum)->default_value(""),
+       "Set the planet datum. Options: WGS_1984, D_MOON (1,737,400 meters), "
+        "D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. "
+        "Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON). May be "
+        "auto-guessed based on camera centers if not set.")
       ("match-files-prefix",  po::value(&global.match_files_prefix)->default_value(""),
        "Use the match file from this prefix. Normally contains match files "
        "created with bundle_adjust or parallel_stereo.")

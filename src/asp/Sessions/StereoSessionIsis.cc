@@ -555,6 +555,8 @@ vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraMode
     = dynamic_cast<const IsisCameraModel*>(vw::camera::unadjusted_model(cam));
   VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid camera.\n");
 
+  std::cout << "--isis get datum, will return " << isis_cam->get_datum(use_sphere_for_non_earth) << std::endl;
+  
   return isis_cam->get_datum(use_sphere_for_non_earth);
 }
 
