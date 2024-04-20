@@ -789,7 +789,7 @@ if __name__ == '__main__':
         session types (e.g. isis). Stereo parameters should be
         set in the stereo.default file.\n''' + get_asp_version()
 
-    # What makes this program different from stereo.in is that it
+    # What makes this program different from stereo is that it
     # tries to treat ASP as a multi-process system instead of a
     # multi-threaded executable. This has benefits on the super
     # computer by allowing a single stereo pair use multiple
@@ -801,6 +801,9 @@ if __name__ == '__main__':
     # Those scripts in turn start actual jobs on those nodes.
     # For the other steps, the script does the work itself.
 
+    # TODO(oalexan1): Start with job-size-h and job-size-w set to 2048,
+    # and --sgm-collar-size be 0 for BM and 256 for the other algorithms.
+    
     # Python does not know how to disambiguate between two
     # options which start with a similar prefix.
     if '--threads' in sys.argv:
@@ -836,10 +839,11 @@ if __name__ == '__main__':
     p.add_argument('--job-size-h',           dest='job_size_h',  default=2048,
                    help='Pixel height of input image tile for a single process.',
                    type=int)
-    p.add_argument('--resume-at-corr', dest='resume_at_corr', default=False, action='store_true',
-                   help='Start at the correlation stage and skip recomputing the valid low ' + \
-                   'and full-res disparities for that stage. Do not change ' + \
-                   '--left-image-crop-win, etc, when running this.')
+    p.add_argument('--resume-at-corr', dest='resume_at_corr', default=False, 
+                   action='store_true',
+                   help='Start at the correlation stage and skip recomputing the valid ' + \
+                   'low and full-res disparities for that stage. Do not change ' + \
+                   '--left-image-crop-win, etc., when running this.')
     p.add_argument('--prev-run-prefix',           dest='prev_run_prefix', default=None,
                    help='Start at the triangulation stage while reusing the data from this prefix. The new run can use different cameras, bundle adjustment prefix, or bathy planes (if applicable). Do not change crop windows, as that would invalidate the run.')
     p.add_argument('--keep-only', dest='keep_only', default="all_combined",
@@ -976,6 +980,28 @@ if __name__ == '__main__':
     # For values having commas which we don't want disturbed
     sep2 = '--non-comma-separator--'
     
+    # has_job_size_h = ('--job-size-h' in sys.argv[1:])
+    # has_job_size_w = ('--job-size-w' in sys.argv[1:])
+    # # Either both or none of these must be set
+    # if has_job_size_h != has_job_size_w:
+    #     raise Exception('Must set both or none of --job-size-h and --job-size-w.')
+    # has_sgm_collar_size = ('--sgm-collar-size' in sys.argv[1:])
+    # # if --job-size-h is not set, set it depending on the algorithm
+    # # Three cases: WV_CORRELATION_BM, alg >= VW_CORRELATION_OTHER, or the reset
+    # if not has_job_size_h:
+    #     if alg == VW_CORRELATION_BM:
+    #         opt.job_size_w = 2048
+    #         opt.job_size_h = 2048
+    #     elif alg >= VW_CORRELATION_OTHER:
+    #         opt.job_size_w = 1024
+    #         opt.job_size_h = 1024
+    #     else:
+    #         opt.job_size_w = 2048
+    #         opt.job_size_h = 2048
+            
+    #     args.extend(['--job-size-w', str(opt.job_size_w)])
+    #     args.extend(['--job-size-h', str(opt.job_size_h)])
+            
     georef=run_and_parse_output("stereo_parse", args, sep2, opt.verbose)
     georef["WKT"] = "".join(georef["WKT"])
     georef["GeoTransform"] = "".join(georef["GeoTransform"])

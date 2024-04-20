@@ -1691,7 +1691,6 @@ int main(int argc, char* argv[]) {
       ts = ((ts / TILE_MULTIPLE) + 1) * TILE_MULTIPLE;
       
     opt.raster_tile_size = Vector2i(ts, ts);
-    std::cout << "--raster tile size is " << opt.raster_tile_size << std::endl;
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION\n";
 

@@ -213,20 +213,22 @@ int main(int argc, char *argv[]) {
     boost::shared_ptr<vw::camera::CameraModel> cam2_model
       = cam2_session->camera_model(opt.image_file, opt.cam2_file);
 
+    bool found_datum = false;
     vw::cartography::Datum datum;
     if (opt.datum != "") {
       // Use the datum specified by the user
       datum.set_well_known_datum(opt.datum);
+      found_datum = true;
     } else {
       // Auto-guess the datum, this is the default
-      bool found_datum = asp::datum_from_camera(opt.image_file, opt.cam1_file,
-                                                 opt.session1, cam1_session, // may change
-                                                 datum); // output
+      found_datum = asp::datum_from_camera(opt.image_file, opt.cam1_file,
+                                           opt.session1, cam1_session, // may change
+                                           datum); // output
       
       // Sanity check: both cameras should have the same datum
       vw::cartography::Datum datum2;
       found_datum = asp::datum_from_camera(opt.image_file, opt.cam2_file,
-                                            opt.session2, cam2_session, // may change
+                                           opt.session2, cam2_session, // may change
                                             datum2); // output
       if (datum.semi_major_axis() != datum2.semi_major_axis() ||
           datum.semi_minor_axis() != datum2.semi_minor_axis())
@@ -234,6 +236,9 @@ int main(int argc, char *argv[]) {
                                            << datum << "\n" << datum2 << "\n"
                                            << "Consider using the --datum option.\n";
     }
+    
+    if (!found_datum)
+      vw_throw(ArgumentErr() << "Could not find the datum. Set --datum.\n"); 
     vw_out() << "Using datum: " << datum << std::endl;
 
     // Sanity check

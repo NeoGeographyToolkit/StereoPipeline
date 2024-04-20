@@ -69,7 +69,6 @@ namespace asp {
     m_input_dem         = input_dem;
     m_datum_was_checked = false;
     m_have_datum        = false;
-    std::cout << "==datum was set is " << m_datum_was_checked << std::endl;
     
     // Read the cameras used in mapprojection 
     if (isMapProjected())
@@ -260,75 +259,6 @@ namespace asp {
       vw_throw(ArgumentErr() << "StereoSession: DEM '" << input_dem << "' does not exist.");
   }
 
-
-  // Returns the target datum to use for a given camera model.
-  // Can be overridden by derived classes.
-  vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* cam,
-                                                  bool use_sphere_for_non_earth) const {
-  
-    // By this stage we should have decided if we have a datum
-    if (!m_datum_was_checked) // throw
-      vw::vw_throw(vw::ArgumentErr() << "The datum was not set.\n" );
-
-    std::cout << "------base get_datum--" << std::endl;
-    // std::cout << "will return " << asp::stereo_settings().datum << std::endl;
-    // std::cout << "---fix here now!!---" << std::endl;
-    // if (asp::stereo_settings().datum != "")
-    //   return vw::cartography::Datum(asp::stereo_settings().datum);
-    std::cout << "--get datum will return " << m_datum << std::endl;  
-    return m_datum;
-  }
-
-  // Peek inside the images and camera models and return the datum and projection,
-  // or at least the datum, packaged in a georef.
-  vw::cartography::GeoReference StereoSession::get_georef() {
-
-    vw::cartography::GeoReference georef;
-    
-    // First try to see if the image is map-projected.
-    bool has_georef = read_georeference(georef, m_left_image_file);
-
-    bool has_datum = false;
-    vw::cartography::Datum datum;
-    if (!stereo_settings().correlator_mode) {
-      has_datum = true;
-      boost::shared_ptr<vw::camera::CameraModel> 
-      cam = this->camera_model(m_left_image_file, m_left_camera_file);
-      // Spherical datum for non-Earth, as done usually. Used
-      // consistently this way in bundle adjustment and stereo.
-      bool use_sphere_for_non_earth = true; 
-      datum = this->get_datum(cam.get(), use_sphere_for_non_earth);
-    }
-    
-    // TODO(oalexan1): If the datum read from the image and the one read from the
-    // session disagree, what to do? 
-    
-    if (!has_georef) {
-      // The best we can do is to get the datum, even non-projected
-      // images have that. Create however a fake valid georeference to
-      // go with this datum, otherwise we can't read the datum when we
-      // needed it later.
-
-      georef = vw::cartography::GeoReference();
-      Matrix3x3 transform = georef.transform();
-
-      // assume these are degrees, does not mater much, but it needs be small enough
-      double small = 1e-8;
-      transform(0,0) = small;
-      transform(1,1) = small;
-      transform(0,2) = small;
-      transform(1,2) = small;
-      georef.set_transform(transform);
-
-      georef.set_geographic();
-      
-      if (has_datum)
-        georef.set_datum(datum);
-    }
-
-    return georef;
-  }
-
   // Default implementation of this function.  Derived classes will probably override this.
   void StereoSession::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
                                     boost::shared_ptr<vw::camera::CameraModel> &cam2) {
@@ -338,8 +268,7 @@ namespace asp {
 
 // Guess the based on camera position. Usually one arrives here for pinhole
 // cameras.
-bool guess_datum_from_camera_position(double cam_center_radius,
-                                      vw::cartography::Datum & datum) {
+bool guessDatum(double cam_center_radius, vw::cartography::Datum & datum) {
 
   bool success = false;
   
@@ -366,6 +295,100 @@ bool guess_datum_from_camera_position(double cam_center_radius,
   return success;
 }
 
+// Set the datum 
+bool setDatum(std::string const& session_name,
+              boost::shared_ptr<vw::camera::CameraModel> const& cam,
+              vw::cartography::Datum & datum) { 
+
+  bool have_datum = false;
+  
+  if (asp::stereo_settings().no_datum || 
+      stereo_settings().correlator_mode || 
+      session_name == "pinhole") {
+      // The pinhole session is used with rovers and other non-satellite cameras,
+      // so there is no datum.
+    have_datum = false;
+  } else if (asp::stereo_settings().datum != "") {
+    datum = vw::cartography::Datum(asp::stereo_settings().datum);
+    have_datum = true;
+  } else if (session_name == "nadirpinhole") {
+    double cam_center_radius 
+      = norm_2(cam->camera_center(vw::Vector2()));
+    // We can still return that we don't have a datum even if m_have_datum
+    // is true. See the function have_datum() for more details.
+    have_datum = guessDatum(cam_center_radius, datum);
+  } else {
+    // Other cases will be handled in the derived classes.
+    have_datum = true;
+  }
+  
+  return have_datum;
+}
+
+// Returns the target datum to use for a given camera model.
+// Can be overridden by derived classes.
+// TODO(oalexan1): This must have a flag. A datum does not always exist.
+vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* cam,
+                                                bool use_sphere_for_non_earth) const {
+
+  // By this stage we should have decided if we have a datum
+  if (!m_datum_was_checked) // throw
+    vw::vw_throw(vw::ArgumentErr() << "The datum was not set.\n" );
+
+  return m_datum;
+}
+
+// Peek inside the images and camera models and return the datum and projection,
+// or at least the datum, packaged in a georef.
+// TODO(oalexan1): This must have a flag. A georef does not always exist.
+vw::cartography::GeoReference StereoSession::get_georef() {
+
+  vw::cartography::GeoReference georef;
+  
+  // First try to see if the image is map-projected.
+  bool has_georef = read_georeference(georef, m_left_image_file);
+
+  bool has_datum = false;
+  vw::cartography::Datum datum;
+  if (!stereo_settings().correlator_mode) {
+    has_datum = true;
+    boost::shared_ptr<vw::camera::CameraModel> 
+    cam = this->camera_model(m_left_image_file, m_left_camera_file);
+    // Spherical datum for non-Earth, as done usually. Used
+    // consistently this way in bundle adjustment and stereo.
+    bool use_sphere_for_non_earth = true; 
+    datum = this->get_datum(cam.get(), use_sphere_for_non_earth);
+  }
+  
+  // TODO(oalexan1): If the datum read from the image and the one read from the
+  // session disagree, what to do? 
+  
+  if (!has_georef) {
+    // The best we can do is to get the datum, even non-projected
+    // images have that. Create however a fake valid georeference to
+    // go with this datum, otherwise we can't read the datum when we
+    // needed it later.
+
+    georef = vw::cartography::GeoReference();
+    Matrix3x3 transform = georef.transform();
+
+    // assume these are degrees, does not mater much, but it needs be small enough
+    double small = 1e-8;
+    transform(0,0) = small;
+    transform(1,1) = small;
+    transform(0,2) = small;
+    transform(1,2) = small;
+    georef.set_transform(transform);
+
+    georef.set_geographic();
+    
+    if (has_datum)
+      georef.set_datum(datum);
+  }
+
+  return georef;
+}
+  
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSession::camera_model(std::string const& image_file, std::string const& camera_file,
                             bool quiet) {
@@ -412,39 +435,12 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
     m_camera_model[image_cam_pair] 
     = load_camera_model(image_file, camera_file, ba_prefix, pixel_offset);
 
-  // TODO(oalexan1): Must put the have_datum functionality right below
-  // and eliminate th derived have_datum functions!!!
-  
-  // Set the datum based on the camera, after the camera is loaded. 
+  // Set the datum based on the camera, after the camera is loaded. Maybe
+  // not be what is used for derived classes.
   if (!m_datum_was_checked) {
-    // We have the camera, so we can set the datum now.
-
-    std::cout << "--name is " << this->name() << std::endl;
-    if (asp::stereo_settings().no_datum || 
-        stereo_settings().correlator_mode || 
-        this->name() == "pinhole") {
-        // The pinhole session is used with rovers and other non-satellite cameras,
-        // so there is no datum.
-      m_have_datum = false;
-    } else if (asp::stereo_settings().datum != "") {
-      m_datum = vw::cartography::Datum(asp::stereo_settings().datum);
-      m_have_datum = true;
-    } else if (this->name() == "nadirpinhole") {
-      double cam_center_radius 
-        = norm_2(m_camera_model[image_cam_pair]->camera_center(vw::Vector2()));
-      std::cout << "---radius is " << cam_center_radius << std::endl;
-      // We can still return that we don't have a datum even if m_have_datum
-      // is true. See the function have_datum() for more details.
-      m_have_datum = guess_datum_from_camera_position(cam_center_radius, m_datum);
-      std::cout << "--m have datum is " << m_have_datum << std::endl;
-      std::cout << " datum is " << m_datum << std::endl;
-    }
-
+    m_have_datum = setDatum(this->name(), m_camera_model[image_cam_pair], m_datum);
     m_datum_was_checked = true;
   }
-  std::cout << "---ahve datum is " << m_have_datum << std::endl;
-  std::cout << "datum is " << m_datum << std::endl;
-  std::cout << "zzz4 will return datum str " << asp::stereo_settings().datum << std::endl;
 
   return m_camera_model[image_cam_pair];
 }

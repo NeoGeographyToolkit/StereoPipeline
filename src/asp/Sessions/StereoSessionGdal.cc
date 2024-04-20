@@ -50,8 +50,6 @@ namespace asp {
 vw::cartography::Datum StereoSessionCsm::get_datum(const vw::camera::CameraModel* cam,
                                                    bool use_sphere_for_non_earth) const {
   
-  std::cout << "--csm datum--\n";
-  
   // Peek at the .cub file to get the planet name without reading
   // it as an ISIS camera (which can fail unless the ISISDATA
   // folder exists, and for CSM that is not guaranteed.)
