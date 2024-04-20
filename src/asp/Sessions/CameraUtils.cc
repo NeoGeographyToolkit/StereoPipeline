@@ -113,7 +113,6 @@ void load_cameras(std::vector<std::string> const& image_files,
 }
 
 // Find the datum based on cameras. Return true on success. Otherwise don't set it.
-// TODO(oalexan1): Pass to this only the first camera and image file.
 bool datum_from_camera(std::string const& image_file,
                        std::string const& camera_file, 
                        std::string & stereo_session, // may change

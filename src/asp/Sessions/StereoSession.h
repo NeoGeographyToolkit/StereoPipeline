@@ -72,8 +72,8 @@ namespace asp {
     virtual bool requires_input_dem       () const {return isMapProjected();}
     virtual bool supports_image_alignment () const {return !isMapProjected(); }
     
-    bool have_datum () const { return m_have_datum; }
-
+    virtual bool have_datum() const;
+    
     virtual bool supports_multi_threading () const {
       return true;
     }
@@ -227,9 +227,6 @@ namespace asp {
     /// - Not used in non map-projected sessions.
     boost::shared_ptr<vw::camera::CameraModel> m_left_map_proj_model, m_right_map_proj_model;
 
-    bool m_datum_was_checked, m_have_datum;
-    vw::cartography::Datum m_datum;
-    
   protected:
 
     // Factor out here all functionality shared among the preprocessing hooks

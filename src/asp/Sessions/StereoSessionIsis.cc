@@ -555,7 +555,7 @@ vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraMode
     = dynamic_cast<const IsisCameraModel*>(vw::camera::unadjusted_model(cam));
   VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid camera.\n");
 
-  return isis_cam->get_datum(use_sphere_for_non_earth);
+  return isis_cam->get_datum_isis(use_sphere_for_non_earth);
 }
 
 // TODO(oalexan1):  Can we share more code with the DG implementation?

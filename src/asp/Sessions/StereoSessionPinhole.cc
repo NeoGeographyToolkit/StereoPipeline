@@ -42,6 +42,13 @@ using namespace vw::camera;
 
 namespace asp {
 
+// The pinhole session is used with rovers and other non-satellite cameras,
+// so there is no datum, unless explicitly provided.
+bool StereoSessionPinhole::have_datum() const {
+  return !stereo_settings().datum.empty() && 
+         StereoSession::have_datum();
+}
+
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionPinhole::load_camera_model
   (std::string const& image_file, std::string const& camera_file, 

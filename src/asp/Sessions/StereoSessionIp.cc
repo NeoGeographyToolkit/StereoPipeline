@@ -166,13 +166,12 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                           stats1,      stats2,
                           image1_norm, image2_norm);
   }
-    
+
   bool have_datum = this->have_datum();
 
   // If cameras are null then we cannot use them
-  if (cam1 == NULL || cam2 == NULL) {
+  if (cam1 == NULL || cam2 == NULL)
     have_datum = false;
-  }
     
   // Jobs set to 2x the number of cores. This is just in case all jobs are not equal.
   // The total number of interest points will be divided up among the jobs.
