@@ -815,7 +815,7 @@ namespace asp {
   // the disparity must be invalid! Test with OpenCV SGBM, libelas, and mgm!
   // Also implement for unalign_2d_disparity.
   
-  // DO the same for unalign_2d_disparity.
+  // Do the same for unalign_2d_disparity.
   // Go from 1D disparity of images with affine epipolar alignment to the 2D
   // disparity by undoing the transforms that applied this alignment.
   void unalign_1d_disparity(// Inputs
