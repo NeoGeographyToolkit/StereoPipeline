@@ -460,10 +460,6 @@ bring the back to the original location.
        v[1-4].tif ba/run-v[1-4].tsai v[1-4].gcp \
        -o ba/run
 
-It is very important to not use the ``pinhole`` session here, rather
-``nadirpinhole``, as the former does not filter well interest points
-in this steep terrain.
-
 The ``--auto-overlap-params`` option used earlier is useful a very large
 number of images is present and a preexisting DEM of the area is available,
 which need not be perfectly aligned with the cameras. It can be used
@@ -486,6 +482,8 @@ It is very important to examine the residual file named::
 
      ba/run-final_residuals_pointmap.csv
 
+(:numref:`ba_err_per_point`).
+
 Here, the third column are the heights of triangulated interest
 points, while the fourth column are the reprojection errors. Normally
 these errors should be a fraction of a pixel, as otherwise the
@@ -505,10 +503,16 @@ to increase the value of ``--epipolar-threshold`` (or of
 that a large value here may allow more outliers, but those should normally
 by filtered out by ``bundle_adjust``.
 
-Another thing one should keep an eye on is the height above datum of the
-camera centers as printed by bundle adjustment towards the end. Any
-large difference in camera heights (say more than a few km) could be a
-symptom of some failure.
+Another thing one should keep an eye on is the height above datum of the camera
+centers as printed by bundle adjustment towards the end. Any large difference in
+camera heights (say more than a few km) could be a symptom of some failure.
+
+Also look at how much the triangulated points and camera centers moved as a
+result of bundle adjustment. Appropriate constraints may need to be applied
+(:numref:`ba_constraints`).
+ 
+Note that using the ``nadirpinhole`` session is equivalent to using ``pinhole``
+and setting ``--datum``.
 
 .. _skysat_video_stereo:
 

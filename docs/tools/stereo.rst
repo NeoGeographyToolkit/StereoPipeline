@@ -18,14 +18,22 @@ Usage::
 
 Example (for ISIS)::
 
-     stereo file1.cub file2.cub results/run
+     stereo --stereo-algorithm asp_bm --subpixel-mode 1 \
+       file1.cub file2.cub results/run
 
-Example (for Digital Globe Earth images)::
+Example (for DigitalGlobe Earth images)::
 
-     stereo file1.tif file2.tif file1.xml file2.xml results/run
+     stereo -t dg --stereo-algorithm asp_bm --subpixel-mode 3 \
+       file1.tif file2.tif file1.xml file2.xml                \
+       results/run
 
-See :numref:`tutorial` for more details, and :numref:`examples` for
-many usage examples.
+See :numref:`tutorial` for introductory examples, :numref:`nextsteps` for the
+various stereo algorithms available, and :numref:`examples` for many usage
+examples.
+
+How to pass options to ``stereo`` via the command line or the ``stereo.default``
+configuration file is discussed in :numref:`stereodefault`. ``stereo`` creates a
+set of intermediate files, they are described in :numref:`outputfiles`.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
@@ -41,8 +49,8 @@ Command-line options
     Stereo Pipeline entry point. Start at this stage. See
     :numref:`entrypoints`.
 
---stop-point <integer (from 1 to 6)>  Stereo Pipeline stop point (stop at
-                                      the stage *right before* this).
+--stop-point <integer (from 1 to 6)>  
+    Stereo Pipeline stop point (stop at the stage *right before* this).
 
 --corr-seed-mode <integer (from 0 to 3)>
     Correlation seed strategy (:numref:`corr_section`).
@@ -66,10 +74,6 @@ Command-line options
 -v, --version
     Display the version of software.
 
--h, --help  Display the help message.
+-h, --help
+    Display the help message.
 
-More information about additional options that can be passed to
-``stereo`` via the command line or via the ``stereo.default``
-configuration file can be found in :numref:`stereodefault`. ``stereo``
-creates a set of intermediate files, they are described in
-:numref:`outputfiles`.

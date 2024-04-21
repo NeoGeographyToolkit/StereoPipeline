@@ -238,7 +238,8 @@ int main(int argc, char *argv[]) {
     }
     
     if (!found_datum)
-      vw_throw(ArgumentErr() << "Could not find the datum. Set --datum.\n"); 
+      vw_throw(ArgumentErr() << "Could not find the datum. Set --datum or use "
+               << "the nadirpinhole session (for cameras relative to a planet).\n"); 
     vw_out() << "Using datum: " << datum << std::endl;
 
     // Sanity check
@@ -276,7 +277,6 @@ int main(int argc, char *argv[]) {
         vw::vw_throw(ArgumentErr() << e.what());
       }
     }
-
     vw_out() << "Image dimensions: " << image_cols << ' ' << image_rows << std::endl;
 
     bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
@@ -288,66 +288,72 @@ int main(int argc, char *argv[]) {
     double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
     // Iterate over the image
     std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff, nocsm_vs_csm_diff;
+    int num_failed = 0;
     for (int col = 0; col < image_cols; col += opt.sample_rate) {
       for (int row = 0; row < image_rows; row += opt.sample_rate) {
 
-        Vector2 image_pix(col + opt.subpixel_offset, row + opt.subpixel_offset);
-        if (single_pix)
-          image_pix = opt.single_pixel;
+        try {
+          Vector2 image_pix(col + opt.subpixel_offset, row + opt.subpixel_offset);
+          if (single_pix)
+            image_pix = opt.single_pixel;
 
-        if (opt.print_per_pixel_results || single_pix)
-          vw_out() << "Pixel: " << image_pix << "\n";
+          if (opt.print_per_pixel_results || single_pix)
+            vw_out() << "Pixel: " << image_pix << "\n";
 
-        Vector3 cam1_ctr = cam1_model->camera_center(image_pix);
-        Vector3 cam2_ctr = cam2_model->camera_center(image_pix);
-        ctr_diff.push_back(norm_2(cam1_ctr - cam2_ctr));
+          Vector3 cam1_ctr = cam1_model->camera_center(image_pix);
+          Vector3 cam2_ctr = cam2_model->camera_center(image_pix);
+          ctr_diff.push_back(norm_2(cam1_ctr - cam2_ctr));
 
-        if (opt.print_per_pixel_results)
-          vw_out() << "Camera center diff: " << ctr_diff.back() << std::endl;
+          if (opt.print_per_pixel_results)
+            vw_out() << "Camera center diff: " << ctr_diff.back() << std::endl;
 
-        Vector3 cam1_dir = cam1_model->pixel_to_vector(image_pix);
-        Vector3 cam2_dir = cam2_model->pixel_to_vector(image_pix);
-        dir_diff.push_back(norm_2(cam1_dir - cam2_dir));
+          Vector3 cam1_dir = cam1_model->pixel_to_vector(image_pix);
+          Vector3 cam2_dir = cam2_model->pixel_to_vector(image_pix);
+          dir_diff.push_back(norm_2(cam1_dir - cam2_dir));
 
-        if (opt.print_per_pixel_results)
-          vw_out() << "Camera direction diff: " << dir_diff.back() << std::endl;
+          if (opt.print_per_pixel_results)
+            vw_out() << "Camera direction diff: " << dir_diff.back() << std::endl;
 
-        // Shoot a ray from the cam1 camera, intersect it with the
-        // given height above datum, and project it back into the cam2
-        // camera.
-        Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
-                                                          cam1_ctr, cam1_dir);
-        Vector2 cam2_pix = cam2_model->point_to_pixel(xyz);
-        cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
+          // Shoot a ray from the cam1 camera, intersect it with the
+          // given height above datum, and project it back into the cam2
+          // camera.
+          Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+                                                            cam1_ctr, cam1_dir);
+          Vector2 cam2_pix = cam2_model->point_to_pixel(xyz);
+          cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
 
-        if (opt.print_per_pixel_results)
-          vw_out() << "cam1 to cam2 pixel diff: " << image_pix - cam2_pix << std::endl;
+          if (opt.print_per_pixel_results)
+            vw_out() << "cam1 to cam2 pixel diff: " << image_pix - cam2_pix << std::endl;
 
-        // Turn CSM on and off and see the effect on the pixel
-        if (opt.aster_vs_csm) {
-          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-          Vector2 cam2_pix2 = cam2_model->point_to_pixel(xyz);
-          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-          nocsm_vs_csm_diff.push_back(norm_2(cam2_pix - cam2_pix2));
-        }
+          // Turn CSM on and off and see the effect on the pixel
+          if (opt.aster_vs_csm) {
+            asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
+            Vector2 cam2_pix2 = cam2_model->point_to_pixel(xyz);
+            asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
+            nocsm_vs_csm_diff.push_back(norm_2(cam2_pix - cam2_pix2));
+          }
 
-        // Shoot a ray from the cam2 camera, intersect it with the
-        // given height above the datum, and project it back into the
-        // cam1 camera.
-        xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
-                                                  cam2_ctr, cam2_dir);
-        Vector2 cam1_pix = cam1_model->point_to_pixel(xyz);
-        cam2_to_cam1_diff.push_back(norm_2(image_pix - cam1_pix));
+          // Shoot a ray from the cam2 camera, intersect it with the
+          // given height above the datum, and project it back into the
+          // cam1 camera.
+          xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+                                                    cam2_ctr, cam2_dir);
+          Vector2 cam1_pix = cam1_model->point_to_pixel(xyz);
+          cam2_to_cam1_diff.push_back(norm_2(image_pix - cam1_pix));
 
-        if (opt.print_per_pixel_results)
-          vw_out() << "cam2 to cam1 pixel diff: " << image_pix - cam1_pix << "\n\n";
+          if (opt.print_per_pixel_results)
+            vw_out() << "cam2 to cam1 pixel diff: " << image_pix - cam1_pix << "\n\n";
 
-        if (opt.aster_vs_csm) {
-          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-          Vector2 cam1_pix2 = cam1_model->point_to_pixel(xyz);
-          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-          nocsm_vs_csm_diff.push_back(norm_2(cam1_pix - cam1_pix2));
-        }
+          if (opt.aster_vs_csm) {
+            asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
+            Vector2 cam1_pix2 = cam1_model->point_to_pixel(xyz);
+            asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
+            nocsm_vs_csm_diff.push_back(norm_2(cam1_pix - cam1_pix2));
+          }
+        } catch (...) {
+          // Failure to compute these operations can occur for pinhole cameras
+          num_failed++;
+        }  
 
         if (single_pix)
           break;
@@ -358,14 +364,16 @@ int main(int argc, char *argv[]) {
     }
 
     sw.stop();
-    vw_out() << "Number of samples used: " << ctr_diff.size() << "\n";
+    vw_out() << "Number of samples: " << ctr_diff.size() << "\n";
+    if (num_failed > 0)
+      vw_out() << "Number of failed samples (not counted above): " << num_failed << "\n";
 
     print_diffs("cam1 to cam2 camera direction diff norm", dir_diff);
     print_diffs("cam1 to cam2 camera center diff (meters)", ctr_diff);
     print_diffs("cam1 to cam2 pixel diff", cam1_to_cam2_diff);
     print_diffs("cam2 to cam1 pixel diff", cam2_to_cam1_diff);
     if (opt.aster_vs_csm)
-    print_diffs("No-csm vs csm pixel diff", nocsm_vs_csm_diff);
+      print_diffs("No-csm vs csm pixel diff", nocsm_vs_csm_diff);
 
     double elapsed_sec = sw.elapsed_seconds();
     vw_out() << "\nElapsed time per sample: " << 1e+6 * elapsed_sec/ctr_diff.size()

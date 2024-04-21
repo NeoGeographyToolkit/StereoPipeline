@@ -171,6 +171,8 @@ To make the program work harder at reducing big pixel reprojection errors, the
 ``--robust-threshold`` can be increased, perhaps to 2.0. This may result in the 
 smallest reprojection errors increasing. 
 
+.. _ba_constraints:
+
 Constraints
 ~~~~~~~~~~~
 

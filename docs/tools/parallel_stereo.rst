@@ -174,8 +174,12 @@ Command-line options
     for xml cameras. Options and when to use:
     
     - nadirpinhole -- for satellites/aircraft with pinhole cameras
-      (:numref:`skysat`, :numref:`sfmicebridge`)
-    - pinhole      -- ground-level cameras, not assuming a datum (:numref:`mer-example`)
+      (:numref:`skysat`, :numref:`sfmicebridge`). This equivalent to using
+      ``pinhole`` and setting ``--datum``. The datum will be auto-guessed with
+      ``nadirpinhole`` based on the camera center coordinates, if not set (only
+      for Earth, Moon, and Mars).
+    - pinhole      -- ground-level cameras, not assuming a datum
+      (:numref:`mer-example`). A datum can be set, however, with ``--datum``.
     - isis         -- with planetary images stored in .cub files (:numref:`moc_tutorial`)
     - dg           -- with Digital Globe exact linescan cameras (:numref:`dg_tutorial`), which are implemented as CSM (:numref:`dg_csm`)
     - rpc          -- with any RPC cameras (:numref:`rpc`)

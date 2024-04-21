@@ -132,7 +132,15 @@ bundle_adjust (:numref:`bundle_adjust`):
     outliers right away. See ``--forced-triangulation-distance`` for
     fine-grained control.
   * Order of images in each previously created interest point match file need
-    not be the same as for input images.  
+    not be the same as for input images.
+  * RPC lens distortion is now applied to pixels that are normalized by focal
+    length, in addition to being offset by the principal point This is
+    consistent with the radial-tangential and fisheye models, and produces a
+    more accurate fit to other models. *Previously created models are now
+    invalid*.
+  * RPC undistortion is now done with a solver rather than using separate
+    undistortion coefficients. This much more accurate but slower.
+    (:numref:`pinholemodels`.) 
   
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).

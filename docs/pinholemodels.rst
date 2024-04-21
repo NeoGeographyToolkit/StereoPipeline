@@ -253,8 +253,8 @@ RPC
     
 A rational polynomial coefficient model.
 
-In this model, one goes from undistorted coordinates :math:`(x, y)` to distorted
-coordinates via the formula
+In this model, one goes from undistorted *normalized* coordinates :math:`(x, y)`
+to distorted *normalized* coordinates via the formula
 
 .. math::
 
@@ -264,17 +264,21 @@ coordinates via the formula
 
 The functions in the numerator and denominator are polynomials in
 :math:`x` and :math:`y` with certain coefficients. The degree of
-polynomials can be any positive integer.
+polynomials can be any positive integer. A degree of 3 or 4 is usually 
+more than sufficient.
 
-The inputs and outputs are shifted relative to the optical center.
+The inputs and outputs are *normalized*, that is, shifted relative to the
+optical center, and (in the most latest builds) are also divided by the focal
+length. Such normalizations are applied before distortion / undistortion
+operations, and then undone after them. This is consistent with the
+radial-tangential and fisheye models.
 
 RPC distortion models can be generated as approximations to other
 pre-existing models with the tool ``convert_pinhole_model``
 (:numref:`convert_pinhole_model`).
 
-This tool also creates RPC to speed up the reverse operation, of going
-from undistorted to distorted pixels, and those polynomial coefficients
-are also saved as part of the model.
+Also in the latest builds, the RPC undistortion is done via a solver, 
+as for the fisheye lens distortion model.
 
 .. _file_format:
 
@@ -413,16 +417,12 @@ as done in OpenCV.
       distortion_den_x   = 1 0 0
       distortion_num_y   = 0 0 1
       distortion_den_y   = 1 0 0
-      undistortion_num_x = 0 1 0
-      undistortion_den_x = 1 0 0
-      undistortion_num_y = 0 0 1
-      undistortion_den_y = 1 0 0
 
 This sample RPC lens distortion model represents the case of no distortion, when
 the degree of the polynomials is 1, and both the distortion and undistortion
 formula leave the pixels unchanged, that is, the distortion transform is
 
-  .. math:: (x, y) \to (x, y) = \left(\frac{ 0 + 1\cdot x + 0\cdot y}{1 + 0\cdot x + 0\cdot y}, \frac{0 + 0\cdot x + 1\cdot y)}{1 + 0\cdot x + 0\cdot y}\right).
+  .. math:: (x, y) \to (x, y) = \left(\frac{ 0 + 1\cdot x + 0\cdot y}{1 + 0\cdot x + 0\cdot y}, \frac{0 + 0\cdot x + 1\cdot y}{1 + 0\cdot x + 0\cdot y}\right).
 
 In general, if the degree of the polynomials is :math:`n`, there are
 :math:`2(n+1)(n+2)` coefficients. The zero-th degree coefficients in
