@@ -22,16 +22,7 @@ Usage::
 See :numref:`tutorial` for more details. Many examples of this
 program are in :numref:`examples`.
 
-This tool will create a set of output files (:numref:`outputfiles`). Internally
-some of them will be GDAL VRT files, that is, plain text virtual mosaics of
-files created by individual processes, with the actual files in subdirectories;
-ASP and GDAL tools are able to use these virtual files in the same way as
-regular binary TIF files. The files in subdirectories are combined into a single
-file at the end of the run, and the subdirectories are deleted (option
-``--keep-only``).
-
-See :numref:`pbs_slurm` for how to set up this tool
-for PBS and SLURM systems.
+See :numref:`pbs_slurm` for how to set up this tool for PBS and SLURM systems.
 
 This program operates only on single channel (grayscale)
 images. Multi-channel images need to first be converted to grayscale
@@ -45,10 +36,9 @@ It is suggested that after this program is started, one examine how
 well it uses the CPUs and memory on all nodes, especially at the
 correlation stage (:numref:`entrypoints`). 
 
-One may want to set the ``--processes``, ``--threads-multiprocess``,
-and ``--threads-singleprocess`` options
-(:numref:`parallel_stereo_options`), also ``--corr-memory-limit-mb``
-(:numref:`stereodefault`). 
+One may want to set the ``--processes``, ``--threads-multiprocess``, and
+``--threads-singleprocess`` options (:numref:`ps_options`), and also
+``--corr-memory-limit-mb`` (:numref:`stereodefault`). 
 
 Make sure that ``--nodes-list`` is set, otherwise only the head node
 will be used.
@@ -57,6 +47,38 @@ Note that the SGM and MGM algorithms can be quite memory-intensive. For these,
 by default, the number of threads is set to 8, and the number of processes is
 the number of cores divided by the number of threads, on each node. Otherwise,
 the default is to use as many processes as there are cores.
+
+Output files
+~~~~~~~~~~~~
+
+This tool will create a set of output files (:numref:`outputfiles`). Internally
+some of them will be GDAL VRT files, that is, plain text virtual mosaics of
+files created by individual processes, with the actual files in subdirectories.
+ASP and GDAL tools are able to use these virtual files in the same way as
+regular binary TIF files. 
+
+The files in subdirectories are combined into a single file at the end of the
+run, and the subdirectories are deleted (option ``--keep-only``).
+
+.. _ps_tiling:
+
+Tiling
+~~~~~~
+
+The input images are divided into tiles, that are processed in parallel. For
+many algorithms, each tile is padded. Then, the produced disparities overlap and
+are blended.
+
+The size of the tiles can be set with the ``--job-size-w`` and ``--job-size-h``
+options. The default is 2048 x 2048 pixels, unless local alignment
+(:numref:`stereo_alg_overview`) is used, in which case it is 512 x 512 pixels
+(local alignment works better with smaller tiles).
+
+The size of the padding is set with ``--sgm-collar-size``. The default is 0
+for the ``asp_bm`` algorithm, 256 for ``asp_sgm``/``asp_mgm``, and 128 
+with local alignment.
+
+The padding can be increased if artifacts at tile boundary are noticed.
 
 .. _entrypoints:
 
@@ -135,7 +157,7 @@ If the program failed during correlation, such as because of
 insufficient memory, it can be told to resume without recomputing the
 existing good partial results with the option ``--resume-at-corr``.
 
-.. _parallel_stereo_options:
+.. _ps_options:
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
@@ -194,16 +216,17 @@ Command-line options
     Options to pass directly to sparse_disp
     (:numref:`sparse-disp`). Use quotes around this string.
 
---job-size-w <integer (default: 2048)>
-    Pixel width of input image tile for a single process. For
-    alignment method ``local_epipolar`` or algorithms apart from
-    ``ASP_BM``, if not explicitly set, it is overridden by corr-tile-size
-    + 2 * sgm-collar-size. See also :numref:`image_alignment`.
+--job-size-w <integer (default: auto)>
+    Pixel width of input image tile for a single process. See
+    :numref:`ps_tiling`.
 
---job-size-h <integer (default: 2048)>
-    Pixel height of input image tile for a single process.
-    See also ``--job-size-w``.
+--job-size-h <integer (default: auto)>
+    Pixel height of input image tile for a single process. See
+    :numref:`ps_tiling`.
 
+--sgm-collar-size <integer (default: auto)>
+    The padding around each tile to process. See :numref:`ps_tiling`.
+    
 --processes <integer>
     The number of processes to use per node.
 

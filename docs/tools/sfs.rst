@@ -328,7 +328,7 @@ Command-line options for sfs
 -t, --session-type <string (default: "")>
     Select the stereo session type to use for processing. Usually
     the program can select this automatically by the file extension, 
-    except for xml cameras. See :numref:`parallel_stereo_options` for
+    except for xml cameras. See :numref:`ps_options` for
     options.
  
 --steepness-factor <double (default: 1)>

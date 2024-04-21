@@ -173,20 +173,13 @@ def generate_flagfile(options):
 
 ############### Feature Extraction ###############
 --descriptor=SIFT
-# Sift blob detector parameters.
---sift_num_octaves=-1
---sift_num_levels=3
---sift_first_octave=-1
---sift_edge_threshold=10.0
---sift_peak_threshold=1.7
-# Disable if regular sift descriptor is desired.
---root_sift=true
+--feature_density=NORMAL
 
 ############### Matching Options ###############
 # Perform matching out-of-core. If set to true, the matching_working_directory
 # must be set to a valid, writable directory (the directory will be created if
 # it does not exits) Set to false to perform all-in-memory matching.
---match_out_of_core=false
+--match_out_of_core=true
 
 # During feature matching, features are saved to disk so that out-of-core
 # matching may be performed. This directory specifies which directory those
@@ -199,12 +192,19 @@ def generate_flagfile(options):
 # higher this number the more memory is required.
 --matching_max_num_images_in_cache=128
 
---matching_strategy=BRUTE_FORCE
+--matching_strategy=CASCADE_HASHING
 --lowes_ratio=0.75
 --min_num_inliers_for_valid_match=30
 --max_sampson_error_for_verified_match=4.0
 --bundle_adjust_two_view_geometry=true
 --keep_only_symmetric_matches=true
+
+# Global descriptor extractor settings. The global image descriptors are use
+# speed up matching by selected the K most similar images for each image, an
+# only performing feature matching with these images.                       
+--num_nearest_neighbors_for_global_descriptor_matching=100
+--num_gmm_clusters_for_fisher_vector=16
+--max_num_features_for_fisher_vector_training=1000000
 
 ############### General SfM Options ###############
 --reconstruction_estimator=GLOBAL
@@ -253,12 +253,11 @@ def generate_flagfile(options):
 --full_bundle_adjustment_growth_percent=5
 --min_num_absolute_pose_inliers=30
 
-
 ############### Bundle Adjustment Options ###############
 # Set this parameter to a value other than NONE if you want to utilize a robust
 # cost function during bundle adjustment. This can increase robustness to outliers
 # during the optimization.
---bundle_adjustment_robust_loss_function=NONE
+--bundle_adjustment_robust_loss_function=CAUCHY
 
 # Set this value to the determine the reprojection error in pixelst at which
 # robustness begins (if a robust cost function is being used).
@@ -272,12 +271,11 @@ def generate_flagfile(options):
 
 # After BA, remove any points that have a reprojection error greater
 # than this.
---max_reprojection_error_pixels=4.0
-
+--max_reprojection_error_pixels=20.0
 
 ############### Triangulation Options ###############
---min_triangulation_angle_degrees=4.0
---triangulation_reprojection_error_pixels=15.0
+--min_triangulation_angle_degrees=0.5
+--triangulation_reprojection_error_pixels=25.0
 --bundle_adjust_tracks=true
 
 ############### Reconstruction Type ###############
@@ -498,7 +496,7 @@ def run_bundle_adjust(options):
 
     output_prefix = os.path.join(options.output_folder, 'asp_ba_out')
 
-    if options.use_theia_matches:
+    if True: # options.use_theia_matches
         # Try to export Theia matches to VW so that matching only needs to happen once.
         # If this fails, bundle_adjust will try to find matches.
         cmd = ['export_matches_file_to_vw', '-theia_match_dir', options.theia_match_dir, 
@@ -664,8 +662,10 @@ def main(argsIn):
                                                dest="overwrite",  
                                                help="Overwrite any partial computation results on disk.")
         parser.add_option("--reuse-theia-matches", action="store_true", default=False,
-                                               dest="use_theia_matches",  
-                                               help="Pass the Theia IP matches into ASP instead of recomputing them.")
+                          dest="use_theia_matches",  
+                          help="Pass the Theia IP matches to bundle adjustment instead " + \
+                            "of recreating them. This is ignored as it is the default.")
+        
         parser.add_option('--datum',  dest='datum', default='wgs84',
                                          help='Datum to use.  Options: WGS_1984 (default), D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON)')
                                          

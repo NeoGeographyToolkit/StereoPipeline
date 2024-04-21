@@ -334,7 +334,7 @@ void load_or_compute_ip(std::string const & left_unalgined_image,
     return;
   }
 
-  // Then tried the aligned match file.
+  // Try the aligned match file.
   // TODO(oalexan1): This heuristics is fragile.
   // This should happen only for alignment method none or epipolar, but need to check
   if (fs::exists(aligned_match_file) && is_latest_timestamp(aligned_match_file, ref_list)) {
@@ -1497,6 +1497,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       // Use boost::process to run the given process with timeout.
       bp::child c(cmd, e);
       std::error_code ec;
+      // TODO(oalexan1): Fix this warning
       if (!c.wait_for(std::chrono::seconds(timeout), ec)) {
         vw_out() << "\n" << "Timeout reached. Process terminated after "
                  << timeout << " seconds. See the --corr-timeout option.\n";
@@ -1691,7 +1692,6 @@ int main(int argc, char* argv[]) {
       ts = ((ts / TILE_MULTIPLE) + 1) * TILE_MULTIPLE;
       
     opt.raster_tile_size = Vector2i(ts, ts);
-
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION\n";
 
     if (stereo_settings().alignment_method == "local_epipolar") {

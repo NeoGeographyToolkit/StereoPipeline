@@ -138,6 +138,9 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).
   * When a run finished successfully, combine the data from subdirectories and
     delete these. See ``--keep-only`` for more options.
+  * Made the tiles for the ``asp_mgm`` / ``asp_sgm`` algorithms bigger, with
+    smaller padding, which should be about 2x faster (:numref:`ps_tiling`).
+  * Added an illustration of several stereo algorithms (:numref:`stereo_alg_fig`).  
   * Fixed a failure when processing images that have very large blocks (on the
     order of several tens of thousands of pixels along some dimension, as shown
     by ``gdalinfo``). A warning, progress bar, and timing info is displayed.
@@ -232,7 +235,11 @@ lronac2mosaic.py (:numref:`lronac2mosaic`):
     in ISIS that was fixed in version 7.2.
   * Invoke ``spiceinit`` with ``spksmithed=true``. 
   * Add the option ``--spiceinit-options``.
-   
+
+camera_solve (:numref:`camera_solve`):
+  * Switched to cascade matching from brute force matching, which is much faster.
+  * Always reuse the Theia SfM matches.
+    
 misc:
   * Upgraded to Boost 1.82.0.
   * Made all tools that spawn processes in parallel use the option
@@ -258,6 +265,7 @@ misc:
   * Do not keep auxiliary files with temporary names in the work directory for
     ``parallel_stereo`` and ``parallel_bundle_adjust``. Use run's output
     directory and proper names.
+  * Auto-guess the planet for Pinhole cameras (For Earth, Moon, Mars).   
   * Documented the program ``view_reconstruction``
     (:numref:`view_reconstruction`), with a figure.  
   

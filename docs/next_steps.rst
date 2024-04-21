@@ -24,8 +24,18 @@ this chapter.
 Stereo Pipeline in more detail
 ------------------------------
 
+.. _stereo_alg_overview:
+
 Choice of stereo algorithm
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. figure:: images/stereo_algos.png
+   :name: stereo_alg_fig
+
+   A DEM produced (from top-left) with the ``asp_bm``, ``asp_mgm``,
+   ``libelas``, and ``opencv_sgbm`` stereo algorithms. The ``libelas``
+   algorithm is rather fast and the results are of good quality.
+   No mapprojection (:numref:`mapproj-example`) was used here.
 
 The most important choice a user has to make when running ASP is the 
 stereo algorithm to use. By default, ASP runs as if invoked with::
@@ -38,8 +48,10 @@ This invokes block-matching stereo with parabola subpixel mode, which
 can be fast but not of high quality. Much better results are likely
 produced with::
 
-   parallel_stereo --alignment-method affineepipolar \
-     --stereo-algorithm asp_mgm --subpixel-mode 9    \
+   parallel_stereo                     \
+     --alignment-method affineepipolar \
+     --stereo-algorithm asp_mgm        \
+     --subpixel-mode 9                 \
      <other options>
 
 which uses ASP's implementation of MGM (:numref:`asp_sgm`). Using
@@ -58,27 +70,31 @@ to use third-party algorithms in addition to the ones ASP implements.
 
 With ASP's own MGM algorithm, local alignment can be invoked as::
 
-   parallel_stereo --alignment-method local_epipolar \
-     --stereo-algorithm asp_mgm                      \
+   parallel_stereo                     \
+     --alignment-method local_epipolar \
+     --stereo-algorithm asp_mgm        \
+     --subpixel-mode 9                 \
      <other options>
 
 ASP also ships with the following third-party stereo algorithms:
-MGM (original author implementation), OpenCV SGBM, LIBELAS, MSMW,
+MGM (original author implementation), OpenCV SGBM, Libelas, MSMW,
 MSMW2, and OpenCV BM. For more details see :numref:`stereo_algos`.
 
-For example, the rather solid and reasonably fast OpenCV SGBM
+For example, the rather solid and reasonably fast Libelas
 implementation can be called as::
 
-   parallel_stereo --alignment-method local_epipolar \
-     --stereo-algorithm opencv_sgbm                  \
-     --corr-tile-size 512 --sgm-collar-size 256      \ 
+   parallel_stereo                     \
+     --alignment-method local_epipolar \
+     --stereo-algorithm libelas        \
+     --job-size-h 512 --job-size-w 512 \
+     --sgm-collar-size 128             \
      <other options>
 
-Above we used tiles of size 512 pixels with an extra padding of 256 pixels on
-each side, for a total size of 1024 pixels. Smaller tiles are easier to
-align, and also use less memory. The defaults in ``parallel_stereo`` are double
-these values, which work well with ASP's MGM which is more conservative with its
-use of memory but can be too much for some other implementations.
+Above we used tiles of size 512 pixels with an extra padding of 128 pixels on
+each side, for a total size of 768 pixels. Smaller tiles are easier to align
+accurately, and also use less memory. The defaults in ``parallel_stereo`` are
+double these values, which work well with ASP's MGM which is more conservative
+with its use of memory but can be too much for some other implementations.
 
 It is suggested to not specify here ``--subpixel-mode``, in which case
 it will use each algorithm's own subpixel implementation. Using

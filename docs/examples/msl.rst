@@ -206,7 +206,6 @@ Stereo options (:numref:`stereodefault`)::
       --session nadirpinhole
       --no-datum
       --corr-seed-mode 1
-      --corr-tile-size 5000
       --max-disp-spread 300
       --ip-inlier-factor 0.4
       --nodata-value 0"

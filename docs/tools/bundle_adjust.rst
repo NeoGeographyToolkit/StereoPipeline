@@ -898,10 +898,11 @@ Command-line options
     See the `Google Ceres <http://ceres-solver.org/nnls_modeling.html>`_
     documentation on robust cost functions.
 
---datum <string>
-    Set the datum. This will override the datum from the input
-    images and also ``--t_srs``, ``--semi-major-axis``, and
-    ``--semi-minor-axis``. Options:
+--datum <string (default: "")>
+    Set the datum. This will override the datum from the input images and also
+    ``--t_srs``, ``--semi-major-axis``, and ``--semi-minor-axis``. If not set or
+    inferred from the images or camera models, the datum will be auto-guessed
+    based on camera centers for Earth, Mars, and Moon. Options:
 
     - WGS_1984
     - D_MOON (1,737,400 meters)
@@ -923,7 +924,7 @@ Command-line options
 -t, --session-type <string>
     Select the stereo session type to use for processing. Usually
     the program can select this automatically by the file extension, 
-    except for xml cameras. See :numref:`parallel_stereo_options` for
+    except for xml cameras. See :numref:`ps_options` for
     options.
 
 --min-matches <integer (default: 5)>

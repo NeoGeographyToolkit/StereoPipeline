@@ -114,9 +114,8 @@ alignment-method (= affineepipolar, local_epipolar, homography, epipolar, none)
     (default = affineepipolar)
 
     When ``alignment-method`` is set to ``local_epipolar``,
-    the images are divided into small tiles of size
-    ``--corr-tile-size`` expanded by a padding of
-    ``--sgm-collar-size`` on all sides, epipolar alignment is
+    the images are divided into small tiles with padding 
+    (:numref:`ps_tiling`). Local epipolar alignment is
     applied to each pair of tiles, making the stereo disparity
     horizontal, then a desired 1D correlation algorithm (specified via
     ``--stereo-algorithm``) finds this disparity :cite:`de2014automatic`. 
@@ -233,12 +232,13 @@ stddev-mask-thresh (*double*) (default = 0.5)
     (\*stddev_filter_output.tif) will be written containing the filter
     output instead of masking out pixels.To be used with
     ``--stddev-mask-kernel``.
-
-datum (default = WGS_1984)
-    Set the datum. Used chiefly with RPC cameras. Options: WGS_1984,
-    D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA
-    (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth
-    (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).
+    
+datum (default = "")
+    Set the planet datum. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS
+    (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also
+    accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON). If not set
+    or inferred from the images or camera models, the datum will be auto-guessed
+    based on camera centers (for Earth, Mars, and Moon).
 
 no-datum
     Do not assume a reliable datum exists, such as for irregularly
@@ -519,20 +519,16 @@ corr-blob-filter (*integer*) (default = 0)
     incorrect disparity amounts. The value provided is the size of
     blobs in pixels that will be removed at the full image resolution.
 
-corr-tile-size (*integer*) (default = 1024)
-    Manually specifies the size of image tiles used by the correlator
-    for multi-threaded processing. Typically there is no need to adjust
-    this value but it is very important when using semi-global
-    matching. See :numref:`asp_sgm` for details. This
-    value must be a multiple of 16.
-
-sgm-collar-size (*integer*) (default = 512)
+sgm-collar-size (*integer*) (default = auto)
     Specify the size of a region of additional processing around each
-    correlation tile when using SGM or MGM processing. This helps
-    reduce seam artifacts at tile borders when processing an image that
-    needs to be broken up into tiles at the cost of additional
-    processing time. This has no effect if the entire image can fit in
-    one tile.
+    correlation tile for SGM, MGM, and external algorithms. This helps reduce
+    seam artifacts at tile borders when processing an image that needs to be
+    broken up into tiles at the cost of additional processing time. This has no
+    effect if the entire image can fit in one tile. See :numref:`ps_tiling`.
+
+corr-tile-size (*integer*) (default = auto)
+    An internal parameter that sets the size of each tile to be processed. This
+    is set automatically. See :numref:`ps_tiling` for user-accessible controls.
 
 sgm-search-buffer (*integer integer*) (default = 4 4)
     This option determines the size (in pixels) searches around the

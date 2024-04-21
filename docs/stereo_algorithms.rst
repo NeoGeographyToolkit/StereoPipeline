@@ -3,8 +3,8 @@
 The stereo algorithms in ASP in detail
 ======================================
 
-Here we will discuss in a lot of detail ASP's stereo algorithms. For a
-brief summary see :numref:`stereo_algos`. For how to add new such
+Here we will discuss in a lot of detail ASP's stereo algorithms. For a brief
+summary and an illustration see :numref:`stereo_algos`. For how to add new such
 algorithms, see :numref:`adding_algos`.
 
 .. _asp_bm:
@@ -85,29 +85,16 @@ not have a limit.
 It is suggested to use these algorithms with default options. If desired,
 customizations can be done as follows.
 
--  The ``sgm-collar-size`` option can be increased from the default to allow
-   for more padding for each tile. This decreases the chances of seeing
-   artifacts along tile borders but increases processing time and memory
-   usage. With the tiles being bigger, local alignment may be less
-   effective.
-
--  Set the ``corr-tile-size`` option to determine the tile size (before
-   the padding is applied), keeping in mind that larger tile sizes
-   produce better results but consume more memory.
-
--  Set the ``processes`` option keeping in mind memory constraints as
+-  Set the ``--processes`` option keeping in mind memory constraints as
    discussed earlier. Each process will run one simultaneous SGM
-   instance and consume memory.
+   instance and consume memory (:numref:`parallel_stereo`).
 
--  The ``corr-memory-limit-mb`` parameter limits the number of megabytes
+-  The ``--corr-memory-limit-mb`` parameter limits the number of megabytes
    of memory that can be used by SGM/MGM. This limit is per-process. To
    be safe, make sure that you have more RAM available than the value of
    this parameter multiplied by the number of processes.
 
--  ``job-size-w`` and ``job-size-h`` are set equal to
-   ``corr-tile-size``. If the former two are explicitly set, they should
-   be equal to each other, and then the latter parameter will be set to
-   the same value.
+-  See :numref:`ps_tiling` regarding tiling and padding.
 
 Each process spawned by ``parallel_stereo`` can use multiple threads with
 ``threads-singleprocess`` without affecting the stereo results.
@@ -171,7 +158,7 @@ still manually specify these options.
    A section of a NASA IceBridge image on the left with a pair of
    hill-shaded DEMs to the right it showing the difference between default
    ASP processing (upper right) and processing using the SGM algorithm
-   (lower right).
+   (lower right). See another illustration in :numref:`stereo_alg_fig`.
 
 :numref:`corr-sgm-example` shows a comparison between two stereo
 modes. The DEM on the left was generated using the default stereo
@@ -204,7 +191,8 @@ To use it, run::
 
     parallel_stereo --alignment-method local_epipolar \
       --stereo-algorithm mgm                          \
-      --corr-tile-size 1024 --sgm-collar-size 512     \
+      --job-size-w 512 --job-size-h 512               \
+      --sgm-collar-size 128                           \
       left.tif right.tif left.xml right.xml
 
 In this mode, locally aligned portions of the input left and right
@@ -367,6 +355,8 @@ ASP will use the earlier values for all the options except
 specify options whose values are desired to be different than the
 default choices.
 
+See an illustration in :numref:`stereo_alg_fig`.
+
 SGBM options
 ~~~~~~~~~~~~
 
@@ -439,6 +429,8 @@ Large-scale Stereo Matching) algorithm :cite:`Geiger2010ACCV`,
 described at::
 
     http://www.cvlibs.net/software/libelas/
+
+See an illustration in :numref:`stereo_alg_fig`.
 
 We implemented an interface around this library to overcome its
 assumption of the disparity being always positive, and added other

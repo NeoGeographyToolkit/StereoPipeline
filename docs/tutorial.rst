@@ -222,11 +222,11 @@ algorithms.
 
 .. _dg_tutorial:
 
-Tutorial: Processing Earth DigitalGlobe/Maxar images
-====================================================
+Tutorial: Processing Earth images
+=================================
 
 In this chapter we will focus on how to process Earth images, or more
-specifically DigitalGlobe/Maxar WorldView and QuickBird images. This example is
+specifically DigitalGlobe (Maxar) WorldView and QuickBird images. This example is
 different from the one in the previous chapter in that at no point will we be
 using ISIS utilities. This is because ISIS only supports NASA instruments, while
 most Earth images comes from commercial providers.

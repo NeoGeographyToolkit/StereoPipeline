@@ -184,8 +184,8 @@ namespace asp {
       ("datum", po::value(&global.datum)->default_value(""),
        "Set the planet datum. Options: WGS_1984, D_MOON (1,737,400 meters), "
         "D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. "
-        "Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON). May be "
-        "auto-guessed based on camera centers if not set.")
+        "Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON). If not set, "
+        "will be auto-guessed based on camera centers (for Earth, Mars, and Moon).")
       ("match-files-prefix",  po::value(&global.match_files_prefix)->default_value(""),
        "Use the match file from this prefix. Normally contains match files "
        "created with bundle_adjust or parallel_stereo.")

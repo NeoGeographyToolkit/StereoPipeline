@@ -300,7 +300,7 @@ bool StereoSession::have_datum() const {
 
 // Returns the target datum to use for a given camera model.
 // Can be overridden by derived classes.
-// TODO(oalexan1): This must have a flag. A datum does not always exist. 
+// If no success finding the datum, will return WGS84.
 vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* cam,
                                                 bool use_sphere_for_non_earth) const {
   
@@ -308,12 +308,11 @@ vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* c
   if (!stereo_settings().datum.empty()) 
     return vw::cartography::Datum(stereo_settings().datum);
   
-  // Otherwise guess the datum based on the camera position
+  // Otherwise guess the datum based on the camera position.
+  // If no luck, it will return the default WGS84 datum.
   double cam_center_radius 
       = norm_2(cam->camera_center(vw::Vector2()));
   vw::cartography::Datum datum;
-  // TODO(oalexan1): Must check for success
-  //bool have_datum = 
   guessDatum(cam_center_radius, datum);
     
   return datum;
@@ -321,7 +320,7 @@ vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* c
 
 // Peek inside the images and camera models and return the datum and projection,
 // or at least the datum, packaged in a georef.
-// TODO(oalexan1): This must have a flag. A georef does not always exist. 
+// If no success finding the datum, will return WGS84.
 vw::cartography::GeoReference StereoSession::get_georef() {
 
   vw::cartography::GeoReference georef;

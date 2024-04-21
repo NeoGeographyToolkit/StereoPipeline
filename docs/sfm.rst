@@ -262,19 +262,18 @@ Create a terrain model and orthoimage::
        --orthoimage s_global/out-L.tif    \
        --errorimage
 
-See :numref:`point2dem` for more information on the options used here.
-The error image, in particular, can be useful to see if the intrinsics
-are good. Big errors in the corners of the images may indicate that
-the intrinsics need refinement (:numref:`floatingintrinsics`).
+See :numref:`parallel_stereo` and :numref:`point2dem` for more information on
+the options used here. 
 
-Run ``orbitviz`` to visualize the camera positions::
-
-    orbitviz -t nadirpinhole -r moon out_gcp --load-camera-solve
+The error image can be useful to see if the intrinsics are good. Big errors in
+the corners of the images may indicate that the intrinsics need refinement
+(:numref:`floatingintrinsics`).
 
 .. figure:: images/examples/pinhole/a15_fig.png
    :name: pinhole-a15-result-image
 
-   Produced hillshaded DEM (left) and orthoimage (right).
+   Produced hillshaded DEM (left) and orthoimage (right). See
+   :numref:`stereo_alg_fig` for a comparison of stereo algorithms.
 
 :numref:`nextsteps` will discuss the ``parallel_stereo`` program
 in more detail and the other tools in ASP.

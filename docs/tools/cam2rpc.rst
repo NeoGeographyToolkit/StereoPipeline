@@ -137,7 +137,7 @@ Command-line options
 -t, --session-type <string>
     Select the input camera model type. Normally this is auto-detected,
     but may need to be specified if the input camera model is in
-    XML format. See :numref:`parallel_stereo_options` for options.
+    XML format. See :numref:`ps_options` for options.
 
 --bundle-adjust-prefix <string>
     Use the camera adjustment obtained by previously running

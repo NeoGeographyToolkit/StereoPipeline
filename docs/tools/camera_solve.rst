@@ -35,11 +35,17 @@ appended with .final.tsai, contains the final solver results. If ground
 control points or estimated camera positions were provided, then the
 second file will be in a global coordinate system.
 
-To customize the options passed to Theia, edit the flag file which is
-saved in each output folder and pass it back to ``camera_solve`` via
+A related tool is ``theia_sfm`` (:numref:`theia_sfm`).
+
+Flags file
+~~~~~~~~~~
+
+To customize the options passed to Theia, edit the flag file which is saved in
+each output folder and pass it back to ``camera_solve`` via
 ``--theia-flagfile``, or use the option ``--theia-overrides``.
 
-A related tool is ``theia_sfm`` (:numref:`theia_sfm`).
+In particular, setting ``--feature_density=DENSE`` in the flags file can be of
+great help if there are not enough matches between images.
 
 Example
 ^^^^^^^
@@ -98,7 +104,7 @@ Command-line options
 
 --reuse-theia-matches
     Pass Theia's computed interest point matches to bundle adjustment
-    instead of recreating them (using potentially different methods).
+    instead of recreating them. This is ignored as it is the default.
 
 --suppress-output
     Reduce the amount of program console output.

@@ -1711,7 +1711,7 @@ Command-line options for jitter_solve
 -t, --session-type <string>
     Select the stereo session type to use for processing. Usually
     the program can select this automatically by the file extension, 
-    except for xml cameras. See :numref:`parallel_stereo_options` for
+    except for xml cameras. See :numref:`ps_options` for
     options.
 
 --robust-threshold <double (default:0.5)>

@@ -259,7 +259,6 @@ def grow_crop_tile_maybe(settings, prog, tile):
 
     # Make a local copy of the tile, as we may grow it
     local_tile = BBox(tile.x, tile.y, tile.width, tile.height)
-    
     if use_padded_tiles(settings) and prog == 'stereo_corr':
         collar_size = int(settings['collar_size'][0])
         local_tile.add_collar(collar_size)
@@ -289,9 +288,8 @@ def build_vrt(prog, settings, georef, postfix, tile_postfix, contract_tiles=Fals
     f.write("  <SRS>" + georef["WKT"] + "</SRS>\n")
     f.write("  <GeoTransform>" + georef["GeoTransform"] + "</GeoTransform>\n")
 
-    tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
-
     # Locate a known good tile
+    tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
     goodFilename = ""
     for tile in tiles:
         directory = tile_dir(settings['out_prefix'][0], tile)
@@ -598,12 +596,11 @@ def tile_run(prog, args, settings, tile, **kw):
         if adjusted_tile.width <= 0 or adjusted_tile.height <= 0:
             return # the produced tile is empty
         
-        # Also increase the processing block size for the tile so we process
-        #  the entire tile in one go.
+        # Increase the processing block size for the tile so we process
+        # the entire tile in one go.
         if use_padded_tiles(settings) and prog == 'stereo_corr':
-            collar_size = int(settings['collar_size'][0])
-            curr_tile_size = int(settings['corr_tile_size'][0])
-            set_option(args, '--corr-tile-size', [curr_tile_size + 2*collar_size])
+            curr_tile_size = max(adjusted_tile.width, adjusted_tile.height)
+            set_option(args, '--corr-tile-size', [curr_tile_size])
 
         # Set up the call string
         call = [binpath]
@@ -614,7 +611,7 @@ def tile_run(prog, args, settings, tile, **kw):
             call.extend(['--threads', str(opt.threads_multi)])
 
         cmd = call + ['--trans-crop-win'] + adjusted_tile.as_array() # append the region to process
-        cmd[cmd.index(settings['out_prefix'][0])] = tile_dir_string # use out prefix for this tile
+        cmd[cmd.index(settings['out_prefix'][0])] = tile_dir_string # out prefix for this tile
 
         if opt.dryrun:
             print(" ".join(cmd))
@@ -771,15 +768,15 @@ def keepOnlySpecified(keep_only, out_prefix, subdirs):
     if len(pc_file) > 0:
         print("Output point cloud: " + pc_file[0])
 
-def set_corr_tile_size(new_corr_tile_size, args, settings):
+def set_collar_size(new_collar_size, args, settings):
     """
-    Set corr_tile_size to a new value, and update the settings and args.
+    Set collar_size to a new value, and update the settings and args.
     """
     
-    corr_tile_size = new_corr_tile_size
-    set_option(args, '--corr-tile-size', [str(corr_tile_size)])
-    settings['corr_tile_size'] = [str(corr_tile_size)]
-    return (corr_tile_size, settings, args)
+    collar_size = new_collar_size
+    set_option(args, '--sgm-collar-size', [str(collar_size)])
+    settings['collar_size'] = [str(collar_size)]
+    return (settings, args)
             
 if __name__ == '__main__':
     usage = '''parallel_stereo [options] <images> [<cameras>]
@@ -801,9 +798,6 @@ if __name__ == '__main__':
     # Those scripts in turn start actual jobs on those nodes.
     # For the other steps, the script does the work itself.
 
-    # TODO(oalexan1): Start with job-size-h and job-size-w set to 2048,
-    # and --sgm-collar-size be 0 for BM and 256 for the other algorithms.
-    
     # Python does not know how to disambiguate between two
     # options which start with a similar prefix.
     if '--threads' in sys.argv:
@@ -831,20 +825,26 @@ if __name__ == '__main__':
                    help='Stereo Pipeline entry point (an integer from 0-5).',
                    type=int)
     p.add_argument('--stop-point',           dest='stop_point',  default=6,
-                   help='Stereo Pipeline stop point (an integer from 1-6). Stop before this step.',
+                   help='Stereo Pipeline stop point (an integer from 1-6). Stop ' + 
+                   'before this step.',
                    type=int)
-    p.add_argument('--job-size-w',           dest='job_size_w',  default=2048,
-                   help='Pixel width of input image tile for a single process.',
+    p.add_argument('--job-size-w',           dest='job_size_w',  default=-1,
+                   help='Pixel width of input image tile for a single process. ' + \
+                   'Set automatically.',
                    type=int)
-    p.add_argument('--job-size-h',           dest='job_size_h',  default=2048,
-                   help='Pixel height of input image tile for a single process.',
+    p.add_argument('--job-size-h',           dest='job_size_h',  default=-1,
+                   help='Pixel height of input image tile for a single process. ' + \
+                     'Set automatically.',
+                   type=int)
+    p.add_argument('--sgm-collar-size',      dest='sgm_collar_size', default=-1,
+                   help='The padding around each tile to process. Set automatically.',
                    type=int)
     p.add_argument('--resume-at-corr', dest='resume_at_corr', default=False, 
                    action='store_true',
                    help='Start at the correlation stage and skip recomputing the valid ' + \
                    'low and full-res disparities for that stage. Do not change ' + \
                    '--left-image-crop-win, etc., when running this.')
-    p.add_argument('--prev-run-prefix',           dest='prev_run_prefix', default=None,
+    p.add_argument('--prev-run-prefix', dest='prev_run_prefix', default=None,
                    help='Start at the triangulation stage while reusing the data from this prefix. The new run can use different cameras, bundle adjustment prefix, or bathy planes (if applicable). Do not change crop windows, as that would invalidate the run.')
     p.add_argument('--keep-only', dest='keep_only', default="all_combined",
                    help='If set to "all_combined", which is the default, at the end of a ' + \
@@ -886,7 +886,7 @@ if __name__ == '__main__':
     global opt
     (opt, args) = p.parse_known_args()
     args = clean_args(args)
-
+    
     if opt.version:
         asp_system_utils.print_version_and_exit()
 
@@ -977,58 +977,48 @@ if __name__ == '__main__':
     if opt.version:
         args.append('-v')
 
-    # For values having commas which we don't want disturbed
-    sep2 = '--non-comma-separator--'
+    if int(opt.job_size_h < 0) + int(opt.job_size_w < 0) == 1:
+        raise Exception('Must set neither or both of --job-size-h and --job-size-w.')
+        
+    # If --job-size-h and --job-size-w are not set, set them depending on the algorithm
+    localEpi = (settings['alignment_method'][0] == 'local_epipolar')
+    if opt.job_size_h < 0:
+        if alg >= VW_CORRELATION_OTHER or localEpi:
+            # Local alignment needs small tiles
+            opt.job_size_w = 512
+            opt.job_size_h = 512
+        elif alg == VW_CORRELATION_BM:
+            # Regular block matching
+            opt.job_size_w = 2048
+            opt.job_size_h = 2048
+        elif alg > VW_CORRELATION_BM:
+            # SGM, MGM, etc.
+            opt.job_size_w = 2048
+            opt.job_size_h = 2048
+    if opt.sgm_collar_size < 0:
+        if alg >= VW_CORRELATION_OTHER or localEpi:
+            # Local alignment
+            opt.sgm_collar_size = 128
+        elif alg == VW_CORRELATION_BM:
+            # Regular block matching
+            opt.sgm_collar_size = 0
+        elif alg > VW_CORRELATION_BM:
+            # SGM, MGM, etc.
+            opt.sgm_collar_size = 256
     
+    # Update the collar size in the settings and args
+    (settings, args) = set_collar_size(opt.sgm_collar_size, args, settings)
+
+    sep2 = '--non-comma-separator--' # a string unlikely to be in the output
     georef=run_and_parse_output("stereo_parse", args, sep2, opt.verbose)
     georef["WKT"] = "".join(georef["WKT"])
     georef["GeoTransform"] = "".join(georef["GeoTransform"])
-
-    # Set the job size by default when using SGM
-    corr_tile_size = int(settings['corr_tile_size'][0])
-    if using_padded_tiles:
-        # TODO(oalexan1): The default behavior should be sgm collar of 256,
-        # and padded tiles of 2048. This is not the case now. What to do
-        # for local epipolar alignment?
-        if ('--job-size-w' not in sys.argv[1:]) and ('--job-size-h' not in sys.argv[1:]):
-            # If the user did not manually specify the job size, set it equal
-            #  to the correlation tile size. 
-            opt.job_size_w = corr_tile_size
-            opt.job_size_h = opt.job_size_w
-        else:
-            # If the user specified these, they better be equal, and
-            # equal to corr_tile_size
-            if opt.job_size_h != opt.job_size_w:
-                raise Exception('If --stereo-algorithm is not "bm", must use the ' + \
-                                'same value  for --job-size-h and --job-size-w.')
-            if opt.job_size_w != corr_tile_size:
-                print("Making --corr-tile-size equal to --job-size-h, that is equal to " \
-                      + str(opt.job_size_h) + ".")
-                # Let corr_tile_size be job_size_h. Update in 3 places. 
-                (corr_tile_size, settings, args) = \
-                    set_corr_tile_size(opt.job_size_h, args, settings)
-                    
-    else:
-        # Make corr_tile_size the minimum of opt.job_size_h and opt.job_size_w
-        if corr_tile_size > opt.job_size_h or corr_tile_size > opt.job_size_w:
-
-            # Must apply the changes to three places
-            new_val = min([opt.job_size_h, opt.job_size_w])
-            (corr_tile_size, settings, args) = \
-                    set_corr_tile_size(new_val, args, settings)
-            print("Making --corr-tile-size the minimum of --job-size-h and --job-size-w, " \
-                  "that is equal to " + str(corr_tile_size) + ".")
 
     print ('Using tiles (before collar addition) of ' + str(opt.job_size_w) + \
            ' x ' + str(opt.job_size_h) + ' pixels.')
     print('Using a collar (padding) for each tile of ' + settings['collar_size'][0] + \
           ' pixels.')
     
-    # Print here the size of padded tiles
-    #if using_padded_tiles:
-    #    print ('Using padded tiles (after collar addition) of ' + str(corr_tile_size) + \
-    #           ' x ' + str(corr_tile_size) + ' pixels.')
-        
     # See if to resume at triangulation. This logic must happen after we figured
     # if we need padded tiles, otherwise the bookkeeping will be wrong.
     if opt.tile_id is None and opt.prev_run_prefix is not None:
