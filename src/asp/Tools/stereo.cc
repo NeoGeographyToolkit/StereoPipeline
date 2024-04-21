@@ -699,9 +699,9 @@ namespace asp {
           << "the corr kernel size must be between 3 and 9 (inclusive).\n");
     }
 
-    if (stereo_alg == vw::stereo::VW_CORRELATION_BM && stereo_settings().subpixel_mode > 3)
+    if (stereo_alg == vw::stereo::VW_CORRELATION_BM && stereo_settings().subpixel_mode > 6)
       vw::vw_throw(vw::ArgumentErr() << "Subpixel mode " << stereo_settings().subpixel_mode
-               << " is not supported with block matching. Use mode 0, 1, 2, or 3.\n");
+               << " is not supported with block matching. Use mode <= 6.\n");
 
     if (!using_tiles) {
       // No need for a collar when we are not using tiles.
