@@ -710,14 +710,13 @@ void addCamPosCostFun(Options                                 const& opt,
 
 // One pass of bundle adjustment
 int do_ba_ceres_one_pass(Options             & opt,
-                         asp::CRNJ           const& crn,
+                         asp::CRNJ      const& crn,
                          bool                  first_pass,
+                         bool                  remove_outliers, 
                          asp::BAParams       & param_storage, 
                          asp::BAParams const & orig_parameters,
                          bool                & convergence_reached,
                          double              & final_cost) {
-
-  ceres::Problem problem;
 
   ControlNetwork & cnet = *opt.cnet;
   int num_cameras = param_storage.num_cameras();
@@ -785,6 +784,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   // First is pixel reprojection error. Note: cam_residual_counts and num_pixels_per_cam
   // serve different purposes. 
   // TODO(oalexan1): Put this in a separate function.
+  ceres::Problem problem;
   std::vector<size_t> cam_residual_counts(num_cameras, 0);
   std::vector<size_t> num_pixels_per_cam(num_cameras, 0);
   std::vector<std::vector<vw::Vector2>> pixels_per_cam(num_cameras);
@@ -888,6 +888,7 @@ int do_ba_ceres_one_pass(Options             & opt,
 
   // Add ground control points or points based on a DEM constraint
   // Error goes up as GCP's move from their input positions.
+  // TODO(oalexan1): Put this in a separate function.
   int num_gcp = 0, num_gcp_or_dem_residuals = 0;
   for (int ipt = 0; ipt < num_points; ipt++) {
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint &&
@@ -1147,13 +1148,8 @@ int do_ba_ceres_one_pass(Options             & opt,
    = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
   param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip, 
                                      "final_points", url);
-  
-  // Write the GCP stats to a file
-  if (num_gcp > 0) 
-    param_storage.print_gcp_stats(opt.out_prefix, cnet, opt.datum);
 
   // Outlier filtering
-  bool remove_outliers = (opt.num_ba_passes > 1);
   if (remove_outliers)
       add_to_outliers(cnet, crn,
                       param_storage,   // in-out
@@ -1161,79 +1157,6 @@ int do_ba_ceres_one_pass(Options             & opt,
                       num_uncertainty_residuals, num_tri_residuals,
                       num_cam_pos_residuals, reference_vec, problem);
 
-  // Find the cameras with the latest adjustments. Note that we do not modify
-  // opt.camera_models, but make copies as needed.
-  std::vector<vw::CamPtr> optimized_cams;
-  std::vector<vw::Vector3> opt_cam_positions;
-  asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
-  asp::calcCameraCenters(optimized_cams, opt_cam_positions);
-  
-  // Must refresh the set of outliers
-  updateOutliers(cnet, param_storage, outliers);
-  
-  // Calculate convergence angles. Remove the outliers flagged earlier, if
-  // remove_outliers is true. Compute offsets of mapprojected matches, if a DEM
-  // is given. Propagate errors if desired. These are done together as they rely
-  // on reloading interest point matches, which is expensive so the matches are
-  // used for both operations.
-  // TODO(oalexan1): Should this be done after the last pass?
-  std::vector<vw::Vector<float, 4>> mapprojPoints; // all points, not just stats
-  std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
-  std::vector<std::vector<float>> mapprojOffsetsPerCam;
-  std::vector<asp::HorizVertErrorStats> horizVertErrors;
-  vw::cartography::GeoReference mapproj_dem_georef;
-  if (!opt.mapproj_dem.empty()) {
-    bool is_good = vw::cartography::read_georeference(mapproj_dem_georef, opt.mapproj_dem);
-    if (!is_good) 
-      vw::vw_throw(vw::ArgumentErr() << "Could not read a georeference from: "
-                   << opt.mapproj_dem << ".\n");
-  }
-  
-  // Write clean matches and many types of stats
-  // TODO(oalexan1): Should this be done after the last pass?
-  asp::matchFilesProcessing(cnet,
-                            asp::BaBaseOptions(opt), // note the slicing
-                            optimized_cams, remove_outliers, outliers, opt.mapproj_dem,
-                            opt.propagate_errors, opt.horizontal_stddev_vec, 
-                            // Outputs
-                            opt.match_files,
-                            convAngles, mapprojPoints, 
-                            mapprojOffsets, mapprojOffsetsPerCam,
-                            horizVertErrors);
-
-  // TODO(oalexan1): Should this be done after the last pass?
-  std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
-  asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
-  if (!opt.mapproj_dem.empty()) {
-    std::string mapproj_offsets_stats_file 
-      = opt.out_prefix + "-mapproj_match_offset_stats.txt";
-    std::string mapproj_offsets_file = opt.out_prefix + "-mapproj_match_offsets.txt";
-    asp::saveMapprojOffsets(mapproj_offsets_stats_file, mapproj_offsets_file,
-                            mapproj_dem_georef,
-                            mapprojPoints,
-                            mapprojOffsets, 
-                            mapprojOffsetsPerCam, // will change
-                            opt.image_files);
-  }
-  
-  if (opt.propagate_errors) {
-    std::string horiz_vert_errors_file = opt.out_prefix + "-triangulation_uncertainty.txt";
-    asp::saveHorizVertErrors(horiz_vert_errors_file, horizVertErrors, opt.image_files);
-  }
-  
-  // Compute the change in camera centers. For that, we need the original cameras.
-  std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";
-  if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
-    asp::saveCameraOffsets(opt.datum, opt.image_files, 
-                           orig_cam_positions, opt_cam_positions,
-                           cam_offsets_file); 
-  else
-    vw::vw_out() << "Cannot compute camera offsets as the datum is unspecified.\n";
-    
-  std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";     
-  asp::saveTriOffsetsPerCamera(opt.image_files, orig_parameters, param_storage, crn,
-                               tri_offsets_file);
-  
   return 0;
 } // End function do_ba_ceres_one_pass
 
@@ -1241,6 +1164,7 @@ int do_ba_ceres_one_pass(Options             & opt,
 // only kicked in if opt.num_random_passes is positive, which is not the
 void runRandomPasses(Options & opt, asp::BAParams & param_storage,
                      double & final_cost, asp::CRNJ const& crn,
+                     bool remove_outliers,
                      asp::BAParams const& orig_parameters) {
 
   // Record the parameters of the best result so far
@@ -1267,7 +1191,7 @@ void runRandomPasses(Options & opt, asp::BAParams & param_storage,
     bool first_pass = true; // this needs more thinking
     bool convergence_reached = true;
     double curr_cost = 0.0; // will be set
-    do_ba_ceres_one_pass(opt, crn, first_pass,
+    do_ba_ceres_one_pass(opt, crn, first_pass, remove_outliers,
                          param_storage, orig_parameters,
                          convergence_reached, curr_cost);
     
@@ -1548,7 +1472,8 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   if (opt.num_ba_passes <= 0)
     vw_throw(ArgumentErr() << "Error: Expecting at least one bundle adjust pass.\n");
   
-  double final_cost;
+  bool remove_outliers = (opt.num_ba_passes > 1);
+  double final_cost = 0.0;
   for (int pass = 0; pass < opt.num_ba_passes; pass++) {
 
     if (opt.apply_initial_transform_only)
@@ -1558,7 +1483,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 
     bool first_pass = (pass == 0);
     bool convergence_reached = true; // will change
-    do_ba_ceres_one_pass(opt, crn, first_pass,
+    do_ba_ceres_one_pass(opt, crn, first_pass, remove_outliers,
                          param_storage, orig_parameters,
                          convergence_reached, final_cost);
     int num_points_remaining = num_points - param_storage.get_num_outliers();
@@ -1579,10 +1504,95 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   
   // Running random passes is not the default
   if (!opt.apply_initial_transform_only && opt.num_random_passes > 0)
-    runRandomPasses(opt, param_storage, final_cost, crn, orig_parameters);
+    runRandomPasses(opt, param_storage, final_cost, crn, remove_outliers, orig_parameters);
   
   // Always save the updated cameras, even if we are not doing any optimization
   saveUpdatedCameras(opt, param_storage);
+  
+  // Write the GCP stats to a file
+  if (num_gcp > 0) 
+    param_storage.print_gcp_stats(opt.out_prefix, cnet, opt.datum);
+
+  // TODO(oalexan1): Likely orig_cams have the info as opt.camera_models. But need
+  // to test this.
+  std::vector<vw::CamPtr> orig_cams;
+  asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
+  std::vector<vw::Vector3> orig_cam_positions;
+  asp::calcCameraCenters(orig_cams, orig_cam_positions);
+
+  // Find the cameras with the latest adjustments. Note that we do not modify
+  // opt.camera_models, but make copies as needed.
+  std::vector<vw::CamPtr> optimized_cams;
+  std::vector<vw::Vector3> opt_cam_positions;
+  asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
+  asp::calcCameraCenters(optimized_cams, opt_cam_positions);
+  
+  // Fetch the latest outliers from param_storage and put them in the 'outliers' set
+  std::set<int> outliers;
+  updateOutliers(cnet, param_storage, outliers);
+  
+  // Calculate convergence angles. Remove the outliers flagged earlier, if
+  // remove_outliers is true. Compute offsets of mapprojected matches, if a DEM
+  // is given. Propagate errors if desired. These are done together as they rely
+  // on reloading interest point matches, which is expensive so the matches are
+  // used for both operations.
+  // TODO(oalexan1): Should this be done after the last pass?
+  std::vector<vw::Vector<float, 4>> mapprojPoints; // all points, not just stats
+  std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
+  std::vector<std::vector<float>> mapprojOffsetsPerCam;
+  std::vector<asp::HorizVertErrorStats> horizVertErrors;
+  vw::cartography::GeoReference mapproj_dem_georef;
+  if (!opt.mapproj_dem.empty()) {
+    bool is_good = vw::cartography::read_georeference(mapproj_dem_georef, opt.mapproj_dem);
+    if (!is_good) 
+      vw::vw_throw(vw::ArgumentErr() << "Could not read a georeference from: "
+                   << opt.mapproj_dem << ".\n");
+  }
+  
+  // Write clean matches and many types of stats
+  // TODO(oalexan1): Should this be done after the last pass?
+  asp::matchFilesProcessing(cnet,
+                            asp::BaBaseOptions(opt), // note the slicing
+                            optimized_cams, remove_outliers, outliers, opt.mapproj_dem,
+                            opt.propagate_errors, opt.horizontal_stddev_vec, 
+                            // Outputs
+                            opt.match_files,
+                            convAngles, mapprojPoints, 
+                            mapprojOffsets, mapprojOffsetsPerCam,
+                            horizVertErrors);
+
+  // TODO(oalexan1): Should this be done after the last pass?
+  std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
+  asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
+  if (!opt.mapproj_dem.empty()) {
+    std::string mapproj_offsets_stats_file 
+      = opt.out_prefix + "-mapproj_match_offset_stats.txt";
+    std::string mapproj_offsets_file = opt.out_prefix + "-mapproj_match_offsets.txt";
+    asp::saveMapprojOffsets(mapproj_offsets_stats_file, mapproj_offsets_file,
+                            mapproj_dem_georef,
+                            mapprojPoints,
+                            mapprojOffsets, 
+                            mapprojOffsetsPerCam, // will change
+                            opt.image_files);
+  }
+  
+  if (opt.propagate_errors) {
+    std::string horiz_vert_errors_file = opt.out_prefix + "-triangulation_uncertainty.txt";
+    asp::saveHorizVertErrors(horiz_vert_errors_file, horizVertErrors, opt.image_files);
+  }
+  
+  // Compute the change in camera centers. For that, we need the original cameras.
+  std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";
+  if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
+    asp::saveCameraOffsets(opt.datum, opt.image_files, 
+                           orig_cam_positions, opt_cam_positions,
+                           cam_offsets_file); 
+  else
+    vw::vw_out() << "Cannot compute camera offsets as the datum is unspecified.\n";
+    
+  std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";     
+  asp::saveTriOffsetsPerCamera(opt.image_files, orig_parameters, param_storage, crn,
+                               tri_offsets_file);
   
   if (!opt.apply_initial_transform_only && has_datum && 
       (opt.stereo_session == "pinhole") || (opt.stereo_session == "nadirpinhole")) 
@@ -3033,7 +3043,7 @@ void findPairwiseMatches(Options & opt, // will change
   // match files, rather than searching for them exhaustively on disk, which can
   // get very slow.
   std::set<std::string> existing_files;
-  if (external_matches) {
+  if (external_matches && !need_no_matches) {
     std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
                                                 opt.match_files_prefix,  
                                                 opt.out_prefix);
@@ -3102,11 +3112,11 @@ void findPairwiseMatches(Options & opt, // will change
     asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
     
     // Set up the stereo session
-    asp::SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
-                                                          opt, image1_path, image2_path,
-                                                          camera1_path, camera2_path,
-                                                          opt.out_prefix));
-
+    asp::SessionPtr 
+      session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
+                                                opt, image1_path, image2_path,
+                                                camera1_path, camera2_path,
+                                                opt.out_prefix));
 
     // Find matches between image pairs. This may not always succeed.
     try {
