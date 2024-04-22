@@ -224,10 +224,10 @@ Then, the command::
       --csv-format <csv format string>                \
       dem.tif meas.csv -o run_full/run
 
-will transform the full ``dem.tif`` into the coordinate system of
-``meas.csv``, and ``meas.csv`` into the coordinate system of
-``ref.tif`` with no further iterations. See also :numref:`ba_pc_align`
-for how to use such transforms with cameras.
+will transform the full ``dem.tif`` into the coordinate system of ``meas.csv``,
+and ``meas.csv`` into the coordinate system of ``ref.tif`` with no further
+iterations. See also :numref:`ba_pc_align` for how to use such
+transforms with cameras.
 
 If an initial transform is used, with zero or more iterations, the
 output transform produced by such an invocation will be from the source
@@ -349,9 +349,8 @@ after alignment.
 Evaluation of aligned clouds
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``pc_align`` program can save the source cloud after being aligned
-to the reference cloud and vice-versa, via
-``--save-transformed-source-points`` and
+The ``pc_align`` program can save the source cloud after being aligned to the
+reference cloud and vice-versa, via ``--save-transformed-source-points`` and
 ``--save-inv-transformed-reference-points``. 
 
 To validate that the aligned source cloud is very close to the reference cloud,
@@ -626,8 +625,9 @@ Command-line options for pc_align
     a translation only (no rotation).
 
 --save-transformed-source-points
-    Apply the obtained transform to the source points so they match
-    the reference points and save them.
+    Apply the obtained transform to the source points so they match the
+    reference points and save them. The transformed point cloud can be
+    gridded with ``point2dem`` (:numref:`point2dem`).
 
 --save-inv-transformed-reference-points
     Apply the inverse of the obtained transform to the reference

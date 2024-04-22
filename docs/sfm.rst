@@ -278,6 +278,29 @@ the corners of the images may indicate that the intrinsics need refinement
 :numref:`nextsteps` will discuss the ``parallel_stereo`` program
 in more detail and the other tools in ASP.
 
+.. _sfm_multiview:
+
+Multiview reconstruction
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``bundle_adjust`` program produces a report file having the convergence
+angle and number of matches between any two images in a given set
+(:numref:`ba_conv_angle`).
+
+That data can be used to decide on promising stereo pairs to consider
+(:numref:`stereo_pairs`). After pairwise stereo and DEM creation is run, the
+DEMs can be mosaicked together with ``dem_mosaic`` (:numref:`dem_mosaic`). 
+
+The input DEMs should agree quite well if the intrinsics are accurate, there is
+enough overlap between the images, many interest point matches were found, and
+the cameras were bundle-adjusted (with GCP). Refining intrinsics is discussed
+in :numref:`floatingintrinsics`.
+
+The produced mosaicked DEM (and cameras) can be aligned to a reference terrain with
+``pc_align`` (:numref:`pc_align`).
+
+The creation of a fused mesh is discussed in :numref:`multi_stereo`.
+
 .. _sfmicebridge:
 
 Example: IceBridge DMS Camera
@@ -465,6 +488,8 @@ Align the produced stereo point cloud to the LVIS data using ``pc_align``
   
 A DEM can be produced from the aligned point cloud, that
 can then be overlaid on top of the LVIS DEM.
+
+For processing multiple images, see :numref:`sfm_multiview`.
 
 .. figure:: images/examples/pinhole/icebridge_dem.png
    :name: pinhole-icebridge

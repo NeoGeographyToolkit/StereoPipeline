@@ -110,7 +110,7 @@ Create a DEM and triangulation error image as in :numref:`point2dem`.
 
 Run bundle adjustment::
 
-    bundle_adjust --camera-weight 0              \
+    bundle_adjust --camera-position-weight 0     \
      --tri-weight 0.1 --tri-robust-threshold 0.1 \
      AS15-M-1134.cub AS15-M-1135.cub -o run_ba/run
 
@@ -132,10 +132,9 @@ A comparison of the results given these two ways of doing stereo is shown in
 Bundle adjustment aims to make the cameras more self-consistent but offers no
 guarantees about their absolute positions (unless GCP are used), in fact, the
 cameras can move away a lot sometimes. The options ``--tri-weight``,   
-``--rotation-weight``, ``--translation-weight``, and ``--camera-weight`` can be
-used to constrain how much the cameras can move during bundle adjustment. Note
-that large values for these may impact the ability to make the cameras
-self-consistent.
+``--rotation-weight``, and ``--camera-position-weight`` can be used to constrain
+how much the cameras can move during bundle adjustment. Note that large values
+for these may impact the ability to make the cameras self-consistent.
 
 This program can constrain the triangulated points, and hence the cameras,
 relative to a DEM. This option only works when the cameras are already
@@ -239,7 +238,7 @@ cameras with the optimized extrinsics found earlier. This is just an
 early such attempt, better approaches will be suggested below::
 
      bundle_adjust -t nadirpinhole --inline-adjustments \
-       --solve-intrinsics --camera-weight 0             \
+       --solve-intrinsics --camera-position-weight 0    \
        --max-pairwise-matches 20000                     \
        left.tif right.tif                               \
        run_ba/run-left.tsai run_ba/run-right.tsai       \
@@ -305,6 +304,7 @@ adjustment. For that, the stereo DEM obtained earlier
 needs to be first aligned to this ground truth, such as::
 
     pc_align --max-displacement VAL run_stereo/run-DEM.tif \
+      --save-inv-transformed-reference-points              \
       lidar.csv -o run_align/run 
 
 (see the manual page of this tool in :numref:`pc_align` for more details).
@@ -364,18 +364,18 @@ falls back to the ``--tri-weight`` constraint.
 Here is an example, and note that, as in the earlier section,
 we assume that the cameras and the terrain are already aligned::
 
-     bundle_adjust -t nadirpinhole               \
-       --inline-adjustments                      \
-       --solve-intrinsics --camera-weight 0      \
-       --max-pairwise-matches 20000              \
-       --heights-from-dem dem.tif                \
-       --heights-from-dem-uncertainty 10.0       \
-       --heights-from-dem-robust-threshold 0.1   \
-       --parameter-tolerance 1e-12               \
-       --remove-outliers-params "75.0 3.0 20 25" \
-       left.tif right.tif                        \
-       run_align/run-run-left.tsai               \
-       run_align/run-run-right.tsai              \
+     bundle_adjust -t nadirpinhole                   \
+       --inline-adjustments                          \
+       --solve-intrinsics --camera-position-weight 0 \
+       --max-pairwise-matches 20000                  \
+       --heights-from-dem dem.tif                    \
+       --heights-from-dem-uncertainty 10.0           \
+       --heights-from-dem-robust-threshold 0.1       \
+       --parameter-tolerance 1e-12                   \
+       --remove-outliers-params "75.0 3.0 20 25"     \
+       left.tif right.tif                            \
+       run_align/run-run-left.tsai                   \
+       run_align/run-run-right.tsai                  \
        -o run_ba_hts_from_dem/run
 
 Here we were rather generous with the parameters for removing
@@ -385,8 +385,8 @@ perhaps.
 
 It is suggested to use dense interest points as above (and adjust
 ``--max-pairwise-matches`` to not throw some of them out). We set
-``--camera-weight 0``, as hopefully the DEM constraint is enough to
-constrain the cameras.
+``--camera-position-weight 0``, as hopefully the DEM constraint is enough to
+constrain the solution.
 
 The implementation of ``--heights-from-dem`` is as follows. Rays from matching
 interest points are intersected with this DEM, and the average of the produced
@@ -444,7 +444,7 @@ and then bundle adjustment can be invoked with this disparity and the
 lidar/DEM file. Note that we use the cameras obtained after alignment::
 
      bundle_adjust -t nadirpinhole --inline-adjustments         \
-       --solve-intrinsics --camera-weight 0                     \
+       --solve-intrinsics --camera-position-weight 0            \
        --max-disp-error 50                                      \
        --max-num-reference-points 1000000                       \
        --max-pairwise-matches 20000                             \
@@ -521,17 +521,17 @@ follows (the example here is for 4 images)::
      disp1=run_stereo12/run-unaligned-D.tif
      disp2=run_stereo23/run-unaligned-D.tif
      disp3=run_stereo34/run-unaligned-D.tif
-     bundle_adjust -t nadirpinhole --inline-adjustments         \
-       --solve-intrinsics  --camera-weight 0                    \
-       img1.tif img2.tif img3.tif img4.tif                      \
-       run_align_12/run-img1.tsai run_align12/run-img2.tsai     \
-       run_align_34/run-img3.tsai run_align34/run-img4.tsai     \
-       --reference-terrain lidar.csv                            \
-       --disparity-list "$disp1 $disp2 $disp3"                  \
-       --robust-threshold 2                                     \
-       --max-disp-error 50 --max-num-reference-points 1000000   \
-       --overlap-limit 1 --parameter-tolerance 1e-12            \
-       --reference-terrain-weight 5                             \   
+     bundle_adjust -t nadirpinhole --inline-adjustments       \
+       --solve-intrinsics  --camera-position-weight 0         \
+       img1.tif img2.tif img3.tif img4.tif                    \
+       run_align_12/run-img1.tsai run_align12/run-img2.tsai   \
+       run_align_34/run-img3.tsai run_align34/run-img4.tsai   \
+       --reference-terrain lidar.csv                          \
+       --disparity-list "$disp1 $disp2 $disp3"                \
+       --robust-threshold 2                                   \
+       --max-disp-error 50 --max-num-reference-points 1000000 \
+       --overlap-limit 1 --parameter-tolerance 1e-12          \
+       --reference-terrain-weight 5                           \   
        -o run_ba_intr_lidar/run
 
 In case it is desired to omit the disparity between one pair of images,
@@ -684,7 +684,7 @@ Initial bundle adjustment is done with the intrinsics fixed.
        --num-iterations 50                       \
        --tri-weight 0.2                          \
        --tri-robust-threshold 0.2                \
-       --camera-weight 0                         \
+       --camera-position-weight 0                \
        --auto-overlap-params 'dem.tif 15'        \
        --remove-outliers-params '75.0 3.0 20 20' \
        --ip-per-tile 2000                        \

@@ -21,17 +21,6 @@ the ``parallel_stereo`` (:numref:`parallel_stereo`) command::
     parallel_stereo --stereo-algorithm asp_bm \
       left_image.cub right_image.cub results/run
 
-Then normally one would create a DEM (:numref:`point2dem`)::
-  
-      point2dem --stereographic --auto-proj-center results/run-PC.tif
-      
-Here it is assumed that the ``PATH`` and ``ISISDATA`` environmental
-variables have been set, as shown in :numref:`installation`. 
-
-The ``.cub`` file format is used for non-Earth images
-(:numref:`moc_tutorial`). For Earth, the images are usually in the
-``.tif`` format (:numref:`dg_tutorial`).
-
 Higher quality results, at the expense of more computation, can be
 achieved by running::
 
@@ -47,6 +36,17 @@ computationally expensive.
 It is very recommended to read :numref:`nextsteps`, which describes
 other alignment methods and stereo algorithms.
 
+Then normally one would create a DEM (:numref:`point2dem`)::
+  
+      point2dem --stereographic --auto-proj-center results/run-PC.tif
+      
+Here it is assumed that the ``PATH`` and ``ISISDATA`` environmental
+variables have been set, as shown in :numref:`installation`. 
+
+The ``.cub`` file format is used for non-Earth images
+(:numref:`moc_tutorial`). For Earth, the images are usually in the
+``.tif`` format (:numref:`dg_tutorial`).
+
 The above commands will decompose the images in tiles to run in parallel,
 potentially on multiple machines (:numref:`parallel_stereo`).
 
@@ -59,22 +59,18 @@ The string ``results/run`` is an arbitrary output prefix. All
 and start with ``output``. See :numref:`outputfiles` for the list of
 output files.
 
-A a visualizable mesh or a DTM file can be made with the following
-commands (the ``results/run-PC.tif`` and ``results/run-L.tif`` files
+A a visualizable mesh can be made with the following
+command (the ``results/run-PC.tif`` and ``results/run-L.tif`` files
 are created by the ``parallel_stereo`` program above)::
 
      point2mesh results/run-PC.tif results/run-L.tif
-     point2dem --stereographic --auto-proj-center results/run-PC.tif
-
-Here a custom projection may need to be used closer to poles
-(:numref:`point2dem`).
 
 Visualization is further discussed in :numref:`visualising`.
 
 A produced DEM may need to be aligned to some pre-existing reference
 (:numref:`pc_align`). 
 
-If the positions and orientations of the cameras are not known well
+If the positions, orientations, or intrinsics of the cameras are not known well,
 then bundle adjustment may be necessary (:numref:`bundle_adjustment`).
 
 What follows are two examples of processing non-Earth data. An example
