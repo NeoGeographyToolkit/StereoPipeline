@@ -29,6 +29,14 @@
 namespace asp {
 
 // Write a GCP file. Can throw exceptions.
+// TODO(oalexan1): Factor out the GCP-writing logic. Move it to WV,
+// together with the logic for reading GCPs. Support reading
+// and writing a georef, not a datum.
+
+// TODO(oalexan1): Add the GUI option --gcp-srs. The default should be WGS84
+// with stereographic projection at lon=0, lat=0 unless there exists a DEM,
+// when the default should be the long-lat projection for that DEM. --gcp-srs
+// can be used with rig_calibrator for local Cartesian coordinates.
 void writeGCP(std::vector<std::string> const& image_files,
               std::string const& gcp_file,
               std::string const& dem_file,
@@ -69,8 +77,9 @@ void writeGCP(std::vector<std::string> const& image_files,
   std::ofstream output_handle(gcp_file.c_str());
   output_handle << std::setprecision(17);
 
-  // It is important to keep track of the datum
-  // because the elevations are relative to it
+  // It is important to keep track of the datum and projection, because the
+  // elevations are relative to it
+  // TODO(oalexan1): Put below dem_georef.get_wkt() instead.
   output_handle << "# WKT: " << dem_georef.datum().get_wkt() << std::endl;
   
   size_t num_pts_skipped = 0, num_pts_used = 0;
