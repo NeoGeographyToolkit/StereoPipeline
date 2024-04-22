@@ -80,8 +80,9 @@ Command-line options
     Specify the output file. It is expected to have the .tsai
     extension.
 
---output-type <TsaiLensDistortion|BrownConradyDistortion|RPC (default: TsaiLensDistortion)>
-    The output model type.
+--output-type <string (default: TsaiLensDistortion)>
+    The output model type. Options: TsaiLensDistortion, BrownConradyDistortion,
+    RPC.
 
 --sample-spacing <number-of-pixels>
     Pick one out of this many consecutive pixels to sample. If not

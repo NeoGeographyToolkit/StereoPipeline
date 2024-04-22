@@ -117,7 +117,7 @@ This model uses the following parameters:
 *phi* = Tangential distortion angle in radians.
 
 The following equations describe the distortion. Note that this model uses
-non-normalized pixel units, so they can be in millimeters or meters:
+*non-normalized* pixel units, so they can be in millimeters or meters:
 
 .. math::
 
@@ -251,10 +251,11 @@ Care is needed around the origin to avoid division of small numbers.
 RPC
 ^^^
     
-A rational polynomial coefficient model.
+The distortion is based on a rational polynomial coefficient (RPC) model. This 
+is different than going from ground to image coordinates via RPC (:numref:`rpc`).
 
-In this model, one goes from undistorted *normalized* coordinates :math:`(x, y)`
-to distorted *normalized* coordinates via the formula
+In this model, one goes from undistorted *normalized* pixels :math:`(x, y)`
+to distorted normalized pixels via the formulas
 
 .. math::
 
@@ -267,7 +268,7 @@ The functions in the numerator and denominator are polynomials in
 polynomials can be any positive integer. A degree of 3 or 4 is usually 
 more than sufficient.
 
-The inputs and outputs are *normalized*, that is, shifted relative to the
+The inputs and output pixels are normalized, that is, shifted relative to the
 optical center, and (in the most latest builds) are also divided by the focal
 length. Such normalizations are applied before distortion / undistortion
 operations, and then undone after them. This is consistent with the
@@ -277,8 +278,8 @@ RPC distortion models can be generated as approximations to other
 pre-existing models with the tool ``convert_pinhole_model``
 (:numref:`convert_pinhole_model`).
 
-Also in the latest builds, the RPC undistortion is done via a solver, 
-as for the fisheye lens distortion model.
+Also in the latest builds, the RPC undistortion is computed via a solver based on 
+Newton's method, as for the fisheye lens distortion model.
 
 .. _file_format:
 
@@ -331,8 +332,8 @@ The first half of the file is the same for all Pinhole models:
 * ``C`` = The location of the camera center, usually in the geocentric
   coordinate system (GCC/ECEF).
 
-* ``R`` = The rotation matrix describing the camera's absolute pose in
-  the coordinate system (:numref:`pinholemath`).
+* ``R`` = The rotation matrix describing the camera's absolute pose in the world
+  coordinate system (camera-to-world rotation, :numref:`pinholemath`).
 
 * ``pitch`` = The pitch intrinsic parameter described in the previous
   section.

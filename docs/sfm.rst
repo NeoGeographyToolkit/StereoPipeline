@@ -59,16 +59,15 @@ In order to transform the camera models from local to world coordinates,
 one of three pieces of information may be used. These sources are listed
 below and described in more detail in the examples that follow:
 
--  A set of ground control points. This is discussed in :numref:`camera_solve_gcp`
-   (that workflow can be used to bypass SfM altogether).
+-  A set of ground control points (:numref:`bagcp`). GCP can also be used 
+   to bypass SfM altogether, if there are many (:numref:`camera_solve_gcp`).
  
 -  A set of estimated camera positions (perhaps from a GPS unit) stored in a csv
-   file.
+   file (see :numref:`sfmicebridge`).
 
--  A DEM which a local point cloud can be registered to using ``pc_align``
-   (:numref:`pc_align`). This method can be more accurate if estimated camera
-   positions are also used. The user must perform alignment to a DEM, that step
-   is not handled by ``camera_solve``.
+-  A DEM or lidar datset that a local point cloud can be registered to using
+   ``pc_align`` (:numref:`pc_align`). This method can be more accurate if
+   estimated camera positions are also used.
 
 Power users can tweak the individual steps that ``camera_solve`` goes
 through to optimize their results. This primarily involves setting up a
@@ -380,19 +379,25 @@ position kmz file from their website into Google Earth and use the ruler tool to
 measure the distance between a pair of frames that are as far apart as you want
 to match. Commands using these options may look like this::
 
-   icebridge_kmz_to_csv 1000123_DMS_Frame_Events.kmz \
+    icebridge_kmz_to_csv 1000123_DMS_Frame_Events.kmz \
       camera_positions.csv
       
-   camera_solve out                                  \
-     2009_11_05_00667.JPG 2009_11_05_00668.JPG       \
-     2009_11_05_00669.JPG 2009_11_05_00670.JPG       \
-     2009_11_05_02947.JPG 2009_11_05_02948.JPG       \
-     2009_11_05_02949.JPG 2009_11_05_02950.JPG       \
-     2009_11_05_01381.JPG 2009_11_05_01382.JPG       \
-     --datum WGS84 --calib-file icebridge_model.tsai \
-     --bundle-adjust-params '--no-datum --camera-positions camera_positions.csv --csv-format "1:file 2:lon 3:lat 4:height_above_datum" --position-filter-dist 0'
+    camera_solve out                                  \
+      2009_11_05_00667.JPG 2009_11_05_00668.JPG       \
+      2009_11_05_00669.JPG 2009_11_05_00670.JPG       \
+      2009_11_05_02947.JPG 2009_11_05_02948.JPG       \
+      2009_11_05_02949.JPG 2009_11_05_02950.JPG       \
+      2009_11_05_01381.JPG 2009_11_05_01382.JPG       \
+      --datum WGS84 --calib-file icebridge_model.tsai \
+      --bundle-adjust-params                          \
+        '--no-datum 
+         --camera-positions camera_positions.csv 
+         --csv-format "1:file 2:lon 3:lat 4:height_above_datum" 
+         --position-filter-dist 0'
+
+Run ``orbitviz`` (:numref:`orbitviz`) to visualize the camera positions::
      
-   orbitviz out --load-camera-solve --hide-labels    \
+    orbitviz out --load-camera-solve --hide-labels    \
      -r wgs84 -t nadirpinhole
 
 Alternatively, the ``camera_solve`` executable can be bypassed altogether. If a
