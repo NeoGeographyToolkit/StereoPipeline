@@ -45,17 +45,18 @@ each output folder and pass it back to ``camera_solve`` via
 ``--theia-flagfile``, or use the option ``--theia-overrides``.
 
 In particular, setting ``--feature_density=DENSE`` in the flags file can be of
-great help if there are not enough matches between images.
+great help if there are not enough matches between images. The option 
+``--matching_strategy=CASCADE_HASHING`` can greatly speed up finding matches.
 
 Example
 ^^^^^^^
 
 ::
 
-    camera_solve                                                \ 
-      --bundle-adjust-params '--camera-positions nav.csv        \
-      --csv-format "1:file 12:lat 13:lon 14:height_above_datum" \
-      --camera-weight 100.0'                                    \
+    camera_solve                                               \
+      --theia-overrides '--matching_strategy=CASCADE_HASHING'  \
+      --bundle-adjust-params '--camera-positions nav.csv
+      --csv-format 1:file,12:lat,13:lon,14:height_above_datum' \
       <other options>
 
 The produced Theia reconstruction can be visualized with ``view_reconstruction``

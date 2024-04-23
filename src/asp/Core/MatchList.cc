@@ -20,7 +20,6 @@
 #include <vector>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/InterestPoint/Matcher.h> // Needed for vw::ip::match_filename
-
 #include <asp/Core/MatchList.h>
 
 using namespace vw;

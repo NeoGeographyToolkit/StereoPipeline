@@ -80,8 +80,10 @@ void writeGCP(std::vector<std::string> const& image_files,
   // It is important to keep track of the datum and projection, because the
   // elevations are relative to it
   // TODO(oalexan1): Put below dem_georef.get_wkt() instead.
+  // TODO(oalexan1): Have a single GCP-writing function, and put it in VW.
+  // See also the existing one called write_in_gcp_format() in VW.
   output_handle << "# WKT: " << dem_georef.datum().get_wkt() << std::endl;
-  
+  // TODO(oalexan1): Write here if the format is lon,lat,height, or easting, northing, height.
   size_t num_pts_skipped = 0, num_pts_used = 0;
 
   const size_t num_ips = matchlist.getNumPoints();

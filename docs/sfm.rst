@@ -169,8 +169,9 @@ Creation of cameras in an arbitrary coordinate system
 If we do not see any obvious problems we can go ahead and run the
 ``camera_solve`` tool::
 
-   camera_solve out/ AS15-M-0114_MED.png AS15-M-0115_MED.png \
-     --datum D_MOON --calib-file metric_model.tsai
+    camera_solve out/ AS15-M-0114_MED.png AS15-M-0115_MED.png \
+      --theia-overrides '--matching_strategy=CASCADE_HASHING' \
+      --datum D_MOON --calib-file metric_model.tsai
 
 The reconstruction can be visualized as::
 
@@ -214,13 +215,15 @@ such a GCP file to ``camera_solve`` together with the flag::
 
      --bundle-adjust-params "--transform-cameras-using-gcp"
 
-This may not be as robust as the earlier approach.
+This may not be as robust as the earlier approach. Consider the option
+``--fix-gcp-xyz``, to not move the GCP during optimization.
 
 Solving for cameras when using GCP::
 
-    camera_solve out_gcp/                           \
-      AS15-M-0114_MED.png AS15-M-0115_MED.png       \
-      --datum D_MOON --calib-file metric_model.tsai \
+    camera_solve out_gcp/                                     \
+      AS15-M-0114_MED.png AS15-M-0115_MED.png                 \
+      --datum D_MOON --calib-file metric_model.tsai           \
+      --theia-overrides '--matching_strategy=CASCADE_HASHING' \
       --gcp-file ground_control_points.gcp
 
 Examine the lines ending in ``# GCP`` in the file::
@@ -382,14 +385,15 @@ to match. Commands using these options may look like this::
     icebridge_kmz_to_csv 1000123_DMS_Frame_Events.kmz \
       camera_positions.csv
       
-    camera_solve out                                  \
-      2009_11_05_00667.JPG 2009_11_05_00668.JPG       \
-      2009_11_05_00669.JPG 2009_11_05_00670.JPG       \
-      2009_11_05_02947.JPG 2009_11_05_02948.JPG       \
-      2009_11_05_02949.JPG 2009_11_05_02950.JPG       \
-      2009_11_05_01381.JPG 2009_11_05_01382.JPG       \
-      --datum WGS84 --calib-file icebridge_model.tsai \
-      --bundle-adjust-params                          \
+    camera_solve out                                          \
+      2009_11_05_00667.JPG 2009_11_05_00668.JPG               \
+      2009_11_05_00669.JPG 2009_11_05_00670.JPG               \
+      2009_11_05_02947.JPG 2009_11_05_02948.JPG               \
+      2009_11_05_02949.JPG 2009_11_05_02950.JPG               \
+      2009_11_05_01381.JPG 2009_11_05_01382.JPG               \
+      --theia-overrides '--matching_strategy=CASCADE_HASHING' \
+      --datum WGS84 --calib-file icebridge_model.tsai         \
+      --bundle-adjust-params                                  \
         '--no-datum 
          --camera-positions camera_positions.csv 
          --csv-format "1:file 2:lon 3:lat 4:height_above_datum" 

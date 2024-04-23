@@ -1598,7 +1598,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                                std::vector<std::vector<float>>   & mapprojOffsetsPerCam,
                                std::vector<asp::HorizVertErrorStats>  & horizVertErrors) {
 
-  vw_out() << "Filtering outliers and creating reports.\n";
+  vw_out() << "Creating reports.\n";
   
   // Wipe the outputs
   mapprojPoints.clear();

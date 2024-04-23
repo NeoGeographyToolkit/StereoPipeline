@@ -591,6 +591,9 @@ will prompt for their names.
 If having many images, this process can be repeated for several small sets,
 creating several GCP files that can then be passed together to ``bundle_adjust``.
 
+The sigmas for the GCP should be set manually. Or use ``bundle_adjust`` 
+with the option ``--fix-gcp-xyz`` to ensure they are not adjusted.
+ 
 GCP can be visualized in ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
 
 If the input images and the orthoimage are very similar visually, one can 

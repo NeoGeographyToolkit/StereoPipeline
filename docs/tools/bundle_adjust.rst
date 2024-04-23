@@ -55,13 +55,16 @@ control points (:numref:`bagcp`)::
       file1.tif file2.tif        \
       file1.xml file2.xml        \
       gcp1.gcp gcp2.gcp gcp3.gcp \
+      --fix-gcp-xyz              \
       -o run_ba/run 
 
 Using the proper value for ``--datum`` is very important, otherwise the
 longitude-latitude-height values in the GCP files will not be interpreted
 correctly.
 
-There can be more than one GCP file. 
+There can be more than one GCP file. The option ``--fix-gcp-xyz`` fixes the GCP
+coordinates during optimization. This is useful when the GCP are very accurate.
+Otherwise set per-GCP sigma.
 
 The residuals for the GCP will be printed at the end of the
 ``{output-prefix}-final_residuals_pointmap.csv`` file,
@@ -470,6 +473,9 @@ GCP can also be employed to initialize the cameras (:numref:`camera_solve_gcp`),
 to transform them as a group, with the ``bundle_adjust`` options
 ``--transform-cameras-with-shared-gcp`` and ``--transform-cameras-using-gcp``. 
 For use with SfM, see :numref:`sfm_world_coords`.
+
+The option ``--fix-gcp-xyz`` fixes the GCP coordinates during optimization. This
+is useful when the GCP are very accurate. Otherwise set per-GCP sigma.
 
 The option ``--save-cnet-as-csv`` can be invoked to save the entire control
 network in the GCP format, before any optimization. This can be useful for

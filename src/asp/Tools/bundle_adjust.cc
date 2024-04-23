@@ -1509,6 +1509,10 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   // Always save the updated cameras, even if we are not doing any optimization
   saveUpdatedCameras(opt, param_storage);
   
+  // If we are only applying an initial transform, we are done
+  if (opt.apply_initial_transform_only)
+    return;
+      
   // Write the GCP stats to a file
   if (num_gcp > 0) 
     param_storage.print_gcp_stats(opt.out_prefix, cnet, opt.datum);
@@ -1594,24 +1598,22 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   asp::saveTriOffsetsPerCamera(opt.image_files, orig_parameters, param_storage, crn,
                                tri_offsets_file);
   
-  if (!opt.apply_initial_transform_only && has_datum && 
+  if (has_datum && 
       (opt.stereo_session == "pinhole") || (opt.stereo_session == "nadirpinhole")) 
     saveCameraReport(opt, param_storage, opt.datum, "final");
   
   // Save the updated cnet to ISIS or nvm format. Note that param_storage has
   // the latest triangulated points and outlier info, while the cnet has the
   // initially triangulated points and the interest point matches.
-  if (!opt.apply_initial_transform_only) { 
-    if (opt.isis_cnet != "" && opt.output_cnet_type == "isis-cnet")
-      asp::saveUpdatedIsisCnet(opt.out_prefix, cnet, param_storage, isisCnetData);
-    else if (opt.output_cnet_type == "isis-cnet")
-      asp::saveIsisCnet(opt.out_prefix, opt.datum, cnet, param_storage);
-    else if (opt.output_cnet_type == "nvm") {
-      asp::saveNvm(opt, opt.no_poses_from_nvm, cnet, param_storage, 
-                   world_to_cam, optical_offsets);
-    }
+  if (opt.isis_cnet != "" && opt.output_cnet_type == "isis-cnet")
+    asp::saveUpdatedIsisCnet(opt.out_prefix, cnet, param_storage, isisCnetData);
+  else if (opt.output_cnet_type == "isis-cnet")
+    asp::saveIsisCnet(opt.out_prefix, opt.datum, cnet, param_storage);
+  else if (opt.output_cnet_type == "nvm") {
+    asp::saveNvm(opt, opt.no_poses_from_nvm, cnet, param_storage, 
+                  world_to_cam, optical_offsets);
   }
-
+  
 } // end do_ba_ceres
 
 /// Looks in the input camera position file to generate a GCC position for

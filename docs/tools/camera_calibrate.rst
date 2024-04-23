@@ -3,14 +3,48 @@
 camera_calibrate
 ----------------
 
+Overview
+~~~~~~~~
+
 The ``camera_calibrate`` tool can generate camera models suitable for use by
 ``camera_solve`` (:numref:`camera_solve`), and other ASP tools. This program
 only solves for intrinsic camera parameters. To obtain the camera pose you
 should use ``camera_solve``. 
 
-This tool is a wrapper around the OpenCV (http://opencv.org/) checkerboard
-calibration tool which takes care of converting the output into readily usable
-formats. 
+This tool is a wrapper around the `OpenCV camera calibration
+<https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html>`_ software,
+which takes care of converting the output into readily usable formats.
+
+Other tools
+~~~~~~~~~~~
+
+ASP also ships the ``rig_calibrator`` program (:numref:`rig_calibrator`),
+which calibrates the intrinsic and extrinsics of a rig of cameras, without
+using a calibration target.
+
+The ``bundle_adjust`` program can refine the intrinsics and extrinsics of
+cameras, and can also constrain against a known well-aligned terrain (:numref:`floatingintrinsics`).
+
+Example
+~~~~~~~
+
+::
+
+    camera_calibrate --box-size-cm 4.28625 outputFolder \
+      12 12 "images/image*.jpg"
+
+Here, the checkerboard pattern has 13 squares in each direction, so 
+12 inner corners. 
+
+How to use
+~~~~~~~~~~
+
+::
+
+     camera_calibrate [options] <output folder> \
+        <num inner vertical corners>            \
+        <num inner horizontal corners>          \
+        <image wildcard>
 
 When you run the tool, three camera model files will be created in the output
 folder: ``solve_cam_params.txt``, ``vw_cam_params.tsai``, and
@@ -35,26 +69,8 @@ This must be in quotes so that the wildcard is not expanded before it is passed
 to the tool. If you do not provide the ``--box-size`` parameter, the output
 calibration numbers will be unitless.
 
-ASP also ships the ``rig_calibrator`` program (:numref:`rig_calibrator`),
-which calibrates the intrinsic and extrinsics of a rig of cameras, without
-using a calibration target.
-
-Example::
-
-    camera_calibrate --box-size-cm 4.28625 outputFolder \
-      12 12 "images/image*.jpg"
-
-Here, the checkerboard pattern has 13 squares in each direction, so 
-12 inner corners. 
-
-Usage::
-
-     camera_calibrate [options] <output folder> \
-        <num inner vertical corners>            \
-        <num inner horizontal corners>          \
-        <image wildcard>
-
-Command-line options for camera_calibrate:
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
 -h, --help
     Display this help message.
