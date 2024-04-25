@@ -15,5 +15,6 @@ add_library(AspPcAlignFgr SHARED pc_align_fgr.cc pc_align_utils.h pc_align_utils
 set_target_properties(AspPcAlignFgr PROPERTIES LINKER_LANGUAGE CXX)
 target_compile_options(AspPcAlignFgr PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>)
 target_link_libraries(AspPcAlignFgr 
-  AspSessions ${FASTGLOBALREGISTRATION_LIBRARIES})
+  AspSessions ${FASTGLOBALREGISTRATION_LIBRARIES}
+  ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES})
 install(TARGETS AspPcAlignFgr DESTINATION lib)
