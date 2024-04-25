@@ -380,6 +380,24 @@ which are then used as earlier.
 Multiple subsets of the images can be used, with each producing a GCP file.
 All can then be passed together to ``bundle_adjust``.
 
+Validation
+~~~~~~~~~~
+
+Solving for both intrinsics and camera poses is a complex nonlinear problem,
+that may have more than one solution. It is strongly suggested to compare the
+produced individual DEMs (after alignment, :numref:`pc_align`) to a trusted DEM,
+even if at a lower resolution. 
+
+In case of horizontal misalignment, it is suggested to individually align the
+produced DEMs to the prior DEM, apply the alignment transform to the cameras
+(:numref:`ba_pc_align`), then redo the bundle-adjustment with the aligned
+cameras and the prior DEM as a constraint (:numref:`kaguya_ba`), while refining
+the intrinsics.
+
+The intersection error for each DEM (:numref:`point2dem`) can help evaluate the
+accuracy of the intrinsics. The ``geodiff`` program (:numref:`geodiff`), can be
+used to assess the vertical agreement between DEMs.
+
 Notes
 ~~~~~
 

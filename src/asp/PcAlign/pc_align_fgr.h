@@ -15,30 +15,21 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file pc_align_ceres.h
+/// \file pc_align_fgr.h
 ///
 
-#ifndef __ASP_TOOLS_PC_ALIGN_CERES_H__
-#define __ASP_TOOLS_PC_ALIGN_CERES_H__
+#ifndef __ASP_TOOLS_PC_ALIGN_FGR_H__
+#define __ASP_TOOLS_PC_ALIGN_FGR_H__
 
-#include <asp/Tools/pc_align_utils.h>
-
-#include <vw/Cartography/Datum.h>
-#include <vw/Cartography/GeoReference.h>
-#include <vw/Image/ImageViewRef.h>
-#include <vw/Image/PixelMask.h>
-#include <vw/Math/Quaternion.h>
+#include <asp/PcAlign/pc_align_utils.h>
 
 namespace asp {
  
-/// Compute least squares alignment, using Ceres
-PointMatcher<RealT>::Matrix
-least_squares_alignment(DP const& source_point_cloud, // Should not be modified
-			vw::Vector3 const& point_cloud_shift,
-			vw::cartography::GeoReference        const& dem_georef,
-			vw::ImageViewRef<vw::PixelMask<float> > const& dem_ref,
-      std::string const& alignment_method,
-      int num_iter, int num_threads); 
+/// Compute alignment using FGR
+PointMatcher<RealT>::Matrix fgr_alignment(DP const & source_point_cloud, 
+                                          DP const & ref_point_cloud, 
+                                          std::string const& fgr_options);
+
 }
 
-#endif //__ASP_TOOLS_PC_ALIGN_CERES_H__
+#endif //__ASP_TOOLS_PC_ALIGN_FGR_H__

@@ -31,9 +31,9 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/InterestPointMatching.h>
-#include <asp/Tools/pc_align_utils.h>
-#include <asp/Tools/pc_align_ceres.h>
-#include <asp/Tools/pc_align_fgr.h>
+#include <asp/PcAlign/pc_align_utils.h>
+#include <asp/PcAlign/pc_align_ceres.h>
+#include <asp/PcAlign/pc_align_fgr.h>
 
 #include <limits>
 #include <cstring>

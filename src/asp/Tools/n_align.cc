@@ -33,7 +33,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/EigenUtils.h>
-#include <asp/Tools/pc_align_utils.h>
+#include <asp/PcAlign/pc_align_utils.h>
 
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Core/Stopwatch.h>

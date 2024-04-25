@@ -92,40 +92,21 @@ add_executable(pc_merge pc_merge.cc)
 target_link_libraries(pc_merge AspSessions)
 install(TARGETS pc_merge DESTINATION bin)
 
-# This is compiled separately from pc_align.cc because it needs
-# C++14. This is temporary, until FLANN can be updated to use C++17.
-add_library(pc_align_fgr SHARED pc_align_fgr.cc pc_align_utils.h pc_align_utils.cc)
-set_target_properties(pc_align_fgr PROPERTIES LINKER_LANGUAGE CXX)
-target_compile_options(pc_align_fgr PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>)
-target_link_libraries(pc_align_fgr 
-  ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES}
-  AspSessions ${FASTGLOBALREGISTRATION_LIBRARIES})
-install(TARGETS pc_align_fgr DESTINATION lib)
-
-# This must surely be complied with C++17. Has to be compiled separately, as
-# when compiling together with pc_align it is hard to guarantee that C++17 is
-# used.
-add_library(pc_align_ceres SHARED pc_align_ceres.cc pc_align_utils.h pc_align_utils.cc)
-set_target_properties(pc_align_ceres PROPERTIES LINKER_LANGUAGE CXX)
-target_compile_options(pc_align_ceres PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++17>)
-target_link_libraries(pc_align_ceres 
-  ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES}
-  AspSessions ${SOLVER_LIBRARIES})
-install(TARGETS pc_align_ceres DESTINATION lib)
-
-add_executable(pc_align pc_align.cc pc_align_utils.h pc_align_utils.cc)
+add_executable(pc_align pc_align.cc)
 target_compile_options(pc_align PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++17>)
 target_link_libraries(pc_align 
   ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES}
-  pc_align_fgr pc_align_ceres ${SOLVER_LIBRARIES} AspSessions)
+  ${FASTGLOBALREGISTRATION_LIBRARIES}
+  PcAlignFgr PcAlignCeres ${SOLVER_LIBRARIES} AspSessions)
 install(TARGETS pc_align DESTINATION bin)
 
 # TODO(oalexan1): Switch to C++17 when FLANN is updated.
-add_executable(n_align n_align.cc pc_align_utils.h pc_align_utils.cc)
+add_executable(n_align n_align.cc)
 target_compile_options(n_align PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>)
-target_link_libraries(n_align AspSessions
+target_link_libraries(n_align
   ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES} 
-  ${FASTGLOBALREGISTRATION_LIBRARIES} AspSessions)
+  ${FASTGLOBALREGISTRATION_LIBRARIES}
+  PcAlignFgr PcAlignCeres ${SOLVER_LIBRARIES} AspSessions)
 install(TARGETS n_align DESTINATION bin)
 
 add_executable(pansharp pansharp.cc)

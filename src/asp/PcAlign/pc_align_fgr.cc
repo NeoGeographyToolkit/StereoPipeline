@@ -17,8 +17,8 @@
 
 // Implement least square alignment using the FGR method
 
-#include <asp/Tools/pc_align_fgr.h>
-#include <asp/Tools/pc_align_utils.h>
+#include <asp/PcAlign/pc_align_fgr.h>
+#include <asp/PcAlign/pc_align_utils.h>
 #include <asp/Core/EigenUtils.h>
 
 // Can't do much about external warnings except hide them

@@ -88,7 +88,6 @@ if(CCACHE_FOUND)
   #set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif(CCACHE_FOUND)
 
-
 if (UNIX AND NOT APPLE)
   execute_process(COMMAND ${CMAKE_C_COMPILER} -fuse-ld=gold -Wl,--version ERROR_QUIET OUTPUT_VARIABLE ld_version)
   if ("${ld_version}" MATCHES "GNU gold")
@@ -345,6 +344,7 @@ set(ASP_PCLIO_LIB_DEPENDENCIES  pcl_common pcl_io_ply pcl_io
 
 # CERES and its dependencies
 set(SOLVER_LIBRARIES ${CERES_LIBRARIES} ${GLOG_LIBRARIES} ${GFLAGS_LIBRARIES})
+
     
 # Add all of the library subdirectories
 
@@ -359,10 +359,14 @@ add_subdirectory(Sessions)
 add_subdirectory(GUI)
 add_subdirectory(Gotcha)
 
+add_subdirectory(PclIO)
+
+# ASP PcAlign library. Used by pc_align and bundle_adjust
+add_subdirectory(PcAlign)
+
 # Add the non-library subdirectories
 add_subdirectory(Python)
 add_subdirectory(Tools)
 add_subdirectory(WVCorrect)
 add_subdirectory(IceBridge)
 
-add_subdirectory(PclIO)

@@ -22,7 +22,7 @@
 // You can contact the authors at <f dot pomerleau at gmail dot com> and
 // <stephane at magnenat dot net>
 
-#include <asp/Tools/pc_align_utils.h>
+#include <asp/PcAlign/pc_align_utils.h>
 
 #include <pointmatcher/PointMatcher.h>
 #include <asp/Core/PointCloudAlignment.h>

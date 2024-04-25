@@ -17,8 +17,8 @@
 
 // Implement least square alignment using the Ceres solver.
 
-#include <asp/Tools/pc_align_ceres.h>
-#include <asp/Tools/pc_align_utils.h>
+#include <asp/PcAlign/pc_align_ceres.h>
+#include <asp/PcAlign/pc_align_utils.h>
 #include <asp/Core/EigenUtils.h>
 
 #include <ceres/ceres.h>
