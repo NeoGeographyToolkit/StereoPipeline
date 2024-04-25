@@ -11,8 +11,8 @@ else
 fi
 
 # Fetch the ASP depenedencies
-wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env6/asp_deps.tar.gz
-tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
+wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env6/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
+/usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
 # How to update the dependencies. Read very carefully and update as needed.
 if [ 1 -eq 0 ]; then
@@ -22,7 +22,9 @@ if [ 1 -eq 0 ]; then
   # Update the dependencies as needed. Then archive them as follows:
   
   mkdir -p ~/work/StereoPipeline/packages
-  /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz /usr/local/miniconda/envs/asp_deps /usr/local/miniconda/envs/python_isis8
+  /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
+    /Users/runner/miniconda3/envs
+  #/usr/local/miniconda/envs/asp_deps /usr/local/miniconda/envs/python_isis8
   
   # When ssh.yml exits, it will cache ~/work/StereoPipeline/packages
   # This can be fetched on a local machine, then the desired tarball
@@ -34,6 +36,7 @@ if [ 1 -eq 0 ]; then
   # Query the ssh.yml. Must check that that the top-most run is successful
   $gh run list -R $repo --workflow=ssh.yml
   
+  # Find the latest id, then fetch the artifacts for it
   ans=$($gh run list -R $repo --workflow=ssh.yml | grep -v STATUS | head -n 1)
   completed=$(echo $ans | awk '{print $1}')
   success=$(echo $ans | awk '{print $2}')
@@ -64,38 +67,37 @@ if [ 1 -eq 0 ]; then
     # Add the binaries
     /usr/bin/time $gh release -R $repo create $tag $binaries --title $tag --notes "$notes"
   fi
+  # End block that is pasted to the terminal to update the dependencies
 fi
   
-# Set up some variables
-envName=asp_deps
-#envName=asp_deps_3.4.0_alpha
-aspRepoDir=$(pwd) # $HOME/work/StereoPipeline/StereoPipeline
 # Check that base dir is StereoPipeline
+aspRepoDir=$(pwd) # same as $HOME/work/StereoPipeline/StereoPipeline
 if [ "$(basename $aspRepoDir)" != "StereoPipeline" ]; then
     echo "Error: Directory: $aspRepoDir is not StereoPipeline"
     exit 1
 fi
 
-# Install some tools
-# TODO(oalexan1): Must have a short environment.yml file
-# having all the dependencies ASP needs.
-echo Installing some tools
-conda init bash
-source ~/.bash_profile
-conda activate $envName
-conda install -c conda-forge -y parallel pbzip2
-
-# These need installing for now
-conda install -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge geoid=1.0_isis7 htdp=1.0_isis7 -y
-
-baseDir=$(dirname $aspRepoDir) # one level up
-installDir=$baseDir/install
-
-envPath=/usr/local/miniconda/envs/${envName}
+envName=asp_deps
+envPath=$HOME/miniconda3/envs/${envName}
+export PATH=$envPath/bin:$PATH
 if [ ! -d "$envPath" ]; then
     echo "Error: Directory: $envPath does not exist"
     exit 1
 fi
+
+# TODO(oalexan1): This no longer works
+# Install some tools
+# TODO(oalexan1): Must have a short environment.yml file
+# having all the dependencies ASP needs.
+# conda init bash
+# source ~/.bash_profile
+# conda activate $envName
+# conda install -c conda-forge -y parallel pbzip2
+# # These need installing for now
+# conda install -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge geoid=1.0_isis7 htdp=1.0_isis7 -y
+
+baseDir=$(dirname $aspRepoDir) # one level up
+installDir=$baseDir/install
 
 # The logic below is turned off for now, as the env was
 # created and cached manually by logging into the cloud machine.
@@ -105,18 +107,6 @@ fi
 #   # Note the variable $envName. This must also be the environment name in the
 #   # .yaml file.
 #   conda env create -f conda/${envName}_osx_env.yaml
-# fi
-
-# # For local testing
-# if [ ! -d "$envPath" ]; then
-#     envPath=$HOME/miniconda/envs/${envName}
-# fi
-# if [ ! -d "$envPath" ]; then
-#     envPath=$HOME/miniconda3/envs/${envName}
-# fi
-# if [ ! -d "$envPath" ]; then
-#     echo "Error: Directory: $envPath does not exist"
-#     exit 1
 # fi
 
 # packageDir will later be uploaded, as set in the yml file
@@ -179,8 +169,7 @@ git clone https://github.com/NeoGeographyToolkit/BinaryBuilder
 cd BinaryBuilder
 ./make-dist.py $installDir \
   --asp-deps-dir $envPath  \
-  --python-env /usr/local/miniconda/envs/python_isis8
-
+  --python-env $HOME/miniconda3/envs/python_isis8
 # Prepare the package for upload
 mkdir -p $packageDir
 mv -fv Stereo* $packageDir

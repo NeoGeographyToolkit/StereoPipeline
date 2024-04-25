@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# TODO(oalexan1): This broke after GitHub no longer allows unzipping
+# files to system directories. See build_test.sh for the latest logic.
+
 # This is a scratch pad of commands used to build ASP dependencies for OSX
 # in the cloud, while connecting with ssh.yml. It will go away once
 # conda packages are released for the needed version of these.
@@ -7,23 +10,63 @@
 cd
 echo Now in $(pwd)
 
+# Fetch previously built packages
+wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env6/asp_deps.tar.gz
+/usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
+
 # Set up the conda env
 conda init bash
 source /Users/runner/.bash_profile
 echo listing envs
 conda env list
-
-echo Wiping old env
-/bin/rm -rf /usr/local/miniconda/envs/asp_deps
-
-# Fetch the isis env
-/bin/rm -f isis_environment.yml
-wget https://raw.githubusercontent.com/NeoGeographyToolkit/StereoPipeline/master/.github/isis_environment.yml
-
-# Create the asp_deps env
-echo Creating a new asp_deps env
-conda env create -n asp_deps -f isis_environment.yml 
 conda activate asp_deps
+
+# Set up the compiler
+isMac=$(uname -s | grep Darwin)
+if [ "$isMac" != "" ]; then
+  cc_comp=clang
+  cxx_comp=clang++
+else
+  cc_comp=x86_64-conda_cos6-linux-gnu-gcc
+  cxx_comp=x86_64-conda_cos6-linux-gnu-g++
+fi
+
+# Must create an ssh key to be able to clone the repos
+ssh-keygen -t rsa
+# Add the key /Users/runner/.ssh/id_rsa.pub to github in Settings -> SSH and GPG keys
+
+# Build only the rig_calibrator component of MultiView 
+git clone https://github.com/NeoGeographyToolkit/MultiView.git --recursive
+cd MultiView
+mkdir -p build && cd build
+export PREFIX=/usr/local/miniconda/envs/asp_deps
+$PREFIX/bin/cmake                              \
+  -DBUILD_RIG_CALIBRATOR_ONLY=ON               \
+  -DCMAKE_VERBOSE_MAKEFILE=TRUE                \
+  -DMULTIVIEW_DEPS_DIR=${PREFIX}               \
+  -DCMAKE_INSTALL_PREFIX=${PREFIX}             \
+  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp    \
+  -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp \
+  ..
+
+make -j 10 install
+
+# See instructions in build_test.sh for how to upload the built packages
+
+# Turn on the steps below only if starting from scratch
+if [ 1 -eq 0 ]; then 
+  echo Wiping old env
+  /bin/rm -rf /usr/local/miniconda/envs/asp_deps
+
+  # Fetch the isis env
+  /bin/rm -f isis_environment.yml
+  wget https://raw.githubusercontent.com/NeoGeographyToolkit/StereoPipeline/master/.github/isis_environment.yml
+
+  # Create the asp_deps env
+  echo Creating a new asp_deps env
+  conda env create -n asp_deps -f isis_environment.yml 
+  conda activate asp_deps
+fi
 
 # Install some needed tools
 cd
@@ -32,19 +75,6 @@ conda install -c conda-forge -y parallel pbzip2
 # Install the needed packages
 cd
 conda install -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge geoid=1.0_isis7 htdp=1.0_isis7 -y
-
-# Fetch previously built packages
-cd
-echo Now in $(pwd)
-conda init bash
-source /Users/runner/.bash_profile
-echo listing envs
-conda env list
-cd
-wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env6/asp_deps_osx.tar.gz
-cd /usr/local/miniconda
-/usr/bin/time tar xzf $HOME/asp_deps_osx.tar.gz
-cd
 
 # Build ale
 cd
