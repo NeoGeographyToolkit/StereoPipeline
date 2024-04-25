@@ -33,7 +33,7 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Tools/stereo.h>
 
-#include <boost/process.hpp>
+//#include <boost/process.hpp>
 #include <boost/process/env.hpp>
 
 #include <xercesc/util/PlatformUtils.hpp>
@@ -1518,15 +1518,15 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
       vw_out() << cmd << std::endl;
 
-      // Use boost::process to run the given process with timeout.
-      bp::child c(cmd, e);
-      std::error_code ec;
-      // TODO(oalexan1): Fix this warning
-      if (!c.wait_for(std::chrono::seconds(timeout), ec)) {
-        vw_out() << "\n" << "Timeout reached. Process terminated after "
-                 << timeout << " seconds. See the --corr-timeout option.\n";
-        c.terminate(ec);
-      }      
+      // // Use boost::process to run the given process with timeout.
+      // bp::child c(cmd, e);
+      // std::error_code ec;
+      // // TODO(oalexan1): Fix this warning
+      // if (!c.wait_for(std::chrono::seconds(timeout), ec)) {
+      //   vw_out() << "\n" << "Timeout reached. Process terminated after "
+      //            << timeout << " seconds. See the --corr-timeout option.\n";
+      //   c.terminate(ec);
+      // }      
         
       // Read the disparity from disk. This may fail, for example, the
       // disparity may time out or it may not have good data. In that
