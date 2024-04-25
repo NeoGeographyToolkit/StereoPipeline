@@ -281,6 +281,7 @@ RELEASE 3.3.0, August 16, 2023
 ------------------------------
 
 DOI: `10.5281/zenodo.8270270 <https://zenodo.org/record/8270270>`_
+Stable release doc: https://stereopipeline.readthedocs.io/en/stable/index.html
 
 New tools:
   * Added ``sfm_merge`` (:numref:`sfm_merge`), a tool to merge several

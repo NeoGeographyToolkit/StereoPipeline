@@ -97,7 +97,7 @@ target_compile_options(pc_align PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++17>)
 target_link_libraries(pc_align 
   ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES}
   ${FASTGLOBALREGISTRATION_LIBRARIES}
-  PcAlignFgr PcAlignCeres ${SOLVER_LIBRARIES} AspSessions)
+  AspPcAlignFgr AspPcAlignCeres ${SOLVER_LIBRARIES} AspSessions)
 install(TARGETS pc_align DESTINATION bin)
 
 # TODO(oalexan1): Switch to C++17 when FLANN is updated.
@@ -106,7 +106,7 @@ target_compile_options(n_align PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>)
 target_link_libraries(n_align
   ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES} 
   ${FASTGLOBALREGISTRATION_LIBRARIES}
-  PcAlignFgr PcAlignCeres ${SOLVER_LIBRARIES} AspSessions)
+  AspPcAlignFgr AspPcAlignCeres ${SOLVER_LIBRARIES} AspSessions)
 install(TARGETS n_align DESTINATION bin)
 
 add_executable(pansharp pansharp.cc)
