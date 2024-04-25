@@ -380,6 +380,8 @@ which are then used as earlier.
 Multiple subsets of the images can be used, with each producing a GCP file.
 All can then be passed together to ``bundle_adjust``.
 
+.. _msl_validation:
+
 Validation
 ~~~~~~~~~~
 

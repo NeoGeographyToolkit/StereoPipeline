@@ -535,6 +535,9 @@ turn on the debugging flags ``--save_matches``,
 onto a mesh, and/or individual transformed clouds can be inspected. 
 See an example output in :numref:`rig_calibrator_textures`.
 
+See note on validation in :numref:`msl_validation` for when working
+with orbital or ground-level images.
+
 One should also look at the statistics printed by the tool.
 
 .. _point_cloud_format:
